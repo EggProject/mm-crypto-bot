@@ -23,6 +23,7 @@
 // ha a forrás Binance feed azonos időben azonos adatokat ad.
 
 import ccxt from "ccxt";
+import type { OHLCV } from "ccxt";
 import { mkdir, writeFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
@@ -38,6 +39,9 @@ interface DownloadSpec {
   readonly timeframe: string;
   readonly sinceMs: number;
 }
+// Kept for future use (e.g. parallel orchestration) — not referenced in the
+// single-threaded sequential main() below.
+void (null as unknown as DownloadSpec);
 
 const SYMBOLS: readonly SymbolConfig[] = [
   { ccxtSymbol: "BTC/USDT", fileSymbol: "btc" },
@@ -53,20 +57,24 @@ const RATE_LIMIT_MS = 200; // binance public: 1200 req/min = 50ms/req, de legyü
 const OUTPUT_DIR = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
 
 async function fetchAllCandles(
-  exchange: ccxt.Exchange,
+  exchange: InstanceType<typeof ccxt.binance>,
   symbol: string,
   timeframe: string,
   sinceMs: number,
-): Promise<readonly ccxt.OHLCV[]> {
-  const all: ccxt.OHLCV[] = [];
+): Promise<readonly OHLCV[]> {
   let cursor = sinceMs;
   const maxLimit = 1000;
+  const collected: OHLCV[] = [];
+  // CCXT pagination: each call returns up to `limit` candles starting from `since`.
+  // The `while (true)` loop breaks on `batch.length === 0` or when caught up to now.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   while (true) {
-    // CCXT pagination: each call returns up to `limit` candles starting from `since`.
     const batch = await exchange.fetchOHLCV(symbol, timeframe, cursor, maxLimit);
     if (batch.length === 0) break;
-    all.push(...batch);
-    const lastTs = batch[batch.length - 1]![0];
+    collected.push(...batch);
+    const last = batch[batch.length - 1]!;
+    const lastTs = last[0] ?? 0;
+    if (lastTs === 0) break;
     const nextCursor = lastTs + 1;
     if (nextCursor <= cursor) {
       // safety: avoid infinite loop
@@ -79,11 +87,17 @@ async function fetchAllCandles(
     // rate limit courtesy
     await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
   }
-  return all;
+  return collected;
 }
 
-function csvLine(c: ccxt.OHLCV): string {
-  return `${c[0]},${c[1]},${c[2]},${c[3]},${c[4]},${c[5]}`;
+function csvLine(c: OHLCV): string {
+  const ts = c[0] ?? 0;
+  const o = c[1] ?? 0;
+  const h = c[2] ?? 0;
+  const l = c[3] ?? 0;
+  const cl = c[4] ?? 0;
+  const v = c[5] ?? 0;
+  return `${ts},${o},${h},${l},${cl},${v}`;
 }
 
 function sha256(buf: string): string {
@@ -138,15 +152,15 @@ async function main(): Promise<void> {
         timeframe: tf,
         path: filename,
         rows: candles.length,
-        firstTs: first[0],
-        lastTs: last[0],
+        firstTs: first[0] ?? 0,
+        lastTs: last[0] ?? 0,
         sha256: hash,
         bytes: st.size,
       };
       fileInfos.push(info);
       console.log(
         `  → ${candles.length} rows, ` +
-          `${new Date(first[0]).toISOString()} → ${new Date(last[0]).toISOString()}, ` +
+          `${new Date(first[0] ?? 0).toISOString()} → ${new Date(last[0] ?? 0).toISOString()}, ` +
           `sha256=${hash.slice(0, 12)}…`,
       );
     }

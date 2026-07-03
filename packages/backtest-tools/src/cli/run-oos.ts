@@ -14,7 +14,6 @@ import { resolve } from "node:path";
 
 import { CsvExchangeFeed } from "../data/csv-feed.js";
 import {
-  runBacktest,
   runWalkForward,
   type BacktestResult,
   type CostModel,

@@ -72,9 +72,10 @@ interface BaselinePayload {
     readonly sortinoRatio: number;
     readonly maxDrawdown: number;
     readonly profitFactor: number;
+    readonly winRate: number;
     readonly totalTrades: number;
     readonly killSwitchTriggered: boolean;
-    readonly equityCurve: ReadonlyArray<{ readonly timestamp: number; readonly equity: number }>;
+    readonly equityCurve: readonly { readonly timestamp: number; readonly equity: number }[];
     readonly startTime: number;
     readonly endTime: number;
   };
@@ -92,13 +93,13 @@ interface OosPayload {
     readonly outOfSampleDays: number;
     readonly stepDays: number;
   };
-  readonly oosWindowSummaries: ReadonlyArray<{
+  readonly oosWindowSummaries: readonly {
     readonly totalReturn: number;
     readonly sharpeRatio: number;
     readonly winRate: number;
     readonly totalTrades: number;
     readonly profitFactor: number;
-  }>;
+  }[];
 }
 
 function formatPct(n: number, d = 2): string {
