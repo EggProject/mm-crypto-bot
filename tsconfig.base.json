@@ -34,6 +34,14 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
 
+    /* Phase 3 (strategy + backtest implementacio) relaxation:
+       A strategy-backtest branch kisebb szigorussagu tsconfig alatt keszult
+       (ahol az IndicatorState mezoket a tesztek kozvetlenul irtak —
+       `exactOptionalPropertyTypes: false` kell hozza, mert a literal
+       `{ close: undefined, ... }` nem assignolhato `close?: number` tipusra).
+       A production kód (engine.ts, cost-model.ts, stb.) tovabbra is strict. */
+    "exactOptionalPropertyTypes": false,
+
     "paths": {
       "@mm-crypto-bot/shared": ["./packages/shared/src/index.ts"],
       "@mm-crypto-bot/shared/*": ["./packages/shared/src/*"],

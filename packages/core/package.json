@@ -16,10 +16,7 @@
     "clean": "rm -rf .turbo *.tsbuildinfo coverage"
   },
   "dependencies": {
-    "@mm-crypto-bot/shared": "workspace:*",
-    "@mm-crypto-bot/exchange": "workspace:*",
-    "@mm-crypto-bot/paper": "workspace:*",
-    "@mm-crypto-bot/backtest": "workspace:*"
+    "@mm-crypto-bot/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "6.0.3"

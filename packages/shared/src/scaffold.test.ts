@@ -1,6 +1,9 @@
 /**
  * Scaffold-stage placeholder test.
- * Todel: a Phase 3 implementacioban ezt csereljuk ki tenyleges unit tesztekre.
+ * A `Phase 3 strategy + backtest` PR hozza a valódi teszteket (a
+ * `core/src/indicators/*.test.ts` és a `backtest/src/*.test.ts` fájlokban);
+ * ez a placeholder azért maradt, hogy a `bun run test` a Phase 3 PR előtt
+ * is zöld legyen minden package-ben.
  */
 import { describe, expect, it } from "bun:test";
 import "./index.js";

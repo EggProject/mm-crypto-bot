@@ -1,16 +1,132 @@
 /**
  * packages/shared/src/types.ts
  *
- * Közös típus-definíciók a teljes monorepo-ban. Itt csak olyan típusokat
- * tárolunk, amelyeket több package is használ (core, exchange, paper,
- * backtest, apps).
+ * Közös típus-definíciók a teljes monorepo-ban.
  *
- * A típusok a ccxt saját típus-rendszerére épülnek — nem definiálunk
- * újradefiniált union típusokat OHLCV/retrade/stb. adatokra, hanem a
- * `ccxt.Exchange`-ből származó típusokat használjuk.
+ * KÉT FORRÁSBÓL MERGED:
+ *   I) Strategy-backtest branch-ből (Phase 3, portolva erre a PR-ra):
+ *      - `Brand`, `Result`, `Side`, `Timeframe`, `Candle`, `Symbol`,
+ *        `TIMEFRAME_MS`, `Trade`, `ExitReason` — domain típusok a
+ *        stratégia-motor és a backtest engine számára (ccxt-független).
+ *   II) Main-ből (Phase 1 scaffold):
+ *      - `ExchangeFeed`, `WatchOptions`, `asExchangeFeed`,
+ *        `PositionSnapshot`, `FillRecord`, `SignalAction`, `TradingSignal`
+ *        — ccxt-alapú típusok a trading driver-ek (paper, live, exchange)
+ *        számára.
+ *
+ * A két halmaz NEM ütközik (különböző nevek); együtt élnek, mert a
+ * backtest engine outputja (`Trade`) és a paper-trader outputja
+ * (`FillRecord`) más-más absztrakciós szint — nincs értelme egy
+ * típussá összevonni őket.
  */
 
-import type { Exchange, Ticker, OrderBook, Trade, OHLCV, Balances, Order, Market } from "ccxt";
+// ============================================================================
+// I) STRATEGY + BACKTEST DOMAIN TÍPUSOK (strategy-backtest branch-ből)
+// ============================================================================
+
+/**
+ `Brand<T, K>` — "opaque type" minta. Egy típust egy másikkal kompatibilissé tesz
+ anélkül, hogy az értéke konvertálható lenne. Például egy `UserId` nem
+ keveredik össze egy `Symbol`-lal, még ha mindkettő `string` is.
+*/
+export type Brand<T, K extends string> = T & { readonly __brand: K };
+
+/**
+ `Result<T, E>` — Rust-stílusú eredmény-típus. A hibakezelés explicit,
+ típus-szinten kifejezhető, kikerüli a `throw` használatát.
+*/
+export type Result<T, E = Error> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: E };
+
+/**
+ `Side` — a kereskedés iránya (long vagy short). A `@mm-crypto-bot/core` stratégia-motor
+ és a `@mm-crypto-bot/backtest` motor is ezt a típust használja.
+*/
+export type Side = "buy" | "sell";
+
+/**
+ `Timeframe` — a chart idősíkjainak kanonikus halmaza. A kiválasztott stratégia
+ (MTF-Trend-Konfluencia) három szintet használ: HTF (1d), MTF (4h), LTF (1h).
+ Lásd: docs/research/selected-strategy.md §1.
+*/
+export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+
+/**
+ `Candle` — egyetlen OHLCV gyertya. A CCXT `fetchOHLCV` formátumát
+ egészíti ki az OHLC mezőkkel, hogy az indikátor-számítások ne
+ kényszerüljenek a nyers [ts, o, h, l, c, v] tuple feldolgozására.
+
+ A `timestamp` epoch milliszekundumban van tárolva (CCXT-kompatibilis),
+ a `closeTime` opcionális (ha a CCXT nem adja, `timestamp + tf_ms`).
+*/
+export interface Candle {
+  readonly timestamp: number;
+  readonly open: number;
+  readonly high: number;
+  readonly low: number;
+  readonly close: number;
+  readonly volume: number;
+}
+
+/**
+ `Symbol` — branded string, hogy ne keveredjen össze más stringekkel.
+ A kiválasztott stratégia három eszközt kezel: BTC/USDC, ETH/USDC, SOL/USDC.
+*/
+export type Symbol = Brand<string, "Symbol">;
+
+export function makeSymbol(value: string): Symbol {
+  return value as Symbol;
+}
+
+/**
+ `TimeframeMs` — az egyes timeframe-ök hossza milliszekundumban. A
+ backtest motor az equity-görbe időbélyegéhez és a funding-kamat
+ számításhoz használja.
+*/
+export const TIMEFRAME_MS: Readonly<Record<Timeframe, number>> = {
+  "1m": 60_000,
+  "5m": 5 * 60_000,
+  "15m": 15 * 60_000,
+  "1h": 60 * 60_000,
+  "4h": 4 * 60 * 60_000,
+  "1d": 24 * 60 * 60_000,
+};
+
+/**
+ `Trade` — egyetlen lezárt kereskedés. A backtest a `trades` tömbben
+ tárolja az összes executed trade-et, ebből számítja a Sharpe-t,
+ a profit factort, a win rate-et, stb.
+*/
+export interface Trade {
+  readonly symbol: Symbol;
+  readonly side: Side;
+  readonly entryTime: number;
+  readonly entryPrice: number;
+  readonly exitTime: number;
+  readonly exitPrice: number;
+  readonly quantity: number;
+  readonly notionalUsd: number;
+  readonly pnlUsd: number;
+  readonly pnlPct: number;
+  readonly feesUsd: number;
+  readonly exitReason: ExitReason;
+}
+
+export type ExitReason =
+  | "stop_loss"
+  | "take_profit"
+  | "trailing_stop"
+  | "trend_reversal"
+  | "time_exit"
+  | "kill_switch"
+  | "end_of_data";
+
+// ============================================================================
+// II) TRADING DRIVER TÍPUSOK (main-ből, CCXT-alapú)
+// ============================================================================
+
+import type { Exchange, Ticker, OrderBook, Trade as CcxtTrade, OHLCV, Balances, Order, Market } from "ccxt";
 
 /**
  * Az ExchangeFeed interface egy generikus kontrakt, amelyet minden
@@ -28,7 +144,7 @@ export interface ExchangeFeed {
   loadMarkets(reload?: boolean): Promise<Record<string, Market>>;
   fetchTicker(symbol: string): Promise<Ticker>;
   fetchOrderBook(symbol: string, limit?: number): Promise<OrderBook>;
-  fetchTrades(symbol: string, since?: number, limit?: number): Promise<Trade[]>;
+  fetchTrades(symbol: string, since?: number, limit?: number): Promise<CcxtTrade[]>;
   fetchOHLCV(symbol: string, timeframe: string, since?: number, limit?: number): Promise<OHLCV[]>;
 
   // CCXT Pro WebSocket stream-ek (a watch* metodusok opcionalisak —
@@ -36,7 +152,7 @@ export interface ExchangeFeed {
   // mert a feed nem valos ideju).
   watchOrderBook?(symbol: string, limit: number, opts?: WatchOptions): Promise<OrderBook>;
   watchTicker?(symbol: string, opts?: WatchOptions): Promise<Ticker>;
-  watchTrades?(symbol: string, opts?: WatchOptions): Promise<Trade[]>;
+  watchTrades?(symbol: string, opts?: WatchOptions): Promise<CcxtTrade[]>;
   watchOHLCV?(symbol: string, timeframe: string, opts?: WatchOptions): Promise<OHLCV[]>;
   watchOrders?(symbol: string, opts?: WatchOptions): Promise<Order[]>;
   watchBalance?(opts?: WatchOptions): Promise<Balances>;
