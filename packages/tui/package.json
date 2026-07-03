@@ -1,26 +1,31 @@
 {
   "name": "@mm-crypto-bot/tui",
   "version": "0.1.0",
+  "description": "Ink-alapú TUI váz — terminal user interface a bot állapotának megjelenítéséhez és vezérléséhez",
   "type": "module",
-  "main": "./src/index.tsx",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
-    "build": "bun build src/index.tsx --target=bun --outdir=dist --format=esm --external react-devtools-core",
-    "dev": "bun run src/index.tsx",
-    "typecheck": "tsc --noEmit",
+    "tui": "bun run src/index.tsx",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
     "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
     "test": "bun test src",
     "coverage": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage",
     "clean": "rm -rf .turbo *.tsbuildinfo dist coverage"
   },
   "dependencies": {
+    "@mm-crypto-bot/paper": "workspace:*",
     "@mm-crypto-bot/shared": "workspace:*",
-    "@mm-crypto-bot/core": "workspace:*",
     "ink": "7.1.0",
     "react": "19.2.7"
   },
   "devDependencies": {
+    "@types/react": "^19.2.0",
     "@types/bun": "1.3.14",
-    "@types/react": "19.2.0",
     "react-devtools-core": "6.1.1",
     "typescript": "6.0.3"
   }
