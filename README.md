@@ -1,75 +1,83 @@
-# mm-crypto-bot — bybit.eu spot + spot margin multi-strategy crypto bot
+# `mm-crypto-bot`
 
-Monorepo a Bun + Turborepo + TypeScript ultra-strict stack-en. Elsődlegesen
-a bybit.eu platformra (MiCAR-kompatibilis, max 10× spot margin).
+> Multi-timeframe trend-konfluencia kompozit kripto kereskedő bot, Bun + Turborepo + TypeScript ultra-strict monorepo architektúrában.
 
-A részletes stack-döntések: [`docs/research/stack-findings.md`](docs/research/stack-findings.md)
-A kiválasztott stratégia: a `feat/research-strategy` branch-en lévő kutatás
-alapján (MTF-Trend-Konfluencia Kompozit v1.0).
+## Státusz
 
-## Monorepo struktúra
+Scaffold fázis — a monorepo váz és a CI pipeline készen áll. A stratégia,
+az exchange adapter, a backtest és a TUI implementáció a későbbi fázisokban
+készül el (lásd `docs/research/`).
+
+## Stack (verzió-pin-ek)
+
+| Komponens | Verzió | Forrás |
+|---|---|---|
+| Runtime | Bun `1.3.14` | [registry.npmjs.org/bun](https://registry.npmjs.org/bun) |
+| Monorepo / pipeline | Turborepo `2.10.2` | [registry.npmjs.org/turbo](https://registry.npmjs.org/turbo) |
+| Nyelv | TypeScript `6.0.3` (ultra-strict) | [registry.npmjs.org/typescript](https://registry.npmjs.org/typescript) |
+| Exchange | CCXT `4.5.64` (`bybiteu` ID) | [registry.npmjs.org/ccxt](https://registry.npmjs.org/ccxt) |
+| TUI | ink `7.1.0` + React `>=19.2.0` | [registry.npmjs.org/ink](https://registry.npmjs.org/ink) |
+| Linter | ESLint `10.6.0` + typescript-eslint `8.62.1` strict-type-checked + eslint-plugin-security `4.0.1` | [typescript-eslint.io](https://typescript-eslint.io/users/configs/) |
+| Teszt | Vitest `^4.1.9` + `@vitest/coverage-v8` | [vitest.dev](https://vitest.dev) |
+
+A teljes indoklás: [`docs/research/version-pins.md`](./docs/research/version-pins.md),
+[`docs/research/stack-findings.md`](./docs/research/stack-findings.md) és
+[`docs/research/tui-decision.md`](./docs/research/tui-decision.md).
+
+## Struktúra
 
 ```
 mm-crypto-bot/
-├── apps/
-│   ├── bot/           # A fő CLI bot bináris (Bun runtime)
-│   └── tui/           # Ink alapú TUI frontend
-├── packages/
-│   ├── core/          # Trading engine core, signal pipeline
-│   ├── exchange/      # CCXT Pro bybit.eu adapter (és később binance/okx)
-│   ├── backtest/      # Backtest engine fee + borrow_rate modellel
-│   ├── paper/         # Generikus paper-trading emulátor CCXT feedre
-│   └── shared/        # Közös típusok, util-ok, config
-├── docs/
-│   └── research/      # Stack + stratégia kutatási anyagok
-├── turbo.json
-├── bunfig.toml
-├── tsconfig.base.json
-└── eslint.config.js
+├─ package.json               # gyökér: Bun workspaces + turbo scriptek
+├─ turbo.json                 # pipeline: build függ a ^build-től; lint/typecheck/test párhuzamos
+├─ tsconfig.base.json         # ultra-strict preset (a `@tsconfig/strictest` alapján)
+├─ eslint.config.js           # flat config: ts-eslint strict + security
+├─ bunfig.toml                # Bun runtime beállítások
+├─ .env.example               # környezeti változók dokumentációja
+├─ .github/workflows/ci.yml   # CI: lint/typecheck/test+coverage/build, párhuzamosan
+├─ docs/research/             # kutatási anyagok (stratégia + stack)
+├─ apps/
+│  └─ bot/                    # futtatható bináris (paper/live indító)
+└─ packages/
+   ├─ shared/                 # típusok, util-ok, konfiguráció, közös log-olás
+   ├─ core/                   # stratégia-motor váz
+   ├─ exchange/               # CCXT Pro adapter váz (bybit.eu)
+   ├─ backtest/               # backtest motor váz
+   ├─ paper/                  # paper engine váz
+   └─ tui/                    # ink-alapú TUI váz
 ```
 
-## Gyors indítás
+## Parancsok
 
 ```bash
-# 1. Bun telepítése (ha még nincs)
-curl -fsSL https://bun.sh/install | bash
-
-# 2. Függőségek telepítése
+# Telepítés (Bun workspaces)
 bun install
 
-# 3. Type-check + lint
-bun run typecheck
+# Fejlesztői watch-mód (minden csomag párhuzamosan)
+bun run dev
+
+# Build (minden csomag, topológiai sorrendben)
+bun run build
+
+# Lint (eslint flat config, ultra-strict)
 bun run lint
 
-# 4. Tesztek
+# Type-check (a `tsconfig.base.json` összes strict flagjével)
+bun run typecheck
+
+# Tesztek (Vitest)
 bun run test
 
-# 5. Bot indítása (paper módban, sandbox adatokkal)
-bun run dev --workspace=apps/bot -- --mode=paper
+# Lefedettség (100% threshold a nem-TUI csomagokra a későbbi fázisokban)
+bun run coverage
+
+# Specifikus binárisok (későbbi fázisokban lesznek implementálva)
+bun run backtest    # @mm/backtest
+bun run paper       # @mm/paper
+bun run tui         # @mm/tui
+bun start           # @mm/bot (paper/live indító)
 ```
 
-## Verzió-pin-ek
+## License
 
-Lásd [`docs/research/version-pins.md`](docs/research/version-pins.md).
-
-| Csomag | Verzió |
-|---|---|
-| Bun | 1.3.14 |
-| Turborepo | 2.10.2 |
-| TypeScript | 6.0.3 |
-| CCXT | 4.5.64 |
-| Ink | 7.1.0 |
-| ESLint | 10.6.0 |
-| @typescript-eslint | 8.62.1 |
-| eslint-plugin-security | 4.0.1 |
-
-## Jogi / kockázati disclaimer
-
-Ez a szoftver kizárólag oktatási és kutatási célokra készül. A
-kriptovaluta-kereskedés jelentős pénzügyi kockázattal jár. A szerzők
-és a közreműködők nem vállalnak felelősséget a szoftver használatából
-eredő pénzügyi veszteségekért.
-
-A bybit.eu egy MiCAR-engedéllyel rendelkező platform, de a kereskedés
-kockázata a felhasználót terheli. Mindig kis tétekkel kezdj, és csak
-olyan összeget kockáztass, amelyet megengedhetsz magadnak elveszíteni.
+Private project — all rights reserved.

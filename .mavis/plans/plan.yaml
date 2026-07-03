@@ -1,0 +1,777 @@
+version: 1
+plan:
+  name: 'mm-crypto-bot — alapozás, kutatás és fő modulok (1. ciklus)'
+  max_concurrency: 6
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+
+tasks:
+  # =====================================================================
+  # PHASE 1 — KUTATÁS (párhuzamos, nincs függőség)
+  # =====================================================================
+
+  - id: research-strategy
+    title: 'Stratégia-kutatás és -kiválasztás (cél: ≥+100%/hó, kockázattal korrigálva)'
+    assigned_to: agent-5394bdd48751
+    verified_by: verifier
+    max_retries: 2
+    prompt: |
+      FELADAT
+      -------
+      Mély webes kutatást végzel kripto-kereskedési stratégiákról, és kiválasztasz egy
+      (vagy egy kompozit) stratégiát, amellyel a rendszer reálisan megcélozhatja a havi
+      +100% nettó hozamot bybit.eu SPOT piacon, 1:10 tőkeáttétellel, BTC/ETH/SOL
+      eszközökön — miközben a kockázat (max drawdown, kill-switch, TP/SL) kezelve van.
+
+      MUNKAVÉGZÉS HELYE
+      -----------------
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-research-strategy -b feat/research-strategy main
+
+      Minden módosítás a .worktrees/wt-research-strategy mappában legyen.
+
+      KUTATÁSI KÖVETELMÉNYEK (5.1)
+      ----------------------------
+      - Minden érdemi állítást webes kereséssel, MINIMUM 2 független forrással
+        támasztasz alá. Két ugyanazon domainről származó cikk nem számít függetlennek.
+      - Ha nincs meg a 2 független forrás, keresel tovább — NEM találsz ki adatot.
+      - A forrásokat (URL + 1-2 mondatos "mit tanultam belőle" megjegyzés) a kutatási
+        naplóban rögzíted.
+      - Ne a belső tudásból indulj ki — a webes keresés az elsődleges.
+
+      KUTATANDÓ TÉMÁK (minimum, több is lehet)
+      ----------------------------------------
+      1. Hagyományos technikai stratégiák (trend-following, mean-reversion, breakout,
+         momentum, market structure) — melyiknek reális esélye havi +100%-ra?
+      2. Order-flow / microstructure / funding-rate alapú ötletek — alkalmazhatók-e
+         bybit.eu SPOT 1:10 mellett?
+      3. Kockázatkezelési elvek: position sizing (fix kockázat vs Kelly), max drawdown
+         limitek, portfólió-allokáció 3 eszköz között, korrelációkezelés.
+      4. Overfitting-csapdák: look-ahead bias, survivorship bias, paraméter-overfitting,
+         in-sample vs out-of-sample.
+      5. Multi-timeframe (MTF) és ensemble megközelítések.
+      6. bybit.eu specifikus szempontok (európai szabályozás, eltérések a bybit.com-tól,
+         spot kereskedés 1:10 tőkeáttétellel, BTC/ETH/SOL elérhetőség).
+
+      KIMENETEK — amit létrehozol
+      --------------------------
+      Hozd létre a docs/research/ mappát a worktree-ben, és készítsd el a következő
+      fájlokat (magyar nyelven):
+
+      1. docs/research/README.md — a kutatás áttekintése, hivatkozás a részletes
+         fájlokra, a fő döntések 1-2 mondatos összefoglalója.
+      2. docs/research/strategy-candidates.md — a megvizsgált stratégia-jelöltek
+         listája, mindegyiknél: rövid leírás, ≥2 webes forrás, várható előny/hátrány,
+         javasolt alkalmazhatóság.
+      3. docs/research/selected-strategy.md — a kiválasztott stratégia(k) részletes
+         implementálható specifikációja:
+         - belépési/kilépési szabályok (minden egyes szignál),
+         - alkalmazott indikátorok és paramétereik (számok),
+         - multi-timeframe logika (ha van),
+         - position sizing szabályok (számokkal),
+         - TP/SL szabályok (számokkal),
+         - max drawdown és kill-switch küszöbök (számokkal),
+         - portfólió-elosztás BTC/ETH/SOL között (százalékok), vagy ennek hiányában
+           egyetlen eszköz konkrét indoklása,
+         - out-of-sample validációs terv (mely időszakok, hogyan),
+         - backtestnél figyelembe veendő költségek (díj, slippage, spread, finanszírozás
+           — számszerűsíthető értékekkel vagy forrással alátámasztott tartományokkal).
+      4. docs/research/sources.md — az összes felhasznált URL, forráscsoportosításban
+         (stratégia, kockázat, bybit.eu, stb.), dátummal és 1-2 mondatos "mit tanultam
+         belőle" megjegyzéssel.
+
+      BEFEJEZÉSI FELTÉTEL
+      -------------------
+      - Mind a 4 fájl elkészült magyar nyelven.
+      - Minden érdemi állítás mellett ≥2 független URL szerepel a sources.md-ban.
+      - A kiválasztott stratégia konkrét, implementálható specifikációt ad (entry/exit
+        szabályok, paraméterek, risk management).
+      - A worktree-ben commitolva van (git add + git commit), a feat/research-strategy
+        branch push-olva van az origin-be.
+
+      ÖNELLENŐRZÉS (kilépés előtt)
+      ----------------------------
+      - git log --oneline -5
+      - git status (clean)
+      - git push origin HEAD (sikeres)
+      - wc -l docs/research/*.md — bizonyosodj meg, hogy egyik sem üres.
+
+      NE CSINÁLD
+      ----------
+      - Ne implementálj kódot — csak kutatás és dokumentáció.
+      - Ne nyúlj a stackhez (package.json, tsconfig) — az más feladat.
+      - Ne várj CI-re, ne várj review-ra — commit + push + exit.
+    verify_prompt: |
+      A kutatási anyag független ellenőrzése. NE a producer saját összefoglalóját
+      olvasd — önállóan ellenőrizd:
+
+      1. PARANCSOK:
+         cd /Users/kiscsicska/projects/mm-crypto-bot
+         git fetch origin
+         git checkout feat/research-strategy -- docs/research/
+         ls -la docs/research/
+
+      2. Léteznek-e a kötelező fájlok: README.md, strategy-candidates.md,
+         selected-strategy.md, sources.md.
+
+      3. A sources.md-ben MINDEN érdemi állításhoz (a selected-strategy.md-ben és a
+         strategy-candidates.md-ben) tartozik-e ≥2 független URL?
+         Független = különböző domain vagy különböző szerző.
+
+      4. A selected-strategy.md konkrét implementálható specifikációt ad:
+         entry/exit szabályok, indikátorok és paraméterek (számok), TP/SL,
+         position sizing, max drawdown limitek, portfólió-elosztás vagy annak
+         hiányának indoklása, out-of-sample validációs terv, költségmodell.
+
+      5. A kutatás magyar nyelven van-e.
+
+      6. Push megtörtént:
+         git log --oneline origin/feat/research-strategy ^main
+         git ls-remote origin feat/research-strategy
+
+      PASS / FAIL + konkrét indoklás. Ha FAIL, sorold fel, mi hiányzik.
+
+  - id: research-stack
+    title: 'Stack, CCXT Pro, bybit.eu és TUI-kutatás'
+    assigned_to: agent-4bd5822807ad
+    verified_by: verifier
+    max_retries: 2
+    prompt: |
+      FELADAT
+      -------
+      Mély webes kutatás a technológiai stackről: CCXT Pro képességei, bybit.eu SPOT
+      1:10 részletek, Bun + Turborepo + TypeScript ultra-strict kompatibilitás, TUI
+      választás (ratatui vs ink), valamint a paper-trading lehetőségek a CCXT Pro-n
+      belül.
+
+      MUNKAVÉGZÉS HELYE
+      -----------------
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-research-stack -b feat/research-stack main
+
+      KUTATANDÓ KÉRDÉSEK (mindegyikhez ≥2 független webes forrás)
+      -----------------------------------------------------------
+      1. CCXT Pro aktuális verzió (npm/ccxt, vagy ccxt.pro csomag), WebSocket
+         támogatás bybit.eu-hoz. Van-e beépített paper/demo trading? Ha igen,
+         használható-e a mi esetünkben? Ha NEM, hogyan kell saját emulátort építeni
+         a CCXT Pro WS feedre?
+      2. bybit.eu vs bybit.com eltérések (spot kereskedés, tőkeáttétel, díjak,
+         asset listán BTC/ETH/SOL).
+      3. Bun (aktuális stable verzió) + Turborepo kompatibilitás, TS ultra-strict
+         támogatás.
+      4. TUI választás: ratatui (Rust) vs ink (React/Node/TS). Az indoklás legyen
+         a stack-koherencia (Bun + TS), a magyar nyelvű karbantarthatóság, és a
+         kívánt funkciók (realtime frissítés, indítás/leállítás, statisztikai
+         menü, history).
+      5. TypeScript legszigorúbb beállításai (tsconfig minden strict kapcsoló).
+      6. ESLint ultra-strict ruleset (typescript-eslint, eslint-plugin-security).
+      7. CCXT Pro rate limit és sorrend- (sequence) drift kezelési best practice.
+
+      KIMENETEK
+      ---------
+      Hozd létre a docs/research/ mappában (a saját worktree-dben):
+      1. docs/research/stack-findings.md — az összes fenti kérdésre a válasz,
+         forrásokkal.
+      2. docs/research/tui-decision.md — ratatui vs ink részletes összehasonlítás,
+         javaslat, indoklás.
+      3. docs/research/version-pins.md — a kiválasztott verziók (Bun, Turborepo,
+         TypeScript, CCXT, CCXT Pro, ink/ratatui, ESLint pluginok) pontos
+         verziószámmal és forrással.
+      4. docs/research/sources.md — a saját forrásaid (ha már van sources.md a
+         mappában a másik kutatásból, készíts egy sources-stack.md-t és hivatkozz
+         rá a stack-findings.md-ből).
+
+      BEFEJEZÉS
+      ---------
+      - Minden fájl magyar nyelven.
+      - Minden állítás ≥2 független URL-lel alátámasztva.
+      - Commit + push a feat/research-stack branch-re.
+
+      ÖNELLENŐRZÉS: git log, git push, ls docs/research/.
+    verify_prompt: |
+      Független verifikáció:
+      1. cd /Users/kiscsicska/projects/mm-crypto-bot
+         git fetch origin
+         git checkout feat/research-stack -- docs/research/
+         ls -la docs/research/
+      2. Léteznek-e a fájlok: stack-findings.md, tui-decision.md, version-pins.md,
+         valamint a forráslista.
+      3. A TUI-döntés egyértelmű és indokolt (≥2 forrás).
+      4. A verziószámok konkrétak (nem "latest", hanem "1.x.y").
+      5. CCXT Pro paper-trading kérdés egyértelmű választ ad (van / nincs /
+         hogyan pótoljuk).
+      6. bybit.eu specifikus részletek (spot, 1:10, BTC/ETH/SOL) mind forrással.
+      7. Push megtörtént: git ls-remote origin feat/research-stack.
+      PASS / FAIL + indoklás.
+
+  # =====================================================================
+  # PHASE 2 — SCAFFOLD (depends on kutatás)
+  # =====================================================================
+
+  - id: scaffold-monorepo
+    title: 'Bun + Turborepo + TS ultra-strict + ESLint monorepo scaffold'
+    assigned_to: coder
+    verified_by: verifier
+    max_retries: 2
+    depends_on: [research-strategy, research-stack]
+    prompt: |
+      FELADAT
+      -------
+      A kutatási eredmények (feat/research-strategy és feat/research-stack branch-ek
+      docs/research/ tartalma) alapján hozd létre a teljes monorepo scaffold-ot.
+
+      MUNKAVÉGZÉS HELYE
+      -----------------
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+
+      # Olvasd el a kutatási anyagot
+      git checkout origin/feat/research-strategy -- docs/research/
+      git checkout origin/feat/research-stack -- docs/research/
+
+      # Saját worktree a scaffoldnak
+      git worktree add .worktrees/wt-scaffold -b feat/scaffold main
+
+      Az ezt követő munka a .worktrees/wt-scaffold mappában történik.
+
+      LÉPÉSEK
+      -------
+      1. Alkalmazd a docs/research/version-pins.md verziószámait.
+      2. Hozd létre a következő struktúrát:
+
+         package.json (gyökér, Bun workspace + turbo script-ek)
+         bun.lockb (gitignored, csak lockfile-példa)
+         turbo.json
+         tsconfig.base.json (ultra-strict: strict, noUncheckedIndexedAccess,
+                            noImplicitOverride, exactOptionalPropertyTypes,
+                            noFallthroughCasesInSwitch, noImplicitReturns,
+                            noPropertyAccessFromIndexSignature, stb.)
+         eslint.config.js (flat config) — @typescript-eslint + security
+         .github/workflows/ci.yml (több-lépéses: lint, typecheck, test+coverage,
+                                   build; párhuzamos jobok; cache-elés)
+         .env.example
+         .gitignore (kiegészítve: node_modules, dist, .turbo, coverage, .env)
+
+         packages/
+           shared/      — típusok, util-ok, konfiguráció, közös log-olás
+           core/        — stratégia-motor váz (üres is lehet, de build-elhető)
+           exchange/    — CCXT Pro adapter váz
+           backtest/    — backtest váz
+           paper/       — paper engine váz
+           tui/         — TUI váz (a tui-decision.md alapján)
+         apps/
+           bot/         — futtatható bináris (paper/live indító)
+
+      3. Minden package-ben legyen package.json, tsconfig.json (a base-re épül),
+         src/index.ts belépési pont (a hello-world is elég, csak a build menjen).
+      4. A root package.json-ban script-ek: dev, build, lint, typecheck, test,
+         coverage, backtest, paper, tui, start (utóbbiak a későbbi fázisok
+         belépési pontjai — most "not implemented yet" hibaüzenettel kiléphetnek).
+      5. A turbo.json pipeline: build függ a ^build-től, typecheck függ a ^build-től,
+         test és lint párhuzamosan futtathatók.
+      6. CI workflow (GitHub Actions): párhuzamos lint + typecheck + test+coverage
+         (Vitest/Bun test), majd build. Coverage threshold: 100% a nem-TUI
+         csomagokra (későbbi fázisokban).
+      7. Magyar nyelvű kommentek a kulcsfontosságú fájlok tetején.
+      8. Commit + push a feat/scaffold branch-re.
+
+      ÖNELLENŐRZÉS (kötelező kilépés előtt)
+      -------------------------------------
+      cd .worktrees/wt-scaffold
+      bun install
+      bun run lint          # 0 hiba
+      bun run typecheck     # 0 hiba
+      bun run build         # sikeres minden csomagra
+      git add -A
+      git commit -m "feat(scaffold): Bun + Turborepo + TS ultra-strict monorepo"
+      git push -u origin feat/scaffold
+
+      NE CSINÁLD
+      ----------
+      - Ne implementálj stratégiát, backtestet, exchange adaptert vagy TUI-t —
+        csak scaffold.
+      - Ne várj CI-re.
+    verify_prompt: |
+      A scaffold független ellenőrzése:
+
+      1. cd /Users/kiscsicska/projects/mm-crypto-bot
+         git fetch origin
+         git worktree add .tmp-verify-scaffold origin/feat/scaffold
+         cd .tmp-verify-scaffold
+
+      2. Fájl-struktúra ellenőrzése (minden létezik-e):
+         package.json, turbo.json, tsconfig.base.json, eslint.config.js,
+         .github/workflows/ci.yml, .env.example,
+         packages/{shared,core,exchange,backtest,paper,tui}/package.json,
+         apps/bot/package.json.
+
+      3. tsconfig.base.json tartalmazza a legszigorúbb beállításokat (grep):
+         "strict": true, "noUncheckedIndexedAccess": true,
+         "exactOptionalPropertyTypes": true, "noImplicitOverride": true,
+         "noFallthroughCasesInSwitch": true.
+
+      4. eslint.config.js tartalmazza a @typescript-eslint és security pluginokat.
+
+      5. CI workflow legalább 3 lépcsős: lint, typecheck, test+coverage, build.
+
+      6. Futtasd:
+         bun install
+         bun run lint          # sikeres
+         bun run typecheck     # sikeres
+         bun run build         # minden csomag build-elhető
+
+      7. Push megtörtént: git ls-remote origin feat/scaffold.
+
+      8. Cleanup: cd .. && git worktree remove .tmp-verify-scaffold --force
+
+      PASS / FAIL + konkrét indoklás.
+
+  # =====================================================================
+  # PHASE 3 — IMPLEMENTATION (parallel, depends on scaffold)
+  # =====================================================================
+
+  - id: impl-strategy-backtest
+    title: 'Stratégia-motor + backtest rendszer implementáció'
+    assigned_to: coder
+    verified_by: verifier
+    max_retries: 2
+    depends_on: [scaffold-monorepo]
+    prompt: |
+      FELADAT
+      -------
+      A feat/scaffold branch-re építve implementáld a stratégia-motort és a backtest
+      rendszert a docs/research/selected-strategy.md alapján. A kutatás kimenete a
+      munkád alapja — olvasd el figyelmesen.
+
+      MUNKAVÉGZÉS HELYE
+      -----------------
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+
+      # Olvasd el a kutatást és a scaffoldot
+      git checkout origin/feat/research-strategy -- docs/research/
+      git checkout origin/feat/research-stack -- docs/research/
+
+      # Saját worktree a scaffoldra építve
+      git worktree add .worktrees/wt-strategy-backtest \
+        -b feat/strategy-backtest origin/feat/scaffold
+      git checkout origin/feat/research-strategy -- docs/research/
+      git checkout origin/feat/research-stack -- docs/research/
+
+      A további munka a .worktrees/wt-strategy-backtest mappában.
+
+      KÖVETELMÉNYEK
+      -------------
+      A) packages/core — stratégia-motor
+         - A selected-strategy.md-ben leírt stratégia(k) implementációja.
+         - Tiszta interfész: Strategy → { onCandle(candle), signals() }.
+         - Multi-timeframe támogatás, ha a kutatás előírja.
+         - Ensemble/meta-logika, ha a kutatás előírja.
+         - Minden kódsor magyarul kommentezve (kulcsfontosságú részeknél).
+         - Unit tesztek (Bun test) — 100% coverage a core csomagra.
+
+      B) packages/backtest — backtest rendszer
+         - CEX-ről letöltött OHLCV adatokkal dolgozik (ccxt.fetchOHLCV).
+         - Determinisztikus (rögzített random seed, opcionális seed paraméter).
+         - Reális költségmodellezés: díj, slippage, spread, finanszírozás.
+         - Anti-look-ahead és anti-survivorship bias szabályok betartva
+           (csak a candle zárásakor születik döntés; nincs jövőbeli adat).
+         - Kimenetek (JSON + emberi olvasásra szóló összefoglaló):
+           max drawdown, Sharpe, Sortino, profit factor, win rate,
+           teljes hozam %-ban, évesített hozam, trade-lista.
+         - Out-of-sample validáció támogatása (külön paraméter).
+         - Unit + integrációs tesztek (100% coverage) — a CCXT fetch legyen
+           mockolva.
+
+      C) apps/bot bináris — `bun run backtest` parancs, ami lefuttatja a
+         kiválasztott stratégiát a letöltött (vagy lokális cache-ből olvasott)
+         OHLCV adatokon, és kiírja az eredményeket.
+
+      D) Magyar nyelvű dokumentáció:
+         packages/core/README.md és packages/backtest/README.md.
+
+      ÖNELLENŐRZÉS (kilépés előtt)
+      ---------------------------
+      cd .worktrees/wt-strategy-backtest
+      bun install
+      bun run lint          # 0 hiba
+      bun run typecheck     # 0 hiba
+      bun run test --coverage   # 100% coverage a core és backtest csomagokra
+      bun run backtest      # lefut, riportot ír
+      git add -A
+      git commit -m "feat(strategy+backtest): implementacio"
+      git push -u origin feat/strategy-backtest
+
+      NE CSINÁLD
+      ----------
+      - Ne implementálj exchange adaptert vagy TUI-t — más feladat.
+      - Ne várj CI-re.
+    verify_prompt: |
+      1. cd /Users/kiscsicska/projects/mm-crypto-bot
+         git fetch origin
+         git worktree add .tmp-verify-strategy origin/feat/strategy-backtest
+         cd .tmp-verify-strategy
+         git checkout origin/feat/research-strategy -- docs/research/
+         git checkout origin/feat/research-stack -- docs/research/
+
+      2. A packages/core és packages/backtest mappákban a kód implementálja-e a
+         selected-strategy.md-ben leírt stratégiát? Hasonlítsd össze a kutatási
+         anyagot a kóddal.
+
+      3. bun install && bun run lint && bun run typecheck && bun run test --coverage
+         — minden sikeres, coverage ≥ 95% a core+backtest csomagokra (cél: 100%).
+
+      4. bun run backtest lefut-e és ad-e értelmes riportot (max drawdown,
+         Sharpe/Sortino, profit factor, win rate, teljes hozam)?
+
+      5. A kód magyar nyelvű kommentekkel van-e ellátva (spot check).
+
+      6. Magyar README a core és backtest csomagokban.
+
+      7. Push megtörtént: git ls-remote origin feat/strategy-backtest.
+
+      8. Cleanup: cd .. && git worktree remove .tmp-verify-strategy --force
+
+      PASS / FAIL + indoklás.
+
+  - id: impl-exchange-paper
+    title: 'CCXT Pro exchange adapter + saját paper/emulációs motor'
+    assigned_to: coder
+    verified_by: verifier
+    max_retries: 2
+    depends_on: [scaffold-monorepo]
+    prompt: |
+      FELADAT
+      -------
+      A feat/scaffold branch-re építve implementáld:
+      1. packages/exchange — CCXT Pro adapter bybit.eu SPOT-hoz, WebSocket alapú
+         valós idejű adat- és megbízás-folyamokkal.
+      2. packages/paper — saját emulációs/paper motor, amely a CCXT Pro WS feedre
+         épül, és:
+         - valós idejű adat,
+         - emulált megbízás-végrehajtás (TP/SL),
+         - díj, slippage, részleges kitöltés modellezése,
+         - kill-switch és kockázati limitek (max napi és teljes drawdown).
+      3. apps/bot `bun run paper` parancs, ami elindítja a paper módot.
+      4. Magyar nyelvű kódkommentek + README.md a két csomagban.
+
+      KORLÁTOK (NEM megszeghető)
+      --------------------------
+      - KIZÁRÓLAG bybit.eu SPOT, 1:10 tőkeáttétellel.
+      - KIZÁRÓLAG BTC, ETH, SOL.
+      - A tőzsde saját demo módja NEM használható — minden emuláció saját.
+      - API kulcsok CSAK környezeti változóból (BYBIT_API_KEY, BYBIT_API_SECRET);
+        a kódban NE legyenek.
+      - Fail-safe: a rendszer ALAPÉRTELMEZETTEN paper módban indul.
+
+      MUNKAVÉGZÉS HELYE
+      -----------------
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-exchange-paper \
+        -b feat/exchange-paper origin/feat/scaffold
+      git checkout origin/feat/research-strategy -- docs/research/
+      git checkout origin/feat/research-stack -- docs/research/
+
+      A további munka a .worktrees/wt-exchange-paper mappában.
+
+      ÖNELLENŐRZÉS
+      ------------
+      cd .worktrees/wt-exchange-paper
+      bun install
+      bun run lint          # 0 hiba
+      bun run typecheck     # 0 hiba
+      bun run test --coverage   # 100% coverage az exchange+paper csomagokra
+      # A paper mód indítása mockolt WS-sel: a teszt már futtatta, a smoke
+      # ellenőrzéshez a `bun run paper --dry` (vagy hasonló, általad választott
+      # flag) legyen elérhető, ami csatlakozás nélkül is kilép clean kóddal.
+      git add -A
+      git commit -m "feat(exchange+paper): CCXT Pro adapter es sajat paper motor"
+      git push -u origin feat/exchange-paper
+
+      NE CSINÁLD
+      ----------
+      - Ne implementálj stratégiát, backtestet vagy TUI-t — más feladat.
+      - Ne várj CI-re.
+    verify_prompt: |
+      1. cd /Users/kiscsicska/projects/mm-crypto-bot
+         git fetch origin
+         git worktree add .tmp-verify-exchange origin/feat/exchange-paper
+         cd .tmp-verify-exchange
+
+      2. packages/exchange és packages/paper mappák implementálva vannak-e?
+
+      3. CCXT Pro WebSocket használat (nem csak REST)? Ellenőrizd a kódot.
+
+      4. A paper motor NEM a tőzsde demo módját használja — saját emuláció?
+         (grep a "demo" szóra — csak ahol az indoklásban kell, ne mint használt
+         funkció.)
+
+      5. TP/SL emulálva van-e a paper motorban?
+
+      6. Kill-switch és kockázati limitek implementálva vannak-e?
+
+      7. Fail-safe: a default mód paper-e? (grep a konfigra / entry pointra.)
+
+      8. Kizárólag bybit.eu SPOT, 1:10, BTC/ETH/SOL — kód-ellenőrzéssel
+         (grep a tőzsde / asset nevek előfordulásaira).
+
+      9. API kulcsok nincsenek a kódban:
+         grep -r "BYBIT_API_KEY" --include="*.ts" .
+         # A .env.example-ben lehet, máshol nem.
+
+      10. bun install && bun run lint && bun run typecheck && bun run test
+          --coverage — sikeres.
+
+      11. Push megtörtént: git ls-remote origin feat/exchange-paper.
+
+      12. Cleanup: cd .. && git worktree remove .tmp-verify-exchange --force
+
+      PASS / FAIL.
+
+  - id: impl-tui
+    title: 'TUI (a tui-decision.md alapján) implementáció'
+    assigned_to: coder
+    verified_by: verifier
+    max_retries: 2
+    depends_on: [scaffold-monorepo]
+    prompt: |
+      FELADAT
+      -------
+      A feat/scaffold branch-re építve implementáld a TUI-t a
+      docs/research/tui-decision.md döntése alapján (várhatóan ink). Ha a döntés
+      ratatui, akkor is a Bun + TypeScript stack-kel koherens módon (külön
+      bináris / subprocess, magyar nyelvű bridge).
+
+      KÖVETELMÉNYEK
+      -------------
+      - packages/tui — a TUI komponensek.
+      - apps/bot `bun run tui` parancs, ami CSAK a TUI-t indítja (a robot nem
+        indul el — csak a felület jön fel).
+      - apps/bot `bun run start` parancs, ami a TUI-t ÉS a robotot is indítja.
+      - Menük:
+          * Indítás / leállítás gomb,
+          * Statisztikai menü (PnL, win rate, drawdown, trade-szám),
+          * Jelenlegi kereskedés figyelése (valós idejű frissítéssel),
+          * History (korábbi trade-ek listája).
+      - Vészleállító (kill-switch) gomb a TUI-ból.
+      - Magyar nyelvű feliratok + kódkommentek.
+
+      MUNKAVÉGZÉS HELYE
+      -----------------
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-tui -b feat/tui origin/feat/scaffold
+      git checkout origin/feat/research-strategy -- docs/research/
+      git checkout origin/feat/research-stack -- docs/research/
+
+      A további munka a .worktrees/wt-tui mappában.
+
+      ÖNELLENŐRZÉS
+      ------------
+      cd .worktrees/wt-tui
+      bun install
+      bun run lint          # 0 hiba
+      bun run typecheck     # 0 hiba
+      bun run build         # sikeres
+      git add -A
+      git commit -m "feat(tui): TUI implementacio"
+      git push -u origin feat/tui
+
+      MEGJEGYZÉS: A TUI-t NEM kell tesztelni (a prompt 5.2 szerint), de a
+      build és a typecheck az kötelező.
+
+      NE CSINÁLD
+      ----------
+      - Ne implementálj stratégiát, backtestet vagy exchange adaptert — más
+        feladat.
+      - Ne várj CI-re.
+    verify_prompt: |
+      1. cd /Users/kiscsicska/projects/mm-crypto-bot
+         git fetch origin
+         git worktree add .tmp-verify-tui origin/feat/tui
+         cd .tmp-verify-tui
+
+      2. A TUI csomag build-elhető? bun install && bun run build
+
+      3. A TUI elindul `bun run tui` módon robot nélkül? (Smoke: a parancs
+         elindul és legalább a fő képernyő megjelenik — ha nem interaktív
+         környezetben futtatod, akkor legalább a build sikeres és a
+         belépési pont létezik.)
+
+      4. A menük (indítás/leállítás, stat, realtime figyelés, history,
+         kill-switch) implementálva vannak-e? (Kódellenőrzéssel.)
+
+      5. Magyar nyelvű feliratok? (Spot check a forrásban.)
+
+      6. Push megtörtént: git ls-remote origin feat/tui.
+
+      7. Cleanup: cd .. && git worktree remove .tmp-verify-tui --force
+
+      PASS / FAIL.
+
+  # =====================================================================
+  # PHASE 4 — INTEGRÁCIÓ + E2E AUDIT
+  # =====================================================================
+
+  - id: integrate-risk
+    title: 'Integráció, kockázatkezelés, végleges CI'
+    assigned_to: coder
+    verified_by: verifier
+    max_retries: 2
+    depends_on: [impl-strategy-backtest, impl-exchange-paper, impl-tui]
+    prompt: |
+      FELADAT
+      -------
+      A feat/strategy-backtest, feat/exchange-paper, feat/tui branch-eket integráld
+      egy feature branch-be (feat/integration):
+      - A kockázatkezelési limitek (max napi drawdown, max teljes drawdown,
+        kill-switch, TP/SL minden pozícióra) központi risk modulként
+        (packages/risk vagy a core kiegészítése).
+      - A CI pipeline véglegesítése: lint → typecheck → test+coverage →
+        build → (opcionálisan) smoke backtest, párhuzamos jobokkal és
+        cache-eléssel.
+      - A coverage threshold a CI-ban 100% a nem-TUI csomagokra (build
+        szakadjon meg, ha alatta van).
+      - A magyar nyelvű root README.md (projekt-áttekintés, indítás,
+        konfiguráció, safety).
+      - A apps/bot CLI véglegesítése: `bun run backtest`, `bun run paper`,
+        `bun run tui`, `bun run start` — mind működjön.
+
+      MUNKAVÉGZÉS HELYE
+      -----------------
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+
+      # Integrációs worktree a main-re építve, a feature branch-ek merge-elve
+      git worktree add .worktrees/wt-integration -b feat/integration main
+
+      cd .worktrees/wt-integration
+      git merge --no-ff origin/feat/scaffold \
+                 origin/feat/strategy-backtest \
+                 origin/feat/exchange-paper \
+                 origin/feat/tui -m "feat(integration): integrate strategy+backtest+exchange+paper+tui"
+
+      # Ha a merge konfliktusos, oldd fel a konfliktusokat a konvenciók
+      # mentén (a scaffold által létrehozott tsconfig/package.json nyer, a
+      # feature branch-ek kódja hozzáadódik).
+
+      A további munka a .worktrees/wt-integration mappában.
+
+      ÖNELLENŐRZÉS
+      ------------
+      cd .worktrees/wt-integration
+      bun install
+      bun run lint          # 0 hiba
+      bun run typecheck     # 0 hiba
+      bun run test --coverage   # 100% coverage a core+backtest+exchange+paper
+                                #   csomagokra
+      bun run build         # minden csomag build-elhető
+      bun run backtest      # smoke: lefut
+      bun run paper --dry   # smoke: tiszta connect/disconnect
+      git add -A
+      git commit -m "feat(integration): risk module + final CI + hungarian README"
+      git push -u origin feat/integration
+
+      NE CSINÁLD
+      ----------
+      - Ne várj CI-re, ne várj review-ra — commit + push + exit.
+    verify_prompt: |
+      1. cd /Users/kiscsicska/projects/mm-crypto-bot
+         git fetch origin
+         git worktree add .tmp-verify-integration origin/feat/integration
+         cd .tmp-verify-integration
+
+      2. Teljes CI zöld lokálisan?
+         bun install
+         bun run lint
+         bun run typecheck
+         bun run test --coverage
+         bun run build
+
+      3. Coverage ≥ 95% (cél: 100%) a core, backtest, exchange, paper
+         csomagokra? A TUI csomagra nem kötelező.
+
+      4. Kill-switch és kockázati limitek (max napi / teljes drawdown, TP/SL
+         minden pozícióra) implementálva vannak-e?
+
+      5. Gyökér README magyar nyelven, tartalmazza-e az indítást és a
+         safety-t?
+
+      6. Push megtörtént: git ls-remote origin feat/integration.
+
+      7. Cleanup: cd .. && git worktree remove .tmp-verify-integration --force
+
+      PASS / FAIL.
+
+  - id: e2e-audit
+    title: 'End-to-end audit és elfogadási kritériumok ellenőrzése'
+    role: verify-as-task
+    assigned_to: verifier
+    depends_on: [integrate-risk]
+    max_retries: 1
+    prompt: |
+      FELADAT
+      -------
+      Független végponttól-végpontig ellenőrzés. Az elfogadási kritériumok
+      (a felhasználói spec 9. szakasza: A, B, C, D) mindegyikét külön-külön
+      ellenőrizd, és készíts magyar nyelvű jelentést.
+
+      LÉPÉSEK
+      -------
+      1. cd /Users/kiscsicska/projects/mm-crypto-bot
+         git fetch origin
+         git worktree add .tmp-e2e origin/feat/integration
+         cd .tmp-e2e
+
+      2. Futtasd a teljes pipeline-t:
+         bun install
+         bun run lint
+         bun run typecheck
+         bun run test --coverage
+         bun run build
+
+      3. Futtasd a backtestet és ellenőrizd a riportot:
+         bun run backtest
+         # Riportban: max drawdown, Sharpe/Sortino, profit factor, win rate,
+         # teljes hozam.
+
+      4. Indítsd el a TUI-t és ellenőrizd, hogy a robot nélkül is elindul:
+         bun run tui &
+         TUI_PID=$!
+         sleep 3
+         kill -TERM $TUI_PID 2>/dev/null
+         wait $TUI_PID 2>/dev/null
+         # Vagy: capture-and-exit, ha a TUI támogatja.
+
+      5. Indítsd el a paper módot és figyeld meg, hogy tiszta a
+         connect/disconnect (mockolt WS-sel, vagy --dry flag-gel):
+         bun run paper --dry
+
+      6. Ellenőrizd a 9. szakasz minden pontját (A, B, C, D):
+         A) Teljesítmény: backtest riport megvan, kockázati mutatók riportolva.
+         B) Funkcionális: bybit.eu SPOT 1:10; BTC/ETH/SOL; backtest működik;
+            paper mód saját (nem exchange demo); TUI menük megvannak.
+         C) Minőség: 100% coverage a nem-TUI-ra; ultra-strict TS+ESLint; több-
+            lépcsős CI; Bun+Turborepo+CCXT Pro stack; worktree+PR; magyar
+            dokumentáció; ≥2 forrás a döntések mellett.
+         D) Biztonság: API kulcsok env-ből; kill-switch + kockázati limitek;
+            fail-safe (alap: emuláció).
+
+      KIMENET
+      -------
+      Hozd létre a worktree-ben: docs/audit/e2e-report.md — magyar nyelvű
+      jelentés, minden kritérium mellett PASS / FAIL + konkrét bizonyíték
+      (parancs kimenet, fájlútvonal, commit hash).
+
+      Commit + push a feature branch-en belül egy audit-commitként.
+
+      A jelentés végén legyen VÉGSŐ VERDIKT (PASS / FAIL).
+
+      7. Cleanup: cd .. && git worktree remove .tmp-e2e --force
