@@ -54,7 +54,10 @@ export function aggregateToTimeframe(
   }
   const out: Candle[] = [];
   let bucket: Candle | null = null;
-  let bucketStart = 0;
+  // Az első candle timestamp-jéhez igazítjuk a bucket-határt, hogy a valós
+  // (nem-grid-aligned) induló timestamp-eknél is helyes legyen az
+  // aggregáció. A `bucketStart` a cél-timeframe grid-re van lefelé kerekítve.
+  let bucketStart = ltfCandles[0]!.timestamp - (ltfCandles[0]!.timestamp % targetMs);
   for (const c of ltfCandles) {
     const bucketEnd = bucketStart + targetMs;
     if (c.timestamp >= bucketEnd) {
@@ -62,7 +65,8 @@ export function aggregateToTimeframe(
       if (bucket !== null) {
         out.push(bucket);
       }
-      bucketStart = bucketEnd;
+      // A bucket-határt a candle timestamp-jéhez igazítjuk (grid-align).
+      bucketStart = c.timestamp - (c.timestamp % targetMs);
       bucket = {
         timestamp: bucketStart,
         open: c.open,

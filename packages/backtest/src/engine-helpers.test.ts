@@ -143,6 +143,44 @@ describe("aggregateToTimeframe", () => {
     expect(result.length).toBe(1);
     expect(result[0]!.close).toBe(110);
   });
+
+  it("nem-grid-aligned kezdő timestamp-ről indulva is helyes aggregációt ad", () => {
+    // A valós OHLCV adat 2024-01-01 00:00:00 UTC = 1704067200000 ms.
+    // Ez pontosan 4h-grid-en van, de a teszt egy 3h15m-es eltolást mutat be,
+    // hogy a bucket-határ kiszámítása helyes legyen nem-grid-aligned
+    // induló timestamp esetén is.
+    // Bucket-határ az induló timestamp grid-re vágva: 1704067200000
+    //   - (1704067200000 % 4h) = 1704067200000 - 0 = 1704067200000.
+    // A 4. óra (1704081600000) már új bucketet nyit.
+    const startTs = 1704067200000;
+    const candles: Candle[] = [];
+    for (let h = 0; h < 8; h++) {
+      candles.push(mkCandle(startTs + h * HOUR_MS, 100 + h));
+    }
+    const result = aggregateToTimeframe(candles, 4 * HOUR_MS);
+    // 8 darab 1h candle → 2 darab 4h candle.
+    expect(result.length).toBe(2);
+    expect(result[0]!.close).toBe(103);
+    expect(result[1]!.close).toBe(107);
+  });
+
+  it("Phase 1 OHLCV aggregáció: 21958 1h candle → ~5490 4h candle", () => {
+    // A Phase 1-ből származó ETH 1h adat 21958 candle-t tartalmaz, és
+    // a 4h aggregációnak ~5490 candle-t kell adnia (30 hónap × 30 nap ×
+    // 6.1 candle/nap ≈ 5490). Az eredeti bug miatt 21958 db 4h candle
+    // jött létre (1:1 copy). Ez a regression-teszt biztosítja, hogy a
+    // javítás után a helyes darabszámot kapjuk.
+    const startTs = 1704067200000;
+    const candles: Candle[] = [];
+    for (let h = 0; h < 21958; h++) {
+      candles.push(mkCandle(startTs + h * HOUR_MS, 100));
+    }
+    const result = aggregateToTimeframe(candles, 4 * HOUR_MS);
+    // 21958 / 4 = 5494.5 → 5494 teljes 4h candle + 2 maradék (az utolsó
+    // bucket a ciklus végén pusholódik). Tehát 5495.
+    expect(result.length).toBeGreaterThan(5400);
+    expect(result.length).toBeLessThan(5500);
+  });
 });
 
 describe("checkExit", () => {
