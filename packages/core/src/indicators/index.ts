@@ -55,6 +55,7 @@ export function computeIndicators(
     readonly mtfBbStddev: number;
     readonly mtfAdxPeriod: number;
     readonly mtfRsiPeriod: number;
+    readonly mtfDonchianPeriod?: number;
     readonly ltfRsiPeriod: number;
     readonly ltfVolumeMaPeriod: number;
     readonly ltfAtrPeriod: number;
@@ -90,6 +91,12 @@ export function computeIndicators(
   const mtfAdxSeries = adx(mtfCandles, config.mtfAdxPeriod);
   const mtfRsi = rsi(mtfCandles, config.mtfRsiPeriod);
   const lastBb = pickLast(mtfBb);
+  // MTF Donchian (optional — Phase 5 DonchianBreakoutStrategy használja).
+  const mtfDonchian =
+    config.mtfDonchianPeriod !== undefined
+      ? donchian(mtfCandles, config.mtfDonchianPeriod)
+      : [];
+  const lastMtfDon = pickLast(mtfDonchian);
   const lastMtf = mtfCandles[mtfCandles.length - 1];
   const mtf: IndicatorState = {
     ...(lastMtf ? { close: lastMtf.close } : {}),
@@ -99,6 +106,9 @@ export function computeIndicators(
       : {}),
     ...pickNumberField("adx", pickLastNumber(mtfAdxSeries)),
     ...pickNumberField("rsi", pickLastNumber(mtfRsi)),
+    ...(lastMtfDon
+      ? { donchianUpper: lastMtfDon.upper, donchianLower: lastMtfDon.lower }
+      : {}),
   };
   // LTF indikátorok.
   const ltfRsi = rsi(ltfCandles, config.ltfRsiPeriod);
