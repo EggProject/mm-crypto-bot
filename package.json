@@ -22,8 +22,8 @@
     "coverage": "turbo run coverage",
     "backtest": "bun run --filter @mm/backtest backtest",
     "paper": "bun run --filter @mm/paper paper",
-    "tui": "bun run --filter @mm/tui tui",
-    "start": "echo 'not implemented yet: ez a későbbi fázisban a bot indítója lesz (paper/live)' && exit 1",
+    "tui": "bun run --filter @mm/bot tui",
+    "start": "bun run --filter @mm/bot start",
     "clean": "turbo run clean && rm -rf node_modules .turbo"
   },
   "devDependencies": {
