@@ -146,6 +146,8 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
     // 4.2) Indikátorok számítása + a stratégia jeleinek fogadása.
     const indicators = computeIndicators(htfSlice, mtfSlice, ltfCandles.slice(0, i + 1), {
       htfDonchianPeriod: 20,
+      // Phase 5 — MTF Donchian az 5.C DonchianBreakoutStrategy számára.
+      mtfDonchianPeriod: 20,
       htfSupertrendPeriod: 10,
       htfSupertrendMultiplier: 3,
       htfEmaFast: 50,

@@ -17,6 +17,18 @@ export { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
 export { MeanReversionBbStrategy } from "./strategy/mean-reversion-bb.js";
 export { DEFAULT_MR_CONFIG } from "./strategy/mean-reversion-bb.js";
 export type { MeanReversionBbConfig } from "./strategy/mean-reversion-bb.js";
+// Phase 5 — always-in trend-following (Strategy A).
+export { AlwaysInTrendStrategy } from "./strategy/always-in-trend.js";
+export { DEFAULT_ALWAYSIN_CONFIG } from "./strategy/always-in-trend.js";
+export type { AlwaysInTrendConfig } from "./strategy/always-in-trend.js";
+// Phase 5 — Donchian volatility breakout (Strategy C).
+export { DonchianBreakoutStrategy } from "./strategy/donchian-breakout.js";
+export { DEFAULT_DONCHIAN_CONFIG } from "./strategy/donchian-breakout.js";
+export type { DonchianBreakoutConfig } from "./strategy/donchian-breakout.js";
+// Phase 5 — Composite multi-strategy ensemble (Strategy B).
+export { CompositeStrategy } from "./strategy/composite.js";
+export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
+export type { CompositeStrategyConfig } from "./strategy/composite.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
