@@ -1,0 +1,27 @@
+{
+  "name": "@mm/exchange",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CCXT Pro adapter váz — bybit.eu (CCXT `bybiteu` ID) REST + WS illesztés",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@mm/shared": "workspace:*",
+    "ccxt": "4.5.64"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

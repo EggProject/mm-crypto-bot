@@ -1,0 +1,28 @@
+{
+  "name": "@mm/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Közös típusok, util-ok, konfiguráció és log-olás az mm-crypto-bot monorepo-hoz",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts",
+    "./utils": "./src/utils/index.ts",
+    "./config": "./src/config/index.ts",
+    "./logger": "./src/logger/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

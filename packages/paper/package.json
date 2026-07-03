@@ -1,0 +1,29 @@
+{
+  "name": "@mm/paper",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Paper trading engine váz — szimulált order végrehajtás valós piaci adatokkal",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "paper": "bun run src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@mm/core": "workspace:*",
+    "@mm/exchange": "workspace:*",
+    "@mm/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
