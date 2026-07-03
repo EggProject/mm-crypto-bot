@@ -59,7 +59,7 @@ export class PaperTrader {
   private readonly feed: ExchangeFeed;
   private readonly opts: Required<PaperTraderOptions>;
   private readonly state: InternalState;
-  private lastSeqByChannel: Map<string, number> = new Map();
+  private lastSeqByChannel: Map<string, number> = new Map<string, number>();
   private running = false;
 
   constructor(feed: ExchangeFeed, opts: PaperTraderOptions) {
@@ -137,10 +137,11 @@ export class PaperTrader {
         "A feed nem tamogatja a watchTicker-t - a paper-trader csak CCXT Pro adapterrel mukodik",
       );
     }
-    const watchTicker = this.feed.watchTicker;
+    const watchTicker: (symbol: string, opts?: unknown) => Promise<unknown> = (...args) => this.feed.watchTicker!(...args);
     this.running = true;
     // A CCXT Pro watch ciklusok reconnect-et es exponential backoff-ot
     // automatikusan kezelnek (ld. stack-findings 7.2).
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- this.running externally mutatodik a stop() metodussal
     while (this.running) {
       try {
         // Sorrend fontossaga: ticker eloszor (olcsobb), majd trades a fill-szimulaciohoz.
