@@ -33,12 +33,10 @@ export interface SignalDriver {
 }
 
 export class TradingEngine {
-  // @ts-expect-error: opts eltarolasa a kesobbi indiktor implementaciohoz
-  // eslint-disable-next-line @typescript-eslint/no-unused-private-class-member
+  // opts eltarolasa a kesobbi indiktor implementaciohoz (jelenleg csak constructor hasznalja)
   private readonly opts: TradingEngineOptions;
   private driver: SignalDriver | null = null;
-  // @ts-expect-error: running flag a start/stop ciklushoz
-  // eslint-disable-next-line @typescript-eslint/no-unused-private-class-member
+  // running flag a start/stop ciklushoz, kesobbi state machine-hez
   private running = false;
 
   constructor(opts: TradingEngineOptions) {
@@ -49,12 +47,16 @@ export class TradingEngine {
     this.driver = driver;
   }
 
-  async start(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/require-await -- Promise<void> API a kesobbi async state machine miatt
+  start(): Promise<void> {
     if (this.driver === null) {
-      throw new Error("Driver nincs beallitva - hívd setDriver()-t elotte.");
+      return Promise.reject(
+        new Error("Driver nincs beallitva - hívd setDriver()-t elotte."),
+      );
     }
     this.running = true;
     // TODO: indiktor pipeline inditasa, strategy ciklus
+    return Promise.resolve();
   }
 
   stop(): void {
