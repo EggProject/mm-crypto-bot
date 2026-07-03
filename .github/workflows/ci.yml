@@ -57,3 +57,25 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
       - run: bun run build
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bun run coverage
+      - name: Upload lcov reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: |
+            apps/*/coverage/lcov.info
+            packages/*/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,6 +1,12 @@
 /**
  * Scaffold-stage placeholder test.
  * Todel: a Phase 3 implementacioban ezt csereljuk ki tenyleges unit tesztekre.
+ *
+ * Megjegyzes: az apps/* scaffold testjei szandekosan NEM importaljak a
+ * sajat index.(t)tsx-juket, mert azok CLI/Ink belepesi pontok, amik
+ * modul-szinten side effect-eket futtatnak (pl. PaperTrader inditasa,
+ * Ink render). A fedezet merese a package-ekre fókuszál, ahol az
+ * index tiszta re-export.
  */
 import { describe, expect, it } from "bun:test";
 
