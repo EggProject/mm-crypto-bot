@@ -70,7 +70,7 @@ export function calcBacktestCost(
   fee: ExchangeFeeConfig,
   isMargin: boolean,
   holdHours: number,
-  wasLiquidated: boolean = false,
+  wasLiquidated = false,
 ): BacktestCostBreakdown {
   const spotFee = isMargin ? 0 : notional * fee.spotTakerFee;
   const borrowCost = isMargin ? notional * fee.borrowRatePerDay * (holdHours / 24) : 0;

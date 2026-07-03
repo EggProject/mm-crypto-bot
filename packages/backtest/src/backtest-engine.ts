@@ -45,14 +45,15 @@ export interface BacktestResult {
  * 5. Metrikak kalkulacioja (Sharpe, max DD, win rate)
  */
 export class BacktestEngine {
-  // @ts-expect-error: feed eltarolasa a kesobbi implementaciohoz (OHLCV historikus betoltes)
-  // eslint-disable-next-line @typescript-eslint/no-unused-private-class-member
+  // feed eltarolasa a kesobbi OHLCV historikus betoltes implementaciohoz
   private readonly feed: ExchangeFeed;
   private readonly config: BacktestConfig;
 
   constructor(feed: ExchangeFeed, config: BacktestConfig) {
     this.feed = feed;
     this.config = config;
+    // Referencia tarolva a constructor-ban; a tenyleges felhasznalas a run() implementacioban lesz.
+    void this.feed;
   }
 
   /**
@@ -63,7 +64,7 @@ export class BacktestEngine {
     notional: number,
     isMargin: boolean,
     holdHours: number,
-    wasLiquidated: boolean = false,
+    wasLiquidated = false,
   ): number {
     return calcBacktestCost(notional, this.config.fee, isMargin, holdHours, wasLiquidated).total;
   }
@@ -72,15 +73,15 @@ export class BacktestEngine {
    * Backtest futtatas. Jelenleg skeleton - a tenyleges implementacio
    * a strategy engine integracio utan keszul el.
    */
-  async run(signalGenerator: (bars: unknown) => Promise<readonly TradingSignal[]>): Promise<BacktestResult> {
-    // TODO: implementacio
+  // eslint-disable-next-line @typescript-eslint/require-await -- Promise<BacktestResult> API a kesobbi async OHLCV batch-eleshez
+  run(signalGenerator: (bars: unknown) => Promise<readonly TradingSignal[]>): Promise<BacktestResult> {
     void signalGenerator;
-    return {
+    return Promise.resolve({
       trades: [],
       equity: this.config.initialEquity,
       maxDrawdownPct: 0,
       sharpe: 0,
       winRate: 0,
-    };
+    });
   }
 }
