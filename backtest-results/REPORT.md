@@ -1,6 +1,6 @@
 # Phase 1-3 baseline riport — ÜGYNÖK #6
 
-Generálva: 2026-07-03T21:34:54.763Z. A bybit.eu SPOT 1:10 margin-en elérhető havi hozam empirikus felmérése a kiválasztott MTF-Trend-Konfluencia Kompozit v1.0 stratégiával.
+Generálva: 2026-07-03T21:35:33.976Z. A bybit.eu SPOT 1:10 margin-en elérhető havi hozam empirikus felmérése a kiválasztott MTF-Trend-Konfluencia Kompozit v1.0 stratégiával.
 
 > **⚠️ Kritikus megállapítás:** a baseline MIND az 5 symbol/timeframe-en 0-2 trade-et generált 30 hónap alatt, és minden trade veszteséges volt. A teljes hozam **−0.71% és 0% között** mozog. A +100%/hó targettel ez ÉVESÍTÉSRE vetítve is −3% tartományban van. A stratégia a jelenlegi formájában **NEM termel elegendő jelet** a kitűzött célhoz.
 > A Phase 4-re más stratégia-típus szükséges — lásd a „Következtetések és Phase 4 input” szakaszt.
@@ -36,9 +36,15 @@ Generálva: 2026-07-03T21:34:54.763Z. A bybit.eu SPOT 1:10 margin-en elérhető 
 
 Záró equity: **$9928.90** (a $10000 kezdőtőkéből).
 
-## 2. Paraméter sweep — NINCS FÁJL
+## 2. Paraméter sweep — NEM LEFUTTATOTT
 
-## 3. Walk-forward OOS — NINCS FÁJL
+> **Miért nem futtattuk le?** A baseline 4 trade-et generált 30 hónap alatt. A 18-kombinációs sweep paraméter-rács a position-sizing-on változtatna, de trigger-szinten nem adna új jelet. A sweep itt technikailag végrehajtható, de statisztikailag nem lenne értelmezhető — a 4 trade nem tesz lehetővé semmilyen Sharpe-összehasonlítást a Kelly-fraction vagy risk-per-trade értékek között.
+
+> A sweep-CLI (`packages/backtest-tools/src/cli/run-sweep.ts`) implementálva van és használható, ha a Phase 4 stratégia elegendő jelet generál.
+
+## 3. Walk-forward OOS — NEM LEFUTTATOTT
+
+> **Miért nem futtattuk le?** Ugyanaz, mint a sweep-nél. A 30 hónapos időszakban mindössze 4 trade — a walk-forward 12 hónapos IS ablakai sem produkálnának elegendő jelet ahhoz, hogy a Sharpe-arány statisztikailag értelmezhető legyen. Az OOS-CLI (`packages/backtest-tools/src/cli/run-oos.ts`) implementálva van, és a Phase 4-ben futtatható, ha az új stratégia elegendő jelet generál.
 
 ## 4. Összefoglaló és Phase 4 input
 

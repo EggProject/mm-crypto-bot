@@ -211,7 +211,15 @@ async function main(): Promise<void> {
     }
     lines.push("");
   } else {
-    lines.push("## 2. Paraméter sweep — NINCS FÁJL");
+    lines.push("## 2. Paraméter sweep — NEM LEFUTTATOTT");
+    lines.push("");
+    lines.push(
+      "> **Miért nem futtattuk le?** A baseline 4 trade-et generált 30 hónap alatt. A 18-kombinációs sweep paraméter-rács a position-sizing-on változtatna, de trigger-szinten nem adna új jelet. A sweep itt technikailag végrehajtható, de statisztikailag nem lenne értelmezhető — a 4 trade nem tesz lehetővé semmilyen Sharpe-összehasonlítást a Kelly-fraction vagy risk-per-trade értékek között.",
+    );
+    lines.push("");
+    lines.push(
+      "> A sweep-CLI (`packages/backtest-tools/src/cli/run-sweep.ts`) implementálva van és használható, ha a Phase 4 stratégia elegendő jelet generál.",
+    );
     lines.push("");
   }
 
@@ -248,7 +256,11 @@ async function main(): Promise<void> {
       lines.push("");
     }
   } else {
-    lines.push("## 3. Walk-forward OOS — NINCS FÁJL");
+    lines.push("## 3. Walk-forward OOS — NEM LEFUTTATOTT");
+    lines.push("");
+    lines.push(
+      "> **Miért nem futtattuk le?** Ugyanaz, mint a sweep-nél. A 30 hónapos időszakban mindössze 4 trade — a walk-forward 12 hónapos IS ablakai sem produkálnának elegendő jelet ahhoz, hogy a Sharpe-arány statisztikailag értelmezhető legyen. Az OOS-CLI (`packages/backtest-tools/src/cli/run-oos.ts`) implementálva van, és a Phase 4-ben futtatható, ha az új stratégia elegendő jelet generál.",
+    );
     lines.push("");
   }
 
