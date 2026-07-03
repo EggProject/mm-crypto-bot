@@ -1,0 +1,15 @@
+# Bun runtime config
+# https://bun.sh/docs/runtime/configuration
+
+[install]
+# Pinned exact versions in CI for reproducibility; relaxed in dev
+exact = false
+frozenLockfile = true
+auto = "auto"
+
+[install.scopes]
+# Egyelőre nincs scope-registry; a default npm registry-t használjuk.
+
+[run]
+# Bun built-in shell (`bun run`) — gyorsabb, mint a /bin/sh
+shell = "system"

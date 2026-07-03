@@ -1,0 +1,26 @@
+{
+  "name": "@mm-crypto-bot/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "echo 'core: ts-only, no emit'",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "bun test src",
+    "clean": "rm -rf .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@mm-crypto-bot/shared": "workspace:*",
+    "@mm-crypto-bot/exchange": "workspace:*",
+    "@mm-crypto-bot/paper": "workspace:*",
+    "@mm-crypto-bot/backtest": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}
