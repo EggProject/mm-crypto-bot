@@ -80,6 +80,7 @@ async function main(): Promise<void> {
     return;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive check for clarity in CLI flow
   if (mode === "live") {
     console.warn("[bot] ⚠️  LIVE MODE - valos penzmozgas! Megerosites kell a deploy elott.");
     // TODO: live driver
