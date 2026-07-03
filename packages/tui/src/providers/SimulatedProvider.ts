@@ -105,17 +105,17 @@ class PRNG {
  az árakat, és esetenként új pozíciókat nyit / zár.
 */
 export class SimulatedProvider implements BotStateProvider {
-  private readonly listeners: Set<Listener> = new Set();
+  private readonly listeners = new Set<Listener>();
   private readonly prng: PRNG;
 
   private state: BotState;
   private tickInterval: ReturnType<typeof setInterval> | null = null;
 
   /** Az aktuális szimulált árak — kulcs a symbol, érték az USDT ár. */
-  private readonly prices: Map<string, number> = new Map();
+  private readonly prices = new Map<string, number>();
 
   /** A 24h-s változás nyomkövetéséhez szükséges seed-ár. */
-  private readonly seed24hPrices: Map<string, number> = new Map();
+  private readonly seed24hPrices = new Map<string, number>();
 
   /** A history-t itt tároljuk; a TUI csak az utolsó N elemet mutatja. */
   // A típus annotáció szükséges a `consistent-generic-constructors` rule miatt.
@@ -167,6 +167,11 @@ export class SimulatedProvider implements BotStateProvider {
     return this.state;
   }
 
+  // A `BotStateProvider` interfész `Promise<void>` visszatérési típust ír elő,
+  // ezért a metódusok `async` kulcsszóval vannak jelölve — akkor is, ha a
+  // jelenlegi implementációban nincs `await`. Az eslint figyelmeztetését a
+  // `require-await` szabályra inline kapcsoljuk ki.
+  // eslint-disable-next-line @typescript-eslint/require-await
   async start(): Promise<void> {
     if (this.state.running) return;
     this.state = { ...this.state, running: true };
@@ -178,12 +183,14 @@ export class SimulatedProvider implements BotStateProvider {
     }, TICK_INTERVAL_MS);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async stop(): Promise<void> {
     if (!this.state.running) return;
     this.state = { ...this.state, running: false };
     this.notify();
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async killSwitch(): Promise<void> {
     // A kill-switch minden nyitott pozíciót azonnal zár, és a botot
     // leállítja. A "triggered" állapotot a setKillSwitchState hívással
@@ -237,6 +244,7 @@ export class SimulatedProvider implements BotStateProvider {
     this.notify();
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async dispose(): Promise<void> {
     if (this.tickInterval !== null) {
       clearInterval(this.tickInterval);
@@ -402,7 +410,7 @@ export class SimulatedProvider implements BotStateProvider {
         symbol,
         price,
         change24hPct,
-        volume24hUsdt: baseVolume[symbol] ?? 1_000_000_000,
+        volume24hUsdt: baseVolume[symbol],
       });
     }
     return tickers;

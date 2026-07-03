@@ -53,7 +53,6 @@ function InternalApp({ provider }: { readonly provider: BotStateProvider }): Rea
         // A start-hiba nem kritikus — a TUI ettől még megjelenik,
         // csak a `status.engineError` jelzi a hibát.
         const msg = err instanceof Error ? err.message : String(err);
-        // eslint-disable-next-line no-console
         console.error("A bot indítása sikertelen:", msg);
       }
     })();

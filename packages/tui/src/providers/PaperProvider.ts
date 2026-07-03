@@ -46,7 +46,7 @@ export interface PaperProviderOptions {
  jelenik meg. Így a TUI mindig működőképes marad.
 */
 export class PaperProvider implements BotStateProvider {
-  private readonly listeners: Set<Listener> = new Set();
+  private readonly listeners = new Set<Listener>();
   private readonly options: Required<PaperProviderOptions>;
   private readonly fallback: SimulatedProvider;
   private state: BotState;
@@ -162,9 +162,23 @@ export class PaperProvider implements BotStateProvider {
   */
   private async tryStartPaperEngine(): Promise<void> {
     try {
-      // Dinamikus import — így a TUI-only mód nem tölti a @mm/paper függőséget.
-      const paperModule = await import("@mm/paper");
-      const handle = await paperModule.startPaperEngine({
+      // Dinamikus import — így a TUI-only mód nem tölti a @mm-crypto-bot/paper függőséget.
+      // A `@mm-crypto-bot/paper` v1 API `new PaperTrader(feed, opts)`-szal dolgozik,
+      // nem `startPaperEngine`-el. Itt a meglévő API-ra castolunk, és ha a függvény
+      // nem áll rendelkezésre (még nem implementált), a graceful fallback lép életbe.
+      const paperModule = (await import("@mm-crypto-bot/paper")) as unknown as {
+        startPaperEngine?: (opts: {
+          readonly symbols: readonly string[];
+          readonly initialEquityUsdt: number;
+          readonly feeBps: number;
+          readonly slippageBps: number;
+        }) => Promise<{ readonly stop: () => Promise<void> }>;
+      };
+      const start = paperModule.startPaperEngine;
+      if (typeof start !== "function") {
+        throw new Error("@mm-crypto-bot/paper: startPaperEngine not implemented yet");
+      }
+      const handle = await start({
         symbols: this.options.symbols,
         initialEquityUsdt: this.options.initialEquityUsdt,
         feeBps: this.options.feeBps,
