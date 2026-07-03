@@ -25,6 +25,15 @@
 
     /* TS 7 elokeszites: baseUrl kikapcsolasa, paths moduleResolution=bundler-rel */
     "ignoreDeprecations": "6.0",
+
+    /* Scaffold-stage relaxations:
+       A Phase 2 monorepo skeleton meg nem tartalmaz minden implementaciot —
+       a constructor-ban tarolt mezok (feed, running) meg nem mindenhol
+       felhasznaltsak. Ezt kesobb, a Phase 3 (implementacio) PR-ekben
+       fogjuk visszavenni strict-re. */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
     "paths": {
       "@mm-crypto-bot/shared": ["./packages/shared/src/index.ts"],
       "@mm-crypto-bot/shared/*": ["./packages/shared/src/*"],

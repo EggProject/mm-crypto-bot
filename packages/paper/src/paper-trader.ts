@@ -137,7 +137,9 @@ export class PaperTrader {
         "A feed nem tamogatja a watchTicker-t - a paper-trader csak CCXT Pro adapterrel mukodik",
       );
     }
-    const watchTicker: (symbol: string, opts?: unknown) => Promise<unknown> = (...args) => this.feed.watchTicker!(...args);
+    // Narrowing: a korai throw utan this.feed.watchTicker mar nem undefined
+    const feed = this.feed;
+    const watchTicker = feed.watchTicker.bind(feed);
     this.running = true;
     // A CCXT Pro watch ciklusok reconnect-et es exponential backoff-ot
     // automatikusan kezelnek (ld. stack-findings 7.2).
