@@ -1,175 +1,90 @@
-# GitHub Actions — `mm-crypto-bot` CI
-#
-# FONTOS: A pipeline három fázisban fut:
-#   1. lint + typecheck (párhuzamos)  — gyors visszajelzés a PR-en
-#   2. test + coverage                 — Vitest, v8 lefedettség
-#   3. build                           — a `turbo run build` topológiai sorrendben
-#
-# A Bun lockfile-ot és a .turbo cache-t cache-eljük, hogy a második
-# futás gyors legyen. Minden futás előtt lefut a `bun install --frozen-lockfile`
-# a determinisztikus telepítéshez.
-
 name: CI
 
 on:
   push:
-    branches: [main, feat/**, fix/**]
+    branches: [main]
   pull_request:
     branches: [main]
 
-# Egy workflow futás ne halmozódjon fel — mindig a legutóbbit futtatjuk.
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-
 jobs:
-  # --------------------------------------------------------------------------
-  # 1. Lint — ESLint flat config, ultra-strict
-  # --------------------------------------------------------------------------
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-
-      - name: Cache Bun + Turbo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-            **/node_modules
-            .turbo
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', '**/package.json', '**/tsconfig.json', '**/tsconfig.base.json') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Run lint
-        run: bun run lint
-
-  # --------------------------------------------------------------------------
-  # 2. Type-check — tsc ultra-strict (a tsconfig.base.json összes strictness flagja)
-  # --------------------------------------------------------------------------
-  typecheck:
-    name: Type-check
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-
-      - name: Cache Bun + Turbo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-            **/node_modules
-            .turbo
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', '**/package.json', '**/tsconfig.json', '**/tsconfig.base.json') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Run typecheck
-        run: bun run typecheck
-
-  # --------------------------------------------------------------------------
-  # 3. Test + coverage — Vitest + @vitest/coverage-v8
-  #    A 100%-os threshold későbbi fázisokban lesz enforced — egyelőre a
-  #    futás + riport generálás a cél.
-  # --------------------------------------------------------------------------
-  test:
-    name: Test + Coverage
-    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.14
-
-      - name: Cache Bun + Turbo
-        uses: actions/cache@v4
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@v4
         with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-            **/node_modules
-            .turbo
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', '**/package.json', '**/tsconfig.json', '**/tsconfig.base.json') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          node-version-file: .nvmrc
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Run tests with coverage
-        run: bun run coverage
-
-      - name: Upload coverage artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          name: coverage-report
-          path: |
-            **/coverage/**
-          if-no-files-found: ignore
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: bun install --frozen-lockfile
+      - run: bun run test
 
-  # --------------------------------------------------------------------------
-  # 4. Build — turbo run build, topológiai sorrendben (build függ a ^build-től)
-  # --------------------------------------------------------------------------
   build:
     name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [lint, typecheck, test]
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.14
-
-      - name: Cache Bun + Turbo
-        uses: actions/cache@v4
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@v4
         with:
+          node-version-file: .nvmrc
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bun run coverage
+      - name: Upload lcov reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
           path: |
-            ~/.bun/install/cache
-            node_modules
-            **/node_modules
-            .turbo
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', '**/package.json', '**/tsconfig.json', '**/tsconfig.base.json') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Run build
-        run: bun run build
+            apps/*/coverage/lcov.info
+            packages/*/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 30
