@@ -1,18 +1,89 @@
 /**
  * packages/shared/src/config.ts
  *
- * Trading konfigurációs sémák — Zod-alapú validáció runtime + típus-szinten.
+ * Konfigurációs típusok és betöltő függvények a teljes monorepo-hoz.
  *
- * A borrow rate és fee paraméterek hangsúlyosan KONFIGURÁLÓDNAK, nem
- * égetettek — lásd a research-strategy verifier 2. caveat-ját:
- * "Margin borrow rate: a research 0,24%/nap-ot használ, a bybit.eu
- *  hivatalos példa 0,02%/nap (~12× alacsonyabb) → a költségmodell
- *  konzervatívan túlbecsül, ezt a backtest fee-paraméternél
- *  korrigálni/paraméterezni kell."
+ * KÉT KÜLÖN KONFIG-CSALÁD:
+ *   - Trading-réteg (paper / live) — main-ből örökölt, zod-validált:
+ *       `AppConfig`, `RiskConfig`, `PortfolioConfig`, `ExchangeFeeConfig`,
+ *       `loadAppConfig()` — ezt használja a bot, az exchange és a paper
+ *       csomag.
+ *   - Backtest-réteg — strategy-backtest-ből importálva:
+ *       `BacktestAppConfig`, `BacktestRiskConfig`, `StrategyConfig`,
+ *       `loadConfig()` — ezt használja a `@mm-crypto-bot/core`
+ *       stratégia-motor és a `@mm-crypto-bot/backtest` engine.
  *
- * A bybit.eu alapértelmezett érték a 0,02%/nap (0.0002/nap), ami
- * megfelel a bybit.eu hivatalos példájának USDT-re.
+ * A két család azért él egy fájlban, mert együtt használjuk őket
+ * (egy futó rendszerben mindkettőre szükség lehet); a nevek
+ * (`AppConfig` vs `BacktestAppConfig`) szándékosan különböznek, hogy
+ * a típus-rendszer megkülönböztesse a trading és a backtest kontextust.
  */
+
+import type { Timeframe } from "./types.js";
+
+// ============================================================================
+// I) BACKTEST KONFIG (strategy-backtest branch-ről örökölve)
+// ============================================================================
+
+/**
+ * `BacktestAppConfig` — a backtest engine futásidejű konfigurációja.
+ *
+ * Az átnevezés (`AppConfig` helyett `BacktestAppConfig`) azért kell,
+ * mert a trading-réteg `AppConfig`-ja (alább) más struktúrájú:
+ * trading-mód, exchange-id, fee-séma, portfólió-allokáció, stb.
+ * A backtest-réteg saját konfigja a stratégia-időkereteket és a
+ * kockázati limiteket tartalmazza — nincs benne exchange-specifikus
+ * fee vagy portfólió, mert ezek a backtest `CostModel` bemenetei.
+ */
+export interface BacktestAppConfig {
+  readonly env: "paper" | "live";
+  readonly logLevel: "debug" | "info" | "warn" | "error";
+  readonly ccxtRateLimitMs: number;
+  readonly strategy: StrategyConfig;
+  readonly risk: BacktestRiskConfig;
+}
+
+export interface StrategyConfig {
+  /** HTF (Higher Time Frame) — a trend-szűrő időkerete. */
+  readonly htfTimeframe: Timeframe;
+  /** MTF (Medium Time Frame) — a setup-kereső időkerete. */
+  readonly mtfTimeframe: Timeframe;
+  /** LTF (Lower Time Frame) — a trigger-időkeret. */
+  readonly ltfTimeframe: Timeframe;
+}
+
+export interface BacktestRiskConfig {
+  /** Kockázat / trade az equity %-ában (alap: 0.01 = 1%). */
+  readonly riskPerTrade: number;
+  /** Kelly-frakció (alap: 0.25 = 1/4-Kelly). */
+  readonly kellyFraction: number;
+  /** Maximális drawdown, ami felett a kill-switch leáll (alap: 0.15). */
+  readonly maxDrawdown: number;
+}
+
+export function loadConfig(): BacktestAppConfig {
+  // A későbbi fázisban: tényleges .env betöltés és zod-séma validáció.
+  // Egyelőre biztonságos default-okat adunk vissza.
+  return {
+    env: process.env["BUN_ENV"] === "live" ? "live" : "paper",
+    logLevel: (process.env["LOG_LEVEL"] ?? "info") as BacktestAppConfig["logLevel"],
+    ccxtRateLimitMs: Number.parseInt(process.env["CCXT_RATE_LIMIT_MS"] ?? "100", 10),
+    strategy: {
+      htfTimeframe: (process.env["STRATEGY_HTF_TIMEFRAME"] ?? "1d") as Timeframe,
+      mtfTimeframe: (process.env["STRATEGY_MTF_TIMEFRAME"] ?? "4h") as Timeframe,
+      ltfTimeframe: (process.env["STRATEGY_LTF_TIMEFRAME"] ?? "1h") as Timeframe,
+    },
+    risk: {
+      riskPerTrade: Number.parseFloat(process.env["STRATEGY_RISK_PER_TRADE"] ?? "0.01"),
+      kellyFraction: Number.parseFloat(process.env["STRATEGY_KELLY_FRACTION"] ?? "0.25"),
+      maxDrawdown: Number.parseFloat(process.env["STRATEGY_MAX_DRAWDOWN"] ?? "0.15"),
+    },
+  };
+}
+
+// ============================================================================
+// II) TRADING KONFIG (main-ből örökölt, Zod-validált)
+// ============================================================================
 
 import { z } from "zod";
 
@@ -73,7 +144,12 @@ export const PortfolioConfigSchema = z.object({
 export type PortfolioConfig = z.infer<typeof PortfolioConfigSchema>;
 
 /**
- * A teljes app konfiguráció — az env-ből + a config file-ból olvasandó.
+ * A teljes trading app konfiguráció — az env-ből + a config file-ból olvasandó.
+ *
+ * FIGYELEM: Ez a main-ből örökölt `AppConfig`. A strategy-backtest
+ * fázisban bevezetett `BacktestAppConfig` egy másik típus (lásd fent).
+ * A kettő NEM kompatibilis — a trading és a backtest kontextus
+ * más-más adatokat igényel.
  */
 export const AppConfigSchema = z.object({
   mode: z.enum(["live", "paper", "backtest"]).default("paper"),
