@@ -4,10 +4,6 @@
   "version": "0.1.0",
   "description": "Multi-exchange crypto trading bot — bybit.eu spot+spot margin, paper-trading, backtest, TUI.",
   "type": "module",
-  "engines": {
-    "bun": ">=1.3.14",
-    "node": ">=22"
-  },
   "packageManager": "bun@1.3.14",
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
