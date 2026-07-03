@@ -13,6 +13,10 @@ export * from "./indicators/index.js";
 
 // Stratégia — a `MtfTrendConfluenceStrategy` és a `Strategy` interfész.
 export { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
+// Phase 4 — aggressive MTF-BB mean-reversion.
+export { MeanReversionBbStrategy } from "./strategy/mean-reversion-bb.js";
+export { DEFAULT_MR_CONFIG } from "./strategy/mean-reversion-bb.js";
+export type { MeanReversionBbConfig } from "./strategy/mean-reversion-bb.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
