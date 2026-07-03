@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@tsconfig/bases/strictest",
+  "compilerOptions": {
+    /* Language & emit */
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+
+    /* Bun runtime types */
+    "types": ["bun"],
+
+    /* Build performance */
+    "skipLibCheck": true,
+    "incremental": true,
+
+    /* TS 7 elokeszites: baseUrl kikapcsolasa, paths moduleResolution=bundler-rel */
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@mm-crypto-bot/shared": ["./packages/shared/src/index.ts"],
+      "@mm-crypto-bot/shared/*": ["./packages/shared/src/*"],
+      "@mm-crypto-bot/exchange": ["./packages/exchange/src/index.ts"],
+      "@mm-crypto-bot/exchange/*": ["./packages/exchange/src/*"],
+      "@mm-crypto-bot/core": ["./packages/core/src/index.ts"],
+      "@mm-crypto-bot/core/*": ["./packages/core/src/*"],
+      "@mm-crypto-bot/backtest": ["./packages/backtest/src/index.ts"],
+      "@mm-crypto-bot/backtest/*": ["./packages/backtest/src/*"],
+      "@mm-crypto-bot/paper": ["./packages/paper/src/index.ts"],
+      "@mm-crypto-bot/paper/*": ["./packages/paper/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".turbo", "build", "coverage"]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@mm-crypto-bot/tui",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.tsx",
+  "scripts": {
+    "build": "bun build src/index.tsx --target=bun --outdir=dist --format=esm",
+    "dev": "bun run src/index.tsx",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "bun test src",
+    "clean": "rm -rf .turbo *.tsbuildinfo dist"
+  },
+  "dependencies": {
+    "@mm-crypto-bot/shared": "workspace:*",
+    "@mm-crypto-bot/core": "workspace:*",
+    "ink": "7.1.0",
+    "react": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "@types/react": "19.2.0",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "ui": "stream",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": ["NODE_ENV"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": ["*.tsbuildinfo"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "env": ["NODE_ENV"]
+    },
+    "clean": {
+      "cache": false
+    }
+  },
+  "globalEnv": ["NODE_ENV", "BYBIT_EU_API_KEY", "BYBIT_EU_SECRET"],
+  "globalDependencies": [
+    "tsconfig.base.json",
+    "eslint.config.js",
+    "bunfig.toml",
+    "turbo.json"
+  ]
+}
