@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "bun test src",
-    "clean": "rm -rf .turbo *.tsbuildinfo"
+    "coverage": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage",
+    "clean": "rm -rf .turbo *.tsbuildinfo coverage"
   },
   "dependencies": {
     "ccxt": "4.5.64",

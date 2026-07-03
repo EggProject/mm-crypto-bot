@@ -24,6 +24,11 @@
       "outputs": ["coverage/**"],
       "env": ["NODE_ENV"]
     },
+    "coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "env": ["NODE_ENV"]
+    },
     "clean": {
       "cache": false
     }
