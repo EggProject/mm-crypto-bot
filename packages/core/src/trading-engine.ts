@@ -47,7 +47,7 @@ export class TradingEngine {
     this.driver = driver;
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await -- Promise<void> API a kesobbi async state machine miatt
+  // Promise<void> API a kesobbi async state machine miatt
   start(): Promise<void> {
     if (this.driver === null) {
       return Promise.reject(
