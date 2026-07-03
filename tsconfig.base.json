@@ -1,59 +1,44 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@tsconfig/bases/strictest",
   "compilerOptions": {
-    /* Language & emit */
+    /* === Alap beállítások (Bun + TS ultra-strict monorepo-hoz) === */
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
     "resolveJsonModule": true,
+    "esModuleInterop": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
+    "allowImportingTsExtensions": false,
     "noEmit": true,
 
-    /* Bun runtime types */
-    "types": ["bun"],
+    /* === Szigor (a `@tsconfig/strictest` preset alapján) === */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "alwaysStrict": true,
 
-    /* Build performance */
+    /* === További strictness (ultra-strict kiegészítések) === */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+
+    /* === Bun / CCXT kompatibilitás === */
     "skipLibCheck": true,
-    "incremental": true,
-
-    /* TS 7 elokeszites: baseUrl kikapcsolasa, paths moduleResolution=bundler-rel */
-    "ignoreDeprecations": "6.0",
-
-    /* Scaffold-stage relaxations:
-       A Phase 2 monorepo skeleton meg nem tartalmaz minden implementaciot —
-       a constructor-ban tarolt mezok (feed, running) meg nem mindenhol
-       felhasznaltsak. Ezt kesobb, a Phase 3 (implementacio) PR-ekben
-       fogjuk visszavenni strict-re. */
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-
-    /* Phase 3 (strategy + backtest implementacio) relaxation:
-       A strategy-backtest branch kisebb szigorussagu tsconfig alatt keszult
-       (ahol az IndicatorState mezoket a tesztek kozvetlenul irtak —
-       `exactOptionalPropertyTypes: false` kell hozza, mert a literal
-       `{ close: undefined, ... }` nem assignolhato `close?: number` tipusra).
-       A production kód (engine.ts, cost-model.ts, stb.) tovabbra is strict. */
-    "exactOptionalPropertyTypes": false,
-
-    "paths": {
-      "@mm-crypto-bot/shared": ["./packages/shared/src/index.ts"],
-      "@mm-crypto-bot/shared/*": ["./packages/shared/src/*"],
-      "@mm-crypto-bot/exchange": ["./packages/exchange/src/index.ts"],
-      "@mm-crypto-bot/exchange/*": ["./packages/exchange/src/*"],
-      "@mm-crypto-bot/core": ["./packages/core/src/index.ts"],
-      "@mm-crypto-bot/core/*": ["./packages/core/src/*"],
-      "@mm-crypto-bot/backtest": ["./packages/backtest/src/index.ts"],
-      "@mm-crypto-bot/backtest/*": ["./packages/backtest/src/*"],
-      "@mm-crypto-bot/paper": ["./packages/paper/src/index.ts"],
-      "@mm-crypto-bot/paper/*": ["./packages/paper/src/*"]
-    }
-  },
-  "exclude": ["node_modules", "dist", ".turbo", "build", "coverage"]
+    "types": ["bun-types"]
+  }
 }

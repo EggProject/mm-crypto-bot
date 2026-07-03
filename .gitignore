@@ -1,43 +1,54 @@
-# Bun
+# === Függőségek és build-artefaktok ===
 node_modules/
 .pnp
 .pnp.js
+.yarn/install-state.gz
 
-# Build outputs
 dist/
 build/
 *.tsbuildinfo
-.turbo/
 
-# Coverage
+# === Turborepo cache ===
+.turbo/
+.turbo.json.bak
+
+# === Lefedettségi riportok ===
 coverage/
 *.lcov
+*.coverage
 
-# Environment
+# === Környezeti változók és lokális titkok ===
 .env
 .env.local
 .env.*.local
 !.env.example
 
-# Editor
-.idea/
-.vscode/
-!.vscode/settings.json
+# === Bun lockfile (bináris, lokálisan újragenerálható) ===
+bun.lockb
+
+# === Szerkesztő és IDE ===
+.vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
 *.swp
-*.swo
 .DS_Store
 
-# Logs
-logs/
+# === Naplófájlok ===
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 bun-debug.log*
+logs/
 
-# Bun runtime
-bun.lockb
-
-# Test artifacts
+# === Teszt artefaktok ===
 .nyc_output/
+
+# === OS specifikus ===
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# === Verziókövetésből kizárt munkakönyvtárak ===
+.worktrees/

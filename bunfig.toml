@@ -1,15 +1,23 @@
-# Bun runtime config
-# https://bun.sh/docs/runtime/configuration
+# bunfig.toml — Bun konfiguráció a `mm-crypto-bot` monorepo-hoz
+#
+# FONTOS: Ez a fájl a Bun viselkedését hangolja (lockfile formátum,
+# script futtatás, install stratégia). A TypeScript és az ESLint
+# konfigurációját NEM itt, hanem a `tsconfig.base.json` és
+# `eslint.config.js` fájlokban tartjuk karban.
 
+# A `bun.lock` szöveges formátumban legyen (Bun 1.1+) — könnyebb
+# review-zni a PR-eken, és jobb együttműködés a Turborepo cache-ével.
 [install]
-# Pinned exact versions in CI for reproducibility; relaxed in dev
-exact = false
-frozenLockfile = true
-auto = "auto"
+exact = false  # caret/tilde engedélyezett — verzió-pin a package.json-ban van
 
 [install.scopes]
-# Egyelőre nincs scope-registry; a default npm registry-t használjuk.
+# A workspace-t a `package.json` `workspaces` mezőjéből olvassa a Bun,
+# itt kiegészítő policy-kat adhatnánk (egyelőre üres).
 
+# A `bun run` a szkripteket natívan futtatja TS-sel (Bun transzpilál).
+# A `bun test` a Vitest wrapper-e helyett a Bun saját teszt-futtatóját
+# használja — de a projekt a Vitest-et preferálja (lásd `vitest.config.ts`).
 [run]
-# Bun built-in shell (`bun run`) — gyorsabb, mint a /bin/sh
-shell = "system"
+# A `bun node` és a `bun run` a Node-kompatibilis runtime-ot használja,
+# de a natív Bun API-kat is elérhetővé teszi (lásd `Bun.serve`, `Bun.file`).
+bun = true
