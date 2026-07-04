@@ -40,8 +40,15 @@ export type { CompositeStrategyConfig } from "./strategy/composite.js";
 // Phase 6 Track A — delta-neutral funding-rate carry.
 export { FundingCarryStrategy, InMemoryFundingRateProvider, DEFAULT_FUNDING_CARRY_CONFIG } from "./strategy/funding-carry.js";
 export type { FundingCarryConfig, FundingCarryState, FundingRateProvider, FundingSnapshot } from "./strategy/funding-carry.js";
-// Phase 7 Track C — leveraged delta-neutral funding-rate carry with VaR cap + liquidation buffer.
-export { FundingCarryLeverageStrategy, DEFAULT_LEVERAGED_CARRY_CONFIG } from "./strategy/funding-carry-leverage.js";
+// Phase 7 Track C + Phase 8 Track D — leveraged delta-neutral funding-rate carry with VaR cap + liquidation buffer.
+// Phase 8 Track D: 1:10 mandatory leverage project-wide mandate; only 1× (baseline) or 10× (1:10 bybit.eu SPOT margin default) allowed.
+export {
+  ALLOWED_LEVERAGE_VALUES,
+  assert1to10Leverage,
+  DEFAULT_LEVERAGE,
+  DEFAULT_LEVERAGED_CARRY_CONFIG,
+  FundingCarryLeverageStrategy,
+} from "./strategy/funding-carry-leverage.js";
 export type { LeveragedCarryConfig, LeveragedCarryState, LiquidationEvent, VarMethod } from "./strategy/funding-carry-leverage.js";
 // Phase 6 M2 — multi-class edge ensemble (Donchian + funding-carry + arb-latency-gate + Kelly-opt sizing).
 export {
