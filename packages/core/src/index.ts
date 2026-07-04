@@ -68,6 +68,32 @@ export type {
   WalkForwardWindow,
   WalkForwardSplit,
 } from "./risk/kelly-position-sizer.js";
+// Phase 7 Track B — Adaptive Kelly with rolling Sharpe (risk module).
+export {
+  aggregateTradesToDailyPnl,
+  averageKellyMultiplier,
+  bucketDistribution,
+  compareAdaptiveVsStaticKelly,
+  computeAdaptiveKelly,
+  hasAllLossStreak,
+  nearestBucket,
+  rollingSharpeFromDailyPnl,
+  runAdaptiveWalkForwardValidation,
+  sharpeToKellyBucket,
+  SHARPE_BUCKET_HIGH_BOUNDARY,
+  SHARPE_BUCKET_LOW_BOUNDARY,
+  SHARPE_BUCKET_MID_BOUNDARY,
+} from "./risk/kelly-adaptive.js";
+export type {
+  AdaptiveKellyBucket,
+  AdaptiveKellyResult,
+  AdaptiveVsStaticComparison,
+  AdaptiveWalkForwardValidation,
+  AdaptiveWalkForwardWindow,
+  BucketDistribution,
+  DailyPnlPoint,
+  RollingSharpePoint,
+} from "./risk/kelly-adaptive.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
