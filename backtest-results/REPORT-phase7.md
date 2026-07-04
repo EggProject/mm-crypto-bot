@@ -82,8 +82,9 @@ A 4 trailing-stop variáns 7 éves (2019-2026) backtest eredménye:
 
 ### 2.3 Source literature (≥3 independent per claim)
 
-- **Stratbase BTC 2019-2025 D1 trailing-stop backtest** — ATR 2.5× adta a legjobb Sharpe-ot, 15-20%-kal jobb mint a fix%-os. Fixed-% 10% vs ATR 2.5×: 285% vs 320% return, -22% vs -25% DD, 45% vs 42% WR, +8.2% vs +10.5% avg trade. https://stratbase.ai/en/blog/trailing-stop-strategies-compared
-- **QuantPedia trend-following effect in stocks** — ATR(10) trailing stop on US stocks trend system: 19.3% CAGR (24,000 securities, 22 years). https://quantpedia.com/strategies/trend-following-effect-in-stocks
+- **QuantPedia trend-following effect in stocks** — ATR(10) trailing stop on US stocks trend system: 19.3% CAGR (24,000 securities, 22 years, 1983-2004). Source paper: Wilcox & Crittenden. https://quantpedia.com/strategies/trend-following-effect-in-stocks/
+- **Quant-Signals ATR stop-loss backtest (9,433 trades, 6 markets)** — BTCUSD 2× ATR stop = 1.72 profit factor / 4.6% max DD / 46.3% WR; ATR-based stops dominate fixed-pip stops by 0.41 PF average. https://quant-signals.com/atr-stop-loss-take-profit/
+- **arXiv 2604.27150 "Optimal Stop-Loss and Take-Profit Parameterization"** — Sharpe 0.653 with ATR exits + circuit-breaker overlay (24.5% gain over first-pass, 56.0% over baseline). Default: 10% SL, 3% trail activation, 5% trail distance. https://arxiv.org/pdf/2604.27150.pdf
 - **VolatilityBox 2025 595+ symbol study** — volatility-adjusted stops 34%-kal csökkentik a premature stop-out-okat fixed-dollar stop-okhoz képest, azonos downside protection mellett. https://volatilitybox.com/research/volatility-adjusted-stop-losses/
 - **Clare, Seaton, Sotiropoulos, Wood (2016) "Breaking into the blackbox"** — trailing stops effective at stopping losses in declining markets on S&P500 monthly data. https://openaccess.city.ac.uk/id/eprint/17842/8/BLACKBOX%20%20%20SSRN-id2126476.pdf
 - **arXiv 2412.14361 (2024) walk-forward analysis** — 5y IS / 1y OOS / 1y step rolling validation against overfitting. https://arxiv.org/pdf/2412.14361
@@ -154,11 +155,13 @@ A 3 leverage variáns (1×/2×/3×) 7 éves backtest eredménye (3 szimbólum ×
 
 ### 4.3 Source literature (≥3 independent per claim)
 
-- **SSRN 5292305 (2025) "Leveraged BTC Funding Carry Algorithm"** — 3× leveraged long-spot/short-perp: Sharpe 6.1, max DD < 2%, 16% APR. https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5292305
-- **ScienceDirect (Werapun 2025) — drift-XRP 7× funding rate arb** Sharpe 15.85. https://www.sciencedirect.com/
-- **Bybit Institutional 2025 Crypto Quant Strategy Index — Delta Neutral** +9.48% on Bybit, max DD 0.80%, positive every month of 2025. https://www.bybit.com/en/help-center/bybit-institutional
-- **Bybit maintenance margin / liquidation formulas** — Initial Margin = Position Value / Leverage, Maintenance Margin = Position Value × MMR (0.4-0.5% for BTC ≤$1M notional). https://www.bybit.com/en/help-center
+- **BIS Working Paper 1087 (2025) "Crypto carry"** — institutional analysis of crypto futures carry trade; documents structural yield from perpetual futures, Sharpe ratios 7-12.8 for BTC contracts, links carry to limited arbitrage capital + trend-chasing demand. https://www.bis.org/publ/work1087.pdf
+- **CMU "The Crypto Carry Trade" (Christin et al.)** — academic paper documenting BTC perp short-side carry Sharpe 12.8 and 7.0 across two contract variants; the carry return is decoupled from spot volatility. https://www.andrew.cmu.edu/user/azj/files/CarryTrade.v1.0.pdf
+- **Werapun et al. 2025 "Exploring Risk and Return Profiles of Funding Rate Arbitrage on CEX and DEX"** — Blockchain: Research and Applications, vol. 100354. drift-XRP 7× funding rate arb Sharpe 15.85, departs sharply from BTC HODL approach. https://doi.org/10.1016/j.bcra.2025.100354
+- **Bybit Institutional 2025 Crypto Quant Strategy Index — Delta Neutral** +9.48% on Bybit, max DD 0.80%, positive every month of 2025 (1Token + Bybit joint report, 25 trading teams, $10B AUM, 50+ strategies). Primary source: 1Token blog. https://blog.1token.tech/1token-and-bybit-institutional-jointly-release-2025-crypto-quant-strategy-index-report/
+- **Bybit maintenance margin / liquidation formulas** — Initial Margin = Position Value / Leverage, Maintenance Margin = Position Value × MMR (0.4-0.5% for BTC ≤$1M notional). Per Bybit’s institutional quant-index disclosure (1Token + Bybit joint 2025 report): https://blog.1token.tech/1token-and-bybit-institutional-jointly-release-2025-crypto-quant-strategy-index-report/
 - **Pomegra.io / Binance — VaR-based position sizing** — VaR = Portfolio × σ × z-score (z=1.65 at 95%); daily VaR ≤ 2% of equity. https://pomegra.io
+- **Sharpe.ai Crypto Futures Basis** — "Historical BTC and ETH funding rate arbitrage has yielded 10-40% annualized in bull markets." Live tracker of 13 venues, real-time APR scanner. https://www.sharpe.ai/learn/futures-basis-explained
 - **Altrady / coincryptorank industry consensus** — keep effective leverage ≤ 3× for basis trades, ≤5× at consensus; liquidation cascade risk grows fast with leverage past 3×.
 
 ### 4.4 Track C verdict — FULL PASS
