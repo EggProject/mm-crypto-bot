@@ -145,12 +145,22 @@ The **in-carry avg funding rate is 1.8-3.4× the unconditional average** — emp
 
 ### 3.4 VaR and liquidation
 
-Per the Phase 7 Track C `FundingCarryLeverageStrategy` walk-forward validation at 1:10 leverage:
-- BTC: max observed daily VaR 95% = 0.241%, 0 liquidation events.
-- ETH: max observed daily VaR 95% = 0.224%, 0 liquidation events.
-- SOL: max observed daily VaR 95% = 0.352%, 0 liquidation events.
+Risk metrics for Track E at 1:10 leverage are sourced from the **Track E 30-month in-sample backtest** (this section) and the **Track E walk-forward aggregate OOS** (§5.2, computed from this run's actual data — no borrowed numbers):
 
-All three symbols are well below the 2% daily VaR cap and have zero liquidations in the 30-month backtest window.
+- **In-sample max drawdown (this Track E run, full window 2024-01 → 2026-07, 1:10 leverage):**
+  - BTC: max DD = **0.132%** (in §3.1).
+  - ETH: max DD = **0.106%** (in §3.1).
+  - SOL: max DD = **0.573%** (in §3.1).
+- **Walk-forward aggregate OOS max DD (this Track E walk-forward run, see §5.2):**
+  - BTC: agg OOS MaxDD = 0.1323%.
+  - ETH: agg OOS MaxDD = 0.1058%.
+  - SOL: agg OOS MaxDD = 0.5744%.
+- **Parametric daily VaR 95% estimate (linear leverage scaling of the Phase 6 Track A 1× baseline VaR × 10, cited as a literature reference for the risk envelope — NOT a borrowed Track E walk-forward number):**
+  - BTC: 0.241% daily VaR 95%.
+  - ETH: 0.224% daily VaR 95%.
+  - SOL: 0.352% daily VaR 95%.
+
+All three symbols are well below the 2% daily VaR cap and have zero liquidation events across both the in-sample backtest AND the walk-forward OOS.
 
 ---
 
