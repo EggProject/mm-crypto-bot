@@ -18,12 +18,17 @@
 // (az engine hívja a strategy.onOpenPositionUpdate / onPositionOpened /
 // onPositionClosed hook-jait minden bar-on, amikor van nyitott pozíció).
 //
-// Usage:
-//   bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts
-//   bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts --symbol=BTC/USDT --timeframe=1d
-//   bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts --output=backtest-results/baseline-multi-class-v2-btc-1d.json
-//   bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts --trail-variant=pct10 --leverage=3 --kelly-bucket=0.7
-//   bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts --arb-threshold-ms=500
+// Phase 8 Track D — 1:10 MANDATORY LEVERAGE CONSTRAINT (HARD GUARDRAIL):
+//   - --leverage accepts ONLY 1 or 10 (1:10 bybit.eu SPOT margin default).
+//     Phase 7 --leverage=2/3 is REJECTED at parseArgs time + assert1to10Leverage.
+//   - --leverage-cap=<1|10> added as safety default.
+//   - See docs/research/phase8-carry-leverage-1-10.md §X.X.1.
+//
+// Usage (Phase 8):
+//   bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts --symbol=BTC/USDT --timeframe=1d --leverage=10
+//   bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts --leverage=10 --leverage-cap=10 --kelly-bucket=0.7
+//   bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts --leverage=1 --leverage-cap=10 --kelly-bucket=0.5  # 1× baseline reference
+//   bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts --arb-threshold-ms=500 --leverage=10
 
 import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
@@ -33,6 +38,7 @@ import { runBacktest, type BacktestResult, type CostModel } from "@mm-crypto-bot
 import type { ExchangeFeed } from "@mm-crypto-bot/backtest";
 import { makeSymbol, type Timeframe } from "@mm-crypto-bot/shared/types";
 import {
+  assert1to10Leverage,
   DEFAULT_ADAPTIVE_KELLY_AGGREGATE,
   DEFAULT_LATENCY_GATE_DISABLED,
   DEFAULT_MULTI_CLASS_ENSEMBLE_V2_CONFIG_PARTIAL,
@@ -56,7 +62,10 @@ interface CliArgs {
   readonly timeframe: Timeframe;
   readonly initialEquity: number;
   readonly trailVariant: TrailVariant;
-  readonly leverage: 1 | 2 | 3;
+  // Phase 8 Track D — 1:10 MANDATORY leverage (or 1× baseline). ONLY 1 or 10.
+  readonly leverage: 1 | 10;
+  // Phase 8 Track D — leverage cap safety default (10×). Same options.
+  readonly leverageCap: 1 | 10;
   readonly kellyBucket: 0.25 | 0.5 | 0.7 | 1.0;
   readonly arbThresholdMs: number;
   readonly baseNotionalUsd: number;
@@ -71,7 +80,10 @@ function parseArgs(): CliArgs {
   let timeframe: Timeframe = "1d";
   let initialEquity = 10_000;
   let trailVariant: TrailVariant = "pct10";
-  let leverage: 1 | 2 | 3 = 2;
+  // Phase 8 Track D — 1:10 default (was 2× in Phase 7).
+  let leverage: 1 | 10 = 10;
+  // 1:10 safety cap default (the 1:10 mandate is the hard ceiling).
+  let leverageCap: 1 | 10 = 10;
   let kellyBucket: 0.25 | 0.5 | 0.7 | 1.0 = 0.5;
   let arbThresholdMs = 500;
   let baseNotionalUsd = 10_000;
@@ -93,10 +105,25 @@ function parseArgs(): CliArgs {
       trailVariant = arg.slice("--trail-variant=".length) as TrailVariant;
     } else if (arg.startsWith("--leverage=")) {
       const l = Number(arg.slice("--leverage=".length));
-      if (l !== 1 && l !== 2 && l !== 3) {
-        throw new Error(`--leverage must be 1/2/3: ${l}`);
+      // Phase 8 Track D — HARD GUARDRAIL: only 1 or 10 accepted (1:10 mandate).
+      if (l !== 1 && l !== 10) {
+        throw new Error(
+          `[Phase 8 Track D] --leverage must be 1 or 10 (1:10 mandatory). ` +
+            `Got ${l}. Phase 8 dropped 2/3/5/7 leverage options. ` +
+            `See docs/research/phase8-carry-leverage-1-10.md §X.X.1 "1:10 MANDATORY LEVERAGE CONSTRAINT".`,
+        );
       }
       leverage = l;
+      assert1to10Leverage(l);
+    } else if (arg.startsWith("--leverage-cap=")) {
+      const lc = Number(arg.slice("--leverage-cap=".length));
+      if (lc !== 1 && lc !== 10) {
+        throw new Error(
+          `[Phase 8 Track D] --leverage-cap must be 1 or 10. Got ${lc}.`,
+        );
+      }
+      leverageCap = lc;
+      assert1to10Leverage(lc);
     } else if (arg.startsWith("--kelly-bucket=")) {
       const k = Number(arg.slice("--kelly-bucket=".length));
       if (k !== 0.25 && k !== 0.5 && k !== 0.7 && k !== 1.0) {
@@ -119,12 +146,16 @@ function parseArgs(): CliArgs {
     const symbolLower = symbol.split("/")[0]!.toLowerCase();
     outputPath = `backtest-results/baseline-multi-class-v2-${symbolLower}-${timeframe}.json`;
   }
+  // Defense in depth — final guardrail check before returning.
+  assert1to10Leverage(leverage);
+  assert1to10Leverage(leverageCap);
   return {
     symbol,
     timeframe,
     initialEquity,
     trailVariant,
     leverage,
+    leverageCap,
     kellyBucket,
     arbThresholdMs,
     baseNotionalUsd,
@@ -236,9 +267,12 @@ async function main(): Promise<void> {
 
   // 3) Build V2 config.
   const trailDefaults = TRAIL_VARIANT_DEFAULTS[args.trailVariant];
+  // Phase 8 Track D — leverageCap is the strategy's safety bound (maxLeverage
+  // in the config), and args.leverage is the effective leverage to pin
+  // for this run. Both are subject to the 1:10 hard guardrail.
   const leveragedCarry: Partial<LeveragedCarryConfig> = {
     baseNotionalUsd: args.baseNotionalUsd,
-    maxLeverage: args.leverage,
+    maxLeverage: args.leverageCap,
     minLeverage: 1,
   };
   const adaptiveKelly: AdaptiveKellyAggregate = {
@@ -343,7 +377,10 @@ async function main(): Promise<void> {
     },
     config: {
       trailVariant: args.trailVariant,
+      // Phase 8 Track D — 1:10 mandate: `leverage` is the effective
+      // applied leverage; `leverageCap` is the strategy's safety bound.
       leverage: args.leverage,
+      leverageCap: args.leverageCap,
       kellyBucket: args.kellyBucket,
       arbThresholdMs: args.arbThresholdMs,
       baseNotionalUsd: args.baseNotionalUsd,
