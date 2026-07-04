@@ -1,0 +1,5526 @@
+{
+  "args": {
+    "symbol": "SOL/USDT",
+    "timeframe": "1h",
+    "initialEquity": 10000,
+    "targetNotionalUsd": 10000,
+    "rebalanceThresholdPct": 0.05,
+    "withdrawalLatencyMinutes": 15,
+    "rebalanceCostBps": 20,
+    "outputPath": "backtest-results/baseline-funding-carry-sol-1h.json"
+  },
+  "totalMonths": 30.058901731396308,
+  "monthlyReturn": 0.003879173075600484,
+  "result": {
+    "totalReturn": 0.12342056000000029,
+    "annualizedReturn": 0.0475522016860348,
+    "sharpeRatio": 9.093165775225936,
+    "sortinoRatio": 3.049934689937882,
+    "maxDrawdown": 0.022810861467567903,
+    "profitFactor": 1234.2056000000027,
+    "winRate": 1,
+    "totalTrades": 0,
+    "fundingCollectedUsd": 1234.2056000000027,
+    "rebalanceCount": 0,
+    "rebalanceCostUsd": 0,
+    "fundingPeriods": 2745,
+    "avgFundingRate8h": 0.000044961952641164865,
+    "positiveFundingPeriods": 1885,
+    "negativeFundingPeriods": 860,
+    "zeroFundingPeriods": 0,
+    "startTime": 1704067200000,
+    "endTime": 1783122592496
+  },
+  "equityCurveSampled": [
+    {
+      "timestamp": 1704067200000,
+      "equity": 10002.241,
+      "fundingAccruedUsd": 2.241,
+      "markPrice": 101.96
+    },
+    {
+      "timestamp": 1704153600000,
+      "equity": 10016.4389,
+      "fundingAccruedUsd": 16.4389,
+      "markPrice": 110.54
+    },
+    {
+      "timestamp": 1704240000000,
+      "equity": 10034.0277,
+      "fundingAccruedUsd": 34.0277,
+      "markPrice": 107.31
+    },
+    {
+      "timestamp": 1704326400000,
+      "equity": 10037.3745,
+      "fundingAccruedUsd": 37.374500000000005,
+      "markPrice": 100.11
+    },
+    {
+      "timestamp": 1704412800000,
+      "equity": 10039.3745,
+      "fundingAccruedUsd": 39.374500000000005,
+      "markPrice": 104.08
+    },
+    {
+      "timestamp": 1704499200000,
+      "equity": 10043.3745,
+      "fundingAccruedUsd": 43.374500000000005,
+      "markPrice": 99.05
+    },
+    {
+      "timestamp": 1704585600000,
+      "equity": 10046.3745,
+      "fundingAccruedUsd": 46.374500000000005,
+      "markPrice": 95.54
+    },
+    {
+      "timestamp": 1704672000000,
+      "equity": 10049.3745,
+      "fundingAccruedUsd": 49.374500000000005,
+      "markPrice": 88.46
+    },
+    {
+      "timestamp": 1704758400000,
+      "equity": 10051.3745,
+      "fundingAccruedUsd": 51.374500000000005,
+      "markPrice": 97.49
+    },
+    {
+      "timestamp": 1704844800000,
+      "equity": 10055.3745,
+      "fundingAccruedUsd": 55.374500000000005,
+      "markPrice": 98.13
+    },
+    {
+      "timestamp": 1704931200000,
+      "equity": 10058.3745,
+      "fundingAccruedUsd": 58.374500000000005,
+      "markPrice": 100.59
+    },
+    {
+      "timestamp": 1705017600000,
+      "equity": 10060.3745,
+      "fundingAccruedUsd": 60.374500000000005,
+      "markPrice": 99.76
+    },
+    {
+      "timestamp": 1705104000000,
+      "equity": 10064.3745,
+      "fundingAccruedUsd": 64.37450000000001,
+      "markPrice": 90.95
+    },
+    {
+      "timestamp": 1705190400000,
+      "equity": 10067.3745,
+      "fundingAccruedUsd": 67.37450000000001,
+      "markPrice": 94.49
+    },
+    {
+      "timestamp": 1705276800000,
+      "equity": 10070.3745,
+      "fundingAccruedUsd": 70.37450000000001,
+      "markPrice": 95.73
+    },
+    {
+      "timestamp": 1705363200000,
+      "equity": 10073.3745,
+      "fundingAccruedUsd": 73.37450000000001,
+      "markPrice": 94.89
+    },
+    {
+      "timestamp": 1705449600000,
+      "equity": 10076.3745,
+      "fundingAccruedUsd": 76.37450000000001,
+      "markPrice": 98.56
+    },
+    {
+      "timestamp": 1705536000000,
+      "equity": 10078.3745,
+      "fundingAccruedUsd": 78.37450000000001,
+      "markPrice": 100.94
+    },
+    {
+      "timestamp": 1705622400000,
+      "equity": 10082.3745,
+      "fundingAccruedUsd": 82.37450000000001,
+      "markPrice": 94.1
+    },
+    {
+      "timestamp": 1705708800000,
+      "equity": 10085.3745,
+      "fundingAccruedUsd": 85.37450000000001,
+      "markPrice": 92.13
+    },
+    {
+      "timestamp": 1705795200000,
+      "equity": 10088.3745,
+      "fundingAccruedUsd": 88.37450000000001,
+      "markPrice": 92.14
+    },
+    {
+      "timestamp": 1705881600000,
+      "equity": 10091.3745,
+      "fundingAccruedUsd": 91.37450000000001,
+      "markPrice": 91.47
+    },
+    {
+      "timestamp": 1705968000000,
+      "equity": 10094.3745,
+      "fundingAccruedUsd": 94.37450000000001,
+      "markPrice": 84.74
+    },
+    {
+      "timestamp": 1706054400000,
+      "equity": 10097.3745,
+      "fundingAccruedUsd": 97.37450000000001,
+      "markPrice": 85.52
+    },
+    {
+      "timestamp": 1706140800000,
+      "equity": 10100.3745,
+      "fundingAccruedUsd": 100.37450000000001,
+      "markPrice": 89.47
+    },
+    {
+      "timestamp": 1706227200000,
+      "equity": 10102.3745,
+      "fundingAccruedUsd": 102.37450000000001,
+      "markPrice": 86.97
+    },
+    {
+      "timestamp": 1706313600000,
+      "equity": 10106.1744,
+      "fundingAccruedUsd": 106.1744,
+      "markPrice": 92.86
+    },
+    {
+      "timestamp": 1706400000000,
+      "equity": 10109.0646,
+      "fundingAccruedUsd": 109.0646,
+      "markPrice": 93.77
+    },
+    {
+      "timestamp": 1706486400000,
+      "equity": 10111.3214,
+      "fundingAccruedUsd": 111.3214,
+      "markPrice": 95.35
+    },
+    {
+      "timestamp": 1706572800000,
+      "equity": 10113.7143,
+      "fundingAccruedUsd": 113.7143,
+      "markPrice": 101.07
+    },
+    {
+      "timestamp": 1706659200000,
+      "equity": 10116.1476,
+      "fundingAccruedUsd": 116.1476,
+      "markPrice": 100.56
+    },
+    {
+      "timestamp": 1706745600000,
+      "equity": 10118.2328,
+      "fundingAccruedUsd": 118.2328,
+      "markPrice": 97.33
+    },
+    {
+      "timestamp": 1706832000000,
+      "equity": 10120.9779,
+      "fundingAccruedUsd": 120.97789999999999,
+      "markPrice": 98.87
+    },
+    {
+      "timestamp": 1706918400000,
+      "equity": 10123.9779,
+      "fundingAccruedUsd": 123.97789999999999,
+      "markPrice": 100.07
+    },
+    {
+      "timestamp": 1707004800000,
+      "equity": 10126.9505,
+      "fundingAccruedUsd": 126.95049999999999,
+      "markPrice": 97.92
+    },
+    {
+      "timestamp": 1707091200000,
+      "equity": 10129.9505,
+      "fundingAccruedUsd": 129.95049999999998,
+      "markPrice": 95.23
+    },
+    {
+      "timestamp": 1707177600000,
+      "equity": 10132.5121,
+      "fundingAccruedUsd": 132.51209999999998,
+      "markPrice": 95.59
+    },
+    {
+      "timestamp": 1707264000000,
+      "equity": 10135.5121,
+      "fundingAccruedUsd": 135.51209999999998,
+      "markPrice": 97.03
+    },
+    {
+      "timestamp": 1707350400000,
+      "equity": 10138.5121,
+      "fundingAccruedUsd": 138.51209999999998,
+      "markPrice": 101.96
+    },
+    {
+      "timestamp": 1707436800000,
+      "equity": 10141.219,
+      "fundingAccruedUsd": 141.21899999999997,
+      "markPrice": 103.31
+    },
+    {
+      "timestamp": 1707523200000,
+      "equity": 10142.5265,
+      "fundingAccruedUsd": 142.52649999999997,
+      "markPrice": 107.6
+    },
+    {
+      "timestamp": 1707609600000,
+      "equity": 10146.5265,
+      "fundingAccruedUsd": 146.52649999999997,
+      "markPrice": 108.87
+    },
+    {
+      "timestamp": 1707696000000,
+      "equity": 10149.5265,
+      "fundingAccruedUsd": 149.52649999999997,
+      "markPrice": 108.63
+    },
+    {
+      "timestamp": 1707782400000,
+      "equity": 10152.5265,
+      "fundingAccruedUsd": 152.52649999999997,
+      "markPrice": 113.98
+    },
+    {
+      "timestamp": 1707868800000,
+      "equity": 10155.9431,
+      "fundingAccruedUsd": 155.94309999999996,
+      "markPrice": 111.19
+    },
+    {
+      "timestamp": 1707955200000,
+      "equity": 10161.2228,
+      "fundingAccruedUsd": 161.22279999999998,
+      "markPrice": 117.97
+    },
+    {
+      "timestamp": 1708041600000,
+      "equity": 10166.2531,
+      "fundingAccruedUsd": 166.25309999999996,
+      "markPrice": 113.31
+    },
+    {
+      "timestamp": 1708128000000,
+      "equity": 10172.9193,
+      "fundingAccruedUsd": 172.91929999999994,
+      "markPrice": 110.54
+    },
+    {
+      "timestamp": 1708214400000,
+      "equity": 10182.2295,
+      "fundingAccruedUsd": 182.22949999999994,
+      "markPrice": 109.17
+    },
+    {
+      "timestamp": 1708300800000,
+      "equity": 10189.4112,
+      "fundingAccruedUsd": 189.41119999999995,
+      "markPrice": 112.37
+    },
+    {
+      "timestamp": 1708387200000,
+      "equity": 10200.3092,
+      "fundingAccruedUsd": 200.30919999999998,
+      "markPrice": 110.73
+    },
+    {
+      "timestamp": 1708473600000,
+      "equity": 10208.1023,
+      "fundingAccruedUsd": 208.10229999999999,
+      "markPrice": 107.39
+    },
+    {
+      "timestamp": 1708560000000,
+      "equity": 10212.4063,
+      "fundingAccruedUsd": 212.4063,
+      "markPrice": 103.8
+    },
+    {
+      "timestamp": 1708646400000,
+      "equity": 10220.6091,
+      "fundingAccruedUsd": 220.60909999999996,
+      "markPrice": 102.6
+    },
+    {
+      "timestamp": 1708732800000,
+      "equity": 10228.3002,
+      "fundingAccruedUsd": 228.30019999999993,
+      "markPrice": 100.56
+    },
+    {
+      "timestamp": 1708819200000,
+      "equity": 10234.2364,
+      "fundingAccruedUsd": 234.23639999999992,
+      "markPrice": 103.74
+    },
+    {
+      "timestamp": 1708905600000,
+      "equity": 10250.9159,
+      "fundingAccruedUsd": 250.91589999999994,
+      "markPrice": 103.95
+    },
+    {
+      "timestamp": 1708992000000,
+      "equity": 10266.3393,
+      "fundingAccruedUsd": 266.3392999999999,
+      "markPrice": 110.77
+    },
+    {
+      "timestamp": 1709078400000,
+      "equity": 10281.6693,
+      "fundingAccruedUsd": 281.6692999999999,
+      "markPrice": 108.61
+    },
+    {
+      "timestamp": 1709164800000,
+      "equity": 10302.4995,
+      "fundingAccruedUsd": 302.4994999999999,
+      "markPrice": 122.93
+    },
+    {
+      "timestamp": 1709251200000,
+      "equity": 10326.5883,
+      "fundingAccruedUsd": 326.58829999999995,
+      "markPrice": 132.93
+    },
+    {
+      "timestamp": 1709337600000,
+      "equity": 10346.7166,
+      "fundingAccruedUsd": 346.71659999999997,
+      "markPrice": 130.35
+    },
+    {
+      "timestamp": 1709424000000,
+      "equity": 10368.2227,
+      "fundingAccruedUsd": 368.2227,
+      "markPrice": 128.8
+    },
+    {
+      "timestamp": 1709510400000,
+      "equity": 10386.5258,
+      "fundingAccruedUsd": 386.52579999999995,
+      "markPrice": 130.79
+    },
+    {
+      "timestamp": 1709596800000,
+      "equity": 10408.2361,
+      "fundingAccruedUsd": 408.2360999999999,
+      "markPrice": 131.84
+    },
+    {
+      "timestamp": 1709683200000,
+      "equity": 10432.6182,
+      "fundingAccruedUsd": 432.61819999999994,
+      "markPrice": 123.65
+    },
+    {
+      "timestamp": 1709769600000,
+      "equity": 10443.9638,
+      "fundingAccruedUsd": 443.96379999999994,
+      "markPrice": 134.63
+    },
+    {
+      "timestamp": 1709856000000,
+      "equity": 10460.5823,
+      "fundingAccruedUsd": 460.5822999999999,
+      "markPrice": 145.56
+    },
+    {
+      "timestamp": 1709942400000,
+      "equity": 10476.2752,
+      "fundingAccruedUsd": 476.2751999999999,
+      "markPrice": 146.19
+    },
+    {
+      "timestamp": 1710028800000,
+      "equity": 10487.7051,
+      "fundingAccruedUsd": 487.7050999999999,
+      "markPrice": 145.72
+    },
+    {
+      "timestamp": 1710115200000,
+      "equity": 10501.8356,
+      "fundingAccruedUsd": 501.8355999999999,
+      "markPrice": 140.28
+    },
+    {
+      "timestamp": 1710201600000,
+      "equity": 10523.7579,
+      "fundingAccruedUsd": 523.7579,
+      "markPrice": 147.24
+    },
+    {
+      "timestamp": 1710288000000,
+      "equity": 10543.1295,
+      "fundingAccruedUsd": 543.1295,
+      "markPrice": 149.47
+    },
+    {
+      "timestamp": 1710374400000,
+      "equity": 10556.5536,
+      "fundingAccruedUsd": 556.5536,
+      "markPrice": 167.76
+    },
+    {
+      "timestamp": 1710460800000,
+      "equity": 10578.5807,
+      "fundingAccruedUsd": 578.5807000000001,
+      "markPrice": 179.56
+    },
+    {
+      "timestamp": 1710547200000,
+      "equity": 10586.2501,
+      "fundingAccruedUsd": 586.2501000000001,
+      "markPrice": 181.14
+    },
+    {
+      "timestamp": 1710633600000,
+      "equity": 10591.2371,
+      "fundingAccruedUsd": 591.2371,
+      "markPrice": 182.39
+    },
+    {
+      "timestamp": 1710720000000,
+      "equity": 10598.6358,
+      "fundingAccruedUsd": 598.6358,
+      "markPrice": 195.84
+    },
+    {
+      "timestamp": 1710806400000,
+      "equity": 10605.523,
+      "fundingAccruedUsd": 605.5229999999999,
+      "markPrice": 193.8
+    },
+    {
+      "timestamp": 1710892800000,
+      "equity": 10610.4365,
+      "fundingAccruedUsd": 610.4364999999999,
+      "markPrice": 176.15
+    },
+    {
+      "timestamp": 1710979200000,
+      "equity": 10615.0041,
+      "fundingAccruedUsd": 615.0040999999999,
+      "markPrice": 192.97
+    },
+    {
+      "timestamp": 1711065600000,
+      "equity": 10620.9409,
+      "fundingAccruedUsd": 620.9408999999999,
+      "markPrice": 179
+    },
+    {
+      "timestamp": 1711152000000,
+      "equity": 10625.561599999999,
+      "fundingAccruedUsd": 625.5615999999999,
+      "markPrice": 173.72
+    },
+    {
+      "timestamp": 1711238400000,
+      "equity": 10630.5261,
+      "fundingAccruedUsd": 630.5260999999998,
+      "markPrice": 175.87
+    },
+    {
+      "timestamp": 1711324800000,
+      "equity": 10636.7848,
+      "fundingAccruedUsd": 636.7847999999998,
+      "markPrice": 181.31
+    },
+    {
+      "timestamp": 1711411200000,
+      "equity": 10644.4922,
+      "fundingAccruedUsd": 644.4921999999998,
+      "markPrice": 188.96
+    },
+    {
+      "timestamp": 1711497600000,
+      "equity": 10652.293,
+      "fundingAccruedUsd": 652.2929999999998,
+      "markPrice": 192.36
+    },
+    {
+      "timestamp": 1711584000000,
+      "equity": 10661.5118,
+      "fundingAccruedUsd": 661.5117999999998,
+      "markPrice": 186.53
+    },
+    {
+      "timestamp": 1711670400000,
+      "equity": 10673.6867,
+      "fundingAccruedUsd": 673.6866999999999,
+      "markPrice": 188.65
+    },
+    {
+      "timestamp": 1711756800000,
+      "equity": 10686.547,
+      "fundingAccruedUsd": 686.5469999999999,
+      "markPrice": 194.09
+    },
+    {
+      "timestamp": 1711843200000,
+      "equity": 10702.3301,
+      "fundingAccruedUsd": 702.3300999999999,
+      "markPrice": 195.24
+    },
+    {
+      "timestamp": 1711929600000,
+      "equity": 10720.5862,
+      "fundingAccruedUsd": 720.5862,
+      "markPrice": 201.99
+    },
+    {
+      "timestamp": 1712016000000,
+      "equity": 10728.1618,
+      "fundingAccruedUsd": 728.1618,
+      "markPrice": 189.79
+    },
+    {
+      "timestamp": 1712102400000,
+      "equity": 10733.4288,
+      "fundingAccruedUsd": 733.4287999999999,
+      "markPrice": 181.15
+    },
+    {
+      "timestamp": 1712188800000,
+      "equity": 10737.0442,
+      "fundingAccruedUsd": 737.0441999999999,
+      "markPrice": 186.73
+    },
+    {
+      "timestamp": 1712275200000,
+      "equity": 10740.725699999999,
+      "fundingAccruedUsd": 740.7257,
+      "markPrice": 184.89
+    },
+    {
+      "timestamp": 1712361600000,
+      "equity": 10743.725699999999,
+      "fundingAccruedUsd": 743.7257,
+      "markPrice": 175.32
+    },
+    {
+      "timestamp": 1712448000000,
+      "equity": 10746.725699999999,
+      "fundingAccruedUsd": 746.7257,
+      "markPrice": 178.07
+    },
+    {
+      "timestamp": 1712534400000,
+      "equity": 10748.725699999999,
+      "fundingAccruedUsd": 748.7257,
+      "markPrice": 177.98
+    },
+    {
+      "timestamp": 1712620800000,
+      "equity": 10755.8434,
+      "fundingAccruedUsd": 755.8434,
+      "markPrice": 179.93
+    },
+    {
+      "timestamp": 1712707200000,
+      "equity": 10761.8846,
+      "fundingAccruedUsd": 761.8845999999999,
+      "markPrice": 172.38
+    },
+    {
+      "timestamp": 1712793600000,
+      "equity": 10769.4939,
+      "fundingAccruedUsd": 769.4938999999999,
+      "markPrice": 172.18
+    },
+    {
+      "timestamp": 1712880000000,
+      "equity": 10777.3294,
+      "fundingAccruedUsd": 777.3294,
+      "markPrice": 173.35
+    },
+    {
+      "timestamp": 1712966400000,
+      "equity": 10783.83,
+      "fundingAccruedUsd": 783.83,
+      "markPrice": 151.62
+    },
+    {
+      "timestamp": 1713052800000,
+      "equity": 10786.83,
+      "fundingAccruedUsd": 786.83,
+      "markPrice": 137.91
+    },
+    {
+      "timestamp": 1713139200000,
+      "equity": 10789.7986,
+      "fundingAccruedUsd": 789.7986000000001,
+      "markPrice": 148.51
+    },
+    {
+      "timestamp": 1713225600000,
+      "equity": 10790.3598,
+      "fundingAccruedUsd": 790.3598000000001,
+      "markPrice": 137.45
+    },
+    {
+      "timestamp": 1713312000000,
+      "equity": 10790.2159,
+      "fundingAccruedUsd": 790.2159000000001,
+      "markPrice": 137.38
+    },
+    {
+      "timestamp": 1713398400000,
+      "equity": 10791.938,
+      "fundingAccruedUsd": 791.9380000000002,
+      "markPrice": 132.25
+    },
+    {
+      "timestamp": 1713484800000,
+      "equity": 10793.3173,
+      "fundingAccruedUsd": 793.3173000000002,
+      "markPrice": 138.22
+    },
+    {
+      "timestamp": 1713571200000,
+      "equity": 10794.8193,
+      "fundingAccruedUsd": 794.8193000000001,
+      "markPrice": 140.74
+    },
+    {
+      "timestamp": 1713657600000,
+      "equity": 10796.6026,
+      "fundingAccruedUsd": 796.6026000000002,
+      "markPrice": 148.64
+    },
+    {
+      "timestamp": 1713744000000,
+      "equity": 10797.1047,
+      "fundingAccruedUsd": 797.1047000000002,
+      "markPrice": 148.94
+    },
+    {
+      "timestamp": 1713830400000,
+      "equity": 10797.5271,
+      "fundingAccruedUsd": 797.5271000000002,
+      "markPrice": 158.88
+    },
+    {
+      "timestamp": 1713916800000,
+      "equity": 10797.3611,
+      "fundingAccruedUsd": 797.3611000000003,
+      "markPrice": 156.7
+    },
+    {
+      "timestamp": 1714003200000,
+      "equity": 10799.4254,
+      "fundingAccruedUsd": 799.4254000000003,
+      "markPrice": 148.61
+    },
+    {
+      "timestamp": 1714089600000,
+      "equity": 10800.649300000001,
+      "fundingAccruedUsd": 800.6493000000003,
+      "markPrice": 143.07
+    },
+    {
+      "timestamp": 1714176000000,
+      "equity": 10803.4972,
+      "fundingAccruedUsd": 803.4972000000002,
+      "markPrice": 137.73
+    },
+    {
+      "timestamp": 1714262400000,
+      "equity": 10803.7502,
+      "fundingAccruedUsd": 803.7502000000003,
+      "markPrice": 141.96
+    },
+    {
+      "timestamp": 1714348800000,
+      "equity": 10806.053100000001,
+      "fundingAccruedUsd": 806.0531000000003,
+      "markPrice": 138.38
+    },
+    {
+      "timestamp": 1714435200000,
+      "equity": 10808.6915,
+      "fundingAccruedUsd": 808.6915000000004,
+      "markPrice": 139.15
+    },
+    {
+      "timestamp": 1714521600000,
+      "equity": 10809.7451,
+      "fundingAccruedUsd": 809.7451000000004,
+      "markPrice": 125.17
+    },
+    {
+      "timestamp": 1714608000000,
+      "equity": 10811.6934,
+      "fundingAccruedUsd": 811.6934000000003,
+      "markPrice": 131.48
+    },
+    {
+      "timestamp": 1714694400000,
+      "equity": 10813.4163,
+      "fundingAccruedUsd": 813.4163000000003,
+      "markPrice": 137.8
+    },
+    {
+      "timestamp": 1714780800000,
+      "equity": 10812.3195,
+      "fundingAccruedUsd": 812.3195000000003,
+      "markPrice": 144.2
+    },
+    {
+      "timestamp": 1714867200000,
+      "equity": 10813.120200000001,
+      "fundingAccruedUsd": 813.1202000000003,
+      "markPrice": 145.18
+    },
+    {
+      "timestamp": 1714953600000,
+      "equity": 10815.287,
+      "fundingAccruedUsd": 815.2870000000004,
+      "markPrice": 147.07
+    },
+    {
+      "timestamp": 1715040000000,
+      "equity": 10817.5804,
+      "fundingAccruedUsd": 817.5804000000004,
+      "markPrice": 153.56
+    },
+    {
+      "timestamp": 1715126400000,
+      "equity": 10818.6608,
+      "fundingAccruedUsd": 818.6608000000003,
+      "markPrice": 149.24
+    },
+    {
+      "timestamp": 1715212800000,
+      "equity": 10821.193500000001,
+      "fundingAccruedUsd": 821.1935000000003,
+      "markPrice": 143.38
+    },
+    {
+      "timestamp": 1715299200000,
+      "equity": 10822.993,
+      "fundingAccruedUsd": 822.9930000000003,
+      "markPrice": 152.02
+    },
+    {
+      "timestamp": 1715385600000,
+      "equity": 10824.982,
+      "fundingAccruedUsd": 824.9820000000002,
+      "markPrice": 146.06
+    },
+    {
+      "timestamp": 1715472000000,
+      "equity": 10826.8974,
+      "fundingAccruedUsd": 826.8974000000002,
+      "markPrice": 145.62
+    },
+    {
+      "timestamp": 1715558400000,
+      "equity": 10827.7945,
+      "fundingAccruedUsd": 827.7945000000001,
+      "markPrice": 145.19
+    },
+    {
+      "timestamp": 1715644800000,
+      "equity": 10830.6999,
+      "fundingAccruedUsd": 830.6999000000001,
+      "markPrice": 146.79
+    },
+    {
+      "timestamp": 1715731200000,
+      "equity": 10832.227,
+      "fundingAccruedUsd": 832.2270000000001,
+      "markPrice": 141.71
+    },
+    {
+      "timestamp": 1715817600000,
+      "equity": 10833.2525,
+      "fundingAccruedUsd": 833.2525,
+      "markPrice": 161.53
+    },
+    {
+      "timestamp": 1715904000000,
+      "equity": 10836.9975,
+      "fundingAccruedUsd": 836.9975000000001,
+      "markPrice": 162.31
+    },
+    {
+      "timestamp": 1715990400000,
+      "equity": 10838.1656,
+      "fundingAccruedUsd": 838.1656,
+      "markPrice": 170.33
+    },
+    {
+      "timestamp": 1716076800000,
+      "equity": 10839.5231,
+      "fundingAccruedUsd": 839.5231000000001,
+      "markPrice": 173.17
+    },
+    {
+      "timestamp": 1716163200000,
+      "equity": 10841.5901,
+      "fundingAccruedUsd": 841.5901000000001,
+      "markPrice": 170.35
+    },
+    {
+      "timestamp": 1716249600000,
+      "equity": 10844.2663,
+      "fundingAccruedUsd": 844.2663000000001,
+      "markPrice": 185.91
+    },
+    {
+      "timestamp": 1716336000000,
+      "equity": 10847.2663,
+      "fundingAccruedUsd": 847.2663000000001,
+      "markPrice": 177.74
+    },
+    {
+      "timestamp": 1716422400000,
+      "equity": 10850.2663,
+      "fundingAccruedUsd": 850.2663000000001,
+      "markPrice": 177.11
+    },
+    {
+      "timestamp": 1716508800000,
+      "equity": 10853.2663,
+      "fundingAccruedUsd": 853.2663000000001,
+      "markPrice": 174.35
+    },
+    {
+      "timestamp": 1716595200000,
+      "equity": 10856.2663,
+      "fundingAccruedUsd": 856.2663000000001,
+      "markPrice": 166.13
+    },
+    {
+      "timestamp": 1716681600000,
+      "equity": 10859.2663,
+      "fundingAccruedUsd": 859.2663000000001,
+      "markPrice": 167.58
+    },
+    {
+      "timestamp": 1716768000000,
+      "equity": 10862.2663,
+      "fundingAccruedUsd": 862.2663000000001,
+      "markPrice": 165.59
+    },
+    {
+      "timestamp": 1716854400000,
+      "equity": 10865.2663,
+      "fundingAccruedUsd": 865.2663000000001,
+      "markPrice": 169.84
+    },
+    {
+      "timestamp": 1716940800000,
+      "equity": 10867.6792,
+      "fundingAccruedUsd": 867.6792000000002,
+      "markPrice": 168.47
+    },
+    {
+      "timestamp": 1717027200000,
+      "equity": 10872.905,
+      "fundingAccruedUsd": 872.9050000000001,
+      "markPrice": 168.03
+    },
+    {
+      "timestamp": 1717113600000,
+      "equity": 10875.905,
+      "fundingAccruedUsd": 875.9050000000001,
+      "markPrice": 166.55
+    },
+    {
+      "timestamp": 1717200000000,
+      "equity": 10879.5131,
+      "fundingAccruedUsd": 879.5131000000001,
+      "markPrice": 166.77
+    },
+    {
+      "timestamp": 1717286400000,
+      "equity": 10883.456,
+      "fundingAccruedUsd": 883.4560000000001,
+      "markPrice": 166.77
+    },
+    {
+      "timestamp": 1717372800000,
+      "equity": 10886.6717,
+      "fundingAccruedUsd": 886.6717000000001,
+      "markPrice": 162.55
+    },
+    {
+      "timestamp": 1717459200000,
+      "equity": 10890.4369,
+      "fundingAccruedUsd": 890.4369000000002,
+      "markPrice": 165.29
+    },
+    {
+      "timestamp": 1717545600000,
+      "equity": 10895.5034,
+      "fundingAccruedUsd": 895.5034000000002,
+      "markPrice": 172.04
+    },
+    {
+      "timestamp": 1717632000000,
+      "equity": 10901.6968,
+      "fundingAccruedUsd": 901.6968000000002,
+      "markPrice": 173.66
+    },
+    {
+      "timestamp": 1717718400000,
+      "equity": 10906.7981,
+      "fundingAccruedUsd": 906.7981000000001,
+      "markPrice": 170.26
+    },
+    {
+      "timestamp": 1717804800000,
+      "equity": 10911.1379,
+      "fundingAccruedUsd": 911.1379000000001,
+      "markPrice": 162.17
+    },
+    {
+      "timestamp": 1717891200000,
+      "equity": 10914.1379,
+      "fundingAccruedUsd": 914.1379000000001,
+      "markPrice": 158.16
+    },
+    {
+      "timestamp": 1717977600000,
+      "equity": 10917.1379,
+      "fundingAccruedUsd": 917.1379000000001,
+      "markPrice": 161.2
+    },
+    {
+      "timestamp": 1718064000000,
+      "equity": 10919.1379,
+      "fundingAccruedUsd": 919.1379000000001,
+      "markPrice": 158.99
+    },
+    {
+      "timestamp": 1718150400000,
+      "equity": 10923.1379,
+      "fundingAccruedUsd": 923.1379000000001,
+      "markPrice": 148.2
+    },
+    {
+      "timestamp": 1718236800000,
+      "equity": 10926.1379,
+      "fundingAccruedUsd": 926.1379000000001,
+      "markPrice": 154.65
+    },
+    {
+      "timestamp": 1718323200000,
+      "equity": 10929.1379,
+      "fundingAccruedUsd": 929.1379000000001,
+      "markPrice": 147.1
+    },
+    {
+      "timestamp": 1718409600000,
+      "equity": 10931.9553,
+      "fundingAccruedUsd": 931.9553000000001,
+      "markPrice": 143.55
+    },
+    {
+      "timestamp": 1718496000000,
+      "equity": 10933.9553,
+      "fundingAccruedUsd": 933.9553000000001,
+      "markPrice": 144.68
+    },
+    {
+      "timestamp": 1718582400000,
+      "equity": 10937.2745,
+      "fundingAccruedUsd": 937.2745000000001,
+      "markPrice": 150.47
+    },
+    {
+      "timestamp": 1718668800000,
+      "equity": 10939.7498,
+      "fundingAccruedUsd": 939.7498,
+      "markPrice": 141.52
+    },
+    {
+      "timestamp": 1718755200000,
+      "equity": 10939.8649,
+      "fundingAccruedUsd": 939.8649,
+      "markPrice": 137.97
+    },
+    {
+      "timestamp": 1718841600000,
+      "equity": 10942.7089,
+      "fundingAccruedUsd": 942.7089000000001,
+      "markPrice": 135.27
+    },
+    {
+      "timestamp": 1718928000000,
+      "equity": 10942.6535,
+      "fundingAccruedUsd": 942.6535,
+      "markPrice": 133.01
+    },
+    {
+      "timestamp": 1719014400000,
+      "equity": 10944.216,
+      "fundingAccruedUsd": 944.216,
+      "markPrice": 133.58
+    },
+    {
+      "timestamp": 1719100800000,
+      "equity": 10945.7644,
+      "fundingAccruedUsd": 945.7643999999999,
+      "markPrice": 134.61
+    },
+    {
+      "timestamp": 1719187200000,
+      "equity": 10946.5708,
+      "fundingAccruedUsd": 946.5707999999998,
+      "markPrice": 129
+    },
+    {
+      "timestamp": 1719273600000,
+      "equity": 10948.307999999999,
+      "fundingAccruedUsd": 948.3079999999999,
+      "markPrice": 132.26
+    },
+    {
+      "timestamp": 1719360000000,
+      "equity": 10948.8107,
+      "fundingAccruedUsd": 948.8106999999999,
+      "markPrice": 136.43
+    },
+    {
+      "timestamp": 1719446400000,
+      "equity": 10952.8107,
+      "fundingAccruedUsd": 952.8106999999999,
+      "markPrice": 136.8
+    },
+    {
+      "timestamp": 1719532800000,
+      "equity": 10955.8107,
+      "fundingAccruedUsd": 955.8106999999999,
+      "markPrice": 147.57
+    },
+    {
+      "timestamp": 1719619200000,
+      "equity": 10957.61,
+      "fundingAccruedUsd": 957.6099999999999,
+      "markPrice": 141.04
+    },
+    {
+      "timestamp": 1719705600000,
+      "equity": 10961.61,
+      "fundingAccruedUsd": 961.6099999999999,
+      "markPrice": 140.76
+    },
+    {
+      "timestamp": 1719792000000,
+      "equity": 10964.4834,
+      "fundingAccruedUsd": 964.4833999999998,
+      "markPrice": 147.83
+    },
+    {
+      "timestamp": 1719878400000,
+      "equity": 10967.065,
+      "fundingAccruedUsd": 967.0649999999998,
+      "markPrice": 147.34
+    },
+    {
+      "timestamp": 1719964800000,
+      "equity": 10969.0985,
+      "fundingAccruedUsd": 969.0984999999998,
+      "markPrice": 153.47
+    },
+    {
+      "timestamp": 1720051200000,
+      "equity": 10972.0985,
+      "fundingAccruedUsd": 972.0984999999998,
+      "markPrice": 141.4
+    },
+    {
+      "timestamp": 1720137600000,
+      "equity": 10973.3885,
+      "fundingAccruedUsd": 973.3884999999998,
+      "markPrice": 128.59
+    },
+    {
+      "timestamp": 1720224000000,
+      "equity": 10973.5055,
+      "fundingAccruedUsd": 973.5054999999998,
+      "markPrice": 135.07
+    },
+    {
+      "timestamp": 1720310400000,
+      "equity": 10972.6328,
+      "fundingAccruedUsd": 972.6327999999997,
+      "markPrice": 141.23
+    },
+    {
+      "timestamp": 1720396800000,
+      "equity": 10975.668,
+      "fundingAccruedUsd": 975.6679999999998,
+      "markPrice": 129.14
+    },
+    {
+      "timestamp": 1720483200000,
+      "equity": 10977.1051,
+      "fundingAccruedUsd": 977.1050999999998,
+      "markPrice": 138.25
+    },
+    {
+      "timestamp": 1720569600000,
+      "equity": 10978.9653,
+      "fundingAccruedUsd": 978.9652999999998,
+      "markPrice": 139.15
+    },
+    {
+      "timestamp": 1720656000000,
+      "equity": 10980.601999999999,
+      "fundingAccruedUsd": 980.6019999999999,
+      "markPrice": 141.71
+    },
+    {
+      "timestamp": 1720742400000,
+      "equity": 10982.6792,
+      "fundingAccruedUsd": 982.6791999999999,
+      "markPrice": 135.84
+    },
+    {
+      "timestamp": 1720828800000,
+      "equity": 10983.1947,
+      "fundingAccruedUsd": 983.1946999999999,
+      "markPrice": 139.03
+    },
+    {
+      "timestamp": 1720915200000,
+      "equity": 10985.2452,
+      "fundingAccruedUsd": 985.2451999999998,
+      "markPrice": 144.9
+    },
+    {
+      "timestamp": 1721001600000,
+      "equity": 10985.749,
+      "fundingAccruedUsd": 985.7489999999999,
+      "markPrice": 150.33
+    },
+    {
+      "timestamp": 1721088000000,
+      "equity": 10985.9943,
+      "fundingAccruedUsd": 985.9942999999998,
+      "markPrice": 158.06
+    },
+    {
+      "timestamp": 1721174400000,
+      "equity": 10988.7717,
+      "fundingAccruedUsd": 988.7716999999998,
+      "markPrice": 161.28
+    },
+    {
+      "timestamp": 1721260800000,
+      "equity": 10990.9264,
+      "fundingAccruedUsd": 990.9263999999997,
+      "markPrice": 157.86
+    },
+    {
+      "timestamp": 1721347200000,
+      "equity": 10993.5041,
+      "fundingAccruedUsd": 993.5040999999997,
+      "markPrice": 158.06
+    },
+    {
+      "timestamp": 1721433600000,
+      "equity": 10995.016899999999,
+      "fundingAccruedUsd": 995.0168999999996,
+      "markPrice": 169.42
+    },
+    {
+      "timestamp": 1721520000000,
+      "equity": 10997.2853,
+      "fundingAccruedUsd": 997.2852999999996,
+      "markPrice": 172.96
+    },
+    {
+      "timestamp": 1721606400000,
+      "equity": 10999.8316,
+      "fundingAccruedUsd": 999.8315999999995,
+      "markPrice": 183.01
+    },
+    {
+      "timestamp": 1721692800000,
+      "equity": 11002.542099999999,
+      "fundingAccruedUsd": 1002.5420999999996,
+      "markPrice": 178.79
+    },
+    {
+      "timestamp": 1721779200000,
+      "equity": 11005.0005,
+      "fundingAccruedUsd": 1005.0004999999995,
+      "markPrice": 171.07
+    },
+    {
+      "timestamp": 1721865600000,
+      "equity": 11007.5216,
+      "fundingAccruedUsd": 1007.5215999999995,
+      "markPrice": 178.49
+    },
+    {
+      "timestamp": 1721952000000,
+      "equity": 11010.0353,
+      "fundingAccruedUsd": 1010.0352999999994,
+      "markPrice": 172.9
+    },
+    {
+      "timestamp": 1722038400000,
+      "equity": 11011.4491,
+      "fundingAccruedUsd": 1011.4490999999994,
+      "markPrice": 182.44
+    },
+    {
+      "timestamp": 1722124800000,
+      "equity": 11013.660699999999,
+      "fundingAccruedUsd": 1013.6606999999993,
+      "markPrice": 184.91
+    },
+    {
+      "timestamp": 1722211200000,
+      "equity": 11015.553899999999,
+      "fundingAccruedUsd": 1015.5538999999993,
+      "markPrice": 188.1
+    },
+    {
+      "timestamp": 1722297600000,
+      "equity": 11018.701599999999,
+      "fundingAccruedUsd": 1018.7015999999993,
+      "markPrice": 182.9
+    },
+    {
+      "timestamp": 1722384000000,
+      "equity": 11021.019999999999,
+      "fundingAccruedUsd": 1021.0199999999993,
+      "markPrice": 180.76
+    },
+    {
+      "timestamp": 1722470400000,
+      "equity": 11023.6165,
+      "fundingAccruedUsd": 1023.6164999999993,
+      "markPrice": 172
+    },
+    {
+      "timestamp": 1722556800000,
+      "equity": 11025.980399999999,
+      "fundingAccruedUsd": 1025.9803999999992,
+      "markPrice": 167.02
+    },
+    {
+      "timestamp": 1722643200000,
+      "equity": 11028.960599999999,
+      "fundingAccruedUsd": 1028.9605999999992,
+      "markPrice": 151.11
+    },
+    {
+      "timestamp": 1722729600000,
+      "equity": 11030.593099999998,
+      "fundingAccruedUsd": 1030.5930999999991,
+      "markPrice": 144.1
+    },
+    {
+      "timestamp": 1722816000000,
+      "equity": 11032.5237,
+      "fundingAccruedUsd": 1032.523699999999,
+      "markPrice": 131.41
+    },
+    {
+      "timestamp": 1722902400000,
+      "equity": 11033.296199999999,
+      "fundingAccruedUsd": 1033.2961999999989,
+      "markPrice": 138.94
+    },
+    {
+      "timestamp": 1722988800000,
+      "equity": 11032.9718,
+      "fundingAccruedUsd": 1032.971799999999,
+      "markPrice": 144.77
+    },
+    {
+      "timestamp": 1723075200000,
+      "equity": 11032.337699999998,
+      "fundingAccruedUsd": 1032.337699999999,
+      "markPrice": 144.13
+    },
+    {
+      "timestamp": 1723161600000,
+      "equity": 11033.324799999999,
+      "fundingAccruedUsd": 1033.324799999999,
+      "markPrice": 161.18
+    },
+    {
+      "timestamp": 1723248000000,
+      "equity": 11033.0844,
+      "fundingAccruedUsd": 1033.084399999999,
+      "markPrice": 154.88
+    },
+    {
+      "timestamp": 1723334400000,
+      "equity": 11033.638599999998,
+      "fundingAccruedUsd": 1033.638599999999,
+      "markPrice": 154.69
+    },
+    {
+      "timestamp": 1723420800000,
+      "equity": 11034.7563,
+      "fundingAccruedUsd": 1034.7562999999989,
+      "markPrice": 142.74
+    },
+    {
+      "timestamp": 1723507200000,
+      "equity": 11034.669899999999,
+      "fundingAccruedUsd": 1034.669899999999,
+      "markPrice": 146.69
+    },
+    {
+      "timestamp": 1723593600000,
+      "equity": 11036.054499999998,
+      "fundingAccruedUsd": 1036.0544999999988,
+      "markPrice": 145.97
+    },
+    {
+      "timestamp": 1723680000000,
+      "equity": 11036.459799999999,
+      "fundingAccruedUsd": 1036.459799999999,
+      "markPrice": 144.89
+    },
+    {
+      "timestamp": 1723766400000,
+      "equity": 11035.964499999998,
+      "fundingAccruedUsd": 1035.964499999999,
+      "markPrice": 141.93
+    },
+    {
+      "timestamp": 1723852800000,
+      "equity": 11036.0811,
+      "fundingAccruedUsd": 1036.081099999999,
+      "markPrice": 138.98
+    },
+    {
+      "timestamp": 1723939200000,
+      "equity": 11035.9283,
+      "fundingAccruedUsd": 1035.928299999999,
+      "markPrice": 142.58
+    },
+    {
+      "timestamp": 1724025600000,
+      "equity": 11034.883699999998,
+      "fundingAccruedUsd": 1034.883699999999,
+      "markPrice": 142.01
+    },
+    {
+      "timestamp": 1724112000000,
+      "equity": 11035.760199999999,
+      "fundingAccruedUsd": 1035.760199999999,
+      "markPrice": 146.57
+    },
+    {
+      "timestamp": 1724198400000,
+      "equity": 11035.083499999999,
+      "fundingAccruedUsd": 1035.083499999999,
+      "markPrice": 141.85
+    },
+    {
+      "timestamp": 1724284800000,
+      "equity": 11035.3458,
+      "fundingAccruedUsd": 1035.345799999999,
+      "markPrice": 142.49
+    },
+    {
+      "timestamp": 1724371200000,
+      "equity": 11036.7794,
+      "fundingAccruedUsd": 1036.779399999999,
+      "markPrice": 144.4
+    },
+    {
+      "timestamp": 1724457600000,
+      "equity": 11037.429699999999,
+      "fundingAccruedUsd": 1037.429699999999,
+      "markPrice": 153.1
+    },
+    {
+      "timestamp": 1724544000000,
+      "equity": 11039.233799999998,
+      "fundingAccruedUsd": 1039.233799999999,
+      "markPrice": 158.85
+    },
+    {
+      "timestamp": 1724630400000,
+      "equity": 11040.2048,
+      "fundingAccruedUsd": 1040.204799999999,
+      "markPrice": 159.08
+    },
+    {
+      "timestamp": 1724716800000,
+      "equity": 11041.410199999998,
+      "fundingAccruedUsd": 1041.4101999999991,
+      "markPrice": 157.61
+    },
+    {
+      "timestamp": 1724803200000,
+      "equity": 11043.2634,
+      "fundingAccruedUsd": 1043.2633999999991,
+      "markPrice": 145.96
+    },
+    {
+      "timestamp": 1724889600000,
+      "equity": 11043.538199999999,
+      "fundingAccruedUsd": 1043.5381999999993,
+      "markPrice": 144.27
+    },
+    {
+      "timestamp": 1724976000000,
+      "equity": 11041.3141,
+      "fundingAccruedUsd": 1041.3140999999991,
+      "markPrice": 140.39
+    },
+    {
+      "timestamp": 1725062400000,
+      "equity": 11040.4327,
+      "fundingAccruedUsd": 1040.4326999999992,
+      "markPrice": 138.32
+    },
+    {
+      "timestamp": 1725148800000,
+      "equity": 11041.0121,
+      "fundingAccruedUsd": 1041.0120999999992,
+      "markPrice": 135.36
+    },
+    {
+      "timestamp": 1725235200000,
+      "equity": 11040.461299999999,
+      "fundingAccruedUsd": 1040.4612999999993,
+      "markPrice": 129.68
+    },
+    {
+      "timestamp": 1725321600000,
+      "equity": 11038.686399999999,
+      "fundingAccruedUsd": 1038.6863999999994,
+      "markPrice": 135.03
+    },
+    {
+      "timestamp": 1725408000000,
+      "equity": 11040.4571,
+      "fundingAccruedUsd": 1040.4570999999994,
+      "markPrice": 126.7
+    },
+    {
+      "timestamp": 1725494400000,
+      "equity": 11041.3491,
+      "fundingAccruedUsd": 1041.3490999999992,
+      "markPrice": 132.93
+    },
+    {
+      "timestamp": 1725580800000,
+      "equity": 11042.5814,
+      "fundingAccruedUsd": 1042.5813999999993,
+      "markPrice": 129.44
+    },
+    {
+      "timestamp": 1725667200000,
+      "equity": 11042.6312,
+      "fundingAccruedUsd": 1042.6311999999994,
+      "markPrice": 124.92
+    },
+    {
+      "timestamp": 1725753600000,
+      "equity": 11043.2742,
+      "fundingAccruedUsd": 1043.2741999999994,
+      "markPrice": 127.55
+    },
+    {
+      "timestamp": 1725840000000,
+      "equity": 11044.9384,
+      "fundingAccruedUsd": 1044.9383999999995,
+      "markPrice": 130.12
+    },
+    {
+      "timestamp": 1725926400000,
+      "equity": 11044.8613,
+      "fundingAccruedUsd": 1044.8612999999996,
+      "markPrice": 134.04
+    },
+    {
+      "timestamp": 1726012800000,
+      "equity": 11044.2673,
+      "fundingAccruedUsd": 1044.2672999999993,
+      "markPrice": 135.56
+    },
+    {
+      "timestamp": 1726099200000,
+      "equity": 11043.6009,
+      "fundingAccruedUsd": 1043.6008999999995,
+      "markPrice": 133.6
+    },
+    {
+      "timestamp": 1726185600000,
+      "equity": 11043.9107,
+      "fundingAccruedUsd": 1043.9106999999995,
+      "markPrice": 135.5
+    },
+    {
+      "timestamp": 1726272000000,
+      "equity": 11044.2541,
+      "fundingAccruedUsd": 1044.2540999999994,
+      "markPrice": 138.56
+    },
+    {
+      "timestamp": 1726358400000,
+      "equity": 11044.7704,
+      "fundingAccruedUsd": 1044.7703999999994,
+      "markPrice": 137.46
+    },
+    {
+      "timestamp": 1726444800000,
+      "equity": 11045.0981,
+      "fundingAccruedUsd": 1045.0980999999995,
+      "markPrice": 131.05
+    },
+    {
+      "timestamp": 1726531200000,
+      "equity": 11045.2927,
+      "fundingAccruedUsd": 1045.2926999999995,
+      "markPrice": 130.68
+    },
+    {
+      "timestamp": 1726617600000,
+      "equity": 11046.7125,
+      "fundingAccruedUsd": 1046.7124999999996,
+      "markPrice": 131.31
+    },
+    {
+      "timestamp": 1726704000000,
+      "equity": 11047.211,
+      "fundingAccruedUsd": 1047.2109999999996,
+      "markPrice": 135.77
+    },
+    {
+      "timestamp": 1726790400000,
+      "equity": 11049.235499999999,
+      "fundingAccruedUsd": 1049.2354999999995,
+      "markPrice": 141.77
+    },
+    {
+      "timestamp": 1726876800000,
+      "equity": 11051.235499999999,
+      "fundingAccruedUsd": 1051.2354999999995,
+      "markPrice": 147.17
+    },
+    {
+      "timestamp": 1726963200000,
+      "equity": 11054.642899999999,
+      "fundingAccruedUsd": 1054.6428999999996,
+      "markPrice": 148.84
+    },
+    {
+      "timestamp": 1727049600000,
+      "equity": 11055.1594,
+      "fundingAccruedUsd": 1055.1593999999996,
+      "markPrice": 145.59
+    },
+    {
+      "timestamp": 1727136000000,
+      "equity": 11055.9354,
+      "fundingAccruedUsd": 1055.9353999999996,
+      "markPrice": 143.95
+    },
+    {
+      "timestamp": 1727222400000,
+      "equity": 11057.6831,
+      "fundingAccruedUsd": 1057.6830999999995,
+      "markPrice": 151.97
+    },
+    {
+      "timestamp": 1727308800000,
+      "equity": 11059.2614,
+      "fundingAccruedUsd": 1059.2613999999994,
+      "markPrice": 147.26
+    },
+    {
+      "timestamp": 1727395200000,
+      "equity": 11062.2927,
+      "fundingAccruedUsd": 1062.2926999999993,
+      "markPrice": 156.22
+    },
+    {
+      "timestamp": 1727481600000,
+      "equity": 11064.3908,
+      "fundingAccruedUsd": 1064.3907999999992,
+      "markPrice": 158.17
+    },
+    {
+      "timestamp": 1727568000000,
+      "equity": 11066.370799999999,
+      "fundingAccruedUsd": 1066.3707999999992,
+      "markPrice": 156.78
+    },
+    {
+      "timestamp": 1727654400000,
+      "equity": 11070.302199999998,
+      "fundingAccruedUsd": 1070.3021999999992,
+      "markPrice": 158.71
+    },
+    {
+      "timestamp": 1727740800000,
+      "equity": 11073.302199999998,
+      "fundingAccruedUsd": 1073.3021999999992,
+      "markPrice": 154.17
+    },
+    {
+      "timestamp": 1727827200000,
+      "equity": 11076.302199999998,
+      "fundingAccruedUsd": 1076.3021999999992,
+      "markPrice": 144.53
+    },
+    {
+      "timestamp": 1727913600000,
+      "equity": 11077.144699999999,
+      "fundingAccruedUsd": 1077.1446999999991,
+      "markPrice": 140.7
+    },
+    {
+      "timestamp": 1728000000000,
+      "equity": 11077.991899999999,
+      "fundingAccruedUsd": 1077.991899999999,
+      "markPrice": 135.98
+    },
+    {
+      "timestamp": 1728086400000,
+      "equity": 11078.1322,
+      "fundingAccruedUsd": 1078.132199999999,
+      "markPrice": 144
+    },
+    {
+      "timestamp": 1728172800000,
+      "equity": 11080.1273,
+      "fundingAccruedUsd": 1080.1272999999992,
+      "markPrice": 142.29
+    },
+    {
+      "timestamp": 1728259200000,
+      "equity": 11081.8753,
+      "fundingAccruedUsd": 1081.8752999999992,
+      "markPrice": 149.25
+    },
+    {
+      "timestamp": 1728345600000,
+      "equity": 11082.6878,
+      "fundingAccruedUsd": 1082.6877999999992,
+      "markPrice": 144.83
+    },
+    {
+      "timestamp": 1728432000000,
+      "equity": 11083.5213,
+      "fundingAccruedUsd": 1083.5212999999994,
+      "markPrice": 144.25
+    },
+    {
+      "timestamp": 1728518400000,
+      "equity": 11085.15,
+      "fundingAccruedUsd": 1085.1499999999994,
+      "markPrice": 138.49
+    },
+    {
+      "timestamp": 1728604800000,
+      "equity": 11085.3486,
+      "fundingAccruedUsd": 1085.3485999999994,
+      "markPrice": 139.37
+    },
+    {
+      "timestamp": 1728691200000,
+      "equity": 11084.4192,
+      "fundingAccruedUsd": 1084.4191999999994,
+      "markPrice": 146.25
+    },
+    {
+      "timestamp": 1728777600000,
+      "equity": 11084.6898,
+      "fundingAccruedUsd": 1084.6897999999994,
+      "markPrice": 146.67
+    },
+    {
+      "timestamp": 1728864000000,
+      "equity": 11085.9861,
+      "fundingAccruedUsd": 1085.9860999999994,
+      "markPrice": 147.2
+    },
+    {
+      "timestamp": 1728950400000,
+      "equity": 11088.4396,
+      "fundingAccruedUsd": 1088.4395999999992,
+      "markPrice": 157.45
+    },
+    {
+      "timestamp": 1729036800000,
+      "equity": 11091.133899999999,
+      "fundingAccruedUsd": 1091.1338999999994,
+      "markPrice": 153.79
+    },
+    {
+      "timestamp": 1729123200000,
+      "equity": 11092.791,
+      "fundingAccruedUsd": 1092.7909999999995,
+      "markPrice": 154.9
+    },
+    {
+      "timestamp": 1729209600000,
+      "equity": 11094.7815,
+      "fundingAccruedUsd": 1094.7814999999996,
+      "markPrice": 149.75
+    },
+    {
+      "timestamp": 1729296000000,
+      "equity": 11097.2674,
+      "fundingAccruedUsd": 1097.2673999999997,
+      "markPrice": 154.54
+    },
+    {
+      "timestamp": 1729382400000,
+      "equity": 11099.5208,
+      "fundingAccruedUsd": 1099.5207999999996,
+      "markPrice": 158.76
+    },
+    {
+      "timestamp": 1729468800000,
+      "equity": 11101.712099999999,
+      "fundingAccruedUsd": 1101.7120999999995,
+      "markPrice": 168.73
+    },
+    {
+      "timestamp": 1729555200000,
+      "equity": 11104.712099999999,
+      "fundingAccruedUsd": 1104.7120999999995,
+      "markPrice": 165.4
+    },
+    {
+      "timestamp": 1729641600000,
+      "equity": 11107.712099999999,
+      "fundingAccruedUsd": 1107.7120999999995,
+      "markPrice": 166.17
+    },
+    {
+      "timestamp": 1729728000000,
+      "equity": 11110.712099999999,
+      "fundingAccruedUsd": 1110.7120999999995,
+      "markPrice": 172.92
+    },
+    {
+      "timestamp": 1729814400000,
+      "equity": 11113.712099999999,
+      "fundingAccruedUsd": 1113.7120999999995,
+      "markPrice": 176.69
+    },
+    {
+      "timestamp": 1729900800000,
+      "equity": 11115.6129,
+      "fundingAccruedUsd": 1115.6128999999996,
+      "markPrice": 164.87
+    },
+    {
+      "timestamp": 1729987200000,
+      "equity": 11118.139799999999,
+      "fundingAccruedUsd": 1118.1397999999997,
+      "markPrice": 170.63
+    },
+    {
+      "timestamp": 1730073600000,
+      "equity": 11119.3171,
+      "fundingAccruedUsd": 1119.3170999999998,
+      "markPrice": 176.06
+    },
+    {
+      "timestamp": 1730160000000,
+      "equity": 11121.550299999999,
+      "fundingAccruedUsd": 1121.5502999999997,
+      "markPrice": 178.67
+    },
+    {
+      "timestamp": 1730246400000,
+      "equity": 11124.550299999999,
+      "fundingAccruedUsd": 1124.5502999999997,
+      "markPrice": 178.28
+    },
+    {
+      "timestamp": 1730332800000,
+      "equity": 11127.550299999999,
+      "fundingAccruedUsd": 1127.5502999999997,
+      "markPrice": 175.33
+    },
+    {
+      "timestamp": 1730419200000,
+      "equity": 11130.550299999999,
+      "fundingAccruedUsd": 1130.5502999999997,
+      "markPrice": 169.09
+    },
+    {
+      "timestamp": 1730505600000,
+      "equity": 11133.2316,
+      "fundingAccruedUsd": 1133.2315999999996,
+      "markPrice": 166.87
+    },
+    {
+      "timestamp": 1730592000000,
+      "equity": 11135.2583,
+      "fundingAccruedUsd": 1135.2582999999995,
+      "markPrice": 165.2
+    },
+    {
+      "timestamp": 1730678400000,
+      "equity": 11136.8656,
+      "fundingAccruedUsd": 1136.8655999999996,
+      "markPrice": 161.64
+    },
+    {
+      "timestamp": 1730764800000,
+      "equity": 11138.7465,
+      "fundingAccruedUsd": 1138.7464999999995,
+      "markPrice": 158.57
+    },
+    {
+      "timestamp": 1730851200000,
+      "equity": 11139.08,
+      "fundingAccruedUsd": 1139.0799999999995,
+      "markPrice": 172.53
+    },
+    {
+      "timestamp": 1730937600000,
+      "equity": 11142.08,
+      "fundingAccruedUsd": 1142.0799999999995,
+      "markPrice": 187.27
+    },
+    {
+      "timestamp": 1731024000000,
+      "equity": 11145.08,
+      "fundingAccruedUsd": 1145.0799999999995,
+      "markPrice": 198.9
+    },
+    {
+      "timestamp": 1731110400000,
+      "equity": 11148.08,
+      "fundingAccruedUsd": 1148.0799999999995,
+      "markPrice": 199.65
+    },
+    {
+      "timestamp": 1731196800000,
+      "equity": 11151.08,
+      "fundingAccruedUsd": 1151.0799999999995,
+      "markPrice": 200.49
+    },
+    {
+      "timestamp": 1731283200000,
+      "equity": 11157.184599999999,
+      "fundingAccruedUsd": 1157.1845999999994,
+      "markPrice": 210.67
+    },
+    {
+      "timestamp": 1731369600000,
+      "equity": 11163.996799999999,
+      "fundingAccruedUsd": 1163.9967999999992,
+      "markPrice": 220.46
+    },
+    {
+      "timestamp": 1731456000000,
+      "equity": 11180.1312,
+      "fundingAccruedUsd": 1180.1311999999994,
+      "markPrice": 210.54
+    },
+    {
+      "timestamp": 1731542400000,
+      "equity": 11184.4264,
+      "fundingAccruedUsd": 1184.4263999999994,
+      "markPrice": 213.23
+    },
+    {
+      "timestamp": 1731628800000,
+      "equity": 11190.749,
+      "fundingAccruedUsd": 1190.7489999999993,
+      "markPrice": 209.8
+    },
+    {
+      "timestamp": 1731715200000,
+      "equity": 11192.749,
+      "fundingAccruedUsd": 1192.7489999999993,
+      "markPrice": 217.1
+    },
+    {
+      "timestamp": 1731801600000,
+      "equity": 11198.721099999999,
+      "fundingAccruedUsd": 1198.7210999999993,
+      "markPrice": 217.7
+    },
+    {
+      "timestamp": 1731888000000,
+      "equity": 11207.7118,
+      "fundingAccruedUsd": 1207.7117999999994,
+      "markPrice": 235.11
+    },
+    {
+      "timestamp": 1731974400000,
+      "equity": 11213.7796,
+      "fundingAccruedUsd": 1213.7795999999994,
+      "markPrice": 239.58
+    },
+    {
+      "timestamp": 1732060800000,
+      "equity": 11216.9624,
+      "fundingAccruedUsd": 1216.9623999999994,
+      "markPrice": 236.93
+    },
+    {
+      "timestamp": 1732147200000,
+      "equity": 11219.9624,
+      "fundingAccruedUsd": 1219.9623999999994,
+      "markPrice": 237.75
+    },
+    {
+      "timestamp": 1732233600000,
+      "equity": 11227.356899999999,
+      "fundingAccruedUsd": 1227.3568999999995,
+      "markPrice": 254.4
+    },
+    {
+      "timestamp": 1732320000000,
+      "equity": 11232.3182,
+      "fundingAccruedUsd": 1232.3181999999995,
+      "markPrice": 255.45
+    },
+    {
+      "timestamp": 1732406400000,
+      "equity": 11237.770499999999,
+      "fundingAccruedUsd": 1237.7704999999996,
+      "markPrice": 258.15
+    },
+    {
+      "timestamp": 1732492800000,
+      "equity": 11246.8758,
+      "fundingAccruedUsd": 1246.8757999999998,
+      "markPrice": 251.06
+    },
+    {
+      "timestamp": 1732579200000,
+      "equity": 11250.9131,
+      "fundingAccruedUsd": 1250.9131,
+      "markPrice": 235.42
+    },
+    {
+      "timestamp": 1732665600000,
+      "equity": 11253.9131,
+      "fundingAccruedUsd": 1253.9131,
+      "markPrice": 229.62
+    },
+    {
+      "timestamp": 1732752000000,
+      "equity": 11256.9131,
+      "fundingAccruedUsd": 1256.9131,
+      "markPrice": 245.1
+    },
+    {
+      "timestamp": 1732838400000,
+      "equity": 11259.9131,
+      "fundingAccruedUsd": 1259.9131,
+      "markPrice": 236.88
+    },
+    {
+      "timestamp": 1732924800000,
+      "equity": 11262.9131,
+      "fundingAccruedUsd": 1262.9131,
+      "markPrice": 240.56
+    },
+    {
+      "timestamp": 1733011200000,
+      "equity": 11266.0706,
+      "fundingAccruedUsd": 1266.0706,
+      "markPrice": 237.57
+    },
+    {
+      "timestamp": 1733097600000,
+      "equity": 11269.2312,
+      "fundingAccruedUsd": 1269.2312,
+      "markPrice": 235
+    },
+    {
+      "timestamp": 1733184000000,
+      "equity": 11281.4917,
+      "fundingAccruedUsd": 1281.4917,
+      "markPrice": 225.69
+    },
+    {
+      "timestamp": 1733270400000,
+      "equity": 11291.2184,
+      "fundingAccruedUsd": 1291.2184,
+      "markPrice": 237.46
+    },
+    {
+      "timestamp": 1733356800000,
+      "equity": 11297.1663,
+      "fundingAccruedUsd": 1297.1662999999999,
+      "markPrice": 226.27
+    },
+    {
+      "timestamp": 1733443200000,
+      "equity": 11313.7985,
+      "fundingAccruedUsd": 1313.7984999999999,
+      "markPrice": 242.6
+    },
+    {
+      "timestamp": 1733529600000,
+      "equity": 11322.4269,
+      "fundingAccruedUsd": 1322.4269,
+      "markPrice": 236.43
+    },
+    {
+      "timestamp": 1733616000000,
+      "equity": 11334.233400000001,
+      "fundingAccruedUsd": 1334.2334,
+      "markPrice": 239.07
+    },
+    {
+      "timestamp": 1733702400000,
+      "equity": 11340.1407,
+      "fundingAccruedUsd": 1340.1407,
+      "markPrice": 233.69
+    },
+    {
+      "timestamp": 1733788800000,
+      "equity": 11342.9893,
+      "fundingAccruedUsd": 1342.9892999999997,
+      "markPrice": 217.74
+    },
+    {
+      "timestamp": 1733875200000,
+      "equity": 11346.9893,
+      "fundingAccruedUsd": 1346.9892999999997,
+      "markPrice": 215.05
+    },
+    {
+      "timestamp": 1733961600000,
+      "equity": 11348.9893,
+      "fundingAccruedUsd": 1348.9892999999997,
+      "markPrice": 227.26
+    },
+    {
+      "timestamp": 1734048000000,
+      "equity": 11352.9893,
+      "fundingAccruedUsd": 1352.9892999999997,
+      "markPrice": 227.14
+    },
+    {
+      "timestamp": 1734134400000,
+      "equity": 11355.9893,
+      "fundingAccruedUsd": 1355.9892999999997,
+      "markPrice": 224.41
+    },
+    {
+      "timestamp": 1734220800000,
+      "equity": 11358.9893,
+      "fundingAccruedUsd": 1358.9892999999997,
+      "markPrice": 219.77
+    },
+    {
+      "timestamp": 1734307200000,
+      "equity": 11361.6654,
+      "fundingAccruedUsd": 1361.6653999999996,
+      "markPrice": 225.95
+    },
+    {
+      "timestamp": 1734393600000,
+      "equity": 11364.6654,
+      "fundingAccruedUsd": 1364.6653999999996,
+      "markPrice": 211.8
+    },
+    {
+      "timestamp": 1734480000000,
+      "equity": 11367.0718,
+      "fundingAccruedUsd": 1367.0717999999997,
+      "markPrice": 224.19
+    },
+    {
+      "timestamp": 1734566400000,
+      "equity": 11367.6843,
+      "fundingAccruedUsd": 1367.6843,
+      "markPrice": 208.22
+    },
+    {
+      "timestamp": 1734652800000,
+      "equity": 11367.4717,
+      "fundingAccruedUsd": 1367.4717,
+      "markPrice": 195.26
+    },
+    {
+      "timestamp": 1734739200000,
+      "equity": 11364.729,
+      "fundingAccruedUsd": 1364.7290000000003,
+      "markPrice": 194.15
+    },
+    {
+      "timestamp": 1734825600000,
+      "equity": 11361.7489,
+      "fundingAccruedUsd": 1361.7489,
+      "markPrice": 181.92
+    },
+    {
+      "timestamp": 1734912000000,
+      "equity": 11360.383,
+      "fundingAccruedUsd": 1360.3830000000003,
+      "markPrice": 179.11
+    },
+    {
+      "timestamp": 1734998400000,
+      "equity": 11360.0254,
+      "fundingAccruedUsd": 1360.0254,
+      "markPrice": 189.95
+    },
+    {
+      "timestamp": 1735084800000,
+      "equity": 11359.6839,
+      "fundingAccruedUsd": 1359.6839,
+      "markPrice": 197.47
+    },
+    {
+      "timestamp": 1735171200000,
+      "equity": 11360.0219,
+      "fundingAccruedUsd": 1360.0219000000002,
+      "markPrice": 196.78
+    },
+    {
+      "timestamp": 1735257600000,
+      "equity": 11361.5467,
+      "fundingAccruedUsd": 1361.5467,
+      "markPrice": 189.09
+    },
+    {
+      "timestamp": 1735344000000,
+      "equity": 11360.4697,
+      "fundingAccruedUsd": 1360.4697,
+      "markPrice": 185.23
+    },
+    {
+      "timestamp": 1735430400000,
+      "equity": 11361.513,
+      "fundingAccruedUsd": 1361.5130000000001,
+      "markPrice": 193.98
+    },
+    {
+      "timestamp": 1735516800000,
+      "equity": 11362.8543,
+      "fundingAccruedUsd": 1362.8543000000002,
+      "markPrice": 192.24
+    },
+    {
+      "timestamp": 1735603200000,
+      "equity": 11364.7582,
+      "fundingAccruedUsd": 1364.7582000000002,
+      "markPrice": 190.06
+    },
+    {
+      "timestamp": 1735689600000,
+      "equity": 11365.7023,
+      "fundingAccruedUsd": 1365.7023000000004,
+      "markPrice": 192.54
+    },
+    {
+      "timestamp": 1735776000000,
+      "equity": 11365.7286,
+      "fundingAccruedUsd": 1365.7286000000004,
+      "markPrice": 196.25
+    },
+    {
+      "timestamp": 1735862400000,
+      "equity": 11368.6623,
+      "fundingAccruedUsd": 1368.6623000000004,
+      "markPrice": 207.15
+    },
+    {
+      "timestamp": 1735948800000,
+      "equity": 11366.9828,
+      "fundingAccruedUsd": 1366.9828000000005,
+      "markPrice": 217
+    },
+    {
+      "timestamp": 1736035200000,
+      "equity": 11369.0128,
+      "fundingAccruedUsd": 1369.0128000000007,
+      "markPrice": 217.04
+    },
+    {
+      "timestamp": 1736121600000,
+      "equity": 11369.692700000001,
+      "fundingAccruedUsd": 1369.6927000000007,
+      "markPrice": 212.16
+    },
+    {
+      "timestamp": 1736208000000,
+      "equity": 11369.8711,
+      "fundingAccruedUsd": 1369.8711000000008,
+      "markPrice": 217.78
+    },
+    {
+      "timestamp": 1736294400000,
+      "equity": 11370.2356,
+      "fundingAccruedUsd": 1370.2356000000009,
+      "markPrice": 202.62
+    },
+    {
+      "timestamp": 1736380800000,
+      "equity": 11370.5673,
+      "fundingAccruedUsd": 1370.567300000001,
+      "markPrice": 197.9
+    },
+    {
+      "timestamp": 1736467200000,
+      "equity": 11371.488700000002,
+      "fundingAccruedUsd": 1371.488700000001,
+      "markPrice": 186.41
+    },
+    {
+      "timestamp": 1736553600000,
+      "equity": 11371.1879,
+      "fundingAccruedUsd": 1371.187900000001,
+      "markPrice": 188.25
+    },
+    {
+      "timestamp": 1736640000000,
+      "equity": 11370.606000000002,
+      "fundingAccruedUsd": 1370.6060000000011,
+      "markPrice": 187.35
+    },
+    {
+      "timestamp": 1736726400000,
+      "equity": 11371.524200000002,
+      "fundingAccruedUsd": 1371.5242000000012,
+      "markPrice": 190.64
+    },
+    {
+      "timestamp": 1736812800000,
+      "equity": 11371.411800000002,
+      "fundingAccruedUsd": 1371.4118000000012,
+      "markPrice": 182.37
+    },
+    {
+      "timestamp": 1736899200000,
+      "equity": 11371.741500000002,
+      "fundingAccruedUsd": 1371.7415000000012,
+      "markPrice": 187.44
+    },
+    {
+      "timestamp": 1736985600000,
+      "equity": 11371.930500000002,
+      "fundingAccruedUsd": 1371.9305000000013,
+      "markPrice": 204.56
+    },
+    {
+      "timestamp": 1737072000000,
+      "equity": 11373.930500000002,
+      "fundingAccruedUsd": 1373.9305000000013,
+      "markPrice": 210.9
+    },
+    {
+      "timestamp": 1737158400000,
+      "equity": 11377.7525,
+      "fundingAccruedUsd": 1377.7525000000012,
+      "markPrice": 219.95
+    },
+    {
+      "timestamp": 1737244800000,
+      "equity": 11379.5079,
+      "fundingAccruedUsd": 1379.5079000000012,
+      "markPrice": 256.6
+    },
+    {
+      "timestamp": 1737331200000,
+      "equity": 11373.884800000002,
+      "fundingAccruedUsd": 1373.8848000000012,
+      "markPrice": 236.06
+    },
+    {
+      "timestamp": 1737417600000,
+      "equity": 11371.254100000002,
+      "fundingAccruedUsd": 1371.254100000001,
+      "markPrice": 235.32
+    },
+    {
+      "timestamp": 1737504000000,
+      "equity": 11372.884300000002,
+      "fundingAccruedUsd": 1372.884300000001,
+      "markPrice": 252.71
+    },
+    {
+      "timestamp": 1737590400000,
+      "equity": 11373.539100000002,
+      "fundingAccruedUsd": 1373.539100000001,
+      "markPrice": 255.2
+    },
+    {
+      "timestamp": 1737676800000,
+      "equity": 11375.239500000001,
+      "fundingAccruedUsd": 1375.239500000001,
+      "markPrice": 252.73
+    },
+    {
+      "timestamp": 1737763200000,
+      "equity": 11376.9986,
+      "fundingAccruedUsd": 1376.998600000001,
+      "markPrice": 248.25
+    },
+    {
+      "timestamp": 1737849600000,
+      "equity": 11376.749000000002,
+      "fundingAccruedUsd": 1376.7490000000012,
+      "markPrice": 256.05
+    },
+    {
+      "timestamp": 1737936000000,
+      "equity": 11377.487000000001,
+      "fundingAccruedUsd": 1377.4870000000012,
+      "markPrice": 237.59
+    },
+    {
+      "timestamp": 1738022400000,
+      "equity": 11376.9289,
+      "fundingAccruedUsd": 1376.9289000000012,
+      "markPrice": 235.19
+    },
+    {
+      "timestamp": 1738108800000,
+      "equity": 11377.754,
+      "fundingAccruedUsd": 1377.754000000001,
+      "markPrice": 228.71
+    },
+    {
+      "timestamp": 1738195200000,
+      "equity": 11378.337800000001,
+      "fundingAccruedUsd": 1378.337800000001,
+      "markPrice": 231.32
+    },
+    {
+      "timestamp": 1738281600000,
+      "equity": 11379.5344,
+      "fundingAccruedUsd": 1379.534400000001,
+      "markPrice": 238.86
+    },
+    {
+      "timestamp": 1738368000000,
+      "equity": 11378.9032,
+      "fundingAccruedUsd": 1378.9032000000009,
+      "markPrice": 232.57
+    },
+    {
+      "timestamp": 1738454400000,
+      "equity": 11378.700200000001,
+      "fundingAccruedUsd": 1378.700200000001,
+      "markPrice": 217.17
+    },
+    {
+      "timestamp": 1738540800000,
+      "equity": 11378.345700000002,
+      "fundingAccruedUsd": 1378.345700000001,
+      "markPrice": 198.34
+    },
+    {
+      "timestamp": 1738627200000,
+      "equity": 11370.649000000001,
+      "fundingAccruedUsd": 1370.6490000000013,
+      "markPrice": 215.3
+    },
+    {
+      "timestamp": 1738713600000,
+      "equity": 11370.784000000001,
+      "fundingAccruedUsd": 1370.7840000000012,
+      "markPrice": 206.71
+    },
+    {
+      "timestamp": 1738800000000,
+      "equity": 11368.858500000002,
+      "fundingAccruedUsd": 1368.8585000000012,
+      "markPrice": 197.18
+    },
+    {
+      "timestamp": 1738886400000,
+      "equity": 11369.1936,
+      "fundingAccruedUsd": 1369.1936000000012,
+      "markPrice": 189.88
+    },
+    {
+      "timestamp": 1738972800000,
+      "equity": 11369.087500000001,
+      "fundingAccruedUsd": 1369.0875000000012,
+      "markPrice": 193.25
+    },
+    {
+      "timestamp": 1739059200000,
+      "equity": 11368.767200000002,
+      "fundingAccruedUsd": 1368.7672000000011,
+      "markPrice": 200.24
+    },
+    {
+      "timestamp": 1739145600000,
+      "equity": 11364.627300000002,
+      "fundingAccruedUsd": 1364.6273000000012,
+      "markPrice": 203.99
+    },
+    {
+      "timestamp": 1739232000000,
+      "equity": 11362.057200000001,
+      "fundingAccruedUsd": 1362.057200000001,
+      "markPrice": 201.75
+    },
+    {
+      "timestamp": 1739318400000,
+      "equity": 11355.853200000001,
+      "fundingAccruedUsd": 1355.8532000000012,
+      "markPrice": 198.04
+    },
+    {
+      "timestamp": 1739404800000,
+      "equity": 11356.7381,
+      "fundingAccruedUsd": 1356.7381000000012,
+      "markPrice": 195.54
+    },
+    {
+      "timestamp": 1739491200000,
+      "equity": 11355.337000000001,
+      "fundingAccruedUsd": 1355.337000000001,
+      "markPrice": 195.97
+    },
+    {
+      "timestamp": 1739577600000,
+      "equity": 11357.873800000001,
+      "fundingAccruedUsd": 1357.873800000001,
+      "markPrice": 198.09
+    },
+    {
+      "timestamp": 1739664000000,
+      "equity": 11357.0998,
+      "fundingAccruedUsd": 1357.0998000000009,
+      "markPrice": 195.04
+    },
+    {
+      "timestamp": 1739750400000,
+      "equity": 11353.600900000001,
+      "fundingAccruedUsd": 1353.6009000000008,
+      "markPrice": 189.02
+    },
+    {
+      "timestamp": 1739836800000,
+      "equity": 11352.5616,
+      "fundingAccruedUsd": 1352.5616000000007,
+      "markPrice": 176.79
+    },
+    {
+      "timestamp": 1739923200000,
+      "equity": 11353.553600000001,
+      "fundingAccruedUsd": 1353.5536000000009,
+      "markPrice": 168.68
+    },
+    {
+      "timestamp": 1740009600000,
+      "equity": 11352.600600000002,
+      "fundingAccruedUsd": 1352.600600000001,
+      "markPrice": 169.99
+    },
+    {
+      "timestamp": 1740096000000,
+      "equity": 11352.4187,
+      "fundingAccruedUsd": 1352.4187000000009,
+      "markPrice": 174.36
+    },
+    {
+      "timestamp": 1740182400000,
+      "equity": 11351.666400000002,
+      "fundingAccruedUsd": 1351.666400000001,
+      "markPrice": 170.83
+    },
+    {
+      "timestamp": 1740268800000,
+      "equity": 11351.2954,
+      "fundingAccruedUsd": 1351.295400000001,
+      "markPrice": 171.89
+    },
+    {
+      "timestamp": 1740355200000,
+      "equity": 11350.9032,
+      "fundingAccruedUsd": 1350.903200000001,
+      "markPrice": 166.62
+    },
+    {
+      "timestamp": 1740441600000,
+      "equity": 11351.151600000001,
+      "fundingAccruedUsd": 1351.151600000001,
+      "markPrice": 140.88
+    },
+    {
+      "timestamp": 1740528000000,
+      "equity": 11349.889500000001,
+      "fundingAccruedUsd": 1349.8895000000011,
+      "markPrice": 141.76
+    },
+    {
+      "timestamp": 1740614400000,
+      "equity": 11350.448600000002,
+      "fundingAccruedUsd": 1350.4486000000013,
+      "markPrice": 136.23
+    },
+    {
+      "timestamp": 1740700800000,
+      "equity": 11352.4819,
+      "fundingAccruedUsd": 1352.4819000000014,
+      "markPrice": 135.98
+    },
+    {
+      "timestamp": 1740787200000,
+      "equity": 11356.4819,
+      "fundingAccruedUsd": 1356.4819000000014,
+      "markPrice": 145.95
+    },
+    {
+      "timestamp": 1740873600000,
+      "equity": 11357.325100000002,
+      "fundingAccruedUsd": 1357.3251000000014,
+      "markPrice": 144.75
+    },
+    {
+      "timestamp": 1740960000000,
+      "equity": 11359.099100000001,
+      "fundingAccruedUsd": 1359.0991000000013,
+      "markPrice": 174.35
+    },
+    {
+      "timestamp": 1741046400000,
+      "equity": 11358.5128,
+      "fundingAccruedUsd": 1358.512800000001,
+      "markPrice": 141.68
+    },
+    {
+      "timestamp": 1741132800000,
+      "equity": 11355.86,
+      "fundingAccruedUsd": 1355.8600000000013,
+      "markPrice": 143.04
+    },
+    {
+      "timestamp": 1741219200000,
+      "equity": 11354.3137,
+      "fundingAccruedUsd": 1354.313700000001,
+      "markPrice": 144.76
+    },
+    {
+      "timestamp": 1741305600000,
+      "equity": 11352.685500000001,
+      "fundingAccruedUsd": 1352.6855000000012,
+      "markPrice": 136.51
+    },
+    {
+      "timestamp": 1741392000000,
+      "equity": 11352.936300000001,
+      "fundingAccruedUsd": 1352.9363000000012,
+      "markPrice": 140.69
+    },
+    {
+      "timestamp": 1741478400000,
+      "equity": 11351.969900000002,
+      "fundingAccruedUsd": 1351.9699000000012,
+      "markPrice": 138.05
+    },
+    {
+      "timestamp": 1741564800000,
+      "equity": 11351.097000000002,
+      "fundingAccruedUsd": 1351.0970000000013,
+      "markPrice": 127.39
+    },
+    {
+      "timestamp": 1741651200000,
+      "equity": 11347.923600000002,
+      "fundingAccruedUsd": 1347.9236000000014,
+      "markPrice": 115.68
+    },
+    {
+      "timestamp": 1741737600000,
+      "equity": 11349.631700000002,
+      "fundingAccruedUsd": 1349.6317000000013,
+      "markPrice": 125.12
+    },
+    {
+      "timestamp": 1741824000000,
+      "equity": 11349.397200000001,
+      "fundingAccruedUsd": 1349.3972000000012,
+      "markPrice": 125.36
+    },
+    {
+      "timestamp": 1741910400000,
+      "equity": 11349.743100000002,
+      "fundingAccruedUsd": 1349.7431000000015,
+      "markPrice": 124.29
+    },
+    {
+      "timestamp": 1741996800000,
+      "equity": 11352.7026,
+      "fundingAccruedUsd": 1352.7026000000014,
+      "markPrice": 133.78
+    },
+    {
+      "timestamp": 1742083200000,
+      "equity": 11353.232100000001,
+      "fundingAccruedUsd": 1353.2321000000013,
+      "markPrice": 135.97
+    },
+    {
+      "timestamp": 1742169600000,
+      "equity": 11352.664600000002,
+      "fundingAccruedUsd": 1352.6646000000014,
+      "markPrice": 127.74
+    },
+    {
+      "timestamp": 1742256000000,
+      "equity": 11351.088000000002,
+      "fundingAccruedUsd": 1351.0880000000016,
+      "markPrice": 126.56
+    },
+    {
+      "timestamp": 1742342400000,
+      "equity": 11349.330100000001,
+      "fundingAccruedUsd": 1349.3301000000017,
+      "markPrice": 125.9
+    },
+    {
+      "timestamp": 1742428800000,
+      "equity": 11352.057500000003,
+      "fundingAccruedUsd": 1352.0575000000017,
+      "markPrice": 133.42
+    },
+    {
+      "timestamp": 1742515200000,
+      "equity": 11352.477200000001,
+      "fundingAccruedUsd": 1352.4772000000016,
+      "markPrice": 128.3
+    },
+    {
+      "timestamp": 1742601600000,
+      "equity": 11351.6038,
+      "fundingAccruedUsd": 1351.6038000000017,
+      "markPrice": 128.68
+    },
+    {
+      "timestamp": 1742688000000,
+      "equity": 11350.582500000002,
+      "fundingAccruedUsd": 1350.5825000000016,
+      "markPrice": 128.75
+    },
+    {
+      "timestamp": 1742774400000,
+      "equity": 11351.148000000001,
+      "fundingAccruedUsd": 1351.1480000000017,
+      "markPrice": 134.73
+    },
+    {
+      "timestamp": 1742860800000,
+      "equity": 11352.678100000001,
+      "fundingAccruedUsd": 1352.6781000000017,
+      "markPrice": 142.13
+    },
+    {
+      "timestamp": 1742947200000,
+      "equity": 11354.023700000002,
+      "fundingAccruedUsd": 1354.0237000000016,
+      "markPrice": 144.16
+    },
+    {
+      "timestamp": 1743033600000,
+      "equity": 11352.297900000001,
+      "fundingAccruedUsd": 1352.2979000000016,
+      "markPrice": 137.97
+    },
+    {
+      "timestamp": 1743120000000,
+      "equity": 11350.108000000002,
+      "fundingAccruedUsd": 1350.1080000000015,
+      "markPrice": 137.86
+    },
+    {
+      "timestamp": 1743206400000,
+      "equity": 11347.3466,
+      "fundingAccruedUsd": 1347.3466000000017,
+      "markPrice": 129.78
+    },
+    {
+      "timestamp": 1743292800000,
+      "equity": 11344.103000000001,
+      "fundingAccruedUsd": 1344.1030000000017,
+      "markPrice": 124.71
+    },
+    {
+      "timestamp": 1743379200000,
+      "equity": 11335.952100000002,
+      "fundingAccruedUsd": 1335.9521000000016,
+      "markPrice": 123.81
+    },
+    {
+      "timestamp": 1743465600000,
+      "equity": 11334.913400000001,
+      "fundingAccruedUsd": 1334.9134000000015,
+      "markPrice": 124.51
+    },
+    {
+      "timestamp": 1743552000000,
+      "equity": 11334.328700000002,
+      "fundingAccruedUsd": 1334.3287000000016,
+      "markPrice": 126.22
+    },
+    {
+      "timestamp": 1743638400000,
+      "equity": 11332.010600000001,
+      "fundingAccruedUsd": 1332.0106000000017,
+      "markPrice": 119.98
+    },
+    {
+      "timestamp": 1743724800000,
+      "equity": 11326.807000000003,
+      "fundingAccruedUsd": 1326.8070000000018,
+      "markPrice": 116
+    },
+    {
+      "timestamp": 1743811200000,
+      "equity": 11327.251600000001,
+      "fundingAccruedUsd": 1327.2516000000019,
+      "markPrice": 122.24
+    },
+    {
+      "timestamp": 1743897600000,
+      "equity": 11327.864400000002,
+      "fundingAccruedUsd": 1327.8644000000018,
+      "markPrice": 120.36
+    },
+    {
+      "timestamp": 1743984000000,
+      "equity": 11328.260900000001,
+      "fundingAccruedUsd": 1328.2609000000018,
+      "markPrice": 104.79
+    },
+    {
+      "timestamp": 1744070400000,
+      "equity": 11326.923800000002,
+      "fundingAccruedUsd": 1326.9238000000018,
+      "markPrice": 107.04
+    },
+    {
+      "timestamp": 1744156800000,
+      "equity": 11323.334900000002,
+      "fundingAccruedUsd": 1323.3349000000019,
+      "markPrice": 104.73
+    },
+    {
+      "timestamp": 1744243200000,
+      "equity": 11324.313900000001,
+      "fundingAccruedUsd": 1324.3139000000017,
+      "markPrice": 117.58
+    },
+    {
+      "timestamp": 1744329600000,
+      "equity": 11325.659500000002,
+      "fundingAccruedUsd": 1325.6595000000018,
+      "markPrice": 112.25
+    },
+    {
+      "timestamp": 1744416000000,
+      "equity": 11327.069500000001,
+      "fundingAccruedUsd": 1327.0695000000019,
+      "markPrice": 121.19
+    },
+    {
+      "timestamp": 1744502400000,
+      "equity": 11327.141400000002,
+      "fundingAccruedUsd": 1327.141400000002,
+      "markPrice": 133
+    },
+    {
+      "timestamp": 1744588800000,
+      "equity": 11329.864100000003,
+      "fundingAccruedUsd": 1329.8641000000018,
+      "markPrice": 130.32
+    },
+    {
+      "timestamp": 1744675200000,
+      "equity": 11327.932200000001,
+      "fundingAccruedUsd": 1327.9322000000018,
+      "markPrice": 129.2
+    },
+    {
+      "timestamp": 1744761600000,
+      "equity": 11325.890100000002,
+      "fundingAccruedUsd": 1325.8901000000017,
+      "markPrice": 125.21
+    },
+    {
+      "timestamp": 1744848000000,
+      "equity": 11325.338700000002,
+      "fundingAccruedUsd": 1325.3387000000016,
+      "markPrice": 131.72
+    },
+    {
+      "timestamp": 1744934400000,
+      "equity": 11327.518500000002,
+      "fundingAccruedUsd": 1327.5185000000015,
+      "markPrice": 134.24
+    },
+    {
+      "timestamp": 1745020800000,
+      "equity": 11326.469400000002,
+      "fundingAccruedUsd": 1326.4694000000015,
+      "markPrice": 134.16
+    },
+    {
+      "timestamp": 1745107200000,
+      "equity": 11323.801800000001,
+      "fundingAccruedUsd": 1323.8018000000015,
+      "markPrice": 140.3
+    },
+    {
+      "timestamp": 1745193600000,
+      "equity": 11318.784400000002,
+      "fundingAccruedUsd": 1318.7844000000016,
+      "markPrice": 141.19
+    },
+    {
+      "timestamp": 1745280000000,
+      "equity": 11316.142000000002,
+      "fundingAccruedUsd": 1316.1420000000016,
+      "markPrice": 137.24
+    },
+    {
+      "timestamp": 1745366400000,
+      "equity": 11315.339500000002,
+      "fundingAccruedUsd": 1315.3395000000016,
+      "markPrice": 147.92
+    },
+    {
+      "timestamp": 1745452800000,
+      "equity": 11316.597300000001,
+      "fundingAccruedUsd": 1316.5973000000017,
+      "markPrice": 150.15
+    },
+    {
+      "timestamp": 1745539200000,
+      "equity": 11318.113600000002,
+      "fundingAccruedUsd": 1318.1136000000017,
+      "markPrice": 152.22
+    },
+    {
+      "timestamp": 1745625600000,
+      "equity": 11320.237100000002,
+      "fundingAccruedUsd": 1320.2371000000016,
+      "markPrice": 151.47
+    },
+    {
+      "timestamp": 1745712000000,
+      "equity": 11319.159300000001,
+      "fundingAccruedUsd": 1319.1593000000016,
+      "markPrice": 149.67
+    },
+    {
+      "timestamp": 1745798400000,
+      "equity": 11319.1676,
+      "fundingAccruedUsd": 1319.1676000000016,
+      "markPrice": 147.04
+    },
+    {
+      "timestamp": 1745884800000,
+      "equity": 11316.850800000002,
+      "fundingAccruedUsd": 1316.8508000000018,
+      "markPrice": 148.19
+    },
+    {
+      "timestamp": 1745971200000,
+      "equity": 11316.637300000002,
+      "fundingAccruedUsd": 1316.6373000000017,
+      "markPrice": 146.72
+    },
+    {
+      "timestamp": 1746057600000,
+      "equity": 11314.415400000002,
+      "fundingAccruedUsd": 1314.4154000000017,
+      "markPrice": 147.97
+    },
+    {
+      "timestamp": 1746144000000,
+      "equity": 11315.563700000002,
+      "fundingAccruedUsd": 1315.5637000000017,
+      "markPrice": 151.46
+    },
+    {
+      "timestamp": 1746230400000,
+      "equity": 11313.198900000001,
+      "fundingAccruedUsd": 1313.1989000000017,
+      "markPrice": 148.1
+    },
+    {
+      "timestamp": 1746316800000,
+      "equity": 11311.821000000002,
+      "fundingAccruedUsd": 1311.8210000000017,
+      "markPrice": 146.41
+    },
+    {
+      "timestamp": 1746403200000,
+      "equity": 11309.476100000002,
+      "fundingAccruedUsd": 1309.4761000000017,
+      "markPrice": 145.16
+    },
+    {
+      "timestamp": 1746489600000,
+      "equity": 11308.708000000002,
+      "fundingAccruedUsd": 1308.708000000002,
+      "markPrice": 146.13
+    },
+    {
+      "timestamp": 1746576000000,
+      "equity": 11308.650500000002,
+      "fundingAccruedUsd": 1308.6505000000018,
+      "markPrice": 149.03
+    },
+    {
+      "timestamp": 1746662400000,
+      "equity": 11310.793400000002,
+      "fundingAccruedUsd": 1310.7934000000016,
+      "markPrice": 148.83
+    },
+    {
+      "timestamp": 1746748800000,
+      "equity": 11312.340600000001,
+      "fundingAccruedUsd": 1312.3406000000016,
+      "markPrice": 162.39
+    },
+    {
+      "timestamp": 1746835200000,
+      "equity": 11315.340600000001,
+      "fundingAccruedUsd": 1315.3406000000016,
+      "markPrice": 171.39
+    },
+    {
+      "timestamp": 1746921600000,
+      "equity": 11319.340600000001,
+      "fundingAccruedUsd": 1319.3406000000016,
+      "markPrice": 179.16
+    },
+    {
+      "timestamp": 1747008000000,
+      "equity": 11320.852300000002,
+      "fundingAccruedUsd": 1320.8523000000016,
+      "markPrice": 174.52
+    },
+    {
+      "timestamp": 1747094400000,
+      "equity": 11323.719600000002,
+      "fundingAccruedUsd": 1323.7196000000015,
+      "markPrice": 171.69
+    },
+    {
+      "timestamp": 1747180800000,
+      "equity": 11325.186300000001,
+      "fundingAccruedUsd": 1325.1863000000014,
+      "markPrice": 182.09
+    },
+    {
+      "timestamp": 1747267200000,
+      "equity": 11327.189100000001,
+      "fundingAccruedUsd": 1327.1891000000014,
+      "markPrice": 177.65
+    },
+    {
+      "timestamp": 1747353600000,
+      "equity": 11327.613900000002,
+      "fundingAccruedUsd": 1327.6139000000014,
+      "markPrice": 170.27
+    },
+    {
+      "timestamp": 1747440000000,
+      "equity": 11327.7548,
+      "fundingAccruedUsd": 1327.7548000000013,
+      "markPrice": 166.83
+    },
+    {
+      "timestamp": 1747526400000,
+      "equity": 11328.415400000002,
+      "fundingAccruedUsd": 1328.4154000000015,
+      "markPrice": 167.25
+    },
+    {
+      "timestamp": 1747612800000,
+      "equity": 11329.586700000002,
+      "fundingAccruedUsd": 1329.5867000000014,
+      "markPrice": 168.06
+    },
+    {
+      "timestamp": 1747699200000,
+      "equity": 11327.883100000001,
+      "fundingAccruedUsd": 1327.8831000000016,
+      "markPrice": 167.11
+    },
+    {
+      "timestamp": 1747785600000,
+      "equity": 11329.349700000002,
+      "fundingAccruedUsd": 1329.3497000000016,
+      "markPrice": 168.11
+    },
+    {
+      "timestamp": 1747872000000,
+      "equity": 11331.297400000001,
+      "fundingAccruedUsd": 1331.2974000000017,
+      "markPrice": 174.92
+    },
+    {
+      "timestamp": 1747958400000,
+      "equity": 11334.058100000002,
+      "fundingAccruedUsd": 1334.0581000000018,
+      "markPrice": 180.72
+    },
+    {
+      "timestamp": 1748044800000,
+      "equity": 11337.058100000002,
+      "fundingAccruedUsd": 1337.0581000000018,
+      "markPrice": 172.75
+    },
+    {
+      "timestamp": 1748131200000,
+      "equity": 11337.978000000001,
+      "fundingAccruedUsd": 1337.9780000000017,
+      "markPrice": 172.31
+    },
+    {
+      "timestamp": 1748217600000,
+      "equity": 11337.767000000002,
+      "fundingAccruedUsd": 1337.7670000000016,
+      "markPrice": 177.56
+    },
+    {
+      "timestamp": 1748304000000,
+      "equity": 11338.812100000001,
+      "fundingAccruedUsd": 1338.8121000000017,
+      "markPrice": 174.13
+    },
+    {
+      "timestamp": 1748390400000,
+      "equity": 11338.633500000002,
+      "fundingAccruedUsd": 1338.6335000000017,
+      "markPrice": 177.24
+    },
+    {
+      "timestamp": 1748476800000,
+      "equity": 11337.111700000001,
+      "fundingAccruedUsd": 1337.1117000000015,
+      "markPrice": 173.63
+    },
+    {
+      "timestamp": 1748563200000,
+      "equity": 11337.5997,
+      "fundingAccruedUsd": 1337.5997000000013,
+      "markPrice": 161.85
+    },
+    {
+      "timestamp": 1748649600000,
+      "equity": 11337.6105,
+      "fundingAccruedUsd": 1337.6105000000011,
+      "markPrice": 155.84
+    },
+    {
+      "timestamp": 1748736000000,
+      "equity": 11336.7595,
+      "fundingAccruedUsd": 1336.759500000001,
+      "markPrice": 156.22
+    },
+    {
+      "timestamp": 1748822400000,
+      "equity": 11334.9032,
+      "fundingAccruedUsd": 1334.903200000001,
+      "markPrice": 157.81
+    },
+    {
+      "timestamp": 1748908800000,
+      "equity": 11336.2016,
+      "fundingAccruedUsd": 1336.2016000000012,
+      "markPrice": 158.88
+    },
+    {
+      "timestamp": 1748995200000,
+      "equity": 11336.4757,
+      "fundingAccruedUsd": 1336.4757000000013,
+      "markPrice": 155.48
+    },
+    {
+      "timestamp": 1749081600000,
+      "equity": 11337.1617,
+      "fundingAccruedUsd": 1337.1617000000012,
+      "markPrice": 153.81
+    },
+    {
+      "timestamp": 1749168000000,
+      "equity": 11337.5897,
+      "fundingAccruedUsd": 1337.5897000000011,
+      "markPrice": 145.43
+    },
+    {
+      "timestamp": 1749254400000,
+      "equity": 11336.286100000001,
+      "fundingAccruedUsd": 1336.2861000000012,
+      "markPrice": 148.69
+    },
+    {
+      "timestamp": 1749340800000,
+      "equity": 11336.1694,
+      "fundingAccruedUsd": 1336.1694000000014,
+      "markPrice": 149.47
+    },
+    {
+      "timestamp": 1749427200000,
+      "equity": 11337.324100000002,
+      "fundingAccruedUsd": 1337.3241000000014,
+      "markPrice": 152.38
+    },
+    {
+      "timestamp": 1749513600000,
+      "equity": 11338.999200000002,
+      "fundingAccruedUsd": 1338.9992000000013,
+      "markPrice": 160.66
+    },
+    {
+      "timestamp": 1749600000000,
+      "equity": 11340.987900000002,
+      "fundingAccruedUsd": 1340.9879000000014,
+      "markPrice": 164.61
+    },
+    {
+      "timestamp": 1749686400000,
+      "equity": 11342.987900000002,
+      "fundingAccruedUsd": 1342.9879000000014,
+      "markPrice": 160.82
+    },
+    {
+      "timestamp": 1749772800000,
+      "equity": 11343.716000000002,
+      "fundingAccruedUsd": 1343.7160000000015,
+      "markPrice": 145.57
+    },
+    {
+      "timestamp": 1749859200000,
+      "equity": 11343.7882,
+      "fundingAccruedUsd": 1343.7882000000016,
+      "markPrice": 147.82
+    },
+    {
+      "timestamp": 1749945600000,
+      "equity": 11343.956100000001,
+      "fundingAccruedUsd": 1343.9561000000015,
+      "markPrice": 145.61
+    },
+    {
+      "timestamp": 1750032000000,
+      "equity": 11346.184400000002,
+      "fundingAccruedUsd": 1346.1844000000015,
+      "markPrice": 152.01
+    },
+    {
+      "timestamp": 1750118400000,
+      "equity": 11347.2216,
+      "fundingAccruedUsd": 1347.2216000000014,
+      "markPrice": 152.01
+    },
+    {
+      "timestamp": 1750204800000,
+      "equity": 11348.753800000002,
+      "fundingAccruedUsd": 1348.7538000000015,
+      "markPrice": 148.23
+    },
+    {
+      "timestamp": 1750291200000,
+      "equity": 11349.030600000002,
+      "fundingAccruedUsd": 1349.0306000000016,
+      "markPrice": 146.91
+    },
+    {
+      "timestamp": 1750377600000,
+      "equity": 11350.2337,
+      "fundingAccruedUsd": 1350.2337000000016,
+      "markPrice": 146.97
+    },
+    {
+      "timestamp": 1750464000000,
+      "equity": 11350.787000000002,
+      "fundingAccruedUsd": 1350.7870000000016,
+      "markPrice": 139.94
+    },
+    {
+      "timestamp": 1750550400000,
+      "equity": 11349.787100000001,
+      "fundingAccruedUsd": 1349.7871000000018,
+      "markPrice": 136.53
+    },
+    {
+      "timestamp": 1750636800000,
+      "equity": 11350.420600000001,
+      "fundingAccruedUsd": 1350.420600000002,
+      "markPrice": 132.52
+    },
+    {
+      "timestamp": 1750723200000,
+      "equity": 11350.611500000003,
+      "fundingAccruedUsd": 1350.611500000002,
+      "markPrice": 143.34
+    },
+    {
+      "timestamp": 1750809600000,
+      "equity": 11351.478100000002,
+      "fundingAccruedUsd": 1351.478100000002,
+      "markPrice": 146.12
+    },
+    {
+      "timestamp": 1750896000000,
+      "equity": 11353.158800000003,
+      "fundingAccruedUsd": 1353.1588000000022,
+      "markPrice": 144.17
+    },
+    {
+      "timestamp": 1750982400000,
+      "equity": 11352.110700000003,
+      "fundingAccruedUsd": 1352.1107000000022,
+      "markPrice": 137.85
+    },
+    {
+      "timestamp": 1751068800000,
+      "equity": 11352.438600000001,
+      "fundingAccruedUsd": 1352.4386000000022,
+      "markPrice": 141.76
+    },
+    {
+      "timestamp": 1751155200000,
+      "equity": 11355.131900000002,
+      "fundingAccruedUsd": 1355.1319000000021,
+      "markPrice": 150.64
+    },
+    {
+      "timestamp": 1751241600000,
+      "equity": 11358.176600000003,
+      "fundingAccruedUsd": 1358.176600000002,
+      "markPrice": 152.59
+    },
+    {
+      "timestamp": 1751328000000,
+      "equity": 11358.652500000002,
+      "fundingAccruedUsd": 1358.652500000002,
+      "markPrice": 154.76
+    },
+    {
+      "timestamp": 1751414400000,
+      "equity": 11359.346300000001,
+      "fundingAccruedUsd": 1359.346300000002,
+      "markPrice": 146.76
+    },
+    {
+      "timestamp": 1751500800000,
+      "equity": 11358.286400000003,
+      "fundingAccruedUsd": 1358.286400000002,
+      "markPrice": 153.08
+    },
+    {
+      "timestamp": 1751587200000,
+      "equity": 11359.835400000002,
+      "fundingAccruedUsd": 1359.8354000000022,
+      "markPrice": 152.42
+    },
+    {
+      "timestamp": 1751673600000,
+      "equity": 11360.082700000003,
+      "fundingAccruedUsd": 1360.0827000000022,
+      "markPrice": 148.32
+    },
+    {
+      "timestamp": 1751760000000,
+      "equity": 11357.132100000003,
+      "fundingAccruedUsd": 1357.1321000000023,
+      "markPrice": 147.62
+    },
+    {
+      "timestamp": 1751846400000,
+      "equity": 11357.385900000003,
+      "fundingAccruedUsd": 1357.3859000000025,
+      "markPrice": 151.13
+    },
+    {
+      "timestamp": 1751932800000,
+      "equity": 11358.430900000003,
+      "fundingAccruedUsd": 1358.4309000000026,
+      "markPrice": 149.17
+    },
+    {
+      "timestamp": 1752019200000,
+      "equity": 11358.373100000003,
+      "fundingAccruedUsd": 1358.3731000000025,
+      "markPrice": 151.7
+    },
+    {
+      "timestamp": 1752105600000,
+      "equity": 11358.635300000002,
+      "fundingAccruedUsd": 1358.6353000000026,
+      "markPrice": 155.94
+    },
+    {
+      "timestamp": 1752192000000,
+      "equity": 11360.017000000003,
+      "fundingAccruedUsd": 1360.0170000000028,
+      "markPrice": 163.05
+    },
+    {
+      "timestamp": 1752278400000,
+      "equity": 11363.423400000003,
+      "fundingAccruedUsd": 1363.4234000000029,
+      "markPrice": 163.01
+    },
+    {
+      "timestamp": 1752364800000,
+      "equity": 11365.423400000003,
+      "fundingAccruedUsd": 1365.4234000000029,
+      "markPrice": 160.89
+    },
+    {
+      "timestamp": 1752451200000,
+      "equity": 11368.554300000003,
+      "fundingAccruedUsd": 1368.5543000000027,
+      "markPrice": 161.63
+    },
+    {
+      "timestamp": 1752537600000,
+      "equity": 11370.554300000003,
+      "fundingAccruedUsd": 1370.5543000000027,
+      "markPrice": 161.4
+    },
+    {
+      "timestamp": 1752624000000,
+      "equity": 11372.518400000003,
+      "fundingAccruedUsd": 1372.5184000000027,
+      "markPrice": 164.75
+    },
+    {
+      "timestamp": 1752710400000,
+      "equity": 11374.518400000003,
+      "fundingAccruedUsd": 1374.5184000000027,
+      "markPrice": 172.99
+    },
+    {
+      "timestamp": 1752796800000,
+      "equity": 11377.518400000003,
+      "fundingAccruedUsd": 1377.5184000000027,
+      "markPrice": 179.81
+    },
+    {
+      "timestamp": 1752883200000,
+      "equity": 11380.518400000003,
+      "fundingAccruedUsd": 1380.5184000000027,
+      "markPrice": 175.18
+    },
+    {
+      "timestamp": 1752969600000,
+      "equity": 11384.518400000003,
+      "fundingAccruedUsd": 1384.5184000000027,
+      "markPrice": 177.66
+    },
+    {
+      "timestamp": 1753056000000,
+      "equity": 11386.518400000003,
+      "fundingAccruedUsd": 1386.5184000000027,
+      "markPrice": 180.23
+    },
+    {
+      "timestamp": 1753142400000,
+      "equity": 11390.808400000002,
+      "fundingAccruedUsd": 1390.8084000000026,
+      "markPrice": 197.67
+    },
+    {
+      "timestamp": 1753228800000,
+      "equity": 11393.808400000002,
+      "fundingAccruedUsd": 1393.8084000000026,
+      "markPrice": 204.29
+    },
+    {
+      "timestamp": 1753315200000,
+      "equity": 11396.808400000002,
+      "fundingAccruedUsd": 1396.8084000000026,
+      "markPrice": 190.95
+    },
+    {
+      "timestamp": 1753401600000,
+      "equity": 11399.808400000002,
+      "fundingAccruedUsd": 1399.8084000000026,
+      "markPrice": 181.92
+    },
+    {
+      "timestamp": 1753488000000,
+      "equity": 11401.418600000003,
+      "fundingAccruedUsd": 1401.4186000000027,
+      "markPrice": 185.88
+    },
+    {
+      "timestamp": 1753574400000,
+      "equity": 11404.418600000003,
+      "fundingAccruedUsd": 1404.4186000000027,
+      "markPrice": 185.49
+    },
+    {
+      "timestamp": 1753660800000,
+      "equity": 11407.418600000003,
+      "fundingAccruedUsd": 1407.4186000000027,
+      "markPrice": 189.71
+    },
+    {
+      "timestamp": 1753747200000,
+      "equity": 11410.418600000003,
+      "fundingAccruedUsd": 1410.4186000000027,
+      "markPrice": 182.83
+    },
+    {
+      "timestamp": 1753833600000,
+      "equity": 11410.887400000003,
+      "fundingAccruedUsd": 1410.8874000000028,
+      "markPrice": 180.22
+    },
+    {
+      "timestamp": 1753920000000,
+      "equity": 11411.554700000002,
+      "fundingAccruedUsd": 1411.5547000000026,
+      "markPrice": 179.43
+    },
+    {
+      "timestamp": 1754006400000,
+      "equity": 11412.107100000003,
+      "fundingAccruedUsd": 1412.1071000000027,
+      "markPrice": 170.31
+    },
+    {
+      "timestamp": 1754092800000,
+      "equity": 11412.751700000003,
+      "fundingAccruedUsd": 1412.7517000000025,
+      "markPrice": 164.64
+    },
+    {
+      "timestamp": 1754179200000,
+      "equity": 11412.123900000002,
+      "fundingAccruedUsd": 1412.1239000000025,
+      "markPrice": 159.68
+    },
+    {
+      "timestamp": 1754265600000,
+      "equity": 11410.774800000003,
+      "fundingAccruedUsd": 1410.7748000000024,
+      "markPrice": 164.56
+    },
+    {
+      "timestamp": 1754352000000,
+      "equity": 11407.688200000002,
+      "fundingAccruedUsd": 1407.6882000000023,
+      "markPrice": 169.31
+    },
+    {
+      "timestamp": 1754438400000,
+      "equity": 11406.994900000002,
+      "fundingAccruedUsd": 1406.9949000000022,
+      "markPrice": 162.75
+    },
+    {
+      "timestamp": 1754524800000,
+      "equity": 11406.136500000002,
+      "fundingAccruedUsd": 1406.1365000000021,
+      "markPrice": 167.89
+    },
+    {
+      "timestamp": 1754611200000,
+      "equity": 11407.704200000002,
+      "fundingAccruedUsd": 1407.7042000000022,
+      "markPrice": 174.28
+    },
+    {
+      "timestamp": 1754697600000,
+      "equity": 11408.770400000001,
+      "fundingAccruedUsd": 1408.7704000000022,
+      "markPrice": 176.94
+    },
+    {
+      "timestamp": 1754784000000,
+      "equity": 11411.376100000001,
+      "fundingAccruedUsd": 1411.376100000002,
+      "markPrice": 182.46
+    },
+    {
+      "timestamp": 1754870400000,
+      "equity": 11415.072300000002,
+      "fundingAccruedUsd": 1415.072300000002,
+      "markPrice": 181.5
+    },
+    {
+      "timestamp": 1754956800000,
+      "equity": 11415.864800000003,
+      "fundingAccruedUsd": 1415.864800000002,
+      "markPrice": 175.7
+    },
+    {
+      "timestamp": 1755043200000,
+      "equity": 11416.518800000002,
+      "fundingAccruedUsd": 1416.518800000002,
+      "markPrice": 193.95
+    },
+    {
+      "timestamp": 1755129600000,
+      "equity": 11418.518800000002,
+      "fundingAccruedUsd": 1418.518800000002,
+      "markPrice": 201.5
+    },
+    {
+      "timestamp": 1755216000000,
+      "equity": 11424.106400000002,
+      "fundingAccruedUsd": 1424.1064000000022,
+      "markPrice": 192.71
+    },
+    {
+      "timestamp": 1755302400000,
+      "equity": 11425.508800000001,
+      "fundingAccruedUsd": 1425.508800000002,
+      "markPrice": 187.47
+    },
+    {
+      "timestamp": 1755388800000,
+      "equity": 11427.428200000002,
+      "fundingAccruedUsd": 1427.428200000002,
+      "markPrice": 188.16
+    },
+    {
+      "timestamp": 1755475200000,
+      "equity": 11429.787700000003,
+      "fundingAccruedUsd": 1429.7877000000021,
+      "markPrice": 190.16
+    },
+    {
+      "timestamp": 1755561600000,
+      "equity": 11428.465100000001,
+      "fundingAccruedUsd": 1428.4651000000022,
+      "markPrice": 185.01
+    },
+    {
+      "timestamp": 1755648000000,
+      "equity": 11429.757300000003,
+      "fundingAccruedUsd": 1429.7573000000023,
+      "markPrice": 178.15
+    },
+    {
+      "timestamp": 1755734400000,
+      "equity": 11431.638300000002,
+      "fundingAccruedUsd": 1431.6383000000023,
+      "markPrice": 187.93
+    },
+    {
+      "timestamp": 1755820800000,
+      "equity": 11433.774900000002,
+      "fundingAccruedUsd": 1433.7749000000024,
+      "markPrice": 181.15
+    },
+    {
+      "timestamp": 1755907200000,
+      "equity": 11436.105000000003,
+      "fundingAccruedUsd": 1436.1050000000023,
+      "markPrice": 198.53
+    },
+    {
+      "timestamp": 1755993600000,
+      "equity": 11439.105000000003,
+      "fundingAccruedUsd": 1439.1050000000023,
+      "markPrice": 206.13
+    },
+    {
+      "timestamp": 1756080000000,
+      "equity": 11443.105000000003,
+      "fundingAccruedUsd": 1443.1050000000023,
+      "markPrice": 203.49
+    },
+    {
+      "timestamp": 1756166400000,
+      "equity": 11445.390700000002,
+      "fundingAccruedUsd": 1445.3907000000022,
+      "markPrice": 186.29
+    },
+    {
+      "timestamp": 1756252800000,
+      "equity": 11445.827900000002,
+      "fundingAccruedUsd": 1445.8279000000023,
+      "markPrice": 194.63
+    },
+    {
+      "timestamp": 1756339200000,
+      "equity": 11449.827900000002,
+      "fundingAccruedUsd": 1449.8279000000023,
+      "markPrice": 203.93
+    },
+    {
+      "timestamp": 1756425600000,
+      "equity": 11452.684100000002,
+      "fundingAccruedUsd": 1452.6841000000022,
+      "markPrice": 215.07
+    },
+    {
+      "timestamp": 1756512000000,
+      "equity": 11454.031900000002,
+      "fundingAccruedUsd": 1454.0319000000022,
+      "markPrice": 205
+    },
+    {
+      "timestamp": 1756598400000,
+      "equity": 11454.255200000001,
+      "fundingAccruedUsd": 1454.255200000002,
+      "markPrice": 205.43
+    },
+    {
+      "timestamp": 1756684800000,
+      "equity": 11457.187800000003,
+      "fundingAccruedUsd": 1457.1878000000024,
+      "markPrice": 200.44
+    },
+    {
+      "timestamp": 1756771200000,
+      "equity": 11457.954800000003,
+      "fundingAccruedUsd": 1457.9548000000023,
+      "markPrice": 197.71
+    },
+    {
+      "timestamp": 1756857600000,
+      "equity": 11459.942000000003,
+      "fundingAccruedUsd": 1459.9420000000023,
+      "markPrice": 208.37
+    },
+    {
+      "timestamp": 1756944000000,
+      "equity": 11461.886600000002,
+      "fundingAccruedUsd": 1461.8866000000023,
+      "markPrice": 211.23
+    },
+    {
+      "timestamp": 1757030400000,
+      "equity": 11463.533400000002,
+      "fundingAccruedUsd": 1463.5334000000023,
+      "markPrice": 201.19
+    },
+    {
+      "timestamp": 1757116800000,
+      "equity": 11464.639200000003,
+      "fundingAccruedUsd": 1464.6392000000026,
+      "markPrice": 203.87
+    },
+    {
+      "timestamp": 1757203200000,
+      "equity": 11465.815200000003,
+      "fundingAccruedUsd": 1465.8152000000027,
+      "markPrice": 201.15
+    },
+    {
+      "timestamp": 1757289600000,
+      "equity": 11466.777100000003,
+      "fundingAccruedUsd": 1466.7771000000027,
+      "markPrice": 205.66
+    },
+    {
+      "timestamp": 1757376000000,
+      "equity": 11470.668700000002,
+      "fundingAccruedUsd": 1470.6687000000027,
+      "markPrice": 213.22
+    },
+    {
+      "timestamp": 1757462400000,
+      "equity": 11473.030400000003,
+      "fundingAccruedUsd": 1473.0304000000026,
+      "markPrice": 215.23
+    },
+    {
+      "timestamp": 1757548800000,
+      "equity": 11475.525700000002,
+      "fundingAccruedUsd": 1475.5257000000026,
+      "markPrice": 225
+    },
+    {
+      "timestamp": 1757635200000,
+      "equity": 11476.275300000003,
+      "fundingAccruedUsd": 1476.2753000000025,
+      "markPrice": 232.99
+    },
+    {
+      "timestamp": 1757721600000,
+      "equity": 11476.417700000002,
+      "fundingAccruedUsd": 1476.4177000000025,
+      "markPrice": 243.16
+    },
+    {
+      "timestamp": 1757808000000,
+      "equity": 11477.783600000002,
+      "fundingAccruedUsd": 1477.7836000000027,
+      "markPrice": 243.5
+    },
+    {
+      "timestamp": 1757894400000,
+      "equity": 11478.619300000002,
+      "fundingAccruedUsd": 1478.6193000000026,
+      "markPrice": 240.68
+    },
+    {
+      "timestamp": 1757980800000,
+      "equity": 11479.114700000002,
+      "fundingAccruedUsd": 1479.1147000000026,
+      "markPrice": 233.8
+    },
+    {
+      "timestamp": 1758067200000,
+      "equity": 11481.297100000003,
+      "fundingAccruedUsd": 1481.2971000000025,
+      "markPrice": 236.23
+    },
+    {
+      "timestamp": 1758153600000,
+      "equity": 11481.822300000003,
+      "fundingAccruedUsd": 1481.8223000000025,
+      "markPrice": 244.73
+    },
+    {
+      "timestamp": 1758240000000,
+      "equity": 11484.841000000002,
+      "fundingAccruedUsd": 1484.8410000000026,
+      "markPrice": 248.18
+    },
+    {
+      "timestamp": 1758326400000,
+      "equity": 11485.555600000003,
+      "fundingAccruedUsd": 1485.5556000000026,
+      "markPrice": 239.67
+    },
+    {
+      "timestamp": 1758412800000,
+      "equity": 11484.522800000002,
+      "fundingAccruedUsd": 1484.5228000000027,
+      "markPrice": 240.68
+    },
+    {
+      "timestamp": 1758499200000,
+      "equity": 11485.058200000003,
+      "fundingAccruedUsd": 1485.0582000000027,
+      "markPrice": 232.27
+    },
+    {
+      "timestamp": 1758585600000,
+      "equity": 11484.390400000002,
+      "fundingAccruedUsd": 1484.3904000000027,
+      "markPrice": 219.7
+    },
+    {
+      "timestamp": 1758672000000,
+      "equity": 11484.937000000002,
+      "fundingAccruedUsd": 1484.9370000000026,
+      "markPrice": 213.45
+    },
+    {
+      "timestamp": 1758758400000,
+      "equity": 11484.211500000003,
+      "fundingAccruedUsd": 1484.2115000000026,
+      "markPrice": 210.73
+    },
+    {
+      "timestamp": 1758844800000,
+      "equity": 11484.600700000003,
+      "fundingAccruedUsd": 1484.6007000000027,
+      "markPrice": 195.71
+    },
+    {
+      "timestamp": 1758931200000,
+      "equity": 11482.739600000003,
+      "fundingAccruedUsd": 1482.7396000000026,
+      "markPrice": 205.19
+    },
+    {
+      "timestamp": 1759017600000,
+      "equity": 11483.416300000003,
+      "fundingAccruedUsd": 1483.4163000000026,
+      "markPrice": 202.95
+    },
+    {
+      "timestamp": 1759104000000,
+      "equity": 11483.718000000003,
+      "fundingAccruedUsd": 1483.7180000000026,
+      "markPrice": 209.19
+    },
+    {
+      "timestamp": 1759190400000,
+      "equity": 11483.976800000002,
+      "fundingAccruedUsd": 1483.9768000000026,
+      "markPrice": 211.34
+    },
+    {
+      "timestamp": 1759276800000,
+      "equity": 11482.182900000003,
+      "fundingAccruedUsd": 1482.1829000000027,
+      "markPrice": 207.54
+    },
+    {
+      "timestamp": 1759363200000,
+      "equity": 11483.907000000003,
+      "fundingAccruedUsd": 1483.9070000000027,
+      "markPrice": 219.81
+    },
+    {
+      "timestamp": 1759449600000,
+      "equity": 11482.716700000003,
+      "fundingAccruedUsd": 1482.7167000000027,
+      "markPrice": 231.87
+    },
+    {
+      "timestamp": 1759536000000,
+      "equity": 11483.086700000003,
+      "fundingAccruedUsd": 1483.0867000000028,
+      "markPrice": 231.97
+    },
+    {
+      "timestamp": 1759622400000,
+      "equity": 11484.116200000002,
+      "fundingAccruedUsd": 1484.116200000003,
+      "markPrice": 226.82
+    },
+    {
+      "timestamp": 1759708800000,
+      "equity": 11484.525000000003,
+      "fundingAccruedUsd": 1484.525000000003,
+      "markPrice": 228.7
+    },
+    {
+      "timestamp": 1759795200000,
+      "equity": 11484.813500000004,
+      "fundingAccruedUsd": 1484.8135000000032,
+      "markPrice": 232.52
+    },
+    {
+      "timestamp": 1759881600000,
+      "equity": 11483.255100000002,
+      "fundingAccruedUsd": 1483.255100000003,
+      "markPrice": 220.99
+    },
+    {
+      "timestamp": 1759968000000,
+      "equity": 11482.836500000003,
+      "fundingAccruedUsd": 1482.836500000003,
+      "markPrice": 228.34
+    },
+    {
+      "timestamp": 1760054400000,
+      "equity": 11484.812900000003,
+      "fundingAccruedUsd": 1484.812900000003,
+      "markPrice": 221.23
+    },
+    {
+      "timestamp": 1760140800000,
+      "equity": 11454.609100000003,
+      "fundingAccruedUsd": 1454.609100000003,
+      "markPrice": 188.05
+    },
+    {
+      "timestamp": 1760227200000,
+      "equity": 11418.350900000003,
+      "fundingAccruedUsd": 1418.350900000003,
+      "markPrice": 173.3
+    },
+    {
+      "timestamp": 1760313600000,
+      "equity": 11387.792400000004,
+      "fundingAccruedUsd": 1387.7924000000032,
+      "markPrice": 197.22
+    },
+    {
+      "timestamp": 1760400000000,
+      "equity": 11378.938700000002,
+      "fundingAccruedUsd": 1378.9387000000033,
+      "markPrice": 209.31
+    },
+    {
+      "timestamp": 1760486400000,
+      "equity": 11378.636500000004,
+      "fundingAccruedUsd": 1378.6365000000033,
+      "markPrice": 203.98
+    },
+    {
+      "timestamp": 1760572800000,
+      "equity": 11378.333300000004,
+      "fundingAccruedUsd": 1378.3333000000034,
+      "markPrice": 193.92
+    },
+    {
+      "timestamp": 1760659200000,
+      "equity": 11377.160600000003,
+      "fundingAccruedUsd": 1377.1606000000033,
+      "markPrice": 186.3
+    },
+    {
+      "timestamp": 1760745600000,
+      "equity": 11377.685800000003,
+      "fundingAccruedUsd": 1377.6858000000034,
+      "markPrice": 182.87
+    },
+    {
+      "timestamp": 1760832000000,
+      "equity": 11377.320200000004,
+      "fundingAccruedUsd": 1377.3202000000033,
+      "markPrice": 185.75
+    },
+    {
+      "timestamp": 1760918400000,
+      "equity": 11378.744900000003,
+      "fundingAccruedUsd": 1378.744900000003,
+      "markPrice": 185.62
+    },
+    {
+      "timestamp": 1761004800000,
+      "equity": 11377.640600000002,
+      "fundingAccruedUsd": 1377.6406000000031,
+      "markPrice": 189
+    },
+    {
+      "timestamp": 1761091200000,
+      "equity": 11377.125500000004,
+      "fundingAccruedUsd": 1377.1255000000033,
+      "markPrice": 185.67
+    },
+    {
+      "timestamp": 1761177600000,
+      "equity": 11376.593700000003,
+      "fundingAccruedUsd": 1376.5937000000033,
+      "markPrice": 181.01
+    },
+    {
+      "timestamp": 1761264000000,
+      "equity": 11378.662100000003,
+      "fundingAccruedUsd": 1378.6621000000034,
+      "markPrice": 192.53
+    },
+    {
+      "timestamp": 1761350400000,
+      "equity": 11380.821600000003,
+      "fundingAccruedUsd": 1380.8216000000034,
+      "markPrice": 192.98
+    },
+    {
+      "timestamp": 1761436800000,
+      "equity": 11382.375200000004,
+      "fundingAccruedUsd": 1382.3752000000034,
+      "markPrice": 193.3
+    },
+    {
+      "timestamp": 1761523200000,
+      "equity": 11385.084700000003,
+      "fundingAccruedUsd": 1385.0847000000033,
+      "markPrice": 203.25
+    },
+    {
+      "timestamp": 1761609600000,
+      "equity": 11386.665000000003,
+      "fundingAccruedUsd": 1386.6650000000034,
+      "markPrice": 199.68
+    },
+    {
+      "timestamp": 1761696000000,
+      "equity": 11387.519600000003,
+      "fundingAccruedUsd": 1387.5196000000033,
+      "markPrice": 193.81
+    },
+    {
+      "timestamp": 1761782400000,
+      "equity": 11386.440100000003,
+      "fundingAccruedUsd": 1386.4401000000034,
+      "markPrice": 194.67
+    },
+    {
+      "timestamp": 1761868800000,
+      "equity": 11382.763200000003,
+      "fundingAccruedUsd": 1382.7632000000037,
+      "markPrice": 185.45
+    },
+    {
+      "timestamp": 1761955200000,
+      "equity": 11381.997100000004,
+      "fundingAccruedUsd": 1381.9971000000037,
+      "markPrice": 187.11
+    },
+    {
+      "timestamp": 1762041600000,
+      "equity": 11381.801000000003,
+      "fundingAccruedUsd": 1381.8010000000036,
+      "markPrice": 185.1
+    },
+    {
+      "timestamp": 1762128000000,
+      "equity": 11382.159200000004,
+      "fundingAccruedUsd": 1382.1592000000037,
+      "markPrice": 186.58
+    },
+    {
+      "timestamp": 1762214400000,
+      "equity": 11378.939700000004,
+      "fundingAccruedUsd": 1378.9397000000038,
+      "markPrice": 166.58
+    },
+    {
+      "timestamp": 1762300800000,
+      "equity": 11377.560300000005,
+      "fundingAccruedUsd": 1377.5603000000037,
+      "markPrice": 153.35
+    },
+    {
+      "timestamp": 1762387200000,
+      "equity": 11376.932200000003,
+      "fundingAccruedUsd": 1376.9322000000038,
+      "markPrice": 161.38
+    },
+    {
+      "timestamp": 1762473600000,
+      "equity": 11376.218200000003,
+      "fundingAccruedUsd": 1376.218200000004,
+      "markPrice": 156.77
+    },
+    {
+      "timestamp": 1762560000000,
+      "equity": 11376.174000000005,
+      "fundingAccruedUsd": 1376.1740000000038,
+      "markPrice": 160.88
+    },
+    {
+      "timestamp": 1762646400000,
+      "equity": 11376.989800000003,
+      "fundingAccruedUsd": 1376.989800000004,
+      "markPrice": 156.84
+    },
+    {
+      "timestamp": 1762732800000,
+      "equity": 11377.191900000003,
+      "fundingAccruedUsd": 1377.191900000004,
+      "markPrice": 167.5
+    },
+    {
+      "timestamp": 1762819200000,
+      "equity": 11375.271600000004,
+      "fundingAccruedUsd": 1375.271600000004,
+      "markPrice": 167.51
+    },
+    {
+      "timestamp": 1762905600000,
+      "equity": 11372.396400000003,
+      "fundingAccruedUsd": 1372.396400000004,
+      "markPrice": 153.83
+    },
+    {
+      "timestamp": 1762992000000,
+      "equity": 11370.448900000003,
+      "fundingAccruedUsd": 1370.448900000004,
+      "markPrice": 153.01
+    },
+    {
+      "timestamp": 1763078400000,
+      "equity": 11367.978300000004,
+      "fundingAccruedUsd": 1367.9783000000039,
+      "markPrice": 143.33
+    },
+    {
+      "timestamp": 1763164800000,
+      "equity": 11368.878800000004,
+      "fundingAccruedUsd": 1368.8788000000038,
+      "markPrice": 141.11
+    },
+    {
+      "timestamp": 1763251200000,
+      "equity": 11370.331500000004,
+      "fundingAccruedUsd": 1370.3315000000039,
+      "markPrice": 139.25
+    },
+    {
+      "timestamp": 1763337600000,
+      "equity": 11371.401500000004,
+      "fundingAccruedUsd": 1371.4015000000038,
+      "markPrice": 139.17
+    },
+    {
+      "timestamp": 1763424000000,
+      "equity": 11374.400900000004,
+      "fundingAccruedUsd": 1374.4009000000037,
+      "markPrice": 131.3
+    },
+    {
+      "timestamp": 1763510400000,
+      "equity": 11376.778200000004,
+      "fundingAccruedUsd": 1376.7782000000036,
+      "markPrice": 141.15
+    },
+    {
+      "timestamp": 1763596800000,
+      "equity": 11376.580000000004,
+      "fundingAccruedUsd": 1376.5800000000036,
+      "markPrice": 137.72
+    },
+    {
+      "timestamp": 1763683200000,
+      "equity": 11378.580000000004,
+      "fundingAccruedUsd": 1378.5800000000036,
+      "markPrice": 134.19
+    },
+    {
+      "timestamp": 1763769600000,
+      "equity": 11376.933200000003,
+      "fundingAccruedUsd": 1376.9332000000038,
+      "markPrice": 128.46
+    },
+    {
+      "timestamp": 1763856000000,
+      "equity": 11375.936800000003,
+      "fundingAccruedUsd": 1375.9368000000038,
+      "markPrice": 128.03
+    },
+    {
+      "timestamp": 1763942400000,
+      "equity": 11375.737600000004,
+      "fundingAccruedUsd": 1375.7376000000038,
+      "markPrice": 130.81
+    },
+    {
+      "timestamp": 1764028800000,
+      "equity": 11375.794400000004,
+      "fundingAccruedUsd": 1375.7944000000039,
+      "markPrice": 138.43
+    },
+    {
+      "timestamp": 1764115200000,
+      "equity": 11374.838200000004,
+      "fundingAccruedUsd": 1374.8382000000038,
+      "markPrice": 139.04
+    },
+    {
+      "timestamp": 1764201600000,
+      "equity": 11374.910300000003,
+      "fundingAccruedUsd": 1374.9103000000036,
+      "markPrice": 142.83
+    },
+    {
+      "timestamp": 1764288000000,
+      "equity": 11375.931100000003,
+      "fundingAccruedUsd": 1375.9311000000037,
+      "markPrice": 141
+    },
+    {
+      "timestamp": 1764374400000,
+      "equity": 11373.164300000004,
+      "fundingAccruedUsd": 1373.1643000000038,
+      "markPrice": 137.66
+    },
+    {
+      "timestamp": 1764460800000,
+      "equity": 11373.883200000004,
+      "fundingAccruedUsd": 1373.8832000000036,
+      "markPrice": 135.95
+    },
+    {
+      "timestamp": 1764547200000,
+      "equity": 11377.107100000005,
+      "fundingAccruedUsd": 1377.1071000000038,
+      "markPrice": 127.57
+    },
+    {
+      "timestamp": 1764633600000,
+      "equity": 11376.261700000005,
+      "fundingAccruedUsd": 1376.2617000000039,
+      "markPrice": 127.37
+    },
+    {
+      "timestamp": 1764720000000,
+      "equity": 11377.050700000003,
+      "fundingAccruedUsd": 1377.0507000000039,
+      "markPrice": 138.16
+    },
+    {
+      "timestamp": 1764806400000,
+      "equity": 11378.578000000003,
+      "fundingAccruedUsd": 1378.5780000000038,
+      "markPrice": 145.01
+    },
+    {
+      "timestamp": 1764892800000,
+      "equity": 11381.557500000004,
+      "fundingAccruedUsd": 1381.5575000000038,
+      "markPrice": 139.24
+    },
+    {
+      "timestamp": 1764979200000,
+      "equity": 11382.652700000004,
+      "fundingAccruedUsd": 1382.6527000000037,
+      "markPrice": 133.46
+    },
+    {
+      "timestamp": 1765065600000,
+      "equity": 11382.562300000003,
+      "fundingAccruedUsd": 1382.5623000000037,
+      "markPrice": 132.38
+    },
+    {
+      "timestamp": 1765152000000,
+      "equity": 11381.898900000004,
+      "fundingAccruedUsd": 1381.8989000000038,
+      "markPrice": 131.61
+    },
+    {
+      "timestamp": 1765238400000,
+      "equity": 11383.359100000003,
+      "fundingAccruedUsd": 1383.3591000000038,
+      "markPrice": 133.01
+    },
+    {
+      "timestamp": 1765324800000,
+      "equity": 11383.100700000005,
+      "fundingAccruedUsd": 1383.1007000000038,
+      "markPrice": 137.28
+    },
+    {
+      "timestamp": 1765411200000,
+      "equity": 11384.538400000003,
+      "fundingAccruedUsd": 1384.5384000000038,
+      "markPrice": 133.86
+    },
+    {
+      "timestamp": 1765497600000,
+      "equity": 11382.342900000003,
+      "fundingAccruedUsd": 1382.3429000000037,
+      "markPrice": 135.5
+    },
+    {
+      "timestamp": 1765584000000,
+      "equity": 11385.284100000004,
+      "fundingAccruedUsd": 1385.2841000000037,
+      "markPrice": 132.62
+    },
+    {
+      "timestamp": 1765670400000,
+      "equity": 11383.953400000004,
+      "fundingAccruedUsd": 1383.9534000000037,
+      "markPrice": 133.26
+    },
+    {
+      "timestamp": 1765756800000,
+      "equity": 11381.808100000004,
+      "fundingAccruedUsd": 1381.8081000000038,
+      "markPrice": 130.14
+    },
+    {
+      "timestamp": 1765843200000,
+      "equity": 11382.277600000003,
+      "fundingAccruedUsd": 1382.2776000000038,
+      "markPrice": 126.2
+    },
+    {
+      "timestamp": 1765929600000,
+      "equity": 11380.985200000003,
+      "fundingAccruedUsd": 1380.9852000000037,
+      "markPrice": 128.91
+    },
+    {
+      "timestamp": 1766016000000,
+      "equity": 11382.268500000004,
+      "fundingAccruedUsd": 1382.2685000000038,
+      "markPrice": 123.67
+    },
+    {
+      "timestamp": 1766102400000,
+      "equity": 11380.370300000004,
+      "fundingAccruedUsd": 1380.3703000000037,
+      "markPrice": 118.44
+    },
+    {
+      "timestamp": 1766188800000,
+      "equity": 11382.106600000003,
+      "fundingAccruedUsd": 1382.1066000000037,
+      "markPrice": 125.8
+    },
+    {
+      "timestamp": 1766275200000,
+      "equity": 11385.292300000005,
+      "fundingAccruedUsd": 1385.2923000000037,
+      "markPrice": 126.03
+    },
+    {
+      "timestamp": 1766361600000,
+      "equity": 11386.501900000003,
+      "fundingAccruedUsd": 1386.5019000000036,
+      "markPrice": 126.26
+    },
+    {
+      "timestamp": 1766448000000,
+      "equity": 11386.858000000004,
+      "fundingAccruedUsd": 1386.8580000000036,
+      "markPrice": 126.73
+    },
+    {
+      "timestamp": 1766534400000,
+      "equity": 11386.316000000003,
+      "fundingAccruedUsd": 1386.3160000000034,
+      "markPrice": 123.86
+    },
+    {
+      "timestamp": 1766620800000,
+      "equity": 11388.286000000004,
+      "fundingAccruedUsd": 1388.2860000000035,
+      "markPrice": 122.17
+    },
+    {
+      "timestamp": 1766707200000,
+      "equity": 11389.584000000003,
+      "fundingAccruedUsd": 1389.5840000000035,
+      "markPrice": 120.33
+    },
+    {
+      "timestamp": 1766793600000,
+      "equity": 11391.919700000004,
+      "fundingAccruedUsd": 1391.9197000000036,
+      "markPrice": 122.09
+    },
+    {
+      "timestamp": 1766880000000,
+      "equity": 11393.919700000004,
+      "fundingAccruedUsd": 1393.9197000000036,
+      "markPrice": 124.38
+    },
+    {
+      "timestamp": 1766966400000,
+      "equity": 11396.919700000004,
+      "fundingAccruedUsd": 1396.9197000000036,
+      "markPrice": 127.01
+    },
+    {
+      "timestamp": 1767052800000,
+      "equity": 11398.128600000004,
+      "fundingAccruedUsd": 1398.1286000000034,
+      "markPrice": 123.1
+    },
+    {
+      "timestamp": 1767139200000,
+      "equity": 11398.564800000004,
+      "fundingAccruedUsd": 1398.5648000000033,
+      "markPrice": 124.95
+    },
+    {
+      "timestamp": 1767225600000,
+      "equity": 11400.772600000004,
+      "fundingAccruedUsd": 1400.7726000000032,
+      "markPrice": 125.15
+    },
+    {
+      "timestamp": 1767312000000,
+      "equity": 11401.449000000004,
+      "fundingAccruedUsd": 1401.4490000000033,
+      "markPrice": 126.79
+    },
+    {
+      "timestamp": 1767398400000,
+      "equity": 11404.449000000004,
+      "fundingAccruedUsd": 1404.4490000000033,
+      "markPrice": 132.53
+    },
+    {
+      "timestamp": 1767484800000,
+      "equity": 11407.920300000003,
+      "fundingAccruedUsd": 1407.9203000000034,
+      "markPrice": 134.57
+    },
+    {
+      "timestamp": 1767571200000,
+      "equity": 11409.353300000002,
+      "fundingAccruedUsd": 1409.3533000000034,
+      "markPrice": 135.55
+    },
+    {
+      "timestamp": 1767657600000,
+      "equity": 11409.589700000004,
+      "fundingAccruedUsd": 1409.5897000000034,
+      "markPrice": 137.72
+    },
+    {
+      "timestamp": 1767744000000,
+      "equity": 11411.937000000004,
+      "fundingAccruedUsd": 1411.9370000000033,
+      "markPrice": 139.85
+    },
+    {
+      "timestamp": 1767830400000,
+      "equity": 11412.475200000003,
+      "fundingAccruedUsd": 1412.4752000000033,
+      "markPrice": 136.83
+    },
+    {
+      "timestamp": 1767916800000,
+      "equity": 11413.540400000004,
+      "fundingAccruedUsd": 1413.5404000000033,
+      "markPrice": 139.13
+    },
+    {
+      "timestamp": 1768003200000,
+      "equity": 11415.524800000003,
+      "fundingAccruedUsd": 1415.524800000003,
+      "markPrice": 135.9
+    },
+    {
+      "timestamp": 1768089600000,
+      "equity": 11414.847700000004,
+      "fundingAccruedUsd": 1414.8477000000032,
+      "markPrice": 136.39
+    },
+    {
+      "timestamp": 1768176000000,
+      "equity": 11417.156700000003,
+      "fundingAccruedUsd": 1417.1567000000032,
+      "markPrice": 141.33
+    },
+    {
+      "timestamp": 1768262400000,
+      "equity": 11419.525700000004,
+      "fundingAccruedUsd": 1419.525700000003,
+      "markPrice": 139.3
+    },
+    {
+      "timestamp": 1768348800000,
+      "equity": 11422.117700000003,
+      "fundingAccruedUsd": 1422.117700000003,
+      "markPrice": 145.05
+    },
+    {
+      "timestamp": 1768435200000,
+      "equity": 11425.098300000003,
+      "fundingAccruedUsd": 1425.098300000003,
+      "markPrice": 146.05
+    },
+    {
+      "timestamp": 1768521600000,
+      "equity": 11424.649300000003,
+      "fundingAccruedUsd": 1424.649300000003,
+      "markPrice": 142.46
+    },
+    {
+      "timestamp": 1768608000000,
+      "equity": 11425.604600000002,
+      "fundingAccruedUsd": 1425.6046000000028,
+      "markPrice": 144.32
+    },
+    {
+      "timestamp": 1768694400000,
+      "equity": 11426.218000000003,
+      "fundingAccruedUsd": 1426.2180000000028,
+      "markPrice": 143.23
+    },
+    {
+      "timestamp": 1768780800000,
+      "equity": 11425.123300000003,
+      "fundingAccruedUsd": 1425.1233000000027,
+      "markPrice": 133.77
+    },
+    {
+      "timestamp": 1768867200000,
+      "equity": 11426.227800000002,
+      "fundingAccruedUsd": 1426.2278000000028,
+      "markPrice": 133.73
+    },
+    {
+      "timestamp": 1768953600000,
+      "equity": 11426.629700000003,
+      "fundingAccruedUsd": 1426.6297000000027,
+      "markPrice": 127.31
+    },
+    {
+      "timestamp": 1769040000000,
+      "equity": 11426.416100000002,
+      "fundingAccruedUsd": 1426.4161000000029,
+      "markPrice": 130.01
+    },
+    {
+      "timestamp": 1769126400000,
+      "equity": 11425.781600000002,
+      "fundingAccruedUsd": 1425.7816000000028,
+      "markPrice": 128.35
+    },
+    {
+      "timestamp": 1769212800000,
+      "equity": 11425.133400000002,
+      "fundingAccruedUsd": 1425.133400000003,
+      "markPrice": 127.41
+    },
+    {
+      "timestamp": 1769299200000,
+      "equity": 11424.909700000004,
+      "fundingAccruedUsd": 1424.909700000003,
+      "markPrice": 127.34
+    },
+    {
+      "timestamp": 1769385600000,
+      "equity": 11422.245500000003,
+      "fundingAccruedUsd": 1422.2455000000032,
+      "markPrice": 119.65
+    },
+    {
+      "timestamp": 1769472000000,
+      "equity": 11422.536600000003,
+      "fundingAccruedUsd": 1422.536600000003,
+      "markPrice": 124.09
+    },
+    {
+      "timestamp": 1769558400000,
+      "equity": 11425.231000000003,
+      "fundingAccruedUsd": 1425.231000000003,
+      "markPrice": 127.26
+    },
+    {
+      "timestamp": 1769644800000,
+      "equity": 11426.307900000003,
+      "fundingAccruedUsd": 1426.307900000003,
+      "markPrice": 125.13
+    },
+    {
+      "timestamp": 1769731200000,
+      "equity": 11425.031800000002,
+      "fundingAccruedUsd": 1425.031800000003,
+      "markPrice": 117.63
+    },
+    {
+      "timestamp": 1769817600000,
+      "equity": 11421.805700000003,
+      "fundingAccruedUsd": 1421.805700000003,
+      "markPrice": 117.55
+    },
+    {
+      "timestamp": 1769904000000,
+      "equity": 11418.339800000003,
+      "fundingAccruedUsd": 1418.3398000000032,
+      "markPrice": 105.67
+    },
+    {
+      "timestamp": 1769990400000,
+      "equity": 11407.135400000003,
+      "fundingAccruedUsd": 1407.135400000003,
+      "markPrice": 102.28
+    },
+    {
+      "timestamp": 1770076800000,
+      "equity": 11404.581200000002,
+      "fundingAccruedUsd": 1404.581200000003,
+      "markPrice": 104.18
+    },
+    {
+      "timestamp": 1770163200000,
+      "equity": 11402.005100000002,
+      "fundingAccruedUsd": 1402.005100000003,
+      "markPrice": 97.99
+    },
+    {
+      "timestamp": 1770249600000,
+      "equity": 11392.183100000002,
+      "fundingAccruedUsd": 1392.183100000003,
+      "markPrice": 91.74
+    },
+    {
+      "timestamp": 1770336000000,
+      "equity": 11390.162000000004,
+      "fundingAccruedUsd": 1390.162000000003,
+      "markPrice": 75.51
+    },
+    {
+      "timestamp": 1770422400000,
+      "equity": 11380.277500000004,
+      "fundingAccruedUsd": 1380.2775000000029,
+      "markPrice": 86.57
+    },
+    {
+      "timestamp": 1770508800000,
+      "equity": 11371.011300000004,
+      "fundingAccruedUsd": 1371.011300000003,
+      "markPrice": 87.35
+    },
+    {
+      "timestamp": 1770595200000,
+      "equity": 11361.128700000003,
+      "fundingAccruedUsd": 1361.1287000000032,
+      "markPrice": 87.07
+    },
+    {
+      "timestamp": 1770681600000,
+      "equity": 11356.223900000003,
+      "fundingAccruedUsd": 1356.2239000000031,
+      "markPrice": 86.4
+    },
+    {
+      "timestamp": 1770768000000,
+      "equity": 11354.149200000003,
+      "fundingAccruedUsd": 1354.149200000003,
+      "markPrice": 83.47
+    },
+    {
+      "timestamp": 1770854400000,
+      "equity": 11350.440500000002,
+      "fundingAccruedUsd": 1350.440500000003,
+      "markPrice": 79.97
+    },
+    {
+      "timestamp": 1770940800000,
+      "equity": 11348.032400000004,
+      "fundingAccruedUsd": 1348.032400000003,
+      "markPrice": 78.02
+    },
+    {
+      "timestamp": 1771027200000,
+      "equity": 11347.640000000003,
+      "fundingAccruedUsd": 1347.6400000000028,
+      "markPrice": 84.97
+    },
+    {
+      "timestamp": 1771113600000,
+      "equity": 11344.809300000003,
+      "fundingAccruedUsd": 1344.8093000000028,
+      "markPrice": 88.19
+    },
+    {
+      "timestamp": 1771200000000,
+      "equity": 11345.242200000002,
+      "fundingAccruedUsd": 1345.2422000000026,
+      "markPrice": 86.18
+    },
+    {
+      "timestamp": 1771286400000,
+      "equity": 11343.105700000002,
+      "fundingAccruedUsd": 1343.1057000000026,
+      "markPrice": 86.61
+    },
+    {
+      "timestamp": 1771372800000,
+      "equity": 11339.924400000004,
+      "fundingAccruedUsd": 1339.9244000000026,
+      "markPrice": 84.87
+    },
+    {
+      "timestamp": 1771459200000,
+      "equity": 11337.239000000003,
+      "fundingAccruedUsd": 1337.2390000000025,
+      "markPrice": 81.5
+    },
+    {
+      "timestamp": 1771545600000,
+      "equity": 11335.295800000004,
+      "fundingAccruedUsd": 1335.2958000000026,
+      "markPrice": 82.9
+    },
+    {
+      "timestamp": 1771632000000,
+      "equity": 11334.374700000002,
+      "fundingAccruedUsd": 1334.3747000000026,
+      "markPrice": 84.43
+    },
+    {
+      "timestamp": 1771718400000,
+      "equity": 11333.980200000002,
+      "fundingAccruedUsd": 1333.9802000000027,
+      "markPrice": 85.08
+    },
+    {
+      "timestamp": 1771804800000,
+      "equity": 11331.758600000003,
+      "fundingAccruedUsd": 1331.7586000000028,
+      "markPrice": 81.37
+    },
+    {
+      "timestamp": 1771891200000,
+      "equity": 11324.181600000004,
+      "fundingAccruedUsd": 1324.1816000000028,
+      "markPrice": 78.46
+    },
+    {
+      "timestamp": 1771977600000,
+      "equity": 11322.441400000003,
+      "fundingAccruedUsd": 1322.441400000003,
+      "markPrice": 79.21
+    },
+    {
+      "timestamp": 1772064000000,
+      "equity": 11323.022300000002,
+      "fundingAccruedUsd": 1323.022300000003,
+      "markPrice": 88.58
+    },
+    {
+      "timestamp": 1772150400000,
+      "equity": 11322.509300000003,
+      "fundingAccruedUsd": 1322.5093000000031,
+      "markPrice": 85.83
+    },
+    {
+      "timestamp": 1772236800000,
+      "equity": 11319.807000000003,
+      "fundingAccruedUsd": 1319.8070000000032,
+      "markPrice": 82.12
+    },
+    {
+      "timestamp": 1772323200000,
+      "equity": 11315.563900000003,
+      "fundingAccruedUsd": 1315.563900000003,
+      "markPrice": 84.87
+    },
+    {
+      "timestamp": 1772409600000,
+      "equity": 11316.643100000003,
+      "fundingAccruedUsd": 1316.6431000000032,
+      "markPrice": 85
+    },
+    {
+      "timestamp": 1772496000000,
+      "equity": 11315.521800000002,
+      "fundingAccruedUsd": 1315.5218000000032,
+      "markPrice": 86.92
+    },
+    {
+      "timestamp": 1772582400000,
+      "equity": 11313.417000000003,
+      "fundingAccruedUsd": 1313.417000000003,
+      "markPrice": 86.62
+    },
+    {
+      "timestamp": 1772668800000,
+      "equity": 11314.400700000004,
+      "fundingAccruedUsd": 1314.400700000003,
+      "markPrice": 90.79
+    },
+    {
+      "timestamp": 1772755200000,
+      "equity": 11312.517900000003,
+      "fundingAccruedUsd": 1312.517900000003,
+      "markPrice": 88.86
+    },
+    {
+      "timestamp": 1772841600000,
+      "equity": 11311.054700000002,
+      "fundingAccruedUsd": 1311.0547000000029,
+      "markPrice": 84.75
+    },
+    {
+      "timestamp": 1772928000000,
+      "equity": 11309.249600000003,
+      "fundingAccruedUsd": 1309.2496000000028,
+      "markPrice": 83.06
+    },
+    {
+      "timestamp": 1773014400000,
+      "equity": 11303.494200000003,
+      "fundingAccruedUsd": 1303.4942000000026,
+      "markPrice": 82.35
+    },
+    {
+      "timestamp": 1773100800000,
+      "equity": 11302.491500000002,
+      "fundingAccruedUsd": 1302.4915000000026,
+      "markPrice": 85.57
+    },
+    {
+      "timestamp": 1773187200000,
+      "equity": 11303.297000000002,
+      "fundingAccruedUsd": 1303.2970000000025,
+      "markPrice": 86.01
+    },
+    {
+      "timestamp": 1773273600000,
+      "equity": 11301.766800000003,
+      "fundingAccruedUsd": 1301.7668000000026,
+      "markPrice": 86.68
+    },
+    {
+      "timestamp": 1773360000000,
+      "equity": 11300.086600000002,
+      "fundingAccruedUsd": 1300.0866000000026,
+      "markPrice": 89.78
+    },
+    {
+      "timestamp": 1773446400000,
+      "equity": 11302.443600000002,
+      "fundingAccruedUsd": 1302.4436000000026,
+      "markPrice": 87.94
+    },
+    {
+      "timestamp": 1773532800000,
+      "equity": 11299.436900000002,
+      "fundingAccruedUsd": 1299.4369000000024,
+      "markPrice": 87.76
+    },
+    {
+      "timestamp": 1773619200000,
+      "equity": 11300.010900000003,
+      "fundingAccruedUsd": 1300.0109000000025,
+      "markPrice": 92.01
+    },
+    {
+      "timestamp": 1773705600000,
+      "equity": 11302.402500000002,
+      "fundingAccruedUsd": 1302.4025000000026,
+      "markPrice": 95.49
+    },
+    {
+      "timestamp": 1773792000000,
+      "equity": 11302.309200000003,
+      "fundingAccruedUsd": 1302.3092000000026,
+      "markPrice": 94.53
+    },
+    {
+      "timestamp": 1773878400000,
+      "equity": 11300.072900000003,
+      "fundingAccruedUsd": 1300.0729000000026,
+      "markPrice": 90.11
+    },
+    {
+      "timestamp": 1773964800000,
+      "equity": 11300.018400000003,
+      "fundingAccruedUsd": 1300.0184000000027,
+      "markPrice": 89.41
+    },
+    {
+      "timestamp": 1774051200000,
+      "equity": 11299.200900000003,
+      "fundingAccruedUsd": 1299.2009000000028,
+      "markPrice": 90.02
+    },
+    {
+      "timestamp": 1774137600000,
+      "equity": 11297.871300000003,
+      "fundingAccruedUsd": 1297.8713000000027,
+      "markPrice": 87.33
+    },
+    {
+      "timestamp": 1774224000000,
+      "equity": 11293.308000000003,
+      "fundingAccruedUsd": 1293.3080000000027,
+      "markPrice": 85.9
+    },
+    {
+      "timestamp": 1774310400000,
+      "equity": 11294.613300000003,
+      "fundingAccruedUsd": 1294.6133000000027,
+      "markPrice": 91
+    },
+    {
+      "timestamp": 1774396800000,
+      "equity": 11293.328600000003,
+      "fundingAccruedUsd": 1293.3286000000028,
+      "markPrice": 91.32
+    },
+    {
+      "timestamp": 1774483200000,
+      "equity": 11294.958800000002,
+      "fundingAccruedUsd": 1294.9588000000026,
+      "markPrice": 91.7
+    },
+    {
+      "timestamp": 1774569600000,
+      "equity": 11291.566100000004,
+      "fundingAccruedUsd": 1291.5661000000027,
+      "markPrice": 86.55
+    },
+    {
+      "timestamp": 1774656000000,
+      "equity": 11283.428100000003,
+      "fundingAccruedUsd": 1283.4281000000028,
+      "markPrice": 82.86
+    },
+    {
+      "timestamp": 1774742400000,
+      "equity": 11276.779800000002,
+      "fundingAccruedUsd": 1276.7798000000028,
+      "markPrice": 82.21
+    },
+    {
+      "timestamp": 1774828800000,
+      "equity": 11267.220400000002,
+      "fundingAccruedUsd": 1267.2204000000027,
+      "markPrice": 81.89
+    },
+    {
+      "timestamp": 1774915200000,
+      "equity": 11266.087900000002,
+      "fundingAccruedUsd": 1266.0879000000027,
+      "markPrice": 82.72
+    },
+    {
+      "timestamp": 1775001600000,
+      "equity": 11265.265100000002,
+      "fundingAccruedUsd": 1265.2651000000028,
+      "markPrice": 83.4
+    },
+    {
+      "timestamp": 1775088000000,
+      "equity": 11265.013200000003,
+      "fundingAccruedUsd": 1265.0132000000028,
+      "markPrice": 81.63
+    },
+    {
+      "timestamp": 1775174400000,
+      "equity": 11262.071400000003,
+      "fundingAccruedUsd": 1262.071400000003,
+      "markPrice": 79.23
+    },
+    {
+      "timestamp": 1775260800000,
+      "equity": 11261.823800000004,
+      "fundingAccruedUsd": 1261.823800000003,
+      "markPrice": 80.24
+    },
+    {
+      "timestamp": 1775347200000,
+      "equity": 11260.725100000003,
+      "fundingAccruedUsd": 1260.725100000003,
+      "markPrice": 80.7
+    },
+    {
+      "timestamp": 1775433600000,
+      "equity": 11258.586700000003,
+      "fundingAccruedUsd": 1258.586700000003,
+      "markPrice": 82.32
+    },
+    {
+      "timestamp": 1775520000000,
+      "equity": 11258.035900000003,
+      "fundingAccruedUsd": 1258.035900000003,
+      "markPrice": 79.91
+    },
+    {
+      "timestamp": 1775606400000,
+      "equity": 11256.232500000004,
+      "fundingAccruedUsd": 1256.232500000003,
+      "markPrice": 84.76
+    },
+    {
+      "timestamp": 1775692800000,
+      "equity": 11258.658300000003,
+      "fundingAccruedUsd": 1258.658300000003,
+      "markPrice": 82.21
+    },
+    {
+      "timestamp": 1775779200000,
+      "equity": 11259.775300000003,
+      "fundingAccruedUsd": 1259.775300000003,
+      "markPrice": 83.13
+    },
+    {
+      "timestamp": 1775865600000,
+      "equity": 11261.052100000003,
+      "fundingAccruedUsd": 1261.052100000003,
+      "markPrice": 84.68
+    },
+    {
+      "timestamp": 1775952000000,
+      "equity": 11261.742900000003,
+      "fundingAccruedUsd": 1261.742900000003,
+      "markPrice": 84.9
+    },
+    {
+      "timestamp": 1776038400000,
+      "equity": 11259.915900000004,
+      "fundingAccruedUsd": 1259.915900000003,
+      "markPrice": 82.15
+    },
+    {
+      "timestamp": 1776124800000,
+      "equity": 11261.205000000004,
+      "fundingAccruedUsd": 1261.205000000003,
+      "markPrice": 85.91
+    },
+    {
+      "timestamp": 1776211200000,
+      "equity": 11264.221400000002,
+      "fundingAccruedUsd": 1264.221400000003,
+      "markPrice": 83.78
+    },
+    {
+      "timestamp": 1776297600000,
+      "equity": 11263.080700000002,
+      "fundingAccruedUsd": 1263.080700000003,
+      "markPrice": 84.92
+    },
+    {
+      "timestamp": 1776384000000,
+      "equity": 11265.811200000004,
+      "fundingAccruedUsd": 1265.8112000000028,
+      "markPrice": 88.82
+    },
+    {
+      "timestamp": 1776470400000,
+      "equity": 11267.221300000003,
+      "fundingAccruedUsd": 1267.2213000000029,
+      "markPrice": 88.96
+    },
+    {
+      "timestamp": 1776556800000,
+      "equity": 11265.629100000002,
+      "fundingAccruedUsd": 1265.6291000000028,
+      "markPrice": 86.01
+    },
+    {
+      "timestamp": 1776643200000,
+      "equity": 11262.451500000003,
+      "fundingAccruedUsd": 1262.4515000000026,
+      "markPrice": 84
+    },
+    {
+      "timestamp": 1776729600000,
+      "equity": 11263.704700000002,
+      "fundingAccruedUsd": 1263.7047000000025,
+      "markPrice": 85.66
+    },
+    {
+      "timestamp": 1776816000000,
+      "equity": 11263.970300000003,
+      "fundingAccruedUsd": 1263.9703000000025,
+      "markPrice": 86.48
+    },
+    {
+      "timestamp": 1776902400000,
+      "equity": 11267.462700000002,
+      "fundingAccruedUsd": 1267.4627000000023,
+      "markPrice": 86.86
+    },
+    {
+      "timestamp": 1776988800000,
+      "equity": 11267.232500000002,
+      "fundingAccruedUsd": 1267.2325000000023,
+      "markPrice": 86.19
+    },
+    {
+      "timestamp": 1777075200000,
+      "equity": 11266.154600000002,
+      "fundingAccruedUsd": 1266.1546000000023,
+      "markPrice": 86.23
+    },
+    {
+      "timestamp": 1777161600000,
+      "equity": 11265.789800000002,
+      "fundingAccruedUsd": 1265.7898000000025,
+      "markPrice": 86.03
+    },
+    {
+      "timestamp": 1777248000000,
+      "equity": 11266.236100000002,
+      "fundingAccruedUsd": 1266.2361000000026,
+      "markPrice": 87.35
+    },
+    {
+      "timestamp": 1777334400000,
+      "equity": 11264.761200000003,
+      "fundingAccruedUsd": 1264.7612000000026,
+      "markPrice": 84.83
+    },
+    {
+      "timestamp": 1777420800000,
+      "equity": 11263.254800000002,
+      "fundingAccruedUsd": 1263.2548000000027,
+      "markPrice": 84.07
+    },
+    {
+      "timestamp": 1777507200000,
+      "equity": 11263.205400000003,
+      "fundingAccruedUsd": 1263.2054000000026,
+      "markPrice": 83.81
+    },
+    {
+      "timestamp": 1777593600000,
+      "equity": 11264.929300000003,
+      "fundingAccruedUsd": 1264.9293000000025,
+      "markPrice": 83.2
+    },
+    {
+      "timestamp": 1777680000000,
+      "equity": 11265.594500000003,
+      "fundingAccruedUsd": 1265.5945000000024,
+      "markPrice": 83.82
+    },
+    {
+      "timestamp": 1777766400000,
+      "equity": 11265.783600000002,
+      "fundingAccruedUsd": 1265.7836000000025,
+      "markPrice": 84.08
+    },
+    {
+      "timestamp": 1777852800000,
+      "equity": 11266.458200000003,
+      "fundingAccruedUsd": 1266.4582000000025,
+      "markPrice": 83.78
+    },
+    {
+      "timestamp": 1777939200000,
+      "equity": 11268.351600000002,
+      "fundingAccruedUsd": 1268.3516000000025,
+      "markPrice": 84.33
+    },
+    {
+      "timestamp": 1778025600000,
+      "equity": 11270.140900000002,
+      "fundingAccruedUsd": 1270.1409000000024,
+      "markPrice": 86.38
+    },
+    {
+      "timestamp": 1778112000000,
+      "equity": 11273.608100000003,
+      "fundingAccruedUsd": 1273.6081000000024,
+      "markPrice": 88.32
+    },
+    {
+      "timestamp": 1778198400000,
+      "equity": 11273.835300000002,
+      "fundingAccruedUsd": 1273.8353000000025,
+      "markPrice": 88.27
+    },
+    {
+      "timestamp": 1778284800000,
+      "equity": 11276.680400000003,
+      "fundingAccruedUsd": 1276.6804000000025,
+      "markPrice": 92.48
+    },
+    {
+      "timestamp": 1778371200000,
+      "equity": 11277.263200000003,
+      "fundingAccruedUsd": 1277.2632000000024,
+      "markPrice": 93.03
+    },
+    {
+      "timestamp": 1778457600000,
+      "equity": 11277.713800000003,
+      "fundingAccruedUsd": 1277.7138000000025,
+      "markPrice": 95.79
+    },
+    {
+      "timestamp": 1778544000000,
+      "equity": 11278.722800000003,
+      "fundingAccruedUsd": 1278.7228000000025,
+      "markPrice": 97.54
+    },
+    {
+      "timestamp": 1778630400000,
+      "equity": 11279.281300000002,
+      "fundingAccruedUsd": 1279.2813000000026,
+      "markPrice": 94.48
+    },
+    {
+      "timestamp": 1778716800000,
+      "equity": 11278.919700000002,
+      "fundingAccruedUsd": 1278.9197000000024,
+      "markPrice": 91.21
+    },
+    {
+      "timestamp": 1778803200000,
+      "equity": 11276.413400000003,
+      "fundingAccruedUsd": 1276.4134000000024,
+      "markPrice": 92.43
+    },
+    {
+      "timestamp": 1778889600000,
+      "equity": 11277.023900000002,
+      "fundingAccruedUsd": 1277.0239000000024,
+      "markPrice": 89.22
+    },
+    {
+      "timestamp": 1778976000000,
+      "equity": 11276.494800000002,
+      "fundingAccruedUsd": 1276.4948000000024,
+      "markPrice": 86.13
+    },
+    {
+      "timestamp": 1779062400000,
+      "equity": 11274.694300000003,
+      "fundingAccruedUsd": 1274.6943000000024,
+      "markPrice": 85.36
+    },
+    {
+      "timestamp": 1779148800000,
+      "equity": 11273.700000000003,
+      "fundingAccruedUsd": 1273.7000000000023,
+      "markPrice": 85.58
+    },
+    {
+      "timestamp": 1779235200000,
+      "equity": 11272.354900000002,
+      "fundingAccruedUsd": 1272.3549000000025,
+      "markPrice": 84.23
+    },
+    {
+      "timestamp": 1779321600000,
+      "equity": 11272.428900000003,
+      "fundingAccruedUsd": 1272.4289000000024,
+      "markPrice": 86.64
+    },
+    {
+      "timestamp": 1779408000000,
+      "equity": 11274.319900000002,
+      "fundingAccruedUsd": 1274.3199000000025,
+      "markPrice": 86.85
+    },
+    {
+      "timestamp": 1779494400000,
+      "equity": 11274.145000000002,
+      "fundingAccruedUsd": 1274.1450000000025,
+      "markPrice": 84.44
+    },
+    {
+      "timestamp": 1779580800000,
+      "equity": 11270.307900000002,
+      "fundingAccruedUsd": 1270.3079000000023,
+      "markPrice": 85.89
+    },
+    {
+      "timestamp": 1779667200000,
+      "equity": 11270.543900000002,
+      "fundingAccruedUsd": 1270.5439000000022,
+      "markPrice": 85.5
+    },
+    {
+      "timestamp": 1779753600000,
+      "equity": 11270.468800000002,
+      "fundingAccruedUsd": 1270.4688000000021,
+      "markPrice": 84.4
+    },
+    {
+      "timestamp": 1779840000000,
+      "equity": 11268.495800000002,
+      "fundingAccruedUsd": 1268.4958000000022,
+      "markPrice": 84.14
+    },
+    {
+      "timestamp": 1779926400000,
+      "equity": 11267.743500000002,
+      "fundingAccruedUsd": 1267.743500000002,
+      "markPrice": 82.71
+    },
+    {
+      "timestamp": 1780012800000,
+      "equity": 11265.891100000003,
+      "fundingAccruedUsd": 1265.891100000002,
+      "markPrice": 82.33
+    },
+    {
+      "timestamp": 1780099200000,
+      "equity": 11267.522600000002,
+      "fundingAccruedUsd": 1267.522600000002,
+      "markPrice": 82.29
+    },
+    {
+      "timestamp": 1780185600000,
+      "equity": 11268.552000000001,
+      "fundingAccruedUsd": 1268.5520000000022,
+      "markPrice": 82.93
+    },
+    {
+      "timestamp": 1780272000000,
+      "equity": 11269.183600000002,
+      "fundingAccruedUsd": 1269.1836000000021,
+      "markPrice": 82.83
+    },
+    {
+      "timestamp": 1780358400000,
+      "equity": 11270.742000000002,
+      "fundingAccruedUsd": 1270.7420000000022,
+      "markPrice": 80.89
+    },
+    {
+      "timestamp": 1780444800000,
+      "equity": 11270.566400000002,
+      "fundingAccruedUsd": 1270.5664000000022,
+      "markPrice": 74.85
+    },
+    {
+      "timestamp": 1780531200000,
+      "equity": 11267.673300000002,
+      "fundingAccruedUsd": 1267.6733000000022,
+      "markPrice": 70.75
+    },
+    {
+      "timestamp": 1780617600000,
+      "equity": 11263.048100000002,
+      "fundingAccruedUsd": 1263.0481000000023,
+      "markPrice": 68.31
+    },
+    {
+      "timestamp": 1780704000000,
+      "equity": 11258.942900000002,
+      "fundingAccruedUsd": 1258.9429000000023,
+      "markPrice": 64.68
+    },
+    {
+      "timestamp": 1780790400000,
+      "equity": 11255.448900000003,
+      "fundingAccruedUsd": 1255.4489000000024,
+      "markPrice": 62.11
+    },
+    {
+      "timestamp": 1780876800000,
+      "equity": 11245.928500000002,
+      "fundingAccruedUsd": 1245.9285000000023,
+      "markPrice": 66.71
+    },
+    {
+      "timestamp": 1780963200000,
+      "equity": 11242.877200000003,
+      "fundingAccruedUsd": 1242.8772000000022,
+      "markPrice": 65.42
+    },
+    {
+      "timestamp": 1781049600000,
+      "equity": 11241.659000000001,
+      "fundingAccruedUsd": 1241.6590000000022,
+      "markPrice": 65.19
+    },
+    {
+      "timestamp": 1781136000000,
+      "equity": 11239.992200000002,
+      "fundingAccruedUsd": 1239.9922000000022,
+      "markPrice": 63.67
+    },
+    {
+      "timestamp": 1781222400000,
+      "equity": 11238.969300000002,
+      "fundingAccruedUsd": 1238.9693000000022,
+      "markPrice": 66.87
+    },
+    {
+      "timestamp": 1781308800000,
+      "equity": 11237.214400000003,
+      "fundingAccruedUsd": 1237.2144000000023,
+      "markPrice": 66.99
+    },
+    {
+      "timestamp": 1781395200000,
+      "equity": 11236.910700000002,
+      "fundingAccruedUsd": 1236.9107000000024,
+      "markPrice": 68.75
+    },
+    {
+      "timestamp": 1781481600000,
+      "equity": 11233.695100000003,
+      "fundingAccruedUsd": 1233.6951000000024,
+      "markPrice": 71.12
+    },
+    {
+      "timestamp": 1781568000000,
+      "equity": 11232.682800000002,
+      "fundingAccruedUsd": 1232.6828000000025,
+      "markPrice": 74.04
+    },
+    {
+      "timestamp": 1781654400000,
+      "equity": 11232.278500000002,
+      "fundingAccruedUsd": 1232.2785000000026,
+      "markPrice": 73.37
+    },
+    {
+      "timestamp": 1781740800000,
+      "equity": 11231.349600000003,
+      "fundingAccruedUsd": 1231.3496000000027,
+      "markPrice": 72.22
+    },
+    {
+      "timestamp": 1781827200000,
+      "equity": 11230.119300000002,
+      "fundingAccruedUsd": 1230.1193000000028,
+      "markPrice": 69.81
+    },
+    {
+      "timestamp": 1781913600000,
+      "equity": 11231.364100000003,
+      "fundingAccruedUsd": 1231.364100000003,
+      "markPrice": 69.63
+    },
+    {
+      "timestamp": 1782000000000,
+      "equity": 11231.026400000002,
+      "fundingAccruedUsd": 1231.026400000003,
+      "markPrice": 73.2
+    },
+    {
+      "timestamp": 1782086400000,
+      "equity": 11231.762400000003,
+      "fundingAccruedUsd": 1231.7624000000028,
+      "markPrice": 73.36
+    },
+    {
+      "timestamp": 1782172800000,
+      "equity": 11231.030200000003,
+      "fundingAccruedUsd": 1231.0302000000029,
+      "markPrice": 71.88
+    },
+    {
+      "timestamp": 1782259200000,
+      "equity": 11227.687600000003,
+      "fundingAccruedUsd": 1227.687600000003,
+      "markPrice": 69.99
+    },
+    {
+      "timestamp": 1782345600000,
+      "equity": 11224.770500000002,
+      "fundingAccruedUsd": 1224.7705000000026,
+      "markPrice": 67.72
+    },
+    {
+      "timestamp": 1782432000000,
+      "equity": 11223.885000000002,
+      "fundingAccruedUsd": 1223.8850000000025,
+      "markPrice": 67.74
+    },
+    {
+      "timestamp": 1782518400000,
+      "equity": 11226.650100000003,
+      "fundingAccruedUsd": 1226.6501000000026,
+      "markPrice": 71.82
+    },
+    {
+      "timestamp": 1782604800000,
+      "equity": 11227.101100000003,
+      "fundingAccruedUsd": 1227.1011000000026,
+      "markPrice": 70.72
+    },
+    {
+      "timestamp": 1782691200000,
+      "equity": 11227.474300000002,
+      "fundingAccruedUsd": 1227.4743000000026,
+      "markPrice": 71.66
+    },
+    {
+      "timestamp": 1782777600000,
+      "equity": 11229.319300000003,
+      "fundingAccruedUsd": 1229.3193000000026,
+      "markPrice": 74.42
+    },
+    {
+      "timestamp": 1782864000000,
+      "equity": 11231.812500000004,
+      "fundingAccruedUsd": 1231.8125000000027,
+      "markPrice": 73.65
+    },
+    {
+      "timestamp": 1782950400000,
+      "equity": 11233.765500000003,
+      "fundingAccruedUsd": 1233.7655000000027,
+      "markPrice": 77.26
+    },
+    {
+      "timestamp": 1783036800000,
+      "equity": 11234.406800000002,
+      "fundingAccruedUsd": 1234.4068000000027,
+      "markPrice": 80.75
+    }
+  ]
+}
