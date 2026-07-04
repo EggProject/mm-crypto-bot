@@ -169,6 +169,22 @@ export type {
   VolTargetWalkForwardValidation,
   VolTargetWalkForwardWindow,
 } from "./risk/vol-targeted-sizer.js";
+// Phase 9 9E — Adaptive Kelly × VolTargeting hybrid position sizer (combines Track B + Track G).
+export {
+  buildHybridDay,
+  computeHybridSizer,
+  DEFAULT_HYBRID_SIZER_CONFIG,
+  runHybridWalkForwardValidation,
+  toPositionSizerConfig,
+} from "./risk/adaptive-kelly-vol-hybrid.js";
+export type {
+  HybridSizerConfig,
+  HybridSizerDay,
+  HybridSizerPositionSizerConfig,
+  HybridSizerResult,
+  HybridWalkForwardValidation,
+  HybridWalkForwardWindow,
+} from "./risk/adaptive-kelly-vol-hybrid.js";
 // Phase 7 M2 — Multi-class ensemble V2 (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate).
 export {
   DEFAULT_ADAPTIVE_KELLY_AGGREGATE,
