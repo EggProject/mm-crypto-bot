@@ -33,6 +33,10 @@ export {
   resolveTrailConfig,
 } from "./strategy/donchian-trailing.js";
 export type { DonchianTrailingConfig, ResolvedTrailConfig, TrailVariant } from "./strategy/donchian-trailing.js";
+// Phase 8 Track F — 1h MTF Donchian with 4h filter + 1d supertrend (3-tier MTF, long-only, 1:10 leverage).
+export { DonchianMtfStrategy } from "./strategy/donchian-mtf.js";
+export { DEFAULT_DONCHIAN_MTF_CONFIG } from "./strategy/donchian-mtf.js";
+export type { DonchianMtfConfig } from "./strategy/donchian-mtf.js";
 // Phase 5 — Composite multi-strategy ensemble (Strategy B).
 export { CompositeStrategy } from "./strategy/composite.js";
 export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
