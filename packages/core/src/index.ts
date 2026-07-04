@@ -43,6 +43,22 @@ export type { FundingCarryConfig, FundingCarryState, FundingRateProvider, Fundin
 // Phase 7 Track C — leveraged delta-neutral funding-rate carry with VaR cap + liquidation buffer.
 export { FundingCarryLeverageStrategy, DEFAULT_LEVERAGED_CARRY_CONFIG } from "./strategy/funding-carry-leverage.js";
 export type { LeveragedCarryConfig, LeveragedCarryState, LiquidationEvent, VarMethod } from "./strategy/funding-carry-leverage.js";
+// Phase 8 Track E — regime-aware funding-carry timing strategy with 1:10 mandatory leverage.
+export {
+  ALLOWED_TIMING_LEVERAGE,
+  computeEffectiveNotional,
+  computePercentile,
+  computeRollingStats,
+  DEFAULT_FUNDING_CARRY_TIMING_CONFIG,
+  FundingCarryTimingStrategy,
+  validateTimingLeverage,
+} from "./strategy/funding-carry-timing.js";
+export type {
+  AllowedTimingLeverage,
+  FundingCarryTimingConfig,
+  FundingCarryTimingState,
+  RollingWindowStats,
+} from "./strategy/funding-carry-timing.js";
 // Phase 6 M2 — multi-class edge ensemble (Donchian + funding-carry + arb-latency-gate + Kelly-opt sizing).
 export {
   MultiClassEnsemble,
