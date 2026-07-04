@@ -29,6 +29,26 @@ export type { DonchianBreakoutConfig } from "./strategy/donchian-breakout.js";
 export { CompositeStrategy } from "./strategy/composite.js";
 export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
 export type { CompositeStrategyConfig } from "./strategy/composite.js";
+// Phase 6 — Track C Kelly-opt position sizing (risk module).
+export {
+  applyRiskCaps,
+  DEFAULT_KELLY_OPT_CONFIG,
+  extractTradeStats,
+  fractionalKelly,
+  fullKellyFraction,
+  optimizeKelly,
+  splitIntoWindows,
+  runWalkForwardValidation,
+} from "./risk/kelly-position-sizer.js";
+export type {
+  KellyFraction,
+  KellyOptConfig,
+  KellyOptResult,
+  TradeStats,
+  WalkForwardValidation,
+  WalkForwardWindow,
+  WalkForwardSplit,
+} from "./risk/kelly-position-sizer.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
