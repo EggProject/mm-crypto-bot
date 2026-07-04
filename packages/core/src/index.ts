@@ -132,6 +132,25 @@ export type {
   DailyPnlPoint,
   RollingSharpePoint,
 } from "./risk/kelly-adaptive.js";
+// Phase 8 Track G — Volatility-targeted position sizing (Moreira-Muir 2017 effect, 1:10 mandate).
+export {
+  computeVolMultiplier,
+  computeVolTargetedSizer,
+  dailyLogReturns,
+  DEFAULT_VOL_TARGET_CONFIG,
+  ONE_TO_TEN_BASE_LEVERAGE,
+  rollingRealizedDailyVol,
+  runVolTargetWalkForwardValidation,
+  validateOneToTenLeverage,
+} from "./risk/vol-targeted-sizer.js";
+export type {
+  DailyOhlcv,
+  VolTargetConfig,
+  VolTargetedSizerResult,
+  VolTargetPoint,
+  VolTargetWalkForwardValidation,
+  VolTargetWalkForwardWindow,
+} from "./risk/vol-targeted-sizer.js";
 // Phase 7 M2 — Multi-class ensemble V2 (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate).
 export {
   DEFAULT_ADAPTIVE_KELLY_AGGREGATE,
