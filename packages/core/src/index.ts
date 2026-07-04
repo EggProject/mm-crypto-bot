@@ -32,6 +32,22 @@ export type { CompositeStrategyConfig } from "./strategy/composite.js";
 // Phase 6 Track A — delta-neutral funding-rate carry.
 export { FundingCarryStrategy, InMemoryFundingRateProvider, DEFAULT_FUNDING_CARRY_CONFIG } from "./strategy/funding-carry.js";
 export type { FundingCarryConfig, FundingCarryState, FundingRateProvider, FundingSnapshot } from "./strategy/funding-carry.js";
+// Phase 6 M2 — multi-class edge ensemble (Donchian + funding-carry + arb-latency-gate + Kelly-opt sizing).
+export {
+  MultiClassEnsemble,
+  createLatencyGate,
+  DEFAULT_KELLY_OPT_AGGREGATE,
+  DEFAULT_LATENCY_GATE_DISABLED,
+  DEFAULT_MULTI_CLASS_ENSEMBLE_CONFIG_PARTIAL,
+  timeframesForMultiClass,
+} from "./strategy/multi-class-ensemble.js";
+export type {
+  KellyOptAggregate,
+  LatencyGate,
+  LatencySnapshot,
+  MultiClassEnsembleConfig,
+  MultiClassEnsembleState,
+} from "./strategy/multi-class-ensemble.js";
 // Phase 6 Track C — Kelly-opt position sizing (risk module).
 export {
   applyRiskCaps,

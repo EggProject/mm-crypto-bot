@@ -1,0 +1,54 @@
+{
+  "args": {
+    "symbol": "SOL/USDT",
+    "timeframe": "1d",
+    "initialEquity": 10000,
+    "kellyFraction": 0.5,
+    "arbThresholdMs": 500,
+    "targetNotionalUsd": 10000,
+    "latencySnapshotPath": "",
+    "outputPath": "backtest-results/baseline-multi-class-sol-1d.json"
+  },
+  "donchian": {
+    "totalReturn": 0.028341638623693325,
+    "monthlyReturn": 0.0009301611613721228,
+    "annualizedReturn": 0.011210566594646254,
+    "sharpeRatio": 0.4935193780118091,
+    "sortinoRatio": 0.1759520550840502,
+    "maxDrawdown": 0.033517479696739585,
+    "profitFactor": 1.659426034812753,
+    "winRate": 0.631578947368421,
+    "totalTrades": 19,
+    "finalEquity": 10283.416386236933
+  },
+  "carry": {
+    "fundingCollectedUsd": 1234.4068000000027,
+    "rebalanceCount": 0,
+    "rebalanceCostUsd": 0,
+    "fundingPeriods": 2743,
+    "positiveFundingPeriods": 1884,
+    "negativeFundingPeriods": 859,
+    "zeroFundingPeriods": 0,
+    "avgFundingRate8h": 0.00004500207072548216,
+    "netFundingUsd": 1234.4068000000027,
+    "startTime": 1704067200000,
+    "endTime": 1783124905293,
+    "pausedCandles": 0,
+    "activeCandles": 915,
+    "latencyGateActiveFraction": 1
+  },
+  "combined": {
+    "totalReturn": 0.15178231862369357,
+    "monthlyReturn": 0.004712052124112409,
+    "annualizedReturn": 0.058033315318875234,
+    "sharpeRatio": 0.4935193780118091,
+    "maxDrawdown": 0.033517479696739585,
+    "finalEquity": 11517.823186236936,
+    "edgeContributionPctDonchian": 18.67255611897678,
+    "edgeContributionPctCarry": 81.32744388102323,
+    "carryActive": true,
+    "kellyMultiplier": 0.5
+  },
+  "latencySnapshot": null,
+  "timestamp": 1783124905436
+}

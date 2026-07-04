@@ -1,0 +1,54 @@
+{
+  "args": {
+    "symbol": "ETH/USDT",
+    "timeframe": "1d",
+    "initialEquity": 10000,
+    "kellyFraction": 0.5,
+    "arbThresholdMs": 500,
+    "targetNotionalUsd": 10000,
+    "latencySnapshotPath": "",
+    "outputPath": "backtest-results/baseline-multi-class-eth-1d.json"
+  },
+  "donchian": {
+    "totalReturn": 0.002544194135126054,
+    "monthlyReturn": 0.00008453390061835542,
+    "annualizedReturn": 0.0010141002405112953,
+    "sharpeRatio": 0.059737261139854336,
+    "sortinoRatio": 0.023924969802278203,
+    "maxDrawdown": 0.01922652853610192,
+    "profitFactor": 1.0429935649912014,
+    "winRate": 0.5833333333333334,
+    "totalTrades": 24,
+    "finalEquity": 10025.44194135126
+  },
+  "carry": {
+    "fundingCollectedUsd": 1817.3980000000013,
+    "rebalanceCount": 0,
+    "rebalanceCostUsd": 0,
+    "fundingPeriods": 2743,
+    "positiveFundingPeriods": 2293,
+    "negativeFundingPeriods": 450,
+    "zeroFundingPeriods": 0,
+    "avgFundingRate8h": 0.00006625585125774616,
+    "netFundingUsd": 1817.3980000000013,
+    "startTime": 1704067200000,
+    "endTime": 1783124905292,
+    "pausedCandles": 0,
+    "activeCandles": 915,
+    "latencyGateActiveFraction": 1
+  },
+  "combined": {
+    "totalReturn": 0.18428399413512617,
+    "monthlyReturn": 0.005642592969497429,
+    "annualizedReturn": 0.06985251025401218,
+    "sharpeRatio": 0.059737261139854336,
+    "maxDrawdown": 0.01922652853610192,
+    "finalEquity": 11842.839941351262,
+    "edgeContributionPctDonchian": 1.380583347493828,
+    "edgeContributionPctCarry": 98.61941665250619,
+    "carryActive": true,
+    "kellyMultiplier": 0.5
+  },
+  "latencySnapshot": null,
+  "timestamp": 1783124905447
+}
