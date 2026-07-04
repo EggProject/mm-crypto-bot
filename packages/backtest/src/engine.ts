@@ -137,6 +137,9 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
   const strategy: Strategy = opts.strategy ?? createStrategy();
   // A trade-ek entry/exit timestampjei ms-ben.
   let peakEquity = equity;
+  // Phase 7 Track A — az aktuális nyitott pozíció entry-bar-indexe (a
+  // holdingBars számláláshoz a PositionManagementContext-ben).
+  let entryBarIndex = -1;
   // 4) LTF candle-enkénti iteráció.
   for (let i = 0; i < ltfCandles.length; i++) {
     const ltfCandle = ltfCandles[i]!;
@@ -169,6 +172,65 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
         trades.push(trade);
         equity += trade.pnlUsd;
         openPosition = null;
+        // Phase 7 Track A — notify the strategy of close for state cleanup
+        // (HWM-reset, holdingBars-reset, stb.). Best-effort: a hook opcionális.
+        if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
+          (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed(exit.reason);
+        }
+      } else if (typeof (strategy as { onOpenPositionUpdate?: unknown }).onOpenPositionUpdate === "function") {
+        // Phase 7 Track A — per-bar position management hook (HWM-based trailing-stop).
+        // A `checkExit` nem triggerelt kilépést, így van lehetőség a trailing-stop
+        // logika futtatására. A hook visszatérési értéke (`PositionUpdate`)
+        // alapján módosítjuk a nyitott pozíció SL/TP szintjét, vagy `forceExit`
+        // esetén azonnal zárjuk azt.
+        const holdingBars = i - entryBarIndex;
+        const update = (strategy as {
+          onOpenPositionUpdate: (ctx: {
+            openPosition: { side: "buy" | "sell"; entryTime: number; entryPrice: number; quantity: number; stopLoss: number; takeProfit: number; holdingBars: number };
+            candle: typeof ltfCandle;
+            candleIndex: number;
+            mtfState: typeof indicators;
+            pricePrecision: number;
+          }) => { newStopLoss?: number; newTakeProfit?: number; forceExit?: boolean; exitPrice?: number; reason?: "trailing_stop" | "trend_reversal" | "stop_loss" | "take_profit" | "time_exit" } | null;
+        }).onOpenPositionUpdate({
+          openPosition: {
+            side: openPosition.side,
+            entryTime: openPosition.entryTime,
+            entryPrice: openPosition.entryPrice,
+            quantity: openPosition.quantity,
+            stopLoss: openPosition.stopLoss,
+            takeProfit: openPosition.takeProfit,
+            holdingBars,
+          },
+          candle: ltfCandle,
+          candleIndex: i,
+          mtfState: indicators,
+          pricePrecision: 2,
+        });
+        if (update !== null) {
+          const currentPos: OpenPosition = openPosition;
+          if (update.newStopLoss !== undefined) {
+            openPosition = { ...currentPos, stopLoss: update.newStopLoss };
+          }
+          if (update.newTakeProfit !== undefined) {
+            openPosition = { ...currentPos, takeProfit: update.newTakeProfit };
+          }
+          if (update.forceExit === true) {
+            const exitReason = (update.reason ?? "trailing_stop") as "stop_loss" | "take_profit" | "trailing_stop" | "trend_reversal" | "time_exit" | "kill_switch" | "end_of_data";
+            const trade = closePosition(
+              openPosition,
+              ltfCandle,
+              { reason: exitReason, exitPrice: update.exitPrice ?? ltfCandle.close },
+              opts.costModel,
+            );
+            trades.push(trade);
+            equity += trade.pnlUsd;
+            if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
+              (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed(exitReason);
+            }
+            openPosition = null;
+          }
+        }
       }
     }
     // 4.4) Ha nincs nyitott pozíció és van jelzés, nyitunk.
@@ -217,6 +279,23 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
           entryFee: fee,
           entryReason: signal.reason,
         };
+        // Phase 7 Track A — notify the strategy of the new position.
+        // A trailing-stop engine itt reset-eli a HWM-jét és a holdingBars
+        // counter-ét az entry-bar-index rögzítésével. Best-effort hook:
+        // a Phase 5-6 stratégiák (DonchianBreakout, MtfTrendConfluence,
+        // stb.) ezt NEM implementálják.
+        entryBarIndex = i;
+        if (typeof (strategy as { onPositionOpened?: unknown }).onPositionOpened === "function") {
+          (strategy as { onPositionOpened: (snapshot: { side: "buy" | "sell"; entryTime: number; entryPrice: number; quantity: number; stopLoss: number; takeProfit: number; holdingBars: number }) => void }).onPositionOpened({
+            side: openPosition.side,
+            entryTime: openPosition.entryTime,
+            entryPrice: openPosition.entryPrice,
+            quantity: openPosition.quantity,
+            stopLoss: openPosition.stopLoss,
+            takeProfit: openPosition.takeProfit,
+            holdingBars: 0,
+          });
+        }
       }
     }
     // 4.5) Equity-görbe frissítése a candle végén.
@@ -259,6 +338,10 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
         opts.costModel,
       );
       trades.push(trade);
+      // Phase 7 Track A — notify strategy of kill-switch close
+      if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
+        (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed("kill_switch");
+      }
       // A kill-switch close PnL-je a `trades` tömbben és a metrics.totalReturnPct-ben
       // jelenik meg; az `equity` lokális változót a függvény nem olvassa a
       // return előtt, ezért itt szándékosan nem frissítjük.
@@ -276,6 +359,10 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
       opts.costModel,
     );
     trades.push(trade);
+    // Phase 7 Track A — notify strategy of end-of-data close
+    if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
+      (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed("end_of_data");
+    }
     // A végső `equity` frissítés és az `openPosition = null` itt szándékosan
     // kimaradnak — a függvény a return előtt már nem olvassa ezeket, és a
     // `equityCurve` az utolsó LTF candle-en már rögzítette az aktuális

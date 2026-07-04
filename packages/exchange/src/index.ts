@@ -48,3 +48,25 @@ export {
   type ExchangeCredentials,
   type ExchangeEnv,
 } from "./factory.js";
+
+// === Phase 6 Track B — latency monitor (cross-exchange arb deployment readiness) ===
+
+export {
+  LatencyMonitor,
+  SUPPORTED_EXCHANGE_IDS,
+  isSupportedExchangeId,
+  aggregateStats,
+  median,
+  percentile,
+  round2,
+} from "./latency-monitor.js";
+export type {
+  LatencyMonitorConfig,
+  LatencyMonitorResult,
+  LatencySample,
+  LatencyStats,
+  MessageGapSample,
+  ReconnectSample,
+  RttSample,
+  SupportedExchangeId,
+} from "./latency-monitor.js";

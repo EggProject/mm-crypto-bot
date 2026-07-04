@@ -25,10 +25,98 @@ export type { AlwaysInTrendConfig } from "./strategy/always-in-trend.js";
 export { DonchianBreakoutStrategy } from "./strategy/donchian-breakout.js";
 export { DEFAULT_DONCHIAN_CONFIG } from "./strategy/donchian-breakout.js";
 export type { DonchianBreakoutConfig } from "./strategy/donchian-breakout.js";
+// Phase 7 Track A — Donchian breakout + trailing-stop engine (HWM-based, ATR + fixed-% + time-based exits).
+export { DonchianTrailingStrategy } from "./strategy/donchian-trailing.js";
+export {
+  DEFAULT_DONCHIAN_TRAILING_CONFIG,
+  TRAIL_VARIANT_DEFAULTS,
+  resolveTrailConfig,
+} from "./strategy/donchian-trailing.js";
+export type { DonchianTrailingConfig, ResolvedTrailConfig, TrailVariant } from "./strategy/donchian-trailing.js";
 // Phase 5 — Composite multi-strategy ensemble (Strategy B).
 export { CompositeStrategy } from "./strategy/composite.js";
 export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
 export type { CompositeStrategyConfig } from "./strategy/composite.js";
+// Phase 6 Track A — delta-neutral funding-rate carry.
+export { FundingCarryStrategy, InMemoryFundingRateProvider, DEFAULT_FUNDING_CARRY_CONFIG } from "./strategy/funding-carry.js";
+export type { FundingCarryConfig, FundingCarryState, FundingRateProvider, FundingSnapshot } from "./strategy/funding-carry.js";
+// Phase 7 Track C — leveraged delta-neutral funding-rate carry with VaR cap + liquidation buffer.
+export { FundingCarryLeverageStrategy, DEFAULT_LEVERAGED_CARRY_CONFIG } from "./strategy/funding-carry-leverage.js";
+export type { LeveragedCarryConfig, LeveragedCarryState, LiquidationEvent, VarMethod } from "./strategy/funding-carry-leverage.js";
+// Phase 6 M2 — multi-class edge ensemble (Donchian + funding-carry + arb-latency-gate + Kelly-opt sizing).
+export {
+  MultiClassEnsemble,
+  createLatencyGate,
+  DEFAULT_KELLY_OPT_AGGREGATE,
+  DEFAULT_LATENCY_GATE_DISABLED,
+  DEFAULT_MULTI_CLASS_ENSEMBLE_CONFIG_PARTIAL,
+  timeframesForMultiClass,
+} from "./strategy/multi-class-ensemble.js";
+export type {
+  KellyOptAggregate,
+  LatencyGate,
+  LatencySnapshot,
+  MultiClassEnsembleConfig,
+  MultiClassEnsembleState,
+} from "./strategy/multi-class-ensemble.js";
+// Phase 6 Track C — Kelly-opt position sizing (risk module).
+export {
+  applyRiskCaps,
+  DEFAULT_KELLY_OPT_CONFIG,
+  extractTradeStats,
+  fractionalKelly,
+  fullKellyFraction,
+  optimizeKelly,
+  splitIntoWindows,
+  runWalkForwardValidation,
+} from "./risk/kelly-position-sizer.js";
+export type {
+  KellyFraction,
+  KellyOptConfig,
+  KellyOptResult,
+  TradeStats,
+  WalkForwardValidation,
+  WalkForwardWindow,
+  WalkForwardSplit,
+} from "./risk/kelly-position-sizer.js";
+// Phase 7 Track B — Adaptive Kelly with rolling Sharpe (risk module).
+export {
+  aggregateTradesToDailyPnl,
+  averageKellyMultiplier,
+  bucketDistribution,
+  compareAdaptiveVsStaticKelly,
+  computeAdaptiveKelly,
+  hasAllLossStreak,
+  nearestBucket,
+  rollingSharpeFromDailyPnl,
+  runAdaptiveWalkForwardValidation,
+  sharpeToKellyBucket,
+  SHARPE_BUCKET_HIGH_BOUNDARY,
+  SHARPE_BUCKET_LOW_BOUNDARY,
+  SHARPE_BUCKET_MID_BOUNDARY,
+} from "./risk/kelly-adaptive.js";
+export type {
+  AdaptiveKellyBucket,
+  AdaptiveKellyResult,
+  AdaptiveVsStaticComparison,
+  AdaptiveWalkForwardValidation,
+  AdaptiveWalkForwardWindow,
+  BucketDistribution,
+  DailyPnlPoint,
+  RollingSharpePoint,
+} from "./risk/kelly-adaptive.js";
+// Phase 7 M2 — Multi-class ensemble V2 (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate).
+export {
+  DEFAULT_ADAPTIVE_KELLY_AGGREGATE,
+  DEFAULT_MULTI_CLASS_ENSEMBLE_V2_CONFIG_PARTIAL,
+  MultiClassEnsembleV2,
+  timeframesForMultiClassV2,
+} from "./strategy/multi-class-ensemble-v2.js";
+export type {
+  AdaptiveKellyAggregate,
+  MultiClassEnsembleV2Config,
+  MultiClassEnsembleV2State,
+} from "./strategy/multi-class-ensemble-v2.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.

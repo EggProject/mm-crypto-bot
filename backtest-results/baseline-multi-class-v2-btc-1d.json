@@ -1,0 +1,89 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-04T11:04:10.480Z",
+    "phase": 7,
+    "milestone": "M2",
+    "track": "V2-multi-class-ensemble",
+    "symbol": "BTC/USDT",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000
+  },
+  "config": {
+    "trailVariant": "pct10",
+    "leverage": 3,
+    "kellyBucket": 1,
+    "arbThresholdMs": 500,
+    "baseNotionalUsd": 10000,
+    "maxDailyVarPct": 0.02,
+    "varConfidence": 0.95
+  },
+  "result": {
+    "trades": 28,
+    "totalPnlUsd": 169.3417928416511,
+    "totalReturnPct": 1.6934179284165112,
+    "maxDrawdownPct": 5.709635764279444,
+    "sharpeRatio": 0.2084722806893294,
+    "winRate": 0.5357142857142857,
+    "totalTrades": 28,
+    "killSwitchTriggered": false
+  },
+  "ensembleState": {
+    "donchianSignalsEmitted": 28,
+    "donchianSignalsAcceptedByFilter": 28,
+    "trailingStopExits": 0,
+    "fundingCarryUsd": 23781.47370000002,
+    "fundingCarryPausedCandles": 0,
+    "fundingCarryActiveCandles": 846,
+    "latencyGateActiveFraction": 1,
+    "effectiveLeverage": 1,
+    "dailyVaR95Pct": 0,
+    "liquidationEvents": 0,
+    "effectiveKellyMultiplier": 1,
+    "combinedEdgePct": 0,
+    "fundingCarryState": {
+      "fundingCollectedUsd": 0,
+      "rebalanceCount": 0,
+      "rebalanceCostUsd": 0,
+      "lastMarkPrice": 62873.58,
+      "unrealizedDeltaUsd": 0,
+      "hasEntered": true,
+      "currentLeverage": 1,
+      "effectiveNotionalUsd": 10000,
+      "initialMarginUsd": 10000,
+      "maintenanceMarginUsd": 50,
+      "dailyVaR95Pct": 0,
+      "liquidationEventsCount": 0,
+      "fundingHistory": [],
+      "lastFundingRates": []
+    },
+    "hadAllLossStreak": false
+  },
+  "carryContribution": {
+    "fundingCollectedUsd": 23781.47370000002,
+    "effectiveLeverage": 3,
+    "dailyVaR95Pct": 0.00183868042351577,
+    "liquidationEvents": 0,
+    "rebalanceCount": 0
+  },
+  "adaptiveKellyPost": {
+    "effectiveMultiplier": 0.5,
+    "rawAverageKellyMultiplier": 0.4002361275088548,
+    "bucketDistribution": {
+      "fullKellyFraction": 0,
+      "threeQuarterFraction": 0,
+      "halfKellyFraction": 0.24439197166469895,
+      "quarterKellyFraction": 0.3990554899645809,
+      "insufficientFraction": 0.3565525383707202,
+      "totalDays": 847
+    },
+    "hadAllLossStreak": false
+  },
+  "combinedEdge": {
+    "totalPnlUsd": 23950.81549284167,
+    "totalReturnPct": 239.50815492841667,
+    "monthlyReturnPct": 2.8534748477577314,
+    "sharpe": 3.309394859726512,
+    "maxDrawdownPct": 5.709635764279444,
+    "annualizedReturnPct": 34.21545070405952
+  }
+}
