@@ -1,0 +1,283 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-04T14:13:16.448Z",
+    "phase": 8,
+    "milestone": "M2",
+    "track": "V3-multi-class-ensemble",
+    "symbol": "ETH/USDT",
+    "ltfTimeframe": "1h",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000
+  },
+  "config": {
+    "leverage": 10,
+    "volTarget": 0.02,
+    "entryPctl": 0.75,
+    "exitPctl": 0.5,
+    "windowDays": 30,
+    "cooldownHours": 72,
+    "baseNotionalUsd": 10000,
+    "maxDailyVarPct": 0.02,
+    "varConfidence": 0.95
+  },
+  "result": {
+    "trades": 126,
+    "totalPnlUsd": 385.59673987997485,
+    "totalReturnPct": 3.8559673987997485,
+    "maxDrawdownPct": 2.8923869147773136,
+    "sharpeRatio": 0.727995902421064,
+    "winRate": 0.48412698412698413,
+    "totalTrades": 126,
+    "killSwitchTriggered": false
+  },
+  "tradesByReason": {
+    "stop_loss": 65,
+    "take_profit": 60,
+    "time_exit": 1
+  },
+  "volTargetedSizer": {
+    "config": {
+      "windowDays": 30,
+      "targetDailyVol": 0.02,
+      "minVolMultiplier": 0.25,
+      "maxVolMultiplier": 1,
+      "annualizationFactor": 19.1049731745428,
+      "minRealizedVolFloor": 0.0001
+    },
+    "avgMultiplier": 0.6088647124126926,
+    "avgRealizedDailyVol": 0.03490080662953715,
+    "avgRealizedAnnualizedVol": 0.6667789744272129,
+    "lowerClampFraction": 0,
+    "upperClampFraction": 0.048087431693989074,
+    "middleFraction": 0.9519125683060109,
+    "totalDays": 915,
+    "recommendedMaxPositionPctEquity": 0.12177294248253852
+  },
+  "ensembleState": {
+    "donchianSignalsEmitted": 126,
+    "donchianTimeExitCloses": 0,
+    "fundingCarryUsd": 18144.435000000027,
+    "fundingCarryTimeInCarryFraction": 0.9665546954870746,
+    "fundingCarryEntries": 1,
+    "effectiveCarryLeverage": 5,
+    "volTargetedAvgMultiplier": 0.577018373746827,
+    "dailyVaR95Pct": 0,
+    "liquidationEvents": 0,
+    "combinedEdgePct": 0,
+    "carrySide": {
+      "fundingCollectedUsd": 0,
+      "rebalanceCount": 0,
+      "rebalanceCostUsd": 0,
+      "lastMarkPrice": 1771.38,
+      "unrealizedDeltaUsd": 0,
+      "hasEntered": true,
+      "currentLeverage": 1,
+      "effectiveNotionalUsd": 10000,
+      "initialMarginUsd": 10000,
+      "maintenanceMarginUsd": 50,
+      "dailyVaR95Pct": 0,
+      "liquidationEventsCount": 0,
+      "fundingHistory": [],
+      "lastFundingRates": []
+    },
+    "timingSide": {
+      "fundingHistory": [
+        0.00006595,
+        0.0000454,
+        0.00006842,
+        0.00005705,
+        0.00009397,
+        0.00007226,
+        0.00001691,
+        0.00006445,
+        0.00005339,
+        0.00009572,
+        0.0001,
+        0.0001,
+        0.00005699,
+        0.00002021,
+        0.00009862,
+        0.00007361,
+        0.00007651,
+        0.00004482,
+        0.00003946,
+        0.0000467,
+        -0.00003129,
+        -0.00007387,
+        -0.00007917,
+        -0.00003161,
+        -0.00003461,
+        -0.00006624,
+        -0.00010189,
+        0.00000472,
+        -0.00008235,
+        -0.00006599,
+        -0.00004515,
+        -0.00004506,
+        3.6e-7,
+        -0.00005182,
+        -0.00004089,
+        -0.00004578,
+        -0.00003121,
+        -0.00003684,
+        0.00000754,
+        -0.00002432,
+        -0.00002404,
+        -0.00005854,
+        -0.00002216,
+        -0.00000631,
+        0.00003562,
+        0.00002664,
+        -0.00000644,
+        -0.0000108,
+        -0.00001919,
+        0.0000292,
+        -0.00000745,
+        0.00006867,
+        0.00002969,
+        -0.0000207,
+        0.0000316,
+        0.00003038,
+        0.00002339,
+        -0.00000737,
+        0.0000463,
+        0.00000687,
+        -0.00000691,
+        0.00006551,
+        -0.00002067,
+        -2.7e-7,
+        0.00002505,
+        0.0000317,
+        0.00003209,
+        0.00002892,
+        0.00002602,
+        0.00000757,
+        0.0000388,
+        0.00001941,
+        0.00000789,
+        0.0000237,
+        0.00000335,
+        -0.00003854,
+        0.00004579,
+        0.00002212,
+        4.3e-7,
+        0.00000542,
+        0.00004282,
+        -0.00008135,
+        -0.00001665,
+        -0.00001968,
+        0.00000522,
+        0.00001807,
+        -0.00000597,
+        0.00001769,
+        -0.00005389,
+        -0.00002947,
+        0.00001924,
+        -0.00000185,
+        0.00000216,
+        0.00002144,
+        0.0000449,
+        0.00004566,
+        0.00003059,
+        0.00006151
+      ],
+      "isInCarry": true,
+      "lastEntryTimeMs": 1706659200000,
+      "lastExitTimeMs": null,
+      "entryCount": 1,
+      "exitCount": 0,
+      "fundingCollectedUsd": 18144.435000000027,
+      "inCarryFundingPeriods": 2737,
+      "outOfCarryFundingPeriods": 0,
+      "negativeFundingPaidUsd": -1724.3010000000002,
+      "lastMarkPrice": 1771.38,
+      "hasEntered": true,
+      "lastStats": {
+        "count": 98,
+        "median": 0.0000124,
+        "mean": 0.000009981122448979589,
+        "stdDev": 0.00004510859828162814,
+        "min": -0.00010189,
+        "max": 0.0001,
+        "p25": -0.0000206925,
+        "p75": 0.00004198,
+        "p90": 0.000066691
+      }
+    },
+    "recommendedMaxPositionPctEquity": 0.12177294248253852
+  },
+  "carryContribution": {
+    "fundingCollectedUsd": 18144.435000000027,
+    "fundingSnapshotsApplied": 2737,
+    "fundingSnapshotsSkipped": 0,
+    "effectiveCarryLeverage": 5,
+    "avgFundingRate8h": 0.00012874700636061648
+  },
+  "combinedEdge": {
+    "totalPnlUsd": 18530.031739880003,
+    "directionalPnlUsd": 385.59673987997485,
+    "carryPnlUsd": 18144.435000000027,
+    "totalReturnPct": 185.30031739880005,
+    "monthlyReturnPct": 6.176677246626668,
+    "sharpe": 11.556576679681081,
+    "maxDrawdownPct": 2.8923869147773136,
+    "annualizedReturnPct": 74.12012695952002,
+    "carryComponentPct": 97.91907134702797
+  },
+  "volTargetSeries": {
+    "firstFew": [
+      {
+        "day": 1704067200000,
+        "realizedDailyVol": 0,
+        "clampedVolMultiplier": 1
+      },
+      {
+        "day": 1704153600000,
+        "realizedDailyVol": 0,
+        "clampedVolMultiplier": 1
+      },
+      {
+        "day": 1704240000000,
+        "realizedDailyVol": 0.046118447603339024,
+        "clampedVolMultiplier": 0.43366594149088356
+      },
+      {
+        "day": 1704326400000,
+        "realizedDailyVol": 0.046267846766977025,
+        "clampedVolMultiplier": 0.43226563148114117
+      },
+      {
+        "day": 1704412800000,
+        "realizedDailyVol": 0.03833226472008906,
+        "clampedVolMultiplier": 0.5217536752927217
+      }
+    ],
+    "lastFew": [
+      {
+        "day": 1782691200000,
+        "realizedDailyVol": 0.03409810429450442,
+        "clampedVolMultiplier": 0.5865428713356183
+      },
+      {
+        "day": 1782777600000,
+        "realizedDailyVol": 0.03426049596127701,
+        "clampedVolMultiplier": 0.5837627109252895
+      },
+      {
+        "day": 1782864000000,
+        "realizedDailyVol": 0.03472332644400222,
+        "clampedVolMultiplier": 0.5759816828682498
+      },
+      {
+        "day": 1782950400000,
+        "realizedDailyVol": 0.034020809054658395,
+        "clampedVolMultiplier": 0.5878754960785227
+      },
+      {
+        "day": 1783036800000,
+        "realizedDailyVol": 0.034660941332130296,
+        "clampedVolMultiplier": 0.577018373746827
+      }
+    ]
+  }
+}
