@@ -562,6 +562,17 @@ export class FundingCarryTimingStrategy implements Strategy {
   }
 
   /**
+   * `underlyingBaseCarry` — public accessor to the inner
+   * `FundingCarryStrategy` instance. Exposed so wrapper strategies
+   * (e.g., the Phase 9 9D funding-flip kill-switch) can read the
+   * base carry's rebalance bookkeeping without going through the
+   * state-proxy getter.
+   */
+  get underlyingBaseCarry() {
+    return this.underlyingCarry;
+  }
+
+  /**
    * `reset` — clear all state for a fresh backtest run.
    */
   reset(): void {

@@ -70,6 +70,24 @@ export type {
   FundingCarryTimingState,
   RollingWindowStats,
 } from "./strategy/funding-carry-timing.js";
+// Phase 9 9D — SOL funding-flip kill-switch (Track E extension).
+// NOTE: `assert1to10Leverage` is re-exported from funding-carry-leverage (Track D)
+// above — do NOT re-export here to avoid duplicate identifier.
+export {
+  ALLOWED_KILL_SWITCH_LEVERAGE,
+  computeFlipDetectorMetrics,
+  DEFAULT_FLIP_DETECTOR_CONFIG,
+  DEFAULT_FUNDING_FLIP_KILL_SWITCH_CONFIG,
+  evaluateRegime,
+  FundingFlipKillSwitchStrategy,
+} from "./strategy/funding-flip-kill-switch.js";
+export type {
+  FlipDetectorConfig,
+  FlipDetectorMetrics,
+  FundingFlipKillSwitchConfig,
+  FundingFlipKillSwitchState,
+  RegimeDecision,
+} from "./strategy/funding-flip-kill-switch.js";
 // Phase 6 M2 — multi-class edge ensemble (Donchian + funding-carry + arb-latency-gate + Kelly-opt sizing).
 export {
   MultiClassEnsemble,
