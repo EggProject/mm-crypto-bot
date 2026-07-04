@@ -67,6 +67,11 @@ interface CliArgs {
   readonly withdrawalLatencyMinutes: number;
   readonly rebalanceCostBps: number;
   readonly outputPath: string;
+  readonly walkForward: boolean;
+  readonly wfIsDays: number;
+  readonly wfOosDays: number;
+  readonly wfStepDays: number;
+  readonly wfPurgeDays: number;
 }
 
 // ===========================================================================
@@ -115,6 +120,11 @@ function parseArgs(): CliArgs {
   let withdrawalLatencyMinutes = 15;
   let rebalanceCostBps = 20;
   let outputPath = "backtest-results/baseline-funding-carry-timing-btc-1h.json";
+  let walkForward = false;
+  let wfIsDays = 180;
+  let wfOosDays = 30;
+  let wfStepDays = 30;
+  let wfPurgeDays = 7;
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -146,6 +156,16 @@ function parseArgs(): CliArgs {
       rebalanceCostBps = Number(arg.slice("--fee-bps=".length));
     } else if (arg.startsWith("--output=")) {
       outputPath = arg.slice("--output=".length);
+    } else if (arg === "--walk-forward") {
+      walkForward = true;
+    } else if (arg.startsWith("--wf-is-days=")) {
+      wfIsDays = Number(arg.slice("--wf-is-days=".length));
+    } else if (arg.startsWith("--wf-oos-days=")) {
+      wfOosDays = Number(arg.slice("--wf-oos-days=".length));
+    } else if (arg.startsWith("--wf-step-days=")) {
+      wfStepDays = Number(arg.slice("--wf-step-days=".length));
+    } else if (arg.startsWith("--wf-purge-days=")) {
+      wfPurgeDays = Number(arg.slice("--wf-purge-days=".length));
     }
   }
   return {
@@ -162,6 +182,11 @@ function parseArgs(): CliArgs {
     withdrawalLatencyMinutes,
     rebalanceCostBps,
     outputPath,
+    walkForward,
+    wfIsDays,
+    wfOosDays,
+    wfStepDays,
+    wfPurgeDays,
   };
 }
 
@@ -447,6 +472,234 @@ function simulateTimingCarry(opts: {
   };
 }
 
+// ===========================================================================
+// WALK-FORWARD VALIDATION — rolling IS/OOS fold computation
+// ===========================================================================
+
+interface WalkForwardFold {
+  readonly foldIndex: number;
+  readonly oosStartMs: number;
+  readonly oosEndMs: number;
+  readonly oosStartIso: string;
+  readonly oosEndIso: string;
+  readonly oosHours: number;
+  readonly oosReturn: number;
+  readonly oosSharpe: number;
+  readonly oosMaxDD: number;
+  readonly oosInCarryPct: number;
+  readonly oosFundingCapturedUsd: number;
+}
+
+interface WalkForwardResult {
+  readonly config: {
+    readonly isDays: number;
+    readonly oosDays: number;
+    readonly stepDays: number;
+    readonly purgeDays: number;
+    readonly leverage: AllowedTimingLeverage;
+    readonly leverageRatio: string;
+  };
+  readonly aggregate: {
+    readonly totalFolds: number;
+    readonly aggregateOOSSharpe: number;
+    readonly aggregateOOSReturn: number;
+    readonly aggregateOOSMaxDD: number;
+    readonly aggregateOOSHours: number;
+    readonly meanFoldSharpe: number;
+    readonly stdFoldSharpe: number;
+    readonly minFoldSharpe: number;
+    readonly maxFoldSharpe: number;
+    readonly positiveFolds: number;
+  };
+  readonly folds: readonly WalkForwardFold[];
+}
+
+/**
+ * `computeWalkForward` — slice the in-sample equity curve into rolling
+ * out-of-sample (OOS) folds and compute per-fold + aggregate metrics.
+ *
+ * Algorithm (strict anti-lookahead):
+ *   - First OOS window starts at startTime + (isDays + purgeDays).
+ *   - The strategy's rolling window has already been seeded with all
+ *     snapshots up to the OOS start (the simulation already processed
+ *     them when building the equity curve). The OOS slice is the
+ *     out-of-sample evaluation of the strategy's parameter-free
+ *     timing filter.
+ *   - Each subsequent fold steps forward by `stepDays`.
+ *   - Per-fold Sharpe is computed on the OOS-window hourly returns
+ *     (annualised with sqrt(24*365)).
+ *   - Aggregate Sharpe is computed on a continuous equity curve
+ *     constructed by stitching the per-fold OOS slices (each shifted
+ *     so the fold-start equity matches the prior fold-end equity).
+ */
+function computeWalkForward(
+  equityCurve: readonly TimingPoint[],
+  startTimeMs: number,
+  endTimeMs: number,
+  leverage: AllowedTimingLeverage,
+  isDays: number,
+  oosDays: number,
+  stepDays: number,
+  purgeDays: number,
+): WalkForwardResult {
+  const dayMs = 86_400_000;
+  const folds: WalkForwardFold[] = [];
+  let oosStartMs = startTimeMs + (isDays + purgeDays) * dayMs;
+  let foldIdx = 0;
+  for (;;) {
+    const oosEndMs = oosStartMs + oosDays * dayMs;
+    if (oosEndMs > endTimeMs) break;
+    const oosPoints = equityCurve.filter(
+      (p) => p.timestamp >= oosStartMs && p.timestamp < oosEndMs,
+    );
+    if (oosPoints.length >= 2) {
+      const oosReturn =
+        (oosPoints[oosPoints.length - 1]!.equity - oosPoints[0]!.equity) /
+        oosPoints[0]!.equity;
+      const oosReturns: number[] = [];
+      for (let i = 1; i < oosPoints.length; i++) {
+        const prev = oosPoints[i - 1]!.equity;
+        const cur = oosPoints[i]!.equity;
+        if (prev > 0) oosReturns.push((cur - prev) / prev);
+      }
+      const meanR =
+        oosReturns.length > 0
+          ? oosReturns.reduce((a, b) => a + b, 0) / oosReturns.length
+          : 0;
+      const variance =
+        oosReturns.length > 1
+          ? oosReturns.reduce((a, b) => a + (b - meanR) ** 2, 0) /
+            (oosReturns.length - 1)
+          : 0;
+      const stdR = Math.sqrt(variance);
+      const oosSharpe =
+        stdR > 0 ? (meanR / stdR) * Math.sqrt(24 * 365) : 0;
+      let peak = oosPoints[0]!.equity;
+      let oosMaxDD = 0;
+      for (const p of oosPoints) {
+        if (p.equity > peak) peak = p.equity;
+        const dd = (peak - p.equity) / peak;
+        if (dd > oosMaxDD) oosMaxDD = dd;
+      }
+      const inCarry = oosPoints.filter((p) => p.inCarry).length;
+      const oosFundingDelta =
+        oosPoints[oosPoints.length - 1]!.fundingAccruedUsd -
+        oosPoints[0]!.fundingAccruedUsd;
+      folds.push({
+        foldIndex: foldIdx,
+        oosStartMs,
+        oosEndMs,
+        oosStartIso: new Date(oosStartMs).toISOString(),
+        oosEndIso: new Date(oosEndMs).toISOString(),
+        oosHours: oosPoints.length,
+        oosReturn,
+        oosSharpe,
+        oosMaxDD,
+        oosInCarryPct: inCarry / oosPoints.length,
+        oosFundingCapturedUsd: oosFundingDelta,
+      });
+    }
+    oosStartMs += stepDays * dayMs;
+    foldIdx++;
+  }
+
+  // Continuous OOS equity curve (stitch per-fold slices, shifting equity
+  // so the fold-start matches the prior fold-end for clean concatenation).
+  const continuousOosPoints: { timestamp: number; equity: number }[] = [];
+  for (const fold of folds) {
+    const oosPoints = equityCurve.filter(
+      (p) => p.timestamp >= fold.oosStartMs && p.timestamp < fold.oosEndMs,
+    );
+    if (continuousOosPoints.length === 0) {
+      for (const p of oosPoints) {
+        continuousOosPoints.push({ timestamp: p.timestamp, equity: p.equity });
+      }
+    } else {
+      const lastEquity = continuousOosPoints[continuousOosPoints.length - 1]!.equity;
+      const firstFoldEquity = oosPoints[0]!.equity;
+      const shift = lastEquity - firstFoldEquity;
+      for (const p of oosPoints) {
+        continuousOosPoints.push({ timestamp: p.timestamp, equity: p.equity + shift });
+      }
+    }
+  }
+
+  // Aggregate metrics from continuous OOS curve.
+  const aggReturns: number[] = [];
+  for (let i = 1; i < continuousOosPoints.length; i++) {
+    const prev = continuousOosPoints[i - 1]!.equity;
+    const cur = continuousOosPoints[i]!.equity;
+    if (prev > 0) aggReturns.push((cur - prev) / prev);
+  }
+  const aggMeanR =
+    aggReturns.length > 0
+      ? aggReturns.reduce((a, b) => a + b, 0) / aggReturns.length
+      : 0;
+  const aggVariance =
+    aggReturns.length > 1
+      ? aggReturns.reduce((a, b) => a + (b - aggMeanR) ** 2, 0) /
+        (aggReturns.length - 1)
+      : 0;
+  const aggStdR = Math.sqrt(aggVariance);
+  const aggSharpe = aggStdR > 0 ? (aggMeanR / aggStdR) * Math.sqrt(24 * 365) : 0;
+  const aggReturn =
+    continuousOosPoints.length > 0
+      ? (continuousOosPoints[continuousOosPoints.length - 1]!.equity -
+          continuousOosPoints[0]!.equity) /
+        continuousOosPoints[0]!.equity
+      : 0;
+  let aggPeak = continuousOosPoints[0]?.equity ?? 0;
+  let aggMaxDD = 0;
+  for (const p of continuousOosPoints) {
+    if (p.equity > aggPeak) aggPeak = p.equity;
+    const dd = (aggPeak - p.equity) / aggPeak;
+    if (dd > aggMaxDD) aggMaxDD = dd;
+  }
+
+  // Per-fold Sharpe stats.
+  const foldSharpes = folds.map((f) => f.oosSharpe).filter((s) => Number.isFinite(s));
+  const meanFoldSharpe =
+    foldSharpes.length > 0
+      ? foldSharpes.reduce((a, b) => a + b, 0) / foldSharpes.length
+      : 0;
+  const stdFoldSharpe =
+    foldSharpes.length > 1
+      ? Math.sqrt(
+          foldSharpes.reduce((a, b) => a + (b - meanFoldSharpe) ** 2, 0) /
+            (foldSharpes.length - 1),
+        )
+      : 0;
+  const minFoldSharpe =
+    foldSharpes.length > 0 ? Math.min(...foldSharpes) : 0;
+  const maxFoldSharpe =
+    foldSharpes.length > 0 ? Math.max(...foldSharpes) : 0;
+  const positiveFolds = foldSharpes.filter((s) => s > 0).length;
+
+  return {
+    config: {
+      isDays,
+      oosDays,
+      stepDays,
+      purgeDays,
+      leverage,
+      leverageRatio: `1:${leverage}`,
+    },
+    aggregate: {
+      totalFolds: folds.length,
+      aggregateOOSSharpe: aggSharpe,
+      aggregateOOSReturn: aggReturn,
+      aggregateOOSMaxDD: aggMaxDD,
+      aggregateOOSHours: continuousOosPoints.length,
+      meanFoldSharpe,
+      stdFoldSharpe,
+      minFoldSharpe,
+      maxFoldSharpe,
+      positiveFolds,
+    },
+    folds,
+  };
+}
+
 async function main(): Promise<void> {
   const args = parseArgs();
   const dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
@@ -503,6 +756,32 @@ async function main(): Promise<void> {
     rebalanceCostBps: args.rebalanceCostBps,
   });
   const elapsedMs = Date.now() - t0;
+
+  // Walk-forward validation (only when --walk-forward flag is set).
+  let walkForwardResult: WalkForwardResult | null = null;
+  if (args.walkForward) {
+    console.log(`[funding-carry-timing] Running walk-forward: ${args.wfIsDays}d IS / ${args.wfOosDays}d OOS / ${args.wfStepDays}d step / ${args.wfPurgeDays}d purge`);
+    walkForwardResult = computeWalkForward(
+      result.equityCurve,
+      startTime.getTime(),
+      endTime.getTime(),
+      args.leverage,
+      args.wfIsDays,
+      args.wfOosDays,
+      args.wfStepDays,
+      args.wfPurgeDays,
+    );
+    const a = walkForwardResult.aggregate;
+    console.log(`\n=== WALK-FORWARD RESULTS (${a.totalFolds} folds) ===`);
+    console.log(`Aggregate OOS Sharpe:    ${a.aggregateOOSSharpe.toFixed(3)}`);
+    console.log(`Aggregate OOS Return:    ${(a.aggregateOOSReturn * 100).toFixed(2)}%`);
+    console.log(`Aggregate OOS Max DD:    ${(a.aggregateOOSMaxDD * 100).toFixed(4)}%`);
+    console.log(`Aggregate OOS hours:     ${a.aggregateOOSHours}`);
+    console.log(`Per-fold Sharpe mean:    ${a.meanFoldSharpe.toFixed(3)}`);
+    console.log(`Per-fold Sharpe std-dev: ${a.stdFoldSharpe.toFixed(3)}`);
+    console.log(`Per-fold Sharpe min/max: ${a.minFoldSharpe.toFixed(3)} / ${a.maxFoldSharpe.toFixed(3)}`);
+    console.log(`Positive folds (Sharpe>0): ${a.positiveFolds} / ${a.totalFolds}`);
+  }
 
   const totalDays = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60 * 24);
   const totalMonths = totalDays / 30.44;
@@ -590,6 +869,7 @@ async function main(): Promise<void> {
         },
         // Sample the equity curve to avoid 22k-element JSON blobs.
         equityCurveSampled: result.equityCurve.filter((_, i) => i % 24 === 0),
+        walkForward: walkForwardResult,
       },
       null,
       2,
