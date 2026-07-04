@@ -210,6 +210,21 @@ export type {
   MultiClassEnsembleV3Config,
   MultiClassEnsembleV3State,
 } from "./strategy/multi-class-ensemble-v3.js";
+// Phase 9 M2 — Multi-class ensemble V4 (Donchian-MTF + Funding-Flip-KillSwitch + Carry-Leverage-10x + VolTarget + HybridSizer).
+export {
+  combineVolAndCarryLeverageV4,
+  computeV4CarryFractionFromFlipSwitchState,
+  DEFAULT_MULTI_CLASS_ENSEMBLE_V4_CONFIG_PARTIAL,
+  defaultV4CompositionForSymbol,
+  defaultV4VolTargetConfig,
+  MultiClassEnsembleV4,
+  timeframesForMultiClassV4,
+} from "./strategy/multi-class-ensemble-v4.js";
+export type {
+  MultiClassEnsembleV4Config,
+  MultiClassEnsembleV4State,
+  V4PerSymbol,
+} from "./strategy/multi-class-ensemble-v4.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
