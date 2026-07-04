@@ -225,6 +225,67 @@ export type {
   MultiClassEnsembleV4State,
   V4PerSymbol,
 } from "./strategy/multi-class-ensemble-v4.js";
+// Phase 10G Track A — Signal Center (typed pub/sub + plugin registry + reference plugin).
+// Type discriminated unions for Signal events.
+export {
+  assertExhaustiveSignal,
+  err,
+  isCarry,
+  isDirection,
+  isRisk,
+  isSizing,
+  ok,
+} from "./signal-center/types.js";
+export type {
+  AggregatedConfigError,
+  Bar,
+  CarryRegime,
+  CarrySignal,
+  ConfigError,
+  DirectionSide,
+  DirectionSignal,
+  Err,
+  Ok,
+  PluginState,
+  Result,
+  RiskSignal,
+  Signal,
+  SignalKind,
+  SizingSignal,
+} from "./signal-center/types.js";
+// Typed pub/sub for Signal events (backtest/live modes).
+export {
+  createSignalBus,
+  SignalBus,
+} from "./signal-center/signal-bus.js";
+export type {
+  SignalBusMode,
+  SignalBusOptions,
+  SignalHandler,
+  UnsubscribeFn,
+} from "./signal-center/signal-bus.js";
+// Multi-strategy plugin registry.
+export {
+  createStrategyRegistry,
+  MAX_ALLOWED_PLUGIN_LEVERAGE,
+  StrategyRegistry,
+  validatePluginMetadata,
+} from "./signal-center/strategy-registry.js";
+export type {
+  EdgeClass,
+  StrategyPlugin,
+  StrategyPluginMetadata,
+} from "./signal-center/strategy-registry.js";
+// Reference plugin — wraps Phase 8 Track E FundingCarryTiming with Signal Center interface.
+export {
+  CarryBaselinePlugin,
+  DEFAULT_CARRY_BASELINE_PLUGIN_CONFIG,
+  extractCarrySignal,
+} from "./signal-center/plugins/carry-baseline-plugin.js";
+export type {
+  CarryBaselinePluginConfig,
+  CarryBaselinePluginState,
+} from "./signal-center/plugins/carry-baseline-plugin.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
