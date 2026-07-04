@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-07-04T10:59:43.016Z",
+    "generatedAt": "2026-07-04T11:04:10.480Z",
     "phase": 7,
     "milestone": "M2",
     "track": "V2-multi-class-ensemble",
@@ -10,8 +10,8 @@
   },
   "config": {
     "trailVariant": "pct10",
-    "leverage": 2,
-    "kellyBucket": 0.5,
+    "leverage": 3,
+    "kellyBucket": 1,
     "arbThresholdMs": 500,
     "baseNotionalUsd": 10000,
     "maxDailyVarPct": 0.02,
@@ -19,10 +19,10 @@
   },
   "result": {
     "trades": 28,
-    "totalPnlUsd": 131.87457499694938,
-    "totalReturnPct": 1.318745749969494,
-    "maxDrawdownPct": 5.4128839553760315,
-    "sharpeRatio": 0.17813076311439388,
+    "totalPnlUsd": 169.3417928416511,
+    "totalReturnPct": 1.6934179284165112,
+    "maxDrawdownPct": 5.709635764279444,
+    "sharpeRatio": 0.2084722806893294,
     "winRate": 0.5357142857142857,
     "totalTrades": 28,
     "killSwitchTriggered": false
@@ -31,14 +31,14 @@
     "donchianSignalsEmitted": 28,
     "donchianSignalsAcceptedByFilter": 28,
     "trailingStopExits": 0,
-    "fundingCarryUsd": 15854.315799999931,
+    "fundingCarryUsd": 23781.47370000002,
     "fundingCarryPausedCandles": 0,
     "fundingCarryActiveCandles": 846,
     "latencyGateActiveFraction": 1,
     "effectiveLeverage": 1,
     "dailyVaR95Pct": 0,
     "liquidationEvents": 0,
-    "effectiveKellyMultiplier": 0.5,
+    "effectiveKellyMultiplier": 1,
     "combinedEdgePct": 0,
     "fundingCarryState": {
       "fundingCollectedUsd": 0,
@@ -59,31 +59,31 @@
     "hadAllLossStreak": false
   },
   "carryContribution": {
-    "fundingCollectedUsd": 15854.315799999931,
-    "effectiveLeverage": 2,
-    "dailyVaR95Pct": 0.0012257869490105134,
+    "fundingCollectedUsd": 23781.47370000002,
+    "effectiveLeverage": 3,
+    "dailyVaR95Pct": 0.00183868042351577,
     "liquidationEvents": 0,
     "rebalanceCount": 0
   },
   "adaptiveKellyPost": {
     "effectiveMultiplier": 0.5,
-    "rawAverageKellyMultiplier": 0.4344746162927981,
+    "rawAverageKellyMultiplier": 0.4002361275088548,
     "bucketDistribution": {
       "fullKellyFraction": 0,
       "threeQuarterFraction": 0,
-      "halfKellyFraction": 0.2502951593860685,
-      "quarterKellyFraction": 0.26210153482880755,
-      "insufficientFraction": 0.48760330578512395,
+      "halfKellyFraction": 0.24439197166469895,
+      "quarterKellyFraction": 0.3990554899645809,
+      "insufficientFraction": 0.3565525383707202,
       "totalDays": 847
     },
     "hadAllLossStreak": false
   },
   "combinedEdge": {
-    "totalPnlUsd": 15986.19037499688,
-    "totalReturnPct": 159.8619037499688,
-    "monthlyReturnPct": 1.9045778278469865,
-    "sharpe": 2.827738200305062,
-    "maxDrawdownPct": 5.4128839553760315,
-    "annualizedReturnPct": 22.837414821424115
+    "totalPnlUsd": 23950.81549284167,
+    "totalReturnPct": 239.50815492841667,
+    "monthlyReturnPct": 2.8534748477577314,
+    "sharpe": 3.309394859726512,
+    "maxDrawdownPct": 5.709635764279444,
+    "annualizedReturnPct": 34.21545070405952
   }
 }

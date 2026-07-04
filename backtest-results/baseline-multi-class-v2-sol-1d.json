@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-07-04T10:59:43.365Z",
+    "generatedAt": "2026-07-04T11:04:15.399Z",
     "phase": 7,
     "milestone": "M2",
     "track": "V2-multi-class-ensemble",
@@ -10,8 +10,8 @@
   },
   "config": {
     "trailVariant": "pct10",
-    "leverage": 2,
-    "kellyBucket": 0.5,
+    "leverage": 3,
+    "kellyBucket": 1,
     "arbThresholdMs": 500,
     "baseNotionalUsd": 10000,
     "maxDailyVarPct": 0.02,
@@ -31,14 +31,14 @@
     "donchianSignalsEmitted": 20,
     "donchianSignalsAcceptedByFilter": 20,
     "trailingStopExits": 2,
-    "fundingCarryUsd": 430.3012000000073,
+    "fundingCarryUsd": 645.4517999999805,
     "fundingCarryPausedCandles": 0,
     "fundingCarryActiveCandles": 886,
     "latencyGateActiveFraction": 1,
     "effectiveLeverage": 1,
     "dailyVaR95Pct": 0,
     "liquidationEvents": 0,
-    "effectiveKellyMultiplier": 0.5,
+    "effectiveKellyMultiplier": 1,
     "combinedEdgePct": 0,
     "fundingCarryState": {
       "fundingCollectedUsd": 0,
@@ -59,9 +59,9 @@
     "hadAllLossStreak": false
   },
   "carryContribution": {
-    "fundingCollectedUsd": 430.3012000000073,
-    "effectiveLeverage": 2,
-    "dailyVaR95Pct": 0.00552159698533513,
+    "fundingCollectedUsd": 645.4517999999805,
+    "effectiveLeverage": 3,
+    "dailyVaR95Pct": 0.008282395478002694,
     "liquidationEvents": 0,
     "rebalanceCount": 0
   },
@@ -79,11 +79,11 @@
     "hadAllLossStreak": false
   },
   "combinedEdge": {
-    "totalPnlUsd": 412.15757412649344,
-    "totalReturnPct": 4.121575741264935,
-    "monthlyReturnPct": 0.04910401783330905,
+    "totalPnlUsd": 627.3081741264666,
+    "totalReturnPct": 6.273081741264666,
+    "monthlyReturnPct": 0.07473683295659352,
     "sharpe": -0.3247213759497559,
     "maxDrawdownPct": 5.6194318011743665,
-    "annualizedReturnPct": 0.5887965344664192
+    "annualizedReturnPct": 0.8961545344663809
   }
 }

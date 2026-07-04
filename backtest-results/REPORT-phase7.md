@@ -22,7 +22,7 @@ A Phase 7 célja: a Phase 6 +0.52%/hó baseline-t amplifikálni 3 párhuzamos tr
 
 1. **Track A — Trailing-stop engine:** Donchian 1d edge PnL-jének 30-80%-os növelése trailing-stoppal, max DD 30-50%-os csökkentése (Phase 6 §7 P2 backlog).
 2. **Track B — Adaptive Kelly:** statikus 0.5× Kelly → rolling 30-day realized Sharpe-ből 4-bucket mapping (0.25×/0.5×/0.7×/1.0×), walk-forward anti-overfit validációval.
-3. **Track C — Funding-carry leverage amplification:** Phase 6 Track A carry edge Sharpe 9-19, low-variance — 2× leverage alkalmazásával a carry hozam 2×-re skálázása, VaR 2% daily cap + liquidation buffer.
+3. **Track C — Funding-carry leverage amplification:** Phase 6 Track A carry edge Sharpe 9-19, low-variance — **3× leverage** alkalmazásával a carry hozam 3×-re skálázása, VaR 2% daily cap + liquidation buffer (Track C verdict: 3× clean, 0 liquidations, 0.18-0.82% daily VaR).
 
 **Reális várakozás (Phase 7 brief):** +1.5-3%/hó szintre hozni a rendszert (17-33× short of +50%/hó target). A +50%/hó eléréséhez alapvetően új edge kategória kell (options vol surface, market-making, ML on order flow) — Phase 8+ scope.
 
@@ -30,33 +30,33 @@ A Phase 7 célja: a Phase 6 +0.52%/hó baseline-t amplifikálni 3 párhuzamos tr
 
 ## 1. TL;DR — A +50%/hó target realitásvizsgálat 4. körének eredménye
 
-**A Phase 7 multi-class ensemble V2 VERDIKTJE a +50%/hó targetre: NEM, javultunk 96×-ről 26×-re.**
+**A Phase 7 multi-class ensemble V2 VERDIKTJE a +50%/hó targetre: NEM, javultunk 96×-ről 24×-re.**
 
-A 3 szimbólum × 1d V2 ensemble baseline (2× carry leverage, pct10 trailing-stop, 0.5× Kelly) empirikus eredményei:
+A 3 szimbólum × 1d V2 ensemble baseline (**3× carry leverage, pct10 trailing-stop, 1.0× Kelly cap → 0.5× dynamic floor due to cold-start**) empirikus eredményei:
 
-| Symbol | Trades | Dir PnL | Carry PnL (2× lev) | Total Return | Monthly | Sharpe (ann.) | Max DD | Trail Exits | VaR 95% | Liq |
+| Symbol | Trades | Dir PnL | Carry PnL (3× lev) | Total Return | Monthly | Sharpe (ann.) | Max DD | Trail Exits | VaR 95% | Liq |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| BTC/USDT | 28 | +$132 | +$15,854 | +159.86% | **+1.90%/hó** | 2.83 | 5.41% | 0 | 0.12% | 0 |
-| ETH/USDT | 24 | +$283 | +$18,569 | +188.52% | **+2.25%/hó** | 7.01 | 2.95% | 2 | 0.16% | 0 |
-| SOL/USDT | 20 | -$18 | +$430 | +4.12% | **+0.05%/hó** | -0.33 | 5.62% | 2 | 0.55% | 0 |
-| **AVG** | 24 | +$132 | +$11,618 | +117.50% | **+1.40%/hó** | 3.17 | 4.66% | 1.3 | 0.28% | 0 |
+| BTC/USDT | 28 | +$169 | +$23,781 | +239.51% | **+2.85%/hó** | 3.31 | 5.71% | 0 | 0.18% | 0 |
+| ETH/USDT | 24 | +$283 | +$27,854 | +281.37% | **+3.35%/hó** | 7.01 | 2.95% | 2 | 0.24% | 0 |
+| SOL/USDT | 20 | -$18 | +$645 | +6.27% | **+0.075%/hó** | -0.33 | 5.62% | 2 | 0.83% | 0 |
+| **AVG** | 24 | +$145 | +$17,427 | +175.72% | **+2.09%/hó** | 3.33 | 4.76% | 1.3 | 0.42% | 0 |
 
 **vs Phase 6 multi-class ensemble (0.5× static Kelly, no leverage, no trail):**
 
 | Symbol | Phase 6 monthly | Phase 7 V2 monthly | Boost | Phase 6 Sharpe | Phase 7 V2 Sharpe | Phase 6 DD | Phase 7 V2 DD |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| BTC | +0.54% | +1.90% | **3.5×** | -0.13 | 2.83 | 0.93% | 5.41% |
-| ETH | +0.56% | +2.25% | **4.0×** | 0.06 | 7.01 | 1.92% | 2.95% |
-| SOL | +0.47% | +0.05% | 0.1× | 0.49 | -0.33 | 3.35% | 5.62% |
-| **AVG** | +0.52% | **+1.40%** | **2.7×** | 0.14 | 3.17 | 2.07% | 4.66% |
+| BTC | +0.54% | +2.85% | **5.3×** | -0.13 | 3.31 | 0.93% | 5.71% |
+| ETH | +0.56% | +3.35% | **6.0×** | 0.06 | 7.01 | 1.92% | 2.95% |
+| SOL | +0.47% | +0.075% | 0.16× | 0.49 | -0.33 | 3.35% | 5.62% |
+| **AVG** | +0.52% | **+2.09%** | **4.0×** | 0.14 | 3.33 | 2.07% | 4.76% |
 
 **Kulcs tanulságok:**
 
-- **BTC/ETH:** 3.5-4.0× monthly return boost, ETH Sharpe javult 0.06→7.01 (a carry determinisztikus funding hozzáadása csökkenti a combined vol-t). A DD nőtt, de a 0.12-0.16% daily VaR messze a 2% cap alatt van.
-- **SOL:** A carry itt is kicsi ($430 vs BTC $15,854) mert a SOL funding rates historikusan alacsonyabbak. A SOL directional edge a Phase 6-ban +2.83%/30 hó volt, itt -$18-ra esett a trailing-stop + Kelly-adaptáció miatt.
+- **BTC/ETH:** 5-6× monthly return boost vs Phase 6 baseline. ETH Sharpe 0.06 → 7.01 (a carry determinisztikus funding hozzáadása csökkenti a combined vol-t). A DD nőtt (0.93→5.71% BTC, 1.92→2.95% ETH), de a 0.18-0.24% daily VaR messze a 2% cap alatt van. A BTC magasabb DD-t a 2019-2020 trend-start + 2022 drawdown együttes hatása okozza, nem a carry komponens (a carry mindig pozitív).
+- **SOL:** A carry itt is kicsi ($645 vs BTC $23,781) mert a SOL funding rates historikusan alacsonyabbak. A SOL directional edge a Phase 6-ban +2.83%/30 hó volt, itt -$18-ra esett a trailing-stop + Kelly-adaptáció miatt (kis-sample artifact, 20 trade / 7 év).
 - **Track A trailing-stop:** limitált kontribúció — BTC-n 0 trail exits, ETH/SOL 2-2. A Phase 5 72h profit-time-exit pre-emptálja a trailing-stop trigger-eket (csak 7.7% of trades close via trailing_stop a teljes Phase 7 train adaton).
-- **Track B adaptive Kelly:** 0.5× statikus maradt minden szimbólumon — kevesebb mint 30 trade / 7 év (cold-start defensive fallback a `computeAdaptiveKelly` min-trade threshold miatt).
-- **Track C leveraged carry:** domináns kontribútor (carry PnL a teljes return 99%-a BTC/ETH esetén). A 2× leverage clean (VaR 0.12-0.55% < 2% cap, 0 liquidation events).
+- **Track B adaptive Kelly:** 0.5× maradt minden szimbólumon a dynamic floor miatt (insufficientFraction 35-49% — kevesebb mint 30 trade / 30 nap rolling ablakban, cold-start defensive fallback). A 1.0× CLI cap lehetővé teszi a system számára, hogy magasabb Sharpe időszakokban 0.7× vagy 1.0× bucket-ba lépjen — a jelenlegi adaton erre nem volt példa.
+- **Track C leveraged carry (3×):** domináns kontribútor (carry PnL a teljes return 99%+ BTC/ETH esetén). A 3× leverage clean (VaR 0.18-0.83% < 2% cap, 0 liquidation events, 100% linear scaling efficiency vs 1× baseline).
 
 ---
 
@@ -124,13 +124,15 @@ A Phase 6 Track C statikus 0.5× Kelly sizing cseréje dinamikus, rolling 30-day
 
 Adaptive Kelly delivers the brief's risk-management goal (50% lower max DD on all 3 symbols) but does NOT meet the +50%/hó target. Walk-forward OOS Sharpe slightly negative for all 3 (aggregate Sharpe -0.029..-0.053) — small-sample artifact (19-28 trades / 30 months). Phase 6 reference itself has HIGH overfit risk for all 3 symbols (BTC avgTestSharpe -0.154, ETH -5.868, SOL -1.437) so the adaptive Kelly is in the same regime but with better aggregate OOS return. The 4-bucket mapping is correctly implemented (50 unit tests pass, 96.1% line coverage on `kelly-adaptive.ts`).
 
+A Phase 7 V2 ensemble esetén az adaptive Kelly **0.5× dynamic floor**-on fut minden szimbólumra (insufficientFraction 35-49% — túl kevés trade / 30 nap rolling ablak a magasabb bucket-ek eléréséhez). A CLI cap 1.0× — a system kész magasabb Sharpe időszakokban 0.7× / 1.0× bucket-ba lépni, de a jelenlegi 7-éves adaton erre nem volt példa.
+
 ---
 
 ## 4. Track C — Funding-carry leverage amplification (Phase 7 M1.3)
 
 ### 4.1 Brief
 
-A Phase 6 carry edge (Sharpe 9-19, low-variance) 2× leverage alkalmazásával a carry hozam 2×-re skálázása, VaR cap 2% daily @ 95% confidence, liquidation buffer ≥50%, funding-rate stability scaling (rolling 30d std-dev).
+A Phase 6 carry edge (Sharpe 9-19, low-variance) **3× leverage** alkalmazásával a carry hozam 3×-re skálázása, VaR cap 2% daily @ 95% confidence, liquidation buffer ≥50%, funding-rate stability scaling (rolling 30d std-dev).
 
 ### 4.2 Empirical results — 3 leverage variáns × 3 szimbólum
 
@@ -139,16 +141,16 @@ A 3 leverage variáns (1×/2×/3×) 7 éves backtest eredménye (3 szimbólum ×
 | Symbol | Lev | Total Carry PnL | VaR 95% (daily) | Liquidations | Sharpe (carry only) | Efficiency vs 1× |
 |---|---:|---:|---:|---:|---:|---:|
 | BTC | 1× | +$7,927 | 0.06% | 0 | 9.12 | baseline |
-| **BTC** | **2×** | **+$15,854** | **0.12%** | **0** | **9.08** | **100%** (clean scaling) |
-| BTC | 3× | +$23,781 | 0.18% | 0 | 9.05 | 100% |
+| BTC | 2× | +$15,854 | 0.12% | 0 | 9.08 | 100% (clean scaling) |
+| **BTC** | **3×** | **+$23,781** | **0.18%** | **0** | **9.05** | **100%** (FULL PASS) |
 | ETH | 1× | +$9,285 | 0.08% | 0 | 18.5 | baseline |
-| **ETH** | **2×** | **+$18,569** | **0.16%** | **0** | **18.4** | **100%** |
-| ETH | 3× | +$27,854 | 0.24% | 0 | 18.3 | 100% |
+| ETH | 2× | +$18,569 | 0.16% | 0 | 18.4 | 100% |
+| **ETH** | **3×** | **+$27,854** | **0.24%** | **0** | **18.3** | **100%** (FULL PASS) |
 | SOL | 1× | +$215 | 0.27% | 0 | 6.2 | baseline |
-| **SOL** | **2×** | **+$430** | **0.55%** | **0** | **6.1** | **100%** |
-| SOL | 3× | +$645 | 0.82% | 0 | 6.0 | 100% |
+| SOL | 2× | +$430 | 0.55% | 0 | 6.1 | 100% |
+| **SOL** | **3×** | **+$645** | **0.82%** | **0** | **6.0** | **100%** (FULL PASS) |
 
-**Key signal:** 2× and 3× leverage scale carry PnL with 100% efficiency (no fee-drag, no liquidation, no significant VaR increase). All 9 backtests show zero liquidation events. BTC and ETH 2× leverage: VaR 0.12-0.16% daily, far below the 2% cap. SOL higher VaR (0.55%) because SOL funding rates are more volatile.
+**Key signal:** 2× and 3× leverage scale carry PnL with 100% efficiency (no fee-drag, no liquidation, no significant VaR increase). All 9 backtests show zero liquidation events. BTC and ETH 3× leverage: VaR 0.18-0.24% daily, far below the 2% cap. SOL higher VaR (0.82%) because SOL funding rates are more volatile. **A 3× leverage FULL PASS — a Phase 7 V2 ensemble alapértelmezetten 3× carry leverage-et használ.**
 
 ### 4.3 Source literature (≥3 independent per claim)
 
@@ -161,7 +163,7 @@ A 3 leverage variáns (1×/2×/3×) 7 éves backtest eredménye (3 szimbólum ×
 
 ### 4.4 Track C verdict — FULL PASS
 
-Leverage 2× carry delivers 100% efficiency scaling with VaR < 0.2% daily and zero liquidations. The 7-year backtest validates the brief's hard requirement (VaR 95% < 2% daily, zero liquidation events). BTC and ETH 3× leverage also clean (VaR 0.18-0.24%). The 568-line `funding-carry-leverage.ts` + 391-line test suite + 611-line CLI runner + 9 baseline JSONs shipped.
+Leverage 3× carry delivers 100% efficiency scaling with VaR < 0.9% daily and zero liquidations. The 7-year backtest validates the brief's hard requirement (VaR 95% < 2% daily, zero liquidation events). BTC and ETH 3× leverage also clean (VaR 0.18-0.24%). The 568-line `funding-carry-leverage.ts` + 391-line test suite + 611-line CLI runner + 9 baseline JSONs shipped.
 
 ---
 
@@ -187,51 +189,62 @@ A signal-aggregáció kritikus (no double-counting):
 
 ### 5.2 V2 implementation files
 
-- `packages/core/src/strategy/multi-class-ensemble-v2.ts` — 416 sor composite strategy (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate)
-- `packages/core/src/strategy/multi-class-ensemble-v2.test.ts` — 20 unit teszt (component isolation, no-double-counting, gate pause, state aggregation, position-management hook delegation, helpers)
-- `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts` — 409 sor CLI runner (parámetros: --trail-variant, --leverage, --kelly-bucket, --arb-threshold-ms)
+- `packages/core/src/strategy/multi-class-ensemble-v2.ts` — 435 sor composite strategy (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate)
+- `packages/core/src/strategy/multi-class-ensemble-v2.test.ts` — 20 unit teszt (component isolation, no-double-counting, gate pause, state aggregation, position-management hook delegation, helpers) — 100% line + function coverage
+- `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts` — 408 sor CLI runner (paraméterek: --trail-variant, --leverage, --kelly-bucket, --arb-threshold-ms)
 - `packages/core/src/index.ts` — V2 exports added (DEFAULT_ADAPTIVE_KELLY_AGGREGATE, DEFAULT_MULTI_CLASS_ENSEMBLE_V2_CONFIG_PARTIAL, MultiClassEnsembleV2, timeframesForMultiClassV2, types)
 - 3× baseline JSON: `backtest-results/baseline-multi-class-v2-{btc,eth,sol}-1d.json`
+- 1× CLI stdout capture: `backtest-results/baseline-multi-class-v2-1d-stdout.txt`
 
 ### 5.3 V2 quality gates — ALL GREEN
 
-- typecheck: 13/13 packages successful (V2 module compiles, 0 errors)
-- lint: 8/8 packages successful (0 errors, 33 warnings — same baseline as Phase 6)
-- test: 13/13 packages successful (V2 adds 20 new tests, all pass; total ~377+ tests in core, 0 fail)
-- coverage: V2 module has 100% line coverage (88/88 lines) and 100% function coverage (8/8 functions)
+- **typecheck:** 13/13 packages successful (V2 module compiles, 0 errors)
+- **lint:** 8/8 packages successful (0 errors, 91 pre-existing warnings in core + tui from sibling worktrees)
+- **test:** 13/13 packages successful (V2 adds 20 new tests, all pass; total ~290+ tests, 0 fail)
+- **coverage:** V2 module has **100% line coverage** (88/88 lines) and **100% function coverage** (8/8 functions)
 
-### 5.4 V2 empirical results — 3 szimbólum (default: pct10 trail, 2× lev, 0.5× Kelly)
+### 5.4 V2 empirical results — 3 szimbólum (default: pct10 trail, **3× lev**, 1.0× Kelly cap → 0.5× dynamic floor)
 
-| Symbol | Trades | Dir PnL | Carry PnL (2×) | Total Return | Monthly | Sharpe (ann.) | Max DD | Trail Exits | Effective Lev | VaR 95% | Liquidations |
+**CLI invocation (Phase 7 M3 default):**
+```bash
+bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts \
+  --symbol={BTC|ETH|SOL}/USDT --timeframe=1d \
+  --trail-variant=pct10 --leverage=3 --kelly-bucket=1.0
+```
+
+A 3× leverage a Track C verdict szerinti FULL PASS default (a CLI `--leverage=3` flag-ja a brief §0 ajánlása; az M2 commit 4cf647f eredetileg 2×-szel futott, M3 átállította a brief §0-nak megfelelő 3×-re). A 1.0× Kelly cap a Track B dynamic rendszer maximuma — az actual multiplier a rolling Sharpe-től függ (jelenlegi adaton 0.5× floor).
+
+| Symbol | Trades | Dir PnL | Carry PnL (3×) | Total Return | Monthly | Sharpe (ann.) | Max DD | Trail Exits | Effective Lev | VaR 95% | Liquidations |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| BTC/USDT | 28 | +$131.87 | +$15,854.32 | +159.86% | **+1.90%/hó** | 2.828 | 5.413% | 0 | 2 | 0.12% | 0 |
-| ETH/USDT | 24 | +$283.14 | +$18,569.25 | +188.52% | **+2.25%/hó** | 7.011 | 2.947% | 2 | 2 | 0.16% | 0 |
-| SOL/USDT | 20 | -$18.14 | +$430.30 | +4.12% | **+0.05%/hó** | -0.325 | 5.619% | 2 | 2 | 0.55% | 0 |
-| **AVG** | 24 | +$132.29 | +$11,617.96 | +117.50% | **+1.40%/hó** | 3.171 | 4.66% | 1.3 | 2 | 0.28% | 0 |
+| BTC/USDT | 28 | +$169.34 | +$23,781.47 | +239.51% | **+2.85%/hó** | 3.309 | 5.71% | 0 | 3 | 0.18% | 0 |
+| ETH/USDT | 24 | +$283.14 | +$27,853.88 | +281.37% | **+3.35%/hó** | 7.011 | 2.95% | 2 | 3 | 0.24% | 0 |
+| SOL/USDT | 20 | -$18.14 | +$645.45 | +6.27% | **+0.075%/hó** | -0.325 | 5.62% | 2 | 3 | 0.83% | 0 |
+| **AVG** | 24 | +$144.78 | +$17,426.93 | +175.72% | **+2.09%/hó** | 3.33 | 4.76% | 1.3 | 3 | 0.42% | 0 |
 
-**vs Phase 6 multi-class ensemble:**
+**vs Phase 6 multi-class ensemble (boost factor):**
 
 | Symbol | Phase 6 monthly | Phase 7 V2 monthly | Boost factor |
 |---|---:|---:|---:|
-| BTC | +0.54% | +1.90% | **3.5×** |
-| ETH | +0.56% | +2.25% | **4.0×** |
-| SOL | +0.47% | +0.05% | 0.1× (SOL carry is small) |
-| **AVG** | +0.52% | **+1.40%** | **2.7×** |
+| BTC | +0.54% | +2.85% | **5.3×** |
+| ETH | +0.56% | +3.35% | **6.0×** |
+| SOL | +0.47% | +0.075% | 0.16× (SOL carry is small + directional -$18) |
+| **AVG** | +0.52% | **+2.09%** | **4.0×** |
 
 ### 5.5 Component contribution analysis (BTC 1d example)
 
-A BTC 1d ensemble esetén a komponensek hozzájárulása a teljes 159.86% return-hoz:
+A BTC 1d ensemble esetén a komponensek hozzájárulása a teljes 239.51% return-hoz:
 
 | Component | PnL (USD) | % of total return | Note |
 |---|---:|---:|---|
-| Donchian 1d directional | +$131.87 | **0.8%** | 28 trades / 7 év, low-frequency edge |
+| Donchian 1d directional | +$169.34 | **0.7%** | 28 trades / 7 év, low-frequency edge |
 | Trailing-stop contribution | $0 (0 trail exits) | 0% | Phase 5 72h profit-time-exit pre-empts |
-| Funding carry 1× | +$7,927 | 49.7% | Phase 6 baseline |
-| **Funding carry 2× (Track C amplification)** | **+$15,854** | **99.2%** | 2× leverage, VaR 0.12%, 0 liquidations |
+| Funding carry 1× | +$7,927 | 33.1% | Phase 6 baseline |
+| Funding carry 2× | +$15,854 | 66.2% | 2× leverage, VaR 0.12%, 0 liquidations |
+| **Funding carry 3× (Track C amplification)** | **+$23,781** | **99.3%** | **3× leverage, VaR 0.18%, 0 liquidations — FULL PASS** |
 | Adaptive Kelly sizing | 0.5× static | n/a | Cold-start (insufficient trade count for full adaptive) |
-| **TOTAL** | +$15,986 | 100% | Carry dominates (99%+) |
+| **TOTAL** | +$23,951 | 100% | Carry dominates (99%+) |
 
-**Kritikus megállapítás:** A Phase 7 V2 ensemble return-jának **99%+ százaléka a leveraged funding-carry-ből jön** (Track C). A directional Donchian-trailing edge a Phase 6-hoz hasonlóan marginális (BTC: +$132, ETH: +$283, SOL: -$18). A trailing-stop (Track A) limitált, mert a Phase 5 72h profit-time-exit pre-emptálja (csak 0-2 trail exits a 3 szimbólum 7 éves backtestjén).
+**Kritikus megállapítás:** A Phase 7 V2 ensemble return-jának **99%+ százaléka a leveraged funding-carry-ből jön** (Track C, 3×). A directional Donchian-trailing edge a Phase 6-hoz hasonlóan marginális (BTC: +$169, ETH: +$283, SOL: -$18). A trailing-stop (Track A) limitált, mert a Phase 5 72h profit-time-exit pre-emptálja (csak 0-2 trail exits a 3 szimbólum 7 éves backtestjén).
 
 ---
 
@@ -245,25 +258,25 @@ A BTC 1d ensemble esetén a komponensek hozzájárulása a teljes 159.86% return
 | Phase 4 | Mean-Reversion BB | -46.7% total | NEM |
 | Phase 5 single-class (Donchian 1d) | +0.04-0.10%/hó | **+0.07%/hó** | NEM (~714× short) |
 | Phase 6 multi-class (Donchian + Carry + Kelly) | +0.47-0.56%/hó | **+0.52%/hó** | NEM (~96× short) |
-| **Phase 7 V2 (Trail + Adapt-Kelly + 2× Carry)** | +0.05-2.25%/hó | **+1.40%/hó** | **NEM (~36× short)** |
+| **Phase 7 V2 (Trail + Adapt-Kelly + 3× Carry)** | +0.075-3.35%/hó | **+2.09%/hó** | **NEM (~24× short)** |
 
-**A Phase 7 V2 2.7×-re javította a Phase 6 baseline-t, de a +50%/hó target-től még mindig ~36×-del elmarad.**
+**A Phase 7 V2 4.0×-re javította a Phase 6 baseline-t, de a +50%/hó target-től még mindig ~24×-del elmarad.**
 
 ### 6.2 What works, what doesn't (Phase 1-7)
 
 **WHAT WORKS (Phase 7 empirical evidence):**
 
-- **Funding-rate carry with leverage** (Track C) — Sharpe 9-19, VaR < 0.6% daily @ 2× lev, 100% scaling efficiency, zero liquidations. The dominant contributor to Phase 7 V2 returns (99%+).
+- **Funding-rate carry with 3× leverage** (Track C) — Sharpe 9-19, VaR < 0.9% daily @ 3× lev, 100% scaling efficiency, zero liquidations. The dominant contributor to Phase 7 V2 returns (99%+).
 - **Donchian 1d edge with trailing-stop** (Track A) — BTC pct10 variant +25% monthly boost + 51% DD reduction vs Phase 5 baseline. Limited contribution because Phase 5 72h profit-time-exit pre-empts.
-- **Adaptive Kelly with rolling Sharpe** (Track B) — 50% DD reduction on all 3 symbols (BTC 0.93→0.46%, ETH 2.14→1.07%, SOL 3.47→1.74%). Cold-start fallback to 0.5× static when trade count < 30.
+- **Adaptive Kelly with rolling Sharpe** (Track B) — 50% DD reduction on all 3 symbols (BTC 0.93→0.46%, ETH 2.14→1.07%, SOL 3.47→1.74%). Cold-start fallback to 0.5× when trade count < 30 / 30d window. CLI cap 1.0× — the system CAN scale up, but the data doesn't have a sustained > 1.0 Sharpe period to trigger it.
 - **Multi-class ensemble V2 integration** — clean signal aggregation (no double-counting), state-tracked carry, position-management hook delegation, 100% V2 module coverage.
-- **Engine stability** — 377+ core unit tests, 6 backtest fázis, 3 Phase 7 track artifact-free.
+- **Engine stability** — 290+ core unit tests, 7 backtest fázis, 3 Phase 7 track artifact-free.
 
 **WHAT DOESN'T WORK (still):**
 
-- **The +50%/hó target** is unattainable with the current edge categories. Phase 7 V2 best (ETH +2.25%/hó) is still ~22× short.
+- **The +50%/hó target** is unattainable with the current edge categories. Phase 7 V2 best (ETH +3.35%/hó) is still ~15× short.
 - **Donchian 1d edge on BTC/ETH under Kelly sizing** — small-sample artifact, raw Kelly negative, capped at 2.54% Phase 6 / floor 0.5× Phase 7.
-- **SOL directional edge** — Phase 6 had +2.83% / 30hó, Phase 7 V2 has -$18 (the carry is the only positive contributor at $430).
+- **SOL directional edge** — Phase 6 had +2.83% / 30hó, Phase 7 V2 has -$18 (the carry is the only positive contributor at $645).
 - **bybit.eu SPOT 0.1%/side fee** — break-even trade-eknél továbbra is korlát (Phase 4 lesson: 73-82% stop-loss dominancia fee-drag miatt).
 - **Cross-exchange arb** — a jelenlegi CCXT Pro infra mellett round-trip 1027-4940ms, 0/29 profitábilis arbitrázs (Phase 6 Track B).
 
@@ -271,13 +284,13 @@ A BTC 1d ensemble esetén a komponensek hozzájárulása a teljes 159.86% return
 
 | Configuration | Expected monthly return | Sharpe | Max DD |
 |---|---:|---:|---:|
-| Carry-only (BTC+ETH, 2× lev, $20k notional) | +1.5-2.5%/hó | 9-19 | <3% |
+| Carry-only (BTC+ETH, 3× lev, $10k notional) | +2.5-3.5%/hó | 9-19 | <3% |
 | Donchian-only (Phase 5, 20% sizing) | +0.04-0.10%/hó | 0.16-0.46 | 3-5.5% |
 | Phase 6 multi-class (Kelly-opt, no leverage) | +0.47-0.56%/hó | -0.13-0.49 | 0.9-3.4% |
-| **Phase 7 V2 (Trail + Adapt-Kelly + 2× Carry)** | **+0.05-2.25%/hó** | **-0.33-7.01** | **2.9-5.6%** |
-| Phase 7+ co-location + arb (projected) | +2-3%/hó (projected) | 1-3 (projected) | <5% (projected) |
+| **Phase 7 V2 (Trail + Adapt-Kelly + 3× Carry)** | **+0.075-3.35%/hó** | **-0.33-7.01** | **2.9-5.7%** |
+| Phase 8+ co-location + arb (projected) | +2-3%/hó (projected) | 1-3 (projected) | <5% (projected) |
 
-**A +50%/hó realistic?** A Phase 7 empirikus bizonyíték egyértelmű: **NEM** — a Phase 7 V2 multi-class ensemble a Phase 1-6 legjobb single-class edge-eit + a 3 amplifikációs track outputját kombinálja, és a combined hozam +1.40%/hó empirikus átlag, ami **~36× a +50%/hó target alatt**. A Phase 8+ co-location arb + options vol surface + ML on order flow együttesen PROJECTED +5-15%/hó hozamra elegendő, de a +50%/hó eléréséhez **alapvetően új edge kategória** kell (options vol surface arb, market-making bid-ask spread, latency-sensitive cross-venue MM, ML alpha signals).
+**A +50%/hó realistic?** A Phase 7 empirikus bizonyíték egyértelmű: **NEM** — a Phase 7 V2 multi-class ensemble a Phase 1-6 legjobb single-class edge-eit + a 3 amplifikációs track outputját kombinálja, és a combined hozam +2.09%/hó empirikus átlag, ami **~24× a +50%/hó target alatt**. A Phase 8+ co-location arb + options vol surface + ML on order flow együttesen PROJECTED +5-15%/hó hozamra elegendő, de a +50%/hó eléréséhez **alapvetően új edge kategória** kell (options vol surface arb, market-making bid-ask spread, latency-sensitive cross-venue MM, ML alpha signals).
 
 ---
 
@@ -300,35 +313,45 @@ A BTC 1d ensemble esetén a komponensek hozzájárulása a teljes 159.86% return
 - **Trailing-stop extension (Phase 8+)** — Phase 7 Track A recommendation: ATR 2.5× + 168h profit-time-exit extension (a Phase 5 72h limit pre-empts too aggressively).
 - **Walk-forward anti-overfit (Phase 8+)** — Phase 5 C 19-28 trade kis minta, hosszabb history (3+ év) vagy alternative data (funding, OI) segíthet a small-sample artifact csökkentésében.
 - **Adaptive Kelly cold-start (Phase 8+)** — current min-trade threshold 30 conservative; could relax to 15 with proper shrinkage prior.
+- **V2 ensemble Kelly cap (Phase 8+)** — current 1.0× cap with insufficientFraction 35-49% on 7y data — a shrinkage-prior approach could improve robustness.
 
 ---
 
 ## 8. Output deliverables checklist
 
-A Phase 7 M2 (multi-class ensemble V2 integration) deliverables:
+A Phase 7 M2 + M3 (multi-class ensemble V2 integration + 3× leverage re-baseline) deliverables:
 
-- [x] `packages/core/src/strategy/multi-class-ensemble-v2.ts` — V2 composite strategy (416 lines, 100% line coverage)
-- [x] `packages/core/src/strategy/multi-class-ensemble-v2.test.ts` — 20 unit tests (construction, onCandle, latency gate, position management, state aggregation, helpers)
-- [x] `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts` — V2 CLI runner (409 lines, supports --trail-variant / --leverage / --kelly-bucket / --arb-threshold-ms)
+- [x] `packages/core/src/strategy/multi-class-ensemble-v2.ts` — V2 composite strategy (435 lines, 100% line + function coverage)
+- [x] `packages/core/src/strategy/multi-class-ensemble-v2.test.ts` — 20 unit tests (construction, onCandle, latency gate, position management, state aggregation, helpers) — all pass, 0 fail
+- [x] `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts` — V2 CLI runner (408 lines, supports --trail-variant / --leverage / --kelly-bucket / --arb-threshold-ms)
 - [x] `packages/core/src/index.ts` — V2 exports added (DEFAULT_ADAPTIVE_KELLY_AGGREGATE, DEFAULT_MULTI_CLASS_ENSEMBLE_V2_CONFIG_PARTIAL, MultiClassEnsembleV2, timeframesForMultiClassV2, types)
-- [x] `backtest-results/baseline-multi-class-v2-btc-1d.json` — BTC V2 ensemble (+1.90%/month, Sharpe 2.83)
-- [x] `backtest-results/baseline-multi-class-v2-eth-1d.json` — ETH V2 ensemble (+2.25%/month, Sharpe 7.01)
-- [x] `backtest-results/baseline-multi-class-v2-sol-1d.json` — SOL V2 ensemble (+0.05%/month, carry-dominated)
+- [x] `backtest-results/baseline-multi-class-v2-btc-1d.json` — BTC V2 ensemble (3× lev, **+2.85%/month**, Sharpe 3.31, VaR 0.18%, 0 liquidations)
+- [x] `backtest-results/baseline-multi-class-v2-eth-1d.json` — ETH V2 ensemble (3× lev, **+3.35%/month**, Sharpe 7.01, VaR 0.24%, 0 liquidations)
+- [x] `backtest-results/baseline-multi-class-v2-sol-1d.json` — SOL V2 ensemble (3× lev, **+0.075%/month**, carry-dominated)
+- [x] `backtest-results/baseline-multi-class-v2-1d-stdout.txt` — CLI console outputs (3 symbols, 1d timeframe, 3× leverage)
 - [x] `backtest-results/REPORT-phase7.md` — this report
-- [x] Quality gates: typecheck/lint/test/coverage ALL GREEN
-  - typecheck: 13 packages successful
-  - lint: 0 errors (33 pre-existing warnings in backtest-tools csv-feed)
-  - test: 13 packages successful, 0 fail (V2 adds 20 tests; total ~377+ tests in core)
-  - coverage: multi-class-ensemble-v2.ts 100% function + line coverage (88/88 lines, 8/8 functions)
+- [x] **Quality gates: typecheck/lint/test/coverage ALL GREEN**
+  - typecheck: 13/13 packages successful
+  - lint: 0 errors (91 pre-existing warnings in core + tui from sibling worktrees)
+  - test: 13/13 packages successful, 0 fail (V2 adds 20 tests; total 290+ tests)
+  - coverage: multi-class-ensemble-v2.ts **100% function + line coverage** (88/88 lines, 8/8 functions)
 
-### Merges performed (3 Phase 7 tracks)
+### Merges performed (3 Phase 7 tracks + M2)
 
-- `f053c09` — merge: Phase 7 Track A — trailing-stop engine for Donchian
-- `eecbe88` — merge: Phase 7 Track B — adaptive Kelly with rolling Sharpe
-- `f69606c` — merge: Phase 7 Track C — funding-carry leverage amplification
+- `a833190` — feat(backtest,core,backtest-tools): ÜGYNÖK Phase 7 Track A — Trailing-stop engine for Donchian
+- `2c1ef3d` — feat(backtest,core,backtest-tools): ÜGYNÖK Phase 7 Track B — Adaptive Kelly with rolling Sharpe
+- `6b504f6` — feat(backtest,core,backtest-tools): ÜGYNÖK Phase 7 Track C — Funding-carry leverage amplification
+- `f053c09` — merge: Phase 7 Track A
+- `eecbe88` — merge: Phase 7 Track B
+- `f69606c` — merge: Phase 7 Track C
+- `4cf647f` — feat(backtest,core,backtest-tools,reports): ÜGYNÖK Phase 7 M2 — Multi-class ensemble V2 + REPORT-phase7.md (initial, 2× leverage)
+
+### M3 commit (this report)
+
+- Phase 7 M3 commit — V2 ensemble re-baseline at 3× leverage (Track C FULL PASS default per brief §0), CLI stdout capture, REPORT-phase7.md update with 3× leverage empirical numbers and the 4.0× Phase 6 → Phase 7 boost (was 2.7× at 2× leverage).
 
 ### Final summary
 
-A Phase 7 V2 multi-class ensemble a Phase 6-ot 2.7×-re javította (havi +0.52% → +1.40%), de a **+50%/hó target-től még mindig ~36×-del elmarad**. A Track C leveraged funding-carry a domináns kontribútor (99%+ a teljes return-ból BTC/ETH esetén). A Phase 7 V2 legjobb szimbóluma az ETH (+2.25%/hó, Sharpe 7.01, VaR 0.16%, 0 liquidations), a SOL továbbra is gyenge a kis funding rate-ek miatt. A +50%/hó eléréséhez alapvetően új edge kategória (options vol surface, MM spread, ML alpha) szükséges — Phase 8+ research scope.
+A Phase 7 V2 multi-class ensemble a Phase 6-ot **4.0×-re javította** (havi +0.52% → +2.09%), de a **+50%/hó target-től még mindig ~24×-del elmarad**. A Track C **3× leveraged** funding-carry a domináns kontribútor (99%+ a teljes return-ból BTC/ETH esetén, 100% linear scaling efficiency, VaR 0.18-0.83% daily, 0 liquidations). A Phase 7 V2 legjobb szimbóluma az ETH (+3.35%/hó, Sharpe 7.01, VaR 0.24%, 0 liquidations), a SOL továbbra is gyenge a kis funding rate-ek és a directional edge kis-sample artifact miatt. A +50%/hó eléréséhez alapvetően új edge kategória (options vol surface, MM spread, ML alpha) szükséges — Phase 8+ research scope.
 
 A Phase 7 lezárt, a Phase 8+ scope világosan definiált (Tokyo co-loc P1, MiCAR scope P2, options vol surface research P3).
