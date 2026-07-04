@@ -1,0 +1,7384 @@
+{
+  "args": {
+    "symbol": "SOL/USDT",
+    "timeframe": "1h",
+    "initialEquity": 10000,
+    "leverage": 3,
+    "baseNotionalUsd": 10000,
+    "rebalanceThresholdPct": 0.05,
+    "withdrawalLatencyMinutes": 15,
+    "rebalanceCostBps": 20,
+    "varConfidence": 0.95,
+    "maxDailyVarPct": 0.02,
+    "maxLeverage": 3,
+    "outputPath": "backtest-results/baseline-funding-carry-leverage-sol-1h-3.json"
+  },
+  "config": {
+    "baseNotionalUsd": 10000,
+    "maxLeverage": 3,
+    "minLeverage": 1,
+    "rebalanceThresholdPct": 0.05,
+    "withdrawalLatencyMinutes": 15,
+    "rebalanceCostBps": 20,
+    "varConfidence": 0.95,
+    "maxDailyVarPct": 0.02,
+    "varMethod": "parametric",
+    "minInitialMarginFraction": 0.5,
+    "fundingStabilityWindowDays": 30,
+    "fundingStabilityRefStdDev": 0.0005
+  },
+  "totalMonths": 30.0731461302897,
+  "monthlyReturn": 0.01052956842216668,
+  "result": {
+    "totalReturn": 0.3702616799999997,
+    "annualizedReturn": 0.1339236786305027,
+    "sharpeRatio": 9.434871351479956,
+    "sortinoRatio": 3.4349181718564754,
+    "maxDrawdown": 0.05436625169875312,
+    "profitFactor": 3702.616799999997,
+    "winRate": 1,
+    "totalTrades": 0,
+    "fundingCollectedUsd": 3702.616799999997,
+    "fundingCollectedScaledUsd": 3702.616799999997,
+    "rebalanceCount": 0,
+    "rebalanceCostUsd": 0,
+    "fundingPeriods": 2745,
+    "avgFundingRate8h": 0.000044961952641164865,
+    "positiveFundingPeriods": 1885,
+    "negativeFundingPeriods": 860,
+    "zeroFundingPeriods": 0,
+    "leverage": 3,
+    "maxLeverageUsed": 3,
+    "avgLeverageUsed": 3,
+    "initialMarginUsd": 10000,
+    "maintenanceMarginUsd": 150,
+    "dailyVaR95Pct": 0.0014210982928502484,
+    "maxDailyVaR95PctObserved": 0.0014419518268863952,
+    "liquidationEvents": 0,
+    "liquidationEventTimestamps": [],
+    "startTime": 1704067200000,
+    "endTime": 1783160055493
+  },
+  "equityCurveSampled": [
+    {
+      "timestamp": 1704067200000,
+      "equity": 10006.723,
+      "fundingAccruedUsd": 6.723,
+      "markPrice": 101.96,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704153600000,
+      "equity": 10049.3167,
+      "fundingAccruedUsd": 49.3167,
+      "markPrice": 110.54,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704240000000,
+      "equity": 10102.0831,
+      "fundingAccruedUsd": 102.0831,
+      "markPrice": 107.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704326400000,
+      "equity": 10112.1235,
+      "fundingAccruedUsd": 112.1235,
+      "markPrice": 100.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704412800000,
+      "equity": 10118.1235,
+      "fundingAccruedUsd": 118.1235,
+      "markPrice": 104.08,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704499200000,
+      "equity": 10130.1235,
+      "fundingAccruedUsd": 130.1235,
+      "markPrice": 99.05,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704585600000,
+      "equity": 10139.1235,
+      "fundingAccruedUsd": 139.1235,
+      "markPrice": 95.54,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704672000000,
+      "equity": 10148.1235,
+      "fundingAccruedUsd": 148.1235,
+      "markPrice": 88.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704758400000,
+      "equity": 10154.1235,
+      "fundingAccruedUsd": 154.1235,
+      "markPrice": 97.49,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704844800000,
+      "equity": 10166.1235,
+      "fundingAccruedUsd": 166.1235,
+      "markPrice": 98.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1704931200000,
+      "equity": 10175.1235,
+      "fundingAccruedUsd": 175.1235,
+      "markPrice": 100.59,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705017600000,
+      "equity": 10181.1235,
+      "fundingAccruedUsd": 181.1235,
+      "markPrice": 99.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705104000000,
+      "equity": 10193.1235,
+      "fundingAccruedUsd": 193.1235,
+      "markPrice": 90.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705190400000,
+      "equity": 10202.1235,
+      "fundingAccruedUsd": 202.1235,
+      "markPrice": 94.49,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705276800000,
+      "equity": 10211.1235,
+      "fundingAccruedUsd": 211.1235,
+      "markPrice": 95.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705363200000,
+      "equity": 10220.1235,
+      "fundingAccruedUsd": 220.1235,
+      "markPrice": 94.89,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705449600000,
+      "equity": 10229.1235,
+      "fundingAccruedUsd": 229.1235,
+      "markPrice": 98.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705536000000,
+      "equity": 10235.1235,
+      "fundingAccruedUsd": 235.1235,
+      "markPrice": 100.94,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705622400000,
+      "equity": 10247.1235,
+      "fundingAccruedUsd": 247.1235,
+      "markPrice": 94.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705708800000,
+      "equity": 10256.1235,
+      "fundingAccruedUsd": 256.12350000000004,
+      "markPrice": 92.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705795200000,
+      "equity": 10265.1235,
+      "fundingAccruedUsd": 265.12350000000004,
+      "markPrice": 92.14,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705881600000,
+      "equity": 10274.1235,
+      "fundingAccruedUsd": 274.12350000000004,
+      "markPrice": 91.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1705968000000,
+      "equity": 10283.1235,
+      "fundingAccruedUsd": 283.12350000000004,
+      "markPrice": 84.74,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706054400000,
+      "equity": 10292.1235,
+      "fundingAccruedUsd": 292.12350000000004,
+      "markPrice": 85.52,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706140800000,
+      "equity": 10301.1235,
+      "fundingAccruedUsd": 301.12350000000004,
+      "markPrice": 89.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706227200000,
+      "equity": 10307.1235,
+      "fundingAccruedUsd": 307.12350000000004,
+      "markPrice": 86.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706313600000,
+      "equity": 10318.5232,
+      "fundingAccruedUsd": 318.52320000000003,
+      "markPrice": 92.86,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706400000000,
+      "equity": 10327.193800000001,
+      "fundingAccruedUsd": 327.1938,
+      "markPrice": 93.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706486400000,
+      "equity": 10333.9642,
+      "fundingAccruedUsd": 333.9642,
+      "markPrice": 95.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706572800000,
+      "equity": 10341.1429,
+      "fundingAccruedUsd": 341.1429,
+      "markPrice": 101.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706659200000,
+      "equity": 10348.4428,
+      "fundingAccruedUsd": 348.4428,
+      "markPrice": 100.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706745600000,
+      "equity": 10354.6984,
+      "fundingAccruedUsd": 354.6984,
+      "markPrice": 97.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706832000000,
+      "equity": 10362.9337,
+      "fundingAccruedUsd": 362.9337,
+      "markPrice": 98.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1706918400000,
+      "equity": 10371.9337,
+      "fundingAccruedUsd": 371.9337,
+      "markPrice": 100.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707004800000,
+      "equity": 10380.8515,
+      "fundingAccruedUsd": 380.8515,
+      "markPrice": 97.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707091200000,
+      "equity": 10389.8515,
+      "fundingAccruedUsd": 389.8515,
+      "markPrice": 95.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707177600000,
+      "equity": 10397.5363,
+      "fundingAccruedUsd": 397.5363,
+      "markPrice": 95.59,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707264000000,
+      "equity": 10406.5363,
+      "fundingAccruedUsd": 406.5363,
+      "markPrice": 97.03,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707350400000,
+      "equity": 10415.5363,
+      "fundingAccruedUsd": 415.5363,
+      "markPrice": 101.96,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707436800000,
+      "equity": 10423.657,
+      "fundingAccruedUsd": 423.657,
+      "markPrice": 103.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707523200000,
+      "equity": 10427.5795,
+      "fundingAccruedUsd": 427.5795,
+      "markPrice": 107.6,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707609600000,
+      "equity": 10439.5795,
+      "fundingAccruedUsd": 439.5795,
+      "markPrice": 108.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707696000000,
+      "equity": 10448.5795,
+      "fundingAccruedUsd": 448.5795,
+      "markPrice": 108.63,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707782400000,
+      "equity": 10457.5795,
+      "fundingAccruedUsd": 457.5795,
+      "markPrice": 113.98,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707868800000,
+      "equity": 10467.8293,
+      "fundingAccruedUsd": 467.8293,
+      "markPrice": 111.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1707955200000,
+      "equity": 10483.6684,
+      "fundingAccruedUsd": 483.66839999999996,
+      "markPrice": 117.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708041600000,
+      "equity": 10498.7593,
+      "fundingAccruedUsd": 498.7593,
+      "markPrice": 113.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708128000000,
+      "equity": 10518.7579,
+      "fundingAccruedUsd": 518.7579000000001,
+      "markPrice": 110.54,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708214400000,
+      "equity": 10546.6885,
+      "fundingAccruedUsd": 546.6885,
+      "markPrice": 109.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708300800000,
+      "equity": 10568.2336,
+      "fundingAccruedUsd": 568.2335999999999,
+      "markPrice": 112.37,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708387200000,
+      "equity": 10600.927599999999,
+      "fundingAccruedUsd": 600.9276,
+      "markPrice": 110.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708473600000,
+      "equity": 10624.3069,
+      "fundingAccruedUsd": 624.3068999999999,
+      "markPrice": 107.39,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708560000000,
+      "equity": 10637.2189,
+      "fundingAccruedUsd": 637.2188999999998,
+      "markPrice": 103.8,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708646400000,
+      "equity": 10661.8273,
+      "fundingAccruedUsd": 661.8272999999999,
+      "markPrice": 102.6,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708732800000,
+      "equity": 10684.9006,
+      "fundingAccruedUsd": 684.9005999999999,
+      "markPrice": 100.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708819200000,
+      "equity": 10702.7092,
+      "fundingAccruedUsd": 702.7092,
+      "markPrice": 103.74,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708905600000,
+      "equity": 10752.7477,
+      "fundingAccruedUsd": 752.7477,
+      "markPrice": 103.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1708992000000,
+      "equity": 10799.0179,
+      "fundingAccruedUsd": 799.0179,
+      "markPrice": 110.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709078400000,
+      "equity": 10845.0079,
+      "fundingAccruedUsd": 845.0079000000001,
+      "markPrice": 108.61,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709164800000,
+      "equity": 10907.4985,
+      "fundingAccruedUsd": 907.4985000000001,
+      "markPrice": 122.93,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709251200000,
+      "equity": 10979.7649,
+      "fundingAccruedUsd": 979.7649000000001,
+      "markPrice": 132.93,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709337600000,
+      "equity": 11040.1498,
+      "fundingAccruedUsd": 1040.1498000000001,
+      "markPrice": 130.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709424000000,
+      "equity": 11104.6681,
+      "fundingAccruedUsd": 1104.6681,
+      "markPrice": 128.8,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709510400000,
+      "equity": 11159.5774,
+      "fundingAccruedUsd": 1159.5774000000004,
+      "markPrice": 130.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709596800000,
+      "equity": 11224.7083,
+      "fundingAccruedUsd": 1224.7083000000002,
+      "markPrice": 131.84,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709683200000,
+      "equity": 11297.8546,
+      "fundingAccruedUsd": 1297.8546000000001,
+      "markPrice": 123.65,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709769600000,
+      "equity": 11331.8914,
+      "fundingAccruedUsd": 1331.8914000000002,
+      "markPrice": 134.63,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709856000000,
+      "equity": 11381.7469,
+      "fundingAccruedUsd": 1381.7469000000003,
+      "markPrice": 145.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1709942400000,
+      "equity": 11428.8256,
+      "fundingAccruedUsd": 1428.8256000000001,
+      "markPrice": 146.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710028800000,
+      "equity": 11463.1153,
+      "fundingAccruedUsd": 1463.1153,
+      "markPrice": 145.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710115200000,
+      "equity": 11505.5068,
+      "fundingAccruedUsd": 1505.5067999999999,
+      "markPrice": 140.28,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710201600000,
+      "equity": 11571.2737,
+      "fundingAccruedUsd": 1571.2737,
+      "markPrice": 147.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710288000000,
+      "equity": 11629.388500000001,
+      "fundingAccruedUsd": 1629.3885,
+      "markPrice": 149.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710374400000,
+      "equity": 11669.6608,
+      "fundingAccruedUsd": 1669.6608,
+      "markPrice": 167.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710460800000,
+      "equity": 11735.7421,
+      "fundingAccruedUsd": 1735.7421000000002,
+      "markPrice": 179.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710547200000,
+      "equity": 11758.7503,
+      "fundingAccruedUsd": 1758.7503000000002,
+      "markPrice": 181.14,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710633600000,
+      "equity": 11773.7113,
+      "fundingAccruedUsd": 1773.7113000000002,
+      "markPrice": 182.39,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710720000000,
+      "equity": 11795.9074,
+      "fundingAccruedUsd": 1795.9074,
+      "markPrice": 195.84,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710806400000,
+      "equity": 11816.569,
+      "fundingAccruedUsd": 1816.569,
+      "markPrice": 193.8,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710892800000,
+      "equity": 11831.3095,
+      "fundingAccruedUsd": 1831.3095,
+      "markPrice": 176.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1710979200000,
+      "equity": 11845.0123,
+      "fundingAccruedUsd": 1845.0123,
+      "markPrice": 192.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711065600000,
+      "equity": 11862.8227,
+      "fundingAccruedUsd": 1862.8227,
+      "markPrice": 179,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711152000000,
+      "equity": 11876.684799999999,
+      "fundingAccruedUsd": 1876.6848,
+      "markPrice": 173.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711238400000,
+      "equity": 11891.578300000001,
+      "fundingAccruedUsd": 1891.5783000000001,
+      "markPrice": 175.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711324800000,
+      "equity": 11910.3544,
+      "fundingAccruedUsd": 1910.3544000000002,
+      "markPrice": 181.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711411200000,
+      "equity": 11933.4766,
+      "fundingAccruedUsd": 1933.4766000000002,
+      "markPrice": 188.96,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711497600000,
+      "equity": 11956.879,
+      "fundingAccruedUsd": 1956.8790000000001,
+      "markPrice": 192.36,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711584000000,
+      "equity": 11984.5354,
+      "fundingAccruedUsd": 1984.5354,
+      "markPrice": 186.53,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711670400000,
+      "equity": 12021.0601,
+      "fundingAccruedUsd": 2021.0601,
+      "markPrice": 188.65,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711756800000,
+      "equity": 12059.641,
+      "fundingAccruedUsd": 2059.641,
+      "markPrice": 194.09,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711843200000,
+      "equity": 12106.9903,
+      "fundingAccruedUsd": 2106.9903,
+      "markPrice": 195.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1711929600000,
+      "equity": 12161.758600000001,
+      "fundingAccruedUsd": 2161.7586,
+      "markPrice": 201.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712016000000,
+      "equity": 12184.4854,
+      "fundingAccruedUsd": 2184.4854,
+      "markPrice": 189.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712102400000,
+      "equity": 12200.2864,
+      "fundingAccruedUsd": 2200.2864,
+      "markPrice": 181.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712188800000,
+      "equity": 12211.1326,
+      "fundingAccruedUsd": 2211.1326,
+      "markPrice": 186.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712275200000,
+      "equity": 12222.1771,
+      "fundingAccruedUsd": 2222.1771,
+      "markPrice": 184.89,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712361600000,
+      "equity": 12231.1771,
+      "fundingAccruedUsd": 2231.1771,
+      "markPrice": 175.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712448000000,
+      "equity": 12240.1771,
+      "fundingAccruedUsd": 2240.1771,
+      "markPrice": 178.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712534400000,
+      "equity": 12246.1771,
+      "fundingAccruedUsd": 2246.1771,
+      "markPrice": 177.98,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712620800000,
+      "equity": 12267.530200000001,
+      "fundingAccruedUsd": 2267.5302,
+      "markPrice": 179.93,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712707200000,
+      "equity": 12285.6538,
+      "fundingAccruedUsd": 2285.6538,
+      "markPrice": 172.38,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712793600000,
+      "equity": 12308.4817,
+      "fundingAccruedUsd": 2308.4817000000003,
+      "markPrice": 172.18,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712880000000,
+      "equity": 12331.9882,
+      "fundingAccruedUsd": 2331.9882000000002,
+      "markPrice": 173.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1712966400000,
+      "equity": 12351.49,
+      "fundingAccruedUsd": 2351.4900000000002,
+      "markPrice": 151.62,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713052800000,
+      "equity": 12360.49,
+      "fundingAccruedUsd": 2360.4900000000002,
+      "markPrice": 137.91,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713139200000,
+      "equity": 12369.3958,
+      "fundingAccruedUsd": 2369.3958000000002,
+      "markPrice": 148.51,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713225600000,
+      "equity": 12371.0794,
+      "fundingAccruedUsd": 2371.0794,
+      "markPrice": 137.45,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713312000000,
+      "equity": 12370.647700000001,
+      "fundingAccruedUsd": 2370.6477000000004,
+      "markPrice": 137.38,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713398400000,
+      "equity": 12375.814,
+      "fundingAccruedUsd": 2375.8140000000008,
+      "markPrice": 132.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713484800000,
+      "equity": 12379.9519,
+      "fundingAccruedUsd": 2379.9519000000005,
+      "markPrice": 138.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713571200000,
+      "equity": 12384.457900000001,
+      "fundingAccruedUsd": 2384.4579000000003,
+      "markPrice": 140.74,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713657600000,
+      "equity": 12389.8078,
+      "fundingAccruedUsd": 2389.8078000000005,
+      "markPrice": 148.64,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713744000000,
+      "equity": 12391.3141,
+      "fundingAccruedUsd": 2391.3141000000005,
+      "markPrice": 148.94,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713830400000,
+      "equity": 12392.581300000002,
+      "fundingAccruedUsd": 2392.5813000000007,
+      "markPrice": 158.88,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1713916800000,
+      "equity": 12392.0833,
+      "fundingAccruedUsd": 2392.0833000000007,
+      "markPrice": 156.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714003200000,
+      "equity": 12398.2762,
+      "fundingAccruedUsd": 2398.2762000000007,
+      "markPrice": 148.61,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714089600000,
+      "equity": 12401.947900000001,
+      "fundingAccruedUsd": 2401.9479000000006,
+      "markPrice": 143.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714176000000,
+      "equity": 12410.491600000001,
+      "fundingAccruedUsd": 2410.4916000000007,
+      "markPrice": 137.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714262400000,
+      "equity": 12411.2506,
+      "fundingAccruedUsd": 2411.2506000000003,
+      "markPrice": 141.96,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714348800000,
+      "equity": 12418.1593,
+      "fundingAccruedUsd": 2418.1593000000003,
+      "markPrice": 138.38,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714435200000,
+      "equity": 12426.0745,
+      "fundingAccruedUsd": 2426.0745,
+      "markPrice": 139.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714521600000,
+      "equity": 12429.2353,
+      "fundingAccruedUsd": 2429.2353,
+      "markPrice": 125.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714608000000,
+      "equity": 12435.0802,
+      "fundingAccruedUsd": 2435.0802,
+      "markPrice": 131.48,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714694400000,
+      "equity": 12440.2489,
+      "fundingAccruedUsd": 2440.2489,
+      "markPrice": 137.8,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714780800000,
+      "equity": 12436.9585,
+      "fundingAccruedUsd": 2436.9585,
+      "markPrice": 144.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714867200000,
+      "equity": 12439.3606,
+      "fundingAccruedUsd": 2439.3606,
+      "markPrice": 145.18,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1714953600000,
+      "equity": 12445.861,
+      "fundingAccruedUsd": 2445.861,
+      "markPrice": 147.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715040000000,
+      "equity": 12452.7412,
+      "fundingAccruedUsd": 2452.7411999999995,
+      "markPrice": 153.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715126400000,
+      "equity": 12455.982399999999,
+      "fundingAccruedUsd": 2455.9823999999994,
+      "markPrice": 149.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715212800000,
+      "equity": 12463.5805,
+      "fundingAccruedUsd": 2463.5804999999996,
+      "markPrice": 143.38,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715299200000,
+      "equity": 12468.979,
+      "fundingAccruedUsd": 2468.979,
+      "markPrice": 152.02,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715385600000,
+      "equity": 12474.946,
+      "fundingAccruedUsd": 2474.946,
+      "markPrice": 146.06,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715472000000,
+      "equity": 12480.6922,
+      "fundingAccruedUsd": 2480.6922,
+      "markPrice": 145.62,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715558400000,
+      "equity": 12483.3835,
+      "fundingAccruedUsd": 2483.3835,
+      "markPrice": 145.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715644800000,
+      "equity": 12492.099699999999,
+      "fundingAccruedUsd": 2492.0996999999998,
+      "markPrice": 146.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715731200000,
+      "equity": 12496.681,
+      "fundingAccruedUsd": 2496.681,
+      "markPrice": 141.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715817600000,
+      "equity": 12499.7575,
+      "fundingAccruedUsd": 2499.7574999999997,
+      "markPrice": 161.53,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715904000000,
+      "equity": 12510.9925,
+      "fundingAccruedUsd": 2510.9925,
+      "markPrice": 162.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1715990400000,
+      "equity": 12514.4968,
+      "fundingAccruedUsd": 2514.4968,
+      "markPrice": 170.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716076800000,
+      "equity": 12518.5693,
+      "fundingAccruedUsd": 2518.5693,
+      "markPrice": 173.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716163200000,
+      "equity": 12524.7703,
+      "fundingAccruedUsd": 2524.7703,
+      "markPrice": 170.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716249600000,
+      "equity": 12532.7989,
+      "fundingAccruedUsd": 2532.7989000000002,
+      "markPrice": 185.91,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716336000000,
+      "equity": 12541.7989,
+      "fundingAccruedUsd": 2541.7989000000002,
+      "markPrice": 177.74,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716422400000,
+      "equity": 12550.7989,
+      "fundingAccruedUsd": 2550.7989000000002,
+      "markPrice": 177.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716508800000,
+      "equity": 12559.7989,
+      "fundingAccruedUsd": 2559.7989000000002,
+      "markPrice": 174.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716595200000,
+      "equity": 12568.7989,
+      "fundingAccruedUsd": 2568.7989000000002,
+      "markPrice": 166.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716681600000,
+      "equity": 12577.7989,
+      "fundingAccruedUsd": 2577.7989000000002,
+      "markPrice": 167.58,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716768000000,
+      "equity": 12586.7989,
+      "fundingAccruedUsd": 2586.7989000000002,
+      "markPrice": 165.59,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716854400000,
+      "equity": 12595.7989,
+      "fundingAccruedUsd": 2595.7989000000002,
+      "markPrice": 169.84,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1716940800000,
+      "equity": 12603.0376,
+      "fundingAccruedUsd": 2603.0376,
+      "markPrice": 168.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717027200000,
+      "equity": 12618.715,
+      "fundingAccruedUsd": 2618.715,
+      "markPrice": 168.03,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717113600000,
+      "equity": 12627.715,
+      "fundingAccruedUsd": 2627.715,
+      "markPrice": 166.55,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717200000000,
+      "equity": 12638.5393,
+      "fundingAccruedUsd": 2638.5393000000004,
+      "markPrice": 166.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717286400000,
+      "equity": 12650.368,
+      "fundingAccruedUsd": 2650.3680000000004,
+      "markPrice": 166.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717372800000,
+      "equity": 12660.0151,
+      "fundingAccruedUsd": 2660.0151000000005,
+      "markPrice": 162.55,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717459200000,
+      "equity": 12671.310700000002,
+      "fundingAccruedUsd": 2671.310700000001,
+      "markPrice": 165.29,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717545600000,
+      "equity": 12686.5102,
+      "fundingAccruedUsd": 2686.510200000001,
+      "markPrice": 172.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717632000000,
+      "equity": 12705.090400000001,
+      "fundingAccruedUsd": 2705.090400000001,
+      "markPrice": 173.66,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717718400000,
+      "equity": 12720.394300000002,
+      "fundingAccruedUsd": 2720.3943000000013,
+      "markPrice": 170.26,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717804800000,
+      "equity": 12733.413700000001,
+      "fundingAccruedUsd": 2733.4137000000014,
+      "markPrice": 162.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717891200000,
+      "equity": 12742.413700000001,
+      "fundingAccruedUsd": 2742.4137000000014,
+      "markPrice": 158.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1717977600000,
+      "equity": 12751.413700000001,
+      "fundingAccruedUsd": 2751.4137000000014,
+      "markPrice": 161.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718064000000,
+      "equity": 12757.413700000001,
+      "fundingAccruedUsd": 2757.4137000000014,
+      "markPrice": 158.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718150400000,
+      "equity": 12769.413700000001,
+      "fundingAccruedUsd": 2769.4137000000014,
+      "markPrice": 148.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718236800000,
+      "equity": 12778.413700000001,
+      "fundingAccruedUsd": 2778.4137000000014,
+      "markPrice": 154.65,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718323200000,
+      "equity": 12787.413700000001,
+      "fundingAccruedUsd": 2787.4137000000014,
+      "markPrice": 147.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718409600000,
+      "equity": 12795.8659,
+      "fundingAccruedUsd": 2795.865900000001,
+      "markPrice": 143.55,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718496000000,
+      "equity": 12801.8659,
+      "fundingAccruedUsd": 2801.865900000001,
+      "markPrice": 144.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718582400000,
+      "equity": 12811.823500000002,
+      "fundingAccruedUsd": 2811.8235000000013,
+      "markPrice": 150.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718668800000,
+      "equity": 12819.2494,
+      "fundingAccruedUsd": 2819.249400000001,
+      "markPrice": 141.52,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718755200000,
+      "equity": 12819.594700000001,
+      "fundingAccruedUsd": 2819.594700000001,
+      "markPrice": 137.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718841600000,
+      "equity": 12828.1267,
+      "fundingAccruedUsd": 2828.126700000001,
+      "markPrice": 135.27,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1718928000000,
+      "equity": 12827.960500000001,
+      "fundingAccruedUsd": 2827.960500000001,
+      "markPrice": 133.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719014400000,
+      "equity": 12832.648000000001,
+      "fundingAccruedUsd": 2832.648000000001,
+      "markPrice": 133.58,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719100800000,
+      "equity": 12837.2932,
+      "fundingAccruedUsd": 2837.293200000001,
+      "markPrice": 134.61,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719187200000,
+      "equity": 12839.7124,
+      "fundingAccruedUsd": 2839.7124000000013,
+      "markPrice": 129,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719273600000,
+      "equity": 12844.924,
+      "fundingAccruedUsd": 2844.9240000000013,
+      "markPrice": 132.26,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719360000000,
+      "equity": 12846.432100000002,
+      "fundingAccruedUsd": 2846.4321000000014,
+      "markPrice": 136.43,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719446400000,
+      "equity": 12858.432100000002,
+      "fundingAccruedUsd": 2858.4321000000014,
+      "markPrice": 136.8,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719532800000,
+      "equity": 12867.432100000002,
+      "fundingAccruedUsd": 2867.4321000000014,
+      "markPrice": 147.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719619200000,
+      "equity": 12872.830000000002,
+      "fundingAccruedUsd": 2872.8300000000013,
+      "markPrice": 141.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719705600000,
+      "equity": 12884.830000000002,
+      "fundingAccruedUsd": 2884.8300000000013,
+      "markPrice": 140.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719792000000,
+      "equity": 12893.450200000001,
+      "fundingAccruedUsd": 2893.450200000001,
+      "markPrice": 147.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719878400000,
+      "equity": 12901.195000000002,
+      "fundingAccruedUsd": 2901.195000000001,
+      "markPrice": 147.34,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1719964800000,
+      "equity": 12907.2955,
+      "fundingAccruedUsd": 2907.295500000001,
+      "markPrice": 153.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720051200000,
+      "equity": 12916.2955,
+      "fundingAccruedUsd": 2916.295500000001,
+      "markPrice": 141.4,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720137600000,
+      "equity": 12920.165500000001,
+      "fundingAccruedUsd": 2920.1655000000014,
+      "markPrice": 128.59,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720224000000,
+      "equity": 12920.516500000002,
+      "fundingAccruedUsd": 2920.5165000000015,
+      "markPrice": 135.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720310400000,
+      "equity": 12917.898400000002,
+      "fundingAccruedUsd": 2917.898400000002,
+      "markPrice": 141.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720396800000,
+      "equity": 12927.004,
+      "fundingAccruedUsd": 2927.0040000000017,
+      "markPrice": 129.14,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720483200000,
+      "equity": 12931.315300000002,
+      "fundingAccruedUsd": 2931.3153000000016,
+      "markPrice": 138.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720569600000,
+      "equity": 12936.895900000001,
+      "fundingAccruedUsd": 2936.895900000002,
+      "markPrice": 139.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720656000000,
+      "equity": 12941.806,
+      "fundingAccruedUsd": 2941.8060000000014,
+      "markPrice": 141.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720742400000,
+      "equity": 12948.037600000001,
+      "fundingAccruedUsd": 2948.0376000000015,
+      "markPrice": 135.84,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720828800000,
+      "equity": 12949.584100000002,
+      "fundingAccruedUsd": 2949.5841000000014,
+      "markPrice": 139.03,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1720915200000,
+      "equity": 12955.735600000002,
+      "fundingAccruedUsd": 2955.7356000000013,
+      "markPrice": 144.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721001600000,
+      "equity": 12957.247000000001,
+      "fundingAccruedUsd": 2957.247000000001,
+      "markPrice": 150.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721088000000,
+      "equity": 12957.9829,
+      "fundingAccruedUsd": 2957.9829000000013,
+      "markPrice": 158.06,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721174400000,
+      "equity": 12966.315100000002,
+      "fundingAccruedUsd": 2966.315100000001,
+      "markPrice": 161.28,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721260800000,
+      "equity": 12972.7792,
+      "fundingAccruedUsd": 2972.779200000001,
+      "markPrice": 157.86,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721347200000,
+      "equity": 12980.5123,
+      "fundingAccruedUsd": 2980.512300000001,
+      "markPrice": 158.06,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721433600000,
+      "equity": 12985.0507,
+      "fundingAccruedUsd": 2985.0507000000007,
+      "markPrice": 169.42,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721520000000,
+      "equity": 12991.8559,
+      "fundingAccruedUsd": 2991.8559000000005,
+      "markPrice": 172.96,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721606400000,
+      "equity": 12999.4948,
+      "fundingAccruedUsd": 2999.4948000000004,
+      "markPrice": 183.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721692800000,
+      "equity": 13007.6263,
+      "fundingAccruedUsd": 3007.6263000000004,
+      "markPrice": 178.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721779200000,
+      "equity": 13015.0015,
+      "fundingAccruedUsd": 3015.0015000000003,
+      "markPrice": 171.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721865600000,
+      "equity": 13022.5648,
+      "fundingAccruedUsd": 3022.5648,
+      "markPrice": 178.49,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1721952000000,
+      "equity": 13030.1059,
+      "fundingAccruedUsd": 3030.1059000000005,
+      "markPrice": 172.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722038400000,
+      "equity": 13034.347300000001,
+      "fundingAccruedUsd": 3034.3473000000004,
+      "markPrice": 182.44,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722124800000,
+      "equity": 13040.982100000001,
+      "fundingAccruedUsd": 3040.9821,
+      "markPrice": 184.91,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722211200000,
+      "equity": 13046.6617,
+      "fundingAccruedUsd": 3046.6617,
+      "markPrice": 188.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722297600000,
+      "equity": 13056.104800000001,
+      "fundingAccruedUsd": 3056.1048,
+      "markPrice": 182.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722384000000,
+      "equity": 13063.06,
+      "fundingAccruedUsd": 3063.06,
+      "markPrice": 180.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722470400000,
+      "equity": 13070.8495,
+      "fundingAccruedUsd": 3070.8495,
+      "markPrice": 172,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722556800000,
+      "equity": 13077.9412,
+      "fundingAccruedUsd": 3077.9411999999998,
+      "markPrice": 167.02,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722643200000,
+      "equity": 13086.8818,
+      "fundingAccruedUsd": 3086.8817999999997,
+      "markPrice": 151.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722729600000,
+      "equity": 13091.7793,
+      "fundingAccruedUsd": 3091.7792999999997,
+      "markPrice": 144.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722816000000,
+      "equity": 13097.5711,
+      "fundingAccruedUsd": 3097.5710999999997,
+      "markPrice": 131.41,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722902400000,
+      "equity": 13099.888599999998,
+      "fundingAccruedUsd": 3099.8885999999993,
+      "markPrice": 138.94,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1722988800000,
+      "equity": 13098.9154,
+      "fundingAccruedUsd": 3098.9153999999994,
+      "markPrice": 144.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723075200000,
+      "equity": 13097.0131,
+      "fundingAccruedUsd": 3097.013099999999,
+      "markPrice": 144.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723161600000,
+      "equity": 13099.9744,
+      "fundingAccruedUsd": 3099.9743999999987,
+      "markPrice": 161.18,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723248000000,
+      "equity": 13099.2532,
+      "fundingAccruedUsd": 3099.2531999999987,
+      "markPrice": 154.88,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723334400000,
+      "equity": 13100.915799999999,
+      "fundingAccruedUsd": 3100.9157999999984,
+      "markPrice": 154.69,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723420800000,
+      "equity": 13104.2689,
+      "fundingAccruedUsd": 3104.268899999998,
+      "markPrice": 142.74,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723507200000,
+      "equity": 13104.009699999999,
+      "fundingAccruedUsd": 3104.0096999999982,
+      "markPrice": 146.69,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723593600000,
+      "equity": 13108.163499999999,
+      "fundingAccruedUsd": 3108.163499999998,
+      "markPrice": 145.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723680000000,
+      "equity": 13109.379399999998,
+      "fundingAccruedUsd": 3109.3793999999975,
+      "markPrice": 144.89,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723766400000,
+      "equity": 13107.893499999998,
+      "fundingAccruedUsd": 3107.8934999999974,
+      "markPrice": 141.93,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723852800000,
+      "equity": 13108.243299999998,
+      "fundingAccruedUsd": 3108.2432999999974,
+      "markPrice": 138.98,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1723939200000,
+      "equity": 13107.784899999997,
+      "fundingAccruedUsd": 3107.7848999999974,
+      "markPrice": 142.58,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724025600000,
+      "equity": 13104.651099999997,
+      "fundingAccruedUsd": 3104.6510999999973,
+      "markPrice": 142.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724112000000,
+      "equity": 13107.280599999996,
+      "fundingAccruedUsd": 3107.280599999997,
+      "markPrice": 146.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724198400000,
+      "equity": 13105.250499999996,
+      "fundingAccruedUsd": 3105.250499999997,
+      "markPrice": 141.85,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724284800000,
+      "equity": 13106.037399999997,
+      "fundingAccruedUsd": 3106.037399999997,
+      "markPrice": 142.49,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724371200000,
+      "equity": 13110.338199999997,
+      "fundingAccruedUsd": 3110.3381999999965,
+      "markPrice": 144.4,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724457600000,
+      "equity": 13112.289099999996,
+      "fundingAccruedUsd": 3112.2890999999963,
+      "markPrice": 153.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724544000000,
+      "equity": 13117.701399999996,
+      "fundingAccruedUsd": 3117.7013999999963,
+      "markPrice": 158.85,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724630400000,
+      "equity": 13120.614399999997,
+      "fundingAccruedUsd": 3120.6143999999963,
+      "markPrice": 159.08,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724716800000,
+      "equity": 13124.230599999995,
+      "fundingAccruedUsd": 3124.2305999999962,
+      "markPrice": 157.61,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724803200000,
+      "equity": 13129.790199999996,
+      "fundingAccruedUsd": 3129.7901999999963,
+      "markPrice": 145.96,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724889600000,
+      "equity": 13130.614599999997,
+      "fundingAccruedUsd": 3130.6145999999962,
+      "markPrice": 144.27,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1724976000000,
+      "equity": 13123.942299999995,
+      "fundingAccruedUsd": 3123.942299999996,
+      "markPrice": 140.39,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725062400000,
+      "equity": 13121.298099999996,
+      "fundingAccruedUsd": 3121.298099999996,
+      "markPrice": 138.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725148800000,
+      "equity": 13123.036299999996,
+      "fundingAccruedUsd": 3123.0362999999957,
+      "markPrice": 135.36,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725235200000,
+      "equity": 13121.383899999995,
+      "fundingAccruedUsd": 3121.3838999999957,
+      "markPrice": 129.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725321600000,
+      "equity": 13116.059199999996,
+      "fundingAccruedUsd": 3116.059199999996,
+      "markPrice": 135.03,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725408000000,
+      "equity": 13121.371299999995,
+      "fundingAccruedUsd": 3121.371299999996,
+      "markPrice": 126.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725494400000,
+      "equity": 13124.047299999997,
+      "fundingAccruedUsd": 3124.047299999996,
+      "markPrice": 132.93,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725580800000,
+      "equity": 13127.744199999996,
+      "fundingAccruedUsd": 3127.744199999996,
+      "markPrice": 129.44,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725667200000,
+      "equity": 13127.893599999996,
+      "fundingAccruedUsd": 3127.8935999999962,
+      "markPrice": 124.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725753600000,
+      "equity": 13129.822599999996,
+      "fundingAccruedUsd": 3129.8225999999963,
+      "markPrice": 127.55,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725840000000,
+      "equity": 13134.815199999997,
+      "fundingAccruedUsd": 3134.8151999999964,
+      "markPrice": 130.12,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1725926400000,
+      "equity": 13134.583899999996,
+      "fundingAccruedUsd": 3134.5838999999964,
+      "markPrice": 134.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726012800000,
+      "equity": 13132.801899999997,
+      "fundingAccruedUsd": 3132.8018999999963,
+      "markPrice": 135.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726099200000,
+      "equity": 13130.802699999997,
+      "fundingAccruedUsd": 3130.8026999999965,
+      "markPrice": 133.6,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726185600000,
+      "equity": 13131.732099999997,
+      "fundingAccruedUsd": 3131.732099999997,
+      "markPrice": 135.5,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726272000000,
+      "equity": 13132.762299999997,
+      "fundingAccruedUsd": 3132.762299999997,
+      "markPrice": 138.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726358400000,
+      "equity": 13134.311199999996,
+      "fundingAccruedUsd": 3134.3111999999974,
+      "markPrice": 137.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726444800000,
+      "equity": 13135.294299999998,
+      "fundingAccruedUsd": 3135.2942999999973,
+      "markPrice": 131.05,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726531200000,
+      "equity": 13135.878099999998,
+      "fundingAccruedUsd": 3135.878099999997,
+      "markPrice": 130.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726617600000,
+      "equity": 13140.137499999997,
+      "fundingAccruedUsd": 3140.137499999997,
+      "markPrice": 131.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726704000000,
+      "equity": 13141.632999999998,
+      "fundingAccruedUsd": 3141.632999999997,
+      "markPrice": 135.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726790400000,
+      "equity": 13147.706499999997,
+      "fundingAccruedUsd": 3147.706499999997,
+      "markPrice": 141.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726876800000,
+      "equity": 13153.706499999997,
+      "fundingAccruedUsd": 3153.706499999997,
+      "markPrice": 147.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1726963200000,
+      "equity": 13163.928699999997,
+      "fundingAccruedUsd": 3163.928699999997,
+      "markPrice": 148.84,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727049600000,
+      "equity": 13165.478199999998,
+      "fundingAccruedUsd": 3165.4781999999973,
+      "markPrice": 145.59,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727136000000,
+      "equity": 13167.806199999997,
+      "fundingAccruedUsd": 3167.8061999999973,
+      "markPrice": 143.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727222400000,
+      "equity": 13173.049299999997,
+      "fundingAccruedUsd": 3173.0492999999974,
+      "markPrice": 151.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727308800000,
+      "equity": 13177.784199999998,
+      "fundingAccruedUsd": 3177.7841999999973,
+      "markPrice": 147.26,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727395200000,
+      "equity": 13186.878099999998,
+      "fundingAccruedUsd": 3186.8780999999976,
+      "markPrice": 156.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727481600000,
+      "equity": 13193.172399999998,
+      "fundingAccruedUsd": 3193.1723999999977,
+      "markPrice": 158.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727568000000,
+      "equity": 13199.112399999998,
+      "fundingAccruedUsd": 3199.1123999999977,
+      "markPrice": 156.78,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727654400000,
+      "equity": 13210.906599999998,
+      "fundingAccruedUsd": 3210.9065999999975,
+      "markPrice": 158.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727740800000,
+      "equity": 13219.906599999998,
+      "fundingAccruedUsd": 3219.9065999999975,
+      "markPrice": 154.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727827200000,
+      "equity": 13228.906599999998,
+      "fundingAccruedUsd": 3228.9065999999975,
+      "markPrice": 144.53,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1727913600000,
+      "equity": 13231.434099999997,
+      "fundingAccruedUsd": 3231.434099999997,
+      "markPrice": 140.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728000000000,
+      "equity": 13233.975699999997,
+      "fundingAccruedUsd": 3233.9756999999972,
+      "markPrice": 135.98,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728086400000,
+      "equity": 13234.396599999996,
+      "fundingAccruedUsd": 3234.3965999999973,
+      "markPrice": 144,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728172800000,
+      "equity": 13240.381899999997,
+      "fundingAccruedUsd": 3240.3818999999976,
+      "markPrice": 142.29,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728259200000,
+      "equity": 13245.625899999997,
+      "fundingAccruedUsd": 3245.6258999999973,
+      "markPrice": 149.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728345600000,
+      "equity": 13248.063399999997,
+      "fundingAccruedUsd": 3248.0633999999973,
+      "markPrice": 144.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728432000000,
+      "equity": 13250.563899999997,
+      "fundingAccruedUsd": 3250.563899999997,
+      "markPrice": 144.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728518400000,
+      "equity": 13255.449999999997,
+      "fundingAccruedUsd": 3255.449999999997,
+      "markPrice": 138.49,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728604800000,
+      "equity": 13256.045799999996,
+      "fundingAccruedUsd": 3256.045799999997,
+      "markPrice": 139.37,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728691200000,
+      "equity": 13253.257599999997,
+      "fundingAccruedUsd": 3253.2575999999967,
+      "markPrice": 146.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728777600000,
+      "equity": 13254.069399999997,
+      "fundingAccruedUsd": 3254.0693999999967,
+      "markPrice": 146.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728864000000,
+      "equity": 13257.958299999997,
+      "fundingAccruedUsd": 3257.9582999999966,
+      "markPrice": 147.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1728950400000,
+      "equity": 13265.318799999997,
+      "fundingAccruedUsd": 3265.3187999999964,
+      "markPrice": 157.45,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729036800000,
+      "equity": 13273.401699999997,
+      "fundingAccruedUsd": 3273.4016999999963,
+      "markPrice": 153.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729123200000,
+      "equity": 13278.372999999996,
+      "fundingAccruedUsd": 3278.3729999999964,
+      "markPrice": 154.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729209600000,
+      "equity": 13284.344499999996,
+      "fundingAccruedUsd": 3284.3444999999965,
+      "markPrice": 149.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729296000000,
+      "equity": 13291.802199999996,
+      "fundingAccruedUsd": 3291.8021999999964,
+      "markPrice": 154.54,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729382400000,
+      "equity": 13298.562399999995,
+      "fundingAccruedUsd": 3298.562399999996,
+      "markPrice": 158.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729468800000,
+      "equity": 13305.136299999996,
+      "fundingAccruedUsd": 3305.136299999996,
+      "markPrice": 168.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729555200000,
+      "equity": 13314.136299999996,
+      "fundingAccruedUsd": 3314.136299999996,
+      "markPrice": 165.4,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729641600000,
+      "equity": 13323.136299999996,
+      "fundingAccruedUsd": 3323.136299999996,
+      "markPrice": 166.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729728000000,
+      "equity": 13332.136299999996,
+      "fundingAccruedUsd": 3332.136299999996,
+      "markPrice": 172.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729814400000,
+      "equity": 13341.136299999996,
+      "fundingAccruedUsd": 3341.136299999996,
+      "markPrice": 176.69,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729900800000,
+      "equity": 13346.838699999997,
+      "fundingAccruedUsd": 3346.8386999999957,
+      "markPrice": 164.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1729987200000,
+      "equity": 13354.419399999995,
+      "fundingAccruedUsd": 3354.4193999999957,
+      "markPrice": 170.63,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730073600000,
+      "equity": 13357.951299999995,
+      "fundingAccruedUsd": 3357.9512999999956,
+      "markPrice": 176.06,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730160000000,
+      "equity": 13364.650899999995,
+      "fundingAccruedUsd": 3364.6508999999955,
+      "markPrice": 178.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730246400000,
+      "equity": 13373.650899999995,
+      "fundingAccruedUsd": 3373.6508999999955,
+      "markPrice": 178.28,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730332800000,
+      "equity": 13382.650899999995,
+      "fundingAccruedUsd": 3382.6508999999955,
+      "markPrice": 175.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730419200000,
+      "equity": 13391.650899999995,
+      "fundingAccruedUsd": 3391.6508999999955,
+      "markPrice": 169.09,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730505600000,
+      "equity": 13399.694799999996,
+      "fundingAccruedUsd": 3399.6947999999957,
+      "markPrice": 166.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730592000000,
+      "equity": 13405.774899999997,
+      "fundingAccruedUsd": 3405.774899999996,
+      "markPrice": 165.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730678400000,
+      "equity": 13410.596799999996,
+      "fundingAccruedUsd": 3410.5967999999957,
+      "markPrice": 161.64,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730764800000,
+      "equity": 13416.239499999996,
+      "fundingAccruedUsd": 3416.2394999999956,
+      "markPrice": 158.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730851200000,
+      "equity": 13417.239999999996,
+      "fundingAccruedUsd": 3417.2399999999957,
+      "markPrice": 172.53,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1730937600000,
+      "equity": 13426.239999999996,
+      "fundingAccruedUsd": 3426.2399999999957,
+      "markPrice": 187.27,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731024000000,
+      "equity": 13435.239999999996,
+      "fundingAccruedUsd": 3435.2399999999957,
+      "markPrice": 198.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731110400000,
+      "equity": 13444.239999999996,
+      "fundingAccruedUsd": 3444.2399999999957,
+      "markPrice": 199.65,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731196800000,
+      "equity": 13453.239999999996,
+      "fundingAccruedUsd": 3453.2399999999957,
+      "markPrice": 200.49,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731283200000,
+      "equity": 13471.553799999996,
+      "fundingAccruedUsd": 3471.553799999996,
+      "markPrice": 210.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731369600000,
+      "equity": 13491.990399999995,
+      "fundingAccruedUsd": 3491.990399999996,
+      "markPrice": 220.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731456000000,
+      "equity": 13540.393599999996,
+      "fundingAccruedUsd": 3540.3935999999962,
+      "markPrice": 210.54,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731542400000,
+      "equity": 13553.279199999997,
+      "fundingAccruedUsd": 3553.2791999999963,
+      "markPrice": 213.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731628800000,
+      "equity": 13572.246999999996,
+      "fundingAccruedUsd": 3572.2469999999967,
+      "markPrice": 209.8,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731715200000,
+      "equity": 13578.246999999996,
+      "fundingAccruedUsd": 3578.2469999999967,
+      "markPrice": 217.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731801600000,
+      "equity": 13596.163299999997,
+      "fundingAccruedUsd": 3596.1632999999965,
+      "markPrice": 217.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731888000000,
+      "equity": 13623.135399999996,
+      "fundingAccruedUsd": 3623.1353999999965,
+      "markPrice": 235.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1731974400000,
+      "equity": 13641.338799999996,
+      "fundingAccruedUsd": 3641.3387999999964,
+      "markPrice": 239.58,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732060800000,
+      "equity": 13650.887199999997,
+      "fundingAccruedUsd": 3650.8871999999965,
+      "markPrice": 236.93,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732147200000,
+      "equity": 13659.887199999997,
+      "fundingAccruedUsd": 3659.8871999999965,
+      "markPrice": 237.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732233600000,
+      "equity": 13682.070699999997,
+      "fundingAccruedUsd": 3682.0706999999966,
+      "markPrice": 254.4,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732320000000,
+      "equity": 13696.954599999997,
+      "fundingAccruedUsd": 3696.954599999997,
+      "markPrice": 255.45,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732406400000,
+      "equity": 13713.311499999996,
+      "fundingAccruedUsd": 3713.3114999999966,
+      "markPrice": 258.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732492800000,
+      "equity": 13740.627399999998,
+      "fundingAccruedUsd": 3740.6273999999967,
+      "markPrice": 251.06,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732579200000,
+      "equity": 13752.739299999997,
+      "fundingAccruedUsd": 3752.7392999999965,
+      "markPrice": 235.42,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732665600000,
+      "equity": 13761.739299999997,
+      "fundingAccruedUsd": 3761.7392999999965,
+      "markPrice": 229.62,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732752000000,
+      "equity": 13770.739299999997,
+      "fundingAccruedUsd": 3770.7392999999965,
+      "markPrice": 245.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732838400000,
+      "equity": 13779.739299999997,
+      "fundingAccruedUsd": 3779.7392999999965,
+      "markPrice": 236.88,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1732924800000,
+      "equity": 13788.739299999997,
+      "fundingAccruedUsd": 3788.7392999999965,
+      "markPrice": 240.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733011200000,
+      "equity": 13798.211799999997,
+      "fundingAccruedUsd": 3798.2117999999964,
+      "markPrice": 237.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733097600000,
+      "equity": 13807.693599999997,
+      "fundingAccruedUsd": 3807.6935999999964,
+      "markPrice": 235,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733184000000,
+      "equity": 13844.475099999996,
+      "fundingAccruedUsd": 3844.4750999999965,
+      "markPrice": 225.69,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733270400000,
+      "equity": 13873.655199999997,
+      "fundingAccruedUsd": 3873.6551999999965,
+      "markPrice": 237.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733356800000,
+      "equity": 13891.498899999997,
+      "fundingAccruedUsd": 3891.498899999997,
+      "markPrice": 226.27,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733443200000,
+      "equity": 13941.395499999997,
+      "fundingAccruedUsd": 3941.395499999997,
+      "markPrice": 242.6,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733529600000,
+      "equity": 13967.280699999996,
+      "fundingAccruedUsd": 3967.2806999999966,
+      "markPrice": 236.43,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733616000000,
+      "equity": 14002.700199999997,
+      "fundingAccruedUsd": 4002.700199999997,
+      "markPrice": 239.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733702400000,
+      "equity": 14020.422099999996,
+      "fundingAccruedUsd": 4020.422099999997,
+      "markPrice": 233.69,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733788800000,
+      "equity": 14028.967899999996,
+      "fundingAccruedUsd": 4028.967899999997,
+      "markPrice": 217.74,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733875200000,
+      "equity": 14040.967899999996,
+      "fundingAccruedUsd": 4040.967899999997,
+      "markPrice": 215.05,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1733961600000,
+      "equity": 14046.967899999996,
+      "fundingAccruedUsd": 4046.967899999997,
+      "markPrice": 227.26,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734048000000,
+      "equity": 14058.967899999996,
+      "fundingAccruedUsd": 4058.967899999997,
+      "markPrice": 227.14,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734134400000,
+      "equity": 14067.967899999996,
+      "fundingAccruedUsd": 4067.967899999997,
+      "markPrice": 224.41,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734220800000,
+      "equity": 14076.967899999996,
+      "fundingAccruedUsd": 4076.967899999997,
+      "markPrice": 219.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734307200000,
+      "equity": 14084.996199999998,
+      "fundingAccruedUsd": 4084.996199999997,
+      "markPrice": 225.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734393600000,
+      "equity": 14093.996199999998,
+      "fundingAccruedUsd": 4093.996199999997,
+      "markPrice": 211.8,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734480000000,
+      "equity": 14101.215399999997,
+      "fundingAccruedUsd": 4101.215399999997,
+      "markPrice": 224.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734566400000,
+      "equity": 14103.052899999997,
+      "fundingAccruedUsd": 4103.052899999997,
+      "markPrice": 208.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734652800000,
+      "equity": 14102.415099999998,
+      "fundingAccruedUsd": 4102.415099999997,
+      "markPrice": 195.26,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734739200000,
+      "equity": 14094.186999999996,
+      "fundingAccruedUsd": 4094.1869999999967,
+      "markPrice": 194.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734825600000,
+      "equity": 14085.246699999996,
+      "fundingAccruedUsd": 4085.2466999999965,
+      "markPrice": 181.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734912000000,
+      "equity": 14081.148999999996,
+      "fundingAccruedUsd": 4081.1489999999962,
+      "markPrice": 179.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1734998400000,
+      "equity": 14080.076199999996,
+      "fundingAccruedUsd": 4080.076199999997,
+      "markPrice": 189.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735084800000,
+      "equity": 14079.051699999996,
+      "fundingAccruedUsd": 4079.051699999997,
+      "markPrice": 197.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735171200000,
+      "equity": 14080.065699999996,
+      "fundingAccruedUsd": 4080.0656999999965,
+      "markPrice": 196.78,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735257600000,
+      "equity": 14084.640099999997,
+      "fundingAccruedUsd": 4084.6400999999964,
+      "markPrice": 189.09,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735344000000,
+      "equity": 14081.409099999997,
+      "fundingAccruedUsd": 4081.4090999999967,
+      "markPrice": 185.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735430400000,
+      "equity": 14084.538999999997,
+      "fundingAccruedUsd": 4084.538999999997,
+      "markPrice": 193.98,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735516800000,
+      "equity": 14088.562899999997,
+      "fundingAccruedUsd": 4088.562899999997,
+      "markPrice": 192.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735603200000,
+      "equity": 14094.274599999997,
+      "fundingAccruedUsd": 4094.274599999997,
+      "markPrice": 190.06,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735689600000,
+      "equity": 14097.106899999997,
+      "fundingAccruedUsd": 4097.106899999997,
+      "markPrice": 192.54,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735776000000,
+      "equity": 14097.185799999997,
+      "fundingAccruedUsd": 4097.1857999999975,
+      "markPrice": 196.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735862400000,
+      "equity": 14105.986899999996,
+      "fundingAccruedUsd": 4105.986899999997,
+      "markPrice": 207.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1735948800000,
+      "equity": 14100.948399999997,
+      "fundingAccruedUsd": 4100.9483999999975,
+      "markPrice": 217,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736035200000,
+      "equity": 14107.038399999998,
+      "fundingAccruedUsd": 4107.038399999999,
+      "markPrice": 217.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736121600000,
+      "equity": 14109.078099999999,
+      "fundingAccruedUsd": 4109.078099999999,
+      "markPrice": 212.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736208000000,
+      "equity": 14109.613299999999,
+      "fundingAccruedUsd": 4109.613299999999,
+      "markPrice": 217.78,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736294400000,
+      "equity": 14110.7068,
+      "fundingAccruedUsd": 4110.706799999999,
+      "markPrice": 202.62,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736380800000,
+      "equity": 14111.701899999998,
+      "fundingAccruedUsd": 4111.701899999998,
+      "markPrice": 197.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736467200000,
+      "equity": 14114.466099999998,
+      "fundingAccruedUsd": 4114.466099999999,
+      "markPrice": 186.41,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736553600000,
+      "equity": 14113.563699999999,
+      "fundingAccruedUsd": 4113.563699999999,
+      "markPrice": 188.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736640000000,
+      "equity": 14111.818,
+      "fundingAccruedUsd": 4111.817999999999,
+      "markPrice": 187.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736726400000,
+      "equity": 14114.5726,
+      "fundingAccruedUsd": 4114.5725999999995,
+      "markPrice": 190.64,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736812800000,
+      "equity": 14114.2354,
+      "fundingAccruedUsd": 4114.2354,
+      "markPrice": 182.37,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736899200000,
+      "equity": 14115.2245,
+      "fundingAccruedUsd": 4115.224499999999,
+      "markPrice": 187.44,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1736985600000,
+      "equity": 14115.7915,
+      "fundingAccruedUsd": 4115.791499999999,
+      "markPrice": 204.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737072000000,
+      "equity": 14121.7915,
+      "fundingAccruedUsd": 4121.791499999999,
+      "markPrice": 210.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737158400000,
+      "equity": 14133.2575,
+      "fundingAccruedUsd": 4133.2575,
+      "markPrice": 219.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737244800000,
+      "equity": 14138.5237,
+      "fundingAccruedUsd": 4138.5237,
+      "markPrice": 256.6,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737331200000,
+      "equity": 14121.6544,
+      "fundingAccruedUsd": 4121.654399999999,
+      "markPrice": 236.06,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737417600000,
+      "equity": 14113.762299999999,
+      "fundingAccruedUsd": 4113.762299999999,
+      "markPrice": 235.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737504000000,
+      "equity": 14118.6529,
+      "fundingAccruedUsd": 4118.652899999999,
+      "markPrice": 252.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737590400000,
+      "equity": 14120.617299999998,
+      "fundingAccruedUsd": 4120.617299999999,
+      "markPrice": 255.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737676800000,
+      "equity": 14125.718499999999,
+      "fundingAccruedUsd": 4125.718499999998,
+      "markPrice": 252.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737763200000,
+      "equity": 14130.995799999997,
+      "fundingAccruedUsd": 4130.995799999998,
+      "markPrice": 248.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737849600000,
+      "equity": 14130.247,
+      "fundingAccruedUsd": 4130.2469999999985,
+      "markPrice": 256.05,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1737936000000,
+      "equity": 14132.461,
+      "fundingAccruedUsd": 4132.460999999998,
+      "markPrice": 237.59,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738022400000,
+      "equity": 14130.786699999999,
+      "fundingAccruedUsd": 4130.786699999999,
+      "markPrice": 235.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738108800000,
+      "equity": 14133.261999999999,
+      "fundingAccruedUsd": 4133.261999999999,
+      "markPrice": 228.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738195200000,
+      "equity": 14135.013399999998,
+      "fundingAccruedUsd": 4135.013399999998,
+      "markPrice": 231.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738281600000,
+      "equity": 14138.603199999998,
+      "fundingAccruedUsd": 4138.603199999999,
+      "markPrice": 238.86,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738368000000,
+      "equity": 14136.709599999998,
+      "fundingAccruedUsd": 4136.709599999998,
+      "markPrice": 232.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738454400000,
+      "equity": 14136.100599999998,
+      "fundingAccruedUsd": 4136.100599999998,
+      "markPrice": 217.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738540800000,
+      "equity": 14135.037099999998,
+      "fundingAccruedUsd": 4135.037099999998,
+      "markPrice": 198.34,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738627200000,
+      "equity": 14111.946999999998,
+      "fundingAccruedUsd": 4111.946999999998,
+      "markPrice": 215.3,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738713600000,
+      "equity": 14112.351999999999,
+      "fundingAccruedUsd": 4112.351999999998,
+      "markPrice": 206.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738800000000,
+      "equity": 14106.575499999999,
+      "fundingAccruedUsd": 4106.575499999998,
+      "markPrice": 197.18,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738886400000,
+      "equity": 14107.5808,
+      "fundingAccruedUsd": 4107.580799999999,
+      "markPrice": 189.88,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1738972800000,
+      "equity": 14107.262499999999,
+      "fundingAccruedUsd": 4107.262499999999,
+      "markPrice": 193.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739059200000,
+      "equity": 14106.301599999999,
+      "fundingAccruedUsd": 4106.301599999999,
+      "markPrice": 200.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739145600000,
+      "equity": 14093.881899999998,
+      "fundingAccruedUsd": 4093.881899999999,
+      "markPrice": 203.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739232000000,
+      "equity": 14086.171599999998,
+      "fundingAccruedUsd": 4086.1715999999988,
+      "markPrice": 201.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739318400000,
+      "equity": 14067.559599999999,
+      "fundingAccruedUsd": 4067.559599999999,
+      "markPrice": 198.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739404800000,
+      "equity": 14070.2143,
+      "fundingAccruedUsd": 4070.214299999999,
+      "markPrice": 195.54,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739491200000,
+      "equity": 14066.010999999999,
+      "fundingAccruedUsd": 4066.010999999999,
+      "markPrice": 195.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739577600000,
+      "equity": 14073.6214,
+      "fundingAccruedUsd": 4073.621399999999,
+      "markPrice": 198.09,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739664000000,
+      "equity": 14071.2994,
+      "fundingAccruedUsd": 4071.299399999999,
+      "markPrice": 195.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739750400000,
+      "equity": 14060.802699999998,
+      "fundingAccruedUsd": 4060.802699999999,
+      "markPrice": 189.02,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739836800000,
+      "equity": 14057.684799999999,
+      "fundingAccruedUsd": 4057.684799999999,
+      "markPrice": 176.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1739923200000,
+      "equity": 14060.660799999998,
+      "fundingAccruedUsd": 4060.6607999999987,
+      "markPrice": 168.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740009600000,
+      "equity": 14057.801799999997,
+      "fundingAccruedUsd": 4057.8017999999984,
+      "markPrice": 169.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740096000000,
+      "equity": 14057.256099999999,
+      "fundingAccruedUsd": 4057.2560999999982,
+      "markPrice": 174.36,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740182400000,
+      "equity": 14054.999199999998,
+      "fundingAccruedUsd": 4054.999199999998,
+      "markPrice": 170.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740268800000,
+      "equity": 14053.886199999997,
+      "fundingAccruedUsd": 4053.8861999999976,
+      "markPrice": 171.89,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740355200000,
+      "equity": 14052.709599999998,
+      "fundingAccruedUsd": 4052.709599999998,
+      "markPrice": 166.62,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740441600000,
+      "equity": 14053.454799999998,
+      "fundingAccruedUsd": 4053.4547999999977,
+      "markPrice": 140.88,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740528000000,
+      "equity": 14049.668499999998,
+      "fundingAccruedUsd": 4049.6684999999975,
+      "markPrice": 141.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740614400000,
+      "equity": 14051.345799999997,
+      "fundingAccruedUsd": 4051.3457999999973,
+      "markPrice": 136.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740700800000,
+      "equity": 14057.445699999997,
+      "fundingAccruedUsd": 4057.4456999999975,
+      "markPrice": 135.98,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740787200000,
+      "equity": 14069.445699999997,
+      "fundingAccruedUsd": 4069.4456999999975,
+      "markPrice": 145.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740873600000,
+      "equity": 14071.975299999998,
+      "fundingAccruedUsd": 4071.9752999999973,
+      "markPrice": 144.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1740960000000,
+      "equity": 14077.297299999997,
+      "fundingAccruedUsd": 4077.297299999997,
+      "markPrice": 174.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741046400000,
+      "equity": 14075.538399999998,
+      "fundingAccruedUsd": 4075.5383999999967,
+      "markPrice": 141.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741132800000,
+      "equity": 14067.579999999996,
+      "fundingAccruedUsd": 4067.5799999999967,
+      "markPrice": 143.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741219200000,
+      "equity": 14062.941099999996,
+      "fundingAccruedUsd": 4062.9410999999973,
+      "markPrice": 144.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741305600000,
+      "equity": 14058.056499999997,
+      "fundingAccruedUsd": 4058.0564999999974,
+      "markPrice": 136.51,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741392000000,
+      "equity": 14058.808899999996,
+      "fundingAccruedUsd": 4058.8088999999973,
+      "markPrice": 140.69,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741478400000,
+      "equity": 14055.909699999997,
+      "fundingAccruedUsd": 4055.909699999997,
+      "markPrice": 138.05,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741564800000,
+      "equity": 14053.290999999997,
+      "fundingAccruedUsd": 4053.290999999997,
+      "markPrice": 127.39,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741651200000,
+      "equity": 14043.770799999997,
+      "fundingAccruedUsd": 4043.770799999997,
+      "markPrice": 115.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741737600000,
+      "equity": 14048.895099999998,
+      "fundingAccruedUsd": 4048.895099999997,
+      "markPrice": 125.12,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741824000000,
+      "equity": 14048.191599999996,
+      "fundingAccruedUsd": 4048.1915999999965,
+      "markPrice": 125.36,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741910400000,
+      "equity": 14049.229299999997,
+      "fundingAccruedUsd": 4049.229299999997,
+      "markPrice": 124.29,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1741996800000,
+      "equity": 14058.107799999996,
+      "fundingAccruedUsd": 4058.1077999999966,
+      "markPrice": 133.78,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742083200000,
+      "equity": 14059.696299999996,
+      "fundingAccruedUsd": 4059.696299999997,
+      "markPrice": 135.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742169600000,
+      "equity": 14057.993799999997,
+      "fundingAccruedUsd": 4057.9937999999966,
+      "markPrice": 127.74,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742256000000,
+      "equity": 14053.263999999996,
+      "fundingAccruedUsd": 4053.2639999999965,
+      "markPrice": 126.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742342400000,
+      "equity": 14047.990299999996,
+      "fundingAccruedUsd": 4047.9902999999963,
+      "markPrice": 125.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742428800000,
+      "equity": 14056.172499999997,
+      "fundingAccruedUsd": 4056.1724999999965,
+      "markPrice": 133.42,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742515200000,
+      "equity": 14057.431599999996,
+      "fundingAccruedUsd": 4057.4315999999967,
+      "markPrice": 128.3,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742601600000,
+      "equity": 14054.811399999997,
+      "fundingAccruedUsd": 4054.811399999997,
+      "markPrice": 128.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742688000000,
+      "equity": 14051.747499999998,
+      "fundingAccruedUsd": 4051.747499999997,
+      "markPrice": 128.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742774400000,
+      "equity": 14053.443999999998,
+      "fundingAccruedUsd": 4053.4439999999977,
+      "markPrice": 134.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742860800000,
+      "equity": 14058.034299999998,
+      "fundingAccruedUsd": 4058.0342999999975,
+      "markPrice": 142.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1742947200000,
+      "equity": 14062.071099999997,
+      "fundingAccruedUsd": 4062.0710999999974,
+      "markPrice": 144.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743033600000,
+      "equity": 14056.893699999997,
+      "fundingAccruedUsd": 4056.8936999999974,
+      "markPrice": 137.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743120000000,
+      "equity": 14050.323999999997,
+      "fundingAccruedUsd": 4050.3239999999973,
+      "markPrice": 137.86,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743206400000,
+      "equity": 14042.039799999997,
+      "fundingAccruedUsd": 4042.0397999999973,
+      "markPrice": 129.78,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743292800000,
+      "equity": 14032.308999999997,
+      "fundingAccruedUsd": 4032.308999999997,
+      "markPrice": 124.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743379200000,
+      "equity": 14007.856299999998,
+      "fundingAccruedUsd": 4007.856299999997,
+      "markPrice": 123.81,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743465600000,
+      "equity": 14004.740199999997,
+      "fundingAccruedUsd": 4004.740199999997,
+      "markPrice": 124.51,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743552000000,
+      "equity": 14002.986099999996,
+      "fundingAccruedUsd": 4002.986099999997,
+      "markPrice": 126.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743638400000,
+      "equity": 13996.031799999997,
+      "fundingAccruedUsd": 3996.0317999999966,
+      "markPrice": 119.98,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743724800000,
+      "equity": 13980.420999999997,
+      "fundingAccruedUsd": 3980.420999999997,
+      "markPrice": 116,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743811200000,
+      "equity": 13981.754799999997,
+      "fundingAccruedUsd": 3981.7547999999974,
+      "markPrice": 122.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743897600000,
+      "equity": 13983.593199999998,
+      "fundingAccruedUsd": 3983.5931999999975,
+      "markPrice": 120.36,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1743984000000,
+      "equity": 13984.782699999998,
+      "fundingAccruedUsd": 3984.7826999999975,
+      "markPrice": 104.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744070400000,
+      "equity": 13980.771399999998,
+      "fundingAccruedUsd": 3980.7713999999974,
+      "markPrice": 107.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744156800000,
+      "equity": 13970.004699999998,
+      "fundingAccruedUsd": 3970.0046999999972,
+      "markPrice": 104.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744243200000,
+      "equity": 13972.941699999998,
+      "fundingAccruedUsd": 3972.9416999999976,
+      "markPrice": 117.58,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744329600000,
+      "equity": 13976.978499999997,
+      "fundingAccruedUsd": 3976.9784999999974,
+      "markPrice": 112.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744416000000,
+      "equity": 13981.208499999997,
+      "fundingAccruedUsd": 3981.2084999999975,
+      "markPrice": 121.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744502400000,
+      "equity": 13981.424199999998,
+      "fundingAccruedUsd": 3981.424199999997,
+      "markPrice": 133,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744588800000,
+      "equity": 13989.592299999997,
+      "fundingAccruedUsd": 3989.5922999999975,
+      "markPrice": 130.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744675200000,
+      "equity": 13983.796599999998,
+      "fundingAccruedUsd": 3983.7965999999974,
+      "markPrice": 129.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744761600000,
+      "equity": 13977.670299999998,
+      "fundingAccruedUsd": 3977.670299999997,
+      "markPrice": 125.21,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744848000000,
+      "equity": 13976.016099999997,
+      "fundingAccruedUsd": 3976.016099999997,
+      "markPrice": 131.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1744934400000,
+      "equity": 13982.555499999997,
+      "fundingAccruedUsd": 3982.5554999999968,
+      "markPrice": 134.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745020800000,
+      "equity": 13979.408199999996,
+      "fundingAccruedUsd": 3979.4081999999967,
+      "markPrice": 134.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745107200000,
+      "equity": 13971.405399999996,
+      "fundingAccruedUsd": 3971.405399999997,
+      "markPrice": 140.3,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745193600000,
+      "equity": 13956.353199999998,
+      "fundingAccruedUsd": 3956.353199999997,
+      "markPrice": 141.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745280000000,
+      "equity": 13948.425999999996,
+      "fundingAccruedUsd": 3948.4259999999967,
+      "markPrice": 137.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745366400000,
+      "equity": 13946.018499999996,
+      "fundingAccruedUsd": 3946.018499999997,
+      "markPrice": 147.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745452800000,
+      "equity": 13949.791899999997,
+      "fundingAccruedUsd": 3949.791899999997,
+      "markPrice": 150.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745539200000,
+      "equity": 13954.340799999996,
+      "fundingAccruedUsd": 3954.3407999999968,
+      "markPrice": 152.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745625600000,
+      "equity": 13960.711299999997,
+      "fundingAccruedUsd": 3960.7112999999968,
+      "markPrice": 151.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745712000000,
+      "equity": 13957.477899999996,
+      "fundingAccruedUsd": 3957.4778999999967,
+      "markPrice": 149.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745798400000,
+      "equity": 13957.502799999997,
+      "fundingAccruedUsd": 3957.5027999999966,
+      "markPrice": 147.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745884800000,
+      "equity": 13950.552399999997,
+      "fundingAccruedUsd": 3950.5523999999964,
+      "markPrice": 148.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1745971200000,
+      "equity": 13949.911899999996,
+      "fundingAccruedUsd": 3949.9118999999964,
+      "markPrice": 146.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746057600000,
+      "equity": 13943.246199999996,
+      "fundingAccruedUsd": 3943.2461999999964,
+      "markPrice": 147.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746144000000,
+      "equity": 13946.691099999996,
+      "fundingAccruedUsd": 3946.6910999999964,
+      "markPrice": 151.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746230400000,
+      "equity": 13939.596699999996,
+      "fundingAccruedUsd": 3939.5966999999964,
+      "markPrice": 148.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746316800000,
+      "equity": 13935.462999999996,
+      "fundingAccruedUsd": 3935.4629999999966,
+      "markPrice": 146.41,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746403200000,
+      "equity": 13928.428299999996,
+      "fundingAccruedUsd": 3928.4282999999964,
+      "markPrice": 145.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746489600000,
+      "equity": 13926.123999999996,
+      "fundingAccruedUsd": 3926.123999999996,
+      "markPrice": 146.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746576000000,
+      "equity": 13925.951499999996,
+      "fundingAccruedUsd": 3925.951499999996,
+      "markPrice": 149.03,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746662400000,
+      "equity": 13932.380199999996,
+      "fundingAccruedUsd": 3932.380199999996,
+      "markPrice": 148.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746748800000,
+      "equity": 13937.021799999995,
+      "fundingAccruedUsd": 3937.021799999996,
+      "markPrice": 162.39,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746835200000,
+      "equity": 13946.021799999995,
+      "fundingAccruedUsd": 3946.021799999996,
+      "markPrice": 171.39,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1746921600000,
+      "equity": 13958.021799999995,
+      "fundingAccruedUsd": 3958.021799999996,
+      "markPrice": 179.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747008000000,
+      "equity": 13962.556899999996,
+      "fundingAccruedUsd": 3962.556899999996,
+      "markPrice": 174.52,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747094400000,
+      "equity": 13971.158799999996,
+      "fundingAccruedUsd": 3971.158799999996,
+      "markPrice": 171.69,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747180800000,
+      "equity": 13975.558899999996,
+      "fundingAccruedUsd": 3975.558899999996,
+      "markPrice": 182.09,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747267200000,
+      "equity": 13981.567299999995,
+      "fundingAccruedUsd": 3981.567299999996,
+      "markPrice": 177.65,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747353600000,
+      "equity": 13982.841699999995,
+      "fundingAccruedUsd": 3982.841699999996,
+      "markPrice": 170.27,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747440000000,
+      "equity": 13983.264399999996,
+      "fundingAccruedUsd": 3983.2643999999955,
+      "markPrice": 166.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747526400000,
+      "equity": 13985.246199999996,
+      "fundingAccruedUsd": 3985.2461999999955,
+      "markPrice": 167.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747612800000,
+      "equity": 13988.760099999996,
+      "fundingAccruedUsd": 3988.7600999999954,
+      "markPrice": 168.06,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747699200000,
+      "equity": 13983.649299999995,
+      "fundingAccruedUsd": 3983.6492999999955,
+      "markPrice": 167.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747785600000,
+      "equity": 13988.049099999995,
+      "fundingAccruedUsd": 3988.049099999995,
+      "markPrice": 168.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747872000000,
+      "equity": 13993.892199999995,
+      "fundingAccruedUsd": 3993.892199999995,
+      "markPrice": 174.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1747958400000,
+      "equity": 14002.174299999995,
+      "fundingAccruedUsd": 4002.1742999999947,
+      "markPrice": 180.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748044800000,
+      "equity": 14011.174299999995,
+      "fundingAccruedUsd": 4011.1742999999947,
+      "markPrice": 172.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748131200000,
+      "equity": 14013.933999999994,
+      "fundingAccruedUsd": 4013.9339999999947,
+      "markPrice": 172.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748217600000,
+      "equity": 14013.300999999996,
+      "fundingAccruedUsd": 4013.300999999995,
+      "markPrice": 177.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748304000000,
+      "equity": 14016.436299999994,
+      "fundingAccruedUsd": 4016.436299999995,
+      "markPrice": 174.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748390400000,
+      "equity": 14015.900499999994,
+      "fundingAccruedUsd": 4015.9004999999947,
+      "markPrice": 177.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748476800000,
+      "equity": 14011.335099999995,
+      "fundingAccruedUsd": 4011.335099999995,
+      "markPrice": 173.63,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748563200000,
+      "equity": 14012.799099999995,
+      "fundingAccruedUsd": 4012.799099999995,
+      "markPrice": 161.85,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748649600000,
+      "equity": 14012.831499999995,
+      "fundingAccruedUsd": 4012.8314999999952,
+      "markPrice": 155.84,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748736000000,
+      "equity": 14010.278499999995,
+      "fundingAccruedUsd": 4010.2784999999953,
+      "markPrice": 156.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748822400000,
+      "equity": 14004.709599999995,
+      "fundingAccruedUsd": 4004.709599999995,
+      "markPrice": 157.81,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748908800000,
+      "equity": 14008.604799999994,
+      "fundingAccruedUsd": 4008.6047999999946,
+      "markPrice": 158.88,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1748995200000,
+      "equity": 14009.427099999994,
+      "fundingAccruedUsd": 4009.4270999999944,
+      "markPrice": 155.48,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749081600000,
+      "equity": 14011.485099999994,
+      "fundingAccruedUsd": 4011.4850999999944,
+      "markPrice": 153.81,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749168000000,
+      "equity": 14012.769099999994,
+      "fundingAccruedUsd": 4012.7690999999945,
+      "markPrice": 145.43,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749254400000,
+      "equity": 14008.858299999994,
+      "fundingAccruedUsd": 4008.858299999995,
+      "markPrice": 148.69,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749340800000,
+      "equity": 14008.508199999995,
+      "fundingAccruedUsd": 4008.5081999999948,
+      "markPrice": 149.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749427200000,
+      "equity": 14011.972299999994,
+      "fundingAccruedUsd": 4011.972299999995,
+      "markPrice": 152.38,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749513600000,
+      "equity": 14016.997599999995,
+      "fundingAccruedUsd": 4016.997599999995,
+      "markPrice": 160.66,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749600000000,
+      "equity": 14022.963699999995,
+      "fundingAccruedUsd": 4022.9636999999952,
+      "markPrice": 164.61,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749686400000,
+      "equity": 14028.963699999995,
+      "fundingAccruedUsd": 4028.9636999999952,
+      "markPrice": 160.82,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749772800000,
+      "equity": 14031.147999999996,
+      "fundingAccruedUsd": 4031.147999999995,
+      "markPrice": 145.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749859200000,
+      "equity": 14031.364599999995,
+      "fundingAccruedUsd": 4031.364599999995,
+      "markPrice": 147.82,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1749945600000,
+      "equity": 14031.868299999995,
+      "fundingAccruedUsd": 4031.868299999995,
+      "markPrice": 145.61,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750032000000,
+      "equity": 14038.553199999995,
+      "fundingAccruedUsd": 4038.5531999999953,
+      "markPrice": 152.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750118400000,
+      "equity": 14041.664799999995,
+      "fundingAccruedUsd": 4041.6647999999955,
+      "markPrice": 152.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750204800000,
+      "equity": 14046.261399999996,
+      "fundingAccruedUsd": 4046.2613999999953,
+      "markPrice": 148.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750291200000,
+      "equity": 14047.091799999995,
+      "fundingAccruedUsd": 4047.091799999995,
+      "markPrice": 146.91,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750377600000,
+      "equity": 14050.701099999995,
+      "fundingAccruedUsd": 4050.701099999995,
+      "markPrice": 146.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750464000000,
+      "equity": 14052.360999999995,
+      "fundingAccruedUsd": 4052.360999999995,
+      "markPrice": 139.94,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750550400000,
+      "equity": 14049.361299999995,
+      "fundingAccruedUsd": 4049.3612999999946,
+      "markPrice": 136.53,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750636800000,
+      "equity": 14051.261799999995,
+      "fundingAccruedUsd": 4051.2617999999943,
+      "markPrice": 132.52,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750723200000,
+      "equity": 14051.834499999994,
+      "fundingAccruedUsd": 4051.834499999994,
+      "markPrice": 143.34,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750809600000,
+      "equity": 14054.434299999994,
+      "fundingAccruedUsd": 4054.4342999999935,
+      "markPrice": 146.12,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750896000000,
+      "equity": 14059.476399999994,
+      "fundingAccruedUsd": 4059.4763999999936,
+      "markPrice": 144.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1750982400000,
+      "equity": 14056.332099999994,
+      "fundingAccruedUsd": 4056.3320999999937,
+      "markPrice": 137.85,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751068800000,
+      "equity": 14057.315799999993,
+      "fundingAccruedUsd": 4057.315799999994,
+      "markPrice": 141.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751155200000,
+      "equity": 14065.395699999994,
+      "fundingAccruedUsd": 4065.395699999994,
+      "markPrice": 150.64,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751241600000,
+      "equity": 14074.529799999995,
+      "fundingAccruedUsd": 4074.5297999999943,
+      "markPrice": 152.59,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751328000000,
+      "equity": 14075.957499999993,
+      "fundingAccruedUsd": 4075.957499999994,
+      "markPrice": 154.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751414400000,
+      "equity": 14078.038899999994,
+      "fundingAccruedUsd": 4078.0388999999936,
+      "markPrice": 146.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751500800000,
+      "equity": 14074.859199999994,
+      "fundingAccruedUsd": 4074.859199999994,
+      "markPrice": 153.08,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751587200000,
+      "equity": 14079.506199999994,
+      "fundingAccruedUsd": 4079.506199999994,
+      "markPrice": 152.42,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751673600000,
+      "equity": 14080.248099999993,
+      "fundingAccruedUsd": 4080.2480999999943,
+      "markPrice": 148.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751760000000,
+      "equity": 14071.396299999993,
+      "fundingAccruedUsd": 4071.396299999994,
+      "markPrice": 147.62,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751846400000,
+      "equity": 14072.157699999994,
+      "fundingAccruedUsd": 4072.157699999994,
+      "markPrice": 151.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1751932800000,
+      "equity": 14075.292699999995,
+      "fundingAccruedUsd": 4075.2926999999936,
+      "markPrice": 149.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752019200000,
+      "equity": 14075.119299999993,
+      "fundingAccruedUsd": 4075.1192999999935,
+      "markPrice": 151.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752105600000,
+      "equity": 14075.905899999992,
+      "fundingAccruedUsd": 4075.905899999993,
+      "markPrice": 155.94,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752192000000,
+      "equity": 14080.050999999992,
+      "fundingAccruedUsd": 4080.050999999993,
+      "markPrice": 163.05,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752278400000,
+      "equity": 14090.270199999994,
+      "fundingAccruedUsd": 4090.270199999993,
+      "markPrice": 163.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752364800000,
+      "equity": 14096.270199999994,
+      "fundingAccruedUsd": 4096.270199999994,
+      "markPrice": 160.89,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752451200000,
+      "equity": 14105.662899999994,
+      "fundingAccruedUsd": 4105.662899999994,
+      "markPrice": 161.63,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752537600000,
+      "equity": 14111.662899999994,
+      "fundingAccruedUsd": 4111.662899999994,
+      "markPrice": 161.4,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752624000000,
+      "equity": 14117.555199999995,
+      "fundingAccruedUsd": 4117.555199999994,
+      "markPrice": 164.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752710400000,
+      "equity": 14123.555199999995,
+      "fundingAccruedUsd": 4123.555199999994,
+      "markPrice": 172.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752796800000,
+      "equity": 14132.555199999995,
+      "fundingAccruedUsd": 4132.555199999994,
+      "markPrice": 179.81,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752883200000,
+      "equity": 14141.555199999995,
+      "fundingAccruedUsd": 4141.555199999994,
+      "markPrice": 175.18,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1752969600000,
+      "equity": 14153.555199999995,
+      "fundingAccruedUsd": 4153.555199999994,
+      "markPrice": 177.66,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753056000000,
+      "equity": 14159.555199999995,
+      "fundingAccruedUsd": 4159.555199999994,
+      "markPrice": 180.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753142400000,
+      "equity": 14172.425199999994,
+      "fundingAccruedUsd": 4172.425199999994,
+      "markPrice": 197.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753228800000,
+      "equity": 14181.425199999994,
+      "fundingAccruedUsd": 4181.425199999994,
+      "markPrice": 204.29,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753315200000,
+      "equity": 14190.425199999994,
+      "fundingAccruedUsd": 4190.425199999994,
+      "markPrice": 190.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753401600000,
+      "equity": 14199.425199999994,
+      "fundingAccruedUsd": 4199.425199999994,
+      "markPrice": 181.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753488000000,
+      "equity": 14204.255799999995,
+      "fundingAccruedUsd": 4204.255799999994,
+      "markPrice": 185.88,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753574400000,
+      "equity": 14213.255799999995,
+      "fundingAccruedUsd": 4213.255799999994,
+      "markPrice": 185.49,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753660800000,
+      "equity": 14222.255799999995,
+      "fundingAccruedUsd": 4222.255799999994,
+      "markPrice": 189.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753747200000,
+      "equity": 14231.255799999995,
+      "fundingAccruedUsd": 4231.255799999994,
+      "markPrice": 182.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753833600000,
+      "equity": 14232.662199999995,
+      "fundingAccruedUsd": 4232.662199999995,
+      "markPrice": 180.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1753920000000,
+      "equity": 14234.664099999995,
+      "fundingAccruedUsd": 4234.664099999995,
+      "markPrice": 179.43,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754006400000,
+      "equity": 14236.321299999996,
+      "fundingAccruedUsd": 4236.321299999996,
+      "markPrice": 170.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754092800000,
+      "equity": 14238.255099999997,
+      "fundingAccruedUsd": 4238.255099999997,
+      "markPrice": 164.64,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754179200000,
+      "equity": 14236.371699999996,
+      "fundingAccruedUsd": 4236.371699999996,
+      "markPrice": 159.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754265600000,
+      "equity": 14232.324399999996,
+      "fundingAccruedUsd": 4232.324399999996,
+      "markPrice": 164.56,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754352000000,
+      "equity": 14223.064599999996,
+      "fundingAccruedUsd": 4223.064599999996,
+      "markPrice": 169.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754438400000,
+      "equity": 14220.984699999995,
+      "fundingAccruedUsd": 4220.984699999995,
+      "markPrice": 162.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754524800000,
+      "equity": 14218.409499999994,
+      "fundingAccruedUsd": 4218.409499999995,
+      "markPrice": 167.89,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754611200000,
+      "equity": 14223.112599999997,
+      "fundingAccruedUsd": 4223.112599999996,
+      "markPrice": 174.28,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754697600000,
+      "equity": 14226.311199999996,
+      "fundingAccruedUsd": 4226.311199999996,
+      "markPrice": 176.94,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754784000000,
+      "equity": 14234.128299999997,
+      "fundingAccruedUsd": 4234.128299999996,
+      "markPrice": 182.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754870400000,
+      "equity": 14245.216899999996,
+      "fundingAccruedUsd": 4245.216899999996,
+      "markPrice": 181.5,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1754956800000,
+      "equity": 14247.594399999994,
+      "fundingAccruedUsd": 4247.594399999995,
+      "markPrice": 175.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755043200000,
+      "equity": 14249.556399999996,
+      "fundingAccruedUsd": 4249.556399999996,
+      "markPrice": 193.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755129600000,
+      "equity": 14255.556399999996,
+      "fundingAccruedUsd": 4255.556399999996,
+      "markPrice": 201.5,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755216000000,
+      "equity": 14272.319199999996,
+      "fundingAccruedUsd": 4272.319199999996,
+      "markPrice": 192.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755302400000,
+      "equity": 14276.526399999995,
+      "fundingAccruedUsd": 4276.526399999996,
+      "markPrice": 187.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755388800000,
+      "equity": 14282.284599999995,
+      "fundingAccruedUsd": 4282.284599999996,
+      "markPrice": 188.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755475200000,
+      "equity": 14289.363099999997,
+      "fundingAccruedUsd": 4289.363099999997,
+      "markPrice": 190.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755561600000,
+      "equity": 14285.395299999996,
+      "fundingAccruedUsd": 4285.3952999999965,
+      "markPrice": 185.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755648000000,
+      "equity": 14289.271899999996,
+      "fundingAccruedUsd": 4289.271899999996,
+      "markPrice": 178.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755734400000,
+      "equity": 14294.914899999996,
+      "fundingAccruedUsd": 4294.914899999996,
+      "markPrice": 187.93,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755820800000,
+      "equity": 14301.324699999997,
+      "fundingAccruedUsd": 4301.3246999999965,
+      "markPrice": 181.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755907200000,
+      "equity": 14308.314999999997,
+      "fundingAccruedUsd": 4308.314999999997,
+      "markPrice": 198.53,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1755993600000,
+      "equity": 14317.314999999997,
+      "fundingAccruedUsd": 4317.314999999997,
+      "markPrice": 206.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756080000000,
+      "equity": 14329.314999999997,
+      "fundingAccruedUsd": 4329.314999999997,
+      "markPrice": 203.49,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756166400000,
+      "equity": 14336.172099999996,
+      "fundingAccruedUsd": 4336.172099999997,
+      "markPrice": 186.29,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756252800000,
+      "equity": 14337.483699999997,
+      "fundingAccruedUsd": 4337.483699999997,
+      "markPrice": 194.63,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756339200000,
+      "equity": 14349.483699999997,
+      "fundingAccruedUsd": 4349.483699999997,
+      "markPrice": 203.93,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756425600000,
+      "equity": 14358.052299999996,
+      "fundingAccruedUsd": 4358.052299999997,
+      "markPrice": 215.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756512000000,
+      "equity": 14362.095699999998,
+      "fundingAccruedUsd": 4362.095699999997,
+      "markPrice": 205,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756598400000,
+      "equity": 14362.765599999997,
+      "fundingAccruedUsd": 4362.765599999997,
+      "markPrice": 205.43,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756684800000,
+      "equity": 14371.563399999997,
+      "fundingAccruedUsd": 4371.563399999997,
+      "markPrice": 200.44,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756771200000,
+      "equity": 14373.864399999999,
+      "fundingAccruedUsd": 4373.864399999998,
+      "markPrice": 197.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756857600000,
+      "equity": 14379.825999999997,
+      "fundingAccruedUsd": 4379.825999999997,
+      "markPrice": 208.37,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1756944000000,
+      "equity": 14385.659799999998,
+      "fundingAccruedUsd": 4385.659799999997,
+      "markPrice": 211.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757030400000,
+      "equity": 14390.600199999997,
+      "fundingAccruedUsd": 4390.600199999997,
+      "markPrice": 201.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757116800000,
+      "equity": 14393.917599999997,
+      "fundingAccruedUsd": 4393.917599999997,
+      "markPrice": 203.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757203200000,
+      "equity": 14397.445599999997,
+      "fundingAccruedUsd": 4397.445599999997,
+      "markPrice": 201.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757289600000,
+      "equity": 14400.331299999998,
+      "fundingAccruedUsd": 4400.331299999997,
+      "markPrice": 205.66,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757376000000,
+      "equity": 14412.006099999997,
+      "fundingAccruedUsd": 4412.006099999997,
+      "markPrice": 213.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757462400000,
+      "equity": 14419.091199999997,
+      "fundingAccruedUsd": 4419.091199999997,
+      "markPrice": 215.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757548800000,
+      "equity": 14426.577099999997,
+      "fundingAccruedUsd": 4426.577099999997,
+      "markPrice": 225,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757635200000,
+      "equity": 14428.825899999996,
+      "fundingAccruedUsd": 4428.825899999997,
+      "markPrice": 232.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757721600000,
+      "equity": 14429.253099999998,
+      "fundingAccruedUsd": 4429.253099999997,
+      "markPrice": 243.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757808000000,
+      "equity": 14433.350799999997,
+      "fundingAccruedUsd": 4433.350799999997,
+      "markPrice": 243.5,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757894400000,
+      "equity": 14435.857899999999,
+      "fundingAccruedUsd": 4435.857899999998,
+      "markPrice": 240.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1757980800000,
+      "equity": 14437.344099999998,
+      "fundingAccruedUsd": 4437.344099999998,
+      "markPrice": 233.8,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758067200000,
+      "equity": 14443.8913,
+      "fundingAccruedUsd": 4443.891299999998,
+      "markPrice": 236.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758153600000,
+      "equity": 14445.4669,
+      "fundingAccruedUsd": 4445.4668999999985,
+      "markPrice": 244.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758240000000,
+      "equity": 14454.523,
+      "fundingAccruedUsd": 4454.522999999999,
+      "markPrice": 248.18,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758326400000,
+      "equity": 14456.666799999999,
+      "fundingAccruedUsd": 4456.666799999999,
+      "markPrice": 239.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758412800000,
+      "equity": 14453.5684,
+      "fundingAccruedUsd": 4453.568399999999,
+      "markPrice": 240.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758499200000,
+      "equity": 14455.174599999998,
+      "fundingAccruedUsd": 4455.1745999999985,
+      "markPrice": 232.27,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758585600000,
+      "equity": 14453.171199999999,
+      "fundingAccruedUsd": 4453.171199999999,
+      "markPrice": 219.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758672000000,
+      "equity": 14454.810999999998,
+      "fundingAccruedUsd": 4454.810999999999,
+      "markPrice": 213.45,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758758400000,
+      "equity": 14452.6345,
+      "fundingAccruedUsd": 4452.634499999999,
+      "markPrice": 210.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758844800000,
+      "equity": 14453.802099999999,
+      "fundingAccruedUsd": 4453.802099999999,
+      "markPrice": 195.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1758931200000,
+      "equity": 14448.218799999999,
+      "fundingAccruedUsd": 4448.218799999999,
+      "markPrice": 205.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759017600000,
+      "equity": 14450.248899999999,
+      "fundingAccruedUsd": 4450.2489,
+      "markPrice": 202.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759104000000,
+      "equity": 14451.154,
+      "fundingAccruedUsd": 4451.154,
+      "markPrice": 209.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759190400000,
+      "equity": 14451.930400000001,
+      "fundingAccruedUsd": 4451.9304,
+      "markPrice": 211.34,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759276800000,
+      "equity": 14446.5487,
+      "fundingAccruedUsd": 4446.5487,
+      "markPrice": 207.54,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759363200000,
+      "equity": 14451.721,
+      "fundingAccruedUsd": 4451.721,
+      "markPrice": 219.81,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759449600000,
+      "equity": 14448.150099999999,
+      "fundingAccruedUsd": 4448.1501,
+      "markPrice": 231.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759536000000,
+      "equity": 14449.2601,
+      "fundingAccruedUsd": 4449.2600999999995,
+      "markPrice": 231.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759622400000,
+      "equity": 14452.3486,
+      "fundingAccruedUsd": 4452.348599999999,
+      "markPrice": 226.82,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759708800000,
+      "equity": 14453.575,
+      "fundingAccruedUsd": 4453.575,
+      "markPrice": 228.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759795200000,
+      "equity": 14454.440499999999,
+      "fundingAccruedUsd": 4454.440499999999,
+      "markPrice": 232.52,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759881600000,
+      "equity": 14449.7653,
+      "fundingAccruedUsd": 4449.765299999998,
+      "markPrice": 220.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1759968000000,
+      "equity": 14448.509499999998,
+      "fundingAccruedUsd": 4448.509499999998,
+      "markPrice": 228.34,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760054400000,
+      "equity": 14454.438699999999,
+      "fundingAccruedUsd": 4454.438699999998,
+      "markPrice": 221.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760140800000,
+      "equity": 14363.827299999997,
+      "fundingAccruedUsd": 4363.827299999998,
+      "markPrice": 188.05,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760227200000,
+      "equity": 14255.052699999997,
+      "fundingAccruedUsd": 4255.0526999999975,
+      "markPrice": 173.3,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760313600000,
+      "equity": 14163.377199999997,
+      "fundingAccruedUsd": 4163.377199999997,
+      "markPrice": 197.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760400000000,
+      "equity": 14136.816099999996,
+      "fundingAccruedUsd": 4136.816099999997,
+      "markPrice": 209.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760486400000,
+      "equity": 14135.909499999998,
+      "fundingAccruedUsd": 4135.909499999997,
+      "markPrice": 203.98,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760572800000,
+      "equity": 14134.999899999995,
+      "fundingAccruedUsd": 4134.999899999996,
+      "markPrice": 193.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760659200000,
+      "equity": 14131.481799999996,
+      "fundingAccruedUsd": 4131.481799999996,
+      "markPrice": 186.3,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760745600000,
+      "equity": 14133.057399999996,
+      "fundingAccruedUsd": 4133.057399999996,
+      "markPrice": 182.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760832000000,
+      "equity": 14131.960599999995,
+      "fundingAccruedUsd": 4131.960599999996,
+      "markPrice": 185.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1760918400000,
+      "equity": 14136.234699999997,
+      "fundingAccruedUsd": 4136.234699999996,
+      "markPrice": 185.62,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761004800000,
+      "equity": 14132.921799999996,
+      "fundingAccruedUsd": 4132.9217999999955,
+      "markPrice": 189,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761091200000,
+      "equity": 14131.376499999995,
+      "fundingAccruedUsd": 4131.376499999995,
+      "markPrice": 185.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761177600000,
+      "equity": 14129.781099999997,
+      "fundingAccruedUsd": 4129.781099999996,
+      "markPrice": 181.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761264000000,
+      "equity": 14135.986299999997,
+      "fundingAccruedUsd": 4135.986299999996,
+      "markPrice": 192.53,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761350400000,
+      "equity": 14142.464799999996,
+      "fundingAccruedUsd": 4142.464799999996,
+      "markPrice": 192.98,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761436800000,
+      "equity": 14147.125599999996,
+      "fundingAccruedUsd": 4147.125599999996,
+      "markPrice": 193.3,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761523200000,
+      "equity": 14155.254099999996,
+      "fundingAccruedUsd": 4155.2540999999965,
+      "markPrice": 203.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761609600000,
+      "equity": 14159.994999999997,
+      "fundingAccruedUsd": 4159.994999999997,
+      "markPrice": 199.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761696000000,
+      "equity": 14162.558799999997,
+      "fundingAccruedUsd": 4162.558799999997,
+      "markPrice": 193.81,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761782400000,
+      "equity": 14159.320299999996,
+      "fundingAccruedUsd": 4159.320299999997,
+      "markPrice": 194.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761868800000,
+      "equity": 14148.289599999996,
+      "fundingAccruedUsd": 4148.289599999996,
+      "markPrice": 185.45,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1761955200000,
+      "equity": 14145.991299999996,
+      "fundingAccruedUsd": 4145.991299999996,
+      "markPrice": 187.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762041600000,
+      "equity": 14145.402999999995,
+      "fundingAccruedUsd": 4145.402999999996,
+      "markPrice": 185.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762128000000,
+      "equity": 14146.477599999995,
+      "fundingAccruedUsd": 4146.477599999996,
+      "markPrice": 186.58,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762214400000,
+      "equity": 14136.819099999995,
+      "fundingAccruedUsd": 4136.819099999995,
+      "markPrice": 166.58,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762300800000,
+      "equity": 14132.680899999996,
+      "fundingAccruedUsd": 4132.680899999995,
+      "markPrice": 153.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762387200000,
+      "equity": 14130.796599999994,
+      "fundingAccruedUsd": 4130.796599999995,
+      "markPrice": 161.38,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762473600000,
+      "equity": 14128.654599999996,
+      "fundingAccruedUsd": 4128.654599999996,
+      "markPrice": 156.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762560000000,
+      "equity": 14128.521999999997,
+      "fundingAccruedUsd": 4128.521999999997,
+      "markPrice": 160.88,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762646400000,
+      "equity": 14130.969399999998,
+      "fundingAccruedUsd": 4130.969399999997,
+      "markPrice": 156.84,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762732800000,
+      "equity": 14131.575699999998,
+      "fundingAccruedUsd": 4131.575699999998,
+      "markPrice": 167.5,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762819200000,
+      "equity": 14125.814799999996,
+      "fundingAccruedUsd": 4125.814799999997,
+      "markPrice": 167.51,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762905600000,
+      "equity": 14117.189199999997,
+      "fundingAccruedUsd": 4117.189199999997,
+      "markPrice": 153.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1762992000000,
+      "equity": 14111.346699999996,
+      "fundingAccruedUsd": 4111.346699999996,
+      "markPrice": 153.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763078400000,
+      "equity": 14103.934899999997,
+      "fundingAccruedUsd": 4103.934899999997,
+      "markPrice": 143.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763164800000,
+      "equity": 14106.636399999996,
+      "fundingAccruedUsd": 4106.636399999997,
+      "markPrice": 141.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763251200000,
+      "equity": 14110.994499999997,
+      "fundingAccruedUsd": 4110.994499999996,
+      "markPrice": 139.25,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763337600000,
+      "equity": 14114.204499999996,
+      "fundingAccruedUsd": 4114.204499999996,
+      "markPrice": 139.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763424000000,
+      "equity": 14123.202699999996,
+      "fundingAccruedUsd": 4123.202699999996,
+      "markPrice": 131.3,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763510400000,
+      "equity": 14130.334599999995,
+      "fundingAccruedUsd": 4130.334599999996,
+      "markPrice": 141.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763596800000,
+      "equity": 14129.739999999994,
+      "fundingAccruedUsd": 4129.739999999995,
+      "markPrice": 137.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763683200000,
+      "equity": 14135.739999999994,
+      "fundingAccruedUsd": 4135.739999999995,
+      "markPrice": 134.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763769600000,
+      "equity": 14130.799599999995,
+      "fundingAccruedUsd": 4130.799599999996,
+      "markPrice": 128.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763856000000,
+      "equity": 14127.810399999995,
+      "fundingAccruedUsd": 4127.810399999996,
+      "markPrice": 128.03,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1763942400000,
+      "equity": 14127.212799999996,
+      "fundingAccruedUsd": 4127.212799999996,
+      "markPrice": 130.81,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764028800000,
+      "equity": 14127.383199999997,
+      "fundingAccruedUsd": 4127.383199999996,
+      "markPrice": 138.43,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764115200000,
+      "equity": 14124.514599999995,
+      "fundingAccruedUsd": 4124.514599999996,
+      "markPrice": 139.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764201600000,
+      "equity": 14124.730899999995,
+      "fundingAccruedUsd": 4124.730899999996,
+      "markPrice": 142.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764288000000,
+      "equity": 14127.793299999996,
+      "fundingAccruedUsd": 4127.793299999996,
+      "markPrice": 141,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764374400000,
+      "equity": 14119.492899999994,
+      "fundingAccruedUsd": 4119.492899999995,
+      "markPrice": 137.66,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764460800000,
+      "equity": 14121.649599999993,
+      "fundingAccruedUsd": 4121.649599999994,
+      "markPrice": 135.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764547200000,
+      "equity": 14131.321299999994,
+      "fundingAccruedUsd": 4131.321299999994,
+      "markPrice": 127.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764633600000,
+      "equity": 14128.785099999994,
+      "fundingAccruedUsd": 4128.785099999994,
+      "markPrice": 127.37,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764720000000,
+      "equity": 14131.152099999994,
+      "fundingAccruedUsd": 4131.152099999994,
+      "markPrice": 138.16,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764806400000,
+      "equity": 14135.733999999993,
+      "fundingAccruedUsd": 4135.733999999994,
+      "markPrice": 145.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764892800000,
+      "equity": 14144.672499999993,
+      "fundingAccruedUsd": 4144.672499999994,
+      "markPrice": 139.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1764979200000,
+      "equity": 14147.958099999994,
+      "fundingAccruedUsd": 4147.958099999994,
+      "markPrice": 133.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765065600000,
+      "equity": 14147.686899999993,
+      "fundingAccruedUsd": 4147.686899999994,
+      "markPrice": 132.38,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765152000000,
+      "equity": 14145.696699999993,
+      "fundingAccruedUsd": 4145.696699999994,
+      "markPrice": 131.61,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765238400000,
+      "equity": 14150.077299999994,
+      "fundingAccruedUsd": 4150.077299999994,
+      "markPrice": 133.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765324800000,
+      "equity": 14149.302099999994,
+      "fundingAccruedUsd": 4149.3020999999935,
+      "markPrice": 137.28,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765411200000,
+      "equity": 14153.615199999993,
+      "fundingAccruedUsd": 4153.615199999994,
+      "markPrice": 133.86,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765497600000,
+      "equity": 14147.028699999992,
+      "fundingAccruedUsd": 4147.028699999993,
+      "markPrice": 135.5,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765584000000,
+      "equity": 14155.852299999991,
+      "fundingAccruedUsd": 4155.852299999992,
+      "markPrice": 132.62,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765670400000,
+      "equity": 14151.860199999992,
+      "fundingAccruedUsd": 4151.860199999992,
+      "markPrice": 133.26,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765756800000,
+      "equity": 14145.424299999991,
+      "fundingAccruedUsd": 4145.424299999992,
+      "markPrice": 130.14,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765843200000,
+      "equity": 14146.832799999993,
+      "fundingAccruedUsd": 4146.832799999992,
+      "markPrice": 126.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1765929600000,
+      "equity": 14142.955599999992,
+      "fundingAccruedUsd": 4142.955599999992,
+      "markPrice": 128.91,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766016000000,
+      "equity": 14146.805499999991,
+      "fundingAccruedUsd": 4146.805499999991,
+      "markPrice": 123.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766102400000,
+      "equity": 14141.11089999999,
+      "fundingAccruedUsd": 4141.110899999991,
+      "markPrice": 118.44,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766188800000,
+      "equity": 14146.31979999999,
+      "fundingAccruedUsd": 4146.31979999999,
+      "markPrice": 125.8,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766275200000,
+      "equity": 14155.876899999988,
+      "fundingAccruedUsd": 4155.876899999989,
+      "markPrice": 126.03,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766361600000,
+      "equity": 14159.505699999989,
+      "fundingAccruedUsd": 4159.505699999989,
+      "markPrice": 126.26,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766448000000,
+      "equity": 14160.57399999999,
+      "fundingAccruedUsd": 4160.57399999999,
+      "markPrice": 126.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766534400000,
+      "equity": 14158.94799999999,
+      "fundingAccruedUsd": 4158.947999999989,
+      "markPrice": 123.86,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766620800000,
+      "equity": 14164.85799999999,
+      "fundingAccruedUsd": 4164.85799999999,
+      "markPrice": 122.17,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766707200000,
+      "equity": 14168.75199999999,
+      "fundingAccruedUsd": 4168.75199999999,
+      "markPrice": 120.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766793600000,
+      "equity": 14175.759099999992,
+      "fundingAccruedUsd": 4175.759099999991,
+      "markPrice": 122.09,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766880000000,
+      "equity": 14181.759099999992,
+      "fundingAccruedUsd": 4181.759099999991,
+      "markPrice": 124.38,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1766966400000,
+      "equity": 14190.759099999992,
+      "fundingAccruedUsd": 4190.759099999991,
+      "markPrice": 127.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767052800000,
+      "equity": 14194.385799999991,
+      "fundingAccruedUsd": 4194.385799999991,
+      "markPrice": 123.1,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767139200000,
+      "equity": 14195.694399999991,
+      "fundingAccruedUsd": 4195.694399999991,
+      "markPrice": 124.95,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767225600000,
+      "equity": 14202.317799999992,
+      "fundingAccruedUsd": 4202.317799999992,
+      "markPrice": 125.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767312000000,
+      "equity": 14204.34699999999,
+      "fundingAccruedUsd": 4204.346999999992,
+      "markPrice": 126.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767398400000,
+      "equity": 14213.34699999999,
+      "fundingAccruedUsd": 4213.346999999992,
+      "markPrice": 132.53,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767484800000,
+      "equity": 14223.760899999992,
+      "fundingAccruedUsd": 4223.760899999992,
+      "markPrice": 134.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767571200000,
+      "equity": 14228.059899999993,
+      "fundingAccruedUsd": 4228.059899999992,
+      "markPrice": 135.55,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767657600000,
+      "equity": 14228.769099999992,
+      "fundingAccruedUsd": 4228.769099999992,
+      "markPrice": 137.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767744000000,
+      "equity": 14235.810999999992,
+      "fundingAccruedUsd": 4235.810999999992,
+      "markPrice": 139.85,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767830400000,
+      "equity": 14237.425599999991,
+      "fundingAccruedUsd": 4237.425599999992,
+      "markPrice": 136.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1767916800000,
+      "equity": 14240.621199999992,
+      "fundingAccruedUsd": 4240.621199999992,
+      "markPrice": 139.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768003200000,
+      "equity": 14246.574399999994,
+      "fundingAccruedUsd": 4246.574399999993,
+      "markPrice": 135.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768089600000,
+      "equity": 14244.543099999992,
+      "fundingAccruedUsd": 4244.543099999993,
+      "markPrice": 136.39,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768176000000,
+      "equity": 14251.470099999991,
+      "fundingAccruedUsd": 4251.470099999992,
+      "markPrice": 141.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768262400000,
+      "equity": 14258.577099999991,
+      "fundingAccruedUsd": 4258.577099999992,
+      "markPrice": 139.3,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768348800000,
+      "equity": 14266.353099999993,
+      "fundingAccruedUsd": 4266.353099999992,
+      "markPrice": 145.05,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768435200000,
+      "equity": 14275.294899999992,
+      "fundingAccruedUsd": 4275.294899999992,
+      "markPrice": 146.05,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768521600000,
+      "equity": 14273.947899999992,
+      "fundingAccruedUsd": 4273.947899999992,
+      "markPrice": 142.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768608000000,
+      "equity": 14276.813799999993,
+      "fundingAccruedUsd": 4276.813799999993,
+      "markPrice": 144.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768694400000,
+      "equity": 14278.653999999991,
+      "fundingAccruedUsd": 4278.653999999992,
+      "markPrice": 143.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768780800000,
+      "equity": 14275.369899999992,
+      "fundingAccruedUsd": 4275.369899999992,
+      "markPrice": 133.77,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768867200000,
+      "equity": 14278.683399999993,
+      "fundingAccruedUsd": 4278.683399999993,
+      "markPrice": 133.73,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1768953600000,
+      "equity": 14279.889099999993,
+      "fundingAccruedUsd": 4279.889099999993,
+      "markPrice": 127.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769040000000,
+      "equity": 14279.248299999992,
+      "fundingAccruedUsd": 4279.248299999993,
+      "markPrice": 130.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769126400000,
+      "equity": 14277.344799999993,
+      "fundingAccruedUsd": 4277.3447999999935,
+      "markPrice": 128.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769212800000,
+      "equity": 14275.400199999993,
+      "fundingAccruedUsd": 4275.400199999994,
+      "markPrice": 127.41,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769299200000,
+      "equity": 14274.729099999993,
+      "fundingAccruedUsd": 4274.729099999994,
+      "markPrice": 127.34,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769385600000,
+      "equity": 14266.736499999995,
+      "fundingAccruedUsd": 4266.7364999999945,
+      "markPrice": 119.65,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769472000000,
+      "equity": 14267.609799999995,
+      "fundingAccruedUsd": 4267.609799999995,
+      "markPrice": 124.09,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769558400000,
+      "equity": 14275.692999999996,
+      "fundingAccruedUsd": 4275.692999999995,
+      "markPrice": 127.26,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769644800000,
+      "equity": 14278.923699999996,
+      "fundingAccruedUsd": 4278.923699999995,
+      "markPrice": 125.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769731200000,
+      "equity": 14275.095399999995,
+      "fundingAccruedUsd": 4275.095399999995,
+      "markPrice": 117.63,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769817600000,
+      "equity": 14265.417099999995,
+      "fundingAccruedUsd": 4265.417099999995,
+      "markPrice": 117.55,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769904000000,
+      "equity": 14255.019399999994,
+      "fundingAccruedUsd": 4255.019399999995,
+      "markPrice": 105.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1769990400000,
+      "equity": 14221.406199999994,
+      "fundingAccruedUsd": 4221.406199999994,
+      "markPrice": 102.28,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770076800000,
+      "equity": 14213.743599999994,
+      "fundingAccruedUsd": 4213.743599999995,
+      "markPrice": 104.18,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770163200000,
+      "equity": 14206.015299999995,
+      "fundingAccruedUsd": 4206.015299999995,
+      "markPrice": 97.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770249600000,
+      "equity": 14176.549299999995,
+      "fundingAccruedUsd": 4176.549299999995,
+      "markPrice": 91.74,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770336000000,
+      "equity": 14170.485999999995,
+      "fundingAccruedUsd": 4170.485999999995,
+      "markPrice": 75.51,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770422400000,
+      "equity": 14140.832499999995,
+      "fundingAccruedUsd": 4140.832499999995,
+      "markPrice": 86.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770508800000,
+      "equity": 14113.033899999995,
+      "fundingAccruedUsd": 4113.033899999995,
+      "markPrice": 87.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770595200000,
+      "equity": 14083.386099999994,
+      "fundingAccruedUsd": 4083.3860999999943,
+      "markPrice": 87.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770681600000,
+      "equity": 14068.671699999995,
+      "fundingAccruedUsd": 4068.6716999999944,
+      "markPrice": 86.4,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770768000000,
+      "equity": 14062.447599999994,
+      "fundingAccruedUsd": 4062.4475999999945,
+      "markPrice": 83.47,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770854400000,
+      "equity": 14051.321499999995,
+      "fundingAccruedUsd": 4051.3214999999946,
+      "markPrice": 79.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1770940800000,
+      "equity": 14044.097199999995,
+      "fundingAccruedUsd": 4044.0971999999942,
+      "markPrice": 78.02,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771027200000,
+      "equity": 14042.919999999995,
+      "fundingAccruedUsd": 4042.9199999999946,
+      "markPrice": 84.97,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771113600000,
+      "equity": 14034.427899999995,
+      "fundingAccruedUsd": 4034.4278999999947,
+      "markPrice": 88.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771200000000,
+      "equity": 14035.726599999995,
+      "fundingAccruedUsd": 4035.726599999995,
+      "markPrice": 86.18,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771286400000,
+      "equity": 14029.317099999995,
+      "fundingAccruedUsd": 4029.317099999995,
+      "markPrice": 86.61,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771372800000,
+      "equity": 14019.773199999996,
+      "fundingAccruedUsd": 4019.7731999999955,
+      "markPrice": 84.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771459200000,
+      "equity": 14011.716999999995,
+      "fundingAccruedUsd": 4011.7169999999956,
+      "markPrice": 81.5,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771545600000,
+      "equity": 14005.887399999996,
+      "fundingAccruedUsd": 4005.8873999999955,
+      "markPrice": 82.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771632000000,
+      "equity": 14003.124099999995,
+      "fundingAccruedUsd": 4003.1240999999955,
+      "markPrice": 84.43,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771718400000,
+      "equity": 14001.940599999994,
+      "fundingAccruedUsd": 4001.9405999999954,
+      "markPrice": 85.08,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771804800000,
+      "equity": 13995.275799999996,
+      "fundingAccruedUsd": 3995.2757999999953,
+      "markPrice": 81.37,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771891200000,
+      "equity": 13972.544799999996,
+      "fundingAccruedUsd": 3972.544799999995,
+      "markPrice": 78.46,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1771977600000,
+      "equity": 13967.324199999995,
+      "fundingAccruedUsd": 3967.324199999995,
+      "markPrice": 79.21,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772064000000,
+      "equity": 13969.066899999994,
+      "fundingAccruedUsd": 3969.066899999995,
+      "markPrice": 88.58,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772150400000,
+      "equity": 13967.527899999994,
+      "fundingAccruedUsd": 3967.5278999999946,
+      "markPrice": 85.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772236800000,
+      "equity": 13959.420999999995,
+      "fundingAccruedUsd": 3959.420999999995,
+      "markPrice": 82.12,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772323200000,
+      "equity": 13946.691699999996,
+      "fundingAccruedUsd": 3946.691699999995,
+      "markPrice": 84.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772409600000,
+      "equity": 13949.929299999994,
+      "fundingAccruedUsd": 3949.929299999995,
+      "markPrice": 85,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772496000000,
+      "equity": 13946.565399999994,
+      "fundingAccruedUsd": 3946.5653999999945,
+      "markPrice": 86.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772582400000,
+      "equity": 13940.250999999995,
+      "fundingAccruedUsd": 3940.2509999999947,
+      "markPrice": 86.62,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772668800000,
+      "equity": 13943.202099999995,
+      "fundingAccruedUsd": 3943.2020999999945,
+      "markPrice": 90.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772755200000,
+      "equity": 13937.553699999995,
+      "fundingAccruedUsd": 3937.553699999995,
+      "markPrice": 88.86,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772841600000,
+      "equity": 13933.164099999995,
+      "fundingAccruedUsd": 3933.1640999999954,
+      "markPrice": 84.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1772928000000,
+      "equity": 13927.748799999996,
+      "fundingAccruedUsd": 3927.7487999999953,
+      "markPrice": 83.06,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773014400000,
+      "equity": 13910.482599999996,
+      "fundingAccruedUsd": 3910.4825999999953,
+      "markPrice": 82.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773100800000,
+      "equity": 13907.474499999995,
+      "fundingAccruedUsd": 3907.4744999999953,
+      "markPrice": 85.57,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773187200000,
+      "equity": 13909.890999999996,
+      "fundingAccruedUsd": 3909.890999999995,
+      "markPrice": 86.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773273600000,
+      "equity": 13905.300399999995,
+      "fundingAccruedUsd": 3905.300399999995,
+      "markPrice": 86.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773360000000,
+      "equity": 13900.259799999994,
+      "fundingAccruedUsd": 3900.259799999995,
+      "markPrice": 89.78,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773446400000,
+      "equity": 13907.330799999996,
+      "fundingAccruedUsd": 3907.330799999995,
+      "markPrice": 87.94,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773532800000,
+      "equity": 13898.310699999995,
+      "fundingAccruedUsd": 3898.310699999995,
+      "markPrice": 87.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773619200000,
+      "equity": 13900.032699999994,
+      "fundingAccruedUsd": 3900.0326999999947,
+      "markPrice": 92.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773705600000,
+      "equity": 13907.207499999995,
+      "fundingAccruedUsd": 3907.2074999999945,
+      "markPrice": 95.49,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773792000000,
+      "equity": 13906.927599999995,
+      "fundingAccruedUsd": 3906.9275999999945,
+      "markPrice": 94.53,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773878400000,
+      "equity": 13900.218699999994,
+      "fundingAccruedUsd": 3900.2186999999944,
+      "markPrice": 90.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1773964800000,
+      "equity": 13900.055199999995,
+      "fundingAccruedUsd": 3900.0551999999943,
+      "markPrice": 89.41,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774051200000,
+      "equity": 13897.602699999994,
+      "fundingAccruedUsd": 3897.6026999999945,
+      "markPrice": 90.02,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774137600000,
+      "equity": 13893.613899999995,
+      "fundingAccruedUsd": 3893.6138999999944,
+      "markPrice": 87.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774224000000,
+      "equity": 13879.923999999994,
+      "fundingAccruedUsd": 3879.923999999994,
+      "markPrice": 85.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774310400000,
+      "equity": 13883.839899999994,
+      "fundingAccruedUsd": 3883.839899999994,
+      "markPrice": 91,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774396800000,
+      "equity": 13879.985799999995,
+      "fundingAccruedUsd": 3879.985799999994,
+      "markPrice": 91.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774483200000,
+      "equity": 13884.876399999994,
+      "fundingAccruedUsd": 3884.876399999994,
+      "markPrice": 91.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774569600000,
+      "equity": 13874.698299999995,
+      "fundingAccruedUsd": 3874.6982999999946,
+      "markPrice": 86.55,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774656000000,
+      "equity": 13850.284299999994,
+      "fundingAccruedUsd": 3850.2842999999943,
+      "markPrice": 82.86,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774742400000,
+      "equity": 13830.339399999993,
+      "fundingAccruedUsd": 3830.3393999999944,
+      "markPrice": 82.21,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774828800000,
+      "equity": 13801.661199999995,
+      "fundingAccruedUsd": 3801.6611999999946,
+      "markPrice": 81.89,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1774915200000,
+      "equity": 13798.263699999994,
+      "fundingAccruedUsd": 3798.2636999999945,
+      "markPrice": 82.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775001600000,
+      "equity": 13795.795299999994,
+      "fundingAccruedUsd": 3795.7952999999943,
+      "markPrice": 83.4,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775088000000,
+      "equity": 13795.039599999995,
+      "fundingAccruedUsd": 3795.0395999999946,
+      "markPrice": 81.63,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775174400000,
+      "equity": 13786.214199999995,
+      "fundingAccruedUsd": 3786.2141999999944,
+      "markPrice": 79.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775260800000,
+      "equity": 13785.471399999995,
+      "fundingAccruedUsd": 3785.471399999994,
+      "markPrice": 80.24,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775347200000,
+      "equity": 13782.175299999994,
+      "fundingAccruedUsd": 3782.175299999994,
+      "markPrice": 80.7,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775433600000,
+      "equity": 13775.760099999994,
+      "fundingAccruedUsd": 3775.7600999999936,
+      "markPrice": 82.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775520000000,
+      "equity": 13774.107699999993,
+      "fundingAccruedUsd": 3774.1076999999937,
+      "markPrice": 79.91,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775606400000,
+      "equity": 13768.697499999993,
+      "fundingAccruedUsd": 3768.6974999999934,
+      "markPrice": 84.76,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775692800000,
+      "equity": 13775.974899999994,
+      "fundingAccruedUsd": 3775.9748999999933,
+      "markPrice": 82.21,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775779200000,
+      "equity": 13779.325899999993,
+      "fundingAccruedUsd": 3779.3258999999935,
+      "markPrice": 83.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775865600000,
+      "equity": 13783.156299999993,
+      "fundingAccruedUsd": 3783.1562999999937,
+      "markPrice": 84.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1775952000000,
+      "equity": 13785.228699999994,
+      "fundingAccruedUsd": 3785.2286999999938,
+      "markPrice": 84.9,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776038400000,
+      "equity": 13779.747699999994,
+      "fundingAccruedUsd": 3779.747699999994,
+      "markPrice": 82.15,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776124800000,
+      "equity": 13783.614999999994,
+      "fundingAccruedUsd": 3783.614999999994,
+      "markPrice": 85.91,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776211200000,
+      "equity": 13792.664199999994,
+      "fundingAccruedUsd": 3792.664199999994,
+      "markPrice": 83.78,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776297600000,
+      "equity": 13789.242099999994,
+      "fundingAccruedUsd": 3789.2420999999936,
+      "markPrice": 84.92,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776384000000,
+      "equity": 13797.433599999993,
+      "fundingAccruedUsd": 3797.4335999999935,
+      "markPrice": 88.82,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776470400000,
+      "equity": 13801.663899999992,
+      "fundingAccruedUsd": 3801.663899999993,
+      "markPrice": 88.96,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776556800000,
+      "equity": 13796.887299999993,
+      "fundingAccruedUsd": 3796.8872999999935,
+      "markPrice": 86.01,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776643200000,
+      "equity": 13787.354499999994,
+      "fundingAccruedUsd": 3787.3544999999935,
+      "markPrice": 84,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776729600000,
+      "equity": 13791.114099999993,
+      "fundingAccruedUsd": 3791.1140999999934,
+      "markPrice": 85.66,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776816000000,
+      "equity": 13791.910899999993,
+      "fundingAccruedUsd": 3791.910899999993,
+      "markPrice": 86.48,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776902400000,
+      "equity": 13802.388099999993,
+      "fundingAccruedUsd": 3802.3880999999933,
+      "markPrice": 86.86,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1776988800000,
+      "equity": 13801.697499999993,
+      "fundingAccruedUsd": 3801.6974999999934,
+      "markPrice": 86.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777075200000,
+      "equity": 13798.463799999994,
+      "fundingAccruedUsd": 3798.463799999993,
+      "markPrice": 86.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777161600000,
+      "equity": 13797.369399999992,
+      "fundingAccruedUsd": 3797.369399999993,
+      "markPrice": 86.03,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777248000000,
+      "equity": 13798.708299999993,
+      "fundingAccruedUsd": 3798.7082999999934,
+      "markPrice": 87.35,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777334400000,
+      "equity": 13794.283599999993,
+      "fundingAccruedUsd": 3794.283599999994,
+      "markPrice": 84.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777420800000,
+      "equity": 13789.764399999993,
+      "fundingAccruedUsd": 3789.7643999999937,
+      "markPrice": 84.07,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777507200000,
+      "equity": 13789.616199999993,
+      "fundingAccruedUsd": 3789.616199999994,
+      "markPrice": 83.81,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777593600000,
+      "equity": 13794.787899999994,
+      "fundingAccruedUsd": 3794.787899999994,
+      "markPrice": 83.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777680000000,
+      "equity": 13796.783499999994,
+      "fundingAccruedUsd": 3796.783499999994,
+      "markPrice": 83.82,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777766400000,
+      "equity": 13797.350799999995,
+      "fundingAccruedUsd": 3797.3507999999943,
+      "markPrice": 84.08,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777852800000,
+      "equity": 13799.374599999994,
+      "fundingAccruedUsd": 3799.374599999994,
+      "markPrice": 83.78,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1777939200000,
+      "equity": 13805.054799999994,
+      "fundingAccruedUsd": 3805.0547999999944,
+      "markPrice": 84.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778025600000,
+      "equity": 13810.422699999996,
+      "fundingAccruedUsd": 3810.4226999999946,
+      "markPrice": 86.38,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778112000000,
+      "equity": 13820.824299999995,
+      "fundingAccruedUsd": 3820.8242999999948,
+      "markPrice": 88.32,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778198400000,
+      "equity": 13821.505899999995,
+      "fundingAccruedUsd": 3821.5058999999947,
+      "markPrice": 88.27,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778284800000,
+      "equity": 13830.041199999994,
+      "fundingAccruedUsd": 3830.0411999999947,
+      "markPrice": 92.48,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778371200000,
+      "equity": 13831.789599999995,
+      "fundingAccruedUsd": 3831.7895999999946,
+      "markPrice": 93.03,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778457600000,
+      "equity": 13833.141399999995,
+      "fundingAccruedUsd": 3833.1413999999945,
+      "markPrice": 95.79,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778544000000,
+      "equity": 13836.168399999995,
+      "fundingAccruedUsd": 3836.1683999999946,
+      "markPrice": 97.54,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778630400000,
+      "equity": 13837.843899999994,
+      "fundingAccruedUsd": 3837.843899999995,
+      "markPrice": 94.48,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778716800000,
+      "equity": 13836.759099999996,
+      "fundingAccruedUsd": 3836.7590999999948,
+      "markPrice": 91.21,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778803200000,
+      "equity": 13829.240199999995,
+      "fundingAccruedUsd": 3829.240199999995,
+      "markPrice": 92.43,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778889600000,
+      "equity": 13831.071699999995,
+      "fundingAccruedUsd": 3831.071699999995,
+      "markPrice": 89.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1778976000000,
+      "equity": 13829.484399999994,
+      "fundingAccruedUsd": 3829.484399999995,
+      "markPrice": 86.13,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779062400000,
+      "equity": 13824.082899999994,
+      "fundingAccruedUsd": 3824.082899999995,
+      "markPrice": 85.36,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779148800000,
+      "equity": 13821.099999999995,
+      "fundingAccruedUsd": 3821.0999999999954,
+      "markPrice": 85.58,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779235200000,
+      "equity": 13817.064699999995,
+      "fundingAccruedUsd": 3817.0646999999954,
+      "markPrice": 84.23,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779321600000,
+      "equity": 13817.286699999995,
+      "fundingAccruedUsd": 3817.2866999999956,
+      "markPrice": 86.64,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779408000000,
+      "equity": 13822.959699999996,
+      "fundingAccruedUsd": 3822.959699999996,
+      "markPrice": 86.85,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779494400000,
+      "equity": 13822.434999999996,
+      "fundingAccruedUsd": 3822.434999999996,
+      "markPrice": 84.44,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779580800000,
+      "equity": 13810.923699999996,
+      "fundingAccruedUsd": 3810.923699999996,
+      "markPrice": 85.89,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779667200000,
+      "equity": 13811.631699999996,
+      "fundingAccruedUsd": 3811.6316999999963,
+      "markPrice": 85.5,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779753600000,
+      "equity": 13811.406399999996,
+      "fundingAccruedUsd": 3811.406399999996,
+      "markPrice": 84.4,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779840000000,
+      "equity": 13805.487399999996,
+      "fundingAccruedUsd": 3805.4873999999963,
+      "markPrice": 84.14,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1779926400000,
+      "equity": 13803.230499999996,
+      "fundingAccruedUsd": 3803.230499999996,
+      "markPrice": 82.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780012800000,
+      "equity": 13797.673299999995,
+      "fundingAccruedUsd": 3797.673299999996,
+      "markPrice": 82.33,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780099200000,
+      "equity": 13802.567799999997,
+      "fundingAccruedUsd": 3802.567799999996,
+      "markPrice": 82.29,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780185600000,
+      "equity": 13805.655999999995,
+      "fundingAccruedUsd": 3805.6559999999963,
+      "markPrice": 82.93,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780272000000,
+      "equity": 13807.550799999997,
+      "fundingAccruedUsd": 3807.5507999999963,
+      "markPrice": 82.83,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780358400000,
+      "equity": 13812.225999999997,
+      "fundingAccruedUsd": 3812.2259999999965,
+      "markPrice": 80.89,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780444800000,
+      "equity": 13811.699199999997,
+      "fundingAccruedUsd": 3811.699199999997,
+      "markPrice": 74.85,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780531200000,
+      "equity": 13803.019899999998,
+      "fundingAccruedUsd": 3803.019899999997,
+      "markPrice": 70.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780617600000,
+      "equity": 13789.144299999996,
+      "fundingAccruedUsd": 3789.144299999997,
+      "markPrice": 68.31,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780704000000,
+      "equity": 13776.828699999998,
+      "fundingAccruedUsd": 3776.8286999999973,
+      "markPrice": 64.68,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780790400000,
+      "equity": 13766.346699999996,
+      "fundingAccruedUsd": 3766.346699999997,
+      "markPrice": 62.11,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780876800000,
+      "equity": 13737.785499999998,
+      "fundingAccruedUsd": 3737.7854999999972,
+      "markPrice": 66.71,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1780963200000,
+      "equity": 13728.631599999997,
+      "fundingAccruedUsd": 3728.6315999999974,
+      "markPrice": 65.42,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781049600000,
+      "equity": 13724.976999999997,
+      "fundingAccruedUsd": 3724.976999999997,
+      "markPrice": 65.19,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781136000000,
+      "equity": 13719.976599999996,
+      "fundingAccruedUsd": 3719.976599999997,
+      "markPrice": 63.67,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781222400000,
+      "equity": 13716.907899999997,
+      "fundingAccruedUsd": 3716.9078999999965,
+      "markPrice": 66.87,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781308800000,
+      "equity": 13711.643199999997,
+      "fundingAccruedUsd": 3711.6431999999963,
+      "markPrice": 66.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781395200000,
+      "equity": 13710.732099999996,
+      "fundingAccruedUsd": 3710.732099999996,
+      "markPrice": 68.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781481600000,
+      "equity": 13701.085299999995,
+      "fundingAccruedUsd": 3701.085299999996,
+      "markPrice": 71.12,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781568000000,
+      "equity": 13698.048399999996,
+      "fundingAccruedUsd": 3698.048399999996,
+      "markPrice": 74.04,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781654400000,
+      "equity": 13696.835499999996,
+      "fundingAccruedUsd": 3696.835499999996,
+      "markPrice": 73.37,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781740800000,
+      "equity": 13694.048799999997,
+      "fundingAccruedUsd": 3694.048799999996,
+      "markPrice": 72.22,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781827200000,
+      "equity": 13690.357899999995,
+      "fundingAccruedUsd": 3690.357899999996,
+      "markPrice": 69.81,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1781913600000,
+      "equity": 13694.092299999997,
+      "fundingAccruedUsd": 3694.092299999996,
+      "markPrice": 69.63,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782000000000,
+      "equity": 13693.079199999996,
+      "fundingAccruedUsd": 3693.079199999996,
+      "markPrice": 73.2,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782086400000,
+      "equity": 13695.287199999995,
+      "fundingAccruedUsd": 3695.287199999996,
+      "markPrice": 73.36,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782172800000,
+      "equity": 13693.090599999996,
+      "fundingAccruedUsd": 3693.0905999999964,
+      "markPrice": 71.88,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782259200000,
+      "equity": 13683.062799999996,
+      "fundingAccruedUsd": 3683.0627999999965,
+      "markPrice": 69.99,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782345600000,
+      "equity": 13674.311499999996,
+      "fundingAccruedUsd": 3674.3114999999966,
+      "markPrice": 67.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782432000000,
+      "equity": 13671.654999999997,
+      "fundingAccruedUsd": 3671.6549999999966,
+      "markPrice": 67.74,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782518400000,
+      "equity": 13679.950299999997,
+      "fundingAccruedUsd": 3679.9502999999963,
+      "markPrice": 71.82,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782604800000,
+      "equity": 13681.303299999996,
+      "fundingAccruedUsd": 3681.3032999999964,
+      "markPrice": 70.72,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782691200000,
+      "equity": 13682.422899999996,
+      "fundingAccruedUsd": 3682.4228999999964,
+      "markPrice": 71.66,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782777600000,
+      "equity": 13687.957899999998,
+      "fundingAccruedUsd": 3687.9578999999967,
+      "markPrice": 74.42,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782864000000,
+      "equity": 13695.437499999996,
+      "fundingAccruedUsd": 3695.437499999997,
+      "markPrice": 73.65,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1782950400000,
+      "equity": 13701.296499999997,
+      "fundingAccruedUsd": 3701.2964999999967,
+      "markPrice": 77.26,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    },
+    {
+      "timestamp": 1783036800000,
+      "equity": 13703.220399999997,
+      "fundingAccruedUsd": 3703.220399999997,
+      "markPrice": 80.75,
+      "leverage": 3,
+      "dailyVaR95Pct": 0
+    }
+  ]
+}
