@@ -225,6 +225,7 @@ export type {
   MultiClassEnsembleV4State,
   V4PerSymbol,
 } from "./strategy/multi-class-ensemble-v4.js";
+<<<<<<< HEAD
 // Phase 10G Track A — Signal Center (typed pub/sub + plugin registry + reference plugin).
 // Type discriminated unions for Signal events.
 export {
@@ -286,6 +287,51 @@ export type {
   CarryBaselinePluginConfig,
   CarryBaselinePluginState,
 } from "./signal-center/plugins/carry-baseline-plugin.js";
+// Phase 10G Track B — Leverage invariant hard guardrail (1:10 MANDATORY leverage 3rd defense-in-depth layer).
+export {
+  assertLeverageInvariant,
+  assertPositionsInvariant,
+  checkLeverageApproach,
+  computeEffectiveLeverage,
+  DEFAULT_LEVERAGE_INVARIANT_CONFIG,
+  LeverageBreachError,
+  ONE_TO_TEN_LEVERAGE,
+  ONE_X_LEVERAGE,
+} from "./risk/leverage-invariant.js";
+export type {
+  LeverageInvariantConfig,
+  Position,
+} from "./risk/leverage-invariant.js";
+// Phase 10G Track B — Cross-strategy portfolio risk engine (VaR + correlation + drawdown + leverage guard).
+export {
+  DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG,
+  PortfolioRiskEngine,
+} from "./risk/portfolio-risk-engine.js";
+export type {
+  AggregateDrawdownState,
+  CarrySignal,
+  CorrelationMatrix,
+  DirectionSignal,
+  ExposureBySymbol,
+  PortfolioRiskEngineConfig,
+  RiskSignal,
+  RiskSnapshot,
+  SizingSignal,
+  Signal,
+  VaRPoint,
+} from "./risk/portfolio-risk-engine.js";
+// Phase 10G Track B — Per-strategy telemetry (PnL attribution + Sharpe + kill-switch + export).
+export {
+  DEFAULT_STRATEGY_TELEMETRY_CONFIG,
+  StrategyTelemetry,
+} from "./telemetry/strategy-telemetry.js";
+export type {
+  KillSwitchEvent,
+  PerStrategyStats,
+  StrategyTelemetryConfig,
+  TelemetrySnapshot,
+  TradeRecord,
+} from "./telemetry/strategy-telemetry.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
