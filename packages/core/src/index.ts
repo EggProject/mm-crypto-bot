@@ -25,6 +25,14 @@ export type { AlwaysInTrendConfig } from "./strategy/always-in-trend.js";
 export { DonchianBreakoutStrategy } from "./strategy/donchian-breakout.js";
 export { DEFAULT_DONCHIAN_CONFIG } from "./strategy/donchian-breakout.js";
 export type { DonchianBreakoutConfig } from "./strategy/donchian-breakout.js";
+// Phase 7 Track A — Donchian breakout + trailing-stop engine (HWM-based, ATR + fixed-% + time-based exits).
+export { DonchianTrailingStrategy } from "./strategy/donchian-trailing.js";
+export {
+  DEFAULT_DONCHIAN_TRAILING_CONFIG,
+  TRAIL_VARIANT_DEFAULTS,
+  resolveTrailConfig,
+} from "./strategy/donchian-trailing.js";
+export type { DonchianTrailingConfig, ResolvedTrailConfig, TrailVariant } from "./strategy/donchian-trailing.js";
 // Phase 5 — Composite multi-strategy ensemble (Strategy B).
 export { CompositeStrategy } from "./strategy/composite.js";
 export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
