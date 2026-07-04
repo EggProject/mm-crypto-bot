@@ -99,6 +99,77 @@ export interface StrategySignal {
 }
 
 /**
+ `OpenPositionSnapshot` — a `Strategy.onOpenPositionUpdate` callback
+ bemenetén átadott nyitott pozíció nézet. A Phase 7 Track A trailing-stop
+ engine számára a backtest motor átadja az aktuális pozíció legfontosabb
+ mezőit. A stratégia ez alapján frissítheti a stopLoss / takeProfit szintet,
+ vagy kérheti a pozíció azonnali zárását (pl. trailing-stop trigger).
+
+  - `side` — `buy` (long) vagy `sell` (short).
+  - `entryTime` — az entry timestamp-je (ms).
+  - `entryPrice` — a kitöltési entry-ár (slippage+spread alkalmazva).
+  - `quantity` — a pozíció mennyisége (instrument unit, pl. BTC).
+  - `stopLoss` — az aktuális stop-loss szint (frissíthető).
+  - `takeProfit` — az aktuális take-profit szint (frissíthető).
+  - `holdingBars` — az LTF gyertyák száma az entry óta (frissített minden
+    bar-on). A time-based exit és a HWM-tracking szempontjából is hasznos.
+*/
+export interface OpenPositionSnapshot {
+  readonly side: Side;
+  readonly entryTime: number;
+  readonly entryPrice: number;
+  readonly quantity: number;
+  readonly stopLoss: number;
+  readonly takeProfit: number;
+  readonly holdingBars: number;
+}
+
+/**
+ `PositionManagementContext` — a `Strategy.onOpenPositionUpdate` callback
+ bemenete. Minden LTF gyertyán hívódik, amikor van nyitott pozíció (a
+ `onCandle` csak akkor hívódik, amikor nincs nyitott pozíció).
+
+  - `openPosition` — az aktuális nyitott pozíció nézete.
+  - `candle` — az aktuális LTF gyertya OHLCV adata.
+  - `candleIndex` — az aktuális LTF gyertya indexe.
+  - `mtfState` — a HTF + MTF + LTF indikátor-állapot (a trailing-ATR
+    az `ltf.atr`-ből jön).
+  - `pricePrecision` — a `roundTo` tizedesjegye az árakhoz.
+*/
+export interface PositionManagementContext {
+  readonly openPosition: OpenPositionSnapshot;
+  readonly candle: Candle;
+  readonly candleIndex: number;
+  readonly mtfState: MtfState;
+  readonly pricePrecision: number;
+}
+
+/**
+ `PositionUpdate` — a `Strategy.onOpenPositionUpdate` visszatérési értéke.
+ A stratégia itt jelezheti, hogy a stop-loss / take-profit szintet frissíti,
+ vagy hogy azonnali zárást kér (pl. trailing-stop trigger).
+
+  - `newStopLoss` — opcionálisan új stop-loss szint (csak "monotonic tighten"
+    ajánlott, de az engine nem tiltja a lazítást).
+  - `newTakeProfit` — opcionálisan új take-profit szint (a pozíció profit
+    lock-in céljából csökkenthető).
+  - `forceExit` — ha `true`, a pozíció a `closePrice`-en (vagy a candle
+    close-on, ha nincs megadva) azonnal záródik, kilépési oka: `trailing_stop`
+    (alapértelmezetten — felülírható az `exitReason` mezővel, ha a motor
+    támogatja).
+  - `exitPrice` — opcionális, egyedi exit-ár a `forceExit` kéréshez
+    (alapértelmezetten a candle close-a).
+  - `reason` — opcionális kilépési ok (alapértelmezetten `"trailing_stop"`).
+*/
+export interface PositionUpdate {
+  readonly newStopLoss?: number;
+  readonly newTakeProfit?: number;
+  readonly forceExit?: boolean;
+  readonly exitPrice?: number;
+  readonly reason?: "trailing_stop" | "trend_reversal" | "stop_loss" | "take_profit" | "time_exit";
+}
+
+/**
  `Strategy` — egy kereskedési stratégia absztrakciója. A backtest
  motor ezen az interfészen keresztül kommunikál a konkrét stratégiával.
 */
@@ -106,17 +177,52 @@ export interface Strategy {
   readonly name: string;
   readonly timeframes: readonly Timeframe[];
   /**
-   Új LTF gyertya esetén hívódik. `null` = nincs jelzés.
-   A motor a `mtfState`-et előre feltölti a legutóbbi HTF/MTF/LTF
-   indikátor-értékekkel — a stratégia nem saját maga számolja azokat.
+    Új LTF gyertya esetén hívódik, amikor NINCS nyitott pozíció.
+    `null` = nincs jelzés. A motor a `mtfState`-et előre feltölti a
+    legutóbbi HTF/MTF/LTF indikátor-értékekkel — a stratégia nem saját
+    maga számolja azokat.
   */
   onCandle(ctx: StrategyContext): StrategySignal | null;
   /**
-   `warmup` — visszaadja, hogy hány LTF gyertyára van szükség a HTF
-   indikátorok (EMA 200) bemelegedéséhez. A backtest az első
-   `warmup` gyertyán még nem adhat ki jelet.
+    `warmup` — visszaadja, hogy hány LTF gyertyára van szükség a HTF
+    indikátorok (EMA 200) bemelegedéséhez. A backtest az első
+    `warmup` gyertyán még nem adhat ki jelet.
   */
   warmup(): number;
+  /**
+    **OPCIONÁLIS** per-bar pozíció-kezelő hook. Minden LTF gyertyán
+    hívódik, amikor VAN nyitott pozíció (a `checkExit` után, ha az
+    nem triggerelt kilépést). A Phase 7 Track A trailing-stop engine
+    számára vezettük be — a Phase 5-6 stratégiák NEM implementálják,
+    mert azok trailing-stop nélkül dolgoznak (a fix SL/TP a `onCandle`
+    által javasolt signal-ban marad).
+
+    A `null` visszatérés = "nincs teendő, hagyjuk a pozíciót futni".
+    A `PositionUpdate`-tel a stratégia:
+      1. módosíthatja a stop-loss / take-profit szintet (HWM-trailing),
+      2. vagy `forceExit: true`-val azonnal zárhatja a pozíciót
+         (trailing-stop trigger, trend-reversal, stb.).
+
+    A HWM (high-water-mark) és a holdingBars számlálás a STRATÉGIA
+    saját state-je (mivel a backtest engine OpenPosition típusa
+    readonly). A trailing-stop strategy belső mutable state-et tart
+    fenn entry és exit között.
+  */
+  onOpenPositionUpdate?(ctx: PositionManagementContext): PositionUpdate | null;
+  /**
+    **OPCIONÁLIS** callback, amikor a stratégia által kért pozíció
+    ENTRY megtörtént. A stratégia itt inicializálhatja a trailing-stop
+    state-jét (HWM, holdingBars counter, stb.). Alapértelmezetten a
+    Phase 7 Track A trailing-stop engine ezt használja a HWM reset-hez.
+  */
+  onPositionOpened?(snapshot: OpenPositionSnapshot): void;
+  /**
+    **OPCIONÁLIS** callback, amikor a pozíció ZÁRÓDIK (bármely okból:
+    SL / TP / time_exit / trailing_stop / kill_switch). A Phase 7
+    trailing-stop engine a HWM és a holdingBars counter reset-jére
+    használja.
+  */
+  onPositionClosed?(reason: string): void;
 }
 
 /**
