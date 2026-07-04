@@ -105,6 +105,18 @@ export type {
   DailyPnlPoint,
   RollingSharpePoint,
 } from "./risk/kelly-adaptive.js";
+// Phase 7 M2 — Multi-class ensemble V2 (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate).
+export {
+  DEFAULT_ADAPTIVE_KELLY_AGGREGATE,
+  DEFAULT_MULTI_CLASS_ENSEMBLE_V2_CONFIG_PARTIAL,
+  MultiClassEnsembleV2,
+  timeframesForMultiClassV2,
+} from "./strategy/multi-class-ensemble-v2.js";
+export type {
+  AdaptiveKellyAggregate,
+  MultiClassEnsembleV2Config,
+  MultiClassEnsembleV2State,
+} from "./strategy/multi-class-ensemble-v2.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
