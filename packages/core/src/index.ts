@@ -32,6 +32,26 @@ export type { CompositeStrategyConfig } from "./strategy/composite.js";
 // Phase 6 Track A — delta-neutral funding-rate carry.
 export { FundingCarryStrategy, InMemoryFundingRateProvider, DEFAULT_FUNDING_CARRY_CONFIG } from "./strategy/funding-carry.js";
 export type { FundingCarryConfig, FundingCarryState, FundingRateProvider, FundingSnapshot } from "./strategy/funding-carry.js";
+// Phase 6 Track C — Kelly-opt position sizing (risk module).
+export {
+  applyRiskCaps,
+  DEFAULT_KELLY_OPT_CONFIG,
+  extractTradeStats,
+  fractionalKelly,
+  fullKellyFraction,
+  optimizeKelly,
+  splitIntoWindows,
+  runWalkForwardValidation,
+} from "./risk/kelly-position-sizer.js";
+export type {
+  KellyFraction,
+  KellyOptConfig,
+  KellyOptResult,
+  TradeStats,
+  WalkForwardValidation,
+  WalkForwardWindow,
+  WalkForwardSplit,
+} from "./risk/kelly-position-sizer.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
