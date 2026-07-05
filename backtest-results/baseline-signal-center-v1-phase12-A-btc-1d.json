@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-07-05T20:54:16.718Z",
+    "generatedAt": "2026-07-05T21:34:12.761Z",
     "phase": 12,
     "milestone": "M2-Track-D-integration-composition",
     "composition": "A",
@@ -127,8 +127,8 @@
     "phase12Defense": []
   },
   "envelope": {
-    "monthlyReturnPct": 1.2910879673306397,
-    "annualizedReturnPct": 16.62820307821051,
+    "monthlyReturnPct": 1.2910486670624666,
+    "annualizedReturnPct": 16.62766048400348,
     "sharpeRatio": 8.367505455689988,
     "maxDrawdownPct": 0.00027196766169476486,
     "dailyVaR95Pct": 0,
@@ -136,7 +136,50 @@
     "liquidations": 0,
     "totalReturnPct": 47.166500076016,
     "combinedAvgMultiplier": 0.5348693575429381,
-    "composition": "4 baseline + 0 Phase 12 = 4 plugins"
+    "composition": "4 baseline + 0 Phase 12 = 4 plugins",
+    "walkForwardSharpe": {
+      "folds": [
+        0,
+        0,
+        10.4655,
+        19.7574,
+        13.0001,
+        12.4475,
+        0,
+        4.987,
+        7.0184,
+        10.9212,
+        12.5962,
+        9.7842,
+        15.0452,
+        10.4879,
+        7.1314,
+        11.1282,
+        18.9784,
+        6.6046,
+        9.6767,
+        7.4711,
+        7.8346,
+        11.8662,
+        12.5132,
+        15.4988
+      ],
+      "mean": 9.8006,
+      "median": 10.4767,
+      "min": 0,
+      "max": 19.7574,
+      "minFold": {
+        "fold": 1,
+        "sharpe": 0
+      },
+      "maxFold": {
+        "fold": 4,
+        "sharpe": 19.7574
+      },
+      "isDays": 180,
+      "oosDays": 30,
+      "foldCount": 24
+    }
   },
   "phase12PluginStats": {
     "p1": null,
@@ -151,10 +194,10 @@
     "aggregateLeverage": 2.5,
     "note": "Composition A: 4 plugins wired. Phase 12 read-only plugins (P1/E1/M1) contribute ZERO notional by construction. 1:10 cap holds cleanly."
   },
-  "totalMonths": 30.12059876099613,
+  "totalMonths": 30.12150979347654,
   "startTime": 1704067200000,
   "endTime": 1783036800000,
   "ohlcvCandleCount": 915,
   "fundingSnapshotCount": 2745,
-  "elapsedMs": 41
+  "elapsedMs": 51
 }

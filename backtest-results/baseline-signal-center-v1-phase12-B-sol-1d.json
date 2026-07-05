@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-07-05T20:54:16.915Z",
+    "generatedAt": "2026-07-05T21:34:16.707Z",
     "phase": 12,
     "milestone": "M2-Track-D-integration-composition",
     "composition": "B",
@@ -138,8 +138,8 @@
     ]
   },
   "envelope": {
-    "monthlyReturnPct": 0.6192866716878909,
-    "annualizedReturnPct": 7.683743861092673,
+    "monthlyReturnPct": 0.6192678529173712,
+    "annualizedReturnPct": 7.683502366212269,
     "sharpeRatio": 5.436506266266737,
     "maxDrawdownPct": 0.0015825799684035873,
     "dailyVaR95Pct": 0,
@@ -147,7 +147,50 @@
     "liquidations": 0,
     "totalReturnPct": 20.437124285285442,
     "combinedAvgMultiplier": 0.1525418095108265,
-    "composition": "5 baseline + 1 Phase 12 = 6 plugins"
+    "composition": "5 baseline + 1 Phase 12 = 6 plugins",
+    "walkForwardSharpe": {
+      "folds": [
+        0,
+        5.1089,
+        11.3563,
+        9.3702,
+        15.377,
+        11.0978,
+        8.3357,
+        8.1672,
+        11.5167,
+        9.4,
+        13.3207,
+        8.4429,
+        15.1758,
+        5.6488,
+        0,
+        8.3301,
+        13.8067,
+        7.487,
+        9.3518,
+        5.0662,
+        7.6856,
+        13.4316,
+        10.6578,
+        7.7699
+      ],
+      "mean": 8.996,
+      "median": 8.8973,
+      "min": 0,
+      "max": 15.377,
+      "minFold": {
+        "fold": 1,
+        "sharpe": 0
+      },
+      "maxFold": {
+        "fold": 5,
+        "sharpe": 15.377
+      },
+      "isDays": 180,
+      "oosDays": 30,
+      "foldCount": 24
+    }
   },
   "phase12PluginStats": {
     "p1": {
@@ -169,10 +212,10 @@
     "aggregateLeverage": 2.5,
     "note": "Composition B: 6 plugins wired. Phase 12 read-only plugins (P1/E1/M1) contribute ZERO notional by construction. 1:10 cap holds cleanly."
   },
-  "totalMonths": 30.12059876099613,
+  "totalMonths": 30.12151126837251,
   "startTime": 1704067200000,
   "endTime": 1783036800000,
   "ohlcvCandleCount": 915,
   "fundingSnapshotCount": 2745,
-  "elapsedMs": 34
+  "elapsedMs": 44
 }

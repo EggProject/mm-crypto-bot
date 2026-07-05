@@ -293,6 +293,86 @@ function pearson(xs: readonly number[], ys: readonly number[]): number {
 }
 
 // ---------------------------------------------------------------------------
+// Walk-forward Sharpe (24 folds × 180d IS / 30d OOS sliding window)
+// ---------------------------------------------------------------------------
+
+interface WalkForwardResult {
+  readonly folds: readonly number[]; // 24 fold Sharpes (annualized)
+  readonly mean: number;
+  readonly median: number;
+  readonly min: number;
+  readonly max: number;
+  readonly minFold: { fold: number; sharpe: number };
+  readonly maxFold: { fold: number; sharpe: number };
+  readonly isDays: number;
+  readonly oosDays: number;
+  readonly foldCount: number;
+}
+
+function computeWalkForwardSharpe(
+  curve: readonly DailyPoint[],
+  isDays: number = 180,
+  oosDays: number = 30,
+  foldCount: number = 24,
+): WalkForwardResult {
+  if (curve.length < isDays + oosDays) {
+    return {
+      folds: [], mean: 0, median: 0, min: 0, max: 0,
+      minFold: { fold: 0, sharpe: 0 }, maxFold: { fold: 0, sharpe: 0 },
+      isDays, oosDays, foldCount,
+    };
+  }
+  const folds: number[] = [];
+  for (let f = 0; f < foldCount; f++) {
+    const oosStart = isDays + f * oosDays;
+    const oosEnd = Math.min(oosStart + oosDays, curve.length);
+    if (oosEnd - oosStart < 7) break; // need ≥7 OOS daily bars for stable Sharpe
+    const dailyR: number[] = [];
+    for (let i = oosStart + 1; i < oosEnd; i++) {
+      const prev = curve[i - 1]!.equity;
+      const cur = curve[i]!.equity;
+      if (prev > 0) dailyR.push((cur - prev) / prev);
+    }
+    if (dailyR.length < 2) {
+      folds.push(0);
+      continue;
+    }
+    const meanR = dailyR.reduce((a, b) => a + b, 0) / dailyR.length;
+    const variance = dailyR.reduce((a, b) => a + (b - meanR) ** 2, 0) / (dailyR.length - 1);
+    const stdR = Math.sqrt(variance);
+    const sharpe = stdR > 0 ? (meanR / stdR) * Math.sqrt(365) : 0;
+    folds.push(Number(sharpe.toFixed(4)));
+  }
+  if (folds.length === 0) {
+    return {
+      folds: [], mean: 0, median: 0, min: 0, max: 0,
+      minFold: { fold: 0, sharpe: 0 }, maxFold: { fold: 0, sharpe: 0 },
+      isDays, oosDays, foldCount,
+    };
+  }
+  const sorted = [...folds].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
+  const minV = Math.min(...folds);
+  const maxV = Math.max(...folds);
+  const mean = folds.reduce((a, b) => a + b, 0) / folds.length;
+  const minFoldIdx = folds.indexOf(minV);
+  const maxFoldIdx = folds.indexOf(maxV);
+  return {
+    folds,
+    mean: Number(mean.toFixed(4)),
+    median: Number(median.toFixed(4)),
+    min: Number(minV.toFixed(4)),
+    max: Number(maxV.toFixed(4)),
+    minFold: { fold: minFoldIdx + 1, sharpe: minV },
+    maxFold: { fold: maxFoldIdx + 1, sharpe: maxV },
+    isDays,
+    oosDays,
+    foldCount: folds.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Per-symbol baseline plugin spec (Phase 11.2a regime runner parity)
 // ---------------------------------------------------------------------------
 
@@ -863,6 +943,8 @@ async function writeOutput(
       totalReturnPct: m.totalReturn * 100,
       combinedAvgMultiplier: sim.combinedAvgMultiplier,
       composition: `${baselinePlugins.length} baseline + ${phase12Plugins.length} Phase 12 = ${allPlugins.length} plugins`,
+      // Walk-forward Sharpe (24 folds × 180d IS / 30d OOS sliding window)
+      walkForwardSharpe: computeWalkForwardSharpe(sim.equityCurve, 180, 30, 24),
     },
     phase12PluginStats: {
       p1: phase12.p1 ? {

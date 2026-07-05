@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-07-05T20:54:17.197Z",
+    "generatedAt": "2026-07-05T21:34:14.831Z",
     "phase": 12,
     "milestone": "M2-Track-D-integration-composition",
     "composition": "E",
@@ -140,8 +140,8 @@
     ]
   },
   "envelope": {
-    "monthlyReturnPct": 1.2269651637401013,
-    "annualizedReturnPct": 15.745971167452355,
+    "monthlyReturnPct": 1.2269277977739135,
+    "annualizedReturnPct": 15.745458856997917,
     "sharpeRatio": 1.3764741843976949,
     "maxDrawdownPct": 0.0003070679533942755,
     "dailyVaR95Pct": 0,
@@ -149,7 +149,50 @@
     "liquidations": 0,
     "totalReturnPct": 44.38604397477879,
     "combinedAvgMultiplier": 0.2925078922723686,
-    "composition": "5 baseline + 2 Phase 12 = 7 plugins"
+    "composition": "5 baseline + 2 Phase 12 = 7 plugins",
+    "walkForwardSharpe": {
+      "folds": [
+        0,
+        3.5477,
+        16.1613,
+        23.0959,
+        3.9234,
+        10.6114,
+        0,
+        3.5477,
+        10.9173,
+        12.5201,
+        14.4215,
+        7.7098,
+        3.6491,
+        7.7983,
+        3.5477,
+        11.4621,
+        13.2625,
+        8.6607,
+        9.9777,
+        6.2214,
+        11.5192,
+        10.1973,
+        12.8107,
+        14.3629
+      ],
+      "mean": 9.1636,
+      "median": 10.0875,
+      "min": 0,
+      "max": 23.0959,
+      "minFold": {
+        "fold": 1,
+        "sharpe": 0
+      },
+      "maxFold": {
+        "fold": 4,
+        "sharpe": 23.0959
+      },
+      "isDays": 180,
+      "oosDays": 30,
+      "foldCount": 24
+    }
   },
   "phase12PluginStats": {
     "p1": {
@@ -180,10 +223,10 @@
     "aggregateLeverage": 5.75,
     "note": "Composition E: 7 plugins wired. Phase 12 read-only plugins (P1/E1/M1) contribute ZERO notional by construction. 1:10 cap holds cleanly."
   },
-  "totalMonths": 30.12059876099613,
+  "totalMonths": 30.121510510202217,
   "startTime": 1704067200000,
   "endTime": 1783036800000,
   "ohlcvCandleCount": 915,
   "fundingSnapshotCount": 2745,
-  "elapsedMs": 31
+  "elapsedMs": 40
 }
