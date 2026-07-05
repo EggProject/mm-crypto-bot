@@ -311,9 +311,9 @@ interface WalkForwardResult {
 
 function computeWalkForwardSharpe(
   curve: readonly DailyPoint[],
-  isDays: number = 180,
-  oosDays: number = 30,
-  foldCount: number = 24,
+  isDays = 180,
+  oosDays = 30,
+  foldCount = 24,
 ): WalkForwardResult {
   if (curve.length < isDays + oosDays) {
     return {
