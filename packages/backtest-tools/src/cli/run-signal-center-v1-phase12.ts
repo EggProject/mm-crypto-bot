@@ -98,6 +98,10 @@ interface CliArgs {
   readonly regimeLearningDays: number;
   readonly regimeMinObservations: number;
   readonly outputDir: string;
+  /** Risk per trade as a fraction of equity (e.g. 0.05 = 5%). */
+  readonly riskPerTrade: number;
+  /** Max concurrent positions across the per-symbol plugin set. */
+  readonly maxPositions: number;
 }
 
 function parseAndValidateLeverage(raw: string): 1 | 10 {
@@ -149,6 +153,8 @@ function parseArgs(): CliArgs {
     regimeLearningDays: 30,
     regimeMinObservations: 5,
     outputDir: "backtest-results",
+    riskPerTrade: 0.01,
+    maxPositions: 3,
   };
   for (const arg of args) {
     if (arg.startsWith("--composition=")) o.composition = parseComposition(arg.slice("--composition=".length));
@@ -173,6 +179,20 @@ function parseArgs(): CliArgs {
     else if (arg.startsWith("--regime-learning-days=")) o.regimeLearningDays = Number(arg.slice("--regime-learning-days=".length));
     else if (arg.startsWith("--regime-min-obs=")) o.regimeMinObservations = Number(arg.slice("--regime-min-obs=".length));
     else if (arg.startsWith("--output-dir=")) o.outputDir = arg.slice("--output-dir=".length);
+    else if (arg.startsWith("--risk-per-trade=")) {
+      const r = Number(arg.slice("--risk-per-trade=".length));
+      if (!Number.isFinite(r) || r <= 0 || r > 0.1) {
+        throw new Error(`[SCV1-P12] Invalid --risk-per-trade=${String(r)} (must be in (0, 0.1])`);
+      }
+      o.riskPerTrade = r;
+    }
+    else if (arg.startsWith("--max-positions=")) {
+      const m = Number(arg.slice("--max-positions=".length));
+      if (!Number.isInteger(m) || m < 1 || m > 20) {
+        throw new Error(`[SCV1-P12] Invalid --max-positions=${String(m)} (must be integer in [1, 20])`);
+      }
+      o.maxPositions = m;
+    }
   }
   return o;
 }
@@ -490,7 +510,14 @@ function simulateSymbol(opts: SimulateOpts): SimOutputs {
   const sc = createSignalCenterV1({ initialEquity: opts.initialEquity, maxLeverage: 10, symbol });
 
   // Capital allocation: only ACTIVE plugins (carry + directional) take a notional slot.
-  const perPluginBaseNotional = opts.baseNotionalUsd / spec.activePluginCount;
+  // Risk-aware sizing override:
+  //   totalNotional = equity * riskPerTrade * leverage * maxPositions
+  //   perPluginBaseNotional = totalNotional / max(maxPositions, activePluginCount)
+  // This honors user-specified risk per trade + max concurrent positions, with the
+  // 1:10 leverage cap applied per-plugin via PluginMetadata.maxLeverage enforcement.
+  const totalNotional = opts.initialEquity * args.riskPerTrade * opts.leverage * args.maxPositions;
+  const denominator = Math.max(args.maxPositions, spec.activePluginCount);
+  const perPluginBaseNotional = totalNotional / denominator;
 
   // Construct per-symbol baseline plugin set (Phase 11.2a regime runner parity)
   const carry = spec.carry
@@ -1048,8 +1075,13 @@ async function main(): Promise<void> {
   const dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
   const fundingDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "funding");
   const feed = new CsvExchangeFeed(dataDir) as unknown as ExchangeFeed;
-  const startTime = new Date(Date.UTC(2024, 0, 1));
-  const endTime = new Date();
+  // Window is derived from --window-days relative to the latest available bar in the CSV.
+  // Default 365d → "last 1 year". The runner clamps endTime to the last available bar.
+  const dataEndTs = await feed
+    .fetchOHLCV("BTC/USDT", args.timeframe, { since: Date.UTC(2024, 0, 1), limit: Number.MAX_SAFE_INTEGER })
+    .then((rows) => rows.length > 0 ? rows[rows.length - 1]!.timestamp : Date.now());
+  const endTime = new Date(dataEndTs);
+  const startTime = new Date(dataEndTs - args.windowDays * 24 * 60 * 60 * 1000);
 
   // Iterate: outer = composition, inner = symbol. This way each composition's
   // JSON files are clustered for clean diff + DROP/RETAIN reasoning per composition.
@@ -1057,6 +1089,9 @@ async function main(): Promise<void> {
     for (const symbol of symbols) {
       console.log(`\n[SCV1-P12] Phase 12 M2 Track D — composition=${composition} symbol=${symbol} ltf=${args.timeframe}`);
       console.log(`[SCV1-P12] HARD CONSTRAINT: leverage = ${args.leverage} (1:${args.leverage})`);
+      console.log(
+        `[SCV1-P12] RISK: equity=$${args.initialEquity} riskPerTrade=${(args.riskPerTrade * 100).toFixed(2)}% maxPositions=${args.maxPositions} window=${args.windowDays}d startTime=${startTime.toISOString().slice(0, 10)} endTime=${endTime.toISOString().slice(0, 10)}`,
+      );
 
       const ohlcvAll = await feed.fetchOHLCV(symbol, args.timeframe, {
         since: startTime.getTime(),
