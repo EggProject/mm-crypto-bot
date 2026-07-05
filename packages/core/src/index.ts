@@ -233,6 +233,7 @@ export {
   isCarry,
   isDirection,
   isFactor,
+  isFundingSnapshot,
   isRisk,
   isSizing,
   ok,
@@ -248,6 +249,7 @@ export type {
   Err,
   FactorRegime,
   FactorSignal,
+  FundingSnapshotSignal,
   Ok,
   PluginState,
   Result,
@@ -481,6 +483,46 @@ export type {
   IExchangeNetflowAdapter,
   NetflowSample,
 } from "./signal-center/plugins/cex-netflow-regime-plugin.js";
+// Phase 12 Track B / Phase 11.5 Track E §H1 — read-only signal plugin.
+// EIGHTH Phase 11+ drop-in. Polls HL + Binance + Bybit + OKX funding,
+// normalizes to 8h-equivalent basis points, emits per-asset
+// `FundingSnapshotSignal` (new 6th SignalKind variant added in types.ts).
+// Foundation for downstream execution plugins (Phase 12 E2
+// CrossDexDeltaNeutralArb). 6 default assets: BTC/ETH/SOL/HYPE/DOGE/JUP.
+// `FundingSnapshotSignal` is the new Signal union member — also re-exported
+// from `./signal-center/types.js` below. `isFundingSnapshot` type guard
+// added to types.ts.
+// `DEFAULT_ASSETS` / `DEFAULT_POLL_INTERVAL_SEC` / etc. are unique to
+// cross-dex-funding-watcher so no aliasing needed.
+export {
+  CrossDexFundingWatcherPlugin,
+  DEFAULT_ASSETS,
+  DEFAULT_MAX_PREDICTED_GAP_BPS,
+  DEFAULT_MAX_SPREAD_BPS_THRESHOLD,
+  DEFAULT_POLL_INTERVAL_SEC,
+  createCrossDexFundingWatcherPlugin,
+  parseBzMarkPrice,
+  parseBzMarkPriceBatch,
+  parseByTicker,
+  parseByTickerBatch,
+  parseHlMetaAndAssetCtxs,
+  parseHlPredictedFundings,
+  parseOkFundingRate,
+  parseOkFundingRateBatch,
+  toBinanceSymbol,
+  toBybitSymbol,
+  toOkxSymbol,
+} from "./signal-center/plugins/cross-dex-funding-watcher-plugin.js";
+export type {
+  BinanceMarkPrice,
+  BybitTicker,
+  CrossDexFundingWatcherConfig,
+  CrossDexFundingWatcherPluginState,
+  HlAssetCtx,
+  HlPredictedFunding,
+  OkxFundingRate,
+  VenueId,
+} from "./signal-center/plugins/cross-dex-funding-watcher-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,

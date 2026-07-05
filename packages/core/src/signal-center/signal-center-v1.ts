@@ -762,6 +762,30 @@ export function toRiskEngineSignal(
         effectiveNotionalUsd: 0,
         timestamp: ts,
       };
+    case "funding-snapshot":
+      // FundingSnapshotSignal carries cross-venue funding telemetry
+      // (Phase 12 Track B / Phase 11.5 Track E §H1). The PortfolioRiskEngine
+      // has no native funding-snapshot concept — the snapshot is
+      // observational metadata for E2 (CrossDexDeltaNeutralArb) and the
+      // central telemetry sink. Map to a neutral direction signal so the
+      // exhaustive switch stays satisfied and the SCv1 risk engine is
+      // never asked to act on funding telemetry.
+      return {
+        kind: "direction",
+        source: signal.source,
+        symbol,
+        // Side must be 'long' or 'short' per internal DirectionSignal;
+        // 'long' is the neutral-default when funding-snapshot has no
+        // directional instruction. confidence: 0 ensures the risk engine
+        // does NOT allocate based on this telemetry.
+        side: "long",
+        confidence: 0,
+        effectiveNotionalUsd: 0,
+        timestamp: ts,
+      };
+        effectiveNotionalUsd: 0,
+        timestamp: ts,
+      };
   }
 }
 

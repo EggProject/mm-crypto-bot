@@ -53,7 +53,13 @@
  * step 4 fails the compiler with `Type 'XxxSignal' is not assignable to
  * type 'never'` (the classic discriminated-union exhaustiveness trick).
  */
-export type SignalKind = "direction" | "carry" | "sizing" | "risk" | "factor";
+export type SignalKind =
+  | "direction"
+  | "carry"
+  | "sizing"
+  | "risk"
+  | "factor"
+  | "funding-snapshot";
 
 // ---------------------------------------------------------------------------
 // DirectionSignal — a directional view (long / short / flat) with strength.
@@ -209,7 +215,58 @@ export interface RiskSignal {
 }
 
 // ---------------------------------------------------------------------------
-// FactorSignal — continuous factor-layer read-only signal (Phase 12+).
+// FundingSnapshotSignal — cross-venue funding snapshot (Phase 12 Track B).
+// ---------------------------------------------------------------------------
+
+/**
+ * `FundingSnapshotSignal` — read-only telemetry emitted by
+ * `CrossDexFundingWatcherPlugin` (Phase 12 Track B / Phase 11.5
+ * Track E §H1).
+ *
+ * Carries the latest 8h-equivalent funding rate per venue for a single
+ * asset, plus the per-asset cross-venue spread and the
+ * Hyperliquid predicted-vs-realized gap. Consumers include
+ * `CrossDexDeltaNeutralArb` (Phase 12 E2, future), the central
+ * `SignalCenterV1` telemetry sink, and ad-hoc research dashboards.
+ *
+ * This is a SIGNAL-ONLY signal: it carries zero notional impact
+ * (`spreadMax` is information, not a position instruction). The
+ * 1:10 leverage mandate is trivially satisfied at the metadata cap
+ * (`maxLeverage = 10`) — no notional assertion is needed at the
+ * per-emit layer because no notional is computed.
+ *
+ * Fields are 8h-equivalent basis points (bps):
+ *   - `hl8h` — Hyperliquid 8h-equivalent rate. Hyperliquid settles
+ *     hourly at 1/8 of the computed 8h rate, so the 1-hour raw
+ *     funding is multiplied by 8 to get the 8h-equivalent. Bps.
+ *   - `bz` — Binance mark funding rate (8h native). Bps.
+ *   - `by` — Bybit funding rate (8h native). Bps.
+ *   - `ok` — OKX funding rate (8h native). Bps.
+ *   - `spreadMax` — `max(hl8h, bz, by, ok) - min(...)` in bps.
+ *     Captures the maximum divergence opportunity across venues.
+ *   - `predictedGap` — Hyperliquid `predictedFundings` next-settlement
+ *     minus current realized, normalized to 8h-equivalent bps.
+ *     Positive = predicted is HIGHER than realized (fade short,
+ *     carry on the next settlement). Negative = predicted is LOWER
+ *     (long the next settlement).
+ *   - `timestamp` — wall-clock ms when the snapshot was emitted.
+ */
+export interface FundingSnapshotSignal {
+  readonly kind: "funding-snapshot";
+  readonly asset: string;
+  readonly hl8h: number;
+  readonly bz: number;
+  readonly by: number;
+  readonly ok: number;
+  readonly spreadMax: number;
+  readonly predictedGap: number;
+  readonly timestamp: number;
+  readonly source: string;
+  readonly timestampMs?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Signal — the discriminated union (sum type) of all signal categories.
 // ---------------------------------------------------------------------------
 
 /**
@@ -298,7 +355,8 @@ export type Signal =
   | CarrySignal
   | SizingSignal
   | RiskSignal
-  | FactorSignal;
+  | FactorSignal
+  | FundingSnapshotSignal;
 
 // ---------------------------------------------------------------------------
 // Type guards — runtime narrowing for type-safe consumption.
@@ -339,6 +397,16 @@ export function isRisk(s: Signal): s is RiskSignal {
  */
 export function isFactor(s: Signal): s is FactorSignal {
   return s.kind === "factor";
+}
+
+/**
+ * `isFundingSnapshot` — narrow `Signal` to `FundingSnapshotSignal`.
+ * Returns `true` iff `s.kind === "funding-snapshot"`. Added in
+ * Phase 12 Track B for the `CrossDexFundingWatcherPlugin` (Phase 11.5
+ * Track E §H1 read-only signal stream).
+ */
+export function isFundingSnapshot(s: Signal): s is FundingSnapshotSignal {
+  return s.kind === "funding-snapshot";
 }
 
 /**
