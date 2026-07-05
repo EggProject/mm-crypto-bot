@@ -534,6 +534,22 @@ export class DecisionEngine implements DecisionEngineLike {
 }
 
 // ---------------------------------------------------------------------------
+// Exhaustiveness helper — compile-time guard for the `Signal` discriminated union
+// ---------------------------------------------------------------------------
+
+/**
+ * `assertExhaustiveSignal` — exhaustive switch guard. If a new `SignalKind`
+ * is added to the bus, this function's parameter type narrows to the
+ * unhandled variant and the next call site that imports it fails to
+ * compile. Mirrors Track A's `assertNever` but is signal-union-typed.
+ */
+export function assertExhaustiveSignal(x: never): never {
+  throw new Error(
+    `[DecisionEngine] Non-exhaustive Signal switch — unhandled kind: ${JSON.stringify(x)}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Re-export types for downstream consumers
 // ---------------------------------------------------------------------------
 
