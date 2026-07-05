@@ -286,6 +286,26 @@ export type {
   CarryBaselinePluginConfig,
   CarryBaselinePluginState,
 } from "./signal-center/plugins/carry-baseline-plugin.js";
+// Phase 11.1b — DirectionalMTFPlugin (Phase 8 F MTF drop-in, ETH default-on,
+// BTC opt-in, SOL not registered). Cherry-picked from feat/phase11-1b-directional-mtf
+// (commit b3ebf12) into feat/phase11-1d-sol-flip-kill-switch for Phase 11.1d Track C
+// composition runner (SCv1+MTF+SFK). Merge base is shared (8b24e0d), so the
+// cherry-pick is clean. Type alias DmCandle is intentionally re-exported
+// (same name as plugin-internal type).
+export {
+  ALLOWED_ENABLED_SYMBOLS,
+  DEFAULT_DIRECTIONAL_MTF_PLUGIN_CONFIG,
+  DEFAULT_ENABLED_SYMBOLS,
+  DirectionalMTFPlugin,
+  createDirectionalMTFPlugin,
+  extractDirectionSignal,
+} from "./signal-center/plugins/directional-mtf-plugin.js";
+export type {
+  DirectionalMTFPluginConfig,
+  DirectionalMTFPluginState,
+  DirectionalMTFSymbol,
+  DmCandle,
+} from "./signal-center/plugins/directional-mtf-plugin.js";
 // Phase 11.1d Track A — defensive drop-in plugin (SOL funding-flip kill-switch, Phase 9 9D port).
 // RiskSignals only (no SizingSignals); SOL enabled, BTC/ETH not registered.
 export {
