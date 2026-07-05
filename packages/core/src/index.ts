@@ -316,6 +316,35 @@ export type {
   SOLFlipKillSwitchPluginConfig,
   SOLFlipKillSwitchPluginState,
 } from "./signal-center/plugins/sol-flip-kill-switch-plugin.js";
+// Phase 11.1e Track A — carry-side adaptive sizing (Phase 9 9E port: Adaptive Kelly × VolTarget hybrid).
+// FOURTH and FINAL Phase 11+ drop-in. Wraps funding-Sharpe-based Kelly bucket
+// (0.25 / 0.5 / 0.7 / 1.0) × Moreira-Muir vol multiplier (clamped to [0.25, 1.0]).
+// Per-symbol: BTC/USDT, ETH/USDT, SOL/USDT all default-on.
+export {
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_HYBRID_KELLY_BASE_NOTIONAL_USD,
+  DEFAULT_ENABLED_SYMBOLS as DEFAULT_HYBRID_KELLY_ENABLED_SYMBOLS,
+  DEFAULT_FUNDING_SHARPE_WINDOW_DAYS,
+  DEFAULT_KELLY_CAP,
+  DEFAULT_MAX_VOL_MULTIPLIER,
+  DEFAULT_MIN_VOL_MULTIPLIER,
+  DEFAULT_TARGET_DAILY_VOL as DEFAULT_HYBRID_KELLY_TARGET_DAILY_VOL,
+  DEFAULT_VOL_WINDOW_DAYS as DEFAULT_HYBRID_KELLY_VOL_WINDOW_DAYS,
+  HybridKellyPlugin,
+  MAX_FUNDING_SHARPE_WINDOW_DAYS,
+  MAX_TARGET_DAILY_VOL as MAX_HYBRID_KELLY_TARGET_DAILY_VOL,
+  MAX_VOL_WINDOW_DAYS as MAX_HYBRID_KELLY_VOL_WINDOW_DAYS,
+  MIN_FUNDING_SHARPE_WINDOW_DAYS,
+  MIN_TARGET_DAILY_VOL as MIN_HYBRID_KELLY_TARGET_DAILY_VOL,
+  MIN_VOL_WINDOW_DAYS as MIN_HYBRID_KELLY_VOL_WINDOW_DAYS,
+  ONE_TO_TEN_LEVERAGE as HYBRID_KELLY_ONE_TO_TEN_LEVERAGE,
+  createHybridKellyPlugin,
+  extractSizingSignal as extractHybridKellySizingSignal,
+  inferSymbol as inferHybridKellySymbol,
+} from "./signal-center/plugins/hybrid-kelly-plugin.js";
+export type {
+  HybridKellyConfig,
+  HybridKellyPluginState,
+} from "./signal-center/plugins/hybrid-kelly-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,
