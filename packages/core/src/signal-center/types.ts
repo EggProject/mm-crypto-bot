@@ -53,7 +53,7 @@
  * step 4 fails the compiler with `Type 'XxxSignal' is not assignable to
  * type 'never'` (the classic discriminated-union exhaustiveness trick).
  */
-export type SignalKind = "direction" | "carry" | "sizing" | "risk";
+export type SignalKind = "direction" | "carry" | "sizing" | "risk" | "factor";
 
 // ---------------------------------------------------------------------------
 // DirectionSignal — a directional view (long / short / flat) with strength.
@@ -209,8 +209,75 @@ export interface RiskSignal {
 }
 
 // ---------------------------------------------------------------------------
-// Signal — the discriminated union (sum type) of all signal categories.
+// FactorSignal — continuous factor-layer read-only signal (Phase 12+).
 // ---------------------------------------------------------------------------
+
+/**
+ * `FactorRegime` — discrete regime classification emitted by
+ * `FactorSignal`-emitting plugins (e.g., CexNetFlowRegimePlugin for
+ * accumulation/neutral/distribution; future IBIT ETF netflow plugin
+ * for inflow/neutral/outflow; etc.).
+ *
+ * The factor plugin pair a CONTINUOUS signal (the z-score-derived
+ * `factor` in `[-1, +1]`) with a DISCRETE label (this regime) — the
+ * factor is for downstream ensembles that consume continuous signals
+ * (Phase 9M2 SCv1 already accepts arbitrary factor inputs); the regime
+ * is for downstream filters / kill-switches / risk engines that want
+ * a discrete trigger.
+ *
+ *   - `accumulation` — net flow OUT of exchanges (coins going to
+ *     cold storage / accumulation). Conventionally bullish.
+ *   - `neutral` — net flow within noise band.
+ *   - `distribution` — net flow INTO exchanges (coins going to
+ *     hot wallets / sell-side preparation). Conventionally bearish.
+ */
+export type FactorRegime = "accumulation" | "neutral" | "distribution";
+
+/**
+ * `FactorSignal` — Phase 12+ continuous factor-layer signal emitted
+ * by read-only factor plugins (e.g., CexNetFlowRegimePlugin).
+ *
+ * Read-only — does NOT carry notional, leverage, or position-size
+ * information. The factor plugin's role is to PUBLISH a continuous
+ * view; any sizing derived from the factor is the responsibility of
+ * downstream SizingSignal plugins (Phase 11.1c VolTarget / Phase 11.1e
+ * HybridKelly).
+ *
+ *  - `kind` — discriminator literal.
+ *  - `factor` — continuous value in `[-1, +1]`. The convention:
+ *    `+1` = strongly bullish (accumulation), `-1` = strongly bearish
+ *    (distribution), `0` = neutral. Emitted as a `tanh`-clipped
+ *    z-score by CexNetFlowRegimePlugin (so the bound is strict even
+ *    on extreme 5σ+ moves).
+ *  - `regime` — discrete classification. The plugin chooses the
+ *    regime label based on the same z-score as the factor (z > 1.5 →
+ *    accumulation; z ∈ [-1.5, 1.5] → neutral; z < -1.5 →
+ *    distribution, per Phase 11.5 Track D §P1).
+ *  - `zScore` — RAW rolling z-score on the underlying input series
+ *    (e.g., CEX netflow z-score over 90d window). Not clipped —
+ *    can be ±3σ+ for downstream forensic / debugging consumers.
+ *  - `source` — emitting plugin name (e.g., `cex-netflow-regime-v1`).
+ *  - `confidence` (Phase 12 P1 OPTIONAL) — observation-quality
+ *    weight in `[0, 1]`. Defaults to 1.0 once the rolling window is
+ *    sufficiently populated; lower values signal "fewer than X
+ *    observations — use with caution". Default: 1.0.
+ *  - `staleMs` (Phase 12 P1 OPTIONAL) — wall-clock-staleness
+ *    budget in ms. If the plugin's last fetch is older than
+ *    `staleMs`, downstream consumers should treat the factor as
+ *    telemetry-only (not actionable). Default: 0 (fresh).
+ */
+export interface FactorSignal {
+  readonly kind: "factor";
+  readonly factor: number;
+  readonly regime: FactorRegime;
+  readonly zScore: number;
+  readonly source: string;
+  readonly timestampMs?: number;
+  /** Observation-quality weight in [0, 1]. Default: 1.0. */
+  readonly confidence?: number;
+  /** Staleness budget in ms — if last fetch is older, factor is informational only. Default: 0. */
+  readonly staleMs?: number;
+}
 
 /**
  * `Signal` — discriminated union over `kind`. Use the `is*` guards below
@@ -226,7 +293,12 @@ export interface RiskSignal {
  * });
  * ```
  */
-export type Signal = DirectionSignal | CarrySignal | SizingSignal | RiskSignal;
+export type Signal =
+  | DirectionSignal
+  | CarrySignal
+  | SizingSignal
+  | RiskSignal
+  | FactorSignal;
 
 // ---------------------------------------------------------------------------
 // Type guards — runtime narrowing for type-safe consumption.
@@ -259,6 +331,14 @@ export function isSizing(s: Signal): s is SizingSignal {
  */
 export function isRisk(s: Signal): s is RiskSignal {
   return s.kind === "risk";
+}
+
+/**
+ * `isFactor` — narrow `Signal` to `FactorSignal`.
+ * Returns `true` iff `s.kind === "factor"`.
+ */
+export function isFactor(s: Signal): s is FactorSignal {
+  return s.kind === "factor";
 }
 
 /**

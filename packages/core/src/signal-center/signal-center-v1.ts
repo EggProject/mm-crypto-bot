@@ -749,6 +749,19 @@ export function toRiskEngineSignal(
         timestamp: ts,
         breach: false,
       };
+    case "factor":
+      // Phase 12+ — read-only FactorSignal (e.g., CexNetFlowRegimePlugin)
+      // has no notional impact. Map to a zero-notional "carry" shape so
+      // the risk engine's aggregates stay correct (zero incremental
+      // risk). The continuous factor value is NOT consumed by the risk
+      // engine in Phase 12 (downstream SizingSignal plugins handle that).
+      return {
+        kind: "carry",
+        source: signal.source,
+        symbol,
+        effectiveNotionalUsd: 0,
+        timestamp: ts,
+      };
   }
 }
 

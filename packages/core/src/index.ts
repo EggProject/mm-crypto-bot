@@ -232,6 +232,7 @@ export {
   err,
   isCarry,
   isDirection,
+  isFactor,
   isRisk,
   isSizing,
   ok,
@@ -245,6 +246,8 @@ export type {
   DirectionSide,
   DirectionSignal,
   Err,
+  FactorRegime,
+  FactorSignal,
   Ok,
   PluginState,
   Result,
@@ -421,6 +424,63 @@ export type {
   RegimeLabel,
   HMMStateIndex,
 } from "./signal-center/plugins/regime-detector-meta-plugin.js";
+// Phase 12 Track A — factor-layer read-only drop-in (Phase 11.5 Track D §H1 + §P1).
+// SEVENTH Phase 11+ drop-in (read-only FACTOR signal — continuous tanh-mapped
+// z-score in [-1, +1]). Pearson r = 0.47 with BTC daily volatility empirically
+// (arXiv 2501.05232 + Glassnode + CryptoQuant + CoinGlass). Per-symbol
+// accumulation / neutral / distribution regime classification at z = ±1.5
+// (Phase 11.5 §P1 thresholds). FREE-tier data adapters (Coinglass /
+// CryptoQuant / CoinGlass) with graceful degradation — skip emit, log warn,
+// do NOT crash the bus on outage. ZERO notional impact by construction;
+// 1:10 leverage cap is structurally unviolated (3-layer defense: L1 metadata,
+// L2 subscribe-bus, L3 per-emit zero-notional assertion).
+// `FactorSignal` interface + `FactorRegime` type + `isFactor` type guard +
+// `"factor"` SignalKind variant added to `types.ts` (Phase 12+).
+// New `EdgeClass = "factor"` variant added to `strategy-registry.ts`.
+// NOTE: `DEFAULT_ENABLED_SYMBOLS` is intentionally NOT re-exported here —
+// aliased to `CEX_NET_FLOW_ENABLED_SYMBOLS` to avoid TS2300 (Duplicate
+// identifier) collisions with hybrid-kelly/directional-mtf re-exports above.
+// Follows the same aliasing pattern as `DEFAULT_HYBRID_KELLY_*`.
+export {
+  CexNetFlowRegimePlugin,
+  CoinglassNetflowAdapter,
+  CoinGlassExchangeBalanceAdapter,
+  CryptoQuantNetflowAdapter,
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_CEX_NET_FLOW_BASE_NOTIONAL_USD,
+  DEFAULT_ENABLED_SYMBOLS as CEX_NET_FLOW_ENABLED_SYMBOLS,
+  DEFAULT_FACTOR_SCALING_Z,
+  DEFAULT_MAX_STALE_MS,
+  DEFAULT_MIN_OBSERVATIONS as DEFAULT_CEX_NET_FLOW_MIN_OBSERVATIONS,
+  DEFAULT_POLL_INTERVAL_MS,
+  DEFAULT_REGIME_LOWER_Z,
+  DEFAULT_REGIME_UPPER_Z,
+  DEFAULT_WINDOW_DAYS,
+  MAX_MAX_STALE_MS as CEX_NET_FLOW_MAX_MAX_STALE_MS,
+  MAX_MIN_OBSERVATIONS as CEX_NET_FLOW_MAX_MIN_OBSERVATIONS,
+  MAX_POLL_INTERVAL_MS as CEX_NET_FLOW_MAX_POLL_INTERVAL_MS,
+  MAX_WINDOW_DAYS as CEX_NET_FLOW_MAX_WINDOW_DAYS,
+  MAX_FACTOR_SCALING_Z as CEX_NET_FLOW_MAX_FACTOR_SCALING_Z,
+  MAX_REGIME_UPPER_Z as CEX_NET_FLOW_MAX_REGIME_UPPER_Z,
+  MAX_REGIME_LOWER_Z_UPPER_BOUND as CEX_NET_FLOW_MAX_REGIME_LOWER_Z_UPPER_BOUND,
+  MIN_MAX_STALE_MS as CEX_NET_FLOW_MIN_MAX_STALE_MS,
+  MIN_MIN_OBSERVATIONS as CEX_NET_FLOW_MIN_MIN_OBSERVATIONS,
+  MIN_POLL_INTERVAL_MS as CEX_NET_FLOW_MIN_POLL_INTERVAL_MS,
+  MIN_WINDOW_DAYS as CEX_NET_FLOW_MIN_WINDOW_DAYS,
+  MIN_FACTOR_SCALING_Z as CEX_NET_FLOW_MIN_FACTOR_SCALING_Z,
+  MIN_REGIME_UPPER_Z as CEX_NET_FLOW_MIN_REGIME_UPPER_Z,
+  MIN_REGIME_LOWER_Z_LOWER_BOUND as CEX_NET_FLOW_MIN_REGIME_LOWER_Z_LOWER_BOUND,
+  NullNetflowAdapter,
+  classifyRegime,
+  computeFactor,
+  computeZScore,
+  createCexNetFlowRegimePlugin,
+} from "./signal-center/plugins/cex-netflow-regime-plugin.js";
+export type {
+  CexNetFlowRegimeConfig,
+  CexNetFlowRegimePluginState,
+  IExchangeNetflowAdapter,
+  NetflowSample,
+} from "./signal-center/plugins/cex-netflow-regime-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,
