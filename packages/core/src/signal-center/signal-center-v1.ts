@@ -783,9 +783,6 @@ export function toRiskEngineSignal(
         effectiveNotionalUsd: 0,
         timestamp: ts,
       };
-        effectiveNotionalUsd: 0,
-        timestamp: ts,
-      };
   }
 }
 

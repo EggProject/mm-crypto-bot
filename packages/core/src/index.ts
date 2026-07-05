@@ -523,6 +523,50 @@ export type {
   OkxFundingRate,
   VenueId,
 } from "./signal-center/plugins/cross-dex-funding-watcher-plugin.js";
+// Phase 12 Track C — defensive read-only RiskSignal plugin (Phase 11.5 Track D §E1+§E5).
+// NINTH Phase 11+ drop-in. Tick-level liquidation cascade detector (0xArchive +
+// HypurrScan + GoldRush + CoinGlass + HyperTracker feeds) → emits RiskSignal
+// with `closeNotionalUsd` when OI drop + LSR deadlock + thin book + paper-tiger
+// all trigger. Throttled 24h cooldown per symbol. Layer 3 per-emit assertion
+// fires `closeNotionalUsd ≤ baseNotionalUsd × 10` (1:10 cap). Defensive
+// overlay: orthogonally complements Phase 11.2a RegimeDetector.
+export {
+  CoinGlassLiquidationAdapter,
+  DEFAULT_OI_DROP_THRESHOLD_PCT,
+  DEFAULT_LSR_DEADLOCK_LOWER,
+  DEFAULT_LSR_DEADLOCK_UPPER,
+  DEFAULT_THIN_BOOK_TOP5_DEPTH_PCT,
+  DEFAULT_PAPER_TIGER_WALL_INSERTION_MIN,
+  DEFAULT_PAPER_TIGER_CLUSTER_MIN_SIZE,
+  DEFAULT_POLL_INTERVAL_SEC as DEFAULT_PERPDEX_POLL_INTERVAL_SEC,
+  DEFAULT_THROTTLE_COOLDOWN_MS,
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_PERPDEX_BASE_NOTIONAL_USD,
+  DEFAULT_SIZE_MODIFIER,
+  DEFAULT_ENABLED_SYMBOLS as DEFAULT_PERPDEX_ENABLED_SYMBOLS,
+  GoldRushLiquidationAdapter,
+  HypurrScanLiquidationAdapter,
+  HyperTrackerLiquidationAdapter,
+  MAX_OI_DROP_THRESHOLD_PCT,
+  MAX_POLL_INTERVAL_SEC as MAX_PERPDEX_POLL_INTERVAL_SEC,
+  MIN_OI_DROP_THRESHOLD_PCT,
+  MIN_PAPER_TIGER_CLUSTER_MIN_SIZE,
+  MIN_PAPER_TIGER_WALL_INSERTION_MIN,
+  MIN_POLL_INTERVAL_SEC as MIN_PERPDEX_POLL_INTERVAL_SEC,
+  MockLiquidationAdapter,
+  NullLiquidationAdapter,
+  PerpDexLiquidationSignalsPlugin,
+  ZeroArchiveLiquidationAdapter,
+  evaluateCascadeHeuristic,
+} from "./signal-center/plugins/perpdex-liquidation-signals-plugin.js";
+export type {
+  CascadeHeuristicResult,
+  ILiquidationFeedAdapter,
+  LiquidationSnapshot,
+  PaperTigerSignal,
+  PerpDexLiquidationSignalsPluginConfig,
+  PerpDexLiquidationSignalsPluginState,
+  SymbolCascadeState,
+} from "./signal-center/plugins/perpdex-liquidation-signals-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,

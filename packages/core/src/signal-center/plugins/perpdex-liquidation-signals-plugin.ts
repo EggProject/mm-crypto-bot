@@ -816,11 +816,16 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   public validateConfig(config: unknown): Result<void, ConfigError> {
-    if (typeof config !== "object" || config === null) {
+    // SCv1.start() calls registry.validateAll() with no config arg, which
+    // invokes each plugin's validateConfig(undefined). The constructor
+    // already validated the actual config — this is a metadata-only audit.
+    if (config === undefined || config === null) {
+      // Fall through to metadata invariants below.
+    } else if (typeof config !== "object") {
       return err({
         pluginName: this.metadata.name,
         field: "config",
-        message: "config must be an object",
+        message: "config must be an object or null/undefined",
       });
     }
     // The plugin validates its own config in the constructor; this is a
