@@ -454,6 +454,44 @@ describe("SignalCenterV1 — 3-layer 1:10 leverage invariant", () => {
     const risk = sc.getPortfolioRisk();
     expect(risk.numLeverageBreaches).toBe(0);
   });
+
+  it("Layer 2: start() — assertLeverageInvariant throws on initial notional breach", () => {
+    // Setup: SCv1 with $10k base, 1:10 cap. Risk engine is clean at boot.
+    const sc = new SignalCenterV1({ initialEquity: 10_000, maxLeverage: 10 });
+    // Pre-populate the risk engine with a 12× position (120_000 notional)
+    // BEFORE start() is called. This simulates misuse (or a leftover state
+    // from a previous run that was not cleared). The Layer-2 guard in
+    // start() must fail-fast with a leverage invariant error.
+    sc.riskEngine.submitSignal({
+      kind: "sizing",
+      symbol: "BTC/USDT",
+      source: "test-prepop",
+      effectiveNotionalUsd: 120_000, // 12× of $10k → BREACH
+      leverage: 12, // matches the effective notional ratio
+      timestamp: 1_700_000_000_000,
+    });
+    // Register a valid plugin so start() doesn't fail on the 0-plugins check.
+    const p = new SyntheticSizingPlugin(10_000);
+    (p.metadata as { name: string }).name = "valid-plugin";
+    sc.registerPlugin(p);
+    // The Layer-2 guard runs in start() and must throw on the breach.
+    expect(() => sc.start()).toThrow(/leverage/i);
+    // Also assert that start() did NOT complete — _started stays false.
+    // (We can't read _started directly since it's private; instead, calling
+    // start() again should not throw "called twice" because the first call
+    // threw before setting _started = true.)
+    expect(() => sc.start()).toThrow(/leverage/i);
+  });
+
+  it("Layer 2: start() — clean risk engine at boot does NOT throw (passes Layer 2 trivially)", () => {
+    // Setup: SCv1 with $10k base, 1:10 cap. Risk engine has zero positions.
+    const sc = new SignalCenterV1({ initialEquity: 10_000, maxLeverage: 10 });
+    const p = new SyntheticSizingPlugin(10_000);
+    (p.metadata as { name: string }).name = "valid-plugin";
+    sc.registerPlugin(p);
+    // start() must succeed — Layer 2 sees 0 notional, asserts 0/capital ≤ 10.
+    expect(() => sc.start()).not.toThrow();
+  });
 });
 
 describe("SignalCenterV1 — kill-switch", () => {

@@ -15,7 +15,7 @@ The user mandate `mvs_c13fe65cb68f4df3851304dea09a9099` continues to require ALL
 | Layer | Mechanism | File / line | When it fires |
 |------:|-----------|-------------|---------------|
 | **1** | `validateConfig()` rejects any `SignalCenterV1Config` with `maxLeverage > 10` (throws synchronously) | `signal-center-v1.ts:97-118` | At constructor time, before any plugin is registered |
-| **2** | `start()` runs `assertLeverageInvariant()` over ALL initial SizingSignals — fail-fast on breach | `signal-center-v1.ts:250-289` | At `start()` after wiring subscribers, before first `onBar()` |
+| **2** | `start()` runs `assertLeverageInvariant()` on the risk engine's initial notional state at boot (sum of abs notional across risk-engine positions) — fail-fast on breach | `signal-center-v1.ts:387-407` | At `start()` after `validateAll()`, before `wireAll()` |
 | **3** | `onBar()` runs `leverageInvariantGuard()` on the SignalBus snapshot every bar | `signal-center-v1.ts:294-303` | Per-bar, before risk engine consumes signals |
 
 The Track B `leverage-invariant.ts` was the original 3rd-layer guard from Track B; SCv1 promotes it to be the 3rd-layer guard of the composition root. This is the same defensive discipline documented in §X.1 of REPORT-phase9.md, applied at the integration layer instead of inside a single strategy.
@@ -169,7 +169,7 @@ The composition root pattern (Stack Overflow `https://stackoverflow.com/question
 
 [SCv1.registerPlugin(plugin)] → delegates to registry → registry validates plugin.metadata (incl. maxLeverage ≤ 10) → plugin.subscribe(bus)
 
-[SCv1.start()] → validates all configs (FAIL FAST on breach) → assertLeverageInvariant on initial SizingSignals → wires all subscribers
+[SCv1.start()] → validates all configs (FAIL FAST on breach) → assertLeverageInvariant on the risk engine's initial notional state at boot → wires all subscribers
 
 [SCv1.onBar(bar)]
   1. ingestSignal(toRiskEngineSignal(signal)) for each signal in bus snapshot → leverageInvariantGuard (Layer 3)
@@ -203,7 +203,7 @@ The `toRiskEngineSignal()` translator handles the type-system impedance mismatch
 }
 "threeLayerDefense": {
   "layer1": "constructor refuses maxLeverage > 10 (PASS — config validation)",
-  "layer2": "start() runs assertLeverageInvariant on initial SizingSignals",
+  "layer2": "start() runs assertLeverageInvariant on the risk engine's initial notional state at boot",
   "layer3": "per-bar leverageInvariantGuard: 0 breach(es) detected in production run",
   "guardFiredOnSynthetic12xSignal": true
 }
@@ -281,9 +281,9 @@ Phase 9's verdict was "+50%/month is STRUCTURALLY UNREACHABLE under 1:10 leverag
 | + Cross-X funding arb (10G.2d) | +1-3%/month extra (Boros: 5.98-11.4% APR) | Phase 11+ drop-in pending | open |
 | + Options vol (10G.2e) | +0.5-2%/month extra (DVOL mean-reversion) | Phase 11+ drop-in pending | open |
 | **Realistic Phase 11+ ceiling** | **+5-8%/month** (carry + 2-3 uncorrelated drops) | tbd | TBD empirically |
-| +50%/month target | STRUCTURALLY UNREACHABLE at 1:10 | n/a | n/a |
+| +50%/month target | CEILING TBD after Phase 11+ drop-ins ship | n/a | n/a (empirically undetermined) |
 
-**The +50%/month target remains structurally unreachable** at 1:10 leverage on $10k base. To get +50%/month, we'd need either:
+**The +50%/month target's structural feasibility is CEILING TBD** — it remains empirically undetermined until Phase 11+ drop-ins ship and the combined envelope is measured. The current structural analysis (carry alone at 1:10 caps at ~3%/mo per BIS WP1087) suggests +50%/mo is far above the carry ceiling, but the post-drop-in envelope could shift the picture if uncorrelated alpha sources (cross-X arb, options-vol) combine multiplicatively rather than additively. To get +50%/month at 1:10 leverage, we'd need either:
 - Leverage >> 10× (e.g. 100× on delta-neutral cross-X arb, which is theoretically possible but conflicts with the user mandate)
 - Directional alpha >> 50%/month uncorrelated with carry (no academic evidence for this in liquid crypto)
 - Latency arbitrage at sub-ms (only available with co-located infrastructure, retail-excluded)
@@ -373,7 +373,7 @@ Combining the per-drop-in projections in §7 with empirical confidence intervals
 
 **Confidence:** the Phase 11.1 projection of +4.5-5.5%/mo is **HIGH confidence** because it's just porting existing validated Phase 8/9 strategies as drop-in plugins. The Phase 11.2 projection of +5-7%/mo is **MEDIUM confidence** because it depends on latency-budget feasibility for cross-X arb at retail infrastructure.
 
-**Comparison to +50%/month target:** the realistic Phase 11+ ceiling of +5-7%/mo is **7-10× short** of +50%/mo. Even with ALL planned drop-ins and BEST-case execution, we project 7%/month max. This reaffirms §6's verdict: +50%/month is **STRUCTURALLY UNREACHABLE** under 1:10 leverage + bybit.eu SPOT + retail infra, but the realistic ceiling of 5-7%/month is achievable with Phase 11+ drop-ins.
+**Comparison to +50%/month target:** the realistic Phase 11+ ceiling of +5-7%/mo is **7-10× short** of +50%/mo in the carry-dominated base case. Even with ALL planned drop-ins and BEST-case execution, we project 7%/month max. The structural arithmetic (carry capped at ~3%/mo at 1:10, plus 2-4%/mo from 2-3 uncorrelated drop-ins) suggests +50%/mo is far above the projected ceiling — but §6's verdict is now **CEILING TBD after Phase 11+ drop-ins ship**, not a priori "structurally unreachable" (which we cannot prove without running the drop-ins).
 
 Sources:
 1. BIS Working Paper 1087 "Crypto carry" — `https://www.bis.org/publ/work1087.pdf` (basis 2-3%/month)
@@ -387,8 +387,8 @@ Sources:
 
 Phase 10G Track C deliverables (M2 owner):
 
-- [x] `packages/core/src/signal-center/signal-center-v1.ts` (745 LOC, composition root + 3-layer 1:10 defense)
-- [x] `packages/core/src/signal-center/signal-center-v1.test.ts` (814 LOC, 55 unit tests, 100% line + function coverage)
+- [x] `packages/core/src/signal-center/signal-center-v1.ts` (757 LOC, composition root + 3-layer 1:10 defense — Layer 2 wired in `start()` via `assertLeverageInvariant` on initial risk-engine state)
+- [x] `packages/core/src/signal-center/signal-center-v1.test.ts` (860 LOC, 57 unit tests including Layer 2 fail-fast test, 100% line + function coverage)
 - [x] `packages/backtest-tools/src/cli/run-signal-center-v1.ts` (661 LOC CLI runner)
 - [x] `packages/core/src/index.ts` (SCv1 exports + DEFAULT_SIGNAL_CENTER_V1_CONFIG)
 - [x] `backtest-results/baseline-signal-center-v1-btc-1d.json` (+2.1401%/mo, Sharpe 6.86)

@@ -58,9 +58,14 @@
 //   Layer 1: validateConfig — SignalCenterV1's constructor refuses configs
 //             with `maxLeverage > 10`. Hard fail-fast at boot.
 //
-//   Layer 2: start() runs `assertLeverageInvariant` on all initial
-//             SizingSignals emitted by plugins during boot wiring. If any
-//             plugin's initial sizing breaches the 1:10 cap, start() throws.
+//   Layer 2: start() runs `assertLeverageInvariant` on the risk engine's
+//             initial notional state at boot. Sums absolute notional across
+//             all positions the risk engine holds at start-time and asserts
+//             notional/capital ≤ 10. If the sum exceeds the 1:10 cap (e.g.
+//             a previous run left state, or a misuse pre-populated
+//             positions), start() throws. In normal use the risk engine is
+//             empty at boot, so this guard is a defense-in-depth fail-fast
+//             rather than a per-cycle check.
 //
 //   Layer 3: per-bar onBar() runs `leverageInvariantGuard` on the bus
 //             snapshot after every onBar dispatch. If aggregate leverage
@@ -105,6 +110,7 @@ import {
   DEFAULT_LEVERAGE_INVARIANT_CONFIG,
   type LeverageInvariantConfig,
   ONE_TO_TEN_LEVERAGE,
+  assertLeverageInvariant,
 } from "../risk/leverage-invariant.js";
 import type * as importRiskEngine from "../risk/portfolio-risk-engine.js";
 import {
@@ -213,10 +219,10 @@ export const DEFAULT_SIGNAL_CENTER_V1_CONFIG: Omit<
  *      engine, telemetry.
  *   2. **Register**: `sc.registerPlugin(plugin)`. The plugin is added to
  *      the registry (which enforces maxLeverage ≤ 10 per plugin).
- *   3. **Start**: `sc.start()`. Validates ALL plugins' configs
- *      (`registry.validateAll()`). Wires plugins to the bus.
- *      Runs `assertLeverageInvariant` on any initial SizingSignals
- *      emitted during wiring (Layer 2 of 3-layer defense).
+*   3. **Start**: `sc.start()`. Validates ALL plugins' configs
+   *      (`registry.validateAll()`). Runs `assertLeverageInvariant` on
+   *      the risk engine's initial notional state at boot (Layer 2 of
+   *      3-layer defense). Wires plugins to the bus.
  *   4. **Drive**: `sc.onBar(bar)` once per bar. Dispatches to plugins,
  *      collects signals via the bus, runs risk engine, updates
  *      telemetry, runs `leverageInvariantGuard` (Layer 3 of 3-layer
@@ -362,9 +368,9 @@ export class SignalCenterV1 {
   // -------------------------------------------------------------------------
 
   /**
-   * `start` — boot the SCv1. Validates all plugin configs and wires
-   * plugins to the bus. Runs `assertLeverageInvariant` on any initial
-   * sizing signals emitted during boot (Layer 2 of 3-layer defense).
+   * `start` — boot the SCv1. Validates all plugin configs, runs the
+   * Layer-2 `assertLeverageInvariant` on the risk engine's initial
+   * notional state at boot, then wires plugins to the bus.
    */
   start(): void {
     if (this._started) {
@@ -383,6 +389,22 @@ export class SignalCenterV1 {
           `At least one plugin must be registered before start().`,
       );
     }
+    // Layer 2 of 3-layer defense: assert that the risk engine's initial
+    // notional state at boot does not breach the 1:10 leverage cap. In
+    // normal use the risk engine is empty at boot (totalNotionalUsd = 0),
+    // so this is a defense-in-depth fail-fast: if a misuse pre-populated
+    // positions (or a previous run left state), start() throws here
+    // BEFORE any plugin is wired and BEFORE any onBar() can fire.
+    const positions = this.riskEngine.getPositions();
+    const totalNotionalUsd = positions.reduce(
+      (sum, p) => sum + Math.abs(p.effectiveNotionalUsd),
+      0,
+    );
+    assertLeverageInvariant(
+      totalNotionalUsd,
+      this.config.initialEquity,
+      this.config.leverageInvariant ?? DEFAULT_LEVERAGE_INVARIANT_CONFIG,
+    );
     // Wire all plugins to the bus.
     this.registry.wireAll(this.bus);
     this._started = true;
