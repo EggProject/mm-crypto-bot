@@ -225,7 +225,6 @@ export type {
   MultiClassEnsembleV4State,
   V4PerSymbol,
 } from "./strategy/multi-class-ensemble-v4.js";
-<<<<<<< HEAD
 // Phase 10G Track A — Signal Center (typed pub/sub + plugin registry + reference plugin).
 // Type discriminated unions for Signal events.
 export {
@@ -313,22 +312,25 @@ export type {
   Position,
 } from "./risk/leverage-invariant.js";
 // Phase 10G Track B — Cross-strategy portfolio risk engine (VaR + correlation + drawdown + leverage guard).
+// NOTE: This engine accepts Track B's internal signal shapes (see risk/portfolio-risk-engine.ts).
+// Track A's SignalBus signal shapes are translated by SignalCenterV1 (Track C integration layer).
 export {
   DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG,
   PortfolioRiskEngine,
 } from "./risk/portfolio-risk-engine.js";
 export type {
   AggregateDrawdownState,
-  CarrySignal,
   CorrelationMatrix,
-  DirectionSignal,
   ExposureBySymbol,
   PortfolioRiskEngineConfig,
-  RiskSignal,
   RiskSnapshot,
-  SizingSignal,
-  Signal,
   VaRPoint,
+  // Aliases for Track B's internal signal types (Track A's types in ./signal-center/types.ts are canonical).
+  CarrySignal as RiskEngineCarrySignal,
+  DirectionSignal as RiskEngineDirectionSignal,
+  SizingSignal as RiskEngineSizingSignal,
+  RiskSignal as RiskEngineRiskSignal,
+  Signal as RiskEngineSignal,
 } from "./risk/portfolio-risk-engine.js";
 // Phase 10G Track B — Per-strategy telemetry (PnL attribution + Sharpe + kill-switch + export).
 export {
