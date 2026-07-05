@@ -1,0 +1,3818 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-05T11:31:24.063Z",
+    "phase": "11.2a",
+    "milestone": "Track-B",
+    "task": "regime-detector-cli-baselines",
+    "symbol": "ETH/USDT",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000,
+    "pluginName": "regime-detector",
+    "pluginVersion": "1.0.0"
+  },
+  "config": {
+    "leverage": 10,
+    "baseNotionalUsd": 10000,
+    "regimeLearningDays": 30,
+    "regimeMinObservations": 5,
+    "carryConfig": {
+      "windowDays": 30,
+      "entryPctl": 0.75,
+      "exitPctl": 0.5,
+      "cooldownHours": 72
+    },
+    "walkForward": {
+      "trainDays": 180,
+      "testDays": 30,
+      "stepDays": 30,
+      "purgeDays": 0
+    },
+    "perSymbolDisclosure": {
+      "BTC/USDT": "registered (defensive meta, default-on)",
+      "ETH/USDT": "registered (defensive meta, default-on)",
+      "SOL/USDT": "registered (defensive meta, default-on)"
+    }
+  },
+  "hardConstraint": {
+    "leverage": 10,
+    "leverageRatio": "1:10",
+    "effectiveNotionalUsd": 100000,
+    "maxAllowedLeverage": 10,
+    "parseTimeGuard": "validateAllowedTimingLeverage rejects non-{1,10}",
+    "mandateSource": "user-steer mvs_c13fe65cb68f4df3851304dea09a9099",
+    "mandateText": "ALL trades MUST use EXACTLY 1:10 leverage. No more, no less."
+  },
+  "period": {
+    "startTime": 1704067200000,
+    "endTime": 1783251083982,
+    "totalMonths": 30.107757512501824,
+    "ohlcvCount": 915,
+    "fundingSnapshotCount": 2745
+  },
+  "regimeDistributionPct": {
+    "trending": 25.494505494505493,
+    "ranging": 2.7472527472527473,
+    "volatile": 71.75824175824175
+  },
+  "regimeTransitions": 136,
+  "avgSizeMultiplier": 0.5612087912087849,
+  "sizeModifierTable": {
+    "trending": 1,
+    "ranging": 0.7,
+    "volatile": 0.4
+  },
+  "groundTruthVolBuckets": {
+    "rangingUpper": 0.029119459481028575,
+    "trendingUpper": 0.0372386353930075,
+    "note": "ranging ≤ low ≤ trending ≤ mid < volatile"
+  },
+  "withRegimeDetector": {
+    "totalReturnPct": 26.893553892996913,
+    "monthlyReturn": 0.7963874934746595,
+    "sharpeRatio": 0.47448818682897187,
+    "maxDD": 42.860072841758615,
+    "finalEquityUsd": 12689.355389299692,
+    "fundedDays": 233
+  },
+  "withoutRegimeDetector": {
+    "totalReturnPct": 101.2116883038616,
+    "monthlyReturn": 2.3559077434625486,
+    "maxDD": 48.62298745913717,
+    "finalEquityUsd": 20121.16883038616,
+    "fundedDays": 233
+  },
+  "ddReductionVsPhase11_1": 11.85224297914996,
+  "phase11_1Scv1FullMaxDdPct": 0.0005454540306407938,
+  "walkForwardAccuracy": 54.5578231292517,
+  "risk": {
+    "dailyVaR95Pct": 0,
+    "liquidations": 0,
+    "leverageInvariantBreaches": 0,
+    "layer1": "constructor: metadata.maxLeverage=10 (RegimeDetectorMetaPlugin)",
+    "layer2": "per-emit: assertLeverageInvariant() on implied close (RegimeDetectorMetaPlugin)",
+    "layer2AssertionCount": 910,
+    "layer3NotApplicable": "Layer 3 lives in SCv1 portfolio risk engine (RegimeDetector emits RiskSignals only)"
+  },
+  "walkForward": {
+    "config": {
+      "trainDays": 180,
+      "testDays": 30,
+      "stepDays": 30,
+      "purgeDays": 0
+    },
+    "totalFolds": 25,
+    "totalObservations": 735,
+    "totalCorrect": 401,
+    "aggregateAccuracy": 0.545578231292517,
+    "folds": [
+      {
+        "fold": 0,
+        "trainStart": 1704067200000,
+        "trainEnd": 1719619200000,
+        "testStart": 1719619200000,
+        "testEnd": 1722211200000,
+        "trainTradeDays": 180,
+        "testTradeDays": 30,
+        "testCorrect": 13,
+        "testTotal": 30,
+        "testAccuracy": 0.43333333333333335
+      },
+      {
+        "fold": 1,
+        "trainStart": 1706659200000,
+        "trainEnd": 1722211200000,
+        "testStart": 1722211200000,
+        "testEnd": 1724803200000,
+        "trainTradeDays": 210,
+        "testTradeDays": 30,
+        "testCorrect": 16,
+        "testTotal": 30,
+        "testAccuracy": 0.5333333333333333
+      },
+      {
+        "fold": 2,
+        "trainStart": 1709251200000,
+        "trainEnd": 1724803200000,
+        "testStart": 1724803200000,
+        "testEnd": 1727395200000,
+        "trainTradeDays": 240,
+        "testTradeDays": 30,
+        "testCorrect": 9,
+        "testTotal": 30,
+        "testAccuracy": 0.3
+      },
+      {
+        "fold": 3,
+        "trainStart": 1711843200000,
+        "trainEnd": 1727395200000,
+        "testStart": 1727395200000,
+        "testEnd": 1729987200000,
+        "trainTradeDays": 270,
+        "testTradeDays": 30,
+        "testCorrect": 11,
+        "testTotal": 30,
+        "testAccuracy": 0.36666666666666664
+      },
+      {
+        "fold": 4,
+        "trainStart": 1714435200000,
+        "trainEnd": 1729987200000,
+        "testStart": 1729987200000,
+        "testEnd": 1732579200000,
+        "trainTradeDays": 300,
+        "testTradeDays": 30,
+        "testCorrect": 29,
+        "testTotal": 30,
+        "testAccuracy": 0.9666666666666667
+      },
+      {
+        "fold": 5,
+        "trainStart": 1717027200000,
+        "trainEnd": 1732579200000,
+        "testStart": 1732579200000,
+        "testEnd": 1735171200000,
+        "trainTradeDays": 330,
+        "testTradeDays": 30,
+        "testCorrect": 13,
+        "testTotal": 30,
+        "testAccuracy": 0.43333333333333335
+      },
+      {
+        "fold": 6,
+        "trainStart": 1719619200000,
+        "trainEnd": 1735171200000,
+        "testStart": 1735171200000,
+        "testEnd": 1737763200000,
+        "trainTradeDays": 360,
+        "testTradeDays": 30,
+        "testCorrect": 15,
+        "testTotal": 30,
+        "testAccuracy": 0.5
+      },
+      {
+        "fold": 7,
+        "trainStart": 1722211200000,
+        "trainEnd": 1737763200000,
+        "testStart": 1737763200000,
+        "testEnd": 1740355200000,
+        "trainTradeDays": 390,
+        "testTradeDays": 30,
+        "testCorrect": 7,
+        "testTotal": 30,
+        "testAccuracy": 0.23333333333333334
+      },
+      {
+        "fold": 8,
+        "trainStart": 1724803200000,
+        "trainEnd": 1740355200000,
+        "testStart": 1740355200000,
+        "testEnd": 1742947200000,
+        "trainTradeDays": 420,
+        "testTradeDays": 30,
+        "testCorrect": 26,
+        "testTotal": 30,
+        "testAccuracy": 0.8666666666666667
+      },
+      {
+        "fold": 9,
+        "trainStart": 1727395200000,
+        "trainEnd": 1742947200000,
+        "testStart": 1742947200000,
+        "testEnd": 1745539200000,
+        "trainTradeDays": 450,
+        "testTradeDays": 30,
+        "testCorrect": 24,
+        "testTotal": 30,
+        "testAccuracy": 0.8
+      },
+      {
+        "fold": 10,
+        "trainStart": 1729987200000,
+        "trainEnd": 1745539200000,
+        "testStart": 1745539200000,
+        "testEnd": 1748131200000,
+        "trainTradeDays": 480,
+        "testTradeDays": 30,
+        "testCorrect": 17,
+        "testTotal": 30,
+        "testAccuracy": 0.5666666666666667
+      },
+      {
+        "fold": 11,
+        "trainStart": 1732579200000,
+        "trainEnd": 1748131200000,
+        "testStart": 1748131200000,
+        "testEnd": 1750723200000,
+        "trainTradeDays": 510,
+        "testTradeDays": 30,
+        "testCorrect": 23,
+        "testTotal": 30,
+        "testAccuracy": 0.7666666666666667
+      },
+      {
+        "fold": 12,
+        "trainStart": 1735171200000,
+        "trainEnd": 1750723200000,
+        "testStart": 1750723200000,
+        "testEnd": 1753315200000,
+        "trainTradeDays": 540,
+        "testTradeDays": 30,
+        "testCorrect": 16,
+        "testTotal": 30,
+        "testAccuracy": 0.5333333333333333
+      },
+      {
+        "fold": 13,
+        "trainStart": 1737763200000,
+        "trainEnd": 1753315200000,
+        "testStart": 1753315200000,
+        "testEnd": 1755907200000,
+        "trainTradeDays": 570,
+        "testTradeDays": 30,
+        "testCorrect": 26,
+        "testTotal": 30,
+        "testAccuracy": 0.8666666666666667
+      },
+      {
+        "fold": 14,
+        "trainStart": 1740355200000,
+        "trainEnd": 1755907200000,
+        "testStart": 1755907200000,
+        "testEnd": 1758499200000,
+        "trainTradeDays": 600,
+        "testTradeDays": 30,
+        "testCorrect": 2,
+        "testTotal": 30,
+        "testAccuracy": 0.06666666666666667
+      },
+      {
+        "fold": 15,
+        "trainStart": 1742947200000,
+        "trainEnd": 1758499200000,
+        "testStart": 1758499200000,
+        "testEnd": 1761091200000,
+        "trainTradeDays": 630,
+        "testTradeDays": 30,
+        "testCorrect": 29,
+        "testTotal": 30,
+        "testAccuracy": 0.9666666666666667
+      },
+      {
+        "fold": 16,
+        "trainStart": 1745539200000,
+        "trainEnd": 1761091200000,
+        "testStart": 1761091200000,
+        "testEnd": 1763683200000,
+        "trainTradeDays": 660,
+        "testTradeDays": 30,
+        "testCorrect": 26,
+        "testTotal": 30,
+        "testAccuracy": 0.8666666666666667
+      },
+      {
+        "fold": 17,
+        "trainStart": 1748131200000,
+        "trainEnd": 1763683200000,
+        "testStart": 1763683200000,
+        "testEnd": 1766275200000,
+        "trainTradeDays": 690,
+        "testTradeDays": 30,
+        "testCorrect": 11,
+        "testTotal": 30,
+        "testAccuracy": 0.36666666666666664
+      },
+      {
+        "fold": 18,
+        "trainStart": 1750723200000,
+        "trainEnd": 1766275200000,
+        "testStart": 1766275200000,
+        "testEnd": 1768867200000,
+        "trainTradeDays": 720,
+        "testTradeDays": 30,
+        "testCorrect": 10,
+        "testTotal": 30,
+        "testAccuracy": 0.3333333333333333
+      },
+      {
+        "fold": 19,
+        "trainStart": 1753315200000,
+        "trainEnd": 1768867200000,
+        "testStart": 1768867200000,
+        "testEnd": 1771459200000,
+        "trainTradeDays": 750,
+        "testTradeDays": 30,
+        "testCorrect": 29,
+        "testTotal": 30,
+        "testAccuracy": 0.9666666666666667
+      },
+      {
+        "fold": 20,
+        "trainStart": 1755907200000,
+        "trainEnd": 1771459200000,
+        "testStart": 1771459200000,
+        "testEnd": 1774051200000,
+        "trainTradeDays": 780,
+        "testTradeDays": 30,
+        "testCorrect": 16,
+        "testTotal": 30,
+        "testAccuracy": 0.5333333333333333
+      },
+      {
+        "fold": 21,
+        "trainStart": 1758499200000,
+        "trainEnd": 1774051200000,
+        "testStart": 1774051200000,
+        "testEnd": 1776643200000,
+        "trainTradeDays": 810,
+        "testTradeDays": 30,
+        "testCorrect": 10,
+        "testTotal": 30,
+        "testAccuracy": 0.3333333333333333
+      },
+      {
+        "fold": 22,
+        "trainStart": 1761091200000,
+        "trainEnd": 1776643200000,
+        "testStart": 1776643200000,
+        "testEnd": 1779235200000,
+        "trainTradeDays": 840,
+        "testTradeDays": 30,
+        "testCorrect": 3,
+        "testTotal": 30,
+        "testAccuracy": 0.1
+      },
+      {
+        "fold": 23,
+        "trainStart": 1763683200000,
+        "trainEnd": 1779235200000,
+        "testStart": 1779235200000,
+        "testEnd": 1781827200000,
+        "trainTradeDays": 870,
+        "testTradeDays": 30,
+        "testCorrect": 17,
+        "testTotal": 30,
+        "testAccuracy": 0.5666666666666667
+      },
+      {
+        "fold": 24,
+        "trainStart": 1766275200000,
+        "trainEnd": 1781827200000,
+        "testStart": 1781827200000,
+        "testEnd": 1784419200000,
+        "trainTradeDays": 900,
+        "testTradeDays": 15,
+        "testCorrect": 3,
+        "testTotal": 15,
+        "testAccuracy": 0.2
+      }
+    ]
+  },
+  "equityCurveSampled": {
+    "withRegimeDetector": [
+      {
+        "timestamp": 1704067200000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2352.04,
+        "inCarry": false,
+        "regime": null,
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0
+      },
+      {
+        "timestamp": 1704672000000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2330.44,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.029728108324017517,
+          3.990317927276331e-20,
+          0.9702718916759825
+        ],
+        "realizedVol20d": 0
+      },
+      {
+        "timestamp": 1705276800000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2511.78,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.06222065963585242,
+          0.0013099396858744534,
+          0.9364694006782731
+        ],
+        "realizedVol20d": 0
+      },
+      {
+        "timestamp": 1705881600000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2314.2,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.005328025316519546,
+          1.237248782929937e-30,
+          0.9946719746834805
+        ],
+        "realizedVol20d": 0.03734258720318461
+      },
+      {
+        "timestamp": 1706486400000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2317.6,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.654668760606315,
+          0.000003353527020405566,
+          0.3453278858666647
+        ],
+        "realizedVol20d": 0.03361740459634285
+      },
+      {
+        "timestamp": 1707091200000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2301.83,
+        "inCarry": false,
+        "regime": "ranging",
+        "regimeMultiplier": 0.7,
+        "posteriorProbs": [
+          0.4252058163568367,
+          0.5605248041186293,
+          0.014269379524533991
+        ],
+        "realizedVol20d": 0.019662782164959126
+      },
+      {
+        "timestamp": 1707696000000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2659.99,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.03771184439881364,
+          2.153242927357301e-29,
+          0.9622881556011863
+        ],
+        "realizedVol20d": 0.018415801495207367
+      },
+      {
+        "timestamp": 1708300800000,
+        "equity": 10792.728965205297,
+        "fundingAccruedUsd": 158.01100000000002,
+        "markPrice": 2944.8,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.19188335239450466,
+          0.000013523989969236723,
+          0.8081031236155264
+        ],
+        "realizedVol20d": 0.021051581330647492
+      },
+      {
+        "timestamp": 1708905600000,
+        "equity": 12065.458950893437,
+        "fundingAccruedUsd": 488.52500000000003,
+        "markPrice": 3175.94,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.24307295037683235,
+          0.00005269406712320585,
+          0.7568743555560445
+        ],
+        "realizedVol20d": 0.021316601360880816
+      },
+      {
+        "timestamp": 1709510400000,
+        "equity": 14071.352640506551,
+        "fundingAccruedUsd": 1435.734,
+        "markPrice": 3627.76,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.06743645518293044,
+          1.3934970523028729e-14,
+          0.9325635448170554
+        ],
+        "realizedVol20d": 0.020643942321489115
+      },
+      {
+        "timestamp": 1710115200000,
+        "equity": 15823.543336208746,
+        "fundingAccruedUsd": 2354.4560000000006,
+        "markPrice": 4064.8,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.058848385499735374,
+          2.6494623373322775e-18,
+          0.9411516145002646
+        ],
+        "realizedVol20d": 0.024843193146028484
+      },
+      {
+        "timestamp": 1710720000000,
+        "equity": 15089.303913159843,
+        "fundingAccruedUsd": 2958.135000000001,
+        "markPrice": 3520.46,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.010857313402973943,
+          8.6940780020326e-12,
+          0.9891426865883319
+        ],
+        "realizedVol20d": 0.03338313348849221
+      },
+      {
+        "timestamp": 1711324800000,
+        "equity": 15089.303913159843,
+        "fundingAccruedUsd": 2958.135000000001,
+        "markPrice": 3590.42,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.008980551552195086,
+          3.8984328056014184e-14,
+          0.9910194484477659
+        ],
+        "realizedVol20d": 0.048505335535936334
+      },
+      {
+        "timestamp": 1711929600000,
+        "equity": 15089.303913159843,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3503.8,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.0286998278043925,
+          7.711857331742257e-15,
+          0.9713001721955997
+        ],
+        "realizedVol20d": 0.04587724225569313
+      },
+      {
+        "timestamp": 1712534400000,
+        "equity": 15089.303913159843,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3694.61,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.00035673513686321104,
+          5.630084280477759e-40,
+          0.9996432648631368
+        ],
+        "realizedVol20d": 0.03942229876105494
+      },
+      {
+        "timestamp": 1713139200000,
+        "equity": 15089.303913159843,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3101.99,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.04770430617508344,
+          0.000549915738873449,
+          0.9517457780860432
+        ],
+        "realizedVol20d": 0.040022371473180066
+      },
+      {
+        "timestamp": 1713744000000,
+        "equity": 15089.303913159843,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3200.2,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.40722802521167956,
+          0.004108595630670864,
+          0.5886633791576495
+        ],
+        "realizedVol20d": 0.03697394698797028
+      },
+      {
+        "timestamp": 1714348800000,
+        "equity": 15089.303913159843,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3216.73,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.7918935547918765,
+          0.008517253014432418,
+          0.19958919219369106
+        ],
+        "realizedVol20d": 0.032193582075943535
+      },
+      {
+        "timestamp": 1714953600000,
+        "equity": 15089.303913159843,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3062.6,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.34574724319935507,
+          0.00003992805775562422,
+          0.6542128287428892
+        ],
+        "realizedVol20d": 0.025182289841158365
+      },
+      {
+        "timestamp": 1715558400000,
+        "equity": 15089.303913159843,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 2950.99,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.46759141624660394,
+          0.3775548210983056,
+          0.1548537626550904
+        ],
+        "realizedVol20d": 0.02445653887941584
+      },
+      {
+        "timestamp": 1716163200000,
+        "equity": 17036.81688837791,
+        "fundingAccruedUsd": 3106.4330000000004,
+        "markPrice": 3661.78,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          1.1513056486059126e-26,
+          6.529150188907681e-266,
+          1
+        ],
+        "realizedVol20d": 0.046400005470927035
+      },
+      {
+        "timestamp": 1716768000000,
+        "equity": 18442.4953640231,
+        "fundingAccruedUsd": 3246.4330000000004,
+        "markPrice": 3894.22,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.6643490772672127,
+          0.0002999703597259478,
+          0.3353509523730613
+        ],
+        "realizedVol20d": 0.0454681272492236
+      },
+      {
+        "timestamp": 1717372800000,
+        "equity": 17739.069330480634,
+        "fundingAccruedUsd": 3525.2790000000005,
+        "markPrice": 3767.06,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.8789047104757615,
+          0.09798431109276062,
+          0.02311097843147794
+        ],
+        "realizedVol20d": 0.04411246467599132
+      },
+      {
+        "timestamp": 1717977600000,
+        "equity": 17236.13018039324,
+        "fundingAccruedUsd": 3793.4650000000006,
+        "markPrice": 3667.85,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.8967017988754074,
+          0.06189446416672522,
+          0.04140373695786725
+        ],
+        "realizedVol20d": 0.014792987849642636
+      },
+      {
+        "timestamp": 1718582400000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4003.4650000000006,
+        "markPrice": 3511.46,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.4203285950135882,
+          7.609900070454e-10,
+          0.579671404225422
+        ],
+        "realizedVol20d": 0.019785229954051787
+      },
+      {
+        "timestamp": 1719187200000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3352.73,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.9085516110588997,
+          0.00004669809087880013,
+          0.09140169085022153
+        ],
+        "realizedVol20d": 0.020249437361590617
+      },
+      {
+        "timestamp": 1719792000000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3442.2,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.9089734694656364,
+          0.062163329415394125,
+          0.028863201118969513
+        ],
+        "realizedVol20d": 0.017687260279225486
+      },
+      {
+        "timestamp": 1720396800000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3019.01,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.017224818818792426,
+          5.449972408794973e-9,
+          0.9827751757312352
+        ],
+        "realizedVol20d": 0.026516497531899774
+      },
+      {
+        "timestamp": 1721001600000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3483.39,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.00048783759131068355,
+          6.918360255849005e-44,
+          0.9995121624086895
+        ],
+        "realizedVol20d": 0.03143174397815029
+      },
+      {
+        "timestamp": 1721606400000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3439.6,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.6209720839368587,
+          8.64236272402139e-7,
+          0.379027051826869
+        ],
+        "realizedVol20d": 0.03186720300499537
+      },
+      {
+        "timestamp": 1722211200000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3317.66,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.402346023490053,
+          0.02162224366685282,
+          0.5760317328430942
+        ],
+        "realizedVol20d": 0.026288626919493876
+      },
+      {
+        "timestamp": 1722816000000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 2419.59,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          4.862889740757168e-11,
+          9.680881744572218e-97,
+          0.9999999999513711
+        ],
+        "realizedVol20d": 0.03572935789536714
+      },
+      {
+        "timestamp": 1723420800000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 2722.3,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.00025064370471738345,
+          1.1482564354791457e-35,
+          0.9997493562952827
+        ],
+        "realizedVol20d": 0.052377239913359554
+      },
+      {
+        "timestamp": 1724025600000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 2636.36,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.5391213488126273,
+          0.29409890639752667,
+          0.16677974478984597
+        ],
+        "realizedVol20d": 0.05070663374337881
+      },
+      {
+        "timestamp": 1724630400000,
+        "equity": 17670.2361064699,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 2680.49,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.3999960893415149,
+          0.000022031680201930276,
+          0.5999818789782831
+        ],
+        "realizedVol20d": 0.0410819845217104
+      },
+      {
+        "timestamp": 1725235200000,
+        "equity": 16727.026983041174,
+        "fundingAccruedUsd": 4078.7420000000006,
+        "markPrice": 2538.01,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.01568436849101967,
+          6.470213031424372e-19,
+          0.9843156315089805
+        ],
+        "realizedVol20d": 0.03046009150668939
+      },
+      {
+        "timestamp": 1725840000000,
+        "equity": 16332.802649821937,
+        "fundingAccruedUsd": 4111.443,
+        "markPrice": 2359.5,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.1068816852492875,
+          2.526923810624229e-7,
+          0.8931180620583314
+        ],
+        "realizedVol20d": 0.03530576767962142
+      },
+      {
+        "timestamp": 1726444800000,
+        "equity": 16332.802649821937,
+        "fundingAccruedUsd": 4121.519,
+        "markPrice": 2295.68,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.1828712580109452,
+          0.030211640879373756,
+          0.7869171011096813
+        ],
+        "realizedVol20d": 0.029119459481028575
+      },
+      {
+        "timestamp": 1727049600000,
+        "equity": 17083.979345931755,
+        "fundingAccruedUsd": 4221.298999999999,
+        "markPrice": 2646.97,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.15867916958947925,
+          8.515185166272655e-7,
+          0.8413199788920042
+        ],
+        "realizedVol20d": 0.027516218658542535
+      },
+      {
+        "timestamp": 1727654400000,
+        "equity": 16442.565154602784,
+        "fundingAccruedUsd": 4313.157999999999,
+        "markPrice": 2602.23,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.752289954837093,
+          0.00015100241659215185,
+          0.24755904274631488
+        ],
+        "realizedVol20d": 0.02302168731471481
+      },
+      {
+        "timestamp": 1728259200000,
+        "equity": 15486.249701875466,
+        "fundingAccruedUsd": 4424.690999999999,
+        "markPrice": 2422.71,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.529077625748818,
+          0.18688044196300357,
+          0.28404193228817837
+        ],
+        "realizedVol20d": 0.025478502221231925
+      },
+      {
+        "timestamp": 1728864000000,
+        "equity": 14649.122725866715,
+        "fundingAccruedUsd": 4468.518999999999,
+        "markPrice": 2629.79,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.012431930952177624,
+          5.578346992502949e-34,
+          0.9875680690478224
+        ],
+        "realizedVol20d": 0.026962728149759564
+      },
+      {
+        "timestamp": 1729468800000,
+        "equity": 15234.434892775007,
+        "fundingAccruedUsd": 4678.518999999999,
+        "markPrice": 2666.7,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.2777931600632511,
+          6.470944117610701e-9,
+          0.7222068334658047
+        ],
+        "realizedVol20d": 0.022861669922062133
+      },
+      {
+        "timestamp": 1730073600000,
+        "equity": 14888.205867974573,
+        "fundingAccruedUsd": 4888.518999999999,
+        "markPrice": 2567.48,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.2771744095825305,
+          0.000005878645823912926,
+          0.7228197117716455
+        ],
+        "realizedVol20d": 0.025268781358697413
+      },
+      {
+        "timestamp": 1730678400000,
+        "equity": 14181.272321807885,
+        "fundingAccruedUsd": 5098.518999999999,
+        "markPrice": 2398.21,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.35554793161706727,
+          0.00000344045628900489,
+          0.6444486279266439
+        ],
+        "realizedVol20d": 0.023914397176503798
+      },
+      {
+        "timestamp": 1731283200000,
+        "equity": 16438.359904057852,
+        "fundingAccruedUsd": 5280.111999999999,
+        "markPrice": 3371.59,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.00037466872714061485,
+          9.706595768799374e-30,
+          0.9996253312728594
+        ],
+        "realizedVol20d": 0.03968776888843915
+      },
+      {
+        "timestamp": 1731888000000,
+        "equity": 16040.893407458143,
+        "fundingAccruedUsd": 5692.497999999999,
+        "markPrice": 3207.8,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.03426298536232134,
+          1.9675616861336448e-16,
+          0.9657370146376785
+        ],
+        "realizedVol20d": 0.041307136924986054
+      },
+      {
+        "timestamp": 1732492800000,
+        "equity": 17044.703077550133,
+        "fundingAccruedUsd": 6177.020999999998,
+        "markPrice": 3414.49,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.39616399380405876,
+          0.0021548042379997442,
+          0.6016812019579417
+        ],
+        "realizedVol20d": 0.04250865613554833
+      },
+      {
+        "timestamp": 1733097600000,
+        "equity": 18192.79701889035,
+        "fundingAccruedUsd": 6477.395999999999,
+        "markPrice": 3643.42,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.3512612770439385,
+          0.0026066971872394998,
+          0.6461320257688219
+        ],
+        "realizedVol20d": 0.03617391159969769
+      },
+      {
+        "timestamp": 1733702400000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3712,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.000016679158941379922,
+          9.086995252061578e-49,
+          0.9999833208410587
+        ],
+        "realizedVol20d": 0.040500348384958716
+      },
+      {
+        "timestamp": 1734307200000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3986.24,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.5811115498932953,
+          0.04023413127072591,
+          0.3786543188359789
+        ],
+        "realizedVol20d": 0.03690416830150192
+      },
+      {
+        "timestamp": 1734912000000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3422.53,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.00886198576774352,
+          1.5533437147133298e-16,
+          0.9911380142322561
+        ],
+        "realizedVol20d": 0.039556082377480976
+      },
+      {
+        "timestamp": 1735516800000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3361.84,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.4494049193717698,
+          0.10835643267205251,
+          0.4422386479561778
+        ],
+        "realizedVol20d": 0.03230501142754522
+      },
+      {
+        "timestamp": 1736121600000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3687.45,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.6564595947970615,
+          0.010159997891274601,
+          0.33338040731166396
+        ],
+        "realizedVol20d": 0.031407760495970924
+      },
+      {
+        "timestamp": 1736726400000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3137.51,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.09895208305664523,
+          5.12709996177756e-14,
+          0.9010479169433036
+        ],
+        "realizedVol20d": 0.02924292784516161
+      },
+      {
+        "timestamp": 1737331200000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3284,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.05362962077702648,
+          0.00002335065313691199,
+          0.9463470285698365
+        ],
+        "realizedVol20d": 0.0377381973901831
+      },
+      {
+        "timestamp": 1737936000000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3182.44,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.5116095908592051,
+          0.0010485369523925675,
+          0.48734187218840214
+        ],
+        "realizedVol20d": 0.0315909959138029
+      },
+      {
+        "timestamp": 1738540800000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 2879.9,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.06773891570246254,
+          0.10821508691599833,
+          0.8240459973815393
+        ],
+        "realizedVol20d": 0.038327084445351475
+      },
+      {
+        "timestamp": 1739145600000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 2661.19,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.4618753820099447,
+          0.13600318602390757,
+          0.40212143196614775
+        ],
+        "realizedVol20d": 0.03150213573965723
+      },
+      {
+        "timestamp": 1739750400000,
+        "equity": 17957.334127411286,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 2744.05,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.23271655723378115,
+          3.2856802187483102e-9,
+          0.7672834394805387
+        ],
+        "realizedVol20d": 0.034198945368617104
+      },
+      {
+        "timestamp": 1740355200000,
+        "equity": 18207.25335830568,
+        "fundingAccruedUsd": 7028.708999999998,
+        "markPrice": 2513.52,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          6.597280481745374e-12,
+          2.1792383022685037e-114,
+          0.9999999999934026
+        ],
+        "realizedVol20d": 0.03569486745923143
+      },
+      {
+        "timestamp": 1740960000000,
+        "equity": 17851.998534365168,
+        "fundingAccruedUsd": 7056.347999999998,
+        "markPrice": 2149.01,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          1.2276488555649046e-22,
+          2.649510771806553e-216,
+          1
+        ],
+        "realizedVol20d": 0.05917343984036398
+      },
+      {
+        "timestamp": 1741564800000,
+        "equity": 17245.441512985126,
+        "fundingAccruedUsd": 7087.2559999999985,
+        "markPrice": 1865.1,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          4.161117635335405e-7,
+          3.3475669650554936e-56,
+          0.9999995838882365
+        ],
+        "realizedVol20d": 0.06218172443366273
+      },
+      {
+        "timestamp": 1742169600000,
+        "equity": 17245.441512985126,
+        "fundingAccruedUsd": 7094.808999999998,
+        "markPrice": 1926.31,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.24535008497471728,
+          0.00003641658595705527,
+          0.7546134984393256
+        ],
+        "realizedVol20d": 0.05798948632073738
+      },
+      {
+        "timestamp": 1742774400000,
+        "equity": 17283.89593877329,
+        "fundingAccruedUsd": 7120.341999999999,
+        "markPrice": 2081.2,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.11455210486592123,
+          1.642826539984674e-12,
+          0.8854478951324359
+        ],
+        "realizedVol20d": 0.037737806580321984
+      },
+      {
+        "timestamp": 1743379200000,
+        "equity": 16568.777562816267,
+        "fundingAccruedUsd": 7156.708,
+        "markPrice": 1822.43,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.19807604036258594,
+          0.06058126082526381,
+          0.7413426988121504
+        ],
+        "realizedVol20d": 0.027718796542432547
+      },
+      {
+        "timestamp": 1743984000000,
+        "equity": 16568.777562816267,
+        "fundingAccruedUsd": 7168.508,
+        "markPrice": 1553.04,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.04425558653664973,
+          0.00033922635237818163,
+          0.955405187110972
+        ],
+        "realizedVol20d": 0.04203836026554097
+      },
+      {
+        "timestamp": 1744588800000,
+        "equity": 15379.815171690207,
+        "fundingAccruedUsd": 7207.115000000001,
+        "markPrice": 1623.77,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.0748793449405638,
+          0.0009339561946334182,
+          0.9241866988648028
+        ],
+        "realizedVol20d": 0.05491912384664674
+      },
+      {
+        "timestamp": 1745193600000,
+        "equity": 15126.774551624556,
+        "fundingAccruedUsd": 7233.880000000001,
+        "markPrice": 1579.57,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.8813008228661706,
+          0.046511034741481556,
+          0.07218814239234789
+        ],
+        "realizedVol20d": 0.05243315138301797
+      },
+      {
+        "timestamp": 1745798400000,
+        "equity": 14968.688859839836,
+        "fundingAccruedUsd": 7276.3600000000015,
+        "markPrice": 1799.88,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.6282024103979478,
+          0.059968693133549376,
+          0.31182889646850276
+        ],
+        "realizedVol20d": 0.0459650449995654
+      },
+      {
+        "timestamp": 1746403200000,
+        "equity": 15705.891823326881,
+        "fundingAccruedUsd": 7296.287000000001,
+        "markPrice": 1820.19,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.9105180549377296,
+          0.06183695184888034,
+          0.027644993213390066
+        ],
+        "realizedVol20d": 0.026386382081055013
+      },
+      {
+        "timestamp": 1747008000000,
+        "equity": 15402.467491152047,
+        "fundingAccruedUsd": 7341.011,
+        "markPrice": 2495.47,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.10636696807469126,
+          0.04635644185427607,
+          0.8472765900710326
+        ],
+        "realizedVol20d": 0.05083662178655272
+      },
+      {
+        "timestamp": 1747612800000,
+        "equity": 14780.308414894387,
+        "fundingAccruedUsd": 7430.929000000001,
+        "markPrice": 2528.14,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.5134947985088475,
+          0.014824798972704143,
+          0.4716804025184482
+        ],
+        "realizedVol20d": 0.05390516526274997
+      },
+      {
+        "timestamp": 1748217600000,
+        "equity": 14757.16101067627,
+        "fundingAccruedUsd": 7474.93,
+        "markPrice": 2563.7,
+        "inCarry": false,
+        "regime": "ranging",
+        "regimeMultiplier": 0.7,
+        "posteriorProbs": [
+          0.21898766737152953,
+          0.5246012026221725,
+          0.25641113000629817
+        ],
+        "realizedVol20d": 0.055814629235411584
+      },
+      {
+        "timestamp": 1748822400000,
+        "equity": 14202.913219403003,
+        "fundingAccruedUsd": 7570.728,
+        "markPrice": 2607.41,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.40306934523274984,
+          0.000005101187295458108,
+          0.5969255535799547
+        ],
+        "realizedVol20d": 0.02413367660549674
+      },
+      {
+        "timestamp": 1749427200000,
+        "equity": 14202.913219403003,
+        "fundingAccruedUsd": 7570.728,
+        "markPrice": 2680.13,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.00020640563868933544,
+          1.318502139786996e-37,
+          0.9997935943613105
+        ],
+        "realizedVol20d": 0.032589519435638474
+      },
+      {
+        "timestamp": 1750032000000,
+        "equity": 14202.913219403003,
+        "fundingAccruedUsd": 7570.728,
+        "markPrice": 2544.17,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.31366767998874034,
+          0.30338933635607407,
+          0.3829429836551858
+        ],
+        "realizedVol20d": 0.03236910677177149
+      },
+      {
+        "timestamp": 1750636800000,
+        "equity": 14202.913219403003,
+        "fundingAccruedUsd": 7580.728,
+        "markPrice": 2411.66,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          8.28423001157929e-7,
+          2.542227770063504e-55,
+          0.9999991715769989
+        ],
+        "realizedVol20d": 0.038986198432492465
+      },
+      {
+        "timestamp": 1751241600000,
+        "equity": 14202.913219403003,
+        "fundingAccruedUsd": 7589.505,
+        "markPrice": 2485.47,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.7905915998053772,
+          0.0403320744693681,
+          0.16907632572525472
+        ],
+        "realizedVol20d": 0.02873064423115002
+      },
+      {
+        "timestamp": 1751846400000,
+        "equity": 14083.368004836891,
+        "fundingAccruedUsd": 7627.474,
+        "markPrice": 2542.29,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.35970028681930555,
+          0.012237268285330262,
+          0.6280624448953643
+        ],
+        "realizedVol20d": 0.032418822232273894
+      },
+      {
+        "timestamp": 1752451200000,
+        "equity": 14083.368004836891,
+        "fundingAccruedUsd": 7647.474,
+        "markPrice": 3013.62,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.5415957774910656,
+          0.07034173598999108,
+          0.38806248651894343
+        ],
+        "realizedVol20d": 0.02754471115359615
+      },
+      {
+        "timestamp": 1753056000000,
+        "equity": 16887.535899672206,
+        "fundingAccruedUsd": 7843.608,
+        "markPrice": 3762.33,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.08988213055446301,
+          0.1275204247670264,
+          0.7825974446785106
+        ],
+        "realizedVol20d": 0.027979399367535587
+      },
+      {
+        "timestamp": 1753660800000,
+        "equity": 17169.21225666668,
+        "fundingAccruedUsd": 8051.809,
+        "markPrice": 3799,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.37710655005590454,
+          0.00011589340536302644,
+          0.6227775565387327
+        ],
+        "realizedVol20d": 0.027213265422724692
+      },
+      {
+        "timestamp": 1754265600000,
+        "equity": 17158.069850770393,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 3720.99,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.00009770939416713721,
+          1.5934082496196802e-34,
+          0.9999022906058329
+        ],
+        "realizedVol20d": 0.03255749565345479
+      },
+      {
+        "timestamp": 1754870400000,
+        "equity": 17158.069850770393,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4223.22,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.15261267294384454,
+          0.3202208969334061,
+          0.5271664301227493
+        ],
+        "realizedVol20d": 0.03355629581980691
+      },
+      {
+        "timestamp": 1755475200000,
+        "equity": 17158.069850770393,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4312.99,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.08532629844392577,
+          5.084610130554692e-12,
+          0.9146737015509897
+        ],
+        "realizedVol20d": 0.03990464602841335
+      },
+      {
+        "timestamp": 1756080000000,
+        "equity": 17158.069850770393,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4376.18,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          2.6799796833354935e-7,
+          5.5290538678876906e-67,
+          0.9999997320020315
+        ],
+        "realizedVol20d": 0.05239806616033911
+      },
+      {
+        "timestamp": 1756684800000,
+        "equity": 17158.069850770393,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4314.5,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.5136747294804966,
+          0.0074253903552571774,
+          0.4788998801642463
+        ],
+        "realizedVol20d": 0.04755391064958279
+      },
+      {
+        "timestamp": 1757289600000,
+        "equity": 17158.069850770393,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4306.37,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.5237988365529831,
+          0.43341326532987157,
+          0.04278789811714519
+        ],
+        "realizedVol20d": 0.044053178201032744
+      },
+      {
+        "timestamp": 1757894400000,
+        "equity": 17847.28292766697,
+        "fundingAccruedUsd": 8100.31,
+        "markPrice": 4523.74,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.3563970785928431,
+          0.000433274441311373,
+          0.6431696469658454
+        ],
+        "realizedVol20d": 0.02104202638268388
+      },
+      {
+        "timestamp": 1758499200000,
+        "equity": 17847.28292766697,
+        "fundingAccruedUsd": 8100.31,
+        "markPrice": 4199.08,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.04836146037986942,
+          1.6919868633641673e-27,
+          0.9516385396201305
+        ],
+        "realizedVol20d": 0.023904182582377254
+      },
+      {
+        "timestamp": 1759104000000,
+        "equity": 18340.62880112839,
+        "fundingAccruedUsd": 8135.463,
+        "markPrice": 4215.07,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.11766595006877714,
+          0.000391167923527025,
+          0.8819428820076959
+        ],
+        "realizedVol20d": 0.02942691478714337
+      },
+      {
+        "timestamp": 1759708800000,
+        "equity": 18278.17293291681,
+        "fundingAccruedUsd": 8154.558999999999,
+        "markPrice": 4684.01,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.16732964685794616,
+          2.4661801312512507e-11,
+          0.832670353117392
+        ],
+        "realizedVol20d": 0.029929528982045633
+      },
+      {
+        "timestamp": 1760313600000,
+        "equity": 17432.04589402505,
+        "fundingAccruedUsd": 8204.559,
+        "markPrice": 4240.85,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.034723773666015575,
+          0.000025296924452096206,
+          0.9652509294095323
+        ],
+        "realizedVol20d": 0.04901755835727717
+      },
+      {
+        "timestamp": 1760918400000,
+        "equity": 17432.04589402505,
+        "fundingAccruedUsd": 8210.188999999998,
+        "markPrice": 3979.22,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.4063324665878415,
+          0.10349222865482965,
+          0.490175304757329
+        ],
+        "realizedVol20d": 0.046557207683079097
+      },
+      {
+        "timestamp": 1761523200000,
+        "equity": 17117.429793730018,
+        "fundingAccruedUsd": 8232.21,
+        "markPrice": 4120.15,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.20329661974271476,
+          0.026015234482651653,
+          0.7706881457746335
+        ],
+        "realizedVol20d": 0.044641444555525385
+      },
+      {
+        "timestamp": 1762128000000,
+        "equity": 16715.61595922885,
+        "fundingAccruedUsd": 8266.364999999998,
+        "markPrice": 3603.83,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.000021619627058982105,
+          7.244045735187836e-56,
+          0.999978380372941
+        ],
+        "realizedVol20d": 0.028202486274427164
+      },
+      {
+        "timestamp": 1762732800000,
+        "equity": 17254.185671908643,
+        "fundingAccruedUsd": 8331.376999999999,
+        "markPrice": 3567.85,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.07149091147286366,
+          0.09646282240976406,
+          0.8320462661173725
+        ],
+        "realizedVol20d": 0.03804094803275818
+      },
+      {
+        "timestamp": 1763337600000,
+        "equity": 16519.713666624408,
+        "fundingAccruedUsd": 8376.061,
+        "markPrice": 3031.44,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.1169982848146627,
+          0.00003097581911177784,
+          0.8829707393662256
+        ],
+        "realizedVol20d": 0.03767178107798678
+      },
+      {
+        "timestamp": 1763942400000,
+        "equity": 16248.35929680702,
+        "fundingAccruedUsd": 8458.390000000001,
+        "markPrice": 2953.38,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.00566718863381278,
+          2.633078623406025e-24,
+          0.9943328113661871
+        ],
+        "realizedVol20d": 0.035194690124414875
+      },
+      {
+        "timestamp": 1764547200000,
+        "equity": 16248.35929680702,
+        "fundingAccruedUsd": 8466.306,
+        "markPrice": 2799.07,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.002572789775682431,
+          2.109654939291102e-37,
+          0.9974272102243176
+        ],
+        "realizedVol20d": 0.03127071282589425
+      },
+      {
+        "timestamp": 1765152000000,
+        "equity": 16248.35929680702,
+        "fundingAccruedUsd": 8485.934000000001,
+        "markPrice": 3124.16,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.3210944671404254,
+          0.0004027847686794229,
+          0.6785027480908951
+        ],
+        "realizedVol20d": 0.03595116737718982
+      },
+      {
+        "timestamp": 1765756800000,
+        "equity": 15676.746139742498,
+        "fundingAccruedUsd": 8520.725,
+        "markPrice": 2964.85,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.06600643264744578,
+          1.363481479059359e-10,
+          0.933993567216206
+        ],
+        "realizedVol20d": 0.03544440085115151
+      },
+      {
+        "timestamp": 1766361600000,
+        "equity": 15677.015331150451,
+        "fundingAccruedUsd": 8537.206,
+        "markPrice": 3009.49,
+        "inCarry": false,
+        "regime": "ranging",
+        "regimeMultiplier": 0.7,
+        "posteriorProbs": [
+          0.17352206775254234,
+          0.6254833150880611,
+          0.20099461715939645
+        ],
+        "realizedVol20d": 0.03149431045725281
+      },
+      {
+        "timestamp": 1766966400000,
+        "equity": 15677.015331150451,
+        "fundingAccruedUsd": 8550.469000000001,
+        "markPrice": 2937.9,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.589263606782552,
+          0.3941970730425458,
+          0.01653932017490218
+        ],
+        "realizedVol20d": 0.02188548686138052
+      },
+      {
+        "timestamp": 1767571200000,
+        "equity": 16458.33974820136,
+        "fundingAccruedUsd": 8582.921,
+        "markPrice": 3224.99,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.8551198138538592,
+          0.000007197335007669092,
+          0.14487298881113314
+        ],
+        "realizedVol20d": 0.019879297197209263
+      },
+      {
+        "timestamp": 1768176000000,
+        "equity": 16214.560786428323,
+        "fundingAccruedUsd": 8619.896,
+        "markPrice": 3095.75,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.8753410729631612,
+          0.06778432522653809,
+          0.05687460181030075
+        ],
+        "realizedVol20d": 0.01701990693798416
+      },
+      {
+        "timestamp": 1768780800000,
+        "equity": 16094.447603387296,
+        "fundingAccruedUsd": 8653.585000000001,
+        "markPrice": 3189.55,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.6236923610402132,
+          4.068395801656744e-7,
+          0.3763072321202066
+        ],
+        "realizedVol20d": 0.02419566836364923
+      },
+      {
+        "timestamp": 1769385600000,
+        "equity": 16094.447603387296,
+        "fundingAccruedUsd": 8668.297000000002,
+        "markPrice": 2930.35,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.011811688101781403,
+          8.161955052245385e-15,
+          0.9881883118982103
+        ],
+        "realizedVol20d": 0.03127192877175804
+      },
+      {
+        "timestamp": 1769990400000,
+        "equity": 16044.707291959603,
+        "fundingAccruedUsd": 8704.736,
+        "markPrice": 2347.02,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.010029516446554294,
+          5.501947958117061e-11,
+          0.9899704834984261
+        ],
+        "realizedVol20d": 0.039528349807263365
+      },
+      {
+        "timestamp": 1770595200000,
+        "equity": 16044.707291959603,
+        "fundingAccruedUsd": 8714.736,
+        "markPrice": 2105.02,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.27706771453841855,
+          0.3277769985379613,
+          0.3951552869236203
+        ],
+        "realizedVol20d": 0.05965412758384697
+      },
+      {
+        "timestamp": 1771200000000,
+        "equity": 16044.707291959603,
+        "fundingAccruedUsd": 8720.94,
+        "markPrice": 1998.33,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.04940235765745584,
+          0.0010253099367624743,
+          0.9495723324057814
+        ],
+        "realizedVol20d": 0.06042441120448928
+      },
+      {
+        "timestamp": 1771804800000,
+        "equity": 15822.881313040507,
+        "fundingAccruedUsd": 8740.639000000001,
+        "markPrice": 1856.3,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.07972263015786143,
+          1.2703236493385165e-23,
+          0.9202773698421385
+        ],
+        "realizedVol20d": 0.05350390981346001
+      },
+      {
+        "timestamp": 1772409600000,
+        "equity": 16200.266205318985,
+        "fundingAccruedUsd": 8769.014000000003,
+        "markPrice": 2027.35,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.011934830383659964,
+          5.028184321811682e-18,
+          0.9880651696163399
+        ],
+        "realizedVol20d": 0.03830730856010344
+      },
+      {
+        "timestamp": 1773014400000,
+        "equity": 15346.258920936316,
+        "fundingAccruedUsd": 8773.991000000004,
+        "markPrice": 1992.98,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.11086703847611586,
+          2.5458164694934204e-8,
+          0.8891329360657193
+        ],
+        "realizedVol20d": 0.03899992932316547
+      },
+      {
+        "timestamp": 1773619200000,
+        "equity": 16086.994816246373,
+        "fundingAccruedUsd": 8804.442000000005,
+        "markPrice": 2352.97,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.000024733119915156833,
+          3.958578021146482e-52,
+          0.9999752668800849
+        ],
+        "realizedVol20d": 0.04027919823230685
+      },
+      {
+        "timestamp": 1774224000000,
+        "equity": 15914.430239079644,
+        "fundingAccruedUsd": 8828.634000000005,
+        "markPrice": 2152.03,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.009422490756785633,
+          5.0901546128584456e-20,
+          0.9905775092432144
+        ],
+        "realizedVol20d": 0.03527735879597249
+      },
+      {
+        "timestamp": 1774828800000,
+        "equity": 15941.319586945612,
+        "fundingAccruedUsd": 8839.746000000005,
+        "markPrice": 2026.48,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.32479649404467315,
+          0.0009241409840549192,
+          0.6742793649712718
+        ],
+        "realizedVol20d": 0.03152241493291817
+      },
+      {
+        "timestamp": 1775433600000,
+        "equity": 16672.710543137564,
+        "fundingAccruedUsd": 8854.579000000003,
+        "markPrice": 2107.16,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.5538300497310927,
+          0.09056326323715867,
+          0.35560668703174847
+        ],
+        "realizedVol20d": 0.027449167482829915
+      },
+      {
+        "timestamp": 1776038400000,
+        "equity": 15924.225386226923,
+        "fundingAccruedUsd": 8888.715000000004,
+        "markPrice": 2369.46,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.0000015144418515644117,
+          1.6233829147510728e-53,
+          0.9999984855581483
+        ],
+        "realizedVol20d": 0.03292557271136048
+      },
+      {
+        "timestamp": 1776643200000,
+        "equity": 15924.225386226923,
+        "fundingAccruedUsd": 8888.715000000004,
+        "markPrice": 2313.85,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.058133223564162624,
+          0.000010837024070726391,
+          0.9418559394117668
+        ],
+        "realizedVol20d": 0.031784538979128585
+      },
+      {
+        "timestamp": 1777248000000,
+        "equity": 15713.05048453152,
+        "fundingAccruedUsd": 8916.512000000004,
+        "markPrice": 2303.67,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.6387198127090432,
+          4.016350115573196e-8,
+          0.3612801471274556
+        ],
+        "realizedVol20d": 0.028652766633419577
+      },
+      {
+        "timestamp": 1777852800000,
+        "equity": 15786.728029473597,
+        "fundingAccruedUsd": 8932.322000000004,
+        "markPrice": 2347.16,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.9245238544375199,
+          0.048302641710387006,
+          0.027173503852092884
+        ],
+        "realizedVol20d": 0.018857912396937147
+      },
+      {
+        "timestamp": 1778457600000,
+        "equity": 16264.11816867674,
+        "fundingAccruedUsd": 8984.040000000005,
+        "markPrice": 2339.87,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.9559679020428009,
+          0.002726249367212094,
+          0.041305848589987273
+        ],
+        "realizedVol20d": 0.014860427526778163
+      },
+      {
+        "timestamp": 1779062400000,
+        "equity": 13557.054062893028,
+        "fundingAccruedUsd": 9056.846000000007,
+        "markPrice": 2130.08,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.8785472100904831,
+          0.06311436668857574,
+          0.05833842322094091
+        ],
+        "realizedVol20d": 0.015263320656262938
+      },
+      {
+        "timestamp": 1779667200000,
+        "equity": 13448.194436081412,
+        "fundingAccruedUsd": 9160.719000000005,
+        "markPrice": 2113.01,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.8842201657280512,
+          0.06038811220972741,
+          0.05539172206222154
+        ],
+        "realizedVol20d": 0.016558917062286124
+      },
+      {
+        "timestamp": 1780272000000,
+        "equity": 11796.239456223213,
+        "fundingAccruedUsd": 9215.565000000006,
+        "markPrice": 2006.73,
+        "inCarry": false,
+        "regime": "ranging",
+        "regimeMultiplier": 0.7,
+        "posteriorProbs": [
+          0.4434462693356877,
+          0.5445203454382516,
+          0.012033385226060912
+        ],
+        "realizedVol20d": 0.014436831806938439
+      },
+      {
+        "timestamp": 1780876800000,
+        "equity": 11524.099213913292,
+        "fundingAccruedUsd": 9240.439000000006,
+        "markPrice": 1690.49,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.06724210118623866,
+          0.13445212971014897,
+          0.7983057691036123
+        ],
+        "realizedVol20d": 0.036626313988961365
+      },
+      {
+        "timestamp": 1781481600000,
+        "equity": 11524.099213913292,
+        "fundingAccruedUsd": 9240.439000000006,
+        "markPrice": 1796.13,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 0.4,
+        "posteriorProbs": [
+          0.06702250709825487,
+          4.648721762959705e-15,
+          0.9329774929017404
+        ],
+        "realizedVol20d": 0.039181047479565065
+      },
+      {
+        "timestamp": 1782086400000,
+        "equity": 11524.099213913292,
+        "fundingAccruedUsd": 9253.857000000005,
+        "markPrice": 1728.19,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.7550578735835718,
+          0.0049818197172708965,
+          0.23996030669915724
+        ],
+        "realizedVol20d": 0.036555574717199536
+      },
+      {
+        "timestamp": 1782691200000,
+        "equity": 11524.099213913292,
+        "fundingAccruedUsd": 9253.857000000005,
+        "markPrice": 1613.07,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": [
+          0.6437120766505446,
+          0.00002466578718676136,
+          0.3562632575622688
+        ],
+        "realizedVol20d": 0.022179642877547846
+      }
+    ],
+    "withoutRegimeDetector": [
+      {
+        "timestamp": 1704067200000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2352.04,
+        "inCarry": false,
+        "regime": null,
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0
+      },
+      {
+        "timestamp": 1704672000000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2330.44,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0
+      },
+      {
+        "timestamp": 1705276800000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2511.78,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0
+      },
+      {
+        "timestamp": 1705881600000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2314.2,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03734258720318461
+      },
+      {
+        "timestamp": 1706486400000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2317.6,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03361740459634285
+      },
+      {
+        "timestamp": 1707091200000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2301.83,
+        "inCarry": false,
+        "regime": "ranging",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.019662782164959126
+      },
+      {
+        "timestamp": 1707696000000,
+        "equity": 10000,
+        "fundingAccruedUsd": 0,
+        "markPrice": 2659.99,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.018415801495207367
+      },
+      {
+        "timestamp": 1708300800000,
+        "equity": 11981.822413013235,
+        "fundingAccruedUsd": 158.01100000000002,
+        "markPrice": 2944.8,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.021051581330647492
+      },
+      {
+        "timestamp": 1708905600000,
+        "equity": 14633.582209067083,
+        "fundingAccruedUsd": 488.52500000000003,
+        "markPrice": 3175.94,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.021316601360880816
+      },
+      {
+        "timestamp": 1709510400000,
+        "equity": 19648.316433099888,
+        "fundingAccruedUsd": 1435.734,
+        "markPrice": 3627.76,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.020643942321489115
+      },
+      {
+        "timestamp": 1710115200000,
+        "equity": 24102.81959019974,
+        "fundingAccruedUsd": 2354.4560000000006,
+        "markPrice": 4064.8,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.024843193146028484
+      },
+      {
+        "timestamp": 1710720000000,
+        "equity": 22267.221032577487,
+        "fundingAccruedUsd": 2958.135000000001,
+        "markPrice": 3520.46,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03338313348849221
+      },
+      {
+        "timestamp": 1711324800000,
+        "equity": 22267.221032577487,
+        "fundingAccruedUsd": 2958.135000000001,
+        "markPrice": 3590.42,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.048505335535936334
+      },
+      {
+        "timestamp": 1711929600000,
+        "equity": 22267.221032577487,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3503.8,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.04587724225569313
+      },
+      {
+        "timestamp": 1712534400000,
+        "equity": 22267.221032577487,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3694.61,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03942229876105494
+      },
+      {
+        "timestamp": 1713139200000,
+        "equity": 22267.221032577487,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3101.99,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.040022371473180066
+      },
+      {
+        "timestamp": 1713744000000,
+        "equity": 22267.221032577487,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3200.2,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03697394698797028
+      },
+      {
+        "timestamp": 1714348800000,
+        "equity": 22267.221032577487,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3216.73,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.032193582075943535
+      },
+      {
+        "timestamp": 1714953600000,
+        "equity": 22267.221032577487,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 3062.6,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.025182289841158365
+      },
+      {
+        "timestamp": 1715558400000,
+        "equity": 22267.221032577487,
+        "fundingAccruedUsd": 3003.3390000000013,
+        "markPrice": 2950.99,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02445653887941584
+      },
+      {
+        "timestamp": 1716163200000,
+        "equity": 28135.36418310728,
+        "fundingAccruedUsd": 3106.4330000000004,
+        "markPrice": 3661.78,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.046400005470927035
+      },
+      {
+        "timestamp": 1716768000000,
+        "equity": 29537.878193309934,
+        "fundingAccruedUsd": 3246.4330000000004,
+        "markPrice": 3894.22,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.0454681272492236
+      },
+      {
+        "timestamp": 1717372800000,
+        "equity": 28834.45215976747,
+        "fundingAccruedUsd": 3525.2790000000005,
+        "markPrice": 3767.06,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.04411246467599132
+      },
+      {
+        "timestamp": 1717977600000,
+        "equity": 28331.513009680075,
+        "fundingAccruedUsd": 3793.4650000000006,
+        "markPrice": 3667.85,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.014792987849642636
+      },
+      {
+        "timestamp": 1718582400000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4003.4650000000006,
+        "markPrice": 3511.46,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.019785229954051787
+      },
+      {
+        "timestamp": 1719187200000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3352.73,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.020249437361590617
+      },
+      {
+        "timestamp": 1719792000000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3442.2,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.017687260279225486
+      },
+      {
+        "timestamp": 1720396800000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3019.01,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.026516497531899774
+      },
+      {
+        "timestamp": 1721001600000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3483.39,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03143174397815029
+      },
+      {
+        "timestamp": 1721606400000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3439.6,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03186720300499537
+      },
+      {
+        "timestamp": 1722211200000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 3317.66,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.026288626919493876
+      },
+      {
+        "timestamp": 1722816000000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 2419.59,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03572935789536714
+      },
+      {
+        "timestamp": 1723420800000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 2722.3,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.052377239913359554
+      },
+      {
+        "timestamp": 1724025600000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 2636.36,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05070663374337881
+      },
+      {
+        "timestamp": 1724630400000,
+        "equity": 27310.329711751117,
+        "fundingAccruedUsd": 4013.4650000000006,
+        "markPrice": 2680.49,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.0410819845217104
+      },
+      {
+        "timestamp": 1725235200000,
+        "equity": 25058.645304010664,
+        "fundingAccruedUsd": 4078.7420000000006,
+        "markPrice": 2538.01,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03046009150668939
+      },
+      {
+        "timestamp": 1725840000000,
+        "equity": 24073.084470962564,
+        "fundingAccruedUsd": 4111.443,
+        "markPrice": 2359.5,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03530576767962142
+      },
+      {
+        "timestamp": 1726444800000,
+        "equity": 24073.084470962564,
+        "fundingAccruedUsd": 4121.519,
+        "markPrice": 2295.68,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.029119459481028575
+      },
+      {
+        "timestamp": 1727049600000,
+        "equity": 25951.026211237117,
+        "fundingAccruedUsd": 4221.298999999999,
+        "markPrice": 2646.97,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.027516218658542535
+      },
+      {
+        "timestamp": 1727654400000,
+        "equity": 25808.54061714107,
+        "fundingAccruedUsd": 4313.157999999999,
+        "markPrice": 2602.23,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02302168731471481
+      },
+      {
+        "timestamp": 1728259200000,
+        "equity": 23417.751985322775,
+        "fundingAccruedUsd": 4424.690999999999,
+        "markPrice": 2422.71,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.025478502221231925
+      },
+      {
+        "timestamp": 1728864000000,
+        "equity": 22580.625009314022,
+        "fundingAccruedUsd": 4468.518999999999,
+        "markPrice": 2629.79,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.026962728149759564
+      },
+      {
+        "timestamp": 1729468800000,
+        "equity": 23246.296490372464,
+        "fundingAccruedUsd": 4678.518999999999,
+        "markPrice": 2666.7,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.022861669922062133
+      },
+      {
+        "timestamp": 1730073600000,
+        "equity": 22380.723928371382,
+        "fundingAccruedUsd": 4888.518999999999,
+        "markPrice": 2567.48,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.025268781358697413
+      },
+      {
+        "timestamp": 1730678400000,
+        "equity": 20613.390062954666,
+        "fundingAccruedUsd": 5098.518999999999,
+        "markPrice": 2398.21,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.023914397176503798
+      },
+      {
+        "timestamp": 1731283200000,
+        "equity": 25754.393384836083,
+        "fundingAccruedUsd": 5280.111999999999,
+        "markPrice": 3371.59,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03968776888843915
+      },
+      {
+        "timestamp": 1731888000000,
+        "equity": 24760.727143336804,
+        "fundingAccruedUsd": 5692.497999999999,
+        "markPrice": 3207.8,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.041307136924986054
+      },
+      {
+        "timestamp": 1732492800000,
+        "equity": 27270.251318566778,
+        "fundingAccruedUsd": 6177.020999999998,
+        "markPrice": 3414.49,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.04250865613554833
+      },
+      {
+        "timestamp": 1733097600000,
+        "equity": 30140.486171917324,
+        "fundingAccruedUsd": 6477.395999999999,
+        "markPrice": 3643.42,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03617391159969769
+      },
+      {
+        "timestamp": 1733702400000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3712,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.040500348384958716
+      },
+      {
+        "timestamp": 1734307200000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3986.24,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03690416830150192
+      },
+      {
+        "timestamp": 1734912000000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3422.53,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.039556082377480976
+      },
+      {
+        "timestamp": 1735516800000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3361.84,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03230501142754522
+      },
+      {
+        "timestamp": 1736121600000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3687.45,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.031407760495970924
+      },
+      {
+        "timestamp": 1736726400000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3137.51,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02924292784516161
+      },
+      {
+        "timestamp": 1737331200000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3284,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.0377381973901831
+      },
+      {
+        "timestamp": 1737936000000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 3182.44,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.0315909959138029
+      },
+      {
+        "timestamp": 1738540800000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 2879.9,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.038327084445351475
+      },
+      {
+        "timestamp": 1739145600000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 2661.19,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03150213573965723
+      },
+      {
+        "timestamp": 1739750400000,
+        "equity": 29632.62035929089,
+        "fundingAccruedUsd": 7018.982999999998,
+        "markPrice": 2744.05,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.034198945368617104
+      },
+      {
+        "timestamp": 1740355200000,
+        "equity": 30257.41843652687,
+        "fundingAccruedUsd": 7028.708999999998,
+        "markPrice": 2513.52,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03569486745923143
+      },
+      {
+        "timestamp": 1740960000000,
+        "equity": 29369.281376675593,
+        "fundingAccruedUsd": 7056.347999999998,
+        "markPrice": 2149.01,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05917343984036398
+      },
+      {
+        "timestamp": 1741564800000,
+        "equity": 27852.888823225498,
+        "fundingAccruedUsd": 7087.2559999999985,
+        "markPrice": 1865.1,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.06218172443366273
+      },
+      {
+        "timestamp": 1742169600000,
+        "equity": 27852.888823225498,
+        "fundingAccruedUsd": 7094.808999999998,
+        "markPrice": 1926.31,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05798948632073738
+      },
+      {
+        "timestamp": 1742774400000,
+        "equity": 27949.024887695912,
+        "fundingAccruedUsd": 7120.341999999999,
+        "markPrice": 2081.2,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.037737806580321984
+      },
+      {
+        "timestamp": 1743379200000,
+        "equity": 26161.228947803364,
+        "fundingAccruedUsd": 7156.708,
+        "markPrice": 1822.43,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.027718796542432547
+      },
+      {
+        "timestamp": 1743984000000,
+        "equity": 26161.228947803364,
+        "fundingAccruedUsd": 7168.508,
+        "markPrice": 1553.04,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.04203836026554097
+      },
+      {
+        "timestamp": 1744588800000,
+        "equity": 23188.82296998821,
+        "fundingAccruedUsd": 7207.115000000001,
+        "markPrice": 1623.77,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05491912384664674
+      },
+      {
+        "timestamp": 1745193600000,
+        "equity": 22556.221419824087,
+        "fundingAccruedUsd": 7233.880000000001,
+        "markPrice": 1579.57,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05243315138301797
+      },
+      {
+        "timestamp": 1745798400000,
+        "equity": 22161.00719036229,
+        "fundingAccruedUsd": 7276.3600000000015,
+        "markPrice": 1799.88,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.0459650449995654
+      },
+      {
+        "timestamp": 1746403200000,
+        "equity": 22898.210153849333,
+        "fundingAccruedUsd": 7296.287000000001,
+        "markPrice": 1820.19,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.026386382081055013
+      },
+      {
+        "timestamp": 1747008000000,
+        "equity": 22139.649323412246,
+        "fundingAccruedUsd": 7341.011,
+        "markPrice": 2495.47,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05083662178655272
+      },
+      {
+        "timestamp": 1747612800000,
+        "equity": 20584.251632768097,
+        "fundingAccruedUsd": 7430.929000000001,
+        "markPrice": 2528.14,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05390516526274997
+      },
+      {
+        "timestamp": 1748217600000,
+        "equity": 20561.104228549975,
+        "fundingAccruedUsd": 7474.93,
+        "markPrice": 2563.7,
+        "inCarry": false,
+        "regime": "ranging",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.055814629235411584
+      },
+      {
+        "timestamp": 1748822400000,
+        "equity": 19175.48475036681,
+        "fundingAccruedUsd": 7570.728,
+        "markPrice": 2607.41,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02413367660549674
+      },
+      {
+        "timestamp": 1749427200000,
+        "equity": 19175.48475036681,
+        "fundingAccruedUsd": 7570.728,
+        "markPrice": 2680.13,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.032589519435638474
+      },
+      {
+        "timestamp": 1750032000000,
+        "equity": 19175.48475036681,
+        "fundingAccruedUsd": 7570.728,
+        "markPrice": 2544.17,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03236910677177149
+      },
+      {
+        "timestamp": 1750636800000,
+        "equity": 19175.48475036681,
+        "fundingAccruedUsd": 7580.728,
+        "markPrice": 2411.66,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.038986198432492465
+      },
+      {
+        "timestamp": 1751241600000,
+        "equity": 19175.48475036681,
+        "fundingAccruedUsd": 7589.505,
+        "markPrice": 2485.47,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02873064423115002
+      },
+      {
+        "timestamp": 1751846400000,
+        "equity": 18876.621713951536,
+        "fundingAccruedUsd": 7627.474,
+        "markPrice": 2542.29,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.032418822232273894
+      },
+      {
+        "timestamp": 1752451200000,
+        "equity": 18876.621713951536,
+        "fundingAccruedUsd": 7647.474,
+        "markPrice": 3013.62,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02754471115359615
+      },
+      {
+        "timestamp": 1753056000000,
+        "equity": 25887.041451039822,
+        "fundingAccruedUsd": 7843.608,
+        "markPrice": 3762.33,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.027979399367535587
+      },
+      {
+        "timestamp": 1753660800000,
+        "equity": 26432.65341083591,
+        "fundingAccruedUsd": 8051.809,
+        "markPrice": 3799,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.027213265422724692
+      },
+      {
+        "timestamp": 1754265600000,
+        "equity": 26421.51100493962,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 3720.99,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03255749565345479
+      },
+      {
+        "timestamp": 1754870400000,
+        "equity": 26421.51100493962,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4223.22,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03355629581980691
+      },
+      {
+        "timestamp": 1755475200000,
+        "equity": 26421.51100493962,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4312.99,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03990464602841335
+      },
+      {
+        "timestamp": 1756080000000,
+        "equity": 26421.51100493962,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4376.18,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05239806616033911
+      },
+      {
+        "timestamp": 1756684800000,
+        "equity": 26421.51100493962,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4314.5,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.04755391064958279
+      },
+      {
+        "timestamp": 1757289600000,
+        "equity": 26421.51100493962,
+        "fundingAccruedUsd": 8081.809,
+        "markPrice": 4306.37,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.044053178201032744
+      },
+      {
+        "timestamp": 1757894400000,
+        "equity": 28144.543697181067,
+        "fundingAccruedUsd": 8100.31,
+        "markPrice": 4523.74,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02104202638268388
+      },
+      {
+        "timestamp": 1758499200000,
+        "equity": 28144.543697181067,
+        "fundingAccruedUsd": 8100.31,
+        "markPrice": 4199.08,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.023904182582377254
+      },
+      {
+        "timestamp": 1759104000000,
+        "equity": 29377.908380834626,
+        "fundingAccruedUsd": 8135.463,
+        "markPrice": 4215.07,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02942691478714337
+      },
+      {
+        "timestamp": 1759708800000,
+        "equity": 29221.76871030567,
+        "fundingAccruedUsd": 8154.558999999999,
+        "markPrice": 4684.01,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.029929528982045633
+      },
+      {
+        "timestamp": 1760313600000,
+        "equity": 27106.45111307628,
+        "fundingAccruedUsd": 8204.559,
+        "markPrice": 4240.85,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.04901755835727717
+      },
+      {
+        "timestamp": 1760918400000,
+        "equity": 27106.45111307628,
+        "fundingAccruedUsd": 8210.188999999998,
+        "markPrice": 3979.22,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.046557207683079097
+      },
+      {
+        "timestamp": 1761523200000,
+        "equity": 26319.9108623387,
+        "fundingAccruedUsd": 8232.21,
+        "markPrice": 4120.15,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.044641444555525385
+      },
+      {
+        "timestamp": 1762128000000,
+        "equity": 25315.37627608577,
+        "fundingAccruedUsd": 8266.364999999998,
+        "markPrice": 3603.83,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.028202486274427164
+      },
+      {
+        "timestamp": 1762732800000,
+        "equity": 26661.800557785242,
+        "fundingAccruedUsd": 8331.376999999999,
+        "markPrice": 3567.85,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03804094803275818
+      },
+      {
+        "timestamp": 1763337600000,
+        "equity": 24825.620544574656,
+        "fundingAccruedUsd": 8376.061,
+        "markPrice": 3031.44,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03767178107798678
+      },
+      {
+        "timestamp": 1763942400000,
+        "equity": 24147.234620031184,
+        "fundingAccruedUsd": 8458.390000000001,
+        "markPrice": 2953.38,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.035194690124414875
+      },
+      {
+        "timestamp": 1764547200000,
+        "equity": 24147.234620031184,
+        "fundingAccruedUsd": 8466.306,
+        "markPrice": 2799.07,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03127071282589425
+      },
+      {
+        "timestamp": 1765152000000,
+        "equity": 24147.234620031184,
+        "fundingAccruedUsd": 8485.934000000001,
+        "markPrice": 3124.16,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03595116737718982
+      },
+      {
+        "timestamp": 1765756800000,
+        "equity": 22718.201727369877,
+        "fundingAccruedUsd": 8520.725,
+        "markPrice": 2964.85,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03544440085115151
+      },
+      {
+        "timestamp": 1766361600000,
+        "equity": 22718.87470588976,
+        "fundingAccruedUsd": 8537.206,
+        "markPrice": 3009.49,
+        "inCarry": false,
+        "regime": "ranging",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03149431045725281
+      },
+      {
+        "timestamp": 1766966400000,
+        "equity": 22718.87470588976,
+        "fundingAccruedUsd": 8550.469000000001,
+        "markPrice": 2937.9,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02188548686138052
+      },
+      {
+        "timestamp": 1767571200000,
+        "equity": 23500.19912294067,
+        "fundingAccruedUsd": 8582.921,
+        "markPrice": 3224.99,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.019879297197209263
+      },
+      {
+        "timestamp": 1768176000000,
+        "equity": 23256.420161167633,
+        "fundingAccruedUsd": 8619.896,
+        "markPrice": 3095.75,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.01701990693798416
+      },
+      {
+        "timestamp": 1768780800000,
+        "equity": 22956.137203565064,
+        "fundingAccruedUsd": 8653.585000000001,
+        "markPrice": 3189.55,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.02419566836364923
+      },
+      {
+        "timestamp": 1769385600000,
+        "equity": 22956.137203565064,
+        "fundingAccruedUsd": 8668.297000000002,
+        "markPrice": 2930.35,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03127192877175804
+      },
+      {
+        "timestamp": 1769990400000,
+        "equity": 22831.78642499583,
+        "fundingAccruedUsd": 8704.736,
+        "markPrice": 2347.02,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.039528349807263365
+      },
+      {
+        "timestamp": 1770595200000,
+        "equity": 22831.78642499583,
+        "fundingAccruedUsd": 8714.736,
+        "markPrice": 2105.02,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05965412758384697
+      },
+      {
+        "timestamp": 1771200000000,
+        "equity": 22831.78642499583,
+        "fundingAccruedUsd": 8720.94,
+        "markPrice": 1998.33,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.06042441120448928
+      },
+      {
+        "timestamp": 1771804800000,
+        "equity": 22609.960446076733,
+        "fundingAccruedUsd": 8740.639000000001,
+        "markPrice": 1856.3,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.05350390981346001
+      },
+      {
+        "timestamp": 1772409600000,
+        "equity": 23553.422676772927,
+        "fundingAccruedUsd": 8769.014000000003,
+        "markPrice": 2027.35,
+        "inCarry": true,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03830730856010344
+      },
+      {
+        "timestamp": 1773014400000,
+        "equity": 21418.40446581626,
+        "fundingAccruedUsd": 8773.991000000004,
+        "markPrice": 1992.98,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03899992932316547
+      },
+      {
+        "timestamp": 1773619200000,
+        "equity": 22700.72705321807,
+        "fundingAccruedUsd": 8804.442000000005,
+        "markPrice": 2352.97,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.04027919823230685
+      },
+      {
+        "timestamp": 1774224000000,
+        "equity": 22269.315610301244,
+        "fundingAccruedUsd": 8828.634000000005,
+        "markPrice": 2152.03,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03527735879597249
+      },
+      {
+        "timestamp": 1774828800000,
+        "equity": 22336.53897996616,
+        "fundingAccruedUsd": 8839.746000000005,
+        "markPrice": 2026.48,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03152241493291817
+      },
+      {
+        "timestamp": 1775433600000,
+        "equity": 24165.016370446046,
+        "fundingAccruedUsd": 8854.579000000003,
+        "markPrice": 2107.16,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.027449167482829915
+      },
+      {
+        "timestamp": 1776038400000,
+        "equity": 22293.80347816944,
+        "fundingAccruedUsd": 8888.715000000004,
+        "markPrice": 2369.46,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.03292557271136048
+      },
+      {
+        "timestamp": 1776643200000,
+        "equity": 22293.80347816944,
+        "fundingAccruedUsd": 8888.715000000004,
+        "markPrice": 2313.85,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.031784538979128585
+      },
+      {
+        "timestamp": 1777248000000,
+        "equity": 21765.86622393094,
+        "fundingAccruedUsd": 8916.512000000004,
+        "markPrice": 2303.67,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.028652766633419577
+      },
+      {
+        "timestamp": 1777852800000,
+        "equity": 21839.54376887302,
+        "fundingAccruedUsd": 8932.322000000004,
+        "markPrice": 2347.16,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.018857912396937147
+      },
+      {
+        "timestamp": 1778457600000,
+        "equity": 22316.933908076164,
+        "fundingAccruedUsd": 8984.040000000005,
+        "markPrice": 2339.87,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.014860427526778163
+      },
+      {
+        "timestamp": 1779062400000,
+        "equity": 19609.869802292455,
+        "fundingAccruedUsd": 9056.846000000007,
+        "markPrice": 2130.08,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.015263320656262938
+      },
+      {
+        "timestamp": 1779667200000,
+        "equity": 19501.010175480842,
+        "fundingAccruedUsd": 9160.719000000005,
+        "markPrice": 2113.01,
+        "inCarry": true,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.016558917062286124
+      },
+      {
+        "timestamp": 1780272000000,
+        "equity": 17849.055195622645,
+        "fundingAccruedUsd": 9215.565000000006,
+        "markPrice": 2006.73,
+        "inCarry": false,
+        "regime": "ranging",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.014436831806938439
+      },
+      {
+        "timestamp": 1780876800000,
+        "equity": 17168.704589847843,
+        "fundingAccruedUsd": 9240.439000000006,
+        "markPrice": 1690.49,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.036626313988961365
+      },
+      {
+        "timestamp": 1781481600000,
+        "equity": 17168.704589847843,
+        "fundingAccruedUsd": 9240.439000000006,
+        "markPrice": 1796.13,
+        "inCarry": false,
+        "regime": "volatile",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.039181047479565065
+      },
+      {
+        "timestamp": 1782086400000,
+        "equity": 17168.704589847843,
+        "fundingAccruedUsd": 9253.857000000005,
+        "markPrice": 1728.19,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.036555574717199536
+      },
+      {
+        "timestamp": 1782691200000,
+        "equity": 17168.704589847843,
+        "fundingAccruedUsd": 9253.857000000005,
+        "markPrice": 1613.07,
+        "inCarry": false,
+        "regime": "trending",
+        "regimeMultiplier": 1,
+        "posteriorProbs": null,
+        "realizedVol20d": 0.022179642877547846
+      }
+    ]
+  }
+}
