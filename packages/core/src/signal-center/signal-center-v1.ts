@@ -749,6 +749,40 @@ export function toRiskEngineSignal(
         timestamp: ts,
         breach: false,
       };
+    case "factor":
+      // Phase 12+ — read-only FactorSignal (e.g., CexNetFlowRegimePlugin)
+      // has no notional impact. Map to a zero-notional "carry" shape so
+      // the risk engine's aggregates stay correct (zero incremental
+      // risk). The continuous factor value is NOT consumed by the risk
+      // engine in Phase 12 (downstream SizingSignal plugins handle that).
+      return {
+        kind: "carry",
+        source: signal.source,
+        symbol,
+        effectiveNotionalUsd: 0,
+        timestamp: ts,
+      };
+    case "funding-snapshot":
+      // FundingSnapshotSignal carries cross-venue funding telemetry
+      // (Phase 12 Track B / Phase 11.5 Track E §H1). The PortfolioRiskEngine
+      // has no native funding-snapshot concept — the snapshot is
+      // observational metadata for E2 (CrossDexDeltaNeutralArb) and the
+      // central telemetry sink. Map to a neutral direction signal so the
+      // exhaustive switch stays satisfied and the SCv1 risk engine is
+      // never asked to act on funding telemetry.
+      return {
+        kind: "direction",
+        source: signal.source,
+        symbol,
+        // Side must be 'long' or 'short' per internal DirectionSignal;
+        // 'long' is the neutral-default when funding-snapshot has no
+        // directional instruction. confidence: 0 ensures the risk engine
+        // does NOT allocate based on this telemetry.
+        side: "long",
+        confidence: 0,
+        effectiveNotionalUsd: 0,
+        timestamp: ts,
+      };
   }
 }
 

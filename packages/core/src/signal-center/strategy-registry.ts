@@ -67,7 +67,7 @@ import {
  * `risk` plugins for cross-strategy monitoring without enumerating
  * names.
  */
-export type EdgeClass = "directional" | "carry" | "sizing" | "risk" | "mixed";
+export type EdgeClass = "directional" | "carry" | "sizing" | "risk" | "factor" | "mixed";
 
 // ---------------------------------------------------------------------------
 // StrategyPluginMetadata — describes a plugin's static characteristics.
@@ -252,6 +252,7 @@ export function validatePluginMetadata(
     "carry",
     "sizing",
     "risk",
+    "factor",
     "mixed",
   ];
   if (!validEdgeClasses.includes(meta.edgeClass)) {

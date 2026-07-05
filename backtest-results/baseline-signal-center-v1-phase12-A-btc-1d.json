@@ -1,0 +1,203 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-05T21:35:13.992Z",
+    "phase": 12,
+    "milestone": "M2-Track-D-integration-composition",
+    "composition": "A",
+    "compositionLabel": "baseline SCv1 + Phase 11.1 set + Phase 11.2a RegimeDetector (CONTROL)",
+    "symbol": "BTC/USDT",
+    "ltfTimeframe": "1d",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000,
+    "pluginCount": 4,
+    "activePluginCount": 1,
+    "modifierCount": 3,
+    "baselinePlugins": [
+      "carry-baseline",
+      "vol-target-sizing",
+      "hybrid-kelly-v1",
+      "regime-detector-v1"
+    ],
+    "phase12Plugins": [],
+    "plugins": [
+      "carry-baseline",
+      "vol-target-sizing",
+      "hybrid-kelly-v1",
+      "regime-detector-v1"
+    ],
+    "composition_root": "SignalCenterV1 (packages/core/src/signal-center/signal-center-v1.ts)",
+    "perSymbolDisclosure": {
+      "BTC": "4 baseline plugins + 0 Phase 12 plugins",
+      "ETH": null,
+      "SOL": null
+    }
+  },
+  "config": {
+    "leverage": 10,
+    "baseNotionalUsd": 10000,
+    "effectiveNotionalUsd": 100000,
+    "perPluginBaseNotional": 10000,
+    "carryPluginConfig": {
+      "windowDays": 30,
+      "entryPercentile": 0.75,
+      "exitPercentile": 0.5,
+      "cooldownHours": 72
+    },
+    "directionalPluginConfig": {
+      "donchianPeriod": 20,
+      "stopAtrMultiplier": 1.5,
+      "tpAtrMultiplier": 3,
+      "atrPeriod": 14,
+      "maxHoldBars": 168,
+      "supertrendPeriod": 10,
+      "supertrendMultiplier": 3,
+      "mtfAggregationFactor": 4,
+      "htfAggregationFactor": 24,
+      "pricePrecision": 2
+    },
+    "sfkPluginConfig": {
+      "enabledSymbols": [],
+      "signFlipWindowDays": 7,
+      "extremeSigmaThreshold": 1.5,
+      "persistenceDays": 5,
+      "volWindowDays": 30
+    },
+    "volPluginConfig": {
+      "enabledSymbols": [
+        "BTC/USDT"
+      ],
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25
+    },
+    "hybridKellyPluginConfig": {
+      "enabledSymbols": [
+        "BTC/USDT"
+      ],
+      "kellyCap": 1,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25,
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "fundingSharpeWindowDays": 30
+    },
+    "regimePluginConfig": {
+      "enabledSymbols": [
+        "BTC/USDT"
+      ],
+      "transitionLearningDays": 30,
+      "minObservations": 5,
+      "baseNotionalUsd": 10000
+    },
+    "phase12PluginConfig": {
+      "p1Enabled": false,
+      "p1Note": null,
+      "e1Enabled": false,
+      "e1Note": null,
+      "m1Enabled": false,
+      "m1Note": null
+    }
+  },
+  "hardConstraint": {
+    "leverage": 10,
+    "leverageRatio": "1:10",
+    "effectiveNotionalUsd": 100000,
+    "maxAllowedLeverage": 10,
+    "mandateSource": "user-steer mvs_c13fe65cb68f4df3851304dea09a9099",
+    "mandateText": "ALL trades MUST use EXACTLY 1:10 leverage. No more, no less."
+  },
+  "signalCenter": {
+    "composition": "SignalBus + StrategyRegistry + PortfolioRiskEngine + StrategyTelemetry + 4 baseline + 0 Phase 12 plugins",
+    "pluginsEnabled": [
+      "carry-baseline",
+      "vol-target-sizing",
+      "hybrid-kelly-v1",
+      "regime-detector-v1"
+    ],
+    "busEmissions": 3570,
+    "signalsSubmitted": 827,
+    "barsProcessed": 915
+  },
+  "threeLayerDefense": {
+    "layer1": "constructor refuses maxLeverage > 10 (PASS — config validation across all plugins)",
+    "layer2": "subscribe() validates initial state for all read-only plugins: 0 assertions fired across P1/E1/M1/SFK",
+    "layer3": "per-bar leverageInvariantGuard at SCv1 portfolio level: 0 breach(es) detected (must be 0)",
+    "volModifierDefense": "VolTargetSizingPlugin — multiplier bounded [0.25, 1], max observed notional $100000 ≤ 1:10 cap $100000",
+    "phase12Defense": []
+  },
+  "envelope": {
+    "monthlyReturnPct": 1.2910476626040168,
+    "annualizedReturnPct": 16.627646616104563,
+    "sharpeRatio": 8.367505455689988,
+    "maxDrawdownPct": 0.00027196766169476486,
+    "dailyVaR95Pct": 0,
+    "finalEquityUsd": 14716.6500076016,
+    "liquidations": 0,
+    "totalReturnPct": 47.166500076016,
+    "combinedAvgMultiplier": 0.5348693575429381,
+    "composition": "4 baseline + 0 Phase 12 = 4 plugins",
+    "walkForwardSharpe": {
+      "folds": [
+        0,
+        0,
+        10.4655,
+        19.7574,
+        13.0001,
+        12.4475,
+        0,
+        4.987,
+        7.0184,
+        10.9212,
+        12.5962,
+        9.7842,
+        15.0452,
+        10.4879,
+        7.1314,
+        11.1282,
+        18.9784,
+        6.6046,
+        9.6767,
+        7.4711,
+        7.8346,
+        11.8662,
+        12.5132,
+        15.4988
+      ],
+      "mean": 9.8006,
+      "median": 10.4767,
+      "min": 0,
+      "max": 19.7574,
+      "minFold": {
+        "fold": 1,
+        "sharpe": 0
+      },
+      "maxFold": {
+        "fold": 4,
+        "sharpe": 19.7574
+      },
+      "isDays": 180,
+      "oosDays": 30,
+      "foldCount": 24
+    }
+  },
+  "phase12PluginStats": {
+    "p1": null,
+    "e1": null,
+    "m1": null
+  },
+  "crossPluginCorrelation": {
+    "pearsonCarryVsDirectional": 0.9999999999999998
+  },
+  "portfolioRisk": {
+    "numLeverageBreaches": 0,
+    "aggregateLeverage": 2.5,
+    "note": "Composition A: 4 plugins wired. Phase 12 read-only plugins (P1/E1/M1) contribute ZERO notional by construction. 1:10 cap holds cleanly."
+  },
+  "totalMonths": 30.12153307888621,
+  "startTime": 1704067200000,
+  "endTime": 1783036800000,
+  "ohlcvCandleCount": 915,
+  "fundingSnapshotCount": 2745,
+  "elapsedMs": 42
+}

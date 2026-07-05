@@ -232,6 +232,8 @@ export {
   err,
   isCarry,
   isDirection,
+  isFactor,
+  isFundingSnapshot,
   isRisk,
   isSizing,
   ok,
@@ -245,6 +247,9 @@ export type {
   DirectionSide,
   DirectionSignal,
   Err,
+  FactorRegime,
+  FactorSignal,
+  FundingSnapshotSignal,
   Ok,
   PluginState,
   Result,
@@ -421,6 +426,147 @@ export type {
   RegimeLabel,
   HMMStateIndex,
 } from "./signal-center/plugins/regime-detector-meta-plugin.js";
+// Phase 12 Track A — factor-layer read-only drop-in (Phase 11.5 Track D §H1 + §P1).
+// SEVENTH Phase 11+ drop-in (read-only FACTOR signal — continuous tanh-mapped
+// z-score in [-1, +1]). Pearson r = 0.47 with BTC daily volatility empirically
+// (arXiv 2501.05232 + Glassnode + CryptoQuant + CoinGlass). Per-symbol
+// accumulation / neutral / distribution regime classification at z = ±1.5
+// (Phase 11.5 §P1 thresholds). FREE-tier data adapters (Coinglass /
+// CryptoQuant / CoinGlass) with graceful degradation — skip emit, log warn,
+// do NOT crash the bus on outage. ZERO notional impact by construction;
+// 1:10 leverage cap is structurally unviolated (3-layer defense: L1 metadata,
+// L2 subscribe-bus, L3 per-emit zero-notional assertion).
+// `FactorSignal` interface + `FactorRegime` type + `isFactor` type guard +
+// `"factor"` SignalKind variant added to `types.ts` (Phase 12+).
+// New `EdgeClass = "factor"` variant added to `strategy-registry.ts`.
+// NOTE: `DEFAULT_ENABLED_SYMBOLS` is intentionally NOT re-exported here —
+// aliased to `CEX_NET_FLOW_ENABLED_SYMBOLS` to avoid TS2300 (Duplicate
+// identifier) collisions with hybrid-kelly/directional-mtf re-exports above.
+// Follows the same aliasing pattern as `DEFAULT_HYBRID_KELLY_*`.
+export {
+  CexNetFlowRegimePlugin,
+  CoinglassNetflowAdapter,
+  CoinGlassExchangeBalanceAdapter,
+  CryptoQuantNetflowAdapter,
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_CEX_NET_FLOW_BASE_NOTIONAL_USD,
+  DEFAULT_ENABLED_SYMBOLS as CEX_NET_FLOW_ENABLED_SYMBOLS,
+  DEFAULT_FACTOR_SCALING_Z,
+  DEFAULT_MAX_STALE_MS,
+  DEFAULT_MIN_OBSERVATIONS as DEFAULT_CEX_NET_FLOW_MIN_OBSERVATIONS,
+  DEFAULT_POLL_INTERVAL_MS,
+  DEFAULT_REGIME_LOWER_Z,
+  DEFAULT_REGIME_UPPER_Z,
+  DEFAULT_WINDOW_DAYS,
+  MAX_MAX_STALE_MS as CEX_NET_FLOW_MAX_MAX_STALE_MS,
+  MAX_MIN_OBSERVATIONS as CEX_NET_FLOW_MAX_MIN_OBSERVATIONS,
+  MAX_POLL_INTERVAL_MS as CEX_NET_FLOW_MAX_POLL_INTERVAL_MS,
+  MAX_WINDOW_DAYS as CEX_NET_FLOW_MAX_WINDOW_DAYS,
+  MAX_FACTOR_SCALING_Z as CEX_NET_FLOW_MAX_FACTOR_SCALING_Z,
+  MAX_REGIME_UPPER_Z as CEX_NET_FLOW_MAX_REGIME_UPPER_Z,
+  MAX_REGIME_LOWER_Z_UPPER_BOUND as CEX_NET_FLOW_MAX_REGIME_LOWER_Z_UPPER_BOUND,
+  MIN_MAX_STALE_MS as CEX_NET_FLOW_MIN_MAX_STALE_MS,
+  MIN_MIN_OBSERVATIONS as CEX_NET_FLOW_MIN_MIN_OBSERVATIONS,
+  MIN_POLL_INTERVAL_MS as CEX_NET_FLOW_MIN_POLL_INTERVAL_MS,
+  MIN_WINDOW_DAYS as CEX_NET_FLOW_MIN_WINDOW_DAYS,
+  MIN_FACTOR_SCALING_Z as CEX_NET_FLOW_MIN_FACTOR_SCALING_Z,
+  MIN_REGIME_UPPER_Z as CEX_NET_FLOW_MIN_REGIME_UPPER_Z,
+  MIN_REGIME_LOWER_Z_LOWER_BOUND as CEX_NET_FLOW_MIN_REGIME_LOWER_Z_LOWER_BOUND,
+  NullNetflowAdapter,
+  classifyRegime,
+  computeFactor,
+  computeZScore,
+  createCexNetFlowRegimePlugin,
+} from "./signal-center/plugins/cex-netflow-regime-plugin.js";
+export type {
+  CexNetFlowRegimeConfig,
+  CexNetFlowRegimePluginState,
+  IExchangeNetflowAdapter,
+  NetflowSample,
+} from "./signal-center/plugins/cex-netflow-regime-plugin.js";
+// Phase 12 Track B / Phase 11.5 Track E §H1 — read-only signal plugin.
+// EIGHTH Phase 11+ drop-in. Polls HL + Binance + Bybit + OKX funding,
+// normalizes to 8h-equivalent basis points, emits per-asset
+// `FundingSnapshotSignal` (new 6th SignalKind variant added in types.ts).
+// Foundation for downstream execution plugins (Phase 12 E2
+// CrossDexDeltaNeutralArb). 6 default assets: BTC/ETH/SOL/HYPE/DOGE/JUP.
+// `FundingSnapshotSignal` is the new Signal union member — also re-exported
+// from `./signal-center/types.js` below. `isFundingSnapshot` type guard
+// added to types.ts.
+// `DEFAULT_ASSETS` / `DEFAULT_POLL_INTERVAL_SEC` / etc. are unique to
+// cross-dex-funding-watcher so no aliasing needed.
+export {
+  CrossDexFundingWatcherPlugin,
+  DEFAULT_ASSETS,
+  DEFAULT_MAX_PREDICTED_GAP_BPS,
+  DEFAULT_MAX_SPREAD_BPS_THRESHOLD,
+  DEFAULT_POLL_INTERVAL_SEC,
+  createCrossDexFundingWatcherPlugin,
+  parseBzMarkPrice,
+  parseBzMarkPriceBatch,
+  parseByTicker,
+  parseByTickerBatch,
+  parseHlMetaAndAssetCtxs,
+  parseHlPredictedFundings,
+  parseOkFundingRate,
+  parseOkFundingRateBatch,
+  toBinanceSymbol,
+  toBybitSymbol,
+  toOkxSymbol,
+} from "./signal-center/plugins/cross-dex-funding-watcher-plugin.js";
+export type {
+  BinanceMarkPrice,
+  BybitTicker,
+  CrossDexFundingWatcherConfig,
+  CrossDexFundingWatcherPluginState,
+  HlAssetCtx,
+  HlPredictedFunding,
+  OkxFundingRate,
+  VenueId,
+} from "./signal-center/plugins/cross-dex-funding-watcher-plugin.js";
+// Phase 12 Track C — defensive read-only RiskSignal plugin (Phase 11.5 Track D §E1+§E5).
+// NINTH Phase 11+ drop-in. Tick-level liquidation cascade detector (0xArchive +
+// HypurrScan + GoldRush + CoinGlass + HyperTracker feeds) → emits RiskSignal
+// with `closeNotionalUsd` when OI drop + LSR deadlock + thin book + paper-tiger
+// all trigger. Throttled 24h cooldown per symbol. Layer 3 per-emit assertion
+// fires `closeNotionalUsd ≤ baseNotionalUsd × 10` (1:10 cap). Defensive
+// overlay: orthogonally complements Phase 11.2a RegimeDetector.
+export {
+  CoinGlassLiquidationAdapter,
+  DEFAULT_OI_DROP_THRESHOLD_PCT,
+  DEFAULT_LSR_DEADLOCK_LOWER,
+  DEFAULT_LSR_DEADLOCK_UPPER,
+  DEFAULT_THIN_BOOK_TOP5_DEPTH_PCT,
+  DEFAULT_PAPER_TIGER_WALL_INSERTION_MIN,
+  DEFAULT_PAPER_TIGER_CLUSTER_MIN_SIZE,
+  DEFAULT_POLL_INTERVAL_SEC as DEFAULT_PERPDEX_POLL_INTERVAL_SEC,
+  DEFAULT_THROTTLE_COOLDOWN_MS,
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_PERPDEX_BASE_NOTIONAL_USD,
+  DEFAULT_SIZE_MODIFIER,
+  DEFAULT_ENABLED_SYMBOLS as DEFAULT_PERPDEX_ENABLED_SYMBOLS,
+  GoldRushLiquidationAdapter,
+  HypurrScanLiquidationAdapter,
+  HyperTrackerLiquidationAdapter,
+  MAX_OI_DROP_THRESHOLD_PCT,
+  MAX_POLL_INTERVAL_SEC as MAX_PERPDEX_POLL_INTERVAL_SEC,
+  MIN_OI_DROP_THRESHOLD_PCT,
+  MIN_PAPER_TIGER_CLUSTER_MIN_SIZE,
+  MIN_PAPER_TIGER_WALL_INSERTION_MIN,
+  MIN_POLL_INTERVAL_SEC as MIN_PERPDEX_POLL_INTERVAL_SEC,
+  MockLiquidationAdapter,
+  NullLiquidationAdapter,
+  PerpDexLiquidationSignalsPlugin,
+  ZeroArchiveLiquidationAdapter,
+  evaluateCascadeHeuristic,
+} from "./signal-center/plugins/perpdex-liquidation-signals-plugin.js";
+export type {
+  CascadeHeuristicResult,
+  ILiquidationFeedAdapter,
+  LiquidationSnapshot,
+  PaperTigerSignal,
+  PerpDexLiquidationSignalsPluginConfig,
+  PerpDexLiquidationSignalsPluginState,
+  SymbolCascadeState,
+} from "./signal-center/plugins/perpdex-liquidation-signals-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,
