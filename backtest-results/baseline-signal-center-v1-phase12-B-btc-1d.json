@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-07-05T21:34:12.801Z",
+    "generatedAt": "2026-07-05T21:35:14.029Z",
     "phase": 12,
     "milestone": "M2-Track-D-integration-composition",
     "composition": "B",
@@ -133,8 +133,8 @@
     ]
   },
   "envelope": {
-    "monthlyReturnPct": 1.2910486670624666,
-    "annualizedReturnPct": 16.62766048400348,
+    "monthlyReturnPct": 1.2910476626040168,
+    "annualizedReturnPct": 16.627646616104563,
     "sharpeRatio": 8.367505455689988,
     "maxDrawdownPct": 0.00027196766169476486,
     "dailyVaR95Pct": 0,
@@ -207,10 +207,10 @@
     "aggregateLeverage": 2.5,
     "note": "Composition B: 5 plugins wired. Phase 12 read-only plugins (P1/E1/M1) contribute ZERO notional by construction. 1:10 cap holds cleanly."
   },
-  "totalMonths": 30.12150979347654,
+  "totalMonths": 30.12153307888621,
   "startTime": 1704067200000,
   "endTime": 1783036800000,
   "ohlcvCandleCount": 915,
   "fundingSnapshotCount": 2745,
-  "elapsedMs": 35
+  "elapsedMs": 33
 }
