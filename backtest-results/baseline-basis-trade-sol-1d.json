@@ -1,0 +1,1980 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-05T11:37:26.785Z",
+    "phase": "11.2e",
+    "milestone": "Track-B",
+    "task": "basis-trade-cli-baselines",
+    "symbol": "SOL/USDT",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000,
+    "pluginName": "basis-trade",
+    "pluginVersion": "1.0.0"
+  },
+  "config": {
+    "leverage": 10,
+    "baseNotionalUsd": 10000,
+    "effectiveNotionalUsd": 100000,
+    "basisTradeConfig": {
+      "basisEntryThresholdBps": 10,
+      "basisExitThresholdBps": 5,
+      "maxHoldHours": 72,
+      "fundingIntervalHours": 8,
+      "kellyFraction": 1,
+      "volMultiplier": 1,
+      "enabledSymbols": [
+        "SOL/USDT"
+      ]
+    },
+    "carryPluginConfig": {
+      "timingLeverage": 10,
+      "baseNotionalUsd": 10000,
+      "windowDays": 30,
+      "entryPercentile": 0.75,
+      "exitPercentile": 0.5,
+      "cooldownHours": 72
+    },
+    "basisModel": {
+      "type": "AR(1)-mean-reverting",
+      "decay": 0.92,
+      "sigmaBySymbol": {
+        "BTC/USDT": 0.0008,
+        "ETH/USDT": 0.0012,
+        "SOL/USDT": 0.0025
+      },
+      "note": "Synthetic perp_mark = spot × (1 + carry_neutral + AR(1)_noise). Mirrors the bybit.eu fair-value methodology (Avellaneda & Lipkin 2003 + Hasbrouck 1993)."
+    },
+    "perSymbolDisclosure": {
+      "BTC/USDT": "registered (Phase 11.2e Track A — basis convergence alpha)",
+      "ETH/USDT": "registered (Phase 11.2e Track A — basis convergence alpha)",
+      "SOL/USDT": "registered (Phase 11.2e Track A — basis convergence alpha)"
+    },
+    "walkForward": {
+      "trainDays": 180,
+      "testDays": 30,
+      "stepDays": 30,
+      "purgeDays": 0
+    }
+  },
+  "hardConstraint": {
+    "leverage": 10,
+    "leverageRatio": "1:10",
+    "effectiveNotionalUsd": 100000,
+    "maxAllowedLeverage": 10,
+    "mandateSource": "user-steer mvs_c13fe65cb68f4df3851304dea09a9099",
+    "mandateText": "ALL trades MUST use EXACTLY 1:10 leverage. No more, no less."
+  },
+  "period": {
+    "startTime": 1704067200000,
+    "endTime": 1783036800000,
+    "totalMonths": 30.02628120893561,
+    "ohlcvCount": 915,
+    "fundingSnapshots": 2745
+  },
+  "withBasisTrade": {
+    "totalReturnPct": 113.74632513814609,
+    "monthlyReturnPct": 2.5550885929525924,
+    "annualizedReturnPct": 35.32741322961408,
+    "sharpeRatio": 6.299622006266241,
+    "maxDrawdownPct": 0.01835018278012679,
+    "dailyVaR95Pct": 0,
+    "finalEquityUsd": 21374.63251381461,
+    "basisPnlTotalUsd": 3632.883013814618,
+    "fundingPnlTotalUsd": 2816.4160000000006,
+    "basisAvgEntryBps": 13.392650190845984,
+    "basisAvgExitBps": 4.100047205611959,
+    "basisAvgHoldHours": 178.58823529411765,
+    "totalTrades": 68,
+    "convergedCount": 25,
+    "timeoutCount": 43
+  },
+  "signalCenter": {
+    "composition": "SignalBus + StrategyRegistry + PortfolioRiskEngine + StrategyTelemetry + CarryBaselinePlugin + BasisTradePlugin",
+    "pluginsEnabled": [
+      "carry-baseline",
+      "basis-trade-v1"
+    ],
+    "compositionRoot": "SignalCenterV1 (packages/core/src/signal-center/signal-center-v1.ts)",
+    "busEmissions": 4437,
+    "signalsSubmitted": 1694
+  },
+  "threeLayerDefense": {
+    "layer1": "constructor refuses maxLeverage > 10 (BasisTradePlugin.metadata.maxLeverage = 10 — PASS)",
+    "layer2": "per-emit: assertLeverageInvariant(notional, baseNotionalUsd) BEFORE emit (68 assertions fired, 0 breaches)",
+    "layer3": "per-emit clamp + assert: notional clamped to baseNotionalUsd × 10 BEFORE emit (68 clamp-assertions fired, 0 clamp events)",
+    "portfolioGuard": "SCv1 portfolio-level leverage invariant guard: 1315 aggregate breach fires (informational — see note)",
+    "pluginBreaches": 0,
+    "note": "The SCv1 portfolio guard aggregates notional across positions keyed by (source, symbol). BasisTrade's source suffix encodes position state (short_basis/long_basis/flat), so a single plugin can occupy 3 distinct keys during a state cycle. Per-emit compliance (Layer 2/3) is the canonical gate; the portfolio aggregate count is reported for transparency but is NOT the compliance gate (see Notes in deliverable.md)."
+  },
+  "risk": {
+    "liquidations": 0,
+    "leverageInvariantBreaches": 0,
+    "layer2AssertionCount": 68,
+    "layer3AssertionCount": 68,
+    "notionalClampCount": 0,
+    "dailyVaR95Pct": 0,
+    "maxDrawdownPct": 0.01835018278012679,
+    "layer1": "constructor: metadata.maxLeverage=10 (BasisTradePlugin)",
+    "layer2": "per-emit: assertLeverageInvariant() BEFORE emit (BasisTradePlugin)",
+    "layer3": "per-emit clamp: notional ≤ baseNotionalUsd × 10, assert AFTER clamp (BasisTradePlugin)"
+  },
+  "walkForward": {
+    "config": {
+      "trainDays": 180,
+      "testDays": 30,
+      "stepDays": 30,
+      "purgeDays": 0
+    },
+    "totalFolds": 24,
+    "totalTestTrades": 49,
+    "aggregateTestSharpe": 23.619051233765827,
+    "aggregateTestReturn": 0.3912342544149313,
+    "aggregateTestPnlUsd": 3912.3425441493137,
+    "avgTrainPnlUsd": 96.25358085827025,
+    "avgTestPnlUsd": 78.35486069166194,
+    "positiveTestSharpeFraction": 0.7083333333333334,
+    "overfitRisk": "LOW",
+    "folds": [
+      {
+        "index": 0,
+        "trainStart": 1704067200000,
+        "trainEnd": 1719619200000,
+        "testStart": 1719619200000,
+        "testEnd": 1722211200000,
+        "trainTradeCount": 16,
+        "testTradeCount": 3,
+        "trainAvgEntryBasisBps": 13.969506399038151,
+        "trainAvgPnlUsd": 144.55191545516735,
+        "testAvgPnlUsd": 57.91132378329973,
+        "testSharpe": 14.016763905449253,
+        "testReturn": 0.017373397134989917,
+        "testPnlUsd": 173.73397134989918
+      },
+      {
+        "index": 1,
+        "trainStart": 1706659200000,
+        "trainEnd": 1722211200000,
+        "testStart": 1722211200000,
+        "testEnd": 1724803200000,
+        "trainTradeCount": 15,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 12.436871714135647,
+        "trainAvgPnlUsd": 146.60169804799196,
+        "testAvgPnlUsd": 60.65157345805784,
+        "testSharpe": 9.851048354882755,
+        "testReturn": 0.012130314691611568,
+        "testPnlUsd": 121.30314691611568
+      },
+      {
+        "index": 2,
+        "trainStart": 1709251200000,
+        "trainEnd": 1724803200000,
+        "testStart": 1724803200000,
+        "testEnd": 1727395200000,
+        "trainTradeCount": 15,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 11.553774864268574,
+        "trainAvgPnlUsd": 141.62730181050014,
+        "testAvgPnlUsd": 56.52712488158306,
+        "testSharpe": 16.307698069004257,
+        "testReturn": 0.011305424976316612,
+        "testPnlUsd": 113.05424976316613
+      },
+      {
+        "index": 3,
+        "trainStart": 1711843200000,
+        "trainEnd": 1727395200000,
+        "testStart": 1727395200000,
+        "testEnd": 1729987200000,
+        "trainTradeCount": 15,
+        "testTradeCount": 1,
+        "trainAvgEntryBasisBps": 11.471681389888682,
+        "trainAvgPnlUsd": 76.79917991131742,
+        "testAvgPnlUsd": 94.84243019279258,
+        "testSharpe": 0,
+        "testReturn": 0.009484243019279257,
+        "testPnlUsd": 94.84243019279258
+      },
+      {
+        "index": 4,
+        "trainStart": 1714435200000,
+        "trainEnd": 1729987200000,
+        "testStart": 1729987200000,
+        "testEnd": 1732579200000,
+        "trainTradeCount": 13,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 11.791746522441452,
+        "trainAvgPnlUsd": 77.25150425678638,
+        "testAvgPnlUsd": 74.34090925236595,
+        "testSharpe": 310.6276386431785,
+        "testReturn": 0.01486818185047319,
+        "testPnlUsd": 148.6818185047319
+      },
+      {
+        "index": 5,
+        "trainStart": 1717027200000,
+        "trainEnd": 1732579200000,
+        "testStart": 1732579200000,
+        "testEnd": 1735171200000,
+        "trainTradeCount": 12,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 12.313116909451717,
+        "trainAvgPnlUsd": 80.51991435130859,
+        "testAvgPnlUsd": 340.2119699440135,
+        "testSharpe": 4.791562355748828,
+        "testReturn": 0.0680423939888027,
+        "testPnlUsd": 680.423939888027
+      },
+      {
+        "index": 6,
+        "trainStart": 1719619200000,
+        "trainEnd": 1735171200000,
+        "testStart": 1735171200000,
+        "testEnd": 1737763200000,
+        "trainTradeCount": 12,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 12.935622184684863,
+        "trainAvgPnlUsd": 111.00329638456105,
+        "testAvgPnlUsd": 67.8537355193606,
+        "testSharpe": 18.737420711281484,
+        "testReturn": 0.01357074710387212,
+        "testPnlUsd": 135.7074710387212
+      },
+      {
+        "index": 7,
+        "trainStart": 1722211200000,
+        "trainEnd": 1737763200000,
+        "testStart": 1737763200000,
+        "testEnd": 1740355200000,
+        "trainTradeCount": 11,
+        "testTradeCount": 0,
+        "trainAvgEntryBasisBps": 13.598055571676726,
+        "trainAvgPnlUsd": 117.63755057305038,
+        "testAvgPnlUsd": 0,
+        "testSharpe": 0,
+        "testReturn": 0,
+        "testPnlUsd": 0
+      },
+      {
+        "index": 8,
+        "trainStart": 1724803200000,
+        "trainEnd": 1740355200000,
+        "testStart": 1740355200000,
+        "testEnd": 1742947200000,
+        "trainTradeCount": 9,
+        "testTradeCount": 1,
+        "trainAvgEntryBasisBps": 14.100473512502353,
+        "trainAvgPnlUsd": 130.30110104304873,
+        "testAvgPnlUsd": 165.3437564701658,
+        "testSharpe": 0,
+        "testReturn": 0.01653437564701658,
+        "testPnlUsd": 165.3437564701658
+      },
+      {
+        "index": 9,
+        "trainStart": 1727395200000,
+        "trainEnd": 1742947200000,
+        "testStart": 1742947200000,
+        "testEnd": 1745539200000,
+        "trainTradeCount": 8,
+        "testTradeCount": 3,
+        "trainAvgEntryBasisBps": 15.926968017574548,
+        "trainAvgPnlUsd": 153.1249270118048,
+        "testAvgPnlUsd": 83.45615603771108,
+        "testSharpe": 19.1815237876575,
+        "testReturn": 0.025036846811313324,
+        "testPnlUsd": 250.36846811313325
+      },
+      {
+        "index": 10,
+        "trainStart": 1729987200000,
+        "trainEnd": 1745539200000,
+        "testStart": 1745539200000,
+        "testEnd": 1748131200000,
+        "trainTradeCount": 10,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 14.464840538744475,
+        "trainAvgPnlUsd": 138.05254540147791,
+        "testAvgPnlUsd": 34.32742313590795,
+        "testSharpe": 24.181635492003142,
+        "testReturn": 0.0068654846271815895,
+        "testPnlUsd": 68.6548462718159
+      },
+      {
+        "index": 11,
+        "trainStart": 1732579200000,
+        "trainEnd": 1748131200000,
+        "testStart": 1748131200000,
+        "testEnd": 1750723200000,
+        "trainTradeCount": 10,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 12.993490715081457,
+        "trainAvgPnlUsd": 130.04984817818632,
+        "testAvgPnlUsd": 105.32051857191702,
+        "testSharpe": 17.779093634061876,
+        "testReturn": 0.021064103714383404,
+        "testPnlUsd": 210.64103714383404
+      },
+      {
+        "index": 12,
+        "trainStart": 1735171200000,
+        "trainEnd": 1750723200000,
+        "testStart": 1750723200000,
+        "testEnd": 1753315200000,
+        "trainTradeCount": 10,
+        "testTradeCount": 1,
+        "trainAvgEntryBasisBps": 12.493378745275846,
+        "trainAvgPnlUsd": 83.07155790376703,
+        "testAvgPnlUsd": 96.92858827824709,
+        "testSharpe": 0,
+        "testReturn": 0.009692858827824708,
+        "testPnlUsd": 96.92858827824709
+      },
+      {
+        "index": 13,
+        "trainStart": 1737763200000,
+        "trainEnd": 1753315200000,
+        "testStart": 1753315200000,
+        "testEnd": 1755907200000,
+        "trainTradeCount": 9,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 12.216700190122731,
+        "trainAvgPnlUsd": 87.99296625302179,
+        "testAvgPnlUsd": 134.13435569823307,
+        "testSharpe": 6.4058716906922255,
+        "testReturn": 0.026826871139646612,
+        "testPnlUsd": 268.26871139646613
+      },
+      {
+        "index": 14,
+        "trainStart": 1740355200000,
+        "trainEnd": 1755907200000,
+        "testStart": 1755907200000,
+        "testEnd": 1758499200000,
+        "trainTradeCount": 11,
+        "testTradeCount": 3,
+        "trainAvgEntryBasisBps": 12.517539135888509,
+        "trainAvgPnlUsd": 96.38230978851475,
+        "testAvgPnlUsd": 61.70185554112056,
+        "testSharpe": 23.5620417792556,
+        "testReturn": 0.01851055666233617,
+        "testPnlUsd": 185.10556662336168
+      },
+      {
+        "index": 15,
+        "trainStart": 1742947200000,
+        "trainEnd": 1758499200000,
+        "testStart": 1758499200000,
+        "testEnd": 1761091200000,
+        "trainTradeCount": 13,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 12.500107881159465,
+        "trainAvgPnlUsd": 83.07440137129677,
+        "testAvgPnlUsd": 80.85754409368343,
+        "testSharpe": 80.10601804167418,
+        "testReturn": 0.016171508818736687,
+        "testPnlUsd": 161.71508818736686
+      },
+      {
+        "index": 16,
+        "trainStart": 1745539200000,
+        "trainEnd": 1761091200000,
+        "testStart": 1761091200000,
+        "testEnd": 1763683200000,
+        "trainTradeCount": 12,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 13.383896335681065,
+        "trainAvgPnlUsd": 82.60948649175764,
+        "testAvgPnlUsd": -32.59955517785811,
+        "testSharpe": -1.7996083594394703,
+        "testReturn": -0.006519911035571622,
+        "testPnlUsd": -65.19911035571621
+      },
+      {
+        "index": 17,
+        "trainStart": 1748131200000,
+        "trainEnd": 1763683200000,
+        "testStart": 1763683200000,
+        "testEnd": 1766275200000,
+        "trainTradeCount": 12,
+        "testTradeCount": 3,
+        "trainAvgEntryBasisBps": 15.823379821021943,
+        "trainAvgPnlUsd": 71.45499010612997,
+        "testAvgPnlUsd": 59.351885470934974,
+        "testSharpe": 33.45338060975592,
+        "testReturn": 0.017805565641280493,
+        "testPnlUsd": 178.05565641280492
+      },
+      {
+        "index": 18,
+        "trainStart": 1750723200000,
+        "trainEnd": 1766275200000,
+        "testStart": 1766275200000,
+        "testEnd": 1768867200000,
+        "trainTradeCount": 13,
+        "testTradeCount": 2,
+        "trainAvgEntryBasisBps": 15.56621336239695,
+        "trainAvgPnlUsd": 63.45188465711773,
+        "testAvgPnlUsd": 106.43146767317344,
+        "testSharpe": 7.4006824533712905,
+        "testReturn": 0.02128629353463469,
+        "testPnlUsd": 212.8629353463469
+      },
+      {
+        "index": 19,
+        "trainStart": 1753315200000,
+        "trainEnd": 1768867200000,
+        "testStart": 1768867200000,
+        "testEnd": 1771459200000,
+        "trainTradeCount": 14,
+        "testTradeCount": 1,
+        "trainAvgEntryBasisBps": 15.226470814545705,
+        "trainAvgPnlUsd": 67.20063197218788,
+        "testAvgPnlUsd": 42.6401895897132,
+        "testSharpe": 0,
+        "testReturn": 0.00426401895897132,
+        "testPnlUsd": 42.6401895897132
+      },
+      {
+        "index": 20,
+        "trainStart": 1755907200000,
+        "trainEnd": 1771459200000,
+        "testStart": 1771459200000,
+        "testEnd": 1774051200000,
+        "trainTradeCount": 13,
+        "testTradeCount": 4,
+        "trainAvgEntryBasisBps": 15.237296900290595,
+        "trainAvgPnlUsd": 55.013871215682876,
+        "testAvgPnlUsd": 48.22714881043895,
+        "testSharpe": 8.51188718766265,
+        "testReturn": 0.01929085952417558,
+        "testPnlUsd": 192.9085952417558
+      },
+      {
+        "index": 21,
+        "trainStart": 1758499200000,
+        "trainEnd": 1774051200000,
+        "testStart": 1774051200000,
+        "testEnd": 1776643200000,
+        "trainTradeCount": 14,
+        "testTradeCount": 3,
+        "trainAvgEntryBasisBps": 14.006325213823947,
+        "trainAvgPnlUsd": 51.6416681730194,
+        "testAvgPnlUsd": 91.92383372353477,
+        "testSharpe": 7.957228952157208,
+        "testReturn": 0.027577150117060432,
+        "testPnlUsd": 275.7715011706043
+      },
+      {
+        "index": 22,
+        "trainStart": 1761091200000,
+        "trainEnd": 1776643200000,
+        "testStart": 1776643200000,
+        "testEnd": 1779235200000,
+        "trainTradeCount": 15,
+        "testTradeCount": 4,
+        "trainAvgEntryBasisBps": 14.128709793300954,
+        "trainAvgPnlUsd": 55.80265116036726,
+        "testAvgPnlUsd": 50.13242165148989,
+        "testSharpe": 14.333287489000732,
+        "testReturn": 0.020052968660595957,
+        "testPnlUsd": 200.52968660595957
+      },
+      {
+        "index": 23,
+        "trainStart": 1763683200000,
+        "trainEnd": 1779235200000,
+        "testStart": 1779235200000,
+        "testEnd": 1781827200000,
+        "trainTradeCount": 17,
+        "testTradeCount": 0,
+        "trainAvgEntryBasisBps": 12.015890312868303,
+        "trainAvgPnlUsd": 64.86873908042264,
+        "testAvgPnlUsd": 0,
+        "testSharpe": 0,
+        "testReturn": 0,
+        "testPnlUsd": 0
+      }
+    ]
+  },
+  "trades": [
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1704153600000,
+      "exitTimestamp": 1704585600000,
+      "entryBasis": 0.0029064798557649186,
+      "exitBasis": 0.000546070626719953,
+      "entryCarryNeutral": 0.0017253899999999998,
+      "holdHours": 120,
+      "basisPnlUsd": 118.02046145224828,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 118.02046145224828,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1705276800000,
+      "exitTimestamp": 1705536000000,
+      "entryBasis": -0.0010180877176955718,
+      "exitBasis": 0.00039095516903285056,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 72,
+      "basisPnlUsd": 70.45214433642111,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 70.45214433642111,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1705795200000,
+      "exitTimestamp": 1706054400000,
+      "entryBasis": 0.0018844847866323151,
+      "exitBasis": 0.0007405819132837331,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 72,
+      "basisPnlUsd": 57.1951436674291,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 57.1951436674291,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1706140800000,
+      "exitTimestamp": 1706572800000,
+      "entryBasis": 0.001535944367755318,
+      "exitBasis": 0.0006985163986233429,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 120,
+      "basisPnlUsd": 41.871398456598754,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 41.871398456598754,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1707782400000,
+      "exitTimestamp": 1707955200000,
+      "entryBasis": 0.0017351398706357214,
+      "exitBasis": 0.0007697896859102529,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 48,
+      "basisPnlUsd": 48.267509236273426,
+      "fundingPnlUsd": 17.083,
+      "totalPnlUsd": 65.35050923627342,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1708128000000,
+      "exitTimestamp": 1708300800000,
+      "entryBasis": 0.00185694037175717,
+      "exitBasis": 0.0008432087469127861,
+      "entryCarryNeutral": 0.00052983,
+      "holdHours": 48,
+      "basisPnlUsd": 50.686581242219205,
+      "fundingPnlUsd": 79.88199999999999,
+      "totalPnlUsd": 130.56858124221918,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1708646400000,
+      "exitTimestamp": 1709337600000,
+      "entryBasis": 0.0018950274310257028,
+      "exitBasis": 0.002605531860594342,
+      "entryCarryNeutral": 0.00078867,
+      "holdHours": 192,
+      "basisPnlUsd": -35.525221478431945,
+      "fundingPnlUsd": 570.9100000000001,
+      "totalPnlUsd": 535.3847785215681,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1710028800000,
+      "exitTimestamp": 1710720000000,
+      "entryBasis": -0.0001552141724237609,
+      "exitBasis": 0.0008486318221630173,
+      "entryCarryNeutral": 0.00122745,
+      "holdHours": 192,
+      "basisPnlUsd": 50.192299729338906,
+      "fundingPnlUsd": 499.8990000000001,
+      "totalPnlUsd": 550.091299729339,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1711238400000,
+      "exitTimestamp": 1711843200000,
+      "entryBasis": -0.0007993433170740366,
+      "exitBasis": 0.0009870402015235767,
+      "entryCarryNeutral": 0.0005313900000000001,
+      "holdHours": 168,
+      "basisPnlUsd": 89.31917592988067,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 89.31917592988067,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1712448000000,
+      "exitTimestamp": 1712620800000,
+      "entryBasis": -0.0013461897684696545,
+      "exitBasis": 0.0003575167886540749,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 48,
+      "basisPnlUsd": 85.18532785618646,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 85.18532785618646,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1713312000000,
+      "exitTimestamp": 1713398400000,
+      "entryBasis": -0.0012895413958506994,
+      "exitBasis": 0.00007157999891457984,
+      "entryCarryNeutral": -0.00007797,
+      "holdHours": 24,
+      "basisPnlUsd": 68.05606973826396,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 68.05606973826396,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1714262400000,
+      "exitTimestamp": 1714521600000,
+      "entryBasis": 0.0012261034265541712,
+      "exitBasis": -0.000016915273874802316,
+      "entryCarryNeutral": 0.00008199,
+      "holdHours": 72,
+      "basisPnlUsd": 62.150935021448674,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 62.150935021448674,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1715990400000,
+      "exitTimestamp": 1716076800000,
+      "entryBasis": 0.0014261697497037129,
+      "exitBasis": 0.0005381000028047701,
+      "entryCarryNeutral": 0.00012623999999999998,
+      "holdHours": 24,
+      "basisPnlUsd": 44.40348734494714,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 44.40348734494714,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1716508800000,
+      "exitTimestamp": 1716768000000,
+      "entryBasis": -0.0008908425174386169,
+      "exitBasis": -0.00018768293222149493,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 72,
+      "basisPnlUsd": 35.1579792608561,
+      "fundingPnlUsd": 45,
+      "totalPnlUsd": 80.15797926085611,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1716854400000,
+      "exitTimestamp": 1717545600000,
+      "entryBasis": -0.0010293759776444542,
+      "exitBasis": 0.0003058049617393169,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 192,
+      "basisPnlUsd": 66.75904696918856,
+      "fundingPnlUsd": 140.85300000000097,
+      "totalPnlUsd": 207.61204696918952,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1718064000000,
+      "exitTimestamp": 1719446400000,
+      "entryBasis": 0.001356325512035222,
+      "exitBasis": 0.0004160993416390629,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 384,
+      "basisPnlUsd": 47.011308519807955,
+      "fundingPnlUsd": 60,
+      "totalPnlUsd": 107.01130851980795,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1720310400000,
+      "exitTimestamp": 1720396800000,
+      "entryBasis": -0.0015347068544258543,
+      "exitBasis": 0.00013928108283214508,
+      "entryCarryNeutral": -0.00038976,
+      "holdHours": 24,
+      "basisPnlUsd": 83.69939686289997,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 83.69939686289997,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1721001600000,
+      "exitTimestamp": 1721174400000,
+      "entryBasis": 0.001393976442729774,
+      "exitBasis": 0.0005666486264703086,
+      "entryCarryNeutral": -0.000031140000000000003,
+      "holdHours": 48,
+      "basisPnlUsd": 41.36639081297327,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 41.36639081297327,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1721520000000,
+      "exitTimestamp": 1721779200000,
+      "entryBasis": -0.0007204107634349165,
+      "exitBasis": 0.00025295291004560184,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 72,
+      "basisPnlUsd": 48.66818367402592,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 48.66818367402592,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1722297600000,
+      "exitTimestamp": 1722729600000,
+      "entryBasis": -0.0012699056298142296,
+      "exitBasis": 0.00042003454076021884,
+      "entryCarryNeutral": 0.00023349000000000002,
+      "holdHours": 120,
+      "basisPnlUsd": 84.49700852872242,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 84.49700852872242,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1723161600000,
+      "exitTimestamp": 1723248000000,
+      "entryBasis": -0.0009975293377780512,
+      "exitBasis": -0.0002614065700301858,
+      "entryCarryNeutral": 0.00009444,
+      "holdHours": 24,
+      "basisPnlUsd": 36.80613838739327,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 36.80613838739327,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1723852800000,
+      "exitTimestamp": 1725408000000,
+      "entryBasis": 0.0010892070335068787,
+      "exitBasis": 0.0004247917969220982,
+      "entryCarryNeutral": 0.00006003,
+      "holdHours": 432,
+      "basisPnlUsd": 33.220761829239024,
+      "fundingPnlUsd": 9.88149999999996,
+      "totalPnlUsd": 43.102261829238984,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1725753600000,
+      "exitTimestamp": 1726704000000,
+      "entryBasis": -0.0008378943583727466,
+      "exitBasis": 0.00009801540030578615,
+      "entryCarryNeutral": 0.00024444,
+      "holdHours": 264,
+      "basisPnlUsd": 46.79548793392664,
+      "fundingPnlUsd": 23.156500000000506,
+      "totalPnlUsd": 69.95198793392714,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1727827200000,
+      "exitTimestamp": 1728259200000,
+      "entryBasis": 0.0015568228757352582,
+      "exitBasis": 0.000059974271879406804,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 120,
+      "basisPnlUsd": 74.84243019279258,
+      "fundingPnlUsd": 20,
+      "totalPnlUsd": 94.84243019279258,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1729123200000,
+      "exitTimestamp": 1729987200000,
+      "entryBasis": -0.0010055884529952721,
+      "exitBasis": 0.0004626917098249215,
+      "entryCarryNeutral": 0.00013737,
+      "holdHours": 240,
+      "basisPnlUsd": 73.41400814100969,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 73.41400814100969,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1730246400000,
+      "exitTimestamp": 1730419200000,
+      "entryBasis": 0.0019839970528694054,
+      "exitBasis": 0.00047864084559496147,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 48,
+      "basisPnlUsd": 75.26781036372219,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 75.26781036372219,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1730678400000,
+      "exitTimestamp": 1732752000000,
+      "entryBasis": -0.0014979441809213814,
+      "exitBasis": 0.0005228000839501682,
+      "entryCarryNeutral": 0.00014454000000000002,
+      "holdHours": 576,
+      "basisPnlUsd": 101.03721324357748,
+      "fundingPnlUsd": 514.1655000000005,
+      "totalPnlUsd": 615.202713243578,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1734652800000,
+      "exitTimestamp": 1734998400000,
+      "entryBasis": 0.0016347636390380716,
+      "exitBasis": 0.0003303391061490918,
+      "entryCarryNeutral": -0.000053849999999999994,
+      "holdHours": 96,
+      "basisPnlUsd": 65.22122664444899,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 65.22122664444899,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1735516800000,
+      "exitTimestamp": 1735776000000,
+      "entryBasis": 0.0015222265235050176,
+      "exitBasis": 0.0004456561490067053,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 72,
+      "basisPnlUsd": 53.82851872491562,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 53.82851872491562,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1735948800000,
+      "exitTimestamp": 1737072000000,
+      "entryBasis": -0.0015619820443080843,
+      "exitBasis": -0.00002440299803197268,
+      "entryCarryNeutral": -0.00022073999999999998,
+      "holdHours": 312,
+      "basisPnlUsd": 76.87895231380558,
+      "fundingPnlUsd": 5,
+      "totalPnlUsd": 81.87895231380558,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1737849600000,
+      "exitTimestamp": 1741910400000,
+      "entryBasis": 0.0019782496446871492,
+      "exitBasis": 0.0003417145152838388,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 1128,
+      "basisPnlUsd": 81.82675647016552,
+      "fundingPnlUsd": 83.51700000000028,
+      "totalPnlUsd": 165.3437564701658,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1742515200000,
+      "exitTimestamp": 1743379200000,
+      "entryBasis": 0.0009724307434683712,
+      "exitBasis": -0.000542478619750561,
+      "entryCarryNeutral": -0.00011796000000000002,
+      "holdHours": 240,
+      "basisPnlUsd": 75.74546816094661,
+      "fundingPnlUsd": 19.37850000000026,
+      "totalPnlUsd": 95.12396816094687,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1744329600000,
+      "exitTimestamp": 1744416000000,
+      "entryBasis": -0.0009444378994363999,
+      "exitBasis": 0.00004180070294381119,
+      "entryCarryNeutral": 0.00010368000000000001,
+      "holdHours": 24,
+      "basisPnlUsd": 49.31193011901056,
+      "fundingPnlUsd": 6.7280000000000655,
+      "totalPnlUsd": 56.03993011901063,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1745280000000,
+      "exitTimestamp": 1745452800000,
+      "entryBasis": -0.0013632203575153212,
+      "exitBasis": 0.000441761039148193,
+      "entryCarryNeutral": -0.00032802,
+      "holdHours": 48,
+      "basisPnlUsd": 90.24906983317571,
+      "fundingPnlUsd": 8.955500000000029,
+      "totalPnlUsd": 99.20456983317574,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1745884800000,
+      "exitTimestamp": 1746057600000,
+      "entryBasis": 0.0005586097677147585,
+      "exitBasis": 0.0000371604003336825,
+      "entryCarryNeutral": -0.00048132000000000003,
+      "holdHours": 48,
+      "basisPnlUsd": 26.072468369053798,
+      "fundingPnlUsd": 2.757000000000062,
+      "totalPnlUsd": 28.82946836905386,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1746576000000,
+      "exitTimestamp": 1746748800000,
+      "entryBasis": 0.0009596259144869034,
+      "exitBasis": 0.00022716835643166012,
+      "entryCarryNeutral": -0.00007302,
+      "holdHours": 48,
+      "basisPnlUsd": 36.62287790276216,
+      "fundingPnlUsd": 3.2024999999998727,
+      "totalPnlUsd": 39.825377902762035,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1746921600000,
+      "exitTimestamp": 1748563200000,
+      "entryBasis": -0.0010192098418469507,
+      "exitBasis": -0.0005184607424682004,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 456,
+      "basisPnlUsd": 25.037454968937517,
+      "fundingPnlUsd": 103.22600000000057,
+      "totalPnlUsd": 128.26345496893808,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1749081600000,
+      "exitTimestamp": 1749686400000,
+      "entryBasis": 0.0016133860083068889,
+      "exitBasis": 0.00006583436480896959,
+      "entryCarryNeutral": 0.000053849999999999994,
+      "holdHours": 168,
+      "basisPnlUsd": 77.37758217489596,
+      "fundingPnlUsd": 5,
+      "totalPnlUsd": 82.37758217489596,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1750204800000,
+      "exitTimestamp": 1751846400000,
+      "entryBasis": 0.0015858599936477153,
+      "exitBasis": 0.0007576782280827438,
+      "entryCarryNeutral": 0.00015966,
+      "holdHours": 456,
+      "basisPnlUsd": 41.409088278248575,
+      "fundingPnlUsd": 55.519499999998516,
+      "totalPnlUsd": 96.92858827824709,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1752364800000,
+      "exitTimestamp": 1754179200000,
+      "entryBasis": -0.0014537451012152764,
+      "exitBasis": -0.0004687781547918726,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 504,
+      "basisPnlUsd": 49.248347321170186,
+      "fundingPnlUsd": 165.98349999999937,
+      "totalPnlUsd": 215.23184732116954,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1755475200000,
+      "exitTimestamp": 1755648000000,
+      "entryBasis": 0.0013205177771516239,
+      "exitBasis": 0.00025978049564569174,
+      "entryCarryNeutral": 0.0002658,
+      "holdHours": 48,
+      "basisPnlUsd": 53.03686407529661,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 53.03686407529661,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1755993600000,
+      "exitTimestamp": 1756166400000,
+      "entryBasis": 0.0017757070191736833,
+      "exitBasis": 0.0003427754748233727,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 48,
+      "basisPnlUsd": 71.64657721751553,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 71.64657721751553,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1757116800000,
+      "exitTimestamp": 1757289600000,
+      "entryBasis": 0.0015697028687014542,
+      "exitBasis": 0.0002057188579811248,
+      "entryCarryNeutral": 0.000267,
+      "holdHours": 48,
+      "basisPnlUsd": 68.19920053601646,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 68.19920053601646,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1757462400000,
+      "exitTimestamp": 1757635200000,
+      "entryBasis": -0.001113686952841959,
+      "exitBasis": -0.00020849117544536534,
+      "entryCarryNeutral": 0.00010851,
+      "holdHours": 48,
+      "basisPnlUsd": 45.259788869829684,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 45.259788869829684,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1758326400000,
+      "exitTimestamp": 1758585600000,
+      "entryBasis": -0.001535858096929033,
+      "exitBasis": 0.0000031064190895385043,
+      "entryCarryNeutral": -0.00009972,
+      "holdHours": 72,
+      "basisPnlUsd": 76.94822580092857,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 76.94822580092857,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1758931200000,
+      "exitTimestamp": 1759276800000,
+      "entryBasis": -0.001554766260801031,
+      "exitBasis": 0.000040570986927734875,
+      "entryCarryNeutral": -0.00029586,
+      "holdHours": 96,
+      "basisPnlUsd": 79.76686238643829,
+      "fundingPnlUsd": 5,
+      "totalPnlUsd": 84.76686238643829,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1760227200000,
+      "exitTimestamp": 1762992000000,
+      "entryBasis": -0.003574369905107817,
+      "exitBasis": -0.00022502201100586846,
+      "entryCarryNeutral": -0.004761120000000001,
+      "holdHours": 768,
+      "basisPnlUsd": -167.4673947050974,
+      "fundingPnlUsd": 64.70949999999903,
+      "totalPnlUsd": -102.75789470509838,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1763164800000,
+      "exitTimestamp": 1763510400000,
+      "entryBasis": -0.0008712459595029015,
+      "exitBasis": -0.000378580272515264,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 96,
+      "basisPnlUsd": 24.633284349381878,
+      "fundingPnlUsd": 12.925500000000284,
+      "totalPnlUsd": 37.558784349382165,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1764028800000,
+      "exitTimestamp": 1764201600000,
+      "entryBasis": -0.0012701703145529884,
+      "exitBasis": -0.00019708815435713796,
+      "entryCarryNeutral": -0.00014541,
+      "holdHours": 48,
+      "basisPnlUsd": 53.65410800979252,
+      "fundingPnlUsd": 4.271499999999833,
+      "totalPnlUsd": 57.925608009792356,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1764720000000,
+      "exitTimestamp": 1764806400000,
+      "entryBasis": 0.0014716244695408957,
+      "exitBasis": 0.000563097801903514,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 24,
+      "basisPnlUsd": 45.426333381869085,
+      "fundingPnlUsd": 5,
+      "totalPnlUsd": 50.426333381869085,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1764892800000,
+      "exitTimestamp": 1765152000000,
+      "entryBasis": 0.0011388226519496543,
+      "exitBasis": 0.00015221835152677817,
+      "entryCarryNeutral": 0.00007748999999999999,
+      "holdHours": 72,
+      "basisPnlUsd": 49.33021502114381,
+      "fundingPnlUsd": 20.373499999999694,
+      "totalPnlUsd": 69.7037150211435,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1765584000000,
+      "exitTimestamp": 1767398400000,
+      "entryBasis": 0.0015684108984724233,
+      "exitBasis": 0.00013711049056156155,
+      "entryCarryNeutral": 0.00030000000000000003,
+      "holdHours": 504,
+      "basisPnlUsd": 71.56502039554309,
+      "fundingPnlUsd": 90.5649999999996,
+      "totalPnlUsd": 162.1300203955427,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1767657600000,
+      "exitTimestamp": 1767916800000,
+      "entryBasis": 0.0010984308644232412,
+      "exitBasis": 0.00018377256540715717,
+      "entryCarryNeutral": 0.00004071,
+      "holdHours": 72,
+      "basisPnlUsd": 45.7329149508042,
+      "fundingPnlUsd": 5,
+      "totalPnlUsd": 50.7329149508042,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1768521600000,
+      "exitTimestamp": 1769644800000,
+      "entryBasis": 0.0012656897083806885,
+      "exitBasis": 0.0004128859165864245,
+      "entryCarryNeutral": -0.00012516,
+      "holdHours": 312,
+      "basisPnlUsd": 42.6401895897132,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 42.6401895897132,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1770163200000,
+      "exitTimestamp": 1771891200000,
+      "entryBasis": 0.0009785393065151406,
+      "exitBasis": 0.000012603335752358971,
+      "entryCarryNeutral": -0.00049242,
+      "holdHours": 480,
+      "basisPnlUsd": 48.29679853813908,
+      "fundingPnlUsd": 5.929500000000189,
+      "totalPnlUsd": 54.22629853813927,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1772150400000,
+      "exitTimestamp": 1772668800000,
+      "entryBasis": 0.0008351098097070881,
+      "exitBasis": 0.0006172957659333876,
+      "entryCarryNeutral": -0.00020142,
+      "holdHours": 144,
+      "basisPnlUsd": 10.890702188685024,
+      "fundingPnlUsd": 6.212500000000546,
+      "totalPnlUsd": 17.10320218868557,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1772928000000,
+      "exitTimestamp": 1773532800000,
+      "entryBasis": 0.0012688525236888557,
+      "exitBasis": -0.0004975016542298321,
+      "entryCarryNeutral": -0.00036684,
+      "holdHours": 168,
+      "basisPnlUsd": 88.3177088959344,
+      "fundingPnlUsd": 0.4795000000003711,
+      "totalPnlUsd": 88.79720889593477,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1773792000000,
+      "exitTimestamp": 1773878400000,
+      "entryBasis": -0.0011769645297817685,
+      "exitBasis": -0.0005119968174018361,
+      "entryCarryNeutral": -0.0000429,
+      "holdHours": 24,
+      "basisPnlUsd": 33.24838561899662,
+      "fundingPnlUsd": -0.4665000000004511,
+      "totalPnlUsd": 32.78188561899617,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1774483200000,
+      "exitTimestamp": 1774656000000,
+      "entryBasis": 0.0019608649246072615,
+      "exitBasis": -0.0011698419611293766,
+      "entryCarryNeutral": 0.00028845,
+      "holdHours": 48,
+      "basisPnlUsd": 156.5353442868319,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 156.5353442868319,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1774915200000,
+      "exitTimestamp": 1775001600000,
+      "entryBasis": 0.0011200358435366103,
+      "exitBasis": 0.0005184850111605558,
+      "entryCarryNeutral": -0.00025958999999999997,
+      "holdHours": 24,
+      "basisPnlUsd": 30.077541618802723,
+      "fundingPnlUsd": 0,
+      "totalPnlUsd": 30.077541618802723,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1775260800000,
+      "exitTimestamp": 1775692800000,
+      "entryBasis": 0.0015939329801840962,
+      "exitBasis": -0.000046009325115294827,
+      "entryCarryNeutral": -0.00012669,
+      "holdHours": 120,
+      "basisPnlUsd": 81.99711526496955,
+      "fundingPnlUsd": 7.16150000000016,
+      "totalPnlUsd": 89.15861526496971,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1775865600000,
+      "exitTimestamp": 1776643200000,
+      "entryBasis": -0.0009624649499920038,
+      "exitBasis": -0.0007027862955936932,
+      "entryCarryNeutral": 0.0001299,
+      "holdHours": 216,
+      "basisPnlUsd": 12.983932719915527,
+      "fundingPnlUsd": 52.20049999999992,
+      "totalPnlUsd": 65.18443271991545,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1777161600000,
+      "exitTimestamp": 1777248000000,
+      "entryBasis": 0.0009513973509268268,
+      "exitBasis": 0.00039511554061405827,
+      "entryCarryNeutral": -0.00016725,
+      "holdHours": 24,
+      "basisPnlUsd": 27.814090515638426,
+      "fundingPnlUsd": 0.9634999999998399,
+      "totalPnlUsd": 28.777590515638266,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1777420800000,
+      "exitTimestamp": 1777766400000,
+      "entryBasis": 0.0009484014334583382,
+      "exitBasis": 0.00024397359686495647,
+      "entryCarryNeutral": -0.00013533,
+      "holdHours": 96,
+      "basisPnlUsd": 35.22139182966908,
+      "fundingPnlUsd": 3.9459999999999127,
+      "totalPnlUsd": 39.16739182966899,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1777939200000,
+      "exitTimestamp": 1778198400000,
+      "entryBasis": -0.0008173009721582356,
+      "exitBasis": -0.00018428554134351433,
+      "entryCarryNeutral": 0.00019533000000000002,
+      "holdHours": 72,
+      "basisPnlUsd": 31.650771540736063,
+      "fundingPnlUsd": 35.74950000000081,
+      "totalPnlUsd": 67.40027154073687,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1778889600000,
+      "exitTimestamp": 1782518400000,
+      "entryBasis": -0.0014753753688564763,
+      "exitBasis": 0.00042603723049704586,
+      "entryCarryNeutral": 0.00006159000000000001,
+      "holdHours": 1008,
+      "basisPnlUsd": 95.07062996767611,
+      "fundingPnlUsd": 44.66599999999926,
+      "totalPnlUsd": 139.73662996767536,
+      "exitReason": "timeout"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "short_basis",
+      "entryTimestamp": 1782691200000,
+      "exitTimestamp": 1782777600000,
+      "entryBasis": 0.0015147208247725454,
+      "exitBasis": 0.000723257532176041,
+      "entryCarryNeutral": 0.00002904,
+      "holdHours": 24,
+      "basisPnlUsd": 39.57316462982522,
+      "fundingPnlUsd": 1.8659999999999854,
+      "totalPnlUsd": 41.43916462982521,
+      "exitReason": "converged"
+    },
+    {
+      "symbol": "SOL/USDT",
+      "side": "long_basis",
+      "entryTimestamp": 1782950400000,
+      "exitTimestamp": 1783036800000,
+      "entryBasis": -0.0009301160318163234,
+      "exitBasis": -0.00026641547611377806,
+      "entryCarryNeutral": 0.00008046,
+      "holdHours": 24,
+      "basisPnlUsd": 33.18502778512727,
+      "fundingPnlUsd": 9.765000000000327,
+      "totalPnlUsd": 42.950027785127595,
+      "exitReason": "converged"
+    }
+  ],
+  "equityCurveSampled": [
+    {
+      "timestamp": 1704067200000,
+      "equity": 10000
+    },
+    {
+      "timestamp": 1704672000000,
+      "equity": 10000
+    },
+    {
+      "timestamp": 1705276800000,
+      "equity": 10000
+    },
+    {
+      "timestamp": 1705881600000,
+      "equity": 10000
+    },
+    {
+      "timestamp": 1706486400000,
+      "equity": 10000
+    },
+    {
+      "timestamp": 1707091200000,
+      "equity": 10000
+    },
+    {
+      "timestamp": 1707696000000,
+      "equity": 10000
+    },
+    {
+      "timestamp": 1708300800000,
+      "equity": 10184.423499999999
+    },
+    {
+      "timestamp": 1708905600000,
+      "equity": 10491.946999999998
+    },
+    {
+      "timestamp": 1709510400000,
+      "equity": 11169.996499999997
+    },
+    {
+      "timestamp": 1710115200000,
+      "equity": 11673.188999999997
+    },
+    {
+      "timestamp": 1710720000000,
+      "equity": 12056.914499999999
+    },
+    {
+      "timestamp": 1711324800000,
+      "equity": 12056.914499999999
+    },
+    {
+      "timestamp": 1711929600000,
+      "equity": 12098.643999999998
+    },
+    {
+      "timestamp": 1712534400000,
+      "equity": 12120.807499999999
+    },
+    {
+      "timestamp": 1713139200000,
+      "equity": 12120.807499999999
+    },
+    {
+      "timestamp": 1713744000000,
+      "equity": 12120.807499999999
+    },
+    {
+      "timestamp": 1714348800000,
+      "equity": 12120.807499999999
+    },
+    {
+      "timestamp": 1714953600000,
+      "equity": 12120.807499999999
+    },
+    {
+      "timestamp": 1715558400000,
+      "equity": 12120.807499999999
+    },
+    {
+      "timestamp": 1716163200000,
+      "equity": 12144.5325
+    },
+    {
+      "timestamp": 1716768000000,
+      "equity": 12247.913499999999
+    },
+    {
+      "timestamp": 1717372800000,
+      "equity": 12369.940499999999
+    },
+    {
+      "timestamp": 1717977600000,
+      "equity": 12522.271499999999
+    },
+    {
+      "timestamp": 1718582400000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1719187200000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1719792000000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1720396800000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1721001600000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1721606400000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1722211200000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1722816000000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1723420800000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1724025600000,
+      "equity": 12582.271499999999
+    },
+    {
+      "timestamp": 1724630400000,
+      "equity": 12592.152999999998
+    },
+    {
+      "timestamp": 1725235200000,
+      "equity": 12592.152999999998
+    },
+    {
+      "timestamp": 1725840000000,
+      "equity": 12611.680999999999
+    },
+    {
+      "timestamp": 1726444800000,
+      "equity": 12611.680999999999
+    },
+    {
+      "timestamp": 1727049600000,
+      "equity": 12659.2625
+    },
+    {
+      "timestamp": 1727654400000,
+      "equity": 12702.2795
+    },
+    {
+      "timestamp": 1728259200000,
+      "equity": 12742.2795
+    },
+    {
+      "timestamp": 1728864000000,
+      "equity": 12742.2795
+    },
+    {
+      "timestamp": 1729468800000,
+      "equity": 12742.2795
+    },
+    {
+      "timestamp": 1730073600000,
+      "equity": 12742.2795
+    },
+    {
+      "timestamp": 1730678400000,
+      "equity": 12742.2795
+    },
+    {
+      "timestamp": 1731283200000,
+      "equity": 12772.802500000002
+    },
+    {
+      "timestamp": 1731888000000,
+      "equity": 13025.438500000002
+    },
+    {
+      "timestamp": 1732492800000,
+      "equity": 13221.258500000004
+    },
+    {
+      "timestamp": 1733097600000,
+      "equity": 13333.035500000004
+    },
+    {
+      "timestamp": 1733702400000,
+      "equity": 13667.733500000002
+    },
+    {
+      "timestamp": 1734307200000,
+      "equity": 13667.733500000002
+    },
+    {
+      "timestamp": 1734912000000,
+      "equity": 13667.733500000002
+    },
+    {
+      "timestamp": 1735516800000,
+      "equity": 13667.733500000002
+    },
+    {
+      "timestamp": 1736121600000,
+      "equity": 13667.733500000002
+    },
+    {
+      "timestamp": 1736726400000,
+      "equity": 13667.733500000002
+    },
+    {
+      "timestamp": 1737331200000,
+      "equity": 13718.080000000004
+    },
+    {
+      "timestamp": 1737936000000,
+      "equity": 13732.074000000004
+    },
+    {
+      "timestamp": 1738540800000,
+      "equity": 13737.074000000004
+    },
+    {
+      "timestamp": 1739145600000,
+      "equity": 13737.074000000004
+    },
+    {
+      "timestamp": 1739750400000,
+      "equity": 13742.388500000005
+    },
+    {
+      "timestamp": 1740355200000,
+      "equity": 13754.125500000006
+    },
+    {
+      "timestamp": 1740960000000,
+      "equity": 13801.458500000006
+    },
+    {
+      "timestamp": 1741564800000,
+      "equity": 13806.888000000006
+    },
+    {
+      "timestamp": 1742169600000,
+      "equity": 13834.038000000006
+    },
+    {
+      "timestamp": 1742774400000,
+      "equity": 13852.675000000007
+    },
+    {
+      "timestamp": 1743379200000,
+      "equity": 13867.053500000005
+    },
+    {
+      "timestamp": 1743984000000,
+      "equity": 13874.213000000005
+    },
+    {
+      "timestamp": 1744588800000,
+      "equity": 13903.365000000005
+    },
+    {
+      "timestamp": 1745193600000,
+      "equity": 13913.515000000005
+    },
+    {
+      "timestamp": 1745798400000,
+      "equity": 13928.613000000005
+    },
+    {
+      "timestamp": 1746403200000,
+      "equity": 13931.370000000004
+    },
+    {
+      "timestamp": 1747008000000,
+      "equity": 13972.131000000005
+    },
+    {
+      "timestamp": 1747612800000,
+      "equity": 14009.190000000006
+    },
+    {
+      "timestamp": 1748217600000,
+      "equity": 14037.798500000006
+    },
+    {
+      "timestamp": 1748822400000,
+      "equity": 14047.798500000006
+    },
+    {
+      "timestamp": 1749427200000,
+      "equity": 14052.798500000006
+    },
+    {
+      "timestamp": 1750032000000,
+      "equity": 14057.262500000006
+    },
+    {
+      "timestamp": 1750636800000,
+      "equity": 14067.699500000006
+    },
+    {
+      "timestamp": 1751241600000,
+      "equity": 14100.708500000004
+    },
+    {
+      "timestamp": 1751846400000,
+      "equity": 14112.782000000003
+    },
+    {
+      "timestamp": 1752451200000,
+      "equity": 14133.436500000003
+    },
+    {
+      "timestamp": 1753056000000,
+      "equity": 14217.315500000004
+    },
+    {
+      "timestamp": 1753660800000,
+      "equity": 14283.765500000005
+    },
+    {
+      "timestamp": 1754265600000,
+      "equity": 14283.765500000005
+    },
+    {
+      "timestamp": 1754870400000,
+      "equity": 14283.765500000005
+    },
+    {
+      "timestamp": 1755475200000,
+      "equity": 14311.703500000005
+    },
+    {
+      "timestamp": 1756080000000,
+      "equity": 14311.703500000005
+    },
+    {
+      "timestamp": 1756684800000,
+      "equity": 14311.703500000005
+    },
+    {
+      "timestamp": 1757289600000,
+      "equity": 14311.703500000005
+    },
+    {
+      "timestamp": 1757894400000,
+      "equity": 14311.703500000005
+    },
+    {
+      "timestamp": 1758499200000,
+      "equity": 14311.703500000005
+    },
+    {
+      "timestamp": 1759104000000,
+      "equity": 14311.703500000005
+    },
+    {
+      "timestamp": 1759708800000,
+      "equity": 14324.260500000004
+    },
+    {
+      "timestamp": 1760313600000,
+      "equity": 14334.260500000004
+    },
+    {
+      "timestamp": 1760918400000,
+      "equity": 14346.308000000003
+    },
+    {
+      "timestamp": 1761523200000,
+      "equity": 14372.623500000002
+    },
+    {
+      "timestamp": 1762128000000,
+      "equity": 14389.234500000002
+    },
+    {
+      "timestamp": 1762732800000,
+      "equity": 14398.970000000003
+    },
+    {
+      "timestamp": 1763337600000,
+      "equity": 14411.895500000002
+    },
+    {
+      "timestamp": 1763942400000,
+      "equity": 14427.192500000001
+    },
+    {
+      "timestamp": 1764547200000,
+      "equity": 14451.178
+    },
+    {
+      "timestamp": 1765152000000,
+      "equity": 14484.187999999998
+    },
+    {
+      "timestamp": 1765756800000,
+      "equity": 14502.704499999998
+    },
+    {
+      "timestamp": 1766361600000,
+      "equity": 14532.278999999999
+    },
+    {
+      "timestamp": 1766966400000,
+      "equity": 14560.831499999998
+    },
+    {
+      "timestamp": 1767571200000,
+      "equity": 14595.919999999998
+    },
+    {
+      "timestamp": 1768176000000,
+      "equity": 14600.919999999998
+    },
+    {
+      "timestamp": 1768780800000,
+      "equity": 14600.919999999998
+    },
+    {
+      "timestamp": 1769385600000,
+      "equity": 14600.919999999998
+    },
+    {
+      "timestamp": 1769990400000,
+      "equity": 14600.919999999998
+    },
+    {
+      "timestamp": 1770595200000,
+      "equity": 14600.919999999998
+    },
+    {
+      "timestamp": 1771200000000,
+      "equity": 14604.169999999998
+    },
+    {
+      "timestamp": 1771804800000,
+      "equity": 14606.849499999998
+    },
+    {
+      "timestamp": 1772409600000,
+      "equity": 14623.389
+    },
+    {
+      "timestamp": 1773014400000,
+      "equity": 14629.5095
+    },
+    {
+      "timestamp": 1773619200000,
+      "equity": 14635.463
+    },
+    {
+      "timestamp": 1774224000000,
+      "equity": 14647.1485
+    },
+    {
+      "timestamp": 1774828800000,
+      "equity": 14653.5275
+    },
+    {
+      "timestamp": 1775433600000,
+      "equity": 14657.686
+    },
+    {
+      "timestamp": 1776038400000,
+      "equity": 14690.237999999998
+    },
+    {
+      "timestamp": 1776643200000,
+      "equity": 14732.600499999997
+    },
+    {
+      "timestamp": 1777248000000,
+      "equity": 14761.869999999995
+    },
+    {
+      "timestamp": 1777852800000,
+      "equity": 14769.421499999995
+    },
+    {
+      "timestamp": 1778457600000,
+      "equity": 14819.010999999995
+    },
+    {
+      "timestamp": 1779062400000,
+      "equity": 14835.662999999997
+    },
+    {
+      "timestamp": 1779667200000,
+      "equity": 14840.662999999997
+    },
+    {
+      "timestamp": 1780272000000,
+      "equity": 14855.875499999995
+    },
+    {
+      "timestamp": 1780876800000,
+      "equity": 14864.691999999994
+    },
+    {
+      "timestamp": 1781481600000,
+      "equity": 14864.691999999994
+    },
+    {
+      "timestamp": 1782086400000,
+      "equity": 14872.724499999993
+    },
+    {
+      "timestamp": 1782691200000,
+      "equity": 14890.670999999991
+    }
+  ],
+  "elapsedMs": 42
+}
