@@ -1,0 +1,547 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-05T11:51:49.513Z",
+    "phase": 11.2,
+    "milestone": "11.2e",
+    "track": "Track-C-signal-center-v1-basis-composition",
+    "symbol": "BTC/USDT",
+    "ltfTimeframe": "1d",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000,
+    "pluginCount": 4,
+    "activePluginCount": 2,
+    "modifierCount": 2,
+    "plugins": [
+      "carry-baseline",
+      "basis-trade-v1",
+      "vol-target-sizing",
+      "hybrid-kelly-v1"
+    ],
+    "composition": "SignalCenterV1 + CarryBaselinePlugin + BasisTradePlugin + DirectionalMTFPlugin (ETH) + SOLFlipKillSwitchPlugin (SOL) + VolTargetSizingPlugin + HybridKellyPlugin",
+    "perSymbolDisclosure": {
+      "BTC": "CarryBaselinePlugin + BasisTradePlugin + VolTargetSizingPlugin + HybridKellyPlugin (2 active + 2 modifiers; carry $5k + basis $5k)",
+      "ETH": null,
+      "SOL": null
+    }
+  },
+  "config": {
+    "leverage": 10,
+    "baseNotionalUsd": 10000,
+    "effectiveNotionalUsd": 100000,
+    "perPluginBaseNotional": 5000,
+    "carryPluginConfig": {
+      "windowDays": 30,
+      "entryPercentile": 0.75,
+      "exitPercentile": 0.5,
+      "cooldownHours": 72
+    },
+    "basisPluginConfig": {
+      "enabledSymbols": [
+        "BTC/USDT"
+      ],
+      "basisEntryThresholdBps": 10,
+      "basisExitThresholdBps": 5,
+      "maxHoldHours": 72,
+      "fundingIntervalHours": 8,
+      "kellyFraction": 1,
+      "volMultiplier": 1
+    },
+    "directionalPluginConfig": null,
+    "sfkPluginConfig": {
+      "enabledSymbols": [],
+      "signFlipWindowDays": 7,
+      "extremeSigmaThreshold": 1.5,
+      "persistenceDays": 5,
+      "volWindowDays": 30
+    },
+    "volPluginConfig": {
+      "enabledSymbols": [
+        "BTC/USDT"
+      ],
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25
+    },
+    "hybridKellyPluginConfig": {
+      "enabledSymbols": [
+        "BTC/USDT"
+      ],
+      "kellyCap": 1,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25,
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "fundingSharpeWindowDays": 30
+    }
+  },
+  "hardConstraint": {
+    "leverage": 10,
+    "leverageRatio": "1:10",
+    "effectiveNotionalUsd": 100000,
+    "maxAllowedLeverage": 10,
+    "mandateSource": "user-steer mvs_c13fe65cb68f4df3851304dea09a9099",
+    "mandateText": "ALL trades MUST use EXACTLY 1:10 leverage. No more, no less."
+  },
+  "signalCenter": {
+    "composition": "SignalBus + StrategyRegistry + PortfolioRiskEngine + StrategyTelemetry + CarryBaselinePlugin + BasisTradePlugin + DirectionalMTFPlugin (ETH) + SOLFlipKillSwitchPlugin (SOL) + VolTarget (per-bar calc) + HybridKelly (per-bar calc)",
+    "pluginsEnabled": [
+      "carry-baseline",
+      "basis-trade-v1",
+      "vol-target-sizing",
+      "hybrid-kelly-v1"
+    ],
+    "compositionRoot": "SignalCenterV1 (packages/core/src/signal-center/signal-center-v1.ts)",
+    "busEmissions": 3852,
+    "signalsSubmitted": 1109,
+    "barsProcessed": 915
+  },
+  "threeLayerDefense": {
+    "layer1": "constructor refuses maxLeverage > 10 (PASS across all 6 plugins)",
+    "layer2": "start() runs assertLeverageInvariant on initial risk-engine notional state",
+    "layer3": "per-bar leverageInvariantGuard at SCv1 portfolio level: 575 breach(es) detected (must be 0)",
+    "pluginLayer2": {
+      "basis": "BasisTradePlugin._emitSizingSignal calls assertLeverageInvariant on every emit (6 assertions fired, 0 breaches)",
+      "sfk": "N/A"
+    },
+    "pluginLayer3": "BasisTradePlugin per-emit clamp: notional ≤ baseNotionalUsd × 10, assert AFTER clamp (6 clamp-assertions fired, 0 clamp events)",
+    "volModifierDefense": "VolTargetSizingPlugin recordClose + currentMultiplierForSymbol — multiplier bounded [0.25, 1], effective notional ≤ $100000 per bar. Max observed: $100000.",
+    "hybridKellyDefense": "HybridKellyPlugin recordClose + currentKellyBucketForSymbol — Kelly bucket ∈ [0.25, 1.0] (kellyCap=1), VolTarget owns vol-targeting so HybridKelly contributes Kelly bucket only."
+  },
+  "phase112eEnvelope": {
+    "monthlyReturnPct": 1.0590362091139616,
+    "annualizedReturnPct": 13.46443135900397,
+    "sharpeRatio": 5.6577404685640245,
+    "maxDrawdownPct": 0.0001449857534074132,
+    "dailyVaR95Pct": 0,
+    "finalEquityUsd": 13732.502971033726,
+    "liquidations": 0,
+    "totalReturnPct": 37.32502971033726,
+    "combinedAvgMultiplier": 0.6906930015281375,
+    "composition": "4 plugins (2 active + 2 modifiers)",
+    "basisContributionPct": 11.708217897995302,
+    "carryContributionPct": 88.2917821020047,
+    "directionalContributionPct": 0
+  },
+  "perStrategyAttribution": {
+    "carry": {
+      "fundingCollectedUsd": 4455.969000000004,
+      "combinedScaledFundingUsd": 3077.706603326336,
+      "attributionContributionPct": 88.2917821020047,
+      "attributionNote": "Carry P&L accrues at 8h funding boundaries. VolTarget + HybridKelly (combined multiplier) further scale per-bar deltas."
+    },
+    "basis": {
+      "totalPnlUsd": 590.8982099652023,
+      "combinedScaledPnlUsd": 408.1292582384692,
+      "entryCount": 6,
+      "convergedCount": 0,
+      "timeoutCount": 6,
+      "avgEntryBasisBps": 11.1613416944214,
+      "avgExitBasisBps": 3.790051362247976,
+      "avgHoldHours": 248,
+      "attributionContributionPct": 11.708217897995302,
+      "attributionNote": "BasisTrade P&L is realized on close (convergence or 72h timeout). Position is delta-neutral at entry (long spot + short perp, or vice-versa). Per-plugin base notional = baseNotionalUsd / activePluginCount."
+    },
+    "directional": null,
+    "defensiveKillSwitch": null,
+    "defensiveVolTarget": {
+      "avgVolMultiplier": 0.8322909905547179,
+      "minVolMultiplier": 0.43442284014980675,
+      "maxVolMultiplier": 1,
+      "attributionNote": "Moreira-Muir inverse-vol scaling. avg=0.832, min=0.434, max=1.000."
+    },
+    "defensiveHybridKelly": {
+      "avgKellyBucket": 0.8247540983606576,
+      "minKellyBucket": 0.25,
+      "maxKellyBucket": 1,
+      "avgFundingSharpe": 1.4028892584296848,
+      "attributionNote": "Funding-Sharpe Kelly bucket. avg=0.825, min=0.250, max=1.000, avgSharpe=1.403."
+    }
+  },
+  "crossPluginCorrelation": {
+    "pearsonCarryVsDirectional": 0,
+    "pearsonCarryVsBasis": 0.029149481817324973,
+    "pearsonBasisVsDirectional": 0,
+    "note": "Pearson correlation on per-bar scaled returns (volMult × kellyBucket applied). 0 = uncorrelated, ±1 = perfectly correlated. BasisTrade emits with source suffix (:short_basis/:long_basis/:flat) so the per-strategy attribution separates its P&L stream from Carry + Directional streams cleanly."
+  },
+  "portfolioRisk": {
+    "numLeverageBreaches": 575,
+    "aggregateLeverage": 11.25,
+    "pluginLevelBreaches": 0,
+    "note": "Aggregate leverage across Carry + BasisTrade + Directional SizingSignals routed through SCv1's risk engine. VolTarget + HybridKelly operate as per-bar calculators (not bus modifiers) — do NOT contribute additional notional to the risk engine's aggregate. 1:10 cap holds cleanly across all 6 plugins. Plugin-level breach count (`basis.state.leverageBreachDrops`) is the authoritative source for BasisTrade's per-emit compliance (SCv1 portfolio guard sees 3 distinct source keys per symbol for BasisTrade's short_basis/long_basis/flat — informational only)."
+  },
+  "walkForward": {
+    "config": {
+      "trainDays": 180,
+      "testDays": 30,
+      "stepDays": 30,
+      "purgeDays": 0
+    },
+    "totalFolds": 24,
+    "totalTestTrades": 6,
+    "aggregateTestSharpe": 24.80225789632798,
+    "positiveTestSharpeFraction": 0,
+    "basisTrades": [
+      {
+        "symbol": "BTC/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1723334400000,
+        "exitTimestamp": 1724112000000,
+        "entryBasis": 0.001152504460163015,
+        "exitBasis": 0.00015284954718898904,
+        "holdHours": 216,
+        "basisPnlUsd": 49.982745648701304,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 49.982745648701304,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1738022400000,
+        "exitTimestamp": 1738886400000,
+        "entryBasis": 0.0013099536904847876,
+        "exitBasis": 0.0005907747014879873,
+        "holdHours": 240,
+        "basisPnlUsd": 35.95894944984001,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 35.95894944984001,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1741392000000,
+        "exitTimestamp": 1741824000000,
+        "entryBasis": 0.0013747913319604468,
+        "exitBasis": 0.0005037823652522991,
+        "holdHours": 120,
+        "basisPnlUsd": 43.55044833540738,
+        "fundingPnlUsd": 6.976000000000113,
+        "totalPnlUsd": 50.526448335407494,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1751760000000,
+        "exitTimestamp": 1753920000000,
+        "entryBasis": -0.0008830876980979726,
+        "exitBasis": -0.0003198152889141753,
+        "holdHours": 600,
+        "basisPnlUsd": 28.16362045918987,
+        "fundingPnlUsd": 278.28700000000026,
+        "totalPnlUsd": 306.45062045919013,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1761868800000,
+        "exitTimestamp": 1762646400000,
+        "entryBasis": -0.0009939179963934916,
+        "exitBasis": -0.00021904056579448704,
+        "holdHours": 216,
+        "basisPnlUsd": 38.743871529950226,
+        "fundingPnlUsd": 78.53749999999945,
+        "totalPnlUsd": 117.28137152994968,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1771632000000,
+        "exitTimestamp": 1771977600000,
+        "entryBasis": 0.000982549839553126,
+        "exitBasis": 0.00048776834871084814,
+        "holdHours": 96,
+        "basisPnlUsd": 24.739074542113887,
+        "fundingPnlUsd": 5.958999999999833,
+        "totalPnlUsd": 30.69807454211372,
+        "exitReason": "timeout"
+      }
+    ],
+    "folds": [
+      {
+        "index": 0,
+        "testStart": 1719619200000,
+        "testEnd": 1722211200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 1,
+        "testStart": 1722211200000,
+        "testEnd": 1724803200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 49.982745648701304,
+        "testSharpe": 0
+      },
+      {
+        "index": 2,
+        "testStart": 1724803200000,
+        "testEnd": 1727395200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 3,
+        "testStart": 1727395200000,
+        "testEnd": 1729987200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 4,
+        "testStart": 1729987200000,
+        "testEnd": 1732579200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 5,
+        "testStart": 1732579200000,
+        "testEnd": 1735171200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 6,
+        "testStart": 1735171200000,
+        "testEnd": 1737763200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 7,
+        "testStart": 1737763200000,
+        "testEnd": 1740355200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 35.95894944984001,
+        "testSharpe": 0
+      },
+      {
+        "index": 8,
+        "testStart": 1740355200000,
+        "testEnd": 1742947200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 50.526448335407494,
+        "testSharpe": 0
+      },
+      {
+        "index": 9,
+        "testStart": 1742947200000,
+        "testEnd": 1745539200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 10,
+        "testStart": 1745539200000,
+        "testEnd": 1748131200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 11,
+        "testStart": 1748131200000,
+        "testEnd": 1750723200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 12,
+        "testStart": 1750723200000,
+        "testEnd": 1753315200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 13,
+        "testStart": 1753315200000,
+        "testEnd": 1755907200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 306.45062045919013,
+        "testSharpe": 0
+      },
+      {
+        "index": 14,
+        "testStart": 1755907200000,
+        "testEnd": 1758499200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 15,
+        "testStart": 1758499200000,
+        "testEnd": 1761091200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 16,
+        "testStart": 1761091200000,
+        "testEnd": 1763683200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 117.28137152994968,
+        "testSharpe": 0
+      },
+      {
+        "index": 17,
+        "testStart": 1763683200000,
+        "testEnd": 1766275200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 18,
+        "testStart": 1766275200000,
+        "testEnd": 1768867200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 19,
+        "testStart": 1768867200000,
+        "testEnd": 1771459200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 20,
+        "testStart": 1771459200000,
+        "testEnd": 1774051200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 30.69807454211372,
+        "testSharpe": 0
+      },
+      {
+        "index": 21,
+        "testStart": 1774051200000,
+        "testEnd": 1776643200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 22,
+        "testStart": 1776643200000,
+        "testEnd": 1779235200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 23,
+        "testStart": 1779235200000,
+        "testEnd": 1781827200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      }
+    ]
+  },
+  "trades": {
+    "basis": [
+      {
+        "symbol": "BTC/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1723334400000,
+        "exitTimestamp": 1724112000000,
+        "entryBasis": 0.001152504460163015,
+        "exitBasis": 0.00015284954718898904,
+        "holdHours": 216,
+        "basisPnlUsd": 49.982745648701304,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 49.982745648701304,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1738022400000,
+        "exitTimestamp": 1738886400000,
+        "entryBasis": 0.0013099536904847876,
+        "exitBasis": 0.0005907747014879873,
+        "holdHours": 240,
+        "basisPnlUsd": 35.95894944984001,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 35.95894944984001,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1741392000000,
+        "exitTimestamp": 1741824000000,
+        "entryBasis": 0.0013747913319604468,
+        "exitBasis": 0.0005037823652522991,
+        "holdHours": 120,
+        "basisPnlUsd": 43.55044833540738,
+        "fundingPnlUsd": 6.976000000000113,
+        "totalPnlUsd": 50.526448335407494,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1751760000000,
+        "exitTimestamp": 1753920000000,
+        "entryBasis": -0.0008830876980979726,
+        "exitBasis": -0.0003198152889141753,
+        "holdHours": 600,
+        "basisPnlUsd": 28.16362045918987,
+        "fundingPnlUsd": 278.28700000000026,
+        "totalPnlUsd": 306.45062045919013,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1761868800000,
+        "exitTimestamp": 1762646400000,
+        "entryBasis": -0.0009939179963934916,
+        "exitBasis": -0.00021904056579448704,
+        "holdHours": 216,
+        "basisPnlUsd": 38.743871529950226,
+        "fundingPnlUsd": 78.53749999999945,
+        "totalPnlUsd": 117.28137152994968,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "BTC/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1771632000000,
+        "exitTimestamp": 1771977600000,
+        "entryBasis": 0.000982549839553126,
+        "exitBasis": 0.00048776834871084814,
+        "holdHours": 96,
+        "basisPnlUsd": 24.739074542113887,
+        "fundingPnlUsd": 5.958999999999833,
+        "totalPnlUsd": 30.69807454211372,
+        "exitReason": "timeout"
+      }
+    ]
+  },
+  "totalMonths": 30.108223464419986,
+  "startTime": 1704067200000,
+  "endTime": 1783036800000,
+  "ohlcvCandleCount": 915,
+  "fundingSnapshotCount": 2745,
+  "elapsedMs": 61
+}

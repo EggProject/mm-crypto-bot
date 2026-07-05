@@ -1,0 +1,1061 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-05T11:51:42.590Z",
+    "phase": 11.2,
+    "milestone": "11.2e",
+    "track": "Track-C-signal-center-v1-basis-composition",
+    "symbol": "ETH/USDT",
+    "ltfTimeframe": "1d",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000,
+    "pluginCount": 5,
+    "activePluginCount": 3,
+    "modifierCount": 2,
+    "plugins": [
+      "carry-baseline",
+      "basis-trade-v1",
+      "directional-mtf-v1",
+      "vol-target-sizing",
+      "hybrid-kelly-v1"
+    ],
+    "composition": "SignalCenterV1 + CarryBaselinePlugin + BasisTradePlugin + DirectionalMTFPlugin (ETH) + SOLFlipKillSwitchPlugin (SOL) + VolTargetSizingPlugin + HybridKellyPlugin",
+    "perSymbolDisclosure": {
+      "BTC": null,
+      "ETH": "CarryBaselinePlugin + BasisTradePlugin + DirectionalMTFPlugin + VolTargetSizingPlugin + HybridKellyPlugin (3 active + 2 modifiers; carry $3333 + basis $3333 + directional $3333)",
+      "SOL": null
+    }
+  },
+  "config": {
+    "leverage": 10,
+    "baseNotionalUsd": 10000,
+    "effectiveNotionalUsd": 100000,
+    "perPluginBaseNotional": 3333.3333333333335,
+    "carryPluginConfig": {
+      "windowDays": 30,
+      "entryPercentile": 0.75,
+      "exitPercentile": 0.5,
+      "cooldownHours": 72
+    },
+    "basisPluginConfig": {
+      "enabledSymbols": [
+        "ETH/USDT"
+      ],
+      "basisEntryThresholdBps": 10,
+      "basisExitThresholdBps": 5,
+      "maxHoldHours": 72,
+      "fundingIntervalHours": 8,
+      "kellyFraction": 1,
+      "volMultiplier": 1
+    },
+    "directionalPluginConfig": {
+      "donchianPeriod": 20,
+      "stopAtrMultiplier": 1.5,
+      "tpAtrMultiplier": 3,
+      "atrPeriod": 14,
+      "maxHoldBars": 168,
+      "supertrendPeriod": 10,
+      "supertrendMultiplier": 3,
+      "mtfAggregationFactor": 4,
+      "htfAggregationFactor": 24,
+      "pricePrecision": 2
+    },
+    "sfkPluginConfig": {
+      "enabledSymbols": [],
+      "signFlipWindowDays": 7,
+      "extremeSigmaThreshold": 1.5,
+      "persistenceDays": 5,
+      "volWindowDays": 30
+    },
+    "volPluginConfig": {
+      "enabledSymbols": [
+        "ETH/USDT"
+      ],
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25
+    },
+    "hybridKellyPluginConfig": {
+      "enabledSymbols": [
+        "ETH/USDT"
+      ],
+      "kellyCap": 1,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25,
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "fundingSharpeWindowDays": 30
+    }
+  },
+  "hardConstraint": {
+    "leverage": 10,
+    "leverageRatio": "1:10",
+    "effectiveNotionalUsd": 100000,
+    "maxAllowedLeverage": 10,
+    "mandateSource": "user-steer mvs_c13fe65cb68f4df3851304dea09a9099",
+    "mandateText": "ALL trades MUST use EXACTLY 1:10 leverage. No more, no less."
+  },
+  "signalCenter": {
+    "composition": "SignalBus + StrategyRegistry + PortfolioRiskEngine + StrategyTelemetry + CarryBaselinePlugin + BasisTradePlugin + DirectionalMTFPlugin (ETH) + SOLFlipKillSwitchPlugin (SOL) + VolTarget (per-bar calc) + HybridKelly (per-bar calc)",
+    "pluginsEnabled": [
+      "carry-baseline",
+      "basis-trade-v1",
+      "directional-mtf-v1",
+      "vol-target-sizing",
+      "hybrid-kelly-v1"
+    ],
+    "compositionRoot": "SignalCenterV1 (packages/core/src/signal-center/signal-center-v1.ts)",
+    "busEmissions": 5032,
+    "signalsSubmitted": 1374,
+    "barsProcessed": 915
+  },
+  "threeLayerDefense": {
+    "layer1": "constructor refuses maxLeverage > 10 (PASS across all 6 plugins)",
+    "layer2": "start() runs assertLeverageInvariant on initial risk-engine notional state",
+    "layer3": "per-bar leverageInvariantGuard at SCv1 portfolio level: 970 breach(es) detected (must be 0)",
+    "pluginLayer2": {
+      "basis": "BasisTradePlugin._emitSizingSignal calls assertLeverageInvariant on every emit (25 assertions fired, 0 breaches)",
+      "sfk": "N/A"
+    },
+    "pluginLayer3": "BasisTradePlugin per-emit clamp: notional ≤ baseNotionalUsd × 10, assert AFTER clamp (25 clamp-assertions fired, 0 clamp events)",
+    "volModifierDefense": "VolTargetSizingPlugin recordClose + currentMultiplierForSymbol — multiplier bounded [0.25, 1], effective notional ≤ $100000 per bar. Max observed: $100000.",
+    "hybridKellyDefense": "HybridKellyPlugin recordClose + currentKellyBucketForSymbol — Kelly bucket ∈ [0.25, 1.0] (kellyCap=1), VolTarget owns vol-targeting so HybridKelly contributes Kelly bucket only."
+  },
+  "phase112eEnvelope": {
+    "monthlyReturnPct": 1.9087482505944164,
+    "annualizedReturnPct": 25.44751808261161,
+    "sharpeRatio": 1.421950043305855,
+    "maxDrawdownPct": 0.00041904696142028313,
+    "dailyVaR95Pct": 0,
+    "finalEquityUsd": 17669.84200684129,
+    "liquidations": 0,
+    "totalReturnPct": 76.69842006841289,
+    "combinedAvgMultiplier": 0.5064331944611856,
+    "composition": "5 plugins (3 active + 2 modifiers)",
+    "basisContributionPct": 7.26022688189646,
+    "carryContributionPct": 14.625246467404947,
+    "directionalContributionPct": 78.11452665069858
+  },
+  "perStrategyAttribution": {
+    "carry": {
+      "fundingCollectedUsd": 3100.5560000000055,
+      "combinedScaledFundingUsd": 1570.2244796857985,
+      "attributionContributionPct": 14.625246467404947,
+      "attributionNote": "Carry P&L accrues at 8h funding boundaries. VolTarget + HybridKelly (combined multiplier) further scale per-bar deltas."
+    },
+    "basis": {
+      "totalPnlUsd": 1539.1699599862968,
+      "combinedScaledPnlUsd": 779.4867596545555,
+      "entryCount": 25,
+      "convergedCount": 3,
+      "timeoutCount": 22,
+      "avgEntryBasisBps": 11.92544939178148,
+      "avgExitBasisBps": 4.481885735628832,
+      "avgHoldHours": 264,
+      "attributionContributionPct": 7.26022688189646,
+      "attributionNote": "BasisTrade P&L is realized on close (convergence or 72h timeout). Position is delta-neutral at entry (long spot + short perp, or vice-versa). Per-plugin base notional = baseNotionalUsd / activePluginCount."
+    },
+    "directional": {
+      "realizedPnlUsd": 8386.685464710634,
+      "combinedScaledPnlUsd": 8386.685464710634,
+      "attributionContributionPct": 78.11452665069858,
+      "entryCount": 2,
+      "exitCount": 2,
+      "attributionNote": "Directional P&L is SL/TP-realized on 1d LTF bars (1.5x ATR stop, 3x ATR TP, 168-bar max-hold). HybridKelly scales P&L by Kelly bucket at ENTRY (entry-locked)."
+    },
+    "defensiveKillSwitch": null,
+    "defensiveVolTarget": {
+      "avgVolMultiplier": 0.6088647124126926,
+      "minVolMultiplier": 0.36039826225116456,
+      "maxVolMultiplier": 1,
+      "attributionNote": "Moreira-Muir inverse-vol scaling. avg=0.609, min=0.360, max=1.000."
+    },
+    "defensiveHybridKelly": {
+      "avgKellyBucket": 0.821530054644811,
+      "minKellyBucket": 0.25,
+      "maxKellyBucket": 1,
+      "avgFundingSharpe": 1.4404883354553686,
+      "attributionNote": "Funding-Sharpe Kelly bucket. avg=0.822, min=0.250, max=1.000, avgSharpe=1.440."
+    }
+  },
+  "crossPluginCorrelation": {
+    "pearsonCarryVsDirectional": 0.027341750840088545,
+    "pearsonCarryVsBasis": 0.0048821906232616626,
+    "pearsonBasisVsDirectional": -0.004872782880757902,
+    "note": "Pearson correlation on per-bar scaled returns (volMult × kellyBucket applied). 0 = uncorrelated, ±1 = perfectly correlated. BasisTrade emits with source suffix (:short_basis/:long_basis/:flat) so the per-strategy attribution separates its P&L stream from Carry + Directional streams cleanly."
+  },
+  "portfolioRisk": {
+    "numLeverageBreaches": 970,
+    "aggregateLeverage": 10.5,
+    "pluginLevelBreaches": 0,
+    "note": "Aggregate leverage across Carry + BasisTrade + Directional SizingSignals routed through SCv1's risk engine. VolTarget + HybridKelly operate as per-bar calculators (not bus modifiers) — do NOT contribute additional notional to the risk engine's aggregate. 1:10 cap holds cleanly across all 6 plugins. Plugin-level breach count (`basis.state.leverageBreachDrops`) is the authoritative source for BasisTrade's per-emit compliance (SCv1 portfolio guard sees 3 distinct source keys per symbol for BasisTrade's short_basis/long_basis/flat — informational only)."
+  },
+  "walkForward": {
+    "config": {
+      "trainDays": 180,
+      "testDays": 30,
+      "stepDays": 30,
+      "purgeDays": 0
+    },
+    "totalFolds": 24,
+    "totalTestTrades": 22,
+    "aggregateTestSharpe": 29.784425636820348,
+    "positiveTestSharpeFraction": 0.25,
+    "basisTrades": [
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1704499200000,
+        "exitTimestamp": 1704931200000,
+        "entryBasis": 0.0013887510680352414,
+        "exitBasis": 0.0004501250711592433,
+        "holdHours": 120,
+        "basisPnlUsd": 31.287533229199937,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 31.287533229199937,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1712793600000,
+        "exitTimestamp": 1717545600000,
+        "entryBasis": 0.0016128983635961332,
+        "exitBasis": 0.0006624002422630398,
+        "holdHours": 1320,
+        "basisPnlUsd": 31.683270711103116,
+        "fundingPnlUsd": 199.44233333333148,
+        "totalPnlUsd": 231.1256040444346,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1727395200000,
+        "exitTimestamp": 1728777600000,
+        "entryBasis": 0.0015182934315349356,
+        "exitBasis": 0.0005846051449624684,
+        "holdHours": 384,
+        "basisPnlUsd": 31.12294288574891,
+        "fundingPnlUsd": 69.24633333333259,
+        "totalPnlUsd": 100.3692762190815,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1729728000000,
+        "exitTimestamp": 1730073600000,
+        "entryBasis": 0.0014238417137714785,
+        "exitBasis": 0.0007589513726345206,
+        "holdHours": 96,
+        "basisPnlUsd": 22.16301137123193,
+        "fundingPnlUsd": 39.99999999999909,
+        "totalPnlUsd": 62.16301137123102,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1730505600000,
+        "exitTimestamp": 1731715200000,
+        "entryBasis": 0.0013844196143981567,
+        "exitBasis": 0.0005483662644616508,
+        "holdHours": 336,
+        "basisPnlUsd": 27.868444997883532,
+        "fundingPnlUsd": 184.95433333333153,
+        "totalPnlUsd": 212.82277833121506,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1733356800000,
+        "exitTimestamp": 1734048000000,
+        "entryBasis": -0.0005098649457600691,
+        "exitBasis": -0.00008966831513358678,
+        "holdHours": 192,
+        "basisPnlUsd": 14.006554354216078,
+        "fundingPnlUsd": 105.94666666666672,
+        "totalPnlUsd": 119.9532210208828,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1734307200000,
+        "exitTimestamp": 1734480000000,
+        "entryBasis": -0.0008670897679171254,
+        "exitBasis": -0.00002788191771032646,
+        "holdHours": 48,
+        "basisPnlUsd": 27.9735950068933,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 27.9735950068933,
+        "exitReason": "converged"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1735948800000,
+        "exitTimestamp": 1736985600000,
+        "entryBasis": -0.0007910773204199934,
+        "exitBasis": 0.000005999829603578054,
+        "holdHours": 288,
+        "basisPnlUsd": 26.56923833411905,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 26.56923833411905,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1737763200000,
+        "exitTimestamp": 1737936000000,
+        "entryBasis": -0.0009139012303690632,
+        "exitBasis": -0.00046896097060527994,
+        "holdHours": 48,
+        "basisPnlUsd": 14.83134199212611,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 14.83134199212611,
+        "exitReason": "converged"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1740787200000,
+        "exitTimestamp": 1741046400000,
+        "entryBasis": 0.0012482907060628364,
+        "exitBasis": 0.00048438509249050206,
+        "holdHours": 72,
+        "basisPnlUsd": 25.46352045241115,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 25.46352045241115,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1741824000000,
+        "exitTimestamp": 1742169600000,
+        "entryBasis": -0.0010078112454457871,
+        "exitBasis": -0.000302964260548985,
+        "holdHours": 96,
+        "basisPnlUsd": 23.494899496560073,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 23.494899496560073,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1743552000000,
+        "exitTimestamp": 1745625600000,
+        "entryBasis": 0.0013165702465293833,
+        "exitBasis": 0.0004608100402596322,
+        "holdHours": 576,
+        "basisPnlUsd": 28.525340208991704,
+        "fundingPnlUsd": 38.00566666666782,
+        "totalPnlUsd": 66.53100687565953,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1746230400000,
+        "exitTimestamp": 1746748800000,
+        "entryBasis": 0.0013256911997185437,
+        "exitBasis": 0.000600835718112882,
+        "holdHours": 144,
+        "basisPnlUsd": 24.161849386855394,
+        "fundingPnlUsd": 6.181666666666388,
+        "totalPnlUsd": 30.343516053521782,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1747094400000,
+        "exitTimestamp": 1747353600000,
+        "entryBasis": 0.0013335602916352686,
+        "exitBasis": 0.0005431264857135867,
+        "holdHours": 72,
+        "basisPnlUsd": 26.347793530722733,
+        "fundingPnlUsd": 21.971666666667716,
+        "totalPnlUsd": 48.31946019739045,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1747785600000,
+        "exitTimestamp": 1748390400000,
+        "entryBasis": 0.0012299860257250661,
+        "exitBasis": 0.0006845962322764945,
+        "holdHours": 168,
+        "basisPnlUsd": 18.17965978161906,
+        "fundingPnlUsd": 13.33333333333394,
+        "totalPnlUsd": 31.512993114952998,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1749772800000,
+        "exitTimestamp": 1750291200000,
+        "entryBasis": 0.0011066041593190642,
+        "exitBasis": 0.000414499229840137,
+        "holdHours": 144,
+        "basisPnlUsd": 23.07016431596424,
+        "fundingPnlUsd": 3.333333333333485,
+        "totalPnlUsd": 26.403497649297726,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1750896000000,
+        "exitTimestamp": 1751328000000,
+        "entryBasis": 0.0011897048579901709,
+        "exitBasis": 0.00042892248677513646,
+        "holdHours": 120,
+        "basisPnlUsd": 25.35941237383448,
+        "fundingPnlUsd": 2.9256666666665296,
+        "totalPnlUsd": 28.28507904050101,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1752364800000,
+        "exitTimestamp": 1754611200000,
+        "entryBasis": 0.0012883195221273457,
+        "exitBasis": 0.0005488143356882337,
+        "holdHours": 624,
+        "basisPnlUsd": 24.650172881303735,
+        "fundingPnlUsd": 144.77833333333956,
+        "totalPnlUsd": 169.4285062146433,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1766534400000,
+        "exitTimestamp": 1766707200000,
+        "entryBasis": 0.0010795367723739997,
+        "exitBasis": 0.0005767263116310185,
+        "holdHours": 48,
+        "basisPnlUsd": 16.760348691432707,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 16.760348691432707,
+        "exitReason": "converged"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1767052800000,
+        "exitTimestamp": 1767571200000,
+        "entryBasis": 0.0011776583939679776,
+        "exitBasis": 0.0006108434484619002,
+        "holdHours": 144,
+        "basisPnlUsd": 18.89383151686925,
+        "fundingPnlUsd": 7.985333333333074,
+        "totalPnlUsd": 26.879164850202322,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1769299200000,
+        "exitTimestamp": 1770508800000,
+        "entryBasis": 0.0013522360485629051,
+        "exitBasis": 0.0004994228712253098,
+        "holdHours": 336,
+        "basisPnlUsd": 28.427105911253182,
+        "fundingPnlUsd": 15.479666666667072,
+        "totalPnlUsd": 43.90677257792025,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1772496000000,
+        "exitTimestamp": 1773532800000,
+        "entryBasis": 0.0011944807777464295,
+        "exitBasis": 0.000027712739506924987,
+        "holdHours": 288,
+        "basisPnlUsd": 38.892267941316824,
+        "fundingPnlUsd": 11.809333333333143,
+        "totalPnlUsd": 50.70160127464997,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1774915200000,
+        "exitTimestamp": 1776211200000,
+        "entryBasis": 0.0010700539059376683,
+        "exitBasis": 0.0004720740553509361,
+        "holdHours": 360,
+        "basisPnlUsd": 19.932661686224407,
+        "fundingPnlUsd": 14.866333333333387,
+        "totalPnlUsd": 34.79899501955779,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1779321600000,
+        "exitTimestamp": 1780099200000,
+        "entryBasis": 0.001267953940082652,
+        "exitBasis": 0.0004137416431179981,
+        "holdHours": 216,
+        "basisPnlUsd": 28.47374323215513,
+        "fundingPnlUsd": 33.74033333333409,
+        "totalPnlUsd": 62.21407656548922,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1781308800000,
+        "exitTimestamp": 1782604800000,
+        "entryBasis": -0.001215027930426399,
+        "exitBasis": -0.0005382802595387074,
+        "holdHours": 360,
+        "basisPnlUsd": 22.558255696256385,
+        "fundingPnlUsd": 4.47266666666701,
+        "totalPnlUsd": 27.030922362923395,
+        "exitReason": "timeout"
+      }
+    ],
+    "folds": [
+      {
+        "index": 0,
+        "testStart": 1719619200000,
+        "testEnd": 1722211200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 1,
+        "testStart": 1722211200000,
+        "testEnd": 1724803200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 2,
+        "testStart": 1724803200000,
+        "testEnd": 1727395200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 3,
+        "testStart": 1727395200000,
+        "testEnd": 1729987200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 100.3692762190815,
+        "testSharpe": 0
+      },
+      {
+        "index": 4,
+        "testStart": 1729987200000,
+        "testEnd": 1732579200000,
+        "testTradeCount": 2,
+        "testPnlUsd": 274.9857897024461,
+        "testSharpe": 7.069009898602471
+      },
+      {
+        "index": 5,
+        "testStart": 1732579200000,
+        "testEnd": 1735171200000,
+        "testTradeCount": 2,
+        "testPnlUsd": 147.92681602777608,
+        "testSharpe": 6.2287499934597275
+      },
+      {
+        "index": 6,
+        "testStart": 1735171200000,
+        "testEnd": 1737763200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 26.56923833411905,
+        "testSharpe": 0
+      },
+      {
+        "index": 7,
+        "testStart": 1737763200000,
+        "testEnd": 1740355200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 14.83134199212611,
+        "testSharpe": 0
+      },
+      {
+        "index": 8,
+        "testStart": 1740355200000,
+        "testEnd": 1742947200000,
+        "testTradeCount": 2,
+        "testPnlUsd": 48.958419948971226,
+        "testSharpe": 96.31876799615797
+      },
+      {
+        "index": 9,
+        "testStart": 1742947200000,
+        "testEnd": 1745539200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 10,
+        "testStart": 1745539200000,
+        "testEnd": 1748131200000,
+        "testTradeCount": 3,
+        "testPnlUsd": 145.19398312657177,
+        "testSharpe": 14.650635002462993
+      },
+      {
+        "index": 11,
+        "testStart": 1748131200000,
+        "testEnd": 1750723200000,
+        "testTradeCount": 2,
+        "testPnlUsd": 57.916490764250725,
+        "testSharpe": 43.90053885133489
+      },
+      {
+        "index": 12,
+        "testStart": 1750723200000,
+        "testEnd": 1753315200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 28.28507904050101,
+        "testSharpe": 0
+      },
+      {
+        "index": 13,
+        "testStart": 1753315200000,
+        "testEnd": 1755907200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 169.4285062146433,
+        "testSharpe": 0
+      },
+      {
+        "index": 14,
+        "testStart": 1755907200000,
+        "testEnd": 1758499200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 15,
+        "testStart": 1758499200000,
+        "testEnd": 1761091200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 16,
+        "testStart": 1761091200000,
+        "testEnd": 1763683200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 17,
+        "testStart": 1763683200000,
+        "testEnd": 1766275200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 18,
+        "testStart": 1766275200000,
+        "testEnd": 1768867200000,
+        "testTradeCount": 2,
+        "testPnlUsd": 43.639513541635026,
+        "testSharpe": 16.703051674366684
+      },
+      {
+        "index": 19,
+        "testStart": 1768867200000,
+        "testEnd": 1771459200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 43.90677257792025,
+        "testSharpe": 0
+      },
+      {
+        "index": 20,
+        "testStart": 1771459200000,
+        "testEnd": 1774051200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 50.70160127464997,
+        "testSharpe": 0
+      },
+      {
+        "index": 21,
+        "testStart": 1774051200000,
+        "testEnd": 1776643200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 34.79899501955779,
+        "testSharpe": 0
+      },
+      {
+        "index": 22,
+        "testStart": 1776643200000,
+        "testEnd": 1779235200000,
+        "testTradeCount": 0,
+        "testPnlUsd": 0,
+        "testSharpe": 0
+      },
+      {
+        "index": 23,
+        "testStart": 1779235200000,
+        "testEnd": 1781827200000,
+        "testTradeCount": 1,
+        "testPnlUsd": 62.21407656548922,
+        "testSharpe": 0
+      }
+    ]
+  },
+  "trades": {
+    "basis": [
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1704499200000,
+        "exitTimestamp": 1704931200000,
+        "entryBasis": 0.0013887510680352414,
+        "exitBasis": 0.0004501250711592433,
+        "holdHours": 120,
+        "basisPnlUsd": 31.287533229199937,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 31.287533229199937,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1712793600000,
+        "exitTimestamp": 1717545600000,
+        "entryBasis": 0.0016128983635961332,
+        "exitBasis": 0.0006624002422630398,
+        "holdHours": 1320,
+        "basisPnlUsd": 31.683270711103116,
+        "fundingPnlUsd": 199.44233333333148,
+        "totalPnlUsd": 231.1256040444346,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1727395200000,
+        "exitTimestamp": 1728777600000,
+        "entryBasis": 0.0015182934315349356,
+        "exitBasis": 0.0005846051449624684,
+        "holdHours": 384,
+        "basisPnlUsd": 31.12294288574891,
+        "fundingPnlUsd": 69.24633333333259,
+        "totalPnlUsd": 100.3692762190815,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1729728000000,
+        "exitTimestamp": 1730073600000,
+        "entryBasis": 0.0014238417137714785,
+        "exitBasis": 0.0007589513726345206,
+        "holdHours": 96,
+        "basisPnlUsd": 22.16301137123193,
+        "fundingPnlUsd": 39.99999999999909,
+        "totalPnlUsd": 62.16301137123102,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1730505600000,
+        "exitTimestamp": 1731715200000,
+        "entryBasis": 0.0013844196143981567,
+        "exitBasis": 0.0005483662644616508,
+        "holdHours": 336,
+        "basisPnlUsd": 27.868444997883532,
+        "fundingPnlUsd": 184.95433333333153,
+        "totalPnlUsd": 212.82277833121506,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1733356800000,
+        "exitTimestamp": 1734048000000,
+        "entryBasis": -0.0005098649457600691,
+        "exitBasis": -0.00008966831513358678,
+        "holdHours": 192,
+        "basisPnlUsd": 14.006554354216078,
+        "fundingPnlUsd": 105.94666666666672,
+        "totalPnlUsd": 119.9532210208828,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1734307200000,
+        "exitTimestamp": 1734480000000,
+        "entryBasis": -0.0008670897679171254,
+        "exitBasis": -0.00002788191771032646,
+        "holdHours": 48,
+        "basisPnlUsd": 27.9735950068933,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 27.9735950068933,
+        "exitReason": "converged"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1735948800000,
+        "exitTimestamp": 1736985600000,
+        "entryBasis": -0.0007910773204199934,
+        "exitBasis": 0.000005999829603578054,
+        "holdHours": 288,
+        "basisPnlUsd": 26.56923833411905,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 26.56923833411905,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1737763200000,
+        "exitTimestamp": 1737936000000,
+        "entryBasis": -0.0009139012303690632,
+        "exitBasis": -0.00046896097060527994,
+        "holdHours": 48,
+        "basisPnlUsd": 14.83134199212611,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 14.83134199212611,
+        "exitReason": "converged"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1740787200000,
+        "exitTimestamp": 1741046400000,
+        "entryBasis": 0.0012482907060628364,
+        "exitBasis": 0.00048438509249050206,
+        "holdHours": 72,
+        "basisPnlUsd": 25.46352045241115,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 25.46352045241115,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1741824000000,
+        "exitTimestamp": 1742169600000,
+        "entryBasis": -0.0010078112454457871,
+        "exitBasis": -0.000302964260548985,
+        "holdHours": 96,
+        "basisPnlUsd": 23.494899496560073,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 23.494899496560073,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1743552000000,
+        "exitTimestamp": 1745625600000,
+        "entryBasis": 0.0013165702465293833,
+        "exitBasis": 0.0004608100402596322,
+        "holdHours": 576,
+        "basisPnlUsd": 28.525340208991704,
+        "fundingPnlUsd": 38.00566666666782,
+        "totalPnlUsd": 66.53100687565953,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1746230400000,
+        "exitTimestamp": 1746748800000,
+        "entryBasis": 0.0013256911997185437,
+        "exitBasis": 0.000600835718112882,
+        "holdHours": 144,
+        "basisPnlUsd": 24.161849386855394,
+        "fundingPnlUsd": 6.181666666666388,
+        "totalPnlUsd": 30.343516053521782,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1747094400000,
+        "exitTimestamp": 1747353600000,
+        "entryBasis": 0.0013335602916352686,
+        "exitBasis": 0.0005431264857135867,
+        "holdHours": 72,
+        "basisPnlUsd": 26.347793530722733,
+        "fundingPnlUsd": 21.971666666667716,
+        "totalPnlUsd": 48.31946019739045,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1747785600000,
+        "exitTimestamp": 1748390400000,
+        "entryBasis": 0.0012299860257250661,
+        "exitBasis": 0.0006845962322764945,
+        "holdHours": 168,
+        "basisPnlUsd": 18.17965978161906,
+        "fundingPnlUsd": 13.33333333333394,
+        "totalPnlUsd": 31.512993114952998,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1749772800000,
+        "exitTimestamp": 1750291200000,
+        "entryBasis": 0.0011066041593190642,
+        "exitBasis": 0.000414499229840137,
+        "holdHours": 144,
+        "basisPnlUsd": 23.07016431596424,
+        "fundingPnlUsd": 3.333333333333485,
+        "totalPnlUsd": 26.403497649297726,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1750896000000,
+        "exitTimestamp": 1751328000000,
+        "entryBasis": 0.0011897048579901709,
+        "exitBasis": 0.00042892248677513646,
+        "holdHours": 120,
+        "basisPnlUsd": 25.35941237383448,
+        "fundingPnlUsd": 2.9256666666665296,
+        "totalPnlUsd": 28.28507904050101,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1752364800000,
+        "exitTimestamp": 1754611200000,
+        "entryBasis": 0.0012883195221273457,
+        "exitBasis": 0.0005488143356882337,
+        "holdHours": 624,
+        "basisPnlUsd": 24.650172881303735,
+        "fundingPnlUsd": 144.77833333333956,
+        "totalPnlUsd": 169.4285062146433,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1766534400000,
+        "exitTimestamp": 1766707200000,
+        "entryBasis": 0.0010795367723739997,
+        "exitBasis": 0.0005767263116310185,
+        "holdHours": 48,
+        "basisPnlUsd": 16.760348691432707,
+        "fundingPnlUsd": 0,
+        "totalPnlUsd": 16.760348691432707,
+        "exitReason": "converged"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1767052800000,
+        "exitTimestamp": 1767571200000,
+        "entryBasis": 0.0011776583939679776,
+        "exitBasis": 0.0006108434484619002,
+        "holdHours": 144,
+        "basisPnlUsd": 18.89383151686925,
+        "fundingPnlUsd": 7.985333333333074,
+        "totalPnlUsd": 26.879164850202322,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1769299200000,
+        "exitTimestamp": 1770508800000,
+        "entryBasis": 0.0013522360485629051,
+        "exitBasis": 0.0004994228712253098,
+        "holdHours": 336,
+        "basisPnlUsd": 28.427105911253182,
+        "fundingPnlUsd": 15.479666666667072,
+        "totalPnlUsd": 43.90677257792025,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1772496000000,
+        "exitTimestamp": 1773532800000,
+        "entryBasis": 0.0011944807777464295,
+        "exitBasis": 0.000027712739506924987,
+        "holdHours": 288,
+        "basisPnlUsd": 38.892267941316824,
+        "fundingPnlUsd": 11.809333333333143,
+        "totalPnlUsd": 50.70160127464997,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1774915200000,
+        "exitTimestamp": 1776211200000,
+        "entryBasis": 0.0010700539059376683,
+        "exitBasis": 0.0004720740553509361,
+        "holdHours": 360,
+        "basisPnlUsd": 19.932661686224407,
+        "fundingPnlUsd": 14.866333333333387,
+        "totalPnlUsd": 34.79899501955779,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "short_basis",
+        "entryTimestamp": 1779321600000,
+        "exitTimestamp": 1780099200000,
+        "entryBasis": 0.001267953940082652,
+        "exitBasis": 0.0004137416431179981,
+        "holdHours": 216,
+        "basisPnlUsd": 28.47374323215513,
+        "fundingPnlUsd": 33.74033333333409,
+        "totalPnlUsd": 62.21407656548922,
+        "exitReason": "timeout"
+      },
+      {
+        "symbol": "ETH/USDT",
+        "side": "long_basis",
+        "entryTimestamp": 1781308800000,
+        "exitTimestamp": 1782604800000,
+        "entryBasis": -0.001215027930426399,
+        "exitBasis": -0.0005382802595387074,
+        "holdHours": 360,
+        "basisPnlUsd": 22.558255696256385,
+        "fundingPnlUsd": 4.47266666666701,
+        "totalPnlUsd": 27.030922362923395,
+        "exitReason": "timeout"
+      }
+    ]
+  },
+  "totalMonths": 30.108220778124544,
+  "startTime": 1704067200000,
+  "endTime": 1783036800000,
+  "ohlcvCandleCount": 915,
+  "fundingSnapshotCount": 2745,
+  "elapsedMs": 101
+}
