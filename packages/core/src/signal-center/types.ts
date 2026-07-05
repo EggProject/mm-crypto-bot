@@ -180,6 +180,16 @@ export interface SizingSignal {
  *    reduce exposure by this amount. The plugin emitting this
  *    field is responsible for asserting it respects the 1:10
  *    leverage MANDATE (Layer 2 defense).
+ *  - `sizeModifier` (OPTIONAL, Phase 11.2a+) — recommended position-size
+ *    multiplier in `[0, 1.0]` applied by the meta-plugin. 1.0 = full size
+ *    (do not scale), 0.7 = reduce 30%, 0.4 = reduce 60%. Used by the
+ *    RegimeDetectorMetaPlugin (HMM 3-state regime classification) to
+ *    communicate per-regime size adjustments. When present, MUST be
+ *    `≤ 1.0` (Layer 2 defense — never scale UP). Default: omitted.
+ *    `closeNotionalUsd` and `sizeModifier` together describe the same
+ *    defensive intent from complementary angles: `closeNotionalUsd`
+ *    is the dollar amount to remove, `sizeModifier` is the residual
+ *    fraction. A plugin may emit either or both.
  */
 export interface RiskSignal {
   readonly kind: "risk";
@@ -194,6 +204,8 @@ export interface RiskSignal {
   readonly reason?: string;
   /** Phase 11.1d+ — implied close instruction (USD, respects 1:10 cap). */
   readonly closeNotionalUsd?: number;
+  /** Phase 11.2a+ — recommended size multiplier in [0, 1.0] (≤ 1.0 enforced). */
+  readonly sizeModifier?: number;
 }
 
 // ---------------------------------------------------------------------------

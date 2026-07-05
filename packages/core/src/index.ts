@@ -376,6 +376,51 @@ export type {
   HybridKellyConfig,
   HybridKellyPluginState,
 } from "./signal-center/plugins/hybrid-kelly-plugin.js";
+// Phase 11.2a Track A — defensive meta-plugin (HMM 3-state regime detection).
+// FIFTH Phase 11+ drop-in — reads DirectionSignals + CarrySignals + SizingSignals
+// from the bus + OHLCV closes via `recordClose`. Emits RiskSignals with per-regime
+// `sizeModifier` and implied `closeNotionalUsd` (trending=1.0, ranging=0.7, volatile=0.4).
+// BTC/ETH/SOL default-on. `RiskSignal.sizeModifier` field added in types.ts (Phase 11.2a+).
+// NOTE: `DEFAULT_BASE_NOTIONAL_USD` and `DEFAULT_ENABLED_SYMBOLS` are aliased
+// (REGIME_DETECTOR_-prefixed) to avoid TS2300 (Duplicate identifier) collisions
+// with the vol-target, hybrid-kelly, and directional-mtf re-exports above.
+// Follows the same aliasing pattern as `DEFAULT_HYBRID_KELLY_*`.
+export {
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_REGIME_DETECTOR_BASE_NOTIONAL_USD,
+  DEFAULT_ENABLED_SYMBOLS as DEFAULT_REGIME_DETECTOR_ENABLED_SYMBOLS,
+  DEFAULT_MIN_OBSERVATIONS,
+  DEFAULT_NUM_STATES,
+  DEFAULT_REGIME_SIZE_MULTIPLIER_RANGING,
+  DEFAULT_REGIME_SIZE_MULTIPLIER_TRENDING,
+  DEFAULT_REGIME_SIZE_MULTIPLIER_VOLATILE,
+  DEFAULT_STATE_EMISSION_STDDEV,
+  DEFAULT_TRANSITION_LEARNING_DAYS,
+  DEFAULT_TRANSITION_MATRIX,
+  DEFAULT_INITIAL_STATE_PROBS,
+  MAX_MIN_OBSERVATIONS as REGIME_DETECTOR_MAX_MIN_OBSERVATIONS,
+  MAX_NUM_STATES as REGIME_DETECTOR_MAX_NUM_STATES,
+  MAX_REGIME_SIZE_MULTIPLIER,
+  MAX_STATE_STDDEV as REGIME_DETECTOR_MAX_STATE_STDDEV,
+  MAX_TRANSITION_LEARNING_DAYS as REGIME_DETECTOR_MAX_TRANSITION_LEARNING_DAYS,
+  MIN_MIN_OBSERVATIONS as REGIME_DETECTOR_MIN_MIN_OBSERVATIONS,
+  MIN_NUM_STATES as REGIME_DETECTOR_MIN_NUM_STATES,
+  MIN_REGIME_SIZE_MULTIPLIER,
+  MIN_STATE_STDDEV as REGIME_DETECTOR_MIN_STATE_STDDEV,
+  MIN_TRANSITION_LEARNING_DAYS as REGIME_DETECTOR_MIN_TRANSITION_LEARNING_DAYS,
+  RegimeDetectorMetaPlugin,
+  argmaxRegime,
+  createRegimeDetectorMetaPlugin,
+  gaussianLogPdf,
+  logSumExp,
+  regimeLabelToIndex,
+  regimeToSizeMultiplier,
+} from "./signal-center/plugins/regime-detector-meta-plugin.js";
+export type {
+  RegimeDetectorConfig,
+  RegimeDetectorMetaPluginState,
+  RegimeLabel,
+  HMMStateIndex,
+} from "./signal-center/plugins/regime-detector-meta-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,

@@ -1,0 +1,515 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-05T11:44:18.104Z",
+    "phase": "11.2a",
+    "milestone": "Track-C-signal-center-v1-regime-composition",
+    "symbol": "ETH/USDT",
+    "ltfTimeframe": "1d",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000,
+    "pluginCount": 5,
+    "activePluginCount": 2,
+    "modifierCount": 3,
+    "plugins": [
+      "carry-baseline",
+      "directional-mtf-v1",
+      "vol-target-sizing",
+      "hybrid-kelly-v1",
+      "regime-detector-v1"
+    ],
+    "composition": "SignalCenterV1 + CarryBaselinePlugin + DirectionalMTFPlugin + SOLFlipKillSwitchPlugin + VolTargetSizingPlugin + HybridKellyPlugin + RegimeDetectorMetaPlugin",
+    "perSymbolDisclosure": {
+      "BTC": null,
+      "ETH": "CarryBaselinePlugin + DirectionalMTFPlugin + VolTargetSizingPlugin + HybridKellyPlugin + RegimeDetectorMetaPlugin (2 active + 3 modifiers)",
+      "SOL": null
+    }
+  },
+  "config": {
+    "leverage": 10,
+    "baseNotionalUsd": 10000,
+    "effectiveNotionalUsd": 100000,
+    "perPluginBaseNotional": 5000,
+    "carryPluginConfig": {
+      "windowDays": 30,
+      "entryPercentile": 0.75,
+      "exitPercentile": 0.5,
+      "cooldownHours": 72
+    },
+    "directionalPluginConfig": {
+      "donchianPeriod": 20,
+      "stopAtrMultiplier": 1.5,
+      "tpAtrMultiplier": 3,
+      "atrPeriod": 14,
+      "maxHoldBars": 168,
+      "supertrendPeriod": 10,
+      "supertrendMultiplier": 3,
+      "mtfAggregationFactor": 4,
+      "htfAggregationFactor": 24,
+      "pricePrecision": 2
+    },
+    "sfkPluginConfig": {
+      "enabledSymbols": [],
+      "signFlipWindowDays": 7,
+      "extremeSigmaThreshold": 1.5,
+      "persistenceDays": 5,
+      "volWindowDays": 30
+    },
+    "volPluginConfig": {
+      "enabledSymbols": [
+        "ETH/USDT"
+      ],
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25
+    },
+    "hybridKellyPluginConfig": {
+      "enabledSymbols": [
+        "ETH/USDT"
+      ],
+      "kellyCap": 1,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25,
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "fundingSharpeWindowDays": 30
+    },
+    "regimePluginConfig": {
+      "enabledSymbols": [
+        "ETH/USDT"
+      ],
+      "transitionLearningDays": 30,
+      "minObservations": 5,
+      "baseNotionalUsd": 10000
+    }
+  },
+  "hardConstraint": {
+    "leverage": 10,
+    "leverageRatio": "1:10",
+    "effectiveNotionalUsd": 100000,
+    "maxAllowedLeverage": 10,
+    "mandateSource": "user-steer mvs_c13fe65cb68f4df3851304dea09a9099",
+    "mandateText": "ALL trades MUST use EXACTLY 1:10 leverage. No more, no less."
+  },
+  "signalCenter": {
+    "composition": "SignalBus + StrategyRegistry + PortfolioRiskEngine + StrategyTelemetry + 6 plugins",
+    "pluginsEnabled": [
+      "carry-baseline",
+      "directional-mtf-v1",
+      "vol-target-sizing",
+      "hybrid-kelly-v1",
+      "regime-detector-v1"
+    ],
+    "compositionRoot": "SignalCenterV1 (packages/core/src/signal-center/signal-center-v1.ts)",
+    "busEmissions": 4541,
+    "signalsSubmitted": 883,
+    "barsProcessed": 915
+  },
+  "threeLayerDefense": {
+    "layer1": "constructor refuses maxLeverage > 10 (PASS — config validation across all 6 plugins)",
+    "layer2": "start() runs assertLeverageInvariant on initial risk-engine notional state",
+    "layer3": "per-bar leverageInvariantGuard at SCv1 portfolio level: 0 breach(es) detected (must be 0)",
+    "volModifierDefense": "VolTargetSizingPlugin recordClose + currentMultiplierForSymbol — multiplier bounded [0.25, 1].",
+    "hybridKellyDefense": "HybridKellyPlugin recordClose + currentKellyBucketForSymbol — Kelly bucket ∈ [0.25, 1.0] (kellyCap=1), VolTarget owns vol-targeting so HybridKelly contributes Kelly bucket only.",
+    "regimeMetaDefense": "RegimeDetectorMetaPlugin recordClose + currentSizeMultiplierForSymbol — sizeModifier ∈ [0.4, 1.0] (HARD CAP, NEVER scales up). Per-emit assertLeverageInvariant on implied close notional. Layer-2 assertions fired: 910.",
+    "combinedMultiplierNote": "combined_mult[t] = volMult × kellyBucket × regimeMult — three non-redundant defensive dimensions (vol-targeting + Kelly bucket + regime scaling)."
+  },
+  "phase112aEnvelope": {
+    "monthlyReturnPct": 1.2274796046527259,
+    "annualizedReturnPct": 15.753024681115079,
+    "sharpeRatio": 1.3764741843976949,
+    "maxDrawdownPct": 0.0003070679533942755,
+    "dailyVaR95Pct": 0,
+    "finalEquityUsd": 14438.604397477879,
+    "liquidations": 0,
+    "totalReturnPct": 44.38604397477879,
+    "combinedAvgMultiplier": 0.2925078922723686,
+    "composition": "5 plugins (2 active + 3 modifiers)"
+  },
+  "regimeDistributionPct": {
+    "trending": 25.494505494505493,
+    "ranging": 2.7472527472527473,
+    "volatile": 71.75824175824175
+  },
+  "regimeTransitions": 136,
+  "regimeConditionalPnl": {
+    "trending": {
+      "days": 232,
+      "meanReturnPct": 0.017890680832327154,
+      "cumulativeReturnPct": 4.235874283766372,
+      "sharpe": 9.03845139567554,
+      "sizeMultiplier": 1
+    },
+    "ranging": {
+      "days": 25,
+      "meanReturnPct": 0.023348374104275278,
+      "cumulativeReturnPct": 0.5848396845567816,
+      "sharpe": 6.868851611215397,
+      "sizeMultiplier": 0.7
+    },
+    "volatile": {
+      "days": 653,
+      "meanReturnPct": 0.05118176465599339,
+      "cumulativeReturnPct": 37.71317015940849,
+      "sharpe": 1.4275998339908171,
+      "sizeMultiplier": 0.4
+    }
+  },
+  "regimeWalkForward": [
+    {
+      "fold": 0,
+      "trainStart": 1704067200000,
+      "trainEnd": 1719619200000,
+      "testStart": 1719619200000,
+      "testEnd": 1722211200000,
+      "testDays": 30,
+      "trendingPct": 40,
+      "rangingPct": 0,
+      "volatilePct": 60,
+      "avgSizeMultiplier": 0.6399999999999999
+    },
+    {
+      "fold": 1,
+      "trainStart": 1706659200000,
+      "trainEnd": 1722211200000,
+      "testStart": 1722211200000,
+      "testEnd": 1724803200000,
+      "testDays": 30,
+      "trendingPct": 26.666666666666668,
+      "rangingPct": 0,
+      "volatilePct": 73.33333333333333,
+      "avgSizeMultiplier": 0.56
+    },
+    {
+      "fold": 2,
+      "trainStart": 1709251200000,
+      "trainEnd": 1724803200000,
+      "testStart": 1724803200000,
+      "testEnd": 1727395200000,
+      "testDays": 30,
+      "trendingPct": 0,
+      "rangingPct": 6.666666666666667,
+      "volatilePct": 93.33333333333333,
+      "avgSizeMultiplier": 0.4200000000000002
+    },
+    {
+      "fold": 3,
+      "trainStart": 1711843200000,
+      "trainEnd": 1727395200000,
+      "testStart": 1727395200000,
+      "testEnd": 1729987200000,
+      "testDays": 30,
+      "trendingPct": 40,
+      "rangingPct": 3.3333333333333335,
+      "volatilePct": 56.666666666666664,
+      "avgSizeMultiplier": 0.6499999999999998
+    },
+    {
+      "fold": 4,
+      "trainStart": 1714435200000,
+      "trainEnd": 1729987200000,
+      "testStart": 1729987200000,
+      "testEnd": 1732579200000,
+      "testDays": 30,
+      "trendingPct": 3.3333333333333335,
+      "rangingPct": 0,
+      "volatilePct": 96.66666666666667,
+      "avgSizeMultiplier": 0.4200000000000002
+    },
+    {
+      "fold": 5,
+      "trainStart": 1717027200000,
+      "trainEnd": 1732579200000,
+      "testStart": 1732579200000,
+      "testEnd": 1735171200000,
+      "testDays": 30,
+      "trendingPct": 10,
+      "rangingPct": 3.3333333333333335,
+      "volatilePct": 86.66666666666667,
+      "avgSizeMultiplier": 0.47000000000000025
+    },
+    {
+      "fold": 6,
+      "trainStart": 1719619200000,
+      "trainEnd": 1735171200000,
+      "testStart": 1735171200000,
+      "testEnd": 1737763200000,
+      "testDays": 30,
+      "trendingPct": 20,
+      "rangingPct": 0,
+      "volatilePct": 80,
+      "avgSizeMultiplier": 0.5200000000000002
+    },
+    {
+      "fold": 7,
+      "trainStart": 1722211200000,
+      "trainEnd": 1737763200000,
+      "testStart": 1737763200000,
+      "testEnd": 1740355200000,
+      "testDays": 30,
+      "trendingPct": 13.333333333333334,
+      "rangingPct": 3.3333333333333335,
+      "volatilePct": 83.33333333333334,
+      "avgSizeMultiplier": 0.4900000000000002
+    },
+    {
+      "fold": 8,
+      "trainStart": 1724803200000,
+      "trainEnd": 1740355200000,
+      "testStart": 1740355200000,
+      "testEnd": 1742947200000,
+      "testDays": 30,
+      "trendingPct": 0,
+      "rangingPct": 0,
+      "volatilePct": 100,
+      "avgSizeMultiplier": 0.4000000000000002
+    },
+    {
+      "fold": 9,
+      "trainStart": 1727395200000,
+      "trainEnd": 1742947200000,
+      "testStart": 1742947200000,
+      "testEnd": 1745539200000,
+      "testDays": 30,
+      "trendingPct": 13.333333333333334,
+      "rangingPct": 6.666666666666667,
+      "volatilePct": 80,
+      "avgSizeMultiplier": 0.5000000000000001
+    },
+    {
+      "fold": 10,
+      "trainStart": 1729987200000,
+      "trainEnd": 1745539200000,
+      "testStart": 1745539200000,
+      "testEnd": 1748131200000,
+      "testDays": 30,
+      "trendingPct": 40,
+      "rangingPct": 3.3333333333333335,
+      "volatilePct": 56.666666666666664,
+      "avgSizeMultiplier": 0.65
+    },
+    {
+      "fold": 11,
+      "trainStart": 1732579200000,
+      "trainEnd": 1748131200000,
+      "testStart": 1748131200000,
+      "testEnd": 1750723200000,
+      "testDays": 30,
+      "trendingPct": 16.666666666666664,
+      "rangingPct": 6.666666666666667,
+      "volatilePct": 76.66666666666667,
+      "avgSizeMultiplier": 0.5200000000000001
+    },
+    {
+      "fold": 12,
+      "trainStart": 1735171200000,
+      "trainEnd": 1750723200000,
+      "testStart": 1750723200000,
+      "testEnd": 1753315200000,
+      "testDays": 30,
+      "trendingPct": 13.333333333333334,
+      "rangingPct": 13.333333333333334,
+      "volatilePct": 73.33333333333333,
+      "avgSizeMultiplier": 0.5200000000000001
+    },
+    {
+      "fold": 13,
+      "trainStart": 1737763200000,
+      "trainEnd": 1753315200000,
+      "testStart": 1753315200000,
+      "testEnd": 1755907200000,
+      "testDays": 30,
+      "trendingPct": 13.333333333333334,
+      "rangingPct": 0,
+      "volatilePct": 86.66666666666667,
+      "avgSizeMultiplier": 0.48000000000000026
+    },
+    {
+      "fold": 14,
+      "trainStart": 1740355200000,
+      "trainEnd": 1755907200000,
+      "testStart": 1755907200000,
+      "testEnd": 1758499200000,
+      "testDays": 30,
+      "trendingPct": 46.666666666666664,
+      "rangingPct": 6.666666666666667,
+      "volatilePct": 46.666666666666664,
+      "avgSizeMultiplier": 0.7
+    },
+    {
+      "fold": 15,
+      "trainStart": 1742947200000,
+      "trainEnd": 1758499200000,
+      "testStart": 1758499200000,
+      "testEnd": 1761091200000,
+      "testDays": 30,
+      "trendingPct": 0,
+      "rangingPct": 3.3333333333333335,
+      "volatilePct": 96.66666666666667,
+      "avgSizeMultiplier": 0.4100000000000002
+    },
+    {
+      "fold": 16,
+      "trainStart": 1745539200000,
+      "trainEnd": 1761091200000,
+      "testStart": 1761091200000,
+      "testEnd": 1763683200000,
+      "testDays": 30,
+      "trendingPct": 13.333333333333334,
+      "rangingPct": 0,
+      "volatilePct": 86.66666666666667,
+      "avgSizeMultiplier": 0.48000000000000026
+    },
+    {
+      "fold": 17,
+      "trainStart": 1748131200000,
+      "trainEnd": 1763683200000,
+      "testStart": 1763683200000,
+      "testEnd": 1766275200000,
+      "testDays": 30,
+      "trendingPct": 10,
+      "rangingPct": 0,
+      "volatilePct": 90,
+      "avgSizeMultiplier": 0.4600000000000002
+    },
+    {
+      "fold": 18,
+      "trainStart": 1750723200000,
+      "trainEnd": 1766275200000,
+      "testStart": 1766275200000,
+      "testEnd": 1768867200000,
+      "testDays": 30,
+      "trendingPct": 73.33333333333333,
+      "rangingPct": 3.3333333333333335,
+      "volatilePct": 23.333333333333332,
+      "avgSizeMultiplier": 0.8499999999999998
+    },
+    {
+      "fold": 19,
+      "trainStart": 1753315200000,
+      "trainEnd": 1768867200000,
+      "testStart": 1768867200000,
+      "testEnd": 1771459200000,
+      "testDays": 30,
+      "trendingPct": 0,
+      "rangingPct": 3.3333333333333335,
+      "volatilePct": 96.66666666666667,
+      "avgSizeMultiplier": 0.4100000000000002
+    },
+    {
+      "fold": 20,
+      "trainStart": 1755907200000,
+      "trainEnd": 1771459200000,
+      "testStart": 1771459200000,
+      "testEnd": 1774051200000,
+      "testDays": 30,
+      "trendingPct": 20,
+      "rangingPct": 0,
+      "volatilePct": 80,
+      "avgSizeMultiplier": 0.5200000000000002
+    },
+    {
+      "fold": 21,
+      "trainStart": 1758499200000,
+      "trainEnd": 1774051200000,
+      "testStart": 1774051200000,
+      "testEnd": 1776643200000,
+      "testDays": 30,
+      "trendingPct": 3.3333333333333335,
+      "rangingPct": 0,
+      "volatilePct": 96.66666666666667,
+      "avgSizeMultiplier": 0.42000000000000015
+    },
+    {
+      "fold": 22,
+      "trainStart": 1761091200000,
+      "trainEnd": 1776643200000,
+      "testStart": 1776643200000,
+      "testEnd": 1779235200000,
+      "testDays": 30,
+      "trendingPct": 86.66666666666667,
+      "rangingPct": 0,
+      "volatilePct": 13.333333333333334,
+      "avgSizeMultiplier": 0.92
+    },
+    {
+      "fold": 23,
+      "trainStart": 1763683200000,
+      "trainEnd": 1779235200000,
+      "testStart": 1779235200000,
+      "testEnd": 1781827200000,
+      "testDays": 30,
+      "trendingPct": 40,
+      "rangingPct": 3.3333333333333335,
+      "volatilePct": 56.666666666666664,
+      "avgSizeMultiplier": 0.6499999999999997
+    },
+    {
+      "fold": 24,
+      "trainStart": 1766275200000,
+      "trainEnd": 1781827200000,
+      "testStart": 1781827200000,
+      "testEnd": 1784419200000,
+      "testDays": 15,
+      "trendingPct": 46.666666666666664,
+      "rangingPct": 6.666666666666667,
+      "volatilePct": 46.666666666666664,
+      "avgSizeMultiplier": 0.7000000000000001
+    }
+  ],
+  "regimeWalkForwardSummary": {
+    "totalFolds": 25,
+    "avgTrendingPct": 23.599999999999994,
+    "avgRangingPct": 2.9333333333333336,
+    "avgVolatilePct": 73.46666666666668,
+    "avgSizeMultiplier": 0.5504000000000001
+  },
+  "perStrategyAttribution": {
+    "carry": {
+      "fundingCollectedUsd": 4650.834000000002,
+      "combinedScaledFundingUsd": 1360.4056506486697,
+      "attributionNote": "Carry P&L accrues at 8h funding boundaries. VolTarget × HybridKelly × RegimeDetector (combined multiplier) further scale per-bar deltas."
+    },
+    "directional": {
+      "realizedPnlUsd": 12580.028197065949,
+      "attributionNote": "Directional P&L is SL/TP-realized on 1d LTF bars (1.5x ATR stop, 3x ATR TP, 168-bar max-hold). Kelly bucket at ENTRY (entry-locked); regime mult on per-bar deltas."
+    },
+    "defensiveKillSwitch": null,
+    "defensiveVolTarget": {
+      "avgVolMultiplier": 0.6088647124126926,
+      "attributionNote": "Moreira-Muir inverse-vol scaling."
+    },
+    "defensiveHybridKelly": {
+      "avgKellyBucket": 0.821530054644811,
+      "attributionNote": "Funding-Sharpe Kelly bucket."
+    },
+    "defensiveRegimeDetector": {
+      "avgSizeMultiplier": 0.5636065573770427,
+      "regimeDistribution": {
+        "trending": 0.2549450549450549,
+        "ranging": 0.027472527472527472,
+        "volatile": 0.7175824175824176
+      },
+      "layer2Assertions": 910,
+      "attributionNote": "HMM 3-state regime scaling (trending=1.0, ranging=0.7, volatile=0.4). avg=0.564, distribution=25.5% T / 2.7% R / 71.8% V."
+    }
+  },
+  "combinedMultiplier": {
+    "volAvg": 0.6088647124126926,
+    "kellyAvg": 0.821530054644811,
+    "regimeAvg": 0.5636065573770427,
+    "combinedAvg": 0.2925078922723686,
+    "attributionNote": "combined_mult[t] = volMult[t] × kellyBucket[t] × regimeMult[t] — three non-redundant defensive dimensions"
+  },
+  "portfolioRisk": {
+    "numLeverageBreaches": 0,
+    "aggregateLeverage": 5.75,
+    "note": "Aggregate leverage is across carry + directional SizingSignals routed through SCv1's risk engine. VolTarget + HybridKelly + RegimeDetector operate as per-bar calculators (not bus modifiers) — do NOT contribute additional notional. 1:10 cap holds cleanly across all 6 plugins."
+  },
+  "totalMonths": 30.108051775350415,
+  "startTime": 1704067200000,
+  "endTime": 1783036800000,
+  "ohlcvCandleCount": 915,
+  "fundingSnapshotCount": 2745,
+  "elapsedMs": 185
+}
