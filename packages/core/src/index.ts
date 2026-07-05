@@ -286,6 +286,21 @@ export type {
   CarryBaselinePluginConfig,
   CarryBaselinePluginState,
 } from "./signal-center/plugins/carry-baseline-plugin.js";
+// Phase 11.1b — DirectionalMTFPlugin (Phase 8 F MTF drop-in).
+export {
+  ALLOWED_ENABLED_SYMBOLS,
+  DEFAULT_DIRECTIONAL_MTF_PLUGIN_CONFIG,
+  DEFAULT_ENABLED_SYMBOLS,
+  DirectionalMTFPlugin,
+  createDirectionalMTFPlugin,
+  extractDirectionSignal,
+} from "./signal-center/plugins/directional-mtf-plugin.js";
+export type {
+  DirectionalMTFPluginConfig,
+  DirectionalMTFPluginState,
+  DirectionalMTFSymbol,
+  DmCandle,
+} from "./signal-center/plugins/directional-mtf-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,
