@@ -132,7 +132,7 @@
   "decisionCount": 1096,
   "aggregateLeverage": 0,
   "metadata": {
-    "generatedAt": "2026-07-05T23:13:28.401Z",
+    "generatedAt": "2026-07-05T23:26:23.353Z",
     "phase": 13,
     "milestone": "M2-Track-D-final-backtest",
     "userMandate": "backtest + binance + risk per trade: 5% + max leverage: 10 + max positions: 7",
