@@ -638,6 +638,11 @@ export type {
 } from "./types.js";
 export { DEFAULT_MTF_CONFIG } from "./types.js";
 
+// Phase 13 Track B — Portfolio Orchestrator (multi-symbol BTC+ETH+SOL simultaneous).
+// Re-exports the portfolio module's public surface: PortfolioOrchestrator + PositionDecision +
+// related types. Backed by per-symbol SignalCenterV1 + DecisionEngine + shared PortfolioRiskEngine.
+export * from "./portfolio/index.js";
+
 import type { Strategy } from "./types.js";
 import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
 
