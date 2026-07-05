@@ -1,0 +1,176 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-04T23:21:52.056Z",
+    "phase": 10,
+    "track": "G",
+    "milestone": "1",
+    "subtrack": "B-portfolio-risk-telemetry",
+    "symbol": "ETH/USDT",
+    "ltfTimeframe": "1h",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000,
+    "leverage": 10
+  },
+  "config": {
+    "leverage": 10,
+    "volTarget": 0.02,
+    "entryPctl": 0.75,
+    "exitPctl": 0.5,
+    "windowDays": 30,
+    "cooldownHours": 72,
+    "baseNotionalUsd": 10000,
+    "baseKellyFraction": 0.5,
+    "portfolioRiskEngineConfig": {
+      "confidence": 0.95,
+      "correlationWindowDays": 30,
+      "concentrationThresholdPct": 0.4,
+      "maxAggregateDrawdownPct": 0.2
+    }
+  },
+  "portfolioRisk": {
+    "portfolioVaR95Pct": 0.0025958862371641103,
+    "portfolioVaR95Usd": 25.958862371641104,
+    "portfolioVaRObservations": 60,
+    "aggregateDrawdownPct": 0.02303340867074794,
+    "maxDrawdownPct": 0.02303340867074794,
+    "aggregateLeverage": 5,
+    "numLeverageBreaches": 0,
+    "leverageInvariantFires": []
+  },
+  "perStrategyVaR": {
+    "donchian-mtf": {
+      "dailyVaR95Pct": 0.0025958862371641103,
+      "tradeCount": 126
+    }
+  },
+  "correlationMatrix": null,
+  "exposureBySymbol": {
+    "totalNotionalUsd": 50000,
+    "perSymbol": {
+      "ETH/USDT": 50000
+    },
+    "perSymbolFraction": {
+      "ETH/USDT": 1
+    },
+    "overThresholdSymbols": [
+      "ETH/USDT"
+    ],
+    "threshold": 0.4
+  },
+  "leverageInvariantVerification": {
+    "syntheticAggregateLeverage": 12,
+    "guardFired": true,
+    "guardMessage": "1:10 MANDATE BREACH: aggregate leverage 12.0000× > 10×"
+  },
+  "attribution": [
+    {
+      "source": "donchian-mtf",
+      "tradeCount": 126,
+      "totalPnlUsd": 271.98,
+      "winRate": 0.4841,
+      "sharpe": 0.0976,
+      "maxDrawdownPct": 3.3075,
+      "disabled": false
+    }
+  ],
+  "telemetry": {
+    "numActiveStrategies": 2,
+    "numDisabledStrategies": 0,
+    "totalTrades": 126,
+    "totalPnlUsd": 271.980791321421,
+    "correlationMatrix": null
+  },
+  "killSwitchInvocations": [],
+  "ensemble": {
+    "trades": 126,
+    "totalPnlUsd": 271.98,
+    "totalReturnPct": 2.719807913214117,
+    "maxDrawdownPct": 2.4534483584116513,
+    "sharpeRatio": 0.6984420161049142,
+    "winRate": 0.48412698412698413
+  },
+  "carry": {
+    "fundingCollectedUsd": 16567.54,
+    "fundingSnapshotsApplied": 2229,
+    "fundingSnapshotsSkipped": 508,
+    "effectiveCarryLeverage": 5,
+    "carryPausedFundingPeriods": 508,
+    "carryPausedFundingUsd": 2968.3,
+    "forcedExitCount": 0,
+    "regimeActivationCount": 18
+  },
+  "combinedEdge": {
+    "totalPnlUsd": 16839.52,
+    "directionalPnlUsd": 271.98,
+    "carryPnlUsd": 16567.54,
+    "totalReturnPct": 168.395,
+    "monthlyReturnPct": 5.613,
+    "annualizedReturnPct": 67.358,
+    "sharpe": 11.087,
+    "maxDrawdownPct": 2.4534483584116513,
+    "carryComponentPct": 98.38486630029135
+  },
+  "volTargetSeries": {
+    "avgMultiplier": 0.6088647124126926,
+    "avgRealizedDailyVol": 0.03490080662953715,
+    "avgRealizedAnnualizedVol": 0.6667789744272129,
+    "upperClampFraction": 0.048087431693989074,
+    "lowerClampFraction": 0,
+    "middleFraction": 0.9519125683060109,
+    "totalDays": 915,
+    "firstFew": [
+      {
+        "day": 1704067200000,
+        "realizedDailyVol": 0,
+        "clampedVolMultiplier": 1
+      },
+      {
+        "day": 1704153600000,
+        "realizedDailyVol": 0,
+        "clampedVolMultiplier": 1
+      },
+      {
+        "day": 1704240000000,
+        "realizedDailyVol": 0.046118447603339024,
+        "clampedVolMultiplier": 0.43366594149088356
+      },
+      {
+        "day": 1704326400000,
+        "realizedDailyVol": 0.046267846766977025,
+        "clampedVolMultiplier": 0.43226563148114117
+      },
+      {
+        "day": 1704412800000,
+        "realizedDailyVol": 0.03833226472008906,
+        "clampedVolMultiplier": 0.5217536752927217
+      }
+    ],
+    "lastFew": [
+      {
+        "day": 1782691200000,
+        "realizedDailyVol": 0.03409810429450442,
+        "clampedVolMultiplier": 0.5865428713356183
+      },
+      {
+        "day": 1782777600000,
+        "realizedDailyVol": 0.03426049596127701,
+        "clampedVolMultiplier": 0.5837627109252895
+      },
+      {
+        "day": 1782864000000,
+        "realizedDailyVol": 0.03472332644400222,
+        "clampedVolMultiplier": 0.5759816828682498
+      },
+      {
+        "day": 1782950400000,
+        "realizedDailyVol": 0.034020809054658395,
+        "clampedVolMultiplier": 0.5878754960785227
+      },
+      {
+        "day": 1783036800000,
+        "realizedDailyVol": 0.034660941332130296,
+        "clampedVolMultiplier": 0.577018373746827
+      }
+    ]
+  }
+}

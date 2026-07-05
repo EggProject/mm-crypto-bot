@@ -225,6 +225,125 @@ export type {
   MultiClassEnsembleV4State,
   V4PerSymbol,
 } from "./strategy/multi-class-ensemble-v4.js";
+// Phase 10G Track A — Signal Center (typed pub/sub + plugin registry + reference plugin).
+// Type discriminated unions for Signal events.
+export {
+  assertExhaustiveSignal,
+  err,
+  isCarry,
+  isDirection,
+  isRisk,
+  isSizing,
+  ok,
+} from "./signal-center/types.js";
+export type {
+  AggregatedConfigError,
+  Bar,
+  CarryRegime,
+  CarrySignal,
+  ConfigError,
+  DirectionSide,
+  DirectionSignal,
+  Err,
+  Ok,
+  PluginState,
+  Result,
+  RiskSignal,
+  Signal,
+  SignalKind,
+  SizingSignal,
+} from "./signal-center/types.js";
+// Typed pub/sub for Signal events (backtest/live modes).
+export {
+  createSignalBus,
+  SignalBus,
+} from "./signal-center/signal-bus.js";
+export type {
+  SignalBusMode,
+  SignalBusOptions,
+  SignalHandler,
+  UnsubscribeFn,
+} from "./signal-center/signal-bus.js";
+// Multi-strategy plugin registry.
+export {
+  createStrategyRegistry,
+  MAX_ALLOWED_PLUGIN_LEVERAGE,
+  StrategyRegistry,
+  validatePluginMetadata,
+} from "./signal-center/strategy-registry.js";
+export type {
+  EdgeClass,
+  StrategyPlugin,
+  StrategyPluginMetadata,
+} from "./signal-center/strategy-registry.js";
+// Reference plugin — wraps Phase 8 Track E FundingCarryTiming with Signal Center interface.
+export {
+  CarryBaselinePlugin,
+  DEFAULT_CARRY_BASELINE_PLUGIN_CONFIG,
+  extractCarrySignal,
+} from "./signal-center/plugins/carry-baseline-plugin.js";
+export type {
+  CarryBaselinePluginConfig,
+  CarryBaselinePluginState,
+} from "./signal-center/plugins/carry-baseline-plugin.js";
+// Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
+export {
+  createSignalCenterV1,
+  DEFAULT_SIGNAL_CENTER_V1_CONFIG,
+  SignalCenterV1,
+  toRiskEngineSignal,
+} from "./signal-center/signal-center-v1.js";
+export type {
+  SignalCenterV1Config,
+} from "./signal-center/signal-center-v1.js";
+// Phase 10G Track B — Leverage invariant hard guardrail (1:10 MANDATORY leverage 3rd defense-in-depth layer).
+export {
+  assertLeverageInvariant,
+  assertPositionsInvariant,
+  checkLeverageApproach,
+  computeEffectiveLeverage,
+  DEFAULT_LEVERAGE_INVARIANT_CONFIG,
+  LeverageBreachError,
+  ONE_TO_TEN_LEVERAGE,
+  ONE_X_LEVERAGE,
+} from "./risk/leverage-invariant.js";
+export type {
+  LeverageInvariantConfig,
+  Position,
+} from "./risk/leverage-invariant.js";
+// Phase 10G Track B — Cross-strategy portfolio risk engine (VaR + correlation + drawdown + leverage guard).
+// NOTE: This engine accepts Track B's internal signal shapes (see risk/portfolio-risk-engine.ts).
+// Track A's SignalBus signal shapes are translated by SignalCenterV1 (Track C integration layer).
+export {
+  DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG,
+  PortfolioRiskEngine,
+} from "./risk/portfolio-risk-engine.js";
+export type {
+  AggregateDrawdownState,
+  CorrelationMatrix,
+  ExposureBySymbol,
+  PortfolioRiskEngineConfig,
+  RiskSnapshot,
+  VaRPoint,
+  // Aliases for Track B's internal signal types (Track A's types in ./signal-center/types.ts are canonical).
+  CarrySignal as RiskEngineCarrySignal,
+  DirectionSignal as RiskEngineDirectionSignal,
+  SizingSignal as RiskEngineSizingSignal,
+  RiskSignal as RiskEngineRiskSignal,
+  Signal as RiskEngineSignal,
+} from "./risk/portfolio-risk-engine.js";
+// Phase 10G Track B — Per-strategy telemetry (PnL attribution + Sharpe + kill-switch + export).
+export {
+  DEFAULT_STRATEGY_TELEMETRY_CONFIG,
+  StrategyTelemetry,
+} from "./telemetry/strategy-telemetry.js";
+export type {
+  KillSwitchEvent,
+  PerStrategyStats,
+  StrategyTelemetryConfig,
+  TelemetrySnapshot,
+  TradeRecord,
+} from "./telemetry/strategy-telemetry.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
