@@ -825,15 +825,6 @@ export class HybridKellyPlugin implements StrategyPlugin {
     assertLeverageInvariant(notional, this.config.baseNotionalUsd);
   }
 
-  /**
-   * `kellyFractionForSymbol` — pure helper. Maps the funding-Sharpe
-   * bucket to a Kelly fraction multiplier in {0.25, 0.5, 0.7, 1.0}.
-   * Exposed for tests + diagnostics.
-   */
-  kellyFractionForSymbol(symbol: string): AdaptiveKellyBucket | null {
-    return this.currentKellyBucketForSymbol(symbol);
-  }
-
   // ---------------------------------------------------------------------
   // Internal — handlers
   // ---------------------------------------------------------------------
