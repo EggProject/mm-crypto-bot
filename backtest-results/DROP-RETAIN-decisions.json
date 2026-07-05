@@ -20,13 +20,13 @@
       "verdict": "PASS — all runs respect 1:10 cap with 90% headroom"
     }
   },
-  "schemaDefinition": {
+  "schemaDefinition": [
     "IF |Δ monthly return| < 0.05%/mo → DROP (insufficient alpha)",
     "IF |Δ Sharpe| < 0.5 → DROP (stability question)",
     "IF max |ρ with existing| > 0.5 → DROP (redundant)",
     "IF DD increased > 20% → DROP (not worth the risk)",
     "ELSE → RETAIN"
-  },
+  ],
   "decisions": [
     {
       "plugin": "P1-CexNetFlowRegimePlugin",
