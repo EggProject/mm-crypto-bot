@@ -1,28 +1,24 @@
 #!/usr/bin/env bun
-// packages/backtest-tools/src/cli/run-funding-carry-leverage.ts — Phase 7 Track C
-// leveraged funding-carry baseline backtest CLI runner.
+// packages/backtest-tools/src/cli/run-funding-carry-leverage-1-10.ts —
+// Phase 8 Track D — 1:10 mandatory leverage funding-carry baseline runner.
 //
-// The runner drives a delta-neutral funding-carry simulation with leverage
-// applied to the perp leg, using:
-//   - Phase 1 OHLCV (BTC/ETH/SOL × 1h, 2024-01 → 2026-07)
-//   - Historical funding rates from data/funding/binance_<sym>_funding_8h.csv
-//   - FundingCarryLeverageStrategy for VaR-gated leverage + liquidation buffer
-//   - bybit.eu SPOT-only cost model (Phase 6 carry baseline)
-//
-// The deliverable 9 baseline JSONs:
-//   - baseline-funding-carry-leverage-{btc,eth,sol}-1h-{1,2,3}.json
-//   - 3 symbols × 3 leverage variants (1×, 2×, 3×)
-//
-// Output JSON includes Phase 7 Track C-specific fields:
-//   - leverage, avgLeverageUsed, liquidationEvents (must be 0)
-//   - dailyVaR95Pct (parametric), maxDailyVaR95PctObserved
-//   - fundingCollectedScaledUsd (payments at scaled notional)
-//   - rebalanceCount, rebalanceCostScaledUsd
+// Wraps the Phase 7 Track C `run-funding-carry-leverage.ts` runner with the
+// hard 1:10 leverage mandate:
+//   - --leverage accepts ONLY 1 (baseline reference) or 10 (1:10 mandatory).
+//   - 2/3/5/7 are REJECTED at parseArgs time (and again at the
+//     FundingCarryLeverageStrategy constructor via `assert1to10Leverage`).
+//   - --var-cap=<pct> defaults to 0.02 (2% daily VaR @ 95% confidence).
 //
 // Usage:
-//   bun run packages/backtest-tools/src/cli/run-funding-carry-leverage.ts
-//   bun run packages/backtest-tools/src/cli/run-funding-carry-leverage.ts --symbol=BTC/USDT --timeframe=1h --leverage=2
-//   bun run packages/backtest-tools/src/cli/run-funding-carry-leverage.ts --output=backtest-results/baseline-funding-carry-leverage-btc-1h-2.json
+//   bun run packages/backtest-tools/src/cli/run-funding-carry-leverage-1-10.ts \
+//     --symbol=BTC/USDT --timeframe=1h --leverage=10 \
+//     --output=backtest-results/baseline-funding-carry-leverage-1-10-btc-1h-10.json
+//   bun run packages/backtest-tools/src/cli/run-funding-carry-leverage-1-10.ts \
+//     --symbol=ETH/USDT --timeframe=1h --leverage=1 \
+//     --output=backtest-results/baseline-funding-carry-leverage-1-10-eth-1h-1.json
+//
+// See docs/research/phase8-carry-leverage-1-10.md §X.X.1
+// "1:10 MANDATORY LEVERAGE CONSTRAINT" for the user-mandate context.
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -40,9 +36,7 @@ interface CliArgs {
   readonly symbol: string;
   readonly timeframe: Timeframe;
   readonly initialEquity: number;
-  // Phase 8 Track D — 1:10 mandate: ONLY leverage 1 or 10 is accepted.
-  // 2/3/5/7 etc. are REJECTED at parseArgs time AND at the FundingCarryLeverageStrategy
-  // constructor (assert1to10Leverage hard guardrail).
+  // Phase 8 Track D — 1:10 mandate: ONLY 1 or 10 accepted.
   readonly leverage: 1 | 10;
   readonly baseNotionalUsd: number;
   readonly rebalanceThresholdPct: number;
@@ -59,7 +53,7 @@ function parseArgs(): CliArgs {
   let symbol = "BTC/USDT";
   let timeframe: Timeframe = "1h";
   let initialEquity = 10_000;
-  // Phase 8 Track D default — the 1:10 mandatory leverage.
+  // Phase 8 Track D default — 1:10 mandatory leverage.
   let leverage: 1 | 10 = 10;
   let baseNotionalUsd = 10_000;
   let rebalanceThresholdPct = 0.05;
@@ -67,9 +61,9 @@ function parseArgs(): CliArgs {
   let rebalanceCostBps = 20;
   let varConfidence = 0.95;
   let maxDailyVarPct = 0.02;
-  // maxLeverage tracks the same 1:10 mandate for the strategy's config clamp.
   let maxLeverage: 1 | 10 = 10;
-  let outputPath = "backtest-results/baseline-funding-carry-leverage-btc-1h-10.json";
+  let outputPath =
+    "backtest-results/baseline-funding-carry-leverage-1-10-btc-1h-10.json";
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -82,16 +76,16 @@ function parseArgs(): CliArgs {
     } else if (arg.startsWith("--equity=")) {
       initialEquity = Number(arg.slice("--equity=".length));
     } else if (arg.startsWith("--leverage=")) {
-      // Phase 8 Track D — HARD GUARDRAIL: only 1 or 10 accepted.
       const l = Number(arg.slice("--leverage=".length));
+      // Phase 8 Track D — HARD GUARDRAIL: only 1 or 10 accepted.
       if (l !== 1 && l !== 10) {
         throw new Error(
           `[Phase 8 Track D] --leverage must be 1 or 10 (1:10 mandatory). ` +
-            `Got ${l}. See docs/research/phase8-carry-leverage-1-10.md §X.X.1.`,
+            `Got ${l}. Phase 8 dropped 2/3/5/7 leverage options. ` +
+            `See docs/research/phase8-carry-leverage-1-10.md §X.X.1 "1:10 MANDATORY LEVERAGE CONSTRAINT".`,
         );
       }
       leverage = l;
-      // Hard guardrail check (defense in depth).
       assert1to10Leverage(l);
     } else if (arg.startsWith("--notional=")) {
       baseNotionalUsd = Number(arg.slice("--notional=".length));
@@ -107,11 +101,8 @@ function parseArgs(): CliArgs {
       maxDailyVarPct = Number(arg.slice("--var-cap=".length));
     } else if (arg.startsWith("--max-lev=")) {
       const ml = Number(arg.slice("--max-lev=".length));
-      // Phase 8 Track D — HARD GUARDRAIL: max-lev only 1 or 10 accepted.
       if (ml !== 1 && ml !== 10) {
-        throw new Error(
-          `[Phase 8 Track D] --max-lev must be 1 or 10. Got ${ml}.`,
-        );
+        throw new Error(`[Phase 8 Track D] --max-lev must be 1 or 10. Got ${ml}.`);
       }
       maxLeverage = ml;
       assert1to10Leverage(ml);
@@ -119,8 +110,7 @@ function parseArgs(): CliArgs {
       outputPath = arg.slice("--output=".length);
     }
   }
-  // Defense in depth — re-run guardrail before constructing the strategy.
-  // This catches the case where someone hand-edits the parseArgs defaults.
+  // Defense in depth — final guardrail check before returning.
   assert1to10Leverage(leverage);
   assert1to10Leverage(maxLeverage);
   return {
@@ -206,14 +196,8 @@ interface LeverageResult {
 
 /**
  * `simulateLeveragedCarry` — the core leveraged delta-neutral carry
- * simulation loop. Combines:
- *   - 1h OHLCV mark-price feed
- *   - 8h Binance funding-rate snapshots
- *   - FundingCarryLeverageStrategy VaR-gated leverage + liquidation buffer
- *   - bybit.eu SPOT-only cost model
- *
- * The strategy's `state` is mutated on every step; at the end we read
- * the carry-specific metrics off the state.
+ * simulation loop. Same as Phase 7 Track C, but adapted to the 1:10
+ * mandate (effective leverage is `--leverage` ∈ {1, 10}).
  */
 function simulateLeveragedCarry(opts: {
   readonly ohlcv: readonly { timestamp: number; close: number }[];
@@ -222,16 +206,13 @@ function simulateLeveragedCarry(opts: {
   readonly endTime: number;
   readonly initialEquity: number;
   readonly config: LeveragedCarryConfig;
-  readonly leverage: number;
+  readonly leverage: 1 | 10;
 }): LeverageResult {
   const cfg = opts.config;
   const strategy = new FundingCarryLeverageStrategy(cfg);
 
-  // Set the explicit leverage for this run. The strategy's
-  // `computeEffectiveLeverage` would normally adjust it dynamically
-  // per funding-rate stability, but for the static baseline runs we
-  // pin it to the requested value so the leverage comparisons (1× vs
-  // 2× vs 3×) are apples-to-apples.
+  // Phase 8 Track D — HARD GUARDRAIL applied at runtime too.
+  assert1to10Leverage(opts.leverage);
   strategy.setEffectiveLeverage(opts.leverage);
   const pinnedLeverage = strategy.state.currentLeverage;
 
@@ -257,19 +238,13 @@ function simulateLeveragedCarry(opts: {
   let prevDayEquity: number | null = null;
 
   // Synthetic delta-sensitivity for funding compounding the basis.
-  // Same as Phase 6 baseline (deltaSensitivity = 0.01).
+  // Same as Phase 6/7 baseline (deltaSensitivity = 0.01).
   const deltaSensitivity = 0.01;
 
-  // Track mark-to-market equity at every funding event for the
-  // post-hoc VaR computation.
   const equityReturnsForVar: number[] = [];
 
   for (const candle of opts.ohlcv) {
-    // Funding accrual: process any funding snapshots since lastFundingTime.
-    // We DON'T use the FundingRateProvider here — the loadFundingCsv result
-    // is already sorted ascending by fundingTime (CSV emits in order).
-    // Linear scan up to candle.timestamp is O(n_total + n_candles) and
-    // trivial for our 30-month dataset (~2,700 snapshots, ~22k hourly candles).
+    // Funding accrual.
     for (let i = fundingPeriods; i < opts.funding.length; i++) {
       const snap = opts.funding[i]!;
       if (snap.fundingTime > candle.timestamp) break;
@@ -289,8 +264,7 @@ function simulateLeveragedCarry(opts: {
     const driftUsd = cumFundingUsd * deltaSensitivity;
     const currentEquity = opts.initialEquity + strategy.totalNetPnlUsd();
 
-    // Compute the daily return sample (for VaR computation). Once
-    // every 24h, snapshot the equity vs. previous daily snapshot.
+    // Daily return snapshot for VaR.
     prevDayEquity ??= currentEquity;
     dailyEquitySnapshots.push(currentEquity);
     if (dailyEquitySnapshots.length > 24) {
@@ -302,14 +276,10 @@ function simulateLeveragedCarry(opts: {
       dailyEquitySnapshots.shift();
     }
 
-    // Liquidation buffer check: compute the unrealized PnL of the
-    // spot leg vs. the entry price (driftSensitivity approximation).
-    // If margin breaches, count a liquidation event AND stop applying
-    // further leverage (set leverage to min, freeze).
-    const unrealizedSpotPnl = driftUsd; // conservative proxy
+    // Liquidation buffer check.
+    const unrealizedSpotPnl = driftUsd;
     const breached = strategy.checkLiquidationThreshold(unrealizedSpotPnl);
     if (breached) {
-      // Record + freeze at min leverage for the rest of the run.
       liquidationEvents.push({
         timestampMs: candle.timestamp,
         markPrice: candle.close,
@@ -327,7 +297,7 @@ function simulateLeveragedCarry(opts: {
     // Rebalance check (drift-based).
     strategy.triggerRebalance(driftUsd);
 
-    // Compute VaR for the currently effective notional.
+    // VaR for current effective notional.
     if (equityReturnsForVar.length >= 20) {
       const varUsd = strategy.computeDailyVaR(
         strategy.state.effectiveNotionalUsd,
@@ -340,7 +310,6 @@ function simulateLeveragedCarry(opts: {
       if (varPct > maxVaR95PctObs) maxVaR95PctObs = varPct;
     }
 
-    // Track leverage usage (for avg / max).
     leverageSum += strategy.state.currentLeverage;
     leverageObs += 1;
     if (strategy.state.currentLeverage > maxLeverageObs) {
@@ -353,11 +322,11 @@ function simulateLeveragedCarry(opts: {
       fundingAccruedUsd: cumFundingUsd,
       markPrice: candle.close,
       leverage: strategy.state.currentLeverage,
-      dailyVaR95Pct: 0, // filled in at end
+      dailyVaR95Pct: 0,
     });
   }
 
-  // Final VaR snapshot on full series.
+  // Final VaR snapshot.
   let finalVarPct = 0;
   if (equityReturnsForVar.length >= 20) {
     const finalVarUsd = strategy.computeDailyVaR(
@@ -370,7 +339,6 @@ function simulateLeveragedCarry(opts: {
         : 0;
   }
   strategy.state.dailyVaR95Pct = finalVarPct;
-  // Back-fill the last point.
   if (equityCurve.length > 0) {
     equityCurve[equityCurve.length - 1] = {
       ...equityCurve[equityCurve.length - 1]!,
@@ -384,7 +352,6 @@ function simulateLeveragedCarry(opts: {
   const years = elapsedDays / 365.25;
   const annualizedReturn = years > 0 ? (Math.pow(1 + totalReturn, 1 / years) - 1) : 0;
 
-  // Sharpe on hourly equity returns.
   const returns: number[] = [];
   for (let i = 1; i < equityCurve.length; i++) {
     const prev = equityCurve[i - 1]!.equity;
@@ -404,7 +371,6 @@ function simulateLeveragedCarry(opts: {
       : 0;
   const sortinoRatio = downStd > 0 ? (meanR / downStd) * Math.sqrt(periodsPerYear) : 0;
 
-  // Max DD.
   let peak = equityCurve[0]?.equity ?? opts.initialEquity;
   let maxDd = 0;
   for (const p of equityCurve) {
@@ -413,7 +379,6 @@ function simulateLeveragedCarry(opts: {
     if (dd > maxDd) maxDd = dd;
   }
 
-  // Profit factor.
   const wins = liquidationEvents.length === 0 && strategy.state.fundingCollectedUsd >= 0 ? 1 : 0;
   const losses = liquidationEvents.length > 0 ? 1 : 0;
   const winRate = wins + losses > 0 ? wins / (wins + losses) : 0;
@@ -432,7 +397,7 @@ function simulateLeveragedCarry(opts: {
     winRate,
     totalTrades: strategy.state.rebalanceCount,
     fundingCollectedUsd: strategy.state.fundingCollectedUsd,
-    fundingCollectedScaledUsd: strategy.state.fundingCollectedUsd, // scaled by leverage already
+    fundingCollectedScaledUsd: strategy.state.fundingCollectedUsd,
     rebalanceCount: strategy.state.rebalanceCount,
     rebalanceCostUsd: strategy.state.rebalanceCostUsd,
     fundingPeriods,
@@ -465,15 +430,15 @@ async function main(): Promise<void> {
   const endTime = new Date();
 
   console.log(
-    `[funding-carry-leverage] symbol=${args.symbol} ltf=${args.timeframe} leverage=${args.leverage}×`,
+    `[funding-carry-leverage-1-10] [Phase 8 Track D — 1:10 mandate] symbol=${args.symbol} ltf=${args.timeframe} leverage=${args.leverage}×`,
   );
   console.log(
-    `[funding-carry-leverage] baseNotional=$${args.baseNotionalUsd} rebalance=${(args.rebalanceThresholdPct * 100).toFixed(1)}% latency=${args.withdrawalLatencyMinutes}min fee=${args.rebalanceCostBps}bps`,
+    `[funding-carry-leverage-1-10] baseNotional=$${args.baseNotionalUsd} rebalance=${(args.rebalanceThresholdPct * 100).toFixed(1)}% latency=${args.withdrawalLatencyMinutes}min fee=${args.rebalanceCostBps}bps`,
   );
   console.log(
-    `[funding-carry-leverage] VaR: conf=${(args.varConfidence * 100).toFixed(0)}% cap=${(args.maxDailyVarPct * 100).toFixed(2)}%/day  maxLev=${args.maxLeverage}×`,
+    `[funding-carry-leverage-1-10] VaR: conf=${(args.varConfidence * 100).toFixed(0)}% cap=${(args.maxDailyVarPct * 100).toFixed(2)}%/day  maxLev=${args.maxLeverage}×`,
   );
-  console.log(`[funding-carry-leverage] period: ${startTime.toISOString()} → ${endTime.toISOString()}`);
+  console.log(`[funding-carry-leverage-1-10] period: ${startTime.toISOString()} → ${endTime.toISOString()}`);
 
   const ohlcvAll = await feed.fetchOHLCV(args.symbol, args.timeframe, {
     since: startTime.getTime(),
@@ -493,11 +458,11 @@ async function main(): Promise<void> {
     (f) => f.fundingTime >= startTime.getTime() && f.fundingTime <= endTime.getTime(),
   );
   console.log(
-    `[funding-carry-leverage] OHLCV candles: ${ohlcv.length}, funding snapshots in window: ${funding.length} (total CSV: ${fundingRaw.length})`,
+    `[funding-carry-leverage-1-10] OHLCV candles: ${ohlcv.length}, funding snapshots in window: ${funding.length} (total CSV: ${fundingRaw.length})`,
   );
 
   if (funding.length === 0) {
-    console.warn(`[funding-carry-leverage] ⚠ No funding snapshots in window.`);
+    console.warn(`[funding-carry-leverage-1-10] ⚠ No funding snapshots in window.`);
   }
 
   // Sanity: requested leverage must not exceed maxLeverage.
@@ -507,9 +472,11 @@ async function main(): Promise<void> {
     );
   }
 
-  // Sort funding ascending by time (the CSV is already in order, but be safe).
   const fundingSorted = [...funding].sort((a, b) => a.fundingTime - b.fundingTime);
 
+  // HARD GUARDRAIL — config-level validator. Defense in depth.
+  assert1to10Leverage(args.maxLeverage);
+  assert1to10Leverage(args.leverage);
   const cfg: LeveragedCarryConfig = {
     baseNotionalUsd: args.baseNotionalUsd,
     maxLeverage: args.maxLeverage,
@@ -544,7 +511,7 @@ async function main(): Promise<void> {
       ? Math.pow(1 + result.totalReturn, 1 / totalMonths) - 1
       : 0;
 
-  console.log(`\n=== LEVERAGED FUNDING-CARRY RESULTS ${args.symbol} ${args.timeframe} ${args.leverage}× ===`);
+  console.log(`\n=== 1:10 LEVERAGED FUNDING-CARRY RESULTS ${args.symbol} ${args.timeframe} ${args.leverage}× ===`);
   console.log(`Elapsed:                          ${elapsedMs}ms`);
   console.log(`Total return:                     ${(result.totalReturn * 100).toFixed(2)}%`);
   console.log(`Monthly avg:                      ${(monthlyReturn * 100).toFixed(2)}%/mo (over ${totalMonths.toFixed(1)} months)`);
@@ -562,7 +529,7 @@ async function main(): Promise<void> {
   console.log(`Rebalance count:                  ${result.rebalanceCount}`);
   console.log(`Rebalance cost (scaled):          $${result.rebalanceCostUsd.toFixed(2)}`);
   console.log(`Final equity:                     $${(args.initialEquity + result.fundingCollectedScaledUsd - result.rebalanceCostUsd).toFixed(2)}`);
-  console.log(`--- Phase 7 Track C risk metrics ---`);
+  console.log(`--- Phase 8 Track D 1:10 risk metrics ---`);
   console.log(`Pinned leverage:                  ${result.leverage}×`);
   console.log(`Avg / max leverage used:          ${result.avgLeverageUsed.toFixed(2)}× / ${result.maxLeverageUsed}×`);
   console.log(`Initial margin:                   $${result.initialMarginUsd.toFixed(2)}`);
@@ -572,12 +539,12 @@ async function main(): Promise<void> {
   console.log(`Liquidation events:               ${result.liquidationEvents} (MUST be 0)`);
   if (result.liquidationEvents > 0) {
     console.error(
-      `[funding-carry-leverage] ✗ ${result.liquidationEvents} liquidation events detected at ${args.leverage}× — REDUCE leverage.`,
+      `[funding-carry-leverage-1-10] ✗ ${result.liquidationEvents} liquidation events detected at ${args.leverage}× — REDUCE leverage per §X.X.1.`,
     );
   }
   if (result.maxDailyVaR95PctObserved > args.maxDailyVarPct) {
     console.error(
-      `[funding-carry-leverage] ✗ VaR cap exceeded (max observed ${(result.maxDailyVaR95PctObserved * 100).toFixed(2)}% > cap ${(args.maxDailyVarPct * 100).toFixed(2)}%)`,
+      `[funding-carry-leverage-1-10] ✗ VaR cap exceeded (max observed ${(result.maxDailyVaR95PctObserved * 100).toFixed(2)}% > cap ${(args.maxDailyVarPct * 100).toFixed(2)}%)`,
     );
   }
 
@@ -592,6 +559,9 @@ async function main(): Promise<void> {
       {
         args,
         config: cfg,
+        phase: 8,
+        track: "D",
+        mandate: "1:10 leverage (1 baseline + 10 mandatory)",
         totalMonths,
         monthlyReturn,
         result: {
@@ -624,7 +594,6 @@ async function main(): Promise<void> {
           startTime: result.startTime,
           endTime: result.endTime,
         },
-        // Sample the equity curve to avoid 22k-element JSON blobs.
         equityCurveSampled: result.equityCurve.filter((_, i) => i % 24 === 0),
       },
       null,
@@ -632,10 +601,10 @@ async function main(): Promise<void> {
     ),
     "utf8",
   );
-  console.log(`[funding-carry-leverage] Saved: ${absOutput}`);
+  console.log(`[funding-carry-leverage-1-10] Saved: ${absOutput}`);
 }
 
 main().catch((err: unknown) => {
-  console.error("[funding-carry-leverage] FATAL:", err);
+  console.error("[funding-carry-leverage-1-10] FATAL:", err);
   process.exit(1);
 });

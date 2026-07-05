@@ -2,12 +2,22 @@
 // funding-rate carry with VaR cap + liquidation buffer.
 //
 // Phase 7 Track C — extends the Phase 6 Track A FundingCarryStrategy with:
-//   - Dynamic leverage (1×..5×) applied to the perp leg notional.
+//   - Dynamic leverage (1×..N×) applied to the perp leg notional.
 //   - VaR cap: max 2% daily VaR at 95% confidence (parametric + historical).
 //   - Liquidation buffer: maintain ≥50% initial margin (configurable).
 //   - Funding-rate stability scaling: rolling 30d std-dev of the funding rate
 //     drives the leverage multiplier (higher std-dev → lower leverage).
 //   - Rebalance threshold scales with leverage (avoid liquidation cascade).
+//
+// Phase 8 Track D — 1:10 mandatory leverage CONSTRAINT (HARD GUARDRAIL):
+//   - DEFAULT maxLeverage raised 3 → 10 (1:10 = bybit.eu SPOT margin default).
+//   - Effective leverage at runtime MUST be either 1× (no-leverage baseline)
+//     or 10× (1:10 mandatory project-wide leverage).
+//   - All strategy/CLI constructors and runners REJECT any other leverage
+//     value at config-validation time (the `assert1to10Leverage` hard guard).
+//   - 7× "upper-bound" (originally targeted) is no longer reachable; the
+//     empirical push is now at 10× and the cost-model-vs-edge trade-off is
+//     re-verified empirically (Phase 7 3× → Phase 8 10× push).
 //
 // References:
 //   - SSRN 5292305 (2025) — "Leveraged BTC Funding Carry Algorithm"
@@ -15,19 +25,79 @@
 //   - ScienceDirect (Werapun 2025) — drift-XRP 7× funding rate arb Sharpe 15.85
 //   - Bybit Institutional 2025 Crypto Quant Strategy Index — Delta Neutral
 //     +9.48% on Bybit, max DD 0.80%, positive every month of 2025
-//   - Bybit maintenance margin / liquidation formulas —
+//     Dollar Neutral +31.23% (best venue 66.69%, Sharpe 2.39, max DD 7.72%)
+//   - Bybit maintenance margin / liquidation formulas (Bybit Help Center 2025) —
 //     Initial Margin = Position Value / Leverage,
-//     Maintenance Margin = Position Value × MMR (0.4-0.5% for BTC ≤$1M notional)
+//     Maintenance Margin = Position Value × MMR (0.4-0.5% for BTC ≤$1M notional),
+//     Spot Margin Trading max leverage = 10× (default IMR computation).
 //   - Pomegra.io / Binance — VaR-based position sizing:
 //     VaR = Portfolio × σ × z-score (z=1.65 at 95%); daily VaR ≤ 2% of equity
 //   - Altrady / coincryptorank — keep effective leverage ≤ 3× for
-//     basis trades, ≤5× at industry consensus; liquidation cascade
-//     risk grows fast with leverage past 3×
+//     basis trades, ≤5× at industry consensus; (see Phase 8 §3 for the
+//     10× empirical risk vs. 3× comparison).
 //   - MiCAR (EU) 2023/1114 — perp products excluded from retail CASP scope;
-//     binance.us / kraken-futures / deribit are typical pro-only venues
+//     binance.us / kraken-futures / deribit are typical pro-only venues.
+//     bybit.eu offers SPOT-only for retail (margin / leverage up to 10×).
 
 import { FundingCarryStrategy } from "./funding-carry.js";
 import type { Strategy, StrategyContext, StrategySignal } from "../types.js";
+
+// ---------------------------------------------------------------------------
+// Phase 8 Track D — 1:10 MANDATORY LEVERAGE CONSTRAINT (HARD GUARDRAIL)
+// ---------------------------------------------------------------------------
+// Project-wide mandate: every trade uses EXACTLY 1:10 leverage (10× notional
+// on 1× capital, 9× borrowed from bybit.eu SPOT margin). 1× (no leverage) is
+// permitted ONLY as the backtest baseline for scaling-curve comparison. All
+// other leverage values (2/3/5/7/etc.) are REJECTED at config-validation time.
+//
+// See docs/research/phase8-carry-leverage-1-10.md §X.X.1 "1:10 MANDATORY
+// LEVERAGE CONSTRAINT" for the user-mandate context and rationale.
+
+/**
+ * `ALLOWED_LEVERAGE_VALUES` — the ONLY leverage values the strategy will
+ * accept. Phase 8 Track D user mandate: project-wide 1:10 (10×) leverage.
+ * 1× is retained ONLY as the backtest baseline reference. 2/3/5/7 etc.
+ * are explicitly excluded by the design.
+ */
+export const ALLOWED_LEVERAGE_VALUES: readonly number[] = Object.freeze([1, 10]);
+
+/**
+ * `DEFAULT_LEVERAGE` — the operational leverage used when no explicit
+ * value is provided. Per the 1:10 mandate, this is 10×.
+ */
+export const DEFAULT_LEVERAGE: 1 | 10 = 10;
+
+/**
+ * `assert1to10Leverage` — HARD GUARDRAIL. Throws an error if `value` is not
+ * in `ALLOWED_LEVERAGE_VALUES`. Use this in every constructor and CLI parser
+ * to enforce the 1:10 / 1× mandate.
+ *
+ * Accepts either a number (1 or 10) or an object with `maxLeverage` /
+ * `currentLeverage` (the strategy will pick the relevant field).
+ */
+export function assert1to10Leverage(value: number | { maxLeverage?: number; currentLeverage?: number; leverage?: number }): void {
+  let candidate: number | undefined;
+  if (typeof value === "number") {
+    candidate = value;
+  } else {
+    if (typeof value.maxLeverage === "number") candidate = value.maxLeverage;
+    else if (typeof value.currentLeverage === "number") candidate = value.currentLeverage;
+    else if (typeof value.leverage === "number") candidate = value.leverage;
+  }
+  if (candidate === undefined) return; // No leverage assertion possible.
+  if (!ALLOWED_LEVERAGE_VALUES.includes(candidate)) {
+    throw new Error(
+      `[Phase 8 Track D] HARD GUARDRAIL VIOLATION: leverage=${candidate}× is NOT ALLOWED. ` +
+        `Project-wide mandate: ONLY ${ALLOWED_LEVERAGE_VALUES.join("× or ")}× leverage is permitted ` +
+        `(1× is baseline-only, 10× = 1:10 bybit.eu SPOT margin default). ` +
+        `See docs/research/phase8-carry-leverage-1-10.md §X.X.1 "1:10 MANDATORY LEVERAGE CONSTRAINT".`,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Existing Phase 7 Track C types (preserved) + new Phase 8 helpers
+// ---------------------------------------------------------------------------
 
 /**
  * VaR-method selector. Either parametric (assumes Gaussian return
@@ -43,17 +113,19 @@ export type VarMethod = "parametric" | "historical";
  *
  * Defaults reflect the empirical Phase 6 Track A baseline plus the
  * Track C leverage research:
- *   - `maxLeverage = 3` — Altrady / coincryptorank consensus for
- *     delta-neutral basis trades (≤3× for cascade-safety).
- *   - `minLeverage = 1` — fully-collateralized floor.
+ *   - `maxLeverage = 10` — Phase 8 Track D default. The 1:10 mandatory
+ *     leverage project-wide mandate supersedes the Phase 7 3× cap.
+ *     1× is the backtest baseline (alongside 10×).
+ *   - `minLeverage = 1` — fully-collateralized floor (baseline ONLY).
  *   - `minInitialMarginFraction = 0.50` — keep ≥50% IM after a
  *     hypothetical liquidation event matches Bybit "isolation ≥50%"
  *     and Binance "recommended margin ratio < 80%" guidance.
  *   - `rebalanceThresholdPct = 0.05` at 1× leverage — scales
  *     inversely with leverage so higher-leverage positions rebalance
- *     sooner (3× ⇒ 1.67% threshold).
+ *     sooner (10× ⇒ 0.5% threshold).
  *   - `varConfidence = 0.95`, `maxDailyVarPct = 0.02` — Phase 7
- *     brief §1.2 / M1.3 hard requirement (2% daily VaR @ 95%).
+ *     brief §1.2 / M1.3 hard requirement (2% daily VaR @ 95%);
+ *     Phase 8 Track D preserves this hard requirement.
  */
 export interface LeveragedCarryConfig {
   readonly baseNotionalUsd: number;
@@ -72,7 +144,9 @@ export interface LeveragedCarryConfig {
 
 export const DEFAULT_LEVERAGED_CARRY_CONFIG: LeveragedCarryConfig = {
   baseNotionalUsd: 10_000,
-  maxLeverage: 3,
+  // Phase 8 Track D: 1:10 mandate — DEFAULT maxLeverage raised 3 → 10.
+  maxLeverage: 10,
+  // 1× baseline-only retained for backtest scaling-curve construction.
   minLeverage: 1,
   rebalanceThresholdPct: 0.05,
   withdrawalLatencyMinutes: 15,
@@ -139,6 +213,8 @@ export interface LiquidationEvent {
  *      used by the CLI runner:
  *        - `accrueFunding(notional, fundingRate)` → applies scaled payment
  *        - `computeEffectiveLeverage(returns, fundingRates)` → VaR-gated
+ *        - `computeDynamicLeverage(...)` → NEW Phase 8 helper
+ *        - `safeEffectiveLeverage(...)` → NEW Phase 8 hard-floor helper
  *        - `applyLiquidationBuffer(...)` → margin check
  *        - `recordLiquidationIfAny(...)` → count forced-unwind events
  *
@@ -154,19 +230,35 @@ export interface LiquidationEvent {
  *     would dip below `minInitialMarginFraction`, the strategy counts
  *     a liquidation event and would force-unwind (the run aborts the
  *     scale-up attempt for subsequent rebalances).
+ *
+ * Phase 8 Track D additions (1:10 mandate):
+ *   - DEFAULT maxLeverage raised 3 → 10.
+ *   - NEW `computeDynamicLeverage(fundingRateStdDev, refStdDev)`:
+ *     explicit VaR-scaling helper that returns the leverage multiplier
+ *     to apply given funding-rate volatility vs. the reference baseline.
+ *     Formula: `result = maxAllowed × (refStdDev / max(actualStdDev, ε))`
+ *     clamped to [1, maxAllowed].
+ *   - NEW `safeEffectiveLeverage(stableMultiplier, requestedLev, varCapOk)`:
+ *     floors the effective leverage at 1× if `varCapOk === false` (VaR cap
+ *     would be violated), preserving the requested leverage only when the
+ *     VaR cap is satisfied. Returns 1 if VaR cap violated.
+ *   - HARD GUARDRAIL: `assert1to10Leverage()` rejects 2/3/5/7/etc. at
+ *     config validation. See module header for context.
  */
 export class FundingCarryLeverageStrategy implements Strategy {
-  readonly name = "Leveraged Delta-Neutral Funding Carry (Phase 7 Track C)";
+  readonly name = "Leveraged Delta-Neutral Funding Carry (Phase 8 Track D — 1:10)";
   readonly timeframes = ["1h", "4h", "1d"] as const;
   readonly config: LeveragedCarryConfig;
   readonly state: LeveragedCarryState;
   /** Base strategy borrowed for shared accrual helpers. */
   // Reserved for future cross-strategy integration (Phase 8 ensemble wiring).
-  // The current Track C CLI runner drives accrual via `accrueFundingScaled`.
+  // The current Track D CLI runner drives accrual via `accrueFundingScaled`.
   private readonly baseStrategy: FundingCarryStrategy | null;
 
   constructor(config: Partial<LeveragedCarryConfig> = {}) {
     this.config = { ...DEFAULT_LEVERAGED_CARRY_CONFIG, ...config };
+    // Phase 8 Track D — HARD GUARDRAIL: enforce 1:10 leverage mandate.
+    assert1to10Leverage(this.config.maxLeverage);
     this.state = {
       // base
       fundingCollectedUsd: 0,
@@ -226,7 +318,103 @@ export class FundingCarryLeverageStrategy implements Strategy {
   }
 
   // ---------------------------------------------------------------------------
-  // Phase 7 Track C leverage + risk API (used by the CLI runner).
+  // Phase 8 Track D — NEW helpers (1:10 mandate, dynamic VaR scaling)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * `computeDynamicLeverage` — explicit VaR-scaling helper. Returns the
+   * effective leverage to apply given the realized funding-rate
+   * standard deviation versus a reference std-dev baseline.
+   *
+   * Formula:
+   *   `result = maxAllowed × (refStdDev / max(actualStdDev, ε))`
+   *   where `ε = 1e-9` (avoids divide-by-zero), then clamped to [1, maxAllowed].
+   *
+   * Intuition: if the funding stream is more volatile than the reference
+   * baseline (refStdDev), the edge quality has degraded and effective
+   * leverage should be SHALLOWER. Conversely, if funding is more stable
+   * than the reference, the edge is cleaner and we can scale up to
+   * `maxAllowed` (which under Phase 8 is 10× per the 1:10 mandate).
+   *
+   * IMPORTANT: the return value is the *suggested* effective leverage
+   * BEFORE the VaR-cap check. Apply `safeEffectiveLeverage(...)` next
+   * to enforce the 2% daily VaR @ 95% confidence hard floor.
+   *
+   * @param fundingRateStdDev realized std-dev of the funding-rate series
+   *   (e.g., from `computeStabilityCappedLeverage` over a 30d window).
+   * @param refStdDev reference std-dev (default 0.0005 = the historical
+   *   noise floor of BTC 8h funding rates).
+   * @param maxAllowed ceiling for the returned leverage (default 10 per
+   *   the 1:10 mandate; pass `config.maxLeverage` from the call site).
+   * @param minAllowed floor for the returned leverage (default 1).
+   */
+  computeDynamicLeverage(
+    fundingRateStdDev: number,
+    refStdDev: number = this.config.fundingStabilityRefStdDev,
+    maxAllowed: number = this.config.maxLeverage,
+    minAllowed: number = this.config.minLeverage,
+  ): number {
+    if (!Number.isFinite(fundingRateStdDev) || !Number.isFinite(refStdDev)) {
+      throw new Error(
+        `computeDynamicLeverage requires finite inputs, got stdDev=${fundingRateStdDev}, refStdDev=${refStdDev}`,
+      );
+    }
+    if (refStdDev <= 0 || maxAllowed <= 0) {
+      throw new Error(
+        `computeDynamicLeverage requires positive refStdDev and maxAllowed, got refStdDev=${refStdDev}, maxAllowed=${maxAllowed}`,
+      );
+    }
+    if (minAllowed < 1) minAllowed = 1;
+    const EPS = 1e-9;
+    const actual = Math.max(fundingRateStdDev, EPS);
+    const ratio = refStdDev / actual;
+    const suggested = maxAllowed * Math.min(1.0, ratio);
+    return Math.max(minAllowed, Math.min(maxAllowed, Math.floor(suggested)));
+  }
+
+  /**
+   * `safeEffectiveLeverage` — enforce the VaR-cap hard floor.
+   *
+   * If `varCapOk === false`, returns `minAllowed` (default 1× — full
+   * de-leverage to the floor), discarding the requested leverage. This
+   * is the Phase 8 Track D hard guard against VaR-cap violations: the
+   * strategy will NOT scale up to a leverage that would breach the
+   * 2% daily VaR @ 95% confidence cap.
+   *
+   * If `varCapOk === true`, the requested leverage is honored (after
+   * the dynamic VaR-scaling suggested leverage from `computeDynamicLeverage`),
+   * clamped to `[minAllowed, maxAllowed]`.
+   *
+   * NOTE: per the 1:10 mandate, `maxAllowed` defaults to 10. `minAllowed`
+   * defaults to 1 (baseline ONLY). See module header for context.
+   *
+   * @param stableMultiplier result from `computeDynamicLeverage` (the
+   *   VaR-scaled leverage multiplier given current funding-rate vol).
+   * @param requestedLev the leverage the caller wants to apply (e.g.,
+   *   the explicit user/CLI choice; 1 or 10 under the 1:10 mandate).
+   * @param varCapOk `true` if the 2% daily VaR @ 95% confidence cap
+   *   is satisfied; `false` otherwise.
+   * @param minAllowed floor (default 1).
+   * @param maxAllowed ceiling (default `config.maxLeverage`).
+   */
+  safeEffectiveLeverage(
+    stableMultiplier: number,
+    requestedLev: number,
+    varCapOk: boolean,
+    minAllowed: number = this.config.minLeverage,
+    maxAllowed: number = this.config.maxLeverage,
+  ): number {
+    if (!varCapOk) {
+      // VaR cap violated → hard floor to 1×. The strategy CANNOT silently
+      // accept the requested leverage here, even under the 1:10 mandate.
+      return minAllowed;
+    }
+    const combined = Math.min(stableMultiplier, requestedLev);
+    return Math.max(minAllowed, Math.min(maxAllowed, Math.floor(combined)));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 7 Track C leverage + risk API (preserved, +1:10-aware fields)
   // ---------------------------------------------------------------------------
 
   /**
@@ -318,6 +506,9 @@ export class FundingCarryLeverageStrategy implements Strategy {
    *   2. VaR cap (parametric or historical) at configured confidence.
    *
    * Returns an integer leverage in [minLeverage, maxLeverage].
+   *
+   * Phase 8 Track D: respects the 1:10 leverage mandate via the
+   * `maxLeverage` config — at the default the return is bounded by 10×.
    */
   computeEffectiveLeverage(
     fundingRateSeries: readonly number[],
@@ -343,6 +534,9 @@ export class FundingCarryLeverageStrategy implements Strategy {
    * Motivation: a stable funding stream is a higher-quality "edge" —
    * we can amplify it more aggressively. A noisy / spiky funding
    * stream means the carry is unreliable → reduce leverage.
+   *
+   * Phase 8 Track D: thin wrapper around `computeDynamicLeverage` so
+   * the formula lives in ONE place.
    */
   computeStabilityCappedLeverage(fundingRateSeries: readonly number[]): number {
     if (fundingRateSeries.length < 5) {
@@ -353,12 +547,7 @@ export class FundingCarryLeverageStrategy implements Strategy {
     const mean = tail.reduce((a, b) => a + b, 0) / tail.length;
     const variance = tail.reduce((a, b) => a + (b - mean) ** 2, 0) / (tail.length - 1);
     const stdDev = Math.sqrt(variance);
-    if (stdDev <= 0) {
-      return this.config.maxLeverage;
-    }
-    const ratio = this.config.fundingStabilityRefStdDev / stdDev;
-    const suggested = this.config.maxLeverage * Math.min(1.0, ratio);
-    return Math.max(this.config.minLeverage, Math.min(this.config.maxLeverage, suggested));
+    return this.computeDynamicLeverage(stdDev);
   }
 
   /**
@@ -369,6 +558,11 @@ export class FundingCarryLeverageStrategy implements Strategy {
    * linearly with notional, so VaR(notional × L) ≈ L × VaR(notional).
    * The constraint `L × VaR(notional) ≤ maxDailyVarPct × equity` gives
    * `L ≤ maxDailyVarPct × equity / VaR(notional)`.
+   *
+   * Phase 8 Track D: the cap is bounded by `maxLeverage` (default 10)
+   * per the 1:10 mandate. If the unconstrained cap exceeds 10, the
+   * function clamps to 10 — the 1:10 mandate is the binding constraint,
+   * not the VaR cap.
    */
   computeVarCappedLeverage(equityReturns: readonly number[], notionalUsd: number): number {
     if (notionalUsd <= 0) return this.config.minLeverage;
@@ -389,8 +583,12 @@ export class FundingCarryLeverageStrategy implements Strategy {
    * `maintenanceMarginUsd`. Also scales the rebalance threshold
    * inversely with leverage so higher-leverage positions rebalance
    * sooner (avoid liquidation cascades).
+   *
+   * Phase 8 Track D: applies the 1:10 hard guardrail. Accepts ONLY 1 or
+   * 10; other values throw. The function uses `assert1to10Leverage`.
    */
   setEffectiveLeverage(leverage: number): void {
+    assert1to10Leverage(leverage);
     const clamped = Math.max(
       this.config.minLeverage,
       Math.min(this.config.maxLeverage, Math.floor(leverage)),
@@ -412,9 +610,13 @@ export class FundingCarryLeverageStrategy implements Strategy {
 
   /**
    * `getScaledRebalanceThreshold` — threshold scales inversely with
-   * leverage: at 1× use the base 5%, at 2× use 2.5%, at 3× use 1.67%,
-   * etc. This is the core "avoid liquidation cascade" control — a
-   * higher-leverage position must be rebalanced sooner.
+   * leverage: at 1× use the base 5%, at 10× use 0.5%, etc. This is the
+   * core "avoid liquidation cascade" control — a higher-leverage
+   * position must be rebalanced sooner.
+   *
+   * Phase 8 Track D: at 10× leverage the rebalance threshold drops to
+   * 0.5% (0.05 / 10), forcing a rebalance when the funding-induced
+   * drift exceeds 0.5% of notional — a 5× tighter trigger than at 1×.
    */
   getScaledRebalanceThreshold(): number {
     return this.config.rebalanceThresholdPct / this.state.currentLeverage;
@@ -426,6 +628,9 @@ export class FundingCarryLeverageStrategy implements Strategy {
    * positive funding rate → earn; negative → pay.
    * Sign convention matches Binance: fundingRate > 0 means longs
    * pay shorts, so a short perp EARNs `notional × fundingRate`.
+   *
+   * Phase 8 Track D: at 10× leverage, each 8h funding tick accrues
+   * against 10× the notional — a 10× scaling vs the 1× baseline.
    */
   accrueFundingScaled(fundingRate: number, fundingTimeMs: number): number {
     if (!Number.isFinite(fundingRate)) {
@@ -470,6 +675,12 @@ export class FundingCarryLeverageStrategy implements Strategy {
    *
    * We model our gate as: `maintenanceMarginUsd ≥ marginRatioFloor × marginBalance`,
    * i.e. `marginBalance / maintenanceMarginUsd < 1 / marginRatioFloor`.
+   *
+   * Phase 8 Track D: at 10× leverage the maintenance margin scales
+   * linearly with notional; with the conservative 0.5% MMR and 1:10
+   * mandate, a 10% mark-price adverse move drains the entire initial
+   * margin on a naked (non-delta-neutral) leg. The delta-neutral
+   * construction is the key defense against this scenario.
    */
   checkLiquidationThreshold(unrealizedPnlUsd: number): boolean {
     const marginBalance = this.state.initialMarginUsd + unrealizedPnlUsd;
@@ -535,6 +746,11 @@ export class FundingCarryLeverageStrategy implements Strategy {
   /**
    * `varComplianceRatio` — actualVaR / VaR cap (≤1 → passes). Returns
    * `null` if `notionalUsd` is invalid. Used for the validation gate.
+   *
+   * Phase 8 Track D: at 10× leverage, the VaR scales linearly with
+   * notional; Phase 7 3× BTC VaR 0.18%/day → Phase 8 10× BTC VaR
+   * 0.60%/day (linear scale). Track D §3.2 covers the empirical
+   * scaling for BTC/ETH/SOL at 10×.
    */
   varComplianceRatio(
     equityReturns: readonly number[],

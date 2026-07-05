@@ -33,6 +33,10 @@ export {
   resolveTrailConfig,
 } from "./strategy/donchian-trailing.js";
 export type { DonchianTrailingConfig, ResolvedTrailConfig, TrailVariant } from "./strategy/donchian-trailing.js";
+// Phase 8 Track F — 1h MTF Donchian with 4h filter + 1d supertrend (3-tier MTF, long-only, 1:10 leverage).
+export { DonchianMtfStrategy } from "./strategy/donchian-mtf.js";
+export { DEFAULT_DONCHIAN_MTF_CONFIG } from "./strategy/donchian-mtf.js";
+export type { DonchianMtfConfig } from "./strategy/donchian-mtf.js";
 // Phase 5 — Composite multi-strategy ensemble (Strategy B).
 export { CompositeStrategy } from "./strategy/composite.js";
 export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
@@ -40,9 +44,32 @@ export type { CompositeStrategyConfig } from "./strategy/composite.js";
 // Phase 6 Track A — delta-neutral funding-rate carry.
 export { FundingCarryStrategy, InMemoryFundingRateProvider, DEFAULT_FUNDING_CARRY_CONFIG } from "./strategy/funding-carry.js";
 export type { FundingCarryConfig, FundingCarryState, FundingRateProvider, FundingSnapshot } from "./strategy/funding-carry.js";
-// Phase 7 Track C — leveraged delta-neutral funding-rate carry with VaR cap + liquidation buffer.
-export { FundingCarryLeverageStrategy, DEFAULT_LEVERAGED_CARRY_CONFIG } from "./strategy/funding-carry-leverage.js";
+// Phase 7 Track C + Phase 8 Track D — leveraged delta-neutral funding-rate carry with VaR cap + liquidation buffer.
+// Phase 8 Track D: 1:10 mandatory leverage project-wide mandate; only 1× (baseline) or 10× (1:10 bybit.eu SPOT margin default) allowed.
+export {
+  ALLOWED_LEVERAGE_VALUES,
+  assert1to10Leverage,
+  DEFAULT_LEVERAGE,
+  DEFAULT_LEVERAGED_CARRY_CONFIG,
+  FundingCarryLeverageStrategy,
+} from "./strategy/funding-carry-leverage.js";
 export type { LeveragedCarryConfig, LeveragedCarryState, LiquidationEvent, VarMethod } from "./strategy/funding-carry-leverage.js";
+// Phase 8 Track E — regime-aware funding-carry timing strategy with 1:10 mandatory leverage.
+export {
+  ALLOWED_TIMING_LEVERAGE,
+  computeEffectiveNotional,
+  computePercentile,
+  computeRollingStats,
+  DEFAULT_FUNDING_CARRY_TIMING_CONFIG,
+  FundingCarryTimingStrategy,
+  validateTimingLeverage,
+} from "./strategy/funding-carry-timing.js";
+export type {
+  AllowedTimingLeverage,
+  FundingCarryTimingConfig,
+  FundingCarryTimingState,
+  RollingWindowStats,
+} from "./strategy/funding-carry-timing.js";
 // Phase 6 M2 — multi-class edge ensemble (Donchian + funding-carry + arb-latency-gate + Kelly-opt sizing).
 export {
   MultiClassEnsemble,
@@ -105,6 +132,25 @@ export type {
   DailyPnlPoint,
   RollingSharpePoint,
 } from "./risk/kelly-adaptive.js";
+// Phase 8 Track G — Volatility-targeted position sizing (Moreira-Muir 2017 effect, 1:10 mandate).
+export {
+  computeVolMultiplier,
+  computeVolTargetedSizer,
+  dailyLogReturns,
+  DEFAULT_VOL_TARGET_CONFIG,
+  ONE_TO_TEN_BASE_LEVERAGE,
+  rollingRealizedDailyVol,
+  runVolTargetWalkForwardValidation,
+  validateOneToTenLeverage,
+} from "./risk/vol-targeted-sizer.js";
+export type {
+  DailyOhlcv,
+  VolTargetConfig,
+  VolTargetedSizerResult,
+  VolTargetPoint,
+  VolTargetWalkForwardValidation,
+  VolTargetWalkForwardWindow,
+} from "./risk/vol-targeted-sizer.js";
 // Phase 7 M2 — Multi-class ensemble V2 (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate).
 export {
   DEFAULT_ADAPTIVE_KELLY_AGGREGATE,
@@ -117,6 +163,19 @@ export type {
   MultiClassEnsembleV2Config,
   MultiClassEnsembleV2State,
 } from "./strategy/multi-class-ensemble-v2.js";
+// Phase 8 M2 — Multi-class ensemble V3 (Donchian-MTF + Funding-Carry-Timing + Carry-Leverage-10x + VolTargeted).
+export {
+  combineVolAndCarryLeverage,
+  computeV3CarryFractionFromTimingState,
+  DEFAULT_MULTI_CLASS_ENSEMBLE_V3_CONFIG_PARTIAL,
+  defaultV3VolTargetConfig,
+  MultiClassEnsembleV3,
+  timeframesForMultiClassV3,
+} from "./strategy/multi-class-ensemble-v3.js";
+export type {
+  MultiClassEnsembleV3Config,
+  MultiClassEnsembleV3State,
+} from "./strategy/multi-class-ensemble-v3.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
