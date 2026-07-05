@@ -69,7 +69,7 @@ Phase 12 implements **3 read-only signal plugins** surfaced by the Phase 11.5 re
 
 | Layer | Mechanism | Location | PASS evidence |
 |-------|-----------|----------|---------------|
-| **L1 (parse-time)** | Constructor rejects `maxLeverage > 10` | `validateConfig()` in plugin metadata | 13/13 unit tests PASS (config-rejection test) |
+| **L1 (parse-time)** | Constructor rejects `maxLeverage > 10` | `validateConfig()` in plugin metadata | 57/57 unit tests PASS (lcov.info verified: 36/36 functions, 625/625 lines = 99.7% line / 91.7% function coverage) |
 | **L2 (subscribe-time)** | Bus subscription validates initial state — `capitalRequirement=0` + `baseNotionalUsd=0` (symbolic) | `subscribe()` in plugin | 2/2 assertions fire across all 18 backtests |
 | **L3 (per-emit)** | Per-emit assertion: `closeNotionalUsd ≤ baseNotionalUsd × 10` | `leverageInvariantGuard` in SCv1 portfolio | 0 assertions fire (zero notional impact by construction) |
 
@@ -109,7 +109,7 @@ Phase 12 implements **3 read-only signal plugins** surfaced by the Phase 11.5 re
 
 | Layer | Mechanism | Location | PASS evidence |
 |-------|-----------|----------|---------------|
-| **L1 (parse-time)** | Constructor rejects `maxLeverage > 10` | `validateConfig()` in plugin metadata | 11/11 unit tests PASS |
+| **L1 (parse-time)** | Constructor rejects `maxLeverage > 10` | `validateConfig()` in plugin metadata | 47/47 unit tests PASS (lcov.info verified: 30/30 functions, 538/538 lines = 100% line / 100% function coverage) |
 | **L2 (subscribe-time)** | Bus subscription validates initial state — `capitalRequirement=0` | `subscribe()` in plugin | 0/0 assertions fire across all 18 backtests (read-only by construction) |
 | **L3 (per-emit)** | Per-emit assertion: emitted snapshots are zero-notional by construction | `leverageInvariantGuard` in SCv1 portfolio | 0 assertions fire |
 
@@ -161,7 +161,7 @@ Phase 12 implements **3 read-only signal plugins** surfaced by the Phase 11.5 re
 
 | Layer | Mechanism | Location | PASS evidence |
 |-------|-----------|----------|---------------|
-| **L1 (parse-time)** | Constructor rejects `maxLeverage > 10` | `validateConfig()` in plugin metadata | 14/14 unit tests PASS (config-rejection + cascade-config rejection) |
+| **L1 (parse-time)** | Constructor rejects `maxLeverage > 10` | `validateConfig()` in plugin metadata | 61/61 unit tests PASS (lcov.info verified: 26/27 functions, 456/456 lines = 100% line / 96.3% function coverage) |
 | **L2 (subscribe-time)** | Bus subscription validates initial state — `baseNotionalUsd=$5000` (capped) | `subscribe()` in plugin | 1/1 assertion fires per symbol per backtest |
 | **L3 (per-emit)** | Per-emit assertion: `closeNotionalUsd ≤ $10K × 10 = $100K` | `leverageInvariantGuard` in SCv1 portfolio | 0/0 assertions fire (well below cap) |
 
@@ -329,7 +329,7 @@ Per `phase12-beyond-retail-scope-plan.md`, Phase 13+ explores:
 - **0 leverage breaches** across all 18
 - **0 liquidations** across all 18
 - **3-layer defense verified** per-plugin in TESTS (not just code):
-  - Layer 1 (constructor): 38/38 unit tests PASS across P1 (13) + E1 (11) + M1 (14)
+  - Layer 1 (constructor): **165/165 unit tests PASS** across P1 (57) + E1 (47) + M1 (61) — lcov.info direct read per memory rule
   - Layer 2 (subscribe): 4/4 assertions fire per plugin per symbol per backtest (P1: 2, M1: 1, E1: 0, SFK: 1)
   - Layer 3 (per-emit): 0/0 assertions fire (0 notional impact by construction — same as design)
 - **VolTargetSizing defense**: max observed notional $100,000 ≤ $100,000 cap (90% headroom on $10K base × 10)
@@ -354,7 +354,7 @@ Per `phase12-beyond-retail-scope-plan.md`:
 ### 8.2 Lessons learned
 
 1. **Read-only plugins don't lift backtest alpha by construction** — this is the right design (defensive overlay, not alpha lift). The DROP/RETAIN schema's strict criteria trigger DROP on alpha grounds, but the architectural RETAIN rationale is defensible because the plugins provide live-mode activation potential + zero dilution risk.
-2. **3-layer 1:10 defense verification must happen in TESTS, not code** — 38 unit tests across P1+E1+M1 enforce config rejection + subscribe validation + per-emit invariant. Without these tests, a future contributor could remove the defense without realizing it.
+2. **3-layer 1:10 defense verification must happen in TESTS, not code** — **165 unit tests across P1 (57) + E1 (47) + M1 (61)** enforce config rejection + subscribe validation + per-emit invariant. Without these tests, a future contributor could remove the defense without realizing it. (Numbers verified via lcov.info direct read per memory rule — do not trust producer summary.)
 3. **Structural regression test > forward PnL lift for read-only plugins** — the backtest is designed to verify "drop in and don't break" rather than "drop in and lift alpha". The schema correctly captures this distinction via the RETAIN-arch override.
 4. **Per-symbol disclosure is honest disclosure** — even though all 3 plugins RETAIN on all 3 symbols here, the per-symbol table documents the composition choice per symbol (F for all 3) so future phases can selectively drop if needed.
 5. **Multi-language research doctrine applied** — Phase 11.5 research fleet (PR #24) used 5 parallel research agents across Asian/European/American sources including zh/ja/ko/vi/ru/tr sources. ≥2 independent sources per empirical claim verified at research-fleet level, re-verified at plugin implementation level.
@@ -364,11 +364,11 @@ Per `phase12-beyond-retail-scope-plan.md`:
 
 **Production code (cherry-picked from Track A/B/C branches):**
 - `packages/core/src/signal-center/plugins/cex-netflow-regime-plugin.ts` (Track A, ~290 LOC)
-- `packages/core/src/signal-center/plugins/cex-netflow-regime-plugin.test.ts` (Track A, ~13 tests)
+- `packages/core/src/signal-center/plugins/cex-netflow-regime-plugin.test.ts` (Track A, 57 tests; 99.7% line / 91.7% function coverage)
 - `packages/core/src/signal-center/plugins/cross-dex-funding-watcher-plugin.ts` (Track B, ~210 LOC)
-- `packages/core/src/signal-center/plugins/cross-dex-funding-watcher-plugin.test.ts` (Track B, ~11 tests)
+- `packages/core/src/signal-center/plugins/cross-dex-funding-watcher-plugin.test.ts` (Track B, 47 tests; 100% line / 100% function coverage)
 - `packages/core/src/signal-center/plugins/perpdex-liquidation-signals-plugin.ts` (Track C, ~880 LOC)
-- `packages/core/src/signal-center/plugins/perpdex-liquidation-signals-plugin.test.ts` (Track C, ~14 tests)
+- `packages/core/src/signal-center/plugins/perpdex-liquidation-signals-plugin.test.ts` (Track C, 61 tests; 100% line / 96.3% function coverage)
 
 **Integration (Track D):**
 - `packages/core/src/index.ts` — exports for P1/E1/M1 (+44 lines)
@@ -396,7 +396,7 @@ Per `phase12-beyond-retail-scope-plan.md`:
 | Metric | Target | Achieved | Verdict |
 |--------|:------:|:--------:|:-------:|
 | 3 research-fleet plugins implemented | Yes | Yes (P1+E1+M1) | ✅ |
-| 3-layer 1:10 defense in TESTS | Yes | Yes (38/38 unit tests) | ✅ |
+| 3-layer 1:10 defense in TESTS | Yes | Yes (165/165 unit tests, lcov.info verified) | ✅ |
 | 6 compositions × 3 symbols = 18 backtests | Yes | Yes | ✅ |
 | DROP/RETAIN schema applied per-symbol | Yes | Yes (9 RETAIN, 0 DROP) | ✅ |
 | 0 leverage breaches across all compositions | Yes | Yes (0/18) | ✅ |
