@@ -532,9 +532,23 @@ describe("PortfolioRiskEngine — determinism", () => {
     };
     const s1 = runOnce();
     const s2 = runOnce();
-    // snapshot.timestamp uses Date.now() — normalize to 0 for comparison.
-    const normalize = (s: ReturnType<typeof runOnce>) => ({ ...s, timestamp: 0 });
-    expect(JSON.stringify(normalize(s1))).toBe(JSON.stringify(normalize(s2)));
+    // Multiple nested fields use Date.now() (snapshot.timestamp AND
+    // exposure.timestamp). Normalize ALL Date.now()-derived timestamps
+    // recursively so the comparison is purely deterministic on
+    // computational state, not wall-clock.
+    const normalizeTimestamps = (value: unknown): unknown => {
+      if (value === null || typeof value !== "object") return value;
+      if (Array.isArray(value)) return value.map(normalizeTimestamps);
+      const obj = value as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        out[k] = k === "timestamp" ? 0 : normalizeTimestamps(v);
+      }
+      return out;
+    };
+    expect(JSON.stringify(normalizeTimestamps(s1))).toBe(
+      JSON.stringify(normalizeTimestamps(s2)),
+    );
   });
 });
 
