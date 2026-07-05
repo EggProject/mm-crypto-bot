@@ -70,6 +70,24 @@ export type {
   FundingCarryTimingState,
   RollingWindowStats,
 } from "./strategy/funding-carry-timing.js";
+// Phase 9 9D — SOL funding-flip kill-switch (Track E extension).
+// NOTE: `assert1to10Leverage` is re-exported from funding-carry-leverage (Track D)
+// above — do NOT re-export here to avoid duplicate identifier.
+export {
+  ALLOWED_KILL_SWITCH_LEVERAGE,
+  computeFlipDetectorMetrics,
+  DEFAULT_FLIP_DETECTOR_CONFIG,
+  DEFAULT_FUNDING_FLIP_KILL_SWITCH_CONFIG,
+  evaluateRegime,
+  FundingFlipKillSwitchStrategy,
+} from "./strategy/funding-flip-kill-switch.js";
+export type {
+  FlipDetectorConfig,
+  FlipDetectorMetrics,
+  FundingFlipKillSwitchConfig,
+  FundingFlipKillSwitchState,
+  RegimeDecision,
+} from "./strategy/funding-flip-kill-switch.js";
 // Phase 6 M2 — multi-class edge ensemble (Donchian + funding-carry + arb-latency-gate + Kelly-opt sizing).
 export {
   MultiClassEnsemble,
@@ -151,6 +169,22 @@ export type {
   VolTargetWalkForwardValidation,
   VolTargetWalkForwardWindow,
 } from "./risk/vol-targeted-sizer.js";
+// Phase 9 9E — Adaptive Kelly × VolTargeting hybrid position sizer (combines Track B + Track G).
+export {
+  buildHybridDay,
+  computeHybridSizer,
+  DEFAULT_HYBRID_SIZER_CONFIG,
+  runHybridWalkForwardValidation,
+  toPositionSizerConfig,
+} from "./risk/adaptive-kelly-vol-hybrid.js";
+export type {
+  HybridSizerConfig,
+  HybridSizerDay,
+  HybridSizerPositionSizerConfig,
+  HybridSizerResult,
+  HybridWalkForwardValidation,
+  HybridWalkForwardWindow,
+} from "./risk/adaptive-kelly-vol-hybrid.js";
 // Phase 7 M2 — Multi-class ensemble V2 (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate).
 export {
   DEFAULT_ADAPTIVE_KELLY_AGGREGATE,
@@ -176,6 +210,21 @@ export type {
   MultiClassEnsembleV3Config,
   MultiClassEnsembleV3State,
 } from "./strategy/multi-class-ensemble-v3.js";
+// Phase 9 M2 — Multi-class ensemble V4 (Donchian-MTF + Funding-Flip-KillSwitch + Carry-Leverage-10x + VolTarget + HybridSizer).
+export {
+  combineVolAndCarryLeverageV4,
+  computeV4CarryFractionFromFlipSwitchState,
+  DEFAULT_MULTI_CLASS_ENSEMBLE_V4_CONFIG_PARTIAL,
+  defaultV4CompositionForSymbol,
+  defaultV4VolTargetConfig,
+  MultiClassEnsembleV4,
+  timeframesForMultiClassV4,
+} from "./strategy/multi-class-ensemble-v4.js";
+export type {
+  MultiClassEnsembleV4Config,
+  MultiClassEnsembleV4State,
+  V4PerSymbol,
+} from "./strategy/multi-class-ensemble-v4.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
 // `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
