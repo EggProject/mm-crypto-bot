@@ -287,6 +287,16 @@ export type {
   CarryBaselinePluginConfig,
   CarryBaselinePluginState,
 } from "./signal-center/plugins/carry-baseline-plugin.js";
+// Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
+export {
+  createSignalCenterV1,
+  DEFAULT_SIGNAL_CENTER_V1_CONFIG,
+  SignalCenterV1,
+  toRiskEngineSignal,
+} from "./signal-center/signal-center-v1.js";
+export type {
+  SignalCenterV1Config,
+} from "./signal-center/signal-center-v1.js";
 // Phase 10G Track B — Leverage invariant hard guardrail (1:10 MANDATORY leverage 3rd defense-in-depth layer).
 export {
   assertLeverageInvariant,
