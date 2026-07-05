@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "generatedAt": "2026-07-05T02:23:39.113Z",
+    "generatedAt": "2026-07-05T02:26:27.126Z",
     "phase": 11,
     "milestone": "1b",
     "track": "Track-B-directional-mtf-cli",
@@ -82,7 +82,7 @@
   },
   "telemetrySnapshots": [
     {
-      "timestamp": 1783218219103,
+      "timestamp": 1783218387115,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -93,7 +93,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219103,
+      "timestamp": 1783218387116,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -104,7 +104,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219103,
+      "timestamp": 1783218387116,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -115,7 +115,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219104,
+      "timestamp": 1783218387116,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -126,7 +126,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219104,
+      "timestamp": 1783218387116,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -137,7 +137,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219104,
+      "timestamp": 1783218387116,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -148,7 +148,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219104,
+      "timestamp": 1783218387117,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -159,7 +159,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219104,
+      "timestamp": 1783218387117,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -170,7 +170,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219104,
+      "timestamp": 1783218387117,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -181,7 +181,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219104,
+      "timestamp": 1783218387117,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -192,7 +192,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219104,
+      "timestamp": 1783218387117,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -203,7 +203,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219105,
+      "timestamp": 1783218387117,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -214,7 +214,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219105,
+      "timestamp": 1783218387118,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -225,7 +225,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219106,
+      "timestamp": 1783218387118,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -236,7 +236,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219106,
+      "timestamp": 1783218387119,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -247,7 +247,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219106,
+      "timestamp": 1783218387119,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -258,7 +258,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219107,
+      "timestamp": 1783218387119,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -269,7 +269,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219107,
+      "timestamp": 1783218387119,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -280,7 +280,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219107,
+      "timestamp": 1783218387120,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -291,7 +291,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219107,
+      "timestamp": 1783218387120,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -302,7 +302,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219107,
+      "timestamp": 1783218387120,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -313,7 +313,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219107,
+      "timestamp": 1783218387120,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -324,7 +324,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219108,
+      "timestamp": 1783218387120,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -335,7 +335,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219108,
+      "timestamp": 1783218387120,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -346,7 +346,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219108,
+      "timestamp": 1783218387121,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -357,7 +357,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219108,
+      "timestamp": 1783218387121,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -368,7 +368,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219108,
+      "timestamp": 1783218387121,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -379,7 +379,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219109,
+      "timestamp": 1783218387121,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -390,7 +390,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219109,
+      "timestamp": 1783218387121,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -401,7 +401,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219109,
+      "timestamp": 1783218387122,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -412,7 +412,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219109,
+      "timestamp": 1783218387122,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -423,7 +423,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219109,
+      "timestamp": 1783218387122,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -434,7 +434,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219110,
+      "timestamp": 1783218387122,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -445,7 +445,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219110,
+      "timestamp": 1783218387122,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -456,7 +456,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219110,
+      "timestamp": 1783218387122,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -467,7 +467,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219110,
+      "timestamp": 1783218387123,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -478,7 +478,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219110,
+      "timestamp": 1783218387123,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -489,7 +489,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218219110,
+      "timestamp": 1783218387123,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -501,7 +501,7 @@
     }
   ],
   "portfolioRiskSummary": {
-    "timestamp": 1783218219111,
+    "timestamp": 1783218387124,
     "numStrategies": 1,
     "numSignalsSubmitted": 2,
     "numRiskSignalsEmitted": 0,
@@ -522,7 +522,7 @@
         "ETH/USDT"
       ],
       "threshold": 0.4,
-      "timestamp": 1783218219111
+      "timestamp": 1783218387124
     },
     "drawdown": {
       "peakEquityUsd": 35160.0563941319,

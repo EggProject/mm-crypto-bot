@@ -1,19 +1,21 @@
 {
   "metadata": {
-    "generatedAt": "2026-07-05T02:26:24.423Z",
+    "generatedAt": "2026-07-05T02:45:35.948Z",
     "phase": 11,
     "milestone": "1b",
-    "track": "Track-B-directional-mtf-cli",
+    "track": "Track-C-signal-center-v1-mtf-composition",
     "symbol": "BTC/USDT",
     "ltfTimeframe": "1d",
     "timeframe": "1d",
     "initialEquityUsd": 10000,
     "plugins": [
+      "carry-baseline",
       "directional-mtf-v1"
     ],
+    "composition": "SignalCenterV1 + CarryBaselinePlugin + DirectionalMTFPlugin",
     "perSymbolDisclosure": {
-      "ETH": "default-on (Phase 8 F validated +2.63%/30d WF OOS)",
-      "BTC": "opt-in (Phase 8 F showed negative directional at 1:10)",
+      "ETH": "default-on (Phase 8 F validated +2.63%/30d WF OOS, +4.29%/mo 1d CLI baseline from Track B)",
+      "BTC": "opt-in included, PARTIAL PASS disclosure below",
       "SOL": "NOT REGISTERED (Phase 8 F structural exclusion, 4× failures)"
     }
   },
@@ -21,8 +23,13 @@
     "leverage": 10,
     "baseNotionalUsd": 10000,
     "effectiveNotionalUsd": 100000,
-    "plugin": "directional-mtf-v1",
-    "pluginConfig": {
+    "carryPluginConfig": {
+      "windowDays": 30,
+      "entryPercentile": 0.75,
+      "exitPercentile": 0.5,
+      "cooldownHours": 72
+    },
+    "directionalPluginConfig": {
       "donchianPeriod": 20,
       "stopAtrMultiplier": 1.5,
       "tpAtrMultiplier": 3,
@@ -44,45 +51,66 @@
     "mandateText": "ALL trades MUST use EXACTLY 1:10 leverage. No more, no less."
   },
   "signalCenter": {
-    "composition": "SignalBus + StrategyRegistry + PortfolioRiskEngine + StrategyTelemetry",
+    "composition": "SignalBus + StrategyRegistry + PortfolioRiskEngine + StrategyTelemetry (Phase 10G)",
     "pluginsEnabled": [
+      "carry-baseline",
       "directional-mtf-v1"
     ],
-    "busEmissions": 916,
-    "signalsSubmitted": 3,
-    "barsProcessed": 913,
+    "compositionRoot": "SignalCenterV1 (packages/core/src/signal-center/signal-center-v1.ts)",
+    "busEmissions": 4488,
+    "signalsSubmitted": 830,
+    "barsProcessed": 915,
     "telemetrySnapshotCount": 38
   },
   "threeLayerDefense": {
-    "layer1": "constructor refuses maxLeverage > 10 (PASS — metadata validation)",
-    "layer2": "per-emit assertLeverageInvariant (PASS — synthetic 12× throws LeverageBreachError)",
-    "layer3": "per-emit clamp to 10× ceiling: 0 clamp(s) detected in production run",
-    "perBarGuard": "0 breach(es) detected in production run"
+    "layer1": "constructor refuses maxLeverage > 10 (PASS — config validation)",
+    "layer2": "start() runs assertLeverageInvariant on initial risk-engine notional state",
+    "layer3": "per-bar leverageInvariantGuard: 0 breach(es) detected in production run (must be 0)",
+    "perBarGuard": "0 breach(es) detected in production run",
+    "pluginLayer2": "DirectionalMTFPlugin._emitSizingSignal calls assertLeverageInvariant on every emit (12x synthetic throws)",
+    "pluginLayer3": "DirectionalMTFPlugin per-emit clamp: 0 clamp(s) expected in production run"
   },
   "result": {
-    "totalReturnPct": -6.069895383582861,
-    "annualizedReturnPct": -2.47500009565389,
-    "monthlyReturnPct": 0,
-    "sharpeRatio": 0.26666234382041765,
-    "maxDrawdownPct": 44.12211491543836,
-    "finalEquityUsd": 9393.010461641714,
+    "totalReturnPct": 41.52474230820861,
+    "annualizedReturnPct": 14.840447116259515,
+    "monthlyReturnPct": 1.1606818414337639,
+    "sharpeRatio": 0.6758340392227681,
+    "maxDrawdownPct": 17.850074858071345,
+    "finalEquityUsd": 14152.47423082086,
     "dailyVaR95Pct": 0,
     "liquidations": 0
   },
-  "pluginTelemetry": {
-    "entryCount": 3,
-    "exitCount": 2,
-    "directionSignalCount": 913,
-    "sizingSignalCount": 3,
-    "leverageClampCount": 0
+  "perStrategyAttribution": {
+    "carry": {
+      "fundingCollectedUsd": 4455.969000000004,
+      "monthlyReturnPct": 1.2320267156253228,
+      "attributionNote": "Carry P&L accrues at 8h funding boundaries (mostly 3x per UTC day). Approximated as funding_collected_usd / initial_equity amortized over months."
+    },
+    "directional": {
+      "realizedPnlUsd": -303.49476917914376,
+      "monthlyReturnPct": -0.10235255970267865,
+      "entryCount": 3,
+      "exitCount": 2,
+      "attributionNote": "Directional P&L is SL/TP-realized on 1d LTF bars (1.5x ATR stop, 3x ATR TP, 168-bar max-hold). Mark-to-market equity is included at exit and bar-close."
+    },
+    "combined": {
+      "totalReturnPct": 41.52474230820861,
+      "monthlyReturnPct": 1.1606818414337639,
+      "attributionNote": "Combined equity = initial_equity + carry_funding_collected + directional_realized. SCv1 routes both plugins through one SignalBus → bus-mediated composition."
+    }
+  },
+  "crossPluginCorrelation": {
+    "pearsonCarryVsDirectional": 0.08384787583518268,
+    "note": "Pearson correlation on per-bar returns. Carry accrues at 8h funding boundaries; directional is mark-to-market. Expect low correlation (≤0.3) → diversification benefit."
   },
   "portfolioRisk": {
     "numLeverageBreaches": 0,
-    "aggregateLeverage": 9
+    "aggregateLeverage": 5.75,
+    "note": "Aggregate leverage is across BOTH plugins (sum of absolute notional). 1:10 cap holds."
   },
   "telemetrySnapshots": [
     {
-      "timestamp": 1783218384413,
+      "timestamp": 1783219535913,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -93,7 +121,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384414,
+      "timestamp": 1783219535915,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -104,7 +132,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384414,
+      "timestamp": 1783219535916,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -115,7 +143,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384414,
+      "timestamp": 1783219535917,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -126,7 +154,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384414,
+      "timestamp": 1783219535918,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -137,7 +165,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384415,
+      "timestamp": 1783219535919,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -148,7 +176,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384415,
+      "timestamp": 1783219535920,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -159,7 +187,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384415,
+      "timestamp": 1783219535921,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -170,7 +198,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384415,
+      "timestamp": 1783219535921,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -181,7 +209,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384415,
+      "timestamp": 1783219535922,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -192,7 +220,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384415,
+      "timestamp": 1783219535923,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -203,7 +231,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384415,
+      "timestamp": 1783219535924,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -214,7 +242,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384416,
+      "timestamp": 1783219535925,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -225,7 +253,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384416,
+      "timestamp": 1783219535926,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -236,7 +264,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384417,
+      "timestamp": 1783219535927,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -247,7 +275,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384417,
+      "timestamp": 1783219535927,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -258,7 +286,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384417,
+      "timestamp": 1783219535928,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -269,7 +297,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384417,
+      "timestamp": 1783219535929,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -280,7 +308,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384417,
+      "timestamp": 1783219535930,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -291,7 +319,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384418,
+      "timestamp": 1783219535931,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -302,7 +330,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384418,
+      "timestamp": 1783219535931,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -313,7 +341,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384418,
+      "timestamp": 1783219535932,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -324,7 +352,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384418,
+      "timestamp": 1783219535933,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -335,7 +363,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384418,
+      "timestamp": 1783219535934,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -346,7 +374,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384419,
+      "timestamp": 1783219535934,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -357,7 +385,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384419,
+      "timestamp": 1783219535935,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -368,7 +396,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384419,
+      "timestamp": 1783219535936,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -379,7 +407,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384419,
+      "timestamp": 1783219535937,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -390,7 +418,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384419,
+      "timestamp": 1783219535937,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -401,7 +429,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384419,
+      "timestamp": 1783219535938,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -412,7 +440,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384420,
+      "timestamp": 1783219535939,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -423,7 +451,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384420,
+      "timestamp": 1783219535940,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -434,7 +462,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384420,
+      "timestamp": 1783219535941,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -445,7 +473,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384420,
+      "timestamp": 1783219535942,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -456,7 +484,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384420,
+      "timestamp": 1783219535942,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -467,7 +495,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384421,
+      "timestamp": 1783219535943,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -478,7 +506,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384421,
+      "timestamp": 1783219535944,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -489,7 +517,7 @@
       "killSwitchHistory": []
     },
     {
-      "timestamp": 1783218384421,
+      "timestamp": 1783219535945,
       "numStrategies": 0,
       "numActiveStrategies": 0,
       "numDisabledStrategies": 0,
@@ -501,285 +529,428 @@
     }
   ],
   "portfolioRiskSummary": {
-    "timestamp": 1783218384422,
-    "numStrategies": 1,
-    "numSignalsSubmitted": 3,
+    "timestamp": 1783219535946,
+    "numStrategies": 2,
+    "numSignalsSubmitted": 830,
     "numRiskSignalsEmitted": 0,
     "numLeverageBreaches": 0,
     "lastVaR": {
-      "timestamp": 1782864000000,
-      "dailyVaR95Pct": 0,
-      "dailyVaR95Usd": 0,
+      "timestamp": 1783036800000,
+      "dailyVaR95Pct": 0.0003012440376138104,
+      "dailyVaR95Usd": 3.012440376138104,
       "method": "parametric",
       "observations": 30
     },
-    "lastCorrelation": null,
+    "lastCorrelation": {
+      "sources": [
+        "carry-baseline",
+        "directional-mtf-v1"
+      ],
+      "matrix": [
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "windowDays": 30,
+      "timestamp": 1783036800000,
+      "observationCount": 30
+    },
     "exposure": {
-      "totalNotionalUsd": 90000,
+      "totalNotionalUsd": 57500,
       "perSymbol": {},
       "perSymbolFraction": {},
       "overThresholdSymbols": [
         "BTC/USDT"
       ],
       "threshold": 0.4,
-      "timestamp": 1783218384422
+      "timestamp": 1783219535946
     },
     "drawdown": {
-      "peakEquityUsd": 12858.408656475036,
-      "currentEquityUsd": 9393.010461641714,
-      "drawdownPct": 0.2695044377119148,
-      "drawdownUsd": 3465.398194833322,
-      "maxDrawdownPct": 0.4412211491543836,
-      "isAtLimit": true,
-      "timestamp": 1782864000000
+      "peakEquityUsd": 15685.341828237519,
+      "currentEquityUsd": 14152.47423082086,
+      "drawdownPct": 0.09772611997891656,
+      "drawdownUsd": 1532.867597416658,
+      "maxDrawdownPct": 0.17850074858071344,
+      "isAtLimit": false,
+      "timestamp": 1783036800000
     },
     "positions": [
       {
         "symbol": "BTC/USDT",
+        "source": "carry-baseline",
+        "effectiveNotionalUsd": 12500
+      },
+      {
+        "symbol": "BTC/USDT",
         "source": "directional-mtf-v1",
-        "effectiveNotionalUsd": 90000
+        "effectiveNotionalUsd": 45000
       }
     ],
-    "aggregateLeverage": 9,
+    "aggregateLeverage": 5.75,
     "leverageInvariantFires": []
   },
-  "totalMonths": 29.96057818659658,
+  "totalMonths": 30.095762118557452,
   "startTime": 1704067200000,
-  "endTime": 1782864000000,
+  "endTime": 1783219535904,
+  "ohlcvCandleCount": 915,
+  "fundingSnapshotCount": 2745,
+  "elapsedMs": 36,
   "equityCurveSampled": [
     {
       "timestamp": 1704067200000,
       "equity": 10000,
+      "carryPnl": 0,
+      "directionalPnl": 0,
       "markPrice": 44179.55,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1706140800000,
       "equity": 10000,
+      "carryPnl": 0,
+      "directionalPnl": 0,
       "markPrice": 39961.09,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1708214400000,
-      "equity": 10000,
+      "equity": 10062.782,
+      "carryPnl": 62.782,
+      "directionalPnl": 0,
       "markPrice": 52137.67,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": true
     },
     {
       "timestamp": 1710288000000,
-      "equity": 10000,
+      "equity": 11365.968,
+      "carryPnl": 1365.968,
+      "directionalPnl": 0,
       "markPrice": 73072.41,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": true
     },
     {
       "timestamp": 1712361600000,
-      "equity": 10000,
+      "equity": 11542.6645,
+      "carryPnl": 1542.6645,
+      "directionalPnl": 0,
       "markPrice": 68896,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1714435200000,
-      "equity": 10000,
+      "equity": 11560.259,
+      "carryPnl": 1560.259,
+      "directionalPnl": 0,
       "markPrice": 60672,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1716508800000,
-      "equity": 10000,
+      "equity": 11641.146,
+      "carryPnl": 1641.146,
+      "directionalPnl": 0,
       "markPrice": 68549.99,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": true
     },
     {
       "timestamp": 1718582400000,
-      "equity": 10000,
+      "equity": 12015.0485,
+      "carryPnl": 2015.0485000000003,
+      "directionalPnl": 0,
       "markPrice": 66504.33,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": true
     },
     {
       "timestamp": 1720656000000,
-      "equity": 10000,
+      "equity": 12030.0485,
+      "carryPnl": 2030.0485000000003,
+      "directionalPnl": 0,
       "markPrice": 57339.89,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1722729600000,
-      "equity": 10000,
+      "equity": 12030.0485,
+      "carryPnl": 2030.0485000000003,
+      "directionalPnl": 0,
       "markPrice": 58161,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1724803200000,
-      "equity": 10000,
+      "equity": 12033.925000000001,
+      "carryPnl": 2033.9250000000004,
+      "directionalPnl": 0,
       "markPrice": 59034.9,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1726876800000,
-      "equity": 10000,
+      "equity": 12076.157,
+      "carryPnl": 2076.157,
+      "directionalPnl": 0,
       "markPrice": 63348.96,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": true
     },
     {
       "timestamp": 1728950400000,
-      "equity": 10000,
+      "equity": 12205.6715,
+      "carryPnl": 2205.6715,
+      "directionalPnl": 0,
       "markPrice": 67074.14,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1731024000000,
-      "equity": 5587.788508456164,
+      "equity": 10152.978254228081,
+      "carryPnl": 2359.084,
+      "directionalPnl": -2206.105745771918,
       "markPrice": 76509.78,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1733097600000,
-      "equity": 5587.788508456164,
+      "equity": 10687.118754228082,
+      "carryPnl": 2893.2245,
+      "directionalPnl": -2206.105745771918,
       "markPrice": 95840.62,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": true
     },
     {
       "timestamp": 1735171200000,
-      "equity": 5587.788508456164,
+      "equity": 10953.233754228082,
+      "carryPnl": 3159.3394999999996,
+      "directionalPnl": -2206.105745771918,
       "markPrice": 95791.6,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1737244800000,
-      "equity": 5587.788508456164,
+      "equity": 10953.233754228082,
+      "carryPnl": 3159.3394999999996,
+      "directionalPnl": -2206.105745771918,
       "markPrice": 101331.57,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1739318400000,
-      "equity": 5587.788508456164,
+      "equity": 10953.233754228082,
+      "carryPnl": 3159.3394999999996,
+      "directionalPnl": -2206.105745771918,
       "markPrice": 97869.99,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1741392000000,
-      "equity": 5587.788508456164,
+      "equity": 10975.949254228082,
+      "carryPnl": 3182.055,
+      "directionalPnl": -2206.105745771918,
       "markPrice": 86222.45,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1743465600000,
-      "equity": 5587.788508456164,
+      "equity": 10995.684254228083,
+      "carryPnl": 3201.79,
+      "directionalPnl": -2206.105745771918,
       "markPrice": 85158.34,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1745539200000,
-      "equity": 5587.788508456164,
+      "equity": 11056.282254228083,
+      "carryPnl": 3262.3880000000004,
+      "directionalPnl": -2206.105745771918,
       "markPrice": 94638.68,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1747612800000,
-      "equity": 5587.788508456164,
+      "equity": 11142.381754228083,
+      "carryPnl": 3348.4875000000006,
+      "directionalPnl": -2206.105745771918,
       "markPrice": 105573.74,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1749686400000,
-      "equity": 12858.408656475036,
+      "equity": 14858.43532823752,
+      "carryPnl": 3429.231000000001,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 105671.73,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1751760000000,
-      "equity": 12858.408656475036,
+      "equity": 14883.144328237518,
+      "carryPnl": 3453.940000000001,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 109203.84,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1753833600000,
-      "equity": 12858.408656475036,
+      "equity": 15146.431328237519,
+      "carryPnl": 3717.227000000001,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 117840.3,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": true
     },
     {
       "timestamp": 1755907200000,
-      "equity": 12858.408656475036,
+      "equity": 15161.431328237519,
+      "carryPnl": 3732.227000000001,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 115438.05,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1757980800000,
-      "equity": 12858.408656475036,
+      "equity": 15185.367328237518,
+      "carryPnl": 3756.1630000000014,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 116788.96,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1760054400000,
-      "equity": 12858.408656475036,
+      "equity": 15288.41532823752,
+      "carryPnl": 3859.211000000001,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 112774.5,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1762128000000,
-      "equity": 12858.408656475036,
+      "equity": 15355.839828237518,
+      "carryPnl": 3926.6355000000012,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 106583.04,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": true
     },
     {
       "timestamp": 1764201600000,
-      "equity": 12858.408656475036,
+      "equity": 15489.812328237518,
+      "carryPnl": 4060.608000000001,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 91333.95,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1766275200000,
-      "equity": 12858.408656475036,
+      "equity": 15518.06932823752,
+      "carryPnl": 4088.865000000001,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 88658.86,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1768348800000,
-      "equity": 12858.408656475036,
+      "equity": 15558.366828237518,
+      "carryPnl": 4129.1625,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 96951.78,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1770422400000,
-      "equity": 12858.408656475036,
+      "equity": 15590.55982823752,
+      "carryPnl": 4161.355500000001,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 69289.38,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1772496000000,
-      "equity": 12858.408656475036,
+      "equity": 15609.87982823752,
+      "carryPnl": 4180.6755,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 68338,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1774569600000,
-      "equity": 12858.408656475036,
+      "equity": 15635.693828237518,
+      "carryPnl": 4206.489500000001,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 66407.28,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1776643200000,
-      "equity": 12858.408656475036,
+      "equity": 15657.239828237518,
+      "carryPnl": 4228.0355,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 75840.97,
-      "currentSide": "flat"
+      "currentSide": "flat",
+      "inCarry": false
     },
     {
       "timestamp": 1778716800000,
-      "equity": 12858.408656475036,
+      "equity": 15679.86682823752,
+      "carryPnl": 4250.662500000002,
+      "directionalPnl": 1429.2043282375175,
       "markPrice": 81089.99,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": true
     },
     {
       "timestamp": 1780790400000,
-      "equity": 9393.010461641714,
+      "equity": 14106.70623082086,
+      "carryPnl": 4410.201000000005,
+      "directionalPnl": -303.49476917914376,
       "markPrice": 63332.01,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": false
     },
     {
       "timestamp": 1782864000000,
-      "equity": 9393.010461641714,
+      "equity": 14144.84373082086,
+      "carryPnl": 4448.3385000000035,
+      "directionalPnl": -303.49476917914376,
       "markPrice": 60024,
-      "currentSide": "long"
+      "currentSide": "long",
+      "inCarry": true
     }
   ]
 }
