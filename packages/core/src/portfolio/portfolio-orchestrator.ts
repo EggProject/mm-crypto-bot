@@ -78,6 +78,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import type { Bar } from "../signal-center/types.js";
+import type { StrategyPlugin } from "../signal-center/strategy-registry.js";
 import { SignalCenterV1 } from "../signal-center/signal-center-v1.js";
 import { CarryBaselinePlugin } from "../signal-center/plugins/carry-baseline-plugin.js";
 import {
@@ -143,6 +144,44 @@ export interface PortfolioOrchestratorConfig {
   readonly decisionEngine?: DecisionEngineConfig;
   /** Custom decision-engine factory (default: DecisionEngine). Used for testing or for plugging in Track A's class. */
   readonly decisionEngineFactory?: (config: DecisionEngineConfig & { readonly symbol: string }) => DecisionEngineLike;
+  /**
+   * `pluginsBySymbol` — optional factory that lets callers inject the FULL
+   * Phase 11+ plugin set per symbol (BTC: Carry + VolTarget + HybridKelly
+   * + RegimeDetector; ETH: + DirectionalMTF; SOL: + SOLFlipKillSwitch).
+   * When provided, the orchestrator skips the default CarryBaselinePlugin
+   * registration and uses this factory instead. Track D's portfolio runner
+   * is the primary consumer.
+   */
+  readonly pluginsBySymbol?: (symbol: string, sc: SignalCenterV1) => readonly StrategyPlugin[];
+  /**
+   * `crossSymbolRecordClose` — optional per-bar hook fired once for each
+   * (symbol, bar) tuple processed by the orchestrator. Lets the runner
+   * feed cross-symbol hedge plugins (Phase 13 Track C) that operate
+   * across multiple per-symbol SCv1 instances. The runner provides a
+   * callback that forwards `(symbol, close, timestampMs)` to each
+   * cross-symbol plugin's `recordClose()`.
+   */
+  readonly crossSymbolRecordClose?: (symbol: string, close: number, timestampMs: number) => void;
+  /**
+   * `feedPlugins` — optional per-bar hook fired ONCE per (symbol, bar)
+   * tuple BEFORE `sc.onBar(bar)` runs. Lets the runner push per-bar
+   * closes + funding snapshots into per-plugin state machines (e.g.
+   * `carry.recordFundingSnapshot`, `vol.recordClose`, `hybridKelly.recordClose`,
+   * `regime.recordClose`, `sfk.recordFundingSample`). Without this hook,
+   * the orchestrator's default behavior is to feed ONLY the bus (via
+   * direct `bus.emit`) — per-plugin state machines stay at zero and
+   * never emit their own signals. Track D's portfolio runner uses this
+   * hook to bridge the per-symbol SCv1 + per-plugin state update.
+   *
+   * Args: (symbol, sc, bar, fundingInBar). `fundingInBar` is the list of
+   * funding snapshots with `fundingTime ∈ (prevBarTs, barTs]`.
+   */
+  readonly feedPlugins?: (
+    symbol: string,
+    sc: SignalCenterV1,
+    bar: Bar,
+    fundingInBar: readonly { fundingTime: number; fundingRate: number; symbol: string }[],
+  ) => void;
 }
 
 /**
@@ -469,6 +508,12 @@ export class PortfolioOrchestrator {
     for (const symbol of this.config.symbols) {
       lastFundingTimeBySymbol.set(symbol, 0);
     }
+    // Track last bar timestamp per symbol — used by `feedPlugins` to
+    // window funding snapshots to the current bar.
+    const barBySymbolPrevTs = new Map<string, number>();
+    for (const symbol of this.config.symbols) {
+      barBySymbolPrevTs.set(symbol, 0);
+    }
     // Track last equity per symbol (for delta-based PnL attribution).
     let portfolioEquity = this.config.initialEquityUsd;
     // Per-symbol equity bookkeeping.
@@ -518,7 +563,24 @@ export class PortfolioOrchestrator {
         if (bar === undefined) continue;
         barBySymbol.set(symbol, bar);
         const sc = this.signalCenters.get(symbol);
+        // Optional per-plugin state feed — lets the runner push bar closes
+        // + funding snapshots into per-plugin state machines before the
+        // bus dispatch runs. Critical for plugins that maintain internal
+        // state from per-bar/per-funding ticks (Carry, VolTarget,
+        // HybridKelly, RegimeDetector, SFK).
+        if (sc !== undefined && this.config.feedPlugins !== undefined) {
+          const fundingInBar = (fundingBySymbol.get(symbol) ?? []).filter(
+            (f) => f.fundingTime > (barBySymbolPrevTs.get(symbol) ?? 0) && f.fundingTime <= ts,
+          );
+          barBySymbolPrevTs.set(symbol, ts);
+          this.config.feedPlugins(symbol, sc, bar, fundingInBar);
+        }
         if (sc !== undefined) sc.onBar(bar);
+        // Optional cross-symbol feed — forwards (symbol, close, ts) to
+        // any cross-symbol hedge plugins the runner wired up.
+        if (this.config.crossSymbolRecordClose !== undefined) {
+          this.config.crossSymbolRecordClose(symbol, bar.close, bar.timestamp);
+        }
         const de = this.decisionEngines.get(symbol);
         if (de !== undefined) {
           const deWithSynth = de as DecisionEngineWithSynthesize;
@@ -698,23 +760,36 @@ export class PortfolioOrchestrator {
           },
         },
       });
-      // Register a CarryBaselinePlugin so the SCv1 has at least one
-      // plugin and can start() (the SCv1 enforces ≥1 plugin at boot).
-      // This is the BASELINE plugin for the portfolio orchestrator —
-      // additional plugins (Phase 11+ drop-ins, cross-symbol hedges)
-      // can be registered via future Track D hooks.
-      sc.registerPlugin(
-        new CarryBaselinePlugin({
-          baseNotionalUsd: this.config.initialEquityUsd,
-          timingLeverage: this.config.maxLeverage,
-          windowDays: 30,
-          entryPercentile: 0.75,
-          exitPercentile: 0.5,
-          cooldownHours: 72,
-          kellyCap: 0.5,
-          volTargetMax: 1.0,
-        }),
-      );
+      // Register the per-symbol plugin set. If `pluginsBySymbol` is
+      // provided, use it (Phase 13 Track D's full Phase 11+ set per
+      // symbol). Otherwise fall back to the default CarryBaselinePlugin
+      // (Track B's baseline, used by existing tests).
+      if (this.config.pluginsBySymbol !== undefined) {
+        const plugins = this.config.pluginsBySymbol(symbol, sc);
+        if (plugins.length === 0) {
+          throw new Error(
+            `[PortfolioOrchestrator] pluginsBySymbol returned 0 plugins for ${symbol}; ` +
+              `SCv1 requires ≥1 plugin at boot.`,
+          );
+        }
+        for (const plugin of plugins) {
+          sc.registerPlugin(plugin);
+        }
+      } else {
+        // Default: CarryBaselinePlugin (Track B baseline).
+        sc.registerPlugin(
+          new CarryBaselinePlugin({
+            baseNotionalUsd: this.config.initialEquityUsd,
+            timingLeverage: this.config.maxLeverage,
+            windowDays: 30,
+            entryPercentile: 0.75,
+            exitPercentile: 0.5,
+            cooldownHours: 72,
+            kellyCap: 0.5,
+            volTargetMax: 1.0,
+          }),
+        );
+      }
       sc.start();
       // Build DecisionEngine (or use injected factory).
       const deConfig: DecisionEngineConfig & { readonly symbol: string } = {

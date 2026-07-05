@@ -567,6 +567,29 @@ export type {
   PerpDexLiquidationSignalsPluginState,
   SymbolCascadeState,
 } from "./signal-center/plugins/perpdex-liquidation-signals-plugin.js";
+// Phase 13 Track C — Cross-symbol hedge plugins (3 NEW plugins: BTC-ETH spread reversion, BTC-driven momentum overlay, cross-symbol funding-rate arb).
+export {
+  CrossSymbolSpreadReversionPlugin,
+} from "./signal-center/plugins/cross-symbol-spread-reversion-plugin.js";
+export type {
+  CrossSymbolSpreadReversionConfig,
+  CrossSymbolSpreadReversionPluginState,
+  SymbolPair,
+} from "./signal-center/plugins/cross-symbol-spread-reversion-plugin.js";
+export {
+  CrossSymbolMomentumOverlayPlugin,
+} from "./signal-center/plugins/cross-symbol-momentum-overlay-plugin.js";
+export type {
+  CrossSymbolMomentumOverlayConfig,
+  CrossSymbolMomentumOverlayPluginState,
+} from "./signal-center/plugins/cross-symbol-momentum-overlay-plugin.js";
+export {
+  CrossSymbolFundingDifferentialPlugin,
+} from "./signal-center/plugins/cross-symbol-funding-differential-plugin.js";
+export type {
+  CrossSymbolFundingDifferentialConfig,
+  CrossSymbolFundingDifferentialPluginState,
+} from "./signal-center/plugins/cross-symbol-funding-differential-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,

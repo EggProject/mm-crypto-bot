@@ -1,0 +1,32 @@
+{
+  "symbol": "BTC/USDT",
+  "monthlyReturnPct": 0.7064138224159411,
+  "annualizedReturnPct": 8.807153845708937,
+  "sharpeRatio": 1.441759767551383,
+  "maxDrawdownPct": 0,
+  "finalEquityUsd": 10880.715384570894,
+  "liquidations": 0,
+  "totalReturnPct": 8.807153845708944,
+  "combinedAvgMultiplier": 1,
+  "composition": "CarryBaseline + HybridKelly (2 baseline) + 3 cross-symbol hedge plugins (BTC bus)",
+  "walkForwardSharpe": {
+    "folds": [
+      3.5477,
+      3.5477,
+      3.5477,
+      3.5477,
+      0,
+      0
+    ],
+    "mean": 2.3651,
+    "median": 3.5477,
+    "min": 0,
+    "max": 3.5477,
+    "isDays": 180,
+    "oosDays": 30,
+    "foldCount": 6
+  },
+  "decisionCount": 365,
+  "openPositionCount": 7,
+  "capacityUsedPct": 1
+}
