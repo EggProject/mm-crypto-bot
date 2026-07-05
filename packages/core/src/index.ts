@@ -286,6 +286,16 @@ export type {
   CarryBaselinePluginConfig,
   CarryBaselinePluginState,
 } from "./signal-center/plugins/carry-baseline-plugin.js";
+// Phase 11.1d Track A — defensive drop-in plugin (SOL funding-flip kill-switch, Phase 9 9D port).
+// RiskSignals only (no SizingSignals); SOL enabled, BTC/ETH not registered.
+export {
+  DEFAULT_SOL_FLIP_KILL_SWITCH_PLUGIN_CONFIG,
+  SOLFlipKillSwitchPlugin,
+} from "./signal-center/plugins/sol-flip-kill-switch-plugin.js";
+export type {
+  SOLFlipKillSwitchPluginConfig,
+  SOLFlipKillSwitchPluginState,
+} from "./signal-center/plugins/sol-flip-kill-switch-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,
