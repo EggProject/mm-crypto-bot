@@ -376,6 +376,44 @@ export type {
   HybridKellyConfig,
   HybridKellyPluginState,
 } from "./signal-center/plugins/hybrid-kelly-plugin.js";
+// Phase 11.2e Track A — spot-vs-perp basis convergence alpha (FIRST ALPHA drop-in of Phase 11.2).
+// New alpha stream: enters when |basis - carry_neutral| > entryThresholdBps (default 10bps),
+// exits on convergence within exitThresholdBps (default 5bps) OR after maxHoldHours (default 72h).
+// Per-symbol: BTC/USDT, ETH/USDT, SOL/USDT all default-on. mixed edge class (reads carry signals,
+// emits sizing signals). Direction encoded in source suffix (`:short_basis` / `:long_basis` / `:flat`).
+// The generic constants (`DEFAULT_BASE_NOTIONAL_USD`, `DEFAULT_ENABLED_SYMBOLS`,
+// `DEFAULT_VOL_MULTIPLIER`, `ONE_TO_TEN_LEVERAGE`) collide with prior Phase 11.1 plugin exports
+// and are aliased with the `BASIS_TRADE_` prefix.
+export {
+  BasisTradePlugin,
+  createBasisTradePlugin,
+  DEFAULT_BASIS_ENTRY_THRESHOLD_BPS,
+  DEFAULT_BASIS_EXIT_THRESHOLD_BPS,
+  DEFAULT_FUNDING_INTERVAL_HOURS,
+  DEFAULT_KELLY_FRACTION,
+  DEFAULT_MAX_HOLD_HOURS,
+  inferBasisSideFromSource,
+  inferSymbolFromBasisTradeSource,
+  MAX_BASIS_ENTRY_THRESHOLD_BPS,
+  MAX_BASIS_EXIT_THRESHOLD_BPS,
+  MAX_FUNDING_INTERVAL_HOURS,
+  MAX_MAX_HOLD_HOURS,
+  MIN_BASIS_ENTRY_THRESHOLD_BPS,
+  MIN_BASIS_EXIT_THRESHOLD_BPS,
+  MIN_FUNDING_INTERVAL_HOURS,
+  MIN_MAX_HOLD_HOURS,
+  // Aliased generic constants (avoid TS2300 collisions with sibling Phase 11.1 plugins):
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_BASIS_TRADE_BASE_NOTIONAL_USD,
+  DEFAULT_ENABLED_SYMBOLS as DEFAULT_BASIS_TRADE_ENABLED_SYMBOLS,
+  DEFAULT_VOL_MULTIPLIER as DEFAULT_BASIS_TRADE_VOL_MULTIPLIER,
+  ONE_TO_TEN_LEVERAGE as BASIS_TRADE_ONE_TO_TEN_LEVERAGE,
+} from "./signal-center/plugins/basis-trade-plugin.js";
+export type {
+  BasisExitReason,
+  BasisPositionSide,
+  BasisTradeConfig,
+  BasisTradePluginState,
+} from "./signal-center/plugins/basis-trade-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,
