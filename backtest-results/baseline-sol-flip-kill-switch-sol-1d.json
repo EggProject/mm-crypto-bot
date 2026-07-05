@@ -1,0 +1,3894 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-05T03:25:22.833Z",
+    "phase": "11.1d",
+    "milestone": "Track-B",
+    "task": "sol-flip-kill-switch-cli-baseline",
+    "symbol": "SOL/USDT",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000,
+    "pluginName": "sol-flip-kill-switch",
+    "pluginVersion": "1.0.0"
+  },
+  "config": {
+    "leverage": 10,
+    "timingLeverage": 10,
+    "baseNotionalUsd": 10000,
+    "detector": {
+      "signFlipWindowDays": 7,
+      "flipThreshold": 10,
+      "extremeSigmaThreshold": 1.5,
+      "persistenceDays": 5,
+      "volWindowDays": 30
+    },
+    "perSymbolDisclosure": {
+      "SOL/USDT": "registered",
+      "BTC/USDT": "NOT registered (marginal flip events)",
+      "ETH/USDT": "NOT registered (marginal flip events)"
+    }
+  },
+  "hardConstraint": {
+    "leverage": 10,
+    "leverageRatio": "1:10",
+    "effectiveNotionalUsd": 100000,
+    "maxAllowedLeverage": 10,
+    "mandateSource": "user-steer mvs_c13fe65cb68f4df3851304dea09a9099",
+    "mandateText": "ALL trades MUST use EXACTLY 1:10 leverage. No more, no less."
+  },
+  "period": {
+    "startTime": 1704067200000,
+    "endTime": 1783036800000,
+    "totalMonths": 30.02628120893561,
+    "ohlcvCount": 915,
+    "fundingSnapshots": 2745
+  },
+  "withKillSwitch": {
+    "totalReturnPct": 63.84971000000005,
+    "monthlyReturnPct": 1.6580869336004334,
+    "sharpeRatio": 5.243975710791077,
+    "maxDrawdownPct": 0.26414835961056315,
+    "timeInCarryPct": 17.04918032786885,
+    "timeKillSwitchEngagedPct": 30.710382513661198,
+    "entryCount": 64,
+    "exitCount": 63,
+    "forcedExitCount": 3,
+    "carryPausedFundingPeriods": 838,
+    "regimeActivationCount": 30,
+    "regimeDeactivationCount": 30,
+    "fundingCollectedUsd": 6384.971000000004,
+    "rebalanceCount": 0,
+    "rebalanceCostUsd": 0
+  },
+  "withoutKillSwitch": {
+    "totalReturnPct": 84.24719999999995,
+    "monthlyReturnPct": 2.0560965246226415,
+    "sharpeRatio": 5.389995034292661,
+    "maxDrawdownPct": 0.48676556174484903,
+    "timeInCarryPct": 22.950819672131146,
+    "entryCount": 105,
+    "exitCount": 104,
+    "fundingCollectedUsd": 8424.719999999996,
+    "rebalanceCount": null,
+    "rebalanceCostUsd": null,
+    "note": "FundingCarryTimingStrategy hides rebalanceCount/rebalanceCostUsd in its private underlyingCarry; null is the safe-fallback sentinel here."
+  },
+  "ddReduction": {
+    "withKillSwitchDDpct": 0.26414835961056315,
+    "withoutKillSwitchDDpct": 0.48676556174484903,
+    "ddReductionPct": 45.733967155831074
+  },
+  "triggers": {
+    "totalEmitted": 292,
+    "triggersFired": 262,
+    "perTrigger": [
+      {
+        "timestampMs": 1709395200000,
+        "timestampIso": "2024-03-02T16:00:00.000Z",
+        "reason": "extreme-regime",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1709424000000,
+        "timestampIso": "2024-03-03T00:00:00.000Z",
+        "reason": "extreme-regime",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1709452800000,
+        "timestampIso": "2024-03-03T08:00:00.000Z",
+        "reason": "extreme-regime",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1709481600000,
+        "timestampIso": "2024-03-03T16:00:00.000Z",
+        "reason": "extreme-regime",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1709510400000,
+        "timestampIso": "2024-03-04T00:00:00.000Z",
+        "reason": "extreme-regime",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1709539200000,
+        "timestampIso": "2024-03-04T08:00:00.000Z",
+        "reason": "extreme-regime",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1709568000000,
+        "timestampIso": "2024-03-04T16:00:00.000Z",
+        "reason": "extreme-regime",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1710000000000,
+        "timestampIso": "2024-03-09T16:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1713715200000,
+        "timestampIso": "2024-04-21T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1714147200000,
+        "timestampIso": "2024-04-26T16:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723161600000,
+        "timestampIso": "2024-08-09T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723248000000,
+        "timestampIso": "2024-08-10T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723276800000,
+        "timestampIso": "2024-08-10T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723334400000,
+        "timestampIso": "2024-08-11T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723392000001,
+        "timestampIso": "2024-08-11T16:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723478400000,
+        "timestampIso": "2024-08-12T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723536000000,
+        "timestampIso": "2024-08-13T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723593600000,
+        "timestampIso": "2024-08-14T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723622400000,
+        "timestampIso": "2024-08-14T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723795200000,
+        "timestampIso": "2024-08-16T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723824000000,
+        "timestampIso": "2024-08-16T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723852800000,
+        "timestampIso": "2024-08-17T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723881600000,
+        "timestampIso": "2024-08-17T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723939200000,
+        "timestampIso": "2024-08-18T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1723968000000,
+        "timestampIso": "2024-08-18T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724025600000,
+        "timestampIso": "2024-08-19T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724054400000,
+        "timestampIso": "2024-08-19T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724083200002,
+        "timestampIso": "2024-08-19T16:00:00.002Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724140800000,
+        "timestampIso": "2024-08-20T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724198400001,
+        "timestampIso": "2024-08-21T00:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724256000001,
+        "timestampIso": "2024-08-21T16:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724284800000,
+        "timestampIso": "2024-08-22T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724428800000,
+        "timestampIso": "2024-08-23T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724457600000,
+        "timestampIso": "2024-08-24T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1724889600000,
+        "timestampIso": "2024-08-29T00:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1725350400001,
+        "timestampIso": "2024-09-03T08:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1725811200000,
+        "timestampIso": "2024-09-08T16:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1728777600000,
+        "timestampIso": "2024-10-13T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1729209600010,
+        "timestampIso": "2024-10-18T00:00:00.010Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1735113600000,
+        "timestampIso": "2024-12-25T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1735545600001,
+        "timestampIso": "2024-12-30T08:00:00.001Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736236800000,
+        "timestampIso": "2025-01-07T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736409600000,
+        "timestampIso": "2025-01-09T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736438400000,
+        "timestampIso": "2025-01-09T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736467200000,
+        "timestampIso": "2025-01-10T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736496000000,
+        "timestampIso": "2025-01-10T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736524800000,
+        "timestampIso": "2025-01-10T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736582400000,
+        "timestampIso": "2025-01-11T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736640000000,
+        "timestampIso": "2025-01-12T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736668800000,
+        "timestampIso": "2025-01-12T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736697600000,
+        "timestampIso": "2025-01-12T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736812800000,
+        "timestampIso": "2025-01-14T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736870400000,
+        "timestampIso": "2025-01-14T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736928000000,
+        "timestampIso": "2025-01-15T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1736985600000,
+        "timestampIso": "2025-01-16T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1737417600000,
+        "timestampIso": "2025-01-21T00:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1737676800000,
+        "timestampIso": "2025-01-24T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1737763200000,
+        "timestampIso": "2025-01-25T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1737849600000,
+        "timestampIso": "2025-01-26T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1737936000000,
+        "timestampIso": "2025-01-27T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1737964800000,
+        "timestampIso": "2025-01-27T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1737993600000,
+        "timestampIso": "2025-01-27T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738022400000,
+        "timestampIso": "2025-01-28T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738051200000,
+        "timestampIso": "2025-01-28T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738080000000,
+        "timestampIso": "2025-01-28T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738166400000,
+        "timestampIso": "2025-01-29T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738195200000,
+        "timestampIso": "2025-01-30T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738281600000,
+        "timestampIso": "2025-01-31T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738339200000,
+        "timestampIso": "2025-01-31T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738368000000,
+        "timestampIso": "2025-02-01T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738396800000,
+        "timestampIso": "2025-02-01T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738425600000,
+        "timestampIso": "2025-02-01T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738483200000,
+        "timestampIso": "2025-02-02T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738569600000,
+        "timestampIso": "2025-02-03T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738684800000,
+        "timestampIso": "2025-02-04T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1738713600001,
+        "timestampIso": "2025-02-05T00:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1739174400000,
+        "timestampIso": "2025-02-10T08:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1740326400000,
+        "timestampIso": "2025-02-23T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1740412800000,
+        "timestampIso": "2025-02-24T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1740499200000,
+        "timestampIso": "2025-02-25T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1740931200000,
+        "timestampIso": "2025-03-02T16:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1741363200000,
+        "timestampIso": "2025-03-07T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1741420800001,
+        "timestampIso": "2025-03-08T08:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1741507200000,
+        "timestampIso": "2025-03-09T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1741852800000,
+        "timestampIso": "2025-03-13T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1741881600000,
+        "timestampIso": "2025-03-13T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1742054400000,
+        "timestampIso": "2025-03-15T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1742083200000,
+        "timestampIso": "2025-03-16T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1742140800000,
+        "timestampIso": "2025-03-16T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1742572800000,
+        "timestampIso": "2025-03-21T16:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743465600000,
+        "timestampIso": "2025-04-01T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743494400001,
+        "timestampIso": "2025-04-01T08:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743523200000,
+        "timestampIso": "2025-04-01T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743552000001,
+        "timestampIso": "2025-04-02T00:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743580800000,
+        "timestampIso": "2025-04-02T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743638400000,
+        "timestampIso": "2025-04-03T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743667200000,
+        "timestampIso": "2025-04-03T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743696000000,
+        "timestampIso": "2025-04-03T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743724800000,
+        "timestampIso": "2025-04-04T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1743753600000,
+        "timestampIso": "2025-04-04T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1744185600001,
+        "timestampIso": "2025-04-09T08:00:00.001Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1744761600000,
+        "timestampIso": "2025-04-16T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1744848000001,
+        "timestampIso": "2025-04-17T00:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1745280000008,
+        "timestampIso": "2025-04-22T00:00:00.008Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1745856000005,
+        "timestampIso": "2025-04-28T16:00:00.005Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1745942400010,
+        "timestampIso": "2025-04-29T16:00:00.010Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1745971200001,
+        "timestampIso": "2025-04-30T00:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1746057600000,
+        "timestampIso": "2025-05-01T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1746172800000,
+        "timestampIso": "2025-05-02T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1746604800000,
+        "timestampIso": "2025-05-07T08:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1747785600000,
+        "timestampIso": "2025-05-21T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1748217600000,
+        "timestampIso": "2025-05-26T00:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1748620800000,
+        "timestampIso": "2025-05-30T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1749052800000,
+        "timestampIso": "2025-06-04T16:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1749427200000,
+        "timestampIso": "2025-06-09T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1749859200000,
+        "timestampIso": "2025-06-14T00:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1751011200000,
+        "timestampIso": "2025-06-27T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1751443200000,
+        "timestampIso": "2025-07-02T08:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1759075200000,
+        "timestampIso": "2025-09-28T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1759276800000,
+        "timestampIso": "2025-10-01T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1759334400000,
+        "timestampIso": "2025-10-01T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1759363200000,
+        "timestampIso": "2025-10-02T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1759392000013,
+        "timestampIso": "2025-10-02T08:00:00.013Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1759478400006,
+        "timestampIso": "2025-10-03T08:00:00.006Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1759910400006,
+        "timestampIso": "2025-10-08T08:00:00.006Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1762473600005,
+        "timestampIso": "2025-11-07T00:00:00.005Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1762531200005,
+        "timestampIso": "2025-11-07T16:00:00.005Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1762588800015,
+        "timestampIso": "2025-11-08T08:00:00.015Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1762617600001,
+        "timestampIso": "2025-11-08T16:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1762646400004,
+        "timestampIso": "2025-11-09T00:00:00.004Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1762704000005,
+        "timestampIso": "2025-11-09T16:00:00.005Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1762761600000,
+        "timestampIso": "2025-11-10T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1763193600000,
+        "timestampIso": "2025-11-15T08:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764057600009,
+        "timestampIso": "2025-11-25T08:00:00.009Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764086400007,
+        "timestampIso": "2025-11-25T16:00:00.007Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764144000001,
+        "timestampIso": "2025-11-26T08:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764172800000,
+        "timestampIso": "2025-11-26T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764201600013,
+        "timestampIso": "2025-11-27T00:00:00.013Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764230400000,
+        "timestampIso": "2025-11-27T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764259200004,
+        "timestampIso": "2025-11-27T16:00:00.004Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764288000008,
+        "timestampIso": "2025-11-28T00:00:00.008Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764345600008,
+        "timestampIso": "2025-11-28T16:00:00.008Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764374400000,
+        "timestampIso": "2025-11-29T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764403200005,
+        "timestampIso": "2025-11-29T08:00:00.005Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764576000004,
+        "timestampIso": "2025-12-01T08:00:00.004Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764604800000,
+        "timestampIso": "2025-12-01T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764633600004,
+        "timestampIso": "2025-12-02T00:00:00.004Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1764662400000,
+        "timestampIso": "2025-12-02T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1765094400004,
+        "timestampIso": "2025-12-07T08:00:00.004Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1765497600005,
+        "timestampIso": "2025-12-12T00:00:00.005Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1765584000001,
+        "timestampIso": "2025-12-13T00:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1766016000005,
+        "timestampIso": "2025-12-18T00:00:00.005Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1766534400001,
+        "timestampIso": "2025-12-24T00:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1766563200001,
+        "timestampIso": "2025-12-24T08:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1766592000000,
+        "timestampIso": "2025-12-24T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1767024000000,
+        "timestampIso": "2025-12-29T16:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769011200011,
+        "timestampIso": "2026-01-21T16:00:00.011Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769068800003,
+        "timestampIso": "2026-01-22T08:00:00.003Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769155200000,
+        "timestampIso": "2026-01-23T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769184000011,
+        "timestampIso": "2026-01-23T16:00:00.011Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769270400001,
+        "timestampIso": "2026-01-24T16:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769299200002,
+        "timestampIso": "2026-01-25T00:00:00.002Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769356800005,
+        "timestampIso": "2026-01-25T16:00:00.005Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769385600000,
+        "timestampIso": "2026-01-26T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769414400003,
+        "timestampIso": "2026-01-26T08:00:00.003Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1769875200009,
+        "timestampIso": "2026-01-31T16:00:00.009Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770134400000,
+        "timestampIso": "2026-02-03T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770163200002,
+        "timestampIso": "2026-02-04T00:00:00.002Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770192000007,
+        "timestampIso": "2026-02-04T08:00:00.007Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770220800000,
+        "timestampIso": "2026-02-04T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770249600011,
+        "timestampIso": "2026-02-05T00:00:00.011Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770307200007,
+        "timestampIso": "2026-02-05T16:00:00.007Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770336000000,
+        "timestampIso": "2026-02-06T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770364800001,
+        "timestampIso": "2026-02-06T08:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770393600000,
+        "timestampIso": "2026-02-06T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770422400003,
+        "timestampIso": "2026-02-07T00:00:00.003Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770451200000,
+        "timestampIso": "2026-02-07T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770480000010,
+        "timestampIso": "2026-02-07T16:00:00.010Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770508800003,
+        "timestampIso": "2026-02-08T00:00:00.003Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770537600000,
+        "timestampIso": "2026-02-08T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770566400000,
+        "timestampIso": "2026-02-08T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770595200002,
+        "timestampIso": "2026-02-09T00:00:00.002Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770624000001,
+        "timestampIso": "2026-02-09T08:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770652800007,
+        "timestampIso": "2026-02-09T16:00:00.007Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770681600000,
+        "timestampIso": "2026-02-10T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770710400007,
+        "timestampIso": "2026-02-10T08:00:00.007Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770739200000,
+        "timestampIso": "2026-02-10T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770796800006,
+        "timestampIso": "2026-02-11T08:00:00.006Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770825600000,
+        "timestampIso": "2026-02-11T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770854400000,
+        "timestampIso": "2026-02-12T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770883200001,
+        "timestampIso": "2026-02-12T08:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770912000001,
+        "timestampIso": "2026-02-12T16:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770940800007,
+        "timestampIso": "2026-02-13T00:00:00.007Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1770969600003,
+        "timestampIso": "2026-02-13T08:00:00.003Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771056000004,
+        "timestampIso": "2026-02-14T08:00:00.004Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771084800002,
+        "timestampIso": "2026-02-14T16:00:00.002Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771113600000,
+        "timestampIso": "2026-02-15T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771142400002,
+        "timestampIso": "2026-02-15T08:00:00.002Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771200000001,
+        "timestampIso": "2026-02-16T00:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771228800003,
+        "timestampIso": "2026-02-16T08:00:00.003Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771257600000,
+        "timestampIso": "2026-02-16T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771286400008,
+        "timestampIso": "2026-02-17T00:00:00.008Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771315200001,
+        "timestampIso": "2026-02-17T08:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771344000002,
+        "timestampIso": "2026-02-17T16:00:00.002Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771372800000,
+        "timestampIso": "2026-02-18T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771401600000,
+        "timestampIso": "2026-02-18T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771430400011,
+        "timestampIso": "2026-02-18T16:00:00.011Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771459200013,
+        "timestampIso": "2026-02-19T00:00:00.013Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771488000000,
+        "timestampIso": "2026-02-19T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771776000000,
+        "timestampIso": "2026-02-22T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771804800001,
+        "timestampIso": "2026-02-23T00:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771833600000,
+        "timestampIso": "2026-02-23T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771862400000,
+        "timestampIso": "2026-02-23T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771891200007,
+        "timestampIso": "2026-02-24T00:00:00.007Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771920000000,
+        "timestampIso": "2026-02-24T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771948800001,
+        "timestampIso": "2026-02-24T16:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1771977600001,
+        "timestampIso": "2026-02-25T00:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1772409600001,
+        "timestampIso": "2026-03-02T00:00:00.001Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1773302400000,
+        "timestampIso": "2026-03-12T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1773734400002,
+        "timestampIso": "2026-03-17T08:00:00.002Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1774915200000,
+        "timestampIso": "2026-03-31T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1774972800000,
+        "timestampIso": "2026-03-31T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775030400000,
+        "timestampIso": "2026-04-01T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775059200000,
+        "timestampIso": "2026-04-01T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775116800001,
+        "timestampIso": "2026-04-02T08:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775145600001,
+        "timestampIso": "2026-04-02T16:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775174400000,
+        "timestampIso": "2026-04-03T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775203200008,
+        "timestampIso": "2026-04-03T08:00:00.008Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775260800000,
+        "timestampIso": "2026-04-04T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775289600003,
+        "timestampIso": "2026-04-04T08:00:00.003Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775318400000,
+        "timestampIso": "2026-04-04T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775347200008,
+        "timestampIso": "2026-04-05T00:00:00.008Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775376000000,
+        "timestampIso": "2026-04-05T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775404800001,
+        "timestampIso": "2026-04-05T16:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775433600004,
+        "timestampIso": "2026-04-06T00:00:00.004Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775491200003,
+        "timestampIso": "2026-04-06T16:00:00.003Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775548800000,
+        "timestampIso": "2026-04-07T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1775577600000,
+        "timestampIso": "2026-04-07T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1776009600000,
+        "timestampIso": "2026-04-12T16:00:00.000Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1777219200004,
+        "timestampIso": "2026-04-26T16:00:00.004Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1777449600011,
+        "timestampIso": "2026-04-29T08:00:00.011Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1777478400003,
+        "timestampIso": "2026-04-29T16:00:00.003Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1777536000000,
+        "timestampIso": "2026-04-30T08:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1777968000011,
+        "timestampIso": "2026-05-05T08:00:00.011Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1778601600000,
+        "timestampIso": "2026-05-12T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1778659200003,
+        "timestampIso": "2026-05-13T08:00:00.003Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1779120000007,
+        "timestampIso": "2026-05-18T16:00:00.007Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1779724800001,
+        "timestampIso": "2026-05-25T16:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1779782400003,
+        "timestampIso": "2026-05-26T08:00:00.003Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1779811200000,
+        "timestampIso": "2026-05-26T16:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1779840000000,
+        "timestampIso": "2026-05-27T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1779897600009,
+        "timestampIso": "2026-05-27T16:00:00.009Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1779926400001,
+        "timestampIso": "2026-05-28T00:00:00.001Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1780012800000,
+        "timestampIso": "2026-05-29T00:00:00.000Z",
+        "reason": "funding-flip",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1780444800013,
+        "timestampIso": "2026-06-03T00:00:00.013Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1780848000000,
+        "timestampIso": "2026-06-07T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1780876800000,
+        "timestampIso": "2026-06-08T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1780905600005,
+        "timestampIso": "2026-06-08T08:00:00.005Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1780934400004,
+        "timestampIso": "2026-06-08T16:00:00.004Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1780963200000,
+        "timestampIso": "2026-06-09T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1780992000000,
+        "timestampIso": "2026-06-09T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781020800001,
+        "timestampIso": "2026-06-09T16:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781078400011,
+        "timestampIso": "2026-06-10T08:00:00.011Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781107200009,
+        "timestampIso": "2026-06-10T16:00:00.009Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781136000000,
+        "timestampIso": "2026-06-11T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781164800004,
+        "timestampIso": "2026-06-11T08:00:00.004Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781193600000,
+        "timestampIso": "2026-06-11T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781222400000,
+        "timestampIso": "2026-06-12T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781251200000,
+        "timestampIso": "2026-06-12T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781280000000,
+        "timestampIso": "2026-06-12T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781308800000,
+        "timestampIso": "2026-06-13T00:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781337600007,
+        "timestampIso": "2026-06-13T08:00:00.007Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781366400002,
+        "timestampIso": "2026-06-13T16:00:00.002Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781395200005,
+        "timestampIso": "2026-06-14T00:00:00.005Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781424000009,
+        "timestampIso": "2026-06-14T08:00:00.009Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781452800000,
+        "timestampIso": "2026-06-14T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781481600013,
+        "timestampIso": "2026-06-15T00:00:00.013Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781510400013,
+        "timestampIso": "2026-06-15T08:00:00.013Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781539200004,
+        "timestampIso": "2026-06-15T16:00:00.004Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781596800000,
+        "timestampIso": "2026-06-16T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781625600001,
+        "timestampIso": "2026-06-16T16:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781654400012,
+        "timestampIso": "2026-06-17T00:00:00.012Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781683200000,
+        "timestampIso": "2026-06-17T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781712000000,
+        "timestampIso": "2026-06-17T16:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781740800002,
+        "timestampIso": "2026-06-18T00:00:00.002Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781769600000,
+        "timestampIso": "2026-06-18T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781798400001,
+        "timestampIso": "2026-06-18T16:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781884800001,
+        "timestampIso": "2026-06-19T16:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781913600001,
+        "timestampIso": "2026-06-20T00:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781942400000,
+        "timestampIso": "2026-06-20T08:00:00.000Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1781971200001,
+        "timestampIso": "2026-06-20T16:00:00.001Z",
+        "reason": "negative-dominance",
+        "breach": true,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      },
+      {
+        "timestampMs": 1782432000010,
+        "timestampIso": "2026-06-26T00:00:00.010Z",
+        "reason": "regime-cleared",
+        "breach": false,
+        "closeNotionalUsd": 100000,
+        "source": "sol-flip-kill-switch"
+      }
+    ],
+    "reasonCounts": {
+      "extreme-regime": 7,
+      "regime-cleared": 30,
+      "funding-flip": 140,
+      "negative-dominance": 115
+    }
+  },
+  "risk": {
+    "dailyVaR95Pct": 0,
+    "liquidations": 0,
+    "leverageInvariantBreaches": 0,
+    "leverageAssertionCount": 292,
+    "layer1": "constructor: metadata.maxLeverage=10, timingLeverage ∈ {1,10}",
+    "layer2": "per-emit assertLeverageInvariant fired 292 times (0 breaches)",
+    "layer3": "N/A for defensive plugin (RiskSignals only, no SizingSignals)"
+  },
+  "walkForward": {
+    "config": {
+      "isDays": 180,
+      "oosDays": 30,
+      "stepDays": 30,
+      "purgeDays": 7,
+      "leverage": 10
+    },
+    "aggregate": {
+      "totalFolds": 24,
+      "aggregateOOSSharpe": 4.820753320957839,
+      "aggregateOOSReturn": 0.20814186193414594,
+      "meanFoldSharpe": 4.372843170909609,
+      "minFoldSharpe": -7.1243692684043705,
+      "positiveFolds": 16
+    },
+    "folds": [
+      {
+        "foldIndex": 0,
+        "oosStartIso": "2024-07-06T00:00:00.000Z",
+        "oosEndIso": "2024-08-05T00:00:00.000Z",
+        "oosReturn": 0,
+        "oosSharpe": 0,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 0
+      },
+      {
+        "foldIndex": 1,
+        "oosStartIso": "2024-08-05T00:00:00.000Z",
+        "oosEndIso": "2024-09-04T00:00:00.000Z",
+        "oosReturn": 0,
+        "oosSharpe": 0,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 0
+      },
+      {
+        "foldIndex": 2,
+        "oosStartIso": "2024-09-04T00:00:00.000Z",
+        "oosEndIso": "2024-10-04T00:00:00.000Z",
+        "oosReturn": 0.015170556183664356,
+        "oosSharpe": 10.841136010622966,
+        "oosMaxDD": 0.0004160615615574301,
+        "oosFundingDelta": 202.8159999999998
+      },
+      {
+        "foldIndex": 3,
+        "oosStartIso": "2024-10-04T00:00:00.000Z",
+        "oosEndIso": "2024-11-03T00:00:00.000Z",
+        "oosReturn": 0.0009952201874009433,
+        "oosSharpe": 3.5477044545102276,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 13.507000000000062
+      },
+      {
+        "foldIndex": 4,
+        "oosStartIso": "2024-11-03T00:00:00.000Z",
+        "oosEndIso": "2024-12-03T00:00:00.000Z",
+        "oosReturn": 0.08556559854278614,
+        "oosSharpe": 21.033317111399047,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 1162.4410000000003
+      },
+      {
+        "foldIndex": 5,
+        "oosStartIso": "2024-12-03T00:00:00.000Z",
+        "oosEndIso": "2025-01-02T00:00:00.000Z",
+        "oosReturn": 0.03769529369169299,
+        "oosSharpe": 8.535253070290267,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 560.5449999999992
+      },
+      {
+        "foldIndex": 6,
+        "oosStartIso": "2025-01-02T00:00:00.000Z",
+        "oosEndIso": "2025-02-01T00:00:00.000Z",
+        "oosReturn": -0.0001949326707870147,
+        "oosSharpe": -3.5477044545102276,
+        "oosMaxDD": 0.0001949326707870147,
+        "oosFundingDelta": -3.007999999999811
+      },
+      {
+        "foldIndex": 7,
+        "oosStartIso": "2025-02-01T00:00:00.000Z",
+        "oosEndIso": "2025-03-03T00:00:00.000Z",
+        "oosReturn": 0.00043123002449915884,
+        "oosSharpe": 3.1788226121191734,
+        "oosMaxDD": 0.00006948236159140251,
+        "oosFundingDelta": 6.653000000000247
+      },
+      {
+        "foldIndex": 8,
+        "oosStartIso": "2025-03-03T00:00:00.000Z",
+        "oosEndIso": "2025-04-02T00:00:00.000Z",
+        "oosReturn": 0.0006753651241293801,
+        "oosSharpe": 2.3454852762445046,
+        "oosMaxDD": 0.00028745305909673154,
+        "oosFundingDelta": 10.424000000000888
+      },
+      {
+        "foldIndex": 9,
+        "oosStartIso": "2025-04-02T00:00:00.000Z",
+        "oosEndIso": "2025-05-02T00:00:00.000Z",
+        "oosReturn": 0.002581346837735121,
+        "oosSharpe": 4.884375189378513,
+        "oosMaxDD": 0.00039493178844691524,
+        "oosFundingDelta": 39.86899999999878
+      },
+      {
+        "foldIndex": 10,
+        "oosStartIso": "2025-05-02T00:00:00.000Z",
+        "oosEndIso": "2025-06-01T00:00:00.000Z",
+        "oosReturn": 0.011648697664119292,
+        "oosSharpe": 10.767740572216391,
+        "oosMaxDD": 0.00006632028056931843,
+        "oosFundingDelta": 180.37900000000354
+      },
+      {
+        "foldIndex": 11,
+        "oosStartIso": "2025-06-01T00:00:00.000Z",
+        "oosEndIso": "2025-07-01T00:00:00.000Z",
+        "oosReturn": 0.0006581431069946305,
+        "oosSharpe": 4.76894385375083,
+        "oosMaxDD": 0.0001283996813545247,
+        "oosFundingDelta": 10.30999999999949
+      },
+      {
+        "foldIndex": 12,
+        "oosStartIso": "2025-07-01T00:00:00.000Z",
+        "oosEndIso": "2025-07-31T00:00:00.000Z",
+        "oosReturn": 0.02158922697420888,
+        "oosSharpe": 15.76825484396679,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 338.424
+      },
+      {
+        "foldIndex": 13,
+        "oosStartIso": "2025-07-31T00:00:00.000Z",
+        "oosEndIso": "2025-08-30T00:00:00.000Z",
+        "oosReturn": 0.0021246382857021177,
+        "oosSharpe": 5.026122037490684,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 34.02400000000034
+      },
+      {
+        "foldIndex": 14,
+        "oosStartIso": "2025-08-30T00:00:00.000Z",
+        "oosEndIso": "2025-09-29T00:00:00.000Z",
+        "oosReturn": 0,
+        "oosSharpe": 0,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 0
+      },
+      {
+        "foldIndex": 15,
+        "oosStartIso": "2025-09-29T00:00:00.000Z",
+        "oosEndIso": "2025-10-29T00:00:00.000Z",
+        "oosReturn": 0.002574706300655675,
+        "oosSharpe": 4.078709847587693,
+        "oosMaxDD": 0.0011483015834370034,
+        "oosFundingDelta": 41.318999999999505
+      },
+      {
+        "foldIndex": 16,
+        "oosStartIso": "2025-10-29T00:00:00.000Z",
+        "oosEndIso": "2025-11-28T00:00:00.000Z",
+        "oosReturn": -0.0004045867075033788,
+        "oosSharpe": -0.9884409266203587,
+        "oosMaxDD": 0.0016412690617146892,
+        "oosFundingDelta": -6.5129999999990105
+      },
+      {
+        "foldIndex": 17,
+        "oosStartIso": "2025-11-28T00:00:00.000Z",
+        "oosEndIso": "2025-12-28T00:00:00.000Z",
+        "oosReturn": 0.0028608456345241796,
+        "oosSharpe": 4.763316947588003,
+        "oosMaxDD": 0.000273003038393936,
+        "oosFundingDelta": 46.034999999999854
+      },
+      {
+        "foldIndex": 18,
+        "oosStartIso": "2025-12-28T00:00:00.000Z",
+        "oosEndIso": "2026-01-27T00:00:00.000Z",
+        "oosReturn": 0.002773861589245463,
+        "oosSharpe": 5.815099538444819,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 44.76299999999992
+      },
+      {
+        "foldIndex": 19,
+        "oosStartIso": "2026-01-27T00:00:00.000Z",
+        "oosEndIso": "2026-02-26T00:00:00.000Z",
+        "oosReturn": 0,
+        "oosSharpe": 0,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 0
+      },
+      {
+        "foldIndex": 20,
+        "oosStartIso": "2026-02-26T00:00:00.000Z",
+        "oosEndIso": "2026-03-28T00:00:00.000Z",
+        "oosReturn": -0.0026414835961056315,
+        "oosSharpe": -7.1243692684043705,
+        "oosMaxDD": 0.0026414835961056315,
+        "oosFundingDelta": -42.74499999999989
+      },
+      {
+        "foldIndex": 21,
+        "oosStartIso": "2026-03-28T00:00:00.000Z",
+        "oosEndIso": "2026-04-27T00:00:00.000Z",
+        "oosReturn": 0.0057137018742089846,
+        "oosSharpe": 6.213533515515099,
+        "oosMaxDD": 0.0005641994088885507,
+        "oosFundingDelta": 92.21600000000035
+      },
+      {
+        "foldIndex": 22,
+        "oosStartIso": "2026-04-27T00:00:00.000Z",
+        "oosEndIso": "2026-05-27T00:00:00.000Z",
+        "oosReturn": 0.003154389891610067,
+        "oosSharpe": 5.040935870240525,
+        "oosMaxDD": 0.00009647247860026799,
+        "oosFundingDelta": 51.20100000000002
+      },
+      {
+        "foldIndex": 23,
+        "oosStartIso": "2026-05-27T00:00:00.000Z",
+        "oosEndIso": "2026-06-26T00:00:00.000Z",
+        "oosReturn": 0,
+        "oosSharpe": 0,
+        "oosMaxDD": 0,
+        "oosFundingDelta": 0
+      }
+    ],
+    "withVsWithout": [
+      {
+        "foldIndex": 0,
+        "withKS_oosSharpe": 0,
+        "withoutKS_oosSharpe": 0,
+        "deltaSharpe": 0
+      },
+      {
+        "foldIndex": 1,
+        "withKS_oosSharpe": 0,
+        "withoutKS_oosSharpe": 3.5477044545102276,
+        "deltaSharpe": -3.5477044545102276
+      },
+      {
+        "foldIndex": 2,
+        "withKS_oosSharpe": 10.841136010622966,
+        "withoutKS_oosSharpe": 11.318335442176304,
+        "deltaSharpe": -0.47719943155333766
+      },
+      {
+        "foldIndex": 3,
+        "withKS_oosSharpe": 3.5477044545102276,
+        "withoutKS_oosSharpe": 3.5477044545102308,
+        "deltaSharpe": -3.1086244689504383e-15
+      },
+      {
+        "foldIndex": 4,
+        "withKS_oosSharpe": 21.033317111399047,
+        "withoutKS_oosSharpe": 21.07661600455473,
+        "deltaSharpe": -0.043298893155682805
+      },
+      {
+        "foldIndex": 5,
+        "withKS_oosSharpe": 8.535253070290267,
+        "withoutKS_oosSharpe": 8.536137999266176,
+        "deltaSharpe": -0.0008849289759087497
+      },
+      {
+        "foldIndex": 6,
+        "withKS_oosSharpe": -3.5477044545102276,
+        "withoutKS_oosSharpe": 0.15437496504441287,
+        "deltaSharpe": -3.7020794195546407
+      },
+      {
+        "foldIndex": 7,
+        "withKS_oosSharpe": 3.1788226121191734,
+        "withoutKS_oosSharpe": 5.28421407703879,
+        "deltaSharpe": -2.1053914649196166
+      },
+      {
+        "foldIndex": 8,
+        "withKS_oosSharpe": 2.3454852762445046,
+        "withoutKS_oosSharpe": 7.463011162592319,
+        "deltaSharpe": -5.117525886347814
+      },
+      {
+        "foldIndex": 9,
+        "withKS_oosSharpe": 4.884375189378513,
+        "withoutKS_oosSharpe": 2.3528459706519014,
+        "deltaSharpe": 2.531529218726612
+      },
+      {
+        "foldIndex": 10,
+        "withKS_oosSharpe": 10.767740572216391,
+        "withoutKS_oosSharpe": 10.512037641695443,
+        "deltaSharpe": 0.2557029305209486
+      },
+      {
+        "foldIndex": 11,
+        "withKS_oosSharpe": 4.76894385375083,
+        "withoutKS_oosSharpe": 6.259745861223725,
+        "deltaSharpe": -1.4908020074728947
+      },
+      {
+        "foldIndex": 12,
+        "withKS_oosSharpe": 15.76825484396679,
+        "withoutKS_oosSharpe": 13.921109836157038,
+        "deltaSharpe": 1.8471450078097522
+      },
+      {
+        "foldIndex": 13,
+        "withKS_oosSharpe": 5.026122037490684,
+        "withoutKS_oosSharpe": 5.0261788781983165,
+        "deltaSharpe": -0.000056840707632233034
+      },
+      {
+        "foldIndex": 14,
+        "withKS_oosSharpe": 0,
+        "withoutKS_oosSharpe": 0,
+        "deltaSharpe": 0
+      },
+      {
+        "foldIndex": 15,
+        "withKS_oosSharpe": 4.078709847587693,
+        "withoutKS_oosSharpe": 3.9733185572899132,
+        "deltaSharpe": 0.10539129029778005
+      },
+      {
+        "foldIndex": 16,
+        "withKS_oosSharpe": -0.9884409266203587,
+        "withoutKS_oosSharpe": -0.9694277293570411,
+        "deltaSharpe": -0.019013197263317516
+      },
+      {
+        "foldIndex": 17,
+        "withKS_oosSharpe": 4.763316947588003,
+        "withoutKS_oosSharpe": 8.103576089950396,
+        "deltaSharpe": -3.3402591423623926
+      },
+      {
+        "foldIndex": 18,
+        "withKS_oosSharpe": 5.815099538444819,
+        "withoutKS_oosSharpe": 7.625342327775492,
+        "deltaSharpe": -1.8102427893306725
+      },
+      {
+        "foldIndex": 19,
+        "withKS_oosSharpe": 0,
+        "withoutKS_oosSharpe": -5.688628843231389,
+        "deltaSharpe": 5.688628843231389
+      },
+      {
+        "foldIndex": 20,
+        "withKS_oosSharpe": -7.1243692684043705,
+        "withoutKS_oosSharpe": -2.797886197175249,
+        "deltaSharpe": -4.326483071229122
+      },
+      {
+        "foldIndex": 21,
+        "withKS_oosSharpe": 6.213533515515099,
+        "withoutKS_oosSharpe": 6.695771700925805,
+        "deltaSharpe": -0.48223818541070607
+      },
+      {
+        "foldIndex": 22,
+        "withKS_oosSharpe": 5.040935870240525,
+        "withoutKS_oosSharpe": 5.661793469958869,
+        "deltaSharpe": -0.6208575997183434
+      },
+      {
+        "foldIndex": 23,
+        "withKS_oosSharpe": 0,
+        "withoutKS_oosSharpe": 6.8614778840382415,
+        "deltaSharpe": -6.8614778840382415
+      }
+    ],
+    "phase8ReferenceFolds": [
+      {
+        "foldIndex": 16,
+        "oosStart": "2025-10-29T00:00:00.000Z",
+        "oosEnd": "2025-11-28T00:00:00.000Z",
+        "withKillSwitch": -0.9884409266203587,
+        "withoutKillSwitch": -0.9694277293570411,
+        "deltaSharpe": -0.019013197263317516
+      },
+      {
+        "foldIndex": 19,
+        "oosStart": "2026-01-27T00:00:00.000Z",
+        "oosEnd": "2026-02-26T00:00:00.000Z",
+        "withKillSwitch": 0,
+        "withoutKillSwitch": -5.688628843231389,
+        "deltaSharpe": 5.688628843231389
+      },
+      {
+        "foldIndex": 20,
+        "oosStart": "2026-02-26T00:00:00.000Z",
+        "oosEnd": "2026-03-28T00:00:00.000Z",
+        "withKillSwitch": -7.1243692684043705,
+        "withoutKillSwitch": -2.797886197175249,
+        "deltaSharpe": -4.326483071229122
+      }
+    ]
+  },
+  "equityCurveSampled": [
+    {
+      "timestamp": 1704067200000,
+      "equity": 10000,
+      "fundingAccruedUsd": 0,
+      "markPrice": 109.91,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1704672000000,
+      "equity": 10000,
+      "fundingAccruedUsd": 0,
+      "markPrice": 97.88,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1705276800000,
+      "equity": 10000,
+      "fundingAccruedUsd": 0,
+      "markPrice": 94.36,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1705881600000,
+      "equity": 10000,
+      "fundingAccruedUsd": 0,
+      "markPrice": 83.84,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1706486400000,
+      "equity": 10000,
+      "fundingAccruedUsd": 0,
+      "markPrice": 101.68,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1707091200000,
+      "equity": 10000,
+      "fundingAccruedUsd": 0,
+      "markPrice": 95.66,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1707696000000,
+      "equity": 10000,
+      "fundingAccruedUsd": 0,
+      "markPrice": 111.64,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1708300800000,
+      "equity": 10354.681,
+      "fundingAccruedUsd": 354.681,
+      "markPrice": 111.53,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1708905600000,
+      "equity": 10969.728,
+      "fundingAccruedUsd": 969.728,
+      "markPrice": 109.9,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1709510400000,
+      "equity": 12003.235,
+      "fundingAccruedUsd": 2003.235,
+      "markPrice": 133.27,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1710115200000,
+      "equity": 12059.621,
+      "fundingAccruedUsd": 2059.6209999999996,
+      "markPrice": 148.83,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1710720000000,
+      "equity": 12378.733,
+      "fundingAccruedUsd": 2378.7329999999993,
+      "markPrice": 195.92,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1711324800000,
+      "equity": 12378.733,
+      "fundingAccruedUsd": 2378.7329999999993,
+      "markPrice": 188.99,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1711929600000,
+      "equity": 12378.733,
+      "fundingAccruedUsd": 2378.7329999999993,
+      "markPrice": 192.24,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1712534400000,
+      "equity": 12454.489,
+      "fundingAccruedUsd": 2454.4889999999996,
+      "markPrice": 180.68,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1713139200000,
+      "equity": 12454.489,
+      "fundingAccruedUsd": 2454.4889999999996,
+      "markPrice": 138.51,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1713744000000,
+      "equity": 12454.489,
+      "fundingAccruedUsd": 2454.4889999999996,
+      "markPrice": 156.95,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1714348800000,
+      "equity": 12454.489,
+      "fundingAccruedUsd": 2454.4889999999996,
+      "markPrice": 137.77,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1714953600000,
+      "equity": 12454.489,
+      "fundingAccruedUsd": 2454.4889999999996,
+      "markPrice": 152.82,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1715558400000,
+      "equity": 12454.489,
+      "fundingAccruedUsd": 2454.4889999999996,
+      "markPrice": 147.54,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1716163200000,
+      "equity": 12485.3,
+      "fundingAccruedUsd": 2485.2999999999993,
+      "markPrice": 186.7,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1716768000000,
+      "equity": 12692.062,
+      "fundingAccruedUsd": 2692.0619999999994,
+      "markPrice": 170.15,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1717372800000,
+      "equity": 12936.116,
+      "fundingAccruedUsd": 2936.116,
+      "markPrice": 164.89,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1717977600000,
+      "equity": 13240.778,
+      "fundingAccruedUsd": 3240.7780000000002,
+      "markPrice": 159.05,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1718582400000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 143.27,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1719187200000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 132.33,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1719792000000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 146.67,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1720396800000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 139.81,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1721001600000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 159.38,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1721606400000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 178.9,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1722211200000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 182.57,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1722816000000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 129.78,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1723420800000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 146.29,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1724025600000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 144.29,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1724630400000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 157.12,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1725235200000,
+      "equity": 13369.055,
+      "fundingAccruedUsd": 3369.0550000000003,
+      "markPrice": 134.94,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1725840000000,
+      "equity": 13373.021,
+      "fundingAccruedUsd": 3373.021,
+      "markPrice": 135.08,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1726444800000,
+      "equity": 13367.457,
+      "fundingAccruedUsd": 3367.4570000000003,
+      "markPrice": 131.47,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1727049600000,
+      "equity": 13440.894,
+      "fundingAccruedUsd": 3440.8940000000002,
+      "markPrice": 144.79,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1727654400000,
+      "equity": 13510.565,
+      "fundingAccruedUsd": 3510.565,
+      "markPrice": 152.49,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1728259200000,
+      "equity": 13585.378,
+      "fundingAccruedUsd": 3585.378,
+      "markPrice": 143.96,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1728864000000,
+      "equity": 13585.378,
+      "fundingAccruedUsd": 3585.378,
+      "markPrice": 157.59,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1729468800000,
+      "equity": 13585.378,
+      "fundingAccruedUsd": 3585.378,
+      "markPrice": 166.17,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1730073600000,
+      "equity": 13585.378,
+      "fundingAccruedUsd": 3585.378,
+      "markPrice": 178.29,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1730678400000,
+      "equity": 13585.378,
+      "fundingAccruedUsd": 3585.378,
+      "markPrice": 157.95,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1731283200000,
+      "equity": 13627.353,
+      "fundingAccruedUsd": 3627.353,
+      "markPrice": 222.13,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1731888000000,
+      "equity": 14132.625,
+      "fundingAccruedUsd": 4132.625000000001,
+      "markPrice": 239.79,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1732492800000,
+      "equity": 14524.265000000001,
+      "fundingAccruedUsd": 4524.265000000001,
+      "markPrice": 234.18,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1733097600000,
+      "equity": 14747.819,
+      "fundingAccruedUsd": 4747.819,
+      "markPrice": 225.72,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1733702400000,
+      "equity": 15430.969000000001,
+      "fundingAccruedUsd": 5430.969,
+      "markPrice": 216.63,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1734307200000,
+      "equity": 15430.969000000001,
+      "fundingAccruedUsd": 5430.969,
+      "markPrice": 216.19,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1734912000000,
+      "equity": 15430.969000000001,
+      "fundingAccruedUsd": 5430.969,
+      "markPrice": 190.11,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1735516800000,
+      "equity": 15430.969000000001,
+      "fundingAccruedUsd": 5430.969,
+      "markPrice": 191.38,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1736121600000,
+      "equity": 15430.969000000001,
+      "fundingAccruedUsd": 5430.969,
+      "markPrice": 218.22,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1736726400000,
+      "equity": 15430.969000000001,
+      "fundingAccruedUsd": 5430.969,
+      "markPrice": 182.87,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1737331200000,
+      "equity": 15430.969000000001,
+      "fundingAccruedUsd": 5430.969,
+      "markPrice": 242.19,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1737936000000,
+      "equity": 15427.961,
+      "fundingAccruedUsd": 5427.961,
+      "markPrice": 234.89,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1738540800000,
+      "equity": 15427.961,
+      "fundingAccruedUsd": 5427.961,
+      "markPrice": 216.28,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1739145600000,
+      "equity": 15427.961,
+      "fundingAccruedUsd": 5427.961,
+      "markPrice": 200.47,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1739750400000,
+      "equity": 15428.376,
+      "fundingAccruedUsd": 5428.376,
+      "markPrice": 177.53,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1740355200000,
+      "equity": 15434.614000000001,
+      "fundingAccruedUsd": 5434.6140000000005,
+      "markPrice": 141.81,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1740960000000,
+      "equity": 15434.614000000001,
+      "fundingAccruedUsd": 5434.6140000000005,
+      "markPrice": 142.16,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1741564800000,
+      "equity": 15430.722000000002,
+      "fundingAccruedUsd": 5430.722000000001,
+      "markPrice": 118.32,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1742169600000,
+      "equity": 15430.722000000002,
+      "fundingAccruedUsd": 5430.722000000001,
+      "markPrice": 128.01,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1742774400000,
+      "equity": 15430.722000000002,
+      "fundingAccruedUsd": 5430.722000000001,
+      "markPrice": 141.01,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1743379200000,
+      "equity": 15445.038,
+      "fundingAccruedUsd": 5445.038000000001,
+      "markPrice": 124.54,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1743984000000,
+      "equity": 15445.038,
+      "fundingAccruedUsd": 5445.038000000001,
+      "markPrice": 106.99,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1744588800000,
+      "equity": 15479.612000000001,
+      "fundingAccruedUsd": 5479.612000000001,
+      "markPrice": 129.42,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1745193600000,
+      "equity": 15475.655,
+      "fundingAccruedUsd": 5475.655000000001,
+      "markPrice": 136.56,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1745798400000,
+      "equity": 15484.907,
+      "fundingAccruedUsd": 5484.907,
+      "markPrice": 147.84,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1746403200000,
+      "equity": 15484.907,
+      "fundingAccruedUsd": 5484.907,
+      "markPrice": 146.72,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1747008000000,
+      "equity": 15587.953000000001,
+      "fundingAccruedUsd": 5587.953000000001,
+      "markPrice": 174.22,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1747612800000,
+      "equity": 15650.283000000003,
+      "fundingAccruedUsd": 5650.283000000003,
+      "markPrice": 166.86,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1748217600000,
+      "equity": 15658.048000000003,
+      "fundingAccruedUsd": 5658.048000000003,
+      "markPrice": 174.91,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1748822400000,
+      "equity": 15665.286000000004,
+      "fundingAccruedUsd": 5665.286000000004,
+      "markPrice": 156.83,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1749427200000,
+      "equity": 15665.286000000004,
+      "fundingAccruedUsd": 5665.286000000004,
+      "markPrice": 161.16,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1750032000000,
+      "equity": 15667.445000000003,
+      "fundingAccruedUsd": 5667.445000000003,
+      "markPrice": 150.72,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1750636800000,
+      "equity": 15677.609000000004,
+      "fundingAccruedUsd": 5677.609000000003,
+      "markPrice": 144.51,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1751241600000,
+      "equity": 15675.596000000003,
+      "fundingAccruedUsd": 5675.596000000003,
+      "markPrice": 154.81,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1751846400000,
+      "equity": 15683.572000000004,
+      "fundingAccruedUsd": 5683.572000000003,
+      "markPrice": 148.88,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1752451200000,
+      "equity": 15717.621000000003,
+      "fundingAccruedUsd": 5717.621000000004,
+      "markPrice": 162.21,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1753056000000,
+      "equity": 15875.018000000004,
+      "fundingAccruedUsd": 5875.018000000004,
+      "markPrice": 195.72,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1753660800000,
+      "equity": 16014.020000000004,
+      "fundingAccruedUsd": 6014.020000000003,
+      "markPrice": 183.11,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1754265600000,
+      "equity": 16014.020000000004,
+      "fundingAccruedUsd": 6014.020000000003,
+      "markPrice": 169.55,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1754870400000,
+      "equity": 16014.020000000004,
+      "fundingAccruedUsd": 6014.020000000003,
+      "markPrice": 174.84,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1755475200000,
+      "equity": 16048.044000000004,
+      "fundingAccruedUsd": 6048.0440000000035,
+      "markPrice": 182.94,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1756080000000,
+      "equity": 16048.044000000004,
+      "fundingAccruedUsd": 6048.0440000000035,
+      "markPrice": 187.2,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1756684800000,
+      "equity": 16048.044000000004,
+      "fundingAccruedUsd": 6048.0440000000035,
+      "markPrice": 197.32,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1757289600000,
+      "equity": 16048.044000000004,
+      "fundingAccruedUsd": 6048.0440000000035,
+      "markPrice": 214.11,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1757894400000,
+      "equity": 16048.044000000004,
+      "fundingAccruedUsd": 6048.0440000000035,
+      "markPrice": 234.31,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1758499200000,
+      "equity": 16048.044000000004,
+      "fundingAccruedUsd": 6048.0440000000035,
+      "markPrice": 220.38,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1759104000000,
+      "equity": 16048.044000000004,
+      "fundingAccruedUsd": 6048.0440000000035,
+      "markPrice": 212.75,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1759708800000,
+      "equity": 16048.044000000004,
+      "fundingAccruedUsd": 6048.0440000000035,
+      "markPrice": 232.35,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1760313600000,
+      "equity": 16057.808000000005,
+      "fundingAccruedUsd": 6057.808000000004,
+      "markPrice": 208.69,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1760918400000,
+      "equity": 16059.370000000004,
+      "fundingAccruedUsd": 6059.370000000004,
+      "markPrice": 189.71,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1761523200000,
+      "equity": 16073.560000000003,
+      "fundingAccruedUsd": 6073.560000000003,
+      "markPrice": 198.7,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1762128000000,
+      "equity": 16084.120000000003,
+      "fundingAccruedUsd": 6084.1200000000035,
+      "markPrice": 166.06,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1762732800000,
+      "equity": 16072.812000000004,
+      "fundingAccruedUsd": 6072.8120000000035,
+      "markPrice": 167.31,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1763337600000,
+      "equity": 16071.488000000005,
+      "fundingAccruedUsd": 6071.488000000004,
+      "markPrice": 130.99,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1763942400000,
+      "equity": 16091.396000000004,
+      "fundingAccruedUsd": 6091.396000000004,
+      "markPrice": 138.44,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1764547200000,
+      "equity": 16091.396000000004,
+      "fundingAccruedUsd": 6091.396000000004,
+      "markPrice": 126.66,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1765152000000,
+      "equity": 16091.396000000004,
+      "fundingAccruedUsd": 6091.396000000004,
+      "markPrice": 133.25,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1765756800000,
+      "equity": 16087.003000000004,
+      "fundingAccruedUsd": 6087.003000000004,
+      "markPrice": 127.81,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1766361600000,
+      "equity": 16137.431000000004,
+      "fundingAccruedUsd": 6137.431000000004,
+      "markPrice": 125.93,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1766966400000,
+      "equity": 16137.431000000004,
+      "fundingAccruedUsd": 6137.431000000004,
+      "markPrice": 123.28,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1767571200000,
+      "equity": 16178.721000000005,
+      "fundingAccruedUsd": 6178.721000000004,
+      "markPrice": 137.9,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1768176000000,
+      "equity": 16182.194000000003,
+      "fundingAccruedUsd": 6182.194000000004,
+      "markPrice": 139.22,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1768780800000,
+      "equity": 16182.194000000003,
+      "fundingAccruedUsd": 6182.194000000004,
+      "markPrice": 133.44,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1769385600000,
+      "equity": 16182.194000000003,
+      "fundingAccruedUsd": 6182.194000000004,
+      "markPrice": 124.24,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1769990400000,
+      "equity": 16182.194000000003,
+      "fundingAccruedUsd": 6182.194000000004,
+      "markPrice": 104.55,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1770595200000,
+      "equity": 16182.194000000003,
+      "fundingAccruedUsd": 6182.194000000004,
+      "markPrice": 86.77,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1771200000000,
+      "equity": 16182.194000000003,
+      "fundingAccruedUsd": 6182.194000000004,
+      "markPrice": 86.45,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1771804800000,
+      "equity": 16182.194000000003,
+      "fundingAccruedUsd": 6182.194000000004,
+      "markPrice": 77.9,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1772409600000,
+      "equity": 16182.194000000003,
+      "fundingAccruedUsd": 6182.194000000004,
+      "markPrice": 86.64,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1773014400000,
+      "equity": 16165.678000000004,
+      "fundingAccruedUsd": 6165.678000000004,
+      "markPrice": 84.96,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1773619200000,
+      "equity": 16161.014000000005,
+      "fundingAccruedUsd": 6161.014000000005,
+      "markPrice": 96.2,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1774224000000,
+      "equity": 16147.718000000004,
+      "fundingAccruedUsd": 6147.718000000004,
+      "markPrice": 91.43,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1774828800000,
+      "equity": 16139.449000000004,
+      "fundingAccruedUsd": 6139.449000000004,
+      "markPrice": 82.54,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1775433600000,
+      "equity": 16139.449000000004,
+      "fundingAccruedUsd": 6139.449000000004,
+      "markPrice": 80.03,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1776038400000,
+      "equity": 16139.449000000004,
+      "fundingAccruedUsd": 6139.449000000004,
+      "markPrice": 86.51,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1776643200000,
+      "equity": 16193.026000000005,
+      "fundingAccruedUsd": 6193.026000000004,
+      "markPrice": 85.28,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1777248000000,
+      "equity": 16231.665000000005,
+      "fundingAccruedUsd": 6231.6650000000045,
+      "markPrice": 84.82,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1777852800000,
+      "equity": 16231.665000000005,
+      "fundingAccruedUsd": 6231.6650000000045,
+      "markPrice": 84.1,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1778457600000,
+      "equity": 16284.437000000005,
+      "fundingAccruedUsd": 6284.437000000004,
+      "markPrice": 97.37,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1779062400000,
+      "equity": 16284.437000000005,
+      "fundingAccruedUsd": 6284.437000000004,
+      "markPrice": 85.38,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1779667200000,
+      "equity": 16282.866000000005,
+      "fundingAccruedUsd": 6282.8660000000045,
+      "markPrice": 85.06,
+      "inCarry": false,
+      "killSwitchEngaged": false
+    },
+    {
+      "timestamp": 1780272000000,
+      "equity": 16282.866000000005,
+      "fundingAccruedUsd": 6282.8660000000045,
+      "markPrice": 81.28,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1780876800000,
+      "equity": 16282.866000000005,
+      "fundingAccruedUsd": 6282.8660000000045,
+      "markPrice": 66.82,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1781481600000,
+      "equity": 16282.866000000005,
+      "fundingAccruedUsd": 6282.8660000000045,
+      "markPrice": 73.98,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1782086400000,
+      "equity": 16282.866000000005,
+      "fundingAccruedUsd": 6282.8660000000045,
+      "markPrice": 71.95,
+      "inCarry": false,
+      "killSwitchEngaged": true
+    },
+    {
+      "timestamp": 1782691200000,
+      "equity": 16315.646000000004,
+      "fundingAccruedUsd": 6315.646000000004,
+      "markPrice": 75.16,
+      "inCarry": true,
+      "killSwitchEngaged": false
+    }
+  ]
+}

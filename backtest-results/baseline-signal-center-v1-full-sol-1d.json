@@ -1,0 +1,164 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-05T08:57:14.983Z",
+    "phase": 11,
+    "milestone": "1e",
+    "track": "Track-C-signal-center-v1-full-composition",
+    "symbol": "SOL/USDT",
+    "ltfTimeframe": "1d",
+    "timeframe": "1d",
+    "initialEquityUsd": 10000,
+    "pluginCount": 4,
+    "activePluginCount": 1,
+    "modifierCount": 3,
+    "plugins": [
+      "carry-baseline",
+      "sol-flip-kill-switch",
+      "vol-target-sizing",
+      "hybrid-kelly-v1"
+    ],
+    "composition": "SignalCenterV1 + CarryBaselinePlugin + DirectionalMTFPlugin + SOLFlipKillSwitchPlugin + VolTargetSizingPlugin + HybridKellyPlugin",
+    "perSymbolDisclosure": {
+      "BTC": null,
+      "ETH": null,
+      "SOL": "CarryBaselinePlugin + SOLFlipKillSwitchPlugin + VolTargetSizingPlugin + HybridKellyPlugin (1 active + 3 modifiers; carry $10k full base)"
+    }
+  },
+  "config": {
+    "leverage": 10,
+    "baseNotionalUsd": 10000,
+    "effectiveNotionalUsd": 100000,
+    "perPluginBaseNotional": 10000,
+    "carryPluginConfig": {
+      "windowDays": 30,
+      "entryPercentile": 0.75,
+      "exitPercentile": 0.5,
+      "cooldownHours": 72
+    },
+    "directionalPluginConfig": {
+      "donchianPeriod": 20,
+      "stopAtrMultiplier": 1.5,
+      "tpAtrMultiplier": 3,
+      "atrPeriod": 14,
+      "maxHoldBars": 168,
+      "supertrendPeriod": 10,
+      "supertrendMultiplier": 3,
+      "mtfAggregationFactor": 4,
+      "htfAggregationFactor": 24,
+      "pricePrecision": 2
+    },
+    "sfkPluginConfig": {
+      "enabledSymbols": [
+        "SOL/USDT"
+      ],
+      "signFlipWindowDays": 7,
+      "extremeSigmaThreshold": 1.5,
+      "persistenceDays": 5,
+      "volWindowDays": 30
+    },
+    "volPluginConfig": {
+      "enabledSymbols": [
+        "SOL/USDT"
+      ],
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25
+    },
+    "hybridKellyPluginConfig": {
+      "enabledSymbols": [
+        "SOL/USDT"
+      ],
+      "kellyCap": 1,
+      "maxVolMultiplier": 1,
+      "minVolMultiplier": 0.25,
+      "targetDailyVol": 0.02,
+      "volWindowDays": 30,
+      "fundingSharpeWindowDays": 30
+    }
+  },
+  "hardConstraint": {
+    "leverage": 10,
+    "leverageRatio": "1:10",
+    "effectiveNotionalUsd": 100000,
+    "maxAllowedLeverage": 10,
+    "mandateSource": "user-steer mvs_c13fe65cb68f4df3851304dea09a9099",
+    "mandateText": "ALL trades MUST use EXACTLY 1:10 leverage. No more, no less."
+  },
+  "signalCenter": {
+    "composition": "SignalBus + StrategyRegistry + PortfolioRiskEngine + StrategyTelemetry + VolTarget (per-bar calc) + HybridKelly (per-bar calc)",
+    "pluginsEnabled": [
+      "carry-baseline",
+      "sol-flip-kill-switch",
+      "vol-target-sizing",
+      "hybrid-kelly-v1"
+    ],
+    "compositionRoot": "SignalCenterV1 (packages/core/src/signal-center/signal-center-v1.ts)",
+    "busEmissions": 4098,
+    "signalsSubmitted": 1355,
+    "barsProcessed": 915
+  },
+  "threeLayerDefense": {
+    "layer1": "constructor refuses maxLeverage > 10 (PASS — config validation across all 5 plugins)",
+    "layer2": "start() runs assertLeverageInvariant on initial risk-engine notional state",
+    "layer3": "per-bar leverageInvariantGuard at SCv1 portfolio level: 0 breach(es) detected (must be 0)",
+    "pluginLayer2": "SOLFlipKillSwitchPlugin._emitRiskSignal calls assertLeverageInvariant on every emit (404 assertions fired)",
+    "volModifierDefense": "VolTargetSizingPlugin recordClose + currentMultiplierForSymbol — multiplier bounded [0.25, 1], effective notional ≤ $100000 per bar. Max observed: $100000.",
+    "hybridKellyDefense": "HybridKellyPlugin recordClose + currentKellyBucketForSymbol — Kelly bucket ∈ [0.25, 1.0] (kellyCap=1), VolTarget owns vol-targeting so HybridKelly contributes Kelly bucket only."
+  },
+  "phase111Envelope": {
+    "monthlyReturnPct": 1.2482139136121173,
+    "annualizedReturnPct": 16.0376415350443,
+    "sharpeRatio": 5.2377456581849025,
+    "maxDrawdownPct": 0.003287140920265793,
+    "dailyVaR95Pct": 0,
+    "finalEquityUsd": 14527.226404140592,
+    "liquidations": 0,
+    "totalReturnPct": 45.272264041405926,
+    "combinedAvgMultiplier": 0.32339506058071177,
+    "composition": "4 plugins (1 active + 3 modifiers)"
+  },
+  "perStrategyAttribution": {
+    "carry": {
+      "fundingCollectedUsd": 9850.666999999994,
+      "combinedScaledFundingUsd": 3185.657051225416,
+      "monthlyReturnPct": 0.9228555556500151,
+      "attributionNote": "Carry P&L accrues at 8h funding boundaries. VolTarget + HybridKelly (combined multiplier) further scale per-bar deltas."
+    },
+    "directional": null,
+    "defensiveKillSwitch": {
+      "killSwitchEngagedPct": 20.437158469945356,
+      "regimeActivations": 17,
+      "breachSignalsEmitted": 387,
+      "layer2Assertions": 404,
+      "attributionNote": "Defensive plugin emits RiskSignals ONLY (no SizingSignals)."
+    },
+    "defensiveVolTarget": {
+      "avgVolMultiplier": 0.5210493711581853,
+      "minVolMultiplier": 0.25179494371119177,
+      "maxVolMultiplier": 1,
+      "attributionNote": "Moreira-Muir inverse-vol scaling. avg=0.521, min=0.252, max=1.000."
+    },
+    "defensiveHybridKelly": {
+      "avgKellyBucket": 0.6216939890710376,
+      "minKellyBucket": 0.25,
+      "maxKellyBucket": 1,
+      "avgFundingSharpe": 0.6525000293918788,
+      "attributionNote": "Funding-Sharpe Kelly bucket. avg=0.622, min=0.250, max=1.000, avgSharpe=0.653."
+    }
+  },
+  "crossPluginCorrelation": {
+    "pearsonCarryVsDirectional": 1
+  },
+  "portfolioRisk": {
+    "numLeverageBreaches": 0,
+    "aggregateLeverage": 2.5,
+    "note": "Aggregate leverage is across carry + directional SizingSignals routed through SCv1's risk engine. VolTarget + HybridKelly operate as per-bar calculators (not bus modifiers) — do NOT contribute additional notional to the risk engine's aggregate. 1:10 cap holds cleanly across all 5 plugins."
+  },
+  "totalMonths": 30.104240781044677,
+  "startTime": 1704067200000,
+  "endTime": 1783036800000,
+  "ohlcvCandleCount": 915,
+  "fundingSnapshotCount": 2745,
+  "elapsedMs": 53
+}

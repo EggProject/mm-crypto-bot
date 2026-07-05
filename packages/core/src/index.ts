@@ -286,6 +286,96 @@ export type {
   CarryBaselinePluginConfig,
   CarryBaselinePluginState,
 } from "./signal-center/plugins/carry-baseline-plugin.js";
+// Phase 11.1b — DirectionalMTFPlugin (Phase 8 F MTF drop-in, ETH default-on,
+// BTC opt-in, SOL not registered). Cherry-picked from feat/phase11-1b-directional-mtf
+// (commit b3ebf12) into feat/phase11-1d-sol-flip-kill-switch for Phase 11.1d Track C
+// composition runner (SCv1+MTF+SFK). Merge base is shared (8b24e0d), so the
+// cherry-pick is clean. Type alias DmCandle is intentionally re-exported
+// (same name as plugin-internal type).
+export {
+  ALLOWED_ENABLED_SYMBOLS,
+  DEFAULT_DIRECTIONAL_MTF_PLUGIN_CONFIG,
+  DEFAULT_ENABLED_SYMBOLS,
+  DirectionalMTFPlugin,
+  createDirectionalMTFPlugin,
+  extractDirectionSignal,
+} from "./signal-center/plugins/directional-mtf-plugin.js";
+export type {
+  DirectionalMTFPluginConfig,
+  DirectionalMTFPluginState,
+  DirectionalMTFSymbol,
+  DmCandle,
+} from "./signal-center/plugins/directional-mtf-plugin.js";
+// Phase 11.1d Track A — defensive drop-in plugin (SOL funding-flip kill-switch, Phase 9 9D port).
+// RiskSignals only (no SizingSignals); SOL enabled, BTC/ETH not registered.
+export {
+  DEFAULT_SOL_FLIP_KILL_SWITCH_PLUGIN_CONFIG,
+  SOLFlipKillSwitchPlugin,
+} from "./signal-center/plugins/sol-flip-kill-switch-plugin.js";
+export type {
+  SOLFlipKillSwitchPluginConfig,
+  SOLFlipKillSwitchPluginState,
+} from "./signal-center/plugins/sol-flip-kill-switch-plugin.js";
+// Phase 11.1c Track A — defensive drop-in plugin (vol-targeting sizer, Phase 8 G port).
+// SizingSignal modifier — intercepts upstream SizingSignals on the bus and rescales them
+// by the inverse of realized volatility vs. target daily vol. BTC/ETH/SOL all enabled.
+// NOTE: `DEFAULT_ENABLED_SYMBOLS` is intentionally NOT re-exported here — `DirectionalMTFPlugin`
+// already exports it (as `readonly DirectionalMTFSymbol[]`), and re-exporting both with the
+// same identifier would cause TS2300 (Duplicate identifier) in any package that consumes
+// `@mm-crypto-bot/core` (e.g., `@mm-crypto-bot/backtest`, `@mm-crypto-bot/backtest-tools`).
+// Consumers that need the plugin's own default list can import from
+// `@mm-crypto-bot/core/signal-center/plugins/vol-target-sizing-plugin.js` directly.
+// Brought forward from feat/phase11-1c-vol-target-sizing for Phase 11.1e Track C
+// (SCv1-full composition with all 5 plugins).
+export {
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_VOL_TARGET_BASE_NOTIONAL_USD,
+  DEFAULT_MAX_VOL_MULTIPLIER as DEFAULT_VOL_TARGET_MAX_VOL_MULTIPLIER,
+  DEFAULT_MIN_VOL_MULTIPLIER as DEFAULT_VOL_TARGET_MIN_VOL_MULTIPLIER,
+  DEFAULT_TARGET_DAILY_VOL as DEFAULT_VOL_TARGET_DAILY_VOL,
+  DEFAULT_VOL_WINDOW_DAYS as DEFAULT_VOL_TARGET_VOL_WINDOW_DAYS,
+  MAX_MIN_VOL_MULTIPLIER as VOL_TARGET_MAX_MIN_VOL_MULTIPLIER,
+  MAX_TARGET_DAILY_VOL as VOL_TARGET_MAX_TARGET_DAILY_VOL,
+  MAX_VOL_WINDOW_DAYS as VOL_TARGET_MAX_VOL_WINDOW_DAYS,
+  MIN_MIN_VOL_MULTIPLIER as VOL_TARGET_MIN_MIN_VOL_MULTIPLIER,
+  MIN_TARGET_DAILY_VOL as VOL_TARGET_MIN_TARGET_DAILY_VOL,
+  MIN_VOL_WINDOW_DAYS as VOL_TARGET_MIN_VOL_WINDOW_DAYS,
+  VolTargetSizingPlugin,
+  createVolTargetSizingPlugin,
+  extractSizingSignal as extractVolTargetSizingSignal,
+} from "./signal-center/plugins/vol-target-sizing-plugin.js";
+export type {
+  VolTargetSizingConfig,
+  VolTargetSizingPluginState,
+} from "./signal-center/plugins/vol-target-sizing-plugin.js";
+// Phase 11.1e Track A — carry-side adaptive sizing (Phase 9 9E port: Adaptive Kelly × VolTarget hybrid).
+// FOURTH and FINAL Phase 11+ drop-in. Wraps funding-Sharpe-based Kelly bucket
+// (0.25 / 0.5 / 0.7 / 1.0) × Moreira-Muir vol multiplier (clamped to [0.25, 1.0]).
+// Per-symbol: BTC/USDT, ETH/USDT, SOL/USDT all default-on.
+export {
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_HYBRID_KELLY_BASE_NOTIONAL_USD,
+  DEFAULT_ENABLED_SYMBOLS as DEFAULT_HYBRID_KELLY_ENABLED_SYMBOLS,
+  DEFAULT_FUNDING_SHARPE_WINDOW_DAYS,
+  DEFAULT_KELLY_CAP,
+  DEFAULT_MAX_VOL_MULTIPLIER,
+  DEFAULT_MIN_VOL_MULTIPLIER,
+  DEFAULT_TARGET_DAILY_VOL as DEFAULT_HYBRID_KELLY_TARGET_DAILY_VOL,
+  DEFAULT_VOL_WINDOW_DAYS as DEFAULT_HYBRID_KELLY_VOL_WINDOW_DAYS,
+  HybridKellyPlugin,
+  MAX_FUNDING_SHARPE_WINDOW_DAYS,
+  MAX_TARGET_DAILY_VOL as MAX_HYBRID_KELLY_TARGET_DAILY_VOL,
+  MAX_VOL_WINDOW_DAYS as MAX_HYBRID_KELLY_VOL_WINDOW_DAYS,
+  MIN_FUNDING_SHARPE_WINDOW_DAYS,
+  MIN_TARGET_DAILY_VOL as MIN_HYBRID_KELLY_TARGET_DAILY_VOL,
+  MIN_VOL_WINDOW_DAYS as MIN_HYBRID_KELLY_VOL_WINDOW_DAYS,
+  ONE_TO_TEN_LEVERAGE as HYBRID_KELLY_ONE_TO_TEN_LEVERAGE,
+  createHybridKellyPlugin,
+  extractSizingSignal as extractHybridKellySizingSignal,
+  inferSymbol as inferHybridKellySymbol,
+} from "./signal-center/plugins/hybrid-kelly-plugin.js";
+export type {
+  HybridKellyConfig,
+  HybridKellyPluginState,
+} from "./signal-center/plugins/hybrid-kelly-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,

@@ -168,6 +168,18 @@ export interface SizingSignal {
  *  - `drawdownLimit` — max allowed drawdown as fraction (e.g., 0.10 =
  *    10%). Subscribers must kill-switch when realized DD exceeds this.
  *  - `source` — emitting plugin name.
+ *  - `breach` (OPTIONAL, Phase 11.1d+) — `true` when the RiskSignal
+ *    represents an active breach / kill-switch condition. When
+ *    `true`, subscribers should reduce or close the corresponding
+ *    position. Default: `false` (telemetry only).
+ *  - `reason` (OPTIONAL, Phase 11.1d+) — human-readable cause of the
+ *    risk event (e.g., "funding-flip", "extreme-regime",
+ *    "leverage-breach"). Default: source name.
+ *  - `closeNotionalUsd` (OPTIONAL, Phase 11.1d+) — implied close
+ *    instruction in USD. When present, downstream consumers should
+ *    reduce exposure by this amount. The plugin emitting this
+ *    field is responsible for asserting it respects the 1:10
+ *    leverage MANDATE (Layer 2 defense).
  */
 export interface RiskSignal {
   readonly kind: "risk";
@@ -176,6 +188,12 @@ export interface RiskSignal {
   readonly drawdownLimit: number;
   readonly source: string;
   readonly timestampMs?: number;
+  /** Phase 11.1d+ — active breach flag. */
+  readonly breach?: boolean;
+  /** Phase 11.1d+ — human-readable cause (e.g., "funding-flip"). */
+  readonly reason?: string;
+  /** Phase 11.1d+ — implied close instruction (USD, respects 1:10 cap). */
+  readonly closeNotionalUsd?: number;
 }
 
 // ---------------------------------------------------------------------------
