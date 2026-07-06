@@ -46,6 +46,16 @@ import type { Strategy, StrategyContext, StrategySignal } from "../types.js";
  * `PivotPointGridConfig` — configuration for the Pivot Point Grid
  * strategy. The three multipliers are applied to (H - L) of the
  * previous HTF candle to construct the S1/S2/S3 and R1/R2/R3 bands.
+ *
+ * `maxPositionPctEquity` is the Phase 16 productionization cap. Pivot
+ * Grid's mean-reversion entries stack across successive S/R levels; at
+ * the engine's default `positionSize.maxPositionPctEquity = 0.20` the
+ * strategy can compound winners beyond realistic capital caps. We
+ * scale the emitted signal's `confidence` by
+ * `min(1.0, maxPositionPctEquity / engineMaxPositionPctEquity)` so
+ * the engine-side `positionSize.maxPositionPctEquity` constraint is
+ * enforced. Default `0.04` matches the project's productionization
+ * envelope target (~+20-50%/mo with 4% per-trade equity cap).
  */
 export interface PivotPointGridConfig {
   /** Fibonacci 1 multiplier — inner band multiplier (default 0.382). */
@@ -54,18 +64,43 @@ export interface PivotPointGridConfig {
   readonly multiplierFib2: number;
   /** Fibonacci 3 multiplier — extreme band multiplier (default 1.000). */
   readonly multiplierFib3: number;
+  /**
+   * Per-trade equity cap (Phase 16 productionization). The emitted
+   * signal's `confidence` is scaled by `cap / engineMaxPositionPctEquity`
+   * so the engine-side `positionSize.maxPositionPctEquity` constraint
+   * is enforced. Range: (0, 1.0]. Default `0.04`. Setting `1.0` keeps
+   * legacy (uncapped) behavior.
+   */
+  readonly maxPositionPctEquity: number;
 }
 
 /**
- * `DEFAULT_PIVOT_GRID_CONFIG` — classical Fibonacci pivot multipliers.
- * 0.382 / 0.618 / 1.000 are the most common pivot band ratios across
- * the practitioner literature (Bulkowski, Person, Cryptohopper).
+ * `DEFAULT_PIVOT_GRID_CONFIG` — classical Fibonacci pivot multipliers
+ * with the Phase 16 productionization cap.
+ *
+ * `maxPositionPctEquity: 0.04` — Phase 16 productionization envelope
+ * (4% per-trade equity cap, matches the board's "realistic +20-50%/mo"
+ * target under 1:10 leverage on bybit.eu SPOT).
  */
 export const DEFAULT_PIVOT_GRID_CONFIG: PivotPointGridConfig = {
   multiplierFib1: 0.382,
   multiplierFib2: 0.618,
   multiplierFib3: 1.000,
+  maxPositionPctEquity: 0.04,
 };
+
+/**
+ * `ENGINE_MAX_POSITION_PCT_EQUITY` — the engine-side default cap that
+ * `positionSize.maxPositionPctEquity` enforces. Pivot Grid's confidence
+ * scaling uses this as the denominator when computing the per-emit
+ * `capScale`. The engine's default cap (0.20) reflects the pre-Phase-16
+ * baseline; Phase 16 scales the strategy down to 0.04 (or any custom
+ * `maxPositionPctEquity`) so the engine's cap is honored.
+ *
+ * In future phases this may become a `ctx.engineConfig` field; for
+ * Phase 16 we use a hard-coded constant matching the engine's default.
+ */
+const ENGINE_MAX_POSITION_PCT_EQUITY = 0.2;
 
 /** HTF window length in milliseconds (one UTC day). */
 const HTF_MS = 86_400_000;
@@ -119,6 +154,12 @@ export class PivotPointGridStrategy implements Strategy {
    *   - `candleIndex` is below `warmup()` (engine warmup gate)
    *   - No committed previous HTF candle exists yet
    *   - The close is inside the inner bands (S1 < close < R1, middle zone)
+   *
+   * Phase 16 productionization: every emitted signal has its
+   * `confidence` field scaled by `capScale = min(1.0, maxPositionPctEquity
+   * / ENGINE_MAX_POSITION_PCT_EQUITY)`. This makes the strategy honor
+   * the configured per-trade equity cap while leaving the engine's
+   * position-sizing as the sole hard enforcement layer.
    */
   onCandle(ctx: StrategyContext): StrategySignal | null {
     const { candle, candleIndex, pricePrecision } = ctx;
@@ -190,52 +231,78 @@ export class PivotPointGridStrategy implements Strategy {
     const close = candle.close;
 
     // -----------------------------------------------------------------------
+    // Phase 16 productionization — scale confidence down to honor
+    // `config.maxPositionPctEquity`. We compute `capScale` ONCE per emit
+    // (the cap is config-level, not signal-level), then apply it to the
+    // raw confidence that each branch emits.
+    // -----------------------------------------------------------------------
+    const capScale = Math.min(
+      1.0,
+      this.config.maxPositionPctEquity / ENGINE_MAX_POSITION_PCT_EQUITY,
+    );
+
+    /**
+     * `applyCap` — scale a candidate signal's confidence by `capScale`.
+     * Keeps all other signal fields (side / reason / stopLoss / takeProfit)
+     * unchanged. The cap NEVER amplifies: when
+     * `maxPositionPctEquity >= ENGINE_MAX_POSITION_PCT_EQUITY`,
+     * `capScale = 1.0` and the signal is emitted unchanged (legacy mode).
+     */
+    const applyCap = (raw: StrategySignal): StrategySignal => {
+      if (capScale === 1.0) return raw;
+      return {
+        ...raw,
+        confidence: raw.confidence * capScale,
+      };
+    };
+
+    // -----------------------------------------------------------------------
     // Mean-reversion entry — check the deeper bands first so an exact tie
     // at S2 lands on the deep case (confidence 1.0) rather than S1 (0.7).
     // -----------------------------------------------------------------------
 
     // LONG — close at or below S2 (deep overshoot) → highest confidence.
     if (close <= S2) {
-      return {
+      return applyCap({
         side: "buy",
         confidence: 1.0,
         reason: `PivotGrid LONG (deep): close ${close.toFixed(2)} <= S2 ${S2.toFixed(2)}, PP=${PP.toFixed(2)}`,
         stopLoss: roundTo(S3, pricePrecision),
         takeProfit: roundTo(PP, pricePrecision),
-      };
+      });
     }
 
     // LONG — S2 < close <= S1 (shallow overshoot) → lower confidence.
     if (close <= S1) {
-      return {
+      return applyCap({
         side: "buy",
         confidence: 0.7,
         reason: `PivotGrid LONG: close ${close.toFixed(2)} <= S1 ${S1.toFixed(2)}, PP=${PP.toFixed(2)}`,
         stopLoss: roundTo(S2, pricePrecision),
         takeProfit: roundTo(PP, pricePrecision),
-      };
+      });
     }
 
     // SHORT — close at or above R2 (deep overbought) → highest confidence.
     if (close >= R2) {
-      return {
+      return applyCap({
         side: "sell",
         confidence: 1.0,
         reason: `PivotGrid SHORT (deep): close ${close.toFixed(2)} >= R2 ${R2.toFixed(2)}, PP=${PP.toFixed(2)}`,
         stopLoss: roundTo(R3, pricePrecision),
         takeProfit: roundTo(PP, pricePrecision),
-      };
+      });
     }
 
     // SHORT — R1 <= close < R2 (shallow overbought) → lower confidence.
     if (close >= R1) {
-      return {
+      return applyCap({
         side: "sell",
         confidence: 0.7,
         reason: `PivotGrid SHORT: close ${close.toFixed(2)} >= R1 ${R1.toFixed(2)}, PP=${PP.toFixed(2)}`,
         stopLoss: roundTo(R2, pricePrecision),
         takeProfit: roundTo(PP, pricePrecision),
-      };
+      });
     }
 
     // Middle zone — S1 < close < R1 — no signal.
