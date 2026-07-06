@@ -57,9 +57,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bun-test-reports
-          path: |
-            apps/*/junit.xml
-            packages/*/junit.xml
+          path: '**/junit.xml'
           if-no-files-found: warn
           retention-days: 30
       - name: Publish test results to PR
@@ -67,9 +65,7 @@ jobs:
         uses: dorny/test-reporter@v1
         with:
           name: bun-test-results
-          path: |
-            apps/*/junit.xml
-            packages/*/junit.xml
+          path: '**/junit.xml'
           reporter: java-junit
           fail-on-error: false
           only-summary: false
