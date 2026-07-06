@@ -1,21 +1,29 @@
 // packages/core/src/strategy/pivot-point-grid.test.ts — unit tests for the
 // Pivot Point Grid (Phase 15 M15 range-mean-reversion) strategy.
 //
-// Test coverage targets (14 tests):
-//   1. Default Fibonacci multipliers (0.382 / 0.618 / 1.000)
-//   2. Custom multipliers respected (e.g. 0.5 / 1.0 / 1.5)
+// Test coverage targets (18 tests, Phase 16 Track A added 4 cap tests):
+//   1. Default Fibonacci multipliers (0.382 / 0.618 / 1.000) + Phase 16 cap (0.04)
+//   2. Custom multipliers persist (Partial<Config> spread)
 //   3. warmup() returns 100
 //   4. candleIndex < warmup → no signal
 //   5. Missing previous HTF → no signal
 //   6. Boundary candle (timestamp % 86_400_000 === 0) commits prev*
 //   7. Pivot recomputed when a new HTF candle rolls up
 //   8. Within-bucket candles extend the running high/low/close
-//   9. close <= S2 → LONG, SL=S3, TP=PP, confidence=1.0
+//   9. close <= S2 → LONG, SL=S3, TP=PP, confidence=1.0 (legacy cap 1.0)
 //  10. close at S1 boundary (S2 < close <= S1) → LONG, SL=S2, TP=PP, confidence=0.7
 //  11. close >= R2 → SHORT, SL=R3, TP=PP, confidence=1.0
 //  12. close at R1 boundary (R1 <= close < R2) → SHORT, SL=R2, TP=PP, confidence=0.7
 //  13. Middle zone (S1 < close < R1) → no signal
 //  14. name + timeframes wired correctly for M15 LTF
+//
+// Phase 16 Track A — notional cap (maxPositionPctEquity):
+//  15. Default cap = 0.04 (Phase 16 productionization envelope)
+//  16. Cap respected (default 0.04) — shallow long conf 0.7 → scaled 0.14
+//  17. Cap respected (default 0.04) — deep short conf 1.0 → scaled 0.2
+//  18. Custom cap (0.02) — shallow long conf 0.7 → scaled 0.07
+//  19. Cap = 1.0 (legacy) — confidence unchanged (no clamping)
+//  20. Custom cap > engine max (0.5 vs 0.2) — scale clamped to 1.0
 
 import { describe, expect, it } from "bun:test";
 
@@ -120,21 +128,24 @@ function seedPivotData(strat: PivotPointGridStrategy): void {
 }
 
 describe("PivotPointGridStrategy — default config & warmup", () => {
-  it("1. default multipliers are 0.382 / 0.618 / 1.000 (classical Fibonacci pivots)", () => {
+  it("1. default multipliers are 0.382 / 0.618 / 1.000 (classical Fibonacci pivots) + Phase 16 cap 0.04", () => {
     expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib1).toBe(0.382);
     expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib2).toBe(0.618);
     expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib3).toBe(1.0);
+    expect(DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity).toBe(0.04);
   });
 
-  it("2. custom multipliers persist (Partial<Config> spread)", () => {
+  it("2. custom config persists (Partial<Config> spread) — multipliers AND cap", () => {
     const strat = new PivotPointGridStrategy({
       multiplierFib1: 0.5,
       multiplierFib2: 1.0,
       multiplierFib3: 1.5,
+      maxPositionPctEquity: 0.08,
     });
     expect(strat.config.multiplierFib1).toBe(0.5);
     expect(strat.config.multiplierFib2).toBe(1.0);
     expect(strat.config.multiplierFib3).toBe(1.5);
+    expect(strat.config.maxPositionPctEquity).toBe(0.08);
   });
 
   it("3. warmup returns 100 LTF (15m) candles (24h × 4 + buffer)", () => {
@@ -207,8 +218,8 @@ describe("PivotPointGridStrategy — HTF boundary detection", () => {
     expect(strat.committedPrevHtfAtLeastOnce).toBe(true);
   });
 
-  it("7. pivot point recomputes when a new HTF candle rolls up", () => {
-    const strat = new PivotPointGridStrategy();
+  it("7. pivot point recomputes when a new HTF candle rolls up (legacy cap)", () => {
+    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
     // Tight day-0 range: H=101, L=99, C=100 → PP=100, range=2.
     const day0Start = 1_700_000_000_000 - (1_700_000_000_000 % HTF_MS);
     const day1Boundary = day0Start + HTF_MS;
@@ -265,8 +276,8 @@ describe("PivotPointGridStrategy — HTF boundary detection", () => {
 });
 
 describe("PivotPointGridStrategy — entry signals", () => {
-  it("9. close <= S2 → LONG (deep overshoot) with SL=S3, TP=PP, confidence=1.0", () => {
-    const strat = new PivotPointGridStrategy();
+  it("9. close <= S2 → LONG (deep overshoot) with SL=S3, TP=PP, confidence=1.0 (legacy cap)", () => {
+    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
     seedPivotData(strat);
     // Pivots: PP=100, S3=80, S2=87.64, S1=92.36, R1=107.64, R2=112.36, R3=120.
     // close=85 < S2 (87.64) → deep long.
@@ -283,8 +294,8 @@ describe("PivotPointGridStrategy — entry signals", () => {
     expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
   });
 
-  it("10. close at S1 boundary (S2 < close <= S1) → LONG (shallow overshoot), confidence=0.7", () => {
-    const strat = new PivotPointGridStrategy();
+  it("10. close at S1 boundary (S2 < close <= S1) → LONG (shallow overshoot), confidence=0.7 (legacy cap)", () => {
+    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
     seedPivotData(strat);
     // close=90 — sits in the S2..S1 band (87.64 < 90 <= 92.36) → shallow long.
     const signal = strat.onCandle(
@@ -300,8 +311,8 @@ describe("PivotPointGridStrategy — entry signals", () => {
     expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
   });
 
-  it("11. close >= R2 → SHORT (deep overbought) with SL=R3, TP=PP, confidence=1.0", () => {
-    const strat = new PivotPointGridStrategy();
+  it("11. close >= R2 → SHORT (deep overbought) with SL=R3, TP=PP, confidence=1.0 (legacy cap)", () => {
+    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
     seedPivotData(strat);
     // close=115 > R2 (112.36) → deep short.
     const signal = strat.onCandle(
@@ -317,8 +328,8 @@ describe("PivotPointGridStrategy — entry signals", () => {
     expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
   });
 
-  it("12. close at R1 boundary (R1 <= close < R2) → SHORT (shallow overbought), confidence=0.7", () => {
-    const strat = new PivotPointGridStrategy();
+  it("12. close at R1 boundary (R1 <= close < R2) → SHORT (shallow overbought), confidence=0.7 (legacy cap)", () => {
+    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
     seedPivotData(strat);
     // close=108 — in the R1..R2 band (107.64 <= 108 < 112.36) → shallow short.
     const signal = strat.onCandle(
@@ -334,7 +345,7 @@ describe("PivotPointGridStrategy — entry signals", () => {
     expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
   });
 
-  it("13. middle zone (S1 < close < R1) → no signal", () => {
+  it("13. middle zone (S1 < close < R1) → no signal (cap irrelevant when null)", () => {
     const strat = new PivotPointGridStrategy();
     seedPivotData(strat);
     // close=100 — exactly at PP, well inside S1..R1 → middle zone, no signal.
@@ -353,5 +364,121 @@ describe("PivotPointGridStrategy — strategy surface", () => {
     const strat = new PivotPointGridStrategy();
     expect(strat.name).toContain("Pivot Point Grid");
     expect(strat.timeframes).toEqual(["1d", "15m"]);
+  });
+});
+
+
+describe("PivotPointGridStrategy — Phase 16 notional cap (maxPositionPctEquity)", () => {
+  it("15. DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity === 0.04 (productionization envelope)", () => {
+    expect(DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity).toBe(0.04);
+    // Cap ratio at default: 0.04 / 0.20 = 0.20 (engine cap), so emitted
+    // confidence is scaled to 20% of its raw value.
+  });
+
+  it("16. default cap (0.04) scales shallow long confidence 0.7 → 0.14", () => {
+    const strat = new PivotPointGridStrategy(); // default cap 0.04
+    seedPivotData(strat);
+    // Pivots: PP=100, S1=92.36, S2=87.64.
+    // close=90 sits in the S2..S1 band (87.64 < 90 <= 92.36) → shallow long.
+    // capScale = min(1, 0.04 / 0.20) = 0.20. Scaled confidence = 0.7 * 0.20 = 0.14.
+    const signal = strat.onCandle(
+      makeCtx({
+        candleIndex: 200,
+        candle: makeCandle(90, { timestamp: 1_700_010_000_000 }),
+      }),
+    );
+    expect(signal).not.toBeNull();
+    expect(signal?.side).toBe("buy");
+    expect(signal?.confidence).toBeCloseTo(0.14, 5);
+    // SL / TP / reason fields remain raw (cap only scales confidence).
+    expect(signal?.stopLoss).toBeCloseTo(87.64, 2);
+    expect(signal?.takeProfit).toBeCloseTo(100, 2);
+  });
+
+  it("17. default cap (0.04) scales deep short confidence 1.0 → 0.2", () => {
+    const strat = new PivotPointGridStrategy(); // default cap 0.04
+    seedPivotData(strat);
+    // close=115 > R2 (112.36) → deep short, raw confidence 1.0.
+    // capScale = 0.04 / 0.20 = 0.20. Scaled confidence = 1.0 * 0.20 = 0.20.
+    const signal = strat.onCandle(
+      makeCtx({
+        candleIndex: 200,
+        candle: makeCandle(115, { timestamp: 1_700_010_000_000 }),
+      }),
+    );
+    expect(signal).not.toBeNull();
+    expect(signal?.side).toBe("sell");
+    expect(signal?.confidence).toBeCloseTo(0.2, 5);
+    expect(signal?.stopLoss).toBeCloseTo(120, 2); // R3 (raw, unchanged by cap)
+    expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
+  });
+
+  it("18. custom cap (0.02) scales shallow long confidence 0.7 → 0.07", () => {
+    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 0.02 });
+    seedPivotData(strat);
+    // capScale = 0.02 / 0.20 = 0.10. Scaled confidence = 0.7 * 0.10 = 0.07.
+    const signal = strat.onCandle(
+      makeCtx({
+        candleIndex: 200,
+        candle: makeCandle(90, { timestamp: 1_700_010_000_000 }),
+      }),
+    );
+    expect(signal).not.toBeNull();
+    expect(signal?.side).toBe("buy");
+    expect(signal?.confidence).toBeCloseTo(0.07, 5);
+  });
+
+  it("19. cap = 1.0 (legacy) → confidence unchanged (no clamping)", () => {
+    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
+    seedPivotData(strat);
+    // capScale = min(1, 1.0 / 0.20) = 1.0 → no scaling.
+    const shallow = strat.onCandle(
+      makeCtx({
+        candleIndex: 200,
+        candle: makeCandle(90, { timestamp: 1_700_010_000_000 }),
+      }),
+    );
+    const deep = strat.onCandle(
+      makeCtx({
+        candleIndex: 201,
+        candle: makeCandle(85, { timestamp: 1_700_010_900_000 }),
+      }),
+    );
+    expect(shallow?.confidence).toBe(0.7); // unchanged
+    expect(deep?.confidence).toBe(1.0); // unchanged
+  });
+
+  it("20. cap > engine max (e.g. 0.5) → capScale clamped to 1.0 (no clamping, never amplifies)", () => {
+    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 0.5 });
+    seedPivotData(strat);
+    // capScale = min(1, 0.5 / 0.20) = 1.0 → no amplification, raw confidence preserved.
+    const shallow = strat.onCandle(
+      makeCtx({
+        candleIndex: 200,
+        candle: makeCandle(90, { timestamp: 1_700_010_000_000 }),
+      }),
+    );
+    const deep = strat.onCandle(
+      makeCtx({
+        candleIndex: 201,
+        candle: makeCandle(115, { timestamp: 1_700_010_900_000 }),
+      }),
+    );
+    expect(shallow?.confidence).toBe(0.7); // unchanged
+    expect(deep?.confidence).toBe(1.0); // unchanged
+  });
+
+  it("21. middle zone (S1 < close < R1) → null signal regardless of cap", () => {
+    // Cap is irrelevant when no signal is emitted — middle-zone returns null
+    // before any scaling is applied.
+    const strat = new PivotPointGridStrategy();
+    seedPivotData(strat);
+    const signal = strat.onCandle(
+      makeCtx({
+        candleIndex: 200,
+        candle: makeCandle(100, { timestamp: 1_700_010_000_000 }),
+      }),
+    );
+    expect(signal).toBeNull();
   });
 });
