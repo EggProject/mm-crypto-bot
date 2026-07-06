@@ -1,12 +1,12 @@
 {
   "symbol": "BTC/USDT",
-  "monthlyReturnPct": 2.7392093629741376,
-  "annualizedReturnPct": 38.269590414281815,
-  "sharpeRatio": 1.6829751659738186,
-  "maxDrawdownPct": 3.0828688640055137,
-  "finalEquityUsd": 13826.959041428181,
+  "monthlyReturnPct": 3.246017353186348,
+  "annualizedReturnPct": 46.673644656950565,
+  "sharpeRatio": 1.8790675555310226,
+  "maxDrawdownPct": 2.656008986744671,
+  "finalEquityUsd": 14667.364465695056,
   "liquidations": 0,
-  "totalReturnPct": 38.269590414281815,
+  "totalReturnPct": 46.673644656950565,
   "combinedAvgMultiplier": 1,
   "composition": "CarryBaseline + HybridKelly (2 baseline) + 3 cross-symbol hedge plugins (BTC bus)",
   "walkForwardSharpe": {

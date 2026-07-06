@@ -407,6 +407,11 @@ export class DecisionEngine implements DecisionEngineLike {
     let carrySizeMultiplier = 1.0;
     let sizingNotional = 0;
     let sizingNotionalCount = 0;
+    // Phase 14D: SizingSignal.volMultiplier is composed via min() with
+    // carrySizeMultiplier × defensiveSizeModifier. This is the
+    // contract the Phase 14C research assumed — DVOL's forward-looking
+    // volMultiplier scales position size during stress windows.
+    let sizingVolMultiplier = 1.0;
 
     for (const s of signals) {
       if (isDirection(s)) {
@@ -435,6 +440,13 @@ export class DecisionEngine implements DecisionEngineLike {
         // emit multiples per bar; this is a defensive aggregation).
         sizingNotional += s.notional;
         sizingNotionalCount += 1;
+        // Phase 14D: track minimum SizingSignal.volMultiplier (defensive
+        // composition). The smallest volMultiplier among all sizing
+        // sources wins — DVOL's stress signal reduces position size
+        // before realized vol picks up.
+        if (s.volMultiplier < sizingVolMultiplier) {
+          sizingVolMultiplier = s.volMultiplier;
+        }
       } else if (isRisk(s)) {
         // Defensive RiskSignals with sizeModifier override.
         if (s.sizeModifier !== undefined && s.sizeModifier < this._defensiveSizeModifier) {
@@ -476,8 +488,14 @@ export class DecisionEngine implements DecisionEngineLike {
       confidence = 1 - Math.abs(longWeight - shortWeight) / Math.max(totalStrength, 1e-9);
     }
 
-    // Final size multiplier — compose carry × defensive (L2 wins).
-    const sizeMultiplier = Math.max(0, Math.min(1, carrySizeMultiplier * this._defensiveSizeModifier));
+    // Final size multiplier — compose carry × defensive × sizingVolMultiplier
+    // (min() composition: the more defensive of all three wins).
+    // Phase 14D: added sizingVolMultiplier (SizingSignal min) so DVOL
+    // can scale position size during acute stress.
+    const sizeMultiplier = Math.max(
+      0,
+      Math.min(1, carrySizeMultiplier * this._defensiveSizeModifier * sizingVolMultiplier),
+    );
 
     // Notional: prefer SizingSignals' average notional, scaled by side
     // sign. If no sizing signals, derive from baseNotional × sizeMult × confidence.

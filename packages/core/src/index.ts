@@ -321,6 +321,31 @@ export type {
   SOLFlipKillSwitchPluginConfig,
   SOLFlipKillSwitchPluginState,
 } from "./signal-center/plugins/sol-flip-kill-switch-plugin.js";
+// Phase 14D — forward-looking volatility sizing (DVOL regime plugin).
+// Reads Deribit BTC options implied volatility (DVOL) per bar and emits
+// a SizingSignal with volMultiplier bucketed by regime (acute-stress 0.5,
+// elevated 0.75, normal/compressed 1.0, no-data 1.0 fail-open). Track B
+// DecisionEngine composes SizingSignals with min() — the more defensive
+// volMultiplier wins.
+export {
+  DEFAULT_ACUTE_STRESS_MULTIPLIER,
+  DEFAULT_ACUTE_STRESS_THRESHOLD,
+  DEFAULT_BASE_NOTIONAL_USD as DEFAULT_DVOL_BASE_NOTIONAL_USD,
+  DEFAULT_COMPRESSED_MULTIPLIER,
+  DEFAULT_ELEVATED_MULTIPLIER,
+  DEFAULT_ELEVATED_THRESHOLD,
+  DEFAULT_ENABLED_SYMBOLS as DEFAULT_DVOL_ENABLED_SYMBOLS,
+  DEFAULT_NORMAL_MULTIPLIER,
+  DEFAULT_NORMAL_THRESHOLD,
+  DEFAULT_NO_DATA_MULTIPLIER,
+  DvolRegimeSizingPlugin,
+  createDvolRegimeSizingPlugin,
+} from "./signal-center/plugins/dvol-regime-sizing-plugin.js";
+export type {
+  DvolRegime,
+  DvolRegimeSizingConfig,
+  DvolRegimeSizingPluginState,
+} from "./signal-center/plugins/dvol-regime-sizing-plugin.js";
 // Phase 11.1c Track A — defensive drop-in plugin (vol-targeting sizer, Phase 8 G port).
 // SizingSignal modifier — intercepts upstream SizingSignals on the bus and rescales them
 // by the inverse of realized volatility vs. target daily vol. BTC/ETH/SOL all enabled.

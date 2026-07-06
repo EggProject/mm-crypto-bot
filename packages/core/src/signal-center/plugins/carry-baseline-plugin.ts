@@ -549,24 +549,22 @@ export class CarryBaselinePlugin implements StrategyPlugin {
         kellyFraction = this.config.kellyCap * 0.5;
         break;
     }
-    // Vol multiplier proxy: 1.0 in 'neutral' (low-vol carry), 0.5 in
-    // 'high' (defensive on vol spikes around funding events), 0.25 in
-    // 'flip' (severe regime — minimal exposure).
-    let volMultiplier: number;
-    switch (this.state.currentRegime) {
-      case "high":
-        volMultiplier = 0.5;
-        break;
-      case "flip":
-        volMultiplier = 0.25;
-        break;
-      case "neutral":
-      default:
-        volMultiplier = 1.0;
-        break;
-    }
-    // Hard ceiling clamp.
-    volMultiplier = Math.max(0, Math.min(this.config.volTargetMax, volMultiplier));
+    // Phase 14D: SizingSignal.volMultiplier is the SIZING-ONLY
+    // multiplier — always 1.0. The carry REGIME is communicated via
+    // the CarrySignal (carrySizeMultiplier in Track B arbitrate).
+    //
+    // Before Phase 14D, the CarryBaseline encoded the regime in BOTH
+    // CarrySignal AND SizingSignal.volMultiplier (redundant). When
+    // Phase 14D introduced SizingSignal.volMultiplier min()
+    // composition for the DVOL plugin, the redundant regime encoding
+    // caused a regression: high-carry windows (where SizingSignal
+    // .volMultiplier=0.5) were size-reduced at the worst time — the
+    // very windows where we want to size UP into carry.
+    //
+    // Fix: SizingSignal.volMultiplier is always 1.0. CarryBaseline's
+    // SizingSignal contributes only the notional magnitude. Regime
+    // comes from CarrySignal only.
+    const volMultiplier = 1.0;
     kellyFraction = Math.max(0, Math.min(1, kellyFraction));
 
     const baseNotional = this.config.baseNotionalUsd;

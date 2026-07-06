@@ -84,6 +84,7 @@ import {
   CrossSymbolMomentumOverlayPlugin,
   CrossSymbolSpreadReversionPlugin,
   DirectionalMTFPlugin,
+  DvolRegimeSizingPlugin,
   HybridKellyPlugin,
   PortfolioOrchestrator,
   SOLFlipKillSwitchPlugin,
@@ -608,7 +609,7 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
       }));
     }
     if (spec.hybridKelly) {
-      // Phase 14B: kellyCap 0.5 → 0.7 (fuller Kelly, more aggressive
+      // Phase 14B: kellyCap 0.5 → 0.85 (fuller Kelly, more aggressive
       // sizing). 1:10 leverage mandate still caps notional via the
       // orchestrator's maxNotionalPerSymbolUsd ($100k per symbol).
       plugins.push(new HybridKellyPlugin({
@@ -622,6 +623,22 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
         enabledSymbols: [typedSym],
       }));
     }
+    // Phase 14D: DVOL regime sizing plugin. Emits a SizingSignal with
+    // volMultiplier bucketed by BTC options implied volatility:
+    //   - acute-stress (DVOL > 80): volMultiplier = 0.5
+    //   - elevated (DVOL 65-80):   volMultiplier = 0.75
+    //   - normal (DVOL 50-65):     volMultiplier = 1.0
+    //   - compressed (DVOL < 50):  volMultiplier = 1.0
+    //   - no-data:                 volMultiplier = 1.0 (fail-open)
+    // Track B DecisionEngine composes SizingSignals with min() — the
+    // more defensive volMultiplier wins. So DVOL's stress signal
+    // reduces position size during acute drawdown windows BEFORE the
+    // realized vol picks up (forward-looking via Deribit options IV).
+    plugins.push(new DvolRegimeSizingPlugin({
+      enabledSymbols: [typedSym],
+      baseNotionalUsd: perPluginBase,
+      getDvolForTimestamp: (tsMs: number) => dvolLookup(tsMs),
+    }));
     // Phase 14A: cross-symbol plugins are NOT pushed to per-symbol
     // sets. They are wired post-`init()` via `subscribeBuses(map)` to
     // ALL per-symbol buses (see `wireCrossSymbolPlugins` below). The
@@ -879,7 +896,53 @@ async function main(): Promise<void> {
   const root = resolve(import.meta.dir, "..", "..", "..", "..");
   const dataDir = resolve(root, "data", "ohlcv");
   const fundingDir = resolve(root, "data", "funding");
+  const dvolDir = resolve(root, "data", "deribit");
   const feed = new CsvExchangeFeed(dataDir);
+
+  // Phase 14D: load Deribit DVOL data (real, not synthetic — fetched from
+  // Deribit public API once at startup, cached in dvolByTimestamp).
+  // Used by the DvolRegimeSizingPlugin via the `dvolLookup` closure.
+  const dvolByTimestamp = new Map<number, number>();
+  try {
+    const dvolCsvPath = resolve(dvolDir, "deribit_btc_dvol_daily.csv");
+    const dvolRaw = await readFile(dvolCsvPath, "utf8");
+    const dvolLines = dvolRaw.split("\n");
+    for (let i = 1; i < dvolLines.length; i++) {
+      const line = dvolLines[i];
+      if (line === undefined || line === "") continue;
+      const parts = line.split(",");
+      if (parts.length < 6) continue;
+      const ts = Number(parts[0]);
+      const close = Number(parts[5]);
+      if (!Number.isFinite(ts) || !Number.isFinite(close)) continue;
+      dvolByTimestamp.set(ts, close);
+    }
+    console.log(`[PORTFOLIO-ORCH] DVOL: loaded ${dvolByTimestamp.size} daily readings from Deribit (${new Date(Math.min(...dvolByTimestamp.keys())).toISOString().slice(0, 10)} → ${new Date(Math.max(...dvolByTimestamp.keys())).toISOString().slice(0, 10)})`);
+  } catch (e) {
+    console.warn(`[PORTFOLIO-ORCH] DVOL: data file not found or unreadable, plugin will fail-open with volMultiplier=1.0:`, e instanceof Error ? e.message : String(e));
+  }
+
+  // Build a sorted timestamp list for binary-search lookup. Most-recent
+  // value at-or-before ts wins (carries-forward semantics — if today's
+  // DVOL isn't published yet, use yesterday's).
+  const dvolSortedTs = [...dvolByTimestamp.keys()].sort((a, b) => a - b);
+  function dvolLookup(tsMs: number): number | null {
+    // Binary search for the largest ts <= tsMs.
+    let lo = 0;
+    let hi = dvolSortedTs.length - 1;
+    let result: number | null = null;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      const midTs = dvolSortedTs[mid]!;
+      if (midTs <= tsMs) {
+        result = dvolByTimestamp.get(midTs) ?? null;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return result;
+  }
 
   console.log(`[PORTFOLIO-ORCH] === Phase 13 Track D final backtest ===`);
   console.log(`[PORTFOLIO-ORCH] User mandate: backtest + ${args.exchange} + risk per trade: ${(args.riskPerTrade * 100).toFixed(2)}% + max leverage: ${args.maxLeverage} + max positions: ${args.maxPositions}`);
