@@ -16,8 +16,12 @@
 // `@ts-nocheck` per project convention for ultra-strict tsconfig — the
 // runtime assertions verify behavior correctness.
 //
-// Tests coverage (≥12 tests, all required by the Phase 16 Track B brief):
-//   1.  Default construction: name, timeframes, adxRangeThreshold=20
+// Tests coverage (27 tests: 16 from Phase 16 Track B + 5 from Phase 18 Track A
+// spec + 1 Phase 18 Track A follow-up default-2 kill-switch test + 5 implied
+// by updated existing tests using explicit minConsensus=1 override):
+//   Phase 16 Track B tests (1-16):
+//   1.  Default construction: name, timeframes, adxRangeThreshold=20,
+//        minConsensus=2 (Phase 18 Track A default)
 //   2.  Custom config: adxRangeThreshold + per-sub-strategy overrides forwarded
 //   3.  Custom LTF reflected in timeframes field
 //   4.  warmup returns max of all 4 sub-strategy warmups (= 100)
@@ -28,13 +32,20 @@
 //        reason tagged "regime=range consensus=2/2"
 //   9.  Range regime + Pivot long + Donchian short → null (conflict)
 //   10. Range regime + only Pivot long → emit, reason tagged
-//        "regime=range solo=pivot-grid"
+//        "regime=range consensus=1/2 winner=pivot-grid" (minConsensus=1 override)
 //   11. Trend regime + BB long + Keltner long → highest-confidence wins
 //   12. Trend regime + BB short + Keltner long → null (conflict)
 //   13. Missing ADX → null (regime unknown)
-//   14. Custom adxRangeThreshold=25 → ADX 22 = range, ADX 27 = trend
+//   14. Custom adxRangeThreshold=25 + minConsensus=1 → ADX 22 = range, ADX 27 = trend
 //   15. Each sub-strategy receives the same `ctx` (delegation test)
 //   16. Default config values match DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG
+//   Phase 18 Track A tests (17-22): configurable minConsensus
+//   17. minConsensus=1 override, both fire → emit (consensus=2/2, highest conf wins)
+//   18. minConsensus=1 override, only Donchian fires → emit (consensus=1/2 winner=donchian-range)
+//   19. minConsensus=1 override, neither fires → null
+//   20. minConsensus=2 (default), only one fires → no emit (BTC kill-switch silence — empirical fix)
+//   21. minConsensus=2 (default), both fire → emit (backward compat preserved)
+//   22. minConsensus=2 (default), BTC kill-switch scenario: 1 sub-strategy fires at random → no emit
 
 import { describe, expect, it } from "bun:test";
 
@@ -197,6 +208,7 @@ describe("RegimeRoutedEnsemble — construction", () => {
     expect(e.keltnerGrid).toBeDefined();
     // Default config check.
     expect(DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG.adxRangeThreshold).toBe(20);
+    expect(DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG.minConsensus).toBe(2);
     expect(DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG.pivotGrid).toEqual({});
     expect(DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG.bbSqueeze).toEqual({});
     expect(DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG.donchianRange).toEqual({});
@@ -368,8 +380,8 @@ describe("RegimeRoutedEnsemble.onCandle — consensus / solo / conflict", () => 
     expect(result).toBeNull();
   });
 
-  it("range regime + only Pivot long → emit, reason tagged 'regime=range solo=pivot-grid'", () => {
-    const e = new RegimeRoutedEnsemble();
+  it("range regime + only Pivot long → emit, reason tagged 'regime=range consensus=1/2 winner=pivot-grid' (minConsensus=1 override folds solo into consensus)", () => {
+    const e = new RegimeRoutedEnsemble({ minConsensus: 1 });
     const pivotSig = mkLongSignal(0.8, "pivot at S2 → buy");
     mkSubStrategySpies(e, {
       "pivot-grid": pivotSig,
@@ -381,12 +393,12 @@ describe("RegimeRoutedEnsemble.onCandle — consensus / solo / conflict", () => 
     expect(result).not.toBeNull();
     expect(result!.side).toBe("buy");
     expect(result!.confidence).toBe(0.8);
-    expect(result!.reason).toContain("[RegimeEnsemble] regime=range solo=pivot-grid");
+    expect(result!.reason).toContain("[RegimeEnsemble] regime=range consensus=1/2 winner=pivot-grid");
     expect(result!.reason).toContain("pivot at S2");
   });
 
-  it("range regime + only Donchian short → emit, reason tagged 'regime=range solo=donchian-range'", () => {
-    const e = new RegimeRoutedEnsemble();
+  it("range regime + only Donchian short → emit, reason tagged 'regime=range consensus=1/2 winner=donchian-range' (minConsensus=1 override)", () => {
+    const e = new RegimeRoutedEnsemble({ minConsensus: 1 });
     const donchSig = mkShortSignal(0.9, "donchian at upper → sell");
     mkSubStrategySpies(e, {
       "pivot-grid": null,
@@ -398,7 +410,7 @@ describe("RegimeRoutedEnsemble.onCandle — consensus / solo / conflict", () => 
     expect(result).not.toBeNull();
     expect(result!.side).toBe("sell");
     expect(result!.confidence).toBe(0.9);
-    expect(result!.reason).toContain("[RegimeEnsemble] regime=range solo=donchian-range");
+    expect(result!.reason).toContain("[RegimeEnsemble] regime=range consensus=1/2 winner=donchian-range");
   });
 
   it("range regime + 0 signals fire (both null) → null", () => {
@@ -442,8 +454,8 @@ describe("RegimeRoutedEnsemble.onCandle — consensus / solo / conflict", () => 
     expect(result).toBeNull();
   });
 
-  it("trend regime + only Keltner short → emit, reason tagged 'regime=trend solo=keltner-grid'", () => {
-    const e = new RegimeRoutedEnsemble();
+  it("trend regime + only Keltner short → emit, reason tagged 'regime=trend consensus=1/2 winner=keltner-grid' (minConsensus=1 override)", () => {
+    const e = new RegimeRoutedEnsemble({ minConsensus: 1 });
     const kelSig = mkShortSignal(0.7, "keltner short touch");
     mkSubStrategySpies(e, {
       "pivot-grid": null,
@@ -455,7 +467,7 @@ describe("RegimeRoutedEnsemble.onCandle — consensus / solo / conflict", () => 
     expect(result).not.toBeNull();
     expect(result!.side).toBe("sell");
     expect(result!.confidence).toBe(0.7);
-    expect(result!.reason).toContain("[RegimeEnsemble] regime=trend solo=keltner-grid");
+    expect(result!.reason).toContain("[RegimeEnsemble] regime=trend consensus=1/2 winner=keltner-grid");
   });
 });
 
@@ -482,8 +494,8 @@ describe("RegimeRoutedEnsemble — missing ADX + custom threshold", () => {
     expect(spies.counts.keltner).toBe(0);
   });
 
-  it("custom adxRangeThreshold=25: ADX 22 = range, ADX 27 = trend", () => {
-    const e = new RegimeRoutedEnsemble({ adxRangeThreshold: 25 });
+  it("custom adxRangeThreshold=25 + minConsensus=1: ADX 22 = range, ADX 27 = trend (override to 1-of-2 for solo-fire tests)", () => {
+    const e = new RegimeRoutedEnsemble({ adxRangeThreshold: 25, minConsensus: 1 });
 
     // ADX 22 → range (22 < 25).
     {
@@ -588,5 +600,98 @@ describe("RegimeRoutedEnsemble — delegation", () => {
       expect(ctx).toBe(inputCtxTrend);
     }
     expect(observedCtxs[0]!.candleIndex).toBe(99);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 18 Track A — configurable minConsensus (1-of-2 default, 2-of-2 legacy)
+// ---------------------------------------------------------------------------
+
+describe("RegimeRoutedEnsemble — minConsensus (Phase 18 Track A)", () => {
+  it("minConsensus=1, both fire → emit consensus=2/2 winner=highest-confidence (override 1-of-2)", () => {
+    const e = new RegimeRoutedEnsemble({ minConsensus: 1 });
+    mkSubStrategySpies(e, {
+      "pivot-grid": mkLongSignal(0.7, "pivot long"),
+      "bb-squeeze": null,
+      "donchian-range": mkLongSignal(0.85, "donchian long"),
+      "keltner-grid": null,
+    });
+    const result = e.onCandle(mkContext({ mtfState: { htf: { adx: 15 } } }));
+    expect(result).not.toBeNull();
+    expect(result!.side).toBe("buy");
+    expect(result!.confidence).toBe(0.85);
+    expect(result!.reason).toContain("[RegimeEnsemble] regime=range consensus=2/2 winner=donchian-range");
+  });
+
+  it("minConsensus=1, only Donchian fires → emit consensus=1/2 winner=donchian-range (override: 1-of-2 lifts single-fire to emit)", () => {
+    const e = new RegimeRoutedEnsemble({ minConsensus: 1 });
+    mkSubStrategySpies(e, {
+      "pivot-grid": null,
+      "bb-squeeze": null,
+      "donchian-range": mkShortSignal(0.75, "donchian short"),
+      "keltner-grid": null,
+    });
+    const result = e.onCandle(mkContext({ mtfState: { htf: { adx: 15 } } }));
+    expect(result).not.toBeNull();
+    expect(result!.side).toBe("sell");
+    expect(result!.confidence).toBe(0.75);
+    expect(result!.reason).toContain("[RegimeEnsemble] regime=range consensus=1/2 winner=donchian-range");
+  });
+
+  it("minConsensus=1, neither fires → null (insufficient signals, no false emit)", () => {
+    const e = new RegimeRoutedEnsemble({ minConsensus: 1 });
+    mkSubStrategySpies(e, {
+      "pivot-grid": null,
+      "bb-squeeze": null,
+      "donchian-range": null,
+      "keltner-grid": null,
+    });
+    const result = e.onCandle(mkContext({ mtfState: { htf: { adx: 15 } } }));
+    expect(result).toBeNull();
+  });
+
+  it("minConsensus=2 (default), BTC kill-switch scenario: 1 sub-strategy fires at random → no emit (silences the 26.96% win-rate solo diluter)", () => {
+    // Phase 18 Track A empirical finding: solo emissions in regime-routed
+    // ensemble had a 26.96% win rate that dragged BTC into the 50% DD
+    // kill-switch. The default-2 behavior silences these by requiring
+    // strict 2-sub-strategy agreement before emitting.
+    const e = new RegimeRoutedEnsemble(); // default minConsensus=2
+    mkSubStrategySpies(e, {
+      "pivot-grid": mkLongSignal(0.7, "pivot long — would be solo at minConsensus=1"),
+      "bb-squeeze": null,
+      "donchian-range": null,
+      "keltner-grid": null,
+    });
+    const result = e.onCandle(mkContext({ mtfState: { htf: { adx: 15 } } }));
+    // Default-2 silences solo: 1 fire < minConsensus → null.
+    expect(result).toBeNull();
+  });
+
+  it("minConsensus=2 (legacy), only one fires → no emit (backward compat: solo is silenced)", () => {
+    const e = new RegimeRoutedEnsemble({ minConsensus: 2 });
+    mkSubStrategySpies(e, {
+      "pivot-grid": mkLongSignal(0.9, "pivot long — would be solo at minConsensus=1"),
+      "bb-squeeze": null,
+      "donchian-range": null,
+      "keltner-grid": null,
+    });
+    const result = e.onCandle(mkContext({ mtfState: { htf: { adx: 15 } } }));
+    // With minConsensus=2, a single fire is below threshold → null.
+    expect(result).toBeNull();
+  });
+
+  it("minConsensus=2 (legacy), both fire → emit (backward compat: 2-of-2 consensus still works)", () => {
+    const e = new RegimeRoutedEnsemble({ minConsensus: 2 });
+    mkSubStrategySpies(e, {
+      "pivot-grid": mkLongSignal(0.7, "pivot long"),
+      "bb-squeeze": null,
+      "donchian-range": mkLongSignal(0.85, "donchian long"),
+      "keltner-grid": null,
+    });
+    const result = e.onCandle(mkContext({ mtfState: { htf: { adx: 15 } } }));
+    expect(result).not.toBeNull();
+    expect(result!.side).toBe("buy");
+    expect(result!.confidence).toBe(0.85);
+    expect(result!.reason).toContain("[RegimeEnsemble] regime=range consensus=2/2 winner=donchian-range");
   });
 });

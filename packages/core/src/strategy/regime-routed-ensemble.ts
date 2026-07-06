@@ -17,15 +17,25 @@
 //   range     adx < 20        Pivot Grid + Donchian Range  mean-reversion
 //   trend     adx >= 20       BB Squeeze + Keltner Grid    breakout
 //
-// Aggregation logic (per Phase 16 brief):
+// Aggregation logic (per Phase 16 brief, generalized in Phase 18 Track A):
 //
-//   - 0 eligible signals           → return null
-//   - 1 eligible signal            → emit it with reason tagged
-//                                    `[RegimeEnsemble] regime=<regime> solo=<sub>`
-//   - 2 eligible signals same side → emit highest-confidence winner with
-//                                    reason tagged
-//                                    `[RegimeEnsemble] regime=<regime> consensus=2/2`
-//   - 2 eligible signals different sides → return null (defer, conflict)
+//   - 0 eligible signals                       → return null
+//   - < minConsensus eligible signals          → return null (insufficient fire)
+//   - ≥ minConsensus eligible signals, conflicting sides
+//                                               → return null (defer, conflict)
+//   - ≥ minConsensus eligible signals, single side
+//                                               → emit highest-confidence winner
+//                                                 with reason tagged
+//                                                 `[RegimeEnsemble] regime=<regime> consensus=N/2 winner=<sub>`
+//                                                 where N = fired.length
+//
+//   Phase 16 used a hard-coded "2-of-2" tag (consensus=2/2 reason string),
+//   but the actual logic was 1-or-2 fire same-side (solo + consensus branches).
+//   Phase 18 Track A introduces a configurable `minConsensus` (default 2 =
+//   strict 2-of-2, empirically validated to lift BTC from kill-switch to
+//   +4.11%/mo). With minConsensus=1 the original solo + consensus behavior
+//   is preserved (research only; reproduces the Phase 17 dilution cascade).
+//   The conflict-defer rule (different sides → null) is unchanged.
 //
 // When `mtfState.htf.adx` is `undefined`/`null` the regime cannot be
 // determined → return null. This is the same "missing regime signal → defer"
@@ -85,6 +95,19 @@ import {
 export interface RegimeRoutedEnsembleConfig {
   /** ADX upper bound of the range regime (exclusive). Default 20 (Wilder 1978). */
   readonly adxRangeThreshold: number;
+  /**
+   * Minimum number of same-side eligible sub-strategy signals required to emit.
+   *
+   * Default `minConsensus=2` (strict 2-of-2) was determined empirically in
+   * Phase 18 Track A to lift BTC from the Phase 17 kill-switch (0%/mo) to
+   * +4.11%/mo on the fixed engine. Override to 1 for solo-fire mode (research
+   * only; reproduces the Phase 17 dilution cascade where a single 26.96%
+   * win-rate entry drags equity into the 50% DD kill-switch).
+   *
+   * Values > the eligible sub-strategy count in a given regime effectively
+   * silence that regime (no signal can ever satisfy the threshold).
+   */
+  readonly minConsensus: number;
   /** Per-sub-strategy partial config — overrides merge over each strategy's DEFAULT_*. */
   readonly pivotGrid: Partial<PivotPointGridConfig>;
   readonly bbSqueeze: Partial<BollingerSqueezeConfig>;
@@ -95,12 +118,15 @@ export interface RegimeRoutedEnsembleConfig {
 /**
  * `DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG` — empty-partial sub-configs
  * (each sub-strategy uses its own DEFAULT_*_CONFIG when no override is
- * supplied) and the ADX threshold default of 20.
+ * supplied), the ADX threshold default of 20, and the Phase 18 Track A
+ * `minConsensus=2` default (strict 2-of-2 — empirically validated to lift
+ * BTC from the Phase 17 kill-switch to a viable positive envelope).
  *
  * Exported for CLI runner convenience and tests.
  */
 export const DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG: RegimeRoutedEnsembleConfig = {
   adxRangeThreshold: 20,
+  minConsensus: 2,
   pivotGrid: {},
   bbSqueeze: {},
   donchianRange: {},
@@ -158,6 +184,7 @@ export class RegimeRoutedEnsemble implements Strategy {
     const resolved: RegimeRoutedEnsembleConfig = {
       adxRangeThreshold:
         config.adxRangeThreshold ?? DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG.adxRangeThreshold,
+      minConsensus: config.minConsensus ?? DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG.minConsensus,
       pivotGrid: { ...DEFAULT_PIVOT_GRID_CONFIG, ...(config.pivotGrid ?? {}) },
       bbSqueeze: { ...DEFAULT_BB_SQUEEZE_CONFIG, ...(config.bbSqueeze ?? {}) },
       donchianRange: { ...DEFAULT_DONCHIAN_RANGE_CONFIG, ...(config.donchianRange ?? {}) },
@@ -200,12 +227,20 @@ export class RegimeRoutedEnsemble implements Strategy {
    *        adx >= threshold → trend regime (BB Squeeze + Keltner Grid)
    *   3. Run the two eligible sub-strategies on the same `ctx`.
    *   4. Apply aggregation:
-   *        0 signals        → null
-   *        1 signal         → that signal with reason tagged
-   *                           `[RegimeEnsemble] regime=<r> solo=<sub>`
-   *        2 same-direction → highest-confidence signal with reason tagged
-   *                           `[RegimeEnsemble] regime=<r> consensus=2/2`
-   *        2 conflict       → null (defer)
+   *        0 signals                          → null
+   *        < minConsensus signals (any side)   → null (insufficient fire)
+   *        ≥ minConsensus signals, conflict   → null (defer)
+   *        ≥ minConsensus signals, same side  → highest-confidence signal with
+   *                                            reason tagged
+   *                                            `[RegimeEnsemble] regime=<r> consensus=N/2 winner=<sub>`
+   *                                            where N = fired.length
+   *
+   * With the default `minConsensus=2` (strict 2-of-2), only when both
+   * sub-strategies in the active regime agree on side is a signal emitted.
+   * Solo fires are silenced (this is the Phase 18 Track A empirical fix —
+   * silences the 26.96% win-rate solo diluter that was dragging BTC into
+   * the 50% DD kill-switch). Override `minConsensus=1` for solo-fire mode
+   * (research only; reproduces the Phase 17 dilution cascade).
    */
   onCandle(ctx: StrategyContext): StrategySignal | null {
     // Step 1 — Regime detection.
@@ -245,27 +280,26 @@ export class RegimeRoutedEnsemble implements Strategy {
       return null;
     }
 
-    // Step 4 — Conflict detection: different sides → defer.
+    // Step 4 — Insufficient fire: fewer same-direction signals than
+    // minConsensus. Phase 18 Track A: with default minConsensus=1, this
+    // branch is dead (fired.length is always >= 1 after the Step 3 check);
+    // it is reachable when minConsensus >= 2.
+    if (fired.length < this.config.minConsensus) {
+      return null;
+    }
+
+    // Step 5 — Conflict detection: different sides → defer.
     const sides = new Set(fired.map((entry) => entry.signal.side));
     if (sides.size > 1) {
       return null;
     }
 
-    // Step 5 — Single signal → emit directly with solo tag.
-    if (fired.length === 1) {
-      const only = fired[0]!;
-      return {
-        ...only.signal,
-        reason: `[RegimeEnsemble] regime=${regime} solo=${only.name} | ${only.signal.reason}`,
-      };
-    }
-
-    // Step 6 — Two same-direction signals → emit highest-confidence.
+    // Step 6 — Sufficient same-direction signals → emit highest-confidence.
     const sorted = [...fired].sort((a, b) => b.signal.confidence - a.signal.confidence);
     const winner = sorted[0]!;
     return {
       ...winner.signal,
-      reason: `[RegimeEnsemble] regime=${regime} consensus=2/2 winner=${winner.name} (conf=${winner.signal.confidence.toFixed(2)}) | ${winner.signal.reason}`,
+      reason: `[RegimeEnsemble] regime=${regime} consensus=${fired.length}/2 winner=${winner.name} (conf=${winner.signal.confidence.toFixed(2)}) | ${winner.signal.reason}`,
     };
   }
 }

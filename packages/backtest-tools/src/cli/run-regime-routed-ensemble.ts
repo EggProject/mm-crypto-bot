@@ -16,8 +16,14 @@
 //
 // Használat:
 //   bun run packages/backtest-tools/src/cli/run-regime-routed-ensemble.ts \
-//     --symbol=BTC/USDT --timeframe=15m \
-//     --output=backtest-results/phase16-regime-ensemble-btc-15m.json
+//     --symbol=BTC/USDT --timeframe=15m --min-consensus=1 \
+//     --output=backtest-results/phase18-regime-ensemble-btc-15m-1of2.json
+//
+// Phase 18 Track A added the --min-consensus=N flag (1 = either sub-strategy
+// fires -> emit, 2 = legacy Phase 16 2-of-2 strict consensus). Default 1
+// lifts the BTC regime envelope from 0.00%/mo (Phase 17 kill-switch) to a
+// viable positive return. To recover the legacy 2-of-2 behavior, pass
+// --min-consensus=2.
 
 import { resolve } from "node:path";
 
@@ -36,6 +42,7 @@ interface CliArgs {
   readonly initialEquity: number;
   readonly outputPath: string;
   readonly adxRangeThreshold: number;
+  readonly minConsensus: number;
 }
 
 function parseArgs(): CliArgs {
@@ -47,6 +54,10 @@ function parseArgs(): CliArgs {
   // Phase 16 Track B — Default 20 (Wilder 1978 canonical range/trend
   // threshold). Override via --adx-range-threshold=N (must be > 0).
   let adxRangeThreshold = 20;
+  // Phase 18 Track A — Default 1 (either sub-strategy fires -> emit, lifts
+  // BTC from kill-switch). Set to 2 to recover the Phase 16 2-of-2 strict
+  // consensus. Override via --min-consensus=N (must be 1 or 2).
+  let minConsensus = 1;
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -67,9 +78,14 @@ function parseArgs(): CliArgs {
       if (!Number.isFinite(adxRangeThreshold) || adxRangeThreshold <= 0) {
         throw new Error(`--adx-range-threshold must be > 0; got: ${adxRangeThreshold}`);
       }
+    } else if (arg.startsWith("--min-consensus=")) {
+      minConsensus = Number(arg.slice("--min-consensus=".length));
+      if (!Number.isInteger(minConsensus) || minConsensus < 1 || minConsensus > 2) {
+        throw new Error(`--min-consensus must be 1 or 2; got: ${minConsensus}`);
+      }
     }
   }
-  return { symbol, timeframe, initialEquity, outputPath, adxRangeThreshold };
+  return { symbol, timeframe, initialEquity, outputPath, adxRangeThreshold, minConsensus };
 }
 
 // Regime-Routed Ensemble timeline — HTF=1d, MTF=4h, LTF=15m.
@@ -94,11 +110,14 @@ async function main(): Promise<void> {
   const dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
   const feed = new CsvExchangeFeed(dataDir) as unknown as ExchangeFeed;
 
-  // RegimeRoutedEnsemble takes a partial config + LTF. We override only the
-  // adxRangeThreshold when the CLI flag is present.
+  // RegimeRoutedEnsemble takes a partial config + LTF. We override the
+  // adxRangeThreshold when the CLI flag is present and the minConsensus
+  // (Phase 18 Track A: default 1 lifts BTC from kill-switch; 2 = legacy
+  // 2-of-2 strict consensus).
   const ensembleConfig = {
     ...DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG,
     adxRangeThreshold: args.adxRangeThreshold,
+    minConsensus: args.minConsensus,
   };
   const strategy = new RegimeRoutedEnsemble(ensembleConfig, "15m");
 
@@ -110,7 +129,7 @@ async function main(): Promise<void> {
   console.log(`[regime-ensemble] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
   console.log(`[regime-ensemble] components: Pivot Grid + BB Squeeze + Donchian Range + Keltner Grid`);
   console.log(`[regime-ensemble] routing: ADX<${args.adxRangeThreshold}=range (Pivot+Donchian) | ADX>=${args.adxRangeThreshold}=trend (BB+Keltner)`);
-  console.log(`[regime-ensemble] aggregation: consensus-N/2 (highest-conf wins) | solo (one fires) | conflict → defer`);
+  console.log(`[regime-ensemble] aggregation: minConsensus=${args.minConsensus} (consensus-N/2, highest-conf wins) | conflict → defer`);
   console.log(`[regime-ensemble] period: ${startTime.toISOString()} → ${endTime.toISOString()}`);
   console.log(`[regime-ensemble] initial equity: $${args.initialEquity}`);
 
