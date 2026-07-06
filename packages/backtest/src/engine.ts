@@ -246,14 +246,32 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
         pricePrecision: 2,
       });
       if (signal !== null) {
-        // Position sizing. A `positionNotionalUsd` mindig pozitív értéket
-        // ad vissza a pozitív equity-re és a clamp-ek miatt, így a
-        // `notional > 0` check-re nincs szükség.
+        // Phase 17 Track A: scale riskPerTrade by signal.confidence so the
+        // strategy-side confidence actually affects position sizing. This
+        // fixes the Phase 16 finding where `applyCap()` scaled emitted
+        // confidence to 0.20 but the engine ignored `signal.confidence`
+        // entirely — making the 4% notional cap a complete no-op
+        // (REPORT-phase16.md §1).
+        //
+        // Defensive clamp: strategies MUST emit `confidence ∈ [0, 1]` per
+        // the StrategySignal contract, but the engine clamps defensively to
+        // prevent runaway sizing if a strategy ever emits out-of-range
+        // values. The 1:10 leverage cap is applied separately and is
+        // independent of this pre-leverage risk scalar.
+        let clampedConfidence: number;
+        if (signal.confidence < 0) {
+          clampedConfidence = 0;
+        } else if (signal.confidence > 1) {
+          clampedConfidence = 1;
+        } else {
+          clampedConfidence = signal.confidence;
+        }
+        const confidenceScaledRisk = opts.positionSize.riskPerTrade * clampedConfidence;
         const notional = positionNotionalUsd(
           equity,
           ltfCandle.close,
           signal.stopLoss,
-          opts.positionSize,
+          { ...opts.positionSize, riskPerTrade: confidenceScaledRisk },
         );
         // A fill-ár a slippage+spread alkalmazásával.
         const entryPrice = applySlippage(

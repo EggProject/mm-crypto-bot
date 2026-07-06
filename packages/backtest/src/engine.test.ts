@@ -483,3 +483,309 @@ describe("runBacktest — end-of-data", () => {
     }
   });
 });
+
+/**
+ * `ConfidenceStrategy` — Phase 17 Track A test fixture. Emits exactly ONE
+ * signal with a configurable confidence value, then returns null. Lets us
+ * verify the engine's confidence → riskPerTrade scaling deterministically.
+ */
+class ConfidenceStrategy implements Strategy {
+  readonly name = "confidence-mock";
+  readonly timeframes = ["1h"] as const;
+  private emitted = false;
+  constructor(private readonly confidence: number) {}
+  onCandle(ctx: StrategyContext): StrategySignal | null {
+    if (this.emitted) {
+      return null;
+    }
+    this.emitted = true;
+    return {
+      side: "buy",
+      confidence: this.confidence,
+      reason: `confidence-mock-${this.confidence}`,
+      stopLoss: ctx.candle.close * 0.9, // 10% stop distance
+      takeProfit: ctx.candle.close * 1.3, // 30% TP (wide, no trigger in 10 bars)
+    };
+  }
+  warmup(): number {
+    return 0;
+  }
+}
+
+/**
+ * Build a 10-candle flat-price series at `price`. No SL/TP triggers in
+ * 10 bars; position always closes via end_of_data so we can inspect
+ * `result.trades[0].notionalUsd`.
+ */
+function mkFlatTenCandles(price: number): Candle[] {
+  const out: Candle[] = [];
+  for (let i = 0; i < 10; i++) {
+    out.push(mkCandle(i * HOUR_MS, price));
+  }
+  return out;
+}
+
+/**
+ * Phase 17 Track A — engine confidence → notional wiring.
+ *
+ * The fix in `engine.ts:248-275` multiplies `riskPerTrade` by the clamped
+ * `signal.confidence` before calling `positionNotionalUsd`. This makes
+ * strategy-side confidence actually affect position sizing — previously
+ * the engine ignored `signal.confidence` entirely (Phase 16 no-op cap).
+ *
+ * All math references equity=$10,000, riskPerTrade=1%, stop-distance=10%,
+ * maxPositionPctEquity=20% (cap=$2,000), minPositionPctEquity=1% (floor=$100).
+ */
+describe("runBacktest — Phase 17 confidence → riskPerTrade wiring", () => {
+  it("confidence=1.0: riskPerTrade unchanged → notional = (equity × 0.01) / 0.10 = $1000", async () => {
+    const candles = mkFlatTenCandles(100);
+    const feed = new MockFeed(candles);
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(candles[candles.length - 1]!.timestamp),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy: new ConfidenceStrategy(1.0),
+    });
+    expect(result.totalTrades).toBe(1);
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(1000, 6);
+  });
+
+  it("confidence=0.7: shallow entry → riskPerTrade scaled to 70% → notional = $700", async () => {
+    // Phase 16 pivot S1/R1 shallow entry path: confidence=0.7 → 70% of
+    // base riskPerTrade → proportionally smaller notional than deep entry.
+    const candles = mkFlatTenCandles(100);
+    const feed = new MockFeed(candles);
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(candles[candles.length - 1]!.timestamp),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy: new ConfidenceStrategy(0.7),
+    });
+    expect(result.totalTrades).toBe(1);
+    // (10000 × 0.01 × 0.7) / 0.10 = 70 / 0.10 = 700
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(700, 6);
+  });
+
+  it("confidence=0.0: zero-confidence signal → effective risk=0 → notional clamped to minNotional ($100)", async () => {
+    // Phase 16 Regime-Routed Ensemble kill-switch + zero-confidence
+    // suppression path: conf=0 → position collapses to minNotional floor
+    // (the engine never opens a 0-USD position because the min-clamp in
+    // `positionNotionalUsd` enforces the floor).
+    const candles = mkFlatTenCandles(100);
+    const feed = new MockFeed(candles);
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(candles[candles.length - 1]!.timestamp),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy: new ConfidenceStrategy(0.0),
+    });
+    expect(result.totalTrades).toBe(1);
+    // min = 10000 × 0.01 = 100
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(100, 6);
+  });
+
+  it("confidence=0.2: Phase 16 '4% cap' effect → riskPerTrade scaled to 20% → notional = $200", async () => {
+    // Phase 16 Track A applyCap() scaled emitted confidence to 0.20 for
+    // a 4% notional cap. The Phase 16 engine ignored it (no-op); with
+    // the Phase 17 wiring, the cap actually takes effect: 0.01 × 0.20 = 0.002
+    // → notional = (10000 × 0.002) / 0.10 = 200.
+    const candles = mkFlatTenCandles(100);
+    const feed = new MockFeed(candles);
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(candles[candles.length - 1]!.timestamp),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy: new ConfidenceStrategy(0.2),
+    });
+    expect(result.totalTrades).toBe(1);
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(200, 6);
+  });
+
+  it("confidence out-of-range defensively clamped to [0, 1] (conf<0 → minNotional, conf>1 → $1000)", async () => {
+    // Sub-case A: conf = -0.5 → clamped to 0 → notional = minNotional = $100.
+    const candlesNeg = mkFlatTenCandles(100);
+    const feedNeg = new MockFeed(candlesNeg);
+    const resultNeg = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(candlesNeg[candlesNeg.length - 1]!.timestamp),
+      initialEquityUsd: 10000,
+      feed: feedNeg,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy: new ConfidenceStrategy(-0.5),
+    });
+    expect(resultNeg.trades[0]!.notionalUsd).toBeCloseTo(100, 6);
+
+    // Sub-case B: conf = 1.5 → clamped to 1.0 → notional = $1000
+    // (NOT 1500, which would be the un-clamped result).
+    const candlesPos = mkFlatTenCandles(100);
+    const feedPos = new MockFeed(candlesPos);
+    const resultPos = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(candlesPos[candlesPos.length - 1]!.timestamp),
+      initialEquityUsd: 10000,
+      feed: feedPos,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy: new ConfidenceStrategy(1.5),
+    });
+    expect(resultPos.trades[0]!.notionalUsd).toBeCloseTo(1000, 6);
+  });
+});
+
+/**
+ * Phase 17 — confidence wiring tests.
+ * Multiplies `opts.positionSize.riskPerTrade` by `signal.confidence` before calling
+ * `positionNotionalUsd`. This makes strategy-side confidence affect position sizing.
+ *
+ * Test fixtures: equity=10000, riskPerTrade=0.01, minPositionPctEquity=0.01,
+ * maxPositionPctEquity=0.20. Entry price=100, stop-loss offset=10 → stopDistance=10%.
+ * Expected notional = 10000 × riskPerTrade × confidence / 0.10 = 1000 × confidence.
+ * Clamped to [100, 2000].
+ */
+describe("runBacktest — signal.confidence wiring", () => {
+  const EQUITY = 10_000;
+  const RISK_PER_TRADE = 0.01;
+  const STOP_OFFSET = 10; // price 100 → stop distance = 10/100 = 10%
+  const TP_OFFSET = 30;
+  const POSITION_SIZE = {
+    riskPerTrade: RISK_PER_TRADE,
+    kellyFraction: 0.25,
+    maxDrawdown: 0.15,
+    maxPositionPctEquity: 0.2,
+    minPositionPctEquity: 0.01,
+  };
+  // Expected notional before clamps: 10000 * 0.01 * confidence / 0.10 = 1000 * confidence
+  // minClamp = 10000 * 0.01 = 100, maxClamp = 10000 * 0.20 = 2000
+
+  /**
+   * `ConfidenceStrategy` — emits one LONG signal at the first candle with the
+   * specified confidence, then goes silent. Stop and TP offsets are fixed so
+   * stopDistance is deterministic (10% of entry).
+   */
+  class ConfidenceStrategy implements Strategy {
+    readonly name = "confidence";
+    readonly timeframes = ["1h"] as const;
+    private fired = false;
+    constructor(
+      private readonly confidence: number,
+      private readonly maxTrades = 1,
+    ) {}
+    onCandle(ctx: StrategyContext): StrategySignal | null {
+      if (this.fired || this.maxTrades === 0) return null;
+      this.fired = true;
+      const price = ctx.candle.close;
+      return {
+        side: "buy",
+        confidence: this.confidence,
+        reason: `confidence=${this.confidence}`,
+        stopLoss: price - STOP_OFFSET,
+        takeProfit: price + TP_OFFSET,
+      };
+    }
+    warmup(): number {
+      return 0;
+    }
+  }
+
+  /**
+   * Run a 10-candle backtest with the given strategy. Candles rise from
+   * 100 → 145 so the take-profit (130) is hit and the trade closes cleanly.
+   */
+  async function runConfidenceBacktest(strategy: ConfidenceStrategy): Promise<BacktestResult> {
+    const candles: Candle[] = [];
+    for (let i = 0; i < 10; i++) {
+      candles.push(mkCandle(i * HOUR_MS, 100 + i * 5, { high: 150, low: 95 }));
+    }
+    const feed = new MockFeed(candles);
+    const opts: BacktestOptions = {
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(candles[candles.length - 1]!.timestamp),
+      initialEquityUsd: EQUITY,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy,
+    };
+    return runBacktest(opts);
+  }
+
+  it("confidence=1.0 → riskPerTrade unchanged (full position size)", async () => {
+    const result = await runConfidenceBacktest(new ConfidenceStrategy(1.0));
+    expect(result.totalTrades).toBe(1);
+    // Notional = 10000 * 0.01 * 1.0 / 0.10 = 1000
+    // 100 <= 1000 <= 2000 → no clamp
+    expect(result.trades[0]!.notionalUsd).toBe(1000);
+  });
+
+  it("confidence=0.7 → riskPerTrade scaled to 70% (shallow entry)", async () => {
+    const result = await runConfidenceBacktest(new ConfidenceStrategy(0.7));
+    expect(result.totalTrades).toBe(1);
+    // Notional = 10000 * 0.01 * 0.7 / 0.10 = 700
+    expect(result.trades[0]!.notionalUsd).toBe(700);
+  });
+
+  it("confidence=0.0 → position size hits minimum clamp (signal suppressed)", async () => {
+    const result = await runConfidenceBacktest(new ConfidenceStrategy(0.0));
+    expect(result.totalTrades).toBe(1);
+    // riskPerTrade becomes 0 → notional formula gives 0 → clamped to minNotional
+    const minNotional = EQUITY * POSITION_SIZE.minPositionPctEquity;
+    expect(result.trades[0]!.notionalUsd).toBe(minNotional);
+  });
+
+  it("confidence=0.2 → riskPerTrade scaled to 20% (Phase 16 cap effect)", async () => {
+    const result = await runConfidenceBacktest(new ConfidenceStrategy(0.2));
+    expect(result.totalTrades).toBe(1);
+    // Notional = 10000 * 0.01 * 0.2 / 0.10 = 200
+    // 100 <= 200 <= 2000 → no clamp
+    expect(result.trades[0]!.notionalUsd).toBe(200);
+  });
+
+  it("confidence > 1 → notional = confidence × base notional (above max triggers max clamp)", async () => {
+    const result = await runConfidenceBacktest(new ConfidenceStrategy(3.0));
+    expect(result.totalTrades).toBe(1);
+    // riskPerTrade = 0.01 * 3.0 = 0.03 → notional = 10000 * 0.03 / 0.10 = 3000
+    // Clamped to maxPositionPctEquity * equity = 0.20 * 10000 = 2000
+    expect(result.trades[0]!.notionalUsd).toBe(2000);
+  });
+});
