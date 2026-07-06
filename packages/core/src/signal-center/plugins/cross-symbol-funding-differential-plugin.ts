@@ -179,7 +179,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
    * Backward-compat: `subscribe(bus)` wraps the bus under the first
    * enabledPair's legA. New code should prefer `subscribeBuses(map)`.
    */
-  private readonly _busesBySymbol: Map<string, SignalBus> = new Map();
+  private readonly _busesBySymbol: Map<string, SignalBus> = new Map<string, SignalBus>();
   private _wired = false;
 
   constructor(

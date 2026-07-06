@@ -174,7 +174,7 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
    * `enabledSymbols[0]` (lead) key. New code should prefer
    * `subscribeBuses(map)`.
    */
-  private readonly _busesBySymbol: Map<string, SignalBus> = new Map();
+  private readonly _busesBySymbol: Map<string, SignalBus> = new Map<string, SignalBus>();
   private _wired = false;
 
   constructor(

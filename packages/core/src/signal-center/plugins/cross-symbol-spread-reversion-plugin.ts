@@ -402,7 +402,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
    * Backward-compat: `subscribe(bus)` wraps the bus under the first
    * enabledPair's legA. New code should prefer `subscribeBuses(map)`.
    */
-  private readonly _busesBySymbol: Map<string, SignalBus> = new Map();
+  private readonly _busesBySymbol: Map<string, SignalBus> = new Map<string, SignalBus>();
   /** Whether subscribe() has been called. */
   private _wired = false;
 
@@ -1077,7 +1077,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       if (bus !== undefined) {
         bus.emit(signal);
       } else {
-        this.state.unroutedEmissions = (this.state.unroutedEmissions ?? 0) + 1;
+        this.state.unroutedEmissions += 1;
       }
     }
     return signal;

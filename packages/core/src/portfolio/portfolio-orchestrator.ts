@@ -78,6 +78,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import type { Bar } from "../signal-center/types.js";
+import type { SignalBus } from "../signal-center/signal-bus.js";
 import type { StrategyPlugin } from "../signal-center/strategy-registry.js";
 import { SignalCenterV1 } from "../signal-center/signal-center-v1.js";
 import { CarryBaselinePlugin } from "../signal-center/plugins/carry-baseline-plugin.js";
