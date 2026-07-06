@@ -192,10 +192,11 @@ describe("DvolRegimeSizingPlugin", () => {
       const { sizing } = wirePlugin(p);
       p.onBar(makeBar(BASE_TS, 50000), null);
       expect(sizing.length).toBe(3);
-      const bySym: Record<string, number> = {};
-      for (const s of sizing) bySym[s.source] = s.volMultiplier; // approximate; real source comparison below
-      // Better: check by source
-      const btcSizing = sizing.find((s) => /* eslint-disable-next-line @typescript-eslint/no-explicit-any */ (s as any).symbol === "BTC/USDT" || s.volMultiplier === 0.5);
+      // Per-symbol DVOL override: BTC=85 (acute-stress → 0.5),
+      // ETH=70 (elevated → 0.75), SOL=no-override → falls back to
+      // getDvolForTimestamp (55 = normal → 1.0). All three should
+      // emit a SizingSignal with the corresponding volMultiplier.
+      const btcSizing = sizing.find((s) => s.volMultiplier === 0.5);
       const ethSizing = sizing.find((s) => s.volMultiplier === 0.75);
       const solSizing = sizing.find((s) => s.volMultiplier === 1.0);
       expect(btcSizing).toBeDefined();

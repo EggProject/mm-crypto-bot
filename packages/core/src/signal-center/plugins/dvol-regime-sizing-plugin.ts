@@ -445,13 +445,13 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
   private _processSymbol(symbol: string, timestampMs: number): void {
     // Per-symbol DVOL override takes precedence over the default
     // callback (allows ETH-DVOL / SOL-DVOL routing when available).
-    let dvol: number | null = null;
-    if (this.config.dvolBySymbol !== undefined) {
-      dvol = this.config.dvolBySymbol.get(symbol) ?? null;
-    }
-    if (dvol === null) {
-      dvol = this.config.getDvolForTimestamp(timestampMs);
-    }
+    // Optional-chain the Map.get call (dvolBySymbol is optional), then
+    // nullish-coalesce with the timestamp-based fallback. No intermediate
+    // `let` reassignment needed — the rule `@typescript-eslint/prefer-nullish-coalescing`
+    // rejects both the `?? null` ternary AND a `??=` reassignment for this
+    // pattern; chaining `?.` + `??` is the only assignment-free form.
+    const fromOverride = this.config.dvolBySymbol?.get(symbol);
+    const dvol = fromOverride ?? this.config.getDvolForTimestamp(timestampMs);
 
     let regime: DvolRegime;
     let volMultiplier: number;
