@@ -53,9 +53,13 @@
 //        down the position size WITHOUT overriding direction.
 //
 //   4. **Carry signal regime → sizeMultiplier**
-//      - `regime = "high"`   → sizeMultiplier × 1.2 (carry is profitable, scale up)
-//      - `regime = "neutral"`→ sizeMultiplier × 1.0 (no change)
-//      - `regime = "flip"`   → sizeMultiplier × 0.5 (carry is bleeding, scale down)
+//      - `regime = "high"`   → carryMultiplier = 1.2 (carry is profitable,
+//        INTENT scale-up — but final sizeMultiplier is clamped to ≤1.0 by
+//        `_computeSizeMultiplier`, so under the project's 1:10 mandate the
+//        effective multiplier for "high" == "neutral" == 1.0; the scale-up
+//        half is structurally disabled).
+//      - `regime = "neutral"`→ carryMultiplier = 1.0 (no change)
+//      - `regime = "flip"`   → carryMultiplier = 0.5 (carry is bleeding, scale down)
 //      - Multiple carry signals for a symbol → the MOST DEFENSIVE value wins
 //        (min multiplier among them).
 //
@@ -938,6 +942,14 @@ export class DecisionEngine {
    * size modifier. Both inputs are clamped to [0, 1] (size modifier can
    * be 1.0 from neutral carry, but carry high regime gives 1.2 which
    * we clamp here so notional never exceeds the cap).
+   *
+   * NOTE: under the project's mandatory 1:10 leverage, this clamp means
+   * `regime = "high"` (raw carryMultiplier = 1.2) is structurally equal to
+   * `regime = "neutral"` (raw 1.0) at the final sizeMultiplier level.
+   * The "scale up to 1.2" intent is documented for future alpha context
+   * (pre-1:10), but the production behavior is: high == neutral == 1.0.
+   * Only the defensive scale-down half (`regime = "flip"` → 0.5) is
+   * observable in production envelopes.
    */
   private _computeSizeMultiplier(acc: SymbolAccumulator): number {
     const raw = acc.carryMultiplier * acc.sizeModifier;

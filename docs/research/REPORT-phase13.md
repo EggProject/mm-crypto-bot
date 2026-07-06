@@ -110,7 +110,7 @@ The `DecisionEngine` arbitrates between signals from N plugins per bar using a w
 
 1. **Directional conflict** (long + short at same symbol, same timestamp): `side = 'flat'` if weights tie; otherwise the weighted-majority side. The weights are summed across plugins: `totalStrength = Σ pluginWeight × signal.strength` for the dominant side. The `dominantSide` (long / short / flat) is whichever has the highest weighted contribution.
 2. **Risk signal `sizeModifier < 1.0`** applies to ALL outgoing decisions (multiplier wins). A defensive RiskSignal from `RegimeDetectorMetaPlugin` or `SOLFlipKillSwitchPlugin` reduces the notional multiplicatively across the entire arbitrated decision.
-3. **Carry signal regime multiplier**: `high = 1.2 / neutral = 1.0 / flip = 0.5` — applied to `sizeMultiplier` (does NOT veto direction). Capped at 1.5 to prevent runaway scaling.
+3. **Carry signal regime multiplier**: `high = 1.2 / neutral = 1.0 / flip = 0.5` — applied to `sizeMultiplier` (does NOT veto direction). **Final sizeMultiplier is clamped to [0, 1] in `_computeSizeMultiplier`** — so under the project's mandatory 1:10 leverage, the "high → 1.2" intent is structurally capped to 1.0 (effectively equal to "neutral"; the scale-up half is disabled by the 1:10 mandate). "flip → 0.5" still applies as a defensive scale-down.
 4. **Factor / FundingSnapshot signals**: informational only, never veto, never contributes to weight. They touch the `sourceWeights` map for telemetry attribution but at 0 effective weight.
 5. **Defensive plugins get 2× weight**: `RegimeDetectorMetaPlugin`, `PerpDexLiquidationSignalsPlugin`, and `SOLFlipKillSwitchPlugin` (Track B's `DEFENSIVE_PLUGIN_NAMES`) get `config.defensiveWeight = 2.0` vs directional plugins at `config.defaultWeight = 1.0`.
 6. **Min consensus strength 0.3**: below this threshold, decision = 'flat'. This filters out weak noise — a single plugin emitting `strength = 0.1` long is not enough to commit capital.
@@ -302,6 +302,12 @@ Liquidations:    0
 ```
 
 The runner is deterministic — same data, same code, same envelope.
+
+### Runner test approach (honest disclosure)
+
+The runner CLI (`packages/backtest-tools/src/cli/run-portfolio-orchestrator.ts`, ~982 LOC) is validated **via functional reproduction runs**, not via unit-test coverage. There is no `run-portfolio-orchestrator.test.ts` — the 2184/2184 passing tests are all unit/integration tests on the underlying libraries (DecisionEngine, PortfolioOrchestrator, cross-symbol plugins, monolith wrappers). The "100% line + function coverage" claims in this report apply to those library files (139 tests for cross-symbol plugins + 16 NEW files in Track A = 100% on each), **not to the runner CLI itself**.
+
+This is consistent with the project's pattern for end-to-end runners (the older `run-baseline.test.ts` similarly tests the runner's library helpers, not the CLI invocation). The runner's correctness is proven by the bit-for-bit envelope reproduction across attempts 1 and 2. Future hardening: add a `run-portfolio-orchestrator.test.ts` that invokes the CLI as a subprocess with deterministic CLI args + asserts envelope JSON shape — Phase 14+ scope.
 
 ---
 
