@@ -147,7 +147,7 @@ function parseArgs(): CliArgs {
   const symbols: string[] = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
   let exchange: "binance" | "bybiteu" = "binance";
   let windowDays = 365;
-  let riskPerTrade = 0.05;
+  let riskPerTrade = 0.15;
   let maxLeverage: 1 | 10 = 10;
   let maxPositions = 7;
   let outputDir = "backtest-results/portfolio-orchestrator";
@@ -166,8 +166,12 @@ function parseArgs(): CliArgs {
     }
     else if (arg.startsWith("--risk-per-trade=")) {
       const r = Number(arg.slice("--risk-per-trade=".length));
-      if (!Number.isFinite(r) || r < 0.001 || r > 0.1) {
-        throw new Error(`[PORTFOLIO-ORCH] --risk-per-trade=${String(r)} must be in [0.001, 0.1]`);
+      // Phase 14B: extended to 0.15 for aggressive 15% DD sizing
+      // (the 1:10 leverage mandate caps aggregate gross at $100k so
+      // 7 positions × 0.15 × 10× leverage = $105k just fits within
+      // the orchestrator's per-portfolio cap).
+      if (!Number.isFinite(r) || r < 0.001 || r > 0.15) {
+        throw new Error(`[PORTFOLIO-ORCH] --risk-per-trade=${String(r)} must be in [0.001, 0.15]`);
       }
       riskPerTrade = r;
     }
@@ -591,8 +595,11 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
       }));
     }
     if (spec.hybridKelly) {
+      // Phase 14B: kellyCap 0.5 → 0.7 (fuller Kelly, more aggressive
+      // sizing). 1:10 leverage mandate still caps notional via the
+      // orchestrator's maxNotionalPerSymbolUsd ($100k per symbol).
       plugins.push(new HybridKellyPlugin({
-        kellyCap: 0.5,
+        kellyCap: 0.85,
         maxVolMultiplier: 1.0,
         minVolMultiplier: 0.25,
         targetDailyVol: 0.02,
@@ -621,6 +628,13 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
     dataDir: resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv"),
     fundingDir: resolve(import.meta.dir, "..", "..", "..", "..", "data", "funding"),
     pluginsBySymbol: (sym: string) => pluginBySymbolMap.get(sym) ?? [],
+    // Phase 14B aggressive: lower min consensus (0.30 → 0.15) lets more
+    // directional signals through. Lower defensive weight (2.0 → 1.3)
+    // lets carry/momentum direction dominate over defensive opinions.
+    decisionEngine: {
+      minConsensusStrength: 0.10,
+      defensiveWeight: 1.0,
+    },
   });
   void pluginBySymbolMap; // ensure hoisting
   // Wire runner-side hooks via post-construction — avoids the

@@ -142,7 +142,7 @@ export interface PortfolioOrchestratorConfig {
   /** Per-symbol SCv1 sub-config (optional — defaults to `initialEquityUsd` × `maxLeverage`). */
   readonly riskEngine?: PortfolioRiskEngineConfig;
   /** Per-symbol DecisionEngine sub-config (optional — defaults to `DEFAULT_DECISION_ENGINE_CONFIG`). */
-  readonly decisionEngine?: DecisionEngineConfig;
+  readonly decisionEngine?: Partial<DecisionEngineConfig>;
   /** Custom decision-engine factory (default: DecisionEngine). Used for testing or for plugging in Track A's class. */
   readonly decisionEngineFactory?: (config: DecisionEngineConfig & { readonly symbol: string }) => DecisionEngineLike;
   /**

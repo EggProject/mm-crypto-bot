@@ -384,7 +384,6 @@ export class CarryBaselinePlugin implements StrategyPlugin {
     this.state.lastRollingStats = stats;
     // Classify regime from current stats + funding rate.
     const regime = this._classifyRegime(snap.fundingRate, stats);
-    const prevRegime = this.state.currentRegime;
     this.state.currentRegime = regime;
 
     // Emit CarrySignal on every snapshot (telemetry consumers want
@@ -421,12 +420,19 @@ export class CarryBaselinePlugin implements StrategyPlugin {
       this.state.fundingCollectedUsd = this.carry.state.fundingCollectedUsd;
     }
 
-    // Emit SizingSignal on regime TRANSITIONS (high↔neutral↔flip) and
-    // on every entry/exit. Conservative: a sizing signal is small but
-    // useful for portfolio risk aggregation.
-    const regimeChanged = regime !== prevRegime;
-    const enterExit = decision !== "hold";
-    if (regimeChanged || enterExit) {
+    // Phase 14B: emit SizingSignal on EVERY funding tick (3x daily)
+    // except when regime === "flip" (where the carry strategy says
+    // stay out). This eliminates "phantom longs" where the side is
+    // long but no SizingSignal fired in that bar, leaving notional=0
+    // and PnL unrealized.
+    //
+    // Rationale: every funding tick (3x/day) is a "carry is currently
+    // profitable" confirmation. When regime is "high" or "neutral",
+    // the carry strategy holds a position with size scaled by
+    // (kellyCap × volMultiplier). The SizingSignal communicates the
+    // current desired notional to downstream consumers (DecisionEngine
+    // / PortfolioOrchestrator) so they can size the position.
+    if (regime !== "flip") {
       this._emitSizingSignal(snap.fundingTime);
     }
 
