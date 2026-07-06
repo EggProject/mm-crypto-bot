@@ -691,6 +691,42 @@ export { DEFAULT_MTF_CONFIG } from "./types.js";
 // related types. Backed by per-symbol SignalCenterV1 + DecisionEngine + shared PortfolioRiskEngine.
 export * from "./portfolio/index.js";
 
+// Phase 15 Track B — Pivot Point Grid (M15 mean-reversion, pivot-anchored range).
+export {
+  PivotPointGridStrategy,
+  DEFAULT_PIVOT_GRID_CONFIG,
+} from "./strategy/pivot-point-grid.js";
+export type { PivotPointGridConfig } from "./strategy/pivot-point-grid.js";
+
+// Phase 15 Track B — Bollinger Range Squeeze (M5 breakout after bbWidth squeeze).
+export {
+  BollingerRangeSqueezeStrategy,
+  DEFAULT_BB_SQUEEZE_CONFIG,
+} from "./strategy/bollinger-range-squeeze.js";
+export type { BollingerSqueezeConfig } from "./strategy/bollinger-range-squeeze.js";
+
+// Phase 15 Track C — Donchian Range Channel (M15 range-mean-reversion).
+export {
+  DonchianRangeChannelStrategy,
+  DEFAULT_DONCHIAN_RANGE_CONFIG,
+} from "./strategy/donchian-range-channel.js";
+export type { DonchianRangeChannelConfig } from "./strategy/donchian-range-channel.js";
+
+// Phase 15 Track C — Keltner Volatility-Adaptive Grid (M5 grid in Keltner channel).
+export {
+  KeltnerGridStrategy,
+  DEFAULT_KELTNER_GRID_CONFIG,
+} from "./strategy/keltner-grid.js";
+export type { KeltnerGridConfig } from "./strategy/keltner-grid.js";
+
+// Phase 15 Track D — Simple Retail Ensemble (composes the 4 Phase 15 retail strategies).
+export {
+  SimpleRetailEnsemble,
+  DEFAULT_SIMPLE_RETAIL_ENSEMBLE_CONFIG,
+  ENSEMBLE_DEFAULT_LTF,
+} from "./strategy/simple-retail-ensemble.js";
+export type { SimpleRetailEnsembleConfig } from "./strategy/simple-retail-ensemble.js";
+
 import type { Strategy } from "./types.js";
 import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
 
