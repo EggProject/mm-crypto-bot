@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // scripts/download-ohlcv.ts — Binance public OHLCV data downloader
 //
-// ÜGYNÖK #6 (data + backtest) — Phase 1
+// ÜGYNÖK #6 (data + backtest) — Phase 1; Phase 15 kiterjesztés M5/M15-re.
 //
 // Letölti a Binance publikus OHLCV adatait a kiválasztott szimbólumokra
 // és időkeretekre, és CSV formátumban elmenti a data/ohlcv/ mappába.
@@ -12,9 +12,10 @@
 //   kvázi-azonos piaci viselkedést mutat (1:1 stabilcoin). Ha a USDC
 //   market nem elérhető valamelyik coin-hoz, USDT-re esünk vissza.
 //
-// Időkeretek: 1H, 4H, 1D
-//   A kiválasztott MTF-Trend-Konfluencia stratégia (HTF=1D, MTF=4H,
-//   LTF=1H) mindhármat használja.
+// Időkeretek: 1H, 4H, 1D (alapértelmezett), 5m/15m (Phase 15 retail strategia scope).
+//   Phase 1-14 stratégiák mind a HTF=1D / MTF=4H / LTF=1H kombinációt használják.
+//   Phase 15 retail stratégiák (Pivot Point Grid M15, BB Squeeze M5, Donchian Range M15,
+//   Keltner Grid M5) M5/M15 adatokat igényelnek — `bun run download-ohlcv.ts --timeframes=5m,15m`.
 //
 // Időszak: 2024-01-01 → mai nap (≥2 év).
 //
@@ -49,12 +50,43 @@ const SYMBOLS: readonly SymbolConfig[] = [
   { ccxtSymbol: "SOL/USDT", fileSymbol: "sol" },
 ];
 
-const TIMEFRAMES: readonly string[] = ["1h", "4h", "1d"];
+const DEFAULT_TIMEFRAMES: readonly string[] = ["1h", "4h", "1d"];
+
+// Binance-en elérhető összes timeframe, amit a Phase 15 retail stratégiák használnak.
+const SUPPORTED_TIMEFRAMES: readonly string[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
+
+const TIMEFRAME_MS: Readonly<Record<string, number>> = {
+  "1m": 60_000,
+  "5m": 5 * 60_000,
+  "15m": 15 * 60_000,
+  "1h": 60 * 60_000,
+  "4h": 4 * 60 * 60_000,
+  "1d": 24 * 60 * 60_000,
+};
 
 const START_MS = Date.UTC(2024, 0, 1, 0, 0, 0); // 2024-01-01 00:00 UTC
 const RATE_LIMIT_MS = 200; // binance public: 1200 req/min = 50ms/req, de legyünk óvatosak
 
 const OUTPUT_DIR = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
+
+/**
+ * `parseTimeframesArg` — kiolvassa a `--timeframes=5m,15m` CLI arg-ot, vagy
+ * visszaadja az alapértelmezett 1h/4h/1d listát. Ismeretlen timeframe-öt elutasít.
+ */
+function parseTimeframesArg(): readonly string[] {
+  const arg = process.argv.find((a) => a.startsWith("--timeframes="));
+  if (arg === undefined) return DEFAULT_TIMEFRAMES;
+  const value = arg.slice("--timeframes=".length);
+  const tfs = value.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  for (const tf of tfs) {
+    if (!SUPPORTED_TIMEFRAMES.includes(tf)) {
+      throw new Error(
+        `Unsupported timeframe: ${tf}. Supported: ${SUPPORTED_TIMEFRAMES.join(", ")}`,
+      );
+    }
+  }
+  return tfs;
+}
 
 async function fetchAllCandles(
   exchange: InstanceType<typeof ccxt.binance>,
@@ -116,6 +148,7 @@ interface FileInfo {
 }
 
 async function main(): Promise<void> {
+  const timeframes = parseTimeframesArg();
   await mkdir(OUTPUT_DIR, { recursive: true });
   const exchange = new ccxt.binance({
     enableRateLimit: true,
@@ -126,12 +159,12 @@ async function main(): Promise<void> {
   console.log(`[download-ohlcv] Output dir: ${OUTPUT_DIR}`);
   console.log(`[download-ohlcv] Period: ${startDate} → now`);
   console.log(`[download-ohlcv] Symbols: ${SYMBOLS.map((s) => s.fileSymbol).join(", ")}`);
-  console.log(`[download-ohlcv] Timeframes: ${TIMEFRAMES.join(", ")}`);
+  console.log(`[download-ohlcv] Timeframes: ${timeframes.join(", ")}`);
 
   const fileInfos: FileInfo[] = [];
 
   for (const sym of SYMBOLS) {
-    for (const tf of TIMEFRAMES) {
+    for (const tf of timeframes) {
       const filename = `binance_${sym.fileSymbol}_${tf}.csv`;
       const filepath = resolve(OUTPUT_DIR, filename);
       console.log(`[download-ohlcv] Fetching ${sym.ccxtSymbol} ${tf} → ${filename}`);
@@ -173,11 +206,7 @@ async function main(): Promise<void> {
     publicApi: true,
     periodStart: startDate,
     periodEnd: new Date().toISOString(),
-    timeframeMs: {
-      "1h": 60 * 60 * 1000,
-      "4h": 4 * 60 * 60 * 1000,
-      "1d": 24 * 60 * 60 * 1000,
-    },
+    timeframeMs: TIMEFRAME_MS,
     files: fileInfos,
     totalRows: fileInfos.reduce((acc, f) => acc + f.rows, 0),
     sha256Algorithm: "sha256",
