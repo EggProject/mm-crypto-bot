@@ -344,7 +344,38 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
     expect(p.carryActiveForPair("BTC/USDT", "ETH/USDT")).toBe(true);
   });
 
-  it("bus emit routes to subscribers (direction + carry kinds)", () => {
+  it("subscribeBuses routes direction + carry to leg buses", () => {
+    const p = new CrossSymbolFundingDifferentialPlugin({
+      minDifferentialPer8h: 0.0001,
+    });
+    const btcBus = new SignalBus();
+    const ethBus = new SignalBus();
+    const btcDir: { side: string }[] = [];
+    const ethDir: { side: string }[] = [];
+    const ethCarry: { regime: string }[] = [];
+    btcBus.subscribe("direction", (s) => {
+      btcDir.push({ side: (s as { side: string }).side });
+    });
+    ethBus.subscribe("direction", (s) => {
+      ethDir.push({ side: (s as { side: string }).side });
+    });
+    ethBus.subscribe("carry", (s) => {
+      ethCarry.push({ regime: (s as { regime: string }).regime });
+    });
+    p.subscribeBuses(new Map([
+      ["BTC/USDT", btcBus],
+      ["ETH/USDT", ethBus],
+    ]));
+    p.recordFundingRate("BTC/USDT", 0.0003);
+    p.recordFundingRate("ETH/USDT", 0.0001);
+    // legA (BTC) signal goes to BTC bus; legB (ETH) signal goes to ETH bus.
+    // CarrySignal routes to high-leg's bus (BTC), so ETH bus carry is empty.
+    expect(btcDir.length).toBe(1);
+    expect(ethDir.length).toBe(1);
+    expect(p.state.unroutedEmissions).toBe(0);
+  });
+
+  it("single-bus backward-compat only routes legA (legB dropped)", () => {
     const p = new CrossSymbolFundingDifferentialPlugin({
       minDifferentialPer8h: 0.0001,
     });
@@ -360,8 +391,11 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
     p.subscribe(bus);
     p.recordFundingRate("BTC/USDT", 0.0003);
     p.recordFundingRate("ETH/USDT", 0.0001);
-    expect(dirReceived.length).toBe(2);
+    // legA = BTC: 1 direction. legB = ETH: 1 direction unrouted. Carry: routes
+    // to high-leg (BTC) bus. So 1 direction + 1 carry on this bus, 1 unrouted.
+    expect(dirReceived.length).toBe(1);
     expect(carryReceived.length).toBe(1);
+    expect(p.state.unroutedEmissions).toBe(1);
   });
 
   it("subscribe calls _assertInitialState (Layer 2)", () => {
@@ -399,12 +433,13 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
     expect(ps.fundingB).toBeNull();
   });
 
-  it("dispose() releases bus reference", () => {
+  it("dispose() releases bus references", () => {
     const p = new CrossSymbolFundingDifferentialPlugin();
     const bus = new SignalBus();
     p.subscribe(bus);
+    expect(p.wiredBuses().size).toBe(1);
     p.dispose();
-    expect((p as unknown as { _bus: unknown })._bus).toBeNull();
+    expect(p.wiredBuses().size).toBe(0);
     expect((p as unknown as { _wired: boolean })._wired).toBe(false);
   });
 

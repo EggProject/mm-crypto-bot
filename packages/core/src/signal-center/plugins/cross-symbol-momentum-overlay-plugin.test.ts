@@ -324,12 +324,13 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     expect(p.state.lastMomentum).toBeNull();
   });
 
-  it("dispose() releases bus reference", () => {
+  it("dispose() releases bus references", () => {
     const p = new CrossSymbolMomentumOverlayPlugin();
     const bus = new SignalBus();
     p.subscribe(bus);
+    expect(p.wiredBuses().size).toBe(1);
     p.dispose();
-    expect((p as unknown as { _bus: unknown })._bus).toBeNull();
+    expect(p.wiredBuses().size).toBe(0);
     expect((p as unknown as { _wired: boolean })._wired).toBe(false);
   });
 
@@ -489,5 +490,42 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     const emitted = p.recordClose("BTC/USDT", 105);
     expect(emitted.length).toBe(0);
     expect(p.state.longEmissions).toBe(0);
+  });
+
+  it("subscribeBuses broadcasts signals to all subscribed buses", () => {
+    const p = new CrossSymbolMomentumOverlayPlugin({
+      lookbackDays: 10,
+      momentumThreshold: 0.05,
+      enabledSymbols: ["BTC/USDT", "ETH/USDT"],
+    });
+    const btcBus = new SignalBus();
+    const ethBus = new SignalBus();
+    const btcDir: { side: string; strength: number }[] = [];
+    const ethDir: { side: string; strength: number }[] = [];
+    btcBus.subscribe("direction", (s) => {
+      btcDir.push({ side: (s as { side: string }).side, strength: (s as { strength: number }).strength });
+    });
+    ethBus.subscribe("direction", (s) => {
+      ethDir.push({ side: (s as { side: string }).side, strength: (s as { strength: number }).strength });
+    });
+    p.subscribeBuses(new Map([
+      ["BTC/USDT", btcBus],
+      ["ETH/USDT", ethBus],
+    ]));
+    // Generate +20% BTC momentum to cross threshold.
+    for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
+    p.recordClose("BTC/USDT", 120);
+    // Both buses receive the same DirectionSignal (one per enabledSymbol
+    // since the plugin emits a signal per symbol in the for-loop).
+    // Phase 14A: each signal is broadcast to all subscribed buses.
+    expect(btcDir.length).toBe(2); // 1 per enabledSymbol
+    expect(ethDir.length).toBe(2); // same signals, broadcast to ETH bus
+    expect(btcDir.every((d) => d.side === "long")).toBe(true);
+    expect(ethDir.every((d) => d.side === "long")).toBe(true);
+  });
+
+  it("subscribeBuses rejects empty map", () => {
+    const p = new CrossSymbolMomentumOverlayPlugin();
+    expect(() => p.subscribeBuses(new Map())).toThrow(/at least one/);
   });
 });

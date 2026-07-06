@@ -118,6 +118,12 @@ export interface CrossSymbolFundingDifferentialPluginState {
   layer2AssertionCount: number;
   leverageClampCount: number;
   malformedRateDrops: number;
+  /**
+   * Phase 14A: number of signals (Direction or Carry) that could not
+   * be routed because no bus was subscribed for the leg's symbol.
+   * Should always be 0 in production.
+   */
+  unroutedEmissions: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -165,7 +171,15 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
 
   public readonly config: CrossSymbolFundingDifferentialConfig;
   public readonly state: CrossSymbolFundingDifferentialPluginState;
-  private _bus: SignalBus | null = null;
+  /**
+   * Per-symbol signal bus subscriptions. Phase 14A wiring: each leg's
+   * DirectionSignal routes to the bus matching that leg's symbol.
+   * CarrySignals (informational) route to the high-leg's bus.
+   *
+   * Backward-compat: `subscribe(bus)` wraps the bus under the first
+   * enabledPair's legA. New code should prefer `subscribeBuses(map)`.
+   */
+  private readonly _busesBySymbol: Map<string, SignalBus> = new Map();
   private _wired = false;
 
   constructor(
@@ -255,6 +269,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       layer2AssertionCount: 0,
       leverageClampCount: 0,
       malformedRateDrops: 0,
+      unroutedEmissions: 0,
     };
 
     for (const p of this.config.enabledPairs as readonly SymbolPair[]) {
@@ -274,10 +289,45 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
     }
   }
 
+  /**
+   * `subscribe` — Phase 13 single-bus backward-compat path. Wires the
+   * plugin to ONE bus, registered under the first enabledPair's legA.
+   * Phase 14A: prefer `subscribeBuses(map)` for multi-symbol wiring.
+   */
   subscribe(bus: SignalBus): void {
     this._assertInitialState();
-    this._bus = bus;
+    const firstPair = this.config.enabledPairs[0];
+    const keySymbol = firstPair ? firstPair[0] : "unknown";
+    this._busesBySymbol.set(keySymbol, bus);
     this._wired = true;
+  }
+
+  /**
+   * `subscribeBuses` — Phase 14A multi-bus wiring. Each leg's
+   * DirectionSignal routes to the bus matching that leg's symbol.
+   * CarrySignals route to the high-leg's bus (where the carry is
+   * "expensive" to be short — the symbol paying out funding).
+   *
+   * At least one entry is required.
+   */
+  subscribeBuses(busesBySymbol: ReadonlyMap<string, SignalBus>): void {
+    this._assertInitialState();
+    if (busesBySymbol.size === 0) {
+      throw new Error(
+        `[CrossSymbolFundingDifferentialPlugin] subscribeBuses: at least one (symbol, bus) entry required`,
+      );
+    }
+    for (const [sym, bus] of busesBySymbol) {
+      this._busesBySymbol.set(sym, bus);
+    }
+    this._wired = true;
+  }
+
+  /**
+   * `wiredBuses` — Phase 14A introspection helper.
+   */
+  wiredBuses(): ReadonlyMap<string, SignalBus> {
+    return new Map(this._busesBySymbol);
   }
 
   onBar(_bar: Bar, _state: PluginState): void {
@@ -414,10 +464,11 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
     this.state.layer2AssertionCount = 0;
     this.state.leverageClampCount = 0;
     this.state.malformedRateDrops = 0;
+    this.state.unroutedEmissions = 0;
   }
 
   dispose(): void {
-    this._bus = null;
+    this._busesBySymbol.clear();
     this._wired = false;
   }
 
@@ -544,7 +595,8 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       kind: "direction" as const,
       side,
       strength,
-      source: this.metadata.name,
+      // Phase 14A: source suffixed with leg symbol for leg attribution.
+      source: `${this.metadata.name}:${symbol}`,
     };
     const tsField =
       timestampMs !== undefined ? { timestampMs } : {};
@@ -552,10 +604,17 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       ...baseFields,
       ...tsField,
     };
-    void symbol;
     this.state.directionSignalsEmitted += 1;
-    if (this._bus && this._wired) {
-      this._bus.emit(signal);
+    if (this._wired) {
+      // Phase 14A: leg-aware routing — each leg's signal goes to the
+      // bus matching that leg's symbol. If no bus is wired, drop and
+      // increment unroutedEmissions (defensive).
+      const bus = this._busesBySymbol.get(symbol);
+      if (bus !== undefined) {
+        bus.emit(signal);
+      } else {
+        this.state.unroutedEmissions += 1;
+      }
     }
     return signal;
   }
@@ -580,8 +639,17 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       ...tsField,
     };
     this.state.carrySignalsEmitted += 1;
-    if (this._bus && this._wired) {
-      this._bus.emit(signal);
+    if (this._wired) {
+      // Phase 14A: route the CarrySignal to the HIGH leg's bus (the
+      // symbol paying funding). If neither leg has a wired bus, drop
+      // and increment unroutedEmissions.
+      const bus = this._busesBySymbol.get(highLeg)
+        ?? this._busesBySymbol.get(lowLeg);
+      if (bus !== undefined) {
+        bus.emit(signal);
+      } else {
+        this.state.unroutedEmissions += 1;
+      }
     }
     return signal;
   }

@@ -736,6 +736,21 @@ export class PortfolioOrchestrator {
     return this._initialized;
   }
 
+  /**
+   * `getBusesBySymbol` — Phase 14A: returns a read-only Map<symbol,
+   * SignalBus> of the per-symbol buses. Used by the runner to wire
+   * cross-symbol plugins (which emit on multiple buses) via
+   * `subscribeBuses(map)`. Returns an empty map if `init()` has not
+   * been called yet.
+   */
+  getBusesBySymbol(): ReadonlyMap<string, SignalBus> {
+    const out = new Map<string, SignalBus>();
+    for (const [sym, sc] of this.signalCenters) {
+      out.set(sym, sc.bus);
+    }
+    return out;
+  }
+
   // -------------------------------------------------------------------------
   // Internal — initialization
   // -------------------------------------------------------------------------
