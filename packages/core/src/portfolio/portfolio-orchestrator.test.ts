@@ -241,10 +241,10 @@ describe("PortfolioOrchestrator — construction + config validation", () => {
     expect(orch.config.symbols).toEqual(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
     expect(orch.config.initialEquityUsd).toBe(10_000);
     expect(orch.config.maxPositions).toBe(7); // USER SPEC
-    expect(orch.config.perSymbolConcentrationPct).toBe(0.40);
+    expect(orch.config.perSymbolConcentrationPct).toBe(0.50); // Phase 14C: 0.40 → 0.50
     expect(orch.config.portfolioVaRPct).toBe(0.15);
     expect(orch.config.maxLeverage).toBe(10); // 1:10 MANDATORY
-    expect(orch.config.crossSymbolCorrelationThreshold).toBe(0.7);
+    expect(orch.config.crossSymbolCorrelationThreshold).toBe(0.85); // Phase 14C: 0.7 → 0.85
     expect(orch.config.correlationWindowDays).toBe(30);
   });
 

@@ -164,6 +164,22 @@ export interface PortfolioOrchestratorConfig {
    */
   readonly crossSymbolRecordClose?: (symbol: string, close: number, timestampMs: number) => void;
   /**
+   * `crossSymbolRecordFundingRate` — Phase 14C: optional per-funding-tick
+   * hook fired once for each (symbol, fundingTick) tuple processed by
+   * the orchestrator's main loop. The hook fires from the funding-feed
+   * path (port-orchestrator.ts:537-555), iterating over funding
+   * snapshots in the [lastFundingTime, barTs] window for each symbol.
+   *
+   * The runner provides a callback that forwards
+   * `(symbol, rate, timestampMs)` to each cross-symbol plugin's
+   * `recordFundingRate()` (currently only the
+   * `cross-symbol-funding-differential-v1` plugin).
+   *
+   * This is the cross-symbol analog of `crossSymbolRecordClose` —
+   * same per-bar dispatch shape, different per-funding-tick granularity.
+   */
+  readonly crossSymbolRecordFundingRate?: (symbol: string, rate: number, timestampMs: number) => void;
+  /**
    * `feedPlugins` — optional per-bar hook fired ONCE per (symbol, bar)
    * tuple BEFORE `sc.onBar(bar)` runs. Lets the runner push per-bar
    * closes + funding snapshots into per-plugin state machines (e.g.
@@ -193,10 +209,16 @@ export const DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG: Omit<PortfolioOrchestratorCo
   symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
   initialEquityUsd: 10_000,
   maxPositions: 7, // USER SPEC — overrides project default 3
-  perSymbolConcentrationPct: 0.40,
+  // Phase 14C: 40% → 50%. Allows the strongest single-symbol signal
+  // (typically BTC in a BTC-led carry regime) to take up to half the
+  // portfolio. Still within 1:10 leverage cap risk budget.
+  perSymbolConcentrationPct: 0.50,
   portfolioVaRPct: 0.15,
   maxLeverage: ONE_TO_TEN_LEVERAGE, // 1:10 MANDATORY
-  crossSymbolCorrelationThreshold: 0.7,
+  // Phase 14C: bumped from 0.7 to 0.85 (typical crypto carry pair
+  // correlation in 2024-2025 is ~0.85 — the old 0.7 threshold fired on
+  // 70-80% of bars and dampened funding-differential alpha unnecessarily).
+  crossSymbolCorrelationThreshold: 0.85,
   correlationWindowDays: 30,
 };
 
@@ -549,6 +571,15 @@ export class PortfolioOrchestrator {
             source: `funding-feed-${symbol}`,
             timestampMs: snap.fundingTime,
           });
+          // Phase 14C: also forward to cross-symbol funding-differential
+          // plugin via the crossSymbolRecordFundingRate hook. The
+          // plugin is cross-symbol (operates across pairs), not
+          // per-symbol, so it doesn't get the data through the
+          // per-symbol feedPlugins path. The hook is fired in the
+          // funding-feed window where differential data is freshest.
+          if (this.config.crossSymbolRecordFundingRate !== undefined) {
+            this.config.crossSymbolRecordFundingRate(symbol, snap.fundingRate, snap.fundingTime);
+          }
         }
         if (inWindow.length > 0) {
           lastFundingTimeBySymbol.set(symbol, inWindow[inWindow.length - 1]!.fundingTime);
@@ -924,7 +955,16 @@ export class PortfolioOrchestrator {
     }
 
     // Step 4: cross-symbol correlation penalty. Compute Pearson on
-    // recent returns; if any pair exceeds threshold, halve combined size.
+    // recent returns; if any pair exceeds threshold, scale the penalty
+    // GRADUATEDLY (0% at threshold → 50% at r=1.0).
+    //
+    // Phase 14C rationale: the original hard 50%-on-r>0.7 rule was
+    // written for equities where signal diversification creates value.
+    // For perp-funded crypto carry, the cross-symbol funding-differential
+    // IS the alpha (it is positively correlated with BTC's funding
+    // direction by construction — it IS funding-driven). Penalizing
+    // r=0.75-0.85 pairs (where crypto correlations normally live in
+    // 2024-2025) dampens this alpha unnecessarily.
     let correlationPenaltyActive = false;
     const corrMatrix = this.computeCorrelationMatrix();
     const correlatedPairs = this.findCorrelatedPairs(corrMatrix);
@@ -934,8 +974,15 @@ export class PortfolioOrchestrator {
         const appliedA = initialNotionals[symA] ?? 0;
         const appliedB = initialNotionals[symB] ?? 0;
         if (appliedA + appliedB <= 0) continue;
-        // 50% combined-size reduction.
-        const targetCombined = (appliedA + appliedB) * 0.5;
+        // Compute the per-pair correlation r for graduated scaling.
+        const r = Math.abs(corrMatrix[symA]?.[symB] ?? 0);
+        // Linear ramp: 0% at threshold, 50% at r=1.0. The `Math.min(0.5, ...)`
+        // caps the penalty at 50% (preserves the original "lockstep"
+        // behavior at r=1.0). At r=0.85 (typical crypto carry pair),
+        // penalty = (0.85 - 0.7) / 0.3 * 0.5 ≈ 25% reduction.
+        const overThreshold = Math.max(0, r - this.config.crossSymbolCorrelationThreshold);
+        const penalty = Math.min(0.5, (overThreshold / 0.3) * 0.5);
+        const targetCombined = (appliedA + appliedB) * (1 - penalty);
         const newA = targetCombined / 2;
         const newB = targetCombined / 2;
         const posA = positionsBySymbol[symA];
