@@ -1,0 +1,32 @@
+{
+  "symbol": "ETH/USDT",
+  "monthlyReturnPct": 0,
+  "annualizedReturnPct": 0,
+  "sharpeRatio": 0,
+  "maxDrawdownPct": 0,
+  "finalEquityUsd": 10000,
+  "liquidations": 0,
+  "totalReturnPct": 0,
+  "combinedAvgMultiplier": 1,
+  "composition": "CarryBaseline + DirectionalMTF + HybridKelly (3 baseline)",
+  "walkForwardSharpe": {
+    "folds": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "mean": 0,
+    "median": 0,
+    "min": 0,
+    "max": 0,
+    "isDays": 180,
+    "oosDays": 30,
+    "foldCount": 6
+  },
+  "decisionCount": 366,
+  "openPositionCount": 0,
+  "capacityUsedPct": 0
+}

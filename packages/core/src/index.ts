@@ -567,6 +567,29 @@ export type {
   PerpDexLiquidationSignalsPluginState,
   SymbolCascadeState,
 } from "./signal-center/plugins/perpdex-liquidation-signals-plugin.js";
+// Phase 13 Track C — Cross-symbol hedge plugins (3 NEW plugins: BTC-ETH spread reversion, BTC-driven momentum overlay, cross-symbol funding-rate arb).
+export {
+  CrossSymbolSpreadReversionPlugin,
+} from "./signal-center/plugins/cross-symbol-spread-reversion-plugin.js";
+export type {
+  CrossSymbolSpreadReversionConfig,
+  CrossSymbolSpreadReversionPluginState,
+  SymbolPair,
+} from "./signal-center/plugins/cross-symbol-spread-reversion-plugin.js";
+export {
+  CrossSymbolMomentumOverlayPlugin,
+} from "./signal-center/plugins/cross-symbol-momentum-overlay-plugin.js";
+export type {
+  CrossSymbolMomentumOverlayConfig,
+  CrossSymbolMomentumOverlayPluginState,
+} from "./signal-center/plugins/cross-symbol-momentum-overlay-plugin.js";
+export {
+  CrossSymbolFundingDifferentialPlugin,
+} from "./signal-center/plugins/cross-symbol-funding-differential-plugin.js";
+export type {
+  CrossSymbolFundingDifferentialConfig,
+  CrossSymbolFundingDifferentialPluginState,
+} from "./signal-center/plugins/cross-symbol-funding-differential-plugin.js";
 // Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,
@@ -637,6 +660,11 @@ export type {
   MtfTrendConfluenceConfig,
 } from "./types.js";
 export { DEFAULT_MTF_CONFIG } from "./types.js";
+
+// Phase 13 Track B — Portfolio Orchestrator (multi-symbol BTC+ETH+SOL simultaneous).
+// Re-exports the portfolio module's public surface: PortfolioOrchestrator + PositionDecision +
+// related types. Backed by per-symbol SignalCenterV1 + DecisionEngine + shared PortfolioRiskEngine.
+export * from "./portfolio/index.js";
 
 import type { Strategy } from "./types.js";
 import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
