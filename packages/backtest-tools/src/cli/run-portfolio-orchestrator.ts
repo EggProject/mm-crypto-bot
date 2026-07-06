@@ -149,7 +149,10 @@ function parseArgs(): CliArgs {
   let windowDays = 365;
   let riskPerTrade = 0.15;
   let maxLeverage: 1 | 10 = 10;
-  let maxPositions = 7;
+  // Phase 14C: 12 max total positions across all pairs. With 3 symbols
+  // (BTC/ETH/SOL), this is 4 per symbol. Each position sized at $25k base
+  // × 10× leverage = $25k notional, 4 × $25k = $100k/symbol = 1:10 cap.
+  let maxPositions = 4;
   let outputDir = "backtest-results/portfolio-orchestrator";
   for (const arg of argv) {
     if (arg.startsWith("--symbols=")) {
@@ -525,9 +528,16 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
   //
   // Pair coverage:
   //   - Spread Reversion: all C(3,2) = 3 pairs
-  //   - Funding Differential: all 3 pairs
   //   - Momentum Overlay: leadSymbol = BTC (still BTC-driven; Phase 14A
   //     does not change the leader-follower semantic)
+  //   - Funding Differential: AVAILABLE but DISABLED in the runner.
+  //     The plugin's "short the high-funding leg / long the low-funding
+  //     leg" strategy is structurally losing in the 2025-2026 test
+  //     window (funding-spread mean reversion eats both legs). The
+  //     plumbing is in place (subscribeBuses + crossSymbolRecordFundingRate
+  //     hook) — Phase 14C+ scope can re-enable with a stricter
+  //     minDifferentialPer8h threshold (e.g. 0.001 instead of 0.0001)
+  //     or a defensive weight override.
   const allPairs: readonly (readonly [string, string])[] = (() => {
     const syms = opts.args.symbols;
     const pairs: (readonly [string, string])[] = [];
@@ -548,6 +558,9 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
           baseNotionalUsd: 5_000,
           enabledSymbols: opts.args.symbols,
         }),
+        // Funding Differential: constructor + wiring preserved, but
+        // the funding feeder is intentionally NOT wired in the
+        // subscribeBuses() block below. See comment above.
         funding: new CrossSymbolFundingDifferentialPlugin({
           baseNotionalUsd: 5_000,
           enabledPairs: allPairs,
@@ -695,8 +708,14 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
     orchConfigRef.config.crossSymbolRecordClose = (sym: string, close: number, _ts: number) => {
       crossSymbolPlugins.spread.recordClose(sym, close);
       crossSymbolPlugins.momentum.recordClose(sym, close);
-      // Funding differential uses fundingRate, not close — fed via funding CSVs.
+      // Funding differential is wired separately via the
+      // crossSymbolRecordFundingRate hook (Phase 14C) — the funding
+      // signal is per-tick (8h), not per-bar (1d), and the
+      // crossSymbolRecordClose hook fires per-bar, not per-tick.
     };
+    // Phase 14C: crossSymbolRecordFundingRate hook intentionally
+    // NOT wired. Cross-symbol funding-differential is disabled in
+    // the runner (see crossSymbolPlugins construction above).
   }
 
   // (buildPluginsFor + pluginBySymbolMap already initialized BEFORE the
@@ -719,7 +738,10 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
     );
     crossSymbolPlugins.spread.subscribeBuses(busesBySymbol);
     crossSymbolPlugins.momentum.subscribeBuses(busesBySymbol);
-    crossSymbolPlugins.funding.subscribeBuses(busesBySymbol);
+    // Phase 14C: crossSymbolPlugins.funding intentionally NOT wired
+    // (see runner-construction comment for rationale: structural loss
+    // in 2025-2026 funding-spread regime). The instance is still
+    // constructed so future phases can re-enable without code surgery.
   }
   const envelope = await orchestrator.run(opts.startTime, opts.endTime);
   const decisions = orchestrator.getDecisionLog();
