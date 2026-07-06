@@ -727,6 +727,14 @@ export {
 } from "./strategy/simple-retail-ensemble.js";
 export type { SimpleRetailEnsembleConfig } from "./strategy/simple-retail-ensemble.js";
 
+// Phase 16 Track B — Regime-Routed Ensemble (ADX-routed composition: Pivot+Donchian in range, BB+Keltner in trend).
+export {
+  RegimeRoutedEnsemble,
+  DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG,
+  REGIME_ROUTED_ENSEMBLE_DEFAULT_LTF,
+} from "./strategy/regime-routed-ensemble.js";
+export type { RegimeRoutedEnsembleConfig } from "./strategy/regime-routed-ensemble.js";
+
 import type { Strategy } from "./types.js";
 import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
 
