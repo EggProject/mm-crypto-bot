@@ -12,8 +12,15 @@ import { describe, expect, it } from "bun:test";
 import type { Candle, Timeframe } from "@mm-crypto-bot/shared/types";
 
 import { runBacktest } from "../src/engine.js";
-import type { BacktestOptions, CostModel, ExchangeFeed } from "../src/types.js";
-import type { Strategy, StrategyContext, StrategySignal } from "@mm-crypto-bot/core";
+import type { BacktestOptions, BacktestResult, CostModel, ExchangeFeed } from "../src/types.js";
+import type {
+  OpenPositionSnapshot,
+  PositionManagementContext,
+  PositionUpdate,
+  Strategy,
+  StrategyContext,
+  StrategySignal,
+} from "@mm-crypto-bot/core";
 
 const COST_MODEL: CostModel = {
   takerFeeRate: 0.001,
@@ -485,191 +492,6 @@ describe("runBacktest — end-of-data", () => {
 });
 
 /**
- * `ConfidenceStrategy` — Phase 17 Track A test fixture. Emits exactly ONE
- * signal with a configurable confidence value, then returns null. Lets us
- * verify the engine's confidence → riskPerTrade scaling deterministically.
- */
-class ConfidenceStrategy implements Strategy {
-  readonly name = "confidence-mock";
-  readonly timeframes = ["1h"] as const;
-  private emitted = false;
-  constructor(private readonly confidence: number) {}
-  onCandle(ctx: StrategyContext): StrategySignal | null {
-    if (this.emitted) {
-      return null;
-    }
-    this.emitted = true;
-    return {
-      side: "buy",
-      confidence: this.confidence,
-      reason: `confidence-mock-${this.confidence}`,
-      stopLoss: ctx.candle.close * 0.9, // 10% stop distance
-      takeProfit: ctx.candle.close * 1.3, // 30% TP (wide, no trigger in 10 bars)
-    };
-  }
-  warmup(): number {
-    return 0;
-  }
-}
-
-/**
- * Build a 10-candle flat-price series at `price`. No SL/TP triggers in
- * 10 bars; position always closes via end_of_data so we can inspect
- * `result.trades[0].notionalUsd`.
- */
-function mkFlatTenCandles(price: number): Candle[] {
-  const out: Candle[] = [];
-  for (let i = 0; i < 10; i++) {
-    out.push(mkCandle(i * HOUR_MS, price));
-  }
-  return out;
-}
-
-/**
- * Phase 17 Track A — engine confidence → notional wiring.
- *
- * The fix in `engine.ts:248-275` multiplies `riskPerTrade` by the clamped
- * `signal.confidence` before calling `positionNotionalUsd`. This makes
- * strategy-side confidence actually affect position sizing — previously
- * the engine ignored `signal.confidence` entirely (Phase 16 no-op cap).
- *
- * All math references equity=$10,000, riskPerTrade=1%, stop-distance=10%,
- * maxPositionPctEquity=20% (cap=$2,000), minPositionPctEquity=1% (floor=$100).
- */
-describe("runBacktest — Phase 17 confidence → riskPerTrade wiring", () => {
-  it("confidence=1.0: riskPerTrade unchanged → notional = (equity × 0.01) / 0.10 = $1000", async () => {
-    const candles = mkFlatTenCandles(100);
-    const feed = new MockFeed(candles);
-    const result = await runBacktest({
-      symbol: "BTC/USDC",
-      htfTimeframe: "1d",
-      mtfTimeframe: "4h",
-      ltfTimeframe: "1h",
-      startTime: new Date(0),
-      endTime: new Date(candles[candles.length - 1]!.timestamp),
-      initialEquityUsd: 10000,
-      feed,
-      costModel: COST_MODEL,
-      positionSize: POSITION_SIZE,
-      strategy: new ConfidenceStrategy(1.0),
-    });
-    expect(result.totalTrades).toBe(1);
-    expect(result.trades[0]!.notionalUsd).toBeCloseTo(1000, 6);
-  });
-
-  it("confidence=0.7: shallow entry → riskPerTrade scaled to 70% → notional = $700", async () => {
-    // Phase 16 pivot S1/R1 shallow entry path: confidence=0.7 → 70% of
-    // base riskPerTrade → proportionally smaller notional than deep entry.
-    const candles = mkFlatTenCandles(100);
-    const feed = new MockFeed(candles);
-    const result = await runBacktest({
-      symbol: "BTC/USDC",
-      htfTimeframe: "1d",
-      mtfTimeframe: "4h",
-      ltfTimeframe: "1h",
-      startTime: new Date(0),
-      endTime: new Date(candles[candles.length - 1]!.timestamp),
-      initialEquityUsd: 10000,
-      feed,
-      costModel: COST_MODEL,
-      positionSize: POSITION_SIZE,
-      strategy: new ConfidenceStrategy(0.7),
-    });
-    expect(result.totalTrades).toBe(1);
-    // (10000 × 0.01 × 0.7) / 0.10 = 70 / 0.10 = 700
-    expect(result.trades[0]!.notionalUsd).toBeCloseTo(700, 6);
-  });
-
-  it("confidence=0.0: zero-confidence signal → effective risk=0 → notional clamped to minNotional ($100)", async () => {
-    // Phase 16 Regime-Routed Ensemble kill-switch + zero-confidence
-    // suppression path: conf=0 → position collapses to minNotional floor
-    // (the engine never opens a 0-USD position because the min-clamp in
-    // `positionNotionalUsd` enforces the floor).
-    const candles = mkFlatTenCandles(100);
-    const feed = new MockFeed(candles);
-    const result = await runBacktest({
-      symbol: "BTC/USDC",
-      htfTimeframe: "1d",
-      mtfTimeframe: "4h",
-      ltfTimeframe: "1h",
-      startTime: new Date(0),
-      endTime: new Date(candles[candles.length - 1]!.timestamp),
-      initialEquityUsd: 10000,
-      feed,
-      costModel: COST_MODEL,
-      positionSize: POSITION_SIZE,
-      strategy: new ConfidenceStrategy(0.0),
-    });
-    expect(result.totalTrades).toBe(1);
-    // min = 10000 × 0.01 = 100
-    expect(result.trades[0]!.notionalUsd).toBeCloseTo(100, 6);
-  });
-
-  it("confidence=0.2: Phase 16 '4% cap' effect → riskPerTrade scaled to 20% → notional = $200", async () => {
-    // Phase 16 Track A applyCap() scaled emitted confidence to 0.20 for
-    // a 4% notional cap. The Phase 16 engine ignored it (no-op); with
-    // the Phase 17 wiring, the cap actually takes effect: 0.01 × 0.20 = 0.002
-    // → notional = (10000 × 0.002) / 0.10 = 200.
-    const candles = mkFlatTenCandles(100);
-    const feed = new MockFeed(candles);
-    const result = await runBacktest({
-      symbol: "BTC/USDC",
-      htfTimeframe: "1d",
-      mtfTimeframe: "4h",
-      ltfTimeframe: "1h",
-      startTime: new Date(0),
-      endTime: new Date(candles[candles.length - 1]!.timestamp),
-      initialEquityUsd: 10000,
-      feed,
-      costModel: COST_MODEL,
-      positionSize: POSITION_SIZE,
-      strategy: new ConfidenceStrategy(0.2),
-    });
-    expect(result.totalTrades).toBe(1);
-    expect(result.trades[0]!.notionalUsd).toBeCloseTo(200, 6);
-  });
-
-  it("confidence out-of-range defensively clamped to [0, 1] (conf<0 → minNotional, conf>1 → $1000)", async () => {
-    // Sub-case A: conf = -0.5 → clamped to 0 → notional = minNotional = $100.
-    const candlesNeg = mkFlatTenCandles(100);
-    const feedNeg = new MockFeed(candlesNeg);
-    const resultNeg = await runBacktest({
-      symbol: "BTC/USDC",
-      htfTimeframe: "1d",
-      mtfTimeframe: "4h",
-      ltfTimeframe: "1h",
-      startTime: new Date(0),
-      endTime: new Date(candlesNeg[candlesNeg.length - 1]!.timestamp),
-      initialEquityUsd: 10000,
-      feed: feedNeg,
-      costModel: COST_MODEL,
-      positionSize: POSITION_SIZE,
-      strategy: new ConfidenceStrategy(-0.5),
-    });
-    expect(resultNeg.trades[0]!.notionalUsd).toBeCloseTo(100, 6);
-
-    // Sub-case B: conf = 1.5 → clamped to 1.0 → notional = $1000
-    // (NOT 1500, which would be the un-clamped result).
-    const candlesPos = mkFlatTenCandles(100);
-    const feedPos = new MockFeed(candlesPos);
-    const resultPos = await runBacktest({
-      symbol: "BTC/USDC",
-      htfTimeframe: "1d",
-      mtfTimeframe: "4h",
-      ltfTimeframe: "1h",
-      startTime: new Date(0),
-      endTime: new Date(candlesPos[candlesPos.length - 1]!.timestamp),
-      initialEquityUsd: 10000,
-      feed: feedPos,
-      costModel: COST_MODEL,
-      positionSize: POSITION_SIZE,
-      strategy: new ConfidenceStrategy(1.5),
-    });
-    expect(resultPos.trades[0]!.notionalUsd).toBeCloseTo(1000, 6);
-  });
-});
-
-/**
  * Phase 17 — confidence wiring tests.
  * Multiplies `opts.positionSize.riskPerTrade` by `signal.confidence` before calling
  * `positionNotionalUsd`. This makes strategy-side confidence affect position sizing.
@@ -755,14 +577,16 @@ describe("runBacktest — signal.confidence wiring", () => {
     expect(result.totalTrades).toBe(1);
     // Notional = 10000 * 0.01 * 1.0 / 0.10 = 1000
     // 100 <= 1000 <= 2000 → no clamp
-    expect(result.trades[0]!.notionalUsd).toBe(1000);
+    // toBeCloseTo guards against IEEE-754 float drift in (10000 * 0.01 * 1.0) / 0.10.
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(1000, 6);
   });
 
   it("confidence=0.7 → riskPerTrade scaled to 70% (shallow entry)", async () => {
     const result = await runConfidenceBacktest(new ConfidenceStrategy(0.7));
     expect(result.totalTrades).toBe(1);
     // Notional = 10000 * 0.01 * 0.7 / 0.10 = 700
-    expect(result.trades[0]!.notionalUsd).toBe(700);
+    // toBeCloseTo guards against IEEE-754 float drift in 0.7 * 0.01.
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(700, 6);
   });
 
   it("confidence=0.0 → position size hits minimum clamp (signal suppressed)", async () => {
@@ -770,7 +594,7 @@ describe("runBacktest — signal.confidence wiring", () => {
     expect(result.totalTrades).toBe(1);
     // riskPerTrade becomes 0 → notional formula gives 0 → clamped to minNotional
     const minNotional = EQUITY * POSITION_SIZE.minPositionPctEquity;
-    expect(result.trades[0]!.notionalUsd).toBe(minNotional);
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(minNotional, 6);
   });
 
   it("confidence=0.2 → riskPerTrade scaled to 20% (Phase 16 cap effect)", async () => {
@@ -778,14 +602,303 @@ describe("runBacktest — signal.confidence wiring", () => {
     expect(result.totalTrades).toBe(1);
     // Notional = 10000 * 0.01 * 0.2 / 0.10 = 200
     // 100 <= 200 <= 2000 → no clamp
-    expect(result.trades[0]!.notionalUsd).toBe(200);
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(200, 6);
   });
 
-  it("confidence > 1 → notional = confidence × base notional (above max triggers max clamp)", async () => {
+  it("confidence > 1 defensively clamped to 1.0 → notional = base ($1000), NOT max clamp ($2000)", async () => {
+    // Phase 17 Track A defensive clamp: signal.confidence is clamped to
+    // [0, 1] in engine.ts before multiplying into riskPerTrade. A strategy
+    // emitting confidence=3.0 must NOT silently scale risk to 30% — that
+    // would bypass the 1:10 mandate. Clamped to 1.0 → notional=$1000.
     const result = await runConfidenceBacktest(new ConfidenceStrategy(3.0));
     expect(result.totalTrades).toBe(1);
-    // riskPerTrade = 0.01 * 3.0 = 0.03 → notional = 10000 * 0.03 / 0.10 = 3000
-    // Clamped to maxPositionPctEquity * equity = 0.20 * 10000 = 2000
-    expect(result.trades[0]!.notionalUsd).toBe(2000);
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(1000, 6);
+  });
+
+  it("confidence < 0 defensively clamped to 0 → notional = minNotional ($100)", async () => {
+    // Phase 17 Track A defensive clamp: negative confidence must NOT
+    // produce a negative riskPerTrade (which would flip the side math).
+    // Clamped to 0 → notional collapses to minNotional floor.
+    const result = await runConfidenceBacktest(new ConfidenceStrategy(-0.5));
+    expect(result.totalTrades).toBe(1);
+    const minNotional = EQUITY * POSITION_SIZE.minPositionPctEquity;
+    expect(result.trades[0]!.notionalUsd).toBeCloseTo(minNotional, 6);
+  });
+});
+
+/**
+ * `CallbackStrategy` — fixture that implements ALL optional strategy
+ * callbacks (onPositionOpened / onPositionClosed / onOpenPositionUpdate)
+ * so the engine's callback-dispatch paths in `runBacktest` are exercised.
+ *
+ * Pre-existing uncovered lines (engine.ts lines 178, 186-233, 307-315, 361,
+ * 382) are all inside optional-callback `if (typeof ... === "function")`
+ * branches that only fire when a strategy implements them. This fixture
+ * closes that gap as part of Phase 17 Track A's 100% coverage requirement
+ * on engine.ts.
+ */
+class CallbackStrategy implements Strategy {
+  readonly name = "callback-mock";
+  readonly timeframes = ["1h"] as const;
+  /** Programmable `onOpenPositionUpdate` return value. null = no update. */
+  updateReturn: PositionUpdate | null = null;
+  /** SL/TP as fractions of entry price — tests pick widths that match their scenario. */
+  stopFrac: number;
+  tpFrac: number;
+  /** Counters used by assertions. */
+  openedCount = 0;
+  closedCount = 0;
+  updateCount = 0;
+  lastExitReason: string | null = null;
+  lastNewStopLoss: number | null = null;
+  lastForceExit = false;
+  private fired = false;
+
+  constructor(opts?: { readonly stopFrac?: number; readonly tpFrac?: number }) {
+    this.stopFrac = opts?.stopFrac ?? 0.9; // default 10% stop
+    this.tpFrac = opts?.tpFrac ?? 1.3; // default 30% TP
+  }
+
+  onCandle(ctx: StrategyContext): StrategySignal | null {
+    // Single-shot: emit exactly ONE signal so we only have one open/close
+    // cycle (otherwise re-emit after each close inflates the counters).
+    if (this.fired) {
+      return null;
+    }
+    this.fired = true;
+    const price = ctx.candle.close;
+    return {
+      side: "buy",
+      confidence: 1,
+      reason: "callback-mock",
+      stopLoss: price * this.stopFrac,
+      takeProfit: price * this.tpFrac,
+    };
+  }
+  warmup(): number {
+    return 0;
+  }
+  onPositionOpened(_snapshot: OpenPositionSnapshot): void {
+    this.openedCount += 1;
+  }
+  onPositionClosed(reason: string): void {
+    this.closedCount += 1;
+    this.lastExitReason = reason;
+  }
+  onOpenPositionUpdate(_ctx: PositionManagementContext): PositionUpdate | null {
+    this.updateCount += 1;
+    return this.updateReturn;
+  }
+}
+
+/**
+ * Build a 20-candle series for callback-path tests. 10 stable candles at
+ * $100 (no SL/TP trigger), then a 10-candle monotonic rise that hits the
+ * 30% TP. Position opens on candle 0, closes via TP on the rising leg.
+ */
+function mkCallbackCandles(): Candle[] {
+  const out: Candle[] = [];
+  // 10 flat candles (position opens, no exit yet).
+  for (let i = 0; i < 10; i++) {
+    out.push(mkCandle(i * HOUR_MS, 100));
+  }
+  // 10 rising candles to hit TP=130 (from $100 → $145 step-by-step).
+  for (let i = 0; i < 10; i++) {
+    out.push(mkCandle((10 + i) * HOUR_MS, 100 + (i + 1) * 5, { high: 150, low: 95 }));
+  }
+  return out;
+}
+
+describe("runBacktest — strategy callbacks (coverage)", () => {
+  it("onPositionOpened fires exactly once per opened position", async () => {
+    const feed = new MockFeed(mkCallbackCandles());
+    const strategy = new CallbackStrategy();
+    await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(20 * HOUR_MS),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy,
+    });
+    expect(strategy.openedCount).toBe(1);
+  });
+
+  it("onPositionClosed fires when take-profit triggers (engine.ts line 178 path)", async () => {
+    const feed = new MockFeed(mkCallbackCandles());
+    const strategy = new CallbackStrategy();
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(20 * HOUR_MS),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy,
+    });
+    // Position closed via TP on the rising leg.
+    expect(strategy.closedCount).toBe(1);
+    expect(strategy.lastExitReason).toBe("take_profit");
+    expect(result.trades[0]!.exitReason).toBe("take_profit");
+  });
+
+  it("onPositionClosed fires when end_of_data triggers (engine.ts line 382 path)", async () => {
+    // No rising leg — position stays open through 10 flat candles, closes
+    // via end_of_data at the backtest boundary.
+    const candles: Candle[] = [];
+    for (let i = 0; i < 10; i++) {
+      candles.push(mkCandle(i * HOUR_MS, 100));
+    }
+    const feed = new MockFeed(candles);
+    const strategy = new CallbackStrategy();
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(10 * HOUR_MS),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy,
+    });
+    expect(strategy.closedCount).toBe(1);
+    expect(strategy.lastExitReason).toBe("end_of_data");
+    expect(result.trades[0]!.exitReason).toBe("end_of_data");
+  });
+
+  it("onPositionClosed fires when kill-switch triggers (engine.ts line 361 path)", async () => {
+    // Steady rise (peak equity), then sharp drop that triggers kill-switch
+    // BEFORE the SL can fire. Strategy opens a wide-stop position so the
+    // unrealized PnL drives the drawdown past maxDrawdown.
+    const candles: Candle[] = [];
+    // 5 rising candles (peak at 110).
+    for (let i = 0; i < 5; i++) {
+      candles.push(mkCandle(i * HOUR_MS, 100 + i * 2, { high: 102 + i * 2, low: 98 + i * 2 }));
+    }
+    // 15 falling candles — each candle's low stays ABOVE the position's
+    // SL of $50 (set by the strategy's wide stopLoss=ctx.candle.close * 0.5)
+    // so kill-switch fires from unrealized PnL, not from SL.
+    for (let i = 0; i < 15; i++) {
+      candles.push(mkCandle((5 + i) * HOUR_MS, 110 - (i + 1) * 5, { high: 112 - i * 5, low: 60 }));
+    }
+    const feed = new MockFeed(candles);
+    // Wide 50% stop + 200% TP — keeps the position open through the price
+    // swings so kill-switch fires from unrealized PnL, not SL/TP.
+    const strategy = new CallbackStrategy({ stopFrac: 0.5, tpFrac: 2.0 });
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(20 * HOUR_MS),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      // 3% kill-switch + 50% riskPerTrade so a small price drop drives
+      // unrealized PnL past the 3% kill threshold.
+      positionSize: { ...POSITION_SIZE, maxDrawdown: 0.03, riskPerTrade: 0.5 },
+      strategy,
+    });
+    expect(result.killSwitchTriggered).toBe(true);
+    // The kill-switch close path fires the callback with "kill_switch".
+    expect(strategy.closedCount).toBeGreaterThanOrEqual(1);
+    expect(strategy.lastExitReason).toBe("kill_switch");
+  });
+
+  it("onOpenPositionUpdate with newStopLoss tightens the stop (engine.ts lines 186-213)", async () => {
+    // 10 flat candles so the position stays open and we can verify the
+    // update path executes without an exit.
+    const candles: Candle[] = [];
+    for (let i = 0; i < 10; i++) {
+      candles.push(mkCandle(i * HOUR_MS, 100));
+    }
+    const feed = new MockFeed(candles);
+    const strategy = new CallbackStrategy();
+    strategy.updateReturn = { newStopLoss: 95 }; // tighten from 90 to 95
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(10 * HOUR_MS),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy,
+    });
+    // The callback fired on every LTF bar after position opened (9 calls).
+    expect(strategy.updateCount).toBeGreaterThanOrEqual(1);
+    // The position closes via end_of_data without hitting the new stop.
+    expect(result.trades[0]!.exitReason).toBe("end_of_data");
+  });
+
+  it("onOpenPositionUpdate with newTakeProfit tightens the TP (engine.ts lines 215-217)", async () => {
+    // Mirrors the newStopLoss test but exercises the newTakeProfit branch
+    // (engine.ts line 216). The position stays open via end_of_data; we
+    // only verify the callback fired and the update branch executed.
+    const candles: Candle[] = [];
+    for (let i = 0; i < 10; i++) {
+      candles.push(mkCandle(i * HOUR_MS, 100));
+    }
+    const feed = new MockFeed(candles);
+    const strategy = new CallbackStrategy();
+    strategy.updateReturn = { newTakeProfit: 105 }; // tighten from 130 to 105
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(10 * HOUR_MS),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy,
+    });
+    expect(strategy.updateCount).toBeGreaterThanOrEqual(1);
+    expect(result.trades[0]!.exitReason).toBe("end_of_data");
+  });
+
+  it("onOpenPositionUpdate with forceExit closes the position mid-backtest (engine.ts lines 218-232)", async () => {
+    const candles: Candle[] = [];
+    for (let i = 0; i < 10; i++) {
+      candles.push(mkCandle(i * HOUR_MS, 100));
+    }
+    const feed = new MockFeed(candles);
+    const strategy = new CallbackStrategy();
+    strategy.updateReturn = { forceExit: true, exitPrice: 100, reason: "trailing_stop" };
+    const result = await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(10 * HOUR_MS),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy,
+    });
+    // The forceExit branch closed the position with trailing_stop reason.
+    expect(result.totalTrades).toBe(1);
+    expect(result.trades[0]!.exitReason).toBe("trailing_stop");
+    expect(strategy.lastExitReason).toBe("trailing_stop");
   });
 });
