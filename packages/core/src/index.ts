@@ -738,6 +738,14 @@ export {
 } from "./strategy/regime-routed-ensemble.js";
 export type { RegimeRoutedEnsembleConfig } from "./strategy/regime-routed-ensemble.js";
 
+// Phase 18 Track B — Donchian + Pivot 2-component composition (configurable consensus).
+export {
+  DonchianPivotComposition,
+  DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG,
+  DONCHIAN_PIVOT_COMPOSITION_DEFAULT_LTF,
+} from "./strategy/donchian-pivot-composition.js";
+export type { DonchianPivotCompositionConfig } from "./strategy/donchian-pivot-composition.js";
+
 import type { Strategy } from "./types.js";
 import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
 
