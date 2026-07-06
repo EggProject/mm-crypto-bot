@@ -165,28 +165,44 @@ describe("CarryBaselinePlugin", () => {
     expect(p.classifyRegime(0.001, emptyStats)).toBe("neutral");
   });
 
-  it("SizingSignal emitted on regime transitions", () => {
+  it("Phase 14B: SizingSignal emitted on EVERY funding tick (except flip regime)", () => {
     const p = new CarryBaselinePlugin();
     const bus = wirePlugin(p);
     const sizing: unknown[] = [];
     bus.subscribe("sizing", (s) => sizing.push(s));
 
-    // Drive 60 snapshots with low positive rates (steady-state).
+    // Drive 60 snapshots with low positive rates (steady-state high/neutral).
+    // With Phase 14B change, every funding tick emits a SizingSignal
+    // (in non-flip regime) — so we expect 60 sizing signals.
     for (let i = 0; i < 60; i++) {
       p.recordFundingSnapshot(mkSnap(1_700_000_000_000 + i * 8 * 3600 * 1000, 0.0001));
     }
-    const sizingBefore = sizing.length;
-    // Drive a single negative snapshot — regime may flip.
-    p.recordFundingSnapshot(mkSnap(1_700_000_000_000 + 60 * 8 * 3600 * 1000, -0.0001));
-    const sizingAfter = sizing.length;
-    // We expect ≥1 sizing signal on the regime transition.
-    expect(sizingAfter).toBeGreaterThanOrEqual(sizingBefore);
-    expect(p.state.sizingSignalCount).toBeGreaterThanOrEqual(1);
-    if (sizingAfter > 0) {
-      const last = sizing[sizing.length - 1] as { kind: string; source: string };
-      expect(last.kind).toBe("sizing");
-      expect(last.source).toBe("carry-baseline");
+    expect(sizing.length).toBe(60);
+    expect(p.state.sizingSignalCount).toBe(60);
+  });
+
+  it("Phase 14B: SizingSignal suppressed in flip regime (negative-dominant funding)", () => {
+    const p = new CarryBaselinePlugin();
+    const bus = wirePlugin(p);
+    const sizing: unknown[] = [];
+    bus.subscribe("sizing", (s) => sizing.push(s));
+
+    // Drive 60 snapshots: 30 with positive rates, 30 with strong
+    // negative rates. The classifier uses `currentRate < median AND
+    // currentRate < 0`, so the late negative snapshots (where current
+    // is below the rolling median) trigger "flip" regime.
+    for (let i = 0; i < 30; i++) {
+      p.recordFundingSnapshot(mkSnap(1_700_000_000_000 + i * 8 * 3600 * 1000, 0.0001));
     }
+    for (let i = 30; i < 60; i++) {
+      p.recordFundingSnapshot(mkSnap(1_700_000_000_000 + i * 8 * 3600 * 1000, -0.005));
+    }
+    // Last regime should be "flip" (currentRate=-0.005 is below median
+    // and below 0).
+    expect(p.state.currentRegime).toBe("flip");
+    // SizingSignal count should be LESS than 60 (the 30 negative ticks
+    // suppressed their SizingSignals).
+    expect(p.state.sizingSignalCount).toBeLessThan(60);
   });
 
   it("1:10 leverage invariant: every emitted SizingSignal respects cap", () => {
