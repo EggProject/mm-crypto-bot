@@ -165,7 +165,16 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
 
   public readonly config: CrossSymbolMomentumOverlayConfig;
   public readonly state: CrossSymbolMomentumOverlayPluginState;
-  private _bus: SignalBus | null = null;
+  /**
+   * Per-symbol signal bus subscriptions. Phase 14A wiring: the plugin
+   * can emit on multiple buses (one per enabledSymbol) so that each
+   * symbol's DecisionEngine sees the lead-symbol's momentum signal.
+   *
+   * Backward-compat: `subscribe(bus)` wraps the bus under the
+   * `enabledSymbols[0]` (lead) key. New code should prefer
+   * `subscribeBuses(map)`.
+   */
+  private readonly _busesBySymbol: Map<string, SignalBus> = new Map<string, SignalBus>();
   private _wired = false;
 
   constructor(
@@ -255,11 +264,45 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
     };
   }
 
+  /**
+   * `subscribe` — Phase 13 single-bus backward-compat path. Wires the
+   * plugin to ONE bus, registered under the leadSymbol's key. Equivalent
+   * to `subscribeBuses(new Map([[leadSymbol, bus]]))`.
+   *
+   * Phase 14A: prefer `subscribeBuses(map)` for multi-symbol wiring.
+   */
   subscribe(bus: SignalBus): void {
-    // LAYER 2 -- assert initial state.
     this._assertInitialState();
+    const leadSymbol = this.config.enabledSymbols[0] ?? "unknown";
+    this._busesBySymbol.set(leadSymbol, bus);
+    this._wired = true;
+  }
 
-    this._bus = bus;
+  /**
+   * `subscribeBuses` — Phase 14A multi-bus wiring. The plugin emits
+   * the same DirectionSignal on every subscribed bus, and each bus's
+   * DecisionEngine binds the signal to its own symbol via its
+   * constructor-bound `symbol` field (see `portfolio-decision.ts`).
+   *
+   * The `busesBySymbol` map's keys are the symbol identifiers the
+   * plugin emits for; values are the corresponding SignalBus instances.
+   * At least one entry is required.
+   *
+   * Semantics: when the leadSymbol's momentum crosses threshold, the
+   * plugin emits one DirectionSignal per enabledSymbol. ALL emitted
+   * signals are broadcast to ALL subscribed buses (the DecisionEngine
+   * on each bus accumulates under its own `this.symbol`).
+   */
+  subscribeBuses(busesBySymbol: ReadonlyMap<string, SignalBus>): void {
+    this._assertInitialState();
+    if (busesBySymbol.size === 0) {
+      throw new Error(
+        `[CrossSymbolMomentumOverlayPlugin] subscribeBuses: at least one (symbol, bus) entry required`,
+      );
+    }
+    for (const [sym, bus] of busesBySymbol) {
+      this._busesBySymbol.set(sym, bus);
+    }
     this._wired = true;
   }
 
@@ -380,8 +423,17 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
   }
 
   dispose(): void {
-    this._bus = null;
+    this._busesBySymbol.clear();
     this._wired = false;
+  }
+
+  /**
+   * `wiredBuses` — Phase 14A introspection: read-only view of the
+   * currently-subscribed (symbol, bus) pairs. Useful for tests +
+   * diagnostics.
+   */
+  wiredBuses(): ReadonlyMap<string, SignalBus> {
+    return new Map(this._busesBySymbol);
   }
 
   recordClose(
@@ -503,8 +555,15 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
     };
     void symbol;
     this.state.directionSignalsEmitted += 1;
-    if (this._bus && this._wired) {
-      this._bus.emit(signal);
+    if (this._wired) {
+      // Phase 14A: broadcast the same DirectionSignal on every
+      // subscribed bus. Each bus's DecisionEngine binds the signal
+      // to its own symbol via its constructor-bound `symbol` field.
+      // No source-string symbol suffix is needed because the engine
+      // uses `this.symbol` for attribution, not `_extractSymbol`.
+      for (const bus of this._busesBySymbol.values()) {
+        bus.emit(signal);
+      }
     }
     return signal;
   }

@@ -78,6 +78,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import type { Bar } from "../signal-center/types.js";
+import type { SignalBus } from "../signal-center/signal-bus.js";
 import type { StrategyPlugin } from "../signal-center/strategy-registry.js";
 import { SignalCenterV1 } from "../signal-center/signal-center-v1.js";
 import { CarryBaselinePlugin } from "../signal-center/plugins/carry-baseline-plugin.js";
@@ -734,6 +735,21 @@ export class PortfolioOrchestrator {
    */
   get initialized(): boolean {
     return this._initialized;
+  }
+
+  /**
+   * `getBusesBySymbol` — Phase 14A: returns a read-only Map<symbol,
+   * SignalBus> of the per-symbol buses. Used by the runner to wire
+   * cross-symbol plugins (which emit on multiple buses) via
+   * `subscribeBuses(map)`. Returns an empty map if `init()` has not
+   * been called yet.
+   */
+  getBusesBySymbol(): ReadonlyMap<string, SignalBus> {
+    const out = new Map<string, SignalBus>();
+    for (const [sym, sc] of this.signalCenters) {
+      out.set(sym, sc.bus);
+    }
+    return out;
   }
 
   // -------------------------------------------------------------------------

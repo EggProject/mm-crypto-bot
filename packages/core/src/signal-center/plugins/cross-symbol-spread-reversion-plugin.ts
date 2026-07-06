@@ -249,6 +249,14 @@ export interface CrossSymbolSpreadReversionPluginState {
   leverageClampCount: number;
   /** Number of `recordClose` calls dropped due to non-finite / non-positive close. */
   malformedCloseDrops: number;
+  /**
+   * Phase 14A: number of DirectionSignals that could not be routed to
+   * a bus because no bus was subscribed for that leg's symbol. A
+   * non-zero counter indicates a misconfiguration (e.g., the runner
+   * wired fewer buses than enabledPairs reference). Should always
+   * be 0 in production runs.
+   */
+  unroutedEmissions: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -386,8 +394,15 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
 
   public readonly config: CrossSymbolSpreadReversionConfig;
   public readonly state: CrossSymbolSpreadReversionPluginState;
-  /** Captured bus reference (set in subscribe). */
-  private _bus: SignalBus | null = null;
+  /**
+   * Per-symbol signal bus subscriptions. Phase 14A wiring: the plugin
+   * emits each leg's DirectionSignal on the bus matching that leg's
+   * symbol (e.g., the BTC/ETH pair's "long BTC" goes to BTC's bus).
+   *
+   * Backward-compat: `subscribe(bus)` wraps the bus under the first
+   * enabledPair's legA. New code should prefer `subscribeBuses(map)`.
+   */
+  private readonly _busesBySymbol: Map<string, SignalBus> = new Map<string, SignalBus>();
   /** Whether subscribe() has been called. */
   private _wired = false;
 
@@ -524,6 +539,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       layer2AssertionCount: 0,
       leverageClampCount: 0,
       malformedCloseDrops: 0,
+      unroutedEmissions: 0,
     };
 
     // Initialize per-pair state.
@@ -545,16 +561,49 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
   // subscribe — wire SignalBus handlers
   // ---------------------------------------------------------------------
 
+  /**
+   * `subscribe` — Phase 13 single-bus backward-compat path. Wires the
+   * plugin to ONE bus, registered under the first enabledPair's legA.
+   * Phase 14A: prefer `subscribeBuses(map)` for multi-symbol wiring.
+   */
   subscribe(bus: SignalBus): void {
     // LAYER 2 — assert initial state is valid (defense against bugs
     // that might corrupt state between construction and wiring).
     this._assertInitialState();
-
-    this._bus = bus;
+    const firstPair = this.config.enabledPairs[0];
+    const keySymbol = firstPair ? firstPair[0] : "unknown";
+    this._busesBySymbol.set(keySymbol, bus);
     this._wired = true;
-    // This is a SOURCE plugin — does NOT subscribe to other signal
-    // kinds. It produces DirectionSignals when spread z-score crosses
-    // thresholds.
+  }
+
+  /**
+   * `subscribeBuses` — Phase 14A multi-bus wiring. Each leg's
+   * DirectionSignal is routed to the bus matching that leg's symbol.
+   * For the BTC/ETH pair: "long BTC" → BTC bus, "short ETH" → ETH bus.
+   *
+   * At least one entry is required. If a leg's symbol is missing from
+   * `busesBySymbol`, the plugin logs a guard via `_wiredBusFor` and
+   * skips the emit (defensive: never throw on routing misses).
+   */
+  subscribeBuses(busesBySymbol: ReadonlyMap<string, SignalBus>): void {
+    this._assertInitialState();
+    if (busesBySymbol.size === 0) {
+      throw new Error(
+        `[CrossSymbolSpreadReversionPlugin] subscribeBuses: at least one (symbol, bus) entry required`,
+      );
+    }
+    for (const [sym, bus] of busesBySymbol) {
+      this._busesBySymbol.set(sym, bus);
+    }
+    this._wired = true;
+  }
+
+  /**
+   * `wiredBuses` — Phase 14A introspection: read-only view of the
+   * currently-subscribed (symbol, bus) pairs.
+   */
+  wiredBuses(): ReadonlyMap<string, SignalBus> {
+    return new Map(this._busesBySymbol);
   }
 
   // ---------------------------------------------------------------------
@@ -765,14 +814,15 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
     this.state.layer2AssertionCount = 0;
     this.state.leverageClampCount = 0;
     this.state.malformedCloseDrops = 0;
+    this.state.unroutedEmissions = 0;
   }
 
   // ---------------------------------------------------------------------
-  // dispose — release bus reference
+  // dispose — release bus references
   // ---------------------------------------------------------------------
 
   dispose(): void {
-    this._bus = null;
+    this._busesBySymbol.clear();
     this._wired = false;
   }
 
@@ -1005,7 +1055,10 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       kind: "direction" as const,
       side,
       strength,
-      source: this.metadata.name,
+      // Phase 14A: include the leg's symbol in the source string so
+      // downstream DecisionEngines (and telemetry) can attribute each
+      // signal to its target symbol even before they ingest.
+      source: `${this.metadata.name}:${symbol}`,
     };
     const tsField =
       timestampMs !== undefined ? { timestampMs } : {};
@@ -1013,10 +1066,19 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       ...baseFields,
       ...tsField,
     };
-    void symbol; // currently unused in the DirectionSignal shape; reserved for future symbol-tagged extension
     this.state.directionSignalsEmitted += 1;
-    if (this._bus && this._wired) {
-      this._bus.emit(signal);
+    if (this._wired) {
+      // Phase 14A: route this leg's signal to the bus matching the
+      // leg's symbol. If no bus is registered for this symbol, the
+      // signal is silently dropped (defensive — never throw on a
+      // routing miss because the plugin may be configured with more
+      // pairs than the runner has wired).
+      const bus = this._busesBySymbol.get(symbol);
+      if (bus !== undefined) {
+        bus.emit(signal);
+      } else {
+        this.state.unroutedEmissions += 1;
+      }
     }
     return signal;
   }

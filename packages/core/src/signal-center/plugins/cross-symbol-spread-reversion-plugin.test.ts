@@ -509,7 +509,7 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     expect(p.state.entriesEmitted).toBe(0);
   });
 
-  it("bus emit routes to subscribers (direction kind)", () => {
+  it("bus emit routes legA signal to subscribers (single-bus backward-compat)", () => {
     const p = new CrossSymbolSpreadReversionPlugin({
       windowDays: 10,
       zEntryThreshold: 2.0,
@@ -528,8 +528,45 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     p.subscribe(bus);
     for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
     for (let i = 0; i < 10; i++) p.recordClose("ETH/USDT", i === 9 ? 50 : 100);
-    expect(received.length).toBeGreaterThanOrEqual(2);
-    expect(received[0]!.source).toBe("cross-symbol-spread-reversion-v1");
+    // Phase 14A: backward-compat subscribe wires the bus under legA's
+    // symbol only — legB's signal is dropped (unrouted counter +1).
+    // To receive both legs, use subscribeBuses(map) (see next test).
+    expect(received.length).toBeGreaterThanOrEqual(1);
+    expect(received[0]!.source).toBe("cross-symbol-spread-reversion-v1:BTC/USDT");
+    expect(p.state.unroutedEmissions).toBeGreaterThanOrEqual(1);
+  });
+
+  it("subscribeBuses routes legA to legA bus and legB to legB bus", () => {
+    const p = new CrossSymbolSpreadReversionPlugin({
+      windowDays: 10,
+      zEntryThreshold: 2.0,
+      zExitThreshold: 0.5,
+      minHoldBars: 2,
+    });
+    const btcBus = new SignalBus();
+    const ethBus = new SignalBus();
+    const btcReceived: { side: string; source: string }[] = [];
+    const ethReceived: { side: string; source: string }[] = [];
+    btcBus.subscribe("direction", (s) => {
+      btcReceived.push({ side: (s as { side: string }).side, source: (s as { source: string }).source });
+    });
+    ethBus.subscribe("direction", (s) => {
+      ethReceived.push({ side: (s as { side: string }).side, source: (s as { source: string }).source });
+    });
+    p.subscribeBuses(new Map([
+      ["BTC/USDT", btcBus],
+      ["ETH/USDT", ethBus],
+    ]));
+    for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
+    for (let i = 0; i < 10; i++) p.recordClose("ETH/USDT", i === 9 ? 50 : 100);
+    // Both legs receive their respective signal — legA on BTC bus,
+    // legB on ETH bus. Sources carry the leg symbol.
+    expect(btcReceived.length).toBeGreaterThanOrEqual(1);
+    expect(ethReceived.length).toBeGreaterThanOrEqual(1);
+    expect(btcReceived[0]!.source).toBe("cross-symbol-spread-reversion-v1:BTC/USDT");
+    expect(ethReceived[0]!.source).toBe("cross-symbol-spread-reversion-v1:ETH/USDT");
+    // No unrouted emissions.
+    expect(p.state.unroutedEmissions).toBe(0);
   });
 
   it("subscribe calls _assertInitialState (Layer 2)", () => {
@@ -537,7 +574,9 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     const bus = new SignalBus();
     p.subscribe(bus);
     expect((p as unknown as { _wired: boolean })._wired).toBe(true);
-    expect((p as unknown as { _bus: unknown })._bus).toBe(bus);
+    // Phase 14A: backward-compat subscribe wraps the bus under the
+    // first enabledPair's legA key (BTC/USDT for default pairs).
+    expect(p.wiredBuses().get("BTC/USDT")).toBe(bus);
   });
 
   it("_assertInitialState throws on missing pairState entries", () => {
@@ -589,12 +628,13 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     expect(ps.holdBars).toBe(0);
   });
 
-  it("dispose() releases bus reference", () => {
+  it("dispose() releases bus references", () => {
     const p = new CrossSymbolSpreadReversionPlugin();
     const bus = new SignalBus();
     p.subscribe(bus);
+    expect(p.wiredBuses().size).toBe(1);
     p.dispose();
-    expect((p as unknown as { _bus: unknown })._bus).toBeNull();
+    expect(p.wiredBuses().size).toBe(0);
     expect((p as unknown as { _wired: boolean })._wired).toBe(false);
   });
 

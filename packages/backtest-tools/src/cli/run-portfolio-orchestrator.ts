@@ -87,6 +87,7 @@ import {
   HybridKellyPlugin,
   PortfolioOrchestrator,
   SOLFlipKillSwitchPlugin,
+  type SignalBus,
   type Bar,
   type StrategyPlugin,
 } from "@mm-crypto-bot/core";
@@ -511,21 +512,41 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
     / Math.max(opts.args.maxPositions, 1);
   void perPluginBaseNotional;
 
-  // Build the cross-symbol plugin set ONCE — wired to BTC bus + fed via
-  // crossSymbolRecordClose side channel for all 3 symbols.
-  const crossSymbolPlugins: CrossSymbolPluginSet | null = opts.args.symbols.includes("BTC/USDT") && opts.args.symbols.includes("ETH/USDT")
+  // Build the cross-symbol plugin set ONCE — Phase 14A multi-symbol
+  // wiring: each plugin handles ALL pairs across the 3 symbols and
+  // is wired (via `subscribeBuses`) to ALL per-symbol buses. The
+  // orchestrator's per-symbol SCv1 calls `subscribe()` on each
+  // plugin instance, which we override with multi-bus subscription
+  // inside the orchestrator's wiring step below.
+  //
+  // Pair coverage:
+  //   - Spread Reversion: all C(3,2) = 3 pairs
+  //   - Funding Differential: all 3 pairs
+  //   - Momentum Overlay: leadSymbol = BTC (still BTC-driven; Phase 14A
+  //     does not change the leader-follower semantic)
+  const allPairs: readonly (readonly [string, string])[] = (() => {
+    const syms = opts.args.symbols;
+    const pairs: (readonly [string, string])[] = [];
+    for (let i = 0; i < syms.length; i++) {
+      for (let j = i + 1; j < syms.length; j++) {
+        pairs.push([syms[i]!, syms[j]!] as const);
+      }
+    }
+    return pairs;
+  })();
+  const crossSymbolPlugins: CrossSymbolPluginSet | null = allPairs.length > 0
     ? {
         spread: new CrossSymbolSpreadReversionPlugin({
           baseNotionalUsd: 5_000,
-          enabledPairs: [["BTC/USDT", "ETH/USDT"]],
+          enabledPairs: allPairs,
         }),
         momentum: new CrossSymbolMomentumOverlayPlugin({
           baseNotionalUsd: 5_000,
-          enabledSymbols: ["BTC/USDT", "ETH/USDT"],
+          enabledSymbols: opts.args.symbols,
         }),
         funding: new CrossSymbolFundingDifferentialPlugin({
           baseNotionalUsd: 5_000,
-          enabledPairs: [["BTC/USDT", "ETH/USDT"]],
+          enabledPairs: allPairs,
         }),
       }
     : null;
@@ -581,14 +602,11 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
         enabledSymbols: [typedSym],
       }));
     }
-    // Wire cross-symbol plugins to BTC's bus (they emit pair-direction
-    // signals that the BTC DecisionEngine picks up; architectural note
-    // in REPORT-phase13.md §8 documents the shared-bus TODO for Phase 14+).
-    if (sym === "BTC/USDT" && crossSymbolPlugins !== null) {
-      plugins.push(crossSymbolPlugins.spread);
-      plugins.push(crossSymbolPlugins.momentum);
-      plugins.push(crossSymbolPlugins.funding);
-    }
+    // Phase 14A: cross-symbol plugins are NOT pushed to per-symbol
+    // sets. They are wired post-`init()` via `subscribeBuses(map)` to
+    // ALL per-symbol buses (see `wireCrossSymbolPlugins` below). The
+    // BTC-only wiring (Phase 13) is replaced by multi-bus wiring that
+    // gives ETH and SOL their own DirectionSignal flow.
     return plugins;
   }
   const pluginBySymbolMap = new Map<string, readonly StrategyPlugin[]>(
@@ -670,6 +688,25 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
   // (buildPluginsFor + pluginBySymbolMap already initialized BEFORE the
   // orchestrator constructor — see above.)
 
+  // Phase 14A: wire cross-symbol plugins to ALL per-symbol buses
+  // via `subscribeBuses(map)`. The orchestrator must be `init()`-ed
+  // first so that per-symbol SCv1s (and their buses) exist. `init()`
+  // is idempotent — `run()` will detect the already-initialized state
+  // and skip the second init pass.
+  orchestrator.init();
+  if (crossSymbolPlugins !== null) {
+    // Phase 14A: explicit Map<string, SignalBus> type annotation
+    // works around eslint's `no-unsafe-argument` check (the
+    // ReadonlyMap<string, SignalBus> return type from
+    // getBusesBySymbol() loses its value-type narrowing through
+    // the orchestrator's private signalCenters Map).
+    const busesBySymbol: Map<string, SignalBus> = new Map<string, SignalBus>(
+      orchestrator.getBusesBySymbol(),
+    );
+    crossSymbolPlugins.spread.subscribeBuses(busesBySymbol);
+    crossSymbolPlugins.momentum.subscribeBuses(busesBySymbol);
+    crossSymbolPlugins.funding.subscribeBuses(busesBySymbol);
+  }
   const envelope = await orchestrator.run(opts.startTime, opts.endTime);
   const decisions = orchestrator.getDecisionLog();
   const decisionLog = decisions.map((d) => ({
