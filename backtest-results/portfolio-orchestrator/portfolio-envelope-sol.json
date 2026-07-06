@@ -1,12 +1,12 @@
 {
   "symbol": "SOL/USDT",
-  "monthlyReturnPct": 1.3391370927670065,
-  "annualizedReturnPct": 17.293320768558583,
-  "sharpeRatio": 0.6851899401820539,
+  "monthlyReturnPct": 1.629660198257632,
+  "annualizedReturnPct": 21.389495023216053,
+  "sharpeRatio": 0.7907026577616849,
   "maxDrawdownPct": 20.341402651514542,
-  "finalEquityUsd": 11729.332076855859,
+  "finalEquityUsd": 12138.949502321606,
   "liquidations": 0,
-  "totalReturnPct": 17.293320768558587,
+  "totalReturnPct": 21.38949502321606,
   "combinedAvgMultiplier": 1,
   "composition": "CarryBaseline + SOLFlipKillSwitch + HybridKelly (3 baseline)",
   "walkForwardSharpe": {

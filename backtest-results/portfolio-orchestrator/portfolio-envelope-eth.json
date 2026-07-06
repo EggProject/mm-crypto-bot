@@ -1,12 +1,12 @@
 {
   "symbol": "ETH/USDT",
-  "monthlyReturnPct": 1.1315466885862602,
-  "annualizedReturnPct": 14.44447792966821,
-  "sharpeRatio": 0.9044896693040664,
+  "monthlyReturnPct": 1.159643906897867,
+  "annualizedReturnPct": 14.826319242073339,
+  "sharpeRatio": 0.924713981078639,
   "maxDrawdownPct": 9.14742460577376,
-  "finalEquityUsd": 11444.447792966821,
+  "finalEquityUsd": 11482.631924207333,
   "liquidations": 0,
-  "totalReturnPct": 14.44447792966821,
+  "totalReturnPct": 14.826319242073332,
   "combinedAvgMultiplier": 1,
   "composition": "CarryBaseline + DirectionalMTF + HybridKelly (3 baseline)",
   "walkForwardSharpe": {
