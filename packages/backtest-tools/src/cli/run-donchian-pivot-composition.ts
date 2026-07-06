@@ -29,6 +29,7 @@ interface CliArgs {
   readonly timeframe: Timeframe;
   readonly initialEquity: number;
   readonly minConsensus: number;
+  readonly maxPositionPctEquity: number;
   readonly outputPath: string;
 }
 
@@ -38,6 +39,10 @@ function parseArgs(): CliArgs {
   let timeframe: Timeframe = "15m";
   let initialEquity = 10_000;
   let minConsensus = 2;
+  // Phase 19 — cap sweep (cap=0.04, 0.08, 0.10, 0.12, 0.15). Default 0.20 (engine default,
+  // matches Phase 18 final envelope which used the un-parametrized CLI). Override via
+  // `--max-position-pct-equity=<pct>` where pct is in [0, 1] equity-notional terms.
+  let maxPositionPctEquity = 0.20;
   let outputPath = "backtest-results/phase18-donchian-pivot-btc-15m-2of2.json";
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
@@ -57,11 +62,19 @@ function parseArgs(): CliArgs {
         throw new Error(`--min-consensus must be 1 or 2, got: ${v}`);
       }
       minConsensus = v;
+    } else if (arg.startsWith("--max-position-pct-equity=")) {
+      const v = Number(arg.slice("--max-position-pct-equity=".length));
+      if (!Number.isFinite(v) || v <= 0 || v > 0.5) {
+        throw new Error(
+          `--max-position-pct-equity must be in (0, 0.5] (engine permits up to 50% equity notional at 1:10 leverage), got: ${v}`,
+        );
+      }
+      maxPositionPctEquity = v;
     } else if (arg.startsWith("--output=")) {
       outputPath = arg.slice("--output=".length);
     }
   }
-  return { symbol, timeframe, initialEquity, minConsensus, outputPath };
+  return { symbol, timeframe, initialEquity, minConsensus, maxPositionPctEquity, outputPath };
 }
 
 // Donchian+Pivot composition timeline — HTF=1d, MTF=4h, LTF=15m.
@@ -96,7 +109,9 @@ async function main(): Promise<void> {
   const endTime = new Date();
 
   const consensusTag = `${args.minConsensus}of2`;
-  console.log(`[donchian-pivot] symbol=${args.symbol} ltf=${args.timeframe} minConsensus=${args.minConsensus}`);
+  console.log(
+    `[donchian-pivot] symbol=${args.symbol} ltf=${args.timeframe} minConsensus=${args.minConsensus} maxPositionPctEquity=${args.maxPositionPctEquity}`,
+  );
   console.log(`[donchian-pivot] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
   console.log(`[donchian-pivot] components: Donchian Range Channel + Pivot Point Grid`);
   console.log(`[donchian-pivot] aggregation: side-conflict → defer | mean(confidences) | tighter-stop`);
@@ -117,7 +132,7 @@ async function main(): Promise<void> {
       riskPerTrade: 0.01,
       kellyFraction: 0.25,
       maxDrawdown: 0.5,
-      maxPositionPctEquity: 0.2,
+      maxPositionPctEquity: args.maxPositionPctEquity,
       minPositionPctEquity: 0.01,
     },
     strategy,
