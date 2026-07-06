@@ -86,7 +86,6 @@ import {
   type PluginState,
   type Result,
   type SizingSignal,
-  err,
   ok,
 } from "../types.js";
 
@@ -118,7 +117,7 @@ export interface DvolRegimeSizingConfig {
    * `getDvolForTimestamp` callback. Allows ETH-DVOL and SOL-DVOL
    * routing when available.
    */
-  readonly dvolBySymbol?: ReadonlyMap<string, number | null>;
+  readonly dvolBySymbol?: ReadonlyMap<string, number | null> | undefined;
   /** DVOL threshold above which the regime is "acute stress". */
   readonly acuteStressThreshold: number;
   /** DVOL threshold above which the regime is "elevated". */
@@ -238,7 +237,7 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
       enabledSymbols: overrides.enabledSymbols ?? DEFAULT_ENABLED_SYMBOLS,
       baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
       getDvolForTimestamp: overrides.getDvolForTimestamp ?? (() => null),
-      dvolBySymbol: overrides.dvolBySymbol,
+      ...(overrides.dvolBySymbol !== undefined ? { dvolBySymbol: overrides.dvolBySymbol } : {}),
       acuteStressThreshold:
         overrides.acuteStressThreshold ?? DEFAULT_ACUTE_STRESS_THRESHOLD,
       elevatedThreshold:

@@ -20,24 +20,6 @@ function makeBar(timestampMs: number, close: number): Bar {
   };
 }
 
-/**
- * `makeDvolMap` — build a simple DVOL time series for tests. Returns
- * a function that maps a timestamp to a DVOL value (or null on
- * "no data" days).
- */
-function makeDvolMap(series: ReadonlyArray<{ ts: number; dvol: number | null }>): (ts: number) => number | null {
-  const sorted = [...series].sort((a, b) => a.ts - b.ts);
-  return (ts: number): number | null => {
-    // Find the most recent entry at or before ts.
-    let result: number | null = null;
-    for (const entry of sorted) {
-      if (entry.ts <= ts) result = entry.dvol;
-      else break;
-    }
-    return result;
-  };
-}
-
 function wirePlugin(p: DvolRegimeSizingPlugin): { bus: SignalBus; sizing: SizingSignal[] } {
   const bus = new SignalBus();
   const sizing: SizingSignal[] = [];

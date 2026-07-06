@@ -637,7 +637,7 @@ async function runOrchestrator(opts: RunOrchestratorOpts): Promise<{
     plugins.push(new DvolRegimeSizingPlugin({
       enabledSymbols: [typedSym],
       baseNotionalUsd: perPluginBase,
-      getDvolForTimestamp: (tsMs: number) => dvolLookup(tsMs),
+      getDvolForTimestamp,
     }));
     // Phase 14A: cross-symbol plugins are NOT pushed to per-symbol
     // sets. They are wired post-`init()` via `subscribeBuses(map)` to
@@ -919,30 +919,36 @@ async function main(): Promise<void> {
     }
     console.log(`[PORTFOLIO-ORCH] DVOL: loaded ${dvolByTimestamp.size} daily readings from Deribit (${new Date(Math.min(...dvolByTimestamp.keys())).toISOString().slice(0, 10)} → ${new Date(Math.max(...dvolByTimestamp.keys())).toISOString().slice(0, 10)})`);
   } catch (e) {
-    console.warn(`[PORTFOLIO-ORCH] DVOL: data file not found or unreadable, plugin will fail-open with volMultiplier=1.0:`, e instanceof Error ? e.message : String(e));
+    console.warn(`[PORTFOLIO-ORCH] DVOL: data file not found or unreadable, plugin will fail-open with volMultiplier=1.0:`, e instanceof Error ? e.message : `${e}`);
   }
 
   // Build a sorted timestamp list for binary-search lookup. Most-recent
   // value at-or-before ts wins (carries-forward semantics — if today's
   // DVOL isn't published yet, use yesterday's).
-  const dvolSortedTs = [...dvolByTimestamp.keys()].sort((a, b) => a - b);
-  function dvolLookup(tsMs: number): number | null {
-    // Binary search for the largest ts <= tsMs.
+  const dvolSortedTs: readonly number[] = [...dvolByTimestamp.keys()].sort(
+    (a, b) => a - b,
+  );
+  // getDvolForTimestamp — inline binary search. Inlined into a function
+  // expression to keep the type narrowing local (the linter doesn't
+  // resolve the return type across a function-declaration boundary
+  // when the consumer is a closure).
+  const getDvolForTimestamp = (timestampMs: number): number | null => {
     let lo = 0;
     let hi = dvolSortedTs.length - 1;
     let result: number | null = null;
     while (lo <= hi) {
       const mid = (lo + hi) >>> 1;
       const midTs = dvolSortedTs[mid]!;
-      if (midTs <= tsMs) {
-        result = dvolByTimestamp.get(midTs) ?? null;
+      if (midTs <= timestampMs) {
+        const v = dvolByTimestamp.get(midTs);
+        result = v === undefined ? null : v;
         lo = mid + 1;
       } else {
         hi = mid - 1;
       }
     }
     return result;
-  }
+  };
 
   console.log(`[PORTFOLIO-ORCH] === Phase 13 Track D final backtest ===`);
   console.log(`[PORTFOLIO-ORCH] User mandate: backtest + ${args.exchange} + risk per trade: ${(args.riskPerTrade * 100).toFixed(2)}% + max leverage: ${args.maxLeverage} + max positions: ${args.maxPositions}`);
