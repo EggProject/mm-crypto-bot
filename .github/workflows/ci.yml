@@ -50,7 +50,29 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: bun install --frozen-lockfile
-      - run: bun run test
+      - name: Run tests (with JUnit XML reporter)
+        run: bunx turbo run test -- --reporter=junit --reporter-outfile=./junit.xml
+      - name: Upload JUnit test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: bun-test-reports
+          path: |
+            apps/*/junit.xml
+            packages/*/junit.xml
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Publish test results to PR
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        uses: dorny/test-reporter@v1
+        with:
+          name: bun-test-results
+          path: |
+            apps/*/junit.xml
+            packages/*/junit.xml
+          reporter: java-junit
+          fail-on-error: false
+          only-summary: false
 
   build:
     name: Build

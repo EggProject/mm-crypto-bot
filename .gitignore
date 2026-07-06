@@ -49,6 +49,10 @@ logs/
 # === Teszt artefaktok ===
 .nyc_output/
 
+# Bun test JUnit XML reporter output (CI uploads these as artifacts)
+junit.xml
+test-results/
+
 # === OS specifikus ===
 Thumbs.db
 ehthumbs.db
