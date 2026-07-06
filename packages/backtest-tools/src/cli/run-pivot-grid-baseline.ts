@@ -5,10 +5,18 @@
 // Pivot Point Grid is a Phase 15 retail mean-reversion strategy: deterministic
 // PP/S1/S2/R1/R2/R3 levels computed from the previous HTF (1d) candle, with
 // M15 LTF entry. The strategy class lives in `@mm-crypto-bot/core` and is
-// implemented by Track B (pivot-point-grid.ts).
+// implemented by Phase 15 Track B (pivot-point-grid.ts).
+//
+// Phase 16 Track A — Added `--max-position-pct-equity` flag. The strategy-side
+// notional cap scales signal `confidence` proportionally so the engine-side
+// `positionSize.maxPositionPctEquity` constraint is enforced.
+//
+// Phase 16 Track C (integration) — Re-applied the flag after Track A merge.
+// Earlier draft was lost during the merge; restored from backup.
 //
 // Használat:
 //   bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts --symbol=BTC/USDT --timeframe=15m --output=backtest-results/phase15-pivot-grid-btc-15m.json
+//   bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts --symbol=BTC/USDT --timeframe=15m --max-position-pct-equity=0.04 --output=backtest-results/phase16-pivot-grid-btc-15m-capped.json
 
 import { resolve } from "node:path";
 
@@ -23,6 +31,7 @@ interface CliArgs {
   readonly timeframe: Timeframe;
   readonly initialEquity: number;
   readonly outputPath: string;
+  readonly maxPositionPctEquity: number;
 }
 
 function parseArgs(): CliArgs {
@@ -31,6 +40,10 @@ function parseArgs(): CliArgs {
   let timeframe: Timeframe = "15m";
   let initialEquity = 10_000;
   let outputPath = "backtest-results/phase15-pivot-grid-btc-15m.json";
+  // Phase 16 Track A — Default 0.04 (the new DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity
+  // = 0.04 from Track A). Override via --max-position-pct-equity=N where 0 < N <= 1.0.
+  // (Note: 1.0 disables cap → legacy behavior. Values outside (0, 1] rejected.)
+  let maxPositionPctEquity = 0.04;
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -45,9 +58,14 @@ function parseArgs(): CliArgs {
       initialEquity = Number(arg.slice("--equity=".length));
     } else if (arg.startsWith("--output=")) {
       outputPath = arg.slice("--output=".length);
+    } else if (arg.startsWith("--max-position-pct-equity=")) {
+      maxPositionPctEquity = Number(arg.slice("--max-position-pct-equity=".length));
+      if (!Number.isFinite(maxPositionPctEquity) || maxPositionPctEquity <= 0 || maxPositionPctEquity > 1) {
+        throw new Error(`--max-position-pct-equity must be in (0, 1]; got: ${maxPositionPctEquity}`);
+      }
     }
   }
-  return { symbol, timeframe, initialEquity, outputPath };
+  return { symbol, timeframe, initialEquity, outputPath, maxPositionPctEquity };
 }
 
 // Pivot Point Grid timeline mapping — HTF=1d (for pivot computation), MTF=4h (HTF context), LTF=15m.
@@ -70,7 +88,15 @@ async function main(): Promise<void> {
   const tf = timeframesForPivotGrid(args.timeframe);
   const dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
   const feed = new CsvExchangeFeed(dataDir) as unknown as ExchangeFeed;
-  const strategy = new PivotPointGridStrategy(DEFAULT_PIVOT_GRID_CONFIG);
+  // Phase 16 Track A — pass the per-strategy notional cap to the strategy.
+  // The strategy scales signal `confidence` so the engine-side position-
+  // sizing layer respects `maxPositionPctEquity`. We merge the DEFAULT with
+  // the CLI-supplied cap (defaults to 0.04) and override the cap field.
+  const strategyConfig = {
+    ...DEFAULT_PIVOT_GRID_CONFIG,
+    maxPositionPctEquity: args.maxPositionPctEquity,
+  };
+  const strategy = new PivotPointGridStrategy(strategyConfig);
 
   // 2024-01-01 → today (matches Phase 14 baseline window).
   const startTime = new Date(Date.UTC(2024, 0, 1));
@@ -80,6 +106,7 @@ async function main(): Promise<void> {
   console.log(`[pivot-grid] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
   console.log(`[pivot-grid] period: ${startTime.toISOString()} → ${endTime.toISOString()}`);
   console.log(`[pivot-grid] initial equity: $${args.initialEquity}`);
+  console.log(`[pivot-grid] max-position-pct-equity (strategy-side cap, default 0.04): ${args.maxPositionPctEquity}`);
 
   const result: BacktestResult = await runBacktest({
     symbol: makeSymbol(args.symbol),
@@ -109,7 +136,7 @@ async function main(): Promise<void> {
   const losses = result.trades.filter((t) => t.pnlUsd < 0);
   const winRate = result.trades.length > 0 ? wins.length / result.trades.length : 0;
 
-  console.log(`\n=== RESULTS pivot-grid ${args.symbol} ${args.timeframe} ===`);
+  console.log(`\n=== RESULTS pivot-grid ${args.symbol} ${args.timeframe} (cap=${args.maxPositionPctEquity}) ===`);
   console.log(`Total return:     ${(result.totalReturn * 100).toFixed(2)}%`);
   console.log(`Monthly avg:      ${(monthlyReturn * 100).toFixed(2)}%/mo (over ${totalMonths.toFixed(1)} months)`);
   console.log(`Annualized:       ${(result.annualizedReturn * 100).toFixed(2)}%`);
@@ -142,6 +169,7 @@ async function main(): Promise<void> {
         args,
         strategy: "pivot-grid",
         timeframe: tf,
+        strategyConfig: { maxPositionPctEquity: args.maxPositionPctEquity },
         monthlyReturn,
         totalMonths,
         result,

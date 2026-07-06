@@ -143,22 +143,18 @@ function mkSubStrategySpies(
   let bb = 0;
   let donchian = 0;
   let keltner = 0;
-  // @ts-expect-error — runtime monkey-patch for test isolation.
   e.pivotGrid.onCandle = (_ctx: StrategyContext): StrategySignal | null => {
     pivot += 1;
     return stubs["pivot-grid"] ?? null;
   };
-  // @ts-expect-error — runtime monkey-patch for test isolation.
   e.bbSqueeze.onCandle = (_ctx: StrategyContext): StrategySignal | null => {
     bb += 1;
     return stubs["bb-squeeze"] ?? null;
   };
-  // @ts-expect-error — runtime monkey-patch for test isolation.
   e.donchianRange.onCandle = (_ctx: StrategyContext): StrategySignal | null => {
     donchian += 1;
     return stubs["donchian-range"] ?? null;
   };
-  // @ts-expect-error — runtime monkey-patch for test isolation.
   e.keltnerGrid.onCandle = (_ctx: StrategyContext): StrategySignal | null => {
     keltner += 1;
     return stubs["keltner-grid"] ?? null;
@@ -549,22 +545,18 @@ describe("RegimeRoutedEnsemble — delegation", () => {
   it("each sub-strategy receives the same `ctx` object (delegation test)", () => {
     const e = new RegimeRoutedEnsemble();
     const observedCtxs: StrategyContext[] = [];
-    // @ts-expect-error — capture-based monkey-patch for delegation test.
     e.pivotGrid.onCandle = (ctx: StrategyContext): StrategySignal | null => {
       observedCtxs.push(ctx);
       return null;
     };
-    // @ts-expect-error — capture-based monkey-patch for delegation test.
     e.bbSqueeze.onCandle = (ctx: StrategyContext): StrategySignal | null => {
       observedCtxs.push(ctx);
       return null;
     };
-    // @ts-expect-error — capture-based monkey-patch for delegation test.
     e.donchianRange.onCandle = (ctx: StrategyContext): StrategySignal | null => {
       observedCtxs.push(ctx);
       return null;
     };
-    // @ts-expect-error — capture-based monkey-patch for delegation test.
     e.keltnerGrid.onCandle = (ctx: StrategyContext): StrategySignal | null => {
       observedCtxs.push(ctx);
       return null;
