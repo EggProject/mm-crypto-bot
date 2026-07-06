@@ -1,77 +1,138 @@
-# Phase 17 Track C — Integration + REPORT-phase17.md
+# Phase 18 Track B — Donchian + Pivot 2-component Composition
 
-**Status:** COMPLETE
-**Date:** 2026-07-06 22:50 Budapest (UTC+2)
-**Branch:** `feat/phase17-c-integration-report` → PR #41
-**Author:** coder (Phase 17 Track C M2)
-
----
-
-## Handoff
-
-Track C (Integration) is complete. Tracks A+B were both merged to main before Track C started:
-- Track A (PR #39 `6f49f6b`): engine confidence → notional wiring — MERGED
-- Track B (PR #40 `153ceef`): 6 pivot-grid backtest JSONs (nocap + 4% cap) — MERGED
-- Track C (PR #41): 4 fixed-engine backtests + REPORT-phase17.md — OPEN
+**Date:** 2026-07-06 23:28 Budapest (Europe/Budapest, UTC+2)
+**Branch:** `feat/phase18-b-donchian-pivot-2comp` @ `c6afd04` (1 commit on top of main `34f8bc0`)
+**PR:** https://github.com/EggProject/mm-crypto-bot/pull/42
+**Worktree:** `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase18-b-donchian-pivot-2comp`
 
 ---
 
-## Deliverables
+## 1. Summary
 
-### 1. Backtest JSONs (10 total)
-
-| File | Engine | Cap | Monthly return | Max DD | Trades |
-|------|--------|-----|---------------:|-------:|-------:|
-| `phase17-pivot-grid-btc-15m-fixed.json` | Fixed (PR #39) | 0.04 | +20.06%/mo | 6.76% | 9717 |
-| `phase17-pivot-grid-eth-15m-fixed.json` | Fixed (PR #39) | 0.04 | +25.21%/mo | 4.59% | 9668 |
-| `phase17-pivot-grid-sol-15m-fixed.json` | Fixed (PR #39) | 0.04 | +20.47%/mo | 7.70% | 8317 |
-| `phase17-regime-ensemble-btc-15m-fixed.json` | Fixed (PR #39) | engine | 0.00%/mo | 50.00% | 1265 |
-| `phase17-pivot-grid-btc-15m-nocap.json` | Old | None | +60.07%/mo | 6.77% | 9717 |
-| `phase17-pivot-grid-eth-15m-nocap.json` | Old | None | +90.33%/mo | 5.39% | 9668 |
-| `phase17-pivot-grid-sol-15m-nocap.json` | Old | None | +78.86%/mo | 7.57% | 8317 |
-| `phase17-pivot-grid-btc-15m-04cap.json` | Old | 0.04 | +60.07%/mo | 6.77% | 9717 |
-| `phase17-pivot-grid-eth-15m-04cap.json` | Old | 0.04 | +90.33%/mo | 5.39% | 9668 |
-| `phase17-pivot-grid-sol-15m-04cap.json` | Old | 0.04 | +78.86%/mo | 7.57% | 8317 |
-
-Tracks B's 6 old-engine JSONs (nocap + 04cap) are preserved for completeness but are superseded by Track C's 4 fixed-engine JSONs.
-
-### 2. REPORT-phase17.md
-
-Location: `docs/research/REPORT-phase17.md` (9 sections, ~4000 words)
-
-Sections:
-- §1 Executive Summary — verdict on confidence wiring, 3.3× return reduction, +20–25%/mo achievable
-- §2 Engine Fix: Confidence → Notional — before/after code diff, mechanism, why engine is correct place
-- §3 Pivot Grid: Fixed Engine vs Phase 15 Baseline — per-symbol table, all key metrics
-- §4 Pivot Grid: Fixed Engine vs Phase 16 No-Op Cap — does 4% cap make a difference now? Yes: -40 to -65%/mo
-- §5 Is +20–50%/Month Achievable? — partially validated: +20–25%/mo at 4% cap, +50% needs cap=0.10–0.15
-- §6 Regime-Routed Ensemble: No Regression — kill-switch unchanged, 1265 trades, 26.96% win rate identical
-- §7 Risks — zero-confidence signals, confidence > 1 clamping, missing confidence handling, compounding explosion
-- §8 Phase 18 Roadmap — 7 candidates ranked by ROI, top 2: regime-ensemble 1-of-2 (30 min), Donchian+Pivot (30 min)
-- §9 Files Produced — quality gates, backtest table
-
-### 3. Quality Gates
-
-| Gate | Result |
-|------|--------|
-| `bun run typecheck` | 13/13 packages PASS |
-| `bun run lint` | 0 errors, 180 pre-existing warnings |
-| `bun test` | 2369/2369 PASS, 16830 expect() calls across 92 files |
+Built a new 2-component composition (`DonchianPivotComposition`) that wraps the two best M15-native mean-reversion sub-strategies (Donchian Range Channel + Pivot Point Grid) with a configurable `minConsensus` threshold (default 2 = both must fire, override to 1 for higher trade count). Side-conflict detection defers when sub-strategies disagree. Empirically: **BTC 2-of-2 envelope +16.66%/mo at 4.64% DD** beats the +13.35%/mo Phase 15 single-strategy Donchian baseline; **1-of-2 mode unlocks +30-45%/mo across all 3 symbols** with DD < 8% — meaningful step toward the +50%/mo target without cap inflation.
 
 ---
 
-## PR URL
+## 2. Changed files
 
-**https://github.com/EggProject/mm-crypto-bot/pull/41**
+| File | Change | Lines |
+|------|--------|------:|
+| `packages/core/src/strategy/donchian-pivot-composition.ts` | NEW (Strategy class + JSDoc) | 309 |
+| `packages/core/src/strategy/donchian-pivot-composition.test.ts` | NEW (18 unit tests) | 305 |
+| `packages/core/src/index.ts` | +8 (export block) | 8 |
+| `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` | NEW (CLI runner with --min-consensus flag) | 173 |
+| `backtest-results/phase18-donchian-pivot-btc-15m-2of2.json` | NEW (backtest output) | 9051K |
+| `backtest-results/phase18-donchian-pivot-eth-15m-2of2.json` | NEW (backtest output) | 8609K |
+| `backtest-results/phase18-donchian-pivot-sol-15m-2of2.json` | NEW (backtest output) | 9199K |
+| `backtest-results/phase18-donchian-pivot-btc-15m-1of2.json` | NEW (backtest output) | 12832K |
+| `backtest-results/phase18-donchian-pivot-eth-15m-1of2.json` | NEW (backtest output) | 12327K |
+| `backtest-results/phase18-donchian-pivot-sol-15m-1of2.json` | NEW (backtest output) | 12567K |
+
+**Total commit:** 1 commit, 10 files changed, 2,663,563 insertions (the JSONs are large).
 
 ---
 
-## Notes for Verifier
+## 3. Quality gate results
 
-1. **Blocker resolved before start:** PR #39 (Track A) was OPEN when this session began but MERGED before Track C work started. Verified `confidenceScaledRisk` at `packages/backtest/src/engine.ts:269`.
+| Gate | Result | Detail |
+|------|--------|--------|
+| `bun run typecheck` | **PASS** | 13/13 packages, all green |
+| `bun run lint` | **PASS** | 0 errors (265 pre-existing security warnings, none from new file) |
+| `bun test` (monorepo) | **PASS** | 2387/2387 tests pass, 16,885 expect() calls |
+| `bun test src/strategy/donchian-pivot-composition.test.ts` | **PASS** | 18/18 tests, 55 expect() calls |
+| Coverage (lcov.info) | **100%** | `donchian-pivot-composition.ts`: LF:66/LH:66, FNF:8/FNH:8 |
 
-2. **Backtests ran in main worktree:** the CLI runners were executed from the main repo, not the worktree, because bun workspaces resolve from repo root. Result files were copied to the worktree before commit.
+**Note on Bun V8 coverage tool:** Branch coverage is reported as `BRF:0, BRH:0` per Bun's V8-based coverage tool limitation (documented in Phase 15 §7). Line + function coverage at 100% is the verified contract.
 
-3. **Track B backtests (6 old-engine JSONs) are superseded:** Phase 17B nocap/04cap results are byte-identical to Phase 15nocap and Phase 16capped, confirming they were run with the old engine. Preserved for documentation completeness.
+**8 required tests** (Phase 18 Track B brief):
 
-4. **bun lcov branch coverage caveat:** per memory rule, `BRF=BRH=0` in lcov.info is expected and not a defect. Engine confidence-wiring tests (5 cases: confidence=1.0, 0.7, 0.0, 0.2, >1, <0) added in Track A.
+1. `both fire (2-of-2 default) → emit consensus signal` ✓
+2. `only Donchian fires → no emit (default 2-of-2)` ✓
+3. `only Pivot fires → no emit (default 2-of-2)` ✓
+4. `neither fires → no emit` ✓
+5. `confidence = mean of sub-strategy confidences` ✓
+6. `signal fields merged correctly (side, stopLoss, takeProfit)` ✓ (+ 6b short, 6c side conflict)
+7. `minConsensus=1 (override) → emit if either fires` ✓ (+ 7b pivot alone, 7c neither, 7d conflict)
+8. `both fire at conf=0.5 → emit at conf=0.5` ✓
+
+Plus 10 extra construction/edge-case tests (default config, custom LTF, per-sub config forwarding, warmup max, minConsensus validation).
+
+---
+
+## 4. Backtest envelope (6 JSONs)
+
+| Symbol | Mode | Source JSON | Monthly | Max DD | Sharpe | Win rate | Trades | Kill-switch |
+|--------|------|-------------|--------:|-------:|-------:|---------:|-------:|:-----------:|
+| BTC    | 2-of-2 | `phase18-donchian-pivot-btc-15m-2of2.json`  | **+16.66%** | 4.64% | 20.52 | 73.16% | 2,660 | no |
+| ETH    | 2-of-2 | `phase18-donchian-pivot-eth-15m-2of2.json`  | **+16.29%** | 1.95% | 19.49 | 84.47% | 1,790 | no |
+| SOL    | 2-of-2 | `phase18-donchian-pivot-sol-15m-2of2.json`  | **+23.57%** | 3.33% | 21.85 | 74.38% | 3,099 | no |
+| BTC    | 1-of-2 | `phase18-donchian-pivot-btc-15m-1of2.json`  | **+34.52%** | 7.18% | 29.33 | 64.77% | 11,043 | no |
+| ETH    | 1-of-2 | `phase18-donchian-pivot-eth-15m-1of2.json`  | **+37.82%** | 5.51% | 29.83 | 68.62% | 9,977 | no |
+| SOL    | 1-of-2 | `phase18-donchian-pivot-sol-15m-1of2.json`  | **+45.93%** | 7.70% | 30.20 | 68.21% | 10,576 | no |
+
+All 6:
+- ✓ tradeCount > 0
+- ✓ maxDD < 50%
+- ✓ monthlyReturnPct positive
+- ✓ **BTC 2-of-2 envelope (+16.66%/mo) > +13.35%/mo Phase 15 baseline** (target +15-25%/mo MET)
+
+---
+
+## 5. Key findings
+
+### 5.1 2-of-2 envelope vs Phase 15 baseline
+
+| Symbol | Phase 15 Donchian solo | Phase 18 Donchian+Pivot 2-of-2 | Δ |
+|--------|----------------------:|--------------------------------:|--:|
+| BTC    | +13.35%/mo, 5.77% DD  | +16.66%/mo, 4.64% DD            | +3.31%/mo, -1.13% DD |
+| ETH    | +15.24%/mo, 1.93% DD  | +16.29%/mo, 1.95% DD            | +1.05%/mo, +0.02% DD |
+| SOL    | +22.78%/mo, 3.33% DD  | +23.57%/mo, 3.33% DD            | +0.79%/mo, 0% DD     |
+
+The 2-component composition LIFTS BTC and ETH envelopes with comparable DD, while SOL is roughly flat (the Phase 15 Donchian solo was already strong on SOL). The composition wins by gating Donchian's high-quality signals behind Pivot's confirmation, which filters the rare Donchian false-positive that fires without S/R support.
+
+### 5.2 1-of-2 mode unlocks +30-45%/mo across all 3 symbols
+
+The 1-of-2 variant emits when EITHER sub-strategy fires, with the consensus side-conflict gate still active. This unlocks substantially more trades (9,977-11,043 vs 1,790-3,099) at the cost of higher DD (5.5-7.7% vs 1.9-4.6%) and lower win rate (~68% vs ~78%). The result is **+34-45%/mo** on all 3 symbols, with no kill-switch trigger.
+
+This is a significant finding for Phase 19+ planning: 1-of-2 mode is the highest-envelope configuration tested in Phases 15-18.
+
+### 5.3 Why no M5 dilution (Phase 15 §10 lesson honored)
+
+Both sub-strategies are M15-native (Donchian reads `mtfState.htf.donchianUpper` from the engine-aggregated 1d candles, Pivot reads its own HTF accumulator from LTF candles). The composition runs on M15 LTF = same as both sub-strategies' native LTF. There is NO M5→M15 aggregation dilution (the issue that broke Phase 15 BB Squeeze + Keltner Grid composition on ETH/SOL).
+
+### 5.4 Stop-loss merge: side-aware tighter
+
+The spec said `min(stopLosses)` literally, with the intent "tighter stop wins". For LONG: tighter = higher stopLoss number (closer to entry). For SHORT: tighter = lower stopLoss number. The implementation uses side-aware merge (`max` for long, `min` for short) to honor the "tighter stop wins" intent (the spec's stated risk-management principle). This is documented in the JSDoc with explicit reasoning.
+
+---
+
+## 6. Architecture notes
+
+- **No eslint-disable** anywhere — root-cause fixes only.
+- **JSDoc matches implementation**: the file-level docstring states `minConsensus default 2` and the constructor validation enforces `[1, 2]` with a `RangeError` on out-of-range input.
+- **1:10 leverage preserved**: the composition only emits signals; sizing is engine-side. Pivot Grid's Phase 16 `maxPositionPctEquity: 0.04` cap flows through (its `applyCap` scales `confidence` before the composition reads it).
+- **Side-conflict → defer**: when sub-strategies disagree (e.g., Pivot says buy at S2, Donchian says sell at upper rail), the composition returns `null` rather than taking contradictory positions.
+- **Sub-strategy state exposed**: `donchianRange` and `pivotGrid` are public `readonly` fields so the CLI runner and future REPORTS can read per-strategy state for regime correlation analysis (same pattern as `SimpleRetailEnsemble` and `RegimeRoutedEnsemble`).
+
+---
+
+## 7. PR
+
+https://github.com/EggProject/mm-crypto-bot/pull/42
+
+Title: `feat(phase18-b): Donchian + Pivot 2-component composition`
+Body includes summary, key finding, envelope tables, quality gate results, and file list.
+
+---
+
+## 8. Notes for verifier
+
+- The implementation file is at `packages/core/src/strategy/donchian-pivot-composition.ts` (not `signal-center/plugins/`). The spec wrote `signal-center/plugins/` but said "Implements `StrategyPlugin` interface (same contract as `SimpleRetailEnsemble`)" — `SimpleRetailEnsemble` is in `strategy/` and implements `Strategy`, not `StrategyPlugin`. Followed the existing pattern for consistency with Phase 15/16 ensembles.
+- Spec mentioned `entryPrice` as a StrategySignal field in test #6, but `StrategySignal` doesn't have `entryPrice` (it has `side`, `confidence`, `reason`, `stopLoss`, `takeProfit`). Used `side` + `stopLoss` + `takeProfit` for the merge test instead. The test `6` is split into `6` (LONG merge), `6b` (SHORT merge), and `6c` (side conflict → defer) for full coverage.
+- Spec wrote `min(stopLosses)` literally; implemented side-aware merge (`max` for long, `min` for short) to honor the "tighter stop wins" intent. Documented in JSDoc with explicit reasoning. The intent (tighter stop wins) is the explicit risk-management principle; the literal `min()` would create a wider stop on longs.
+- Branch coverage is reported as `BRF:0, BRH:0` by Bun's V8-based coverage tool (documented in Phase 15 §7). Line + function coverage at 100% is the verified contract.
+- `bun install` was run in the new worktree (no node_modules existed) before typecheck/lint/test could pass cleanly.
+
+---
+
+**End of Phase 18 Track B deliverable.**
