@@ -746,6 +746,27 @@ export {
 } from "./strategy/donchian-pivot-composition.js";
 export type { DonchianPivotCompositionConfig } from "./strategy/donchian-pivot-composition.js";
 
+// Phase 22 Track A — Funding-rate carry composition (3-source consensus:
+// Donchian + Pivot + Funding-Rate Carry, 2-of-3 STRICT by default).
+// Re-exports the public surface of `funding-rate-carry-composition.ts` so
+// the backtest-tools CLI runner can consume the strategy + the CSV feed
+// interface via `@mm-crypto-bot/core` (the canonical package entry point).
+export {
+  DEFAULT_FUNDING_RATE_CARRY_CONFIG,
+  FUNDING_RATE_CARRY_DEFAULT_LTF,
+  FundingRateCarryComposition,
+  computeFundingRateSignal,
+  validateFundingRateCarryConfig,
+} from "./strategy/funding-rate-carry-composition.js";
+export type {
+  ConsensusMode,
+  FundingRateCarryConfig,
+  FundingRateEntry,
+  FundingRateFeed,
+  FundingRateFeedConfig,
+  FundingRateSignal,
+} from "./strategy/funding-rate-carry-composition.js";
+
 import type { Strategy } from "./types.js";
 import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
 
