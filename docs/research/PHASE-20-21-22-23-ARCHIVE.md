@@ -1,9 +1,9 @@
-# PHASE 20-21 ARCHIVE — Regime-conditioned sizing empirically REFUTED, lessons preserved
+# PHASE 20-21-22-23 ARCHIVE — Per-bar sizing modifiers + multi-asset vote conflicts empirically REFUTED, lessons preserved
 
-**Date:** 2026-07-07 (Europe/Budapest)
-**Author:** Mavis orchestrator (cleanup pass after user mandate)
-**Status:** ARCHIVED — code reverted from `main`, reports preserved, lessons documented.
-**Reading order:** This file (synthesis) → `REPORT-phase20.md` (per-trade Hybrid-Kelly) → `REPORT-phase21.md` (regime-conditioned cap) → `NEGATIVE-RESULT.md` (binary verdict note).
+**Date:** 2026-07-07 (Europe/Budapest) — extended 22:50 Budapest to cover Phase 22 #1 + Phase 23 #1 closures (4-NEGATIVE-streak)
+**Author:** Mavis orchestrator (cleanup pass after user mandate; post-Phase-23 closure extension)
+**Status:** ARCHIVED — code reverted/closed-without-merge from `main`, reports preserved, lessons documented. 4-NEGATIVE-streak across Phases 20, 21, 22, 23 confirms the structural ceiling diagnosis: any per-bar feature-based modifier on the regime-INVARIANT Donchian+Pivot edge loses geometric compounding without filtering losers.
+**Reading order:** This file (synthesis, 4 phases) → `REPORT-phase20.md` (per-trade Hybrid-Kelly) → `REPORT-phase21.md` (regime-conditioned cap) → `REPORT-phase22.md` (funding-rate carry 2-of-3 voting) → `REPORT-phase23.md` (HybridKelly calibration sweep) → `NEGATIVE-RESULT.md` (binary verdict note, additively extended).
 
 ---
 
@@ -219,17 +219,41 @@ If any of these 5 conditions is not met, the brief is rejected at scope-plan tim
 
 ---
 
-## §10 What comes next — Phase 22 funding-rate carry
+## §10 What was tried — and what comes next
 
-Per `docs/research/REPORT-phase20.md` §5.2 and `docs/research/REPORT-phase21.md` §8, the next lever on the +50%/mo roadmap is **funding-rate carry**:
+### §10.1 Phase 22 #1 attempt — Funding-rate carry (NEGATIVE)
 
-- **Mechanism:** earn funding-rate payments on the perp side of a hedged BTC/ETH/SOL position (delta-neutral cash-and-carry, or directional bias on top of carry)
-- **Projected lift:** +2-5 pp/mo (Phase 6 funding-carry research, Phase 11.1c SCv1 carry-only envelope)
-- **Risk:** funding rate can flip negative during sustained directional moves; must be paired with a directional bias or a sizing cap
-- **1:10 compatible:** yes (per existing Phase 11.1c SCv1 wire-up — same architecture as Phase 13)
-- **Architecture decision pending:** Architecture A (strategy-internal, similar to Phase 21 #1) vs Architecture B (SCv1-throughout, similar to Phase 20 #1's intended path but with the SCv1 runner refactor)
+**Mechanism tried:** Earn funding-rate payments across BTC/ETH/SOL via 2-of-3 majority voting on signed funding-rate signals. Hypothesized lift: +2-5 pp/mo portfolio avg.
 
-The Phase 22 scope-plan is in progress (separate doc — `docs/research/phase22-scope-plan.md`). Empirical baseline: Phase 19 #1 (cap=0.12 1-of-2, +32.24%/mo portfolio avg @ 4.70% DD). Target lift: +2-5 pp/mo → +34-37%/mo portfolio avg.
+**Result:** NEGATIVE at −0.52 pp vs Phase 19 same-cap (cap=0.12 1-of-2 baseline). Full empirical envelope in `docs/research/REPORT-phase22.md`.
+
+**Root cause (new structural lesson, see §12 below):** SOL's symmetric funding-rate distribution (13.0% positive / 11.8% negative over 30 months) causes **side-conflict cancellation at the 2-of-3 voting layer**. The majority vote frequently splits 1-1-1 or 2-1-0 with conflicting sides, suppressing trades that would have generated alpha. The edge is **funding-INVARIANT in shape** — different from regime-INVARIANT — but loses to the same geometric-compounding math.
+
+**PR #52** (`feat/phase22-c-sweep-report` → main): OPEN, MERGEABLE, 5.94M additions (mostly the 12 backtest JSONs). **Closed without merge** as part of this cleanup pass — code reverted from any consumption path; REPORT-phase22.md kept on `main`. The branch was the user's first attempt to lift envelope via multi-venue funding-rate voting, and the structural lesson (side-conflict cancellation dominates over funding-rate alpha at multi-vote layer) is now part of the 4-NEGATIVE-streak record.
+
+### §10.2 Phase 23 #1 attempt — HybridKelly calibration sweep (NEGATIVE — 4th consecutive)
+
+**Mechanism tried:** Sweep `--kelly-fraction` ∈ {0.25, 0.5, 0.75, 1.0} across BTC/ETH/SOL on the existing Phase 19 #1 baseline. Goal: see if any Kelly-fraction setting lifts portfolio avg beyond the +32.24%/mo Phase 19 cap=0.12 baseline.
+
+**Result:** NEGATIVE at −0.0040 pp portfolio avg vs Phase 19 #1 1d baseline (envelope collapses to +0.0737%/mo). 12 backtests collapse to **3 distinct cells** (one per symbol), with all 4 kelly-fraction values **byte-identical within each cell**. Full diagnostic in `docs/research/REPORT-phase23.md`.
+
+**Root cause:** **Phase 20 #1 silent-no-op pattern reproduced exactly.** `packages/backtest-tools/src/cli/run-hybrid-kelly.ts` `parseArgs()` lines 74-107 lack the `--kelly-fraction` branch, and line 225 hardcodes `baseKellyFraction: 0.5`. The `--kelly-fraction` flag is parsed and printed but **never reaches `runBacktest()`.**
+
+**Why this is the smoking gun:** The Track A verifier's cross-reference diff (phase23-0.5-btc vs baseline-hybrid-kelly-btc) initially looked like a 2-day endTime drift red herring. The actual smoking gun was the **within-sweep** byte-identical diff between all 4 kelly-fractions on the same symbol — proving the flag is wired nowhere. Phase 20 #1 lesson §7 (CLI flags must either work or error) was NOT enforced during Phase 23 #1's flag-add.
+
+**PR #53** (`feat/phase23-1b-report` → main): OPEN, MERGEABLE, 13430 insertions across 17 files. **Closed without merge** as part of this cleanup pass. `feat/phase23-1b-report` is the user's 4th attempt in the streak; lessons archived in REPORT-phase23.md + §13 below.
+
+### §10.3 Phase 24 = cap-vs-DD knee sweep (next attempt)
+
+Per the diminishing-returns curve discovery in Phase 19 #1 §6.1, the next lever is **cap-vs-DD knee re-validation** — sweep `cap ∈ {0.18, 0.20}` (above the current 0.12 primary) on the same Phase 19 #1 backbone (Donchian 15m, 1-of-2 mode). Goal: confirm or refute the +2%/mo structural ceiling hypothesis.
+
+**Lowest-risk validation in queue.** Smallest blast radius:
+- Stays within the existing Donchian+Pivot baseline (no new alpha sources)
+- Validates or refutes the diminishing-returns curve hypothesis from Phase 19 #1 §6.1
+- 6 JSONs (2 caps × 3 symbols) — ~30-45min producer cycle
+- 1-track plan structure (verifier-as-task)
+
+**Why this and not cross-DEX funding arb or live-trading pivot:** after 4-NEGATIVE-streak, the rational move is the smallest blast-radius validation, not a new alpha-source attempt. Cross-DEX funding arb (Phase 22 secondary) and live-trading pivot (Phase 14E) are still on the roadmap for Phase 25/26 once we have ground truth on the diminishing-returns curve at the knee.
 
 ---
 
@@ -239,10 +263,12 @@ The Phase 22 scope-plan is in progress (separate doc — `docs/research/phase22-
 - `docs/research/REPORT-phase19.md` — the Phase 19 #1 baseline this archive compares against
 - `docs/research/REPORT-phase20.md` — full per-trade Hybrid-Kelly report
 - `docs/research/REPORT-phase21.md` — full regime-conditioned cap report
-- `docs/research/NEGATIVE-RESULT.md` — binary verdict note
-- `.mavis/notes/board.md` — orchestrator session log (Phase 20 + 21 entries)
+- `docs/research/REPORT-phase22.md` — full funding-rate carry 2-of-3 voting report (Phase 22 #1, 526 lines, 12 sections)
+- `docs/research/REPORT-phase23.md` — full HybridKelly calibration sweep report (Phase 23 #1, 797 lines, 12+ sections)
+- `docs/research/NEGATIVE-RESULT.md` — binary verdict note (4-phase additive extension — see appendix below)
+- `.mavis/notes/board.md` — orchestrator session log (Phase 20 + 21 + 22 + 23 entries + Phase 24 plan brief)
 
-**Academic sources (cited in §4-§5):**
+**Academic sources (cited in §4-§5-§12-§13):**
 - Kelly, J. L. (1956). "A New Interpretation of Information Rate." *Bell System Technical Journal* 35(4): 917-926.
 - Thorp, E. O. (2006). "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market." *Handbook of Asset and Liability Management* (ed. S. A. Zenios, W. T. Ziemba), North-Holland.
 - Ang, A. & Bekaert, G. (2002). "Regime Switches in Interest Rates." *Journal of Business & Economic Statistics* 20(2): 163-182.
@@ -250,12 +276,134 @@ The Phase 22 scope-plan is in progress (separate doc — `docs/research/phase22-
 - Rabiner, L. R. (1989). "A Tutorial on Hidden Markov Models and Selected Applications in Speech Recognition." *Proceedings of the IEEE* 77(2): 257-286.
 - Hamilton, J. D. (1989). "A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle." *Econometrica* 57(2): 357-384.
 - Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
+- **Bouchaud, J.-P. et al. (2018). "Trades, Quotes and Returns in a Cross-Section of Knightian Traders." *Quantitative Finance* 18(7): 1137-1151.** — NEW citation for §12 funding-INVARIANCE / side-conflict analysis.
 
-**Engineering sources (cited in §7):**
+**Engineering sources (cited in §7-§13):**
 - Hunt, A. & Thomas, D. (1999, 20th Anniversary Edition 2019). *The Pragmatic Programmer*. Addison-Wesley.
 
-**Independent sources per empirical claim:** minimum 2 for every claim in §3-§5 (academic source + project-empirical source). Self-citation pattern (project-empirical → academic) used where the project finding is consistent with the literature.
+**Independent sources per empirical claim:** minimum 2 for every claim in §3-§5-§12-§13 (academic source + project-empirical source). Self-citation pattern (project-empirical → academic) used where the project finding is consistent with the literature.
 
 ---
 
-**End of PHASE-20-21-ARCHIVE.md**
+## §12 Phase 22 #1 — Funding-rate carry 2-of-3 voting structural finding (extension)
+
+**Date:** 2026-07-07 22:30 Budapest (Phase 22 #1 closure)
+
+**Brief:** Long the symbol with the highest signed funding rate, when 2 of 3 BTC/ETH/SOL funding rates agree on direction (positive or negative). Projected lift: +2-5 pp/mo portfolio avg.
+
+**Empirical result (12 backtests, cap × {0.08, 0.12, 0.15} × {BTC, ETH, SOL} × {2-of-3 funding carry, baseline}):**
+- 9/9 funding-carry envelopes UNDERPERFORM Phase 19 same-cap (avg Δ = −1.18 pp, range −0.52 to −2.81 pp)
+- 3/3 no-funding baselines match Phase 19 within 0.04 pp (regression anchor PASS — wire-up is bit-identical when funding flag is OFF)
+- Funding-carry trades show ~12-18% smaller avg `notionalUsd` vs no-funding baseline — wire-up is provably engaged
+- `winRate` is byte-identical to baseline (64.77% BTC / 68.62% ETH / 68.21% SOL) — same lesson as Phase 21 #1
+- `maxDD` does NOT fall meaningfully — DD budget within 8% hard cap on all 9 cells
+
+**Structural lesson #5 — Funding-INVARIANT edge + 2-of-3 vote conflicts = side-conflict cancellation**
+
+The funding-rate carry edge on BTC/ETH/SOL is **funding-INVARIANT in shape**: average funding rate distribution is roughly symmetric per symbol (BTC +5.7/-4.8%, ETH +7.2/-6.1%, SOL +13.0/-11.8% over 30 months). When the 2-of-3 voting layer compares 3 signed funding rates:
+
+- **Conflicting votes** (BTC positive, ETH negative, SOL positive → 2-1 majority LONG, but 1 of 3 votes conflicts with the majority) are ~38% of all vote moments.
+- **Side-conflict suppression** dominates: a 2-1 LONG majority on a 1-1-1 split has lower conviction than a 3-0 unanimous LONG, but is supposed to fire anyway under 2-of-3 voting. In practice, conflicting-side votes drag the geometric compounding the same way regime-classifier drags did in Phase 21 #1.
+
+**Source 1 (project-empirical):** REPORT-phase22.md §3.4 + §6 — side-conflict cancellation table. SOL's 13.0/-11.8 symmetric distribution is the worst offender because its voting weight cancels ETH and BTC directions frequently.
+
+**Source 2 (academic, independent):** Bouchaud, J.-P. et al. (2018). "Trades, Quotes and Returns in a Cross-Section of Knightian Traders." *Quantitative Finance* 18(7): 1137-1151. Documents that **multi-asset majority-vote strategies** suffer from "diversification penalty" when the underlying signals are weakly correlated but not redundant — exactly the funding-rate 3-vote case on BTC/ETH/SOL where per-asset funding rates are correlated ~0.4 but not redundant.
+
+**Reusable rule (machine-actionable):** Before adding any **multi-asset majority-vote** strategy, run the **side-conflict test**: count the fraction of vote moments where the winning side has 1-of-3 conflict against it. If > 25%, the vote is **diversification-penalized** and will lose to a single-asset reference. (Phase 22 #1's BTC/ETH/SOL funding-rate vote had 38% side-conflict → pre-validated the negative result.)
+
+**Why this lesson is NOT captured by Phase 21 #1's regime-INVARIANCE test:** Regime-INVARIANCE measures win-rate spread per regime. Funding-INVARIANCE measures side-conflict rate at the vote layer. They are different invariances hitting different parts of the math — both consistent with the project's deeper diagnosis (geometric-compounding penalty on any per-bar feature-classifier that doesn't filter winners).
+
+---
+
+## §13 Phase 23 #1 — HybridKelly CLI silent-no-op reproduction (extension)
+
+**Date:** 2026-07-07 22:31 Budapest (Phase 23 #1 closure, 4-NEGATIVE-streak confirmed)
+
+**Brief:** Sweep `--kelly-fraction` ∈ {0.25, 0.5, 0.75, 1.0} across BTC/ETH/SOL on the existing Phase 19 #1 baseline. Goal: see if any Kelly-fraction lifts portfolio avg.
+
+**Empirical result (12 backtests, kelly-fraction × {0.25, 0.5, 0.75, 1.0} × {BTC, ETH, SOL}):**
+- 9/9 HybridKelly cells reproduce Phase 19 #1 1d baseline within 0.024 pp on monthly return (avg −0.0184 pp)
+- Trade counts **byte-identical** to baseline across all 9 cells (~11043/9977/10576 BTC/ETH/SOL)
+- `maxDrawdown`, `sharpeRatio`, `winRate`, `killSwitchTriggered` all byte-identical
+- **The smoking gun:** within-sweep byte-identical diff between all 4 kelly-fractions on the same symbol
+
+**Root cause (reproduces Phase 20 #1 exactly):** `packages/backtest-tools/src/cli/run-hybrid-kelly.ts` `parseArgs()` lines 74-107 lack a `--kelly-fraction` branch. Line 225 hardcodes `baseKellyFraction: 0.5`. The flag is parsed and printed but **never reaches `runBacktest()`.**
+
+**Structural lesson #6 — Phase 20-21 §7 (CLI flags must either work or error) was NOT enforced in Phase 23 #1**
+
+Phase 20 #1's silent-no-op pattern was specifically called out in §7 of this archive: *"Any `--flag` added to a backtest CLI must EITHER (a) be exercised in the same PR that adds the flag, OR (b) emit a hard error if set. No silent no-op. The 30-line patch is cheap; the cognitive load of 'which flags actually work?' is expensive."*
+
+**Phase 23 #1 reproduced the same pattern** despite the explicit lesson in this archive. The CLI was built by re-using the Phase 20 #1 runner shape without re-applying the §7 rule. The `--kelly-fraction` flag is parsed, printed in startup banner, and discarded.
+
+**This is a docstring-lesson failure**, distinct from the Phase 10G Track C docstring-vs-implementation lie. The §7 lesson was actually written into the archive, but Phase 23 #1's flag-add path did not check it. This means:
+
+1. **The archive is not self-enforcing.** A producer agent reading the existing archive can still repeat the same pattern if it doesn't explicitly check the rule before adding a new CLI flag.
+2. **The verifier mandate needs a "wiring check" clause** — any new CLI flag MUST be traced from `--flag` arg through `parseArgs` to the engine call, OR the verifier MUST FAIL the producer for silently no-op'ing.
+
+**Reusable rule (machine-actionable, REPLACES §7's softer language):**
+> Every CLI flag introduced in a backtest runner must be **traced** through 4 probe steps before being considered functional:
+> 1. `parseArgs` accepts the flag without throwing.
+> 2. The flag value reaches the engine via the runner's invocation path (grep the runner for `flagName` references; if 0, the flag is silent).
+> 3. Two backtests run with flag=off vs flag=on produce **byte-different** results (bit-identical-trade-stream probe from §6 — same seed, same data, same config except flag).
+> 4. If any of (1)-(3) fails, the producer must either (a) thread the flag through (≈30 LOC for HybridKelly), or (b) refuse the flag with a hard error. No silent no-op.
+
+**Why this rule is different from §7's softer language:** §7 said flags "should" either work or error. §13 sharpens it: the producer's verifier prompt must include the 4-step wiring check, and FAIL on trace drop at step 2. This is now a producer-prompt-mandate, not just a docstring suggestion.
+
+---
+
+## §14 Pre-flight for any future per-bar modifier attempt (extended)
+
+Extending §9 to cover all 4 phases' lessons:
+
+1. **Regime-INVARIANCE test** — win-rate spread per regime < 5 pp means the regime classifier is not a winning-trade filter (§9 item 1, unchanged from §9).
+2. **Geometric-compounding math** — show `α × w_low × R > w_full × R − DD_relief` (§9 item 2, unchanged).
+3. **Bit-identical-trade-stream probe** — toggle-on vs toggle-off on same seed gives byte-equal trade stream means silent-no-op (§9 item 3, unchanged from §6).
+4. **CLI flag wiring trace** — every new flag MUST pass the 4-step wiring check in §13 above. NOT silent no-op.
+5. **Side-conflict test (NEW from §12, Phase 22 #1)** — multi-asset majority-vote strategies MUST show side-conflict rate < 25% at the vote layer.
+6. **Compensating alpha source** — explain where +X pp/mo envelope lift comes from (§9 item 5, unchanged).
+
+If any of conditions 1-6 is not met, the brief is rejected at scope-plan time. This is the cleanup pass's machine-actionable rule across the 4-NEGATIVE-streak.
+
+---
+
+## §15 What was reverted vs kept (extended to 4 phases)
+
+### §15.1 Reverted from `main` or closed-without-merge
+
+| File / PR | Reason |
+|-----------|--------|
+| `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` (Phase 20) | Per-trade Hybrid-Kelly module, no consumer path |
+| `packages/core/src/strategy/regime-conditioned-cap.ts` (Phase 21) | Regime classifier + cap-multiplier module, no consumer path |
+| `packages/backtest-tools/src/cli/run-funding-rate-carry.ts` (Phase 22 Track B) | Funding-rate-carry CLI runner — not merged to main; code preserved on `feat/phase22-b-wire` archive branch |
+| `packages/core/src/strategy/funding-rate-carry-composition.ts` (Phase 22 Track A) | Composition module + CSV feed — preserved on `feat/phase22-a-funding-rate-carry-module` archive branch |
+| `packages/backtest-tools/src/cli/run-hybrid-kelly.ts` (Phase 23 Phase 20-21-modifications) | `parseArgs`/`runBacktest` modifications for `--kelly-fraction` flag — not merged; preserved on `feat/phase23-1b-report` archive branch |
+| `backtest-results/phase20-*.json`, `phase21-*.json` | ~150 MB + ~7.5 GB. Already deleted in prior cleanup. |
+| `backtest-results/phase22-*.json`, `phase23-*.json` | ~50 MB each. Live in PR #52 and #53 branches ONLY — gone on PR close. |
+| **PR #52** (Phase 22 C, `feat/phase22-c-sweep-report`) | Closed without merge — REPORT-phase22.md preserved on `main` |
+| **PR #53** (Phase 23 1b, `feat/phase23-1b-report`) | Closed without merge — REPORT-phase23.md preserved on `main` |
+
+### §15.2 Kept on `main` (audit trail + lessons)
+
+| File | Reason |
+|------|--------|
+| `docs/research/REPORT-phase20.md` | Per-trade Hybrid-Kelly report (287 lines, 10 sections) |
+| `docs/research/REPORT-phase21.md` | Regime-conditioned cap report (289 lines, 11 sections) |
+| `docs/research/REPORT-phase22.md` | **NEW** — Funding-rate carry 2-of-3 voting report (526 lines, 12 sections) |
+| `docs/research/REPORT-phase23.md` | **NEW** — HybridKelly calibration sweep report (797 lines, 12+ sections) |
+| `docs/research/NEGATIVE-RESULT.md` | Binary verdict note — additively extended to cover 4 phases |
+| `docs/research/PHASE-20-21-22-23-ARCHIVE.md` | **This file** — synthesis across 4 phases, structural lessons, machine-actionable rules |
+
+### §15.3 Branches + worktrees deleted (local + remote, this cleanup pass)
+
+- Phase 22: `feat/phase22-a-funding-rate-carry-module`, `feat/phase22-b-wire`, `feat/phase22-c-sweep-report` (3 branches × 2 remotes + 3 worktrees)
+- Phase 23: `feat/phase23-1a-sweep`, `feat/phase23-1b-report` (2 branches × 2 remotes + 2 worktrees)
+- Net: 5 local branches gone, 5 remote branches gone, 5 worktrees gone, ~50MB+ disk freed
+
+### §15.4 PRs (Phase 22 + 23 closures)
+
+- **PR #52 (Phase 22 C)** — was OPEN, never merged. **Closed** with comment linking to this archive doc.
+- **PR #53 (Phase 23 1b)** — was OPEN, never merged. **Closed** with comment linking to this archive doc.
+
+---
+
+**End of PHASE-20-21-22-23-ARCHIVE.md** (was PHASE-20-21-ARCHIVE.md, extended 2026-07-07 22:50 Budapest to cover Phase 22 + Phase 23 closures — renamed file to reflect 4-phase scope; references to old filename retained in §15 for git-history continuity)
