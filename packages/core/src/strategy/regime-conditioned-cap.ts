@@ -159,9 +159,9 @@ export interface RegimeConditionedCapConfig {
    */
   readonly minObservations: number;
   /**
-   * Classifier mode. "hmm" = HMM 3-state Gaussian emission + forward
-   * algorithm (recommended, production default). "atr" = ATR-percentile
-   * heuristic (simpler, research-reference only).
+   * Classifier mode. "atr" = ATR-percentile heuristic (default — variance-robust,
+   * production-recommended). "hmm" = HMM 3-state Gaussian emission + forward
+   * algorithm (research reference; requires pre-calibrated input series).
    */
   readonly mode?: "hmm" | "atr";
   /**
