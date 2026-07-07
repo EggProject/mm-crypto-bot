@@ -1,0 +1,300 @@
+{
+  "p22_baseline_avg_cap012": 0.3220698853291813,
+  "p19_avg_cap012": 0.32241554537187017,
+  "p22_fr_avg_cap012": 0.3172080457445876,
+  "p19_fr_avg_cap012": 0.32241554537187017,
+  "lift_pp": -0.5207499627282564,
+  "leverage_audit": [
+    {
+      "symbol": "BTC",
+      "cap": "0.08",
+      "max_ratio": 0.0800076853486184,
+      "ok": true,
+      "info": "worst notional=10620.12 @ ts=1729283400000 equity=132738.76 ratio=0.0800",
+      "path": "backtest-results/phase22-funding-rate-carry-2of3-btc-15m-0.08.json"
+    },
+    {
+      "symbol": "BTC",
+      "cap": "0.12",
+      "max_ratio": 0.12001729286502695,
+      "ok": true,
+      "info": "worst notional=1266.88 @ ts=1704719700000 equity=10555.81 ratio=0.1200",
+      "path": "backtest-results/phase22-funding-rate-carry-2of3-btc-15m-0.12.json"
+    },
+    {
+      "symbol": "BTC",
+      "cap": "0.15",
+      "max_ratio": 0.15002702107508753,
+      "ok": true,
+      "info": "worst notional=1585.76 @ ts=1704714300000 equity=10569.84 ratio=0.1500",
+      "path": "backtest-results/phase22-funding-rate-carry-2of3-btc-15m-0.15.json"
+    },
+    {
+      "symbol": "ETH",
+      "cap": "0.08",
+      "max_ratio": 0.0800076853486184,
+      "ok": true,
+      "info": "worst notional=43128.33 @ ts=1752098400000 equity=539052.36 ratio=0.0800",
+      "path": "backtest-results/phase22-funding-rate-carry-2of3-eth-15m-0.08.json"
+    },
+    {
+      "symbol": "ETH",
+      "cap": "0.12",
+      "max_ratio": 0.12001729286502695,
+      "ok": true,
+      "info": "worst notional=1305.57 @ ts=1704917700000 equity=10878.22 ratio=0.1200",
+      "path": "backtest-results/phase22-funding-rate-carry-2of3-eth-15m-0.12.json"
+    },
+    {
+      "symbol": "ETH",
+      "cap": "0.15",
+      "max_ratio": 0.15002702107508753,
+      "ok": true,
+      "info": "worst notional=1578.45 @ ts=1704737700000 equity=10521.08 ratio=0.1500",
+      "path": "backtest-results/phase22-funding-rate-carry-2of3-eth-15m-0.15.json"
+    },
+    {
+      "symbol": "SOL",
+      "cap": "0.08",
+      "max_ratio": 0.0800076853486184,
+      "ok": true,
+      "info": "worst notional=678869.38 @ ts=1775025000000 equity=8485052.15 ratio=0.0800",
+      "path": "backtest-results/phase22-funding-rate-carry-2of3-sol-15m-0.08.json"
+    },
+    {
+      "symbol": "SOL",
+      "cap": "0.12",
+      "max_ratio": 0.12001729286502695,
+      "ok": true,
+      "info": "worst notional=1247.29 @ ts=1705473900000 equity=10392.57 ratio=0.1200",
+      "path": "backtest-results/phase22-funding-rate-carry-2of3-sol-15m-0.12.json"
+    },
+    {
+      "symbol": "SOL",
+      "cap": "0.15",
+      "max_ratio": 0.15002702107508753,
+      "ok": true,
+      "info": "worst notional=1546.19 @ ts=1705390200000 equity=10306.10 ratio=0.1500",
+      "path": "backtest-results/phase22-funding-rate-carry-2of3-sol-15m-0.15.json"
+    }
+  ],
+  "rows_fr": [
+    {
+      "symbol": "BTC",
+      "cap": "0.08",
+      "fr_monthly": 0.1981499528182895,
+      "ph19_monthly": 0.20359333786440414,
+      "d_pp": -0.5443385046114635,
+      "fr_dd": 0.029500229634209067,
+      "ph19_dd": 0.02950022963420868,
+      "d_dd_pp": 3.851086116668512e-14,
+      "fr_trades": 10371,
+      "ph19_trades": 11043,
+      "fr_winrate": 0.6546138270176454,
+      "ph19_winrate": 0.6476500950828579,
+      "fr_sharpe": 30.460496961970126,
+      "ph19_sharpe": 31.82656384741053,
+      "fr_kill": false
+    },
+    {
+      "symbol": "BTC",
+      "cap": "0.12",
+      "fr_monthly": 0.2721008114172423,
+      "ph19_monthly": 0.2667096299629723,
+      "d_pp": 0.5391181454269978,
+      "fr_dd": 0.04393491757000913,
+      "ph19_dd": 0.04393491757000987,
+      "d_dd_pp": -7.424616477180734e-14,
+      "fr_trades": 10371,
+      "ph19_trades": 11043,
+      "fr_winrate": 0.6546138270176454,
+      "ph19_winrate": 0.6476500950828579,
+      "fr_sharpe": 30.277535295173752,
+      "ph19_sharpe": 31.316430684409813,
+      "fr_kill": false
+    },
+    {
+      "symbol": "BTC",
+      "cap": "0.15",
+      "fr_monthly": 0.31409082327471793,
+      "ph19_monthly": 0.3028330448173191,
+      "d_pp": 1.1257778457398837,
+      "fr_dd": 0.054625291268340856,
+      "ph19_dd": 0.05462529126834222,
+      "d_dd_pp": -1.366962099069724e-13,
+      "fr_trades": 10371,
+      "ph19_trades": 11043,
+      "fr_winrate": 0.6546138270176454,
+      "ph19_winrate": 0.6476500950828579,
+      "fr_sharpe": 29.977625054069353,
+      "ph19_sharpe": 30.647428509604534,
+      "fr_kill": false
+    },
+    {
+      "symbol": "ETH",
+      "cap": "0.08",
+      "fr_monthly": 0.2519116534642176,
+      "ph19_monthly": 0.25850979444298794,
+      "d_pp": -0.6598140978770317,
+      "fr_dd": 0.023741555792818725,
+      "ph19_dd": 0.02374155579281868,
+      "d_dd_pp": 4.5102810375396984e-15,
+      "fr_trades": 9569,
+      "ph19_trades": 9977,
+      "fr_winrate": 0.6848155502142335,
+      "ph19_winrate": 0.6861782098827303,
+      "fr_sharpe": 32.02375757653986,
+      "ph19_sharpe": 32.73406673522764,
+      "fr_kill": false
+    },
+    {
+      "symbol": "ETH",
+      "cap": "0.12",
+      "fr_monthly": 0.32249792009302136,
+      "ph19_monthly": 0.3214433267701311,
+      "d_pp": 0.10545933228902626,
+      "fr_dd": 0.033297583052179426,
+      "ph19_dd": 0.03329758305217874,
+      "d_dd_pp": 6.869504964868156e-14,
+      "fr_trades": 9569,
+      "ph19_trades": 9977,
+      "fr_winrate": 0.6848155502142335,
+      "ph19_winrate": 0.6861782098827303,
+      "fr_sharpe": 31.33035749752263,
+      "ph19_sharpe": 31.827974118390266,
+      "fr_kill": false
+    },
+    {
+      "symbol": "ETH",
+      "cap": "0.15",
+      "fr_monthly": 0.3586003147969905,
+      "ph19_monthly": 0.3510340659810889,
+      "d_pp": 0.7566248815901622,
+      "fr_dd": 0.04060451921475798,
+      "ph19_dd": 0.04060451921475807,
+      "d_dd_pp": -9.020562075079397e-15,
+      "fr_trades": 9569,
+      "ph19_trades": 9977,
+      "fr_winrate": 0.6848155502142335,
+      "ph19_winrate": 0.6861782098827303,
+      "fr_sharpe": 30.746687081223374,
+      "ph19_sharpe": 31.094069211155148,
+      "fr_kill": false
+    },
+    {
+      "symbol": "SOL",
+      "cap": "0.08",
+      "fr_monthly": 0.27648234806674865,
+      "ph19_monthly": 0.30527356082336343,
+      "d_pp": -2.879121275661478,
+      "fr_dd": 0.03147382307313055,
+      "ph19_dd": 0.031473823073130125,
+      "d_dd_pp": 4.232725281383409e-14,
+      "fr_trades": 9637,
+      "ph19_trades": 10576,
+      "fr_winrate": 0.6617204524229532,
+      "ph19_winrate": 0.6821104387291982,
+      "fr_sharpe": 30.217757826092797,
+      "ph19_sharpe": 32.7550438305989,
+      "fr_kill": false
+    },
+    {
+      "symbol": "SOL",
+      "cap": "0.12",
+      "fr_monthly": 0.35702540572349917,
+      "ph19_monthly": 0.37909367938250704,
+      "d_pp": -2.2068273659007875,
+      "fr_dd": 0.04695875311708444,
+      "ph19_dd": 0.04695875311708504,
+      "d_dd_pp": -6.036837696399289e-14,
+      "fr_trades": 9637,
+      "ph19_trades": 10576,
+      "fr_winrate": 0.6617204524229532,
+      "ph19_winrate": 0.6821104387291982,
+      "fr_sharpe": 29.824545638972122,
+      "ph19_sharpe": 32.24752581780487,
+      "fr_kill": false
+    },
+    {
+      "symbol": "SOL",
+      "cap": "0.15",
+      "fr_monthly": 0.40056298487495323,
+      "ph19_monthly": 0.41751393599518183,
+      "d_pp": -1.6950951120228597,
+      "fr_dd": 0.05844974639548951,
+      "ph19_dd": 0.05844974639548923,
+      "d_dd_pp": 2.8449465006019636e-14,
+      "fr_trades": 9637,
+      "ph19_trades": 10576,
+      "fr_winrate": 0.6617204524229532,
+      "ph19_winrate": 0.6821104387291982,
+      "fr_sharpe": 29.287920870817917,
+      "ph19_sharpe": 31.526514761536426,
+      "fr_kill": false
+    }
+  ],
+  "rows_ref": [
+    {
+      "symbol": "BTC",
+      "cap": "0.12",
+      "monthly": 0.2664276881348122,
+      "ph19_monthly": 0.2667096299629723,
+      "d_pp": -0.028194182816010382,
+      "dd": 0.04393491757000987,
+      "ph19_dd": 0.04393491757000987,
+      "d_dd_pp": 0.0,
+      "trades": 11043,
+      "ph19_trades": 11043,
+      "winrate": 0.6476500950828579
+    },
+    {
+      "symbol": "ETH",
+      "cap": "0.12",
+      "monthly": 0.321099336866165,
+      "ph19_monthly": 0.3214433267701311,
+      "d_pp": -0.03439899039661132,
+      "dd": 0.03329758305217874,
+      "ph19_dd": 0.03329758305217874,
+      "d_dd_pp": 0.0,
+      "trades": 9977,
+      "ph19_trades": 9977,
+      "winrate": 0.6861782098827303
+    },
+    {
+      "symbol": "SOL",
+      "cap": "0.12",
+      "monthly": 0.37868263098656674,
+      "ph19_monthly": 0.37909367938250704,
+      "d_pp": -0.04110483959403055,
+      "dd": 0.04695875311708504,
+      "ph19_dd": 0.04695875311708504,
+      "d_dd_pp": 0.0,
+      "trades": 10576,
+      "ph19_trades": 10576,
+      "winrate": 0.6821104387291982
+    }
+  ],
+  "distribution": {
+    "btc": {
+      "bars": 7466,
+      "pos": 14.3,
+      "neg": 2.5,
+      "neutral": 83.1
+    },
+    "eth": {
+      "bars": 7232,
+      "pos": 17.0,
+      "neg": 2.3,
+      "neutral": 80.7
+    },
+    "sol": {
+      "bars": 6433,
+      "pos": 13.0,
+      "neg": 11.8,
+      "neutral": 75.2
+    }
+  },
+  "dd_breach": false,
+  "silent_no_op": false,
+  "winrate_breach": false
+}
