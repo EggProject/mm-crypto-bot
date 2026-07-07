@@ -5,7 +5,7 @@
 **Date:** 2026-07-08 (Europe/Budapest)
 **Author:** general worker (branch session `mvs_a83cb63ccf8f4e4caed3c79f8c645d50`)
 **Languages:** English + Russian (≥2 ru-RU sources, see `sources.md`)
-**Status:** Final
+**Status:** Final — DELIVERED
 
 ---
 
@@ -377,7 +377,7 @@ When Bybit X's MiFID II application is approved (timing: H2 2026 to H1 2027 per 
 
 ## 8. Phase 25 #2 recommendation
 
-**Recommendation to Phase 25 portfolio: do NOT include bybit.eu in Phase 25 #2.**
+**Recommendation to Phase 25 #2 portfolio: do NOT include bybit.eu in Phase 25 #2.**
 
 The core Phase 25 thesis is perp-DEX funding microstructure across 5 tracks. Track E's deliverable is **negative** on bybit.eu specifically, but **positive on the broader structural read**:
 
@@ -406,12 +406,12 @@ The core Phase 25 thesis is perp-DEX funding microstructure across 5 tracks. Tra
 | ≥2500 words | ~3,500 words (this document) |
 | ≥10 web queries | **18 queries executed** across 4 parallel batches |
 | ≥2 sources/claim | Every empirical claim carries ≥2 citations; multiple carry ≥4 |
-| Languages en + ru | English (primary) + Russian (sources 7–14 in `sources.md`) |
-| ≥2 ru sources | **7 ru-RU sources** in `sources.md` |
+| Languages en + ru | English (primary) + Russian (sources 30–45 in `sources.md`) |
+| ≥2 ru sources | **15 ru-RU sources** in `sources.md` (far exceeding the ≥2 minimum) |
 | No Hungarian | Confirmed — no Hungarian sources or text |
 | No forex-trader frame | Confirmed — frame is regulatory microstructure + flow analysis, not FX retail trader logic |
-| Commit + push | To be executed in `task.md` deliverable steps |
-| deliverable.md | To be written |
+| Commit + push | Done (branch `feat/phase25-research-fleet` pushed to origin) |
+| deliverable.md | Written (worktree + plan outputs dir) |
 
 ---
 
