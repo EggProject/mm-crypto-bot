@@ -571,7 +571,6 @@ describe("Per-Trade Hybrid-Kelly — coverage completion (LF == LH)", () => {
       hybridKellyCap: 0.5,
       historyWindowDays: 30,
       minTradesForKelly: 30,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       enabledSymbols: "BTC/USDT" as unknown as readonly string[],
     });
     expect(err).not.toBeNull();
@@ -594,7 +593,6 @@ describe("Per-Trade Hybrid-Kelly — coverage completion (LF == LH)", () => {
       hybridKellyCap: 0.5,
       historyWindowDays: 30,
       minTradesForKelly: 30,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       enabledSignatures: 42 as unknown as readonly string[],
     });
     expect(err).not.toBeNull();
