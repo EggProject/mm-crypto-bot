@@ -787,6 +787,50 @@ export {
 } from "./strategy/donchian-pivot-composition.js";
 export type { DonchianPivotCompositionConfig } from "./strategy/donchian-pivot-composition.js";
 
+// Phase 21 Track A — Regime-conditioned cap (HMM 3-state regime-aware per-bar
+// cap multiplier module, drop-in for Phase 21 #1). The multipliers
+// [TRENDING=1.0, RANGING=0.7, VOLATILE=0.4] are FROZEN per Phase 11.2a
+// conventions (REPORT-phase11-2a.md §3). Standalone module — no
+// SignalCenter / plugin-registry dependency. Track B wires `buildRegimeTimeline`
+// + `applyRegimeToCap` into the strategy hot path; Track C runs the backtest
+// sweep. The existing `regime-detector-meta-plugin.ts` (Phase 11.2a) is
+// read-only — Track A does NOT modify it.
+export {
+  applyRegimeToCap,
+  argmaxPosterior,
+  buildRegimeTimeline,
+  DEFAULT_REGIME_ATR_PERIOD,
+  DEFAULT_REGIME_CONDITIONED_CAP_CONFIG,
+  DEFAULT_REGIME_INIT_PROBS,
+  DEFAULT_REGIME_MIN_OBSERVATIONS,
+  DEFAULT_REGIME_MODE,
+  DEFAULT_REGIME_RANGING_MULTIPLIER,
+  DEFAULT_REGIME_STATE_EMISSION_STDDEV,
+  DEFAULT_REGIME_TRENDING_MULTIPLIER,
+  DEFAULT_REGIME_TRANSITION_MATRIX,
+  DEFAULT_REGIME_VOLATILE_MULTIPLIER,
+  getDefaultRegimeConditionedCapConfig,
+  getRegimeAt,
+  indexToRegimeLabel,
+  TRANSITION_ROW_SUM_TOLERANCE,
+  validateRegimeCapConfig,
+  // Aliased to avoid TS2300 (Duplicate identifier) with the
+  // `regime-detector-meta-plugin.ts` exports above (which declared the
+  // original identifiers). Per project barrel-collision policy
+  // (bun-monorepo.md).
+  gaussianLogPdf as regimeCapGaussianLogPdf,
+  logSumExp as regimeCapLogSumExp,
+  MAX_REGIME_SIZE_MULTIPLIER as REGIME_CAP_MAX_SIZE_MULTIPLIER,
+  MIN_REGIME_SIZE_MULTIPLIER as REGIME_CAP_MIN_SIZE_MULTIPLIER,
+  regimeLabelToIndex as regimeCapLabelToIndex,
+} from "./strategy/regime-conditioned-cap.js";
+export type {
+  BarObservation,
+  RegimeConditionedCapConfig,
+  RegimeLabel as RegimeCapLabel,
+  RegimeTimelineEntry,
+} from "./strategy/regime-conditioned-cap.js";
+
 import type { Strategy } from "./types.js";
 import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
 
