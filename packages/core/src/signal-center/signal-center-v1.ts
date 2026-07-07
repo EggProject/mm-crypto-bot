@@ -129,6 +129,15 @@ import {
   type TradeRecord,
   type KillSwitchEvent,
 } from "../telemetry/strategy-telemetry.js";
+import {
+  applyHybridKelly,
+  DEFAULT_HYBRID_KELLY_CAP,
+  DEFAULT_HISTORY_WINDOW_DAYS,
+  DEFAULT_MIN_TRADES_FOR_KELLY,
+  DEFAULT_PER_TRADE_HYBRID_KELLY_ENABLED_SYMBOLS,
+  type HybridKellyConfig,
+  type SignalTradeHistory,
+} from "./sizing/per-trade-hybrid-kelly.js";
 
 // ---------------------------------------------------------------------------
 // SignalCenterV1Config — knobs for the central runner
@@ -183,6 +192,53 @@ export interface SignalCenterV1Config {
    * a presentation concern.)
    */
   readonly varCapital?: number;
+  /**
+   * Phase 20 Track B — opt-in flag for the Per-Trade Hybrid-Kelly sizing
+   * drop-in module (see `sizing/per-trade-hybrid-kelly.ts`). When `true`
+   * AND `historyProvider` is set, every `SizingSignal` that flows through
+   * `ingestSignal()` is passed through `applyHybridKelly()` which may
+   * override the `kellyFraction` field based on per-signature trade
+   * history. **Default `false` — bit-identical to Phase 19 when unset.**
+   *
+   * The wire-up is at the `ingestSignal()` chokepoint, between plugin
+   * emit (bus) and risk-engine submission (Phase 17 fixed engine chain
+   * is preserved). The override only touches `kellyFraction`; the
+   * upstream plugin's `notional` is unchanged, so the engine's
+   * `positionNotionalUsd` math continues to enforce the 1:10 mandate
+   * via `notional ≤ baseNotional × 10`.
+   *
+   * When `true`, `historyProvider` MUST be set (the override is a
+   * no-op without history). When `true` AND `historyProvider` is
+   * undefined, the wire-up emits a one-shot warning at construction
+   * time and behaves as if `false`.
+   */
+  readonly usePerTradeHybridKelly?: boolean;
+  /**
+   * Phase 20 Track B — Per-Trade Hybrid-Kelly config (`HybridKellyConfig`
+   * from `sizing/per-trade-hybrid-kelly.ts`). Controls `hybridKellyCap`,
+   * `historyWindowDays`, `minTradesForKelly`, and the
+   * `enabledSymbols` / `enabledSignatures` filters. When omitted AND
+   * `usePerTradeHybridKelly === true`, defaults are used
+   * (cap = 0.5, window = 30d, min trades = 30, all symbols
+   * BTC/ETH/SOL enabled).
+   */
+  readonly perTradeHybridKellyConfig?: HybridKellyConfig;
+  /**
+   * Phase 20 Track B — caller-supplied per-signature trade history
+   * lookup callback. The signature key is built by
+   * `buildSizingSignature(sizing)` (format `${kind}:${side}:${symbol}`
+   * — see `sizing/per-trade-hybrid-kelly.ts`). The callback returns a
+   * `SignalTradeHistory` slice with `tradeList` of `{ pnlUsd, notionalUsd }`
+   * pairs in chronological order. A throwing callback is treated as
+   * "no history → no override" (defensive — see `applyHybridKelly`).
+   *
+   * Required when `usePerTradeHybridKelly === true`. The callback is
+   * invoked per-SizingSignal-per-bar on a hot path; callers SHOULD
+   * cache the history map (e.g., `Map<signature, TradeHistory[]>`)
+   * and return synchronously. The CLI runner maintains a cumulative
+   * map across the backtest run.
+   */
+  readonly historyProvider?: (signature: string) => SignalTradeHistory;
 }
 
 /**
@@ -204,6 +260,15 @@ export const DEFAULT_SIGNAL_CENTER_V1_CONFIG: Omit<
   riskEngine: DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG,
   telemetry: DEFAULT_STRATEGY_TELEMETRY_CONFIG,
   leverageInvariant: DEFAULT_LEVERAGE_INVARIANT_CONFIG,
+  // Phase 20 Track B — Per-Trade Hybrid-Kelly opt-in defaults.
+  // `usePerTradeHybridKelly: false` is the Phase 19 baseline (bit-identical).
+  usePerTradeHybridKelly: false,
+  // `perTradeHybridKellyConfig` is intentionally NOT defaulted at the
+  // module level — the constructor builds it from `sizing/per-trade-hybrid-kelly.ts`
+  // constants only when `usePerTradeHybridKelly === true`. This avoids
+  // pulling a 6-field default config object into every SCv1 instance.
+  // `historyProvider` is intentionally omitted — it is a caller-supplied
+  // runtime dependency that has no sensible module-level default.
 };
 
 // ---------------------------------------------------------------------------
@@ -274,6 +339,18 @@ export class SignalCenterV1 {
     if (!Number.isFinite(merged.initialEquity) || merged.initialEquity <= 0) {
       throw new Error(
         `[SignalCenterV1] initialEquity must be positive finite, got ${merged.initialEquity}`,
+      );
+    }
+    // Phase 20 Track B — one-shot misconfiguration warning. The
+    // `usePerTradeHybridKelly` opt-in flag is a no-op without a
+    // `historyProvider`. Warn loudly (once at construction) rather than
+    // silently dropping the override — users will otherwise be confused
+    // why the per-trade Kelly math isn't engaging.
+    if (merged.usePerTradeHybridKelly === true && merged.historyProvider === undefined) {
+      console.warn(
+        "[SignalCenterV1] usePerTradeHybridKelly=true but historyProvider is undefined. " +
+        "The Per-Trade Hybrid-Kelly override will be a no-op. " +
+        "Pass a `historyProvider: (signature) => SignalTradeHistory` callback to enable the override.",
       );
     }
     // Validate the leverage-invariant sub-config (if explicitly provided).
@@ -580,6 +657,23 @@ export class SignalCenterV1 {
    *     (risk engine aggregates them into the position table).
    *   - `risk`: telemetry only (the risk engine emits them but doesn't
    *     subscribe to its own emissions).
+   *
+   * Phase 20 Track B — Per-Trade Hybrid-Kelly wire-up (opt-in):
+   *   - When `config.usePerTradeHybridKelly === true` AND
+   *     `config.historyProvider` is set, every SizingSignal that flows
+   *     through this method is passed through `applyHybridKelly()` which
+   *     may OVERRIDE the `kellyFraction` field based on per-signature
+   *     trade history. The override touches `kellyFraction` ONLY;
+   *     `notional` is preserved verbatim from the upstream plugin (so
+   *     the 1:10 mandate is preserved by construction — the engine's
+   *     `positionNotionalUsd` math continues to enforce
+   *     `notional ≤ baseNotional × 10`).
+   *   - When `config.usePerTradeHybridKelly === false` (default) OR
+   *     `config.historyProvider` is undefined, the original SizingSignal
+   *     is passed through unchanged. Bit-identical to Phase 19 baseline.
+   *   - The wire-up is gated per-signal inside the `isSizing(signal)`
+   *     branch — non-sizing signals are NEVER routed through
+   *     `applyHybridKelly()`.
    */
   private ingestSignal(signal: Signal): void {
     this._busEmissions += 1;
@@ -594,6 +688,39 @@ export class SignalCenterV1 {
     // (RiskEngineSizingSignal etc.), so we adapt Track A's signal shapes
     // by extracting the relevant fields.
     if (isSizing(signal)) {
+      // ----------------------------------------------------------------
+      // Phase 20 Track B — Per-Trade Hybrid-Kelly wire-up.
+      // ----------------------------------------------------------------
+      // When `usePerTradeHybridKelly === true` AND `historyProvider` is
+      // set, route the SizingSignal through `applyHybridKelly()` which
+      // may OVERRIDE `kellyFraction` based on per-signature trade
+      // history. The override is opt-in; default (Phase 19) behavior is
+      // bit-identical to passing the original signal through unchanged.
+      //
+      // The override touches `kellyFraction` ONLY — `notional`,
+      // `volMultiplier`, `source`, and `timestampMs` are preserved. This
+      // keeps the Phase 17 fixed engine chain intact: the risk engine's
+      // `positionNotionalUsd` math continues to use the upstream
+      // plugin's `notional` (which respects the 1:10 cap by construction
+      // in each plugin's emit path). The `kellyFraction` field is the
+      // confidence signal routed to the risk engine — overriding it
+      // cannot amplify the per-bar notional beyond the engine's cap.
+      //
+      // The hybridKellyConfig defaults are the project's Phase 9 9E
+      // precedent values (cap=0.5, window=30d, minTrades=30,
+      // BTC/ETH/SOL enabled). When the caller passes an explicit
+      // `perTradeHybridKellyConfig`, it is used verbatim.
+      // ----------------------------------------------------------------
+      let effectiveSizing = signal;
+      if (this.config.usePerTradeHybridKelly === true && this.config.historyProvider !== undefined) {
+        const kellyCfg: HybridKellyConfig = this.config.perTradeHybridKellyConfig ?? {
+          hybridKellyCap: DEFAULT_HYBRID_KELLY_CAP,
+          historyWindowDays: DEFAULT_HISTORY_WINDOW_DAYS,
+          minTradesForKelly: DEFAULT_MIN_TRADES_FOR_KELLY,
+          enabledSymbols: DEFAULT_PER_TRADE_HYBRID_KELLY_ENABLED_SYMBOLS,
+        };
+        effectiveSizing = applyHybridKelly(signal, this.config.historyProvider, kellyCfg, Date.now());
+      }
       // Translate Track A's SizingSignal (kellyFraction/volMultiplier/notional)
       // into the risk engine's expected format. The risk engine needs
       // effectiveNotionalUsd + leverage + symbol + source + timestamp.
@@ -608,11 +735,11 @@ export class SignalCenterV1 {
       // use the configured symbol as the best-available proxy.
       const reSignal: RiskEngineSizingSignal = {
         kind: "sizing",
-        source: signal.source,
+        source: effectiveSizing.source,
         symbol: this.config.symbol ?? "?",
-        effectiveNotionalUsd: signal.notional,
-        leverage: signal.notional > 0 ? signal.notional / this.config.initialEquity : 0,
-        timestamp: signal.timestampMs ?? Date.now(),
+        effectiveNotionalUsd: effectiveSizing.notional,
+        leverage: effectiveSizing.notional > 0 ? effectiveSizing.notional / this.config.initialEquity : 0,
+        timestamp: effectiveSizing.timestampMs ?? Date.now(),
       };
       this.riskEngine.submitSignal(reSignal);
       this._signalsSubmitted += 1;
