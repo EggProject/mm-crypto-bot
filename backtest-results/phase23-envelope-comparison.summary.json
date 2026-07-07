@@ -1,0 +1,666 @@
+{
+  "metadata": {
+    "phase": "23-1a-sweep",
+    "task": "HybridKelly kelly-fraction sweep (4 fractions \u00d7 3 symbols = 12 backtests)",
+    "generatedAt": "2026-07-07T22:10:00+02:00",
+    "branch": "feat/phase23-1a-sweep",
+    "baseBranch": "main",
+    "commit": "8c56e2a",
+    "worktree": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep"
+  },
+  "config": {
+    "kellyFractions": [
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "symbols": [
+      "btc",
+      "eth",
+      "sol"
+    ],
+    "timeframe": "1d",
+    "leverage": 10,
+    "leverage_mandate": "1:10 (HARD CONSTRAINT \u2014 parse-time rejection of any non-1:10)",
+    "outputPaths": [
+      "backtest-results/phase23-hybrid-kelly-0.25-btc-1d.json",
+      "backtest-results/phase23-hybrid-kelly-0.25-eth-1d.json",
+      "backtest-results/phase23-hybrid-kelly-0.25-sol-1d.json",
+      "backtest-results/phase23-hybrid-kelly-0.5-btc-1d.json",
+      "backtest-results/phase23-hybrid-kelly-0.5-eth-1d.json",
+      "backtest-results/phase23-hybrid-kelly-0.5-sol-1d.json",
+      "backtest-results/phase23-hybrid-kelly-0.75-btc-1d.json",
+      "backtest-results/phase23-hybrid-kelly-0.75-eth-1d.json",
+      "backtest-results/phase23-hybrid-kelly-0.75-sol-1d.json",
+      "backtest-results/phase23-hybrid-kelly-1.0-btc-1d.json",
+      "backtest-results/phase23-hybrid-kelly-1.0-eth-1d.json",
+      "backtest-results/phase23-hybrid-kelly-1.0-sol-1d.json"
+    ]
+  },
+  "hybridKellyCells": {
+    "0.25_btc": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-0.25-btc-1d.json",
+      "kellyFraction": "0.25",
+      "symbol": "btc",
+      "monthlyReturnPct": 0.04583273508553809,
+      "maxDrawdownPct": 5.096451002331729,
+      "totalTrades": 28,
+      "winRatePct": 53.57142857142857,
+      "sharpeRatio": 0.1954290415535886,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 1.3927596336070929,
+      "sortinoRatio": 0.09348588124663663,
+      "avgEffectiveLeverage": 8.322909905547183,
+      "avgKellyFraction": 0.4155737704918033,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 21,
+      "walkForwardAggregateTestSharpe": 0.05513388853786349,
+      "walkForwardAggregateTestReturn": 0.007236568913942086,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "0.25_eth": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-0.25-eth-1d.json",
+      "kellyFraction": "0.25",
+      "symbol": "eth",
+      "monthlyReturnPct": 0.09331351063328608,
+      "maxDrawdownPct": 2.782359601669632,
+      "totalTrades": 24,
+      "winRatePct": 58.333333333333336,
+      "sharpeRatio": 0.4408249048129445,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 2.855372904348442,
+      "sortinoRatio": 0.2043131053515958,
+      "avgEffectiveLeverage": 6.088647124126937,
+      "avgKellyFraction": 0.43306010928961747,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 16,
+      "walkForwardAggregateTestSharpe": 0.0070265550884458655,
+      "walkForwardAggregateTestReturn": 0.012522866770137232,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "0.25_sol": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-0.25-sol-1d.json",
+      "kellyFraction": "0.25",
+      "symbol": "sol",
+      "monthlyReturnPct": 0.08205516809947078,
+      "maxDrawdownPct": 3.3867646578974857,
+      "totalTrades": 19,
+      "winRatePct": 63.1578947368421,
+      "sharpeRatio": 0.4640598115653429,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 2.506733289212825,
+      "sortinoRatio": 0.1627497798053859,
+      "avgEffectiveLeverage": 5.2104937115818375,
+      "avgKellyFraction": 0.4609289617486339,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 14,
+      "walkForwardAggregateTestSharpe": 0.1038703465493715,
+      "walkForwardAggregateTestReturn": 0.00401646015265882,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "0.5_btc": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-0.5-btc-1d.json",
+      "kellyFraction": "0.5",
+      "symbol": "btc",
+      "monthlyReturnPct": 0.045832724758199106,
+      "maxDrawdownPct": 5.096451002331729,
+      "totalTrades": 28,
+      "winRatePct": 53.57142857142857,
+      "sharpeRatio": 0.1954290415535886,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 1.3927596336070929,
+      "sortinoRatio": 0.09348588124663663,
+      "avgEffectiveLeverage": 8.322909905547183,
+      "avgKellyFraction": 0.4155737704918033,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 21,
+      "walkForwardAggregateTestSharpe": 0.05513388853786349,
+      "walkForwardAggregateTestReturn": 0.007236568913942086,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "0.5_eth": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-0.5-eth-1d.json",
+      "kellyFraction": "0.5",
+      "symbol": "eth",
+      "monthlyReturnPct": 0.09331350065637789,
+      "maxDrawdownPct": 2.782359601669632,
+      "totalTrades": 24,
+      "winRatePct": 58.333333333333336,
+      "sharpeRatio": 0.4408249048129445,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 2.855372904348442,
+      "sortinoRatio": 0.2043131053515958,
+      "avgEffectiveLeverage": 6.088647124126937,
+      "avgKellyFraction": 0.43306010928961747,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 16,
+      "walkForwardAggregateTestSharpe": 0.0070265550884458655,
+      "walkForwardAggregateTestReturn": 0.012522866770137232,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "0.5_sol": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-0.5-sol-1d.json",
+      "kellyFraction": "0.5",
+      "symbol": "sol",
+      "monthlyReturnPct": 0.08205515932573348,
+      "maxDrawdownPct": 3.3867646578974857,
+      "totalTrades": 19,
+      "winRatePct": 63.1578947368421,
+      "sharpeRatio": 0.4640598115653429,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 2.506733289212825,
+      "sortinoRatio": 0.1627497798053859,
+      "avgEffectiveLeverage": 5.2104937115818375,
+      "avgKellyFraction": 0.4609289617486339,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 14,
+      "walkForwardAggregateTestSharpe": 0.1038703465493715,
+      "walkForwardAggregateTestReturn": 0.00401646015265882,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "0.75_btc": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-0.75-btc-1d.json",
+      "kellyFraction": "0.75",
+      "symbol": "btc",
+      "monthlyReturnPct": 0.04583271863594085,
+      "maxDrawdownPct": 5.096451002331729,
+      "totalTrades": 28,
+      "winRatePct": 53.57142857142857,
+      "sharpeRatio": 0.1954290415535886,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 1.3927596336070929,
+      "sortinoRatio": 0.09348588124663663,
+      "avgEffectiveLeverage": 8.322909905547183,
+      "avgKellyFraction": 0.4155737704918033,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 21,
+      "walkForwardAggregateTestSharpe": 0.05513388853786349,
+      "walkForwardAggregateTestReturn": 0.007236568913942086,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "0.75_eth": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-0.75-eth-1d.json",
+      "kellyFraction": "0.75",
+      "symbol": "eth",
+      "monthlyReturnPct": 0.09331348817347429,
+      "maxDrawdownPct": 2.782359601669632,
+      "totalTrades": 24,
+      "winRatePct": 58.333333333333336,
+      "sharpeRatio": 0.4408249048129445,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 2.855372904348442,
+      "sortinoRatio": 0.2043131053515958,
+      "avgEffectiveLeverage": 6.088647124126937,
+      "avgKellyFraction": 0.43306010928961747,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 16,
+      "walkForwardAggregateTestSharpe": 0.0070265550884458655,
+      "walkForwardAggregateTestReturn": 0.012522866770137232,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "0.75_sol": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-0.75-sol-1d.json",
+      "kellyFraction": "0.75",
+      "symbol": "sol",
+      "monthlyReturnPct": 0.08205514835986083,
+      "maxDrawdownPct": 3.3867646578974857,
+      "totalTrades": 19,
+      "winRatePct": 63.1578947368421,
+      "sharpeRatio": 0.4640598115653429,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 2.506733289212825,
+      "sortinoRatio": 0.1627497798053859,
+      "avgEffectiveLeverage": 5.2104937115818375,
+      "avgKellyFraction": 0.4609289617486339,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 14,
+      "walkForwardAggregateTestSharpe": 0.1038703465493715,
+      "walkForwardAggregateTestReturn": 0.00401646015265882,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "1.0_btc": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-1.0-btc-1d.json",
+      "kellyFraction": "1.0",
+      "symbol": "btc",
+      "monthlyReturnPct": 0.04583271862843574,
+      "maxDrawdownPct": 5.096451002331729,
+      "totalTrades": 28,
+      "winRatePct": 53.57142857142857,
+      "sharpeRatio": 0.1954290415535886,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 1.3927596336070929,
+      "sortinoRatio": 0.09348588124663663,
+      "avgEffectiveLeverage": 8.322909905547183,
+      "avgKellyFraction": 0.4155737704918033,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 21,
+      "walkForwardAggregateTestSharpe": 0.05513388853786349,
+      "walkForwardAggregateTestReturn": 0.007236568913942086,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "1.0_eth": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-1.0-eth-1d.json",
+      "kellyFraction": "1.0",
+      "symbol": "eth",
+      "monthlyReturnPct": 0.09331348819228147,
+      "maxDrawdownPct": 2.782359601669632,
+      "totalTrades": 24,
+      "winRatePct": 58.333333333333336,
+      "sharpeRatio": 0.4408249048129445,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 2.855372904348442,
+      "sortinoRatio": 0.2043131053515958,
+      "avgEffectiveLeverage": 6.088647124126937,
+      "avgKellyFraction": 0.43306010928961747,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 16,
+      "walkForwardAggregateTestSharpe": 0.0070265550884458655,
+      "walkForwardAggregateTestReturn": 0.012522866770137232,
+      "walkForwardOverfitRisk": "HIGH"
+    },
+    "1.0_sol": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/phase23-hybrid-kelly-1.0-sol-1d.json",
+      "kellyFraction": "1.0",
+      "symbol": "sol",
+      "monthlyReturnPct": 0.08205514835468719,
+      "maxDrawdownPct": 3.3867646578974857,
+      "totalTrades": 19,
+      "winRatePct": 63.1578947368421,
+      "sharpeRatio": 0.4640598115653429,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 2.506733289212825,
+      "sortinoRatio": 0.1627497798053859,
+      "avgEffectiveLeverage": 5.2104937115818375,
+      "avgKellyFraction": 0.4609289617486339,
+      "walkForwardFolds": 24,
+      "walkForwardTotalOOSTrades": 14,
+      "walkForwardAggregateTestSharpe": 0.1038703465493715,
+      "walkForwardAggregateTestReturn": 0.00401646015265882,
+      "walkForwardOverfitRisk": "HIGH"
+    }
+  },
+  "referenceBaselines": {
+    "phase19-1d-baseline-btc": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/baseline-donchian-btc-1d.json",
+      "symbol": "btc",
+      "monthlyReturnPct": 0.03796406248197659,
+      "maxDrawdownPct": 5.52515184167966,
+      "totalTrades": 28,
+      "winRatePct": 53.57142857142857,
+      "sharpeRatio": 0.15676249045864343,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 1.147435598164975,
+      "sortinoRatio": 0.07365625101947271,
+      "note": "Reference: Phase 19 #1 1d Donchian baseline (different schema \u2014 no withHybridKelly wrapper)"
+    },
+    "phase19-1d-baseline-eth": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/baseline-donchian-eth-1d.json",
+      "symbol": "eth",
+      "monthlyReturnPct": 0.1037576473482682,
+      "maxDrawdownPct": 3.088037315321298,
+      "totalTrades": 24,
+      "winRatePct": 58.333333333333336,
+      "sharpeRatio": 0.4407894033289987,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 3.1662091956895533,
+      "sortinoRatio": 0.20428826989047416,
+      "note": "Reference: Phase 19 #1 1d Donchian baseline (different schema \u2014 no withHybridKelly wrapper)"
+    },
+    "phase19-1d-baseline-sol": {
+      "path": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep/backtest-results/baseline-donchian-sol-1d.json",
+      "symbol": "sol",
+      "monthlyReturnPct": 0.09136552602817538,
+      "maxDrawdownPct": 3.7584692581376524,
+      "totalTrades": 19,
+      "winRatePct": 63.1578947368421,
+      "sharpeRatio": 0.46433718320452017,
+      "killSwitchTriggered": false,
+      "totalReturnPct": 2.783023350849762,
+      "sortinoRatio": 0.16286251024858492,
+      "note": "Reference: Phase 19 #1 1d Donchian baseline (different schema \u2014 no withHybridKelly wrapper)"
+    }
+  },
+  "liftTable": {
+    "0.25_btc": {
+      "kellyFraction": "0.25",
+      "symbol": "btc",
+      "hk_monthlyReturnPct": 0.04583273508553809,
+      "ref_monthlyReturnPct": 0.03796406248197659,
+      "lift_pp": 0.0078686726035615,
+      "dd_diff_pp": -0.4287008393479317
+    },
+    "0.25_eth": {
+      "kellyFraction": "0.25",
+      "symbol": "eth",
+      "hk_monthlyReturnPct": 0.09331351063328608,
+      "ref_monthlyReturnPct": 0.1037576473482682,
+      "lift_pp": -0.010444136714982122,
+      "dd_diff_pp": -0.30567771365166596
+    },
+    "0.25_sol": {
+      "kellyFraction": "0.25",
+      "symbol": "sol",
+      "hk_monthlyReturnPct": 0.08205516809947078,
+      "ref_monthlyReturnPct": 0.09136552602817538,
+      "lift_pp": -0.009310357928704605,
+      "dd_diff_pp": -0.3717046002401667
+    },
+    "0.5_btc": {
+      "kellyFraction": "0.5",
+      "symbol": "btc",
+      "hk_monthlyReturnPct": 0.045832724758199106,
+      "ref_monthlyReturnPct": 0.03796406248197659,
+      "lift_pp": 0.007868662276222516,
+      "dd_diff_pp": -0.4287008393479317
+    },
+    "0.5_eth": {
+      "kellyFraction": "0.5",
+      "symbol": "eth",
+      "hk_monthlyReturnPct": 0.09331350065637789,
+      "ref_monthlyReturnPct": 0.1037576473482682,
+      "lift_pp": -0.01044414669189031,
+      "dd_diff_pp": -0.30567771365166596
+    },
+    "0.5_sol": {
+      "kellyFraction": "0.5",
+      "symbol": "sol",
+      "hk_monthlyReturnPct": 0.08205515932573348,
+      "ref_monthlyReturnPct": 0.09136552602817538,
+      "lift_pp": -0.009310366702441897,
+      "dd_diff_pp": -0.3717046002401667
+    },
+    "0.75_btc": {
+      "kellyFraction": "0.75",
+      "symbol": "btc",
+      "hk_monthlyReturnPct": 0.04583271863594085,
+      "ref_monthlyReturnPct": 0.03796406248197659,
+      "lift_pp": 0.00786865615396426,
+      "dd_diff_pp": -0.4287008393479317
+    },
+    "0.75_eth": {
+      "kellyFraction": "0.75",
+      "symbol": "eth",
+      "hk_monthlyReturnPct": 0.09331348817347429,
+      "ref_monthlyReturnPct": 0.1037576473482682,
+      "lift_pp": -0.01044415917479391,
+      "dd_diff_pp": -0.30567771365166596
+    },
+    "0.75_sol": {
+      "kellyFraction": "0.75",
+      "symbol": "sol",
+      "hk_monthlyReturnPct": 0.08205514835986083,
+      "ref_monthlyReturnPct": 0.09136552602817538,
+      "lift_pp": -0.009310377668314551,
+      "dd_diff_pp": -0.3717046002401667
+    },
+    "1.0_btc": {
+      "kellyFraction": "1.0",
+      "symbol": "btc",
+      "hk_monthlyReturnPct": 0.04583271862843574,
+      "ref_monthlyReturnPct": 0.03796406248197659,
+      "lift_pp": 0.007868656146459152,
+      "dd_diff_pp": -0.4287008393479317
+    },
+    "1.0_eth": {
+      "kellyFraction": "1.0",
+      "symbol": "eth",
+      "hk_monthlyReturnPct": 0.09331348819228147,
+      "ref_monthlyReturnPct": 0.1037576473482682,
+      "lift_pp": -0.010444159155986732,
+      "dd_diff_pp": -0.30567771365166596
+    },
+    "1.0_sol": {
+      "kellyFraction": "1.0",
+      "symbol": "sol",
+      "hk_monthlyReturnPct": 0.08205514835468719,
+      "ref_monthlyReturnPct": 0.09136552602817538,
+      "lift_pp": -0.00931037767348819,
+      "dd_diff_pp": -0.3717046002401667
+    }
+  },
+  "portfolioAvgPerKellyFraction": {
+    "0.25": {
+      "kellyFraction": "0.25",
+      "avg_monthlyReturnPct": 0.07373380460609831,
+      "avg_lift_pp_vs_phase19_1d_baseline": -0.003961940680041742,
+      "max_dd_across_symbols_pct": 5.096451002331729
+    },
+    "0.5": {
+      "kellyFraction": "0.5",
+      "avg_monthlyReturnPct": 0.07373379491343683,
+      "avg_lift_pp_vs_phase19_1d_baseline": -0.003961950372703231,
+      "max_dd_across_symbols_pct": 5.096451002331729
+    },
+    "0.75": {
+      "kellyFraction": "0.75",
+      "avg_monthlyReturnPct": 0.07373378505642532,
+      "avg_lift_pp_vs_phase19_1d_baseline": -0.003961960229714734,
+      "max_dd_across_symbols_pct": 5.096451002331729
+    },
+    "1.0": {
+      "kellyFraction": "1.0",
+      "avg_monthlyReturnPct": 0.07373378505846813,
+      "avg_lift_pp_vs_phase19_1d_baseline": -0.0039619602276719235,
+      "max_dd_across_symbols_pct": 5.096451002331729
+    }
+  },
+  "silentNoOpAudit": {
+    "finding": "100% SILENT NO-OP \u2014 kelly-fraction flag is silently ignored by parseArgs() in run-hybrid-kelly.ts",
+    "evidence": [
+      "12 backtests run with --kelly-fraction \u2208 {0.25, 0.5, 0.75, 1.0}",
+      "All 12 produced byte-identical equityCurveSampled (131 entries each per symbol)",
+      "All 12 produced byte-identical walkForward.folds (24 folds each per symbol)",
+      "All 12 produced byte-identical withHybridKelly.hybridSizer (avgKellyFraction=0.4156 BTC, etc.)",
+      "All 12 produced byte-identical winRatePct, maxDrawdownPct, totalTrades, sharpeRatio",
+      "Only monthlyReturnPct differs \u2014 by 1e-8 (sub-noise, from endTime=Date.now() drift)",
+      "phase23-hybrid-kelly-0.5-btc-1d.json (with --kelly-fraction=0.5) is BYTE-IDENTICAL to baseline-hybrid-kelly-btc-1d.json (no flag)",
+      "Root cause: run-hybrid-kelly.ts parseArgs() does NOT have a --kelly-fraction branch (only --symbol, --timeframe, --equity, --base-notional, --leverage, --output). Unknown flags silently ignored.",
+      "Hardcoded baseKellyFraction: 0.5 (line 225 of run-hybrid-kelly.ts) is what runs every time",
+      "Reproduces Phase 20 #1's negative finding from a different angle: the CLI does NOT support --kelly-fraction as a configurable parameter"
+    ],
+    "category": "silent-no-op (Phase 20 #1 lesson \u00a76/\u00a77 of PHASE-20-21-ARCHIVE)",
+    "all_12_flag_engaged": false
+  },
+  "leverageAudit_1to10": {
+    "0.25_btc": {
+      "kellyFraction": "0.25",
+      "symbol": "btc",
+      "avgEffectiveLeverage": 8.322909905547183,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "0.25_eth": {
+      "kellyFraction": "0.25",
+      "symbol": "eth",
+      "avgEffectiveLeverage": 6.088647124126937,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "0.25_sol": {
+      "kellyFraction": "0.25",
+      "symbol": "sol",
+      "avgEffectiveLeverage": 5.2104937115818375,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "0.5_btc": {
+      "kellyFraction": "0.5",
+      "symbol": "btc",
+      "avgEffectiveLeverage": 8.322909905547183,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "0.5_eth": {
+      "kellyFraction": "0.5",
+      "symbol": "eth",
+      "avgEffectiveLeverage": 6.088647124126937,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "0.5_sol": {
+      "kellyFraction": "0.5",
+      "symbol": "sol",
+      "avgEffectiveLeverage": 5.2104937115818375,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "0.75_btc": {
+      "kellyFraction": "0.75",
+      "symbol": "btc",
+      "avgEffectiveLeverage": 8.322909905547183,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "0.75_eth": {
+      "kellyFraction": "0.75",
+      "symbol": "eth",
+      "avgEffectiveLeverage": 6.088647124126937,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "0.75_sol": {
+      "kellyFraction": "0.75",
+      "symbol": "sol",
+      "avgEffectiveLeverage": 5.2104937115818375,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "1.0_btc": {
+      "kellyFraction": "1.0",
+      "symbol": "btc",
+      "avgEffectiveLeverage": 8.322909905547183,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "1.0_eth": {
+      "kellyFraction": "1.0",
+      "symbol": "eth",
+      "avgEffectiveLeverage": 6.088647124126937,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    },
+    "1.0_sol": {
+      "kellyFraction": "1.0",
+      "symbol": "sol",
+      "avgEffectiveLeverage": 5.2104937115818375,
+      "maxAllowedLeverage": 10,
+      "audit_passed": true,
+      "audit_message": "PASS \u2014 avg effective leverage \u2264 10\u00d7"
+    }
+  },
+  "ddBudgetAudit": {
+    "0.25_btc": {
+      "kellyFraction": "0.25",
+      "symbol": "btc",
+      "maxDrawdownPct": 5.096451002331729,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "0.25_eth": {
+      "kellyFraction": "0.25",
+      "symbol": "eth",
+      "maxDrawdownPct": 2.782359601669632,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "0.25_sol": {
+      "kellyFraction": "0.25",
+      "symbol": "sol",
+      "maxDrawdownPct": 3.3867646578974857,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "0.5_btc": {
+      "kellyFraction": "0.5",
+      "symbol": "btc",
+      "maxDrawdownPct": 5.096451002331729,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "0.5_eth": {
+      "kellyFraction": "0.5",
+      "symbol": "eth",
+      "maxDrawdownPct": 2.782359601669632,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "0.5_sol": {
+      "kellyFraction": "0.5",
+      "symbol": "sol",
+      "maxDrawdownPct": 3.3867646578974857,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "0.75_btc": {
+      "kellyFraction": "0.75",
+      "symbol": "btc",
+      "maxDrawdownPct": 5.096451002331729,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "0.75_eth": {
+      "kellyFraction": "0.75",
+      "symbol": "eth",
+      "maxDrawdownPct": 2.782359601669632,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "0.75_sol": {
+      "kellyFraction": "0.75",
+      "symbol": "sol",
+      "maxDrawdownPct": 3.3867646578974857,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "1.0_btc": {
+      "kellyFraction": "1.0",
+      "symbol": "btc",
+      "maxDrawdownPct": 5.096451002331729,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "1.0_eth": {
+      "kellyFraction": "1.0",
+      "symbol": "eth",
+      "maxDrawdownPct": 2.782359601669632,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    },
+    "1.0_sol": {
+      "kellyFraction": "1.0",
+      "symbol": "sol",
+      "maxDrawdownPct": 3.3867646578974857,
+      "spec_safe_threshold": 6.5,
+      "spec_reject_threshold": 8.0,
+      "verdict": "PASS"
+    }
+  },
+  "binaryVerdict": {
+    "any_kelly_fraction_lifts_portfolio_avg": false,
+    "verdict": "NEGATIVE \u2014 silent-no-op confirms kelly-fraction has no effect on engine. All 4 kelly-fractions produce byte-identical output. Reproduces Phase 20 #1's finding (CLI architecture blocks empirical measurement of per-trade Hybrid-Kelly scaling).",
+    "recommendedAction": "Drop Phase 23 #1 from +50%/mo roadmap. The structural lesson from PHASE-20-21-ARCHIVE \u00a77 (CLI flags must either work or error, never silently no-op) still applies \u2014 adding --kelly-fraction to run-hybrid-kelly.ts without wiring it through is the same broken-window pattern that Phase 20 #1 demonstrated."
+  }
+}

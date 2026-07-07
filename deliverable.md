@@ -1,128 +1,178 @@
-# Phase 19 Track A — Deliverable
+# Phase 23 #1 Track A — Deliverable
 
-## Summary
+**Task:** Phase 23 #1 Track A — HybridKelly kelly-fraction sweep (12 backtests) + envelope comparison vs Phase 19 #1
+**Branch:** `feat/phase23-1a-sweep` from `main` @ `8c56e2a`
+**Worktree:** `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase23-1a-sweep`
+**Empirical verdict:** **NEGATIVE — silent-no-op confirmed. Drop Phase 23 #1 from the +50%/mo roadmap.**
 
-Phase 19 Track A mapped the return-cap curve at the Donchian+Pivot 2-of-2 composition
-(production default) using the `--max-position-pct-equity` CLI arg added in PR #45.
-Generated 16 backtest JSONs (5 caps × 3 symbols + 1 BTC cap=0.20 reference), verified
-all 16 against the criteria (`totalTrades > 0`, `maxDrawdown < 50%`, no kill-switch,
-`args.maxPositionPctEquity` matches filename), and confirmed the cap=0.20 BTC reference
-matches the Phase 18 envelope **exactly** (+16.66%/mo @ 4.64% DD) — sanity check passed.
+---
 
-## Changed files
+## 1. Summary
 
-### New files (worktree `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase19-a-cap-sweep-2of2`)
+Ran 12 HybridKelly backtests (`--kelly-fraction ∈ {0.25, 0.5, 0.75, 1.0}` × `{BTC, ETH, SOL}`, 1d timeframe, 1:10 leverage). All 12 produced **byte-identical output** — the `--kelly-fraction` flag is silently ignored by `run-hybrid-kelly.ts` parseArgs() (the CLI doesn't have a `--kelly-fraction` branch; line 225 hardcodes `baseKellyFraction: 0.5`). This reproduces Phase 20 #1's structural finding from a different angle: the CLI cannot measure per-trade Hybrid-Kelly scaling empirically.
 
+---
+
+## 2. Changed files
+
+### Created (14 files)
+
+**12 backtest JSONs:**
+- `backtest-results/phase23-hybrid-kelly-0.25-btc-1d.json`
+- `backtest-results/phase23-hybrid-kelly-0.25-eth-1d.json`
+- `backtest-results/phase23-hybrid-kelly-0.25-sol-1d.json`
+- `backtest-results/phase23-hybrid-kelly-0.5-btc-1d.json`
+- `backtest-results/phase23-hybrid-kelly-0.5-eth-1d.json`
+- `backtest-results/phase23-hybrid-kelly-0.5-sol-1d.json`
+- `backtest-results/phase23-hybrid-kelly-0.75-btc-1d.json`
+- `backtest-results/phase23-hybrid-kelly-0.75-eth-1d.json`
+- `backtest-results/phase23-hybrid-kelly-0.75-sol-1d.json`
+- `backtest-results/phase23-hybrid-kelly-1.0-btc-1d.json`
+- `backtest-results/phase23-hybrid-kelly-1.0-eth-1d.json`
+- `backtest-results/phase23-hybrid-kelly-1.0-sol-1d.json`
+
+**Summary + reference doc:**
+- `backtest-results/phase23-envelope-comparison.summary.json` (machine-readable summary with all 12 cells, 3 references, lift table, portfolio avg per kelly-fraction, NOT-silent-no-op audit, leverage audit, DD budget audit)
+- `docs/research/ENVELOPE-COMPARISON-phase23.md` (per-row table, lift table, NOT-silent-no-op verification, edge-INVARIANCE test, 1:10 audit, DD budget check)
+
+### Modified
+
+- **None** — per brief, did NOT modify `run-hybrid-kelly.ts`. Zero source edits. Zero `eslint-disable` lines added.
+
+---
+
+## 3. Empirical results — 12-row envelope table
+
+| kelly-fraction | symbol | monthly% | maxDD% | trades | win-rate% | sharpe | kill-switch |
+|---------------:|-------:|---------:|-------:|-------:|----------:|-------:|:-----------:|
+| 0.25 | BTC | +0.0458 | 5.10 | 28 | 53.57 | 0.1954 | false |
+| 0.25 | ETH | +0.0933 | 2.78 | 24 | 58.33 | 0.4408 | false |
+| 0.25 | SOL | +0.0821 | 3.39 | 19 | 63.16 | 0.4641 | false |
+| 0.50 | BTC | +0.0458 | 5.10 | 28 | 53.57 | 0.1954 | false |
+| 0.50 | ETH | +0.0933 | 2.78 | 24 | 58.33 | 0.4408 | false |
+| 0.50 | SOL | +0.0821 | 3.39 | 19 | 63.16 | 0.4641 | false |
+| 0.75 | BTC | +0.0458 | 5.10 | 28 | 53.57 | 0.1954 | false |
+| 0.75 | ETH | +0.0933 | 2.78 | 24 | 58.33 | 0.4408 | false |
+| 0.75 | SOL | +0.0821 | 3.39 | 19 | 63.16 | 0.4641 | false |
+| 1.00 | BTC | +0.0458 | 5.10 | 28 | 53.57 | 0.1954 | false |
+| 1.00 | ETH | +0.0933 | 2.78 | 24 | 58.33 | 0.4408 | false |
+| 1.00 | SOL | +0.0821 | 3.39 | 19 | 63.16 | 0.4641 | false |
+
+**Key finding:** the kelly-fraction column has NO measurable effect on any other column. All 12 cells collapse to 3 distinct rows (one per symbol).
+
+---
+
+## 4. Reference table — Phase 19 #1 same-config 1d Donchian baseline
+
+| symbol | monthly% | maxDD% | trades | win-rate% | sharpe | kill-switch |
+|-------:|---------:|-------:|-------:|----------:|-------:|:-----------:|
+| BTC | +0.0380 | 5.53 | 28 | 53.57 | 0.1568 | false |
+| ETH | +0.1038 | 3.09 | 24 | 58.33 | 0.4408 | false |
+| SOL | +0.0914 | 3.76 | 19 | 63.16 | 0.4643 | false |
+
+Source: `backtest-results/baseline-donchian-{btc,eth,sol}-1d.json` (existing files, no new backtests).
+
+---
+
+## 5. Calibration sweet spot — **DOES NOT EXIST**
+
+**No kelly-fraction × symbol combination lifts the portfolio avg meaningfully.** The 12-cell sweep produces 3 distinct outcomes (one per symbol), all independent of kelly-fraction:
+
+- BTC: +0.0458%/mo (modestly +0.0079 pp vs Phase 19 #1 1d baseline)
+- ETH: +0.0933%/mo (−0.0104 pp vs baseline)
+- SOL: +0.0821%/mo (−0.0093 pp vs baseline)
+- **Portfolio avg: +0.0737%/mo (−0.0040 pp vs baseline)**
+
+The "sweet spot hypothesis" (the brief's premise that 0.25-1.0 might contain a winner) is **REJECTED** because the kelly-fraction has no observable effect on the engine output.
+
+---
+
+## 6. NOT-silent-no-op verification (Phase 20 #1 lesson)
+
+### 6.1 Trade-stream probe (BTC, kelly=0.25 vs kelly=0.5)
+
+Diff commands run:
+
+```bash
+# equity curves — byte-identical
+diff <(jq -c '.equityCurveSampled' phase23-hybrid-kelly-0.25-btc-1d.json) \
+     <(jq -c '.equityCurveSampled' phase23-hybrid-kelly-0.5-btc-1d.json)
+# → NO OUTPUT (byte-identical)
+
+# walk-forward folds — byte-identical
+diff <(jq -c '.walkForward.folds' phase23-hybrid-kelly-0.25-btc-1d.json) \
+     <(jq -c '.walkForward.folds' phase23-hybrid-kelly-0.5-btc-1d.json)
+# → NO OUTPUT (byte-identical)
+
+# withHybridKelly — only monthlyReturnPct differs by 1e-8
+diff <(jq -c '.withHybridKelly' phase23-hybrid-kelly-0.25-btc-1d.json) \
+     <(jq -c '.withHybridKelly' phase23-hybrid-kelly-0.5-btc-1d.json)
+# → only monthlyReturnPct differs (1e-8, sub-noise from endTime=Date.now())
 ```
-backtest-results/phase19-cap-sweep-2of2-btc-15m-0.04.json
-backtest-results/phase19-cap-sweep-2of2-btc-15m-0.08.json
-backtest-results/phase19-cap-sweep-2of2-btc-15m-0.10.json
-backtest-results/phase19-cap-sweep-2of2-btc-15m-0.12.json
-backtest-results/phase19-cap-sweep-2of2-btc-15m-0.15.json
-backtest-results/phase19-cap-sweep-2of2-btc-15m-0.20.json    (cap=0.20 reference)
-backtest-results/phase19-cap-sweep-2of2-eth-15m-0.04.json
-backtest-results/phase19-cap-sweep-2of2-eth-15m-0.08.json
-backtest-results/phase19-cap-sweep-2of2-eth-15m-0.10.json
-backtest-results/phase19-cap-sweep-2of2-eth-15m-0.12.json
-backtest-results/phase19-cap-sweep-2of2-eth-15m-0.15.json
-backtest-results/phase19-cap-sweep-2of2-sol-15m-0.04.json
-backtest-results/phase19-cap-sweep-2of2-sol-15m-0.08.json
-backtest-results/phase19-cap-sweep-2of2-sol-15m-0.10.json
-backtest-results/phase19-cap-sweep-2of2-sol-15m-0.12.json
-backtest-results/phase19-cap-sweep-2of2-sol-15m-0.15.json
-deliverable.md                                                                  (this file)
-```
 
-### Branch / PR
+### 6.2 Smoking-gun: phase23-0.5-btc == baseline-hybrid-kelly-btc
 
-- Branch: `feat/phase19-a-cap-sweep-2of2` (single commit `13f884f`)
-- PR: **https://github.com/EggProject/mm-crypto-bot/pull/46**
+`phase23-hybrid-kelly-0.5-btc-1d.json` (with `--kelly-fraction=0.5`) is **byte-identical** to the existing `baseline-hybrid-kelly-btc-1d.json` (run with NO `--kelly-fraction` flag). The flag has zero effect.
 
-### No production code changes
+### 6.3 Root cause (CLI source inspection)
 
-CLI plumbing was added in PR #45 (merged before this task); this PR only contains
-the 16 backtest JSON outputs.
+`packages/backtest-tools/src/cli/run-hybrid-kelly.ts`:
+- Line 74-107 `parseArgs()` accepts only `--symbol`, `--timeframe`, `--equity`, `--base-notional`, `--leverage`, `--output`. Unknown flags silently ignored.
+- Line 225 hardcodes `baseKellyFraction: 0.5` — this is what runs every time.
 
-## Cap × Symbol envelope (2-of-2 mode)
+Per `PHASE-20-21-ARCHIVE.md` §7: this is exactly the **"CLI flags must either work or error, never silently no-op"** pattern that was identified as the root cause of Phase 20 #1's NEGATIVE verdict.
 
-Each cell: `monthly% / DD% / trades / KS / Sharpe`
+---
 
-| Cap        | BTC                                  | ETH                                  | SOL                                  |
-|-----------:|--------------------------------------|--------------------------------------|--------------------------------------|
-| 0.04       | 3.72% / 0.95% / 2660 / N / 18.21     | 4.61% / 0.39% / 1790 / N / 16.32     | 6.42% / 0.68% / 3099 / N / 19.27     |
-| 0.08       | 7.42% / 1.88% / 2660 / N / 18.92     | 8.80% / 0.79% / 1790 / N / 17.57     | 12.57% / 1.35% / 3099 / N / 20.09    |
-| 0.10       | 9.21% / 2.35% / 2660 / N / 19.27     | 10.70% / 0.98% / 1790 / N / 17.98    | 15.13% / 1.68% / 3099 / N / 20.62    |
-| 0.12       | 10.95% / 2.81% / 2660 / N / 19.55    | 12.32% / 1.18% / 1790 / N / 18.36    | 17.30% / 2.01% / 3099 / N / 21.06    |
-| 0.15       | 13.37% / 3.50% / 2660 / N / 19.95    | 14.17% / 1.47% / 1790 / N / 18.87    | 20.06% / 2.51% / 3099 / N / 21.52    |
-| 0.20 (ref) | 16.66% / 4.64% / 2660 / N / 20.52    | n/a                                  | n/a                                  |
+## 7. DD budget check (≤ 6.5% safe, > 8% reject)
 
-## Portfolio averages (mean across BTC/ETH/SOL, max-DD = worst-of-3)
+All 12 HybridKelly cells PASS (worst case: BTC @ 5.10% DD, 21.5% safety margin from 6.5% threshold).
 
-| Cap        | Avg monthly% | Max DD% | Avg Sharpe |
-|-----------:|-------------:|--------:|-----------:|
-| 0.04       | 4.92         | 0.95    | 17.93      |
-| 0.08       | 9.60         | 1.88    | 18.86      |
-| 0.10       | 11.68        | 2.35    | 19.29      |
-| 0.12       | 13.53        | 2.81    | 19.66      |
-| 0.15       | 15.86        | 3.50    | 20.11      |
-| 0.20 (ref) | 16.66        | 4.64    | 20.52      |
+---
 
-(0.20 row uses BTC only as the 2-of-2 default reference; ETH/SOL 2-of-2 cap=0.20 values are
-identical to Phase 18 REPORT — see Phase 18 §4 for ETH +16.29%/mo @ 1.95% DD and SOL +23.57%/mo
-@ 3.33% DD.)
+## 8. 1:10 leverage audit
 
-## Cap=0.20 BTC reference vs Phase 18 envelope
+All 12 JSONs PASS `avgEffectiveLeverage ≤ 10×` (BTC 8.32×, ETH 6.09×, SOL 5.21×).
 
-| Source                        | BTC monthly% | BTC maxDD% |
-|-------------------------------|-------------:|-----------:|
-| Phase 18 REPORT §4 (2-of-2)   | +16.66%      | 4.64%      |
-| This PR — `phase19-cap-sweep-2of2-btc-15m-0.20.json` | +16.66%      | 4.64%      |
+---
 
-**Sanity check passed: byte-identical match within ±0.01pp tolerance** (matches the
-Phase 18 envelope down to the cent — the underlying engine determinism is fully
-preserved by the new `--max-position-pct-equity` arg).
+## 9. Quality gates
 
-## Quality gates
+| Gate | Status | Detail |
+|------|:------:|--------|
+| `bun run typecheck` | **PASS** | 13/13 packages (turbo cache hit; no new TS source) |
+| `bun run lint` | **PASS** | 0 errors, 265 warnings (same as Phase 20 baseline) |
+| `bun test` (full suite) | **PASS** | 2393 tests pass, 0 fail, 16901 expect() calls, 6.09s |
+| No `eslint-disable` lines added | **PASS** | Zero source edits |
+| 1:10 leverage audit | **PASS** | All 12 JSONs ≤ 10× |
+| DD ≤ 6.5% threshold | **PASS** | Worst case 5.10% (BTC) |
 
-| Gate       | Result                                        |
-|------------|-----------------------------------------------|
-| typecheck  | 13/13 PASS (turbo)                            |
-| lint       | 0 errors, 180 pre-existing security warnings  |
-| test       | 2109 pass / 0 fail (13/13 tasks successful)   |
+---
 
-All gates pass; no new lint warnings or test failures introduced by this PR.
+## 10. Notes for verifier
 
-## Notes for the verifier
+1. **The empirical NEGATIVE is robust.** 12 backtests collapse to 3 distinct cells (one per symbol). The kelly-fraction has zero measurable effect. This is not a sampling artifact — the engine runs the same code path regardless of `--kelly-fraction` value.
 
-1. **No production code changes** — only 16 backtest JSONs + this deliverable.md.
-2. **CLI plumbing (`--max-position-pct-equity`) was added in PR #45**, merged
-   before this task started. The arg is validated to `(0, 0.5]` and threads through
-   the Donchian+Pivot composition's `maxPositionPctEquity` field, scaling the
-   per-emit confidence by `min(1.0, cap / ENGINE_MAX)`. Cap=0.20 was the engine
-   default before this PR — the new arg is fully backward compatible.
-3. **Trade count invariance** — across all caps within a symbol, `totalTrades` is
-   identical (BTC=2660, ETH=1790, SOL=3099). This confirms the cap scales the
-   per-trade notional, not the trade frequency. Mathematically expected: cap
-   multiplies `confidence` (which controls position size), so entry/exit logic
-   is unchanged.
-4. **Linear-ish scaling observed** — lifting cap from 0.04 → 0.20 increases BTC
-   monthly return by ~4.5×, ETH by ~3.6×, SOL by ~3.1×. The scaling is
-   sub-linear because ETH/SOL hit the per-trade notional cap before BTC does,
-   so the early cap lifts don't fully translate.
-5. **DD stays well under the 8% safe-operating threshold at all caps tested**
-   (max DD observed = 4.64% at cap=0.20 BTC). Even higher caps could be tried
-   in a follow-up sweep, but Track A is bounded to the `[0.04, 0.15]` spec
-   plus the 0.20 reference.
-6. **No kill-switch triggers anywhere** — the composition's strict 2-of-2
-   consensus (Phase 18 Track A fix) keeps the strategy out of the trade-density
-   that historically dragged BTC into the 50% DD kill-switch.
+2. **Smoke verification command:**
+   ```bash
+   # Phase 23 0.5 BTC == baseline HybridKelly BTC (proves flag is no-op)
+   diff <(jq 'del(.metadata.generatedAt)|del(.period.endTime)|del(.period.totalMonths)|del(.withHybridKelly.monthlyReturnPct)|del(.walkForward.aggregateTestReturn)' \
+           baseline-hybrid-kelly-btc-1d.json) \
+        <(jq 'del(.metadata.generatedAt)|del(.period.endTime)|del(.period.totalMonths)|del(.withHybridKelly.monthlyReturnPct)|del(.walkForward.aggregateTestReturn)' \
+           phase23-hybrid-kelly-0.5-btc-1d.json)
+   # Expected: NO OUTPUT (byte-identical)
+   ```
 
-## Phase 19 Track C handoff
+3. **Reproduction (per brief):** 12 backtests × ~200ms each = ~2.4 seconds of compute, plus ~1-2s Bun startup overhead per run ≈ 30-60 seconds total. The 1d timeframe is much faster than 15m sweeps.
 
-For the Track C plot/report task:
-- **30 backtest JSONs will live at** `backtest-results/phase19-cap-sweep-{2of2,1of2}-*.json`
-  on `main` after Track A + Track B are both merged.
-- **2-of-2 cap × symbol table** above; 1-of-2 table will come from Track B.
-- **cap=0.20 BTC reference for 2-of-2**: +16.66%/mo @ 4.64% DD (this PR).
-- **cap=0.20 BTC reference for 1-of-2**: +34.52%/mo @ 7.18% DD (Phase 18 Track B
-  reference value; Track B's PR should reproduce it within ±2pp).
+4. **Source-code root cause** (informational only — DO NOT modify per brief): `packages/backtest-tools/src/cli/run-hybrid-kelly.ts` lines 74-107 (parseArgs) + line 225 (hardcoded `baseKellyFraction: 0.5`).
+
+5. **Structural lesson (carry-forward to PHASE-24/25):** CLI flags must EITHER be wired through the runner OR throw a hard error. The 30-line "Option B" patch from PHASE-20-21-ARCHIVE.md §6.1 is the minimal fix; the SCv1-throughout refactor is the full fix.
+
+6. **Lifts are sub-noise (−0.004 pp portfolio avg).** Even if the kelly-fraction WERE applied, the geometry of the HybridKelly signal (1d daily, 28/24/19 trades per symbol) does not provide enough compounding surface to materially move the envelope. The Phase 19 #1 15m cap-sweep (11043 trades per symbol) is the regime where per-trade Kelly could matter; the 1d HybridKelly baseline is too thin to demonstrate it either way.
+
+7. **Branch state:** `feat/phase23-1a-sweep` from `main` @ `8c56e2a`, working tree clean except for the 14 deliverable files. No source edits — this is a research/data-only branch.
+
+---
+
+**End of deliverable.md**
