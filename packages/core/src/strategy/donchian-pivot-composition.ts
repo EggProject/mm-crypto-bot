@@ -94,6 +94,14 @@ import {
   type PivotPointGridConfig,
   DEFAULT_PIVOT_GRID_CONFIG,
 } from "./pivot-point-grid.js";
+import {
+  applyRegimeToCap,
+  getRegimeAt,
+  validateRegimeCapConfig,
+  type RegimeConditionedCapConfig,
+  type RegimeLabel,
+  type RegimeTimelineEntry,
+} from "./regime-conditioned-cap.js";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -121,6 +129,15 @@ export interface DonchianPivotCompositionConfig {
   readonly donchianRange: Partial<DonchianRangeChannelConfig>;
   /** Per-sub-strategy partial config — Pivot Point Grid overrides. */
   readonly pivotGrid: Partial<PivotPointGridConfig>;
+  /**
+   * Optional Phase 21 regime-conditioned cap. When set, the composition
+   * looks up the current bar's regime from `regimeTimeline` and scales the
+   * emitted signal confidence by the regime multiplier before runBacktest()
+   * sizes the trade.
+   */
+  readonly regimeConditionedCap?: RegimeConditionedCapConfig;
+  /** Pre-built one-entry-per-bar regime timeline, built from OHLCV before the backtest. */
+  readonly regimeTimeline?: readonly RegimeTimelineEntry[];
 }
 
 /**
@@ -135,6 +152,13 @@ export const DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG: DonchianPivotComposition
   donchianRange: {},
   pivotGrid: {},
 };
+
+interface RegimeAdjustedSignal extends StrategySignal {
+  readonly metadata: Readonly<{
+    readonly regime: RegimeLabel;
+    readonly regimeMultiplier: number;
+  }>;
+}
 
 /**
  * `DONCHIAN_PIVOT_COMPOSITION_DEFAULT_LTF` — the default LTF for the
@@ -169,6 +193,8 @@ export class DonchianPivotComposition implements Strategy {
   readonly config: DonchianPivotCompositionConfig;
   readonly donchianRange: DonchianRangeChannelStrategy;
   readonly pivotGrid: PivotPointGridStrategy;
+  private readonly regimeConditionedCap: RegimeConditionedCapConfig | undefined;
+  private readonly regimeTimeline: readonly RegimeTimelineEntry[];
 
   /**
    * Constructor.
@@ -191,6 +217,12 @@ export class DonchianPivotComposition implements Strategy {
         config.minConsensus ?? DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG.minConsensus,
       donchianRange: { ...DEFAULT_DONCHIAN_RANGE_CONFIG, ...(config.donchianRange ?? {}) },
       pivotGrid: { ...DEFAULT_PIVOT_GRID_CONFIG, ...(config.pivotGrid ?? {}) },
+      ...(config.regimeConditionedCap !== undefined
+        ? { regimeConditionedCap: config.regimeConditionedCap }
+        : {}),
+      ...(config.regimeTimeline !== undefined
+        ? { regimeTimeline: config.regimeTimeline }
+        : {}),
     };
     // Validate `minConsensus` is in the supported range (1..2). Anything
     // outside this range is undefined behavior (we only have 2 sub-strategies).
@@ -199,7 +231,12 @@ export class DonchianPivotComposition implements Strategy {
         `DonchianPivotComposition: minConsensus must be an integer in [1, 2], got ${resolved.minConsensus}`,
       );
     }
+    if (resolved.regimeConditionedCap !== undefined) {
+      validateRegimeCapConfig(resolved.regimeConditionedCap);
+    }
     this.config = resolved;
+    this.regimeConditionedCap = resolved.regimeConditionedCap;
+    this.regimeTimeline = resolved.regimeTimeline ?? [];
     this.donchianRange = new DonchianRangeChannelStrategy(resolved.donchianRange);
     this.pivotGrid = new PivotPointGridStrategy(resolved.pivotGrid);
     // The `timeframes` field is the union of the engine's expected frames
@@ -218,6 +255,27 @@ export class DonchianPivotComposition implements Strategy {
    */
   warmup(): number {
     return Math.max(this.donchianRange.warmup(), this.pivotGrid.warmup());
+  }
+
+  private applyRegimeConditioning(signal: StrategySignal, timestamp: number): StrategySignal {
+    const capConfig = this.regimeConditionedCap;
+    if (capConfig === undefined) {
+      return signal;
+    }
+
+    const regime = getRegimeAt(this.regimeTimeline, timestamp, "trending");
+    const regimeMultiplier = applyRegimeToCap(1.0, regime, capConfig);
+    const adjusted: RegimeAdjustedSignal = {
+      ...signal,
+      confidence: signal.confidence * regimeMultiplier,
+      reason: `${signal.reason} | regime=${regime} multiplier=${regimeMultiplier.toFixed(2)}`,
+      metadata: {
+        ...(signal.metadata ?? {}),
+        regime,
+        regimeMultiplier,
+      },
+    };
+    return adjusted;
   }
 
   /**
@@ -293,12 +351,13 @@ export class DonchianPivotComposition implements Strategy {
     // Pivot uses `roundTo` for SL/TP).
     const takeProfit = Number(meanTakeProfit.toFixed(ctx.pricePrecision));
 
-    return {
+    const signal: StrategySignal = {
       side,
       confidence: meanConfidence,
       reason: `[DonchianPivot] consensus=${fired.length}/2 winner=${winner.name} (conf=${winner.signal.confidence.toFixed(2)}) | ${winner.signal.reason}`,
       stopLoss: tighterStop,
       takeProfit,
     };
+    return this.applyRegimeConditioning(signal, ctx.candle.timestamp);
   }
 }

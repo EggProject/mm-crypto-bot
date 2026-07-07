@@ -934,8 +934,10 @@ function _buildAtrTimeline(
  * `getRegimeAt` — lookup the regime at a given timestamp via
  * binary-search-with-fallback. If the timestamp is BEFORE the
  * timeline's first entry, returns the `fallback` (default
- * "trending"); if AFTER the timeline's last entry, returns the
- * LAST timeline entry's regime (carry-forward).
+ * "trending"); if AFTER the timeline's last entry, also returns the
+ * `fallback`. This keeps stale pre-built timelines safe: a live/backtest
+ * bar beyond the pre-pass range does not silently carry a stale risk-off
+ * regime forward forever.
  *
  * If the exact timestamp matches, returns that entry's regime.
  * Otherwise returns the regime of the LATEST entry with
@@ -952,9 +954,11 @@ export function getRegimeAt(
   let hi = timeline.length - 1;
   // Before start → fallback.
   if (timestamp < timeline[0]!.timestamp) return fallback;
-  // After end → carry the last entry's regime forward.
+  // After end → safe fallback. Carry-forward is dangerous for pre-built
+  // timelines because a backtest/live bar beyond the pre-pass range would
+  // otherwise inherit the last risk regime forever.
   if (timestamp >= timeline[hi]!.timestamp) {
-    return timeline[hi]!.regime;
+    return timestamp === timeline[hi]!.timestamp ? timeline[hi]!.regime : fallback;
   }
   // Binary search for leftmost index with `timeline[i].timestamp > timestamp`.
   // Then return `timeline[i-1]`.

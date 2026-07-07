@@ -96,6 +96,8 @@ export interface StrategySignal {
   readonly reason: string;
   readonly stopLoss: number;
   readonly takeProfit: number;
+  /** Optional diagnostic metadata propagated by strategy wrappers. */
+  readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
 /**
