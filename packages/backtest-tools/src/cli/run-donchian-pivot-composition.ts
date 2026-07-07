@@ -27,6 +27,33 @@
 // the flag is a no-op for this runner (full integration is a follow-up).
 // The bit-identical-to-Phase-19 baseline (default `false`) is preserved.
 //
+// ===========================================================================
+// Phase 21 Track B — Regime-conditioned cap CLI surface (Architecture A)
+// ===========================================================================
+// This CLI accepts the Phase 21 #1 `--use-regime-conditioned-cap` flag
+// (default `false`). When `true`, the CLI:
+//   1. Reads OHLCV bars via the same CsvExchangeFeed used by runBacktest.
+//   2. Builds a regime timeline via `buildRegimeTimeline(bars, config, now)`
+//      (Phase 21 Track A module — supports both `hmm` and `atr` modes).
+//   3. Wires the timeline into the strategy config so the strategy
+//      applies `applyRegimeToCap` on the emit chain (Architecture A —
+//      confidence-scaling path that propagates to runBacktest's
+//      position-size chain via Phase 17's confidence→riskPerTrade wiring).
+//   4. Prints the regime distribution up-front ("regime-conditioned cap
+//      engaged; classifier=<X>; bars=<N>; distribution=trending:Y%, ...
+//      so the run is NOT a silent no-op (Phase 20 #1 lesson).
+//
+// The default `false` keeps the run bit-identical to the Phase 19 baseline
+// (the strategy runs the consensus emit without any regime scaling).
+//
+// CLI surface:
+//   --use-regime-conditioned-cap=true|false  (default false)
+//   --regime-multiplier-trending=<0..1>      (default 1.0)
+//   --regime-multiplier-ranging=<0..1>       (default 0.7)
+//   --regime-multiplier-volatile=<0..1>      (default 0.4)
+//   --regime-classifier=hmm|atr              (default atr — Track A
+//                                             production-recommended)
+//
 // Használat:
 //   bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
 //     --symbol=BTC/USDT --timeframe=15m --min-consensus=2 \
@@ -39,6 +66,9 @@ import { runBacktest, type BacktestResult, type CostModel } from "@mm-crypto-bot
 import {
   DonchianPivotComposition,
   DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG,
+  buildRegimeTimeline,
+  type RegimeConditionedCapConfig,
+  type RegimeTimelineEntry,
 } from "@mm-crypto-bot/core";
 import type { ExchangeFeed } from "@mm-crypto-bot/backtest";
 import { makeSymbol, type Timeframe } from "@mm-crypto-bot/shared/types";
@@ -69,6 +99,20 @@ interface CliArgs {
    * throws.
    */
   readonly hybridKellyHistoryDays: number;
+  /**
+   * Phase 21 Track B — opt-in flag for the regime-conditioned cap
+   * drop-in. Default `false` (bit-identical to Phase 19 baseline).
+   * When `true`, the CLI builds a regime timeline from the OHLCV
+   * bars and wires it into the strategy config (Architecture A —
+   * confidence-scaling emit-side path).
+   */
+  readonly useRegimeConditionedCap: boolean;
+  /** Phase 21 Track B — per-regime multipliers in [0, 1.0]. */
+  readonly regimeMultiplierTrending: number;
+  readonly regimeMultiplierRanging: number;
+  readonly regimeMultiplierVolatile: number;
+  /** Phase 21 Track B — classifier mode. */
+  readonly regimeClassifier: "hmm" | "atr";
 }
 
 function parseArgs(): CliArgs {
@@ -86,6 +130,14 @@ function parseArgs(): CliArgs {
   let usePerTradeHybridKelly = false;
   let hybridKellyCap = 0.5;
   let hybridKellyHistoryDays = 30;
+  // Phase 21 Track B — Regime-conditioned cap opt-in flags (default-off = Phase 19 baseline).
+  let useRegimeConditionedCap = false;
+  // Use literal values (NOT the `as const` constants) so the type
+  // widens to `number` — CLI args can override.
+  let regimeMultiplierTrending = 1.0;
+  let regimeMultiplierRanging = 0.7;
+  let regimeMultiplierVolatile = 0.4;
+  let regimeClassifier: "hmm" | "atr" = "atr";
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -140,6 +192,44 @@ function parseArgs(): CliArgs {
         throw new Error(`--hybrid-kelly-history-days must be an integer >= 1, got: ${v}`);
       }
       hybridKellyHistoryDays = v;
+    } else if (arg.startsWith("--use-regime-conditioned-cap=")) {
+      // Phase 21 Track B — opt-in flag for regime-conditioned cap.
+      // Accepts true|false (case-insensitive). Anything else throws.
+      const v = arg.slice("--use-regime-conditioned-cap=".length).toLowerCase();
+      if (v === "true") useRegimeConditionedCap = true;
+      else if (v === "false") useRegimeConditionedCap = false;
+      else throw new Error(`--use-regime-conditioned-cap must be 'true' or 'false', got: ${v}`);
+    } else if (arg.startsWith("--regime-multiplier-trending=")) {
+      // Phase 21 Track B — per-regime multiplier. Must be in (0, 1.0].
+      // 1:10 mandate preservation: cap > 1.0 throws (forbidden scale-up).
+      const v = Number(arg.slice("--regime-multiplier-trending=".length));
+      if (!Number.isFinite(v) || v <= 0 || v > 1.0) {
+        throw new Error(
+          `--regime-multiplier-trending must be in (0, 1.0] (1:10 mandate forbids scale-up), got: ${v}`,
+        );
+      }
+      regimeMultiplierTrending = v;
+    } else if (arg.startsWith("--regime-multiplier-ranging=")) {
+      const v = Number(arg.slice("--regime-multiplier-ranging=".length));
+      if (!Number.isFinite(v) || v <= 0 || v > 1.0) {
+        throw new Error(
+          `--regime-multiplier-ranging must be in (0, 1.0] (1:10 mandate forbids scale-up), got: ${v}`,
+        );
+      }
+      regimeMultiplierRanging = v;
+    } else if (arg.startsWith("--regime-multiplier-volatile=")) {
+      const v = Number(arg.slice("--regime-multiplier-volatile=".length));
+      if (!Number.isFinite(v) || v <= 0 || v > 1.0) {
+        throw new Error(
+          `--regime-multiplier-volatile must be in (0, 1.0] (1:10 mandate forbids scale-up), got: ${v}`,
+        );
+      }
+      regimeMultiplierVolatile = v;
+    } else if (arg.startsWith("--regime-classifier=")) {
+      const v = arg.slice("--regime-classifier=".length).toLowerCase();
+      if (v === "hmm") regimeClassifier = "hmm";
+      else if (v === "atr") regimeClassifier = "atr";
+      else throw new Error(`--regime-classifier must be 'hmm' or 'atr', got: ${v}`);
     }
   }
   return {
@@ -152,6 +242,11 @@ function parseArgs(): CliArgs {
     usePerTradeHybridKelly,
     hybridKellyCap,
     hybridKellyHistoryDays,
+    useRegimeConditionedCap,
+    regimeMultiplierTrending,
+    regimeMultiplierRanging,
+    regimeMultiplierVolatile,
+    regimeClassifier,
   };
 }
 
@@ -175,16 +270,91 @@ async function main(): Promise<void> {
   const tf = timeframesForComposition(args.timeframe);
   const dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
   const feed = new CsvExchangeFeed(dataDir) as unknown as ExchangeFeed;
-  // DonchianPivotComposition takes a partial config (minConsensus + per-sub-strategy
-  // overrides) and an LTF (defaults to M15). We pass `minConsensus` from CLI.
-  const strategy = new DonchianPivotComposition(
-    { ...DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG, minConsensus: args.minConsensus },
-    "15m",
-  );
 
   // 2024-01-01 → today.
   const startTime = new Date(Date.UTC(2024, 0, 1));
   const endTime = new Date();
+
+  // Phase 21 Track B — Regime-conditioned cap pre-pass.
+  // When the opt-in flag is true, we read OHLCV bars via the same
+  // CsvExchangeFeed and build a regime timeline BEFORE constructing
+  // the strategy. The timeline is then wired into the strategy config
+  // (Architecture A — confidence-scaling emit-side path).
+  //
+  // CRITICAL: We read the bars here in the same way the engine does,
+  // so the timeline is built from the same data the backtest consumes
+  // (no offline/synthetic data drift).
+  let regimeTimeline: readonly RegimeTimelineEntry[] | undefined;
+  let regimeDistribution: { trending: number; ranging: number; volatile: number } | undefined;
+  let regimeBarCount = 0;
+  let regimeCapConfig: RegimeConditionedCapConfig | undefined;
+  if (args.useRegimeConditionedCap) {
+    // Build the cap config from CLI args. Same defaults / validation
+    // as `getDefaultRegimeConditionedCapConfig()` but with CLI overrides.
+    regimeCapConfig = {
+      trendingMultiplier: args.regimeMultiplierTrending,
+      rangingMultiplier: args.regimeMultiplierRanging,
+      volatileMultiplier: args.regimeMultiplierVolatile,
+      minObservations: 5,
+      mode: args.regimeClassifier,
+    };
+    // Read bars from CsvExchangeFeed. We use the same fetchOHLCV
+    // pattern the engine uses (no aggregation — bars are already
+    // 15m from the data dir). `ExchangeFeed.fetchOHLCV` already
+    // returns `Promise<readonly Candle[]>` per backtest/src/types.ts.
+    const bars = await feed.fetchOHLCV(args.symbol, args.timeframe, {
+      since: startTime.getTime(),
+    });
+    regimeTimeline = buildRegimeTimeline(
+      bars.map((b) => ({
+        timestamp: b.timestamp,
+        close: b.close,
+        high: b.high,
+        low: b.low,
+        volume: b.volume,
+      })),
+      regimeCapConfig,
+      endTime.getTime(),
+    );
+    regimeBarCount = regimeTimeline.length;
+    // Compute distribution.
+    let trendingN = 0;
+    let rangingN = 0;
+    let volatileN = 0;
+    for (const entry of regimeTimeline) {
+      if (entry.regime === "trending") trendingN++;
+      else if (entry.regime === "ranging") rangingN++;
+      else volatileN++;
+    }
+    const total = Math.max(regimeBarCount, 1);
+    regimeDistribution = {
+      trending: trendingN / total,
+      ranging: rangingN / total,
+      volatile: volatileN / total,
+    };
+  }
+
+  // DonchianPivotComposition takes a partial config (minConsensus + per-sub-strategy
+  // overrides) and an LTF (defaults to M15). We pass `minConsensus` from CLI.
+  // When regime-conditioned cap is engaged, we also pass the
+  // `regimeConditionedCap` config + `regimeTimeline` so the strategy
+  // applies the per-regime multiplier on the emit chain.
+  interface StrategyConfig {
+    minConsensus: number;
+    donchianRange: object;
+    pivotGrid: object;
+    regimeConditionedCap?: RegimeConditionedCapConfig;
+    regimeTimeline?: readonly RegimeTimelineEntry[];
+  }
+  const strategyConfig: StrategyConfig = {
+    ...DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG,
+    minConsensus: args.minConsensus,
+  };
+  if (regimeCapConfig !== undefined && regimeTimeline !== undefined) {
+    strategyConfig.regimeConditionedCap = regimeCapConfig;
+    strategyConfig.regimeTimeline = regimeTimeline;
+  }
+  const strategy = new DonchianPivotComposition(strategyConfig, "15m");
 
   const consensusTag = `${args.minConsensus}of2`;
   console.log(
@@ -210,6 +380,20 @@ async function main(): Promise<void> {
         `full SCv1 integration for this runner is a follow-up Track. ` +
         `Effective settings: hybridKellyCap=${args.hybridKellyCap} historyWindowDays=${args.hybridKellyHistoryDays} ` +
         `(parsed and validated, not applied to runBacktest positionSize chain).`,
+    );
+  }
+  // Phase 21 Track B — Regime-conditioned cap up-front notice.
+  // This is the Phase 20 #1 NOT-silent-no-op defense: the regime
+  // distribution is ALWAYS printed when the flag is engaged, so the
+  // run shows the cap is actually affecting the strategy.
+  if (args.useRegimeConditionedCap && regimeDistribution !== undefined) {
+    const pct = (n: number) => (n * 100).toFixed(1);
+    console.log(
+      `[donchian-pivot] regime-conditioned cap engaged; classifier=${args.regimeClassifier}; bars=${regimeBarCount}; ` +
+        `distribution=trending:${pct(regimeDistribution.trending)}%, ` +
+        `ranging:${pct(regimeDistribution.ranging)}%, ` +
+        `volatile:${pct(regimeDistribution.volatile)}% ` +
+        `(multipliers trending=${args.regimeMultiplierTrending} ranging=${args.regimeMultiplierRanging} volatile=${args.regimeMultiplierVolatile})`,
     );
   }
 
