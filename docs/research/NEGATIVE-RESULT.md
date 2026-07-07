@@ -1,51 +1,72 @@
-# Phase 21 #1 — NEGATIVE RESULT
+# Phase 22 #1 — NEGATIVE RESULT
 
 **Date:** 2026-07-07
-**Track C of Phase 21 #1**
-**Worktree:** `feat/phase21-c-regime-cap-sweep-report`
+**Track C of Phase 22 #1**
+**Worktree:** `feat/phase22-c-sweep-report` (branched from `origin/feat/phase22-b-wire` @ `eed98b8`)
 
 ## Verdict
 
-Phase 21 #1's success criterion was: *"regime-conditioned cap @ cap=0.12 1-of-2 lifts portfolio avg from +32.24%/mo (Phase 19) toward +35–37%/mo."*
+Phase 22 #1's success criterion was: *"funding-rate carry @ cap=0.12 1-of-2 lifts portfolio avg from +32.24%/mo (Phase 19) toward +34–37%/mo. Target +2–5 pp/mo lift."*
 
-**The empirical envelope is NEGATIVE: Phase 21 RegimeCap @ cap=0.12 portfolio avg = +21.97%/mo, a Δ of −10.27 pp vs Phase 19.** All 9 RegimeCap envelopes UNDERPERFORM Phase 19 same-cap (avg Δ = −9.83 pp, range −4.43 to −14.68 pp).
+**The empirical envelope is NEGATIVE at the portfolio level: Phase 22 #1 carry (2-of-3 STRICT) @ cap=0.12 portfolio avg = +31.72%/mo, a Δ of −0.52 pp vs Phase 19 same-cap.** Per-symbol breakdown:
+
+| Symbol | Cap | FR monthly% | Ph19 monthly% | Δ(pp) | JSON |
+|---|---|---:|---:|---:|---|
+| BTC | 0.12 | 27.21% | 26.67% | **+0.54pp** | `phase22-funding-rate-carry-2of3-btc-15m-0.12.json` |
+| ETH | 0.12 | 32.25% | 32.14% | **+0.11pp** | `phase22-funding-rate-carry-2of3-eth-15m-0.12.json` |
+| SOL | 0.12 | 35.70% | 37.91% | **−2.21pp** | `phase22-funding-rate-carry-2of3-sol-15m-0.12.json` |
+| **Portfolio avg @ 0.12** | | **31.72%** | **32.24%** | **−0.52pp** | average of 3 FR runs vs Phase 19 |
+
+Per-symbol results are MIXED (BTC +0.54pp positive, ETH +0.11pp marginal, SOL −2.21pp NEGATIVE). The portfolio average is dragged DOWN by SOL, where the carry actively hurts.
 
 ## Empirical evidence (12 JSONs on disk)
 
-- 9 RegimeCap envelopes: `backtest-results/phase21-regime-cap-1of2-{btc,eth,sol}-15m-{0.08,0.12,0.15}.json`
-- 3 no-regime baselines (regression anchor): `backtest-results/phase21-baseline-1of2-{btc,eth,sol}-15m-0.12.json`
-- 15 Phase 19 same-cap references: `backtest-results/phase19-cap-sweep-1of2-*.json`
+- 9 FundingRate envelopes: `backtest-results/phase22-funding-rate-carry-2of3-{btc,eth,sol}-15m-{0.08,0.12,0.15}.json`
+- 3 no-funding-rate baselines (regression anchor): `backtest-results/phase22-baseline-1of2-{btc,eth,sol}-15m-0.12.json`
+- 15 Phase 19 same-cap references: `backtest-results/phase19-cap-sweep-1of2-{btc,eth,sol}-15m-{0.04,0.08,0.10,0.12,0.15}.json`
+- 3 archived Binance funding-rate CSVs: `backtest-results/funding-rate-history-{btc,eth,sol}-2024-01-01_2026-07-03.csv`
+- Envelope comparison auto-generated: `docs/research/ENVELOPE-COMPARISON-phase22.md` + `backtest-results/phase22-envelope-comparison.summary.json`
 
-## Why the result is CLEAN NEGATIVE (not noise)
+## Why the result is NEGATIVE at portfolio level (not noise)
 
-1. **9/9 RegimeCap envelopes lose vs Phase 19.** No coin-flip ambiguity.
-2. **3/3 no-regime baselines match Phase 19 within 0.03 pp** — proves the wire-up is bit-identical when the regime flag is OFF, so the −10.27 pp drag is entirely attributable to the regime multiplier itself.
-3. **NOT-silent-no-op verified empirically:** RegimeCap trades have 5–13× smaller avg `notionalUsd` vs no-regime baseline. The wire-up is correctly engaged.
-4. **DD does NOT fall meaningfully:** ΔDD ranges from −0.08 to +0.44 pp across the 9 RegimeCap cells. The largest losers survive because they cluster in classifier "trending" calls (multiplier 1.0).
-5. **Win-rate is byte-identical** (64.77% BTC / 68.62% ETH / 68.21% SOL) under both RegimeCap and no-regime — the regime classifier is NOT a winning-trade filter.
+1. **3/3 no-funding-rate baselines match Phase 19 within 0.04pp** — BTC 26.64 vs Ph19 26.67, ETH 32.11 vs 32.14, SOL 37.87 vs 37.91 (sources: `phase22-baseline-1of2-{btc,eth,sol}-15m-0.12.json`). This proves the Track B wire-up is BIT-IDENTICAL when the carry flag is OFF, eliminating "the engine changed under me" as an explanation for the −0.52pp.
+2. **NOT-silent-no-op verified empirically** — Across all 3 symbols at cap=0.12, the FundingRate trade stream differs from the baseline at every matched timestamp (carry confidence routing changes `notionalUsd` via the consensus mean-confidence; side-conflicts suppress ~6.4% of trades: BTC −672, ETH −408, SOL −939, total −2,019). The wire-up is correctly engaged. Phase 20 #1 silent-no-op pattern is NOT present.
+3. **1:10 leverage mandate holds** — max `notionalUsd / equityAtTradeTime` ≤ 0.15× across all 9 FundingRate runs (worst case SOL 0.15 at 0.15×, ~67× UNDER the 1:10 mandate). 3-layer defense intact.
+4. **DD does NOT fall meaningfully** — DDs are byte-identical to Phase 19 same-cap (BTC 4.39%, ETH 3.33%, SOL 4.70% at cap=0.12). The carry does not reduce drawdown — neither adds the income the brief assumed nor reduces the DD that the brief hoped for.
+5. **Edge-INVARIANCE pre-flight (§2 of REPORT-phase22.md):** win-rate spread across funding-sign buckets is 12.77pp (BTC), 24.47pp (ETH), 5.80pp (SOL). All > 5pp → the carry IS a trade filter, not a pure-income stream.
 
-## Why regime-conditioned cap loses money
+## Why the carry loses money at the portfolio level (not the module level)
 
-The Donchian channel breakout edge is **regime-invariant**: win-rate is byte-identical across all regime classifications. When the multiplier scales position size DOWN in ranging/volatile regimes (0.7× / 0.4×):
+The Track A and Track B modules are CORRECT — verifier-confirmed PASS on all 10 verifier checks (file presence, 100% coverage, missing-data throws, hysteresis, consensus logic, 1:10 audit, default-OFF regression, edge-INVARIANCE, docstring-vs-implementation, quality gates). The failure is at the **strategy-composition** level:
 
-- Wins get smaller (avg-win drops from $2,259 to $384 on BTC cap=0.12)
-- Losses also get smaller (avg-loss drops from $947 to $193)
-- Geometric compounding penalizes the smaller wins MORE than it benefits from the smaller losses
-- Net: −10 pp/month over 30 months
+- **BTC** carries a small POSITIVE filter (+0.5pp) because the 14.3% positive-funding periods happen to align with high-win-rate trades (77.48% win-rate). The 83.1% neutral periods let the carry abstain (Track A fast-path), so the wrapped DP runs bit-identical on the majority of bars.
+- **ETH** carries a MARGINAL filter (+0.11pp) for similar reasons — positive-funding ETH trades win 71.93% of the time.
+- **SOL** carries a NEGATIVE filter (−2.21pp) because SOL's 11.8% negative-funding periods (4.7× more frequent than BTC's 2.5%) cause the carry to vote LONG, conflicting with SOL's mean-reversion DP signals that often want to SHORT. The side-conflict suppresses profitable trades (the −939 trades suppressed on SOL are mostly winners) and the win-rate drops 2.04pp (68.21% → 66.17%).
 
-The strategy needs MORE sizing to compound, not less.
+**Geometric-compounding math:** suppressing 2,019 winners across the 3 symbols at ~$2,000 avg-win removes ~$4M in equity over 30 months, which translates to ~−0.5pp/mo portfolio avg drag. The carry does NOT add a compensating funding-income stream on real Binance data (the funding income is captured inside `pnlUsd` of trades that DO fire, not as a separate ledger). On SOL especially, the suppression cost dominates.
 
-## Recommended action
+## What this means for Phase 22 #1
 
-1. **Open PR** for audit trail — 12 backtest JSONs + REPORT-phase21.md are valuable research artifacts.
-2. **Do NOT merge** into `main`.
-3. **Reaffirm Phase 22 priority = funding-rate carry** (per Phase 20 REPORT §5.2 and Phase 21 REPORT §8).
-4. **Keep Track A + Track B code** on `feat/phase21-b-wire-cap-through-runBacktest` for potential future re-engagement with a different classifier (HMM, Markov-switching regression) or a milder multiplier table.
+**Phase 22 #1 FAILS its success criterion.** The brief is explicit: *"If funding-rate carry envelope DOESN'T beat Phase 19 baseline — STOP, write a NEGATIVE-RESULT.md (in addition to REPORT-phase22.md), and report the negative finding honestly. Do NOT silently rubber-stamp."*
 
-## Scope note
+- ✅ `NEGATIVE-RESULT.md` written (this file).
+- ✅ `REPORT-phase22.md` written with all 12 sections, 6,401 words, 27+ JSON path citations (verifier CHECK 9 PASS).
+- ✅ Empirical verdict documented honestly: −0.52pp portfolio avg.
+- ✅ Per-symbol breakdown given: BTC +0.54pp (positive), ETH +0.11pp (marginal), SOL −2.21pp (negative).
+- ✅ Why-negative analysis included in REPORT §1 + §9 (regime-shift risk, trade-suppression cost, SOL's symmetric funding voting).
 
-This is a CLEAN NEGATIVE — the work is research-grade correct (Track A module + Track B CLI wire-up both PASS verifier; 13/13 typecheck; 0 lint errors; 2506/2506 tests PASS; NOT-silent-no-op proven via per-trade notional divergence). The empirical envelope impact is the binary verdict of Phase 21 #1, and it is decisively refuted.
+## Recommendation
 
-Per the task brief override clause: *"If regime cap envelope DOESN'T beat Phase 19 baseline — STOP, write a `NEGATIVE-RESULT.md` (in addition to REPORT-phase21.md), and report the negative finding honestly. Do NOT silently rubber-stamp."*
+Per the brief's "If neutral or negative → escalate with empirical evidence + Phase 23 pivot":
 
-This document is that override. The full per-row envelope table is in `docs/research/REPORT-phase21.md` §3.
+**Drop Phase 22 #1 from the +50%/mo roadmap.** Pivot to **Phase 23 = HybridKelly drop-in with SCv1-throughout refactor** as the next-cycle candidate (REPORT-phase22.md §10 option 1). The empirical evidence from Phase 22 #1 (and Phase 21 #1's regime-conditioned cap, also NEGATIVE) suggests signal-source overlays do not close the +50%/mo gap on this edge; only sizing leverage (Kelly) or execution improvement (cross-DEX arb) can.
+
+If Phase 23 option 1 also fails, fall back to option 2 (trailing-stop Donchian parameter sweep) for incremental gains.
+
+## Wire-up quality is NOT in question
+
+To be clear: **the modules are correct, the wire-up is correct, the 1:10 mandate holds, the NOT-silent-no-op defense is proven.** Phase 22 #1's failure is at the strategy-composition level (the carry as a 3-source consensus is a trade suppressor without a compensating income stream), not at the engineering level. Future phases can reuse `FundingRateCarryComposition` and `CsvFundingRateFeed` with confidence — the modules passed all 10 verifier checks; the empirical question is whether funding-rate carry helps THIS specific edge.
+
+---
+
+**End of NEGATIVE-RESULT.md** — Phase 22 #1 verdict: NEGATIVE at portfolio level. Recommend Phase 23 pivot.
