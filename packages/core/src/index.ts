@@ -625,6 +625,47 @@ export {
 export type {
   SignalCenterV1Config,
 } from "./signal-center/signal-center-v1.js";
+// Phase 20 Track A — Per-Trade Hybrid-Kelly sizing drop-in (REPORT-phase19.md §7 priority #1).
+// Sizing-layer override module that lives at a NEW choke point between
+// plugin emit and engine consumption. Reads per-signal-signature historical
+// win rate + payoff ratio from a caller-supplied `historyLookup` callback
+// and OVERRIDES the `kellyFraction` field on the SizingSignal. Pure-math
+// module — Track B wires it into SignalCenterV1 + a CLI flag. Phase 20 #1
+// target: lift Phase 19 #1 +32.24%/mo (1-of-2 cap=0.12) to +40-45%/mo
+// at the same DD budget (4.70%) by concentrating capital on
+// high-confidence signals per per-trade Kelly math.
+// The 1:10 mandate is preserved by construction — `hybridKellyCap ≤ 1.0`
+// is constructor-enforced, and the override only affects `kellyFraction`
+// (not the engine's notional chain).
+// Public API: `PerTradeHybridKellyConfig`, `PerTradeSignalTradeHistory`,
+// `computeHybridKellyFraction`, `applyHybridKelly`. The signal-signature
+// builders (`buildSizingSignature`, `inferSymbolFromSource`,
+// `inferSideFromNotional`) and the config validator
+// (`validateHybridKellyConfig`) are also exported for test consumers
+// and Track B's wire-up code.
+// NOTE: The brief's spec uses `HybridKellyConfig` / `SignalTradeHistory`
+// as names, but those identifiers already exist on the workspace barrel
+// from the Phase 11.1e `HybridKellyPlugin` (see line ~406 above). Per
+// the project's barrel-collision policy (see `bun-monorepo.md` "barrel
+// re-export collisions"), we alias per-module with the
+// `PerTradeHybridKelly*` prefix. Track B's wire-up code will import the
+// aliased names. Documented in the Phase 20 Track A deliverable.
+export {
+  applyHybridKelly,
+  buildSizingSignature,
+  computeHybridKellyFraction,
+  DEFAULT_HISTORY_WINDOW_DAYS as DEFAULT_PER_TRADE_HYBRID_KELLY_HISTORY_WINDOW_DAYS,
+  DEFAULT_HYBRID_KELLY_CAP as DEFAULT_PER_TRADE_HYBRID_KELLY_CAP,
+  DEFAULT_MIN_TRADES_FOR_KELLY as DEFAULT_PER_TRADE_HYBRID_KELLY_MIN_TRADES,
+  DEFAULT_PER_TRADE_HYBRID_KELLY_ENABLED_SYMBOLS,
+  inferSideFromNotional as inferPerTradeHybridKellySide,
+  inferSymbolFromSource as inferPerTradeHybridKellySymbol,
+  validateHybridKellyConfig as validatePerTradeHybridKellyConfig,
+} from "./signal-center/sizing/per-trade-hybrid-kelly.js";
+export type {
+  HybridKellyConfig as PerTradeHybridKellyConfig,
+  SignalTradeHistory as PerTradeSignalTradeHistory,
+} from "./signal-center/sizing/per-trade-hybrid-kelly.js";
 // Phase 10G Track B — Leverage invariant hard guardrail (1:10 MANDATORY leverage 3rd defense-in-depth layer).
 export {
   assertLeverageInvariant,
