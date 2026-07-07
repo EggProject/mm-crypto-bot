@@ -811,12 +811,22 @@ describe("regime-conditioned-cap — coverage boosts", () => {
     ).toThrow(/initProbs must sum to 1\.0/);
   });
 
-  it("getRegimeAt — after end → carry last entry forward", () => {
+  it("getRegimeAt — after end → fallback 'trending' (Phase 21 Track B: safe-fallback, not carry-forward)", () => {
+    // Phase 21 Track B intentionally changed this from carry-forward to
+    // a safe "trending" fallback. Carry-forward was dangerous for
+    // pre-built timelines: a backtest/live bar beyond the pre-pass
+    // range would otherwise inherit the last risk regime forever
+    // (e.g., a forever-volatile regime if the last pre-pass bar was
+    // volatile). The fallback ensures the strategy does NOT silently
+    // carry a stale risk-off regime forward; instead it returns the
+    // most-conservative "no-down-scaling" regime ("trending" × 1.0).
     const tl: RegimeTimelineEntry[] = [
       { timestamp: 100, regime: "ranging", multiplier: 0.7, posteriorProbs: [0.2, 0.7, 0.1] },
       { timestamp: 200, regime: "volatile", multiplier: 0.4, posteriorProbs: [0.1, 0.2, 0.7] },
     ];
-    expect(getRegimeAt(tl, 1000)).toBe("volatile");
+    expect(getRegimeAt(tl, 1000)).toBe("trending");
+    // Explicit fallback argument also works.
+    expect(getRegimeAt(tl, 1000, "volatile")).toBe("volatile");
   });
 
   it("getRegimeAt — exact match returns the regime at that timestamp", () => {
