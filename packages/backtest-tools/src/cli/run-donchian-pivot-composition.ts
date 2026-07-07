@@ -8,25 +8,6 @@
 // (1 = either fires, 2 = both must fire). Both modes are useful for
 // the Phase 18 envelope study.
 //
-// ===========================================================================
-// Phase 20 Track B — Per-Trade Hybrid-Kelly CLI surface (forward-compat)
-// ===========================================================================
-// This CLI now accepts the Phase 20 #1 `--use-per-trade-kelly` flag (default
-// `false`). The actual wire-up lives in `signal-center-v1.ts` (Track B's
-// primary deliverable). This CLI uses `runBacktest` directly (not SCv1),
-// so the flag is currently a no-op for the runBacktest path — the runBacktest
-// position-size chain does not have a per-trade Hybrid-Kelly chokepoint.
-// A future Track will plumb SCv1 through this CLI runner.
-//
-// The flag is parsed and validated for forward-compat:
-//   --use-per-trade-kelly=true|false   (default false)
-//   --hybrid-kelly-cap=<0..1>          (default 0.5; throws if > 1.0)
-//   --hybrid-kelly-history-days=<int>  (default 30; throws if < 1)
-//
-// When `use-per-trade-kelly=true`, the CLI prints a one-shot notice that
-// the flag is a no-op for this runner (full integration is a follow-up).
-// The bit-identical-to-Phase-19 baseline (default `false`) is preserved.
-//
 // Használat:
 //   bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
 //     --symbol=BTC/USDT --timeframe=15m --min-consensus=2 \
@@ -50,25 +31,6 @@ interface CliArgs {
   readonly minConsensus: number;
   readonly maxPositionPctEquity: number;
   readonly outputPath: string;
-  /**
-   * Phase 20 Track B — opt-in flag for the Per-Trade Hybrid-Kelly
-   * drop-in. Default `false` (bit-identical to Phase 19 baseline).
-   * Currently a no-op for this CLI's runBacktest path — see module
-   * docstring. Future Track will plumb SCv1 through this runner.
-   */
-  readonly usePerTradeHybridKelly: boolean;
-  /**
-   * Phase 20 Track B — Per-Trade Hybrid-Kelly cap in [0, 1.0].
-   * Default 0.5 (Phase 9 9E `baseKellyFraction`). Validated > 1.0
-   * throws (1:10 mandate preservation).
-   */
-  readonly hybridKellyCap: number;
-  /**
-   * Phase 20 Track B — rolling history window in days.
-   * Default 30 (Phase 9 9E `fundingSharpeWindowDays`). Validated < 1
-   * throws.
-   */
-  readonly hybridKellyHistoryDays: number;
 }
 
 function parseArgs(): CliArgs {
@@ -82,10 +44,6 @@ function parseArgs(): CliArgs {
   // `--max-position-pct-equity=<pct>` where pct is in [0, 1] equity-notional terms.
   let maxPositionPctEquity = 0.20;
   let outputPath = "backtest-results/phase18-donchian-pivot-btc-15m-2of2.json";
-  // Phase 20 Track B — Per-Trade Hybrid-Kelly opt-in flags (default-off = Phase 19 baseline).
-  let usePerTradeHybridKelly = false;
-  let hybridKellyCap = 0.5;
-  let hybridKellyHistoryDays = 30;
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -114,45 +72,9 @@ function parseArgs(): CliArgs {
       maxPositionPctEquity = v;
     } else if (arg.startsWith("--output=")) {
       outputPath = arg.slice("--output=".length);
-    } else if (arg.startsWith("--use-per-trade-kelly=")) {
-      // Phase 20 Track B — opt-in flag for Per-Trade Hybrid-Kelly.
-      // Accepts true|false (case-insensitive). Anything else throws.
-      const v = arg.slice("--use-per-trade-kelly=".length).toLowerCase();
-      if (v === "true") usePerTradeHybridKelly = true;
-      else if (v === "false") usePerTradeHybridKelly = false;
-      else throw new Error(`--use-per-trade-kelly must be 'true' or 'false', got: ${v}`);
-    } else if (arg.startsWith("--hybrid-kelly-cap=")) {
-      // Phase 20 Track B — Per-Trade Hybrid-Kelly cap. Must be in (0, 1.0].
-      // 1.10 mandate preservation: cap > 1.0 throws (see
-      // `validateHybridKellyConfig` in `sizing/per-trade-hybrid-kelly.ts`).
-      const v = Number(arg.slice("--hybrid-kelly-cap=".length));
-      if (!Number.isFinite(v) || v <= 0 || v > 1.0) {
-        throw new Error(
-          `--hybrid-kelly-cap must be in (0, 1.0] (1:10 mandate hard cap), got: ${v}`,
-        );
-      }
-      hybridKellyCap = v;
-    } else if (arg.startsWith("--hybrid-kelly-history-days=")) {
-      // Phase 20 Track B — Per-Trade Hybrid-Kelly history window.
-      // Must be integer ≥ 1.
-      const v = Number(arg.slice("--hybrid-kelly-history-days=".length));
-      if (!Number.isInteger(v) || v < 1) {
-        throw new Error(`--hybrid-kelly-history-days must be an integer >= 1, got: ${v}`);
-      }
-      hybridKellyHistoryDays = v;
     }
   }
-  return {
-    symbol,
-    timeframe,
-    initialEquity,
-    minConsensus,
-    maxPositionPctEquity,
-    outputPath,
-    usePerTradeHybridKelly,
-    hybridKellyCap,
-    hybridKellyHistoryDays,
-  };
+  return { symbol, timeframe, initialEquity, minConsensus, maxPositionPctEquity, outputPath };
 }
 
 // Donchian+Pivot composition timeline — HTF=1d, MTF=4h, LTF=15m.
@@ -195,23 +117,6 @@ async function main(): Promise<void> {
   console.log(`[donchian-pivot] aggregation: side-conflict → defer | mean(confidences) | tighter-stop`);
   console.log(`[donchian-pivot] period: ${startTime.toISOString()} → ${endTime.toISOString()}`);
   console.log(`[donchian-pivot] initial equity: $${args.initialEquity}`);
-  // Phase 20 Track B — Per-Trade Hybrid-Kelly CLI surface (forward-compat).
-  // When the opt-in flag is true, this CLI does NOT plumb SCv1 through
-  // runBacktest (would require a major refactor that violates the
-  // "DO NOT modify the engine position-size chain" constraint). Print
-  // a one-shot notice so users aren't confused by an apparently
-  // ineffective flag. The actual wire-up lives in signal-center-v1.ts
-  // and is exercised via the unit tests in signal-center-v1.test.ts.
-  if (args.usePerTradeHybridKelly) {
-    console.log(
-      `[donchian-pivot] NOTE: --use-per-trade-kelly=true is a forward-compat surface for this CLI. ` +
-        `The current runner uses runBacktest directly (not SignalCenterV1), so the per-trade Hybrid-Kelly ` +
-        `override does NOT engage here. Wire-up lives in signal-center-v1.ts (ingestSignal chokepoint); ` +
-        `full SCv1 integration for this runner is a follow-up Track. ` +
-        `Effective settings: hybridKellyCap=${args.hybridKellyCap} historyWindowDays=${args.hybridKellyHistoryDays} ` +
-        `(parsed and validated, not applied to runBacktest positionSize chain).`,
-    );
-  }
 
   const result: BacktestResult = await runBacktest({
     symbol: makeSymbol(args.symbol),
