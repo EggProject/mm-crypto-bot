@@ -103,10 +103,10 @@ function stubSubStrategies(
  * (`applyRegimeConditioning`) not the PRODUCER side.
  */
 function mkTimeline(
-  entries: ReadonlyArray<{
+  entries: readonly {
     readonly timestamp: number;
     readonly regime: "trending" | "ranging" | "volatile";
-  }>,
+  }[],
 ): readonly RegimeTimelineEntry[] {
   return entries.map((e) => {
     const mult =
