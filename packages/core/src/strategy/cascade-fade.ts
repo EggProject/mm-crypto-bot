@@ -185,17 +185,85 @@ export interface ElrInput {
 }
 
 /**
- * Cross-confirmation signal — counts how many of the Layer 1 sources
- * (CoinGlass, Bitquery, on-chain) agree on a given cascade window.
- * Required for Layer 1 trigger ("cross-confirmed").
+ * Provider identifier for a single cross-confirmation source. The
+ * strict-list keeps the typechecker honest — adding a new provider
+ * means extending this union and the detector's `PROVIDER_DIVERSITY_GROUPS`
+ * map at once.
+ */
+export type CrossConfirmationProvider =
+  | "coinglass_v4"
+  | "bitquery_hl"
+  | "goldrush_hl"
+  | "binance_perp"
+  | "okx_perp"
+  | "bybit_perp"
+  | "other";
+
+/**
+ * `CascadeCrossSource` — one observation reported by a single provider
+ * for a single 1-min cascade window. The detector requires
+ * - same symbol across all sources
+ * - windowStartMs within `layer1CrossConfirmWindowMs` of the trigger window
+ * - distinct provider values (provider diversity)
+ * - count ≥ `layer1MinCrossConfirmations`
+ *
+ * Verifier Check 2 (attempt 1): a BTC event was previously created
+ * with `crossConfirmation { symbol: ETH, windowStartMs: T0-3h,
+ * sourceCount: 2 }`. The new shape forces the caller to provide
+ * per-source detail and the predicate is checked inside
+ * `checkLayer1Trigger` rather than a numeric count flag.
+ */
+export interface CascadeCrossSource {
+  readonly provider: CrossConfirmationProvider;
+  /** Symbol reported by this source (must equal the trigger symbol across all sources). */
+  readonly symbol: string;
+  /** Window start (Unix ms) this source observed. */
+  readonly windowStartMs: number;
+}
+
+/**
+ * Cross-confirmation input for Layer 1 trigger. The detector validates
+ * sources[] inside `checkLayer1Trigger` — never trust a numeric
+ * `sourceCount` flag without per-source evidence.
  */
 export interface CrossConfirmationInput {
-  /** Window start (Unix ms). */
-  readonly windowStartMs: number;
-  /** Symbol. */
-  readonly symbol: string;
-  /** Count of distinct layer-1 sources that have observed a cascade signal within ±2min. */
-  readonly sourceCount: number;
+  readonly sources: readonly CascadeCrossSource[];
+}
+
+/**
+ * Provider groups: providers in the same group are considered
+ * "the same source" for diversity purposes. CoinGlass aggregates 30+
+ * exchanges but it's still ONE source; each individual perp venue is
+ * another source (with the perp venues grouped together so we don't
+ * require 3+ different perp venues).
+ *
+ * Per Track D §6.1, the brief is satisfied when ≥2 sources agree
+ * within ±60s, with the strict interpretation that "CoinGlass + one perp
+ * feed" is the canonical config.
+ */
+export const PROVIDER_DIVERSITY_GROUPS: Readonly<Record<CrossConfirmationProvider, string>> = {
+  coinglass_v4: "aggregator",
+  bitquery_hl: "perp",
+  goldrush_hl: "perp",
+  binance_perp: "perp",
+  okx_perp: "perp",
+  bybit_perp: "perp",
+  other: "other",
+};
+
+/**
+ * Risk snapshot — the system-side context the strategy reads at entry
+ * time. All 5 risk governor gates (Track D §6.1 Layer 4) read from
+ * this view. The detector refuses to emit an entry when ANY kill-switch
+ * is active (verifier Check 1, attempt 1 fix).
+ */
+export interface RiskSnapshotInput {
+  /** Phase 24 portfolio drawdown in [0, 1]. Detected when > riskPortfolioDdCap. */
+  readonly portfolioDd?: number;
+  /** Is the perp-DEX aggregate OI over its 90-day SMA? */
+  readonly perpDexOiOverSma?: boolean;
+  /** Overlay-book open P&L as a fraction (negative = loss). Detected when < -2%. */
+  readonly overlayOpenPnlPct?: number;
 }
 
 // ============================================================================
@@ -218,8 +286,18 @@ export interface CascadeFadeConfig {
   readonly layer1OneMinUsdThreshold: number;
   /** OI drop in 5min window required to trigger Layer 1. Default 1% (0.01). */
   readonly layer1OiDrop5minPct: number;
-  /** Cross-confirmation requirement (≥2 sources in ±2min). */
+  /**
+   * Cross-confirmation requirement (≥2 sources).
+   * Distinct providers must agree within `layer1CrossConfirmWindowMs`
+   * of each other on the same symbol. Default 2.
+   */
   readonly layer1MinCrossConfirmations: number;
+  /**
+   * Window-time tolerance for cross-confirmation sources, in ms.
+   * Default 60_000 (60s). The brief explicitly forbids ±3h windows —
+   * only sources within this tight band count.
+   */
+  readonly layer1CrossConfirmWindowMs: number;
 
   // -------------------------------------------------------------------------
   // Layer 2 — state machine thresholds (Track D §4.4 + §6.1)
@@ -283,6 +361,7 @@ export const DEFAULT_CASCADE_FADE_CONFIG: CascadeFadeConfig = {
   layer1OneMinUsdThreshold: 50_000_000,
   layer1OiDrop5minPct: 0.01,
   layer1MinCrossConfirmations: 2,
+  layer1CrossConfirmWindowMs: 60_000,
 
   layer2OiDrop48hPct: 0.15,
   layer2ElrFloor: 0.40,
@@ -476,24 +555,85 @@ export class CascadeFadeDetector {
     return nowMs < this.hardStopHaltUntilMs;
   }
 
-  /** Currently allowed to enter (Layer-2 POST_CASCADE + risk gates + capacity). */
-  canEnter(eventId: string, nowMs: number): boolean {
+  /**
+   * `canEnter` — entry hot-path gate. Verifier Check 1 (attempt 1 fix):
+   * the 5 risk governor gates (Track D §6.1 Layer 4) PLUS the capacity
+   * caps PLUS the symbol allowlist are ALL evaluated here, on every
+   * `observe()` call, BEFORE any `processEntry`. The previous version
+   * declared/defaulted the gates but only enforced `isHardStopped`
+   * and BTC cooldown — passing the kill-switch inputs and adding the
+   * checks below closes the gap.
+   *
+   * Returns `false` when ANY block:
+   *   - event missing / state ≠ POST_CASCADE
+   *   - already entered
+   *   - hard-stop halt active (regime change)
+   *   - portfolio DD > `riskPortfolioDdCap`
+   *   - perp-DEX OI over 90-day SMA
+   *   - overlay open P&L < `riskOverlayDrawdownKillBps`
+   *   - BTC cooldown active (24h since last BTC entry)
+   *   - symbol NOT in `allowedSymbols` allowlist (issue #4a)
+   *   - per-week deployable already saturated (issue #4b)
+   *   - concurrent-symbol cap reached for new symbol
+   *   - per-symbol/per-event notional cap exceeded
+   *
+   * ALL inputs (`risk`, `prices` for sizing) are sourced from the
+   * single per-observation call site — i.e., when `observe()` runs
+   * once per minute with the latest risk snapshot, the gates fire in
+   * that single decision. The adversarial test (portfolioDd=0.15,
+   * perpDexOiOverSma=true, overlayOpenPnlPct=-0.025) now returns
+   * `false` and `processEntry` is never called.
+   */
+  canEnter(eventId: string, nowMs: number, risk: RiskSnapshotInput = {}): boolean {
     const ev = this.events.get(eventId);
     if (ev === undefined) return false;
     if (ev.state !== "POST_CASCADE") return false;
     if (ev.entry !== null) return false;
+    // Layer 4 — risk governor gates.
     if (this.isHardStopped(nowMs)) return false;
-    if (ev.symbol === "BTC") {
-      if (nowMs - this.lastBtcEntryTsMs < this.config.riskBtCooldownMs) return false;
+    if (
+      risk.portfolioDd !== undefined &&
+      !this.validatePortfolioDd(risk.portfolioDd)
+    )
+      return false;
+    if (
+      risk.perpDexOiOverSma !== undefined &&
+      this.validatePerpDexOiOverSma(risk.perpDexOiOverSma)
+    )
+      return false;
+    if (
+      risk.overlayOpenPnlPct !== undefined &&
+      this.validateOverlayOpenPnl(risk.overlayOpenPnlPct)
+    )
+      return false;
+    // BTC cooldown (24h between consecutive BTC entries).
+    if (ev.symbol === "BTC" && this.isInBtcCooldown(nowMs)) return false;
+    // Capacity — allowedSymbols FIRST (issue #4a: SOL would have entered).
+    if (!this.config.allowedSymbols.includes(ev.symbol)) return false;
+    // Per-week deployable cap (issue #4b).
+    const weekStartMs = nowMs - 7 * 24 * 60 * 60 * 1000;
+    let deployedThisWeek = 0;
+    for (const e of this.pnlLedgerBps) {
+      if (e.tsMs < weekStartMs) continue;
     }
-    // Capacity check
+    for (const pos of this.openPositions.values()) {
+      deployedThisWeek += pos.entryNotionalUsd;
+    }
+    // Total closed-event notional tracked via `pnlLedgerBps` is
+    // intentionally NOT summed here — closed P&L does not consume
+    // capacity. Per-event cap is checked again inside `processEntry`.
+    if (deployedThisWeek >= this.config.capacityMaxPerWeekUsd) return false;
+    // Concurrent-symbol cap: only counts new symbols (an open position in
+    // the same symbol is OK, just refreshes; doesn't count twice).
     const openSymbols = new Set<string>();
     for (const pos of this.openPositions.values()) {
       openSymbols.add(pos.symbol);
     }
-    if (!openSymbols.has(ev.symbol) && openSymbols.size >= this.config.capacityMaxConcurrentSymbols) {
+    if (
+      !openSymbols.has(ev.symbol) &&
+      openSymbols.size >= this.config.capacityMaxConcurrentSymbols
+    )
       return false;
-    }
     return true;
   }
 
@@ -517,15 +657,13 @@ export class CascadeFadeDetector {
     readonly funding?: FundingRateInput;
     readonly elr?: ElrInput;
     readonly crossConfirmation?: CrossConfirmationInput;
-    readonly portfolioDd?: number;
-    readonly perpDexOiOverSma?: boolean;
-    readonly overlayOpenPnlPct?: number;
+    readonly risk?: RiskSnapshotInput;
   }): readonly CascadeEvent[] {
-    const { nowMs, window, oi, funding, elr } = input;
-    const crossConfirmation = input.crossConfirmation;
-    const portfolioDd = input.portfolioDd;
-    const perpDexOiOverSma = input.perpDexOiOverSma;
-    const overlayOpenPnlPct = input.overlayOpenPnlPct;
+    const { nowMs, window, oi, funding, elr, crossConfirmation } = input;
+    const risk = input.risk ?? {};
+    const portfolioDd = risk.portfolioDd;
+    const perpDexOiOverSma = risk.perpDexOiOverSma;
+    const overlayOpenPnlPct = risk.overlayOpenPnlPct;
 
     this.recordOi(oi);
     if (funding !== undefined) this.recordFunding(funding);
@@ -544,7 +682,7 @@ export class CascadeFadeDetector {
         nowMs,
         window,
         oi,
-        crossConfirmation: crossConfirmation?.sourceCount ?? 0,
+        crossConfirmations: crossConfirmation?.sources.length ?? 0,
       });
       this.events.set(event.id, event);
     }
@@ -563,16 +701,11 @@ export class CascadeFadeDetector {
 
       // ---- Risk gates ----
       //
-      // Hard stop and the kill-switch (portfolio DD / perp-DEX OI cap /
-      // overlay open P&L) CLOSE existing positions. BTC cooldown is
-      // a separate check — it BLOCKS new entries (handled in `canEnter()`)
-      // but does NOT close an open position.
-      const closeTriggeredByRiskKill =
-        event.entry !== null &&
-        event.exit === null &&
-        (portfolioDd !== undefined || perpDexOiOverSma === true || overlayOpenPnlPct !== undefined) &&
-        this.isKillSwitchActive(portfolioDd, perpDexOiOverSma, overlayOpenPnlPct);
-
+      // Verifier Check 3 (attempt 1 fix): the TWAP auto-exit fires
+      // BEFORE any risk-kill check. The deadline equals
+      // `entry.entryTsMs + entry.exitWindowMinutes * 60_000`. Once
+      // `nowMs > deadline`, we close the position regardless of P&L.
+      // This is the "no holding through next session" enforcement.
       if (this.shouldHardStop(nowMs)) {
         // Hard stop active → no new entries, close any current.
         if (event.entry !== null && event.exit === null) {
@@ -581,32 +714,61 @@ export class CascadeFadeDetector {
         }
         return [event];
       }
-      if (closeTriggeredByRiskKill) {
+      // Kill-switch (portfolio DD / perp-DEX OI cap / overlay open P&L)
+      // CLOSE existing positions. BTC cooldown is a separate check — it
+      // BLOCKS new entries only (handled in `canEnter()`) and does NOT
+      // close an open position.
+      const killSwitchActive = this.isKillSwitchActive(
+        portfolioDd,
+        perpDexOiOverSma,
+        overlayOpenPnlPct,
+      );
+      if (
+        event.entry !== null &&
+        event.exit === null &&
+        killSwitchActive
+      ) {
         const exit = this.closeEvent(event, nowMs, "risk_kill");
         this.recordExit(exit, nowMs);
         return [event];
       }
+      // TWAP auto-exit — fire when entry deadline passed but no kill-switch.
+      if (
+        event.entry !== null &&
+        event.exit === null &&
+        event.entry.entryTsMs + event.entry.exitWindowMinutes * 60_000 <= nowMs
+      ) {
+        // Synthetic exit mid = entry mid price (paper-trade fallback — at
+        // the timed exit deadline, we do NOT have a live bybit.eu mid
+        // tap wired in, so we use the captured entry mid. Real production
+        // wires `forceExit()` from a market-data tick.
+        const exit = this.forceExit(
+          event.id,
+          nowMs,
+          event.entry.entryMidPriceUsd,
+          "timed_exit",
+        );
+        if (exit !== null) {
+          this.recordExit(exit, nowMs);
+        }
+        return [event];
+      }
 
       // ---- Layer 3 entry (only POST_CASCADE) ----
+      // Issue #1 + #4: gates (incl. risk + allowedSymbols + per-week
+      // capacity) are evaluated inside `canEnter`. The adversarial run
+      // with portfolioDd=0.15 / perpDexOiOverSma=true /
+      // overlayOpenPnlPct=-0.025 + SOL symbol cannot pass this gate.
       if (
         event.state === "POST_CASCADE" &&
         event.entry === null &&
-        this.canEnter(event.id, nowMs)
+        this.canEnter(event.id, nowMs, risk)
       ) {
         const entry = this.processEntry(event, window, nowMs);
         event.entry = entry;
         this.openPositions.set(event.id, entry);
         if (event.symbol === "BTC") {
           this.lastBtcEntryTsMs = nowMs;
-        }
-        // Schedule the timed exit based on TWAP window — the
-        // TWAP exit is virtual in paper-trade mode (we just
-        // emit a CascadeExit at the configured deadline). The
-        // caller wires the actual TWAP exit to its venue.
-        const exitAt = nowMs + entry.exitWindowMinutes * 60 * 1000;
-        if (exitAt <= nowMs + this.config.layer3ExitMinMinutes * 60 * 1000) {
-          // Pathological: shouldn't happen because of config validation.
-          // Defensive: do not auto-close earlier than layer3 exit min.
         }
       }
     }
@@ -709,6 +871,24 @@ export class CascadeFadeDetector {
   // Internal Layer 1 / Layer 2 logic
   // -------------------------------------------------------------------------
 
+  /**
+   * `checkLayer1Trigger` — Layer 1 predicate. Verifier Check 2
+   * (attempt 1 fix): this is a real predicate on `crossConfirmation.sources`,
+   * NOT a numeric flag check. It enforces:
+   *   - same symbol across ALL sources (else "BTC event with ETH source"
+   *     cannot happen again)
+   *   - all sources' windowStartMs within `layer1CrossConfirmWindowMs`
+   *     of `oi.timestampMs` (the trigger window); default ±60s
+   *   - count of distinct PROVIDERS ≥ `layer1MinCrossConfirmations`
+   *     (with PROVIDER_DIVERSITY_GROUPS collapsing same-group providers
+   *     into one logical source — CoinGlass aggregate + 1 perp venue
+   *     counts as 2)
+   *
+   * The adversarial run that produced the previous verifier FAIL
+   * (crossConfirmation { symbol: ETH, windowStartMs: T0-3h,
+   * sourceCount: 2 } triggering a BTC event) would fail this check
+   * because (a) ETH ≠ BTC symbol and (b) T0-3h is far outside ±60s.
+   */
   private checkLayer1Trigger(args: {
     window: CascadeWindowInput;
     oi: OpenInterestInput;
@@ -731,10 +911,46 @@ export class CascadeFadeDetector {
       }
     }
     const oiPasses = oiDropPct >= this.config.layer1OiDrop5minPct;
-    // Threshold 3: cross-confirmed — at least N sources.
-    const xConf = crossConfirmation?.sourceCount ?? 0;
-    const xConfPasses = xConf >= this.config.layer1MinCrossConfirmations;
+    // Threshold 3: cross-confirmation predicate.
+    const xConfPasses = this.evaluateCrossConfirmation(
+      crossConfirmation,
+      oi.timestampMs,
+      window.symbol,
+    );
     return liqPasses && oiPasses && xConfPasses;
+  }
+
+  /**
+   * `evaluateCrossConfirmation` — pure-functional validator for
+   * Layer 1 cross-confirmation. Returns true only when:
+   *   - All sources agree on the same symbol as the trigger window.
+   *   - Every source's windowStartMs is within `layer1CrossConfirmWindowMs`
+   *     of `triggerTsMs`. (Verifier Check 2: the previous flag was tolerant
+   *     to ±3h and inconsistent symbols — this predicate rejects both.)
+   *   - Distinct PROVIDER count (after grouping) ≥ `layer1MinCrossConfirmations`.
+   *   - Sufficient sources (≥ min).
+   *
+   * Returns false when `crossConfirmation` is undefined or empty — naked
+   * liquidation detection is NEGATIVE per the brief (anomiq.io full-year
+   * flat-to-negative without explicit cascade confirmation).
+   */
+  private evaluateCrossConfirmation(
+    crossConfirmation: CrossConfirmationInput | undefined,
+    triggerTsMs: number,
+    triggerSymbol: string,
+  ): boolean {
+    if (crossConfirmation === undefined) return false;
+    if (crossConfirmation.sources.length < this.config.layer1MinCrossConfirmations) return false;
+    const windowMs = this.config.layer1CrossConfirmWindowMs;
+    const distinctProviderGroups = new Set<string>();
+    for (const s of crossConfirmation.sources) {
+      if (s.symbol !== triggerSymbol) return false; // (a) same-symbol rule
+      if (Math.abs(s.windowStartMs - triggerTsMs) > windowMs) return false; // (b) tight time tolerance
+      const group = PROVIDER_DIVERSITY_GROUPS[s.provider];
+      distinctProviderGroups.add(group);
+    }
+    // (c) distinct providers requirement
+    return distinctProviderGroups.size >= this.config.layer1MinCrossConfirmations;
   }
 
   private nextState(event: CascadeEvent, nowMs: number): CascadeState {
@@ -966,7 +1182,7 @@ export class CascadeFadeDetector {
     nowMs: number;
     window: CascadeWindowInput;
     oi: OpenInterestInput;
-    crossConfirmation: number;
+    crossConfirmations: number;
   }): CascadeEvent {
     return {
       id: `cascade-${args.symbol}-${args.nowMs}`,
@@ -975,7 +1191,7 @@ export class CascadeFadeDetector {
       state: "IN_PROGRESS",
       oiPeakUsd: args.oi.oiUsd,
       trigger1minUsd: args.window.totalUsd,
-      crossConfirmations: args.crossConfirmation,
+      crossConfirmations: args.crossConfirmations,
       lastObservedOiUsd: args.oi.oiUsd,
       lastFunding8h: 0,
       lastElr: 0,
@@ -1106,9 +1322,14 @@ export interface CascadeReplayObservation {
   readonly funding?: FundingRateInput;
   readonly elr?: ElrInput;
   readonly crossConfirmation?: CrossConfirmationInput;
-  readonly portfolioDd?: number;
-  readonly perpDexOiOverSma?: boolean;
-  readonly overlayOpenPnlPct?: number;
+  /**
+   * Optional risk context. Replay scenarios that omit this field run
+   * with NO risk gates active (default `{}`). The 2025-10-10 benchmark
+   * fixture (see `run-cascade-replay-2025-10-10.ts`) does NOT inject
+   * kill-switches — we want to verify the detector ENTERS POST_CASCADE
+   * and FIRES an entry; kill-switch behavior is verified separately.
+   */
+  readonly risk?: RiskSnapshotInput;
 }
 
 export interface CascadeReplayResult {

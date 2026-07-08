@@ -111,12 +111,31 @@ const elr = (tsMs: number, symbol = "BTC", ratio = 0.30) => ({
   elr: ratio,
 });
 
-/** Cross-confirmation. */
-const xconf = (startMs: number, symbol = "BTC", count = 2) => ({
-  windowStartMs: startMs,
-  symbol,
-  sourceCount: count,
-});
+/**
+ * Cross-confirmation helper — produces a `CrossConfirmationInput` that
+ * satisfies the new strict predicate (verifier Check 2 attempt 1 fix):
+ *   - same symbol across all sources (uses the `symbol` arg consistently)
+ *   - windowStartMs within ±60s of the trigger observation (we pass
+ *     `startMs` AS-IS since the trigger `nowMs` will equal `startMs`)
+ *   - `count` distinct providers across the PROVIDER_DIVERSITY_GROUPS
+ *     space — we cycle through coinglass_v4 + perp venues.
+ */
+const xconf = (startMs: number, symbol = "BTC", count = 2) => {
+  const providers: ReadonlyArray<
+    | "coinglass_v4"
+    | "bitquery_hl"
+    | "binance_perp"
+    | "okx_perp"
+    | "bybit_perp"
+  > = ["coinglass_v4", "bitquery_hl", "binance_perp", "okx_perp", "bybit_perp"];
+  const sources: { provider: typeof providers[number]; symbol: string; windowStartMs: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    const provider = providers[i % providers.length];
+    if (provider === undefined) throw new Error("xconf: provider array exhausted");
+    sources.push({ provider, symbol, windowStartMs: startMs });
+  }
+  return { sources };
+};
 
 /** Drive the detector with a sequence of observations that build an OI-history. */
 function seedOiHistory(
@@ -373,7 +392,7 @@ describe("CascadeFadeDetector — Layer 2 (state machine)", () => {
         elr: elr(ts, "BTC", 0.39),
       });
     }
-    expect(det.getOpenEvents()[0]?.state).toBe("POST_CASCADE");
+    expect(det.getAllEvents()[0]?.state).toBe("POST_CASCADE");
     // Now ELR spikes to 0.50
     det.observe({
       nowMs: T0 + 121 * 60_000,

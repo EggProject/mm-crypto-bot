@@ -316,6 +316,7 @@ export interface CarryResult {
   readonly meanReversionHalfLifeHours: number;
   readonly killSwitch7DayCompressionTriggered: boolean;
   readonly compressedDivergenceDays: number;
+  readonly dataSufficientDays: number;
   readonly equityCurve: readonly CarryPoint[];
   readonly startTime: number;
   readonly endTime: number;
@@ -459,11 +460,38 @@ export function simulateDydxVsCexCarry(opts: {
   const dydxRates: number[] = [];
   const cexRates: number[] = [];
 
-  // Per-iteration carry tracking.
-  const dailyCarry: { date: string; totalCarryUsd: number; divergence: number | null }[] = [];
-  let lastDay = "";
-  let dayFundingUsd = 0;
-  let lastDivergence: number | null = null;
+  // Per-day aggregation for kill-switch check (FIX for Attempt 1 verifier FAIL).
+  // A day is "compressed" ONLY if it has >=1 dydx observation (data-sufficient)
+  // AND the MEDIAN of intraday divergence samples is < 0.0005/8h. Days with
+  // no dydx data simply don't participate. This eliminates the sparse-data
+  // false-positive problem where a single carried-forward divergence value
+  // was counted as "compressed" for 30+ consecutive days.
+  interface DayBucket {
+    readonly date: string;
+    totalCarryUsd: number;
+    readonly divergenceSamples: number[];
+    dydxObsCount: number;
+    cexObsCount: number;
+  }
+  const dayBuckets: DayBucket[] = [];
+  const dayIndex = new Map<string, number>();
+  const getOrCreateDay = (date: string): DayBucket => {
+    const idx = dayIndex.get(date);
+    if (idx !== undefined) {
+      const existing = dayBuckets[idx];
+      if (existing !== undefined) return existing;
+    }
+    const newBucket: DayBucket = {
+      date,
+      totalCarryUsd: 0,
+      divergenceSamples: [],
+      dydxObsCount: 0,
+      cexObsCount: 0,
+    };
+    dayIndex.set(date, dayBuckets.length);
+    dayBuckets.push(newBucket);
+    return newBucket;
+  };
 
   // Drift tracking.
   let cumFundingUsd = 0;
@@ -500,12 +528,14 @@ export function simulateDydxVsCexCarry(opts: {
     }
 
     // Divergence: dYdX (8h-equiv) - CEX (8h).
+    // NO carry-forward — divergence is computed only at timestamps where
+    // BOTH venues have data. Days with only one venue's data are excluded
+    // from the kill-switch count (handled in dayBucket aggregation below).
     const dydx8hEquiv: number | null = ev.dydxRate !== null ? ev.dydxRate * 8 : null;
     const divergence: number | null =
-      dydx8hEquiv !== null && ev.cexRate !== null ? dydx8hEquiv - ev.cexRate : lastDivergence;
+      dydx8hEquiv !== null && ev.cexRate !== null ? dydx8hEquiv - ev.cexRate : null;
     if (divergence !== null) {
       divergenceSeries.push(divergence);
-      lastDivergence = divergence;
     }
 
     // Rebalance check.
@@ -520,19 +550,15 @@ export function simulateDydxVsCexCarry(opts: {
       cumFundingUsd = 0;
     }
 
-    // Daily aggregation for kill-switch check.
+    // Daily aggregation: append samples to the matching day bucket. Days
+    // with no dydx or no overlap-with-CEX diverge samples don't contribute
+    // to the kill-switch count.
     const evDay = new Date(ev.timestamp).toISOString().slice(0, 10);
-    if (lastDay === "") lastDay = evDay;
-    if (evDay !== lastDay) {
-      dailyCarry.push({
-        date: lastDay,
-        totalCarryUsd: dayFundingUsd,
-        divergence: divergenceSeries[divergenceSeries.length - 1] ?? null,
-      });
-      lastDay = evDay;
-      dayFundingUsd = 0;
-    }
-    dayFundingUsd += eventFundingUsd;
+    const dayBucket = getOrCreateDay(evDay);
+    dayBucket.totalCarryUsd += eventFundingUsd;
+    if (ev.dydxRate !== null) dayBucket.dydxObsCount += 1;
+    if (ev.cexRate !== null) dayBucket.cexObsCount += 1;
+    if (divergence !== null) dayBucket.divergenceSamples.push(divergence);
 
     // Mark equity (mark-to-funding only — true delta-neutral carry
     // has zero directional PnL in theory).
@@ -547,36 +573,35 @@ export function simulateDydxVsCexCarry(opts: {
     });
   }
 
-  // Push the last partial day.
-  if (lastDay !== "") {
-    dailyCarry.push({
-      date: lastDay,
-      totalCarryUsd: dayFundingUsd,
-      divergence: divergenceSeries[divergenceSeries.length - 1] ?? null,
-    });
-  }
-
-  // Kill-switch check: divergence compresses <0.0005/8h for 7 consecutive days.
+  // Kill-switch check (FIX for Attempt 1 verifier FAIL): divergence compresses
+  // <0.0005/8h for 7 consecutive data-sufficient days. Days without dydx
+  // data are excluded entirely so sparse Tardis samples can't cause
+  // false-positive compression streaks.
   const COMPRESS_THRESHOLD = 0.0005;
+  const dailyCompressedFlags: boolean[] = dayBuckets.map((day) => {
+    if (day.dydxObsCount === 0) return false; // no dydx data → not "compressed"
+    if (day.divergenceSamples.length === 0) return false; // no overlap → not "compressed"
+    const dayDivergence = median(day.divergenceSamples);
+    return Math.abs(dayDivergence) < COMPRESS_THRESHOLD;
+  });
   const compressedRuns: { start: number; end: number }[] = [];
   let runStart = -1;
-  for (let k = 0; k < dailyCarry.length; k++) {
-    const day = dailyCarry[k];
-    if (day === undefined) continue;
-    const div = day.divergence;
-    if (div !== null && Math.abs(div) < COMPRESS_THRESHOLD) {
+  for (let k = 0; k < dailyCompressedFlags.length; k++) {
+    const flag = dailyCompressedFlags[k] ?? false;
+    if (flag) {
       if (runStart === -1) runStart = k;
     } else if (runStart !== -1) {
       compressedRuns.push({ start: runStart, end: k - 1 });
       runStart = -1;
     }
   }
-  if (runStart !== -1) compressedRuns.push({ start: runStart, end: dailyCarry.length - 1 });
+  if (runStart !== -1) compressedRuns.push({ start: runStart, end: dailyCompressedFlags.length - 1 });
   const killSwitchTriggered = compressedRuns.some((r) => r.end - r.start + 1 >= 7);
   const compressedDivergenceDays = compressedRuns.reduce(
     (acc, r) => acc + (r.end - r.start + 1),
     0,
   );
+  const dataSufficientDays = dayBuckets.filter((d) => d.dydxObsCount > 0).length;
 
   // Compute metrics.
   const totalReturn = (fundingCollectedUsd - rebalanceCostUsd) / initialEquity;
@@ -597,8 +622,8 @@ export function simulateDydxVsCexCarry(opts: {
     void p;
   }
   // Use an actual rebalance timestamps array reconstructed from
-  // dailyFundingUsd sign-flip events as a proxy.
-  for (const day of dailyCarry) {
+  // data-sufficient day buckets as a proxy.
+  for (const day of dayBuckets) {
     if (day.totalCarryUsd === 0) continue;
     const ts = Date.parse(day.date);
     if (lastRebalanceTs > 0) rebalanceHours.push((ts - lastRebalanceTs) / (1000 * 60 * 60));
@@ -659,6 +684,7 @@ export function simulateDydxVsCexCarry(opts: {
     meanReversionHalfLifeHours: halfLife,
     killSwitch7DayCompressionTriggered: killSwitchTriggered,
     compressedDivergenceDays,
+    dataSufficientDays,
     equityCurve,
     startTime,
     endTime,
@@ -759,7 +785,7 @@ async function main(): Promise<void> {
   console.log(`Rebalance cost:         $${result.rebalanceCostUsd.toFixed(2)}`);
   console.log(`Funding collected:      $${result.fundingCollectedUsd.toFixed(2)}`);
   console.log(`Median rebalance gap:   ${result.medianRebalanceHours.toFixed(1)} hours`);
-  console.log(`Kill-switch (7d <0.0005): TRIGGERED=${result.killSwitch7DayCompressionTriggered}, compressed_days=${result.compressedDivergenceDays}`);
+  console.log(`Kill-switch (7d <0.0005): TRIGGERED=${result.killSwitch7DayCompressionTriggered}, compressed_days=${result.compressedDivergenceDays}, data_sufficient_days=${result.dataSufficientDays}`);
 
   // Empirical verdict per Phase 25 #2 Track B §7.2 + T1 spec.
   const verdict =
