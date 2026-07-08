@@ -1,0 +1,22 @@
+{
+  "strategy": "v2",
+  "symbol": "BTC/USDT",
+  "window": {
+    "start": "2026-07-01",
+    "end": "2026-07-08",
+    "days": 7
+  },
+  "floor": {
+    "returnPct": 0.1,
+    "ddCeilingPct": 5
+  },
+  "actual": {
+    "totalReturnPct": 0.56698,
+    "sharpe": 0,
+    "maxDdPct": 0,
+    "totalTrades": 0
+  },
+  "verdict": "FAIL",
+  "reason": "0 trades (strategy did not produce signals)",
+  "generatedAt": "2026-07-08T22:13:24.776Z"
+}

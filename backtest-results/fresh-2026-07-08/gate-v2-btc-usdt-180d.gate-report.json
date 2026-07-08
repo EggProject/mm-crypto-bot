@@ -1,0 +1,22 @@
+{
+  "strategy": "v2",
+  "symbol": "BTC/USDT",
+  "window": {
+    "start": "2026-01-09",
+    "end": "2026-07-08",
+    "days": 180
+  },
+  "floor": {
+    "returnPct": 10,
+    "ddCeilingPct": 5
+  },
+  "actual": {
+    "totalReturnPct": 6.132693939306739,
+    "sharpe": 15.629410366395497,
+    "maxDdPct": 1.3832943273125784,
+    "totalTrades": 5
+  },
+  "verdict": "FAIL",
+  "reason": "180d return 6.13% < floor 10.00%",
+  "generatedAt": "2026-07-08T22:18:00.355Z"
+}
