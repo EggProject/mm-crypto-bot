@@ -188,7 +188,7 @@ describe("MultiClassEnsembleV2 — latency gate", () => {
 
   it("closed gate: pauses carry, no funding accrual", () => {
     const closedGate: LatencyGate = {
-      snapshot: { pair: "test", roundTripMsMax: 9999, roundTripMsMedian: 5000, sourceJsonPath: "test.json" },
+      snapshot: { pair: "test", roundTripMsMax: 9999, sourceJsonPath: "test.json" },
       arbThresholdMs: 100,
       isCarryAllowed: () => false,
     };
