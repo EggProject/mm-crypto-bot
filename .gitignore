@@ -60,3 +60,6 @@ Desktop.ini
 
 # === Verziókövetésből kizárt munkakönyvtárak ===
 .worktrees/
+
+# === Tardis / külső adatszolgáltatók lokális cache-ei ===
+.cache/

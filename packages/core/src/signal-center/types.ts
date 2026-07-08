@@ -221,7 +221,8 @@ export interface RiskSignal {
 /**
  * `FundingSnapshotSignal` — read-only telemetry emitted by
  * `CrossDexFundingWatcherPlugin` (Phase 12 Track B / Phase 11.5
- * Track E §H1).
+ * Track E §H1) and `CrossVenueFundingDivergencePlugin`
+ * (Phase 25 #2 T4 Track C, 6-venue extension).
  *
  * Carries the latest 8h-equivalent funding rate per venue for a single
  * asset, plus the per-asset cross-venue spread and the
@@ -239,17 +240,44 @@ export interface RiskSignal {
  *   - `hl8h` — Hyperliquid 8h-equivalent rate. Hyperliquid settles
  *     hourly at 1/8 of the computed 8h rate, so the 1-hour raw
  *     funding is multiplied by 8 to get the 8h-equivalent. Bps.
- *   - `bz` — Binance mark funding rate (8h native). Bps.
- *   - `by` — Bybit funding rate (8h native). Bps.
- *   - `ok` — OKX funding rate (8h native). Bps.
- *   - `spreadMax` — `max(hl8h, bz, by, ok) - min(...)` in bps.
- *     Captures the maximum divergence opportunity across venues.
+ *     `NaN` if the venue has not reported yet.
+ *   - `bz` — Binance mark funding rate (8h native). Bps. `NaN` if absent.
+ *   - `by` — Bybit funding rate (8h native). Bps. `NaN` if absent.
+ *   - `ok` — OKX funding rate (8h native). Bps. `NaN` if absent.
+ *   - `spreadMax` — `max(all present venues) - min(all present venues)`
+ *     in bps. Captures the maximum divergence opportunity across the
+ *     venues that have reported. For the legacy 4-venue emitter this
+ *     is `max(hl8h, bz, by, ok) - min(...)`; for the 6-venue
+ *     `CrossVenueFundingDivergencePlugin` it spans up to 6 venues
+ *     (HL + dYdX + Binance + Bybit + OKX + Bitget).
  *   - `predictedGap` — Hyperliquid `predictedFundings` next-settlement
  *     minus current realized, normalized to 8h-equivalent bps.
  *     Positive = predicted is HIGHER than realized (fade short,
  *     carry on the next settlement). Negative = predicted is LOWER
  *     (long the next settlement).
  *   - `timestamp` — wall-clock ms when the snapshot was emitted.
+ *   - `dydx8h` (Phase 25 #2 T4, OPTIONAL) — dYdX v4 8h-equivalent rate
+ *     in bps. Hyperliquid's per-hour pattern is reused: dYdX settles
+ *     hourly at 1/8 of the computed 8h rate, so the raw hourly input
+ *     is × 8 × 10_000. Present only when emitted by
+ *     `CrossVenueFundingDivergencePlugin`. Omitted by the legacy
+ *     4-venue emitter for backward compat.
+ *   - `bitget8h` (Phase 25 #2 T4, OPTIONAL) — Bitget USDT-M 8h-native
+ *     rate in bps. Present only when emitted by
+ *     `CrossVenueFundingDivergencePlugin`. Omitted by the legacy
+ *     4-venue emitter.
+ *   - `divergenceBps` (Phase 25 #2 T4, OPTIONAL) — explicit divergence
+ *     metric: `max(all present venues) - min(all present venues)` in
+ *     bps over the 1-minute bucket. Computed only by
+ *     `CrossVenueFundingDivergencePlugin`. Semantically identical to
+ *     `spreadMax` when `spreadMax` is computed over the same venue
+ *     set; the field name is added for explicit consumer readability
+ *     in Track C regime indicators. Omitted by the legacy 4-venue
+ *     emitter.
+ *   - `bucketStartMs` (Phase 25 #2 T4, OPTIONAL) — start of the
+ *     1-minute bucket the snapshot represents. Wall-clock ms aligned
+ *     to the minute boundary. Present only when emitted by
+ *     `CrossVenueFundingDivergencePlugin`.
  */
 export interface FundingSnapshotSignal {
   readonly kind: "funding-snapshot";
@@ -263,6 +291,14 @@ export interface FundingSnapshotSignal {
   readonly timestamp: number;
   readonly source: string;
   readonly timestampMs?: number;
+  /** Phase 25 #2 T4 — dYdX v4 8h-equivalent rate in bps. */
+  readonly dydx8h?: number;
+  /** Phase 25 #2 T4 — Bitget USDT-M 8h-native rate in bps. */
+  readonly bitget8h?: number;
+  /** Phase 25 #2 T4 — explicit max-min divergence across all venues in bps. */
+  readonly divergenceBps?: number;
+  /** Phase 25 #2 T4 — start of the 1-minute bucket the snapshot represents. */
+  readonly bucketStartMs?: number;
 }
 
 // ---------------------------------------------------------------------------

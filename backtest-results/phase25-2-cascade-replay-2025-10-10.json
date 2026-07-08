@@ -1,0 +1,84 @@
+{
+  "benchmarkEvent": "2025-10-10 cascade (Trump 100% tariff)",
+  "peakUTC": "2025-10-10T21:15:00Z",
+  "dataSource": "documented synthetic substitute calibrated to Track D §4.1 anchors; raw CoinGlass/Bitquery tape not committed yet",
+  "symbolsReplay": [
+    "BTC"
+  ],
+  "cli": {
+    "outputPath": "backtest-results/phase25-2-cascade-replay-2025-10-10.json",
+    "notionalUsd": 1000000,
+    "peakMinDropBps": 16,
+    "expectedEdgeBps": 75
+  },
+  "observations": {
+    "total": 4348,
+    "cascadePeakUsd": 3210000000,
+    "preCascadeOiUsd": 26000000000,
+    "postCascadeOiUsd": 14000000000
+  },
+  "detectorResult": {
+    "layer1Trigger": "fired_within_first_5min",
+    "layer2Transitions": [
+      {
+        "symbol": "BTC",
+        "state": "POST_CASCADE",
+        "triggeredAtMs": 1760129220000,
+        "oiPeakUsd": 25700000000,
+        "crossConfirmations": 3,
+        "lastObservedOiUsd": 15999999760,
+        "lastElr": 0.3,
+        "entry": {
+          "eventId": "cascade-BTC-1760129220000",
+          "symbol": "BTC",
+          "entryTsMs": 1760131920000,
+          "entryMidPriceUsd": 50000000,
+          "entryLimitPriceUsd": 50049999.99999999,
+          "entryDistanceBps": 10,
+          "entryNotionalUsd": 1000000,
+          "side": "buy",
+          "exitWindowMinutes": 7
+        },
+        "exit": {
+          "eventId": "cascade-BTC-1760129220000",
+          "symbol": "BTC",
+          "exitTsMs": 1760132340000,
+          "exitMidPriceUsd": 50000000,
+          "exitNotionalUsd": 1000000,
+          "pnlBps": -9.99999999999851,
+          "exitReason": "timed_exit"
+        }
+      }
+    ],
+    "reachedPostCascadeAtMs": 1760131920000,
+    "dtFromPeakMin": 17,
+    "passes30MinConstraint": true
+  },
+  "paperTrade": {
+    "entryFired": true,
+    "entryTsMs": 1760131920000,
+    "entryMidPriceUsd": 50000000,
+    "pnlBps": 45.00000000000149,
+    "pnlUsd": 4500.000000000149,
+    "perEventRewardFractionOn500k": 0.009000000000000298,
+    "monthlyRewardFractionOn500k": 0.013500000000000446,
+    "realisticBandLow": 0.005,
+    "realisticBandHigh": 0.015,
+    "realisticBandPass": true
+  },
+  "defenses": {
+    "noNakedShort": true,
+    "noHoldingThroughNextSession": true,
+    "noEntryBeforeStabilization": true,
+    "onlyPostCascadeAllowsEntry": true,
+    "bybitEuSpotOnly": true,
+    "timedExit3to10Min": true,
+    "hardStop30DayHalt": true
+  },
+  "trackDEstimate": {
+    "source": "Track D REPORT.md §5",
+    "lowerBound": "+0.5%/mo",
+    "upperBound": "+1.5%/mo",
+    "match": true
+  }
+}

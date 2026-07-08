@@ -19,6 +19,7 @@
 
 export * from "./always-in-trend-plugin.js";
 export * from "./composite-plugin.js";
+export * from "./cross-venue-funding-divergence-plugin.js";
 export * from "./donchian-breakout-plugin.js";
 export * from "./donchian-mtf-plugin.js";
 export * from "./donchian-trailing-plugin.js";
