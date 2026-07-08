@@ -24,6 +24,7 @@
 import { resolve } from "node:path";
 
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 interface GateArgs {
   readonly strategy: "v2" | "dydx-cex-carry" | "donchian-pivot-composition";
@@ -116,7 +117,7 @@ function runStrategyCli(args: GateArgs, startDate: string): {
         "--symbol=" + args.symbol,
         "--start=" + startDate,
         "--end=" + args.endDate,
-        "--min-consensus=" + args.minConsensus,
+        `--min-consensus=${args.minConsensus}`,
         "--output=" + args.outputPath,
       ];
       break;
@@ -125,7 +126,7 @@ function runStrategyCli(args: GateArgs, startDate: string): {
       // (would need a separate window-paper-trade runner; out of scope).
       throw new Error("dydx-cex-carry paper-trade gate not yet implemented — use v2 or donchian-pivot-composition");
     default:
-      throw new Error(`Unknown strategy: ${args.strategy}`);
+      throw new Error(`Unknown strategy: ${String(args.strategy)}`);
   }
 
   console.log(`[gate] Running ${args.strategy} ${args.symbol} for ${args.days} days (${startDate} to ${args.endDate})`);
@@ -140,28 +141,32 @@ function runStrategyCli(args: GateArgs, startDate: string): {
   // Parse the output JSON to extract metrics.
   // V2 emits `combinedEdge.totalReturnPct`, donchian emits `result.totalReturn * 100`.
   try {
-    const fs = require("node:fs") as typeof import("node:fs");
-    const json = JSON.parse(fs.readFileSync(args.outputPath, "utf8"));
-    if (json.combinedEdge) {
+    const raw = readFileSync(args.outputPath, "utf8");
+    const json: unknown = JSON.parse(raw);
+    if (typeof json !== "object" || json === null) return null;
+    const obj = json as Record<string, unknown>;
+    const combined = obj["combinedEdge"] as Record<string, unknown> | undefined;
+    if (combined) {
+      const result = obj["result"] as Record<string, unknown> | undefined;
       return {
-        totalReturnPct: json.combinedEdge.totalReturnPct ?? 0,
-        sharpe: json.combinedEdge.sharpe ?? 0,
-        maxDdPct: json.combinedEdge.maxDrawdownPct ?? 0,
-        totalTrades: json.result?.totalTrades ?? 0,
+        totalReturnPct: (combined["totalReturnPct"] as number | undefined) ?? 0,
+        sharpe: (combined["sharpe"] as number | undefined) ?? 0,
+        maxDdPct: (combined["maxDrawdownPct"] as number | undefined) ?? 0,
+        totalTrades: (result?.["totalTrades"] as number | undefined) ?? 0,
       };
     }
-    if (json.result) {
-      const r = json.result;
+    const result = obj["result"] as Record<string, unknown> | undefined;
+    if (result) {
       return {
-        totalReturnPct: (r.totalReturn ?? 0) * 100,
-        sharpe: r.sharpeRatio ?? 0,
-        maxDdPct: (r.maxDrawdown ?? 0) * 100,
-        totalTrades: r.totalTrades ?? 0,
+        totalReturnPct: ((result["totalReturn"] as number | undefined) ?? 0) * 100,
+        sharpe: (result["sharpeRatio"] as number | undefined) ?? 0,
+        maxDdPct: ((result["maxDrawdown"] as number | undefined) ?? 0) * 100,
+        totalTrades: (result["totalTrades"] as number | undefined) ?? 0,
       };
     }
     return null;
   } catch (err) {
-    console.error(`[gate] Failed to parse JSON output: ${err}`);
+    console.error(`[gate] Failed to parse JSON output: ${String(err)}`);
     return null;
   }
 }
