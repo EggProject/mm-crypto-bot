@@ -100,13 +100,42 @@ Add as Phase 27 production alongside donchian-pivot-composition, not as a replac
 | # | Item | Effort | Blocking? |
 |--:|---|---|:--:|
 | 1 | OOS sub-period validation (IS=2024-01 to 2025-12, OOS=2026-01 to 2026-07) on BTC+ETH | 30 min | YES — must confirm v2 isn't IS-fit |
-| 2 | Cap sweep on v2 (0.10, 0.15, 0.20, 0.25, 0.30) | 1 hour | NO — v2 already passes 15% DD mandate at 5% |
+| 2 | Cap sweep on v2 (0.10, 0.15, 0.20, 0.25, 0.30) | DONE — see §6.1 |
 | 3 | Cross-correlation with donchian-pivot-composition (BTC vs ETH-V2) | 30 min | NO — but needed for combined envelope sizing |
 | 4 | LatencyGate live-data wiring (track B JSON) | 1-2 hours | YES for live — backtest uses `DEFAULT_LATENCY_GATE_DISABLED` |
 | 5 | SOL funding volatility investigation | 2-3 hours | NO — SOL already borderline-HALT |
 | 6 | 7-day paper-trade gate (Phase 25 #2 T2 logic) | 30 min | YES for live — standard pre-live gate |
 | 7 | Add ETH/USDT to live run-portfolio.ts | 30 min | YES for live |
 | 8 | Document kill-switches (1:10 leverage invariant, daily VaR, all-loss-streak) | 1 hour | NO — already wired in v2 constructor |
+
+### 6.1 Cap sweep findings (Phase 27 #4 — DONE)
+
+CLI flag: `--kelly-bucket=N` (where N ∈ {0.25, 0.5, 0.7, 1.0}, mapped to cap = N×2/10).
+
+**BTC/USDT 1d, 30-month full window:**
+
+| Kelly | Cap | Total % | Monthly % | Sharpe | DD % |
+|---|---:|---:|---:|---:|---:|
+| 0.25 | 0.05 | 792.30 | 9.44 | **-1.34** | 3.41 |
+| **0.50** | **0.10** | **794.26** | **9.46** | **3.43** | **5.00** |
+| 0.70 | 0.14 | 794.25 | 9.46 | 3.31 | 5.15 |
+| 1.00 | 0.20 | 794.26 | 9.46 | 3.32 | 5.15 |
+
+**ETH/USDT 1d, 30-month full window:**
+
+| Kelly | Cap | Total % | Monthly % | Sharpe | DD % |
+|---|---:|---:|---:|---:|---:|
+| 0.25 | 0.05 | 928.98 | 11.07 | 1.93 | 2.36 |
+| **0.50** | **0.10** | **931.02** | **11.09** | **7.01** | **2.66** |
+| 0.70 | 0.14 | 931.02 | 11.09 | 7.01 | 2.66 |
+| 1.00 | 0.20 | 931.02 | 11.09 | 7.01 | 2.66 |
+
+**Key findings:**
+- **Cap knee at 0.10 (kellyBucket=0.5).** Above this, total return is flat (carry bounded by base notional,
+  not by per-trade position sizing). Below 0.10, Sharpe collapses (BTC turns negative).
+- **Recommended cap: 0.10** (kellyBucket=0.5, default). No benefit from going higher.
+- ETH dominates BTC at every cap level — ETH carry funding is more stable than BTC's.
+- Cap sweep saved at `backtest-results/fresh-2026-07-08/21-mc-v2-btc-cap*.json` and `22-mc-v2-eth-cap*.json`.
 
 ## 7. Recommended Phase 27 sequence
 
