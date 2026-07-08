@@ -72,6 +72,11 @@ interface CliArgs {
   readonly latencySnapshotPath: string;
   readonly dataDir: string;
   readonly outputPath: string;
+  // Phase 27 — OOS sub-period validation. Override via --start / --end
+  // (ISO 8601 dates, e.g. --start=2024-01-01 --end=2025-12-31 for IS,
+  //  --start=2026-01-01 --end=2026-07-08 for OOS).
+  readonly startTime: Date;
+  readonly endTime: Date;
 }
 
 function parseArgs(): CliArgs {
@@ -90,6 +95,10 @@ function parseArgs(): CliArgs {
   let latencySnapshotPath = "";
   let dataDir = "data/ohlcv";
   let outputPath = "";
+  // Phase 27 — OOS sub-period validation. Default = 2019-01-01 to 2026-01-01
+  // (matches the original V2 baseline). Override via --start / --end (ISO dates).
+  let startTime = new Date(Date.UTC(2019, 0, 1));
+  let endTime = new Date(Date.UTC(2026, 0, 1));
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -138,6 +147,10 @@ function parseArgs(): CliArgs {
       latencySnapshotPath = arg.slice("--latency-snapshot=".length);
     } else if (arg.startsWith("--data-dir=")) {
       dataDir = arg.slice("--data-dir=".length);
+    } else if (arg.startsWith("--start=")) {
+      startTime = new Date(arg.slice("--start=".length));
+    } else if (arg.startsWith("--end=")) {
+      endTime = new Date(arg.slice("--end=".length));
     } else if (arg.startsWith("--output=")) {
       outputPath = arg.slice("--output=".length);
     }
@@ -162,6 +175,8 @@ function parseArgs(): CliArgs {
     latencySnapshotPath,
     dataDir,
     outputPath,
+    startTime,
+    endTime,
   };
 }
 
@@ -307,8 +322,8 @@ async function main(): Promise<void> {
     htfTimeframe: "1d",
     mtfTimeframe: "4h",
     ltfTimeframe: args.timeframe,
-    startTime: new Date(Date.UTC(2019, 0, 1)),
-    endTime: new Date(Date.UTC(2026, 0, 1)),
+    startTime: args.startTime,
+    endTime: args.endTime,
     initialEquityUsd: args.initialEquity,
     feed,
     costModel,
@@ -333,8 +348,8 @@ async function main(): Promise<void> {
   try {
     carryResult = await simulateLeveragedCarry(
       fundingCsvPath,
-      Date.UTC(2019, 0, 1),
-      Date.UTC(2026, 0, 1),
+      args.startTime.getTime(),
+      args.endTime.getTime(),
       args.baseNotionalUsd,
       args.leverage,
     );
@@ -357,7 +372,9 @@ async function main(): Promise<void> {
   const directionalPnlUsd = result.totalReturn * args.initialEquity;
   const totalPnlUsd = directionalPnlUsd + finalCarryUsd;
   const totalReturnPct = (totalPnlUsd / args.initialEquity) * 100;
-  const totalDays = 7 * 365; // 2019-2026 backtest window
+  // Phase 27 fix: totalDays derives from args.startTime/endTime, not hardcoded.
+  // The previous hardcoded `7 * 365` was wrong for any sub-period (OOS validation, IS runs).
+  const totalDays = (args.endTime.getTime() - args.startTime.getTime()) / (1000 * 60 * 60 * 24);
   const totalMonths = totalDays / 30.44;
   const monthlyReturnPct = totalReturnPct / totalMonths;
   const annualizedReturnPct = (totalReturnPct / totalDays) * 365;

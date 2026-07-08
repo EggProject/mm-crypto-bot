@@ -30,6 +30,8 @@ interface CliArgs {
   readonly initialEquity: number;
   readonly minConsensus: number;
   readonly maxPositionPctEquity: number;
+  readonly startTime: Date;
+  readonly endTime: Date;
   readonly outputPath: string;
 }
 
@@ -43,6 +45,11 @@ function parseArgs(): CliArgs {
   // matches Phase 18 final envelope which used the un-parametrized CLI). Override via
   // `--max-position-pct-equity=<pct>` where pct is in [0, 1] equity-notional terms.
   let maxPositionPctEquity = 0.20;
+  // 2024-01-01 → today (default). Override with --start=YYYY-MM-DD --end=YYYY-MM-DD
+  // for OOS sub-period analysis (e.g. --start=2024-01-01 --end=2025-12-31 for IS,
+  // --start=2026-01-01 --end=2026-07-06 for OOS).
+  let startTime = new Date(Date.UTC(2024, 0, 1));
+  let endTime = new Date();
   let outputPath = "backtest-results/phase18-donchian-pivot-btc-15m-2of2.json";
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
@@ -70,11 +77,15 @@ function parseArgs(): CliArgs {
         );
       }
       maxPositionPctEquity = v;
+    } else if (arg.startsWith("--start=")) {
+      startTime = new Date(arg.slice("--start=".length));
+    } else if (arg.startsWith("--end=")) {
+      endTime = new Date(arg.slice("--end=".length));
     } else if (arg.startsWith("--output=")) {
       outputPath = arg.slice("--output=".length);
     }
   }
-  return { symbol, timeframe, initialEquity, minConsensus, maxPositionPctEquity, outputPath };
+  return { symbol, timeframe, initialEquity, minConsensus, maxPositionPctEquity, startTime, endTime, outputPath };
 }
 
 // Donchian+Pivot composition timeline — HTF=1d, MTF=4h, LTF=15m.
@@ -104,10 +115,6 @@ async function main(): Promise<void> {
     "15m",
   );
 
-  // 2024-01-01 → today.
-  const startTime = new Date(Date.UTC(2024, 0, 1));
-  const endTime = new Date();
-
   const consensusTag = `${args.minConsensus}of2`;
   console.log(
     `[donchian-pivot] symbol=${args.symbol} ltf=${args.timeframe} minConsensus=${args.minConsensus} maxPositionPctEquity=${args.maxPositionPctEquity}`,
@@ -115,7 +122,7 @@ async function main(): Promise<void> {
   console.log(`[donchian-pivot] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
   console.log(`[donchian-pivot] components: Donchian Range Channel + Pivot Point Grid`);
   console.log(`[donchian-pivot] aggregation: side-conflict → defer | mean(confidences) | tighter-stop`);
-  console.log(`[donchian-pivot] period: ${startTime.toISOString()} → ${endTime.toISOString()}`);
+  console.log(`[donchian-pivot] period: ${args.startTime.toISOString()} → ${args.endTime.toISOString()}`);
   console.log(`[donchian-pivot] initial equity: $${args.initialEquity}`);
 
   const result: BacktestResult = await runBacktest({
@@ -123,8 +130,8 @@ async function main(): Promise<void> {
     htfTimeframe: tf.htf,
     mtfTimeframe: tf.mtf,
     ltfTimeframe: tf.ltf,
-    startTime,
-    endTime,
+    startTime: args.startTime,
+    endTime: args.endTime,
     initialEquityUsd: args.initialEquity,
     feed,
     costModel: COST_MODEL,
@@ -139,7 +146,7 @@ async function main(): Promise<void> {
   });
 
   // Report envelope.
-  const totalDays = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60 * 24);
+  const totalDays = (args.endTime.getTime() - args.startTime.getTime()) / (1000 * 60 * 60 * 24);
   const totalMonths = totalDays / 30.44;
   const monthlyReturn = result.totalReturn > 0 ? (Math.pow(1 + result.totalReturn, 1 / totalMonths) - 1) : 0;
   const wins = result.trades.filter((t) => t.pnlUsd > 0);
