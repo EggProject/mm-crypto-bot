@@ -167,9 +167,9 @@ export class DydxLiveFundingSource implements DydxFundingSource {
    */
   open(): { readonly close: () => void } {
     for (const market of this.markets) {
-      const sub = this.feed.subscribe(market, (msg) => this._onWsMessage(market, msg));
+      const sub = this.feed.subscribe(market, (msg) => { this._onWsMessage(market, msg); });
       // Wrap the WebSocket's close() in our subscription interface.
-      this.subscriptions.set(market, { close: () => sub.close() });
+      this.subscriptions.set(market, { close: () => { sub.close(); } });
     }
     return {
       close: () => {
@@ -190,9 +190,13 @@ export class DydxLiveFundingSource implements DydxFundingSource {
     market: CarryMarket,
     _onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
   ): { readonly close: () => void } {
+    // CarryMarket is a single-literal type (BTC-USD), but we keep the
+    // runtime guard so that untyped callers (any-cast paths) get a clear
+    // error rather than silent acceptance.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (market !== "BTC-USD") {
       throw new Error(
-        `[DydxLiveFundingSource] market="${market}" not allowed. Only "BTC-USD" is supported per orchestrator scope lock.`,
+        `[DydxLiveFundingSource] market="${String(market)}" not allowed. Only "BTC-USD" is supported per orchestrator scope lock.`,
       );
     }
     return { close: () => undefined };
@@ -202,6 +206,7 @@ export class DydxLiveFundingSource implements DydxFundingSource {
    * `lastTickAgeMs` — DydxFundingSource interface.
    */
   lastTickAgeMs(market: CarryMarket, nowMs: number): number | null {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (market !== "BTC-USD") return null;
     const state = this.feed.getState(market);
     if (state.lastTickMs === null) return null;
@@ -217,6 +222,7 @@ export class DydxLiveFundingSource implements DydxFundingSource {
    * (if present) or fall back to the WS tick timestamp as a proxy.
    */
   lastChainBlockHeight(market: CarryMarket): number | null {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (market !== "BTC-USD") return null;
     return this.chainBlockHeight.get(market) ?? null;
   }
@@ -228,6 +234,7 @@ export class DydxLiveFundingSource implements DydxFundingSource {
    * implies a recent finalized block).
    */
   lastChainBlockTs(market: CarryMarket): number | null {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (market !== "BTC-USD") return null;
     return this.chainBlockTs.get(market) ?? null;
   }

@@ -18,6 +18,7 @@ import { describe, expect, it, beforeEach } from "bun:test";
 
 import { DydxLiveFundingSource, type CexFundingProvider, type BybitEuSpotDepthSource } from "./dydx-live-funding-source.js";
 import type { DydxIndexerFeed, DydxMarket, DydxMarketState, DydxWsChannelData } from "./dydx-indexer-feed.js";
+import type { CarryMarket } from "@mm-crypto-bot/core";
 
 // ============================================================================
 // TEST FIXTURES
@@ -71,7 +72,7 @@ class MockCexFundingProvider implements CexFundingProvider {
 
 class MockBybitEuDepthSource implements BybitEuSpotDepthSource {
   depthUsd: number | null = 250_000;
-  getDepthUsdAt1Pct(_market: any, _nowMs: number) { return this.depthUsd; }
+  getDepthUsdAt1Pct(_market: CarryMarket, _nowMs: number) { return this.depthUsd; }
 }
 
 // ============================================================================
