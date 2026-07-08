@@ -1,0 +1,75 @@
+{
+  "benchmarkEvent": "2025-10-10 cascade (Trump 100% tariff)",
+  "peakUTC": "2025-10-10T21:15:00Z",
+  "symbolsReplay": [
+    "BTC"
+  ],
+  "cli": {
+    "outputPath": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-9d6d823b/backtest-results/phase25-2-cascade-replay-2025-10-10.json",
+    "notionalUsd": 1000000,
+    "peakMinDropBps": 16,
+    "expectedEdgeBps": 75
+  },
+  "observations": {
+    "total": 4348,
+    "cascadePeakUsd": 3210000000000,
+    "preCascadeOiUsd": 26000000000,
+    "postCascadeOiUsd": 14000000000
+  },
+  "detectorResult": {
+    "layer1Trigger": "fired_within_first_5min",
+    "layer2Transitions": [
+      {
+        "symbol": "BTC",
+        "state": "POST_CASCADE",
+        "triggeredAtMs": 1760129220000,
+        "oiPeakUsd": 25700000000,
+        "crossConfirmations": 3,
+        "lastObservedOiUsd": 13915923442.381258,
+        "lastElr": 0.28426728081524355,
+        "entry": {
+          "eventId": "cascade-BTC-1760129220000",
+          "symbol": "BTC",
+          "entryTsMs": 1760131920000,
+          "entryMidPriceUsd": 50000000,
+          "entryLimitPriceUsd": 50049999.99999999,
+          "entryDistanceBps": 10,
+          "entryNotionalUsd": 1000000,
+          "side": "buy",
+          "exitWindowMinutes": 7
+        },
+        "exit": null
+      }
+    ],
+    "reachedPostCascadeAtMs": 1760131920000,
+    "dtFromPeakMin": 45,
+    "passes30MinConstraint": false
+  },
+  "paperTrade": {
+    "entryFired": true,
+    "entryTsMs": 1760131920000,
+    "entryMidPriceUsd": 50000000,
+    "pnlBps": 45.00000000000149,
+    "pnlUsd": 4500.000000000149,
+    "perEventRewardFractionOn500k": 0.009000000000000298,
+    "monthlyRewardFractionOn500k": 0.013500000000000446,
+    "realisticBandLow": 0.005,
+    "realisticBandHigh": 0.015,
+    "realisticBandPass": true
+  },
+  "defenses": {
+    "noNakedShort": true,
+    "noHoldingThroughNextSession": true,
+    "noEntryBeforeStabilization": true,
+    "onlyPostCascadeAllowsEntry": true,
+    "bybitEuSpotOnly": true,
+    "timedExit3to10Min": true,
+    "hardStop30DayHalt": true
+  },
+  "trackDEstimate": {
+    "source": "Track D REPORT.md §5",
+    "lowerBound": "+0.5%/mo",
+    "upperBound": "+1.5%/mo",
+    "match": true
+  }
+}
