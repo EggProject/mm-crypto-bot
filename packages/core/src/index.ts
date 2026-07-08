@@ -776,6 +776,55 @@ export type {
   OpenInterestInput,
 } from "./strategy/cascade-fade.js";
 
+// Phase 25 #2 T2 — dYdX-vs-CEX cross-venue funding carry (live integration).
+// BTC-USD ONLY per orchestrator scope lock (2026-07-08 04:09 Budapest).
+// ETH deferred (Tardis Q2'26 paid-tier missing), SOL halted permanently.
+// Implements the 4 Track-B kill-switches (indexer-stale, chain-non-finalized,
+// divergence-7d-compression, bybit-eu-spot-thin) WITH the sparse-data guard
+// on the 7-day compression kill-switch, the 3 Track-B §7.2 pre-conditions
+// (live-divergence, chain-incident-clear, no-recent-governance), the 7-day
+// paper-trade gate, and the live-orders enablement only after the gate.
+// See `packages/core/src/strategy/dydx-cex-carry.ts` for the full design.
+export {
+  DydxCexCarryStrategy,
+  DEFAULT_DYDX_CEX_CARRY_CONFIG,
+  DEFAULT_KILL_SWITCH_CONFIG,
+  DEFAULT_PRECONDITION_CONFIG,
+  DEFAULT_CARRY_MARKET,
+  DEFAULT_CARRY_DIRECTION,
+  ALL_KILL_SWITCHES,
+  evaluateKillSwitches,
+  allPreconditionsSatisfied,
+  newPreconditionsState,
+  newTickDensityState,
+  newKillSwitchVerdicts,
+} from "./strategy/dydx-cex-carry.js";
+export { DydxCexCarryPaperTrader, DEFAULT_PAPER_TRADE_RUNNER_CONFIG } from "./strategy/dydx-cex-carry.paper-trade.js";
+export type {
+  DydxFundingSource,
+  DydxCexCarryConfig,
+  DydxCexCarryState,
+  KillSwitchId,
+  KillSwitchConfig,
+  KillSwitchInputs,
+  KillSwitchVerdict,
+  KillSwitchVerdicts,
+  PreconditionId,
+  PreconditionConfig,
+  PreconditionEntry,
+  PreconditionsState,
+  TickDensityEntry,
+  TickDensityState,
+  CarryMarket,
+  CarryDirection,
+} from "./strategy/dydx-cex-carry.js";
+export type {
+  BybitEuSpotFillSimulator,
+  HypotheticalFill,
+  PaperTradeReport,
+  PaperTradeRunnerConfig,
+} from "./strategy/dydx-cex-carry.paper-trade.js";
+
 import type { Strategy } from "./types.js";
 import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
 
