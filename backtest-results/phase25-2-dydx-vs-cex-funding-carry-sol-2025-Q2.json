@@ -1,0 +1,2764 @@
+{
+  "args": {
+    "symbol": "sol",
+    "window": "2025-Q2",
+    "initialEquity": 10000,
+    "targetNotionalUsd": 250000,
+    "rebalanceCostBps": 20,
+    "withdrawalLatencyMinutes": 15,
+    "fundingCsvDir": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase25-2-impl/data/funding",
+    "cacheDir": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase25-2-impl/.cache/tardis-dydx-v4",
+    "outputPath": "backtest-results/phase25-2-dydx-vs-cex-funding-carry-sol-2025-Q2.json",
+    "skipTardisFetch": false
+  },
+  "result": {
+    "totalReturn": 0.06539242708333334,
+    "annualizedReturn": 0.2931328630214174,
+    "monthlyCarry": 0.021655223714680982,
+    "averageDivergence": -0.0000352871568627454,
+    "medianRebalanceHours": 24,
+    "maxDrawdown": 0.06420628885099118,
+    "sharpeRatio": 10.581594737571965,
+    "winRate": 0.6260869565217392,
+    "fundingCollectedUsd": 653.9242708333335,
+    "rebalanceCount": 0,
+    "rebalanceCostUsd": 0,
+    "fundingPeriods": 345,
+    "avgDydx8hEquiv": -0.000037064120370370365,
+    "avgCex8h": 0.00000835941391941392,
+    "medianDydx8hEquiv": -1.25e-7,
+    "medianCex8h": 0.00001633,
+    "meanReversionHalfLifeHours": 32.433259929088344,
+    "killSwitch7DayCompressionTriggered": true,
+    "compressedDivergenceDays": 91,
+    "equityCurve": [
+      {
+        "timestamp": 1743465600000,
+        "equity": 9977.0525,
+        "fundingAccruedUsd": -22.9475,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": -0.00009179,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743469200000,
+        "equity": 9977.176458333333,
+        "fundingAccruedUsd": -22.82354166666667,
+        "dydx8hEquivRate": -0.00000396666666666664,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743472800000,
+        "equity": 9978.6071875,
+        "fundingAccruedUsd": -21.392812500000005,
+        "dydx8hEquivRate": -0.00004578333333333336,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743476400000,
+        "equity": 9982.079583333334,
+        "fundingAccruedUsd": -17.92041666666667,
+        "dydx8hEquivRate": -0.00011111666666666664,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743480000000,
+        "equity": 9984.217604166666,
+        "fundingAccruedUsd": -15.78239583333334,
+        "dydx8hEquivRate": -0.00006841666666666664,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743483600000,
+        "equity": 9985.151979166667,
+        "fundingAccruedUsd": -14.84802083333334,
+        "dydx8hEquivRate": -0.0000299,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743487200000,
+        "equity": 9989.026979166667,
+        "fundingAccruedUsd": -10.97302083333334,
+        "dydx8hEquivRate": -0.000124,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743490800000,
+        "equity": 9992.651979166667,
+        "fundingAccruedUsd": -7.34802083333334,
+        "dydx8hEquivRate": -0.000116,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743494400000,
+        "equity": 9995.036875,
+        "fundingAccruedUsd": -4.963125000000008,
+        "dydx8hEquivRate": -0.00007631666666666663,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743494400001,
+        "equity": 9993.621875,
+        "fundingAccruedUsd": -6.378125000000008,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000566,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743498000000,
+        "equity": 9994.088541666666,
+        "fundingAccruedUsd": -5.91145833333334,
+        "dydx8hEquivRate": -0.00001493333333333336,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743501600000,
+        "equity": 9994.281770833333,
+        "fundingAccruedUsd": -5.7182291666666725,
+        "dydx8hEquivRate": -0.00000618333333333336,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743505200000,
+        "equity": 9994.326041666667,
+        "fundingAccruedUsd": -5.67395833333334,
+        "dydx8hEquivRate": -0.00000141666666666664,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743508800000,
+        "equity": 9994.144791666668,
+        "fundingAccruedUsd": -5.855208333333341,
+        "dydx8hEquivRate": 0.0000058,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743512400000,
+        "equity": 9994.110416666666,
+        "fundingAccruedUsd": -5.8895833333333405,
+        "dydx8hEquivRate": 0.0000011,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743516000000,
+        "equity": 9994.022916666667,
+        "fundingAccruedUsd": -5.977083333333341,
+        "dydx8hEquivRate": 0.0000028,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743519600000,
+        "equity": 9996.460416666667,
+        "fundingAccruedUsd": -3.539583333333341,
+        "dydx8hEquivRate": -0.000078,
+        "cex8hRate": null,
+        "divergence": 0.00009179
+      },
+      {
+        "timestamp": 1743523200000,
+        "equity": 9987.15375,
+        "fundingAccruedUsd": -12.846250000000007,
+        "dydx8hEquivRate": -0.00012466666666666664,
+        "cex8hRate": -0.00005281,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743526800000,
+        "equity": 9990.029270833333,
+        "fundingAccruedUsd": -9.970729166666674,
+        "dydx8hEquivRate": -0.00009201666666666664,
+        "cex8hRate": null,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743530400000,
+        "equity": 9992.11,
+        "fundingAccruedUsd": -7.890000000000006,
+        "dydx8hEquivRate": -0.00006658333333333336,
+        "cex8hRate": null,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743534000000,
+        "equity": 9993.9021875,
+        "fundingAccruedUsd": -6.097812500000006,
+        "dydx8hEquivRate": -0.00005735,
+        "cex8hRate": null,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743537600000,
+        "equity": 9994.869375,
+        "fundingAccruedUsd": -5.130625000000006,
+        "dydx8hEquivRate": -0.00003095,
+        "cex8hRate": null,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743541200000,
+        "equity": 9994.869375,
+        "fundingAccruedUsd": -5.130625000000006,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743544800000,
+        "equity": 9995.538125,
+        "fundingAccruedUsd": -4.461875000000006,
+        "dydx8hEquivRate": -0.0000214,
+        "cex8hRate": null,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743548400000,
+        "equity": 9995.598541666666,
+        "fundingAccruedUsd": -4.401458333333339,
+        "dydx8hEquivRate": -0.00000193333333333336,
+        "cex8hRate": null,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743552000001,
+        "equity": 9979.531041666667,
+        "fundingAccruedUsd": -20.46895833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00006427,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743580800000,
+        "equity": 9945.961041666667,
+        "fundingAccruedUsd": -54.03895833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00013428,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743609600000,
+        "equity": 9956.758541666666,
+        "fundingAccruedUsd": -43.24145833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004319,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743638400000,
+        "equity": 9937.646041666667,
+        "fundingAccruedUsd": -62.35395833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00007645,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743667200000,
+        "equity": 9919.383541666666,
+        "fundingAccruedUsd": -80.61645833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00007305,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743696000000,
+        "equity": 9891.636041666667,
+        "fundingAccruedUsd": -108.36395833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00011099,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743724800000,
+        "equity": 9807.556041666667,
+        "fundingAccruedUsd": -192.44395833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00033632,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743753600000,
+        "equity": 9807.176041666668,
+        "fundingAccruedUsd": -192.82395833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000152,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743782400000,
+        "equity": 9808.576041666667,
+        "fundingAccruedUsd": -191.42395833333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000056,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743811200000,
+        "equity": 9818.671041666666,
+        "fundingAccruedUsd": -181.32895833333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004038,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743840000000,
+        "equity": 9842.888541666667,
+        "fundingAccruedUsd": -157.11145833333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00009687,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743868800000,
+        "equity": 9848.038541666667,
+        "fundingAccruedUsd": -151.96145833333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000206,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743897600000,
+        "equity": 9833.991041666666,
+        "fundingAccruedUsd": -166.00895833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005619,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743926400000,
+        "equity": 9858.991041666666,
+        "fundingAccruedUsd": -141.00895833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743955200002,
+        "equity": 9845.333541666667,
+        "fundingAccruedUsd": -154.66645833333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005463,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1743984000000,
+        "equity": 9843.903541666667,
+        "fundingAccruedUsd": -156.09645833333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000572,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744012800000,
+        "equity": 9853.818541666667,
+        "fundingAccruedUsd": -146.18145833333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003966,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744041600000,
+        "equity": 9839.858541666666,
+        "fundingAccruedUsd": -160.14145833333336,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005584,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744070400000,
+        "equity": 9810.476041666667,
+        "fundingAccruedUsd": -189.52395833333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00011753,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744099200000,
+        "equity": 9799.296041666666,
+        "fundingAccruedUsd": -200.70395833333336,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00004472,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744128000000,
+        "equity": 9740.978541666667,
+        "fundingAccruedUsd": -259.0214583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00023327,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744156800000,
+        "equity": 9720.753541666667,
+        "fundingAccruedUsd": -279.2464583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.0000809,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744185600001,
+        "equity": 9701.176041666666,
+        "fundingAccruedUsd": -298.8239583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00007831,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744214400000,
+        "equity": 9720.228541666667,
+        "fundingAccruedUsd": -279.7714583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00007621,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744243200000,
+        "equity": 9745.228541666667,
+        "fundingAccruedUsd": -254.77145833333338,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744272000000,
+        "equity": 9770.228541666667,
+        "fundingAccruedUsd": -229.77145833333338,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744300800000,
+        "equity": 9778.868541666667,
+        "fundingAccruedUsd": -221.1314583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003456,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744329600001,
+        "equity": 9763.596041666666,
+        "fundingAccruedUsd": -236.4039583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00006109,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744358400000,
+        "equity": 9774.341041666667,
+        "fundingAccruedUsd": -225.6589583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004298,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744387200000,
+        "equity": 9799.341041666667,
+        "fundingAccruedUsd": -200.6589583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744416000000,
+        "equity": 9814.118541666667,
+        "fundingAccruedUsd": -185.8814583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005911,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744444800001,
+        "equity": 9809.833541666667,
+        "fundingAccruedUsd": -190.1664583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00001714,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744473600000,
+        "equity": 9816.753541666667,
+        "fundingAccruedUsd": -183.2464583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002768,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744502400000,
+        "equity": 9815.916041666667,
+        "fundingAccruedUsd": -184.0839583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000335,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744531200000,
+        "equity": 9840.916041666667,
+        "fundingAccruedUsd": -159.0839583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744560000000,
+        "equity": 9861.351041666667,
+        "fundingAccruedUsd": -138.6489583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00008174,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744588800000,
+        "equity": 9883.983541666666,
+        "fundingAccruedUsd": -116.01645833333342,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00009053,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744617600000,
+        "equity": 9874.091041666667,
+        "fundingAccruedUsd": -125.90895833333342,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00003957,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744646400000,
+        "equity": 9850.466041666667,
+        "fundingAccruedUsd": -149.53395833333343,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.0000945,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744675200000,
+        "equity": 9835.686041666666,
+        "fundingAccruedUsd": -164.31395833333343,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005912,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744704000000,
+        "equity": 9802.968541666667,
+        "fundingAccruedUsd": -197.03145833333343,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00013087,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744732800001,
+        "equity": 9807.528541666667,
+        "fundingAccruedUsd": -192.47145833333343,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001824,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744761600000,
+        "equity": 9784.633541666666,
+        "fundingAccruedUsd": -215.36645833333344,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00009158,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744790400000,
+        "equity": 9776.666041666667,
+        "fundingAccruedUsd": -223.33395833333344,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00003187,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744819200000,
+        "equity": 9770.848541666666,
+        "fundingAccruedUsd": -229.15145833333344,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002327,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744848000001,
+        "equity": 9795.848541666666,
+        "fundingAccruedUsd": -204.15145833333344,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744876800000,
+        "equity": 9820.848541666666,
+        "fundingAccruedUsd": -179.15145833333344,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744905600001,
+        "equity": 9824.883541666666,
+        "fundingAccruedUsd": -175.11645833333344,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001614,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744934400000,
+        "equity": 9825.343541666667,
+        "fundingAccruedUsd": -174.65645833333343,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00000184,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744963200000,
+        "equity": 9821.598541666666,
+        "fundingAccruedUsd": -178.40145833333344,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00001498,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1744992000000,
+        "equity": 9813.263541666667,
+        "fundingAccruedUsd": -186.73645833333345,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00003334,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745020800000,
+        "equity": 9799.116041666666,
+        "fundingAccruedUsd": -200.88395833333345,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005659,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745049600000,
+        "equity": 9785.031041666667,
+        "fundingAccruedUsd": -214.96895833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005634,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745078400000,
+        "equity": 9752.353541666667,
+        "fundingAccruedUsd": -247.64645833333347,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00013071,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745107200000,
+        "equity": 9732.426041666666,
+        "fundingAccruedUsd": -267.57395833333345,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00007971,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745136000000,
+        "equity": 9689.988541666666,
+        "fundingAccruedUsd": -310.01145833333345,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00016975,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745164800000,
+        "equity": 9656.128541666667,
+        "fundingAccruedUsd": -343.87145833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00013544,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745193600000,
+        "equity": 9606.991041666666,
+        "fundingAccruedUsd": -393.00895833333345,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00019655,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745222400005,
+        "equity": 9568.266041666666,
+        "fundingAccruedUsd": -431.7339583333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.0001549,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745251200003,
+        "equity": 9540.931041666667,
+        "fundingAccruedUsd": -459.06895833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00010934,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745280000008,
+        "equity": 9476.091041666667,
+        "fundingAccruedUsd": -523.9089583333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00025936,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745308800000,
+        "equity": 9484.496041666667,
+        "fundingAccruedUsd": -515.5039583333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003362,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745337600000,
+        "equity": 9495.868541666667,
+        "fundingAccruedUsd": -504.13145833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004549,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745366400000,
+        "equity": 9520.868541666667,
+        "fundingAccruedUsd": -479.13145833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745395200002,
+        "equity": 9511.971041666666,
+        "fundingAccruedUsd": -488.02895833333343,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00003559,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745424000000,
+        "equity": 9527.313541666666,
+        "fundingAccruedUsd": -472.68645833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006137,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745452800000,
+        "equity": 9552.313541666666,
+        "fundingAccruedUsd": -447.68645833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745481600001,
+        "equity": 9577.313541666666,
+        "fundingAccruedUsd": -422.68645833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745510400001,
+        "equity": 9590.221041666666,
+        "fundingAccruedUsd": -409.77895833333343,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005163,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745539200007,
+        "equity": 9615.221041666666,
+        "fundingAccruedUsd": -384.77895833333343,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745568000002,
+        "equity": 9640.221041666666,
+        "fundingAccruedUsd": -359.77895833333343,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745596800003,
+        "equity": 9643.308541666667,
+        "fundingAccruedUsd": -356.69145833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001235,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745625600002,
+        "equity": 9645.933541666667,
+        "fundingAccruedUsd": -354.06645833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000105,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745654400000,
+        "equity": 9635.876041666666,
+        "fundingAccruedUsd": -364.12395833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00004023,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745683200002,
+        "equity": 9616.363541666666,
+        "fundingAccruedUsd": -383.63645833333345,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00007805,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745712000001,
+        "equity": 9619.676041666666,
+        "fundingAccruedUsd": -380.32395833333345,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001325,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745740800000,
+        "equity": 9601.628541666667,
+        "fundingAccruedUsd": -398.37145833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00007219,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745769600000,
+        "equity": 9616.571041666666,
+        "fundingAccruedUsd": -383.42895833333347,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005977,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745798400001,
+        "equity": 9610.821041666666,
+        "fundingAccruedUsd": -389.17895833333347,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.000023,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745827200003,
+        "equity": 9624.606041666666,
+        "fundingAccruedUsd": -375.39395833333344,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005514,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745856000005,
+        "equity": 9598.761041666667,
+        "fundingAccruedUsd": -401.23895833333347,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00010338,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745884800000,
+        "equity": 9558.651041666666,
+        "fundingAccruedUsd": -441.3489583333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00016044,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745913600000,
+        "equity": 9547.718541666667,
+        "fundingAccruedUsd": -452.2814583333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00004373,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745942400010,
+        "equity": 9553.313541666666,
+        "fundingAccruedUsd": -446.68645833333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002238,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1745971200001,
+        "equity": 9537.778541666667,
+        "fundingAccruedUsd": -462.2214583333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00006214,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1746000000000,
+        "equity": 9523.176041666666,
+        "fundingAccruedUsd": -476.8239583333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005841,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1746028800003,
+        "equity": 9485.401041666666,
+        "fundingAccruedUsd": -514.5989583333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.0001511,
+        "divergence": -0.00007185666666666664
+      },
+      {
+        "timestamp": 1746057600000,
+        "equity": 9497.766041666666,
+        "fundingAccruedUsd": -502.2339583333335,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": 0.00004946,
+        "divergence": -0.00004946
+      },
+      {
+        "timestamp": 1746061200000,
+        "equity": 9497.766041666666,
+        "fundingAccruedUsd": -502.2339583333335,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00004946
+      },
+      {
+        "timestamp": 1746064800000,
+        "equity": 9497.766041666666,
+        "fundingAccruedUsd": -502.2339583333335,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00004946
+      },
+      {
+        "timestamp": 1746068400000,
+        "equity": 9497.766041666666,
+        "fundingAccruedUsd": -502.2339583333335,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00004946
+      },
+      {
+        "timestamp": 1746072000000,
+        "equity": 9497.773333333333,
+        "fundingAccruedUsd": -502.2266666666668,
+        "dydx8hEquivRate": -2.3333333333336e-7,
+        "cex8hRate": null,
+        "divergence": -0.00004946
+      },
+      {
+        "timestamp": 1746075600000,
+        "equity": 9497.773333333333,
+        "fundingAccruedUsd": -502.2266666666668,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00004946
+      },
+      {
+        "timestamp": 1746079200000,
+        "equity": 9497.773333333333,
+        "fundingAccruedUsd": -502.2266666666668,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00004946
+      },
+      {
+        "timestamp": 1746082800000,
+        "equity": 9497.773333333333,
+        "fundingAccruedUsd": -502.2266666666668,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00004946
+      },
+      {
+        "timestamp": 1746086400000,
+        "equity": 9518.854270833333,
+        "fundingAccruedUsd": -481.1457291666668,
+        "dydx8hEquivRate": 5e-8,
+        "cex8hRate": 0.00008433,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746090000000,
+        "equity": 9518.489166666666,
+        "fundingAccruedUsd": -481.51083333333344,
+        "dydx8hEquivRate": 0.00001168333333333336,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746093600000,
+        "equity": 9518.2975,
+        "fundingAccruedUsd": -481.7025000000001,
+        "dydx8hEquivRate": 0.00000613333333333336,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746097200000,
+        "equity": 9518.208958333333,
+        "fundingAccruedUsd": -481.7910416666668,
+        "dydx8hEquivRate": 0.00000283333333333336,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746100800000,
+        "equity": 9517.968333333332,
+        "fundingAccruedUsd": -482.0316666666668,
+        "dydx8hEquivRate": 0.0000077,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746104400000,
+        "equity": 9517.968333333332,
+        "fundingAccruedUsd": -482.0316666666668,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746108000000,
+        "equity": 9517.908958333333,
+        "fundingAccruedUsd": -482.0910416666668,
+        "dydx8hEquivRate": 0.0000019,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746111600000,
+        "equity": 9518.231354166666,
+        "fundingAccruedUsd": -481.76864583333344,
+        "dydx8hEquivRate": -0.00001031666666666664,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746115200000,
+        "equity": 9519.057916666667,
+        "fundingAccruedUsd": -480.9420833333334,
+        "dydx8hEquivRate": -0.00002645,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746115200001,
+        "equity": 9520.457916666666,
+        "fundingAccruedUsd": -479.54208333333344,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000056,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746118800000,
+        "equity": 9520.457916666666,
+        "fundingAccruedUsd": -479.54208333333344,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746122400000,
+        "equity": 9520.904791666666,
+        "fundingAccruedUsd": -479.09520833333346,
+        "dydx8hEquivRate": -0.0000143,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746126000000,
+        "equity": 9521.219895833334,
+        "fundingAccruedUsd": -478.7801041666668,
+        "dydx8hEquivRate": -0.00001008333333333336,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746129600000,
+        "equity": 9521.219895833334,
+        "fundingAccruedUsd": -478.7801041666668,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746133200000,
+        "equity": 9521.219895833334,
+        "fundingAccruedUsd": -478.7801041666668,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746136800000,
+        "equity": 9521.229791666667,
+        "fundingAccruedUsd": -478.7702083333334,
+        "dydx8hEquivRate": -3.1666666666664e-7,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746140400000,
+        "equity": 9521.229791666667,
+        "fundingAccruedUsd": -478.7702083333334,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746144000000,
+        "equity": 9527.454791666667,
+        "fundingAccruedUsd": -472.5452083333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000249,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746172800000,
+        "equity": 9513.247291666667,
+        "fundingAccruedUsd": -486.7527083333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005683,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746201600003,
+        "equity": 9499.642291666667,
+        "fundingAccruedUsd": -500.3577083333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005442,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746230400000,
+        "equity": 9468.334791666666,
+        "fundingAccruedUsd": -531.6652083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00012523,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746259200000,
+        "equity": 9458.782291666666,
+        "fundingAccruedUsd": -541.2177083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00003821,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746288000000,
+        "equity": 9433.887291666666,
+        "fundingAccruedUsd": -566.1127083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00009958,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746316800001,
+        "equity": 9432.877291666668,
+        "fundingAccruedUsd": -567.1227083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000404,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746345600001,
+        "equity": 9422.532291666666,
+        "fundingAccruedUsd": -577.4677083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00004138,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746374400002,
+        "equity": 9392.154791666666,
+        "fundingAccruedUsd": -607.8452083333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00012151,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746403200000,
+        "equity": 9375.264791666666,
+        "fundingAccruedUsd": -624.7352083333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00006756,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746432000000,
+        "equity": 9379.307291666666,
+        "fundingAccruedUsd": -620.6927083333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001617,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746460800006,
+        "equity": 9356.062291666667,
+        "fundingAccruedUsd": -643.9377083333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00009298,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746489600002,
+        "equity": 9372.074791666666,
+        "fundingAccruedUsd": -627.9252083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006405,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746518400005,
+        "equity": 9360.709791666666,
+        "fundingAccruedUsd": -639.2902083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00004546,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746547200000,
+        "equity": 9354.624791666667,
+        "fundingAccruedUsd": -645.3752083333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002434,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746576000002,
+        "equity": 9377.052291666667,
+        "fundingAccruedUsd": -622.9477083333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00008971,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746604800000,
+        "equity": 9385.334791666666,
+        "fundingAccruedUsd": -614.6652083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003313,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746633600006,
+        "equity": 9402.054791666667,
+        "fundingAccruedUsd": -597.9452083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006688,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746662400000,
+        "equity": 9408.197291666667,
+        "fundingAccruedUsd": -591.8027083333333,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002457,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746691200001,
+        "equity": 9422.777291666667,
+        "fundingAccruedUsd": -577.2227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005832,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746720000002,
+        "equity": 9446.877291666668,
+        "fundingAccruedUsd": -553.1227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000964,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746748800001,
+        "equity": 9471.877291666668,
+        "fundingAccruedUsd": -528.1227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746777600006,
+        "equity": 9496.877291666668,
+        "fundingAccruedUsd": -503.1227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746806400000,
+        "equity": 9521.877291666668,
+        "fundingAccruedUsd": -478.1227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746835200001,
+        "equity": 9546.877291666668,
+        "fundingAccruedUsd": -453.1227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746864000000,
+        "equity": 9571.877291666668,
+        "fundingAccruedUsd": -428.1227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746892800001,
+        "equity": 9596.877291666668,
+        "fundingAccruedUsd": -403.1227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746921600000,
+        "equity": 9621.877291666668,
+        "fundingAccruedUsd": -378.1227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746950400001,
+        "equity": 9646.877291666668,
+        "fundingAccruedUsd": -353.1227083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1746979200001,
+        "equity": 9659.669791666667,
+        "fundingAccruedUsd": -340.3302083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005117,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747008000004,
+        "equity": 9668.597291666667,
+        "fundingAccruedUsd": -331.4027083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003571,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747036800000,
+        "equity": 9685.812291666667,
+        "fundingAccruedUsd": -314.1877083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006886,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747065600000,
+        "equity": 9710.812291666667,
+        "fundingAccruedUsd": -289.1877083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747094400000,
+        "equity": 9731.352291666666,
+        "fundingAccruedUsd": -268.6477083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00008216,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747123200008,
+        "equity": 9756.352291666666,
+        "fundingAccruedUsd": -243.64770833333318,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747152000001,
+        "equity": 9768.019791666668,
+        "fundingAccruedUsd": -231.9802083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004667,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747180800007,
+        "equity": 9793.019791666668,
+        "fundingAccruedUsd": -206.9802083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747209600000,
+        "equity": 9818.019791666668,
+        "fundingAccruedUsd": -181.9802083333332,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747238400002,
+        "equity": 9823.757291666667,
+        "fundingAccruedUsd": -176.24270833333318,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002295,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747267200000,
+        "equity": 9818.089791666667,
+        "fundingAccruedUsd": -181.91020833333317,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002267,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747296000003,
+        "equity": 9820.399791666667,
+        "fundingAccruedUsd": -179.60020833333317,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00000924,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747324800000,
+        "equity": 9828.709791666666,
+        "fundingAccruedUsd": -171.29020833333317,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003324,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747353600001,
+        "equity": 9825.637291666666,
+        "fundingAccruedUsd": -174.36270833333316,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00001229,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747382400000,
+        "equity": 9846.844791666666,
+        "fundingAccruedUsd": -153.15520833333315,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00008483,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747411200000,
+        "equity": 9844.249791666667,
+        "fundingAccruedUsd": -155.75020833333315,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00001038,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747440000000,
+        "equity": 9832.232291666667,
+        "fundingAccruedUsd": -167.76770833333316,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00004807,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747468800001,
+        "equity": 9840.919791666667,
+        "fundingAccruedUsd": -159.08020833333316,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003475,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747497600004,
+        "equity": 9843.697291666667,
+        "fundingAccruedUsd": -156.30270833333316,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001111,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747526400000,
+        "equity": 9848.747291666667,
+        "fundingAccruedUsd": -151.25270833333315,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000202,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747555200000,
+        "equity": 9868.379791666666,
+        "fundingAccruedUsd": -131.62020833333315,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00007853,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747584000000,
+        "equity": 9881.022291666666,
+        "fundingAccruedUsd": -118.97770833333315,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005057,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747612800000,
+        "equity": 9878.029791666668,
+        "fundingAccruedUsd": -121.97020833333316,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00001197,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747641600006,
+        "equity": 9843.669791666667,
+        "fundingAccruedUsd": -156.33020833333316,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00013744,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747670400010,
+        "equity": 9817.397291666666,
+        "fundingAccruedUsd": -182.60270833333317,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00010509,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747699200000,
+        "equity": 9835.439791666668,
+        "fundingAccruedUsd": -164.56020833333318,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00007217,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747728000002,
+        "equity": 9860.439791666668,
+        "fundingAccruedUsd": -139.56020833333318,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747756800000,
+        "equity": 9854.852291666666,
+        "fundingAccruedUsd": -145.14770833333318,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002235,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747785600000,
+        "equity": 9872.104791666667,
+        "fundingAccruedUsd": -127.89520833333319,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006901,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747814400001,
+        "equity": 9896.054791666667,
+        "fundingAccruedUsd": -103.94520833333318,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000958,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747843200004,
+        "equity": 9920.797291666668,
+        "fundingAccruedUsd": -79.20270833333319,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00009897,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747872000001,
+        "equity": 9939.814791666668,
+        "fundingAccruedUsd": -60.18520833333319,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00007607,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747900800000,
+        "equity": 9964.814791666668,
+        "fundingAccruedUsd": -35.18520833333319,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747929600002,
+        "equity": 9989.814791666668,
+        "fundingAccruedUsd": -10.185208333333193,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747958400006,
+        "equity": 10014.814791666668,
+        "fundingAccruedUsd": 14.814791666666807,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1747987200000,
+        "equity": 10039.814791666668,
+        "fundingAccruedUsd": 39.81479166666681,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748016000007,
+        "equity": 10064.814791666668,
+        "fundingAccruedUsd": 64.8147916666668,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748044800010,
+        "equity": 10089.814791666668,
+        "fundingAccruedUsd": 89.8147916666668,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748073600000,
+        "equity": 10084.654791666666,
+        "fundingAccruedUsd": 84.65479166666681,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002064,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748102400003,
+        "equity": 10087.812291666667,
+        "fundingAccruedUsd": 87.81229166666681,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001263,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748131200004,
+        "equity": 10103.692291666666,
+        "fundingAccruedUsd": 103.6922916666668,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006352,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748160000000,
+        "equity": 10094.139791666666,
+        "fundingAccruedUsd": 94.13979166666681,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00003821,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748188800000,
+        "equity": 10085.012291666666,
+        "fundingAccruedUsd": 85.01229166666681,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00003651,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748217600000,
+        "equity": 10082.537291666667,
+        "fundingAccruedUsd": 82.53729166666682,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.0000099,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748246400000,
+        "equity": 10086.949791666666,
+        "fundingAccruedUsd": 86.94979166666681,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001765,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748275200002,
+        "equity": 10108.664791666666,
+        "fundingAccruedUsd": 108.66479166666682,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00008686,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748304000003,
+        "equity": 10086.472291666667,
+        "fundingAccruedUsd": 86.47229166666682,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00008877,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748332800001,
+        "equity": 10079.199791666666,
+        "fundingAccruedUsd": 79.19979166666683,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002909,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748361600005,
+        "equity": 10104.199791666666,
+        "fundingAccruedUsd": 104.19979166666683,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748390400002,
+        "equity": 10129.199791666666,
+        "fundingAccruedUsd": 129.19979166666684,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748419200003,
+        "equity": 10122.294791666667,
+        "fundingAccruedUsd": 122.29479166666684,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002762,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748448000002,
+        "equity": 10087.567291666666,
+        "fundingAccruedUsd": 87.56729166666685,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00013891,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748476800000,
+        "equity": 10066.154791666668,
+        "fundingAccruedUsd": 66.15479166666685,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00008565,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748505600006,
+        "equity": 10086.022291666666,
+        "fundingAccruedUsd": 86.02229166666686,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00007947,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748534400000,
+        "equity": 10078.354791666667,
+        "fundingAccruedUsd": 78.35479166666686,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00003067,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748563200003,
+        "equity": 10075.622291666667,
+        "fundingAccruedUsd": 75.62229166666685,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00001093,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748592000003,
+        "equity": 10062.317291666666,
+        "fundingAccruedUsd": 62.317291666666854,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005322,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748620800000,
+        "equity": 10070.069791666667,
+        "fundingAccruedUsd": 70.06979166666686,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003101,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748649600000,
+        "equity": 10078.624791666667,
+        "fundingAccruedUsd": 78.62479166666685,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003422,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748678400000,
+        "equity": 10082.707291666668,
+        "fundingAccruedUsd": 82.70729166666685,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001633,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748707200000,
+        "equity": 10057.349791666667,
+        "fundingAccruedUsd": 57.349791666666846,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00010143,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748736000000,
+        "equity": 10057.364375000001,
+        "fundingAccruedUsd": 57.36437500000018,
+        "dydx8hEquivRate": -4.6666666666664e-7,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748736000001,
+        "equity": 10041.781875,
+        "fundingAccruedUsd": 41.781875000000184,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00006233,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748739600000,
+        "equity": 10041.781875,
+        "fundingAccruedUsd": 41.781875000000184,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748743200000,
+        "equity": 10041.781875,
+        "fundingAccruedUsd": 41.781875000000184,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748746800000,
+        "equity": 10041.782395833334,
+        "fundingAccruedUsd": 41.78239583333352,
+        "dydx8hEquivRate": -1.666666666664e-8,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748750400000,
+        "equity": 10041.782395833334,
+        "fundingAccruedUsd": 41.78239583333352,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748754000000,
+        "equity": 10042.0053125,
+        "fundingAccruedUsd": 42.00531250000019,
+        "dydx8hEquivRate": -0.00000713333333333336,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748757600000,
+        "equity": 10042.309479166666,
+        "fundingAccruedUsd": 42.309479166666854,
+        "dydx8hEquivRate": -0.00000973333333333336,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748761200000,
+        "equity": 10042.501666666667,
+        "fundingAccruedUsd": 42.50166666666686,
+        "dydx8hEquivRate": -0.00000615,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748764800000,
+        "equity": 10042.501666666667,
+        "fundingAccruedUsd": 42.50166666666686,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748764800002,
+        "equity": 10022.489166666666,
+        "fundingAccruedUsd": 22.489166666666858,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00008005,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748768400000,
+        "equity": 10022.509479166667,
+        "fundingAccruedUsd": 22.509479166666857,
+        "dydx8hEquivRate": -6.5e-7,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748772000000,
+        "equity": 10027.028229166666,
+        "fundingAccruedUsd": 27.028229166666858,
+        "dydx8hEquivRate": -0.0001446,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748775600000,
+        "equity": 10042.1771875,
+        "fundingAccruedUsd": 42.17718750000019,
+        "dydx8hEquivRate": -0.0004847666666666666,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748779200000,
+        "equity": 10050.752708333333,
+        "fundingAccruedUsd": 50.752708333333516,
+        "dydx8hEquivRate": -0.0002744166666666666,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748782800000,
+        "equity": 10059.175104166667,
+        "fundingAccruedUsd": 59.17510416666685,
+        "dydx8hEquivRate": -0.0002695166666666666,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748786400000,
+        "equity": 10067.469895833334,
+        "fundingAccruedUsd": 67.46989583333351,
+        "dydx8hEquivRate": -0.00026543333333333335,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748790000000,
+        "equity": 10073.953229166667,
+        "fundingAccruedUsd": 73.95322916666684,
+        "dydx8hEquivRate": -0.00020746666666666665,
+        "cex8hRate": null,
+        "divergence": -0.00008428
+      },
+      {
+        "timestamp": 1748793600000,
+        "equity": 10063.111041666667,
+        "fundingAccruedUsd": 63.11104166666685,
+        "dydx8hEquivRate": 9.5e-7,
+        "cex8hRate": -0.00004325,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748797200000,
+        "equity": 10062.840208333333,
+        "fundingAccruedUsd": 62.840208333333514,
+        "dydx8hEquivRate": 0.00000866666666666664,
+        "cex8hRate": null,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748800800000,
+        "equity": 10062.840208333333,
+        "fundingAccruedUsd": 62.840208333333514,
+        "dydx8hEquivRate": 0,
+        "cex8hRate": null,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748804400000,
+        "equity": 10062.401666666667,
+        "fundingAccruedUsd": 62.40166666666685,
+        "dydx8hEquivRate": 0.00001403333333333336,
+        "cex8hRate": null,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748808000000,
+        "equity": 10062.013645833333,
+        "fundingAccruedUsd": 62.01364583333351,
+        "dydx8hEquivRate": 0.00001241666666666664,
+        "cex8hRate": null,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748811600000,
+        "equity": 10061.902708333333,
+        "fundingAccruedUsd": 61.902708333333514,
+        "dydx8hEquivRate": 0.00000355,
+        "cex8hRate": null,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748815200000,
+        "equity": 10060.623541666668,
+        "fundingAccruedUsd": 60.623541666666846,
+        "dydx8hEquivRate": 0.00004093333333333336,
+        "cex8hRate": null,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748818800000,
+        "equity": 10060.191770833333,
+        "fundingAccruedUsd": 60.191770833333514,
+        "dydx8hEquivRate": 0.00001381666666666664,
+        "cex8hRate": null,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748822400001,
+        "equity": 10071.194270833334,
+        "fundingAccruedUsd": 71.19427083333352,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004401,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748851200000,
+        "equity": 10082.661770833334,
+        "fundingAccruedUsd": 82.66177083333352,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004587,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748880000000,
+        "equity": 10081.724270833334,
+        "fundingAccruedUsd": 81.72427083333352,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000375,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748908800000,
+        "equity": 10092.651770833334,
+        "fundingAccruedUsd": 92.65177083333352,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004371,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748937600000,
+        "equity": 10109.516770833334,
+        "fundingAccruedUsd": 109.51677083333351,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006746,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748966400001,
+        "equity": 10110.956770833334,
+        "fundingAccruedUsd": 110.95677083333351,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00000576,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1748995200000,
+        "equity": 10099.504270833333,
+        "fundingAccruedUsd": 99.5042708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00004581,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749024000000,
+        "equity": 10112.166770833333,
+        "fundingAccruedUsd": 112.1667708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005065,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749052800000,
+        "equity": 10116.654270833333,
+        "fundingAccruedUsd": 116.6542708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001795,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749081600016,
+        "equity": 10119.984270833333,
+        "fundingAccruedUsd": 119.9842708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001332,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749110400000,
+        "equity": 10128.864270833334,
+        "fundingAccruedUsd": 128.8642708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003552,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749139200000,
+        "equity": 10127.354270833333,
+        "fundingAccruedUsd": 127.3542708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000604,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749168000002,
+        "equity": 10111.164270833333,
+        "fundingAccruedUsd": 111.1642708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00006476,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749196800000,
+        "equity": 10082.696770833334,
+        "fundingAccruedUsd": 82.6967708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00011387,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749225600006,
+        "equity": 10079.236770833333,
+        "fundingAccruedUsd": 79.23677083333351,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00001384,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749254400000,
+        "equity": 10094.764270833333,
+        "fundingAccruedUsd": 94.76427083333351,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006211,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749283200000,
+        "equity": 10098.014270833333,
+        "fundingAccruedUsd": 98.01427083333351,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.000013,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749312000002,
+        "equity": 10092.031770833333,
+        "fundingAccruedUsd": 92.03177083333351,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002393,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749340800000,
+        "equity": 10091.846770833334,
+        "fundingAccruedUsd": 91.84677083333351,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -7.4e-7,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749369600000,
+        "equity": 10102.336770833334,
+        "fundingAccruedUsd": 102.3367708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004196,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749398400000,
+        "equity": 10095.714270833334,
+        "fundingAccruedUsd": 95.7142708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002649,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749427200000,
+        "equity": 10120.714270833334,
+        "fundingAccruedUsd": 120.7142708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749456000001,
+        "equity": 10127.874270833334,
+        "fundingAccruedUsd": 127.8742708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002864,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749484800001,
+        "equity": 10139.899270833334,
+        "fundingAccruedUsd": 139.8992708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000481,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749513600000,
+        "equity": 10162.591770833333,
+        "fundingAccruedUsd": 162.5917708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00009077,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749542400001,
+        "equity": 10187.591770833333,
+        "fundingAccruedUsd": 187.5917708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749571200003,
+        "equity": 10187.309270833333,
+        "fundingAccruedUsd": 187.3092708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000113,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749600000000,
+        "equity": 10212.309270833333,
+        "fundingAccruedUsd": 212.3092708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749628800000,
+        "equity": 10237.309270833333,
+        "fundingAccruedUsd": 237.3092708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749657600010,
+        "equity": 10262.309270833333,
+        "fundingAccruedUsd": 262.30927083333347,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749686400002,
+        "equity": 10275.291770833333,
+        "fundingAccruedUsd": 275.2917708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005193,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749715200003,
+        "equity": 10285.284270833334,
+        "fundingAccruedUsd": 285.2842708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003997,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749744000001,
+        "equity": 10284.779270833333,
+        "fundingAccruedUsd": 284.7792708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000202,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749772800000,
+        "equity": 10280.511770833333,
+        "fundingAccruedUsd": 280.5117708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00001707,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749801600001,
+        "equity": 10257.336770833334,
+        "fundingAccruedUsd": 257.3367708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.0000927,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749830400004,
+        "equity": 10259.996770833333,
+        "fundingAccruedUsd": 259.9967708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001064,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749859200000,
+        "equity": 10282.316770833333,
+        "fundingAccruedUsd": 282.3167708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00008928,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749888000000,
+        "equity": 10287.714270833334,
+        "fundingAccruedUsd": 287.7142708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002159,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749916800000,
+        "equity": 10286.514270833333,
+        "fundingAccruedUsd": 286.5142708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.0000048,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749945600005,
+        "equity": 10277.114270833334,
+        "fundingAccruedUsd": 277.11427083333353,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.0000376,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1749974400009,
+        "equity": 10295.449270833333,
+        "fundingAccruedUsd": 295.4492708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00007334,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750003200000,
+        "equity": 10317.221770833334,
+        "fundingAccruedUsd": 317.2217708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00008709,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750032000000,
+        "equity": 10342.221770833334,
+        "fundingAccruedUsd": 342.2217708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750060800000,
+        "equity": 10367.221770833334,
+        "fundingAccruedUsd": 367.2217708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750089600003,
+        "equity": 10365.661770833334,
+        "fundingAccruedUsd": 365.6617708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00000624,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750118400000,
+        "equity": 10368.151770833334,
+        "fundingAccruedUsd": 368.1517708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00000996,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750147200006,
+        "equity": 10393.151770833334,
+        "fundingAccruedUsd": 393.1517708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750176000001,
+        "equity": 10406.456770833334,
+        "fundingAccruedUsd": 406.4567708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005322,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750204800001,
+        "equity": 10420.336770833334,
+        "fundingAccruedUsd": 420.3367708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005552,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750233600001,
+        "equity": 10418.561770833334,
+        "fundingAccruedUsd": 418.5617708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.0000071,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750262400001,
+        "equity": 10413.376770833334,
+        "fundingAccruedUsd": 413.3767708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002074,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750291200005,
+        "equity": 10420.509270833334,
+        "fundingAccruedUsd": 420.5092708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002853,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750320000003,
+        "equity": 10426.921770833334,
+        "fundingAccruedUsd": 426.92177083333354,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002565,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750348800000,
+        "equity": 10429.609270833334,
+        "fundingAccruedUsd": 429.60927083333354,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001075,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750377600000,
+        "equity": 10443.454270833334,
+        "fundingAccruedUsd": 443.45427083333357,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00005538,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750406400002,
+        "equity": 10453.679270833334,
+        "fundingAccruedUsd": 453.6792708333336,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000409,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750435200001,
+        "equity": 10457.286770833334,
+        "fundingAccruedUsd": 457.2867708333336,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001443,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750464000002,
+        "equity": 10444.491770833334,
+        "fundingAccruedUsd": 444.4917708333336,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00005118,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750492800005,
+        "equity": 10425.459270833333,
+        "fundingAccruedUsd": 425.45927083333356,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00007613,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750521600000,
+        "equity": 10432.289270833333,
+        "fundingAccruedUsd": 432.28927083333355,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002732,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750550400005,
+        "equity": 10423.629270833333,
+        "fundingAccruedUsd": 423.6292708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00003464,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750579200000,
+        "equity": 10433.541770833333,
+        "fundingAccruedUsd": 433.54177083333354,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003965,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750608000003,
+        "equity": 10435.679270833334,
+        "fundingAccruedUsd": 435.67927083333353,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00000855,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750636800000,
+        "equity": 10448.126770833334,
+        "fundingAccruedUsd": 448.1267708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004979,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750665600004,
+        "equity": 10449.299270833333,
+        "fundingAccruedUsd": 449.29927083333354,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00000469,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750694400013,
+        "equity": 10452.899270833334,
+        "fundingAccruedUsd": 452.89927083333356,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000144,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750723200003,
+        "equity": 10474.494270833333,
+        "fundingAccruedUsd": 474.49427083333353,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00008638,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750752000000,
+        "equity": 10469.461770833334,
+        "fundingAccruedUsd": 469.4617708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00002013,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750780800000,
+        "equity": 10474.564270833334,
+        "fundingAccruedUsd": 474.5642708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002041,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750809600005,
+        "equity": 10471.201770833333,
+        "fundingAccruedUsd": 471.2017708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00001345,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750838400000,
+        "equity": 10496.201770833333,
+        "fundingAccruedUsd": 496.2017708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750867200005,
+        "equity": 10508.049270833333,
+        "fundingAccruedUsd": 508.04927083333354,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00004739,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750896000000,
+        "equity": 10516.581770833334,
+        "fundingAccruedUsd": 516.5817708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003413,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750924800006,
+        "equity": 10521.944270833334,
+        "fundingAccruedUsd": 521.9442708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00002145,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750953600007,
+        "equity": 10506.484270833333,
+        "fundingAccruedUsd": 506.4842708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00006184,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1750982400000,
+        "equity": 10490.379270833333,
+        "fundingAccruedUsd": 490.37927083333346,
+        "dydx8hEquivRate": null,
+        "cex8hRate": -0.00006442,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751011200000,
+        "equity": 10494.231770833334,
+        "fundingAccruedUsd": 494.2317708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001541,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751040000009,
+        "equity": 10498.576770833333,
+        "fundingAccruedUsd": 498.5767708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00001738,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751068800001,
+        "equity": 10515.909270833334,
+        "fundingAccruedUsd": 515.9092708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006933,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751097600002,
+        "equity": 10540.909270833334,
+        "fundingAccruedUsd": 540.9092708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751126400000,
+        "equity": 10565.909270833334,
+        "fundingAccruedUsd": 565.9092708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751155200004,
+        "equity": 10590.909270833334,
+        "fundingAccruedUsd": 590.9092708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751184000001,
+        "equity": 10615.909270833334,
+        "fundingAccruedUsd": 615.9092708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0001,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751212800001,
+        "equity": 10624.559270833333,
+        "fundingAccruedUsd": 624.5592708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.0000346,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751241600000,
+        "equity": 10642.026770833334,
+        "fundingAccruedUsd": 642.0267708333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00006987,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751270400005,
+        "equity": 10644.109270833333,
+        "fundingAccruedUsd": 644.1092708333334,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00000833,
+        "divergence": 0.000044200000000000004
+      },
+      {
+        "timestamp": 1751299200002,
+        "equity": 10653.924270833333,
+        "fundingAccruedUsd": 653.9242708333335,
+        "dydx8hEquivRate": null,
+        "cex8hRate": 0.00003926,
+        "divergence": 0.000044200000000000004
+      }
+    ],
+    "startTime": 1743465600000,
+    "endTime": 1751241600000
+  },
+  "skippedTardisDays": [],
+  "dydxHourlyCount": 72,
+  "cex8hCount": 273,
+  "windowDays": 90,
+  "fetchedAt": "2026-07-08T00:08:51.762Z"
+}
