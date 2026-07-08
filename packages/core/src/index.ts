@@ -746,6 +746,36 @@ export {
 } from "./strategy/donchian-pivot-composition.js";
 export type { DonchianPivotCompositionConfig } from "./strategy/donchian-pivot-composition.js";
 
+// Phase 25 #2 Track D — Liquidation cascade detector (3-layer filter, paper-trade mode).
+// Event-driven SATELLITE overlay that fades perp-DEX liquidation cascades via
+// bybit.eu SPOT marketable-limit entries. Implements the 3-layer filter
+// (CoinGlass + Bitquery + Axel Adler OI/ELR), Layer 4 risk governor, capacity
+// caps, and paper-trade replay. Mandatory invariant: ONLY `POST_CASCADE` state
+// allows entry. See `packages/core/src/strategy/cascade-fade.ts` for the
+// full design rationale and references to Track D REPORT §6-§8.
+export {
+  CascadeFadeDetector,
+  CascadeFadeStrategy,
+  DEFAULT_CASCADE_FADE_CONFIG,
+  replayCascadeEvent,
+  simulateBybitEuPaperFill,
+  syntheticBybitEuSlippageBps,
+} from "./strategy/cascade-fade.js";
+export type {
+  CascadeEntry,
+  CascadeEvent,
+  CascadeExit,
+  CascadeFadeConfig,
+  CascadeReplayObservation,
+  CascadeReplayResult,
+  CascadeState,
+  CascadeWindowInput,
+  CrossConfirmationInput,
+  ElrInput,
+  FundingRateInput,
+  OpenInterestInput,
+} from "./strategy/cascade-fade.js";
+
 import type { Strategy } from "./types.js";
 import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
 
