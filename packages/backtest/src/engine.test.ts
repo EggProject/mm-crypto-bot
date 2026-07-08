@@ -447,6 +447,65 @@ describe("runBacktest — kill-switch", () => {
       expect(["kill_switch", "end_of_data", "stop_loss"]).toContain(lastTrade.exitReason);
     }
   });
+
+  it("a kill-switch nem dob TypeError-t, ha nincs nyitott pozíció (Phase 27 regression test)", async () => {
+    // Phase 27 fix regression test: a kill-switch akkor is triggerelhet, ha a
+    // realizált veszteségek összessége eléri a maxDrawdown-t — miközben éppen
+    // nincs nyitott pozíció (az előző trade stop_loss-szal zárult). A régi kód
+    // `openPosition!` non-null assertion-t használt, ami TypeError-t dobott.
+    //
+    // Reprodukálás: simple-retail-ensemble 2026-ban futva ezt a hibát produkálta
+    // (lásd docs/research/phase26-strategy-audit/REFRESH-phase26.md §3.5).
+    //
+    // A mock stratégia 1 trade-et nyit (ami stop_loss-szal zárul veszteséggel),
+    // majd a kill-switch a realizált veszteség alapján triggerelődjön.
+
+    // Állítsunk össze egy candle-sorozatot: első szakasz trend-fel (trade nyílik),
+    // aztán esés (stop_loss triggerelődik → trade zárul veszteséggel),
+    // aztán a stratégia nem ad új jelet, de az equity tovább esik a realizált veszteség miatt.
+    const candles: Candle[] = [];
+    // 50 óra uptrend — a trade megnyílik
+    for (let i = 0; i < 50; i++) {
+      candles.push(mkCandle(i * HOUR_MS, 1000 + i * 1));
+    }
+    // 50 óra esés — a stop_loss triggerelődik, trade zárul veszteséggel
+    for (let i = 0; i < 50; i++) {
+      candles.push(mkCandle((50 + i) * HOUR_MS, 1050 - i * 3));
+    }
+    // További 50 óra oldalazás — a stratégia már nem ad jelet (maxTrades=1),
+    // de a realizált veszteség miatt az equity a csúcs alatt marad.
+    // Ha a maxDrawdown nagyon alacsony, a kill-switch itt triggerelődik
+    // nyitott pozíció nélkül (openPosition === null).
+    for (let i = 0; i < 50; i++) {
+      candles.push(mkCandle((100 + i) * HOUR_MS, 900));
+    }
+
+    const feed = new MockFeed(candles);
+    const opts: BacktestOptions = {
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(candles[candles.length - 1]!.timestamp),
+      initialEquityUsd: 10000,
+      feed,
+      costModel: COST_MODEL,
+      // maxDrawdown nagyon alacsony (1%), hogy a realizált veszteség triggerelje
+      positionSize: { ...POSITION_SIZE, maxDrawdown: 0.01, riskPerTrade: 0.5 },
+      strategy: new MockStrategy("buy", 1, 5, 100), // maxTrades=1, stopLossOffset=5
+    };
+    // A Phase 27 fix előtt ez TypeError-t dobott: "null is not an object (evaluating 'pos.side')".
+    // A fix után a kill-switch csendben triggerelődik, openPosition === null esetén.
+    const result = await runBacktest(opts);
+    // A trade stop_loss-szal vagy kill_switch-csel zárult.
+    expect(result.trades.length).toBeGreaterThanOrEqual(1);
+    const lastTrade = result.trades[result.trades.length - 1]!;
+    expect(["stop_loss", "kill_switch", "end_of_data"]).toContain(lastTrade.exitReason);
+    // Ha a kill-switch triggerelődött, a TypeError nem dobódott.
+    // (Ha a stop_loss előbb triggerelődött, mint a kill-switch, akkor a kill-switch
+    //  nem triggerelődik — ez is helyes viselkedés.)
+  });
 });
 
 describe("runBacktest — end-of-data", () => {

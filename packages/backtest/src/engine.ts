@@ -349,21 +349,29 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
     if (dd >= opts.positionSize.maxDrawdown) {
       killSwitchTriggered = true;
       // Zárjuk a nyitott pozíciót a kill-switch exit reason-nel.
-      const trade = closePosition(
-        openPosition!,
-        ltfCandle,
-        { reason: "kill_switch", exitPrice: ltfCandle.close },
-        opts.costModel,
-      );
-      trades.push(trade);
-      // Phase 7 Track A — notify strategy of kill-switch close
-      if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
-        (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed("kill_switch");
+      // Phase 27 fix: a kill-switch akkor is triggerelhet, ha NINCS nyitott pozíció
+      // (realizált veszteségek felhalmozódása esetén). Az eredeti kód `openPosition!`
+      // non-null assertion-t használt, ami TypeError-t dobott, amikor a simple-retail
+      // ensemble elérte a maxDrawdown-t zárt pozícióval (lásd REFRESH-phase26.md §3.5).
+      if (openPosition !== null) {
+        const trade = closePosition(
+          openPosition,
+          ltfCandle,
+          { reason: "kill_switch", exitPrice: ltfCandle.close },
+          opts.costModel,
+        );
+        trades.push(trade);
+        // Phase 7 Track A — notify strategy of kill-switch close
+        if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
+          (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed("kill_switch");
+        }
+        // A kill-switch close PnL-je a `trades` tömbben és a metrics.totalReturnPct-ben
+        // jelenik meg; az `equity` lokális változót a függvény nem olvassa a
+        // return előtt, ezért itt szándékosan nem frissítjük.
+        openPosition = null;
       }
-      // A kill-switch close PnL-je a `trades` tömbben és a metrics.totalReturnPct-ben
-      // jelenik meg; az `equity` lokális változót a függvény nem olvassa a
-      // return előtt, ezért itt szándékosan nem frissítjük.
-      openPosition = null;
+      // A kill-switch aktiválódása minden esetben leállítja a további iterációt —
+      // függetlenül attól, hogy volt-e nyitott pozíció.
       break;
     }
   }
