@@ -48,7 +48,7 @@ export interface IndicatorState {
 
 /**
  `MtfState` — a három időkeret-állapot összessége. A stratégia-motor a
- `MtfTrendConfluenceStrategy.onCandle` hívásakor kapja meg (az LTF-en),
+ `Strategy.onCandle` hívásakor kapja meg (az LTF-en),
  és ezen keresztül éri el a HTF és MTF indikátor-értékeket is.
 */
 export interface MtfState {
@@ -225,82 +225,7 @@ export interface Strategy {
   onPositionClosed?(reason: string): void;
 }
 
-/**
- `StrategyConfig` — a `MtfTrendConfluenceStrategy` konfigurációs paraméterei.
- A teljes specifikáció a `selected-strategy.md` §2-ben és §3-4-ben.
-*/
-export interface MtfTrendConfluenceConfig {
-  /** HTF indikátor-periódusok (Donchian, Supertrend, EMA, ADX). */
-  readonly htf: {
-    readonly donchianPeriod: number;
-    readonly supertrendPeriod: number;
-    readonly supertrendMultiplier: number;
-    readonly emaFast: number;
-    readonly emaSlow: number;
-    readonly adxPeriod: number;
-    readonly adxThreshold: number;
-  };
-  /** MTF indikátor-periódusok (BB, ADX, RSI). */
-  readonly mtf: {
-    readonly bbPeriod: number;
-    readonly bbStddev: number;
-    readonly adxPeriod: number;
-    readonly adxThreshold: number;
-    readonly rsiPeriod: number;
-    readonly rsiLongThreshold: number;
-    readonly rsiShortThreshold: number;
-  };
-  /** LTF indikátor-periódusok (RSI, VolumeMA, ATR). */
-  readonly ltf: {
-    readonly rsiPeriod: number;
-    readonly rsiLongCross: number;
-    readonly rsiShortCross: number;
-    readonly volumeMaPeriod: number;
-    readonly volumeConfirmMultiplier: number;
-    readonly atrPeriod: number;
-    readonly atrStopMultiplier: number;
-    readonly atrTpRMultiple: number;
-  };
-  /** Belépési/kilépési R:R és trailing stop paraméterek. */
-  readonly risk: {
-    readonly stopAtrMultiplier: number;
-    readonly takeProfitRMultiple: number;
-    readonly timeExitHours: number;
-  };
-}
-
-export const DEFAULT_MTF_CONFIG: MtfTrendConfluenceConfig = {
-  htf: {
-    donchianPeriod: 20,
-    supertrendPeriod: 10,
-    supertrendMultiplier: 3.0,
-    emaFast: 50,
-    emaSlow: 200,
-    adxPeriod: 14,
-    adxThreshold: 20,
-  },
-  mtf: {
-    bbPeriod: 20,
-    bbStddev: 2.0,
-    adxPeriod: 14,
-    adxThreshold: 20,
-    rsiPeriod: 14,
-    rsiLongThreshold: 35,
-    rsiShortThreshold: 65,
-  },
-  ltf: {
-    rsiPeriod: 14,
-    rsiLongCross: 30,
-    rsiShortCross: 70,
-    volumeMaPeriod: 20,
-    volumeConfirmMultiplier: 1.2,
-    atrPeriod: 14,
-    atrStopMultiplier: 1.5,
-    atrTpRMultiple: 2.5,
-  },
-  risk: {
-    stopAtrMultiplier: 1.5,
-    takeProfitRMultiple: 2.5,
-    timeExitHours: 72,
-  },
-};
+// Phase 27 cleanup: MtfTrendConfluenceConfig and DEFAULT_MTF_CONFIG removed.
+// The MtfTrendConfluenceStrategy was deleted (HALT verdict: 0 trades,
+// 0% return over 30-month full window). See
+// docs/research/phase26-strategy-audit/REFRESH-phase26.md §4.

@@ -1,8 +1,13 @@
 // packages/core/src/index.ts — `@mm-crypto-bot/core` belépési pont
 //
-// A `@mm-crypto-bot/core` csomag a stratégia-motor. A kiválasztott stratégia
-// (MTF-Trend-Konfluencia Kompozit v1.0) és az indikátor-számítási
+// A `@mm-crypto-bot/core` csomag a stratégia-motor. A production stratégia
+// (Donchian-Pivot Composition, Phase 18+25) és az indikátor-számítási
 // modul itt van implementálva.
+//
+// Phase 27 cleanup: removed re-exports for HALT/REMOVE strategies
+// (always-in-trend, donchian-breakout, donchian-trailing, mean-reversion-bb,
+// mtf-trend-confluence, multi-class-ensemble v1, v3, v4). See
+// docs/research/phase26-strategy-audit/REFRESH-phase26.md §4.
 //
 // Specifikáció: docs/research/selected-strategy.md
 
@@ -11,21 +16,25 @@
 // hozzáférjenek mindegyikhez.
 export * from "./indicators/index.js";
 
-// Stratégia — a `MtfTrendConfluenceStrategy` és a `Strategy` interfész.
-export { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
-// Phase 4 — aggressive MTF-BB mean-reversion.
-export { MeanReversionBbStrategy } from "./strategy/mean-reversion-bb.js";
-export { DEFAULT_MR_CONFIG } from "./strategy/mean-reversion-bb.js";
-export type { MeanReversionBbConfig } from "./strategy/mean-reversion-bb.js";
-// Phase 5 — always-in trend-following (Strategy A).
-export { AlwaysInTrendStrategy } from "./strategy/always-in-trend.js";
-export { DEFAULT_ALWAYSIN_CONFIG } from "./strategy/always-in-trend.js";
-export type { AlwaysInTrendConfig } from "./strategy/always-in-trend.js";
 // Phase 5 — Donchian volatility breakout (Strategy C).
+// Note: kept because MultiClassEnsembleV2 (production candidate, +9.46%/mo @ 3.43 Sharpe fresh BTC)
+// uses DonchianBreakoutStrategy as the BASE trend-following edge inside DonchianTrailingStrategy.
+// Dependency chain: v2 → DonchianTrailing → DonchianBreakout.
+// HALT-standalone verdict in REFRESH-phase26.md, but kept as a v2 sub-component.
 export { DonchianBreakoutStrategy } from "./strategy/donchian-breakout.js";
 export { DEFAULT_DONCHIAN_CONFIG } from "./strategy/donchian-breakout.js";
 export type { DonchianBreakoutConfig } from "./strategy/donchian-breakout.js";
+// Phase 8 Track F — 1h MTF Donchian with 4h filter + 1d supertrend (3-tier MTF, long-only, 1:10 leverage).
+// Note: kept because the Phase 11.1b DirectionalMTFPlugin depends on it
+// (signal-center/plugins/directional-mtf-plugin.ts). HALT-standalone verdict
+// in REFRESH-phase26.md, but kept as a sub-component.
+export { DonchianMtfStrategy } from "./strategy/donchian-mtf.js";
+export { DEFAULT_DONCHIAN_MTF_CONFIG } from "./strategy/donchian-mtf.js";
+export type { DonchianMtfConfig } from "./strategy/donchian-mtf.js";
 // Phase 7 Track A — Donchian breakout + trailing-stop engine (HWM-based, ATR + fixed-% + time-based exits).
+// Note: kept because MultiClassEnsembleV2 (production candidate, +9.46%/mo @ 3.43 Sharpe fresh BTC)
+// uses DonchianTrailingStrategy as its primary directional sub-component.
+// HALT-standalone verdict in REFRESH-phase26.md, but kept as a v2 sub-component.
 export { DonchianTrailingStrategy } from "./strategy/donchian-trailing.js";
 export {
   DEFAULT_DONCHIAN_TRAILING_CONFIG,
@@ -33,10 +42,6 @@ export {
   resolveTrailConfig,
 } from "./strategy/donchian-trailing.js";
 export type { DonchianTrailingConfig, ResolvedTrailConfig, TrailVariant } from "./strategy/donchian-trailing.js";
-// Phase 8 Track F — 1h MTF Donchian with 4h filter + 1d supertrend (3-tier MTF, long-only, 1:10 leverage).
-export { DonchianMtfStrategy } from "./strategy/donchian-mtf.js";
-export { DEFAULT_DONCHIAN_MTF_CONFIG } from "./strategy/donchian-mtf.js";
-export type { DonchianMtfConfig } from "./strategy/donchian-mtf.js";
 // Phase 5 — Composite multi-strategy ensemble (Strategy B).
 export { CompositeStrategy } from "./strategy/composite.js";
 export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
@@ -88,22 +93,16 @@ export type {
   FundingFlipKillSwitchState,
   RegimeDecision,
 } from "./strategy/funding-flip-kill-switch.js";
-// Phase 6 M2 — multi-class edge ensemble (Donchian + funding-carry + arb-latency-gate + Kelly-opt sizing).
+// Phase 6 Track B — Latency-gate infrastructure (kept after Phase 27 cleanup).
+// NOTE: MultiClassEnsemble class was removed (dead code, 0 trades fresh run).
+// Only the LatencyGate + KellyOpt utilities remain — they're imported by
+// MultiClassEnsembleV2 (production candidate).
 export {
-  MultiClassEnsemble,
   createLatencyGate,
   DEFAULT_KELLY_OPT_AGGREGATE,
   DEFAULT_LATENCY_GATE_DISABLED,
-  DEFAULT_MULTI_CLASS_ENSEMBLE_CONFIG_PARTIAL,
-  timeframesForMultiClass,
 } from "./strategy/multi-class-ensemble.js";
-export type {
-  KellyOptAggregate,
-  LatencyGate,
-  LatencySnapshot,
-  MultiClassEnsembleConfig,
-  MultiClassEnsembleState,
-} from "./strategy/multi-class-ensemble.js";
+export type { KellyOptAggregate, LatencyGate, LatencySnapshot } from "./strategy/multi-class-ensemble.js";
 // Phase 6 Track C — Kelly-opt position sizing (risk module).
 export {
   applyRiskCaps,
@@ -186,6 +185,7 @@ export type {
   HybridWalkForwardWindow,
 } from "./risk/adaptive-kelly-vol-hybrid.js";
 // Phase 7 M2 — Multi-class ensemble V2 (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate).
+// PRODUCTION CANDIDATE per Phase 27 REFRESH (fresh data: +9.46%/mo @ 3.43 Sharpe BTC).
 export {
   DEFAULT_ADAPTIVE_KELLY_AGGREGATE,
   DEFAULT_MULTI_CLASS_ENSEMBLE_V2_CONFIG_PARTIAL,
@@ -197,34 +197,6 @@ export type {
   MultiClassEnsembleV2Config,
   MultiClassEnsembleV2State,
 } from "./strategy/multi-class-ensemble-v2.js";
-// Phase 8 M2 — Multi-class ensemble V3 (Donchian-MTF + Funding-Carry-Timing + Carry-Leverage-10x + VolTargeted).
-export {
-  combineVolAndCarryLeverage,
-  computeV3CarryFractionFromTimingState,
-  DEFAULT_MULTI_CLASS_ENSEMBLE_V3_CONFIG_PARTIAL,
-  defaultV3VolTargetConfig,
-  MultiClassEnsembleV3,
-  timeframesForMultiClassV3,
-} from "./strategy/multi-class-ensemble-v3.js";
-export type {
-  MultiClassEnsembleV3Config,
-  MultiClassEnsembleV3State,
-} from "./strategy/multi-class-ensemble-v3.js";
-// Phase 9 M2 — Multi-class ensemble V4 (Donchian-MTF + Funding-Flip-KillSwitch + Carry-Leverage-10x + VolTarget + HybridSizer).
-export {
-  combineVolAndCarryLeverageV4,
-  computeV4CarryFractionFromFlipSwitchState,
-  DEFAULT_MULTI_CLASS_ENSEMBLE_V4_CONFIG_PARTIAL,
-  defaultV4CompositionForSymbol,
-  defaultV4VolTargetConfig,
-  MultiClassEnsembleV4,
-  timeframesForMultiClassV4,
-} from "./strategy/multi-class-ensemble-v4.js";
-export type {
-  MultiClassEnsembleV4Config,
-  MultiClassEnsembleV4State,
-  V4PerSymbol,
-} from "./strategy/multi-class-ensemble-v4.js";
 // Phase 10G Track A — Signal Center (typed pub/sub + plugin registry + reference plugin).
 // Type discriminated unions for Signal events.
 export {
@@ -675,7 +647,7 @@ export type {
 } from "./telemetry/strategy-telemetry.js";
 
 // Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
-// `MtfState`, `IndicatorState`, `MtfTrendConfluenceConfig`, `DEFAULT_MTF_CONFIG`.
+// `MtfState`, `IndicatorState`.
 export type {
   Strategy,
   StrategyContext,
@@ -685,9 +657,7 @@ export type {
   PositionUpdate,
   MtfState,
   IndicatorState,
-  MtfTrendConfluenceConfig,
 } from "./types.js";
-export { DEFAULT_MTF_CONFIG } from "./types.js";
 
 // Phase 13 Track B — Portfolio Orchestrator (multi-symbol BTC+ETH+SOL simultaneous).
 // Re-exports the portfolio module's public surface: PortfolioOrchestrator + PositionDecision +
@@ -721,14 +691,6 @@ export {
   DEFAULT_KELTNER_GRID_CONFIG,
 } from "./strategy/keltner-grid.js";
 export type { KeltnerGridConfig } from "./strategy/keltner-grid.js";
-
-// Phase 15 Track D — Simple Retail Ensemble (composes the 4 Phase 15 retail strategies).
-export {
-  SimpleRetailEnsemble,
-  DEFAULT_SIMPLE_RETAIL_ENSEMBLE_CONFIG,
-  ENSEMBLE_DEFAULT_LTF,
-} from "./strategy/simple-retail-ensemble.js";
-export type { SimpleRetailEnsembleConfig } from "./strategy/simple-retail-ensemble.js";
 
 // Phase 16 Track B — Regime-Routed Ensemble (ADX-routed composition: Pivot+Donchian in range, BB+Keltner in trend).
 export {
@@ -826,16 +788,17 @@ export type {
 } from "./strategy/dydx-cex-carry.paper-trade.js";
 
 import type { Strategy } from "./types.js";
-import { MtfTrendConfluenceStrategy } from "./strategy/mtf-trend-confluence.js";
+import { DonchianPivotComposition } from "./strategy/donchian-pivot-composition.js";
 
 /**
  `createStrategy` — factory függvény a kiválasztott stratégia
  példányosításához. A backtest motor ezen keresztül kapja meg a
  stratégiát, hogy ne kelljen az implementációs részleteket ismernie.
 
- A factory a `DEFAULT_MTF_CONFIG` alapértékeit használja — a
- későbbi fázisokban a konfiguráció a `loadConfig()`-ból jöhet.
+ Phase 27 default: Donchian-Pivot Composition (Phase 18 PRODUCTION,
+ confirmed by Phase 26 REFRESH: +16.62%/mo @ 20.5 Sharpe BTC 2of2 mode).
+ Previous default was MtfTrendConfluenceStrategy (removed in Phase 27 cleanup).
 */
 export function createStrategy(): Strategy {
-  return new MtfTrendConfluenceStrategy();
+  return new DonchianPivotComposition();
 }

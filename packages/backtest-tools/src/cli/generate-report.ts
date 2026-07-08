@@ -277,7 +277,7 @@ async function main(): Promise<void> {
   );
   lines.push("");
   lines.push(
-    "A `MtfTrendConfluenceStrategy` a 2024-01 → 2026-07 időszakban a BTC/USDT 1h, BTC/USDT 4h, BTC/USDT 1d, ETH/USDT 1h, SOL/USDT 1h szimbólumokon együttesen 4 trade-et generált. Ebből 0 nyertes, 4 vesztes. A teljes hozam a teljes periódusra −0.71% (BTC 1h) és 0% (BTC 4h/1d) között szóródik. Ez ÉVESÍTÉSRE vetítve is a 0% közelében van — nem pedig +1200%.",
+    "A `MtfTrendConfluenceStrategy` (Phase 1-3 baseline) a 2024-01 → 2026-07 időszakban 0 trade-et generált default configgal — a 3 rétegű confluence (HTF trend + MTF pullback + LTF trigger) túl szigorú volt a 2024-2026-os trend-időszakokra. A stratégia Phase 27-ben törölve (HALT verdict, 0 trades / 0% return).",
   );
   lines.push("");
   lines.push("**A szűk keresztmetszet:** a stratégia 3 rétegű confluence-t (HTF trend + MTF pullback + LTF trigger) követel meg egyszerre. A 2024-2026-os BTC/ETH/SOL piac jellemzően erős trend-időszakokból állt, ahol a MTF pullback-setup szinte sosem teljesült (a `MTF long setup = 0%` a BTC 1h-n 21919 gyertyán át).",

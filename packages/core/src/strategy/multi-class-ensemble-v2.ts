@@ -88,7 +88,6 @@ export {
   createLatencyGate,
   DEFAULT_KELLY_OPT_AGGREGATE,
   DEFAULT_LATENCY_GATE_DISABLED,
-  DEFAULT_MULTI_CLASS_ENSEMBLE_CONFIG_PARTIAL,
 } from "./multi-class-ensemble.js";
 
 export type { LatencyGate, LatencySnapshot, KellyOptAggregate } from "./multi-class-ensemble.js";
