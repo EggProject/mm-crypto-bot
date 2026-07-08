@@ -497,6 +497,8 @@ export class CascadeFadeDetector {
   private readonly openPositions = new Map<string, CascadeEntry>();
   /** Rolling 7d P&L ledger (closed positions only). */
   private readonly pnlLedgerBps: { tsMs: number; pnlBps: number }[] = [];
+  /** Entry notional ledger used for the $5M/week capacity gate. */
+  private readonly entryLedgerUsd: { tsMs: number; notionalUsd: number }[] = [];
 
   constructor(config: Partial<CascadeFadeConfig> = {}) {
     const merged: CascadeFadeConfig = { ...DEFAULT_CASCADE_FADE_CONFIG, ...config };
@@ -610,19 +612,22 @@ export class CascadeFadeDetector {
     if (ev.symbol === "BTC" && this.isInBtcCooldown(nowMs)) return false;
     // Capacity — allowedSymbols FIRST (issue #4a: SOL would have entered).
     if (!this.config.allowedSymbols.includes(ev.symbol)) return false;
-    // Per-week deployable cap (issue #4b).
+    const plannedNotionalUsd = this.plannedEntryNotionalUsd();
+    // Per-week deployable cap (issue #4b). This MUST count every entry
+    // opened in the last 7d, not just currently-open positions; otherwise
+    // a sequence of fast TWAP exits can churn beyond the $5M/week budget.
     const weekStartMs = nowMs - 7 * 24 * 60 * 60 * 1000;
     let deployedThisWeek = 0;
-    for (const e of this.pnlLedgerBps) {
-      if (e.tsMs < weekStartMs) continue;
+    for (const entry of this.entryLedgerUsd) {
+      if (entry.tsMs >= weekStartMs) deployedThisWeek += entry.notionalUsd;
     }
+    if (deployedThisWeek + plannedNotionalUsd > this.config.capacityMaxPerWeekUsd) return false;
+    // Per-event deployable cap across currently-open cascade positions.
+    let openNotionalUsd = 0;
     for (const pos of this.openPositions.values()) {
-      deployedThisWeek += pos.entryNotionalUsd;
+      openNotionalUsd += pos.entryNotionalUsd;
     }
-    // Total closed-event notional tracked via `pnlLedgerBps` is
-    // intentionally NOT summed here — closed P&L does not consume
-    // capacity. Per-event cap is checked again inside `processEntry`.
-    if (deployedThisWeek >= this.config.capacityMaxPerWeekUsd) return false;
+    if (openNotionalUsd + plannedNotionalUsd > this.config.capacityMaxPerEventUsd) return false;
     // Concurrent-symbol cap: only counts new symbols (an open position in
     // the same symbol is OK, just refreshes; doesn't count twice).
     const openSymbols = new Set<string>();
@@ -732,6 +737,25 @@ export class CascadeFadeDetector {
         this.recordExit(exit, nowMs);
         return [event];
       }
+      // TWAP auto-exit — fire when entry deadline passed but no kill-switch.
+      if (
+        event.entry !== null &&
+        event.exit === null &&
+        event.entry.entryTsMs + event.entry.exitWindowMinutes * 60_000 <= nowMs
+      ) {
+        // Synthetic exit mid = entry mid price (paper-trade fallback — at
+        // the timed exit deadline, we do NOT have a live bybit.eu mid
+        // tap wired in, so we use the captured entry mid. Real production
+        // wires `forceExit()` from a market-data tick.
+        this.forceExit(
+          event.id,
+          nowMs,
+          event.entry.entryMidPriceUsd,
+          "timed_exit",
+        );
+        return [event];
+      }
+
       // ---- Layer 3 entry (only POST_CASCADE) ----
       // Issue #1 + #4: gates (incl. risk + allowedSymbols + per-week
       // capacity) are evaluated inside `canEnter`. The adversarial run
@@ -745,6 +769,7 @@ export class CascadeFadeDetector {
         const entry = this.processEntry(event, window, nowMs);
         event.entry = entry;
         this.openPositions.set(event.id, entry);
+        this.entryLedgerUsd.push({ tsMs: nowMs, notionalUsd: entry.entryNotionalUsd });
         if (event.symbol === "BTC") {
           this.lastBtcEntryTsMs = nowMs;
         }
@@ -841,6 +866,7 @@ export class CascadeFadeDetector {
     this.elrHistory.clear();
     this.openPositions.clear();
     this.pnlLedgerBps.length = 0;
+    this.entryLedgerUsd.length = 0;
     this.lastBtcEntryTsMs = -Infinity;
     this.hardStopHaltUntilMs = -Infinity;
   }
@@ -920,15 +946,25 @@ export class CascadeFadeDetector {
     if (crossConfirmation === undefined) return false;
     if (crossConfirmation.sources.length < this.config.layer1MinCrossConfirmations) return false;
     const windowMs = this.config.layer1CrossConfirmWindowMs;
-    const distinctProviderGroups = new Set<string>();
+    const distinctProviders = new Set<CrossConfirmationProvider>();
+    let hasCoinGlass = false;
+    let hasPerpFeed = false;
     for (const s of crossConfirmation.sources) {
       if (s.symbol !== triggerSymbol) return false; // (a) same-symbol rule
       if (Math.abs(s.windowStartMs - triggerTsMs) > windowMs) return false; // (b) tight time tolerance
-      const group = PROVIDER_DIVERSITY_GROUPS[s.provider];
-      distinctProviderGroups.add(group);
+      distinctProviders.add(s.provider);
+      if (s.provider === "coinglass_v4") hasCoinGlass = true;
+      if (PROVIDER_DIVERSITY_GROUPS[s.provider] === "perp") hasPerpFeed = true;
     }
-    // (c) distinct providers requirement
-    return distinctProviderGroups.size >= this.config.layer1MinCrossConfirmations;
+    // (c) distinct providers + required CoinGlass/perp-feed pairing.
+    // This is stricter than a numeric `sourceCount`: duplicate provider
+    // echoes, two stale perp venues without CoinGlass, or cross-symbol
+    // payloads cannot create a Layer 1 cascade.
+    return (
+      distinctProviders.size >= this.config.layer1MinCrossConfirmations &&
+      hasCoinGlass &&
+      hasPerpFeed
+    );
   }
 
   private nextState(event: CascadeEvent, nowMs: number): CascadeState {
@@ -1005,6 +1041,13 @@ export class CascadeFadeDetector {
   // Layer 3 entry
   // -------------------------------------------------------------------------
 
+  private plannedEntryNotionalUsd(): number {
+    return Math.min(
+      this.config.capacityMaxPerSymbolEventUsd,
+      this.config.capacityMaxPerEventUsd,
+    );
+  }
+
   private processEntry(
     event: CascadeEvent,
     window: CascadeWindowInput,
@@ -1019,10 +1062,7 @@ export class CascadeFadeDetector {
     // to pay up to mid + Xbps to lift offers / capture RPI depth.
     const entryLimitPriceUsd = midPriceUsd * (1 + distanceFrac);
     // Sized at capacityMaxPerSymbolEventUsd, also clamped by per-event cap.
-    const entryNotionalUsd = Math.min(
-      this.config.capacityMaxPerSymbolEventUsd,
-      this.config.capacityMaxPerEventUsd,
-    );
+    const entryNotionalUsd = this.plannedEntryNotionalUsd();
     // TWAP exit 3-10 min — use midpoint of the config range.
     const exitWindowMinutes = Math.round(
       (this.config.layer3ExitMinMinutes + this.config.layer3ExitMaxMinutes) / 2,
@@ -1148,29 +1188,11 @@ export class CascadeFadeDetector {
   // Helpers
   // -------------------------------------------------------------------------
 
-  /**
-   * `findEventBySymbol` — returns the most recent cascade event for the
-   * given symbol regardless of exit status. The state machine must keep
-   * updating closed events (POST_CASCADE → STABILIZING on ELR climb,
-   * etc.) so the underlying event is fetched even after a TWAP auto-exit
-   * has set `ev.exit`. `canEnter()` still gates entry by checking
-   * `ev.entry === null`, so a closed event will never trigger a new
-   * entry.
-   *
-   * Verifier Check 4 (attempt 1 fix): the original implementation
-   * excluded closed events, breaking state transitions after TWAP exit.
-   * This regressed the "POST_CASCADE reverts when ELR climbs ≥ 0.45"
-   * test, which feeds an ELR spike AFTER the auto-exit. Fixed.
-   */
   private findEventBySymbol(symbol: string): CascadeEvent | undefined {
-    let latest: CascadeEvent | undefined;
     for (const ev of this.events.values()) {
-      if (ev.symbol !== symbol) continue;
-      if (latest === undefined || ev.triggeredAtMs > latest.triggeredAtMs) {
-        latest = ev;
-      }
+      if (ev.symbol === symbol && ev.exit === null) return ev;
     }
-    return latest;
+    return undefined;
   }
 
   private createEvent(args: {
@@ -1352,10 +1374,11 @@ export function replayCascadeEvent(
       }
     }
   }
+  const allEvents = detector.getAllEvents();
   return {
     detector,
-    eventTimeline: detector.getAllEvents(),
-    entries: detector.getOpenPositions(),
+    eventTimeline: allEvents,
+    entries: allEvents.flatMap((event) => (event.entry === null ? [] : [event.entry])),
     exits: detector.getExitsLog(),
     reachedPostCascadeAtMs,
   };

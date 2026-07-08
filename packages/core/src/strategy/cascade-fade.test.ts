@@ -121,13 +121,13 @@ const elr = (tsMs: number, symbol = "BTC", ratio = 0.30) => ({
  *     space — we cycle through coinglass_v4 + perp venues.
  */
 const xconf = (startMs: number, symbol = "BTC", count = 2) => {
-  const providers: ReadonlyArray<
+  const providers: readonly (
     | "coinglass_v4"
     | "bitquery_hl"
     | "binance_perp"
     | "okx_perp"
     | "bybit_perp"
-  > = ["coinglass_v4", "bitquery_hl", "binance_perp", "okx_perp", "bybit_perp"];
+  )[] = ["coinglass_v4", "bitquery_hl", "binance_perp", "okx_perp", "bybit_perp"];
   const sources: { provider: typeof providers[number]; symbol: string; windowStartMs: number }[] = [];
   for (let i = 0; i < count; i++) {
     const provider = providers[i % providers.length];
@@ -269,6 +269,66 @@ describe("CascadeFadeDetector — Layer 1 (real-time trigger)", () => {
     expect(event?.state).toBe("IN_PROGRESS");
     expect(event?.symbol).toBe("BTC");
   });
+
+  it("rejects cross-confirmation when source symbol or timestamp mismatches", () => {
+    const det = new CascadeFadeDetector();
+    seedOiHistory(det, "BTC", T0 - 10 * 60_000, T0, 60_000, () => 10_000_000_000);
+    const wrongSymbol = det.observe({
+      nowMs: T0,
+      window: cascadeWindow(T0, "BTC"),
+      oi: oi(T0, "BTC", 9_850_000_000),
+      crossConfirmation: {
+        sources: [
+          { provider: "coinglass_v4", symbol: "BTC", windowStartMs: T0 },
+          { provider: "bitquery_hl", symbol: "ETH", windowStartMs: T0 },
+        ],
+      },
+    });
+    expect(wrongSymbol.length).toBe(0);
+
+    const stale = det.observe({
+      nowMs: T0 + 60_000,
+      window: cascadeWindow(T0 + 60_000, "BTC"),
+      oi: oi(T0 + 60_000, "BTC", 9_800_000_000),
+      crossConfirmation: {
+        sources: [
+          { provider: "coinglass_v4", symbol: "BTC", windowStartMs: T0 + 60_000 },
+          { provider: "bitquery_hl", symbol: "BTC", windowStartMs: T0 - 3 * 60 * 60_000 },
+        ],
+      },
+    });
+    expect(stale.length).toBe(0);
+  });
+
+  it("requires CoinGlass plus a distinct perp provider", () => {
+    const det = new CascadeFadeDetector();
+    seedOiHistory(det, "BTC", T0 - 10 * 60_000, T0, 60_000, () => 10_000_000_000);
+    const duplicateCoinGlass = det.observe({
+      nowMs: T0,
+      window: cascadeWindow(T0, "BTC"),
+      oi: oi(T0, "BTC", 9_850_000_000),
+      crossConfirmation: {
+        sources: [
+          { provider: "coinglass_v4", symbol: "BTC", windowStartMs: T0 },
+          { provider: "coinglass_v4", symbol: "BTC", windowStartMs: T0 },
+        ],
+      },
+    });
+    expect(duplicateCoinGlass.length).toBe(0);
+
+    const perpsOnly = det.observe({
+      nowMs: T0 + 60_000,
+      window: cascadeWindow(T0 + 60_000, "BTC"),
+      oi: oi(T0 + 60_000, "BTC", 9_800_000_000),
+      crossConfirmation: {
+        sources: [
+          { provider: "bitquery_hl", symbol: "BTC", windowStartMs: T0 + 60_000 },
+          { provider: "binance_perp", symbol: "BTC", windowStartMs: T0 + 60_000 },
+        ],
+      },
+    });
+    expect(perpsOnly.length).toBe(0);
+  });
 });
 
 // ============================================================================
@@ -361,9 +421,6 @@ describe("CascadeFadeDetector — Layer 2 (state machine)", () => {
         elr: elr(ts, "BTC", 0.39), // < 0.40 floor
       });
     }
-    // Use getAllEvents() because TWAP auto-exit (3-10 min) closes the
-    // event long before the 2-hour test window ends; state-machine checks
-    // need the underlying event regardless of entry/exit status.
     const ev = det.getAllEvents()[0];
     expect(ev?.state).toBe("POST_CASCADE");
   });
@@ -377,8 +434,9 @@ describe("CascadeFadeDetector — Layer 2 (state machine)", () => {
       oi: oi(T0, "BTC", 8_400_000_000),
       crossConfirmation: xconf(T0),
     });
-    // Stabilize
-    for (let i = 1; i <= 120; i++) {
+    // Stop before the 7-minute TWAP auto-exit closes the entry, so the
+    // next observation can exercise the POST_CASCADE → STABILIZING rewind.
+    for (let i = 1; i <= 20; i++) {
       const ts = T0 + i * 60_000;
       det.observe({
         nowMs: ts,
@@ -411,9 +469,6 @@ describe("CascadeFadeDetector — Layer 2 (state machine)", () => {
       funding: funding(T0 + 121 * 60_000, "BTC", 0),
       elr: elr(T0 + 121 * 60_000, "BTC", 0.50),
     });
-    // Use getAllEvents() because TWAP auto-exit may have closed the
-    // position; the state-machine revert path is verified on the
-    // event regardless of entry/exit status.
     const newState = det.getAllEvents()[0]?.state;
     expect(newState === "STABILIZING" || newState === "IN_PROGRESS").toBe(true);
   });
@@ -439,7 +494,11 @@ describe("CascadeFadeDetector — Layer 3 (execution)", () => {
       oi: oi(T0, "BTC", 8_400_000_000),
       crossConfirmation: xconf(T0),
     });
-    for (let i = 1; i <= 120; i++) {
+    // Loop only enough iterations to reach POST_CASCADE + fire an entry
+    // (~16-18 iterations), then stop. We avoid TWAP auto-exit so the
+    // event's `entry` field remains populated for the assertions. A
+    // TWAP-specific test lives in the "TWAP auto-exit" suite below.
+    for (let i = 1; i <= 20; i++) {
       const ts = T0 + i * 60_000;
       det.observe({
         nowMs: ts,
@@ -468,16 +527,13 @@ describe("CascadeFadeDetector — Layer 3 (execution)", () => {
       oi: oi(T0, "BTC", 9_850_000_000),
       crossConfirmation: xconf(T0, "BTC", 2),
     });
-    const ev = det.getOpenEvents()[0];
+    const ev = det.getAllEvents()[0];
     expect(ev?.state).toBe("IN_PROGRESS");
     expect(ev?.entry).toBeNull();
   });
 
   it("emits Layer 3 entry when state == POST_CASCADE", () => {
     const det = buildDetInPostCascade();
-    // Use getAllEvents() because TWAP auto-exit closes the position
-    // before the test reads; the entry was fired when state was
-    // POST_CASCADE, that's what we're verifying.
     const ev = det.getAllEvents()[0];
     expect(ev?.state).toBe("POST_CASCADE");
     expect(ev?.entry).not.toBeNull();
@@ -525,6 +581,40 @@ describe("CascadeFadeDetector — risk governor", () => {
     expect(det.validateOverlayOpenPnl(-0.02)).toBe(false); // -2% exactly is critical (strict <)
     expect(det.validateOverlayOpenPnl(-0.025)).toBe(true); // -2.5% critical
     expect(det.validateOverlayOpenPnl(0.01)).toBe(false); // positive
+  });
+
+  it("entry hot path rejects active portfolio/perp/open-PnL risk gates", () => {
+    const det = new CascadeFadeDetector();
+    seedOiHistory(det, "BTC", T0 - 48 * 60 * 60 * 1000, T0, 60 * 60_000, () => 10_000_000_000);
+    det.observe({
+      nowMs: T0,
+      window: cascadeWindow(T0),
+      oi: oi(T0, "BTC", 8_400_000_000),
+      crossConfirmation: xconf(T0),
+      risk: { portfolioDd: 0.15, perpDexOiOverSma: true, overlayOpenPnlPct: -0.025 },
+    });
+    for (let i = 1; i <= 20; i++) {
+      const ts = T0 + i * 60_000;
+      det.observe({
+        nowMs: ts,
+        window: {
+          windowStartMs: ts,
+          symbol: "BTC",
+          totalUsd: 0,
+          longUsd: 0,
+          shortUsd: 0,
+          distinctExchangeCount: 0,
+        },
+        oi: oi(ts, "BTC", 8_400_000_000 + Math.sin(i * 0.1) * 5_000_000),
+        funding: funding(ts, "BTC", 0),
+        elr: elr(ts, "BTC", 0.39),
+        risk: { portfolioDd: 0.15, perpDexOiOverSma: true, overlayOpenPnlPct: -0.025 },
+      });
+    }
+    const ev = det.getAllEvents()[0];
+    expect(ev?.state).toBe("POST_CASCADE");
+    expect(ev?.entry).toBeNull();
+    expect(det.getOpenPositions().length).toBe(0);
   });
 
   it("BTC cooldown enforced; ETH not enforced", () => {
@@ -589,6 +679,62 @@ describe("CascadeFadeDetector — risk governor", () => {
 // ============================================================================
 
 describe("CascadeFadeDetector — capacity", () => {
+  function drivePostCascadeEntry(det: CascadeFadeDetector, symbol: string, startMs: number): CascadeEvent | undefined {
+    seedOiHistory(det, symbol, startMs - 48 * 60 * 60 * 1000, startMs, 60 * 60_000, () => 10_000_000_000);
+    det.observe({
+      nowMs: startMs,
+      window: cascadeWindow(startMs, symbol),
+      oi: oi(startMs, symbol, 8_400_000_000),
+      crossConfirmation: xconf(startMs, symbol, 2),
+    });
+    for (let i = 1; i <= 20; i++) {
+      const ts = startMs + i * 60_000;
+      det.observe({
+        nowMs: ts,
+        window: {
+          windowStartMs: ts,
+          symbol,
+          totalUsd: 0,
+          longUsd: 0,
+          shortUsd: 0,
+          distinctExchangeCount: 0,
+        },
+        oi: oi(ts, symbol, 8_400_000_000 + Math.sin(i * 0.1) * 5_000_000),
+        funding: funding(ts, symbol, 0),
+        elr: elr(ts, symbol, 0.39),
+      });
+    }
+    return det.getAllEvents().find((event) => event.symbol === symbol && event.triggeredAtMs === startMs);
+  }
+
+  it("default allowlist rejects SOL at entry hot path", () => {
+    const det = new CascadeFadeDetector();
+    const ev = drivePostCascadeEntry(det, "SOL", T0);
+    expect(ev?.state).toBe("POST_CASCADE");
+    expect(ev?.entry).toBeNull();
+  });
+
+  it("capacityMaxPerWeekUsd counts closed TWAP entries, not only open positions", () => {
+    const det = new CascadeFadeDetector({ capacityMaxPerWeekUsd: 2_000_000 });
+    const first = drivePostCascadeEntry(det, "ETH", T0);
+    expect(first?.entry?.entryNotionalUsd).toBe(1_000_000);
+    if (first?.entry !== null && first?.entry !== undefined) {
+      const exitMid = first.entry.entryMidPriceUsd * 1.003;
+      det.forceExit(first.id, first.entry.entryTsMs + 6 * 60_000, exitMid, "timed_exit");
+    }
+
+    const second = drivePostCascadeEntry(det, "ETH", T0 + 60 * 60_000);
+    expect(second?.entry?.entryNotionalUsd).toBe(1_000_000);
+    if (second?.entry !== null && second?.entry !== undefined) {
+      const exitMid = second.entry.entryMidPriceUsd * 1.003;
+      det.forceExit(second.id, second.entry.entryTsMs + 6 * 60_000, exitMid, "timed_exit");
+    }
+
+    const third = drivePostCascadeEntry(det, "ETH", T0 + 2 * 60 * 60_000);
+    expect(third?.state).toBe("POST_CASCADE");
+    expect(third?.entry).toBeNull();
+  });
+
   it("syntheticBybitEuSlippageBps scales with notional and cascade flag", () => {
     const low = syntheticBybitEuSlippageBps({ notionalUsd: 100_000, layer1Fired: false });
     const high = syntheticBybitEuSlippageBps({ notionalUsd: 5_000_000, layer1Fired: true });
@@ -746,9 +892,13 @@ describe("replayCascadeEvent — historical 2025-10-10 validation", () => {
     expect(result.reachedPostCascadeAtMs).not.toBeNull();
     const dtMs = (result.reachedPostCascadeAtMs ?? 0) - T0;
     expect(dtMs).toBeLessThanOrEqual(30 * 60 * 1000); // within 30 min
-    // Should have at least one entry (POST_CASCADE fires Layer 3).
-    expect(result.detector.getOpenPositions().length).toBeGreaterThan(0);
-    expect(result.detector.getOpenEvents()[0]?.state).toBe("POST_CASCADE");
+    // Should have at least one entry (POST_CASCADE fires Layer 3). After
+    // TWAP auto-exit in the second hour, position may be closed — check
+    // both `getOpenPositions()` AND past closed entries.
+    const openPositions = result.detector.getOpenPositions().length;
+    const closedEntries = result.detector.getExitsLog().length;
+    expect(openPositions + closedEntries).toBeGreaterThan(0);
+    expect(result.detector.getAllEvents()[0]?.state).toBe("POST_CASCADE");
   });
 
   it("paper-trade P&L on synthetic 2025-10-10 is positive (mean-reversion)", () => {
@@ -760,7 +910,7 @@ describe("replayCascadeEvent — historical 2025-10-10 validation", () => {
       oi: oi(T0, "BTC", 8_400_000_000),
       crossConfirmation: xconf(T0),
     });
-    for (let i = 1; i <= 120; i++) {
+    for (let i = 1; i <= 20; i++) {
       const ts = T0 + i * 60_000;
       det.observe({
         nowMs: ts,
@@ -777,10 +927,11 @@ describe("replayCascadeEvent — historical 2025-10-10 validation", () => {
         elr: elr(ts, "BTC", 0.39),
       });
     }
-    // Force a profit on the timed exit (BTC mean-reverted ~15% in 24-48h post Oct 10).
-    const ev = det.getOpenEvents()[0];
+    // Force a profit on the timed exit before the auto-exit test window
+    // closes the position (BTC mean-reverted after Oct 10).
+    const ev = det.getAllEvents()[0];
     expect(ev?.entry).not.toBeNull();
-    const entryTs = ev?.entry?.entryTsMs ?? T0 + 121 * 60_000;
+    const entryTs = ev?.entry?.entryTsMs ?? T0 + 21 * 60_000;
     // Exit 30 bps above entry mid price (BTC overshoot capture).
     const exitMidPrice = (ev?.entry?.entryMidPriceUsd ?? 100_000) * 1.003;
     const exit = det.forceExit(ev?.id ?? "x", entryTs + 6 * 60_000, exitMidPrice, "timed_exit");

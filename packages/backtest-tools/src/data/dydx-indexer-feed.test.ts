@@ -96,7 +96,7 @@ describe("DydxIndexerFeed — state + isStale", () => {
 
 describe("DydxIndexerFeed — REST response parsing", () => {
   it("fetchHistoricalFunding a fetch mock-ot használja", async () => {
-    const mockResponses: ReadonlyArray<{ historicalFunding: readonly DydxHistoricalFunding[] }> = [
+    const mockResponses: readonly { historicalFunding: readonly DydxHistoricalFunding[] }[] = [
       {
         historicalFunding: [
           {

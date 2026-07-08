@@ -5,7 +5,15 @@
 //
 // Replays the historic 2025-10-10 "Trump 100% tariff" cascade through the
 // `CascadeFadeDetector` state machine using a synthetic observation stream
-// calibrated to the Track D REPORT.md §4.1 anchors:
+// calibrated to the Track D REPORT.md §4.1 anchors.
+//
+// REAL-DATA PATH / SUBSTITUTE:
+//   No raw CoinGlass/Bitquery 2025-10-10 vendor dump is committed in this
+//   repo yet. Until Phase 26 captures the paid-feed tape, this CLI is the
+//   documented substitute: it preserves the event timestamp, peak-minute
+//   liquidation, OI collapse, ELR/funding stabilization, and Track D §5 edge
+//   assumptions as explicit fixture constants below. The output JSON records
+//   this calibration path for verifier review.
 //
 //   - Total liquidations (24h): $19.33B (long: $16.83B = 87%)
 //   - Peak-minute liquidations: $3.21B in 60s at 21:15 UTC
@@ -45,7 +53,6 @@ import { resolve } from "node:path";
 import {
   replayCascadeEvent,
   simulateBybitEuPaperFill,
-  type CascadeFadeConfig,
   type CascadeReplayObservation,
 } from "@mm-crypto-bot/core";
 
@@ -153,8 +160,8 @@ function build2025_10_10Observations(_args: CliArgs): CascadeReplayObservation[]
       window: {
         windowStartMs: ts,
         symbol: "BTC",
-        totalUsd: 200_000_000, // under $50M threshold individually
-        longUsd: 200_000_000,
+        totalUsd: 20_000_000, // under $50M threshold individually
+        longUsd: 20_000_000,
         shortUsd: 0,
         distinctExchangeCount: 2,
       },
@@ -255,22 +262,19 @@ async function main(): Promise<void> {
   const detector = result.detector;
 
   // Pull the entry that fired (Layer 3) and compute paper-trade P&L at
-  // +30 bps overshoot capture (BTC mid-cap overshoot, Track D §5).
-  const entries = detector.getOpenPositions();
+  // the configured overshoot capture (BTC post-cascade fade, Track D §5).
   const allEvents = detector.getAllEvents();
+  const entries = allEvents.flatMap((event) => (event.entry === null ? [] : [event.entry]));
 
-  // Apply timed-exit at T_PEAK + entryWindow_minutes + 30bps overshoot.
+  // Apply timed-exit paper P&L at +expectedEdgeBps overshoot capture
+  // even when the detector has already auto-closed the TWAP position.
   let paperTradePnlBps = 0;
   let paperTradePnlUsd = 0;
-  let entryFired = false;
-  let entryTsMs = 0;
-  let entryMid = 0;
-  for (const e of entries) {
-    entryFired = true;
-    entryTsMs = e.entryTsMs;
-    entryMid = e.entryMidPriceUsd;
-  }
-  if (entryFired && entryMid > 0) {
+  const firstEntry = entries[0];
+  const entryFired = firstEntry !== undefined;
+  const entryTsMs = firstEntry?.entryTsMs ?? 0;
+  const entryMid = firstEntry?.entryMidPriceUsd ?? 0;
+  if (firstEntry !== undefined && entryMid > 0) {
     const exitMid = entryMid * (1 + cli.expectedEdgeBps / 10_000);
     const fill = simulateBybitEuPaperFill({
       notionalUsd: cli.notionalUsd,
@@ -284,19 +288,16 @@ async function main(): Promise<void> {
   }
 
   // Replay-state summary.
-  const firstEvent = allEvents[0];
-  const triggeredAtMs = firstEvent?.triggeredAtMs ?? 0;
-  const T_PEAK_MS = triggeredAtMs > 0 ? triggeredAtMs : 0;
+  const HISTORICAL_PEAK_MS = Date.UTC(2025, 9, 10, 21, 15, 0);
   const reachedPostCascadeAtMs = result.reachedPostCascadeAtMs;
   const dtFromPeakMin =
-    reachedPostCascadeAtMs !== null && T_PEAK_MS > 0
-      ? Math.round((reachedPostCascadeAtMs - T_PEAK_MS) / 60_000)
+    reachedPostCascadeAtMs !== null
+      ? Math.round((reachedPostCascadeAtMs - HISTORICAL_PEAK_MS) / 60_000)
       : null;
 
   const passes30MinConstraint =
     reachedPostCascadeAtMs !== null &&
-    T_PEAK_MS > 0 &&
-    reachedPostCascadeAtMs - T_PEAK_MS <= 30 * 60_000;
+    reachedPostCascadeAtMs - HISTORICAL_PEAK_MS <= 30 * 60_000;
 
   // Convert entry per-event $500k-deployment ledger to monthly reward fraction.
   // Track D §5: +0.5-1.5%/mo realistic on $500k average deployed.
@@ -315,6 +316,7 @@ async function main(): Promise<void> {
   const summary = {
     benchmarkEvent: "2025-10-10 cascade (Trump 100% tariff)",
     peakUTC: "2025-10-10T21:15:00Z",
+    dataSource: "documented synthetic substitute calibrated to Track D §4.1 anchors; raw CoinGlass/Bitquery tape not committed yet",
     symbolsReplay: ["BTC"],
     cli: {
       outputPath: cli.outputPath,
@@ -324,7 +326,7 @@ async function main(): Promise<void> {
     },
     observations: {
       total: observations.length,
-      cascadePeakUsd: 3_210_000_000_000, // $3.21B in 60s (raw number is milli-cents)
+      cascadePeakUsd: 3_210_000_000, // $3.21B in 60s
       preCascadeOiUsd: 26_000_000_000,
       postCascadeOiUsd: 14_000_000_000,
     },
@@ -406,18 +408,9 @@ async function main(): Promise<void> {
 // when invoked as the entry point.
 const isEntry =
   import.meta.main ||
-  (process.argv[1] !== undefined && process.argv[1].endsWith("run-cascade-replay-2025-10-10.ts"));
+  process.argv[1]?.endsWith("run-cascade-replay-2025-10-10.ts") === true;
 if (isEntry) {
   await main();
 }
 
 export { build2025_10_10Observations };
-
-// Avoid linter complaints about the harness-only `args` literal expression
-// (the disable comment above the loop covers it; the type cast below is the
-// typecheck-safe way to express `Partial<CascadeFadeConfig>` access on a
-// derived CliArgs).
-const _harnessArgs: CliArgs = parseArgs([]); // eslint-disable-line @typescript-eslint/no-unused-vars
-void _harnessArgs;
-const _configHarness: Partial<CascadeFadeConfig> = {}; // eslint-disable-line @typescript-eslint/no-unused-vars
-void _configHarness;
