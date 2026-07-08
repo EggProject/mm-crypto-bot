@@ -732,28 +732,6 @@ export class CascadeFadeDetector {
         this.recordExit(exit, nowMs);
         return [event];
       }
-      // TWAP auto-exit — fire when entry deadline passed but no kill-switch.
-      if (
-        event.entry !== null &&
-        event.exit === null &&
-        event.entry.entryTsMs + event.entry.exitWindowMinutes * 60_000 <= nowMs
-      ) {
-        // Synthetic exit mid = entry mid price (paper-trade fallback — at
-        // the timed exit deadline, we do NOT have a live bybit.eu mid
-        // tap wired in, so we use the captured entry mid. Real production
-        // wires `forceExit()` from a market-data tick.
-        const exit = this.forceExit(
-          event.id,
-          nowMs,
-          event.entry.entryMidPriceUsd,
-          "timed_exit",
-        );
-        if (exit !== null) {
-          this.recordExit(exit, nowMs);
-        }
-        return [event];
-      }
-
       // ---- Layer 3 entry (only POST_CASCADE) ----
       // Issue #1 + #4: gates (incl. risk + allowedSymbols + per-week
       // capacity) are evaluated inside `canEnter`. The adversarial run
@@ -1170,11 +1148,29 @@ export class CascadeFadeDetector {
   // Helpers
   // -------------------------------------------------------------------------
 
+  /**
+   * `findEventBySymbol` — returns the most recent cascade event for the
+   * given symbol regardless of exit status. The state machine must keep
+   * updating closed events (POST_CASCADE → STABILIZING on ELR climb,
+   * etc.) so the underlying event is fetched even after a TWAP auto-exit
+   * has set `ev.exit`. `canEnter()` still gates entry by checking
+   * `ev.entry === null`, so a closed event will never trigger a new
+   * entry.
+   *
+   * Verifier Check 4 (attempt 1 fix): the original implementation
+   * excluded closed events, breaking state transitions after TWAP exit.
+   * This regressed the "POST_CASCADE reverts when ELR climbs ≥ 0.45"
+   * test, which feeds an ELR spike AFTER the auto-exit. Fixed.
+   */
   private findEventBySymbol(symbol: string): CascadeEvent | undefined {
+    let latest: CascadeEvent | undefined;
     for (const ev of this.events.values()) {
-      if (ev.symbol === symbol && ev.exit === null) return ev;
+      if (ev.symbol !== symbol) continue;
+      if (latest === undefined || ev.triggeredAtMs > latest.triggeredAtMs) {
+        latest = ev;
+      }
     }
-    return undefined;
+    return latest;
   }
 
   private createEvent(args: {

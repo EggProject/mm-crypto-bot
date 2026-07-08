@@ -361,7 +361,10 @@ describe("CascadeFadeDetector — Layer 2 (state machine)", () => {
         elr: elr(ts, "BTC", 0.39), // < 0.40 floor
       });
     }
-    const ev = det.getOpenEvents()[0];
+    // Use getAllEvents() because TWAP auto-exit (3-10 min) closes the
+    // event long before the 2-hour test window ends; state-machine checks
+    // need the underlying event regardless of entry/exit status.
+    const ev = det.getAllEvents()[0];
     expect(ev?.state).toBe("POST_CASCADE");
   });
 
@@ -408,7 +411,10 @@ describe("CascadeFadeDetector — Layer 2 (state machine)", () => {
       funding: funding(T0 + 121 * 60_000, "BTC", 0),
       elr: elr(T0 + 121 * 60_000, "BTC", 0.50),
     });
-    const newState = det.getOpenEvents()[0]?.state;
+    // Use getAllEvents() because TWAP auto-exit may have closed the
+    // position; the state-machine revert path is verified on the
+    // event regardless of entry/exit status.
+    const newState = det.getAllEvents()[0]?.state;
     expect(newState === "STABILIZING" || newState === "IN_PROGRESS").toBe(true);
   });
 });
@@ -469,7 +475,10 @@ describe("CascadeFadeDetector — Layer 3 (execution)", () => {
 
   it("emits Layer 3 entry when state == POST_CASCADE", () => {
     const det = buildDetInPostCascade();
-    const ev = det.getOpenEvents()[0];
+    // Use getAllEvents() because TWAP auto-exit closes the position
+    // before the test reads; the entry was fired when state was
+    // POST_CASCADE, that's what we're verifying.
+    const ev = det.getAllEvents()[0];
     expect(ev?.state).toBe("POST_CASCADE");
     expect(ev?.entry).not.toBeNull();
     expect(ev?.entry?.side).toBe("buy");
@@ -481,13 +490,13 @@ describe("CascadeFadeDetector — Layer 3 (execution)", () => {
 
   it("NO naked short (entry side is always buy)", () => {
     const det = buildDetInPostCascade();
-    const ev = det.getOpenEvents()[0];
+    const ev = det.getAllEvents()[0];
     expect(ev?.entry?.side).toBe("buy");
   });
 
   it("entry notional ≤ capacityMaxPerSymbolEventUsd ($1M)", () => {
     const det = buildDetInPostCascade();
-    const ev = det.getOpenEvents()[0];
+    const ev = det.getAllEvents()[0];
     expect(ev?.entry?.entryNotionalUsd).toBeLessThanOrEqual(1_000_000);
   });
 });
@@ -737,7 +746,7 @@ describe("replayCascadeEvent — historical 2025-10-10 validation", () => {
     expect(result.reachedPostCascadeAtMs).not.toBeNull();
     const dtMs = (result.reachedPostCascadeAtMs ?? 0) - T0;
     expect(dtMs).toBeLessThanOrEqual(30 * 60 * 1000); // within 30 min
-    // Should have at least one entry (POST_CASCADE fires Layer 3)
+    // Should have at least one entry (POST_CASCADE fires Layer 3).
     expect(result.detector.getOpenPositions().length).toBeGreaterThan(0);
     expect(result.detector.getOpenEvents()[0]?.state).toBe("POST_CASCADE");
   });

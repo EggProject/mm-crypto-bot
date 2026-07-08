@@ -6,16 +6,16 @@
     "targetNotionalUsd": 250000,
     "rebalanceCostBps": 20,
     "withdrawalLatencyMinutes": 15,
-    "fundingCsvDir": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase25-2-impl/data/funding",
-    "cacheDir": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase25-2-impl/.cache/tardis-dydx-v4",
-    "outputPath": "backtest-results/phase25-2-dydx-vs-cex-funding-carry-sol-2025-Q1.json",
-    "skipTardisFetch": false
+    "fundingCsvDir": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-9d6d823b/data/funding",
+    "cacheDir": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-9d6d823b/.cache/tardis-dydx-v4",
+    "outputPath": "/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-9d6d823b/backtest-results/phase25-2-dydx-vs-cex-funding-carry-sol-2025-Q1.json",
+    "skipTardisFetch": true
   },
   "result": {
     "totalReturn": -0.11454291649011301,
     "annualizedReturn": -0.3930134752154817,
     "monthlyCarry": -0.0407537647016587,
-    "averageDivergence": 0.0001963638604106374,
+    "averageDivergence": 0.00015067110169491522,
     "medianRebalanceHours": 24,
     "maxDrawdown": 0.1291627321103189,
     "sharpeRatio": -14.489034120865131,
@@ -28,9 +28,10 @@
     "avgCex8h": -0.000011361217712177112,
     "medianDydx8hEquiv": 0.00014794166666666668,
     "medianCex8h": -0.00000482,
-    "meanReversionHalfLifeHours": 109.11697700675417,
-    "killSwitch7DayCompressionTriggered": true,
-    "compressedDivergenceDays": 91,
+    "meanReversionHalfLifeHours": 0.5416903801447852,
+    "killSwitch7DayCompressionTriggered": false,
+    "compressedDivergenceDays": 3,
+    "dataSufficientDays": 3,
     "equityCurve": [
       {
         "timestamp": 1735689600000,
@@ -118,7 +119,7 @@
         "fundingAccruedUsd": -112.46145833333333,
         "dydx8hEquivRate": 0.00029245,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735725600000,
@@ -126,7 +127,7 @@
         "fundingAccruedUsd": -119.92239583333333,
         "dydx8hEquivRate": 0.00023875,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735729200000,
@@ -134,7 +135,7 @@
         "fundingAccruedUsd": -126.64114583333333,
         "dydx8hEquivRate": 0.000215,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735732800000,
@@ -142,7 +143,7 @@
         "fundingAccruedUsd": -136.3828125,
         "dydx8hEquivRate": 0.00031173333333333334,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735736400000,
@@ -150,7 +151,7 @@
         "fundingAccruedUsd": -144.84635416666666,
         "dydx8hEquivRate": 0.0002708333333333334,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735740000000,
@@ -158,7 +159,7 @@
         "fundingAccruedUsd": -154.41927083333331,
         "dydx8hEquivRate": 0.00030633333333333337,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735743600000,
@@ -166,7 +167,7 @@
         "fundingAccruedUsd": -168.45052083333331,
         "dydx8hEquivRate": 0.000449,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735747200000,
@@ -174,7 +175,7 @@
         "fundingAccruedUsd": -178.67135416666665,
         "dydx8hEquivRate": 0.00032706666666666663,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735747200001,
@@ -182,7 +183,7 @@
         "fundingAccruedUsd": -182.38885416666665,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001487,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735750800000,
@@ -190,7 +191,7 @@
         "fundingAccruedUsd": -182.73260416666665,
         "dydx8hEquivRate": 0.000011,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735754400000,
@@ -198,7 +199,7 @@
         "fundingAccruedUsd": -184.23156249999997,
         "dydx8hEquivRate": 0.00004796666666666664,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735758000000,
@@ -206,7 +207,7 @@
         "fundingAccruedUsd": -191.03937499999998,
         "dydx8hEquivRate": 0.00021785,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735761600000,
@@ -214,7 +215,7 @@
         "fundingAccruedUsd": -205.79302083333332,
         "dydx8hEquivRate": 0.00047211666666666666,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735765200000,
@@ -222,7 +223,7 @@
         "fundingAccruedUsd": -215.68885416666666,
         "dydx8hEquivRate": 0.00031666666666666665,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735768800000,
@@ -230,7 +231,7 @@
         "fundingAccruedUsd": -226.61854166666666,
         "dydx8hEquivRate": 0.00034975,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735772400000,
@@ -238,7 +239,7 @@
         "fundingAccruedUsd": -238.89770833333333,
         "dydx8hEquivRate": 0.00039293333333333336,
         "cex8hRate": null,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735776000000,
@@ -246,7 +247,7 @@
         "fundingAccruedUsd": -213.89770833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735804800006,
@@ -254,7 +255,7 @@
         "fundingAccruedUsd": -188.89770833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735833600000,
@@ -262,7 +263,7 @@
         "fundingAccruedUsd": -165.55520833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00009337,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735862400000,
@@ -270,7 +271,7 @@
         "fundingAccruedUsd": -140.55520833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735891200000,
@@ -278,7 +279,7 @@
         "fundingAccruedUsd": -144.23020833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0000147,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735920000000,
@@ -286,7 +287,7 @@
         "fundingAccruedUsd": -164.14770833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00007967,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735948800000,
@@ -294,7 +295,7 @@
         "fundingAccruedUsd": -182.54270833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00007358,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1735977600000,
@@ -302,7 +303,7 @@
         "fundingAccruedUsd": -170.25520833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00004915,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736006400000,
@@ -310,7 +311,7 @@
         "fundingAccruedUsd": -155.72270833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005813,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736035200000,
@@ -318,7 +319,7 @@
         "fundingAccruedUsd": -131.79270833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00009572,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736064000000,
@@ -326,7 +327,7 @@
         "fundingAccruedUsd": -139.53770833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003098,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736092800000,
@@ -334,7 +335,7 @@
         "fundingAccruedUsd": -114.53770833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736121600000,
@@ -342,7 +343,7 @@
         "fundingAccruedUsd": -114.79520833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00000103,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736150400001,
@@ -350,7 +351,7 @@
         "fundingAccruedUsd": -118.64270833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001539,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736179200000,
@@ -358,7 +359,7 @@
         "fundingAccruedUsd": -104.10520833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005815,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736208000000,
@@ -366,7 +367,7 @@
         "fundingAccruedUsd": -110.33520833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002492,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736236800000,
@@ -374,7 +375,7 @@
         "fundingAccruedUsd": -105.63520833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000188,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736265600008,
@@ -382,7 +383,7 @@
         "fundingAccruedUsd": -101.22270833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00001765,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736294400001,
@@ -390,7 +391,7 @@
         "fundingAccruedUsd": -98.85520833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000947,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736323200000,
@@ -398,7 +399,7 @@
         "fundingAccruedUsd": -75.39520833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00009384,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736352000000,
@@ -406,7 +407,7 @@
         "fundingAccruedUsd": -82.04020833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002658,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736380800000,
@@ -414,7 +415,7 @@
         "fundingAccruedUsd": -92.93020833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004356,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736409600000,
@@ -422,7 +423,7 @@
         "fundingAccruedUsd": -67.93020833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736438400000,
@@ -430,7 +431,7 @@
         "fundingAccruedUsd": -72.07770833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001659,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736467200000,
@@ -438,7 +439,7 @@
         "fundingAccruedUsd": -69.89520833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000873,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736496000000,
@@ -446,7 +447,7 @@
         "fundingAccruedUsd": -88.35770833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00007385,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736524800000,
@@ -454,7 +455,7 @@
         "fundingAccruedUsd": -79.88770833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003388,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736553600000,
@@ -462,7 +463,7 @@
         "fundingAccruedUsd": -77.41520833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000989,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736582400000,
@@ -470,7 +471,7 @@
         "fundingAccruedUsd": -86.36020833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003578,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736611200000,
@@ -478,7 +479,7 @@
         "fundingAccruedUsd": -97.21770833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004343,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736640000000,
@@ -486,7 +487,7 @@
         "fundingAccruedUsd": -91.96270833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002102,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736668800000,
@@ -494,7 +495,7 @@
         "fundingAccruedUsd": -102.87770833333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004366,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736697600000,
@@ -502,7 +503,7 @@
         "fundingAccruedUsd": -94.00770833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003548,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736726400000,
@@ -510,7 +511,7 @@
         "fundingAccruedUsd": -69.00770833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736755200000,
@@ -518,7 +519,7 @@
         "fundingAccruedUsd": -62.35770833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000266,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736784000000,
@@ -526,7 +527,7 @@
         "fundingAccruedUsd": -60.315208333333345,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000817,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736812800000,
@@ -534,7 +535,7 @@
         "fundingAccruedUsd": -71.81770833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004601,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736841600000,
@@ -542,7 +543,7 @@
         "fundingAccruedUsd": -77.90270833333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002434,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736870400000,
@@ -550,7 +551,7 @@
         "fundingAccruedUsd": -71.96770833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002374,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736899200000,
@@ -558,7 +559,7 @@
         "fundingAccruedUsd": -63.575208333333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003357,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736928000000,
@@ -566,7 +567,7 @@
         "fundingAccruedUsd": -76.45770833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00005153,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736956800000,
@@ -574,7 +575,7 @@
         "fundingAccruedUsd": -83.85020833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002957,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1736985600000,
@@ -582,7 +583,7 @@
         "fundingAccruedUsd": -58.85020833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737014400000,
@@ -590,7 +591,7 @@
         "fundingAccruedUsd": -33.85020833333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737043200000,
@@ -598,7 +599,7 @@
         "fundingAccruedUsd": -8.850208333333327,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737072000004,
@@ -606,7 +607,7 @@
         "fundingAccruedUsd": 16.149791666666673,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737100800000,
@@ -614,7 +615,7 @@
         "fundingAccruedUsd": 36.69979166666667,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000822,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737129600008,
@@ -622,7 +623,7 @@
         "fundingAccruedUsd": 61.69979166666667,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737158400000,
@@ -630,7 +631,7 @@
         "fundingAccruedUsd": 86.69979166666667,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737187200007,
@@ -638,7 +639,7 @@
         "fundingAccruedUsd": 91.40729166666667,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00001883,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737216000000,
@@ -646,7 +647,7 @@
         "fundingAccruedUsd": 105.58479166666666,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005671,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737244800000,
@@ -654,7 +655,7 @@
         "fundingAccruedUsd": 130.58479166666666,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737273600000,
@@ -662,7 +663,7 @@
         "fundingAccruedUsd": 153.71479166666666,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00009252,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737302400000,
@@ -670,7 +671,7 @@
         "fundingAccruedUsd": 167.88229166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005667,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737331200000,
@@ -678,7 +679,7 @@
         "fundingAccruedUsd": -9.992708333333354,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0007115,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737360000009,
@@ -686,7 +687,7 @@
         "fundingAccruedUsd": -29.300208333333355,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00007723,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737388800000,
@@ -694,7 +695,7 @@
         "fundingAccruedUsd": -6.990208333333353,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00008924,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737417600000,
@@ -702,7 +703,7 @@
         "fundingAccruedUsd": -75.76020833333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00027508,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737446400000,
@@ -710,7 +711,7 @@
         "fundingAccruedUsd": -52.485208333333354,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000931,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737475200000,
@@ -718,7 +719,7 @@
         "fundingAccruedUsd": -60.00520833333336,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003008,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737504000000,
@@ -726,7 +727,7 @@
         "fundingAccruedUsd": -35.00520833333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737532800000,
@@ -734,7 +735,7 @@
         "fundingAccruedUsd": -40.235208333333354,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002092,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737561600000,
@@ -742,7 +743,7 @@
         "fundingAccruedUsd": -18.635208333333352,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000864,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737590400001,
@@ -750,7 +751,7 @@
         "fundingAccruedUsd": 6.3647916666666475,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737619200000,
@@ -758,7 +759,7 @@
         "fundingAccruedUsd": 26.567291666666645,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00008081,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737648000000,
@@ -766,7 +767,7 @@
         "fundingAccruedUsd": 6.617291666666645,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0000798,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737676800000,
@@ -774,7 +775,7 @@
         "fundingAccruedUsd": 23.874791666666646,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00006903,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737705600000,
@@ -782,7 +783,7 @@
         "fundingAccruedUsd": 46.53479166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00009064,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737734400000,
@@ -790,7 +791,7 @@
         "fundingAccruedUsd": 71.53479166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737763200000,
@@ -798,7 +799,7 @@
         "fundingAccruedUsd": 67.85229166666664,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001473,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737792000000,
@@ -806,7 +807,7 @@
         "fundingAccruedUsd": 66.64729166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00000482,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737820800001,
@@ -814,7 +815,7 @@
         "fundingAccruedUsd": 36.61229166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00012014,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737849600000,
@@ -822,7 +823,7 @@
         "fundingAccruedUsd": 61.61229166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737878400000,
@@ -830,7 +831,7 @@
         "fundingAccruedUsd": 82.62979166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00008407,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737907200000,
@@ -838,7 +839,7 @@
         "fundingAccruedUsd": 89.19479166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002626,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737936000000,
@@ -846,7 +847,7 @@
         "fundingAccruedUsd": 80.06229166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003653,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737964800000,
@@ -854,7 +855,7 @@
         "fundingAccruedUsd": 92.99479166666666,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005173,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1737993600000,
@@ -862,7 +863,7 @@
         "fundingAccruedUsd": 46.254791666666655,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00018696,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738022400000,
@@ -870,7 +871,7 @@
         "fundingAccruedUsd": 66.10979166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00007942,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738051200000,
@@ -878,7 +879,7 @@
         "fundingAccruedUsd": 55.762291666666655,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004139,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738080000000,
@@ -886,7 +887,7 @@
         "fundingAccruedUsd": 64.94229166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003672,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738108800000,
@@ -894,7 +895,7 @@
         "fundingAccruedUsd": 86.73729166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00008718,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738137600000,
@@ -902,7 +903,7 @@
         "fundingAccruedUsd": 100.12729166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005356,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738166400000,
@@ -910,7 +911,7 @@
         "fundingAccruedUsd": 97.13729166666666,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001196,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738195200000,
@@ -918,7 +919,7 @@
         "fundingAccruedUsd": 101.33229166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00001678,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738224000000,
@@ -926,7 +927,7 @@
         "fundingAccruedUsd": 126.33229166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738252800000,
@@ -934,7 +935,7 @@
         "fundingAccruedUsd": 133.14979166666666,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002727,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738281600000,
@@ -942,7 +943,7 @@
         "fundingAccruedUsd": 131.24729166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00000761,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738310400000,
@@ -950,7 +951,7 @@
         "fundingAccruedUsd": 118.82229166666666,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0000497,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738339200000,
@@ -958,7 +959,7 @@
         "fundingAccruedUsd": 132.63229166666665,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005524,
-        "divergence": 0.00041162999999999996
+        "divergence": null
       },
       {
         "timestamp": 1738368000000,
@@ -974,7 +975,7 @@
         "fundingAccruedUsd": 109.61572916666665,
         "dydx8hEquivRate": 0.00009976666666666663,
         "cex8hRate": null,
-        "divergence": 0.00015614333333333335
+        "divergence": null
       },
       {
         "timestamp": 1738375200000,
@@ -982,7 +983,7 @@
         "fundingAccruedUsd": 101.92510416666666,
         "dydx8hEquivRate": 0.0002461,
         "cex8hRate": null,
-        "divergence": 0.00015614333333333335
+        "divergence": null
       },
       {
         "timestamp": 1738378800000,
@@ -990,7 +991,7 @@
         "fundingAccruedUsd": 93.66989583333333,
         "dydx8hEquivRate": 0.0002641666666666666,
         "cex8hRate": null,
-        "divergence": 0.00015614333333333335
+        "divergence": null
       },
       {
         "timestamp": 1738382400000,
@@ -998,7 +999,7 @@
         "fundingAccruedUsd": 89.30895833333332,
         "dydx8hEquivRate": 0.00013955,
         "cex8hRate": null,
-        "divergence": 0.00015614333333333335
+        "divergence": null
       },
       {
         "timestamp": 1738386000000,
@@ -1006,7 +1007,7 @@
         "fundingAccruedUsd": 84.84020833333332,
         "dydx8hEquivRate": 0.000143,
         "cex8hRate": null,
-        "divergence": 0.00015614333333333335
+        "divergence": null
       },
       {
         "timestamp": 1738389600000,
@@ -1014,7 +1015,7 @@
         "fundingAccruedUsd": 80.19645833333333,
         "dydx8hEquivRate": 0.0001486,
         "cex8hRate": null,
-        "divergence": 0.00015614333333333335
+        "divergence": null
       },
       {
         "timestamp": 1738393200000,
@@ -1022,7 +1023,7 @@
         "fundingAccruedUsd": 75.01885416666666,
         "dydx8hEquivRate": 0.00016568333333333337,
         "cex8hRate": null,
-        "divergence": 0.00015614333333333335
+        "divergence": null
       },
       {
         "timestamp": 1738396800000,
@@ -1038,7 +1039,7 @@
         "fundingAccruedUsd": 72.33520833333331,
         "dydx8hEquivRate": 0.000112,
         "cex8hRate": null,
-        "divergence": 0.00018618666666666666
+        "divergence": null
       },
       {
         "timestamp": 1738404000000,
@@ -1046,7 +1047,7 @@
         "fundingAccruedUsd": 68.34197916666665,
         "dydx8hEquivRate": 0.00012778333333333337,
         "cex8hRate": null,
-        "divergence": 0.00018618666666666666
+        "divergence": null
       },
       {
         "timestamp": 1738407600000,
@@ -1054,7 +1055,7 @@
         "fundingAccruedUsd": 63.82218749999998,
         "dydx8hEquivRate": 0.00014463333333333337,
         "cex8hRate": null,
-        "divergence": 0.00018618666666666666
+        "divergence": null
       },
       {
         "timestamp": 1738411200000,
@@ -1062,7 +1063,7 @@
         "fundingAccruedUsd": 57.78052083333331,
         "dydx8hEquivRate": 0.00019333333333333336,
         "cex8hRate": null,
-        "divergence": 0.00018618666666666666
+        "divergence": null
       },
       {
         "timestamp": 1738414800000,
@@ -1070,7 +1071,7 @@
         "fundingAccruedUsd": 50.53156249999998,
         "dydx8hEquivRate": 0.00023196666666666665,
         "cex8hRate": null,
-        "divergence": 0.00018618666666666666
+        "divergence": null
       },
       {
         "timestamp": 1738418400000,
@@ -1078,7 +1079,7 @@
         "fundingAccruedUsd": 42.22947916666665,
         "dydx8hEquivRate": 0.00026566666666666666,
         "cex8hRate": null,
-        "divergence": 0.00018618666666666666
+        "divergence": null
       },
       {
         "timestamp": 1738422000000,
@@ -1086,7 +1087,7 @@
         "fundingAccruedUsd": 31.980520833333316,
         "dydx8hEquivRate": 0.00032796666666666665,
         "cex8hRate": null,
-        "divergence": 0.00018618666666666666
+        "divergence": null
       },
       {
         "timestamp": 1738425600000,
@@ -1102,7 +1103,7 @@
         "fundingAccruedUsd": 2.1282291666666513,
         "dydx8hEquivRate": 0.00029016666666666665,
         "cex8hRate": null,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738432800000,
@@ -1110,7 +1111,7 @@
         "fundingAccruedUsd": -8.800937500000016,
         "dydx8hEquivRate": 0.00034973333333333334,
         "cex8hRate": null,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738436400000,
@@ -1118,7 +1119,7 @@
         "fundingAccruedUsd": -19.85614583333335,
         "dydx8hEquivRate": 0.00035376666666666663,
         "cex8hRate": null,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738440000000,
@@ -1126,7 +1127,7 @@
         "fundingAccruedUsd": -27.84520833333335,
         "dydx8hEquivRate": 0.00025565,
         "cex8hRate": null,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738443600000,
@@ -1134,7 +1135,7 @@
         "fundingAccruedUsd": -31.078020833333348,
         "dydx8hEquivRate": 0.00010345,
         "cex8hRate": null,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738447200000,
@@ -1142,7 +1143,7 @@
         "fundingAccruedUsd": -36.05041666666668,
         "dydx8hEquivRate": 0.00015911666666666664,
         "cex8hRate": null,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738450800000,
@@ -1150,7 +1151,7 @@
         "fundingAccruedUsd": -35.97489583333334,
         "dydx8hEquivRate": -0.00000241666666666664,
         "cex8hRate": null,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738454400001,
@@ -1158,7 +1159,7 @@
         "fundingAccruedUsd": -49.23989583333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00005306,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738483200000,
@@ -1166,7 +1167,7 @@
         "fundingAccruedUsd": -47.43739583333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000721,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738512000000,
@@ -1174,7 +1175,7 @@
         "fundingAccruedUsd": -46.76739583333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000268,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738540800000,
@@ -1182,7 +1183,7 @@
         "fundingAccruedUsd": -44.83739583333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000772,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738569600000,
@@ -1190,7 +1191,7 @@
         "fundingAccruedUsd": -75.75739583333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00012368,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738598400000,
@@ -1198,7 +1199,7 @@
         "fundingAccruedUsd": -97.77739583333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00008808,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738627200000,
@@ -1206,7 +1207,7 @@
         "fundingAccruedUsd": -237.2548958333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00055791,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738656000001,
@@ -1214,7 +1215,7 @@
         "fundingAccruedUsd": -248.1298958333333,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0000435,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738684800000,
@@ -1222,7 +1223,7 @@
         "fundingAccruedUsd": -233.8798958333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.000057,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738713600001,
@@ -1230,7 +1231,7 @@
         "fundingAccruedUsd": -242.80739583333332,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003571,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738742400001,
@@ -1238,7 +1239,7 @@
         "fundingAccruedUsd": -254.89239583333332,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004834,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738771200000,
@@ -1246,7 +1247,7 @@
         "fundingAccruedUsd": -282.01739583333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0001085,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738800000001,
@@ -1254,7 +1255,7 @@
         "fundingAccruedUsd": -293.3623958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004538,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738828800001,
@@ -1262,7 +1263,7 @@
         "fundingAccruedUsd": -297.5398958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001671,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738857600000,
@@ -1270,7 +1271,7 @@
         "fundingAccruedUsd": -280.3973958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00006857,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738886400000,
@@ -1278,7 +1279,7 @@
         "fundingAccruedUsd": -273.6398958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002703,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738915200000,
@@ -1286,7 +1287,7 @@
         "fundingAccruedUsd": -271.9023958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000695,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738944000000,
@@ -1294,7 +1295,7 @@
         "fundingAccruedUsd": -270.0848958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000727,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1738972800000,
@@ -1302,7 +1303,7 @@
         "fundingAccruedUsd": -276.2923958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002483,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739001600000,
@@ -1310,7 +1311,7 @@
         "fundingAccruedUsd": -271.0298958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002105,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739030400000,
@@ -1318,7 +1319,7 @@
         "fundingAccruedUsd": -256.7323958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005719,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739059200000,
@@ -1326,7 +1327,7 @@
         "fundingAccruedUsd": -284.2998958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00011027,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739088000000,
@@ -1334,7 +1335,7 @@
         "fundingAccruedUsd": -294.4323958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004053,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739116800000,
@@ -1342,7 +1343,7 @@
         "fundingAccruedUsd": -347.49989583333337,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00021227,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739145600000,
@@ -1350,7 +1351,7 @@
         "fundingAccruedUsd": -387.7973958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00016119,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739174400000,
@@ -1358,7 +1359,7 @@
         "fundingAccruedUsd": -394.6548958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002743,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739203200000,
@@ -1366,7 +1367,7 @@
         "fundingAccruedUsd": -406.8123958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004863,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739232000000,
@@ -1374,7 +1375,7 @@
         "fundingAccruedUsd": -452.04989583333344,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00018095,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739260800000,
@@ -1382,7 +1383,7 @@
         "fundingAccruedUsd": -482.03489583333345,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00011994,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739289600000,
@@ -1390,7 +1391,7 @@
         "fundingAccruedUsd": -551.3198958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00027714,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739318400000,
@@ -1398,7 +1399,7 @@
         "fundingAccruedUsd": -607.1498958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00022332,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739347200000,
@@ -1406,7 +1407,7 @@
         "fundingAccruedUsd": -602.5323958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00001847,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739376000001,
@@ -1414,7 +1415,7 @@
         "fundingAccruedUsd": -585.0273958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00007002,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739404800001,
@@ -1422,7 +1423,7 @@
         "fundingAccruedUsd": -575.9598958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003627,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739433600000,
@@ -1430,7 +1431,7 @@
         "fundingAccruedUsd": -583.9898958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003212,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739462400001,
@@ -1438,7 +1439,7 @@
         "fundingAccruedUsd": -616.1573958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00012867,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739491200000,
@@ -1446,7 +1447,7 @@
         "fundingAccruedUsd": -620.0548958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001559,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739520000001,
@@ -1454,7 +1455,7 @@
         "fundingAccruedUsd": -599.2548958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000832,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739548800000,
@@ -1462,7 +1463,7 @@
         "fundingAccruedUsd": -578.0898958333337,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00008466,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739577600000,
@@ -1470,7 +1471,7 @@
         "fundingAccruedUsd": -556.6348958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00008582,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739606400000,
@@ -1478,7 +1479,7 @@
         "fundingAccruedUsd": -548.8323958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003121,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739635200000,
@@ -1486,7 +1487,7 @@
         "fundingAccruedUsd": -561.4573958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0000505,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739664000000,
@@ -1494,7 +1495,7 @@
         "fundingAccruedUsd": -575.9848958333337,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00005811,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739692800000,
@@ -1502,7 +1503,7 @@
         "fundingAccruedUsd": -582.4073958333337,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002569,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739721600000,
@@ -1510,7 +1511,7 @@
         "fundingAccruedUsd": -624.5973958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00016876,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739750400000,
@@ -1518,7 +1519,7 @@
         "fundingAccruedUsd": -663.4573958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00015544,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739779200000,
@@ -1526,7 +1527,7 @@
         "fundingAccruedUsd": -703.5298958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00016029,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739808000000,
@@ -1534,7 +1535,7 @@
         "fundingAccruedUsd": -698.1898958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002136,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739836800000,
@@ -1542,7 +1543,7 @@
         "fundingAccruedUsd": -689.4398958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.000035,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739865600000,
@@ -1550,7 +1551,7 @@
         "fundingAccruedUsd": -679.5923958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003939,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739894400000,
@@ -1558,7 +1559,7 @@
         "fundingAccruedUsd": -661.9598958333336,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00007053,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739923200000,
@@ -1566,7 +1567,7 @@
         "fundingAccruedUsd": -664.6398958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001072,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739952000000,
@@ -1574,7 +1575,7 @@
         "fundingAccruedUsd": -663.7573958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000353,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1739980800000,
@@ -1582,7 +1583,7 @@
         "fundingAccruedUsd": -673.4048958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003859,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740009600000,
@@ -1590,7 +1591,7 @@
         "fundingAccruedUsd": -688.4648958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00006024,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740038400000,
@@ -1598,7 +1599,7 @@
         "fundingAccruedUsd": -685.5348958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00001172,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740067200000,
@@ -1606,7 +1607,7 @@
         "fundingAccruedUsd": -693.0123958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002991,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740096000001,
@@ -1614,7 +1615,7 @@
         "fundingAccruedUsd": -674.2698958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00007497,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740124800000,
@@ -1622,7 +1623,7 @@
         "fundingAccruedUsd": -670.0398958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00001692,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740153600000,
@@ -1630,7 +1631,7 @@
         "fundingAccruedUsd": -681.9523958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004765,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740182400000,
@@ -1638,7 +1639,7 @@
         "fundingAccruedUsd": -711.8198958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00011947,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740211200000,
@@ -1646,7 +1647,7 @@
         "fundingAccruedUsd": -728.6048958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00006714,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740240000000,
@@ -1654,7 +1655,7 @@
         "fundingAccruedUsd": -743.8723958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00006107,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740268800000,
@@ -1662,7 +1663,7 @@
         "fundingAccruedUsd": -721.0948958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00009111,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740297600000,
@@ -1670,7 +1671,7 @@
         "fundingAccruedUsd": -702.8198958333335,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000731,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740326400000,
@@ -1678,7 +1679,7 @@
         "fundingAccruedUsd": -715.7248958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00005162,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740355200000,
@@ -1686,7 +1687,7 @@
         "fundingAccruedUsd": -730.8998958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0000607,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740384000000,
@@ -1694,7 +1695,7 @@
         "fundingAccruedUsd": -746.5398958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00006256,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740412800000,
@@ -1702,7 +1703,7 @@
         "fundingAccruedUsd": -731.5273958333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00006005,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740441600000,
@@ -1710,7 +1711,7 @@
         "fundingAccruedUsd": -724.6898958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002735,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740470400000,
@@ -1718,7 +1719,7 @@
         "fundingAccruedUsd": -716.4523958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003295,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740499200000,
@@ -1726,7 +1727,7 @@
         "fundingAccruedUsd": -729.8373958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00005354,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740528000000,
@@ -1734,7 +1735,7 @@
         "fundingAccruedUsd": -756.2423958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00010562,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740556800000,
@@ -1742,7 +1743,7 @@
         "fundingAccruedUsd": -750.0923958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000246,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740585600000,
@@ -1750,7 +1751,7 @@
         "fundingAccruedUsd": -742.2648958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003131,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740614400001,
@@ -1758,7 +1759,7 @@
         "fundingAccruedUsd": -722.9448958333334,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00007728,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740643200000,
@@ -1766,7 +1767,7 @@
         "fundingAccruedUsd": -716.4323958333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002605,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740672000000,
@@ -1774,7 +1775,7 @@
         "fundingAccruedUsd": -691.4323958333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740700800001,
@@ -1782,7 +1783,7 @@
         "fundingAccruedUsd": -666.4323958333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740729600000,
@@ -1790,7 +1791,7 @@
         "fundingAccruedUsd": -641.4323958333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740758400000,
@@ -1798,7 +1799,7 @@
         "fundingAccruedUsd": -616.4323958333333,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": 0.00031069666666666665
+        "divergence": null
       },
       {
         "timestamp": 1740787200000,
@@ -1814,7 +1815,7 @@
         "fundingAccruedUsd": -592.2348940677966,
         "dydx8hEquivRate": -0.00000111666666666664,
         "cex8hRate": null,
-        "divergence": -0.00007320338983050849
+        "divergence": null
       },
       {
         "timestamp": 1740794400000,
@@ -1822,7 +1823,7 @@
         "fundingAccruedUsd": -594.3109357344633,
         "dydx8hEquivRate": 0.00006643333333333335,
         "cex8hRate": null,
-        "divergence": -0.00007320338983050849
+        "divergence": null
       },
       {
         "timestamp": 1740798000000,
@@ -1830,7 +1831,7 @@
         "fundingAccruedUsd": -594.7874982344633,
         "dydx8hEquivRate": 0.00001525,
         "cex8hRate": null,
-        "divergence": -0.00007320338983050849
+        "divergence": null
       },
       {
         "timestamp": 1740801600000,
@@ -1838,7 +1839,7 @@
         "fundingAccruedUsd": -596.11197740113,
         "dydx8hEquivRate": 0.00004238333333333336,
         "cex8hRate": null,
-        "divergence": -0.00007320338983050849
+        "divergence": null
       },
       {
         "timestamp": 1740805200000,
@@ -1846,7 +1847,7 @@
         "fundingAccruedUsd": -597.2765607344634,
         "dydx8hEquivRate": 0.00003726666666666664,
         "cex8hRate": null,
-        "divergence": -0.00007320338983050849
+        "divergence": null
       },
       {
         "timestamp": 1740808800000,
@@ -1854,7 +1855,7 @@
         "fundingAccruedUsd": -596.65103990113,
         "dydx8hEquivRate": -0.00002001666666666664,
         "cex8hRate": null,
-        "divergence": -0.00007320338983050849
+        "divergence": null
       },
       {
         "timestamp": 1740812400000,
@@ -1862,7 +1863,7 @@
         "fundingAccruedUsd": -596.5171857344634,
         "dydx8hEquivRate": -0.00000428333333333336,
         "cex8hRate": null,
-        "divergence": -0.00007320338983050849
+        "divergence": null
       },
       {
         "timestamp": 1740816000000,
@@ -1878,7 +1879,7 @@
         "fundingAccruedUsd": -574.8454149011301,
         "dydx8hEquivRate": 0.0000058,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740823200000,
@@ -1886,7 +1887,7 @@
         "fundingAccruedUsd": -575.0995815677968,
         "dydx8hEquivRate": 0.00000813333333333336,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740826800000,
@@ -1894,7 +1895,7 @@
         "fundingAccruedUsd": -575.3995815677968,
         "dydx8hEquivRate": 0.0000096,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740830400000,
@@ -1902,7 +1903,7 @@
         "fundingAccruedUsd": -576.5001024011301,
         "dydx8hEquivRate": 0.00003521666666666664,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740834000000,
@@ -1910,7 +1911,7 @@
         "fundingAccruedUsd": -577.8349982344635,
         "dydx8hEquivRate": 0.00004271666666666664,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740837600000,
@@ -1918,7 +1919,7 @@
         "fundingAccruedUsd": -577.8349982344635,
         "dydx8hEquivRate": 0,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740841200000,
@@ -1926,7 +1927,7 @@
         "fundingAccruedUsd": -578.6396857344635,
         "dydx8hEquivRate": 0.00002575,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740844800000,
@@ -1934,7 +1935,7 @@
         "fundingAccruedUsd": -579.1454149011302,
         "dydx8hEquivRate": 0.00001618333333333336,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740844800001,
@@ -1942,7 +1943,7 @@
         "fundingAccruedUsd": -559.5154149011302,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00007852,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740848400000,
@@ -1950,7 +1951,7 @@
         "fundingAccruedUsd": -560.9284357344635,
         "dydx8hEquivRate": 0.00004521666666666664,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740852000000,
@@ -1958,7 +1959,7 @@
         "fundingAccruedUsd": -562.1914565677969,
         "dydx8hEquivRate": 0.00004041666666666664,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740855600000,
@@ -1966,7 +1967,7 @@
         "fundingAccruedUsd": -563.0544774011302,
         "dydx8hEquivRate": 0.00002761666666666664,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740859200000,
@@ -1974,7 +1975,7 @@
         "fundingAccruedUsd": -563.2836440677968,
         "dydx8hEquivRate": 0.00000733333333333336,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740862800000,
@@ -1982,7 +1983,7 @@
         "fundingAccruedUsd": -564.3763524011301,
         "dydx8hEquivRate": 0.00003496666666666664,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740866400000,
@@ -1990,7 +1991,7 @@
         "fundingAccruedUsd": -564.7680190677968,
         "dydx8hEquivRate": 0.00001253333333333336,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740870000000,
@@ -1998,7 +1999,7 @@
         "fundingAccruedUsd": -564.7341649011302,
         "dydx8hEquivRate": -0.00000108333333333336,
         "cex8hRate": null,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740873600000,
@@ -2006,7 +2007,7 @@
         "fundingAccruedUsd": -585.1366649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00008161,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740902400000,
@@ -2014,7 +2015,7 @@
         "fundingAccruedUsd": -560.3116649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000993,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740931200000,
@@ -2022,7 +2023,7 @@
         "fundingAccruedUsd": -540.7866649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000781,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740960000001,
@@ -2030,7 +2031,7 @@
         "fundingAccruedUsd": -550.5166649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003892,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1740988800000,
@@ -2038,7 +2039,7 @@
         "fundingAccruedUsd": -534.1791649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00006535,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741017600000,
@@ -2046,7 +2047,7 @@
         "fundingAccruedUsd": -555.4441649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00008506,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741046400001,
@@ -2054,7 +2055,7 @@
         "fundingAccruedUsd": -573.2291649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00007114,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741075200005,
@@ -2062,7 +2063,7 @@
         "fundingAccruedUsd": -594.1591649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00008372,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741104000000,
@@ -2070,7 +2071,7 @@
         "fundingAccruedUsd": -584.4866649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003869,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741132800000,
@@ -2078,7 +2079,7 @@
         "fundingAccruedUsd": -621.7641649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00014911,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741161600000,
@@ -2086,7 +2087,7 @@
         "fundingAccruedUsd": -614.5991649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002866,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741190400000,
@@ -2094,7 +2095,7 @@
         "fundingAccruedUsd": -630.6316649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00006413,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741219200000,
@@ -2102,7 +2103,7 @@
         "fundingAccruedUsd": -660.4216649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00011916,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741248000001,
@@ -2110,7 +2111,7 @@
         "fundingAccruedUsd": -664.1441649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001489,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741276800000,
@@ -2118,7 +2119,7 @@
         "fundingAccruedUsd": -673.1416649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003599,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741305600000,
@@ -2126,7 +2127,7 @@
         "fundingAccruedUsd": -701.1266649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00011194,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741334400001,
@@ -2134,7 +2135,7 @@
         "fundingAccruedUsd": -722.0041649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00008351,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741363200000,
@@ -2142,7 +2143,7 @@
         "fundingAccruedUsd": -710.2316649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00004709,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741392000000,
@@ -2150,7 +2151,7 @@
         "fundingAccruedUsd": -694.8566649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000615,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741420800001,
@@ -2158,7 +2159,7 @@
         "fundingAccruedUsd": -703.41166490113,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003422,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741449600001,
@@ -2166,7 +2167,7 @@
         "fundingAccruedUsd": -719.0166649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00006242,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741478400001,
@@ -2174,7 +2175,7 @@
         "fundingAccruedUsd": -745.35416490113,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00010535,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741507200000,
@@ -2182,7 +2183,7 @@
         "fundingAccruedUsd": -743.9491649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000562,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741536000000,
@@ -2190,7 +2191,7 @@
         "fundingAccruedUsd": -726.60916490113,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00006936,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741564800000,
@@ -2198,7 +2199,7 @@
         "fundingAccruedUsd": -740.8391649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00005692,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741593600000,
@@ -2206,7 +2207,7 @@
         "fundingAccruedUsd": -766.43166490113,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00010237,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741622400000,
@@ -2214,7 +2215,7 @@
         "fundingAccruedUsd": -791.04166490113,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00009844,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741651200000,
@@ -2222,7 +2223,7 @@
         "fundingAccruedUsd": -820.1741649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00011653,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741680000000,
@@ -2230,7 +2231,7 @@
         "fundingAccruedUsd": -797.1791649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00009198,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741708800001,
@@ -2238,7 +2239,7 @@
         "fundingAccruedUsd": -775.4766649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00008681,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741737600000,
@@ -2246,7 +2247,7 @@
         "fundingAccruedUsd": -777.4716649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00000798,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741766400000,
@@ -2254,7 +2255,7 @@
         "fundingAccruedUsd": -776.6591649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000325,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741795200001,
@@ -2262,7 +2263,7 @@
         "fundingAccruedUsd": -786.3066649011301,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003859,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741824000000,
@@ -2270,7 +2271,7 @@
         "fundingAccruedUsd": -783.3341649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00001189,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741852800000,
@@ -2278,7 +2279,7 @@
         "fundingAccruedUsd": -801.5516649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00007287,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741881600000,
@@ -2286,7 +2287,7 @@
         "fundingAccruedUsd": -783.0541649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00007399,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741910400000,
@@ -2294,7 +2295,7 @@
         "fundingAccruedUsd": -774.6866649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00003347,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741939200000,
@@ -2302,7 +2303,7 @@
         "fundingAccruedUsd": -749.6866649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741968000000,
@@ -2310,7 +2311,7 @@
         "fundingAccruedUsd": -725.6991649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00009595,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1741996800000,
@@ -2318,7 +2319,7 @@
         "fundingAccruedUsd": -700.6991649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742025600000,
@@ -2326,7 +2327,7 @@
         "fundingAccruedUsd": -682.4516649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00007299,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742054400000,
@@ -2334,7 +2335,7 @@
         "fundingAccruedUsd": -688.4441649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002397,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742083200000,
@@ -2342,7 +2343,7 @@
         "fundingAccruedUsd": -687.4616649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000393,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742112000000,
@@ -2350,7 +2351,7 @@
         "fundingAccruedUsd": -673.5116649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0000558,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742140800000,
@@ -2358,7 +2359,7 @@
         "fundingAccruedUsd": -681.5816649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003228,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742169600000,
@@ -2366,7 +2367,7 @@
         "fundingAccruedUsd": -701.6491649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00008027,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742198400000,
@@ -2374,7 +2375,7 @@
         "fundingAccruedUsd": -715.1566649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00005403,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742227200000,
@@ -2382,7 +2383,7 @@
         "fundingAccruedUsd": -725.1516649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003998,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742256000000,
@@ -2390,7 +2391,7 @@
         "fundingAccruedUsd": -741.0641649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00006365,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742284800000,
@@ -2398,7 +2399,7 @@
         "fundingAccruedUsd": -761.2666649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00008081,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742313600000,
@@ -2406,7 +2407,7 @@
         "fundingAccruedUsd": -768.0416649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0000271,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742342400000,
@@ -2414,7 +2415,7 @@
         "fundingAccruedUsd": -785.0116649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00006788,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742371200000,
@@ -2422,7 +2423,7 @@
         "fundingAccruedUsd": -766.8266649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00007274,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742400000000,
@@ -2430,7 +2431,7 @@
         "fundingAccruedUsd": -741.8266649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742428800000,
@@ -2438,7 +2439,7 @@
         "fundingAccruedUsd": -716.8266649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742457600000,
@@ -2446,7 +2447,7 @@
         "fundingAccruedUsd": -691.8266649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742486400000,
@@ -2454,7 +2455,7 @@
         "fundingAccruedUsd": -696.5041649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001871,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742515200000,
@@ -2462,7 +2463,7 @@
         "fundingAccruedUsd": -706.3341649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003932,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742544000000,
@@ -2470,7 +2471,7 @@
         "fundingAccruedUsd": -709.8516649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00001407,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742572800000,
@@ -2478,7 +2479,7 @@
         "fundingAccruedUsd": -718.8616649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003604,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742601600000,
@@ -2486,7 +2487,7 @@
         "fundingAccruedUsd": -728.1691649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003723,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742630400004,
@@ -2494,7 +2495,7 @@
         "fundingAccruedUsd": -735.3741649011305,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002882,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742659200000,
@@ -2502,7 +2503,7 @@
         "fundingAccruedUsd": -737.4966649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00000849,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742688000000,
@@ -2510,7 +2511,7 @@
         "fundingAccruedUsd": -753.7016649011305,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00006482,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742716800000,
@@ -2518,7 +2519,7 @@
         "fundingAccruedUsd": -747.0966649011305,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002642,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742745600000,
@@ -2526,7 +2527,7 @@
         "fundingAccruedUsd": -733.2191649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005551,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742774400000,
@@ -2534,7 +2535,7 @@
         "fundingAccruedUsd": -739.5641649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002538,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742803200000,
@@ -2542,7 +2543,7 @@
         "fundingAccruedUsd": -714.5641649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742832000000,
@@ -2550,7 +2551,7 @@
         "fundingAccruedUsd": -701.3116649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00005301,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742860800001,
@@ -2558,7 +2559,7 @@
         "fundingAccruedUsd": -676.3116649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.0001,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742889600000,
@@ -2566,7 +2567,7 @@
         "fundingAccruedUsd": -673.4941649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00001127,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742918400000,
@@ -2574,7 +2575,7 @@
         "fundingAccruedUsd": -669.2116649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00001713,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742947200000,
@@ -2582,7 +2583,7 @@
         "fundingAccruedUsd": -667.6716649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00000616,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1742976000000,
@@ -2590,7 +2591,7 @@
         "fundingAccruedUsd": -678.7741649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004441,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743004800001,
@@ -2598,7 +2599,7 @@
         "fundingAccruedUsd": -710.8166649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00012817,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743033600001,
@@ -2606,7 +2607,7 @@
         "fundingAccruedUsd": -745.0941649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00013711,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743062400001,
@@ -2614,7 +2615,7 @@
         "fundingAccruedUsd": -759.1766649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00005633,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743091200002,
@@ -2622,7 +2623,7 @@
         "fundingAccruedUsd": -765.5641649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00002555,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743120000001,
@@ -2630,7 +2631,7 @@
         "fundingAccruedUsd": -773.6316649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00003227,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743148800001,
@@ -2638,7 +2639,7 @@
         "fundingAccruedUsd": -798.9741649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00010137,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743177600000,
@@ -2646,7 +2647,7 @@
         "fundingAccruedUsd": -822.3516649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00009351,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743206400000,
@@ -2654,7 +2655,7 @@
         "fundingAccruedUsd": -834.5991649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00004899,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743235200000,
@@ -2662,7 +2663,7 @@
         "fundingAccruedUsd": -828.9716649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": 0.00002251,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743264000000,
@@ -2670,7 +2671,7 @@
         "fundingAccruedUsd": -851.2441649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00008909,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743292800000,
@@ -2678,7 +2679,7 @@
         "fundingAccruedUsd": -915.6891649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00025778,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743321600000,
@@ -2686,7 +2687,7 @@
         "fundingAccruedUsd": -1015.9791649011304,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00040116,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743350400000,
@@ -2694,7 +2695,7 @@
         "fundingAccruedUsd": -1061.0366649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00018023,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743379200000,
@@ -2702,7 +2703,7 @@
         "fundingAccruedUsd": -1119.4616649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.0002337,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743408000000,
@@ -2710,7 +2711,7 @@
         "fundingAccruedUsd": -1121.4216649011303,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00000784,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743436800000,
@@ -2718,7 +2719,7 @@
         "fundingAccruedUsd": -1122.4816649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00000424,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       },
       {
         "timestamp": 1743465600000,
@@ -2726,7 +2727,7 @@
         "fundingAccruedUsd": -1145.4291649011302,
         "dydx8hEquivRate": null,
         "cex8hRate": -0.00009179,
-        "divergence": -0.00008742666666666664
+        "divergence": null
       }
     ],
     "startTime": 1735689600000,
@@ -2736,5 +2737,5 @@
   "dydxHourlyCount": 72,
   "cex8hCount": 271,
   "windowDays": 89,
-  "fetchedAt": "2026-07-08T00:08:51.695Z"
+  "fetchedAt": "2026-07-08T02:12:25.567Z"
 }
