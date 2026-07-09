@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funding-flip kill-switch</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+<header class="page-header">
+  <div class="breadcrumb"><a href="index.html">← Főoldal</a> / funding-flip</div>
+  <h1>Funding-flip kill-switch</h1>
+</header>
+
+<section>
+  <h2>Mi a célja?</h2>
+  <p>A carry kereskedés csak akkor működik, ha a funding kamatlábak viszonylag stabilak. Ha a piac hirtelen átvált egy "funding-flip" üzemmódba, akkor a carry elveszíti az értelmét. Ez a kill-switch (biztonsági lekapcsoló) ezt az állapotot figyeli, és lekapcsolja a carry kereskedést, amikor a piac veszélyes.</p>
+</section>
+
+<section>
+  <h2>Három jel, amit figyel</h2>
+  <table>
+    <thead>
+      <tr><th>Jel</th><th>Mit mér</th><th>Küszöb (alap)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Előjel-váltás (sign-flip)</td><td>Hányszor váltott előjelet a funding 7 nap alatt</td><td>10 váltás</td></tr>
+      <tr><td>Negatív dominancia</td><td>A 7 napos funding hány százaléka negatív</td><td>80 százalék</td></tr>
+      <tr><td>Volatilitás kiugrás (z-score)</td><td>A 7d-s volatilitás hány szigma a 30d-s átlag felett</td><td>1.5 szigma</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Interaktív szimuláció</h2>
+  <p>Az alábbi csúszkákkal szimulálhatsz egy 14 napos funding előzményt.</p>
+  <div class="controls">
+    <div class="row">
+      <label for="flip-rate">Funding előjel-váltás / 7 nap</label>
+      <input type="range" id="flip-rate" min="0" max="20" step="1" value="5">
+      <span id="flip-rate-val">5</span>
+    </div>
+    <div class="row">
+      <label for="neg-dom">Negatív dominancia (%)</label>
+      <input type="range" id="neg-dom" min="0" max="100" step="5" value="40">
+      <span id="neg-dom-val">40%</span>
+    </div>
+    <div class="row">
+      <label for="z-score">Volatilitás z-score</label>
+      <input type="range" id="z-score" min="-2" max="3" step="0.1" value="0.5">
+      <span id="z-score-val">0.5</span>
+    </div>
+  </div>
+  <div class="card" id="kill-switch-state" style="text-align:center;">
+    <p style="color:#2ea043; font-weight:600; font-size:18px;">REGIME INAKTÍV — a carry kereskedés folytatódik</p>
+  </div>
+</section>
+
+<footer>
+  <a href="index.html">← Vissza a főoldalra</a> • Funding-flip kill-switch • Fájl: <code>funding-flip.ts</code>
+</footer>
+</div>
+<script src="script.js"></script>
+<script>
+
+(function() {
+  const sF = document.getElementById("flip-rate");
+  const sN = document.getElementById("neg-dom");
+  const sZ = document.getElementById("z-score");
+  const vF = document.getElementById("flip-rate-val");
+  const vN = document.getElementById("neg-dom-val");
+  const vZ = document.getElementById("z-score-val");
+  const target = document.getElementById("kill-switch-state");
+  function update() {
+    const flips = parseInt(sF.value), neg = parseInt(sN.value), z = parseFloat(sZ.value);
+    vF.textContent = flips;
+    vN.textContent = neg + "%";
+    vZ.textContent = z.toFixed(1);
+    const flipActive = flips >= 10;
+    const negActive = neg >= 80;
+    const zActive = Math.abs(z) >= 1.5;
+    const anyActive = flipActive || negActive || zActive;
+    const reasons = [];
+    if (flipActive) reasons.push(`Előjel-váltás ${flips} ≥ 10`);
+    if (negActive) reasons.push(`Negatív dominancia ${neg}% ≥ 80%`);
+    if (zActive) reasons.push(`Volatilitás z-score |${z.toFixed(1)}| ≥ 1.5`);
+    if (anyActive) {
+      target.innerHTML = `<p style="color:#f85149; font-weight:600; font-size:18px;">REGIME AKTÍV — a carry LEÁLLÍTVA</p><p style="color:#8b949e; font-size:13px;">Aktiválódott: ${reasons.join("; ")}</p>`;
+    } else {
+      target.innerHTML = `<p style="color:#2ea043; font-weight:600; font-size:18px;">REGIME INAKTÍV — a carry kereskedés folytatódik</p><p style="color:#8b949e; font-size:13px;">Egyik jel sem érte el a küszöböt.</p>`;
+    }
+  }
+  [sF, sN, sZ].forEach(s => s.addEventListener("input", update));
+  update();
+})();
+
+</script>
+</body>
+</html>

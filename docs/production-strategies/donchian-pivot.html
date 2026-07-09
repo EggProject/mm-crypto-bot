@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Donchian-Pivot kompozit stratégia — részletes bemutató</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+
+<header class="page-header">
+  <div class="breadcrumb"><a href="index.html">← Főoldal</a> / Donchian-Pivot kompozit</div>
+  <h1>Donchian-Pivot kompozit</h1>
+  <p class="subtitle">A fő stratégia, ami Bitcoin, Ethereum és Solana coinokon fut. Két al-stratégiát kombinál konszenzus logikával.</p>
+</header>
+
+<section>
+  <h2>Mi a célja?</h2>
+  <p>A stratégia célja, hogy a kriptovaluta piacokon viszonylag gyakori "visszapattanás" (mean reversion) jelenségre fogadjon. Ez a piacokon gyakran megfigyelhető: ha az ár egy bizonyos sáv alját vagy tetejét eléri, akkor általában visszafordul a sáv közepe felé. A stratégia két független módszerrel keresi ezeket a fordulópontokat, és csak akkor lép be, ha legalább az egyik módszer jelet ad.</p>
+</section>
+
+<section>
+  <h2>Hogyan működik?</h2>
+  <p>A stratégia minden 15 perces gyertyánál (gyertya = egy adott időszak nyitó, záró, legmagasabb és legalacsonyabb ára) ellenőrzi a két al-stratégiát. Mindkettő jelezhet vételt (long), eladást (short), vagy semmit. A végső döntés a konszenzus küszöbötől függ.</p>
+
+  <h3>1. lépés: A konszenzus küszöb kiválasztása</h3>
+  <p>A "konszenzus küszöb" (az ábrán csúszka) határozza meg, hogy hány al-stratégiának kell egyetértenie. 1 a 2-ből: elég, ha az egyik jelez. 2 a 2-ből: mindkettőnek kell jeleznie. Az 1 a 2-ből több kereskedést generál, a 2 a 2-ből kevesebbet, de biztosabbat.</p>
+
+  <div class="controls">
+    <div class="row">
+      <label for="consensus">Konszenzus küszöb</label>
+      <input type="range" id="consensus" min="1" max="2" step="1" value="1">
+      <span id="consensus-val">1 a 2-ből</span>
+    </div>
+  </div>
+
+  <h3>2. lépés: Két al-stratégia eredménye egy konkrét 15 perces gyertyánál</h3>
+  <p>Az alábbi interaktív diagramon minden 15 perces gyertya mellett láthatod, hogy az adott pillanatban a Donchian csatorna és a Pivot rács mit mond. Kattints egy gyertyára, és a rendszer kiszámolja a kompozit döntést a beállított küszöb alapján.</p>
+
+  <div class="diagram" id="candles"></div>
+
+  <div class="pivot-legend">
+    <h4>Mit jelentenek a színek és a vonalak?</h4>
+    <div class="legend-row">
+      <div class="legend-item">
+        <div class="legend-swatch swatch-green"></div>
+        <div>
+          <strong>Zöld gyertya</strong>
+          <p>Mindkét al-stratégia (Donchian + Pivot) ugyanabba az irányba jelez, és a konszenzus küszöb teljesül. A kompozit döntés LONG vagy SHORT.</p>
+        </div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch swatch-dim-green"></div>
+        <div>
+          <strong>Halvány zöld</strong>
+          <p>Csak az egyik al-stratégia jelez, de a másik ellentétesen. 1 a 2-ből módban a kompozit döntés még LONG, 2 a 2-ből módban nincs jel.</p>
+        </div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch swatch-grey"></div>
+        <div>
+          <strong>Szürke gyertya</strong>
+          <p>Egyik al-stratégia sem jelez, vagy a kettő ellentmondásos. Nincs kereskedés.</p>
+        </div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch swatch-pivot-long"></div>
+        <div>
+          <strong>Kék vonal a gyertyán</strong>
+          <p>A Pivot rács LONG jelet adott ezen a gyertyán (az ár az alsó Fibonacci sávban van: S1, S2 vagy S3).</p>
+        </div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch swatch-pivot-short"></div>
+        <div>
+          <strong>Narancs vonal a gyertyán</strong>
+          <p>A Pivot rács SHORT jelet adott (az ár a felső Fibonacci sávban van: R1, R2 vagy R3).</p>
+        </div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch swatch-candle-shape"></div>
+        <div>
+          <strong>A gyertya alakja</strong>
+          <p>A test (vastag rész) a nyitó és záró árat mutatja. A kanóc (vékony függőleges vonal) a 15 perces időszak legmagasabb és legalacsonyabb árát jelzi.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>3. lépés: A kompozit döntés</h3>
+  <div class="card" id="decision-card">
+    <p style="color:#8b949e; text-align:center;">Kattints egy gyertyára a fenti diagramon, hogy lásd a kompozit döntést.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Mikor nyitunk és mikor zárunk? — Pozíció-életciklus animáció</h2>
+  <p>Az alábbi animáció egy tipikus 24 gyertyás (6 órás) időszakot mutat be. Látod, hogyan nyílik a pozíció a jelzés pillanatában, meddig tartja a rendszer, és mikor zárja (célár elérése vagy stop loss). A pozíció-életciklus egy önálló 24 gyertyás mini-történet — nem ugyanazok a gyertyák mint fent.</p>
+
+  <div class="controls">
+    <button id="lifecycle-play">▶ Indítás (6 óra, 24 gyertya)</button>
+    <button id="lifecycle-reset" class="secondary">⏮ Visszaállítás</button>
+    <span id="lifecycle-status" style="margin-left:auto; align-self:center; color:#c9d1d9; font-size:13px;">Kattints az Indítás gombra.</span>
+  </div>
+
+  <div class="diagram" id="lifecycle-diagram"></div>
+
+  <div class="note" style="margin-top:14px;">
+    <strong>Hogyan olvasd a pozíció-életciklust?</strong>
+    <ul style="margin-top:8px;">
+      <li><strong style="color:#56d364;">▲ Zöld háromszög (felfelé)</strong> = LONG pozíció nyitása — a kompozit döntés LONG, és a rendszer piaci megbízást küld.</li>
+      <li><strong style="color:#ff7b72;">▼ Piros háromszög (lefelé)</strong> = SHORT pozíció nyitása.</li>
+      <li><strong>Zöld sáv a gyertyák alatt</strong> = aktív LONG pozíció (a rendszer LONG-ot tart).</li>
+      <li><strong>Piros sáv a gyertyák alatt</strong> = aktív SHORT pozíció.</li>
+      <li><strong>Sárga szaggatott vonal</strong> = stop loss szint (1 ATR-rel a belépési ár alatt/fölött).</li>
+      <li><strong>Zöld szaggatott vonal</strong> = célár (a Donchian csatorna ellenkező széle).</li>
+      <li>A pozíció zárul, ha az ár eléri a stop loss-t VAGY a célt VAGY a Donchian jelzés megszűnik.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Mikor LONG (vétel) és mikor SHORT (eladás)?</h2>
+  <table>
+    <thead>
+      <tr><th>Al-stratégia</th><th>Long jel feltétele</th><th>Short jel feltétele</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Donchian csatorna</strong></td>
+        <td>A 15 perces záróár a napi Donchian csatorna alsó szintjénél van, és a piac nincs erős trendben (ADX alatt).</td>
+        <td>A 15 perces záróár a napi Donchian csatorna felső szintjénél van, és a piac nincs erős trendben.</td>
+      </tr>
+      <tr>
+        <td><strong>Pivot pont rács</strong></td>
+        <td>A 15 perces záróár a mély Fibonacci pivot sávokban van (S2, S3), vagy az enyhében (S1).</td>
+        <td>A 15 perces záróár a magas Fibonacci pivot sávokban van (R2, R3), vagy az enyhében (R1).</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Hogyan néz ki egy tipikus kereskedés?</h2>
+  <p>A belépés után a stratégia a következőket állítja be automatikusan:</p>
+  <ul>
+    <li><strong>Stop loss:</strong> A Donchian csatorna alsó (long) vagy felső (short) szintje alatt 1 ATR (átlagos valódi tartomány) távolságra.</li>
+    <li><strong>Célár:</strong> A Donchian csatorna ellenkező széle (long esetén felső, short esetén alsó).</li>
+    <li><strong>Pozíció méret:</strong> A teljes tőke egy része, hogy a kockázat kezelhető maradjon.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Termelési számok (friss backtest, 30 hónap)</h2>
+  <div class="kpi-row">
+    <div class="kpi green">
+      <div class="label">Bitcoin</div>
+      <div class="value">+34.41<span class="unit">%/hó</span></div>
+    </div>
+    <div class="kpi green">
+      <div class="label">Ethereum</div>
+      <div class="value">+37.74<span class="unit">%/hó</span></div>
+    </div>
+    <div class="kpi green">
+      <div class="label">Solana</div>
+      <div class="value">+45.80<span class="unit">%/hó</span></div>
+    </div>
+    <div class="kpi">
+      <div class="label">Bitcoin drawdown</div>
+      <div class="value">7.18<span class="unit">%</span></div>
+    </div>
+    <div class="kpi">
+      <div class="label">Solana drawdown</div>
+      <div class="value">7.70<span class="unit">%</span></div>
+    </div>
+    <div class="kpi">
+      <div class="label">Össz. trade (3 coin)</div>
+      <div class="value">31 605</div>
+    </div>
+  </div>
+  <p>Az 1 a 2-ből (konzervatívabb beállítás) eredményeit látod. A 2 a 2-ből módban kevesebb trade keletkezik, de a drawdown is alacsonyabb lehet.</p>
+</section>
+
+<footer>
+  <a href="index.html">← Vissza a főoldalra</a> • Donchian-Pivot kompozit • Fájl: <code>donchian-pivot-composition.ts</code>
+</footer>
+
+</div>
+<script src="script.js"></script>
+<script>
+(function() {
+  // Konszenzus csúszka — mostantól újrarajzolja a chartot, mert a gyertya színe a KOMPOZIT döntéstől függ
+  const s = document.getElementById("consensus");
+  const sv = document.getElementById("consensus-val");
+  s.addEventListener("input", () => {
+    sv.textContent = s.value + " a 2-ből";
+    renderCandles();                  // Újraszínezi a gyertyákat az új konszenzussal
+    showDecision(selectedIndex);      // Ha volt kiválasztott gyertya, frissíti a kártyát is
+  });
+
+  // 30 véletlenszerű gyertya, ami szimulálja a stratégia viselkedését
+  const data = [
+    { price: 60000, dn: 59500, up: 60200, dr: "long", pr: "long" },
+    { price: 60100, dn: 59800, up: 60300, dr: "none",  pr: "long" },
+    { price: 59900, dn: 59500, up: 60000, dr: "long", pr: "none" },
+    { price: 59500, dn: 59000, up: 59600, dr: "long", pr: "long" },
+    { price: 59200, dn: 58500, up: 59400, dr: "long", pr: "long" },
+    { price: 59000, dn: 58800, up: 59300, dr: "none",  pr: "long" },
+    { price: 59500, dn: 59200, up: 59900, dr: "none",  pr: "none"  },
+    { price: 60100, dn: 59900, up: 60600, dr: "short", pr: "none"  },
+    { price: 60600, dn: 60300, up: 60900, dr: "short", pr: "short" },
+    { price: 60800, dn: 60500, up: 61000, dr: "short", pr: "short" },
+    { price: 60400, dn: 60000, up: 60600, dr: "short", pr: "long"  },
+    { price: 60200, dn: 59800, up: 60400, dr: "none",  pr: "long"  },
+    { price: 59800, dn: 59400, up: 60000, dr: "long", pr: "long"  },
+    { price: 59500, dn: 59100, up: 59700, dr: "long", pr: "long"  },
+    { price: 60000, dn: 59800, up: 60300, dr: "none",  pr: "none"  },
+    { price: 60400, dn: 60100, up: 60700, dr: "short", pr: "none"  },
+    { price: 60800, dn: 60500, up: 61100, dr: "short", pr: "short" },
+    { price: 61000, dn: 60800, up: 61300, dr: "short", pr: "short" },
+    { price: 60700, dn: 60300, up: 60900, dr: "short", pr: "long"  },
+    { price: 60400, dn: 60000, up: 60600, dr: "none",  pr: "long"  },
+    { price: 60100, dn: 59700, up: 60300, dr: "long", pr: "long"  },
+    { price: 60000, dn: 59500, up: 60200, dr: "long", pr: "long"  },
+    { price: 60400, dn: 60200, up: 60700, dr: "none",  pr: "none"  },
+    { price: 60800, dn: 60500, up: 61000, dr: "short", pr: "short" },
+  ];
+
+  const candlesEl = document.getElementById("candles");
+  const card = document.getElementById("decision-card");
+  let selectedIndex = -1;
+
+  // Kiszámolja egy adott gyertyára a kompozit döntést az aktuális konszenzussal
+  function compositeFor(d, consensus) {
+    if (d.dr !== "none" && d.pr !== "none" && d.dr === d.pr) {
+      return d.dr;        // Mindkét al-stratégia egyetért → LONG vagy SHORT
+    }
+    if (consensus === 1 && d.dr !== "none" && d.pr === "none") return d.dr;
+    if (consensus === 1 && d.dr === "none" && d.pr !== "none") return d.pr;
+    return "none";        // Eltérő jelek vagy egyik sem
+  }
+
+  // Gyertyák kirajzolása — a szín MINDIG a kompozit döntéstől függ (nem csak az al-stratégiáktól)
+  function renderCandles() {
+    candlesEl.innerHTML = "";
+    const W = 920, H = 240;
+    const svg = makeSVG(W, H);
+    candlesEl.appendChild(svg);
+    const pad = 30;
+    const candleW = (W - pad * 2) / data.length - 2;
+    const min = 58500, max = 61300;
+    const yScale = (v) => pad + (H - pad * 2) * (1 - (v - min) / (max - min));
+    const consensus = parseInt(s.value);
+
+    for (let i = 0; i < data.length; i++) {
+      const x = pad + i * (candleW + 2);
+      const d = data[i];
+      const yp = yScale(d.price);
+      const yh = yScale(Math.max(d.price, d.up));
+      const yl = yScale(Math.min(d.price, d.dn));
+      const ch = Math.abs(yh - yl) || 2;
+      const composite = compositeFor(d, consensus);
+
+      // Kompozit döntés szerinti szín:
+      //   LONG  → zöld, SHORT → piros, "none" → szürke
+      //   Ha az al-stratégiák nem értenek egyet, de 1 a 2-ből módban mégis van jel,
+      //   akkor is a kompozit (winner) irányát színezzük, de halványabban
+      const isPartial = (d.dr !== "none" && d.pr !== "none" && d.dr !== d.pr);
+      const fillColor =
+        composite === "long"  ? (isPartial ? "#1d6f30" : "#2ea043") :
+        composite === "short" ? (isPartial ? "#8b1c1c" : "#f85149") :
+                                 "#30363d";
+      const strokeColor =
+        composite === "long"  ? (isPartial ? "#2ea043" : "#56d364") :
+        composite === "short" ? (isPartial ? "#f85149" : "#ff7b72") :
+                                 "#484f58";
+
+      const c = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      c.setAttribute("x", x); c.setAttribute("y", yp - ch / 2);
+      c.setAttribute("width", candleW);
+      c.setAttribute("height", Math.max(ch, 2));
+      c.setAttribute("fill", fillColor);
+      c.setAttribute("stroke", strokeColor);
+      c.setAttribute("stroke-width", selectedIndex === i ? "2.5" : "1");
+      c.style.cursor = "pointer";
+      c.addEventListener("click", () => { selectedIndex = i; renderCandles(); showDecision(i); });
+      svg.appendChild(c);
+
+      // Pivot sávok (S1, S2, R1, R2) jelzése — mindig az eredeti pivot jelet mutatja,
+      // hogy lássuk, melyik al-stratégia mit mondott (függetlenül a kompozit döntéstől)
+      const pivotH = yScale(d.up);
+      const pivotL = yScale(d.dn);
+      if (d.pr === "long") {
+        const pr = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        pr.setAttribute("x", x + 2); pr.setAttribute("y", pivotH - 2);
+        pr.setAttribute("width", candleW - 4); pr.setAttribute("height", 4);
+        pr.setAttribute("fill", "#58a6ff");
+        svg.appendChild(pr);
+      } else if (d.pr === "short") {
+        const pr = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        pr.setAttribute("x", x + 2); pr.setAttribute("y", pivotL - 2);
+        pr.setAttribute("width", candleW - 4); pr.setAttribute("height", 4);
+        pr.setAttribute("fill", "#d29922");
+        svg.appendChild(pr);
+      }
+    }
+
+    // Konszenzus-magyarázat a chart alatt
+    const explainY = H - 4;
+    const explainText =
+      consensus === 1
+        ? "1 a 2-ből: bármelyik al-stratégia jele elég a kompozit döntéshez"
+        : "2 a 2-ből: mindkét al-stratégia egyet kell értsen (halvány szín = csak az egyik jelzett)";
+    svg.appendChild(text(W / 2, explainY, explainText, { fill: "#8b949e", size: 11, anchor: "middle" }));
+    svg.appendChild(text(W / 2, 18, "15 perces gyertyák — kattints egyre a döntés megtekintéséhez", { fill: "#8b949e", size: 12, anchor: "middle" }));
+    svg.appendChild(text(8, yScale(60000), "60 000", { fill: "#8b949e", size: 10, anchor: "start" }));
+    svg.appendChild(text(8, yScale(59000), "59 000", { fill: "#8b949e", size: 10, anchor: "start" }));
+    svg.appendChild(text(8, yScale(61000), "61 000", { fill: "#8b949e", size: 10, anchor: "start" }));
+
+    // Pivot szín magyarázat
+    svg.appendChild(rect(W - 220, 30, 12, 4, { fill: "#58a6ff", rx: 1 }));
+    svg.appendChild(text(W - 204, 34, "Pivot LONG", { fill: "#c9d1d9", size: 11, anchor: "start" }));
+    svg.appendChild(rect(W - 110, 30, 12, 4, { fill: "#d29922", rx: 1 }));
+    svg.appendChild(text(W - 94, 34, "Pivot SHORT", { fill: "#c9d1d9", size: 11, anchor: "start" }));
+  }
+
+  function showDecision(i) {
+    if (i < 0 || i >= data.length) {
+      card.innerHTML = '<p style="color:#8b949e; text-align:center;">Kattints egy gyertyára a döntés megtekintéséhez.</p>';
+      return;
+    }
+    const d = data[i];
+    const consensus = parseInt(s.value);
+    let composite = "Nincs jel";
+    let color = "#8b949e";
+    if (d.dr === d.pr && d.dr !== "none") {
+      composite = (d.dr === "long" ? "LONG (vétel)" : "SHORT (eladás)");
+      color = d.dr === "long" ? "#2ea043" : "#f85149";
+    } else if (d.dr === "none" && d.pr !== "none") {
+      if (consensus === 1) {
+        composite = (d.pr === "long" ? "LONG (vétel)" : "SHORT (eladás)");
+        color = d.pr === "long" ? "#2ea043" : "#f85149";
+      } else {
+        composite = "Nincs jel (konszenzus nem teljesül)";
+        color = "#8b949e";
+      }
+    } else if (d.dr !== "none" && d.pr === "none") {
+      if (consensus === 1) {
+        composite = (d.dr === "long" ? "LONG (vétel)" : "SHORT (eladás)");
+        color = d.dr === "long" ? "#2ea043" : "#f85149";
+      } else {
+        composite = "Nincs jel (konszenzus nem teljesül)";
+        color = "#8b949e";
+      }
+    } else if (d.dr !== d.pr && d.dr !== "none" && d.pr !== "none") {
+      composite = "Nincs jel (ellentmondás)";
+      color = "#8b949e";
+    }
+    card.innerHTML = `
+      <h3>${composite}</h3>
+      <p><strong>Donchian csatorna jele:</strong> ${d.dr === "long" ? "LONG (a záróár az alsó szintnél)" : d.dr === "short" ? "SHORT (a záróár a felső szintnél)" : "Semleges (a záróár a sáv belsejében van)"}</p>
+      <p><strong>Pivot rács jele:</strong> ${d.pr === "long" ? "LONG (a záróár az alsó sávban)" : d.pr === "short" ? "SHORT (a záróár a felső sávban)" : "Semleges (a záróár a középső sávban van)"}</p>
+      <p><strong>Konszenzus küszöb:</strong> ${consensus} a 2-ből</p>
+      <p style="margin-top:12px; color:${color}; font-weight:600;">Kompozit döntés: ${composite}</p>
+    `;
+    card.className = "card " + (composite.includes("LONG") ? "success" : composite.includes("SHORT") ? "card" : "");
+  }
+
+  renderCandles();
+})();
+
+// Pozíció-életciklus animáció (6 óra, 24 gyertya)
+(function() {
+  const playBtn = document.getElementById("lifecycle-play");
+  const resetBtn = document.getElementById("lifecycle-reset");
+  const container = document.getElementById("lifecycle-diagram");
+  const statusEl = document.getElementById("lifecycle-status");
+  if (!playBtn || !container) return;
+
+  function reset() {
+    container.innerHTML = '<p style="color:#8b949e; text-align:center; padding:40px 0;">Kattints az Indítás gombra a 6 órás pozíció-életciklus animáció indításához.</p>';
+    statusEl.textContent = "Kattints az Indítás gombra.";
+    statusEl.style.color = "#8b949e";
+  }
+
+  // 24 gyertyás történet, ami bemutatja:
+  //  - LONG pozíció nyitása (5. gyertyánál)
+  //  - Stop loss + target beállítása
+  //  - Pozíció tartása 8 gyertyán át
+  //  - Zárás a célárnál (14. gyertyánál)
+  //  - Új SHORT jelzés (18. gyertyánál), de a stop loss kiüt (22. gyertyánál)
+  const N = 24;
+  const channelUpper = 60800, channelLower = 59200;
+
+  // Egyszerűsített OHLC adatok (determinisztikus)
+  function buildCandles() {
+    const cs = [];
+    let p = 60000;
+    const moves = [
+      [0, 59850, 59950, 59800], // 0: sáv közepén
+      [1, 59800, 59880, 59700],
+      [2, 59720, 59780, 59620],
+      [3, 59650, 59700, 59550],
+      [4, 59580, 59650, 59480], // 4: alsó szinthez közel
+      [5, 59300, 59480, 59250], // 5: belépés LONG (alsó szinten)
+      [6, 59500, 59620, 59450],
+      [7, 59700, 59800, 59660],
+      [8, 59880, 60000, 59850],
+      [9, 60050, 60200, 60000],
+      [10, 60200, 60350, 60150],
+      [11, 60400, 60550, 60350],
+      [12, 60600, 60700, 60550],
+      [13, 60750, 60820, 60680], // 13: közelít a felső szinthez
+      [14, 60800, 60850, 60750], // 14: célár elérve → zárás
+      [15, 60700, 60780, 60620],
+      [16, 60600, 60680, 60500],
+      [17, 60550, 60620, 60480],
+      [18, 60600, 60700, 60550], // 18: SHORT jelzés a felső szint közelében
+      [19, 60680, 60780, 60620],
+      [20, 60750, 60800, 60700],
+      [21, 60800, 60830, 60750],
+      [22, 60850, 60900, 60800], // 22: short stop kiváltódik
+      [23, 60750, 60820, 60700]
+    ];
+    for (let i = 0; i < N; i++) {
+      const [idx, open, close, low] = moves[i];
+      const high = Math.max(open, close) + (i % 3 === 0 ? 30 : 20);
+      cs.push({ open, close, high, low });
+    }
+    return cs;
+  }
+  const candles = buildCandles();
+
+  // Pozíció események (mikor mi történik)
+  const events = [
+    { tick: 5, type: "open_long", price: 59300 },
+    { tick: 14, type: "close_long", price: 60800, reason: "célár elérve" },
+    { tick: 18, type: "open_short", price: 60650 },
+    { tick: 22, type: "close_short", price: 60880, reason: "stop loss kiütve" }
+  ];
+
+  let animHandle = null;
+
+  playBtn.addEventListener("click", () => {
+    if (animHandle) clearInterval(animHandle);
+    container.innerHTML = "";
+    const W = 920, H = 380;
+    const svg = makeSVG(W, H);
+    container.appendChild(svg);
+
+    const padL = 50, padR = 30, padT = 30, padB = 90;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+    const stepX = innerW / N;
+
+    const min = 59000, max = 61100;
+    const yScale = (v) => padT + innerH * (1 - (v - min) / (max - min));
+
+    // Donchian csatorna sáv (háttér)
+    const band = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    band.setAttribute("x", padL);
+    band.setAttribute("y", yScale(channelUpper));
+    band.setAttribute("width", innerW);
+    band.setAttribute("height", yScale(channelLower) - yScale(channelUpper));
+    band.setAttribute("fill", "#58a6ff");
+    band.setAttribute("fill-opacity", "0.06");
+    band.setAttribute("stroke", "#58a6ff");
+    band.setAttribute("stroke-opacity", "0.3");
+    band.setAttribute("stroke-dasharray", "4 4");
+    svg.appendChild(band);
+    svg.appendChild(text(W - padR + 2, yScale(channelUpper) + 4, "felső", { fill: "#56d364", size: 9, anchor: "start" }));
+    svg.appendChild(text(W - padR + 2, yScale(channelLower) + 4, "alsó", { fill: "#ff7b72", size: 9, anchor: "start" }));
+
+    // Y tengely
+    [59500, 60000, 60500, 61000].forEach(v => {
+      svg.appendChild(text(padL - 6, yScale(v) + 3, v.toString(), { fill: "#8b949e", size: 9, anchor: "end" }));
+    });
+
+    // Cím
+    svg.appendChild(text(W / 2, 16, "Pozíció-életciklus — 24 gyertya, 2 kereskedés (1 nyertes, 1 vesztes)", { fill: "#f0f6fc", size: 13, anchor: "middle", weight: 600 }));
+
+    // X tengely: gyertya sorszámok
+    for (let i = 0; i < N; i += 4) {
+      svg.appendChild(text(padL + i * stepX + stepX / 2, H - padB + 14, "#" + (i + 1), { fill: "#8b949e", size: 9, anchor: "middle" }));
+    }
+
+    // Üres konténerek a gyertyáknak és a pozíció-sávnak
+    const candleGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    svg.appendChild(candleGroup);
+
+    const positionBar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    positionBar.setAttribute("y", H - padB + 24);
+    positionBar.setAttribute("height", 14);
+    positionBar.setAttribute("fill-opacity", "0");
+    positionBar.setAttribute("stroke", "none");
+    svg.appendChild(positionBar);
+
+    const positionLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    positionLabel.setAttribute("fill", "#c9d1d9");
+    positionLabel.setAttribute("font-size", "10");
+    positionLabel.setAttribute("font-weight", "600");
+    positionLabel.setAttribute("text-anchor", "middle");
+    svg.appendChild(positionLabel);
+
+    // Stop loss + cél vonalak (kezdetben rejtve)
+    const stopLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    stopLine.setAttribute("stroke", "#d29922");
+    stopLine.setAttribute("stroke-width", "1.5");
+    stopLine.setAttribute("stroke-dasharray", "4 3");
+    stopLine.setAttribute("opacity", "0");
+    svg.appendChild(stopLine);
+    const stopLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    stopLabel.setAttribute("fill", "#d29922");
+    stopLabel.setAttribute("font-size", "9");
+    stopLabel.setAttribute("opacity", "0");
+    svg.appendChild(stopLabel);
+
+    const targetLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    targetLine.setAttribute("stroke", "#56d364");
+    targetLine.setAttribute("stroke-width", "1.5");
+    targetLine.setAttribute("stroke-dasharray", "4 3");
+    targetLine.setAttribute("opacity", "0");
+    svg.appendChild(targetLine);
+    const targetLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    targetLabel.setAttribute("fill", "#56d364");
+    targetLabel.setAttribute("font-size", "9");
+    targetLabel.setAttribute("opacity", "0");
+    svg.appendChild(targetLabel);
+
+    // Esemény jelölők (háromszögek)
+    const markerGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    svg.appendChild(markerGroup);
+
+    // Kurzor
+    const cursor = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    cursor.setAttribute("y1", padT);
+    cursor.setAttribute("y2", H - padB);
+    cursor.setAttribute("stroke", "#f0f6fc");
+    cursor.setAttribute("stroke-width", "2");
+    cursor.setAttribute("x1", padL);
+    cursor.setAttribute("x2", padL);
+    svg.appendChild(cursor);
+
+    // Legend
+    const legendY = H - 12;
+    svg.appendChild(rect(padL, legendY - 8, 14, 10, { fill: "#2ea043", fillOpacity: 0.7, rx: 1 }));
+    svg.appendChild(text(padL + 18, legendY, "LONG pozíció aktív", { fill: "#c9d1d9", size: 10 }));
+    svg.appendChild(rect(padL + 150, legendY - 8, 14, 10, { fill: "#f85149", fillOpacity: 0.7, rx: 1 }));
+    svg.appendChild(text(padL + 168, legendY, "SHORT pozíció aktív", { fill: "#c9d1d9", size: 10 }));
+    svg.appendChild(line(padL + 320, legendY - 4, padL + 340, legendY - 4, { color: "#d29922", width: 1.5, dash: "4 3" }));
+    svg.appendChild(text(padL + 346, legendY, "Stop loss", { fill: "#c9d1d9", size: 10 }));
+    svg.appendChild(line(padL + 420, legendY - 4, padL + 440, legendY - 4, { color: "#56d364", width: 1.5, dash: "4 3" }));
+    svg.appendChild(text(padL + 446, legendY, "Célár", { fill: "#c9d1d9", size: 10 }));
+
+    // Animáció
+    let step = 0;
+    let currentPosition = null;
+    let positionStartTick = -1;
+    let positionStartPrice = 0;
+    let entryMarkerAdded = false;
+    let tradesLog = [];
+
+    function drawCandle(i) {
+      const c = candles[i];
+      const x = padL + i * stepX;
+      const yOpen = yScale(c.open);
+      const yClose = yScale(c.close);
+      const yHigh = yScale(c.high);
+      const yLow = yScale(c.low);
+      const cw = Math.max(stepX - 2, 4);
+
+      const wick = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      wick.setAttribute("x1", x + cw / 2);
+      wick.setAttribute("y1", yHigh);
+      wick.setAttribute("x2", x + cw / 2);
+      wick.setAttribute("y2", yLow);
+      wick.setAttribute("stroke", c.close > c.open ? "#56d364" : "#ff7b72");
+      wick.setAttribute("stroke-width", "2");
+      candleGroup.appendChild(wick);
+
+      const body = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      body.setAttribute("x", x);
+      body.setAttribute("y", Math.min(yOpen, yClose));
+      body.setAttribute("width", cw);
+      body.setAttribute("height", Math.max(Math.abs(yOpen - yClose), 4));
+      body.setAttribute("fill", c.close > c.open ? "#2ea043" : "#f85149");
+      body.setAttribute("fill-opacity", "0.85");
+      candleGroup.appendChild(body);
+    }
+
+    function addEntryMarker(tick, type, price) {
+      const x = padL + tick * stepX + stepX / 2;
+      const y = yScale(price);
+      const isLong = type.includes("long");
+      const tri = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      const cy = isLong ? y - 14 : y + 14;
+      const points = isLong
+        ? `${x},${cy} ${x - 6},${cy + 10} ${x + 6},${cy + 10}`
+        : `${x},${cy} ${x - 6},${cy - 10} ${x + 6},${cy - 10}`;
+      tri.setAttribute("points", points);
+      tri.setAttribute("fill", isLong ? "#2ea043" : "#f85149");
+      tri.setAttribute("stroke", "#fff");
+      tri.setAttribute("stroke-width", "1");
+      markerGroup.appendChild(tri);
+
+      const lbl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      lbl.setAttribute("x", x);
+      lbl.setAttribute("y", isLong ? cy - 4 : cy + 22);
+      lbl.setAttribute("fill", isLong ? "#2ea043" : "#f85149");
+      lbl.setAttribute("font-size", "10");
+      lbl.setAttribute("font-weight", "700");
+      lbl.setAttribute("text-anchor", "middle");
+      lbl.textContent = isLong ? "▲ LONG" : "▼ SHORT";
+      markerGroup.appendChild(lbl);
+    }
+
+    function updatePositionBar() {
+      if (!currentPosition) {
+        positionBar.setAttribute("fill-opacity", "0");
+        positionLabel.textContent = "";
+        return;
+      }
+      const x1 = padL + positionStartTick * stepX;
+      const x2 = padL + step * stepX;
+      const isLong = currentPosition.includes("long");
+      positionBar.setAttribute("x", x1);
+      positionBar.setAttribute("width", Math.max(x2 - x1, 1));
+      positionBar.setAttribute("fill", isLong ? "#2ea043" : "#f85149");
+      positionBar.setAttribute("fill-opacity", "0.6");
+      positionBar.setAttribute("rx", "3");
+
+      const ticksHeld = step - positionStartTick;
+      const holdHours = (ticksHeld * 15 / 60).toFixed(1);
+      positionLabel.setAttribute("x", (x1 + x2) / 2);
+      positionLabel.setAttribute("y", H - padB + 34);
+      positionLabel.textContent = isLong
+        ? `LONG @ ${positionStartPrice.toLocaleString("hu-HU")} · ${holdHours} óra`
+        : `SHORT @ ${positionStartPrice.toLocaleString("hu-HU")} · ${holdHours} óra`;
+    }
+
+    function showStopTarget() {
+      if (!currentPosition) {
+        stopLine.setAttribute("opacity", "0");
+        stopLabel.setAttribute("opacity", "0");
+        targetLine.setAttribute("opacity", "0");
+        targetLabel.setAttribute("opacity", "0");
+        return;
+      }
+      const isLong = currentPosition.includes("long");
+      const atr = 100; // egyszerűsítve: 100 USD ATR
+      const stopPrice = isLong ? positionStartPrice - atr : positionStartPrice + atr;
+      const targetPrice = isLong ? channelUpper : channelLower;
+
+      stopLine.setAttribute("x1", padL + positionStartTick * stepX);
+      stopLine.setAttribute("x2", padL + step * stepX);
+      stopLine.setAttribute("y1", yScale(stopPrice));
+      stopLine.setAttribute("y2", yScale(stopPrice));
+      stopLine.setAttribute("opacity", "1");
+      stopLabel.setAttribute("x", padL + positionStartTick * stepX + 4);
+      stopLabel.setAttribute("y", yScale(stopPrice) - 4);
+      stopLabel.setAttribute("opacity", "1");
+      stopLabel.textContent = "STOP " + stopPrice.toLocaleString("hu-HU");
+
+      targetLine.setAttribute("x1", padL + positionStartTick * stepX);
+      targetLine.setAttribute("x2", padL + step * stepX);
+      targetLine.setAttribute("y1", yScale(targetPrice));
+      targetLine.setAttribute("y2", yScale(targetPrice));
+      targetLine.setAttribute("opacity", "1");
+      targetLabel.setAttribute("x", padL + positionStartTick * stepX + 4);
+      targetLabel.setAttribute("y", yScale(targetPrice) + 12);
+      targetLabel.setAttribute("opacity", "1");
+      targetLabel.textContent = "CÉL " + targetPrice.toLocaleString("hu-HU");
+    }
+
+    function checkEvents() {
+      const ev = events.find(e => e.tick === step);
+      if (!ev) return;
+      if (ev.type === "open_long" || ev.type === "open_short") {
+        currentPosition = ev.type.replace("open_", "");
+        positionStartTick = step;
+        positionStartPrice = ev.price;
+        addEntryMarker(step, ev.type, ev.price);
+        statusEl.innerHTML = `<strong style="color:${currentPosition.includes("long") ? "#56d364" : "#ff7b72"};">#${step + 1} gyertya — POZÍCIÓ NYITÁS</strong> · ${currentPosition.toUpperCase()} @ ${ev.price.toLocaleString("hu-HU")} · stop és cél beállítva`;
+      } else if (ev.type.startsWith("close_")) {
+        const pnl = currentPosition.includes("long")
+          ? ((ev.price - positionStartPrice) / positionStartPrice * 100)
+          : ((positionStartPrice - ev.price) / positionStartPrice * 100);
+        const isWin = pnl > 0;
+        const color = isWin ? "#2ea043" : "#f85149";
+        const tickIcon = isWin ? "✅" : "❌";
+        tradesLog.push({ side: currentPosition, entry: positionStartPrice, exit: ev.price, pnl: pnl.toFixed(2), reason: ev.reason });
+        // Záró marker (X)
+        const x = padL + step * stepX + stepX / 2;
+        const y = yScale(ev.price);
+        const exitMarker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        exitMarker.setAttribute("cx", x);
+        exitMarker.setAttribute("cy", y);
+        exitMarker.setAttribute("r", "8");
+        exitMarker.setAttribute("fill", isWin ? "#2ea043" : "#f85149");
+        exitMarker.setAttribute("stroke", "#fff");
+        exitMarker.setAttribute("stroke-width", "2");
+        markerGroup.appendChild(exitMarker);
+
+        statusEl.innerHTML = `<strong style="color:${color};">${tickIcon} #${step + 1} gyertya — POZÍCIÓ ZÁRÁS</strong> · ${currentPosition.toUpperCase()} kilépés @ ${ev.price.toLocaleString("hu-HU")} · ${ev.reason} · <strong style="color:${color};">PnL: ${pnl > 0 ? "+" : ""}${pnl.toFixed(2)}%</strong>`;
+
+        currentPosition = null;
+        positionStartTick = -1;
+        showStopTarget();
+        updatePositionBar();
+      }
+    }
+
+    statusEl.textContent = "0:00 — várakozás a LONG jelzésre...";
+
+    animHandle = setInterval(() => {
+      if (step >= N) {
+        clearInterval(animHandle);
+        animHandle = null;
+        const wins = tradesLog.filter(t => parseFloat(t.pnl) > 0).length;
+        const totalPnl = tradesLog.reduce((s, t) => s + parseFloat(t.pnl), 0);
+        const color = totalPnl > 0 ? "#2ea043" : "#f85149";
+        statusEl.innerHTML = `<strong style="color:${color};">6 óra vége — ${tradesLog.length} trade, ${wins} nyertes, ${tradesLog.length - wins} vesztes · Össz PnL: ${totalPnl > 0 ? "+" : ""}${totalPnl.toFixed(2)}%</strong>`;
+        return;
+      }
+
+      drawCandle(step);
+      const x = padL + step * stepX + stepX / 2;
+      cursor.setAttribute("x1", x);
+      cursor.setAttribute("x2", x);
+
+      checkEvents();
+      if (currentPosition) {
+        updatePositionBar();
+        showStopTarget();
+      }
+
+      if (!currentPosition && step < N - 1) {
+        statusEl.textContent = `#${step + 1} gyertya — várakozás jelzésre...`;
+      }
+
+      step++;
+    }, 500);
+  });
+
+  resetBtn.addEventListener("click", () => {
+    if (animHandle) { clearInterval(animHandle); animHandle = null; }
+    reset();
+  });
+})();
+</script>
+</body>
+</html>

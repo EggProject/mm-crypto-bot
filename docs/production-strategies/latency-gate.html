@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Késleltetés-figyelő (LatencyGate)</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+<header class="page-header">
+  <div class="breadcrumb"><a href="index.html">← Főoldal</a> / latency-gate</div>
+  <h1>Késleltetés-figyelő (LatencyGate)</h1>
+</header>
+
+<section>
+  <h2>Mi a célja?</h2>
+  <p>A hálózati késleltetés (latency) a kriptokereskedelem egyik legnagyobb ellensége. Ez a késleltetés-figyelő minden funding lekérdezés előtt megméri a hálózati késleltetést, és ha túl magas, pause-eli a kereskedést.</p>
+</section>
+
+<section>
+  <h2>Hogyan mér?</h2>
+  <p>A rendszer minden percben méri:</p>
+  <ul>
+    <li><strong>Round-trip time (RTT):</strong> Mennyi ideig tart egy kérés elmenni a tőzsdére és visszajönni.</li>
+    <li><strong>Last-tick age:</strong> Mióta nem jött új adat a tőzsdéről.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Interaktív késleltetés-szimuláció</h2>
+  <div class="controls">
+    <div class="row">
+      <label for="rtt">Round-trip time (ms)</label>
+      <input type="range" id="rtt" min="50" max="2000" step="10" value="200">
+      <span id="rtt-val">200</span>
+    </div>
+    <div class="row">
+      <label for="threshold">Küszöb (ms)</label>
+      <input type="range" id="threshold" min="100" max="1500" step="50" value="500">
+      <span id="threshold-val">500</span>
+    </div>
+  </div>
+  <div class="card" id="latency-decision" style="text-align:center;">
+    <p style="color:#2ea043; font-weight:600; font-size:18px;">KERESKEDÉS AKTÍV (200ms a 500ms-os küszöb alatt)</p>
+  </div>
+</section>
+
+<section>
+  <h2>Miért 500 ms a küszöb?</h2>
+  <p>A bybit.eu és a dYdX hálózati tesztjei (2024) azt mutatták, hogy a tipikus round-trip idő 200-400 ms. Az 500 ms-os küszöb biztonságos és nem kapcsol le feleslegesen.</p>
+</section>
+
+<footer>
+  <a href="index.html">← Vissza a főoldalra</a> • Késleltetés-figyelő (LatencyGate) • Fájl: <code>latency-gate.ts</code>
+</footer>
+</div>
+<script src="script.js"></script>
+<script>
+
+(function() {
+  const sR = document.getElementById("rtt");
+  const sT = document.getElementById("threshold");
+  const vR = document.getElementById("rtt-val");
+  const vT = document.getElementById("threshold-val");
+  const target = document.getElementById("latency-decision");
+  function update() {
+    const rtt = parseInt(sR.value), th = parseInt(sT.value);
+    vR.textContent = rtt;
+    vT.textContent = th;
+    if (rtt > th) {
+      target.innerHTML = `<p style="color:#f85149; font-weight:600; font-size:18px;">KERESKEDÉS SZÜNETEL</p><p style="color:#8b949e; font-size:13px;">A mért késleltetés (${rtt} ms) meghaladja a küszöböt (${th} ms).</p>`;
+    } else {
+      target.innerHTML = `<p style="color:#2ea043; font-weight:600; font-size:18px;">KERESKEDÉS AKTÍV</p><p style="color:#8b949e; font-size:13px;">A késleltetés (${rtt} ms) a küszöb (${th} ms) alatt van.</p>`;
+    }
+  }
+  [sR, sT].forEach(s => s.addEventListener("input", update));
+  update();
+})();
+
+</script>
+</body>
+</html>
