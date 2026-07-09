@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-07-09T19:08:38.867Z",
+  "generatedAt": "2026-07-09T19:49:44.005Z",
   "exchange": "binance",
   "publicApi": true,
   "periodStart": "2024-01-01T00:00:00.000Z",
-  "periodEnd": "2026-07-09T19:08:38.867Z",
+  "periodEnd": "2026-07-09T19:49:44.005Z",
   "timeframeMs": {
     "1m": 60000,
     "5m": 300000,
@@ -15,13 +15,23 @@
   "files": [
     {
       "symbol": "btc",
+      "timeframe": "5m",
+      "path": "binance_btc_5m.csv",
+      "rows": 265197,
+      "firstTs": 1704067200000,
+      "lastTs": 1783626000000,
+      "sha256": "109e23823731e05f62fdecb24193036638d109494ba68b01b2289ef4d27c77c9",
+      "bytes": 15326366
+    },
+    {
+      "symbol": "btc",
       "timeframe": "15m",
       "path": "binance_btc_15m.csv",
-      "rows": 88397,
+      "rows": 88399,
       "firstTs": 1704067200000,
-      "lastTs": 1783623600000,
-      "sha256": "803ed729b52ff2a63cb21c53c85abf3600ee6e82f6ec2316f34fd8cf219d95f3",
-      "bytes": 5150727
+      "lastTs": 1783625400000,
+      "sha256": "4b92c2f9ef8192bacfa0c01e78c345acb43a4406bc70a14f18e3c5c63ce56125",
+      "bytes": 5150843
     },
     {
       "symbol": "btc",
@@ -30,8 +40,8 @@
       "rows": 22100,
       "firstTs": 1704067200000,
       "lastTs": 1783623600000,
-      "sha256": "c520f44a54dc9c39817c15af5dbd3c7c5832671ae260865915a2e6f3c0f5e50e",
-      "bytes": 1298369
+      "sha256": "fdeae91aee3aa0c10d1e83f7071ee831bbc751b404cb67949e34049c50673af2",
+      "bytes": 1298370
     },
     {
       "symbol": "btc",
@@ -40,8 +50,8 @@
       "rows": 5525,
       "firstTs": 1704067200000,
       "lastTs": 1783612800000,
-      "sha256": "728537b4b4a1291c7affe3366aff2dc9b53d2e8ca228f14b6c184bfef3613115",
-      "bytes": 327398
+      "sha256": "54761671da9bfe6c1887a3952941cbd5e8b5fcaa783ab9023e9101d1b373a5aa",
+      "bytes": 327400
     },
     {
       "symbol": "btc",
@@ -50,18 +60,28 @@
       "rows": 921,
       "firstTs": 1704067200000,
       "lastTs": 1783555200000,
-      "sha256": "f5a0b69ba8116f3237c6af1d98f4ce407bd61d607d92c3c05049b1bc202d0d02",
-      "bytes": 55144
+      "sha256": "9c14a5b7af2c9725a766c8b60f7a47c943dd45b5b73d571f3040992fa5a4a2bb",
+      "bytes": 55147
+    },
+    {
+      "symbol": "eth",
+      "timeframe": "5m",
+      "path": "binance_eth_5m.csv",
+      "rows": 265197,
+      "firstTs": 1704067200000,
+      "lastTs": 1783626000000,
+      "sha256": "9174ea14650122e02c1326b5d333680ac7accdbc78969b7dae44de84ce4d04c1",
+      "bytes": 14360635
     },
     {
       "symbol": "eth",
       "timeframe": "15m",
       "path": "binance_eth_15m.csv",
-      "rows": 88397,
+      "rows": 88400,
       "firstTs": 1704067200000,
-      "lastTs": 1783623600000,
-      "sha256": "b1267942b7512eb007024f42bbd178eb30f21024a9f4e7ed19bdbeb30db653fc",
-      "bytes": 4829948
+      "lastTs": 1783626300000,
+      "sha256": "64538250dc8e6acb11b0cd42be5ad480300c3986691e8db64ccfd444c7c4db4f",
+      "bytes": 4830112
     },
     {
       "symbol": "eth",
@@ -70,8 +90,8 @@
       "rows": 22100,
       "firstTs": 1704067200000,
       "lastTs": 1783623600000,
-      "sha256": "f00186258b8816b1bb0efbbfd6e078c0bf885828631a6229b841bd7203eea8f7",
-      "bytes": 1219816
+      "sha256": "a95455c41b39883e0f8a2929b43a1cb285da36c45cb5024d30c988b49aac952a",
+      "bytes": 1219818
     },
     {
       "symbol": "eth",
@@ -80,7 +100,7 @@
       "rows": 5525,
       "firstTs": 1704067200000,
       "lastTs": 1783612800000,
-      "sha256": "5322cdf88f08f1aa3170eaeb1ef1d395b98633253dc64538202406aadfc64742",
+      "sha256": "de91338fdba90e242c32757a2f199202106aaeec970a38038989b6302c686c94",
       "bytes": 307537
     },
     {
@@ -90,18 +110,28 @@
       "rows": 921,
       "firstTs": 1704067200000,
       "lastTs": 1783555200000,
-      "sha256": "0520d5ebb717236c902f5178c82fbe7793cf5784bd53908d3ae7c3fac93364de",
+      "sha256": "7204d968f246443b56ba5deb8ad8f4d2ae279c3b4bce15d57472bda36f14153b",
       "bytes": 51841
+    },
+    {
+      "symbol": "sol",
+      "timeframe": "5m",
+      "path": "binance_sol_5m.csv",
+      "rows": 265198,
+      "firstTs": 1704067200000,
+      "lastTs": 1783626300000,
+      "sha256": "b43df0f85b8ca5c2715dde0f0c4456505b6687bc5607d1f39a1ba31537343e54",
+      "bytes": 13209159
     },
     {
       "symbol": "sol",
       "timeframe": "15m",
       "path": "binance_sol_15m.csv",
-      "rows": 88397,
+      "rows": 88400,
       "firstTs": 1704067200000,
-      "lastTs": 1783623600000,
-      "sha256": "6ae8711044905d716173f230b68c94f9d553a2a027a1486c12c86d31db084e33",
-      "bytes": 4450050
+      "lastTs": 1783626300000,
+      "sha256": "5b3047f4781ffd09995a7d55916721b8bf74f5daa8353884686f4dcbd4d4b458",
+      "bytes": 4450188
     },
     {
       "symbol": "sol",
@@ -110,8 +140,8 @@
       "rows": 22100,
       "firstTs": 1704067200000,
       "lastTs": 1783623600000,
-      "sha256": "ce5ec1e62d8a832a4d8184bd776c7662ef89de1965d90dd3c33794e5a4825cde",
-      "bytes": 1125243
+      "sha256": "e5ce11dde8032afd35e3fb1fe11d56fca9f1c8a7f6c32e1527ad5b4212cd518e",
+      "bytes": 1125244
     },
     {
       "symbol": "sol",
@@ -120,7 +150,7 @@
       "rows": 5525,
       "firstTs": 1704067200000,
       "lastTs": 1783612800000,
-      "sha256": "8e697bf4af2459728fd0e69cc87f6f626e4f4746b014cc72e64f537462e358f4",
+      "sha256": "f2f8cd44d0cb701e15c3d0a8a15bc1fde03b7dff07bf488bdba7821e72b55f37",
       "bytes": 284114
     },
     {
@@ -130,10 +160,10 @@
       "rows": 921,
       "firstTs": 1704067200000,
       "lastTs": 1783555200000,
-      "sha256": "83f524c9281413b57b2dea4c8779e2c532c4eac02ffb882c52c889bacf869f7f",
+      "sha256": "83af91e90ce875d45eab31fa58e492d0445658df2ffd84543c4bff1c5e2376b0",
       "bytes": 48031
     }
   ],
-  "totalRows": 350829,
+  "totalRows": 1146429,
   "sha256Algorithm": "sha256"
 }
