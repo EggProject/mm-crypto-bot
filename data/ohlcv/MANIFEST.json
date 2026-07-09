@@ -1,9 +1,9 @@
 {
-  "generatedAt": "2026-07-06T19:31:00.000Z",
+  "generatedAt": "2026-07-09T19:08:38.867Z",
   "exchange": "binance",
   "publicApi": true,
   "periodStart": "2024-01-01T00:00:00.000Z",
-  "periodEnd": "2026-07-06T17:30:00.000Z",
+  "periodEnd": "2026-07-09T19:08:38.867Z",
   "timeframeMs": {
     "1m": 60000,
     "5m": 300000,
@@ -17,153 +17,123 @@
       "symbol": "btc",
       "timeframe": "15m",
       "path": "binance_btc_15m.csv",
-      "rows": 88102,
+      "rows": 88397,
       "firstTs": 1704067200000,
-      "lastTs": 1783358100000,
-      "sha256": "6af2dad7d56be5f5b06f7f59e199a9a25bf92587a7107932bf6d92fe35be6fd6",
-      "bytes": 5134292
-    },
-    {
-      "symbol": "btc",
-      "timeframe": "1d",
-      "path": "binance_btc_1d.csv",
-      "rows": 915,
-      "firstTs": 1704067200000,
-      "lastTs": 1783036800000,
-      "sha256": "89d50ce3d147a49ef5aa11b63793f5ff4f28aaac74b688a26f678e8c5ef02a04",
-      "bytes": 54799
+      "lastTs": 1783623600000,
+      "sha256": "803ed729b52ff2a63cb21c53c85abf3600ee6e82f6ec2316f34fd8cf219d95f3",
+      "bytes": 5150727
     },
     {
       "symbol": "btc",
       "timeframe": "1h",
       "path": "binance_btc_1h.csv",
-      "rows": 21958,
+      "rows": 22100,
       "firstTs": 1704067200000,
-      "lastTs": 1783112400000,
-      "sha256": "be7347250189338885e7ffebc86fc227b81f153cc1f7d8930865f37eae473e6b",
-      "bytes": 1290359
+      "lastTs": 1783623600000,
+      "sha256": "c520f44a54dc9c39817c15af5dbd3c7c5832671ae260865915a2e6f3c0f5e50e",
+      "bytes": 1298369
     },
     {
       "symbol": "btc",
       "timeframe": "4h",
       "path": "binance_btc_4h.csv",
-      "rows": 5490,
+      "rows": 5525,
       "firstTs": 1704067200000,
-      "lastTs": 1783108800000,
-      "sha256": "f1400faef2580f183408aaf67b63204042b1b255b04f22e52ee50fd1d9523bd0",
-      "bytes": 325377
+      "lastTs": 1783612800000,
+      "sha256": "728537b4b4a1291c7affe3366aff2dc9b53d2e8ca228f14b6c184bfef3613115",
+      "bytes": 327398
     },
     {
       "symbol": "btc",
-      "timeframe": "5m",
-      "path": "binance_btc_5m.csv",
-      "rows": 264305,
+      "timeframe": "1d",
+      "path": "binance_btc_1d.csv",
+      "rows": 921,
       "firstTs": 1704067200000,
-      "lastTs": 1783358400000,
-      "sha256": "e33fc6535121ba0efd4cd32ee6ecd3546d27aa4700f0bc2690830f0d5d434278",
-      "bytes": 15277197
+      "lastTs": 1783555200000,
+      "sha256": "f5a0b69ba8116f3237c6af1d98f4ce407bd61d607d92c3c05049b1bc202d0d02",
+      "bytes": 55144
     },
     {
       "symbol": "eth",
       "timeframe": "15m",
       "path": "binance_eth_15m.csv",
-      "rows": 88102,
+      "rows": 88397,
       "firstTs": 1704067200000,
-      "lastTs": 1783358100000,
-      "sha256": "4437e65f33b0318eaeba8f16bd2cf6a3382b2c9b5c9b58360131ec3e9285a825",
-      "bytes": 4813740
-    },
-    {
-      "symbol": "eth",
-      "timeframe": "1d",
-      "path": "binance_eth_1d.csv",
-      "rows": 915,
-      "firstTs": 1704067200000,
-      "lastTs": 1783036800000,
-      "sha256": "6d0e36356437f989244d7e4f32ab43e593662fc5b8149b3e26768fe57000e6f1",
-      "bytes": 51498
+      "lastTs": 1783623600000,
+      "sha256": "b1267942b7512eb007024f42bbd178eb30f21024a9f4e7ed19bdbeb30db653fc",
+      "bytes": 4829948
     },
     {
       "symbol": "eth",
       "timeframe": "1h",
       "path": "binance_eth_1h.csv",
-      "rows": 21958,
+      "rows": 22100,
       "firstTs": 1704067200000,
-      "lastTs": 1783112400000,
-      "sha256": "aa431abcf61e9321b745099022f185791a0fc6f4ff4ea3a91c8cc9dfc0c4b15b",
-      "bytes": 1211980
+      "lastTs": 1783623600000,
+      "sha256": "f00186258b8816b1bb0efbbfd6e078c0bf885828631a6229b841bd7203eea8f7",
+      "bytes": 1219816
     },
     {
       "symbol": "eth",
       "timeframe": "4h",
       "path": "binance_eth_4h.csv",
-      "rows": 5490,
+      "rows": 5525,
       "firstTs": 1704067200000,
-      "lastTs": 1783108800000,
-      "sha256": "c656b2615b246534544a307a66da104b3924e30141224643d1ef5caec440d44b",
-      "bytes": 305585
+      "lastTs": 1783612800000,
+      "sha256": "5322cdf88f08f1aa3170eaeb1ef1d395b98633253dc64538202406aadfc64742",
+      "bytes": 307537
     },
     {
       "symbol": "eth",
-      "timeframe": "5m",
-      "path": "binance_eth_5m.csv",
-      "rows": 264305,
+      "timeframe": "1d",
+      "path": "binance_eth_1d.csv",
+      "rows": 921,
       "firstTs": 1704067200000,
-      "lastTs": 1783358400000,
-      "sha256": "409620c9a801a972ede33e484ff448131eae80fb0a2fbed5ff47f6d3b508bed2",
-      "bytes": 14312205
+      "lastTs": 1783555200000,
+      "sha256": "0520d5ebb717236c902f5178c82fbe7793cf5784bd53908d3ae7c3fac93364de",
+      "bytes": 51841
     },
     {
       "symbol": "sol",
       "timeframe": "15m",
       "path": "binance_sol_15m.csv",
-      "rows": 88102,
+      "rows": 88397,
       "firstTs": 1704067200000,
-      "lastTs": 1783358100000,
-      "sha256": "6da53dd145b1ba28a3dabea6b1cc9a42d84298c09bb587af88576dbfa300d6ee",
-      "bytes": 4436152
-    },
-    {
-      "symbol": "sol",
-      "timeframe": "1d",
-      "path": "binance_sol_1d.csv",
-      "rows": 915,
-      "firstTs": 1704067200000,
-      "lastTs": 1783036800000,
-      "sha256": "49b3b68c69280cbcc448c5546d4d3a5cd7f005dc8d885901c2e797a886b10694",
-      "bytes": 47735
+      "lastTs": 1783623600000,
+      "sha256": "6ae8711044905d716173f230b68c94f9d553a2a027a1486c12c86d31db084e33",
+      "bytes": 4450050
     },
     {
       "symbol": "sol",
       "timeframe": "1h",
       "path": "binance_sol_1h.csv",
-      "rows": 21958,
+      "rows": 22100,
       "firstTs": 1704067200000,
-      "lastTs": 1783112400000,
-      "sha256": "1d01c969f1cd3b51ef6405c467043e978bf00b870497b5993c4f5afe4437f88c",
-      "bytes": 1118502
+      "lastTs": 1783623600000,
+      "sha256": "ce5ec1e62d8a832a4d8184bd776c7662ef89de1965d90dd3c33794e5a4825cde",
+      "bytes": 1125243
     },
     {
       "symbol": "sol",
       "timeframe": "4h",
       "path": "binance_sol_4h.csv",
-      "rows": 5490,
+      "rows": 5525,
       "firstTs": 1704067200000,
-      "lastTs": 1783108800000,
-      "sha256": "60f9efbc6313fcb3b6fed8f60a1b827d35bfe627e20e8e61a933815b793ef7c8",
-      "bytes": 282420
+      "lastTs": 1783612800000,
+      "sha256": "8e697bf4af2459728fd0e69cc87f6f626e4f4746b014cc72e64f537462e358f4",
+      "bytes": 284114
     },
     {
       "symbol": "sol",
-      "timeframe": "5m",
-      "path": "binance_sol_5m.csv",
-      "rows": 264306,
+      "timeframe": "1d",
+      "path": "binance_sol_1d.csv",
+      "rows": 921,
       "firstTs": 1704067200000,
-      "lastTs": 1783358700000,
-      "sha256": "02819dcfdd217cdf8d801a12b36bce981ed12af7fca855c7c1b152081d679181",
-      "bytes": 13167678
+      "lastTs": 1783555200000,
+      "sha256": "83f524c9281413b57b2dea4c8779e2c532c4eac02ffb882c52c889bacf869f7f",
+      "bytes": 48031
     }
   ],
-  "totalRows": 1142311,
+  "totalRows": 350829,
   "sha256Algorithm": "sha256"
 }
