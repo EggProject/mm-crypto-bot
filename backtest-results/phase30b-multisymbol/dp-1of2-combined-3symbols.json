@@ -1,0 +1,73 @@
+{
+  "strategy": "donchian-pivot-composition (multi-symbol, Phase 30b)",
+  "mode": "per-symbol-independent",
+  "note": "Per-symbol envelopes are averaged. NO PortfolioOrchestrator overhead. 1:10 leverage applied per symbol.",
+  "args": {
+    "symbol": "BTC/USDT,ETH/USDT,SOL/USDT",
+    "symbols": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "SOL/USDT"
+    ],
+    "timeframe": "15m",
+    "initialEquity": 10000,
+    "minConsensus": 1,
+    "maxPositionPctEquity": 0.2,
+    "startTime": "2026-01-01T00:00:00.000Z",
+    "endTime": "2026-07-08T00:00:00.000Z",
+    "outputPath": "backtest-results/phase18-donchian-pivot-btc-15m-2of2.json",
+    "outputDir": "backtest-results/phase30b-multisymbol",
+    "multiSymbolMode": true
+  },
+  "components": [
+    "donchian-range",
+    "pivot-grid"
+  ],
+  "minConsensus": 1,
+  "timeframe": {
+    "htf": "1d",
+    "mtf": "4h",
+    "ltf": "15m"
+  },
+  "perSymbol": [
+    {
+      "symbol": "BTC/USDT",
+      "monthlyReturnPct": 26.227231788131267,
+      "annualizedReturnPct": 1532.6994567874608,
+      "sharpeRatio": 28.99369414858787,
+      "sortinoRatio": 35.75078294420188,
+      "maxDrawdownPct": 3.167097004638783,
+      "profitFactor": 4.068141414087429,
+      "winRatePct": 68.81927710843372,
+      "totalTrades": 2075
+    },
+    {
+      "symbol": "ETH/USDT",
+      "monthlyReturnPct": 29.6411953823581,
+      "annualizedReturnPct": 2148.4294468820176,
+      "sharpeRatio": 27.38889337734186,
+      "sortinoRatio": 32.93573798668055,
+      "maxDrawdownPct": 4.584970660783934,
+      "profitFactor": 3.3319310064157417,
+      "winRatePct": 65.35087719298247,
+      "totalTrades": 2280
+    },
+    {
+      "symbol": "SOL/USDT",
+      "monthlyReturnPct": 27.85604767501948,
+      "annualizedReturnPct": 1804.029337252905,
+      "sharpeRatio": 27.305490059140208,
+      "sortinoRatio": 31.170278294595718,
+      "maxDrawdownPct": 7.704118003684421,
+      "profitFactor": 3.6225462223134697,
+      "winRatePct": 64.22657952069717,
+      "totalTrades": 2295
+    }
+  ],
+  "combinedSimpleAverage": {
+    "monthlyReturnPct": 27.908158281836283,
+    "annualizedReturnPct": 1828.386080307461,
+    "sharpeRatio": 27.896025861689978,
+    "maxDrawdownPct": 7.704118003684421
+  }
+}

@@ -664,8 +664,304 @@ describe("DydxCexCarryPaperTrader — end-to-end", () => {
 });
 
 // ============================================================================
-// SANITY: ALL_KILL_SWITCHES + factory functions
+// PHASE 30 — LATENCY GATE LIVE WIRING (40-50)
 // ============================================================================
+//
+// Verifies the LatencyGate is properly wired into the dYdX-vs-CEX carry
+// strategy.  The gate is constructed from `recordLatencySnapshot` calls
+// (live) or from the `latencySource` poller (per funding tick + per
+// candle).  When latency > threshold, the carry is paused: no funding
+// accrual, no new entries.
+
+/**
+ * `FixedLatencySource` — Phase 30 test fixture.  Returns a fixed
+ * round-trip ms on every observation.  Tests can mutate the field
+ * to simulate latency spikes.
+ */
+class FixedLatencySource {
+  readonly pair: string;
+  rtMs: number | null;
+  observationCount = 0;
+
+  constructor(pair: string, rtMs: number | null) {
+    this.pair = pair;
+    this.rtMs = rtMs;
+  }
+
+  observeRoundTripMs(_nowMs: number): number | null {
+    this.observationCount += 1;
+    return this.rtMs;
+  }
+}
+
+describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
+  it("40. default constructor has latencyArbThresholdMs=500 and latencySource=null", () => {
+    const s = mkStrategy(new MockFundingSource());
+    expect(s.config.latencyArbThresholdMs).toBe(500);
+    expect(s.config.latencySource).toBeNull();
+  });
+
+  it("41. constructor rejects non-positive latencyArbThresholdMs", () => {
+    const src = new MockFundingSource();
+    expect(() => new DydxCexCarryStrategy({
+      fundingSource: src,
+      latencyArbThresholdMs: 0,
+    })).toThrow(/latencyArbThresholdMs/);
+    expect(() => new DydxCexCarryStrategy({
+      fundingSource: src,
+      latencyArbThresholdMs: -1,
+    })).toThrow(/latencyArbThresholdMs/);
+  });
+
+  it("42. constructor accepts +Infinity to explicitly disable latency gating", () => {
+    const src = new MockFundingSource();
+    const s = new DydxCexCarryStrategy({
+      fundingSource: src,
+      latencyArbThresholdMs: Number.POSITIVE_INFINITY,
+    });
+    expect(s.config.latencyArbThresholdMs).toBe(Number.POSITIVE_INFINITY);
+    // Even with a high round-trip snapshot, the gate is disabled.
+    const verdict = s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: 100_000, sourceJsonPath: "test" },
+      FIXED_NOW,
+    );
+    expect(verdict.carryAllowed).toBe(true);
+  });
+
+  it("43. default LatencyGate is disabled (isLatencyPaused()=false on init)", () => {
+    const s = mkStrategy(new MockFundingSource());
+    expect(s.isLatencyPaused()).toBe(false);
+    expect(s.currentLatencyGate().isCarryAllowed()).toBe(true);
+  });
+
+  it("44. recordLatencySnapshot with rtMs > threshold pauses the carry", () => {
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    const verdict = s.recordLatencySnapshot(
+      { pair: "dydx-bybit-btc", roundTripMsMax: 1200, sourceJsonPath: "live" },
+      FIXED_NOW,
+    );
+    expect(verdict.carryAllowed).toBe(false);
+    expect(verdict.reason).toMatch(/1200/);
+    expect(s.isLatencyPaused()).toBe(true);
+    expect(s.state.lastLatencyRoundTripMs).toBe(1200);
+    expect(s.state.lastLatencySnapshotMs).toBe(FIXED_NOW);
+  });
+
+  it("45. recordLatencySnapshot with rtMs ≤ threshold allows the carry", () => {
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    const verdict = s.recordLatencySnapshot(
+      { pair: "dydx-bybit-btc", roundTripMsMax: 250, sourceJsonPath: "live" },
+      FIXED_NOW,
+    );
+    expect(verdict.carryAllowed).toBe(true);
+    expect(verdict.reason).toMatch(/250/);
+    expect(s.isLatencyPaused()).toBe(false);
+  });
+
+  it("46. recordLatencySnapshot with rtMs = threshold (boundary) allows the carry", () => {
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    const verdict = s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: 500, sourceJsonPath: "live" },
+      FIXED_NOW,
+    );
+    expect(verdict.carryAllowed).toBe(true);
+  });
+
+  it("47. recordLatencySnapshot with invalid (NaN) snapshot keeps existing gate", () => {
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    // First, set a known state — paused (rtMs=1500 > 500).
+    s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: 1500, sourceJsonPath: "live" },
+      FIXED_NOW,
+    );
+    expect(s.isLatencyPaused()).toBe(true);
+    // Then send an invalid snapshot — should NOT change the gate.
+    s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: Number.NaN, sourceJsonPath: "live" },
+      FIXED_NOW + 1000,
+    );
+    expect(s.isLatencyPaused()).toBe(true);
+    expect(s.state.lastLatencySnapshotMs).toBe(FIXED_NOW); // unchanged
+  });
+
+  it("48. recordLatencySnapshot with negative rtMs keeps existing gate", () => {
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: 100, sourceJsonPath: "live" },
+      FIXED_NOW,
+    );
+    expect(s.isLatencyPaused()).toBe(false);
+    s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: -5, sourceJsonPath: "live" },
+      FIXED_NOW + 1000,
+    );
+    expect(s.isLatencyPaused()).toBe(false);
+    expect(s.state.lastLatencySnapshotMs).toBe(FIXED_NOW);
+  });
+
+  it("49. pollLatencySource with null latencySource returns null", () => {
+    const s = mkStrategy(new MockFundingSource());
+    expect(s.pollLatencySource(FIXED_NOW)).toBeNull();
+  });
+
+  it("50. pollLatencySource with latencySource updates the gate", () => {
+    const src = new FixedLatencySource("dydx-bybit-btc", 800);
+    const s = mkStrategy(new MockFundingSource(), { latencySource: src });
+    const verdict = s.pollLatencySource(FIXED_NOW);
+    expect(verdict).not.toBeNull();
+    expect(verdict!.carryAllowed).toBe(false); // 800 > 500
+    expect(src.observationCount).toBe(1);
+    expect(s.isLatencyPaused()).toBe(true);
+  });
+
+  it("51. pollLatencySource with latencySource=null (no obs yet) keeps existing gate", () => {
+    const src = new FixedLatencySource("dydx-bybit-btc", null);
+    const s = mkStrategy(new MockFundingSource(), { latencySource: src });
+    const verdict = s.pollLatencySource(FIXED_NOW);
+    expect(verdict).not.toBeNull();
+    expect(verdict!.reason).toMatch(/not yet observed/);
+    expect(s.isLatencyPaused()).toBe(false);
+    expect(src.observationCount).toBe(1);
+  });
+
+  it("52. recordFundingTick returns 0 when latency paused (no accrual)", () => {
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
+      FIXED_NOW,
+    );
+    const payment = s.recordFundingTick(
+      mkSnapshot("BTC-USD", FIXED_NOW, 0.001),
+      mkSnapshot("BTC-USD", FIXED_NOW, 0.0002, undefined),
+      FIXED_NOW,
+    );
+    expect(payment).toBe(0);
+  });
+
+  it("53. recordFundingTick with latencySource auto-polls and gates carry", () => {
+    const src = new FixedLatencySource("dydx-bybit-btc", 800);
+    const s = mkStrategy(new MockFundingSource(), { latencySource: src });
+    expect(s.isLatencyPaused()).toBe(false); // init state
+    const payment = s.recordFundingTick(
+      mkSnapshot("BTC-USD", FIXED_NOW, 0.001),
+      mkSnapshot("BTC-USD", FIXED_NOW, 0.0002, undefined),
+      FIXED_NOW,
+    );
+    expect(payment).toBe(0); // 800 > 500 → paused
+    expect(src.observationCount).toBe(1);
+  });
+
+  it("54. onCandle does NOT enter when latency paused (live wire-up integrity)", () => {
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    // Force the live-orders gate open (bypass the 7-day paper-trade
+    // requirement — this test is verifying entry-blocking on latency
+    // pause, not the paper-trade gate itself).
+    s.state.liveOrdersEnabled = true;
+    // Skip warmup
+    const pastWarmup = 25;
+    const ctx = {
+      candleIndex: pastWarmup,
+      candle: { timestamp: FIXED_NOW, open: 60_000, high: 60_500, low: 59_500, close: 60_000, volume: 1000 },
+      position: null,
+      history: [],
+    } as unknown as Parameters<typeof s.onCandle>[0];
+    // No latency pause → would enter.
+    const sigBefore = s.onCandle(ctx);
+    expect(sigBefore?.side).toBe("buy");
+    // Reset and pause → should NOT enter.
+    s.reset();
+    s.state.liveOrdersEnabled = true;
+    s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
+      FIXED_NOW,
+    );
+    const sigAfter = s.onCandle(ctx);
+    expect(sigAfter).toBeNull();
+    expect(s.isLatencyPaused()).toBe(true);
+  });
+
+  it("55. serializeState/fromSnapshot round-trip preserves latency state", () => {
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    s.recordLatencySnapshot(
+      { pair: "dydx-bybit-btc", roundTripMsMax: 700, sourceJsonPath: "live" },
+      FIXED_NOW,
+    );
+    const snap = s.serializeState();
+    // The function-bearing gate is NOT serialized (JSON cannot represent
+    // functions).  Only the round-trip ms + timestamp are persisted.
+    expect((snap as unknown as Record<string, unknown>)["currentLatencyGate"]).toBeUndefined();
+    expect(snap.lastLatencyRoundTripMs).toBe(700);
+    expect(snap.lastLatencySnapshotMs).toBe(FIXED_NOW);
+    // Restore — the gate is reconstructed from round-trip + threshold.
+    const s2 = DydxCexCarryStrategy.fromSnapshot(s.config, snap);
+    expect(s2.state.lastLatencyRoundTripMs).toBe(700);
+    expect(s2.state.lastLatencySnapshotMs).toBe(FIXED_NOW);
+    expect(s2.isLatencyPaused()).toBe(true);
+    expect(s2.currentLatencyGate().isCarryAllowed()).toBe(false);
+  });
+
+  it("56. fromSnapshot with pre-Phase-30 snapshot (no latency fields) loads defaults", () => {
+    const s = mkStrategy(new MockFundingSource());
+    const snap = s.serializeState();
+    // Strip the Phase 30 fields (simulate a pre-Phase-30 persisted snapshot).
+    // Use `as unknown as typeof snap` since `undefined` is not assignable
+    // to the strict `number | null` field type.
+    const prePhase30 = {
+      ...snap,
+      lastLatencyRoundTripMs: null as number | null,
+      lastLatencySnapshotMs: null as number | null,
+    };
+    const s2 = DydxCexCarryStrategy.fromSnapshot(s.config, prePhase30);
+    expect(s2.currentLatencyGate().isCarryAllowed()).toBe(true); // disabled
+    expect(s2.state.lastLatencyRoundTripMs).toBeNull();
+    expect(s2.state.lastLatencySnapshotMs).toBeNull();
+  });
+
+  it("57. reset() returns latency state to default (disabled)", () => {
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
+      FIXED_NOW,
+    );
+    expect(s.isLatencyPaused()).toBe(true);
+    s.reset();
+    expect(s.isLatencyPaused()).toBe(false);
+    expect(s.state.lastLatencyRoundTripMs).toBeNull();
+    expect(s.state.lastLatencySnapshotMs).toBeNull();
+  });
+
+  it("58. latency pause does NOT auto-close a held position (entry-block only)", () => {
+    // Wire-up: latency pause blocks new entries, but does NOT issue
+    // a sell.  Existing positions stay open until a kill-switch fires
+    // or the position is closed via the engine's normal flow.
+    const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    s.state.liveOrdersEnabled = true;
+    const pastWarmup = 25;
+    const ctx = {
+      candleIndex: pastWarmup,
+      candle: { timestamp: FIXED_NOW, open: 60_000, high: 60_500, low: 59_500, close: 60_000, volume: 1000 },
+      position: null,
+      history: [],
+    } as unknown as Parameters<typeof s.onCandle>[0];
+    // First entry.
+    const entrySig = s.onCandle(ctx);
+    expect(entrySig?.side).toBe("buy");
+    expect(s.state.hasEntered).toBe(true);
+    // Then pause latency.
+    s.recordLatencySnapshot(
+      { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
+      FIXED_NOW + HOUR,
+    );
+    // Next candle: no sell signal — the held position stays.
+    const ctx2 = {
+      ...ctx,
+      candle: { ...ctx.candle, timestamp: FIXED_NOW + HOUR },
+    } as unknown as Parameters<typeof s.onCandle>[0];
+    const holdSig = s.onCandle(ctx2);
+    expect(holdSig).toBeNull();
+    expect(s.state.hasEntered).toBe(true);
+  });
+});
 
 describe("factory helpers", () => {
   it("ALL_KILL_SWITCHES contains exactly 4 entries", () => {
