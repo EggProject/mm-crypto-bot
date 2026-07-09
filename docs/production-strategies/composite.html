@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kompozit wrapper</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+<header class="page-header">
+  <div class="breadcrumb"><a href="index.html">← Főoldal</a> / composite</div>
+  <h1>Kompozit wrapper</h1>
+</header>
+
+<section>
+  <h2>Mi a célja?</h2>
+  <p>Ez egy általános eszköz, amivel két tetszőleges stratégiát lehet kombinálni trend-szűrős logikával. A Donchian-Pivot kompozit ezt használja belül, hogy a Donchian csatornát és a Pivot rácsot egyetlen döntéssé alakítsa.</p>
+</section>
+
+<section>
+  <h2>A három egyesítési szabály</h2>
+  <ol class="step-list">
+    <li><strong>Trend nincs, nincs kereskedés.</strong> Ha a trend-komponens nem ad jelet, a wrapper is "nincs jelet" mond.</li>
+    <li><strong>Egyetértés: a második komponens nyer.</strong> Ha mindkét komponens jelez és egyetért, a második jele érvényesül, bizalmi szint nő.</li>
+    <li><strong>Ellentmondás: a trend nyer.</strong> Ha a két komponens ellentmond, a trend-komponens jele érvényesül, a másikat elveti a rendszer.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Interaktív mátrix</h2>
+  <p>Az alábbi mátrixon a wrapper összes lehetséges kombinációját látod. Kattints egy cellára a részletekért.</p>
+  <div class="diagram" id="matrix-diagram"></div>
+  <div class="card" id="matrix-decision">
+    <p style="color:#8b949e; text-align:center;">Kattints egy cellára a wrapper döntés megtekintéséhez.</p>
+  </div>
+</section>
+
+<footer>
+  <a href="index.html">← Vissza a főoldalra</a> • Kompozit wrapper • Fájl: <code>composite.ts</code>
+</footer>
+</div>
+<script src="script.js"></script>
+<script>
+
+(function() {
+  const target = document.getElementById("matrix-diagram");
+  if (!target) return;
+  const svg = makeSVG(700, 320);
+  target.appendChild(svg);
+  const labels = [
+    { c1: "Long",  c2: "Long",  res: "LONG (agreement boost)", color: "#2ea043" },
+    { c1: "Long",  c2: "Semleges", res: "LONG (csak trend jel)", color: "#58a6ff" },
+    { c1: "Long",  c2: "Short", res: "LONG (trend nyer, MR elvetve)", color: "#2ea043" },
+    { c1: "Semleges", c2: "Long",  res: "Nincs jel (trend nélkül nincs trade)", color: "#8b949e" },
+    { c1: "Semleges", c2: "Semleges", res: "Nincs jel", color: "#8b949e" },
+    { c1: "Semleges", c2: "Short", res: "Nincs jel (trend nélkül nincs trade)", color: "#8b949e" },
+    { c1: "Short", c2: "Long",  res: "SHORT (trend nyer, MR elvetve)", color: "#f85149" },
+    { c1: "Short", c2: "Semleges", res: "SHORT (csak trend jel)", color: "#58a6ff" },
+    { c1: "Short", c2: "Short", res: "SHORT (agreement boost)", color: "#f85149" }
+  ];
+  const startX = 130, startY = 40;
+  const cellW = 160, cellH = 75;
+  labels.forEach((l, i) => {
+    const col = i % 3;
+    const row = Math.floor(i / 3);
+    const x = startX + col * cellW;
+    const y = startY + row * cellH;
+    const r = rect(x, y, cellW - 5, cellH - 5, { rx: 6, fill: l.color + "22", stroke: l.color, strokeWidth: 1 });
+    r.appendChild(text(x + cellW / 2 - 2, y + 20, `Trend: ${l.c1}`, { fill: "#c9d1d9", size: 12, anchor: "middle" }));
+    r.appendChild(text(x + cellW / 2 - 2, y + 36, `MR: ${l.c2}`, { fill: "#c9d1d9", size: 12, anchor: "middle" }));
+    r.appendChild(text(x + cellW / 2 - 2, y + 56, l.res, { fill: l.color, size: 11, anchor: "middle", weight: 600 }));
+    r.style.cursor = "pointer";
+    r.addEventListener("click", () => {
+      const card = document.getElementById("matrix-decision");
+      card.innerHTML = `<h3>${l.res}</h3><p><strong>Trend (1. komponens):</strong> ${l.c1}</p><p><strong>MR (2. komponens):</strong> ${l.c2}</p><p>A wrapper a fenti szabályok (trend nélkül nincs trade / egyetértésnél MR nyer / ellentmondásnál trend nyer) alapján dönt.</p>`;
+    });
+    svg.appendChild(r);
+  });
+  svg.appendChild(text(startX + cellW * 1.5, 20, "A wrapper mátrix 9 cellája", { fill: "#f0f6fc", size: 14, anchor: "middle", weight: 600 }));
+})();
+
+</script>
+</body>
+</html>

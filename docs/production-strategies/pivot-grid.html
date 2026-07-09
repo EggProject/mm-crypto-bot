@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pivot pont rács al-stratégia</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+<header class="page-header">
+  <div class="breadcrumb"><a href="index.html">← Főoldal</a> / pivot-grid</div>
+  <h1>Pivot pont rács al-stratégia</h1>
+</header>
+
+<section>
+  <h2>Mi a célja?</h2>
+  <p>Ez a Donchian-Pivot kompozit másik fele. A Fibonacci pivot pontok egy régi technikai elemzési eszköz (1930-as évek óta használják). Az előző kereskedési nap legmagasabb, legalacsonyabb és záró árából kiszámítjuk a mai nap kulcsfontosságú árszintjeit, és ahol az ár ezeket a szinteket érinti, ott erős támasz vagy ellenállás várható.</p>
+</section>
+
+<section>
+  <h2>Hogyan számoljuk a pivot szinteket?</h2>
+  <p>Három szükséges adat az előző napról: legmagasabb (H), legalacsonyabb (L), záró (C) ár.</p>
+  <ul>
+    <li><strong>Közép (PP, pivot pont):</strong> (H + L + C) / 3</li>
+    <li><strong>S1 (alsó támasz 1):</strong> PP - 0.382 × (H - L)</li>
+    <li><strong>S2 (alsó támasz 2):</strong> PP - 0.618 × (H - L)</li>
+    <li><strong>S3 (alsó támasz 3):</strong> PP - 1.000 × (H - L)</li>
+    <li><strong>R1 (felső ellenállás 1):</strong> PP + 0.382 × (H - L)</li>
+    <li><strong>R2 (felső ellenállás 2):</strong> PP + 0.618 × (H - L)</li>
+    <li><strong>R3 (felső ellenállás 3):</strong> PP + 1.000 × (H - L)</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Interaktív szimuláció</h2>
+  <p>Az alábbi csúszkákkal állítsd be az előző napi H, L, C értékeket, és figyeld meg, hogyan változnak a mai pivot szintek. A 15 perces záróár csúszkával szimulálhatod, mi történne, ha az adott szinten zárna a piac.</p>
+  <div class="controls">
+    <div class="row">
+      <label for="prev-h">Előző napi legmagasabb (H)</label>
+      <input type="range" id="prev-h" min="58000" max="62000" step="100" value="61000">
+      <span id="prev-h-val">61 000</span>
+    </div>
+    <div class="row">
+      <label for="prev-l">Előző napi legalacsonyabb (L)</label>
+      <input type="range" id="prev-l" min="58000" max="62000" step="100" value="59500">
+      <span id="prev-l-val">59 500</span>
+    </div>
+    <div class="row">
+      <label for="prev-c">Előző napi záró (C)</label>
+      <input type="range" id="prev-c" min="58000" max="62000" step="100" value="60000">
+      <span id="prev-c-val">60 000</span>
+    </div>
+    <div class="row">
+      <label for="current-price">Mai 15m záróár</label>
+      <input type="range" id="current-price" min="58000" max="62000" step="100" value="59400">
+      <span id="current-price-val">59 400</span>
+    </div>
+  </div>
+  <div class="diagram" id="pivot-diagram"></div>
+  <div class="card" id="pivot-decision">
+    <p style="color:#8b949e; text-align:center;">Mozgasd a csúszkákat a pivot szintek és a jelzés megtekintéséhez.</p>
+  </div>
+</section>
+
+<section>
+  <h2>A jelzés erőssége</h2>
+  <ul>
+  <li><strong>Mély LONG (S2, S3):</strong> 1.0 bizalmi szint — az ár erősen alulértékelt.</li>
+  <li><strong>Enyhe LONG (S1):</strong> 0.7 bizalmi szint — mérsékelt long jel.</li>
+  <li><strong>Semleges (S1 és R1 között):</strong> Nincs jel — a piac a középső sávban van.</li>
+  <li><strong>Enyhe SHORT (R1):</strong> 0.7 bizalmi szint — mérsékelt short jel.</li>
+  <li><strong>Mély SHORT (R2, R3):</strong> 1.0 bizalmi szint — az ár erősen túlértékelt.</li>
+  </ul>
+</section>
+
+<footer>
+  <a href="index.html">← Vissza a főoldalra</a> • Pivot pont rács al-stratégia • Fájl: <code>pivot-grid.ts</code>
+</footer>
+</div>
+<script src="script.js"></script>
+<script>
+
+(function() {
+  const sH = document.getElementById("prev-h");
+  const sL = document.getElementById("prev-l");
+  const sC = document.getElementById("prev-c");
+  const sP = document.getElementById("current-price");
+  const vH = document.getElementById("prev-h-val");
+  const vL = document.getElementById("prev-l-val");
+  const vC = document.getElementById("prev-c-val");
+  const vP = document.getElementById("current-price-val");
+  const target = document.getElementById("pivot-diagram");
+  const card = document.getElementById("pivot-decision");
+  function update() {
+    const H = parseFloat(sH.value), L = parseFloat(sL.value), C = parseFloat(sC.value);
+    const P = parseFloat(sP.value);
+    vH.textContent = H.toLocaleString("hu-HU");
+    vL.textContent = L.toLocaleString("hu-HU");
+    vC.textContent = C.toLocaleString("hu-HU");
+    vP.textContent = P.toLocaleString("hu-HU");
+    const range = H - L;
+    const PP = (H + L + C) / 3;
+    const S1 = PP - 0.382 * range, S2 = PP - 0.618 * range, S3 = PP - 1.000 * range;
+    const R1 = PP + 0.382 * range, R2 = PP + 0.618 * range, R3 = PP + 1.000 * range;
+    target.innerHTML = "";
+    const W = 920, Hpx = 280;
+    const svg = makeSVG(W, Hpx);
+    target.appendChild(svg);
+    const min = Math.min(S3, P) - 200, max = Math.max(R3, P) + 200;
+    const yScale = (v) => 30 + (Hpx - 60) * (1 - (v - min) / (max - min));
+    const bands = [
+      { name: "S3", val: S3, color: "#2ea043" }, { name: "S2", val: S2, color: "#56d364" },
+      { name: "S1", val: S1, color: "#7ee787" }, { name: "PP", val: PP, color: "#58a6ff" },
+      { name: "R1", val: R1, color: "#ffa657" }, { name: "R2", val: R2, color: "#f85149" },
+      { name: "R3", val: R3, color: "#ff7b72" }
+    ];
+    bands.forEach(b => {
+      const y = yScale(b.val);
+      svg.appendChild(line(50, y, W - 50, y, { color: b.color, width: 1, dash: "4 4" }));
+      svg.appendChild(text(W - 55, y - 4, `${b.name} = ${b.val.toFixed(0)}`, { fill: b.color, size: 11, anchor: "end" }));
+    });
+    const yP = yScale(P);
+    svg.appendChild(line(50, yP, W - 50, yP, { color: "#f0f6fc", width: 3 }));
+    svg.appendChild(text(60, yP - 8, `Jelenlegi ár: ${P.toLocaleString("hu-HU")}`, { fill: "#f0f6fc", size: 12, weight: 600 }));
+    let signal = "Semleges (nincs jel, a középső sávban van az ár)", color = "#8b949e", conf = 0;
+    if (P <= S2) { signal = "ERŐS LONG (mély sáv, 1.0 bizalom)"; color = "#2ea043"; conf = 1.0; }
+    else if (P <= S1) { signal = "Enyhe LONG (S1 alatt, 0.7 bizalom)"; color = "#56d364"; conf = 0.7; }
+    else if (P >= R2) { signal = "ERŐS SHORT (magas sáv, 1.0 bizalom)"; color = "#f85149"; conf = 1.0; }
+    else if (P >= R1) { signal = "Enyhe SHORT (R1 felett, 0.7 bizalom)"; color = "#ffa657"; conf = 0.7; }
+    card.innerHTML = `<h3 style="color:${color};">${signal}</h3>
+      <p><strong>Aktuális ár:</strong> ${P.toLocaleString("hu-HU")} dollár</p>
+      <p><strong>Pivot pont (PP):</strong> ${PP.toFixed(0)}</p>
+      <p><strong>Napi tartomány (H-L):</strong> ${range.toFixed(0)} dollár</p>
+      <p><strong>Bizalmi szint:</strong> ${conf.toFixed(1)}</p>
+      <p>A döntés a pivot sávokhoz viszonyítva születik: S3 / S2 alatt erős long, S1 alatt enyhe long, R1 felett enyhe short, R2 / R3 felett erős short jelzés.</p>`;
+    card.className = "card " + (signal.includes("LONG") ? "success" : signal.includes("SHORT") ? "card" : "");
+  }
+  [sH, sL, sC, sP].forEach(s => s.addEventListener("input", update));
+  update();
+})();
+
+</script>
+</body>
+</html>

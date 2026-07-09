@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dYdX kontra CEX carry</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+<header class="page-header">
+  <div class="breadcrumb"><a href="index.html">← Főoldal</a> / dydx-cex-carry</div>
+  <h1>dYdX kontra CEX carry</h1>
+</header>
+
+<section>
+  <h2>Mi a célja?</h2>
+  <p>A "carry trade" (carry kereskedés) egy klasszikus piaci stratégia: ahol a kamatláb alacsony, longot nyitunk; ahol magas, shortot. A kettő közötti különbséget minden 8 órában beszedjük. A dYdX kontra CEX verzió a kriptopiac egyik ritka lehetőségét használja ki: ugyanannak a coinak a funding rátája eltérő a különböző tőzsdéken.</p>
+</section>
+
+<section>
+  <h2>Hogyan működik?</h2>
+  <ol class="step-list">
+    <li>Minden 8 órában a rendszer lekéri a funding rátát a dYdX-ről és egy hagyományos tőzsdéről.</li>
+    <li>Ha a dYdX-en alacsonyabb a funding, a dYdX-en longot nyitunk.</li>
+    <li>Ha a CEX-en magasabb a funding, a CEX-en shortot nyitunk.</li>
+    <li>A két pozíció együttesen delta-semleges (nem kitettség az árfolyamra), tehát csak a funding kamatból származó nyereség van.</li>
+    <li>8 óra múlva a funding kifizetés megtörténik, és a rendszer újraértékeli.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Biztonsági előfeltételek (4 kill-switch)</h2>
+  <table>
+    <thead>
+      <tr><th>Kapcsoló</th><th>Mikor kapcsol le</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Adatfolyam frissesség</td><td>Ha 5 percnél régebbi</td></tr>
+      <tr><td>Lánc véglegesítés</td><td>Ha 10 percnél régebbi</td></tr>
+      <tr><td>Divergencia tömörulés</td><td>Ha 7 napig túl kicsi</td></tr>
+      <tr><td>Bybit SPOT likviditás</td><td>Ha 100ezer dollár alatt</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Hogyan néz ki egy carry ciklus? — 7 napos animáció</h2>
+  <p>Az alábbi animáció megmutatja, mi történik egy teljes héten. Minden nap 3 funding tick van (00:08, 08:00, 16:00 UTC). A rendszer long-dYdX + short-CEX pozíciót nyit, amikor a spread pozitív, és zárja, amikor a spread eltűnik vagy negatívvá válik.</p>
+
+  <div class="controls">
+    <button id="carry-play">▶ Indítás (7 nap)</button>
+    <button id="carry-reset" class="secondary">⏮ Visszaállítás</button>
+    <span id="carry-summary" style="margin-left:auto; align-self:center; color:#c9d1d9; font-size:13px;">Kattints az Indítás gombra.</span>
+  </div>
+
+  <div class="diagram" id="carry-anim"></div>
+
+  <div class="note" style="margin-top:14px;">
+    <strong>Színmagyarázat:</strong>
+    <span style="color:#58a6ff;">▬ kék vonal</span> = dYdX funding ráta (8 óránként fizetett kamat),
+    <span style="color:#d29922;">▬ sárga vonal</span> = CEX funding ráta.
+    A két vonal közötti <strong>spread</strong> a carry profit — amikor a spread pozitív (kék CEX alatt, sárga dYdX felett), a rendszer long-dYdX + short-CEX pozíciót tart.
+  </div>
+</section>
+
+<section>
+  <h2>7 napos papír-kereskedés (kötelező)</h2>
+  <div class="warning-box">
+    <strong>Fontos:</strong> Mielőtt a stratégia élesben kereskedne, 7 teljes napig papíron tesztel. Csak akkor kap éles jelet, ha minden feltétel teljesül.
+  </div>
+</section>
+
+<section>
+  <h2>Késleltetés-figyelő (LatencyGate)</h2>
+  <p>Ha a hálózati késleltetés 500 ms fölé megy, a kereskedés szünetel.</p>
+  <div class="controls">
+    <div class="row">
+      <label for="latency">Hálózati késleltetés (ms)</label>
+      <input type="range" id="latency" min="50" max="1500" step="10" value="200">
+      <span id="latency-val">200</span>
+    </div>
+  </div>
+  <div id="latency-state" class="card" style="text-align:center;">
+    <p style="color:#2ea043; font-weight:600;">KERESKEDÉS AKTÍV</p>
+  </div>
+</section>
+
+<section>
+  <h2>Termelési számok</h2>
+  <div class="kpi-row">
+    <div class="kpi green">
+      <div class="label">Hozam (Bitcoin, 2025 Q2)</div>
+      <div class="value">+6.67<span class="unit">%/hó</span></div>
+    </div>
+    <div class="kpi">
+      <div class="label">Drawdown</div>
+      <div class="value">1.89<span class="unit">%</span></div>
+    </div>
+    <div class="kpi green">
+      <div class="label">Win rate</div>
+      <div class="value">70.14<span class="unit">%</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <a href="index.html">← Vissza a főoldalra</a> • dYdX kontra CEX carry • Fájl: <code>dydx-cex-carry.ts</code>
+</footer>
+</div>
+<script src="script.js"></script>
+<script>
+
+(function() {
+  const s = document.getElementById("latency");
+  const v = document.getElementById("latency-val");
+  const target = document.getElementById("latency-state");
+  function update() {
+    const l = parseInt(s.value);
+    v.textContent = l;
+    if (l > 500) {
+      target.innerHTML = `<p style="color:#f85149; font-weight:600;">KERESKEDÉS SZÜNETEL</p><p style="color:#8b949e; font-size:13px;">${l} ms > 500 ms küszöb</p>`;
+    } else {
+      target.innerHTML = `<p style="color:#2ea043; font-weight:600;">KERESKEDÉS AKTÍV (${l} ms a 500 ms-os küszöb alatt)</p>`;
+    }
+  }
+  s.addEventListener("input", update);
+  update();
+})();
+
+// 7 napos carry animáció
+(function() {
+  const playBtn = document.getElementById("carry-play");
+  const resetBtn = document.getElementById("carry-reset");
+  const container = document.getElementById("carry-anim");
+  const summary = document.getElementById("carry-summary");
+  if (!playBtn || !container) return;
+
+  function reset() {
+    container.innerHTML = '<p style="color:#8b949e; text-align:center; padding:40px 0;">Kattints az Indítás gombra a 7 napos carry-ciklus animáció indításához.</p>';
+    summary.textContent = "Kattints az Indítás gombra.";
+    summary.style.color = "#8b949e";
+  }
+
+  // Determinisztikus funding adatok: 21 tick (7 nap × 3 tick/nap)
+  // A spread váltakozik: van amikor pozitív (carry nyitva), van amikor negatív (carry zárva)
+  const tickLabels = [];
+  const dydxRates = [];
+  const cexRates = [];
+  const dayLabels = ["H", "K", "Sze", "Cs", "P", "Szo", "V"];
+  const tickTimes = ["00:08", "08:00", "16:00"];
+  for (let d = 0; d < 7; d++) {
+    for (let t = 0; t < 3; t++) {
+      tickLabels.push(`N${d+1} ${tickTimes[t]}`);
+      // Funding ráták: 0.0001 - 0.0003 között ingadoznak
+      const base = 0.0001 + Math.sin(d * 0.7 + t * 0.4) * 0.00008 + ((d * 7 + t * 13) % 5) * 0.00001;
+      const baseCex = 0.00015 + Math.cos(d * 0.5 + t * 0.6) * 0.00009 + ((d * 5 + t * 11) % 5) * 0.00001;
+      dydxRates.push(base);
+      cexRates.push(baseCex);
+    }
+  }
+
+  // Pozíció logika: ha spread = cexRate - dydxRate > 0.00003 → carry aktív
+  const SPREAD_THRESHOLD = 0.00003;
+  const positions = [];
+  let position = "none";
+  let carryStart = -1;
+  dydxRates.forEach((dy, i) => {
+    const spread = cexRates[i] - dy;
+    const shouldHold = spread > SPREAD_THRESHOLD;
+    if (shouldHold && position === "none") {
+      position = "long_dydx_short_cex";
+      carryStart = i;
+    } else if (!shouldHold && position !== "none") {
+      positions.push({ start: carryStart, end: i - 1 });
+      position = "none";
+      carryStart = -1;
+    }
+  });
+  if (position !== "none") {
+    positions.push({ start: carryStart, end: dydxRates.length - 1 });
+  }
+
+  let animHandle = null;
+
+  playBtn.addEventListener("click", () => {
+    if (animHandle) clearInterval(animHandle);
+    container.innerHTML = "";
+    const W = 920, H = 340;
+    const svg = makeSVG(W, H);
+    container.appendChild(svg);
+
+    const padL = 50, padR = 30, padT = 30, padB = 50;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+    const N = dydxRates.length; // 21
+    const stepX = innerW / (N - 1);
+
+    // Y tengely: -0.00010 .. +0.00040 (funding ráták)
+    const yMin = -0.00010, yMax = 0.00040;
+    const yScale = (v) => padT + innerH * (1 - (v - yMin) / (yMax - yMin));
+
+    // Cím
+    svg.appendChild(text(W / 2, 16, "7 napos carry-ciklus — 21 funding tick (3/nap × 7)", { fill: "#f0f6fc", size: 13, anchor: "middle", weight: 600 }));
+
+    // Y tengely feliratok
+    [0, 0.0001, 0.0002, 0.0003, 0.0004].forEach(v => {
+      svg.appendChild(text(padL - 6, yScale(v) + 3, v.toFixed(4), { fill: "#8b949e", size: 9, anchor: "end" }));
+      svg.appendChild(line(padL, yScale(v), W - padR, yScale(v), { color: "#21262d", width: 1 }));
+    });
+
+    // Zéró vonal
+    svg.appendChild(line(padL, yScale(0), W - padR, yScale(0), { color: "#30363d", width: 1, dash: "2 2" }));
+
+    // Nap elválasztók
+    for (let d = 0; d <= 7; d++) {
+      const x = padL + d * 3 * stepX;
+      if (d < 7) {
+        svg.appendChild(line(x, padT, x, H - padB, { color: "#21262d", width: 1, dash: "1 4" }));
+      }
+      if (d < 7) {
+        svg.appendChild(text(x + 1.5 * stepX, H - padB + 14, dayLabels[d], { fill: "#8b949e", size: 11, anchor: "middle", weight: 600 }));
+      }
+    }
+
+    // Funding tick markerek (függőleges szaggatott vonal minden tick-nél)
+    for (let i = 0; i < N; i++) {
+      const x = padL + i * stepX;
+      svg.appendChild(line(x, padT, x, H - padB, { color: "#30363d", width: 0.5 }));
+    }
+
+    // Carry pozíció sávok (zöld háttér, amikor carry aktív)
+    // Címkéket váltakozó magasságban helyezzük el, hogy ne fedjék át egymást
+    positions.forEach((p, idx) => {
+      const x1 = padL + p.start * stepX;
+      const x2 = padL + p.end * stepX;
+      const band = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      band.setAttribute("x", x1);
+      band.setAttribute("y", padT);
+      band.setAttribute("width", Math.max(x2 - x1, 2));
+      band.setAttribute("height", innerH);
+      band.setAttribute("fill", "#2ea043");
+      band.setAttribute("fill-opacity", "0.08");
+      band.setAttribute("stroke", "#2ea043");
+      band.setAttribute("stroke-opacity", "0.4");
+      band.setAttribute("stroke-dasharray", "4 4");
+      svg.appendChild(band);
+      // Címke — váltakozó y pozíció (top vs bottom) hogy ne legyen átfedés
+      const labelY = idx % 2 === 0 ? padT + 14 : H - padB - 6;
+      svg.appendChild(text((x1 + x2) / 2, labelY, "CARRY POZÍCIÓ NYITVA", { fill: "#56d364", size: 10, anchor: "middle", weight: 600 }));
+    });
+
+    // dYdX funding vonal + pontok (kezdetben üres, animálva)
+    const dydxPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    dydxPath.setAttribute("fill", "none");
+    dydxPath.setAttribute("stroke", "#58a6ff");
+    dydxPath.setAttribute("stroke-width", "2.5");
+    dydxPath.setAttribute("points", "");
+    svg.appendChild(dydxPath);
+
+    const cexPath = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    cexPath.setAttribute("fill", "none");
+    cexPath.setAttribute("stroke", "#d29922");
+    cexPath.setAttribute("stroke-width", "2.5");
+    cexPath.setAttribute("stroke-dasharray", "6 3");
+    cexPath.setAttribute("points", "");
+    svg.appendChild(cexPath);
+
+    // Spread kitöltés (zöld, amikor pozitív)
+    const spreadArea = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    spreadArea.setAttribute("fill", "#2ea043");
+    spreadArea.setAttribute("fill-opacity", "0.15");
+    spreadArea.setAttribute("stroke", "none");
+    spreadArea.setAttribute("points", "");
+    svg.appendChild(spreadArea);
+
+    // P&L akkumulátor (jobb oldalt, vízszintesen növekvő)
+    const pnlBox = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    pnlBox.setAttribute("x", W - padR - 110);
+    pnlBox.setAttribute("y", padT + 30);
+    pnlBox.setAttribute("width", 110);
+    pnlBox.setAttribute("height", 36);
+    pnlBox.setAttribute("fill", "#161b22");
+    pnlBox.setAttribute("stroke", "#30363d");
+    pnlBox.setAttribute("rx", 4);
+    svg.appendChild(pnlBox);
+    svg.appendChild(text(W - padR - 55, padT + 44, "Halmozott P&L", { fill: "#8b949e", size: 10, anchor: "middle" }));
+    const pnlText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    pnlText.setAttribute("x", W - padR - 55);
+    pnlText.setAttribute("y", padT + 60);
+    pnlText.setAttribute("fill", "#2ea043");
+    pnlText.setAttribute("font-size", "16");
+    pnlText.setAttribute("font-weight", "600");
+    pnlText.setAttribute("text-anchor", "middle");
+    pnlText.textContent = "+$0.00";
+    svg.appendChild(pnlText);
+
+    // Kurzor (ami mutatja, hol járunk a 7 napban)
+    const cursor = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    cursor.setAttribute("y1", padT);
+    cursor.setAttribute("y2", H - padB);
+    cursor.setAttribute("stroke", "#f0f6fc");
+    cursor.setAttribute("stroke-width", "2");
+    cursor.setAttribute("x1", padL);
+    cursor.setAttribute("x2", padL);
+    svg.appendChild(cursor);
+
+    // Kurzor felirat (aktuális nap + tick)
+    const cursorLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    cursorLabel.setAttribute("fill", "#f0f6fc");
+    cursorLabel.setAttribute("font-size", "11");
+    cursorLabel.setAttribute("font-weight", "600");
+    cursorLabel.setAttribute("text-anchor", "middle");
+    svg.appendChild(cursorLabel);
+
+    // Legend
+    svg.appendChild(line(padL, H - 18, padL + 30, H - 18, { color: "#58a6ff", width: 2.5 }));
+    svg.appendChild(text(padL + 36, H - 14, "dYdX funding", { fill: "#c9d1d9", size: 10 }));
+    svg.appendChild(line(padL + 130, H - 18, padL + 160, H - 18, { color: "#d29922", width: 2.5, dash: "6 3" }));
+    svg.appendChild(text(padL + 166, H - 14, "CEX funding", { fill: "#c9d1d9", size: 10 }));
+    svg.appendChild(rect(padL + 250, H - 21, 14, 6, { fill: "#2ea043", fillOpacity: 0.4, rx: 1 }));
+    svg.appendChild(text(padL + 270, H - 14, "Carry pozíció aktív", { fill: "#c9d1d9", size: 10 }));
+
+    // Animáció: tick-enként lépkedünk
+    let step = 0;
+    let cumPnl = 0;
+    summary.textContent = "Nap 1 / 7 — 00:08 — várakozás a funding tickre...";
+    summary.style.color = "#8b949e";
+
+    animHandle = setInterval(() => {
+      if (step >= N) {
+        clearInterval(animHandle);
+        animHandle = null;
+        summary.innerHTML = `<strong style="color:#2ea043;">7 nap vége — halmozott P&L: +$${cumPnl.toFixed(2)}</strong> · ${positions.length} carry pozíció volt nyitva`;
+        summary.style.color = "#c9d1d9";
+        return;
+      }
+
+      // Pont hozzáadása a vonalakhoz
+      const x = padL + step * stepX;
+      const dy = dydxRates[step];
+      const cx = cexRates[step];
+
+      const dydxPts = dydxPath.getAttribute("points");
+      const cexPts = cexPath.getAttribute("points");
+      const spreadPts = spreadArea.getAttribute("points");
+
+      dydxPath.setAttribute("points", (dydxPts ? dydxPts + " " : "") + x + "," + yScale(dy));
+      cexPath.setAttribute("points", (cexPts ? cexPts + " " : "") + x + "," + yScale(cx));
+
+      // Spread poligon: dYdX és CEX közötti terület
+      const spread = cx - dy;
+      if (spread > SPREAD_THRESHOLD) cumPnl += spread * 1000; // $1000 notional × funding rate
+
+      // Spread area polygon: top = cex, bottom = dydx
+      let spreadPtsNew = spreadPts ? spreadPts : "";
+      spreadPtsNew = spreadPtsNew.split(" ").filter(p => p.trim()).join(" ");
+      const newSpreadPoint = x + "," + yScale(dy) + " " + x + "," + yScale(cx);
+      // Egyszerűsítve: csak az utolsó pont spread-jét mutatjuk egy kis téglalapként
+      if (step > 0 && spread > SPREAD_THRESHOLD) {
+        const prevX = padL + (step - 1) * stepX;
+        const prevDy = dydxRates[step - 1];
+        const prevCx = cexRates[step - 1];
+        const polygon = [
+          prevX + "," + yScale(prevDy),
+          prevX + "," + yScale(prevCx),
+          x + "," + yScale(cx),
+          x + "," + yScale(dy)
+        ].join(" ");
+        spreadArea.setAttribute("points", (spreadArea.getAttribute("points") ? spreadArea.getAttribute("points") + " " : "") + polygon);
+      }
+
+      // Kurzor mozgatása
+      cursor.setAttribute("x1", x);
+      cursor.setAttribute("x2", x);
+      cursorLabel.setAttribute("x", x);
+      cursorLabel.setAttribute("y", H - padB + 32);
+      const dayIdx = Math.floor(step / 3);
+      const tickIdx = step % 3;
+      cursorLabel.textContent = `N${dayIdx + 1} ${tickTimes[tickIdx]}`;
+
+      // P&L frissítés
+      pnlText.textContent = "+$" + cumPnl.toFixed(2);
+
+      // Status summary
+      const dayStr = `Nap ${dayIdx + 1} / 7 — ${tickTimes[tickIdx]}`;
+      if (spread > SPREAD_THRESHOLD) {
+        const tickProfit = spread * 1000;
+        summary.innerHTML = `<strong style="color:#56d364;">${dayStr} — funding tick: +$${tickProfit.toFixed(3)}</strong> (spread: ${(spread * 10000).toFixed(2)} bázispont)`;
+      } else {
+        summary.innerHTML = `<span style="color:#8b949e;">${dayStr} — funding tick: $0.00</span> (spread túl kicsi: ${(spread * 10000).toFixed(2)} bázispont, carry zárva)`;
+      }
+
+      step++;
+    }, 600); // 600ms / tick = 21 tick × 600ms = ~12.6s teljes animáció
+  });
+
+  resetBtn.addEventListener("click", () => {
+    if (animHandle) { clearInterval(animHandle); animHandle = null; }
+    reset();
+  });
+})();
+
+</script>
+</body>
+</html>

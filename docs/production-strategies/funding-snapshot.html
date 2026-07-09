@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funding pillanatkép típus (FundingSnapshot)</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+<header class="page-header">
+  <div class="breadcrumb"><a href="index.html">← Főoldal</a> / funding-snapshot</div>
+  <h1>Funding pillanatkép típus (FundingSnapshot)</h1>
+</header>
+
+<section>
+  <h2>Mi ez?</h2>
+  <p>Ez a legegyszerűbb fájl a kódbázisban: egy típusdefiníció. Nincs benne logika, nincs benne kereskedés — csak azt írja le, hogyan néz ki egy funding kamat adat egy adott pillanatban.</p>
+  <p>Az egész fájl mindössze 25 sor, és ez áll benne:</p>
+
+  <pre><code>export interface FundingSnapshot {
+  readonly fundingTime: number;     // mikor fizették (Unix timestamp ms-ban)
+  readonly symbol: string;          // melyik coin (pl. "BTC-USD")
+  readonly fundingRate: number;      // a kamat értéke (pl. 0.0001 = 0.01%)
+  readonly markPrice?: number;       // opcionális: a jegyzési ár
+}</code></pre>
+</section>
+
+<section>
+  <h2>Mire használja a rendszer?</h2>
+  <p>A dYdX kontra CEX carry stratégia és a paper-trade runner használja. Minden 8 órában kapnak egy új FundingSnapshot-ot a dYdX-ről és egy másikat a CEX-ről. A kettőt összehasonlítva döntik el, hogy érdemes-e carry pozíciót nyitni.</p>
+  <p>Példa: ha a dYdX FundingSnapshot.fundingRate = -0.0001 (long kap pénzt), és a CEX FundingSnapshot.fundingRate = +0.0003 (short kap pénzt), akkor long-dYdX + short-CEX carry-t nyit a rendszer.</p>
+</section>
+
+<section>
+  <h2>Miért van külön fájlban?</h2>
+  <p>Korábban ez a FundingSnapshot típus egy nagyobb fájlban volt (funding-carry.ts), amit a Phase 32 cleanup során töröltünk. Mivel a dYdX carry stratégia továbbra is használja ezt a típust, kiemeltük egy külön fájlba, hogy a típus önállóan is fenntartható legyen.</p>
+  <p>Ha bármikor újra szükség lenne a teljes funding-carry stratégiára, a FundingSnapshot típus már itt van, és a törölt funding-carry.ts tartalma elérhető a git history-ban.</p>
+</section>
+
+<footer>
+  <a href="index.html">← Vissza a főoldalra</a> • Funding pillanatkép típus (FundingSnapshot) • Fájl: <code>funding-snapshot.ts</code>
+</footer>
+</div>
+<script src="script.js"></script>
+<script>
+
+</script>
+</body>
+</html>
