@@ -17,86 +17,35 @@
 export * from "./indicators/index.js";
 
 // Phase 5 — Donchian volatility breakout (Strategy C).
-// Note: kept because MultiClassEnsembleV2 (production candidate, +9.46%/mo @ 3.43 Sharpe fresh BTC)
-// uses DonchianBreakoutStrategy as the BASE trend-following edge inside DonchianTrailingStrategy.
-// Dependency chain: v2 → DonchianTrailing → DonchianBreakout.
-// HALT-standalone verdict in REFRESH-phase26.md, but kept as a v2 sub-component.
-export { DonchianBreakoutStrategy } from "./strategy/donchian-breakout.js";
-export { DEFAULT_DONCHIAN_CONFIG } from "./strategy/donchian-breakout.js";
-export type { DonchianBreakoutConfig } from "./strategy/donchian-breakout.js";
-// Phase 8 Track F — 1h MTF Donchian with 4h filter + 1d supertrend (3-tier MTF, long-only, 1:10 leverage).
-// Note: kept because the Phase 11.1b DirectionalMTFPlugin depends on it
-// (signal-center/plugins/directional-mtf-plugin.ts). HALT-standalone verdict
-// in REFRESH-phase26.md, but kept as a sub-component.
-export { DonchianMtfStrategy } from "./strategy/donchian-mtf.js";
-export { DEFAULT_DONCHIAN_MTF_CONFIG } from "./strategy/donchian-mtf.js";
-export type { DonchianMtfConfig } from "./strategy/donchian-mtf.js";
-// Phase 7 Track A — Donchian breakout + trailing-stop engine (HWM-based, ATR + fixed-% + time-based exits).
-// Note: kept because MultiClassEnsembleV2 (production candidate, +9.46%/mo @ 3.43 Sharpe fresh BTC)
-// uses DonchianTrailingStrategy as its primary directional sub-component.
-// HALT-standalone verdict in REFRESH-phase26.md, but kept as a v2 sub-component.
-export { DonchianTrailingStrategy } from "./strategy/donchian-trailing.js";
-export {
-  DEFAULT_DONCHIAN_TRAILING_CONFIG,
-  TRAIL_VARIANT_DEFAULTS,
-  resolveTrailConfig,
-} from "./strategy/donchian-trailing.js";
-export type { DonchianTrailingConfig, ResolvedTrailConfig, TrailVariant } from "./strategy/donchian-trailing.js";
 // Phase 5 — Composite multi-strategy ensemble (Strategy B).
 export { CompositeStrategy } from "./strategy/composite.js";
 export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
 export type { CompositeStrategyConfig } from "./strategy/composite.js";
-// Phase 6 Track A — delta-neutral funding-rate carry.
-export { FundingCarryStrategy, InMemoryFundingRateProvider, DEFAULT_FUNDING_CARRY_CONFIG } from "./strategy/funding-carry.js";
-export type { FundingCarryConfig, FundingCarryState, FundingRateProvider, FundingSnapshot } from "./strategy/funding-carry.js";
-// Phase 7 Track C + Phase 8 Track D — leveraged delta-neutral funding-rate carry with VaR cap + liquidation buffer.
-// Phase 8 Track D: 1:10 mandatory leverage project-wide mandate; only 1× (baseline) or 10× (1:10 bybit.eu SPOT margin default) allowed.
-export {
-  ALLOWED_LEVERAGE_VALUES,
-  assert1to10Leverage,
-  DEFAULT_LEVERAGE,
-  DEFAULT_LEVERAGED_CARRY_CONFIG,
-  FundingCarryLeverageStrategy,
-} from "./strategy/funding-carry-leverage.js";
-export type { LeveragedCarryConfig, LeveragedCarryState, LiquidationEvent, VarMethod } from "./strategy/funding-carry-leverage.js";
-// Phase 8 Track E — regime-aware funding-carry timing strategy with 1:10 mandatory leverage.
-export {
-  ALLOWED_TIMING_LEVERAGE,
-  computeEffectiveNotional,
-  computePercentile,
-  computeRollingStats,
-  DEFAULT_FUNDING_CARRY_TIMING_CONFIG,
-  FundingCarryTimingStrategy,
-  validateTimingLeverage,
-} from "./strategy/funding-carry-timing.js";
-export type {
-  AllowedTimingLeverage,
-  FundingCarryTimingConfig,
-  FundingCarryTimingState,
-  RollingWindowStats,
-} from "./strategy/funding-carry-timing.js";
+// Phase 32: FundingSnapshot type (extracted from funding-carry.ts in Phase 32).
+// Used by dydx-cex-carry.ts and its paper-trade runner.
+export type { FundingSnapshot } from "./strategy/funding-snapshot.js";
 // Phase 9 9D — SOL funding-flip kill-switch (Track E extension).
-// NOTE: `assert1to10Leverage` is re-exported from funding-carry-leverage (Track D)
-// above — do NOT re-export here to avoid duplicate identifier.
+// Phase 32: `assert1to10Leverage` is now re-exported from this file
+// (was previously re-exported from funding-carry-leverage.ts, which was
+// deleted in Phase 32 — see docs/research/deprecated-strategies/REPORT.md §2.6).
 export {
   ALLOWED_KILL_SWITCH_LEVERAGE,
+  assert1to10Leverage,
   computeFlipDetectorMetrics,
   DEFAULT_FLIP_DETECTOR_CONFIG,
-  DEFAULT_FUNDING_FLIP_KILL_SWITCH_CONFIG,
   evaluateRegime,
-  FundingFlipKillSwitchStrategy,
 } from "./strategy/funding-flip-kill-switch.js";
 export type {
   FlipDetectorConfig,
   FlipDetectorMetrics,
-  FundingFlipKillSwitchConfig,
-  FundingFlipKillSwitchState,
   RegimeDecision,
 } from "./strategy/funding-flip-kill-switch.js";
-// Phase 6 Track B — Latency-gate infrastructure (kept after Phase 27 cleanup).
-// NOTE: MultiClassEnsemble class was removed (dead code, 0 trades fresh run).
+// Phase 6 Track B — Latency-gate infrastructure (kept after Phase 32 cleanup).
+// NOTE: MultiClassEnsemble class was removed (Phase 27 dead code, 0 trades
+// fresh run). MultiClassEnsembleV2 was deleted in Phase 32 (Phase 27 OOS
+// FAILED — see docs/research/deprecated-strategies/REPORT.md §2.1).
 // Only the LatencyGate + KellyOpt utilities remain — they're imported by
-// MultiClassEnsembleV2 (production candidate).
+// dydx-cex-carry.ts (production).
 export {
   createLatencyGate,
   DEFAULT_KELLY_OPT_AGGREGATE,
@@ -186,17 +135,9 @@ export type {
 } from "./risk/adaptive-kelly-vol-hybrid.js";
 // Phase 7 M2 — Multi-class ensemble V2 (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate).
 // PRODUCTION CANDIDATE per Phase 27 REFRESH (fresh data: +9.46%/mo @ 3.43 Sharpe BTC).
-export {
-  DEFAULT_ADAPTIVE_KELLY_AGGREGATE,
-  DEFAULT_MULTI_CLASS_ENSEMBLE_V2_CONFIG_PARTIAL,
-  MultiClassEnsembleV2,
-  timeframesForMultiClassV2,
-} from "./strategy/multi-class-ensemble-v2.js";
-export type {
-  AdaptiveKellyAggregate,
-  MultiClassEnsembleV2Config,
-  MultiClassEnsembleV2State,
-} from "./strategy/multi-class-ensemble-v2.js";
+// Phase 32: MultiClassEnsembleV2 was deleted (Phase 27 OOS FAILED — see
+// docs/research/deprecated-strategies/REPORT.md §2.1). The V2 exports
+// are removed from the public API.
 // Phase 10G Track A — Signal Center (typed pub/sub + plugin registry + reference plugin).
 // Type discriminated unions for Signal events.
 export {
@@ -253,36 +194,14 @@ export type {
   StrategyPlugin,
   StrategyPluginMetadata,
 } from "./signal-center/strategy-registry.js";
-// Reference plugin — wraps Phase 8 Track E FundingCarryTiming with Signal Center interface.
-export {
-  CarryBaselinePlugin,
-  DEFAULT_CARRY_BASELINE_PLUGIN_CONFIG,
-  extractCarrySignal,
-} from "./signal-center/plugins/carry-baseline-plugin.js";
-export type {
-  CarryBaselinePluginConfig,
-  CarryBaselinePluginState,
-} from "./signal-center/plugins/carry-baseline-plugin.js";
+// Phase 32: CarryBaselinePlugin was deleted. Replaced by HybridKelly
+// (the kept SizingSignal-emitting plugin). The reference carry plugin
+// exports are removed from the public API.
 // Phase 11.1b — DirectionalMTFPlugin (Phase 8 F MTF drop-in, ETH default-on,
-// BTC opt-in, SOL not registered). Cherry-picked from feat/phase11-1b-directional-mtf
-// (commit b3ebf12) into feat/phase11-1d-sol-flip-kill-switch for Phase 11.1d Track C
-// composition runner (SCv1+MTF+SFK). Merge base is shared (8b24e0d), so the
-// cherry-pick is clean. Type alias DmCandle is intentionally re-exported
-// (same name as plugin-internal type).
-export {
-  ALLOWED_ENABLED_SYMBOLS,
-  DEFAULT_DIRECTIONAL_MTF_PLUGIN_CONFIG,
-  DEFAULT_ENABLED_SYMBOLS,
-  DirectionalMTFPlugin,
-  createDirectionalMTFPlugin,
-  extractDirectionSignal,
-} from "./signal-center/plugins/directional-mtf-plugin.js";
-export type {
-  DirectionalMTFPluginConfig,
-  DirectionalMTFPluginState,
-  DirectionalMTFSymbol,
-  DmCandle,
-} from "./signal-center/plugins/directional-mtf-plugin.js";
+// BTC opt-in, SOL not registered). Phase 32: DirectionalMTFPlugin was
+// deleted (see docs/research/deprecated-strategies/REPORT.md §2.3).
+// The DmCandle type alias is also removed (was a plugin-internal type
+// that no longer has a public surface).
 // Phase 11.1d Track A — defensive drop-in plugin (SOL funding-flip kill-switch, Phase 9 9D port).
 // RiskSignals only (no SizingSignals); SOL enabled, BTC/ETH not registered.
 export {
@@ -672,11 +591,9 @@ export {
 export type { PivotPointGridConfig } from "./strategy/pivot-point-grid.js";
 
 // Phase 15 Track B — Bollinger Range Squeeze (M5 breakout after bbWidth squeeze).
-export {
-  BollingerRangeSqueezeStrategy,
-  DEFAULT_BB_SQUEEZE_CONFIG,
-} from "./strategy/bollinger-range-squeeze.js";
-export type { BollingerSqueezeConfig } from "./strategy/bollinger-range-squeeze.js";
+// Phase 32: BollingerRangeSqueezeStrategy was deleted (1 trade in 30-month
+// window — statistically insignificant; see
+// docs/research/deprecated-strategies/REPORT.md §2.9).
 
 // Phase 15 Track C — Donchian Range Channel (M15 range-mean-reversion).
 export {
@@ -686,19 +603,13 @@ export {
 export type { DonchianRangeChannelConfig } from "./strategy/donchian-range-channel.js";
 
 // Phase 15 Track C — Keltner Volatility-Adaptive Grid (M5 grid in Keltner channel).
-export {
-  KeltnerGridStrategy,
-  DEFAULT_KELTNER_GRID_CONFIG,
-} from "./strategy/keltner-grid.js";
-export type { KeltnerGridConfig } from "./strategy/keltner-grid.js";
+// Phase 32: KeltnerGridStrategy was deleted (0 trades in 30-month window
+// — see docs/research/deprecated-strategies/REPORT.md §2.10).
 
 // Phase 16 Track B — Regime-Routed Ensemble (ADX-routed composition: Pivot+Donchian in range, BB+Keltner in trend).
-export {
-  RegimeRoutedEnsemble,
-  DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG,
-  REGIME_ROUTED_ENSEMBLE_DEFAULT_LTF,
-} from "./strategy/regime-routed-ensemble.js";
-export type { RegimeRoutedEnsembleConfig } from "./strategy/regime-routed-ensemble.js";
+// Phase 32: RegimeRoutedEnsemble was deleted (superseded by
+// DonchianPivotComposition in Phase 19 — see
+// docs/research/deprecated-strategies/REPORT.md §2.8).
 
 // Phase 18 Track B — Donchian + Pivot 2-component composition (configurable consensus).
 export {

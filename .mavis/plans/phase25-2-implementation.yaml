@@ -1,0 +1,655 @@
+version: 1
+plan:
+  name: 'Phase 25 #2 — Perp-DEX Funding Microstructure Implementation (Track B PRIMARY + Track D SATELLITE + Track C SIGNAL)'
+  max_concurrency: 4
+  max_consecutive_failures: 2
+  max_cycles: 3
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # T1 — Track B Indexer client + Tardis.dev backtest (independent)
+  # ============================================================
+  - id: 'phase25-2-t1-dydx-indexer-backtest'
+    title: 'Phase 25 #2 T1 — dYdX v4 Indexer client + Tardis.dev backtest validation'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 14400000  # 4h
+    verified_by: verifier
+    depends_on: []
+    verify_prompt: |
+      Verify Phase 25 #2 T1 (dYdX v4 Indexer client + Tardis.dev backtest).
+
+      ## Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .tmp-verify-p25t1 origin/feat/phase25-2-impl 2>/dev/null || cd .tmp-verify-p25t1
+      cd .tmp-verify-p25t1
+      git pull --rebase origin feat/phase25-2-impl
+      ```
+
+      ## CHECK 1 — Indexer client exists
+      - `ls packages/backtest-tools/src/data/dydx-indexer-feed.ts` exists
+      - `bun test packages/backtest-tools/src/data/dydx-indexer-feed.test.ts` — PASS
+
+      ## CHECK 2 — Tardis.dev fetcher exists
+      - `ls packages/backtest-tools/src/data/tardis-dydx-funding.ts` exists
+      - `bun test packages/backtest-tools/src/data/tardis-dydx-funding.test.ts` — PASS
+
+      ## CHECK 3 — Backtest CLI script
+      - `ls packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts` exists
+      - `bun run packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts --help` — exits 0 with usage
+
+      ## CHECK 4 — Backtest JSONs on disk (≥6)
+      - `ls backtest-results/phase25-2-dydx-vs-cex-funding-carry-{btc,eth,sol}-*.json | wc -l` ≥ 6
+      - Each JSON: `{ symbol, monthlyCarry, averageDivergence, medianRebalanceHours, maxDrawdown, ... }`
+      - At least one JSON shows `monthlyCarry > 0.5%` (validates Track B's +7-8% annualized carry claim)
+
+      ## CHECK 5 — Quality gates
+      - `bun run typecheck` — PASS
+      - `bun run lint` — PASS
+      - `bun test` — all tests PASS
+
+      ## CHECK 6 — Bit-identical wiring probe (CLI flag → runner → engine)
+      - `--symbol=btc` vs `--symbol=BTC` produces byte-identical output (no silent case-bug)
+      - `--start=2025-01-01 --end=2025-01-31` runs the same 31-day window twice → byte-identical (no date-drift leak)
+
+      ## CHECK 7 — Commit + PR
+      - `git log --oneline origin/feat/phase25-2-impl ^main -- packages/backtest-tools/src/data/dydx-indexer-feed.ts packages/backtest-tools/src/data/tardis-dydx-funding.ts packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts` ≥ 1 commit
+      - `gh pr list --head feat/phase25-2-impl --json url` returns URL
+
+      ## CHECK 8 — Forbidden patterns
+      - `grep -ri 'konzervatív\|magyar\|forex trader' packages/backtest-tools/src/data/dydx-indexer-feed.ts packages/backtest-tools/src/data/tardis-dydx-funding.ts packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts` returns EMPTY
+      - No silent no-op: the dydx-indexer-feed.ts MUST actually fetch from `https://indexer.dydx.trade/v4/historical-funding/{market}` (verify by grep + reading the implementation)
+
+      ## CHECK 9 — REPORT or backtest summary
+      - `docs/research/phase25/t1-backtest-validation.md` exists with: monthly carry estimate per symbol, mean-reversion half-life, integration cost validation, kill-switch validation result
+
+      ## PASS / FAIL
+      PASS only if all 9 checks pass. If the backtest JSONs do not validate the +7-8% annualized carry, this is NEGATIVE — record as such and the strategy must move to Track B monitoring-only fallback.
+
+      ## Cleanup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree remove .tmp-verify-p25t1 --force
+      ```
+    prompt: |
+      You are the **Coder agent** working on **Phase 25 #2 T1** of mm-crypto-bot.
+
+      ## Project context (2026-07-08 01:35 Budapest)
+
+      Phase 25 #1 (research fleet) MERGED on main (`76998ec`). Final synthesis at `docs/research/phase25/REPORT-phase25-1.md`. Phase 25 #2 ranked recommendation:
+      1. **PRIMARY — Track B (dYdX v4 funding carry):** IMPLEMENT at cap=0.05, $250k notional, BTC-USD + ETH-USD + SOL-USD only, 3 pre-conditions verified live.
+      2. **SATELLITE — Track D (cascade overlay):** IMPLEMENT in paper-trade mode ≥30 days, then size $500k-$1M notional.
+      3. **MONITORING — Track C (cross-venue lead-lag signal):** read-only funding-divergence feed as regime indicator.
+
+      **You are T1: dYdX v4 Indexer client + Tardis.dev backtest validation.**
+
+      ## Your deliverables
+
+      ### 1. dYdX v4 Indexer feed (`packages/backtest-tools/src/data/dydx-indexer-feed.ts`)
+      - Wraps `GET https://indexer.dydx.trade/v4/historical-funding/{market}` (REST) + `wss://indexer.dydx.trade/v4/ws` (WebSocket)
+      - Pluggable interface matching existing `csv-feed.ts` pattern
+      - Per-market rate limiting (Polkachu 300 req/min, KingNodes 250 req/min as backup endpoints)
+      - Stale-data detection (>5 min since last funding tick → mark stale, surface in output)
+      - Comprehensive unit tests with mock responses
+
+      ### 2. Tardis.dev fetcher (`packages/backtest-tools/src/data/tardis-dydx-funding.ts`)
+      - Wraps `https://docs.tardis.dev/historical-data-details/dydx-v4` API
+      - CSV monthly downloads FREE; full API access requires subscription (~$50-100/mo)
+      - Output format compatible with `csv-feed.ts` for backtest ingestion
+      - Cache layer (avoid re-fetching same window)
+
+      ### 3. Backtest CLI (`packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts`)
+      - Compares dYdX v4 hourly funding vs CEX 8h funding (Binance + bybit) per symbol (BTC, ETH, SOL)
+      - Outputs: `{symbol, monthlyCarry, averageDivergence, medianRebalanceHours, maxDrawdown, sharpe, winRate}` per cell
+      - Symbol set: BTC-USD, ETH-USD, SOL-USD only (no isolated markets <30 days old per Track B §7.2)
+      - All CLI flags must be wired through parseArgs → runner → engine (Phase 20-21-22-23-archive §13 rule)
+
+      ### 4. Run 6+ backtests on Tardis.dev historical data
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase25-2-impl
+      for SYM in btc eth sol; do
+        for WINDOW in 2025-Q1 2025-Q2 2026-Q1; do
+          bun run packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts \
+            --symbol=$SYM --window=$WINDOW \
+            --output=backtest-results/phase25-2-dydx-vs-cex-funding-carry-${SYM}-${WINDOW}.json
+        done
+      done
+      ```
+      (Adjust WINDOW format if Tardis uses different convention. Document the actual format used.)
+
+      ### 5. Validate Track B's empirical claim
+      - If `monthlyCarry > 0.5%` per symbol per window → POSITIVE, continue to T2 (live integration)
+      - If `monthlyCarry < 0.3%` per symbol per window → NEGATIVE, halt Phase 25 #2 Track B and report to parent
+
+      ### 6. Write `docs/research/phase25/t1-backtest-validation.md`
+      - Per-symbol per-window monthly carry table
+      - Mean-reversion half-life per symbol
+      - Integration cost validation (data feed latency, bybit.eu SPOT leg sizing constraint)
+      - Kill-switch validation: divergence compresses <0.0005/8h for 7 consecutive days → halt strategy (test by replaying compressed-divergence window)
+
+      ### 7. Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-phase25-2-impl -b feat/phase25-2-impl main 2>/dev/null || cd .worktrees/wt-phase25-2-impl
+      cd .worktrees/wt-phase25-2-impl
+      git pull --rebase origin feat/phase25-2-impl
+      mkdir -p docs/research/phase25
+      ```
+
+      ### 8. Commit + push
+      ```bash
+      git add packages/backtest-tools/src/data/dydx-indexer-feed.ts packages/backtest-tools/src/data/tardis-dydx-funding.ts packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts backtest-results/phase25-2-*.json docs/research/phase25/t1-backtest-validation.md
+      git commit -m "feat(phase25-2-t1): dYdX v4 Indexer client + Tardis.dev backtest validation (Track B empirical check)"
+      git push origin feat/phase25-2-impl
+      gh pr create --base main --head feat/phase25-2-impl --title "Phase 25 #2 T1 — dYdX v4 Indexer client + backtest validation" --body "..."
+      ```
+
+      ### 9. Report-back to parent session `mvs_c13fe65cb68f4df3851304dea09a9099`
+      ```
+      Phase 25 #2 T1 done. Track B empirical verdict=<POSITIVE/NEGATIVE>. Backtest JSONs at backtest-results/phase25-2-dydx-vs-cex-funding-carry-{btc,eth,sol}-*.json (count). docs/research/phase25/t1-backtest-validation.md (word count). Branch feat/phase25-2-impl pushed (commit <sha>). Standing by for verifier.
+      ```
+
+      ## Hard guarantees
+      - **No silent no-op** (Phase 20-21-22-23-archive §13): every CLI flag traced through parseArgs → runner → engine. Bit-identical-trade-stream probe MUST pass on `--symbol=btc` vs `--symbol=BTC`.
+      - **No Hungarian sources, no forex-trader frame** in any comments/docs
+      - **Production code must compile**: `bun run typecheck && bun run lint && bun test` ALL PASS
+      - **Time budget: 4h wallclock** — if minute 200 with no backtest JSONs on disk, write what you have and exit with explicit PARTIAL verdict
+
+      ## Reference docs
+      - Phase 25 #1 synthesis: `docs/research/phase25/REPORT-phase25-1.md` §3.2 Track B deep dive
+      - Track B empirical anchors: `docs/research/phase25/track-b/REPORT.md` §3, §5
+      - Funding-carry pattern (existing): `packages/core/src/strategy/funding-carry.ts` — your code should NOT duplicate this; it should EXTEND the pattern for cross-venue divergence
+
+  # ============================================================
+  # T2 — Track B live strategy (depends on T1)
+  # ============================================================
+  - id: 'phase25-2-t2-dydx-cex-carry-strategy'
+    title: 'Phase 25 #2 T2 — dYdX-vs-CEX cross-venue funding carry strategy (live integration)'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 18000000  # 5h
+    verified_by: verifier
+    depends_on: ['phase25-2-t1-dydx-indexer-backtest']
+    verify_prompt: |
+      Verify Phase 25 #2 T2 (dYdX-vs-CEX cross-venue funding carry strategy).
+
+      ## Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .tmp-verify-p25t2 origin/feat/phase25-2-impl 2>/dev/null || cd .tmp-verify-p25t2
+      cd .tmp-verify-p25t2
+      git pull --rebase origin feat/phase25-2-impl
+      ```
+
+      ## CHECK 1 — Strategy file
+      - `ls packages/core/src/strategy/dydx-cex-carry.ts` exists
+      - `bun test packages/core/src/strategy/dydx-cex-carry.test.ts` — PASS
+
+      ## CHECK 2 — Paper-trade mode wired
+      - `ls packages/core/src/strategy/dydx-cex-carry.paper-trade.ts` (or equivalent) exists
+      - Paper-trade mode runs without real exchange calls (verify by grep for fake API endpoint)
+
+      ## CHECK 3 — Kill-switches wired
+      - Indexer stale >5min → halt dYdX leg
+      - Chain non-finalized >10min → halt all dYdX exposure
+      - Divergence compresses <0.0005/8h for 7 consecutive days → halt strategy
+      - bybit.eu SPOT leg liquidity <$100k @ 1% → reduce sizing
+      - All 4 kill-switches must be unit-tested
+
+      ## CHECK 4 — Pre-conditions (Track B §7.2) enforced
+      - Live divergence ≥ 0.0005/8h, sustained over rolling 7-day window — checked before sizing capital
+      - No active chain incident (dydx status page) — checked before sizing
+      - No new governance proposal in last 14 days — checked before sizing
+
+      ## CHECK 5 — Quality gates
+      - `bun run typecheck && bun run lint && bun test` — ALL PASS
+      - No production code regressions (existing 73.16% BTC / 84.47% ETH / 74.38% SOL win-rate must be preserved on Phase 19 #1 regression anchor)
+
+      ## CHECK 6 — Wire-up integrity (Phase 20-21-22-23-archive §6 + §13)
+      - Bit-identical-trade-stream probe on baseline (Phase 19 #1 cap=0.20 BTC) — must match within ±1pp on monthly return
+      - All CLI flags traced through parseArgs → runner → engine
+
+      ## CHECK 7 — Commit + PR
+      - `git log --oneline origin/feat/phase25-2-impl ^main -- packages/core/src/strategy/dydx-cex-carry.ts` ≥ 1 commit
+      - PR or work-in-progress note exists
+
+      ## PASS / FAIL
+      PASS only if all 7 checks pass. Reject if any silent no-op, missing kill-switch, or wire-up integrity violation.
+
+      ## Cleanup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree remove .tmp-verify-p25t2 --force
+      ```
+    prompt: |
+      You are the **Coder agent** working on **Phase 25 #2 T2** of mm-crypto-bot.
+
+      ## Project context (2026-07-08 01:35 Budapest)
+
+      T1 (Indexer + backtest) verified POSITIVE Track B empirical claim. **You are T2: dYdX-vs-CEX cross-venue funding carry strategy live integration.**
+
+      ## Your deliverables
+
+      ### 1. Strategy file (`packages/core/src/strategy/dydx-cex-carry.ts`)
+      - Implements the `Strategy` interface (see existing `funding-carry.ts` pattern)
+      - Delta-neutral: long-spot-bybit.eu + short-perp-dYdX (or inverse, depending on funding direction)
+      - Per-symbol divergence detection: dYdX hourly funding vs bybit 8h funding (normalized)
+      - Initial cap=0.05 (1/4 of Phase 24 #1 cap=0.18)
+      - Symbol set: BTC-USD, ETH-USD, SOL-USD only
+      - Position size: $50k-$250k per leg, scaled to ≤10 bps slippage
+
+      ### 2. Paper-trade mode (`packages/core/src/strategy/dydx-cex-carry.paper-trade.ts`)
+      - Wired into existing paper-trade runner pattern
+      - Logs hypothetical fills based on real dYdX funding + synthetic bybit.eu SPOT fills
+      - Outputs paper-trade P&L for validator review
+
+      ### 3. Kill-switches (ALL 4 MUST be wired + tested)
+      - Indexer stale >5min → halt dYdX leg
+      - Chain non-finalized >10min → halt all dYdX exposure
+      - Divergence compresses <0.0005/8h for 7 consecutive days → halt strategy
+      - bybit.eu SPOT leg liquidity <$100k @ 1% → reduce sizing
+
+      ### 4. Pre-conditions enforced (Track B §7.2)
+      - All 3 pre-conditions checked before sizing capital
+      - Pre-condition state persisted (rolls forward across restarts)
+
+      ### 5. Funding-source plugin integration
+      - Wire `packages/backtest-tools/src/data/dydx-indexer-feed.ts` (from T1) into the live funding-source plugin layer
+      - WebSocket subscription per market (BTC-USD, ETH-USD, SOL-USD)
+
+      ### 6. Tests
+      - Unit tests for each kill-switch
+      - Integration test: live WebSocket → strategy → paper-trade P&L (mocked exchange)
+      - Wire-up integrity: Phase 19 #1 cap=0.20 BTC regression anchor MUST still match within ±1pp
+
+      ### 7. Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase25-2-impl
+      git pull --rebase origin feat/phase25-2-impl
+      ```
+
+      ### 8. Commit + push
+      ```bash
+      git add packages/core/src/strategy/dydx-cex-carry.ts packages/core/src/strategy/dydx-cex-carry.paper-trade.ts packages/core/src/strategy/dydx-cex-carry.test.ts
+      git commit -m "feat(phase25-2-t2): dYdX-vs-CEX cross-venue funding carry strategy (live integration)"
+      git push origin feat/phase25-2-impl
+      ```
+
+      ### 9. Report-back to parent session
+      ```
+      Phase 25 #2 T2 done. Strategy implemented at packages/core/src/strategy/dydx-cex-carry.ts. All 4 kill-switches wired + tested. Paper-trade mode validated. Pre-conditions enforced. Wire-up integrity verified (Phase 19 #1 regression anchor matches within ±1pp). Branch feat/phase25-2-impl pushed (commit <sha>). Standing by for verifier.
+      ```
+
+      ## Hard guarantees (FROM Phase 20-21-22-23 ARCHIVE — non-negotiable)
+      - **NO silent no-op** (§13): every flag, every kill-switch, every pre-condition traced through parseArgs → runner → engine. Unit-test each.
+      - **NO production-code regression**: Phase 19 #1 cap=0.20 BTC regression anchor must still match within ±1pp on monthly return
+      - **NO Hungarian sources, NO forex-trader frame**
+      - **Time budget: 5h wallclock** — if minute 250 with no strategy.ts on disk, write what you have and exit with explicit PARTIAL verdict
+
+  # ============================================================
+  # T3 — Track D cascade detector (independent)
+  # ============================================================
+  - id: 'phase25-2-t3-cascade-detector'
+    title: 'Phase 25 #2 T3 — Liquidation cascade detector (3-layer filter, paper-trade mode)'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 18000000  # 5h
+    verified_by: verifier
+    depends_on: []
+    verify_prompt: |
+      Verify Phase 25 #2 T3 (liquidation cascade detector).
+
+      ## Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .tmp-verify-p25t3 origin/feat/phase25-2-impl 2>/dev/null || cd .tmp-verify-p25t3
+      cd .tmp-verify-p25t3
+      git pull --rebase origin feat/phase25-2-impl
+      ```
+
+      ## CHECK 1 — Data sources
+      - `ls packages/backtest-tools/src/data/coinglass-liquidation-ws.ts` exists (Layer 1: CoinGlass WS)
+      - `ls packages/backtest-tools/src/data/bitquery-grpc.ts` exists (Layer 1: Bitquery gRPC fallback)
+      - Both have unit tests with mock responses
+
+      ## CHECK 2 — Cascade detector (3-layer filter)
+      - `ls packages/core/src/strategy/cascade-fade.ts` exists
+      - **Layer 1 trigger:** aggregate 1-min liquidation volume >$50M AND OI drop >1% in 5min (cross-confirmed CoinGlass + Bitquery)
+      - **Layer 2 state machine:** IN_PROGRESS / STABILIZING / POST_CASCADE (Axel Adler OI drop >15% in 48h, ELR <0.40)
+      - **Layer 3 execution:** bybit.eu SPOT marketable limit 5-15bps from mid, TWAP exit 3-10 min
+      - Only POST_CASCADE state allows entry
+
+      ## CHECK 3 — Risk governor
+      - Stop cascade-fade book if Phase 24 portfolio DD >12%
+      - Halt new cascade entries if total perp-DEX OI >90-day SMA
+      - Cooldown 24h between consecutive BTC cascade entries
+      - Kill-switch on next cascade if open P&L on overlay book <-2%
+      - Hard stop: cascade-fade book down >5% over rolling 7d → halt 30 days (regime-change detector)
+
+      ## CHECK 4 — Capacity constraints
+      - Max position: $1M notional per symbol per event
+      - Max concurrent symbols: 2 (BTC + ETH typically)
+      - Total deployable: $2M per event, $5M per week
+      - Constraints enforced in strategy
+
+      ## CHECK 5 — Paper-trade mode wired
+      - Runs without real bybit.eu SPOT calls
+      - Logs hypothetical fills based on real cascade data + synthetic SPOT slippage model
+
+      ## CHECK 6 — Historical validation
+      - Replay 2025-10-10 cascade event through the detector
+      - Detector must enter POST_CASCADE within 30 min of actual cascade peak
+      - Paper-trade P&L on this single event: validate against Track D §5 estimate (+0.5-1.5%/mo realistic)
+
+      ## CHECK 7 — Quality gates
+      - `bun run typecheck && bun run lint && bun test` — ALL PASS
+      - No production-code regressions
+
+      ## CHECK 8 — Wire-up integrity
+      - Bit-identical-trade-stream probe: cascade detector OFF vs ON produces byte-identical Phase 19 #1 baseline (no side effects on existing portfolio)
+
+      ## CHECK 9 — Forbidden patterns
+      - `grep -ri 'konzervatív\|magyar\|forex trader' packages/core/src/strategy/cascade-fade.ts` EMPTY
+      - No naked short, no holding through next session (verified in code)
+
+      ## CHECK 10 — Commit + PR
+      - `git log --oneline origin/feat/phase25-2-impl ^main -- packages/core/src/strategy/cascade-fade.ts` ≥ 1 commit
+
+      ## PASS / FAIL
+      PASS only if all 10 checks pass. Reject if any 3-layer filter step is bypassed, any kill-switch missing, or 2025-10-10 historical replay fails to enter POST_CASCADE.
+
+      ## Cleanup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree remove .tmp-verify-p25t3 --force
+      ```
+    prompt: |
+      You are the **Coder agent** working on **Phase 25 #2 T3** of mm-crypto-bot.
+
+      ## Project context (2026-07-08 01:35 Budapest)
+
+      Phase 25 #1 (research fleet) MERGED on main. **You are T3: Track D — Liquidation cascade detector implementation.**
+
+      ## Your deliverables
+
+      ### 1. Data sources
+      - `packages/backtest-tools/src/data/coinglass-liquidation-ws.ts` — CoinGlass V4 WS `liquidationOrders` channel (cross-venue aggregate, <1min cache)
+      - `packages/backtest-tools/src/data/bitquery-grpc.ts` — Bitquery gRPC `liquidation` channel for Hyperliquid (sub-300ms slot-to-socket)
+      - Both with unit tests + mock responses
+
+      ### 2. Cascade detector strategy (`packages/core/src/strategy/cascade-fade.ts`)
+      - **Layer 1 (real-time detector):** aggregate 1-min liquidation volume >$50M AND OI drop >1% in 5min window, cross-confirmed (CoinGlass + at least one perp feed)
+      - **Layer 2 (state machine):** IN_PROGRESS / STABILIZING / POST_CASCADE — Axel Adler OI drop >15% in 48h + ELR <0.40 floor
+      - **Layer 3 (execution):** bybit.eu SPOT marketable limit 5-15bps from mid, TWAP exit 3-10 min, NO naked short, NO holding through next session, NO entry before stabilization
+      - Only POST_CASCADE state allows entry
+
+      ### 3. Risk governor
+      - Stop cascade-fade book if Phase 24 portfolio DD >12%
+      - Halt all new cascade entries if total perp-DEX OI >90-day SMA
+      - Cooldown 24h between consecutive BTC cascade entries
+      - Kill-switch on next cascade if open P&L on overlay book <-2%
+      - Hard stop: cascade-fade book down >5% over rolling 7d → halt 30 days (regime-change detector)
+
+      ### 4. Capacity constraints (in strategy code)
+      - Max position: $1M notional per symbol per event
+      - Max concurrent symbols: 2 (BTC + ETH typically)
+      - Total deployable: $2M per event, $5M per week
+
+      ### 5. Paper-trade mode
+      - Logs hypothetical fills based on real cascade data + synthetic bybit.eu SPOT slippage model
+      - Replay mode for 2025-10-10 event validation
+
+      ### 6. Historical validation
+      - Replay 2025-10-10 cascade event through detector
+      - Detector must enter POST_CASCADE within 30 min of actual cascade peak
+      - Paper-trade P&L on this single event: validate against Track D §5 estimate (+0.5-1.5%/mo realistic)
+
+      ### 7. Tests
+      - Unit tests for each filter layer
+      - Integration test: real cascade data → state machine → paper-trade P&L
+      - Wire-up integrity: detector OFF vs ON produces byte-identical Phase 19 #1 baseline
+
+      ### 8. Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase25-2-impl
+      git pull --rebase origin feat/phase25-2-impl
+      ```
+
+      ### 9. Commit + push
+      ```bash
+      git add packages/backtest-tools/src/data/coinglass-liquidation-ws.ts packages/backtest-tools/src/data/bitquery-grpc.ts packages/core/src/strategy/cascade-fade.ts
+      git commit -m "feat(phase25-2-t3): liquidation cascade detector (3-layer filter, paper-trade mode, Track D satellite)"
+      git push origin feat/phase25-2-impl
+      ```
+
+      ### 10. Report-back to parent session
+      ```
+      Phase 25 #2 T3 done. Cascade detector at packages/core/src/strategy/cascade-fade.ts. 3-layer filter wired (CoinGlass + Bitquery + Axel Adler OI/ELR). 2025-10-10 historical replay <30min to POST_CASCADE. Paper-trade mode validated. Branch feat/phase25-2-impl pushed (commit <sha>). Standing by for verifier.
+      ```
+
+      ## Hard guarantees
+      - **3-layer filter MUST be wired** — naked liquidation detection alone is NEGATIVE (anomiq.io full-year flat-to-negative)
+      - **NO naked short, NO holding through next session, NO entry before stabilization** (Track D §6.3 explicit non-goals)
+      - **NO production-code regressions** (Phase 19 #1 regression anchor must match within ±1pp)
+      - **NO Hungarian sources, NO forex-trader frame**
+      - **Time budget: 5h wallclock** — if minute 250 with no cascade-fade.ts on disk, write what you have and exit with explicit PARTIAL verdict
+
+  # ============================================================
+  # T4 — Track C signal-pool feed (independent)
+  # ============================================================
+  - id: 'phase25-2-t4-funding-divergence-signal-pool'
+    title: 'Phase 25 #2 T4 — Cross-venue funding-divergence signal-pool feed (Track C regime indicator)'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 10800000  # 3h
+    verified_by: verifier
+    depends_on: []
+    verify_prompt: |
+      Verify Phase 25 #2 T4 (cross-venue funding-divergence signal-pool feed).
+
+      ## Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .tmp-verify-p25t4 origin/feat/phase25-2-impl 2>/dev/null || cd .tmp-verify-p25t4
+      cd .tmp-verify-p25t4
+      git pull --rebase origin feat/phase25-2-impl
+      ```
+
+      ## CHECK 1 — Signal-pool plugin
+      - `ls packages/core/src/signal-center/monolith-wrappers/cross-venue-funding-divergence-plugin.ts` exists
+      - `bun test packages/core/src/signal-center/monolith-wrappers/cross-venue-funding-divergence-plugin.test.ts` — PASS
+
+      ## CHECK 2 — Metric exposure
+      - Plugin exposes `funding_divergence_bps` per venue × symbol × 1-minute bucket
+      - Venues covered: Hyperliquid, dYdX v4, Binance, Bybit, OKX, Bitget
+      - Symbols: BTC, ETH, SOL
+
+      ## CHECK 3 — Read-only (NO auto-trade)
+      - `grep -i 'placeOrder\|submitOrder\|executeTrade' packages/core/src/signal-center/monolith-wrappers/cross-venue-funding-divergence-plugin.ts` returns EMPTY (no order placement)
+      - Plugin is purely a metric consumer, not an order generator
+
+      ## CHECK 4 — Signal-center integration
+      - Plugin registered in existing signal-center bus
+      - Other strategies can subscribe to `funding_divergence_bps` metric (regime indicator use case)
+
+      ## CHECK 5 — Quality gates
+      - `bun run typecheck && bun run lint && bun test` — ALL PASS
+      - No production-code regressions
+
+      ## CHECK 6 — Commit + PR
+      - `git log --oneline origin/feat/phase25-2-impl ^main -- packages/core/src/signal-center/monolith-wrappers/cross-venue-funding-divergence-plugin.ts` ≥ 1 commit
+
+      ## PASS / FAIL
+      PASS only if all 6 checks pass. Reject if any order placement code is found (must be read-only monitor).
+
+      ## Cleanup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree remove .tmp-verify-p25t4 --force
+      ```
+    prompt: |
+      You are the **Coder agent** working on **Phase 25 #2 T4** of mm-crypto-bot.
+
+      ## Project context (2026-07-08 01:35 Budapest)
+
+      **You are T4: Track C — Cross-venue funding-divergence signal-pool feed.**
+
+      ## Your deliverables
+
+      ### 1. Signal-pool plugin (`packages/core/src/signal-center/monolith-wrappers/cross-venue-funding-divergence-plugin.ts`)
+      - Wraps multiple venue funding feeds (Hyperliquid + dYdX + Binance + Bybit + OKX + Bitget)
+      - Per-venue × per-symbol × 1-minute bucket: computes `funding_divergence_bps` (max-min across venues)
+      - Outputs the divergence metric to the existing signal-center bus
+      - Read-only: NO order placement, NO execution layer
+      - Existing patterns: see `packages/core/src/signal-center/monolith-wrappers/funding-carry-plugin.ts`
+
+      ### 2. Tests
+      - Unit tests with mock venue data
+      - Integration test: signal-center bus subscription receives divergence metric correctly
+
+      ### 3. Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase25-2-impl
+      git pull --rebase origin feat/phase25-2-impl
+      ```
+
+      ### 4. Commit + push
+      ```bash
+      git add packages/core/src/signal-center/monolith-wrappers/cross-venue-funding-divergence-plugin.ts
+      git commit -m "feat(phase25-2-t4): cross-venue funding-divergence signal-pool feed (Track C regime indicator)"
+      git push origin feat/phase25-2-impl
+      ```
+
+      ### 5. Report-back to parent session
+      ```
+      Phase 25 #2 T4 done. Signal-pool plugin at packages/core/src/signal-center/monolith-wrappers/cross-venue-funding-divergence-plugin.ts. funding_divergence_bps metric exposed per venue × symbol × 1-min bucket. Read-only (no order placement). Signal-center integration verified. Branch feat/phase25-2-impl pushed (commit <sha>). Standing by for verifier.
+      ```
+
+      ## Hard guarantees
+      - **READ-ONLY**: NO order placement, NO execution layer. Pure metric consumer.
+      - **NO production-code regressions** (Phase 19 #1 regression anchor must match within ±1pp)
+      - **NO Hungarian sources, NO forex-trader frame**
+      - **Time budget: 3h wallclock** — if minute 150 with no plugin.ts on disk, write what you have and exit with explicit PARTIAL verdict
+
+  # ============================================================
+  # T5 — Final REPORT + PR (depends on T2, T3, T4)
+  # ============================================================
+  - id: 'phase25-2-t5-final-report'
+    title: 'Phase 25 #2 T5 — Final REPORT-phase25-2.md + combined PR'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 7200000  # 2h
+    verified_by: verifier
+    depends_on:
+      - 'phase25-2-t2-dydx-cex-carry-strategy'
+      - 'phase25-2-t3-cascade-detector'
+      - 'phase25-2-t4-funding-divergence-signal-pool'
+    verify_prompt: |
+      Verify Phase 25 #2 T5 (final REPORT + combined PR).
+
+      ## Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .tmp-verify-p25t5 origin/feat/phase25-2-impl 2>/dev/null || cd .tmp-verify-p25t5
+      cd .tmp-verify-p25t5
+      git pull --rebase origin feat/phase25-2-impl
+      ```
+
+      ## CHECK 1 — REPORT-phase25-2.md exists
+      - `ls docs/research/phase25/REPORT-phase25-2.md` exists
+      - `wc -w docs/research/phase25/REPORT-phase25-2.md` ≥ 3000 words
+      - Section count ≥ 6
+
+      ## CHECK 2 — Required sections
+      - §1 Executive summary — verdict (PASS / PARTIAL / FAIL)
+      - §2 Track B (dYdX carry) — backtest envelope, paper-trade validation, kill-switch validation
+      - §3 Track D (cascade overlay) — historical 2025-10-10 replay, paper-trade P&L
+      - §4 Track C (signal-pool) — divergence metric exposure + signal-center integration
+      - §5 Combined Phase 25 #2 portfolio projection — incremental alpha + DD reconciliation
+      - §6 Phase 25 #2 cancellation trigger check — combined paper-trade P&L vs +0.3%/mo floor
+      - §7 Phase 26+ follow-up candidates
+
+      ## CHECK 3 — Quantitative tables
+      - Per-track P&L projection (low / mid / high)
+      - Combined portfolio delta vs Phase 24 #1 baseline
+      - DD reconciliation with user's 15% mandate
+
+      ## CHECK 4 — All quality gates from T1-T4 still PASS
+      - `bun run typecheck && bun run lint && bun test` — ALL PASS
+      - No production-code regressions
+
+      ## CHECK 5 — Combined PR or merge of T1-T4 PRs
+      - Either: a single combined PR `feat/phase25-2-impl → main` with all T1-T4 commits
+      - Or: T1-T4 PRs already merged into `feat/phase25-2-impl` branch
+
+      ## CHECK 6 — Wire-up integrity final check
+      - Bit-identical-trade-stream probe: ALL toggles (Phase 25 #2 Track B + Track D + Track C) OFF vs ON vs CORE-ONLY produces expected byte-identical Phase 19 #1 baseline
+      - This is the Phase 20-21-22-23-archive §6 final check
+
+      ## PASS / FAIL
+      PASS only if all 6 checks pass. PARTIAL = implementation delivered but combined paper-trade P&L <+0.3%/mo incremental (Phase 25 #2 cancellation trigger). FAIL = production-code regression.
+
+      ## Cleanup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree remove .tmp-verify-p25t5 --force
+      ```
+    prompt: |
+      You are the **Coder agent** working on **Phase 25 #2 T5** of mm-crypto-bot.
+
+      ## Project context (2026-07-08 01:35 Budapest)
+
+      T1-T4 verified PASS. **You are T5: Final REPORT-phase25-2.md + combined PR.**
+
+      ## Your deliverables
+
+      ### 1. `docs/research/phase25/REPORT-phase25-2.md` (≥3000 words, ≥6 sections)
+
+      Sections:
+      - §1 Executive summary — verdict (PASS / PARTIAL / FAIL)
+      - §2 Track B (dYdX carry) — backtest envelope, paper-trade validation, kill-switch validation
+      - §3 Track D (cascade overlay) — historical 2025-10-10 replay, paper-trade P&L
+      - §4 Track C (signal-pool) — divergence metric exposure + signal-center integration
+      - §5 Combined Phase 25 #2 portfolio projection — incremental alpha + DD reconciliation with user's 15% mandate
+      - §6 Phase 25 #2 cancellation trigger check — combined paper-trade P&L vs +0.3%/mo floor
+      - §7 Phase 26+ follow-up candidates
+
+      ### 2. Combined PR or merge of T1-T4 PRs
+      - If T1-T4 are on separate PRs: merge them into `feat/phase25-2-impl` branch
+      - If T1-T4 are commits on `feat/phase25-2-impl`: open a single combined PR → main
+      - PR title: "Phase 25 #2 — Perp-DEX Funding Microstructure Implementation (Track B + Track D + Track C)"
+
+      ### 3. Final wire-up integrity check
+      - Bit-identical-trade-stream probe: ALL toggles OFF vs ON vs CORE-ONLY produces expected byte-identical Phase 19 #1 baseline
+      - This is the Phase 20-21-22-23-archive §6 final check
+      - Document the result in REPORT §6
+
+      ### 4. Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase25-2-impl
+      git pull --rebase origin feat/phase25-2-impl
+      ```
+
+      ### 5. Commit + push
+      ```bash
+      git add docs/research/phase25/REPORT-phase25-2.md
+      git commit -m "feat(phase25-2-t5): final REPORT-phase25-2.md + combined PR"
+      git push origin feat/phase25-2-impl
+      gh pr create --base main --head feat/phase25-2-impl --title "Phase 25 #2 — Perp-DEX Funding Microstructure Implementation (Track B + Track D + Track C)" --body "..."
+      ```
+
+      ### 6. Report-back to parent session
+      ```
+      Phase 25 #2 T5 done. REPORT-phase25-2.md (word count, sections). Combined PR feat/phase25-2-impl → main opened. Verdict: PASS/PARTIAL/FAIL with reasoning. Standing by for verifier.
+      ```
+
+      ## Hard guarantees
+      - **Cancellation trigger check** (Phase 25 #1 synthesis §5.3): combined paper-trade P&L <+0.3%/mo incremental → FAIL verdict, do NOT merge
+      - **Wire-up integrity final check** MUST PASS — no production-code regressions
+      - **NO Hungarian sources, NO forex-trader frame**
+      - **Time budget: 2h wallclock**

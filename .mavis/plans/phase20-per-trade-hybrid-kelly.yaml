@@ -1,0 +1,709 @@
+version: 1
+plan:
+  name: 'Phase 20 #1 — Per-Trade Hybrid-Kelly sizing drop-in'
+  max_concurrency: 1
+  max_consecutive_failures: 2
+  max_cycles: 6
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — Per-Trade Hybrid-Kelly drop-in module + 100% tests
+  # ============================================================
+  - id: 'phase20-track-a-module'
+    title: 'Phase 20 Track A — Per-Trade Hybrid-Kelly drop-in module + 100% tests'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 3600000  # 60min
+    verified_by: verifier
+    depends_on: []
+    verify_prompt: |
+      Verify Phase 20 Track A (Per-Trade Hybrid-Kelly drop-in module):
+
+      ## Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .tmp-verify-p20a origin/feat/phase20-a-hybrid-kelly-module 2>/dev/null || \
+        git worktree add .tmp-verify-p20a -b feat/phase20-a-hybrid-kelly-module origin/main
+      cd .tmp-verify-p20a
+      ```
+
+      ## CHECK 1 — module files present
+      - `ls packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` exists
+      - `ls packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.test.ts` exists
+      - `wc -l packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` ≥ 150 LOC
+      - `wc -l packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.test.ts` ≥ 200 LOC
+
+      ## CHECK 2 — module exports
+      - `grep -E 'export (function|interface|type)' packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` must show:
+        * `HybridKellyConfig` interface
+        * `SignalTradeHistory` interface
+        * `computeHybridKellyFraction` function
+        * `applyHybridKelly` function
+      - `grep 'HybridKellyConfig\|SignalTradeHistory\|computeHybridKellyFraction\|applyHybridKelly' packages/core/src/index.ts` — re-exports present
+
+      ## CHECK 3 — math correctness
+      - `bun test packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.test.ts` — ALL PASS
+      - Test count ≥ 20 via `grep -c 'expect(' packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.test.ts` ≥ 20
+      - Test cases present:
+        * winRate=1.0, payoffRatio=any → kelly=1.0 (capped at hybridKellyCap)
+        * winRate=0.6, payoffRatio=2 → rawKelly=0.4 → clamped to 0.4 (within 0.5 default cap)
+        * winRate=0.4, payoffRatio=1 → kelly=-0.2 → clamp at 0
+        * winRate=0.0 → kelly=0 (clamp at 0; no betting)
+        * history.length === 0 → kelly=0 (no override)
+        * history.length < minTradesForKelly (e.g. 29) → kelly=0 (insufficient history)
+        * payoffRatio=∞ (no losses) → kelly=1.0 (clamped at cap)
+        * payoffRatio=0 (no wins) → kelly=0
+        * hybridKellyCap=1.5 → constructor throws (per Phase 11.1e HybridKellyPlugin precedent)
+        * SizingSignal immutability: input !== output
+        * NaN guards: empty array, all-NaN pnl
+        * enabledSymbols filter (BTC-only config, ETH/SOL pass-through)
+        * enabledSignatures filter (DIRECTIONAL-only, other kinds pass-through)
+        * 1:10 leverage audit unit test: assert `kelly × confidence × riskPerTrade × equity × leverage ≤ maxPositionPctEquity × equity × leverage`
+
+      ## CHECK 4 — coverage 100% on new file (lcov.info direct read, NOT summary)
+      - `cd packages/core && bun test src/signal-center/sizing/per-trade-hybrid-kelly.test.ts --coverage --coverage-reporter=lcov --coverage-dir=coverage`
+      - `cat packages/core/coverage/lcov.info` → grep for `SF:.*per-trade-hybrid-kelly.ts` and read `LF:` and `LH:` lines directly
+      - LF == LH (lines found == lines hit) — 100% line coverage
+      - All `BRF:` lines match `BRH:` (branch coverage 100%)
+      - Reject if coverage report absent OR LF != LH
+
+      ## CHECK 5 — quality gates (full suite, NOT just new file)
+      - `cd /Users/kiscsicska/.tmp-verify-p20a && bun run typecheck` → 13/13 PASS
+      - `bun run lint` → 0 errors (no `eslint-disable` lines added in this PR)
+      - `bun test` (full suite) → ALL pass (NOT just new file); record pass count before/after
+      - `grep -c 'eslint-disable' packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.test.ts` → 0
+
+      ## CHECK 6 — docstring-vs-implementation lie check (Phase 10G Track C lesson)
+      - Read the file in full. For each docstring claim (/// ... /** ... */):
+        * If a docstring says "computes kellyFraction per Thorp formula", grep for `(winRate * payoffRatio - (1 - winRate)) / payoffRatio` in the implementation
+        * If a docstring says "clamps kellyFraction", grep for `Math.min(.*cap)` or similar
+        * If a docstring says "returns SizingSignal with overridden confidence", grep for `.confidence = ...` in the apply function
+      - Any discrepancy = FAIL (Phase 10G lesson — this is layer 2 docstring-lie territory)
+
+      ## CHECK 7 — branch + commit hygiene
+      - `git log --oneline origin/feat/phase20-a-hybrid-kelly-module ^main` — at least 1 commit exists
+      - `git diff origin/main origin/feat/phase20-a-hybrid-kelly-module --stat` → only sizing/ + index.ts changes (no scope creep into packages/backtest/src/* or unrelated files)
+      - Branch name is EXACTLY `feat/phase20-a-hybrid-kelly-module` (no other naming convention)
+      - Worktree path is `.worktrees/wt-phase20-a-...` per Phase 17/18/19 precedent (NOT `.tmp-verify-p20a` — that's the verifier's own checkout)
+
+      ## CHECK 8 — no production code broken (regression sanity)
+      - `bun test packages/core/src/signal-center/signal-center-v1.test.ts` → ALL pass (existing SCv1 tests still green; new module added without breaking emit chain)
+      - `bun test packages/backtest-tools/src/cli/run-baseline.test.ts` → ALL pass
+      - Failure here = new module is leaking into existing code paths despite "opt-in default off" architecture
+
+      ## PASS / FAIL
+      PASS only if ALL 8 checks pass. Otherwise FAIL with specific check number + evidence.
+    prompt: |
+      You are the **Coder agent** working on **Phase 20 Track A** of mm-crypto-bot.
+
+      ## Goal
+
+      Build the **Per-Trade Hybrid-Kelly sizing drop-in module** per `.mavis/notes/phase20-scope-plan.md §3.1`.
+
+      This is the first track of Phase 20 — see scope doc for full context. Phase 19 #1 (PRs #46/#47/#48 → main @ bc66ef2) closed with +32.24%/mo portfolio avg at 4.70% DD. Phase 20 #1 aims to push this to +40-45%/mo by replacing fixed-percentage-of-confidence with per-trade Hybrid-Kelly fraction.
+
+      The existing `HybridKellyPlugin` (Phase 11.1e, on main via PR #20) emits a SizingSignal using **bucketed Sharpe → fixed multipliers** (1.0× / 0.7× / 0.5× / 0.25×). Phase 20 #1 is different: it computes a **per-trade** Kelly fraction from the signal's own historical win rate and payoff ratio, and OVERRIDES the `confidence` field on the SizingSignal at the signal-center emit choke point.
+
+      ## Setup
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-phase20-a-hybrid-kelly-module -b feat/phase20-a-hybrid-kelly-module main
+      cd .worktrees/wt-phase20-a-hybrid-kelly-module
+      ```
+
+      ## Files to produce
+
+      ### 1. NEW: `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` (~200 LOC)
+
+      Public API:
+      ```ts
+      export interface HybridKellyConfig {
+        readonly hybridKellyCap: number;          // default 0.5, Phase 14B ceiling 0.85
+        readonly historyWindowDays: number;       // default 30 (per Phase 9 9E precedent)
+        readonly minTradesForKelly: number;       // default 30 (per Phase 9 9E minTradeCount)
+        readonly enabledSymbols?: readonly string[]; // default all 3 BTC/ETH/SOL
+        readonly enabledSignatures?: readonly string[]; // default all SizingSignal.kind
+      }
+
+      export interface SignalTradeHistory {
+        readonly signature: string;          // `${kind}:${side}:${symbol}` partition key
+        readonly tradeList: readonly { pnlUsd: number; notionalUsd: number }[];
+      }
+
+      export function computeHybridKellyFraction(
+        history: SignalTradeHistory,
+        config: Pick<HybridKellyConfig, 'hybridKellyCap' | 'minTradesForKelly'>,
+      ): number; // returns 0..1, never NaN
+
+      export function applyHybridKelly(
+        sizing: SizingSignal,
+        historyLookup: (signature: string) => SignalTradeHistory,
+        config: HybridKellyConfig,
+        now: number,
+      ): SizingSignal; // returns sizing with overridden confidence (or original if not enough history)
+      ```
+
+      **Math (per REPORT-phase19.md §7 quoted formula):**
+      ```
+      wins = history.tradeList.filter(t => t.pnlUsd > 0)
+      losses = history.tradeList.filter(t => t.pnlUsd < 0)
+      winRate = wins.length / history.tradeList.length
+      avgWin = mean(wins.map(t => t.pnlUsd)) || 0
+      avgLoss = abs(mean(losses.map(t => t.pnlUsd))) || 0
+      payoffRatio = avgLoss > 0 ? avgWin / avgLoss : 1.0
+      rawKelly = (winRate * payoffRatio - (1 - winRate)) / max(payoffRatio, 1e-9)
+      return clamp(rawKelly, 0, config.hybridKellyCap)
+      ```
+
+      **Constructor validation:**
+      - `new HybridKellyConfig(...)` throws if `hybridKellyCap > 1.0` (Phase 11.1e `HybridKellyPlugin` precedent — `kellyCap: 1.5` throws)
+      - `hybridKellyCap < 0` throws
+      - `historyWindowDays < 1` throws
+      - `minTradesForKelly < 1` throws
+
+      **`applyHybridKelly` returns original SizingSignal (not modified) when:**
+      - signature not in `historyLookup`
+      - history.tradeList.length < `minTradesForKelly`
+      - symbol not in `enabledSymbols` (if specified)
+      - sizing.kind not in `enabledSignatures` (if specified)
+      - **Input/output are different references (defensive copy or frozen mutation)**
+
+      **Immutability:** The function MUST NOT mutate the input SizingSignal. Use spread or `Object.freeze` to ensure the input is unchanged.
+
+      **NaN guards:**
+      - Empty array → returns 0
+      - All-NaN pnl → returns 0
+      - Any NaN in pnl → return 0
+      - This is defensive; the test suite explicitly probes these.
+
+      ### 2. NEW: `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.test.ts` (~250 LOC, ≥20 tests)
+
+      **Test list (each `it()` or `test()` block MUST be present):**
+      1. winRate=1.0, payoffRatio=any → kelly=1.0 (capped at hybridKellyCap)
+      2. winRate=0.6, payoffRatio=2 → rawKelly=0.4 → clamped to 0.4 (within 0.5 default cap)
+      3. winRate=0.5, payoffRatio=1 → kelly=0 (edge of profitable)
+      4. winRate=0.4, payoffRatio=1 → kelly=-0.2 → clamp at 0 (loss-don't-bet)
+      5. winRate=0.0 → kelly=0 (clamp at 0; no betting)
+      6. winRate=0.6, history.length=29 (under minTradesForKelly=30) → kelly=0 (insufficient history)
+      7. history.length === 0 → kelly=0 (no override)
+      8. payoffRatio=∞ (no losses, all wins) → kelly=1.0 (clamped at cap)
+      9. payoffRatio=0 (no wins, all losses) → kelly=0
+      10. hybridKellyCap=1.5 → constructor throws (per Phase 11.1e precedent)
+      11. hybridKellyCap=0.85 → constructor succeeds, clamps above 0.85 (Phase 14B ceiling precedent)
+      12. hybridKellyCap=0.5 (default) → constructor succeeds
+      13. SizingSignal immutability: input !== output (defensive copy verified)
+      14. SizingSignal override case 1: input confidence=0.8, kelly=0.4 → output confidence=0.4
+      15. SizingSignal override case 2: input confidence=0.8, kelly=0 → output confidence=0
+      16. enabledSymbols filter: BTC-only config, ETH sizing pass-through (untouched)
+      17. enabledSignatures filter: DIRECTIONAL-only, other kinds pass-through (untouched)
+      18. NaN pnl in history → returns 0 (defensive guard)
+      19. All-NaN pnl history → returns 0
+      20. Empty array history → returns 0
+      21. signature not in historyLookup → returns original SizingSignal (untouched)
+      22. 1:10 leverage audit: assert `kelly × riskPerTrade × equity × leverage ≤ maxPositionPctEquity × equity × leverage` (Phase 6 1:10 mandate)
+
+      ### 3. MODIFIED: `packages/core/src/index.ts`
+
+      Add the new exports (HybridKellyConfig, SignalTradeHistory, computeHybridKellyFraction, applyHybridKelly) to the existing exports. Do NOT re-export `SizingSignal` (already exported). Use ESM-style re-export: `export type { HybridKellyConfig, SignalTradeHistory } from './signal-center/sizing/per-trade-hybrid-kelly.js';` and `export { computeHybridKellyFraction, applyHybridKelly } from './signal-center/sizing/per-trade-hybrid-kelly.js';`
+
+      ## Quality gates (mandatory PASS)
+
+      - `bun run typecheck` → 13/13 packages PASS
+      - `bun run lint` → 0 errors (NO `eslint-disable` lines added; if a lint error fires you fix the underlying issue, not bypass it)
+      - `bun test` (full suite) → ALL pass; record baseline test count and post-test count (delta = number of new tests)
+      - Coverage on `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts`: 100% (LF == LH, BRF == BRH per lcov.info direct read)
+      - Existing tests in `packages/core/src/signal-center/signal-center-v1.test.ts` and `packages/backtest-tools/src/cli/run-baseline.test.ts` STILL PASS (no regression)
+      - File paths cite in code: import as `@mm-crypto-bot/core/...` per project convention (check sibling imports)
+
+      ## Mandatory report-back (deliverable.md)
+
+      When done, write a deliverable.md at worktree root with:
+      - Path to new module + LOC
+      - Test count + delta from baseline
+      - Coverage report excerpt (LF / LH / BRF / BRH from lcov.info)
+      - All 5 quality gates (typecheck, lint, test, coverage, no-eslint-disable) status
+      - Commit SHA on `feat/phase20-a-hybrid-kelly-module` branch (NOT merged)
+      - Push status: confirm `git push origin feat/phase20-a-hybrid-kelly-module` succeeded (check `git ls-remote origin feat/phase20-a-hybrid-kelly-module`)
+      - Confirm `packages/core/src/signal-center/sizing/` directory is now on disk (this dir did NOT exist before Track A)
+
+      ## Reporting back
+
+      After pushing, send to owner session `mvs_c13fe65cb68f4df3851304dea09a9099`:
+      ```
+      Phase 20 Track A done. Module at packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts (XXX LOC) + .test.ts (YYY LOC, ZZZ tests, 100% coverage). All quality gates PASS. Branch feat/phase20-a-hybrid-kelly-module pushed (commit <sha>). Standing by for verifier.
+      ```
+
+      ## Important notes
+
+      - This is a "drop-in" module — it does NOT yet wire into the engine. Track B handles wire-up + CLI flag. Track A builds ONLY the module + tests.
+      - **DO NOT modify** `signal-center-v1.ts` or any CLI runner in this track. That's Track B's job.
+      - **DO NOT modify** any existing plugin file (HybridKellyPlugin, CarryBaseline, etc.) — this track is purely additive.
+      - **DO NOT run any backtests.** Track C owns the backtest sweep.
+      - **DO NOT open a PR.** Track A only commits + pushes to its branch; Track C handles the user-facing PR after sweep completes.
+
+  # ============================================================
+  # TRACK B — Wire into signal-center-v1 + CLI flag
+  # ============================================================
+  - id: 'phase20-track-b-wire'
+    title: 'Phase 20 Track B — Wire into signal-center-v1 + CLI flag on run-donchian-pivot-composition'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 3600000  # 60min
+    verified_by: verifier
+    depends_on: ['phase20-track-a-module']
+    verify_prompt: |
+      Verify Phase 20 Track B (wire into signal-center-v1 + CLI flag):
+
+      ## Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .tmp-verify-p20b origin/feat/phase20-b-wire-and-flag 2>/dev/null || \
+        git worktree add .tmp-verify-p20b -b feat/phase20-b-wire-and-flag origin/feat/phase20-a-hybrid-kelly-module
+      cd .tmp-verify-p20b
+      # Ensure Track A's module is in the ancestry
+      git merge origin/feat/phase20-a-hybrid-kelly-module --no-ff -m "Track A → B sync"
+      ```
+
+      ## CHECK 1 — Track A's module present (regression)
+      - `ls packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` exists (Track A delivered)
+
+      ## CHECK 2 — signal-center-v1 modifications
+      - `git diff origin/main origin/feat/phase20-b-wire-and-flag -- packages/core/src/signal-center/signal-center-v1.ts` shows:
+        * `applyHybridKelly(...)` call inserted between plugin emit and emit-return steps
+        * Call wrapped in opt-in check (`if (config.usePerTradeHybridKelly)`)
+        * Default `usePerTradeHybridKelly = false` (Phase 19 baseline behavior bit-identical when off)
+      - Read the actual diff. Reject if the new module is called unconditionally (breaks backward compat).
+
+      ## CHECK 3 — CLI flag present
+      - `grep -E '(use-per-trade-kelly|usePerTradeHybridKelly)' packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` shows:
+        * CLI parse handles `--use-per-trade-kelly=true|false`
+        * Default value `false` (off)
+        * Validates that no value other than `true`/`false` is accepted
+      - `grep 'usePerTradeHybridKelly' packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` shows the flag is passed through to SignalCenterV1Config
+
+      ## CHECK 4 — index.ts re-exports (Track A may have done, but verify)
+      - `grep 'applyHybridKelly\|computeHybridKellyFraction\|HybridKellyConfig\|SignalTradeHistory' packages/core/src/index.ts` — all 4 exported
+
+      ## CHECK 5 — backwards-compat regression test
+      - `bun test packages/core/src/signal-center/signal-center-v1.test.ts` → ALL pass
+      - Run a regression baseline backtest: `bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts --symbol=BTC/USDT --timeframe=15m --min-consensus=1 --max-position-pct-equity=0.12 --use-per-trade-kelly=false --output=/tmp/regression-test.json`
+      - Diff the result against `backtest-results/phase19-cap-sweep-1of2-btc-15m-0.12.json`:
+        * `python3 -c "import json; a=json.load(open(sys.argv[1])); b=json.load(open(sys.argv[2])); ar=a['result']; br=b['result']; print('monthlyA=', round(a['monthlyReturn']*100,2), 'monthlyB=', round(b['monthlyReturn']*100,2), 'diff=', round((a['monthlyReturn']-b['monthlyReturn'])*100,4))"`
+        * Acceptable drift: <0.01pp per-month (floating-point noise)
+        * Reject if monthlyReturn diff > 0.01pp → wire-up is leaking when --use-per-trade-kelly=false
+
+      ## CHECK 6 — 1:10 3-layer defense audit
+      - `grep 'assertLeverageInvariant' packages/core/src/signal-center/signal-center-v1.ts` shows the assertion is still called (NOT removed by this track)
+      - Test: when `usePerTradeHybridKelly=true` + `hybridKellyCap=1.0` + `riskPerTrade=0.05` + `equity=$10k` + `leverage=10`, emit a SizingSignal{confidence:1.0, kelly-overridden to 1.0}, assertLeverageInvariant(product) MUST PASS (not breach 1:10)
+      - Existing `assertLeverageInvariant` 3-layer defense: still in start(), per-emit, per-bar (read existing test file to verify)
+
+      ## CHECK 7 — docstring-vs-implementation lie check
+      - Read signal-center-v1.ts in full. For each `/** ... */` block above `emit()`, `start()`, or `applyHybridKelly`:
+        * Docstring claim must match actual code path
+        * If docstring says "applies per-trade Hybrid-Kelly when config.usePerTradeHybridKelly is true", grep for that exact boolean check
+        * If docstring says "history lookup is fetched via config.historyProvider callback", grep for that callback type
+      - Any mismatch = FAIL (Phase 10G Track C lesson)
+
+      ## CHECK 8 — quality gates (full suite, NOT just SCv1)
+      - `bun run typecheck` → 13/13 packages PASS
+      - `bun run lint` → 0 errors
+      - `bun test` (full suite) → ALL pass; record delta from baseline
+      - `grep -c 'eslint-disable' packages/core/src/signal-center/signal-center-v1.ts` — count increase from main should be 0 (no new disables)
+
+      ## CHECK 9 — branch + commit hygiene
+      - `git log --oneline origin/feat/phase20-b-wire-and-flag ^origin/feat/phase20-a-hybrid-kelly-module` — at least 1 new commit on top of Track A
+      - `git diff origin/feat/phase20-a-hybrid-kelly-module origin/feat/phase20-b-wire-and-flag --stat` shows changes ONLY in:
+        * `packages/core/src/signal-center/signal-center-v1.ts` (wire-up)
+        * `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` (CLI flag)
+        * `packages/core/src/signal-center/signal-center-v1.test.ts` (regression tests; allow if Track A didn't add)
+        * NO changes to existing plugins, NO changes to backtest engine, NO changes to other CLI runners
+      - Branch name is EXACTLY `feat/phase20-b-wire-and-flag`
+
+      ## PASS / FAIL
+      PASS only if ALL 9 checks pass. The regression test (CHECK 5) is the most important — if monthlyReturn drifts more than 0.01pp when `usePerTradeHybridKelly=false`, Track B's wire-up is leaking into the production path.
+    prompt: |
+      You are the **Coder agent** working on **Phase 20 Track B** of mm-crypto-bot.
+
+      ## Goal
+
+      Wire the Track A Per-Trade Hybrid-Kelly module into `signal-center-v1` so that when `config.usePerTradeHybridKelly === true`, the `applyHybridKelly()` function overrides each SizingSignal's confidence field BEFORE the engine consumes it.
+
+      **CRITICAL: Opt-in only.** Default behavior MUST be bit-identical to Phase 19 (no Kelly override). Track A built the module in isolation; Track B adds the wire-up with `--use-per-trade-kelly=false` as the default CLI flag value.
+
+      ## Setup
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-phase20-b-wire-and-flag -b feat/phase20-b-wire-and-flag origin/feat/phase20-a-hybrid-kelly-module
+      cd .worktrees/wt-phase20-b-wire-and-flag
+      ```
+
+      Read Track A's module:
+      ```bash
+      cat packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts
+      ```
+
+      Read the existing signal-center-v1 emit flow:
+      ```bash
+      cat packages/core/src/signal-center/signal-center-v1.ts
+      ```
+
+      ## Files to modify
+
+      ### 1. MODIFIED: `packages/core/src/signal-center/signal-center-v1.ts`
+
+      Add to `SignalCenterV1Config`:
+      ```ts
+      usePerTradeHybridKelly?: boolean;  // default false
+      perTradeHybridKellyConfig?: HybridKellyConfig;
+      historyProvider?: (signature: string) => SignalTradeHistory;
+      ```
+
+      In `emit()` (or whatever the public method that returns SizingSignals to the engine is — read the file to confirm):
+      - After plugins emit SizingSignals but BEFORE returning them to the engine
+      - If `config.usePerTradeHybridKelly === true` AND `config.historyProvider` is set:
+        * For each SizingSignal: call `applyHybridKelly(signal, historyProvider, config.perTradeHybridKellyConfig ?? defaultConfig, now)`
+        * Return the overridden SizingSignals
+      - **Always pass the original SizingSignals through if opt-in is off** (bit-identical to baseline)
+
+      **Docstring requirement:** Each function/block you touch MUST have a JSDoc comment that matches the actual code path (Phase 10G Track C lesson). If `applyHybridKelly` is gated by `usePerTradeHybridKelly`, the docstring MUST say so.
+
+      ### 2. MODIFIED: `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts`
+
+      Add to CLI args:
+      ```ts
+      usePerTradeHybridKelly: boolean;  // default false
+      hybridKellyCap: number;           // default 0.5
+      hybridKellyHistoryDays: number;   // default 30
+      ```
+
+      Add CLI parsing:
+      - `--use-per-trade-kelly=true|false` (default `false`)
+      - `--hybrid-kelly-cap=<0..1>` (default `0.5`; throws if > 1.0)
+      - `--hybrid-kelly-history-days=<int>` (default `30`; throws if < 1)
+
+      When `usePerTradeHybridKelly === true`:
+      - Construct a `historyProvider` callback that maintains a `Map<signature, tradeHistory[]>` (cumulative across the run)
+      - Wire it into `SignalCenterV1Config`
+      - Pass `perTradeHybridKellyConfig: { hybridKellyCap, historyWindowDays: hybridKellyHistoryDays, minTradesForKelly: 30 }`
+
+      **Implementation tip — historyProvider for backtest mode:**
+      - Add a `cumulativeTradesBySignature: Map<string, { pnlUsd: number; notionalUsd: number }[]>` at module scope OR on the runner instance
+      - After each trade completes (backtest emits to `result.trades`), do NOT have access mid-run — instead, you'll need a pre-pass trade history OR a hybrid approach
+      - **Simple version**: pre-pass — run the backtest WITHOUT kelly first to populate the trade log, then run WITH kelly using the populated history. This is OK for the validation in Phase 20 #1 (Track C runs reference first, then HybridKelly).
+      - **Better version**: the signal-center-v1 accumulate-and-recall pattern. After every bar's trades close, push `result.trades` to the signature-keyed map. This requires the engine to expose per-trade history. Reading `packages/backtest/src/engine.ts` to understand the emit surface.
+
+      **Pick one pattern. Document the choice in deliverable.md.**
+
+      ### 3. MODIFIED (if Track A missed): `packages/core/src/index.ts`
+
+      Verify the 4 new exports are present:
+      ```ts
+      export type { HybridKellyConfig, SignalTradeHistory } from './signal-center/sizing/per-trade-hybrid-kelly.js';
+      export { computeHybridKellyFraction, applyHybridKelly } from './signal-center/sizing/per-trade-hybrid-kelly.js';
+      ```
+
+      ### 4. NEW/MODIFIED: `packages/core/src/signal-center/signal-center-v1.test.ts`
+
+      Add 3-5 tests covering:
+      - `usePerTradeHybridKelly=false` (default) → emit() returns SizingSignals untouched (regression anchor)
+      - `usePerTradeHybridKelly=true` + historyProvider with sufficient trades → emit() returns overridden SizingSignals
+      - `usePerTradeHybridKelly=true` + historyProvider with insufficient trades → emit() returns SizingSignals with confidence=0 (no-override-to-0 behavior)
+      - `enabledSymbols=['BTC/USDT']` filter → only BTC SizingSignals overridden
+      - Backward-compat regression: existing emit-flow tests still pass (e.g., the per-symbol SizingSignal returned by existing tests is unchanged when usePerTradeHybridKelly is unset)
+
+      ## Quality gates (mandatory PASS)
+
+      - `bun run typecheck` → 13/13 packages PASS
+      - `bun run lint` → 0 errors
+      - `bun test` (full suite) → ALL pass; record delta from baseline (Track A's + your new tests)
+      - No `eslint-disable` lines added
+      - **Regression sanity:** Run `bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts --symbol=BTC/USDT --timeframe=15m --min-consensus=1 --max-position-pct-equity=0.12 --use-per-trade-kelly=false --output=/tmp/regression-test.json`
+      - Diff `/tmp/regression-test.json` against `backtest-results/phase19-cap-sweep-1of2-btc-15m-0.12.json`:
+        * monthlyReturn drift must be <0.01pp (floating-point only)
+        * trades, maxDD, Sharpe, winRate MUST be byte-identical or ±0.001 (engine numerical noise only)
+      - 1:10 mandate audit: when `usePerTradeHybridKelly=true` + max `hybridKellyCap=1.0` + max `riskPerTrade=0.05`, the per-bar position notional MUST NOT exceed maxPositionPctEquity × equity × leverage (= 0.12 × $10k × 10 = $12k nominal max). The existing 3-layer `assertLeverageInvariant` in `signal-center-v1.ts` MUST catch this.
+
+      ## Mandatory report-back (deliverable.md)
+
+      Write at worktree root with:
+      - Files modified + LOC delta
+      - Test count + delta
+      - Quality gates status (typecheck, lint, test, no-eslint-disable)
+      - Regression sanity result (monthlyReturn drift between Phase 19 envelope and your opt-out run)
+      - 1:10 mandate audit result (test the worst-case kelly=1.0 × conf=1.0 × risk=0.05 scenario; assertLeverageInvariant MUST NOT raise)
+      - Pattern choice documented (pre-pass trade history OR per-bar accumulation)
+      - Commit SHA + push status
+
+      ## Reporting back
+
+      Send to owner session `mvs_c13fe65cb68f4df3851304dea09a9099`:
+      ```
+      Phase 20 Track B done. Wired applyHybridKelly into signal-center-v1 (opt-in via usePerTradeHybridKelly=false default). Added --use-per-trade-kelly CLI flag to run-donchian-pivot-composition.ts. Regression: monthlyReturn drift <0.01pp vs Phase 19 baseline. Quality gates PASS. Branch feat/phase20-b-wire-and-flag pushed (commit <sha>). Standing by for verifier.
+      ```
+
+      ## Important notes
+
+      - **DO NOT** modify any existing plugin (CarryBaseline, VolTargetSizing, DirectionalMTF, SFK, RegimeDetector, HybridKelly, etc.)
+      - **DO NOT** modify the engine position-size chain (Phase 17 fix is sacred)
+      - **DO NOT** open a PR or merge to main. Track C owns the user-facing PR.
+      - **DO NOT** run the 9-backtest HybridKelly sweep. Track C does that.
+
+  # ============================================================
+  # TRACK C — Validated backtest sweep + REPORT + PR
+  # ============================================================
+  - id: 'phase20-track-c-sweep'
+    title: 'Phase 20 Track C — Validated 9-backtest HybridKelly sweep + 3 reference + REPORT-phase20.md + PR'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 5400000  # 90min
+    verified_by: verifier
+    depends_on: ['phase20-track-b-wire']
+    verify_prompt: |
+      Verify Phase 20 Track C (9-backtest HybridKelly sweep + reference + REPORT + PR):
+
+      ## Setup
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .tmp-verify-p20c origin/feat/phase20-c-hybrid-kelly-sweep-report 2>/dev/null || \
+        git worktree add .tmp-verify-p20c -b feat/phase20-c-hybrid-kelly-sweep-report origin/feat/phase20-b-wire-and-flag
+      cd .tmp-verify-p20c
+      git merge origin/feat/phase20-b-wire-and-flag --no-ff -m "Track B → C sync"
+      ```
+
+      ## CHECK 1 — Track B wiring present
+      - `grep 'applyHybridKelly\|usePerTradeHybridKelly' packages/core/src/signal-center/signal-center-v1.ts` returns matches
+      - `grep 'use-per-trade-kelly' packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` returns match
+
+      ## CHECK 2 — 12 JSON envelopes on disk
+      - 9 HybridKelly JSONs:
+        ```bash
+        ls backtest-results/phase20-hybrid-kelly-1of2-{btc,eth,sol}-15m-{0.08,0.12,0.15}.json | wc -l
+        # → 9
+        ```
+      - 3 reference JSONs (no-Kelly, regression anchor):
+        ```bash
+        ls backtest-results/phase20-baseline-1of2-{btc,eth,sol}-15m-0.12.json | wc -l
+        # → 3 (only 0.12 — the recommended cap)
+        ```
+      - Total = 12 JSON files
+
+      ## CHECK 3 — envelope comparison vs Phase 19
+      For each HybridKelly JSON, run python compare:
+      ```python
+      import json, sys
+      hk = json.load(open(sys.argv[1]))
+      ph19 = json.load(open(sys.argv[2]))
+      print('HybridKelly monthly:', round(hk['monthlyReturn']*100,2), '%')
+      print('Phase 19 monthly:', round(ph19['monthlyReturn']*100,2), '%')
+      print('Lift (pp):', round((hk['monthlyReturn']-ph19['monthlyReturn'])*100, 2))
+      ```
+      Phase 19 files (cap=0.12 1-of-2 baseline):
+      - `backtest-results/phase19-cap-sweep-1of2-btc-15m-0.12.json`
+      - `backtest-results/phase19-cap-sweep-1of2-eth-15m-0.12.json`
+      - `backtest-results/phase19-cap-sweep-1of2-sol-15m-0.12.json`
+
+      Expected: BTC HybridKelly ≥ +32.24%/mo (Phase 19 cap=0.12 BTC was +26.67%/mo), ETH ≥ +32.14%, SOL ≥ +37.91%
+      Acceptable range: any positive lift ≥ +1pp over Phase 19 envelope
+      Reject if HybridKelly envelope < Phase 19 envelope → Kelly sizing hurts (FAIL → manual_retry with "revert to Phase 19 baseline, downgrade RESEARCH note")
+
+      ## CHECK 4 — DD budget preserved
+      - `python3 -c "..."` extracts `maxDrawdown` from each HybridKelly JSON
+      - For each symbol @ cap=0.12, HybridKelly DD ≤ 6.5% (Phase 19 = 4.7%; allowing +1.8pp headroom for Kelly variance)
+      - Reject if DD > 8% (the safe-operating threshold per Phase 19 §1)
+
+      ## CHECK 5 — 1:10 leverage invariant
+      - For each HybridKelly JSON:
+        ```bash
+        python3 -c "import json; d=json.load(open(sys.argv[1])); r=d['result']; maxNotional=[t['notionalUsd'] for t in r['trades']]; print('Max notional:', max(maxNotional), 'Equity:', d['args']['initialEquity'], 'Max acceptable notional (1:10 cap):', d['args']['initialEquity']*10)" <file>
+        ```
+      - maxNotional / equity ≤ 10 (1:10 mandate)
+      - Reject if any trade breaches 1:10 → assertLeverageInvariant was bypassed
+
+      ## CHECK 6 — REPORT-phase20.md structure
+      - `ls docs/research/REPORT-phase20.md` exists
+      - `wc -w docs/research/REPORT-phase20.md` ≥ 2500 words
+      - Section count ≥ 8 (sections numbered §1 through §8+)
+      - **JSON path citations** (Phase 17 §9 lesson): EVERY numerical claim in REPORT cites a JSON file path. Read REPORT, for each percentage or numeric, ensure a JSON path like `backtest-results/phase20-hybrid-kelly-1of2-btc-15m-0.12.json` or similar is referenced.
+      - Section §6 (return-vs-DD update) AND §7 (+50%/mo progress) MUST exist
+      - §9 (Phase 21 candidate — regime-conditioned cap) MUST exist
+
+      ## CHECK 7 — PR opened
+      - `gh pr list --head feat/phase20-c-hybrid-kelly-sweep-report --json url` returns a PR URL (CI may still be running)
+      - `gh pr view <url> --json state,statusCheckRollup` — `state=OPEN`, statusCheckRollup may be PENDING (acceptable)
+      - If CI already green: all 5 checks PASS (Build/Coverage/Lint/Test/Typecheck)
+
+      ## CHECK 8 — quality gates (full suite, NOT just new files)
+      - `bun run typecheck` → 13/13 PASS
+      - `bun run lint` → 0 errors
+      - `bun test` (full suite) → ALL pass; record delta from baseline
+      - Coverage on Track A's module STILL 100% (re-pull lcov.info)
+
+      ## CHECK 9 — branch + commit hygiene
+      - `git log --oneline origin/feat/phase20-c-hybrid-kelly-sweep-report ^origin/feat/phase20-b-wire-and-flag` — at least 1 commit
+      - Commit message references Phase 20 #1 + 12-JSON count
+      - Branch name is EXACTLY `feat/phase20-c-hybrid-kelly-sweep-report`
+      - NO changes to existing plugins, NO changes to engine.ts, NO changes to Phase 19 envelopes
+
+      ## PASS / FAIL
+      PASS only if ALL 9 checks pass. The empirical envelope lift (CHECK 3) is the binary: if HybridKelly envelope DOESN'T beat Phase 19 baseline at the same caps, the entire plan premise is wrong — escalate to user with the empirical negative result and Phase 21/22 alternatives.
+
+      **Note:** A negative result (HybridKelly doesn't lift envelope) is a VALID Phase 20 #1 outcome if the reason is well-understood (e.g., insufficient M15 trade history for per-trade Kelly; windowDays=30 may need extension to 90). In that case, override FAIL with: "Phase 20 #1 negative result documented; recommend expanding history window OR pivoting to adaptive Kelly vol-target composition (Phase 9 9E precedent)."
+    prompt: |
+      You are the **Coder agent** working on **Phase 20 Track C** of mm-crypto-bot. This is the FINAL track of Phase 20 #1 — your output goes to the user as a PR.
+
+      ## Goal
+
+      Run the validated HybridKelly backtest sweep (9 HybridKelly + 3 reference = 12 total JSONs), write REPORT-phase20.md, open a PR to main, and confirm CI green.
+
+      ## Setup
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-phase20-c-hybrid-kelly-sweep-report -b feat/phase20-c-hybrid-kelly-sweep-report origin/feat/phase20-b-wire-and-flag
+      cd .worktrees/wt-phase20-c-hybrid-kelly-sweep-report
+      ```
+
+      Read Track B's wiring:
+      ```bash
+      cat packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts | grep -A 5 'use-per-trade-kelly\|usePerTradeHybridKelly'
+      ```
+
+      Read Phase 19 baseline JSONs for comparison:
+      ```bash
+      ls backtest-results/phase19-cap-sweep-1of2-*-15m-{0.08,0.12,0.15}.json
+      ```
+
+      ## Backtest sweep (9 HybridKelly JSONs)
+
+      ```bash
+      cd .worktrees/wt-phase20-c-hybrid-kelly-sweep-report
+      for SYMBOL in BTC/USDT ETH/USDT SOL/USDT; do
+        SYM=$(echo $SYMBOL | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+        for CAP in 0.08 0.12 0.15; do
+          echo "Running HybridKelly ${SYM} cap=${CAP}..."
+          bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+            --symbol=$SYMBOL --timeframe=15m --min-consensus=1 \
+            --max-position-pct-equity=$CAP \
+            --use-per-trade-kelly=true \
+            --output=backtest-results/phase20-hybrid-kelly-1of2-${SYM}-15m-${CAP}.json
+        done
+      done
+      ```
+
+      Verify 9 JSONs:
+      ```bash
+      ls backtest-results/phase20-hybrid-kelly-1of2-*.json | wc -l
+      # → 9
+      ```
+
+      ## Reference baseline (3 no-Kelly JSONs @ cap=0.12 only)
+
+      ```bash
+      for SYMBOL in BTC/USDT ETH/USDT SOL/USDT; do
+        SYM=$(echo $SYMBOL | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+        echo "Running reference ${SYM} cap=0.12..."
+        bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+          --symbol=$SYMBOL --timeframe=15m --min-consensus=1 \
+          --max-position-pct-equity=0.12 \
+          --use-per-trade-kelly=false \
+          --output=backtest-results/phase20-baseline-1of2-${SYM}-15m-0.12.json
+      done
+      ```
+
+      Verify 3 reference JSONs:
+      ```bash
+      ls backtest-results/phase20-baseline-1of2-*.json | wc -l
+      # → 3
+      ```
+
+      Total on disk: 12 JSONs.
+
+      ## Build per-backtest envelope comparison
+
+      Write a quick Python script that prints a 9-row table:
+      - Symbol, Cap, HybridKelly monthly%/DD%/trades, Phase 19 same-config monthly%/DD%/trades, Δ(pp), DD drift
+      - Cite JSON path next to each row.
+
+      Sample output section:
+      ```
+      | Symbol | Cap | HybridKelly monthly | Phase 19 monthly | Δ monthly (pp) | HybridKelly DD | Phase 19 DD | Δ DD (pp) |
+      |--------|-----|--------------------|-------------------|----------------|----------------|--------------|-----------|
+      | BTC | 0.08 | +XX.XX% | +25.36% | +YY.YY | Z.ZZ% | 2.95% | +W.WW |
+      ...
+      ```
+
+      Write this output to the REPORT.
+
+      ## Write REPORT-phase20.md (≥8 sections, ≥2500 words)
+
+      Located at `docs/research/REPORT-phase20.md`.
+
+      Section template (you MUST hit all 11 sections):
+      1. Executive Summary — cap=0.12 1-of-2 expected to climb from +32.24%/mo (Phase 19) → +40-45%/mo (Phase 20 #1)
+      2. Track A module spec — `per-trade-hybrid-kelly.ts` + `.test.ts`, 100% coverage, ≥20 tests
+      3. Track B wire-up — opt-in via `--use-per-trade-kelly=false` default; signal-center-v1 insert point
+      4. Per-Trade Hybrid-Kelly math — Thorp / Vince / Polk hybrid; `kellyFraction = (winRate × payoffRatio - (1 − winRate)) / payoffRatio`; clamp at 0..config.hybridKellyCap; 1:10 mandate verification
+      5. Backtest envelope results — 9-row table from §envelope-build, JSON paths cited per row
+      6. Return-vs-DD curve update vs Phase 19 — new +50%/mo gap position
+      7. +50%/mo progress — closes from 1.55× (Phase 19) to ~1.10-1.25× (Phase 20 #1)
+      8. Risks — negative-edge regimes, history-window interactions, M15 frequency, kill-switch frequency
+      9. Phase 21 candidate (regime-conditioned cap) — REAFFIRMED priority
+      10. Phase 22 candidate (funding-rate carry leg) — REAFFIRMED priority
+      11. Quality gates — typecheck/lint/test/coverage/1:10 regression/PR
+
+      **Citation requirement (Phase 17 §9 lesson):** EVERY numerical claim in REPORT cites a JSON file path. Examples:
+      - "+35.42%/mo" → "(`backtest-results/phase20-hybrid-kelly-1of2-btc-15m-0.12.json`)"
+      - "max DD 5.5%" → "(`backtest-results/phase20-hybrid-kelly-1of2-btc-15m-0.12.json`, `result.maxDrawdown`)"
+      - "Phase 19 baseline +26.67%/mo BTC" → "(`backtest-results/phase19-cap-sweep-1of2-btc-15m-0.12.json`)"
+      - Any unsupported claim = FAIL
+
+      ## Open the PR
+
+      ```bash
+      cd .worktrees/wt-phase20-c-hybrid-kelly-sweep-report
+      git add backtest-results/phase20-*.json docs/research/REPORT-phase20.md
+      git commit -m "feat(phase20-1c): Per-Trade Hybrid-Kelly sizing — 9 HybridKelly + 3 reference envelopes + REPORT-phase20.md (cap=0.12 1-of-2 lifts from +32.24%/mo to +X.XX%/mo @ Y.YY% DD)"
+      git push origin feat/phase20-c-hybrid-kelly-sweep-report
+      gh pr create --base main --head feat/phase20-c-hybrid-kelly-sweep-report \
+        --title "Phase 20 #1 — Per-Trade Hybrid-Kelly sizing drop-in" \
+        --body "Phase 20 #1 deliverable. Adds packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts (100% coverage, ≥20 tests), wires into signal-center-v1 (opt-in), opens --use-per-trade-kelly CLI flag on run-donchian-pivot-composition.ts. 12 backtest envelopes (9 HybridKelly + 3 reference) on disk. Closes +50%/mo gap from 1.55× to ~1.10-1.25×."
+      ```
+
+      Note: gh PR create may fail without keyring auth (Phase 13/14/15 precedent). If so, write the PR create command into deliverable.md for orchestrator-side creation.
+
+      ## Mandatory report-back (deliverable.md)
+
+      Write deliverable.md at worktree root:
+      - 9-row envelope table (HybridKelly vs Phase 19 same cap)
+      - 3-row reference table (no-Kelly vs Phase 19 same cap, regression anchor)
+      - DD budget check (each HybridKelly DD ≤ 6.5%)
+      - 1:10 leverage audit (max notional / equity ≤ 10 for every trade)
+      - Quality gates status (5 lines: typecheck/lint/test/coverage/1:10)
+      - REPORT-phase20.md word count + section count + JSON citation count
+      - PR URL or "gh PR create failed in producer; orchestrator opens on behalf"
+      - Commit SHA on branch + push status
+
+      ## Reporting back
+
+      Send to owner session `mvs_c13fe65cb68f4df3851304dea09a9099`:
+      ```
+      Phase 20 Track C done. 9 HybridKelly JSONs + 3 reference = 12 envelopes committed. Cap=0.12 1-of-2 lifted from +32.24%/mo to +XX.XX%/mo @ Y.YY% DD (Δ = +YY.YY pp). REPORT-phase20.md (ZZZZ words, K sections, J JSON citations). Branch feat/phase20-c-hybrid-kelly-sweep-report pushed (commit <sha>). PR <url> opened. Standing by for verifier.
+      ```
+
+      ## Important notes
+
+      - **If HybridKelly envelope DOESN'T beat Phase 19 baseline** — STOP, write a `NEGATIVE-RESULT.md` (in addition to REPORT-phase20.md), and report the negative finding honestly. Do NOT silently rubber-stamp.
+      - **If 1:10 mandate is breached** — STOP, fix the wire-up (Track B regression is broken), report.
+      - **If CI fails on PR** — investigate. Common cause: turbo cache masking turbo type-check vs standalone type-check divergence (Phase 16 lesson).
+      - **The empirical envelope lift is the binary verdict of Phase 20 #1.** If positive (HybridKelly > Phase 19) → SUCCESS, ready for squash-merge. If neutral or negative → escalate with empirical evidence + Phase 21/22 pivots.

@@ -1,0 +1,551 @@
+version: 1
+plan:
+  name: 'Phase 18 — Regime-Ensemble 1-of-2 + Donchian/Pivot 2-component Composition'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — Regime-Ensemble 1-of-2 consensus relaxation
+  # ============================================================
+  - id: 'phase18-track-a-regime-1of2'
+    title: 'Phase 18 Track A — Regime-Ensemble 1-of-2 consensus relaxation'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 2700000
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 18 Track A (regime-ensemble 1-of-2 consensus):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git fetch origin && git worktree add .tmp-verify-p18a origin/feat/phase18-a-regime-1of2 && cd .tmp-verify-p18a`
+      2. `grep -n "minConsensus" packages/core/src/signal-center/plugins/regime-routed-ensemble.ts` — MUST return ≥1 line (default 1, was 2)
+      3. `grep -n "1-of-2\|consensusCount\|consensusThreshold" packages/core/src/signal-center/plugins/regime-routed-ensemble.ts` — at least 1 hit
+      4. `bun run typecheck && bun run lint && bun test` — ALL PASS
+      5. Coverage 100% on regime-routed-ensemble.ts — read packages/core/coverage/lcov.info directly
+      6. `ls backtest-results/phase18-regime-ensemble-{btc,eth,sol}-15m-1of2.json | wc -l` → 3 files
+      7. For each JSON: `python3 -c "import json,sys; d=json.load(open(sys.argv[1])); r=d['result']; print(r['symbol'], r['monthlyReturnPct'], 'trades=', r['tradeCount'], 'dd=', r['maxDrawdownPct'])" <file>` — all 3 must show tradeCount > 0 (not all kill-switched)
+      8. BTC envelope > 0.00%/mo (Phase 17 baseline was 0.00%/mo on kill-switch) — minimum +2%/mo
+      9. `git log --oneline origin/feat/phase18-a-regime-1of2 ^main` — commit exists
+      10. `gh pr list --head feat/phase18-a-regime-1of2 --json url` — PR URL returned (or already merged)
+      11. `cat deliverable.md` at worktree root — exists with envelope table + PR URL
+      12. Cleanup: `cd .. && git worktree remove .tmp-verify-p18a --force`
+
+      PASS only if ALL 12 checks pass. BTC envelope MUST be > 0.00%/mo (proves the fix works).
+    prompt: |
+      You are the **Coder agent** working on **Phase 18 Track A** of mm-crypto-bot.
+
+      ## Context
+
+      Phase 17 fixed `engine.ts` to multiply `riskPerTrade` by `signal.confidence` (commit `6f49f6b` on main).
+      Phase 18 §8 #1 ranked candidate: drop Regime-Routed Ensemble consensus from 2-of-2 to 1-of-2 to lift
+      BTC from 0.00%/mo kill-switch (Phase 17) to a viable +5-15%/mo envelope.
+
+      **Phase 16 §3 finding recap:** 2-of-2 consensus on the regime ensemble was too strict → BTC hit
+      kill-switch at 0.00%/mo (DD 50.01%). The ADX-based regime routing itself is fine; the consensus
+      rule was the bottleneck.
+
+      Read these files FIRST:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase18-scope-plan.md` — authoritative scope
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/REPORT-phase17.md` — Phase 17 context (especially §6)
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/plugins/regime-routed-ensemble.ts` — current implementation
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/phase17-regime-ensemble-btc-15m-fixed.json` — Phase 17 baseline
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest-tools/src/cli/run-regime-routed-ensemble.ts` — CLI runner
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase18-a-regime-1of2`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase18-a-regime-1of2 -b feat/phase18-a-regime-1of2 main`
+      - Base branch: `main` (HEAD `34f8bc0` from Phase 17 closure)
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Modify `packages/core/src/signal-center/plugins/regime-routed-ensemble.ts`
+
+      Change consensus rule from hard-coded 2-of-2 to configurable `minConsensus` (default 1 = either sub-strategy fires):
+
+      - Add `minConsensus?: number` to plugin constructor options (default 1)
+      - At the signal-aggregation point, replace `firedCount === 2` check with `firedCount >= minConsensus`
+      - Keep backward-compat: existing tests that pass options without `minConsensus` get default 1
+      - Update docstring to reflect the new default
+
+      Approximate diff (verify exact lines first):
+      ```typescript
+      // BEFORE:
+      if (firedCount === 2) {
+        // emit consensus signal
+      }
+
+      // AFTER:
+      const minConsensus = opts.minConsensus ?? 1;
+      if (firedCount >= minConsensus) {
+        // emit consensus signal (configurable, default 1 = either fires)
+      }
+      ```
+
+      Keep the rest of the file unchanged.
+
+      ### 2. Add tests in `regime-routed-ensemble.test.ts`
+
+      If the test file doesn't exist, create it. Add exactly 5 tests:
+
+      1. `minConsensus=1 (default), both fire → emit` — verify 1-of-2 fires
+      2. `minConsensus=1, only Donchian fires → emit` — verify 1-of-2 with single fire
+      3. `minConsensus=1, neither fires → no emit`
+      4. `minConsensus=2 (legacy), only one fires → no emit` — backward compat preserved
+      5. `minConsensus=2 (legacy), both fire → emit` — backward compat preserved
+
+      ### 3. Quality gates (ALL MUST PASS)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run typecheck
+      bun run lint
+      bun test
+      bun test --coverage --coverage-reporter=lcov
+      ```
+
+      Coverage requirement: **100% lines + branches on `regime-routed-ensemble.ts`**. Read `packages/core/coverage/lcov.info` directly and assert every line is covered.
+
+      ### 4. Run 3 backtests (BTC/ETH/SOL)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run packages/backtest-tools/src/cli/run-regime-routed-ensemble.ts \
+        --symbol=BTC/USDT --timeframe=15m --min-consensus=1 \
+        --output=backtest-results/phase18-regime-ensemble-btc-15m-1of2.json
+      bun run packages/backtest-tools/src/cli/run-regime-routed-ensemble.ts \
+        --symbol=ETH/USDT --timeframe=15m --min-consensus=1 \
+        --output=backtest-results/phase18-regime-ensemble-eth-15m-1of2.json
+      bun run packages/backtest-tools/src/cli/run-regime-routed-ensemble.ts \
+        --symbol=SOL/USDT --timeframe=15m --min-consensus=1 \
+        --output=backtest-results/phase18-regime-ensemble-sol-15m-1of2.json
+      ```
+
+      If `--min-consensus=1` CLI flag doesn't exist yet, you'll need to add it to the CLI parser.
+
+      ### 5. Verify backtests
+
+      For each JSON:
+      - `result.monthlyReturnPct` is a number
+      - `result.tradeCount > 0`
+      - `result.maxDrawdownPct < 50` (kill-switch sanity)
+      - BTC envelope MUST be > 0.00%/mo (proves fix works vs Phase 17 baseline)
+
+      ### 6. Commit
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase18-a-regime-1of2
+      git add -A
+      git commit -m "feat(phase18-a): regime-ensemble 1-of-2 consensus relaxation (lifts BTC from kill-switch)"
+      git push -u origin feat/phase18-a-regime-1of2
+      ```
+
+      ### 7. Open PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase18-a-regime-1of2
+      gh pr create \
+        --title "feat(phase18-a): regime-ensemble 1-of-2 consensus relaxation" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      - Adds configurable `minConsensus` (default 1) to Regime-Routed Ensemble
+      - Replaces hard-coded 2-of-2 with `firedCount >= minConsensus`
+      - Backward compat: existing callers without `minConsensus` get default 1 (1-of-2)
+      - 5 new unit tests + 100% coverage on modified file
+      - 3 backtest JSONs: BTC/ETH/SOL @ 15m with 1-of-2 on Phase 17 fixed engine
+
+      ## Key finding
+      BTC regime envelope lifts from 0.00%/mo kill-switch (Phase 17) to viable positive return (this PR).
+      ## Backward compat
+      - `minConsensus=2` legacy callers still work
+      - Default 1-of-2 lifts BTC/ETH/SOL from dilution cascade
+      EOF
+      )"
+      ```
+
+      ### 8. Write deliverable.md
+
+      At worktree root: `deliverable.md` listing:
+      - What changed (regime-routed-ensemble.ts + tests)
+      - Test results (5 new tests + full suite)
+      - Coverage result (100% on regime-routed-ensemble.ts)
+      - 3 backtest JSONs with envelope values
+      - PR URL
+
+      ## Memory rules (ABSOLUTE — do not violate)
+
+      - **1:10 leverage MANDATORY** — engine applies 1:10, strategy emits confidence, notional is pre-leverage
+      - **No eslint-disable** — fix root cause
+      - **No docstring lies** — JSDoc must match implementation
+      - **Coverage 100%** — read lcov.info directly, NOT test output summary
+      - **Backward compat** — existing callers must not break
+    depends_on: []
+
+  # ============================================================
+  # TRACK B — Donchian + Pivot 2-component composition
+  # ============================================================
+  - id: 'phase18-track-b-donchian-pivot-2comp'
+    title: 'Phase 18 Track B — Donchian + Pivot 2-component composition'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 3600000
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 18 Track B (Donchian + Pivot 2-component composition):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git fetch origin && git worktree add .tmp-verify-p18b origin/feat/phase18-b-donchian-pivot-2comp && cd .tmp-verify-p18b`
+      2. `ls packages/core/src/signal-center/plugins/donchian-pivot-composition.ts` → exists
+      3. `grep -n "minConsensus\|2-of-2\|both must fire" packages/core/src/signal-center/plugins/donchian-pivot-composition.ts` — at least 1 hit on minConsensus
+      4. `bun run typecheck && bun run lint && bun test` — ALL PASS
+      5. Coverage 100% on donchian-pivot-composition.ts — read packages/core/coverage/lcov.info directly
+      6. `ls backtest-results/phase18-donchian-pivot-{btc,eth,sol}-15m-2of2.json | wc -l` → 3 files (default 2-of-2)
+      7. `ls backtest-results/phase18-donchian-pivot-{btc,eth,sol}-15m-1of2.json | wc -l` → 3 files (variant 1-of-2)
+      8. For each of the 6 JSONs: tradeCount > 0, maxDD < 50
+      9. BTC 2-of-2 envelope > +13.35%/mo (Phase 15 single-strat baseline) — target +15-25%/mo
+      10. `git log --oneline origin/feat/phase18-b-donchian-pivot-2comp ^main` — commit exists
+      11. `gh pr list --head feat/phase18-b-donchian-pivot-2comp --json url` — PR URL returned
+      12. `cat deliverable.md` at worktree root — exists with 6-JSON envelope table + PR URL
+      13. Cleanup: `cd .. && git worktree remove .tmp-verify-p18b --force`
+
+      PASS only if ALL 13 checks pass.
+    prompt: |
+      You are the **Coder agent** working on **Phase 18 Track B** of mm-crypto-bot.
+
+      ## Context
+
+      Phase 15 produced Donchian Range Channel (BTC +13.35%/mo, ETH +15.24%/mo, SOL +22.78%/mo) and
+      Pivot Point Grid (BTC +60.07%/mo uncapped). Phase 15 §10 noted: "ensemble mechanism favors
+      noisy BB/Keltner signals over high-quality Donchian/Pivot. Ensemble composition should be
+      regime-routed, not consensus." Phase 16 attempted all-4-strategy ensemble but failed (regime
+      dilution + M5 aggregation).
+
+      Phase 18 Track B isolates the BEST 2 sub-strategies (Donchian + Pivot) with configurable consensus.
+
+      Read these files FIRST:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase18-scope-plan.md` — authoritative scope
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/REPORT-phase15.md` — Phase 15 envelope baseline
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/plugins/simple-retail-ensemble.ts` — existing ensemble pattern (mirror)
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/donchian-range-channel.ts` — sub-strategy 1
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/pivot-point-grid.ts` — sub-strategy 2
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest-tools/src/cli/` — existing CLI runners
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase18-b-donchian-pivot-2comp`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase18-b-donchian-pivot-2comp -b feat/phase18-b-donchian-pivot-2comp main`
+      - Base branch: `main` (HEAD `34f8bc0` from Phase 17 closure)
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. New file: `packages/core/src/signal-center/plugins/donchian-pivot-composition.ts`
+
+      A new `StrategyPlugin` implementation that wraps only DonchianRangeChannel + PivotPointGrid:
+
+      - Class name: `DonchianPivotComposition`
+      - Implements `StrategyPlugin` interface (same contract as `SimpleRetailEnsemble`)
+      - Wraps 2 sub-strategies: Donchian + Pivot
+      - `minConsensus` option: number of sub-strategies that must fire (default 2 = both must fire)
+      - When `firedCount >= minConsensus`: emit consensus signal with:
+        - `side = weightedVote(sides)` (both are mean-reversion so simple majority OK)
+        - `confidence = mean(sub-strategy confidences)`
+        - `stopLoss = min(sub-strategy stops)` (tighter stop wins)
+        - All other StrategySignal fields from sub-strategy (prefer Pivot's `entryPrice`)
+      - When `firedCount < minConsensus`: no emit
+      - Docstring must MATCH implementation — explain `minConsensus` default 2, override to 1 if both fire-rate too low
+
+      Approximate structure (verify against `simple-retail-ensemble.ts`):
+      ```typescript
+      export interface DonchianPivotCompositionOptions {
+        minConsensus?: number; // default 2 = both must fire
+        donchian?: DonchianRangeChannelOptions;
+        pivot?: PivotPointGridOptions;
+      }
+
+      export class DonchianPivotComposition implements StrategyPlugin {
+        private donchian: DonchianRangeChannel;
+        private pivot: PivotPointGrid;
+        private minConsensus: number;
+        // ... constructor, onCandle, etc.
+      }
+      ```
+
+      ### 2. New test file: `packages/core/src/signal-center/plugins/donchian-pivot-composition.test.ts`
+
+      Add exactly 8 tests:
+
+      1. `both fire (2-of-2 default) → emit consensus signal`
+      2. `only Donchian fires → no emit (default 2-of-2)`
+      3. `only Pivot fires → no emit (default 2-of-2)`
+      4. `neither fires → no emit`
+      5. `confidence = mean of sub-strategy confidences`
+      6. `signal fields merged correctly (side, stopLoss, entryPrice)`
+      7. `minConsensus=1 (override) → emit if either fires`
+      8. `both fire at conf=0.5 → emit at conf=0.5`
+
+      ### 3. Quality gates (ALL MUST PASS)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run typecheck
+      bun run lint
+      bun test
+      bun test --coverage --coverage-reporter=lcov
+      ```
+
+      Coverage: **100% lines + branches on `donchian-pivot-composition.ts`**.
+
+      ### 4. Create CLI runner: `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts`
+
+      Mirror `run-simple-retail-ensemble.ts` but with new composition class. Add `--min-consensus` flag.
+
+      ### 5. Run 6 backtests (3 symbols × 2 consensus modes)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      # 2-of-2 (default) for BTC/ETH/SOL
+      bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+        --symbol=BTC/USDT --timeframe=15m --min-consensus=2 \
+        --output=backtest-results/phase18-donchian-pivot-btc-15m-2of2.json
+      bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+        --symbol=ETH/USDT --timeframe=15m --min-consensus=2 \
+        --output=backtest-results/phase18-donchian-pivot-eth-15m-2of2.json
+      bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+        --symbol=SOL/USDT --timeframe=15m --min-consensus=2 \
+        --output=backtest-results/phase18-donchian-pivot-sol-15m-2of2.json
+      # 1-of-2 (variant) for BTC/ETH/SOL
+      bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+        --symbol=BTC/USDT --timeframe=15m --min-consensus=1 \
+        --output=backtest-results/phase18-donchian-pivot-btc-15m-1of2.json
+      bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+        --symbol=ETH/USDT --timeframe=15m --min-consensus=1 \
+        --output=backtest-results/phase18-donchian-pivot-eth-15m-1of2.json
+      bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+        --symbol=SOL/USDT --timeframe=15m --min-consensus=1 \
+        --output=backtest-results/phase18-donchian-pivot-sol-15m-1of2.json
+      ```
+
+      ### 6. Verify backtests
+
+      All 6 JSONs: tradeCount > 0, maxDD < 50%, monthlyReturnPct positive.
+      BTC 2-of-2 envelope MUST be > +13.35%/mo (Phase 15 single-strat baseline) — target +15-25%/mo.
+
+      ### 7. Commit + PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase18-b-donchian-pivot-2comp
+      git add -A
+      git commit -m "feat(phase18-b): Donchian + Pivot 2-component composition (orthogonal mean-reversion pair)"
+      git push -u origin feat/phase18-b-donchian-pivot-2comp
+      gh pr create \
+        --title "feat(phase18-b): Donchian + Pivot 2-component composition" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      - New `DonchianPivotComposition` plugin wraps Donchian Range Channel + Pivot Point Grid
+      - Configurable `minConsensus` (default 2 = both must fire, override to 1 for higher trade count)
+      - 8 new unit tests + 100% coverage
+      - New CLI runner `run-donchian-pivot-composition.ts`
+      - 6 backtest JSONs: BTC/ETH/SOL × (2-of-2 + 1-of-2)
+      ## Key finding
+      Phase 15 §10 lesson: ensemble composition should be regime-routed, not consensus-at-N.
+      Isolating the 2 best M15-native mean-reversion strategies avoids BB/Keltner M5 dilution.
+      EOF
+      )"
+      ```
+
+      ### 8. Write deliverable.md
+
+      At worktree root: `deliverable.md` listing:
+      - New file (donchian-pivot-composition.ts + tests + CLI runner)
+      - Test results (8 new tests + full suite)
+      - Coverage result (100% on new file)
+      - 6 backtest JSONs with envelope values (table)
+      - PR URL
+
+      ## Memory rules (ABSOLUTE)
+
+      - **1:10 leverage MANDATORY**
+      - **No eslint-disable** — fix root cause
+      - **No docstring lies** — JSDoc must match implementation
+      - **Coverage 100%** — read lcov.info directly
+      - **Both M15-native sub-strategies** — do NOT introduce M5 BB/Keltner (proven net-destructive)
+    depends_on: []
+
+  # ============================================================
+  # TRACK C — Integration + REPORT-phase18.md
+  # ============================================================
+  - id: 'phase18-track-c-integration-report'
+    title: 'Phase 18 Track C — Integration + REPORT-phase18.md'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 3600000
+    verified_by: verifier
+    depends_on: ['phase18-track-a-regime-1of2', 'phase18-track-b-donchian-pivot-2comp']
+    verify_prompt: |
+      Verify Phase 18 Track C (integration + REPORT-phase18.md):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git fetch origin && git worktree add .tmp-verify-p18c origin/feat/phase18-c-integration-report && cd .tmp-verify-p18c`
+      2. `grep -n "minConsensus" packages/core/src/signal-center/plugins/regime-routed-ensemble.ts` — Track A's change must be on main
+      3. `ls packages/core/src/signal-center/plugins/donchian-pivot-composition.ts` — Track B's new file must be on main
+      4. `ls backtest-results/phase18-regime-ensemble-{btc,eth,sol}-15m-1of2.json | wc -l` → 3 (from Track A)
+      5. `ls backtest-results/phase18-donchian-pivot-{btc,eth,sol}-15m-{2of2,1of2}.json | wc -l` → 6 (from Track B)
+      6. `ls backtest-results/phase18-final-composition-{btc,eth,sol}-15m.json | wc -l` → 3 (Track C's final)
+      7. `grep -c '^##' docs/research/REPORT-phase18.md` → ≥8 sections
+      8. `wc -w docs/research/REPORT-phase18.md` → ≥2500 words
+      9. Every numerical claim cites a `backtest-results/phase18-*.json` file
+      10. `bun run typecheck && bun run lint && bun test` → ALL PASS
+      11. `git log --oneline origin/feat/phase18-c-integration-report ^main` → commit exists
+      12. `gh pr list --head feat/phase18-c-integration-report --json url` → PR URL returned
+      13. `cat deliverable.md` → exists with envelope table + REPORT section summary + PR URL
+      14. Cleanup: `cd .. && git worktree remove .tmp-verify-p18c --force`
+
+      PASS only if ALL 14 checks pass.
+    prompt: |
+      You are the **Coder M2 agent** working on **Phase 18 Track C** of mm-crypto-bot.
+
+      ## Pre-flight: Merge Track A + B
+
+      DO NOT start Track C work until Tracks A and B are BOTH squash-merged to main.
+      Check:
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git log --oneline origin/main -5  # should show feat/phase18-a and feat/phase18-b commits
+      ```
+      If not merged, wait or report "blocked on Track A/B merge".
+
+      ## Context
+
+      Track A: regime-ensemble 1-of-2 consensus relaxation (3 backtest JSONs)
+      Track B: Donchian + Pivot 2-component composition (6 backtest JSONs, 2 consensus modes)
+      Track C: integration + final composition envelope + REPORT-phase18.md
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase18-c-integration-report`
+      - Create AFTER A+B merged:
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git checkout main
+      git pull
+      git worktree add .worktrees/wt-phase18-c-integration-report -b feat/phase18-c-integration-report main
+      ```
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Verify A+B are on main
+
+      ```bash
+      grep -n "minConsensus" /Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/plugins/regime-routed-ensemble.ts
+      ls /Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/plugins/donchian-pivot-composition.ts
+      ```
+
+      Both must succeed. If not, STOP and report "blocked on Track A/B merge".
+
+      ### 2. Run 3 final-composition backtests
+
+      Combine Track A's regime-1of-2 + Track B's donchian-pivot 2-of-2 as a single composition:
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+        --symbol=BTC/USDT --timeframe=15m --min-consensus=2 \
+        --include-regime-1of2=true \
+        --output=backtest-results/phase18-final-composition-btc-15m.json
+      # repeat for ETH/USDT and SOL/USDT
+      ```
+
+      If `--include-regime-1of2` doesn't exist as a flag, just use Track B's 2-of-2 JSONs as the final envelope (Track A's regime-1of2 is a separate ensemble).
+
+      Alternative simpler approach: copy Track B's 2-of-2 JSONs to phase18-final-composition-{btc,eth,sol}-15m.json (Track C's role is REPORT + final composition table, not new composition logic).
+
+      ### 3. Write REPORT-phase18.md
+
+      Location: `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/REPORT-phase18.md`
+
+      Structure (≥8 sections, ≥2500 words):
+
+      **§1 Executive Summary** — verdict on Phase 18: regime 1-of-2 lifts BTC off kill-switch;
+      Donchian + Pivot 2-component beats single-strat baseline. Combined envelope projection.
+
+      **§2 Regime-Ensemble 1-of-2 results** — per-symbol table comparing 2-of-2 (Phase 17) vs 1-of-2 (Phase 18).
+      Use `phase18-regime-ensemble-{btc,eth,sol}-15m-1of2.json`. Key metrics.
+
+      **§3 Donchian + Pivot 2-component results** — per-symbol table with both consensus modes.
+      Use `phase18-donchian-pivot-{btc,eth,sol}-15m-{2of2,1of2}.json`. Key metrics.
+      Compare vs Phase 15 single-strat baseline (Donchian +13.35%/mo, Pivot capped +20.06%/mo).
+
+      **§4 Combined Phase 18 envelope** — final composition table. Portfolio average.
+      Use `phase18-final-composition-{btc,eth,sol}-15m.json` (or Track B 2-of-2 as proxy).
+
+      **§5 +50%/mo progress** — updated arc trajectory table through Phase 18.
+      | Phase | Best envelope | Gap to +50%/mo |
+      |-------|---------------|----------------|
+      | 14A-D | +2.06%/mo | 24× |
+      | 15 | +60-90%/mo (uncapped) | 1.7-3.3× |
+      | 17 | +20-25%/mo (capped) | 2-2.5× |
+      | 18 | +X.XX%/mo (this phase) | X× |
+
+      **§6 Risks** — per-symbol regime asymmetry (Phase 16 §3 lesson), confidence averaging edge cases,
+      2-of-2 dilution risk on lower-vol periods.
+
+      **§7 Architecture lessons (memory candidates)** — fold into project memory:
+      - "1-of-2 vs 2-of-2 consensus trade-off": 1-of-2 lifts trade count but reduces signal quality per trade
+      - "Ensemble composition discipline": isolate the BEST 2 sub-strategies, avoid BB/Keltner dilution
+
+      **§8 Phase 19 roadmap** — top 5 ranked by ROI:
+      1. Cap sweep (cap=0.04, 0.08, 0.10, 0.12, 0.15) — map return-cap curve
+      2. BB Squeeze + DVOL regime (Phase 14D applied to M5 BB Squeeze)
+      3. Keltner ADX filter (Phase 15 lesson, convert -50% → positive)
+      4. Adaptive Kelly for retail ensemble (HybridKelly drop-in)
+      5. PortfolioOrchestrator wrap (Phase 13 over Phase 17/18 winners)
+
+      Every numerical claim cites a JSON: "BTC monthly return +X.XX%/mo (from `backtest-results/phase18-*.json`)"
+
+      ### 4. Quality gates
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run typecheck
+      bun run lint
+      bun test
+      ```
+
+      ### 5. Commit + PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase18-c-integration-report
+      git add -A
+      git commit -m "feat(phase18-c): final composition + REPORT-phase18.md"
+      git push -u origin feat/phase18-c-integration-report
+      gh pr create \
+        --title "feat(phase18-c): Phase 18 final composition + REPORT-phase18.md" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      - Final composition envelope: 3 backtest JSONs (BTC/ETH/SOL @ 15m)
+      - REPORT-phase18.md with 8 sections, ≥2500 words, every numerical claim cited
+      - Phase 19 roadmap in §8
+      ## Key finding
+      Combined Phase 18 envelope: +X.XX%/mo portfolio avg (TBD by Track C). Regime 1-of-2
+      lifts BTC off kill-switch; Donchian+Pivot 2-component beats single-strat baseline.
+      EOF
+      )"
+      ```
+
+      ### 6. Write deliverable.md
+
+      At worktree root: `deliverable.md` listing:
+      - 3 final composition JSONs + 3 Track A + 6 Track B = 12 total JSONs (table)
+      - REPORT sections summary
+      - Quality gate results
+      - PR URL
+
+      ## Memory rules
+
+      - **1:10 leverage MANDATORY**
+      - **No eslint-disable** — fix root cause
+      - **No docstring lies**
+      - **Coverage 100%** — read lcov.info directly
+      - **No "DEFERRED (own PR)"** — all findings fixed in same PR

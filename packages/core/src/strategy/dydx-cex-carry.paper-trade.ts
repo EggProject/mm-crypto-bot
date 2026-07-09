@@ -34,7 +34,7 @@
 //   const runner = new DydxCexCarryPaperTrader(strategy, fillSimulator);
 //   const report = await runner.runForDays(7, /* fundingSource */ mockSource);
 
-import type { FundingSnapshot } from "./funding-carry.js";
+import type { FundingSnapshot } from "./funding-snapshot.js";
 import type {
   CarryMarket,
   DydxFundingSource,

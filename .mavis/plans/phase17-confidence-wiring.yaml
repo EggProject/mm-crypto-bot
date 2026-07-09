@@ -1,0 +1,450 @@
+version: 1
+plan:
+  name: 'Phase 17 — Engine confidence → notional wiring (cap fix #1)'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — Engine confidence × riskPerTrade wiring
+  # ============================================================
+  - id: 'phase17-track-a-confidence-wiring'
+    title: 'Phase 17 Track A — Engine confidence → notional wiring'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 3600000
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 17 Track A (engine confidence wiring):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .tmp-verify-p17a origin/feat/phase17-a-confidence-wiring && cd .tmp-verify-p17a`
+      2. `grep -n "confidenceScaledRisk" packages/backtest/src/engine.ts` — MUST return a line number
+      3. `grep -n "signal.confidence" packages/backtest/src/engine.ts` — MUST return ≥1 line
+      4. `bun run typecheck && bun run lint && bun test` — ALL PASS
+      5. `bun test --coverage --coverage-reporter=lcov` + read `packages/backtest/coverage/lcov.info` directly: engine.ts lines LF == LH, branches FNF == FNH
+      6. `git log --oneline origin/feat/phase17-a-confidence-wiring ^main` — commit exists
+      7. `gh pr list --head feat/phase17-a-confidence-wiring --json url` — PR URL returned
+      8. `cat deliverable.md` at worktree root — exists, lists tests + coverage + PR URL
+      9. Cleanup: `cd .. && git worktree remove .tmp-verify-p17a --force`
+
+      PASS only if ALL 9 checks pass.
+    prompt: |
+      You are the **Coder agent** working on **Phase 17 Track A** of the mm-crypto-bot project.
+
+      ## Context
+
+      Phase 16 squash-merged to main at `baf821c`. Critical finding: `applyCap()` in `pivot-point-grid.ts`
+      scales `signal.confidence` to 0.20, but `positionNotionalUsd` in `engine.ts:252` never reads
+      `signal.confidence`. The Phase 16 "4% cap" is a complete no-op — backtest results are byte-
+      identical to Phase 15. Phase 17 Track A fixes this by multiplying `riskPerTrade` by
+      `signal.confidence` before calling `positionNotionalUsd`.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase17-scope-plan.md` — authoritative scope
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest/src/engine.ts` — lines 235-280 (signal → position sizing call site)
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest/src/position-size.ts` — `positionNotionalUsd` function
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest/src/types.ts` — `PositionSizeConfig`, `BacktestOptions`
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/types.ts` — `StrategySignal` interface (confidence field)
+      6. Memory: `/Users/kiscsicska/.mavis/agents/mavis/memory/mm-crypto-bot-project.md`
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase17-a`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase17-a -b feat/phase17-a-confidence-wiring main`
+      - Base branch: `main` (HEAD `baf821c` from Phase 16)
+      - The branch is yours alone
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Modify `packages/backtest/src/engine.ts` (~+5 LOC net)
+
+      At the `positionNotionalUsd` call site (around line 252), multiply `riskPerTrade` by `signal.confidence`:
+
+      ```typescript
+      // BEFORE (approx line 252-257):
+      const notional = positionNotionalUsd(
+        equity,
+        ltfCandle.close,
+        signal.stopLoss,
+        opts.positionSize,
+      );
+
+      // AFTER:
+      const confidenceScaledRisk = opts.positionSize.riskPerTrade * signal.confidence;
+      const notional = positionNotionalUsd(
+        equity,
+        ltfCandle.close,
+        signal.stopLoss,
+        { ...opts.positionSize, riskPerTrade: confidenceScaledRisk },
+      );
+      ```
+
+      - Confirm the exact line numbers by reading engine.ts first
+      - Keep the rest of the engine unchanged
+      - Add a comment above the fix explaining: `// Phase 17: scale riskPerTrade by signal.confidence so strategy-side confidence affects position sizing (fixes Phase 16 no-op cap finding)`
+
+      ### 2. Add tests in `packages/backtest/src/engine.test.ts`
+
+      If `engine.test.ts` doesn't exist, create it with a minimal backtest setup (reuse patterns from `position-size.test.ts`).
+      Add exactly 5 tests for the confidence wiring:
+
+      1. `confidence=1.0 → riskPerTrade unchanged` — verify deep entries (conf=1.0) get full risk
+      2. `confidence=0.7 → riskPerTrade scaled to 70%` — verify shallow entries (pivot S1/R1) get 70% risk
+      3. `confidence=0.0 → position size = minNotional` — zero-confidence signal suppressed to minimum
+      4. `confidence=0.2 → riskPerTrade scaled to 20%` — Phase 16 4% cap effect (0.2 × 0.01 = 0.002)
+      5. `confidence` out-of-range clamped to [0, 1] — defensive: conf < 0 treated as 0, conf > 1 treated as 1
+
+      For tests 1-4: mock a simple strategy that emits a single signal with the specified confidence,
+      run a 10-candle backtest, verify the executed position notional matches expectation.
+
+      ### 3. Quality gates (ALL MUST PASS)
+
+      Run in sequence, stop on first failure:
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run typecheck
+      bun run lint
+      bun test
+      bun test --coverage --coverage-reporter=lcov
+      ```
+
+      Coverage requirement: **100% lines + branches on `engine.ts`**. Read `packages/backtest/coverage/lcov.info`
+      directly and assert every line in `engine.ts` is covered.
+
+      ### 4. Commit
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase17-a
+      git add -A
+      git commit -m "feat(phase17-a): wire signal.confidence → riskPerTrade in engine (cap fix #1)"
+      git push -u origin feat/phase17-a-confidence-wiring
+      ```
+
+      ### 5. Open PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase17-a
+      gh pr create \
+        --title "feat(phase17-a): engine confidence → notional wiring (cap fix #1)" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      - Multiplies `opts.positionSize.riskPerTrade` by `signal.confidence` before calling `positionNotionalUsd`
+      - Fixes Phase 16 finding: `applyCap()` scaled confidence to 0.20 but engine ignored it (no-op cap)
+      - 5 new unit tests for confidence wiring edge cases
+      - All existing tests pass (regression verified)
+      EOF
+      )"
+      ```
+
+      ### 6. Write deliverable.md
+
+      At worktree root: `deliverable.md` listing:
+      - What changed (engine.ts + engine.test.ts)
+      - Test results (5 new tests + full suite)
+      - Coverage result (must be 100% on engine.ts)
+      - PR URL
+
+      ## Memory rules (ABSOLUTE — do not violate)
+
+      - **1:10 leverage MANDATORY** — `confidence × riskPerTrade` is pre-leverage risk scaling; 1:10 applied by engine separately
+      - **No eslint-disable** — fix root cause
+      - **No docstring lies** — if you add a JSDoc, it must match the code
+      - **Coverage 100%** — read lcov.info directly, not test output summary
+    depends_on: []
+
+  # ============================================================
+  # TRACK B — Pivot Grid confidence-scaled backtests
+  # ============================================================
+  - id: 'phase17-track-b-pivot-confidence-scaled'
+    title: 'Phase 17 Track B — Pivot Grid backtest re-runs (nocap + 4% cap)'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 5400000
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 17 Track B (6 pivot-grid backtest JSONs):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .tmp-verify-p17b origin/feat/phase17-b-pivot-confidence-scaled && cd .tmp-verify-p17b`
+      2. `ls backtest-results/phase17-pivot-grid-*.json | wc -l` → MUST return 6
+      3. For each JSON: `python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['result']['tradeCount']>0, 'no trades'; assert d['result']['maxDrawdownPct']<50, 'DD too high'; print(d['result']['symbol'], d['result']['monthlyReturnPct'])" <file>`
+         All 6 must pass (tradeCount>0, maxDD<50%, monthlyReturnPct positive)
+      4. `git log --oneline origin/feat/phase17-b-pivot-confidence-scaled ^main` — commit exists
+      5. `gh pr list --head feat/phase17-b-pivot-confidence-scaled --json url` — PR URL returned
+      6. `cat deliverable.md` at worktree root — exists, lists 6 files with monthlyReturn values
+      7. Cleanup: `cd .. && git worktree remove .tmp-verify-p17b --force`
+
+      PASS only if ALL 7 checks pass.
+    prompt: |
+      You are the **Coder M2 agent** working on **Phase 17 Track B** of the mm-crypto-bot project.
+
+      ## Context
+
+      Phase 17 Track A fixes `engine.ts` to multiply `riskPerTrade` by `signal.confidence`.
+      This track re-runs the Pivot Grid backtest (BTC/ETH/SOL) to measure the actual effect
+      of that fix vs Phase 15 (no cap) and Phase 16 (no-op cap).
+
+      **IMPORTANT:** Track B is INDEPENDENT of Track A — do NOT wait for Track A to merge.
+      Run immediately in parallel. The engine fix from Track A will be applied when Track A
+      merges to main; this track runs against the CURRENT main which has the no-op cap.
+      Run the backtests TWICE:
+      1. Against current main (no-op cap, equivalent to Phase 15) — for direct comparison
+      2. The backtests are unchanged CLI commands; what changes is whether engine fix is present
+
+      Read these files FIRST:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase17-scope-plan.md` — scope
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts` — CLI runner
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/` — existing JSON files for reference format
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase17-b`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase17-b -b feat/phase17-b-pivot-confidence-scaled main`
+      - Base branch: `main` (HEAD `baf821c` from Phase 16)
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### Run backtests
+
+      For each of BTC, ETH, SOL, run the following TWO backtests:
+
+      **Run 1 — Pivot Grid (no cap, equivalent to Phase 15):**
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts \
+        --symbol=BTC/USDT --timeframe=15m \
+        --output=backtest-results/phase17-pivot-grid-btc-15m-nocap.json
+      # repeat for ETH/USDT → phase17-pivot-grid-eth-15m-nocap.json
+      # repeat for SOL/USDT → phase17-pivot-grid-sol-15m-nocap.json
+      ```
+
+      **Run 2 — Pivot Grid with --max-position-pct-equity=0.04 (Phase 16 cap, will be no-op on current main):**
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts \
+        --symbol=BTC/USDT --timeframe=15m --max-position-pct-equity=0.04 \
+        --output=backtest-results/phase17-pivot-grid-btc-15m-04cap.json
+      # repeat for ETH/USDT → phase17-pivot-grid-eth-15m-04cap.json
+      # repeat for SOL/USDT → phase17-pivot-grid-sol-15m-04cap.json
+      ```
+
+      Each backtest run may take 5-15 minutes. Run all 6 in sequence (not parallel — backtest is CPU-bound).
+
+      ### Verify JSONs
+
+      For each JSON, verify:
+      - `result.monthlyReturnPct` is present and positive (sanity check)
+      - `result.tradeCount > 0`
+      - `result.maxDrawdownPct < 50` (kill-switch sanity)
+      - File size > 10KB
+
+      If any check fails, re-run that specific backtest before proceeding.
+
+      ### Commit
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase17-b
+      git add backtest-results/phase17-pivot-grid-*.json
+      git commit -m "feat(phase17-b): 6 pivot-grid backtest JSONs (nocap + 4% cap) for Phase 17"
+      git push -u origin feat/phase17-b-pivot-confidence-scaled
+      ```
+
+      ### Open PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase17-b
+      gh pr create \
+        --title "feat(phase17-b): 6 pivot-grid backtest JSONs (nocap + 4% cap)" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      - 6 new backtest JSONs: BTC/ETH/SOL × (nocap baseline + 4% cap)
+      - Serves as Phase 17 Track C pre-merge baseline for engine fix comparison
+      - All JSONs verified: tradeCount > 0, maxDD < 50%, monthlyReturn positive
+      EOF
+      )"
+      ```
+
+      ### Write deliverable.md
+
+      At worktree root: `deliverable.md` listing:
+      - 6 JSON file names + sizes + monthly return values (table)
+      - Sanity verification results
+      - PR URL
+    depends_on: []
+
+  # ============================================================
+  # TRACK C — Integration + REPORT (depends on A + B merge)
+  # ============================================================
+  - id: 'phase17-track-c-integration-report'
+    title: 'Phase 17 Track C — Integration + REPORT-phase17.md'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 5400000
+    verified_by: verifier
+    depends_on: ['phase17-track-a-confidence-wiring', 'phase17-track-b-pivot-confidence-scaled']
+    verify_prompt: |
+      Verify Phase 17 Track C (integration + REPORT-phase17.md):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .tmp-verify-p17c origin/feat/phase17-c-integration-report && cd .tmp-verify-p17c`
+      2. `grep -n "confidenceScaledRisk" packages/backtest/src/engine.ts` — fix from Track A must be on main
+      3. `ls backtest-results/phase17-pivot-grid-{btc,eth,sol}-15m-fixed.json | wc -l` → 3 files (with engine fix)
+      4. `ls backtest-results/phase17-pivot-grid-{btc,eth,sol}-15m-nocap.json | wc -l` → 3 files (from Track B)
+      5. `ls backtest-results/phase17-pivot-grid-{btc,eth,sol}-15m-04cap.json | wc -l` → 3 files (from Track B)
+      6. `ls backtest-results/phase17-regime-ensemble-btc-15m-fixed.json` → exists (regression check)
+      7. `grep -c '^##' docs/research/REPORT-phase17.md` → ≥8 sections
+      8. `wc -w docs/research/REPORT-phase17.md` → ≥2500 words
+      9. Every numerical claim in REPORT must cite a `backtest-results/phase17-*.json` file path
+      10. `bun run typecheck && bun run lint && bun test` → ALL PASS
+      11. `git log --oneline origin/feat/phase17-c-integration-report ^main` → commit exists
+      12. `gh pr list --head feat/phase17-c-integration-report --json url` → PR URL returned
+      13. `cat deliverable.md` → exists with envelope table + section summary + PR URL
+      14. Cleanup: `cd .. && git worktree remove .tmp-verify-p17c --force`
+
+      PASS only if ALL 14 checks pass.
+    prompt: |
+      You are the **Coder M2 agent** working on **Phase 17 Track C** of mm-crypto-bot.
+
+      ## Pre-flight: Merge Track A + B
+
+      DO NOT start Track C work until Tracks A and B are BOTH squash-merged to main.
+      Check:
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git log --oneline origin/main -3  # should show feat/phase17-a and feat/phase17-b commits
+      ```
+      If not merged, wait or report "blocked on Track A/B merge".
+
+      ## Context
+
+      Phase 17 Track A fixed `engine.ts` to multiply `riskPerTrade` by `signal.confidence`.
+      Track B ran backtests against the OLD main (no-op cap). Track C:
+      1. Verifies Track A+B are merged on main
+      2. Re-runs the 3 "nocap" backtests against the FIXED engine
+      3. Writes REPORT-phase17.md
+
+      Read these files FIRST:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase17-scope-plan.md` — scope
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/REPORT-phase16.md` — Phase 16 report for comparison structure
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest/src/engine.ts` — the fixed engine (verify fix is on main)
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase17-c`
+      - Create AFTER verifying Tracks A+B are merged:
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git checkout main
+      git pull
+      git worktree add .worktrees/wt-phase17-c -b feat/phase17-c-integration-report main
+      ```
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Verify engine fix is on main
+
+      ```bash
+      grep -n "confidenceScaledRisk" /Users/kiscsicska/projects/mm-crypto-bot/packages/backtest/src/engine.ts
+      ```
+      Must return a line number. If not found, the fix is NOT on main — STOP and report.
+
+      ### 2. Re-run 3 backtests with engine fix applied
+
+      These are the KEY backtests — they measure the actual effect of confidence wiring:
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts \
+        --symbol=BTC/USDT --timeframe=15m \
+        --output=backtest-results/phase17-pivot-grid-btc-15m-fixed.json
+      bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts \
+        --symbol=ETH/USDT --timeframe=15m \
+        --output=backtest-results/phase17-pivot-grid-eth-15m-fixed.json
+      bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts \
+        --symbol=SOL/USDT --timeframe=15m \
+        --output=backtest-results/phase17-pivot-grid-sol-15m-fixed.json
+      ```
+
+      ### 3. Write REPORT-phase17.md
+
+      Location: `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/REPORT-phase17.md`
+
+      Structure (≥8 sections, ≥2500 words, English empirical sections):
+
+      **§1 Executive Summary** — verdict on confidence wiring: did it change the Pivot Grid envelope?
+      Compare: Phase 15 nocap | Phase 16 4% cap (no-op) | Phase 17 4% cap (with fix) | Phase 17 fixed engine (nocap).
+      One-paragraph conclusion: achievable return range.
+
+      **§2 Engine Fix: confidence → notional** — code diff (before/after), mechanism explanation,
+      why this is the correct place for the fix (not in positionNotionalUsd, not in strategy).
+
+      **§3 Pivot Grid: fixed engine vs Phase 15 baseline** — per-symbol table using
+      `phase17-pivot-grid-{btc,eth,sol}-15m-fixed.json` vs Phase 15nocap. Key metrics:
+      monthlyReturnPct, sharpeRatio, maxDrawdownPct, tradeCount, winRate.
+
+      **§4 Pivot Grid: fixed engine vs Phase 16 no-op cap** — does the 4% cap NOW make a difference?
+      Use `phase17-pivot-grid-{btc,eth,sol}-15m-04cap.json` (from Track B) vs fixed JSONs.
+      Quantify the delta in monthlyReturnPct.
+
+      **§5 Is +20-50%/mo achievable?** — Update Phase 16 §2's speculative claim.
+      With engine fix applied: what is the realistic capped envelope?
+
+      **§6 Regime-Routed Ensemble: no regression** — re-run BTC regime ensemble (Phase 16 CLI):
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run packages/backtest-tools/src/cli/run-regime-routed-ensemble.ts \
+        --symbol=BTC/USDT --timeframe=15m \
+        --output=backtest-results/phase17-regime-ensemble-btc-15m-fixed.json
+      ```
+      Compare vs Phase 16 regime ensemble — no regression in the fix.
+
+      **§7 Risks** — zero-confidence signals (minNotional behavior), confidence>1 (defensive clamping),
+      strategies that don't emit confidence (fall through at 1.0×).
+
+      **§8 Phase 18 roadmap** — top 3 candidates ranked by ROI:
+      1. Regime-ensemble 1-of-2 consensus (#2 from Phase 16 §8, 30 min)
+      2. Donchian + Pivot 2-component (#3 from Phase 16 §8, 30 min)
+      3. Keltner ADX filter (#5 from Phase 16 §8, 15 min)
+
+      Every numerical claim in the REPORT must cite a specific JSON file:
+      e.g., "BTC monthly return +X.XX%/mo (from `backtest-results/phase17-pivot-grid-btc-15m-fixed.json`)"
+
+      ### 4. Quality gates
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run typecheck
+      bun run lint
+      bun test
+      ```
+      All must PASS.
+
+      ### 5. Commit + PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase17-c
+      git add -A
+      git commit -m "feat(phase17-c): 3 fixed-engine backtests + REPORT-phase17.md"
+      git push -u origin feat/phase17-c-integration-report
+      gh pr create \
+        --title "feat(phase17-c): fixed-engine backtests + REPORT-phase17.md" \
+        --body "$(cat <<'EOF'
+      ## Summary
+      - 3 new backtest JSONs with engine fix applied (phase17-pivot-grid-{btc,eth,sol}-15m-fixed.json)
+      - 1 regime ensemble regression check (phase17-regime-ensemble-btc-15m-fixed.json)
+      - REPORT-phase17.md with ≥8 sections, empirical comparison vs Phase 15/16
+      ## Key finding
+      Engine confidence wiring makes the Phase 16 4% cap actually propagate to position sizing.
+      EOF
+      )"
+      ```
+
+      ### 6. Write deliverable.md
+
+      At worktree root: `deliverable.md` listing:
+      - 4 new JSON files + 6 Track B JSONs (table with file/size/monthlyReturn/tradeCount/maxDD)
+      - REPORT sections summary
+      - Quality gate results
+      - PR URL

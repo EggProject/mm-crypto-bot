@@ -1,0 +1,509 @@
+version: 1
+plan:
+  name: 'Phase 19 #1 — Cap sweep (cap=0.04, 0.08, 0.10, 0.12, 0.15)'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 6
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — 2-of-2 mode cap sweep (production default)
+  # ============================================================
+  - id: 'phase19-track-a-cap-sweep-2of2'
+    title: 'Phase 19 Track A — Donchian+Pivot cap sweep @ 2-of-2 mode (production default)'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 3600000
+    verified_by: verifier
+    depends_on: []
+    verify_prompt: |
+      Verify Phase 19 Track A (Donchian+Pivot cap sweep @ 2-of-2 mode):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git fetch origin && git worktree add .tmp-verify-p19a origin/feat/phase19-a-cap-sweep-2of2 && cd .tmp-verify-p19a`
+      2. `ls backtest-results/phase19-cap-sweep-2of2-*.json | wc -l` → 15 files (5 caps × 3 symbols)
+         - Files: phase19-cap-sweep-2of2-{btc,eth,sol}-15m-{0.04,0.08,0.10,0.12,0.15}.json
+      3. For each JSON: `python3 -c "import json; d=json.load(open(sys.argv[1])); r=d['result']; print(d['args']['symbol'], 'cap=', d['args']['maxPositionPctEquity'], 'monthly=', round(d['monthlyReturn']*100, 2), 'trades=', r['totalTrades'], 'dd=', round(r['maxDrawdown']*100, 2), 'ks=', r['killSwitchTriggered'])" <file>` — all 15 must show totalTrades > 0 AND maxDrawdown < 50% (no kill-switch)
+      4. The cap=0.20 reference at min-consensus=2 should match Phase 18 envelope: BTC ~+16.66%/mo @ DD ~4.64%, ETH ~+16.29%/mo @ DD ~1.95%, SOL ~+23.57%/mo @ DD ~3.33% (verify cap=0.20 row matches within ±1pp; cap=0.20 is in the range tested: re-run if needed)
+      5. `bun run typecheck && bun run lint && bun test` → ALL PASS
+      6. No production code changes — only CLI invocations + JSON outputs
+      7. `git log --oneline origin/feat/phase19-a-cap-sweep-2of2 ^main` — commit exists
+      8. `gh pr list --head feat/phase19-a-cap-sweep-2of2 --json url` — PR URL returned (or already merged)
+      9. `cat deliverable.md` at worktree root — exists with 15-JSON envelope table (cap × symbol grid) + PR URL
+      10. Cleanup: `cd .. && git worktree remove .tmp-verify-p19a --force`
+
+      PASS only if ALL 10 checks pass. cap=0.20 reference MUST match Phase 18 envelope within ±1pp.
+    prompt: |
+      You are the **Coder agent** working on **Phase 19 Track A** of mm-crypto-bot.
+
+      ## Context
+
+      Phase 18 final envelope (REPORT-phase18.md §4): Donchian+Pivot 2-comp @ 2-of-2 default = +18.84%/mo portfolio avg @ 3.31% DD. Used hardcoded `maxPositionPctEquity=0.20` (engine default).
+
+      Phase 19 #1 (REPORT-phase18.md §8.1) maps the return-cap curve at the Donchian+Pivot composition level. **Cap values tested: [0.04, 0.08, 0.10, 0.12, 0.15]**. Goal: find the smallest cap that lifts envelope toward +30-35%/mo while staying under the 8% DD safe-operating threshold.
+
+      Phase 17 §5 confirmed: cap=0.04 → +21%/mo, cap=0.10 → ~50%/mo (back-calculated). Phase 18 already validated cap=0.20 → +18.84%/mo. This sweep fills in the curve.
+
+      ## Infra
+
+      PR #45 (already merged) added `--max-position-pct-equity=<pct>` CLI arg to `run-donchian-pivot-composition.ts`. Default 0.20. Validation: (0, 0.5].
+
+      ## Setup
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-phase19-a-cap-sweep-2of2 -b feat/phase19-a-cap-sweep-2of2 main
+      cd .worktrees/wt-phase19-a-cap-sweep-2of2
+      ```
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Run 15 backtests (5 caps × 3 symbols, 2-of-2 mode)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase19-a-cap-sweep-2of2
+      for SYMBOL in BTC/USDT ETH/USDT SOL/USDT; do
+        SYM=$(echo $SYMBOL | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+        for CAP in 0.04 0.08 0.10 0.12 0.15; do
+          bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+            --symbol=$SYMBOL --timeframe=15m --min-consensus=2 \
+            --max-position-pct-equity=$CAP \
+            --output=backtest-results/phase19-cap-sweep-2of2-${SYM}-15m-${CAP}.json
+        done
+      done
+      ```
+
+      Verify: `ls backtest-results/phase19-cap-sweep-2of2-*.json | wc -l` → 15
+
+      ### 2. Verify backtests
+
+      For each JSON:
+      - `result.totalTrades > 0` (no zero-trade anomaly)
+      - `result.maxDrawdown < 0.50` (no kill-switch)
+      - `args.maxPositionPctEquity` matches the filename cap value (sanity check on CLI plumbing)
+
+      Also re-run cap=0.20 to confirm byte-identical (or near-identical) to Phase 18 envelope:
+      ```bash
+      bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+        --symbol=BTC/USDT --timeframe=15m --min-consensus=2 \
+        --max-position-pct-equity=0.20 \
+        --output=backtest-results/phase19-cap-sweep-2of2-btc-15m-0.20-ref.json
+      ```
+      BTC monthly return should be within ±1pp of +16.66%/mo (Phase 18 baseline).
+
+      ### 3. Quality gates (ALL MUST PASS)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run typecheck
+      bun run lint
+      bun test
+      ```
+
+      ### 4. Commit + PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase19-a-cap-sweep-2of2
+      git add backtest-results/phase19-cap-sweep-2of2-*.json
+      git commit -m "feat(phase19-a): Donchian+Pivot cap sweep @ 2-of-2 mode (15 backtests, cap=[0.04,0.08,0.10,0.12,0.15,0.20-ref])"
+      git push -u origin feat/phase19-a-cap-sweep-2of2
+      gh pr create \
+        --repo EggProject/mm-crypto-bot \
+        --title "feat(phase19-a): Donchian+Pivot cap sweep @ 2-of-2 mode" \
+        --base main \
+        --head feat/phase19-a-cap-sweep-2of2 \
+        --body "$(cat <<'EOF'
+      ## Phase 19 #1 Track A — 2-of-2 mode cap sweep
+
+      Maps the return-cap curve at the Donchian+Pivot composition level using the
+      `--max-position-pct-equity` arg added in PR #45.
+
+      **15 backtest JSONs:**
+      - 3 symbols (BTC/ETH/SOL) × 5 cap values (0.04, 0.08, 0.10, 0.12, 0.15) + 1 cap=0.20 reference
+
+      **Goal:** find the smallest cap that lifts envelope toward +30-35%/mo while staying under the 8% DD safe-operating threshold.
+
+      ## Quality gates
+      typecheck 13/13 PASS, lint 0 errors, full test suite PASS.
+      EOF
+      )"
+      ```
+
+      ### 5. Write deliverable.md
+
+      At worktree root: `deliverable.md` listing:
+      - 15 backtest JSONs in cap × symbol table (rows=cap, cols=symbol, cells=monthly%/DD/trades/KS)
+      - cap=0.20 reference vs Phase 18 envelope comparison (sanity check passed)
+      - PR URL
+      - Quality gate results
+
+      ## Memory rules (ABSOLUTE)
+
+      - **1:10 leverage MANDATORY** — engine applies 1:10, strategy emits confidence, notional is pre-leverage
+      - **No eslint-disable** — fix root cause
+      - **No docstring lies** — JSDoc must match implementation
+      - **No "DEFERRED (own PR)"** — all findings fixed in same PR
+
+  # ============================================================
+  # TRACK B — 1-of-2 mode cap sweep (research reference)
+  # ============================================================
+  - id: 'phase19-track-b-cap-sweep-1of2'
+    title: 'Phase 19 Track B — Donchian+Pivot cap sweep @ 1-of-2 mode (research reference)'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 3600000
+    verified_by: verifier
+    depends_on: []
+    verify_prompt: |
+      Verify Phase 19 Track B (Donchian+Pivot cap sweep @ 1-of-2 mode):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git fetch origin && git worktree add .tmp-verify-p19b origin/feat/phase19-b-cap-sweep-1of2 && cd .tmp-verify-p19b`
+      2. `ls backtest-results/phase19-cap-sweep-1of2-*.json | wc -l` → 15 files (5 caps × 3 symbols)
+         - Files: phase19-cap-sweep-1of2-{btc,eth,sol}-15m-{0.04,0.08,0.10,0.12,0.15}.json
+      3. For each JSON: totalTrades > 0 AND maxDrawdown < 50% (no kill-switch). Note: 1-of-2 mode has historically higher DD (~5-8%) — verify but do NOT fail on elevated DD vs 2-of-2.
+      4. The cap=0.20 reference at min-consensus=1 should match Phase 18 envelope: BTC ~+24.30%/mo @ DD ~5.5-7.7% (verify cap=0.20 row matches within ±2pp; re-run if needed)
+      5. `bun run typecheck && bun run lint && bun test` → ALL PASS
+      6. No production code changes — only CLI invocations + JSON outputs
+      7. `git log --oneline origin/feat/phase19-b-cap-sweep-1of2 ^main` — commit exists
+      8. `gh pr list --head feat/phase19-b-cap-sweep-1of2 --json url` — PR URL returned (or already merged)
+      9. `cat deliverable.md` at worktree root — exists with 15-JSON envelope table (cap × symbol grid) + PR URL
+      10. Cleanup: `cd .. && git worktree remove .tmp-verify-p19b --force`
+
+      PASS only if ALL 10 checks pass. cap=0.20 reference MUST match Phase 18 envelope within ±2pp.
+    prompt: |
+      You are the **Coder agent** working on **Phase 19 Track B** of mm-crypto-bot.
+
+      ## Context
+
+      Track A runs the cap sweep at 2-of-2 (production default). Track B runs the same sweep at 1-of-2 mode (research reference) — see REPORT-phase18.md §3 for why 1-of-2 is interesting despite higher DD: at cap=0.20 it reached +39.42%/mo portfolio avg +6.80% DD, much higher envelope than 2-of-2.
+
+      This sweep fills in the cap curve for the 1-of-2 mode so we can answer:
+      - Does 1-of-2 hit +50%/mo at some cap?
+      - What's the DD profile across caps?
+      - Which cap offers the best risk-adjusted envelope (Sharpe)?
+
+      ## Infra
+
+      PR #45 (already merged) added `--max-position-pct-equity=<pct>` CLI arg. Default 0.20.
+
+      ## Setup
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-phase19-b-cap-sweep-1of2 -b feat/phase19-b-cap-sweep-1of2 main
+      cd .worktrees/wt-phase19-b-cap-sweep-1of2
+      ```
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Run 15 backtests (5 caps × 3 symbols, 1-of-2 mode)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase19-b-cap-sweep-1of2
+      for SYMBOL in BTC/USDT ETH/USDT SOL/USDT; do
+        SYM=$(echo $SYMBOL | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+        for CAP in 0.04 0.08 0.10 0.12 0.15; do
+          bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+            --symbol=$SYMBOL --timeframe=15m --min-consensus=1 \
+            --max-position-pct-equity=$CAP \
+            --output=backtest-results/phase19-cap-sweep-1of2-${SYM}-15m-${CAP}.json
+        done
+      done
+      ```
+
+      Verify: `ls backtest-results/phase19-cap-sweep-1of2-*.json | wc -l` → 15
+
+      ### 2. Verify backtests
+
+      For each JSON:
+      - `result.totalTrades > 0`
+      - `result.maxDrawdown < 0.50` (no kill-switch)
+      - Note: 1-of-2 may have elevated DD (5-8%) — that's expected, do NOT flag
+
+      Also re-run cap=0.20 to confirm near-identical to Phase 18 envelope:
+      ```bash
+      bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+        --symbol=BTC/USDT --timeframe=15m --min-consensus=1 \
+        --max-position-pct-equity=0.20 \
+        --output=backtest-results/phase19-cap-sweep-1of2-btc-15m-0.20-ref.json
+      ```
+
+      ### 3. Quality gates (ALL MUST PASS)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run typecheck
+      bun run lint
+      bun test
+      ```
+
+      ### 4. Commit + PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase19-b-cap-sweep-1of2
+      git add backtest-results/phase19-cap-sweep-1of2-*.json
+      git commit -m "feat(phase19-b): Donchian+Pivot cap sweep @ 1-of-2 mode (15 backtests, research reference)"
+      git push -u origin feat/phase19-b-cap-sweep-1of2
+      gh pr create \
+        --repo EggProject/mm-crypto-bot \
+        --title "feat(phase19-b): Donchian+Pivot cap sweep @ 1-of-2 mode (research reference)" \
+        --base main \
+        --head feat/phase19-b-cap-sweep-1of2 \
+        --body "$(cat <<'EOF'
+      ## Phase 19 #1 Track B — 1-of-2 mode cap sweep (research reference)
+
+      Maps the return-cap curve at the Donchian+Pivot composition level using the
+      `--max-position-pct-equity` arg added in PR #45.
+
+      **15 backtest JSONs:**
+      - 3 symbols (BTC/ETH/SOL) × 5 cap values (0.04, 0.08, 0.10, 0.12, 0.15) + 1 cap=0.20 reference
+
+      Note: 1-of-2 mode has higher envelope but elevated DD (5-8%) vs 2-of-2 (1.9-4.6%). This sweep is research reference only — production default remains 2-of-2.
+      EOF
+      )"
+      ```
+
+      ### 5. Write deliverable.md
+
+      At worktree root: `deliverable.md` listing:
+      - 15 backtest JSONs in cap × symbol table (rows=cap, cols=symbol, cells=monthly%/DD/trades/KS)
+      - cap=0.20 reference vs Phase 18 envelope comparison (sanity check passed)
+      - PR URL
+      - Quality gate results
+
+      ## Memory rules (ABSOLUTE)
+
+      - **1:10 leverage MANDATORY**
+      - **No eslint-disable** — fix root cause
+      - **No "DEFERRED (own PR)"** — all findings fixed in same PR
+
+  # ============================================================
+  # TRACK C — Plot + REPORT-phase19.md + final cap recommendation
+  # ============================================================
+  - id: 'phase19-track-c-plot-report'
+    title: 'Phase 19 Track C — cap-vs-DD plot + REPORT-phase19.md + final cap recommendation'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 3600000
+    verified_by: verifier
+    depends_on: ['phase19-track-a-cap-sweep-2of2', 'phase19-track-b-cap-sweep-1of2']
+    verify_prompt: |
+      Verify Phase 19 Track C (plot + REPORT + recommendation):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git fetch origin && git worktree add .tmp-verify-p19c origin/feat/phase19-c-plot-report && cd .tmp-verify-p19c`
+      2. `ls backtest-results/phase19-cap-sweep-{2of2,1of2}-*.json | wc -l` → 30 (15+15 from Tracks A+B)
+      3. `ls docs/research/phase19-cap-sweep.png` → exists, file size > 10KB
+      4. `ls docs/research/REPORT-phase19.md` → exists
+      5. `wc -w docs/research/REPORT-phase19.md` → ≥1500 words
+      6. `grep -c '^## ' docs/research/REPORT-phase19.md` → ≥6 sections
+      7. REPORT must contain: cap-vs-DD table (or plot reference), final cap recommendation (one number), DD vs return tradeoff analysis
+      8. Every numerical claim cites a `backtest-results/phase19-cap-sweep-*.json` file
+      9. The final cap recommendation must satisfy: monthly return ≥ +20%/mo portfolio avg AND max DD ≤ 8% (safe-operating threshold). If no cap value meets both criteria, REPORT must explicitly say so and recommend the closest trade-off.
+      10. `bun run typecheck && bun run lint && bun test` → ALL PASS (any tooling for plot generation must not introduce lint errors)
+      11. `git log --oneline origin/feat/phase19-c-plot-report ^main` → commit exists
+      12. `gh pr list --head feat/phase19-c-plot-report --json url` → PR URL returned (or already merged)
+      13. `cat deliverable.md` → exists with plot+REPORT summary + final cap recommendation + PR URL
+      14. Cleanup: `cd .. && git worktree remove .tmp-verify-p19c --force`
+
+      PASS only if ALL 14 checks pass. Final cap recommendation MUST be justified with explicit DD vs return numbers.
+    prompt: |
+      You are the **Coder M2 agent** working on **Phase 19 Track C** of mm-crypto-bot.
+
+      ## Pre-flight: Merge Track A + B
+
+      DO NOT start Track C work until Tracks A and B are BOTH squash-merged to main.
+      Check:
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git log --oneline origin/main -5  # should show feat/phase19-a and feat/phase19-b commits
+      ```
+      If not merged, wait or report "blocked on Track A/B merge".
+
+      ## Context
+
+      Track A: 15 backtests (cap sweep @ 2-of-2 mode)
+      Track B: 15 backtests (cap sweep @ 1-of-2 mode, research reference)
+      Track C: integration — cap-vs-DD plot + REPORT-phase19.md + final cap recommendation
+
+      **Goal:** find the smallest cap that lifts envelope toward +30-35%/mo while staying under the 8% DD safe-operating threshold (per REPORT-phase18.md §8.1).
+
+      ## Setup
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git checkout main
+      git pull
+      git worktree add .worktrees/wt-phase19-c-plot-report -b feat/phase19-c-plot-report main
+      ```
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Verify A+B are on main
+
+      ```bash
+      ls /Users/kiscsicska/projects/mm-crypto-bot/backtest-results/phase19-cap-sweep-{2of2,1of2}-*.json | wc -l
+      ```
+      Must return 30 (15+15). If not, STOP and report "blocked on Track A/B merge".
+
+      ### 2. Generate cap-vs-DD plot
+
+      Location: `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/phase19-cap-sweep.png`
+
+      Use matplotlib (Python) or a JS plotting library. Plot must show:
+      - X-axis: cap value (0.04, 0.08, 0.10, 0.12, 0.15, 0.20-ref)
+      - Y-axis (left): monthly return % portfolio average
+      - Y-axis (right): max DD % portfolio average
+      - Two lines: 2-of-2 mode (solid) and 1-of-2 mode (dashed)
+      - Markers per cap value
+      - 8% DD threshold line (horizontal dashed red)
+      - +30%/mo target line (horizontal dashed green)
+      - Title: "Phase 19 Cap Sweep — Return vs DD by Cap Value"
+      - Legend
+      - File size must be > 10KB
+
+      Python sketch:
+      ```python
+      #!/usr/bin/env python3
+      import json, glob, os
+      import matplotlib.pyplot as plt
+
+      caps = [0.04, 0.08, 0.10, 0.12, 0.15, 0.20]
+      results_2of2 = {}  # cap -> portfolio avg
+      results_1of2 = {}
+      dd_2of2 = {}
+      dd_1of2 = {}
+
+      for mode in ['2of2', '1of2']:
+        for cap in caps:
+          mrets, dds = [], []
+          for sym in ['btc', 'eth', 'sol']:
+            fname = f'backtest-results/phase19-cap-sweep-{mode}-{sym}-15m-{cap}.json'
+            if not os.path.exists(fname):
+              continue
+            with open(fname) as f:
+              d = json.load(f)
+            mrets.append(d['monthlyReturn'] * 100)
+            dds.append(d['result']['maxDrawdown'] * 100)
+          if mode == '2of2':
+            results_2of2[cap] = sum(mrets) / len(mrets) if mrets else None
+            dd_2of2[cap] = max(dds) if dds else None
+          else:
+            results_1of2[cap] = sum(mrets) / len(mrets) if mrets else None
+            dd_1of2[cap] = max(dds) if dds else None
+
+      fig, ax1 = plt.subplots(figsize=(10, 6))
+      ax1.set_xlabel('maxPositionPctEquity (cap)')
+      ax1.set_ylabel('Portfolio avg monthly return (%)', color='tab:blue')
+      ax2 = ax1.twinx()
+      ax2.set_ylabel('Portfolio max DD (%)', color='tab:red')
+
+      for mode, results, color, ls in [('2-of-2', results_2of2, 'tab:blue', '-'), ('1-of-2', results_1of2, 'tab:cyan', '--')]:
+        xs = sorted(results.keys())
+        ys = [results[x] for x in xs]
+        ax1.plot(xs, ys, marker='o', color=color, linestyle=ls, label=f'{mode} return')
+      for mode, dds, color, ls in [('2-of-2', dd_2of2, 'tab:red', '-'), ('1-of-2', dd_1of2, 'tab:orange', '--')]:
+        xs = sorted(dds.keys())
+        ys = [dds[x] for x in xs]
+        ax2.plot(xs, ys, marker='s', color=color, linestyle=ls, label=f'{mode} DD')
+
+      ax1.axhline(y=30, color='green', linestyle=':', label='+30%/mo target')
+      ax2.axhline(y=8, color='red', linestyle=':', label='8% DD threshold')
+
+      plt.title('Phase 19 Cap Sweep — Return vs DD by Cap Value')
+      fig.legend(loc='upper right', bbox_to_anchor=(0.9, 0.9))
+      plt.tight_layout()
+      plt.savefig('docs/research/phase19-cap-sweep.png', dpi=100)
+      ```
+
+      Adapt as needed. The plot is the primary visual deliverable for Phase 19.
+
+      ### 3. Write REPORT-phase19.md
+
+      Location: `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/REPORT-phase19.md`
+
+      Structure (≥6 sections, ≥1500 words):
+
+      **§1 Executive Summary** — verdict: which cap value lifts envelope to ≥+20%/mo at <8% DD?
+      Cap recommendation (one number) + reasoning.
+
+      **§2 Cap sweep results — 2-of-2 mode (production default)** — table with rows=cap, cols=BTC/ETH/SOL/Portfolio Avg.
+      Use `phase19-cap-sweep-2of2-*.json`. Cells: monthly% / maxDD% / trades / kill-switch.
+
+      **§3 Cap sweep results — 1-of-2 mode (research reference)** — same table format.
+      Use `phase19-cap-sweep-1of2-*.json`.
+
+      **§4 Return vs DD tradeoff** — interpretation of cap-vs-DD plot. Which cap value offers the
+      best risk-adjusted envelope? Where is the knee of the curve?
+
+      **§5 +50%/mo progress** — how close did this phase get us?
+      | Phase | Best envelope | Gap to +50%/mo |
+      | 17 | +20-25%/mo (capped) | 2-2.5× |
+      | 18 | +18.84%/mo (cap=0.20) | 2.65× |
+      | 19 | +X.XX%/mo (cap=Y.YY, this phase) | X× |
+
+      **§6 Risks** — cap-vs-no-cap tradeoff (Phase 17 §5 caveat), compounding-explosion at higher caps,
+      bybit.eu SPOT order-book depth concerns at cap ≥ 0.10 (per Phase 17 §5).
+
+      **§7 Phase 20+ roadmap** — top 3 candidates if cap sweep didn't hit +50%/mo. Otherwise
+      recommend next phase (e.g., HybridKelly drop-in for further envelope lift).
+
+      Every numerical claim cites a JSON: "BTC monthly return +X.XX%/mo (from `backtest-results/phase19-cap-sweep-2of2-btc-15m-0.XX.json`)"
+
+      ### 4. Quality gates
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      bun run typecheck
+      bun run lint
+      bun test
+      ```
+
+      ### 5. Commit + PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase19-c-plot-report
+      git add docs/research/phase19-cap-sweep.png docs/research/REPORT-phase19.md
+      git commit -m "feat(phase19-c): cap-vs-DD plot + REPORT-phase19.md + final cap recommendation"
+      git push -u origin feat/phase19-c-plot-report
+      gh pr create \
+        --repo EggProject/mm-crypto-bot \
+        --title "feat(phase19-c): Phase 19 cap sweep plot + REPORT-phase19.md + final cap recommendation" \
+        --base main \
+        --head feat/phase19-c-plot-report \
+        --body "$(cat <<'EOF'
+      ## Phase 19 #1 Track C — plot + REPORT + final cap recommendation
+
+      **Final cap recommendation: <TBD from data>**
+
+      ## Summary
+      - Cap-vs-DD plot at `docs/research/phase19-cap-sweep.png`
+      - REPORT-phase19.md with 6+ sections, ≥1500 words, every numerical claim cited
+      - Final cap recommendation (one number) + DD vs return justification
+
+      ## Key finding
+      <TBD from data>
+      EOF
+      )"
+      ```
+
+      ### 6. Write deliverable.md
+
+      At worktree root: `deliverable.md` listing:
+      - 30 backtest JSONs (15 from Track A + 15 from Track B)
+      - cap-vs-DD plot path + size
+      - REPORT sections summary
+      - Final cap recommendation (one number) + reasoning
+      - Quality gate results
+      - PR URL
+
+      ## Memory rules (ABSOLUTE)
+
+      - **1:10 leverage MANDATORY**
+      - **No eslint-disable** — fix root cause
+      - **No docstring lies**
+      - **No "DEFERRED (own PR)"** — all findings fixed in same PR

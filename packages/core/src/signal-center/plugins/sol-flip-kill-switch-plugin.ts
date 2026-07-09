@@ -75,7 +75,6 @@ import {
   evaluateRegime,
   type FlipDetectorConfig,
   type FlipDetectorMetrics,
-  type FundingFlipKillSwitchConfig,
   type RegimeDecision,
 } from "../../strategy/funding-flip-kill-switch.js";
 import type { SignalBus } from "../signal-bus.js";
@@ -291,7 +290,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
   private readonly detectorConfig: FlipDetectorConfig;
 
   /** Internal Phase 9 9D reference config (used to derive detector config). */
-  private static readonly _phase9RefConfig: Partial<FundingFlipKillSwitchConfig> = {};
+  private static readonly _phase9RefConfig: Partial<FlipDetectorConfig> = {};
 
   constructor(config: Partial<SOLFlipKillSwitchPluginConfig> = {}) {
     const merged: SOLFlipKillSwitchPluginConfig = {

@@ -655,7 +655,12 @@ describe("SOLFlipKillSwitchPlugin", () => {
     p.recordFundingSample("SOL/USDT", 0.001, 1_700_000_000_000);
     const regime = p.currentRegime();
     expect(regime.regimeActive).toBe(false);
-    expect(regime.reason).toBe("insufficient-history");
+    // Phase 32: funding-flip-kill-switch.ts was refactored to a pure-
+    // functional detector. With insufficient history, the detector
+    // returns zero metrics, and the regime is reported as inactive
+    // (no thresholds exceeded). The old "insufficient-history" string
+    // is no longer used.
+    expect(regime.reason).toMatch(/regime-inactive/);
   });
 
   it("edge case: positive regime → no flip, no extreme", () => {

@@ -1,0 +1,198 @@
+version: 1
+plan:
+  name: 'Phase 24 #1 — Cap-vs-DD knee sweep @ 1-of-2 (cap ∈ {0.18, 0.20})'
+  max_concurrency: 1
+  max_consecutive_failures: 2
+  max_cycles: 4
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — Cap-vs-DD knee sweep @ 1-of-2 mode (lowest-blast-radius validation)
+  # ============================================================
+  - id: 'phase24-track-a-cap-knee-1of2'
+    title: 'Phase 24 Track A — Donchian+Pivot cap sweep @ 1-of-2 mode, cap ∈ {0.18, 0.20}'
+    assigned_to: coder
+    max_retries: 2
+    timeout_ms: 2700000  # 45 min
+    verified_by: verifier
+    depends_on: []
+    verify_prompt: |
+      Verify Phase 24 Track A (Donchian+Pivot cap sweep @ 1-of-2 mode, cap ∈ {0.18, 0.20}):
+
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot && git fetch origin && git worktree add .tmp-verify-p24a origin/feat/phase24-a-cap-knee-1of2 && cd .tmp-verify-p24a`
+      2. `ls backtest-results/phase24-cap-knee-1of2-*.json | wc -l` → 6 files (2 caps × 3 symbols)
+         - Files: phase24-cap-knee-1of2-{btc,eth,sol}-15m-{0.18,0.20}.json
+      3. For each JSON: `python3 -c "import json,sys; d=json.load(open(sys.argv[1])); r=d['result']; print(d['args']['symbol'], 'cap=', d['args']['maxPositionPctEquity'], 'monthly=', round(d['monthlyReturn']*100, 2), 'trades=', r['totalTrades'], 'dd=', round(r['maxDrawdown']*100, 2), 'ks=', r['killSwitchTriggered'])" <file>` — all 6 must show totalTrades > 0 AND maxDrawdown < 50% (no kill-switch)
+      4. The cap=0.20 reference cells MUST match Phase 19 #1 same-cap same-symbol envelope within ±1pp (BTC / ETH / SOL). This is the regression anchor — proves the wire-up is bit-identical when re-invoked.
+         - Cap=0.20 reference: Phase 19 #1 BTC +35.71%/mo @ 5.84% DD (1-of-2) — RE-RUN if needed
+         - Phase 19 #1 1-of-2 cap=0.20 JSONs are at `backtest-results/phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.20.json` on origin/main
+      5. `bun run typecheck && bun run lint && bun test` → ALL PASS (no production code changes)
+      6. No production code changes — only CLI invocations + JSON outputs
+      7. `git log --oneline origin/feat/phase24-a-cap-knee-1of2 ^main` — commit exists
+      8. `gh pr list --head feat/phase24-a-cap-knee-1of2 --json url` — PR URL returned (or already merged)
+      9. `cat deliverable.md` at worktree root — exists with 6-JSON envelope table (cap × symbol grid) + comparison to Phase 19 #1 same-cap rows + conclusion (NEGATIVE/POSITIVE/MIXED)
+      10. Cleanup: `cd .. && git worktree remove .tmp-verify-p24a --force`
+
+      PASS only if ALL 10 checks pass. Cap=0.20 reference MUST match Phase 19 #1 envelope within ±1pp on all 3 symbols (regression anchor).
+
+      ## CRITICAL — 4-NEGATIVE-streak lessons applied
+
+      **Pre-flight from PHASE-20-21-22-23-ARCHIVE.md §14 (mandatory for all 4 lessons applied):**
+
+      1. **Regime-INVARIANCE test (§4):** run-this-test-NOT-applicable (no per-bar regime modifier in Phase 24 — only the existing Phase 19 cap-and-mode baseline is being swept).
+      2. **Geometric-compounding math (§5):** NOT-applicable (no sizing multiplier added).
+      3. **Bit-identical-trade-stream probe (§6):** use this to verify cap=0.20 cells match Phase 19 #1 same-cap same-symbol — if they diverge, the wire-up is broken.
+      4. **CLI flag wiring trace (§13):** verify `--max-position-pct-equity=` flag is wired through runner (Phase 19 PR #45 added it — already validated). Run byte-diff at cap=0.20 vs Phase 19 same cell.
+      5. **Side-conflict test (§12):** NOT-applicable (no multi-asset vote added).
+      6. **Compensating alpha source (§14 item 6):** Phase 24 does NOT add new alpha — it re-validates the existing baseline at higher caps. The hypothesis being tested: "diminishing-returns curve at cap ∈ {0.18, 0.20} lifts envelope above Phase 19 #1 cap=0.12 primary (+32.24%/mo portfolio avg)."
+
+      ## Why this matters
+
+      The 4-NEGATIVE-streak (Phases 20-21-22-23) confirmed: any per-bar feature-classifier modifier LOSES. Phase 24 is the rational counter-move — stay on the existing regime-INVARIANT Donchian+Pivot baseline, just push the cap-vs-DD knee higher. Smallest blast radius. If the knee sweep ALSO lifts cap=0.20 to NEGATIVE (i.e., the +32.24%/mo at cap=0.12 was the local maximum), then the +50%/mo structural ceiling closes definitively.
+
+      Acceptance: PASS = any positive envelope change vs Phase 19 #1 cap=0.12 baseline (no per-bar noise — must be ≥2pp portfolio avg). NEGATIVE = envelope regresses to <30%/mo portfolio avg at cap ≥0.18.
+    prompt: |
+      You are the **Coder agent** working on **Phase 24 Track A** of mm-crypto-bot.
+
+      ## Context
+
+      **Project state (2026-07-07 22:50 Budapest):** 4-NEGATIVE-streak across Phases 20-21-22-23 archived in `docs/research/PHASE-20-21-22-23-ARCHIVE.md`. Any per-bar feature-classifier modifier loses geometric compounding without filtering winners.
+
+      **Phase 19 #1 baseline (Donchian+Pivot @ 1-of-2, cap sweep):** the cap-vs-DD knee discovery. Primary recommendation: `cap=0.12` → +32.24%/mo portfolio avg @ 4.70% max-DD. The diminishing-returns curve was NOT validated above cap=0.15 in 1-of-2 mode — Phase 19 only tested up to cap=0.15, with cap=0.20 as a reference point (matched Phase 18 envelope). The actual knee curve above 0.15 is unknown territory.
+
+      **Phase 24 #1 goal:** validate cap ∈ {0.18, 0.20} on the existing Donchian+Pivot 1-of-2 baseline. Two outcomes:
+      - **POSITIVE (≥30%/mo portfolio avg @ cap ≥0.18, ≥30%/mo @ cap=0.20):** diminishing-returns curve holds; new envelope exceeds Phase 19 #1 primary by ≥2pp.
+      - **NEGATIVE (<30%/mo portfolio avg at any of the 2 caps):** diminishing-returns curve DOES NOT hold at this knee; Phase 19 #1 cap=0.12 was the local maximum.
+
+      ## Why lowest-blast-radius
+
+      Stays on existing baseline (no new alpha sources). 6 JSONs (2 caps × 3 symbols). Producer cycle ~30-45 min. Validates the structural ceiling hypothesis without introducing new failure modes.
+
+      ## Infra
+
+      PR #45 (already merged) added `--max-position-pct-equity=<pct>` CLI arg. Default 0.20. Validation: (0, 0.5].
+
+      ## Setup
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot
+      git fetch origin
+      git worktree add .worktrees/wt-phase24-a-cap-knee-1of2 -b feat/phase24-a-cap-knee-1of2 main
+      cd .worktrees/wt-phase24-a-cap-knee-1of2
+      ```
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Run 6 backtests (2 caps × 3 symbols, 1-of-2 mode)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase24-a-cap-knee-1of2
+      for SYMBOL in BTC/USDT ETH/USDT SOL/USDT; do
+        SYM=$(echo $SYMBOL | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+        for CAP in 0.18 0.20; do
+          bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+            --symbol=$SYMBOL --timeframe=15m --min-consensus=1 \
+            --max-position-pct-equity=$CAP \
+            --output=backtest-results/phase24-cap-knee-1of2-${SYM}-15m-${CAP}.json
+        done
+      done
+      ```
+
+      Verify: `ls backtest-results/phase24-cap-knee-1of2-*.json | wc -l` → 6
+
+      ### 2. Verify backtests
+
+      For each JSON:
+      - `result.totalTrades > 0` (no zero-trade anomaly)
+      - `result.maxDrawdown < 0.50` (no kill-switch)
+      - `args.maxPositionPctEquity` matches the filename cap value (sanity check on CLI plumbing)
+
+      ### 3. Regression anchor: cap=0.20 must match Phase 19 #1
+
+      Compare `phase24-cap-knee-1of2-{btc,eth,sol}-15m-0.20.json` to `backtest-results/phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.20.json` (latter on main @ bc66ef2 or origin/main).
+
+      Use byte-identical-trade-stream probe from PHASE-20-21-22-23-ARCHIVE.md §6: open both JSONs, compare:
+      - `monthlyReturn` → within ±1pp (BTC +35.71%, ETH ?, SOL ?)
+      - `totalTrades` → byte-equal
+      - `result.maxDrawdown` → within ±0.3pp
+      - `result.sharpeRatio` → within ±0.5
+
+      If cap=0.20 drifts from Phase 19 #1 reference → **RE-INVESTIGATE** (could indicate data drift, RNG drift, or engine drift — any of which would invalidate the sweep). Document the divergence in deliverable.md §3 with citation: "Phase 24 #1 cap=0.20 vs Phase 19 #1 cap=0.20 same-symbol same-cap diff: <numbers>."
+
+      ### 4. Quality gates (ALL MUST PASS)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase24-a-cap-knee-1of2
+      bun run typecheck
+      bun run lint
+      bun test
+      ```
+
+      All must exit 0. **No production code changes** (Phase 24 has no strategy changes).
+
+      ### 5. Write deliverable.md + (NEGATIVE-RESULT.md if applicable)
+
+      Create `deliverable.md` at worktree root with sections:
+      - §1 Test matrix (6 cells, cap × symbol grid)
+      - §2 Result envelope (monthly return, Sharpe, max DD, totalTrades per cell)
+      - §3 Regression anchor diff vs Phase 19 #1 cap=0.20 (must be within ±1pp)
+      - §4 Verdict: **POSITIVE** if portfolio avg ≥30%/mo @ cap ≥0.18, OR **NEGATIVE** if <30%/mo
+      - §5 Recommendation: next cap if POSITIVE, or archive + pivot if NEGATIVE
+      - §6 Cleanup checklist (worktree removal after PR merge)
+
+      If verdict is NEGATIVE: ALSO write `docs/research/NEGATIVE-RESULT.md` (or append to existing one via separate commit) with binary verdict note per the established pattern.
+
+      ### 6. Commit + Push + Open PR
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase24-a-cap-knee-1of2
+      git add backtest-results/phase24-cap-knee-1of2-*.json deliverable.md
+      git commit -m "feat(phase24-a): cap-vs-DD knee sweep @ 1-of-2 mode, cap ∈ {0.18, 0.20} (6 backtests)"
+      git push origin feat/phase24-a-cap-knee-1of2
+      gh pr create --head feat/phase24-a-cap-knee-1of2 --base main \
+        --title "Phase 24 #1 — Cap-vs-DD knee sweep @ 1-of-2, cap ∈ {0.18, 0.20} (lowest-blast-radius validation of +2%/mo structural ceiling)" \
+        --body "..."
+      ```
+
+      Do NOT merge the PR yourself — orchestrator will verify + accept and user will squash-merge per project convention.
+
+      ## Lessons applied (from PHASE-20-21-22-23-ARCHIVE.md)
+
+      - **§4 (Regime-INVARIANCE):** N/A — Phase 24 doesn't add per-bar regime modifier.
+      - **§5 (Geometric compounding):** N/A — Phase 24 doesn't add sizing multiplier.
+      - **§6 (Bit-identical-trade-stream probe):** USE in §3 above — cap=0.20 cells vs Phase 19 #1 reference cells.
+      - **§12 (Side-conflict test):** N/A — no multi-asset vote added.
+      - **§13 (CLI flag wiring trace):** confirm `--max-position-pct-equity` flag is wired (Phase 19 PR #45 added it — should be reliable).
+      - **§14 item 6 (Compensating alpha source):** document the hypothesis being tested (diminishing-returns at higher caps). The hypothesis IS that envelope DOES NOT regress; the empirical answer is binary PASS/NEGATIVE.
+
+      ## Hard guarantees
+
+      - **Use ONLY the existing `--max-position-pct-equity` CLI flag.** Do NOT add new CLI flags (silent-no-op risk per §7+§13).
+      - **Do NOT modify production code.** This is a pure data sweep — only JSONs + deliverable.md.
+      - **Run the regression anchor BEFORE claiming the sweep result.** If cap=0.20 diverges from Phase 19 #1 by more than ±1pp, the sweep is invalidated.
+      - **Use shell `set -euo pipefail` discipline** — fail-fast on any error.
+
+      ## Acceptance criteria (deliverable.md §4 verdict)
+
+      - **POSITIVE:** avg(phase24-cap-knee-1of2-{btc,eth,sol}-15m-0.18.json monthlyReturn) ≥ +0.30 AND avg(...-0.20.json monthlyReturn) ≥ +0.30 → diminishing-returns holds, new envelope gap to +50%/mo closes by ≥2pp.
+      - **NEGATIVE:** either 0.18 or 0.20 average < +0.30 → diminishing-returns does NOT hold at this knee; Phase 19 #1 cap=0.12 was the local maximum; structural ceiling closes definitively.
+
+      Either verdict is acceptable per the user's "agent picks + executes" mandate — what matters is that the empirical answer is BIT-IDENTICAL to the hypothesis.
+    metadata:
+      phase: 24
+      sub_phase: '#1'
+      track: 'cap-knee-1of2-018-020'
+      goal: 'validate cap ∈ {0.18, 0.20} on Donchian+Pivot 1-of-2 baseline, lowest-blast-radius check of structural ceiling'
+      baseline_phase: '19-#1'
+      baseline_cap: 0.12
+      baseline_portfolio_avg_pct: 32.24
+      sweep_caps: [0.18, 0.20]
+      sweep_mode: '1-of-2'
+      sweep_backbone: 'Donchian+Pivot 15m'
+      sweep_symbols: [BTC, ETH, SOL]
+      expected_backtests: 6
+      risks: ['synthetic data (existing)', 'bybit.eu SPOT depth at higher cap', 'mode-flip margin at cap ≥0.18']
+      negative_streak_count: 4

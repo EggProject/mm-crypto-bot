@@ -1,0 +1,692 @@
+version: 1
+plan:
+  name: 'Phase 6 — Multi-class edge ensemble (funding-carry + arb-latency + Kelly-opt)'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — Funding-rate carry simulation
+  # Crypto Expert specialist (agent-c53b5725d31d)
+  # ============================================================
+  - id: 'phase6-track-a-funding-carry'
+    title: 'Phase 6 Track A — Funding-rate carry backtest (Crypto Expert)'
+    prompt: |
+      You are the **Crypto Expert agent** working on Phase 6 Track A of the mm-crypto-bot project.
+
+      ## Context
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/docs/research/phase6-strategy-brief.md` — the authoritative Phase 6 brief (Track A spec in §1.2.1 / M1.1, M2/M3 owner scope)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase5-ensemble/backtest-results/REPORT-phase5.md` — Phase 5 findings, especially §5 (Funding-rate carry status) which sets empirical expectations
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase5-ensemble/packages/core/src/strategy/donchian-breakout.ts` — pattern for Strategy interface implementation (mimic this style)
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase5-ensemble/packages/backtest-tools/src/cli/run-donchian-baseline.ts` — pattern for CLI runner
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/packages/core/src/strategy/` — existing strategy implementations to mimic patterns
+
+      ## Your scope — Track A: Funding-rate carry simulation
+      Paper-trading szintű funding-rate carry backtest, bybit.eu SPOT + binance/OKX perp synthetic execution modellel.
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-a`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase6-track-a -b feat/phase6-track-a-funding-carry main`
+         - All your work happens here
+      2. The `feat/phase6-track-a-funding-carry` branch is yours alone — no other worker touches it
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/strategy/funding-carry.ts` — `Strategy` interface implementation
+         - Long-spot + short-perpetual delta-semleges pozíció (a Phase 1 OHLCV adatokkal szinkronban)
+         - Funding payment accrual simulation (8h funding snapshots, historical Binance public data)
+         - Funding rate historical data download script (binance public API, ≥6 months of 8h snapshots for BTC/ETH/SOL)
+         - Withdrawal latency cost model (5-30 min baseline, dokumentálva)
+         - Mimic the Strategy interface from `packages/core/src/strategy/` (look at donchian-breakout.ts for the exact signature)
+
+      2. `packages/core/src/strategy/funding-carry.test.ts` — ≥8 unit tests
+         - Delta-semlegesség (spot + perp position sizing cancel out)
+         - Funding accrual (positive funding → earn, negative → pay)
+         - Edge cases: zero funding, extreme funding (>0.1%/8h), missing data
+         - Withdrawal latency cost integration
+         - Position rebalance frequency
+
+      3. `packages/backtest-tools/src/cli/run-funding-carry-baseline.ts` — CLI runner
+         - Args: `--symbol=<SYM> --timeframe=<TF> --output=<PATH>`
+         - Mimic `run-donchian-baseline.ts` pattern exactly
+         - Output JSON structure must match Phase 5 baseline format (look at `baseline-donchian-btc-1d.json` for shape)
+
+      4. `backtest-results/baseline-funding-carry-{btc,eth,sol}-1h.json` — 3 backtest JSON files
+         - Run the CLI for BTC/ETH/SOL on 1h timeframe (matches Phase 1 OHLCV data range 2024-01 → 2026-07)
+         - Each JSON: total return %, Sharpe ratio, max DD %, trade count, win rate, funding collected, rebalance count
+
+      5. `docs/research/phase6-funding-carry.md` — empirical report
+         - **English research sections, Hungarian intro/conclusion OK** (per memory preference)
+         - **Minimum 5-10 web queries** on: binance funding rate history, perpetual-spot carry, delta-neutral strategies, MiCAR bybit.eu SPOT-only constraints, counterparty risk multi-exchange, withdrawal latency benchmarks
+         - **≥3 independent sources** cited for every empirical claim (the Phase 5 §5 referenced Bybit Institutional 2025, ainvest.com 16%/year Sharpe 6.1, bagtester 8-15%/year, ScienceDirect 115.9%/6mo — VERIFY these, find ≥3 more, cite properly)
+         - **≥2 független forrás** per claim (memory entry from 2026-07-03: "Minden állításhoz ≥2 független forrás idézése kötelező")
+         - Empirical results table: funding carry havi hozam BTC/ETH/SOL × 1h, Sharpe, max DD, edge vs fee-drag
+         - Comparison vs Phase 5 Donchian 1d (the only Phase 5 positive edge)
+         - Deployment readiness assessment for Phase 7+
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-a
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green. If any fails, fix it before commit.
+
+      ### Commit + Push
+      1. Stage and commit (conventional commits, magyar summary OK):
+         ```
+         git add -A
+         git commit -m "feat(backtest,core,backtest-tools): ÜGYNÖK Phase 6 Track A — Funding-rate carry backtest
+
+         - funding-carry strategy: long-spot + short-perp delta-semleges, funding accrual szimuláció
+         - historical funding rate fetch: binance public API, 8h snapshots BTC/ETH/SOL 2024-01 → 2026-07
+         - withdrawal latency cost model: 5-30 min baseline integrálva
+         - 3 baseline JSON (BTC/ETH/SOL × 1h) + phase6-funding-carry.md empirikus riport
+         - empirical edge: <HAVI HOZAM>% átlag, Sharpe <X>, <Y> forrással alátámasztva
+         "
+         ```
+      2. Push: `git push -u origin feat/phase6-track-a-funding-carry`
+      3. **DO NOT open a PR** — the gh CLI is not authed in this session. Report back to root (see below).
+
+      ### Report back to root
+      At the END of your work, send a structured report:
+      ```bash
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 6 TRACK A (FUNDING-CARRY) COMPLETE.
+
+      **Branch:** feat/phase6-track-a-funding-carry
+      **Worktree:** /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-a
+      **Commits:** <list commit hashes>
+      **Push:** origin/feat/phase6-track-a-funding-carry (DONE)
+
+      **Deliverables:**
+      - packages/core/src/strategy/funding-carry.ts + funding-carry.test.ts
+      - packages/backtest-tools/src/cli/run-funding-carry-baseline.ts
+      - backtest-results/baseline-funding-carry-{btc,eth,sol}-1h.json (3 files)
+      - docs/research/phase6-funding-carry.md (≥3 independent sources)
+
+      **Quality gates:** typecheck/lint/test/coverage ALL GREEN
+      **Unit tests:** <N> passing
+      **Empirical results:**
+      - BTC funding-carry 1h: <return>% / Sharpe <X> / max DD <Y>%
+      - ETH funding-carry 1h: <return>% / Sharpe <X> / max DD <Y>%
+      - SOL funding-carry 1h: <return>% / Sharpe <X> / max DD <Y>%
+      - Monthly average: <X>%/month (Phase 5 Donchian 1d baseline: +0.04-0.10%/month)
+
+      **Verdict on +50%/month target:** <YES/NO/PARTIAL> — <one-line reasoning>
+      **Phase 7+ deployment readiness:** <assessment>
+
+      **Edge cases found:**
+      - <list any>
+      "
+      ```
+
+      ### Hard rules
+      - DO NOT touch files outside your scope (Track A files only). Other workers handle Track B/C files.
+      - DO NOT open a PR — root session will open it after all 3 tracks complete.
+      - DO NOT wait for any CI / external system / human input.
+      - DO NOT sleep or poll — finish the work, send the report, exit.
+      - If the research reveals Track A is not feasible (e.g., binance historical funding data unavailable), document this in phase6-funding-carry.md with sources, and produce whatever partial deliverable is achievable (e.g., funding rate statistics only, no full backtest). Report the partial completion honestly to root.
+      - **Kutatási nyelv: kizárólag angol** a research sections-ban. Magyar OK az intro/conclusion-ben.
+      - **Min 5-10 web queries, ≥2 független forrás per claim** (memory entry 2026-07-03).
+
+      ### Stop condition
+      You stop when ALL of:
+      1. ✅ All 5 deliverable categories produced
+      2. ✅ All quality gates green
+      3. ✅ Branch pushed to origin
+      4. ✅ Report sent to root session via `mavis communication send`
+
+      Report the final state. Do not poll, do not wait, do not re-loop.
+    assigned_to: 'agent-c53b5725d31d'
+    verified_by: verifier
+    verify_prompt: |
+      Independent verification of Phase 6 Track A (funding-carry) deliverable.
+
+      Verify ALL of the following (each must PASS, otherwise FAIL with the exact gap):
+
+      1. **File existence** — confirm all 5 deliverable categories exist on the `feat/phase6-track-a-funding-carry` branch:
+         - `packages/core/src/strategy/funding-carry.ts`
+         - `packages/core/src/strategy/funding-carry.test.ts`
+         - `packages/backtest-tools/src/cli/run-funding-carry-baseline.ts`
+         - `backtest-results/baseline-funding-carry-{btc,eth,sol}-1h.json` (3 files)
+         - `docs/research/phase6-funding-carry.md`
+
+      2. **Code correctness** — open `packages/core/src/strategy/funding-carry.ts`:
+         - Does it implement the `Strategy` interface (compare with `packages/core/src/strategy/donchian-breakout.ts`)?
+         - Is the funding accrual logic correct (8h snapshots, accrual = notional × funding_rate × time)?
+         - Is delta-semlegesség correctly enforced (spot_qty = perp_qty in absolute terms)?
+         - Run the unit tests: `cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-a && bun test packages/core/src/strategy/funding-carry.test.ts` — all must pass
+
+      3. **CLI runner works** — `bun run packages/backtest-tools/src/cli/run-funding-carry-baseline.ts --symbol=BTC/USDT --timeframe=1h --output=/tmp/test-funding-carry-btc.json` — must complete without error and produce a valid JSON file with the Phase 5 baseline schema
+
+      4. **Backtest JSON validity** — open each of the 3 baseline JSON files:
+         - Is the JSON parseable?
+         - Does it contain the standard fields (total return, Sharpe, max DD, trade count, win rate)?
+         - Are the numbers internally consistent (e.g., max DD ≤ 100%, win rate 0-100%)?
+         - Compare against Phase 5 numbers in `backtest-results/REPORT-phase5.md` — the funding carry should be in a different regime (likely positive monthly returns if the historical funding data shows positive carry)
+
+      5. **Research depth** — open `docs/research/phase6-funding-carry.md`:
+         - Count distinct sources cited (URLs or paper titles) — must be ≥5
+         - Verify at least 3 of the cited sources actually exist (spot-check 3 URLs by fetching them)
+         - Check for English research sections (magyar intro/conclusion OK)
+         - Confirm ≥2 independent sources per major empirical claim
+
+      6. **Quality gates** — run from the worktree root:
+         ```
+         bun install --frozen-lockfile
+         bun run typecheck
+         bun run lint
+         bun run test
+         bun run coverage
+         ```
+         ALL must exit 0. If any fails, FAIL with the exact command + output.
+
+      7. **No scope creep** — confirm the worker only touched files in their Track A scope. Files outside the Track A scope (Track B latency, Track C Kelly, M2 ensemble) must NOT have been modified.
+
+      Verdict: PASS only if ALL 7 checks pass. FAIL with the precise gap otherwise.
+    max_retries: 2
+
+  # ============================================================
+  # TRACK B — Cross-exchange spread arb latency backtest
+  # CCXT Pro Specialist (agent-4bd5822807ad)
+  # ============================================================
+  - id: 'phase6-track-b-arb-latency'
+    title: 'Phase 6 Track B — Cross-exchange arb latency backtest (CCXT Pro Specialist)'
+    prompt: |
+      You are the **CCXT Pro Specialist agent** working on Phase 6 Track B of the mm-crypto-bot project.
+
+      ## Context
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/docs/research/phase6-strategy-brief.md` — the authoritative Phase 6 brief (Track B spec in §1.2.2 / M1.2)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase5-ensemble/backtest-results/REPORT-phase5.md` — Phase 5 §6.2 Cross-exchange arb context
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/packages/exchange/src/` — existing exchange adapter code (CCXT Pro WS, bybit.eu adapter)
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/packages/backtest-tools/src/cli/` — CLI runner patterns
+
+      ## Your scope — Track B: Cross-exchange spread arb latency backtest
+      binance/Bybit/KuCoin spot-ok közötti spread arb latency-backtest, deployment readiness assessment Phase 7+ számára.
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-b`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase6-track-b -b feat/phase6-track-b-arb-latency main`
+         - All your work happens here
+      2. The `feat/phase6-track-b-arb-latency` branch is yours alone — no other worker touches it
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/exchange/src/latency-monitor.ts` — WS latency measurement module
+         - RTT (round-trip-time) measurement via WS ping/pong or REST request-response
+         - Message gap tracking (time between consecutive orderbook updates)
+         - Reconnect time measurement (after forced disconnect)
+         - Multi-exchange support: binance, Bybit, KuCoin
+         - Statistical aggregation: median, p95, p99, max over a sliding window
+
+      2. `packages/exchange/src/latency-monitor.test.ts` — ≥6 unit tests
+         - RTT measurement correctness
+         - Message gap calculation
+         - Reconnect time tracking
+         - Multi-exchange aggregation
+         - Edge cases: dropped messages, partial responses
+
+      3. `packages/backtest-tools/src/cli/run-arb-latency.ts` — latency-backtest CLI runner
+         - Args: `--exchange-a=<EX> --exchange-b=<EX> --symbol=<SYM> --output=<PATH>`
+         - Runs a 30-day latency sample against the public WS endpoints (no auth needed for public orderbook)
+         - Output JSON: latency stats per exchange, spread opportunities detected (where arb would have triggered), theoretical PnL estimate
+
+      4. `backtest-results/arb-latency-{exchange-pair}-sample.json` — 3 sample JSON files
+         - Examples: `arb-latency-binance-bybit-btc-sample.json`, `arb-latency-binance-kucoin-eth-sample.json`, `arb-latency-bybit-kucoin-sol-sample.json`
+         - Each contains: latency stats, detected spread opportunities, theoretical PnL estimate
+
+      5. `docs/research/phase6-arb-latency.md` — empirical report
+         - **English research sections, Hungarian intro/conclusion OK**
+         - **Minimum 5-10 web queries** on: CCXT Pro latency benchmarks, exchange SLA round-trip times, HFT latency academic papers, cross-exchange arb infrastructure, sub-100ms arb feasibility, websocket vs REST latency
+         - **≥3 independent sources** cited for every empirical claim
+         - Latency statistics: median RTT, p95, p99 per exchange pair
+         - Spread opportunity frequency: how often does the cross-exchange spread exceed the round-trip cost?
+         - Deployment readiness score (Phase 7+): can the current infrastructure support sub-100ms arb?
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-b
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green.
+
+      ### Commit + Push
+      1. Commit (conventional commits, magyar summary OK):
+         ```
+         git add -A
+         git commit -m "feat(exchange,backtest-tools): ÜGYNÖK Phase 6 Track B — Cross-exchange arb latency backtest
+
+         - latency-monitor modul: WS RTT, message gap, reconnect time, multi-exchange (binance/Bybit/KuCoin)
+         - run-arb-latency CLI: 30-day latency sample + spread opportunity detection
+         - 3 sample JSON (exchange-pair × symbol) + phase6-arb-latency.md empirikus riport
+         - deployment readiness: <jelenlegi infra sub-100ms arb support assessment>
+         "
+         ```
+      2. Push: `git push -u origin feat/phase6-track-b-arb-latency`
+      3. **DO NOT open a PR** — root session handles it.
+
+      ### Report back to root
+      ```bash
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 6 TRACK B (ARB-LATENCY) COMPLETE.
+
+      **Branch:** feat/phase6-track-b-arb-latency
+      **Worktree:** /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-b
+      **Commits:** <list>
+      **Push:** origin/feat/phase6-track-b-arb-latency (DONE)
+
+      **Deliverables:**
+      - packages/exchange/src/latency-monitor.ts + latency-monitor.test.ts
+      - packages/backtest-tools/src/cli/run-arb-latency.ts
+      - backtest-results/arb-latency-{exchange-pair}-sample.json (3 files)
+      - docs/research/phase6-arb-latency.md (≥3 independent sources)
+
+      **Quality gates:** typecheck/lint/test/coverage ALL GREEN
+      **Latency stats:**
+      - binance-Bybit BTC: median RTT <X>ms, p95 <Y>ms, <Z> spread opportunities / 30 days
+      - binance-KuCoin ETH: median RTT <X>ms, p95 <Y>ms, <Z> opportunities
+      - Bybit-KuCoin SOL: median RTT <X>ms, p95 <Y>ms, <Z> opportunities
+
+      **Deployment readiness:** <PASS/PARTIAL/FAIL for sub-100ms arb>
+      **Theoretical PnL estimate (if sub-100ms supported):** <$/month>
+      **Verdict on +50%/month target via cross-exchange arb:** <YES/NO/PARTIAL>
+
+      **Edge cases found:**
+      - <list>
+      "
+      ```
+
+      ### Hard rules
+      - DO NOT touch Track A/C files.
+      - DO NOT open a PR — root session will.
+      - DO NOT wait for CI/external/human input.
+      - **Kutatási nyelv: kizárólag angol** research sections-ban.
+      - **Min 5-10 queries, ≥2 independent sources per claim** (memory).
+      - If a public WS endpoint requires auth for the latency you need, document this and use whatever is publicly available (REST orderbook snapshots are usually fine for a 30-day sample).
+
+      ### Stop condition
+      Same as Track A: all deliverables produced + quality gates green + branch pushed + report sent.
+    assigned_to: 'agent-4bd5822807ad'
+    verified_by: verifier
+    verify_prompt: |
+      Independent verification of Phase 6 Track B (arb-latency) deliverable.
+
+      Verify ALL:
+
+      1. **File existence** — confirm all 5 deliverable categories on `feat/phase6-track-b-arb-latency`:
+         - `packages/exchange/src/latency-monitor.ts`
+         - `packages/exchange/src/latency-monitor.test.ts`
+         - `packages/backtest-tools/src/cli/run-arb-latency.ts`
+         - `backtest-results/arb-latency-{exchange-pair}-sample.json` (3 files)
+         - `docs/research/phase6-arb-latency.md`
+
+      2. **Code correctness** — open `packages/exchange/src/latency-monitor.ts`:
+         - Does the latency monitor correctly measure RTT?
+         - Does it track message gaps?
+         - Does it handle multi-exchange aggregation?
+         - Run: `cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-b && bun test packages/exchange/src/latency-monitor.test.ts` — all pass
+
+      3. **CLI runner works** — `bun run packages/backtest-tools/src/cli/run-arb-latency.ts --exchange-a=binance --exchange-b=bybit --symbol=BTC/USDT --output=/tmp/test-latency.json` — must complete and produce valid JSON
+
+      4. **Sample JSON validity** — open each of the 3 sample JSON files:
+         - JSON parseable?
+         - Contains: latency stats (median/p95/p99), spread opportunities count, theoretical PnL?
+         - Numbers internally consistent (latencies > 0, opportunities ≥ 0)?
+
+      5. **Research depth** — open `docs/research/phase6-arb-latency.md`:
+         - ≥5 distinct sources cited
+         - ≥3 of them spot-checkable (verify URLs exist)
+         - English research sections
+         - ≥2 independent sources per major claim
+
+      6. **Quality gates** — `bun install --frozen-lockfile && bun run typecheck && bun run lint && bun run test && bun run coverage` — all exit 0
+
+      7. **No scope creep** — Track A/C files untouched.
+
+      Verdict: PASS only if all 7 pass. FAIL with precise gap otherwise.
+    max_retries: 2
+
+  # ============================================================
+  # TRACK C — Kelly-opt position-sizing Donchian 1d edge-re
+  # Strategy Specialist (agent-5394bdd48751)
+  # ============================================================
+  - id: 'phase6-track-c-kelly-opt'
+    title: 'Phase 6 Track C — Kelly-opt position-sizing (Strategy Specialist)'
+    prompt: |
+      You are the **Strategy Specialist agent** working on Phase 6 Track C of the mm-crypto-bot project.
+
+      ## Context
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/docs/research/phase6-strategy-brief.md` — the authoritative Phase 6 brief (Track C spec in §1.2.3 / M1.3)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase5-ensemble/backtest-results/REPORT-phase5.md` — Phase 5 §2.3 (Donchian 1d C strategy, the positive edge), §6.3 (Kelly-opt priority 3)
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase5-ensemble/backtest-results/baseline-donchian-{btc,eth,sol}-1d.json` — the baseline you will optimize
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase5-ensemble/packages/core/src/strategy/donchian-breakout.ts` — DonchianBreakoutStrategy implementation
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase5-ensemble/packages/backtest-tools/src/cli/run-donchian-baseline.ts` — CLI runner pattern
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/packages/core/src/strategy/` — current strategy patterns
+      7. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/packages/core/src/risk/` — existing risk modules (if any) — create new directory if missing
+
+      ## Your scope — Track C: Kelly-opt position-sizing Donchian 1d edge-re
+      A Phase 5 C Donchian 1d pozitív edge-ének Kelly-fraction optimalizálása.
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-c`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase6-track-c -b feat/phase6-track-c-kelly-opt main`
+      2. Branch `feat/phase6-track-c-kelly-opt` is yours alone.
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/risk/kelly-position-sizer.ts` — Kelly-fraction calculator + walk-forward validator
+         - **Kelly formula:** `f* = (p × b - q) / b` where p = win rate, q = 1-p, b = avg win / avg loss
+         - **Fractional Kelly:** support 0.25×, 0.5×, 1.0× multipliers (per memory: current sizing is 0.25 conservative)
+         - **Walk-forward validation:** split the 30-month backtest into 6-month train / 1-month test windows, validate Kelly-opt doesn't overfit
+         - **Risk caps:** max position size, max drawdown limit (configurable, default 15% max DD)
+         - Mimic the module style of existing `packages/core/src/strategy/`
+
+      2. `packages/core/src/risk/kelly-position-sizer.test.ts` — ≥10 unit tests
+         - Kelly formula correctness (multiple p/b combinations)
+         - Fractional Kelly multiplier behavior
+         - Walk-forward split logic (no future data leakage)
+         - Edge cases: p=0, p=1, b=0, negative Kelly (should return 0)
+         - Risk cap enforcement
+
+      3. `packages/backtest-tools/src/cli/run-kelly-opt.ts` — Kelly-opt CLI runner
+         - Args: `--strategy=<STRATEGY> --symbol=<SYM> --timeframe=<TF> --kelly-fraction=<0.25|0.5|1.0> --output=<PATH>`
+         - Default: `--kelly-fraction=0.5` (compromise between current 0.25 and full 1.0)
+         - Reuses the existing DonchianBreakoutStrategy logic but applies Kelly-opt position sizing
+         - Output JSON structure matches Phase 5 baseline format
+
+      4. `backtest-results/baseline-kelly-opt-{btc,eth,sol}-1d.json` — 3 backtest JSON files
+         - Run for BTC/ETH/SOL on 1d timeframe using the Kelly-opt position-sizing on the Donchian 1d edge
+         - Compare with `baseline-donchian-{btc,eth,sol}-1d.json` (Phase 5) — Kelly-opt should improve returns OR maintain returns with lower DD
+
+      5. `docs/research/phase6-kelly-opt.md` — empirical report
+         - **English research sections, Hungarian intro/conclusion OK**
+         - **Minimum 5-10 web queries** on: Kelly criterion academic papers (Thorp, Vince, Poundstone), fractional Kelly in trading, walk-forward validation methodology, anti-overfit techniques in position sizing, crypto-specific Kelly application
+         - **≥3 independent sources** cited for every empirical claim
+         - Kelly formula derivation (academic)
+         - Walk-forward validation results (in-sample vs out-of-sample Kelly fraction)
+         - Empirical results table: Kelly-opt vs Phase 5 conservative sizing comparison
+         - Anti-overfit analysis: how robust is the Kelly fraction across the 30-month period?
+         - Position-sizing sensitivity: what happens at 0.25× vs 0.5× vs 1.0× Kelly?
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-c
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green.
+
+      ### Commit + Push
+      1. Commit:
+         ```
+         git add -A
+         git commit -m "feat(backtest,core,backtest-tools): ÜGYNÖK Phase 6 Track C — Kelly-opt position-sizing
+
+         - kelly-position-sizer: Kelly formula + fractional multiplier + walk-forward validator
+         - run-kelly-opt CLI: Donchian 1d edge-re alkalmazva, 0.25/0.5/1.0× Kelly fraction
+         - 3 baseline JSON (BTC/ETH/SOL × 1d, 0.5× Kelly) + phase6-kelly-opt.md empirikus riport
+         - edge improvement: <X>× Phase 5 conservative (0.25) sizing-hoz képest
+         - walk-forward validáció: in-sample <X> / out-of-sample <Y> (nincs overfitting)
+         "
+         ```
+      2. Push: `git push -u origin feat/phase6-track-c-kelly-opt`
+      3. **DO NOT open a PR** — root session.
+
+      ### Report back to root
+      ```bash
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 6 TRACK C (KELLY-OPT) COMPLETE.
+
+      **Branch:** feat/phase6-track-c-kelly-opt
+      **Worktree:** /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-track-c
+      **Commits:** <list>
+      **Push:** origin/feat/phase6-track-c-kelly-opt (DONE)
+
+      **Deliverables:**
+      - packages/core/src/risk/kelly-position-sizer.ts + kelly-position-sizer.test.ts
+      - packages/backtest-tools/src/cli/run-kelly-opt.ts
+      - backtest-results/baseline-kelly-opt-{btc,eth,sol}-1d.json (3 files, 0.5× Kelly default)
+      - docs/research/phase6-kelly-opt.md (≥3 independent sources, Kelly formula derivation)
+
+      **Quality gates:** typecheck/lint/test/coverage ALL GREEN
+      **Empirical results (0.5× Kelly, 1d timeframe):**
+      - BTC Kelly-opt: <return>% / Sharpe <X> / max DD <Y>%
+      - ETH Kelly-opt: <return>% / Sharpe <X> / max DD <Y>%
+      - SOL Kelly-opt: <return>% / Sharpe <X> / max DD <Y>%
+      - Monthly average: <X>%/month (vs Phase 5 Donchian 1d 0.25 conservative: +0.04-0.10%/month)
+
+      **Walk-forward validation:**
+      - In-sample Kelly fraction: <X>
+      - Out-of-sample Kelly fraction: <Y>
+      - Overfit risk: <LOW/MEDIUM/HIGH>
+
+      **Sensitivity (0.25× vs 0.5× vs 1.0× Kelly):**
+      - 0.25× Kelly: <return>%
+      - 0.5× Kelly: <return>%
+      - 1.0× Kelly: <return>%
+
+      **Verdict on +50%/month target via Kelly-opt alone:** <YES/NO/PARTIAL>
+      **Anti-overfit analysis:** <walk-forward evidence the Kelly fraction is robust>
+
+      **Edge cases found:**
+      - <list>
+      "
+      ```
+
+      ### Hard rules
+      - DO NOT touch Track A/B files.
+      - DO NOT open a PR.
+      - DO NOT wait for CI/external/human input.
+      - **Kutatási nyelv: kizárólag angol** research sections-ban.
+      - **Min 5-10 queries, ≥2 independent sources per claim**.
+      - **CRITICAL anti-overfit discipline:** walk-forward validation MUST show out-of-sample Kelly fraction > 0 (otherwise the Kelly fraction is overfit and the optimization is invalid).
+
+      ### Stop condition
+      Same as other tracks: all deliverables + quality gates + branch pushed + report sent.
+    assigned_to: 'agent-5394bdd48751'
+    verified_by: verifier
+    verify_prompt: |
+      Independent verification of Phase 6 Track C (Kelly-opt) deliverable.
+
+      Verify ALL:
+
+      1. **File existence** — all 5 deliverable categories on `feat/phase6-track-c-kelly-opt`:
+         - `packages/core/src/risk/kelly-position-sizer.ts`
+         - `packages/core/src/risk/kelly-position-sizer.test.ts`
+         - `packages/backtest-tools/src/cli/run-kelly-opt.ts`
+         - `backtest-results/baseline-kelly-opt-{btc,eth,sol}-1d.json` (3 files)
+         - `docs/research/phase6-kelly-opt.md`
+
+      2. **Code correctness** — open `packages/core/src/risk/kelly-position-sizer.ts`:
+         - Kelly formula `f* = (p × b - q) / b` correctly implemented
+         - Fractional Kelly multiplier (0.25×, 0.5×, 1.0×) applied correctly
+         - Walk-forward validation splits the time series WITHOUT future data leakage (verify the split logic)
+         - Run: `bun test packages/core/src/risk/kelly-position-sizer.test.ts` — all pass
+
+      3. **CLI runner works** — `bun run packages/backtest-tools/src/cli/run-kelly-opt.ts --strategy=donchian --symbol=BTC/USDT --timeframe=1d --kelly-fraction=0.5 --output=/tmp/test-kelly-btc.json` — completes and produces valid JSON
+
+      4. **Backtest JSON validity** — open each baseline JSON:
+         - JSON parseable, standard fields present
+         - Numbers internally consistent
+         - **Compare vs Phase 5 baseline-donchian-{btc,eth,sol}-1d.json**: Kelly-opt should improve returns OR lower max DD OR both. If it underperforms the Phase 5 conservative sizing, the worker should have documented why and adjusted.
+
+      5. **Anti-overfit verification** — open `docs/research/phase6-kelly-opt.md`:
+         - Walk-forward analysis section present?
+         - In-sample vs out-of-sample Kelly fractions reported?
+         - If out-of-sample Kelly < 0, the optimization is INVALID — FAIL the verification
+         - Sensitivity analysis (0.25× / 0.5× / 1.0×) present?
+
+      6. **Research depth** — ≥5 distinct sources cited, ≥3 spot-checkable URLs, English research sections, ≥2 sources per claim
+
+      7. **Quality gates** — all exit 0
+
+      8. **No scope creep** — Track A/B files untouched.
+
+      Verdict: PASS only if all 8 pass. FAIL with precise gap otherwise.
+    max_retries: 2
+
+  # ============================================================
+  # M2 — Multi-class ensemble integration (owner session, after all 3 tracks)
+  # Final integration + REPORT-phase6.md
+  # ============================================================
+  - id: 'phase6-m2-ensemble-integration'
+    title: 'Phase 6 M2 — Multi-class ensemble integration + final REPORT-phase6.md'
+    role: 'verify-as-task'
+    prompt: |
+      You are the **owner session (Mavis root)** executing Phase 6 M2 — multi-class ensemble integration.
+
+      This is a verify-as-task. Your deliverable IS the verdict: the integrated ensemble code + REPORT-phase6.md.
+
+      ## Prerequisites — 3 tracks must be PASS
+      Before you start, confirm:
+      - Track A (funding-carry) on `feat/phase6-track-a-funding-carry` branch — pushed, all deliverables present, verifier PASS
+      - Track B (arb-latency) on `feat/phase6-track-b-arb-latency` branch — pushed, all deliverables present, verifier PASS
+      - Track C (Kelly-opt) on `feat/phase6-track-c-kelly-opt` branch — pushed, all deliverables present, verifier PASS
+
+      Use `git fetch origin` and check each branch. If any track is NOT ready, report which one and stop.
+
+      ## Your scope — M2: Multi-class ensemble integration
+
+      ### Step 1 — Merge 3 tracks into `feat/phase6-multi-class`
+      1. `cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class`
+      2. `git fetch origin`
+      3. Merge each track in order:
+         - `git merge --no-ff origin/feat/phase6-track-a-funding-carry -m "merge: Phase 6 Track A — funding-carry"`
+         - `git merge --no-ff origin/feat/phase6-track-b-arb-latency -m "merge: Phase 6 Track B — arb-latency"`
+         - `git merge --no-ff origin/feat/phase6-track-c-kelly-opt -m "merge: Phase 6 Track C — Kelly-opt"`
+      4. Resolve any conflicts (should be minimal — files are non-overlapping by design)
+      5. `git push origin feat/phase6-multi-class`
+
+      ### Step 2 — Implement multi-class ensemble
+      1. `packages/core/src/strategy/multi-class-ensemble.ts` — composite strategy that runs:
+         - DonchianBreakoutStrategy (Phase 5 C, 1d) — base trend-following edge
+         - FundingCarryStrategy (Track A, 1h) — paper-trading carry on the same notional
+         - CrossExchangeArbLatency (Track B) — informational, gates the carry trade entry based on latency feasibility
+         - Position sizing via KellyPositionSizer (Track C) on the ensemble's combined edge
+
+      2. `packages/core/src/strategy/multi-class-ensemble.test.ts` — ≥8 unit tests:
+         - Component isolation (each strategy can run independently)
+         - Ensemble signal aggregation (no double-counting)
+         - Kelly-opt sizing applies to the ensemble aggregate edge
+         - Latency gate: if cross-exchange latency > arb threshold, the carry trade is paused
+
+      3. `packages/backtest-tools/src/cli/run-multi-class-baseline.ts` — ensemble CLI runner:
+         - Args: `--symbol=<SYM> --timeframe=<TF> --output=<PATH>`
+         - Runs the full ensemble on Phase 1 OHLCV data
+         - Output JSON matches Phase 5/6 baseline schema
+
+      4. `backtest-results/baseline-multi-class-{btc,eth,sol}-1d.json` — 3 ensemble backtest JSON
+
+      ### Step 3 — Quality gates
+      ```bash
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green. Fix any integration issues.
+
+      ### Step 4 — Write REPORT-phase6.md
+      `backtest-results/REPORT-phase6.md` — final Phase 6 report:
+
+      - **Section 1: TL;DR** — IGEN/NEM/RÉSZBEN answer to +50%/month target at the ensemble level
+      - **Section 2: Track A results** — funding-carry empirical outcomes
+      - **Section 3: Track B results** — arb-latency empirical outcomes
+      - **Section 4: Track C results** — Kelly-opt empirical outcomes
+      - **Section 5: Multi-class ensemble results** — combined edge, monthly return %, Sharpe, max DD
+      - **Section 6: +50%/month realitásvizsgálat verdict** — Phase 1-6 cumulative empirical evidence, what works, what doesn't, realistic target range
+      - **Section 7: Phase 7+ scope** — recommendations (deployment readiness, trailing-stop engine, etc.)
+      - **Section 8: Output deliverables checklist** — all files produced
+
+      Hungarian OK for intro/conclusion. English for empirical sections. ≥2 sources per major claim.
+
+      ### Step 5 — Commit + Push
+      ```
+      git add -A
+      git commit -m "feat(backtest,core,backtest-tools,reports): ÜGYNÖK Phase 6 M2 — Multi-class ensemble + REPORT-phase6.md
+
+      - multi-class-ensemble: Donchian 1d + funding-carry + arb-latency-gated + Kelly-opt sizing
+      - 3 ensemble baseline JSON (BTC/ETH/SOL × 1d)
+      - REPORT-phase6.md: +50%/month realitásvizsgálat 3. körének eredménye
+      - Phase 7+ scope javaslat
+      "
+      git push origin feat/phase6-multi-class
+      ```
+
+      ### Step 6 — Report back to root session
+      ```bash
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 6 M2 (ENSEMBLE INTEGRATION) COMPLETE.
+
+      **Branch:** feat/phase6-multi-class
+      **Merges:** 3 tracks integrated
+      **Commits:** <list>
+      **Push:** origin/feat/phase6-multi-class (DONE)
+
+      **Deliverables:**
+      - packages/core/src/strategy/multi-class-ensemble.ts + multi-class-ensemble.test.ts
+      - packages/backtest-tools/src/cli/run-multi-class-baseline.ts
+      - backtest-results/baseline-multi-class-{btc,eth,sol}-1d.json (3 files)
+      - backtest-results/REPORT-phase6.md
+
+      **Quality gates:** typecheck/lint/test/coverage ALL GREEN
+
+      **Multi-class ensemble results:**
+      - BTC ensemble 1d: <return>% / Sharpe <X> / max DD <Y>%
+      - ETH ensemble 1d: <return>% / Sharpe <X> / max DD <Y>%
+      - SOL ensemble 1d: <return>% / Sharpe <X> / max DD <Y>%
+      - Monthly average: <X>%/month
+
+      **+50%/month target verdict:** <YES/NO/PARTIAL> — <reasoning>
+
+      **Realistic target range (Phase 6 empirical):** <+X-Y%/month>
+      **Phase 7+ scope:** <recommendations>
+
+      **Cumulative Phase 1-6 story:**
+      - Phase 1-3: artifact, −0.71% (broken engine)
+      - Phase 4: −46.7% (mean-reversion fee-drag)
+      - Phase 5: −13% avg, Donchian 1d +0.04-0.10%/month edge
+      - Phase 6 ensemble: <final numbers>
+      "
+      ```
+
+      ### Hard rules
+      - DO NOT modify the 3 track files (other than merging them)
+      - DO NOT open a PR — root session will after your report
+      - DO NOT skip quality gates
+      - DO NOT wait for external input
+      - **Phase 6 +50%/month verdict MUST be supported by empirical data from your own backtests** — no handwaving
+
+      ### Stop condition
+      - All 3 tracks merged + ensemble code + baselines + REPORT-phase6.md + branch pushed + report sent to root
+    assigned_to: 'mavis'
+    depends_on: ['phase6-track-a-funding-carry', 'phase6-track-b-arb-latency', 'phase6-track-c-kelly-opt']
+    max_retries: 1
