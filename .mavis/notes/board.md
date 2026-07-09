@@ -1,8 +1,8 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-09 20:30 Budapest — Phase 30 COMPLETE: LatencyGate live wiring (#4) + per-symbol DP multi-symbol CLI (#7) both shipped on branch feat/phase30-latency-gate-live-wiring, PR #62 OPEN, CI pending. Cron `phase30-pr62-monitor` (10-min) running for CI green → squash-merge. All 5 of 6 Phase 27 open items now closed (#5 SOL permanently HALTed per Phase 25 #2).
+description: Project board — mm-crypto-bot. Updated 2026-07-09 20:50 Budapest — Phase 30 SQUASH-MERGED to main (`344cecf`). PR #62 closed, remote branch auto-deleted, cron `phase30-pr62-monitor` deleted. All 5 of 6 Phase 27 open items now closed (#5 SOL permanently HALTed per Phase 25 #2).
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-09 20:30 Budapest, Phase 30 COMPLETE)
+# Project board — mm-crypto-bot (updated 2026-07-09 20:50 Budapest, Phase 30 MERGED)
 
 ## Phase 30 closure (2026-07-09 20:30 Budapest)
 
@@ -29,13 +29,15 @@ description: Project board — mm-crypto-bot. Updated 2026-07-09 20:30 Budapest 
 | SOL    | +27.86%/mo | 27.31 | 7.70% | 2295 | 64.23% |
 | **Combined (3 symbols)** | **+27.91%/mo** | **27.90** | **7.70%** | — | — |
 
-## PR #62 state (2026-07-09 20:30 Budapest)
+## PR #62 state (2026-07-09 20:50 Budapest) — ✅ MERGED
 
-- Branch: `feat/phase30-latency-gate-live-wiring`
-- Commit: `da5dcce` (12 files, +309,651 / -78)
-- CI: 5/5 checks pending (Build / Coverage / Lint / Test / Typecheck)
-- `gh pr create` succeeded → https://github.com/EggProject/mm-crypto-bot/pull/62
-- Cron `phase30-pr62-monitor` (10-min, expires 2026-07-23 20:24 Budapest) running — will squash-merge when CI green ≥2h
+- Branch: `feat/phase30-latency-gate-live-wiring` (auto-deleted by `gh pr merge --delete-branch`)
+- Squash-merge commit: **`344cecf` Phase 30: LatencyGate live wiring + per-symbol DP multi-symbol CLI (#62)**
+- Local main: synced to `344cecf` (reset to origin/main after squash-merge)
+- CI final: 5/5 PASS (Build / Coverage / Lint / Test / Typecheck)
+- 1 CI retry needed for lint fix: `Array<T>` → `T[]` syntax (commit `9008c82`, pushed at 20:38, lint re-ran at 20:40 — green)
+- Merge executed 20:50 per user override ("mire varunk?" — no 2h conservative buffer wait)
+- Cron `phase30-pr62-monitor` DELETED (PR merged)
 
 ## Phase 27 → Phase 30 closure status
 
@@ -72,7 +74,7 @@ description: Project board — mm-crypto-bot. Updated 2026-07-09 20:30 Budapest 
 
 ## Active cron
 
-`mavis cron list mavis` → `phase30-pr62-monitor` (10-min, expires 2026-07-23 20:24 Budapest).
+None. `phase30-pr62-monitor` deleted (PR #62 merged).
 
 ## Open user decisions needed
 
