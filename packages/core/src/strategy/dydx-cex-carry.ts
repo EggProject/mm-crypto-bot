@@ -72,6 +72,16 @@
 import type { Strategy, StrategyContext, StrategySignal } from "../types.js";
 import { ONE_TO_TEN_LEVERAGE } from "../risk/leverage-invariant.js";
 import type { FundingSnapshot } from "./funding-carry.js";
+// Phase 30 LatencyGate live wiring — the dYdX-vs-CEX carry uses the
+// Phase 6 Track B `LatencyGate` to gate live funding accrual on
+// cross-venue round-trip latency.  When latency > threshold, the
+// carry is paused (no funding collected, no new entries).
+import {
+  createLatencyGate,
+  DEFAULT_LATENCY_GATE_DISABLED,
+  type LatencyGate,
+  type LatencySnapshot,
+} from "./multi-class-ensemble.js";
 
 // ============================================================================
 // PUBLIC TYPES
@@ -513,6 +523,53 @@ export interface DydxCexCarryConfig {
   readonly precondition: PreconditionConfig;
   /** Number of paper-trade days required before live orders (7 per orchestrator steer). */
   readonly paperTradeDaysRequired: number;
+  /**
+   * `latencyArbThresholdMs` — Phase 30 LatencyGate live wiring.  Max
+   * allowed cross-venue round-trip latency in ms above which the
+   * carry is paused.  Default 500ms — Phase 6 Track B empirical
+   * cutoff (see `docs/research/phase6-arb-latency.md`).  Set to
+   * `Number.POSITIVE_INFINITY` to effectively disable latency gating
+   * (the gate will always allow carry).
+   *
+   * The strategy polls the live funding source's `lastTickAgeMs()` +
+   * a `latencySource` (when configured) to keep an internal
+   * `LatencyGate` updated; `isCarryAllowed()` is consulted on every
+   * `recordFundingTick()` and on every `onCandle()`.
+   */
+  readonly latencyArbThresholdMs: number;
+  /**
+   * `latencySource` — Phase 30 LatencyGate live wiring.  Optional
+   * pluggable latency observer.  When defined, the strategy's
+   * internal `LatencyGate` snapshot is updated from this source on
+   * every `recordFundingTick()` (so the live latency profile is
+   * always fresh).  When `null` (default), the strategy uses the
+   * `DEFAULT_LATENCY_GATE_DISABLED` sentinel — carry is always
+   * allowed regardless of latency.  This is the recommended
+   * configuration for paper-trade runs (synthetic latency = 0).
+   */
+  readonly latencySource: LatencySource | null;
+}
+
+/**
+ * `LatencySource` — Phase 30 pluggable latency observer.  Returns
+ * the most recently observed cross-venue round-trip latency in ms.
+ *
+ * Live: a real bybit.eu + dYdX v4 latency observer (see
+ * `LatencySnapshot` JSON loader in
+ * `backtest-results/arb-latency-*.json` for the sample format).
+ * Tests: a synthetic observer that returns 0 (always allowed) or a
+ * specific ms value.
+ */
+export interface LatencySource {
+  /**
+   * Observe the most recent cross-venue round-trip latency.  Returns
+   * `null` if no observation is available yet (treated as
+   * "unknown" — the strategy's gate falls back to a conservative
+   * default).
+   */
+  observeRoundTripMs(nowMs: number): number | null;
+  /** Identifier for telemetry — pair string (e.g. "dydx-bybit-btc"). */
+  readonly pair: string;
 }
 
 export const DEFAULT_DYDX_CEX_CARRY_CONFIG: Omit<
@@ -527,52 +584,81 @@ export const DEFAULT_DYDX_CEX_CARRY_CONFIG: Omit<
   killSwitch: DEFAULT_KILL_SWITCH_CONFIG,
   precondition: DEFAULT_PRECONDITION_CONFIG,
   paperTradeDaysRequired: 7,
+  // Phase 30: LatencyGate defaults.  500ms matches Phase 6 Track B
+  // empirical cutoff (backtest-results/arb-latency-*.json samples
+  // showed P95 round-trip 1027ms binance-bybit, 1792ms max).  When
+  // the LatencyGate is wired to a real latency source, a 500ms
+  // threshold means carry is paused for ~60% of live samples on the
+  // bybit.eu+binance pair — which is the correct conservative
+  // posture (NO carry during high-latency periods = NO fund loss on
+  // late fills).
+  latencyArbThresholdMs: 500,
+  latencySource: null, // disabled by default (paper-trade / backtest)
 };
 
 // ============================================================================
 // STRATEGY STATE (durable across restarts)
 // ============================================================================
 
-/**
- * `DydxCexCarryState` — mutable state held by the strategy instance.
- * Exposed for the CLI runner to read after `runBacktest` / live session.
- * All 4 sub-trackers are durable: snapshot via `serializeState()` and
- * restore via `DydxCexCarryStrategy.fromSnapshot()`.
- */
-export interface DydxCexCarryState {
-  /** Total funding payments collected (positive = earned, negative = paid). */
-  fundingCollectedUsd: number;
-  /** Number of rebalance operations executed. */
-  rebalanceCount: number;
-  /** Total cost of rebalance operations. */
-  rebalanceCostUsd: number;
-  /** Number of funding snapshots accrued. */
-  fundingPeriods: number;
-  /** Last observed mark price. */
-  lastMarkPrice: number;
-  /** Has the entry signal already been emitted? */
-  hasEntered: boolean;
-  /** Per-kill-switch current verdict.  null = never evaluated. */
-  killSwitchVerdicts: KillSwitchVerdicts | null;
-  /** Per-precondition durable state. */
-  preconditions: PreconditionsState;
-  /** Tick density tracker (sparse-data guard). */
-  tickDensity: TickDensityState;
-  /** Compressed-divergence day streak (rolling, day-granular). */
-  compressedDayStreak: number;
-  /** First observed indexer tick (ms).  null = never. */
-  firstTickMs: number | null;
-  /** First observed chain-finalized block (ms).  null = never. */
-  firstChainBlockMs: number | null;
-  /** Live-trading-mode flag — true when paper-trade gate has been cleared. */
-  liveOrdersEnabled: boolean;
-  /** Number of paper-trade days accumulated. */
-  paperTradeDayCount: number;
-  /** Last day (YYYY-MM-DD) we updated the divergence streak for.  null = never. */
-  lastDivergenceDay: string | null;
-  /** Running compressed flag for the current day bucket. */
-  currentDayCompressed: boolean;
-}
+  /**
+   * `DydxCexCarryState` — mutable state held by the strategy instance.
+   * Exposed for the CLI runner to read after `runBacktest` / live session.
+   * All 4 sub-trackers are durable: snapshot via `serializeState()` and
+   * restore via `DydxCexCarryStrategy.fromSnapshot()`.
+   */
+  export interface DydxCexCarryState {
+    /** Total funding payments collected (positive = earned, negative = paid). */
+    fundingCollectedUsd: number;
+    /** Number of rebalance operations executed. */
+    rebalanceCount: number;
+    /** Total cost of rebalance operations. */
+    rebalanceCostUsd: number;
+    /** Number of funding snapshots accrued. */
+    fundingPeriods: number;
+    /** Last observed mark price. */
+    lastMarkPrice: number;
+    /** Has the entry signal already been emitted? */
+    hasEntered: boolean;
+    /** Per-kill-switch current verdict.  null = never evaluated. */
+    killSwitchVerdicts: KillSwitchVerdicts | null;
+    /** Per-precondition durable state. */
+    preconditions: PreconditionsState;
+    /** Tick density tracker (sparse-data guard). */
+    tickDensity: TickDensityState;
+    /** Compressed-divergence day streak (rolling, day-granular). */
+    compressedDayStreak: number;
+    /** First observed indexer tick (ms).  null = never. */
+    firstTickMs: number | null;
+    /** First observed chain-finalized block (ms).  null = never. */
+    firstChainBlockMs: number | null;
+    /** Live-trading-mode flag — true when paper-trade gate has been cleared. */
+    liveOrdersEnabled: boolean;
+    /** Number of paper-trade days accumulated. */
+    paperTradeDayCount: number;
+    /** Last day (YYYY-MM-DD) we updated the divergence streak for.  null = never. */
+    lastDivergenceDay: string | null;
+    /** Running compressed flag for the current day bucket. */
+    currentDayCompressed: boolean;
+    /**
+     * `currentLatencyGate` — Phase 30 LatencyGate live wiring.  The
+     * strategy's internal gate, rebuilt whenever a new `LatencySnapshot`
+     * is recorded.  When `null`, the gate is the
+     * `DEFAULT_LATENCY_GATE_DISABLED` sentinel (always allows carry).
+     * The constructor seeds this with a disabled gate; `liveOrdersEnabled`
+     * does NOT auto-enable latency gating (it stays disabled until
+     * `recordLatencySnapshot()` is called).
+     *
+     * NOTE: This field is NOT serialized by `serializeState()` — it
+     * contains a function (`isCarryAllowed`) that JSON can't represent.
+     * On `fromSnapshot`, the gate is reconstructed from
+     * `lastLatencyRoundTripMs` + the configured threshold.
+     */
+    currentLatencyGate: LatencyGate;
+    /** Last observed round-trip ms (from the most recent latency snapshot).  null = never. */
+    lastLatencyRoundTripMs: number | null;
+    /** Timestamp of the most recent latency observation.  null = never. */
+    lastLatencySnapshotMs: number | null;
+  }
 
 export function newPreconditionsState(): PreconditionsState {
   return {
@@ -665,6 +751,17 @@ export class DydxCexCarryStrategy implements Strategy {
         `[DydxCexCarryStrategy] paperTradeDaysRequired must be ≥ 0, got ${String(merged.paperTradeDaysRequired)}`,
       );
     }
+    // Phase 30: LatencyGate threshold validation.  Allow
+    // `Number.POSITIVE_INFINITY` to explicitly disable latency gating.
+    if (
+      (!Number.isFinite(merged.latencyArbThresholdMs) &&
+        merged.latencyArbThresholdMs !== Number.POSITIVE_INFINITY) ||
+      merged.latencyArbThresholdMs <= 0
+    ) {
+      throw new Error(
+        `[DydxCexCarryStrategy] latencyArbThresholdMs must be positive finite (or +Infinity to disable), got ${String(merged.latencyArbThresholdMs)}`,
+      );
+    }
     this.config = merged;
     this.state = this._mkState();
   }
@@ -687,6 +784,13 @@ export class DydxCexCarryStrategy implements Strategy {
       paperTradeDayCount: 0,
       lastDivergenceDay: null,
       currentDayCompressed: false,
+      // Phase 30: LatencyGate seeded in the disabled state.  The gate
+      // becomes active only when `recordLatencySnapshot()` is called
+      // with a non-zero `roundTripMsMax` (or when `latencySource` is
+      // wired at construction time and produces observations).
+      currentLatencyGate: DEFAULT_LATENCY_GATE_DISABLED,
+      lastLatencyRoundTripMs: null,
+      lastLatencySnapshotMs: null,
     };
   }
 
@@ -715,6 +819,24 @@ export class DydxCexCarryStrategy implements Strategy {
     s.state.paperTradeDayCount = snapshot.paperTradeDayCount;
     s.state.lastDivergenceDay = snapshot.lastDivergenceDay;
     s.state.currentDayCompressed = snapshot.currentDayCompressed;
+    // Phase 30: LatencyGate state.  Pre-Phase-30 snapshots won't have
+    // these fields — fall back to defaults for forward-compatibility.
+    // Reconstruct the gate from the round-trip ms (if any) and the
+    // configured threshold.
+    s.state.lastLatencyRoundTripMs = snapshot.lastLatencyRoundTripMs ?? null;
+    s.state.lastLatencySnapshotMs = snapshot.lastLatencySnapshotMs ?? null;
+    if (s.state.lastLatencyRoundTripMs !== null) {
+      s.state.currentLatencyGate = createLatencyGate(
+        {
+          pair: "restored",
+          roundTripMsMax: s.state.lastLatencyRoundTripMs,
+          sourceJsonPath: "restored-from-snapshot",
+        },
+        s.config.latencyArbThresholdMs,
+      );
+    } else {
+      s.state.currentLatencyGate = DEFAULT_LATENCY_GATE_DISABLED;
+    }
     return s;
   }
 
@@ -722,9 +844,15 @@ export class DydxCexCarryStrategy implements Strategy {
    * `serializeState` — produce a JSON-serializable snapshot of the
    * strategy state.  Persist this to disk (e.g. JSON in
    * `data/state/dydx-cex-carry.json`) for restart durability.
+   *
+   * Phase 30: the `currentLatencyGate` is NOT serialized (it
+   * contains a function).  The round-trip ms + timestamp are
+   * serialized; the gate is reconstructed on `fromSnapshot()`.
    */
   serializeState(): DydxCexCarryState {
-    return JSON.parse(JSON.stringify(this.state)) as DydxCexCarryState;
+    const { currentLatencyGate: _gate, ...serializable } = this.state;
+    void _gate;
+    return JSON.parse(JSON.stringify(serializable)) as DydxCexCarryState;
   }
 
   /**
@@ -754,6 +882,10 @@ export class DydxCexCarryStrategy implements Strategy {
     if (ctx.candleIndex < this.warmup()) {
       return null;
     }
+    // Phase 30: poll the latency source (if configured) so the
+    // gate stays fresh between funding ticks.  This is the
+    // per-candle entry-point for live latency updates.
+    this.pollLatencySource(ctx.candle.timestamp);
     // Kill-switch fired? → defensive close (sell if in carry).
     if (this.state.killSwitchVerdicts !== null) {
       const anyHalt = this.state.killSwitchVerdicts["indexer-stale"].engaged
@@ -775,8 +907,17 @@ export class DydxCexCarryStrategy implements Strategy {
       this.state.lastMarkPrice = ctx.candle.close;
       return null;
     }
-    // Already in carry? → hold.
+    // Already in carry? → hold.  Note: latency pause does NOT
+    // auto-close a position — the carry keeps accruing at the
+    // next fresh funding tick.  The intent is to AVOID opening
+    // new positions during high-latency periods, not to close
+    // existing ones.
     if (this.state.hasEntered) {
+      this.state.lastMarkPrice = ctx.candle.close;
+      return null;
+    }
+    // Phase 30: LatencyGate is paused? → do NOT enter.
+    if (this.isLatencyPaused()) {
       this.state.lastMarkPrice = ctx.candle.close;
       return null;
     }
@@ -816,6 +957,22 @@ export class DydxCexCarryStrategy implements Strategy {
   ): number {
     this.state.firstTickMs = this.state.firstTickMs ?? nowMs;
     this.state.lastMarkPrice = dydxSnap.markPrice ?? cexSnap.markPrice ?? this.state.lastMarkPrice;
+
+    // Phase 30: poll the latency source on every funding tick so
+    // the gate stays fresh.  This is the per-tick entry-point for
+    // live latency updates.  No-op when `latencySource` is null.
+    this.pollLatencySource(nowMs);
+
+    // Phase 30: LatencyGate is paused? → return 0 (no funding
+    // accrual).  This is the KEY wire-up — live orders must be
+    // gated on cross-venue latency.  A high-latency fill is a
+    // late fill, which means the spread moved against us; paying
+    // funding while high-latency is bleeding money on the
+    // round-trip slippage.
+    if (this.isLatencyPaused()) {
+      this.state.fundingPeriods += 1;
+      return 0;
+    }
 
     // Tick density tracking.
     const day = new Date(nowMs).toISOString().slice(0, 10);
@@ -891,6 +1048,112 @@ export class DydxCexCarryStrategy implements Strategy {
     void _market;
     void depthUsd;
     this._reEvaluateKillSwitches(nowMs);
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase 30 — LatencyGate live wiring
+  // -------------------------------------------------------------------------
+
+  /**
+   * `recordLatencySnapshot` — Phase 30 LatencyGate live wiring.
+   * Update the strategy's internal `LatencyGate` from a fresh
+   * `LatencySnapshot` (typically sourced from the bybit.eu SPOT
+   * + dYdX v4 latency observer in live mode, or from the static
+   * `arb-latency-*.json` files in backtest).  The strategy
+   * reconstructs the gate from the new snapshot + the configured
+   * `latencyArbThresholdMs`; subsequent calls to
+   * `isLatencyPaused()` reflect the fresh gate.
+   *
+   * Returns the gate's verdict + reason for telemetry:
+   *   - `carryAllowed: true`  → fresh latency is below threshold;
+   *     carry is allowed.
+   *   - `carryAllowed: false` → fresh latency exceeds threshold;
+   *     carry is paused.  `reason` explains why.
+   *
+   * Defensive: negative or non-finite `roundTripMsMax` is treated
+   * as "unknown" and does NOT activate the gate.  NaN propagates
+   * the existing gate (no change).
+   */
+  recordLatencySnapshot(snapshot: LatencySnapshot, nowMs: number): {
+    readonly carryAllowed: boolean;
+    readonly reason: string;
+  } {
+    if (
+      !Number.isFinite(snapshot.roundTripMsMax) ||
+      snapshot.roundTripMsMax < 0
+    ) {
+      // Unknown / invalid observation — keep the existing gate.
+      const reason = this.state.currentLatencyGate.isCarryAllowed()
+        ? "carry-allowed (existing gate kept, invalid snapshot)"
+        : "carry-paused (existing gate kept, invalid snapshot)";
+      return { carryAllowed: this.state.currentLatencyGate.isCarryAllowed(), reason };
+    }
+    // Rebuild the gate from the fresh snapshot.  The Phase 6
+    // `createLatencyGate` factory is immutable — we just call it
+    // again with the new snapshot and the same threshold.
+    const newGate = createLatencyGate(snapshot, this.config.latencyArbThresholdMs);
+    this.state.currentLatencyGate = newGate;
+    this.state.lastLatencySnapshotMs = nowMs;
+    this.state.lastLatencyRoundTripMs = snapshot.roundTripMsMax;
+    const carryAllowed = newGate.isCarryAllowed();
+    const reason = carryAllowed
+      ? `latency ${snapshot.roundTripMsMax}ms ≤ ${this.config.latencyArbThresholdMs}ms — carry allowed`
+      : `latency ${snapshot.roundTripMsMax}ms > ${this.config.latencyArbThresholdMs}ms — carry paused`;
+    return { carryAllowed, reason };
+  }
+
+  /**
+   * `pollLatencySource` — Phase 30 LatencyGate live wiring helper.
+   * If `config.latencySource` is set, observe the current round-trip
+   * latency and update the internal gate.  No-op when
+   * `config.latencySource` is null (paper-trade / backtest default).
+   * Returns the same shape as `recordLatencySnapshot`, or `null` if
+   * no source is configured.
+   */
+  pollLatencySource(nowMs: number): {
+    readonly carryAllowed: boolean;
+    readonly reason: string;
+  } | null {
+    if (this.config.latencySource === null) return null;
+    const observedMs = this.config.latencySource.observeRoundTripMs(nowMs);
+    if (observedMs === null) {
+      // Source has no observation yet — keep existing gate.
+      return {
+        carryAllowed: this.state.currentLatencyGate.isCarryAllowed(),
+        reason: "latency source not yet observed",
+      };
+    }
+    return this.recordLatencySnapshot(
+      {
+        pair: this.config.latencySource.pair,
+        roundTripMsMax: observedMs,
+        sourceJsonPath: "live-latency-source",
+      },
+      nowMs,
+    );
+  }
+
+  /**
+   * `isLatencyPaused` — Phase 30 LatencyGate live wiring.  True iff
+   * the internal `LatencyGate` is currently blocking the carry.
+   * The gate starts in the disabled state
+   * (`DEFAULT_LATENCY_GATE_DISABLED`, which always allows) and
+   * transitions to active only after a `recordLatencySnapshot()`
+   * call or after a `pollLatencySource()` observation with a
+   * round-trip value above the threshold.
+   */
+  isLatencyPaused(): boolean {
+    return !this.state.currentLatencyGate.isCarryAllowed();
+  }
+
+  /**
+   * `currentLatencyGate` — Phase 30 LatencyGate live wiring.
+   * Expose the internal gate for telemetry + tests.  Callers
+   * should NOT mutate the returned gate — they should call
+   * `recordLatencySnapshot()` instead.
+   */
+  currentLatencyGate(): LatencyGate {
+    return this.state.currentLatencyGate;
   }
 
   /**
@@ -992,6 +1255,11 @@ export class DydxCexCarryStrategy implements Strategy {
     this.state.paperTradeDayCount = 0;
     this.state.lastDivergenceDay = null;
     this.state.currentDayCompressed = false;
+    // Phase 30: LatencyGate reset.  Returns to disabled sentinel —
+    // `recordLatencySnapshot()` is required to reactivate.
+    this.state.currentLatencyGate = DEFAULT_LATENCY_GATE_DISABLED;
+    this.state.lastLatencyRoundTripMs = null;
+    this.state.lastLatencySnapshotMs = null;
   }
 
   /**

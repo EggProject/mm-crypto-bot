@@ -12,6 +12,18 @@
 //   bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
 //     --symbol=BTC/USDT --timeframe=15m --min-consensus=2 \
 //     --output=backtest-results/phase18-donchian-pivot-btc-15m-2of2.json
+//
+// Phase 30b — multi-symbol mode.  Pass `--symbols=BTC/USDT,ETH/USDT,SOL/USDT`
+// (comma-separated) to run each symbol independently and emit a
+// combined envelope.  This is the Phase 26 §5-recommended configuration
+// (per-symbol DP, NOT via the PortfolioOrchestrator which adds ~23pp
+// of plugin-overhead and dilutes alpha to +2.05%/mo combined).
+//
+// Example:
+//   bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
+//     --symbols=BTC/USDT,ETH/USDT,SOL/USDT --min-consensus=1 \
+//     --max-position-pct-equity=0.20 --start=2024-01-01 --end=2026-07-08 \
+//     --output-dir=backtest-results/phase30b-multisymbol
 
 import { resolve } from "node:path";
 
@@ -26,6 +38,7 @@ import { makeSymbol, type Timeframe } from "@mm-crypto-bot/shared/types";
 
 interface CliArgs {
   readonly symbol: string;
+  readonly symbols: readonly string[];
   readonly timeframe: Timeframe;
   readonly initialEquity: number;
   readonly minConsensus: number;
@@ -33,11 +46,31 @@ interface CliArgs {
   readonly startTime: Date;
   readonly endTime: Date;
   readonly outputPath: string;
+  readonly outputDir: string;
+  readonly multiSymbolMode: boolean;
+}
+
+const ALLOWED_SYMBOLS = new Set(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
+
+function parseSymbols(raw: string): readonly string[] {
+  const parts = raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  if (parts.length === 0) {
+    throw new Error(`--symbols is empty`);
+  }
+  for (const s of parts) {
+    if (!ALLOWED_SYMBOLS.has(s)) {
+      throw new Error(
+        `--symbols contains unsupported symbol: ${s} (allowed: ${[...ALLOWED_SYMBOLS].join(", ")})`,
+      );
+    }
+  }
+  return parts;
 }
 
 function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
   let symbol = "BTC/USDT";
+  let symbols: string[] = [];
   let timeframe: Timeframe = "15m";
   let initialEquity = 10_000;
   let minConsensus = 2;
@@ -51,9 +84,14 @@ function parseArgs(): CliArgs {
   let startTime = new Date(Date.UTC(2024, 0, 1));
   let endTime = new Date();
   let outputPath = "backtest-results/phase18-donchian-pivot-btc-15m-2of2.json";
+  // Phase 30b — multi-symbol mode.  When `--symbols=` is set, the
+  // output path is auto-derived from the per-symbol run.
+  let outputDir = "backtest-results/phase30b-multisymbol";
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
+    } else if (arg.startsWith("--symbols=")) {
+      symbols = [...parseSymbols(arg.slice("--symbols=".length))];
     } else if (arg.startsWith("--timeframe=")) {
       const tf = arg.slice("--timeframe=".length) as Timeframe;
       // Phase 18 Track B — composition runs on M15 by default.
@@ -83,9 +121,28 @@ function parseArgs(): CliArgs {
       endTime = new Date(arg.slice("--end=".length));
     } else if (arg.startsWith("--output=")) {
       outputPath = arg.slice("--output=".length);
+    } else if (arg.startsWith("--output-dir=")) {
+      outputDir = arg.slice("--output-dir=".length);
     }
   }
-  return { symbol, timeframe, initialEquity, minConsensus, maxPositionPctEquity, startTime, endTime, outputPath };
+  // Phase 30b — multi-symbol mode is triggered when `--symbols=` is
+  // passed (independent of `--symbol=`, which is the legacy single-symbol
+  // path).  In multi-symbol mode, the per-symbol output path is
+  // auto-derived under `--output-dir/`.
+  const multiSymbolMode = symbols.length > 0;
+  return {
+    symbol,
+    symbols,
+    timeframe,
+    initialEquity,
+    minConsensus,
+    maxPositionPctEquity,
+    startTime,
+    endTime,
+    outputPath,
+    outputDir,
+    multiSymbolMode,
+  };
 }
 
 // Donchian+Pivot composition timeline — HTF=1d, MTF=4h, LTF=15m.
@@ -103,30 +160,32 @@ const COST_MODEL: CostModel = {
   fundingRatePer8h: 0,
 };
 
-async function main(): Promise<void> {
-  const args = parseArgs();
-  const tf = timeframesForComposition(args.timeframe);
-  const dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
-  const feed = new CsvExchangeFeed(dataDir) as unknown as ExchangeFeed;
-  // DonchianPivotComposition takes a partial config (minConsensus + per-sub-strategy
-  // overrides) and an LTF (defaults to M15). We pass `minConsensus` from CLI.
+async function runSingle(
+  args: CliArgs,
+  _dataDir: string,
+  feed: ExchangeFeed,
+  symbol: string,
+  outputPath: string,
+  consensusTag: string,
+  tf: { htf: Timeframe; mtf: Timeframe; ltf: Timeframe },
+): Promise<{
+  readonly symbol: string;
+  readonly result: BacktestResult;
+  readonly monthlyReturn: number;
+  readonly winRate: number;
+  readonly totalMonths: number;
+}> {
   const strategy = new DonchianPivotComposition(
     { ...DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG, minConsensus: args.minConsensus },
     "15m",
   );
 
-  const consensusTag = `${args.minConsensus}of2`;
   console.log(
-    `[donchian-pivot] symbol=${args.symbol} ltf=${args.timeframe} minConsensus=${args.minConsensus} maxPositionPctEquity=${args.maxPositionPctEquity}`,
+    `[donchian-pivot] symbol=${symbol} ltf=${args.timeframe} minConsensus=${args.minConsensus} maxPositionPctEquity=${args.maxPositionPctEquity}`,
   );
-  console.log(`[donchian-pivot] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
-  console.log(`[donchian-pivot] components: Donchian Range Channel + Pivot Point Grid`);
-  console.log(`[donchian-pivot] aggregation: side-conflict → defer | mean(confidences) | tighter-stop`);
-  console.log(`[donchian-pivot] period: ${args.startTime.toISOString()} → ${args.endTime.toISOString()}`);
-  console.log(`[donchian-pivot] initial equity: $${args.initialEquity}`);
 
   const result: BacktestResult = await runBacktest({
-    symbol: makeSymbol(args.symbol),
+    symbol: makeSymbol(symbol),
     htfTimeframe: tf.htf,
     mtfTimeframe: tf.mtf,
     ltfTimeframe: tf.ltf,
@@ -145,15 +204,13 @@ async function main(): Promise<void> {
     strategy,
   });
 
-  // Report envelope.
   const totalDays = (args.endTime.getTime() - args.startTime.getTime()) / (1000 * 60 * 60 * 24);
   const totalMonths = totalDays / 30.44;
   const monthlyReturn = result.totalReturn > 0 ? (Math.pow(1 + result.totalReturn, 1 / totalMonths) - 1) : 0;
   const wins = result.trades.filter((t) => t.pnlUsd > 0);
-  const losses = result.trades.filter((t) => t.pnlUsd < 0);
   const winRate = result.trades.length > 0 ? wins.length / result.trades.length : 0;
 
-  console.log(`\n=== RESULTS donchian-pivot ${consensusTag} ${args.symbol} ${args.timeframe} ===`);
+  console.log(`\n=== RESULTS donchian-pivot ${consensusTag} ${symbol} ${args.timeframe} ===`);
   console.log(`Total return:     ${(result.totalReturn * 100).toFixed(2)}%`);
   console.log(`Monthly avg:      ${(monthlyReturn * 100).toFixed(2)}%/mo (over ${totalMonths.toFixed(1)} months)`);
   console.log(`Annualized:       ${(result.annualizedReturn * 100).toFixed(2)}%`);
@@ -163,26 +220,15 @@ async function main(): Promise<void> {
   console.log(`Profit factor:    ${result.profitFactor.toFixed(3)}`);
   console.log(`Win rate:         ${(winRate * 100).toFixed(2)}%`);
   console.log(`Trades:           ${result.totalTrades}`);
-  console.log(`Kill-switch:      ${result.killSwitchTriggered ? "yes" : "no"}`);
-
-  if (result.trades.length > 0) {
-    const avgWin = wins.length > 0 ? wins.reduce((a, t) => a + t.pnlUsd, 0) / wins.length : 0;
-    const avgLoss = losses.length > 0 ? losses.reduce((a, t) => a + t.pnlUsd, 0) / losses.length : 0;
-    const bestTrade = Math.max(...result.trades.map((t) => t.pnlUsd));
-    const worstTrade = Math.min(...result.trades.map((t) => t.pnlUsd));
-    console.log(`Avg win:          $${avgWin.toFixed(2)}`);
-    console.log(`Avg loss:         $${avgLoss.toFixed(2)}`);
-    console.log(`Best trade:       $${bestTrade.toFixed(2)}`);
-    console.log(`Worst trade:      $${worstTrade.toFixed(2)}`);
-  }
 
   const fs = await import("node:fs/promises");
-  await fs.mkdir(resolve(import.meta.dir, "..", "..", "..", "..", "backtest-results"), { recursive: true });
+  const outAbs = resolve(import.meta.dir, "..", "..", "..", "..", outputPath);
+  await fs.mkdir(resolve(outAbs, ".."), { recursive: true });
   await fs.writeFile(
-    resolve(import.meta.dir, "..", "..", "..", "..", args.outputPath),
+    outAbs,
     JSON.stringify(
       {
-        args,
+        args: { ...args, symbol },
         strategy: "donchian-pivot-composition",
         components: ["donchian-range", "pivot-grid"],
         minConsensus: args.minConsensus,
@@ -196,7 +242,101 @@ async function main(): Promise<void> {
     ),
     "utf8",
   );
-  console.log(`\n[donchian-pivot] Saved: ${args.outputPath}`);
+  console.log(`[donchian-pivot] Saved: ${outputPath}`);
+  return { symbol, result, monthlyReturn, winRate, totalMonths };
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs();
+  const tf = timeframesForComposition(args.timeframe);
+  const dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
+  const feed = new CsvExchangeFeed(dataDir) as unknown as ExchangeFeed;
+  const consensusTag = `${args.minConsensus}of2`;
+
+  console.log(`[donchian-pivot] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
+  console.log(`[donchian-pivot] components: Donchian Range Channel + Pivot Point Grid`);
+  console.log(`[donchian-pivot] aggregation: side-conflict → defer | mean(confidences) | tighter-stop`);
+  console.log(`[donchian-pivot] period: ${args.startTime.toISOString()} → ${args.endTime.toISOString()}`);
+  console.log(`[donchian-pivot] initial equity: $${args.initialEquity}`);
+
+  if (!args.multiSymbolMode) {
+    // Legacy single-symbol path.
+    await runSingle(args, dataDir, feed, args.symbol, args.outputPath, consensusTag, tf);
+    return;
+  }
+
+  // Phase 30b — multi-symbol mode.  Run each symbol independently
+  // (Phase 26 §5 recommended configuration — per-symbol DP, NOT via
+  // the PortfolioOrchestrator which adds ~23pp of plugin-overhead and
+  // dilutes alpha to +2.05%/mo combined).  Emit a combined envelope
+  // JSON summarizing the per-symbol results.
+  const fs = await import("node:fs/promises");
+  const perSymbol: Array<{
+    readonly symbol: string;
+    readonly result: BacktestResult;
+    readonly monthlyReturn: number;
+    readonly winRate: number;
+    readonly totalMonths: number;
+  }> = [];
+  for (const symbol of args.symbols) {
+    const outPath = `${args.outputDir}/dp-${consensusTag}-${symbol.replace("/", "-").toLowerCase()}-${args.maxPositionPctEquity}.json`;
+    const r = await runSingle(args, dataDir, feed, symbol, outPath, consensusTag, tf);
+    perSymbol.push(r);
+  }
+  // Combined envelope (simple average of per-symbol monthly returns).
+  const combinedMonthly =
+    perSymbol.length > 0
+      ? perSymbol.reduce((acc, r) => acc + r.monthlyReturn, 0) / perSymbol.length
+      : 0;
+  const combinedAnnualized = perSymbol.length > 0
+    ? perSymbol.reduce((acc, r) => acc + r.result.annualizedReturn, 0) / perSymbol.length
+    : 0;
+  const combinedMaxDd = perSymbol.length > 0
+    ? Math.max(...perSymbol.map((r) => r.result.maxDrawdown))
+    : 0;
+  const combinedSharpe = perSymbol.length > 0
+    ? perSymbol.reduce((acc, r) => acc + r.result.sharpeRatio, 0) / perSymbol.length
+    : 0;
+  const combinedOutput = {
+    strategy: "donchian-pivot-composition (multi-symbol, Phase 30b)",
+    mode: "per-symbol-independent",
+    note: "Per-symbol envelopes are averaged. NO PortfolioOrchestrator overhead. 1:10 leverage applied per symbol.",
+    args: { ...args, symbol: args.symbols.join(",") },
+    components: ["donchian-range", "pivot-grid"],
+    minConsensus: args.minConsensus,
+    timeframe: tf,
+    perSymbol: perSymbol.map((r) => ({
+      symbol: r.symbol,
+      monthlyReturnPct: r.monthlyReturn * 100,
+      annualizedReturnPct: r.result.annualizedReturn * 100,
+      sharpeRatio: r.result.sharpeRatio,
+      sortinoRatio: r.result.sortinoRatio,
+      maxDrawdownPct: r.result.maxDrawdown * 100,
+      profitFactor: r.result.profitFactor,
+      winRatePct: r.winRate * 100,
+      totalTrades: r.result.totalTrades,
+    })),
+    combinedSimpleAverage: {
+      monthlyReturnPct: combinedMonthly * 100,
+      annualizedReturnPct: combinedAnnualized * 100,
+      sharpeRatio: combinedSharpe,
+      maxDrawdownPct: combinedMaxDd * 100,
+    },
+  };
+  const combinedPath = `${args.outputDir}/dp-${consensusTag}-combined-${args.symbols.length}symbols.json`;
+  await fs.mkdir(resolve(import.meta.dir, "..", "..", "..", "..", args.outputDir), { recursive: true });
+  await fs.writeFile(
+    resolve(import.meta.dir, "..", "..", "..", "..", combinedPath),
+    JSON.stringify(combinedOutput, null, 2),
+    "utf8",
+  );
+  console.log(`\n=== COMBINED donchian-pivot ${consensusTag} (${args.symbols.length} symbols) ===`);
+  console.log(`Symbols:                ${args.symbols.join(", ")}`);
+  console.log(`Combined monthly:       ${(combinedMonthly * 100).toFixed(2)}%/mo (simple average)`);
+  console.log(`Combined annualized:    ${(combinedAnnualized * 100).toFixed(2)}%`);
+  console.log(`Combined Sharpe (avg):  ${combinedSharpe.toFixed(3)}`);
+  console.log(`Combined Max DD (worst):${(combinedMaxDd * 100).toFixed(2)}%`);
+  console.log(`\n[donchian-pivot] Saved combined envelope: ${combinedPath}`);
 }
 
 main().catch((err: unknown) => {

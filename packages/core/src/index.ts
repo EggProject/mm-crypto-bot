@@ -779,13 +779,22 @@ export type {
   TickDensityState,
   CarryMarket,
   CarryDirection,
+  // Phase 30 — LatencyGate live wiring.  `LatencySource` is the
+  // pluggable live latency observer interface; `LatencySnapshot` is
+  // the static JSON snapshot input (Phase 6 Track B format).
+  LatencySource,
 } from "./strategy/dydx-cex-carry.js";
 export type {
   BybitEuSpotFillSimulator,
   HypotheticalFill,
   PaperTradeReport,
+  PaperTradeLatencyStats,
   PaperTradeRunnerConfig,
 } from "./strategy/dydx-cex-carry.paper-trade.js";
+// NOTE: `createLatencyGate`, `DEFAULT_LATENCY_GATE_DISABLED`,
+// `LatencyGate`, `LatencySnapshot` are already exported above
+// (lines 100-105) from `multi-class-ensemble.js` for the V2
+// ensemble — they don't need a second re-export here.
 
 import type { Strategy } from "./types.js";
 import { DonchianPivotComposition } from "./strategy/donchian-pivot-composition.js";

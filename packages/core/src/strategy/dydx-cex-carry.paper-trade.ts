@@ -114,6 +114,36 @@ export interface PaperTradeReport {
   readonly fills: readonly HypotheticalFill[];
   readonly halted: boolean;
   readonly haltReason: string | null;
+  /**
+   * `latency` — Phase 30 LatencyGate telemetry.  Null when the
+   * strategy was constructed without a `latencySource` (paper-trade
+   * default — synthetic 0ms).  Populated when a `latencySource` was
+   * configured and `pollLatencySource()` returned at least one
+   * observation.
+   */
+  readonly latency: PaperTradeLatencyStats | null;
+}
+
+/**
+ * `PaperTradeLatencyStats` — Phase 30 LatencyGate telemetry.
+ * Statistics over the latency observations observed during the
+ * paper-trade run.
+ */
+export interface PaperTradeLatencyStats {
+  /** Number of funding ticks that were PAUSED due to latency > threshold. */
+  readonly pausedTickCount: number;
+  /** Total funding ticks recorded (denominator for `pausedFraction`). */
+  readonly totalTickCount: number;
+  /** pausedTickCount / totalTickCount.  0.0 = no pauses; 1.0 = all paused. */
+  readonly pausedFraction: number;
+  /** Max observed round-trip latency in ms.  null = no observations. */
+  readonly maxRoundTripMs: number | null;
+  /** Min observed round-trip latency in ms.  null = no observations. */
+  readonly minRoundTripMs: number | null;
+  /** Mean observed round-trip latency in ms.  null = no observations. */
+  readonly meanRoundTripMs: number | null;
+  /** The strategy's configured threshold (ms). */
+  readonly arbThresholdMs: number;
 }
 
 /**
@@ -195,6 +225,13 @@ export class DydxCexCarryPaperTrader {
     let totalSlippageCostUsd = 0;
     let halted = false;
     let haltReason: string | null = null;
+    // Phase 30: LatencyGate telemetry counters.  Only populated
+    // when the strategy was constructed with a `latencySource`.
+    let latencyPausedTickCount = 0;
+    let latencyObsCount = 0;
+    let latencySumMs = 0;
+    let latencyMaxMs: number | null = null;
+    let latencyMinMs: number | null = null;
 
     // Subscribe to live funding ticks (the production impl returns a
     // WebSocket; in tests it's a mock).  We don't actually USE the
@@ -232,6 +269,22 @@ export class DydxCexCarryPaperTrader {
           const payment = this.strategy.recordFundingTick(dydxSnap, cexSnap, currentMs);
           totalAccruedFundingUsd += payment;
           ticksRecorded += 1;
+          // Phase 30: LatencyGate telemetry.  After
+          // `recordFundingTick` (which auto-polls the latency
+          // source), read back the gate state + last round-trip.
+          if (this.strategy.config.latencySource !== null) {
+            const lastRt = this.strategy.state.lastLatencyRoundTripMs;
+            if (lastRt !== null) {
+              latencyObsCount += 1;
+              latencySumMs += lastRt;
+              latencyMaxMs = latencyMaxMs === null ? lastRt : Math.max(latencyMaxMs, lastRt);
+              latencyMinMs = latencyMinMs === null ? lastRt : Math.min(latencyMinMs, lastRt);
+            }
+            // Payment == 0 with no kill-switch halt ⇒ latency pause.
+            if (payment === 0 && !this.strategy.isHalted()) {
+              latencyPausedTickCount += 1;
+            }
+          }
 
           // 2) Hypothetical fill — log a paper-trade fill on each tick
           //    if the strategy is "in carry" (gate open + no halt).
@@ -332,6 +385,22 @@ export class DydxCexCarryPaperTrader {
       endMs,
       this.strategy.config.precondition,
     );
+    // Phase 30: LatencyGate telemetry summary.  Null when no
+    // `latencySource` was configured (default paper-trade mode).
+    const latency: PaperTradeLatencyStats | null =
+      this.strategy.config.latencySource === null
+        ? null
+        : {
+            pausedTickCount: latencyPausedTickCount,
+            totalTickCount: ticksRecorded,
+            pausedFraction:
+              ticksRecorded > 0 ? latencyPausedTickCount / ticksRecorded : 0,
+            maxRoundTripMs: latencyMaxMs,
+            minRoundTripMs: latencyMinMs,
+            meanRoundTripMs:
+              latencyObsCount > 0 ? latencySumMs / latencyObsCount : null,
+            arbThresholdMs: this.strategy.config.latencyArbThresholdMs,
+          };
     return {
       market: this.strategy.config.market,
       startMs,
@@ -356,6 +425,7 @@ export class DydxCexCarryPaperTrader {
       fills: [...this.fills],
       halted,
       haltReason,
+      latency,
     };
   }
 
