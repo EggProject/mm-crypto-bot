@@ -152,12 +152,15 @@ function makeFunding(
  * build orchestrator, run, return envelope.
  */
 
-import { CarryBaselinePlugin } from "../signal-center/plugins/carry-baseline-plugin.js";
+import { HybridKellyPlugin } from "../signal-center/plugins/hybrid-kelly-plugin.js";
 
 /**
  * `makeScv1WithPlugin` — convenience for DecisionEngine contract tests:
- * builds a SignalCenterV1 with a default CarryBaselinePlugin so
- * start() succeeds (SCv1 requires ≥1 plugin at boot).
+ * builds a SignalCenterV1 with a default HybridKellyPlugin so start()
+ * succeeds (SCv1 requires ≥1 plugin at boot).
+ *
+ * Phase 32: CarryBaselinePlugin was deleted. We use HybridKellyPlugin
+ * (which is still kept) as the test fixture.
  */
 function makeScv1WithPlugin(symbol: string) {
   const sc = createSignalCenterV1({
@@ -166,12 +169,15 @@ function makeScv1WithPlugin(symbol: string) {
     symbol,
   });
   sc.registerPlugin(
-    new CarryBaselinePlugin({
-      baseNotionalUsd: 10_000,
-      timingLeverage: 10,
-      windowDays: 30,
+    new HybridKellyPlugin({
       kellyCap: 0.5,
-      volTargetMax: 1.0,
+      maxVolMultiplier: 1.0,
+      minVolMultiplier: 0.25,
+      targetDailyVol: 0.02,
+      volWindowDays: 30,
+      fundingSharpeWindowDays: 30,
+      baseNotionalUsd: 10_000,
+      enabledSymbols: [symbol],
     }),
   );
   sc.start();
@@ -223,6 +229,21 @@ async function runOrchestrator(
     crossSymbolCorrelationThreshold: opts.crossSymbolCorrelationThreshold ?? 0.7,
     correlationWindowDays: opts.correlationWindowDays ?? 30,
     decisionEngineFactory: opts.decisionEngineFactory as never,
+    // Phase 32: default `pluginsBySymbol` is HybridKellyPlugin (the kept
+    // SizingSignal-emitting plugin). CarryBaselinePlugin was deleted —
+    // see docs/research/deprecated-strategies/REPORT.md §2.5.
+    pluginsBySymbol: (symbol: string) => [
+      new HybridKellyPlugin({
+        kellyCap: 0.5,
+        maxVolMultiplier: 1.0,
+        minVolMultiplier: 0.25,
+        targetDailyVol: 0.02,
+        volWindowDays: 30,
+        fundingSharpeWindowDays: 30,
+        baseNotionalUsd: 10_000,
+        enabledSymbols: [symbol],
+      }),
+    ],
   });
   const envelope = await orch.run(startTs, startTs + (barCount - 1) * 86_400_000);
   return { envelope, orchestrator: orch };
@@ -592,6 +613,16 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
+        kellyCap: 0.5,
+        maxVolMultiplier: 1.0,
+        minVolMultiplier: 0.25,
+        targetDailyVol: 0.02,
+        volWindowDays: 30,
+        fundingSharpeWindowDays: 30,
+        baseNotionalUsd: 10_000,
+        enabledSymbols: [symbol],
+      })],
       maxPositions: 3,
       maxLeverage: 10,
     });
@@ -622,6 +653,16 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
+        kellyCap: 0.5,
+        maxVolMultiplier: 1.0,
+        minVolMultiplier: 0.25,
+        targetDailyVol: 0.02,
+        volWindowDays: 30,
+        fundingSharpeWindowDays: 30,
+        baseNotionalUsd: 10_000,
+        enabledSymbols: [symbol],
+      })],
       initialEquityUsd: 10_000,
       maxPositions: 7,
       perSymbolConcentrationPct: 0.40,
@@ -681,6 +722,16 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
+        kellyCap: 0.5,
+        maxVolMultiplier: 1.0,
+        minVolMultiplier: 0.25,
+        targetDailyVol: 0.02,
+        volWindowDays: 30,
+        fundingSharpeWindowDays: 30,
+        baseNotionalUsd: 10_000,
+        enabledSymbols: [symbol],
+      })],
       initialEquityUsd: 10_000,
       maxPositions: 7,
       portfolioVaRPct: 0.0001, // extremely tight — will fire on day 2+
@@ -717,6 +768,16 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
+        kellyCap: 0.5,
+        maxVolMultiplier: 1.0,
+        minVolMultiplier: 0.25,
+        targetDailyVol: 0.02,
+        volWindowDays: 30,
+        fundingSharpeWindowDays: 30,
+        baseNotionalUsd: 10_000,
+        enabledSymbols: [symbol],
+      })],
       initialEquityUsd: 10_000,
       maxPositions: 7,
       maxLeverage: 10,
@@ -745,6 +806,16 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
+        kellyCap: 0.5,
+        maxVolMultiplier: 1.0,
+        minVolMultiplier: 0.25,
+        targetDailyVol: 0.02,
+        volWindowDays: 30,
+        fundingSharpeWindowDays: 30,
+        baseNotionalUsd: 10_000,
+        enabledSymbols: [symbol],
+      })],
       initialEquityUsd: 10_000,
       maxPositions: 7,
       maxLeverage: 10,

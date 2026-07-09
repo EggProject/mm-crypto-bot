@@ -17,23 +17,11 @@
 //   - delegates lifecycle (`onBar`, `onPositionOpened`, `onPositionClosed`,
 //     `onOpenPositionUpdate`) to the underlying strategy where applicable
 //
-// Phase 27 deletion (REFRESH-phase26.md): removed 6 wrapper plugins for
-// HALT/REMOVE strategies (always-in-trend, mean-reversion-bb,
-// mtf-trend-confluence, multi-class ensemble v1, v3, v4). Kept wrappers
-// for: composite, cross-venue-funding-divergence, donchian-mtf (Phase 11.1b
-// DirectionalMTFPlugin depends on it), donchian-breakout + donchian-trailing
-// (sub-components of MultiClassEnsembleV2 production candidate chain:
-// v2 → DonchianTrailing → DonchianBreakout),
-// funding-carry, funding-carry-leverage, funding-carry-timing,
-// funding-flip-kill-switch, multi-class-ensemble-v2 (production candidate).
+// Phase 32 deletion: removed 7 wrapper plugins for strategies that were
+// deleted in Phase 32 cleanup (see docs/research/deprecated-strategies/REPORT.md
+// for the per-strategy deletion records). Kept wrappers for:
+//   - composite (still used by DP composition-style ensembles)
+//   - cross-venue-funding-divergence (Phase 25 #1 cross-venue signal pool)
 
 export * from "./composite-plugin.js";
 export * from "./cross-venue-funding-divergence-plugin.js";
-export * from "./donchian-breakout-plugin.js";
-export * from "./donchian-mtf-plugin.js";
-export * from "./donchian-trailing-plugin.js";
-export * from "./funding-carry-plugin.js";
-export * from "./funding-carry-leverage-plugin.js";
-export * from "./funding-carry-timing-plugin.js";
-export * from "./funding-flip-kill-switch-plugin.js";
-export * from "./multi-class-ensemble-v2-plugin.js";

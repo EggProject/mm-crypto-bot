@@ -1,0 +1,646 @@
+version: 1
+plan:
+  name: 'Phase 15 — Simple retail strategies (Pivot + BB Squeeze + Donchian Range + Keltner Grid + Ensemble)'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK B — Pivot Point Grid + Bollinger Range Squeeze
+  # ============================================================
+  - id: 'phase15-track-b-pivot-bb-squeeze'
+    title: 'Phase 15 Track B — Pivot Point Grid (M15) + Bollinger Range Squeeze (M5)'
+    prompt: |
+      You are the **Coder agent** working on **Phase 15 Track B** of the mm-crypto-bot project.
+
+      ## Context
+
+      Phase 14A-D arc plateaued at +2.06%/mo / 10.58% DD. Phase 14E Tokyo-colocation
+      closed NO-GO. Phase 15 pivots to simple mid-frequency RETAIL strategies at M5/M15
+      that work at user's home RTT (no latency-arb required). This track implements 2 of
+      the 4 new strategies.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase15-scope-plan.md` — authoritative scope plan
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/mean-reversion-bb.ts` — reference implementation pattern
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/mean-reversion-bb.test.ts` — reference test pattern
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/types.ts` — `Strategy`, `StrategyContext`, `IndicatorState`, `MtfState` interfaces
+      5. Memory: `/Users/kiscsicska/.mavis/agents/mavis/memory/mm-crypto-bot-project.md` — 1:10 mandate, bybit.eu SPOT-only
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase15-b`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase15-b -b feat/phase15-b-pivot-bb-squeeze main`
+      - Base branch: `main` (already has M5/M15 OHLCV data from PR #33 merged 2026-07-06 17:36 Budapest)
+      - The branch is yours alone
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Pivot Point Grid — `packages/core/src/strategy/pivot-point-grid.ts` (~250 LOC)
+
+      **Timeframe:** M15 (LTF), uses HTF (1d) for pivot point calculation.
+
+      **Logic:**
+      - On each LTF (M15) candle, the strategy needs the PREVIOUS HTF (1d) candle's H, L, C.
+      - The engine's `IndicatorState` does NOT expose htf candle OHLC fields directly. Two viable approaches:
+        - Approach A: ring-buffer of LTF closes; at each candle, detect HTF rollup boundary (`candle.timestamp % HTF_MS === 0`); at boundary, snapshot the previous HTF candle's H/L/C from accumulated LTF history.
+        - Approach B: use `candle.high`, `candle.low`, `candle.close` for the current LTF candle. But this is wrong for pivot calc (we need previous DAY's range, not current 15m candle).
+      - Use Approach A. State: `prevHtfHigh`, `prevHtfLow`, `prevHtfClose` (private fields). On each candle, accumulate current HTF (1d) running H/L/C. At HTF rollup boundary (`timestamp % 86400000 === 0`), commit previous HTF values + start fresh accumulation.
+      - Compute pivot points from the committed previous HTF candle (H, L, C):
+        - `PP = (H + L + C) / 3`
+        - `R1 = PP + 0.382 × (H - L)`, `S1 = PP - 0.382 × (H - L)`
+        - `R2 = PP + 0.618 × (H - L)`, `S2 = PP - 0.618 × (H - L)`
+        - `R3 = PP + 1.000 × (H - L)`, `S3 = PP - 1.000 × (H - L)`
+      - **Entry signals** (long):
+        - If LTF close ≤ S2 → `side: 'buy'`, `stopLoss: S3`, `takeProfit: PP`, `confidence: 1.0`
+        - If LTF close ≤ S1 (and not ≤ S2) → `side: 'buy'`, `stopLoss: S2`, `takeProfit: PP`, `confidence: 0.7`
+      - **Entry signals** (short):
+        - If LTF close ≥ R2 → `side: 'sell'`, `stopLoss: R3`, `takeProfit: PP`, `confidence: 1.0`
+        - If LTF close ≥ R1 (and not ≥ R2) → `side: 'sell'`, `stopLoss: R2`, `takeProfit: PP`, `confidence: 0.7`
+      - In the middle zone (S1 < close < R1) → no signal.
+      - Warmup: 100 M15 candles (≈25h, enough for 1d HTF accumulation buffer + previous-day capture).
+      - If previous HTF candle missing (no committed values) → return null.
+
+      **Class signature:**
+      ```typescript
+      export interface PivotPointGridConfig {
+        readonly multiplierFib1: number;   // default 0.382
+        readonly multiplierFib2: number;   // default 0.618
+        readonly multiplierFib3: number;   // default 1.000
+      }
+      export const DEFAULT_PIVOT_GRID_CONFIG: PivotPointGridConfig;
+      export class PivotPointGridStrategy implements Strategy {
+        readonly name = 'Pivot Point Grid (Phase 15 M15 range-mean-reversion)';
+        readonly timeframes = ['1d', '15m'] as const;
+        readonly config: PivotPointGridConfig;
+        // HTF accumulator (rolling 1d candle from LTF history)
+        private currHtfHigh: number | undefined;
+        private currHtfLow: number | undefined;
+        private currHtfClose: number | undefined;
+        // Committed previous HTF values
+        private prevHtfHigh: number | undefined;
+        private prevHtfLow: number | undefined;
+        private prevHtfClose: number | undefined;
+        constructor(config?: Partial<PivotPointGridConfig>);
+        warmup(): number;
+        onCandle(ctx: StrategyContext): StrategySignal | null;
+      }
+      ```
+
+      Tests in `pivot-point-grid.test.ts` (≥10 tests):
+      - Default config multipliers (0.382/0.618/1.0)
+      - Warmup returns 100
+      - LTF close at S2 → long, SL=S3, TP=PP, confidence=1.0
+      - LTF close at S1 → long, SL=S2, TP=PP, confidence=0.7
+      - LTF close at R2 → short, SL=R3, TP=PP, confidence=1.0
+      - LTF close at R1 → short, SL=R2, TP=PP, confidence=0.7
+      - Middle zone (PP±small) → no signal
+      - Missing prev HTF data → no signal
+      - Custom multipliers respected (e.g., 0.5/1.0/1.5)
+      - Pivot recomputed when prev HTF candle changes (boundary detection works)
+      - Boundary timestamp detection: candle at timestamp % 86400000 == 0 triggers commit
+
+      ### 2. Bollinger Range Squeeze — `packages/core/src/strategy/bollinger-range-squeeze.ts` (~250 LOC)
+
+      **Timeframe:** M5 (LTF), uses MTF (1h) for BB(20, 2σ).
+
+      **Logic:**
+      - On each M5 candle, read the last closed MTF (1h) candle's BB values from `mtfState.mtf.bbUpper`, `mtfState.mtf.bbLower`, `mtfState.mtf.bbMiddle`.
+      - Compute bbWidth = `(bbUpper - bbLower) / bbMiddle`.
+      - **Squeeze detection:** bbWidth < squeezeThreshold (default 0.020 = 2%). Track consecutive squeeze candles in internal state.
+      - Require ≥2 consecutive squeeze candles (configurable, default 2) before breakout counts (filter false breakouts).
+      - **Breakout (long):** When in squeeze state, the next candle where close > bbUpper → emit `side: 'buy'`, `stopLoss: bbMiddle`, `takeProfit: bbUpper + 2 × atr`, `confidence: 1.0`. Exit squeeze state.
+      - **Breakout (short):** When in squeeze state, next candle where close < bbLower → emit `side: 'sell'`, `stopLoss: bbMiddle`, `takeProfit: bbLower - 2 × atr`, `confidence: 1.0`. Exit squeeze state.
+      - When not in squeeze (bbWidth ≥ threshold), reset consecutive squeeze counter to 0.
+      - If ATR missing → no signal.
+      - Warmup: 30 M5 candles (≈2.5h).
+
+      **Class signature:**
+      ```typescript
+      export interface BollingerSqueezeConfig {
+        readonly squeezeThreshold: number;       // default 0.020
+        readonly minConsecutiveSqueezeCandles: number;  // default 2
+        readonly atrBreakoutMultiplier: number;  // default 2.0
+      }
+      export const DEFAULT_BB_SQUEEZE_CONFIG: BollingerSqueezeConfig;
+      export class BollingerRangeSqueezeStrategy implements Strategy {
+        readonly name = 'Bollinger Range Squeeze (Phase 15 M5 breakout)';
+        readonly timeframes = ['1h', '5m'] as const;
+        readonly config: BollingerSqueezeConfig;
+        private consecutiveSqueezeCount: number;
+        constructor(config?: Partial<BollingerSqueezeConfig>);
+        warmup(): number;
+        onCandle(ctx: StrategyContext): StrategySignal | null;
+      }
+      ```
+
+      Tests in `bollinger-range-squeeze.test.ts` (≥12 tests):
+      - Default config (0.020 / 2 / 2.0)
+      - Warmup returns 30
+      - bbWidth < threshold → no signal yet (need 2 consecutive)
+      - 2 consecutive squeeze + close > bbUpper → long, SL=bbMiddle, TP=bbUpper + 2*ATR
+      - 2 consecutive squeeze + close < bbLower → short, SL=bbMiddle, TP=bbLower - 2*ATR
+      - Single squeeze candle (then exits) → no breakout signal
+      - Squeeze exits → reset consecutive count
+      - Custom squeezeThreshold respected
+      - Custom minConsecutiveSqueezeCandles respected
+      - Custom atrBreakoutMultiplier respected
+      - Missing BB data → no signal
+      - Missing ATR data → no signal
+
+      ### 3. Coverage 100% on both new files (lcov.info direct read)
+
+      ```bash
+      cd packages/core && bun test src/strategy/pivot-point-grid.test.ts src/strategy/bollinger-range-squeeze.test.ts --coverage --coverage-reporter=lcov --coverage-dir=coverage
+      ```
+      Then read `packages/core/coverage/lcov.info` directly. Verify:
+      - `pivot-point-grid.ts`: `lh === lf` AND `brh === brf`
+      - `bollinger-range-squeeze.ts`: `lh === lf` AND `brh === brf`
+
+      ### 4. deliverable.md (REQUIRED at worktree root)
+
+      `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase15-b/deliverable.md`:
+      - Files created (2 strategy files + 2 test files)
+      - LOC per file
+      - Test count per file
+      - Coverage % per file (from lcov.info direct read)
+      - Any deviations from this prompt with rationale
+
+      ## Acceptance criteria
+
+      - typecheck PASS (`bun run typecheck`)
+      - lint PASS (0 errors)
+      - test PASS (`bun test src/strategy/pivot-point-grid.test.ts src/strategy/bollinger-range-squeeze.test.ts`)
+      - coverage 100% lines + branches on both new files (lcov.info direct read)
+      - deliverable.md present
+
+      ## Workflow
+
+      1. Create worktree, branch
+      2. Implement Pivot Point Grid first (independent of BB Squeeze)
+      3. Implement BB Squeeze second
+      4. Run typecheck + lint + test + coverage at end
+      5. Commit, push, write deliverable.md
+      6. Report back to parent via `mavis communication send`
+
+      ## Memory rules active
+
+      - **1:10 leverage MANDATORY** — strategies only emit signals; sizing is engine-side (BacktestOptions.positionSize). Strategies themselves don't size. No leverage config needed in strategy classes.
+      - **bybit.eu SPOT-only** — `costModel.borrowRatePerHour = 0.0001`, `costModel.fundingRatePer8h = 0` (existing constants from run-baseline.ts:60-67).
+      - **IndicatorState has no ema20** — if a strategy needs EMA20, compute inline in the strategy (small ring buffer). The 4 strategies in Phase 15 don't need EMA20 inline EXCEPT Keltner (which is in Track C).
+      - **No docstring lies** — every JSDoc claim must be backed by actual code
+      - **No eslint-disable** — fix root cause
+      - **Coverage 100% on NEW files** — read lcov.info directly, not producer summary
+    timeout_ms: 3000000  # 50min
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 15 Track B deliverables independently:
+
+      1. **Branch + worktree**: `git -C /Users/kiscsicska/projects/mm-crypto-bot worktree list` shows `wt-phase15-b` on `feat/phase15-b-pivot-bb-squeeze`.
+      2. **Pivot Point Grid file exists**: `wt-phase15-b/packages/core/src/strategy/pivot-point-grid.ts` with exports for `PivotPointGridStrategy`, `PivotPointGridConfig`, `DEFAULT_PIVOT_GRID_CONFIG`.
+      3. **Bollinger Range Squeeze file exists**: `wt-phase15-b/packages/core/src/strategy/bollinger-range-squeeze.ts` with exports for `BollingerRangeSqueezeStrategy`, `BollingerSqueezeConfig`, `DEFAULT_BB_SQUEEZE_CONFIG`.
+      4. **Both implement Strategy interface**: grep for `implements Strategy` in both files; verify `onCandle(ctx: StrategyContext): StrategySignal | null` and `warmup(): number`.
+      5. **Pivot logic correctness**: read the file; verify PP/R1/R2/R3/S1/S2/S3 are computed as `(H+L+C)/3 ± fibonacci × (H-L)`; verify entry at S2 → long with SL=S3, TP=PP; verify entry at R2 → short with SL=R3, TP=PP.
+      6. **BB Squeeze logic correctness**: read the file; verify bbWidth = (bbUpper-bbLower)/bbMiddle < threshold triggers squeeze; verify 2+ consecutive squeeze required; verify breakout emit clears squeeze state.
+      7. **Coverage 100%**: read `wt-phase15-b/packages/core/coverage/lcov.info` directly. For each NEW file, verify `lh === lf` AND `brh === brf`.
+      8. **Test count**: ≥10 tests in `pivot-point-grid.test.ts`, ≥12 tests in `bollinger-range-squeeze.test.ts`.
+      9. **typecheck + lint + test**: `bun run typecheck && bun run lint && bun test src/strategy/pivot-point-grid.test.ts src/strategy/bollinger-range-squeeze.test.ts` from worktree, all PASS.
+      10. **deliverable.md present**: at worktree root with file list + test counts + coverage %.
+
+      PASS only if ALL 10 checks pass. If FAIL, list specific failing check(s) with file paths and line numbers.
+
+  # ============================================================
+  # TRACK C — Donchian Range Channel + Keltner Grid
+  # ============================================================
+  - id: 'phase15-track-c-donchian-keltner'
+    title: 'Phase 15 Track C — Donchian Range Channel (M15) + Keltner Volatility-Adaptive Grid (M5)'
+    prompt: |
+      You are the **Coder agent** working on **Phase 15 Track C** of the mm-crypto-bot project.
+
+      ## Context
+
+      Phase 15 Track C implements the 2nd pair of simple retail strategies. Different from Track B's Pivot Grid + BB Squeeze: these are channel/grid strategies using Donchian and Keltner indicators.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase15-scope-plan.md`
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/mean-reversion-bb.ts` — reference implementation pattern
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/mean-reversion-bb.test.ts` — reference test pattern
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/types.ts` — `Strategy`, `StrategyContext`, `IndicatorState` interfaces
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/indicators/atr.ts` — ATR calculation reference (for Keltner EMA20 ring buffer)
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/indicators/ema.ts` — EMA calculation reference
+      7. Memory: `/Users/kiscsicska/.mavis/agents/mavis/memory/mm-crypto-bot-project.md` — 1:10 mandate, bybit.eu SPOT-only
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase15-c`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase15-c -b feat/phase15-c-donchian-keltner main`
+      - Base branch: `main`
+      - The branch is yours alone
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Donchian Range Channel — `packages/core/src/strategy/donchian-range-channel.ts` (~200 LOC)
+
+      **Timeframe:** M15 (LTF), uses HTF (1d) for Donchian(20) channel.
+
+      **Logic:**
+      - On each M15 candle, read the last closed HTF (1d) candle's Donchian values from `mtfState.htf.donchianUpper` and `mtfState.htf.donchianLower`.
+      - Read `mtfState.htf.adx` for trend filter.
+      - Read `mtfState.ltf.atr` (or `mtfState.mtf.atr`) for stop-loss distance.
+      - **Trend filter:** if `adx > 25` → return null (range strategy doesn't apply in trending market).
+      - **Entry long:** LTF close ≤ donchianLower → `side: 'buy'`, `stopLoss: donchianLower - atr`, `takeProfit: donchianUpper`, `confidence: 1.0`.
+      - **Entry short:** LTF close ≥ donchianUpper → `side: 'sell'`, `stopLoss: donchianUpper + atr`, `takeProfit: donchianLower`, `confidence: 1.0`.
+      - In the middle zone (donchianLower < close < donchianUpper) → no signal.
+      - If ATR missing → no signal (can't compute stop distance).
+      - Warmup: 30 M15 candles (≈7.5h).
+
+      **Class signature:**
+      ```typescript
+      export interface DonchianRangeChannelConfig {
+        readonly donchianPeriod: number;     // default 20 (informational, actual period computed by engine)
+        readonly adxTrendThreshold: number;  // default 25 — skip if ADX above
+      }
+      export const DEFAULT_DONCHIAN_RANGE_CONFIG: DonchianRangeChannelConfig;
+      export class DonchianRangeChannelStrategy implements Strategy {
+        readonly name = 'Donchian Range Channel (Phase 15 M15 range-mean-reversion)';
+        readonly timeframes = ['1d', '15m'] as const;
+        readonly config: DonchianRangeChannelConfig;
+        constructor(config?: Partial<DonchianRangeChannelConfig>);
+        warmup(): number;
+        onCandle(ctx: StrategyContext): StrategySignal | null;
+      }
+      ```
+
+      Tests in `donchian-range-channel.test.ts` (≥10 tests):
+      - Default config (donchianPeriod=20, adxTrendThreshold=25)
+      - Warmup returns 30
+      - LTF close ≤ donchianLower, ADX < 25 → long, SL=donchianLower-atr, TP=donchianUpper
+      - LTF close ≥ donchianUpper, ADX < 25 → short, SL=donchianUpper+atr, TP=donchianLower
+      - Middle zone → no signal
+      - ADX ≥ 25 → no signal (trend filter)
+      - ADX exactly 25 → no signal (strict > comparison)
+      - Missing Donchian data → no signal
+      - Missing ATR → no signal
+      - Custom adxTrendThreshold respected (e.g., 30)
+
+      ### 2. Keltner Volatility-Adaptive Grid — `packages/core/src/strategy/keltner-grid.ts` (~300 LOC)
+
+      **Timeframe:** M5 (LTF), uses MTF (1h) for ATR.
+
+      **Logic:**
+      - Keltner channel: `upper = ema20 + kMultiplier × atr`, `lower = ema20 - kMultiplier × atr` (default kMultiplier=1.5).
+      - EMA20 is NOT in `IndicatorState` (only ema50/200). Compute EMA20 inline in the strategy using a ring buffer of last 20 LTF closes (M5).
+      - The Keltner bands are recomputed on every M5 candle from the EMA20 + latest ATR.
+      - Grid levels: 5 levels inside the Keltner band at 20%/40%/60%/80% (between lower and upper, evenly spaced).
+      - **Regime filter:**
+        - Long bias: close > ema20 → only long signals allowed (from lower-band grid levels)
+        - Short bias: close < ema20 → only short signals allowed (from upper-band grid levels)
+        - At ema20: no signal (transition zone)
+      - **Long signal:** when regime = long, and close touches one of the lower 3 grid levels (20%/40%/60% from lower) → `side: 'buy'`, `stopLoss: lower - 0.5 × atr`, `takeProfit: ema20` (target the middle), `confidence: 0.7`.
+      - **Short signal:** when regime = short, and close touches one of the upper 3 grid levels (40%/60%/80% from lower, i.e., 20%/40%/60% from upper) → `side: 'sell'`, `stopLoss: upper + 0.5 × atr`, `takeProfit: ema20`, `confidence: 0.7`.
+      - Warmup: 30 M5 candles (for EMA20 ring buffer to fill + ATR to compute).
+
+      **Class signature:**
+      ```typescript
+      export interface KeltnerGridConfig {
+        readonly kMultiplier: number;        // default 1.5
+        readonly gridLevelCount: number;     // default 5
+        readonly atrPeriod: number;          // default 14 (matches engine)
+      }
+      export const DEFAULT_KELTNER_GRID_CONFIG: KeltnerGridConfig;
+      export class KeltnerGridStrategy implements Strategy {
+        readonly name = 'Keltner Volatility-Adaptive Grid (Phase 15 M5 grid)';
+        readonly timeframes = ['1h', '5m'] as const;
+        readonly config: KeltnerGridConfig;
+        private closeRingBuffer: number[];    // last 20 LTF closes for EMA20
+        constructor(config?: Partial<KeltnerGridConfig>);
+        warmup(): number;
+        onCandle(ctx: StrategyContext): StrategySignal | null;
+      }
+      ```
+
+      Tests in `keltner-grid.test.ts` (≥12 tests):
+      - Default config (kMultiplier=1.5, gridLevelCount=5, atrPeriod=14)
+      - Warmup returns 30
+      - EMA20 ring buffer fills correctly (closes 1-20 → EMA20 computed at warmup completion)
+      - Keltner band math: upper = EMA20 + 1.5 × ATR, lower = EMA20 - 1.5 × ATR
+      - Long regime (close > EMA20), close touches lower-20% grid → long signal
+      - Long regime, close touches upper-20% grid → no signal (long bias doesn't fire upper)
+      - Short regime (close < EMA20), close touches upper-20% grid → short signal
+      - At EMA20 → no signal
+      - Missing ATR → no signal
+      - Custom kMultiplier respected (e.g., 2.0 produces wider bands)
+      - Custom gridLevelCount respected (e.g., 3 produces 3 levels)
+      - Mid-grid level (50%) is not in trigger zones (only 20/40/60% fire)
+
+      ### 3. EMA20 inline computation helper
+
+      For the Keltner strategy's `closeRingBuffer`, use a standard EMA formula:
+      ```
+      multiplier = 2 / (period + 1) = 2 / 21 ≈ 0.0952
+      ema = (close - prev_ema) × multiplier + prev_ema
+      ```
+      First EMA = SMA of first 20 closes (seed value).
+
+      ### 4. Coverage 100% on both new files (lcov.info direct read)
+
+      ```bash
+      cd packages/core && bun test src/strategy/donchian-range-channel.test.ts src/strategy/keltner-grid.test.ts --coverage --coverage-reporter=lcov --coverage-dir=coverage
+      ```
+      Read `packages/core/coverage/lcov.info` directly. Verify both new files have `lh === lf` AND `brh === brf`.
+
+      ### 5. deliverable.md (REQUIRED at worktree root)
+
+      `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase15-c/deliverable.md`:
+      - Files created (2 strategy files + 2 test files)
+      - LOC per file
+      - Test count per file
+      - Coverage % per file (from lcov.info direct read)
+      - Note: EMA20 computed inline (not in IndicatorState) with ring-buffer formula
+      - Any deviations from this prompt with rationale
+
+      ## Acceptance criteria
+
+      - typecheck PASS
+      - lint PASS (0 errors)
+      - test PASS (`bun test src/strategy/donchian-range-channel.test.ts src/strategy/keltner-grid.test.ts`)
+      - coverage 100% lines + branches on both new files
+      - deliverable.md present
+
+      ## Workflow
+
+      1. Create worktree, branch
+      2. Implement Donchian Range Channel first (uses existing Donchian indicator)
+      3. Implement Keltner Grid second (needs inline EMA20 ring buffer)
+      4. Run typecheck + lint + test + coverage at end
+      5. Commit, push, write deliverable.md
+      6. Report back to parent via `mavis communication send`
+
+      ## Memory rules active
+
+      - **1:10 leverage MANDATORY** — strategies only emit signals; sizing is engine-side
+      - **IndicatorState has NO ema20** — compute EMA20 inline in Keltner strategy with ring buffer
+      - **No docstring lies** — every JSDoc claim must be backed by actual code
+      - **No eslint-disable** — fix root cause
+      - **Coverage 100% on NEW files** — read lcov.info directly
+    timeout_ms: 3000000  # 50min
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 15 Track C deliverables independently:
+
+      1. **Branch + worktree**: `wt-phase15-c` on `feat/phase15-c-donchian-keltner`.
+      2. **Donchian Range Channel file exists**: `wt-phase15-c/packages/core/src/strategy/donchian-range-channel.ts` with exports for `DonchianRangeChannelStrategy`, `DonchianRangeChannelConfig`, `DEFAULT_DONCHIAN_RANGE_CONFIG`.
+      3. **Keltner Grid file exists**: `wt-phase15-c/packages/core/src/strategy/keltner-grid.ts` with exports for `KeltnerGridStrategy`, `KeltnerGridConfig`, `DEFAULT_KELTNER_GRID_CONFIG`.
+      4. **Both implement Strategy interface**: grep `implements Strategy` in both files; verify `onCandle` + `warmup`.
+      5. **Donchian logic correctness**: ADX > 25 → no signal (trend filter); LTF close ≤ donchianLower + ADX < 25 → long with SL=donchianLower-atr, TP=donchianUpper.
+      6. **Keltner logic correctness**:
+         - Verify `closeRingBuffer` field exists in class
+         - Verify EMA20 computed via standard formula (multiplier = 2/21)
+         - Verify upper/lower = ema20 ± kMultiplier × atr
+         - Verify long bias when close > ema20, short bias when close < ema20
+         - Verify lower-3 grid levels trigger long in long bias
+      7. **Coverage 100%**: read lcov.info directly; both files have `lh === lf` AND `brh === brf`.
+      8. **Test count**: ≥10 tests in `donchian-range-channel.test.ts`, ≥12 tests in `keltner-grid.test.ts`.
+      9. **typecheck + lint + test**: all PASS.
+      10. **deliverable.md present**: at worktree root.
+
+      PASS only if ALL 10 checks pass.
+
+  # ============================================================
+  # TRACK D — Backtests + Ensemble + REPORT (depends on B + C)
+  # ============================================================
+  - id: 'phase15-track-d-backtest-ensemble-report'
+    title: 'Phase 15 Track D — 4 baselines + simple-retail-ensemble + REPORT-phase15.md'
+    prompt: |
+      You are the **Coder agent** working on **Phase 15 Track D** of the mm-crypto-bot project.
+
+      ## Context
+
+      Phase 15 Track D ties together the 4 strategies (Pivot Grid + BB Squeeze from Track B, Donchian Range + Keltner Grid from Track C). This track produces 4 baseline backtests per symbol, 1 simple-retail-ensemble, and the final REPORT-phase15.md.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase15-scope-plan.md`
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest-tools/src/cli/run-baseline.ts` — reference CLI runner pattern
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest/src/engine.ts` — backtest engine
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase15-b/packages/core/src/strategy/pivot-point-grid.ts` — Track B (after merge)
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase15-b/packages/core/src/strategy/bollinger-range-squeeze.ts` — Track B
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase15-c/packages/core/src/strategy/donchian-range-channel.ts` — Track C
+      7. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase15-c/packages/core/src/strategy/keltner-grid.ts` — Track C
+      8. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/multi-class-ensemble.ts` — reference composite strategy pattern
+      9. Memory: `/Users/kiscsicska/.mavis/agents/mavis/memory/mm-crypto-bot-project.md`
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase15-d`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase15-d -b feat/phase15-d-backtest-ensemble-report main`
+      - Base branch: `main`
+      - **MERGE feat/phase15-b-pivot-bb-squeeze + feat/phase15-c-donchian-keltner INTO your branch FIRST** (orchestrator will push them after Tracks B+C complete)
+      - The branch is yours alone
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. 4 baseline CLI runners — `packages/backtest-tools/src/cli/`
+
+      Each runner: takes `--symbol=`, `--timeframe=`, `--output=`, runs the strategy on the M5/M15 CSV data, writes JSON envelope.
+
+      ```bash
+      bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts --symbol=BTC/USDT --timeframe=15m --output=backtest-results/phase15-pivot-grid-btc-15m.json
+      bun run packages/backtest-tools/src/cli/run-bb-squeeze-baseline.ts --symbol=BTC/USDT --timeframe=5m --output=backtest-results/phase15-bb-squeeze-btc-5m.json
+      bun run packages/backtest-tools/src/cli/run-donchian-range-baseline.ts --symbol=BTC/USDT --timeframe=15m --output=backtest-results/phase15-donchian-range-btc-15m.json
+      bun run packages/backtest-tools/src/cli/run-keltner-grid-baseline.ts --symbol=BTC/USDT --timeframe=5m --output=backtest-results/phase15-keltner-grid-btc-5m.json
+      ```
+
+      Reference: `run-baseline.ts` for the pattern (cost model, positionSize, JSON output format).
+
+      Timeframes per strategy:
+      - Pivot Grid: 15m (HTF=1d)
+      - BB Squeeze: 5m (MTF=1h)
+      - Donchian Range: 15m (HTF=1d)
+      - Keltner Grid: 5m (MTF=1h)
+
+      Cost model (per Phase 14 bybit.eu SPOT 1:10):
+      ```typescript
+      const COST_MODEL: CostModel = {
+        takerFeeRate: 0.001,
+        slippageRate: 0.0005,
+        spreadRate: 0.0002,
+        borrowRatePerHour: 0.0001,
+        fundingRatePer8h: 0,
+      };
+      ```
+
+      Position sizing (1:10 leverage, conservative for retail mean-reversion):
+      ```typescript
+      positionSize: {
+        riskPerTrade: 0.01,
+        kellyFraction: 0.25,
+        maxDrawdown: 0.5,  // disable kill-switch for diagnostic
+        maxPositionPctEquity: 0.2,
+        minPositionPctEquity: 0.01,
+      }
+      ```
+
+      ### 2. Run all 4 baselines × 3 symbols = 12 JSONs
+
+      ```bash
+      for sym in BTC/USDT ETH/USDT SOL/USDT; do
+        prefix=$(echo $sym | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+        bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts --symbol=$sym --timeframe=15m --output=backtest-results/phase15-pivot-grid-${prefix}-15m.json
+        bun run packages/backtest-tools/src/cli/run-bb-squeeze-baseline.ts --symbol=$sym --timeframe=5m --output=backtest-results/phase15-bb-squeeze-${prefix}-5m.json
+        bun run packages/backtest-tools/src/cli/run-donchian-range-baseline.ts --symbol=$sym --timeframe=15m --output=backtest-results/phase15-donchian-range-${prefix}-15m.json
+        bun run packages/backtest-tools/src/cli/run-keltner-grid-baseline.ts --symbol=$sym --timeframe=5m --output=backtest-results/phase15-keltner-grid-${prefix}-5m.json
+      done
+      ```
+
+      ### 3. Simple Retail Ensemble — `packages/core/src/strategy/simple-retail-ensemble.ts` (~300 LOC + tests)
+
+      Class `SimpleRetailEnsemble` — composes Pivot Grid + BB Squeeze + Donchian Range + Keltner Grid.
+
+      **Logic:**
+      - On each LTF candle, run all 4 sub-strategies.
+      - If 0 non-null signals → return null (no signal).
+      - If all signals agree on direction (e.g., all "buy") → return the highest-confidence signal (with reason tagged `[Ensemble] consensus=N/4`).
+      - If signals conflict (e.g., long + short both fire) → return null (defer; the strategy doesn't take contradictory positions).
+      - Single signal (only 1 fires) → return that signal with reason tagged `[Ensemble] solo=<strategy-name>`.
+
+      **Class signature:**
+      ```typescript
+      export interface SimpleRetailEnsembleConfig {
+        readonly pivotGrid: Partial<PivotPointGridConfig>;
+        readonly bbSqueeze: Partial<BollingerSqueezeConfig>;
+        readonly donchianRange: Partial<DonchianRangeChannelConfig>;
+        readonly keltnerGrid: Partial<KeltnerGridConfig>;
+      }
+      export const DEFAULT_SIMPLE_RETAIL_ENSEMBLE_CONFIG: SimpleRetailEnsembleConfig;
+      export class SimpleRetailEnsemble implements Strategy {
+        readonly name = 'Simple Retail Ensemble (Phase 15 — Pivot + BB Squeeze + Donchian Range + Keltner Grid)';
+        readonly timeframes: readonly Timeframe[];  // depends on LTF choice
+        readonly pivotGrid: PivotPointGridStrategy;
+        readonly bbSqueeze: BollingerRangeSqueezeStrategy;
+        readonly donchianRange: DonchianRangeChannelStrategy;
+        readonly keltnerGrid: KeltnerGridStrategy;
+        constructor(config?: Partial<SimpleRetailEnsembleConfig>, ltf?: Timeframe);
+        warmup(): number;
+        onCandle(ctx: StrategyContext): StrategySignal | null;
+      }
+      ```
+
+      Note: `ltf` parameter selects which timeframe the ensemble runs at. Defaults to M15 (since 2 of 4 strategies are M15). When LTF=M15, BB Squeeze + Keltner Grid (both M5) get aggregated candles from M15 (acceptable for ensemble-level backtest).
+
+      Tests in `simple-retail-ensemble.test.ts` (≥10 tests):
+      - Default construction
+      - All 4 strategies exist and are configured
+      - Warmup = max of 4 sub-strategies
+      - All null signals → null
+      - Single signal (only pivot fires) → that signal, reason tagged "solo=pivot-grid"
+      - Multiple same-direction signals (pivot + donchian both long) → highest-confidence wins, reason tagged "consensus=N/4"
+      - Conflicting signals (pivot long + donchian short) → null (defer)
+      - Custom config respected
+      - Custom LTF (5m instead of 15m) reflected in timeframes field
+      - Each sub-strategy receives the same `ctx` (delegation test)
+
+      Coverage 100% on `simple-retail-ensemble.ts` (lcov.info direct read).
+
+      ### 4. Ensemble baseline runner — `packages/backtest-tools/src/cli/run-simple-retail-ensemble.ts`
+
+      Same pattern as the 4 baselines, but uses `SimpleRetailEnsemble` strategy. Run for 3 symbols.
+
+      ```bash
+      bun run packages/backtest-tools/src/cli/run-simple-retail-ensemble.ts --symbol=BTC/USDT --timeframe=15m --output=backtest-results/phase15-ensemble-btc-15m.json
+      bun run packages/backtest-tools/src/cli/run-simple-retail-ensemble.ts --symbol=ETH/USDT --timeframe=15m --output=backtest-results/phase15-ensemble-eth-15m.json
+      bun run packages/backtest-tools/src/cli/run-simple-retail-ensemble.ts --symbol=SOL/USDT --timeframe=15m --output=backtest-results/phase15-ensemble-sol-15m.json
+      ```
+
+      ### 5. REPORT — `docs/research/REPORT-phase15.md` (~5,000-7,000 words, ≥10 sections)
+
+      Sections (in order, all REQUIRED):
+      1. **Executive summary** — 4 strategies + ensemble envelope (BTC/ETH/SOL + portfolio), +50%/mo verdict at this scope
+      2. **Phase 14A-D baseline reminder** — 2.06%/mo / 10.58% DD at 1:10 (apples-to-apples reference)
+      3. **Strategy 1: Pivot Point Grid** — backtest envelope table + win rate + DD per symbol
+      4. **Strategy 2: Bollinger Range Squeeze** — same
+      5. **Strategy 3: Donchian Range Channel** — same
+      6. **Strategy 4: Keltner Volatility-Adaptive Grid** — same
+      7. **Simple Retail Ensemble** — per-symbol + portfolio envelope vs Phase 14A-D baseline (2.06%/mo)
+      8. **Cross-strategy correlation** — Pivot vs BB vs Donchian vs Keltner (should be orthogonal, mean-reversion family)
+      9. **Regime sensitivity** — which strategy works in which regime (low-vol, high-vol, trending, ranging)
+      10. **+50%/mo verdict** — STILL not achievable; realistic envelope X-Y%/mo at Phase 15 composition
+      11. **Risks**: regime change, spread widening, M5/M15 noise floor
+      12. **Open decisions for user** — Phase 16+ candidates (M1 scalp if viable, BB Squeeze + VolTarget composition, etc.)
+
+      Each empirical claim must reference a JSON envelope file by path.
+
+      ### 6. Open PR + deliverable.md
+
+      After all backtests + ensemble + REPORT done:
+      - Commit: `git add backtest-results/phase15-*.json docs/research/REPORT-phase15.md && git commit -m "..."`
+      - Push: `git push -u origin feat/phase15-d-backtest-ensemble-report`
+      - Open PR: `gh pr create --base main --head feat/phase15-d-backtest-ensemble-report --title "..." --body "..."`
+      - Write deliverable.md at worktree root with:
+        - Files created (4 baseline runners + 1 ensemble runner + 1 ensemble strategy + 1 test file)
+        - Per-strategy envelope table (12 baselines + 3 ensemble)
+        - PR URL
+        - Any deviations from prompt
+
+      ## Acceptance
+
+      - typecheck PASS
+      - lint PASS
+      - test PASS (simple-retail-ensemble tests + integration sanity)
+      - coverage 100% on `simple-retail-ensemble.ts`
+      - All 12 baseline JSONs + 3 ensemble JSONs in `backtest-results/`
+      - REPORT-phase15.md has ≥10 sections, ≥5000 words
+      - PR opened
+      - deliverable.md present
+
+      ## Workflow
+
+      1. Create worktree, branch
+      2. Merge feat/phase15-b-pivot-bb-squeeze + feat/phase15-c-donchian-keltner
+      3. Write 4 baseline CLI runners (mechanical, based on run-baseline.ts pattern)
+      4. Write simple-retail-ensemble + tests
+      5. Write ensemble CLI runner
+      6. Run all 12 baseline backtests + 3 ensemble backtests
+      7. Write REPORT-phase15.md
+      8. Commit, push, open PR, write deliverable.md
+      9. Report back to parent via `mavis communication send`
+
+      ## Memory rules active
+
+      - **1:10 leverage MANDATORY** — strategies only emit signals; sizing is engine-side
+      - **Coverage 100% on NEW files** — read lcov.info directly
+      - **No docstring lies** — every JSDoc claim must be backed by actual code
+      - **No eslint-disable** — fix root cause
+      - **REPORT empirical claims → JSON envelope file paths** — every numerical claim must trace to a backtest-results JSON file
+    timeout_ms: 3600000  # 60min
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 15 Track D deliverables independently:
+
+      1. **Branch + worktree**: `wt-phase15-d` on `feat/phase15-d-backtest-ensemble-report`.
+      2. **Tracks B + C merged**: `git -C wt-phase15-d log feat/phase15-b-pivot-bb-squeeze feat/phase15-c-donchian-keltner --oneline -10` shows both merge commits.
+      3. **4 baseline CLI runners exist** in `wt-phase15-d/packages/backtest-tools/src/cli/`:
+         - `run-pivot-grid-baseline.ts`
+         - `run-bb-squeeze-baseline.ts`
+         - `run-donchian-range-baseline.ts`
+         - `run-keltner-grid-baseline.ts`
+      4. **Ensemble runner exists**: `run-simple-retail-ensemble.ts`.
+      5. **Ensemble strategy exists**: `wt-phase15-d/packages/core/src/strategy/simple-retail-ensemble.ts` with exports.
+      6. **15 JSON files committed**: `ls wt-phase15-d/backtest-results/phase15-*.json | wc -l` returns 15 (12 baselines + 3 ensemble).
+      7. **Coverage 100% on ensemble file**: read lcov.info; `simple-retail-ensemble.ts` has `lh === lf` AND `brh === brf`.
+      8. **Test count**: ≥10 tests in `simple-retail-ensemble.test.ts`.
+      9. **REPORT exists**: `wt-phase15-d/docs/research/REPORT-phase15.md` exists; `grep -c '^##' REPORT-phase15.md` returns ≥10; word count ≥5000.
+      10. **PR opened**: `gh pr list --head feat/phase15-d-backtest-ensemble-report --json url` returns the PR URL.
+      11. **typecheck + lint + test**: all PASS.
+      12. **deliverable.md present** at worktree root with envelope table + PR URL.
+
+      PASS only if ALL 12 checks pass.

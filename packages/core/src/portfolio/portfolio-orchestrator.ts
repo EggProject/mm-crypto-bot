@@ -81,7 +81,13 @@ import type { Bar } from "../signal-center/types.js";
 import type { SignalBus } from "../signal-center/signal-bus.js";
 import type { StrategyPlugin } from "../signal-center/strategy-registry.js";
 import { SignalCenterV1 } from "../signal-center/signal-center-v1.js";
-import { CarryBaselinePlugin } from "../signal-center/plugins/carry-baseline-plugin.js";
+// Phase 32: CarryBaselinePlugin was deleted (it wrapped the deleted
+// funding-carry-timing strategy). The PortfolioOrchestrator's default
+// fallback path (used when no `pluginsBySymbol` is provided) now throws
+// a clear error directing callers to supply their own plugin set.
+// This matches the Phase 26 §5 recommendation to use the orchestrator
+// only with explicit `pluginsBySymbol` (or not at all — per-symbol DP
+// composition is the recommended path).
 import {
   DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG,
   PortfolioRiskEngine,
@@ -823,18 +829,18 @@ export class PortfolioOrchestrator {
           sc.registerPlugin(plugin);
         }
       } else {
-        // Default: CarryBaselinePlugin (Track B baseline).
-        sc.registerPlugin(
-          new CarryBaselinePlugin({
-            baseNotionalUsd: this.config.initialEquityUsd,
-            timingLeverage: this.config.maxLeverage,
-            windowDays: 30,
-            entryPercentile: 0.75,
-            exitPercentile: 0.5,
-            cooldownHours: 72,
-            kellyCap: 0.5,
-            volTargetMax: 1.0,
-          }),
+        // Phase 32: CarryBaselinePlugin was deleted. The default
+        // fallback path is replaced with a clear error directing
+        // callers to supply `pluginsBySymbol`. Per Phase 26 §5
+        // recommendation, the per-symbol DP composition is the
+        // preferred production path; the orchestrator is for
+        // advanced multi-strategy portfolios that need explicit
+        // plugin wiring.
+        throw new Error(
+          `[PortfolioOrchestrator] No pluginsBySymbol provided for ${symbol}. ` +
+            `Phase 32 deleted the default CarryBaselinePlugin fallback. ` +
+            `Either supply pluginsBySymbol in the config, or use the per-symbol ` +
+            `DonchianPivotComposition strategy directly (see Phase 26 §5).`,
         );
       }
       sc.start();

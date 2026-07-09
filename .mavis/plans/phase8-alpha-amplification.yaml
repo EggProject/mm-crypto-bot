@@ -1,0 +1,736 @@
+version: 1
+plan:
+  name: 'Phase 8 — Alpha amplification tracks D/E/F/G + V3 multi-class ensemble integration'
+  max_concurrency: 6
+  max_consecutive_failures: 2
+  max_cycles: 12
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK D — Carry leverage push 5× with dynamic VaR
+  # Crypto Expert (agent-c53b5725d31d)
+  # ============================================================
+  - id: 'phase8-track-d-carry-leverage-5x'
+    title: 'Phase 8 Track D — Carry leverage push 5×/7× with dynamic VaR (Crypto Expert)'
+    prompt: |
+      You are the **Crypto Expert agent** working on Phase 8 Track D of the mm-crypto-bot project.
+
+      ## Context — why this track exists
+      Phase 7 V2 multi-class ensemble delivers +2.09%/month average (BTC +2.85%, ETH +3.35%, SOL +0.075%).
+      The dominant contributor (99%+) is the 3× leveraged funding-carry.
+      Phase 7 hard-capped carry leverage at 3× (CLI + config both reject higher).
+      Track D's job: push carry leverage to 5× (and test 7× as an upper bound)
+      with dynamic VaR scaling, so the dominant contributor becomes MORE dominant.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/phase7-strategy-brief.md` — Phase 7 authoritative brief (Track C spec)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/REPORT-phase7.md` §4 (Track C empirical) and §5.5 (component contribution)
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/funding-carry-leverage.ts` — Phase 7 Track C baseline
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts` (lines 90-130 show the `--leverage=1/2/3` hardcoding)
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest-tools/src/cli/run-funding-carry-leverage.ts` — current Phase 7 leverage baseline runner
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/data/funding/binance_{btc,eth,sol}usdt_funding_8h.csv` — actual funding data
+      7. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/baseline-funding-carry-leverage-{btc,eth,sol}-1h.json` — Phase 7 Track C reference
+
+      ## Your scope — Track D: Carry leverage 5×/7× push
+      Push the FundingCarryLeverageStrategy to 5× leverage (with 7× upper-bound test),
+      keep the VaR cap at 2% daily @ 95% confidence, ZERO liquidations hard requirement,
+      and document the empirical scaling curve from 1× → 5×/7×.
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-track-d`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase8-track-d -b feat/phase8-track-d-carry-leverage-5x main`
+         - All your work happens here
+      2. The `feat/phase8-track-d-carry-leverage-5x` branch is yours alone — no other worker touches it
+      3. Base branch is `main` (not Phase 7 amplif branch, since Phase 7 already merged to main @ c32c1c5)
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. Modify `packages/core/src/strategy/funding-carry-leverage.ts`:
+         - Update `maxLeverage: 3 → 5` in `DEFAULT_LEVERAGED_CARRY_CONFIG`
+         - Add a dynamic VaR-scaling helper: `computeDynamicLeverage(fundingRateStdDev, refStdDev): number` that reduces effective leverage when funding volatility is high
+         - Add a function `safeEffectiveLeverage(stableMultiplier, requestedLev, varCapOk): number` that floors at 1× if VaR cap would be violated
+         - Document in code comments that 5× is the new default, 7× is documented-as-upper-bound but not in default (test only)
+         - **DO NOT** remove the existing VaR cap, liquidation buffer, or funding-stability-scaling logic
+
+      2. Modify `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts`:
+         - Update the `--leverage=` parser to accept `1 | 2 | 3 | 5 | 7` (currently rejects at 1/2/3)
+         - Update the type signature accordingly
+         - Add a `--leverage-cap=5` flag for safety (default 5, can be raised to 7 for testing)
+
+      3. Modify `packages/backtest-tools/src/cli/run-funding-carry-leverage.ts`:
+         - Add `5` and `7` to the accepted leverage values
+
+      4. Tests in `packages/core/src/strategy/funding-carry-leverage.test.ts`:
+         - Existing tests must still pass (no regressions)
+         - Add ≥5 new tests for: dynamic leverage computation, VaR-violation floor, 5× efficiency vs 3×, 7× edge case
+
+      5. `packages/backtest-tools/src/cli/run-funding-carry-leverage-5x.ts` — NEW CLI runner
+         - Args: `--symbol=<SYM> --timeframe=<TF> --output=<PATH> --leverage=<1|2|3|5|7> --var-cap=<0.02>`
+         - Mimics `run-funding-carry-leverage.ts` pattern
+         - Run for all 3 leverage values 1/5/7 across BTC/ETH/SOL
+
+      6. `backtest-results/baseline-funding-carry-leverage-5x-{btc,eth,sol}-1h.json` — 9 NEW backtest JSON files
+         - 3 symbols × 3 leverage variants (1×, 5×, 7×) — that's 9 files
+         - Each JSON: total return %, Sharpe, max DD %, avg effective leverage, VaR 95% daily (must be ≤ 2%), funding collected at scaled notional, rebalance count, liquidation events (MUST be 0)
+         - Compare against `baseline-funding-carry-leverage-{sym}-1h.json` (Phase 7 Track C 3× reference)
+
+      7. `docs/research/phase8-carry-leverage-5x.md` — empirical report (English research, Hungarian intro/conclusion OK)
+         - **Minimum 5-10 web queries** on: leveraged crypto carry trade risk, Bybit/Binance margin requirements for 5×/7× leverage, liquidation cascade dynamics, dynamic VaR scaling in delta-neutral strategies, Werapun 2025 7× funding arb paper, Walk-forward anti-overfit, Maisteroudier 2024 "Funding Rate Arbitrage at Higher Leverage"
+         - **≥3 independent sources per empirical claim**
+         - Empirical results table: 9 baseline (3 sym × 3 leverage 1×/5×/7×) × return, Sharpe, max DD, VaR 95%, avg effective leverage
+         - Scaling efficiency: 5× should give ≥4.5× the 1× reference return (90% efficiency); document the efficiency curve
+         - VaR discipline: verify max daily VaR ≤ 2% in all 9 baselines (HARD REQUIREMENT)
+         - Liquidation events: MUST be 0 in all 9 baselines (otherwise FAIL the entire track)
+         - Walk-forward validation: 180d IS / 30d OOS / 30d step, especially for the 5×/7× variants
+         - Comparison vs Phase 7 Track C 3× (the reference)
+         - Deployment readiness: margin requirements, regulatory notes (MiCAR EU scope, bybit.eu SPOT-only)
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-track-d
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green. If any fails, fix it before commit.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(core,backtest-tools): ÜGYNÖK Phase 8 Track D — carry leverage push 5×/7× with dynamic VaR
+
+      - DEFAULT maxLeverage 3 → 5; add computeDynamicLeverage() helper
+      - CLI: --leverage accepts 1/2/3/5/7; --leverage-cap=5 safety default
+      - 9 new baseline JSON (3 sym × 1×/5×/7×)
+      - Zero liquidations, VaR 95% < 2%
+
+      Backtest results: <kulcs számok>"
+      git push -u origin feat/phase8-track-d-carry-leverage-5x
+      ```
+
+      ### Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 8 Track D (carry leverage 5x push) COMPLETE. <részletek, baseline numbers>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that after all tracks land)
+      - **DO NOT** touch files outside your scope: `funding-carry-leverage.ts` + tests, `run-multi-class-baseline-v2.ts` (only the --leverage parser), `run-funding-carry-leverage.ts`, `run-funding-carry-leverage-5x.ts`, new baseline JSON files, `phase8-carry-leverage-5x.md`
+      - **CRITICAL**: zero liquidation events is a HARD requirement across ALL 9 baselines. If 5× or 7× causes liquidations, REDUCE leverage until zero liquidations.
+      - **CRITICAL**: VaR 95% daily ≤ 2% across ALL 9 baselines. If exceeded, FAIL the track.
+      - **Decision autonomy**: pick final leverage cap based on your empirical VaR curve; document the choice with reasoning.
+    assigned_to: 'agent-c53b5725d31d'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Track D (Phase 8 carry leverage 5×/7× push) deliverables independently:
+
+      1. **Branch + commit**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase8-track-d-carry-leverage-5x --oneline -3` shows a new commit by the worker; `git status` clean.
+      2. **Files exist/modified**:
+         - `packages/core/src/strategy/funding-carry-leverage.ts` modified (DEFAULT maxLeverage ≥ 5; dynamic helper added)
+         - `packages/core/src/strategy/funding-carry-leverage.test.ts` — ≥5 new tests added
+         - `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts` modified (--leverage now accepts 5/7)
+         - `packages/backtest-tools/src/cli/run-funding-carry-leverage.ts` modified
+         - `packages/backtest-tools/src/cli/run-funding-carry-leverage-5x.ts` — NEW file
+         - `backtest-results/baseline-funding-carry-leverage-5x-{btc,eth,sol}-1h.json` (9 files expected: 3 sym × 3 leverage variants 1×/5×/7×)
+         - `docs/research/phase8-carry-leverage-5x.md`
+      3. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase8-track-d`. ALL green.
+      4. **Test count**: `bun test packages/core/src/strategy/funding-carry-leverage.test.ts` shows ≥10 tests (≥5 new), all pass.
+      5. **Leverage logic correctness**: read `funding-carry-leverage.ts`, verify (a) maxLeverage default is now 5, (b) dynamic VaR-scaling helper exists, (c) safeEffectiveLeverage floor at 1× exists.
+      6. **CRITICAL — Zero liquidations**: read each of the 9 baseline JSONs and verify `liquidationEvents === 0` in ALL 9. If ANY has liquidation events > 0, FAIL.
+      7. **CRITICAL — VaR cap**: each baseline's `varDaily95` ≤ 0.02 (2%). If ANY exceeds 2%, FAIL.
+      8. **Leverage efficiency**: at least one 5× baseline shows ≥4× the 1× reference return; document the actual ratio.
+      9. **Walk-forward**: the report includes 180d IS / 30d OOS validation for 5× (not just in-sample).
+      10. **Source citations**: `phase8-carry-leverage-5x.md` cites ≥3 independent sources per major claim.
+
+      PASS only if ALL 10 checks pass. If FAIL, list the specific failing check(s) with file paths and line numbers where applicable.
+    max_retries: 2
+
+  # ============================================================
+  # TRACK E — Funding-rate timing strategy
+  # Crypto Expert (agent-c53b5725d31d)
+  # ============================================================
+  - id: 'phase8-track-e-funding-timing'
+    title: 'Phase 8 Track E — Funding-rate timing strategy (Crypto Expert)'
+    prompt: |
+      You are the **Crypto Expert agent** working on Phase 8 Track E of the mm-crypto-bot project.
+
+      ## Context — why this track exists
+      Phase 7 V2 always-on carry captures funding whenever it's positive. But
+      crypto funding rates are highly regime-dependent: bullish/overheated markets
+      produce 0.1-0.3%/8h (very high carry); bearish markets produce 0% or NEGATIVE
+      funding (carry holder PAYS). Track E's job: time the carry entry/exit based
+      on funding rate dynamics — only enter when funding > 30d rolling 75th percentile,
+      exit when funding drops below 30d median. This should reduce drawdowns AND
+      improve on-time Sharpe by filtering out negative-funding periods.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/phase7-strategy-brief.md` — Phase 7 brief §6 (funding carry section)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/REPORT-phase7.md` §4 (Track C empirical) — current carry behavior
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/funding-carry.ts` — Phase 6 Track A baseline
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/funding-carry-leverage.ts` — Phase 7 Track C extension (which Track E will wrap)
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/data/funding/binance_{btc,eth,sol}usdt_funding_8h.csv` — actual funding data (8h cadence)
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/baseline-funding-carry-{btc,eth,sol}-1h.json` — Phase 6 carry reference
+
+      ## Your scope — Track E: Funding-rate timing strategy
+      Wrap the existing FundingCarryStrategy / FundingCarryLeverageStrategy with
+      a regime-aware timing filter: only enter carry when funding rate is in the
+      "high-yield" regime, exit to neutral cash when it falls.
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-track-e`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase8-track-e -b feat/phase8-track-e-funding-timing main`
+         - All your work happens here
+      2. The `feat/phase8-track-e-funding-timing` branch is yours alone
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/strategy/funding-carry-timing.ts` — NEW strategy file
+         - Wraps the existing `FundingCarryStrategy` (or `FundingCarryLeverageStrategy` if you need leverage)
+         - Computes rolling 30d window statistics on the 8h funding rate series: median, std-dev, 75th percentile
+         - Entry condition: `currentFundingRate > rolling30d.p75` (top-quartile funding = high carry regime)
+         - Exit condition: `currentFundingRate < rolling30d.median` (below-median = low carry regime, also avoids negative-funding periods)
+         - Cooldown: minimum 72h between trades (avoid whipsaw)
+         - Mimic Strategy interface (`packages/core/src/strategy/funding-carry.ts`)
+         - **NO leverage amplification** here (Track D handles that) — keep leverage at 1× in this track to isolate the timing alpha
+
+      2. `packages/core/src/strategy/funding-carry-timing.test.ts` — ≥10 unit tests
+         - Rolling percentile computation correctness (30d window, edge cases)
+         - Entry/exit threshold logic
+         - Cooldown enforcement
+         - Edge cases: exactly at threshold (use > not ≥), all-zero funding period, negative funding edge
+         - Wrapping logic: timing strategy delegates to underlying carry
+         - Determinism: same input → same output
+
+      3. `packages/backtest-tools/src/cli/run-funding-carry-timing.ts` — CLI runner
+         - Args: `--symbol=<SYM> --timeframe=<TF> --output=<PATH> --window-days=<30> --entry-pctl=<0.75> --exit-pctl=<0.50> --cooldown-hours=<72>`
+         - Mimics `run-funding-carry-baseline.ts` pattern
+
+      4. `backtest-results/baseline-funding-carry-timing-{btc,eth,sol}-1h.json` — 3 backtest JSON files
+         - Each JSON: total return %, Sharpe, max DD %, % time-in-carry vs cash, entry/exit count, avg hold duration, funding captured (only positive-funding periods)
+         - **CRITICAL comparison**: vs `baseline-funding-carry-{sym}-1h.json` (Phase 6 always-on 1× carry)
+         - Best case: timing variant has higher Sharpe AND lower max DD vs always-on
+
+      5. `docs/research/phase8-funding-timing.md` — empirical report (English research, Hungarian intro/conclusion OK)
+         - **Minimum 5-10 web queries** on: funding rate regime detection, carry trade entry timing, Sharpe ratio improvements from filtering, crypto funding rate cycle, volatility-of-funding signal, regime-switching carry strategies, BIS WP1087 2025 crypto carry structure, walk-forward anti-overfit
+         - **≥3 independent sources per empirical claim**
+         - Empirical results table: 3 baseline (BTC/ETH/SOL × 1h) × PnL, Sharpe, max DD, % time-in-carry, entry count
+         - Sizing the entry/exit thresholds: empirical distribution of BTC/ETH/SOL funding rate (median, 75th percentile, % negative periods)
+         - Walk-forward validation: 180d IS / 30d OOS / 30d step
+         - Comparison vs Phase 6 always-on 1× carry reference
+         - Deployment readiness
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-track-e
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(core,backtest-tools): ÜGYNÖK Phase 8 Track E — funding-rate timing strategy
+
+      - funding-carry-timing: rolling 30d p75 entry / median exit, 72h cooldown
+      - 3 baseline JSON (BTC/ETH/SOL × 1h)
+      - Regime-detection alpha vs always-on carry
+
+      Backtest results: <kulcs számok>"
+      git push -u origin feat/phase8-track-e-funding-timing
+      ```
+
+      ### Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 8 Track E (funding-timing) COMPLETE. <részletek, baseline numbers>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that)
+      - **DO NOT** touch files outside your scope: `funding-carry-timing.ts` + tests, `run-funding-carry-timing.ts`, `baseline-funding-carry-timing-*.json`, `phase8-funding-timing.md`
+      - **NO leverage amplification** — keep leverage at 1× to isolate the timing alpha (Track D is the leverage track)
+      - **Decision autonomy**: pick thresholds (entry percentile 0.75, exit 0.50, cooldown 72h) based on your empirical funding-rate distribution analysis; document choices
+    assigned_to: 'agent-c53b5725d31d'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Track E (Phase 8 funding-rate timing) deliverables independently:
+
+      1. **Branch + commit**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase8-track-e-funding-timing --oneline -3` shows a new commit; `git status` clean.
+      2. **Files exist**:
+         - `packages/core/src/strategy/funding-carry-timing.ts` + `.test.ts` in `wt-phase8-track-e`
+         - `packages/backtest-tools/src/cli/run-funding-carry-timing.ts`
+         - `backtest-results/baseline-funding-carry-timing-{btc,eth,sol}-1h.json` (3 files)
+         - `docs/research/phase8-funding-timing.md`
+      3. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase8-track-e`. ALL green.
+      4. **Test count**: `bun test packages/core/src/strategy/funding-carry-timing.test.ts` shows ≥10 tests, all pass.
+      5. **Timing logic correctness**: read `funding-carry-timing.ts`, verify (a) rolling window computation, (b) entry/exit percentile thresholds, (c) cooldown enforcement, (d) wraps underlying FundingCarryStrategy.
+      6. **Backtest results vs always-on carry**: at least one of the 3 baselines shows BETTER Sharpe OR lower max DD vs `baseline-funding-carry-{sym}-1h.json` (Phase 6 always-on reference).
+      7. **Walk-forward OOS Sharpe**: each baseline's OOS Sharpe > 0 (no overfit indicator).
+      8. **Source citations**: `phase8-funding-timing.md` cites ≥3 independent sources per major claim.
+
+      PASS only if ALL 8 checks pass.
+    max_retries: 2
+
+  # ============================================================
+  # TRACK F — 1h MTF Donchian with funding-rate timing confirmation
+  # Strategy Specialist (agent-5394bdd48751)
+  # ============================================================
+  - id: 'phase8-track-f-1h-mtf-donchian'
+    title: 'Phase 8 Track F — 1h MTF Donchian signal (Strategy Specialist)'
+    prompt: |
+      You are the **Strategy Specialist agent** working on Phase 8 Track F of the mm-crypto-bot project.
+
+      ## Context — why this track exists
+      Phase 7 V2 directional edge is marginal: BTC +0.07%/month, ETH +0.06%, SOL +0.09%.
+      The Phase 5 baseline used 1d Donchian only (low trade count, slow signal).
+      Track F's job: use 1h Donchian WITH a 4h Donchian trend filter AND a 1d
+      supertrend confirmation — a proper MTF structure that should add 5-10× more
+      high-quality trade signals without the noise of pure 1h.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/phase5-strategy-brief.md` — Phase 5 Donchian spec
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/strategy-candidates.md` §7 — MTF ensemble pattern
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/REPORT-phase7.md` §6 (directional edge limits) and §5.5 (component contribution)
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/donchian-breakout.ts` — Phase 5 Donchian baseline
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/mtf-trend-confluence.ts` — existing MTF module
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/donchian-trailing.ts` — Phase 7 Track A (if it exists)
+      7. `/Users/kiscsicska/projects/mm-crypto-bot/data/ohlcv/binance_{btc,eth,sol}_1h.csv` and `_4h.csv` and `_1d.csv` — actual data
+      8. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/baseline-donchian-{btc,eth,sol}-1d.json` — Phase 5 reference
+
+      ## Your scope — Track F: 1h MTF Donchian signal
+      Build a proper multi-timeframe Donchian:
+      - LTF (1h): entry trigger — close > 1h Donchian upper band (20-period default)
+      - MTF (4h): trend filter — 4h Donchian upper band direction (close > 4h-band = uptrend OK)
+      - HTF (1d): supertrend confirmation — 1d ATR-trailing-stop above close = uptrend OK
+      - Long-only (matches bybit.eu SPOT-only mode)
+      - Risk: stop = 1h ATR(14) × 1.5; take-profit = 1h ATR(14) × 3 (3:1 R:R)
+      - Time-based exit: max 168h (7 days) without take-profit
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-track-f`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase8-track-f -b feat/phase8-track-f-1h-mtf-donchian main`
+         - All your work happens here
+      2. The `feat/phase8-track-f-1h-mtf-donchian` branch is yours alone
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/strategy/donchian-mtf.ts` — NEW strategy file
+         - Implements the 3-tier MTF structure above
+         - On bar (1h timeframe candle), check 4h and 1d cached values from indicators state
+         - Mimic `packages/core/src/strategy/mtf-trend-confluence.ts` pattern for cross-timeframe indicator loading
+         - Risk: ATR-based stop + take-profit + max-hold exit
+
+      2. `packages/core/src/strategy/donchian-mtf.test.ts` — ≥10 unit tests
+         - MTF entry logic (LTF + MTF + HTF all aligned)
+         - Single-timeframe-filter failure (LTF OK but MTF fail = no entry)
+         - Stop / take-profit / max-hold exit paths
+         - Long-only enforcement
+         - Indicator state propagation across timeframes
+         - Edge cases: gap-up entry, range-bound period (HTF-aligned but LTF-trigger missing), low-volatility regime
+
+      3. `packages/backtest-tools/src/cli/run-donchian-mtf.ts` — CLI runner
+         - Args: `--symbol=<SYM> --ltf-timeframe=1h --mtf-timeframe=4h --htf-timeframe=1d --output=<PATH> --risk-reward=<3>`
+         - Mimics `run-donchian-baseline.ts` pattern
+
+      4. `backtest-results/baseline-donchian-mtf-{btc,eth,sol}-1h.json` — 3 backtest JSON files
+         - Each JSON: total return %, Sharpe, max DD %, trade count (note: should be MUCH higher than Phase 5), win rate, avg R-multiple, exit-reason breakdown
+         - Compare against `baseline-donchian-{sym}-1d.json` (Phase 5 1d-only reference)
+
+      5. `docs/research/phase8-1h-mtf-donchian.md` — empirical report (English research, Hungarian intro/conclusion OK)
+         - **Minimum 5-10 web queries** on: multi-timeframe trend strategies, MTF Donchian/Supertrend combo, regime filtering, 3:1 R:R crypto, ATR-based stops/targets, walk-forward anti-overfit, bybit.eu fee impact on 1h timeframe, retail MTF edge decay
+         - **≥3 independent sources per empirical claim**
+         - Empirical results table: 3 baseline × PnL, Sharpe, max DD, trade count, win rate
+         - Trade count comparison: MTF variant should have 5-10× more trades than 1d-only
+         - Walk-forward validation: 180d IS / 30d OOS / 30d step
+         - Fee drag analysis: at 0.1% taker fee bybit.eu, monthly edge after fees
+         - Comparison vs Phase 5 baseline
+         - Deployment readiness
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-track-f
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(core,backtest-tools): ÜGYNÖK Phase 8 Track F — 1h MTF Donchian with 4h filter + 1d supertrend
+
+      - donchian-mtf: 3-tier multi-timeframe trend strategy (1h/4h/1d)
+      - 3 baseline JSON (BTC/ETH/SOL × 1h)
+      - ATR-based SL/TP, max 168h hold
+
+      Backtest results: <kulcs számok>"
+      git push -u origin feat/phase8-track-f-1h-mtf-donchian
+      ```
+
+      ### Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 8 Track F (1h MTF Donchian) COMPLETE. <részletek, baseline numbers>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that)
+      - **DO NOT** touch files outside your scope: `donchian-mtf.ts` + tests, `run-donchian-mtf.ts`, `baseline-donchian-mtf-*.json`, `phase8-1h-mtf-donchian.md`
+      - **Decision autonomy**: pick entry/exit parameters (Donchian period 20, ATR mult 1.5/3.0, max-hold 168h) based on your empirical walk-forward optimization; document the choice
+    assigned_to: 'agent-5394bdd48751'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Track F (Phase 8 1h MTF Donchian) deliverables independently:
+
+      1. **Branch + commit**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase8-track-f-1h-mtf-donchian --oneline -3` shows a new commit; `git status` clean.
+      2. **Files exist**:
+         - `packages/core/src/strategy/donchian-mtf.ts` + `.test.ts` in `wt-phase8-track-f`
+         - `packages/backtest-tools/src/cli/run-donchian-mtf.ts`
+         - `backtest-results/baseline-donchian-mtf-{btc,eth,sol}-1h.json` (3 files)
+         - `docs/research/phase8-1h-mtf-donchian.md`
+      3. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase8-track-f`. ALL green.
+      4. **Test count**: `bun test packages/core/src/strategy/donchian-mtf.test.ts` shows ≥10 tests, all pass.
+      5. **MTF logic correctness**: read `donchian-mtf.ts`, verify (a) 3-tier MTF structure (1h entry, 4h trend filter, 1d confirmation), (b) ATR-based risk management, (c) max-hold exit.
+      6. **Trade count increase**: MTF variant trade count should be ≥5× the Phase 5 1d baseline trade count.
+      7. **Backtest improvement**: at least one of the 3 baselines shows higher Sharpe OR higher total return vs `baseline-donchian-{sym}-1d.json` (Phase 5 reference) while maintaining max DD ≤ 2× the reference.
+      8. **Walk-forward OOS Sharpe**: each baseline's OOS Sharpe > 0 (no overfit indicator).
+      9. **Source citations**: `phase8-1h-mtf-donchian.md` cites ≥3 independent sources per major claim.
+
+      PASS only if ALL 9 checks pass.
+    max_retries: 2
+
+  # ============================================================
+  # TRACK G — Volatility-targeted position sizing (Moreira-Muir)
+  # Strategy Specialist (agent-5394bdd48751)
+  # ============================================================
+  - id: 'phase8-track-g-vol-targeted-sizing'
+    title: 'Phase 8 Track G — Volatility-targeted position sizing (Strategy Specialist)'
+    prompt: |
+      You are the **Strategy Specialist agent** working on Phase 8 Track G of the mm-crypto-bot project.
+
+      ## Context — why this track exists
+      Phase 7 V2 uses Adaptive Kelly with rolling 30d Sharpe buckets (Phase 7 Track B),
+      but the adaptive Kelly cold-starts at 0.5× static (insufficient fraction 35-49%)
+      because crypto trade counts are sparse. Track G replaces the Sharpe-based sizing
+      with VOLATILITY-TARGETED sizing (Moreira & Muir 2017): position size scales
+      inversely with lagged realized volatility. Per literature, this delivers
+      30-65% Sharpe improvements across asset classes. This complements Track B by
+      using a different signal (volatility regime, not trade-Sharpe).
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/phase7-strategy-brief.md` — Phase 7 brief §1.2 (Track B spec)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/REPORT-phase7.md` §3 (Track B empirical) — adaptive Kelly limits
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/risk/kelly-adaptive.ts` — Phase 7 Track B (Sharpe-based)
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/risk/kelly-position-sizer.ts` — Phase 6 baseline
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/risk/` — existing risk module structure
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/data/ohlcv/binance_{btc,eth,sol}_1d.csv` — for realized volatility computation
+
+      ## Your scope — Track G: Volatility-targeted position sizing
+      Build a position sizer that scales sizing inversely with lagged realized volatility,
+      so low-vol periods get MORE size, high-vol periods get LESS. This is the Moreira-Muir
+      "volatility-managed portfolios" effect documented in their 2017 paper (Yale).
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-track-g`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase8-track-g -b feat/phase8-track-g-vol-targeted-sizing main`
+         - All your work happens here
+      2. The `feat/phase8-track-g-vol-targeted-sizing` branch is yours alone
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/risk/vol-targeted-sizer.ts` — NEW position sizer
+         - Reads the daily-return volatility over a rolling window (default 30d)
+         - Computes `volMultiplier = (targetVol / realizedVol)` clamped to [0.25, 4.0]
+         - Default `targetVol = 0.02` (2% daily = ~32% annualized)
+         - Applies to a base notional size: `effectiveNotional = baseNotional × volMultiplier × baseKellyFraction`
+         - Mimic `kelly-position-sizer.ts` interface for compatibility
+         - Returns a `VolTargetedSizerResult` type with the multiplier + reasoning
+
+      2. `packages/core/src/risk/vol-targeted-sizer.test.ts` — ≥10 unit tests
+         - Rolling realized vol computation correctness (window boundary)
+         - Multiplier clamping (high-vol clamps to 0.25, low-vol clamps to 4.0)
+         - Default target vol behavior
+         - Edge cases: zero-vol day (constant price), single-day window, all-zero returns
+         - Determinism: same input → same output
+         - Annualization conversion (daily → annual vs annual → daily target)
+
+      3. `packages/backtest-tools/src/cli/run-vol-targeted-baseline.ts` — CLI runner
+         - Args: `--symbol=<SYM> --timeframe=<TF> --output=<PATH> --window-days=<30> --target-vol=<0.02> --base-kelly=<0.5>`
+         - Runs a baseline Donchian 1d strategy with vol-targeted sizing applied
+         - Mimics `run-kelly-opt.ts` pattern but with the new sizer
+
+      4. `backtest-results/baseline-vol-targeted-{btc,eth,sol}-1d.json` — 3 backtest JSON files
+         - Each JSON: total return %, Sharpe, max DD %, avg vol multiplier over time, time-in-bucket (% vol multiplier in 0-0.5 / 0.5-1.0 / 1.0-2.0 / 2.0-4.0 ranges)
+         - **CRITICAL comparison**: vs `baseline-kelly-adaptive-{sym}-1d.json` (Phase 7 Track B reference)
+
+      5. `docs/research/phase8-vol-targeted-sizing.md` — empirical report (English research, Hungarian intro/conclusion OK)
+         - **Minimum 5-10 web queries** on: Moreira & Muir 2017 volatility-managed portfolios, risk parity position sizing, Bridgewater All Weather vol-targeting, vol scaling factor empirical research, crypto realized volatility regimes, leveraged ETF vol-targeting (Volmageddon), risk-adjusted Kelly combining vol targeting, walk-forward anti-overfit
+         - **≥3 independent sources per empirical claim**
+         - Empirical results table: 3 baseline × PnL, Sharpe, max DD, avg vol multiplier
+         - Sharpe improvement target: at least one baseline should show ≥30% higher Sharpe vs Phase 7 Track B reference (per Moreira-Muir effect)
+         - Walk-forward validation: 180d IS / 30d OOS / 30d step — the OOS Sharpe should be > 0
+         - Vol regime distribution: how often vol multiplier is at clamps vs middle
+         - Comparison vs Phase 7 adaptive Kelly (Track B)
+         - Deployment readiness
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-track-g
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(core,backtest-tools): ÜGYNÖK Phase 8 Track G — volatility-targeted position sizing
+
+      - vol-targeted-sizer: inverse-vol scaling, target 2% daily
+      - 3 baseline JSON (BTC/ETH/SOL × 1d)
+      - Moreira-Muir effect verification
+
+      Backtest results: <kulcs számok>"
+      git push -u origin feat/phase8-track-g-vol-targeted-sizing
+      ```
+
+      ### Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 8 Track G (vol-targeted sizing) COMPLETE. <részletek, baseline numbers>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that)
+      - **DO NOT** touch files outside your scope: `vol-targeted-sizer.ts` + tests, `run-vol-targeted-baseline.ts`, `baseline-vol-targeted-*.json`, `phase8-vol-targeted-sizing.md`
+      - **Decision autonomy**: pick target-vol (default 2% daily), window length (default 30d), clamp bounds (default 0.25-4.0) based on your empirical calibration; document choices
+    assigned_to: 'agent-5394bdd48751'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Track G (Phase 8 vol-targeted sizing) deliverables independently:
+
+      1. **Branch + commit**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase8-track-g-vol-targeted-sizing --oneline -3` shows a new commit; `git status` clean.
+      2. **Files exist**:
+         - `packages/core/src/risk/vol-targeted-sizer.ts` + `.test.ts` in `wt-phase8-track-g`
+         - `packages/backtest-tools/src/cli/run-vol-targeted-baseline.ts`
+         - `backtest-results/baseline-vol-targeted-{btc,eth,sol}-1d.json` (3 files)
+         - `docs/research/phase8-vol-targeted-sizing.md`
+      3. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase8-track-g`. ALL green.
+      4. **Test count**: `bun test packages/core/src/risk/vol-targeted-sizer.test.ts` shows ≥10 tests, all pass.
+      5. **Vol-targeting logic correctness**: read `vol-targeted-sizer.ts`, verify (a) rolling realized vol computation, (b) inverse-vol scaling formula, (c) clamping at [0.25, 4.0], (d) interface compatibility with KellyPositionSizer.
+      6. **Sharpe improvement target**: at least one baseline shows ≥30% higher Sharpe vs `baseline-kelly-adaptive-{sym}-1d.json` (Phase 7 Track B reference).
+      7. **Walk-forward OOS Sharpe**: each baseline's OOS Sharpe > 0 (no overfit indicator).
+      8. **Source citations**: `phase8-vol-targeted-sizing.md` cites ≥3 independent sources per major claim (must include Moreira & Muir 2017).
+
+      PASS only if ALL 8 checks pass.
+    max_retries: 2
+
+  # ============================================================
+  # TRACK I — Phase 8 V3 Multi-class ensemble integration
+  # Depends on D/E/F/G all passing
+  # Combines all 4 tracks into V3 ensemble
+  # ============================================================
+  - id: 'phase8-v3-integration'
+    title: 'Phase 8 M2 — V3 multi-class ensemble integration (D+E+F+G) + REPORT-phase8.md'
+    prompt: |
+      You are the **integration owner** for Phase 8 M2 of the mm-crypto-bot project.
+      Your job: combine the 4 Phase 8 tracks (D/E/F/G) into a single V3 multi-class
+      ensemble, baseline it on all 3 symbols, and write the authoritative
+      REPORT-phase8.md.
+
+      ## Context
+      Phase 7 V2 ensemble delivered +2.09%/month average (BTC +2.85%, ETH +3.35%, SOL +0.075%).
+      The user is pushing for +50%/month. Phase 8 added 4 alpha tracks to push
+      beyond Phase 7's ceiling. The V3 ensemble should combine ALL proven edges.
+
+      The 4 Phase 8 tracks (ALL PASSING VERIFIER):
+      - **Track D**: Carry leverage 5×/7× push — strongest contributor to amplified carry
+      - **Track E**: Funding-rate timing — times carry entry to high-funding regime
+      - **Track F**: 1h MTF Donchian — directional alpha via multi-timeframe confirmation
+      - **Track G**: Volatility-targeted sizing — Moreira-Muir inverse-vol sizing
+
+      ## Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-v3-integration`
+         - Create by merging all 4 tracks + main:
+           ```
+           cd /Users/kiscsicska/projects/mm-crypto-bot
+           git worktree add .worktrees/wt-phase8-v3-integration -b feat/phase8-v3-integration main
+           cd .worktrees/wt-phase8-v3-integration
+           git merge feat/phase8-track-d-carry-leverage-5x --no-ff -m "merge: Phase 8 Track D (carry leverage 5×)"
+           git merge feat/phase8-track-e-funding-timing --no-ff -m "merge: Phase 8 Track E (funding timing)"
+           git merge feat/phase8-track-f-1h-mtf-donchian --no-ff -m "merge: Phase 8 Track F (1h MTF Donchian)"
+           git merge feat/phase8-track-g-vol-targeted-sizing --no-ff -m "merge: Phase 8 Track G (vol-targeted sizing)"
+           bun install --frozen-lockfile
+           ```
+         - Resolve any trivial conflicts (different files, should be clean)
+         - If `bun.lock` conflict: take theirs (Phase 8 Track newer), then `bun install` to regenerate
+      2. Run quality gates:
+         ```
+         bun run typecheck && bun run lint && bun run test && bun run coverage
+         ```
+         All must pass. If anything breaks from merge, fix it.
+
+      ## Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/strategy/multi-class-ensemble-v3.ts` — NEW composite strategy (~500 lines expected)
+         - Composes: VolTargetedSizer (Track G) wrapping DonchianMTF (Track F) wrapping CarryLeverage5x (Track D) wrapping FundingCarryTiming (Track E)
+         - Signal aggregation: NO double-counting
+           - PRIMARY directional signal: DonchianMTF (1h/4h/1d)
+           - CARRY signal: FundingCarryTiming (when funding > p75, enter carry)
+           - LEVERAGE multiplier: CarryLeverage5x up to 5× (with Track G vol scaling)
+           - POSITION SIZE: VolTargetedSizer (Track G) replaces static Kelly
+         - Position-management hook delegation: DonchianMTF owns the lifecycle hooks, others are read-only
+         - Mimic MultiClassEnsembleV2 architecture but with the 4 new components
+
+      2. `packages/core/src/strategy/multi-class-ensemble-v3.test.ts` — ≥15 unit tests
+         - Component isolation (each track removable independently)
+         - No-double-counting (verify signal flow)
+         - Carry timing gate pause
+         - Leverage scaling under vol target
+         - Position-management hook delegation
+         - State aggregation across all 4 components
+         - Helper functions
+         - Determinism
+         - **100% line + function coverage target**
+
+      3. `packages/backtest-tools/src/cli/run-multi-class-baseline-v3.ts` — CLI runner (~400 lines)
+         - Args: `--symbol=<BTC|ETH|SOL>/USDT --ltf-timeframe=1h --timeframe=1d --leverage=<1|3|5> --vol-target=<0.02> --entry-pctl=<0.75> --output=<PATH>`
+         - Mimic `run-multi-class-baseline-v2.ts` pattern
+
+      4. `backtest-results/baseline-multi-class-v3-{btc,eth,sol}-1d.json` — 3 backtest JSON files
+         - Each JSON: total return %, monthly return %, Sharpe, max DD %, VaR 95% daily, trades by exit reason, carry-component % of total return, leverage avg used, vol-target avg multiplier, time-in-carry, funding-timing entry count
+         - **THE KEY COMPARISON**: vs `baseline-multi-class-v2-{sym}-1d.json` (Phase 7 V2 reference)
+
+      5. `packages/core/src/index.ts` — V3 exports added
+         - Add: `MultiClassEnsembleV3`, `DEFAULT_MULTI_CLASS_ENSEMBLE_V3_CONFIG_PARTIAL`, helper types
+         - Follow the existing export pattern (see Phase 6/7 V1/V2 exports)
+
+      6. `backtest-results/REPORT-phase8.md` — FINAL authoritative report (English research, Hungarian intro/conclusion OK)
+         - **This is the PRIMARY deliverable. Quality matters more than volume.**
+         - Sections (use Phase 7 REPORT-phase7.md as template):
+           - **§0 Phase 1-7 cumulative summary** (reference)
+           - **§1 TL;DR** — the +50%/month reality check result
+           - **§2 Track D empirical** — leverage scaling curve, VaR, liquidations
+           - **§3 Track E empirical** — funding timing alpha
+           - **§4 Track F empirical** — MTF Donchian signal
+           - **§5 Track G empirical** — vol-targeting Sharpe improvement
+           - **§6 V3 ensemble integration** — architecture, signal aggregation, component contribution
+           - **§7 +50%/month realism check** — Phase 1-8 cumulative, projected next-phase scope
+           - **§8 Phase 9+ scope** — what's still needed
+           - **§9 Output deliverables checklist**
+           - **§10 References** — ≥10 sources with URLs, organized by section/track
+         - **≥3 independent sources per empirical claim** (5-10 web queries minimum per track = ≥25 total queries)
+         - **Quantitative tables over prose** — every claim backed by a number
+         - **Honest verdict** — if +50%/month is unreachable, say so with evidence; if a Phase 9 track could push to 50%, identify it specifically
+         - Length: 200-400 lines expected (similar to REPORT-phase7.md)
+
+      ## Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase8-v3-integration
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green. V3 module must have 100% line + function coverage.
+
+      ## Commit + push
+      ```
+      git add -A
+      git commit -m "feat(core,backtest,backtest-tools,reports): ÜGYNÖK Phase 8 M2 — V3 multi-class ensemble (D+E+F+G) + REPORT-phase8.md
+
+      - multi-class-ensemble-v3: combines Phase 8 Tracks D/E/F/G with no-double-counting
+      - 3 baseline JSON (BTC/ETH/SOL × 1d)
+      - REPORT-phase8.md: full empirical analysis with +50%/month verdict
+
+      Phase 1-7 cumulative: +0.52%/month → Phase 7 V2: +2.09%/month → Phase 8 V3: <your result>/month"
+      git push -u origin feat/phase8-v3-integration
+      ```
+
+      ## Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 8 V3 Integration + REPORT-phase8.md COMPLETE.
+
+      Empirical results:
+      - BTC: <monthly>/month, Sharpe <x>, max DD <x>%
+      - ETH: <monthly>/month, Sharpe <x>, max DD <x>%
+      - SOL: <monthly>/month, Sharpe <x>, max DD <x>%
+      - AVG: <monthly>/month (vs Phase 7 +2.09%/month = <X>x boost)
+
+      +50%/month verdict: <VERDICT with reasoning>
+
+      Recommended Phase 9 scope: <if not at +50%>"
+      ```
+
+      ## Important constraints
+      - **DO NOT** open a PR (root session does that)
+      - **DO NOT** modify any of the Track D/E/F/G tracks' files directly — merge them as-is; only add NEW V3 files
+      - **Honesty is the rule for the report** — if +50%/month is unreachable in this design, say so with the evidence. Don't fake numbers.
+      - **Decision autonomy**: based on empirical results, choose the optimal default config for V3 (leverage 1/3/5, vol target, etc.) — document with reasoning
+    depends_on:
+      - 'phase8-track-d-carry-leverage-5x'
+      - 'phase8-track-e-funding-timing'
+      - 'phase8-track-f-1h-mtf-donchian'
+      - 'phase8-track-g-vol-targeted-sizing'
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 8 V3 integration deliverables independently:
+
+      1. **Branch + merge**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase8-v3-integration --oneline -10` shows the merge commits for Tracks D/E/F/G plus the V3 integration commit. `git status` clean.
+      2. **All 4 tracks merged**:
+         - Read `wt-phase8-v3-integration/packages/core/src/strategy/funding-carry-leverage.ts` — confirm Track D maxLeverage ≥ 5
+         - Read `wt-phase8-v3-integration/packages/core/src/strategy/funding-carry-timing.ts` — confirms Track E exists
+         - Read `wt-phase8-v3-integration/packages/core/src/strategy/donchian-mtf.ts` — confirms Track F exists
+         - Read `wt-phase8-v3-integration/packages/core/src/risk/vol-targeted-sizer.ts` — confirms Track G exists
+      3. **V3 files exist**:
+         - `packages/core/src/strategy/multi-class-ensemble-v3.ts` (~500 lines)
+         - `packages/core/src/strategy/multi-class-ensemble-v3.test.ts` (≥15 tests)
+         - `packages/backtest-tools/src/cli/run-multi-class-baseline-v3.ts` (~400 lines)
+         - `backtest-results/baseline-multi-class-v3-{btc,eth,sol}-1d.json` (3 files)
+         - `backtest-results/REPORT-phase8.md` (200-400 lines)
+      4. **V3 exports**: `packages/core/src/index.ts` exports `MultiClassEnsembleV3` and `DEFAULT_MULTI_CLASS_ENSEMBLE_V3_CONFIG_PARTIAL`
+      5. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase8-v3-integration`. ALL green.
+      6. **V3 test count**: `bun test packages/core/src/strategy/multi-class-ensemble-v3.test.ts` shows ≥15 tests, all pass.
+      7. **V3 coverage**: V3 module must have 100% line + function coverage (or close to it, ≥95% acceptable).
+      8. **No double-counting**: read V3 source, verify signal aggregation logic — each component contributes UNIQUE signal/value, no multiplication of returns.
+      9. **Backtest improvement**: V3 AVG monthly return should be > Phase 7 V2 (+2.09%/month). If V3 AVG is < +2.09%/month, this is a regression — FAIL.
+      10. **REPORT-phase8.md quality**:
+         - Length: 200-400 lines
+         - All 4 track sections present (D, E, F, G)
+         - Quantitative tables (not just prose) for empirical results
+         - ≥3 independent sources per major claim
+         - **+50%/month verdict is explicit and evidence-based** (NOT "we'll get there eventually" hand-waving — must be PASS/FAIL/PARTIAL with reasoning)
+         - If not at +50%: identifies which specific edge category in Phase 9+ could bridge the gap
+      11. **Honesty check**: scan REPORT-phase8.md for any numbers that look inflated or inconsistent with the source baseline JSONs. Compare total returns, Sharpe, max DD between REPORT and raw baselines — they must match.
+
+      PASS only if ALL 11 checks pass.
+    max_retries: 2

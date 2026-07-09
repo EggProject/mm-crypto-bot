@@ -1,0 +1,374 @@
+version: 1
+plan:
+  name: 'Phase 7 — Edge amplification (trailing-stop + adaptive Kelly + leveraged carry)'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — Trailing-stop engine for DonchianBreakoutStrategy
+  # Strategy Specialist (agent-5394bdd48751)
+  # ============================================================
+  - id: 'phase7-track-a-trailing-stop'
+    title: 'Phase 7 Track A — Trailing-stop engine for Donchian (Strategy Specialist)'
+    prompt: |
+      You are the **Strategy Specialist agent** working on Phase 7 Track A of the mm-crypto-bot project.
+
+      ## Context
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification/docs/research/phase7-strategy-brief.md` — the authoritative Phase 7 brief (Track A spec in §1.2 / M1.1)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification/packages/core/src/strategy/donchian-breakout.ts` — Phase 5 Donchian to extend
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification/backtest-results/REPORT-phase6.md` — Phase 6 findings, especially §5.3 edge contribution analysis
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/backtest-results/baseline-donchian-{btc,eth,sol}-1d.json` — Phase 5 M3 reference
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/packages/core/src/risk/kelly-position-sizer.ts` — reference pattern for risk module structure (mimic this style if applicable)
+
+      ## Your scope — Track A: Trailing-stop engine for DonchianBreakoutStrategy
+      A Phase 5 Donchian 1d edge PnL-jének 30-80%-os növelése trailing-stoppal, miközben a max DD 30-50%-kal csökken.
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-track-a`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase7-track-a -b feat/phase7-track-a-trailing-stop feat/phase7-amplification`
+         - All your work happens here
+      2. The `feat/phase7-track-a-trailing-stop` branch is yours alone — no other worker touches it
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/strategy/donchian-trailing.ts` — `Strategy` interface implementation
+         - Extend or compose `DonchianBreakoutStrategy` with trailing-stop logic
+         - High-water-mark tracking per open position (HWM updated each bar)
+         - Exit trigger: close < HWM × (1 - trailPct) OR close < HWM - trailAtrMultiplier × ATR(14)
+         - Variants supported via config: `trailPct: number` (fixed %), `trailAtrMultiplier: number` (ATR-based), `maxHoldBars: number` (time-based exit)
+         - Existing ATR-based stop-loss + take-profit from DonchianBreakoutStrategy MUST be preserved
+         - Mimic Strategy interface from `packages/core/src/strategy/donchian-breakout.ts`
+
+      2. `packages/core/src/strategy/donchian-trailing.test.ts` — ≥10 unit tests
+         - HWM update correctness (intrabar, gap scenarios)
+         - Trail trigger: 5%, 10%, 15%, ATR-2× variants
+         - Time-based exit (max hold bars)
+         - Edge cases: gap down through trail, immediate reversal, ATR spike
+         - Compatibility with existing stop-loss / take-profit
+         - Position lifecycle: entry → HWM tracking → trail exit
+
+      3. `packages/backtest-tools/src/cli/run-donchian-trailing-baseline.ts` — CLI runner
+         - Args: `--symbol=<SYM> --timeframe=<TF> --output=<PATH> --trail-variant=<pct5|pct10|pct15|atr2x>`
+         - Mimic `run-donchian-baseline.ts` pattern exactly
+
+      4. `backtest-results/baseline-donchian-trailing-{btc,eth,sol}-1d.json` — 12 backtest JSON files
+         - 3 symbols × 4 trail variants (5%, 10%, 15%, ATR-2×)
+         - Each JSON: total return %, Sharpe ratio, max DD %, trade count, win rate, avg trade duration, HWM-exit count vs TP-exit count vs SL-exit count
+         - Compare against `baseline-donchian-{sym}-1d.json` (Phase 5 reference)
+
+      5. `docs/research/phase7-trailing-stop.md` — empirical report (English research, Hungarian intro/conclusion OK)
+         - **Minimum 5-10 web queries** on: trailing-stop empirical research, Donchian + trailing-stop combination, ATR trailing-stop effectiveness, time-based exits crypto, trend-following with protective stops, walk-forward anti-overfit validation
+         - **≥3 independent sources** per empirical claim
+         - Empirical results table: 12 baseline (3 symbol × 4 variant) × PnL, Sharpe, max DD, exit-reason breakdown
+         - Best variant identification (per symbol + aggregate)
+         - Walk-forward validation: 180d IS / 30d OOS / 30d step
+         - Comparison vs Phase 5 Donchian 1d baseline (the reference)
+         - Deployment readiness assessment
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-track-a
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green. If any fails, fix it before commit.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(backtest,core,backtest-tools): ÜGYNÖK Phase 7 Track A — Trailing-stop engine for Donchian
+      
+      - donchian-trailing: HWM tracking, ATR + fixed-% + time-based exits
+      - 12 baseline JSON (3 sym × 4 trail variants)
+      - Walk-forward anti-overfit validation
+      
+      Backtest results: <kulcs számok>"
+      git push -u origin feat/phase7-track-a-trailing-stop
+      ```
+
+      ### Report back to root
+      When done:
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 7 Track A (trailing-stop) COMPLETE. <részletek>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that after all tracks land)
+      - **DO NOT** touch files outside your scope: `donchian-trailing.ts`, `donchian-trailing.test.ts`, `run-donchian-trailing-baseline.ts`, `baseline-donchian-trailing-*.json`, `phase7-trailing-stop.md`
+      - **Decision autonomy**: pick the best trail variant per symbol based on your empirical results; document your choice with reasoning
+    assigned_to: 'agent-5394bdd48751'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Track A (Phase 7 trailing-stop engine) deliverables independently:
+
+      1. **Branch + commit**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase7-track-a-trailing-stop --oneline -3` shows a new commit by the worker; `git status` clean.
+      2. **Files exist**:
+         - `packages/core/src/strategy/donchian-trailing.ts` + `.test.ts` in `wt-phase7-track-a`
+         - `packages/backtest-tools/src/cli/run-donchian-trailing-baseline.ts`
+         - `backtest-results/baseline-donchian-trailing-{btc,eth,sol}-1d.json` (12 files expected: 3 sym × 4 variants — check all)
+         - `docs/research/phase7-trailing-stop.md`
+      3. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase7-track-a`. ALL green.
+      4. **Test count**: `bun test packages/core/src/strategy/donchian-trailing.test.ts` shows ≥10 tests, all pass.
+      5. **Trail logic correctness**: read `donchian-trailing.ts`, verify HWM tracking + trail-trigger logic (pseudocode review). Check that trail variants (5%, 10%, 15%, ATR-2×) are all implemented.
+      6. **Backtest results sanity**: at least one of the 12 baselines shows better Sharpe OR lower max DD vs `baseline-donchian-{sym}-1d.json` (Phase 5 reference). If all 12 are WORSE in both metrics, the track is empirically failed — flag.
+      7. **Source citations**: `phase7-trailing-stop.md` cites ≥3 independent sources per major claim, with English-language sources preferred.
+      8. **Walk-forward**: the report includes walk-forward validation (180d IS / 30d OOS) results — not just in-sample.
+
+      PASS only if ALL 8 checks pass. If FAIL, list the specific failing check(s) with file paths and line numbers where applicable.
+    max_retries: 2
+
+  # ============================================================
+  # TRACK B — Adaptive Kelly with rolling Sharpe
+  # Strategy Specialist (agent-5394bdd48751)
+  # ============================================================
+  - id: 'phase7-track-b-adaptive-kelly'
+    title: 'Phase 7 Track B — Adaptive Kelly with rolling Sharpe (Strategy Specialist)'
+    prompt: |
+      You are the **Strategy Specialist agent** working on Phase 7 Track B of the mm-crypto-bot project.
+
+      ## Context
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification/docs/research/phase7-strategy-brief.md` — the authoritative Phase 7 brief (Track B spec in §1.2 / M1.2)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification/packages/core/src/risk/kelly-position-sizer.ts` — Phase 6 Track C baseline to extend
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/backtest-results/REPORT-phase6.md` §4.2-4.5 — Phase 6 Kelly empirical results
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/backtest-results/baseline-donchian-{btc,eth,sol}-1d.json` — Phase 5 trade-lists for adaptive Kelly input
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification/packages/core/src/strategy/donchian-trailing.ts` (if Track A is done by the time you start) — Track A output
+
+      ## Your scope — Track B: Adaptive Kelly with rolling Sharpe
+      A Phase 6 statikus 0.5× Kelly sizing cseréje dinamikus, rolling 30-day realized Sharpe-alapú skálázásra.
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-track-b`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase7-track-b -b feat/phase7-track-b-adaptive-kelly feat/phase7-amplification`
+         - All your work happens here
+      2. The `feat/phase7-track-b-adaptive-kelly` branch is yours alone — no other worker touches it
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/risk/kelly-adaptive.ts` — extend KellyPositionSizer
+         - Compute rolling 30-day realized Sharpe from trade-list (daily P&L aggregation)
+         - Sharpe → Kelly fraction mapping (configurable buckets):
+           - Sharpe > 1.0 → 1.0× Kelly
+           - Sharpe 0.5-1.0 → 0.7× Kelly
+           - Sharpe 0-0.5 → 0.5× Kelly (current static default)
+           - Sharpe < 0 → 0.25× Kelly
+         - Walk-forward validator: 180d IS / 30d OOS, in-sample Sharpe used for OOS sizing
+         - Edge case handling: insufficient history (< 30 trades) → fallback to static 0.5×, all-loss streak → hard floor at 0.25×
+         - Mimic KellyPositionSizer module structure (look at the existing exports / API)
+
+      2. `packages/core/src/risk/kelly-adaptive.test.ts` — ≥10 unit tests
+         - Rolling Sharpe computation correctness (window boundary, partial window)
+         - Mapping function: each bucket boundary (1.0, 0.5, 0)
+         - Walk-forward split logic (IS/OOS dates)
+         - Edge cases: empty trade list, single trade, all-loss streak, all-win streak
+         - Integration with KellyPositionSizer (not just standalone)
+         - Determinism: same input → same output
+
+      3. `packages/backtest-tools/src/cli/run-kelly-adaptive.ts` — CLI runner
+         - Args: `--symbol=<SYM> --timeframe=<TF> --output=<PATH> --rolling-window-days=<30>`
+         - Mimic `run-kelly-opt.ts` (Phase 6 Track C) pattern
+
+      4. `backtest-results/baseline-kelly-adaptive-{btc,eth,sol}-1d.json` — 3 backtest JSON files
+         - Each JSON: total return %, Sharpe ratio, max DD %, average Kelly fraction over time, time-in-bucket breakdown (% time at 1.0×, 0.7×, 0.5×, 0.25×), walk-forward OOS Sharpe
+         - Compare against `baseline-kelly-opt-{sym}-1d.json` (Phase 6 Track C reference) — adaptive should be ≥ static
+
+      5. `docs/research/phase7-adaptive-kelly.md` — empirical report (English research, Hungarian intro/conclusion OK)
+         - **Minimum 5-10 web queries** on: rolling Sharpe ratio computation, regime-switching position sizing, Lo 2002 "Statistics of Sharpe Ratios", Bailey & López de Prado drawdown-based Kelly, adaptive Kelly in crypto, walk-forward anti-overfit, volatility-targeted position sizing
+         - **≥3 independent sources** per empirical claim
+         - Empirical results table: 3 baseline × PnL, Sharpe, max DD, avg Kelly fraction, time-in-bucket
+         - Walk-forward validation results (IS vs OOS Sharpe)
+         - Comparison vs Phase 6 static 0.5× Kelly (the reference)
+         - Regime detection methodology: how Sharpe > 1.0 / 0.5-1.0 / 0-0.5 / <0 thresholds were chosen
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-track-b
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(backtest,core,backtest-tools): ÜGYNÖK Phase 7 Track B — Adaptive Kelly with rolling Sharpe
+      
+      - kelly-adaptive: rolling 30d realized Sharpe, 4-bucket mapping
+      - 3 baseline JSON (BTC/ETH/SOL × 1d)
+      - Walk-forward OOS validation
+      
+      Backtest results: <kulcs számok>"
+      git push -u origin feat/phase7-track-b-adaptive-kelly
+      ```
+
+      ### Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 7 Track B (adaptive-kelly) COMPLETE. <részletek>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that)
+      - **DO NOT** touch files outside your scope: `kelly-adaptive.ts`, `kelly-adaptive.test.ts`, `run-kelly-adaptive.ts`, `baseline-kelly-adaptive-*.json`, `phase7-adaptive-kelly.md`
+      - **Decision autonomy**: pick bucket thresholds based on your empirical Sharpe-distribution analysis; document the choice with reasoning
+    assigned_to: 'agent-5394bdd48751'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Track B (Phase 7 adaptive Kelly) deliverables independently:
+
+      1. **Branch + commit**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase7-track-b-adaptive-kelly --oneline -3` shows a new commit; `git status` clean.
+      2. **Files exist**:
+         - `packages/core/src/risk/kelly-adaptive.ts` + `.test.ts` in `wt-phase7-track-b`
+         - `packages/backtest-tools/src/cli/run-kelly-adaptive.ts`
+         - `backtest-results/baseline-kelly-adaptive-{btc,eth,sol}-1d.json` (3 files)
+         - `docs/research/phase7-adaptive-kelly.md`
+      3. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase7-track-b`. ALL green.
+      4. **Test count**: `bun test packages/core/src/risk/kelly-adaptive.test.ts` shows ≥10 tests, all pass.
+      5. **Adaptive logic correctness**: read `kelly-adaptive.ts`, verify (a) rolling Sharpe computation, (b) bucket mapping function, (c) walk-forward split logic. Confirm 4-bucket mapping implemented (1.0× / 0.7× / 0.5× / 0.25×).
+      6. **Backtest results**: at least one of the 3 baselines shows higher total return OR higher Sharpe vs `baseline-kelly-opt-{sym}-1d.json` (Phase 6 reference) while maintaining max DD ≤ 2× the reference.
+      7. **Walk-forward OOS Sharpe**: each baseline's OOS Sharpe > 0 (no overfit indicator).
+      8. **Source citations**: `phase7-adaptive-kelly.md` cites ≥3 independent sources per major claim.
+
+      PASS only if ALL 8 checks pass.
+    max_retries: 2
+
+  # ============================================================
+  # TRACK C — Funding-carry leverage amplification
+  # Crypto Expert (agent-c53b5725d31d)
+  # ============================================================
+  - id: 'phase7-track-c-carry-leverage'
+    title: 'Phase 7 Track C — Funding-carry leverage amplification (Crypto Expert)'
+    prompt: |
+      You are the **Crypto Expert agent** working on Phase 7 Track C of the mm-crypto-bot project.
+
+      ## Context
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification/docs/research/phase7-strategy-brief.md` — the authoritative Phase 7 brief (Track C spec in §1.2 / M1.3)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification/packages/core/src/strategy/funding-carry.ts` — Phase 6 Track A baseline to extend
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/backtest-results/phase6-funding-carry.md` — Phase 6 carry empirical results
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase6-multi-class/backtest-results/baseline-funding-carry-{btc,eth,sol}-1h.json` — Phase 6 Track A reference
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification/backtest-results/REPORT-phase6.md` §2 — Phase 6 Track A results
+
+      ## Your scope — Track C: Funding-carry leverage amplification
+      A Phase 6 carry edge Sharpe 9-19, low-variance — 2-5× leverage alkalmazásával a carry hozam 2-5×-re skálázása, VaR kontrollált.
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-track-c`
+         - Create it: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase7-track-c -b feat/phase7-track-c-carry-leverage feat/phase7-amplification`
+         - All your work happens here
+      2. The `feat/phase7-track-c-carry-leverage` branch is yours alone
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/strategy/funding-carry-leverage.ts` — extend FundingCarryStrategy
+         - Dynamic leverage 1-5× applied to notional size
+         - VaR cap: max 2% daily VaR at 95% confidence (parametric + historical)
+         - Liquidation buffer: maintain 50% initial margin (configurable)
+         - Leverage scaling based on funding-rate stability (rolling 30d std-dev → leverage multiplier)
+         - Funding payment collection works at scaled notional
+         - Rebalance threshold scales with leverage (avoid liquidation cascade)
+         - Mimic FundingCarryStrategy module structure
+
+      2. `packages/core/src/strategy/funding-carry-leverage.test.ts` — ≥10 unit tests
+         - Leverage calculation correctness (notional × leverage → effective position)
+         - VaR check (95% confidence, both parametric + historical)
+         - Liquidation threshold detection (margin < 50% → forced unwind)
+         - Funding rate stability scaling (high vol → lower leverage)
+         - Edge cases: funding spike (positive or negative), margin call, zero funding period
+         - Rebalance cost integration (leverage 5× rebalance cost vs 1×)
+         - VaR violation scenario (must not exceed cap)
+
+      3. `packages/backtest-tools/src/cli/run-funding-carry-leverage.ts` — CLI runner
+         - Args: `--symbol=<SYM> --timeframe=<TF> --output=<PATH> --leverage=<1|2|3|5>`
+         - Mimic `run-funding-carry-baseline.ts` (Phase 6 Track A) pattern
+
+      4. `backtest-results/baseline-funding-carry-leverage-{btc,eth,sol}-1h.json` — 9 backtest JSON files
+         - 3 symbols × 3 leverage variants (1×, 2×, 3×)
+         - Each JSON: total return %, Sharpe ratio, max DD %, avg leverage used, VaR 95% (daily), funding collected at scaled notional, rebalance count, liquidation events (must be 0)
+         - Compare against `baseline-funding-carry-{sym}-1h.json` (Phase 6 Track A reference)
+
+      5. `docs/research/phase7-carry-leverage.md` — empirical report (English research, Hungarian intro/conclusion OK)
+         - **Minimum 5-10 web queries** on: leveraged carry trade risk, delta-neutral with leverage, Bybit/Binance margin requirements, MiCA margin rules EU, perp funding rate stability, liquidation cascade prevention, VaR-based position sizing, carry trade Sharpe with leverage
+         - **≥3 independent sources** per empirical claim
+         - Empirical results table: 9 baseline (3 sym × 3 leverage) × return, Sharpe, max DD, VaR 95%, avg leverage
+         - Leverage efficiency: 2× should give ≥1.8× return, 3× should give ≥2.5× return (95%/80% efficiency after fees/liquidation buffer)
+         - VaR discipline: verify max daily VaR ≤ 2% in all 9 baselines
+         - Liquidation events: must be 0 in all 9 baselines (otherwise fail)
+         - Comparison vs Phase 6 1× carry (the reference)
+         - Deployment readiness assessment (margin requirements, regulatory)
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-track-c
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(backtest,core,backtest-tools): ÜGYNÖK Phase 7 Track C — Funding-carry leverage amplification
+      
+      - funding-carry-leverage: dynamic 1-5x leverage with VaR cap + liquidation buffer
+      - 9 baseline JSON (3 sym × 3 leverage variants)
+      - Zero liquidation events, VaR 95% < 2%
+      
+      Backtest results: <kulcs számok>"
+      git push -u origin feat/phase7-track-c-carry-leverage
+      ```
+
+      ### Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 7 Track C (carry-leverage) COMPLETE. <részletek>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that)
+      - **DO NOT** touch files outside your scope: `funding-carry-leverage.ts`, `funding-carry-leverage.test.ts`, `run-funding-carry-leverage.ts`, `baseline-funding-carry-leverage-*.json`, `phase7-carry-leverage.md`
+      - **Decision autonomy**: pick leverage levels (1×/2×/3×/5×) and VaR threshold based on your empirical analysis; document the choice
+      - **CRITICAL**: zero liquidation events is a hard requirement. If your leverage choice leads to liquidations in backtest, REDUCE leverage until zero liquidations.
+    assigned_to: 'agent-c53b5725d31d'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Track C (Phase 7 carry leverage) deliverables independently:
+
+      1. **Branch + commit**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase7-track-c-carry-leverage --oneline -3` shows a new commit; `git status` clean.
+      2. **Files exist**:
+         - `packages/core/src/strategy/funding-carry-leverage.ts` + `.test.ts` in `wt-phase7-track-c`
+         - `packages/backtest-tools/src/cli/run-funding-carry-leverage.ts`
+         - `backtest-results/baseline-funding-carry-leverage-{btc,eth,sol}-1h.json` (9 files: 3 sym × 3 leverage variants)
+         - `docs/research/phase7-carry-leverage.md`
+      3. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase7-track-c`. ALL green.
+      4. **Test count**: `bun test packages/core/src/strategy/funding-carry-leverage.test.ts` shows ≥10 tests, all pass.
+      5. **Leverage logic correctness**: read `funding-carry-leverage.ts`, verify (a) leverage scaling applied to notional, (b) VaR cap implementation, (c) liquidation buffer check, (d) funding-rate stability scaling. Confirm 3 leverage variants implemented (1×, 2×, 3×).
+      6. **CRITICAL — Zero liquidations**: read each of the 9 baseline JSONs and verify `liquidationEvents === 0` in ALL 9. If ANY has liquidation events > 0, FAIL.
+      7. **CRITICAL — VaR cap**: each baseline's `varDaily95` ≤ 0.02 (2%). If ANY exceeds 2%, FAIL.
+      8. **Leverage efficiency**: at least one 2× baseline shows ≥1.8× the Phase 6 1× reference return; at least one 3× baseline shows ≥2.5× the Phase 6 1× reference return.
+      9. **Source citations**: `phase7-carry-leverage.md` cites ≥3 independent sources per major claim.
+
+      PASS only if ALL 9 checks pass.
+    max_retries: 2

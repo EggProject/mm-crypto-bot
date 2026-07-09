@@ -17,9 +17,8 @@
 
 import { describe, expect, it, beforeEach } from "vitest";
 
-import {
-  CarryBaselinePlugin,
-} from "./plugins/carry-baseline-plugin.js";
+// Phase 32: CarryBaselinePlugin was deleted. We use a minimal stub
+// plugin (no-op StrategyPlugin) for the plugin-count tests in this file.
 import { MAX_ALLOWED_PLUGIN_LEVERAGE } from "./strategy-registry.js";
 import {
   type Bar,
@@ -35,6 +34,28 @@ import {
   toRiskEngineSignal,
 } from "./signal-center-v1.js";
 import type { StrategyPlugin } from "./strategy-registry.js";
+
+// ---------------------------------------------------------------------------
+// Test helper — no-op plugin (Phase 32 replacement for CarryBaselinePlugin
+// which was deleted — see docs/research/deprecated-strategies/REPORT.md).
+// Used to satisfy SCv1's "≥1 plugin at boot" requirement in tests that
+// don't need the carry logic itself.
+// ---------------------------------------------------------------------------
+
+const noopTestPlugin: StrategyPlugin = {
+  metadata: {
+    name: "noop-test",
+    version: "1",
+    description: "Phase 32 test stub",
+    edgeClass: "mixed",
+    capitalRequirement: 0,
+    maxLeverage: 10,
+  },
+  subscribe: () => undefined,
+  onBar: () => undefined,
+  validateConfig: () => ({ ok: true, value: undefined }),
+  reset: () => undefined,
+};
 
 // ---------------------------------------------------------------------------
 // Test helper — synthetic plugin for the 3-layer defense test
@@ -200,25 +221,25 @@ describe("SignalCenterV1 — plugin lifecycle", () => {
   });
 
   it("registerPlugin adds to registry (start not called yet)", () => {
-    const plugin = new CarryBaselinePlugin();
+    const plugin = noopTestPlugin;
     sc.registerPlugin(plugin);
     expect(sc.registry.size).toBe(1);
-    expect(sc.registry.get("carry-baseline")).toBeDefined();
+    expect(sc.registry.get("noop-test")).toBeDefined();
   });
 
   it("rejects plugin registration AFTER start()", () => {
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
-    expect(() => sc.registerPlugin(new CarryBaselinePlugin())).toThrow(/cannot register after start/);
+    expect(() => sc.registerPlugin(noopTestPlugin)).toThrow(/cannot register after start/);
   });
 
   it("rejects duplicate plugin registration", () => {
-    sc.registerPlugin(new CarryBaselinePlugin());
-    expect(() => sc.registerPlugin(new CarryBaselinePlugin())).toThrow(/duplicate plugin name/);
+    sc.registerPlugin(noopTestPlugin);
+    expect(() => sc.registerPlugin(noopTestPlugin)).toThrow(/duplicate plugin name/);
   });
 
   it("start() validates all plugins and wires to bus", () => {
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     expect(sc.isStarted).toBe(true);
     expect(sc.bus.subscriberCount).toBeGreaterThanOrEqual(4); // 4 SCv1 subscriptions
@@ -229,13 +250,13 @@ describe("SignalCenterV1 — plugin lifecycle", () => {
   });
 
   it("start() called twice throws", () => {
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     expect(() => sc.start()).toThrow(/start\(\) called twice/);
   });
 
   it("reset() clears state and allows re-start", () => {
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     sc.onBar(sampleBar);
     expect(sc.barCount).toBe(1);
@@ -248,11 +269,11 @@ describe("SignalCenterV1 — plugin lifecycle", () => {
   });
 
   it("getRegisteredPlugins returns metadata", () => {
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     const list = sc.getRegisteredPlugins();
     expect(list.length).toBe(1);
-    expect(list[0]?.name).toBe("carry-baseline");
+    expect(list[0]?.name).toBe("noop-test");
     expect(list[0]?.edgeClass).toBe("mixed");
     expect(list[0]?.maxLeverage).toBe(10);
   });
@@ -318,22 +339,16 @@ describe("SignalCenterV1 — per-bar dispatch", () => {
     expect(risk.positions[0]?.source).toBe("synthetic-sizing");
   });
 
-  it("CarryBaselinePlugin integration: recordFundingSnapshot emits carry signals", () => {
+  it("NoOpPlugin integration: SCv1 should start without crash on no-op plugin (Phase 32 stub)", () => {
+    // Phase 32: CarryBaselinePlugin was deleted. This test now uses the
+    // noopTestPlugin stub to verify SCv1's "≥1 plugin at boot" requirement
+    // is satisfied without requiring the deleted CarryBaselinePlugin.
     const sc = new SignalCenterV1({ symbol: "BTC/USDT" });
-    const plugin = new CarryBaselinePlugin();
-    sc.registerPlugin(plugin);
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
-    // Drive the carry plugin with a funding snapshot.
-    plugin.recordFundingSnapshot({
-      symbol: "BTC/USDT",
-      fundingRate: 0.0001,
-      fundingTime: 1_700_000_000_000,
-    });
-    // The plugin emits 1 CarrySignal + (possibly) 1 SizingSignal on
-    // regime entry. The SCv1 should have ingested both.
-    expect(sc.busEmissions).toBeGreaterThanOrEqual(1);
-    // The signal should have been routed to the risk engine (if sizing).
-    expect(sc.signalsSubmitted).toBeGreaterThanOrEqual(0); // carry-only may emit 0 sizing signals.
+    // SCv1 should have 1 plugin registered.
+    expect(sc.registry.size).toBe(1);
+    expect(sc.registry.get("noop-test")).toBeDefined();
   });
 
   it("DirectionSignal is routed to telemetry but NOT to risk engine (no notional)", () => {
@@ -497,39 +512,39 @@ describe("SignalCenterV1 — 3-layer 1:10 leverage invariant", () => {
 describe("SignalCenterV1 — kill-switch", () => {
   it("killPlugin disables a plugin (no further signals processed by telemetry)", () => {
     const sc = new SignalCenterV1();
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
-    expect(sc.killPlugin("carry-baseline", "manual test")).toBe(true);
-    expect(sc.isPluginKilled("carry-baseline")).toBe(true);
-    expect(sc.getDisabledPlugins()).toContain("carry-baseline");
+    expect(sc.killPlugin("noop-test", "manual test")).toBe(true);
+    expect(sc.isPluginKilled("noop-test")).toBe(true);
+    expect(sc.getDisabledPlugins()).toContain("noop-test");
     // kill again is idempotent → returns false (already disabled).
-    expect(sc.killPlugin("carry-baseline")).toBe(false);
+    expect(sc.killPlugin("noop-test")).toBe(false);
   });
 
   it("enablePlugin re-enables a killed plugin", () => {
     const sc = new SignalCenterV1();
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
-    sc.killPlugin("carry-baseline", "first kill");
-    expect(sc.enablePlugin("carry-baseline")).toBe(true);
-    expect(sc.isPluginKilled("carry-baseline")).toBe(false);
-    expect(sc.getDisabledPlugins()).not.toContain("carry-baseline");
+    sc.killPlugin("noop-test", "first kill");
+    expect(sc.enablePlugin("noop-test")).toBe(true);
+    expect(sc.isPluginKilled("noop-test")).toBe(false);
+    expect(sc.getDisabledPlugins()).not.toContain("noop-test");
     // enable on already-enabled returns false.
-    expect(sc.enablePlugin("carry-baseline")).toBe(false);
+    expect(sc.enablePlugin("noop-test")).toBe(false);
   });
 
   it("killPlugin on unknown plugin returns false", () => {
     const sc = new SignalCenterV1();
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     expect(sc.killPlugin("nonexistent")).toBe(false);
   });
 
   it("kill-switch event is recorded in telemetry history", () => {
     const sc = new SignalCenterV1();
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
-    sc.killPlugin("carry-baseline", "test kill");
+    sc.killPlugin("noop-test", "test kill");
     const history = sc.getKillSwitchHistory();
     expect(history.length).toBe(1);
     expect(history[0]?.action).toBe("disable");
@@ -560,7 +575,7 @@ describe("SignalCenterV1 — kill-switch", () => {
 describe("SignalCenterV1 — snapshot serializability", () => {
   it("telemetry snapshot is JSON-serializable", () => {
     const sc = new SignalCenterV1();
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     const snap = sc.getTelemetrySnapshot();
     const json = JSON.stringify(snap);
@@ -570,7 +585,7 @@ describe("SignalCenterV1 — snapshot serializability", () => {
 
   it("risk snapshot is JSON-serializable (Map fields serialize as objects)", () => {
     const sc = new SignalCenterV1();
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     const snap = sc.getPortfolioRisk();
     const json = JSON.stringify(snap);
@@ -582,7 +597,7 @@ describe("SignalCenterV1 — snapshot serializability", () => {
 
   it("risk snapshot has correct field structure", () => {
     const sc = new SignalCenterV1({ symbol: "BTC/USDT" });
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     const snap = sc.getPortfolioRisk();
     expect(snap).toHaveProperty("timestamp");
@@ -597,7 +612,7 @@ describe("SignalCenterV1 — snapshot serializability", () => {
 
   it("telemetry snapshot has correct field structure", () => {
     const sc = new SignalCenterV1();
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     const snap = sc.getTelemetrySnapshot();
     expect(snap).toHaveProperty("timestamp");
@@ -671,7 +686,7 @@ describe("SignalCenterV1 — edge cases", () => {
 
   it("1 plugin — works", () => {
     const sc = new SignalCenterV1();
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     sc.onBar(sampleBar);
     expect(sc.barCount).toBe(1);
@@ -717,11 +732,11 @@ describe("SignalCenterV1 — edge cases", () => {
 describe("SignalCenterV1 — isPluginKilled / helpers", () => {
   it("isPluginKilled returns true after kill, false before", () => {
     const sc = new SignalCenterV1();
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
-    expect(sc.isPluginKilled("carry-baseline")).toBe(false);
-    sc.killPlugin("carry-baseline");
-    expect(sc.isPluginKilled("carry-baseline")).toBe(true);
+    expect(sc.isPluginKilled("noop-test")).toBe(false);
+    sc.killPlugin("noop-test");
+    expect(sc.isPluginKilled("noop-test")).toBe(true);
   });
 
   it("isPluginKilled returns false for unknown plugin", () => {
@@ -731,10 +746,10 @@ describe("SignalCenterV1 — isPluginKilled / helpers", () => {
 
   it("recordTrade is recorded by telemetry", () => {
     const sc = new SignalCenterV1({ telemetry: { sharpeWindowDays: 30, minTradeCount: 0, exportDelimiter: "," } });
-    sc.registerPlugin(new CarryBaselinePlugin());
+    sc.registerPlugin(noopTestPlugin);
     sc.start();
     sc.recordTrade({
-      source: "carry-baseline",
+      source: "noop-test",
       symbol: "BTC/USDT",
       timestamp: 1_700_000_000_000,
       notionalUsd: 100_000,
@@ -772,13 +787,13 @@ describe("toRiskEngineSignal — shape translator", () => {
       kind: "carry",
       fundingRate: 0.0001,
       regime: "high",
-      source: "carry-baseline",
+      source: "noop-test",
       timestampMs: 1_700_000_000_000,
     };
     const re = toRiskEngineSignal(carry, "BTC/USDT");
     expect(re.kind).toBe("carry");
     if (re.kind === "carry") {
-      expect(re.source).toBe("carry-baseline");
+      expect(re.source).toBe("noop-test");
       expect(re.symbol).toBe("BTC/USDT");
       expect(re.effectiveNotionalUsd).toBe(0);
       expect(re.timestamp).toBe(1_700_000_000_000);
@@ -791,7 +806,7 @@ describe("toRiskEngineSignal — shape translator", () => {
       kellyFraction: 0.5,
       volMultiplier: 1.0,
       notional: 50_000,
-      source: "carry-baseline",
+      source: "noop-test",
       timestampMs: 1_700_000_000_000,
     };
     const re = toRiskEngineSignal(sizing, "BTC/USDT");

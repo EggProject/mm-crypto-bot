@@ -1,10 +1,11 @@
 // packages/core/src/strategy/composite.test.ts — unit tesztek
+// Phase 32: removed DonchianMtfStrategy + FundingCarryLeverageStrategy
+// imports (both deleted in Phase 32 — see docs/research/deprecated-strategies/REPORT.md
+// §2.3, §2.6). The composite test now uses only the kept strategies.
 
 import { describe, expect, it } from "bun:test";
 
 import { CompositeStrategy } from "./composite.js";
-import { DonchianMtfStrategy } from "./donchian-mtf.js";
-import { FundingCarryLeverageStrategy } from "./funding-carry-leverage.js";
 import type { Strategy, StrategyContext, StrategySignal } from "../types.js";
 
 const baseCandle = (close: number) => ({
@@ -152,12 +153,16 @@ describe("CompositeStrategy", () => {
     expect(signal?.confidence).toBeLessThanOrEqual(1.0);
   });
 
-  it("works with real DonchianMtfStrategy + FundingCarryLeverageStrategy (smoke test)", () => {
-    // Phase 27 cleanup: replaced AlwaysInTrendStrategy (deleted) + MeanReversionBbStrategy (deleted)
-    // with surviving strategies DonchianMtf + FundingCarryLeverage.
-    const trend = new DonchianMtfStrategy();
-    const carry = new FundingCarryLeverageStrategy();
-    const composite = new CompositeStrategy({ component1: trend, component2: carry, useTrendFilter: true, agreementConfidenceBoost: 0.05 });
+  it("works with stub components (smoke test — Phase 32 deleted the real ones)", () => {
+    // Phase 32: DonchianMtfStrategy and FundingCarryLeverageStrategy were
+    // deleted (see docs/research/deprecated-strategies/REPORT.md §2.3, §2.6).
+    // The composite smoke test now uses stub Strategy implementations to
+    // verify the composite pattern works without depending on deleted
+    // strategies. Production composite usage is via DonchianPivotComposition
+    // (see packages/core/src/strategy/donchian-pivot-composition.ts).
+    const stubTrend: Strategy = { name: "stub-trend", timeframes: ["1d"] as const, warmup: () => 0, onCandle: () => null };
+    const stubCarry: Strategy = { name: "stub-carry", timeframes: ["1d"] as const, warmup: () => 0, onCandle: () => null };
+    const composite = new CompositeStrategy({ component1: stubTrend, component2: stubCarry, useTrendFilter: true, agreementConfidenceBoost: 0.05 });
     const ctx = makeCtx({
       candleIndex: 300,
       candle: baseCandle(95),
@@ -168,7 +173,6 @@ describe("CompositeStrategy", () => {
       },
     });
     const signal = composite.onCandle(ctx);
-    // CompositeStrategy with non-aligned components may return null; we only assert non-crash.
     expect(signal === null || typeof signal === "object").toBe(true);
   });
 });

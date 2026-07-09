@@ -1,0 +1,640 @@
+version: 1
+plan:
+  name: 'Phase 13 — Multi-symbol portfolio orchestrator + Decision Engine + cross-symbol hedge plugins'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — Decision Engine + 16 monolith wrappers
+  # ============================================================
+  - id: 'phase13-track-a-decision-engine'
+    title: 'Phase 13 Track A — Decision Engine + 16 monolith strategy wrappers (Coder)'
+    prompt: |
+      You are the **Coder agent** working on **Phase 13 Track A** of the mm-crypto-bot project.
+
+      ## User mandate (verbatim, 2026-07-06 00:12 Budapest)
+      > "Jelenlegi kodot ugy atalakitani hogy az osszes eddig megirt strategiat a signal kozpont moge rejtjuk es amikor jelezz akkor sulyozassal vagy mas megoldassal dontjuk el hogy torodunk-e vele vagy ha 2 signal jelezz stb..."
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase13-scope-plan.md` — authoritative scope plan
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/types.ts` — Signal discriminated unions (existing)
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/signal-bus.ts` — SignalBus pub/sub (existing)
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/strategy-registry.ts` — StrategyPlugin interface + 1:10 leverage guardrail
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/signal-center-v1.ts` — SCv1 central runner
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/*.ts` — 16 monolith strategies to wrap
+      7. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/plugins/*.ts` — 9 existing plugins (reference patterns)
+      8. Memory: `/Users/kiscsicska/.mavis/agents/mavis/memory/mm-crypto-bot-project.md` — project conventions + 1:10 mandate
+
+      ## Setup
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase13-a`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase13-a -b feat/phase13-a-decision-engine main`
+      - Base branch: `main`
+      - The branch is yours alone
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Decision Engine — `packages/core/src/signal-center/decision-engine.ts` (NEW, ~400 LOC)
+
+      Class `DecisionEngine` — SignalBus subscriber that arbitrates between plugins' signals and emits final PositionDecisions.
+
+      Public interface:
+      ```typescript
+      export interface DecisionEngineConfig {
+        readonly defaultWeight: number;       // default 1.0
+        readonly defensiveWeight: number;      // default 2.0 (RegimeDetector, PerpDexLiq, SOLFlipKS)
+        readonly minConsensusStrength: number; // default 0.3
+        readonly maxNotionalPerSymbolUsd: number; // default 10000
+      }
+
+      export interface PositionDecision {
+        readonly symbol: string;
+        readonly side: 'long' | 'short' | 'flat';
+        readonly notionalUsd: number;
+        readonly sizeMultiplier: number;       // combined vol × kelly × regime multiplier
+        readonly confidence: number;            // 0..1, weighted vote score
+        readonly sourceWeights: Record<string, number>; // pluginName → weight
+        readonly timestampMs: number;
+      }
+
+      export class DecisionEngine {
+        constructor(config: Partial<DecisionEngineConfig>);
+        subscribe(bus: SignalBus): UnsubscribeFn;     // subscribes to all 4 signal kinds
+        decisions(): readonly PositionDecision[];     // chronological
+        latestDecision(symbol: string): PositionDecision | null;
+        reset(): void;                                // for backtest re-runs
+      }
+      ```
+
+      Arbitration rules (agent-default, document each in JSDoc):
+      - **All directional signals agree** → execute with weighted-average size
+      - **Directional conflict** (e.g., long + short) → flat OR weighted majority side
+      - **Risk signal `sizeModifier < 1.0`** → applies to ALL outgoing decisions (multiplier wins)
+      - **Carry signal** → adjusts `sizeMultiplier` (high=1.2, neutral=1.0, flip=0.5) — does NOT veto direction
+      - **Factor/snapshot signals** (P1/E1/M1) → informational only, never vetoes, never contributes to weight
+      - **Defensive plugins** (RegimeDetector, PerpDexLiq, SOLFlipKS) get weight 2.0
+      - **Min consensus strength** 0.3 — below this, decision = flat
+
+      **Type safety:**
+      - Add `assertNever(x: never): never` helper for exhaustive switch on SignalKind
+      - All `switch (signal.kind)` must hit `assertNever` in default case → compile-time exhaustiveness
+
+      Tests in `decision-engine.test.ts` (≥25 tests):
+      - All-agree long → PositionDecision side='long', confidence=1.0
+      - Long+short conflict → side='flat' OR majority
+      - Risk signal with sizeModifier=0.5 → applied to all decisions
+      - Carry signal flip regime → sizeMultiplier scaled 0.5
+      - Defensive plugin weight 2.0 vs directional weight 1.0 → defensive wins on conflict
+      - Min consensus threshold (below 0.3 → flat)
+      - Factor/snapshot signals ignored in arbitration
+      - subscribe/unsubscribe lifecycle
+      - reset() clears decisions
+      - Type exhaustiveness (compile-time check via assertNever)
+      - Edge cases: empty bus, single signal, 3+ conflicting signals
+      - Weighted majority direction calculation
+      - Per-symbol decision isolation (BTC decisions don't leak to ETH)
+
+      ### 2. 16 monolith wrappers — `packages/core/src/signal-center/monolith-wrappers/` (NEW)
+
+      Wrap each file in `packages/core/src/strategy/*.ts` (excluding *.test.ts) as a `StrategyPlugin`:
+
+      Files to wrap (16 total):
+      - `always-in-trend.ts` → `AlwaysInTrendPlugin` (edgeClass: directional, maxLeverage: 10)
+      - `composite.ts` → `CompositePlugin` (edgeClass: mixed, maxLeverage: 10)
+      - `donchian-breakout.ts` → `DonchianBreakoutPlugin` (edgeClass: directional, maxLeverage: 10)
+      - `donchian-mtf.ts` → `DonchianMtfPlugin` (edgeClass: directional, maxLeverage: 10)
+      - `donchian-trailing.ts` → `DonchianTrailingPlugin` (edgeClass: directional, maxLeverage: 10)
+      - `funding-carry.ts` → `FundingCarryPlugin` (edgeClass: carry, maxLeverage: 10)
+      - `funding-carry-leverage.ts` → `FundingCarryLeveragePlugin` (edgeClass: carry, maxLeverage: 10)
+      - `funding-carry-timing.ts` → `FundingCarryTimingPlugin` (edgeClass: carry, maxLeverage: 10)
+      - `funding-flip-kill-switch.ts` → `FundingFlipKillSwitchPlugin` (edgeClass: risk, maxLeverage: 10)
+      - `mean-reversion-bb.ts` → `MeanReversionBbPlugin` (edgeClass: directional, maxLeverage: 10)
+      - `mtf-trend-confluence.ts` → `MtfTrendConfluencePlugin` (edgeClass: directional, maxLeverage: 10)
+      - `multi-class-ensemble.ts` → `MultiClassEnsemblePlugin` (edgeClass: mixed, maxLeverage: 10)
+      - `multi-class-ensemble-v2.ts` → `MultiClassEnsembleV2Plugin` (edgeClass: mixed, maxLeverage: 10)
+      - `multi-class-ensemble-v3.ts` → `MultiClassEnsembleV3Plugin` (edgeClass: mixed, maxLeverage: 10)
+      - `multi-class-ensemble-v4.ts` → `MultiClassEnsembleV4Plugin` (edgeClass: mixed, maxLeverage: 10)
+
+      Wrapper contract:
+      ```typescript
+      export class XxxPlugin implements StrategyPlugin {
+        readonly metadata: StrategyPluginMetadata = {
+          name: 'xxx-plugin', version: '1.0.0', edgeClass: '...',
+          capitalRequirement: 10_000, maxLeverage: 10,  // 1:10 HARD GUARDRAIL
+          description: 'Phase 13 wrapper around Phase N strategy X. Hides behind Signal Center.',
+          dependencies: [],
+        };
+        constructor(config?: Partial<XxxPluginConfig>) { ... }
+        subscribe(bus: SignalBus): void { ... }
+        onBar(bar: Bar, state: PluginState): void {
+          // delegate to underlying strategy, emit DirectionSignal/CarrySignal/etc on bus
+        }
+        validateConfig(config: unknown): Result<void, ConfigError> { ... }
+        reset(): void { ... }
+      }
+      ```
+
+      Each wrapper MUST:
+      - Implement `StrategyPlugin` interface fully
+      - Declare `maxLeverage: 10` (Layer 1 defense — registry rejects > 10)
+      - 3-layer 1:10 defense: constructor assertion + subscribe() assertion + per-emit assertion
+      - Convert underlying strategy signals to typed Signal events on the bus
+      - Re-export from `packages/core/src/signal-center/monolith-wrappers/index.ts`
+
+      Each wrapper MUST have a test file `xxx.test.ts` with ≥5 tests covering:
+      - Plugin registration (registry accepts)
+      - onBar emits expected signal kind
+      - maxLeverage === 10 invariant
+      - subscribe/unsubscribe lifecycle
+      - reset() behavior
+
+      Total: 15 wrapper files + 15 test files = 30 NEW files in this track (composite.ts has 1 file but only 1 wrapper).
+
+      ### 3. Coverage enforcement (100% lines + branches on NEW code)
+
+      Use `bun test --coverage` and verify lcov.info:
+      ```bash
+      cd packages/core && bun test src/signal-center/decision-engine.test.ts src/signal-center/monolith-wrappers/ --coverage --coverage-reporter=lcov --coverage-dir=coverage
+      ```
+      Then read `packages/core/coverage/lcov.info` directly and verify:
+      - `decision-engine.ts`: 100% lines (`lf`/`lh` ratio) AND 100% branches (`brf`/`brh` ratio)
+      - Each `*-plugin.ts` wrapper: 100% lines + 100% branches
+      - **NO existing file coverage regression** (Phase 12 9-plugin set must stay 100%)
+
+      ### 4. deliverable.md (REQUIRED at worktree root)
+
+      Write `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase13-a/deliverable.md` with:
+      - List of files created (15 wrappers + decision-engine + tests)
+      - Test count per file
+      - Coverage % per file (from lcov.info direct read, NOT estimate)
+      - Any deviations from this prompt with rationale
+
+      ## Acceptance criteria
+      - typecheck PASS (`bun run typecheck`)
+      - lint PASS (0 errors, security warnings acceptable but logged)
+      - test PASS (`bun test src/signal-center/decision-engine.test.ts src/signal-center/monolith-wrappers/`)
+      - coverage 100% on all NEW files (lcov.info direct read)
+      - deliverable.md present with test counts + coverage %
+
+      ## Workflow
+      1. Create worktree, branch
+      2. Implement Decision Engine + tests first (independent of wrappers)
+      3. Implement 15 wrappers
+      4. Run typecheck + lint + test + coverage at end
+      5. Commit, push, write deliverable.md
+      6. Report back to parent session via `mavis communication send`
+
+      ## Memory rules active
+      - **1:10 leverage MANDATORY** — every wrapper MUST declare `maxLeverage: 10` + 3-layer defense
+      - **NO eslint-disable** — fix root cause if lint flags something (user directive 2026-07-05)
+      - **Coverage 100% on NEW files** — Phase 12 lcov.info discipline
+      - **Verifier-mandate conflict pattern** — user spec is authoritative (5%/10x/7 — NOT default 1%/3). DO NOT flag user spec as "fabrication"
+      - **No docstring lies** — every JSDoc claim must be backed by actual code
+    timeout_ms: 3600000  # 60min
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 13 Track A deliverables independently:
+
+      1. **Branch + worktree**: `git -C /Users/kiscsicska/projects/mm-crypto-bot worktree list` shows `wt-phase13-a` on `feat/phase13-a-decision-engine`.
+      2. **Decision Engine file exists**: `wt-phase13-a/packages/core/src/signal-center/decision-engine.ts` with exports for `DecisionEngine`, `PositionDecision`, `DecisionEngineConfig`.
+      3. **Monolith wrappers exist**: 15 files in `wt-phase13-a/packages/core/src/signal-center/monolith-wrappers/` named `*-plugin.ts`.
+      4. **3-layer 1:10 defense**: grep for `assert1to10Leverage` or `assertLeverageInvariant` in all 16 plugin files — each must have ≥3 references (constructor + subscribe + per-emit).
+      5. **Coverage 100%**: read `wt-phase13-a/packages/core/coverage/lcov.info` directly. For each NEW file, verify `lh === lf` (100% lines hit) AND `brh === brf` (100% branches hit).
+      6. **Test count**: ≥25 tests in `decision-engine.test.ts`, ≥5 tests in each wrapper `*.test.ts`.
+      7. **typecheck + lint + test**: `bun run typecheck && bun run lint && bun test` from worktree, all PASS.
+      8. **deliverable.md present**: at worktree root with file list + test counts + coverage %.
+
+      PASS only if ALL 8 checks pass. If FAIL, list specific failing check(s) with file paths and line numbers.
+
+  # ============================================================
+  # TRACK B — Portfolio Orchestrator (depends on A)
+  # ============================================================
+  - id: 'phase13-track-b-portfolio-orchestrator'
+    title: 'Phase 13 Track B — Portfolio Orchestrator (multi-symbol BTC+ETH+SOL)'
+    prompt: |
+      You are the **Coder agent** working on **Phase 13 Track B** of the mm-crypto-bot project.
+
+      ## User mandate (verbatim, 2026-07-06 00:12 Budapest)
+      > "Ugy alakitsuk at a kodot hogy a btc,eth,sol -on egyszerre kereskedjen"
+
+      ## Setup
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase13-b`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase13-b -b feat/phase13-b-portfolio-orchestrator main`
+      - Base branch: `main`
+      - **MERGE feat/phase13-a-decision-engine INTO your branch first** to get the Decision Engine + wrappers
+      - The branch is yours alone
+
+      Read these files FIRST:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase13-scope-plan.md`
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase13-a/packages/core/src/signal-center/decision-engine.ts` — Decision Engine from Track A (after merge)
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/signal-center-v1.ts` — existing SCv1 per-symbol
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/risk/portfolio-risk-engine.ts` — existing per-symbol risk engine
+
+      ## Deliverables
+
+      ### 1. Portfolio Orchestrator — `packages/core/src/portfolio/portfolio-orchestrator.ts` (NEW, ~500 LOC)
+
+      ```typescript
+      export interface PortfolioOrchestratorConfig {
+        readonly symbols: readonly string[];        // ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
+        readonly initialEquityUsd: number;           // default 10_000
+        readonly maxPositions: number;               // default 7 (USER SPEC — overrides project default 3)
+        readonly perSymbolConcentrationPct: number;  // default 0.40 (40% per symbol)
+        readonly portfolioVaRPct: number;            // default 0.15 (15% portfolio VaR cap)
+        readonly maxLeverage: 1 | 10;                // default 10 (1:10 MANDATORY)
+        readonly dataDir: string;                    // CSV dir
+        readonly fundingDir: string;                  // funding CSV dir
+      }
+
+      export interface PortfolioSnapshot {
+        readonly timestampMs: number;
+        readonly equityUsd: number;
+        readonly positionsBySymbol: Record<string, PortfolioPosition>;
+        readonly aggregateLeverage: number;
+        readonly portfolioVaRPct: number;
+        readonly concentrationBySymbol: Record<string, number>; // [0, 1]
+        readonly decisionLog: readonly PositionDecision[];
+      }
+
+      export class PortfolioOrchestrator {
+        constructor(config: Partial<PortfolioOrchestratorConfig>);
+        run(startMs: number, endMs: number): Promise<PortfolioEnvelope>;
+        // PortfolioEnvelope = { snapshots, finalEquity, totalReturn, sharpe, maxDD, perSymbolEnvelopes, decisionLog }
+      }
+      ```
+
+      Internal architecture:
+      - For each symbol: own `SignalCenterV1` instance + own `DecisionEngine` instance
+      - Aggregate positions across all symbols in a shared position table
+      - Enforce `maxPositions` global cap (count distinct open positions across symbols)
+      - Enforce `perSymbolConcentrationPct` cap (no symbol > 40% of equity)
+      - Enforce `portfolioVaRPct` cap (15% daily VaR at 95%)
+      - 1:10 leverage cap on EACH position (3-layer defense from Track A wrappers)
+      - Cross-symbol correlation penalty (Pearson r > 0.7 → reduce combined size by 50%)
+      - Decision log: every PositionDecision emitted → JSONL line `{ ts, symbol, side, notional, sourceWeights }`
+
+      Tests in `portfolio-orchestrator.test.ts` (≥25 tests):
+      - Construct with default config
+      - Construct with user spec (maxPositions=7, maxLeverage=10)
+      - Run on small fixture (1 week of synthetic data) → snapshot sequence monotonic
+      - maxPositions cap enforced (try to open 8th position → rejected)
+      - perSymbolConcentration cap enforced (BTC tries to exceed 40% → reduced)
+      - portfolioVaR cap enforced (high-vol day → positions reduced)
+      - 1:10 leverage cap enforced per-symbol (3-layer defense)
+      - Cross-symbol correlation penalty applied
+      - Decision log JSONL output format
+      - BTC + ETH + SOL simultaneous integration test (3 symbols, 30 bars each)
+      - Final envelope contains per-symbol envelopes + portfolio envelope
+      - Sharpe/maxDD/totalReturn computed correctly
+      - 0 leverage breaches / 0 liquidations across integration test
+
+      ### 2. Index export — `packages/core/src/portfolio/index.ts` (NEW)
+
+      Re-export `PortfolioOrchestrator`, `PortfolioOrchestratorConfig`, `PortfolioSnapshot`, `PortfolioEnvelope`, `PositionDecision`.
+
+      ### 3. Core index update — `packages/core/src/index.ts` (MODIFY)
+
+      Add re-export: `export * from './portfolio/index.js';`
+
+      ### 4. Coverage 100% on portfolio-orchestrator.ts
+
+      Use `bun test --coverage` and verify lcov.info shows 100% lines + branches on the new file.
+
+      ### 5. deliverable.md (REQUIRED at worktree root)
+
+      List files created, test counts, coverage %, any deviations.
+
+      ## Acceptance
+      - typecheck PASS
+      - lint PASS
+      - test PASS
+      - coverage 100% on portfolio-orchestrator.ts
+      - BTC+ETH+SOL integration test passes
+      - deliverable.md present
+    timeout_ms: 3600000  # 60min
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 13 Track B deliverables independently:
+
+      1. **Branch + worktree**: `git -C /Users/kiscsicska/projects/mm-crypto-bot worktree list` shows `wt-phase13-b` on `feat/phase13-b-portfolio-orchestrator`.
+      2. **Track A merged**: `git -C wt-phase13-b log feat/phase13-a-decision-engine --oneline -3` shows merge commit.
+      3. **Portfolio file exists**: `wt-phase13-b/packages/core/src/portfolio/portfolio-orchestrator.ts` with exports.
+      4. **Portfolio index**: `wt-phase13-b/packages/core/src/portfolio/index.ts` re-exports.
+      5. **Core index updated**: `wt-phase13-b/packages/core/src/index.ts` has `export * from './portfolio/index.js'`.
+      6. **Coverage 100%**: read `wt-phase13-b/packages/core/coverage/lcov.info` — verify `portfolio-orchestrator.ts` has `lh === lf` AND `brh === brf`.
+      7. **Test count**: ≥25 tests in `portfolio-orchestrator.test.ts`.
+      8. **Integration test**: BTC + ETH + SOL simultaneous test PASSES — find test name like "BTC + ETH + SOL simultaneous" and verify it passes.
+      9. **typecheck + lint + test**: all PASS.
+      10. **deliverable.md present**: at worktree root.
+
+      PASS only if ALL 10 checks pass.
+
+  # ============================================================
+  # TRACK C — 3 cross-symbol hedge plugins (parallel with A)
+  # ============================================================
+  - id: 'phase13-track-c-cross-symbol-hedges'
+    title: 'Phase 13 Track C — 3 cross-symbol hedge plugins'
+    prompt: |
+      You are the **Coder agent** working on **Phase 13 Track C** of the mm-crypto-bot project.
+
+      ## User mandate (verbatim, 2026-07-06 00:12 Budapest)
+      > "nezd meg hogy van-e hedge vagy vedekezo strategiank? ha nincs akkor epitsunk be parat az 1-es lepesben irt signal kozpontba"
+
+      ## Audit (research step, do first)
+      Before writing any code, audit existing hedge/defensive strategies:
+      - Read `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/funding-carry.ts` — IS delta-neutral (long-spot + short-perp) but **PER-SYMBOL** (not cross-symbol)
+      - Read `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/plugins/regime-detector-meta-plugin.ts` — defensive overlay, per-symbol
+      - Read `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/plugins/perpdex-liquidation-signals-plugin.ts` — defensive overlay, per-symbol
+      - Read `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/plugins/sol-flip-kill-switch-plugin.ts` — defensive overlay, per-symbol
+
+      **Conclusion to document in deliverable.md:** All existing hedge/defensive are PER-SYMBOL. NO cross-symbol hedge exists. Phase 13 introduces 3 NEW cross-symbol hedge plugins.
+
+      ## Setup
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase13-c`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase13-c -b feat/phase13-c-cross-symbol-hedges main`
+      - Base branch: `main`
+      - The branch is yours alone
+
+      Read these files FIRST:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase13-scope-plan.md`
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/strategy-registry.ts` — `StrategyPlugin` interface
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/signal-center/plugins/cross-dex-funding-watcher-plugin.ts` — read-only multi-venue reference pattern
+
+      ## Deliverables (3 NEW plugins)
+
+      ### Plugin 1 — `cross-symbol-spread-reversion-plugin.ts`
+
+      **Edge class:** directional
+      **Logic:** BTC-ETH log-spread z-score mean reversion
+      - Compute `spread = log(BTC/ETH)` over rolling 30d window
+      - Compute z-score: `z = (spread - mean) / stddev`
+      - If `z > 2` → emit DirectionSignal side='short' on BTC + side='long' on ETH (mean reversion expects spread to normalize)
+      - If `z < -2` → emit DirectionSignal side='long' on BTC + side='short' on ETH
+      - `strength = min(abs(z) / 3, 1.0)`
+      - Min holding period: 5 bars (avoid whipsaw)
+
+      **Configuration:**
+      ```typescript
+      export interface CrossSymbolSpreadReversionConfig {
+        readonly windowDays: number;            // default 30
+        readonly zEntryThreshold: number;       // default 2.0
+        readonly zExitThreshold: number;        // default 0.5
+        readonly minHoldBars: number;           // default 5
+        readonly baseNotionalUsd: number;       // default 10000
+        readonly enabledPairs: readonly [string, string][]; // default [['BTC/USDT', 'ETH/USDT']]
+      }
+      ```
+
+      Tests (≥20): z-score computation, entry/exit thresholds, hold period, cross-symbol emission, strength calculation, reset, edge cases.
+
+      ### Plugin 2 — `cross-symbol-momentum-overlay-plugin.ts`
+
+      **Edge class:** directional
+      **Logic:** BTC+ETH both long/flat on BTC 20d momentum
+      - Compute BTC 20d momentum = (BTC_now / BTC_20d_ago) - 1
+      - If `momentum > 0.05` (5%) → emit DirectionSignal side='long' on BTC + side='long' on ETH
+      - If `momentum < -0.05` (-5%) → emit DirectionSignal side='flat' on both (close longs)
+      - Else: flat (no signal)
+      - `strength = min(abs(momentum) / 0.10, 1.0)`
+
+      **Configuration:**
+      ```typescript
+      export interface CrossSymbolMomentumOverlayConfig {
+        readonly lookbackDays: number;          // default 20
+        readonly momentumThreshold: number;     // default 0.05
+        readonly baseNotionalUsd: number;       // default 10000
+        readonly enabledSymbols: readonly string[]; // default ['BTC/USDT', 'ETH/USDT']
+      }
+      ```
+
+      Tests (≥20): momentum calculation, threshold logic, multi-symbol emission, strength calc, reset.
+
+      ### Plugin 3 — `cross-symbol-funding-differential-plugin.ts`
+
+      **Edge class:** carry
+      **Logic:** Long-spot higher funding + short-spot lower funding → cross-neutral carry
+      - For each enabled symbol pair (e.g., BTC vs ETH):
+        - Read latest funding rate (decimal, e.g., 0.0001 = 1bp per 8h)
+        - Compute differential: `differential = fundingHigh - fundingLow`
+      - Emit DirectionSignal:
+        - `side='short'` on HIGH funding (you collect funding as the short side) + `side='long'` on LOW funding (you pay funding as the long side, but lower)
+      - Emit CarrySignal with `regime='high'` if differential > 0.0001 (10bp per 8h)
+
+      **Configuration:**
+      ```typescript
+      export interface CrossSymbolFundingDifferentialConfig {
+        readonly minDifferentialPer8h: number;  // default 0.0001 (10bp)
+        readonly baseNotionalUsd: number;       // default 10000
+        readonly enabledPairs: readonly [string, string][]; // default [['BTC/USDT', 'ETH/USDT']]
+      }
+      ```
+
+      Tests (≥20): funding differential calc, signal direction correctness, regime emit, multi-pair, reset.
+
+      ### 3-LAYER 1:10 DEFENSE (mandatory on all 3 plugins)
+
+      Per the project mandate, each plugin MUST have:
+      - **Layer 1 (constructor):** `metadata.maxLeverage = 10` + `assertLeverageInvariant(10)` call in constructor
+      - **Layer 2 (subscribe):** `_assertInitialState()` called in `subscribe()` — throws on bad config
+      - **Layer 3 (per-emit):** every `bus.emit()` followed by `assert1to10Leverage(notionalUsd)` check
+
+      ### Coverage 100% on all 3 plugin files
+
+      Use `bun test --coverage`, read lcov.info, verify 100% lines + branches.
+
+      ### deliverable.md
+
+      Write `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase13-c/deliverable.md` with:
+      - Audit section: existing hedge/defensive analysis
+      - List of 3 NEW plugins created
+      - Test counts per plugin
+      - Coverage % per plugin (from lcov.info direct read)
+      - 3-layer defense verification (code line citations)
+
+      ## Acceptance
+      - typecheck PASS
+      - lint PASS
+      - test PASS
+      - coverage 100% on all 3 plugin files (lcov.info direct read)
+      - 3-layer 1:10 defense present on all 3 plugins
+      - Audit section in deliverable.md
+      - deliverable.md present
+    timeout_ms: 3600000  # 60min
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 13 Track C deliverables independently:
+
+      1. **Branch + worktree**: `wt-phase13-c` on `feat/phase13-c-cross-symbol-hedges`.
+      2. **3 plugin files exist** in `wt-phase13-c/packages/core/src/signal-center/plugins/`:
+         - `cross-symbol-spread-reversion-plugin.ts`
+         - `cross-symbol-momentum-overlay-plugin.ts`
+         - `cross-symbol-funding-differential-plugin.ts`
+      3. **3-layer 1:10 defense**: each plugin file has ≥3 references to `assert1to10Leverage` or `assertLeverageInvariant`.
+      4. **Coverage 100%**: read lcov.info — all 3 plugins show `lh === lf` AND `brh === brf`.
+      5. **Test count**: ≥20 tests per plugin.
+      6. **typecheck + lint + test**: all PASS.
+      7. **deliverable.md present** with audit section + coverage %.
+
+      PASS only if ALL 7 checks pass.
+
+  # ============================================================
+  # TRACK D — Runner + REPORT (depends on A+B+C)
+  # ============================================================
+  - id: 'phase13-track-d-runner-and-report'
+    title: 'Phase 13 Track D — Portfolio runner + REPORT-phase13.md'
+    prompt: |
+      You are the **Coder agent** working on **Phase 13 Track D** of the mm-crypto-bot project.
+
+      ## User mandate (verbatim, 2026-07-06 00:12 Budapest)
+      > "alap beallitasok ezzel felul irva: backtest + binance + risk per trade: 5% + max leverage: 10 + max positions: 7 -val futtasd a vegen ami elkeszul"
+
+      ## Setup
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase13-d`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase13-d -b feat/phase13-d-runner-and-report main`
+      - Base branch: `main`
+      - **MERGE feat/phase13-a-decision-engine + feat/phase13-b-portfolio-orchestrator + feat/phase13-c-cross-symbol-hedges INTO your branch first**
+      - The branch is yours alone
+
+      ## Deliverables
+
+      ### 1. Portfolio runner — `packages/backtest-tools/src/cli/run-portfolio-orchestrator.ts` (NEW, ~400 LOC)
+
+      CLI that runs BTC + ETH + SOL simultaneously via `PortfolioOrchestrator` from Track B.
+
+      Usage:
+      ```bash
+      bun run packages/backtest-tools/src/cli/run-portfolio-orchestrator.ts \
+        --symbols=BTC/USDT,ETH/USDT,SOL/USDT \
+        --exchange=binance \
+        --window-days=365 \
+        --risk-per-trade=0.05 \
+        --max-leverage=10 \
+        --max-positions=7 \
+        --output-dir=backtest-results/portfolio-orchestrator
+      ```
+
+      CLI args (with validation):
+      - `--symbols=...` (default BTC/USDT,ETH/USDT,SOL/USDT)
+      - `--exchange=...` (default binance, validate against `['binance', 'bybiteu']`)
+      - `--window-days=...` (default 365, validate 30 ≤ N ≤ 1825)
+      - `--risk-per-trade=...` (default 0.05, validate 0.001 ≤ N ≤ 0.1) **USER SPEC: 0.05**
+      - `--max-leverage=...` (default 10, validate 1 or 10) **USER SPEC: 10**
+      - `--max-positions=...` (default 7, validate 1 ≤ N ≤ 20) **USER SPEC: 7**
+      - `--output-dir=...` (default backtest-results/portfolio-orchestrator)
+
+      Reads `data/ohlcv/binance_*.csv` and `data/funding/binance_*usdt_funding_8h.csv` via `CsvExchangeFeed`.
+
+      Output files:
+      - `portfolio-envelope-btc.json` — per-symbol envelope (BTC)
+      - `portfolio-envelope-eth.json` — per-symbol envelope (ETH)
+      - `portfolio-envelope-sol.json` — per-symbol envelope (SOL)
+      - `portfolio-envelope-combined.json` — portfolio-level envelope (all 3)
+      - `decision-log.jsonl` — one JSONL line per PositionDecision emitted
+      - Console output: per-symbol envelope table + portfolio-level summary
+
+      Each envelope JSON must contain:
+      ```typescript
+      interface Envelope {
+        monthlyReturnPct: number;
+        annualizedReturnPct: number;
+        sharpeRatio: number;
+        maxDrawdownPct: number;
+        finalEquityUsd: number;
+        liquidations: number;
+        totalReturnPct: number;
+        combinedAvgMultiplier: number;
+        composition: string;
+        walkForwardSharpe: {
+          folds: number[]; mean: number; median: number; min: number; max: number;
+          isDays: 180; oosDays: 30; foldCount: number;
+        };
+      }
+      ```
+
+      ### 2. REPORT — `docs/research/REPORT-phase13.md` (NEW, ≥8 sections, ≥2500 words)
+
+      Sections (in order):
+      1. **Executive summary** — what Phase 13 built, envelope table, key findings
+      2. **Architecture** — 4-layer stack diagram + description (Portfolio Orchestrator → Decision Engine → SCv1 → Plugins)
+      3. **Decision Engine arbitration rules** — the rules + worked example
+      4. **Cross-symbol hedge plugins** — 3 new plugins + how they complement per-symbol defensive
+      5. **Monolith wrappers** — 15 strategies hidden behind Signal Center, table of edgeClass + leverage
+      6. **Final backtest results** — envelope table per symbol + portfolio-level
+      7. **+50%/month verdict** — STILL NOT ACHIEVABLE; realistic ceiling X-Y%/mo
+      8. **Lessons learned + Phase 14+ scope** — what's next
+      9. **References** — ≥3 independent sources per empirical claim (research doctrine)
+      10. **Appendix A** — decision-log examples (5-10 actual lines from `decision-log.jsonl`)
+
+      ### 3. Run the final backtest
+
+      After runner is implemented, RUN IT and commit the 5 envelope JSONs + decision-log.jsonl to `backtest-results/portfolio-orchestrator/`.
+
+      Command:
+      ```bash
+      bun run packages/backtest-tools/src/cli/run-portfolio-orchestrator.ts \
+        --symbols=BTC/USDT,ETH/USDT,SOL/USDT \
+        --exchange=binance \
+        --window-days=365 \
+        --risk-per-trade=0.05 \
+        --max-leverage=10 \
+        --max-positions=7 \
+        --output-dir=backtest-results/portfolio-orchestrator
+      ```
+
+      Then commit:
+      ```bash
+      git add backtest-results/portfolio-orchestrator/ docs/research/REPORT-phase13.md
+      git commit -m "feat(backtest): Phase 13 portfolio orchestrator runner + final backtest + REPORT"
+      git push -u origin feat/phase13-d-runner-and-report
+      ```
+
+      ### 4. Open PR + deliverable.md
+
+      Open PR: `gh pr create --title "Phase 13 — Multi-symbol portfolio orchestrator runner + REPORT" --body "..."`
+
+      Write `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase13-d/deliverable.md` with:
+      - Files created (runner + REPORT)
+      - Final backtest envelope table (from JSON files)
+      - 0 leverage breaches / 0 liquidations verification
+      - PR URL
+      - All user spec honored (5%/10x/7/binance/1y)
+
+      ## Acceptance
+      - typecheck PASS
+      - lint PASS
+      - test PASS
+      - Backtest ran with user spec (5%/10x/7/binance/1y)
+      - 0 leverage breaches / 0 liquidations
+      - 5 envelope JSONs + decision-log.jsonl committed
+      - REPORT-phase13.md has 10 sections
+      - PR opened
+      - deliverable.md present
+    timeout_ms: 2700000  # 45min
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 13 Track D deliverables independently:
+
+      1. **Branch + worktree**: `wt-phase13-d` on `feat/phase13-d-runner-and-report`.
+      2. **Tracks A+B+C merged**: `git -C wt-phase13-d log feat/phase13-a-decision-engine feat/phase13-b-portfolio-orchestrator feat/phase13-c-cross-symbol-hedges --oneline -10` shows all 3 merge commits.
+      3. **Runner file exists**: `wt-phase13-d/packages/backtest-tools/src/cli/run-portfolio-orchestrator.ts` with CLI args parsing.
+      4. **5 envelope JSONs + decision-log.jsonl committed**: `ls wt-phase13-d/backtest-results/portfolio-orchestrator/` shows 6 files.
+      5. **Backtest ran with user spec**: grep JSONs for "0.05" (risk) "10" (leverage) "7" (positions) — confirm in envelope metadata.
+      6. **0 liquidations**: grep envelope JSONs for `"liquidations": 0`.
+      7. **REPORT exists**: `wt-phase13-d/docs/research/REPORT-phase13.md` has ≥2500 words and 10 section headers (grep `^##` count ≥ 10).
+      8. **PR opened**: `gh pr list --head feat/phase13-d-runner-and-report --json url` returns the PR URL.
+      9. **typecheck + lint + test**: all PASS.
+      10. **deliverable.md present** with envelope table + PR URL.
+
+      PASS only if ALL 10 checks pass.

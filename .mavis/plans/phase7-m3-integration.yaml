@@ -1,0 +1,333 @@
+version: 1
+plan:
+  name: 'Phase 7 M3 — multi-class ensemble V2 integráció + REPORT-phase7.md + push'
+  max_concurrency: 2
+  max_consecutive_failures: 2
+  max_cycles: 5
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  - id: phase7-m3-integration
+    title: 'Phase 7 M3 — V2 ensemble baseline futtatás + REPORT-phase7.md + commit/push'
+    assigned_to: agent-5394bdd48751
+    verified_by: verifier
+    max_retries: 2
+    prompt: |
+      # Phase 7 M3 — V2 ensemble integration, REPORT, push
+
+      ## Context
+
+      Phase 7 of the mm-crypto-bot research arc is the edge-amplification
+      round (trailing-stop + adaptive Kelly + leveraged carry). The three
+      tracks already landed and were auto-accepted on plan_f2e7244d
+      (commits a833190, 2c1ef3d, 6b504f6, merged at f69606c onto
+      `feat/phase7-amplification`).
+
+      M3 = integrate the three tracks into one V2 multi-class ensemble,
+      run 3 baselines, write REPORT-phase7.md, commit, push.
+
+      Brief: `docs/research/phase7-strategy-brief.md` §1.3 M2 + §4 output
+      table.
+
+      ## Worktree (read this first)
+
+      ALL work happens in **/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification**
+      on branch **feat/phase7-amplification** (HEAD = f69606c).
+
+      ```
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification
+      git status
+      git branch --show-current   # must be feat/phase7-amplification
+      ```
+
+      DO NOT create a new worktree. DO NOT switch branches. If you are
+      not in that worktree, fix that first before doing anything else.
+
+      ## Existing WIP state on disk (incomplete, must be finished)
+
+      The Phase 7 M2 session got interrupted before the work landed.
+      These files are ON DISK but UNCOMMITTED:
+
+      | File | LOC | Status |
+      |------|----:|--------|
+      | `packages/core/src/strategy/multi-class-ensemble-v2.ts` | 435 | written, typechecks |
+      | `packages/core/src/strategy/multi-class-ensemble-v2.test.ts` | 357 | written, 20 tests pass |
+      | `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts` | 417 | written, CLI ready |
+      | `packages/core/src/index.ts` | +12 lines modified | adds V2 exports |
+      | `docs/research/phase7-strategy-brief.md` | 248 | the brief itself |
+
+      You do NOT need to rewrite any of these. Verify they compile, the
+      tests pass, and the index.ts export block is correct. If anything
+      is broken, fix it minimally.
+
+      ## Mission (3 phases)
+
+      ### Phase 1 — Run 3 V2 baseline backtests
+
+      For each of BTC/USDT, ETH/USDT, SOL/USDT on `1d` timeframe:
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification
+      bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts \
+        --symbol=BTC/USDT --timeframe=1d \
+        --output=backtest-results/baseline-multi-class-v2-btc-1d.json
+      bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts \
+        --symbol=ETH/USDT --timeframe=1d \
+        --output=backtest-results/baseline-multi-class-v2-eth-1d.json
+      bun run packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts \
+        --symbol=SOL/USDT --timeframe=1d \
+        --output=backtest-results/baseline-multi-class-v2-sol-1d.json
+      ```
+
+      After each run, verify the JSON parses + has the V2-specific fields:
+      `monthlyReturn`, `combinedEdgePct`, `trailingStopExits`,
+      `fundingCarryUsd`, `effectiveLeverage`, `dailyVaR95Pct`,
+      `liquidationEvents`, `effectiveKellyMultiplier`,
+      `latencyGateActiveFraction`.
+
+      Capture the CLI console outputs verbatim into a single
+      `baseline-multi-class-v2-1d-stdout.txt` for the report's appendix.
+
+      The default config should use the empirical best-phase-7 variants
+      that landed via Track A/B/C — if the CLI has CLI flags to pick them
+      (e.g. `--trail-variant=pct10`, `--leverage=3`, `--kelly-bucket=0.7`),
+      pick sensible defaults that match the Track A/B/C verdicts:
+
+      - Track A best: BTC pct10 marginally beats Phase 5. Track A producer
+        recommended NOT deploying for ETH/SOL.
+      - Track B best: adaptive Kelly 4-bucket dynamic — works for all 3.
+      - Track C best: 3× leverage amplification across all 3 symbols
+        (zero liquidations, 14-90× VaR headroom).
+
+      So the natural default CLI is `--trail-variant=pct10 --leverage=3
+      --kelly-bucket=dynamic` (or whatever the CLI's flag names are — use
+      whatever makes sense after reading the CLI). Document the chosen
+      defaults clearly in the report §3.
+
+      ### Phase 2 — Write REPORT-phase7.md
+
+      Path: `backtest-results/REPORT-phase7.md`
+
+      Reuse the REPORT-phase5.md and REPORT-phase6.md structure (8 sections,
+      both languages: English empirical / Hungarian intro + conclusion).
+
+      Suggested sections:
+
+      1. **Executive summary** (English) — final +50%/month verdict, +0.5-2.0%/month realistic envelope, M2 V2 combined numbers
+      2. **Bevezető / Introduction** (Hungarian) — Phase 7 célja, 3 track scope, milyen kutatási mélységet alkalmaztunk
+      3. **Methodology** (English) — Track A trailing-stop, Track B adaptive Kelly, Track C leveraged carry, M2 V2 composition; config defaults chosen; ≥2 independent sources per empirical claim
+      4. **Results** (English) — 3 tables:
+         - Track A: 4 variants × 3 symbols (use existing phase7-*.md data)
+         - Track B: adaptive vs static Kelly (use existing phase7-adaptive-kelly.md)
+         - Track C: 1× / 2× / 3× leverage per symbol (use existing phase7-carry-leverage.md)
+         - V2 ensemble: 3 symbol 1d baselines (use new JSONs)
+      5. **Risk discipline** (English) — VaR, liquidations, max DD, walk-forward OOS
+      6. **Konklúzió / +50%/month verdict** (Hungarian+English) — explicit IGEN/NEM, Phase 8+ scope items
+      7. **References** (English) — minimum 17+ independent sources across 6+ categories like Phase 6
+      8. **Appendix** (English) — CLI stdout, JSON file index, git log
+
+      **Critical user preferences (from MEMORY.md):**
+
+      - English for empirical/research sections (already standard).
+      - Hungarian for intro/conclusion narrative OK.
+      - **Minimum 5-10 web queries** for the empirical sections.
+      - **≥2 independent sources per empirical claim.**
+      - User explicitly rejected "conservative old forex trader" sources in
+        favor of crypto-native / quant-finance academic / bybit.eu /
+        perp-funding / Substack / Discord / X angle.
+      - Decisions are autonomous — pick the best interpretation, explain with
+        reasoning, do NOT ask the user to re-decide micro-points.
+
+      ### Phase 3 — Commit + push
+
+      The dirty working tree currently has:
+
+      ```
+      M  packages/core/src/index.ts                                       (V2 exports)
+      ?? docs/research/phase7-strategy-brief.md                           (brief)
+      ?? packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts   (CLI)
+      ?? packages/core/src/strategy/multi-class-ensemble-v2.test.ts       (tests)
+      ?? packages/core/src/strategy/multi-class-ensemble-v2.ts            (ensemble)
+      ```
+
+      Plus the 3 new baseline JSONs + REPORT-phase7.md after Phase 1+2.
+
+      Run all 4 quality gates from
+      `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification`:
+
+      ```bash
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test           # expect ~290+ tests, 0 fail
+      bun run coverage       # multi-class-ensemble-v2.ts: ≥90% line
+      ```
+
+      **All 4 must be green before committing.**
+
+      Then single commit (Phase 6 M2 used a merge commit pattern, but a
+      single Phase 7 M3 feat commit is fine; check the Phase 6 M2 commit
+      message style in git log):
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification
+      git add -A
+      git commit -m "feat(backtest,core,backtest-tools,reports): ÜGYNÖK Phase 7 M3 — multi-class ensemble V2 + REPORT-phase7.md
+
+      - multi-class-ensemble-v2.ts (435 lines) + test (20 tests, 100% line coverage on V2-specific code)
+      - run-multi-class-baseline-v2.ts CLI (417 lines, 4-phase pipeline)
+      - 3 baseline JSONs: btc/eth/sol 1d
+      - REPORT-phase7.md: 8 sections, English empirical + Hungarian intro/conclusion, 17+ sources
+      - V2 = DonchianTrailing (Track A) + AdaptiveKelly sizing (Track B) + LeveragedCarry 3× default (Track C) + LatencyGate (Phase 6 Track B)
+
+      Combined-edge envelope: +0.5-2.0%/month. +50%/month target verdict: NO. Phase 8+ scope items parked (options vol surface, MM spread, ML alpha)."
+      ```
+
+      Then push:
+
+      ```bash
+      git push origin feat/phase7-amplification
+      ```
+
+      ## Deliverable
+
+      Write a concise `deliverable.md` at `~/.mavis/plans/plan_<NEW_PLAN_ID>/outputs/phase7-m3-integration/deliverable.md`
+      with these sections:
+
+      - **Summary** — what landed, the 3-baseline numbers (total return, max DD, VaR, liquidations), the +50%/month verdict, the realistic envelope
+      - **Changed files** — list with LOC
+      - **Branch state** — final commit hash on feat/phase7-amplification, push confirmation
+      - **Quality gates** — paste the 4-gate green output
+      - **Notes** — anything the verifier should double-check (e.g. M2 V2 config defaults chosen, signal-decomposition logic, non-obvious decisions)
+
+      ## Report-back
+
+      After delivery, send a final message to the parent session:
+
+      ```bash
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 7 M3 COMPLETE. Branch feat/phase7-amplification @ <commit_hash>. 3 baselines + REPORT-phase7.md landed. +50%/month verdict: NO. Realistic envelope: +0.5-2.0%/month."
+      ```
+
+      ## Stop condition
+
+      You stop when all of these are true:
+
+      1. 3 baseline JSONs exist at the expected paths and parse cleanly
+      2. REPORT-phase7.md exists with all 8 sections + 17+ sources
+      3. All 4 quality gates green
+      4. `feat/phase7-amplification` is committed AND pushed (working tree clean)
+      5. deliverable.md is written
+      6. Parent-session report-back sent
+
+      Do NOT open a PR — the root session opens the PR after parent-ack.
+      Do NOT merge to main.
+    verify_prompt: |
+      You are independently verifying the Phase 7 M3 multi-class ensemble
+      V2 integration deliverable. Treat the producer's deliverable.md as
+      a CLAIM, not as fact — re-derive everything from primary evidence.
+
+      ## Repo + branch
+
+      The work happens in
+      `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification`
+      on branch `feat/phase7-amplification`. Verify branch state:
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification
+      git status                           # working tree MUST be clean
+      git rev-parse HEAD                   # local HEAD
+      git rev-parse origin/feat/phase7-amplification   # MUST match local HEAD (pushed)
+      git log feat/phase7-amplification --oneline -5
+      ```
+
+      Hard fail if working tree is dirty or local HEAD ≠ origin HEAD.
+
+      ## Quality gates (re-run, do not trust reported numbers)
+
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase7-amplification
+      bun run typecheck   # 0 errors
+      bun run lint        # 0 errors
+      bun run test        # 0 fail (capture pass count)
+      bun run coverage    # multi-class-ensemble-v2.ts ≥ 90% line
+      ```
+
+      ## 3 baseline JSONs
+
+      For each of btc/eth/sol-1d, verify:
+
+      - File exists
+      - Parses as JSON
+      - Has the V2-specific keys: `monthlyReturn`, `combinedEdgePct`,
+        `trailingStopExits`, `fundingCarryUsd`, `effectiveLeverage`,
+        `dailyVaR95Pct`, `liquidationEvents`, `effectiveKellyMultiplier`,
+        `latencyGateActiveFraction`.
+      - `liquidationEvents === 0` for all 3 (Phase 7 brief §1.2 hard req).
+      - `dailyVaR95Pct ≤ 0.02` for all 3 (2% cap hard req).
+      - The combinedEdgePct numbers are arithmetically consistent with the
+        trade-list PnL and funding carry state (cross-check).
+
+      ## REPORT-phase7.md
+
+      - Path: `backtest-results/REPORT-phase7.md`
+      - Must have the 8-section structure matching REPORT-phase5.md and
+        REPORT-phase6.md patterns.
+      - Must contain a clear +50%/month verdict (YES or NO).
+      - Must have a realistic-deployment envelope stated (e.g. +0.5-2.0%/month).
+      - Citations: count <a href="..."> or numbered references — must have
+        ≥17 independent sources across ≥5 categories (London Business
+        School / academic quant / crypto-native / perp-funding / bybit /
+        bingx / Substack etc.). Run a quick grep for `https://` count.
+      - Numbers in the tables MUST match the JSON files (spot-check at
+        least 3 cross-references).
+
+      ## Files
+
+      - `packages/core/src/strategy/multi-class-ensemble-v2.ts` exists +
+        exports `MultiClassEnsembleV2`
+      - `packages/core/src/strategy/multi-class-ensemble-v2.test.ts` has
+        ≥10 tests (Phase 7 brief §1.3 requirement)
+      - `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts`
+        exists and is executable
+      - `packages/core/src/index.ts` exports `MultiClassEnsembleV2` and
+        `DEFAULT_ADAPTIVE_KELLY_AGGREGATE` (and friends)
+
+      ## Adversarial probes (re-run independently)
+
+      1. **Reproducibility probe:** delete one baseline JSON, re-run the
+         CLI for the same symbol+tf, diff the JSON — should be identical.
+      2. **Liquidations probe:** grep the JSON for any non-zero
+         `liquidationEvents` — must all be 0.
+      3. **Source citation probe:** pick 3 source URLs from REPORT-phase7.md
+         and HEAD them — must resolve to authoritative content (not 404,
+         not generic marketing).
+      4. **Verdict consistency probe:** does REPORT-phase7.md's verdict
+         agree with the JSON numbers, the Phase 7 brief's
+         "PROJECTED +1.5-3%/hó" framing, and the Track A/B/C reports?
+      5. **Branch pushed?** Run
+         `git rev-parse origin/feat/phase7-amplification` and verify the
+         commit hash matches the most recent Phase 7 M3 commit message
+         topic.
+
+      ## Output
+
+      Return PASS or FAIL with:
+
+      - Gate pass counts (typecheck/lint/test/coverage)
+      - 3 baseline numbers (combinedEdgePct, VaR, liquidations)
+      - Source count from REPORT-phase7.md
+      - Any adversarial probe failures
+      - Verdict: PASS only if all hard requirements above are met AND
+        every adversarial probe passes.
+output:
+  files:
+    - backtest-results/baseline-multi-class-v2-btc-1d.json
+    - backtest-results/baseline-multi-class-v2-eth-1d.json
+    - backtest-results/baseline-multi-class-v2-sol-1d.json
+    - backtest-results/REPORT-phase7.md

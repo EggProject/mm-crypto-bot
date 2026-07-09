@@ -1,0 +1,498 @@
+version: 1
+plan:
+  name: 'Phase 16 — Pivot Grid notional cap + Regime-Routed Ensemble (productionization)'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — Pivot Point Grid notional cap
+  # ============================================================
+  - id: 'phase16-track-a-notional-cap'
+    title: 'Phase 16 Track A — Pivot Point Grid notional cap (4% productionization)'
+    prompt: |
+      You are the **Coder agent** working on **Phase 16 Track A** of the mm-crypto-bot project.
+
+      ## Context
+
+      Phase 15 Pivot Point Grid backtests reported +60-90%/mo with 5-8% MaxDD, but at the configured
+      `maxPositionPctEquity=0.2` the strategy compounds winners across successive S/R levels and can
+      breach realistic capital caps. Phase 16 Track A adds a strategy-side `maxPositionPctEquity` cap
+      (default 0.04) that scales `confidence` so the engine-side position-sizing cap is enforced.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase16-scope-plan.md` — authoritative scope plan
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/pivot-point-grid.ts` — current implementation (from PR #34)
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/pivot-point-grid.test.ts` — current tests
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/types.ts` — `Strategy`, `StrategyContext`, `StrategySignal` interfaces
+      5. Memory: `/Users/kiscsicska/.mavis/agents/mavis/memory/mm-crypto-bot-project.md` — 1:10 mandate, bybit.eu SPOT-only
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase16-a`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase16-a -b feat/phase16-a-notional-cap main`
+      - Base branch: `main` (already has Pivot Grid from PR #34 merged)
+      - The branch is yours alone
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Modify `packages/core/src/strategy/pivot-point-grid.ts` (~+50 LOC)
+
+      Add a `maxPositionPctEquity` field to `PivotPointGridConfig`:
+
+      ```typescript
+      export interface PivotPointGridConfig {
+        readonly multiplierFib1: number;       // default 0.382
+        readonly multiplierFib2: number;       // default 0.618
+        readonly multiplierFib3: number;       // default 1.000
+        readonly maxPositionPctEquity: number; // default 0.04 — Phase 16 productionization cap
+      }
+      ```
+
+      In `onCandle`, BEFORE returning any signal (long at S1/S2, short at R1/R2), scale `confidence`:
+
+      ```typescript
+      // After computing the signal with confidence 0.7 or 1.0:
+      // Scale confidence so engine-side maxPositionPctEquity constraint is enforced.
+      // The engine's maxPositionPctEquity already enforces the hard cap; this scales
+      // the strategy-side confidence so the engine emits a SMALLER (not larger) position.
+      const capScale = Math.min(1.0, signal.confidence);  // never amplify beyond original
+      const scaled = { ...signal, confidence: capScale };
+      return scaled;
+      ```
+
+      Wait — re-read the Phase 16 scope doc carefully. The cap means: the strategy should NOT emit signals that would request more than `maxPositionPctEquity` of equity. With Pivot Grid at `maxPositionPctEquity=0.04` and engine-side `maxPositionPctEquity=0.04`, the engine already enforces it via position sizing. The strategy-side change is:
+
+      - **Add `maxPositionPctEquity` to config** (default 0.04)
+      - **At signal emit time**: scale `confidence` down to `capScale = min(1.0, maxPositionPctEquity / engineMaxPositionPctEquity)`. If `maxPositionPctEquity < engineMaxPositionPctEquity`, signal confidence is clamped down proportionally. This means at default cap 0.04 and engine cap 0.2, confidence = 0.7 × (0.04 / 0.2) = 0.14 (very small). At custom cap 1.0, confidence is unchanged (legacy).
+
+      Implementation:
+      ```typescript
+      // At signal emit:
+      const engineMaxPosPct = 0.2;  // default engine-side cap, configurable via context (future)
+      const capScale = Math.min(1.0, this.config.maxPositionPctEquity / engineMaxPosPct);
+      const scaledConfidence = signal.confidence * capScale;
+      return { ...signal, confidence: scaledConfidence };
+      ```
+
+      Also expose a new constant `DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity = 0.04`.
+
+      ### 2. Tests in `pivot-point-grid.test.ts` (add 4 NEW tests, keep existing ≥10)
+
+      - **Cap respected (default 0.04)**: signal with original confidence 0.7 produces scaled confidence 0.7 × (0.04 / 0.2) = 0.14
+      - **Cap respected (default 0.04, full-confidence signal)**: original confidence 1.0 produces scaled confidence 0.2
+      - **Custom cap respected (e.g., 0.02)**: signal confidence scaled to 0.7 × (0.02 / 0.2) = 0.07
+      - **Cap = 1.0 (legacy)**: signal confidence unchanged (1.0 stays 1.0, 0.7 stays 0.7)
+      - **Cap = 0.04 but engine max is 0.04**: scale = 1.0, no clamping (engine cap matches)
+
+      ### 3. Coverage 100% on modified file (lcov.info direct read)
+
+      ```bash
+      cd packages/core && bun test src/strategy/pivot-point-grid.test.ts --coverage --coverage-reporter=lcov --coverage-dir=coverage
+      ```
+      Read `packages/core/coverage/lcov.info` directly. Verify `pivot-point-grid.ts` has `lh === lf` AND `brh === brf`.
+
+      ### 4. deliverable.md (REQUIRED at worktree root)
+
+      `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase16-a/deliverable.md`:
+      - Files modified (`pivot-point-grid.ts` + `pivot-point-grid.test.ts`)
+      - LOC delta per file
+      - New test count (4 added, total ≥14)
+      - Coverage % from lcov.info direct read
+      - Any deviations from this prompt with rationale
+
+      ## Acceptance criteria
+
+      - typecheck PASS (`bun run typecheck`)
+      - lint PASS (0 errors)
+      - test PASS (`bun test src/strategy/pivot-point-grid.test.ts`)
+      - coverage 100% lines + branches on `pivot-point-grid.ts` (lcov.info direct read)
+      - deliverable.md present
+      - DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity = 0.04
+
+      ## Workflow
+
+      1. Create worktree, branch
+      2. Read current `pivot-point-grid.ts` to understand existing emit pattern
+      3. Add `maxPositionPctEquity` to config + DEFAULT_PIVOT_GRID_CONFIG
+      4. Add confidence scaling at signal emit
+      5. Add 4 new tests
+      6. Run typecheck + lint + test + coverage
+      7. Commit, push, write deliverable.md
+      8. Report back to parent via `mavis communication send`
+
+      ## Memory rules active
+
+      - **1:10 leverage MANDATORY** — strategies only emit signals; sizing is engine-side. The notional cap is strategy-side signal confidence scaling; engine-side `positionSize.maxPositionPctEquity` still enforces the hard cap.
+      - **bybit.eu SPOT-only** — no change to cost model
+      - **No docstring lies** — every JSDoc claim must be backed by actual code
+      - **No eslint-disable** — fix root cause
+      - **Coverage 100% on MODIFIED file** — read lcov.info directly
+    timeout_ms: 3000000  # 50min
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 16 Track A deliverables independently:
+
+      1. **Branch + worktree**: `git -C /Users/kiscsicska/projects/mm-crypto-bot worktree list` shows `wt-phase16-a` on `feat/phase16-a-notional-cap`.
+      2. **File modified**: `wt-phase16-a/packages/core/src/strategy/pivot-point-grid.ts` — grep for `maxPositionPctEquity` (≥3 occurrences: interface field, default value, scaling logic).
+      3. **Config field**: `PivotPointGridConfig` interface has `readonly maxPositionPctEquity: number` field; `DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity = 0.04`.
+      4. **Scaling logic**: read the file; verify signal emit scales `confidence` by `Math.min(1.0, config.maxPositionPctEquity / 0.2)`. Verify both long (S1/S2) and short (R1/R2) paths apply scaling.
+      5. **Tests pass**: `bun test src/strategy/pivot-point-grid.test.ts` from worktree returns PASS.
+      6. **Coverage 100%**: read `wt-phase16-a/packages/core/coverage/lcov.info` directly. For `pivot-point-grid.ts`, verify `lh === lf` AND `brh === brf`.
+      7. **Test count**: ≥14 tests in `pivot-point-grid.test.ts` (10 existing + 4 new).
+      8. **New test cases**: grep for the 4 specified cases (cap respected default, cap respected full-confidence, custom cap, cap = 1.0 legacy, cap = engine cap).
+      9. **typecheck + lint**: `bun run typecheck && bun run lint` from worktree, all PASS.
+      10. **deliverable.md present**: at worktree root with file delta + test counts + coverage %.
+
+      PASS only if ALL 10 checks pass. If FAIL, list specific failing check(s) with file paths and line numbers.
+
+  # ============================================================
+  # TRACK B — Regime-Routed Ensemble
+  # ============================================================
+  - id: 'phase16-track-b-regime-ensemble'
+    title: 'Phase 16 Track B — Regime-Routed Ensemble (ADX-routed Pivot/Donchian + BB/Keltner)'
+    prompt: |
+      You are the **Coder agent** working on **Phase 16 Track B** of the mm-crypto-bot project.
+
+      ## Context
+
+      Phase 15 Simple Retail Ensemble produced only +4.73%/mo BTC (vs +13-90% individual strategies)
+      because consensus-at-mixed-timeframe composition dilutes signal quality. Phase 16 Track B replaces
+      this with a regime-routed ensemble: ADX < 20 fires mean-reversion strategies (Pivot Grid + Donchian
+      Range), ADX ≥ 20 fires breakout strategies (BB Squeeze + Keltner Grid).
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase16-scope-plan.md`
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/pivot-point-grid.ts` — sub-strategy 1
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/bollinger-range-squeeze.ts` — sub-strategy 2
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/donchian-range-channel.ts` — sub-strategy 3
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/keltner-grid.ts` — sub-strategy 4
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/simple-retail-ensemble.ts` — reference composition pattern
+      7. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/types.ts` — interfaces
+      8. Memory: `/Users/kiscsicska/.mavis/agents/mavis/memory/mm-crypto-bot-project.md`
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase16-b`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase16-b -b feat/phase16-b-regime-ensemble main`
+      - Base branch: `main` (already has all 4 sub-strategies + simple-retail-ensemble)
+      - The branch is yours alone
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Regime-Routed Ensemble — `packages/core/src/strategy/regime-routed-ensemble.ts` (~300 LOC)
+
+      **Logic:**
+      - On each LTF (M15 default) candle, run all 4 sub-strategies.
+      - Read `mtfState.htf.adx` to determine regime:
+        - `adx < config.adxRangeThreshold` → **range regime** → Pivot Grid + Donchian Range eligible
+        - `adx >= config.adxRangeThreshold` → **trend regime** → BB Squeeze + Keltner Grid eligible
+      - If ADX missing → return null (cannot determine regime)
+      - From the eligible signals:
+        - 0 signals → return null
+        - All signals agree on direction (e.g., both Pivot + Donchian long) → return the highest-confidence signal with reason tagged `[RegimeEnsemble] regime=range consensus=N/2`
+        - Conflicting directions (e.g., Pivot long + Donchian short) → return null (defer)
+        - Single signal → return that signal with reason tagged `[RegimeEnsemble] regime=X solo=strategy-name`
+
+      **Class signature:**
+      ```typescript
+      export interface RegimeRoutedEnsembleConfig {
+        readonly adxRangeThreshold: number;       // default 20
+        readonly pivotGrid: Partial<PivotPointGridConfig>;
+        readonly bbSqueeze: Partial<BollingerSqueezeConfig>;
+        readonly donchianRange: Partial<DonchianRangeChannelConfig>;
+        readonly keltnerGrid: Partial<KeltnerGridConfig>;
+      }
+      export const DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG: RegimeRoutedEnsembleConfig;
+      export class RegimeRoutedEnsemble implements Strategy {
+        readonly name = 'Regime-Routed Ensemble (Phase 16 — ADX-routed Pivot/Donchian + BB/Keltner)';
+        readonly timeframes: readonly Timeframe[];  // depends on LTF choice
+        readonly config: RegimeRoutedEnsembleConfig;
+        private pivotGrid: PivotPointGridStrategy;
+        private bbSqueeze: BollingerRangeSqueezeStrategy;
+        private donchianRange: DonchianRangeChannelStrategy;
+        private keltnerGrid: KeltnerGridStrategy;
+        constructor(config?: Partial<RegimeRoutedEnsembleConfig>, ltf?: Timeframe);
+        warmup(): number;
+        onCandle(ctx: StrategyContext): StrategySignal | null;
+      }
+      ```
+
+      Note: `ltf` parameter selects which timeframe the ensemble runs at. Defaults to M15 (since 2 of 4 strategies are M15). When LTF=M15, BB Squeeze + Keltner Grid (both M5) get aggregated candles from M15.
+
+      Regime detection implementation:
+      ```typescript
+      const adx = ctx.mtfState?.htf?.adx;
+      if (adx === undefined || adx === null) return null;  // no regime detection possible
+      const isRangeRegime = adx < this.config.adxRangeThreshold;
+      ```
+
+      Sub-strategy filtering:
+      ```typescript
+      const signals: StrategySignal[] = [];
+      if (isRangeRegime) {
+        const pivotSignal = this.pivotGrid.onCandle(ctx);
+        const donchianSignal = this.donchianRange.onCandle(ctx);
+        if (pivotSignal) signals.push(pivotSignal);
+        if (donchianSignal) signals.push(donchianSignal);
+      } else {
+        const bbSignal = this.bbSqueeze.onCandle(ctx);
+        const keltnerSignal = this.keltnerGrid.onCandle(ctx);
+        if (bbSignal) signals.push(bbSignal);
+        if (keltnerSignal) signals.push(keltnerSignal);
+      }
+      ```
+
+      Consensus logic:
+      ```typescript
+      if (signals.length === 0) return null;
+      const sides = new Set(signals.map(s => s.side));
+      if (sides.size > 1) return null;  // conflicting directions → defer
+      const winner = signals.reduce((a, b) => a.confidence > b.confidence ? a : b);
+      const regime = isRangeRegime ? 'range' : 'trend';
+      const reasonTag = signals.length > 1
+        ? `[RegimeEnsemble] regime=${regime} consensus=${signals.length}/2`
+        : `[RegimeEnsemble] regime=${regime} solo=${winner.strategyName || 'unknown'}`;
+      return { ...winner, reason: `${winner.reason ?? ''} ${reasonTag}`.trim() };
+      ```
+
+      ### 2. Tests in `regime-routed-ensemble.test.ts` (≥12 tests)
+
+      - Default config (adxRangeThreshold=20)
+      - Warmup = max of 4 sub-strategies (max(100, 30, 30, 30) = 100)
+      - ADX < 20 → only Pivot + Donchian considered (verify BB + Keltner NOT called via mock spy or sub-strategy emit counter)
+      - ADX >= 20 → only BB + Keltner considered (verify Pivot + Donchian NOT called)
+      - ADX exactly 20 → trend regime (strict >= comparison)
+      - Range regime + Pivot long + Donchian long → long signal, reason tagged "regime=range consensus=2/2"
+      - Range regime + Pivot long + Donchian short → null (defer, conflict)
+      - Range regime + only Pivot long → emit, reason tagged "regime=range solo=pivot-grid"
+      - Trend regime + BB long + Keltner long → long signal
+      - Trend regime + BB short + Keltner long → null (conflict)
+      - Missing ADX → null (no regime detection)
+      - Custom adxRangeThreshold respected (e.g., 25 → ADX 22 = range, ADX 27 = trend)
+      - Sub-strategies receive same `ctx` (delegation test)
+
+      Coverage 100% on `regime-routed-ensemble.ts` (lcov.info direct read).
+
+      ### 3. deliverable.md (REQUIRED at worktree root)
+
+      `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase16-b/deliverable.md`:
+      - Files created (1 strategy file + 1 test file)
+      - LOC per file
+      - Test count per file
+      - Coverage % per file (from lcov.info direct read)
+      - Any deviations from this prompt with rationale
+
+      ## Acceptance criteria
+
+      - typecheck PASS
+      - lint PASS (0 errors)
+      - test PASS (`bun test src/strategy/regime-routed-ensemble.test.ts`)
+      - coverage 100% lines + branches on `regime-routed-ensemble.ts` (lcov.info direct read)
+      - deliverable.md present
+      - DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG.adxRangeThreshold = 20
+
+      ## Workflow
+
+      1. Create worktree, branch
+      2. Read sub-strategy signatures to understand config + emit patterns
+      3. Implement RegimeRoutedEnsemble
+      4. Write tests with sub-strategy mocks/spies to verify filtering
+      5. Run typecheck + lint + test + coverage
+      6. Commit, push, write deliverable.md
+      7. Report back to parent via `mavis communication send`
+
+      ## Memory rules active
+
+      - **1:10 leverage MANDATORY** — strategies only emit signals; sizing is engine-side
+      - **No docstring lies** — every JSDoc claim must be backed by actual code
+      - **No eslint-disable** — fix root cause
+      - **Coverage 100% on NEW files** — read lcov.info directly
+    timeout_ms: 3000000  # 50min
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 16 Track B deliverables independently:
+
+      1. **Branch + worktree**: `wt-phase16-b` on `feat/phase16-b-regime-ensemble`.
+      2. **File exists**: `wt-phase16-b/packages/core/src/strategy/regime-routed-ensemble.ts` with exports for `RegimeRoutedEnsemble`, `RegimeRoutedEnsembleConfig`, `DEFAULT_REGIME_ROUTED_ENSEMBLE_CONFIG`.
+      3. **Implements Strategy interface**: grep `implements Strategy`; verify `onCandle(ctx: StrategyContext): StrategySignal | null` and `warmup(): number`.
+      4. **4 sub-strategy fields**: class has 4 private fields: `pivotGrid`, `bbSqueeze`, `donchianRange`, `keltnerGrid`.
+      5. **Regime detection logic**: read file; verify `mtfState.htf.adx` is read; verify `isRangeRegime = adx < config.adxRangeThreshold`; verify ADX missing → null.
+      6. **Range regime filtering**: verify ONLY Pivot + Donchian `onCandle` called when ADX < threshold; BB + Keltner NOT called.
+      7. **Trend regime filtering**: verify ONLY BB + Keltner `onCandle` called when ADX >= threshold; Pivot + Donchian NOT called.
+      8. **Consensus logic**: verify same-direction signals → highest-confidence wins; conflicting directions → null; single signal → that signal with reason tagged.
+      9. **Coverage 100%**: read lcov.info; `regime-routed-ensemble.ts` has `lh === lf` AND `brh === brf`.
+      10. **Test count**: ≥12 tests in `regime-routed-ensemble.test.ts`.
+      11. **typecheck + lint + test**: all PASS.
+      12. **deliverable.md present** at worktree root.
+
+      PASS only if ALL 12 checks pass.
+
+  # ============================================================
+  # TRACK C — Integration + Backtests + REPORT (depends A + B)
+  # ============================================================
+  - id: 'phase16-track-c-integration-report'
+    title: 'Phase 16 Track C — Re-backtests + Regime ensemble backtests + REPORT-phase16.md'
+    prompt: |
+      You are the **Coder agent (M2)** working on **Phase 16 Track C** of the mm-crypto-bot project.
+
+      ## Context
+
+      Phase 16 Track C integrates Track A (Pivot Grid notional cap) + Track B (Regime-Routed Ensemble)
+      into the backtest infrastructure. Produces 6 baseline backtests (3 capped Pivot + 3 regime ensemble)
+      and the final REPORT-phase16.md.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase16-scope-plan.md`
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest-tools/src/cli/run-baseline.ts` — reference CLI runner pattern
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts` — existing Pivot Grid runner (from PR #36)
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/backtest/src/engine.ts` — backtest engine
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase16-a/packages/core/src/strategy/pivot-point-grid.ts` — Track A (after merge)
+      6. `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase16-b/packages/core/src/strategy/regime-routed-ensemble.ts` — Track B (after merge)
+      7. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/REPORT-phase15.md` — baseline reference report
+      8. Memory: `/Users/kiscsicska/.mavis/agents/mavis/memory/mm-crypto-bot-project.md`
+
+      ## Setup
+
+      - Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase16-c`
+      - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase16-c -b feat/phase16-c-integration-report main`
+      - Base branch: `main`
+      - **MERGE feat/phase16-a-notional-cap + feat/phase16-b-regime-ensemble INTO your branch FIRST** (orchestrator will push them after Tracks A+B complete)
+      - The branch is yours alone
+
+      ## Deliverables (MUST PRODUCE ALL)
+
+      ### 1. Update `run-pivot-grid-baseline.ts` to support notional cap
+
+      Add `--max-position-pct-equity=0.04` flag. Default 0.04 (matches new DEFAULT_PIVOT_GRID_CONFIG).
+
+      When flag passed, instantiate `PivotPointGridStrategy({ maxPositionPctEquity: value })`.
+
+      ### 2. Create `packages/backtest-tools/src/cli/run-regime-routed-ensemble.ts` (~80 LOC)
+
+      Same pattern as `run-pivot-grid-baseline.ts` but uses `RegimeRoutedEnsemble` strategy.
+
+      ### 3. Run 6 backtests (3 capped Pivot + 3 regime ensemble)
+
+      ```bash
+      for sym in BTC/USDT ETH/USDT SOL/USDT; do
+        prefix=$(echo $sym | cut -d/ -f1 | tr '[:upper:]' '[:lower:]')
+        bun run packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts \
+          --symbol=$sym --timeframe=15m --max-position-pct-equity=0.04 \
+          --output=backtest-results/phase16-pivot-grid-${prefix}-15m-capped.json
+        bun run packages/backtest-tools/src/cli/run-regime-routed-ensemble.ts \
+          --symbol=$sym --timeframe=15m \
+          --output=backtest-results/phase16-regime-ensemble-${prefix}-15m.json
+      done
+      ```
+
+      Cost model (per Phase 14 bybit.eu SPOT 1:10):
+      ```typescript
+      const COST_MODEL: CostModel = {
+        takerFeeRate: 0.001,
+        slippageRate: 0.0005,
+        spreadRate: 0.0002,
+        borrowRatePerHour: 0.0001,
+        fundingRatePer8h: 0,
+      };
+      ```
+
+      Position sizing (1:10 leverage, conservative for retail mean-reversion):
+      ```typescript
+      positionSize: {
+        riskPerTrade: 0.01,
+        kellyFraction: 0.25,
+        maxDrawdown: 0.5,
+        maxPositionPctEquity: 0.2,
+        minPositionPctEquity: 0.01,
+      }
+      ```
+
+      **Time budget awareness:** 6 backtests × ~3-5 min each = 18-30 min. If a backtest exceeds 10 min, kill it and document the failure (don't get stuck). Use the Phase 14 runner pattern with timeout per backtest.
+
+      ### 4. REPORT — `docs/research/REPORT-phase16.md` (~3,000-4,000 words, ≥8 sections)
+
+      Sections (in order, all REQUIRED):
+      1. **Executive summary** — notional cap effect + regime ensemble envelope (BTC/ETH/SOL + portfolio), +50%/mo verdict update
+      2. **Pivot Grid: cap effect** — before (uncapped, from Phase 15 REPORT §3) vs after (4% cap, this phase)
+         - BTC/ETH/SOL envelope tables (Monthly %, Sharpe, MaxDD, KillSwitch)
+         - Show the cap reduces compounding-explosion without destroying alpha
+      3. **Regime-Routed Ensemble envelope** — per-symbol table + portfolio envelope
+         - Compare to Phase 15 Simple Retail Ensemble (+4.73%/mo BTC) and Phase 14A-D baseline (+2.06%/mo)
+      4. **Cross-strategy correlation** — within regime (range vs trend)
+      5. **Regime distribution** — % of candles in range regime (ADX < 20) vs trend regime (ADX ≥ 20) per symbol
+      6. **+50%/mo verdict update** — does regime-routed + capped Pivot close the gap further?
+      7. **Risks** — regime-flip churn, ADX threshold sensitivity, M5/M15 noise floor
+      8. **Open decisions for Phase 17+** — Keltner ADX filter (#8), Donchian + Pivot composition (#3), Phase 13 PortfolioOrchestrator wrap (#7)
+
+      Each empirical claim must reference a JSON envelope file by path.
+
+      ### 5. Open PR + deliverable.md
+
+      After all 6 backtests + REPORT done:
+      - Commit: `git add backtest-results/phase16-*.json docs/research/REPORT-phase16.md && git commit -m "..."`
+      - Push: `git push -u origin feat/phase16-c-integration-report`
+      - Open PR: `gh pr create --base main --head feat/phase16-c-integration-report --title "..." --body "..."`
+      - Write deliverable.md at worktree root with:
+        - Files created/modified (2 baseline runners updated + 1 ensemble runner + 1 REPORT)
+        - Per-strategy envelope table (3 capped Pivot + 3 regime ensemble)
+        - PR URL
+        - Any deviations from prompt (especially: any backtest timeouts or skipped symbols)
+
+      ## Acceptance
+
+      - typecheck PASS
+      - lint PASS
+      - test PASS (regime-routed-ensemble tests + integration sanity)
+      - coverage 100% on `regime-routed-ensemble.ts` and `pivot-point-grid.ts`
+      - 6 JSON backtest files committed in `backtest-results/`
+      - REPORT-phase16.md has ≥8 sections, ≥3000 words
+      - PR opened
+      - deliverable.md present
+
+      ## Workflow
+
+      1. Create worktree, branch
+      2. Merge feat/phase16-a-notional-cap + feat/phase16-b-regime-ensemble
+      3. Update `run-pivot-grid-baseline.ts` to accept `--max-position-pct-equity` flag
+      4. Write `run-regime-routed-ensemble.ts`
+      5. Run 6 backtests (with per-backtest timeout)
+      6. Write REPORT-phase16.md
+      7. Commit, push, open PR, write deliverable.md
+      8. Report back to parent via `mavis communication send`
+
+      ## Memory rules active
+
+      - **1:10 leverage MANDATORY** — strategies only emit signals; sizing is engine-side
+      - **Coverage 100% on new/modified files** — read lcov.info directly
+      - **No docstring lies** — every JSDoc claim must be backed by actual code
+      - **No eslint-disable** — fix root cause
+      - **REPORT empirical claims → JSON envelope file paths** — every numerical claim must trace to a backtest-results JSON file
+      - **Time budget discipline:** 6 backtests × 5 min = 30 min budget for backtests. If a backtest exceeds 10 min, kill it and document.
+    timeout_ms: 5400000  # 90min — Phase 15D lesson (30min base was structurally insufficient)
+    max_retries: 2
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 16 Track C deliverables independently:
+
+      1. **Branch + worktree**: `wt-phase16-c` on `feat/phase16-c-integration-report`.
+      2. **Tracks A + B merged**: `git -C wt-phase16-c log feat/phase16-a-notional-cap feat/phase16-b-regime-ensemble --oneline -10` shows both merge commits.
+      3. **`run-pivot-grid-baseline.ts` updated**: grep for `max-position-pct-equity` flag (≥2 occurrences: yargs definition + strategy instantiation).
+      4. **`run-regime-routed-ensemble.ts` exists** in `packages/backtest-tools/src/cli/`.
+      5. **6 JSON files committed**: `ls wt-phase16-c/backtest-results/phase16-*.json | wc -l` returns 6 (3 capped Pivot + 3 regime ensemble).
+      6. **Coverage 100%**: read lcov.info; both `regime-routed-ensemble.ts` and `pivot-point-grid.ts` have `lh === lf` AND `brh === brf`.
+      7. **REPORT exists**: `wt-phase16-c/docs/research/REPORT-phase16.md` exists; `grep -c '^##' REPORT-phase16.md` returns ≥8; word count ≥3000.
+      8. **PR opened**: `gh pr list --head feat/phase16-c-integration-report --json url` returns the PR URL.
+      9. **typecheck + lint + test**: all PASS.
+      10. **deliverable.md present** at worktree root with envelope table + PR URL.
+
+      PASS only if ALL 10 checks pass.

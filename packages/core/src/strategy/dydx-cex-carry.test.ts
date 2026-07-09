@@ -78,7 +78,7 @@ import {
 } from "./dydx-cex-carry.js";
 import { DEFAULT_KILL_SWITCH_CONFIG, DEFAULT_PRECONDITION_CONFIG } from "./dydx-cex-carry.js";
 import { DydxCexCarryPaperTrader, type BybitEuSpotFillSimulator } from "./dydx-cex-carry.paper-trade.js";
-import type { FundingSnapshot } from "./funding-carry.js";
+import type { FundingSnapshot } from "./funding-snapshot.js";
 
 // ============================================================================
 // TEST FIXTURES

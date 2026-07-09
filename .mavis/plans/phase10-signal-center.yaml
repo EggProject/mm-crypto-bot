@@ -1,0 +1,638 @@
+version: 1
+plan:
+  name: 'Phase 10G — Signal Center Architecture (10G.1 bus + 10G.2 plugins + 10G.3 risk + 10G.5 telemetry + SCv1 ensemble)'
+  max_concurrency: 3
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ============================================================
+  # TRACK A — Central signal bus + strategy registry + sample plugin
+  # Coder agent (architectural foundation)
+  # ============================================================
+  - id: 'phase10g-track-a-signal-bus-plugins'
+    title: 'Phase 10G Track A — Central signal bus + strategy registry + sample carry plugin (Coder)'
+    prompt: |
+      You are the **Coder agent** working on Phase 10G Track A of the mm-crypto-bot project.
+      Your job: build the architectural skeleton for the Signal Center — typed event bus
+      + strategy plugin registry + one reference plugin that proves the interface works.
+
+      ## Context — why this track exists
+      Phase 1-9 produced 4-5 isolated strategies composed into "ensembles" additively.
+      There was no central signal router, no plugin interface, no shared event bus.
+      Phase 10G Track A is the foundation: typed pub/sub for strategy signals, a
+      strategy registry where new alpha streams can be dropped in, and a reference
+      plugin (carry baseline) that proves the interface works end-to-end against
+      the existing V4 carry strategy.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/docs/research/phase10-scope-plan.md` — authoritative scope plan
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase10-scope-plan.md` — same scope (project notes)
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/multi-class-ensemble-v4.ts` — current V4 to understand signal flow today
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/funding-carry-leverage.ts` — the existing carry strategy you'll wrap as a reference plugin
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/funding-carry-timing.ts` — funding timing logic
+      6. `/Users/kiscsicska/.mavis/agents/mavis/memory/mm-crypto-bot-project.md` — project conventions
+      7. Existing test patterns in `packages/core/src/strategy/*.test.ts` — mimic test structure
+
+      ## Your scope — Track A: Signal bus + plugin registry + sample plugin
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase10g-track-a`
+         - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase10g-track-a -b feat/phase10g-track-a-signal-bus main`
+         - All your work happens here
+         - Base branch is `main`
+      2. The branch is yours alone — no other worker touches it
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/signal-center/types.ts` — NEW (~150 LOC)
+         - Define discriminated unions for Signal types:
+           - `DirectionSignal { kind: 'direction'; side: 'long' | 'short' | 'flat'; strength: number; source: string }`
+           - `CarrySignal { kind: 'carry'; fundingRate: number; regime: 'high' | 'neutral' | 'flip'; source: string }`
+           - `SizingSignal { kind: 'sizing'; kellyFraction: number; volMultiplier: number; notional: number; source: string }`
+           - `RiskSignal { kind: 'risk'; varDaily95: number; correlationPenalty: number; drawdownLimit: number; source: string }`
+         - Define `Signal = DirectionSignal | CarrySignal | SizingSignal | RiskSignal` discriminated union
+         - Type guard helpers: `isDirection(s: Signal)`, etc.
+         - Export `SignalKind` enum
+
+      2. `packages/core/src/signal-center/signal-bus.ts` — NEW (~250 LOC)
+         - Event-driven pub/sub for typed Signal events
+         - API:
+           - `class SignalBus`
+           - `subscribe(kind: SignalKind, handler: (s: Signal) => void): UnsubscribeFn`
+           - `emit(s: Signal): void` — synchronous for backtest mode, batched for live mode (configurable)
+           - `mode: 'backtest' | 'live'` — controls emit semantics
+           - `snapshot(): Signal[]` — for telemetry/debugging
+           - `clear(): void` — for backtest re-runs
+         - Determinism: backtest mode MUST be fully deterministic (same input → same output, in order)
+         - Latency tracking: emit timestamps, expose `latencyMs()` for live-mode observability
+
+      3. `packages/core/src/signal-center/signal-bus.test.ts` — NEW (≥15 unit tests)
+         - Subscribe + emit basic flow
+         - Multiple subscribers on same kind
+         - Unsubscribe mid-stream
+         - Discriminated union type narrowing (Direction vs Carry handlers)
+         - Backtest mode determinism (same input → same output)
+         - Live mode latency tracking
+         - Snapshot captures all signals
+         - Clear resets state
+         - Edge cases: emit before subscribe (no error), subscribe to non-existent kind (error)
+         - Concurrent emit ordering (FIFO guarantee in backtest mode)
+         - Type guard correctness for each Signal kind
+         - Backpressure handling in live mode (if emit > N per second, batch)
+
+      4. `packages/core/src/signal-center/strategy-registry.ts` — NEW (~200 LOC)
+         - Defines `StrategyPlugin` interface:
+           - `metadata: { name: string; version: string; edgeClass: 'directional' | 'carry' | 'sizing' | 'risk' | 'mixed'; capitalRequirement: number; maxLeverage: number }`
+           - `subscribe(bus: SignalBus): void` — wire handlers
+           - `onBar(bar: Bar, state: PluginState): void` — main update (called by central runner)
+           - `validateConfig(config: unknown): Result<void, ConfigError>` — boot-time validation
+         - `class StrategyRegistry`
+           - `register(plugin: StrategyPlugin): void` — adds to registry
+           - `unregister(name: string): void` — removes (for live mode kill-switch)
+           - `get(name: string): StrategyPlugin | undefined`
+           - `list(): StrategyPluginMetadata[]`
+           - `wireAll(bus: SignalBus): void` — calls `subscribe(bus)` on every registered plugin
+           - `validateAll(): Result<void, AggregatedConfigError>` — boot-time validation
+
+      5. `packages/core/src/signal-center/strategy-registry.test.ts` — NEW (≥10 unit tests)
+         - Register + get + list
+         - Unregister mid-flight
+         - Wire all plugins to bus
+         - Validation: valid + invalid configs
+         - Aggregated config errors (collect all errors, not first-fail)
+         - Duplicate registration rejected
+         - Plugin metadata validation (maxLeverage MUST be ≤ 10 — see 1:10 mandate below)
+         - Edge cases: empty registry, register/unregister race
+
+      6. `packages/core/src/signal-center/plugins/carry-baseline-plugin.ts` — NEW (~300 LOC)
+         - Reference plugin that wraps the existing `FundingCarryLeverageStrategy` (Phase 7 Track C) + `FundingCarryTiming` (Phase 8 Track E)
+         - Subscribes to its own carry signals on the bus
+         - Emits `CarrySignal` when funding regime changes (high → neutral → flip)
+         - Emits `SizingSignal` based on adaptive Kelly × vol-target hybrid
+         - **CRITICAL 1:10 MANDATE**: this plugin's effective leverage MUST stay ≤ 10× (volMultiplier ≤ 1.0 on top of 1:10 base; carry leverage capped at 10× max)
+         - Plugin metadata `maxLeverage: 10`
+         - Uses existing `FundingCarryLeverageStrategy` config interface (no new params)
+
+      7. `packages/core/src/signal-center/plugins/carry-baseline-plugin.test.ts` — NEW (≥10 unit tests)
+         - Subscribe + emit integration with SignalBus
+         - Carry signal emission on regime change
+         - Sizing signal respects adaptive Kelly × vol-target
+         - **1:10 leverage invariant**: any emitted SizingSignal has `notional ≤ baseNotional × 10`
+         - Metadata declares `maxLeverage: 10`
+         - Config validation rejects leverage > 10
+         - Determinism (same input bar sequence → same signal sequence)
+         - Plugin state survives across bars
+         - Edge cases: extreme funding regime, zero vol period, missing data
+
+      8. `packages/core/src/index.ts` — exports updated
+         - Add: `SignalBus`, `StrategyRegistry`, `StrategyPlugin` interface, `CarryBaselinePlugin`, all Signal types and type guards
+         - Follow existing export patterns
+
+      9. `packages/backtest-tools/src/cli/run-signal-center-bus.ts` — NEW CLI runner (~200 LOC)
+         - Args: `--symbol=<BTC|ETH|SOL>/USDT --timeframe=1d --output=<PATH> --plugin=carry-baseline`
+         - Loads OHLCV + funding data, instantiates SignalBus + StrategyRegistry + CarryBaselinePlugin
+         - Runs the plugin against historical bars, collects emitted signals
+         - Outputs: per-bar signal log + final PnL using existing carry-leverage backtest logic
+         - Mimics `run-multi-class-baseline-v4.ts` pattern for CLI structure
+
+      10. `backtest-results/baseline-signal-center-bus-{btc,eth,sol}-1d.json` — 3 NEW backtest JSON files
+         - Each JSON: total return %, monthly return %, Sharpe, max DD %, total signals emitted (by kind), bus latency stats (backtest mode target: 0ms deterministic), carry timing entry count, avg effective leverage (must be ≤ 10), VaR 95% daily (must be ≤ 2%)
+         - **Reference comparison**: vs `baseline-multi-class-v4-{sym}-1d.json` (Phase 9 V4)
+         - Expected: very close to V4 results (we wrapped V4's carry in the signal center interface, didn't change logic)
+
+      11. `docs/research/phase10g-signal-bus.md` — empirical report (English research, Hungarian intro/conclusion OK)
+          - **Minimum 5-10 web queries** on: event-driven architecture for trading systems, pub/sub for financial signal routing, plugin architecture for quant systems, in-process message bus latency, type-safe discriminated unions in trading, signal bus patterns (Kafka/RabbitMQ/NATS), Reactor/Disruptor pattern for low-latency
+          - **≥3 independent sources per empirical claim**
+          - Empirical results table: 3 baseline × PnL, Sharpe, max DD, signal count by kind, latency stats
+          - Architecture diagram (text-based): SignalBus + Registry + CarryBaselinePlugin + Risk/Telemetry subscribers (Track B will wire in)
+          - Comparison: V4 baseline vs SC-bus baseline (architecture parity check)
+          - Type-safety analysis: how discriminated unions prevent runtime signal-type confusion
+          - 1:10 leverage invariant verification (≤10× across all 3 baselines)
+          - Deployment readiness: backtest mode vs live mode semantics, what changes for production
+          - Future drop-in plugin roadmap (Track B's risk engine will subscribe to all signals for cross-strategy monitoring)
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase10g-track-a
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green. Signal bus + registry modules should have ≥95% line + function coverage.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(core,backtest-tools): ÜGYNÖK Phase 10G Track A — signal bus + strategy registry + carry plugin
+
+      - signal-center/{signal-bus,strategy-registry,types}: typed pub/sub + plugin interface
+      - signal-center/plugins/carry-baseline-plugin: V4 carry wrapped as reference plugin
+      - 3 baseline JSON (BTC/ETH/SOL × 1d) — architecture parity vs V4
+      - 1:10 leverage invariant enforced at plugin level
+
+      Backtest results: <kulcs számok>"
+      git push -u origin feat/phase10g-track-a-signal-bus
+      ```
+
+      ### Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 10G Track A (signal bus + plugins) COMPLETE. <részletek, baseline numbers, signals emitted by kind>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that after all tracks land)
+      - **DO NOT** touch files outside your scope: signal-center/* + tests + CLI + baseline JSONs + phase10g-signal-bus.md + packages/core/src/index.ts (just exports)
+      - **1:10 leverage MANDATORY** — every emitted SizingSignal must respect the cap. Plugin metadata `maxLeverage: 10` is a hard assertion.
+      - **Decision autonomy**: pick the signal type set, the backtest/live mode semantics, and the plugin interface shape — document choices in the report with reasoning.
+      - **Honest report**: if the signal bus doesn't improve V4 (it shouldn't, it's plumbing), say so. The value is the platform, not the immediate envelope.
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Track A (Phase 10G signal bus + plugin registry) deliverables independently:
+
+      1. **Branch + commit**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase10g-track-a-signal-bus --oneline -3` shows a new commit; `git status` clean.
+      2. **Files exist**:
+         - `packages/core/src/signal-center/types.ts` (~150 LOC)
+         - `packages/core/src/signal-center/signal-bus.ts` (~250 LOC) + `.test.ts` (≥15 tests)
+         - `packages/core/src/signal-center/strategy-registry.ts` (~200 LOC) + `.test.ts` (≥10 tests)
+         - `packages/core/src/signal-center/plugins/carry-baseline-plugin.ts` (~300 LOC) + `.test.ts` (≥10 tests)
+         - `packages/backtest-tools/src/cli/run-signal-center-bus.ts` (~200 LOC)
+         - `backtest-results/baseline-signal-center-bus-{btc,eth,sol}-1d.json` (3 files)
+         - `docs/research/phase10g-signal-bus.md`
+         - `packages/core/src/index.ts` updated with new exports
+      3. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase10g-track-a`. ALL green.
+      4. **Test counts**: each `.test.ts` shows ≥10 tests (signal-bus ≥15), all pass.
+      5. **Type safety**: read `types.ts`, verify discriminated union covers all 4 Signal kinds with type guards.
+      6. **Bus determinism**: read `signal-bus.test.ts`, verify backtest-mode determinism is tested.
+      7. **Registry validation**: read `strategy-registry.test.ts`, verify aggregated config errors (not first-fail).
+      8. **1:10 leverage invariant**: read `carry-baseline-plugin.ts`, verify:
+         - Plugin metadata `maxLeverage: 10`
+         - Any emitted `SizingSignal.notional ≤ baseNotional × 10`
+         - Config validation rejects leverage > 10
+         - Test case explicitly asserts the invariant
+      9. **Backtest results**: SC-bus baseline monthly return should be within ±5% of `baseline-multi-class-v4-{sym}-1d.json` (architecture parity).
+      10. **Backtest discipline**: each baseline's VaR 95% daily ≤ 2%, avg effective leverage ≤ 10, zero liquidations.
+      11. **Source citations**: `phase10g-signal-bus.md` cites ≥3 independent sources per major claim, ≥5-10 web queries documented.
+      12. **Index.ts exports**: read `packages/core/src/index.ts`, confirm `SignalBus`, `StrategyRegistry`, `CarryBaselinePlugin`, Signal types are exported.
+
+      PASS only if ALL 12 checks pass. If FAIL, list specific failing check(s) with file paths and line numbers.
+    timeout_ms: 2700000  # 45min per Phase 8 lesson
+    max_retries: 2
+
+  # ============================================================
+  # TRACK B — Portfolio risk engine + telemetry
+  # Strategy Specialist agent (risk + observability domain)
+  # ============================================================
+  - id: 'phase10g-track-b-risk-telemetry'
+    title: 'Phase 10G Track B — Portfolio risk engine + per-strategy telemetry (Strategy Specialist)'
+    prompt: |
+      You are the **Strategy Specialist agent** working on Phase 10G Track B of the mm-crypto-bot project.
+      Your job: build the cross-strategy portfolio risk engine + per-strategy telemetry,
+      so the signal center has observability and the 1:10 leverage mandate has defense-in-depth.
+
+      ## Context — why this track exists
+      Phase 9 V4 had per-strategy VaR but no cross-strategy risk computation. If you compose
+      3-5 strategies, their individual Sharpe might look fine but the combined portfolio
+      could concentrate risk (correlated drawdowns, double-leveraged carry, etc.). Track B
+      builds the cross-strategy risk engine + telemetry that watches the WHOLE signal bus.
+
+      Read these files FIRST, in order:
+      1. `/Users/kiscsicska/projects/mm-crypto-bot/.mavis/notes/phase10-scope-plan.md` — scope plan (10G.3 + 10G.5 sections)
+      2. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/risk/vol-targeted-sizer.ts` — Phase 8 Track G (per-strategy sizing)
+      3. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/risk/kelly-adaptive.ts` — Phase 7 Track B (per-strategy Kelly)
+      4. `/Users/kiscsicska/projects/mm-crypto-bot/packages/core/src/strategy/multi-class-ensemble-v4.ts` — current V4 architecture
+      5. `/Users/kiscsicska/projects/mm-crypto-bot/backtest-results/REPORT-phase9.md` — V4 baseline numbers (for cross-strategy reference)
+      6. `/Users/kiscsicska/.mavis/agents/mavis/memory/MEMORY.md` — 1:10 mandate + risk discipline rules
+      7. Existing risk module patterns in `packages/core/src/risk/`
+
+      ## Your scope — Track B: Portfolio risk engine + telemetry
+
+      ### Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase10g-track-b`
+         - Create: `cd /Users/kiscsicska/projects/mm-crypto-bot && git worktree add .worktrees/wt-phase10g-track-b -b feat/phase10g-track-b-risk-telemetry main`
+      2. Branch yours alone
+
+      ### Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/risk/portfolio-risk-engine.ts` — NEW (~400 LOC)
+         - Subscribes to SignalBus events (`SizingSignal`, `CarrySignal`, `RiskSignal`, `DirectionSignal`)
+         - Maintains rolling 30d cross-strategy correlation matrix
+         - Computes:
+           - `portfolioVaR(signalStream, confidence=0.95): number` — daily VaR across all positions
+           - `crossStrategyCorrelation(): CorrelationMatrix` — Pearson correlations between per-strategy returns
+           - `aggregateDrawdown(state): number` — running portfolio drawdown (not per-strategy)
+           - `exposureBySymbol(): Map<Symbol, number>` — concentration check
+           - `leverageInvariantGuard(signal: SizingSignal): boolean` — returns false if signal would breach 1:10 mandate
+         - **1:10 MANDATORY ENFORCEMENT**: `leverageInvariantGuard` is the defense-in-depth layer
+           - Reads ALL active SizingSignals from bus snapshot
+           - Sum effective notionals → divide by base capital → assert ≤ 10×
+           - If breach detected, emits a `RiskSignal { kind: 'risk', drawdownLimit: ... , varDaily95: ... , source: 'leverage-invariant-guard' }`
+         - Position-size conflict resolver: when 2+ signals claim sizing for same symbol, take MIN (most conservative)
+
+      2. `packages/core/src/risk/leverage-invariant.ts` — NEW (~150 LOC)
+         - Extracted 1:10 mandate enforcement
+         - `assertLeverageInvariant(totalEffectiveNotional: number, baseCapital: number): void` — throws if > 10×
+         - `computeEffectiveLeverage(positions: Position[]): number` — helper
+         - `LeverageBreachError` class with details
+         - **THIS IS THE HARD GUARDRAIL** — referenced from memory rule, must be enforced at 3 layers: CLI parser, signal-center constructor, this invariant guard
+
+      3. `packages/core/src/risk/portfolio-risk-engine.test.ts` — NEW (≥15 unit tests)
+         - VaR computation correctness
+         - Correlation matrix rolling window
+         - Aggregate drawdown across N strategies
+         - Exposure concentration detection
+         - **Leverage invariant guard: 1:10 enforcement**, including:
+           - Single signal at 10× → OK
+           - Two signals summing to 11× → BREACH detected, RiskSignal emitted
+           - Reducing signal at 9× → under cap, OK
+         - Conflict resolver: 2 signals claim same symbol → min notional wins
+         - Empty bus snapshot → no breach
+         - Historical breach replay (load past signal stream, verify guard fires)
+         - Determinism
+         - Edge cases: 0 strategies, 1 strategy, 100 strategies
+
+      4. `packages/core/src/risk/leverage-invariant.test.ts` — NEW (≥10 unit tests)
+         - 10× exactly → no throw
+         - 10.001× → throw LeverageBreachError
+         - 1× → no throw
+         - 0× → no throw
+         - Negative notional → invalid (defensive)
+         - Zero capital → invalid (defensive)
+         - Compute effective leverage from positions array
+         - Edge cases: NaN, Infinity, very large numbers
+
+      5. `packages/core/src/telemetry/strategy-telemetry.ts` — NEW (~350 LOC)
+         - Per-strategy PnL attribution: which strategy contributed which dollars
+         - Per-strategy Sharpe + drawdown
+         - Cross-strategy correlation matrix (live updating)
+         - State snapshot for monitoring (JSON-serializable)
+         - Strategy kill-switch interface (disable a plugin mid-flight)
+         - CSV/JSON export for offline analysis
+         - Subscribes to all SignalBus events, derives attribution
+
+      6. `packages/core/src/telemetry/strategy-telemetry.test.ts` — NEW (≥10 unit tests)
+         - PnL attribution correctness across 2-3 strategies
+         - Per-strategy Sharpe rolling window
+         - Cross-strategy correlation update on each new bar
+         - State snapshot serializability
+         - Kill-switch: disable plugin mid-flight, verify no further signals emitted
+         - CSV export formatting
+         - JSON export schema
+         - Determinism
+         - Edge cases: 0 strategies, missing data, single bar
+
+      7. `packages/core/src/index.ts` — exports updated
+         - Add: `PortfolioRiskEngine`, `LeverageInvariantError`, `StrategyTelemetry`, types
+
+      8. `packages/backtest-tools/src/cli/run-portfolio-risk.ts` — NEW CLI runner (~250 LOC)
+         - Args: `--symbol=<BTC|ETH|SOL>/USDT --timeframe=1d --output=<PATH> --strategies=carry,mtf,vol-target`
+         - Loads OHLCV + funding data
+         - Instantiates: SignalBus + StrategyRegistry + PortfolioRiskEngine + StrategyTelemetry + 2-3 simple strategy plugins (use existing V4 strategies as pluggable strategies)
+         - Runs, emits risk + telemetry JSON per bar + final summary
+         - Mimics `run-multi-class-baseline-v4.ts` pattern
+
+      9. `backtest-results/baseline-portfolio-risk-{btc,eth,sol}-1d.json` — 3 NEW backtest JSON files
+         - Each JSON: portfolio VaR 95% daily (≤ 2%), per-strategy VaR, correlation matrix, aggregate drawdown, leverage invariant guard fires count, exposure by symbol, telemetry snapshot, kill-switch invocations (0 expected)
+         - **Reference comparison**: vs V4 per-strategy VaR (`baseline-multi-class-v4-{sym}-1d.json`)
+         - Demonstrates: cross-strategy risk = lower than sum of per-strategy risk (diversification)
+
+      10. `docs/research/phase10g-portfolio-risk.md` — empirical report (English research, Hungarian intro/conclusion OK)
+          - **Minimum 5-10 web queries** on: portfolio VaR vs per-strategy VaR, correlation matrix rolling windows, risk parity, Markowitz portfolio construction, Kelly with correlation matrix, real-time risk monitoring systems, kill-switch design patterns, observability for trading systems
+          - **≥3 independent sources per empirical claim**
+          - Empirical results table: 3 baseline × portfolio VaR, per-strategy VaR, correlation matrix, drawdown, leverage invariant fires
+          - Diversification analysis: portfolio VaR < sum of per-strategy VaR
+          - Kill-switch test: verify plugin can be disabled mid-flight
+          - 1:10 mandate enforcement verification (the guard fires on synthetic 11× signal)
+          - Comparison: per-strategy risk vs cross-strategy risk
+          - Deployment readiness
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase10g-track-b
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green. Risk + telemetry modules should have ≥95% line + function coverage.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(core,backtest-tools): ÜGYNÖK Phase 10G Track B — portfolio risk engine + telemetry
+
+      - risk/portfolio-risk-engine: cross-strategy VaR + correlation + exposure + leverage guard
+      - risk/leverage-invariant: 1:10 mandate hard guardrail (defense-in-depth layer 3)
+      - telemetry/strategy-telemetry: PnL attribution + Sharpe + kill-switch
+      - 3 baseline JSON (BTC/ETH/SOL × 1d) — diversification visible in portfolio VaR
+
+      Backtest results: <kulcs számok>"
+      git push -u origin feat/phase10g-track-b-risk-telemetry
+      ```
+
+      ### Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 10G Track B (portfolio risk + telemetry) COMPLETE. <részletek, baseline numbers, leverage guard fires>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that)
+      - **DO NOT** touch files outside your scope: risk/portfolio-risk-engine*, risk/leverage-invariant*, telemetry/* + tests + CLI + baseline JSONs + phase10g-portfolio-risk.md + packages/core/src/index.ts (just exports)
+      - **1:10 leverage MANDATORY** — `leverageInvariantGuard` MUST throw or emit RiskSignal on breach. Test must assert this.
+      - **CRITICAL**: this is the 3rd defense-in-depth layer for the 1:10 mandate (alongside CLI parser in Track A's backtest runner, V4 constructor). Document the layer in the report.
+      - **Decision autonomy**: pick VaR confidence (default 0.95), correlation window (default 30d), exposure concentration threshold (default 40% per symbol) based on literature + empirical crypto norms.
+    assigned_to: 'agent-5394bdd48751'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Track B (Phase 10G portfolio risk + telemetry) deliverables independently:
+
+      1. **Branch + commit**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase10g-track-b-risk-telemetry --oneline -3` shows a new commit; `git status` clean.
+      2. **Files exist**:
+         - `packages/core/src/risk/portfolio-risk-engine.ts` (~400 LOC) + `.test.ts` (≥15 tests)
+         - `packages/core/src/risk/leverage-invariant.ts` (~150 LOC) + `.test.ts` (≥10 tests)
+         - `packages/core/src/telemetry/strategy-telemetry.ts` (~350 LOC) + `.test.ts` (≥10 tests)
+         - `packages/backtest-tools/src/cli/run-portfolio-risk.ts` (~250 LOC)
+         - `backtest-results/baseline-portfolio-risk-{btc,eth,sol}-1d.json` (3 files)
+         - `docs/research/phase10g-portfolio-risk.md`
+         - `packages/core/src/index.ts` updated with new exports
+      3. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase10g-track-b`. ALL green.
+      4. **Test counts**: each `.test.ts` shows ≥10 tests (portfolio-risk-engine ≥15), all pass.
+      5. **CRITICAL — Leverage invariant**: read `leverage-invariant.ts` + tests, verify:
+         - `assertLeverageInvariant` throws `LeverageBreachError` if notional/baseCapital > 10
+         - Test asserts throw at 10.001×, no throw at 10×
+         - Test asserts throw at 11× (two 5.5× signals summing)
+      6. **CRITICAL — leverageInvariantGuard in PortfolioRiskEngine**: read source, verify it reads bus snapshot, sums effective notionals, asserts ≤ 10× base capital, emits RiskSignal on breach. Test must assert guard fires on synthetic breach.
+      7. **Cross-strategy correlation**: read `portfolio-risk-engine.ts`, verify rolling 30d correlation matrix implementation.
+      8. **Telemetry kill-switch**: read `strategy-telemetry.ts`, verify disable plugin mid-flight works. Test must assert no further signals after kill.
+      9. **Backtest discipline**: each baseline's portfolio VaR 95% daily ≤ 2%, leverage invariant guard fires count = 0 in normal run, kill-switch invocations = 0 in normal run.
+      10. **Diversification evidence**: portfolio VaR in baseline-portfolio-risk JSONs should be < sum of per-strategy VaR (correlation benefit).
+      11. **Source citations**: `phase10g-portfolio-risk.md` cites ≥3 independent sources per major claim, ≥5-10 web queries documented.
+      12. **Index.ts exports**: read `packages/core/src/index.ts`, confirm `PortfolioRiskEngine`, `LeverageInvariantError`, `StrategyTelemetry` are exported.
+
+      PASS only if ALL 12 checks pass. **Critical checks (#5, #6) failing = automatic FAIL of the entire track.**
+    timeout_ms: 2700000  # 45min per Phase 8 lesson
+    max_retries: 2
+
+  # ============================================================
+  # TRACK C (M2) — SCv1 ensemble integration + REPORT-phase10.md
+  # Coder agent — depends on Track A + Track B
+  # Combines: bus + registry + risk + telemetry + CarryBaselinePlugin → single entrypoint
+  # ============================================================
+  - id: 'phase10g-track-c-scv1-integration'
+    title: 'Phase 10G Track C (M2) — SCv1 ensemble integration + REPORT-phase10.md (Coder)'
+    prompt: |
+      You are the **Coder agent** working as the **integration owner** for Phase 10G Track C of the mm-crypto-bot project.
+      Your job: combine Track A (signal bus + plugin interface + carry plugin) and
+      Track B (portfolio risk + telemetry) into a single SCv1 ensemble, baseline it
+      on all 3 symbols, and write the authoritative REPORT-phase10.md.
+
+      ## Context
+      Phase 9 V4 multi-class ensemble delivered +4.95%/month AVG with -35.8% drawdown vs V3.
+      Phase 10G is a system redesign — not another strategy. SCv1 wraps V4's carry strategy
+      in the signal center interface. The expected envelope is close to V4 (architecture
+      parity), but the value is the platform for future drop-in plugins.
+
+      The 2 tracks to merge (BOTH PASSING VERIFIER):
+      - **Track A**: SignalBus + StrategyRegistry + CarryBaselinePlugin + types
+      - **Track B**: PortfolioRiskEngine + LeverageInvariant + StrategyTelemetry
+
+      ## Setup
+      1. Worktree: `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase10g-track-c`
+         - Create by merging both tracks + main:
+           ```
+           cd /Users/kiscsicska/projects/mm-crypto-bot
+           git worktree add .worktrees/wt-phase10g-track-c -b feat/phase10g-scv1-integration main
+           cd .worktrees/wt-phase10g-track-c
+           git merge feat/phase10g-track-a-signal-bus --no-ff -m "merge: Phase 10G Track A (signal bus + plugins)"
+           git merge feat/phase10g-track-b-risk-telemetry --no-ff -m "merge: Phase 10G Track B (risk + telemetry)"
+           bun install --frozen-lockfile
+           ```
+         - Resolve any trivial conflicts (different files, should be clean)
+         - If `bun.lock` conflict: take theirs (Track B newer), then `bun install` to regenerate
+      2. Run quality gates:
+         ```
+         bun run typecheck && bun run lint && bun run test && bun run coverage
+         ```
+         All must pass. If anything breaks from merge, fix it.
+
+      ## Deliverables (MUST PRODUCE ALL)
+      1. `packages/core/src/signal-center/signal-center-v1.ts` — NEW (~400 LOC)
+         - Single entrypoint that composes everything:
+           - `class SignalCenterV1`
+           - Constructor: `(config: SignalCenterV1Config)` — initializes SignalBus, StrategyRegistry, PortfolioRiskEngine, StrategyTelemetry
+           - `registerPlugin(plugin: StrategyPlugin): void` — delegates to registry, wires to bus
+           - `start(): void` — validates all configs (fails fast on breach), wires all subscribers
+           - `onBar(bar: Bar): void` — main update: dispatches to all registered plugins, collects signals, runs risk engine, updates telemetry
+           - `getTelemetrySnapshot(): TelemetrySnapshot` — JSON-serializable state
+           - `killPlugin(name: string): void` — runtime kill-switch via telemetry
+           - `getPortfolioRisk(): PortfolioRiskSnapshot` — VaR + correlation + drawdown + leverage guard status
+         - **CRITICAL 1:10 MANDATE**: 3-layer defense
+           - Layer 1: `validateConfig` rejects configs with `maxLeverage > 10`
+           - Layer 2: `start()` runs `assertLeverageInvariant` on all initial SizingSignals
+           - Layer 3: per-bar `onBar` runs `leverageInvariantGuard` on bus snapshot
+         - Mimic MultiClassEnsembleV4 architecture but with the bus/registry/risk/telemetry primitives
+
+      2. `packages/core/src/signal-center/signal-center-v1.test.ts` — NEW (≥15 unit tests)
+         - Constructor with valid config
+         - Constructor with invalid config (maxLeverage > 10) → throws
+         - Register + wire + start flow
+         - Multi-plugin composition (carry + future drop-in)
+         - onBar dispatches to all plugins, collects signals, runs risk, updates telemetry
+         - **3-layer 1:10 invariant verification**:
+           - Synthetic plugin emits 11× SizingSignal → risk guard fires → onBar throws or RiskSignal emitted
+           - Reducing signal at 9× → no breach
+         - killPlugin mid-flight → no further signals from that plugin
+         - Telemetry snapshot serializability
+         - Risk snapshot correctness
+         - Determinism (same input → same output)
+         - Edge cases: 0 plugins, 1 plugin, 100 plugins, missing data
+         - **100% line + function coverage target**
+
+      3. `packages/backtest-tools/src/cli/run-signal-center-v1.ts` — NEW CLI runner (~300 LOC)
+         - Args: `--symbol=<BTC|ETH|SOL>/USDT --timeframe=1d --output=<PATH> --plugins=carry-baseline`
+         - Loads OHLCV + funding data
+         - Instantiates SignalCenterV1 with CarryBaselinePlugin registered
+         - Runs the SCv1 against historical bars
+         - Outputs: per-bar telemetry snapshot + final PnL + portfolio risk summary
+         - Mimics `run-multi-class-baseline-v4.ts` pattern
+
+      4. `backtest-results/baseline-signal-center-v1-{btc,eth,sol}-1d.json` — 3 NEW backtest JSON files
+         - Each JSON: total return %, monthly return %, Sharpe, max DD %, portfolio VaR 95% daily (≤ 2%), per-strategy VaR, correlation matrix, aggregate drawdown, leverage invariant guard fires count (0 expected), telemetry snapshots count, kill-switch invocations (0 expected), avg effective leverage (≤ 10)
+         - **THE KEY COMPARISON**: vs `baseline-multi-class-v4-{sym}-1d.json` (Phase 9 V4 reference)
+         - Expected: SCv1 ≈ V4 (architecture parity) — if SCv1 is materially worse, the architecture overhead is too high
+
+      5. `packages/core/src/index.ts` — exports updated
+         - Add: `SignalCenterV1`, `DEFAULT_SIGNAL_CENTER_V1_CONFIG`, helper types
+         - Follow existing export patterns
+
+      6. `backtest-results/REPORT-phase10.md` — FINAL authoritative report (English research, Hungarian intro/conclusion OK)
+         - **This is the PRIMARY deliverable. Quality matters more than volume.**
+         - Sections (use REPORT-phase9.md as template):
+           - **§0 Phase 1-9 cumulative summary** (reference)
+           - **§1 TL;DR** — Signal Center shipped; SCv1 envelope = V4 baseline (architecture parity); Phase 11+ drop-ins are where the ceiling gets tested
+           - **§2 Track A empirical** — signal bus + plugin interface + carry baseline plugin
+           - **§3 Track B empirical** — portfolio risk engine + 1:10 leverage invariant (3-layer defense-in-depth)
+           - **§4 Track C (SCv1) empirical** — integration + per-bar telemetry
+           - **§5 SCv1 vs V4 architecture comparison** — overhead analysis (latency, complexity, value-add)
+           - **§6 Honest +50%/month verdict** — reframe: ceiling TBD empirically after Phase 11+ drop-ins ship
+           - **§7 Phase 11+ roadmap** — drop-in plugins prioritized (10G.2a-c: existing strategies as plugins, 10G.2d: cross-X arb, 10G.2e: options-vol)
+           - **§8 Realistic Phase 11+ envelope** — quantitative projection with citation backing
+           - **§9 Output deliverables checklist**
+           - **§10 References** — ≥10 sources with URLs, organized by section/track
+         - **≥3 independent sources per empirical claim** (5-10 web queries minimum per track = ≥25 total queries)
+         - **Quantitative tables over prose** — every claim backed by a number
+         - **Honest verdict** — if SCv1 envelope ≈ V4 (no improvement), say so with evidence; the value is the platform. Don't fake a lift.
+         - Length: 250-500 lines expected (similar to REPORT-phase9.md)
+
+      ### Quality gates (MUST PASS before commit)
+      ```bash
+      cd /Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-phase10g-track-c
+      bun install --frozen-lockfile
+      bun run typecheck
+      bun run lint
+      bun run test
+      bun run coverage
+      ```
+      ALL must be green. SCv1 module must have 100% line + function coverage.
+
+      ### Commit + push
+      ```
+      git add -A
+      git commit -m "feat(core,backtest,backtest-tools,reports): ÜGYNÖK Phase 10G M2 — SCv1 signal center + REPORT-phase10.md
+
+      - signal-center-v1: composes bus + registry + risk + telemetry into single entrypoint
+      - 3-layer 1:10 leverage invariant (config validation + start assertion + per-bar guard)
+      - 3 baseline JSON (BTC/ETH/SOL × 1d) — SCv1 vs V4 architecture parity
+      - REPORT-phase10.md: full empirical analysis with +50%/month reframe
+
+      Phase 1-9 cumulative: +0.52% → +0.85% → +2.09% → +5.28% → +4.95%/month (V4)
+      Phase 10G SCv1: <your result>/month (architecture parity target)"
+      git push -u origin feat/phase10g-scv1-integration
+      ```
+
+      ### Report back to root
+      ```
+      mavis communication send \
+        --from <YOUR_SESSION_ID> \
+        --to mvs_c13fe65cb68f4df3851304dea09a9099 \
+        --command prompt \
+        --content "PHASE 10G SCv1 Integration + REPORT-phase10.md COMPLETE.
+
+      Empirical results:
+      - BTC: <monthly>/month, Sharpe <x>, max DD <x>%, portfolio VaR <x>%
+      - ETH: <monthly>/month, Sharpe <x>, max DD <x>%, portfolio VaR <x>%
+      - SOL: <monthly>/month, Sharpe <x>, max DD <x>%, portfolio VaR <x>%
+      - AVG: <monthly>/month (vs V4 +4.95%/month = <delta>)
+
+      Architecture parity verdict: <PASS/PARTIAL/FAIL with reasoning>
+
+      +50%/month verdict: <VERDICT — ceiling TBD after Phase 11+ drop-ins ship, not 'structurally unreachable' a priori>
+
+      Recommended Phase 11+ scope: <prioritized drop-in plugin roadmap>"
+      ```
+
+      ### Important constraints
+      - **DO NOT** open a PR (root session does that)
+      - **DO NOT** modify any of the Track A/B files directly — merge them as-is; only add NEW SCv1 files
+      - **Honesty is the rule for the report** — if SCv1 ≈ V4 (no lift), say so. The value is the platform. Don't inflate numbers.
+      - **3-layer 1:10 defense-in-depth is MANDATORY**: config validation, start assertion, per-bar guard. Test must assert all 3 layers.
+      - **Decision autonomy**: pick the SCv1 default config (which plugins enabled, telemetry snapshot frequency, risk computation cadence) based on empirical baselines; document with reasoning
+    depends_on:
+      - 'phase10g-track-a-signal-bus-plugins'
+      - 'phase10g-track-b-risk-telemetry'
+    assigned_to: 'coder'
+    verified_by: verifier
+    verify_prompt: |
+      Verify Phase 10G SCv1 integration deliverables independently:
+
+      1. **Branch + merge**: `git -C /Users/kiscsicska/projects/mm-crypto-bot log feat/phase10g-scv1-integration --oneline -10` shows the merge commits for Tracks A/B plus the SCv1 integration commit. `git status` clean.
+      2. **All 2 tracks merged**:
+         - Read `wt-phase10g-track-c/packages/core/src/signal-center/signal-bus.ts` — confirms Track A bus exists
+         - Read `wt-phase10g-track-c/packages/core/src/signal-center/strategy-registry.ts` — confirms Track A registry exists
+         - Read `wt-phase10g-track-c/packages/core/src/signal-center/plugins/carry-baseline-plugin.ts` — confirms Track A reference plugin exists
+         - Read `wt-phase10g-track-c/packages/core/src/risk/portfolio-risk-engine.ts` — confirms Track B risk engine exists
+         - Read `wt-phase10g-track-c/packages/core/src/risk/leverage-invariant.ts` — confirms Track B invariant exists
+         - Read `wt-phase10g-track-c/packages/core/src/telemetry/strategy-telemetry.ts` — confirms Track B telemetry exists
+      3. **SCv1 files exist**:
+         - `packages/core/src/signal-center/signal-center-v1.ts` (~400 LOC)
+         - `packages/core/src/signal-center/signal-center-v1.test.ts` (≥15 tests)
+         - `packages/backtest-tools/src/cli/run-signal-center-v1.ts` (~300 LOC)
+         - `backtest-results/baseline-signal-center-v1-{btc,eth,sol}-1d.json` (3 files)
+         - `backtest-results/REPORT-phase10.md` (250-500 lines)
+      4. **SCv1 exports**: `packages/core/src/index.ts` exports `SignalCenterV1` and `DEFAULT_SIGNAL_CENTER_V1_CONFIG`
+      5. **Quality gates**: re-run `bun run typecheck && bun run lint && bun run test && bun run coverage` from `wt-phase10g-track-c`. ALL green.
+      6. **SCv1 test count**: `bun test packages/core/src/signal-center/signal-center-v1.test.ts` shows ≥15 tests, all pass.
+      7. **SCv1 coverage**: SCv1 module must have 100% line + function coverage (or ≥95% acceptable).
+      8. **CRITICAL — 3-layer 1:10 invariant**: read `signal-center-v1.ts` + tests, verify ALL THREE layers:
+         - Layer 1: config validation rejects `maxLeverage > 10`
+         - Layer 2: `start()` runs `assertLeverageInvariant` on initial SizingSignals
+         - Layer 3: per-bar `onBar` runs `leverageInvariantGuard` on bus snapshot, emits RiskSignal or throws on breach
+         - Tests must assert all 3 layers
+      9. **Architecture parity**: SCv1 baseline monthly AVG should be within ±10% of V4 AVG (+4.95%/month). If SCv1 is materially worse (>20% degradation), FAIL — the architecture overhead is too high.
+      10. **Backtest discipline**: each baseline's portfolio VaR 95% daily ≤ 2%, leverage invariant guard fires = 0 in normal run, kill-switch invocations = 0, avg effective leverage ≤ 10, zero liquidations.
+      11. **REPORT-phase10.md quality**:
+          - Length: 250-500 lines
+          - All 3 sections present (Track A, B, SCv1)
+          - Quantitative tables (not just prose) for empirical results
+          - ≥3 independent sources per major claim
+          - **+50%/month verdict is explicit and reframed**: NOT "structurally unreachable a priori" — instead "ceiling TBD empirically after Phase 11+ drop-ins ship"
+          - Phase 11+ drop-in roadmap is prioritized (10G.2a-c, then 10G.2d, 10G.2e)
+          - Realistic Phase 11+ envelope projection with citation backing
+      12. **Honesty check**: scan REPORT-phase10.md for inflated numbers. Compare total returns, Sharpe, max DD between REPORT and raw baselines — they must match. Architecture parity claim must be evidence-backed (not hand-waved).
+
+      PASS only if ALL 12 checks pass. **Critical check (#8) failing = automatic FAIL of the entire track.**
+    timeout_ms: 2700000  # 45min per Phase 8 lesson
+    max_retries: 2

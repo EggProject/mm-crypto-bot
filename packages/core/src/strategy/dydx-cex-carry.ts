@@ -71,7 +71,7 @@
 
 import type { Strategy, StrategyContext, StrategySignal } from "../types.js";
 import { ONE_TO_TEN_LEVERAGE } from "../risk/leverage-invariant.js";
-import type { FundingSnapshot } from "./funding-carry.js";
+import type { FundingSnapshot } from "./funding-snapshot.js";
 // Phase 30 LatencyGate live wiring — the dYdX-vs-CEX carry uses the
 // Phase 6 Track B `LatencyGate` to gate live funding accrual on
 // cross-venue round-trip latency.  When latency > threshold, the
