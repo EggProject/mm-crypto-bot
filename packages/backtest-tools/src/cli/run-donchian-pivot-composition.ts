@@ -271,13 +271,13 @@ async function main(): Promise<void> {
   // dilutes alpha to +2.05%/mo combined).  Emit a combined envelope
   // JSON summarizing the per-symbol results.
   const fs = await import("node:fs/promises");
-  const perSymbol: Array<{
+  const perSymbol: {
     readonly symbol: string;
     readonly result: BacktestResult;
     readonly monthlyReturn: number;
     readonly winRate: number;
     readonly totalMonths: number;
-  }> = [];
+  }[] = [];
   for (const symbol of args.symbols) {
     const outPath = `${args.outputDir}/dp-${consensusTag}-${symbol.replace("/", "-").toLowerCase()}-${args.maxPositionPctEquity}.json`;
     const r = await runSingle(args, dataDir, feed, symbol, outPath, consensusTag, tf);
