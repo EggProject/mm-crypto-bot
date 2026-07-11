@@ -1340,14 +1340,18 @@ export interface CascadeReplayObservation {
   readonly funding?: FundingRateInput;
   readonly elr?: ElrInput;
   readonly crossConfirmation?: CrossConfirmationInput;
-  /**
-   * Optional risk context. Replay scenarios that omit this field run
-   * with NO risk gates active (default `{}`). The 2025-10-10 benchmark
-   * fixture (see `run-cascade-replay-2025-10-10.ts`) does NOT inject
-   * kill-switches — we want to verify the detector ENTERS POST_CASCADE
-   * and FIRES an entry; kill-switch behavior is verified separately.
-   */
-  readonly risk?: RiskSnapshotInput;
+    /**
+     * Optional risk context. Replay scenarios that omit this field run
+     * with NO risk gates active (default `{}`).  Replay fixtures that
+     * verify the detector's cascade-state transitions omit
+     * kill-switches — we want to verify the detector ENTERS POST_CASCADE
+     * and FIRES an entry; kill-switch behavior is verified separately.
+     * (Phase 33 cleanup: the historical `run-cascade-replay-2025-10-10.ts`
+     * CLI has been removed per user mandate — automated live-test
+     * scaffolding is gone.  The `replayCascadeEvent` / `simulateBybitEuPaperFill`
+     * APIs remain for unit-test fixtures and ad-hoc validator review.)
+     */
+    readonly risk?: RiskSnapshotInput;
 }
 
 export interface CascadeReplayResult {
