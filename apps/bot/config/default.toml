@@ -1,0 +1,97 @@
+# mm-crypto-bot — default configuration
+# ======================================================================
+#
+# EGYETLEN config-file, ami a teljes botot vezérli. A séma
+# Zod-validált (lásd `apps/bot/src/config/schema.ts`).
+#
+# Használat:
+#   - Szerkeszd ezt a fájlt (vagy másold át pl. `config/prod.toml`)
+#   - Indítsd a botot: `mm-bot start --config=path/to/your.toml`
+#   - Ha nincs `--config`, a bot a beépített default-okkal indul
+#     (ami MEGEGYEZIK ezzel a fájllal).
+#
+# A `per-strategy enable/disable` a `[strategies.X]` blokkokban lévő
+# `enabled = true|false` flag-ekkel történik. A `false` érték
+# kikapcsolja a stratégiát: a bot NEM fogja példányosítani, és a
+# runtime loopban sem jelenik meg.
+#
+# A per-strategy `[strategies.X]` blokkokban a sémán túli mezők
+# (cap, leverage, symbols, timeframes, ...) forward-compatibilisen
+# átmennek (Zod `.passthrough()`), és a `strategy-registry.ts` factory-i
+# alkalmazzák őket a konstruktor-híváskor.
+#
+# ======================================================================
+# 1) BOT — indítási mód, log-szint, state-fájl
+# ======================================================================
+[bot]
+mode = "paper"        # "paper" | "live"  (env: BUN_ENV is felülírja)
+log_level = "info"    # "debug" | "info" | "warn" | "error"  (env: LOG_LEVEL)
+state_file = "data/bot-state.json"   # perzisztens state JSON-fájl
+
+# ======================================================================
+# 2) EXCHANGE — melyik exchange-re csatlakozunk
+# ======================================================================
+[exchange]
+id = "bybiteu"        # "bybiteu" | "mock"  (Phase 25 #2: bybit.eu SPOT margin)
+rate_limit_ms = 100   # CCXT rate-limit (ms/kérés); bybit.eu default 100
+sandbox = false       # bybit.eu SPOT — nincs valódi sandbox; mindig false
+
+# ======================================================================
+# 3) RISK — projekt-szintű kockázati limitek
+# ======================================================================
+[risk]
+risk_per_trade = 0.01     # 1% of equity per trade (Phase 14B target)
+kelly_fraction = 0.25     # 1/4-Kelly (konzervatív quarter-Kelly)
+max_drawdown_pct = 0.15   # 15% DD kill-switch (user mandate, Phase 14B)
+max_positions = 3         # 1 per symbol (BTC/ETH/SOL)
+max_leverage = 10         # 1:10 MANDATE (bybit.eu ceiling) — Zod enforces max 10
+
+# ======================================================================
+# 4) SYMBOLS — mely coin-okon kereskedünk
+# ======================================================================
+[symbols]
+enabled = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]   # CCXT unified formátumban
+
+# ======================================================================
+# 5) STRATEGIES — per-strategy enable/disable + per-strategy overrides
+# ======================================================================
+# Minden stratégia section-jében:
+#   - `enabled = true`  → a bot példányosítja és beregisztrálja
+#   - `enabled = false` → a bot NEM példányosítja (wire-up OFF)
+#
+# A séma forward-compatibilis: bármilyen új per-strategy mezőt
+# bevezethetünk anélkül, hogy a meglévő config-ok eltörnének.
+
+# --- 5.1) Donchian + Pivot 2-component composition (Phase 18 baseline) ---
+[strategies.donchian_pivot_composition]
+enabled = true
+cap = 0.20                # max position as fraction of equity
+min_consensus = 1         # 1-of-2 (loose) or 2 (strict)
+symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
+
+# --- 5.2) dYdX-vs-CEX cross-venue funding carry (Phase 25 #2 T2) ---
+[strategies.dydx_cex_carry]
+enabled = true             # BTC-USD only (per Phase 25 #2 scope lock)
+cap = 0.025                # 1/2 of §7.3 spec value 0.05
+notional_per_leg_usd = 125000   # $125k/leg (1/2 of §7.3 spec $250k)
+
+# --- 5.3) Liquidation cascade "fade-the-cascade" (Phase 25 #2 T2D) ---
+[strategies.cascade_fade]
+enabled = true
+max_notional_per_event_usd = 1000000   # $1M/event (per-event cap)
+cooldown_hours = 24                   # 24h cooldown between BTC entries
+
+# --- 5.4) SOL funding-flip kill-switch (defensive opt-in) ---
+[strategies.funding_flip_kill_switch]
+enabled = false            # SOL-only; defensive drop-in
+
+# --- 5.5) HMM 3-state regime-detector meta-plugin (opt-in) ---
+[strategies.regime_detector]
+enabled = false            # meta-plugin; sized via SizingSignal modifiers
+
+# ======================================================================
+# 6) TELEMETRY — log-könyvtár, metrika-intervallum
+# ======================================================================
+[telemetry]
+log_dir = "logs/bot"
+metrics_interval_sec = 60   # 1 perc — per-strategy stats frissítés

@@ -36,6 +36,7 @@
         "@mm-crypto-bot/exchange": "workspace:*",
         "@mm-crypto-bot/paper": "workspace:*",
         "@mm-crypto-bot/shared": "workspace:*",
+        "zod": "3.25.76",
       },
       "devDependencies": {
         "@types/bun": "1.3.14",
