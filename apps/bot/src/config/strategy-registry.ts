@@ -166,7 +166,6 @@ function buildDydxCexCarryConfig(
   readonly fundingSource: DydxFundingSource;
   readonly killSwitch: typeof DEFAULT_DYDX_CEX_CARRY_CONFIG.killSwitch;
   readonly precondition: typeof DEFAULT_DYDX_CEX_CARRY_CONFIG.precondition;
-  readonly paperTradeDaysRequired: number;
   readonly latencyArbThresholdMs: number;
   readonly latencySource: null;
 } {
@@ -190,7 +189,6 @@ function buildDydxCexCarryConfig(
     fundingSource,
     killSwitch: DEFAULT_DYDX_CEX_CARRY_CONFIG.killSwitch,
     precondition: DEFAULT_DYDX_CEX_CARRY_CONFIG.precondition,
-    paperTradeDaysRequired: DEFAULT_DYDX_CEX_CARRY_CONFIG.paperTradeDaysRequired,
     latencyArbThresholdMs: DEFAULT_DYDX_CEX_CARRY_CONFIG.latencyArbThresholdMs,
     latencySource: null,
   };
