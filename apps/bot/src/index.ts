@@ -2,68 +2,73 @@
 /**
  * apps/bot/src/index.ts
  *
- * A mm-crypto-bot CLI entry pointja.
+ * A mm-crypto-bot CLI entry pointja — Phase 33 Track C (Bot runtime).
  *
- * A PR #5 (exchange-paper) szallitas fokozataban a bot csak az exchange
- * feed-et inditja el a megadott mod-ban. A paper-trader, a strategia-motor
- * es a backtest bekotes a kovetkezo PR-okben valik meg (lasd
- * docs/research/selected-strategy.md).
+ * A bot most már TÉNYLEGESEN indítható: betölti a konfigot, megnyitja
+ * az exchange feed-et (paper/live), példányosítja a stratégiákat, és
+ * elindítja a futási ciklust. A `mm-bot` bináris ezt a fájlt futtatja.
  *
- * Modusok:
- *   (default)   Paper feed inditasa a CCXT Pro bybit.eu WS-re epulve.
- *   --mock      A belsos mock feed (teszteleshez / smoke teszthez).
- *   --live      Figyelmezteto uzenet — a live driver meg nincs implementalva.
+ * Használat:
+ *   bun run dev --workspace=apps/bot -- --config=path/to/config.toml
+ *   bun run dev --workspace=apps/bot --        # default config
  *
- * Pelda:
- *   bun run dev --workspace=apps/bot -- --mock
- *   bun run dev --workspace=apps/bot --        # paper feed CCXT Pro-val
+ * A `process.argv`-ban:
+ *   --config=<path>     TOML config file
+ *   --mode=<paper|live> bot mode override
+ *
+ * A SIGINT/SIGTERM signalok graceful shutdown-t indítanak (a Bot
+ * saját signal-handler-e a Phase 33 Track D CLI-ban kerül kiépítésre;
+ * itt a process default-ja lép életbe, ami a process exit előtt a
+ * `bot.stop()`-ot hívja — a Bot.stop() cleanup-ja lezárja a feed-et,
+ * flush-eli a state-et, és a process kilép).
  */
 
-import { detectExchangeEnv } from "@mm-crypto-bot/exchange";
-import { createExchangeClient } from "@mm-crypto-bot/exchange";
+import { loadBotConfig, ConfigError } from "./config/index.js";
+import { Bot } from "./bot/bot.js";
 
-interface CliArgs {
-  mode?: "paper" | "live" | "mock";
-}
-
-function parseArgs(argv: readonly string[]): CliArgs {
-  const args: CliArgs = {};
+function parseArgs(argv: readonly string[]): { readonly configPath?: string } {
+  const args: { configPath?: string } = {};
   for (const arg of argv) {
-    if (arg === "--mock") args.mode = "mock";
-    else if (arg === "--live") args.mode = "live";
-    else if (arg === "--paper") args.mode = "paper";
+    if (arg.startsWith("--config=")) {
+      const value = arg.slice("--config=".length);
+      if (value.length > 0) {
+        args.configPath = value;
+      }
+    }
   }
   return args;
 }
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const env = detectExchangeEnv();
-  const mode = args.mode ?? (env === "live" ? "live" : "paper");
 
-  console.log("[bot] starting", { mode, env });
-
-  if (mode === "live") {
-    console.warn("[bot] LIVE MODE - valos penzmozgas! Megerosites kell a deploy elott.");
-    console.warn("[bot] A live driver meg nincs implementalva — hasznald a --paper vagy --mock -ot.");
-    return;
-  }
-
-  const useMock = mode === "mock";
-  const feed = createExchangeClient({ useMock });
-  await feed.open();
-
+  let config;
   try {
-    console.log(`[bot] ${mode} feed elinditva — Ctrl+C a leallitashoz`);
-    // A kovetkezo PR-okban: PaperTrader inditasa, strategia-motor bekotese.
-    // Ideiglenesen egy vegten pending Promise-on varunk, hogy a process
-    // eletben maradjon a feed leallasaig.
-    await new Promise<void>(() => {
-      /* idle - SIGINT-re process exit */
-    });
-  } finally {
-    await feed.close();
+    config = loadBotConfig(args.configPath);
+  } catch (err) {
+    if (err instanceof ConfigError) {
+      console.error(`[bot] config error: ${err.message}`);
+      process.exitCode = 1;
+      return;
+    }
+    throw err;
   }
+
+  const bot = new Bot({ config });
+  // Graceful shutdown on SIGINT/SIGTERM.
+  let stopping = false;
+  const onSignal = (sig: NodeJS.Signals): void => {
+    if (stopping) return;
+    stopping = true;
+    console.log(`[bot] received ${sig} — initiating graceful shutdown`);
+    void bot.stop().then(() => {
+      process.exit(0);
+    });
+  };
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+
+  await bot.start();
 }
 
-await main();
+void main();
