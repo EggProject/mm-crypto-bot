@@ -12,13 +12,25 @@
 //    bybit.eu SPOT adapter in live mode).
 //  - Logs hypothetical fills at the configured notional per leg, the
 //    configured cap, and the bybit.eu SPOT slippage model.
-//  - Enforces the **7-day paper-trade gate** (per orchestrator steer
-//    2026-07-08 04:09 Budapest): no live orders until
-//    `paperTradeDayCount ≥ 7` AND all 3 pre-conditions satisfied
-//    for their full duration.
 //  - Re-evaluates the 4 kill-switches every funding tick + every chain
 //    heartbeat + every bybit.eu SPOT depth observation.
 //  - Produces a structured `PaperTradeReport` for validator review.
+//
+// ============================================================================
+// PHASE 33 CLEANUP (2026-07-11) — user mandate
+// ============================================================================
+//
+// Per user mandate "minden live test dolgot torolj, azt majd en vegzem!",
+// the auto-promote 7-day paper-trade gate has been removed from the
+// strategy + runner.  The runner no longer:
+//   - calls `strategy.incrementPaperTradeDay()` (removed)
+//   - branches on `gateResult.gateOpened` (removed)
+//   - gates hypothetical fills on `strategy.state.liveOrdersEnabled` (removed)
+//
+// The runner is still useful for offline backtest / validator review:
+// fills are produced whenever the strategy is "in carry" (not halted by
+// any of the 4 kill-switches).  The live-vs-paper decision is now a
+// bot-runtime concern (Track C in Phase 33 plan).
 //
 // ============================================================================
 // INTEGRATION
@@ -27,12 +39,12 @@
 // The paper-trade runner does NOT call the Strategy's `onCandle()` (which
 // the engine owns).  It calls the strategy's recordFundingTick /
 // recordChainHeartbeat / recordBybitEuLiquidity / recordPreconditionReverify
-// / incrementPaperTradeDay API.  The Strategy's `onCandle()` is called by
-// the backtest engine or signal-center separately.
+// API.  The Strategy's `onCandle()` is called by the backtest engine or
+// signal-center separately.
 //
 // Usage:
 //   const runner = new DydxCexCarryPaperTrader(strategy, fillSimulator);
-//   const report = await runner.runForDays(7, /* fundingSource */ mockSource);
+//   const report = runner.runForDays(7, /* fundingSource */ mockSource);
 
 import type { FundingSnapshot } from "./funding-snapshot.js";
 import type {
@@ -104,7 +116,6 @@ export interface PaperTradeReport {
   readonly chainHeartbeatsRecorded: number;
   readonly bybitEuDepthObservations: number;
   readonly preconditionReverifications: number;
-  readonly paperTradeGateOpened: boolean;
   readonly totalAccruedFundingUsd: number;
   readonly totalFillCount: number;
   readonly totalFilledNotionalUsd: number;
@@ -287,8 +298,10 @@ export class DydxCexCarryPaperTrader {
           }
 
           // 2) Hypothetical fill — log a paper-trade fill on each tick
-          //    if the strategy is "in carry" (gate open + no halt).
-          if (this.strategy.state.liveOrdersEnabled && !this.strategy.isHalted()) {
+          //    if the strategy is "in carry" (not halted).  Phase 33:
+          //    paper-trade mode is implicit (no auto-promote gate);
+          //    the strategy decides entry via onCandle + kill-switches.
+          if (!this.strategy.isHalted()) {
             const notional = this.strategy.effectiveNotionalUsd();
             const mid = this.fillSimulator.midPriceUsd(currentMs);
             const slipBps = this.fillSimulator.slippageBps(notional, currentMs);
@@ -354,16 +367,15 @@ export class DydxCexCarryPaperTrader {
           nextPrecondReverifyMs += precondReverifyMs;
         }
 
-        // 6) Day-counter increment — once per 24h of sim time.
-        //    Use Math.floor-based day index so the increment is robust
-        //    to arbitrary tickIntervalMs values.
+        // 6) Day-counter bookkeeping — once per 24h of sim time.
+        //    Phase 33 cleanup: the auto-promote `incrementPaperTradeDay`
+        //    call is gone.  We only count days locally for the
+        //    `daysCompleted` telemetry field.  Use Math.floor-based
+        //    day index so the counter is robust to arbitrary
+        //    tickIntervalMs values.
         const dayIndex = Math.floor((currentMs - startMs) / (24 * 60 * 60 * 1000));
         if (dayIndex > 0 && dayIndex !== lastDayIndex) {
           lastDayIndex = dayIndex;
-          const gateResult = this.strategy.incrementPaperTradeDay(currentMs);
-          if (gateResult.gateOpened) {
-            // gate opened — paper-trade phase complete.
-          }
         }
 
         // 7) Halt check.
@@ -405,12 +417,11 @@ export class DydxCexCarryPaperTrader {
       market: this.strategy.config.market,
       startMs,
       endMs,
-      daysCompleted: this.strategy.state.paperTradeDayCount,
+      daysCompleted: lastDayIndex,
       fundingTicksRecorded: ticksRecorded,
       chainHeartbeatsRecorded: heartbeatsRecorded,
       bybitEuDepthObservations: depthObservations,
       preconditionReverifications: precondReverifications,
-      paperTradeGateOpened: this.strategy.state.liveOrdersEnabled,
       totalAccruedFundingUsd,
       totalFillCount: this.fills.length,
       totalFilledNotionalUsd,

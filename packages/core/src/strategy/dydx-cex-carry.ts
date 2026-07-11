@@ -13,9 +13,6 @@
 //    target, not undershoot.  Empirically calibrated to T1 +9.30/+6.67/+3.30
 //    %/mo for BTC across 3 windows.
 //  - $125k/leg (1/2 of §7.3 spec $250k).
-//  - 7-day paper-trade MANDATORY gate before any live order (per orchestrator
-//    steer).  No live orders until paper-trade emits a clean 7-day run with
-//    all risk gates green.
 //  - Sparse-data guard on the 7-day compression kill-switch (T1 backtests
 //    all fired `killSwitch7DayCompressionTriggered = true` for sparse-data
 //    false positives — guard requires a minimum tick-density per window
@@ -23,6 +20,30 @@
 //  - Regulatory caveat (MiCAR / non-MiCAR dYdX v4): dYdX v4 is non-MiCAR,
 //    so bybit.eu SPOT is the execution layer; dYdX v4 is signal/data only.
 //    See deliverable.md §Regulatory.
+//
+// ============================================================================
+// PHASE 33 CLEANUP (2026-07-11) — user mandate
+// ============================================================================
+//
+// User directive 2026-07-11 23:42 Budapest: "minden live test dolgot torolj,
+// azt majd en vegzem!"  →  removed the auto-promote 7-day paper-trade gate
+// (the strategy no longer auto-opens live orders).  The user runs live
+// tests manually; the strategy emits entry signals whenever its
+// kill-switches + latency gate + pre-conditions allow.  The paper-trade
+// runner (dydx-cex-carry.paper-trade.ts) remains for offline backtest /
+// validator review but no longer auto-promotes.
+//
+//  - REMOVED: `state.liveOrdersEnabled`, `state.paperTradeDayCount`,
+//    `incrementPaperTradeDay()`, `config.paperTradeDaysRequired`.
+//  - KEEP: 4 kill-switches (indexer-stale, chain-non-finalized,
+//    divergence-7d-compression, bybit-eu-spot-thin) — runtime risk
+//    management, not test scaffolding.
+//  - KEEP: 3 pre-conditions (live-divergence, chain-incident-clear,
+//    no-recent-governance) — runtime pre-condition verdicts, not test
+//    scaffolding.
+//  - KEEP: LatencyGate (Phase 30) — runtime latency-aware funding.
+//  - KEEP: `recordFundingTick` / `recordChainHeartbeat` /
+//    `recordBybitEuLiquidity` / `runForDays` — the funding-tracker core.
 //
 // ============================================================================
 // REFERENCES (full citations in docs/research/phase25/track-b/sources.md)
@@ -51,18 +72,18 @@
 // Phase 6 `FundingCarryStrategy`, it emits ONE "buy" signal on the first
 // valid candle so the engine has a position to track.  The actual carry
 // P&L is computed by `DydxCexCarryPaperTrader` (dydx-cex-carry.paper-trade.ts)
-// via the pure-functional `accrueFunding` / `recordFundingTick` /
-// `recordChainHeartbeat` / `recordBybitEuLiquidity` API.
+// via the pure-functional `recordFundingTick` / `recordChainHeartbeat` /
+// `recordBybitEuLiquidity` API.
 //
-// Three persistence layers — the strategy rolls state forward across
-// restarts so the 7-day paper-trade gate and the 7-day compression
-// kill-switch survive process restarts:
+// Persistence — the strategy rolls state forward across restarts so the
+// pre-conditions and the 7-day compression kill-switch survive process
+// restarts:
 //
-//   - `state.preconditionTracker` (PreconditionsState) — durable per-symbol
+//   - `state.preconditions` (PreconditionsState) — durable per-symbol
 //     pre-condition verdicts + first-observed timestamp
-//   - `state.compressionWindowDays` (string[] of YYYY-MM-DD) — rolling 7-day
-//     window of "compressed" days, used by the 7-day compression kill-switch
-//   - `state.tickDensityTracker` (TickDensityState) — per-window sparse-data
+//   - `state.compressedDayStreak` — rolling 7-day window of "compressed"
+//     days, used by the 7-day compression kill-switch
+//   - `state.tickDensity` (TickDensityState) — per-window sparse-data
 //     guard counters
 //
 // To make a strategy instance durable across restarts, snapshot the
@@ -521,8 +542,6 @@ export interface DydxCexCarryConfig {
   readonly killSwitch: KillSwitchConfig;
   /** Pre-condition config. */
   readonly precondition: PreconditionConfig;
-  /** Number of paper-trade days required before live orders (7 per orchestrator steer). */
-  readonly paperTradeDaysRequired: number;
   /**
    * `latencyArbThresholdMs` — Phase 30 LatencyGate live wiring.  Max
    * allowed cross-venue round-trip latency in ms above which the
@@ -583,7 +602,6 @@ export const DEFAULT_DYDX_CEX_CARRY_CONFIG: Omit<
   leverage: 10, // 1:10 HARD GUARDRAIL — locked.
   killSwitch: DEFAULT_KILL_SWITCH_CONFIG,
   precondition: DEFAULT_PRECONDITION_CONFIG,
-  paperTradeDaysRequired: 7,
   // Phase 30: LatencyGate defaults.  500ms matches Phase 6 Track B
   // empirical cutoff (backtest-results/arb-latency-*.json samples
   // showed P95 round-trip 1027ms binance-bybit, 1792ms max).  When
@@ -631,10 +649,6 @@ export const DEFAULT_DYDX_CEX_CARRY_CONFIG: Omit<
     firstTickMs: number | null;
     /** First observed chain-finalized block (ms).  null = never. */
     firstChainBlockMs: number | null;
-    /** Live-trading-mode flag — true when paper-trade gate has been cleared. */
-    liveOrdersEnabled: boolean;
-    /** Number of paper-trade days accumulated. */
-    paperTradeDayCount: number;
     /** Last day (YYYY-MM-DD) we updated the divergence streak for.  null = never. */
     lastDivergenceDay: string | null;
     /** Running compressed flag for the current day bucket. */
@@ -644,9 +658,8 @@ export const DEFAULT_DYDX_CEX_CARRY_CONFIG: Omit<
      * strategy's internal gate, rebuilt whenever a new `LatencySnapshot`
      * is recorded.  When `null`, the gate is the
      * `DEFAULT_LATENCY_GATE_DISABLED` sentinel (always allows carry).
-     * The constructor seeds this with a disabled gate; `liveOrdersEnabled`
-     * does NOT auto-enable latency gating (it stays disabled until
-     * `recordLatencySnapshot()` is called).
+     * The constructor seeds this with a disabled gate.  Latency gating
+     * stays disabled until `recordLatencySnapshot()` is called.
      *
      * NOTE: This field is NOT serialized by `serializeState()` — it
      * contains a function (`isCarryAllowed`) that JSON can't represent.
@@ -746,11 +759,6 @@ export class DydxCexCarryStrategy implements Strategy {
         `[DydxCexCarryStrategy] capFraction must be in (0, 0.5], got ${String(merged.capFraction)}`,
       );
     }
-    if (merged.paperTradeDaysRequired < 0) {
-      throw new Error(
-        `[DydxCexCarryStrategy] paperTradeDaysRequired must be ≥ 0, got ${String(merged.paperTradeDaysRequired)}`,
-      );
-    }
     // Phase 30: LatencyGate threshold validation.  Allow
     // `Number.POSITIVE_INFINITY` to explicitly disable latency gating.
     if (
@@ -780,8 +788,6 @@ export class DydxCexCarryStrategy implements Strategy {
       compressedDayStreak: 0,
       firstTickMs: null,
       firstChainBlockMs: null,
-      liveOrdersEnabled: false,
-      paperTradeDayCount: 0,
       lastDivergenceDay: null,
       currentDayCompressed: false,
       // Phase 30: LatencyGate seeded in the disabled state.  The gate
@@ -815,8 +821,6 @@ export class DydxCexCarryStrategy implements Strategy {
     s.state.compressedDayStreak = snapshot.compressedDayStreak;
     s.state.firstTickMs = snapshot.firstTickMs;
     s.state.firstChainBlockMs = snapshot.firstChainBlockMs;
-    s.state.liveOrdersEnabled = snapshot.liveOrdersEnabled;
-    s.state.paperTradeDayCount = snapshot.paperTradeDayCount;
     s.state.lastDivergenceDay = snapshot.lastDivergenceDay;
     s.state.currentDayCompressed = snapshot.currentDayCompressed;
     // Phase 30: LatencyGate state.  Pre-Phase-30 snapshots won't have
@@ -872,11 +876,17 @@ export class DydxCexCarryStrategy implements Strategy {
    * The actual carry P&L is computed by the paper-trade runner
    * via `recordFundingTick()`.
    *
-   * When the live-orders gate is closed (paper-trade not yet
-   * completed) we DO NOT emit the buy signal — the engine sees
-   * `null` and stays flat.  When the gate opens, we emit.  When
-   * any kill-switch fires, we DO emit a `side: "sell"` to close
-   * the position (defensive).
+   * Phase 33 cleanup: the auto-promote 7-day paper-trade gate has been
+   * removed (user mandate 2026-07-11).  The strategy now emits an
+   * entry signal whenever:
+   *  - warmup is satisfied
+   *  - the 4 kill-switches don't halt
+   *  - latency is not paused
+   *  - the strategy is not already in carry
+   * The live-vs-paper decision is a bot-runtime concern (Track C).
+   *
+   * When any HALT kill-switch fires, we DO emit a `side: "sell"` to
+   * close the position (defensive).
    */
   onCandle(ctx: StrategyContext): StrategySignal | null {
     if (ctx.candleIndex < this.warmup()) {
@@ -901,11 +911,6 @@ export class DydxCexCarryStrategy implements Strategy {
           takeProfit: ctx.candle.close * 0.99,
         };
       }
-    }
-    // Paper-trade gate not yet cleared? → stay flat.
-    if (!this.state.liveOrdersEnabled) {
-      this.state.lastMarkPrice = ctx.candle.close;
-      return null;
     }
     // Already in carry? → hold.  Note: latency pause does NOT
     // auto-close a position — the carry keeps accruing at the
@@ -1171,26 +1176,6 @@ export class DydxCexCarryStrategy implements Strategy {
   }
 
   /**
-   * `incrementPaperTradeDay` — increment the paper-trade day counter
-   * and open the live-orders gate when the configured threshold is
-   * reached.  Called by the live layer once per day.
-   */
-  incrementPaperTradeDay(nowMs: number): { readonly gateOpened: boolean } {
-    this.state.paperTradeDayCount += 1;
-    const preOk = allPreconditionsSatisfied(
-      this.state.preconditions,
-      nowMs,
-      this.config.precondition,
-    );
-    const reached = this.state.paperTradeDayCount >= this.config.paperTradeDaysRequired;
-    if (reached && preOk.ok && !this.state.liveOrdersEnabled) {
-      this.state.liveOrdersEnabled = true;
-      return { gateOpened: true };
-    }
-    return { gateOpened: false };
-  }
-
-  /**
    * `isHalted` — true iff any HALT kill-switch (indexer-stale,
    * chain-non-finalized, divergence-7d-compression) is engaged.
    * The bybit-eu-spot-thin switch REDUCES sizing instead of
@@ -1251,8 +1236,6 @@ export class DydxCexCarryStrategy implements Strategy {
     this.state.compressedDayStreak = 0;
     this.state.firstTickMs = null;
     this.state.firstChainBlockMs = null;
-    this.state.liveOrdersEnabled = false;
-    this.state.paperTradeDayCount = 0;
     this.state.lastDivergenceDay = null;
     this.state.currentDayCompressed = false;
     // Phase 30: LatencyGate reset.  Returns to disabled sentinel —

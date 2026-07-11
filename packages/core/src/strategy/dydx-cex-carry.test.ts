@@ -13,51 +13,43 @@
 //   5.  notionalPerLegUsd ≤ 0 throws
 //   6.  capFraction > 0.5 throws
 //   7.  capFraction ≤ 0 throws
-//   8.  paperTradeDaysRequired < 0 throws
 // ============================================================================
 // KILL-SWITCHES (pure-functional evaluator)
-//   9.  indexer-stale fires when stale > 5min
-//   10. indexer-stale fires when no tick ever
-//   11. indexer-stale does NOT fire when fresh
-//   12. chain-non-finalized fires when > 10min
-//   13. chain-non-finalized fires when no block ever
-//   14. divergence-7d-compression fires when streak=7 AND density ≥ 168
-//   15. divergence-7d-compression does NOT fire when streak=7 but density < 168
+//   8.  indexer-stale fires when stale > 5min
+//   9.  indexer-stale fires when no tick ever
+//   10. indexer-stale does NOT fire when fresh
+//   11. chain-non-finalized fires when > 10min
+//   12. chain-non-finalized fires when no block ever
+//   13. divergence-7d-compression fires when streak=7 AND density ≥ 168
+//   14. divergence-7d-compression does NOT fire when streak=7 but density < 168
 //       (SPARSE-DATA GUARD — T1 false-positive fix)
-//   16. divergence-7d-compression does NOT fire when streak < 7
-//   17. bybit-eu-spot-thin fires when depth < $100k
-//   18. bybit-eu-spot-thin does NOT fire when depth ≥ $100k
-//   19. bybit-eu-spot-thin does NOT fire when depth unknown
+//   15. divergence-7d-compression does NOT fire when streak < 7
+//   16. bybit-eu-spot-thin fires when depth < $100k
+//   17. bybit-eu-spot-thin does NOT fire when depth ≥ $100k
+//   18. bybit-eu-spot-thin does NOT fire when depth unknown
 // ============================================================================
 // PRE-CONDITIONS (3 pre-conditions + duration gates)
-//   20. allPreconditionsSatisfied returns ok=true after full duration
-//   21. allPreconditionsSatisfied returns ok=false when one is not satisfied
-//   22. live-divergence needs ≥ 7d sustained
-//   23. chain-incident-clear needs ≥ 72h sustained
-//   24. no-recent-governance needs ≥ 14d sustained
+//   19. allPreconditionsSatisfied returns ok=true after full duration
+//   20. allPreconditionsSatisfied returns ok=false when one is not satisfied
+//   21. live-divergence needs ≥ 7d sustained
+//   22. chain-incident-clear needs ≥ 72h sustained
+//   23. no-recent-governance needs ≥ 14d sustained
 // ============================================================================
 // STATE PERSISTENCE (across restarts)
-//   25. serializeState / fromSnapshot round-trip preserves all sub-trackers
-//   26. preconditions state persists across restart (no reset)
-//   27. tickDensity persists across restart
-//   28. paperTradeDayCount persists across restart
-//   29. liveOrdersEnabled persists across restart
-// ============================================================================
-// PAPER-TRADE GATE
-//   30. Paper-trade gate does NOT open on day 0
-//   31. Paper-trade gate opens on day 7 when all 3 pre-conditions satisfied
-//   32. Paper-trade gate does NOT open if chain-incident-clear duration < 72h
-//   33. Paper-trade gate does NOT open on a 6-day run (orchestrator: 7-day MANDATORY)
+//   24. serializeState / fromSnapshot round-trip preserves all sub-trackers
+//   25. preconditions state persists across restart (no reset)
+//   26. tickDensity persists across restart
+//   27. funding periods + lastMarkPrice persist across restart
 // ============================================================================
 // WIRE-UP INTEGRITY (Phase 19 #1 cap=0.20 BTC anchor)
-//   34. BTC-only market assertion (no ETH/SOL plumbing)
-//   35. Strategy name includes Phase 25 #2 T2 marker
+//   28. BTC-only market assertion (no ETH/SOL plumbing)
+//   29. Strategy name includes Phase 25 #2 T2 marker
 // ============================================================================
 // INTEGRATION (live WS → strategy → paper-trade P&L, mocked exchange)
-//   36. End-to-end 7-day paper-trade run with mock source produces report
-//   37. Indexer-stale during run halts and populates haltReason
-//   38. bybit-eu-thin reduces effective notional by 50%
-//   39. Funding accrual is zero when halted
+//   30. End-to-end 7-day paper-trade run with mock source produces report
+//   31. Indexer-stale during run halts and populates haltReason
+//   32. bybit-eu-thin reduces effective notional by 50%
+//   33. Funding accrual is zero when halted
 // ============================================================================
 
 import { describe, expect, it } from "bun:test";
@@ -204,7 +196,6 @@ describe("DydxCexCarryStrategy — config invariants", () => {
     expect(DEFAULT_DYDX_CEX_CARRY_CONFIG.notionalPerLegUsd).toBe(125_000);
     expect(DEFAULT_DYDX_CEX_CARRY_CONFIG.capFraction).toBe(0.025);
     expect(DEFAULT_DYDX_CEX_CARRY_CONFIG.leverage).toBe(10);
-    expect(DEFAULT_DYDX_CEX_CARRY_CONFIG.paperTradeDaysRequired).toBe(7);
   });
 
   it("2. market = ETH-USD is rejected (deferred)", () => {
@@ -259,13 +250,6 @@ describe("DydxCexCarryStrategy — config invariants", () => {
     })).toThrow(/capFraction/);
   });
 
-  it("8. paperTradeDaysRequired < 0 throws", () => {
-    const src = new MockFundingSource();
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      paperTradeDaysRequired: -1,
-    })).toThrow(/paperTradeDaysRequired/);
-  });
 });
 
 // ============================================================================
@@ -275,7 +259,7 @@ describe("DydxCexCarryStrategy — config invariants", () => {
 describe("evaluateKillSwitches — pure functional", () => {
   const cfg: KillSwitchConfig = DEFAULT_KILL_SWITCH_CONFIG;
 
-  it("9. indexer-stale fires when stale > 5min", () => {
+  it("8. indexer-stale fires when stale > 5min", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 6 * 60 * 1000, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
       cfg,
@@ -284,7 +268,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["indexer-stale"].reason).toMatch(/indexer-stale/);
   });
 
-  it("10. indexer-stale fires when no tick ever", () => {
+  it("9. indexer-stale fires when no tick ever", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: null, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
       cfg,
@@ -293,7 +277,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["indexer-stale"].reason).toMatch(/never-tick/);
   });
 
-  it("11. indexer-stale does NOT fire when fresh", () => {
+  it("10. indexer-stale does NOT fire when fresh", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 60_000, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
       cfg,
@@ -301,7 +285,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["indexer-stale"].engaged).toBe(false);
   });
 
-  it("12. chain-non-finalized fires when > 10min", () => {
+  it("11. chain-non-finalized fires when > 10min", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 0, chainNonFinalizedMs: 11 * 60 * 1000, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
       cfg,
@@ -309,7 +293,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["chain-non-finalized"].engaged).toBe(true);
   });
 
-  it("13. chain-non-finalized fires when no block ever", () => {
+  it("12. chain-non-finalized fires when no block ever", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 0, chainNonFinalizedMs: null, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
       cfg,
@@ -318,7 +302,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["chain-non-finalized"].reason).toMatch(/never-finalized/);
   });
 
-  it("14. divergence-7d-compression fires when streak=7 AND density ≥ 168", () => {
+  it("13. divergence-7d-compression fires when streak=7 AND density ≥ 168", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 7, tickDensityLast7d: 168, bybitEuSpotDepthUsd: 200_000 },
       cfg,
@@ -327,7 +311,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["divergence-7d-compression"].reason).toMatch(/7d/);
   });
 
-  it("15. divergence-7d-compression does NOT fire when streak=7 but density < 168 (SPARSE-DATA GUARD)", () => {
+  it("14. divergence-7d-compression does NOT fire when streak=7 but density < 168 (SPARSE-DATA GUARD)", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 7, tickDensityLast7d: 50, bybitEuSpotDepthUsd: 200_000 },
       cfg,
@@ -336,7 +320,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["divergence-7d-compression"].reason).toMatch(/sparse-data/);
   });
 
-  it("16. divergence-7d-compression does NOT fire when streak < 7", () => {
+  it("15. divergence-7d-compression does NOT fire when streak < 7", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 6, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
       cfg,
@@ -344,7 +328,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["divergence-7d-compression"].engaged).toBe(false);
   });
 
-  it("17. bybit-eu-spot-thin fires when depth < $100k", () => {
+  it("16. bybit-eu-spot-thin fires when depth < $100k", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 50_000 },
       cfg,
@@ -352,7 +336,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["bybit-eu-spot-thin"].engaged).toBe(true);
   });
 
-  it("18. bybit-eu-spot-thin does NOT fire when depth ≥ $100k", () => {
+  it("17. bybit-eu-spot-thin does NOT fire when depth ≥ $100k", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
       cfg,
@@ -360,7 +344,7 @@ describe("evaluateKillSwitches — pure functional", () => {
     expect(v["bybit-eu-spot-thin"].engaged).toBe(false);
   });
 
-  it("19. bybit-eu-spot-thin does NOT fire when depth unknown", () => {
+  it("18. bybit-eu-spot-thin does NOT fire when depth unknown", () => {
     const v = evaluateKillSwitches(
       { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: null },
       cfg,
@@ -377,7 +361,7 @@ describe("evaluateKillSwitches — pure functional", () => {
 describe("allPreconditionsSatisfied — duration gates", () => {
   const cfg: PreconditionConfig = DEFAULT_PRECONDITION_CONFIG;
 
-  it("20. returns ok=true after full duration", () => {
+  it("19. returns ok=true after full duration", () => {
     const start = FIXED_NOW - 20 * DAY; // > 14d (no-recent-governance requirement)
     const state = {
       "live-divergence": { satisfied: true, firstSatisfiedMs: start, lastVerifiedMs: FIXED_NOW },
@@ -389,7 +373,7 @@ describe("allPreconditionsSatisfied — duration gates", () => {
     expect(r.reasons).toEqual([]);
   });
 
-  it("21. returns ok=false when one is not satisfied", () => {
+  it("20. returns ok=false when one is not satisfied", () => {
     const start = FIXED_NOW - 8 * DAY;
     const state = {
       "live-divergence": { satisfied: true, firstSatisfiedMs: start, lastVerifiedMs: FIXED_NOW },
@@ -401,7 +385,7 @@ describe("allPreconditionsSatisfied — duration gates", () => {
     expect(r.reasons).toContain("chain-incident-clear not satisfied");
   });
 
-  it("22. live-divergence needs ≥ 7d sustained", () => {
+  it("21. live-divergence needs ≥ 7d sustained", () => {
     const start = FIXED_NOW - 6 * DAY; // 1d short
     const state = {
       "live-divergence": { satisfied: true, firstSatisfiedMs: start, lastVerifiedMs: FIXED_NOW },
@@ -413,7 +397,7 @@ describe("allPreconditionsSatisfied — duration gates", () => {
     expect(r.reasons.some((x) => x.includes("live-divergence"))).toBe(true);
   });
 
-  it("23. chain-incident-clear needs ≥ 72h sustained", () => {
+  it("22. chain-incident-clear needs ≥ 72h sustained", () => {
     const start = FIXED_NOW - 60 * HOUR; // 12h short
     const state = {
       "live-divergence": { satisfied: true, firstSatisfiedMs: start, lastVerifiedMs: FIXED_NOW },
@@ -425,7 +409,7 @@ describe("allPreconditionsSatisfied — duration gates", () => {
     expect(r.reasons.some((x) => x.includes("chain-incident-clear"))).toBe(true);
   });
 
-  it("24. no-recent-governance needs ≥ 14d sustained", () => {
+  it("23. no-recent-governance needs ≥ 14d sustained", () => {
     const start = FIXED_NOW - 10 * DAY; // 4d short
     const state = {
       "live-divergence": { satisfied: true, firstSatisfiedMs: start, lastVerifiedMs: FIXED_NOW },
@@ -439,17 +423,18 @@ describe("allPreconditionsSatisfied — duration gates", () => {
 });
 
 // ============================================================================
-// STATE PERSISTENCE (25-29)
+// STATE PERSISTENCE (24-26)
 // ============================================================================
 
 describe("DydxCexCarryStrategy — state persistence", () => {
-  it("25. serializeState / fromSnapshot round-trip preserves all sub-trackers", () => {
+  it("24. serializeState / fromSnapshot round-trip preserves all sub-trackers", () => {
     const src = new MockFundingSource();
     const s1 = mkStrategy(src);
     // Mutate state
     s1.state.fundingCollectedUsd = 1234.5;
     s1.state.rebalanceCount = 3;
-    s1.state.paperTradeDayCount = 5;
+    s1.state.fundingPeriods = 9;
+    s1.state.lastMarkPrice = 60_500;
     s1.state.tickDensity = { days: [{ day: "2026-07-01", dydxCount: 24, cexCount: 3 }], totalTicksLast7d: 27 };
     s1.state.compressedDayStreak = 2;
     s1.state.firstTickMs = FIXED_NOW;
@@ -468,7 +453,8 @@ describe("DydxCexCarryStrategy — state persistence", () => {
 
     expect(s2.state.fundingCollectedUsd).toBe(1234.5);
     expect(s2.state.rebalanceCount).toBe(3);
-    expect(s2.state.paperTradeDayCount).toBe(5);
+    expect(s2.state.fundingPeriods).toBe(9);
+    expect(s2.state.lastMarkPrice).toBe(60_500);
     expect(s2.state.tickDensity.totalTicksLast7d).toBe(27);
     expect(s2.state.compressedDayStreak).toBe(2);
     expect(s2.state.firstTickMs).toBe(FIXED_NOW);
@@ -477,7 +463,7 @@ describe("DydxCexCarryStrategy — state persistence", () => {
     expect(s2.state.preconditions["chain-incident-clear"].firstSatisfiedMs).toBe(FIXED_NOW - 4 * DAY);
   });
 
-  it("26. preconditions state persists across restart", () => {
+  it("25. preconditions state persists across restart", () => {
     const src = new MockFundingSource();
     const s1 = mkStrategy(src);
     s1.recordPreconditionReverify("chain-incident-clear", true, FIXED_NOW - 4 * DAY);
@@ -490,7 +476,7 @@ describe("DydxCexCarryStrategy — state persistence", () => {
     expect(s2.state.preconditions["chain-incident-clear"].satisfied).toBe(true);
   });
 
-  it("27. tickDensity persists across restart", () => {
+  it("26. tickDensity persists across restart", () => {
     const src = new MockFundingSource();
     const s1 = mkStrategy(src);
     // Record 3 ticks → state.tickDensity should be populated
@@ -502,119 +488,38 @@ describe("DydxCexCarryStrategy — state persistence", () => {
     );
     expect(s2.state.tickDensity.totalTicksLast7d).toBe(td1);
   });
-
-  it("28. paperTradeDayCount persists across restart", () => {
-    const src = new MockFundingSource();
-    const s1 = mkStrategy(src);
-    s1.incrementPaperTradeDay(FIXED_NOW);
-    s1.incrementPaperTradeDay(FIXED_NOW + DAY);
-    s1.incrementPaperTradeDay(FIXED_NOW + 2 * DAY);
-    const s2 = DydxCexCarryStrategy.fromSnapshot(
-      { ...DEFAULT_DYDX_CEX_CARRY_CONFIG, fundingSource: src },
-      s1.serializeState(),
-    );
-    expect(s2.state.paperTradeDayCount).toBe(3);
-  });
-
-  it("29. liveOrdersEnabled persists across restart (gates stay open once cleared)", () => {
-    const src = new MockFundingSource();
-    const s1 = mkStrategy(src);
-    // Pre-populate preconditions at the required durations
-    s1.recordPreconditionReverify("live-divergence", true, FIXED_NOW - 8 * DAY);
-    s1.recordPreconditionReverify("chain-incident-clear", true, FIXED_NOW - 4 * DAY);
-    s1.recordPreconditionReverify("no-recent-governance", true, FIXED_NOW - 15 * DAY);
-    // Bump paperTradeDayCount to 7
-    for (let i = 0; i < 7; i++) s1.incrementPaperTradeDay(FIXED_NOW + i * DAY);
-    expect(s1.state.liveOrdersEnabled).toBe(true);
-
-    const s2 = DydxCexCarryStrategy.fromSnapshot(
-      { ...DEFAULT_DYDX_CEX_CARRY_CONFIG, fundingSource: src },
-      s1.serializeState(),
-    );
-    expect(s2.state.liveOrdersEnabled).toBe(true);
-  });
 });
 
 // ============================================================================
-// PAPER-TRADE GATE (30-33)
-// ============================================================================
-
-describe("DydxCexCarryStrategy — paper-trade gate", () => {
-  function prePopulatePreconditions(s: DydxCexCarryStrategy, nowMs: number): void {
-    s.recordPreconditionReverify("live-divergence", true, nowMs - 8 * DAY);
-    s.recordPreconditionReverify("chain-incident-clear", true, nowMs - 4 * DAY);
-    s.recordPreconditionReverify("no-recent-governance", true, nowMs - 15 * DAY);
-  }
-
-  it("30. paper-trade gate does NOT open on day 0", () => {
-    const s = mkStrategy(new MockFundingSource());
-    prePopulatePreconditions(s, FIXED_NOW);
-    s.incrementPaperTradeDay(FIXED_NOW);
-    expect(s.state.liveOrdersEnabled).toBe(false);
-  });
-
-  it("31. paper-trade gate opens on day 7 when all 3 pre-conditions satisfied", () => {
-    const s = mkStrategy(new MockFundingSource());
-    prePopulatePreconditions(s, FIXED_NOW);
-    let gateOpenedAt: number | null = null;
-    for (let i = 0; i < 7; i++) {
-      const r = s.incrementPaperTradeDay(FIXED_NOW + i * DAY);
-      if (r.gateOpened) gateOpenedAt = FIXED_NOW + i * DAY;
-    }
-    expect(s.state.liveOrdersEnabled).toBe(true);
-    expect(gateOpenedAt).toBe(FIXED_NOW + 6 * DAY);
-  });
-
-  it("32. paper-trade gate does NOT open if chain-incident-clear duration < 72h at gate-check time", () => {
-    const s = mkStrategy(new MockFundingSource());
-    s.recordPreconditionReverify("live-divergence", true, FIXED_NOW - 8 * DAY);
-    // chain-incident-clear set 12h ago; gate check happens at FIXED_NOW,
-    // so elapsed = 12h < 72h → gate must NOT open.
-    s.recordPreconditionReverify("chain-incident-clear", true, FIXED_NOW - 12 * HOUR);
-    s.recordPreconditionReverify("no-recent-governance", true, FIXED_NOW - 15 * DAY);
-    // Increment 7 days all at FIXED_NOW (no time advance) so the
-    // duration gates are evaluated at FIXED_NOW.
-    for (let i = 0; i < 7; i++) s.incrementPaperTradeDay(FIXED_NOW);
-    expect(s.state.paperTradeDayCount).toBe(7);
-    expect(s.state.liveOrdersEnabled).toBe(false);
-  });
-
-  it("33. paper-trade gate does NOT open on a 6-day run (orchestrator: 7-day MANDATORY)", () => {
-    const s = mkStrategy(new MockFundingSource());
-    prePopulatePreconditions(s, FIXED_NOW);
-    for (let i = 0; i < 6; i++) s.incrementPaperTradeDay(FIXED_NOW + i * DAY);
-    expect(s.state.paperTradeDayCount).toBe(6);
-    expect(s.state.liveOrdersEnabled).toBe(false);
-  });
-});
-
-// ============================================================================
-// WIRE-UP INTEGRITY (34-35) — Phase 19 #1 cap=0.20 BTC anchor
+// WIRE-UP INTEGRITY (28-29) — Phase 19 #1 cap=0.20 BTC anchor
 // ============================================================================
 
 describe("DydxCexCarryStrategy — wire-up integrity", () => {
-  it("34. BTC-only market assertion (no ETH/SOL plumbing)", () => {
+  it("28. BTC-only market assertion (no ETH/SOL plumbing)", () => {
     expect(DEFAULT_DYDX_CEX_CARRY_CONFIG.market).toBe("BTC-USD");
     // Phase 14B 15% DD target sizing: cap=0.025, notional=$125k
     expect(DEFAULT_DYDX_CEX_CARRY_CONFIG.capFraction * DEFAULT_DYDX_CEX_CARRY_CONFIG.notionalPerLegUsd).toBe(3125);
   });
 
-  it("35. strategy name includes Phase 25 #2 T2 marker", () => {
+  it("29. strategy name includes Phase 25 #2 T2 marker", () => {
     const s = mkStrategy(new MockFundingSource());
     expect(s.name).toMatch(/Phase 25 #2 T2/);
   });
 });
 
 // ============================================================================
-// INTEGRATION (36-39) — live WS → strategy → paper-trade P&L
+// INTEGRATION (30-33) — live WS → strategy → paper-trade P&L
 // ============================================================================
 
 describe("DydxCexCarryPaperTrader — end-to-end", () => {
-  it("36. 7-day paper-trade run produces a clean report", async () => {
+  it("30. 7-day paper-trade run produces a clean report", async () => {
     const src = new MockFundingSource();
     const sim = new MockFillSimulator();
     const s = mkStrategy(src);
-    // Pre-populate preconditions so the 7-day gate opens
+    // Pre-populate preconditions so the 3 pre-condition tracker has data.
+    // Phase 33 cleanup: the auto-promote 7-day gate is gone, but the
+    // pre-condition tracker is still used by the 3-precondition kill-switch
+    // path on `evaluatePrecondition`; this test seeds it for telemetry.
     s.recordPreconditionReverify("live-divergence", true, FIXED_NOW - 8 * DAY);
     s.recordPreconditionReverify("chain-incident-clear", true, FIXED_NOW - 4 * DAY);
     s.recordPreconditionReverify("no-recent-governance", true, FIXED_NOW - 15 * DAY);
@@ -623,11 +528,10 @@ describe("DydxCexCarryPaperTrader — end-to-end", () => {
     expect(report.market).toBe("BTC-USD");
     expect(report.daysCompleted).toBe(7);
     expect(report.fundingTicksRecorded).toBeGreaterThan(0);
-    expect(report.paperTradeGateOpened).toBe(true);
     expect(report.halted).toBe(false);
   });
 
-  it("37. indexer-stale during run halts and populates haltReason", async () => {
+  it("31. indexer-stale during run halts and populates haltReason", async () => {
     const src = new MockFundingSource();
     const sim = new MockFillSimulator();
     const s = mkStrategy(src);
@@ -638,7 +542,7 @@ describe("DydxCexCarryPaperTrader — end-to-end", () => {
     expect(report.haltReason).toMatch(/indexer-stale/);
   });
 
-  it("38. bybit-eu-thin reduces effective notional by 50%", () => {
+  it("32. bybit-eu-thin reduces effective notional by 50%", () => {
     const src = new MockFundingSource();
     src.bybitEuDepthUsdOverride = 50_000; // < $100k
     const s = mkStrategy(src);
@@ -648,7 +552,7 @@ describe("DydxCexCarryPaperTrader — end-to-end", () => {
     expect(s.effectiveNotionalUsd()).toBe(62_500); // 125k × 0.5
   });
 
-  it("39. funding accrual is zero when halted", () => {
+  it("33. funding accrual is zero when halted", () => {
     const src = new MockFundingSource();
     src.staleMsOverride = 10 * 60 * 1000; // 10 min > 5 min
     const s = mkStrategy(src);
@@ -664,7 +568,7 @@ describe("DydxCexCarryPaperTrader — end-to-end", () => {
 });
 
 // ============================================================================
-// PHASE 30 — LATENCY GATE LIVE WIRING (40-50)
+// PHASE 30 — LATENCY GATE LIVE WIRING (34-52)
 // ============================================================================
 //
 // Verifies the LatencyGate is properly wired into the dYdX-vs-CEX carry
@@ -695,13 +599,13 @@ class FixedLatencySource {
 }
 
 describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
-  it("40. default constructor has latencyArbThresholdMs=500 and latencySource=null", () => {
+  it("34. default constructor has latencyArbThresholdMs=500 and latencySource=null", () => {
     const s = mkStrategy(new MockFundingSource());
     expect(s.config.latencyArbThresholdMs).toBe(500);
     expect(s.config.latencySource).toBeNull();
   });
 
-  it("41. constructor rejects non-positive latencyArbThresholdMs", () => {
+  it("35. constructor rejects non-positive latencyArbThresholdMs", () => {
     const src = new MockFundingSource();
     expect(() => new DydxCexCarryStrategy({
       fundingSource: src,
@@ -713,7 +617,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     })).toThrow(/latencyArbThresholdMs/);
   });
 
-  it("42. constructor accepts +Infinity to explicitly disable latency gating", () => {
+  it("36. constructor accepts +Infinity to explicitly disable latency gating", () => {
     const src = new MockFundingSource();
     const s = new DydxCexCarryStrategy({
       fundingSource: src,
@@ -728,13 +632,13 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(verdict.carryAllowed).toBe(true);
   });
 
-  it("43. default LatencyGate is disabled (isLatencyPaused()=false on init)", () => {
+  it("37. default LatencyGate is disabled (isLatencyPaused()=false on init)", () => {
     const s = mkStrategy(new MockFundingSource());
     expect(s.isLatencyPaused()).toBe(false);
     expect(s.currentLatencyGate().isCarryAllowed()).toBe(true);
   });
 
-  it("44. recordLatencySnapshot with rtMs > threshold pauses the carry", () => {
+  it("38. recordLatencySnapshot with rtMs > threshold pauses the carry", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
     const verdict = s.recordLatencySnapshot(
       { pair: "dydx-bybit-btc", roundTripMsMax: 1200, sourceJsonPath: "live" },
@@ -747,7 +651,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(s.state.lastLatencySnapshotMs).toBe(FIXED_NOW);
   });
 
-  it("45. recordLatencySnapshot with rtMs ≤ threshold allows the carry", () => {
+  it("39. recordLatencySnapshot with rtMs ≤ threshold allows the carry", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
     const verdict = s.recordLatencySnapshot(
       { pair: "dydx-bybit-btc", roundTripMsMax: 250, sourceJsonPath: "live" },
@@ -758,7 +662,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(s.isLatencyPaused()).toBe(false);
   });
 
-  it("46. recordLatencySnapshot with rtMs = threshold (boundary) allows the carry", () => {
+  it("40. recordLatencySnapshot with rtMs = threshold (boundary) allows the carry", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
     const verdict = s.recordLatencySnapshot(
       { pair: "x", roundTripMsMax: 500, sourceJsonPath: "live" },
@@ -767,7 +671,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(verdict.carryAllowed).toBe(true);
   });
 
-  it("47. recordLatencySnapshot with invalid (NaN) snapshot keeps existing gate", () => {
+  it("41. recordLatencySnapshot with invalid (NaN) snapshot keeps existing gate", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
     // First, set a known state — paused (rtMs=1500 > 500).
     s.recordLatencySnapshot(
@@ -784,7 +688,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(s.state.lastLatencySnapshotMs).toBe(FIXED_NOW); // unchanged
   });
 
-  it("48. recordLatencySnapshot with negative rtMs keeps existing gate", () => {
+  it("42. recordLatencySnapshot with negative rtMs keeps existing gate", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
     s.recordLatencySnapshot(
       { pair: "x", roundTripMsMax: 100, sourceJsonPath: "live" },
@@ -799,12 +703,12 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(s.state.lastLatencySnapshotMs).toBe(FIXED_NOW);
   });
 
-  it("49. pollLatencySource with null latencySource returns null", () => {
+  it("43. pollLatencySource with null latencySource returns null", () => {
     const s = mkStrategy(new MockFundingSource());
     expect(s.pollLatencySource(FIXED_NOW)).toBeNull();
   });
 
-  it("50. pollLatencySource with latencySource updates the gate", () => {
+  it("44. pollLatencySource with latencySource updates the gate", () => {
     const src = new FixedLatencySource("dydx-bybit-btc", 800);
     const s = mkStrategy(new MockFundingSource(), { latencySource: src });
     const verdict = s.pollLatencySource(FIXED_NOW);
@@ -814,7 +718,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(s.isLatencyPaused()).toBe(true);
   });
 
-  it("51. pollLatencySource with latencySource=null (no obs yet) keeps existing gate", () => {
+  it("45. pollLatencySource with latencySource=null (no obs yet) keeps existing gate", () => {
     const src = new FixedLatencySource("dydx-bybit-btc", null);
     const s = mkStrategy(new MockFundingSource(), { latencySource: src });
     const verdict = s.pollLatencySource(FIXED_NOW);
@@ -824,7 +728,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(src.observationCount).toBe(1);
   });
 
-  it("52. recordFundingTick returns 0 when latency paused (no accrual)", () => {
+  it("46. recordFundingTick returns 0 when latency paused (no accrual)", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
     s.recordLatencySnapshot(
       { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
@@ -838,7 +742,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(payment).toBe(0);
   });
 
-  it("53. recordFundingTick with latencySource auto-polls and gates carry", () => {
+  it("47. recordFundingTick with latencySource auto-polls and gates carry", () => {
     const src = new FixedLatencySource("dydx-bybit-btc", 800);
     const s = mkStrategy(new MockFundingSource(), { latencySource: src });
     expect(s.isLatencyPaused()).toBe(false); // init state
@@ -851,12 +755,12 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(src.observationCount).toBe(1);
   });
 
-  it("54. onCandle does NOT enter when latency paused (live wire-up integrity)", () => {
+  it("48. onCandle does NOT enter when latency paused (live wire-up integrity)", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
-    // Force the live-orders gate open (bypass the 7-day paper-trade
-    // requirement — this test is verifying entry-blocking on latency
-    // pause, not the paper-trade gate itself).
-    s.state.liveOrdersEnabled = true;
+    // Phase 33 cleanup: the auto-promote 7-day paper-trade gate is gone,
+    // so we no longer need to force `liveOrdersEnabled = true` to test
+    // entry behavior.  The strategy emits an entry signal whenever
+    // kill-switches don't halt and latency is not paused.
     // Skip warmup
     const pastWarmup = 25;
     const ctx = {
@@ -870,7 +774,6 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(sigBefore?.side).toBe("buy");
     // Reset and pause → should NOT enter.
     s.reset();
-    s.state.liveOrdersEnabled = true;
     s.recordLatencySnapshot(
       { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
       FIXED_NOW,
@@ -880,7 +783,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(s.isLatencyPaused()).toBe(true);
   });
 
-  it("55. serializeState/fromSnapshot round-trip preserves latency state", () => {
+  it("49. serializeState/fromSnapshot round-trip preserves latency state", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
     s.recordLatencySnapshot(
       { pair: "dydx-bybit-btc", roundTripMsMax: 700, sourceJsonPath: "live" },
@@ -900,7 +803,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(s2.currentLatencyGate().isCarryAllowed()).toBe(false);
   });
 
-  it("56. fromSnapshot with pre-Phase-30 snapshot (no latency fields) loads defaults", () => {
+  it("50. fromSnapshot with pre-Phase-30 snapshot (no latency fields) loads defaults", () => {
     const s = mkStrategy(new MockFundingSource());
     const snap = s.serializeState();
     // Strip the Phase 30 fields (simulate a pre-Phase-30 persisted snapshot).
@@ -917,7 +820,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(s2.state.lastLatencySnapshotMs).toBeNull();
   });
 
-  it("57. reset() returns latency state to default (disabled)", () => {
+  it("51. reset() returns latency state to default (disabled)", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
     s.recordLatencySnapshot(
       { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
@@ -930,12 +833,11 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(s.state.lastLatencySnapshotMs).toBeNull();
   });
 
-  it("58. latency pause does NOT auto-close a held position (entry-block only)", () => {
+  it("52. latency pause does NOT auto-close a held position (entry-block only)", () => {
     // Wire-up: latency pause blocks new entries, but does NOT issue
     // a sell.  Existing positions stay open until a kill-switch fires
     // or the position is closed via the engine's normal flow.
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
-    s.state.liveOrdersEnabled = true;
     const pastWarmup = 25;
     const ctx = {
       candleIndex: pastWarmup,

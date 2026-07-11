@@ -655,8 +655,12 @@ export type {
 // Implements the 4 Track-B kill-switches (indexer-stale, chain-non-finalized,
 // divergence-7d-compression, bybit-eu-spot-thin) WITH the sparse-data guard
 // on the 7-day compression kill-switch, the 3 Track-B §7.2 pre-conditions
-// (live-divergence, chain-incident-clear, no-recent-governance), the 7-day
-// paper-trade gate, and the live-orders enablement only after the gate.
+// (live-divergence, chain-incident-clear, no-recent-governance), and the
+// Phase 30 LatencyGate (cross-venue round-trip latency).
+// Phase 33 cleanup (2026-07-11): the auto-promote 7-day paper-trade gate
+// has been removed per user mandate.  The strategy emits entry signals
+// whenever kill-switches + latency allow; live-vs-paper is a bot-runtime
+// concern (Track C in Phase 33 plan).
 // See `packages/core/src/strategy/dydx-cex-carry.ts` for the full design.
 export {
   DydxCexCarryStrategy,
