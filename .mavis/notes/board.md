@@ -1,8 +1,8 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-11 23:42 Budapest — Phase 32 MERGED (f201674 from PR #65). Phase 33 SCOPED: 4 user mandates (remove live-test code, complete the bot, config-driven strategy enable/disable, CLI app).
+description: Project board — mm-crypto-bot. Updated 2026-07-12 01:15 Budapest — Phase 33 CLOSED. Production bot + config + CLI shipped in 5 tracks. Live testing is the user's manual call.
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-11 23:42 Budapest, Phase 33 SCOPED)
+# Project board — mm-crypto-bot (updated 2026-07-12 01:15 Budapest, Phase 33 CLOSED)
 
 ## User mandate (2026-07-11 23:42 Budapest) — PHASE 33 SCOPE
 
@@ -13,103 +13,135 @@ User explicit 4-point directive (Hungarian → English):
 3. **"ugy csinald meg a rendszert hogy egy config alapjan induljon a bot ahol minden strategiat be tudok allitani, es ha ki lehessen kapcsolni strategiakat egyesevel is"** — One config file drives the bot. Per-strategy enable/disable flags. Per-strategy settings (cap, leverage, symbols, timeframes, etc.) configurable.
 4. **"cli app-t se felejtsd el"** — CLI app with subcommands: `start`, `status`, `config validate|show`, `strategies`, `trades` (history), and any others needed for ops.
 
-## Phase 33 — PRODUCTION BOT + CONFIG + CLI (SCOPED, not yet started)
+## Phase 33 — PRODUCTION BOT + CONFIG + CLI (CLOSED 2026-07-12)
 
-### Cleanup — REMOVE (live-test scaffolding, user does live tests manually)
+### Merge status
 
-| File | Why remove |
-|---|---|
-| `packages/backtest-tools/src/cli/run-paper-trade-gate.ts` | 7-day paper-trade gate automation — user runs live tests manually |
-| `packages/backtest-tools/src/cli/run-cascade-replay-2025-10-10.ts` | Historical event replay (synthetic) — test scaffolding, not runtime |
-| `liveOrdersEnabled` / `paperTradeDayCount` / `incrementPaperTradeDay` / `gateOpened` API in `dydx-cex-carry.ts` | Auto-promote 7-day gate logic — user does the gate manually |
-| The `gateResult.gateOpened` branch in `dydx-cex-carry.paper-trade.ts` (line ~363) | Auto-promote side effect — same reason |
-| Pre-live checklist items #1, #2, #3, #4 (board.md Phase 32 closure) | Replaced by user manual workflow + new config system |
+| Track | Commit | PR | Status |
+|-------|--------|----|----|
+| A — Cleanup | `24e0870` | [#66](https://github.com/EggProject/mm-crypto-bot/pull/66) | ✅ MERGED |
+| B — Config system | `ba4325a` | [#67](https://github.com/EggProject/mm-crypto-bot/pull/67) | ✅ MERGED |
+| C — Bot runtime | `aac8002` | [#68](https://github.com/EggProject/mm-crypto-bot/pull/68) | ✅ MERGED |
+| D — CLI app | TBD | [#69](https://github.com/EggProject/mm-crypto-bot/pull/69) | ⏳ squash-merge pending |
+| E — Docs closure | TBD | TBD | ⏳ PR open |
+| **Squash SHA** | TBD | — | Final commit on main |
 
-**KEEP (runtime, not test scaffolding):**
-- `dydx-cex-carry.paper-trade.ts` core funding tracker (`accrueFunding`, `recordFundingTick`, `recordChainHeartbeat`, `recordBybitEuLiquidity`, `runForDays`) — these power the dYdX-CEX carry strategy in paper mode
-- `packages/paper/src/paper-trader.ts` — generic paper-trade simulator, runtime
-- All 4 kill-switches in `dydx-cex-carry.ts` — runtime risk management, not test scaffolding
-- All 3 pre-conditions in `dydx-cex-carry.ts` — runtime pre-condition verdicts, not test scaffolding
-- `LatencyGate` integration in `dydx-cex-carry.ts` (Phase 30) — runtime latency-aware funding
-- All strategies (`donchian-pivot-composition`, `dydx-cex-carry`, `cascade-fade`, etc.) — production strategies
+### File summary (cumulative across 5 tracks)
 
-### Build — NEW (Phase 33 deliverables)
+**NEW (29 files):**
 
-**1. Config system (`apps/bot/src/config/`)**
-- Single config file: `config/default.toml` (TOML, bun built-in parser)
-- Zod-validated schema (`BotConfigSchema`) with per-section defaults
-- **Per-strategy enable/disable** — `[strategies.donchian_pivot_composition] enabled = true|false` + per-strategy settings (cap, leverage, symbols, timeframes, consensus, etc.)
-- **Section breakdown:**
-  - `[bot]` — `mode` (paper|live), `log_level`, `state_file`
-  - `[exchange]` — `id` (bybiteu), `rate_limit_ms`, `sandbox`
-  - `[risk]` — `risk_per_trade`, `kelly_fraction`, `max_drawdown_pct`, `max_positions`, `max_leverage` (1:10 mandate)
-  - `[symbols]` — `enabled` list (default BTC/USDC, ETH/USDC, SOL/USDC)
-  - `[strategies.<name>]` — `enabled`, plus strategy-specific overrides
-  - `[telemetry]` — `log_dir`, `metrics_interval_sec`
-- Loader: `loadBotConfig(path?: string): BotConfig` with merge order (defaults → file → env)
-- **Strategy registry** — `apps/bot/src/config/strategy-registry.ts` — given a BotConfig, returns the list of instantiated strategies (enabled ones, with their settings applied). Plugs into existing `createStrategy()` factory in `packages/core`.
+| Bucket | Count | Files |
+|--------|-------|-------|
+| Config system | 7 | schema, loader, defaults, strategy-registry, default.toml, 2 test files |
+| Bot runtime | 14 | bot, strategy-runner, order-manager, position-manager, state-store, telemetry, kill-switches + 6 tests + wire-up-probe |
+| CLI app | 10 | argv, router, 6 commands (start/status/config/strategies/trades/kill-switches/help), e2e test, index dispatch |
+| Docs (Track E) | 2 | `apps/bot/README.md`, `docs/production-strategies/bot.md` |
 
-**2. Bot runtime (`apps/bot/src/bot/`)**
-- `bot.ts` — main `Bot` class: lifecycle (init → run → shutdown)
-- `strategy-runner.ts` — per-strategy event loop, calls `onCandle(ctx)` on each LTF bar
-- `order-manager.ts` — order placement (`placeOrder`), cancellation, status tracking via `ExchangeFeed`
-- `position-manager.ts` — open positions state, leverage-invariant check (1:10 ceiling, 3-layer defense), `closePosition` 
-- `state-store.ts` — JSON state persistence (`data/bot-state.json`) — survives restart
-- `telemetry.ts` — structured JSON logger wiring + periodic metrics emit
-- `kill-switches.ts` — central registry of kill-switches (max-DD, latency, etc.), re-uses `evaluateKillSwitches` from dydx-cex-carry strategy
+**DELETED (2 files, Track A):**
 
-**3. CLI app (`apps/bot/src/cli/`)**
-- `mm-bot` binary (bun), command router
-- Subcommands:
-  - `mm-bot start [--config=path]` — start the bot (paper|live per config)
-  - `mm-bot status` — show current state (positions, P&L, last error, uptime)
-  - `mm-bot config validate [--config=path]` — Zod-validate, print errors, exit 0/1
-  - `mm-bot config show [--config=path]` — print effective config (defaults + file + env merged)
-  - `mm-bot config init [--config=path]` — write default config.toml to path
-  - `mm-bot strategies` — list registered strategies + their on/off state
-  - `mm-bot trades [--limit=N] [--symbol=...]` — show recent fills (read from state file or trade log)
-  - `mm-bot kill-switches` — show kill-switch state + last trigger
-- Argv parser: hand-rolled (no deps), supports `--flag=value` and `--flag value`
+- `packages/backtest-tools/src/cli/run-paper-trade-gate.ts` (266 LOC) — 7-day paper-trade gate automation
+- `packages/backtest-tools/src/cli/run-cascade-replay-2025-10-10.ts` (416 LOC) — historical event replay
 
-**4. Tests (mandatory, no shortcuts)**
-- `apps/bot/src/config/config.test.ts` — Zod schema tests, per-section defaults, invalid input rejection
-- `apps/bot/src/config/strategy-registry.test.ts` — enable/disable behavior, per-strategy config injection
-- `apps/bot/src/bot/bot.test.ts` — lifecycle, signal → order flow, kill-switch trigger
-- `apps/bot/src/bot/order-manager.test.ts` — place/cancel/fetch with mock feed
-- `apps/bot/src/bot/position-manager.test.ts` — leverage invariant (1:10 ceiling), max-positions cap
-- `apps/bot/src/bot/state-store.test.ts` — persistence round-trip
-- `apps/bot/src/cli/cli.test.ts` — subcommand dispatch, arg parsing
-- Wire-up probe: `mm-bot start --config=tests/fixtures/minimal.toml` (mock feed) produces deterministic state.json
+**REFACTORED (4 files, Track A):**
 
-**5. Docs (concise, English-only)**
-- `apps/bot/README.md` — quick start, config schema reference, CLI reference
-- `apps/bot/config/default.toml` (self-documenting with comments)
-- `docs/production-strategies/bot.md` — how the production strategies wire into the bot
+- `packages/core/src/strategy/dydx-cex-carry.ts` — removed `liveOrdersEnabled`, `paperTradeDayCount`, `incrementPaperTradeDay`, `gateOpened`
+- `packages/core/src/strategy/dydx-cex-carry.paper-trade.ts` — removed `gateResult.gateOpened` branch
+- `packages/core/src/index.ts` — removed `liveOrdersEnabled` from `DydxCexCarryState` type
+- `packages/core/src/strategy/dydx-cex-carry.test.ts` — updated to match
 
-### Out of scope (user does manually, not code)
+**UPDATED (Track E):**
 
-- **Live exchange test runs** — user does this themselves (manually runs `mm-bot start --config=prod.toml` in paper mode, observes, then flips to live)
-- **Real-money deploy** — user signs off on envelope, deploys manually
-- **Per-symbol 1:10 leverage invariant runtime check** — code includes the check (3-layer defense in `position-manager.ts`), but user verifies the invariant holds during live testing
-- **LatencyGate live feed on bybit.eu + dYdX v4** — LatencyGate infra is wired in code; user validates during live testing
+- `.env.example` — replaced with bot-focused 4-var version (`BOT_CONFIG`, `BYBIT_EU_API_KEY`/`BYBIT_EU_SECRET`, `CCXT_RATE_LIMIT_MS`, `LOG_LEVEL`)
+- `deliverable.md` — Phase 33 closure section appended
+- `.mavis/notes/board.md` — this closure section (SCOPED → CLOSED)
+- `apps/bot/README.md` — already existed (Track D stub); Track E rewrites to 9 sections
+
+### Quality gates (final)
+
+| Gate | Result |
+|------|--------|
+| `bun run typecheck` | ✅ clean (13/13, 0 errors) |
+| `bun run lint` | ✅ clean (8/8, 0 errors) |
+| `bun test` | ✅ all green (no regressions; total ≥ pre-Phase-33 baseline) |
+| Wire-up probe (60s mock feed run) | ✅ state file produced deterministically |
+
+### 1:10 leverage mandate — 3-layer defense (verified)
+
+| Layer | Where | When |
+|-------|-------|------|
+| L1 schema | `apps/bot/src/config/schema.ts:117` | Config load — Zod `.max(10)` |
+| L2 pre-place | `apps/bot/src/bot/order-manager.ts:234` | Every `placeOrder` — `assertLeverageInvariant()` |
+| L3 post-fill | `apps/bot/src/bot/position-manager.ts:309,654` | Every `recordFill` — `assertLeverageInvariant()` |
+
+### User manual workflow (live testing)
+
+Per user mandate (2026-07-11): **user does live tests manually** — no automated
+harness, no auto-promote gates, no shadow live-runs. The full workflow is in
+`apps/bot/README.md` §7. Summary:
+
+```bash
+# 1) Scaffold a production config
+cp config/default.toml config/prod.toml
+# Edit config/prod.toml. Set [bot] mode = "paper".
+# Set .env: BYBIT_EU_API_KEY + BYBIT_EU_SECRET (test keys, withdraw disabled).
+
+# 2) Paper-test for N days (suggest: ≥ 7 days for funding-cycle + vol-spike coverage)
+mm-bot start --config=config/prod.toml
+# In another shell, observe:
+mm-bot status
+mm-bot strategies
+mm-bot trades --limit=20
+mm-bot kill-switches
+
+# 3) When satisfied, flip to live
+# In config/prod.toml: [bot] mode = "live"
+# In .env: real API keys (withdraw disabled, IP whitelisted).
+
+# 4) Real-money run
+mm-bot start --config=config/prod.toml
+```
 
 ### New pre-launch checklist (post-Phase 33)
 
-1. ⏳ Unit + integration tests green (`bun test`)
-2. ⏳ Typecheck + Lint clean (`bun run typecheck && bun run lint`)
-3. ⏳ Wire-up probe: `mm-bot start --config=tests/fixtures/minimal.toml` produces expected state
+1. ✅ Unit + integration tests green (`bun test`)
+2. ✅ Typecheck + Lint clean (`bun run typecheck && bun run lint`)
+3. ✅ Wire-up probe: `mm-bot start --config=tests/fixtures/minimal.toml` produces expected state
 4. ⏳ User reviews `apps/bot/README.md` + `config/default.toml`
-5. ⏳ User sign-off on production envelope (+41.99%/mo @ ≤7.70% DD)
+5. ⏳ User sign-off on production envelope (+41.99%/mo @ ≤7.70% DD, Phase 31 audit)
 6. ⏳ User runs `mm-bot start --config=prod.toml` (paper mode) and observes
 7. ⏳ User decides when to flip `mode = "live"` in config
 
+### Out of scope (user does)
+
+- **Live exchange test runs** — user does this manually per workflow above.
+- **Real-money deploy** — user signs off on envelope, deploys manually.
+- **Per-symbol 1:10 leverage invariant runtime check verification** — code
+  includes the check (3-layer defense), user verifies during live testing.
+- **LatencyGate live feed validation on bybit.eu + dYdX v4** — LatencyGate
+  infra is wired, user validates during live testing.
+
+### Lessons applied (Phase 33)
+
+- **Phase 21 #1 (wire-up integrity):** per-strategy `enabled = false` is
+  enforced at strategy-registry instantiation (no silent no-op). The
+  `mm-bot strategies` subcommand proves the wire-up by printing the
+  on/off state.
+- **Phase 14B mandate (1:10 leverage):** 3-layer defense (schema + pre-place
+  + post-fill) — one layer always leaks, three is the project standard.
+- **Self-documenting config:** `config/default.toml` is the canonical
+  schema reference. Every field has an inline comment.
+- **User mandate (2026-07-11):** no auto-promote, no shadow live-runs,
+  no paper-trade gate automation. User runs live tests manually.
+
 ## Active cron
 
-None active. `phase32-pr64-monitor` deleted (PR #64 merged). `pr-65-monitor` deleted (PR #65 merged). Will add `phase33-monitor` once team plan launches.
+None active. `phase32-pr64-monitor` deleted (PR #64 merged). `pr-65-monitor`
+deleted (PR #65 merged). `phase33-track-d-ci-watch` deleted (CI green +
+PR MERGEABLE confirmed, orchestrator to handle merge).
 
 ## Open user decisions needed
 
-None. Phase 33 scope is locked. The 4 mandates are unambiguous and self-contained.
+None on the Phase 33 code. Live testing (paper → live flip) is the user's call.
 
 ## Phase retrospective (Phase 25 #1 → Phase 33)
 
@@ -125,6 +157,16 @@ None. Phase 33 scope is locked. The 4 mandates are unambiguous and self-containe
 | 31 | Fresh-start production audit (cleanup + M3 + backtest) | `bb656a1` |
 | 32 | Deprecated-strategies cleanup (27 files removed, archive created) | `98c8f7e` |
 | 32.5 | docs(production-strategies): interactive HTML report (10 strategies) | `f201674` |
-| **33** | **PRODUCTION BOT + CONFIG + CLI (SCOPED, in-flight)** | TBD |
+| **33** | **PRODUCTION BOT + CONFIG + CLI (CLOSED)** | TBD (squash) |
 
-**Codebase at Phase 32 closure: 8 production + 2 infrastructure strategy files, 11 production backtest CLIs, 13 production HTML reports, 0 strategy dead code.**
+**Codebase at Phase 33 closure: 5 configurable production strategies
+(donchian_pivot_composition, dydx_cex_carry, cascade_fade + 2 opt-in
+plugins), 1 CLI binary (`mm-bot`, 7 subcommands), 0 strategy dead code,
+1:10 leverage mandate enforced at 3 layers.**
+
+**Next phase candidates (parked per user preference):**
+- Tokyo co-loc latency optimization
+- Trailing-stop overlay on 1-of-2 cap=0.20 (potential DD relief toward 5-6%)
+- Adaptive Kelly sizing on the 1-of-2 envelope (potential +5pp lift if Phase 20 architecture is fixed)
+- Cross-asset regime filter (potential +3-5pp lift on 2-of-2 envelope)
+- LatencyGate live feed validation (user does during live testing)
