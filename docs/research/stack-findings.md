@@ -496,8 +496,8 @@ az inkrementális szám nem folytonos:
 import ccxt from "ccxt";
 
 const bybit = new ccxt.bybiteu({
-  apiKey: process.env.BYBIT_EU_API_KEY!,
-  secret: process.env.BYBIT_EU_SECRET!,
+  apiKey: process.env.BYBIT_API_KEY!,
+  secret: process.env.BYBIT_API_SECRET!,
   enableRateLimit: true,
   rateLimit: 100,  // 10 req/sec — bybit V5 biztonságos alap
   // options: { defaultType: "spot" },
