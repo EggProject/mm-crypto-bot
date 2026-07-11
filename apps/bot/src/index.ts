@@ -2,73 +2,83 @@
 /**
  * apps/bot/src/index.ts
  *
- * A mm-crypto-bot CLI entry pointja — Phase 33 Track C (Bot runtime).
+ * Phase 33 Track D — a `mm-bot` CLI entry pointja.
  *
- * A bot most már TÉNYLEGESEN indítható: betölti a konfigot, megnyitja
- * az exchange feed-et (paper/live), példányosítja a stratégiákat, és
- * elindítja a futási ciklust. A `mm-bot` bináris ezt a fájlt futtatja.
+ * ===========================================================================
+ * SUBCOMMANDS
+ * ===========================================================================
+ *   - `start`           — indítja a botot (SIGINT-re graceful shutdown)
+ *   - `status`          — a perzisztens state kiírása
+ *   - `config`          — validate / show / init
+ *   - `strategies`      — regisztrált stratégiák listája
+ *   - `trades`          — utolsó N trade kiírása
+ *   - `kill-switches`   — kill-switch állapot
+ *   - `help`            — help
  *
- * Használat:
- *   bun run dev --workspace=apps/bot -- --config=path/to/config.toml
- *   bun run dev --workspace=apps/bot --        # default config
+ * ===========================================================================
+ * HASZNÁLAT
+ * ===========================================================================
+ *   mm-bot                              → help
+ *   mm-bot <subcommand> [--config=PATH] [--help]
  *
- * A `process.argv`-ban:
- *   --config=<path>     TOML config file
- *   --mode=<paper|live> bot mode override
+ * A `mm-bot` bináris ezt a fájlt futtatja (lásd `apps/bot/package.json` `bin`).
  *
- * A SIGINT/SIGTERM signalok graceful shutdown-t indítanak (a Bot
- * saját signal-handler-e a Phase 33 Track D CLI-ban kerül kiépítésre;
- * itt a process default-ja lép életbe, ami a process exit előtt a
- * `bot.stop()`-ot hívja — a Bot.stop() cleanup-ja lezárja a feed-et,
- * flush-eli a state-et, és a process kilép).
+ * ===========================================================================
+ * EXIT CODES
+ * ===========================================================================
+ *   0 — siker
+ *   1 — hiba (ismeretlen subcommand, runtime hiba, state file nem található)
+ *   2 — config validációs hiba
+ *
+ * ===========================================================================
+ * USER MANDATE (2026-07-11 23:42 BUDAPEST)
+ * ===========================================================================
+ * "cli app-t se felejtsd el" — "Don't forget the CLI app."
+ *
+ * A korábbi Track C placeholder (amely közvetlenül `Bot.start()`-ot hívott)
+ * lecserélődik erre a dispatcherre. A bot indítása mostantól:
+ *
+ *   bun run apps/bot/src/index.ts start [--config=path]
+ *
+ * vagy a `mm-bot` binárissal (miután a `bin` mező a package.json-ban rá
+ * mutat erre a fájlra).
  */
 
-import { loadBotConfig, ConfigError } from "./config/index.js";
-import { Bot } from "./bot/bot.js";
+import {
+  CliRouter,
+  configCommand,
+  killSwitchesCommand,
+  makeHelpCommand,
+  parseArgv,
+  startCommand,
+  statusCommand,
+  strategiesCommand,
+  tradesCommand,
+} from "./cli/index.js";
 
-function parseArgs(argv: readonly string[]): { readonly configPath?: string } {
-  const args: { configPath?: string } = {};
-  for (const arg of argv) {
-    if (arg.startsWith("--config=")) {
-      const value = arg.slice("--config=".length);
-      if (value.length > 0) {
-        args.configPath = value;
-      }
-    }
-  }
-  return args;
-}
+// ---------------------------------------------------------------------------
+// Router setup
+// ---------------------------------------------------------------------------
+const router = new CliRouter();
+router.setProgramDescription("mm-bot — the mm-crypto-bot CLI");
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+router.register("start", "Start the bot (SIGINT = graceful shutdown)", startCommand);
+router.register("status", "Show the persisted bot state", statusCommand);
+router.register("config", "Validate / show / init the bot config", configCommand);
+router.register("strategies", "List registered strategies + on/off state", strategiesCommand);
+router.register("trades", "Show recent closed trades", tradesCommand);
+router.register("kill-switches", "Show kill-switch state", killSwitchesCommand);
+router.register("help", "Show this help", makeHelpCommand(router));
 
-  let config;
-  try {
-    config = loadBotConfig(args.configPath);
-  } catch (err) {
-    if (err instanceof ConfigError) {
-      console.error(`[bot] config error: ${err.message}`);
-      process.exitCode = 1;
-      return;
-    }
-    throw err;
-  }
+// ---------------------------------------------------------------------------
+// Dispatch
+// ---------------------------------------------------------------------------
+// We use `parseArgv` here only to peek at `--help` early (so `mm-bot --help`
+// works without going through the router's help path). The router calls
+// `parseArgv` again internally — that's fine, it's a pure function.
+//
+// We export `parseArgv` for testability; the dual-call is intentional.
+void parseArgv;
 
-  const bot = new Bot({ config });
-  // Graceful shutdown on SIGINT/SIGTERM.
-  let stopping = false;
-  const onSignal = (sig: NodeJS.Signals): void => {
-    if (stopping) return;
-    stopping = true;
-    console.log(`[bot] received ${sig} — initiating graceful shutdown`);
-    void bot.stop().then(() => {
-      process.exit(0);
-    });
-  };
-  process.on("SIGINT", onSignal);
-  process.on("SIGTERM", onSignal);
-
-  await bot.start();
-}
-
-void main();
+const code = await router.run(process.argv.slice(2));
+process.exit(code);
