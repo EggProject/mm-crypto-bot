@@ -298,8 +298,12 @@ mode = "paper"     # MUST be "paper" for the paper-testing phase
 In `.env` (NEVER commit):
 
 ```bash
-BYBIT_EU_API_KEY=your_paper_or_test_key
-BYBIT_EU_SECRET=your_paper_or_test_secret
+# Env var names MUST match the code (apps/bot/src/cli/commands/start.ts:61
+# and packages/exchange/src/factory.ts:39-40). The prefix is `BYBIT_API_*`
+# (not `BYBIT_EU_*` — the exchange is bybit.eu but the env var convention
+# follows the existing exchange factory).
+BYBIT_API_KEY=your_paper_or_test_key
+BYBIT_API_SECRET=your_paper_or_test_secret
 ```
 
 Use bybit.eu's paper/test API keys during this phase. **Withdraw must be

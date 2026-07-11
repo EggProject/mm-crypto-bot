@@ -51,7 +51,7 @@ User explicit 4-point directive (Hungarian → English):
 
 **UPDATED (Track E):**
 
-- `.env.example` — replaced with bot-focused 4-var version (`BOT_CONFIG`, `BYBIT_EU_API_KEY`/`BYBIT_EU_SECRET`, `CCXT_RATE_LIMIT_MS`, `LOG_LEVEL`)
+- `.env.example` — replaced with bot-focused 3-var version (`BYBIT_API_KEY`/`BYBIT_API_SECRET`, `CCXT_RATE_LIMIT_MS`, `LOG_LEVEL`). Note: `BOT_CONFIG` is NOT a real env var — the config path comes from the `--config=<path>` CLI flag.
 - `deliverable.md` — Phase 33 closure section appended
 - `.mavis/notes/board.md` — this closure section (SCOPED → CLOSED)
 - `apps/bot/README.md` — already existed (Track D stub); Track E rewrites to 9 sections
@@ -83,7 +83,7 @@ harness, no auto-promote gates, no shadow live-runs. The full workflow is in
 # 1) Scaffold a production config
 cp config/default.toml config/prod.toml
 # Edit config/prod.toml. Set [bot] mode = "paper".
-# Set .env: BYBIT_EU_API_KEY + BYBIT_EU_SECRET (test keys, withdraw disabled).
+# Set .env: BYBIT_API_KEY + BYBIT_API_SECRET (test keys, withdraw disabled).
 
 # 2) Paper-test for N days (suggest: ≥ 7 days for funding-cycle + vol-spike coverage)
 mm-bot start --config=config/prod.toml

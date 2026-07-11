@@ -316,7 +316,7 @@ automated harness, no auto-promote gates, no shadow live-runs.
 cp config/default.toml config/prod.toml
 # Edit config/prod.toml to taste (cap, leverage, strategies, etc.)
 # Set: [bot] mode = "paper"
-# Set: .env BYBIT_EU_API_KEY + BYBIT_EU_SECRET (test/paper keys)
+# Set: .env BYBIT_API_KEY + BYBIT_API_SECRET (test/paper keys)
 
 # 2) Paper-test for N days
 mm-bot start --config=config/prod.toml
@@ -358,8 +358,10 @@ Full step-by-step in `apps/bot/README.md` §7.
 ### §6.2 Updated files (Track E)
 
 - `.env.example` — replaced with a bot-focused version documenting
-  `BOT_CONFIG`, `BYBIT_EU_API_KEY`/`BYBIT_EU_SECRET`, `CCXT_RATE_LIMIT_MS`,
-  `LOG_LEVEL` (4 env vars the bot actually reads).
+  `BYBIT_API_KEY`/`BYBIT_API_SECRET`, `CCXT_RATE_LIMIT_MS`,
+  `LOG_LEVEL` (3 env vars the bot actually reads).
+  Note: `BOT_CONFIG` was originally documented but is NOT a real env var —
+  the config path is the `--config=<path>` CLI flag (no env var).
 - `deliverable.md` — this §Phase 33 section appended.
 - `.mavis/notes/board.md` — Phase 33 closure section added.
 
@@ -380,8 +382,9 @@ Full step-by-step in `apps/bot/README.md` §7.
 - [x] `apps/bot/README.md` exists with all 9 sections (quick start, config,
   CLI ref, strategy enable/disable, 1:10 mandate, live testing, live workflow,
   architecture, limitations).
-- [x] `.env.example` documents the bot's 4 env vars (`BOT_CONFIG`, bybit.eu
-  credentials, `CCXT_RATE_LIMIT_MS`, `LOG_LEVEL`).
+- [x] `.env.example` documents the bot's 3 env vars (`BYBIT_API_KEY`/`BYBIT_API_SECRET`,
+  `CCXT_RATE_LIMIT_MS`, `LOG_LEVEL`). The config path is the `--config=<path>` CLI flag
+  (no env var).
 - [x] `deliverable.md` has this Phase 33 section.
 - [x] `board.md` has a Phase 33 closure section.
 - [x] `docs/production-strategies/bot.md` explains strategy wiring with
