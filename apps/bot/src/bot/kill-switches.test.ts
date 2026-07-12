@@ -14,6 +14,7 @@ import {
   MaxDrawdownKillSwitch,
   MaxPositionsKillSwitch,
   PerStrategyKillSwitch,
+  _rebrandSymbolString,
   createDefaultRegistry,
 } from "./kill-switches.js";
 
@@ -270,5 +271,32 @@ describe("createDefaultRegistry", () => {
       ],
     });
     expect(reg.getSwitchIds()).toContain("p1");
+  });
+});
+
+describe("kill-switches — helper utilities", () => {
+  it("getSnapshot returns the last evaluated snapshot (default = not engaged)", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    const reg = createDefaultRegistry({
+      positionManager: pm,
+      maxDrawdownPct: 0.15,
+      maxPositions: 3,
+    });
+    const snap = reg.getSnapshot();
+    expect(snap.engaged).toBe(false);
+    expect(snap.reasons).toEqual([]);
+    expect(snap.verdicts).toEqual([]);
+  });
+
+  it("_rebrandSymbolString is a type-witness helper that returns the input unchanged", () => {
+    // The function is a type-system witness, not a real transformation.
+    // It returns the same string cast to the branded `Symbol` type.
+    const input = "BTC/USDC";
+    const result = _rebrandSymbolString(input);
+    expect(result).toBe(input);
   });
 });

@@ -142,4 +142,19 @@ describe("StateStore", () => {
     const validated = BotStateSchema.safeParse(s);
     expect(validated.success).toBe(false);
   });
+
+  it("StateStoreError is a real Error subclass with name and cause", () => {
+    const cause = new Error("underlying io error");
+    const err = new StateStoreError("save failed", cause);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(StateStoreError);
+    expect(err.name).toBe("StateStoreError");
+    expect(err.message).toBe("save failed");
+    expect(err.cause).toBe(cause);
+  });
+
+  it("StateStoreError defaults cause to null when omitted", () => {
+    const err = new StateStoreError("save failed");
+    expect(err.cause).toBeNull();
+  });
 });
