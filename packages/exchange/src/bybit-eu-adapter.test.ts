@@ -221,12 +221,31 @@ class MockBybitEu {
 // A `Record<string, unknown>` típus a bun-test mock.module factory
 // egyszerűsített contract-ja; a `default`-ot `any`-ként kezeljük,
 // mert a CCXT `Exchange` típusa túl összetett egy mock-hoz.
+//
+// FONTOS: a `pro` mezőt megőrizzük az eredeti CCXT-ből, mert a
+// `LatencyMonitor` (és más test-ek) a `ccxt.pro[exchangeId]`-t
+// használják a saját tesztjeikben. Ha a `pro`-t nem őriznénk meg,
+// a `mock.module` leak-elné a többi exchange tesztbe, és a
+// `LatencyMonitor.createExchange` teszt elbukna a `ccxtPro[exchangeId]`
+// undefined hibával.
+//
+// Az eredeti CCXT-t a `mock.module` hívás ELŐTT importáljuk (a TS
+// `import` utasítások a fájl tetejére emelődnek, így a valódi ccxt
+// referenciája elérhető, mielőtt a module loader-t patch-elné a
+// `mock.module`).
+import * as realCcxt from "ccxt";
+// A `ccxt.pro` object a CCXT 4.5.64-ben runtime attach-elődik a
+// default export-hoz. Az ESM `import * as` namespace tartalmazza.
+const realCcxtPro = (realCcxt as unknown as { pro: unknown }).pro;
+
 const mockModule = {
   default: {
     bybiteu: MockBybitEu,
+    pro: realCcxtPro,
   },
   bybiteu: MockBybitEu,
-} as unknown as { default: { bybiteu: unknown }; bybiteu: unknown };
+  pro: realCcxtPro,
+} as unknown as { default: { bybiteu: unknown; pro: unknown }; bybiteu: unknown; pro: unknown };
 
 mock.module("ccxt", () => mockModule);
 
