@@ -61,7 +61,7 @@ import { OrderManager } from "./order-manager.js";
 import { PositionManager } from "./position-manager.js";
 import { StateStore, type BotState } from "./state-store.js";
 import { Telemetry, formatUptime } from "./telemetry.js";
-import type { KillSwitchRegistry} from "./kill-switches.js";
+import type { KillSwitchRegistry, KillSwitch} from "./kill-switches.js";
 import { createDefaultRegistry } from "./kill-switches.js";
 import {
   StrategyRunner,
@@ -85,6 +85,17 @@ import {
  *                       a dependency nem kell).
  * - `sizingFn`        — opcionális position-sizing override (alap: `defaultSizingFn`).
  * - `logger`          — opcionális structured logger.
+ * - `stateSaveIntervalMs`   — opcionális state-save periodic interval (ms).
+ *                              Default: 60_000 (60s). Tests can set 10ms.
+ * - `killSwitchEvalIntervalMs` — opcionális kill-switch eval interval (ms).
+ *                              Default: 5_000 (5s). Tests can set 10ms.
+ * - `heartbeatIntervalMs`   — opcionális run-loop heartbeat (ms).
+ *                              Default: 60_000 (60s). Tests can set 10ms.
+ * - `telemetryMetricsIntervalSec` — opcionális telemetry metrics interval (sec).
+ *                              Default: 60 (1 min). Tests can set 0.05.
+ *                              Bypasses the Zod min:1 schema constraint.
+ * - `perStrategyKillSwitches`  — opcionális extra kill-switch-ek (pl. tesztekhez).
+ *                              Default: nincs. A `createDefaultRegistry` megkapja.
  */
 export interface BotOptions {
   readonly config: BotConfig;
@@ -92,6 +103,11 @@ export interface BotOptions {
   readonly fundingSource?: DydxFundingSource | null;
   readonly sizingFn?: StrategyRunnerOptions["sizingFn"];
   readonly logger?: Logger;
+  readonly stateSaveIntervalMs?: number;
+  readonly killSwitchEvalIntervalMs?: number;
+  readonly heartbeatIntervalMs?: number;
+  readonly telemetryMetricsIntervalSec?: number;
+  readonly perStrategyKillSwitches?: readonly KillSwitch[];
 }
 
 // ============================================================================
@@ -128,10 +144,22 @@ export class Bot {
   private stateSaveInterval: ReturnType<typeof setInterval> | null = null;
   private killSwitchInterval: ReturnType<typeof setInterval> | null = null;
 
+  // Periodic interval durations. Configurable via BotOptions for tests
+  // (10ms in tests vs 60s/5s in production). The defaults below match
+  // the original hardcoded values.
+  private readonly stateSaveIntervalMs: number;
+  private readonly killSwitchEvalIntervalMs: number;
+  private readonly heartbeatIntervalMs: number;
+  private readonly telemetryMetricsIntervalSec: number;
+
   public constructor(options: BotOptions) {
     this.config = options.config;
     this.options = options;
     this.logger = options.logger ?? createLogger(options.config.bot.log_level);
+    this.stateSaveIntervalMs = options.stateSaveIntervalMs ?? 60_000;
+    this.killSwitchEvalIntervalMs = options.killSwitchEvalIntervalMs ?? 5_000;
+    this.heartbeatIntervalMs = options.heartbeatIntervalMs ?? 60_000;
+    this.telemetryMetricsIntervalSec = options.telemetryMetricsIntervalSec ?? 60;
   }
 
   // --------------------------------------------------------------------------
@@ -330,6 +358,9 @@ export class Bot {
       positionManager: this.positionManager,
       maxDrawdownPct: this.config.risk.max_drawdown_pct,
       maxPositions: this.config.risk.max_positions,
+      ...(this.options.perStrategyKillSwitches !== undefined
+        ? { perStrategyKillSwitches: this.options.perStrategyKillSwitches }
+        : {}),
       logger: this.logger,
     });
     this.killSwitches.onTrigger(async () => {
@@ -342,7 +373,7 @@ export class Bot {
     // -----------------------------------------------------------------------
     this.telemetry = new Telemetry({
       logDir: this.config.telemetry.log_dir,
-      metricsIntervalSec: this.config.telemetry.metrics_interval_sec,
+      metricsIntervalSec: this.telemetryMetricsIntervalSec,
       snapshotProvider: () => this.snapshotForTelemetry(),
       logger: this.logger,
     });
@@ -355,13 +386,13 @@ export class Bot {
       if (this.stateStore !== null) {
         this.stateStore.requestSave(this.getState());
       }
-    }, 60_000);
+    }, this.stateSaveIntervalMs);
     this.killSwitchInterval = setInterval(() => {
       if (this.killSwitches !== null && this.telemetry !== null) {
         const snap = this.killSwitches.evaluate();
         this.telemetry.setEngaged(snap.engaged, snap.reasons);
       }
-    }, 5_000);
+    }, this.killSwitchEvalIntervalMs);
   }
 
   /**
@@ -389,8 +420,8 @@ export class Bot {
       subscribedSymbols: this.config.symbols.enabled.length,
     });
 
-    // Periodic kill-switch evaluation (60s — explicit heartbeat, in
-    // addition to the 5s interval from init).
+    // Periodic kill-switch evaluation (heartbeat — in addition to the
+    // 5s interval from init). Configurable via BotOptions for tests.
     const heartbeat = setInterval(() => {
       if (this.killSwitches !== null && this.telemetry !== null) {
         const snap = this.killSwitches.evaluate();
@@ -399,7 +430,7 @@ export class Bot {
           void this.stop();
         }
       }
-    }, 60_000);
+    }, this.heartbeatIntervalMs);
 
     try {
       while (this.running && !this.stopRequested) {

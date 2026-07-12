@@ -11,13 +11,15 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "bun test src",
-    "coverage": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage",
+    "coverage": "bun test src --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage",
     "download-ohlcv": "bun run src/cli/download-ohlcv.ts",
     "baseline": "bun run src/cli/run-baseline.ts",
     "sweep": "bun run src/cli/run-sweep.ts",
     "oos": "bun run src/cli/run-oos.ts",
     "report": "bun run src/cli/generate-report.ts",
-    "clean": "rm -rf .turbo *.tsbuildinfo coverage"
+    "clean": "rm -rf .turbo *.tsbuildinfo coverage",
+    "coverage:text": "bun test src --coverage --coverage-reporter=text",
+    "coverage:lcov": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage"
   },
   "dependencies": {
     "@mm-crypto-bot/backtest": "workspace:*",

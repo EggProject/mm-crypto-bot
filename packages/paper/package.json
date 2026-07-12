@@ -12,8 +12,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "bun test src",
-    "coverage": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage",
-    "clean": "rm -rf .turbo *.tsbuildinfo coverage"
+    "coverage": "bun test src --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage",
+    "clean": "rm -rf .turbo *.tsbuildinfo coverage",
+    "coverage:text": "bun test src --coverage --coverage-reporter=text",
+    "coverage:lcov": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage"
   },
   "dependencies": {
     "@mm-crypto-bot/shared": "workspace:*"
