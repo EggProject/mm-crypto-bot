@@ -185,6 +185,11 @@ describe("rollingRealizedDailyVol", () => {
     expect(() => rollingRealizedDailyVol([0.01, 0.02], -1)).toThrow();
     expect(() => rollingRealizedDailyVol([0.01, 0.02], 1.5)).toThrow();
   });
+
+  it("returns empty array for empty input returns", () => {
+    const out = rollingRealizedDailyVol([], 5);
+    expect(out).toEqual([]);
+  });
 });
 
 // ----------------------------------------------------------------------
@@ -229,6 +234,30 @@ describe("computeVolMultiplier", () => {
     expect(() => computeVolMultiplier(0.02, 0.02, 1.0, 0.25)).toThrow();
     expect(() => computeVolMultiplier(0.02, 0, 0.25, 1.0)).toThrow();
   });
+
+  it("throws on negative realizedDailyVol", () => {
+    expect(() => computeVolMultiplier(-0.01, 0.02, 0.25, 1.0)).toThrow(/non-negative finite/);
+  });
+
+  it("throws on NaN targetDailyVol", () => {
+    expect(() => computeVolMultiplier(0.02, Number.NaN, 0.25, 1.0)).toThrow(/positive finite/);
+  });
+
+  it("throws on non-finite minVolMultiplier", () => {
+    expect(() => computeVolMultiplier(0.02, 0.02, Number.POSITIVE_INFINITY, 1.0)).toThrow();
+  });
+
+  it("throws on non-finite maxVolMultiplier", () => {
+    expect(() => computeVolMultiplier(0.02, 0.02, 0.25, Number.NaN)).toThrow();
+  });
+
+  it("throws on minVolMultiplier <= 0", () => {
+    expect(() => computeVolMultiplier(0.02, 0.02, -0.1, 1.0)).toThrow();
+  });
+
+  it("throws on minVolMultiplier > maxVolMultiplier", () => {
+    expect(() => computeVolMultiplier(0.02, 0.02, 1.5, 1.0)).toThrow();
+  });
 });
 
 // ----------------------------------------------------------------------
@@ -236,6 +265,13 @@ describe("computeVolMultiplier", () => {
 // ----------------------------------------------------------------------
 
 describe("computeVolTargetedSizer", () => {
+  it("throws on non-positive baseNotional", () => {
+    const candles = mkConstReturnSeries(60, 0.005);
+    expect(() => computeVolTargetedSizer(candles, 0)).toThrow(/positive finite/);
+    expect(() => computeVolTargetedSizer(candles, -1000)).toThrow(/positive finite/);
+    expect(() => computeVolTargetedSizer(candles, Number.NaN)).toThrow(/positive finite/);
+  });
+
   it("runs end-to-end on a 60-day series and emits one point per day", () => {
     const candles = mkConstReturnSeries(60, 0.005);
     const result = computeVolTargetedSizer(candles, 2000);
@@ -333,6 +369,13 @@ describe("computeVolTargetedSizer", () => {
 // ----------------------------------------------------------------------
 
 describe("runVolTargetWalkForwardValidation", () => {
+  it("throws when trainDays/testDays/stepDays are non-positive", () => {
+    const candles = mkConstReturnSeries(730, 0.003);
+    expect(() => runVolTargetWalkForwardValidation(candles, 0, 30, 30)).toThrow(/positive day values/);
+    expect(() => runVolTargetWalkForwardValidation(candles, 180, -1, 30)).toThrow(/positive day values/);
+    expect(() => runVolTargetWalkForwardValidation(candles, 180, 30, 0)).toThrow(/positive day values/);
+  });
+
   it("produces non-empty windows for a sufficiently long series", () => {
     // 2 years of daily candles ≈ 730 days → fits multiple 180/30 windows.
     const candles = mkConstReturnSeries(730, 0.003);

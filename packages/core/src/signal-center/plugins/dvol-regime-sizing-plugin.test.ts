@@ -3,7 +3,7 @@
 
 import { describe, expect, it, beforeEach } from "bun:test";
 import { SignalBus } from "../signal-bus.js";
-import { DvolRegimeSizingPlugin } from "./dvol-regime-sizing-plugin.js";
+import { createDvolRegimeSizingPlugin, DvolRegimeSizingPlugin } from "./dvol-regime-sizing-plugin.js";
 import type { Bar, SizingSignal } from "../types.js";
 
 const DAILY_MS = 24 * 60 * 60 * 1000;
@@ -341,6 +341,98 @@ describe("DvolRegimeSizingPlugin", () => {
       p.dispose();
       expect((p as unknown as { _bus: unknown })._bus).toBeNull();
       expect((p as unknown as { _wired: boolean })._wired).toBe(false);
+    });
+  });
+
+  describe("validateConfig", () => {
+    it("undefined / null config → ok", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      expect(p.validateConfig(undefined).ok).toBe(true);
+      expect(p.validateConfig(null).ok).toBe(true);
+    });
+
+    it("non-object config (string) → error", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      const r = p.validateConfig("not-an-object");
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.error.field).toBe("config");
+        expect(r.error.message).toContain("object");
+      }
+    });
+
+    it("baseNotionalUsd: 0 → error (must be positive)", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      const r = p.validateConfig({ baseNotionalUsd: 0 });
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.error.field).toBe("baseNotionalUsd");
+      }
+    });
+
+    it("baseNotionalUsd: -100 → error", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      const r = p.validateConfig({ baseNotionalUsd: -100 });
+      expect(r.ok).toBe(false);
+    });
+
+    it("baseNotionalUsd: NaN → error (not finite)", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      const r = p.validateConfig({ baseNotionalUsd: Number.NaN });
+      expect(r.ok).toBe(false);
+    });
+
+    it("baseNotionalUsd: 'string' → error (not number)", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      const r = p.validateConfig({ baseNotionalUsd: "100" });
+      expect(r.ok).toBe(false);
+    });
+
+    it("baseNotionalUsd: valid positive number → ok", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      expect(p.validateConfig({ baseNotionalUsd: 1000 }).ok).toBe(true);
+    });
+
+    it("getDvolForTimestamp: 'string' (not function) → error", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      const r = p.validateConfig({ getDvolForTimestamp: "not-a-function" });
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.error.field).toBe("getDvolForTimestamp");
+      }
+    });
+
+    it("getDvolForTimestamp: valid function → ok", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      expect(p.validateConfig({ getDvolForTimestamp: () => 50 }).ok).toBe(true);
+    });
+
+    it("valid object with both baseNotionalUsd and getDvolForTimestamp → ok", () => {
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      const r = p.validateConfig({
+        baseNotionalUsd: 1000,
+        getDvolForTimestamp: () => 50,
+      });
+      expect(r.ok).toBe(true);
+    });
+  });
+
+  describe("factory", () => {
+    it("createDvolRegimeSizingPlugin() returns a DvolRegimeSizingPlugin instance", () => {
+      const p = createDvolRegimeSizingPlugin();
+      expect(p).toBeInstanceOf(DvolRegimeSizingPlugin);
+    });
+
+    it("createDvolRegimeSizingPlugin(overrides) propagates to the plugin", () => {
+      const p = createDvolRegimeSizingPlugin({
+        baseNotionalUsd: 5000,
+        enabledSymbols: ["BTC/USDT", "ETH/USDT"],
+      });
+      expect(p).toBeInstanceOf(DvolRegimeSizingPlugin);
+      // A factory-nak a `new DvolRegimeSizingPlugin(config)`-ot kell visszaadnia,
+      // a config-ot propagálva. A plugin state-je a `state` publikus mezőn érhető el.
+      expect(p.state).toBeDefined();
+      expect(p.state.barsProcessed).toBe(0);
     });
   });
 });

@@ -859,3 +859,24 @@ describe("CrossVenueFundingDivergencePlugin — factory + adversarial", () => {
     expect(p.snapshotsEmittedFor("BTC")).toBe(1);
   });
 });
+
+describe("CrossVenueFundingDivergencePlugin — accessors (Phase 35 coverage)", () => {
+  it("enabledAssets returns the configured asset list", () => {
+    const p = new CrossVenueFundingDivergencePlugin({ assets: ["BTC", "ETH", "SOL"] });
+    expect(p.enabledAssets()).toEqual(["BTC", "ETH", "SOL"]);
+  });
+
+  it("isAssetEnabled returns true for configured assets, false otherwise", () => {
+    const p = new CrossVenueFundingDivergencePlugin({ assets: ["BTC", "ETH"] });
+    expect(p.isAssetEnabled("BTC")).toBe(true);
+    expect(p.isAssetEnabled("ETH")).toBe(true);
+    expect(p.isAssetEnabled("SOL")).toBe(false);
+    expect(p.isAssetEnabled("")).toBe(false);
+  });
+
+  it("lastSnapshotFor returns null when no snapshot has been recorded", () => {
+    const p = new CrossVenueFundingDivergencePlugin({ assets: ["BTC"] });
+    expect(p.lastSnapshotFor("BTC")).toBeNull();
+    expect(p.lastSnapshotFor("UNKNOWN")).toBeNull();
+  });
+});

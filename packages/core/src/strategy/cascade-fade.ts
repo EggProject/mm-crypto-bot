@@ -871,6 +871,21 @@ export class CascadeFadeDetector {
     this.hardStopHaltUntilMs = -Infinity;
   }
 
+  /**
+   * `__testing_closeEvent` — exported for test access to the defensive
+   * `event.entry === null` branch in `closeEvent`. The branch is
+   * unreachable from the public API (the event is never in
+   * `openPositions` with a null entry — the public path always sets
+   * entry before adding to openPositions).
+   */
+  __testing_closeEvent(
+    event: CascadeEvent,
+    nowMs: number,
+    reason: CascadeExit["exitReason"],
+  ): CascadeExit {
+    return this.closeEvent(event, nowMs, reason);
+  }
+
   // -------------------------------------------------------------------------
   // Internal Layer 1 / Layer 2 logic
   // -------------------------------------------------------------------------

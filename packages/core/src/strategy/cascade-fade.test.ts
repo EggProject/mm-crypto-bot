@@ -940,3 +940,55 @@ describe("replayCascadeEvent — historical 2025-10-10 validation", () => {
     expect(det.getCumulativePnlBps()).toBeGreaterThan(0);
   });
 });
+
+describe("CascadeFadeDetector — reset()", () => {
+  it("reset() clears events, oiHistory, fundingHistory, elrHistory, openPositions, ledgers, cooldowns", () => {
+    const det = new CascadeFadeDetector();
+    // State-altering call: put an event into events map and trigger BT cooldown.
+    const ts0 = 1_700_000_000_000;
+    // Force some state: BT cooldown.
+    (det as unknown as { lastBtcEntryTsMs: number }).lastBtcEntryTsMs = ts0;
+    (det as unknown as { hardStopHaltUntilMs: number }).hardStopHaltUntilMs = ts0 + 1_000_000;
+    (det as unknown as { pnlLedgerBps: unknown[] }).pnlLedgerBps.push({ tsMs: ts0, pnlBps: 100 });
+    (det as unknown as { entryLedgerUsd: unknown[] }).entryLedgerUsd.push({ tsMs: ts0, notionalUsd: 1_000 });
+
+    det.reset();
+
+    // Verify state is cleared
+    expect(det.getOpenEvents().length).toBe(0);
+    expect(det.getAllEvents().length).toBe(0);
+    expect(det.getOpenPositions().length).toBe(0);
+    expect(det.getCumulativePnlBps()).toBe(0);
+    expect(det.isHardStopped(ts0 + 5_000_000)).toBe(false);
+    expect(det.isInBtcCooldown(ts0 + 5_000_000)).toBe(false);
+  });
+});
+
+describe("CascadeFadeDetector — closeEvent(event.entry === null) defensive branch", () => {
+  it("__testing_closeEvent with entry === null returns a placeholder CascadeExit with pnlBps=0", () => {
+    const det = new CascadeFadeDetector();
+    // Construct a minimal event with no entry — directly testing the
+    // defensive branch. The exit should be a placeholder (pnlBps=0).
+    const eventWithoutEntry = {
+      id: "synthetic-no-entry",
+      symbol: "BTC" as const,
+      peakTsMs: 0,
+      peakOiusd: 0,
+      state: "POST_CASCADE" as const,
+      entry: null,
+      exit: null,
+      triggeredAtMs: 0,
+      oiPeakUsd: 0,
+      trigger1minUsd: 0,
+      crossConfirmations: 0,
+      compressedDivergenceFlag: false,
+      cascadeAgeMs: 0,
+    } as unknown as Parameters<typeof det.__testing_closeEvent>[0];
+    const exit = det.__testing_closeEvent(eventWithoutEntry, 1_000, "hard_stop");
+    expect(exit.eventId).toBe("synthetic-no-entry");
+    expect(exit.exitReason).toBe("hard_stop");
+    expect(exit.pnlBps).toBe(0);
+    expect(exit.exitMidPriceUsd).toBe(0);
+    expect(exit.exitNotionalUsd).toBe(0);
+  });
+});
