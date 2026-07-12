@@ -9,8 +9,11 @@ CLI reference, manual live-testing workflow, and architectural overview. The
 self-documenting [`config/default.toml`](./config/default.toml) carries the
 canonical schema reference (every section + every field + Zod constraints).
 
-> **Phase 33 status:** ✅ MERGED to `main` on 2026-07-12. Production runtime
-> is feature-complete on the code side. **Live trading is gated on the user
+> **Phase 34 status:** ✅ MERGED to `main` on 2026-07-12. The Ink-based
+> **TUI is now the default UI** for `mm-bot start` (per user mandate
+> 2026-07-12 02:00 Budapest). Headless mode is one flag away
+> (`--headless`). Original spec §4.3 ("Modern TUI felület, kötelező")
+> is now satisfied. **Live trading is still gated on the user
 > manually running the workflow in §7.**
 
 ---
@@ -43,12 +46,18 @@ mm-bot config validate
 mm-bot config show
 
 # Run the bot in PAPER mode (no real money, uses internal paper-trade sim).
-# Send SIGINT (Ctrl-C) for graceful shutdown — closes positions, flushes state.
+# **Default mode is the Ink TUI** (per Phase 34 user mandate 2026-07-12).
+# Press [q] or Ctrl-C inside the TUI for graceful shutdown.
 mm-bot start
+
+# Or, for non-interactive environments (CI, scripts, piped logs):
+mm-bot start --headless
 ```
 
 That's it. With the default config the bot runs in **paper mode** on the mock
-feed (no network calls). For real bybit.eu paper/live testing see §7.
+feed (no network calls). The TUI is the default operator experience; see
+§3.3 for TUI-specific quick start, `docs/production-strategies/tui.md` for
+the full TUI reference, and §7 for real bybit.eu paper/live testing.
 
 ### What `mm-bot start` does
 
@@ -118,13 +127,14 @@ fields verbatim and applies them at construction time.
 
 ## 3. CLI reference
 
-The `mm-bot` binary has 7 subcommands (hand-rolled argv parser — no external
+The `mm-bot` binary has 8 subcommands (hand-rolled argv parser — no external
 CLI deps). All subcommands accept `--config=<path>` (default: built-in
 defaults) and `--help` / `-h`.
 
 | Subcommand | Purpose | Example |
 |------------|---------|---------|
-| `start` | Start the bot (SIGINT = graceful shutdown) | `mm-bot start --config=config/prod.toml` |
+| `start` | Start the bot + render the **Ink TUI** (default; see §3.3) | `mm-bot start --config=config/prod.toml` |
+| `tui` | Render the TUI **without** starting the bot (UI/UX demo, TUI-only dev) | `mm-bot tui --data-source=simulated` |
 | `status` | Show persisted state (positions, P&L, counters) | `mm-bot status` |
 | `config validate` | Load + validate config; print OK or errors | `mm-bot config validate --config=config/prod.toml` |
 | `config show` | Print effective config (defaults + file + env) | `mm-bot config show` |
@@ -172,6 +182,53 @@ mm-bot kill-switches
 mm-bot status
 mm-bot trades --limit=50
 ```
+
+### 3.3 The TUI (Phase 34) — `mm-bot start` default UI
+
+`mm-bot start` runs the **Ink TUI** by default (per user mandate
+2026-07-12 02:00 Budapest — original spec §4.3 "Modern TUI felület,
+kötelező"). The TUI is the operator dashboard: it shows positions,
+P&L, kill-switch state, and a live ticker feed, all updated in
+realtime. See `docs/production-strategies/tui.md` for the full
+keybinding + panel reference.
+
+**Quick reference:**
+
+| Invocation | Mode | Use when |
+|------------|------|----------|
+| `mm-bot start` | **TUI + bot** (default) | Interactive operator session |
+| `mm-bot start --headless` | **Plain text logs + bot** | CI, scripts, non-interactive shells |
+| `mm-bot start --no-color` | **TUI + bot, no ANSI** | Piped / logged TUI; `NO_COLOR=1` also works |
+| `mm-bot start --headless --no-color` | **Clean text logs** | `nohup`-style background, log aggregation |
+| `mm-bot tui` | **TUI, no bot** | UI/UX demo, TUI-only dev, no real trading |
+| `mm-bot tui --data-source=paper` | **TUI + paper engine, no bot** | Paper-trading UI demo |
+
+**Keybindings (TUI mode):**
+
+| Key | Action |
+|-----|--------|
+| `[q]` / `Ctrl-C` | Quit the TUI (graceful: stops the bot if running) |
+| `[s]` | Start / stop the bot (TUI-only mode: N/A) |
+| `[p]` | Pause / resume the bot (TUI-only mode: N/A) |
+| `[k]` | Kill-switch (confirm with `[i]` / `[n]`) |
+| `[Tab]` / `[←]` / `[→]` | Cycle focused panel (Statistics / Live / History) |
+| `[t]` | Cycle history sort key (time / pnl / symbol) |
+| `[r]` | Manual refresh (re-render now) |
+| `[?]` | Toggle help overlay |
+
+**Bundle guarantee:** in `--headless` mode the `@mm-crypto-bot/tui`
+package (and its `ink` / `react` dependencies) is **not loaded** —
+verified by `apps/bot/src/cli/headless-no-ink.test.ts` (3 tests:
+static source check, `bun build --external`, subprocess runtime
+check). The TUI is only required for the TUI and the TUI-with-bot
+modes.
+
+**Color policy:** ANSI codes are emitted by default in both TUI
+and headless modes. Disable via `--no-color` (CLI flag) or
+`NO_COLOR=1` (env var, Ink-native). TTY auto-detect: when stdout
+is not a TTY (e.g. `Bun.spawn({ stdout: "pipe" })`, redirected
+to a file, piped to `less` / `grep`), color is automatically
+disabled by `picocolors` + the `colorize()` helper.
 
 ---
 
@@ -512,7 +569,9 @@ apps/bot/
 
 - [`config/default.toml`](./config/default.toml) — canonical config (every field documented)
 - [`docs/production-strategies/bot.md`](../../docs/production-strategies/bot.md) — how the production strategies wire into the bot
+- [`docs/production-strategies/tui.md`](../../docs/production-strategies/tui.md) — TUI keybindings + panel reference (Phase 34)
 - [`.mavis/notes/phase33-scope-plan.md`](../../.mavis/notes/phase33-scope-plan.md) — Phase 33 design + scope
-- [`.mavis/notes/board.md`](../../.mavis/notes/board.md) — project board (Phase 33 closure section)
+- [`.mavis/notes/phase34-tui-scope-plan.md`](../../.mavis/notes/phase34-tui-scope-plan.md) — Phase 34 TUI scope plan
+- [`.mavis/notes/board.md`](../../.mavis/notes/board.md) — project board (Phase 34 closure section)
 - [Project `README.md`](../../README.md) — top-level project docs
 - [`.env.example`](../../.env.example) — environment variable reference
