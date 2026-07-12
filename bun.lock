@@ -37,6 +37,7 @@
         "@mm-crypto-bot/paper": "workspace:*",
         "@mm-crypto-bot/shared": "workspace:*",
         "@mm-crypto-bot/tui": "workspace:*",
+        "picocolors": "^1.1.1",
         "zod": "3.25.76",
       },
       "devDependencies": {

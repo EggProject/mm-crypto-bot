@@ -80,9 +80,14 @@ function isHeadless(flags: ReadonlyMap<string, string | boolean>): boolean {
 
 /**
  * `isNoColor` — `--no-color` flag jelenlétét ellenőrzi.
- * Ha aktív, a process indítása ELŐTT beállítjuk a `NO_COLOR=1` env var-t,
- * hogy az Ink (és minden más library, ami támogatja a NO_COLOR-t) tudjon
- * róla a dynamic import előtt.
+ *
+ * Phase 34 Track C: the canonical `NO_COLOR=1` env-var set is now done
+ * globally in `apps/bot/src/index.ts` (before any subcommand dispatches).
+ * This `isNoColor()` is kept as a defense-in-depth check: if a caller
+ * invokes `startCommand` directly (e.g. from a test that bypasses the
+ * entry point), the local env-var set still runs. The conditional
+ * `&& process.env["NO_COLOR"] === undefined` makes the local set a
+ * no-op when the global one already wrote the var.
  */
 function isNoColor(flags: ReadonlyMap<string, string | boolean>): boolean {
   if (flags.get("no-color") === true) return true;

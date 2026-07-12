@@ -1,14 +1,31 @@
 /**
  * apps/bot/src/cli/index.ts
  *
- * Phase 33 Track D — barrel a CLI komponensekhez.
+ * Phase 33 Track D + Phase 34 Track C — barrel a CLI komponensekhez.
  *
  * Az `apps/bot/src/index.ts` a CliRouter-t + az egyes subcommand
  * handler-eket ezen a barrel-en keresztül éri el.
+ *
+ * A Phase 34 Track C újdonsága a `color` modul exportja: a `setColorForced`
+ * setter az entry-point-ból hívódik (a `--no-color` / `--color` flag-ek
+ * korai feldolgozásához), a `colorize` / `isColorEnabled` / `ok` / `fail` /
+ * `warn` / `dim` helper-eket pedig a subcommand-ok használják a kimenet
+ * színezéséhez.
  */
 
 export { parseArgv, type ParsedArgs } from "./argv.js";
 export { CliRouter, type CliContext, type SubcommandHandler } from "./router.js";
+
+export {
+  colorize,
+  isColorEnabled,
+  setColorForced,
+  ok,
+  fail,
+  warn,
+  dim,
+  type ColorName,
+} from "./color.js";
 
 export { startCommand } from "./commands/start.js";
 export { tuiCommand } from "./commands/tui.js";
