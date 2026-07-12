@@ -709,7 +709,6 @@ describe("wire-up probe — LiveBotStateProvider bridges Bot → TUI", () => {
     // új híváskor kap egy throw-os unsub-ot. Viszont a
     // subscribeToBot early-return-öl, ha van már unsub. Tehát
     // a meglévő unsub-ot kell felülírni.
-    const botAny = bot as unknown as { stateListeners: Set<unknown> };
     // A bot belső stateListeners Set-jéhez nem férünk hozzá
     // egyszerűen — ehelyett közvetlenül a provider belső
     // unsubscribers tömbjét írjuk felül.

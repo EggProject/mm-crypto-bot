@@ -528,7 +528,7 @@ describe("Bot", () => {
     // mkdirSync-kel — ami azért fog hibát dobni, mert a parent egy
     // fájl, nem könyvtár.
     const blockingFile = join(tmpDir, "blocker");
-    const { writeFileSync, mkdirSync } = await import("node:fs");
+    const { writeFileSync } = await import("node:fs");
     writeFileSync(blockingFile, "this is a file, not a dir", "utf8");
 
     const brokenStateFile = join(blockingFile, "state.json");
