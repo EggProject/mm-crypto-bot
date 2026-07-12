@@ -27,7 +27,6 @@ import {
   DEFENSIVE_PLUGIN_NAMES,
   DecisionEngine,
   type DecisionEngineConfig,
-  type PositionDecision,
 } from "./portfolio-decision.js";
 
 // ---------------------------------------------------------------------------
@@ -45,7 +44,6 @@ function mkDirectionSignal(
 ): DirectionSignal {
   return {
     kind: "direction",
-    symbol: "BTCUSDT",
     source,
     side,
     strength,
@@ -63,9 +61,9 @@ function mkCarrySignal(
 ): CarrySignal {
   return {
     kind: "carry",
-    symbol: "BTCUSDT",
     source,
     regime,
+    fundingRate: 0.0001,
     timestampMs,
   };
 }
@@ -81,10 +79,10 @@ function mkSizingSignal(
 ): SizingSignal {
   return {
     kind: "sizing",
-    symbol: "BTCUSDT",
     source,
     notional,
     volMultiplier,
+    kellyFraction: 0.05,
     timestampMs,
   };
 }
@@ -314,12 +312,10 @@ describe("DecisionEngine state accessors", () => {
 // ---------------------------------------------------------------------------
 
 describe("DecisionEngine.subscribe", () => {
-  test("visszaad egy unsubscribe függvényt", () => {
+  test("visszaad egy unsubscribe függvényt", async () => {
     const engine = new DecisionEngine({ symbol: "BTCUSDT" });
-    const bus = (() => {
-      const { createSignalBus } = require("../index.js");
-      return createSignalBus();
-    })();
+    const { createSignalBus } = await import("../index.js");
+    const bus = createSignalBus();
     const unsub = engine.subscribe(bus);
     expect(typeof unsub).toBe("function");
     unsub();
@@ -378,9 +374,9 @@ describe("DecisionEngine.subscribe", () => {
     expect(engine.synthesize("BTCUSDT", 1_700_000_000_001)).toBeNull();
   });
 
-  test("többszöri unsubscribe hívás nem dob hibát (best-effort cleanup)", () => {
+  test("többszöri unsubscribe hívás nem dob hibát (best-effort cleanup)", async () => {
     const engine = new DecisionEngine({ symbol: "BTCUSDT" });
-    const { createSignalBus } = require("../index.js");
+    const { createSignalBus } = await import("../index.js");
     const bus = createSignalBus();
     const unsub = engine.subscribe(bus);
     unsub();

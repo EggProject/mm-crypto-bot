@@ -481,8 +481,21 @@ describe("Phase 35 coverage — perWindowReturn totalNotional = 0 (435-ös sor)"
     // return 0` védelmi kód. A `__testing_perWindowReturn` internal export
     // segítségével közvetlenül tesztelhető: minden notionalUsd=0 trade
     // esetén a return érték 0.
-    const zeroNotionalTrades = [
-      { pnlUsd: 100, notionalUsd: 0, timestampMs: 0, side: "long" as const, entryPrice: 100, exitPrice: 110, quantity: 1, fees: 0 },
+    const zeroNotionalTrades: Trade[] = [
+      {
+        symbol: "BTCUSDT" as unknown as Trade["symbol"],
+        side: "long" as Trade["side"],
+        entryTime: 0,
+        entryPrice: 100,
+        exitTime: 1000,
+        exitPrice: 110,
+        quantity: 1,
+        notionalUsd: 0,
+        pnlUsd: 100,
+        pnlPct: 0.1,
+        feesUsd: 0,
+        exitReason: "timed_exit" as Trade["exitReason"],
+      },
     ];
     expect(__testing_perWindowReturn(zeroNotionalTrades)).toBe(0);
     expect(__testing_perWindowReturn([])).toBe(0);

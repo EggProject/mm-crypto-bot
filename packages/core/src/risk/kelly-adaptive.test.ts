@@ -673,11 +673,13 @@ describe("Phase 35 coverage — hasAllLossStreak return false ágak", () => {
     // aggregateTradesToDailyPnl minden napot reprezentál az első és utolsó
     // exit közti tartományban. Ha a streak window csak a nulla-trade napokra
     // esik, akkor tradeDays = [].
+    void aggregateTradesToDailyPnl; // suppress unused-import warning
     const trades: Trade[] = [];
     // 2 trade: az 1. napon és a 30. napon. A köztük lévő 29 nap nulla-trade.
     trades.push(mkTrade(0, 1, -100)); // day 0
     trades.push(mkTrade(30, 31, -100)); // day 30
     const daily = aggregateTradesToDailyPnl(trades, 10_000);
+    void daily; // suppress unused warning — daily-t csak a comment-magyarázatban használjuk
     // A daily 31 napot tartalmaz (day 0 ... day 30). Az utolsó 5 nap
     // (day 26-30) közül csak a 30. napon van trade. Ha a streakWindow=5,
     // akkor a window day 26-30. Ebből csak day 30-nak van trade-je.

@@ -977,7 +977,13 @@ describe("CascadeFadeDetector — closeEvent(event.entry === null) defensive bra
       state: "POST_CASCADE" as const,
       entry: null,
       exit: null,
-    };
+      triggeredAtMs: 0,
+      oiPeakUsd: 0,
+      trigger1minUsd: 0,
+      crossConfirmations: 0,
+      compressedDivergenceFlag: false,
+      cascadeAgeMs: 0,
+    } as unknown as Parameters<typeof det.__testing_closeEvent>[0];
     const exit = det.__testing_closeEvent(eventWithoutEntry, 1_000, "hard_stop");
     expect(exit.eventId).toBe("synthetic-no-entry");
     expect(exit.exitReason).toBe("hard_stop");

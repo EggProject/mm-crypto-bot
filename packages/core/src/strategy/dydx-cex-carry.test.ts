@@ -898,15 +898,7 @@ describe("factory helpers", () => {
 
 describe("DydxCexCarryStrategy — Phase 35 coverage gaps", () => {
   it("totalFundingUsd = fundingCollectedUsd - rebalanceCostUsd", () => {
-    const src = new MockFundingSource();
-    const fill = new MockFillSimulator();
-    const lat = new FixedLatencySource();
-    const s = new DydxCexCarryStrategy({
-      fundingSource: src,
-      fillSimulator: fill,
-      latencySource: lat,
-      config: { market: "BTC-USD" },
-    });
+    const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     // State init: fundingCollected=0, rebalanceCost=0 → 0
     expect(s.totalFundingUsd()).toBe(0);
 
@@ -917,103 +909,55 @@ describe("DydxCexCarryStrategy — Phase 35 coverage gaps", () => {
   });
 
   it("resetPreconditions clears the precondition state (forces re-verification)", () => {
-    const src = new MockFundingSource();
-    const fill = new MockFillSimulator();
-    const lat = new FixedLatencySource();
-    const s = new DydxCexCarryStrategy({
-      fundingSource: src,
-      fillSimulator: fill,
-      latencySource: lat,
-      config: { market: "BTC-USD" },
-    });
+    const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     // Mark preconditions as satisfied
     const precondsBefore = s.state.preconditions;
-    if (precondsBefore["live-divergence"]) {
-      precondsBefore["live-divergence"].satisfied = true;
-      precondsBefore["live-divergence"].lastVerifiedAtMs = 1_700_000_000_000;
-    }
+    const liveDivBefore = precondsBefore["live-divergence"] as unknown as { satisfied: boolean; lastVerifiedMs: number };
+    liveDivBefore.satisfied = true;
+    liveDivBefore.lastVerifiedMs = 1_700_000_000_000;
     s.resetPreconditions();
     // A NEW preconditions object is assigned to state.preconditions —
     // we must read the new one from state, not the old reference.
     const precondsAfter = s.state.preconditions;
     expect(precondsAfter).not.toBe(precondsBefore);
-    for (const id of Object.keys(precondsAfter) as Array<keyof typeof precondsAfter>) {
-      expect(precondsAfter[id].satisfied).toBe(false);
+    for (const id of Object.keys(precondsAfter) as (keyof typeof precondsAfter)[]) {
+      const entry = precondsAfter[id] as unknown as { satisfied: boolean };
+      expect(entry.satisfied).toBe(false);
     }
   });
 
   it("private _haltReason returns 'init' when killSwitchVerdicts is null", () => {
-    const src = new MockFundingSource();
-    const fill = new MockFillSimulator();
-    const lat = new FixedLatencySource();
-    const s = new DydxCexCarryStrategy({
-      fundingSource: src,
-      fillSimulator: fill,
-      latencySource: lat,
-      config: { market: "BTC-USD" },
-    });
+    const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     (s as unknown as { state: { killSwitchVerdicts: null } }).state.killSwitchVerdicts = null;
     expect(s["_haltReason"]()).toBe("init");
   });
 
   it("private _haltReason returns the indexer-stale reason when that verdict is engaged", () => {
-    const src = new MockFundingSource();
-    const fill = new MockFillSimulator();
-    const lat = new FixedLatencySource();
-    const s = new DydxCexCarryStrategy({
-      fundingSource: src,
-      fillSimulator: fill,
-      latencySource: lat,
-      config: { market: "BTC-USD" },
-    });
+    const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     s.state.killSwitchVerdicts = newKillSwitchVerdicts();
-    s.state.killSwitchVerdicts["indexer-stale"].engaged = true;
-    s.state.killSwitchVerdicts["indexer-stale"].reason = "indexer is 600s stale";
+    (s.state.killSwitchVerdicts["indexer-stale"] as { engaged: boolean; reason: string }).engaged = true;
+    (s.state.killSwitchVerdicts["indexer-stale"] as { engaged: boolean; reason: string }).reason = "indexer is 600s stale";
     expect(s["_haltReason"]()).toBe("indexer is 600s stale");
   });
 
   it("private _haltReason returns the chain-non-finalized reason when that verdict is engaged", () => {
-    const src = new MockFundingSource();
-    const fill = new MockFillSimulator();
-    const lat = new FixedLatencySource();
-    const s = new DydxCexCarryStrategy({
-      fundingSource: src,
-      fillSimulator: fill,
-      latencySource: lat,
-      config: { market: "BTC-USD" },
-    });
+    const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     s.state.killSwitchVerdicts = newKillSwitchVerdicts();
-    s.state.killSwitchVerdicts["chain-non-finalized"].engaged = true;
-    s.state.killSwitchVerdicts["chain-non-finalized"].reason = "chain non-finalized 90s";
+    (s.state.killSwitchVerdicts["chain-non-finalized"] as { engaged: boolean; reason: string }).engaged = true;
+    (s.state.killSwitchVerdicts["chain-non-finalized"] as { engaged: boolean; reason: string }).reason = "chain non-finalized 90s";
     expect(s["_haltReason"]()).toBe("chain non-finalized 90s");
   });
 
   it("private _haltReason returns the divergence-7d-compression reason when that verdict is engaged", () => {
-    const src = new MockFundingSource();
-    const fill = new MockFillSimulator();
-    const lat = new FixedLatencySource();
-    const s = new DydxCexCarryStrategy({
-      fundingSource: src,
-      fillSimulator: fill,
-      latencySource: lat,
-      config: { market: "BTC-USD" },
-    });
+    const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     s.state.killSwitchVerdicts = newKillSwitchVerdicts();
-    s.state.killSwitchVerdicts["divergence-7d-compression"].engaged = true;
-    s.state.killSwitchVerdicts["divergence-7d-compression"].reason = "7d divergence compressed";
+    (s.state.killSwitchVerdicts["divergence-7d-compression"] as { engaged: boolean; reason: string }).engaged = true;
+    (s.state.killSwitchVerdicts["divergence-7d-compression"] as { engaged: boolean; reason: string }).reason = "7d divergence compressed";
     expect(s["_haltReason"]()).toBe("7d divergence compressed");
   });
 
   it("private _haltReason returns 'unknown' when no specific verdict is engaged", () => {
-    const src = new MockFundingSource();
-    const fill = new MockFillSimulator();
-    const lat = new FixedLatencySource();
-    const s = new DydxCexCarryStrategy({
-      fundingSource: src,
-      fillSimulator: fill,
-      latencySource: lat,
-      config: { market: "BTC-USD" },
-    });
+    const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     s.state.killSwitchVerdicts = newKillSwitchVerdicts();
     // No verdicts engaged
     expect(s["_haltReason"]()).toBe("unknown");

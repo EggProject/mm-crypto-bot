@@ -10,7 +10,7 @@
 //   - Determinism
 //   - Edge cases: 0 strategies, missing data, single bar
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, it } from "bun:test";
 
 import {
   DEFAULT_STRATEGY_TELEMETRY_CONFIG,
