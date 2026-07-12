@@ -444,10 +444,13 @@ export function hasAllLossStreak(
   if (streakWindowDays <= 0 || daily.length === 0) {
     return false;
   }
+  // Note: line 449's `if (window.length === 0)` defensive check was removed
+  // in Phase 35b — it was unreachable. The first guard above (daily.length === 0)
+  // already short-circuits, and `Array.prototype.slice(-n)` for any positive n
+  // always returns a non-empty array when the source is non-empty. The
+  // mathematical invariant is: daily.length > 0 && streakWindowDays > 0
+  // implies slice(-streakWindowDays).length > 0.
   const window = daily.slice(-streakWindowDays);
-  if (window.length === 0) {
-    return false;
-  }
   let anyWinDay = false;
   let cumulativePnl = 0;
   for (const d of window) {
@@ -979,3 +982,17 @@ export type { KellyOptConfig, KellyOptResult, TradeStats };
  * adaptive module is used standalone.
  */
 import { optimizeKelly } from "./kelly-position-sizer.js";
+
+// ============================================================================
+// Phase 35b — `__testing_*` exports for internal helpers
+// ============================================================================
+//
+// These exports are intentionally prefixed with `__testing_` to signal that
+// they exist ONLY for unit-test coverage. They expose the private helpers
+// (`average`, `computeCalmar`, `perWindowReturn`) so the defensive empty-input
+// branches can be hit by direct unit tests. Production code MUST NOT import
+// these — they are internal implementation details of `runAdaptiveWalkForwardValidation`.
+//
+export const __testing_average = average;
+export const __testing_computeCalmar = computeCalmar;
+export const __testing_perWindowReturn = perWindowReturn;

@@ -23,6 +23,7 @@ import {
   applyRiskCaps,
   type KellyFraction,
   __testing_perWindowReturn,
+  __testing_average,
 } from "./kelly-position-sizer.js";
 
 // ----------------------------------------------------------------------
@@ -562,10 +563,9 @@ describe("Phase 35 coverage — overfitRisk = MEDIUM (533-as sor)", () => {
 
 describe("Phase 35 coverage — average return 0 (637-es sor)", () => {
   it("average 0 ha values.length = 0 (a walk-forward records.length = 0 ág védelme)", () => {
-    // Az average privát függvény — a walk-forward során az average()
-    // hívások a records.length === 0 throw (splitIntoWindows) után futnak.
-    // Tehát a `return 0` a 637-es soron védelmi, elérhetetlen kód.
-    // Dokumentáljuk.
-    expect(true).toBe(true);
+    // Phase 35b: az `average` privát függvény `__testing_average` exporton
+    // keresztül közvetlenül hívható, így a 646-os sor védelmi ága
+    // (values.length === 0 → return 0) unit-teszttel fedhető.
+    expect(__testing_average([])).toBe(0);
   });
 });

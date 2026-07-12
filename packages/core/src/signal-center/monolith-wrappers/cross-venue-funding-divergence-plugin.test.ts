@@ -879,4 +879,13 @@ describe("CrossVenueFundingDivergencePlugin — accessors (Phase 35 coverage)", 
     expect(p.lastSnapshotFor("BTC")).toBeNull();
     expect(p.lastSnapshotFor("UNKNOWN")).toBeNull();
   });
+
+  it("bucketStartMsFor returns null when no state has been recorded for the asset (line 1101)", () => {
+    // Phase 35b: cover the public `bucketStartMsFor(asset)` method on a
+    // fresh plugin — no per-asset state exists yet, so it must return null.
+    const p = new CrossVenueFundingDivergencePlugin({ assets: ["BTC", "ETH"] });
+    expect(p.bucketStartMsFor("BTC")).toBeNull();
+    expect(p.bucketStartMsFor("ETH")).toBeNull();
+    expect(p.bucketStartMsFor("UNKNOWN")).toBeNull();
+  });
 });

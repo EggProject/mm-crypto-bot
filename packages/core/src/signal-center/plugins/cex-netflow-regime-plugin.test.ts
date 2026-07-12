@@ -1007,4 +1007,15 @@ describe("CexNetFlowRegimePlugin", () => {
     p.onBar(mkBar(), null as unknown as CexNetFlowRegimePluginState);
     expect(p.state.barsProcessed).toBe(before + 3);
   });
+
+  it("isSymbolEnabled returns true for configured symbols and false for unconfigured (line 1019)", () => {
+    // Phase 35b: cover the public `isSymbolEnabled(symbol)` accessor.
+    const p = new CexNetFlowRegimePlugin({
+      enabledSymbols: ["BTC", "ETH"],
+    });
+    expect(p.isSymbolEnabled("BTC")).toBe(true);
+    expect(p.isSymbolEnabled("ETH")).toBe(true);
+    expect(p.isSymbolEnabled("SOL")).toBe(false);
+    expect(p.isSymbolEnabled("")).toBe(false);
+  });
 });

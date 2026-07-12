@@ -27,6 +27,7 @@ import {
   ONE_TO_TEN_LEVERAGE,
   VolTargetSizingPlugin,
   createVolTargetSizingPlugin,
+  extractSizingSignal,
 } from "./vol-target-sizing-plugin.js";
 
 // ---------------------------------------------------------------------------
@@ -429,5 +430,65 @@ describe("VolTargetSizingPlugin — bounds constants", () => {
     expect(MIN_MIN_VOL_MULTIPLIER).toBeLessThan(MAX_MIN_VOL_MULTIPLIER);
     expect(MIN_TARGET_DAILY_VOL).toBe(0.005);
     expect(MAX_TARGET_DAILY_VOL).toBe(0.05);
+  });
+});
+
+// ----------------------------------------------------------------------
+// Phase 35b — `extractSizingSignal` export + `onBar` no-op body coverage
+// ----------------------------------------------------------------------
+//
+// Line 783: `export function extractSizingSignal(s: unknown): SizingSignal | null`
+//   - a `SizingSignal` → returns the signal
+//   - a non-SizingSignal → returns null
+//
+// Lines 322-336: `onBar(bar, _state)` body is a no-op (it just increments
+// `state.barsProcessed` and ends with `void bar`). The body must be hit
+// at least once to register as covered.
+//
+describe("VolTargetSizingPlugin — extractSizingSignal (line 783)", () => {
+  it("returns the signal when given a valid SizingSignal", () => {
+    // Phase 35b: SizingSignal type uses `kellyFraction` / `volMultiplier` /
+    // `notional` / `source` / `timestampMs` (no `symbol`, no
+    // `effectiveNotionalUsd`, no `leverage`, no `timestamp`).
+    const valid: SizingSignal = {
+      kind: "sizing",
+      source: "test",
+      kellyFraction: 0.5,
+      volMultiplier: 0.8,
+      notional: 5_000,
+      timestampMs: 1_704_067_200_000,
+    };
+    expect(extractSizingSignal(valid)).toEqual(valid);
+  });
+
+  it("returns null when given a non-SizingSignal payload", () => {
+    // `isSizing` is `(s: Signal) => s is SizingSignal` — it does NOT accept
+    // `null`/`undefined`. The function's runtime guard is a duck-type check
+    // on `s.kind`, so we pass non-SizingSignal objects (and primitives
+    // that have a `.kind` property that isn't "sizing").
+    expect(extractSizingSignal({ kind: "direction" })).toBeNull();
+    expect(extractSizingSignal({ kind: "carry" })).toBeNull();
+    expect(extractSizingSignal({ kind: "risk" })).toBeNull();
+    expect(extractSizingSignal({ kind: "something-else" })).toBeNull();
+    expect(extractSizingSignal({})).toBeNull();
+  });
+});
+
+describe("VolTargetSizingPlugin — onBar body coverage (lines 322-336)", () => {
+  it("onBar is a no-op that increments barsProcessed (the entire body must execute)", () => {
+    const p = new VolTargetSizingPlugin();
+    const before = p.state.barsProcessed;
+    p.onBar(
+      {
+        timestamp: 1_704_067_200_000,
+        open: 50_000,
+        high: 50_500,
+        low: 49_500,
+        close: 50_200,
+        volume: 100,
+      },
+      p.state,
+    );
+    expect(p.state.barsProcessed).toBe(before + 1);
   });
 });

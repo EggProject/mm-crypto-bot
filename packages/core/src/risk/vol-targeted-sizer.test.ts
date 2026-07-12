@@ -408,6 +408,54 @@ describe("runVolTargetWalkForwardValidation", () => {
 });
 
 // ----------------------------------------------------------------------
+// Phase 35b — overfitRisk = MEDIUM (vol-targeted-sizer.ts line 693)
+// ----------------------------------------------------------------------
+//
+// A MEDIUM verdict triggers when `positiveSharpe >= 0.5 && positiveSharpe < 0.7`
+// AND `oosIsRatio > 0`. We construct a synthetic candle series where ~60%
+// of walk-forward test windows have positive testSharpe (by alternating
+// +EV and -EV chunks of 30 days each).
+//
+describe("runVolTargetWalkForwardValidation — overfitRisk = MEDIUM", () => {
+  it("classifies a mixed +EV/-EV chunked series as MEDIUM (line 693)", () => {
+    // Build a 720-day series where each 30-day block is independently
+    // +EV (60% of blocks) or -EV (40%). Walk-forward with 180/30/30
+    // creates windows where each 30-day test phase is exactly one block
+    // → positiveSharpe is the fraction of +EV blocks, target 0.6 → MEDIUM.
+    const candles: DailyOhlcv[] = [];
+    const BLOCK_DAYS = 30;
+    const numBlocks = 24; // 720 days / 30 days/block
+    let close = 100;
+    for (let block = 0; block < numBlocks; block++) {
+      const isWinning = block % 5 < 3; // 0,1,2 winning; 3,4 losing → 60% win
+      for (let d = 0; d < BLOCK_DAYS; d++) {
+        const dailyRet = isWinning ? 0.001 : -0.001;
+        close = close * (1 + dailyRet);
+        candles.push({
+          timestamp: 1_704_067_200_000 + (block * BLOCK_DAYS + d) * 86_400_000,
+          open: close / (1 + dailyRet),
+          high: close * 1.005,
+          low: close * 0.995,
+          close,
+          volume: 1000,
+        });
+      }
+    }
+    const wf = runVolTargetWalkForwardValidation(candles, 180, 30, 30);
+    // Debug helper — printed on failure to surface the actual classification
+    if (wf.overfitRisk !== "MEDIUM") {
+      throw new Error(
+        `Expected MEDIUM, got ${wf.overfitRisk}. ` +
+          `windows=${wf.windows.length}, ` +
+          `positiveSharpe=${wf.windows.filter((w) => w.testSharpe > 0).length}/${wf.windows.length}, ` +
+          `oosIsRatio=${wf.oosIsRatio}`,
+      );
+    }
+    expect(wf.overfitRisk).toBe("MEDIUM");
+  });
+});
+
+// ----------------------------------------------------------------------
 // ONE_TO_TEN_BASE_LEVERAGE constant
 // ----------------------------------------------------------------------
 

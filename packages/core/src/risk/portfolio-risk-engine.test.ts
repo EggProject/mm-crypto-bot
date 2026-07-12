@@ -19,6 +19,7 @@ import {
   PortfolioRiskEngine,
   type CorrelationMatrix,
   type DirectionSignal,
+  type RiskSignal,
   type SizingSignal,
 } from "./portfolio-risk-engine.js";
 import {
@@ -621,5 +622,43 @@ describe("PortfolioRiskEngine — type contracts", () => {
     if (corr) {
       expect(corr.matrix[0]![1]).toBeCloseTo(corr.matrix[1]![0]!, 6);
     }
+  });
+});
+
+// ----------------------------------------------------------------------
+// Phase 35b — `getEmittedRiskSignals` method coverage
+// ----------------------------------------------------------------------
+//
+// The 804-es sor (`getEmittedRiskSignals(): readonly RiskSignal[]`) is the
+// accessor for the engine's emitted risk signals. We test it returns an
+// empty array initially and returns a copy (not a reference) of the
+// internal list after some breaches.
+//
+describe("PortfolioRiskEngine — getEmittedRiskSignals", () => {
+  test("returns empty array on a fresh engine", () => {
+    const engine = new PortfolioRiskEngine();
+    expect(engine.getEmittedRiskSignals()).toEqual([]);
+  });
+
+  test("returns a copy (not a reference) of the internal emitted list", () => {
+    const engine = new PortfolioRiskEngine();
+    // Submit a `kind: "risk"` signal — these get pushed into the
+    // internal `emittedRiskSignals` list (see submitSignal in
+    // portfolio-risk-engine.ts line ~386).
+    engine.submitSignal({
+      kind: "risk",
+      source: "test",
+      reason: "coverage probe",
+      timestamp: DAY_MS,
+    });
+    const emitted = engine.getEmittedRiskSignals();
+    expect(emitted.length).toBe(1);
+    // Verify the returned array is a copy (not a reference): cast away
+    // readonly to mutate, then check the internal list is unchanged.
+    // Phase 35b: `readonly RiskSignal[]` rejects `.pop()` and
+    // `length = N` — we use a type assertion to prove copy semantics.
+    const mutable = emitted as unknown as RiskSignal[];
+    mutable.length = 0;
+    expect(engine.getEmittedRiskSignals().length).toBe(1);
   });
 });
