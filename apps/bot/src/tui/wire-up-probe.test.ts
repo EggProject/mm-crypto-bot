@@ -644,4 +644,279 @@ describe("wire-up probe — LiveBotStateProvider bridges Bot → TUI", () => {
     await bot.stop();
     await startPromise;
   });
+
+  // --------------------------------------------------------------------------
+  // 11) notifyListeners continues when a listener throws
+  //     (covers the catch block in notifyListeners at L620-624)
+  // --------------------------------------------------------------------------
+  it("notifyListeners continues when a listener throws", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed, stateSaveIntervalMs: 100 });
+    const provider = new LiveBotStateProvider({
+      bot,
+      enabledSymbols: ["BTC/USDC"],
+      initialEquityUsdt: 10_000,
+    });
+
+    const startPromise = bot.start();
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+    await provider.start();
+
+    let goodCalls = 0;
+    let badCalls = 0;
+    provider.subscribe(() => { goodCalls++; });
+    provider.subscribe(() => { badCalls++; throw new Error("intentional"); });
+
+    // A state-save interval hívja a notify-t (a state-save interval
+    // 100ms, így 100ms várakozás után biztosan tüzel).
+    await new Promise<void>((r) => {
+      setTimeout(r, 200);
+    });
+
+    // Mindkét listener meg lett hívva.
+    expect(goodCalls).toBeGreaterThan(0);
+    expect(badCalls).toBeGreaterThan(0);
+
+    await provider.stop();
+    await bot.stop();
+    await startPromise;
+  });
+
+  // --------------------------------------------------------------------------
+  // 12) unsubscribeFromBot swallows unsub() errors
+  //     (covers the try/catch in unsubscribeFromBot at L494-498)
+  // --------------------------------------------------------------------------
+  it("unsubscribeFromBot swallows unsub errors gracefully", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed, stateSaveIntervalMs: 100 });
+    const provider = new LiveBotStateProvider({
+      bot,
+      enabledSymbols: ["BTC/USDC"],
+      initialEquityUsdt: 10_000,
+    });
+
+    const startPromise = bot.start();
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+    await provider.start();
+
+    // Patch a bot.subscribe-et, hogy a következő híváskor egy
+    // throw-ot dobó unsub function-t adjon vissza. A provider
+    // subscribeToBot() a meglévő unsub-ot megtartja, és csak az
+    // új híváskor kap egy throw-os unsub-ot. Viszont a
+    // subscribeToBot early-return-öl, ha van már unsub. Tehát
+    // a meglévő unsub-ot kell felülírni.
+    // A bot belső stateListeners Set-jéhez nem férünk hozzá
+    // egyszerűen — ehelyett közvetlenül a provider belső
+    // unsubscribers tömbjét írjuk felül.
+    const provAny = provider as unknown as {
+      unsubscribers: (() => void)[];
+    };
+    provAny.unsubscribers.length = 0;
+    provAny.unsubscribers.push(() => { throw new Error("intentional unsub failure"); });
+
+    // A provider.stop() hívja az unsubscribeFromBot-ot, ami
+    // try-catch-ben hívja az unsub-ot. A catch elnyeli a throw-t.
+    await expect(provider.stop()).resolves.toBeUndefined();
+
+    await bot.stop();
+    await startPromise;
+  });
+
+  // --------------------------------------------------------------------------
+  // 13) synthesizeTickerEvents rolling buffer trim (32-event cap)
+  //     (covers L544-547 in synthesizeTickerEvents)
+  // --------------------------------------------------------------------------
+  it("synthesizeTickerEvents caps tickerEventBuffer at 32 events", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed, stateSaveIntervalMs: 10 });
+    const provider = new LiveBotStateProvider({
+      bot,
+      enabledSymbols: ["BTC/USDC"],
+      initialEquityUsdt: 10_000,
+    });
+
+    const startPromise = bot.start();
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+    await provider.start();
+
+    // A state-save interval 10ms — várjunk 500ms-t, hogy ~50
+    // ticker event keletkezzen, ami meghaladja a 32-es cap-et.
+    await new Promise<void>((r) => {
+      setTimeout(r, 500);
+    });
+
+    // A tickerEventBuffer mérete <= 32 kell legyen.
+    const provAny = provider as unknown as {
+      tickerEventBuffer: unknown[];
+    };
+    expect(provAny.tickerEventBuffer.length).toBeLessThanOrEqual(32);
+    // És a 32-es cap miatt >= 1 is kell legyen.
+    expect(provAny.tickerEventBuffer.length).toBeGreaterThan(0);
+
+    await provider.stop();
+    await bot.stop();
+    await startPromise;
+  });
+
+  // --------------------------------------------------------------------------
+  // 14) refreshFromBot when lastEngineState === null
+  //     (covers the early-return branch at L557-582)
+  //     Ezt a state-et akkor látjuk, ha a provider start() hívódik,
+  //     de a bot még nem küldött state-et (vagy a bot.stop() után
+  //     a lastEngineState törölve lesz).
+  // --------------------------------------------------------------------------
+  it("refreshFromBot handles null engine state (start without notify)", async () => {
+    const config = buildTestConfig(stateFile);
+    // NAGYON hosszú state-save interval, hogy a bot ne küldjön
+    // state-et a provider start() hívásakor.
+    const bot = new Bot({ config, feed, stateSaveIntervalMs: 10_000 });
+    const provider = new LiveBotStateProvider({
+      bot,
+      enabledSymbols: ["BTC/USDC"],
+      initialEquityUsdt: 10_000,
+    });
+
+    // A bot indítása, DE a provider start() ELŐTT megállítjuk a
+    // bot-ot, hogy biztosan ne küldjön state-et a provider felé.
+    const startPromise = bot.start();
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+    // A bot leállítása — a run-loop kilép, de a stateListener-ek
+    // megmaradnak. A provider ezután start()-kor a lastEngineState
+    // === null ágba megy.
+    await bot.stop();
+    await startPromise;
+
+    // A provider start() hívja a refreshFromBot-ot, ami a null
+    // engine ágba megy (mivel a bot már leállt, és nem notify-olt).
+    await provider.start();
+
+    // A snapshot érvényes, és a tickers tartalmazza a BTC/USDC-t.
+    const snap = provider.getSnapshot();
+    expect(snap.running).toBe(true);
+    expect(snap.tickers.length).toBeGreaterThan(0);
+    expect(snap.tickers[0]?.symbol).toBe("BTC/USDC");
+  });
+
+  // --------------------------------------------------------------------------
+  // 15) buildTickers includes positions not in enabledSymbols
+  //     (covers the fallback at L249-258 in buildTickers)
+  // --------------------------------------------------------------------------
+  it("buildTickers includes positions whose symbol is not in enabledSymbols", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed, stateSaveIntervalMs: 50 });
+    // Az enabled symbols csak BTC/USDC, de a position-ok SOL/USDC-t
+    // is tartalmazhatnak. A buildTickers fallback ága lefut, ha
+    // a position.symbol NINCS az enabledSymbols-ban.
+    const provider = new LiveBotStateProvider({
+      bot,
+      enabledSymbols: ["BTC/USDC"],
+      initialEquityUsdt: 10_000,
+    });
+
+    const startPromise = bot.start();
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+    await provider.start();
+
+    // Inject egy SOL/USDC pozíciót a bot-on.
+    const botAny = bot as unknown as {
+      positionManager: {
+        openPosition: (s: string, sym: unknown, side: "long" | "short", qty: number, price: number, lev: number) => unknown;
+      };
+    };
+    botAny.positionManager.openPosition(
+      "test-strategy",
+      asSymbol("SOL/USDC") as unknown as ExchangeSymbol,
+      "long",
+      1,
+      150,
+      1,
+    );
+
+    // Push egy ticker tick-et, ami triggereli a provider notify-t.
+    pushTickerTick(feed, asSymbol("BTC/USDC") as unknown as ExchangeSymbol, 60_000);
+    await new Promise<void>((r) => {
+      setTimeout(r, 200);
+    });
+
+    // A snapshot tickers tartalmazza a SOL/USDC-t is (mivel van
+    // pozíció, de nincs az enabled symbols-ban).
+    const snap = provider.getSnapshot();
+    const symbols = snap.tickers.map((t) => t.symbol);
+    expect(symbols).toContain("BTC/USDC");
+    expect(symbols).toContain("SOL/USDC");
+
+    await provider.stop();
+    await bot.stop();
+    await startPromise;
+  });
+
+  // --------------------------------------------------------------------------
+  // 16) computeStatistics with mixed winning/losing trades exercises
+  //     the profitFactor, sharpeRatio, maxDrawdownPct branches
+  //     (covers the > 0 winning/losing branches in computeStatistics)
+  // --------------------------------------------------------------------------
+  it("computeStatistics handles mixed winning/losing trades", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed, stateSaveIntervalMs: 10 });
+    const provider = new LiveBotStateProvider({
+      bot,
+      enabledSymbols: ["BTC/USDC"],
+      initialEquityUsdt: 10_000,
+    });
+
+    const startPromise = bot.start();
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+    await provider.start();
+
+    // Inject egy BTC/USDC pozíciót, majd zárjuk nyereséggel/veszteséggel.
+    const sym = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
+    const botAny = bot as unknown as {
+      positionManager: {
+        openPosition: (s: string, sym: unknown, side: "long" | "short", qty: number, price: number, lev: number) => unknown;
+        closePosition: (s: string, sym: unknown, exitPrice: number) => number;
+      };
+    };
+    // Trade 1: nyereség
+    botAny.positionManager.openPosition("strat-1", sym, "long", 0.01, 60_000, 1);
+    botAny.positionManager.closePosition("strat-1", sym, 60_500);
+    // Trade 2: veszteség
+    botAny.positionManager.openPosition("strat-2", sym, "long", 0.01, 60_000, 1);
+    botAny.positionManager.closePosition("strat-2", sym, 59_500);
+
+    // Push ticker, hogy a provider notify-oljon.
+    pushTickerTick(feed, sym, 60_000);
+    await new Promise<void>((r) => {
+      setTimeout(r, 200);
+    });
+
+    const snap = provider.getSnapshot();
+    // 2 trade, 1 nyertes, 1 vesztes — winRate 50%.
+    expect(snap.statistics.totalTrades).toBe(2);
+    expect(snap.statistics.winningTrades).toBe(1);
+    expect(snap.statistics.losingTrades).toBe(1);
+    expect(snap.statistics.winRate).toBeCloseTo(50, 0);
+    // A best/worst trade-ek nem 0.
+    expect(snap.statistics.bestTradePnl).toBeGreaterThan(0);
+    expect(snap.statistics.worstTradePnl).toBeLessThan(0);
+    // A profitFactor > 0 (nyereség vs veszteség).
+    expect(snap.statistics.profitFactor).toBeGreaterThan(0);
+    // A history lista tartalmazza mindkét trade-et.
+    expect(snap.history.length).toBe(2);
+
+    await provider.stop();
+    await bot.stop();
+    await startPromise;
+  });
 });
