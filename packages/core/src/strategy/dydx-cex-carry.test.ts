@@ -973,18 +973,20 @@ describe("Phase 35b — DydxCexCarryPaperTrader paper-trade arrow callback", () 
     // — it just returns a close handle. We need a custom source that
     // calls the callback synchronously to register the function as hit.
     class CallbackFiringSource extends MockFundingSource {
-      subscribe(
+      override subscribe(
         market: CarryMarket,
         onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
       ): { readonly close: () => void } {
         super.subscribe(market, onTick);
         // Fire the callback synchronously to register the arrow as "hit"
-        const snap = {
-          dydx: { fundingRate: 0, timestampMs: 0, market: "BTC-USD" as const },
-          cex: { fundingRate: 0, timestampMs: 0, market: "BTC-USD" as const },
+        // Phase 35b: FundingSnapshot uses `fundingTime` + `symbol` (not
+        // `timestampMs` + `market`).
+        const snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot } = {
+          dydx: { fundingTime: 0, symbol: market, fundingRate: 0 },
+          cex: { fundingTime: 0, symbol: market, fundingRate: 0 },
         };
         onTick(snap);
-        return { close: () => {} };
+        return { close: (): void => { /* noop unsubscribe */ } };
       }
     }
     const src = new CallbackFiringSource();
