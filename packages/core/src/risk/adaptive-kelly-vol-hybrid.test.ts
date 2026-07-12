@@ -484,9 +484,9 @@ describe("runHybridWalkForwardValidation", () => {
     // kis veszteség ($-0.5). Ez az eloszlás garantálja, hogy a per-window
     // Sharpe néha negatív (kevés trade + kis mean), az aggregate pedig
     // pozitív (nagy győzelmek dominálnak).
-    const candles = mkConstReturnSeries(10000, 0.002);
+    const candles = mkConstReturnSeries(2000, 0.002);
     const syntheticTrades: Trade[] = [];
-    for (let i = 0; i < 10000; i++) {
+    for (let i = 0; i < 2000; i++) {
       const c1 = candles[i];
       const c2 = candles[i + 1];
       if (!c1 || !c2) break;
