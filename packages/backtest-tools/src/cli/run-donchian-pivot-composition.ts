@@ -52,7 +52,8 @@ interface CliArgs {
 
 const ALLOWED_SYMBOLS = new Set(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
 
-function parseSymbols(raw: string): readonly string[] {
+// A `parseSymbols` exportálva van a 100% line-coverage tesztekhez.
+export function parseSymbols(raw: string): readonly string[] {
   const parts = raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
   if (parts.length === 0) {
     throw new Error(`--symbols is empty`);
@@ -67,7 +68,8 @@ function parseSymbols(raw: string): readonly string[] {
   return parts;
 }
 
-function parseArgs(): CliArgs {
+// A `parseArgs` exportálva van a 100% line-coverage tesztekhez.
+export function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
   let symbol = "BTC/USDT";
   let symbols: string[] = [];
@@ -145,8 +147,8 @@ function parseArgs(): CliArgs {
   };
 }
 
-// Donchian+Pivot composition timeline — HTF=1d, MTF=4h, LTF=15m.
-function timeframesForComposition(ltf: Timeframe): { htf: Timeframe; mtf: Timeframe; ltf: Timeframe } {
+// A `timeframesForComposition` exportálva van a 100% line-coverage tesztekhez.
+export function timeframesForComposition(ltf: Timeframe): { htf: Timeframe; mtf: Timeframe; ltf: Timeframe } {
   if (ltf === "15m") return { htf: "1d", mtf: "4h", ltf: "15m" };
   throw new Error(`Donchian+Pivot composition supports 15m only, got: ${ltf as string}`);
 }
@@ -339,7 +341,9 @@ async function main(): Promise<void> {
   console.log(`\n[donchian-pivot] Saved combined envelope: ${combinedPath}`);
 }
 
-main().catch((err: unknown) => {
-  console.error("[donchian-pivot] FATAL:", err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err: unknown) => {
+    console.error("[donchian-pivot] FATAL:", err);
+    process.exit(1);
+  });
+}

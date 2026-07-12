@@ -207,7 +207,8 @@ export function parseArgs(argv: readonly string[] = process.argv.slice(2)): CliA
   return args;
 }
 
-function printHelp(): void {
+// A `printHelp` is exportálva van a 100% line-coverage tesztekhez.
+export function printHelp(): void {
   console.log("run-dydx-vs-cex-funding-carry — Phase 25 #2 Track B empirical validator");
   console.log("");
   console.log("Flags:");
@@ -227,7 +228,10 @@ function printHelp(): void {
 // Data loading
 // ============================================================================
 
-async function loadCexFundingCsv(path: string, cexSymbol: string): Promise<readonly FundingSnapshot[]> {
+// A `loadCexFundingCsv` exportálva van a 100% line-coverage tesztekhez —
+// a `main()` a CLI entrypoint-ból hívja, de a unit tesztek közvetlenül
+// is meghívják egy-egy CSV sorral.
+export async function loadCexFundingCsv(path: string, cexSymbol: string): Promise<readonly FundingSnapshot[]> {
   const raw = await readFile(path, "utf8");
   const lines = raw.split("\n");
   const out: FundingSnapshot[] = [];
@@ -254,7 +258,8 @@ async function loadCexFundingCsv(path: string, cexSymbol: string): Promise<reado
   return out;
 }
 
-async function loadDydxHourly(
+// A `loadDydxHourly` is exportálva van a 100% line-coverage tesztekhez.
+export async function loadDydxHourly(
   cacheDir: string,
   symbol: SymbolId,
   dates: readonly Date[],
@@ -705,7 +710,8 @@ export interface RunOutput {
   readonly fetchedAt: string;
 }
 
-async function main(): Promise<void> {
+// A `main` is exportálva van a 100% line-coverage tesztekhez.
+export async function main(): Promise<void> {
   const args = parseArgs();
   const dydxSymbol = SYMBOL_TO_DYDX[args.symbol];
   const cexSymbol = SYMBOL_TO_CEX[args.symbol];
@@ -827,6 +833,10 @@ async function main(): Promise<void> {
 
 // Re-export symbols for tests.
 export { parseDerivativeTickerCsv, aggregateToHourlyFunding };
+// A `loadCexFundingCsv`, `loadDydxHourly`, `main`, `printHelp` már
+// exportálva van a fenti `export async function` / `export function`
+// deklarációkban — itt csak a re-export `from "../data/..."` típusok
+// maradnak, hogy ne legyen duplicate-export hiba.
 
 if (import.meta.main) {
   main().catch((err: unknown) => {

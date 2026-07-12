@@ -21,6 +21,14 @@ export interface BybitEuAdapterOptions {
   readonly secret?: string;
   readonly rateLimitMs?: number;
   readonly sandbox?: boolean;
+  /**
+   * `exchange` — opcionális, dependency injection célokra.
+   * Ha meg van adva, az adapter ezt használja a CCXT bybiteu
+   * factory meghívása helyett. Tesztekben mock factory-t adnak át,
+   * hogy ne kelljen a teljes `ccxt` modult mockolni (ami izolációs
+   * bug-okhoz vezetne a többi exchange teszttel).
+   */
+  readonly exchange?: Exchange;
 }
 
 /**
@@ -35,19 +43,28 @@ export class BybitEuAdapter implements ExchangeFeed {
 
   constructor(options: BybitEuAdapterOptions = {}) {
     this.options = options;
-    const exchangeOptions: Record<string, unknown> = {
-      enableRateLimit: true,
-      rateLimit: options.rateLimitMs ?? 100,
-    };
-    if (options.apiKey !== undefined) exchangeOptions["apiKey"] = options.apiKey;
-    if (options.secret !== undefined) exchangeOptions["secret"] = options.secret;
-    // `options` a CCXT-nek van átadva a fenti exchangeOptions-on keresztül;
-    // a this.options mező a későbbi bővítésekhez (pl. demo trading kapcsoló).
+    // Az `options` tárolása a későbbi bővítésekhez (pl. demo
+    // trading kapcsoló) — jelenleg a CCXT factory a konstruktor
+    // során kapja meg az opciókat, és a `this.options` a debug
+    // célokra marad.
     void this.options;
-    this.exchange = new ccxt.bybiteu(exchangeOptions);
+    if (options.exchange !== undefined) {
+      // Dependency injection: a teszt (vagy más consumer) egy már
+      // konfigurált Exchange példányt ad át. A sandbox flag ebben
+      // az esetben a caller felelőssége.
+      this.exchange = options.exchange;
+    } else {
+      const exchangeOptions: Record<string, unknown> = {
+        enableRateLimit: true,
+        rateLimit: options.rateLimitMs ?? 100,
+      };
+      if (options.apiKey !== undefined) exchangeOptions["apiKey"] = options.apiKey;
+      if (options.secret !== undefined) exchangeOptions["secret"] = options.secret;
+      this.exchange = new ccxt.bybiteu(exchangeOptions);
 
-    if (options.sandbox === true) {
-      this.exchange.setSandboxMode(true);
+      if (options.sandbox === true) {
+        this.exchange.setSandboxMode(true);
+      }
     }
   }
 
