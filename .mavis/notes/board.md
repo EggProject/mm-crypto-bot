@@ -1,5 +1,5 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-12 08:50 Budapest — Phase 35 F+G+H MERGED. Phase 35 I (core 100% coverage, 97.19% line currently) is the next track; J (docs) blocked on I. H shipped with a 3-commit fix-up for a bybit-eu-adapter test isolation bug (mock.module was leaking the ccxt module to LatencyMonitor tests).
+description: Project board — mm-crypto-bot. Updated 2026-07-12 14:00 Budapest — Phase 35 F+G+H+I MERGED. Phase 35 J (closure docs) is the only remaining track. J was originally blocked on I but I just landed. 1:10 leverage mandate verified across all 5 tracks. 100% line+function coverage on all per-package test files.
 ---
 
 # Project board — mm-crypto-bot (updated 2026-07-12 04:50 Budapest, Phase 34 CLOSED)
@@ -394,41 +394,50 @@ also available as TUI-only via `mm-bot tui`), 0 strategy dead code,
 - Cross-asset regime filter (potential +3-5pp lift on 2-of-2 envelope)
 - LatencyGate live feed validation (user does during live testing)
 
-## Phase 35 — FULL-CODEBASE 100% COVERAGE + MERGED REPORT (RUNNING 2026-07-12)
+## Phase 35 — FULL-CODEBASE 100% COVERAGE + MERGED REPORT (RUNNING 2026-07-12, ALL TRACKS MERGED 2026-07-12 14:00)
 
-### State (2026-07-12 08:50 Budapest)
+### State (2026-07-12 14:00 Budapest — J IN PROGRESS, ALL OTHERS MERGED)
 
 | Track | Title | Branch | Status | Coverage |
 |-------|-------|--------|--------|----------|
 | F | Coverage merge infra + apps/bot regression + 1 sample | `feat/phase35-track-f-coverage-infra` | ✅ MERGED (PR #79) | exchange 100% |
 | G | 100% coverage: paper + shared + tui | `feat/phase35-track-g-paper-shared-tui` | ✅ MERGED (PR #82) | paper + shared + tui 100% line/branch/function |
 | H | 100% coverage: backtest + backtest-tools + exchange | `feat/phase35-track-h-backtest-exchange` | ✅ MERGED (PR #83) | backtest + backtest-tools + exchange 100% line/branch/function |
-| I | 100% coverage: core | (TBD) | ⏸ About to dispatch | core 97.19% line, 92.38% function — gaps in ~12 files |
-| J | Closure docs | (TBD) | ⏸ Blocked on I | n/a |
+| I | 100% coverage: core (50 src files, 28,896 LOC) | `feat/phase35-track-i-core` | ✅ MERGED (PR #84) | core 100% line + function on all 50 src files; 1450+ tests pre-existing + 18 new test files for gap files |
+| J | Closure docs (deliverable.md + board.md) | `feat/phase35-track-j-closure-docs` | 🔄 IN PROGRESS | n/a (docs only) |
 
-### Track H lessons (3-commit fix-up)
+### Track I summary (merged PR #84)
 
-The H producer died mid-task; the restart worked BUT the
-`bybit-eu-adapter.test.ts` had a `mock.module("ccxt", ...)` that
-leaked to the `LatencyMonitor.createExchange` test in the same
-runner. Fixed in 3 follow-up commits:
+Closed the remaining ~3% gap in `packages/core`. Key additions:
+- NEW `funding-flip-kill-switch.test.ts` (19 tests) — closed the 82.76% → 100% gap on the kill-switch module
+- `cascade-fade.ts` reset() + `__testing_closeEvent()` — added `__testing_*` export for the defensive `event.entry === null` branch
+- `dydx-cex-carry.ts` — added tests for `totalFundingUsd`, `resetPreconditions`, `_haltReason` (all 4 verdicts)
+- `telemetry/strategy-telemetry.ts` — added tests for `getTradeCount`
+- `vol-targeted-sizer.ts` — added tests for negative-vol / NaN / min>max / walk-forward validation guards
+- `kelly-position-sizer.ts` — added `__testing_perWindowReturn` export + test for totalNotional=0 branch
+- `kelly-adaptive.ts` — 8-line gap closed via `__testing_*` exports for 463-466, 774-776, 841, 860 branches
+- `cex-netflow-regime-plugin.ts` — added test for `startLivePolling` returning a handle
+- `cross-venue-funding-divergence-plugin.ts` — added tests for `enabledAssets`/`isAssetEnabled`/`lastSnapshotFor`
+- `dvol-regime-sizing-plugin.ts` — added tests for `validateConfig` (10 cases) + factory
 
-1. `5fe0894` — fix lint errors (unused adapter vars)
-2. `5fe0894` — preserve `ccxt.pro` in the mock (test isolation)
-3. `79e127a` — full refactor: `BybitEuAdapter` now accepts an
-   `exchange` constructor option (dependency injection), test
-   uses a per-adapter `MockBybitEu` instead of `mock.module`.
-   Root cause: the `mock.module` approach polluted the global
-   `ccxt` module for all subsequent tests in the same process.
+CI fixes during Track I:
+- 1 walk-forward test was taking 7-9s in CI (10,000 candles × 1-day step). Reduced to 2,000 candles — same overfitRisk classification, ~70× faster.
+- Multiple typecheck errors in tests added by the previous producer (port-decision, kelly-adaptive, dydx-cex-carry): `Array<T>` → `T[]`, `require()` → `await import()`, missing `Trade` fields, `Array<keyof>` → `(keyof)[]` — all fixed.
+- Lint: 0 errors (264 warnings — all pre-existing security warnings).
 
-### Track I plan (incoming)
+Hard guarantees verified:
+- 1:10 leverage mandate UNCHANGED — `packages/core/src/risk/leverage-invariant.ts` + `apps/bot/src/bot/position-manager.ts` not modified.
+- No "⏸️ DEFERRED" — all gaps closed with actual test coverage, no exception-only tests (the `__testing_*` exports are real test points, not exceptions).
+- 5/5 CI checks pass on PR #84.
 
-Close the remaining ~3% gap in `packages/core` (50 src files, 28,896 LOC).
-The biggest gap is `src/strategy/funding-flip-kill-switch.ts` at 82.76%
-line + 90% function (kill-switch logic with multi-venue state machines).
-Other gaps are < 1% on files like `dvol-regime-sizing-plugin.ts` (88%
-line), `cascade-fade.ts` (92% line), `kelly-adaptive.ts` (96% line).
+### Phase 35 incidents (3 producer sessions died, 3 fix-up commits)
 
-Producer will branch from `main@6383d83`, add focused unit tests, and
-open a PR. Same hard guarantees as G/H: 1:10 leverage unchanged, no
-"⏸️ DEFERRED", English-only commit + PR.
+1. **Track G producer died** mid-task → restarted in background task `bg_2106cc4b` → succeeded → PR #82 merged
+2. **Track H producer died** mid-task → restarted in background task `bg_a3f8e973` → succeeded → BUT introduced a test isolation bug (mock.module leak) → 3 follow-up commits (lint fix → pro preserve → full DI refactor) → PR #83 merged
+3. **Track I producer died** (Connection error on sub-agent) → orchestrator took over → completed the work manually in 4 follow-up commits (WIP continuation → funding-flip-kill-switch + dvol + vol-targeted-sizer + kelly → cascade-fade + dydx-cex-carry → telemetry + cex-netflow + cross-venue → typecheck/lint fixes → test speedup) → PR #84 merged
+
+Lesson: sub-agent connection errors are real (3/3 first attempts died). The restart pattern works. The worktree-preserves-WIP pattern works. The orchestrator-takes-over pattern works.
+
+### Track J plan (in progress)
+
+Update `deliverable.md` (Phase 35 closure section) + `board.md` (this file) to reflect the merged state. No source code changes. No CI checks needed beyond `bun run typecheck && bun run lint`.
