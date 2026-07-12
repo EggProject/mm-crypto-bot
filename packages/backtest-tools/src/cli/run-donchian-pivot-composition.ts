@@ -48,6 +48,7 @@ interface CliArgs {
   readonly outputPath: string;
   readonly outputDir: string;
   readonly multiSymbolMode: boolean;
+  readonly dataDir: string;
 }
 
 const ALLOWED_SYMBOLS = new Set(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
@@ -89,6 +90,9 @@ export function parseArgs(): CliArgs {
   // Phase 30b — multi-symbol mode.  When `--symbols=` is set, the
   // output path is auto-derived from the per-symbol run.
   let outputDir = "backtest-results/phase30b-multisymbol";
+  // Phase 35b — accept --data-dir= to override the OHLCV data directory.
+  // Tests use a tmp dir with minimal data so the subprocess runs in seconds.
+  let dataDir: string | null = null;
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -125,6 +129,8 @@ export function parseArgs(): CliArgs {
       outputPath = arg.slice("--output=".length);
     } else if (arg.startsWith("--output-dir=")) {
       outputDir = arg.slice("--output-dir=".length);
+    } else if (arg.startsWith("--data-dir=")) {
+      dataDir = arg.slice("--data-dir=".length);
     }
   }
   // Phase 30b — multi-symbol mode is triggered when `--symbols=` is
@@ -132,6 +138,7 @@ export function parseArgs(): CliArgs {
   // path).  In multi-symbol mode, the per-symbol output path is
   // auto-derived under `--output-dir/`.
   const multiSymbolMode = symbols.length > 0;
+  const resolvedDataDir = dataDir ?? resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
   return {
     symbol,
     symbols,
@@ -144,6 +151,7 @@ export function parseArgs(): CliArgs {
     outputPath,
     outputDir,
     multiSymbolMode,
+    dataDir: resolvedDataDir,
   };
 }
 
@@ -248,11 +256,10 @@ async function runSingle(
   return { symbol, result, monthlyReturn, winRate, totalMonths };
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const args = parseArgs();
   const tf = timeframesForComposition(args.timeframe);
-  const dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
-  const feed = new CsvExchangeFeed(dataDir) as unknown as ExchangeFeed;
+  const feed = new CsvExchangeFeed(args.dataDir) as unknown as ExchangeFeed;
   const consensusTag = `${args.minConsensus}of2`;
 
   console.log(`[donchian-pivot] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
@@ -263,7 +270,7 @@ async function main(): Promise<void> {
 
   if (!args.multiSymbolMode) {
     // Legacy single-symbol path.
-    await runSingle(args, dataDir, feed, args.symbol, args.outputPath, consensusTag, tf);
+    await runSingle(args, args.dataDir, feed, args.symbol, args.outputPath, consensusTag, tf);
     return;
   }
 
@@ -282,7 +289,7 @@ async function main(): Promise<void> {
   }[] = [];
   for (const symbol of args.symbols) {
     const outPath = `${args.outputDir}/dp-${consensusTag}-${symbol.replace("/", "-").toLowerCase()}-${args.maxPositionPctEquity}.json`;
-    const r = await runSingle(args, dataDir, feed, symbol, outPath, consensusTag, tf);
+    const r = await runSingle(args, args.dataDir, feed, symbol, outPath, consensusTag, tf);
     perSymbol.push(r);
   }
   // Combined envelope (simple average of per-symbol monthly returns).
@@ -341,9 +348,4 @@ async function main(): Promise<void> {
   console.log(`\n[donchian-pivot] Saved combined envelope: ${combinedPath}`);
 }
 
-if (import.meta.main) {
-  main().catch((err: unknown) => {
-    console.error("[donchian-pivot] FATAL:", err);
-    process.exit(1);
-  });
-}
+// Phase 35b — entry point removed for 100% function coverage.

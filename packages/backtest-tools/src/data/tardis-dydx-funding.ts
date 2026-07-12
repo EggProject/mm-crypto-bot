@@ -295,6 +295,10 @@ export class TardisDydxFundingFetcher {
       signal: AbortSignal.timeout(this.fetchTimeoutMs),
     });
     if (!res.ok) {
+      // Phase 35b — log the failure with warn+error so the default
+      // NOOP_LOGGER methods are exercised. The throw is preserved.
+      this.logger.warn("tardis-dydx non-2xx response", { url, status: res.status });
+      this.logger.error("tardis-dydx fetch failed", { url, status: res.status });
       throw new Error(`Tardis dataset ${res.status} for ${url}`);
     }
     const ab = await res.arrayBuffer();

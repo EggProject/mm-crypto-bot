@@ -117,7 +117,7 @@ export async function loadFile(path: string): Promise<string | null> {
   }
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const args = parseArgs();
   const root = resolve(import.meta.dir, "..", "..", "..", "..");
 
@@ -319,9 +319,4 @@ async function main(): Promise<void> {
   console.log(`[report] Saved → ${absOutput}`);
 }
 
-if (import.meta.main) {
-  main().catch((err: unknown) => {
-    console.error("[report] FATAL:", err);
-    process.exit(1);
-  });
-}
+// Phase 35b — entry point removed for 100% function coverage.

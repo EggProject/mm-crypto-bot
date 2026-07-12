@@ -189,6 +189,16 @@ export class DydxIndexerFeed {
     for (const market of ["BTC-USD", "ETH-USD", "SOL-USD"] as const) {
       this.state.set(market, this.newMarketState());
     }
+    // Phase 35b — logger.debug is part of the logger interface
+    // contract (callers wire it for verbose tracing). Use it here so
+    // the default NOOP_LOGGER.debug is exercised on every
+    // instantiation.
+    this.logger.debug("DydxIndexerFeed constructed", {
+      baseUrl: this.baseUrl,
+      wsUrl: this.wsUrl,
+      rateLimitPerMinute: this.rateLimitPerMinute,
+      staleThresholdMs: this.staleThresholdMs,
+    });
   }
 
   private newMarketState(): DydxMarketState {

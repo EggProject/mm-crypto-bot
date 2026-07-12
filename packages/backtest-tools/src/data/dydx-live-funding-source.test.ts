@@ -16,7 +16,12 @@
 
 import { describe, expect, it, beforeEach } from "bun:test";
 
-import { DydxLiveFundingSource, type CexFundingProvider, type BybitEuSpotDepthSource } from "./dydx-live-funding-source.js";
+import {
+  DydxLiveFundingSource,
+  type BybitEuSpotDepthSource,
+  type CexFundingProvider,
+  type DydxLiveFundingSourceLogger,
+} from "./dydx-live-funding-source.js";
 import type { DydxIndexerFeed, DydxMarket, DydxMarketState, DydxWsChannelData } from "./dydx-indexer-feed.js";
 import type { CarryMarket } from "@mm-crypto-bot/core";
 
@@ -210,5 +215,86 @@ describe("DydxLiveFundingSource — wire-up", () => {
     expect(defaultSrc.cexFundingProvider.getMostRecent("BTCUSDT", Date.now())).toBeNull();
     // The default bybit depth provider is also a noop.
     expect(defaultSrc.bybitEuDepthSource.getDepthUsdAt1Pct("BTC-USD", Date.now())).toBeNull();
+  });
+
+  it("17. custom logger: each of debug/info/warn/error is called at least once", () => {
+    // Phase 35b — verify that a custom logger receives each of the
+    // four log methods via the documented code paths. This is a
+    // public-API contract test: production wiring uses a real logger.
+    const calls: { level: string; msg: string }[] = [];
+    const customLogger: DydxLiveFundingSourceLogger = {
+      debug: (msg) => { calls.push({ level: "debug", msg }); },
+      info: (msg) => { calls.push({ level: "info", msg }); },
+      warn: (msg) => { calls.push({ level: "warn", msg }); },
+      error: (msg) => { calls.push({ level: "error", msg }); },
+    };
+    const customSrc = new DydxLiveFundingSource(
+      feed as unknown as DydxIndexerFeed,
+      { logger: customLogger },
+    );
+    // Constructor calls debug.
+    expect(calls.some((c) => c.level === "debug")).toBe(true);
+    // open() calls info, also creates the inline arrows for the
+    // close handle. The handle.close() invocation exercises the
+    // subscriptions.set value arrow and the return-object close arrow.
+    const handle = customSrc.open();
+    expect(calls.some((c) => c.level === "info")).toBe(true);
+    // _onWsMessage via the mock setTimeout(0) calls error.
+    // Wait for the setTimeout to fire.
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        expect(calls.some((c) => c.level === "error")).toBe(true);
+        // warn: trigger via a separate instance with bad market.
+        calls.length = 0;
+        expect(
+          () => new DydxLiveFundingSource(feed as unknown as DydxIndexerFeed, {
+            markets: ["ETH-USD" as DydxMarket],
+            logger: customLogger,
+          }),
+        ).toThrow(/ETH-USD/);
+        expect(calls.some((c) => c.level === "warn")).toBe(true);
+        // close the handle — exercises the subscriptions.set value
+        // arrow and the return-object close arrow.
+        handle.close();
+        resolve();
+      }, 20);
+    });
+  });
+
+  it("18. lastTickAgeMs/lastChainBlockHeight/lastChainBlockTs non-BTC-USD path returns null", () => {
+    // A CarryMarket típusnál a "BTC-USD" az egyetlen érvényes érték,
+    // de a runtime guard minden más market-et elutasít. Ez a teszt
+    // a `if (market !== "BTC-USD") return null;` ágat explicit
+    // módon triggereli.
+    const nonBtc = "ETH-USD" as CarryMarket;
+    expect(src.lastTickAgeMs(nonBtc, Date.now())).toBeNull();
+    expect(src.lastChainBlockHeight(nonBtc)).toBeNull();
+    expect(src.lastChainBlockTs(nonBtc)).toBeNull();
+  });
+
+  it("19. default constructor: explicit health() call (Phase 35b — exercise the `feed.getState('BTC-USD')` path)", () => {
+    // A `health()` metódus a `feed.getState("BTC-USD")` hívást csinálja.
+    // A fennmaradó lefedetlen function-coverage ágak feltérképezéséhez
+    // explicit módon meghívjuk az összes public method-ot.
+    const h = src.health();
+    expect(h).toEqual({ lastTickMs: null, chainBlockHeight: null });
+  });
+
+  it("20. exhaustive method coverage: hívj meg MINDEN public method-ot", () => {
+    // Phase 35b — function-coverage mandate. Ez a teszt az összes
+    // public method-ot explicit módon meghívja, hogy minden function
+    // tracked legyen a coverage tool-ban.
+    const h = src.health();
+    const h2 = src.bybitEuSpotDepthUsd("BTC-USD", Date.now());
+    const h3 = src.lastTickAgeMs("BTC-USD", Date.now());
+    const h4 = src.lastChainBlockHeight("BTC-USD");
+    const h5 = src.lastChainBlockTs("BTC-USD");
+    const h6 = src.subscribe("BTC-USD", () => undefined);
+    h6.close();
+    expect(h).toBeDefined();
+    expect(h2).toBe(250_000);
+    expect(h3).toBeNull();
+    expect(h4).toBeNull();
+    expect(h5).toBeNull();
   });
 });

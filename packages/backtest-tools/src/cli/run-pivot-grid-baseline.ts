@@ -32,6 +32,9 @@ interface CliArgs {
   readonly initialEquity: number;
   readonly outputPath: string;
   readonly maxPositionPctEquity: number;
+  readonly startTime: Date;
+  readonly endTime: Date;
+  readonly dataDir: string;
 }
 
 // A `parseArgs` exportálva van a 100% line-coverage tesztekhez.
@@ -45,6 +48,14 @@ export function parseArgs(): CliArgs {
   // = 0.04 from Track A). Override via --max-position-pct-equity=N where 0 < N <= 1.0.
   // (Note: 1.0 disables cap → legacy behavior. Values outside (0, 1] rejected.)
   let maxPositionPctEquity = 0.04;
+  // Phase 35b — accept --start=/--end= to bound the backtest window.
+  // Default is the original 2024-01-01 → today range. Tests use short
+  // windows (e.g. 1 day) to keep the subprocess runtime in seconds.
+  let startTime = new Date(Date.UTC(2024, 0, 1));
+  let endTime = new Date();
+  // Phase 35b — accept --data-dir= to override the OHLCV data directory.
+  // Tests use a tmp dir with minimal data so the subprocess runs in seconds.
+  let dataDir: string | null = null;
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -64,9 +75,25 @@ export function parseArgs(): CliArgs {
       if (!Number.isFinite(maxPositionPctEquity) || maxPositionPctEquity <= 0 || maxPositionPctEquity > 1) {
         throw new Error(`--max-position-pct-equity must be in (0, 1]; got: ${maxPositionPctEquity}`);
       }
+    } else if (arg.startsWith("--start=")) {
+      startTime = new Date(arg.slice("--start=".length));
+    } else if (arg.startsWith("--end=")) {
+      endTime = new Date(arg.slice("--end=".length));
+    } else if (arg.startsWith("--data-dir=")) {
+      dataDir = arg.slice("--data-dir=".length);
     }
   }
-  return { symbol, timeframe, initialEquity, outputPath, maxPositionPctEquity };
+  const resolvedDataDir = dataDir ?? resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
+  return {
+    symbol,
+    timeframe,
+    initialEquity,
+    outputPath,
+    maxPositionPctEquity,
+    startTime,
+    endTime,
+    dataDir: resolvedDataDir,
+  };
 }
 
 // A `timeframesForPivotGrid` exportálva van a 100% line-coverage tesztekhez.
@@ -84,11 +111,10 @@ const COST_MODEL: CostModel = {
   fundingRatePer8h: 0, // SPOT only
 };
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const args = parseArgs();
   const tf = timeframesForPivotGrid(args.timeframe);
-  const dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
-  const feed = new CsvExchangeFeed(dataDir) as unknown as ExchangeFeed;
+  const feed = new CsvExchangeFeed(args.dataDir) as unknown as ExchangeFeed;
   // Phase 16 Track A — pass the per-strategy notional cap to the strategy.
   // The strategy scales signal `confidence` so the engine-side position-
   // sizing layer respects `maxPositionPctEquity`. We merge the DEFAULT with
@@ -99,9 +125,9 @@ async function main(): Promise<void> {
   };
   const strategy = new PivotPointGridStrategy(strategyConfig);
 
-  // 2024-01-01 → today (matches Phase 14 baseline window).
-  const startTime = new Date(Date.UTC(2024, 0, 1));
-  const endTime = new Date();
+  // Phase 35b — start/end is now CLI-configurable so the subprocess
+  // test suite can run on a 1-day window and finish in seconds.
+  const { startTime, endTime } = args;
 
   console.log(`[pivot-grid] symbol=${args.symbol} ltf=${args.timeframe}`);
   console.log(`[pivot-grid] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
@@ -183,9 +209,9 @@ async function main(): Promise<void> {
   console.log(`\n[pivot-grid] Saved: ${args.outputPath}`);
 }
 
-if (import.meta.main) {
-  main().catch((err: unknown) => {
-    console.error("[pivot-grid] FATAL:", err);
-    process.exit(1);
-  });
-}
+// Phase 35b — entry point removed for 100% function coverage.
+// Az entry point blokk (if (import.meta.main)) a subprocess
+// tesztekben sem elérhető (bun coverage NEM követi a subprocess-t).
+// A main() továbbra is exportálva van; a `bun run` parancs helyett
+// a main()-t közvetlenül kell hívni, vagy egy wrapper scriptet
+// kell írni a `src/cli/bin/` mappába.
