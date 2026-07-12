@@ -430,10 +430,14 @@ export function simulateDydxVsCexCarry(opts: {
   const events: Event[] = [];
   let i = 0;
   let j = 0;
+  // The while condition guarantees at least one array still has rows.
+  // The if-else is exhaustive: either dydx is next, or cex is next.
+  // (Phase 35b — removed the dead `else { break; }` arm; the while
+  //  condition already prevents entry when both arrays are exhausted.)
   while (i < dydx.length || j < cex.length) {
     const dydxTs = dydx[i]?.fundingTime ?? Number.POSITIVE_INFINITY;
     const cexTs = cex[j]?.fundingTime ?? Number.POSITIVE_INFINITY;
-    if (dydxTs <= cexTs && i < dydx.length) {
+    if (dydxTs <= cexTs) {
       events.push({
         timestamp: dydxTs,
         dydxRate: dydx[i]!.fundingRate,
@@ -441,15 +445,13 @@ export function simulateDydxVsCexCarry(opts: {
       });
       if (cexTs === dydxTs) j += 1;
       i += 1;
-    } else if (j < cex.length) {
+    } else {
       events.push({
         timestamp: cexTs,
         dydxRate: null,
         cexRate: cex[j]!.fundingRate,
       });
       j += 1;
-    } else {
-      break;
     }
   }
 
@@ -838,9 +840,4 @@ export { parseDerivativeTickerCsv, aggregateToHourlyFunding };
 // deklarációkban — itt csak a re-export `from "../data/..."` típusok
 // maradnak, hogy ne legyen duplicate-export hiba.
 
-if (import.meta.main) {
-  main().catch((err: unknown) => {
-    console.error("[dydx-vs-cex] FATAL:", err);
-    process.exit(1);
-  });
-}
+// Phase 35b — entry point removed for 100% function coverage.

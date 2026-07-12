@@ -158,6 +158,58 @@ describe("DydxIndexerFeed — REST response parsing", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("rate-limit throttling: a bucket tele → logger.warn + waitMs > 0 Promise várakozás", async () => {
+    // A `throttle()` függvény `await new Promise<void>((resolve) => setTimeout(resolve, waitMs))`
+    // ága CSAK akkor fut le, ha a token-bucket tele van (bucket.length >= rateLimitPerMinute).
+    // Egy 1-perc-s limitű feed-del 2 kérést küldünk gyorsan egymás után — a második
+    // kérés throttle-jában a bucket tele van. A throttle belső kódja
+    // (waitMs > 0 ág + a setTimeout arrow) azonnal lefut, de a Promise
+    // 60s-ig várakozik. A teszt a throttle belső kódját a lefedettségi
+    // szempontból triggereli — a Promise végkimenetelét nem várja meg.
+    //
+    // A fetch mock üres historicalFunding-ot ad vissza, ezért az 1. és
+    // a 2. getLatestFunding hívás is "No funding data" hibát dob. Az
+    // 1. hívás try/catch-ben van; a 2. hívás Promise-át catcheljük,
+    // hogy ne legyen unhandled rejection.
+    const originalFetch = globalThis.fetch;
+    let callCount = 0;
+    globalThis.fetch = (async () => {
+      callCount += 1;
+      return new Response(JSON.stringify({ historicalFunding: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    try {
+      const feed = new DydxIndexerFeed({ rateLimitPerMinute: 1, fetchTimeoutMs: 1000 });
+      // Az 1. kérés: eltelt 0ms. A throttle megtölti a bucket-et.
+      try {
+        await feed.getLatestFunding("BTC-USD");
+        expect.unreachable("1. kérésnek hibát kellett volna dobnia (üres lista)");
+      } catch (err: unknown) {
+        // Várt: "No funding data available for BTC-USD"
+        expect(err instanceof Error).toBe(true);
+        expect((err as Error).message).toMatch(/No funding data/);
+      }
+      // A 2. kérés throttle-jában a bucket.length === 1 === rateLimitPerMinute,
+      // tehát a `bucket.length >= this.rateLimitPerMinute` ág fut le.
+      // A waitMs > 0, tehát a `setTimeout` arrow is hívódik.
+      const promise2 = feed.getLatestFunding("BTC-USD");
+      // A throttle belső kódja a Promise constructor szinkron részében
+      // fut le. 50ms várakozás elegendő, hogy a throttle-ban a
+      // `(resolve) => setTimeout(resolve, waitMs)` arrow lefusson —
+      // a coverage tool ekkor már lefedettnek jelöli.
+      await new Promise((r) => setTimeout(r, 50));
+      // A 2. Promise 60s múlva fejeződik be, és mivel a fallback
+      // adat sincs beállítva, a getLatestFunding "No funding data"
+      // hibát dob. Ezt itt catcheljük, hogy ne legyen unhandled rejection.
+      promise2.catch(() => undefined);
+      expect(callCount).toBe(1); // csak az 1. fetch futott le (a 2. a throttle-ban vár)
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
 describe("parseFundingUpdate — WS payload extraction", () => {
