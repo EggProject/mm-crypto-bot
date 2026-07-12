@@ -436,3 +436,45 @@ describe("DvolRegimeSizingPlugin", () => {
     });
   });
 });
+
+describe("Phase 35b — DvolRegimeSizingPlugin private method coverage via cast", () => {
+  it("calls _processSymbol directly to ensure function is hit", () => {
+    // Bun's coverage tracks the function declaration site. Calling the
+    // private method directly via cast forces bun to mark the function
+    // as "hit" regardless of how it was previously reached via onBar.
+    const p = new DvolRegimeSizingPlugin({
+      getDvolForTimestamp: () => 70, // elevated
+      enabledSymbols: ["BTC/USDT"],
+    });
+    const { sizing } = wirePlugin(p);
+    // Direct call to private method
+    (p as unknown as {
+      _processSymbol: (symbol: string, timestampMs: number) => void;
+    })._processSymbol("BTC/USDT", BASE_TS);
+    // Should have emitted a sizing signal
+    expect(sizing.length).toBe(1);
+    expect(sizing[0]!.volMultiplier).toBe(0.75); // elevated multiplier
+  });
+});
+
+describe("Phase 35b — DvolRegimeSizingPlugin default getDvolForTimestamp", () => {
+  it("default getDvolForTimestamp returns null (line 239) when not provided in config", () => {
+    // The constructor's default `() => null` for getDvolForTimestamp
+    // is only called when no override is provided. The onBar tests all
+    // pass a custom getDvolForTimestamp, so the default is never
+    // invoked by the existing test suite. This test calls onBar with
+    // the default callback to ensure the function is hit.
+    const p = new DvolRegimeSizingPlugin({
+      enabledSymbols: ["BTC/USDT"],
+    });
+    // Verify the default is `() => null`
+    expect(p.config.getDvolForTimestamp(BASE_TS)).toBeNull();
+    // Now call onBar — this triggers the default getDvolForTimestamp,
+    // which returns null → "no-data" regime → volMultiplier = noDataMultiplier
+    const { sizing } = wirePlugin(p);
+    p.onBar(makeBar(BASE_TS, 50000), null);
+    expect(sizing.length).toBe(1);
+    expect(sizing[0]!.volMultiplier).toBe(1.0); // no-data uses noDataMultiplier (default 1.0)
+    expect(p.state.regimeCounts["no-data"]).toBe(1);
+  });
+});

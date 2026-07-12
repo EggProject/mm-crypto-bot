@@ -33,6 +33,7 @@ import {
   __testing_average as average,
   __testing_computeCalmar as computeCalmar,
   __testing_perWindowReturn as perWindowReturn,
+  __testing_throwNoNonEmptyWindowsError as throwNoNonEmptyWindowsError,
   type AdaptiveKellyBucket,
   type AdaptiveKellyResult,
 } from "./kelly-adaptive.js";
@@ -987,6 +988,20 @@ describe("__testing_perWindowReturn — defensive totalNotional === 0 branch", (
   it("returns 0 for trades with zero notional", () => {
     const trades = [mkTrade(0, 1, 100, 0), mkTrade(1, 2, -50, 0)];
     expect(perWindowReturn(trades)).toBe(0);
+  });
+});
+
+describe("__testing_throwNoNonEmptyWindowsError — bun quirk workaround", () => {
+  it("throws an Error with the expected message including the input dimensions", () => {
+    // Phase 35b: the `throw new Error(...)` line on the former
+    // line 777-779 of runAdaptiveWalkForwardValidation is NOT counted as
+    // hit by bun's coverage when the throw is reached via the parent
+    // function — a documented bun quirk. The throw was refactored into
+    // a dedicated `__testing_throwNoNonEmptyWindowsError` function so
+    // the body line is hit when called as a regular function.
+    expect(() => throwNoNonEmptyWindowsError(30, 7, 7, 2)).toThrow(
+      /No non-empty adaptive walk-forward windows: train=30d test=7d step=7d, 2 trades/,
+    );
   });
 });
 
