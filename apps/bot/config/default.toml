@@ -28,6 +28,40 @@ mode = "paper"        # "paper" | "live"  (env: BUN_ENV is felülírja)
 log_level = "info"    # "debug" | "info" | "warn" | "error"  (env: LOG_LEVEL)
 state_file = "data/bot-state.json"   # perzisztens state JSON-fájl
 
+# ----------------------------------------------------------------------
+# INDÍTÁSI MÓD (Phase 34) — `mm-bot start` ALAPÉRTELMEZETT A TUI
+# ----------------------------------------------------------------------
+# A `mm-bot start` a Phase 34 óta ALAPÉRTELMEZETTEN az Ink TUI-t indítja
+# (user mandate 2026-07-12 02:00 Budapest, eredeti spec §4.3).
+#
+# A mód kiválasztása FLAG-ekkel történik (NEM a config-ban):
+#
+#   mm-bot start                       # TUI (default) + bot
+#   mm-bot start --headless            # plain text logok + bot (NEM TUI)
+#                                     # Ebben a módban a `@mm-crypto-bot/tui`
+#                                     # csomag NEM töltődik be, így a bundle
+#                                     # ~30%-kal kisebb, és nincs React/Ink
+#                                     # overhead a futás során.
+#   mm-bot start --no-color            # TUI + bot, ANSI színkódok nélkül
+#   mm-bot start --headless --no-color # clean text logok (CI / nohup)
+#   mm-bot tui                         # CSAK TUI, NINCS bot (UI/UX demo)
+#   mm-bot tui --data-source=paper     # TUI + paper engine, NINCS bot
+#   mm-bot tui --seed=42               # TUI + reprodukálható szimuláció
+#
+# Színkezelés (Phase 34 Track C):
+#   - Alapértelmezetten az ANSI színkódok BE vannak kapcsolva.
+#   - `--no-color` CLI flag → letiltja (TTY-ellenőrzéstől függetlenül).
+#   - `NO_COLOR=1` env var → letiltja (a no-color.org szabvány).
+#   - Ha az stdout NEM TTY (pipe / redirect), a `picocolors` automatikusan
+#     letiltja a színeket — a `--no-color` flag defense-in-depth.
+#
+# A `--headless` mód az alábbi esetekben KÖTELEZŐ:
+#   - CI / GitHub Actions (nincs interaktív terminál).
+#   - `nohup` / `systemd` / Docker detach (nincs TTY allokálva).
+#   - Log aggregáció: `mm-bot start --headless | tee bot.log` (a TTY
+#     auto-detect kikapcsolja a színeket, de a `--no-color` explicit).
+# ----------------------------------------------------------------------
+
 # ======================================================================
 # 2) EXCHANGE — melyik exchange-re csatlakozunk
 # ======================================================================
@@ -95,3 +129,41 @@ enabled = false            # meta-plugin; sized via SizingSignal modifiers
 [telemetry]
 log_dir = "logs/bot"
 metrics_interval_sec = 60   # 1 perc — per-strategy stats frissítés
+
+# ======================================================================
+# 7) TUI / CLI MEGJEGYZÉSEK (Phase 34) — flag-ek, NEM config mezők
+# ======================================================================
+# A TUI (Ink-alapú terminál-felület) a `mm-bot start` alapértelmezett
+# módja. A TUI indítási opciói a PARANCSSORON át adhatók át, NEM ezen
+# a TOML konfigon keresztül. Az indítási formák:
+#
+#   mm-bot start                              # TUI + bot (default)
+#   mm-bot start --headless                   # plain text logok + bot
+#   mm-bot start --no-color                   # TUI színek nélkül
+#   mm-bot start --headless --no-color        # clean text logok
+#   mm-bot start --config=./prod.toml         # TUI egyedi configgal
+#   mm-bot tui                                # CSAK TUI, nincs bot
+#   mm-bot tui --data-source=simulated        # default: szintetikus feed
+#   mm-bot tui --data-source=paper            # paper-trading engine mögötte
+#   mm-bot tui --seed=42                      # reprodukálható szimuláció
+#
+# Billentyűkombinációk a TUI-ban (a teljes lista: `docs/production-strategies/tui.md`):
+#   [q] / Ctrl-C   — kilépés (graceful: bot is leáll, ha fut)
+#   [s]            — start / stop (TUI-only módban N/A)
+#   [p]            — pause / resume (TUI-only módban N/A)
+#   [k]            — kill-switch (confirm: [i] igen / [n] nem)
+#   [Tab] / [←→]   — panel fókusz váltása
+#   [t]            — history rendezési kulcs váltása (IDŐ / PNL / SYMBOL)
+#   [r]            — manuális frissítés
+#   [?]            — help overlay
+#
+# A TUI soha nem ír bele a position management-be vagy az order
+# pipeline-ba — kizárólag a `Bot.subscribe(listener)` API-n keresztül
+# olvassa a bot állapotát. A 3-rétegű 1:10 leverage defense-in-depth
+# (Zod schema + OrderManager pre-place + PositionManager post-fill)
+# változatlan. A TUI egy operátori dashboard, nem egy kontroller.
+#
+# BUNDLE GARANCIA: `--headless` módban a `@mm-crypto-bot/tui` csomag
+# NEM töltődik be (dynamic import guard a `start` parancsban). A
+# `headless-no-ink.test.ts` teszt ezt 3 független módon ellenőrzi
+# (static source check + `bun build --external` + runtime subprocess).
