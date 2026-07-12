@@ -447,13 +447,16 @@ describe("VolTargetSizingPlugin — bounds constants", () => {
 //
 describe("VolTargetSizingPlugin — extractSizingSignal (line 783)", () => {
   it("returns the signal when given a valid SizingSignal", () => {
+    // Phase 35b: SizingSignal type uses `kellyFraction` / `volMultiplier` /
+    // `notional` / `source` / `timestampMs` (no `symbol`, no
+    // `effectiveNotionalUsd`, no `leverage`, no `timestamp`).
     const valid: SizingSignal = {
       kind: "sizing",
       source: "test",
-      symbol: "BTC/USDT",
-      effectiveNotionalUsd: 5_000,
-      leverage: 5,
-      timestamp: 1_704_067_200_000,
+      kellyFraction: 0.5,
+      volMultiplier: 0.8,
+      notional: 5_000,
+      timestampMs: 1_704_067_200_000,
     };
     expect(extractSizingSignal(valid)).toEqual(valid);
   });

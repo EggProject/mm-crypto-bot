@@ -19,6 +19,7 @@ import {
   PortfolioRiskEngine,
   type CorrelationMatrix,
   type DirectionSignal,
+  type RiskSignal,
   type SizingSignal,
 } from "./portfolio-risk-engine.js";
 import {
@@ -652,8 +653,12 @@ describe("PortfolioRiskEngine — getEmittedRiskSignals", () => {
     });
     const emitted = engine.getEmittedRiskSignals();
     expect(emitted.length).toBe(1);
-    // Mutate the returned array — the internal list must not change
-    emitted.length = 0;
+    // Verify the returned array is a copy (not a reference): cast away
+    // readonly to mutate, then check the internal list is unchanged.
+    // Phase 35b: `readonly RiskSignal[]` rejects `.pop()` and
+    // `length = N` — we use a type assertion to prove copy semantics.
+    const mutable = emitted as unknown as RiskSignal[];
+    mutable.length = 0;
     expect(engine.getEmittedRiskSignals().length).toBe(1);
   });
 });
