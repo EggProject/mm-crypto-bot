@@ -481,4 +481,112 @@ describe("Bot", () => {
     await bot.stop();
     await p;
   });
+
+  // ---------------------------------------------------------------------------
+  // 19) notifyStateListeners — throwing listener does NOT stop the other
+  //     listeners (covers the catch block at line 326).
+  // ---------------------------------------------------------------------------
+  it("notifyStateListeners continues when a listener throws", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed });
+
+    // A throw-ot dobó listener, és egy "jó" listener, ami bizonyítja,
+    // hogy a másik listener kivétele nem állítja le a notify-t.
+    let goodListenerCalls = 0;
+    let badListenerCalls = 0;
+    bot.subscribe(() => {
+      goodListenerCalls++;
+    });
+    bot.subscribe(() => {
+      badListenerCalls++;
+      throw new Error("intentional listener failure");
+    });
+
+    const p = bot.start();
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    // A getState() hívja a notifyStateListeners-t.
+    bot.getState();
+
+    // Mindkét listener meg lett hívva — a throw-ot dobó listener
+    // kivételét a notifyStateListeners catch-e elnyeli.
+    expect(goodListenerCalls).toBeGreaterThan(0);
+    expect(badListenerCalls).toBeGreaterThan(0);
+
+    await bot.stop();
+    await p;
+  });
+
+  // ---------------------------------------------------------------------------
+  // 20) cleanup() swallows stateStore.flush() errors (covers lines 533-537).
+  //     A state-fájl elérési útvonalát egy nem írható helyre állítjuk.
+  // ---------------------------------------------------------------------------
+  it("cleanup() swallows stateStore.flush() errors gracefully", async () => {
+    // A tmp könyvtárban hozzunk létre egy "file" típusú elemet, és a
+    // state-fájl útvonalaként ennek egy gyerekét adjuk meg. A
+    // StateStore.saveSync megpróbálja létrehozni a parent könyvtárat
+    // mkdirSync-kel — ami azért fog hibát dobni, mert a parent egy
+    // fájl, nem könyvtár.
+    const blockingFile = join(tmpDir, "blocker");
+    const { writeFileSync, mkdirSync } = await import("node:fs");
+    writeFileSync(blockingFile, "this is a file, not a dir", "utf8");
+
+    const brokenStateFile = join(blockingFile, "state.json");
+    const config = buildTestConfig(brokenStateFile);
+    // A StateStore init-ben `load()`-ot hív, ami `readFileSync`-et
+    // használ a file-ra. A `readFileSync` nem fog hibát dobni, ha
+    // a fájl nem létezik (a Bot csak akkor ír, ha a `requestSave`
+    // hívódik). A `mkdirSync` a `cleanup` flush-ában fog hibát dobni.
+    // Viszont a `load()` is `readFileSync`-et hív, és a `brokenStateFile`
+    // útvonalon a parent könyvtár (`blocker`) egy fájl, nem könyvtár —
+    // a `readFileSync` is hibát dobhat, amit a StateStore `load` kezel.
+    //
+    // Egyszerűbb megközelítés: a cleanup() flush() a saveSync-et hívja,
+    // ami `mkdirSync(dir, { recursive: true })`-et hív a `dir` (parent)
+    // könyvtárra. Ha a `dir` maga egy fájl, a mkdirSync EEXIST-et dob,
+    // amit a StateStore StateStoreError-ba csomagol. A cleanup() ezt
+    // elkapja, és a logger.error-t hívja (a tesztelt catch block).
+    const bot = new Bot({ config, feed });
+    const p = bot.start();
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    // A bot leállítása — a cleanup-ban a flush hibát fog dobni.
+    // A bot leállásának NEM szabad eldobnia a kivételt.
+    await expect(bot.stop()).resolves.toBeUndefined();
+    await p;
+
+    // A blockingFile még mindig a helyén van (cleanup nem törli).
+    const { existsSync: exists } = await import("node:fs");
+    expect(exists(blockingFile)).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------------
+  // 21) cleanup() swallows feed.close() errors (covers lines 547-551).
+  //     A mock feed close()-ját úgy monkey-patch-eljük, hogy dobjon.
+  // ---------------------------------------------------------------------------
+  it("cleanup() swallows feed.close() errors gracefully", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed });
+
+    const p = bot.start();
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    // A feed close()-ját felülírjuk, hogy dobjon. A cleanup-ban a
+    // feed.close() try-catch-ben van — a catch block kerül végrehajtásra.
+    const originalClose = feed.close.bind(feed);
+    let closeCalled = false;
+    feed.close = async () => {
+      closeCalled = true;
+      throw new Error("intentional feed close failure");
+    };
+
+    await expect(bot.stop()).resolves.toBeUndefined();
+    await p;
+
+    // A close() meghívódott (és a hibát a cleanup elkapta).
+    expect(closeCalled).toBe(true);
+
+    // Visszaállítjuk, hogy a cleanup későbbi részei ne legyenek érintettek.
+    feed.close = originalClose;
+  });
 });
