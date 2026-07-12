@@ -476,6 +476,53 @@ describe("runHybridWalkForwardValidation", () => {
     const wf = runHybridWalkForwardValidation(trades, candles, 180, 30, 30, 7);
     expect(["LOW", "MEDIUM", "HIGH"]).toContain(wf.overfitRisk);
   });
+
+  it("overfitRisk = MEDIUM when positiveSharpeFrac in [0.5, 0.7) and aggregateTestSharpe > 0", () => {
+    // MEDIUM ág: 0.5 ≤ positiveSharpeFrac < 0.7 ÉS aggregateTestSharpe > 0.
+    // A fedési lyuk a 812-es sor volt — a `overfitRisk = "MEDIUM"` értékadás.
+    // 10000 napos adatsor, 1 nagy győzelem minden 10. napon ($5), egyébként
+    // kis veszteség ($-0.5). Ez az eloszlás garantálja, hogy a per-window
+    // Sharpe néha negatív (kevés trade + kis mean), az aggregate pedig
+    // pozitív (nagy győzelmek dominálnak).
+    const candles = mkConstReturnSeries(10000, 0.002);
+    const syntheticTrades: Trade[] = [];
+    for (let i = 0; i < 10000; i++) {
+      const c1 = candles[i];
+      const c2 = candles[i + 1];
+      if (!c1 || !c2) break;
+      const isWin = i % 10 === 0;
+      const pnl = isWin ? 5 : -0.5;
+      syntheticTrades.push({
+        symbol: makeSymbol("BTC/USDT"),
+        side: "buy",
+        entryTime: c1.timestamp,
+        entryPrice: 100,
+        exitTime: c2.timestamp,
+        exitPrice: 100 + pnl,
+        quantity: 1,
+        notionalUsd: 100,
+        pnlUsd: pnl,
+        pnlPct: pnl / 100,
+        feesUsd: 0.1,
+        exitReason: pnl >= 0 ? "take_profit" : "stop_loss",
+      });
+    }
+    const wf = runHybridWalkForwardValidation(
+      syntheticTrades,
+      candles,
+      30, // trainDays
+      7, // testDays
+      1, // stepDays — minden nap új ablak, sok kis ablak
+      0, // purgeDays — nincs szünet
+    );
+    // Az overfitRisk = MEDIUM kell, hogy legyen (0.5 ≤ posFrac < 0.7 ÉS agg > 0).
+    expect(wf.overfitRisk).toBe("MEDIUM");
+    // Belső invariánsok is ellenőrizve.
+    expect(wf.aggregateTestSharpe).toBeGreaterThan(0);
+    const posFrac = wf.windows.filter((w) => w.testSharpe > 0).length / wf.windows.length;
+    expect(posFrac).toBeGreaterThanOrEqual(0.5);
+    expect(posFrac).toBeLessThan(0.7);
+  });
 });
 
 // ----------------------------------------------------------------------

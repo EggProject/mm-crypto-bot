@@ -375,6 +375,36 @@ describe("PortfolioOrchestrator — construction + config validation", () => {
     expect(orchestrator.getSnapshots().length).toBe(0);
     expect(orchestrator.initialized).toBe(false);
   });
+
+  test("getBusesBySymbol returns empty map before init()", () => {
+    const orch = new PortfolioOrchestrator({
+      dataDir: tmpDir,
+      fundingDir: tmpDir,
+    });
+    expect(orch.initialized).toBe(false);
+    const buses = orch.getBusesBySymbol();
+    expect(buses).toBeInstanceOf(Map);
+    expect(buses.size).toBe(0);
+  });
+
+  test("getBusesBySymbol returns 3 bus entries (BTC, ETH, SOL) after run()", async () => {
+    const { orchestrator } = await runOrchestrator({ barCount: 5 });
+    expect(orchestrator.initialized).toBe(true);
+    const buses = orchestrator.getBusesBySymbol();
+    expect(buses.size).toBe(3);
+    expect(buses.has("BTC/USDT")).toBe(true);
+    expect(buses.has("ETH/USDT")).toBe(true);
+    expect(buses.has("SOL/USDT")).toBe(true);
+  });
+
+  test("getBusesBySymbol returned bus is a valid SignalBus (subscribe + emit)", async () => {
+    const { orchestrator } = await runOrchestrator({ barCount: 5 });
+    const buses = orchestrator.getBusesBySymbol();
+    const btcBus = buses.get("BTC/USDT");
+    expect(btcBus).toBeDefined();
+    expect(typeof btcBus?.subscribe).toBe("function");
+    expect(typeof btcBus?.emit).toBe("function");
+  });
 });
 
 // ---------------------------------------------------------------------------
