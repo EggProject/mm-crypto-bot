@@ -153,9 +153,10 @@ export class BybitEuFeed implements ExchangeFeed {
       symbol,
       timeframe: undefined,
       cancelled: false,
-      runner: this.runTickerLoop(id, symbol, listener),
+      runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
+    sub.runner = this.runTickerLoop(id, symbol, listener);
     return id;
   }
 
@@ -169,9 +170,10 @@ export class BybitEuFeed implements ExchangeFeed {
       symbol,
       timeframe: undefined,
       cancelled: false,
-      runner: this.runOrderBookLoop(id, symbol, limit, listener),
+      runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
+    sub.runner = this.runOrderBookLoop(id, symbol, limit, listener);
     return id;
   }
 
@@ -185,9 +187,10 @@ export class BybitEuFeed implements ExchangeFeed {
       symbol,
       timeframe: undefined,
       cancelled: false,
-      runner: this.runTradesLoop(id, symbol, listener),
+      runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
+    sub.runner = this.runTradesLoop(id, symbol, listener);
     return id;
   }
 
@@ -201,9 +204,10 @@ export class BybitEuFeed implements ExchangeFeed {
       symbol,
       timeframe,
       cancelled: false,
-      runner: this.runOhlcvLoop(id, symbol, timeframe, listener),
+      runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
+    sub.runner = this.runOhlcvLoop(id, symbol, timeframe, listener);
     return id;
   }
 
