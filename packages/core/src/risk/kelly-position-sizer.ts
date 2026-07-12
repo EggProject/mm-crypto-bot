@@ -438,6 +438,15 @@ function perWindowReturn(trades: readonly Trade[]): number {
 }
 
 /**
+ * `__testing_perWindowReturn` — exported for test access to the
+ * `totalNotional === 0` defensive branch. Not part of the public API;
+ * the underscore prefix marks it as internal.
+ */
+export function __testing_perWindowReturn(trades: readonly Trade[]): number {
+  return perWindowReturn(trades);
+}
+
+/**
  * `perWindowSharpe` — simple Sharpe ratio approximation from per-trade
  * PnL% returns. Uses the per-trade mean / std as the numerator / denominator.
  *

@@ -22,6 +22,7 @@ import {
   splitIntoWindows,
   applyRiskCaps,
   type KellyFraction,
+  __testing_perWindowReturn,
 } from "./kelly-position-sizer.js";
 
 // ----------------------------------------------------------------------
@@ -477,12 +478,14 @@ describe("optimizeKelly", () => {
 describe("Phase 35 coverage — perWindowReturn totalNotional = 0 (435-ös sor)", () => {
   it("dokumentált kivétel: 435-ös sor védelmi kód", () => {
     // A kelly-position-sizer.ts 435-ös során lévő `if (totalNotional === 0)
-    // return 0` védelmi kód, ami a publikus API-n keresztül nem érhető el:
-    // a `perWindowReturn` privát, és a walk-forward során minden trade
-    // notionalUsd > 0 (a mkTrade helper 2000 notional-t használ). A
-    // totalNotional mindig > 0, így ez az ág soha nem fut le.
-    // Ez egy Phase 35 Track I dokumentált kivétel.
-    expect(true).toBe(true);
+    // return 0` védelmi kód. A `__testing_perWindowReturn` internal export
+    // segítségével közvetlenül tesztelhető: minden notionalUsd=0 trade
+    // esetén a return érték 0.
+    const zeroNotionalTrades = [
+      { pnlUsd: 100, notionalUsd: 0, timestampMs: 0, side: "long" as const, entryPrice: 100, exitPrice: 110, quantity: 1, fees: 0 },
+    ];
+    expect(__testing_perWindowReturn(zeroNotionalTrades)).toBe(0);
+    expect(__testing_perWindowReturn([])).toBe(0);
   });
 });
 
