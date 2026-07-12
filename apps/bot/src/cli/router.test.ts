@@ -244,4 +244,20 @@ describe("CliRouter", () => {
     const result = handler({} as never, { config: undefined as never });
     expect(result).toBeInstanceOf(Promise);
   });
+
+  // --------------------------------------------------------------------------
+  // 14) printHelp's sort callback (FNF=9 includes the (a,b) => ... arrow)
+  //     Run with many entries to ensure both the sort and map callbacks
+  //     are exercised and that the "fall back to global help" path is hit.
+  // --------------------------------------------------------------------------
+  it("printHelp sort callback runs even with many entries", () => {
+    const router = new CliRouter();
+    for (let i = 0; i < 20; i++) {
+      const name = `cmd-${String(i).padStart(2, "0")}`;
+      router.register(name, `Description ${i}`, async () => 0);
+    }
+    // printHelp with no subcommand triggers the global help + sort + map
+    router.printHelp("");
+    expect(captured.length).toBeGreaterThan(0);
+  });
 });
