@@ -10,7 +10,7 @@ import type { Strategy, StrategyContext, StrategySignal } from "@mm-crypto-bot/c
 
 import { OrderManager } from "./order-manager.js";
 import { PositionManager } from "./position-manager.js";
-import { StrategyRunner, defaultSizingFn } from "./strategy-runner.js";
+import { StrategyRunner, defaultSizingFn, runnerStatsToState } from "./strategy-runner.js";
 import { createStrategyInstances } from "../config/strategy-registry.js";
 import { DEFAULT_BOT_CONFIG } from "../config/defaults.js";
 import type { BotConfig } from "../config/schema.js";
@@ -271,5 +271,32 @@ describe("StrategyRunner", () => {
     };
     const instances = createStrategyInstances(config);
     expect(instances.size).toBe(0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // 8) runnerStatsToState — currently a no-op pass-through
+  // ---------------------------------------------------------------------------
+  it("runnerStatsToState passes the state through unchanged", () => {
+    const state = {
+      version: 1 as const,
+      savedAt: 0,
+      equityUsd: 10_000,
+      initialEquityUsd: 10_000,
+      realizedPnlUsd: 0,
+      positions: [],
+      closedTrades: [],
+      inFlightOrderIds: [],
+      counters: { placed: 0, filled: 0, cancelled: 0, rejected: 0 },
+    };
+    const stats = {
+      activeStrategies: [],
+      totalSignalsEmitted: 0,
+      totalSignalsSuppressed: 0,
+      lastSignalTime: null,
+    };
+    const result = runnerStatsToState(stats, state);
+    // Pass-through semantics: same shape, same counter reference.
+    expect(result).toEqual(state);
+    expect(result.counters).toBe(state.counters);
   });
 });

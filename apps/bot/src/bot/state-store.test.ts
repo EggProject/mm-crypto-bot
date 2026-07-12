@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { BotStateSchema, StateStore } from "./state-store.js";
+import { BotStateSchema, StateStore, StateStoreError } from "./state-store.js";
 import type { BotState } from "./state-store.js";
 
 function makeState(overrides: Partial<BotState> = {}): BotState {
