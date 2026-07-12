@@ -92,6 +92,14 @@ export interface BotOptions {
   readonly fundingSource?: DydxFundingSource | null;
   readonly sizingFn?: StrategyRunnerOptions["sizingFn"];
   readonly logger?: Logger;
+  /**
+   * `stateSaveIntervalMs` — opcionális state-save periodic interval (ms).
+   * Default: 60_000 (60s). A Bot `getState()` hívása ekkor fut le
+   * periodikusan, ami értesíti a `stateListeners`-ben regisztrált
+   * feliratkozókat (pl. a TUI). A wire-up probe teszt 100 ms-re
+   * állítja a gyors notify-verifikáció kedvéért.
+   */
+  readonly stateSaveIntervalMs?: number;
 }
 
 // ============================================================================
@@ -127,11 +135,24 @@ export class Bot {
   private readonly feedSubscriptions: number[] = [];
   private stateSaveInterval: ReturnType<typeof setInterval> | null = null;
   private killSwitchInterval: ReturnType<typeof setInterval> | null = null;
+  // A state-save interval hossza (ms). Konstruktorban kap értéket a
+  // `BotOptions.stateSaveIntervalMs` opcióból, alapértelmezetten 60_000.
+  private readonly stateSaveIntervalMs: number;
+
+  // -------------------------------------------------------------------------
+  // State-change subscribers (Phase 34 Track A — TUI integration)
+  // -------------------------------------------------------------------------
+  // The TUI subscribes to Bot state changes via `bot.subscribe(listener)`.
+  // The set is COPIED before each iteration (copy-on-write) so listeners
+  // may safely unsubscribe during their own callback (e.g. when the TUI
+  // unmounts on `[q]` and the cleanup runs the unsubscribe synchronously).
+  private readonly stateListeners = new Set<(state: BotState) => void>();
 
   public constructor(options: BotOptions) {
     this.config = options.config;
     this.options = options;
     this.logger = options.logger ?? createLogger(options.config.bot.log_level);
+    this.stateSaveIntervalMs = options.stateSaveIntervalMs ?? 60_000;
   }
 
   // --------------------------------------------------------------------------
@@ -193,7 +214,11 @@ export class Bot {
 
   /**
    * `getState` — a futó állapot pillanatképe. A `mm-bot status` CLI
-   * (Track D) és a wire-up probe teszt használja.
+   * (Track D), a wire-up probe teszt, és a TUI (`bot.subscribe`)
+   * is használja.
+   *
+   * A függvény a state összeállítása után értesíti a `stateListeners`-ben
+   * regisztrált feliratkozókat — a Phase 34 Track A TUI integrációhoz.
    */
   public getState(): BotState {
     if (this.stateStore === null || this.positionManager === null || this.orderManager === null) {
@@ -201,7 +226,7 @@ export class Bot {
     }
     const positions = this.positionManager.getPositions();
     const counters = this.orderManager.getCounters();
-    return {
+    const state: BotState = {
       version: 1,
       savedAt: Date.now(),
       equityUsd: this.positionManager.getEquity(),
@@ -232,9 +257,54 @@ export class Bot {
         pnlPct: t.pnlPct,
         closedAt: t.closedAt,
       })),
-      inFlightOrderIds: [], // populated below
+      inFlightOrderIds: [],
       counters,
     };
+    this.notifyStateListeners(state);
+    return state;
+  }
+
+  /**
+   * `subscribe` — feliratkozás a state-változásokra.
+   *
+   * Minden `getState()` híváskor (és a periodikus state-save során)
+   * a listener megkapja a friss `BotState` pillanatképet. A TUI ezen
+   * a csatornán kapja a realtime frissítéseket.
+   *
+   * @param listener A state-változásra figyelő callback.
+   * @returns Egy `unsubscribe` függvény — a hívó ezzel szüntetheti meg
+   *          a feliratkozást. A függvény idempotens.
+   */
+  public subscribe(listener: (state: BotState) => void): () => void {
+    this.stateListeners.add(listener);
+    let active = true;
+    return () => {
+      if (!active) return;
+      active = false;
+      this.stateListeners.delete(listener);
+    };
+  }
+
+  /**
+   * `notifyStateListeners` — belső segédfüggvény. Copy-on-write
+   * iterálás: a Set-ből készítünk egy másolatot, és a másolaton
+   * hívjuk a listenereket. Így egy listener biztonságosan
+   * leiratkozhat a saját callbackje közben.
+   *
+   * A listener-ek kivételeit elkapjuk és logoljuk — egy hibás
+   * listener nem állíthatja le a többi értesítését.
+   */
+  private notifyStateListeners(state: BotState): void {
+    if (this.stateListeners.size === 0) return;
+    for (const listener of [...this.stateListeners]) {
+      try {
+        listener(state);
+      } catch (err) {
+        this.logger.warn("[bot] state listener threw — continuing", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -355,7 +425,7 @@ export class Bot {
       if (this.stateStore !== null) {
         this.stateStore.requestSave(this.getState());
       }
-    }, 60_000);
+    }, this.stateSaveIntervalMs);
     this.killSwitchInterval = setInterval(() => {
       if (this.killSwitches !== null && this.telemetry !== null) {
         const snap = this.killSwitches.evaluate();
