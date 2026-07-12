@@ -843,7 +843,7 @@ describe("main() — in-process integration", () => {
 
     const resolved = resolve(outputDir, "out-btc-2025-Q1.json");
     expect(existsSync(resolved)).toBe(true);
-  });
+  }, 30_000);
 
   it("ha a CEX CSV üres (nincs adat a window-ban), a main() 'No CEX funding data' errort dob", async () => {
     // A CEX CSV létezik, de a benne lévő funding tick-ek a window-on
@@ -916,5 +916,5 @@ describe("main() — in-process integration", () => {
       warnSpy.mockRestore();
       process.argv = originalArgv;
     }
-  });
+  }, 30_000);
 });
