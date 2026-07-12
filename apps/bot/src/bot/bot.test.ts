@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { MockExchangeFeed } from "@mm-crypto-bot/exchange";
+import { MockExchangeFeed, asSymbol, type Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
 
 import { Bot } from "./bot.js";
 import { BotStateSchema } from "./state-store.js";
@@ -155,5 +155,109 @@ describe("Bot", () => {
     const config = buildTestConfig(stateFile);
     const bot = new Bot({ config, feed });
     await expect(bot.stop()).resolves.toBeUndefined();
+  });
+
+  // ---------------------------------------------------------------------------
+  // 9) getState() with open positions — covers lines 210-222
+  // ---------------------------------------------------------------------------
+  it("getState() includes open positions in the positions array", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed });
+    const p = bot.start();
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    // Inject an open position via the private positionManager. This is
+    // a test-only access pattern — the production code path would have
+    // a strategy signal → order → fill flow.
+    const botAny = bot as unknown as {
+      positionManager: {
+        openPosition: (s: string, sym: ExchangeSymbol, side: "long" | "short", qty: number, price: number, lev: number) => unknown;
+      };
+    };
+    botAny.positionManager.openPosition(
+      "test-strategy",
+      asSymbol("BTC/USDC") as unknown as ExchangeSymbol,
+      "long",
+      0.01,
+      60_000,
+      1,
+    );
+
+    const state = bot.getState();
+    expect(state.positions.length).toBe(1);
+    expect(state.positions[0]?.strategy).toBe("test-strategy");
+    expect(state.positions[0]?.side).toBe("long");
+    expect(state.positions[0]?.quantity).toBe(0.01);
+    expect(state.positions[0]?.entryPrice).toBe(60_000);
+
+    await bot.stop();
+    await p;
+  });
+
+  // ---------------------------------------------------------------------------
+  // 10) getState() with closed trades — covers lines 224-233
+  // ---------------------------------------------------------------------------
+  it("getState() includes closed trades in the closedTrades array", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed });
+    const p = bot.start();
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    const botAny = bot as unknown as {
+      positionManager: {
+        openPosition: (s: string, sym: ExchangeSymbol, side: "long" | "short", qty: number, price: number, lev: number) => unknown;
+        closePosition: (s: string, sym: ExchangeSymbol, exitPrice: number) => number;
+      };
+    };
+    const sym = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
+    botAny.positionManager.openPosition("test-strategy", sym, "long", 0.01, 60_000, 1);
+    botAny.positionManager.closePosition("test-strategy", sym, 60_500);
+
+    const state = bot.getState();
+    expect(state.closedTrades.length).toBe(1);
+    expect(state.closedTrades[0]?.strategy).toBe("test-strategy");
+    expect(state.closedTrades[0]?.entryPrice).toBe(60_000);
+    expect(state.closedTrades[0]?.exitPrice).toBe(60_500);
+    expect(state.closedTrades[0]?.pnl).toBeGreaterThan(0);
+
+    await bot.stop();
+    await p;
+  });
+
+  // ---------------------------------------------------------------------------
+  // 11) snapshotForTelemetry is callable (covers the private function)
+  // ---------------------------------------------------------------------------
+  it("snapshotForTelemetry returns telemetry-shaped snapshot", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed });
+    const p = bot.start();
+    await new Promise<void>((r) => setTimeout(r, 100));
+
+    const botAny = bot as unknown as {
+      snapshotForTelemetry: () => {
+        equityUsd: number;
+        initialEquityUsd: number;
+        realizedPnlUsd: number;
+        unrealizedPnlUsd: number;
+        drawdownPct: number;
+        openPositions: number;
+        maxPositions: number;
+        counters: unknown;
+        killSwitchEngaged: boolean;
+        killSwitchReasons: string[];
+        uptime: number;
+        uptimeHuman: string;
+        activeStrategies: string[];
+      };
+    };
+    const snap = botAny.snapshotForTelemetry();
+    expect(snap.equityUsd).toBe(10_000);
+    expect(snap.initialEquityUsd).toBe(10_000);
+    expect(snap.openPositions).toBe(0);
+    expect(snap.maxPositions).toBe(config.risk.max_positions);
+    expect(snap.activeStrategies).toEqual([]);
+
+    await bot.stop();
+    await p;
   });
 });

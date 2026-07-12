@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { BotStateSchema, StateStore } from "./state-store.js";
+import { BotStateSchema, StateStore, StateStoreError } from "./state-store.js";
 import type { BotState } from "./state-store.js";
 
 function makeState(overrides: Partial<BotState> = {}): BotState {
@@ -141,5 +141,20 @@ describe("StateStore", () => {
     const s = makeState({ initialEquityUsd: -100 });
     const validated = BotStateSchema.safeParse(s);
     expect(validated.success).toBe(false);
+  });
+
+  it("StateStoreError is a real Error subclass with name and cause", () => {
+    const cause = new Error("underlying io error");
+    const err = new StateStoreError("save failed", cause);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(StateStoreError);
+    expect(err.name).toBe("StateStoreError");
+    expect(err.message).toBe("save failed");
+    expect(err.cause).toBe(cause);
+  });
+
+  it("StateStoreError defaults cause to null when omitted", () => {
+    const err = new StateStoreError("save failed");
+    expect(err.cause).toBeNull();
   });
 });

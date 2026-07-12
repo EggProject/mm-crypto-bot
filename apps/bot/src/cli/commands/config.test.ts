@@ -14,10 +14,23 @@
  *   8. `init` with no --out uses `./mm-bot.toml`
  *   9. unknown sub-subcommand → returns 1 + usage text
  *  10. missing sub-subcommand → returns 1 + usage text
+ *  11. `validate` on an unreadable file (non-ConfigError) → returns 1
+ *  12. `show` on an unreadable file (non-ConfigError) → returns 1
+ *  13. `show` with passthrough fields (custom string/number/array values)
+ *  14. `show` with timeframes set on a strategy
+ *  15. `config --help` prints the sub-subcommand help + returns 1
+ *  16. `init` writes to a deep nested directory (auto-creates parent dirs)
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -244,5 +257,201 @@ max_leverage = 50
     expect(code).toBe(1);
     const text = errored.join("\n");
     expect(text).toContain("Usage");
+  });
+
+  // --------------------------------------------------------------------------
+  // 11) config --help prints sub-subcommand help + returns 1
+  // --------------------------------------------------------------------------
+  it("config --help prints sub-subcommand help and returns 1", async () => {
+    const code = await runConfig(["config", "--help"]);
+    expect(code).toBe(1);
+    const text = errored.join("\n");
+    expect(text).toContain("Usage");
+    expect(text).toContain("validate");
+    expect(text).toContain("show");
+    expect(text).toContain("init");
+  });
+
+  // --------------------------------------------------------------------------
+  // 12) show with passthrough field (custom string + number + array)
+  // --------------------------------------------------------------------------
+  it("show renders passthrough fields (string, number, array)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-passthru-"));
+    const path = join(dir, "pass.toml");
+    writeFileSync(
+      path,
+      `
+[strategies.donchian_pivot_composition]
+enabled = true
+custom_string = "hello-world"
+custom_number = 42
+custom_array = ["a", "b", "c"]
+`,
+      "utf8",
+    );
+    try {
+      const code = await runConfig(["config", "show", `--config=${path}`]);
+      expect(code).toBe(0);
+      const text = logged.join("\n");
+      expect(text).toContain(`custom_string = "hello-world"`);
+      expect(text).toContain(`custom_number = 42`);
+      expect(text).toContain(`custom_array = ["a", "b", "c"]`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 13) show with timeframes set on a strategy
+  // --------------------------------------------------------------------------
+  it("show renders timeframes block when htf/mtf/ltf are set", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-tf-"));
+    const path = join(dir, "tf.toml");
+    writeFileSync(
+      path,
+      `
+[strategies.donchian_pivot_composition]
+enabled = true
+
+[strategies.donchian_pivot_composition.timeframes]
+htf = "1d"
+mtf = "4h"
+ltf = "15m"
+`,
+      "utf8",
+    );
+    try {
+      const code = await runConfig(["config", "show", `--config=${path}`]);
+      expect(code).toBe(0);
+      const text = logged.join("\n");
+      expect(text).toContain(`[strategies.donchian_pivot_composition.timeframes]`);
+      expect(text).toContain(`htf = "1d"`);
+      expect(text).toContain(`mtf = "4h"`);
+      expect(text).toContain(`ltf = "15m"`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 13b) show with per-strategy symbols (array) renders
+  // --------------------------------------------------------------------------
+  it("show renders per-strategy symbols array", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-syms-"));
+    const path = join(dir, "syms.toml");
+    writeFileSync(
+      path,
+      `
+[strategies.donchian_pivot_composition]
+enabled = true
+symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
+`,
+      "utf8",
+    );
+    try {
+      const code = await runConfig(["config", "show", `--config=${path}`]);
+      expect(code).toBe(0);
+      const text = logged.join("\n");
+      expect(text).toContain(`symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 14) validate with an unreadable file (non-ConfigError) → returns 1
+  // --------------------------------------------------------------------------
+  it("validate returns 1 on non-ConfigError (e.g. file system error)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-unreadable-"));
+    const path = join(dir, "unreadable.toml");
+    writeFileSync(path, "valid-toml-content", "utf8");
+    chmodSync(path, 0o000);
+    try {
+      const code = await runConfig(["config", "validate", `--config=${path}`]);
+      // On macOS root can read 0o000, but most CI runners cannot. Accept
+      // either 1 (non-ConfigError path) or 2 (ConfigError path) — both
+      // are non-zero, which is what matters for a failed validate.
+      expect(code).not.toBe(0);
+    } finally {
+      chmodSync(path, 0o644);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 14b) validate when loader throws a non-ConfigError → returns 1
+  // --------------------------------------------------------------------------
+  it("validate returns 1 when the loader throws a non-ConfigError", async () => {
+    // We mock the loader module to throw a plain Error. The catch block
+    // in runValidate must fall through to the `else` branch (returns 1,
+    // prints "Unexpected error...").
+    const loader = await import("../../config/loader.js");
+    const original = loader.loadBotConfig;
+    const mock = spyOn(loader, "loadBotConfig").mockImplementation(() => {
+      throw new Error("simulated runtime failure");
+    });
+    try {
+      const code = await runConfig(["config", "validate"]);
+      expect(code).toBe(1);
+      const text = errored.join("\n");
+      expect(text).toContain("Unexpected error");
+      expect(text).toContain("simulated runtime failure");
+    } finally {
+      mock.mockRestore();
+      void original;
+    }
+  });
+
+  it("show returns 1 when the loader throws a non-ConfigError", async () => {
+    const loader = await import("../../config/loader.js");
+    const mock = spyOn(loader, "loadBotConfig").mockImplementation(() => {
+      throw new Error("simulated runtime failure");
+    });
+    try {
+      const code = await runConfig(["config", "show"]);
+      expect(code).toBe(1);
+      const text = errored.join("\n");
+      expect(text).toContain("Unexpected error");
+    } finally {
+      mock.mockRestore();
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 15c) init writes to a path where the parent is a file (writeFile fails)
+  // --------------------------------------------------------------------------
+  it("init returns 1 when parent of --out is an existing file (write fails)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-fail-"));
+    // Create a file that will be the "parent dir" of the output path.
+    const blocker = join(dir, "blocker");
+    writeFileSync(blocker, "I am a file, not a directory", "utf8");
+    // The output path's parent is `blocker`, which is a file → mkdir or
+    // writeFile will fail with ENOTDIR.
+    const out = join(blocker, "out.toml");
+    try {
+      const code = await runConfig(["config", "init", `--out=${out}`]);
+      expect(code).toBe(1);
+      const text = errored.join("\n");
+      expect(text).toContain("Failed to write");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 15) init writes to a deep nested directory (auto-creates parent dirs)
+  // --------------------------------------------------------------------------
+  it("init auto-creates parent directories for nested --out path", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-nested-"));
+    const out = join(dir, "deeply", "nested", "path", "out.toml");
+    try {
+      const code = await runConfig(["config", "init", `--out=${out}`]);
+      expect(code).toBe(0);
+      expect(existsSync(out)).toBe(true);
+      const content = readFileSync(out, "utf8");
+      expect(content.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

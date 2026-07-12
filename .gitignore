@@ -61,5 +61,8 @@ Desktop.ini
 # === Verziókövetésből kizárt munkakönyvtárak ===
 .worktrees/
 
+# === Orchestrator lokális állapot (plan-ek, scope-ok) ===
+.mavis/plans/
+
 # === Tardis / külső adatszolgáltatók lokális cache-ei ===
 .cache/

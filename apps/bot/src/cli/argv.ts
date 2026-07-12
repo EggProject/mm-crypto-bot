@@ -126,28 +126,28 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
     //   - long:   --name, --name=value, --no-name
     //   - short:  -x
     if (arg.startsWith("--")) {
+      // A bare `--` is caught by the `arg === "--"` check at the top of
+      // the loop and never reaches here, so `arg.slice(2)` is always
+      // non-empty.
       const body = arg.slice(2);
-      if (body.length === 0) {
-        // A bare `--` is a positional-like sentinel; we already handled it above.
-        // A bare `--` with nothing after is unusual — treat as positional.
-        if (!foundSubcommand) {
-          subcommand = "";
-          foundSubcommand = true;
-        } else {
-          positional.push(arg);
-        }
-        i += 1;
-        continue;
-      }
 
       // Negation: --no-<name>  →  flags.set(name, false)
+      //
+      // If the negation regex fails (e.g. `--no-foo!` with an invalid char),
+      // we FALL THROUGH to the subsequent checks instead of silently dropping
+      // the arg. The next branches (`--name=value` and the bare-name check)
+      // will then classify the malformed arg as either a valid flag (if its
+      // name happens to match the regex on a different slice) or push it to
+      // positional via the malformed-flag branch at the bottom. This is a
+      // data-loss fix: previously `--no-foo!` was silently discarded.
       if (body.startsWith("no-") && body.length > 3) {
         const name = body.slice(3);
         if (name.length > 0 && /^[a-zA-Z0-9_-]+$/.test(name)) {
           flags.set(name, false);
+          i += 1;
+          continue;
         }
-        i += 1;
-        continue;
+        // fall through (do not consume the arg here)
       }
 
       // --name=value
@@ -158,9 +158,10 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
         if (name.length > 0 && /^[a-zA-Z0-9_-]+$/.test(name)) {
           // Empty value is allowed (--name= → "")
           flags.set(name, value);
+          i += 1;
+          continue;
         }
-        i += 1;
-        continue;
+        // fall through (name is empty or invalid — do not drop silently)
       }
 
       // --name (with possible value as the next token)
@@ -178,9 +179,13 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
         continue;
       }
 
-      // Malformed long flag — treat as positional so we don't lose data.
+      // Malformed long flag. We never silently drop the arg: if we don't
+      // have a subcommand yet, the malformed token BECOMES the subcommand
+      // (the router can then emit "unknown subcommand"); otherwise it's
+      // recorded as positional. This is a data-loss fix: previously
+      // malformed flags with no subcommand were silently discarded.
       if (!foundSubcommand) {
-        subcommand = "";
+        subcommand = arg;
         foundSubcommand = true;
       } else {
         positional.push(arg);
@@ -205,9 +210,12 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
       continue;
     }
 
-    // Bundled short flags (-abc) or unknown — treat as positional.
+    // Bundled short flags (-abc) or unknown. Like malformed long flags,
+    // we never silently drop the arg: if we don't have a subcommand yet,
+    // the bundled token BECOMES the subcommand; otherwise it's recorded
+    // as positional.
     if (!foundSubcommand) {
-      subcommand = "";
+      subcommand = arg;
       foundSubcommand = true;
     } else {
       positional.push(arg);

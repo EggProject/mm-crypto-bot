@@ -186,4 +186,106 @@ describe("parseArgv", () => {
     expect(result.flags.get("mock")).toBe(true);
     expect(result.positional).toEqual([]);
   });
+
+  // --------------------------------------------------------------------------
+  // 16) Bare `--` (no name) becomes positional
+  // --------------------------------------------------------------------------
+  it("treats a bare `--` followed by nothing as no-op sentinel", () => {
+    const result = parseArgv(["start", "--"]);
+    expect(result.subcommand).toBe("start");
+    expect(result.positional).toEqual([]);
+  });
+
+  it("treats a bare `--` alone (no subcommand) as empty subcommand", () => {
+    const result = parseArgv(["--"]);
+    expect(result.subcommand).toBe("");
+    expect(result.positional).toEqual([]);
+  });
+
+  // --------------------------------------------------------------------------
+  // 17) Bundled short flags (-abc) become positional
+  // --------------------------------------------------------------------------
+  it("treats bundled short flags (-abc) as positional", () => {
+    const result = parseArgv(["start", "-abc"]);
+    expect(result.subcommand).toBe("start");
+    expect(result.positional).toEqual(["-abc"]);
+  });
+
+  it("treats bundled short flag with no subcommand as the subcommand", () => {
+    // No silent drop: -abc alone becomes the subcommand.
+    const result = parseArgv(["-abc"]);
+    expect(result.subcommand).toBe("-abc");
+  });
+
+  it("treats malformed long flag with no subcommand as the subcommand", () => {
+    // No silent drop: --foo!bar alone becomes the subcommand.
+    const result = parseArgv(["--foo!bar"]);
+    expect(result.subcommand).toBe("--foo!bar");
+  });
+
+  // --------------------------------------------------------------------------
+  // 18) Single-char short flag (not -h) recorded as bare letter
+  // --------------------------------------------------------------------------
+  it("records single-char short flag -v (not -h) as bare letter", () => {
+    const result = parseArgv(["start", "-v"]);
+    expect(result.flags.get("v")).toBe(true);
+  });
+
+  // --------------------------------------------------------------------------
+  // 19) Malformed long flag (name fails regex) becomes positional
+  // --------------------------------------------------------------------------
+  it("treats malformed long flag (special chars) as positional", () => {
+    // `!` is not in [a-zA-Z0-9_-] so the name regex rejects it.
+    const result = parseArgv(["start", "--foo!bar"]);
+    expect(result.subcommand).toBe("start");
+    expect(result.positional).toEqual(["--foo!bar"]);
+  });
+
+  // --------------------------------------------------------------------------
+  // 20) Malformed --no-X (X empty or invalid chars) → no silent drop
+  // --------------------------------------------------------------------------
+  it("treats --no- (3 chars, body='no-') as flag with name 'no-' (regex match)", () => {
+    // `no-` is a valid name per the regex [a-zA-Z0-9_-]+, so this is
+    // interpreted as a flag named "no-" with value true.
+    const result = parseArgv(["start", "--no-"]);
+    expect(result.subcommand).toBe("start");
+    expect(result.flags.get("no-")).toBe(true);
+    expect(result.positional).toEqual([]);
+  });
+
+  it("treats --no-foo! (invalid name chars) as positional (not silent drop)", () => {
+    // Previously this was silently dropped. After the bug fix, it falls
+    // through to the malformed-flag branch and becomes positional.
+    const result = parseArgv(["start", "--no-foo!"]);
+    expect(result.subcommand).toBe("start");
+    expect(result.positional).toEqual(["--no-foo!"]);
+  });
+
+  // --------------------------------------------------------------------------
+  // 21) Malformed --name=foo (name invalid) becomes positional
+  // --------------------------------------------------------------------------
+  it("treats --=value (empty name) as positional (not silent drop)", () => {
+    // Previously this was silently dropped. After the bug fix, it falls
+    // through to the malformed-flag branch and becomes positional.
+    const result = parseArgv(["start", "--=value"]);
+    expect(result.subcommand).toBe("start");
+    expect(result.positional).toEqual(["--=value"]);
+  });
+
+  // --------------------------------------------------------------------------
+  // 22) --flag followed by another --flag → first is boolean, second is its own
+  // --------------------------------------------------------------------------
+  it("treats --flag --other as two booleans (not flag with --other as value)", () => {
+    const result = parseArgv(["start", "--foo", "--bar"]);
+    expect(result.flags.get("foo")).toBe(true);
+    expect(result.flags.get("bar")).toBe(true);
+  });
+
+  // --------------------------------------------------------------------------
+  // 23) --no-foo! (regex-failing name) doesn't get parsed as flag
+  // --------------------------------------------------------------------------
+  it("--no-foo (no exclamation) does parse as negation", () => {
+    const result = parseArgv(["start", "--no-foo"]);
+    expect(result.flags.get("foo")).toBe(false);
+  });
 });

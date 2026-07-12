@@ -202,4 +202,31 @@ describe("CliRouter", () => {
     expect(middleIdx).toBeGreaterThan(alphaIdx);
     expect(zebraIdx).toBeGreaterThan(middleIdx);
   });
+
+  // --------------------------------------------------------------------------
+  // 11) printHelp with a known subcommand shows the subcommand-specific help
+  // --------------------------------------------------------------------------
+  it("printHelp with a known subcommand prints subcommand-specific help", () => {
+    const router = new CliRouter();
+    router.register("start", "Start the bot", async () => 0);
+    router.printHelp("start");
+    const helpText = captured.join("\n");
+    expect(helpText).toContain("Usage: mm-bot start");
+    expect(helpText).toContain("Start the bot");
+    expect(helpText).toContain("--config=<path>");
+  });
+
+  // --------------------------------------------------------------------------
+  // 12) printHelp with an unknown subcommand falls through to global help
+  // --------------------------------------------------------------------------
+  it("printHelp with an unknown subcommand prints 'Unknown subcommand' + global", () => {
+    const router = new CliRouter();
+    router.register("fake", "Fake subcommand for tests", async () => 0);
+    router.printHelp("nonexistent");
+    const helpText = captured.join("\n");
+    expect(helpText).toContain("Unknown subcommand");
+    expect(helpText).toContain("nonexistent");
+    // Falls through to global help with the registered subcommands.
+    expect(helpText).toContain("fake");
+  });
 });
