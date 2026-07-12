@@ -128,11 +128,23 @@ class NoopBybitEuDepthSource implements BybitEuSpotDepthSource {
 }
 
 /**
- * `NOOP_LOGGER` — default logger when `config.logger` is not supplied.
- * Phase 35b — uses the same shape as `DydxFeedLogger` (re-imported
- * here to avoid the circular-import path back to dydx-indexer-feed).
+ * `DydxLiveFundingSourceLogger` — minimal logger interface used by
+ * DydxLiveFundingSource. Phase 35b — extracted to a named type so test
+ * files can type-annotate custom loggers without re-declaring the shape.
  */
-const NOOP_LOGGER = {
+export interface DydxLiveFundingSourceLogger {
+  debug(msg: string, meta?: Readonly<Record<string, unknown>>): void;
+  info(msg: string, meta?: Readonly<Record<string, unknown>>): void;
+  warn(msg: string, meta?: Readonly<Record<string, unknown>>): void;
+  error(msg: string, meta?: Readonly<Record<string, unknown>>): void;
+}
+
+/**
+ * `NOOP_LOGGER` — default logger when `config.logger` is not supplied.
+ * Phase 35b — uses the same shape as `DydxLiveFundingSourceLogger` so
+ * any custom logger passed in is structurally compatible.
+ */
+const NOOP_LOGGER: DydxLiveFundingSourceLogger = {
   debug: (_msg: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
   info: (_msg: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
   warn: (_msg: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
