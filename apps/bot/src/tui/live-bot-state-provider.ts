@@ -83,12 +83,12 @@ type EnginePosition = EngineBotState["positions"][number];
 // ============================================================================
 
 /** A `Bot` long/short oldalát a TUI buy/sell formájára konvertálja. */
-function mapSide(side: "long" | "short"): TuiSide {
+export function mapSide(side: "long" | "short"): TuiSide {
   return side === "long" ? "buy" : "sell";
 }
 
 /** Egy bot pozíció → TUI pozíció. */
-function mapPosition(p: EnginePosition): TuiPosition {
+export function mapPosition(p: EnginePosition): TuiPosition {
   const notional = p.notionalUsd > 0 ? p.notionalUsd : p.entryPrice * p.quantity;
   const unrealizedPnlPct = notional > 0 ? (p.unrealizedPnl / notional) * 100 : 0;
   return {
@@ -108,7 +108,7 @@ function mapPosition(p: EnginePosition): TuiPosition {
 }
 
 /** Egy bot `ClosedTradeSnapshot` → TUI `Trade`. */
-function mapClosedTrade(t: ClosedTradeSnapshot, index: number): TuiTrade {
+export function mapClosedTrade(t: ClosedTradeSnapshot, index: number): TuiTrade {
   return {
     id: `${t.strategy}-${t.symbol}-${t.side}-${t.closedAt}-${String(index)}`,
     symbol: t.symbol,
