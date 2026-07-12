@@ -30,6 +30,9 @@ import {
   SHARPE_BUCKET_HIGH_BOUNDARY,
   SHARPE_BUCKET_LOW_BOUNDARY,
   SHARPE_BUCKET_MID_BOUNDARY,
+  __testing_average as average,
+  __testing_computeCalmar as computeCalmar,
+  __testing_perWindowReturn as perWindowReturn,
   type AdaptiveKellyBucket,
   type AdaptiveKellyResult,
 } from "./kelly-adaptive.js";
@@ -948,5 +951,51 @@ describe("Phase 35 coverage — helper függvények `return 0` ágai", () => {
     // Ha minden trade azonos pnl, nincs drawdown → maxDd === 0 → return 0.
     // Ez a 877-es return 0 ágat triggereli.
     expect(wf.aggregateTestCalmar).toBe(0);
+  });
+});
+
+// ----------------------------------------------------------------------
+// Phase 35b — __testing_* exports: defensive empty-input branches
+// ----------------------------------------------------------------------
+//
+// The internal helpers `average`, `computeCalmar`, `perWindowReturn` are
+// never called with empty arrays by `runAdaptiveWalkForwardValidation`
+// (the throw on the empty-records path short-circuits first), so their
+// defensive empty-input branches are unreachable through the public API.
+// They are exposed via `__testing_*` exports so these branches can be
+// hit by direct unit tests.
+//
+describe("__testing_average — defensive empty-input branch", () => {
+  it("returns 0 for empty input", () => {
+    expect(average([])).toBe(0);
+  });
+});
+
+describe("__testing_computeCalmar — defensive empty-input branch", () => {
+  it("returns 0 for empty trades", () => {
+    expect(computeCalmar([], 10_000)).toBe(0);
+  });
+
+  it("returns 0 for non-positive initialEquity", () => {
+    const trades = [mkTrade(0, 1, 100)];
+    expect(computeCalmar(trades, 0)).toBe(0);
+    expect(computeCalmar(trades, -1)).toBe(0);
+  });
+});
+
+describe("__testing_perWindowReturn — defensive totalNotional === 0 branch", () => {
+  it("returns 0 for trades with zero notional", () => {
+    const trades = [mkTrade(0, 1, 100, 0), mkTrade(1, 2, -50, 0)];
+    expect(perWindowReturn(trades)).toBe(0);
+  });
+});
+
+describe("hasAllLossStreak — dead-code check removed in Phase 35b", () => {
+  it("does not crash on a single-day input where slice(-streakWindowDays) === the whole array", () => {
+    // Phase 35b removed the unreachable `if (window.length === 0)` check on
+    // the former line 449 — slice(-n) on a non-empty array always returns
+    // a non-empty array, so that branch was mathematically dead. After the
+    // removal, the function still correctly returns false for an empty input.
+    expect(hasAllLossStreak([], 30)).toBe(false);
   });
 });

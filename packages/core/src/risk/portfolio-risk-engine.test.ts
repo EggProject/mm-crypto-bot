@@ -623,3 +623,37 @@ describe("PortfolioRiskEngine — type contracts", () => {
     }
   });
 });
+
+// ----------------------------------------------------------------------
+// Phase 35b — `getEmittedRiskSignals` method coverage
+// ----------------------------------------------------------------------
+//
+// The 804-es sor (`getEmittedRiskSignals(): readonly RiskSignal[]`) is the
+// accessor for the engine's emitted risk signals. We test it returns an
+// empty array initially and returns a copy (not a reference) of the
+// internal list after some breaches.
+//
+describe("PortfolioRiskEngine — getEmittedRiskSignals", () => {
+  test("returns empty array on a fresh engine", () => {
+    const engine = new PortfolioRiskEngine();
+    expect(engine.getEmittedRiskSignals()).toEqual([]);
+  });
+
+  test("returns a copy (not a reference) of the internal emitted list", () => {
+    const engine = new PortfolioRiskEngine();
+    // Submit a `kind: "risk"` signal — these get pushed into the
+    // internal `emittedRiskSignals` list (see submitSignal in
+    // portfolio-risk-engine.ts line ~386).
+    engine.submitSignal({
+      kind: "risk",
+      source: "test",
+      reason: "coverage probe",
+      timestamp: DAY_MS,
+    });
+    const emitted = engine.getEmittedRiskSignals();
+    expect(emitted.length).toBe(1);
+    // Mutate the returned array — the internal list must not change
+    emitted.length = 0;
+    expect(engine.getEmittedRiskSignals().length).toBe(1);
+  });
+});

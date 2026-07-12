@@ -651,3 +651,14 @@ function average(values: readonly number[]): number {
   }
   return sum / values.length;
 }
+
+// ============================================================================
+// Phase 35b — `__testing_*` exports for internal helpers
+// ============================================================================
+//
+// Exposes the private `average` helper so the empty-input defensive branch
+// (line 646) can be hit by direct unit tests. Production code MUST NOT
+// import this — it is an internal implementation detail of
+// `optimizeKelly` and `runWalkForwardValidation`.
+//
+export const __testing_average = average;
