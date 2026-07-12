@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/config.ts
  *
- * Phase 33 Track D — `mm-bot config <validate|show|init>` subcommand.
+ * Phase 33 Track D + Phase 34 Track C — `mm-bot config <validate|show|init>` subcommand.
  *
  * Three sub-subcommands:
  *   - `validate` — load + validate config; print "OK" or errors; exit 0/2.
@@ -10,6 +10,13 @@
  *                  load?".
  *   - `init`     — write `config/default.toml` to a target path. Default
  *                  target is `./mm-bot.toml`. Useful for first-time setup.
+ *
+ * Color usage (Phase 34 Track C):
+ *   - `validate` prints "OK" in green on success, "FAILED" in red on failure.
+ *   - The "Refusing to overwrite" / file-write errors are red.
+ *   - "Wrote <path>" success message is green.
+ *   - The `show` output is plain TOML — no color (it must be parseable
+ *     as TOML downstream, e.g. piped into `mm-bot config init --out=...`).
  *
  * Exit codes:
  *   0 — success
@@ -22,6 +29,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 import { ConfigError, DEFAULT_BOT_CONFIG, loadBotConfig, type BotConfig } from "../../config/index.js";
+import { colorize } from "../color.js";
 import type { CliContext, SubcommandHandler } from "../router.js";
 
 // ============================================================================
@@ -162,7 +170,8 @@ function formatToml(config: BotConfig): string {
 function runValidate(configPath: string | undefined): number {
   try {
     const config = loadBotConfig(configPath);
-    console.log("OK");
+    // Green "OK" — the success badge is the headline of `validate`.
+    console.log(colorize("OK", "green"));
     // Optional: also print the source.
     if (configPath !== undefined) {
       console.log(`  config: ${configPath}`);
@@ -177,12 +186,14 @@ function runValidate(configPath: string | undefined): number {
     return 0;
   } catch (err: unknown) {
     if (err instanceof ConfigError) {
-      console.error("Config validation FAILED:");
+      // Red "FAILED" — the user wants the failure to stand out (CI logs,
+      // piped output, etc). The detailed error follows on the next lines.
+      console.error(colorize("Config validation FAILED:", "red"));
       console.error(err.message);
       return 2;
     }
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`Unexpected error during config validation: ${message}`);
+    console.error(colorize(`Unexpected error during config validation: ${message}`, "red"));
     return 1;
   }
 }
@@ -236,7 +247,7 @@ function runInit(outPath: string | undefined): number {
   const resolvedTarget = resolve(target);
 
   if (existsSync(resolvedTarget)) {
-    console.error(`Refusing to overwrite existing file: ${resolvedTarget}`);
+    console.error(colorize(`Refusing to overwrite existing file: ${resolvedTarget}`, "red"));
     console.error("Pass --out=<different-path> or remove the existing file first.");
     return 1;
   }
@@ -259,8 +270,11 @@ function runInit(outPath: string | undefined): number {
   }
   if (sourcePath === null) {
     console.error(
-      "Could not locate config/default.toml. " +
-        "Run from the repo root (or pass --out and a TOML you have on hand).",
+      colorize(
+        "Could not locate config/default.toml. " +
+          "Run from the repo root (or pass --out and a TOML you have on hand).",
+        "red",
+      ),
     );
     return 1;
   }
@@ -274,10 +288,11 @@ function runInit(outPath: string | undefined): number {
     writeFileSync(resolvedTarget, contents, "utf8");
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`Failed to write ${resolvedTarget}: ${message}`);
+    console.error(colorize(`Failed to write ${resolvedTarget}: ${message}`, "red"));
     return 1;
   }
-  console.log(`Wrote ${resolvedTarget}`);
+  // Green "Wrote" — success badge.
+  console.log(colorize(`Wrote ${resolvedTarget}`, "green"));
   console.log("Edit the file, then run `mm-bot start --config=<path>` to launch.");
   return 0;
 }

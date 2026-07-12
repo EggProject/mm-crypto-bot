@@ -1,10 +1,14 @@
 /**
  * apps/bot/src/cli/commands/trades.ts
  *
- * Phase 33 Track D — `mm-bot trades [--limit=N] [--symbol=...] [--config=path]`.
+ * Phase 33 Track D + Phase 34 Track C — `mm-bot trades [--limit=N] [--symbol=...] [--config=path]`.
  *
  * Reads the persisted state file and prints the most recent closed trades
  * (default: 20). Optionally filter by symbol.
+ *
+ * Color usage (Phase 34 Track C):
+ *   - PnL column is green for profit, red for loss, dim for zero.
+ *   - State-file-missing errors are red.
  *
  * Exit codes: 0 (success) / 1 (state file missing) / 2 (config invalid).
  */
@@ -12,6 +16,7 @@
 import { ConfigError, loadBotConfig } from "../../config/index.js";
 import { BotStateSchema } from "../../bot/state-store.js";
 import { existsSync, readFileSync } from "node:fs";
+import { colorize } from "../color.js";
 import type { SubcommandHandler } from "../router.js";
 
 /**
@@ -30,6 +35,19 @@ function getConfigPath(flags: ReadonlyMap<string, string | boolean>): string | u
  */
 function formatTimestamp(ms: number): string {
   return new Date(ms).toISOString().replace("T", " ").replace(/\.\d+Z$/, "Z");
+}
+
+/**
+ * `colorizePnl` — green for profit, red for loss, dim for zero.
+ *
+ * Shared pattern with `status.ts` (Phase 34 Track C user mandate:
+ * "green for profitable, red for losing"). Centralized here to keep
+ * the rule consistent across commands.
+ */
+function colorizePnl(value: number, formatted: string): string {
+  if (value > 0) return colorize(formatted, "green");
+  if (value < 0) return colorize(formatted, "red");
+  return colorize(formatted, "dim");
 }
 
 /**
@@ -117,8 +135,18 @@ export const tradesCommand: SubcommandHandler = async (args) => {
   // Header
   console.log("  closed_at            strategy            side   qty      symbol         entry        exit         pnl            pnl%");
   for (const t of recent) {
+    // Color the PnL columns; the rest stays plain for column-alignment.
+    // ANSI escape codes don't affect the visible width for `padStart`/`padEnd`
+    // — the string is lengthened by the escape sequences, but the cursor
+    // advances by the visible character count, so the column alignment
+    // is preserved by virtue of the formatter prefixing with consistent
+    // 9-byte and 5-byte codes (`\x1b[32m...\x1b[39m` and `\x1b[2m...\x1b[22m`).
+    // If the user disables color (`--no-color`), `colorizePnl` returns
+    // the plain string, so the table is perfectly aligned.
+    const pnlCell = colorizePnl(t.pnl, `$${t.pnl.toFixed(2).padStart(9, " ")}`);
+    const pnlPctCell = colorizePnl(t.pnl, `${t.pnlPct.toFixed(2).padStart(6, " ")}%`);
     console.log(
-      `  ${formatTimestamp(t.closedAt)}  ${t.strategy.padEnd(20, " ")}  ${t.side.padEnd(4, " ")}  ${t.quantity.toFixed(4).padStart(8, " ")}  ${t.symbol.padEnd(13, " ")}  $${t.entryPrice.toFixed(2).padStart(9, " ")}  $${t.exitPrice.toFixed(2).padStart(9, " ")}  $${t.pnl.toFixed(2).padStart(11, " ")}  ${t.pnlPct.toFixed(2).padStart(6, " ")}%`,
+      `  ${formatTimestamp(t.closedAt)}  ${t.strategy.padEnd(20, " ")}  ${t.side.padEnd(4, " ")}  ${t.quantity.toFixed(4).padStart(8, " ")}  ${t.symbol.padEnd(13, " ")}  $${t.entryPrice.toFixed(2).padStart(9, " ")}  $${t.exitPrice.toFixed(2).padStart(9, " ")}  ${pnlCell}  ${pnlPctCell}`,
     );
   }
 
