@@ -11,6 +11,7 @@ export { parseArgv, type ParsedArgs } from "./argv.js";
 export { CliRouter, type CliContext, type SubcommandHandler } from "./router.js";
 
 export { startCommand } from "./commands/start.js";
+export { tuiCommand } from "./commands/tui.js";
 export { statusCommand } from "./commands/status.js";
 export { configCommand } from "./commands/config.js";
 export { strategiesCommand } from "./commands/strategies.js";

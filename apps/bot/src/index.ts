@@ -2,12 +2,13 @@
 /**
  * apps/bot/src/index.ts
  *
- * Phase 33 Track D — a `mm-bot` CLI entry pointja.
+ * Phase 33 Track D + Phase 34 Track A — a `mm-bot` CLI entry pointja.
  *
  * ===========================================================================
  * SUBCOMMANDS
  * ===========================================================================
- *   - `start`           — indítja a botot (SIGINT-re graceful shutdown)
+ *   - `start`           — indítja a botot (default: Ink TUI; --headless: plain text)
+ *   - `tui`             — TUI-only mód, BOT NÉLKÜL (--data-source=simulated|paper)
  *   - `status`          — a perzisztens state kiírása
  *   - `config`          — validate / show / init
  *   - `strategies`      — regisztrált stratégiák listája
@@ -31,17 +32,16 @@
  *   2 — config validációs hiba
  *
  * ===========================================================================
- * USER MANDATE (2026-07-11 23:42 BUDAPEST)
+ * USER MANDATE (2026-07-12 02:00 BUDAPEST)
  * ===========================================================================
- * "cli app-t se felejtsd el" — "Don't forget the CLI app."
+ * "TUI-t es headless-t is akarom, default color, headless kapcsolhato ki a
+ *  color, default Ink TUI."
  *
- * A korábbi Track C placeholder (amely közvetlenül `Bot.start()`-ot hívott)
- * lecserélődik erre a dispatcherre. A bot indítása mostantól:
- *
- *   bun run apps/bot/src/index.ts start [--config=path]
- *
- * vagy a `mm-bot` binárissal (miután a `bin` mező a package.json-ban rá
- * mutat erre a fájlra).
+ * A `start` parancs mostantól a TUI-t indítja ALAPÉRTELMEZETTEN. A
+ * `--headless` / `--no-tui` flag-re plain text log módba vált (ekkor
+ * a `@mm-crypto-bot/tui` csomag NEM töltődik be). A `tui` parancs
+ * külön TUI-only indítást ad (bot nélkül, szimulált vagy paper
+ * provider-rel).
  */
 
 import {
@@ -54,6 +54,7 @@ import {
   statusCommand,
   strategiesCommand,
   tradesCommand,
+  tuiCommand,
 } from "./cli/index.js";
 
 // ---------------------------------------------------------------------------
@@ -62,7 +63,8 @@ import {
 const router = new CliRouter();
 router.setProgramDescription("mm-bot — the mm-crypto-bot CLI");
 
-router.register("start", "Start the bot (SIGINT = graceful shutdown)", startCommand);
+router.register("start", "Start the bot (default: Ink TUI; --headless for plain text)", startCommand);
+router.register("tui", "Launch the TUI without starting the bot (--data-source=simulated|paper)", tuiCommand);
 router.register("status", "Show the persisted bot state", statusCommand);
 router.register("config", "Validate / show / init the bot config", configCommand);
 router.register("strategies", "List registered strategies + on/off state", strategiesCommand);
