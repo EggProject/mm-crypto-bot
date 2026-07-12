@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/kill-switches.ts
  *
- * Phase 33 Track D — `mm-bot kill-switches [--config=path]`.
+ * Phase 33 Track D + Phase 34 Track C — `mm-bot kill-switches [--config=path]`.
  *
  * Lists the bot's kill-switches with their state and last trigger reason.
  *
@@ -16,10 +16,15 @@
  * engaged/triggered state requires reading the state file (the
  * `Telemetry.setEngaged` writes to a log file, not the state file).
  *
+ * Color usage (Phase 34 Track C):
+ *   - `ARMED`   → red (these switches WILL stop the bot if tripped)
+ *   - `DISARMED` → dim (informational, no risk surface)
+ *
  * Exit codes: 0 (success) / 2 (config invalid).
  */
 
 import { ConfigError, loadBotConfig } from "../../config/index.js";
+import { colorize } from "../color.js";
 import type { SubcommandHandler } from "../router.js";
 
 /**
@@ -99,8 +104,14 @@ export const killSwitchesCommand: SubcommandHandler = async (args) => {
   console.log(`Kill-switches: ${String(switches.length)} registered`);
   console.log("");
   for (const sw of switches) {
+    // ARMED → red (live risk surface); DISARMED → dim (no immediate risk).
+    // The bracket + padding keep column alignment when color is on:
+    // ANSI codes are zero-width in the terminal.
     const state = sw.armed ? "ARMED  " : "DISARMED";
-    console.log(`  [${state}]  ${sw.id.padEnd(16, " ")}  ${sw.description}`);
+    const stateColored = sw.armed
+      ? colorize(state, "red")
+      : colorize(state, "dim");
+    console.log(`  [${stateColored}]  ${sw.id.padEnd(16, " ")}  ${sw.description}`);
   }
   console.log("");
   console.log("  Last trigger reason: <see Telemetry log for live state>");

@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/strategies.ts
  *
- * Phase 33 Track D — `mm-bot strategies [--config=path]`.
+ * Phase 33 Track D + Phase 34 Track C — `mm-bot strategies [--config=path]`.
  *
  * Lists the strategies configured in the bot config, with their on/off
  * state and per-strategy overrides. Useful for "what is this bot actually
@@ -12,10 +12,15 @@
  * startup. A separate `mm-bot kill-switches` shows the runtime state of
  * the kill-switches.
  *
+ * Color usage (Phase 34 Track C):
+ *   - `ON`  → green (the strategy is contributing to the bot's behavior)
+ *   - `OFF` → dim  (the strategy is loaded but disabled; no risk surface)
+ *
  * Exit codes: 0 (success) / 2 (config validation failure).
  */
 
 import { ConfigError, loadBotConfig } from "../../config/index.js";
+import { colorize } from "../color.js";
 import type { SubcommandHandler } from "../router.js";
 
 /**
@@ -31,11 +36,18 @@ function getConfigPath(flags: ReadonlyMap<string, string | boolean>): string | u
 
 /**
  * `formatStrategySection` — pretty-print a per-strategy section.
+ *
+ * Phase 34 Track C: the `ON` / `OFF` badge is colorized. The `[` / `]`
+ * brackets stay plain so the column starts at a known position even
+ * when color is on (ANSI codes are zero-width in the terminal).
  */
 function formatStrategySection(name: string, section: Record<string, unknown>, enabled: boolean): string {
-  const state = enabled ? "ON " : "OFF";
+  const stateLabel = enabled ? "ON " : "OFF";
+  const stateColored = enabled
+    ? colorize(stateLabel, "green")
+    : colorize(stateLabel, "dim");
   const lines: string[] = [];
-  lines.push(`  [${state}] ${name}`);
+  lines.push(`  [${stateColored}] ${name}`);
   for (const [k, v] of Object.entries(section)) {
     if (k === "enabled") continue;
     if (v === undefined) continue;

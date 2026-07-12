@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/status.ts
  *
- * Phase 33 Track D — `mm-bot status [--config=path]`.
+ * Phase 33 Track D + Phase 34 Track C — `mm-bot status [--config=path]`.
  *
  * Reads the persisted state file (no live Bot instance) and prints:
  *   - mode + state file path
@@ -13,6 +13,16 @@
  *
  * The bot does NOT need to be running. We just read the JSON file.
  *
+ * Color usage (Phase 34 Track C):
+ *   - `Mode:` line is green when `bot.mode === "paper"` (safe), red
+ *     when `"live"` (caution the user this is real money).
+ *   - `Realized PnL` is green when positive, red when negative, dim when zero.
+ *   - `State: <unavailable>` is red (error), green for OK.
+ *   - Per-position PnL and trade PnL follow the same color rule.
+ *
+ * All color is auto-stripped when `isColorEnabled()` returns false
+ * (--no-color, NO_COLOR=1, or non-TTY stdout).
+ *
  * Exit codes:
  *   0 — state file found and printed
  *   1 — state file not found (or any I/O error)
@@ -22,6 +32,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { ConfigError, loadBotConfig } from "../../config/index.js";
 import { BotStateSchema, type BotState } from "../../bot/state-store.js";
+import { colorize } from "../color.js";
 import type { SubcommandHandler } from "../router.js";
 
 /**
@@ -54,6 +65,19 @@ function formatDuration(ms: number): string {
  */
 function formatTimestamp(ms: number): string {
   return new Date(ms).toISOString().replace("T", " ").replace(/\.\d+Z$/, "Z");
+}
+
+/**
+ * `colorizePnl` — green for profit, red for loss, dim for zero.
+ *
+ * Centralized so the rule is consistent across `status` and `trades`
+ * (per the Phase 34 Track C mandate: "green for profitable, red for
+ * losing"). Zero is dimmed to neutral — it's not a "win" or a "loss".
+ */
+function colorizePnl(value: number, formatted: string): string {
+  if (value > 0) return colorize(formatted, "green");
+  if (value < 0) return colorize(formatted, "red");
+  return colorize(formatted, "dim");
 }
 
 /**
@@ -116,12 +140,14 @@ export const statusCommand: SubcommandHandler = async (args) => {
   }
 
   const stateFile = config.bot.state_file;
-  console.log(`Mode:        ${config.bot.mode}`);
+  // Color the mode: green for paper (safe), red for live (real money).
+  const modeColor = config.bot.mode === "live" ? "red" : "green";
+  console.log(`Mode:        ${colorize(config.bot.mode, modeColor)}`);
   console.log(`State file:  ${stateFile}`);
 
   const { state, error } = loadState(stateFile);
   if (error !== null) {
-    console.log(`State:       <unavailable>  (${error})`);
+    console.log(`State:       ${colorize("<unavailable>", "red")}  (${error})`);
     return 1;
   }
   if (state === null) {
@@ -137,7 +163,9 @@ export const statusCommand: SubcommandHandler = async (args) => {
   console.log(`Saved:       ${formatTimestamp(state.savedAt)}  (${formatDuration(ageMs)} ago)`);
   console.log("");
   console.log(`Equity:      $${state.equityUsd.toFixed(2)}  (initial: $${state.initialEquityUsd.toFixed(2)})`);
-  console.log(`Realized PnL: $${state.realizedPnlUsd.toFixed(2)}`);
+  // PnL is the headline number for the operator; color it green/red/dim.
+  const pnlText = `$${state.realizedPnlUsd.toFixed(2)}`;
+  console.log(`Realized PnL: ${colorizePnl(state.realizedPnlUsd, pnlText)}`);
 
   // Open positions.
   console.log("");
@@ -146,10 +174,11 @@ export const statusCommand: SubcommandHandler = async (args) => {
     console.log("  (none)");
   } else {
     for (const p of state.positions) {
+      const unrealText = `$${p.unrealizedPnl.toFixed(2)}`;
       console.log(
         `  • ${p.id}  ${p.side.toUpperCase()} ${p.quantity} ${p.symbol} @ $${p.entryPrice.toFixed(2)}` +
           `  (current $${p.currentPrice.toFixed(2)}, lev ${String(p.leverage)}x,` +
-          ` unrealized $${p.unrealizedPnl.toFixed(2)})`,
+          ` unrealized ${colorizePnl(p.unrealizedPnl, unrealText)})`,
       );
     }
   }
@@ -160,10 +189,11 @@ export const statusCommand: SubcommandHandler = async (args) => {
   if (state.closedTrades.length > 0) {
     const last3 = state.closedTrades.slice(-3);
     for (const t of last3) {
+      const pnlText = `$${t.pnl.toFixed(2)} (${t.pnlPct.toFixed(2)}%)`;
       console.log(
         `  • ${formatTimestamp(t.closedAt)}  ${t.side.toUpperCase()} ${t.quantity} ${t.symbol}` +
           `  entry $${t.entryPrice.toFixed(2)} → exit $${t.exitPrice.toFixed(2)}` +
-          `  PnL $${t.pnl.toFixed(2)} (${t.pnlPct.toFixed(2)}%)`,
+          `  PnL ${colorizePnl(t.pnl, pnlText)}`,
       );
     }
   }
