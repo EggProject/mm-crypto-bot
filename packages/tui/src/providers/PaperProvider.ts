@@ -65,6 +65,7 @@ export class PaperProvider implements BotStateProvider {
       mode: "with-bot",
       seed: Date.now() & 0x7fffffff,
       engineError: "A @mm/paper motor még nem elérhető (a későbbi fázisban implementálandó) — szimulált adatok.",
+      initialEquityUsdt: this.options.initialEquityUsdt,
     });
 
     this.state = emptyBotState("with-bot", this.options.initialEquityUsdt, this.fallback.getSnapshot().status.engineError);

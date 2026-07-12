@@ -348,6 +348,36 @@ describe("feature-wiring: HistoryList sorts by various keys", () => {
     // 20 sor látszik, 10 rejtve.
     expect(lastFrame()).toContain("még 10 korábbi");
   });
+
+  it("sorts by symbol: same-symbol trades are ordered by closedAt desc (secondary sort)", () => {
+    // Két BTC és két ETH trade — a symbol szerinti rendezésen belül az
+    // időrend a másodlagos kulcs (legfrissebb elöl).
+    const sameSymbol: readonly Trade[] = [
+      makeTrade("t1", "BTC/USDT", 100, 1000),
+      makeTrade("t2", "BTC/USDT", -50, 3000),
+      makeTrade("t3", "ETH/USDT", 200, 2000),
+      makeTrade("t4", "ETH/USDT", 50, 4000),
+    ];
+    const { lastFrame } = render(
+      <HistoryList history={sameSymbol} now={Date.now()} sortKey="symbol" />,
+    );
+    const output = frame(lastFrame);
+    // BTC blokk: t2 (3000) t1 (1000) — t2 előbb van.
+    const idxT1 = output.indexOf("#t1");
+    const idxT2 = output.indexOf("#t2");
+    const idxT3 = output.indexOf("#t3");
+    const idxT4 = output.indexOf("#t4");
+    expect(idxT2).toBeLessThan(idxT1); // BTC: t2 (újabb) t1 (régebbi) előtt
+    expect(idxT4).toBeLessThan(idxT3); // ETH: t4 (újabb) t3 (régebbi) előtt
+  });
+
+  it("shows the empty-state message when history is empty", () => {
+    const { lastFrame } = render(
+      <HistoryList history={[]} now={Date.now()} sortKey="time" />,
+    );
+    const output = frame(lastFrame);
+    expect(output).toContain("Még nincs lezárt trade");
+  });
 });
 
 // ============================================================================
@@ -382,6 +412,18 @@ describe("feature-wiring: Header shows correct mode badges", () => {
     const { lastFrame } = render(<Header state={state} />);
     expect(lastFrame()).not.toContain("[PAUSED]");
   });
+
+  it("shows KILL-SWITCH: MEGERŐSÍTÉS label when killSwitch='confirm'", () => {
+    const state = makeBotState({ killSwitch: "confirm" });
+    const { lastFrame } = render(<Header state={state} />);
+    expect(lastFrame()).toContain("KILL-SWITCH: MEGERŐSÍTÉS");
+  });
+
+  it("shows KILL-SWITCH: AKTIVÁLVA label when killSwitch='triggered'", () => {
+    const state = makeBotState({ killSwitch: "triggered" });
+    const { lastFrame } = render(<Header state={state} />);
+    expect(lastFrame()).toContain("KILL-SWITCH: AKTIVÁLVA");
+  });
 });
 
 // ============================================================================
@@ -405,6 +447,17 @@ describe("feature-wiring: StatusBar disables s/p keybindings in TUI-only mode", 
     // miatt a szóköz nélküli szöveget keressük).
     expect(output).toContain("start");
     expect(output).toContain("pause");
+  });
+
+  it("shows the kill-switch confirmation prompt when killSwitch='confirm'", () => {
+    const { lastFrame } = render(<StatusBar killSwitch="confirm" tuiOnly={false} />);
+    const output = frame(lastFrame);
+    // A megerősítő prompt feliratok.
+    expect(output).toContain("VÉSZLEÁLLÍTÁS");
+    expect(output).toContain("[i] igen");
+    expect(output).toContain("[n] nem");
+    // A normál key-hintek NEM jelennek meg.
+    expect(output).not.toContain("rendezés");
   });
 });
 
