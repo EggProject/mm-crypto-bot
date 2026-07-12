@@ -411,11 +411,36 @@ describe("StrategyTelemetry — edge cases", () => {
 // ----------------------------------------------------------------------
 
 describe("StrategyTelemetry — minTradeCount=0 (diagnostic mode)", () => {
-  test("minTradeCount=0 → 1 trade produces stats", () => {
+  it("minTradeCount=0 → 1 trade produces stats", () => {
     const tele = new StrategyTelemetry({ ...DEFAULT_STRATEGY_TELEMETRY_CONFIG, minTradeCount: 0 });
     tele.recordTrade(makeTrade("A", 100, DAY_MS));
     const stats = tele.perStrategyStats("A");
     expect(stats).not.toBeNull();
     expect(stats!.tradeCount).toBe(1);
+  });
+});
+
+describe("StrategyTelemetry — getTradeCount", () => {
+  test("returns 0 when no trades recorded", () => {
+    const tele = new StrategyTelemetry(DEFAULT_STRATEGY_TELEMETRY_CONFIG);
+    expect(tele.getTradeCount()).toBe(0);
+  });
+
+  test("sums trade counts across all sources", () => {
+    const tele = new StrategyTelemetry(DEFAULT_STRATEGY_TELEMETRY_CONFIG);
+    tele.recordTrade(makeTrade("A", 100, DAY_MS));
+    tele.recordTrade(makeTrade("A", 50, DAY_MS * 2));
+    tele.recordTrade(makeTrade("B", -20, DAY_MS * 3));
+    expect(tele.getTradeCount()).toBe(3);
+  });
+
+  test("includes trades across all perSourceTrades entries", () => {
+    const tele = new StrategyTelemetry(DEFAULT_STRATEGY_TELEMETRY_CONFIG);
+    for (const id of ["A", "B", "C", "D", "E"] as const) {
+      for (let i = 0; i < 3; i++) {
+        tele.recordTrade(makeTrade(id, 10, DAY_MS * (i + 1)));
+      }
+    }
+    expect(tele.getTradeCount()).toBe(15);
   });
 });

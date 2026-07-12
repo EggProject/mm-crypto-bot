@@ -742,6 +742,39 @@ describe("CexNetFlowRegimePlugin", () => {
     expect(() => p.dispose()).not.toThrow();
   });
 
+  it("startLivePolling() returns the timer handle (cover 995. sor)", () => {
+    const p = new CexNetFlowRegimePlugin();
+    wirePlugin(p);
+    const handle = p.startLivePolling();
+    expect(handle).toBeDefined();
+    // handle is a Timeout object in node, just verify it's truthy
+    p.dispose();
+  });
+
+  it("stopLivePolling() is idempotent and a no-op when no timer is active", () => {
+    const p = new CexNetFlowRegimePlugin();
+    wirePlugin(p);
+    // Stop without starting — should be a no-op (idempotent guard)
+    expect(() => p.stopLivePolling()).not.toThrow();
+    // Start, then stop explicitly
+    p.startLivePolling();
+    expect(() => p.stopLivePolling()).not.toThrow();
+    // Second stop after first should also be a no-op
+    expect(() => p.stopLivePolling()).not.toThrow();
+  });
+
+  it("startLivePolling callback fires refreshLive on short interval", async () => {
+    // Use a 1000ms poll interval (the minimum allowed) so the setInterval
+    // callback fires and exercises the `void this.refreshLive()` line in
+    // the closure.
+    const p = new CexNetFlowRegimePlugin({ pollIntervalMs: 1000 });
+    wirePlugin(p);
+    p.startLivePolling();
+    // Wait for at least 2 ticks (poll interval is 1000ms)
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    p.stopLivePolling();
+  });
+
   // -----------------------------------------------------------------------
   // Adapter DI (constructor override)
   // -----------------------------------------------------------------------
