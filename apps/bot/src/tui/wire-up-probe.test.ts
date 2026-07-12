@@ -601,4 +601,47 @@ describe("wire-up probe — LiveBotStateProvider bridges Bot → TUI", () => {
     await bot.stop();
     await startPromise;
   });
+
+  // --------------------------------------------------------------------------
+  // 7) setPaused flag mutates the snapshot and notifies listeners
+  //    (Phase 34 coverage fixup — Track B's setPaused method)
+  // --------------------------------------------------------------------------
+  it("setPaused toggles the paused flag and notifies listeners", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed, stateSaveIntervalMs: 100 });
+    const provider = new LiveBotStateProvider({
+      bot,
+      enabledSymbols: ["BTC/USDC"],
+      initialEquityUsdt: 10_000,
+    });
+
+    const startPromise = bot.start();
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 100);
+    });
+    await provider.start();
+
+    // Kezdőállapot: paused NEM kell hogy megjelenjen a snapshot-ban
+    // (vagy false), és a listener hívás-szám 0.
+    let notifyCount = 0;
+    const unsubscribe = provider.subscribe(() => {
+      notifyCount++;
+    });
+
+    // Pause beállítása.
+    provider.setPaused(true);
+    expect(provider.getSnapshot().paused).toBe(true);
+    expect(notifyCount).toBe(1);
+
+    // Resume.
+    provider.setPaused(false);
+    expect(provider.getSnapshot().paused).toBe(false);
+    expect(notifyCount).toBe(2);
+
+    // Cleanup.
+    unsubscribe();
+    await provider.stop();
+    await bot.stop();
+    await startPromise;
+  });
 });

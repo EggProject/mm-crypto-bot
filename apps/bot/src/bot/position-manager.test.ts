@@ -263,4 +263,25 @@ describe("PositionManager", () => {
     expect(closed[0]?.pnl).toBe(50);
     expect(closed[0]?.closedAt).toBe(1234);
   });
+
+  // ---------------------------------------------------------------------------
+  // 13) getMaxPositions / getMaxLeverage accessors (Phase 34 coverage fixup)
+  // ---------------------------------------------------------------------------
+  it("getMaxPositions returns the configured cap", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 7,
+      maxLeverage: 10,
+    });
+    expect(pm.getMaxPositions()).toBe(7);
+  });
+
+  it("getMaxLeverage returns the configured cap (1:10 MANDATE L3)", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 5,
+    });
+    expect(pm.getMaxLeverage()).toBe(5);
+  });
 });
