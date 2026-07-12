@@ -158,4 +158,57 @@ describe("DydxLiveFundingSource — wire-up", () => {
     handle.close();
     expect(feed.closedConnections).toContain("BTC-USD");
   });
+
+  it("11. subscribe() with non-BTC-USD market throws", () => {
+    // CarryMarket type narrows to "BTC-USD" at compile time, but at runtime
+    // the guard rejects other markets.
+    expect(() => src.subscribe("ETH-USD" as CarryMarket, () => undefined)).toThrow(/ETH-USD/);
+  });
+
+  it("12. subscribe() with BTC-USD returns a no-op handle", () => {
+    const h = src.subscribe("BTC-USD", () => undefined);
+    expect(h.close).toBeDefined();
+    h.close();
+    // No-op: no error, no side effect.
+  });
+
+  it("13. lastChainBlockHeight returns null until first WS message", () => {
+    expect(src.lastChainBlockHeight("BTC-USD")).toBeNull();
+  });
+
+  it("14. lastChainBlockTs updates on first WS message via open()", async () => {
+    const handle = src.open();
+    // Wait for the setTimeout(0) inside MockDydxIndexerFeed.subscribe to fire.
+    await new Promise((r) => setTimeout(r, 10));
+    const ts = src.lastChainBlockTs("BTC-USD");
+    expect(ts).not.toBeNull();
+    const h = src.lastChainBlockHeight("BTC-USD");
+    expect(h).not.toBeNull();
+    expect(h).toBe(1);
+    handle.close();
+  });
+
+  it("15. health() reflects state after first WS message", async () => {
+    const handle = src.open();
+    await new Promise((r) => setTimeout(r, 10));
+    const h = src.health();
+    expect(h.lastTickMs).not.toBeNull();
+    expect(h.chainBlockHeight).toBe(1);
+    handle.close();
+  });
+
+  it("16. default CEX/depth providers (noop) — default constructor uses noop", () => {
+    const defaultSrc = new DydxLiveFundingSource(feed as unknown as DydxIndexerFeed);
+    // NoopCexFundingProvider returns null; NoopBybitEuDepthSource returns null.
+    // We can't directly call the private noop classes, but the public
+    // surface must work: bybitEuSpotDepthUsd should return null.
+    expect(defaultSrc.bybitEuSpotDepthUsd("BTC-USD", Date.now())).toBeNull();
+    // The default CEX funding provider is also a noop — its public
+    // getMostRecent() always returns null. Calling it here exercises
+    // both the NoopCexFundingProvider constructor (line 101-105) AND
+    // its getMostRecent body (line 102-104).
+    expect(defaultSrc.cexFundingProvider.getMostRecent("BTCUSDT", Date.now())).toBeNull();
+    // The default bybit depth provider is also a noop.
+    expect(defaultSrc.bybitEuDepthSource.getDepthUsdAt1Pct("BTC-USD", Date.now())).toBeNull();
+  });
 });

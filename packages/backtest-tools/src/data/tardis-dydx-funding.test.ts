@@ -1,10 +1,11 @@
 // packages/backtest-tools/src/data/tardis-dydx-funding.test.ts — Tardis.dev
 // dYdX v4 fetcher unit tests.
 
-import { describe, expect, it } from "bun:test";
-import { mkdtempSync } from "node:fs";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { gzipSync } from "node:zlib";
 
 import {
   aggregateToHourlyFunding,
@@ -163,5 +164,107 @@ describe("TardisDydxFundingFetcher — toFundingSnapshots", () => {
     expect(snaps.length).toBe(2);
     expect(snaps[0]?.markPrice).toBe(82500);
     expect(snaps[1]?.markPrice).toBeUndefined();
+  });
+});
+
+describe("TardisDydxFundingFetcher — fetchDay (cache + network)", () => {
+  let tempDir: string;
+  const realFetch = globalThis.fetch;
+
+  beforeAll(() => {
+    tempDir = mkdtempSync(resolve(tmpdir(), "tardis-fetch-"));
+  });
+  afterAll(() => {
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+    globalThis.fetch = realFetch;
+  });
+
+  it("returns cached CSV (gzip) if cache file exists", async () => {
+    // Pre-populate the cache.
+    const date = new Date(Date.UTC(2025, 3, 1));
+    const fetcher = new TardisDydxFundingFetcher({ cacheDir: tempDir });
+    const cacheFile = fetcher.cachePath(date, "BTC-USD");
+    mkdirSync(resolve(cacheFile, ".."), { recursive: true });
+    const csv = [
+      "exchange,symbol,timestamp,local_timestamp,funding_timestamp,funding_rate,predicted_funding_rate,open_interest,last_price,index_price,mark_price",
+      "dydx-v4,BTC-USD,1743465600448717,1743465600448717,,0.0001,,760.6,,,82500.0",
+    ].join("\n");
+    writeFileSync(cacheFile, gzipSync(csv));
+
+    const result = await fetcher.fetchDay(date, "BTC-USD");
+    expect(result.length).toBe(1);
+    expect(result[0]?.symbol).toBe("BTC-USD");
+    expect(result[0]?.fundingRate).toBeCloseTo(0.0001, 8);
+    expect(result[0]?.markPrice).toBe(82500);
+  });
+
+  it("downloads from network and caches when not cached", async () => {
+    const date = new Date(Date.UTC(2025, 3, 2));
+    const fetcher = new TardisDydxFundingFetcher({ cacheDir: tempDir });
+    const csv = [
+      "exchange,symbol,timestamp,local_timestamp,funding_timestamp,funding_rate,predicted_funding_rate,open_interest,last_price,index_price,mark_price",
+      "dydx-v4,BTC-USD,1743552000000000,1743552000000000,,0.0002,,800,,,82100.0",
+    ].join("\n");
+    globalThis.fetch = (async () =>
+      new Response(gzipSync(csv), {
+        status: 200,
+        headers: { "Content-Type": "application/gzip" },
+      })) as unknown as typeof fetch;
+
+    const result = await fetcher.fetchDay(date, "BTC-USD");
+    expect(result.length).toBe(1);
+    // Cache file should now exist.
+    const cacheFile = fetcher.cachePath(date, "BTC-USD");
+    expect(existsSync(cacheFile)).toBe(true);
+  });
+
+  it("throws on non-2xx response", async () => {
+    const date = new Date(Date.UTC(2025, 3, 3));
+    const fetcher = new TardisDydxFundingFetcher({ cacheDir: tempDir });
+    globalThis.fetch = (async () =>
+      new Response("not found", { status: 404 })) as unknown as typeof fetch;
+    await expect(fetcher.fetchDay(date, "BTC-USD")).rejects.toThrow(/Tardis dataset 404/);
+  });
+});
+
+describe("TardisDydxFundingFetcher — fetchWindow", () => {
+  it("concatenates hourly snapshots across multiple days", async () => {
+    const csvDay1 = [
+      "exchange,symbol,timestamp,local_timestamp,funding_timestamp,funding_rate,predicted_funding_rate,open_interest,last_price,index_price,mark_price",
+      "dydx-v4,BTC-USD,1743465600000000,1743465600000000,,0.0001,,760,,,82500",
+    ].join("\n");
+    const csvDay2 = [
+      "exchange,symbol,timestamp,local_timestamp,funding_timestamp,funding_rate,predicted_funding_rate,open_interest,last_price,index_price,mark_price",
+      "dydx-v4,BTC-USD,1743552000000000,1743552000000000,,0.0002,,800,,,82600",
+    ].join("\n");
+    const realFetch = globalThis.fetch;
+    let call = 0;
+    globalThis.fetch = (async () => {
+      const body = call === 0 ? gzipSync(csvDay1) : gzipSync(csvDay2);
+      call += 1;
+      return new Response(body, { status: 200 });
+    }) as unknown as typeof fetch;
+    try {
+      const fetcher = new TardisDydxFundingFetcher({ cacheDir: mkdtempSync(resolve(tmpdir(), "tardis-fw-")) });
+      const dates = [
+        new Date(Date.UTC(2025, 3, 1)),
+        new Date(Date.UTC(2025, 3, 2)),
+      ];
+      const result = await fetcher.fetchWindow(dates, "BTC-USD");
+      expect(result.length).toBe(2);
+      expect(call).toBe(2);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  it("returns empty array for empty dates list", async () => {
+    const fetcher = new TardisDydxFundingFetcher({ cacheDir: mkdtempSync(resolve(tmpdir(), "tardis-fw-empty-")) });
+    const result = await fetcher.fetchWindow([], "BTC-USD");
+    expect(result.length).toBe(0);
   });
 });

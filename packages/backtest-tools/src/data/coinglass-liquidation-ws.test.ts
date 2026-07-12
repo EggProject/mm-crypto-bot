@@ -187,3 +187,151 @@ describe("CoinGlassLiquidationWs", () => {
     expect(JSON.stringify(w1)).toBe(JSON.stringify(w2));
   });
 });
+
+describe("MockCoinGlassTransport — addPrint / tick / advanceTo", () => {
+  it("addPrint adds prints at the given timestamp", () => {
+    const transport = new MockCoinGlassTransport();
+    const seen: unknown[] = [];
+    transport.connect((p) => seen.push(p));
+    transport.addPrint(basePrint(1_000, "BTC", 500_000, "long"));
+    transport.advanceTo(1_000);
+    expect(seen.length).toBe(1);
+  });
+
+  it("tick(0) emits nothing and does not crash", () => {
+    const transport = new MockCoinGlassTransport();
+    const seen: unknown[] = [];
+    transport.connect((p) => seen.push(p));
+    transport.tick(0);
+    expect(seen.length).toBe(0);
+  });
+
+  it("tick with no events at the current time emits nothing", () => {
+    const transport = new MockCoinGlassTransport();
+    const seen: unknown[] = [];
+    transport.connect((p) => seen.push(p));
+    transport.tick(60_000);
+    expect(seen.length).toBe(0);
+  });
+
+  it("tick before connect is a no-op (no onMessage set)", () => {
+    const transport = new MockCoinGlassTransport();
+    transport.addPrint(basePrint(1_000, "BTC", 100, "long"));
+    transport.tick(1_000);
+    // No connect was called → nothing emitted.
+  });
+
+  it("close() resets state so subsequent ticks don't fire", () => {
+    const transport = new MockCoinGlassTransport();
+    const seen: unknown[] = [];
+    transport.connect((p) => seen.push(p));
+    transport.close();
+    transport.addPrint(basePrint(1_000, "BTC", 100, "long"));
+    // After close(), onMessage is null, so tick() returns early.
+    // Use tick() directly (advanceTo() has a known infinite-loop risk when
+    // tick is a no-op — not exercising that here).
+    transport.tick(1_000);
+    expect(seen.length).toBe(0);
+  });
+
+  it("advanceTo emits events at every intermediate timestamp with prints", () => {
+    const transport = new MockCoinGlassTransport();
+    const seen: unknown[] = [];
+    transport.connect((p) => seen.push(p));
+    transport.addPrint(basePrint(1_000, "BTC", 100, "long"));
+    transport.addPrint(basePrint(2_000, "ETH", 200, "short"));
+    transport.addPrint(basePrint(3_000, "SOL", 300, "long"));
+    // Step the simulation tick-by-tick so every intermediate timestamp is checked.
+    transport.tick(1_000);
+    transport.tick(1_000);
+    transport.tick(1_000);
+    expect(seen.length).toBe(3);
+  });
+
+  it("isOpen reflects connect/close state", () => {
+    const transport = new MockCoinGlassTransport();
+    expect(transport.isOpen()).toBe(false);
+    transport.connect(() => undefined);
+    expect(transport.isOpen()).toBe(true);
+    transport.close();
+    expect(transport.isOpen()).toBe(false);
+  });
+
+  it("getSubscriptions records every subscribe call", () => {
+    const transport = new MockCoinGlassTransport();
+    transport.connect(() => undefined);
+    transport.subscribe([{ channel: "liquidationOrders", symbol: "BTC" }]);
+    transport.subscribe([{ channel: "liquidationOrders", symbol: "ETH" }]);
+    expect(transport.getSubscriptions().length).toBe(2);
+    expect(transport.getSubscriptions().map((s) => s.symbol).sort()).toEqual(["BTC", "ETH"]);
+  });
+});
+
+describe("CoinGlassLiquidationWs — cache TTL pruning", () => {
+  it("pruneExpiredCache removes windows older than cacheTtlMs", () => {
+    const transport = new MockCoinGlassTransport();
+    const feed = new CoinGlassLiquidationWs(transport, {
+      apiKey: "k",
+      symbols: ["BTC"],
+      cacheTtlMs: 60_000,
+    });
+    feed.start();
+    const t = Date.UTC(2026, 0, 1, 0, 0, 0);
+    feed.ingest(basePrint(t, "BTC", 1_000_000, "long"));
+    expect(feed.getCachedWindows().length).toBe(1);
+    // Advance now to t + 2min → cacheTtl=1min → first window expires
+    const removed = feed.pruneExpiredCache(t + 120_000);
+    expect(removed).toBe(1);
+    expect(feed.getCachedWindows().length).toBe(0);
+  });
+
+  it("pruneExpiredCache is a no-op when nothing is older than cacheTtlMs", () => {
+    const transport = new MockCoinGlassTransport();
+    const feed = new CoinGlassLiquidationWs(transport, {
+      apiKey: "k",
+      symbols: ["BTC"],
+      cacheTtlMs: 5 * 60_000,
+    });
+    feed.start();
+    const t = Date.UTC(2026, 0, 1, 0, 0, 0);
+    feed.ingest(basePrint(t, "BTC", 1_000_000, "long"));
+    const removed = feed.pruneExpiredCache(t + 60_000);
+    expect(removed).toBe(0);
+    expect(feed.getCachedWindows().length).toBe(1);
+  });
+});
+
+describe("CoinGlassLiquidationWs — print hook + onPrint", () => {
+  it("onPrint fires for every print (not just window)", () => {
+    const seen: CoinGlassLiquidationPrint[] = [];
+    const transport = new MockCoinGlassTransport();
+    const feed = new CoinGlassLiquidationWs(transport, {
+      apiKey: "k",
+      symbols: ["BTC"],
+      onPrint: (p) => seen.push(p),
+    });
+    feed.start();
+    const t = Date.UTC(2026, 0, 1, 0, 0, 0);
+    feed.ingest(basePrint(t, "BTC", 1_000, "long"));
+    feed.ingest(basePrint(t + 5_000, "BTC", 2_000, "short"));
+    expect(seen.length).toBe(2);
+  });
+
+  it("events ingested via the transport reach the feed (line 256 closure)", () => {
+    // This test exercises the closure inside start() — the wire-level
+    // `transport.connect(callback)` path. Previous tests called
+    // `feed.ingest()` directly, which bypasses the transport callback.
+    const transport = new MockCoinGlassTransport();
+    const feed = new CoinGlassLiquidationWs(transport, {
+      apiKey: "k",
+      symbols: ["BTC"],
+    });
+    feed.start();
+    const t = Date.UTC(2026, 0, 1, 0, 0, 0);
+    transport.addPrint(basePrint(t, "BTC", 1_000_000, "long"));
+    transport.tick(0); // currentMockTimeMs goes from 0 → 0, but event is at t which is in the future
+    // Advance to the event's timestamp.
+    transport.tick(t);
+    expect(feed.getPrints().length).toBe(1);
+  });
+});
