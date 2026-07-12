@@ -1,5 +1,5 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-12 04:50 Budapest — Phase 34 CLOSED. Ink-based TUI integration + headless mode + color toggle shipped in 5 tracks. Original spec §4.3 (TUI mandatory) retroactively satisfied. Live testing is the user's manual call.
+description: Project board — mm-crypto-bot. Updated 2026-07-12 08:50 Budapest — Phase 35 F+G+H MERGED. Phase 35 I (core 100% coverage, 97.19% line currently) is the next track; J (docs) blocked on I. H shipped with a 3-commit fix-up for a bybit-eu-adapter test isolation bug (mock.module was leaking the ccxt module to LatencyMonitor tests).
 ---
 
 # Project board — mm-crypto-bot (updated 2026-07-12 04:50 Budapest, Phase 34 CLOSED)
@@ -393,3 +393,42 @@ also available as TUI-only via `mm-bot tui`), 0 strategy dead code,
 - Adaptive Kelly sizing on the 1-of-2 envelope (potential +5pp lift if Phase 20 architecture is fixed)
 - Cross-asset regime filter (potential +3-5pp lift on 2-of-2 envelope)
 - LatencyGate live feed validation (user does during live testing)
+
+## Phase 35 — FULL-CODEBASE 100% COVERAGE + MERGED REPORT (RUNNING 2026-07-12)
+
+### State (2026-07-12 08:50 Budapest)
+
+| Track | Title | Branch | Status | Coverage |
+|-------|-------|--------|--------|----------|
+| F | Coverage merge infra + apps/bot regression + 1 sample | `feat/phase35-track-f-coverage-infra` | ✅ MERGED (PR #79) | exchange 100% |
+| G | 100% coverage: paper + shared + tui | `feat/phase35-track-g-paper-shared-tui` | ✅ MERGED (PR #82) | paper + shared + tui 100% line/branch/function |
+| H | 100% coverage: backtest + backtest-tools + exchange | `feat/phase35-track-h-backtest-exchange` | ✅ MERGED (PR #83) | backtest + backtest-tools + exchange 100% line/branch/function |
+| I | 100% coverage: core | (TBD) | ⏸ About to dispatch | core 97.19% line, 92.38% function — gaps in ~12 files |
+| J | Closure docs | (TBD) | ⏸ Blocked on I | n/a |
+
+### Track H lessons (3-commit fix-up)
+
+The H producer died mid-task; the restart worked BUT the
+`bybit-eu-adapter.test.ts` had a `mock.module("ccxt", ...)` that
+leaked to the `LatencyMonitor.createExchange` test in the same
+runner. Fixed in 3 follow-up commits:
+
+1. `5fe0894` — fix lint errors (unused adapter vars)
+2. `5fe0894` — preserve `ccxt.pro` in the mock (test isolation)
+3. `79e127a` — full refactor: `BybitEuAdapter` now accepts an
+   `exchange` constructor option (dependency injection), test
+   uses a per-adapter `MockBybitEu` instead of `mock.module`.
+   Root cause: the `mock.module` approach polluted the global
+   `ccxt` module for all subsequent tests in the same process.
+
+### Track I plan (incoming)
+
+Close the remaining ~3% gap in `packages/core` (50 src files, 28,896 LOC).
+The biggest gap is `src/strategy/funding-flip-kill-switch.ts` at 82.76%
+line + 90% function (kill-switch logic with multi-venue state machines).
+Other gaps are < 1% on files like `dvol-regime-sizing-plugin.ts` (88%
+line), `cascade-fade.ts` (92% line), `kelly-adaptive.ts` (96% line).
+
+Producer will branch from `main@6383d83`, add focused unit tests, and
+open a PR. Same hard guarantees as G/H: 1:10 leverage unchanged, no
+"⏸️ DEFERRED", English-only commit + PR.
