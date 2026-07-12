@@ -34,7 +34,8 @@ interface CliArgs {
   readonly maxPositionPctEquity: number;
 }
 
-function parseArgs(): CliArgs {
+// A `parseArgs` exportálva van a 100% line-coverage tesztekhez.
+export function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
   let symbol = "BTC/USDT";
   let timeframe: Timeframe = "15m";
@@ -68,8 +69,8 @@ function parseArgs(): CliArgs {
   return { symbol, timeframe, initialEquity, outputPath, maxPositionPctEquity };
 }
 
-// Pivot Point Grid timeline mapping — HTF=1d (for pivot computation), MTF=4h (HTF context), LTF=15m.
-function timeframesForPivotGrid(ltf: Timeframe): { htf: Timeframe; mtf: Timeframe; ltf: Timeframe } {
+// A `timeframesForPivotGrid` exportálva van a 100% line-coverage tesztekhez.
+export function timeframesForPivotGrid(ltf: Timeframe): { htf: Timeframe; mtf: Timeframe; ltf: Timeframe } {
   if (ltf === "15m") return { htf: "1d", mtf: "4h", ltf: "15m" };
   throw new Error(`Pivot Point Grid baseline supports 15m only, got: ${ltf as string}`);
 }
@@ -182,7 +183,9 @@ async function main(): Promise<void> {
   console.log(`\n[pivot-grid] Saved: ${args.outputPath}`);
 }
 
-main().catch((err: unknown) => {
-  console.error("[pivot-grid] FATAL:", err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err: unknown) => {
+    console.error("[pivot-grid] FATAL:", err);
+    process.exit(1);
+  });
+}

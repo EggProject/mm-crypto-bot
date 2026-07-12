@@ -23,7 +23,8 @@ interface CliArgs {
   readonly output: string;
 }
 
-function parseArgs(): CliArgs {
+// A `parseArgs` exportálva van a 100% line-coverage tesztekhez.
+export function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
   let baselines: readonly string[] = [
     "backtest-results/baseline-btc-1h.json",
@@ -102,11 +103,13 @@ interface OosPayload {
   }[];
 }
 
-function formatPct(n: number, d = 2): string {
+// A `formatPct` exportálva van a 100% line-coverage tesztekhez.
+export function formatPct(n: number, d = 2): string {
   return `${(n * 100).toFixed(d)}%`;
 }
 
-async function loadFile(path: string): Promise<string | null> {
+// A `loadFile` exportálva van a 100% line-coverage tesztekhez.
+export async function loadFile(path: string): Promise<string | null> {
   try {
     return await readFile(path, "utf8");
   } catch {
@@ -316,7 +319,9 @@ async function main(): Promise<void> {
   console.log(`[report] Saved → ${absOutput}`);
 }
 
-main().catch((err: unknown) => {
-  console.error("[report] FATAL:", err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err: unknown) => {
+    console.error("[report] FATAL:", err);
+    process.exit(1);
+  });
+}

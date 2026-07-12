@@ -24,7 +24,8 @@ interface CliArgs {
   readonly outputPath: string;
 }
 
-function parseArgs(): CliArgs {
+// A `parseArgs` exportálva van a 100% line-coverage tesztekhez.
+export function parseArgs(): CliArgs {
   const args = process.argv.slice(2);
   let symbol = "BTC/USDT";
   let timeframe: Timeframe = "15m";
@@ -49,8 +50,8 @@ function parseArgs(): CliArgs {
   return { symbol, timeframe, initialEquity, outputPath };
 }
 
-// Donchian Range Channel timeline — HTF=1d (trending regime filter), MTF=4h, LTF=15m.
-function timeframesForDonchianRange(ltf: Timeframe): {
+// A `timeframesForDonchianRange` exportálva van a 100% line-coverage tesztekhez.
+export function timeframesForDonchianRange(ltf: Timeframe): {
   htf: Timeframe;
   mtf: Timeframe;
   ltf: Timeframe;
@@ -156,7 +157,9 @@ async function main(): Promise<void> {
   console.log(`\n[donchian-range] Saved: ${args.outputPath}`);
 }
 
-main().catch((err: unknown) => {
-  console.error("[donchian-range] FATAL:", err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err: unknown) => {
+    console.error("[donchian-range] FATAL:", err);
+    process.exit(1);
+  });
+}
