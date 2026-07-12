@@ -287,6 +287,7 @@ describe("BybitEuAdapter — identifier + constructor", () => {
 
   it("konstruktor custom rateLimitMs opcióval: a CCXT rateLimit a megadott értéket kapja", () => {
     const adapter = new BybitEuAdapter({ rateLimitMs: 250 });
+    void adapter; // adapter használva van a konstruktor mellékhatásában (mock state capture)
     expect(state.lastConstructorOpts?.["rateLimit"]).toBe(250);
     expect(state.lastConstructorOpts?.["enableRateLimit"]).toBe(true);
   });
@@ -300,6 +301,7 @@ describe("BybitEuAdapter — identifier + constructor", () => {
 
   it("konstruktor sandbox=false opcióval: setSandboxMode NEM hívódik", () => {
     const adapter = new BybitEuAdapter({ sandbox: false });
+    void adapter; // adapter használva van a konstruktor mellékhatásában (mock state capture)
     expect(state.sandboxCalls).toEqual([]);
   });
 
@@ -310,6 +312,7 @@ describe("BybitEuAdapter — identifier + constructor", () => {
       rateLimitMs: 50,
       sandbox: true,
     });
+    void adapter; // adapter használva van a konstruktor mellékhatásában (mock state capture)
     expect(state.lastConstructorOpts).toMatchObject({
       apiKey: "k",
       secret: "s",
