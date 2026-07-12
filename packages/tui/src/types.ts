@@ -88,6 +88,33 @@ export interface TickerPrice {
 }
 
 /**
+ `TickerEvent` — egy bejövő ticker-event a feed-ből (vagy a szimulációból).
+ A TUI az utolsó N eventet mutatja egy sub-panelben (a Phase 34 §4.3
+ "jelenlegi kereskedés figyelése" követelményhez).
+ A `seq` a provider-en belüli sorszám, monoton növekvő.
+*/
+export interface TickerEvent {
+  readonly seq: number;
+  readonly symbol: string;
+  readonly price: number;
+  readonly volume: number;
+  readonly timestamp: number;
+}
+
+/**
+ `HistorySortKey` — a HistoryList rendezési kulcsa.
+ A felhasználó a `s` (sort) billentyűvel válthat rendezési kulcsot:
+   time (default) | pnl | symbol
+*/
+export type HistorySortKey = "time" | "pnl" | "symbol";
+
+/**
+ `FocusedPanel` — az App által kezelt panel-fókusz.
+ A `Tab` / bal-jobb nyilak váltanak a panelek között.
+*/
+export type FocusedPanel = "statistics" | "live" | "history";
+
+/**
  `KillSwitchState` — a vészleállító állapota.
  - `armed`: a vészleállító aktív, a bot nem köthet új pozíciót
  - `confirm`: a felhasználó megnyomta a vészleállító gombot, és
@@ -117,6 +144,16 @@ export interface ProviderStatus {
  Ez a `BotStateProvider.subscribe()` callback-jének payload típusa.
  Minden mező readonly — a state kizárólag a provider-en belül
  módosítható, kívülről csak olvasni lehet.
+
+ Phase 34 Track B kiegészítések:
+   - `paused`: a `p` billentyűvel kapcsolható; paused=true esetén a
+     szimulált provider NEM nyit új pozíciót (a valós `Bot` önállóan
+     kezeli ezt, de a UI jelzi).
+   - `tickerEvents`: az utolsó N ticker-event rolling ablaka (a
+     `LiveTradingPanel` sub-panel-jéhez).
+   - `killSwitchThresholdPct`: az a küszöb (P&L %-ban), amely felett
+     a pozíció sötétvörösre vált a `LiveTradingPanel`-ben. A default
+     érték a config-ban van megadva.
 */
 export interface BotState {
   readonly status: ProviderStatus;
@@ -126,4 +163,7 @@ export interface BotState {
   readonly statistics: Statistics;
   readonly history: readonly Trade[];
   readonly tickers: readonly TickerPrice[];
+  readonly tickerEvents: readonly TickerEvent[];
+  readonly paused: boolean;
+  readonly killSwitchThresholdPct: number;
 }

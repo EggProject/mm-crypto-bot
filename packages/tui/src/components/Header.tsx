@@ -1,11 +1,19 @@
 // packages/tui/src/components/Header.tsx — a TUI fejléce
 //
 // A fejléc a TUI legfelső sora. Megjeleníti:
-//   - A bot módját (TUI-only / with-bot)
+//   - A bot módját (TUI-only / with-bot) — explicit badge formátumban
 //   - A futási állapotot (fut / leállítva)
+//   - A pause állapotát (ha a user pause-ölt)
 //   - A kill-switch állapotát
 //   - A kapcsolat állapotát (CCXT Pro WS feed)
 //   - Az utolsó frissítés időbélyegét
+//
+// A Phase 34 Track B kiegészítések:
+//   - A mód badge formátuma: `[LIVE]` (zöld) / `[TUI-ONLY]` (piros) /
+//     `[PAUSED]` (sárga). Ezek explicit, vizuálisan könnyen felismerhető
+//     jelzések — a user azonnal látja, milyen módban fut a TUI.
+//   - A `paused` flag a `BotState.paused` mezőből jön, és a
+//     `[PAUSED]` badge megjelenik, ha aktív.
 //
 // A háttérszín az állapottól függően változik (zöld = fut,
 // piros = vészleállítva, sárga = megerősítésre vár).
@@ -21,14 +29,22 @@ import { formatTimestamp } from "../utils/format.js";
  hook-ból kapunk.
 */
 export function Header({ state }: { readonly state: BotState }): ReactElement {
-  const { status, running, killSwitch } = state;
+  const { status, running, killSwitch, paused } = state;
 
-  // A mód magyar neve.
-  const modeLabel = status.mode === "tui-only" ? "TUI-ONLY" : "BOT MÓD";
+  // A mód-badge színe és szövege.
+  //   TUI-ONLY: piros, mert nincs valós bot mögötte.
+  //   with-bot: zöld, mert a bot aktívan fut (vagy futhat).
+  const modeBadge = status.mode === "tui-only" ? "[TUI-ONLY]" : "[LIVE]";
+  const modeBadgeColor: "red" | "green" = status.mode === "tui-only" ? "red" : "green";
 
   // A futás állapota.
   const runningLabel = running ? "FUT" : "LEÁLLÍTVA";
   const runningColor: "green" | "red" = running ? "green" : "red";
+
+  // A pause badge — a paused flag határozza meg.
+  // Csak akkor jelenik meg, ha paused=true; a badge színe sárga
+  // (figyelemfelkeltő, de nem piros — a pause NEM vészhelyzet).
+  const pausedBadge = paused ? "[PAUSED]" : null;
 
   // A kill-switch állapota.
   let killLabel: string;
@@ -59,7 +75,13 @@ export function Header({ state }: { readonly state: BotState }): ReactElement {
         <Box>
           <Text bold color="cyan">mm-crypto-bot TUI</Text>
           <Text>  ·  </Text>
-          <Text bold color="magenta">{modeLabel}</Text>
+          <Text bold color={modeBadgeColor}>{modeBadge}</Text>
+          {pausedBadge !== null && (
+            <>
+              <Text>  </Text>
+              <Text bold color="yellow">{pausedBadge}</Text>
+            </>
+          )}
         </Box>
         <Box>
           <Text color={runningColor} bold>{runningLabel}</Text>

@@ -133,6 +133,17 @@ export class PaperProvider implements BotStateProvider {
     this.notify();
   }
 
+  /**
+   * `setPaused` — a TUI-ból jövő pause/resume kérés. A `PaperProvider`
+   * a fallback-re delegálja; a valós paper-motor esetén a pause flag
+   * UI-flag (a motor önálló logikát követ).
+   */
+  setPaused(paused: boolean): void {
+    this.fallback.setPaused(paused);
+    this.state = this.fallback.getSnapshot();
+    this.notify();
+  }
+
   async dispose(): Promise<void> {
     if (this.paperHandle !== null) {
       try {
