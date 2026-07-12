@@ -10,6 +10,19 @@
 //   - Profit factor
 //   - Sharpe ratio
 //   - Equity görbe kezdő / jelenlegi értéke
+//
+// A számítás NEM itt történik — a provider (SimulatedProvider /
+// LiveBotStateProvider) a `closedTrades` listából aggregálja a
+// `Statistics` objektumot. A `LiveBotStateProvider.computeStatistics`
+// és a `SimulatedProvider.recomputeStatistics` implementálja a
+// win-rate, Sharpe és drawdown számítást a spec-nek megfelelően
+// (mean / stddev a trade-ek return-jeiből, equity-görbe csúcsai
+// alapján).
+//
+// A panel felelőssége kizárólag a megjelenítés:
+//   - Tabuláris layout (3 oszlop, 4 sor)
+//   - Színek: zöld a pozitív, piros a negatív, szürke a nulla
+//   - A drawdown a küszöbtől függően színeződik (5% / 10%)
 
 import type { ReactElement } from "react";
 import { Box, Text } from "ink";
@@ -18,15 +31,26 @@ import { colorForValue, formatPct, formatUsdt } from "../utils/format.js";
 
 /**
  `StatisticsPanel` — a statisztikai mutatókat megjelenítő panel.
- Az `statistics` prop a `BotState.statistics` mezőjéből jön.
+ Az `statistics` prop a `BotState.statistics` mezőjéből jön, és
+ a provider a `closedTrades` listából aggregálja (win-rate,
+ Sharpe ratio, max drawdown, profit factor stb.).
 */
-export function StatisticsPanel({ statistics }: { readonly statistics: Statistics }): ReactElement {
+export function StatisticsPanel({ statistics, focused = false }: { readonly statistics: Statistics; readonly focused?: boolean }): ReactElement {
+  const borderColor: "greenBright" | "green" = focused ? "greenBright" : "green";
   const totalColor = colorForValue(statistics.totalPnlUsdt);
-  const ddColor = statistics.currentDrawdownPct > 10 ? "red" : statistics.currentDrawdownPct > 5 ? "yellow" : "gray";
+  // A drawdown színe a súlyosságtól függ: < 5% semleges, 5-10% sárga, > 10% piros.
+  const ddColor: "red" | "yellow" | "gray" =
+    statistics.currentDrawdownPct > 10
+      ? "red"
+      : statistics.currentDrawdownPct > 5
+        ? "yellow"
+        : "gray";
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="green" paddingX={1} flexGrow={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={borderColor} paddingX={1} flexGrow={1}>
       <Text bold color="green">📊  STATISZTIKA</Text>
+
+      {/* 1. sor: Összesített PnL · Win rate · Trade-szám */}
       <Box marginTop={0} flexDirection="row">
         <Box flexDirection="column" width={28}>
           <Text dimColor>Összesített PnL:</Text>
@@ -46,6 +70,7 @@ export function StatisticsPanel({ statistics }: { readonly statistics: Statistic
         </Box>
       </Box>
 
+      {/* 2. sor: Max DD · Aktuális DD · Profit factor */}
       <Box marginTop={0} flexDirection="row">
         <Box flexDirection="column" width={28}>
           <Text dimColor>Max drawdown:</Text>
@@ -65,6 +90,7 @@ export function StatisticsPanel({ statistics }: { readonly statistics: Statistic
         </Box>
       </Box>
 
+      {/* 3. sor: Átlagos nyereség · Átlagos veszteség · Sharpe ratio */}
       <Box marginTop={0} flexDirection="row">
         <Box flexDirection="column" width={28}>
           <Text dimColor>Átlagos nyereség:</Text>
@@ -80,6 +106,7 @@ export function StatisticsPanel({ statistics }: { readonly statistics: Statistic
         </Box>
       </Box>
 
+      {/* 4. sor: Equity · Kezdő equity · Nyert / Vesztett */}
       <Box marginTop={0} flexDirection="row">
         <Box flexDirection="column" width={28}>
           <Text dimColor>Equity (jelenlegi):</Text>

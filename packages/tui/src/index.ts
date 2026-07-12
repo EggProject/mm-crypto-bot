@@ -9,7 +9,8 @@
 // script indítja); ez a fájl a library API-t adja.
 
 export { App } from "./App.js";
-export { renderTui } from "./render.js";
+export type { AppProps } from "./App.js";
+export { renderTui, renderTuiWithCallbacks } from "./render.js";
 export { SimulatedProvider } from "./providers/SimulatedProvider.js";
 export type { SimulatedProviderOptions } from "./providers/SimulatedProvider.js";
 export { PaperProvider } from "./providers/PaperProvider.js";
@@ -18,11 +19,14 @@ export type { BotStateProvider, Listener } from "./providers/BotStateProvider.js
 
 export type {
   BotState,
+  FocusedPanel,
+  HistorySortKey,
   KillSwitchState,
   Position,
   ProviderStatus,
   Side,
   Statistics,
+  TickerEvent,
   TickerPrice,
   Trade,
 } from "./types.js";

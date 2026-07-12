@@ -15,7 +15,7 @@
 // az aktuális állapotot adja vissza, a subscribe csupán értesíti a TUI-t,
 // hogy újra kell renderelni.
 
-import type { BotState, KillSwitchState, Position, Statistics, TickerPrice, Trade } from "../types.js";
+import type { BotState, KillSwitchState, Position, Statistics, TickerEvent, TickerPrice, Trade } from "../types.js";
 
 /**
  `Listener` — a state-változásra feliratkozó callback.
@@ -26,6 +26,13 @@ export type Listener = () => void;
 
 /**
  `BotStateProvider` — a TUI és a bot-motor közötti absztrakció.
+
+ Phase 34 Track B kiegészítés: `setPaused(paused)` — a TUI-ból jövő
+ pause/resume kérés. A TUI a `p` billentyűvel hívja. A provider
+ felelőssége, hogy a pause flag-et a state-be beépítse, és —
+ amennyiben a saját logikája engedi — a nyitást szüneteltesse.
+ A valós `Bot` esetén a pause UI-flag; a tényleges position-nyitás
+ a `Bot.run()` logikájától függ.
 */
 export interface BotStateProvider {
   /** Feliratkozás a state-változásokra. Visszatérési érték: leiratkozó függvény. */
@@ -40,6 +47,12 @@ export interface BotStateProvider {
   readonly killSwitch: () => Promise<void>;
   /** A kill-switch állapot lekérdezése (UI-ból való megerősítéshez). */
   readonly setKillSwitchState: (state: KillSwitchState) => void;
+  /**
+   `setPaused(paused)` — a TUI-ból jövő pause/resume kérés.
+   A `true` érték letiltja az új pozíciók nyitását (amennyiben a
+   provider ezt támogatja); a `false` érték újra engedélyezi.
+  */
+  readonly setPaused: (paused: boolean) => void;
   /** Erőforrások felszabadítása (TUI kilépéskor hívandó). */
   readonly dispose: () => Promise<void>;
 }
@@ -85,6 +98,11 @@ export function emptyStatus(mode: "tui-only" | "with-bot", error: string | null 
 
 /**
  `EMPTY_BOT_STATE` — a frissen induló TUI state.
+
+ Phase 34 Track B: a `tickerEvents` rolling buffer (max 32 event),
+ a `paused` flag (default false), és a `killSwitchThresholdPct`
+ (default -10% — a pozíciók 10%-os veszteség felett sötéten
+ pirosra váltanak a LiveTradingPanel-ben).
 */
 export function emptyBotState(
   mode: "tui-only" | "with-bot",
@@ -99,5 +117,8 @@ export function emptyBotState(
     statistics: emptyStatistics(initialEquityUsdt),
     history: [] as readonly Trade[],
     tickers: [] as readonly TickerPrice[],
+    tickerEvents: [] as readonly TickerEvent[],
+    paused: false,
+    killSwitchThresholdPct: -10,
   };
 }

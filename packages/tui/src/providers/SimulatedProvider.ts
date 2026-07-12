@@ -17,6 +17,7 @@ import type {
   Position,
   Side,
   Statistics,
+  TickerEvent,
   TickerPrice,
   Trade,
 } from "../types.js";
@@ -28,6 +29,9 @@ import {
 
 /** A szimulációban használt alapeszközök (USDT perp / spot margin a bybit.eu-n). */
 const SYMBOLS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"] as const;
+
+/** A TUI-ban megjelenített ticker-event rolling buffer mérete. */
+const TICKER_EVENT_BUFFER_SIZE = 32;
 
 /** Alapárak USDT-ben — 2026 Q2-Q3 körüli nagyságrend. */
 const BASE_PRICES: Readonly<Record<(typeof SYMBOLS)[number], number>> = {
@@ -120,6 +124,14 @@ export class SimulatedProvider implements BotStateProvider {
   /** A history-t itt tároljuk; a TUI csak az utolsó N elemet mutatja. */
   // A típus annotáció szükséges a `consistent-generic-constructors` rule miatt.
   private readonly closedTrades: Trade[] = [];
+
+  /**
+   * Ticker-event rolling buffer — az utolsó `TICKER_EVENT_BUFFER_SIZE`
+   * eventet tartjuk meg. A `LiveTradingPanel` ebből mutatja az utolsó
+   * 5-öt (a Phase 34 §4.3 spec).
+   */
+  private readonly tickerEventBuffer: TickerEvent[] = [];
+  private nextTickerSeq = 1;
 
   /** Trade-ID counter az egyedi azonosítókhoz. */
   private nextTradeId = 1;
@@ -244,6 +256,17 @@ export class SimulatedProvider implements BotStateProvider {
     this.notify();
   }
 
+  /**
+   `setPaused` — a TUI-ból jövő pause/resume kérés. A pause flag a
+   state-be kerül, és a tick-loop a `state.paused` flag figyelembevételével
+   nyit új pozíciót. A `setPaused(true)` NEM zárja le a meglévő
+   pozíciókat — a user azokat továbbra is látja, csak ÚJAK nem nyílnak.
+  */
+  setPaused(paused: boolean): void {
+    this.state = { ...this.state, paused };
+    this.notify();
+  }
+
   // eslint-disable-next-line @typescript-eslint/require-await
   async dispose(): Promise<void> {
     if (this.tickInterval !== null) {
@@ -264,9 +287,17 @@ export class SimulatedProvider implements BotStateProvider {
   /**
    `tick` — egy szimulációs lépés (1 Hz). Frissíti az árakat, szükség
    esetén új pozíciót nyit vagy zár, és értesíti a listenereket.
+
+   Phase 34 Track B:
+   - Minden tick-en ticker-eventet push-ol a rolling buffer-be
+     (a `LiveTradingPanel` sub-panel-jéhez).
+   - Ha a state.paused, NEM nyit új pozíciót (a meglévők
+     továbbra is frissülnek a stop/TP check során).
   */
   private tick(): void {
-    // 1) Ár-frissítés geometriai Brown-mozgással (GBM).
+    const now = Date.now();
+
+    // 1) Ár-frissítés geometriai Brown-mozgással (GBM) + ticker-event push.
     for (const symbol of SYMBOLS) {
       const currentPrice = this.prices.get(symbol) ?? BASE_PRICES[symbol];
       // A `VOLATILITY` típusa `Readonly<Record<literal, number>>` — a kulcs
@@ -279,10 +310,20 @@ export class SimulatedProvider implements BotStateProvider {
       const shock = this.prng.nextNormal(0, 1) * annualVol * Math.sqrt(dt);
       const newPrice = Math.max(currentPrice * Math.exp(drift + shock), 0.01);
       this.prices.set(symbol, newPrice);
+
+      // Ticker-event push a rolling bufferbe. A volume itt egyenletes
+      // véletlen a 24h volume alapján (szimulációban közelítés).
+      const baseVolume = this.baseVolumeForSymbol(symbol);
+      this.pushTickerEvent({
+        seq: this.nextTickerSeq++,
+        symbol,
+        price: newPrice,
+        volume: baseVolume * (0.0001 + this.prng.next() * 0.0005),
+        timestamp: now,
+      });
     }
 
     // 2) A nyitott pozíciók unrealized PnL-jének frissítése + stop/TP ellenőrzés.
-    const now = Date.now();
     const updatedPositions: Position[] = [];
     const closedFromThisTick: Trade[] = [];
 
@@ -335,9 +376,15 @@ export class SimulatedProvider implements BotStateProvider {
       this.closedTrades.push(...closedFromThisTick);
     }
 
-    // 3) Új pozíció nyitása, ha a bot fut és van szabad slot.
+    // 3) Új pozíció nyitása, ha a bot fut, nincs pause-olva,
+    //    és van szabad slot.
     let newPositions = updatedPositions;
-    if (this.state.running && this.state.killSwitch === "armed" && updatedPositions.length < MAX_OPEN_POSITIONS) {
+    if (
+      this.state.running &&
+      this.state.killSwitch === "armed" &&
+      !this.state.paused &&
+      updatedPositions.length < MAX_OPEN_POSITIONS
+    ) {
       // Véletlenszerű új pozíció, de nem azonnal minden tick-en.
       if (this.prng.next() < 0.15) {
         const freeSymbol = SYMBOLS.find((s) => !updatedPositions.some((p) => p.symbol === s));
@@ -353,10 +400,41 @@ export class SimulatedProvider implements BotStateProvider {
       positions: newPositions,
       history: this.closedTrades.slice(-100),
       tickers: this.buildTickers(),
+      tickerEvents: this.tickerEventBuffer.slice(),
       statistics: this.recomputeStatistics(),
       status: { ...this.state.status, connected: true, lastUpdate: now },
     };
     this.notify();
+  }
+
+  /**
+   `pushTickerEvent` — a rolling bufferhez ad egy új ticker-eventet,
+   és a buffert a `TICKER_EVENT_BUFFER_SIZE` méretre vágja.
+  */
+  private pushTickerEvent(event: TickerEvent): void {
+    this.tickerEventBuffer.push(event);
+    if (this.tickerEventBuffer.length > TICKER_EVENT_BUFFER_SIZE) {
+      this.tickerEventBuffer.splice(0, this.tickerEventBuffer.length - TICKER_EVENT_BUFFER_SIZE);
+    }
+  }
+
+  /**
+   `baseVolumeForSymbol` — a szimulált ticker-event volume-ja.
+   A 24h volume konstans a szimulációban; az event volume ebből
+   egy kis szelet (~0.01-0.06%).
+  */
+  private baseVolumeForSymbol(symbol: string): number {
+    // A szimulációban használt 24h volume-k (BTC ~30B, ETH ~15B, SOL ~5B).
+    // Az ESLint `security/detect-object-injection` miatt a `Map.get`-et
+    // használjuk `Record[key]` helyett — a key itt user input NEM, a
+    // SYMBOLS literál-tömbből származik, de a defensive map-olás
+    // biztonságosabb.
+    const map: ReadonlyMap<string, number> = new Map([
+      ["BTC/USDT", 30_000_000_000],
+      ["ETH/USDT", 15_000_000_000],
+      ["SOL/USDT", 5_000_000_000],
+    ]);
+    return map.get(symbol) ?? 1_000_000_000;
   }
 
   /**

@@ -66,6 +66,7 @@ import type {
   Position as TuiPosition,
   Side as TuiSide,
   Statistics,
+  TickerEvent,
   TickerPrice,
   Trade as TuiTrade,
 } from "@mm-crypto-bot/tui";
@@ -294,6 +295,9 @@ function initialTuiState(initialEquityUsdt: number): TuiBotState {
     },
     history: [],
     tickers: [],
+    tickerEvents: [] as readonly TickerEvent[],
+    paused: false,
+    killSwitchThresholdPct: -10,
   };
 }
 
@@ -326,6 +330,18 @@ export class LiveBotStateProvider implements BotStateProvider {
   private running = false;
   private killSwitchState: KillSwitchState = "armed";
   private lastEngineState: EngineBotState | null = null;
+
+  /**
+   * Phase 34 Track B: ticker-event rolling buffer (max 32 event).
+   * A `LiveBotStateProvider` NEM kap valós ticker-stream-et a
+   * `Bot`-tól (a bot a feed-en keresztül kapja, és a `BotState`-ben
+   * csak a position-ök currentPrice-ét látjuk). A synthetic event-eket
+   * a `onEngineStateChanged` híváskor generáljuk, az enabled symbol-ok
+   * position-árai alapján — így a `LiveTradingPanel` sub-panelje
+   * mindig mutat valamit, és a `realtime-update-probe` tesztelhető.
+   */
+  private readonly tickerEventBuffer: TickerEvent[] = [];
+  private nextTickerSeq = 1;
 
   public constructor(options: LiveBotStateProviderOptions) {
     this.bot = options.bot;
@@ -423,6 +439,24 @@ export class LiveBotStateProvider implements BotStateProvider {
   }
 
   /**
+   * `setPaused` — a TUI-ból jövő pause/resume kérés.
+   *
+   * A `LiveBotStateProvider` esetén a `paused` flag tisztán UI-flag:
+   * a `Bot` önállóan kezeli a saját position-nyitási logikáját, és
+   * a pause NEM állítja meg a bot futását. A flag célja, hogy a
+   * TUI-ban a `[PAUSED]` badge megjelenjen, és a user jelzést
+   * kapjon arról, hogy a TUI-ból felfüggesztette a megfigyelést.
+   *
+   * Ha a jövőben a bot is támogatja a pause-flag-et (pl. a
+   * `Bot.subscribe` payloadjában), ez a provider egyszerűen
+   * továbbítja azt.
+   */
+  public setPaused(paused: boolean): void {
+    this.currentState = { ...this.currentState, paused };
+    this.notifyListeners();
+  }
+
+  /**
    * `dispose` — a TUI kilépéskor hívja.
    *
    * A `BotStateProvider` interfész `Promise<void>` visszatérési
@@ -469,11 +503,47 @@ export class LiveBotStateProvider implements BotStateProvider {
 
   /**
    * `onEngineStateChanged` — a bot értesített minket egy friss
-   * `BotState`-ről.
+   * `BotState`-ről. A frissítés előtt ticker-event-eket generálunk
+   * az enabled symbol-okra (a `LiveTradingPanel` sub-panel-jéhez).
    */
   private onEngineStateChanged(engineState: EngineBotState): void {
     this.lastEngineState = engineState;
+    // Ticker-event-ek generálása a friss engine state-ből.
+    this.synthesizeTickerEvents(engineState);
     this.refreshFromBot();
+  }
+
+  /**
+   * `synthesizeTickerEvents` — a `LiveBotStateProvider` NEM kap
+   * valós ticker-stream-et a Bot-tól (a feed a Bot-on belül fut, és
+   * a `BotState` csak a position-öket exponálja). Helyette minden
+   * engine-notifykor generálunk egy-egy synthetic TickerEvent-et az
+   * enabled symbol-okra, a position currentPrice (vagy 0) alapján.
+   *
+   * A `volume` a position notional-ja, vagy 0 ha nincs pozíció.
+   * Ez a synthetic event-faed nem "valódi" market volume, de a
+   * `LiveTradingPanel` sub-panelje számára megfelelő — a user
+   * láthatja, hogy a feed aktív, és az utolsó ismert árat.
+   */
+  private synthesizeTickerEvents(engine: EngineBotState): void {
+    const now = engine.savedAt;
+    for (const symbol of this.tickerSymbolOrder) {
+      const pos = engine.positions.find((p) => p.symbol === symbol);
+      const lastPrice = pos?.currentPrice ?? 0;
+      const volume = pos ? pos.notionalUsd : 0;
+      this.tickerEventBuffer.push({
+        seq: this.nextTickerSeq++,
+        symbol,
+        price: lastPrice,
+        volume,
+        timestamp: now,
+      });
+    }
+    // A rolling buffer méret-limitje: 32 event.
+    const BUFFER_SIZE = 32;
+    if (this.tickerEventBuffer.length > BUFFER_SIZE) {
+      this.tickerEventBuffer.splice(0, this.tickerEventBuffer.length - BUFFER_SIZE);
+    }
   }
 
   /**
@@ -503,6 +573,7 @@ export class LiveBotStateProvider implements BotStateProvider {
           lastUpdate: now,
         },
         tickers,
+        tickerEvents: this.tickerEventBuffer.slice(),
       };
       this.notifyListeners();
       return;
@@ -532,6 +603,9 @@ export class LiveBotStateProvider implements BotStateProvider {
       statistics,
       history,
       tickers,
+      tickerEvents: this.tickerEventBuffer.slice(),
+      paused: this.currentState.paused,
+      killSwitchThresholdPct: this.currentState.killSwitchThresholdPct,
     };
     this.notifyListeners();
   }

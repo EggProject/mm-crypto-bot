@@ -7,14 +7,21 @@
 //   - Az entry és exit árat
 //   - A PnL-t (USDT + %)
 //   - A zárás okát (stop / TP / időlimit / kill-switch)
+//
+// A Phase 34 Track B kiegészítések:
+//   - VISIBLE_ROWS: 10 → 20 (a spec kéri, hogy az utolsó 20 trade
+//     legyen látható).
+//   - Sortable columns: a `sortKey` prop határozza meg a rendezési
+//     kulcsot ("time" | "pnl" | "symbol"). A `t` billentyűvel
+//     válthat a user a kulcsok között (az App.tsx kezeli).
 
 import type { ReactElement } from "react";
 import { Box, Text } from "ink";
-import type { Trade } from "../types.js";
+import type { HistorySortKey, Trade } from "../types.js";
 import { colorForValue, formatDuration, formatPct, formatPrice, formatUsdt } from "../utils/format.js";
 
 /** A history-panelen egyszerre megjelenített sorok száma. */
-const VISIBLE_ROWS = 10;
+const VISIBLE_ROWS = 20;
 
 /**
  `HistoryRow` — egyetlen lezárt trade sora.
@@ -59,27 +66,73 @@ function HistoryRow({ trade, now }: { readonly trade: Trade; readonly now: numbe
 }
 
 /**
+ `sortTrades` — a HistoryList rendezési kulcs szerinti sorbarendezés.
+ A `sortKey` értéke határozza meg a kulcsot:
+   - "time"   — a `closedAt` szerint fordított időrend (legfrissebb elöl)
+   - "pnl"    — a `pnlUsdt` szerint csökkenő sorrend (legnagyobb nyereség elöl)
+   - "symbol" — a `symbol` szerint ABC-sorrend, azon belül időrend
+*/
+function sortTrades(trades: readonly Trade[], sortKey: HistorySortKey): readonly Trade[] {
+  const sorted = [...trades];
+  if (sortKey === "time") {
+    sorted.sort((a, b) => b.closedAt - a.closedAt);
+  } else if (sortKey === "pnl") {
+    sorted.sort((a, b) => b.pnlUsdt - a.pnlUsdt);
+  } else {
+    // symbol
+    sorted.sort((a, b) => {
+      if (a.symbol !== b.symbol) {
+        return a.symbol < b.symbol ? -1 : 1;
+      }
+      return b.closedAt - a.closedAt;
+    });
+  }
+  return sorted;
+}
+
+/**
+ `sortKeyLabel` — a `sortKey` magyar nyelvű címkéje (a panel
+ tetején megjelenő "Rendezve:" felirat mellett).
+*/
+function sortKeyLabel(sortKey: HistorySortKey): string {
+  if (sortKey === "time") return "IDŐ";
+  if (sortKey === "pnl") return "PNL";
+  return "SYMBOL";
+}
+
+/**
  `HistoryList` — a lezárt trade-ek listája.
  Az `history` a `BotState.history` mező. A `now` az aktuális
  timestamp — a "mennyi ideje zártuk" mező frissítéséhez kell.
+ A `sortKey` a rendezési kulcs — az App.tsx kezeli a `t` billentyűvel.
 */
 export function HistoryList({
   history,
   now,
+  sortKey,
+  focused = false,
 }: {
   readonly history: readonly Trade[];
   readonly now: number;
+  readonly sortKey: HistorySortKey;
+  readonly focused?: boolean;
 }): ReactElement {
-  // Fordított időrend — a legfrissebb trade elöl.
-  const sorted = [...history].sort((a, b) => b.closedAt - a.closedAt);
+  const borderColor: "blueBright" | "blue" = focused ? "blueBright" : "blue";
+  // A history rendezése a `sortKey` alapján.
+  const sorted = sortTrades(history, sortKey);
   const visible = sorted.slice(0, VISIBLE_ROWS);
   const hiddenCount = Math.max(0, sorted.length - VISIBLE_ROWS);
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="blue" paddingX={1}>
+    <Box flexDirection="column" borderStyle="round" borderColor={borderColor} paddingX={1}>
       <Box flexDirection="row" justifyContent="space-between">
         <Text bold color="blue">📜  HISTORY (LEZÁRT TRADE-EK)</Text>
-        <Text dimColor>{history.length} db összesen</Text>
+        <Text>
+          <Text dimColor>Rendezve: </Text>
+          <Text bold color="blue">{sortKeyLabel(sortKey)}</Text>
+          <Text dimColor>  ·  </Text>
+          <Text dimColor>{history.length} db összesen</Text>
+        </Text>
       </Box>
 
       {visible.length === 0 ? (

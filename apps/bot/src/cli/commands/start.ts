@@ -228,7 +228,17 @@ async function runTui(bot: Bot, enabledSymbols: readonly string[]): Promise<numb
 
   // A TUI renderelése — az Ink `render` függvénye egy `Instance`-et
   // ad vissza, aminek `waitUntilExit()` Promise-re vár.
-  const app = tuiModule.renderTui(provider);
+  // A Phase 34 Track B kiegészítés: az `onStop` / `onPause` callback-eket
+  // átadjuk az `App`-nak, hogy a TUI-ból jövő stop/pause kérések a
+  // start command szintjén is megjelenjenek (log + persist).
+  const app = tuiModule.renderTuiWithCallbacks(provider, {
+    onStop: () => {
+      console.error("[start] TUI requested stop — bot stopping");
+    },
+    onPause: (paused: boolean) => {
+      console.error(`[start] TUI requested pause=${String(paused)}`);
+    },
+  });
 
   // SIGINT handler: ha a TUI nem kapja el (vagy a user a process-t
   // öli meg), a bot szintén leáll. A TUI-ból jövő [q] / Ctrl+C a
