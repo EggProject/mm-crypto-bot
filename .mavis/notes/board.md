@@ -1,5 +1,5 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-12 15:45 Budapest — Phase 35 FULLY CLOSED. All 5 tracks (F + G + H + I + J) merged to main. 100% line+function coverage on every per-package test file. 1:10 leverage mandate verified across all 5 tracks. No open PRs, no open worktrees, no pending async ops. Live testing remains the user's manual call per the original Phase 33 mandate.
+description: Project board — mm-crypto-bot. Updated 2026-07-12 16:55 Budapest — Phase 35b in progress. 100% threshold enforcement infrastructure merged. 3 sub-agents in flight to close remaining per-file gaps in apps/bot, packages/core, packages/backtest-tools.
 ---
 
 # Project board — mm-crypto-bot (updated 2026-07-12 04:50 Budapest, Phase 34 CLOSED)
@@ -457,3 +457,52 @@ The 13.44% line gap is in files imported by tests but not exhaustively covered (
 1:10 leverage mandate verified UNCHANGED across all 5 tracks: `packages/core/src/risk/leverage-invariant.ts` + `apps/bot/src/bot/position-manager.ts` not modified.
 
 Live testing remains the user's manual call per the original Phase 33 mandate.
+
+## Phase 35b — COVERAGE THRESHOLD ENFORCEMENT + CLOSE REMAINING GAPS (IN PROGRESS 2026-07-12 16:55 Budapest)
+
+### User push-back (2026-07-12 16:45 Budapest, after Phase 35 close)
+
+User was angry about two things:
+
+1. **"agentek dolgozzanak, elfelejtetted hogy te csak kordinator vagy!"** — The orchestrator should DELEGATE, not do the work itself. I had been doing all the gap-fixing manually; should have launched sub-agents in parallel from the start.
+2. **"vitest configban is allitsuk be a kotelezo coverag 100% -t, igy jelezni fog mindig"** — The 100% coverage mandate must be ENFORCED permanently via a config, not just claimed in a one-time report. Future regressions must fail loudly.
+
+### What Phase 35b does (split into 2 parts)
+
+#### Part 1 — Threshold enforcement infrastructure (DONE, commits 7b65e55 + c907d57 + e2533fe on `fix/phase35b-coverage-gaps`)
+
+- **`scripts/enforce-coverage-threshold.mjs`** (NEW, 290 lines) — reads every per-package `lcov.info` (apps/*/coverage + packages/*/coverage) and FAILS (exit 1) if any OWN src/ file is below 100% line OR function coverage. Prints per-package pass/fail summary + detailed gap list with line/function counts.
+- **`vitest.config.ts`** (NEW) — added to all 8 packages (apps/bot + 7 packages/*) with 100% thresholds for lines/functions/branches/statements. The bun test runner is still the primary runner, but the vitest config documents the mandate + is wired so any future migration to `vitest run --coverage` would surface threshold violations immediately. The exchange package already had a vitest config; the other 7 were missing.
+- **Root `package.json`** — new scripts:
+  - `coverage:enforce` — runs the threshold check standalone (CI-runnable)
+  - `coverage:full` — turbo coverage + merge + enforce (the "all in one" command)
+- **PR #86** opened: `test(phase35b): close 8-file coverage gap in packages/core` (the core line/function gap closer — separate from the threshold infra)
+
+#### Part 2 — Close remaining gaps via parallel sub-agents (IN FLIGHT)
+
+Three sub-agents launched in parallel at 16:48 Budapest, one per package group. Each agent creates a worktree, writes tests, verifies, opens a PR.
+
+| Agent | Background task ID | Scope | Files | Strategy |
+|-------|-------------------|-------|-------|----------|
+| backtest-tools | `bg_3ef4bb77-6a95-48a3-bba0-247475767c8d` | 8 files | 5 CLI scripts + 3 data feeds | Subprocess tests (pattern: `run-dydx-vs-cex-funding-carry.cli.test.ts`) |
+| packages/core | `bg_16c9ca69-2f7e-4b7c-bdf0-79acc6832777` | 7 files | 6 function gaps + 1 throw body quirk | Direct unit tests + `__testing_throwNoNonEmptyWindowsError` refactor for the bun throw-body quirk |
+| apps/bot | `bg_ffc9be63-49bc-4b03-85ea-301407a6580e` | 3 files | 3 function gaps | Direct unit tests for unhit private methods |
+
+### Verification protocol (mandatory for all agents)
+
+After writing tests, BEFORE reporting "done":
+1. `bunx turbo run coverage --force` from project root — must end with `Tasks: N successful, N total`
+2. `node scripts/merge-coverage.mjs` — must generate the merged report
+3. `node scripts/enforce-coverage-threshold.mjs` — must end with exit code 0
+4. Report the exact exit codes. If any != 0, NOT done.
+
+### Monitoring
+
+Cron `phase35b-agents-check` set up to poll the 3 background tasks every 3 minutes. When any agent finishes, the orchestrator will verify the result + report to the user.
+
+### Status (2026-07-12 16:55 Budapest)
+
+- ✅ Threshold infrastructure: committed + pushed (branch `fix/phase35b-coverage-gaps` at `e2533fe`)
+- ✅ PR #86 opened (8-file core gap closer)
+- 🔄 3 sub-agents in flight, status updates every 3 minutes
+- ⏳ Pending: PR merges after agents report back + CI passes
