@@ -32,6 +32,17 @@
       "outputs": ["coverage/**"],
       "inputs": ["src/**", "test/**", "vitest.config.ts", "tsconfig.json", "package.json"]
     },
+    "coverage:merge": {
+      "dependsOn": ["coverage"],
+      "outputs": ["coverage/merged/**"],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "tests/**",
+        "scripts/merge-coverage.mjs",
+        "package.json"
+      ]
+    },
     "clean": {
       "cache": false,
       "outputs": []

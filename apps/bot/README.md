@@ -28,7 +28,8 @@ canonical schema reference (every section + every field + Zod constraints).
 6. [Live testing](#6-live-testing)
 7. [Live testing workflow (manual)](#7-live-testing-workflow-manual)
 8. [Architecture](#8-architecture)
-9. [Limitations](#9-limitations)
+9. [Coverage](#9-coverage)
+10. [Limitations](#10-limitations)
 
 ---
 
@@ -531,7 +532,59 @@ apps/bot/
 
 ---
 
-## 9. Limitations
+## 9. Coverage
+
+This package participates in the monorepo-wide merged coverage report.
+
+**Per-package coverage** (run from the repo root):
+
+```bash
+bun test --coverage --coverage-reporter=text
+```
+
+**Merged monorepo coverage** (all packages, one report):
+
+```bash
+bun run coverage:merge
+```
+
+This runs `turbo run coverage` across all 8 packages (apps/bot + 7 packages/*),
+then invokes `scripts/merge-coverage.mjs` to merge the per-package lcov files
+into:
+
+- `coverage/merged/lcov.info` — standard LCOV format (Sonar, Codecov, Coveralls
+  all consume this)
+- `coverage/merged/coverage-summary.json` — istanbul-style machine-readable
+  summary (total + per-file lines/funcs/branches)
+- `coverage/merged/html/index.html` — basic HTML report (per-file table +
+  line-by-line source view, color-coded)
+- A text summary printed to stdout (line %, funcs %, file count)
+
+**Tool choice** (full reasoning in
+[`docs/merge-coverage-decision.md`](../../docs/merge-coverage-decision.md)):
+custom Node.js merge script (Option D). Bun 1.3.14's test coverage only
+emits `text` and `lcov` reporters — no JSON, no v8 raw. Vitest migration
+was out of scope; `nyc`/`c8` need a JSON reporter that bun does not
+provide. The script is pure Node ESM, zero runtime dependencies, parses
+LCOV directly and merges by absolute file path.
+
+**Known bun limitation**: bun's `--coverage-reporter=lcov` does NOT emit
+`BRDA` / `BRF` / `BRH` records (verified empirically 2026-07-12 — see
+[agent memory](../../.mavis/notes/) and the bun docs). The merged report
+shows 100% lines + 100% functions from LCOV; branch % is reported by bun's
+text reporter per-package but not propagated into the merged JSON/HTML.
+Branch coverage in the monorepo is verified via the per-package
+`bun test --coverage --coverage-reporter=text` output.
+
+**`bot.ts` invariants** (Phase 33-35 mandate): `bot.ts`,
+`position-manager.ts`, `router.ts`, and `tui/live-bot-state-provider.ts`
+are all held at 100% line + 100% branch — see
+[`docs/merge-coverage-decision.md`](../../docs/merge-coverage-decision.md)
+and the Phase 34 fixup PR for the test additions.
+
+---
+
+## 10. Limitations
 
 - **No real bybit.eu sandbox.** bybit.eu does not expose a public testnet
   for SPOT-margin (see `docs/research/stack-findings.md` §1.4). Paper mode

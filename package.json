@@ -20,6 +20,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "coverage": "turbo run coverage",
+    "coverage:merge": "turbo run coverage && node scripts/merge-coverage.mjs",
     "backtest": "bun run --filter @mm/backtest backtest",
     "paper": "bun run --filter @mm/paper paper",
     "tui": "bun run --filter @mm/tui tui",
