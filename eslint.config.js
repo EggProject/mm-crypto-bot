@@ -89,7 +89,7 @@ export default tseslint.config(
 
   // 5. Tesztek — type-check kikapcsolasa (a fixture-okben az any OK)
   {
-    files: ["**/*.test.ts", "**/*.spec.ts", "**/*.bench.ts"],
+    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/*.bench.ts"],
     ...tseslint.configs.disableTypeChecked,
   },
 

@@ -48,7 +48,7 @@ const VOLATILITY: Readonly<Record<(typeof SYMBOLS)[number], number>> = {
 };
 
 /** Kezdő equity USDT-ben. A @mm/paper alapértékével egyezik. */
-const INITIAL_EQUITY_USDT = 10_000;
+const DEFAULT_INITIAL_EQUITY_USDT = 10_000;
 
 /** Maximális egyidejűleg nyitott pozíciók száma (a stratégia-korláttal egyező). */
 const MAX_OPEN_POSITIONS = 3;
@@ -68,6 +68,7 @@ export interface SimulatedProviderOptions {
   readonly mode: "tui-only" | "with-bot";
   readonly seed?: number;
   readonly engineError?: string | null;
+  readonly initialEquityUsdt?: number;
 }
 
 /**
@@ -111,6 +112,7 @@ class PRNG {
 export class SimulatedProvider implements BotStateProvider {
   private readonly listeners = new Set<Listener>();
   private readonly prng: PRNG;
+  private readonly initialEquityUsdt: number;
 
   private state: BotState;
   private tickInterval: ReturnType<typeof setInterval> | null = null;
@@ -139,6 +141,7 @@ export class SimulatedProvider implements BotStateProvider {
   constructor(options: SimulatedProviderOptions) {
     const seed = options.seed ?? Date.now() & 0x7fffffff;
     this.prng = new PRNG(seed);
+    this.initialEquityUsdt = options.initialEquityUsdt ?? DEFAULT_INITIAL_EQUITY_USDT;
 
     // Kezdőárak inicializálása a base-price és a seed alapján.
     for (const symbol of SYMBOLS) {
@@ -155,7 +158,7 @@ export class SimulatedProvider implements BotStateProvider {
 
     this.state = emptyBotState(
       options.mode,
-      INITIAL_EQUITY_USDT,
+      this.initialEquityUsdt,
       options.engineError ?? null,
     );
 
