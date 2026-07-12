@@ -1065,6 +1065,12 @@ describe("Phase 35b — private method coverage via cast", () => {
     // Use a type cast to access private methods
     const o = orchestrator as unknown as {
       defaultDecisionEngineFactory: (config: unknown) => unknown;
+      aggregateBar: (
+        ts: number,
+        dec: Map<string, unknown>,
+        bars: Map<string, unknown>,
+        equity: number,
+      ) => unknown;
       sumAppliedNotionals: (snap: unknown) => number;
       computeCorrelationMatrix: () => Record<string, Record<string, number>>;
       pearsonForPair: (a: string, b: string) => number;
@@ -1081,7 +1087,23 @@ describe("Phase 35b — private method coverage via cast", () => {
     };
     // Call each to ensure coverage. Use realistic args based on the
     // 3-symbol test setup (BTC/USDT, ETH/USDT, SOL/USDT).
-    expect(typeof o.defaultDecisionEngineFactory).toBe("function");
+    // Phase 35b — replace typeof-only checks with real invocations to
+    // hit the function body, not just the method-existence branch.
+    const de = o.defaultDecisionEngineFactory({
+      symbol: "BTC/USDT",
+      htf: "1h",
+      mtf: "15m",
+      ltf: "5m",
+    });
+    expect(de).toBeDefined();
+    // aggregateBar — invoke with empty decision map to hit the body
+    const aggregateResult = o.aggregateBar(
+      1_704_067_200_000,
+      new Map<string, unknown>(),
+      new Map<string, unknown>(),
+      10_000,
+    );
+    expect(aggregateResult).toBeDefined();
     expect(typeof o.sumAppliedNotionals(orchestrator["snapshots"]?.[0] ?? {})).toBe("number");
     const m = o.computeCorrelationMatrix();
     expect(typeof m).toBe("object");
@@ -1093,6 +1115,13 @@ describe("Phase 35b — private method coverage via cast", () => {
     expect(o._previousBarFor(t, Date.now())).toBeDefined();
     // computeCommonTimestamps — pass an empty map (returns [])
     expect(Array.isArray(o.computeCommonTimestamps(new Map()))).toBe(true);
+    // computeCommonTimestamps — pass a populated map to hit the full body
+    const populatedBars = new Map<string, Bar[]>([
+      ["BTC/USDT", [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }]],
+      ["ETH/USDT", [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }]],
+      ["SOL/USDT", [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }]],
+    ]);
+    expect(o.computeCommonTimestamps(populatedBars)).toEqual([1]);
     // loadOhlcvForSymbol / loadFundingForSymbol — these need full setup,
     // but we can call with the test's tmpDir
     const startTs = 1_700_000_000_000;
