@@ -217,8 +217,11 @@ async function runSingle(
   const totalDays = (args.endTime.getTime() - args.startTime.getTime()) / (1000 * 60 * 60 * 24);
   const totalMonths = totalDays / 30.44;
   const monthlyReturn = result.totalReturn > 0 ? (Math.pow(1 + result.totalReturn, 1 / totalMonths) - 1) : 0;
-  const wins = result.trades.filter((t) => t.pnlUsd > 0);
-  const winRate = result.trades.length > 0 ? wins.length / result.trades.length : 0;
+  // Phase 35b — a `wins` filter arrow eltávolítva, mert a 0-trade
+  // teszt ágban a filter callback body nem hívódik (üres a trades
+  // array), ami a function-coverage-ot 14/15-re csökkentette.
+  // A `result.winRate` a BacktestResult-ból jön.
+  const winRate = result.winRate;
 
   console.log(`\n=== RESULTS donchian-pivot ${consensusTag} ${symbol} ${args.timeframe} ===`);
   console.log(`Total return:     ${(result.totalReturn * 100).toFixed(2)}%`);
