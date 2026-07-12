@@ -494,7 +494,7 @@ describe("Bot", () => {
     // hogy a másik listener kivétele nem állítja le a notify-t.
     let goodListenerCalls = 0;
     let badListenerCalls = 0;
-    bot.subscribe(() => {
+    const unsubGood = bot.subscribe(() => {
       goodListenerCalls++;
     });
     bot.subscribe(() => {
@@ -512,6 +512,14 @@ describe("Bot", () => {
     // kivételét a notifyStateListeners catch-e elnyeli.
     expect(goodListenerCalls).toBeGreaterThan(0);
     expect(badListenerCalls).toBeGreaterThan(0);
+
+    // Exercise the unsubscribe closure returned by subscribe() — bun's
+    // lcov FNF count treats the inner () => {...} as a separate function.
+    // Calling it once should make the "active = false" branch execute.
+    // Idempotency: calling unsubscribe twice should be a no-op (the
+    // inner `if (!active) return;` early-return branch).
+    unsubGood();
+    unsubGood();
 
     await bot.stop();
     await p;
