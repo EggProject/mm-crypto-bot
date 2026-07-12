@@ -1019,3 +1019,50 @@ describe("CexNetFlowRegimePlugin", () => {
     expect(p.isSymbolEnabled("")).toBe(false);
   });
 });
+
+describe("Phase 35b — CexNetFlowRegimePlugin private method coverage via cast", () => {
+  it("calls static _assertConfigInvariants directly (line 510) to ensure function is hit", () => {
+    // Bun's coverage tracks the function declaration site, not the
+    // call site inside the constructor. Calling the static method
+    // directly forces bun to mark the function as "hit" regardless
+    // of how it was previously reached.
+    const validConfig: CexNetFlowRegimeConfig = {
+      windowDays: 90,
+      regimeUpperZ: 1.5,
+      regimeLowerZ: -1.5,
+      pollIntervalMs: 60_000,
+      factorScalingZ: 2.0,
+      maxStaleMs: 600_000,
+      minObservations: 3,
+      enabledSymbols: ["BTC"],
+      adapter: null,
+      baseNotionalUsd: 10_000,
+    };
+    // Valid config — should not throw
+    expect(() =>
+      (CexNetFlowRegimePlugin as unknown as {
+        _assertConfigInvariants: (c: CexNetFlowRegimeConfig) => void;
+      })._assertConfigInvariants(validConfig),
+    ).not.toThrow();
+  });
+});
+
+describe("Phase 35b — CexNetFlowRegimePlugin setInterval callback", () => {
+  it("setInterval callback fires after 1s (covers line 995 arrow)", async () => {
+    // The setInterval callback at line 995 is `() => { void this.refreshLive(); }`.
+    // Bun's coverage tracks this as a separate function. The existing
+    // test at line 766 waits 1100ms, which should be enough. We add
+    // an explicit test to ensure the arrow is registered as "hit".
+    const p = new CexNetFlowRegimePlugin({ pollIntervalMs: 1000 });
+    let calls = 0;
+    const orig = p.refreshLive.bind(p);
+    p.refreshLive = async (...args) => {
+      calls++;
+      return orig(...args);
+    };
+    p.startLivePolling();
+    await new Promise((r) => setTimeout(r, 1100));
+    p.stopLivePolling();
+    expect(calls).toBeGreaterThanOrEqual(1);
+  });
+});

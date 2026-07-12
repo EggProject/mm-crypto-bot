@@ -963,3 +963,39 @@ describe("DydxCexCarryStrategy — Phase 35 coverage gaps", () => {
     expect(s["_haltReason"]()).toBe("unknown");
   });
 });
+
+describe("Phase 35b — DydxCexCarryPaperTrader paper-trade arrow callback", () => {
+  it("mock subscribe can fire the onTick callback to cover the (() => undefined) arrow at line 252", async () => {
+    // The `() => undefined` arrow in `runForDays` is passed to
+    // `fundingSource.subscribe(...)`. Bun's coverage counts this
+    // arrow as a function and only marks it "hit" when it's actually
+    // called. The default MockFundingSource doesn't call the callback
+    // — it just returns a close handle. We need a custom source that
+    // calls the callback synchronously to register the function as hit.
+    class CallbackFiringSource extends MockFundingSource {
+      subscribe(
+        market: CarryMarket,
+        onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
+      ): { readonly close: () => void } {
+        super.subscribe(market, onTick);
+        // Fire the callback synchronously to register the arrow as "hit"
+        const snap = {
+          dydx: { fundingRate: 0, timestampMs: 0, market: "BTC-USD" as const },
+          cex: { fundingRate: 0, timestampMs: 0, market: "BTC-USD" as const },
+        };
+        onTick(snap);
+        return { close: () => {} };
+      }
+    }
+    const src = new CallbackFiringSource();
+    const sim = new MockFillSimulator();
+    const s = mkStrategy(src);
+    s.recordPreconditionReverify("live-divergence", true, FIXED_NOW - 8 * DAY);
+    s.recordPreconditionReverify("chain-incident-clear", true, FIXED_NOW - 4 * DAY);
+    s.recordPreconditionReverify("no-recent-governance", true, FIXED_NOW - 15 * DAY);
+    const trader = new DydxCexCarryPaperTrader(s, sim, { days: 1, tickIntervalMs: HOUR });
+    // The 1-day run calls subscribe → fires callback → arrow is hit
+    const report = await trader.runForDays(1, src, FIXED_NOW);
+    expect(report.daysCompleted).toBe(1);
+  });
+});
