@@ -61,6 +61,15 @@ export interface BybitEuFeedOptions {
    * ez csak opcionális — a paper mód NEM használja, csak manuális debughoz.
    */
   readonly sandbox: boolean;
+  /**
+   * `exchange` — opcionális, dependency injection célokra (tesztek).
+   * Ha meg van adva, a feed ezt a CCXT exchange instance-ot használja
+   * a `new ccxt.bybiteu(...)` factory hívás helyett. Ez lehetővé teszi
+   * a tesztek számára, hogy a valódi CCXT modul mockolása nélkül
+   * (ami izolációs bug-okat okozna más exchange tesztekben) tudják
+   * tesztelni a feed-et.
+   */
+  readonly exchange?: CcxtExchange;
 }
 
 /**
@@ -96,17 +105,23 @@ export class BybitEuFeed implements ExchangeFeed {
   private opened = false;
 
   constructor(opts: BybitEuFeedOptions) {
-    // A CCXT factory `pro: true` flag-gel hozza létre a CCXT Pro belső WS
-    // client-jét. A `new ccxt.pro.bybiteu(...)` is működne, de az ESM
-    // import miatt az alap `ccxt.bybiteu` a CCXT Pro metódusait is tartalmazza
-    // (4.5.x óta, lásd stack-findings.md §1.1).
-    this.client = new ccxt.bybiteu({
-      apiKey: opts.apiKey,
-      secret: opts.secret,
-      enableRateLimit: true,
-      rateLimit: opts.rateLimitMs,
-      options: { defaultType: "spot" },
-    });
+    // Dependency injection: ha a caller átad egy exchange instance-ot,
+    // azt használjuk. Egyébként a CCXT factory-t hívjuk.
+    if (opts.exchange !== undefined) {
+      this.client = opts.exchange;
+    } else {
+      // A CCXT factory `pro: true` flag-gel hozza létre a CCXT Pro belső WS
+      // client-jét. A `new ccxt.pro.bybiteu(...)` is működne, de az ESM
+      // import miatt az alap `ccxt.bybiteu` a CCXT Pro metódusait is tartalmazza
+      // (4.5.x óta, lásd stack-findings.md §1.1).
+      this.client = new ccxt.bybiteu({
+        apiKey: opts.apiKey,
+        secret: opts.secret,
+        enableRateLimit: true,
+        rateLimit: opts.rateLimitMs,
+        options: { defaultType: "spot" },
+      });
+    }
     if (opts.sandbox) {
       // A CCXT Pro setSandboxMode(true) azonnal átvált a testnet URL-re.
       // bybit.eu-n a `api-testnet.bybit.eu` hostra mutat (bár nincs rajta

@@ -2,9 +2,11 @@
  * packages/exchange/src/bybitEuFeed.test.ts
  *
  * 100% coverage test for `bybitEuFeed.ts` — the CCXT Pro bybit.eu
- * wrapper. We mock the `ccxt` module via `bun:test`'s `mock.module`
- * to provide a fake `bybiteu` exchange that satisfies the small
- * subset of CCXT methods the wrapper uses.
+ * wrapper. We use **dependency injection** (the `exchange` option in
+ * `BybitEuFeedOptions`) to inject a fake CCXT exchange, avoiding
+ * `mock.module("ccxt", ...)` which would pollute the global CCXT
+ * module and break the `latency-monitor.test.ts` tests that depend
+ * on the real CCXT error messages.
  *
  * Phase 35b gap closer — the file was previously uncovered in the
  * exchange-package test suite (it relied on apps/bot integration
@@ -15,23 +17,18 @@
  * the methods the wrapper actually calls (loadMarkets, setSandboxMode,
  * watchTicker, watchOrderBook, watchTrades, watchOHLCV, fetchTicker,
  * fetchOrderBook, fetchBalance, createOrder, cancelOrder, fetchOrder,
- * fetchOpenOrders, markets, id). Everything else throws.
+ * fetchOpenOrders, markets, id). Everything else is omitted.
  */
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { asSymbol, type Timeframe } from "./symbols.js";
-import type { ExchangeFeed } from "./feed.js";
 import type { ClientOrderId, OrderRequest } from "./types.js";
+import type { Exchange as CcxtExchange } from "ccxt";
+
+import { BybitEuFeed, normalizeTrade } from "./bybitEuFeed.js";
 
 // ---------------------------------------------------------------------------
-// CCXT mock — a fake exchange implementing only the methods BybitEuFeed uses
+// Fake CCXT exchange — implements only the methods BybitEuFeed uses
 // ---------------------------------------------------------------------------
 
 interface FakeExchange {
@@ -65,13 +62,13 @@ interface FakeExchange {
   fetchOpenOrders: (symbol: string) => Promise<unknown[]>;
 }
 
-function makeFakeExchange(): FakeExchange {
+function makeFakeExchange(overrides: Partial<FakeExchange> = {}): FakeExchange {
   // A `watch*` metódusok soha nem resolve-olnak (a teszt cancel-eli
   // a subscription-t, mielőtt bármi történne). Így a CCXT wrapper
   // run*Loop metódusai a subscription-ig futnak, és a cancelled flag
   // miatt kilépnek.
-  const neverResolvingPromise = new Promise<unknown>(() => { /* no-op */ });
-  return {
+  const neverResolvingPromise = new Promise<unknown>(() => { /* never */ });
+  const base: FakeExchange = {
     id: "bybiteu",
     markets: {
       "BTC/USDC": {
@@ -84,9 +81,7 @@ function makeFakeExchange(): FakeExchange {
       },
     },
     loadMarkets: async () => [],
-    setSandboxMode: (_v: boolean) => {
-      // no-op
-    },
+    setSandboxMode: (_v: boolean) => { /* no-op */ },
     watchTicker: (_symbol: string) => neverResolvingPromise,
     watchOrderBook: (_symbol: string, _limit: number) => neverResolvingPromise,
     watchTrades: (_symbol: string) => neverResolvingPromise,
@@ -150,88 +145,44 @@ function makeFakeExchange(): FakeExchange {
     }),
     fetchOpenOrders: async (_symbol: string) => [],
   };
+  return { ...base, ...overrides };
 }
 
-let fakeExchange: FakeExchange | null = null;
-let mockActive = false;
-
-// A valódi ccxt bybiteu factory eltárolása az első használatkor.
-// A mock.module factory csak egyszer fut, de a factory függvény
-// minden híváskor ellenőrzi a mockActive flaget.
-let realBybiteuCtor: new (opts: unknown) => unknown | null = null;
-
-// Eager load: a teszt setup előtt betöltjük a valódi ccxt bybiteu
-// factory-t, hogy a mock tudja használni inaktív állapotban.
-// A valódi ccxt a mock előtt már betöltődött (mert a bybitEuFeed.ts
-// importálja a fájl tetején). Az itteni dynamic import a MOCKOLT
-// ccxt-et adná vissza, ezért a valódi ccxt-et a fájl ELEJÉN, a
-// mock.module ELŐTT kell betölteni.
-import * as realCcxtNs from "ccxt";
-realBybiteuCtor = (realCcxtNs as unknown as { bybiteu: new (opts: unknown) => unknown }).bybiteu;
-
-mock.module("ccxt", () => {
-  return {
-    default: {
-      bybiteu: function (opts: unknown) {
-        if (mockActive && fakeExchange) {
-          return fakeExchange;
-        }
-        if (realBybiteuCtor) {
-          return new realBybiteuCtor(opts);
-        }
-        return undefined;
-      },
-    },
-    bybiteu: function (opts: unknown) {
-      if (mockActive && fakeExchange) {
-        return fakeExchange;
-      }
-      if (realBybiteuCtor) {
-        return new realBybiteuCtor(opts);
-      }
-      return undefined;
-    },
-  };
-});
-
-// Import AFTER the mock is set up.
-const { BybitEuFeed, normalizeTrade } = await import("./bybitEuFeed.js");
+/**
+ * A fake exchange-t úgy adjuk át a BybitEuFeed-nek, hogy a CCXT
+ * típusnak tűnjön. A TypeScript strict type-checkinghez kasztolunk.
+ */
+function asCcxt(fake: FakeExchange): CcxtExchange {
+  return fake as unknown as CcxtExchange;
+}
 
 describe("bybitEuFeed", () => {
-  beforeEach(() => {
-    fakeExchange = makeFakeExchange();
-    mockActive = true;
-  });
-
-  afterEach(() => {
-    fakeExchange = null;
-    mockActive = false;
-  });
-
   describe("konstruktor", () => {
     it("exchangeId='bybiteu'", () => {
+      const fake = makeFakeExchange();
       const feed = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(fake),
       });
       expect(feed.exchangeId).toBe("bybiteu");
     });
 
     it("sandbox=true esetén setSandboxMode(true)-t hív", () => {
       let sandboxCalled = false;
-      fakeExchange = {
-        ...makeFakeExchange(),
+      const fake = makeFakeExchange({
         setSandboxMode: (_v: boolean) => {
           sandboxCalled = true;
         },
-      };
+      });
       const feed = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: true,
+        exchange: asCcxt(fake),
       });
       expect(sandboxCalled).toBe(true);
       expect(feed.exchangeId).toBe("bybiteu");
@@ -239,48 +190,50 @@ describe("bybitEuFeed", () => {
 
     it("sandbox=false esetén NEM hív setSandboxMode-ot", () => {
       let sandboxCalled = false;
-      fakeExchange = {
-        ...makeFakeExchange(),
+      const fake = makeFakeExchange({
         setSandboxMode: (_v: boolean) => {
           sandboxCalled = true;
         },
-      };
+      });
       const _feed = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(fake),
       });
       expect(sandboxCalled).toBe(false);
     });
 
     it("a 'raw' getter a CCXT exchange-t adja vissza", () => {
+      const fake = makeFakeExchange();
       const feed = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(fake),
       });
       const raw = (feed as unknown as { raw: unknown }).raw;
-      expect(raw).toBe(fakeExchange);
+      expect(raw).toBe(fake);
     });
   });
 
   describe("open / close", () => {
     it("open() hívja a loadMarkets()-t és opened=true lesz", async () => {
       let loadMarketsCalled = false;
-      fakeExchange = {
-        ...makeFakeExchange(),
+      const fake = makeFakeExchange({
         loadMarkets: async () => {
           loadMarketsCalled = true;
           return [];
         },
-      };
+      });
       const feed = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(fake),
       });
       await feed.open();
       expect(loadMarketsCalled).toBe(true);
@@ -288,18 +241,18 @@ describe("bybitEuFeed", () => {
 
     it("open() idempotens (második hívás NEM hívja loadMarkets()-t)", async () => {
       let loadMarketsCount = 0;
-      fakeExchange = {
-        ...makeFakeExchange(),
+      const fake = makeFakeExchange({
         loadMarkets: async () => {
           loadMarketsCount++;
           return [];
         },
-      };
+      });
       const feed = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(fake),
       });
       await feed.open();
       await feed.open();
@@ -307,11 +260,13 @@ describe("bybitEuFeed", () => {
     });
 
     it("close() törli a subscription-öket", async () => {
+      const fake = makeFakeExchange();
       const feed = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(fake),
       });
       await feed.open();
       const id = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
@@ -324,13 +279,17 @@ describe("bybitEuFeed", () => {
   });
 
   describe("subscribe* metódusok", () => {
-    let feed: ExchangeFeed;
+    let feed: BybitEuFeed;
+    let fake: FakeExchange;
+
     beforeEach(async () => {
+      fake = makeFakeExchange();
       feed = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(fake),
       });
       await feed.open();
     });
@@ -341,19 +300,18 @@ describe("bybitEuFeed", () => {
 
     it("subscribeTicker visszaad egy id-t és a CCXT watchTicker hívódik", async () => {
       let watchTickerCalled = false;
-      fakeExchange = {
-        ...makeFakeExchange(),
+      const newFake = makeFakeExchange({
         watchTicker: async (_symbol: string) => {
           watchTickerCalled = true;
-          return new Promise<unknown>(() => { /* no-op */ });
+          return new Promise<unknown>(() => { /* never */ });
         },
-        loadMarkets: async () => [],
-      };
+      });
       const f = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(newFake),
       });
       await f.open();
       const id = await f.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
@@ -366,19 +324,18 @@ describe("bybitEuFeed", () => {
 
     it("subscribeOrderBook átadja a limit paramétert", async () => {
       let receivedLimit: number | undefined;
-      fakeExchange = {
-        ...makeFakeExchange(),
+      const newFake = makeFakeExchange({
         watchOrderBook: async (_symbol: string, limit: number) => {
           receivedLimit = limit;
-          return new Promise<unknown>(() => { /* no-op */ });
+          return new Promise<unknown>(() => { /* never */ });
         },
-        loadMarkets: async () => [],
-      };
+      });
       const f = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(newFake),
       });
       await f.open();
       await f.subscribeOrderBook(asSymbol("BTC/USDC"), 50, () => { /* no-op */ });
@@ -389,19 +346,18 @@ describe("bybitEuFeed", () => {
 
     it("subscribeTrades hívja a watchTrades-t", async () => {
       let called = false;
-      fakeExchange = {
-        ...makeFakeExchange(),
+      const newFake = makeFakeExchange({
         watchTrades: async (_symbol: string) => {
           called = true;
-          return new Promise<unknown>(() => { /* no-op */ });
+          return new Promise<unknown>(() => { /* never */ });
         },
-        loadMarkets: async () => [],
-      };
+      });
       const f = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(newFake),
       });
       await f.open();
       await f.subscribeTrades(asSymbol("BTC/USDC"), () => { /* no-op */ });
@@ -412,19 +368,18 @@ describe("bybitEuFeed", () => {
 
     it("subscribeOhlcv átadja a timeframe paramétert", async () => {
       let receivedTimeframe: string | undefined;
-      fakeExchange = {
-        ...makeFakeExchange(),
+      const newFake = makeFakeExchange({
         watchOHLCV: async (_symbol: string, tf: string) => {
           receivedTimeframe = tf;
-          return new Promise<unknown>(() => { /* no-op */ });
+          return new Promise<unknown>(() => { /* never */ });
         },
-        loadMarkets: async () => [],
-      };
+      });
       const f = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(newFake),
       });
       await f.open();
       await f.subscribeOhlcv(asSymbol("BTC/USDC"), "1m" as Timeframe, () => { /* no-op */ });
@@ -439,6 +394,7 @@ describe("bybitEuFeed", () => {
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(makeFakeExchange()),
       });
       await expect(
         f.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ }),
@@ -447,19 +403,18 @@ describe("bybitEuFeed", () => {
 
     it("unsubscribe törli a subscription-t", async () => {
       let called = false;
-      fakeExchange = {
-        ...makeFakeExchange(),
+      const newFake = makeFakeExchange({
         watchTicker: async (_symbol: string) => {
           called = true;
-          return new Promise<unknown>(() => { /* no-op */ });
+          return new Promise<unknown>(() => { /* never */ });
         },
-        loadMarkets: async () => [],
-      };
+      });
       const f = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(newFake),
       });
       await f.open();
       const id = await f.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
@@ -481,6 +436,7 @@ describe("bybitEuFeed", () => {
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(makeFakeExchange()),
       });
       await feed.open();
     });
@@ -496,18 +452,18 @@ describe("bybitEuFeed", () => {
     });
 
     it("fetchTickerSnapshot dob, ha a CCXT válasz nem sikerült", async () => {
-      fakeExchange = {
-        ...makeFakeExchange(),
-        fetchTicker: async (_symbol: string) => {
-          throw new Error("network error");
-        },
-        loadMarkets: async () => [],
-      };
       const f = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            fetchTicker: async (_symbol: string) => {
+              throw new Error("network error");
+            },
+          }),
+        ),
       });
       await f.open();
       await expect(
@@ -524,18 +480,18 @@ describe("bybitEuFeed", () => {
     });
 
     it("fetchOrderBookSnapshot dob hibánál", async () => {
-      fakeExchange = {
-        ...makeFakeExchange(),
-        fetchOrderBook: async (_symbol: string, _limit: number) => {
-          throw new Error("book error");
-        },
-        loadMarkets: async () => [],
-      };
       const f = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            fetchOrderBook: async (_symbol: string, _limit: number) => {
+              throw new Error("book error");
+            },
+          }),
+        ),
       });
       await f.open();
       await expect(
@@ -568,6 +524,7 @@ describe("bybitEuFeed", () => {
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(makeFakeExchange()),
       });
       await feed.open();
     });
@@ -578,35 +535,36 @@ describe("bybitEuFeed", () => {
 
     it("placeOrder limit típusnál átadja a price-t", async () => {
       let receivedPrice: number | undefined;
-      fakeExchange = {
-        ...makeFakeExchange(),
-        createOrder: async (
-          _symbol: string,
-          _type: string,
-          _side: string,
-          _amount: number,
-          price?: number,
-        ) => {
-          receivedPrice = price;
-          return {
-            id: "x",
-            symbol: "BTC/USDC",
-            type: "limit",
-            side: "buy",
-            amount: 0.01,
-            price: 60_000,
-            status: "open",
-            filled: 0,
-            timestamp: Date.now(),
-          };
-        },
-        loadMarkets: async () => [],
-      };
       const f = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            createOrder: async (
+              _symbol: string,
+              _type: string,
+              _side: string,
+              _amount: number,
+              price?: number,
+              _params?: Record<string, unknown>,
+            ) => {
+              receivedPrice = price;
+              return {
+                id: "x",
+                symbol: "BTC/USDC",
+                type: "limit",
+                side: "buy",
+                amount: 0.01,
+                price: 60_000,
+                status: "open",
+                filled: 0,
+                timestamp: Date.now(),
+              };
+            },
+          }),
+        ),
       });
       await f.open();
       const req: OrderRequest = {
@@ -624,34 +582,35 @@ describe("bybitEuFeed", () => {
 
     it("placeOrder market típusnál NEM ad át price-t (undefined)", async () => {
       let receivedPrice: number | undefined = -1;
-      fakeExchange = {
-        ...makeFakeExchange(),
-        createOrder: async (
-          _symbol: string,
-          _type: string,
-          _side: string,
-          _amount: number,
-          price?: number,
-        ) => {
-          receivedPrice = price;
-          return {
-            id: "x",
-            symbol: "BTC/USDC",
-            type: "market",
-            side: "buy",
-            amount: 0.01,
-            status: "open",
-            filled: 0,
-            timestamp: Date.now(),
-          };
-        },
-        loadMarkets: async () => [],
-      };
       const f = new BybitEuFeed({
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            createOrder: async (
+              _symbol: string,
+              _type: string,
+              _side: string,
+              _amount: number,
+              price?: number,
+              _params?: Record<string, unknown>,
+            ) => {
+              receivedPrice = price;
+              return {
+                id: "x",
+                symbol: "BTC/USDC",
+                type: "market",
+                side: "buy",
+                amount: 0.01,
+                status: "open",
+                filled: 0,
+                timestamp: Date.now(),
+              };
+            },
+          }),
+        ),
       });
       await f.open();
       const req: OrderRequest = {
@@ -691,6 +650,7 @@ describe("bybitEuFeed", () => {
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(makeFakeExchange()),
       });
     });
 
@@ -722,6 +682,7 @@ describe("bybitEuFeed", () => {
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(makeFakeExchange()),
       });
       await expect(
         feed.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ }),
@@ -734,6 +695,7 @@ describe("bybitEuFeed", () => {
         secret: "s",
         rateLimitMs: 100,
         sandbox: false,
+        exchange: asCcxt(makeFakeExchange()),
       });
       await expect(feed.fetchBalances()).rejects.toThrow();
     });
