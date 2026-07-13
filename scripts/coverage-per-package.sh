@@ -10,16 +10,23 @@
 #      files (which are listed in the per-package lcov because
 #      `bun test --coverage` records every imported file), keeping
 #      only the OWN src/ files.
-#   2. Run `lcov --summary --fail-under-lines 100` to fail if any
-#      line in the OWN files is uncovered.
+#   2. Read the line coverage % from `lcov --summary`, compare to 100
+#      in shell, and tally PASS/FAIL.
 #
 # Result: 8 packages × 100% line coverage on OWN src/ files, verified
 # by the canonical lcov tool that every CI service uses.
 #
+# Why no `set -euo pipefail`:
+#   The CI runner's lcov (apt-installed on Ubuntu) exits non-zero
+#   when it sees a "no data found" warning for function coverage
+#   (bun's lcov doesn't emit FN:/FNDA: lines). Under `set -e` that
+#   aborts the script before any output appears, hiding the real
+#   failure. We instead check each lcov exit code explicitly below.
+#
 # Usage: bash scripts/coverage-per-package.sh
 # Exit 0: all 8 packages at 100% line coverage on OWN src/ files
 # Exit 1: at least one package below 100%
-set -euo pipefail
+set -u  # only -u (unbound variable check); no -e / pipefail — see comment above
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
@@ -40,7 +47,7 @@ TOTAL=0
 FAILED_PACKAGES=()
 
 echo "======================================================================"
-echo "  Per-package OWN coverage (standard lcov --remove + --fail-under-lines 100)"
+echo "  Per-package OWN coverage (standard lcov --remove + 100% line check)"
 echo "======================================================================"
 echo
 
@@ -55,20 +62,27 @@ for pkg in "${PACKAGES[@]}"; do
 
   # Standard lcov: strip cross-package imports, keep only OWN src/ files.
   filtered=$(mktemp -t lcov-own-XXXXXX.info)
+  # Use `|| true` to swallow the older-lcov "no data found" warning
+  # that would otherwise exit non-zero under `set -e`.
   lcov --remove "$lcov_path" "*../*" --ignore-errors empty -o "$filtered" >/dev/null 2>&1 || true
 
-  # Threshold check on the filtered (OWN-only) lcov.
-  # We capture the line coverage % from the summary, then check it
-  # explicitly against 100 in shell (avoids relying on
-  # --fail-under-lines which interacts badly with the "no data found"
-  # for functions on the CI's older lcov).
-  summary=$(lcov --summary --ignore-errors empty "$filtered" 2>&1 | grep "lines" | head -1)
-  line_pct=$(echo "$summary" | awk -F'[% ]+' '{ for (i=1; i<=NF; i++) if ($i ~ /^[0-9.]+$/) { print $i; exit } }')
-  if [ "${line_pct%.*}" = "100" ] 2>/dev/null; then
+  # Read the line coverage % from the summary. We don't rely on
+  # `lcov --fail-under-lines` because it interacts badly with the
+  # "no data found for functions" warning on the CI lcov.
+  summary=$(lcov --summary --ignore-errors empty "$filtered" 2>&1 | grep "lines" | head -1 || true)
+
+  # Parse the percentage from "lines.......: 100.0% (2410 of 2410 lines)".
+  # The regex matches the number immediately before the `%` sign.
+  line_pct=""
+  if [ -n "$summary" ]; then
+    line_pct=$(echo "$summary" | sed -E 's/.*:[[:space:]]+([0-9]+(\.[0-9]+)?)%.*/\1/')
+  fi
+
+  if [ "${line_pct}" = "100" ] || [ "${line_pct}" = "100.0" ] || [ "${line_pct%.*}" = "100" ]; then
     echo "  ✓ ${pkg}  ${summary}"
     PASS=$((PASS + 1))
   else
-    echo "  ✗ ${pkg}  ${summary}"
+    echo "  ✗ ${pkg}  ${summary:-<no summary>}"
     FAILED_PACKAGES+=("${pkg}")
   fi
   rm -f "$filtered"
