@@ -96,6 +96,14 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
       - run: bun run coverage
+      # PHASE 35b: enforce the 100% per-package coverage mandate.
+      # The `coverage` script only runs `turbo run coverage`; it does
+      # NOT fail on gaps. The threshold check (`coverage:enforce`) is
+      # the actual gate that satisfies the user's "100% coverage testet
+      # mondtam" mandate — every OWN src/ file must be at 100% line +
+      # function coverage. If this step fails, the PR cannot merge.
+      - name: Enforce 100% per-package coverage threshold
+        run: bun run coverage:enforce
       - name: Upload lcov reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
