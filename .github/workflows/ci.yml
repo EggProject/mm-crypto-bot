@@ -95,14 +95,20 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
+      - run: sudo apt-get update && sudo apt-get install -y lcov
       - run: bun run coverage
-      # PHASE 35b: enforce the 100% per-package coverage mandate.
-      # The `coverage` script only runs `turbo run coverage`; it does
-      # NOT fail on gaps. The threshold check (`coverage:enforce`) is
-      # the actual gate that satisfies the user's "100% coverage testet
-      # mondtam" mandate — every OWN src/ file must be at 100% line +
-      # function coverage. If this step fails, the PR cannot merge.
-      - name: Enforce 100% per-package coverage threshold
+      # PHASE 35c: enforce the 100% coverage threshold using the
+      # standard `lcov` C tool (`--fail-under-lines 100`). The per-
+      # package `bun test --coverage` writes lcov files, which the
+      # standard `lcov --add-tracefile` command merges into a single
+      # repo-wide lcov, then `lcov --summary --fail-under-lines 100`
+      # fails the job if any line in the merged report is uncovered.
+      # This replaces the previous custom merge + AST analysis
+      # scripts (which the user rejected as "uninterpretable
+      # interfaces") with the canonical, well-known lcov tool.
+      - name: Merge lcov reports (standard lcov tool)
+        run: bun run coverage:merge
+      - name: Enforce 100% line coverage threshold (lcov --fail-under-lines 100)
         run: bun run coverage:enforce
       - name: Upload lcov reports
         if: ${{ !cancelled() }}
@@ -112,5 +118,6 @@ jobs:
           path: |
             apps/*/coverage/lcov.info
             packages/*/coverage/lcov.info
+            coverage/merged/lcov.info
           if-no-files-found: warn
           retention-days: 30
