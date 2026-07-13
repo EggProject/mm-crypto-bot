@@ -60,32 +60,47 @@ for pkg in "${PACKAGES[@]}"; do
     continue
   fi
 
-  # Standard lcov: strip cross-package imports, keep only OWN src/ files.
-  filtered=$(mktemp -t lcov-own-XXXXXX.info)
-  # Use `|| true` to swallow the older-lcov "no data found" warning
-  # that would otherwise exit non-zero under `set -e`.
-  lcov --remove "$lcov_path" "*../*" --ignore-errors empty -o "$filtered" >/dev/null 2>&1 || true
+  # Standard lcov format: SF: (filename), LF: (lines found), LH: (lines hit)
+  # at the end of each record (one record per source file). We parse
+  # the original per-package lcov DIRECTLY with awk and sum LF:/LH:
+  # only for OWN files (paths starting with `src/`, the package's own
+  # source root). Cross-package imports have paths like `../../packages/...`
+  # or `../<other>/...` and are excluded by the `^src/` check.
+  #
+  # Why awk instead of `lcov --remove`:
+  #   The CI runner's older lcov (apt-installed on Ubuntu) emits a
+  #   "no data found for functions" warning that, combined with
+  #   `--ignore-errors empty`, still aborts the --remove pipeline and
+  #   leaves the output file empty. Reading the standard lcov info
+  #   format directly with awk is portable across all lcov versions.
+  read -r lf lh < <(awk '
+    # SF:<path> — set the current source file (strip the "SF:" prefix)
+    /^SF:/ { sf = substr($0, 4) }
+    # LF:<n> and LH:<n> have no whitespace, so $1 is the whole field.
+    # Split on the colon to get the numeric value as the second field.
+    /^LF:/ { split($1, a, ":"); if (sf ~ "^src/") lf += a[2] }
+    /^LH:/ { split($1, a, ":"); if (sf ~ "^src/") lh += a[2] }
+    END { print lf + 0, lh + 0 }
+  ' "$lcov_path")
 
-  # Read the line coverage % from the summary. We don't rely on
-  # `lcov --fail-under-lines` because it interacts badly with the
-  # "no data found for functions" warning on the CI lcov.
-  summary=$(lcov --summary --ignore-errors empty "$filtered" 2>&1 | grep "lines" | head -1 || true)
-
-  # Parse the percentage from "lines.......: 100.0% (2410 of 2410 lines)".
-  # The regex matches the number immediately before the `%` sign.
-  line_pct=""
-  if [ -n "$summary" ]; then
-    line_pct=$(echo "$summary" | sed -E 's/.*:[[:space:]]+([0-9]+(\.[0-9]+)?)%.*/\1/')
+  if [ "${lf:-0}" = "0" ] && [ "${lh:-0}" = "0" ]; then
+    echo "  ✗ ${pkg}  no OWN files matched (LF=LH=0 in ${lcov_path})"
+    FAILED_PACKAGES+=("${pkg}")
+    continue
   fi
 
-  if [ "${line_pct}" = "100" ] || [ "${line_pct}" = "100.0" ] || [ "${line_pct%.*}" = "100" ]; then
+  # Compute the percentage with awk (avoids bc dependency).
+  line_pct=$(awk -v lf="$lf" -v lh="$lh" 'BEGIN { if (lf > 0) printf "%.1f", (lh * 100.0) / lf; else print "0" }')
+
+  summary="lines.......: ${line_pct}% (${lh} of ${lf} lines)"
+
+  if [ "${line_pct%.*}" = "100" ]; then
     echo "  ✓ ${pkg}  ${summary}"
     PASS=$((PASS + 1))
   else
-    echo "  ✗ ${pkg}  ${summary:-<no summary>}"
+    echo "  ✗ ${pkg}  ${summary}"
     FAILED_PACKAGES+=("${pkg}")
   fi
-  rm -f "$filtered"
 done
 
 echo
