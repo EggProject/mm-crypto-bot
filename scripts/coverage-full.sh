@@ -144,23 +144,6 @@ for r in "${ROWS[@]}"; do
   echo "$r"
 done
 
-# Merged report (informational, NOT a gate)
-MERGED_PATH="coverage/merged/lcov.info"
-if [ -f "$MERGED_PATH" ]; then
-  # Sum LF/LH from the merged lcov (already-merged paths).
-  read -r m_lf m_lh < <(awk '
-    /^LF:/ { split($1, a, ":"); m_lf += a[2] }
-    /^LH:/ { split($1, a, ":"); m_lh += a[2] }
-    END { print m_lf + 0, m_lh + 0 }
-  ' "$MERGED_PATH")
-  m_pct=$(awk -v lf="$m_lf" -v lh="$m_lh" 'BEGIN { if (lf > 0) printf "%.1f", (lh * 100.0) / lf; else print "0" }')
-  echo "| ------------------------ | ------ | ---------------------------------------- |"
-  echo "| $(PAD 22 "MERGED (informational)") | $(PAD 4 "info")  | $(PAD 38 "$(printf '%.1f%% (%s of %s lines)' "$m_pct" "$m_lh" "$m_lf")") |"
-else
-  echo "| ------------------------ | ------ | ---------------------------------------- |"
-  echo "| $(PAD 22 "MERGED") | $(PAD 4 "skip")  | $(PAD 38 "coverage/merged/lcov.info not found") |"
-fi
-
 echo "+ ------------------------ + ------ + ---------------------------------------- +"
 echo
 echo "  Result: ${PASS}/${TOTAL} packages at 100% line coverage on OWN src/ files"
