@@ -14,8 +14,25 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "bash scripts/install-mm-bot.sh",
+    "mm-bot": "bun run apps/bot/src/index.ts",
+    "mm-bot:built": "bun run apps/bot/dist/index.js",
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
+    "start": "bun run mm-bot start",
+    "headless": "bun run mm-bot start --headless",
+    "tui": "bun run mm-bot tui",
+    "bot:status": "bun run mm-bot status",
+    "bot:config": "bun run mm-bot config",
+    "bot:strategies": "bun run mm-bot strategies",
+    "bot:trades": "bun run mm-bot trades",
+    "bot:kill-switches": "bun run mm-bot kill-switches",
+    "bot:help": "bun run mm-bot help",
+    "backtest": "bun run --filter @mm-crypto-bot/backtest-tools baseline",
+    "sweep": "bun run --filter @mm-crypto-bot/backtest-tools sweep",
+    "oos": "bun run --filter @mm-crypto-bot/backtest-tools oos",
+    "report": "bun run --filter @mm-crypto-bot/backtest-tools report",
+    "ohlcv": "bun run --filter @mm-crypto-bot/backtest-tools download-ohlcv",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
@@ -26,10 +43,6 @@
     "coverage:html": "genhtml coverage/merged/lcov.info -o coverage/merged/html --ignore-errors empty,inconsistent,source --legend",
     "coverage:enforce": "bun run coverage:per-package",
     "coverage:full": "bash scripts/coverage-full.sh",
-    "backtest": "bun run --filter @mm/backtest backtest",
-    "paper": "bun run --filter @mm/paper paper",
-    "tui": "bun run --filter @mm/tui tui",
-    "start": "echo 'not implemented yet: ez a későbbi fázisban a bot indítója lesz (paper/live)' && exit 1",
     "clean": "turbo run clean && rm -rf node_modules .turbo coverage"
   },
   "devDependencies": {
@@ -50,5 +63,8 @@
   },
   "dependencies": {
     "ccxt": "4.5.64"
-  }
+  },
+  "trustedDependencies": [
+    "ccxt"
+  ]
 }
