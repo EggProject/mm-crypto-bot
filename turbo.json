@@ -14,25 +14,30 @@
       "outputs": ["dist/**"]
     },
     "typecheck": {
+      "cache": false,
       "dependsOn": ["^build"],
       "outputs": [],
       "inputs": ["src/**", "tsconfig.json", "package.json"]
     },
     "lint": {
+      "cache": false,
       "outputs": [],
       "inputs": ["src/**", "eslint.config.js", "package.json"]
     },
     "test": {
+      "cache": false,
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
       "inputs": ["src/**", "test/**", "vitest.config.ts", "tsconfig.json", "package.json"]
     },
     "coverage": {
+      "cache": false,
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
       "inputs": ["src/**", "test/**", "vitest.config.ts", "tsconfig.json", "package.json"]
     },
     "coverage:merge": {
+      "cache": false,
       "dependsOn": ["coverage"],
       "outputs": ["coverage/merged/**"],
       "inputs": [

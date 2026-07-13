@@ -38,6 +38,9 @@ describe("CsvExchangeFeed — Phase 1+15 OHLCV integráció", () => {
   });
 
   it("Phase 15 timeframes (5m/15m) minden symbol-on elérhetők", async () => {
+    // A 3 symbol × 2 timeframe = 6 fetchOHLCV hívás egyenként
+    // ~1s-vel a CSV feed I/O miatt → 6s összesen, ami túllépi a
+    // default 5s timeoutot. Explicit 30s timeout kell.
     const symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"] as const;
     const timeframes = ["5m", "15m"] as const;
     for (const symbol of symbols) {
@@ -46,7 +49,7 @@ describe("CsvExchangeFeed — Phase 1+15 OHLCV integráció", () => {
         expect(candles.length).toBeGreaterThan(0);
       }
     }
-  });
+  }, 30_000);
 
   it("a MANIFEST.json minden fájlra hivatkozik (Phase 1: 9 + Phase 15: 6 = 15)", async () => {
     const fs = await import("node:fs/promises");
