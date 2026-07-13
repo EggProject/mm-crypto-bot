@@ -310,6 +310,24 @@ export function validatePluginMetadata(
  */
 export class StrategyRegistry {
   private readonly plugins: StrategyPlugin[] = [];
+  private readonly logger: {
+    error: (msg: string, ...args: unknown[]) => void;
+  };
+
+  constructor(opts?: {
+    readonly logger?: {
+      error: (msg: string, ...args: unknown[]) => void;
+    };
+  }) {
+    // Alapértelmezetten NEM logolunk — a tesztekben ez a kívánt
+    // viselkedés, és a production kódban a hívó adhat át saját
+    // loggert (pl. a structured logger-t a shared package-ből).
+    this.logger = opts?.logger ?? {
+      error: (_msg: string, ..._args: unknown[]) => {
+        /* no-op default logger */
+      },
+    };
+  }
 
   // -------------------------------------------------------------------------
   // register / unregister / get / list
@@ -454,10 +472,9 @@ export class StrategyRegistry {
       try {
         plugin.onBar(bar, state);
       } catch (e: unknown) {
-        // Best-effort logging. In production this would route to a
-        // telemetry sink; for Phase 10G Track A console is fine.
-        // eslint-disable-next-line no-console
-        console.error(
+        // Best-effort logging az opcionális logger-en keresztül
+        // (alapértelmezetten no-op, így a tesztekben nincs zaj).
+        this.logger.error(
           `[StrategyRegistry] Plugin "${plugin.metadata.name}" threw on onBar:`,
           e instanceof Error ? e.message : String(e),
         );
@@ -478,8 +495,7 @@ export class StrategyRegistry {
       try {
         plugin.reset();
       } catch (e: unknown) {
-        // eslint-disable-next-line no-console
-        console.error(
+        this.logger.error(
           `[StrategyRegistry] Plugin "${plugin.metadata.name}" threw on reset:`,
           e instanceof Error ? e.message : String(e),
         );

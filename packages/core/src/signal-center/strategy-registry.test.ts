@@ -336,6 +336,62 @@ describe("StrategyRegistry", () => {
     expect(() => reg.onBarAll(mkBar(), {})).not.toThrow();
   });
 
+  it("onBarAll a megadott logger-t hívja, ha egy plugin dob", () => {
+    const messages: { msg: string; args: unknown[] }[] = [];
+    const reg = new StrategyRegistry({
+      logger: {
+        error: (msg: string, ...args: unknown[]) => {
+          messages.push({ msg, args });
+        },
+      },
+    });
+    const p1 = mkPlugin(mkMetadata({ name: "alpha" }), {
+      onBar: () => {
+        throw new Error("alpha failed");
+      },
+    });
+    reg.register(p1);
+    reg.onBarAll(mkBar(), {});
+    expect(messages.length).toBe(1);
+    expect(messages[0]?.msg).toContain("alpha");
+    expect(messages[0]?.args[0]).toBe("alpha failed");
+  });
+
+  it("resetAll a megadott logger-t hívja, ha egy plugin dob", () => {
+    const messages: { msg: string; args: unknown[] }[] = [];
+    const reg = new StrategyRegistry({
+      logger: {
+        error: (msg: string, ...args: unknown[]) => {
+          messages.push({ msg, args });
+        },
+      },
+    });
+    const p1 = mkPlugin(mkMetadata({ name: "alpha" }), {
+      reset: () => {
+        throw new Error("alpha reset failed");
+      },
+    });
+    reg.register(p1);
+    reg.resetAll();
+    expect(messages.length).toBe(1);
+    expect(messages[0]?.msg).toContain("alpha");
+    expect(messages[0]?.args[0]).toBe("alpha reset failed");
+  });
+
+  it("onBarAll alapértelmezetten NEM logol (no-op logger)", () => {
+    // A default registry konstruktor nem ad át loggert —
+    // a hiba elnyelődik, NEM kerül a konzolra. Ez a teszt a
+    // "no console.error noise a tesztekben" mandátumot védi.
+    const reg = new StrategyRegistry();
+    const p1 = mkPlugin(mkMetadata({ name: "alpha" }), {
+      onBar: () => {
+        throw new Error("alpha failed");
+      },
+    });
+    reg.register(p1);
+    expect(() => reg.onBarAll(mkBar(), {})).not.toThrow();
+  });
+
   it("resetAll calls plugin.reset() on every plugin", () => {
     const reg = new StrategyRegistry();
     const p1 = mkPlugin(mkMetadata({ name: "alpha" }));
