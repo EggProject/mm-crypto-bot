@@ -25,7 +25,7 @@
     "coverage:report": "lcov --summary coverage/merged/lcov.info",
     "coverage:html": "genhtml coverage/merged/lcov.info -o coverage/merged/html --ignore-errors empty,inconsistent,source --legend",
     "coverage:enforce": "bun run coverage:per-package",
-    "coverage:full": "bun run coverage:merge && bun run coverage:per-package && bun run coverage:report",
+    "coverage:full": "bash scripts/coverage-full.sh",
     "backtest": "bun run --filter @mm/backtest backtest",
     "paper": "bun run --filter @mm/paper paper",
     "tui": "bun run --filter @mm/tui tui",
