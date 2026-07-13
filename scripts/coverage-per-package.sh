@@ -58,12 +58,16 @@ for pkg in "${PACKAGES[@]}"; do
   lcov --remove "$lcov_path" "*../*" --ignore-errors empty -o "$filtered" >/dev/null 2>&1 || true
 
   # Threshold check on the filtered (OWN-only) lcov.
-  if lcov --summary --fail-under-lines 100 --ignore-errors empty "$filtered" >/dev/null 2>&1; then
-    summary=$(lcov --summary "$filtered" 2>&1 | grep "lines" | head -1)
+  # We capture the line coverage % from the summary, then check it
+  # explicitly against 100 in shell (avoids relying on
+  # --fail-under-lines which interacts badly with the "no data found"
+  # for functions on the CI's older lcov).
+  summary=$(lcov --summary --ignore-errors empty "$filtered" 2>&1 | grep "lines" | head -1)
+  line_pct=$(echo "$summary" | awk -F'[% ]+' '{ for (i=1; i<=NF; i++) if ($i ~ /^[0-9.]+$/) { print $i; exit } }')
+  if [ "${line_pct%.*}" = "100" ] 2>/dev/null; then
     echo "  ✓ ${pkg}  ${summary}"
     PASS=$((PASS + 1))
   else
-    summary=$(lcov --summary "$filtered" 2>&1 | grep "lines" | head -1)
     echo "  ✗ ${pkg}  ${summary}"
     FAILED_PACKAGES+=("${pkg}")
   fi
