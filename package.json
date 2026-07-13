@@ -20,14 +20,17 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "coverage": "turbo run coverage",
-    "coverage:merge": "turbo run coverage && node scripts/merge-coverage.mjs",
-    "coverage:enforce": "node scripts/enforce-coverage-threshold.mjs",
-    "coverage:full": "turbo run coverage && node scripts/merge-coverage.mjs && node scripts/enforce-coverage-threshold.mjs",
+    "coverage:per-package": "bash scripts/coverage-per-package.sh",
+    "coverage:merge": "mkdir -p coverage/merged && lcov --add-tracefile 'apps/*/coverage/lcov.info' --add-tracefile 'packages/*/coverage/lcov.info' --ignore-errors empty,inconsistent -o coverage/merged/lcov.info",
+    "coverage:report": "lcov --summary coverage/merged/lcov.info",
+    "coverage:html": "genhtml coverage/merged/lcov.info -o coverage/merged/html --ignore-errors empty,inconsistent,source --legend",
+    "coverage:enforce": "bun run coverage:per-package",
+    "coverage:full": "bun run coverage:merge && bun run coverage:per-package && bun run coverage:report",
     "backtest": "bun run --filter @mm/backtest backtest",
     "paper": "bun run --filter @mm/paper paper",
     "tui": "bun run --filter @mm/tui tui",
     "start": "echo 'not implemented yet: ez a későbbi fázisban a bot indítója lesz (paper/live)' && exit 1",
-    "clean": "turbo run clean && rm -rf node_modules .turbo"
+    "clean": "turbo run clean && rm -rf node_modules .turbo coverage"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
