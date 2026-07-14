@@ -592,3 +592,36 @@ Cron `phase35b-agents-check` set up to poll the 3 background tasks every 3 minut
 - `asciichart` types from @types/asciichart are wrong (declare `default` as `string` instead of the actual object). Added local `packages/tui/src/types/asciichart.d.ts` override.
 - `sparkly` v6.0.1 doesn't support `width` option (renders one char per input). Wrapper slices data to last N samples before passing.
 - ChartsPanel receives `candles={[]}` and `strategies={[]}` from App.tsx (the OHLC feed wiring is Phase 37+ scope).
+
+## Phase 36 Track B1 + B2 — BOTH PRs GREEN (2026-07-14 23:50 Budapest)
+
+**Status:** Both PRs opened, all 5/5 CI jobs pass on each.
+
+- **PR #102 (B1):** https://github.com/EggProject/mm-crypto-bot/pull/102 — `feat/phase36-track-b1-ink-components` @ `b71e6c8`
+- **PR #103 (B2):** https://github.com/EggProject/mm-crypto-bot/pull/103 — `feat/phase36-track-b2-ascii-charts` @ `0aa5e57`
+
+**B1 CI:** typecheck ✅, lint ✅, test ✅, build ✅, coverage ✅
+**B2 CI:** typecheck ✅, lint ✅, test ✅, build ✅, coverage ✅
+
+**Coverage per-package OWN (final, 8/8 PASS):**
+- apps/bot 100.0% (2412/2412)
+- packages/paper 100.0% (251/251)
+- packages/exchange 100.0% (868/868)
+- packages/core 100.0% (12124/12124)
+- packages/tui 100.0% (1241/1241) ← grew from 1043 (pre-Phase-36) via B1 (+9) + B2 (+189)
+- packages/shared 100.0% (189/189)
+- packages/backtest 100.0% (754/754)
+- packages/backtest-tools 100.0% (2289/2289)
+
+**Tests:**
+- 2765 → 2807 (B1) → 2794 (B2) total tests
+- All 8 packages at 0 fail
+
+**Handoff note for orchestrator:** Both PRs are ready for review + merge. The B2 PR had a non-trivial fixup path:
+1. First fix: removed @inkjs/ui dep (B2 was branched before B1)
+2. Second fix: removed @types/asciichart (DefinitelyTyped declared default as string, wrong)
+3. Third fix: moved local type override to packages/tui/src/global-types/ (visible to both tui and bot typechecks)
+
+The candlestick renderer in B2 also had a semantic bug (priceToRow mapped high price to high row index = bottom of chart, but labels put high at top). Fixed and added 2 new tests for the doji and large-range corner cases.
+
+**No "⏸️ DEFERRED (own PR)" items.** All audit findings, lint warnings, typecheck errors, and silent bugs were fixed in the same PR.
