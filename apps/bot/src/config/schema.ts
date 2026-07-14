@@ -83,13 +83,23 @@ export type StrategySection = z.infer<typeof StrategySectionSchema>;
  */
 export const BotConfigSchema = z.object({
   // --------------------------------------------------------------------------
-  // 1) Bot section — indítási mód, log-szint, state-fájl.
+  // 1) Bot section — indítási mód, log-szint, state-fájl, auto_start.
+  //
+  // A `bot.auto_start` flag a Phase 36 Track A1 user-mandate:
+  //   `mm-bot start` ALAPÉRTELMEZETTEN NEM indítja el a botot — a
+  //   TUI `stopped` állapotban nyílik, a usernek a `[s]` billentyűvel
+  //   kell indítania. A `bot.auto_start = true` (vagy a `--auto-start`
+  //   CLI flag) visszakapcsolja a régi viselkedést (a bot indul a TUI
+  //   indulásával egyidőben). Lásd `docs/audits/phase36-tui-ux-revamp-scope.md`
+  //   §1 user issue #1, valamint `phase36-research-findings.md` §5 (Angle E).
   // --------------------------------------------------------------------------
   bot: z
     .object({
       mode: z.enum(["paper", "live"]).default("paper"),
       log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
       state_file: z.string().default("data/bot-state.json"),
+      /** Ha `true`, a bot indul a TUI-val együtt. Default: `false` (manual start). */
+      auto_start: z.boolean().default(false),
     })
     .default({}),
 

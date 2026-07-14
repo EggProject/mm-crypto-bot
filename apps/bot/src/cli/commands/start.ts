@@ -1,10 +1,32 @@
 /**
  * apps/bot/src/cli/commands/start.ts
  *
- * Phase 33 Track D + Phase 34 Track A — `mm-bot start` — a bot indítása.
+ * Phase 33 Track D + Phase 34 Track A + Phase 36 Track A1 —
+ * `mm-bot start` — a bot indítása.
  *
  * ===========================================================================
- * DEFAULT MODE: INK TUI (Phase 34 Track A — user mandate 2026-07-12 02:00)
+ * DEFAULT MODE: INK TUI + STOPPED STATE (Phase 36 Track A1 — 2026-07-14)
+ * ===========================================================================
+ *
+ *   User mandate (2026-07-14 20:58 Budapest, issue #1):
+ *     "`mm-bot start` ne induljon automatikusan — a TUI `stopped`
+ *      állapotban nyíljon, a user a `[s]` billentyűvel indítsa a botot."
+ *
+ * A Phase 36 Track A1 változás: a `mm-bot start` ALAPÉRTELMEZETTEN NEM
+ * indítja el a botot. A TUI megnyílik, és a bot `stopped` állapotban
+ * várja a user `[s]` billentyűs indítását.
+ *
+ *   A régi viselkedés (auto-start) visszakapcsolható:
+ *     - TOML: `[bot] auto_start = true`
+ *     - CLI: `mm-bot start --auto-start`
+ *
+ *   `--headless` módban a `bot.auto_start` default-ját a `--auto-start`
+ *   / `--no-auto-start` CLI flag-ekkel lehet felülbírálni. A `--headless`
+ *   flag NEM jelent auto-start-ot (a headless a TUI-ról szól, nem az
+ *   indításról).
+ *
+ * ===========================================================================
+ * DEFAULT MODE: INK TUI (Phase 34 Track A — 2026-07-12 02:00)
  * ===========================================================================
  *
  *   "TUI-t es headless-t is akarom, default color, headless kapcsolhato ki a
@@ -24,10 +46,22 @@
  *                       NEM töltődik be (dynamic import), így a `bun build`
  *                       output-ból is kimarad.
  *   --no-tui            Alias a --headless flag-re.
+ *   --auto-start        Indítsa el a botot a TUI indulásával együtt
+ *                       (felülbírálja a `bot.auto_start = false` default-ot).
+ *   --no-auto-start     Ne indítsa el a botot automatikusan (a TOML-beli
+ *                       `bot.auto_start = true`-t is felülbírálja).
  *   --no-color          Letiltja az ANSI színkódokat. Headless módban a
  *                       logger kimenetén; TUI módban az Ink natívan
  *                       tiszteletben tartja a `NO_COLOR=1` env var-t.
  *   --help, -h          Help szöveg.
+ *
+ * ===========================================================================
+ * FLAG PRECEDENCE (Phase 36 Track A1)
+ * ===========================================================================
+ *   A `bot.auto_start` érték feloldási sorrendje:
+ *     1) CLI flag (--auto-start / --no-auto-start) — utolsó nyer
+ *     2) TOML config (`[bot] auto_start = true/false`)
+ *     3) Default: `false` (a user mandate: NEM indul automatikusan)
  *
  * ===========================================================================
  * USER MANDATE (2026-07-12 02:00 BUDAPEST)
@@ -96,6 +130,55 @@ function isNoColor(flags: ReadonlyMap<string, string | boolean>): boolean {
 }
 
 /**
+ * `resolveAutoStart` — feloldja a `bot.auto_start` végső értékét
+ * a CLI flag-ek és a TOML config alapján.
+ *
+ * Precedence (Phase 36 Track A1):
+ *   1) CLI `--auto-start`     → `true`  (explicit pozitív)
+ *   2) CLI `--no-auto-start`  → `false` (explicit negatív)
+ *   3) TOML `config.bot.auto_start`     (a Zod default `false`)
+ *
+ * Ha a user MINDKETTŐ CLI flag-et megadja, a parser `Map`-je az utolsó
+ * értéket tartja (a `Map.set` last-write-wins). Ezt a függvényt a
+ * parser hívása UTÁN hívjuk, így a flags.get(...) a végső értéket adja.
+ *
+ * @param configAutoStart  A `config.bot.auto_start` értéke (Zod-ból).
+ * @param flags            A `parseArgv` által visszaadott flag-ek.
+ * @returns                A végső `auto_start` boolean érték.
+ */
+function resolveAutoStart(
+  configAutoStart: boolean,
+  flags: ReadonlyMap<string, string | boolean>,
+): boolean {
+  // Phase 36 Track A1: a parser a `--no-X` formát `flags.set(X, false)`-szal
+  // ÉS `flags.set("no-" + X, true)`-vel is bejegyzi. A "no-auto-start" kulcs
+  // jelenléte jelzi, hogy a user explicit kiírta a `--no-auto-start`-et.
+  // A `--auto-start` flag a parserben `flags.set("auto-start", value)`-ként
+  // jelenik meg (boolean, vagy value, ha a flag után nem-flag token jön).
+  //
+  // A legegyszerűbb feloldás:
+  //   - Ha `flags.get("auto-start") === true`  → auto-start
+  //   - Ha `flags.get("no-auto-start") === true` → NO auto-start (explicit)
+  //   - Különben: a config értéke.
+  //
+  // A "last wins" kölcsönhatás a `Map.set` szemantikájából jön: a parser
+  // sorban dolgozza fel a flag-eket, és az utolsó `set` felülírja az előzőt.
+  // Tehát ha a user `start --auto-start --no-auto-start`-et ír, a
+  // `flags.get("auto-start")` a `--no-auto-start` által beállított `false`,
+  // ÉS a `flags.get("no-auto-start")` is `true`. A végső érték `false`.
+  if (flags.get("no-auto-start") === true) {
+    // Explicit `--no-auto-start` a parancsban — a config-ot FELÜLBÍRÁLJA.
+    return false;
+  }
+  if (flags.get("auto-start") === true) {
+    // Explicit `--auto-start` a parancsban — a config-ot FELÜLBÍRÁLJA.
+    return true;
+  }
+  // Nincs explicit CLI flag — a config értéke érvényesül.
+  return configAutoStart;
+}
+
+/**
  * `startCommand` — a `mm-bot start` handler.
  *
  * A flag-ek korai kiértékelése (mielőtt a TUI importálódna):
@@ -154,24 +237,63 @@ export const startCommand: SubcommandHandler = async (args) => {
   }
 
   // --------------------------------------------------------------------------
-  // 4) Create Bot instance.
+  // 4) Resolve auto_start (CLI flag + TOML config precedence).
+  //    Phase 36 Track A1: a user mandate a "stopped" default, így az
+  //    `auto_start` alapértelmezetten `false`. Ha a config vagy a CLI
+  //    flag `true`-ra állítja, a bot indul; ha `false`, a TUI
+  //    `stopped` állapotban nyílik.
+  // --------------------------------------------------------------------------
+  const autoStart = resolveAutoStart(config.bot.auto_start, args.flags);
+
+  // --------------------------------------------------------------------------
+  // 5) Közös infó-sor a stderr-re: a felhasználó mindig LÁSSA, hogy
+  //    a bot indul-e vagy stopped állapotban vár. Ez a Phase 36 Track A1
+  //    "változás láthatóvá tétele" elve — nincs silent behavior change.
+  // --------------------------------------------------------------------------
+  if (headless) {
+    // Headless mód: a `--auto-start` flag NEM érvényesül (a headless
+    // mindig indul, hiszen nincs TUI, ami megállítaná). A bot a headless
+    // módban a `bot.start()` hívással indul.
+    console.error(
+      "[start] headless mode: bot will start automatically (--headless implies start)",
+    );
+  } else if (autoStart) {
+    // TUI + auto-start: a bot indul a TUI-val együtt.
+    console.error(
+      "[start] TUI mode + auto-start: bot starts immediately (pass --no-auto-start to stay paused)",
+    );
+  } else {
+    // TUI + no auto-start: a TUI `stopped` állapotban nyílik. A user
+    // a `[s]` billentyűvel indítja a botot.
+    console.error(
+      "[start] TUI mode + NO auto-start: bot starts STOPPED — press [s] to start",
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // 6) Create Bot instance.
   // --------------------------------------------------------------------------
   const bot = new Bot({ config });
 
   // --------------------------------------------------------------------------
-  // 5) Branch: HEADLESS vs TUI.
+  // 7) Branch: HEADLESS vs TUI.
   //    A `--headless` mód NEM importálja a `@mm-crypto-bot/tui` csomagot —
   //    így a TUI-s dependency-k (ink, react) nem töltődnek be.
   // --------------------------------------------------------------------------
   if (headless) {
     return await runHeadless(bot);
   }
-  return await runTui(bot, config.symbols.enabled);
+  return await runTui(bot, config.symbols.enabled, autoStart);
 };
 
 /**
  * `runHeadless` — a plain text log mód. Csak a strukturált logger ír a
  * stdout-ra; a TUI NEM indul el, és a `@mm-crypto-bot/tui` NEM importálódik.
+ *
+ * Phase 36 Track A1: a headless mód MINDIG auto-start (a `--auto-start` /
+ * `--no-auto-start` CLI flag-ek csak TUI módban érvényesülnek, mert a
+ * headless-ben nincs TUI, ami megállítaná a botot). A felhasználó ezt
+ * a `startCommand` 5) lépésében lévő stderr INFO-sorból láthatja.
  */
 async function runHeadless(bot: Bot): Promise<number> {
   let stopping = false;
@@ -206,8 +328,19 @@ async function runHeadless(bot: Bot): Promise<number> {
  *     csomagokat (a `bun build` output-ból kimaradnak).
  *   - Az Ink induláskor olvassa a `NO_COLOR` env var-t; a dynamic import
  *     időpontjában az env már be van állítva.
+ *
+ * Phase 36 Track A1: a `bot.start()` hívás CSAK akkor történik meg, ha
+ * `autoStart === true`. Ha `false`, a bot `stopped` állapotban marad,
+ * és a TUI-ból jövő `[s]` billentyű indítja. A `LiveBotStateProvider`
+ * a bot indítása ELŐTT subscribe-ol a bot state-re, így a provider
+ * `getSnapshot()` mindig a friss state-et adja vissza (a bot indítása
+ * előtt `running: false`, utána `running: true`).
  */
-async function runTui(bot: Bot, enabledSymbols: readonly string[]): Promise<number> {
+async function runTui(
+  bot: Bot,
+  enabledSymbols: readonly string[],
+  autoStart: boolean,
+): Promise<number> {
   // Dynamic import — CSAK a TUI módban töltődik be.
   const tuiModule = await import("@mm-crypto-bot/tui");
   const { LiveBotStateProvider } = await import("../../tui/live-bot-state-provider.js");
@@ -222,14 +355,19 @@ async function runTui(bot: Bot, enabledSymbols: readonly string[]): Promise<numb
   });
   await provider.start();
 
-  // A bot indul, a TUI renderelése párhuzamosan történik.
-  // Ha a bot indítása elszáll, a TUI kilép, és a hibát a start
-  // Promise-ből olvassuk ki.
-  const botStartPromise = bot.start().catch((err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[start] bot crashed: ${message}`);
-    return err as Error;
-  });
+  // A bot indul CSAK HA az auto-start kérte. Ha `autoStart === false`,
+  // a TUI `stopped` állapotban nyílik, és a user a `[s]` billentyűvel
+  // indítja a botot.
+  //
+  // Ha a bot indítása elszáll, a hibát a `botStartPromise` reject-jéből
+  // olvassuk ki, ÉS a TUI-ban az `engineError` mezőben is megjelenik.
+  const botStartPromise = autoStart
+    ? bot.start().catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[start] bot crashed: ${message}`);
+        return err as Error;
+      })
+    : Promise.resolve(undefined);
 
   // A TUI renderelése — az Ink `render` függvénye egy `Instance`-et
   // ad vissza, aminek `waitUntilExit()` Promise-re vár.
@@ -278,35 +416,48 @@ async function runTui(bot: Bot, enabledSymbols: readonly string[]): Promise<numb
 
   // A bot indítás Promise-jét is kivárjuk (ha a bot indítása a TUI
   // futása közben reject-elt volna, a hibát itt látjuk).
-  const startErr = await botStartPromise;
-  if (startErr instanceof Error) {
-    return 1;
+  if (autoStart) {
+    const startErr = await botStartPromise;
+    if (startErr instanceof Error) {
+      return 1;
+    }
   }
   return 0;
 }
 
 /**
  * `printStartHelp` — a `mm-bot start --help` szövege.
+ *
+ * Phase 36 Track A1: a help átszervezése a clig.dev "lead with examples"
+ * elve alapján. Az első sor a "stopped" default-ot hangsúlyozza, a
+ * FLAGS szekcióban az `--auto-start` / `--headless` kerül előre, és
+ * 3 konkrét usage example mutatja a tipikus hívásokat.
  */
 function printStartHelp(): void {
   const lines: string[] = [
-    "Usage: mm-bot start [--config=path] [--headless] [--no-color] [--help]",
+    "Usage: mm-bot start [--config=path] [--auto-start|--no-auto-start] [--headless] [--no-color] [--help]",
     "",
-    "Start the bot. Default mode is the Ink TUI (interactive).",
+    "Launch the mm-bot TUI in the STOPPED state (no trades until you press [s]).",
+    "  The bot does NOT auto-start — you control start/stop from the TUI.",
+    "  Use --auto-start to bring back the old behavior (bot starts with the TUI).",
     "",
     "Options:",
-    "  --config=<path>     TOML config file (optional; uses defaults if absent)",
-    "  --headless          No TUI — plain text logs only (NO ink/react loaded)",
-    "  --no-tui            Alias for --headless",
-    "  --no-color          Disable ANSI color codes (headless + TUI both respect it)",
-    "  --help, -h          Show this help",
+    "  --auto-start          Start the bot when the TUI opens (default: false)",
+    "  --no-auto-start       Force stopped state even if config says otherwise",
+    "  --headless            No TUI — plain text logs only (NO ink/react loaded)",
+    "  --no-tui              Alias for --headless",
+    "  --config=<path>       TOML config file (optional; uses defaults if absent)",
+    "  --no-color            Disable ANSI color codes (headless + TUI both respect it)",
+    "  --help, -h            Show this help",
+    "",
+    "Flag precedence:  CLI > TOML > default (false). Last --auto-start/--no-auto-start wins.",
     "",
     "Examples:",
-    "  mm-bot start                          # TUI (default)",
-    "  mm-bot start --headless               # plain text logs, no TUI",
-    "  mm-bot start --no-color               # TUI without color",
-    "  mm-bot start --headless --no-color    # clean text logs (no color, no TUI)",
-    "  mm-bot start --config=./prod.toml     # TUI with custom config",
+    "  mm-bot start                          # TUI in stopped state (press [s] to start)",
+    "  mm-bot start --auto-start             # TUI, bot starts immediately (old behavior)",
+    "  mm-bot start --headless               # plain text logs, bot runs continuously",
+    "  mm-bot start --no-color               # TUI without color (stays stopped)",
+    "  mm-bot start --config=./prod.toml     # TUI with custom config (default stopped)",
   ];
   for (const line of lines) {
     console.error(line);

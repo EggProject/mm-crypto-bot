@@ -38,6 +38,23 @@ export function Header({ state }: { readonly state: BotState }): ReactElement {
   const modeBadgeColor: "red" | "green" = status.mode === "tui-only" ? "red" : "green";
 
   // A futás állapota.
+  //
+  // Phase 36 Track A1: a `state.running === false` ÉS `mode === "with-bot"`
+  // állapotban a badge egy AMBER színű `[● STOPPED]` lesz (a Phase 36
+  // user mandate: a bot a TUI indulásakor `stopped` állapotban van).
+  // A `running === true` állapotban a badge a régi "FUT" / zöld
+  // marad. TUI-only módban a badge NEM jelenik meg (ott nincs bot,
+  // a "stopped" fogalom nem értelmes).
+  //
+  // A "LEÁLLÍTVA" / piros label a jobboldali slotban továbbra is
+  // megjelenik stopped state-ben, mert az a "bot le van állítva"
+  // (graceful stop) és a "bot sosem indult el" (stopped) állapotot
+  // is jelöli — a `[● STOPPED]` badge pontosítja, hogy melyikben vagyunk.
+  //
+  // A `●` karakter (U+25CF) egy kitöltött kör, ami a pitchfork /
+  // btop TUI-konvencióját követi: a badge-ek mindig tartalmaznak
+  // egy állapot-indikátort a szín mellett (színvak-biztos).
+  const stoppedBadge = !running && status.mode === "with-bot" ? "[● STOPPED]" : null;
   const runningLabel = running ? "FUT" : "LEÁLLÍTVA";
   const runningColor: "green" | "red" = running ? "green" : "red";
 
@@ -80,6 +97,12 @@ export function Header({ state }: { readonly state: BotState }): ReactElement {
             <>
               <Text>  </Text>
               <Text bold color="yellow">{pausedBadge}</Text>
+            </>
+          )}
+          {stoppedBadge !== null && (
+            <>
+              <Text>  </Text>
+              <Text bold color="yellow">{stoppedBadge}</Text>
             </>
           )}
         </Box>

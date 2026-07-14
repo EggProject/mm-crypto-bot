@@ -30,7 +30,7 @@
 
 import { useEffect, useState } from "react";
 import type { ReactElement } from "react";
-import { Box, useApp, useInput } from "ink";
+import { Box, Text, useApp, useInput } from "ink";
 import type { BotStateProvider } from "./providers/BotStateProvider.js";
 import { useBotState } from "./hooks/useBotState.js";
 import {
@@ -249,6 +249,19 @@ export function App({ provider, onStop, onPause }: AppProps): ReactElement {
       <Box marginTop={1} flexDirection="row" gap={1}>
         <StatisticsPanel statistics={state.statistics} focused={focusedPanel === "statistics"} />
       </Box>
+      {/*
+        Phase 36 Track A1: stopped-state banner. A TUI a `mm-bot start`
+        parancsot default `bot.auto_start = false` móddal indítja, így
+        a bot `stopped` állapotban van, amíg a user a `[s]` billentyűt
+        meg nem nyomja. Ilyenkor a panel-ek üresek lennének — ehelyett
+        egy rövid ASCII banner jelenik meg a dashboard közepén, ami
+        explicit jelzi, hogy a bot idle, és mit kell tennie a usernek.
+
+        A banner CSAK stopped ÉS with-bot módban jelenik meg — TUI-only
+        módban (`isTuiOnly === true`) nincs bot, tehát a banner
+        félrevezető lenne.
+      */}
+      {!isTuiOnly && !state.running && <StoppedBanner />}
       <Box marginTop={1} flexDirection="row" gap={1}>
         <LiveTradingPanel
           tickers={state.tickers}
@@ -263,9 +276,52 @@ export function App({ provider, onStop, onPause }: AppProps): ReactElement {
         <HistoryList history={state.history} now={now} sortKey={sortKey} focused={focusedPanel === "history"} />
       </Box>
       <Box marginTop={1}>
-        <StatusBar killSwitch={state.killSwitch} tuiOnly={isTuiOnly} />
+        <StatusBar killSwitch={state.killSwitch} tuiOnly={isTuiOnly} running={state.running} />
       </Box>
       {helpVisible && <HelpOverlay visible={helpVisible} tuiOnly={isTuiOnly} />}
+    </Box>
+  );
+}
+
+/**
+ * `StoppedBanner` — a Phase 36 Track A1 stopped-state ASCII banner.
+ *
+ * A banner a dashboard közepén jelenik meg, amikor a bot `stopped`
+ * állapotban van (a `mm-bot start` parancs `auto_start = false`
+ * móddal indult). A banner:
+ *   - 4 soros ASCII art (borderStyle="round" + sárga szín)
+ *   - rövid, de informatív
+ *   - a `[s]` indító-billentyűt kiemeli
+ *
+ * NEM jelenik meg:
+ *   - TUI-only módban (ott nincs bot, a banner nem lenne értelmes)
+ *   - running állapotban (a panel-ek ilyenkor üresek, de a banner
+ *     nem zavaró — csak a stopped state UI-ja kell)
+ *
+ * A banner szövege a `mm-bot start --help` "stopped state" üzenetét
+ * tükrözi, hogy a user konzisztens élményt kapjon a CLI és a TUI
+ * között.
+ */
+function StoppedBanner(): ReactElement {
+  return (
+    <Box
+      marginTop={1}
+      borderStyle="round"
+      borderColor="yellow"
+      paddingX={2}
+      paddingY={1}
+      flexDirection="column"
+    >
+      <Box>
+        <Text color="yellow" bold>●  bot is idle — press </Text>
+        <Text color="green" bold>[s]</Text>
+        <Text color="yellow" bold> to start</Text>
+      </Box>
+      <Box marginTop={0}>
+        <Text dimColor>
+          A bot jelenleg le van állítva. A `[s]` billentyűvel indítható, a `[q]` kilép.
+        </Text>
+      </Box>
     </Box>
   );
 }

@@ -20,13 +20,17 @@ import type { KillSwitchState } from "../types.js";
  megerősítő üzemmód billentyűi jelennek-e meg.
  A `tuiOnly` flag (default false) a TUI-only módot jelzi —
  ilyenkor a `s` / `p` nem jelennek meg (nincs bot).
+ A `running` flag (Phase 36 Track A1) a bot aktuális állapotát jelzi —
+ stopped állapotban a `[s]` indító-billentyű kiemelten jelenik meg.
 */
 export function StatusBar({
   killSwitch,
   tuiOnly = false,
+  running = true,
 }: {
   readonly killSwitch: KillSwitchState;
   readonly tuiOnly?: boolean;
+  readonly running?: boolean;
 }): ReactElement {
   if (killSwitch === "confirm") {
     return (
@@ -48,7 +52,21 @@ export function StatusBar({
           <>
             <Text dimColor>[</Text>
             <Text color="green" bold>s</Text>
-            <Text dimColor>] start/stop</Text>
+            {/*
+              Phase 36 Track A1: amikor a bot `stopped` (a user a TUI-t
+              `mm-bot start` indította `--no-auto-start` móddal vagy a
+              default `bot.auto_start = false` configgal), a footer
+              kiemeli a `[s]` indító-billentyűt: `[s] ▶ Start` (zöld
+              + bold + ▶ nyíl). Amikor a bot fut, a régi "start/stop"
+              felirat marad, mert a `[s]` most stop-ként funkcionál.
+              Az App.tsx `useInput` kezelője már megfelelően toggle-eli
+              a `provider.start()` / `provider.stop()` hívásokat.
+            */}
+            {running ? (
+              <Text dimColor>] start/stop</Text>
+            ) : (
+              <Text color="green" bold>] ▶ Start</Text>
+            )}
             <Text dimColor>  ·  </Text>
             <Text dimColor>[</Text>
             <Text color="yellow" bold>p</Text>
