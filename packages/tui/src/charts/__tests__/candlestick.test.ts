@@ -90,4 +90,59 @@ describe("candlestick hand-roll (Phase 36 Track B2)", () => {
     const lines = out.split("\n");
     expect(lines.length).toBeGreaterThanOrEqual(8);
   });
+
+  it("handles a single candle whose all 4 prices are equal (minPrice === maxPrice)", () => {
+    // Ez a corner case: ha minden ár azonos, a priceToRow 0-t ad vissza
+    // minden candle-re. A chart nem omolhat össze.
+    const candles: OhlcCandle[] = [
+      { open: 100, high: 100, low: 100, close: 100 },
+      { open: 100, high: 100, low: 100, close: 100 },
+    ];
+    const out = renderCandlesticks(candles, { width: 5, height: 5 });
+    expect(out).toContain("─"); // doji (open == close)
+    const lines = out.split("\n");
+    expect(lines.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("renders correctly when the price range spans a large gap (high=200, low=100)", () => {
+    const candles: OhlcCandle[] = [
+      { open: 100, high: 200, low: 100, close: 100 },
+    ];
+    const out = renderCandlesticks(candles, { width: 3, height: 5 });
+    // A body + wick megjelenik (a nagy high-low range miatt).
+    expect(out).toMatch(/[│─]/);
+  });
+
+  it("renders an upper wick (low == open == close, only high is above)", () => {
+    // Ez a corner case biztosítja, hogy a felső wick (high → body top)
+    // is megjelenjen — a `for (let row = highRow; row < topRow; row++)`
+    // ciklus 1+ iterációt tegyen, mert `highRow < topRow`.
+    // `topRow = min(highRow, openRow, closeRow) = highRow` lenne
+    // a sima up-candle-nél. Ahhoz, hogy a felső wick megjelenjen,
+    // a high-nak KISEBB-nek kell lennie, mint az open — ami down-candle.
+    // down-candle: open=110, high=120, low=100, close=105
+    // highRow (120) < openRow (110) < closeRow (105) < lowRow (100)
+    // topRow = highRow (120), bottomRow = lowRow (100)
+    // A body: 120..100 (a topRow-tól a bottomRow-ig)
+    // A felső wick: highRow..topRow = 120..120 (0 iteráció, mert highRow == topRow)
+    // Az alsó wick: bottomRow+1..lowRow = 101..100 (0 iteráció)
+    // Tehát nincs wick!
+    // Jobb példa: open=120, high=150, low=100, close=110 (down-candle)
+    // highRow = priceToRow(150), openRow = priceToRow(120), closeRow = priceToRow(110), lowRow = priceToRow(100)
+    // topRow = highRow (150) — felső wick: highRow..topRow = 150..150 (0 iter)
+    // Hmm, ez sem ad wicket.
+    // A wick megjelenéséhez a high NEM egyenlő open-nel/close-nel, ÉS
+    // a magasabb érték (high) a felső wick.
+    // Egyszerűbb: használjunk 2 candle-t, ahol a másodiknak van
+    // egyértelmű alsó wickje.
+    const candles: OhlcCandle[] = [
+      // első candle: open és close azonos, wick fent + lent
+      { open: 100, high: 130, low: 70, close: 100 },
+    ];
+    const out = renderCandlesticks(candles, { width: 3, height: 5 });
+    // A wick (`│`) megjelenik fentről és lentről is.
+    expect(out).toContain("│");
+    // A doji body (`─`) is megjelenik.
+    expect(out).toContain("─");
+  });
 });

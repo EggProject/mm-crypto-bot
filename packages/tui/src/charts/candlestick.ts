@@ -99,11 +99,15 @@ export function renderCandlesticks(
   /**
    * `priceToRow` — egy árat 0..height-1 sorindex-szé konvertál.
    * A magasabb ár = alacsonyabb sorindex (mert a terminálon a 0. sor
-   * van felül).
+   * van felül). Tehát a maxPrice a 0. sorba kerül, a minPrice pedig
+   * a (height-1). sorba.
    */
   const priceToRow = (price: number): number => {
     const normalized = (price - minPrice) / priceRange;
-    return Math.floor(normalized * (height - 1));
+    // A `height - 1` a skála felső határa (a 0. sor a maxPrice).
+    // A normalizált érték [0..1], ahol 0 = minPrice, 1 = maxPrice.
+    // A sor-index fordított: 0 = maxPrice, height-1 = minPrice.
+    return Math.floor((1 - normalized) * (height - 1));
   };
 
   // Inicializáljuk a chart-ot: egy `height` sorból álló tömb,
@@ -123,23 +127,27 @@ export function renderCandlesticks(
     const lowRow = priceToRow(candle.low);
     const openRow = priceToRow(candle.open);
     const closeRow = priceToRow(candle.close);
-    const topRow = Math.min(highRow, openRow, closeRow);
-    const bottomRow = Math.max(lowRow, openRow, closeRow);
+    // A body felső és alsó sora (a high/low NEM tartozik a body-hoz —
+    // azok a wickek). A doji (open==close) esetén a body 1 sor.
+    const bodyTopRow = Math.min(openRow, closeRow);
+    const bodyBottomRow = Math.max(openRow, closeRow);
 
-    // Felső wick (high → body top)
-    for (let row = highRow; row < topRow; row++) {
+    // Felső wick: a high és a body teteje közötti sorok.
+    // A wick csak akkor jelenik meg, ha a high "magasabb" mint a body
+    // teteje (azaz highRow < bodyTopRow, mert a 0. sor a terminál teteje).
+    for (let row = highRow; row < bodyTopRow; row++) {
       const cell = grid[row];
       if (cell !== undefined) cell[col] = "│";
     }
-    // Alsó wick (body bottom → low)
-    for (let row = bottomRow + 1; row <= lowRow; row++) {
+    // Alsó wick: a body alja és a low közötti sorok.
+    for (let row = bodyBottomRow + 1; row <= lowRow; row++) {
       const cell = grid[row];
       if (cell !== undefined) cell[col] = "│";
     }
     // A body
     const isUp = candle.close >= candle.open;
     const bodyChar = isUp ? "█" : "▓";
-    for (let row = topRow; row <= bottomRow; row++) {
+    for (let row = bodyTopRow; row <= bodyBottomRow; row++) {
       const cell = grid[row];
       if (cell !== undefined) cell[col] = bodyChar;
     }
