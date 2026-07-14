@@ -1,8 +1,8 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-12 16:55 Budapest — Phase 35b in progress. 100% threshold enforcement infrastructure merged. 3 sub-agents in flight to close remaining per-file gaps in apps/bot, packages/core, packages/backtest-tools.
+description: Project board — mm-crypto-bot. Updated 2026-07-14 21:55 Budapest — Phase 35d CLOSED (coverage:full redesign), Phase 36 EXECUTING (TUI UX revamp, 4 user issues + 6-8 PR + 4 tracks, A1 producer indítása).
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-12 04:50 Budapest, Phase 34 CLOSED)
+# Project board — mm-crypto-bot (updated 2026-07-14 21:55 Budapest, Phase 36 EXECUTING)
 
 ## User mandate (2026-07-11 23:42 Budapest) — PHASE 33 SCOPE
 
@@ -551,77 +551,90 @@ Cron `phase35b-agents-check` set up to poll the 3 background tasks every 3 minut
 - "MANDATORY: verify before claiming done" — never claim "done" without running the full pipeline end-to-end
 - "Hallucinated completion" — apps/bot tests failed under --coverage in a stale worktree; the actual main was fine, but I never verified
 
-## Phase 36 Track B2 — completed 2026-07-14 23:55 Budapest (producer session)
 
-**Branch:** `feat/phase36-track-b2-ascii-charts` (off main `4186c83`)
-**PR:** (to be opened)
+## Phase 36 — TUI UX REVAMP (EXECUTING 2026-07-14 21:55 Budapest, 4 user issues, 6-8 PR, 4 tracks)
 
-**What shipped (per Phase 36 user mandate "ASCII charts" + "richer visuals"):**
+### User mandate (2026-07-14 20:58 Budapest) — 4 issues
 
-1. **`packages/tui/src/charts/equity-curve.ts`** — wraps `asciichart` (1.5.25)
-2. **`packages/tui/src/charts/sparkline.ts`** — wraps `sparkly` (6.0.1)
-3. **`packages/tui/src/charts/candlestick.ts`** — 60-LOC hand-roll (the `@crafter/charts` v0.2.4 chart().candlestick() API is broken — returns empty whitespace)
-4. **`packages/tui/src/charts/bar-chart.tsx`** — wraps `@pppp606/ink-chart` BarChart
-5. **`packages/tui/src/components/ChartsPanel.tsx`** (NEW) — 4th panel (equity + candlestick + sparkline + BarChart)
-6. **`packages/tui/src/App.tsx`** — added `c` shortcut for Charts panel, added 4th panel to focus cycle, `FocusedPanel` type extended to include `"charts"`
-7. **`packages/tui/src/components/StatusBar.tsx`** — added `[c] chart` to the key-hint list (compact: `panel · chart · rendezés · frissít · help · kilép`)
+1. **"`bun run start` azonnal indítja a botot, én nem akarom hogy elinduljon rögtön"** — `mm-bot start` should NOT auto-start the bot. Default: TUI ready, bot in `stopped` state. User must press `[s]` to start.
+2. **"az `s` billentyűre logok jelentek meg a TUI tetején"** — Stop action (or any TUI control) must NOT print raw log lines into the TUI surface. Log routing must be separate (TUI panel OR file only).
+3. **"nagyon egyszerű lett a TUI, ennél jobban turbózd fel"** — TUI looks too plain. Need richer visuals: ASCII charts (candlestick, equity curve, P&L sparkline), colored gradients, panel borders, keybinding hints in footer, header status bar, better layout.
+4. **"a bot összes beállítását be tudjam a TUI felületen állítani"** — Interactive settings panel: enable/disable strategies, edit `cap`, `leverage`, `risk_per_trade`, `max_drawdown_pct`, `max_positions`, `symbols`, `timeframes`, `bot.mode` (paper/live — guarded), exchange settings. Persist to TOML.
 
-**Smoke tests (6/6 PASS):** `packages/tui/src/charts/__smoke__/ascii-charts.test.ts`
-- asciichart.plot: multi-line Unicode chart
-- sparkly: unicode-bar sparkline
-- @crafter/charts plot(): ANSI-colored line chart
-- @crafter/charts sparkline(): inline sparkline
-- @crafter/charts sparkWinLoss(): green/red bar
-- @crafter/charts chart().candlestick(): **BROKEN in v0.2.4** (documented, hand-roll fallback in use)
+### Research COMPLETE (2026-07-14 21:35, 5 agents, ~75 web queries)
 
-**Per-chart tests (15/15 PASS):**
-- `__tests__/equity-curve.test.ts` (5 tests)
-- `__tests__/sparkline.test.ts` (5 tests)
-- `__tests__/candlestick.test.ts` (7 tests)
-- `__tests__/bar-chart.test.tsx` (4 tests)
-- `__tests__/charts-panel.test.tsx` (9 tests)
+See [`docs/audits/phase36-research-findings.md`](../docs/audits/phase36-research-findings.md) (27 KB, ranked library catalog with ≥2 sources per claim).
 
-**Test counts:** 90 → 117 tui tests (+27 in B2, after B1's +42), 2765 → 2792 total (+27)
+| Angle | Agent | Output | Key picks |
+|-------|-------|--------|-----------|
+| A — Ink ecosystem | `bg_08469786` | 26 web queries, ranked 10 libraries | ADOPT 4: `@inkjs/ui`, `@matthesketh/ink-table`, `@matthesketh/ink-status-bar`, `sindresorhus/ink-link` v5.0.0 |
+| B — ASCII charts | `bg_c6853678` | 17 web queries, 4-library short-list | ADOPT: `asciichart` + `sparkly` + `@crafter/charts` (60-LOC hand-rolled fallback) + `@pppp606/ink-chart` |
+| C — Form input / settings | `bg_7f3490b7` | 12 web queries, btop-style multi-section | ADOPT: `@inkjs/ui` v2.0.0 + `smol-toml` + `write-file-atomic` + typed "LIVE" confirmation |
+| D — Log routing | `bg_a41ee0cd` | 30+ web queries, root cause identified | FIX: `createLogger` writes only to stdout → rewrite to file + stderr. Ink 7 `alternateScreen` native. |
+| E — Auto-start | `bg_af9fa2f9` | 17 web queries, 7 reference cases | BOTH: `--auto-start` flag + `bot.auto_start` TOML. `--headless` implies `--auto-start`. |
 
-**Coverage:** 8/8 packages at 100% line coverage on OWN src/. TUI: 1052 lines (unchanged from B1).
+### Tracks (final breakdown, 6-8 PR)
 
-**CI gates:** typecheck PASS, lint PASS (after fixing `no-control-regex` and `non-literal-regexp` with String.fromCharCode(27)), test PASS (2792), build PASS, coverage:per-package PASS.
+| # | Track | PR | Branch (planned) | Status |
+|---|-------|-----|------------------|--------|
+| **A1** | No auto-start + flag/TOML + stopped-state UI | 1 | `fix/phase36-track-a1-no-autostart` | 🔄 producer indítása (22:00 körül) |
+| **A2** | Log routing (file+stderr) + alternate screen + log-routing probe test | 1 | `fix/phase36-track-a2-log-routing` | ⏳ A1 után |
+| **B1** | `@inkjs/ui` + `@matthesketh/ink-table` + `@matthesketh/ink-status-bar` (3 panel csere) | 1 | `feat/phase36-track-b1-ink-components` | ⏳ A2 után |
+| **B2** | ASCII charts: equity / sparkline / candlestick / bar | 1 | `feat/phase36-track-b2-ascii-charts` | ⏳ B1 után |
+| **C1** | Settings panel (btop multi-section + form + Zod re-validate + atomic write) | 1-2 | `feat/phase36-track-c1-settings-panel` | ⏳ B2 után |
+| **C2** | Live-mode typed "LIVE" + leverage cap UI + raw TOML viewer | 1 | `feat/phase36-track-c2-live-confirm` | ⏳ C1 után |
+| **D** | Closure docs (deliverable + board + MEMORY + README) | 1 | `docs/phase36-closure` | ⏳ C2 után |
 
-**Trade-offs:**
-- `@crafter/charts` v0.2.4 candlestick API is broken (the high-level `chart().candlestick()` returns empty whitespace). Per the research doc, fell back to the 60-LOC hand-roll — works perfectly, zero new deps for candlestick.
-- `asciichart` types from @types/asciichart are wrong (declare `default` as `string` instead of the actual object). Added local `packages/tui/src/types/asciichart.d.ts` override.
-- `sparkly` v6.0.1 doesn't support `width` option (renders one char per input). Wrapper slices data to last N samples before passing.
-- ChartsPanel receives `candles={[]}` and `strategies={[]}` from App.tsx (the OHLC feed wiring is Phase 37+ scope).
+### 4 user-question decisions (all confirmed by user 2026-07-14 21:54)
 
-## Phase 36 Track B1 + B2 — BOTH PRs GREEN (2026-07-14 23:50 Budapest)
+1. **A1 + A2: 1 PR or 2?** → 2 PR (külön reviewer, külön rollback, A1 user-visible, A2 internal)
+2. **Settings panel: btop multi-section or one-field-at-a-time?** → btop multi-section (egy képernyő, minden látszik)
+3. **mm-bot.toml: in-place or override file?** → in-place + `.bak` (matches mental model, atomic write)
+4. **Charts layout: 4th panel, replace Statistics, or new top section?** → 4. panel (meglévő 3-panel mode-key megmarad)
 
-**Status:** Both PRs opened, all 5/5 CI jobs pass on each.
+### User mandate (orchestrator role)
 
-- **PR #102 (B1):** https://github.com/EggProject/mm-crypto-bot/pull/102 — `feat/phase36-track-b1-ink-components` @ `b71e6c8`
-- **PR #103 (B2):** https://github.com/EggProject/mm-crypto-bot/pull/103 — `feat/phase36-track-b2-ascii-charts` @ `0aa5e57`
+> "te csak kordinatorlsz" (2026-07-14 21:54)
 
-**B1 CI:** typecheck ✅, lint ✅, test ✅, build ✅, coverage ✅
-**B2 CI:** typecheck ✅, lint ✅, test ✅, build ✅, coverage ✅
+User explicitly asked the orchestrator to **coordinate only** — delegate implementation to sub-agents (task tool), monitor via cron, report status. No direct code writing from the orchestrator session.
 
-**Coverage per-package OWN (final, 8/8 PASS):**
-- apps/bot 100.0% (2412/2412)
-- packages/paper 100.0% (251/251)
-- packages/exchange 100.0% (868/868)
-- packages/core 100.0% (12124/12124)
-- packages/tui 100.0% (1241/1241) ← grew from 1043 (pre-Phase-36) via B1 (+9) + B2 (+189)
-- packages/shared 100.0% (189/189)
-- packages/backtest 100.0% (754/754)
-- packages/backtest-tools 100.0% (2289/2289)
+### Pre-launch checklist update
 
-**Tests:**
-- 2765 → 2807 (B1) → 2794 (B2) total tests
-- All 8 packages at 0 fail
+- User reviews the new TUI in headless + interactive mode
+- User signs off on the settings-UI design (which fields, which guards)
+- User runs `mm-bot start --config=prod.toml` and validates that config-edit-from-TUI persists correctly
+- User flips `bot.mode = "live"` in the new TUI (guarded behind typed "LIVE" confirmation)
 
-**Handoff note for orchestrator:** Both PRs are ready for review + merge. The B2 PR had a non-trivial fixup path:
-1. First fix: removed @inkjs/ui dep (B2 was branched before B1)
-2. Second fix: removed @types/asciichart (DefinitelyTyped declared default as string, wrong)
-3. Third fix: moved local type override to packages/tui/src/global-types/ (visible to both tui and bot typechecks)
 
-The candlestick renderer in B2 also had a semantic bug (priceToRow mapped high price to high row index = bottom of chart, but labels put high at top). Fixed and added 2 new tests for the doji and large-range corner cases.
+## Phase 36 Track B1 — completed 2026-07-14 23:30 Budapest (producer session)
 
-**No "⏸️ DEFERRED (own PR)" items.** All audit findings, lint warnings, typecheck errors, and silent bugs were fixed in the same PR.
+**Branch:** `feat/phase36-track-b1-ink-components` (off main `4186c83`)
+**PR:** (to be opened) — see "Track B1 PR" in this board
+
+**What shipped (per Phase 36 user mandate "richer visuals"):**
+
+1. **`<Header>`** — `<Badge>` from `@inkjs/ui` for [LIVE] / [TUI-ONLY] / [PAUSED] / [● STOPPED] badges (color-coded, ink 7 compat verified)
+2. **`<StatisticsPanel>`** — `<StatusMessage variant="info">` title; the metric labels keep the original "Összesített PnL:" form for test-compat (Badge upper-cases content, which would break render-probe tests)
+3. **`<StatusBar>`** — full rewrite with `<StatusBar items=[...] />` from `@matthesketh/ink-status-bar`; preserves the stopped-state "▶ Start" label and the "mm-crypto-bot · v0.1.0" footer
+4. **`<HistoryList>`** — `<Table data columns />` from `@matthesketh/ink-table`; 8 columns (ID, OLDAL, SYMBOL, BELÉPŐ, KILÉPŐ, PNL, OK, ZÁRVA), with `align` per column
+5. **`<LiveTradingPanel>`** — `<Spinner label="Connecting..." />` from `@inkjs/ui` for the empty-state placeholder; `<StatusMessage variant="warning">` title
+
+**Smoke tests (10/10 PASS):**
+- `__smoke__/inkjs-ui.test.tsx` — 6 tests (Badge, Spinner, StatusMessage, TextInput)
+- `__smoke__/matthesketh.test.tsx` — 3 tests (Table, StatusBar)
+- All run with ink 7.1.0 + React 19.2 (peer-dep warnings overridden via root `package.json`)
+
+**Per-component tests (32/32 PASS):**
+- `__tests__/header-badge.test.tsx` — 8 tests
+- `__tests__/statistics-panel-status-message.test.tsx` — 9 tests
+- `__tests__/status-bar-keys.test.tsx` — 10 tests
+- `__tests__/history-list-table.test.tsx` — 10 tests
+- `__tests__/live-trading-spinner.test.tsx` — 5 tests
+
+**Test counts:** 90 → 132 tui tests (+42), 2765 → 2807 total (+42)
+
+**Coverage:** 8/8 packages at 100% line coverage on OWN src/. TUI grew 1043 → 1052 lines (the new test files).
+
+**CI gates:** typecheck PASS, lint PASS, test PASS, build PASS, coverage:per-package PASS.
+
+**Trade-off note:** The Table v0.1.0 does not support per-cell coloring (cells are joined as strings). The history-table trade-ek LONG/SHORT szín-jelzése a `+`/`-` prefix-szel működik (PNL oszlop). A Phase 36 user mandate "richer visuals" máshol teljesül: badge-ek a Header-ben, StatusMessage címek minden panelen, Spinner a Connecting állapotban, KeyHint-ek a StatusBar-ban.

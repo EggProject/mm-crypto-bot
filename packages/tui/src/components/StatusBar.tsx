@@ -5,14 +5,51 @@
 // A `killSwitch` állapottól függően a billentyűk más kontextusban
 // működnek (pl. megerősítő promptban az `i` = igen, `n` = nem).
 //
-// Phase 34 Track B: kibővítettük a billentyű-listát — `p` (pause),
-// `Tab` (panel-fókusz), `?` (help overlay), `t` (history rendezés).
-// A `tuiOnly` flag határozza meg, hogy a `s` / `p` billentyűk
-// elérhetők-e (TUI-only módban nem — nincs mit vezérelni).
+// Phase 36 Track B1: a hand-rolled billentyű-sor cseréje a
+// `@matthesketh/ink-status-bar` `<StatusBar items={[...]} />`
+// komponensére. A komponens a `KeyHint` tömböt kapja meg
+// (`{ key, label }` forma), és automatikusan a terminál
+// szélességéhez igazítja a billentyű-listát. A `left` és `right`
+// slotokba a saját szöveget tudjuk tenni (cím + verzió).
+//
+// A megerősítő prompt (`killSwitch === "confirm"`) továbbra is
+// egyedi layout-ot kap, mert a `StatusMessage` stílusú figyelmeztetés
+// jobban kiemeli a vészhelyzetet, mint egyenletes key-hint sor.
 
 import type { ReactElement } from "react";
 import { Box, Text } from "ink";
+import { StatusBar as MatStatusBar } from "@matthesketh/ink-status-bar";
+import type { KeyHint } from "@matthesketh/ink-status-bar";
 import type { KillSwitchState } from "../types.js";
+
+/**
+ * `buildKeyHints` — az aktuális módhoz (TUI-only / with-bot, fut /
+ * leállítva) tartozó `KeyHint` tömb.
+ *
+ * A `running` flag Phase 36 Track A1: stopped állapotban a `[s]`
+ * indító-billentyű kiemelten jelenik meg (zöld + ▶ nyíl).
+ */
+function buildKeyHints(
+  tuiOnly: boolean,
+  running: boolean,
+): KeyHint[] {
+  const hints: KeyHint[] = [];
+  if (!tuiOnly) {
+    if (running) {
+      hints.push({ key: "s", label: "start/stop" });
+    } else {
+      hints.push({ key: "s", label: "▶ Start" });
+    }
+    hints.push({ key: "p", label: "pause" });
+    hints.push({ key: "k", label: "kill" });
+  }
+  hints.push({ key: "Tab", label: "panel" });
+  hints.push({ key: "t", label: "rendezés" });
+  hints.push({ key: "r", label: "frissít" });
+  hints.push({ key: "?", label: "help" });
+  hints.push({ key: "q", label: "kilép" });
+  return hints;
+}
 
 /**
  `StatusBar` — a billentyűzet-súgó és a státuszsor.
@@ -22,6 +59,12 @@ import type { KillSwitchState } from "../types.js";
  ilyenkor a `s` / `p` nem jelennek meg (nincs bot).
  A `running` flag (Phase 36 Track A1) a bot aktuális állapotát jelzi —
  stopped állapotban a `[s]` indító-billentyű kiemelten jelenik meg.
+
+ Phase 36 Track B1: a normál mód `@matthesketh/ink-status-bar`
+ `<StatusBar items={...} />` formátumban jelenik meg, ami egy
+ key-hint listát vár. A megerősítő prompt (`killSwitch === "confirm"`)
+ továbbra is egyedi layout-ot kap (vörös szín + megerősítő
+ üzenet), mert a vészhelyzet jobban kiemelendő, mint a key-hint sor.
 */
 export function StatusBar({
   killSwitch,
@@ -45,70 +88,23 @@ export function StatusBar({
     );
   }
 
+  // A Phase 36 Track B1 status-bar — `@matthesketh/ink-status-bar`
+  // alapú. A komponens a key-hint listát `items` prop-ként kapja;
+  // a `left` és `right` slotokba tetszőleges ReactNode tehető.
+  //
+  // FIGYELEM: a `@matthesketh/ink-status-bar` 0.1.0 a `key`-et
+  // egyszerű szövegként jeleníti meg (nincs színezés), és a `label`
+  // is plain string. A `KeyHint` típus `key: string` + `label: string` —
+  // ezért a stopped-state "▶ Start" label vizuálisan jelzi a futási
+  // állapotot a user számára (a nyíl + nagybetűs "Start" szó).
+  const items = buildKeyHints(tuiOnly, running);
+
   return (
-    <Box borderStyle="round" borderColor="gray" paddingX={1} justifyContent="space-between">
-      <Box>
-        {!tuiOnly && (
-          <>
-            <Text dimColor>[</Text>
-            <Text color="green" bold>s</Text>
-            {/*
-              Phase 36 Track A1: amikor a bot `stopped` (a user a TUI-t
-              `mm-bot start` indította `--no-auto-start` móddal vagy a
-              default `bot.auto_start = false` configgal), a footer
-              kiemeli a `[s]` indító-billentyűt: `[s] ▶ Start` (zöld
-              + bold + ▶ nyíl). Amikor a bot fut, a régi "start/stop"
-              felirat marad, mert a `[s]` most stop-ként funkcionál.
-              Az App.tsx `useInput` kezelője már megfelelően toggle-eli
-              a `provider.start()` / `provider.stop()` hívásokat.
-            */}
-            {running ? (
-              <Text dimColor>] start/stop</Text>
-            ) : (
-              <Text color="green" bold>] ▶ Start</Text>
-            )}
-            <Text dimColor>  ·  </Text>
-            <Text dimColor>[</Text>
-            <Text color="yellow" bold>p</Text>
-            <Text dimColor>] pause</Text>
-            <Text dimColor>  ·  </Text>
-            <Text dimColor>[</Text>
-            <Text color="red" bold>k</Text>
-            <Text dimColor>] kill</Text>
-            <Text dimColor>  ·  </Text>
-          </>
-        )}
-        <Text dimColor>[</Text>
-        <Text color="cyan" bold>Tab</Text>
-        <Text dimColor>] panel</Text>
-        <Text dimColor> · </Text>
-        {/*
-          Phase 36 Track B2: a `[c] Charts` billentyű a Charts
-          panelre ugrik (az "richer visuals" user mandate
-          kiegészítése). A `c` shortcut a Tab-bal ciklikus
-          navigáció alternatívája.
-        */}
-        <Text dimColor>[</Text>
-        <Text color="cyan" bold>c</Text>
-        <Text dimColor>] chart</Text>
-        <Text dimColor> · </Text>
-        <Text dimColor>[</Text>
-        <Text color="cyan" bold>t</Text>
-        <Text dimColor>] rendezés</Text>
-        <Text dimColor> · </Text>
-        <Text dimColor>[</Text>
-        <Text color="cyan" bold>r</Text>
-        <Text dimColor>] frissít</Text>
-        <Text dimColor> · </Text>
-        <Text dimColor>[</Text>
-        <Text color="cyan" bold>?</Text>
-        <Text dimColor>] help</Text>
-        <Text dimColor> · </Text>
-        <Text dimColor>[</Text>
-        <Text color="yellow" bold>q</Text>
-        <Text dimColor>] kilép</Text>
-      </Box>
-      <Text dimColor>mm-crypto-bot · v0.1.0</Text>
+    <Box borderStyle="round" borderColor="gray" paddingX={1}>
+      <MatStatusBar
+        items={items}
+        right={<Text dimColor>mm-crypto-bot · v0.1.0</Text>}
+      />
     </Box>
   );
 }

@@ -8,16 +8,18 @@
 // Az adatok a `useBotState` által biztosított state-ből jönnek —
 // a provider minden notify-ja re-rendereli a komponenst.
 //
-// A Phase 34 Track B kiegészítések:
-//   - Ticker-event sub-panel: a `state.tickerEvents` utolsó 5
-//     elemét mutatja (symbol, last price, volume).
-//   - Kill-switch flash: ha egy pozíció `unrealizedPnlPct` < a
-//     `killSwitchThresholdPct` (default -10%), a pozíció sora
-//     sötéten pirosra vált, és a `[KILL-SWITCH KÜSZÖB!]` felirat
-//     jelenik meg a panelen.
+// Phase 36 Track B1: az "Connecting..." placeholder szöveg cseréje
+// `@inkjs/ui` `<Spinner label="..." />` komponensre. A Spinner egy
+// animált Unicode-braille glyph-öt jelenít meg, ami vizuálisan
+// jelzi a felhasználónak, hogy a feed / engine még tölt.
+//
+// A "Jelenleg nincs nyitott pozíció" / "Még nincs ticker-event"
+// üres állapotok `<Text italic>` szövegek maradnak — ezek NEM
+// kapcsolódnak aktív folyamathoz, így nincs értelme animálni őket.
 
 import type { ReactElement } from "react";
 import { Box, Text } from "ink";
+import { Spinner, StatusMessage } from "@inkjs/ui";
 import type { Position, TickerEvent, TickerPrice } from "../types.js";
 import { colorForValue, formatDuration, formatPct, formatPrice, formatUsdt } from "../utils/format.js";
 
@@ -85,10 +87,7 @@ function PositionRow({
   const sideLabel = position.side === "buy" ? "LONG" : "SHORT";
   const sideColor: "green" | "red" = position.side === "buy" ? "green" : "red";
   const ageMs = now - position.openedAt;
-  // A kill-switch küszöb átlépése: a pozíció PnL%-a rosszabb, mint
-  // a threshold (pl. -10%). Ekkor a sor pirosan villog és warning badge.
   const breachedThreshold = position.unrealizedPnlPct < thresholdPct;
-  // A border színe: piros, ha a küszöb átlépve; egyébként gray.
   const borderColor: "red" | "gray" = breachedThreshold ? "red" : "gray";
   return (
     <Box flexDirection="column" borderStyle="single" borderColor={borderColor} paddingX={1}>
@@ -180,64 +179,91 @@ export function LiveTradingPanel({
   // Van-e bármelyik pozíció, ami a kill-switch küszöböt átlépte?
   const hasBreachedPosition = positions.some((p) => p.unrealizedPnlPct < killSwitchThresholdPct);
 
+  // A feed-kapcsolat státusza: ha nincs ticker, nincs ticker-event
+  // ÉS nincs pozíció, akkor "Connecting..." állapotban vagyunk
+  // (a Spinner jelenik meg). Ha bármelyik adat megérkezett, a normál
+  // tartalom jelenik meg — nem blokkoljuk a user-t a részleges
+  // információtól.
+  const isConnecting = tickers.length === 0 && tickerEvents.length === 0 && positions.length === 0;
+
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={borderColor} paddingX={1} flexGrow={1}>
-      <Text bold color="yellow">📈  ÉLŐ KERESKEDÉS</Text>
+      {/*
+        Phase 36 Track B1: a panel címe `<StatusMessage variant="warning">`-
+        ként jelenik meg (sárga szín = "live / active trading data").
+      */}
+      <StatusMessage variant="warning">📈  ÉLŐ KERESKEDÉS</StatusMessage>
 
-      <Box flexDirection="column" marginTop={0}>
-        <Text dimColor>TICKEREK</Text>
-        <Box flexDirection="row" marginTop={0}>
-          {tickers.map((t) => (
-            <TickerRow key={t.symbol} ticker={t} />
-          ))}
+      {/*
+        Phase 36 Track B1: a feed-kapcsolat állapota. Ha még nincs ticker
+        vagy ticker-event, egy animált Spinner jelzi a usernek, hogy
+        a feed / engine még tölt. Amint megérkezik az első ticker,
+        a Spinner eltűnik, és a normál tartalom jelenik meg.
+      */}
+      {isConnecting && (
+        <Box marginTop={0}>
+          <Spinner label="Connecting..." />
         </Box>
-      </Box>
+      )}
 
-      <Box flexDirection="column" marginTop={1}>
-        <Text dimColor>NYITOTT POZÍCIÓK ({positions.length} db)</Text>
-        {hasBreachedPosition && (
-          <Box marginTop={0}>
-            <Text color="red" bold>
-              ⚠  Kill-switch küszöb átlépve (PnL% &lt; {formatPct(killSwitchThresholdPct, 1)})
-            </Text>
-          </Box>
-        )}
-        {positions.length === 0 ? (
-          <Box marginTop={0}>
-            <Text color="gray" italic>Jelenleg nincs nyitott pozíció.</Text>
-          </Box>
-        ) : (
+      {!isConnecting && (
+        <>
           <Box flexDirection="column" marginTop={0}>
-            {positions.map((p) => (
-              <Box key={p.id} marginTop={0}>
-                <PositionRow position={p} now={now} thresholdPct={killSwitchThresholdPct} />
-              </Box>
-            ))}
-          </Box>
-        )}
-      </Box>
-
-      <Box flexDirection="column" marginTop={1}>
-        <Text dimColor>UTOLSÓ TICKER-EVENT-EK ({tickerEvents.length} db a bufferben, legfrissebb {VISIBLE_TICKER_EVENTS})</Text>
-        {visibleEvents.length === 0 ? (
-          <Box marginTop={0}>
-            <Text color="gray" italic>Még nincs ticker-event.</Text>
-          </Box>
-        ) : (
-          <Box flexDirection="column" marginTop={0}>
-            <Box flexDirection="row">
-              <Box width={8}><Text dimColor>SORSZÁM</Text></Box>
-              <Box width={10}><Text dimColor>SYMBOL</Text></Box>
-              <Box width={14}><Text dimColor>LAST PRICE</Text></Box>
-              <Box width={14}><Text dimColor>VOLUME</Text></Box>
-              <Box width={10}><Text dimColor>ÉLETKOR</Text></Box>
+            <Text dimColor>TICKEREK</Text>
+            <Box flexDirection="row" marginTop={0}>
+              {tickers.map((t) => (
+                <TickerRow key={t.symbol} ticker={t} />
+              ))}
             </Box>
-            {visibleEvents.map((e) => (
-              <TickerEventRow key={e.seq} event={e} now={now} />
-            ))}
           </Box>
-        )}
-      </Box>
+
+          <Box flexDirection="column" marginTop={1}>
+            <Text dimColor>NYITOTT POZÍCIÓK ({positions.length} db)</Text>
+            {hasBreachedPosition && (
+              <Box marginTop={0}>
+                <Text color="red" bold>
+                  ⚠  Kill-switch küszöb átlépve (PnL% &lt; {formatPct(killSwitchThresholdPct, 1)})
+                </Text>
+              </Box>
+            )}
+            {positions.length === 0 ? (
+              <Box marginTop={0}>
+                <Text color="gray" italic>Jelenleg nincs nyitott pozíció.</Text>
+              </Box>
+            ) : (
+              <Box flexDirection="column" marginTop={0}>
+                {positions.map((p) => (
+                  <Box key={p.id} marginTop={0}>
+                    <PositionRow position={p} now={now} thresholdPct={killSwitchThresholdPct} />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+
+          <Box flexDirection="column" marginTop={1}>
+            <Text dimColor>UTOLSÓ TICKER-EVENT-EK ({tickerEvents.length} db a bufferben, legfrissebb {VISIBLE_TICKER_EVENTS})</Text>
+            {visibleEvents.length === 0 ? (
+              <Box marginTop={0}>
+                <Text color="gray" italic>Még nincs ticker-event.</Text>
+              </Box>
+            ) : (
+              <Box flexDirection="column" marginTop={0}>
+                <Box flexDirection="row">
+                  <Box width={8}><Text dimColor>SORSZÁM</Text></Box>
+                  <Box width={10}><Text dimColor>SYMBOL</Text></Box>
+                  <Box width={14}><Text dimColor>LAST PRICE</Text></Box>
+                  <Box width={14}><Text dimColor>VOLUME</Text></Box>
+                  <Box width={10}><Text dimColor>ÉLETKOR</Text></Box>
+                </Box>
+                {visibleEvents.map((e) => (
+                  <TickerEventRow key={e.seq} event={e} now={now} />
+                ))}
+              </Box>
+            )}
+          </Box>
+        </>
+      )}
     </Box>
   );
 }
