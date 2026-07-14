@@ -6,4 +6,6 @@ export { LiveTradingPanel } from "./LiveTradingPanel.js";
 export { HistoryList } from "./HistoryList.js";
 export { StatusBar } from "./StatusBar.js";
 export { HelpOverlay } from "./HelpOverlay.js";
+export { ChartsPanel } from "./ChartsPanel.js";
 export type { HelpOverlayProps } from "./HelpOverlay.js";
+export type { ChartsPanelProps } from "./ChartsPanel.js";

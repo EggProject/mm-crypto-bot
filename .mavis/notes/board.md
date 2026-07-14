@@ -550,3 +550,45 @@ Cron `phase35b-agents-check` set up to poll the 3 background tasks every 3 minut
 
 - "MANDATORY: verify before claiming done" — never claim "done" without running the full pipeline end-to-end
 - "Hallucinated completion" — apps/bot tests failed under --coverage in a stale worktree; the actual main was fine, but I never verified
+
+## Phase 36 Track B2 — completed 2026-07-14 23:55 Budapest (producer session)
+
+**Branch:** `feat/phase36-track-b2-ascii-charts` (off main `4186c83`)
+**PR:** (to be opened)
+
+**What shipped (per Phase 36 user mandate "ASCII charts" + "richer visuals"):**
+
+1. **`packages/tui/src/charts/equity-curve.ts`** — wraps `asciichart` (1.5.25)
+2. **`packages/tui/src/charts/sparkline.ts`** — wraps `sparkly` (6.0.1)
+3. **`packages/tui/src/charts/candlestick.ts`** — 60-LOC hand-roll (the `@crafter/charts` v0.2.4 chart().candlestick() API is broken — returns empty whitespace)
+4. **`packages/tui/src/charts/bar-chart.tsx`** — wraps `@pppp606/ink-chart` BarChart
+5. **`packages/tui/src/components/ChartsPanel.tsx`** (NEW) — 4th panel (equity + candlestick + sparkline + BarChart)
+6. **`packages/tui/src/App.tsx`** — added `c` shortcut for Charts panel, added 4th panel to focus cycle, `FocusedPanel` type extended to include `"charts"`
+7. **`packages/tui/src/components/StatusBar.tsx`** — added `[c] chart` to the key-hint list (compact: `panel · chart · rendezés · frissít · help · kilép`)
+
+**Smoke tests (6/6 PASS):** `packages/tui/src/charts/__smoke__/ascii-charts.test.ts`
+- asciichart.plot: multi-line Unicode chart
+- sparkly: unicode-bar sparkline
+- @crafter/charts plot(): ANSI-colored line chart
+- @crafter/charts sparkline(): inline sparkline
+- @crafter/charts sparkWinLoss(): green/red bar
+- @crafter/charts chart().candlestick(): **BROKEN in v0.2.4** (documented, hand-roll fallback in use)
+
+**Per-chart tests (15/15 PASS):**
+- `__tests__/equity-curve.test.ts` (5 tests)
+- `__tests__/sparkline.test.ts` (5 tests)
+- `__tests__/candlestick.test.ts` (7 tests)
+- `__tests__/bar-chart.test.tsx` (4 tests)
+- `__tests__/charts-panel.test.tsx` (9 tests)
+
+**Test counts:** 90 → 117 tui tests (+27 in B2, after B1's +42), 2765 → 2792 total (+27)
+
+**Coverage:** 8/8 packages at 100% line coverage on OWN src/. TUI: 1052 lines (unchanged from B1).
+
+**CI gates:** typecheck PASS, lint PASS (after fixing `no-control-regex` and `non-literal-regexp` with String.fromCharCode(27)), test PASS (2792), build PASS, coverage:per-package PASS.
+
+**Trade-offs:**
+- `@crafter/charts` v0.2.4 candlestick API is broken (the high-level `chart().candlestick()` returns empty whitespace). Per the research doc, fell back to the 60-LOC hand-roll — works perfectly, zero new deps for candlestick.
+- `asciichart` types from @types/asciichart are wrong (declare `default` as `string` instead of the actual object). Added local `packages/tui/src/types/asciichart.d.ts` override.
+- `sparkly` v6.0.1 doesn't support `width` option (renders one char per input). Wrapper slices data to last N samples before passing.
+- ChartsPanel receives `candles={[]}` and `strategies={[]}` from App.tsx (the OHLC feed wiring is Phase 37+ scope).

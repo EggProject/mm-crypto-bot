@@ -111,8 +111,9 @@ export type HistorySortKey = "time" | "pnl" | "symbol";
 /**
  `FocusedPanel` — az App által kezelt panel-fókusz.
  A `Tab` / bal-jobb nyilak váltanak a panelek között.
+ Phase 36 Track B2: a "charts" panel hozzáadva (4. panel).
 */
-export type FocusedPanel = "statistics" | "live" | "history";
+export type FocusedPanel = "statistics" | "live" | "history" | "charts";
 
 /**
  `KillSwitchState` — a vészleállító állapota.

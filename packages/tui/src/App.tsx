@@ -12,7 +12,8 @@
 //   [k]           — kill-switch (confirm prompt: [i] igen, [n] nem)
 //   [r]           — manuális frissítés (re-snapshot kérése)
 //   [t]           — history rendezési kulcs váltása (time / pnl / symbol)
-//   [Tab] / [←→]  — panel fókusz váltása (statisztika / live / history)
+//   [c]           — Charts panelre ugrás (Phase 36 Track B2)
+//   [Tab] / [←→]  — panel fókusz váltása (statistics / live / history / charts)
 //   [?]           — help overlay megjelenítése / elrejtése
 //   [Esc]         — help overlay bezárása (ha nyitva van)
 //
@@ -34,6 +35,7 @@ import { Box, Text, useApp, useInput } from "ink";
 import type { BotStateProvider } from "./providers/BotStateProvider.js";
 import { useBotState } from "./hooks/useBotState.js";
 import {
+  ChartsPanel,
   Header,
   HelpOverlay,
   HistoryList,
@@ -103,13 +105,28 @@ export function App({ provider, onStop, onPause }: AppProps): ReactElement {
 
   /**
    `cyclePanel` — a panel-fókusz ciklikus váltása.
+   A Phase 36 Track B2 bővítés: 4-panel ciklus (statistics ↔
+   live ↔ history ↔ charts). A sorrend: statistics → live →
+   history → charts → statistics (Tab-bal), vagy fordítva
+   (Shift+Tab-bal / balra nyíllal).
   */
   const cyclePanel = (direction: 1 | -1): void => {
     setFocusedPanel((current) => {
-      if (current === "statistics") return direction === 1 ? "live" : "history";
+      if (current === "statistics") return direction === 1 ? "live" : "charts";
       if (current === "live") return direction === 1 ? "history" : "statistics";
-      return direction === 1 ? "statistics" : "live";
+      if (current === "history") return direction === 1 ? "charts" : "live";
+      // current === "charts"
+      return direction === 1 ? "statistics" : "history";
     });
+  };
+
+  /**
+   `selectPanel` — a panel-fókusz közvetlen beállítása egy
+   konkrét panelre (a `c` / `s` / `l` / `h` shortcut-billentyűk
+   hívják).
+  */
+  const selectPanel = (panel: FocusedPanel): void => {
+    setFocusedPanel(panel);
   };
 
   /**
@@ -228,6 +245,16 @@ export function App({ provider, onStop, onPause }: AppProps): ReactElement {
       return;
     }
 
+    // Phase 36 Track B2: a `c` billentyű a Charts panelre ugrik
+    // (a Tab-bal ciklikus navigáció kiegészítése). Az `s` / `l` / `h`
+    // shortcut-ok a Phase 36 spec-ben "mode keys" néven szerepelnek,
+    // de a `s` már foglalt (start/stop) — ezért a ciklikus Tab-bal
+    // navigáció az elsődleges.
+    if (input === "c") {
+      selectPanel("charts");
+      return;
+    }
+
     if (key.tab) {
       // Tab: panel-fókusz váltása előre.
       cyclePanel(1);
@@ -274,6 +301,28 @@ export function App({ provider, onStop, onPause }: AppProps): ReactElement {
       </Box>
       <Box marginTop={1}>
         <HistoryList history={state.history} now={now} sortKey={sortKey} focused={focusedPanel === "history"} />
+      </Box>
+      {/*
+        Phase 36 Track B2: a 4. panel a Charts (equity görbe +
+        candlestick + P&L sparkline + stratégia-breakdown BarChart).
+        A panel a `state.history`-ból és a mock-olt OHLC tick-ekből
+        dolgozik — a Phase 36 Track B2 elfogadja, hogy az OHLC
+        adat egyelőre a `ChartsPanel` belsejében generálódik (a
+        valós feed-ből a Phase 37+ feedeli majd).
+
+        A panel stopped-state-ben is megjelenik (a többi panel
+        üres, de a Charts-on a `Még nincs equity-adat` placeholder
+        jelenik meg — ez a Phase 36 user mandate: "Charts will be
+        available after [s] Start" empty-state message).
+      */}
+      <Box marginTop={1}>
+        <ChartsPanel
+          history={state.history}
+          initialEquityUsdt={state.statistics.initialEquityUsdt}
+          candles={[]}
+          strategies={[]}
+          focused={focusedPanel === "charts"}
+        />
       </Box>
       <Box marginTop={1}>
         <StatusBar killSwitch={state.killSwitch} tuiOnly={isTuiOnly} running={state.running} />

@@ -81,19 +81,29 @@ export function StatusBar({
         <Text dimColor>[</Text>
         <Text color="cyan" bold>Tab</Text>
         <Text dimColor>] panel</Text>
-        <Text dimColor>  ·  </Text>
+        <Text dimColor> · </Text>
+        {/*
+          Phase 36 Track B2: a `[c] Charts` billentyű a Charts
+          panelre ugrik (az "richer visuals" user mandate
+          kiegészítése). A `c` shortcut a Tab-bal ciklikus
+          navigáció alternatívája.
+        */}
+        <Text dimColor>[</Text>
+        <Text color="cyan" bold>c</Text>
+        <Text dimColor>] chart</Text>
+        <Text dimColor> · </Text>
         <Text dimColor>[</Text>
         <Text color="cyan" bold>t</Text>
         <Text dimColor>] rendezés</Text>
-        <Text dimColor>  ·  </Text>
+        <Text dimColor> · </Text>
         <Text dimColor>[</Text>
         <Text color="cyan" bold>r</Text>
         <Text dimColor>] frissít</Text>
-        <Text dimColor>  ·  </Text>
+        <Text dimColor> · </Text>
         <Text dimColor>[</Text>
         <Text color="cyan" bold>?</Text>
         <Text dimColor>] help</Text>
-        <Text dimColor>  ·  </Text>
+        <Text dimColor> · </Text>
         <Text dimColor>[</Text>
         <Text color="yellow" bold>q</Text>
         <Text dimColor>] kilép</Text>
