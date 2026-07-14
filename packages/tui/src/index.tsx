@@ -134,7 +134,19 @@ function main(): void {
   }
 
   // Az `InternalApp` wrapper szolgál az auto-start kezelésére.
-  const instance = render(<InternalApp provider={provider} />);
+  //
+  // Phase 36 Track A2: a `render()` híváshoz hozzáadjuk az
+  // `alternateScreen: true` opciót — az Ink 7.0.0-ban bevezetett
+  // "alternate screen buffer" mód, ami a TUI-ból kilépéskor VISSZAÁLLÍTJA
+  // a terminál scrollback-pufferét a TUI előtti állapotra. A
+  // `renderTui()` (fenti) ezt már megteszi; itt is követjük a
+  // konzisztens viselkedést. A `patchConsole: false` kikapcsolja az Ink
+  // `console.log` felülírását — a Phase 36 logger refaktor óta nem kell.
+  const instance = render(<InternalApp provider={provider} />, {
+    alternateScreen: true,
+    patchConsole: false,
+    exitOnCtrlC: true,
+  });
   void instance.waitUntilExit();
 }
 
