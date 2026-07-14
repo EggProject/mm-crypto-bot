@@ -28,7 +28,9 @@
     "@crafter/charts": "^0.2.4",
     "@pppp606/ink-chart": "^0.2.6",
     "asciichart": "^1.5.25",
-    "sparkly": "^6.0.1"
+    "sparkly": "^6.0.1",
+    "smol-toml": "^1.7.0",
+    "write-file-atomic": "^8.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",
