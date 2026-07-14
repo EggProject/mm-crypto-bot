@@ -10,6 +10,6 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "jsx": "preserve"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../../packages/tui/src/global-types/**/*.d.ts"],
   "exclude": ["dist", "node_modules", "**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"]
 }

@@ -1,7 +1,7 @@
 {
   "name": "@mm-crypto-bot/tui",
   "version": "0.1.0",
-  "description": "Ink-alapú TUI váz — terminal user interface a bot állapotának megjelenítéséhez és vezérléséhez",
+  "description": "Ink-alap\u00fa TUI v\u00e1z \u2014 terminal user interface a bot \u00e1llapot\u00e1nak megjelen\u00edt\u00e9s\u00e9hez \u00e9s vez\u00e9rl\u00e9s\u00e9hez",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
@@ -24,7 +24,11 @@
     "@mm-crypto-bot/paper": "workspace:*",
     "@mm-crypto-bot/shared": "workspace:*",
     "ink": "7.1.0",
-    "react": "19.2.7"
+    "react": "19.2.7",
+    "@crafter/charts": "^0.2.4",
+    "@pppp606/ink-chart": "^0.2.6",
+    "asciichart": "^1.5.25",
+    "sparkly": "^6.0.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",
