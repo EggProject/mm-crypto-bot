@@ -11,21 +11,20 @@
 //   - Sharpe ratio
 //   - Equity görbe kezdő / jelenlegi értéke
 //
-// A számítás NEM itt történik — a provider (SimulatedProvider /
-// LiveBotStateProvider) a `closedTrades` listából aggregálja a
-// `Statistics` objektumot. A `LiveBotStateProvider.computeStatistics`
-// és a `SimulatedProvider.recomputeStatistics` implementálja a
-// win-rate, Sharpe és drawdown számítást a spec-nek megfelelően
-// (mean / stddev a trade-ek return-jeiből, equity-görbe csúcsai
-// alapján).
+// Phase 36 Track B1 kiegészítés: a panel címe (`📊 STATISZTIKA`)
+// `@inkjs/ui` `<StatusMessage variant="info">`-ra cserélve (a Phase 36
+// user mandate: "richer visuals"). A metrikus label-ek megtartják az
+// eredeti "Összesített PnL:" formátumot (dim szürke szöveg kettősponttal)
+// a kompatibilitás kedvéért — a Badge komponens a `@inkjs/ui`-ban
+// upper-case-re konvertálja a tartalmát, ami a tesztek által elvárt
+// case-törönést okozná.
 //
-// A panel felelőssége kizárólag a megjelenítés:
-//   - Tabuláris layout (3 oszlop, 4 sor)
-//   - Színek: zöld a pozitív, piros a negatív, szürke a nulla
-//   - A drawdown a küszöbtől függően színeződik (5% / 10%)
+// A számítás NEM itt történik — a provider aggregálja a `Statistics`
+// objektumot a `closedTrades` listából.
 
 import type { ReactElement } from "react";
 import { Box, Text } from "ink";
+import { StatusMessage } from "@inkjs/ui";
 import type { Statistics } from "../types.js";
 import { colorForValue, formatPct, formatUsdt } from "../utils/format.js";
 
@@ -48,7 +47,12 @@ export function StatisticsPanel({ statistics, focused = false }: { readonly stat
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={borderColor} paddingX={1} flexGrow={1}>
-      <Text bold color="green">📊  STATISZTIKA</Text>
+      {/*
+        Phase 36 Track B1: a panel címe `@inkjs/ui` `<StatusMessage>`
+        formátumban. A variant "info" = kék szín, ami a statisztikai
+        dashboard-ot semleges, de kiemelt kontextusba helyezi.
+      */}
+      <StatusMessage variant="info">📊  STATISZTIKA</StatusMessage>
 
       {/* 1. sor: Összesített PnL · Win rate · Trade-szám */}
       <Box marginTop={0} flexDirection="row">
