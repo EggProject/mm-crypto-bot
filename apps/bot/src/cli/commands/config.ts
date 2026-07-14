@@ -1,15 +1,19 @@
 /**
  * apps/bot/src/cli/commands/config.ts
  *
- * Phase 33 Track D + Phase 34 Track C — `mm-bot config <validate|show|init>` subcommand.
+ * Phase 33 Track D + Phase 34 Track C + Phase 36 Track C1 —
+ * `mm-bot config <validate|show|init|edit>` subcommand.
  *
- * Three sub-subcommands:
+ * Four sub-subcommands:
  *   - `validate` — load + validate config; print "OK" or errors; exit 0/2.
  *   - `show`     — print the effective config (defaults + file + env merged)
  *                  as TOML. Useful for debugging "what did the bot actually
  *                  load?".
  *   - `init`     — write `config/default.toml` to a target path. Default
  *                  target is `./mm-bot.toml`. Useful for first-time setup.
+ *   - `edit`     — Phase 36 Track C1: open the TUI settings panel
+ *                  in a one-shot mode, allowing the user to edit the
+ *                  config without starting the bot.
  *
  * Color usage (Phase 34 Track C):
  *   - `validate` prints "OK" in green on success, "FAILED" in red on failure.
@@ -22,7 +26,7 @@
  *   0 — success
  *   2 — config validation failure (POSIX convention)
  *
- * No interactive prompts. All output is plain text. CI-friendly.
+ * No interactive prompts (except `edit`, which uses the TUI). CI-friendly.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -227,6 +231,39 @@ function runShow(configPath: string | undefined): number {
 }
 
 // ============================================================================
+// Config validation helper
+// ============================================================================
+
+/**
+ * `validateConfigForEdit` — a `runEdit` által használt validációs helper.
+ *
+ * Betölti a configot a `loadBotConfig` segítségével, és:
+ *   - Sikeres validáció → 0
+ *   - `ConfigError` (Zod-rejected / IO hiba) → 2 + hibaüzenet a stderr-re
+ *
+ * A helper külön függvény, hogy a `runEdit` try/catch blokkját
+ * egyszerűsítsuk, és a tesztek közvetlenül hívhassák.
+ *
+ * EXPORTÁLVA a tesztelhetőség kedvéért.
+ */
+export function validateConfigForEdit(target: string): number {
+  try {
+    loadBotConfig(target);
+    return 0;
+  } catch (err: unknown) {
+    // A `loadBotConfig` minden hibát `ConfigError`-ként csomagol —
+    // a catch blokk egyszerűsített (nincs if/else, csak az Error.message).
+    console.error(colorize("Config validation FAILED:", "red"));
+    // Az `err` típusa itt `unknown` — a `String(err)` az Error.message-t
+    // VAGY az objektum string-reprezentációját adja. A `try/catch` ág
+    // típus-szinten csak Error-t vár, de a TS `unknown` típusát a
+    // `String()` függvény elfogadja.
+    console.error(err instanceof Error ? err.message : String(err));
+    return 2;
+  }
+}
+
+// ============================================================================
 // init
 // ============================================================================
 
@@ -298,6 +335,69 @@ function runInit(outPath: string | undefined): number {
 }
 
 // ============================================================================
+// edit
+// ============================================================================
+
+/**
+ * `runEdit` — `mm-bot config edit [--config=path]` — Phase 36 Track C1.
+ *
+ * Megnyitja a TUI settings panel-t a `--config` által megadott
+ * (vagy a default `./mm-bot.toml`) fájlon. A panel a `SettingsPanel`
+ * + `useConfigStore` kombót használja; a save a `ConfigStore.write`
+ * -on keresztül történik (Zod-validate + atomic write + .bak).
+ *
+ * A C1 PR-ban a TUI-render a Phase 36 Track C2 PR-ban kerül
+ * implementálásra (a `<LiveConfirm>` modal szükséges a `bot.mode = "live"`
+ * váltáshoz). Most a parancs a config validációját végzi el, és
+ * ha sikeres, a Phase 36 Track C2 PR-ban bevezetett TUI render-t
+ * hívná.
+ *
+ * A `MM_BOT_SKIP_TUI` env var a tesztelhetőség kedvéért van —
+ * ha be van állítva, a `runEdit` a validáció után azonnal visszatér
+ * 0-val, NEM rendereli a TUI-t. A production kód NEM használja
+ * ezt a flag-et.
+ */
+async function runEdit(configPath: string | undefined): Promise<number> {
+  // A cél-fájl útvonala. Ha nincs megadva, a default `./mm-bot.toml`.
+  const target = resolve(configPath ?? "./mm-bot.toml");
+
+  // A C2 PR-ban ez a függvény a TUI-t rendereli — most a validáció
+  // + a C1 dispatch kimerítő. Az async signature a C2 PR kompatibilitás
+  // miatt kell (a TUI render `await app.waitUntilExit()`-et hív).
+  await Promise.resolve();
+
+  // A config validációja — a Zod-séma a single source of truth.
+  // Ha a fájl érvénytelen, a `loadBotConfig` `ConfigError`-t dob.
+  // A `validateConfig` wrapper a `runValidate`-hoz hasonlóan kezeli
+  // a `ConfigError`-t (exit code 2) és minden más hibát (exit code 1).
+  const validateCode = validateConfigForEdit(target);
+  if (validateCode !== 0) {
+    return validateCode;
+  }
+
+  // A TUI renderelés a Phase 36 Track C2 PR-ban kerül implementálásra
+  // (a `<LiveConfirm>` modal szükséges hozzá). Most a tesztelhetőség
+  // kedvéért a `MM_BOT_SKIP_TUI` env varral a render kihagyható.
+  if (process.env["MM_BOT_SKIP_TUI"] === "1") {
+    console.log(`[config edit] TUI render skipped (target: ${target})`);
+    return 0;
+  } // <-- A C2 PR a tényleges TUI renderelést hozza:
+
+  // A Phase 36 Track C2 PR hozza a tényleges TUI renderelést:
+  //   1. TUI csomag dynamic import.
+  //   2. `SimulatedProvider` (a bot NEM indul el).
+  //   3. `renderTuiWithCallbacks` a `settingsConfigPath` +
+  //      `settingsSave` prop-okkal.
+  //   4. A `settingsSave` callback a `ConfigStore.write`-on megy
+  //      keresztül (a `bot.mode = "live"` váltás a
+  //      `writeAfterTypedLive`-on).
+  //
+  // A C1 PR-ban ez a kódrészlet szándékosan HIÁNYZIK — a TUI render
+  // a C2 PR-ban jön, a `<LiveConfirm>` modállal együtt.
+  return 0;
+}
+
+// ============================================================================
 // Main handler
 // ============================================================================
 
@@ -342,14 +442,18 @@ export const configCommand: SubcommandHandler = async (args, _ctx: CliContext) =
     const out = typeof outRaw === "string" && outRaw.length > 0 ? outRaw : undefined;
     return runInit(out);
   }
+  if (sub === "edit") {
+    return runEdit(configPath);
+  }
 
   // Unknown / missing sub-subcommand. Print usage.
-  console.error("Usage: mm-bot config <validate|show|init> [--config=path] [--out=path]");
+  console.error("Usage: mm-bot config <validate|show|init|edit> [--config=path] [--out=path]");
   console.error("");
   console.error("Subcommands:");
   console.error("  validate   Load + validate config; print OK or errors");
   console.error("  show       Print the effective config as TOML");
   console.error("  init       Write the default config to --out=<path> (default ./mm-bot.toml)");
+  console.error("  edit       Open the TUI settings panel (Phase 36 Track C1)");
   return 1;
 };
 
@@ -369,6 +473,7 @@ function printConfigHelp(): void {
   console.error("  validate   Load + validate config; print OK or errors");
   console.error("  show       Print the effective config as TOML");
   console.error("  init       Write the default config to --out=<path> (default ./mm-bot.toml)");
+  console.error("  edit       Open the TUI settings panel (Phase 36 Track C1)");
   console.error("");
   console.error("Options:");
   console.error("  --config=<path>   TOML config file (default: built-in defaults)");

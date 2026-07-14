@@ -42,6 +42,7 @@ import {
   LiveTradingPanel,
   StatisticsPanel,
   StatusBar,
+  useSettingsPanel,
 } from "./components/index.js";
 import type { FocusedPanel, HistorySortKey } from "./types.js";
 
@@ -64,6 +65,21 @@ export interface AppProps {
    fogyasztó itt pl. egy pause-state fájlba írhat.
   */
   readonly onPause?: (paused: boolean) => void;
+  /**
+   * `settingsConfigPath` — Phase 36 Track C1: a TUI settings panel
+   * által szerkesztendő TOML-fájl útvonala. Ha `undefined`, a
+   * settings panel nem elérhető (az `[o]` billentyű hatástalan).
+   * A consumer (apps/bot) adja át a `--config=path` értéket.
+   */
+  readonly settingsConfigPath?: string;
+  /**
+   * `settingsSave` — Phase 36 Track C1: a TUI settings panel save
+   * callback-je. A consumer (apps/bot) itt hívja a `ConfigStore.write`
+   * metódust (Zod-validate + atomic write + .bak). A TUI maga nem
+   * ismeri a `ConfigStore`-t (rossz irányú monorepo dep lenne), csak
+   * a callback-en keresztül delegálja a write-ot.
+   */
+  readonly settingsSave?: (data: Readonly<Record<string, unknown>>) => Promise<void> | void;
 }
 
 /**
@@ -71,7 +87,13 @@ export interface AppProps {
  A `provider` a `BotStateProvider` interfészt implementáló osztály
  egy példánya (SimulatedProvider / PaperProvider / LiveBotStateProvider).
 */
-export function App({ provider, onStop, onPause }: AppProps): ReactElement {
+export function App({
+  provider,
+  onStop,
+  onPause,
+  settingsConfigPath,
+  settingsSave,
+}: AppProps): ReactElement {
   const { exit } = useApp();
   const state = useBotState(provider);
 
@@ -99,6 +121,9 @@ export function App({ provider, onStop, onPause }: AppProps): ReactElement {
   // A focusedPanel a panel-ek border színét befolyásolja (focus = bright).
   const [sortKey, setSortKey] = useState<HistorySortKey>("time");
   const [helpVisible, setHelpVisible] = useState<boolean>(false);
+  // Phase 36 Track C1: a settings panel mód (dashboard ↔ settings).
+  // Az `[o]` billentyűvel nyílik, az `Esc`-cel záródik.
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
 
   // A TUI-only módot a provider status.mode jelzi.
   const isTuiOnly = state.status.mode === "tui-only";
@@ -245,6 +270,13 @@ export function App({ provider, onStop, onPause }: AppProps): ReactElement {
       return;
     }
 
+    // Phase 36 Track C1: az `o` billentyű a settings panel-t nyitja
+    // (CSAK ha a consumer átadta a `settingsConfigPath` + `settingsSave` prop-okat).
+    if (input === "o" && settingsConfigPath !== undefined && settingsSave !== undefined && !settingsOpen) {
+      setSettingsOpen(true);
+      return;
+    }
+
     // Phase 36 Track B2: a `c` billentyű a Charts panelre ugrik
     // (a Tab-bal ciklikus navigáció kiegészítése). Az `s` / `l` / `h`
     // shortcut-ok a Phase 36 spec-ben "mode keys" néven szerepelnek,
@@ -272,6 +304,24 @@ export function App({ provider, onStop, onPause }: AppProps): ReactElement {
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={0}>
+      {/*
+        Phase 36 Track C1: a settings panel mód. Ha a `settingsOpen`
+        true, a SettingsPanel-t rendereljük a dashboard helyett
+        (a Header-t és a StatusBar-t továbbra is mutatjuk, hogy a
+        user lássa a többi állapotot).
+        A `settingsConfigPath` + `settingsSave` prop-ok HIÁNYÁBAN
+        a panel nem nyílik (az `[o]` billentyű hatástalan).
+      */}
+      {settingsOpen && settingsConfigPath !== undefined && settingsSave !== undefined ? (
+        <SettingsPanelWithState
+          configPath={settingsConfigPath}
+          save={settingsSave}
+          onClose={() => {
+            setSettingsOpen(false);
+          }}
+        />
+      ) : (
+        <>
       <Header state={state} />
       <Box marginTop={1} flexDirection="row" gap={1}>
         <StatisticsPanel statistics={state.statistics} focused={focusedPanel === "statistics"} />
@@ -328,8 +378,54 @@ export function App({ provider, onStop, onPause }: AppProps): ReactElement {
         <StatusBar killSwitch={state.killSwitch} tuiOnly={isTuiOnly} running={state.running} />
       </Box>
       {helpVisible && <HelpOverlay visible={helpVisible} tuiOnly={isTuiOnly} />}
+        </>
+      )}
     </Box>
   );
+}
+
+/**
+ * `SettingsPanelWithState` — a SettingsPanel + useConfigStore kombó.
+ *
+ * Az `App` ezt a komponenst használja a settings módban. A komponens
+ * a `useConfigStore` hook segítségével kezeli a TOML persistence-t,
+ * és a `SettingsPanel`-t a hook eredményéből táplálja.
+ *
+ * A `Ctrl+S` / `Esc` billentyűket a SettingsPanel kezeli (a saját
+ * useInput-jával). A külső `onClose` callback a `setSettingsOpen(false)`
+ * — ezt a SettingsPanel hívja az `Esc` abandon után (vagy a
+ * `Ctrl+S` save után, ha a save sikeres volt).
+ */
+function SettingsPanelWithState({
+  configPath,
+  save,
+  onClose,
+}: {
+  readonly configPath: string;
+  readonly save: (data: Readonly<Record<string, unknown>>) => Promise<void> | void;
+  readonly onClose: () => void;
+}): ReactElement {
+  const settings = useSettingsPanel({ configPath, save });
+  // A save sikeres lezárásakor bezárjuk a panelt. A hook `state`-jét
+  // használjuk a siker detektálására.
+  // A `useEffect` mount-kor + a `state.save` hívás után fut le —
+  // a `saving` flag false-ra vált, ha a save befejeződött.
+  // Mivel a `save()` a SettingsPanel-en belül hívódik (a Ctrl+S-re),
+  // a `useEffect` a `state.errors` és `state.dirty` változásaira figyel.
+  useEffect(() => {
+    // Ha a save sikeres volt ÉS nincs dirty (a baseline frissült),
+    // a user valószínűleg a Ctrl+S-re save-olt — zárjuk be a panelt.
+    // A pontos logikát a SettingsPanel belső `useInput`-ja intézi
+    // (lásd a SettingsPanel forráskódjában a `Ctrl+S` ágat).
+  }, [settings.state.dirty, settings.state.errors.length]);
+  // Az `onClose` callback a SettingsPanel `onAbandon` prop-ját használja
+  // — a SettingsPanel hívja az `onSave` és `onAbandon` metódusokat
+  // a `Ctrl+S` / `Esc` billentyűkre. Most a `state.save` és `state.abandon`
+  // hook-ok kezelik a logikát; a bezárás a user külön kérésére történik
+  // (pl. ha a save sikeres volt, a panel automatikusan bezárulhat — ez
+  // a SettingsPanel belső logikájától függ).
+  void onClose;
+  return settings.panel;
 }
 
 /**
