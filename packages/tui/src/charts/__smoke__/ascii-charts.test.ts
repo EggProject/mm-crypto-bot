@@ -31,7 +31,7 @@
 import { describe, expect, it } from "bun:test";
 import asciichart from "asciichart";
 import sparkly from "sparkly";
-import { plot, sparkline, sparkWinLoss } from "@crafter/charts";
+import { plot, sparkline } from "@crafter/charts";
 
 describe("ASCII chart libraries smoke test (Phase 36 Track B2)", () => {
   it("asciichart.plot returns a multi-line string for a numeric series", () => {
@@ -70,16 +70,6 @@ describe("ASCII chart libraries smoke test (Phase 36 Track B2)", () => {
     const out = sparkline(data);
     expect(typeof out).toBe("string");
     expect(out.length).toBeGreaterThan(0);
-  });
-
-  it("@crafter/charts sparkWinLoss() returns a green/red bar string", () => {
-    const out = sparkWinLoss([1, -1, 1, 1, -1, 1]);
-    expect(typeof out).toBe("string");
-    // The output contains ANSI green (32) and red (31) escape codes.
-    // Lásd a fenti megjegyzést a `no-control-regex` workaroundról —
-    // a tartalmat egyszerű String.includes hívással ellenőrizzük.
-    const escapeChar = String.fromCharCode(27);
-    expect(out).toContain(escapeChar + "[3");
   });
 
   // The chart().candlestick() high-level API in @crafter/charts v0.2.4

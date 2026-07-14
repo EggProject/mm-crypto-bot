@@ -17,7 +17,6 @@
 
 import type { ReactElement } from "react";
 import { Box, Text } from "ink";
-import { StatusMessage } from "@inkjs/ui";
 import { renderEquityCurve } from "../charts/equity-curve.js";
 import { renderSparkline } from "../charts/sparkline.js";
 import { renderCandlesticks } from "../charts/candlestick.js";
@@ -110,7 +109,7 @@ export function ChartsPanel({
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={borderColor} paddingX={1}>
-      <StatusMessage variant="info">📊  CHARTS (EQUITY / CANDLESTICK / P&amp;L / STRATEGIES)</StatusMessage>
+      <Text bold color="magenta">📊  CHARTS (EQUITY / CANDLESTICK / P&amp;L / STRATEGIES)</Text>
 
       <Box marginTop={0} flexDirection="row" gap={2}>
         {/* Bal oszlop: equity görbe + candlestick */}
