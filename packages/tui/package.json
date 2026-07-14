@@ -1,7 +1,7 @@
 {
   "name": "@mm-crypto-bot/tui",
   "version": "0.1.0",
-  "description": "Ink-alap\u00fa TUI v\u00e1z \u2014 terminal user interface a bot \u00e1llapot\u00e1nak megjelen\u00edt\u00e9s\u00e9hez \u00e9s vez\u00e9rl\u00e9s\u00e9hez",
+  "description": "Ink-alapú TUI váz — terminal user interface a bot állapotának megjelenítéséhez és vezérléséhez",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
@@ -18,6 +18,9 @@
     "clean": "rm -rf .turbo *.tsbuildinfo dist coverage"
   },
   "dependencies": {
+    "@inkjs/ui": "^2.0.0",
+    "@matthesketh/ink-status-bar": "^0.1.0",
+    "@matthesketh/ink-table": "^0.1.0",
     "@mm-crypto-bot/paper": "workspace:*",
     "@mm-crypto-bot/shared": "workspace:*",
     "ink": "7.1.0",

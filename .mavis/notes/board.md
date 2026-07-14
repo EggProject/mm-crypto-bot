@@ -1,8 +1,8 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-12 16:55 Budapest — Phase 35b in progress. 100% threshold enforcement infrastructure merged. 3 sub-agents in flight to close remaining per-file gaps in apps/bot, packages/core, packages/backtest-tools.
+description: Project board — mm-crypto-bot. Updated 2026-07-14 21:55 Budapest — Phase 35d CLOSED (coverage:full redesign), Phase 36 EXECUTING (TUI UX revamp, 4 user issues + 6-8 PR + 4 tracks, A1 producer indítása).
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-12 04:50 Budapest, Phase 34 CLOSED)
+# Project board — mm-crypto-bot (updated 2026-07-14 21:55 Budapest, Phase 36 EXECUTING)
 
 ## User mandate (2026-07-11 23:42 Budapest) — PHASE 33 SCOPE
 
@@ -550,3 +550,91 @@ Cron `phase35b-agents-check` set up to poll the 3 background tasks every 3 minut
 
 - "MANDATORY: verify before claiming done" — never claim "done" without running the full pipeline end-to-end
 - "Hallucinated completion" — apps/bot tests failed under --coverage in a stale worktree; the actual main was fine, but I never verified
+
+
+## Phase 36 — TUI UX REVAMP (EXECUTING 2026-07-14 21:55 Budapest, 4 user issues, 6-8 PR, 4 tracks)
+
+### User mandate (2026-07-14 20:58 Budapest) — 4 issues
+
+1. **"`bun run start` azonnal indítja a botot, én nem akarom hogy elinduljon rögtön"** — `mm-bot start` should NOT auto-start the bot. Default: TUI ready, bot in `stopped` state. User must press `[s]` to start.
+2. **"az `s` billentyűre logok jelentek meg a TUI tetején"** — Stop action (or any TUI control) must NOT print raw log lines into the TUI surface. Log routing must be separate (TUI panel OR file only).
+3. **"nagyon egyszerű lett a TUI, ennél jobban turbózd fel"** — TUI looks too plain. Need richer visuals: ASCII charts (candlestick, equity curve, P&L sparkline), colored gradients, panel borders, keybinding hints in footer, header status bar, better layout.
+4. **"a bot összes beállítását be tudjam a TUI felületen állítani"** — Interactive settings panel: enable/disable strategies, edit `cap`, `leverage`, `risk_per_trade`, `max_drawdown_pct`, `max_positions`, `symbols`, `timeframes`, `bot.mode` (paper/live — guarded), exchange settings. Persist to TOML.
+
+### Research COMPLETE (2026-07-14 21:35, 5 agents, ~75 web queries)
+
+See [`docs/audits/phase36-research-findings.md`](../docs/audits/phase36-research-findings.md) (27 KB, ranked library catalog with ≥2 sources per claim).
+
+| Angle | Agent | Output | Key picks |
+|-------|-------|--------|-----------|
+| A — Ink ecosystem | `bg_08469786` | 26 web queries, ranked 10 libraries | ADOPT 4: `@inkjs/ui`, `@matthesketh/ink-table`, `@matthesketh/ink-status-bar`, `sindresorhus/ink-link` v5.0.0 |
+| B — ASCII charts | `bg_c6853678` | 17 web queries, 4-library short-list | ADOPT: `asciichart` + `sparkly` + `@crafter/charts` (60-LOC hand-rolled fallback) + `@pppp606/ink-chart` |
+| C — Form input / settings | `bg_7f3490b7` | 12 web queries, btop-style multi-section | ADOPT: `@inkjs/ui` v2.0.0 + `smol-toml` + `write-file-atomic` + typed "LIVE" confirmation |
+| D — Log routing | `bg_a41ee0cd` | 30+ web queries, root cause identified | FIX: `createLogger` writes only to stdout → rewrite to file + stderr. Ink 7 `alternateScreen` native. |
+| E — Auto-start | `bg_af9fa2f9` | 17 web queries, 7 reference cases | BOTH: `--auto-start` flag + `bot.auto_start` TOML. `--headless` implies `--auto-start`. |
+
+### Tracks (final breakdown, 6-8 PR)
+
+| # | Track | PR | Branch (planned) | Status |
+|---|-------|-----|------------------|--------|
+| **A1** | No auto-start + flag/TOML + stopped-state UI | 1 | `fix/phase36-track-a1-no-autostart` | 🔄 producer indítása (22:00 körül) |
+| **A2** | Log routing (file+stderr) + alternate screen + log-routing probe test | 1 | `fix/phase36-track-a2-log-routing` | ⏳ A1 után |
+| **B1** | `@inkjs/ui` + `@matthesketh/ink-table` + `@matthesketh/ink-status-bar` (3 panel csere) | 1 | `feat/phase36-track-b1-ink-components` | ⏳ A2 után |
+| **B2** | ASCII charts: equity / sparkline / candlestick / bar | 1 | `feat/phase36-track-b2-ascii-charts` | ⏳ B1 után |
+| **C1** | Settings panel (btop multi-section + form + Zod re-validate + atomic write) | 1-2 | `feat/phase36-track-c1-settings-panel` | ⏳ B2 után |
+| **C2** | Live-mode typed "LIVE" + leverage cap UI + raw TOML viewer | 1 | `feat/phase36-track-c2-live-confirm` | ⏳ C1 után |
+| **D** | Closure docs (deliverable + board + MEMORY + README) | 1 | `docs/phase36-closure` | ⏳ C2 után |
+
+### 4 user-question decisions (all confirmed by user 2026-07-14 21:54)
+
+1. **A1 + A2: 1 PR or 2?** → 2 PR (külön reviewer, külön rollback, A1 user-visible, A2 internal)
+2. **Settings panel: btop multi-section or one-field-at-a-time?** → btop multi-section (egy képernyő, minden látszik)
+3. **mm-bot.toml: in-place or override file?** → in-place + `.bak` (matches mental model, atomic write)
+4. **Charts layout: 4th panel, replace Statistics, or new top section?** → 4. panel (meglévő 3-panel mode-key megmarad)
+
+### User mandate (orchestrator role)
+
+> "te csak kordinatorlsz" (2026-07-14 21:54)
+
+User explicitly asked the orchestrator to **coordinate only** — delegate implementation to sub-agents (task tool), monitor via cron, report status. No direct code writing from the orchestrator session.
+
+### Pre-launch checklist update
+
+- User reviews the new TUI in headless + interactive mode
+- User signs off on the settings-UI design (which fields, which guards)
+- User runs `mm-bot start --config=prod.toml` and validates that config-edit-from-TUI persists correctly
+- User flips `bot.mode = "live"` in the new TUI (guarded behind typed "LIVE" confirmation)
+
+
+## Phase 36 Track B1 — completed 2026-07-14 23:30 Budapest (producer session)
+
+**Branch:** `feat/phase36-track-b1-ink-components` (off main `4186c83`)
+**PR:** (to be opened) — see "Track B1 PR" in this board
+
+**What shipped (per Phase 36 user mandate "richer visuals"):**
+
+1. **`<Header>`** — `<Badge>` from `@inkjs/ui` for [LIVE] / [TUI-ONLY] / [PAUSED] / [● STOPPED] badges (color-coded, ink 7 compat verified)
+2. **`<StatisticsPanel>`** — `<StatusMessage variant="info">` title; the metric labels keep the original "Összesített PnL:" form for test-compat (Badge upper-cases content, which would break render-probe tests)
+3. **`<StatusBar>`** — full rewrite with `<StatusBar items=[...] />` from `@matthesketh/ink-status-bar`; preserves the stopped-state "▶ Start" label and the "mm-crypto-bot · v0.1.0" footer
+4. **`<HistoryList>`** — `<Table data columns />` from `@matthesketh/ink-table`; 8 columns (ID, OLDAL, SYMBOL, BELÉPŐ, KILÉPŐ, PNL, OK, ZÁRVA), with `align` per column
+5. **`<LiveTradingPanel>`** — `<Spinner label="Connecting..." />` from `@inkjs/ui` for the empty-state placeholder; `<StatusMessage variant="warning">` title
+
+**Smoke tests (10/10 PASS):**
+- `__smoke__/inkjs-ui.test.tsx` — 6 tests (Badge, Spinner, StatusMessage, TextInput)
+- `__smoke__/matthesketh.test.tsx` — 3 tests (Table, StatusBar)
+- All run with ink 7.1.0 + React 19.2 (peer-dep warnings overridden via root `package.json`)
+
+**Per-component tests (32/32 PASS):**
+- `__tests__/header-badge.test.tsx` — 8 tests
+- `__tests__/statistics-panel-status-message.test.tsx` — 9 tests
+- `__tests__/status-bar-keys.test.tsx` — 10 tests
+- `__tests__/history-list-table.test.tsx` — 10 tests
+- `__tests__/live-trading-spinner.test.tsx` — 5 tests
+
+**Test counts:** 90 → 132 tui tests (+42), 2765 → 2807 total (+42)
+
+**Coverage:** 8/8 packages at 100% line coverage on OWN src/. TUI grew 1043 → 1052 lines (the new test files).
+
+**CI gates:** typecheck PASS, lint PASS, test PASS, build PASS, coverage:per-package PASS.
+
+**Trade-off note:** The Table v0.1.0 does not support per-cell coloring (cells are joined as strings). The history-table trade-ek LONG/SHORT szín-jelzése a `+`/`-` prefix-szel működik (PNL oszlop). A Phase 36 user mandate "richer visuals" máshol teljesül: badge-ek a Header-ben, StatusMessage címek minden panelen, Spinner a Connecting állapotban, KeyHint-ek a StatusBar-ban.

@@ -66,5 +66,10 @@
   },
   "trustedDependencies": [
     "ccxt"
-  ]
+  ],
+  "overrides": {
+    "@inkjs/ui": { "peerDependencies": { "ink": "*", "react": "*" } },
+    "@matthesketh/ink-table": { "peerDependencies": { "ink": "*", "react": "*" } },
+    "@matthesketh/ink-status-bar": { "peerDependencies": { "ink": "*", "react": "*" } }
+  }
 }

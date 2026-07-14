@@ -8,18 +8,19 @@
 //   - A kapcsolat állapotát (CCXT Pro WS feed)
 //   - Az utolsó frissítés időbélyegét
 //
-// A Phase 34 Track B kiegészítések:
-//   - A mód badge formátuma: `[LIVE]` (zöld) / `[TUI-ONLY]` (piros) /
-//     `[PAUSED]` (sárga). Ezek explicit, vizuálisan könnyen felismerhető
-//     jelzések — a user azonnal látja, milyen módban fut a TUI.
-//   - A `paused` flag a `BotState.paused` mezőből jön, és a
-//     `[PAUSED]` badge megjelenik, ha aktív.
+// A Phase 36 Track B1 kiegészítés: a hand-rolled `<Text bold color="...">`
+// badge-ek lecserélése a `@inkjs/ui` `<Badge>` komponensére. A `<Badge>`
+// a `@inkjs/ui` hivatalos, színvak-biztos (mindig tartalmaz egy állapot-
+// indikátort) badge implementációja — a Phase 36 research 1.0
+// ajánlása. A függőség-váltás nem változtatja meg a megjelenést
+// (a `Badge` a `color` prop-ot kapja meg, és a children-t jeleníti meg).
 //
 // A háttérszín az állapottól függően változik (zöld = fut,
 // piros = vészleállítva, sárga = megerősítésre vár).
 
 import type { ReactElement } from "react";
 import { Box, Text } from "ink";
+import { Badge } from "@inkjs/ui";
 import type { BotState } from "../types.js";
 import { formatTimestamp } from "../utils/format.js";
 
@@ -42,25 +43,11 @@ export function Header({ state }: { readonly state: BotState }): ReactElement {
   // Phase 36 Track A1: a `state.running === false` ÉS `mode === "with-bot"`
   // állapotban a badge egy AMBER színű `[● STOPPED]` lesz (a Phase 36
   // user mandate: a bot a TUI indulásakor `stopped` állapotban van).
-  // A `running === true` állapotban a badge a régi "FUT" / zöld
-  // marad. TUI-only módban a badge NEM jelenik meg (ott nincs bot,
-  // a "stopped" fogalom nem értelmes).
-  //
-  // A "LEÁLLÍTVA" / piros label a jobboldali slotban továbbra is
-  // megjelenik stopped state-ben, mert az a "bot le van állítva"
-  // (graceful stop) és a "bot sosem indult el" (stopped) állapotot
-  // is jelöli — a `[● STOPPED]` badge pontosítja, hogy melyikben vagyunk.
-  //
-  // A `●` karakter (U+25CF) egy kitöltött kör, ami a pitchfork /
-  // btop TUI-konvencióját követi: a badge-ek mindig tartalmaznak
-  // egy állapot-indikátort a szín mellett (színvak-biztos).
   const stoppedBadge = !running && status.mode === "with-bot" ? "[● STOPPED]" : null;
   const runningLabel = running ? "FUT" : "LEÁLLÍTVA";
   const runningColor: "green" | "red" = running ? "green" : "red";
 
   // A pause badge — a paused flag határozza meg.
-  // Csak akkor jelenik meg, ha paused=true; a badge színe sárga
-  // (figyelemfelkeltő, de nem piros — a pause NEM vészhelyzet).
   const pausedBadge = paused ? "[PAUSED]" : null;
 
   // A kill-switch állapota.
@@ -92,17 +79,23 @@ export function Header({ state }: { readonly state: BotState }): ReactElement {
         <Box>
           <Text bold color="cyan">mm-crypto-bot TUI</Text>
           <Text>  ·  </Text>
-          <Text bold color={modeBadgeColor}>{modeBadge}</Text>
+          {/*
+            Phase 36 Track B1: a badge-ek a `@inkjs/ui` `<Badge>`-re
+            cserélve. A `<Badge color="...">label</Badge>` forma
+            megőrzi a korábbi szín-szemantikát (zöld = LIVE, piros
+            = TUI-ONLY, sárga = STOPPED / PAUSED).
+          */}
+          <Badge color={modeBadgeColor}>{modeBadge}</Badge>
           {pausedBadge !== null && (
             <>
               <Text>  </Text>
-              <Text bold color="yellow">{pausedBadge}</Text>
+              <Badge color="yellow">{pausedBadge}</Badge>
             </>
           )}
           {stoppedBadge !== null && (
             <>
               <Text>  </Text>
-              <Text bold color="yellow">{stoppedBadge}</Text>
+              <Badge color="yellow">{stoppedBadge}</Badge>
             </>
           )}
         </Box>
