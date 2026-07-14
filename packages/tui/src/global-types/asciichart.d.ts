@@ -1,10 +1,14 @@
-// packages/tui/src/types/asciichart.d.ts — a `asciichart` library
-// lokális típus-deklarációja.
+// packages/tui/src/global-types/asciichart.d.ts — a `asciichart`
+// library lokális típus-deklarációja.
 //
-// A `@types/asciichart` (DefinitelyTyped) hibás: a `default`
-// exportot `string`-ként deklarálja, pedig a runtime-ban
-// egy object, aminek van `.plot()` metódusa és szín-konstansok.
-// Ez a lokális deklaráció felülírja a DefinitelyTyped típust.
+// A `@types/asciichart` (DefinitelyTyped) hibás: a `default` exportot
+// `string`-ként deklarálja, pedig a runtime-ban egy object, aminek
+// van `.plot()` metódusa és szín-konstansok. Ez a lokális deklaráció
+// felülírja a DefinitelyTyped típust.
+//
+// A fájl a `packages/tui/src/global-types/` mappában van, és a
+// `packages/tui/tsconfig.json` `include` opcióján keresztül
+// (mely `src/**/*` mintát használ) automatikusan betöltődik.
 
 declare module "asciichart" {
   export const black: string;
@@ -36,9 +40,7 @@ declare module "asciichart" {
     min?: number;
     max?: number;
     colors?: readonly (string | undefined)[];
-    /** Auto-detect minimum when no explicit min/max given. */
     auto?: boolean;
-    /** Pad label offsets. */
     padding?: number;
   }
 
@@ -47,7 +49,7 @@ declare module "asciichart" {
     config?: PlotConfig,
   ): string;
 
-  const asciichart: {
+  const asciichartInstance: {
     plot: typeof plot;
     colored: typeof colored;
     black: string;
@@ -64,10 +66,9 @@ declare module "asciichart" {
     lightgreen: string;
     lightyellow: string;
     lightblue: string;
-    lightmagenta: string;
     lightcyan: string;
     white: string;
     reset: string;
   };
-  export default asciichart;
+  export default asciichartInstance;
 }
