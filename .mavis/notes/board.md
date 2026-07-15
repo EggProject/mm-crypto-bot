@@ -676,3 +676,126 @@ User explicitly asked the orchestrator to **coordinate only** — delegate imple
 8. When PR #105 CI is green → STOP, do NOT merge, report to user (per project policy: "no auto-merge")
 
 **Hard cap (per user mandate):** 1:10 leverage in UI (already enforced via LeverageCap.tsx); 1:10 max in ConfigStore; bot.mode = "live" requires typed "LIVE" confirmation (already enforced via LiveConfirm.tsx).
+
+---
+
+## Phase 36 — TUI UX REVAMP (CLOSED 2026-07-15 Budapest)
+
+**Producer:** `bg_65c1caaf` (Phase 36 Track D closure docs)
+**Branch:** `docs/phase36-closure` (off `feat/phase36-track-c2-live-confirm` @ `0a672d2`)
+**PR:** pending — see "Phase 36 docs PR" below
+**Status:** all 6 implementation PRs at HEAD with green CI; #100-#103 merged to main, #104 superseded (will be closed once #105 merges), #105 pending user squash-merge.
+
+### Tracks & PRs (final)
+
+| Track | PR | Branch | Merged |
+|-------|----|----|--------|
+| A1 | #100 | `fix/phase36-track-a1-no-autostart` | ✅ |
+| A2 | #101 | `fix/phase36-track-a2-log-routing` | ✅ |
+| B1 | #102 | `feat/phase36-track-b1-ink-components` | ✅ |
+| B2 | #103 | `feat/phase36-track-b2-ascii-charts` | ✅ |
+| C1 | #104 | `feat/phase36-track-c1-settings-panel` | ⏳ superseded by #105 |
+| C2 | #105 | `feat/phase36-track-c2-live-confirm` | ⏳ pending user merge |
+| D | (this) | `docs/phase36-closure` | ⏳ docs PR pending |
+
+### Test & coverage deltas (per package)
+
+| Package | Pre-Phase-36 LOC | Post-Phase-36 LOC | Δ LOC | Post-Phase-36 tests | Post-Phase-36 % (own src/) |
+|---------|------------------|-------------------|-------|---------------------|----------------------------|
+| `apps/bot` | 2 271 | 2 590 | +319 (+14.0%) | 365 | 100.0% (2589 of 2590) |
+| `packages/tui` | 1 043 | 1 921 | +878 (+84.2%) | 260 (5 322 LOC of test code) | 100.0% (1921 of 1921) |
+| `packages/paper` | 251 | 251 | 0 | 65 | 100.0% (251 of 251) |
+| `packages/exchange` | 868 | 868 | 0 | 318 | 100.0% (868 of 868) |
+| `packages/core` | 12 124 | 12 124 | 0 | 1 502 | 100.0% (12124 of 12124) |
+| `packages/shared` | 189 | 189 | 0 | 122 | 100.0% (189 of 189) |
+| `packages/backtest` | 754 | 754 | 0 | 140 | 100.0% (754 of 754) |
+| `packages/backtest-tools` | 2 289 | 2 289 | 0 | 204 | 100.0% (2289 of 2289) |
+| **TOTAL** | **19 789** | **20 986** | **+1 197 (+6.0%)** | **2 976 tests across 145 files** | **8/8 PASS** |
+
+### Library catalog adopted (10)
+
+| # | Library | Version | Category | Where |
+|---|---------|---------|----------|-------|
+| 1 | `@inkjs/ui` | v2.0.0 | Ink components | SettingsPanel / LiveConfirm / LeverageCap / Header / StatisticsPanel / LiveTradingPanel |
+| 2 | `@matthesketh/ink-table` | v0.1.0 | Ink components | HistoryList |
+| 3 | `@matthesketh/ink-status-bar` | v0.1.0 | Ink components | StatusBar |
+| 4 | `sindresorhus/ink-link` | v5.0.0 | Ink components | reserved for Phase 37+ |
+| 5 | `asciichart` | v1.5.25 | ASCII charts | ChartsPanel equity curve |
+| 6 | `sparkly` | v6.0.1 | ASCII charts | ChartsPanel P&L sparkline |
+| 7 | `@crafter/charts` | v0.2.4 | ASCII charts | ChartsPanel candlestick (with 60-LOC hand-roll fallback) |
+| 8 | `@pppp606/ink-chart` | v0.2.6 | ASCII charts | ChartsPanel strategy breakdown BarChart |
+| 9 | `smol-toml` | v1.7.0 | Persistence | ConfigStore + useConfigStore |
+| 10 | `write-file-atomic` | v8.0.0 | Persistence | ConfigStore.write() atomic + .bak |
+
+Full per-library entry (npm link, source URLs, file:line, the 7 SKIP decisions) → [`docs/production-strategies/library-catalog.md`](../../docs/production-strategies/library-catalog.md)
+
+### CI gates green at 100% (the one big table)
+
+`bun run coverage:full` output on `feat/phase36-track-c2-live-confirm` @ `0a672d2` (2026-07-15 Budapest):
+
+```
++ ------------------------ + ------ + ---------------------------------------- +
+| Package                | Stat  | Line coverage                          |
+| ------------------------ | ------ | ---------------------------------------- |
+| apps/bot               | PASS  | 100.0% (2589 of 2590 lines)            |
+| packages/paper         | PASS  | 100.0% (251 of 251 lines)              |
+| packages/exchange      | PASS  | 100.0% (868 of 868 lines)              |
+| packages/core          | PASS  | 100.0% (12124 of 12124 lines)          |
+| packages/tui           | PASS  | 100.0% (1921 of 1921 lines)            |
+| packages/shared        | PASS  | 100.0% (189 of 189 lines)              |
+| packages/backtest      | PASS  | 100.0% (754 of 754 lines)              |
+| packages/backtest-tools | PASS  | 100.0% (2289 of 2289 lines)            |
++ ------------------------ + ------ + ---------------------------------------- +
+  Result: 8/8 packages at 100% line coverage on OWN src/ files
+  ✓ All packages at 100% line coverage on OWN src/ files
+```
+
+All 5 CI gates PASS: `typecheck` (turbo × 14), `lint` (turbo × 8), `test` (turbo × 14, 2 976 tests), `build` (turbo × 8), `coverage:full` (the one big table above).
+
+### Phase 36 docs PR (Track D)
+
+**Branch:** `docs/phase36-closure` (off `feat/phase36-track-c2-live-confirm` @ `0a672d2`)
+**Files (5):**
+1. `docs/production-strategies/phase36-deliverable.md` — main closure report (Track D)
+2. `docs/production-strategies/tui.md` — TUI operator guide (overwrite of Phase 34 baseline; post-Phase-36 flow)
+3. `docs/production-strategies/library-catalog.md` — the 10 adopted libraries
+4. `apps/bot/README.md` — §3.3 TUI section updated; new §11 Phase 36 pre-launch checklist
+5. `.mavis/notes/board.md` — this CLOSED section (appended after the existing EXECUTING audit trail)
+
+**Strategy:** the docs branch is off `feat/phase36-track-c2-live-confirm`, NOT off `main`. This way the docs reference the actual Phase 36 implementation. After PR #105 merges, the user can rebase the docs PR (or merge the docs commit into #105 if preferred).
+
+### Pre-launch checklist (10 items, for the user to verify)
+
+1. Review PR #105 in browser
+2. Squash-merge PR #105 + close PR #104 as superseded
+3. Run `mm-bot start` (default: bot stopped) → press `[s]` to start
+4. Run `mm-bot start --headless` (auto-starts via `--headless`)
+5. Open settings panel `[o]` → edit a value → `[Ctrl+S]` to save → verify `.bak` + tmp handling
+6. Try to set leverage > 10 → verify keystroke rejection
+7. Try to switch `bot.mode = "live"` → verify "LIVE" guard requires literal "LIVE"
+8. Press `[v]` to view raw TOML → verify shell-out works (`less` / `$PAGER` / `$EDITOR`)
+9. Validate config: `mm-bot config validate` → check output
+10. Once user signs off, flip `bot.mode = "live"` in the new TUI
+
+Full checklist with per-item context → [`docs/production-strategies/phase36-deliverable.md` §"Pre-launch checklist"](../../docs/production-strategies/phase36-deliverable.md)
+
+### Known limitations (full list in deliverable)
+
+1. **Table v0.1.0 doesn't support per-cell coloring** — use `+`/`-` prefix on PNL column
+2. **@inkjs/ui TextInput re-fires onChange on re-render** — test workaround: use `find()` on recorder array
+3. **@crafter/charts is 3 months old, 1 contributor** — 60-LOC hand-roll fallback shipped
+4. **Logger refactor is a behavior change for downstream callers** — must read file or stderr now
+5. **Settings panel scope is Risk + Bot only** — Strategies / Exchange / Symbols / Telemetry are READ-ONLY (Phase 37+ scope)
+6. **No mouse support** — keyboard-only TUI
+7. **No multi-tab TUI** — settings panel is a modal-ish overlay
+8. **`writeAfterTypedLive` is not atomic across audit log + config** — crash window is small but non-zero
+9. **Charts panel's OHLC data is currently empty** — future phase will feed the real OHLC stream
+
+### See also (the docs PR deliverables)
+
+- [`docs/production-strategies/phase36-deliverable.md`](../../docs/production-strategies/phase36-deliverable.md) — main closure report
+- [`docs/production-strategies/tui.md`](../../docs/production-strategies/tui.md) — TUI operator guide
+- [`docs/production-strategies/library-catalog.md`](../../docs/production-strategies/library-catalog.md) — 10 adopted libraries
+- [`docs/audits/phase36-research-findings.md`](../../docs/audits/phase36-research-findings.md) — 5-agent research, ~75 web queries
+- [`docs/audits/phase36-tui-ux-revamp-scope.md`](../../docs/audits/phase36-tui-ux-revamp-scope.md) — the scope doc Phase 36 implements
+- [`apps/bot/README.md`](../../apps/bot/README.md) — updated §3.3 TUI section + new §11 Phase 36 checklist
