@@ -70,3 +70,20 @@ export type {
   RttSample,
   SupportedExchangeId,
 } from "./latency-monitor.js";
+
+// === Phase 37 Track 3 — OHLC stream (live trade → OHLC bar aggregation) ===
+
+export {
+  alignToTimeframe,
+  barsToCandles,
+  barsToOhlcv,
+  DEFAULT_OHLC_STREAM_CONFIG,
+  OhlcStream,
+  RingBuffer,
+} from "./ohlc-stream.js";
+export type {
+  OhlcBar,
+  OhlcStreamBarEvent,
+  OhlcStreamConfig,
+  OhlcStreamErrorEvent,
+} from "./ohlc-stream.js";

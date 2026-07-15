@@ -31,7 +31,7 @@ import type {
 /** A mock feed belső subscription-nyilvántartása. */
 interface MockSubscription {
   readonly id: SubscriptionId;
-  readonly kind: "ticker" | "orderbook" | "trades" | "ohlcv";
+  readonly kind: "ticker" | "orderbook" | "trade" | "ohlcv";
   readonly symbol: Symbol;
   readonly timeframe: Timeframe | undefined;
   readonly listener: FeedListener;
@@ -109,7 +109,9 @@ export class MockExchangeFeed implements ExchangeFeed {
 
   async subscribeTrades(symbol: Symbol, listener: FeedListener): Promise<SubscriptionId> {
     this.assertOpen();
-    return this.addSub("trades", symbol, undefined, listener);
+    // Note: the FeedEvent discriminant is "trade" (singular) per types.ts;
+    // the subscription kind here matches the event kind for routing.
+    return this.addSub("trade", symbol, undefined, listener);
   }
 
   async subscribeOhlcv(symbol: Symbol, timeframe: Timeframe, listener: FeedListener): Promise<SubscriptionId> {
