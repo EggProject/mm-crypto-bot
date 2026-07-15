@@ -351,7 +351,7 @@ export class StrategyRunner {
       this.logger.debug("[strategy-runner] budget cap shrunk amount to 0 — skipping", {
         strategy: strategyName,
         symbol,
-        baseAmount,
+        amount,
         referencePrice,
       });
       return;
