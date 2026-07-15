@@ -282,6 +282,212 @@ notional_per_leg_usd = 250000
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // --------------------------------------------------------------------------
+  // 13) Phase 37 Track 5 — exchange.endpoint default is `undefined`
+  //     (CCXT default bybiteu endpoint is used).  The Tokyo template
+  //     sets it to `https://api.bybit.jp`.
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: exchange.endpoint is undefined by default", () => {
+    const config = loadBotConfig();
+    expect(config.exchange.endpoint).toBeUndefined();
+  });
+
+  // --------------------------------------------------------------------------
+  // 14) Phase 37 Track 5 — exchange.endpoint accepts a valid HTTPS URL
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: exchange.endpoint accepts a valid HTTPS URL", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    const path = join(dir, "tokyo.toml");
+    writeFileSync(path, "[exchange]\nendpoint = \"https://api.bybit.jp\"\n", "utf8");
+    try {
+      const config = loadBotConfig(path);
+      expect(config.exchange.endpoint).toBe("https://api.bybit.jp");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 15) Phase 37 Track 5 — exchange.endpoint REJECTS a non-URL string
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: REJECTS exchange.endpoint = 'not-a-url'", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    const path = join(dir, "bad-endpoint.toml");
+    writeFileSync(path, "[exchange]\nendpoint = \"not-a-url\"\n", "utf8");
+    try {
+      let caught: unknown;
+      try {
+        loadBotConfig(path);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(ConfigError);
+      const err = caught as ConfigError;
+      expect(err.path).toBe("exchange.endpoint");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 16) Phase 37 Track 5 — exchange.timeout_ms default + Tokyo override
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: exchange.timeout_ms default is 10000", () => {
+    const config = loadBotConfig();
+    expect(config.exchange.timeout_ms).toBe(10_000);
+  });
+
+  it("Phase 37 Track 5: exchange.timeout_ms accepts the Tokyo 5000 override", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    const path = join(dir, "tokyo-timeout.toml");
+    writeFileSync(path, "[exchange]\ntimeout_ms = 5000\n", "utf8");
+    try {
+      const config = loadBotConfig(path);
+      expect(config.exchange.timeout_ms).toBe(5000);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("Phase 37 Track 5: REJECTS exchange.timeout_ms < 100 (min)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    const path = join(dir, "tiny-timeout.toml");
+    writeFileSync(path, "[exchange]\ntimeout_ms = 50\n", "utf8");
+    try {
+      let caught: unknown;
+      try {
+        loadBotConfig(path);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(ConfigError);
+      const err = caught as ConfigError;
+      expect(err.path).toBe("exchange.timeout_ms");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 17) Phase 37 Track 5 — exchange.ws_endpoint accepts a valid wss URL
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: exchange.ws_endpoint accepts a valid wss URL", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    const path = join(dir, "tokyo-ws.toml");
+    writeFileSync(path, "[exchange]\nws_endpoint = \"wss://stream.bybit.jp\"\n", "utf8");
+    try {
+      const config = loadBotConfig(path);
+      expect(config.exchange.ws_endpoint).toBe("wss://stream.bybit.jp");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 18) Phase 37 Track 5 — compliance block defaults (jurisdiction=EU,
+  //     jp_msb_registered=false)
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: compliance defaults to EU + jp_msb_registered=false", () => {
+    const config = loadBotConfig();
+    expect(config.compliance.jurisdiction).toBe("EU");
+    expect(config.compliance.jp_msb_registered).toBe(false);
+  });
+
+  // --------------------------------------------------------------------------
+  // 19) Phase 37 Track 5 — compliance.jurisdiction accepts "JP"
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: compliance.jurisdiction accepts \"JP\"", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    const path = join(dir, "jp-jur.toml");
+    writeFileSync(path, "[compliance]\njurisdiction = \"JP\"\n", "utf8");
+    try {
+      const config = loadBotConfig(path);
+      expect(config.compliance.jurisdiction).toBe("JP");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 20) Phase 37 Track 5 — compliance.jurisdiction REJECTS unknown values
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: REJECTS compliance.jurisdiction = 'US' (unknown)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    const path = join(dir, "bad-jur.toml");
+    writeFileSync(path, "[compliance]\njurisdiction = \"US\"\n", "utf8");
+    try {
+      let caught: unknown;
+      try {
+        loadBotConfig(path);
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(ConfigError);
+      const err = caught as ConfigError;
+      expect(err.path).toBe("compliance.jurisdiction");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 21) Phase 37 Track 5 — compliance.jp_msb_registered boolean override
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: compliance.jp_msb_registered accepts true", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    const path = join(dir, "msb-on.toml");
+    writeFileSync(path, "[compliance]\njp_msb_registered = true\n", "utf8");
+    try {
+      const config = loadBotConfig(path);
+      expect(config.compliance.jp_msb_registered).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 22) Phase 37 Track 5 — combined Tokyo co-loc config (the actual
+  //     `live-tokyo.toml` shape) loads cleanly and round-trips.
+  // --------------------------------------------------------------------------
+  it("Phase 37 Track 5: Tokyo co-loc combined config loads cleanly", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    const path = join(dir, "live-tokyo.toml");
+    writeFileSync(
+      path,
+      [
+        "[bot]",
+        "mode = \"live\"",
+        "",
+        "[exchange]",
+        "id = \"bybiteu\"",
+        "endpoint = \"https://api.bybit.jp\"",
+        "ws_endpoint = \"wss://stream.bybit.jp\"",
+        "timeout_ms = 5000",
+        "rate_limit_ms = 80",
+        "slippage_pct = 0.03",
+        "fee_tier = \"vip\"",
+        "",
+        "[compliance]",
+        "jurisdiction = \"JP\"",
+        "jp_msb_registered = false",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    try {
+      const config = loadBotConfig(path);
+      expect(config.bot.mode).toBe("live");
+      expect(config.exchange.endpoint).toBe("https://api.bybit.jp");
+      expect(config.exchange.ws_endpoint).toBe("wss://stream.bybit.jp");
+      expect(config.exchange.timeout_ms).toBe(5000);
+      expect(config.exchange.slippage_pct).toBe(0.03);
+      expect(config.compliance.jurisdiction).toBe("JP");
+      expect(config.compliance.jp_msb_registered).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("env overrides", () => {

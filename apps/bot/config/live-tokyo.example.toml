@@ -1,0 +1,178 @@
+# mm-crypto-bot — Tokyo co-location LIVE config EXAMPLE
+# ======================================================================
+#
+# PHASE 37 TRACK 5 — példa / referencia, nem futtatandó közvetlenül.
+#
+# Ez a fájl a `live-tokyo.toml` MÖGÖTTI döntéseket dokumentálja. A
+# tényleges deploy a `live-tokyo.toml`-ból indul, amit a user
+# secret-ekkel tölt fel (BYBIT_API_KEY, BYBIT_API_SECRET, stb.).
+#
+# Miért van külön `example.toml` és `live-tokyo.toml`?
+#   - A `live-tokyo.toml` azonnal használható template (a user átmásolja
+#     + kitölti a secret-eket, és indul).
+#   - A `live-tokyo.example.toml` a DÖNTÉSEKET dokumentálja — hogy
+#     a Phase 37 Track 5 miért pont úgy állítja be a timeouts és
+#     rate limit-eket, ahogy. Ha bármit változtatni akarsz, előbb
+#     olvasd el a kommenteket ITT, és csak utána módosítsd a
+#     `live-tokyo.toml`-t.
+#
+# ======================================================================
+# 1) EXCHANGE.ENDPOINT — `https://api.bybit.jp`
+# ======================================================================
+# A bybit.eu (`https://api.bybiteu.com`) helyett a bybit.jp Tokyo edge
+# endpointját használjuk. A bybit.jp a bybit.eu-val AZONOS CCXT class-t
+# használja (`bybiteu`), csak más az edge-szerverek IP-címe.
+#
+# FORRÁSOK:
+#   - https://bybit-exchange.github.io/docs/v5/intro — bybit v5 API
+#     docs, ahol a regionális endpointok listája szerepel.
+#   - https://docs.ccxt.com/#/exchanges/bybit — a CCXT hivatalos
+#     Bybit leírása, ami megerősíti, hogy a `bybiteu` ID a
+#     `bybit.eu` / `bybit.jp` (és a későbbi regionális edge-ek)
+#     EGYSÉGES CCXT class-át jelenti.
+#
+# Co-loc RTT (Tokyo edge → Tokyo VPS): < 1 ms (intrinsic LAN latency).
+# A `default.toml` `https://api.bybiteu.com` endpointjával szemben
+# ~5-10 ms RTT-t spórolunk meg körönként.
+# ----------------------------------------------------------------------
+# endpoint = "https://api.bybit.jp"
+
+# ======================================================================
+# 2) EXCHANGE.WS_ENDPOINT — `wss://stream.bybit.jp`
+# ======================================================================
+# A bybit.jp WebSocket edge endpointja. A CCXT Pro alapértelmezetten
+# `wss://stream.bybit.com`-ot használ, de a Tokyo co-loc-ból a
+# `wss://stream.bybit.jp` edge-re való direkt csatlakozás 5-15 ms-ot
+# takarít meg a market data tick-en (a TCP+TLS+WS handshake overhead
+# a regionális edge-en belül marad).
+#
+# FORRÁSOK:
+#   - https://bybit-exchange.github.io/docs/v5/ws/connect — a bybit
+#     WebSocket csatlakozási dokumentációja, ami a regionális edge-ek
+#     listáját tartalmazza.
+#   - https://docs.ccxt.com/#/exchanges/bybit — CCXT Bybit leírás.
+# ----------------------------------------------------------------------
+# ws_endpoint = "wss://stream.bybit.jp"
+
+# ======================================================================
+# 3) EXCHANGE.TIMEOUT_MS — 5000 (default 10000-ről csökkentve)
+# ======================================================================
+# A REST request timeout. A co-loc környezetben a teljes round-trip
+# latency (REST kérés elküldése → válasz megérkezése + parse) < 5 ms
+# (ld. `docs/production-strategies/latency-budget.md` §"REST latency
+# breakdown"). Az 5000 ms-os timeout defense-in-depth: ha a hálózat
+# ~5 másodpercig nem válaszol, a CCXT `RequestTimeout`-ot dob, és
+# a bot lekezeli (nem commit-olatlan order-t nem hagy).
+#
+# Ha túl alacsony (pl. 500 ms), a lassú hálózati reset-ek
+# (`ECONNRESET`, `ETIMEDOUT`) hamis rejection-öket okozhatnak —
+# a 4-5 másodperces timeout a `default.toml` 10 000 ms-ának a
+# FELÉRE csökkentése, ami co-loc-hoz megfelelő (de nem túl agresszív).
+#
+# FORRÁSOK:
+#   - CCXT `Exchange.timeout` default: 10 000 ms (ld.
+#     https://docs.ccxt.com/#/manual?id=rate-limit).
+#   - A bot jelenlegi `apps/bot/src/bot/order-manager.ts` retry
+#     logikája: 3 retry, exponential backoff (1s, 2s, 4s) — ez a
+#     4-5 másodperces timeout-tal kompatibilis.
+# ----------------------------------------------------------------------
+# timeout_ms = 5000
+
+# ======================================================================
+# 4) EXCHANGE.RATE_LIMIT_MS — 80 (default 100-ról csökkentve)
+# ======================================================================
+# A CCXT `enableRateLimit: true` módban a két kérés között legalább
+# `rateLimit` ms-ot vár. A bybit.eu-n a default 100 ms (= 10 req/s),
+# de a bybit.jp a Japan-domestic IP-kről magasabb per-second rate
+# limitet biztosít (a `rateLimitPerMin` mezőben van kódolva).
+#
+# FORRÁSOK:
+#   - https://bybit-exchange.github.io/docs/v5/rate-limit — a bybit
+#     rate limit oldal, ami a VIP / standard / maker_rebate tier-ek
+#     szerinti per-second és per-minute limiteket részletezi.
+#   - CCXT `Exchange.rateLimit` default bybiteu-hoz: 100 ms.
+#
+# A 80 ms (= 12.5 req/s) bőven a bybit.jp VIP-tier limit alatt van.
+# ----------------------------------------------------------------------
+# rate_limit_ms = 80
+
+# ======================================================================
+# 5) EXCHANGE.SLIPPAGE_PCT — 0.03 (default 0.05-ről csökkentve)
+# ======================================================================
+# A max accepted slippage piaci order-eknél. A co-loc + Tokyo edge
+# kombináció csökkenti a várható slippage-ot (a market maker-ek
+# gyorsabban látják a bot order-eit), tehát a default 5%-os cap
+# túl konzervatív — 3%-ra csökkenthető.
+#
+# FIGYELEM: ez a CCXT `slippage_pct` mező, amit a Phase 37 Track 2
+# bevezetett a `OrderManager` pre-place check-jében. Ha a piaci
+# order ára a várthoz képest több mint `slippage_pct`-vel eltér,
+# a bot a check-nél elutasítja az order-t (NEM küldi el az exchange-nek).
+# ----------------------------------------------------------------------
+# slippage_pct = 0.03
+
+# ======================================================================
+# 6) COMPLIANCE.JURISDICTION — "JP"
+# ======================================================================
+# A deployment joghatósága. A `Bot` runtime a `compliance.jurisdiction`
+# értékét NEM használja funkcionálisan (nincs JP-specifikus logika
+# a Phase 37 Track 5-ben) — a flag tisztán a konfiguráció
+# dokumentálására és audit trail-re szolgál. A Phase 38+ scope-ba
+# tartozik a JP-specifikus compliance check-ek (travel rule, KYC
+# level, stb.) bevezetése.
+#
+# FORRÁSOK:
+#   - https://www.fsa.go.jp/en/laws_regulations/index.html — JP FSA
+#     szabályozási keretrendszer.
+#   - https://www.fsa.go.jp/en/refer/diet/02_2nd/03crypto_vc.pdf —
+#     a crypto-asset exchange service provider (暗号資産交換業) regisztráció
+#     részletei.
+# ----------------------------------------------------------------------
+# [compliance]
+# jurisdiction = "JP"
+
+# ======================================================================
+# 7) COMPLIANCE.JP_MSB_REGISTERED — false (DEFAULT-OFF)
+# ======================================================================
+# A JP FSA (Pénzügyi Szolgáltatások Ügynöksége) Crypto-Asset
+# Exchange Service Provider (暗号資産交換業) regisztráció megléte.
+#
+# A `false` default NEM akadályozza meg a bot indulását — ez egy
+# EXPLICIT DEFAULT-OFF FLAG, amit a usernek a saját státusza
+# szerint KELL átállítania. A Phase 37 Track 5 pre-launch checklist
+# ezt kipipálja a LIVE deploy előtt.
+#
+# Ha a user NINCS regisztrálva, a botot a SAJÁT FELELŐSSÉGÉRE
+# használja JP joghatóságban. A bot szoftver semmilyen felelősséget
+# nem vállal a regulatory compliance-ért — ez kizárólag a user
+# kötelessége.
+# ----------------------------------------------------------------------
+# [compliance]
+# jp_msb_registered = false
+
+# ======================================================================
+# ÖSSZEFOGLALÓ — mi változott a `default.toml`-hoz képest?
+# ======================================================================
+# +---------------------+-----------------+-----------------+--------------+
+# | Mező                | default.toml    | live-tokyo.toml | Indoklás     |
+# +---------------------+-----------------+-----------------+--------------+
+# | exchange.endpoint   | (undefined)     | api.bybit.jp    | Tokyo edge   |
+# | exchange.ws_endpoint| (undefined)     | stream.bybit.jp | Tokyo WS edge|
+# | exchange.timeout_ms | 10000           | 5000            | Co-loc RT <5ms|
+# | exchange.rate_limit | 100             | 80              | VIP tier     |
+# | exchange.slippage   | 0.05            | 0.03            | Co-loc low   |
+# | exchange.fee_tier   | standard        | vip             | JP-domestic  |
+# | exchange.rate_limit_| 120             | 200             | VIP magasabb |
+# |   per_min           |                 |                 |              |
+# | exchange.ws_recon-  | 1000            | 500             | Co-loc stab. |
+# |   nect_delay_ms     |                 |                 |              |
+# | compliance.jurisd-  | EU              | JP              | JP deploy    |
+# |   iction            |                 |                 |              |
+# | compliance.jp_msb_  | false           | false (→user)   | User felelőss.|
+# |   registered        |                 |                 |              |
+# +---------------------+-----------------+-----------------+--------------+
+#
+# Minden más mező (bot.mode-t kivéve) a `default.toml`-ból másolva —
+# a Phase 14B risk paraméterek, a Phase 18-25 stratégiák, a Phase 34
+# TUI, a Phase 37 Track 4 portfolio koordináció MIND VÁLTOZATLANOK.
+# ======================================================================

@@ -121,6 +121,19 @@ export const BotConfigSchema = z.object({
   // kapcsolati paraméterek — a TUI settings panelből szerkeszthetők.
   // A meglévő `id`, `rate_limit_ms`, `sandbox` mezők megmaradnak a
   // backward compatibility kedvéért.
+  //
+  // A Phase 37 Track 5 új mezők:
+  //   - `endpoint`         — a CCXT/REST API base URL. Alapértelmezetten
+  //                          üres (= CCXT default bybiteu endpoint). A
+  //                          Tokyo co-location template felülírja
+  //                          `https://api.bybit.jp` -re.
+  //   - `timeout_ms`       — a REST kérések timeout-ja ms-ban. Tokyo
+  //                          co-loc default: 5000ms (5s), mert a belső
+  //                          RTT < 1ms, így a teljes round-trip a CCXT
+  //                          request→response overhead-re korlátozódik.
+  //   - `ws_endpoint`      — opcionális WebSocket végpont URL. Tokyo
+  //                          co-loc default: `wss://stream.bybit.jp` (ha
+  //                          meg van adva, a CCXT Pro ezt preferálja).
   // --------------------------------------------------------------------------
   exchange: z
     .object({
@@ -135,6 +148,68 @@ export const BotConfigSchema = z.object({
       rate_limit_per_min: z.number().int().min(1).max(600).default(120),
       /** WebSocket reconnect delay in ms. Default: 1000. */
       ws_reconnect_delay_ms: z.number().int().min(100).max(10_000).default(1000),
+      /**
+       * Phase 37 Track 5 — REST API base URL.
+       *
+       * Alapértelmezetten üres (= a CCXT default bybiteu endpointja:
+       * `https://api.bybiteu.com`).  A Tokyo co-location template
+       * felülírja `https://api.bybit.jp`-re.  Bármilyen érvényes
+       * HTTPS URL megadható (a `z.string().url()` validál).
+       */
+      endpoint: z.string().url().optional(),
+      /**
+       * Phase 37 Track 5 — REST request timeout in milliseconds.
+       * Alapértelmezetten 10 000 ms (10s), a CCXT default. Tokyo
+       * co-loc a `live-tokyo.toml`-ban 5000 ms-ra csökkenti.
+       */
+      timeout_ms: z.number().int().min(100).max(120_000).default(10_000),
+      /**
+       * Phase 37 Track 5 — opcionális WebSocket endpoint URL.
+       * Ha meg van adva, a CCXT Pro ezt preferálja a default
+       * `wss://stream.bybit.com` helyett.
+       */
+      ws_endpoint: z.string().url().optional(),
+    })
+    .default({}),
+
+  // --------------------------------------------------------------------------
+  // 2.5) Compliance section (Phase 37 Track 5) — jurisdictional flags.
+  //
+  // A Phase 37 Track 5 bevezeti a `compliance` szekciót, ami a
+  // deployment joghatóság-specifikus szabályozási flag-jeit gyűjti
+  // össze. A jelenlegi 2 mező a JP (Japán) co-location use-case-hez
+  // készült:
+  //
+  //   - `jurisdiction`    — a deployment joghatósága. A jelenlegi
+  //                          enum: "EU" | "JP" | "OTHER". Az
+  //                          alapértelmezett "EU" (a bybit.eu default
+  //                          miatt). A Tokyo template "JP"-re állítja.
+  //   - `jp_msb_registered` — a JP FSA (Pénzügyi Szolgáltatások
+  //                          Ügynöksége) Crypto-Asset Exchange
+  //                          Service Provider (暗号資産交換業) regisztráció
+  //                          megléte. Alapértelmezetten `false` —
+  //                          a bot kizárólag a user felelősségére
+  //                          használható JP joghatóságban. A user
+  //                          felelőssége a saját regisztrációs státusz
+  //                          beállítása.
+  //
+  // További JP-specifikus flag-ek (pl. `jp_travel_rule`, `jp_kyc_level`)
+  // a Phase 38+ scope-ba tartoznak. A `.default({})` biztosítja, hogy
+  // a meglévő TOML configok minden változtatás nélkül parse-olódnak.
+  // --------------------------------------------------------------------------
+  compliance: z
+    .object({
+      /** Deployment joghatósága. Default: "EU". */
+      jurisdiction: z.enum(["EU", "JP", "OTHER"]).default("EU"),
+      /**
+       * Phase 37 Track 5 — JP FSA MSB (暗号資産交換業) regisztráció.
+       * `true` ha a user (vagy az általa üzemeltetett entitás)
+       * regisztrálva van a JP FSA-nál mint Crypto-Asset Exchange
+       * Service Provider. Alapértelmezetten `false` — a user
+       * felelőssége, hogy a `live-tokyo.toml` másolatán átállítsa
+       * a saját státuszának megfelelően.
+       */
+      jp_msb_registered: z.boolean().default(false),
     })
     .default({}),
 

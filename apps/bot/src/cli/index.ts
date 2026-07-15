@@ -35,4 +35,5 @@ export { strategiesCommand } from "./commands/strategies.js";
 export { tradesCommand } from "./commands/trades.js";
 export { killSwitchesCommand } from "./commands/kill-switches.js";
 export { backtestCommand } from "./commands/backtest.js";
+export { killSwitchDryRunCommand } from "./commands/kill-switch-dry-run.js";
 export { makeHelpCommand } from "./commands/help.js";
