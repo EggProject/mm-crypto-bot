@@ -28,13 +28,65 @@
  * ===========================================================================
  */
 
-import { useApp } from "ink";
 import { Text } from "ink";
 import type { ReactElement } from "react";
 import { spawn } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { unlink, writeFile } from "node:fs/promises";
 
 import { stringifyToml } from "../hooks/useConfigStore.js";
+
+/**
+ * `SuspendFn` — a `useApp().suspendTerminal` callback-jének típusa.
+ * Exportálva van, hogy a tesztek (és a `runRawTomlViewer` helper)
+ * mockolhassák anélkül, hogy a teljes Ink `useApp` API-t importálnák.
+ */
+export type SuspendFn = (cb: () => Promise<void>) => Promise<void>;
+
+/**
+ * `runRawTomlViewer` — a nyers TOML viewer indítási logikája,
+ * kiemelve a React komponensből a tesztelhetőség kedvéért.
+ *
+ * A függvény:
+ *   1. Kiírja a `data`-t a `configPath` mellé tmp fájlba.
+ *   2. Meghívja a `suspendTerminal`-t a `spawnViewer(tmpPath)`-szel.
+ *   3. A nézet bezáródásakor törli a tmp fájlt.
+ *   4. Opcionálisan meghívja az `onClose` callback-et.
+ *
+ * A `suspendFn` injektálható — a React komponens a `useApp()`-ból
+ * adja át, a tesztek közvetlenül átadnak egy fake függvényt.
+ */
+export async function runRawTomlViewer(
+  data: Readonly<Record<string, unknown>>,
+  configPath: string,
+  suspendFn: SuspendFn,
+  onClose?: () => void,
+): Promise<void> {
+  const tmpPath = `${configPath}.viewer.tmp`;
+  await writeFile(tmpPath, stringifyToml(data), "utf8");
+  try {
+    try {
+      await suspendFn(async () => {
+        await spawnViewer(tmpPath);
+      });
+    } finally {
+      // A tmp fájl cleanup — a nézet bezáródásakor (sikeres vagy hibás
+      // esetben is) töröljük. A hibát lenyeljük (a tmp fájl opcionális).
+      try {
+        await unlink(tmpPath);
+      } catch {
+        void 0;
+      }
+    }
+  } finally {
+    // Az `onClose` a külső try/finally-ban van, hogy MINDIG
+    // hívódjon — akár sikeres a nézet, akár a `suspendFn` hibát
+    // dob. A React komponens az `onClose` hívásakor unmountolja
+    // a RawTomlViewer-t, így a loading state nem ragad be.
+    if (onClose !== undefined) {
+      onClose();
+    }
+  }
+}
 
 // ============================================================================
 // Types
@@ -56,6 +108,12 @@ export interface RawTomlViewerProps {
    * vissza a TUI-ba — ez csak egy READ-ONLY viewer.
    */
   readonly configPath: string;
+  /**
+   * `suspendTerminal` — a `useApp().suspendTerminal` függvénye.
+   * A SettingsPanel a `useApp()` hookból adja át, hogy a
+   * komponens maga ne legyen hook-függő (tesztelhetőség).
+   */
+  readonly suspendTerminal: SuspendFn;
   /**
    * `onClose` — opcionális callback, ami a nézet bezárásakor hívódik.
    * A SettingsPanel a `suspendTerminal` kilépése után hívja.
@@ -132,38 +190,41 @@ export function spawnViewer(configPath: string): Promise<void> {
 export function RawTomlViewer({
   data,
   configPath,
+  suspendTerminal,
   onClose,
 }: RawTomlViewerProps): ReactElement {
-  const { suspendTerminal } = useApp();
+  // A `suspendTerminal` prop-ból jön (a SettingsPanel a useApp()
+  // hookból adja át) — így a komponens maga nem hív useApp-ot,
+  // és a mount-teszt nem igényel Ink `<App>` wrapper-t.
+  // A tényleges indítás a `runRawTomlViewer` helper-ben történik
+  // (tesztelhető, lásd a `RawTomlViewer.runRawTomlViewer` describe).
+  handleRawTomlViewerLaunch(data, configPath, suspendTerminal, onClose);
+  return renderRawTomlViewerLoading(onClose);
+}
 
-  // A useEffect itt nem kell — a `suspendTerminal` a render során
-  // hívódik, és a TUI várakozik a child kilépésére.
-  // A `void` operátor a Promise-szel tér vissza, és az Ink
-  // Promise-t kezelő useInput-kezelője biztosítja, hogy a render
-  // ne blokkolódjon.
-  void (async (): Promise<void> => {
-    // A `data` prop-ot egy tmp fájlba írjuk, hogy a viewer lássa
-    // a jelenlegi in-memory állapotot (nem csak a disk-en lévőt).
-    // A fájl a `data` prop változásakor frissül — de a C2 PR-ban
-    // a viewer egyszer hívódik (mount-kor), és a nézet bezáródik.
-    // A tmp fájl elérési útvonala a `configPath` + ".viewer.tmp".
-    // (A consumer a SettingsPanel `onClose` callback-jében törölheti.)
-    const tmpPath = `${configPath}.viewer.tmp`;
-    await writeFile(tmpPath, stringifyToml(data), "utf8");
+/**
+ * `handleRawTomlViewerLaunch` — a `RawTomlViewer` mount-kor
+ * hívandó indító helper. Kiemelve, hogy a tesztek a React
+ * komponens mountolása nélkül is ellenőrizhessék az indítási
+ * logikát (a `runRawTomlViewer` describe blokk).
+ */
+function handleRawTomlViewerLaunch(
+  data: Readonly<Record<string, unknown>>,
+  configPath: string,
+  suspendTerminal: SuspendFn,
+  onClose: (() => void) | undefined,
+): void {
+  void runRawTomlViewer(data, configPath, suspendTerminal, onClose);
+}
 
-    await suspendTerminal(async () => {
-      await spawnViewer(tmpPath);
-    });
-
-    // A nézet bezáródott — a SettingsPanel visszakapja a vezérlést.
-    if (onClose !== undefined) {
-      onClose();
-    }
-  })();
-
-  // A komponens renderelése: egy "Loading..." állapot, amíg a
-  // child process fut. Amint a `suspendTerminal` visszatér, a
-  // komponens unmount-ol (a SettingsPanel `onClose`-ja hívja).
+/**
+ * `renderRawTomlViewerLoading` — a `RawTomlViewer` render
+ * metódusa. Kiemelve, hogy a `RawTomlViewerLoading` JSX-e
+ * közvetlenül tesztelhető legyen.
+ */
+function renderRawTomlViewerLoading(
+  onClose: (() => void) | undefined,
+): ReactElement {
   return (
     <>
       <RawTomlViewerLoading

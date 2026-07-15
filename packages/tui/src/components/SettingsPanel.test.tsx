@@ -36,6 +36,7 @@ import { Box, Text } from "ink";
 import { useState, useEffect } from "react";
 import type { ReactElement } from "react";
 import {
+  existsSync,
   mkdtempSync,
   rmSync,
   writeFileSync,
@@ -936,5 +937,68 @@ describe("SettingsPanel (Phase 36 Track C1)", () => {
     expect(frame).toContain("LIVE MODE");
     expect(frame).toContain("REAL ORDERS");
     instance.unmount();
+  });
+
+  // --------------------------------------------------------------------------
+  // 40) A `[v]` keypress a SettingsPanel-ben a `<RawTomlViewer>`-t
+  //     mountolja (a `configPath` prop-pal együtt). A mount
+  //     során a "Opening raw TOML viewer..." szöveg megjelenik.
+  // --------------------------------------------------------------------------
+  it("[v] keypress triggers handleOpenRawViewer (sets showRawViewer=true) (Track C2)", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "mm-bot-v-test-"));
+    const configPath = join(tmpDir, "mm-bot.toml");
+    writeFileSync(
+      configPath,
+      "[bot]\nmode = \"paper\"\nrisk_per_trade = 0.01\n",
+      "utf8",
+    );
+    try {
+      // A `RawTomlViewer` mount-kor a `runRawTomlViewer` helper-t
+      // hívja, ami a tmp fájlt írja. A cleanup (finally) törli.
+      // A tmp fájl rövid ideig létezik — a useApp default
+      // `suspendTerminal` azonnal meghívja a callback-et, a
+      // `spawnViewer` kilép, a cleanup törli a tmp fájlt.
+      //
+      // A teszt a tmp fájl LÉTEZÉSÉT ellenőrzi a keypress
+      // után egy nagyon rövid időn belül (a cleanup előtt).
+      // Ha a tmp fájl egyszer létezett, akkor a
+      // `handleOpenRawViewer` hívódott.
+      let tmpExistedAtSomePoint = false;
+      const instance = render(
+        <SettingsPanel
+          data={makeSampleData()}
+          dirty={false}
+          errors={[]}
+          saving={false}
+          {...noOpProps}
+          configPath={configPath}
+        />,
+      );
+      await new Promise((r) => setTimeout(r, 100));
+      // A [v] keypress a SettingsPanel useInput-jában fut le.
+      instance.stdin.write("v");
+      // Poll a tmp fájlt 500ms-en belül — a cleanup gyorsan lefut,
+      // de a file rendszer ASYNC, szóval van egy kis időablak.
+      const tmpPath = `${configPath}.viewer.tmp`;
+      for (let i = 0; i < 50; i++) {
+        if (existsSync(tmpPath)) {
+          tmpExistedAtSomePoint = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      // Várunk, hogy a cleanup biztosan lefusson.
+      await new Promise((r) => setTimeout(r, 500));
+      // A tmp fájl a cleanup után már nem létezik.
+      expect(existsSync(tmpPath)).toBe(false);
+      // A tmp fájl a keypress után LÉTEZETT (a runRawTomlViewer
+      // kiírta, mielőtt a cleanup törölte volna).
+      // Ha a RawTomlViewer mountolódott (handleOpenRawViewer
+      // hívódott), a tmp fájl legalább egyszer létezett.
+      expect(tmpExistedAtSomePoint).toBe(true);
+      instance.unmount();
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
