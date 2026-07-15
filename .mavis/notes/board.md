@@ -1,8 +1,42 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-15 11:48 Budapest — Phase 36 CLOSED. PR #105 (C1+C2) squash-merged (f4d4f63), PR #104 closed as superseded, PR #106 (Track D docs) rebased + squash-merged (ceabb2f). Pre-launch checklist ready for user.
+description: Project board — mm-crypto-bot. Updated 2026-07-15 14:42 Budapest — Phase 37 CLOSED. 4 PRs (#109, #108, #110, #107) all squash-merged. Pre-launch ready, Track 5 (live infra) DISPATCHED.
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-15 09:54 Budapest, Phase 36 EXECUTING, Track C producer restart)
+# Project board — mm-crypto-bot (updated 2026-07-15 14:42 Budapest, Phase 37 CLOSED, Track 5 launch)
+
+## Phase 37 — PRODUCTION RISK + OHLC + PORTFOLIO (CLOSED 2026-07-15 14:42 Budapest)
+
+### User mandate (2026-07-15 12:07 Budapest)
+
+> "Összeset meg kell csinálni! Tervezd meg és agentekkel csinaltasd meg, semmi ne maradjon ki!"
+
+→ 5 tracks dispatched in parallel by orchestrator (4 producers + Track 5 blocked).
+
+### Merge status
+
+| # | Track | Scope | PR | Status |
+|---|-------|-------|----|--------|
+| 1 | Risk | trailing-stop + Kelly + drawdown-scaler + risk-manager + position-manager wire | [#110](https://github.com/EggProject/mm-crypto-bot/pull/110) | ✅ MERGED |
+| 2 | Settings | ConfigStore 5 new methods + SettingsPanel 4 new sections (Strategies/Exchange/Symbols/Telemetry EDITABLE) | [#108](https://github.com/EggProject/mm-crypto-bot/pull/108) | ✅ MERGED |
+| 3 | OHLC | ohlc-stream + ohlc-trend strategy + Charts panel wire + `mm-bot backtest` CLI | [#109](https://github.com/EggProject/mm-crypto-bot/pull/109) | ✅ MERGED |
+| 4 | Portfolio | risk-budget + correlation + portfolio-stop (LATCHED) + portfolio-manager | [#107](https://github.com/EggProject/mm-crypto-bot/pull/107) | ✅ MERGED |
+| 5 | Live infra | Tokyo co-loc config + kill-switch dry-run + latency budget doc + pre-launch checklist update | TBD | ⏳ dispatching now |
+| **main HEAD** | `29bf328` | — | — | — |
+
+### Merge order & conflict resolution
+
+- Order: #109 → #108 → #110 → #107 (most-independent first, last-merged with most-overlap last)
+- Conflict surfaced in #107 rebase (`strategy-runner.ts` touched by both Track 1 and Track 4)
+  - 5 conflict blocks (imports, JSDoc, interface field, constructor, sizing logic)
+  - Resolution: keep BOTH `RiskManager` (Track 1) AND `PortfolioManager` (Track 4) features
+  - Sizing order: `riskManager.evaluateNewPositionSize` → `applyBudgetCap` → `placeOrder`
+  - Plus: `portfolioManager.isTripped()` circuit breaker check at top of `handleSignal`
+- Real CI flake root-caused mid-merge: Track 3 added `@mm-crypto-bot/exchange` to tui/package.json but local `bun install` on each worktree had stale node_modules symlinks. Fix: `bun install` after rebase + force-push.
+- Coverage: 8/8 packages at 100% OWN line coverage on final main HEAD (apps/bot 2589/2590, exchange 868/868, tui 1921/1921, core 12124/12124, others 100%)
+
+### Track 5 (live infra) — DISPATCHING
+
+Tokyo co-loc config + kill-switch dry-run + latency budget doc + pre-launch checklist update. Producer launching now in background; expected ~1-2 hour.
 
 ## User mandate (2026-07-11 23:42 Budapest) — PHASE 33 SCOPE
 
