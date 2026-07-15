@@ -1,7 +1,7 @@
 /**
  * packages/tui/src/components/SettingsPanel.tsx
  *
- * Phase 36 Track C1 — a TUI settings panel.
+ * Phase 36 Track C1 + Phase 37 Track 2 — a TUI settings panel.
  *
  * ===========================================================================
  * MI EZ?
@@ -10,15 +10,28 @@
  * `mm-bot.toml` konfigot mutatja és szerkeszthetővé teszi a TUI-ból.
  * A user a fő dashboard `[o]` billentyűvel nyitja meg.
  *
- * A panel 4 szekcióban mutatja a konfigot (ugyanaz a 4 szekció, mint
- * a `BotConfigSchema`-ban: Bot / Exchange / Risk / Strategies + a
- * Symbols + Telemetry szekciók READ-ONLY módban).
+ * A panel 6 szekcióban mutatja a konfigot (ugyanaz a 6 szekció, mint
+ * a `BotConfigSchema`-ban: Strategies / Risk / Bot / Exchange /
+ * Symbols / Telemetry).
+ *
+ * Phase 37 Track 2: MIND A 6 SZEKCIÓ EDITÁLHATÓ.
+ *   - Strategies: per-strategy enable/disable (MultiSelect) +
+ *     cap/leverage/risk_per_trade/max_positions (TextInput + LeverageCap)
+ *   - Risk:      risk_per_trade / max_drawdown_pct / max_positions /
+ *     max_leverage (a Phase 36 C1 baseline)
+ *   - Bot:       mode (Select, typed "LIVE" confirm) / log_level /
+ *     state_file (a Phase 36 C1 baseline)
+ *   - Exchange:  slippage_pct / fee_tier (Select) /
+ *     rate_limit_per_min / ws_reconnect_delay_ms
+ *   - Symbols:   comma-separated TextInput (BTC-USDT,ETH-USDT,...)
+ *   - Telemetry: log_level (Select) / log_destination (Select) /
+ *     metrics_enabled (Select) / heartbeat_interval_sec
  *
  * A panel a `@inkjs/ui` form komponenseket használja a szerkesztéshez:
- *   - `<TextInput>` — szöveges / numerikus mezők (risk_per_trade, max_leverage, stb.)
- *   - `<Select>` — `bot.mode` (paper / live) választó
- *   - `<MultiSelect>` — `symbols.enabled` többszörös kiválasztás
- *   - `<ConfirmInput>` — `exchange.sandbox` boolean
+ *   - `<TextInput>` — szöveges / numerikus mezők
+ *   - `<Select>` — enum-értékek (mode, fee_tier, log_level, stb.)
+ *   - `<MultiSelect>` — strategy enable/disable
+ *   - `<LeverageCap>` — a 1:10 leverage MANDATE wrapper
  *
  * A panel a `useConfigStore` hookkal kezeli a TOML persistence-t:
  *   - mount → read from disk
@@ -242,95 +255,303 @@ function BotSection({
 }
 
 /**
- * `ExchangeSection` — az `[exchange]` szekció READ-ONLY megjelenítése.
+ * `ExchangeSection` — az `[exchange]` szekció EDITÁLHATÓ formja.
  *
- * Az exchange-szintű kulcsok (api key, secret) biztonsági okokból
- * NEM szerkeszthetők a TUI-ból — ezeket a környezeti változók
- * (`BYBIT_API_KEY` / `BYBIT_API_SECRET`) tárolják, nem a TOML.
- * A többi mező (id, rate_limit_ms, sandbox) editálható lenne,
- * de a Phase 36 scope-jában a SettingsPanel csak a read-only
- * megjelenítést implementálja — a C1 PR a 2 fő szekcióra
- * (Risk + Bot) fókuszál.
+ * Phase 37 Track 2 — a Phase 36 C1 read-only Exchange szekcióját
+ * kibővítjük a következő szerkeszthető mezőkkel:
+ *   - `slippage_pct` (0..1, default 0.05) — `<TextInput>`
+ *   - `fee_tier` (enum: vip / standard / maker_rebate) — `<Select>`
+ *   - `rate_limit_per_min` (1..600, default 120) — `<TextInput>`
+ *   - `ws_reconnect_delay_ms` (100..10000, default 1000) — `<TextInput>`
+ *
+ * A meglévő `id` / `rate_limit_ms` / `sandbox` mezők továbbra is
+ * megjelennek read-only módon (a Phase 36 baseline). Az API key /
+ * secret biztonsági okokból NEM szerkeszthető a TUI-ból — ezeket a
+ * környezeti változók (`BYBIT_API_KEY` / `BYBIT_API_SECRET`) tárolják.
  */
 function ExchangeSection({
   data,
+  setData,
 }: {
   readonly data: Readonly<Record<string, unknown>>;
+  readonly setData: (next: Record<string, unknown>) => void;
 }): ReactElement {
   const exchange = (data["exchange"] ?? {}) as {
     id?: string;
     rate_limit_ms?: number;
     sandbox?: boolean;
+    slippage_pct?: number;
+    fee_tier?: "vip" | "standard" | "maker_rebate";
+    rate_limit_per_min?: number;
+    ws_reconnect_delay_ms?: number;
   };
   return (
     <Box flexDirection="column" marginLeft={2}>
-      <Text>
-        id = &quot;{exchange.id ?? "bybiteu"}&quot;  rate_limit_ms = {String(
-          exchange.rate_limit_ms ?? 100,
-        )}  sandbox = {String(exchange.sandbox ?? false)}  (READ-ONLY)
+      <Text dimColor>
+        id = &quot;{exchange.id ?? "bybiteu"}&quot;  rate_limit_ms ={" "}
+        {String(exchange.rate_limit_ms ?? 100)}  sandbox = {String(exchange.sandbox ?? false)}
+        {"  "}(READ-ONLY — API keys in env vars)
       </Text>
+      <Box marginTop={1}>
+        <Text>slippage_pct        </Text>
+        <TextInput
+          defaultValue={String(exchange.slippage_pct ?? 0.05)}
+          onChange={(v: string) => {
+            const num = Number.parseFloat(v);
+            if (Number.isFinite(num)) {
+              setData({
+                ...data,
+                exchange: { ...exchange, slippage_pct: num },
+              });
+            }
+          }}
+        />
+        <Text dimColor>  (0..1)</Text>
+      </Box>
+      <Box>
+        <Text>fee_tier            </Text>
+        <Select
+          options={[
+            { label: "vip", value: "vip" },
+            { label: "standard", value: "standard" },
+            { label: "maker_rebate", value: "maker_rebate" },
+          ]}
+          defaultValue={exchange.fee_tier ?? "standard"}
+          onChange={(v: string) => {
+            setData({
+              ...data,
+              exchange: {
+                ...exchange,
+                fee_tier: v as "vip" | "standard" | "maker_rebate",
+              },
+            });
+          }}
+        />
+      </Box>
+      <Box>
+        <Text>rate_limit_per_min  </Text>
+        <TextInput
+          defaultValue={String(exchange.rate_limit_per_min ?? 120)}
+          onChange={(v: string) => {
+            const num = Number.parseInt(v, 10);
+            if (Number.isFinite(num)) {
+              setData({
+                ...data,
+                exchange: { ...exchange, rate_limit_per_min: num },
+              });
+            }
+          }}
+        />
+        <Text dimColor>  (1..600)</Text>
+      </Box>
+      <Box>
+        <Text>ws_reconnect_delay  </Text>
+        <TextInput
+          defaultValue={String(exchange.ws_reconnect_delay_ms ?? 1000)}
+          onChange={(v: string) => {
+            const num = Number.parseInt(v, 10);
+            if (Number.isFinite(num)) {
+              setData({
+                ...data,
+                exchange: { ...exchange, ws_reconnect_delay_ms: num },
+              });
+            }
+          }}
+        />
+        <Text dimColor>  (100..10000 ms)</Text>
+      </Box>
     </Box>
   );
 }
 
 /**
- * `StrategiesSection` — a `[strategies.X]` blokkok READ-ONLY listája.
+ * `StrategiesSection` — a `[strategies.X]` blokkok EDITABLE listája.
  *
- * A C1 PR-ban a strategy enable/disable kapcsolók NEM szerkeszthetők
- * (a C1 a legfontosabb: bot.mode + risk.* mezőkre fókuszál).
- * A szekció csak a jelenlegi állapotot mutatja.
+ * Phase 37 Track 2 — a Phase 36 C1 read-only szekció kibővítése:
+ *   - A `<MultiSelect>` komponenssel a user enable/disable-ölheti
+ *     az egyes stratégiákat (boolean per-strategy).
+ *   - A per-strategy `cap`, `leverage` (a `<LeverageCap>` wrapper
+ *     1:10 MANDATE-tel), `risk_per_trade`, `max_positions` mezők
+ *     `<TextInput>`-tal szerkeszthetők.
+ *   - A `symbols` lista és a `timeframes` read-only (a Phase 37
+ *     scope-on kívül — a symbols listát a `SymbolsSection`-ben
+ *     szerkesztheti a user).
  */
 function StrategiesSection({
   data,
+  setData,
 }: {
   readonly data: Readonly<Record<string, unknown>>;
+  readonly setData: (next: Record<string, unknown>) => void;
 }): ReactElement {
   const strategies = (data["strategies"] ?? {}) as Record<
     string,
-    { enabled?: boolean; cap?: number; leverage?: number; symbols?: readonly string[] }
+    {
+      enabled?: boolean;
+      cap?: number;
+      leverage?: number;
+      risk_per_trade?: number;
+      max_positions?: number;
+      symbols?: readonly string[];
+      timeframes?: { htf?: string; mtf?: string; ltf?: string };
+    }
   >;
+  const strategyNames = Object.keys(strategies);
   return (
     <Box flexDirection="column" marginLeft={2}>
-      {Object.entries(strategies).map(([name, sec]) => (
-        <Box key={name}>
-          <Text>{sec.enabled === true ? "●" : "○"} </Text>
-          <Text bold>{name.padEnd(32, " ")}</Text>
-          <Text>
-            {" "}
-            {sec.enabled === true ? "ON " : "OFF"}
-            {sec.cap !== undefined ? `  cap=${String(sec.cap)}` : ""}
-            {sec.leverage !== undefined ? `  lev=${String(sec.leverage)}×` : ""}
-            {sec.symbols !== undefined ? `  sym=${sec.symbols.join(",")}` : ""}
-          </Text>
-        </Box>
-      ))}
+      <Box marginBottom={1}>
+        <Text dimColor>Toggle enable/disable:</Text>
+      </Box>
+      <Box>
+        <MultiSelect
+          options={strategyNames.map((n) => ({ label: n, value: n }))}
+          defaultValue={strategyNames.filter((n) => strategies[n]?.enabled === true)}
+          onChange={(values: readonly string[]) => {
+            // A `values` a kiválasztott strategy-nevek listája.
+            // Az in-memory data frissítése: minden strategy enabled
+            // flag-je a `values`-ben van-e.
+            const next: Record<string, Record<string, unknown>> = {};
+            for (const name of strategyNames) {
+              const sec = (strategies[name] ?? {}) as Record<string, unknown>;
+              next[name] = { ...sec, enabled: values.includes(name) };
+            }
+            setData({
+              ...data,
+              strategies: next,
+            });
+          }}
+        />
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text dimColor>Per-strategy overrides:</Text>
+        {strategyNames.map((name) => {
+          const sec = (strategies[name] ?? {}) as Record<string, unknown>;
+          return (
+            <Box key={name} flexDirection="column" marginLeft={2} marginTop={1}>
+              <Text bold>{name}</Text>
+              <Box>
+                <Text>  cap              </Text>
+                <TextInput
+                  defaultValue={
+                    typeof sec["cap"] === "number" ? String(sec["cap"]) : ""
+                  }
+                  onChange={(v: string) => {
+                    const num = Number.parseFloat(v);
+                    if (Number.isFinite(num)) {
+                      setDataStrategy(data, setData, name, "cap", num);
+                    }
+                  }}
+                />
+                <Text dimColor>  (0..1)</Text>
+              </Box>
+              <Box>
+                <Text>  leverage         </Text>
+                <LeverageCap
+                  value={
+                    typeof sec["leverage"] === "number" ? sec["leverage"] : MAX_LEVERAGE
+                  }
+                  max={MAX_LEVERAGE}
+                  onChange={(num) => {
+                    setDataStrategy(data, setData, name, "leverage", num);
+                  }}
+                />
+              </Box>
+              <Box>
+                <Text>  risk_per_trade   </Text>
+                <TextInput
+                  defaultValue={
+                    typeof sec["risk_per_trade"] === "number"
+                      ? String(sec["risk_per_trade"])
+                      : ""
+                  }
+                  onChange={(v: string) => {
+                    const num = Number.parseFloat(v);
+                    if (Number.isFinite(num)) {
+                      setDataStrategy(data, setData, name, "risk_per_trade", num);
+                    }
+                  }}
+                />
+                <Text dimColor>  (0.001..0.05)</Text>
+              </Box>
+              <Box>
+                <Text>  max_positions    </Text>
+                <TextInput
+                  defaultValue={
+                    typeof sec["max_positions"] === "number"
+                      ? String(sec["max_positions"])
+                      : ""
+                  }
+                  onChange={(v: string) => {
+                    const num = Number.parseInt(v, 10);
+                    if (Number.isFinite(num)) {
+                      setDataStrategy(data, setData, name, "max_positions", num);
+                    }
+                  }}
+                />
+                <Text dimColor>  (1..12)</Text>
+              </Box>
+              {Array.isArray(sec["symbols"]) && (
+                <Box>
+                  <Text dimColor>
+                    {"  symbols: "}
+                    {(sec["symbols"] as readonly string[]).join(", ")}
+                    {" (use Symbols section)"}
+                  </Text>
+                </Box>
+              )}
+            </Box>
+          );
+        })}
+      </Box>
     </Box>
   );
 }
 
 /**
- * `SymbolsSection` — a `[symbols]` szekció READ-ONLY megjelenítése.
+ * `SymbolsSection` — a `[symbols]` szekció EDITABLE formja.
+ *
+ * Phase 37 Track 2 — egy comma-separated `<TextInput>` a symbol
+ * listának. Minden keystroke-ra a `setData` hívódik; a Zod séma
+ * a save során (`Ctrl+S`) validálja az új értéket. A
+ * `> 10 symbols` warning a UI szintjén jelenik meg.
  */
 function SymbolsSection({
   data,
+  setData,
 }: {
   readonly data: Readonly<Record<string, unknown>>;
+  readonly setData: (next: Record<string, unknown>) => void;
 }): ReactElement {
   const symbols = (data["symbols"] ?? {}) as { enabled?: readonly string[] };
   const enabled = symbols.enabled ?? [];
+  const csvValue = enabled.join(",");
   return (
     <Box flexDirection="column" marginLeft={2}>
-      <Text>enabled = [{enabled.map((s) => `"${s}"`).join(", ")}] (READ-ONLY in C1)</Text>
-      {/* A MultiSelect komponens a C1 PR-ban referenciaként szerepel
-          — a teljes MultiSelect-alapú szerkesztés a SymbolsSection
-          kiterjesztése. A C1 PR csak a komponens elérhetőségét
-          mutatja (a SettingsPanel importálja). */}
-      <Box marginTop={1}>
-        <MultiSelect
-          options={enabled.map((s) => ({ label: s, value: s }))}
-          defaultValue={[...enabled]}
-          isDisabled
+      <Box>
+        <Text>enabled (comma-separated) </Text>
+        <TextInput
+          defaultValue={csvValue}
+          placeholder="BTC-USDT,ETH-USDT,SOL-USDT"
+          onChange={(v: string) => {
+            // A user comma-kkel elválasztva írja be a symbol-okat.
+            // A Zod séma a save során validálja — itt csak a
+            // string-to-array konverziót végezzük.
+            const list = v
+              .split(",")
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0);
+            setData({
+              ...data,
+              symbols: { ...symbols, enabled: list },
+            });
+          }}
         />
+      </Box>
+      <Box marginTop={1}>
+        <Text dimColor>
+          count: {String(enabled.length)} symbol{enabled.length === 1 ? "" : "s"}
+          {enabled.length > 10 ? "  ⚠ more than 10 symbols — consider splitting" : ""}
+        </Text>
       </Box>
     </Box>
   );
@@ -480,7 +701,7 @@ export function SettingsPanel({
         isActive={activeSection === "strategies"}
         section="strategies"
       >
-        <StrategiesSection data={data} />
+        <StrategiesSection data={data} setData={setData} />
       </Section>
 
       {/* Section: Risk */}
@@ -505,25 +726,25 @@ export function SettingsPanel({
         isActive={activeSection === "exchange"}
         section="exchange"
       >
-        <ExchangeSection data={data} />
+        <ExchangeSection data={data} setData={setData} />
       </Section>
 
-      {/* Section: Symbols (READ-ONLY in C1) */}
+      {/* Section: Symbols (EDITABLE in Phase 37 Track 2) */}
       <Section
         title="Symbols"
         isActive={activeSection === "symbols"}
         section="symbols"
       >
-        <SymbolsSection data={data} />
+        <SymbolsSection data={data} setData={setData} />
       </Section>
 
-      {/* Section: Telemetry (READ-ONLY) */}
+      {/* Section: Telemetry (EDITABLE in Phase 37 Track 2) */}
       <Section
         title="Telemetry"
         isActive={activeSection === "telemetry"}
         section="telemetry"
       >
-        <TelemetrySection data={data} />
+        <TelemetrySection data={data} setData={setData} />
       </Section>
 
       {/* Footer */}
@@ -623,25 +844,141 @@ function ErrorLine({ error }: { readonly error: ConfigStoreError }): ReactElemen
 }
 
 /**
- * `TelemetrySection` — a `[telemetry]` szekció READ-ONLY.
+ * `TelemetrySection` — a `[telemetry]` szekció EDITABLE formja.
+ *
+ * Phase 37 Track 2 — a Phase 36 C1 read-only szekció kibővítése:
+ *   - `log_level` (enum: debug / info / warn / error) — `<Select>`
+ *   - `log_destination` (enum: file / stderr / both) — `<Select>`
+ *   - `metrics_enabled` (boolean) — `<Select>` (true / false)
+ *   - `heartbeat_interval_sec` (1..300, default 30) — `<TextInput>`
+ *   - `log_dir` (string) — read-only (path-on-change requires restart)
+ *   - `metrics_interval_sec` — read-only (a backward-compat mező,
+ *     a Phase 38+ refaktorolhatja a `heartbeat_interval_sec`-re)
  */
 function TelemetrySection({
   data,
+  setData,
 }: {
   readonly data: Readonly<Record<string, unknown>>;
+  readonly setData: (next: Record<string, unknown>) => void;
 }): ReactElement {
   const telemetry = (data["telemetry"] ?? {}) as {
     log_dir?: string;
     metrics_interval_sec?: number;
+    log_level?: "debug" | "info" | "warn" | "error";
+    log_destination?: "file" | "stderr" | "both";
+    metrics_enabled?: boolean;
+    heartbeat_interval_sec?: number;
   };
   return (
     <Box flexDirection="column" marginLeft={2}>
-      <Text>
+      <Text dimColor>
         log_dir = &quot;{telemetry.log_dir ?? "logs/bot"}&quot;  metrics_interval_sec ={" "}
-        {String(telemetry.metrics_interval_sec ?? 60)} (READ-ONLY in C1)
+        {String(telemetry.metrics_interval_sec ?? 60)} (READ-ONLY — restart required)
       </Text>
+      <Box marginTop={1}>
+        <Text>log_level             </Text>
+        <Select
+          options={[
+            { label: "debug", value: "debug" },
+            { label: "info", value: "info" },
+            { label: "warn", value: "warn" },
+            { label: "error", value: "error" },
+          ]}
+          defaultValue={telemetry.log_level ?? "info"}
+          onChange={(v: string) => {
+            setData({
+              ...data,
+              telemetry: {
+                ...telemetry,
+                log_level: v as "debug" | "info" | "warn" | "error",
+              },
+            });
+          }}
+        />
+      </Box>
+      <Box>
+        <Text>log_destination       </Text>
+        <Select
+          options={[
+            { label: "file", value: "file" },
+            { label: "stderr", value: "stderr" },
+            { label: "both", value: "both" },
+          ]}
+          defaultValue={telemetry.log_destination ?? "both"}
+          onChange={(v: string) => {
+            setData({
+              ...data,
+              telemetry: {
+                ...telemetry,
+                log_destination: v as "file" | "stderr" | "both",
+              },
+            });
+          }}
+        />
+      </Box>
+      <Box>
+        <Text>metrics_enabled       </Text>
+        <Select
+          options={[
+            { label: "true", value: "true" },
+            { label: "false", value: "false" },
+          ]}
+          defaultValue={telemetry.metrics_enabled === false ? "false" : "true"}
+          onChange={(v: string) => {
+            setData({
+              ...data,
+              telemetry: { ...telemetry, metrics_enabled: v === "true" },
+            });
+          }}
+        />
+      </Box>
+      <Box>
+        <Text>heartbeat_interval_s  </Text>
+        <TextInput
+          defaultValue={String(telemetry.heartbeat_interval_sec ?? 30)}
+          onChange={(v: string) => {
+            const num = Number.parseInt(v, 10);
+            if (Number.isFinite(num)) {
+              setData({
+                ...data,
+                telemetry: { ...telemetry, heartbeat_interval_sec: num },
+              });
+            }
+          }}
+        />
+        <Text dimColor>  (1..300 sec)</Text>
+      </Box>
     </Box>
   );
+}
+
+/**
+ * `setDataStrategy` — a `StrategiesSection` belső helper-je, ami
+ * egy adott strategy egy mezőjét frissíti a `setData` hívással.
+ *
+ * A helper azért van kiemelve, mert a `StrategySection` JSX-ben
+ * minden TextInput onChange callback-je inline arrow function
+ * lenne — a kiemelt helper csökkenti a JSX-fát és egyszerűsíti
+ * a coverage riportot.
+ */
+function setDataStrategy(
+  data: Readonly<Record<string, unknown>>,
+  setData: (next: Record<string, unknown>) => void,
+  strategyName: string,
+  key: string,
+  value: unknown,
+): void {
+  const strategies = (data["strategies"] ?? {}) as Record<string, Record<string, unknown>>;
+  const existing = strategies[strategyName] ?? {};
+  const nextStrategies: Record<string, Record<string, unknown>> = {
+    ...strategies,
+    [strategyName]: { ...existing, [key]: value },
+  };
+  setData({
+    ...data,
+    strategies: nextStrategies,
+  });
 }
 
 /**

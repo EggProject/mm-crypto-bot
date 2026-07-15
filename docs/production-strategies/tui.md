@@ -326,17 +326,24 @@ where the user can edit the TOML config in-place.
 
 ### 5.2 Sections (6)
 
-| # | Section | Editable? (Phase 36 scope) | Fields |
-|---|---------|---------------------------|--------|
-| 1 | **Strategies** | ❌ READ-ONLY (Phase 36 scope) | enabled / cap / leverage / symbols per strategy |
+| # | Section | Editable? (Phase 37 Track 2) | Fields |
+|---|---------|------------------------------|--------|
+| 1 | **Strategies** | ✅ EDITABLE | enabled (per-strategy MultiSelect), cap, leverage, risk_per_trade, max_positions, symbols |
 | 2 | **Risk** | ✅ EDITABLE | risk_per_trade, kelly_fraction, max_drawdown_pct, max_positions, **max_leverage** (hard-capped at 10) |
 | 3 | **Bot** | ✅ EDITABLE | mode (paper/live — **typed "LIVE" confirm**), log_level, state_file |
-| 4 | **Exchange** | ❌ READ-ONLY (Phase 36 scope) | id, rate_limit_ms, sandbox |
-| 5 | **Symbols** | ❌ READ-ONLY (Phase 36 scope) | enabled list |
-| 6 | **Telemetry** | ❌ READ-ONLY (Phase 36 scope) | log_dir, metrics_interval_sec |
+| 4 | **Exchange** | ✅ EDITABLE | slippage_pct, fee_tier (vip/standard/maker_rebate), rate_limit_per_min (≤600), ws_reconnect_delay_ms (≤10000) |
+| 5 | **Symbols** | ✅ EDITABLE | comma-separated enabled list (Zod-validated on save) |
+| 6 | **Telemetry** | ✅ EDITABLE | log_level, log_destination (file/stderr/both), metrics_enabled, heartbeat_interval_sec (≤300) |
 
-**Phase 37+ scope:** per-strategy enable/disable toggle, exchange API key
-fields, symbol list add/remove. Reserved for a future phase.
+**Phase 37 Track 2 (this phase) shipped:** all 6 sections are now
+editable from the TUI. The per-section `ConfigStore` setters
+(`setStrategyEnabled` / `setStrategySetting` / `setExchangeConfig` /
+`setSymbols` / `setTelemetryConfig`) all use the same atomic write +
+`.bak` + Zod re-validate pipeline as the existing `write` method.
+
+**Phase 37+ scope:** per-strategy `symbols` / `timeframes` editing,
+exchange API key fields, full `[risk] *` migration to per-strategy
+overrides. Reserved for a future phase.
 
 ### 5.3 Save flow (atomic, audited)
 
@@ -377,16 +384,31 @@ dashboard without a confirm prompt.
 | `[bot] log_level` | ✅ | debug/info/warn/error, no real-world consequence |
 | `[bot] state_file` | ❌ | Read-only (would require a bot restart) |
 | `[bot] auto_start` | ✅ | Manual start preference |
-| `[exchange] *` | ❌ | Read-only — API keys are in env vars (`BYBIT_API_KEY` / `BYBIT_API_SECRET`), not in TOML |
+| `[exchange] id / rate_limit_ms / sandbox` | ❌ | Read-only — API keys are in env vars (`BYBIT_API_KEY` / `BYBIT_API_SECRET`), not in TOML |
+| `[exchange] slippage_pct` | ✅ | 0..1 Zod range — max accepted slippage percent |
+| `[exchange] fee_tier` | ✅ | vip / standard / maker_rebate enum |
+| `[exchange] rate_limit_per_min` | ✅ | 1..600 Zod range — orders + REST calls per minute |
+| `[exchange] ws_reconnect_delay_ms` | ✅ | 100..10000 Zod range — WebSocket reconnect delay |
 | `[risk] risk_per_trade` | ✅ | 0.001-0.05 Zod range |
 | `[risk] kelly_fraction` | ✅ | 0-1 Zod range |
 | `[risk] max_drawdown_pct` | ✅ | 0-1 Zod range |
 | `[risk] max_positions` | ✅ | 1-12 Zod range |
 | `[risk] max_leverage` | ✅ with **hard cap at 10** | The 1:10 leverage mandate — UI rejects > 10 |
-| `[symbols] enabled` | ❌ | Read-only (would require a feed reconnect) |
-| `[strategies.X] enabled` | ❌ | Read-only (Phase 36 scope) |
-| `[strategies.X] cap/leverage/...` | ❌ | Read-only (Phase 36 scope) |
-| `[telemetry] *` | ❌ | Read-only (logging behavior, requires restart) |
+| `[symbols] enabled` | ✅ | Comma-separated TextInput — Zod-validated on save (array of strings) |
+| `[strategies.X] enabled` | ✅ | Per-strategy MultiSelect — toggles the strategy on/off |
+| `[strategies.X] cap` | ✅ | 0..1 Zod range — equity fraction per strategy |
+| `[strategies.X] leverage` | ✅ with **hard cap at 10** | The 1:10 leverage mandate — per-strategy override |
+| `[strategies.X] risk_per_trade` | ✅ | 0.001..0.05 Zod range — per-strategy override |
+| `[strategies.X] max_positions` | ✅ | 1..12 Zod range — per-strategy override |
+| `[strategies.X] symbols` | ❌ | Read-only — use the `Symbols` section instead |
+| `[strategies.X] timeframes` | ❌ | Read-only (Phase 38+ scope) |
+| `[strategies.X] *` (passthrough) | ✅ | All other per-strategy custom fields (e.g. `notional_per_leg_usd`) |
+| `[telemetry] log_dir` | ❌ | Read-only (path change requires restart) |
+| `[telemetry] metrics_interval_sec` | ❌ | Read-only (the `heartbeat_interval_sec` is the editable replacement) |
+| `[telemetry] log_level` | ✅ | debug / info / warn / error enum |
+| `[telemetry] log_destination` | ✅ | file / stderr / both enum |
+| `[telemetry] metrics_enabled` | ✅ | boolean — toggles the metrics emission |
+| `[telemetry] heartbeat_interval_sec` | ✅ | 1..300 Zod range — liveness heartbeat interval |
 
 ---
 
