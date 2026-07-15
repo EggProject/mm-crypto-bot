@@ -290,6 +290,31 @@ export const BotConfigSchema = z.object({
       heartbeat_interval_sec: z.number().int().min(1).max(300).default(30),
     })
     .default({}),
+
+  // --------------------------------------------------------------------------
+  // 7) Portfolio section — Phase 37 Track 4.
+  //
+  // A multi-strategy portfólió koordináció paraméterei:
+  //   - `total_risk_per_cycle_usd`: a ciklusonkénti max új kockázat
+  //     (USD). A `RiskBudgetAllocator` ezt osztja szét a stratégiák
+  //     között. Hard cap: 10 000.
+  //   - `correlation_penalty_threshold`: a korreláció küszöb (0..1).
+  //     Ha két stratégia korrelációja >= ez, a közös büdzséjük
+  //     csökken. Default: 0.7.
+  //   - `correlation_window_size`: a görgető korreláció ablakméret
+  //     (trade-ek száma). Default: 30.
+  //   - `max_dd_pct`: a portfolió-szintű circuit breaker küszöb
+  //     (0..0.30). Ha a portfolió drawdown >= ez, minden pozíció
+  //     zárul, és a bot leáll. Default: 0.10.
+  // --------------------------------------------------------------------------
+  portfolio: z
+    .object({
+      total_risk_per_cycle_usd: z.number().min(1).max(10_000).default(100),
+      correlation_penalty_threshold: z.number().min(0).max(1).default(0.7),
+      correlation_window_size: z.number().int().min(2).max(1000).default(30),
+      max_dd_pct: z.number().min(0.01).max(0.30).default(0.10),
+    })
+    .default({}),
 });
 
 /** `BotConfig` — a teljes bot-config Zod-inferred típusa. */

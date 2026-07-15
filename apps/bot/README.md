@@ -9,6 +9,16 @@ CLI reference, manual live-testing workflow, and architectural overview. The
 self-documenting [`config/default.toml`](./config/default.toml) carries the
 canonical schema reference (every section + every field + Zod constraints).
 
+> **Phase 37 status (2026-07-15):** ✅ Portfolio coordination layer landed
+> in `apps/bot/src/portfolio/` (4 new modules: `RiskBudgetAllocator` +
+> `CorrelationMatrix` + `PortfolioStop` + `PortfolioManager`). The
+> `Bot` constructs the `PortfolioManager` in `init()` and passes it to
+> the `StrategyRunner`; the runner consults the budget cap before every
+> signal and skips when the circuit breaker is tripped. **105 new tests
+> (4 test files) at 100% line coverage.** See
+> [§12 Portfolio coordination](#12-portfolio-coordination-phase-37-track-4)
+> for the operator guide.
+>
 > **Phase 36 status (2026-07-15):** ✅ TUI UX revamp landed via 6 PRs
 > (#100, #101, #102, #103, #104, #105). The Ink-based **TUI is the
 > default UI** for `mm-bot start` (Phase 34 baseline, 2026-07-12) +
@@ -42,6 +52,7 @@ canonical schema reference (every section + every field + Zod constraints).
 9. [Coverage](#9-coverage)
 10. [Limitations](#10-limitations)
 11. [Phase 36 pre-launch checklist](#11-phase-36-pre-launch-checklist)
+12. [Portfolio coordination (Phase 37 Track 4)](#12-portfolio-coordination-phase-37-track-4)
 
 ---
 
@@ -124,7 +135,7 @@ the bot at it with `--config=`. The Zod schema rejects any field outside
 `[0.001, 0.05]` etc. — invalid configs are refused at startup with a clear
 error list.
 
-### 2.2 Schema (6 sections)
+### 2.2 Schema (7 sections)
 
 | Section | Purpose |
 |---------|---------|
@@ -134,6 +145,7 @@ error list.
 | `[symbols]` | `enabled` — CCXT unified format, e.g. `"BTC/USDC"` |
 | `[strategies.<name>]` | `enabled` + per-strategy overrides (cap, leverage, symbols, timeframes, ...) |
 | `[telemetry]` | `log_dir`, `metrics_interval_sec` |
+| `[portfolio]` | **Phase 37 Track 4** — `total_risk_per_cycle_usd`, `correlation_penalty_threshold`, `correlation_window_size`, `max_dd_pct` (portfolio-level circuit breaker) |
 
 The full annotated schema is in `config/default.toml`. **Read that file as
 the canonical reference** — the comments there are kept in sync with the Zod
@@ -559,6 +571,12 @@ apps/bot/
 │   │   ├── state-store.ts     ← atomic JSON persistence
 │   │   ├── telemetry.ts       ← logger + metrics
 │   │   └── kill-switches.ts   ← 4-source aggregate
+│   ├── portfolio/             ← Phase 37 Track 4
+│   │   ├── risk-budget.ts     ← RiskBudgetAllocator (weight × penalty)
+│   │   ├── correlation.ts     ← CorrelationMatrix (rolling N)
+│   │   ├── portfolio-stop.ts  ← circuit breaker (DD% → close-all)
+│   │   ├── portfolio-manager.ts ← orchestrator (single source of truth)
+│   │   └── index.ts           ← barrel
 │   ├── cli/
 │   │   ├── argv.ts            ← hand-rolled parser
 │   │   ├── router.ts          ← subcommand dispatcher
@@ -572,7 +590,7 @@ apps/bot/
 │   │   │   └── help.ts
 │   │   └── cli-e2e.test.ts    ← end-to-end tests
 │   └── config/
-│       ├── schema.ts          ← Zod schema (6 sections)
+│       ├── schema.ts          ← Zod schema (7 sections, incl. portfolio)
 │       ├── loader.ts          ← merge logic + ConfigError
 │       ├── defaults.ts        ← Zod-derived defaults
 │       └── strategy-registry.ts ← per-config factory
@@ -722,3 +740,134 @@ Each item is one concrete action. The full per-track walkthrough is in
 8. **Press `[v]` to view raw TOML** — Ink 7 `suspendTerminal` shell-out works; on child exit, TUI is restored.
 9. **Validate config: `mm-bot config validate`** — verify `OK` (green) + brief summary line.
 10. **Once user signs off, flip `bot.mode = "live"` in the new TUI** — the typed "LIVE" guard is the only thing standing between paper and real-money; per the project policy, the user is the one who runs this final step.
+
+---
+
+## 12. Portfolio coordination (Phase 37 Track 4)
+
+The multi-strategy runtime needs a **portfolio-level coordination layer**
+on top of the per-strategy risk management (1:10 leverage + max positions +
+per-strategy kill-switches). Without portfolio coordination, two carry
+strategies trading the same pair would each size as if they were the only
+position — the combined drawdown can then exceed the per-strategy
+`max_drawdown_pct` because the funding-rate factor is shared.
+
+The portfolio layer sits between the `StrategyRunner` and the
+`PositionManager` / `OrderManager`, and has three components:
+
+### 12.1 Risk budget allocation
+
+```toml
+[portfolio]
+total_risk_per_cycle_usd = 100          # max new risk per cycle, USD (1..10_000)
+correlation_penalty_threshold = 0.7      # corr ≥ this → penalty applied
+correlation_window_size = 30            # rolling N trade returns
+max_dd_pct = 0.10                       # circuit breaker DD threshold (0.01..0.30)
+```
+
+The `RiskBudgetAllocator` splits `total_risk_per_cycle_usd` between enabled
+strategies by weight (the per-strategy `cap` value from `[strategies.X]`)
+and applies a correlation penalty when two strategies are highly correlated
+(e.g. both are carry trades on the same pair). The per-strategy budget is:
+
+```
+budget = total_risk × normalized_weight × (1 − penalty)
+penalty = max(0, (max_corr − threshold) / (1 − threshold))
+```
+
+The `StrategyRunner` consults this budget BEFORE sizing every order. If
+the requested notional exceeds the budget, the order is scaled down to
+fit (or skipped if the budget is 0).
+
+### 12.2 Correlation matrix
+
+`CorrelationMatrix` computes the rolling Pearson correlation between every
+pair of strategies from the last N (default 30) trade returns. Returns
+are recorded via `PortfolioManager.recordFill({ strategyId, returnPct })`
+on every closed trade. The matrix is read by the `RiskBudgetAllocator`
+to compute the penalty on every budget re-compute.
+
+The matrix is symmetric (`corr(a, b) === corr(b, a)`), diagonal 1.0, and
+uses the absolute value of correlation (so negatively correlated strategies
+are also penalised — the magnitude is what matters, not the sign).
+
+For the carry strategies the correlation is typically 0.6–0.9 (shared
+funding-rate factor). For a new ohlc-trend strategy the correlation with
+carry is typically 0.1–0.3 (different signal source). At the default
+`correlation_penalty_threshold = 0.7`, a 0.9 carry pair gets
+`penalty = 0.667` and the shared budget drops to one third.
+
+### 12.3 Circuit breaker (portfolio-level stop)
+
+`PortfolioStop` tracks the portfolio equity (sum of open positions' P&L +
+cash) and the high-water mark. If the drawdown ≥ `max_dd_pct`, the
+circuit breaker **trips**:
+
+1. **Close ALL open positions** via market orders (never limit) — the
+   `PortfolioManager.executeCloseAll()` iterates `positionManager.getPositions()`
+   and places opposite-side market orders through the `OrderManager`.
+2. **Stop all strategy-runners** — the `StrategyRunner` checks
+   `portfolioManager.isTripped()` before every signal and skips if true.
+3. **Stop the bot** — the `Bot.run` heartbeat detects the trip and calls
+   `bot.stop()`. The user must run `mm-bot start` again to resume.
+4. **Log a CRITICAL error** with the timestamp, drawdown %, and the
+   per-strategy contribution to the loss.
+
+The circuit breaker is **LATCHED** — once tripped, it stays tripped until
+`PortfolioStop.reset()` is called (which only happens on bot restart). The
+peak equity is preserved across the trip (it only resets on
+`reset({ clearPeak: true })`).
+
+### 12.4 Files and tests
+
+| File | Lines | Coverage |
+|------|-------|----------|
+| `apps/bot/src/portfolio/risk-budget.ts` | ~330 | 100% line |
+| `apps/bot/src/portfolio/correlation.ts` | ~290 | 100% line |
+| `apps/bot/src/portfolio/portfolio-stop.ts` | ~300 | 100% line |
+| `apps/bot/src/portfolio/portfolio-manager.ts` | ~440 | 100% line |
+| `apps/bot/src/portfolio/*.test.ts` (4 files) | ~1650 | — |
+
+The portfolio layer ships with 4 dedicated test files (105 tests total,
+all green):
+
+- `risk-budget.test.ts` — weight allocation, correlation penalty math, edge cases
+- `correlation.test.ts` — rolling window FIFO, Pearson correctness, single fill update
+- `portfolio-stop.test.ts` — DD computation, trip-on-DD, latch, reset, force-trip
+- `portfolio-manager.test.ts` — integration, close-all proves market orders placed
+
+The close-all test is SAFETY-CRITICAL: it uses a real `MockExchangeFeed`
++ `OrderManager` + `PositionManager` stack, opens 2 positions, trips
+the breaker, and asserts that exactly 2 market orders (with the
+opposite sides) were placed on the feed. The test cannot pass without
+the close-all action actually placing real orders — it proves the
+behavior, not just the docstring.
+
+### 12.5 When the circuit breaker fires
+
+The `PortfolioStop` is checked every Bot heartbeat (default 60s in
+production, configurable via `BotOptions.heartbeatIntervalMs`). For
+testing, set it to 10ms. The sequence:
+
+1. `Bot.run` heartbeat → `portfolioManager.recordEquity(currentEquity)`
+2. `recordEquity` updates the high-water mark + per-strategy contribution
+3. If `drawdown ≥ max_dd_pct`, the `PortfolioStop` trips
+4. The trip action (wired in the `PortfolioManager` constructor) fires
+   `executeCloseAll()` — async, market orders, no exception can stop it
+5. `isTripped()` returns `true` — `StrategyRunner` skips subsequent signals
+6. The Bot's heartbeat detects the trip and calls `bot.stop()`
+7. User sees a CRITICAL log line and must run `mm-bot start` to resume
+
+### 12.6 What the portfolio layer does NOT do
+
+- **It does NOT replace the per-strategy risk section.** Per-strategy
+  `risk_per_trade`, `max_leverage`, `max_positions`, and `max_drawdown_pct`
+  stay in `[risk]` and are enforced by the existing `OrderManager` and
+  `PositionManager`. The portfolio layer is one level above.
+- **It does NOT modify the 1:10 leverage invariant.** The 3-layer defense
+  (L1 schema, L2 pre-place, L3 post-fill) is unchanged.
+- **It does NOT auto-restart.** The trip is LATCHED. The user must
+  restart manually to verify the situation and clear the latch.
+- **It does NOT bypass the user's intent.** The portfolio config defaults
+  are conservative (10% DD, $100 cycle, 0.7 threshold). Override them in
+  the TOML to match your risk tolerance.

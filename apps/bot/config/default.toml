@@ -131,6 +131,40 @@ log_dir = "logs/bot"
 metrics_interval_sec = 60   # 1 perc — per-strategy stats frissítés
 
 # ======================================================================
+# 7) PORTFOLIO (Phase 37 Track 4) — multi-strategy koordináció
+#
+# A portfolio-szintű kockázatkezelés a Phase 6 multi-class ensemble
+# óta hiányzó réteg. A carry-trade stratégiák (két `dydx_cex_carry`
+# variáns, vagy carry + funding-flip) erősen korrelálnak (0.6-0.9)
+# a közös funding-rate faktor miatt, és a korrelálatlanul méretezett
+# pozíciók a portfolió-DD-t a vártnál jobban megdobhatják.
+#
+# A 4 mező:
+#   total_risk_per_cycle_usd  — ciklusonkénti max új kockázat (USD).
+#                                Hard cap: 10 000. Default: 100.
+#   correlation_penalty_threshold — a korreláció küszöb (0..1).
+#                                Ha két stratégia korrelációja >= ez,
+#                                a közös büdzséjük csökken.
+#                                Default: 0.7.
+#   correlation_window_size   — görgető ablak (trade-ek száma).
+#                                Default: 30.
+#   max_dd_pct                — a portfolió-szintű circuit breaker
+#                                küszöb (0..0.30). Ha a portfolió
+#                                drawdown >= ez, MINDEN pozíció
+#                                zárul piaci order-ekkel, és a bot
+#                                leáll. Default: 0.10.
+#
+# A Phase 31 audit envelope +41.99%/mo @ ≤7.70% DD — a 10%-os
+# default buffer bőven elég. Ha agresszívebb (vagy konzervatívabb)
+# beállítást szeretnél, itt override-old.
+# ======================================================================
+[portfolio]
+total_risk_per_cycle_usd = 100
+correlation_penalty_threshold = 0.7
+correlation_window_size = 30
+max_dd_pct = 0.10
+
+# ======================================================================
 # 7) TUI / CLI MEGJEGYZÉSEK (Phase 34) — flag-ek, NEM config mezők
 # ======================================================================
 # A TUI (Ink-alapú terminál-felület) a `mm-bot start` alapértelmezett

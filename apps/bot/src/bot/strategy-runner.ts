@@ -49,6 +49,7 @@ import type { Brand } from "@mm-crypto-bot/shared";
 import type { StrategyName } from "../config/schema.js";
 import type { BotStrategyInstance } from "../config/strategy-registry.js";
 import type { RiskManager } from "../risk/index.js";
+import type { PortfolioManager } from "../portfolio/index.js";
 import type { OrderIntent, OrderManager } from "./order-manager.js";
 import type { PositionManager } from "./position-manager.js";
 import type { BotState } from "./state-store.js";
@@ -69,6 +70,11 @@ import type { BotState } from "./state-store.js";
  *                          Ha be van állítva, a Kelly + drawdown scaler
  *                          által javasolt mérettel írja felül a
  *                          `sizingFn` kimenetét.
+ * - `portfolioManager`    — opcionális `PortfolioManager` (Phase 37
+ *                            Track 4). Ha megadva, a sizing a
+ *                            portfolió-büdzsé CAP-jét is figyelembe
+ *                            veszi, és a `recordFill` a korreláció-
+ *                            mátrixot is frissíti.
  * - `logger`              — opcionális structured logger.
  */
 export interface StrategyRunnerOptions {
@@ -78,6 +84,7 @@ export interface StrategyRunnerOptions {
   readonly sizingFn: SizingFn;
   readonly enabledSymbols: readonly string[];
   readonly riskManager?: RiskManager;
+  readonly portfolioManager?: PortfolioManager | null;
   readonly logger?: Logger;
 }
 
@@ -124,6 +131,7 @@ export class StrategyRunner {
   private readonly positionManager: PositionManager;
   private readonly sizingFn: SizingFn;
   private readonly enabledSymbols: ReadonlySet<ExchangeSymbol>;
+  private readonly portfolioManager: PortfolioManager | null;
   private readonly logger: Logger;
   private totalSignals = 0;
   private lastSignalAt: number | null = null;
@@ -154,6 +162,7 @@ export class StrategyRunner {
       opts.enabledSymbols.map((s) => s as Brand<string, "ExchangeSymbol"> as unknown as ExchangeSymbol),
     );
     this.riskManager = opts.riskManager ?? null;
+    this.portfolioManager = opts.portfolioManager ?? null;
     this.logger = opts.logger ?? createLogger("info");
   }
 
@@ -267,6 +276,14 @@ export class StrategyRunner {
 
   /**
    * `handleSignal` — egy `StrategySignal` feldolgozása: sizing → intent → place.
+   *
+   * Phase 37 Track 4 — a sizing a `PortfolioManager` büdzsé-CAP-jéhez
+   * igazodik:
+   *   1) Ha a circuit breaker tüzel (`portfolioManager.isTripped()`),
+   *      a signal kihagyásra kerül — semmilyen új order nem indul.
+   *   2) A büdzsé (USD) a `getBudgetFor(strategyName)` — ha 0 vagy
+   *      kisebb mint a kért notional, a méret a büdzsé / ár arányára
+   *      skálázódik (vagy skip, ha a büdzsé 0).
    */
   private async handleSignal(
     strategyName: StrategyName,
@@ -280,7 +297,17 @@ export class StrategyRunner {
     this.lastSignalStrategy = strategyName;
     this.perStrategyLastSignal.set(strategyName, this.lastSignalAt);
 
-    // Sizing
+    // Phase 37 Track 4 — circuit breaker check. Ha a portfolio-stop
+    // tüzelt, a StrategyRunner NEM küld új order-t (a bot leállásáig).
+    if (this.portfolioManager?.isTripped() === true) {
+      this.logger.warn("[strategy-runner] portfolio-stop tripped — skipping signal", {
+        strategy: strategyName,
+        symbol,
+      });
+      return;
+    }
+
+    // Sizing — Phase 37 Track 1 (RiskManager) + Track 4 (Portfolio budget cap)
     const equity = this.positionManager.getEquity();
     let amount: number;
     if (this.riskManager !== null) {
@@ -312,6 +339,24 @@ export class StrategyRunner {
       return;
     }
 
+    // Phase 37 Track 4 — büdzsé-CAP alkalmazása. A kért notional
+    // (amount * referencePrice) nem haladhatja meg a
+    // `portfolioManager.getBudgetFor(strategyName)`-et.
+    amount = this.applyBudgetCap(
+      strategyName,
+      amount,
+      referencePrice,
+    );
+    if (amount <= 0) {
+      this.logger.debug("[strategy-runner] budget cap shrunk amount to 0 — skipping", {
+        strategy: strategyName,
+        symbol,
+        baseAmount,
+        referencePrice,
+      });
+      return;
+    }
+
     // Build OrderIntent
     const intent: OrderIntent = {
       signal,
@@ -336,6 +381,16 @@ export class StrategyRunner {
         timestamp: Date.now(),
       });
       this.orderManager.recordFill(order.clientOrderId, order);
+      // Phase 37 Track 4 — a portfolió-menedzser is megkapja a fill-t
+      // (a korreláció-stream frissítéséhez). A return% itt 0, mert
+      // ez egy NYITÓ fill (nincs realizált P&L); a ZÁRÓ fill a
+      // position-manager-en keresztül a position teljes zárásakor
+      // kerül rögzítésre — a StrategyRunner a `Bot.run` heartbeat-
+      // jében kérdezi le a `closedTrades` listát és hívja a
+      // `portfolioManager.recordFill`-t a ZÁRÁS pillanatában.
+      if (this.portfolioManager !== null) {
+        this.portfolioManager.recordFill({ strategyId: strategyName, returnPct: 0 });
+      }
       if (strategy.onPositionOpened !== undefined) {
         strategy.onPositionOpened({
           side: signal.side,
@@ -354,6 +409,43 @@ export class StrategyRunner {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+
+  /**
+   * `applyBudgetCap` — a kért méretet a portfolió-büdzsé CAP-jéhez
+   * skálázza. Ha a CAP kisebb mint a kért notional, a méret a CAP
+   * / referencePrice arányára csökken. Ha a CAP 0, a visszatérés 0
+   * (a hívó kihagyja az order-t).
+   *
+   * A CAP nélküli esetben (nincs PortfolioManager vagy a büdzsé
+   * nagyobb mint a kért notional) a baseAmount változatlanul
+   * visszatér.
+   */
+  private applyBudgetCap(
+    strategyName: StrategyName,
+    baseAmount: number,
+    referencePrice: number,
+  ): number {
+    if (this.portfolioManager === null) {
+      return baseAmount;
+    }
+    const capUsd = this.portfolioManager.getBudgetFor(strategyName);
+    if (capUsd <= 0 || referencePrice <= 0) {
+      return 0;
+    }
+    const requestedNotional = baseAmount * referencePrice;
+    if (requestedNotional <= capUsd) {
+      return baseAmount;
+    }
+    const scaled = capUsd / referencePrice;
+    this.logger.debug("[strategy-runner] budget cap shrunk order", {
+      strategy: strategyName,
+      baseAmount,
+      scaledAmount: scaled,
+      capUsd,
+      requestedNotional,
+    });
+    return scaled;
   }
 
   /**
