@@ -36,6 +36,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:install-warnings": "bash scripts/install-no-warnings.sh",
     "coverage": "turbo run coverage",
     "coverage:per-package": "bash scripts/coverage-per-package.sh",
     "coverage:merge": "mkdir -p coverage/merged && lcov --add-tracefile 'apps/*/coverage/lcov.info' --add-tracefile 'packages/*/coverage/lcov.info' --ignore-errors empty,inconsistent -o coverage/merged/lcov.info",
@@ -68,25 +69,5 @@
   },
   "trustedDependencies": [
     "ccxt"
-  ],
-  "overrides": {
-    "@inkjs/ui": {
-      "peerDependencies": {
-        "ink": "*",
-        "react": "*"
-      }
-    },
-    "@matthesketh/ink-table": {
-      "peerDependencies": {
-        "ink": "*",
-        "react": "*"
-      }
-    },
-    "@matthesketh/ink-status-bar": {
-      "peerDependencies": {
-        "ink": "*",
-        "react": "*"
-      }
-    }
-  }
+  ]
 }

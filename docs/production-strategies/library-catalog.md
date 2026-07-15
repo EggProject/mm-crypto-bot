@@ -70,8 +70,7 @@ single peer-dep check and a single API surface to learn.
 
 A 30-line smoke test was run first to verify ink 7 + React 19.2
 compatibility — the library's documented peer dep is `ink >= 5`,
-but we run ink 7.1.0 + React 19.2 (peer-dep warning overridden via
-root `package.json` `"overrides"` block). The smoke test renders
+but we run ink 7.1.0 + React 19.2. The smoke test renders
 each component and verifies the output.
 
 ```bash
@@ -542,8 +541,19 @@ Ink 7 is largely backwards-compatible. The `coverage:full` and
 }
 ```
 
-The Phase 36 implementation chose (b) — the root `package.json`
-has the override block. The CI pipeline is clean.
+> **Phase 40 update (2026-07-16):** the nested `overrides` block
+> turned out to be a **no-op under bun** — bun 1.3+ only supports
+> the flat `pkg → version` form and silently ignores nested map
+> values, while still emitting a `warn: Bun currently does not
+> support nested "overrides"` line on every `bun install`. The
+> block has been removed from the root `package.json`. The CI now
+> runs `bun run test:install-warnings` (`scripts/install-no-warnings.sh`)
+> to assert zero `warn:` lines on every install, so a regression
+> would fail the `install-no-warnings` job before reaching the
+> typecheck/lint/test/build steps. The runtime is unchanged — bun
+> never resolved the override anyway, so peer-dep warnings have
+> been absent from the install output from day one (the nested
+> form was cosmetic noise, not a working suppression).
 
 ---
 
