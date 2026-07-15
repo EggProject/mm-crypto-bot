@@ -9,6 +9,7 @@ import { describe, expect, it } from "bun:test";
 import { asSymbol, type Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
 
 import { PositionManager, PositionManagerError } from "./position-manager.js";
+import { RiskManager } from "../risk/risk-manager.js";
 
 function makeSymbol(): ExchangeSymbol {
   return asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
@@ -283,5 +284,61 @@ describe("PositionManager", () => {
       maxLeverage: 5,
     });
     expect(pm.getMaxLeverage()).toBe(5);
+  });
+
+  // ---------------------------------------------------------------------------
+  // 14) setRiskManager — Phase 37 Track 1 wiring
+  // ---------------------------------------------------------------------------
+  it("setRiskManager stores the manager and feeds it on updateMarketPrice", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    const rm = new RiskManager({
+      trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
+      kelly: { enabled: false, fraction: 0.25, windowSize: 50, minTrades: 10, fallbackFraction: 0.01, maxFraction: 0.1 },
+      drawdownScaler: { enabled: true, maxDdPct: 0.20, initialEquity: 10_000 },
+    });
+    pm.setRiskManager(rm);
+    pm.setRiskManager(null);
+    pm.setRiskManager(rm);
+    pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);
+    // First tick — no breach, equity fed
+    pm.updateMarketPrice(makeSymbol(), 60_500);
+    // 0.01 BTC × (60_500 - 60_000) = 5 USD unrealized → equity = 10_005
+    expect(rm.getDrawdownScaler().getState().currentEquity).toBe(10_005);
+    // Second tick — drop below the trail (60_500 - 3*600 = 58_700)
+    pm.updateMarketPrice(makeSymbol(), 58_000);
+    expect(pm.getPositionCount()).toBe(0);
+  });
+
+  it("updateMarketPrice feeds RiskManager only when set", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    // No riskManager set — should be a no-op
+    pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);
+    pm.updateMarketPrice(makeSymbol(), 60_500);
+    expect(pm.getPositionCount()).toBe(1);
+  });
+
+  it("closePosition feeds Kelly sizer when riskManager is set", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    const rm = new RiskManager({
+      trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
+      kelly: { enabled: true, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.01, maxFraction: 0.1 },
+      drawdownScaler: { enabled: false, maxDdPct: 0.20, initialEquity: 10_000 },
+    });
+    pm.setRiskManager(rm);
+    pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);
+    pm.closePosition("strategy-a", makeSymbol(), 65_000, 1_234);
+    expect(rm.getKellySizer().getStats().trades).toBe(1);
   });
 });

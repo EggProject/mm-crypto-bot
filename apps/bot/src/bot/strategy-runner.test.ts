@@ -14,6 +14,7 @@ import { StrategyRunner, defaultSizingFn, runnerStatsToState } from "./strategy-
 import { createStrategyInstances } from "../config/strategy-registry.js";
 import { DEFAULT_BOT_CONFIG } from "../config/defaults.js";
 import type { BotConfig } from "../config/schema.js";
+import { RiskManager } from "../risk/risk-manager.js";
 
 function makeSymbol(): ExchangeSymbol {
   return asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
@@ -298,5 +299,121 @@ describe("StrategyRunner", () => {
     // Pass-through semantics: same shape, same counter reference.
     expect(result).toEqual(state);
     expect(result.counters).toBe(state.counters);
+  });
+
+  // ---------------------------------------------------------------------------
+  // 9) setRiskManager / riskManager wiring — Phase 37 Track 1
+  // ---------------------------------------------------------------------------
+  it("setRiskManager attaches and detaches the risk manager", () => {
+    const feed = new MockExchangeFeed();
+    const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
+    const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
+    const runner = new StrategyRunner({
+      instances: new Map(),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    const rm = new RiskManager({
+      trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
+      kelly: { enabled: true, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.01, maxFraction: 0.1 },
+      drawdownScaler: { enabled: false, maxDdPct: 0.20, initialEquity: 10_000 },
+    });
+    runner.setRiskManager(rm);
+    runner.setRiskManager(null);
+    runner.setRiskManager(rm);
+    // No-op: detaching and re-attaching is supported.
+  });
+
+  it("riskManager overrides sizing when set", async () => {
+    const feed = new MockExchangeFeed({
+      balances: [{ currency: "USDC", free: 100_000, total: 100_000 }],
+    });
+    await feed.open();
+    const pm = new PositionManager({ initialEquityUsd: 100_000, maxPositions: 3, maxLeverage: 10 });
+    const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "test",
+      stopLoss: 0,
+      takeProfit: 0,
+    });
+    const instances = new Map([
+      ["fixed-signal" as const, { kind: "strategy" as const, name: "fixed-signal" as const, instance: strategy as unknown as Strategy }],
+    ]);
+    const symbol = makeSymbol();
+    const runner = new StrategyRunner({
+      instances,
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    const rm = new RiskManager({
+      trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
+      kelly: { enabled: true, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.02, maxFraction: 0.1 },
+      drawdownScaler: { enabled: false, maxDdPct: 0.20, initialEquity: 10_000 },
+    });
+    runner.setRiskManager(rm);
+    await feed.subscribeOhlcv(symbol, "15m", (event) => {
+      void runner.onFeedEvent(event);
+    });
+    const candle: Ohlcv = [Date.now(), 60_000, 60_500, 59_500, 60_000, 100];
+    pushOhlcvTick(feed, symbol, "15m", candle);
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 50);
+    });
+    // RiskManager path → fallback 0.02 (cold-start, no trades yet)
+    // → quantity = 0.02 × 100_000 / 60_000 ≈ 0.0333
+    const pos = pm.getPosition("fixed-signal", symbol, "long");
+    expect(pos).toBeDefined();
+    expect(pos?.quantity).toBeCloseTo(0.0333, 4);
+  });
+
+  it("drawdown scaler kill region blocks new orders when riskManager is set", async () => {
+    const feed = new MockExchangeFeed({
+      balances: [{ currency: "USDC", free: 100_000, total: 100_000 }],
+    });
+    await feed.open();
+    const pm = new PositionManager({ initialEquityUsd: 100_000, maxPositions: 3, maxLeverage: 10 });
+    const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "test",
+      stopLoss: 0,
+      takeProfit: 0,
+    });
+    const instances = new Map([
+      ["fixed-signal" as const, { kind: "strategy" as const, name: "fixed-signal" as const, instance: strategy as unknown as Strategy }],
+    ]);
+    const symbol = makeSymbol();
+    const runner = new StrategyRunner({
+      instances,
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    const rm = new RiskManager({
+      trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
+      kelly: { enabled: false, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.01, maxFraction: 0.1 },
+      drawdownScaler: { enabled: true, maxDdPct: 0.20, initialEquity: 10_000 },
+    });
+    // Pre-warm equity to a kill-region value
+    rm.onEquityUpdate(7_000); // -30% from 10k = 150% of 20% → kill
+    runner.setRiskManager(rm);
+    await feed.subscribeOhlcv(symbol, "15m", (event) => {
+      void runner.onFeedEvent(event);
+    });
+    const candle: Ohlcv = [Date.now(), 60_000, 60_500, 59_500, 60_000, 100];
+    pushOhlcvTick(feed, symbol, "15m", candle);
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 50);
+    });
+    // Drawdown scaler in kill region → 0 size → no position
+    expect(pm.getPositionCount()).toBe(0);
   });
 });

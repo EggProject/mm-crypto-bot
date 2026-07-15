@@ -37,6 +37,8 @@ import {
 import type { Logger } from "@mm-crypto-bot/shared";
 import { createLogger } from "@mm-crypto-bot/shared";
 
+import type { RiskManager } from "../risk/index.js";
+
 // ============================================================================
 // Public types
 // ============================================================================
@@ -197,6 +199,16 @@ export class PositionManager {
     readonly pnlPct: number;
     readonly closedAt: number;
   }[] = [];
+  /**
+   * `riskManager` — Phase 37 Track 1. Optional. If set, on every
+   * `updateMarketPrice` the manager is fed a tick for each open
+   * position; if the trailing-stop fires, the position is closed
+   * immediately. The trailing-stop uses a constant ATR proxy
+   * (the position's `notionalUsd / quantity / 10`) when no explicit
+   * ATR is provided — sufficient for a first integration; the
+   * upstream ATR pipeline (M15) replaces this in a follow-up.
+   */
+  private riskManager: RiskManager | null = null;
 
   public constructor(opts: PositionManagerOptions) {
     if (opts.initialEquityUsd <= 0) {
@@ -344,6 +356,15 @@ export class PositionManager {
       notionalUsd,
     };
     this.positions.set(id, record);
+    // Phase 37 Track 1: arm the trailing stop on the RiskManager
+    // when a new position is opened. The trailing-stop is fed from
+    // updateMarketPrice on every subsequent tick.
+    if (this.riskManager !== null) {
+      const atrProxy = quantity > 0
+        ? (notionalUsd / quantity) * 0.01
+        : entryPrice * 0.01;
+      this.riskManager.armTrailingStop(id, side, entryPrice, atrProxy);
+    }
     this.logger.info("[position-manager] position opened", {
       strategy,
       symbol,
@@ -410,6 +431,10 @@ export class PositionManager {
           side: opposite.side,
           pnl,
         });
+        if (this.riskManager !== null) {
+          this.riskManager.onTradeClosed(pnl, fill.timestamp);
+          this.riskManager.disarmTrailingStop(oppId);
+        }
       } else {
         opposite.quantity = newQty;
         opposite.notionalUsd = newQty * opposite.entryPrice;
@@ -481,6 +506,10 @@ export class PositionManager {
           side,
           pnl,
         });
+        if (this.riskManager !== null) {
+          this.riskManager.onTradeClosed(pnl, timestamp);
+          this.riskManager.disarmTrailingStop(id);
+        }
         return pnl;
       }
     }
@@ -490,8 +519,23 @@ export class PositionManager {
   }
 
   /**
+   * `setRiskManager` — Phase 37 Track 1 wiring. Attach / detach the
+   * `RiskManager` that drives the trailing-stop and the Kelly sizer.
+   * Detach with `null` to revert to the no-op legacy path.
+   */
+  public setRiskManager(rm: RiskManager | null): void {
+    this.riskManager = rm;
+  }
+
+  /**
    * `updateMarketPrice` — frissíti egy adott symbol utolsó ismert
    * piaci árát. Az `unrealizedPnl` ennek megfelelően újraszámolódik.
+   *
+   * Phase 37 Track 1: ha a `riskManager` be van állítva, minden
+   * frissítéskor meghívja a `riskManager.onTick` metódust a
+   * trailing-stop számításához. Ha a trailing-stop "close" döntést
+   * hoz, a pozíciót a `closePosition` metódussal zárja (a döntés
+   * `closePrice` értékével).
    */
   public updateMarketPrice(symbol: Symbol, price: number): void {
     if (!Number.isFinite(price) || price <= 0) {
@@ -501,7 +545,30 @@ export class PositionManager {
       if (record.symbol === symbol) {
         record.currentPrice = price;
         record.unrealizedPnl = this.computeUnrealized(record);
+        if (this.riskManager !== null) {
+          // ATR proxy: a position notionaljából / quantity / 10
+          // (≈ 10% assumed volatility). Az upstream ATR pipeline
+          // (M15) ezt felülírja egy későbbi fázisban.
+          const atrProxy = record.quantity > 0
+            ? (record.notionalUsd / record.quantity) * 0.01
+            : record.entryPrice * 0.01;
+          const decision = this.riskManager.onTick({
+            positionId: record.id,
+            side: record.side,
+            currentPrice: price,
+            atr: atrProxy,
+          });
+          if (decision.kind === "close") {
+            this.closePosition(record.strategy, record.symbol, decision.closePrice);
+            this.riskManager.disarmTrailingStop(record.id);
+          }
+        }
       }
+    }
+    // Drawdown scaler is fed on every tick (equity moves with
+    // unrealized PnL). Cheap — one number update.
+    if (this.riskManager !== null) {
+      this.riskManager.onEquityUpdate(this.getEquity());
     }
   }
 
