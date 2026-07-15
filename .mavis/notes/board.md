@@ -1,8 +1,8 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-14 21:55 Budapest — Phase 35d CLOSED (coverage:full redesign), Phase 36 EXECUTING (TUI UX revamp, 4 user issues + 6-8 PR + 4 tracks, A1 producer indítása).
+description: Project board — mm-crypto-bot. Updated 2026-07-15 09:54 Budapest — Phase 36 Track C producer FROZEN at 558 min, restart ordered by user. WIP committed (86d138e), fresh producer launching.
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-14 21:55 Budapest, Phase 36 EXECUTING)
+# Project board — mm-crypto-bot (updated 2026-07-15 09:54 Budapest, Phase 36 EXECUTING, Track C producer restart)
 
 ## User mandate (2026-07-11 23:42 Budapest) — PHASE 33 SCOPE
 
@@ -638,3 +638,41 @@ User explicitly asked the orchestrator to **coordinate only** — delegate imple
 **CI gates:** typecheck PASS, lint PASS, test PASS, build PASS, coverage:per-package PASS.
 
 **Trade-off note:** The Table v0.1.0 does not support per-cell coloring (cells are joined as strings). The history-table trade-ek LONG/SHORT szín-jelzése a `+`/`-` prefix-szel működik (PNL oszlop). A Phase 36 user mandate "richer visuals" máshol teljesül: badge-ek a Header-ben, StatusMessage címek minden panelen, Spinner a Connecting állapotban, KeyHint-ek a StatusBar-ban.
+
+## Phase 36 Track C — RESTART (2026-07-15 09:54 Budapest)
+
+**User message:** "agent befagyott inditsd ujra" (agent frozen, restart it) — at 09:51 Budapest, after the previous producer (bg_3f6b1863) had been running for 558 minutes with no new commits and the same 76-line coverage gap.
+
+**Actions taken:**
+1. **Cancelled** the stuck producer `bg_3f6b1863-4cdb-46e9-a007-526081730edb` (user restart order)
+2. **WIP-committed** the uncommitted coverage-test work (4 files, +526/-69 lines):
+   - `packages/tui/src/components/RawTomlViewer.tsx` — extracted `runRawTomlViewer()` testable helper
+   - `packages/tui/src/components/RawTomlViewer.test.tsx` — 269 new test lines
+   - `packages/tui/src/components/SettingsPanel.tsx` — extracted `handleOpenRawViewer` / `handleLiveConfirmSubmit` helpers
+   - `packages/tui/src/components/SettingsPanel.test.tsx` — 64 new test lines (the `[v]` keypress test)
+3. **Pushed** commit `86d138e` to `feat/phase36-track-c2-live-confirm` (5 commits ahead of main: 6d6553c + 86d138e)
+4. **Deleted** the old `phase36-track-c-watch-only` cron (b05e3414)
+5. **Launching** a fresh producer to finish the coverage fix + push CI green
+
+**Branch state:** `feat/phase36-track-c2-live-confirm` (HEAD `86d138e`, 5 commits ahead of main)
+**PRs:** #104 (C1) and #105 (C2) — both still OPEN. The C2 branch is the active work branch (C1 was merged into C2 via `576ea55`).
+
+**Coverage state (last producer log):** packages/tui at 96.0% (1816/1892), 76 lines missing. After the WIP commits it may have improved — the fresh producer will re-measure.
+
+**Reason for restart (analysis):**
+- Producer was making slow progress (4 test files modified but never committed)
+- Coverage gap remained 76 lines after 9+ hours
+- The producer likely got stuck in a "add test → run CI → fix → loop" pattern that took 30+ min per round
+- Fresh producer context should break the loop
+
+**Next producer scope (full):**
+1. Check out `feat/phase36-track-c2-live-confirm` (already has 86d138e)
+2. Run `bun run coverage:full` to measure current state
+3. Identify the 76 missing lines (run `npx lcov --list packages/coverage/lcov.info` filtered to packages/tui)
+4. Add tests for the missing lines (focus on the 3 new components: SettingsPanel, LiveConfirm, LeverageCap, RawTomlViewer, ConfigStore)
+5. Iterate: `bun run coverage:per-package` (in packages/tui) until 100%
+6. Run `bun run typecheck && bun run lint && bun run test && bun run build && bun run coverage:full` — all must be green
+7. Push to `feat/phase36-track-c2-live-confirm`, monitor PR #105 CI
+8. When PR #105 CI is green → STOP, do NOT merge, report to user (per project policy: "no auto-merge")
+
+**Hard cap (per user mandate):** 1:10 leverage in UI (already enforced via LeverageCap.tsx); 1:10 max in ConfigStore; bot.mode = "live" requires typed "LIVE" confirmation (already enforced via LiveConfirm.tsx).

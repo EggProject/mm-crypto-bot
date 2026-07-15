@@ -39,3 +39,14 @@ export {
   formatTimestamp,
   formatUsdt,
 } from "./utils/format.js";
+
+// Phase 36 Track C1 — a TUI settings panel persistence hook.
+export {
+  useConfigStore,
+  parseToml,
+  stringifyToml,
+  writeFileAtomic,
+  type ConfigStoreError,
+  type UseConfigStoreOptions,
+  type UseConfigStoreResult,
+} from "./hooks/useConfigStore.js";
