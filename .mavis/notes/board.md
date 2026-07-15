@@ -1,5 +1,5 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-15 09:54 Budapest — Phase 36 Track C producer FROZEN at 558 min, restart ordered by user. WIP committed (86d138e), fresh producer launching.
+description: Project board — mm-crypto-bot. Updated 2026-07-15 11:48 Budapest — Phase 36 CLOSED. PR #105 (C1+C2) squash-merged (f4d4f63), PR #104 closed as superseded, PR #106 (Track D docs) rebased + squash-merged (ceabb2f). Pre-launch checklist ready for user.
 ---
 
 # Project board — mm-crypto-bot (updated 2026-07-15 09:54 Budapest, Phase 36 EXECUTING, Track C producer restart)
