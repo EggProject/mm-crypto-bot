@@ -47,7 +47,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { RawTomlViewer, runRawTomlViewer, spawnViewer } from "./RawTomlViewer.js";
+import {
+  RawTomlViewer,
+  runRawTomlViewer,
+  spawnViewer,
+  type SuspendFn,
+} from "./RawTomlViewer.js";
 
 describe("RawTomlViewer.spawnViewer (Phase 36 Track C2)", () => {
   let tmpDir: string;
@@ -343,7 +348,7 @@ describe("RawTomlViewer React component (Phase 36 Track C2)", () => {
     let onCloseCalled = false;
     const configPath = "/tmp/mm-bot-react-mount-test.toml";
     let suspendCalled = false;
-    const fakeSuspend: import("./RawTomlViewer.js").SuspendFn = async (cb) => {
+    const fakeSuspend: SuspendFn = async (cb) => {
       suspendCalled = true;
       await cb();
     };

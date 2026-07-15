@@ -1001,4 +1001,158 @@ describe("SettingsPanel (Phase 36 Track C1)", () => {
       rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  // --------------------------------------------------------------------------
+  // 41) A `BotSection` Select `onChange` ELSE ág: amikor a user a
+  //     Select-et "paper"-re állítja (a default "live" módból), a
+  //     `setData` callback hívódik `bot.mode = "paper"` értékkel.
+  //     Ez az ELSE ág a Select onChange callback-jében (line 223-225).
+  //     Az IF ágat a 39. teszt fedi le (Down+Enter → "live" → modal).
+  //     A ELSE ág fedezetlen maradt, mert a default sample data-ban
+  //     a `bot.mode` mindig "paper" volt — a teszt a default-ból
+  //     indulva nem tud más opcióra váltani a "live"-on kívül.
+  // --------------------------------------------------------------------------
+  it("BotSection Select onChange 'paper' hits the else-branch (setData called with mode='paper')", async () => {
+    let setDataCalledWith: Record<string, unknown> | null = null;
+    // A default data-ban a `bot.mode` "live"-ra állítjuk — így a
+    // Select defaultValue="live", focusedValue="paper" (első opció),
+    // value="live". Az Enter megnyomásakor a Select az "paper"-t
+    // választja ki → onChange("paper") → ELSE ág fut le.
+    const liveData = makeSampleData();
+    (liveData["bot"] as { mode: string }).mode = "live";
+    const instance = render(
+      <SettingsPanel
+        data={liveData}
+        dirty={false}
+        errors={[]}
+        saving={false}
+        setData={(d) => {
+          setDataCalledWith = d;
+        }}
+        onSave={async () => true}
+        onAbandon={noOpProps.onAbandon}
+      />,
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    // Csak az Enter — nincs Down/Up navigáció, mert a focusedValue
+    // már a kívánt "paper" (first option).
+    instance.stdin.write("\r");
+    await new Promise((r) => setTimeout(r, 100));
+    // A setData hívódik a `bot.mode = "paper"` értékkel.
+    expect(setDataCalledWith).not.toBeNull();
+    if (setDataCalledWith !== null) {
+      const data = setDataCalledWith as { bot: { mode?: string } };
+      expect(data.bot.mode).toBe("paper");
+    }
+    instance.unmount();
+  });
+
+  // --------------------------------------------------------------------------
+  // 42) A `<LiveConfirm>` onConfirm callback-je a `handleLiveConfirmSubmit`
+  //     helper-t hívja, ami a `setData`-t `bot.mode = "live"` értékkel
+  //     hívja, majd a modált bezárja. Ez a sorpár lefedi:
+  //     - SettingsPanel.tsx 541-545: az onConfirm async arrow body
+  //     - SettingsPanel.tsx 708-717: a handleLiveConfirmSubmit function body
+  // --------------------------------------------------------------------------
+  it("LiveConfirm onConfirm fires handleLiveConfirmSubmit (setData called with mode='live')", async () => {
+    // A setData callback-et TÖBBSZÖR is hívják a render során
+    // (a BotSection `log_level` TextInput-ja is fogadja a begépelt
+    // karaktereket, és minden re-renderkor újra tüzel). Ezért
+    // az ÖSSZES hívást gyűjtjük, és azt ellenőrizzük, hogy a
+    // `handleLiveConfirmSubmit` által hívott setData (mode="live")
+    // szerepel-e a listában.
+    const setDataCalls: Record<string, unknown>[] = [];
+    const instance = render(
+      <SettingsPanel
+        data={makeSampleData()}
+        dirty={false}
+        errors={[]}
+        saving={false}
+        setData={(d) => {
+          setDataCalls.push(d);
+        }}
+        onSave={async () => true}
+        onAbandon={noOpProps.onAbandon}
+      />,
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    // 1) A LiveConfirm modal megnyitása: Down + Enter a Select-en.
+    //    A default "paper" módból "live"-ra váltunk.
+    instance.stdin.write("\u001b[B"); // Down arrow
+    await new Promise((r) => setTimeout(r, 50));
+    instance.stdin.write("\r"); // Enter → Select "live" → onChange("live") → LiveConfirm modal nyílik
+    await new Promise((r) => setTimeout(r, 200));
+    // Ellenőrizzük, hogy a modal valóban megjelent.
+    const modalFrame = instance.lastFrame() ?? "";
+    expect(modalFrame).toContain("LIVE MODE");
+    // 2) A LiveConfirm TextInput-jába beírjuk a "LIVE" stringet.
+    //    A SettingsPanel useInput-je nem dolgozza fel a sima karaktereket
+    //    (csak Tab/Esc/Ctrl+S/v/y/n), így minden karakter a TextInput-ba megy.
+    for (const ch of "LIVE") {
+      instance.stdin.write(ch);
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    // 3) Enter — a TextInput submit hívja a LiveConfirm handleSubmit-jét,
+    //    ami "LIVE" === "LIVE" esetén meghívja az onConfirm-ot.
+    instance.stdin.write("\r");
+    await new Promise((r) => setTimeout(r, 200));
+    // A handleLiveConfirmSubmit a `bot.mode = "live"` értékkel hívja
+    // a setData-t. Ellenőrizzük, hogy ez a hívás megtörtént.
+    const liveCall = setDataCalls.find(
+      (d) => (d as { bot?: { mode?: string } }).bot?.mode === "live",
+    );
+    expect(liveCall).toBeDefined();
+    instance.unmount();
+  });
+
+  // --------------------------------------------------------------------------
+  // 43) A `<RawTomlViewer>` onClose callback-je a `configPath`-os
+  //     mount esetén hívja az `onViewRawToml` callback-et, ha az
+  //     definiálva van. Ez a SettingsPanel.tsx 764. sorát fedi le
+  //     (az `onViewRawToml()` hívás az `if` body-jában).
+  //     A 36. teszt a legacy v callback-et (line 442-444) fedi le,
+  //     ahol configPath undefined. Itt configPath definiálva van,
+  //     tehát a `renderRawViewerOverlay` mountolja a RawTomlViewer-t,
+  //     és a `runRawTomlViewer` finally ága hívja az onClose-ot.
+  // --------------------------------------------------------------------------
+  it("[v] keypress with configPath + onViewRawToml: onClose fires onViewRawToml", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "mm-bot-v-onclose-"));
+    const configPath = join(tmpDir, "mm-bot.toml");
+    writeFileSync(
+      configPath,
+      "[bot]\nmode = \"paper\"\nrisk_per_trade = 0.01\n",
+      "utf8",
+    );
+    try {
+      let viewCalled = false;
+      const instance = render(
+        <SettingsPanel
+          data={makeSampleData()}
+          dirty={false}
+          errors={[]}
+          saving={false}
+          {...noOpProps}
+          configPath={configPath}
+          onViewRawToml={() => {
+            viewCalled = true;
+          }}
+        />,
+      );
+      await new Promise((r) => setTimeout(r, 50));
+      // 'v' keypress: configPath definiálva van, tehát a SettingsPanel
+      // mountolja a RawTomlViewer-t (handleOpenRawViewer).
+      instance.stdin.write("v");
+      // Várunk, hogy a runRawTomlViewer végigmenjen: tmp file write →
+      // suspendFn callback (a default useApp().suspendTerminal azonnal
+      // meghívja a callback-et) → spawnViewer (a $PAGER nincs beállítva,
+      // ezért a child gyorsan kilép) → unlink → onClose → onViewRawToml.
+      // Az egész pipeline async, de gyors — 500ms bőven elég.
+      await new Promise((r) => setTimeout(r, 800));
+      // Az onViewRawToml hívódott — a SettingsPanel.tsx 764. sora lefutott.
+      expect(viewCalled).toBe(true);
+      instance.unmount();
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
