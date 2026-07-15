@@ -10,5 +10,12 @@ export { ChartsPanel } from "./ChartsPanel.js";
 // Phase 36 Track C1 — TUI settings panel (btop-style multi-section).
 export { SettingsPanel, useSettingsPanel } from "./SettingsPanel.js";
 export type { SettingsPanelProps, SettingsSection } from "./SettingsPanel.js";
+// Phase 36 Track C2 — LiveConfirm modal, LeverageCap, RawTomlViewer.
+export { LiveConfirm, LIVE_CONFIRM_TEXT } from "./LiveConfirm.js";
+export { LeverageCap, MAX_LEVERAGE } from "./LeverageCap.js";
+export { RawTomlViewer, spawnViewer } from "./RawTomlViewer.js";
+export type { LiveConfirmProps } from "./LiveConfirm.js";
+export type { LeverageCapProps } from "./LeverageCap.js";
+export type { RawTomlViewerProps } from "./RawTomlViewer.js";
 export type { HelpOverlayProps } from "./HelpOverlay.js";
 export type { ChartsPanelProps } from "./ChartsPanel.js";

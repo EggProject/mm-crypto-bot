@@ -46,11 +46,14 @@
  * ===========================================================================
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ReactElement } from "react";
 import { Box, Text, useInput } from "ink";
 import { MultiSelect, Select, TextInput } from "@inkjs/ui";
 
+import { LeverageCap, MAX_LEVERAGE } from "./LeverageCap.js";
+import { LiveConfirm } from "./LiveConfirm.js";
+import { RawTomlViewer } from "./RawTomlViewer.js";
 import type { ConfigStoreError, UseConfigStoreResult } from "../hooks/useConfigStore.js";
 
 // ============================================================================
@@ -62,7 +65,6 @@ import type { ConfigStoreError, UseConfigStoreResult } from "../hooks/useConfigS
  * A 4 fő szekció (Bot / Exchange / Risk / Strategies) a szerkeszthető,
  * a Symbols + Telemetry read-only.
  */
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type SettingsSection =
   | "strategies"
   | "risk"
@@ -87,6 +89,12 @@ export interface SettingsPanelProps {
    * A panel a `[v]` billentyűre hívja (ha definiálva van).
    */
   readonly onViewRawToml?: () => void;
+  /**
+   * `configPath` — a config fájl útvonala. A `<RawTomlViewer>` ezt
+   * használja a tmp fájlíráshoz. A SettingsPanel mountolja a viewert,
+   * ha a user a `[v]` billentyűt nyomja.
+   */
+  readonly configPath?: string;
 }
 
 // ============================================================================
@@ -155,20 +163,13 @@ function RiskSection({
       </Box>
       <Box>
         <Text>max_leverage     </Text>
-        <TextInput
-          defaultValue={String(risk.max_leverage ?? "")}
-          onChange={(v: string) => {
-            // A 1:10 leverage MANDATE — a Zod séma a write előtt
-            // elutasítja a 10-nél nagyobb értéket. A UI itt is
-            // alkalmazza a guard-ot (a Track C2 PR a dedikált
-            // `<LeverageCap>` komponenst hozza).
-            const num = Number.parseInt(v, 10);
-            if (Number.isFinite(num) && num >= 1 && num <= 10) {
-              setData({ ...data, risk: { ...risk, max_leverage: num } });
-            }
+        <LeverageCap
+          value={risk.max_leverage ?? MAX_LEVERAGE}
+          max={MAX_LEVERAGE}
+          onChange={(num) => {
+            setData({ ...data, risk: { ...risk, max_leverage: num } });
           }}
         />
-        <Text color="red">  (HARD-CAPPED at 10)</Text>
       </Box>
     </Box>
   );
@@ -178,18 +179,29 @@ function RiskSection({
  * `BotSection` — a `[bot]` szekció szerkesztő UI-ja.
  *
  * A `bot.mode` mező a `<Select>` komponenssel szerkeszthető (paper / live).
- * A `bot.mode = "live"` választás a Phase 36 Track C2 `<LiveConfirm>`
- * modált fogja triggerelni (a C2 PR-ban). Most a C1 PR csak a
- * `<Select>`-et mutatja, a megerősítés nélkül.
+ * A "live" opció választása a SettingsPanel `onLiveModeSelected` callback-jét
+ * hívja, ami a `<LiveConfirm>` modált jeleníti meg (case-sensitive
+ * "LIVE" begépelésével erősíthető meg).
  */
 function BotSection({
   data,
   setData,
+  onLiveModeSelected,
 }: {
   readonly data: Readonly<Record<string, unknown>>;
   readonly setData: (next: Record<string, unknown>) => void;
+  readonly onLiveModeSelected: () => void;
 }): ReactElement {
   const bot = (data["bot"] ?? {}) as { mode?: string; log_level?: string };
+  // A `@inkjs/ui` Select `useEffect`-je minden re-renderkor hívja
+  // az `onChange`-t, ha a `state.value` változott. A `BotSection`-en
+  // belüli `bot.mode` és a Select `value` mezője szinkronban van,
+  // de a re-render során az `onChange` callback újradefiniálódik.
+  // Hogy ne hívjuk feleslegesen a `onLiveModeSelected`-et (amely a
+  // LiveConfirm modált nyitná), a `useRef`-ben tároljuk a
+  // "legutóbb hívott értéket" és csak akkor hívunk, ha tényleges
+  // változás történt.
+  const lastLiveSelectionRef = useRef<boolean>(false);
   return (
     <Box flexDirection="column" marginLeft={2}>
       <Box>
@@ -201,10 +213,24 @@ function BotSection({
           ]}
           defaultValue={bot.mode ?? "paper"}
           onChange={(v: string) => {
-            setData({ ...data, bot: { ...bot, mode: v } });
+            if (v === "live") {
+              // A user a "live" opciót választotta — a SettingsPanel
+              // megnyitja a `<LiveConfirm>` modált. A tényleges
+              // `setData` hívás csak a confirm után történik.
+              // A `lastLiveSelectionRef` megakadályozza, hogy a Select
+              // re-mount-ja (pl. egy másik state változás miatt)
+              // újra triggerelje a modált.
+              if (!lastLiveSelectionRef.current) {
+                lastLiveSelectionRef.current = true;
+                onLiveModeSelected();
+              }
+            } else {
+              lastLiveSelectionRef.current = false;
+              setData({ ...data, bot: { ...bot, mode: v } });
+            }
           }}
         />
-        <Text color="yellow">  ⚠ requires typed &quot;LIVE&quot; confirmation (Track C2)</Text>
+        <Text color="yellow">  ⚠ requires typed "LIVE" confirmation</Text>
       </Box>
       <Box>
         <Text>log_level  </Text>
@@ -340,6 +366,7 @@ export function SettingsPanel({
   onSave,
   onAbandon,
   onViewRawToml,
+  configPath,
 }: SettingsPanelProps): ReactElement {
   // Az aktuális szekció (alapértelmezetten "risk" — a legfontosabb).
   const [activeSection, setActiveSection] = useState<SettingsSection>("risk");
@@ -349,6 +376,16 @@ export function SettingsPanel({
   // változtatásokat.
   const [abandonConfirm, setAbandonConfirm] = useState<boolean>(false);
 
+  // A `bot.mode = "live"` váltás `<LiveConfirm>` modált triggerel.
+  // A state azt tárolja, hogy a modal aktív-e. A modal bezáródik,
+  // ha a user a "LIVE"-ot begépelve megerősíti, vagy Esc-t nyomva
+  // visszavonja.
+  const [showLiveConfirm, setShowLiveConfirm] = useState<boolean>(false);
+
+  // A `<RawTomlViewer>` (suspendTerminal) state-je. Ha true, a
+  // viewer mountolva van, és a TUI terminál release-elve van.
+  const [showRawViewer, setShowRawViewer] = useState<boolean>(false);
+
   useInput((input, key) => {
     // Ctrl+S: save.
     if (key.ctrl && input === "s") {
@@ -357,6 +394,11 @@ export function SettingsPanel({
     }
     // Esc: abandon (confirm if dirty).
     if (key.escape || input === "escape") {
+      // Ha a `<LiveConfirm>` modal nyitva van, a SettingsPanel
+      // nem dolgozza fel az Esc-t (a modal kezeli).
+      if (showLiveConfirm) {
+        return;
+      }
       if (abandonConfirm) {
         // A user a confirm-promptban van: Esc = "mégse" (vissza a panelhez).
         setAbandonConfirm(false);
@@ -385,8 +427,18 @@ export function SettingsPanel({
       setActiveSection((current) => prevSection(current));
       return;
     }
-    // `v` (ha van onViewRawToml): nyers TOML viewer megnyitása.
-    if (input === "v" && onViewRawToml !== undefined) {
+    // `v` (ha van configPath): a nyers TOML viewer megnyitása.
+    // A SettingsPanel a `setShowRawViewer` segítségével mountolja
+    // a `<RawTomlViewer>` komponenst (amely a `suspendTerminal`
+    // API-n keresztül release-eli a terminált).
+    if (input === "v" && configPath !== undefined) {
+      setShowRawViewer(true);
+      return;
+    }
+    // `v` (legacy fallback): ha nincs configPath, de van
+    // onViewRawToml callback, hívjuk azt (a consumer vezérli
+    // a viewer-t).
+    if (input === "v" && onViewRawToml !== undefined && configPath === undefined) {
       onViewRawToml();
       return;
     }
@@ -437,7 +489,13 @@ export function SettingsPanel({
 
       {/* Section: Bot */}
       <Section title="Bot" isActive={activeSection === "bot"} section="bot">
-        <BotSection data={data} setData={setData} />
+        <BotSection
+          data={data}
+          setData={setData}
+          onLiveModeSelected={() => {
+            setShowLiveConfirm(true);
+          }}
+        />
       </Section>
 
       {/* Section: Exchange */}
@@ -474,6 +532,45 @@ export function SettingsPanel({
           active section: {activeSection}
         </Text>
       </Box>
+
+      {/* LiveConfirm modal — a bot.mode = "live" váltás megerősítése. */}
+      {showLiveConfirm && (
+        <Box marginTop={1}>
+          <LiveConfirm
+            onConfirm={async () => {
+              // A user begépelte a "LIVE"-ot — a `setData` meghívása
+              // a bot.mode = "live" értékkel. A tényleges save a
+              // `onSave` callback-en keresztül történik (a consumer
+              // hívja a `ConfigStore.writeAfterTypedLive`-ot).
+              const bot = (data["bot"] ?? {}) as { mode?: string; log_level?: string };
+              setData({ ...data, bot: { ...bot, mode: "live" } });
+              setShowLiveConfirm(false);
+              // A `await` a lint-require-await kielégítésére (az async
+              // signature a Track C2 PR kompatibilitás miatt kell).
+              await Promise.resolve();
+            }}
+            onCancel={() => {
+              setShowLiveConfirm(false);
+            }}
+          />
+        </Box>
+      )}
+
+      {/* RawTomlViewer — a suspendTerminal-alapú nyers TOML viewer. */}
+      {showRawViewer && configPath !== undefined && (
+        <Box marginTop={1}>
+          <RawTomlViewer
+            data={data}
+            configPath={configPath}
+            onClose={() => {
+              setShowRawViewer(false);
+              if (onViewRawToml !== undefined) {
+                onViewRawToml();
+              }
+            }}
+          />
+        </Box>
+      )}
     </Box>
   );
 }
@@ -648,6 +745,7 @@ export function useSettingsPanel(opts: {
       setData={state.setData}
       onSave={state.save}
       onAbandon={state.abandon}
+      configPath={opts.configPath}
       {...(opts.onViewRawToml !== undefined ? { onViewRawToml: opts.onViewRawToml } : {})}
     />
   );

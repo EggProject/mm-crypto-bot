@@ -887,39 +887,54 @@ describe("SettingsPanel (Phase 36 Track C1)", () => {
   });
 
   // --------------------------------------------------------------------------
-  // 38) A BotSection Select onChange hívódik, ha a user a Tab-bal
-  //     a bot szekcióra navigál, majd a lefelé nyíllal + Enter-rel
-  //     kiválasztja a "live" opciót.
+  // 38) A BotSection Select a "paper" opcióra van fókuszálva
+  //     alapértelmezetten. A Tab + Enter a bot szekcióba navigál,
+  //     de az Enter nem hív onChange-et (mert a default "paper" —
+  //     nincs változás). A Track C2 a "live" opció kiválasztását
+  //     teszteli külön (lásd a 39. tesztet).
   // --------------------------------------------------------------------------
-  it("BotSection Select onChange fires on user input (down arrow + enter)", async () => {
-    let setDataCalled = false;
+  it("BotSection Select default 'paper' is rendered", () => {
     const instance = render(
       <SettingsPanel
         data={makeSampleData()}
         dirty={false}
         errors={[]}
         saving={false}
-        setData={() => {
-          setDataCalled = true;
-        }}
-        onSave={async () => true}
-        onAbandon={noOpProps.onAbandon}
+        {...noOpProps}
+      />,
+    );
+    const frame = instance.lastFrame() ?? "";
+    expect(frame).toContain("mode");
+    expect(frame).toContain("paper");
+    instance.unmount();
+  });
+
+  // --------------------------------------------------------------------------
+  // 39) A BotSection "live" opciójának kiválasztása a `<LiveConfirm>`
+  //     modált triggereli (a setData NEM hívódik azonnal — a confirm
+  //     submit-ja hívja majd).
+  // --------------------------------------------------------------------------
+  it("BotSection Select 'live' onChange triggers the LiveConfirm modal (Track C2)", async () => {
+    const instance = render(
+      <SettingsPanel
+        data={makeSampleData()}
+        dirty={false}
+        errors={[]}
+        saving={false}
+        {...noOpProps}
       />,
     );
     await new Promise((r) => setTimeout(r, 50));
-    // Kétszer Tab: risk → bot (az aktív szekció a bot).
-    instance.stdin.write("\t");
-    await new Promise((r) => setTimeout(r, 50));
-    // A Select a default "paper" opcióra van fókuszálva. A downArrow
-    // a "live"-ra vált, az Enter kiválasztja → onChange hívódik.
+    // A BotSection-ben a Select a "paper" opcióra fókuszál.
+    // A downArrow átvált "live"-ra, az Enter kiválasztja.
     instance.stdin.write("\u001b[B"); // Down arrow
     await new Promise((r) => setTimeout(r, 50));
     instance.stdin.write("\r"); // Enter
-    await new Promise((r) => setTimeout(r, 50));
-    // A setData hívódik a BotSection-en belül.
-    // (A más szekciók is hívhatják setData-t — csak a "hívódik"
-    // tényt ellenőrizzük.)
-    expect(setDataCalled).toBe(true);
+    await new Promise((r) => setTimeout(r, 100));
+    // A LiveConfirm modal megjelenik a frame-ben.
+    const frame = instance.lastFrame() ?? "";
+    expect(frame).toContain("LIVE MODE");
+    expect(frame).toContain("REAL ORDERS");
     instance.unmount();
   });
 });
