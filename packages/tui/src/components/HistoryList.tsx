@@ -156,8 +156,15 @@ export function HistoryList({
         {/*
           Phase 36 Track B1: a panel címe `<StatusMessage>` formátumban.
           A `variant="info"` kék szín = "history / read-only data".
+
+          Phase 41: a fókusz indikátor. A fókuszált panel címéhez
+          egy `▶` prefix kerül (a border color változáson túl).
+          A `focused` prop alapján a prefix megjelenik vagy eltűnik.
         */}
-        <StatusMessage variant="info">📜  HISTORY (LEZÁRT TRADE-EK)</StatusMessage>
+        <Box>
+          {focused && <Text bold color="blue">▶  </Text>}
+          <StatusMessage variant="info">📜  HISTORY (LEZÁRT TRADE-EK)</StatusMessage>
+        </Box>
         <Box>
           <Text dimColor>Rendezve: </Text>
           <Text bold color="blue">{sortKeyLabel(sortKey)}</Text>
@@ -167,8 +174,21 @@ export function HistoryList({
       </Box>
 
       {visible.length === 0 ? (
-        <Box marginTop={0}>
+        <Box marginTop={0} flexDirection="column">
           <Text color="gray" italic>Még nincs lezárt trade. A history a pozíciók zárásakor fog feltöltődni.</Text>
+          {/*
+            Phase 41: a korábbi passzív "Még nincs..." üzenet kiegészül
+            egy explicit empty-state figyelmeztetéssel, ami a user-t
+            a [s] indító-billentyű felé irányítja. Az `→` nyilat
+            használunk (a focus indicator `▶` helyett), hogy a két
+            vizuális jel ne ütközzön.
+          */}
+          <Box marginTop={0}>
+            <Text color="yellow" bold>→  No closed trades yet — </Text>
+            <Text dimColor>start the bot with </Text>
+            <Text color="green" bold>[s]</Text>
+            <Text dimColor> to begin trading.</Text>
+          </Box>
         </Box>
       ) : (
         <Box flexDirection="column" marginTop={0}>

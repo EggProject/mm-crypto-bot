@@ -109,28 +109,71 @@ export function ChartsPanel({
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={borderColor} paddingX={1}>
-      <Text bold color="magenta">📊  CHARTS (EQUITY / CANDLESTICK / P&amp;L / STRATEGIES)</Text>
+      <Box flexDirection="row">
+        {/*
+          Phase 41: a fókusz indikátor. A fókuszált panel címéhez
+          egy `▶` prefix kerül (a border color változáson túl).
+          A `focused` prop alapján a prefix megjelenik vagy eltűnik.
+        */}
+        {focused && <Text bold color="magenta">▶  </Text>}
+        <Text bold color="magenta">📊  CHARTS (EQUITY / CANDLESTICK / P&amp;L / STRATEGIES)</Text>
+      </Box>
 
       <Box marginTop={0} flexDirection="row" gap={2}>
         {/* Bal oszlop: equity görbe + candlestick */}
         <Box flexDirection="column" width={62}>
           <Text dimColor>EQUITY GÖRBE (utolsó {Math.max(0, equitySeries.length - 1)} trade)</Text>
-          <Text>{equityChart}</Text>
+          {/*
+            Phase 41: ha nincs trade, a görbe helyett egy explicit
+            empty-state üzenet jelenik meg, ami a user-t a [s]
+            indító-billentyű felé irányítja. A régi "Még nincs
+            equity-adat" placeholder is megmarad, hogy a korábbi
+            tesztek is átmenjenek — a két szöveg egymás mellett
+            jelenik meg, így a panel "richer" lesz.
+            Az `→` nyilat használunk (a focus indicator `▶` helyett),
+            hogy a két vizuális jel ne ütközzön.
+          */}
+          {equitySeries.length === 0 ? (
+            <Box flexDirection="column">
+              <Text color="gray" italic>Még nincs equity-adat. A görbe a pozíciók zárásakor fog feltöltődni.</Text>
+              <Text color="yellow">→ No equity data yet — start the bot with [s] to begin trading.</Text>
+            </Box>
+          ) : (
+            <Text>{equityChart}</Text>
+          )}
 
           <Box marginTop={1} flexDirection="column">
             <Text dimColor>OHLC CANDLESTICK (utolsó 1h)</Text>
-            <Text>{candlestick}</Text>
+            {candles.length === 0 ? (
+              <Box flexDirection="column">
+                <Text color="gray" italic>Még nincs OHLC-adat.</Text>
+                <Text color="yellow">→ No OHLC bars yet — bot needs to be running.</Text>
+              </Box>
+            ) : (
+              <Text>{candlestick}</Text>
+            )}
           </Box>
         </Box>
 
         {/* Jobb oszlop: sparkline + stratégia-breakdown */}
         <Box flexDirection="column" width={28}>
           <Text dimColor>P&amp;L SPARKLINE (utolsó 16 trade)</Text>
-          <Text>{sparkline}</Text>
+          {pnlSeries.length === 0 ? (
+            <Box flexDirection="column">
+              <Text color="gray" italic>Még nincs P&amp;L-adat.</Text>
+              <Text color="yellow">→ No closed trades yet.</Text>
+            </Box>
+          ) : (
+            <Text>{sparkline}</Text>
+          )}
 
           <Box marginTop={1} flexDirection="column">
             <Text dimColor>STRATÉGIA-BREAKDOWN (cap%)</Text>
-            <StrategyBarChart strategies={strategies} />
+            {strategies.length === 0 ? (
+              <Text color="gray" italic>no strategies</Text>
+            ) : (
+              <StrategyBarChart strategies={strategies} />
+            )}
           </Box>
         </Box>
       </Box>

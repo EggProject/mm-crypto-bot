@@ -191,8 +191,15 @@ export function LiveTradingPanel({
       {/*
         Phase 36 Track B1: a panel címe `<StatusMessage variant="warning">`-
         ként jelenik meg (sárga szín = "live / active trading data").
+
+        Phase 41: a fókusz indikátor. A fókuszált panel címéhez
+        egy `▶` prefix kerül (a border color változáson túl).
+        A `focused` prop alapján a prefix megjelenik vagy eltűnik.
       */}
-      <StatusMessage variant="warning">📈  ÉLŐ KERESKEDÉS</StatusMessage>
+      <Box>
+        {focused && <Text bold color="yellow">▶  </Text>}
+        <StatusMessage variant="warning">📈  ÉLŐ KERESKEDÉS</StatusMessage>
+      </Box>
 
       {/*
         Phase 36 Track B1: a feed-kapcsolat állapota. Ha még nincs ticker
@@ -227,8 +234,11 @@ export function LiveTradingPanel({
               </Box>
             )}
             {positions.length === 0 ? (
-              <Box marginTop={0}>
-                <Text color="gray" italic>Jelenleg nincs nyitott pozíció.</Text>
+              <Box marginTop={0} flexDirection="column">
+                <Text color="yellow" bold>→  No open positions</Text>
+                <Text dimColor>
+                  Start the bot with <Text color="green" bold>[s]</Text> to open positions. The strategies will evaluate entries based on the current market state.
+                </Text>
               </Box>
             ) : (
               <Box flexDirection="column" marginTop={0}>
@@ -244,8 +254,11 @@ export function LiveTradingPanel({
           <Box flexDirection="column" marginTop={1}>
             <Text dimColor>UTOLSÓ TICKER-EVENT-EK ({tickerEvents.length} db a bufferben, legfrissebb {VISIBLE_TICKER_EVENTS})</Text>
             {visibleEvents.length === 0 ? (
-              <Box marginTop={0}>
-                <Text color="gray" italic>Még nincs ticker-event.</Text>
+              <Box marginTop={0} flexDirection="column">
+                <Text color="yellow" bold>→  No ticker events yet</Text>
+                <Text dimColor>
+                  The feed will start streaming once the bot is running — press <Text color="green" bold>[s]</Text> to begin.
+                </Text>
               </Box>
             ) : (
               <Box flexDirection="column" marginTop={0}>
