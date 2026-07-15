@@ -1,10 +1,38 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-15 20:02 Budapest — Phase 37 FULLY CLOSED. 5/5 PRs merged (#109/#108/#110/#107/#112). Pre-launch ready, awaiting user live testing.
+description: Project board — mm-crypto-bot. Updated 2026-07-16 00:55 Budapest — Phase 38 bugfixes CLOSED. 4 PRs merged (#114/#115/#116/#117) on top of Phase 37. TUI now: running-flag accurate, keypresses responsive, 2x2 grid + settings discoverability + empty states, zero bun install warnings.
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-15 20:02 Budapest, Phase 37 FULLY CLOSED)
+# Project board — mm-crypto-bot (updated 2026-07-16 00:55 Budapest, Phase 38 bugfixes CLOSED)
 
-## Phase 37 — PRODUCTION RISK + OHLC + PORTFOLIO + LIVE INFRA (CLOSED 2026-07-15 20:02 Budapest)
+## Phase 38 — TUI BUGFIXES + DEPENDENCY CLEANUP (CLOSED 2026-07-16 00:55 Budapest)
+
+### User trigger
+User ran `mm-bot start` in iTerm2 after Phase 37 → saw the TUI looks "the same" + auto-starts + keypresses don't respond + `bun install` shows 3 warnings. User asked to verify + design a proper UI.
+
+### Bugs fixed (4 PRs)
+
+| # | Bug | PR | Commit | What changed |
+|---|---|---|---|---|
+| 38 | TUI running-flag conflation | [#115](https://github.com/EggProject/mm-crypto-bot/pull/115) | 3dd7280 | `LiveBotStateProvider.start()` no longer conflates "provider active" with "bot running". New `markBotStarted()` / `markBotStopped()` API. Header now correctly shows `[● STOPPED]` + `LEÁLLÍTVA` + StoppedBanner when bot is stopped. PTY-verified. |
+| 39 | TUI keypress non-responsive | [#116](https://github.com/EggProject/mm-crypto-bot/pull/116) | 0f237ed | `refreshFromBot()` was rebuilding `currentState` on every call + `notifyListeners()` always → `useSyncExternalStore` saw "change" every poll → useInput handler re-bound mid-keystroke → keypresses dropped. Fix: deep equality check + idempotent `setPaused` / `setKillSwitchState`. 11 new regression tests, PTY-verified. |
+| 40 | bun install nested overrides warnings | [#114](https://github.com/EggProject/mm-crypto-bot/pull/114) | f34a388 | Root `package.json` had a nested `overrides.peerDependencies` block that bun 1.3+ doesn't support (no-op, printed 3 warnings per install). Deleted the block + added `scripts/install-no-warnings.sh` test + new CI job `install-no-warnings` that fails fast on any bun warning. `bun.lock` unchanged. |
+| 41 | TUI UX reshape (responsive 2x2 grid + discoverability + empty states) | [#117](https://github.com/EggProject/mm-crypto-bot/pull/117) | 701956e | Responsive 2x2/2x1/1x4 grid via `useTerminalSize`. Status bar `[o] settings` hint. Action-oriented empty states ("No equity data yet — start the bot with [s]"). `▶` focus indicator on active panel. Expanded HelpOverlay. Render-probe test relaxed for 2x2 layout wrap. |
+
+### Final state
+
+- **main HEAD:** `0f237ed`
+- **8/8 packages at 100% OWN line coverage** (apps/bot 4430/4431, tui 2718/2718, etc.)
+- **5/5 CI gates green** on every PR
+- **Zero `bun install` warnings** (new CI gate)
+- **Working tree clean** (1 worktree, 1 local branch, 0 remote branches beyond main, 0 untracked files)
+- **Cron `phase38-watch` deleted**
+
+### Known micro-issues (not blocking)
+
+- `packages/tui/src/hooks/useConfigStore.test.tsx` has 2 timing-sensitive tests that flake 1/3 of the time (Phase 36 Track C1 inheritance, `setTimeout(0)` chains + `waitForFrame(100)`). Passes on isolated runs. Tracked, not blocking.
+- `apps/bot/src/cli/commands/config.ts:384` — 1 uncovered line (pre-existing `MM_BOT_SKIP_TUI` env-var branch, unchanged by Phase 37/38).
+
+### Phase 37 — PRODUCTION RISK + OHLC + PORTFOLIO + LIVE INFRA (CLOSED 2026-07-15 20:02 Budapest)
 
 ### User mandate (2026-07-15 12:07 Budapest)
 
