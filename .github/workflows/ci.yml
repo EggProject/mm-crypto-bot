@@ -7,6 +7,22 @@ on:
     branches: [main]
 
 jobs:
+  install-no-warnings:
+    name: Install no-warnings (Phase 40)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: bun install --frozen-lockfile
+      - name: bun install must produce zero warnings (no nested overrides)
+        run: bun run test:install-warnings
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
