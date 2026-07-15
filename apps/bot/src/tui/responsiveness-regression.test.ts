@@ -258,15 +258,19 @@ describe("Phase 39 — Fix #39: TUI responsiveness (snapshot stability)", () => 
       initialEquityUsdt: 10_000,
     });
     await provider.start();
+    // Phase 38 Fix #38: a `state.running` a `botRunning` flag-et olvassa
+    // (NEM az `active`-et). A provider.start() az `active`-et állítja,
+    // de a `botRunning`-ot külön kell. A tesztek a bot futó állapotát
+    // szimulálják, ezért markBotStarted() hívás szükséges.
+    provider.markBotStarted();
 
     const instance = renderInk(h(App, { provider }));
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 100);
     });
 
-    // A provider.start() beállítja a `running=true`-t (a belső running flag,
-    // nem a bot tényleges runningja — a LiveBotStateProvider a saját belső
-    // running flag-jét kezeli). A `paused` flag kezdetben `false`.
+    // A provider.start() + markBotStarted() után state.running = true.
+    // A `paused` flag kezdetben `false`.
     expect(provider.getSnapshot().running).toBe(true);
     expect(provider.getSnapshot().paused).toBe(false);
 
@@ -300,13 +304,16 @@ describe("Phase 39 — Fix #39: TUI responsiveness (snapshot stability)", () => 
       initialEquityUsdt: 10_000,
     });
     await provider.start();
+    // Phase 38 Fix #38: lásd az előző tesztnél — a state.running-ot
+    // a markBotStarted() kapcsolja be, NEM a provider.start().
+    provider.markBotStarted();
 
     const instance = renderInk(h(App, { provider }));
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 100);
     });
 
-    // A provider.start() beállítja a state.running = true-t.
+    // A provider.start() + markBotStarted() után state.running = true.
     expect(provider.getSnapshot().running).toBe(true);
 
     // 's' keypress → provider.stop() hívódik, state.running = false.
@@ -567,6 +574,9 @@ describe("Phase 39 — Fix #39: TUI responsiveness (snapshot stability)", () => 
       initialEquityUsdt: 10_000,
     });
     await provider.start();
+    // Phase 38 Fix #38: a kill-confirm gate-je `state.running` — ezt
+    // a markBotStarted() állítja be (a provider.start() NEM).
+    provider.markBotStarted();
 
     const instance = renderInk(h(App, { provider }));
     await new Promise<void>((resolve) => {
