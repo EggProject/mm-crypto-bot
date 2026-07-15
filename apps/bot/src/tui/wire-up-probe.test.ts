@@ -147,6 +147,10 @@ describe("wire-up probe — LiveBotStateProvider bridges Bot → TUI", () => {
 
     // A provider indítása (feliratkozás a bot state-változásaira).
     await provider.start();
+    // Phase 38 Fix #38: a `state.running` CSAK a `markBotStarted()`
+    // hívás után `true`. A start.ts a bot.start() sikeres resolve-ja
+    // után hívja — itt a bot már fut, tehát jelezzük a provider felé.
+    provider.markBotStarted();
 
     // Push 5 mock ticker tick-et (az enabled symbol-ra).
     const symbol = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
@@ -373,6 +377,8 @@ describe("wire-up probe — LiveBotStateProvider bridges Bot → TUI", () => {
       setTimeout(resolve, 100);
     });
     await provider.start();
+    // Phase 38 Fix #38: a bot már fut, jelezzük a provider felé.
+    provider.markBotStarted();
 
     const symbol = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
     pushTickerTick(feed, symbol, 60_000);
@@ -470,6 +476,8 @@ describe("wire-up probe — LiveBotStateProvider bridges Bot → TUI", () => {
       setTimeout(r, 50);
     });
     await provider.start();
+    // Phase 38 Fix #38: a bot már fut, jelezzük a provider felé.
+    provider.markBotStarted();
 
     expect(provider.getSnapshot().running).toBe(true);
 
@@ -797,6 +805,16 @@ describe("wire-up probe — LiveBotStateProvider bridges Bot → TUI", () => {
     // A provider start() hívja a refreshFromBot-ot, ami a null
     // engine ágba megy (mivel a bot már leállt, és nem notify-olt).
     await provider.start();
+
+    // Phase 38 Fix #38: a `state.running` a `botRunning` flag-et olvassa.
+    // A bot le volt állítva, ÉS a `markBotStarted()` sem hívódott —
+    // a TUI-nak stopped state-et KELL mutatnia.
+    expect(provider.getSnapshot().running).toBe(false);
+
+    // A markBotStarted() hívás a refreshFromBot null ágát futtatja,
+    // ÉS a state.running-ot true-ra állítja — a tickers és a null
+    // engine branch ettől függetlenül jól inicializálódik.
+    provider.markBotStarted();
 
     // A snapshot érvényes, és a tickers tartalmazza a BTC/USDC-t.
     const snap = provider.getSnapshot();

@@ -361,12 +361,25 @@ async function runTui(
   //
   // Ha a bot indítása elszáll, a hibát a `botStartPromise` reject-jéből
   // olvassuk ki, ÉS a TUI-ban az `engineError` mezőben is megjelenik.
+  //
+  // Phase 38 Fix #38: a `state.running` TUI mező CSAK a bot
+  // sikeres indulása után `true`. A provider-t a bot indulása ELŐTT
+  // indítjuk (hogy a TUI stopped state-ben nyíljon), és a
+  // `markBotStarted()` hívással jelezzük, amikor a bot valóban
+  // futni kezd. Az `autoStart=false` ág NEM hívja a `markBotStarted()`-et
+  // — ebben az esetben a TUI a stopped state-et mutatja a user
+  // interakciójáig.
   const botStartPromise = autoStart
-    ? bot.start().catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`[start] bot crashed: ${message}`);
-        return err as Error;
-      })
+    ? bot
+        .start()
+        .then(() => {
+          provider.markBotStarted();
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[start] bot crashed: ${message}`);
+          return err as Error;
+        })
     : Promise.resolve(undefined);
 
   // A TUI renderelése — az Ink `render` függvénye egy `Instance`-et
@@ -394,6 +407,9 @@ async function runTui(
     void (async () => {
       try {
         await bot.stop();
+        // Phase 38 Fix #38: a TUI-nak a stopped state-et KELL mutatnia,
+        // ha a bot leállt (akár a user, akár a SIGINT állította le).
+        provider.markBotStopped();
       } catch {
         // best-effort
       }
@@ -410,6 +426,14 @@ async function runTui(
   // már hívta a stop-ot a provider-en át).
   try {
     await bot.stop();
+    // Phase 38 Fix #38: a TUI bezárása előtt a `botRunning` flag-et
+    // `false`-ra állítjuk. A provider belső logikája is megteszi ezt
+    // a `provider.stop()` híváskor, de a TUI-ból jövő [q] NEM
+    // feltétlenül hívja a provider.stop()-ot (lásd az App.tsx
+    // useInput handler-ét: a [q] mindig kilép, de a `state.running`
+    // ellenőrzése előtt). A TUI-s kilépéskor explicit jelezzük a
+    // provider felé, hogy a bot leállt.
+    provider.markBotStopped();
   } catch {
     // best-effort
   }
