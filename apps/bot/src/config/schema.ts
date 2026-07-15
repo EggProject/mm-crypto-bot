@@ -57,6 +57,16 @@ export const StrategySectionSchema = z
         ltf: z.string(),
       })
       .optional(),
+    /**
+     * Phase 37 Track 2 — per-strategy override-ok.
+     *
+     * A globális `[risk] risk_per_trade` / `[risk] max_positions` a
+     * default, de a per-strategy override felülírja azt (a runtime
+     * a `strategy-registry.ts`-ben olvassa a per-strategy értéket
+     * először, és csak fallback-ként használja a globálisat).
+     */
+    risk_per_trade: z.number().min(0.001).max(0.05).optional(),
+    max_positions: z.number().int().min(1).max(12).optional(),
   })
   .passthrough();
 
@@ -105,12 +115,26 @@ export const BotConfigSchema = z.object({
 
   // --------------------------------------------------------------------------
   // 2) Exchange section — melyik exchange-re csatlakozunk.
+  //
+  // A Phase 37 Track 2 új mezők: `slippage_pct`, `fee_tier`,
+  // `rate_limit_per_min`, `ws_reconnect_delay_ms`. Ezek a per-exchange
+  // kapcsolati paraméterek — a TUI settings panelből szerkeszthetők.
+  // A meglévő `id`, `rate_limit_ms`, `sandbox` mezők megmaradnak a
+  // backward compatibility kedvéért.
   // --------------------------------------------------------------------------
   exchange: z
     .object({
       id: z.enum(["bybiteu", "mock"]).default("bybiteu"),
       rate_limit_ms: z.number().int().min(10).max(10_000).default(100),
       sandbox: z.boolean().default(false),
+      /** Max accepted slippage percent (0..1). Default: 0.05 (5%). */
+      slippage_pct: z.number().min(0).max(1).default(0.05),
+      /** Fee tier — vip / standard / maker_rebate. */
+      fee_tier: z.enum(["vip", "standard", "maker_rebate"]).default("standard"),
+      /** Rate limit per minute (orders + REST calls). Default: 120. */
+      rate_limit_per_min: z.number().int().min(1).max(600).default(120),
+      /** WebSocket reconnect delay in ms. Default: 1000. */
+      ws_reconnect_delay_ms: z.number().int().min(100).max(10_000).default(1000),
     })
     .default({}),
 
@@ -173,12 +197,28 @@ export const BotConfigSchema = z.object({
     .default({}),
 
   // --------------------------------------------------------------------------
-  // 6) Telemetry section — log-könyvtár, metrika-intervallum.
+  // 6) Telemetry section — log-könyvtár, metrika-intervallum, log-szint,
+  //    log-dest, metrics-kapcsoló, heartbeat.
+  //
+  // A Phase 37 Track 2 kibővíti a `telemetry` szekciót a
+  // `log_level` / `log_destination` / `metrics_enabled` /
+  // `heartbeat_interval_sec` mezőkkel. A `log_level` itt a
+  // TELEMETRY log-szintje (nem a bot fő log-szintje — bár a
+  // runtime jelenleg mindkettőt használja). A meglévő
+  // `log_dir` / `metrics_interval_sec` mezők megmaradnak.
   // --------------------------------------------------------------------------
   telemetry: z
     .object({
       log_dir: z.string().default("logs/bot"),
       metrics_interval_sec: z.number().int().min(1).max(3600).default(60),
+      /** Log-szint (debug/info/warn/error). Default: info. */
+      log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
+      /** Log-dest: file / stderr / both. Default: both. */
+      log_destination: z.enum(["file", "stderr", "both"]).default("both"),
+      /** Metrics-emitálás engedélyezve van-e. Default: true. */
+      metrics_enabled: z.boolean().default(true),
+      /** Liveness heartbeat interval in seconds. Default: 30. */
+      heartbeat_interval_sec: z.number().int().min(1).max(300).default(30),
     })
     .default({}),
 });

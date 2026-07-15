@@ -45,8 +45,8 @@ import { parse as parseToml, stringify as stringifyToml, TomlError } from "smol-
 // a CJS import TS-ből a default néven érhető el.
 import writeFileAtomic from "write-file-atomic";
 
-import type { BotConfig } from "./schema.js";
-import { BotConfigSchema } from "./schema.js";
+import type { BotConfig, StrategyName } from "./schema.js";
+import { BotConfigSchema, StrategySectionSchema } from "./schema.js";
 
 // ============================================================================
 // Public error types
@@ -423,6 +423,180 @@ export class ConfigStore {
     // write + backup pattern-t alkalmazza.
     this.write(next);
     return entry;
+  }
+
+  // --------------------------------------------------------------------------
+  // Phase 37 Track 2 — per-section EDITABLE update methods
+  // --------------------------------------------------------------------------
+
+  /**
+   * `setStrategyEnabled` — a `strategies.<id>.enabled` flag állítása.
+   *
+   * A metódus a jelenlegi configot olvassa (read), beállítja a
+   * `strategies.<id>.enabled` értéket, és a `write` metódussal
+   * menti (atomic + .bak + Zod re-validate).
+   *
+   * @param strategyId A strategy-kulcs (pl. "donchian_pivot_composition").
+   *   A `StrategyName` típus szűkíti a lehetséges értékeket.
+   * @param enabled A kívánt enabled-flag érték.
+   * @throws {ConfigReadError} ha a config-fájl nem olvasható.
+   * @throws {ConfigValidationError} ha a write során a Zod séma
+   *   elutasítja az új konfigot (ritka — csak akkor, ha a
+   *   meglévő config már eleve inkonzisztens).
+   */
+  public setStrategyEnabled(strategyId: StrategyName, enabled: boolean): void {
+    const current = this.read();
+    const strategiesSection: Record<string, Record<string, unknown>> = {
+      ...current.strategies,
+    };
+    const existingStrategy = strategiesSection[strategyId] ?? {};
+    strategiesSection[strategyId] = { ...existingStrategy, enabled };
+    const next: BotConfig = {
+      ...current,
+      strategies: strategiesSection as unknown as BotConfig["strategies"],
+    };
+    this.write(next);
+  }
+
+  /**
+   * `setStrategySetting` — egy adott strategy egy mezőjének állítása.
+   *
+   * A metódus a `StrategySectionSchema` Zod-sémával validálja az új
+   * strategy-értéket, mielőtt a `write` meghívódik. Ha a Zod séma
+   * elutasítja, a write NEM történik meg, és `ConfigValidationError`
+   * dobódik.
+   *
+   * @param strategyId A strategy-kulcs.
+   * @param key A mező neve (pl. "cap", "leverage", "risk_per_trade",
+   *   "max_positions", "symbols", "timeframes", vagy bármely
+   *   `passthrough()`-ön átengedett custom mező).
+   * @param value Az új érték. A típus a `StrategySectionSchema`
+   *   shape-jéből következik — a helper a `StrategySectionSchema.partial()`
+   *   + `passthrough()` sémával validál, hogy a `passthrough()`-ön
+   *   átengedett mezők is működjenek.
+   * @throws {ConfigValidationError} ha a Zod séma elutasítja az
+   *   új értéket (pl. `leverage = 15` → 1:10 MANDATE breach).
+   */
+  public setStrategySetting(
+    strategyId: StrategyName,
+    key: string,
+    value: unknown,
+  ): void {
+    // Először a jelenlegi strategy-section-t olvassuk, és ellenőrizzük,
+    // hogy az új `{ [key]: value }` shape érvényes-e a sémán.
+    const candidate = { [key]: value };
+    // A `passthrough()`-höz a Zod `.passthrough()` sémát használjuk
+    // — a `StrategySectionSchema.safeParse` a teljes objektumot
+    // validálja, és a `passthrough()` miatt a custom mezőket is
+    // átengedi. Csak az adott mező validitását ellenőrizzük: a
+    // `partial()` sémával.
+    const fieldOnlySchema = StrategySectionSchema.partial();
+    const parsed = fieldOnlySchema.safeParse(candidate);
+    if (!parsed.success) {
+      const issues = parsed.error.issues.map((issue) => ({
+        path: `strategies.${strategyId}.${key}`,
+        message: issue.message,
+      }));
+      const fieldErrors: Record<string, string[]> = {};
+      for (const issue of parsed.error.issues) {
+        const fkey = `strategies.${strategyId}.${key}`;
+        const list = fieldErrors[fkey] ?? [];
+        list.push(issue.message);
+        fieldErrors[fkey] = list;
+      }
+      throw new ConfigValidationError(
+        `Strategy setting validation failed for strategies.${strategyId}.${key}:\n${issues
+          .map((i) => `  • ${i.path}: ${i.message}`)
+          .join("\n")}`,
+        fieldErrors,
+        issues,
+      );
+    }
+
+    const current = this.read();
+    const strategiesSection: Record<string, Record<string, unknown>> = {
+      ...current.strategies,
+    };
+    const existingStrategy = strategiesSection[strategyId] ?? {};
+    strategiesSection[strategyId] = { ...existingStrategy, [key]: value };
+    const next: BotConfig = {
+      ...current,
+      strategies: strategiesSection as unknown as BotConfig["strategies"],
+    };
+    this.write(next);
+  }
+
+  /**
+   * `setExchangeConfig` — az `exchange` szekció egy részének frissítése.
+   *
+   * A metódus a jelenlegi configot olvassa, a `partial` object merge-eli
+   * az `exchange` szekcióba, és a `write` metódussal menti.
+   *
+   * A Zod séma elutasítja az érvénytelen értéket (pl.
+   * `slippage_pct = 2.0` → 0..1 range breach) — a write NEM történik
+   * meg, és `ConfigValidationError` dobódik.
+   *
+   * @param partial Az `exchange` szekció frissítendő mezői.
+   * @throws {ConfigValidationError} ha a Zod séma elutasítja az új
+   *   konfigot.
+   */
+  public setExchangeConfig(
+    partial: Partial<BotConfig["exchange"]>,
+  ): void {
+    const current = this.read();
+    const next: BotConfig = {
+      ...current,
+      exchange: { ...current.exchange, ...partial },
+    };
+    this.write(next);
+  }
+
+  /**
+   * `setSymbols` — a `symbols.enabled` lista cseréje.
+   *
+   * A metódus a jelenlegi configot olvassa, a `symbols.enabled`
+   * mezőt a `symbols` tömbbel helyettesíti, és a `write` metódussal
+   * menti.
+   *
+   * A Zod séma a `z.array(z.string())` — bármilyen string-tömböt
+   * elfogad (nincs symbol-formátum-kényszer a sémában).
+   *
+   * @param symbols Az új `enabled` lista (CCXT unified formátumban,
+   *   pl. `["BTC/USDC", "ETH/USDC"]`).
+   * @throws {ConfigValidationError} ha a write során a Zod séma
+   *   elutasítja a konfigot.
+   */
+  public setSymbols(symbols: readonly string[]): void {
+    const current = this.read();
+    const next: BotConfig = {
+      ...current,
+      symbols: { ...current.symbols, enabled: [...symbols] },
+    };
+    this.write(next);
+  }
+
+  /**
+   * `setTelemetryConfig` — a `telemetry` szekció egy részének frissítése.
+   *
+   * A metódus a jelenlegi configot olvassa, a `partial` object merge-eli
+   * a `telemetry` szekcióba, és a `write` metódussal menti.
+   *
+   * A Zod séma elutasítja az érvénytelen értéket (pl.
+   * `heartbeat_interval_sec = 500` → 1..300 range breach).
+   *
+   * @param partial A `telemetry` szekció frissítendő mezői.
+   * @throws {ConfigValidationError} ha a Zod séma elutasítja az új
+   *   konfigot.
+   */
+  public setTelemetryConfig(
+    partial: Partial<BotConfig["telemetry"]>,
+  ): void {
+    const current = this.read();
+    const next: BotConfig = {
+      ...current,
+      telemetry: { ...current.telemetry, ...partial },
+    };
+    this.write(next);
   }
 }
 
