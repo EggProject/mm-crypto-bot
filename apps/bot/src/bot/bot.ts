@@ -56,6 +56,12 @@ import { createLogger } from "@mm-crypto-bot/shared";
 
 import { createStrategyInstances } from "../config/strategy-registry.js";
 import type { BotConfig } from "../config/schema.js";
+import {
+  CorrelationMatrix,
+  PortfolioManager,
+  PortfolioStop,
+  RiskBudgetAllocator,
+} from "../portfolio/index.js";
 
 import { OrderManager } from "./order-manager.js";
 import { PositionManager } from "./position-manager.js";
@@ -143,6 +149,11 @@ export class Bot {
   private telemetry: Telemetry | null = null;
   private killSwitches: KillSwitchRegistry | null = null;
   private runner: StrategyRunner | null = null;
+  // Phase 37 Track 4 — portfolió-koordináció.
+  private riskBudget: RiskBudgetAllocator | null = null;
+  private correlation: CorrelationMatrix | null = null;
+  private portfolioStop: PortfolioStop | null = null;
+  private portfolioManager: PortfolioManager | null = null;
 
   private startedAt = 0;
   private stopRequested = false;
@@ -405,6 +416,59 @@ export class Bot {
     });
 
     // -----------------------------------------------------------------------
+    // 6.5) Phase 37 Track 4 — Portfolio coordination
+    // -----------------------------------------------------------------------
+    // A `RiskBudgetAllocator` + `CorrelationMatrix` + `PortfolioStop`
+    // + `PortfolioManager` a portfolió-szintű kockázatkezelés
+    // központi elemei. A `Bot.init()`-ben hívjuk meg őket, MIELŐTT
+    // a `StrategyRunner` és a `KillSwitchRegistry` életre kel —
+    // mert a `StrategyRunner` a `PortfolioManager` referenciáját
+    // várja a sizing-hoz, a `KillSwitchRegistry` pedig a portfolio
+    // stop állapotát olvassa.
+    this.riskBudget = new RiskBudgetAllocator({
+      totalRiskUsd: this.config.portfolio.total_risk_per_cycle_usd,
+      correlationPenaltyThreshold: this.config.portfolio.correlation_penalty_threshold,
+      logger: this.logger,
+    });
+    this.correlation = new CorrelationMatrix({
+      windowSize: this.config.portfolio.correlation_window_size,
+      logger: this.logger,
+    });
+    this.portfolioStop = new PortfolioStop({
+      maxDdPct: this.config.portfolio.max_dd_pct,
+      logger: this.logger,
+    });
+    this.portfolioManager = new PortfolioManager({
+      riskBudget: this.riskBudget,
+      correlation: this.correlation,
+      portfolioStop: this.portfolioStop,
+      positionManager: this.positionManager,
+      orderManager: this.orderManager,
+      logger: this.logger,
+    });
+    // Az aktív stratégiák büdzsé-konfigurációjának regisztrálása
+    // a `PortfolioManager`-ben. A `weight` a per-strategy `cap`
+    // mezőből jön (a config-ban ez az equity-frakció), a
+    // `riskPerTrade` a globális `risk.risk_per_trade`-ből.
+    for (const [strategyName, section] of Object.entries(this.config.strategies)) {
+      if (!section.enabled) continue;
+      const cap = (section as { cap?: number }).cap ?? 0.1;
+      this.portfolioManager.setStrategyConfig({
+        strategyId: strategyName,
+        weight: cap,
+        riskPerTrade: this.config.risk.risk_per_trade,
+      });
+    }
+    this.logger.info("[bot] portfolio summary", {
+      enabledStrategies: instances.size,
+      totalRiskUsd: this.riskBudget.getTotalRiskUsd(),
+      correlationPenaltyThreshold: this.riskBudget.getCorrelationPenaltyThreshold(),
+      correlationWindowSize: this.correlation.getWindowSize(),
+      maxDdPct: this.portfolioStop.getMaxDdPct(),
+      perStrategyBudget: Object.fromEntries(this.portfolioManager.getPerStrategyBudget()),
+    });
+
+    // -----------------------------------------------------------------------
     // 7) StrategyRunner
     // -----------------------------------------------------------------------
     this.runner = new StrategyRunner({
@@ -413,6 +477,7 @@ export class Bot {
       positionManager: this.positionManager,
       sizingFn: this.options.sizingFn ?? defaultSizingFn,
       enabledSymbols: this.config.symbols.enabled,
+      portfolioManager: this.portfolioManager,
       logger: this.logger,
     });
 
@@ -492,6 +557,19 @@ export class Bot {
         const snap = this.killSwitches.evaluate();
         this.telemetry.setEngaged(snap.engaged, snap.reasons);
         if (snap.engaged) {
+          void this.stop();
+        }
+      }
+      // Phase 37 Track 4 — portfolio-stop check + equity update. A
+      // `recordEquity` a PortfolioStop-on keresztül tüzelhet, ami
+      // a `PortfolioManager.executeCloseAll`-ját hívja (a trip-action
+      // a konstruktorban van ráhúzva). Ha a stop tüzelt, a botot is
+      // leállítjuk, hogy a user felülvizsgálhassa a helyzetet.
+      if (this.portfolioManager !== null) {
+        const equity = this.positionManager?.getEquity() ?? 0;
+        this.portfolioManager.recordEquity(equity);
+        if (this.portfolioManager.isTripped()) {
+          this.logger.error("[bot] portfolio-stop tripped — stopping bot");
           void this.stop();
         }
       }
