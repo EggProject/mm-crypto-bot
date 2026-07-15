@@ -34,6 +34,7 @@ import type { ReactElement } from "react";
 import { Box, Text, useApp, useInput } from "ink";
 import type { BotStateProvider } from "./providers/BotStateProvider.js";
 import { useBotState } from "./hooks/useBotState.js";
+import { useOhlcBars } from "./hooks/useOhlcBars.js";
 import {
   ChartsPanel,
   Header,
@@ -44,7 +45,10 @@ import {
   StatusBar,
   useSettingsPanel,
 } from "./components/index.js";
-import type { FocusedPanel, HistorySortKey } from "./types.js";
+import type { OhlcCandle } from "./charts/candlestick.js";
+import type { StrategyBar } from "./charts/bar-chart.js";
+import type { FocusedPanel, HistorySortKey, Trade } from "./types.js";
+import { asSymbol } from "@mm-crypto-bot/exchange";
 
 /**
  `AppProps` — az `App` komponens opcionális callback-jei.
@@ -353,23 +357,18 @@ export function App({
         <HistoryList history={state.history} now={now} sortKey={sortKey} focused={focusedPanel === "history"} />
       </Box>
       {/*
-        Phase 36 Track B2: a 4. panel a Charts (equity görbe +
-        candlestick + P&L sparkline + stratégia-breakdown BarChart).
-        A panel a `state.history`-ból és a mock-olt OHLC tick-ekből
-        dolgozik — a Phase 36 Track B2 elfogadja, hogy az OHLC
-        adat egyelőre a `ChartsPanel` belsejében generálódik (a
-        valós feed-ből a Phase 37+ feedeli majd).
-
-        A panel stopped-state-ben is megjelenik (a többi panel
-        üres, de a Charts-on a `Még nincs equity-adat` placeholder
-        jelenik meg — ez a Phase 36 user mandate: "Charts will be
-        available after [s] Start" empty-state message).
+        Phase 37 Track 3: a 4. panel a Charts most a `useOhlcBars`
+        hook-ból kapja a valós OHLC bar-adatokat (a szimulált ticker
+        streamből aggregálva, 1m-en). A `useOhlcBars` a provider
+        `tickers` snapshot-jából szintetizálja a trade-eket, és az
+        `OhlcStream` osztállyal aggregálja 1m OHLC bar-okká. A
+        panel re-render 1Hz-re van debounce-olva, így nincs flicker.
       */}
       <Box marginTop={1}>
-        <ChartsPanel
+        <ChartsPanelWithOhlc
+          provider={provider}
           history={state.history}
           initialEquityUsdt={state.statistics.initialEquityUsdt}
-          candles={[]}
           strategies={[]}
           focused={focusedPanel === "charts"}
         />
@@ -468,5 +467,53 @@ function StoppedBanner(): ReactElement {
         </Text>
       </Box>
     </Box>
+  );
+}
+
+/**
+ * `ChartsPanelWithOhlc` — a `ChartsPanel` + `useOhlcBars` kombó.
+ *
+ * A Phase 37 Track 3 wire-up: a Charts panel a `useOhlcBars` hook-ból
+ * kapja a valós OHLC bar-adatokat (a `BTC/USDT` symbol 1m timeframe-
+ * jén).  A hook a provider `tickers` snapshot-jából szintetizálja a
+ * trade-eket, és az `OhlcStream` osztállyal aggregálja 1m OHLC bar-okká.
+ *
+ * A re-render frekvenciát a hook belső `tick` state-szám biztosítja
+ * (1Hz max — a provider tick-intervalluma az aktuális rate limit).
+ *
+ * A jövőben ha több symbol / több timeframe is megjelenik egyszerre
+ * a panelen (pl. egy `TimeframeSelector`), ezt a komponenst kell
+ * úgy módosítani, hogy a `useOhlcBars` hívásokat egy `useMemo`
+ * által cache-elt listában hívja (minden (symbol, tf) párra egyszer).
+ */
+function ChartsPanelWithOhlc({
+  provider,
+  history,
+  initialEquityUsdt,
+  strategies,
+  focused,
+}: {
+  readonly provider: BotStateProvider;
+  readonly history: readonly Trade[];
+  readonly initialEquityUsdt: number;
+  readonly strategies: readonly StrategyBar[];
+  readonly focused: boolean;
+}): ReactElement {
+  const ohlc = useOhlcBars(provider, asSymbol("BTC/USDT"), "1m");
+  // Az OhlcBar → OhlcCandle konverzió (a candlestick chart csak OHL+C-et kér).
+  const candles: OhlcCandle[] = ohlc.bars.slice(-40).map((b) => ({
+    open: b.open,
+    high: b.high,
+    low: b.low,
+    close: b.close,
+  }));
+  return (
+    <ChartsPanel
+      history={history}
+      initialEquityUsdt={initialEquityUsdt}
+      candles={candles}
+      strategies={strategies}
+      focused={focused}
+    />
   );
 }

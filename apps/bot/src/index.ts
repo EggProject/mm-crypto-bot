@@ -53,6 +53,7 @@
 
 import {
   CliRouter,
+  backtestCommand,
   configCommand,
   killSwitchesCommand,
   makeHelpCommand,
@@ -113,6 +114,7 @@ router.register("config", "Validate / show / init the bot config", configCommand
 router.register("strategies", "List registered strategies + on/off state", strategiesCommand);
 router.register("trades", "Show recent closed trades", tradesCommand);
 router.register("kill-switches", "Show kill-switch state", killSwitchesCommand);
+router.register("backtest", "Run a quick backtest on a deterministic OHLC fixture (Phase 37 Track 3)", backtestCommand);
 router.register("help", "Show this help", makeHelpCommand(router));
 
 // ---------------------------------------------------------------------------

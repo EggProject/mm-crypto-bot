@@ -125,6 +125,7 @@
         "@inkjs/ui": "^2.0.0",
         "@matthesketh/ink-status-bar": "^0.1.0",
         "@matthesketh/ink-table": "^0.1.0",
+        "@mm-crypto-bot/exchange": "workspace:*",
         "@mm-crypto-bot/paper": "workspace:*",
         "@mm-crypto-bot/shared": "workspace:*",
         "@pppp606/ink-chart": "^0.2.6",

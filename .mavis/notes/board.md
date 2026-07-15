@@ -1,5 +1,5 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-15 09:54 Budapest — Phase 36 Track C producer FROZEN at 558 min, restart ordered by user. WIP committed (86d138e), fresh producer launching.
+description: Project board — mm-crypto-bot. Updated 2026-07-15 11:48 Budapest — Phase 36 CLOSED. PR #105 (C1+C2) squash-merged (f4d4f63), PR #104 closed as superseded, PR #106 (Track D docs) rebased + squash-merged (ceabb2f). Pre-launch checklist ready for user.
 ---
 
 # Project board — mm-crypto-bot (updated 2026-07-15 09:54 Budapest, Phase 36 EXECUTING, Track C producer restart)
@@ -799,3 +799,37 @@ Full checklist with per-item context → [`docs/production-strategies/phase36-de
 - [`docs/audits/phase36-research-findings.md`](../../docs/audits/phase36-research-findings.md) — 5-agent research, ~75 web queries
 - [`docs/audits/phase36-tui-ux-revamp-scope.md`](../../docs/audits/phase36-tui-ux-revamp-scope.md) — the scope doc Phase 36 implements
 - [`apps/bot/README.md`](../../apps/bot/README.md) — updated §3.3 TUI section + new §11 Phase 36 checklist
+
+## Phase 37 — RISK + SETTINGS + OHLC + PORTFOLIO + LIVE INFRA (EXECUTING 2026-07-15 12:07 Budapest)
+
+**User mandate (2026-07-15 12:07):** "Összeset meg kell csinálni! Tervezd meg és agentekkel csinaltasd meg, semmi ne maradjon ki!" (All of them must be done. Plan it and have agents do it, nothing left out.)
+
+**Context:** The 5 tracks below were previously listed as "Phase 37+ scope" candidates, but on user reflection some should have been in Phase 36. All 5 are now promoted to Phase 37 and ALL must ship before live rollout.
+
+### Tracks (all required, all parallel where possible)
+
+| # | Track | PR (target) | Branch (planned) | Status |
+|---|-------|-------------|------------------|--------|
+| **37.1** | **Adaptive risk management** (trailing-stop + dynamic Kelly sizing + drawdown scaler) | 1 | `feat/phase37-track-1-risk-management` | 🔄 producer indítása |
+| **37.2** | **Settings panel expansion** (Strategies / Exchange / Symbols / Telemetry EDITABLE, not READ-ONLY) | 1 | `feat/phase37-track-2-settings-expansion` | 🔄 producer indítása |
+| **37.3** | **Real OHLC stream + backtest integration** (Charts panel live data + 1-2 OHLC-based strategies) | 1-2 | `feat/phase37-track-3-ohlc-stream` | 🔄 producer indítása |
+| **37.4** | **Multi-strategy portfolio coordination** (risk budget allocation + correlation matrix + portfolio-level stop — LONG OVERDUE, was Phase 6 deliverable) | 1 | `feat/phase37-track-4-portfolio-coord` | 🔄 producer indítása |
+| **37.5** | **TUI live-mode flip + Tokyo co-loc infra** (kill-switch dry-run, latency budget, VPS template, live-mode safety review) | 1 | `docs/phase37-track-5-live-rollout` | ⏳ after 37.1-37.4 |
+
+### Order / dependencies
+
+- 37.1, 37.2, 37.3, 37.4: **parallel** (4 producers, independent code areas)
+- 37.5: blocked on 37.1-37.4 (the live rollout is the integration test of all 4)
+
+### Hard rules (per user mandate + project policy)
+
+- All 4 producer tracks: ≥100% line coverage on OWN src/ (gate)
+- 5 CI gates green: typecheck / lint / test / build / coverage:full
+- No "DEFERRED" / "TODO" in committed code
+- English for empirical sections in docs
+- 8/8 packages at 100% maintained throughout
+
+### Phase 38 (pre-launch verification, user-driven)
+
+After 37.1-37.4 merge, the user does the pre-launch verification per `phase36-deliverable.md` §9 + the new 37.5 live-rollout checklist. ONLY after user sign-off does `bot.mode = "live"` flip happen.
+

@@ -602,6 +602,17 @@ export {
 } from "./strategy/donchian-range-channel.js";
 export type { DonchianRangeChannelConfig } from "./strategy/donchian-range-channel.js";
 
+// Phase 37 Track 3 — OHLC-Trend (EMA 50/200 golden/death cross + RSI(14) + ATR(14)*1.5 stops).
+// The strategy consumes a single OHLC bar stream (1h by default) and emits
+// signals on golden cross (long) or death cross (short), with RSI overbought/
+// oversold filters. Designed to be driven by the `OhlcStream` class from
+// `@mm/exchange` (live) or a historical fixture replay (backtest).
+export {
+  OhlcTrendStrategy,
+  DEFAULT_OHLC_TREND_CONFIG,
+} from "./strategy/ohlc-trend.js";
+export type { OhlcTrendConfig, OhlcTrendSignal } from "./strategy/ohlc-trend.js";
+
 // Phase 15 Track C — Keltner Volatility-Adaptive Grid (M5 grid in Keltner channel).
 // Phase 32: KeltnerGridStrategy was deleted (0 trades in 30-month window
 // — see docs/research/deprecated-strategies/REPORT.md §2.10).

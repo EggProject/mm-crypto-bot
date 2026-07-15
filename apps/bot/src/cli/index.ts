@@ -34,4 +34,5 @@ export { configCommand } from "./commands/config.js";
 export { strategiesCommand } from "./commands/strategies.js";
 export { tradesCommand } from "./commands/trades.js";
 export { killSwitchesCommand } from "./commands/kill-switches.js";
+export { backtestCommand } from "./commands/backtest.js";
 export { makeHelpCommand } from "./commands/help.js";
