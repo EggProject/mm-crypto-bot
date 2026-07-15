@@ -26,11 +26,11 @@
  *   TUI mező                │ Forrás (Bot oldaláról)
  *   ─────────────────────────┼────────────────────────────────────
  *   status.mode              │ "with-bot" (fix)
- *   status.engineAvailable   │ running flag
+ *   status.engineAvailable   │ `active` flag (provider figyel a botra)
  *   status.engineError       │ null
- *   status.connected         │ running flag
+ *   status.connected         │ `active` flag (provider figyel a botra)
  *   status.lastUpdate        │ Date.now() a notify időpontjában
- *   running                  │ saját running flag
+ *   running                  │ `botRunning` flag (a bot TÉNYLEGESEN fut-e)
  *   killSwitch               │ saját killSwitchState (UI állapot)
  *   positions[]              │ bot.positions[] (mapping: side, %, stop, TP)
  *   statistics               │ aggregálás bot.closedTrades + counters
@@ -39,6 +39,30 @@
  *
  * A `stopLoss` / `takeProfit` mezők egyelőre `null` — a bot jelenleg
  * nem tárolja ezeket a perzisztens state-ben.
+ *
+ * ===========================================================================
+ * PHASE 38 FIX #38 — RUNNING FLAG DECOUPLING
+ * ===========================================================================
+ * A `running` mező a TUI-nak a "bot TÉNYLEGESEN fut-e" szemantikát jelenti,
+ * NEM a "provider figyel" állapotot. A Phase 36 Track A1 user mandate
+ * (`mm-bot start` ne induljon automatikusan) óta a `mm-bot start` alap-
+ * értelmezetten a TUI-t `stopped` állapotban nyitja, és a user a `[s]`
+ * billentyűvel indítja a botot. A bug az volt, hogy a provider
+ * `start()` metódusa UNCONDITIONALLY `running = true`-ra állította a
+ * saját belső flag-jét, és a `state.running` a TUI-nak `true`-t mutatott
+ * a bot indulása ELŐTT.
+ *
+ * A fix: a provider belső "active" flag-je (provider szintű "figyelek a
+ * botra" szemafor) ELVÁLASZTÁSRA került a `botRunning` flag-től. A
+ * `markBotStarted()` / `markBotStopped()` API explicit módon jelzi a
+ * provider felé, hogy a bot valóban elindult / leállt — ezt a
+ * `start.ts` hívja a `bot.start()` / `bot.stop()` mellé.
+ *
+ * A `state.running` a `botRunning` flag-et olvassa (NEM az `active`-et).
+ * A `state.status.engineAvailable` / `state.status.connected` az
+ * `active` flag-et olvassa (a provider csatlakoztatva van-e a bot notify
+ * folyamhoz). A kettő ELTÉRHET: a provider aktív (figyel), de a bot
+ * még nem futott el (stopped state).
  *
  * ===========================================================================
  * ÉLETCIKLUS INTEGRÁCIÓ
@@ -327,7 +351,33 @@ export class LiveBotStateProvider implements BotStateProvider {
   private readonly unsubscribers: (() => void)[] = [];
 
   private currentState: TuiBotState;
-  private running = false;
+
+  /**
+   * `active` — a provider belső "figyelek a botra" flag-je.
+   *
+   * A `start()` hívásakor áll `true`-ra, a `stop()` / `dispose()`
+   * hívásakor `false`-ra. A `state.status.engineAvailable` és
+   * `state.status.connected` mezőket vezérli (nem a `state.running`-ot).
+   *
+   * Független a `botRunning`-tól: a provider aktív LEHET úgy, hogy
+   * a bot még nem fut (Phase 36 Track A1: a `mm-bot start` indítja a
+   * provider-t, és csak a user `[s]` billentyűje után indul a bot).
+   */
+  private active = false;
+
+  /**
+   * `botRunning` — a "a bot TÉNYLEGESEN fut-e" flag.
+   *
+   * CSAK a `markBotStarted()` / `markBotStopped()` hívások állítják.
+   * A `state.running` TUI mezőt vezérli. A `start.ts` hívja a
+   * `bot.start()` sikeres resolve-ja után.
+   *
+   * Kezdőértéke `false` — a provider soha nem állítja önmagától
+   * `true`-ra (a Phase 38 Fix #38 kulcsa: a provider nem dönti el,
+   * hogy a bot mikor fut, csak a CLI/start parancs jelzi).
+   */
+  private botRunning = false;
+
   private killSwitchState: KillSwitchState = "armed";
   private lastEngineState: EngineBotState | null = null;
 
@@ -380,7 +430,13 @@ export class LiveBotStateProvider implements BotStateProvider {
    * aktuális állapotát betölti a TUI-ba.
    *
    * A bot életciklusát a start command kezeli; a `start()` itt
-   * csak a provider belső state-jét inicializálja.
+   * csak a provider belső state-jét inicializálja (az `active` flag-et
+   * állítja `true`-ra). A `botRunning` flag-et NEM állítja — a Phase 38
+   * Fix #38 előtti bug az volt, hogy a `start()` UNCONDITIONALLY
+   * `running = true`-ra állította a `state.running`-ot, és a TUI
+   * `stopped` állapotban is "running"-ot mutatott. A `botRunning`
+   * flag-et CSAK a `markBotStarted()` állítja, amit a `start.ts`
+   * hív a `bot.start()` sikeres resolve-ja után.
    *
    * A `BotStateProvider` interfész `Promise<void>` visszatérési
    * típust ír elő, ezért `async` — a jelenlegi implementációban
@@ -388,8 +444,8 @@ export class LiveBotStateProvider implements BotStateProvider {
    */
   // eslint-disable-next-line @typescript-eslint/require-await
   public async start(): Promise<void> {
-    if (this.running) return;
-    this.running = true;
+    if (this.active) return;
+    this.active = true;
     this.killSwitchState = "armed";
     // Feliratkozás a bot state-változásaira.
     this.subscribeToBot();
@@ -401,11 +457,21 @@ export class LiveBotStateProvider implements BotStateProvider {
    * `stop` — a TUI-ból jövő stop kérés. A botot leállítja
    * (graceful), a bot subscription-t törli, és a saját state-et
    * frissíti.
+   *
+   * Phase 38 Fix #38: a `stop()` a provider `active` flag-jét
+   * `false`-ra állítja, de a `botRunning` flag-et NEM bántja —
+   * a `start.ts` hívja a `markBotStopped()`-et a `bot.stop()`
+   * mellé (vagy a stop flag a provider.stop() belső flow-jában
+   * is tisztul, ha a TUI-ból jön a stop kérés).
    */
   public async stop(): Promise<void> {
-    if (!this.running) return;
-    this.running = false;
+    if (!this.active) return;
+    this.active = false;
     this.unsubscribeFromBot();
+    // A TUI-ból jövő stop kérés a bot futását is leállítja — a
+    // `botRunning` flag is `false`-ra vált, mert a stop kérés a
+    // bot-ot is leállítja.
+    this.botRunning = false;
     try {
       await this.bot.stop();
     } catch {
@@ -415,11 +481,54 @@ export class LiveBotStateProvider implements BotStateProvider {
   }
 
   /**
+   * `markBotStarted` — a `start.ts` hívja a `bot.start()` sikeres
+   * resolve-ja után. A `state.running` TUI mezőt `true`-ra állítja.
+   *
+   * Phase 38 Fix #38: ez a metódus a "bot TÉNYLEGESEN elindult"
+   * explicit jele a provider felé. A `provider.start()` önmagában
+   * NEM elégséges — a Phase 36 Track A1 óta a provider a bot indulása
+   * ELŐTT indul el (hogy a TUI stopped state-ben nyíljon), és a
+   * user `[s]` billentyűje indítja a botot. A flag kezeléséért a
+   * CLI/start parancs a felelős, NEM a provider.
+   *
+   * A flag idempotens: többszöri hívás nem okoz állapotváltást.
+   */
+  public markBotStarted(): void {
+    if (this.botRunning) return;
+    this.botRunning = true;
+    this.refreshFromBot();
+  }
+
+  /**
+   * `markBotStopped` — a `start.ts` hívja a `bot.stop()` sikeres
+   * resolve-ja után (vagy amikor a bot-ot egyéb úton leállítják —
+   * pl. SIGINT, kill switch). A `state.running` TUI mezőt
+   * `false`-ra állítja.
+   *
+   * Phase 38 Fix #38: a Phase 36 Track A1 user mandate-ja szerint
+   * a `[s]` billentyűvel a user a stopped state-be is visszatérhet —
+   * ez a metódus jelzi a provider felé, hogy a bot leállt.
+   *
+   * A flag idempotens: többszöri hívás nem okoz állapotváltást.
+   */
+  public markBotStopped(): void {
+    if (!this.botRunning) return;
+    this.botRunning = false;
+    this.refreshFromBot();
+  }
+
+  /**
    * `killSwitch` — a TUI-ból jövő vészleállító. A botot leállítja,
    * a kill-switch state-et `triggered`-re állítja.
+   *
+   * Phase 38 Fix #38: a kill-switch a bot-ot is leállítja, így a
+   * `botRunning` flag is `false`-ra vált (a TUI-nak a stopped state
+   * felé kell mutatnia, nem pedig "running" állapotot egy nem-létező
+   * bot-ról).
    */
   public async killSwitch(): Promise<void> {
     this.killSwitchState = "triggered";
+    this.botRunning = false;
     this.unsubscribeFromBot();
     try {
       await this.bot.stop();
@@ -549,6 +658,12 @@ export class LiveBotStateProvider implements BotStateProvider {
   /**
    * `refreshFromBot` — a `lastEngineState` (vagy a bot `getState()`)
    * alapján újraszámolja a TUI state-et, és notify-olja a TUI-t.
+   *
+   * Phase 38 Fix #38: a `state.running` a `botRunning` flag-et olvassa
+   * (NEM az `active`-et). A `state.status.engineAvailable` és
+   * `state.status.connected` az `active` flag-et olvassa (a provider
+   * csatlakoztatva van-e a bot notify-folyamhoz). A kettő ELTÉRHET:
+   * a provider aktív (figyel), de a bot még nem fut (stopped state).
    */
   private refreshFromBot(): void {
     const engine = this.lastEngineState;
@@ -562,14 +677,14 @@ export class LiveBotStateProvider implements BotStateProvider {
       const tickers = buildTickers([], this.tickerSymbolOrder);
       this.currentState = {
         ...this.currentState,
-        running: this.running,
+        running: this.botRunning,
         killSwitch: this.killSwitchState,
         status: {
           ...this.currentState.status,
           mode: "with-bot",
-          engineAvailable: this.running,
+          engineAvailable: this.active,
           engineError: null,
-          connected: this.running,
+          connected: this.active,
           lastUpdate: now,
         },
         tickers,
@@ -592,12 +707,12 @@ export class LiveBotStateProvider implements BotStateProvider {
     this.currentState = {
       status: {
         mode: "with-bot",
-        engineAvailable: this.running,
+        engineAvailable: this.active,
         engineError: null,
-        connected: this.running,
+        connected: this.active,
         lastUpdate: now,
       },
-      running: this.running,
+      running: this.botRunning,
       killSwitch: this.killSwitchState,
       positions,
       statistics,
