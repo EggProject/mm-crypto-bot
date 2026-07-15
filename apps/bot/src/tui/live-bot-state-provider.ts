@@ -149,6 +149,124 @@ export function mapClosedTrade(t: ClosedTradeSnapshot, index: number): TuiTrade 
   };
 }
 
+// ============================================================================
+// Phase 39 — Snapshot equality helper (Fix #39: TUI responsiveness)
+// ============================================================================
+
+/**
+ * `stateEqualsIgnoringTimestamp` — két `TuiBotState` mély összehasonlítása,
+ * a `status.lastUpdate` mező kihagyásával.
+ *
+ * A `lastUpdate` ms-pontosságú timestamp, és minden `refreshFromBot()`
+ * híváskor változna — de a UI-t nem érdekli a ms-pontosság (a Header
+ * `Frissítve: HH:MM:SS` formátumban mutatja, ahol a másodperc a lényeges).
+ * Ha csak a `lastUpdate` változna, a függvény `true`-t ad vissza, és a
+ * snapshot referenciája megmarad → nincs felesleges re-render.
+ *
+ * A függvény rekurzívan hasonlítja a `BotState` shape minden mezőjét:
+ *   - Primitívek: `Object.is` (NaN-safe)
+ *   - Tömbök: azonos hossz + minden elem rekurzívan egyenlő
+ *   - Objektumok: azonos kulcsok + minden érték rekurzívan egyenlő
+ *
+ * A `Number.NaN`-t külön kezeljük, mert az `Object.is(NaN, NaN) === true`,
+ * de `NaN === NaN` hamis — a `JSON.stringify`-alapú összehasonlítás
+ * elveszne a NaN-en. Mi a `Number.isNaN` + `Object.is` kombinációt használjuk.
+ */
+export function stateEqualsIgnoringTimestamp(a: TuiBotState, b: TuiBotState): boolean {
+  // status.lastUpdate kihagyása — a többi status-mezőt rekurzívan hasonlítjuk.
+  if (
+    a.status.mode !== b.status.mode ||
+    a.status.engineAvailable !== b.status.engineAvailable ||
+    a.status.connected !== b.status.connected ||
+    a.status.engineError !== b.status.engineError
+  ) {
+    return false;
+  }
+  // A többi top-level mező:
+  if (a.running !== b.running) return false;
+  if (a.killSwitch !== b.killSwitch) return false;
+  if (a.paused !== b.paused) return false;
+  if (a.killSwitchThresholdPct !== b.killSwitchThresholdPct) return false;
+
+  // Tömbök: positions, history, tickers, tickerEvents — mély egyenlőség.
+  if (!arrayDeepEqual(a.positions, b.positions)) return false;
+  if (!arrayDeepEqual(a.history, b.history)) return false;
+  if (!arrayDeepEqual(a.tickers, b.tickers)) return false;
+  if (!arrayDeepEqual(a.tickerEvents, b.tickerEvents)) return false;
+
+  // Statistics: object — minden mezőt egyenként hasonlítunk.
+  if (!statisticsEquals(a.statistics, b.statistics)) return false;
+
+  return true;
+}
+
+/** Két `Statistics` objektum mezőnkénti összehasonlítása. */
+function statisticsEquals(a: Statistics, b: Statistics): boolean {
+  return (
+    a.totalPnlUsdt === b.totalPnlUsdt &&
+    a.totalPnlPct === b.totalPnlPct &&
+    a.winRate === b.winRate &&
+    a.totalTrades === b.totalTrades &&
+    a.winningTrades === b.winningTrades &&
+    a.losingTrades === b.losingTrades &&
+    a.maxDrawdownPct === b.maxDrawdownPct &&
+    a.currentDrawdownPct === b.currentDrawdownPct &&
+    a.avgWinPnl === b.avgWinPnl &&
+    a.avgLossPnl === b.avgLossPnl &&
+    a.bestTradePnl === b.bestTradePnl &&
+    a.worstTradePnl === b.worstTradePnl &&
+    a.profitFactor === b.profitFactor &&
+    a.sharpeRatio === b.sharpeRatio &&
+    a.equityUsdt === b.equityUsdt &&
+    a.initialEquityUsdt === b.initialEquityUsdt
+  );
+}
+
+/** Két readonly tömb mély egyenlősége — azonos hossz + minden elem rekurzívan egyenlő. */
+function arrayDeepEqual<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (!deepValueEquals(a[i], b[i])) return false;
+  }
+  return true;
+}
+
+/** Két érték rekurzív összehasonlítása — primitívek + tömb + objektum. */
+function deepValueEquals(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== typeof b) return false;
+  if (a === null || b === null) return false;
+  if (typeof a === "number") {
+    // NaN-safe: NaN === NaN a mi szempontunkból egyenlő.
+    if (Number.isNaN(a) && Number.isNaN(b)) return true;
+    return false;
+  }
+  if (Array.isArray(a)) {
+    if (!Array.isArray(b)) return false;
+    return arrayDeepEqual(a, b);
+  }
+  if (typeof a === "object") {
+    return objectDeepEquals(a as Record<string, unknown>, b as Record<string, unknown>);
+  }
+  return false;
+}
+
+/** Két object mezőnkénti összehasonlítása. */
+function objectDeepEquals(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+    if (!deepValueEquals(a[key], b[key])) return false;
+  }
+  return true;
+}
+
 /** A bot `closedTrades` + P&L adataiból aggregált `Statistics`. */
 function computeStatistics(
   closedTrades: readonly ClosedTradeSnapshot[],
@@ -541,8 +659,16 @@ export class LiveBotStateProvider implements BotStateProvider {
   /**
    * `setKillSwitchState` — a TUI-ból jövő kill-switch state
    * változtatás (armed / confirm / triggered).
+   *
+   * Phase 39 (Fix #39: TUI responsiveness): a `refreshFromBot`
+   * mostant őrzi a snapshot referenciát (lásd ott). Ha a
+   * kill-switch state nem változott ÉS a többi state-mező sem,
+   * a hívás teljesen no-op (nincs referencia-csere, nincs notify).
    */
   public setKillSwitchState(state: KillSwitchState): void {
+    if (this.killSwitchState === state) {
+      return;
+    }
     this.killSwitchState = state;
     this.refreshFromBot();
   }
@@ -559,8 +685,18 @@ export class LiveBotStateProvider implements BotStateProvider {
    * Ha a jövőben a bot is támogatja a pause-flag-et (pl. a
    * `Bot.subscribe` payloadjában), ez a provider egyszerűen
    * továbbítja azt.
+   *
+   * Phase 39 (Fix #39: TUI responsiveness): a `setPaused` is
+   * őrzi a snapshot referenciát — ha a `paused` flag már az új
+   * értéken van, nem cserélünk referenciát ÉS nem notify-olunk.
+   * (Korábban mindig új objektumot építettünk és notify-oltunk,
+   * ami a `useSyncExternalStore` referenciákon alapuló change-
+   * detection-jét félrevezette.)
    */
   public setPaused(paused: boolean): void {
+    if (this.currentState.paused === paused) {
+      return;
+    }
     this.currentState = { ...this.currentState, paused };
     this.notifyListeners();
   }
@@ -664,6 +800,17 @@ export class LiveBotStateProvider implements BotStateProvider {
    * `state.status.connected` az `active` flag-et olvassa (a provider
    * csatlakoztatva van-e a bot notify-folyamhoz). A kettő ELTÉRHET:
    * a provider aktív (figyel), de a bot még nem fut (stopped state).
+   *
+   * Phase 39 Fix #39 (TUI responsiveness): összehasonlítjuk a JELENLEGIT az
+   * ÚJ state-tel mély egyenlőséggel (`stateEquals`). Ha minden mező
+   * megegyezik, NEM cseréljük a referenciát ÉS NEM hívunk
+   * notifyListeners()-t. Ha bármi változott, új referenciát építünk és
+   * notify-olunk. Ez megakadályozza, hogy a `useSyncExternalStore`
+   * felesleges re-rendert triggereljen (ami a `useInput` callback closure-jét
+   * instabillá tenné), ÉS a keypress handler elvesztéséhez vezetne
+   * magas notification rate esetén. A `lastUpdate` timestamp KIHAGYÁSA
+   * az összehasonlításból: az minden híváskor más (Date.now()), de a UI-t
+   * nem érdekli a ms-pontos update idő.
    */
   private refreshFromBot(): void {
     const engine = this.lastEngineState;
@@ -675,7 +822,7 @@ export class LiveBotStateProvider implements BotStateProvider {
       // is rájuk pozíció — a TUI ticker-panelje azonnal mutatja
       // a bot által figyelt symbol-okat, price=0 placeholder-rel).
       const tickers = buildTickers([], this.tickerSymbolOrder);
-      this.currentState = {
+      const candidate: TuiBotState = {
         ...this.currentState,
         running: this.botRunning,
         killSwitch: this.killSwitchState,
@@ -690,6 +837,12 @@ export class LiveBotStateProvider implements BotStateProvider {
         tickers,
         tickerEvents: this.tickerEventBuffer.slice(),
       };
+      if (stateEqualsIgnoringTimestamp(this.currentState, candidate)) {
+        // Nincs változás — ne cseréljük a referenciát, ne notify-oljunk.
+        // A lastUpdate itt szándékosan kimarad (UI-nak nem kell ms-pontosság).
+        return;
+      }
+      this.currentState = candidate;
       this.notifyListeners();
       return;
     }
@@ -704,7 +857,7 @@ export class LiveBotStateProvider implements BotStateProvider {
     );
     const tickers = buildTickers(engine.positions, this.tickerSymbolOrder);
 
-    this.currentState = {
+    const candidate: TuiBotState = {
       status: {
         mode: "with-bot",
         engineAvailable: this.active,
@@ -722,6 +875,14 @@ export class LiveBotStateProvider implements BotStateProvider {
       paused: this.currentState.paused,
       killSwitchThresholdPct: this.currentState.killSwitchThresholdPct,
     };
+    if (stateEqualsIgnoringTimestamp(this.currentState, candidate)) {
+      // A status.lastUpdate ms-enként változna, de a UI-t nem érdekli —
+      // a többi mező (positions, history, statistics, tickers) referenciája
+      // is csak a tényleges változásnál cserélődik. Ha minden más egyezik,
+      // nem cserélünk referenciát és nem notify-olunk.
+      return;
+    }
+    this.currentState = candidate;
     this.notifyListeners();
   }
 
