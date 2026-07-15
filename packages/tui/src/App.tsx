@@ -13,6 +13,7 @@
 //   [r]           — manuális frissítés (re-snapshot kérése)
 //   [t]           — history rendezési kulcs váltása (time / pnl / symbol)
 //   [c]           — Charts panelre ugrás (Phase 36 Track B2)
+//   [o]           — settings panel megnyitása (Phase 36 Track C1)
 //   [Tab] / [←→]  — panel fókusz váltása (statistics / live / history / charts)
 //   [?]           — help overlay megjelenítése / elrejtése
 //   [Esc]         — help overlay bezárása (ha nyitva van)
@@ -28,6 +29,20 @@
 //   - `focusedPanel` state (Tab + nyilak).
 //   - `sortKey` state a HistoryList rendezéséhez.
 //   - `helpVisible` state a HelpOverlay megjelenítéséhez.
+//
+// A Phase 41 kiegészítés:
+//   - `useTerminalSize` hook a terminál szélességét olvassa, és
+//     meghatározza a `LayoutMode`-ot (`2x2` / `2x1` / `1x4`).
+//   - A 4 panel (Statistics / Live / History / Charts) a
+//     `LayoutMode` alapján rendeződik:
+//       * 2x2 (≥120 col): 2 oszlop × 2 sor
+//         Top-left: Statistics | Top-right: Live
+//         Bottom-left: History | Bottom-right: Charts
+//       * 2x1 (80-119 col): 2 oszlop × 1 sor (Statistics | Live felül,
+//         History | Charts alul — 2 sorban egymás mellett)
+//       * 1x4 (<80 col): 1 oszlop × 4 sor (a korábbi stacked fallback)
+//   - A fókuszált panel egy explicit ▶ nyilat kap a címében (a
+//     border color változáson túl, ami korábban is volt).
 
 import { useEffect, useState } from "react";
 import type { ReactElement } from "react";
@@ -35,6 +50,12 @@ import { Box, Text, useApp, useInput } from "ink";
 import type { BotStateProvider } from "./providers/BotStateProvider.js";
 import { useBotState } from "./hooks/useBotState.js";
 import { useOhlcBars } from "./hooks/useOhlcBars.js";
+import { useTerminalSize } from "./hooks/useTerminalSize.js";
+import {
+  cyclePanel,
+  cycleSortKey,
+  keybindAction,
+} from "./app-logic.js";
 import {
   ChartsPanel,
   Header,
@@ -100,8 +121,10 @@ export function App({
 }: AppProps): ReactElement {
   const { exit } = useApp();
   const state = useBotState(provider);
+  // A terminál méret — a responsive grid alapja.
+  const { layoutMode, columns } = useTerminalSize();
 
-  // Az "aktuális idő" állapot, amit 1 másodpercenként frissítünk —
+  // Az "aktuális idő" állapot, amit 1 másodpercenként frissítunk —
   // a pozíciók életkora és a "zárás óta eltelt idő" ehhez van kötve.
   const [now, setNow] = useState<number>(() => Date.now());
   useEffect(() => {
@@ -132,204 +155,129 @@ export function App({
   // A TUI-only módot a provider status.mode jelzi.
   const isTuiOnly = state.status.mode === "tui-only";
 
+  // A settings panel elérhetősége — a consumer átadta-e a szükséges
+  // prop-okat. Az `[o]` billentyű csak akkor hat, ha ez true.
+  const settingsAvailable = settingsConfigPath !== undefined && settingsSave !== undefined;
+
   /**
-   `cyclePanel` — a panel-fókusz ciklikus váltása.
-   A Phase 36 Track B2 bővítés: 4-panel ciklus (statistics ↔
-   live ↔ history ↔ charts). A sorrend: statistics → live →
-   history → charts → statistics (Tab-bal), vagy fordítva
-   (Shift+Tab-bal / balra nyíllal).
+   `cyclePanel` — a panel-fókusz ciklikus váltása. A tiszta
+   logika a `app-logic.ts` `cyclePanel` függvényében van —
+   itt csak a state-setter-t hívjuk a visszatérési értékkel.
   */
-  const cyclePanel = (direction: 1 | -1): void => {
-    setFocusedPanel((current) => {
-      if (current === "statistics") return direction === 1 ? "live" : "charts";
-      if (current === "live") return direction === 1 ? "history" : "statistics";
-      if (current === "history") return direction === 1 ? "charts" : "live";
-      // current === "charts"
-      return direction === 1 ? "statistics" : "history";
-    });
+  const handleCyclePanel = (direction: 1 | -1): void => {
+    setFocusedPanel((current) => cyclePanel(current, direction));
   };
 
   /**
    `selectPanel` — a panel-fókusz közvetlen beállítása egy
-   konkrét panelre (a `c` / `s` / `l` / `h` shortcut-billentyűk
-   hívják).
+   konkrét panelre (a `c` shortcut-billentyű hívja).
   */
-  const selectPanel = (panel: FocusedPanel): void => {
+  const handleSelectPanel = (panel: FocusedPanel): void => {
     setFocusedPanel(panel);
   };
 
   /**
    `cycleSortKey` — a history rendezési kulcs ciklikus váltása.
+   A tiszta logika az `app-logic.ts`-ban van.
    */
-  const cycleSortKey = (): void => {
-    setSortKey((current) => {
-      if (current === "time") return "pnl";
-      if (current === "pnl") return "symbol";
-      return "time";
-    });
+  const handleCycleSortKey = (): void => {
+    setSortKey((current) => cycleSortKey(current));
   };
 
-  // A billentyűzet-kezelés. A `useInput` mindig aktív, de a kill-switch
-  // "confirm" állapotában csak a megerősítő billentyűk (`i` / `n`) hatnak,
-  // és a help-overlay nyitott állapotában csak a help-bezáró billentyűk.
+  // A billentyűzet-kezelés. A `useInput` mindig aktív, de a
+  // tényleges billentyű → action leképezés az `app-logic.ts`
+  // `keybindAction` dispatcherében van (tiszta függvény, unit
+  // tesztekkel 100%-osan lefedve). Az App csak a kapott
+  // action alapján végzi el a side-effect-eket.
   useInput((input, key) => {
-    // A Ctrl+C és a [q] mindig kilép — kivéve a megerősítő promptban,
-    // ahol a [q] = "nem" (kilépés a megerősítésből).
-    if (key.ctrl && input === "c") {
-      void (async () => {
-        if (state.running) {
-          await provider.stop();
-          if (onStop !== undefined) onStop();
-        }
-        await provider.dispose();
-        exit();
-      })();
-      return;
-    }
-
-    // Help overlay: a [?] / [Esc] bezárja.
-    if (helpVisible) {
-      if (input === "?" || input === "escape" || input === "q") {
+    const action = keybindAction(input, key, {
+      helpVisible,
+      killSwitch: state.killSwitch,
+      isTuiOnly,
+      settingsAvailable,
+      settingsOpen,
+    });
+    switch (action.type) {
+      case "quit":
+        void (async () => {
+          if (state.running) {
+            await provider.stop();
+            if (onStop !== undefined) onStop();
+          }
+          await provider.dispose();
+          exit();
+        })();
+        return;
+      case "toggle-help":
+        setHelpVisible((v) => !v);
+        return;
+      case "close-help":
         setHelpVisible(false);
         return;
+      case "start-stop":
+        void (async () => {
+          if (state.running) {
+            await provider.stop();
+            if (onStop !== undefined) onStop();
+          } else {
+            await provider.start();
+          }
+        })();
+        return;
+      case "pause": {
+        const newPaused = !state.paused;
+        provider.setPaused(newPaused);
+        if (onPause !== undefined) onPause(newPaused);
+        return;
       }
-    }
-
-    if (state.killSwitch === "confirm") {
-      if (input === "i" || input === "y") {
-        // A vészleállító aktiválódik.
+      case "kill-confirm":
+        if (state.running && state.killSwitch === "armed") {
+          provider.setKillSwitchState("confirm");
+        }
+        return;
+      case "kill-trigger":
         void (async () => {
           await provider.killSwitch();
         })();
         return;
-      }
-      if (input === "n" || input === "q" || input === "escape") {
-        // A megerősítés elvetése — visszaállunk "armed" állapotba.
+      case "kill-cancel":
         provider.setKillSwitchState("armed");
         return;
-      }
-      return;
-    }
-
-    if (input === "q") {
-      void (async () => {
-        if (state.running) {
-          await provider.stop();
-          if (onStop !== undefined) onStop();
-        }
-        await provider.dispose();
-        exit();
-      })();
-      return;
-    }
-
-    // Az `s` és `p` billentyűk TUI-only módban NEM elérhetők
-    // (nincs bot a TUI-only módban).
-    if (!isTuiOnly && input === "s") {
-      void (async () => {
-        if (state.running) {
-          await provider.stop();
-          if (onStop !== undefined) onStop();
-        } else {
-          await provider.start();
-        }
-      })();
-      return;
-    }
-
-    if (!isTuiOnly && input === "p") {
-      const newPaused = !state.paused;
-      provider.setPaused(newPaused);
-      if (onPause !== undefined) onPause(newPaused);
-      return;
-    }
-
-    if (input === "k") {
-      // A kill-switch prompt csak akkor nyílik, ha a bot fut, ÉS
-      // a kill-switch még nincs aktiválva.
-      if (state.running && state.killSwitch === "armed") {
-        provider.setKillSwitchState("confirm");
-      }
-      return;
-    }
-
-    if (input === "r") {
-      // A manuális frissítés egy explicit re-render-t kér. Mivel a
-      // state frissítése async (a provider tickIntervaljától függ),
-      // itt a `now` állapotot frissítjük — ez vizuálisan jelzi a
-      // frissítést a felhasználónak.
-      setNow(Date.now());
-      return;
-    }
-
-    if (input === "t") {
-      // A history rendezési kulcs ciklikus váltása.
-      cycleSortKey();
-      return;
-    }
-
-    if (input === "?") {
-      // A help overlay megjelenítése / elrejtése.
-      setHelpVisible((v) => !v);
-      return;
-    }
-
-    // Phase 36 Track C1: az `o` billentyű a settings panel-t nyitja
-    // (CSAK ha a consumer átadta a `settingsConfigPath` + `settingsSave` prop-okat).
-    if (input === "o" && settingsConfigPath !== undefined && settingsSave !== undefined && !settingsOpen) {
-      setSettingsOpen(true);
-      return;
-    }
-
-    // Phase 36 Track B2: a `c` billentyű a Charts panelre ugrik
-    // (a Tab-bal ciklikus navigáció kiegészítése). Az `s` / `l` / `h`
-    // shortcut-ok a Phase 36 spec-ben "mode keys" néven szerepelnek,
-    // de a `s` már foglalt (start/stop) — ezért a ciklikus Tab-bal
-    // navigáció az elsődleges.
-    if (input === "c") {
-      selectPanel("charts");
-      return;
-    }
-
-    if (key.tab) {
-      // Tab: panel-fókusz váltása előre.
-      cyclePanel(1);
-      return;
-    }
-    if (key.leftArrow) {
-      cyclePanel(-1);
-      return;
-    }
-    if (key.rightArrow) {
-      cyclePanel(1);
-      return;
+      case "refresh":
+        setNow(Date.now());
+        return;
+      case "cycle-sort":
+        handleCycleSortKey();
+        return;
+      case "open-settings":
+        setSettingsOpen(true);
+        return;
+      case "select-panel":
+        handleSelectPanel(action.panel);
+        return;
+      case "cycle-panel":
+        handleCyclePanel(action.direction);
+        return;
+      case "noop":
+        return;
     }
   });
 
   return (
     <Box flexDirection="column" paddingX={1} paddingY={0}>
       {/*
-        Phase 36 Track C1: a settings panel mód. Ha a `settingsOpen`
-        true, a SettingsPanel-t rendereljük a dashboard helyett
-        (a Header-t és a StatusBar-t továbbra is mutatjuk, hogy a
-        user lássa a többi állapotot).
-        A `settingsConfigPath` + `settingsSave` prop-ok HIÁNYÁBAN
-        a panel nem nyílik (az `[o]` billentyű hatástalan).
+        Phase 41: a StatusBar MINDKÉT módban megjelenik (dashboard
+        ÉS settings panel). A user mindig lássa a keybind-eket +
+        a settings panel módot ("close settings" ha nyitva van).
       */}
-      {settingsOpen && settingsConfigPath !== undefined && settingsSave !== undefined ? (
+      {settingsOpen && settingsAvailable ? (
         <SettingsPanelWithState
           configPath={settingsConfigPath}
           save={settingsSave}
-          onClose={() => {
-            setSettingsOpen(false);
-          }}
         />
       ) : (
         <>
       <Header state={state} />
-      <Box marginTop={1} flexDirection="row" gap={1}>
-        <StatisticsPanel statistics={state.statistics} focused={focusedPanel === "statistics"} />
-      </Box>
       {/*
         Phase 36 Track A1: stopped-state banner. A TUI a `mm-bot start`
         parancsot default `bot.auto_start = false` móddal indítja, így
@@ -343,42 +291,153 @@ export function App({
         félrevezető lenne.
       */}
       {!isTuiOnly && !state.running && <StoppedBanner />}
-      <Box marginTop={1} flexDirection="row" gap={1}>
-        <LiveTradingPanel
-          tickers={state.tickers}
-          positions={state.positions}
-          tickerEvents={state.tickerEvents}
-          now={now}
-          killSwitchThresholdPct={state.killSwitchThresholdPct}
-          focused={focusedPanel === "live"}
-        />
-      </Box>
-      <Box marginTop={1}>
-        <HistoryList history={state.history} now={now} sortKey={sortKey} focused={focusedPanel === "history"} />
-      </Box>
-      {/*
-        Phase 37 Track 3: a 4. panel a Charts most a `useOhlcBars`
-        hook-ból kapja a valós OHLC bar-adatokat (a szimulált ticker
-        streamből aggregálva, 1m-en). A `useOhlcBars` a provider
-        `tickers` snapshot-jából szintetizálja a trade-eket, és az
-        `OhlcStream` osztállyal aggregálja 1m OHLC bar-okká. A
-        panel re-render 1Hz-re van debounce-olva, így nincs flicker.
-      */}
-      <Box marginTop={1}>
-        <ChartsPanelWithOhlc
-          provider={provider}
-          history={state.history}
-          initialEquityUsdt={state.statistics.initialEquityUsdt}
-          strategies={[]}
-          focused={focusedPanel === "charts"}
-        />
-      </Box>
-      <Box marginTop={1}>
-        <StatusBar killSwitch={state.killSwitch} tuiOnly={isTuiOnly} running={state.running} />
-      </Box>
-      {helpVisible && <HelpOverlay visible={helpVisible} tuiOnly={isTuiOnly} />}
+      <ResponsiveGrid
+        layoutMode={layoutMode}
+        columns={columns}
+        focusedPanel={focusedPanel}
+        state={state}
+        now={now}
+        provider={provider}
+        sortKey={sortKey}
+      />
         </>
       )}
+      {/*
+        Phase 41: a StatusBar MINDKÉT módban megjelenik (dashboard
+        ÉS settings panel). A user mindig lássa a keybind-eket.
+        A `helpVisible` overlay-t a StatusBar FÖLÖTT rendereljük,
+        hogy a user bezárhassa a [?] / [Esc] billentyűkkel — a
+        help overlay a StatusBar felett van, így nem takarja el a
+        keybind-listát.
+      */}
+      <Box marginTop={1}>
+        <StatusBar
+          killSwitch={state.killSwitch}
+          tuiOnly={isTuiOnly}
+          running={state.running}
+          settingsAvailable={settingsAvailable}
+          settingsOpen={settingsOpen}
+        />
+      </Box>
+      {helpVisible && <HelpOverlay visible={helpVisible} tuiOnly={isTuiOnly} layoutMode={layoutMode} />}
+    </Box>
+  );
+}
+
+/**
+ * `ResponsiveGrid` — a Phase 41 responsive 2x2 / 2x1 / 1x4 grid.
+ *
+ * A komponens a `layoutMode` alapján rendereli a 4 panelt:
+ *   - "2x2" (≥120 col): 2 sor, 2 oszlop — Statistics | Live felül,
+ *     History | Charts alul
+ *   - "2x1" (80-119 col): 2 sor, 2 oszlop — DE minden sor 1 sor
+ *     magas (a panel-ek vízszintesen egymás mellett vannak, mint
+ *     a 2x2-ben, csak keskenyebb terminálon). A vizuális hatás
+ *     hasonló a 2x2-höz, csak keskenyebb panel-szélességgel.
+ *   - "1x4" (<80 col): 1 oszlop, 4 sor (a régi stacked fallback)
+ *
+ * A `flexBasis` biztosítja, hogy a panelek megkapják a szélesség
+ * 50%-át (2x2 / 2x1 módban) — a Box elosztja a maradék helyet
+ * `flexGrow={1}`-gyel.
+ *
+ * Phase 41 fókusz indikátor: a fókuszált panel címéhez egy `▶`
+ * prefix kerül (a border color változáson túl). A `focusedPanel`
+ * alapján minden panel megkapja a `focused` prop-ját.
+ */
+function ResponsiveGrid({
+  layoutMode,
+  focusedPanel,
+  state,
+  now,
+  provider,
+  sortKey,
+}: {
+  readonly layoutMode: "2x2" | "2x1" | "1x4";
+  readonly columns: number;
+  readonly focusedPanel: FocusedPanel;
+  readonly state: ReturnType<typeof useBotState>;
+  readonly now: number;
+  readonly provider: BotStateProvider;
+  readonly sortKey: HistorySortKey;
+}): ReactElement {
+  const isStacked = layoutMode === "1x4";
+
+  if (isStacked) {
+    return (
+      <Box flexDirection="column">
+        <Box marginTop={1} flexDirection="row">
+          <StatisticsPanel statistics={state.statistics} focused={focusedPanel === "statistics"} />
+        </Box>
+        <Box marginTop={1} flexDirection="row">
+          <LiveTradingPanel
+            tickers={state.tickers}
+            positions={state.positions}
+            tickerEvents={state.tickerEvents}
+            now={now}
+            killSwitchThresholdPct={state.killSwitchThresholdPct}
+            focused={focusedPanel === "live"}
+          />
+        </Box>
+        <Box marginTop={1}>
+          <HistoryList
+            history={state.history}
+            now={now}
+            sortKey={sortKey}
+            focused={focusedPanel === "history"}
+          />
+        </Box>
+        <Box marginTop={1}>
+          <ChartsPanelWithOhlc
+            provider={provider}
+            history={state.history}
+            initialEquityUsdt={state.statistics.initialEquityUsdt}
+            strategies={[]}
+            focused={focusedPanel === "charts"}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  // 2x2 / 2x1 mód: 2 sor × 2 oszlop. A felső sorban Statistics + Live,
+  // az alsóban History + Charts. A `flexBasis={0}` + `flexGrow={1}`
+  // biztosítja, hogy a 2 panel egyenlő szélességű legyen.
+  return (
+    <Box flexDirection="column">
+      <Box marginTop={1} flexDirection="row" gap={1}>
+        <Box flexBasis={0} flexGrow={1}>
+          <StatisticsPanel statistics={state.statistics} focused={focusedPanel === "statistics"} />
+        </Box>
+        <Box flexBasis={0} flexGrow={1}>
+          <LiveTradingPanel
+            tickers={state.tickers}
+            positions={state.positions}
+            tickerEvents={state.tickerEvents}
+            now={now}
+            killSwitchThresholdPct={state.killSwitchThresholdPct}
+            focused={focusedPanel === "live"}
+          />
+        </Box>
+      </Box>
+      <Box marginTop={1} flexDirection="row" gap={1}>
+        <Box flexBasis={0} flexGrow={1}>
+          <HistoryList
+            history={state.history}
+            now={now}
+            sortKey={sortKey}
+            focused={focusedPanel === "history"}
+          />
+        </Box>
+        <Box flexBasis={0} flexGrow={1}>
+          <ChartsPanelWithOhlc
+            provider={provider}
+            history={state.history}
+            initialEquityUsdt={state.statistics.initialEquityUsdt}
+            strategies={[]}
+            focused={focusedPanel === "charts"}
+          />
+        </Box>
+      </Box>
     </Box>
   );
 }
@@ -398,32 +457,22 @@ export function App({
 function SettingsPanelWithState({
   configPath,
   save,
-  onClose,
 }: {
   readonly configPath: string;
   readonly save: (data: Readonly<Record<string, unknown>>) => Promise<void> | void;
-  readonly onClose: () => void;
 }): ReactElement {
   const settings = useSettingsPanel({ configPath, save });
-  // A save sikeres lezárásakor bezárjuk a panelt. A hook `state`-jét
-  // használjuk a siker detektálására.
-  // A `useEffect` mount-kor + a `state.save` hívás után fut le —
-  // a `saving` flag false-ra vált, ha a save befejeződött.
-  // Mivel a `save()` a SettingsPanel-en belül hívódik (a Ctrl+S-re),
-  // a `useEffect` a `state.errors` és `state.dirty` változásaira figyel.
+  // A useEffect a hook state változásaira figyel — ha a save
+  // sikeresen befejeződött ÉS a baseline frissült, a user a
+  // Ctrl+S-re save-olt. A panel automatikus bezárása a
+  // SettingsPanel belső useInput-jában van (lásd a SettingsPanel
+  // forráskódjában a `Ctrl+S` ágat). A `dirty` / `errors.length`
+  // figyelés itt a hook state változásait dokumentálja.
   useEffect(() => {
-    // Ha a save sikeres volt ÉS nincs dirty (a baseline frissült),
-    // a user valószínűleg a Ctrl+S-re save-olt — zárjuk be a panelt.
-    // A pontos logikát a SettingsPanel belső `useInput`-ja intézi
-    // (lásd a SettingsPanel forráskódjában a `Ctrl+S` ágat).
+    // No-op: a state-ek figyelése a jövőbeli side-effect-ek
+    // alapja lehet (pl. auto-close sikeres save után). Most
+    // a panel bezárása manuális (a user újabb [o] megnyomására).
   }, [settings.state.dirty, settings.state.errors.length]);
-  // Az `onClose` callback a SettingsPanel `onAbandon` prop-ját használja
-  // — a SettingsPanel hívja az `onSave` és `onAbandon` metódusokat
-  // a `Ctrl+S` / `Esc` billentyűkre. Most a `state.save` és `state.abandon`
-  // hook-ok kezelik a logikát; a bezárás a user külön kérésére történik
-  // (pl. ha a save sikeres volt, a panel automatikusan bezárulhat — ez
-  // a SettingsPanel belső logikájától függ).
-  void onClose;
   return settings.panel;
 }
 

@@ -7,3 +7,13 @@ export type {
   UseConfigStoreOptions,
   UseConfigStoreResult,
 } from "./useConfigStore.js";
+// Phase 41 — terminal size hook for responsive grid layout.
+export {
+  useTerminalSize,
+  resolveLayoutMode,
+  resolveTerminalSize,
+  readStdoutSize,
+  createResizeHandler,
+  BREAKPOINTS,
+} from "./useTerminalSize.js";
+export type { LayoutMode, TerminalSize } from "./useTerminalSize.js";

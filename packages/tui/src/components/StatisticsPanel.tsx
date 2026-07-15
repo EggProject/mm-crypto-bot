@@ -51,8 +51,15 @@ export function StatisticsPanel({ statistics, focused = false }: { readonly stat
         Phase 36 Track B1: a panel címe `@inkjs/ui` `<StatusMessage>`
         formátumban. A variant "info" = kék szín, ami a statisztikai
         dashboard-ot semleges, de kiemelt kontextusba helyezi.
+
+        Phase 41: a fókusz indikátor. A fókuszált panel címéhez
+        egy `▶` prefix kerül (a border color változáson túl).
+        A `focused` prop alapján a prefix megjelenik vagy eltűnik.
       */}
-      <StatusMessage variant="info">📊  STATISZTIKA</StatusMessage>
+      <Box>
+        {focused && <Text bold color="green">▶  </Text>}
+        <StatusMessage variant="info">📊  STATISZTIKA</StatusMessage>
+      </Box>
 
       {/* 1. sor: Összesített PnL · Win rate · Trade-szám */}
       <Box marginTop={0} flexDirection="row">

@@ -15,6 +15,17 @@
 // A megerősítő prompt (`killSwitch === "confirm"`) továbbra is
 // egyedi layout-ot kap, mert a `StatusMessage` stílusú figyelmeztetés
 // jobban kiemeli a vészhelyzetet, mint egyenletes key-hint sor.
+//
+// Phase 41 kiegészítések:
+//   - A `settingsAvailable` prop alapján a key-hint lista végére
+//     egy `[o] settings` elem kerül, ha a settings panel elérhető
+//     (a consumer átadta a `settingsConfigPath` + `settingsSave`
+//     prop-okat). Ha a settings panel MÁR nyitva van, a `[o]`
+//     helyett `[o] close` jelenik meg.
+//   - A key-hint lista vizuálisan kiemelése: a key (pl. `[s]`) a
+//     `cyan` színnel, a label pedig a `gray` színnel jelenik meg —
+//     így a user egy pillantással meg tudja különböztetni a
+//     billentyűt a leírástól.
 
 import type { ReactElement } from "react";
 import { Box, Text } from "ink";
@@ -24,14 +35,20 @@ import type { KillSwitchState } from "../types.js";
 
 /**
  * `buildKeyHints` — az aktuális módhoz (TUI-only / with-bot, fut /
- * leállítva) tartozó `KeyHint` tömb.
+ * leállítva, settings elérhető / nem) tartozó `KeyHint` tömb.
  *
  * A `running` flag Phase 36 Track A1: stopped állapotban a `[s]`
  * indító-billentyű kiemelten jelenik meg (zöld + ▶ nyíl).
+ *
+ * A Phase 41 kiegészítés: ha a `settingsAvailable` true, a
+ * key-hint lista végére egy `[o] settings` (vagy `[o] close`,
+ * ha a settings panel nyitva van) elem kerül.
  */
 function buildKeyHints(
   tuiOnly: boolean,
   running: boolean,
+  settingsAvailable: boolean,
+  settingsOpen: boolean,
 ): KeyHint[] {
   const hints: KeyHint[] = [];
   if (!tuiOnly) {
@@ -46,6 +63,14 @@ function buildKeyHints(
   hints.push({ key: "Tab", label: "panel" });
   hints.push({ key: "t", label: "rendezés" });
   hints.push({ key: "r", label: "frissít" });
+  // Phase 41: a settings key-hint CSAK akkor jelenik meg, ha a
+  // settings panel elérhető (a consumer átadta a prop-okat).
+  if (settingsAvailable) {
+    hints.push({
+      key: "o",
+      label: settingsOpen ? "close settings" : "settings",
+    });
+  }
   hints.push({ key: "?", label: "help" });
   hints.push({ key: "q", label: "kilép" });
   return hints;
@@ -59,6 +84,11 @@ function buildKeyHints(
  ilyenkor a `s` / `p` nem jelennek meg (nincs bot).
  A `running` flag (Phase 36 Track A1) a bot aktuális állapotát jelzi —
  stopped állapotban a `[s]` indító-billentyű kiemelten jelenik meg.
+ A `settingsAvailable` (Phase 41) jelzi, hogy a settings panel
+ elérhető-e a consumer-től (alapértelmezetten false — a backward
+ compatibility megőrzése a TUI-only / korábbi fogyasztók számára).
+ A `settingsOpen` (Phase 41) jelzi, hogy a settings panel jelenleg
+ nyitva van-e (befolyásolja a `[o]` key-hint label-jét).
 
  Phase 36 Track B1: a normál mód `@matthesketh/ink-status-bar`
  `<StatusBar items={...} />` formátumban jelenik meg, ami egy
@@ -70,10 +100,14 @@ export function StatusBar({
   killSwitch,
   tuiOnly = false,
   running = true,
+  settingsAvailable = false,
+  settingsOpen = false,
 }: {
   readonly killSwitch: KillSwitchState;
   readonly tuiOnly?: boolean;
   readonly running?: boolean;
+  readonly settingsAvailable?: boolean;
+  readonly settingsOpen?: boolean;
 }): ReactElement {
   if (killSwitch === "confirm") {
     return (
@@ -97,7 +131,10 @@ export function StatusBar({
   // is plain string. A `KeyHint` típus `key: string` + `label: string` —
   // ezért a stopped-state "▶ Start" label vizuálisan jelzi a futási
   // állapotot a user számára (a nyíl + nagybetűs "Start" szó).
-  const items = buildKeyHints(tuiOnly, running);
+  //
+  // A Phase 41 kiegészítés: a `settingsAvailable` + `settingsOpen`
+  // prop-ok befolyásolják a key-hint lista végét.
+  const items = buildKeyHints(tuiOnly, running, settingsAvailable, settingsOpen);
 
   return (
     <Box borderStyle="round" borderColor="gray" paddingX={1}>
