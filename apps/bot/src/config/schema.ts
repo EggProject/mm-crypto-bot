@@ -141,6 +141,17 @@ export const BotConfigSchema = z.object({
   // --------------------------------------------------------------------------
   // 3) Risk section — 1:10 leverage MANDATE a max_leverage és a
   //    per-strategy leverage mezőkön.
+  //
+  //    Phase 37 Track 1 — Adaptive Risk Management: a `risk` szekció
+  //    három új, default-off al-szekcióval bővül:
+  //      - `trailing_stop`     — ATR-based trailing stop (long/short/both).
+  //      - `kelly`             — dynamic Kelly position sizing (rolling window).
+  //      - `drawdown_scaler`   — equity drawdown-aware position scaler.
+  //
+  //    A `max_position_fraction` és a `fallback_size_fraction` a Kelly
+  //    modul cap-jei (cold-start fallback, max position cap). A teljes
+  //    `risk` szekció `.default({})`-vel rendelkezik, így a meglévő
+  //    TOML-ok minden változtatás nélkül parse-olódnak.
   // --------------------------------------------------------------------------
   risk: z
     .object({
@@ -149,6 +160,64 @@ export const BotConfigSchema = z.object({
       max_drawdown_pct: z.number().min(0.01).max(0.5).default(0.15),
       max_positions: z.number().int().min(1).max(12).default(3),
       max_leverage: z.number().int().min(1).max(10).default(10),
+      /**
+       * Phase 37 Track 1 — hard cap on Kelly-suggested size as fraction
+       * of equity. Default 0.10 (10%). Matches Phase 1-5 engine convention.
+       */
+      max_position_fraction: z.number().min(0.001).max(1).default(0.1),
+      /**
+       * Phase 37 Track 1 — fallback size fraction used during the Kelly
+       * cold-start period (fewer than `kelly.min_trades` closed trades).
+       * Default 0.01 (1%) — small, defensive.
+       */
+      fallback_size_fraction: z.number().min(0.0001).max(0.5).default(0.01),
+      /**
+       * Phase 37 Track 1 — ATR-based trailing stop module. Disabled by
+       * default (user must opt in).
+       */
+      trailing_stop: z
+        .object({
+          enabled: z.boolean().default(false),
+          /** ATR period (Wilder smoothing). Default 14 — industry standard. */
+          atr_period: z.number().int().min(2).max(200).default(14),
+          /** ATR multiplier for the trail distance. Default 3.0. */
+          atr_multiplier: z.number().min(0.5).max(20).default(3.0),
+          /** Which side(s) to apply the trail. Default "both". */
+          side: z.enum(["long", "short", "both"]).default("both"),
+        })
+        .default({}),
+      /**
+       * Phase 37 Track 1 — dynamic Kelly position sizing. Disabled by
+       * default (user must opt in). The bot's existing
+       * `risk.kelly_fraction` static value remains in effect when this
+       * is disabled.
+       */
+      kelly: z
+        .object({
+          enabled: z.boolean().default(false),
+          /** Fractional-Kelly multiplier. Default 0.25 (quarter Kelly). */
+          fraction: z.number().min(0.05).max(1).default(0.25),
+          /** Rolling window size (in closed trades) for p, b estimation. */
+          window_size: z.number().int().min(5).max(500).default(50),
+          /** Cold-start threshold — below this, fallback size is used. */
+          min_trades: z.number().int().min(1).max(100).default(10),
+          /** Fallback size fraction (override of `fallback_size_fraction`). */
+          fallback_fraction: z.number().min(0.0001).max(0.5).default(0.01),
+        })
+        .default({}),
+      /**
+       * Phase 37 Track 1 — equity drawdown-aware position scaler.
+       * Disabled by default. When enabled, new positions are scaled
+       * DOWN as drawdown deepens, and STOPPED entirely in the kill
+       * region (80-100% of max_dd_pct).
+       */
+      drawdown_scaler: z
+        .object({
+          enabled: z.boolean().default(false),
+          /** Max drawdown pct (kill threshold). Default 0.15 (15%). */
+          max_dd_pct: z.number().min(0.01).max(0.5).default(0.15),
+        })
+        .default({}),
     })
     .default({}),
 

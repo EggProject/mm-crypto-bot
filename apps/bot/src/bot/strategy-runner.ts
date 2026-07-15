@@ -48,6 +48,7 @@ import type { Brand } from "@mm-crypto-bot/shared";
 
 import type { StrategyName } from "../config/schema.js";
 import type { BotStrategyInstance } from "../config/strategy-registry.js";
+import type { RiskManager } from "../risk/index.js";
 import type { OrderIntent, OrderManager } from "./order-manager.js";
 import type { PositionManager } from "./position-manager.js";
 import type { BotState } from "./state-store.js";
@@ -64,6 +65,10 @@ import type { BotState } from "./state-store.js";
  * - `positionManager`     — a nyilvántartó.
  * - `sizingFn`            — a position-sizing függvény (signal + symbol + price → qty).
  * - `enabledSymbols`      — a `config.symbols.enabled` listája.
+ * - `riskManager`         — opcionális Phase 37 Track 1 `RiskManager`.
+ *                          Ha be van állítva, a Kelly + drawdown scaler
+ *                          által javasolt mérettel írja felül a
+ *                          `sizingFn` kimenetét.
  * - `logger`              — opcionális structured logger.
  */
 export interface StrategyRunnerOptions {
@@ -72,6 +77,7 @@ export interface StrategyRunnerOptions {
   readonly positionManager: PositionManager;
   readonly sizingFn: SizingFn;
   readonly enabledSymbols: readonly string[];
+  readonly riskManager?: RiskManager;
   readonly logger?: Logger;
 }
 
@@ -130,6 +136,15 @@ export class StrategyRunner {
   // Sizing constants
   private readonly riskPerTrade: number = 0.01;
 
+  /**
+   * `riskManager` — Phase 37 Track 1. Optional. If set, the runner
+   * queries `riskManager.evaluateNewPositionSize(...)` BEFORE
+   * calling `sizingFn`, and uses the returned fraction (after
+   * dividing by `referencePrice` and multiplying by `equity`).
+   * If unset, the legacy `sizingFn` path is used.
+   */
+  private riskManager: RiskManager | null = null;
+
   public constructor(opts: StrategyRunnerOptions) {
     this.instances = opts.instances;
     this.orderManager = opts.orderManager;
@@ -138,7 +153,17 @@ export class StrategyRunner {
     this.enabledSymbols = new Set(
       opts.enabledSymbols.map((s) => s as Brand<string, "ExchangeSymbol"> as unknown as ExchangeSymbol),
     );
+    this.riskManager = opts.riskManager ?? null;
     this.logger = opts.logger ?? createLogger("info");
+  }
+
+  /**
+   * `setRiskManager` — Phase 37 Track 1 wiring. Attach / detach the
+   * `RiskManager` that recomputes position size before every order.
+   * Detach with `null` to revert to the legacy `sizingFn` path.
+   */
+  public setRiskManager(rm: RiskManager | null): void {
+    this.riskManager = rm;
   }
 
   // --------------------------------------------------------------------------
@@ -257,13 +282,28 @@ export class StrategyRunner {
 
     // Sizing
     const equity = this.positionManager.getEquity();
-    const amount = this.sizingFn({
-      signal,
-      symbol,
-      referencePrice,
-      equityUsd: equity,
-      riskPerTrade: this.riskPerTrade,
-    });
+    let amount: number;
+    if (this.riskManager !== null) {
+      // Phase 37 Track 1 — query the RiskManager for the final
+      // size fraction. If it returns 0, the drawdown scaler or
+      // Kelly says "do not open" — respect that.
+      const baseFraction = this.riskPerTrade;
+      const fraction = this.riskManager.evaluateNewPositionSize({
+        equityUsd: equity,
+        baseSizeFraction: baseFraction,
+      });
+      amount = fraction > 0 && referencePrice > 0
+        ? (fraction * equity) / referencePrice
+        : 0;
+    } else {
+      amount = this.sizingFn({
+        signal,
+        symbol,
+        referencePrice,
+        equityUsd: equity,
+        riskPerTrade: this.riskPerTrade,
+      });
+    }
     if (amount <= 0) {
       this.logger.debug("[strategy-runner] sizing returned 0 — skipping order", {
         strategy: strategyName,
