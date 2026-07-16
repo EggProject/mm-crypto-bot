@@ -1,8 +1,64 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-16 15:25 Budapest — Phase 43 CLOSED. 3 PRs merged (Track 1: MockDydxFundingSource, Track 2: CRASHED badge + engineError, Track 3: console log routing). main at 83ddd9c, 8/8 packages at 100% OWN line coverage, 6/6 CI green.
+description: Project board — mm-crypto-bot. Updated 2026-07-16 23:50 Budapest — Phase 44-47 CLOSED. TUI deleted, state-feed in bot, web client (separate process), apps/web/ skeleton. 6 PRs merged (#125 #126 #127 #129 #130 #131). main at 3224d8e, 7/7 server packages at 100% OWN line coverage, 6/6 CI green.
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-16 15:25 Budapest, Phase 43 CLOSED)
+# Project board — mm-crypto-bot (updated 2026-07-16 23:50 Budapest, Phase 44-47 CLOSED)
+
+## Phase 44-47 — WEB DASHBOARD MIGRATION (CLOSED 2026-07-16 23:45 Budapest)
+
+### User trigger
+
+User wanted a modern web dashboard (WebSocket + React + EggProject design) to replace the TUI. Critical revision: the bot must stay pure headless, the web client must be a **separate process** started in a separate terminal. Authoritative plan: `.mavis/notes/phase44-v2-plan.md`.
+
+### Phases (5 PRs merged + 1 closed)
+
+| # | Phase | PR | Commit | What changed |
+|---|-------|----|--------|---------------|
+| 44 | **TUI Removal** | [#125](https://github.com/EggProject/mm-crypto-bot/pull/125) | 606d6e8 | Deleted `packages/tui/`, `apps/bot/src/tui/`, `apps/bot/src/cli/commands/tui.ts`, all ink/react deps. Renamed `live-bot-state-provider.ts` → `state-feed/publisher.ts`. Pure-headless `mm-bot start`. |
+| 45 | **State-Feed in Bot** | [#126](https://github.com/EggProject/mm-crypto-bot/pull/126) | 2565882 | New `apps/bot/src/state-feed/` — TCP server on 127.0.0.1:7914, newline-delimited JSON, multi-client broadcast, 4Hz tick throttle, 10s PING / 30s PONG, 200-bar OHLC ring buffer. 7 src + 6 test files. |
+| 46 | **Web Client** | [#127](https://github.com/EggProject/mm-crypto-bot/pull/127) | 20aa5db | New `apps/bot/src/web-client/` — separate process, TCP client to state-feed with exponential backoff, Hono on 127.0.0.1:7913, bun-websocket /ws relay, REST proxy, static file serving. 6 src + 6 test files (3 decomposed commits: 46A state-feed-client, 46B Hono+WS, 46C static+composition+CLI). |
+| 47A | **Web package skeleton** (closed) | [#128](https://github.com/EggProject/mm-crypto-bot/pull/128) | closed | Closed because the skeleton alone can't pass the Build check (no src/main.tsx). Superseded by 47B. |
+| 47B | **App + theme** | [#129](https://github.com/EggProject/mm-crypto-bot/pull/129) | a775aee | New `apps/web/` workspace package. 47A skeleton + 4 source files (main.tsx, App.tsx, theme.ts, app.css). `<html data-theme="dark">` default, theme toggle. |
+| 47C | **WS client** | [#130](https://github.com/EggProject/mm-crypto-bot/pull/130) | 560a96e | `useWebSocket()` React hook (pure `WebSocketClient` class + thin wrapper) connecting to `ws://127.0.0.1:7913/ws`. Auto-reconnect with exponential backoff (1s → 30s cap). 13 tests (status transitions, message dispatch, ping/pong, reconnect timing, invalid JSON tolerance). |
+| 47D | **Control bar + positions** | [#131](https://github.com/EggProject/mm-crypto-bot/pull/131) | 3224d8e | `ControlBar` (start/stop/pause/resume/kill_switch buttons → WS CONTROL messages) + `PositionsTable` (plain `<table>` showing open positions). Smoke tests (4+2). |
+
+### User-mandated decomposition
+
+User (2026-07-16 21:29): *"innentol jobban decompose -old a feladatokat mert egy agent sokaig dolgozik es nagyon nagy context lesz amiert a vegen mar nem hatekony"*.
+
+After Phase 46's single-agent attempt froze mid-task (6 files, ~30 min), every subsequent phase was decomposed into ≤5-file, ≤30-min agent tasks:
+- **46:** 3 commits in 1 PR (46A / 46B / 46C)
+- **47A → 47B:** combined 47A skeleton + 47B source (8 files) because the skeleton alone fails the Build check
+- **47B → 47C → 47D:** 3 separate PRs, each ≤5 files, each ~25-30 min
+
+### Final state
+
+- **main HEAD:** `3224d8e`
+- **7/7 server packages at 100% line coverage on OWN src/ files:** apps/bot, packages/paper, packages/exchange, packages/core, packages/shared, packages/backtest, packages/backtest-tools
+- **6/6 CI gates green on every PR** (1 Coverage retry on PR #127 — known `useConfigStore` flake)
+- **`apps/web/`** added as a new workspace package (8th package, exempt from 100% mandate — full coverage lands in Phase 51)
+- **Working tree clean:** 1 worktree (main), 1 local branch (main), 1 remote branch (main), 0 crons (phase47d-watch to be deleted)
+- **Test count:** 921 server tests + 19 apps/web tests = 940 total
+
+### Architecture (post-Phase 47)
+
+```
+T1:  mm-bot start  (PURE HEADLESS + tiny state-feed TCP listener on 127.0.0.1:7914)
+T2:  mm-bot web    (separate process: Hono + bun-websocket on 127.0.0.1:7913, serves apps/web/dist/)
+                                                            ▲
+Browser:  http://127.0.0.1:7913  (React 19 + Vite 6, lightweight-charts 5.2.0)
+```
+
+### Roadmap (Phase 48+ — not yet implemented)
+
+| # | Phase | Scope | Decomposition |
+|---|-------|-------|---------------|
+| 48 | **Chart grid** | Multi-TF `<LcWrap>` per (strategy × timeframe). Adaptive grid (1/2/4 columns). OHLC bootstrap. Subscribe/unsubscribe per visible chart. | ≤5 files, ≤30 min |
+| 49 | **Indicator overlays** | Indicator registry: Donchian + pivot (DPC), funding rate + spread (dydx_cex_carry), cascade markers (cascade_fade). Signal markers. | ≤5 files, ≤30 min |
+| 50 | **Realtime + reconnect** | rAF batching. Exponential backoff for browser WS (1s → 30s). | ≤4 files, ≤30 min |
+| 51 | **Deployment + cutover** | README + docs (drop TUI, add web workflow). `bun run coverage:full` audit. `apps/web` 100% OWN coverage. | ≤5 files, ≤30 min |
+
+User must approve Phase 48+ before continuing. Per the user mandate 2026-07-16 21:29, future work is decomposed into ≤5-file, ≤30-min agent tasks.
 
 ## Phase 43 — PAPER MODE COMPLETE + TUI CRASH VISIBILITY + LOG ROUTING (CLOSED 2026-07-16 15:20 Budapest)
 
