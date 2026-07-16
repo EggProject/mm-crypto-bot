@@ -213,12 +213,13 @@ export class CliRouter {
     if (subcommand !== "") {
       const entry = this.entries.get(subcommand);
       if (entry !== undefined) {
-        lines.push(`Usage: mm-bot ${entry.name} [--config=path] [--help]`);
+        lines.push(`Usage: mm-bot ${entry.name} [--config=path] [--no-color] [--help]`);
         lines.push("");
         lines.push(`  ${entry.description}`);
         lines.push("");
         lines.push("Options:");
         lines.push("  --config=<path>   TOML config file (optional; uses defaults if absent)");
+        lines.push("  --no-color        Disable ANSI color codes");
         lines.push("  --help, -h        Show this help");
         this.writeHelp(lines);
         return;

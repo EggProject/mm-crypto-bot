@@ -36,7 +36,6 @@ PACKAGES=(
   "packages/paper"
   "packages/exchange"
   "packages/core"
-  "packages/tui"
   "packages/shared"
   "packages/backtest"
   "packages/backtest-tools"

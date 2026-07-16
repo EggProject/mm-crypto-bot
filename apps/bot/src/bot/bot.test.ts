@@ -69,6 +69,17 @@ describe("Bot", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // 1a) getConfig() returns the original BotConfig (Phase 44 — used by
+  //     the headless start.ts to derive the log-file path from state_file).
+  // ---------------------------------------------------------------------------
+  it("getConfig() returns the original BotConfig (read-only accessor)", () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({ config, feed });
+    expect(bot.getConfig()).toBe(config);
+    expect(bot.getConfig().bot.state_file).toBe(stateFile);
+  });
+
+  // ---------------------------------------------------------------------------
   // 1b) Phase 38 Fix #42: paper mode starts WITHOUT auth credentials.
   // The default config has exchange.id="bybiteu" + bot.mode="paper". Before
   // the fix, this triggered `createExchangeClient({useMock:false})` which

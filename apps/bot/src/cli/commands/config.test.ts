@@ -455,3 +455,52 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
     }
   });
 });
+
+// ============================================================================
+// validateConfigForEdit (Phase 44 backward-compat helper tests)
+// ============================================================================
+
+describe("validateConfigForEdit (Phase 44 backward-compat helper)", () => {
+  it("returns 0 for a valid config file", async () => {
+    const { validateConfigForEdit } = await import("./config.js");
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-vcfe-valid-"));
+    const cfgPath = join(dir, "mm-bot.toml");
+    writeFileSync(
+      cfgPath,
+      '[bot]\nmode = "paper"\n',
+      "utf8",
+    );
+    try {
+      expect(validateConfigForEdit(cfgPath)).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns 2 for a Zod-rejected config (max_leverage=15)", async () => {
+    const { validateConfigForEdit } = await import("./config.js");
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-vcfe-invalid-"));
+    const cfgPath = join(dir, "bad.toml");
+    writeFileSync(
+      cfgPath,
+      "[risk]\nmax_leverage = 15\n",
+      "utf8",
+    );
+    try {
+      expect(validateConfigForEdit(cfgPath)).toBe(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns 2 for a non-existent config file", async () => {
+    const { validateConfigForEdit } = await import("./config.js");
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-vcfe-missing-"));
+    const cfgPath = join(dir, "does-not-exist.toml");
+    try {
+      expect(validateConfigForEdit(cfgPath)).toBe(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
