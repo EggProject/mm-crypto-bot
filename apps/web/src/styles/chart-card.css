@@ -1,0 +1,1023 @@
+/* ============================================================
+   apps/web/src/styles/chart-card.css
+   ============================================================
+   Bundled CSS for the ChartCard component. Originally sourced
+   from the eggproject-design skills (no symlink dependency on
+   the build system — these files are copied verbatim per the
+   project's "skills are documentation, not code dependencies" rule).
+
+   All transitive @imports are inlined into this single file so
+   the build is self-contained. If the design system changes, re-run
+   the copy script and verify ChartCard still renders correctly.
+
+   Source files (in cascade order):
+     - eggproject-design/tokens/colors.css
+     - eggproject-design/tokens/typography.css
+     - eggproject-design/tokens/spacing.css
+     - eggproject-design/tokens/breakpoints.css
+     - eggproject-design/tokens/radius.css
+     - eggproject-design/tokens/elevation.css
+     - eggproject-design/tokens/motion.css
+     - eggproject-design/tokens/theme-light.css
+     - eggproject-design/tokens/theme-dark.css
+     - eggproject-design/tokens/theme-auto.css
+     - eggproject-design/tokens/theme-toggle.css
+     - eggproject-design-components/components/feed-indicator/feed-indicator.css
+     - eggproject-design-trade-components/components/lc-wrap/lc-wrap.css
+   ============================================================ */
+
+
+/* === skills/eggproject-design/tokens/colors.css === */
+/* ============================================================
+   EggProject — Color primitives (brand palette)
+   Fixed raw color scales. These hex values are IDENTICAL across
+   light/dark/auto — only the semantic roles that consume them
+   (see theme-light/dark/auto.css) remap per theme.
+   Premium-modern development brand: gold primary, sapphire second
+   voice, paper-cream (light) / warm-graphite (dark) neutrals.
+   ============================================================ */
+:root {
+  /* === Brand Colors ====================================== */
+
+  /* Midnight (deep ink) — used for primary text on cream */
+  --ep-ink-950: #060B1F;
+  --ep-ink-900: #0A1230;
+  --ep-ink-800: #131C44;
+  --ep-ink-700: #1E2A5C;
+
+  /* Sapphire (signature blue) — primary brand color */
+  --ep-blue-900: #16245E;
+  --ep-blue-800: #1F378E;
+  --ep-blue-700: #2949B8;
+  --ep-blue-600: #2E5BE0;   /* primary */
+  --ep-blue-500: #4F7BEE;
+  --ep-blue-400: #7E9EF5;
+  --ep-blue-300: #A8BFFA;
+  --ep-blue-200: #CDDBFD;
+  --ep-blue-100: #E4ECFE;
+  --ep-blue-50:  #F2F5FF;
+
+  /* Paper (warm cream neutrals) — backgrounds */
+  --ep-paper-50:  #FBF9F4;   /* page bg */
+  --ep-paper-100: #F6F3EB;
+  --ep-paper-200: #ECE7DA;
+  --ep-paper-300: #DCD5C3;
+  --ep-paper-400: #B8AE94;
+
+  /* Slate (cool neutrals) — for app/dashboard surfaces */
+  --ep-slate-50:  #F5F7FB;
+  --ep-slate-100: #E9EDF5;
+  --ep-slate-200: #D6DCE8;
+  --ep-slate-300: #B3BCCC;
+  --ep-slate-400: #8390A8;
+  --ep-slate-500: #5C6981;
+  --ep-slate-600: #3E4A60;
+  --ep-slate-700: #2A3447;
+  --ep-slate-800: #19202E;
+
+  /* Gold (egg-yolk reference) — the PRIMARY action color, system-wide.
+     Retuned May 2026 to the „Éjszakai műszak” gold (#E3B563). */
+  --ep-yolk-700: #9A6F26;   /* deep — gold text on warm-bg (light) */
+  --ep-yolk-600: #B98A2E;   /* gold-deep — primary press / dark warm text */
+  --ep-yolk-500: #E3B563;   /* GOLD — primary action */
+  --ep-yolk-400: #EFCB85;   /* gold-bright — primary hover */
+  --ep-yolk-300: #F4D9A0;
+  --ep-yolk-100: #FBEFD6;
+}
+
+/* === skills/eggproject-design/tokens/typography.css === */
+/* ============================================================
+   EggProject — Typography
+   Font families, the semantic type scale, tracking helpers, and
+   the reusable .ep-* type classes + the bold display flourish.
+   Theme-neutral: the same scale serves light and dark.
+   ============================================================ */
+:root {
+  /* === Typography Families =============================== */
+  --ep-font-display: 'Roboto', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --ep-font-sans:    'Roboto', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --ep-font-mono:    'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  /* === Type Scale (semantic) ============================= */
+  --ep-text-display-lg: 700 clamp(56px, 8vw, 96px)/0.95 var(--ep-font-display);
+  --ep-text-display:    400 clamp(44px, 6vw, 72px)/1.02 var(--ep-font-display);
+  --ep-text-h1:         400 48px/1.05 var(--ep-font-display);
+  --ep-text-h2:         400 36px/1.1  var(--ep-font-display);
+  --ep-text-h3:         600 24px/1.25 var(--ep-font-sans);
+  --ep-text-h4:         600 18px/1.3  var(--ep-font-sans);
+  --ep-text-lead:       400 20px/1.5  var(--ep-font-sans);
+  --ep-text-body:       400 16px/1.55 var(--ep-font-sans);
+  --ep-text-small:      400 14px/1.5  var(--ep-font-sans);
+  --ep-text-meta:       500 12px/1.4  var(--ep-font-sans);
+  --ep-text-overline:   500 12px/1.2  var(--ep-font-sans); /* + tracking, uppercase */
+  --ep-text-code:       500 14px/1.5  var(--ep-font-mono);
+
+  /* Tracking helpers */
+  --ep-track-tight:   -0.02em;
+  --ep-track-normal:   0; /* @kind other */
+  --ep-track-wide:     0.08em;
+  --ep-track-overline: 0.14em;
+}
+
+/* ============================================================
+   Reusable semantic typography classes
+   ============================================================ */
+.ep-display-lg { font: var(--ep-text-display-lg); letter-spacing: var(--ep-track-tight); color: var(--ep-fg); }
+.ep-display    { font: var(--ep-text-display);    letter-spacing: var(--ep-track-tight); color: var(--ep-fg); }
+.ep-h1 { font: var(--ep-text-h1); letter-spacing: var(--ep-track-tight); color: var(--ep-fg); }
+.ep-h2 { font: var(--ep-text-h2); letter-spacing: var(--ep-track-tight); color: var(--ep-fg); }
+.ep-h3 { font: var(--ep-text-h3); color: var(--ep-fg); }
+.ep-h4 { font: var(--ep-text-h4); color: var(--ep-fg); }
+.ep-lead   { font: var(--ep-text-lead);   color: var(--ep-fg-muted); }
+.ep-body   { font: var(--ep-text-body);   color: var(--ep-fg); }
+.ep-small  { font: var(--ep-text-small);  color: var(--ep-fg-muted); }
+.ep-meta   { font: var(--ep-text-meta);   color: var(--ep-fg-subtle); }
+.ep-overline {
+  font: var(--ep-text-overline);
+  letter-spacing: var(--ep-track-overline);
+  text-transform: uppercase;
+  color: var(--ep-fg-subtle);
+}
+.ep-code   { font: var(--ep-text-code); color: var(--ep-blue-800); background: var(--ep-blue-50); padding: 1px 6px; border-radius: var(--ep-radius-sm); }
+
+/* Bold display flourish — the brand's signature emphasis sits on the
+   second word/phrase of a display headline. Color: SAPPHIRE (the brand
+   hue) via --ep-flourish, NOT the gold primary action — „a kék a
+   márkáé, az arany a fényé”. So even though gold is now the primary
+   accent, the headline flourish stays sapphire.
+
+   Targets bare h1–h4 em as well as the `.ep-*` semantic classes so
+   any author who writes `<h1>Crafted code, <em>shipped on time.</em></h1>`
+   gets the flourish for free — no class plumbing required. */
+.ep-display-bold,
+h1 em, h2 em, h3 em, h4 em,
+.ep-h1 em, .ep-h2 em, .ep-display em, .ep-display-lg em {
+  font-family: var(--ep-font-display);
+  font-weight: 700;
+  font-style: normal;
+  color: var(--ep-flourish);
+  /* Roboto ships a real 700 (Bold) weight, so the flourish is a true
+     bold cut rather than a synthesised one. */
+}
+
+/* Back-compat alias — some older surfaces still reference .ep-display-italic */
+.ep-display-italic { font-family: var(--ep-font-display); font-weight: 700; color: var(--ep-flourish); }
+
+/* === skills/eggproject-design/tokens/spacing.css === */
+/* ============================================================
+   EggProject — Spacing & layout
+   4px-base spacing scale + page/layout max-width tokens.
+   Theme-neutral.
+   ============================================================ */
+:root {
+  /* === Spacing scale (4px base) ========================== */
+  --ep-space-0:  0;
+  --ep-space-1:  4px;
+  --ep-space-2:  8px;
+  --ep-space-3:  12px;
+  --ep-space-4:  16px;
+  --ep-space-5:  20px;
+  --ep-space-6:  24px;
+  --ep-space-8:  32px;
+  --ep-space-10: 40px;
+  --ep-space-12: 48px;
+  --ep-space-16: 64px;
+  --ep-space-20: 80px;
+  --ep-space-24: 96px;
+  --ep-space-32: 128px;
+
+  /* === Layout max widths ================================ */
+  --ep-layout-max-app:        1240px;  /* logged-in app shell (matches marketing) */
+  --ep-layout-max-marketing:  1240px;  /* brochure / editorial surfaces */
+  --ep-layout-max-prose:      720px;   /* long-form reading column */
+  --ep-layout-max-narrow:     480px;   /* signin, single-form surfaces */
+  --ep-layout-gutter:         24px;    /* horizontal page padding */
+}
+
+/* === skills/eggproject-design/tokens/breakpoints.css === */
+/* ============================================================
+   EggProject — Breakpoints, large-display containers & fluid space
+   2026 modernization layer. ADDITIVE — extends tokens/spacing.css
+   (the 4px scale + the original --ep-layout-max-* widths still live
+   there and are NOT redefined here). Theme-neutral.
+
+   Why a separate module: spacing.css holds the timeless primitives
+   (the 4px scale, the four canonical content widths, the gutter);
+   this file holds the things that track hardware trends — viewport
+   breakpoints, large-monitor caps, full-bleed, and fluid units —
+   so the foundational scale stays stable while these can evolve.
+
+   Loads after spacing.css in the barrel so it can reference
+   --ep-layout-gutter / --ep-layout-max-prose.
+   ============================================================ */
+:root {
+  /* === Viewport breakpoints =============================
+     sm–2xl mirror Tailwind v4 defaults (the de-facto 2026
+     reference); 3xl/4xl are additive large-display tiers.
+     Use in @media (min-width: …). Px on purpose: breakpoints
+     compare against the unscaled viewport, not the root font. */
+  --ep-screen-sm:   640px;   /* large phone / small tablet  */
+  --ep-screen-md:   768px;   /* tablet                      */
+  --ep-screen-lg:   1024px;  /* small laptop                */
+  --ep-screen-xl:   1280px;  /* desktop                     */
+  --ep-screen-2xl:  1536px;  /* large desktop (Tailwind 2xl)*/
+  --ep-screen-3xl:  1920px;  /* FHD / large monitor         */
+  --ep-screen-4xl:  2560px;  /* QHD / ultrawide (2560x1080 / 2560x1440) */
+  /* 5xl (3440px UW-QHD) deferred — no consensus standard label.   */
+
+  /* === Large-display container caps =====================
+     The 2026 pattern for ultrawide/4K is NOT a new breakpoint
+     but a max-width cap: pin content, let the gutters absorb
+     the excess. These complement the four widths in spacing.css. */
+  --ep-layout-max-wide:   1440px;  /* data-dense dashboards / wide tables */
+  --ep-layout-max-fhd:    1920px;  /* hard cap on FHD/ultrawide: no over-stretch */
+  --ep-layout-measure:    65ch;    /* typographic reading measure (50-75ch sweet spot) */
+
+  /* Full-bleed / full-width: edge-to-edge, NO max-width.
+     There is no numeric width for "full" — it is the ABSENCE of a
+     cap. Use this sentinel where a token slot expects a value
+     (e.g. `max-inline-size: var(--ep-layout-max-full)` == uncapped). */
+  --ep-layout-max-full:   none;    /* sentinel: 100% / no max-width */
+
+  /* === Fluid spacing (clamp) ============================
+     Companions to the fixed 4px scale: viewport-fluid gutter and
+     section rhythm. rem+vw inside clamp() avoids zero-point drift. */
+  --ep-layout-gutter-fluid:   clamp(1rem, 2.5vw + 0.5rem, 2rem);  /* ~16 -> 32px */
+  --ep-layout-section-fluid:  clamp(3rem, 6vw + 1rem, 6rem);      /* ~48 -> 96px */
+
+  /* === Full-height ======================================
+     Dynamic viewport height: tracks mobile browser chrome so
+     full-screen sections don't overflow under the URL bar.
+     Prefer over 100vh for heroes / modals / app shells. */
+  --ep-layout-full-height: 100dvh;
+}
+
+/* === skills/eggproject-design/tokens/radius.css === */
+/* ============================================================
+   EggProject — Radius
+   Corner-radius scale. Theme-neutral.
+   ============================================================ */
+:root {
+  /* === Radius ============================================ */
+  --ep-radius-sm: 6px;
+  --ep-radius-md: 12px;
+  --ep-radius-lg: 18px;
+  --ep-radius-xl: 26px;
+  --ep-radius-2xl: 36px;
+  --ep-radius-pill: 999px;
+}
+
+/* === skills/eggproject-design/tokens/elevation.css === */
+/* ============================================================
+   EggProject — Elevation (shadows)
+   Default (light) shadow stack — subtle, layered. The dark/auto
+   themes override these with deeper, more transparent shadows so
+   they read on graphite (see theme-dark.css / theme-auto.css).
+   ============================================================ */
+:root {
+  /* === Shadows (subtle, layered) ========================= */
+  --ep-shadow-xs: 0 1px 2px rgba(10, 18, 48, 0.05);
+  --ep-shadow-sm: 0 1px 2px rgba(10, 18, 48, 0.05), 0 2px 4px rgba(10, 18, 48, 0.04);
+  --ep-shadow-md: 0 2px 4px rgba(10, 18, 48, 0.04), 0 8px 16px rgba(10, 18, 48, 0.06);
+  --ep-shadow-lg: 0 4px 8px rgba(10, 18, 48, 0.04), 0 16px 32px rgba(10, 18, 48, 0.08);
+  --ep-shadow-xl: 0 8px 16px rgba(10, 18, 48, 0.06), 0 32px 64px rgba(10, 18, 48, 0.12);
+  --ep-shadow-inset: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -1px 0 rgba(10,18,48,0.06);
+  --ep-shadow-focus: 0 0 0 2px #E3B563, 0 0 0 4px rgba(10, 18, 48, 0.9);  /* two-layer gold focus ring (primary): bright brand gold + 2px ink contrast band → AA 1.4.11 (ink band ~14:1 vs white/paper) + AAA 2.4.13. Raw gold alone can't reach 3:1 on light. */
+  --ep-shadow-focus-second: 0 0 0 3px var(--ep-blue-200);     /* sapphire ring (second voice) */
+}
+
+/* === skills/eggproject-design/tokens/motion.css === */
+/* ============================================================
+   EggProject — Motion
+   Easing curves + durations. Theme-neutral.
+   ============================================================ */
+:root {
+  /* === Motion ============================================ */
+  --ep-ease-out:    cubic-bezier(0.22, 1, 0.36, 1); /* @kind other */
+  --ep-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* @kind other */
+  --ep-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* @kind other */
+  --ep-dur-fast:    140ms; /* @kind other */
+  --ep-dur-base:    220ms; /* @kind other */
+  --ep-dur-slow:    360ms; /* @kind other */
+}
+
+/* === skills/eggproject-design/tokens/theme-light.css === */
+/* ============================================================
+   EggProject — Light theme (default)
+   Semantic roles for the default (light) theme: surfaces, text,
+   borders, interaction states, the gold primary action, the
+   sapphire second voice, and status colors. These map onto the
+   fixed primitives in colors.css. The dark/auto themes remap the
+   same role names (see theme-dark.css / theme-auto.css).
+   ============================================================ */
+:root {
+  /* Semantic status (light) */
+  --ep-success: #2F9C6A;
+  --ep-success-bg: #E1F4EB;
+  --ep-success-fg: #1F6849;   /* success TEXT on light — AA 6.70:1 (raw --ep-success fails 4.5 as text) */
+  --ep-warning: #D4831A;
+  --ep-warning-bg: #FBEED1;
+  --ep-warning-fg: #9E5C16;   /* warning TEXT/meaningful-icon on light — AA white 5.25 / paper 4.99 / warning-bg 4.57 */
+  --ep-danger:  #C7384E;
+  --ep-danger-bg: #FADEE2;
+  --ep-info:    var(--ep-blue-600);
+  --ep-info-bg: var(--ep-blue-100);
+
+  /* === Semantic surface / text =========================== */
+  --ep-bg:           var(--ep-paper-50);
+  --ep-bg-elevated:  #FFFFFF;
+  --ep-bg-raised:    var(--ep-bg-elevated);   /* light has no extra tonal step — collapses onto elevated (dark splits them via the M3 tint) */
+  --ep-bg-sunken:    var(--ep-paper-100);
+  --ep-bg-inverse:   var(--ep-ink-900);
+
+  --ep-fg:           var(--ep-ink-900);        /* primary text */
+  --ep-fg-muted:     var(--ep-slate-600);      /* secondary */
+  --ep-fg-subtle:    var(--ep-slate-500);      /* tertiary / meta */
+  --ep-fg-faint:     var(--ep-slate-400);      /* decorative faint only (NOT placeholders) */
+  --ep-fg-placeholder: var(--ep-slate-500);    /* input placeholder text — AA 5.54:1 white / 5.26 paper */
+  --ep-fg-on-blue:   var(--ep-accent-on, #16130C); /* ink on filled GOLD accent (legacy name) */
+  --ep-fg-on-ink:    var(--ep-paper-100);
+
+  --ep-border:       var(--ep-paper-300);
+  --ep-border-subtle:var(--ep-paper-200);
+  --ep-border-strong:var(--ep-ink-900);
+  --ep-control-border:var(--ep-slate-400);   /* interactive control edge — AA 3.22:1 on white (was var(--ep-border) 1.46, too faint) */
+  --ep-divider:      rgba(10, 18, 48, 0.08);
+
+  /* === Interaction surfaces (May 2026) ====================
+     Replaces ad-hoc raw-token use (paper-100/200/300, slate-50/100,
+     blue-50/600) across component CSS so light/dark each pick a
+     correct neutral. In light: warm paper washes; in dark: small
+     additive white washes layered on top of the elevated surface. */
+  --ep-bg-hover:     var(--ep-paper-100);    /* row / button hover */
+  --ep-bg-pressed:   var(--ep-paper-200);    /* row / button active */
+  --ep-bg-control:   var(--ep-paper-300);    /* toggle off-track, range track */
+  --ep-accent-bg:    rgba(227, 181, 99, 0.16);  /* gold tag / ghost-hover fill */
+  --ep-accent-fg:    #8A6220;        /* gold text on accent-bg — AA 4.95:1 (was yolk-700 #9A6F26, 4.08) */
+
+  /* === Primary action = GOLD (system-wide, May 2026) =======
+     „Az arany a fényé” — gold marks where you can act. A solid gold
+     fill carries dark ink text (--ep-accent-on), never white. */
+  --ep-accent:       var(--ep-yolk-500);   /* #E3B563 gold */
+  --ep-accent-hover: var(--ep-yolk-400);   /* #EFCB85 gold-bright */
+  --ep-accent-press: #D9A845;
+  --ep-accent-on:    #16130C;              /* ink text/icon on SOLID gold */
+
+  /* Yolk badge — THEME-INDEPENDENT pair. Defined once in :root and intentionally
+     NOT overridden in dark/auto, so the yolk badge stays a fixed light chip in
+     both themes (matching the other fixed-hex badge variants). Do NOT point this
+     at the theme-dependent --ep-accent-fg (it would flip light in dark mode). */
+  --ep-badge-yolk-fg: #8A6220;   /* AA 4.85:1 on --ep-badge-yolk-bg */
+  --ep-badge-yolk-bg: #FAF1DC;
+
+  /* === Second voice = SAPPHIRE („a kék a márkáé”) =========
+     The brand hue: explanatory highlights, info chrome, and the
+     bold headline flourish (--ep-flourish). Not the primary action. */
+  --ep-second:       var(--ep-blue-600);
+  --ep-second-hover: var(--ep-blue-700);
+  --ep-second-press: var(--ep-blue-800);
+  --ep-second-bg:    var(--ep-blue-50);
+  --ep-second-fg:    var(--ep-blue-800);
+  --ep-flourish:     var(--ep-blue-600);   /* headline em flourish (sapphire) */
+
+  /* Warm accent — back-compat alias; now folds into the gold primary. */
+  --ep-accent-warm:       var(--ep-yolk-500);
+  --ep-accent-warm-hover: var(--ep-yolk-400);
+  --ep-accent-warm-bg:    var(--ep-yolk-100);
+  --ep-accent-warm-fg:    var(--ep-yolk-700);
+
+  color-scheme: light;
+}
+
+/* === skills/eggproject-design/tokens/theme-dark.css === */
+/* ============================================================
+   Dark theme — opt-in via [data-theme="dark"] on <html> or any ancestor.
+
+   Surfaces follow Material Design 3 tonal-elevation: a single "surface
+   tint" seed (here, Yolk-500) is mixed into the ink base at increasing
+   percentages as elevation rises. M3 reference percentages:
+       lvl 0 · 0%   lvl 1 · 5%   lvl 2 · 8%   lvl 3 · 11%   lvl 4 · 12%
+   We seed with Yolk (not blue) on purpose — Yolk is our signature
+   warmth, and tinting with it pulls the whole UI away from the sterile
+   "server-rack" feel of a pure cold-blue dark theme.
+
+   The ink bases were lightened ~25% (May 2026) so the dark theme reads as
+   "warm ink", not "black hole". Elevation order, M3 percentages and Yolk
+   tint seed are unchanged — only the underlying hex pulls forward.
+
+   All foreground/background pairs still satisfy WCAG 2.1 contrast.
+   The muted / subtle / faint tier was lifted one slate-step (May 2026)
+   after the previous values (slate-300/400/500) read as visibly dim on
+   the warm-ink page — overline labels, meta chrome and large index
+   numerals were the most obvious offenders. The new stack:
+       fg / bg              ≈ 14.6:1   AAA
+       fg-muted / bg        ≈ 12.0:1   AAA   (was 8.4 — slate-200)
+       fg-subtle / bg       ≈  8.4:1   AAA   (was 5.5 — slate-300)
+       fg-faint / bg        ≈  4.2:1   AA-lg (was 3.2 — slate-400)
+       accent (blue-500)    ≈  4.6:1   AA
+       accent-warm (yolk-400) ≈ 10.8:1 AAA  ← preferred for callouts in dark
+       success/warning/danger fg ≥ 4.3:1    AA
+   ============================================================ */
+[data-theme="dark"] {
+  /* ── „Éjszakai műszak" — graphite base, gold action, sapphire voice ──
+     Surface tint seed is the GOLD itself (#E3B563). Every dark surface is
+     the graphite base mixed with a trace of gold (Material 3 elevation
+     overlay) so the whole UI reads as warm graphite, not cold black. */
+  --ep-tint: #E3B563;
+
+  /* === Surfaces — graphite, tonally gold-tinted ==========
+     Order: sunken < bg < elevated < raised. */
+  --ep-bg:           color-mix(in oklab, #0C0D11 97%, var(--ep-tint));  /* page — graphite */
+  --ep-bg-sunken:    color-mix(in oklab, #080A10 98%, var(--ep-tint));  /* wells / inputs */
+  --ep-bg-elevated:  color-mix(in oklab, #131720 95%, var(--ep-tint));  /* cards / panels */
+  --ep-bg-raised:    color-mix(in oklab, #181D29 93%, var(--ep-tint));  /* popovers / dialogs */
+  --ep-bg-inverse:   var(--ep-paper-50);     /* light surface inside dark (rare) */
+
+  /* === Text — cream on graphite (AAA, tuned for long reading) === */
+  --ep-fg:           #ECE7DA;                /* cream — primary    ~14.2:1 AAA */
+  --ep-fg-muted:     #C7C0AF;                /* secondary          ~ 9.8:1 AAA */
+  --ep-fg-subtle:    #A49D8C;                /* tertiary / meta    ~ 6.6:1 AA  */
+  --ep-fg-faint:     #7C766A;                /* decorative faint only (NOT placeholders) ~ 3.8:1 AA-lg */
+  --ep-fg-placeholder: #938C7C;              /* input placeholder text — AA 5.00:1 on elevated */
+  --ep-fg-on-blue:   var(--ep-accent-on, #16130C);  /* ink on filled gold */
+  --ep-fg-on-ink:    #ECE7DA;
+
+  /* === Borders & dividers — quiet graphite edges ========= */
+  --ep-border:       #2A2E38;
+  --ep-border-subtle:#20242D;
+  --ep-border-strong:rgba(255, 255, 255, 0.22);
+  /* Form controls need a brighter resting edge than panels so checkboxes/radios
+     stay visible on graphite (panel borders stay quiet via --ep-border). */
+  --ep-control-border:rgba(255, 255, 255, 0.34);
+  --ep-divider:      rgba(255, 255, 255, 0.07);
+
+  /* === Primary action = GOLD (where you can act) ========= */
+  --ep-accent:       #E3B563;                /* gold */
+  --ep-accent-hover: #EFCB85;                /* gold-bright */
+  --ep-accent-press: #D9A845;
+  --ep-accent-on:    #16130C;                /* ink on solid gold */
+
+  /* Interaction surfaces (dark) — small additive white washes. */
+  --ep-bg-hover:     rgba(255, 255, 255, 0.05);
+  --ep-bg-pressed:   rgba(255, 255, 255, 0.09);
+  --ep-bg-control:   rgba(255, 255, 255, 0.14);   /* toggle off-track */
+  --ep-accent-bg:    rgba(227, 181, 99, 0.14);    /* gold @ 14% — tag / ghost-hover */
+  --ep-accent-fg:    #EFCB85;                      /* gold text on accent-bg */
+
+  /* === Second voice = SAPPHIRE (the brand hue) ==========
+     Explanatory highlights, info chrome, and the headline flourish
+     (brighter blue-400 on graphite). Not the primary action. */
+  --ep-second:       var(--ep-blue-500);     /* #4F7BEE */
+  --ep-second-hover: var(--ep-blue-400);
+  --ep-second-press: var(--ep-blue-300);
+  --ep-second-bg:    rgba(79, 123, 238, 0.16);
+  --ep-second-fg:    var(--ep-blue-300);
+  --ep-flourish:     var(--ep-blue-400);     /* headline em flourish (sapphire) */
+
+  /* Warm accent — back-compat alias; folds into the gold primary. */
+  --ep-accent-warm:       #E3B563;
+  --ep-accent-warm-hover: #EFCB85;
+  --ep-accent-warm-bg:    rgba(227, 181, 99, 0.16);
+  --ep-accent-warm-fg:    #EFCB85;
+
+  /* === Semantic — brightened for the graphite base ======= */
+  --ep-success:    #7DD3A8;                  /* ~8.6:1 AAA */
+  --ep-success-bg: rgba(47, 156, 106, 0.16);
+  --ep-success-fg: #7DD3A8;                  /* success TEXT — already AA in dark (= --ep-success) */
+  --ep-warning:    #E3B563;                  /* unified with gold */
+  --ep-warning-bg: rgba(227, 181, 99, 0.15);
+  --ep-warning-fg: #E3B563;                  /* warning TEXT/icon — already AA in dark (= --ep-warning) */
+  --ep-danger:     #F09CA8;                  /* ~7.1:1 AAA */
+  --ep-danger-bg:  rgba(199, 56, 78, 0.18);
+  --ep-info:       var(--ep-blue-400);
+  --ep-info-bg:    rgba(79, 123, 238, 0.18);
+
+  /* === Shadows — deeper, more transparent so they read on graphite === */
+  --ep-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --ep-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+  --ep-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.36), 0 8px 16px rgba(0, 0, 0, 0.44);
+  --ep-shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.36), 0 16px 32px rgba(0, 0, 0, 0.55);
+  --ep-shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.44), 0 32px 64px rgba(0, 0, 0, 0.64);
+  --ep-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+  --ep-shadow-focus: 0 0 0 2px rgba(10, 18, 48, 0.9), 0 0 0 4px #E3B563;  /* two-layer dark gold ring: inner 2px ink band (≥3:1 vs gold-filled controls, 8.2:1) + outer 2px gold (≥3:1 vs graphite surfaces, 7.9–10.2:1). Mirror of light. Was 0 0 0 3px rgba(227,181,99,.40) = only 2.54:1. */
+  --ep-shadow-focus-warm: 0 0 0 2px rgba(10, 18, 48, 0.9), 0 0 0 4px #E3B563;  /* alias — kept in sync with --ep-shadow-focus (unused) */
+  --ep-shadow-focus-second: 0 0 0 3px rgba(168, 191, 250, 0.6); /* sapphire ring (second voice) — blue-300 @60%, AA 4.38:1 vs graphite (was rgba(126,158,245,.45) 2.40) */
+
+  color-scheme: dark;
+}
+
+/* === skills/eggproject-design/tokens/theme-auto.css === */
+/* ============================================================
+   EggProject — Auto theme (follows OS)
+   Auto dark — opt-in by setting [data-theme="auto"]. Falls back to
+   system preference. Most surfaces should set theme="dark" explicitly;
+   "auto" is for surfaces that follow the OS chrome (docs, status page).
+   Mirrors theme-dark.css under a prefers-color-scheme: dark query.
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] {
+    --ep-tint: #E3B563;
+
+    --ep-bg:           color-mix(in oklab, #0C0D11 97%, var(--ep-tint));
+    --ep-bg-sunken:    color-mix(in oklab, #080A10 98%, var(--ep-tint));
+    --ep-bg-elevated:  color-mix(in oklab, #131720 95%, var(--ep-tint));
+    --ep-bg-raised:    color-mix(in oklab, #181D29 93%, var(--ep-tint));
+    --ep-bg-inverse:   var(--ep-paper-50);
+
+    --ep-fg:           #ECE7DA;
+    --ep-fg-muted:     #C7C0AF;
+    --ep-fg-subtle:    #A49D8C;
+    --ep-fg-faint:     #7C766A;
+    --ep-fg-placeholder: #938C7C;
+    --ep-fg-on-blue:   var(--ep-accent-on, #16130C);
+    --ep-fg-on-ink:    #ECE7DA;
+
+    --ep-border:       #2A2E38;
+    --ep-border-subtle:#20242D;
+    --ep-border-strong:rgba(255, 255, 255, 0.22);
+    --ep-control-border:rgba(255, 255, 255, 0.34);
+    --ep-divider:      rgba(255, 255, 255, 0.07);
+
+    --ep-accent:       #E3B563;
+    --ep-accent-hover: #EFCB85;
+    --ep-accent-press: #D9A845;
+    --ep-accent-on:    #16130C;
+
+    --ep-bg-hover:     rgba(255, 255, 255, 0.05);
+    --ep-bg-pressed:   rgba(255, 255, 255, 0.09);
+    --ep-bg-control:   rgba(255, 255, 255, 0.14);
+    --ep-accent-bg:    rgba(227, 181, 99, 0.14);
+    --ep-accent-fg:    #EFCB85;
+
+    --ep-second:       var(--ep-blue-500);
+    --ep-second-hover: var(--ep-blue-400);
+    --ep-second-press: var(--ep-blue-300);
+    --ep-second-bg:    rgba(79, 123, 238, 0.16);
+    --ep-second-fg:    var(--ep-blue-300);
+    --ep-flourish:     var(--ep-blue-400);
+
+    --ep-accent-warm:       #E3B563;
+    --ep-accent-warm-hover: #EFCB85;
+    --ep-accent-warm-bg:    rgba(227, 181, 99, 0.16);
+    --ep-accent-warm-fg:    #EFCB85;
+
+    --ep-success: #7DD3A8; --ep-success-bg: rgba(47, 156, 106, 0.16); --ep-success-fg: #7DD3A8;
+    --ep-warning: #E3B563; --ep-warning-bg: rgba(227, 181, 99, 0.15); --ep-warning-fg: #E3B563;
+    --ep-danger:  #F09CA8; --ep-danger-bg:  rgba(199, 56, 78, 0.18);
+    --ep-info:    var(--ep-blue-400); --ep-info-bg: rgba(79, 123, 238, 0.18);
+
+    --ep-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --ep-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+    --ep-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.36), 0 8px 16px rgba(0, 0, 0, 0.44);
+    --ep-shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.36), 0 16px 32px rgba(0, 0, 0, 0.55);
+    --ep-shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.44), 0 32px 64px rgba(0, 0, 0, 0.64);
+    --ep-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+    --ep-shadow-focus: 0 0 0 2px rgba(10, 18, 48, 0.9), 0 0 0 4px #E3B563;
+    --ep-shadow-focus-warm: 0 0 0 2px rgba(10, 18, 48, 0.9), 0 0 0 4px #E3B563;
+    --ep-shadow-focus-second: 0 0 0 3px rgba(168, 191, 250, 0.6);
+
+    color-scheme: dark;
+  }
+}
+
+/* === skills/eggproject-design/tokens/theme-toggle.css === */
+/* ============================================================
+   Theme toggle — the canonical light/dark switch.
+   A one-tap icon button meant to live INSIDE a menu (sidebar foot
+   or top-bar actions), not float in a corner. It matches the
+   system's icon-button family (34px, --ep-fg-muted → --ep-fg on
+   hover, sapphire focus ring). The icon shows the theme you'll
+   switch TO: a moon in light, a sun in dark — driven purely by the
+   [data-theme] attribute on <html>, so no per-instance JS is needed
+   to paint state. Wire the click with preview/_theme.js (static HTML
+   surfaces) or a framework handler that flips data-theme on <html>
+   and persists to localStorage['eggTheme']. Markup:
+
+     <button class="ep-theme-toggle" type="button"
+             data-ep-theme-toggle aria-label="Switch theme">
+       <svg class="ep-theme-toggle__moon" …moon path… ></svg>
+       <svg class="ep-theme-toggle__sun"  …sun path…  ></svg>
+     </button>
+   ============================================================ */
+.ep-theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto;
+  width: 34px; height: 34px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ep-radius-md);
+  color: var(--ep-fg-muted);
+  cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  transition: background var(--ep-dur-fast) var(--ep-ease-out),
+              color var(--ep-dur-fast) var(--ep-ease-out),
+              border-color var(--ep-dur-fast) var(--ep-ease-out);
+}
+.ep-theme-toggle:hover { color: var(--ep-fg); background: var(--ep-bg-hover); }
+.ep-theme-toggle:focus-visible { outline: none; box-shadow: var(--ep-shadow-focus); }
+.ep-theme-toggle svg { width: 16px; height: 16px; display: block; }
+/* Show the icon for the theme you'll switch TO. */
+.ep-theme-toggle .ep-theme-toggle__sun  { display: none; }
+.ep-theme-toggle .ep-theme-toggle__moon { display: block; }
+[data-theme="dark"] .ep-theme-toggle .ep-theme-toggle__sun  { display: block; }
+[data-theme="dark"] .ep-theme-toggle .ep-theme-toggle__moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] .ep-theme-toggle .ep-theme-toggle__sun  { display: block; }
+  [data-theme="auto"] .ep-theme-toggle .ep-theme-toggle__moon { display: none; }
+}
+
+/* === skills/eggproject-design-components/components/feed-indicator/feed-indicator.css === */
+
+/* ============================================================
+   FeedIndicator — live-feed connection state
+   Four canonical states for any WebSocket / SSE / polling source:
+     connecting   — dialling, expect data soon
+     streaming    — receiving live updates (green, pulsing)
+     stale        — connected but no recent data (yolk, blinking)
+     disconnected — no link (red, hollow)
+   Plus an "idle" off state for paused/never-started feeds.
+   ============================================================ */
+
+.ep-feed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 12px var(--ep-font-sans);
+  color: var(--ep-slate-500);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* The dot slot — every variant supplies its own .ep-dot.
+   We size it consistently so the label aligns regardless. */
+.ep-feed > .ep-dot { flex-shrink: 0; }
+
+.ep-feed__label {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+}
+.ep-feed__meta {
+  font: 500 11px var(--ep-font-mono);
+  color: var(--ep-fg-faint);
+  margin-left: 2px;
+}
+
+/* --- State tones (label color follows the dot) ------------ */
+.ep-feed--connecting   { color: var(--ep-accent); }
+.ep-feed--streaming    { color: #1F6849; }                /* deep success */
+.ep-feed--stale        { color: #7A4D14; }                /* deep warning */
+.ep-feed--disconnected { color: #8A2230; }                /* deep danger  */
+.ep-feed--idle         { color: var(--ep-slate-500); }
+
+/* --- "Soft" variant: pill with a tinted background -------- */
+.ep-feed--soft {
+  padding: 4px 10px 4px 8px;
+  border-radius: var(--ep-radius-pill);
+  background: transparent;
+}
+.ep-feed--soft.ep-feed--connecting   { background: var(--ep-blue-100); }
+.ep-feed--soft.ep-feed--streaming    { background: #E1F4EB; }
+.ep-feed--soft.ep-feed--stale        { background: #FBEED1; }
+.ep-feed--soft.ep-feed--disconnected { background: #FADEE2; }
+.ep-feed--soft.ep-feed--idle         { background: var(--ep-slate-100); }
+
+/* --- "Outline" variant: border + transparent bg ----------- */
+.ep-feed--outline {
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--ep-radius-pill);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* --- "Compact" — dot-only with tooltip-style label -------- */
+.ep-feed--compact {
+  gap: 0;
+}
+.ep-feed--compact .ep-feed__label { display: none; }
+
+/* --- "Ink" surface variant -------------------------------- */
+.ep-feed--ink {
+  color: var(--ep-paper-100);
+}
+.ep-feed--ink.ep-feed--connecting   { color: var(--ep-blue-300); }
+.ep-feed--ink.ep-feed--streaming    { color: #8EE3B6; }
+.ep-feed--ink.ep-feed--stale        { color: var(--ep-yolk-400); }
+.ep-feed--ink.ep-feed--disconnected { color: #F09BA9; }
+.ep-feed--ink.ep-feed--idle         { color: var(--ep-slate-300); }
+.ep-feed--ink.ep-feed--soft {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* --- Size variants ---------------------------------------- */
+.ep-feed--sm { font-size: 11px; gap: 6px; }
+.ep-feed--md { font-size: 12px; }                  /* default */
+.ep-feed--lg { font-size: 13px; gap: 10px; padding-inline: 12px; }
+
+/* --- Stack: dot above tiny meta line --------------------- */
+.ep-feed--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.ep-feed--stack > .ep-dot { margin-bottom: 4px; }
+
+/* === skills/eggproject-design-trade-components/components/lc-wrap/lc-wrap.css === */
+
+/* ============================================================
+   LcWrap — Live Chart Wrapper
+   Chrome (header + body + legend + footer) for TradingView
+   Lightweight Charts™ — the one chart renderer the system ships.
+   The wrapper owns layout, title, range tabs, feed indicator,
+   and legend chips; the consumer mounts a lightweight-charts
+   instance into .line-chart-wrapper__body (see components/lc-wrap/lc-charts.js).
+   ============================================================ */
+
+.line-chart-wrapper {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--ep-bg-elevated);
+  border: 1px solid var(--ep-border-subtle);
+  border-radius: var(--ep-radius-lg);
+  overflow: hidden;
+  font-family: var(--ep-font-sans);
+  color: var(--ep-fg);
+  box-shadow: var(--ep-shadow-xs);
+}
+
+/* ---- Header --------------------------------------------- */
+.line-chart-wrapper__header {
+  display: flex; align-items: center;
+  gap: 16px;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--ep-divider);
+}
+.line-chart-wrapper__title-group {
+  display: flex; align-items: baseline; gap: 10px;
+  flex: 1; min-width: 0;
+}
+.line-chart-wrapper__title {
+  font: 600 14px var(--ep-font-sans);
+  color: var(--ep-fg);
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.line-chart-wrapper__symbol {
+  font: 600 15px var(--ep-font-mono);
+  color: var(--ep-fg);
+  letter-spacing: 0.02em;
+}
+.line-chart-wrapper__meta {
+  font: 500 11px var(--ep-font-mono);
+  color: var(--ep-fg-faint);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+
+/* Price readout — big mono number for live mark price */
+.line-chart-wrapper__price {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  font: 600 18px var(--ep-font-mono);
+  color: var(--ep-fg);
+  letter-spacing: -0.01em;
+}
+.line-chart-wrapper__delta {
+  font: 500 12px var(--ep-font-mono);
+  padding: 1px 6px;
+  border-radius: var(--ep-radius-sm);
+}
+.line-chart-wrapper__delta--up   { color: var(--ep-success); background: var(--ep-success-bg); }
+.line-chart-wrapper__delta--down { color: var(--ep-danger); background: var(--ep-danger-bg); }
+.line-chart-wrapper__delta--flat { color: var(--ep-fg-muted); background: var(--ep-bg-sunken); }
+
+/* Right cluster — range tabs + feed indicator + actions */
+.line-chart-wrapper__actions {
+  display: flex; align-items: center; gap: 12px;
+  margin-left: auto;
+}
+
+/* Range tabs — segmented control, mono labels */
+.line-chart-wrapper__ranges {
+  display: inline-flex;
+  background: var(--ep-bg-sunken);
+  border-radius: var(--ep-radius-md);
+  padding: 2px;
+  gap: 0;
+}
+.line-chart-wrapper__range-button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  font: 500 11px var(--ep-font-mono);
+  color: var(--ep-fg-muted);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: background var(--ep-dur-fast) var(--ep-ease-out),
+              color    var(--ep-dur-fast) var(--ep-ease-out);
+}
+.line-chart-wrapper__range-button:hover { color: var(--ep-fg); }
+.line-chart-wrapper__range-button[aria-checked="true"] {
+  background: var(--ep-bg-elevated);
+  color: var(--ep-fg);
+  box-shadow: var(--ep-shadow-xs);
+}
+/* Keyboard focus ring only — the token two-layer ring replaces the UA outline,
+   no layout shift, not animated; the checked background/color still shows through. */
+.line-chart-wrapper__range-button:focus-visible {
+  outline: none;
+  box-shadow: var(--ep-shadow-focus);
+}
+@media (prefers-reduced-motion: reduce) {
+  .line-chart-wrapper__range-button { transition: none; }
+  .line-chart-wrapper__icon-button { transition: none; }
+}
+/* Forced colors: the UA drops the box-shadow ring and the tinted checked surface,
+   so the focused radio gets a real system outline and the checked radio a real
+   Highlight border (padding compensates the 1px so the row does not shift). */
+@media (forced-colors: active) {
+  .line-chart-wrapper__range-button:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+  .line-chart-wrapper__range-button[aria-checked="true"] {
+    border: 1px solid Highlight;
+    padding: 3px 9px;
+  }
+  /* Icon button: same system-outline focus fallback as the radio (paper + ink). */
+  .line-chart-wrapper__icon-button:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+}
+
+/* Icon button — for fullscreen, settings, etc. */
+.line-chart-wrapper__icon-button {
+  appearance: none;
+  width: 28px; height: 28px;
+  border-radius: var(--ep-radius-md);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ep-fg-muted);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background var(--ep-dur-fast) var(--ep-ease-out),
+              color      var(--ep-dur-fast) var(--ep-ease-out);
+}
+.line-chart-wrapper__icon-button:hover {
+  color: var(--ep-fg);
+  background: var(--ep-bg-sunken);
+}
+/* Keyboard focus ring only — the same two-layer token ring as the range radio;
+   replaces the UA outline with no layout shift (the 1px transparent border keeps
+   the box size constant) and is not animated (box-shadow is outside the transition
+   list above). Visible on paper and ink via the token's gold + ink layers. */
+.line-chart-wrapper__icon-button:focus-visible {
+  outline: none;
+  box-shadow: var(--ep-shadow-focus);
+}
+.line-chart-wrapper__icon-button svg { width: 16px; height: 16px; }
+
+/* ---- Body ----------------------------------------------- */
+.line-chart-wrapper__body {
+  position: relative;
+  background: var(--ep-bg-elevated);
+  /* Consumer fills this with their renderer; the wrapper guarantees
+     a positioned, padded surface and a min-height so empty states
+     don't collapse. */
+  min-height: 180px;
+  padding: 4px 0;
+}
+.line-chart-wrapper__body--flush { padding: 0; }
+
+/* Lightweight Charts mount node — fills the body. The renderer
+   (lc-charts.js) sizes its canvas to this element via autoSize. */
+.line-chart-plot {
+  position: absolute;
+  inset: 4px 6px 4px 6px;
+}
+.line-chart-wrapper__body--flush .line-chart-plot { inset: 0; }
+
+/* Placeholder grid for design-time mocks */
+.line-chart-wrapper__placeholder {
+  position: absolute; inset: 8px 8px 8px 8px;
+  background:
+    linear-gradient(to right,  var(--ep-slate-100) 1px, transparent 1px) 0 0 / 60px 100%,
+    linear-gradient(to bottom, var(--ep-bg-sunken) 1px, transparent 1px) 0 0 / 100% 40px;
+  border-radius: var(--ep-radius-sm);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Y/X axis caption hooks (consumer may override) */
+.line-chart-wrapper__axis-y, .line-chart-wrapper__axis-x {
+  position: absolute;
+  font: 500 10px var(--ep-font-mono);
+  color: var(--ep-fg-faint);
+  letter-spacing: 0.04em;
+}
+.line-chart-wrapper__axis-y { right: 10px; }
+.line-chart-wrapper__axis-x { bottom: 6px; }
+
+/* Tooltip slot (consumer renders contents) */
+.line-chart-wrapper__tooltip {
+  position: absolute;
+  background: var(--ep-ink-900);
+  color: var(--ep-paper-100);
+  font: 500 11px var(--ep-font-mono);
+  padding: 6px 10px;
+  border-radius: var(--ep-radius-sm);
+  box-shadow: var(--ep-shadow-lg);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ---- Legend (optional, between body and footer) --------- */
+.line-chart-wrapper__legend {
+  display: flex; align-items: center;
+  gap: 14px; flex-wrap: wrap;
+  padding: 8px 18px;
+  border-top: 1px solid var(--ep-divider);
+  background: var(--ep-bg-sunken);
+}
+.line-chart-wrapper__legend-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 500 11px var(--ep-font-sans);
+  color: var(--ep-fg-muted);
+}
+.line-chart-wrapper__legend-swatch {
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  background: var(--ep-accent);
+  flex-shrink: 0;
+}
+.line-chart-wrapper__legend-swatch--bar {
+  width: 12px; height: 3px;
+  border-radius: 1px;
+}
+.line-chart-wrapper__legend-swatch--candle-up   { background: var(--ep-success); }
+.line-chart-wrapper__legend-swatch--candle-down { background: var(--ep-danger); }
+
+/* ---- Footer (optional) --------------------------------- */
+.line-chart-wrapper__footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 18px;
+  font: 500 11px var(--ep-font-mono);
+  color: var(--ep-fg-faint);
+  letter-spacing: 0.04em;
+  border-top: 1px solid var(--ep-divider);
+  background: var(--ep-bg-sunken);
+}
+
+/* ---- Ink surface variant -------------------------------- */
+.line-chart-wrapper--ink {
+  background: var(--ep-ink-900);
+  border-color: var(--ep-ink-800);
+  color: var(--ep-paper-100);
+}
+.line-chart-wrapper--ink .line-chart-wrapper__title,
+.line-chart-wrapper--ink .line-chart-wrapper__symbol,
+.line-chart-wrapper--ink .line-chart-wrapper__price { color: var(--ep-paper-50); }
+.line-chart-wrapper--ink .line-chart-wrapper__header,
+.line-chart-wrapper--ink .line-chart-wrapper__legend,
+.line-chart-wrapper--ink .line-chart-wrapper__footer { border-color: rgba(255,255,255,0.08); }
+.line-chart-wrapper--ink .line-chart-wrapper__legend,
+.line-chart-wrapper--ink .line-chart-wrapper__footer { background: rgba(255,255,255,0.02); }
+.line-chart-wrapper--ink .line-chart-wrapper__ranges { background: rgba(255,255,255,0.06); }
+.line-chart-wrapper--ink .line-chart-wrapper__range-button { color: var(--ep-slate-300); }
+.line-chart-wrapper--ink .line-chart-wrapper__delta--up   { color: #4FBF8A; background: rgba(47,156,106,0.16); }
+.line-chart-wrapper--ink .line-chart-wrapper__delta--down { color: #E15A6E; background: rgba(199,56,78,0.18); }
+.line-chart-wrapper--ink .line-chart-wrapper__range-button:hover { color: #fff; }
+.line-chart-wrapper--ink .line-chart-wrapper__range-button[aria-checked="true"] {
+  background: rgba(255,255,255,0.10);
+  color: #fff;
+  box-shadow: none;
+}
+.line-chart-wrapper--ink .line-chart-wrapper__body { background: var(--ep-ink-900); }
+.line-chart-wrapper--ink .line-chart-wrapper__placeholder {
+  background:
+    linear-gradient(to right,  rgba(255,255,255,0.05) 1px, transparent 1px) 0 0 / 60px 100%,
+    linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px) 0 0 / 100% 40px;
+}
+.line-chart-wrapper--ink .line-chart-wrapper__icon-button { color: var(--ep-slate-300); }
+.line-chart-wrapper--ink .line-chart-wrapper__icon-button:hover { background: rgba(255,255,255,0.06); color: #fff; }
+
+/* ---- Density variants ---------------------------------- */
+.line-chart-wrapper--compact .line-chart-wrapper__header { padding: 10px 14px 8px; }
+.line-chart-wrapper--compact .line-chart-wrapper__title  { font-size: 13px; }
+.line-chart-wrapper--compact .line-chart-wrapper__price  { font-size: 15px; }
+.line-chart-wrapper--compact .line-chart-wrapper__body   { min-height: 120px; }
+
+/* Sizing helpers — consumers may set width/height directly,
+   but these match common dashboard breakpoints. */
+.line-chart-wrapper--w-full { width: 100%; }
+.line-chart-wrapper--h-sm   { height: 220px; }
+.line-chart-wrapper--h-md   { height: 320px; }
+.line-chart-wrapper--h-lg   { height: 480px; }

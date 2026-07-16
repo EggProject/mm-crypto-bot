@@ -53,11 +53,12 @@ import type { ChartMarker, OHLCBar } from "../lib/ohlc-bridge.js";
 // globals script and cannot be ESM-imported; we re-implement the
 // JSX in React below and reuse the CSS unchanged.
 //
-// The `lc-wrap.css` file transitively imports `colors_and_type.css`
-// and `feed-indicator.css`, so the design tokens (`--ep-yolk-500`,
-// `--ep-bg-elevated`, `--ep-fg-muted`, ...) are also available
-// here.
-import "../../../skills/eggproject-design-trade-components/components/lc-wrap/lc-wrap.css";
+// The bundled CSS lives at `apps/web/src/styles/chart-card.css` and
+// contains the lc-wrap rules + design tokens + feed-indicator rules
+// (all copied verbatim from the eggproject-design skills — we
+// don't symlink the skills into the repo, per the project's
+// "skills are documentation, not code dependencies" rule).
+import "../styles/chart-card.css";
 
 // ============================================================================
 // Public types
