@@ -1,8 +1,43 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-16 02:10 Budapest — Phase 42 CLOSED. Paper mode no longer requires BYBIT_API_KEY/SECRET (PR #119). main at 9b791d7, 8/8 packages at 100% OWN line coverage, 6/6 CI green.
+description: Project board — mm-crypto-bot. Updated 2026-07-16 15:25 Budapest — Phase 43 CLOSED. 3 PRs merged (Track 1: MockDydxFundingSource, Track 2: CRASHED badge + engineError, Track 3: console log routing). main at 83ddd9c, 8/8 packages at 100% OWN line coverage, 6/6 CI green.
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-16 02:10 Budapest, Phase 42 CLOSED)
+# Project board — mm-crypto-bot (updated 2026-07-16 15:25 Budapest, Phase 43 CLOSED)
+
+## Phase 43 — PAPER MODE COMPLETE + TUI CRASH VISIBILITY + LOG ROUTING (CLOSED 2026-07-16 15:20 Budapest)
+
+### User trigger
+
+User ran `bun run apps/bot/src/index.ts start --auto-start`. The TUI opened, but:
+1. **Bot crashed** with `Strategy 'dydx_cex_carry' is enabled but no DydxFundingSource was provided` — Phase 42 fixed the BYBIT_API_KEY check, but the dydx_cex_carry strategy has a separate funding-source dependency.
+2. **TUI showed `[● STOPPED] LEÁLLÍTVA` + "press [s] to start"** even though the bot crashed. The TUI was unaware of the crash.
+3. **Log lines bled into the TUI's main screen** — the bot's JSON log + `[start] bot crashed: ...` `console.error` rendered below the TUI's alternate screen.
+
+User feedback: *"nezd meg alul a logot, miert irodik ki? hiba van :( nem indul el a robot --auto-start -ra :("*
+
+### Tracks (3 parallel PRs)
+
+| # | Track | PR | Commit | What changed |
+|---|-------|----|--------|---------------|
+| 1 | MockDydxFundingSource for paper mode | [#121](https://github.com/EggProject/mm-crypto-bot/pull/121) | b1227e3 | New `MockDydxFundingSource` class in `apps/bot/src/bot/`. 1Hz PRNG funding ticks (dydx 0.0001±0.00005, cex 0.0001±0.0001), 1M USD spot depth, chain block height increments per tick. `bot.ts:355-365` extended to auto-construct it in paper mode (mirrors Phase 42 MockExchangeFeed pattern). 7 unit tests for the mock + 2 regression tests in `bot.test.ts` (paper-mode-with-dydx + live-mode-without-source). |
+| 2 | TUI shows CRASHED badge + engineError surface | [#122](https://github.com/EggProject/mm-crypto-bot/pull/122) | e06d797 | New `LiveBotStateProvider.setEngineError(message \| null)` method (idempotent, notify-on-change). `startCommand` `botStartPromise.catch()` now calls it. Header renders a red `[● CRASHED]` badge (instead of yellow STOPPED) when `engineError` is set + a red error-message line. 4 new setEngineError tests + 3 new CRASHED badge tests. |
+| 3 | Suppress console output in TUI mode (log routing) | [#123](https://github.com/EggProject/mm-crypto-bot/pull/123) | 83ddd9c | `runTui` now saves `console.log` / `console.error` and replaces them with file-logging wrappers (log file: `<state_file>.log`, default `data/bot-state.json.log`). The TUI itself uses `process.stdout.write` (not `console.log`), so TUI rendering is unaffected. On TUI exit, originals are restored in `finally`. New `Bot.getConfig()` accessor (config was private). 6 new unit tests for the log-file derivation + restore round-trip. |
+
+### Final state
+
+- **main HEAD:** `83ddd9c` (Phase 43 Track 3)
+- **8/8 packages at 100% OWN line coverage** maintained
+- **6/6 CI gates green** on every PR (1 Coverage retry on PR #123 — known `useConfigStore` flake)
+- **1 worktree = main**, 1 local branch = main, 1 remote branch = main, 0 crons
+- **21 new tests** total (7 + 4 + 3 + 6 + 1 paper-mode + 1 live-mode)
+
+### User-facing impact
+
+`bun run apps/bot/src/index.ts start --auto-start` now:
+- Starts the bot successfully in paper mode (no auth, no dydx funding source required).
+- TUI displays the current state correctly: `[● STOPPED]` (default) → user presses [s] → `[● FUT]` after start.
+- If the bot crashes (e.g. live mode without auth), TUI shows `[● CRASHED]` red badge + the error message.
+- No more log lines bleeding into the TUI's main screen — all `console.log` / `console.error` go to `data/bot-state.json.log` for `tail -f` debugging.
 
 ## Phase 42 — PAPER MODE NO-AUTH (CLOSED 2026-07-16 02:08 Budapest)
 
