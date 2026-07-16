@@ -43,7 +43,20 @@ export function Header({ state }: { readonly state: BotState }): ReactElement {
   // Phase 36 Track A1: a `state.running === false` ÉS `mode === "with-bot"`
   // állapotban a badge egy AMBER színű `[● STOPPED]` lesz (a Phase 36
   // user mandate: a bot a TUI indulásakor `stopped` állapotban van).
-  const stoppedBadge = !running && status.mode === "with-bot" ? "[● STOPPED]" : null;
+  //
+  // Phase 43 Track 2: ha a `status.engineError` nem null, a badge
+  // átvált piros `[● CRASHED]`-re. Ez a user-facing jelzés arra, hogy
+  // a bot NEM egyszerűen le van állítva — a bot init/run során
+  // elszállt, és a `state.status.engineError` tartalmazza a hiba
+  // szövegét (a Header lentebb külön sorban is megjeleníti).
+  const crashedBadge =
+    !running && status.mode === "with-bot" && status.engineError !== null
+      ? "[● CRASHED]"
+      : null;
+  const stoppedBadge =
+    !running && status.mode === "with-bot" && status.engineError === null
+      ? "[● STOPPED]"
+      : null;
   const runningLabel = running ? "FUT" : "LEÁLLÍTVA";
   const runningColor: "green" | "red" = running ? "green" : "red";
 
@@ -98,6 +111,12 @@ export function Header({ state }: { readonly state: BotState }): ReactElement {
               <Badge color="yellow">{stoppedBadge}</Badge>
             </>
           )}
+          {crashedBadge !== null && (
+            <>
+              <Text>  </Text>
+              <Badge color="red">{crashedBadge}</Badge>
+            </>
+          )}
         </Box>
         <Box>
           <Text color={runningColor} bold>{runningLabel}</Text>
@@ -111,7 +130,7 @@ export function Header({ state }: { readonly state: BotState }): ReactElement {
       </Box>
       {status.engineError !== null && (
         <Box marginTop={0}>
-          <Text color="yellow">⚠  Motor hiba: {status.engineError}</Text>
+          <Text color="red">⚠  Motor hiba: {status.engineError}</Text>
         </Box>
       )}
     </Box>

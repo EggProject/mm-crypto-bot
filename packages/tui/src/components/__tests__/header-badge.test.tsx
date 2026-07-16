@@ -26,11 +26,12 @@ function makeState(overrides: {
   readonly killSwitch?: KillSwitchState;
   readonly connected?: boolean;
   readonly lastUpdate?: number;
+  readonly engineError?: string | null;
 }): BotState {
   const status: ProviderStatus = {
     mode: overrides.mode ?? "with-bot",
     engineAvailable: true,
-    engineError: null,
+    engineError: overrides.engineError ?? null,
     connected: overrides.connected ?? true,
     lastUpdate: overrides.lastUpdate ?? 0,
   };
@@ -103,5 +104,45 @@ describe("Header — Badge component (Phase 36 Track B1)", () => {
     const { lastFrame } = render(<Header state={state} />);
     const frame = lastFrame() ?? "";
     expect(frame).toContain("LEÁLLÍTVA");
+  });
+
+  // -------------------------------------------------------------------------
+  // Phase 43 Track 2 — CRASHED badge
+  //
+  // A bot init/run során összeomolhat (pl. funding source hiányzik). A
+  // `state.status.engineError` ilyenkor nem null. A Header ebben az
+  // esetben a STOPPED badge helyett egy piros [● CRASHED] badge-et
+  // mutat + a hiba szövegét külön sorban.
+  // -------------------------------------------------------------------------
+  it("renders the [● CRASHED] badge (not [● STOPPED]) when engineError is set", () => {
+    const state = makeState({
+      mode: "with-bot",
+      running: false,
+      engineError: "DydxFundingSource missing",
+    });
+    const { lastFrame } = render(<Header state={state} />);
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("[● CRASHED]");
+    expect(frame).not.toContain("[● STOPPED]");
+  });
+
+  it("renders the error message when engineError is set", () => {
+    const state = makeState({
+      mode: "with-bot",
+      running: false,
+      engineError: "Strategy 'dydx_cex_carry' is enabled but no DydxFundingSource was provided",
+    });
+    const { lastFrame } = render(<Header state={state} />);
+    const frame = lastFrame() ?? "";
+    expect(frame).toContain("Motor hiba:");
+    expect(frame).toContain("DydxFundingSource");
+  });
+
+  it("does NOT render the CRASHED badge when engineError is null (normal STOPPED state)", () => {
+    const state = makeState({ mode: "with-bot", running: false, engineError: null });
+    const { lastFrame } = render(<Header state={state} />);
+    const frame = lastFrame() ?? "";
+    expect(frame).not.toContain("[● CRASHED]");
+    expect(frame).toContain("[● STOPPED]");
   });
 });

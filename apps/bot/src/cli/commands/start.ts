@@ -374,10 +374,22 @@ async function runTui(
         .start()
         .then(() => {
           provider.markBotStarted();
+          // Phase 43 Track 2: successful start clears any prior
+          // engineError (e.g. after a previous failed start that the
+          // user recovered from by pressing [s] to retry).
+          provider.setEngineError(null);
         })
         .catch((err: unknown) => {
           const message = err instanceof Error ? err.message : String(err);
           console.error(`[start] bot crashed: ${message}`);
+          // Phase 43 Track 2: surface the crash to the TUI as well
+          // (otherwise the TUI shows the misleading [● STOPPED] +
+          // "press [s] to start" while the bot actually crashed).
+          // The Header component renders a yellow ⚠ line + the
+          // `running` field stays false so the existing STOPPED
+          // badge is replaced by a CRASHED badge (Track 2 Header
+          // change).
+          provider.setEngineError(message);
           return err as Error;
         })
     : Promise.resolve(undefined);
