@@ -551,6 +551,12 @@ function initialStateFeedSnapshot(initialEquityUsdt: number): StateFeedSnapshot 
 /** A `LiveStatePublisher` event típusai (a Phase 45 state-feed szerver használja). */
 export type LiveStatePublisherEvent =
   | { readonly type: "snapshot"; readonly snapshot: StateFeedSnapshot }
+  | { readonly type: "state"; readonly snapshot: StateFeedSnapshot }
+  | { readonly type: "tick"; readonly symbol: string; readonly price: number }
+  | { readonly type: "bar"; readonly symbol: string; readonly timeframe: string; readonly ohlc: { readonly time: number; readonly open: number; readonly high: number; readonly low: number; readonly close: number; readonly volume: number } }
+  | { readonly type: "indicator"; readonly symbol: string; readonly strategy: string; readonly timeframe: string; readonly indicator: string; readonly series: Readonly<Record<string, readonly (number | null)[]>> }
+  | { readonly type: "marker"; readonly symbol: string; readonly strategy: string; readonly timeframe: string; readonly side: "long" | "short" | "buy" | "sell"; readonly price: number; readonly label: string }
+  | { readonly type: "error"; readonly message: string; readonly recoverable: boolean }
   | { readonly type: "started" }
   | { readonly type: "stopped" }
   | { readonly type: "kill-switch"; readonly state: StateFeedKillSwitchState }
@@ -848,6 +854,83 @@ export class LiveStatePublisher {
     };
     this.notifyListeners();
     this.emit({ type: "engine-error", message });
+  }
+
+  // --------------------------------------------------------------------------
+  // Phase 45 — State-feed event publication API
+  // --------------------------------------------------------------------------
+
+  /**
+   * `publishTick` — a bot feed tick listener-éből hívódik. A `tick`
+   * event a state-feed broadcast-on át megy a 4Hz throttling-hoz.
+   *
+   * PR 45A-ban a metódus már implementált (csak az event-et adja ki);
+   * a bot.ts feed listener-ét a Phase 45B-ben kötjük be.
+   */
+  public publishTick(symbol: string, price: number): void {
+    this.emit({ type: "tick", symbol, price });
+  }
+
+  /**
+   * `publishBar` — a StrategyRunner-ból hívódik, amikor egy OHLC bar
+   * lezárul. A `bar` event a state-feed broadcast-on át megy a
+   * subscription-szűrővel.
+   */
+  public publishBar(
+    symbol: string,
+    timeframe: string,
+    ohlc: { readonly time: number; readonly open: number; readonly high: number; readonly low: number; readonly close: number; readonly volume: number },
+  ): void {
+    this.emit({ type: "bar", symbol, timeframe, ohlc });
+  }
+
+  /**
+   * `publishIndicator` — a StrategyRunner-ból hívódik, amikor egy
+   * indikátor frissül (Donchian / pivot / stb.). A `series` mező
+   * a kliens által interpretált adatsor.
+   */
+  public publishIndicator(
+    symbol: string,
+    strategy: string,
+    timeframe: string,
+    indicator: string,
+    series: Readonly<Record<string, readonly (number | null)[]>>,
+  ): void {
+    this.emit({ type: "indicator", symbol, strategy, timeframe, indicator, series });
+  }
+
+  /**
+   * `publishMarker` — a StrategyRunner-ból hívódik, amikor egy
+   * stratégia jelet ad (entry/exit). A `marker` event a chart
+   * overlay-en jelenik meg.
+   */
+  public publishMarker(
+    symbol: string,
+    strategy: string,
+    timeframe: string,
+    side: "long" | "short" | "buy" | "sell",
+    price: number,
+    label: string,
+  ): void {
+    this.emit({ type: "marker", symbol, strategy, timeframe, side, price, label });
+  }
+
+  /**
+   * `publishState` — a bot engine-ből hívódik minden `bot.subscribe`
+   * notification-nél. A `state` event a positions / statistics /
+   * kill-switch / paused mezőket szállítja.
+   */
+  public publishState(): void {
+    this.emit({ type: "state", snapshot: this.currentState });
+  }
+
+  /**
+   * `publishError` — a bot engine-ből hívódik, amikor a bot hibát
+   * észlel. A `recoverable` flag jelzi, hogy a bot önállóan tud-e
+   * helyreállni (pl. `MissingCredentialsError` recovery flow).
+   */
+  public publishError(message: string, recoverable: boolean): void {
+    this.emit({ type: "error", message, recoverable });
   }
 
   /**

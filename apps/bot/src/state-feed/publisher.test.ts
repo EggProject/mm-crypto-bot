@@ -770,3 +770,117 @@ describe("LiveStateProvider — stop, killSwitch, getLastEngineState", () => {
     expect(provider.getLastEngineState()).toBe(engineState);
   });
 });
+
+// ============================================================================
+// LiveStateProvider — Phase 45 event publication API
+// ============================================================================
+
+describe("LiveStateProvider — Phase 45 publish methods", () => {
+  function createTestProvider(): LiveStatePublisher {
+    const bot = {
+      subscribe: () => () => undefined,
+      getState: () => null,
+      stop: async () => undefined,
+    } as unknown as Bot;
+    return new LiveStatePublisher({ bot });
+  }
+
+  it("publishTick emits a 'tick' event with symbol + price", () => {
+    const provider = createTestProvider();
+    let received: { symbol: string; price: number } | null = null;
+    provider.addEventListener((e) => {
+      if (e.type === "tick") received = { symbol: e.symbol, price: e.price };
+    });
+    provider.publishTick("BTC/USDC", 60_123.45);
+    expect(received).not.toBeNull();
+    expect(received!.symbol).toBe("BTC/USDC");
+    expect(received!.price).toBe(60_123.45);
+  });
+
+  it("publishBar emits a 'bar' event with symbol + tf + ohlc", () => {
+    const provider = createTestProvider();
+    let received: unknown = null;
+    provider.addEventListener((e) => {
+      if (e.type === "bar") received = e;
+    });
+    const ohlc = { time: 1000, open: 60_100, high: 60_150, low: 60_080, close: 60_123.45, volume: 12.5 };
+    provider.publishBar("BTC/USDC", "1h", ohlc);
+    expect(received).not.toBeNull();
+    const r = received as { symbol: string; timeframe: string; ohlc: typeof ohlc };
+    expect(r.symbol).toBe("BTC/USDC");
+    expect(r.timeframe).toBe("1h");
+    expect(r.ohlc).toEqual(ohlc);
+  });
+
+  it("publishIndicator emits an 'indicator' event with all fields", () => {
+    const provider = createTestProvider();
+    let received: unknown = null;
+    provider.addEventListener((e) => {
+      if (e.type === "indicator") received = e;
+    });
+    const series = { upper: [60_200], lower: [59_800], middle: [60_000] };
+    provider.publishIndicator("BTC/USDC", "donchian_pivot_composition", "1h", "donchian", series);
+    expect(received).not.toBeNull();
+    const r = received as {
+      symbol: string;
+      strategy: string;
+      timeframe: string;
+      indicator: string;
+      series: typeof series;
+    };
+    expect(r.symbol).toBe("BTC/USDC");
+    expect(r.strategy).toBe("donchian_pivot_composition");
+    expect(r.timeframe).toBe("1h");
+    expect(r.indicator).toBe("donchian");
+    expect(r.series).toEqual(series);
+  });
+
+  it("publishMarker emits a 'marker' event with all fields", () => {
+    const provider = createTestProvider();
+    let received: unknown = null;
+    provider.addEventListener((e) => {
+      if (e.type === "marker") received = e;
+    });
+    provider.publishMarker("BTC/USDC", "donchian_pivot_composition", "1h", "long", 60_100, "ENTER_LONG");
+    expect(received).not.toBeNull();
+    const r = received as {
+      symbol: string;
+      strategy: string;
+      timeframe: string;
+      side: string;
+      price: number;
+      label: string;
+    };
+    expect(r.symbol).toBe("BTC/USDC");
+    expect(r.strategy).toBe("donchian_pivot_composition");
+    expect(r.timeframe).toBe("1h");
+    expect(r.side).toBe("long");
+    expect(r.price).toBe(60_100);
+    expect(r.label).toBe("ENTER_LONG");
+  });
+
+  it("publishState emits a 'state' event with the current snapshot", () => {
+    const provider = createTestProvider();
+    let received: unknown = null;
+    provider.addEventListener((e) => {
+      if (e.type === "state") received = e;
+    });
+    provider.publishState();
+    expect(received).not.toBeNull();
+    const r = received as { snapshot: StateFeedSnapshot };
+    expect(r.snapshot).toBe(provider.getSnapshot());
+  });
+
+  it("publishError emits an 'error' event with message + recoverable", () => {
+    const provider = createTestProvider();
+    let received: unknown = null;
+    provider.addEventListener((e) => {
+      if (e.type === "error") received = e;
+    });
+    provider.publishError("DydxFundingSource missing", true);
+    expect(received).not.toBeNull();
+    const r = received as { message: string; recoverable: boolean };
+    expect(r.message).toBe("DydxFundingSource missing");
+    expect(r.recoverable).toBe(true);
+  });
+});
