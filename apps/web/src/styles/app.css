@@ -1,0 +1,87 @@
+/*
+ * apps/web/src/styles/app.css
+ *
+ * Phase 47B: minimal app shell styles. The full eggproject-design token
+ * CSS (`colors_and_type.css` from `eggproject-design/`) is imported in
+ * Phase 47C, which adds the gold/sapphire brand styling.
+ *
+ * For now: a clean dark canvas (the html data-theme="dark" is set in
+ * index.html).
+ */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #080A10; /* warm graphite — matches eggproject-design dark */
+  color: #ECE7DA;     /* cream text */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+#root {
+  height: 100%;
+}
+
+.ep-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.ep-app__topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  border-bottom: 1px solid #181D29;
+  background: #0C0D11;
+}
+
+.ep-app__brand-mark {
+  font-weight: 600;
+  color: #E3B563; /* gold accent — eggproject-design */
+}
+
+.ep-app__brand-suffix {
+  color: #ECE7DA;
+  opacity: 0.6;
+}
+
+.ep-app__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.ep-app__status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #888; /* gray = disconnected */
+}
+
+.ep-app__status-dot[data-status="connected"] {
+  background: #4CAF50; /* green */
+}
+
+.ep-app__status-dot[data-status="crashed"] {
+  background: #E74C3C; /* red */
+}
+
+.ep-app__main {
+  flex: 1;
+  padding: 24px;
+  overflow: auto;
+}
+
+.ep-app__placeholder {
+  border: 1px dashed #181D29;
+  border-radius: 6px;
+  padding: 24px;
+  text-align: center;
+  color: #ECE7DA;
+  opacity: 0.7;
+}
