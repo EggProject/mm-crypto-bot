@@ -62,6 +62,7 @@ import {
   statusCommand,
   strategiesCommand,
   tradesCommand,
+  webCommand,
 } from "./cli/index.js";
 
 // ---------------------------------------------------------------------------
@@ -111,6 +112,7 @@ router.register("trades", "Show recent closed trades", tradesCommand);
 router.register("kill-switches", "Show kill-switch state", killSwitchesCommand);
 router.register("kill-switch-dry-run", "Simulate the kill-switch path WITHOUT sending any orders (Phase 37 Track 5)", killSwitchDryRunCommand);
 router.register("backtest", "Run a quick backtest on a deterministic OHLC fixture (Phase 37 Track 3)", backtestCommand);
+router.register("web", "Start the web client in a SEPARATE terminal (Phase 46 — connects to state-feed on 127.0.0.1:7914)", webCommand);
 router.register("help", "Show this help", makeHelpCommand(router));
 
 // ---------------------------------------------------------------------------
