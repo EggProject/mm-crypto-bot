@@ -25,8 +25,9 @@
  *
  * Flags:
  *   --strategy=<name>    strategy to test (default: "ohlc-trend")
- *   --visualize          launch the TUI Charts panel after the
- *                        backtest completes (interactive mode)
+ *   --visualize          (Phase 44-gyel: a flag elfogadva, de nincs
+ *                        hatása — a TUI Charts panel törölve. A flag
+ *                        megmarad a backward-compat kedvéért.)
  *   --bars=<N>           number of bars in the fixture (default: 250)
  *   --risk-pct=<pct>     risk per trade as % of equity (default: 0.01)
  *   --initial-equity=$N  starting equity in USDT (default: 10000)
@@ -380,13 +381,12 @@ export const backtestCommand: SubcommandHandler = async (args) => {
     console.log(ok(`Backtest complete. ${result.wins} wins, ${result.losses} losses, ${(result.winRate * 100).toFixed(1)}% win rate.`));
   }
   if (visualize) {
-    // Phase 37 Track 3 mandate: --visualize opens the TUI Charts panel.
-    // The TUI Charts panel currently renders mock candles; the real
-    // backtest-equity curve wire-up is a future phase.  For now we
-    // print a notice + suggest a follow-up.
+    // Phase 44: a `--visualize` flag megmarad a backward-compat kedvéért,
+    // de a TUI Charts panel törölve lett. A flag jelenleg csak egy
+    // notice-t ír ki — a vizualizáció a Phase 46+ web client-be költözik.
     console.log("");
-    console.log(warn("--visualize is recognized but not yet wired to the TUI Charts panel (Phase 38+)."));
-    console.log(dim("Run `mm-bot tui` to launch the live TUI with the mock data provider."));
+    console.log(warn("--visualize is recognized but not yet wired (TUI removed in Phase 44)."));
+    console.log(dim("Visualization will land in the Phase 46 web client (mm-bot web)."));
   }
   // Acknowledge unused imports (silent, just for tree-shake clarity).
   void makeSymbol;

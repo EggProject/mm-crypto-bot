@@ -2,13 +2,12 @@
 /**
  * apps/bot/src/index.ts
  *
- * Phase 33 Track D + Phase 34 Track A + Phase 34 Track C — a `mm-bot` CLI entry pointja.
+ * Phase 33 Track D + Phase 34 Track C + Phase 44 — a `mm-bot` CLI entry pointja.
  *
  * ===========================================================================
  * SUBCOMMANDS
  * ===========================================================================
- *   - `start`           — indítja a botot (default: Ink TUI; --headless: plain text)
- *   - `tui`             — TUI-only mód, BOT NÉLKÜL (--data-source=simulated|paper)
+ *   - `start`           — indítja a botot (PURE HEADLESS, Phase 44 óta)
  *   - `status`          — a perzisztens state kiírása
  *   - `config`          — validate / show / init
  *   - `strategies`      — regisztrált stratégiák listája
@@ -32,23 +31,22 @@
  *   2 — config validációs hiba
  *
  * ===========================================================================
- * USER MANDATE (2026-07-12 02:00 BUDAPEST)
+ * PHASE 44 — TUI REMOVAL
  * ===========================================================================
- * "TUI-t es headless-t is akarom, default color, headless kapcsolhato ki a
- *  color, default Ink TUI."
+ * A `start` parancs mostantól PURE HEADLESS módban fut — nincs TUI,
+ * nincs Ink, nincs React, nincs WebSocket. A bot a `runHeadless`
+ * útvonalon indul el (lásd `apps/bot/src/cli/commands/start.ts`).
  *
- * A `start` parancs mostantól a TUI-t indítja ALAPÉRTELMEZETTEN. A
- * `--headless` / `--no-tui` flag-re plain text log módba vált (ekkor
- * a `@mm-crypto-bot/tui` csomag NEM töltődik be). A `tui` parancs
- * külön TUI-only indítást ad (bot nélkül, szimulált vagy paper
- * provider-rel).
+ * A TUI törlésének oka: a user mandate (2026-07-16 16:53 Budapest) szerint
+ * a bot mindig headless legyen, és egy KÜLÖN parancs indítsa a webes
+ * klienst (Phase 46: `mm-bot web`). Így a bot NEM pazarol erőforrást,
+ * ha csak headless akarjuk futtatni, de bármikor rá tudunk csatlakozni
+ * egy másik terminálban indított `mm-bot web` paranccsal.
  *
- * Phase 34 Track C (2026-07-12 02:54 Budapest) — `--no-color` / `--color`
- * flag-eket EZ a fájl dolgozza fel, a subcommand handler-ek futása
- * ELŐTT.  A `NO_COLOR=1` env var-t globálisan beállítjuk, hogy az
- * Ink (és minden más library) induláskor lássa.  A `--color` flag
- * explicit override: akkor is színes, ha a stdout nem TTY (pl. `tee`
- * egy log fájlba).
+ * A `--no-color` / `--color` flag-eket EZ a fájl dolgozza fel, a
+ * subcommand handler-ek futása ELŐTT. A `NO_COLOR=1` env var-t
+ * globálisan beállítjuk, hogy a subcommand-ok első `colorize()` hívása
+ * már a helyes policy-t lássa.
  */
 
 import {
@@ -64,7 +62,6 @@ import {
   statusCommand,
   strategiesCommand,
   tradesCommand,
-  tuiCommand,
 } from "./cli/index.js";
 
 // ---------------------------------------------------------------------------
@@ -72,14 +69,12 @@ import {
 // ---------------------------------------------------------------------------
 // We do an early `parseArgv` to honor `--no-color` and `--color` globally.
 // This matters because:
-//   1. The Ink TUI module reads `NO_COLOR` at module-load time; we must
-//      set it before the dynamic `import("@mm-crypto-bot/tui")` in start.ts.
-//   2. The picocolors-based CLI color helper reads `NO_COLOR` and TTY
-//      state; flipping it here means every command's first `colorize()`
-//      call already sees the right policy.
-//   3. The user mandate: "headless mode-ban ki lehessen kapcsolni a
-//      color-t, de default color output legyen" — default IS color
-//      (TTY=ON, no env var), `--no-color` flips OFF.
+//   1. picocolors + the CLI color helper read `NO_COLOR` + TTY state at
+//      module-load time; we must set the env var before any subcommand
+//      handler imports the picocolors-using code.
+//   2. The user mandate: "default color output legyen, de headless módban
+//      ki lehessen kapcsolni" — default IS color (TTY=ON, no env var),
+//      `--no-color` flips OFF.
 //
 // This is a pure peek; the router will call `parseArgv` again to do
 // real dispatch. The dual call is intentional and cheap (parseArgv
@@ -108,8 +103,7 @@ if (earlyFlags.get("color") === true) {
 const router = new CliRouter();
 router.setProgramDescription("mm-bot — the mm-crypto-bot CLI");
 
-router.register("start", "Start the bot (default: Ink TUI; --headless for plain text)", startCommand);
-router.register("tui", "Launch the TUI without starting the bot (--data-source=simulated|paper)", tuiCommand);
+router.register("start", "Start the bot (headless — runs until SIGINT/SIGTERM)", startCommand);
 router.register("status", "Show the persisted bot state", statusCommand);
 router.register("config", "Validate / show / init the bot config", configCommand);
 router.register("strategies", "List registered strategies + on/off state", strategiesCommand);

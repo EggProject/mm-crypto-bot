@@ -23,15 +23,11 @@
     "@mm-crypto-bot/exchange": "workspace:*",
     "@mm-crypto-bot/paper": "workspace:*",
     "@mm-crypto-bot/shared": "workspace:*",
-    "@mm-crypto-bot/tui": "workspace:*",
     "picocolors": "^1.1.1",
     "zod": "3.25.76"
   },
   "devDependencies": {
     "@types/bun": "1.3.14",
-    "@types/react": "19.2.0",
-    "ink-testing-library": "4.0.0",
-    "react": "19.2.7",
     "typescript": "6.0.3"
   }
 }

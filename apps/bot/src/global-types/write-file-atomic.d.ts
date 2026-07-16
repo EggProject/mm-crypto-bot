@@ -1,4 +1,4 @@
-// packages/tui/src/global-types/write-file-atomic.d.ts — a `write-file-atomic`
+// apps/bot/src/global-types/write-file-atomic.d.ts — a `write-file-atomic`
 // library lokális típus-deklarációja.
 //
 // A `write-file-atomic` 8.x CJS modulként van publish-olva, és NEM
@@ -8,11 +8,15 @@
 // A modul egy `writeFile` függvényt exportál default-ként, amihez
 // `.sync` property-ként csatlakozik a szinkron write. Az async verzió
 // egy `(filename, data, options?) => Promise<void>` függvény, a sync
-// verző egy `(filename, data, options?) => void` függvény.
+// verő egy `(filename, data, options?) => void` függvény.
 //
-// A fájl a `packages/tui/src/global-types/` mappában van, és a
-// `packages/tui/tsconfig.json` `include` opcióján keresztül
-// (mely `src/**/*` mintát használ) automatikusan betöltődik.
+// A fájl a `apps/bot/src/global-types/` mappában van, és az
+// `apps/bot/tsconfig.json` `include` opcióján keresztül
+// (`src/**/*` mintát használ) automatikusan betöltődik.
+//
+// Phase 44: a TUI csomag (`packages/tui/src/global-types/write-file-atomic.d.ts`)
+// törölve lett, de a `ConfigStore` (`apps/bot/src/config/store.ts`) továbbra
+// használja a `write-file-atomic`-ot. A típus-deklaráció átköltözött ide.
 
 declare module "write-file-atomic" {
   interface WriteFileOptions {
