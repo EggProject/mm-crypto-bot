@@ -354,7 +354,12 @@ export class Bot {
     // -----------------------------------------------------------------------
     if (this.options.feed !== undefined) {
       this.feed = this.options.feed;
-    } else if (this.config.exchange.id === "mock") {
+    } else if (this.config.exchange.id === "mock" || this.config.bot.mode === "paper") {
+      // Phase 38 Fix #42: paper mode always uses MockExchangeFeed (no auth
+      // required). The `exchange.id` field is preserved for backward compat
+      // and informational purposes, but the actual feed in paper mode is the
+      // mock (with PRNG data, in-memory balance, in-memory order book).
+      // Live mode requires the real `bybiteu` feed and BYBIT_API_KEY/SECRET.
       this.feed = new MockExchangeFeed();
     } else {
       this.feed = createExchangeClient({ useMock: false });
