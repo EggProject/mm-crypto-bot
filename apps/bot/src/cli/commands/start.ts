@@ -77,6 +77,7 @@ import { dirname } from "node:path";
 import { mkdir, open } from "node:fs/promises";
 import { Bot } from "../../bot/bot.js";
 import type { SubcommandHandler } from "../router.js";
+import { attachStateFeed, resolveFeedPort, type StateFeedHandle } from "../../state-feed/index.js";
 
 /**
  * `getConfigPath` — pull the `--config=path` flag, or `undefined`.
@@ -206,12 +207,30 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
   const logFileStream = await openLogFile(logFilePath);
   const consoleBackup = installConsoleRedirection(logFileStream);
 
+  // -------------------------------------------------------------------------
+  // Phase 45 — State-feed attach
+  // -------------------------------------------------------------------------
+  // A state-feed a `bot.start()` UTÁN indul, mert a state-feed a
+  // bot engine-ből kapja a state-változásokat. Ha a state-feed
+  // a bot előtt indulna, a HELLO + SNAPSHOT üzenetek egy üres
+  // snapshot-ot küldenének.
+  //
+  // A port az `MM_BOT_FEED_PORT` env var-ból jön (fallback 7914).
+  // A state-feed egyetlen stderr-sort ír: `[start] state-feed
+  // listening on 127.0.0.1:<port>` — ez az EGYETLEN stderr output
+  // a Phase 43 Track 3 log-routing óta.
+  const feedPort = resolveFeedPort(process.env["MM_BOT_FEED_PORT"]);
+  let stateFeed: StateFeedHandle | null = null;
+
   let stopping = false;
   const onSignal = (sig: NodeJS.Signals): void => {
     if (stopping) return;
     stopping = true;
     console.log(`[start] received ${sig} — initiating graceful shutdown`);
-    void bot.stop().then(() => {
+    void bot.stop().then(async () => {
+      if (stateFeed !== null) {
+        await stateFeed.close();
+      }
       process.exit(0);
     });
   };
@@ -220,12 +239,34 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
 
   try {
     await bot.start();
+    // A bot sikeresen elindult — a state-feed attach-olható.
+    stateFeed = await attachStateFeed(bot, {
+      port: feedPort,
+      enabledSymbols: config.symbols.enabled,
+      // A bot config jelenleg nem tárolja az initial equity-t külön
+      // mezőként (a MockExchangeFeed balances[]-ából jön); a Phase
+      // 45A-ban 10_000 USDT a default. A Phase 45B a config-ból fogja
+      // venni a `risk.max_position_fraction`-ből számítva.
+      initialEquityUsdt: 10_000,
+    });
+    // A state-feed listening message az EGYETLEN stderr sor —
+    // a Phase 43 Track 3 log-routing policy-nak megfelelően.
+    process.stderr.write(
+      `[start] state-feed listening on 127.0.0.1:${String(stateFeed.port)}\n`,
+    );
     return 0;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[start] bot crashed: ${message}`);
     return 1;
   } finally {
+    if (stateFeed !== null) {
+      try {
+        await stateFeed.close();
+      } catch {
+        // best-effort
+      }
+    }
     restoreConsoleRedirection(consoleBackup);
     await closeLogFile(logFileStream);
   }
