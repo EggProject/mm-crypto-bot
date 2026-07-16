@@ -69,6 +69,97 @@ describe("Bot", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // 1b) Phase 38 Fix #42: paper mode starts WITHOUT auth credentials.
+  // The default config has exchange.id="bybiteu" + bot.mode="paper". Before
+  // the fix, this triggered `createExchangeClient({useMock:false})` which
+  // threw `MissingCredentialsError` even in paper mode. The fix: paper mode
+  // always uses MockExchangeFeed (no auth required). Live mode still requires
+  // BYBIT_API_KEY + BYBIT_API_SECRET.
+  // ---------------------------------------------------------------------------
+  it("paper mode starts without auth credentials (no MissingCredentialsError)", async () => {
+    // Ensure no API keys are set in env
+    const origKey = process.env["BYBIT_API_KEY"];
+    const origSecret = process.env["BYBIT_API_SECRET"];
+    delete process.env["BYBIT_API_KEY"];
+    delete process.env["BYBIT_API_SECRET"];
+
+    try {
+      const config: BotConfig = {
+        ...DEFAULT_BOT_CONFIG,
+        bot: {
+          ...DEFAULT_BOT_CONFIG.bot,
+          mode: "paper",
+          state_file: stateFile,
+        },
+        // Note: exchange.id stays at the default "bybiteu" — the fix should
+        // ignore this in paper mode and use the mock feed.
+        exchange: { ...DEFAULT_BOT_CONFIG.exchange, id: "bybiteu" },
+        symbols: { enabled: ["BTC/USDC"] },
+        strategies: {
+          donchian_pivot_composition: { enabled: false },
+          dydx_cex_carry: { enabled: false },
+          cascade_fade: { enabled: false },
+          funding_flip_kill_switch: { enabled: false },
+          regime_detector: { enabled: false },
+        },
+        telemetry: {
+          log_dir: stateFile + ".logs",
+          metrics_interval_sec: 60,
+        },
+      };
+      const bot = new Bot({ config }); // no feed injected — exercises the init path
+      const p = bot.start();
+      await new Promise<void>((r) => setTimeout(r, 200));
+      await bot.stop();
+      await p;
+      // If we got here without "Hiányzó API hitelesítő adatok", the fix works.
+    } finally {
+      // Restore env
+      if (origKey !== undefined) process.env["BYBIT_API_KEY"] = origKey;
+      if (origSecret !== undefined) process.env["BYBIT_API_SECRET"] = origSecret;
+    }
+  });
+
+  it("live mode without auth credentials throws MissingCredentialsError", async () => {
+    // The opposite of the above: live mode MUST require auth credentials.
+    const origKey = process.env["BYBIT_API_KEY"];
+    const origSecret = process.env["BYBIT_API_SECRET"];
+    delete process.env["BYBIT_API_KEY"];
+    delete process.env["BYBIT_API_SECRET"];
+
+    try {
+      const config: BotConfig = {
+        ...DEFAULT_BOT_CONFIG,
+        bot: {
+          ...DEFAULT_BOT_CONFIG.bot,
+          mode: "live",
+          state_file: stateFile,
+        },
+        exchange: { ...DEFAULT_BOT_CONFIG.exchange, id: "bybiteu" },
+        symbols: { enabled: ["BTC/USDC"] },
+        strategies: {
+          donchian_pivot_composition: { enabled: false },
+          dydx_cex_carry: { enabled: false },
+          cascade_fade: { enabled: false },
+          funding_flip_kill_switch: { enabled: false },
+          regime_detector: { enabled: false },
+        },
+        telemetry: {
+          log_dir: stateFile + ".logs",
+          metrics_interval_sec: 60,
+        },
+      };
+      const bot = new Bot({ config });
+      const p = bot.start();
+      // Should reject within a reasonable time
+      await expect(p).rejects.toThrow(/Hiányzó API hitelesítő adatok/);
+    } finally {
+      if (origKey !== undefined) process.env["BYBIT_API_KEY"] = origKey;
+      if (origSecret !== undefined) process.env["BYBIT_API_SECRET"] = origSecret;
+    }
+  });
+
+  // ---------------------------------------------------------------------------
   // 2) getState() returns a valid BotState
   // ---------------------------------------------------------------------------
   it("getState() returns a valid BotState", async () => {
