@@ -256,6 +256,17 @@ export class Bot {
    * A függvény a state összeállítása után értesíti a `stateListeners`-ben
    * regisztrált feliratkozókat — a Phase 34 Track A TUI integrációhoz.
    */
+  /**
+   * `getConfig` — visszaadja a bot indításakor használt `BotConfig`-ot.
+   * Phase 43 Track 3: a `startCommand.runTui` használja a log-fájl
+   * path-jának levezetéséhez (`<state_file>.log`). Read-only accessor —
+   * a config mezőit a CLI rétegben nem módosítjuk (a settings panel
+   * ír, de az a TOML fájlon át, nem ezen az objektumon).
+   */
+  public getConfig(): BotConfig {
+    return this.config;
+  }
+
   public getState(): BotState {
     if (this.stateStore === null || this.positionManager === null || this.orderManager === null) {
       throw new Error("[bot] not initialized — call start() first");

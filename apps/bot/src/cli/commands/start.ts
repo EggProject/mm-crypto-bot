@@ -87,6 +87,10 @@
  */
 
 import { ConfigError, loadBotConfig } from "../../config/index.js";
+import type { BotConfig } from "../../config/schema.js";
+import type { FileHandle } from "node:fs/promises";
+import { dirname } from "node:path";
+import { mkdir, open } from "node:fs/promises";
 import { Bot } from "../../bot/bot.js";
 import type { SubcommandHandler } from "../router.js";
 
@@ -341,6 +345,46 @@ async function runTui(
   enabledSymbols: readonly string[],
   autoStart: boolean,
 ): Promise<number> {
+  // -------------------------------------------------------------------------
+  // Phase 43 Track 3 — Console redirection in TUI mode
+  // -------------------------------------------------------------------------
+  // Ink 7 alternate screen isolates the TUI to a separate buffer, but
+  // anything written to the terminal's MAIN screen (below the TUI) is
+  // still visible. `console.log` / `console.error` from the bot, the
+  // structured logger's JSON output, and the start.ts `[start] ...`
+  // messages all went to the main screen and polluted the user's view
+  // (the user explicitly called this out as a bug: "log lines visible
+  // below the TUI").
+  //
+  // Fix: in TUI mode, redirect console.log + console.error to a log
+  // file. The TUI itself uses `process.stdout.write` directly via Ink
+  // (NOT console.log), so the TUI rendering is unaffected. The file
+  // path is derived from the bot's state_file. On TUI exit, the
+  // originals are restored in the `finally` block.
+  const logFilePath = resolveLogFilePath(bot.getConfig());
+  const logFileStream = await openLogFile(logFilePath);
+  const consoleBackup = installConsoleRedirection(logFileStream);
+
+  try {
+    return await runTuiInner(bot, enabledSymbols, autoStart);
+  } finally {
+    restoreConsoleRedirection(consoleBackup);
+    await closeLogFile(logFileStream);
+  }
+}
+
+/**
+ * `runTuiInner` — az eredeti `runTui` logika (TUI dynamic import,
+ * provider indítás, render, TUI-kilépés-kezelés). A `runTui` most
+ * becsomagolja: előtte átirányítja a console-t egy log fájlba, utána
+ * visszaállítja. A belső függvény törzse megegyezik a Phase 36
+ * Track A1 + Phase 38 Fix #38 + Phase 43 Track 2 implementációkkal.
+ */
+async function runTuiInner(
+  bot: Bot,
+  enabledSymbols: readonly string[],
+  autoStart: boolean,
+): Promise<number> {
   // Dynamic import — CSAK a TUI módban töltődik be.
   const tuiModule = await import("@mm-crypto-bot/tui");
   const { LiveBotStateProvider } = await import("../../tui/live-bot-state-provider.js");
@@ -498,4 +542,98 @@ function printStartHelp(): void {
   for (const line of lines) {
     console.error(line);
   }
+}
+
+// ============================================================================
+// Phase 43 Track 3 — TUI-mode console redirection helpers
+// ============================================================================
+
+/**
+ * `resolveLogFilePath` — a TUI módban használt log-fájl abszolút
+ * path-ját adja vissza. A fájl ugyanoda kerül, mint a bot state_file
+ * (alapértelmezetten `data/bot-state.json` → `data/bot-state.json.log`).
+ *
+ * A user a `startCommand` futtatásakor a TUI-t látja; ha hiba van,
+ * a log fájl `tail -f` módban olvasható egy másik terminálban.
+ */
+function resolveLogFilePath(config: BotConfig): string {
+  const stateFile = config.bot.state_file;
+  return `${stateFile}.log`;
+}
+
+/**
+ * `openLogFile` — megnyitja (vagy létrehozza) a log fájlt append
+ * módban. A fs promises API-t használja (Bun-kompatibilis). A
+ * visszatérési `FileHandle` a finally blokkban záródik.
+ */
+async function openLogFile(path: string): Promise<FileHandle> {
+  // Biztosítjuk, hogy a parent directory létezzen.
+  const dir = dirname(path);
+  await mkdir(dir, { recursive: true });
+  return open(path, "a");
+}
+
+/**
+ * `installConsoleRedirection` — a `console.log` / `console.error`
+ * függvényeket átirányítja a megadott `FileHandle`-re. Visszaadja
+ * az eredeti függvényeket, hogy a `finally` blokkban vissza lehessen
+ * állítani.
+ *
+ * Fontos: CSAK a `console.log` / `console.error`-t írjuk felül, NEM
+ * a `process.stdout.write`-ot. Az Ink a `process.stdout.write`-ot
+ * használja a TUI rendereléshez, és ha felülírnánk, a TUI is a log
+ * fájlba menne.
+ *
+ * A helper formázza a sorokat: timestamp + sor + newline.
+ */
+function installConsoleRedirection(
+  stream: FileHandle,
+): { readonly log: typeof console.log; readonly error: typeof console.error } {
+  const origLog = console.log;
+  const origError = console.error;
+  const writeLine = (level: "log" | "error", args: readonly unknown[]): void => {
+    const text = args
+      .map((a) => (typeof a === "string" ? a : JSON.stringify(a)))
+      .join(" ");
+    const ts = new Date().toISOString();
+    // A write lehet, hogy részleges — de a console.log/error mindig
+    // teljes sorokkal dolgozik, így a `\n` hozzáadás biztonságos.
+    stream.write(`${ts} [${level}] ${text}\n`).catch(() => {
+      // Ha a write elbukik (pl. a fájl törölve futás közben),
+      // csendben elnyeljük — a user már a TUI-t látja, a log
+      // másodlagos.
+    });
+  };
+  console.log = (...args: unknown[]): void => {
+    writeLine("log", args);
+  };
+  console.error = (...args: unknown[]): void => {
+    writeLine("error", args);
+  };
+  return { log: origLog, error: origError };
+}
+
+/**
+ * `restoreConsoleRedirection` — visszaállítja az eredeti
+ * `console.log` / `console.error` függvényeket.
+ */
+function restoreConsoleRedirection(backup: {
+  readonly log: typeof console.log;
+  readonly error: typeof console.error;
+}): void {
+  console.log = backup.log;
+  console.error = backup.error;
+}
+
+/**
+ * `closeLogFile` — a finally blokkban hívódik. Megvárja a függő
+ * write-okat, majd lezárja a fájlt.
+ */
+async function closeLogFile(stream: FileHandle): Promise<void> {
+  try {
+    await stream.sync();
+  } catch {
+    // best-effort
+  }
+  await stream.close();
 }
