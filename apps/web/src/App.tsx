@@ -1,19 +1,25 @@
 import React from "react";
 import { useWebSocket, type WebSocketStatus } from "./ws-client.js";
+import { ControlBar } from "./components/ControlBar.js";
+import { PositionsTable } from "./components/PositionsTable.js";
 
 /**
  * `App` — the Top-nav app shell for the mm-crypto-bot web dashboard.
  *
- * Phase 47B: skeleton. The Top-nav bar shows the brand mark on the left,
- * the page heading in the center, and the theme toggle on the right.
+ * Phase 47B: skeleton. The Top-nav bar shows the brand mark on the left
+ * and the connection status pill on the right.
  *
  * Phase 47C: the `useWebSocket()` hook drives the connection status pill
  * in the topbar and the snapshot / state summary in the main panel.
  *
- * Phase 48: the multi-TF chart grid replaces the summary panel.
+ * Phase 47D: integrates the ControlBar (sticky bottom) and the
+ * PositionsTable (in the main panel, replacing the placeholder).
+ * Phase 48 will add the multi-TF chart grid alongside the positions
+ * table; Phase 50 will add @testing-library/react for behavioral
+ * tests of the new components.
  */
 export function App(): React.JSX.Element {
-  const { status, snapshot, lastState, lastError } = useWebSocket();
+  const { status, snapshot, lastError } = useWebSocket();
 
   // Map WS status → human-readable label.
   const statusLabel: Record<WebSocketStatus, string> = {
@@ -41,26 +47,17 @@ export function App(): React.JSX.Element {
         </div>
       </header>
       <main className="ep-app__main">
-        <div className="ep-app__placeholder">
-          {status === "connected" && lastState !== null ? (
-            <div>
-              <p>
-                Connected. {lastState.positions.length} open position(s),{" "}
-                {lastState.closedTrades.length} closed trade(s).
-              </p>
-              <p>
-                Kill-switch: {lastState.killSwitch} · paused:{" "}
-                {String(lastState.paused)}
-              </p>
-            </div>
-          ) : status === "crashed" ? (
-            <p>Engine crashed: {lastError?.message ?? "unknown error"}</p>
-          ) : (
-            // eslint-disable-next-line security/detect-object-injection
-            <p>{statusLabel[status]}</p>
-          )}
+        <div className="ep-app__positions">
+          <h2>Open positions</h2>
+          <PositionsTable />
         </div>
+        {status === "crashed" && (
+          <div className="ep-app__error">
+            <p>Engine crashed: {lastError?.message ?? "unknown error"}</p>
+          </div>
+        )}
       </main>
+      <ControlBar />
     </div>
   );
 }
