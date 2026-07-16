@@ -56,6 +56,7 @@
 import type { Bot } from "../bot/bot.js";
 import { FeedServer, type FeedServerHandle } from "./feed-server.js";
 import { LiveStatePublisher } from "./publisher.js";
+import type { OhlcStore } from "./ohlc-store.js";
 
 // ============================================================================
 // Options
@@ -84,6 +85,12 @@ export interface AttachStateFeedOptions {
   >;
   /** A publisher override (alapértelmezetten a függvény hozza létre). */
   readonly publisher?: LiveStatePublisher;
+  /** Az OHLC store (PR 45B) — a `getOhlcBootstrap` alternatívája. */
+  readonly ohlcStore?: OhlcStore;
+  /** A heartbeat ping interval (ms). */
+  readonly pingIntervalMs?: number;
+  /** A heartbeat pong timeout (ms). */
+  readonly pongTimeoutMs?: number;
 }
 
 // ============================================================================
@@ -142,6 +149,9 @@ export async function attachStateFeed(
     ...(options.getOhlcBootstrap !== undefined ? { getOhlcBootstrap: options.getOhlcBootstrap } : {}),
     ...(options.handleControl !== undefined ? { handleControl: options.handleControl } : {}),
     ...(options.handlePong !== undefined ? { handlePong: options.handlePong } : {}),
+    ...(options.ohlcStore !== undefined ? { ohlcStore: options.ohlcStore } : {}),
+    ...(options.pingIntervalMs !== undefined ? { pingIntervalMs: options.pingIntervalMs } : {}),
+    ...(options.pongTimeoutMs !== undefined ? { pongTimeoutMs: options.pongTimeoutMs } : {}),
   });
   const handle: FeedServerHandle = await feedServer.start();
 

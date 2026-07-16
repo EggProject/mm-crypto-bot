@@ -57,6 +57,8 @@ import {
   type StateFeedServerMessage,
 } from "./protocol.js";
 import { Broadcast, type BroadcastClient } from "./broadcast.js";
+import { Heartbeat, PING_INTERVAL_MS, PONG_TIMEOUT_MS } from "./heartbeat.js";
+import type { OhlcStore } from "./ohlc-store.js";
 import type { LiveStatePublisher, StateFeedSnapshot } from "./publisher.js";
 
 // ============================================================================
@@ -92,6 +94,12 @@ export interface FeedServerOptions {
    * timeout).
    */
   readonly handlePong?: (clientId: string, ts: number) => void;
+  /** A heartbeat ping interval (ms). Default: 10000. */
+  readonly pingIntervalMs?: number;
+  /** A heartbeat pong timeout (ms). Default: 30000. */
+  readonly pongTimeoutMs?: number;
+  /** Az OHLC store (PR 45B). A `getOhlcBootstrap` helyett használható. */
+  readonly ohlcStore?: OhlcStore;
 }
 
 /** A `FeedServer` indítása után elérhető handle. */
@@ -144,6 +152,8 @@ export class FeedServer {
   private server: TCPSocketListener | null = null;
   private readonly socketStates = new Map<BunSocket, SocketState>();
   private running = false;
+  /** A Heartbeat instance (PR 45B). */
+  private heartbeat: Heartbeat | null = null;
 
   public constructor(options: FeedServerOptions) {
     this.options = options;
@@ -178,6 +188,21 @@ export class FeedServer {
     });
     // A handle `stop` metódusa az unsubscribe-öt is hívja.
     this.cleanup = unsubscribe;
+    // A Heartbeat indítása (PR 45B). A PING üzeneteket a broadcast-on
+    // át küldjük; a lassú klienseket a closeSocket-on át zárjuk.
+    this.heartbeat = new Heartbeat({
+      pingIntervalMs: this.options.pingIntervalMs ?? PING_INTERVAL_MS,
+      pongTimeoutMs: this.options.pongTimeoutMs ?? PONG_TIMEOUT_MS,
+      callbacks: {
+        onPing: (pingMessage) => {
+          this.broadcast.publish(pingMessage);
+        },
+        onSlowClient: (clientId) => {
+          this.closeSocketByClientId(clientId);
+        },
+      },
+    });
+    this.heartbeat.start();
     return Promise.resolve({
       port: this.server.port,
       hostname: this.server.hostname,
@@ -203,6 +228,10 @@ export class FeedServer {
       this.server.stop();
       this.server = null;
     }
+    if (this.heartbeat !== null) {
+      this.heartbeat.stop();
+      this.heartbeat = null;
+    }
     this.broadcast.closeAll();
     this.socketStates.clear();
     return Promise.resolve();
@@ -222,6 +251,10 @@ export class FeedServer {
       closed: false,
     };
     this.socketStates.set(socket, state);
+    // A heartbeat regisztrálja az új klienst (30s PONG timeout indul).
+    if (this.heartbeat !== null) {
+      this.heartbeat.registerClient(clientId);
+    }
 
     // HELLO + SNAPSHOT a sor elejére.
     const helloMessage: StateFeedServerMessage = {
@@ -234,7 +267,7 @@ export class FeedServer {
       type: "snapshot",
       ts: Date.now(),
       snapshot: this.options.publisher.getSnapshot(),
-      ohlcBootstrap: this.options.getOhlcBootstrap?.() ?? {},
+      ohlcBootstrap: this.resolveOhlcBootstrap(),
     };
     this.enqueueWrite(socket, serializeMessage(helloMessage));
     this.enqueueWrite(socket, serializeMessage(snapshotMessage));
@@ -304,7 +337,13 @@ export class FeedServer {
       state.clientId,
       parsed,
       parsed.type === "pong"
-        ? (ts) => this.options.handlePong?.(state.clientId, ts)
+        ? (ts) => {
+            // A PONG-ot a heartbeat is feldolgozza (PR 45B).
+            if (this.heartbeat !== null) {
+              this.heartbeat.recordPong(state.clientId);
+            }
+            this.options.handlePong?.(state.clientId, ts);
+          }
         : undefined,
     );
     // A CONTROL üzeneteket a `handleControl` callback-en át küldjük.
@@ -385,6 +424,9 @@ export class FeedServer {
     state.closed = true;
     state.writeQueue.length = 0;
     this.broadcast.removeClient(state.clientId);
+    if (this.heartbeat !== null) {
+      this.heartbeat.unregisterClient(state.clientId);
+    }
     this.socketStates.delete(socket);
     this.socketBuffers.delete(socket);
     try {
@@ -392,6 +434,35 @@ export class FeedServer {
     } catch {
       // best-effort
     }
+  }
+
+  /**
+   * `closeSocketByClientId` — a heartbeat callback-je által hívott
+   * lezáró. A clientId → socket mapping a socketStates map-en át
+   * fordított iterációval működik.
+   */
+  private closeSocketByClientId(clientId: string): void {
+    for (const [socket, state] of this.socketStates) {
+      if (state.clientId === clientId) {
+        this.closeSocket(socket);
+        return;
+      }
+    }
+  }
+
+  /**
+   * `resolveOhlcBootstrap` — az OHLC bootstrap forrása. A `ohlcStore`
+   * opciót használja, ha van; egyébként a `getOhlcBootstrap` callback-re
+   * fallbackel; végső esetben üres objektum.
+   */
+  private resolveOhlcBootstrap(): Readonly<Record<string, Readonly<Record<string, readonly { time: number; open: number; high: number; low: number; close: number; volume: number }[]>>>> {
+    if (this.options.ohlcStore !== undefined) {
+      return this.options.ohlcStore.getAll();
+    }
+    if (this.options.getOhlcBootstrap !== undefined) {
+      return this.options.getOhlcBootstrap();
+    }
+    return {};
   }
 
   /**
@@ -472,7 +543,7 @@ export class FeedServer {
         type: "snapshot",
         ts: Date.now(),
         snapshot: snap,
-        ohlcBootstrap: this.options.getOhlcBootstrap?.() ?? {},
+        ohlcBootstrap: this.resolveOhlcBootstrap(),
       };
       this.broadcast.publish(message);
       return;
@@ -503,8 +574,98 @@ export class FeedServer {
       }
       return;
     }
-    // További event típusok (tick / bar / indicator / marker)
-    // a Phase 45B-ben kerülnek implementálásra.
+    if (event.type === "error") {
+      // A publishError() által kiadott közvetlen error event —
+      // a broadcast-on át megy a kliensnek.
+      const e = event as { type: "error"; message: string; recoverable: boolean };
+      const message: StateFeedServerMessage = {
+        type: "error",
+        ts: Date.now(),
+        message: e.message,
+        recoverable: e.recoverable,
+      };
+      this.broadcast.publish(message);
+      return;
+    }
+    if (event.type === "tick") {
+      const e = event as { type: "tick"; symbol: string; price: number };
+      const message: StateFeedServerMessage = {
+        type: "tick",
+        ts: Date.now(),
+        symbol: e.symbol,
+        price: e.price,
+      };
+      this.broadcast.publish(message);
+      return;
+    }
+    if (event.type === "bar") {
+      const e = event as {
+        type: "bar";
+        symbol: string;
+        timeframe: string;
+        ohlc: { time: number; open: number; high: number; low: number; close: number; volume: number };
+      };
+      // Az OHLC store-ba is pusholunk (a SNAPSHOT bootstrap frissítéséhez).
+      if (this.options.ohlcStore !== undefined) {
+        this.options.ohlcStore.pushBar(e.symbol, e.timeframe, e.ohlc);
+      }
+      const message: StateFeedServerMessage = {
+        type: "bar",
+        ts: Date.now(),
+        symbol: e.symbol,
+        timeframe: e.timeframe,
+        ohlc: e.ohlc,
+      };
+      this.broadcast.publish(message);
+      return;
+    }
+    if (event.type === "indicator") {
+      const e = event as {
+        type: "indicator";
+        symbol: string;
+        strategy: string;
+        timeframe: string;
+        indicator: string;
+        series: Readonly<Record<string, readonly (number | null)[]>>;
+      };
+      const message: StateFeedServerMessage = {
+        type: "indicator",
+        ts: Date.now(),
+        symbol: e.symbol,
+        strategy: e.strategy,
+        timeframe: e.timeframe,
+        indicator: e.indicator,
+        series: e.series,
+      };
+      this.broadcast.publish(message);
+      return;
+    }
+    if (event.type === "marker") {
+      const e = event as {
+        type: "marker";
+        symbol: string;
+        strategy: string;
+        timeframe: string;
+        side: "long" | "short" | "buy" | "sell";
+        price: number;
+        label: string;
+      };
+      const message: StateFeedServerMessage = {
+        type: "marker",
+        ts: Date.now(),
+        symbol: e.symbol,
+        strategy: e.strategy,
+        timeframe: e.timeframe,
+        side: e.side,
+        price: e.price,
+        label: e.label,
+      };
+      this.broadcast.publish(message);
+      return;
+    }
+    // További event típusok (started, stopped, kill-switch, paused)
+    // jelenleg a snapshot/state event-ekben jelennek meg; a jövőbeli
+    // Phase 46+ refaktorálás külön state-update event-ekké alakíthatja.
   }
 
   /**
