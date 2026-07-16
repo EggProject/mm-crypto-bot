@@ -1,8 +1,95 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-16 00:55 Budapest — Phase 38 bugfixes CLOSED. 4 PRs merged (#114/#115/#116/#117) on top of Phase 37. TUI now: running-flag accurate, keypresses responsive, 2x2 grid + settings discoverability + empty states, zero bun install warnings.
+description: Project board — mm-crypto-bot. Updated 2026-07-16 02:10 Budapest — Phase 42 CLOSED. Paper mode no longer requires BYBIT_API_KEY/SECRET (PR #119). main at 9b791d7, 8/8 packages at 100% OWN line coverage, 6/6 CI green.
 ---
 
-# Project board — mm-crypto-bot (updated 2026-07-16 00:55 Budapest, Phase 38 bugfixes CLOSED)
+# Project board — mm-crypto-bot (updated 2026-07-16 02:10 Budapest, Phase 42 CLOSED)
+
+## Phase 42 — PAPER MODE NO-AUTH (CLOSED 2026-07-16 02:08 Budapest)
+
+### User trigger
+
+User ran `bun run start --auto-start` and got:
+> `bot crashed: Hiányzó API hitelesítő adatok. Állítsd be a BYBIT_API_KEY és BYBIT_API_SECRET környezeti változókat a .env fájlban`
+
+User: **"nem is kene ilyenkor!"** — paper mode is the *emulated* / *simulated* trading mode. It must NOT require real auth credentials.
+
+### Bug
+
+`apps/bot/src/bot/bot.ts:355-358` branched on `exchange.id` only:
+```ts
+} else if (this.config.exchange.id === "mock") {
+  this.feed = new MockExchangeFeed();
+} else {
+  this.feed = createExchangeClient({ useMock: false });  // ← throws if no auth
+}
+```
+
+Default config has `exchange.id = "bybiteu"` (real) + `bot.mode = "paper"` (emulated). The `else` branch fired and demanded real API keys.
+
+### Fix
+
+Paper mode always uses `MockExchangeFeed`, regardless of `exchange.id`:
+
+```ts
+} else if (this.config.exchange.id === "mock" || this.config.bot.mode === "paper") {
+  // Phase 38 Fix #42: paper mode always uses MockExchangeFeed (no auth required).
+  this.feed = new MockExchangeFeed();
+} else {
+  this.feed = createExchangeClient({ useMock: false });  // live mode, requires auth
+}
+```
+
+### Behavior matrix
+
+| mode   | exchange.id | feed                  | auth required? |
+|--------|-------------|----------------------|----------------|
+| paper  | mock        | MockExchangeFeed     | NO             |
+| paper  | bybiteu     | MockExchangeFeed (NEW) | **NO** (was YES — bug) |
+| live   | bybiteu     | bybiteu WS client    | YES            |
+| live   | mock        | bybiteu WS client    | YES (mismatch) |
+
+### Merge status
+
+| PR | Title | Status | Commit |
+|----|-------|--------|--------|
+| [#119](https://github.com/EggProject/mm-crypto-bot/pull/119) | fix(bot): paper mode does NOT require BYBIT_API_KEY/SECRET credentials | ✅ MERGED (squash) | `9b791d7` |
+
+### Tests added (2 regression tests in `apps/bot/src/bot/bot.test.ts`)
+
+1. `paper mode starts without auth credentials` — runs Bot with `mode=paper, exchange.id=bybiteu, BYBIT_API_KEY/SECRET unset` → no exception
+2. `live mode without auth credentials throws MissingCredentialsError` — same setup but `mode=live` → auth error IS thrown (security check preserved)
+
+### CI result
+
+6/6 green: Build, Coverage, Install no-warnings, Lint, Test, Typecheck (Coverage flake required 1 retry — known `useConfigStore` timing test, not related to this fix).
+
+### Coverage
+
+- `apps/bot`: 100.0% (4521/4521, +90 lines covered by 2 new tests)
+- All other 7 packages: 100.0% (unchanged)
+
+### Final state (post-Phase 42)
+
+- **main HEAD:** `9b791d7`
+- **8/8 packages at 100% OWN line coverage**
+- **6/6 CI gates green**
+- **Zero `bun install` warnings**
+- **Working tree clean** (1 worktree = main, 1 local branch = main, 1 remote branch = main)
+- **Cron `phase42-watch` deleted**
+
+### User's user-facing impact
+
+Paper mode now works out of the box without configuring any credentials:
+
+```bash
+# Default: works in paper mode, no .env needed
+mm-bot start
+
+# Override to live: REQUIRES BYBIT_API_KEY + BYBIT_API_SECRET in .env
+mm-bot start --config=prod.toml  # where prod.toml has bot.mode = "live"
+```
+
+The pre-launch checklist in `docs/production-strategies/pre-launch-checklist.md` documents the new behavior.
 
 ## Phase 38 — TUI BUGFIXES + DEPENDENCY CLEANUP (CLOSED 2026-07-16 00:55 Budapest)
 
