@@ -1,19 +1,16 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
-import { existsSync } from "node:fs";
 
-// Phase 47B: lightweight-charts is not yet used in src/ (it lands in Phase 48).
-// The `manualChunks` config below is forward-looking — it splits the vendored
-// bundle into its own chunk once Phase 48 imports it. We guard the path so
-// that the build still passes in environments where the eggproject-design
-// skill has not been symlinked into the repo (CI runners, fresh worktrees).
-// The `existsSync` check is a no-op cost (single fs.stat on a 200KB file).
-const lightweightChartsPath = resolve(
-  __dirname,
-  "../../skills/eggproject-design-trade-components/assets/vendor/lightweight-charts.standalone.production.js",
-);
-
+// Phase 48A: lightweight-charts is now imported from the npm package
+// (see apps/web/package.json). The eggproject-design skill also
+// vendors a UMD copy of the same library, but we use the npm ESM
+// build (proper .d.ts, Vite-friendly). This manualChunks function
+// splits the npm ESM module into its own cache-friendly chunk
+// WITHOUT also creating an empty chunk for the (un-imported) UMD
+// vendored file — which is what the previous `existsSync`-gated
+// config did, and the empty chunk caused Vite to print a
+// "Generated an empty chunk" warning.
 export default defineConfig({
   plugins: [react()],
   base: "/",
@@ -23,9 +20,11 @@ export default defineConfig({
     target: "es2022",
     rollupOptions: {
       output: {
-        manualChunks: existsSync(lightweightChartsPath)
-          ? { "lightweight-charts": [lightweightChartsPath] }
-          : undefined,
+        manualChunks: (id) => {
+          if (id.includes("node_modules/lightweight-charts/")) {
+            return "lightweight-charts";
+          }
+        },
       },
     },
   },
