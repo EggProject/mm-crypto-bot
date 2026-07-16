@@ -57,7 +57,7 @@ import type { ChartMarker, OHLCBar } from "../lib/ohlc-bridge.js";
 // and `feed-indicator.css`, so the design tokens (`--ep-yolk-500`,
 // `--ep-bg-elevated`, `--ep-fg-muted`, ...) are also available
 // here.
-import "../../../skills/eggproject-design-trade-components/components/lc-wrap/lc-wrap.css";
+import "../../../../skills/eggproject-design-trade-components/components/lc-wrap/lc-wrap.css";
 
 // ============================================================================
 // Public types
