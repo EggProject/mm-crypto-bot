@@ -346,3 +346,97 @@ describe("LiveBotStateProvider — running-flag decoupling (Phase 38 Fix #38)", 
     await provider.dispose();
   });
 });
+
+/**
+ * ============================================================================
+ * PHASE 43 TRACK 2 — setEngineError() — crash surface
+ * ============================================================================
+ *
+ * A Phase 36 Track A1 óta a `mm-bot start` a TUI-t `stopped` state-ben
+ * nyitja, és a `startCommand` a `botStartPromise.catch()`-ben csak a
+ * `console.error`-ba írta a hibát — a TUI-ban nem jelent meg. A user a
+ * [● STOPPED] badge-et + "press [s] to start" üzenetet látta, miközben a
+ * bot valójában AZONNAL összeomlott. A fix: a `setEngineError(message)`
+ * metódus a TUI `state.status.engineError` mezőjét állítja, amit a Header
+ * [● CRASHED] badge + piros ⚠ hibasorként jelenít meg.
+ *
+ * Ezek a tesztek bizonyítják:
+ *   1) setEngineError(message) beállítja a state.status.engineError-t.
+ *   2) setEngineError(message) notifyListeners()-t hív (a TUI
+ *      useSyncExternalStore re-rendert kap).
+ *   3) setEngineError(null) törli a hibát (pl. recovery flow).
+ *   4) Idempotencia: kétszeri hívás ugyanazzal az értékkel NEM
+ *      okoz felesleges re-rendert.
+ */
+describe("LiveBotStateProvider — Phase 43 Track 2 setEngineError", () => {
+  function createTestProvider(): LiveBotStateProvider {
+    // A teszt-szintű provider-nek nincs valódi bot, csak a state-mappinget
+    // teszteli. A `Bot.subscribe` listener nem hívódik meg, mert a
+    // provider soha nem kap valódi engine state-et — a tesztek az
+    // engineError-t közvetlenül a provider-en állítják.
+    const bot = {
+      subscribe: () => () => undefined,
+      getState: () => null,
+      stop: async () => undefined,
+    } as unknown as Bot;
+    return new LiveBotStateProvider({ bot });
+  }
+
+  it("setEngineError(message) sets state.status.engineError and notifies listeners", () => {
+    const provider = createTestProvider();
+    let notifyCount = 0;
+    provider.subscribe(() => {
+      notifyCount += 1;
+    });
+
+    expect(provider.getSnapshot().status.engineError).toBeNull();
+
+    provider.setEngineError("DydxFundingSource missing");
+    expect(provider.getSnapshot().status.engineError).toBe("DydxFundingSource missing");
+    expect(notifyCount).toBe(1);
+
+    // Cleanup.
+    void provider.dispose();
+  });
+
+  it("setEngineError(null) clears the error (recovery flow)", () => {
+    const provider = createTestProvider();
+    provider.setEngineError("initial error");
+    expect(provider.getSnapshot().status.engineError).toBe("initial error");
+
+    provider.setEngineError(null);
+    expect(provider.getSnapshot().status.engineError).toBeNull();
+  });
+
+  it("setEngineError is idempotent — same message does NOT re-notify", () => {
+    const provider = createTestProvider();
+    let notifyCount = 0;
+    provider.subscribe(() => {
+      notifyCount += 1;
+    });
+
+    provider.setEngineError("err");
+    provider.setEngineError("err");
+    provider.setEngineError("err");
+    expect(notifyCount).toBe(1);
+
+    // Cleanup.
+    void provider.dispose();
+  });
+
+  it("setEngineError with a DIFFERENT message DOES re-notify", () => {
+    const provider = createTestProvider();
+    let notifyCount = 0;
+    provider.subscribe(() => {
+      notifyCount += 1;
+    });
+
+    provider.setEngineError("err1");
+    provider.setEngineError("err2");
+    expect(notifyCount).toBe(2);
+    expect(provider.getSnapshot().status.engineError).toBe("err2");
+
+    // Cleanup.
+    void provider.dispose();
+  });
+});

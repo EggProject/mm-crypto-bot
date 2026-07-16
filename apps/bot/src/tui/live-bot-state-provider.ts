@@ -702,6 +702,35 @@ export class LiveBotStateProvider implements BotStateProvider {
   }
 
   /**
+   * `setEngineError` — a TUI-t értesíti, hogy a bot engine
+   * elszállt (vagy épp helyreállt). A `state.status.engineError`
+   * mezőt állítja, amit a TUI Header komponense külön sárga
+   * warning-sorban + piros [● CRASHED] badge-ben jelenít meg.
+   *
+   * Phase 43 Track 2: a korábbi implementációban a
+   * `botStartPromise.catch()` a hibát csak a `console.error`-ba
+   * írta, a TUI-ban nem jelent meg. A user a [● STOPPED] badge-et
+   * látta + "press [s] to start" üzenetet, miközben a bot valójában
+   * AZONNAL összeomlott. A fix: a `startCommand` a hibát
+   * `provider.setEngineError(message)` hívással a TUI-ba is eljuttatja.
+   *
+   * A metódus idempotens: ha az új message ugyanaz, mint a jelenlegi
+   * (vagy mindkettő null), nem cserélünk referenciát és nem notify-olunk.
+   * A `null` message a hiba törlését jelenti (pl. a user [s]-t nyomott
+   * a bot újraindításához).
+   */
+  public setEngineError(message: string | null): void {
+    if (this.currentState.status.engineError === message) {
+      return;
+    }
+    this.currentState = {
+      ...this.currentState,
+      status: { ...this.currentState.status, engineError: message },
+    };
+    this.notifyListeners();
+  }
+
+  /**
    * `dispose` — a TUI kilépéskor hívja.
    *
    * A `BotStateProvider` interfész `Promise<void>` visszatérési
