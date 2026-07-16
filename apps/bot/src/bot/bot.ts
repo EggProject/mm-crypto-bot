@@ -65,6 +65,7 @@ import {
 
 import { OrderManager } from "./order-manager.js";
 import { PositionManager } from "./position-manager.js";
+import { MockDydxFundingSource } from "./mock-dydx-funding-source.js";
 import { StateStore, type BotState } from "./state-store.js";
 import { Telemetry, formatUptime } from "./telemetry.js";
 import type { KillSwitchRegistry, KillSwitch} from "./kill-switches.js";
@@ -143,6 +144,7 @@ export class Bot {
 
   // Komponensek — az `init()` tölti fel.
   private feed: ExchangeFeed | null = null;
+  private fundingSource: DydxFundingSource | null = null;
   private orderManager: OrderManager | null = null;
   private positionManager: PositionManager | null = null;
   private stateStore: StateStore | null = null;
@@ -410,10 +412,34 @@ export class Bot {
     });
 
     // -----------------------------------------------------------------------
+    // 5.5) Phase 43 Track 1 — DydxFundingSource (paper mode auto-mock)
+    // -----------------------------------------------------------------------
+    // Mirrors the Phase 42 MockExchangeFeed pattern: in paper mode, the
+    // `dydx_cex_carry` strategy needs a `DydxFundingSource` to compute
+    // funding-rate signals.  Paper mode auto-constructs a
+    // `MockDydxFundingSource` (synthetic 1Hz PRNG data, 1M USD spot
+    // depth, increments chain block height per tick).
+    //
+    // Precedence:
+    //   1) `options.fundingSource` explicit (test injection OR real
+    //      `DydxLiveFundingSource` in live mode) — always wins.
+    //   2) Paper mode + no explicit → auto-construct `MockDydxFundingSource`.
+    //   3) Live mode + no explicit → null. The strategy-registry's
+    //      `makeDydxCexCarry` throws ConfigError if `dydx_cex_carry` is
+    //      enabled (preserves the Phase 25 #2 contract: live = real feed).
+    if (this.options.fundingSource !== undefined) {
+      this.fundingSource = this.options.fundingSource;
+    } else if (this.config.bot.mode === "paper") {
+      this.fundingSource = new MockDydxFundingSource();
+    } else {
+      this.fundingSource = null;
+    }
+
+    // -----------------------------------------------------------------------
     // 6) Strategy instances
     // -----------------------------------------------------------------------
     const instances = createStrategyInstances(this.config, {
-      ...(this.options.fundingSource !== undefined ? { dydxFundingSource: this.options.fundingSource } : {}),
+      ...(this.fundingSource !== null ? { dydxFundingSource: this.fundingSource } : {}),
     });
     this.logger.info("[bot] strategy instances created", {
       count: instances.size,
