@@ -1,5 +1,5 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-18 00:17 Budapest — Phase 52 + 52E-followup CLOSED (PR #143 at 506e0e7 + PR #145 at d0a4f63). /assets/* static route fix + real-browser e2e script added. CI 7/7 green, e2e 71.86% / 58.02% / 63.91% (regression gate 65/55/60).. 3 critical bugs fixed (strategies pass-through, webDistDir dirname, state-feed attach ordering) + WS mock fix (5 e2e tests) + config relocation apps/bot/config/ → run-bot/config/ + e2e coverage threshold 65/55/60 regression gate. 36 files, +2712/-806. 7/7 server packages at 100% OWN line coverage, 917 unit tests + 18 e2e tests pass (1 pre-existing skip).
+description: Project board — mm-crypto-bot. Updated 2026-07-18 01:55 Budapest — Phase 52/53 + config audit. 3 critical bugs (52E) fixed + 5 e2e tests fixed (52F sub-agent) + config EU+SPOT fix (PR #149). 7/7 packages at 100% OWN coverage (unit test CI TRUST OK), e2e 71.52% (gate 70/55/60). main at d421592, 917 unit + 26 e2e tests pass.
 ---
 
 # Project board — mm-crypto-bot (updated 2026-07-17 10:00 Budapest, **Phase 48-51 CLOSED**)
