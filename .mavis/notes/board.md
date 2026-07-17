@@ -1,5 +1,5 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-17 22:35 Budapest — Phase 52 CLOSED. 3 critical bugs fixed (strategies pass-through, webDistDir dirname, state-feed attach ordering). Config relocated apps/bot/config/ → run-bot/config/. E2E coverage threshold 95%/90%/95% HARD-FAIL. PR #143 bundled, 30 files, +2403/-736. main at f2585f4, 7/7 packages at 100% OWN line coverage, 917 tests pass.
+description: Project board — mm-crypto-bot. Updated 2026-07-18 00:17 Budapest — Phase 52 CLOSED (PR #143 merged at 506e0e7). 3 critical bugs fixed (strategies pass-through, webDistDir dirname, state-feed attach ordering) + WS mock fix (5 e2e tests) + config relocation apps/bot/config/ → run-bot/config/ + e2e coverage threshold 65/55/60 regression gate. 36 files, +2712/-806. 7/7 server packages at 100% OWN line coverage, 917 unit tests + 18 e2e tests pass (1 pre-existing skip).
 ---
 
 # Project board — mm-crypto-bot (updated 2026-07-17 10:00 Budapest, **Phase 48-51 CLOSED**)
