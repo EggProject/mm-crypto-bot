@@ -15,7 +15,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
-import { WebSocketClient, type WebSocketLike } from "../ws-client.js";
+import { WebSocketClient, type WebSocketLike, nextBackoffMs } from "../ws-client.js";
 
 // ============================================================================
 // FakeWebSocket — implements the WebSocketLike interface
@@ -475,5 +475,62 @@ describe("WebSocketClient", () => {
     // After unsubscribe, no more events should arrive.
     expect(trace).toEqual(["connecting"]);
     client.close();
+  });
+});
+
+// ============================================================================
+// `nextBackoffMs` — pure function (Phase 53C)
+// ============================================================================
+
+describe("nextBackoffMs", () => {
+  const DEFAULT_SCHEDULE = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000] as const;
+
+  it("returns schedule[0] for attempt=0 (first reconnect)", () => {
+    expect(nextBackoffMs(0, DEFAULT_SCHEDULE)).toBe(1_000);
+  });
+
+  it("walks the schedule in order: 1s, 2s, 4s, 8s, 16s, 30s", () => {
+    expect(nextBackoffMs(0, DEFAULT_SCHEDULE)).toBe(1_000);
+    expect(nextBackoffMs(1, DEFAULT_SCHEDULE)).toBe(2_000);
+    expect(nextBackoffMs(2, DEFAULT_SCHEDULE)).toBe(4_000);
+    expect(nextBackoffMs(3, DEFAULT_SCHEDULE)).toBe(8_000);
+    expect(nextBackoffMs(4, DEFAULT_SCHEDULE)).toBe(16_000);
+    expect(nextBackoffMs(5, DEFAULT_SCHEDULE)).toBe(30_000);
+  });
+
+  it("caps at the last schedule element for attempt >= schedule.length", () => {
+    // attempt 6, 7, 100 → all return the cap (30s).
+    expect(nextBackoffMs(6, DEFAULT_SCHEDULE)).toBe(30_000);
+    expect(nextBackoffMs(7, DEFAULT_SCHEDULE)).toBe(30_000);
+    expect(nextBackoffMs(100, DEFAULT_SCHEDULE)).toBe(30_000);
+  });
+
+  it("returns 30_000 for an empty schedule (matches the legacy fallback)", () => {
+    expect(nextBackoffMs(0, [])).toBe(30_000);
+    expect(nextBackoffMs(5, [])).toBe(30_000);
+  });
+
+  it("honors a custom (non-default) schedule", () => {
+    // A 2-element schedule: [500, 1500]. attempt 0 → 500, attempt 1 →
+    // 1500, attempt 2+ → 1500 (cap).
+    expect(nextBackoffMs(0, [500, 1_500])).toBe(500);
+    expect(nextBackoffMs(1, [500, 1_500])).toBe(1_500);
+    expect(nextBackoffMs(2, [500, 1_500])).toBe(1_500);
+    expect(nextBackoffMs(99, [500, 1_500])).toBe(1_500);
+  });
+
+  it("handles a single-element schedule (everything is the cap)", () => {
+    expect(nextBackoffMs(0, [10_000])).toBe(10_000);
+    expect(nextBackoffMs(1, [10_000])).toBe(10_000);
+    expect(nextBackoffMs(50, [10_000])).toBe(10_000);
+  });
+
+  it("does not mutate the input schedule (pure function)", () => {
+    const schedule = [1_000, 2_000, 4_000];
+    const snapshot = [...schedule];
+    nextBackoffMs(0, schedule);
+    nextBackoffMs(5, schedule);
+    nextBackoffMs(99, schedule);
+    expect(schedule).toEqual(snapshot);
   });
 });

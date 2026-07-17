@@ -124,6 +124,44 @@ export interface WebSocketState {
 const DEFAULT_URL = "ws://127.0.0.1:7913/ws";
 const BACKOFF_SEQUENCE_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000] as const;
 
+/**
+ * `nextBackoffMs(attempt, schedule)` — pure function: given a
+ * reconnect attempt counter and a backoff schedule, return the
+ * delay (in ms) before the next reconnect attempt.
+ *
+ * Semantics:
+ *   - `attempt < schedule.length` → `schedule[attempt]`
+ *   - `attempt >= schedule.length` → the LAST element of `schedule`
+ *     (the schedule is a CAP, not a hard error — once we've blown
+ *     past the last value, we keep retrying at the cap interval)
+ *   - empty `schedule` → `30_000` (the well-known fallback; matches
+ *     the prior inline `?? 30_000` behavior in the close handler)
+ *
+ * Pure: no side effects, no I/O, no `this`. Extracted in
+ * Phase 53C for unit-testability — the inline `Math.min(...) ?? 30_000`
+ * expression in the close handler was not directly testable without
+ * driving a full WebSocket lifecycle, but the math itself is the
+ * actual unit of interest.
+ */
+export function nextBackoffMs(
+  attempt: number,
+  schedule: readonly number[],
+): number {
+  if (schedule.length === 0) return 30_000;
+  // `Math.min(attempt, schedule.length - 1)` clamps `attempt` to
+  // the last valid index. For an empty schedule the early-return
+  // above avoids `schedule.length - 1 === -1` selecting
+  // `schedule[-1] === undefined`.
+  const idx = Math.min(attempt, schedule.length - 1);
+  // The index is clamped via `Math.min` above; the only way `idx`
+  // could be out-of-bounds is if the schedule is a `readonly`
+  // array with `Object.prototype` pollution. Production callers
+  // pass the default `BACKOFF_SEQUENCE_MS` or a test-supplied
+  // array — both safe.
+  // eslint-disable-next-line security/detect-object-injection
+  return schedule[idx] ?? 30_000;
+}
+
 /** Minimal WebSocket interface — the global `WebSocket` is the production
  *  impl, the test fakes it via this interface. */
 export interface WebSocketLike {
@@ -365,10 +403,9 @@ export class WebSocketClient {
       // "disconnected" synchronously before triggering this event. Do
       // not emit a duplicate transition.
       if (this.closedByCaller) return;
-      // Schedule reconnect with exponential backoff.
-      const idx = Math.min(this.attempt, this.backoffMs.length - 1);
-      // eslint-disable-next-line security/detect-object-injection
-      const delay = this.backoffMs[idx] ?? 30_000;
+      // Schedule reconnect with exponential backoff. `nextBackoffMs`
+      // is a pure function exported for unit-testability (Phase 53C).
+      const delay = nextBackoffMs(this.attempt, this.backoffMs);
       this.attempt += 1;
       this.setStatus("disconnected");
       this.reconnectHandle = this.scheduler.setTimeout(() => {
