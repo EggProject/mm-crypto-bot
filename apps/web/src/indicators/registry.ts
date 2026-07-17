@@ -62,12 +62,28 @@ export type IndicatorSeries = Readonly<Record<string, readonly (number | null)[]
  * The renderer uses:
  *   - `bars` to align the series to the chart's time axis
  *   - `chart` to add new line series to the same `IChartApi`
+ *   - `candleSeries` to overlay markers on the existing OHLC
+ *     candles (used by the cascade indicator; see
+ *     `cascade.ts`). **Optional** — indicators that only add
+ *     their own series (Donchian, funding) do not need it.
+ *     The renderers that DO need it must defensively check
+ *     for absence (e.g. `renderCascade` logs a `console.warn`
+ *     and skips when `candleSeries` is undefined).
  *   - `color` as the theme accent (the indicator-specific palette
  *     is encoded in the renderer, not in this context — the
  *     context's `color` is a theme-wide fallback only)
  *   - `strategy` + `timeframe` to compose a unique `RenderedIndicator.name`
  *     so multiple `(symbol × timeframe)` instances can coexist
  *     on the same chart without collision
+ *
+ * **Why `candleSeries` is optional:** the Donchian and funding
+ * indicators add their own series; they have no business with
+ * the candle series. Forcing the field to be present would
+ * require those renderers' callers (e.g. ChartCard) to plumb
+ * a candle series they don't need, and would break the existing
+ * donchian.test.ts fixtures. Marking it optional keeps the
+ * contract honest: it's there for indicators that need it,
+ * absent for the rest.
  */
 export interface IndicatorContext {
   readonly chart: IChartApi;
@@ -76,6 +92,16 @@ export interface IndicatorContext {
   readonly color: string;
   readonly strategy: string;
   readonly timeframe: string;
+  /**
+   * The chart's candle (OHLC) series. Optional — only the
+   * cascade indicator uses it. The lightweight-charts v5
+   * API exposes `setMarkers()` on the markers-plugin wrapper
+   * (`createSeriesMarkers(series, ...)`), NOT on the bare
+   * `ISeriesApi<"Candlestick">`. Renderers that need to set
+   * markers must type-assert to a structural type with
+   * `setMarkers`; see `cascade.ts` for the canonical cast.
+   */
+  readonly candleSeries?: ISeriesApi<"Candlestick">;
 }
 
 /**
