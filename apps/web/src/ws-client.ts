@@ -15,13 +15,24 @@
  *   - snapshot: SnapshotMessage | null   (initial state on first connect)
  *   - state: StateMessage | null         (latest state update)
  *   - error: string | null               (latest error message)
+ *   - lastTick: TickMessage | null       (latest tick, batched via rAF)
+ *   - lastBar: BarMessage | null         (latest bar, batched via rAF)
  *   - send(msg: ClientMessage): void     (send SUBSCRIBE/UNSUBSCRIBE/CONTROL/PONG)
  *
  * Architecture: the `WebSocketClient` class is the testable unit (no
  * React renderer needed). The `useWebSocket` hook is a thin
  * `useEffect` wrapper that mounts the class and reads its state.
+ *
+ * Phase 50: tick + bar messages are routed to subscribers via the
+ * `onTick` / `onBar` listener API. The `useWebSocket` hook wraps
+ * these in a `RealtimeBatcher` (requestAnimationFrame coalescing)
+ * so a burst of 60Hz ticks only triggers ONE `setState` call per
+ * frame, not 60. The batcher lives in a `useRef` and is flushed
+ * on unmount so no items are lost.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+
+import { RealtimeBatcher } from "./lib/realtime-batcher.js";
 
 // =============================================================================
 // Message types — mirror the apps/bot/src/state-feed/protocol.ts protocol
@@ -68,6 +79,12 @@ export type ServerMessage =
   | { type: "error"; ts: number; message: string; recoverable: boolean }
   | { type: "ping"; ts: number };
 
+/** `TickMessage` — alias for the `tick` arm of the `ServerMessage` union. */
+export type TickMessage = Extract<ServerMessage, { type: "tick" }>;
+
+/** `BarMessage` — alias for the `bar` arm of the `ServerMessage` union. */
+export type BarMessage = Extract<ServerMessage, { type: "bar" }>;
+
 export type ClientMessage =
   | { type: "subscribe"; symbol: string; timeframe: string }
   | { type: "unsubscribe"; symbol: string; timeframe: string }
@@ -90,6 +107,13 @@ export interface WebSocketState {
   readonly snapshot: Extract<ServerMessage, { type: "snapshot" }> | null;
   readonly lastState: Extract<ServerMessage, { type: "state" }> | null;
   readonly lastError: Extract<ServerMessage, { type: "error" }> | null;
+  /** Latest tick received, batched via `requestAnimationFrame`.
+   *  Phase 50: previously ticks were dropped on the floor; now
+   *  the hook exposes the last tick so the dashboard can show a
+   *  live price readout. */
+  readonly lastTick: TickMessage | null;
+  /** Latest bar received, batched via `requestAnimationFrame`. */
+  readonly lastBar: BarMessage | null;
   readonly send: (msg: ClientMessage) => void;
 }
 
@@ -165,6 +189,11 @@ export class WebSocketClient {
   private readonly errorListeners = new Set<
     (m: Extract<ServerMessage, { type: "error" }>) => void
   >();
+  // Phase 50: tick + bar listeners. The `useWebSocket` hook
+  // wraps these in a `RealtimeBatcher` so a 60Hz tick stream
+  // produces ONE React setState per frame, not 60.
+  private readonly tickListeners = new Set<(m: TickMessage) => void>();
+  private readonly barListeners = new Set<(m: BarMessage) => void>();
 
   constructor(options: WebSocketClientOptions = {}) {
     this.url = options.url ?? DEFAULT_URL;
@@ -257,6 +286,32 @@ export class WebSocketClient {
     this.errorListeners.add(listener);
     return () => {
       this.errorListeners.delete(listener);
+    };
+  }
+
+  /**
+   * `onTick(listener)` — Phase 50: subscribe to `tick` messages.
+   * The listener is invoked once per `tick` frame (not batched —
+   * the caller is expected to wrap this with `RealtimeBatcher`
+   * if they want rAF coalescing). Returns an unsubscribe
+   * function.
+   */
+  onTick(listener: (m: TickMessage) => void): Unsubscribe {
+    this.tickListeners.add(listener);
+    return () => {
+      this.tickListeners.delete(listener);
+    };
+  }
+
+  /**
+   * `onBar(listener)` — Phase 50: subscribe to `bar` messages.
+   * The listener is invoked once per `bar` frame. Returns an
+   * unsubscribe function.
+   */
+  onBar(listener: (m: BarMessage) => void): Unsubscribe {
+    this.barListeners.add(listener);
+    return () => {
+      this.barListeners.delete(listener);
     };
   }
 
@@ -380,7 +435,25 @@ export class WebSocketClient {
           }
         }
         return;
-      // tick, bar, indicator, marker, hello — Phase 48+ will handle.
+      case "tick":
+        for (const listener of this.tickListeners) {
+          try {
+            listener(msg);
+          } catch {
+            // best-effort
+          }
+        }
+        return;
+      case "bar":
+        for (const listener of this.barListeners) {
+          try {
+            listener(msg);
+          } catch {
+            // best-effort
+          }
+        }
+        return;
+      // hello, indicator, marker — not yet wired (Phase 49+).
       default:
         return;
     }
@@ -403,6 +476,12 @@ export class WebSocketClient {
  * that forwards to the underlying client's `send()`. If the socket is not
  * open, the call is a silent no-op (matches the production resilience
  * contract — the client is expected to auto-reconnect).
+ *
+ * **Phase 50:** `lastTick` + `lastBar` are the latest tick / bar
+ * messages, batched via `requestAnimationFrame` (via `RealtimeBatcher`).
+ * A 60Hz tick stream produces ONE `setState` per frame, not 60. The
+ * batcher is created once per mount and `flushNow()`-drained on
+ * unmount so no items are lost.
  */
 export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
   const [status, setStatus] = useState<WebSocketStatus>("disconnected");
@@ -415,24 +494,70 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
   const [lastError, setLastError] = useState<
     Extract<ServerMessage, { type: "error" }> | null
   >(null);
+  // Phase 50: the latest tick + bar. The batcher's callback
+  // writes the most recent item from each frame to these
+  // useState setters — a single setState per frame coalesces
+  // 60Hz ticks into 60fps React renders.
+  const [lastTick, setLastTick] = useState<TickMessage | null>(null);
+  const [lastBar, setLastBar] = useState<BarMessage | null>(null);
 
   // The client lives in a ref so the `send` callback (and other handlers)
   // can access it without re-creating on every render.
   const clientRef = useRef<WebSocketClient | null>(null);
+  // The batcher lives in a ref so it survives across renders
+  // without being recreated (recreation would lose queued items).
+  const tickBatcherRef = useRef<RealtimeBatcher<TickMessage> | null>(null);
+  const barBatcherRef = useRef<RealtimeBatcher<BarMessage> | null>(null);
 
   useEffect(() => {
     const client = new WebSocketClient({ url });
     clientRef.current = client;
+
+    // Phase 50: build the batchers. The callback takes the
+    // items from a single frame; the latest item wins (the
+    // dashboard only shows the current price, not a tick
+    // history). For more complex use cases the consumer
+    // could push each item into a useRef'd ring buffer.
+    const tickBatcher = new RealtimeBatcher<TickMessage>((items) => {
+      const last = items[items.length - 1];
+      setLastTick(last);
+    });
+    const barBatcher = new RealtimeBatcher<BarMessage>((items) => {
+      const last = items[items.length - 1];
+      setLastBar(last);
+    });
+    tickBatcherRef.current = tickBatcher;
+    barBatcherRef.current = barBatcher;
+
     const offStatus = client.onStatus(setStatus);
     const offSnapshot = client.onSnapshot(setSnapshot);
     const offState = client.onState(setLastState);
     const offError = client.onError(setLastError);
+    // Phase 50: wire the client → batcher → state pipeline.
+    // The client emits every tick; the batcher coalesces them
+    // into one setState per frame.
+    const offTick = client.onTick((m) => {
+      tickBatcher.push(m);
+    });
+    const offBar = client.onBar((m) => {
+      barBatcher.push(m);
+    });
     client.start();
     return (): void => {
       offStatus();
       offSnapshot();
       offState();
       offError();
+      offTick();
+      offBar();
+      // Phase 50: drain any remaining queued items on unmount
+      // so the React state is consistent with the last batch
+      // the page received. Without this, ticks queued in the
+      // last frame before unmount would be silently dropped.
+      tickBatcher.flushNow();
+      barBatcher.flushNow();
+      tickBatcherRef.current = null;
+      barBatcherRef.current = null;
       client.close();
       clientRef.current = null;
     };
@@ -442,5 +567,13 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
     clientRef.current?.send(msg);
   }, []);
 
-  return { status, snapshot, lastState, lastError, send };
+  return {
+    status,
+    snapshot,
+    lastState,
+    lastError,
+    lastTick,
+    lastBar,
+    send,
+  };
 }
