@@ -188,6 +188,27 @@ export interface StateFeedStatus {
   readonly lastUpdate: number;
 }
 
+/**
+ * `StateFeedStrategyDescriptor` — a state-feed-en publish-elt
+ * stratégia descriptor (a `web-client/http-server.ts`
+ * `buildStrategiesList` ebből építi a `/api/strategies` választ).
+ *
+ * Phase 52E bugfix: korábban a `buildStrategiesList` a
+ * `snapshot.tickers` / `snapshot.positions` alapján származtatott
+ * egy HARDCODED 1-stratégiás listát (a Phase 49+ commentje ígérte
+ * a külön `strategies` mezőt, de soha nem készült el). A fix:
+ * a `LiveStatePublisher` a bot engine `BotState.strategies`
+ * listájából építi a `strategies` tömböt, ÉS a `buildStrategiesList`
+ * a `snapshot.strategies`-ből olvas.
+ */
+export interface StateFeedStrategyDescriptor {
+  readonly name: string;
+  readonly enabled: boolean;
+  readonly symbols: readonly string[];
+  readonly timeframes: readonly string[];
+  readonly cap?: number;
+}
+
 /** A state-feed `Snapshot` — a publisher által publikált teljes state. */
 export interface StateFeedSnapshot {
   readonly status: StateFeedStatus;
@@ -198,6 +219,7 @@ export interface StateFeedSnapshot {
   readonly history: readonly StateFeedTrade[];
   readonly tickers: readonly StateFeedTickerPrice[];
   readonly tickerEvents: readonly StateFeedTickerEvent[];
+  readonly strategies: readonly StateFeedStrategyDescriptor[];
   readonly paused: boolean;
   readonly killSwitchThresholdPct: number;
 }
@@ -506,7 +528,10 @@ function buildTickers(
 }
 
 /** A `LiveStatePublisher` induló state-feed state-je (a bot indulása előtt). */
-function initialStateFeedSnapshot(initialEquityUsdt: number): StateFeedSnapshot {
+function initialStateFeedSnapshot(
+  initialEquityUsdt: number,
+  strategies: readonly StateFeedStrategyDescriptor[],
+): StateFeedSnapshot {
   return {
     status: {
       mode: "with-bot",
@@ -539,6 +564,7 @@ function initialStateFeedSnapshot(initialEquityUsdt: number): StateFeedSnapshot 
     history: [],
     tickers: [],
     tickerEvents: [] as readonly StateFeedTickerEvent[],
+    strategies,
     paused: false,
     killSwitchThresholdPct: -10,
   };
@@ -578,6 +604,14 @@ export interface LiveStatePublisherOptions {
   readonly bot: Bot;
   readonly enabledSymbols?: readonly string[];
   readonly initialEquityUsdt?: number;
+  /**
+   * Phase 52E bugfix: a bot engine config.strategies objektumából
+   * származtatott, normalizált stratégia-lista. A `LiveStatePublisher`
+   * a SNAPSHOT `strategies` mezőjébe írja (a `web-client/http-server.ts`
+   * `buildStrategiesList` innen olvas). Ha nincs megadva, a publisher
+   * a `bot.config.strategies`-ből próbálja származtatni (best-effort).
+   */
+  readonly strategies?: readonly StateFeedStrategyDescriptor[];
 }
 
 /**
@@ -595,6 +629,7 @@ export interface LiveStatePublisherOptions {
 export class LiveStatePublisher {
   private readonly bot: Bot;
   private readonly tickerSymbolOrder: readonly string[];
+  private readonly staticStrategies: readonly StateFeedStrategyDescriptor[];
   private readonly listeners = new Set<Listener>();
   private readonly eventListeners = new Set<LiveStatePublisherListener>();
   private readonly unsubscribers: (() => void)[] = [];
@@ -645,7 +680,13 @@ export class LiveStatePublisher {
   public constructor(options: LiveStatePublisherOptions) {
     this.bot = options.bot;
     this.tickerSymbolOrder = options.enabledSymbols ?? [];
-    this.currentState = initialStateFeedSnapshot(options.initialEquityUsdt ?? 10_000);
+    // Phase 52E bugfix: a strategies listát a konstruktorban tároljuk,
+    // és az initialStateFeedSnapshot + a refreshFromBot a currentState-be írja.
+    this.staticStrategies = options.strategies ?? [];
+    this.currentState = initialStateFeedSnapshot(
+      options.initialEquityUsdt ?? 10_000,
+      this.staticStrategies,
+    );
   }
 
   // --------------------------------------------------------------------------
@@ -1041,6 +1082,7 @@ export class LiveStatePublisher {
         },
         tickers,
         tickerEvents: this.tickerEventBuffer.slice(),
+        strategies: this.staticStrategies,
       };
       if (stateEqualsIgnoringTimestamp(this.currentState, candidate)) {
         // Nincs változás — ne cseréljük a referenciát, ne notify-oljunk.
@@ -1077,6 +1119,7 @@ export class LiveStatePublisher {
       history,
       tickers,
       tickerEvents: this.tickerEventBuffer.slice(),
+      strategies: this.staticStrategies,
       paused: this.currentState.paused,
       killSwitchThresholdPct: this.currentState.killSwitchThresholdPct,
     };

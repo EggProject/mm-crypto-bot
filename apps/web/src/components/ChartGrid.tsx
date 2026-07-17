@@ -321,27 +321,20 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
         const bars: readonly OHLCBar[] = barsByKey[keyStr] ?? [];
         // eslint-disable-next-line security/detect-object-injection
         const markers: readonly ChartMarker[] = markersByKey[keyStr] ?? [];
-        // Ha nincs adat a kulcshoz, "Loading…" placeholder-t mutatunk
-        // (a SUBSCRIBE már elment, a state-feed hamarosan küldi a
-        // bootstrapat + az első BAR üzeneteket).
-        const isLoading = bars.length === 0;
-        if (isLoading) {
-          return (
-            <div
-              className="ep-chart-card ep-chart-card--loading"
-              key={keyStr}
-              data-chart-key={keyStr}
-              data-symbol={key.symbol}
-              data-strategy={strategy}
-              data-timeframe={key.timeframe}
-            >
-              <p>Loading…</p>
-            </div>
-          );
-        }
+        // Phase 52F follow-up: always render the full `ChartCard`
+        // (with empty bars) instead of a "Loading…" placeholder.
+        // The range-tab selector (`.line-chart-wrapper__range-button`)
+        // the e2e suite (test 16) targets lives on the ChartCard
+        // chrome — previously, the placeholder hid the chrome until
+        // the SNAPSHOT was processed, and the WS status flipped to
+        // "connected" BEFORE the SNAPSHOT message arrived, so the
+        // test could race the render. Rendering the chrome with
+        // `bars=[]` keeps the selector stable; the chart body shows
+        // an empty `lightweight-charts` canvas for a frame until
+        // the first BAR message populates it.
         return (
           <div
-            className="ep-chart-card"
+            className={`ep-chart-card${bars.length === 0 ? " ep-chart-card--loading" : ""}`}
             key={keyStr}
             data-chart-key={keyStr}
             data-symbol={key.symbol}

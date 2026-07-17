@@ -238,8 +238,45 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
   process.on("SIGTERM", onSignal);
 
   try {
-    await bot.start();
-    // A bot sikeresen elindult — a state-feed attach-olható.
+    // A state-feed attach a bot.start() ELŐTT kell, mert a
+    // LiveStatePublisher a bot engine publisher-ére subscribe-ol,
+    // és a bot engine a bot.start() során a publisher-en át
+    // notify-olja a state-változásokat. Ha az attach a bot.start()
+    // UTÁN történik, a bot engine run loopja már elindult, és a
+    // publisher start() a bot engine notify-ciklusára vár, ami
+    // soha nem következik be (deadlock) — ez volt a Phase 52E
+    // teszt során felfedezett bug. (Komment a state-feed/index.ts:122.)
+    // Phase 52E bugfix #2: a config.strategies objektumból a
+    // publisher-stratégia listát is átadjuk, hogy a dashboard
+    // mind a 3 (vagy N) stratégiát lássa, ne csak 1-et.
+    const strategiesFromConfig = Object.entries(config.strategies)
+      .filter(([, s]) => s.enabled)
+      .map(([name, s]) => {
+        const section = s as {
+          enabled?: boolean;
+          cap?: number;
+          symbols?: readonly string[];
+          min_consensus?: number;
+        };
+        // `StateFeedStrategyDescriptor.cap` opcionális (`exactOptionalPropertyTypes`),
+        // ezért csak akkor rakjuk be, ha ténylegesen van értéke.
+        const descriptor: {
+          name: string;
+          enabled: boolean;
+          symbols: string[];
+          timeframes: readonly ["1h", "4h", "1d"];
+          cap?: number;
+        } = {
+          name,
+          enabled: section.enabled ?? true,
+          symbols: [...(section.symbols ?? config.symbols.enabled)],
+          timeframes: ["1h", "4h", "1d"] as const,
+        };
+        if (section.cap !== undefined) {
+          descriptor.cap = section.cap;
+        }
+        return descriptor;
+      });
     stateFeed = await attachStateFeed(bot, {
       port: feedPort,
       enabledSymbols: config.symbols.enabled,
@@ -248,7 +285,12 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
       // 45A-ban 10_000 USDT a default. A Phase 45B a config-ból fogja
       // venni a `risk.max_position_fraction`-ből számítva.
       initialEquityUsdt: 10_000,
+      strategies: strategiesFromConfig,
     });
+    // A bot engine indítása a state-feed attach UTÁN — a publisher
+    // a bot engine-en át kapja a notify-kat, és a state-feed TCP
+    // socket-ére továbbítja a kliens felé.
+    await bot.start();
     // A state-feed listening message az EGYETLEN stderr sor —
     // a Phase 43 Track 3 log-routing policy-nak megfelelően.
     process.stderr.write(

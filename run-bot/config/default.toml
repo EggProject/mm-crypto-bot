@@ -1,0 +1,238 @@
+# mm-crypto-bot — DEFAULT configuration
+# ======================================================================
+#
+# Ez a fájl a `mm-bot start` ALAPÉRTELMEZETT konfigurációja
+# (a `--config` flag nélkül).
+#
+# A `run-bot/config/live-tokyo.toml` a production-template — a default
+# és a live-tokyo KÖZTI különbség kizárólag a `[bot].mode` mező:
+#
+#   default.toml:    mode = "paper"   (FAILSAFE; itt fut a default)
+#   live-tokyo.toml: mode = "live"    (user explicit átállítja, pre-launch
+#                                       checklist UTÁN)
+#
+# Minden más szekció (`[exchange]`, `[compliance]`, `[risk]`,
+# `[symbols]`, `[strategies.*]`, `[telemetry]`, `[portfolio]`) a
+# Phase 37 Track 5 production-template-ből származik — Tokyo edge
+# endpoint, USDC symbol-ok, finomhangolt risk/timeout paraméterek.
+#
+# ===========================================================================
+# MIÉRT EZ A DEFAULT? (USER MANDATE 2026-07-16)
+# ===========================================================================
+#   "rengeteg token koltseget koltottem hogy kioptimalizaljatok,
+#    a default miert nem ugy van beallitva?"
+#
+# A Phase 37 Track 5 research (~75 web query, 2 hét optimalizáció)
+# kimosta, hogy a Tokyo edge endpoint, az USDC symbol-ok, és a
+# finomhangolt `slippage_pct` / `fee_tier` / `timeout_ms` értékek
+# a `live-tokyo.toml`-ban a "kioptimalizalt" production defaultok.
+# A `default.toml` mostantól ezeket tartalmazza — kivéve a `mode`
+# mezőt, ami FAILSAFE-biztonsági okokból `paper` marad.
+#
+# ===========================================================================
+# FAILSAFE — `mode = "paper"`
+# ===========================================================================
+# A `mode = "paper"` kötelezően a default marad, hogy a bot SOHA ne
+# induljon el valódi kereskedésben a `--config` flag nélkül. A user
+# explicit módon vált át `live`-ra:
+#
+#   # Paper (default, biztonságos — a user így indítja a botot):
+#   mm-bot start
+#
+#   # Live (explicit, Tokyo edge, user felelőssége):
+#   mm-bot start --config=run-bot/config/live-tokyo.toml
+#
+# A paper módban a bot a Tokyo edge endpoint-hoz csatlakozik market
+# data-ért, de NEM tesz valódi order-eket — a tradek szimulálva
+# vannak. A web dashboard (`mm-bot web`) külön processzben csatlakozik
+# a bot state-feed-jére.
+#
+# ===========================================================================
+# SÉMA VALIDÁCIÓ
+# ===========================================================================
+# Minden kulcs Zod-strict validált: `apps/bot/src/config/schema.ts`.
+# A séma `.passthrough()`-ot használ a per-strategy section-ökre
+# (új mezők backward-compatible, a meglévő config-ok minden változtatás
+# nélkül parse-olódnak).
+#
+# ===========================================================================
+# STRUKTÚRA (megegyezik a `live-tokyo.toml` szerkezetével)
+# ===========================================================================
+#   1) [bot]              — indítási mód, log-szint, state-fájl
+#   2) [exchange]         — Tokyo edge endpoint, latency-tuned timeouts
+#   2.5) [compliance]     — JP joghatóság, MSB regisztráció
+#   3) [risk]             — 1:10 leverage, 15% DD, 1% per-trade
+#   4) [symbols]          — BTC/USDC, ETH/USDC, SOL/USDC
+#   5) [strategies.*]     — 5 stratégia enable + per-strategy overrides
+#   6) [telemetry]        — log-ok, metrikák, heartbeat
+#   7) [portfolio]        — multi-strategy koordináció (Phase 37 T4)
+#
+# A `live-tokyo.toml` azonos struktúrát követi — a két fájl közti
+# diff minimális (gyakorlatilag csak a `mode` érték + a compliance
+# override-ok).
+#
+# ======================================================================
+
+# ======================================================================
+# 1) BOT — indítási mód, log-szint, state-fájl
+# ======================================================================
+# A `mode` értéke `paper` (FAILSAFE) — a `--config` flag nélkül a bot
+# soha nem indít valódi kereskedést. A `live-tokyo.toml` a `mode = "live"`
+# értéket tartalmazza, de CSAK a pre-launch checklist UTÁN szabad
+# átvenni.
+# ----------------------------------------------------------------------
+[bot]
+mode = "paper"        # FAILSAFE — explicit --config=live-tokyo.toml a live-hoz
+log_level = "info"    # "debug" | "info" | "warn" | "error"
+state_file = "data/bot-state.json"
+
+# ======================================================================
+# 2) EXCHANGE — Tokyo edge endpoint, latency-tuned timeouts
+# ======================================================================
+# A Phase 37 Track 5 production-template értékei (a bybit.eu default
+# helyett Tokyo edge). Paper módban is ezen az endpoint-on csatlakozik
+# a market data feed-hez — a paper engine NEM tesz valódi order-eket,
+# csak szimulálja a tradeket.
+#
+# A CCXT Pro `bybiteu` exchange ID-t használ (a bybit.jp ugyanazt a
+# CCXT class-t használja — ld. `packages/exchange/src/factory.ts`).
+# Az `endpoint` és `ws_endpoint` a Tokyo-specifikus edge-ekre mutatnak
+# — a CCXT Pro nem ismeri fel ezeket automatikusan, a user felelőssége
+# a megfelelő beállítás.
+#
+# A `timeout_ms` a REST kérések idle timeout-ja. A co-loc környezetben
+# a teljes round-trip latency < 5 ms, tehát 5000 ms bőven elég — a
+# CCXT request→response overhead dominál.
+# ----------------------------------------------------------------------
+[exchange]
+id = "bybiteu"                          # CCXT exchange ID (bybit.eu / bybit.jp azonos class)
+endpoint = "https://api.bybit.jp"       # Tokyo REST edge endpoint
+ws_endpoint = "wss://stream.bybit.jp"   # Tokyo WebSocket edge endpoint
+timeout_ms = 5000                       # REST timeout (ms) — co-loc-hoz csökkentve
+rate_limit_ms = 80                      # CCXT rate-limit (ms/kérés) — bybit.jp magasabb limit
+sandbox = false                         # bybit.jp — nincs valódi sandbox
+
+# Phase 37 Track 2 mezők — finomhangolt Tokyo-értékekkel
+slippage_pct = 0.03                     # 3% — tight, mert a Tokyo edge alacsonyabb slippage-ot ad
+fee_tier = "vip"                        # bybit.jp-n a VIP tier olcsóbb maker fee-t biztosít
+rate_limit_per_min = 200                # bybit.jp magasabb per-minute limitet ad Japan-IP-ről
+ws_reconnect_delay_ms = 500             # gyorsabb reconnect (co-loc-hoz, ahol nincs hálózati szakadás)
+
+# ======================================================================
+# 2.5) COMPLIANCE — Japán joghatóság
+# ======================================================================
+# A `jp_msb_registered` flag a JP FSA (Pénzügyi Szolgáltatások
+# Ügynöksége) Crypto-Asset Exchange Service Provider (暗号資産交換業)
+# regisztráció meglétét jelzi. A user felelőssége a helyes érték
+# beállítása — a Phase 37 Track 5 pre-launch checklist ezt kipipálja.
+#
+# FIGYELEM: a `false` érték NEM akadályozza meg a bot indulását —
+# a bot `mode = "live"` esetén IS elindul, ha a user explicit átállítja
+# a módot. A user kizárólagos felelőssége, hogy a saját jogi
+# státuszának megfelelően jár el. Paper módban ennek nincs
+# funkcionális hatása.
+# ----------------------------------------------------------------------
+[compliance]
+jurisdiction = "JP"             # Japán joghatóság
+jp_msb_registered = false       # TODO: ha van JP FSA regisztrációd, állítsd `true`-ra
+
+# ======================================================================
+# 3) RISK — projekt-szintű kockázati limitek
+# ======================================================================
+# 1:10 leverage MANDATE (Zod `.max(10)`) + Phase 14B user mandate
+# (15% DD kill switch, 1% per-trade, 1/4-Kelly). Ne módosítsd anélkül,
+# hogy a Phase 14B §"Kockázati limitek" leckét újra átnéznéd.
+# ----------------------------------------------------------------------
+[risk]
+risk_per_trade = 0.01       # 1% of equity per trade
+kelly_fraction = 0.25       # 1/4-Kelly
+max_drawdown_pct = 0.15     # 15% DD kill-switch
+max_positions = 3           # 1 per symbol (BTC/ETH/SOL)
+max_leverage = 10           # 1:10 MANDATE
+
+# ======================================================================
+# 4) SYMBOLS — mely coin-okon kereskedünk
+# ======================================================================
+# USDC settlement (Phase 25 #2 audit). A CCXT unified formátumot
+# használjuk — az exchange ID `bybiteu` alapján a CCXT Pro feloldja
+# a `BTC/USDC` → `BTCUSDC` symbol-ra.
+# ----------------------------------------------------------------------
+[symbols]
+enabled = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
+
+# ======================================================================
+# 5) STRATEGIES — per-strategy enable/disable + per-strategy overrides
+# ======================================================================
+# Minden stratégia section-jében:
+#   - `enabled = true`  → a bot példányosítja és beregisztrálja
+#   - `enabled = false` → a bot NEM példányosítja (wire-up OFF)
+#
+# A séma forward-compatibilis: bármilyen új per-strategy mezőt
+# bevezethetünk anélkül, hogy a meglévő config-ok eltörnének.
+
+# --- 5.1) Donchian + Pivot 2-component composition (Phase 18 baseline) ---
+[strategies.donchian_pivot_composition]
+enabled = true
+cap = 0.20                # max position as fraction of equity
+min_consensus = 1         # 1-of-2 (loose) or 2 (strict)
+symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
+
+# --- 5.2) dYdX-vs-CEX cross-venue funding carry (Phase 25 #2 T2) ---
+[strategies.dydx_cex_carry]
+enabled = true             # BTC-USD only (per Phase 25 #2 scope lock)
+cap = 0.025                # 1/2 of §7.3 spec value 0.05
+notional_per_leg_usd = 125000   # $125k/leg (1/2 of §7.3 spec $250k)
+
+# --- 5.3) Liquidation cascade "fade-the-cascade" (Phase 25 #2 T2D) ---
+[strategies.cascade_fade]
+enabled = true
+max_notional_per_event_usd = 1000000   # $1M/event (per-event cap)
+cooldown_hours = 24                   # 24h cooldown between BTC entries
+
+# --- 5.4) SOL funding-flip kill-switch (defensive opt-in) ---
+[strategies.funding_flip_kill_switch]
+enabled = false            # SOL-only; defensive drop-in
+
+# --- 5.5) HMM 3-state regime-detector meta-plugin (opt-in) ---
+[strategies.regime_detector]
+enabled = false            # meta-plugin; sized via SizingSignal modifiers
+
+# ======================================================================
+# 6) TELEMETRY — log-könyvtár, metrika-intervallum, log-szint
+# ======================================================================
+[telemetry]
+log_dir = "logs/bot"
+metrics_interval_sec = 60
+log_level = "info"
+log_destination = "both"
+metrics_enabled = true
+heartbeat_interval_sec = 30
+
+# ======================================================================
+# 7) PORTFOLIO (Phase 37 Track 4) — multi-strategy koordináció
+# ======================================================================
+# A portfolio-szintű kockázatkezelés a Phase 6 multi-class ensemble
+# óta hiányzó réteg. A carry-trade stratégiák erősen korrelálnak
+# (0.6-0.9) a közös funding-rate faktor miatt, és a korrelálatlanul
+# méretezett pozíciók a portfolió-DD-t a vártnál jobban megdobhatják.
+#
+# A 4 mező:
+#   total_risk_per_cycle_usd  — ciklusonkénti max új kockázat (USD).
+#                                Hard cap: 10 000. Default: 100.
+#   correlation_penalty_threshold — a korreláció küszöb (0..1).
+#                                Ha két stratégia korrelációja >= ez,
+#                                a közös büdzséjük csökken.
+#                                Default: 0.7.
+#   correlation_window_size   — görgető ablak (trade-ek száma).
+#                                Default: 30.
+#   max_dd_pct                — a portfolió-szintű circuit breaker
+#                                küszöb (0..0.30). Ha a portfolió
+#                                drawdown >= ez, MINDEN pozíció
+#                                zárul piaci order-ekkel, és a bot
+#                                leáll. Default: 0.10.
+# ----------------------------------------------------------------------
+[portfolio]
+total_risk_per_cycle_usd = 100
+correlation_penalty_threshold = 0.7
+correlation_window_size = 30
+max_dd_pct = 0.10

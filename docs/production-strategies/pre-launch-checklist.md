@@ -4,7 +4,7 @@
 > flipping `bot.mode = "live"`.
 >
 > Use this for ANY live deployment. The Tokyo co-loc profile is the
-> recommended target (matches the `apps/bot/config/live-tokyo.toml`
+> recommended target (matches the `run-bot/config/live-tokyo.toml`
 > template); the home-broadband profile is paper-mode-only and is
 > flagged inline.
 
@@ -33,7 +33,7 @@ Pick **ONE**:
 
 - [ ] **Profile A — Tokyo co-location** (Equinix TY11, same DC as
       Bybit matching engine). This is the Phase 37 Track 5 target.
-      Reference: `apps/bot/config/live-tokyo.toml`.
+      Reference: `run-bot/config/live-tokyo.toml`.
 
 - [ ] **Profile B — Home broadband** (Budapest / SE-Europe residential).
       ⛔ **PAPER MODE ONLY.** Latency budget is ~30× worse than
@@ -50,7 +50,7 @@ Profile B is checked? → skip to §9 (paper-only path).
 
 ## 2. Config — `live-tokyo.toml`
 
-- [ ] `apps/bot/config/live-tokyo.toml` is the base. The user copy
+- [ ] `run-bot/config/live-tokyo.toml` is the base. The user copy
       lives at `~/.mm-bot/live-tokyo.toml` (NEVER commit secrets to
       the repo).
 
@@ -392,11 +392,13 @@ If you need to revert from `live` to `paper`:
   `docs/production-strategies/latency-budget.md` — the 6-hop
   breakdown, profile A vs B, and per-hop troubleshooting.
 - **Tokyo config template**:
-  `apps/bot/config/live-tokyo.toml` — the immediately-runnable
+  `run-bot/config/live-tokyo.toml` — the immediately-runnable
   production config.
 - **Tokyo config decisions** (with sources):
-  `apps/bot/config/live-tokyo.example.toml` — explains every
-  Tokyo-override and cites the underlying docs.
+  `run-bot/config/live-tokyo.toml` — explains every
+  Tokyo-override and cites the underlying docs. (The historical
+  `apps/bot/config/live-tokyo.example.toml` was merged into the
+  canonical template during Phase 52D.)
 - **Kill-switch dry-run source**:
   `apps/bot/src/cli/commands/kill-switch-dry-run.ts` — the
   simulation logic; the `formatTelegramAlert` and

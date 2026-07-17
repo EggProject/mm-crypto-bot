@@ -74,12 +74,14 @@ async function runCli(
 describe("CLI end-to-end", () => {
   // --------------------------------------------------------------------------
   // 1) config validate with the canonical default.toml
+  //    Phase 52D: relocated to `run-bot/config/default.toml` (52B
+  //    relocation finalized; 52D makes it the canonical default).
   // --------------------------------------------------------------------------
-  it("mm-bot config validate --config=apps/bot/config/default.toml exits 0 with OK", async () => {
+  it("mm-bot config validate --config=run-bot/config/default.toml exits 0 with OK", async () => {
     const { code, stdout, stderr } = await runCli([
       "config",
       "validate",
-      "--config=apps/bot/config/default.toml",
+      "--config=run-bot/config/default.toml",
     ]);
     if (code !== 0) {
       // Surface stderr in the failure message for debuggability.

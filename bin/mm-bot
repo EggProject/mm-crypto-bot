@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# bin/mm-bot — global shim for the mm-crypto-bot CLI.
+#
+# This file is a thin wrapper that forwards to the project's
+# node_modules/.bin/mm-bot wrapper. The reason for TWO wrappers:
+#   - node_modules/.bin/mm-bot (from scripts/install-mm-bot.sh) is local
+#     to the project and requires the cwd to be the project root.
+#   - bin/mm-bot (THIS file) is at the repo root and can be symlinked
+#     to /usr/local/bin/mm-bot by scripts/install-mm-bot.sh, making
+#     `mm-bot` available globally without polluting the project root
+#     in the user's PATH.
+#
+# SCRIPT_DIR resolves to the directory CONTAINING this file, so if
+# the file is symlinked (e.g. /usr/local/bin/mm-bot -> this file),
+# SCRIPT_DIR points to the original location, not the symlink.
+set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+exec "$REPO_ROOT/node_modules/.bin/mm-bot" "$@"

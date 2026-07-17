@@ -6,8 +6,14 @@ in-tree paper-trade simulator, live-mode via CCXT).
 
 This README is the **operator-facing** documentation: quick start, configuration,
 CLI reference, manual live-testing workflow, and architectural overview. The
-self-documenting [`config/default.toml`](./config/default.toml) carries the
+self-documenting [`config/default.toml`](../../run-bot/config/default.toml) carries the
 canonical schema reference (every section + every field + Zod constraints).
+
+> **Phase 52D:** the canonical config was relocated from `apps/bot/config/`
+> to `run-bot/config/` (Phase 52B relocation; 52D finalized). The
+> `mm-bot start` default is now the Phase 37 Track 5 production-template
+> with `mode = "paper"` failsafe. See `run-bot/config/live-tokyo.toml`
+> for the live deployment template.
 
 > **Phase 37 status (2026-07-15):** ✅ Portfolio coordination layer landed
 > in `apps/bot/src/portfolio/` (4 new modules: `RiskBudgetAllocator` +
@@ -95,7 +101,7 @@ the full TUI reference, and §7 for real bybit.eu paper/live testing.
 
 ### What `mm-bot start` does
 
-1. Loads + Zod-validates the config (`config/default.toml` by default).
+1. Loads + Zod-validates the config (`run-bot/config/default.toml` by default).
 2. Instantiates the enabled strategies (via `createStrategyInstances`).
 3. Constructs `OrderManager`, `PositionManager`, `StateStore`,
    `Telemetry`, and `KillSwitchRegistry`.
@@ -113,7 +119,7 @@ the bot and it resumes from the last snapshot.
 ## 2. Configuration
 
 **One TOML file drives the whole bot.** Defaults live in
-[`config/default.toml`](./config/default.toml). The file is **self-documenting**
+[`config/default.toml`](../../run-bot/config/default.toml). The file is **self-documenting**
 — every section + every field has an inline comment explaining the units, the
 constraints, and the rationale.
 
@@ -125,7 +131,7 @@ When `loadBotConfig(path?)` runs, the effective config is built in three layers
 ```
   ┌──────────────────────────────────────────────────────────────┐
   │  1. Zod-derived defaults        (apps/bot/src/config/defaults.ts)
-  │  2. TOML file (if --config=PATH)  (config/default.toml)
+  │  2. TOML file (if --config=PATH)  (run-bot/config/default.toml)
   │  3. Environment overrides        (BUN_ENV, LOG_LEVEL, BYBIT_*)
   └──────────────────────────────────────────────────────────────┘
 ```
@@ -147,7 +153,7 @@ error list.
 | `[telemetry]` | `log_dir`, `metrics_interval_sec` |
 | `[portfolio]` | **Phase 37 Track 4** — `total_risk_per_cycle_usd`, `correlation_penalty_threshold`, `correlation_window_size`, `max_dd_pct` (portfolio-level circuit breaker) |
 
-The full annotated schema is in `config/default.toml`. **Read that file as
+The full annotated schema is in `run-bot/config/default.toml`. **Read that file as
 the canonical reference** — the comments there are kept in sync with the Zod
 schema in `apps/bot/src/config/schema.ts`.
 
@@ -168,12 +174,12 @@ defaults) and `--help` / `-h`.
 
 | Subcommand | Purpose | Example |
 |------------|---------|---------|
-| `start` | Start the bot + render the **Ink TUI** (default; see §3.3) | `mm-bot start --config=config/prod.toml` |
+| `start` | Start the bot + render the **Ink TUI** (default; see §3.3) | `mm-bot start --config=run-bot/config/prod.toml` |
 | `tui` | Render the TUI **without** starting the bot (UI/UX demo, TUI-only dev) | `mm-bot tui --data-source=simulated` |
 | `status` | Show persisted state (positions, P&L, counters) | `mm-bot status` |
-| `config validate` | Load + validate config; print OK or errors | `mm-bot config validate --config=config/prod.toml` |
+| `config validate` | Load + validate config; print OK or errors | `mm-bot config validate --config=run-bot/config/prod.toml` |
 | `config show` | Print effective config (defaults + file + env) | `mm-bot config show` |
-| `config init` | Scaffold a new config file | `mm-bot config init --out=config/prod.toml` |
+| `config init` | Scaffold a new config file | `mm-bot config init --out=run-bot/config/prod.toml` |
 | `strategies` | List configured strategies + on/off state | `mm-bot strategies` |
 | `trades` | Show recent closed trades (filterable by symbol) | `mm-bot trades --limit=20 --symbol=BTC/USDC` |
 | `kill-switches` | Show kill-switch registry state | `mm-bot kill-switches` |
@@ -195,16 +201,16 @@ CI-friendly: no prompts, no TUI, deterministic output.
 
 ```bash
 # Validate a custom config before launching the bot with it
-mm-bot config validate --config=config/prod.toml
+mm-bot config validate --config=run-bot/config/prod.toml
 
 # Show what the bot will actually load (after defaults + file + env merge)
-mm-bot config show --config=config/prod.toml
+mm-bot config show --config=run-bot/config/prod.toml
 
 # Scaffold a fresh config (writes the canonical default.toml to a new path)
-mm-bot config init --out=config/prod.toml
+mm-bot config init --out=run-bot/config/prod.toml
 
 # Run the bot with that config
-mm-bot start --config=config/prod.toml
+mm-bot start --config=run-bot/config/prod.toml
 
 # Observe while the bot is running (in a separate shell)
 mm-bot status
@@ -399,15 +405,15 @@ automated by the bot.**
 ### Step 1 — Scaffold a production config
 
 ```bash
-cp config/default.toml config/prod.toml
+cp run-bot/config/default.toml run-bot/config/prod.toml
 ```
 
-Edit `config/prod.toml` to taste (cap, leverage, enabled strategies, etc.).
+Edit `run-bot/config/prod.toml` to taste (cap, leverage, enabled strategies, etc.).
 The default is a sensible starting point for bybit.eu SPOT-margin.
 
 ### Step 2 — Set paper mode + API keys (paper phase)
 
-In `config/prod.toml`:
+In `run-bot/config/prod.toml`:
 
 ```toml
 [bot]
@@ -431,7 +437,7 @@ disabled on the key** — that's a bybit.eu account setting, not a bot config.
 ### Step 3 — Paper-test for N days
 
 ```bash
-mm-bot start --config=config/prod.toml
+mm-bot start --config=run-bot/config/prod.toml
 ```
 
 In a separate shell, observe:
@@ -457,7 +463,7 @@ vol-spike pair). Watch for:
 
 ### Step 4 — Promote to live
 
-When you're satisfied, edit `config/prod.toml`:
+When you're satisfied, edit `run-bot/config/prod.toml`:
 
 ```toml
 [bot]
@@ -471,7 +477,7 @@ account side.
 ### Step 5 — Real-money run
 
 ```bash
-mm-bot start --config=config/prod.toml
+mm-bot start --config=run-bot/config/prod.toml
 ```
 
 Same observation toolkit (status / strategies / trades / kill-switches).
@@ -708,7 +714,7 @@ and the Phase 34 fixup PR for the test additions.
 
 ## See also
 
-- [`config/default.toml`](./config/default.toml) — canonical config (every field documented)
+- [`config/default.toml`](../../run-bot/config/default.toml) — canonical config (every field documented)
 - [`docs/production-strategies/bot.md`](../../docs/production-strategies/bot.md) — how the production strategies wire into the bot
 - [`docs/production-strategies/tui.md`](../../docs/production-strategies/tui.md) — TUI keybindings + panel reference (**Phase 36 update**: 4 panels, settings panel, leverage cap, typed "LIVE" guard, raw TOML viewer)
 - [`docs/production-strategies/phase36-deliverable.md`](../../docs/production-strategies/phase36-deliverable.md) — **Phase 36 closure report** (Track D — this phase's deliverable)

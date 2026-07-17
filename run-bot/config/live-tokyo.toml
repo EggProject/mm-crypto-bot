@@ -1,0 +1,170 @@
+# mm-crypto-bot — Tokyo co-location LIVE configuration
+# ======================================================================
+#
+# PHASE 37 TRACK 5 — production deployment template for a Tokyo
+# co-located VPS / bare-metal instance.
+#
+# Ez a template a `default.toml` struktúráját követi, DE:
+#   - `[exchange].endpoint` a Tokyo-specifikus `https://api.bybit.jp`
+#     URL-re van állítva (a bybit.eu alapértelmezett helyett).
+#   - `[exchange].ws_endpoint` a `wss://stream.bybit.jp` Tokyo edge
+#     endpointra mutat (WebSocket market data + order updates).
+#   - `[exchange].timeout_ms` 10 000 → 5 000 ms-ra csökkentve
+#     (co-loc környezetben a teljes round-trip latency < 5 ms, így
+#     a CCXT request→response overhead dominál).
+#   - `[exchange].rate_limit_ms` 100 → 80 ms-ra csökkentve (a bybit.jp
+#     a bybit.eu-nál magasabb per-second rate limitet biztosít a
+#     Japan-domestic IP-kről — ld. `docs/production-strategies/
+#     latency-budget.md` §"Exchange-side rate limits").
+#   - `[compliance].jurisdiction = "JP"` — beállítja a joghatóságot
+#     Japánra.
+#   - `[compliance].jp_msb_registered = false` — DEFAULT-OFF. A user
+#     felelőssége a saját JP FSA regisztrációs státusz átállítása.
+#     A bot `false` értékkel IS elindul, de a user tudomásul veszi,
+#     hogy a JP FSA Crypto-Asset Exchange Service Provider
+#     (暗号資産交換業) regisztráció nélkül a saját felelősségére
+#     használja.
+#   - A `mode` default `paper` maradt (failsafe) — a LIVE deploy
+#     előtt a user explicit átállítja `"live"`-ra, a Phase 37 Track 5
+#     pre-launch checklist szerint.
+#
+# HASZNÁLAT
+# --------
+#   1. Másold át a saját secret-ekkel együtt:
+#        cp apps/bot/config/live-tokyo.toml ~/.mm-bot/live-tokyo.toml
+#   2. Töltsd ki a BYBIT_API_KEY / BYBIT_API_SECRET értékeket
+#      (env-variáns, ld. `.env.example`).
+#   3. Ha van JP FSA regisztrációd, állítsd a
+#      `compliance.jp_msb_registered = true` értékre.
+#   4. Futtasd a pre-launch checklistet:
+#        bash scripts/pre-launch-checklist.sh --config=~/.mm-bot/live-tokyo.toml
+#   5. Indítsd a botot:
+#        mm-bot start --config=~/.mm-bot/live-tokyo.toml
+#
+# A séma validáció: `apps/bot/src/config/schema.ts` Zod-strict
+# (új mezők bevezetése backward-compatible — a meglévő config-ok
+# minden változtatás nélkül parse-olódnak).
+#
+# ======================================================================
+
+# ======================================================================
+# 1) BOT — indítási mód, log-szint, state-fájl
+# ======================================================================
+# A LIVE deploy előtt a `mode` értéket `"live"`-ra KELL állítani.
+# A pre-launch checklist ezt ellenőrzi.
+# ----------------------------------------------------------------------
+[bot]
+mode = "paper"        # TODO: pre-launch checklist előtt állítsd "live"-ra
+log_level = "info"    # "debug" | "info" | "warn" | "error"
+state_file = "data/bot-state.json"
+
+# ======================================================================
+# 2) EXCHANGE — Tokyo edge endpoint, latency-tuned timeouts
+# ======================================================================
+# A CCXT Pro `bybiteu` exchange ID-t használja (mert a bybit.jp
+# ugyanazt a CCXT class-t használja — ld. `packages/exchange/src/
+# factory.ts`). Az `endpoint` és `ws_endpoint` mezők a Tokyo-specifikus
+# edge-ekre mutatnak — a CCXT Pro nem ismeri fel ezeket automatikusan,
+# a user felelőssége a megfelelő beállítás.
+#
+# A `timeout_ms` a REST kérések idle timeout-ja. A co-loc környezetben
+# a teljes round-trip latency < 5 ms, tehát 5000 ms bőven elég — a
+# CCXT request→response overhead dominál (TLS handshake, JSON parse,
+# stb.). Ha a timeout túl alacsony, a lassú hálózati reset-ek
+# (`ECONNRESET`, `ETIMEDOUT`) hamis rejection-öket okozhatnak.
+# ----------------------------------------------------------------------
+[exchange]
+id = "bybiteu"                          # CCXT exchange ID (bybit.eu / bybit.jp azonos class)
+endpoint = "https://api.bybit.jp"       # Tokyo REST edge endpoint
+ws_endpoint = "wss://stream.bybit.jp"   # Tokyo WebSocket edge endpoint
+timeout_ms = 5000                       # REST timeout (ms) — csökkentve co-loc-hoz
+rate_limit_ms = 80                      # CCXT rate-limit (ms/kérés) — bybit.jp magasabb limit
+sandbox = false                         # bybit.jp — nincs valódi sandbox
+
+# Phase 37 Track 2 mezők — finomhangolt Tokyo-értékekkel
+slippage_pct = 0.03                     # 3% — tight, mert a Tokyo edge alacsonyabb slippage-ot ad
+fee_tier = "vip"                        # bybit.jp-n a VIP tier olcsóbb maker fee-t biztosít
+rate_limit_per_min = 200                # bybit.jp magasabb per-minute limitet ad Japan-IP-ről
+ws_reconnect_delay_ms = 500             # gyorsabb reconnect (co-loc-hoz, ahol nincs hálózati szakadás)
+
+# ======================================================================
+# 2.5) COMPLIANCE — Japán joghatóság
+# ======================================================================
+# A `jp_msb_registered` flag a JP FSA (Pénzügyi Szolgáltatások
+# Ügynöksége) Crypto-Asset Exchange Service Provider (暗号資産交換業)
+# regisztráció meglétét jelzi. A user felelőssége a helyes érték
+# beállítása — a Phase 37 Track 5 pre-launch checklist ezt kipipálja.
+#
+# FIGYELEM: a `false` érték NEM akadályozza meg a bot indulását —
+# a bot `mode = "live"` esetén IS elindul, ha a user explicit átállítja
+# a módot. A user kizárólagos felelőssége, hogy a saját jogi
+# státuszának megfelelően jár el.
+# ----------------------------------------------------------------------
+[compliance]
+jurisdiction = "JP"             # Japán joghatóság
+jp_msb_registered = false       # TODO: ha van JP FSA regisztrációd, állítsd `true`-ra
+
+# ======================================================================
+# 3) RISK — projekt-szintű kockázati limitek (VÁLTOZATLAN a default-hoz)
+# ======================================================================
+# A 1:10 leverage MANDATE és a Phase 14B user mandate (15% DD kill
+# switch) a `default.toml`-ból másolva. Ne módosítsd anélkül, hogy
+# a Phase 14B §"Kockázati limitek" leckét újra átnéznéd.
+# ----------------------------------------------------------------------
+[risk]
+risk_per_trade = 0.01       # 1% of equity per trade
+kelly_fraction = 0.25       # 1/4-Kelly
+max_drawdown_pct = 0.15     # 15% DD kill-switch
+max_positions = 3           # 1 per symbol (BTC/ETH/SOL)
+max_leverage = 10           # 1:10 MANDATE
+
+# ======================================================================
+# 4) SYMBOLS (VÁLTOZATLAN a default-hoz)
+# ======================================================================
+[symbols]
+enabled = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
+
+# ======================================================================
+# 5) STRATEGIES — per-strategy enable/disable (VÁLTOZATLAN)
+# ======================================================================
+[strategies.donchian_pivot_composition]
+enabled = true
+cap = 0.20
+min_consensus = 1
+symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
+
+[strategies.dydx_cex_carry]
+enabled = true
+cap = 0.025
+notional_per_leg_usd = 125000
+
+[strategies.cascade_fade]
+enabled = true
+max_notional_per_event_usd = 1000000
+cooldown_hours = 24
+
+[strategies.funding_flip_kill_switch]
+enabled = false
+
+[strategies.regime_detector]
+enabled = false
+
+# ======================================================================
+# 6) TELEMETRY (VÁLTOZATLAN)
+# ======================================================================
+[telemetry]
+log_dir = "logs/bot"
+metrics_interval_sec = 60
+log_level = "info"
+log_destination = "both"
+metrics_enabled = true
+heartbeat_interval_sec = 30
+
+# ======================================================================
+# 7) PORTFOLIO (Phase 37 Track 4) — multi-strategy koordináció
+# ======================================================================
+[portfolio]
+total_risk_per_cycle_usd = 100
+correlation_penalty_threshold = 0.7
+correlation_window_size = 30
+max_dd_pct = 0.10

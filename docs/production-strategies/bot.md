@@ -8,7 +8,7 @@ bot config + factory layer (in `apps/bot/src/config/`).
 For the full operator guide (quick start, CLI reference, live testing
 workflow), see [`apps/bot/README.md`](../../apps/bot/README.md). For the
 canonical config reference, see
-[`apps/bot/config/default.toml`](../../apps/bot/config/default.toml).
+[`run-bot/config/default.toml`](../../run-bot/config/default.toml).
 
 ---
 
@@ -332,8 +332,11 @@ the bot.
 
 - [`apps/bot/README.md`](../../apps/bot/README.md) — full operator guide
   (quick start, CLI ref, live testing workflow, architecture).
-- [`apps/bot/config/default.toml`](../../apps/bot/config/default.toml) — canonical
-  config (every field documented inline).
+- [`run-bot/config/default.toml`](../../run-bot/config/default.toml) — canonical
+  config (every field documented inline). Phase 52D: the default
+  values are now the Phase 37 Track 5 production-template (Tokyo
+  edge, USDC symbols, finomhangolt risk/timeout) — `mode = "paper"`
+  failsafe kivételével.
 - [`apps/bot/src/config/strategy-registry.ts`](../../apps/bot/src/config/strategy-registry.ts) — the factory.
 - [`apps/bot/src/config/schema.ts`](../../apps/bot/src/config/schema.ts) — the Zod schema.
 - [`packages/core/src/strategy/`](../../packages/core/src/strategy/) — strategy implementations.

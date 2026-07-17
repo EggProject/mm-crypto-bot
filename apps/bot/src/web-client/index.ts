@@ -139,15 +139,31 @@ export function resolveWebDistDir(explicitPath: string | undefined, botFileUrl: 
   if (explicitPath !== undefined) {
     return resolve(explicitPath);
   }
-  // A `botFileUrl` az `import.meta.url` értéke, ami a `bin/mm-bot`
-  // → `apps/bot/src/index.ts` symlink-en át a `apps/bot/src/index.ts`
-  // fájlra mutat. A `dirname` ebből `apps/bot/src/`, és a parent
-  // parent-je `apps/bot/`. Az `apps/web/dist` a `apps/bot/`-ból
-  // `../../apps/web/dist`.
+  // A `botFileUrl` az `import.meta.url` értéke, ami a
+  // `apps/bot/src/web-client/index.ts` fájlra mutat (vagy build-elt
+  // verziónál az `apps/bot/dist/web-client/index.js`-re, ami a
+  // `dirname(3)` szinten egyezik meg a forrással).
+  //
+  // A path-feloldás:
+  //   botFileUrl → .../apps/bot/src/web-client/index.ts
+  //   botSrcDir  = dirname(botFileUrl)     → .../apps/bot/src/web-client/
+  //   botDir     = dirname(botSrcDir)      → .../apps/bot/src/
+  //   appsDir    = dirname(botDir)         → .../apps/bot/
+  //   repoRoot   = dirname(appsDir)        → .../apps/                (NOT YET repo root!)
+  //   projectRoot = dirname(repoRoot)      → .../mm-crypto-bot/      (← the real repo root)
+  //
+  // Phase 52E bugfix (v2): az első fix (`+ appsDir`) még mindig
+  // EGY szinttel magasabban állt meg — a `repoRoot` `apps/` volt,
+  // és a `resolve(repoRoot, "apps", "web", "dist")` egy NEM LÉTEZŐ
+  // `.../apps/apps/web/dist` path-t adott vissza (dupla `apps`).
+  // A tényleges fix: a `repoRoot`-ból még EGY `dirname`-t kell
+  // hívni, hogy a projekt gyökerét kapjuk.
   const botSrcDir = dirname(fileURLToPath(botFileUrl));
   const botDir = dirname(botSrcDir);
-  const repoRoot = dirname(botDir);
-  return resolve(repoRoot, "apps", "web", "dist");
+  const appsDir = dirname(botDir);
+  const repoRoot = dirname(appsDir);
+  const projectRoot = dirname(repoRoot);
+  return resolve(projectRoot, "apps", "web", "dist");
 }
 
 // ============================================================================

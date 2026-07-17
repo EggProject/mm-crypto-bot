@@ -210,6 +210,47 @@ describe("attachStateFeed", () => {
     expect(handle.port).toBeGreaterThan(0);
     await handle.close();
   });
+
+  // Phase 52E bugfix: a `strategies` opció pass-through a
+  // `LiveStatePublisher`-höz. A korábbi implementáció ezt az
+  // opciót SILENT eldobta, így a SNAPSHOT mindig `strategies: []`-t
+  // tartalmazott, és a `/api/strategies` endpoint a fallback
+  // 1-stratégiás listát adta vissza.
+  it("forwards the strategies option to the publisher SNAPSHOT (Phase 52E)", async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "mm-attach-"));
+    const bot = makeStubBot();
+    const strategies = [
+      { name: "donchian_pivot_composition", enabled: true, symbols: ["BTC/USDC", "ETH/USDC", "SOL/USDC"], timeframes: ["1h", "4h", "1d"] as const },
+      { name: "dydx_cex_carry", enabled: true, symbols: ["BTC/USDC"], timeframes: ["1h", "4h", "1d"] as const },
+      { name: "cascade_fade", enabled: true, symbols: ["BTC/USDC"], timeframes: ["1h", "4h", "1d"] as const },
+    ];
+    const handle = await attachStateFeed(bot, {
+      port: 0,
+      enabledSymbols: ["BTC/USDC", "ETH/USDC", "SOL/USDC"],
+      initialEquityUsdt: 10_000,
+      strategies,
+    });
+    try {
+      // 1) A publisher közvetlenül a megadott listát tartalmazza.
+      const snapshot = handle.publisher.getSnapshot();
+      expect(snapshot.strategies).toEqual(strategies);
+
+      // 2) A TCP kliens is a megadott listát kapja a SNAPSHOT üzenetben.
+      const client = await TcpTestClient.connect(handle.port);
+      try {
+        await waitForMessages(client, 2);
+        const snapMsg = parseMessage(client.messages[1] ?? "");
+        expect(snapMsg?.type).toBe("snapshot");
+        if (snapMsg?.type === "snapshot") {
+          expect(snapMsg.snapshot.strategies).toEqual(strategies);
+        }
+      } finally {
+        client.close();
+      }
+    } finally {
+      await handle.close();
+    }
+  });
 });
 
 // ============================================================================

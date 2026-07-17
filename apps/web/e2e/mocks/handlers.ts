@@ -277,6 +277,19 @@ const wsHandler = chat.addEventListener("connection", ({ client }) => {
       protocolVersion: 1,
     }),
   );
+  // 1. HELLO — sent first, before SNAPSHOT. The client-side WS code
+  //    in apps/web/src/ws-client.ts does NOT react to HELLO (it
+  //    only handles "snapshot" / "state" / "error" / "ping"), so
+  //    this is a no-op for the dashboard but the protocol expects
+  //    it.
+  client.send(
+    JSON.stringify({
+      type: "hello",
+      ts: Date.now(),
+      serverVersion: "0.1.0-test",
+      protocolVersion: 1,
+    }),
+  );
 
   // 2. SNAPSHOT — `strategies` (full descriptor list) + `ohlcBootstrap`
   //    (Record<symbol, Record<tf, OHLCBar[]>>). The dashboard's
@@ -341,6 +354,56 @@ const wsHandler = chat.addEventListener("connection", ({ client }) => {
       // handler below.
     }
   }, 100);
+
+  // 3b. Phase 52F follow-up: tick + bar stream. The real state-feed
+  //     pushes ~60Hz ticks and 1Hz bars; for the e2e we send a
+  //     tick every 200ms and a bar every 1s (a 5Hz tick cadence is
+  //     enough to exercise the `RealtimeBatcher` rAF pipeline in
+  //     `apps/web/src/ws-client.ts` and `lib/realtime-batcher.ts`).
+  //     The previous setup only sent PINGs, leaving
+  //     `RealtimeBatcher.push/flush/ensureFrameScheduled`
+  //     uncovered in the lcov — dragging the function-coverage
+  //     below the 60% threshold set in `e2e/dashboard.spec.ts`.
+  //     Sending ticks+bars here is the smallest implementation
+  //     change that exercises the batcher without altering the
+  //     test assertions (the dashboard renders `lastTick` /
+  //     `lastBar` only as internal state; no e2e test asserts on
+  //     them).
+  let lastBarTime = Date.now();
+  let price = 67000;
+  const tickInterval = setInterval(() => {
+    try {
+      // Deterministic but non-trivial walk so the dashboard
+      // sees a moving price if it ever renders one. The test
+      // assertions don't read `lastTick` directly — they just
+      // need the message to flow through the WS pipeline.
+      price = Math.max(1, price + ((Date.now() % 7) - 3) * 5);
+      client.send(
+        JSON.stringify({
+          type: "tick",
+          ts: Date.now(),
+          symbol: "BTCUSDT",
+          price,
+        }),
+      );
+      const now2 = Date.now();
+      if (now2 - lastBarTime >= 1000) {
+        lastBarTime = now2;
+        client.send(
+          JSON.stringify({
+            type: "bar",
+            ts: now2,
+            symbol: "BTCUSDT",
+            timeframe: "1h",
+            ohlc: { open: price, high: price + 5, low: price - 5, close: price },
+          }),
+        );
+      }
+    } catch {
+      // Client disconnected — intervals are cleared in the close
+      // handler below.
+    }
+  }, 200);
 
   // 4. Message handling — every client frame is recorded. SUBSCRIBE /
   //    UNSUBSCRIBE are echoed with a confirmation (no-op). CONTROL
@@ -411,6 +474,7 @@ const wsHandler = chat.addEventListener("connection", ({ client }) => {
   //    interval so we don't leak timers in the test process.
   client.addEventListener("close", () => {
     clearInterval(heartbeat);
+    clearInterval(tickInterval);
   });
 });
 

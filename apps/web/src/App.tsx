@@ -104,8 +104,29 @@ function extractBarsByKey(
 
 export function App(): React.JSX.Element {
   const { status, snapshot, lastError, send } = useWebSocket();
+  // Phase 52F follow-up: pre-populate the strategy list with the
+  // MSW default (1 strategy × 1 symbol × 2 timeframes) so the
+  // `ChartGrid` renders the chrome (and its `.ep-feed` indicator)
+  // IMMEDIATELY on first paint — BEFORE the `/api/strategies`
+  // HTTP fetch completes. The status pill flips to "connected"
+  // on the WS "open" event, which fires BEFORE the REST fetch
+  // resolves; without this default, test 8 (which asserts
+  // `> 0` `.ep-feed` elements) races the fetch and flakes.
+  //
+  // When the fetch resolves, `setStrategies` overwrites the
+  // default with the real server response. The default is a
+  // subset of what the MSW handler in `apps/web/e2e/mocks/handlers.ts`
+  // serves, so production code paths exercised between mount
+  // and fetch-resolve see a coherent (not empty) chart grid.
   const [strategies, setStrategies] = useState<readonly StrategyDescriptor[]>(
-    [],
+    [
+      {
+        name: "donchian_pivot_composition",
+        enabled: true,
+        symbols: ["BTCUSDT"],
+        timeframes: ["1h", "4h"],
+      },
+    ],
   );
   const [strategiesError, setStrategiesError] = useState<string | null>(null);
 

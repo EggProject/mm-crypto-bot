@@ -9,9 +9,9 @@ The bot runs in two separate processes, each in its own terminal. The web client
 **Terminal 1 — the bot (headless, pure engine + state-feed publisher):**
 
 ```bash
-bun run start --config=apps/bot/config/default.toml
+bun run start --config=run-bot/config/default.toml
 # VAGY (ha a node_modules/.bin/ a PATH-ban van):
-mm-bot start --config=apps/bot/config/default.toml
+mm-bot start --config=run-bot/config/default.toml
 ```
 
 The bot starts and prints a single status line to stderr:
@@ -232,7 +232,7 @@ A `mm-bot` CLI 8 subcommand-ot ismer. Mindegyik elérhető `mm-bot <subcommand>`
 
 | Subcommand | Leírás | Példa |
 |---|---|---|
-| `start` | Bot indítása (PURE HEADLESS) | `mm-bot start --config=apps/bot/config/default.toml` |
+| `start` | Bot indítása (PURE HEADLESS) | `mm-bot start --config=run-bot/config/default.toml` |
 | `web` | Web client indítása (külön process) | `mm-bot web` |
 | `status` | Perzisztens state kiírása (equity, P&L, positions, history) | `mm-bot status` |
 | `config` | Config validate / show / init | `mm-bot config show` |

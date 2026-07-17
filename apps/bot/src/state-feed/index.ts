@@ -55,7 +55,7 @@
 
 import type { Bot } from "../bot/bot.js";
 import { FeedServer, type FeedServerHandle } from "./feed-server.js";
-import { LiveStatePublisher } from "./publisher.js";
+import { LiveStatePublisher, type StateFeedStrategyDescriptor } from "./publisher.js";
 import type { OhlcStore } from "./ohlc-store.js";
 
 // ============================================================================
@@ -72,6 +72,13 @@ export interface AttachStateFeedOptions {
   readonly enabledSymbols?: readonly string[];
   /** A bot induló equity (a SNAPSHOT bootstrap-hoz). */
   readonly initialEquityUsdt?: number;
+  /**
+   * Phase 52E: a config.strategies-ből származtatott stratégia-lista,
+   * amit a `LiveStatePublisher` a SNAPSHOT `strategies` mezőjébe ír.
+   * Ha nincs megadva, a publisher `[]`-t használ (a `web-client`
+   * fallback-et aktivál).
+   */
+  readonly strategies?: readonly StateFeedStrategyDescriptor[];
   /** A CONTROL üzenetek feldolgozó callback-je. */
   readonly handleControl?: (
     command: "start" | "stop" | "pause" | "resume" | "kill_switch",
@@ -138,6 +145,13 @@ export async function attachStateFeed(
       bot,
       ...(options.enabledSymbols !== undefined ? { enabledSymbols: options.enabledSymbols } : {}),
       ...(options.initialEquityUsdt !== undefined ? { initialEquityUsdt: options.initialEquityUsdt } : {}),
+      // Phase 52E bugfix: a `strategies` opció pass-through — a
+      // `start.ts` adja át a config-ből származtatott listát, és a
+      // publisher a SNAPSHOT `strategies` mezőjébe írja. A korábbi
+      // kód ezt az opciót SILENT eldobta, így a state-feed mindig
+      // `strategies: []`-t küldött, és a `/api/strategies` a
+      // fallback 1-stratégiás listát adta vissza.
+      ...(options.strategies !== undefined ? { strategies: options.strategies } : {}),
     });
   await publisher.start();
 

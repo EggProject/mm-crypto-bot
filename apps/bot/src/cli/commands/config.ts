@@ -9,8 +9,9 @@
  *   - `show`     — print the effective config (defaults + file + env merged)
  *                  as TOML. Useful for debugging "what did the bot actually
  *                  load?".
- *   - `init`     — write `config/default.toml` to a target path. Default
- *                  target is `./mm-bot.toml`. Useful for first-time setup.
+ *   - `init`     — write `run-bot/config/default.toml` to a target path.
+ *                  Default target is `./mm-bot.toml`. Useful for first-time
+ *                  setup.
  *
  * A `Phase 36 Track C1`-ben bevezetett `edit` sub-subcommand a TUI
  * settings paneljét nyitotta volna meg — a Phase 44 a TUI-t törölte,
@@ -273,8 +274,8 @@ export function validateConfigForEdit(target: string): number {
  *
  * Writes a starter TOML config to the given path (default: `./mm-bot.toml`).
  * We do NOT have a separate "template" file — we reuse the canonical
- * `config/default.toml` shipped in the repo (path resolved relative to
- * the current working directory). This way the user gets the production-
+ * `run-bot/config/default.toml` shipped in the repo (path resolved relative
+ * to the current working directory). This way the user gets the production-
  * default starting point, with all the helpful comments.
  *
  * If the user passes `--out` to a path that already exists, we refuse to
@@ -293,11 +294,19 @@ function runInit(outPath: string | undefined): number {
   // Locate the canonical default.toml. We try a few common relative
   // paths so this works whether the user runs from the repo root,
   // from `apps/bot/`, or from a build dir.
+  //
+  // Phase 52D: the canonical default.toml was relocated to
+  // `run-bot/config/default.toml` (Phase 52B relocation). The
+  // `apps/bot/config/default.toml` path is checked LAST as a
+  // legacy fallback (52D removes it; this lookup chain is here
+  // for in-flight 52B/52A branches that haven't yet picked up
+  // the relocation).
   const candidates = [
+    "run-bot/config/default.toml",
     "config/default.toml",
-    "apps/bot/config/default.toml",
     "../config/default.toml",
     "../../config/default.toml",
+    "apps/bot/config/default.toml",
   ];
   let sourcePath: string | null = null;
   for (const c of candidates) {
@@ -309,7 +318,7 @@ function runInit(outPath: string | undefined): number {
   if (sourcePath === null) {
     console.error(
       colorize(
-        "Could not locate config/default.toml. " +
+        "Could not locate run-bot/config/default.toml. " +
           "Run from the repo root (or pass --out and a TOML you have on hand).",
         "red",
       ),
