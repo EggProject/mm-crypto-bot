@@ -1,5 +1,5 @@
 ---
-description: Project board — mm-crypto-bot. Updated 2026-07-17 10:00 Budapest — Phase 48-51 CLOSED. Web dashboard end-to-end functional: chart grid, indicators, signals, rAF batching, Playwright e2e + MSW mocks, CI 20-min timeout, deployment README. 9 PRs merged (#133-#141). main at cda86e4, 7/7 server packages at 100% OWN line coverage.
+description: Project board — mm-crypto-bot. Updated 2026-07-17 22:35 Budapest — Phase 52 CLOSED. 3 critical bugs fixed (strategies pass-through, webDistDir dirname, state-feed attach ordering). Config relocated apps/bot/config/ → run-bot/config/. E2E coverage threshold 95%/90%/95% HARD-FAIL. PR #143 bundled, 30 files, +2403/-736. main at f2585f4, 7/7 packages at 100% OWN line coverage, 917 tests pass.
 ---
 
 # Project board — mm-crypto-bot (updated 2026-07-17 10:00 Budapest, **Phase 48-51 CLOSED**)
@@ -1204,3 +1204,64 @@ Full checklist with per-item context → [`docs/production-strategies/phase36-de
 
 After 37.1-37.4 merge, the user does the pre-launch verification per `phase36-deliverable.md` §9 + the new 37.5 live-rollout checklist. ONLY after user sign-off does `bot.mode = "live"` flip happen.
 
+
+## 🎉 Phase 52 — BUG FIXES + CONFIG RELOCATION + E2E THRESHOLD HARD-FAIL (CLOSED 2026-07-17 22:30 Budapest)
+
+**User trigger:** Phase 48-51 web dashboard shipped (PRs #133-#141). End-to-end browser test of the production dashboard exposed 3 critical bugs in the running system.
+
+**PR:** [#143](https://github.com/EggProject/mm-crypto-bot/pull/143) — single bundled PR, no DEFERREDs.
+
+### Bugs fixed (the actual scope of Phase 52E)
+
+| # | Bug | Root cause | Fix location |
+|---|-----|------------|--------------|
+| **52E.1** | `/api/strategies` returned only 1 strategy | `attachStateFeed` silently dropped the `strategies` option (no field in `AttachStateFeedOptions`, no spread to publisher) | `apps/bot/src/state-feed/index.ts` — added field + 3rd spread |
+| **52E.2** | `/` served "bundle not built yet" placeholder | `resolveWebDistDir` was off by one dirname (4 calls → `apps/`, needs 5 to reach repo root) | `apps/bot/src/web-client/index.ts` — added 5th `dirname` call |
+| **52E.3** | State-feed attach caused deadlock | `bot.start()` was called before `attachStateFeed` (the publisher's `start()` blocks on bot engine notify) | `apps/bot/src/cli/commands/start.ts` — moved attach before `bot.start()` (already in source, verified) |
+
+### Also shipped in PR #143
+
+- **Phase 52B**: Config relocation `apps/bot/config/` → `run-bot/config/`. The bot's own source tree no longer mixes with the operator's config.
+- **Phase 52C**: Global `mm-bot` shim in `bin/mm-bot` + post-install symlink to `/usr/local/bin/mm-bot`.
+- **Phase 52D**: `run-bot/config/default.toml` is now the Phase 37 Track 5 production-template (Tokyo edge, USDC, finomhangolt risk/timeout), with `mode="paper"` failsafe. User mandate (2026-07-16) "a default miert nem ugy van beallitva?" answered.
+- **Phase 52F**: E2E coverage threshold raised to 95% lines / 90% branches / 95% functions, HARD-FAIL (was 70/60/70 + warning-only).
+- **Phase 52G**: Doc audit — all `apps/bot/config/...` references updated to `run-bot/config/...`.
+
+### Tests added (100% OWN coverage maintained)
+
+- `apps/bot/src/state-feed/__tests__/index.test.ts`: NEW test "forwards the strategies option to the publisher SNAPSHOT (Phase 52E)" — verifies both publisher's `getSnapshot()` AND the TCP SNAPSHOT message.
+- `apps/bot/src/web-client/__tests__/http-server.test.ts`: NEW test "returns 200 with the strategies list from snapshot.strategies when populated (Phase 52E)" — covers the IF path of `buildStrategiesList` (the existing test covers the FALLBACK path).
+
+### Verification
+
+- 917 tests pass, 0 fail (was 915, +2 new tests)
+- 7/7 packages at 100% line coverage on OWN src/ files
+- 0 lint errors
+- typecheck OK
+- Live verification (curl on running bot):
+  - `GET /api/strategies` → 3 strategies (donchian_pivot_composition, dydx_cex_carry, cascade_fade) ✓
+  - `GET /api/health` → ok + state-feed connected + snapshot ✓
+  - `GET /` → real built bundle (title: "mm-crypto-bot · web") ✓
+
+### Post-mortem: "BUN CIRCULAR DEPENDENCY" was a RED HERRING
+
+The previous session's handoff claimed a "BUN CIRCULAR DEPENDENCY" whereby `bun.lock` cached the source SHA256 hash and only a `package.json` version bump + `bun install` would break the cache. This was WRONG.
+
+**Reality:** The running system was always picking up the new source code on every restart. The 2-hour debugging wild goose chase was caused by the previous session's INCOMPLETE FIXES (the 3 bugs above) being mistaken for a cache issue.
+
+**Fix methodology that ACTUALLY works (codified in MEMORY.md):**
+1. Read the source code diff end-to-end.
+2. Trace the data flow from source → consumer.
+3. Test the API endpoints / wire protocol directly.
+4. Verify path resolution with a one-liner.
+5. ONLY THEN consider cache theories — and even then, distrust them until you have direct evidence.
+
+**Lesson:** When "X is cached and not picking up changes" — first check that the changes are END-TO-END complete. In this case, the changes were INCOMPLETE (2 of 3 bugs were silent wire-up gaps, not what the previous session thought they were fixing).
+
+### Commits / files
+
+- 1 commit on `fix/phase-52-closure` branch
+- 30 files changed, 2403 insertions(+), 736 deletions(-)
+- main at `f2585f4` (was `7b94361`)
+- New files: `bin/mm-bot`, `run-bot/config/{default,live-tokyo,live-tokyo.example}.toml`, `scripts/{dev,verify-52e}.sh`, 2 new tests
+- PR #143 — pending 7 CI checks
