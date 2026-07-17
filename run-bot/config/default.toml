@@ -13,7 +13,7 @@
 #
 # Minden más szekció (`[exchange]`, `[compliance]`, `[risk]`,
 # `[symbols]`, `[strategies.*]`, `[telemetry]`, `[portfolio]`) a
-# Phase 37 Track 5 production-template-ből származik — Tokyo edge
+# Phase 37 Track 5 production-template (EU jurisdiction)-ből származik — bybit.eu edge
 # endpoint, USDC symbol-ok, finomhangolt risk/timeout paraméterek.
 #
 # ===========================================================================
@@ -23,7 +23,7 @@
 #    a default miert nem ugy van beallitva?"
 #
 # A Phase 37 Track 5 research (~75 web query, 2 hét optimalizáció)
-# kimosta, hogy a Tokyo edge endpoint, az USDC symbol-ok, és a
+# kimosta, hogy a bybit.eu edge endpoint, az USDC symbol-ok, és a
 # finomhangolt `slippage_pct` / `fee_tier` / `timeout_ms` értékek
 # a `live-tokyo.toml`-ban a "kioptimalizalt" production defaultok.
 # A `default.toml` mostantól ezeket tartalmazza — kivéve a `mode`
@@ -39,10 +39,10 @@
 #   # Paper (default, biztonságos — a user így indítja a botot):
 #   mm-bot start
 #
-#   # Live (explicit, Tokyo edge, user felelőssége):
+#   # Live (explicit, bybit.eu edge, user felelőssége):
 #   mm-bot start --config=run-bot/config/live-tokyo.toml
 #
-# A paper módban a bot a Tokyo edge endpoint-hoz csatlakozik market
+# A paper módban a bot a bybit.eu edge endpoint-hoz csatlakozik market
 # data-ért, de NEM tesz valódi order-eket — a tradek szimulálva
 # vannak. A web dashboard (`mm-bot web`) külön processzben csatlakozik
 # a bot state-feed-jére.
@@ -59,7 +59,7 @@
 # STRUKTÚRA (megegyezik a `live-tokyo.toml` szerkezetével)
 # ===========================================================================
 #   1) [bot]              — indítási mód, log-szint, state-fájl
-#   2) [exchange]         — Tokyo edge endpoint, latency-tuned timeouts
+#   2) [exchange]         — bybit.eu edge endpoint, latency-tuned timeouts
 #   2.5) [compliance]     — JP joghatóság, MSB regisztráció
 #   3) [risk]             — 1:10 leverage, 15% DD, 1% per-trade
 #   4) [symbols]          — BTC/USDC, ETH/USDC, SOL/USDC
@@ -87,16 +87,16 @@ log_level = "info"    # "debug" | "info" | "warn" | "error"
 state_file = "data/bot-state.json"
 
 # ======================================================================
-# 2) EXCHANGE — Tokyo edge endpoint, latency-tuned timeouts
+# 2) EXCHANGE — bybit.eu edge endpoint, latency-tuned timeouts
 # ======================================================================
-# A Phase 37 Track 5 production-template értékei (a bybit.eu default
-# helyett Tokyo edge). Paper módban is ezen az endpoint-on csatlakozik
+# A Phase 37 Track 5 production-template (EU jurisdiction) értékei (a bybit.eu default
+# helyett bybit.eu edge). Paper módban is ezen az endpoint-on csatlakozik
 # a market data feed-hez — a paper engine NEM tesz valódi order-eket,
 # csak szimulálja a tradeket.
 #
 # A CCXT Pro `bybiteu` exchange ID-t használ (a bybit.jp ugyanazt a
 # CCXT class-t használja — ld. `packages/exchange/src/factory.ts`).
-# Az `endpoint` és `ws_endpoint` a Tokyo-specifikus edge-ekre mutatnak
+# Az `endpoint` és `ws_endpoint` a EU-specifikus edge-ekre mutatnak
 # — a CCXT Pro nem ismeri fel ezeket automatikusan, a user felelőssége
 # a megfelelő beállítás.
 #
@@ -106,22 +106,22 @@ state_file = "data/bot-state.json"
 # ----------------------------------------------------------------------
 [exchange]
 id = "bybiteu"                          # CCXT exchange ID (bybit.eu / bybit.jp azonos class)
-endpoint = "https://api.bybit.jp"       # Tokyo REST edge endpoint
-ws_endpoint = "wss://stream.bybit.jp"   # Tokyo WebSocket edge endpoint
+endpoint = "https://api.bybit.eu"       # bybit.eu REST endpoint (EU jurisdiction)
+ws_endpoint = "wss://stream.bybit.eu"   # bybit.eu WebSocket endpoint
 timeout_ms = 5000                       # REST timeout (ms) — co-loc-hoz csökkentve
-rate_limit_ms = 80                      # CCXT rate-limit (ms/kérés) — bybit.jp magasabb limit
-sandbox = false                         # bybit.jp — nincs valódi sandbox
+rate_limit_ms = 80                      # CCXT rate-limit (ms/kérés) — bybit.eu magasabb limit
+sandbox = false                         # bybit.eu — nincs valódi sandbox
 
 # Phase 37 Track 2 mezők — finomhangolt Tokyo-értékekkel
-slippage_pct = 0.03                     # 3% — tight, mert a Tokyo edge alacsonyabb slippage-ot ad
-fee_tier = "vip"                        # bybit.jp-n a VIP tier olcsóbb maker fee-t biztosít
-rate_limit_per_min = 200                # bybit.jp magasabb per-minute limitet ad Japan-IP-ről
+slippage_pct = 0.03                     # 3% — tight, mert a bybit.eu edge alacsonyabb slippage-ot ad
+fee_tier = "vip"                        # bybit.eu-n a VIP tier olcsóbb maker fee-t biztosít
+rate_limit_per_min = 200                # bybit.eu magasabb per-minute limitet ad EU-IP-ről
 ws_reconnect_delay_ms = 500             # gyorsabb reconnect (co-loc-hoz, ahol nincs hálózati szakadás)
 
 # ======================================================================
-# 2.5) COMPLIANCE — Japán joghatóság
+# 2.5) COMPLIANCE — EU joghatóság
 # ======================================================================
-# A `jp_msb_registered` flag a JP FSA (Pénzügyi Szolgáltatások
+# A `eu_mica_registered` flag a EU MiCA (Pénzügyi Szolgáltatások
 # Ügynöksége) Crypto-Asset Exchange Service Provider (暗号資産交換業)
 # regisztráció meglétét jelzi. A user felelőssége a helyes érték
 # beállítása — a Phase 37 Track 5 pre-launch checklist ezt kipipálja.
@@ -133,8 +133,7 @@ ws_reconnect_delay_ms = 500             # gyorsabb reconnect (co-loc-hoz, ahol n
 # funkcionális hatása.
 # ----------------------------------------------------------------------
 [compliance]
-jurisdiction = "JP"             # Japán joghatóság
-jp_msb_registered = false       # TODO: ha van JP FSA regisztrációd, állítsd `true`-ra
+jurisdiction = "EU"             # EU joghatóság (MiCA — Markets in Crypto-Assets Regulation)
 
 # ======================================================================
 # 3) RISK — projekt-szintű kockázati limitek
@@ -179,13 +178,13 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 
 # --- 5.2) dYdX-vs-CEX cross-venue funding carry (Phase 25 #2 T2) ---
 [strategies.dydx_cex_carry]
-enabled = true             # BTC-USD only (per Phase 25 #2 scope lock)
+enabled = false            # DISABLED for SPOT-only: funding carry is derivatives, not spot
 cap = 0.025                # 1/2 of §7.3 spec value 0.05
 notional_per_leg_usd = 125000   # $125k/leg (1/2 of §7.3 spec $250k)
 
 # --- 5.3) Liquidation cascade "fade-the-cascade" (Phase 25 #2 T2D) ---
 [strategies.cascade_fade]
-enabled = true
+enabled = false            # SPOT-only: cascade fade is derivatives, not spot
 max_notional_per_event_usd = 1000000   # $1M/event (per-event cap)
 cooldown_hours = 24                   # 24h cooldown between BTC entries
 

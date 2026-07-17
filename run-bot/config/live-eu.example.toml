@@ -35,7 +35,7 @@
 # A `default.toml` `https://api.bybiteu.com` endpointjával szemben
 # ~5-10 ms RTT-t spórolunk meg körönként.
 # ----------------------------------------------------------------------
-# endpoint = "https://api.bybit.jp"
+# endpoint = "https://api.bybit.eu"
 
 # ======================================================================
 # 2) EXCHANGE.WS_ENDPOINT — `wss://stream.bybit.jp`
@@ -52,7 +52,7 @@
 #     listáját tartalmazza.
 #   - https://docs.ccxt.com/#/exchanges/bybit — CCXT Bybit leírás.
 # ----------------------------------------------------------------------
-# ws_endpoint = "wss://stream.bybit.jp"
+# ws_endpoint = "wss://stream.bybit.eu"
 
 # ======================================================================
 # 3) EXCHANGE.TIMEOUT_MS — 5000 (default 10000-ről csökkentve)
@@ -129,7 +129,7 @@
 #     részletei.
 # ----------------------------------------------------------------------
 # [compliance]
-# jurisdiction = "JP"
+# jurisdiction = "EU"
 
 # ======================================================================
 # 7) COMPLIANCE.JP_MSB_REGISTERED — false (DEFAULT-OFF)
