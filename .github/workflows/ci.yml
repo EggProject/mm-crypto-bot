@@ -140,3 +140,73 @@ jobs:
             coverage/merged/lcov.info
           if-no-files-found: warn
           retention-days: 30
+
+  # PHASE 48D: Playwright e2e suite for the apps/web dashboard.
+  # The 20-min `timeout-minutes:` is the user-mandated hard cap
+  # (2026-07-17 00:08) — if the suite doesn't finish in 20 min,
+  # GitHub Actions kills the job. The `e2e:full` script (in
+  # apps/web/package.json) is reserved for nightly/manual runs
+  # with a 30-min cap (not wired to a separate job here; the
+  # default `e2e` script is the CI-bound one).
+  e2e-playwright:
+    name: e2e (Playwright + MSW + 95% coverage)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/web/bun.lock', 'bun.lock') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - name: Run Playwright e2e suite (20-min suite timeout, 95% coverage gate)
+        id: e2e
+        run: cd apps/web && bun run e2e
+        timeout-minutes: 20
+      - name: Upload Playwright coverage (lcov + json-summary + html)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-coverage
+          path: |
+            apps/web/coverage/playwright/coverage-final.json
+            apps/web/coverage/playwright/report/lcov.info
+            apps/web/coverage/playwright/report/coverage-summary.json
+            apps/web/coverage/playwright/report/html
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Upload Playwright HTML test report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: apps/web/coverage/playwright/html-report
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request' && github.ref != 'refs/heads/main'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: playwright-coverage
+          message: |
+            **Playwright e2e coverage (apps/web)**
+
+            | Metric | Coverage | Threshold |
+            | --- | --- | --- |
+            | Lines | see coverage-summary.json | 95% |
+            | Branches | see coverage-summary.json | 90% |
+            | Functions | see coverage-summary.json | 95% |
+
+            Full report: `apps/web/coverage/playwright/report/html/index.html`
+            (attached as the `playwright-coverage` artifact).
