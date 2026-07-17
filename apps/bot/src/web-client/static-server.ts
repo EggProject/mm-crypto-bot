@@ -206,6 +206,19 @@ function handleStaticRequest(req: Request, webDistDir: string): Response {
     return serveStaticFile(webDistDir, path.slice("/static/".length));
   }
 
+  // Phase 52E: a Vite build az asset-eket az
+  // `apps/web/dist/assets/` mappába rakja, és az index.html
+  // `<script src="/assets/...">`-re hivatkozik. A statikus
+  // handlernek a `/assets/*` útvonalat is kezelnie kell —
+  // különben a valódi böngésző 404-et kap a JS/CSS assetekre,
+  // és a dashboard soha nem bootol be. A `serveStaticFile`
+  // hívásban az `assets/` prefixet megtartjuk (a Vite build az
+  // `assets/` mappába rakja a fájlokat, és a
+  // `webDistDir/assets/<file>` útvonalon kell keresnünk).
+  if (path.startsWith("/assets/")) {
+    return serveStaticFile(webDistDir, `assets/${path.slice("/assets/".length)}`);
+  }
+
   return textResponse("not found", 404);
 }
 

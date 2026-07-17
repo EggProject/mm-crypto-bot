@@ -225,6 +225,69 @@ describe("static-server", () => {
     });
   });
 
+  describe("GET /assets/* (Phase 52E — Vite build path)", () => {
+    // Phase 52E: a Vite build az `assets/` mappába rakja a bundle-t
+    // (index.html is `/assets/index-XXXX.js`-re hivatkozik), de a
+    // produkciós `mm-bot web` korábban csak `/static/*`-ot szolgált.
+    // Ezek a tesztek a `/assets/*` útvonalat is ellenőrzik.
+
+    it("serves a JS file from the assets path with the correct content-type", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      try {
+        const { mkdirSync } = await import("node:fs");
+        mkdirSync(join(tmp, "assets"), { recursive: true });
+        writeFileSync(join(tmp, "assets", "index-abc.js"), "console.log('asset');");
+        const handler = createStaticHandler({ webDistDir: tmp });
+        const res = await handler(new Request("http://localhost/assets/index-abc.js"));
+        expect(res.status).toBe(200);
+        const text = await res.text();
+        expect(text).toBe("console.log('asset');");
+        expect(res.headers.get("content-type")).toContain("text/javascript");
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("serves a CSS file from the assets path with the correct content-type", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      try {
+        const { mkdirSync } = await import("node:fs");
+        mkdirSync(join(tmp, "assets"), { recursive: true });
+        writeFileSync(join(tmp, "assets", "index-abc.css"), "body { color: blue; }");
+        const handler = createStaticHandler({ webDistDir: tmp });
+        const res = await handler(new Request("http://localhost/assets/index-abc.css"));
+        expect(res.status).toBe(200);
+        expect(res.headers.get("content-type")).toContain("text/css");
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("returns 404 for a missing assets file", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      try {
+        const handler = createStaticHandler({ webDistDir: tmp });
+        const res = await handler(new Request("http://localhost/assets/missing.js"));
+        expect(res.status).toBe(404);
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("rejects path traversal on /assets/*", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      try {
+        const handler = createStaticHandler({ webDistDir: tmp });
+        const res = await handler(
+          new Request("http://localhost/assets/" + encodeURIComponent("../../../etc/passwd")),
+        );
+        expect(res.status).toBe(403);
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe("unknown routes", () => {
     it("returns 404 for routes that are neither / nor /static/*", async () => {
       const handler = createStaticHandler({ webDistDir: "/nonexistent" });

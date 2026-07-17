@@ -174,8 +174,16 @@ async function handleHttpRequest(req: Request, ctx: HttpHandlerContext): Promise
   const path = url.pathname;
   const method = req.method.toUpperCase();
 
-  // A GET / és a GET /static/* a static handler-re megy.
-  if (method === "GET" && (path === "/" || path.startsWith("/static/"))) {
+  // A GET / és a GET /static/* + GET /assets/* a static handler-re megy.
+  // Phase 52E (REVISED 2026-07-18 00:25 Budapest): a Vite build az
+  // asset-eket az `assets/` mappába rakja, és az index.html
+  // `<script src="/assets/...">`-re hivatkozik. A router szintjén is
+  // hozzá kell adni a `/assets/*` útvonalat a static handlerhez —
+  // különben a `/assets/*` kérések a 404-es fallback ágba esnek.
+  if (
+    method === "GET" &&
+    (path === "/" || path.startsWith("/static/") || path.startsWith("/assets/"))
+  ) {
     return await ctx.staticHandler(req);
   }
 
