@@ -9,6 +9,13 @@
 # review-zni a PR-eken, és jobb együttműködés a Turborepo cache-ével.
 [install]
 exact = false  # caret/tilde engedélyezett — verzió-pin a package.json-ban van
+# A BUN 1.x default "isolated" linker módját használjuk — a
+# `node_modules/.bun/node_modules/<csomag>` mappában tárolja a
+# csomagokat. A BUN a forráskód futtatásakor (`bun run src/...`)
+# a `.bun/node_modules/`-ból tölti a module-öket, beleértve a
+# `--external` (pl. `protobufjs`) csomagokat is. A symlink-ek
+# a `node_modules` gyökerében NEM jönnek létre, de ez nem
+# probléma, mert a BUN a belső cache-ét használja.
 
 [install.scopes]
 # A workspace-t a `package.json` `workspaces` mezőjéből olvassa a Bun,

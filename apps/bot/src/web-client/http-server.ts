@@ -232,19 +232,44 @@ function handleGetStrategies(ctx: HttpHandlerContext): Response {
 }
 
 /**
- * `buildStrategiesList` — a state-feed SNAPSHOT-ból kinyeri a
- * stratégiák listáját. A state-feed protokoll a Phase 45-ben a
- * SNAPSHOT-ot a `StateFeedSnapshot` shape-pel küldi; a `strategies`
- * mező jelenleg a `tickers` / `positions` részből származtatott
- * virtuális lista. A Phase 49+-ben a publisher külön `strategies`
- * mezőt fog hozzáadni.
+ * `buildStrategiesList` — a state-feed SNAPSHOT `strategies` mezőjéből
+ * nyeri ki a stratégiák listáját. Phase 52E bugfix: korábban ez a
+ * függvény HARDCODED 1 stratégiát adott vissza a `snapshot.tickers`
+ * alapján (`donchian_pivot_composition` néven), a `dydx_cex_carry` és
+ * `cascade_fade` stratégiák nem jelentek meg a dashboardon. A fix: a
+ * `LiveStatePublisher` a `LiveStatePublisherOptions.strategies` opcióból
+ * (vagy best-effort a `bot.config.strategies`-ből) építi a listát, és
+ * a SNAPSHOT `strategies` mezőjében tárolja. A `buildStrategiesList`
+ * mostantól a `snapshot.strategies`-ből olvas.
  */
-function buildStrategiesList(snapshot: StateFeedSnapshot): readonly {
+function buildStrategiesList(
+  snapshot: StateFeedSnapshot,
+): readonly {
   readonly name: string;
   readonly enabled: boolean;
   readonly symbols: readonly string[];
   readonly timeframes: readonly string[];
 }[] {
+  // Ha a SNAPSHOT `strategies` mezője NEM üres (Phase 52E óta a
+  // publisher a `LiveStatePublisherOptions.strategies`-ből építi),
+  // használjuk. Ha üres (legacy / fallback), a régi viselkedés:
+  // donchian_pivot_composition a `tickers` alapján.
+  // A `&&` feltétel az ESLint `@typescript-eslint/no-unnecessary-condition`
+  // miatt kell: a `StateFeedSnapshot.strategies` típusa `readonly
+  // StateFeedStrategyDescriptor[]` (mindig truthy), DE a legacy
+  // teszt fixture-ök (amik megkerülik a TypeScript típusellenőrzést)
+  // `undefined` értéket adhatnak át — ezt a futásidőben is kezelni
+  // kell, hogy ne dobjunk TypeError-t.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (snapshot.strategies && snapshot.strategies.length > 0) {
+    return snapshot.strategies.map((s) => ({
+      name: s.name,
+      enabled: s.enabled,
+      symbols: [...s.symbols],
+      timeframes: [...s.timeframes],
+    }));
+  }
+  // Fallback (régi kliens kompatibilitás): donchian_pivot_composition a tickers-ből.
   const timeframes = ["1h", "4h", "1d"] as const;
   const symbols = snapshot.tickers.map((t) => t.symbol);
   return [

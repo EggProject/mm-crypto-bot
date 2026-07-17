@@ -187,6 +187,8 @@ describe("http-server", () => {
           history: [],
           tickers: [{ symbol: "BTC/USDC", price: 60000, ts: 1 }],
           tickerEvents: [],
+          // Phase 52E: hiányzó `strategies` mező — a fallback
+          // (donchian_pivot_composition a tickers-ből) fut le.
           paused: false,
           killSwitchThresholdPct: -10,
         },
@@ -198,6 +200,64 @@ describe("http-server", () => {
       expect(body.strategies.length).toBe(1);
       expect(body.strategies[0]?.name).toBe("donchian_pivot_composition");
       expect(body.strategies[0]?.symbols).toContain("BTC/USDC");
+    });
+
+    it("returns 200 with the strategies list from snapshot.strategies when populated (Phase 52E)", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        {
+          status: {
+            mode: "with-bot",
+            engineAvailable: true,
+            engineError: null,
+            connected: true,
+            lastUpdate: 0,
+          },
+          running: false,
+          killSwitch: "armed",
+          positions: [],
+          statistics: {
+            totalPnlUsdt: 0,
+            winRate: 0,
+            maxDrawdownPct: 0,
+            totalTrades: 0,
+            winningTrades: 0,
+            losingTrades: 0,
+            sharpeRatio: 0,
+          },
+          history: [],
+          tickers: [{ symbol: "BTC/USDC", price: 60000, ts: 1 }],
+          tickerEvents: [],
+          // Phase 52E: a `strategies` mező 3 stratégiát tartalmaz —
+          // az új kód ezt olvassa, NEM a fallback-et.
+          strategies: [
+            { name: "donchian_pivot_composition", enabled: true, symbols: ["BTC/USDC", "ETH/USDC", "SOL/USDC"], timeframes: ["1h", "4h", "1d"] },
+            { name: "dydx_cex_carry", enabled: true, symbols: ["BTC/USDC"], timeframes: ["1h", "4h", "1d"] },
+            { name: "cascade_fade", enabled: true, symbols: ["BTC/USDC"], timeframes: ["1h", "4h", "1d"] },
+          ],
+          paused: false,
+          killSwitchThresholdPct: -10,
+        },
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/strategies"));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        strategies: { name: string; enabled: boolean; symbols: string[]; timeframes: string[] }[];
+      };
+      expect(body.strategies.length).toBe(3);
+      expect(body.strategies.map((s) => s.name)).toEqual([
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "cascade_fade",
+      ]);
+      // A `tickers` mezőből származó fallback NEM fut le, ha a
+      // `strategies` mező nem üres.
+      for (const s of body.strategies) {
+        expect(s.symbols.length).toBeGreaterThan(0);
+        expect(s.timeframes.length).toBeGreaterThan(0);
+      }
     });
   });
 

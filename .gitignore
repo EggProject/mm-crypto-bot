@@ -66,3 +66,6 @@ Desktop.ini
 
 # === Tardis / külső adatszolgáltatók lokális cache-ei ===
 .cache/
+
+# === Runtime state files (bot persistent state) ===
+data/

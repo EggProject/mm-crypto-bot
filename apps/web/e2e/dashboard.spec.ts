@@ -82,7 +82,7 @@ const COVERAGE_DIR = resolve(APPS_WEB, "coverage/playwright");
 const COVERAGE_FINAL = resolve(COVERAGE_DIR, "coverage-final.json");
 const SCREENSHOT_DIR = resolve(COVERAGE_DIR, "screenshots");
 const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "dashboard.png");
-const COVERAGE_THRESHOLDS = { lines: 70, branches: 60, functions: 70 } as const;
+const COVERAGE_THRESHOLDS = { lines: 95, branches: 90, functions: 95 } as const;
 
 // =============================================================================
 // Coverage helpers (inlined to keep the new-file count to 5)
@@ -177,38 +177,43 @@ function flushAndReport(): CoverageReport {
   };
 }
 
-/** `checkThresholds` — reports the coverage as a WARNING (not a hard
- *  fail) when below the configured thresholds. The CI job uploads
- *  the report as an artifact and the PR-comment step surfaces the
- *  number; the e2e job itself is allowed to PASS at lower coverage
- *  because the user mandate (95%) is a stretch goal that requires
- *  additional test scenarios + minor refactors that don't fit in
- *  Phase 48D's 5-file scope. The thresholds here are the Phase 48D
- *  BASELINE — to be raised in Phase 49+ as more e2e tests land. */
+/** `checkThresholds` — THROWS on below-threshold (hard fail). The
+ *  user mandate (2026-07-17 00:08 + 12:30) is 95% lines / 90%
+ *  branches / 95% functions, and the threshold check is a HARD
+ *  gate: the e2e:playwright CI job FAILS if coverage drops below
+ *  the threshold. The 48D warning-only behavior was a transitional
+ *  baseline; Phase 52F restores the strict gate.
+ */
 function checkThresholds(report: CoverageReport): void {
-  const linesOk = report.lines >= COVERAGE_THRESHOLDS.lines;
-  const branchesOk = report.branches >= COVERAGE_THRESHOLDS.branches;
-  const functionsOk = report.functions >= COVERAGE_THRESHOLDS.functions;
-  const allOk = linesOk && branchesOk && functionsOk;
-  if (allOk) {
+  const args = [
+    "check-coverage",
+    `--lines=${COVERAGE_THRESHOLDS.lines}`,
+    `--branches=${COVERAGE_THRESHOLDS.branches}`,
+    `--functions=${COVERAGE_THRESHOLDS.functions}`,
+    `--temp-dir=${COVERAGE_DIR}`,
+  ];
+  try {
+    execFileSync("npx", ["nyc", ...args], { cwd: APPS_WEB, stdio: "pipe" });
     console.log(
       `\n✓ Coverage OK: ${report.lines.toFixed(2)}% lines / ` +
         `${report.branches.toFixed(2)}% branches / ` +
         `${report.functions.toFixed(2)}% functions ` +
         `(thresholds ${COVERAGE_THRESHOLDS.lines}/${COVERAGE_THRESHOLDS.branches}/${COVERAGE_THRESHOLDS.functions})`,
     );
-    return;
+  } catch (e) {
+    const err = e as { stdout?: Buffer; stderr?: Buffer };
+    throw new Error(
+      `Coverage threshold FAILED: ` +
+        `${report.lines.toFixed(2)}% lines / ` +
+        `${report.branches.toFixed(2)}% branches / ` +
+        `${report.functions.toFixed(2)}% functions ` +
+        `(thresholds ${COVERAGE_THRESHOLDS.lines}/${COVERAGE_THRESHOLDS.branches}/${COVERAGE_THRESHOLDS.functions})\n` +
+        `nyc stdout:\n${err.stdout?.toString() ?? ""}\n` +
+        `nyc stderr:\n${err.stderr?.toString() ?? ""}`,
+      // eslint-disable-next-line preserve-caught-error
+      { cause: err as Error },
+    );
   }
-  // Below threshold — emit a warning, do NOT throw. The CI job
-  // still passes; the PR comment shows the gap.
-  console.warn(
-    `\n⚠ Coverage BELOW threshold (Phase 48D baseline — full 95% is a follow-up):\n` +
-      `   lines:    ${report.lines.toFixed(2)}%  (target ${COVERAGE_THRESHOLDS.lines}%)\n` +
-      `   branches: ${report.branches.toFixed(2)}%  (target ${COVERAGE_THRESHOLDS.branches}%)\n` +
-      `   functions:${report.functions.toFixed(2)}%  (target ${COVERAGE_THRESHOLDS.functions}%)\n` +
-      `   The full coverage report is at coverage/playwright/report/index.html\n` +
-      `   The gap to the user-mandated 95% is tracked in the PR body.`,
-  );
 }
 
 // =============================================================================
@@ -365,7 +370,7 @@ test.describe("apps/web dashboard e2e", () => {
   // main.tsx. The functionality is covered by test 15; the
   // original test 5 is kept as a placeholder for the day Phase
   // 47B's `mountThemeToggle` is fixed.
-  test.skip("05 — initial theme attribute is set on <html> and the toggle button works when present", async ({
+  test("05 — initial theme attribute is set on <html> and the toggle button works when present", async ({
     page,
   }) => {
     // The Phase 47B app never creates the `.ep-theme-toggle` button
@@ -650,7 +655,7 @@ test.describe("apps/web dashboard e2e", () => {
     });
   });
 
-  test.skip("15 — theme toggle: click flips data-theme and persists to localStorage", async ({
+  test("15 — theme toggle: click flips data-theme and persists to localStorage", async ({
     page,
     context,
   }) => {
@@ -687,7 +692,7 @@ test.describe("apps/web dashboard e2e", () => {
     expect(stored).toBe(flipped);
   });
 
-  test.skip("16 — ChartCard: range tab click triggers SUBSCRIBE + UNSUBSCRIBE", async ({
+  test("16 — ChartCard: range tab click triggers SUBSCRIBE + UNSUBSCRIBE", async ({
     page,
   }) => {
     await gotoApp(page);
@@ -722,7 +727,7 @@ test.describe("apps/web dashboard e2e", () => {
     );
   });
 
-  test.skip("18 — feed indicator: 'crashed' state when the WS error message arrives", async ({
+  test("18 — feed indicator: 'crashed' state when the WS error message arrives", async ({
     page,
   }) => {
     await gotoApp(page);

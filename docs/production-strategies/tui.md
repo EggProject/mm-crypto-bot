@@ -836,7 +836,7 @@ focus the terminal and try again.
 config file at "./mm-bot.toml": ENOENT...`
 
 **Fix:** the file is missing. Run `mm-bot config init --out=./mm-bot.toml`
-to scaffold a starter config (it copies `apps/bot/config/default.toml`).
+to scaffold a starter config (it copies `run-bot/config/default.toml`).
 Then open the settings panel again.
 
 ### 14.3 "Invalid TOML" / "Zod validation failed"

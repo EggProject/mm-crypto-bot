@@ -104,3 +104,25 @@ WRAPPER_EOF
 
 chmod +x "$WRAPPER"
 echo "[install-mm-bot] wrote wrapper: $WRAPPER"
+
+# Phase 52C: also make mm-bot globally available.
+REPO_ROOT_FROM_SCRIPT="$(cd "$(dirname "$0")/.." && pwd)"
+GLOBAL_SHIM="$REPO_ROOT_FROM_SCRIPT/bin/mm-bot"
+if [[ -f "$GLOBAL_SHIM" ]]; then
+  chmod +x "$GLOBAL_SHIM"
+  echo "[install-mm-bot] made bin/mm-bot executable"
+  if [[ ":$PATH:" == *":/usr/local/bin:"* ]]; then
+    if ln -sf "$GLOBAL_SHIM" /usr/local/bin/mm-bot 2>/dev/null; then
+      echo "[install-mm-bot] symlinked: /usr/local/bin/mm-bot -> $GLOBAL_SHIM"
+      echo "[install-mm-bot] ✅ 'mm-bot' is now available globally: $(command -v mm-bot)"
+    else
+      echo "[install-mm-bot] ⚠️  could not symlink to /usr/local/bin/mm-bot (permission denied?)" >&2
+      echo "[install-mm-bot]    Workaround: add '\$REPO_ROOT/bin' to your PATH" >&2
+    fi
+  else
+    echo "[install-mm-bot] ⚠️  /usr/local/bin not in \$PATH — mm-bot won't be globally available" >&2
+    echo "[install-mm-bot]    Add to your shell rc: export PATH=\"\$REPO_ROOT/bin:\$PATH\"" >&2
+  fi
+else
+  echo "[install-mm-bot] (skip global shim — bin/mm-bot not present in this checkout)"
+fi
