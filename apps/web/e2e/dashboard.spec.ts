@@ -1,7 +1,7 @@
 /**
  * apps/web/e2e/dashboard.spec.ts
  *
- * Playwright e2e suite for the apps/web dashboard. 10 tests
+ * Playwright e2e suite for the apps/web dashboard. 22 tests
  * covering the user-facing features:
  *
  *   1. dashboard loads — Top-nav, status pill "connected", ChartGrid visible
@@ -14,6 +14,11 @@
  *   8. feed indicator — renders the "live" state with the correct label
  *   9. sticky control bar — bottom of viewport, full-width
  *  10. REST + WS interception — confirms both transports work
+ *  11-13. ControlBar button interactions (Start / Stop+Pause+Resume / Kill)
+ *  17. ChartGrid subscribe lifecycle on mount + unmount
+ *  22. **deployment smoke test** — start, wait, stop, screenshot (Phase 51)
+ *
+ *  5, 14-16, 18 are skipped (Phase 47B/48D TODO placeholders).
  *
  * **MSW strategy:** the test sets `window.MSW_STARTED = true` via
  * `page.addInitScript` BEFORE the page loads. `main.tsx` sees the
@@ -75,6 +80,8 @@ const __dirname = dirname(__filename);
 const APPS_WEB = resolve(__dirname, "..");
 const COVERAGE_DIR = resolve(APPS_WEB, "coverage/playwright");
 const COVERAGE_FINAL = resolve(COVERAGE_DIR, "coverage-final.json");
+const SCREENSHOT_DIR = resolve(COVERAGE_DIR, "screenshots");
+const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "dashboard.png");
 const COVERAGE_THRESHOLDS = { lines: 70, branches: 60, functions: 70 } as const;
 
 // =============================================================================
@@ -727,5 +734,95 @@ test.describe("apps/web dashboard e2e", () => {
     await expect(feedIndicator).toBeVisible();
     const label = (await feedIndicator.locator(".ep-feed__label").textContent()) ?? "";
     expect(["Live", "Stale", "Paused"]).toContain(label.trim());
+  });
+
+  test("22 — deployment smoke: start → wait → stop, no console errors, screenshot", async ({
+    page,
+  }) => {
+    // Phase 51 final deployment smoke test. The test exercises the
+    // real user workflow:
+    //
+    //   1. Open the dashboard (the real production bundle, MSW-mocked).
+    //   2. Wait for the chart grid + positions table + control bar to
+    //      render (the three top-level panels the user sees).
+    //   3. Click "Start" (the primary action) — sends a CONTROL
+    //      message over the WS.
+    //   4. Wait 500ms (the user would naturally take a beat to read
+    //      the status pill change, if any).
+    //   5. Verify the status pill is still "connected" (the click
+    //      did not crash the WS).
+    //   6. Click "Stop" (the secondary action).
+    //   7. Verify no console errors fired during the test.
+    //   8. Take a full-viewport screenshot and save it to
+    //      `coverage/playwright/screenshots/dashboard.png` (the
+    //      user-facing artifact for visual verification).
+    //
+    // The screenshot path is INSIDE the existing `playwright-coverage`
+    // artifact's `coverage/playwright/` prefix, so the CI upload
+    // picks it up automatically — no extra artifact wiring required.
+    const consoleErrors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() !== "error") return;
+      const text = msg.text();
+      // Filter out known-flaky MSW service-worker WebSocket
+      // handshake noise: the MSW `ws.link()` handler can briefly
+      // drop the connection during the SW lifecycle, which the
+      // browser logs as "WebSocket connection failed" even though
+      // the dashboard's `useWebSocket()` auto-reconnects
+      // successfully. These are not real errors.
+      if (text.includes("WebSocket connection")) return;
+      consoleErrors.push(text);
+    });
+    page.on("pageerror", (err) => {
+      consoleErrors.push(`pageerror: ${err.message}`);
+    });
+
+    await gotoApp(page);
+
+    // 1) Wait for the three top-level panels to render. The chart
+    //    grid is the slowest (lightweight-charts mounts the canvas
+    //    asynchronously), so we wait for it first.
+    await expect(page.locator('[data-testid="chart-grid"]')).toBeVisible();
+    await expect(page.locator(".ep-control-bar")).toBeVisible();
+    // The positions table has at least one row (the MSW handler
+    // serves ≥1 open position).
+    const positionsTable = page.locator("table.ep-positions");
+    await expect(positionsTable).toBeVisible();
+    await expect(positionsTable.locator("tbody > tr").first()).toBeVisible();
+
+    // 2) Click "Start" — the primary action.
+    const startBtn = page.locator(
+      '.ep-control-bar__btn--primary:has-text("Start")',
+    );
+    await expect(startBtn).toBeEnabled();
+    await startBtn.click();
+
+    // 3) Wait 500ms (the user beat).
+    await page.waitForTimeout(500);
+
+    // 4) Status is still "connected" (the click did not crash the WS).
+    await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
+      "data-status",
+      "connected",
+    );
+
+    // 5) Click "Stop".
+    const stopBtn = page.locator(
+      '.ep-control-bar__btn:has-text("Stop")',
+    );
+    await expect(stopBtn).toBeEnabled();
+    await stopBtn.click();
+
+    // 6) Verify no console errors fired during the test. (We allow
+    //    the MSW worker boot message + vite HMR messages, but those
+    //    are logged as `info` / `log`, not `error`.)
+    expect(consoleErrors).toEqual([]);
+
+    // 7) Take the deployment screenshot. The path is under the
+    //    existing `playwright-coverage` artifact's prefix, so the
+    //    CI upload picks it up automatically.
+    mkdirSync(SCREENSHOT_DIR, { recursive: true });
+    await page.screenshot({ path: SCREENSHOT_PATH, fullPage: true });
+    expect(existsSync(SCREENSHOT_PATH)).toBe(true);
   });
 });
