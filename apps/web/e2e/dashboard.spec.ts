@@ -414,6 +414,14 @@ test.describe("apps/web dashboard e2e", () => {
       }
       inject();
     });
+    // Phase 52F follow-up: enable the MSW browser worker for this
+    // test too. The gotoApp() helper at the top of this file does
+    // the same — this test previously did not, so the WS
+    // bypassed the mock and the status pill stayed "disconnected".
+    // The test's ASSERTION (status="connected") is unchanged; this
+    // is test SETUP, in the same spirit as the button-injection
+    // addInitScript above.
+    await page.addInitScript(MSW_INIT_SCRIPT);
     await page.goto("/");
     await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
       "data-status",
@@ -689,6 +697,12 @@ test.describe("apps/web dashboard e2e", () => {
       }
       inject();
     });
+    // Phase 52F follow-up: enable the MSW browser worker for this
+    // test too. gotoApp() does the same; this test previously did
+    // not, so the WS bypassed the mock and the status pill stayed
+    // "disconnected". The test's ASSERTION (status="connected")
+    // is unchanged; this is test SETUP.
+    await page.addInitScript(MSW_INIT_SCRIPT);
     await page.goto("/");
     await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
       "data-status",
