@@ -69,3 +69,4 @@ Desktop.ini
 
 # === Runtime state files (bot persistent state) ===
 data/
+backtest-results/
