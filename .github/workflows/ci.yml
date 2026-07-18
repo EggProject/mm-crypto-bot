@@ -8,7 +8,7 @@ on:
 
 jobs:
   install-no-warnings:
-    name: Install no-warnings (Phase 40)
+    name: Install (no-warnings)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -149,7 +149,7 @@ jobs:
   # with a 30-min cap (not wired to a separate job here; the
   # default `e2e` script is the CI-bound one).
   e2e-playwright:
-    name: e2e (Playwright + MSW + 95% coverage)
+    name: e2e (Playwright + MSW + coverage gate)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -170,7 +170,7 @@ jobs:
             playwright-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
-      - name: Run Playwright e2e suite (20-min suite timeout, 95% coverage gate)
+      - name: Run Playwright e2e suite (20-min suite timeout, coverage gate)
         id: e2e
         run: cd apps/web && bun run e2e
         timeout-minutes: 20
