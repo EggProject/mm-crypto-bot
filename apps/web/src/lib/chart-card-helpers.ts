@@ -45,6 +45,7 @@ export const HEIGHTS: Readonly<Record<"sm" | "md" | "lg", number>> = {
 export function resolveHeight(h: CardHeight | undefined): number {
   if (typeof h === "number") return h;
   if (h === undefined) return HEIGHTS.md;
+  // eslint-disable-next-line security/detect-object-injection -- h is a closed union of "sm"|"md"|"lg"
   return HEIGHTS[h];
 }
 
