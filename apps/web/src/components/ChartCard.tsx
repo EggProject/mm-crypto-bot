@@ -46,6 +46,13 @@ import {
 } from "lightweight-charts";
 
 import type { ChartMarker, OHLCBar } from "../lib/ohlc-bridge.js";
+import {
+  markersAreVisible,
+  resolveHeight,
+  strategyHasTitle,
+  timeframeHasLabel,
+  type CardHeight,
+} from "../lib/chart-card-helpers.js";
 
 // The eggproject-design skill's LcWrap CSS — provides the chrome
 // (`.line-chart-wrapper`, `.line-chart-wrapper__header`, etc.).
@@ -100,7 +107,7 @@ export interface ChartCardProps {
   /** Range tab click handler. */
   readonly onRangeChange?: (id: string) => void;
   /** Card height. Default: "md" → 320px. */
-  readonly height?: "sm" | "md" | "lg" | number;
+  readonly height?: CardHeight;
 }
 
 // ============================================================================
@@ -135,19 +142,9 @@ const DEFAULT_RANGES: readonly ChartRange[] = [
   { id: "1d", label: "1D" },
 ] as const;
 
-/** Convenience heights for the `height` prop. */
-const HEIGHTS: Readonly<Record<"sm" | "md" | "lg", number>> = {
-  sm: 220,
-  md: 320,
-  lg: 480,
-};
-
-function resolveHeight(h: ChartCardProps["height"]): number {
-  if (typeof h === "number") return h;
-  if (h === undefined) return HEIGHTS.md;
-  // eslint-disable-next-line security/detect-object-injection -- h is a closed union
-  return HEIGHTS[h];
-}
+/** Convenience heights for the `height` prop — re-exported from
+ *  `lib/chart-card-helpers.ts` for direct unit-testability. */
+// (import lives at the top of the file with the other imports)
 
 /**
  * Feed state → CSS class + dot class + label.
@@ -230,6 +227,7 @@ interface ThemeColors {
  * `--ep-yolk-500` (gold) DOES exist and is used as-is for the up color.
  */
 function readTheme(): ThemeColors {
+  // istanbul ignore next -- SSR fallback (Vite is SPA, this is never hit in production)
   if (typeof document === "undefined") {
     // SSR fallback — never actually hit in Vite (no SSR), but keeps
     // the function safe for future Node-side tests.
@@ -474,10 +472,10 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
           {symbol !== "" && (
             <span className="line-chart-wrapper__symbol">{symbol}</span>
           )}
-          {strategy !== "" && (
+          {strategyHasTitle(strategy) && (
             <span className="line-chart-wrapper__title">{strategy}</span>
           )}
-          {timeframe !== "" && (
+          {timeframeHasLabel(timeframe) && (
             <span className="line-chart-wrapper__meta">{timeframe}</span>
           )}
         </div>
@@ -536,7 +534,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
           <span className="line-chart-wrapper__legend-swatch line-chart-wrapper__legend-swatch--candle-down" />
           Down candle
         </span>
-        {markers !== undefined && markers.length > 0 && (
+        {markersAreVisible(markers) && (
           <span className="line-chart-wrapper__legend-item">
             <span
               className="line-chart-wrapper__legend-swatch"
