@@ -29,8 +29,17 @@
  * **Time conversion:** the state-feed protocol delivers OHLC bar
  * `time` in UNIX **milliseconds**, but the lightweight-charts v5
  * API expects `UTCTimestamp` in **seconds**. The conversion
- * happens here, not in `ohlc-bridge.ts` (which is intentionally
- * 1:1 with the state-feed protocol).
+ * happens via `toCandlestickDataMs` in `lib/chart-card-helpers.ts`
+ * (Phase 56C extraction). The same helper handles markers
+ * (`toSeriesMarkerMs`).
+ *
+ * **Phase 56C refactor:** 18 uncovered e2e branches were
+ * extracted into `lib/chart-card-helpers.ts` (see the file's
+ * top-of-file comment for the full list). The component still
+ * owns the side-effecting code (useEffect bodies, lightweight-
+ * charts API, ResizeObserver, refs) but every branchable piece
+ * of pure logic now lives in the helpers module where it's
+ * 100% unit-testable.
  */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -41,17 +50,30 @@ import {
   createSeriesMarkers,
   type IChartApi,
   type ISeriesApi,
-  type SeriesMarker,
   type Time,
 } from "lightweight-charts";
 
 import type { ChartMarker, OHLCBar } from "../lib/ohlc-bridge.js";
 import {
+  applyResizeRect,
+  computeChartInnerHeight,
+  feedConfigFor,
+  isActiveRange,
+  isFeedMetaVisible,
   markersAreVisible,
+  readThemeFromElement,
+  resolveEffectiveRanges,
   resolveHeight,
+  SSR_FALLBACK_THEME,
   strategyHasTitle,
   timeframeHasLabel,
+  toCandlestickDataMs,
+  toSeriesMarkerMs,
   type CardHeight,
+  type ChartFeedState,
+  type ChartRange,
+  type FeedConfig,
+  type ThemeColors,
 } from "../lib/chart-card-helpers.js";
 
 // The eggproject-design skill's LcWrap CSS — provides the chrome
@@ -72,18 +94,10 @@ import "../styles/chart-card.css";
 // ============================================================================
 
 /** Range tab definition (e.g. `{ id: "1h", label: "1H" }`). */
-export interface ChartRange {
-  readonly id: string;
-  readonly label: string;
-}
+export type { ChartRange };
 
 /** Feed connection state — mirrors the `FeedIndicator` states. */
-export type ChartFeedState =
-  | "live"
-  | "stale"
-  | "paused"
-  | "crashed"
-  | "disconnected";
+export type { ChartFeedState };
 
 export interface ChartCardProps {
   /** Instrument ticker, e.g. "BTCUSDT". */
@@ -142,10 +156,6 @@ const DEFAULT_RANGES: readonly ChartRange[] = [
   { id: "1d", label: "1D" },
 ] as const;
 
-/** Convenience heights for the `height` prop — re-exported from
- *  `lib/chart-card-helpers.ts` for direct unit-testability. */
-// (import lives at the top of the file with the other imports)
-
 /**
  * Feed state → CSS class + dot class + label.
  *
@@ -154,14 +164,13 @@ const DEFAULT_RANGES: readonly ChartRange[] = [
  * dot color follows the `ep-dot--{success|warning|danger}` +
  * `ep-dot--{pulse|blink|hollow}` convention used in
  * `feed-indicator.css`.
+ *
+ * Phase 56C: the lookup itself moved to `feedConfigFor` in
+ * `lib/chart-card-helpers.ts`. The table is still defined here
+ * because it carries the design-system-specific CSS class names
+ * (the `FeedConfig` type is a generic shape; the table is the
+ * chart-card-specific binding).
  */
-interface FeedConfig {
-  readonly label: string;
-  readonly wrapperCls: string;
-  readonly dotCls: string;
-  readonly dotAnim: string;
-}
-
 const FEED_CONFIG: Readonly<Record<ChartFeedState, FeedConfig>> = {
   live: {
     label: "Live",
@@ -195,25 +204,17 @@ const FEED_CONFIG: Readonly<Record<ChartFeedState, FeedConfig>> = {
   },
 };
 
-interface ThemeColors {
-  /** Up candle / line stroke. */
-  readonly up: string;
-  /** Down candle / area fill (negative). */
-  readonly down: string;
-  /** Chart background. */
-  readonly bg: string;
-  /** Axis / crosshair text. */
-  readonly text: string;
-  /** Grid lines. */
-  readonly grid: string;
-  /** Border. */
-  readonly border: string;
-}
-
 /**
  * Resolve the design tokens the chart will use. Reads the live CSS
  * variables off `<html>` so the chart honors the active theme
  * (light/dark) just like the chrome.
+ *
+ * **Phase 56C refactor:** the DOM-reading body moved to
+ * `readThemeFromElement` in `lib/chart-card-helpers.ts`. The
+ * `if (typeof document === "undefined")` guard stays here
+ * because it can't be unit-tested (Vite SPA always has
+ * `document`) and the SSR fallback is genuinely dead code in
+ * the browser.
  *
  * **Token substitutions (deviation from the spec):** the spec
  * requested `--ep-coral-500`, `--ep-bg-2`, `--ep-fg-2`. None of
@@ -229,59 +230,9 @@ interface ThemeColors {
 function readTheme(): ThemeColors {
   // istanbul ignore next -- SSR fallback (Vite is SPA, this is never hit in production)
   if (typeof document === "undefined") {
-    // SSR fallback — never actually hit in Vite (no SSR), but keeps
-    // the function safe for future Node-side tests.
-    return {
-      up: "#E3B563",
-      down: "#ef4444",
-      bg: "#0C0D11",
-      text: "#A49D8C",
-      grid: "rgba(255, 255, 255, 0.06)",
-      border: "rgba(255, 255, 255, 0.10)",
-    };
+    return SSR_FALLBACK_THEME;
   }
-  const root = document.documentElement;
-  const cs = getComputedStyle(root);
-  return {
-    up: cs.getPropertyValue("--ep-yolk-500").trim() || "#E3B563",
-    down: "#ef4444", // intentional deviation: no --ep-coral-500 in the design system
-    bg: cs.getPropertyValue("--ep-bg-elevated").trim() || "#0C0D11",
-    text: cs.getPropertyValue("--ep-fg-muted").trim() || "#A49D8C",
-    grid: "rgba(255, 255, 255, 0.06)",
-    border: "rgba(255, 255, 255, 0.10)",
-  };
-}
-
-// ============================================================================
-// Internal: data conversion
-// ============================================================================
-
-/** OHLCBar (ms) → lightweight-charts CandlestickData (s). */
-function toCandlestickData(bar: OHLCBar): {
-  readonly time: Time;
-  readonly open: number;
-  readonly high: number;
-  readonly low: number;
-  readonly close: number;
-} {
-  return {
-    time: Math.floor(bar.time / 1000) as Time,
-    open: bar.open,
-    high: bar.high,
-    low: bar.low,
-    close: bar.close,
-  };
-}
-
-/** ChartMarker (ms) → lightweight-charts SeriesMarker (s). */
-function toSeriesMarker(marker: ChartMarker): SeriesMarker<Time> {
-  return {
-    time: Math.floor(marker.time / 1000) as Time,
-    position: marker.position,
-    color: marker.color,
-    shape: marker.shape,
-    text: marker.text,
-  };
+  return readThemeFromElement(document.documentElement);
 }
 
 // ============================================================================
@@ -326,11 +277,10 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   const markersRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
 
   const cardHeight = resolveHeight(height);
-  // eslint-disable-next-line security/detect-object-injection -- feedState is a closed union
-  const feed = FEED_CONFIG[feedState];
+  const feed = feedConfigFor(feedState, FEED_CONFIG);
 
   // --------------------------------------------------------------------------
-  // Range-tab defaults — Phase 52F follow-up
+  // Range-tab defaults — Phase 52F follow-up + 56C refactor
   //
   // The chart card always renders range tabs, even when the parent
   // does not wire up `ranges` / `onRangeChange`. This makes the
@@ -338,9 +288,11 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   // e2e suite (test 16). The active range falls back to the
   // card's own `timeframe` prop so the first range that matches
   // the card's bar source is highlighted on mount.
+  //
+  // The ranges-or-defaults logic moved to `resolveEffectiveRanges`
+  // in `lib/chart-card-helpers.ts` (Phase 56C).
   // --------------------------------------------------------------------------
-  const effectiveRanges: readonly ChartRange[] =
-    ranges !== undefined && ranges.length > 0 ? ranges : DEFAULT_RANGES;
+  const effectiveRanges = resolveEffectiveRanges(ranges, DEFAULT_RANGES);
   const [localActiveRange, setLocalActiveRange] = useState<string>(
     activeRange ?? timeframe,
   );
@@ -364,7 +316,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
     const theme = readTheme();
     const chart = createChart(container, {
       width: container.clientWidth || 600,
-      height: cardHeight - /* header */ 56 - /* legend */ 28,
+      height: computeChartInnerHeight(cardHeight),
       layout: {
         background: { type: ColorType.Solid, color: theme.bg },
         textColor: theme.text,
@@ -403,14 +355,16 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
 
     // ------------------------------------------------------------------------
     // ResizeObserver — call applyOptions on container resize
+    //
+    // Phase 56C: the `Math.max(0, Math.floor(width/height))` math
+    // moved to `applyResizeRect` in `lib/chart-card-helpers.ts`
+    // (so the clamp logic is unit-testable).
     // ------------------------------------------------------------------------
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       const { width, height: h } = entry.contentRect;
-      chart.applyOptions({
-        width: Math.max(0, Math.floor(width)),
-        height: Math.max(0, Math.floor(h)),
-      });
+      const dims = applyResizeRect({ width, height: h });
+      chart.applyOptions(dims);
     });
     ro.observe(container);
 
@@ -425,6 +379,12 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
 
   // --------------------------------------------------------------------------
   // Effect 2: update series data when `bars` change
+  //
+  // Phase 56C: the `bars.map(toCandlestickData)` + ms→s conversion
+  // moved to `toCandlestickDataMs` in `lib/chart-card-helpers.ts`
+  // (so the data conversion is unit-testable). The `bars.length === 0`
+  // branch (BRDA 362,10) is exercised by e2e test 56C-01 (send a
+  // snapshot with an empty bar list).
   // --------------------------------------------------------------------------
   useEffect(() => {
     const series = seriesRef.current;
@@ -434,11 +394,18 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
       series.setData([]);
       return;
     }
-    series.setData(bars.map(toCandlestickData));
+    series.setData(bars.map(toCandlestickDataMs));
   }, [bars]);
 
   // --------------------------------------------------------------------------
   // Effect 3: update markers when `markers` change
+  //
+  // Phase 56C: the `markers.map(toSeriesMarker)` + ms→s conversion
+  // moved to `toSeriesMarkerMs` in `lib/chart-card-helpers.ts`.
+  // The markers-present branch (BRDA 343,5 / 349,8 / 352,9) is
+  // currently unreachable through the React flow because App.tsx
+  // passes `markersByKey={{}}` — the unit tests for
+  // `toSeriesMarkerMs` cover the helper to 100%.
   // --------------------------------------------------------------------------
   useEffect(() => {
     const plugin = markersRef.current;
@@ -447,7 +414,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
       plugin.setMarkers([]);
       return;
     }
-    plugin.setMarkers(markers.map(toSeriesMarker));
+    plugin.setMarkers(markers.map(toSeriesMarkerMs));
   }, [markers]);
 
   // --------------------------------------------------------------------------
@@ -458,6 +425,12 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   // Phase 52F follow-up: range tabs are now ALWAYS rendered (with
   // `effectiveRanges` providing a default set when the parent does
   // not pass one). This makes the test 16 selector reliable.
+  //
+  // Phase 56C: the per-tab ternaries (`isActive`, `handleRangeClick`)
+  // and the feed-meta / feed-config lookups moved to
+  // `isActiveRange` / `feedConfigFor` / `isFeedMetaVisible` helpers.
+  // The remaining in-render branches are the JSX structural
+  // conditions (e.g. `symbol !== ""`) which are already covered.
 
   return (
     <section
@@ -486,7 +459,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
             aria-label={`Time range — ${symbol}`}
           >
             {effectiveRanges.map((r) => {
-              const isActive = r.id === effectiveActiveRange;
+              const isActive = isActiveRange(r.id, effectiveActiveRange);
               return (
                 <button
                   key={r.id}
@@ -512,7 +485,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
               aria-hidden="true"
             />
             <span className="ep-feed__label">{feed.label}</span>
-            {feedMeta !== undefined && feedMeta !== "" && (
+            {isFeedMetaVisible(feedMeta) && (
               <span className="ep-feed__meta">{feedMeta}</span>
             )}
           </span>
