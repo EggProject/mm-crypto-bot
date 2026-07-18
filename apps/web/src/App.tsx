@@ -5,6 +5,7 @@ import { ControlBar } from "./components/ControlBar.js";
 import { PositionsTable } from "./components/PositionsTable.js";
 import { ChartGrid, type StrategyDescriptor } from "./components/ChartGrid.js";
 import { chartKeyToString } from "./lib/subscription.js";
+import { parseStrategiesResponse } from "./lib/strategies-parser.js";
 import type { OHLCBar } from "./lib/ohlc-bridge.js";
 
 /**
@@ -157,23 +158,20 @@ export function App(): React.JSX.Element {
         }
         const body: unknown = await res.json();
         if (controller.signal.aborted) return;
-        // Validate the response shape — the endpoint returns
-        // `{ strategies: StrategyDescriptor[] }` per Phase 48B.
-        // A malformed response (unexpected proxy, 502 HTML page,
-        // etc.) is treated as a soft failure: keep the previous
-        // list and surface the error in the feed meta tail.
-        if (
-          typeof body === "object" &&
-          body !== null &&
-          "strategies" in body &&
-          Array.isArray(body.strategies)
-        ) {
-          setStrategies(
-            body.strategies as readonly StrategyDescriptor[],
-          );
+        // Phase 54F: delegate the shape check to a pure helper
+        // (unit-tested in `strategies-parser.test.ts`). The helper
+        // returns a discriminated `StrategiesResult` so we can
+        // dispatch on the `ok` flag without nested if-ladders.
+        // `parseStrategiesResponse` is sync (no await between the
+        // abort check above and this call), so the abort signal
+        // cannot have changed — a second check would be dead code
+        // and the linter flags it as such.
+        const parsed = parseStrategiesResponse(body);
+        if (parsed.ok) {
+          setStrategies(parsed.strategies);
           setStrategiesError(null);
         } else {
-          setStrategiesError("invalid /api/strategies response shape");
+          setStrategiesError(parsed.error);
         }
       } catch (e) {
         if (controller.signal.aborted) return;
