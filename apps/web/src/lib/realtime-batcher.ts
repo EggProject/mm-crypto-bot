@@ -132,7 +132,11 @@ export class RealtimeBatcher<T> {
       this.scheduler.clearTimeout(this.frameHandle);
       this.frameHandle = null;
     }
-    this.flush();
+    if (shouldFlush({ frameHandle: this.frameHandle }, this.queue.length)) {
+      const items = coalesceFrames(this.queue);
+      this.queue = [];
+      this.callback(items);
+    }
   }
 
   /**
@@ -158,12 +162,12 @@ export class RealtimeBatcher<T> {
 
   /** `flush()` — drain the queue, invoking the callback exactly once. */
   private flush(): void {
-    if (this.queue.length === 0) return;
+    if (!shouldFlush({ frameHandle: this.frameHandle }, this.queue.length)) return;
     // Move the queue to a local so a callback that pushes more items
     // starts a NEW batch (the next frame will see those new items).
     // This is the "snapshot the batch at flush time" semantics — it
     // matches the browser's natural microtask + paint ordering.
-    const items = this.queue;
+    const items = coalesceFrames(this.queue);
     this.queue = [];
     this.callback(items);
   }
@@ -208,4 +212,42 @@ function buildProductionScheduler(): RealtimeBatcherScheduler {
   // Node fallback: a 16ms `setTimeout` approximates a 60Hz rAF
   // cadence. Tests that need finer control pass `options.scheduler`.
   return SET_TIMEOUT_SCHEDULER;
+}
+
+/**
+ * `shouldFlush(state, queueLen)` — pure predicate that decides whether
+ * the current queue should be drained. The `state` arg is the
+ * batcher's relevant state (currently just `frameHandle`); the helper
+ * is structured as a predicate over state + queue length so the
+ * decision can be unit-tested without instantiating a
+ * `RealtimeBatcher` (and so future rAF / visibility / batch-size
+ * policies can extend it without rewriting the call sites).
+ *
+ * Phase 54D: today the rule is simply "drain if there's anything in
+ * the queue". The `frameHandle` is part of the contract so callers
+ * pass a post-cancel snapshot of state — the helper doesn't read
+ * the handle today, but the parameter is here so the same helper
+ * can grow to honor "skip if a frame is in flight" without
+ * touching the call sites.
+ */
+export function shouldFlush(
+  _state: { frameHandle: unknown },
+  queueLen: number,
+): boolean {
+  return queueLen > 0;
+}
+
+/**
+ * `coalesceFrames<T>(queue, capacity?)` — pure helper that returns
+ * the items to flush, capped at `capacity` (default: the whole
+ * queue). The slice is a defensive copy so the callback can mutate
+ * it without corrupting the batcher's state.
+ *
+ * Phase 54D: `capacity` defaults to `queue.length` (i.e. "flush
+ * everything queued"). The parameter is here so future policies
+ * (max-batch-size, sampling) can plug in without touching the
+ * call sites.
+ */
+export function coalesceFrames<T>(queue: T[], capacity = queue.length): T[] {
+  return queue.slice(0, capacity);
 }
