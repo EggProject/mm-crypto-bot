@@ -217,4 +217,39 @@ test.describe("53C — /api/strategies error branches", () => {
       )
       .toBeGreaterThan(0);
   });
+
+  test("53C-09 — null body: .ep-feed__meta shows 'null body' (Phase 54F coverage)", async ({
+    page,
+  }) => {
+    // Mock /api/strategies with HTTP 200 and the JSON literal
+    // `null` as the body. The dashboard's helper `parseStrategiesResponse`
+    // (extracted in Phase 54F) explicitly handles the null case
+    // (typeof null === "object" passes the typeof check, so a
+    // null check must come first) and returns the
+    // "null body" error. Without this test, the null branch
+    // would be uncovered by the e2e suite.
+    await page.route("**/api/strategies", (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "null",
+      });
+    });
+
+    const harness = await setupWsPeer(page);
+    await gotoAppBare(page);
+    await harness.waitForWsCount(3);
+    sendInitialServerMessages(harness);
+
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".ep-feed__meta")
+            .filter({ hasText: /null body/ })
+            .count(),
+        { timeout: 5_000, message: "expected .ep-feed__meta to show 'null body'" },
+      )
+      .toBeGreaterThan(0);
+  });
 });
