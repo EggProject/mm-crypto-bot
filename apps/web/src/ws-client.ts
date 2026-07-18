@@ -162,6 +162,56 @@ export function nextBackoffMs(
   return schedule[idx] ?? 30_000;
 }
 
+/**
+ * `shouldQueueSend(socket)` — pure predicate: is the socket
+ * in the `OPEN` state (`readyState === 1`) and therefore ready
+ * to accept a `send()` call? Mirrors the `WebSocket.OPEN`
+ * constant but uses the literal `1` for the same reason
+ * `send()` does: the test suite replaces `globalThis.WebSocket`
+ * with a `FakeWebSocket` whose `readyState` is tracked as a
+ * raw number, not via the `WebSocket.OPEN` static.
+ *
+ * Extracted in Phase 54B for unit-testability — the inline
+ * `this.socket !== null && this.socket.readyState === 1`
+ * expression in `send()` was not directly testable without
+ * driving a full WebSocketClient lifecycle, but the predicate
+ * itself is the actual unit of interest.
+ */
+export function shouldQueueSend(
+  socket: WebSocketLike | null,
+): socket is WebSocketLike {
+  return socket !== null && socket.readyState === 1;
+}
+
+/**
+ * `shouldScheduleReconnect(currentStatus, closedByCaller)` —
+ * pure predicate: should the close handler schedule a reconnect
+ * attempt? Two early-exit cases:
+ *
+ *   1. `currentStatus === "crashed"` — a non-recoverable error
+ *      has already put the client in the terminal `crashed`
+ *      state; reconnecting would mask the failure.
+ *   2. `closedByCaller === true` — the user called `close()`;
+ *      we must NOT reconnect.
+ *
+ * Otherwise the close was an unexpected socket-level close
+ * (network drop, server restart, idle timeout) and we should
+ * schedule a reconnect with exponential backoff.
+ *
+ * Extracted in Phase 54B for unit-testability — the inline
+ * guards in the close handler were not directly testable
+ * without driving a full close-event sequence, but the
+ * decision logic is the actual unit of interest.
+ */
+export function shouldScheduleReconnect(
+  currentStatus: WebSocketStatus,
+  closedByCaller: boolean,
+): boolean {
+  if (currentStatus === "crashed") return false;
+  if (closedByCaller) return false;
+  return true;
+}
+
 /** Minimal WebSocket interface — the global `WebSocket` is the production
  *  impl, the test fakes it via this interface. */
 export interface WebSocketLike {
@@ -284,10 +334,7 @@ export class WebSocketClient {
 
   /** Sends a message; no-op if the socket is not open. */
   send(msg: ClientMessage): void {
-    // The literal `1` matches the WebSocket.OPEN constant. We use the
-    // literal (not `WebSocket.OPEN`) so the test suite can replace
-    // `globalThis.WebSocket` without breaking the readyState check.
-    if (this.socket !== null && this.socket.readyState === 1) {
+    if (shouldQueueSend(this.socket)) {
       this.socket.send(JSON.stringify(msg));
     }
   }
@@ -394,15 +441,15 @@ export class WebSocketClient {
 
     socket.addEventListener("close", () => {
       this.socket = null;
-      // If the close was caused by a non-recoverable error, the
-      // `handleMessage("error")` already set the status to "crashed"
-      // and marked `closedByCaller = true` to prevent reconnect. We
-      // must NOT overwrite "crashed" with "disconnected" here.
-      if (this.currentStatus === "crashed") return;
-      // If the caller called `close()`, they already set the status to
-      // "disconnected" synchronously before triggering this event. Do
-      // not emit a duplicate transition.
-      if (this.closedByCaller) return;
+      // The two early-exit guards ("crashed" status + caller-initiated
+      // close) are encapsulated in `shouldScheduleReconnect` for
+      // unit-testability (Phase 54B). If the predicate says no, the
+      // close event was either a terminal crash (already handled by
+      // the `error` message branch) or a user-initiated shutdown
+      // (already handled by `close()`).
+      if (!shouldScheduleReconnect(this.currentStatus, this.closedByCaller)) {
+        return;
+      }
       // Schedule reconnect with exponential backoff. `nextBackoffMs`
       // is a pure function exported for unit-testability (Phase 53C).
       const delay = nextBackoffMs(this.attempt, this.backoffMs);
