@@ -4,6 +4,7 @@
  * default from index.html is used.
  */
 export function applyInitialTheme(): void {
+  /* istanbul ignore next -- SSR fallback (Vite is SPA, window is always defined) */
   if (typeof window === "undefined") return;
   const saved = window.localStorage.getItem("eggTheme");
   if (saved === "light" || saved === "dark") {
@@ -17,6 +18,7 @@ export function applyInitialTheme(): void {
  * localStorage. Called once from main.tsx after the React app mounts.
  */
 export function mountThemeToggle(): void {
+  /* istanbul ignore next -- SSR fallback (Vite is SPA, document is always defined) */
   if (typeof document === "undefined") return;
   // The .ep-theme-toggle button is defined in the eggproject-design CSS as a
   // 34px icon button that shows the theme you'll switch TO. We wire it here.
