@@ -2,12 +2,19 @@
  * apps/web/src/lib/realtime-batcher.test.ts
  *
  * Phase 50: bun:test unit tests for the RealtimeBatcher.
+ * Phase 54D: 5 new tests for the extracted `shouldFlush` /
+ * `coalesceFrames` pure helpers + the empty-queue no-callback paths.
  *
  * Coverage: 100% on realtime-batcher.ts.
  */
 
 import { describe, expect, it } from "bun:test";
-import { RealtimeBatcher, type RealtimeBatcherScheduler } from "./realtime-batcher.js";
+import {
+  RealtimeBatcher,
+  type RealtimeBatcherScheduler,
+  shouldFlush,
+  coalesceFrames,
+} from "./realtime-batcher.js";
 
 /** Build a synchronous scheduler that captures the callback + delay. */
 function makeCapturingScheduler(): {
@@ -166,6 +173,66 @@ describe("RealtimeBatcher", () => {
   it("constructor with no options uses the production scheduler (no throw)", () => {
     // Smoke test: the default scheduler must not throw on construction.
     const b = new RealtimeBatcher<number>(() => undefined);
+    expect(b.size()).toBe(0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Phase 54D — pure helpers (`shouldFlush`, `coalesceFrames`)
+  // ---------------------------------------------------------------------------
+
+  it("shouldFlush returns false when the queue is empty", () => {
+    // Covers the false-branch of `queueLen > 0` inside `shouldFlush`.
+    expect(shouldFlush({ frameHandle: null }, 0)).toBe(false);
+  });
+
+  it("shouldFlush returns true when the queue has items", () => {
+    // Covers the true-branch of `queueLen > 0` inside `shouldFlush`.
+    expect(shouldFlush({ frameHandle: null }, 5)).toBe(true);
+  });
+
+  it("coalesceFrames returns the whole queue by default and caps at the given capacity", () => {
+    // Default capacity == queue.length: full queue returned.
+    expect(coalesceFrames([1, 2, 3])).toEqual([1, 2, 3]);
+    // Capacity < queue.length: only the first N items returned.
+    expect(coalesceFrames([1, 2, 3], 2)).toEqual([1, 2]);
+  });
+
+  it("push(x); push(y); flushNow() invokes the callback ONCE with both items", () => {
+    // Verifies the flushNow early-return path is reached: the
+    // cancellation block runs (frameHandle is non-null), then
+    // shouldFlush returns true (queue has 2 items), then the
+    // callback fires with the coalesced [x, y] snapshot.
+    const cap = makeCapturingScheduler();
+    const batches: number[][] = [];
+    const b = new RealtimeBatcher<number>((items) => {
+      batches.push([...items]);
+    }, { scheduler: cap.scheduler });
+    b.push(1);
+    b.push(2);
+    b.flushNow();
+    expect(batches).toEqual([[1, 2]]);
+    expect(b.size()).toBe(0);
+  });
+
+  it("empty queue (pushMany([]) and flushNow with no prior push) does not invoke the callback", () => {
+    // Verifies the false-branch of shouldFlush from two entry points:
+    //   - pushMany([]): the early-return at the top of pushMany
+    //     keeps the queue empty, so shouldFlush returns false.
+    //   - flushNow() with no prior push: queue is empty, shouldFlush
+    //     returns false, callback is NOT invoked.
+    const cap = makeCapturingScheduler();
+    let calls = 0;
+    const receivedBatches: number[][] = [];
+    const b = new RealtimeBatcher<number>((items) => {
+      calls += 1;
+      receivedBatches.push([...items]);
+    }, { scheduler: cap.scheduler });
+    b.pushMany([]);
+    expect(calls).toBe(0);
+    expect(receivedBatches).toEqual([]);
+    b.flushNow();
+    expect(calls).toBe(0);
+    expect(receivedBatches).toEqual([]);
     expect(b.size()).toBe(0);
   });
 });
