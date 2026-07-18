@@ -17,6 +17,7 @@
  *   - error: string | null               (latest error message)
  *   - lastTick: TickMessage | null       (latest tick, batched via rAF)
  *   - lastBar: BarMessage | null         (latest bar, batched via rAF)
+ *   - markers: readonly MarkerMessage[]  (cumulative, batched via rAF)
  *   - send(msg: ClientMessage): void     (send SUBSCRIBE/UNSUBSCRIBE/CONTROL/PONG)
  *
  * Architecture: the `WebSocketClient` class is the testable unit (no
@@ -85,6 +86,10 @@ export type TickMessage = Extract<ServerMessage, { type: "tick" }>;
 /** `BarMessage` — alias for the `bar` arm of the `ServerMessage` union. */
 export type BarMessage = Extract<ServerMessage, { type: "bar" }>;
 
+/** `MarkerMessage` — alias for the `marker` arm of the
+ *  `ServerMessage` union. Phase 55-3. */
+export type MarkerMessage = Extract<ServerMessage, { type: "marker" }>;
+
 export type ClientMessage =
   | { type: "subscribe"; symbol: string; timeframe: string }
   | { type: "unsubscribe"; symbol: string; timeframe: string }
@@ -114,6 +119,10 @@ export interface WebSocketState {
   readonly lastTick: TickMessage | null;
   /** Latest bar received, batched via `requestAnimationFrame`. */
   readonly lastBar: BarMessage | null;
+  /** Cumulative list of all `marker` messages received since mount,
+   *  appended in arrival order, batched via `requestAnimationFrame`.
+   *  Phase 55-3. */
+  readonly markers: readonly MarkerMessage[];
   readonly send: (msg: ClientMessage) => void;
 }
 
@@ -282,6 +291,10 @@ export class WebSocketClient {
   // produces ONE React setState per frame, not 60.
   private readonly tickListeners = new Set<(m: TickMessage) => void>();
   private readonly barListeners = new Set<(m: BarMessage) => void>();
+  // Phase 55-3: marker listeners — markers are accumulated
+  // (not replaced with the latest), so the hook maintains a
+  // cumulative `markers` array.
+  private readonly markerListeners = new Set<(m: MarkerMessage) => void>();
 
   constructor(options: WebSocketClientOptions = {}) {
     this.url = options.url ?? DEFAULT_URL;
@@ -397,6 +410,19 @@ export class WebSocketClient {
     this.barListeners.add(listener);
     return () => {
       this.barListeners.delete(listener);
+    };
+  }
+
+  /**
+   * `onMarker(listener)` — Phase 55-3: subscribe to `marker`
+   * messages. Each marker is delivered to every registered
+   * listener; the `useWebSocket` hook accumulates them into
+   * the `markers` state array (append, not replace).
+   */
+  onMarker(listener: (m: MarkerMessage) => void): Unsubscribe {
+    this.markerListeners.add(listener);
+    return () => {
+      this.markerListeners.delete(listener);
     };
   }
 
@@ -537,7 +563,17 @@ export class WebSocketClient {
           }
         }
         return;
-      // hello, indicator, marker — not yet wired (Phase 49+).
+      case "marker":
+        // Phase 55-3: marker messages are routed to subscribers.
+        for (const listener of this.markerListeners) {
+          try {
+            listener(msg);
+          } catch {
+            // best-effort
+          }
+        }
+        return;
+      // hello, indicator — not yet wired (Phase 49+).
       default:
         return;
     }
@@ -584,6 +620,12 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
   // 60Hz ticks into 60fps React renders.
   const [lastTick, setLastTick] = useState<TickMessage | null>(null);
   const [lastBar, setLastBar] = useState<BarMessage | null>(null);
+  // Phase 55-3: cumulative list of marker messages. Unlike
+  // tick/bar, markers are NOT a "latest wins" stream — the
+  // dashboard shows the full marker history per chart key, so
+  // the batcher appends each frame's batch to the running
+  // `readonly MarkerMessage[]` array.
+  const [markers, setMarkers] = useState<readonly MarkerMessage[]>([]);
 
   // The client lives in a ref so the `send` callback (and other handlers)
   // can access it without re-creating on every render.
@@ -592,6 +634,9 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
   // without being recreated (recreation would lose queued items).
   const tickBatcherRef = useRef<RealtimeBatcher<TickMessage> | null>(null);
   const barBatcherRef = useRef<RealtimeBatcher<BarMessage> | null>(null);
+  // The marker batcher is parallel to the tick/bar batchers; its
+  // callback APPENDS to the cumulative `markers` array.
+  const markerBatcherRef = useRef<RealtimeBatcher<MarkerMessage> | null>(null);
 
   useEffect(() => {
     const client = new WebSocketClient({ url });
@@ -610,8 +655,15 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
       const last = items[items.length - 1];
       setLastBar(last);
     });
+    // Phase 55-3: marker batcher. The callback appends each
+    // frame's batch to the cumulative `markers` array.
+    const markerBatcher = new RealtimeBatcher<MarkerMessage>((items) => {
+      if (items.length === 0) return;
+      setMarkers((prev) => [...prev, ...items]);
+    });
     tickBatcherRef.current = tickBatcher;
     barBatcherRef.current = barBatcher;
+    markerBatcherRef.current = markerBatcher;
 
     const offStatus = client.onStatus(setStatus);
     const offSnapshot = client.onSnapshot(setSnapshot);
@@ -626,6 +678,10 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
     const offBar = client.onBar((m) => {
       barBatcher.push(m);
     });
+    // Phase 55-3: marker subscription.
+    const offMarker = client.onMarker((m) => {
+      markerBatcher.push(m);
+    });
     client.start();
     return (): void => {
       offStatus();
@@ -634,14 +690,18 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
       offError();
       offTick();
       offBar();
+      offMarker();
       // Phase 50: drain any remaining queued items on unmount
       // so the React state is consistent with the last batch
       // the page received. Without this, ticks queued in the
       // last frame before unmount would be silently dropped.
       tickBatcher.flushNow();
       barBatcher.flushNow();
+      // Phase 55-3: drain marker queue on unmount too.
+      markerBatcher.flushNow();
       tickBatcherRef.current = null;
       barBatcherRef.current = null;
+      markerBatcherRef.current = null;
       client.close();
       clientRef.current = null;
     };
@@ -658,6 +718,7 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
     lastError,
     lastTick,
     lastBar,
+    markers,
     send,
   };
 }

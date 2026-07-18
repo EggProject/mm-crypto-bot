@@ -1,12 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useWebSocket, type WebSocketStatus } from "./ws-client.js";
+import { useWebSocket, type MarkerMessage, type WebSocketStatus } from "./ws-client.js";
 import { ControlBar } from "./components/ControlBar.js";
 import { PositionsTable } from "./components/PositionsTable.js";
 import { ChartGrid, type StrategyDescriptor } from "./components/ChartGrid.js";
 import { chartKeyToString } from "./lib/subscription.js";
 import { parseStrategiesResponse } from "./lib/strategies-parser.js";
-import type { OHLCBar } from "./lib/ohlc-bridge.js";
+import {
+  barToMarker,
+  type BarMarkerSide,
+  type ChartMarker,
+  type OHLCBar,
+} from "./lib/ohlc-bridge.js";
 
 /**
  * `App` — the Top-nav app shell for the mm-crypto-bot web dashboard.
@@ -38,6 +43,22 @@ import type { OHLCBar } from "./lib/ohlc-bridge.js";
  *     `status === "disconnected"` (above the chart grid, below the
  *     top-nav). The crashed banner from 47D is preserved.
  *   - Markers are empty in 48C; the live marker pipeline arrives in 49C.
+ *
+ * Phase 55-3: wires the `marker` WS messages into a `markersByKey`
+ *   map and passes it to `ChartGrid` (replacing the previously-
+ *   hardcoded `{{}}`). The flow:
+ *     1. `useWebSocket()` now returns a cumulative `markers` array
+ *        (a `RealtimeBatcher` appends per-frame bursts).
+ *     2. An effect derives `markersByKey` from `markers` ×
+ *        `strategies` (the `/api/strategies` response). A marker
+ *        has `{strategy, timeframe, side, price, label, ts}`; the
+ *        strategy is looked up in `strategies` to discover its
+ *        `symbols` list, and the marker is appended to every
+ *        `(symbol, timeframe)` chart key the strategy owns.
+ *     3. The conversion from `MarkerMessage → ChartMarker` uses
+ *        `barToMarker` (from `lib/ohlc-bridge.ts`) so the marker
+ *        shape is identical to the existing
+ *        `markersAreVisible(markers)` legend branch in ChartCard.
  *
  * Phase 48D will add Playwright e2e tests against this component; for
  * now, behavioral coverage is limited to the snapshot-shape
@@ -103,8 +124,95 @@ function extractBarsByKey(
   return out;
 }
 
+/**
+ * `markerToChartMarker` — convert a `MarkerMessage` to the
+ * `ChartMarker` shape the chart card consumes. The marker
+ * message's `side` is one of `"long" | "short" | "buy" | "sell"`.
+ * `barToMarker` handles the conversion; we narrow the `string`
+ * to `BarMarkerSide` with a defensive "long" fallback for
+ * unknown side values (forward-compat with future protocol
+ * extensions).
+ */
+function markerToChartMarker(marker: MarkerMessage): ChartMarker {
+  const rawSide: string = marker.side;
+  if (isBarMarkerSide(rawSide)) {
+    return barToMarker(rawSide, marker.price, marker.ts, marker.label);
+  }
+  return barToMarker("long", marker.price, marker.ts, marker.label);
+}
+
+/**
+ * `isBarMarkerSide` — type-guard predicate that narrows a
+ * `string` to `BarMarkerSide`.
+ */
+function isBarMarkerSide(value: string): value is BarMarkerSide {
+  return (
+    value === "long" ||
+    value === "short" ||
+    value === "buy" ||
+    value === "sell"
+  );
+}
+
+/**
+ * `accumulateMarkers` — pure helper that produces a new
+ * `markersByKey` from a previous map + a list of new marker
+ * messages. Each marker is looked up by `marker.strategy` in
+ * the strategies list; for every (symbol, marker.timeframe)
+ * pair the strategy owns, the marker is appended to that
+ * chart key. Pure: returns a NEW map object (or `prev` if
+ * nothing was added). Unaffected keys keep their previous
+ * array reference.
+ */
+export function accumulateMarkers(
+  prev: Readonly<Record<string, readonly ChartMarker[]>>,
+  newMarkers: readonly MarkerMessage[],
+  strategies: readonly StrategyDescriptor[],
+): Readonly<Record<string, readonly ChartMarker[]>> {
+  if (newMarkers.length === 0) return prev;
+  if (strategies.length === 0) return prev;
+
+  const byName = new Map<string, StrategyDescriptor>();
+  for (const s of strategies) {
+    byName.set(s.name, s);
+  }
+
+  const next: Record<string, readonly ChartMarker[]> = {};
+  const cloned = new Set<string>();
+
+  for (const m of newMarkers) {
+    const strat = byName.get(m.strategy);
+    if (strat === undefined) continue;
+    if (strat.symbols.length === 0) continue;
+    const chartMarker = markerToChartMarker(m);
+    for (const sym of strat.symbols) {
+      const key = chartKeyToString({ symbol: sym, timeframe: m.timeframe });
+      if (cloned.has(key)) {
+        // eslint-disable-next-line security/detect-object-injection -- key is chartKeyToString() output, not user input
+        next[key] = [...next[key], chartMarker];
+      } else {
+        // eslint-disable-next-line security/detect-object-injection -- key is chartKeyToString() output, not user input
+        next[key] = [...(prev[key] ?? []), chartMarker];
+        cloned.add(key);
+      }
+    }
+  }
+
+  if (cloned.size === 0) return prev;
+
+  for (const k of Object.keys(prev)) {
+    if (!(k in next)) {
+      // eslint-disable-next-line security/detect-object-injection -- k comes from Object.keys(prev), not user input
+      next[k] = prev[k];
+    }
+  }
+
+  return next;
+}
+
 export function App(): React.JSX.Element {
-  const { status, snapshot, lastError, send } = useWebSocket();
+  const { status, snapshot, lastError, markers: wsMarkers, send } =
+    useWebSocket();
   // Phase 52F follow-up: pre-populate the strategy list with the
   // MSW default (1 strategy × 1 symbol × 2 timeframes) so the
   // `ChartGrid` renders the chrome (and its `.ep-feed` indicator)
@@ -130,6 +238,15 @@ export function App(): React.JSX.Element {
     ],
   );
   const [strategiesError, setStrategiesError] = useState<string | null>(null);
+
+  // Phase 55-3: markersByKey state. The map is keyed by
+  // `chartKeyToString({symbol, timeframe})`; the value is the
+  // cumulative `ChartMarker[]` for that chart, appended in
+  // arrival order. The state is updated by the `useEffect`
+  // below that watches `(wsMarkers, strategies)`.
+  const [markersByKey, setMarkersByKey] = useState<
+    Readonly<Record<string, readonly ChartMarker[]>>
+  >({});
 
   // -----------------------------------------------------------------
   // Fetch /api/strategies on every WS connect (initial + reconnects).
@@ -185,6 +302,15 @@ export function App(): React.JSX.Element {
       controller.abort();
     };
   }, [status]);
+
+  // Phase 55-3: marker accumulation. Watches the cumulative
+  // `wsMarkers` list and the current `strategies` list; on
+  // change, calls the pure `accumulateMarkers` helper to produce
+  // the next `markersByKey`.
+  useEffect(() => {
+    if (wsMarkers.length === 0) return;
+    setMarkersByKey((prev) => accumulateMarkers(prev, wsMarkers, strategies));
+  }, [wsMarkers, strategies]);
 
   // -----------------------------------------------------------------
   // Build barsByKey from snapshot.ohlcBootstrap. Memoized so the
@@ -276,7 +402,7 @@ export function App(): React.JSX.Element {
           <ChartGrid
             strategies={strategies}
             barsByKey={barsByKey}
-            markersByKey={{}}
+            markersByKey={markersByKey}
             feedState={feedState}
             feedMeta={feedMeta}
             send={chartSend}
