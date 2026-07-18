@@ -60,6 +60,9 @@ import {
 } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// Phase 57: import the coverage accumulator reader so the
+// dashboard `afterAll` can merge coverage from other spec files.
+import { readAllAccumulators } from "./_helpers/coverage.js";
 
 const { createCoverageMap } = istanbulCoverage as unknown as {
   createCoverageMap: (data: unknown) => {
@@ -68,6 +71,7 @@ const { createCoverageMap } = istanbulCoverage as unknown as {
       branches: { pct: number };
       functions: { pct: number };
     };
+    merge: (other: unknown) => void;
   };
 };
 
@@ -157,16 +161,31 @@ const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "dashboard.png");
 // (refactors move branches from e2e to unit; new wiring adds
 // denominator faster than numerator).
 //
-// **Threshold adjustment (2026-07-18):** per the user's "design
-// target NOT ceiling" rule, the 80% target is the design target
-// where achievable. After Phase 55 it is NOT achievable on any
-// of the 3 metrics. The threshold is adjusted to the **realistic
-// ceiling 70/55/60** (the Phase 53 level) so the CI can pass
-// while the design target of 80% remains documented for future
-// work (e.g. a major refactor of ws-client.ts to use pure
-// functions for the state machine branches, OR a 5-10x growth in
-// the e2e test suite to cover all error paths).
-const COVERAGE_THRESHOLDS = { lines: 70, branches: 55, functions: 60 } as const;
+// **Threshold adjustment (Phase 57, 2026-07-18 20:50 Budapest):** per
+// Phase 56 audit + Phase 57 measurement, the 80% e2e target is
+// STRUCTURALLY UNREACHABLE on the branches metric. Even after
+// 38 new deep e2e tests for ws-client state machine + App.tsx +
+// ChartCard (PR #176, 38 new tests, +1.13pp branches), the
+// measured e2e coverage is:
+//
+// **Threshold: 80/80/80 (user mandate 2026-07-17 11:44).**
+// The user mandate rule is "design target NOT ceiling" — the 80%
+// target is NOT a value to be relaxed to make CI pass. CI may
+// legitimately be RED at this threshold while we work toward
+// the design target.
+//
+// Current measured coverage (2026-07-18, post-Phase 57 tests):
+//   71.07% / 54.23% / 66.40% (lines / branches / functions).
+//   The 38 new Phase 57 tests are valuable on their own (38 more
+//   e2e tests, +1.13pp branches) and have been restored in this
+//   PR. The threshold was lowered WITHOUT USER APPROVAL in #176
+//   to 70/53/60; this PR restores 80/80/80 as the canonical
+//   mandate and keeps the new tests separately.
+//
+// To reach 80% branches, Phase 58 (ws-client.ts rewrite to
+// pure-function state machine, 1-2 week effort) or Phase 59
+// (5-10x e2e suite growth, 2-3 month effort) is required.
+const COVERAGE_THRESHOLDS = { lines: 80, branches: 80, functions: 80 } as const;
 
 // =============================================================================
 // Coverage helpers (inlined to keep the new-file count to 5)
@@ -214,10 +233,28 @@ function flushAndReport(): CoverageReport {
   // is strict about the FileCoverageData shape (it requires a
   // specific `path` field that istanbul's runtime output satisfies
   // but the TS types don't allow us to declare directly).
-  const map = createCoverageMap(
+  //
+  // **Phase 57 merge:** we create a base map from the dashboard
+  // accumulator, then merge in the external accumulators from
+  // other spec files. `map.merge()` takes the UNION of covered
+  // lines/branches across runs, which is what we want.
+  const baseMap = createCoverageMap(
     coverageAccumulator as unknown as Parameters<typeof createCoverageMap>[0],
   );
-  writeFileSync(COVERAGE_FINAL, JSON.stringify(map, null, 2), "utf8");
+  // `readAllAccumulators()` is called in the `afterAll` before
+  // `flushAndReport`. The external data has already been merged
+  // into `coverageAccumulator` via the `afterAll` code. But
+  // `createCoverageMap` does a SHALLOW merge of per-file entries
+  // (last one wins). To get a proper UNION, we need to use
+  // `map.merge()`.
+  const externalData = readAllAccumulators();
+  if (Object.keys(externalData).length > 0) {
+    const externalMap = createCoverageMap(
+      externalData as unknown as Parameters<typeof createCoverageMap>[0],
+    );
+    baseMap.merge(externalMap);
+  }
+  writeFileSync(COVERAGE_FINAL, JSON.stringify(baseMap, null, 2), "utf8");
 
   const reportDir = resolve(COVERAGE_DIR, "report");
   try {
@@ -341,6 +378,10 @@ test.afterAll(() => {
   // is empty + the threshold check would spuriously fail).
   if (Object.keys(coverageAccumulator).length === 0) return;
   if (!existsSync(COVERAGE_DIR)) return;
+  // Phase 57: `flushAndReport` reads external accumulators from
+  // `coverage/playwright/accumulators/*.json` and merges them
+  // into the base map using `map.merge()` (UNION of covered
+  // lines/branches).
   const report = flushAndReport();
   checkThresholds(report);
 });
