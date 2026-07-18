@@ -106,22 +106,36 @@ chmod +x "$WRAPPER"
 echo "[install-mm-bot] wrote wrapper: $WRAPPER"
 
 # Phase 52C: also make mm-bot globally available.
+# Phase 55 (2026-07-18 11:45): only attempt /usr/local/bin symlink if we
+# actually have write access. Without sudo this fails on most dev
+# machines. The local $REPO_ROOT/bin/ shim is always available via
+# `bun run mm-bot` or by adding to PATH manually.
 REPO_ROOT_FROM_SCRIPT="$(cd "$(dirname "$0")/.." && pwd)"
 GLOBAL_SHIM="$REPO_ROOT_FROM_SCRIPT/bin/mm-bot"
 if [[ -f "$GLOBAL_SHIM" ]]; then
   chmod +x "$GLOBAL_SHIM"
-  echo "[install-mm-bot] made bin/mm-bot executable"
-  if [[ ":$PATH:" == *":/usr/local/bin:"* ]]; then
+  echo "[install-mm-bot] made bin/mm-bot executable (local: $GLOBAL_SHIM)"
+
+  # Try /usr/local/bin/mm-bot ONLY if we can write there (no sudo needed).
+  # Otherwise skip silently and rely on the local shim.
+  if [[ -w "/usr/local/bin" ]]; then
     if ln -sf "$GLOBAL_SHIM" /usr/local/bin/mm-bot 2>/dev/null; then
       echo "[install-mm-bot] symlinked: /usr/local/bin/mm-bot -> $GLOBAL_SHIM"
       echo "[install-mm-bot] ✅ 'mm-bot' is now available globally: $(command -v mm-bot)"
     else
-      echo "[install-mm-bot] ⚠️  could not symlink to /usr/local/bin/mm-bot (permission denied?)" >&2
-      echo "[install-mm-bot]    Workaround: add '\$REPO_ROOT/bin' to your PATH" >&2
+      echo "[install-mm-bot] ⚠️  could not symlink to /usr/local/bin/mm-bot (unexpected)" >&2
     fi
   else
-    echo "[install-mm-bot] ⚠️  /usr/local/bin not in \$PATH — mm-bot won't be globally available" >&2
-    echo "[install-mm-bot]    Add to your shell rc: export PATH=\"\$REPO_ROOT/bin:\$PATH\"" >&2
+    # No write access to /usr/local/bin — expected on dev machines
+    # without sudo. The install is NOT broken: the local shim works.
+    # Users have 3 options to run mm-bot:
+    #
+    #   1. `bun run mm-bot` (always works, no PATH changes needed)
+    #   2. `./bin/mm-bot` (local shim, no PATH changes)
+    #   3. Add $REPO_ROOT/bin to PATH:  export PATH="$REPO_ROOT/bin:$PATH"
+    #      (then `mm-bot` works from anywhere in the project)
+    echo "[install-mm-bot] (no write access to /usr/local/bin — local shim only)"
+    echo "[install-mm-bot]    Use: 'bun run mm-bot'  OR  './bin/mm-bot'  OR  export PATH=\"\$REPO_ROOT/bin:\$PATH\""
   fi
 else
   echo "[install-mm-bot] (skip global shim — bin/mm-bot not present in this checkout)"
