@@ -162,8 +162,11 @@ export function App(): React.JSX.Element {
         // (unit-tested in `strategies-parser.test.ts`). The helper
         // returns a discriminated `StrategiesResult` so we can
         // dispatch on the `ok` flag without nested if-ladders.
+        // `parseStrategiesResponse` is sync (no await between the
+        // abort check above and this call), so the abort signal
+        // cannot have changed — a second check would be dead code
+        // and the linter flags it as such.
         const parsed = parseStrategiesResponse(body);
-        if (controller.signal.aborted) return;
         if (parsed.ok) {
           setStrategies(parsed.strategies);
           setStrategiesError(null);
