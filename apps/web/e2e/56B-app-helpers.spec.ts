@@ -64,10 +64,6 @@
 
 import { type Page, expect, test } from "@playwright/test";
 import type { WebSocketRoute } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
-
-// Phase 57: register coverage collection hooks.
-installCoverageHooks("56B-app-helpers");
 
 // =============================================================================
 // Test helpers (mirror the 53C/55-2 harness pattern)
