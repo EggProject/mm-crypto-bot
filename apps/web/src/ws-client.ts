@@ -212,6 +212,92 @@ export function shouldScheduleReconnect(
   return true;
 }
 
+/**
+ * `parseServerMessage(data)` — pure function: parse the raw
+ * `data` payload of a WebSocket message event into a typed
+ * `ServerMessage` (or report why parsing failed). Two failure
+ * modes are distinguished:
+ *
+ *   - `reason: "no-data"` — the event had no `data` field
+ *     (the browser may emit a message event with no payload
+ *     for some edge cases; the legacy code early-returned).
+ *   - `reason: "invalid-json"` — the `data` was a string but
+ *     `JSON.parse` threw (malformed payload, server bug, etc.).
+ *
+ * The success case returns `{ ok: true, msg }` where `msg` is
+ * the cast-typed `ServerMessage`. We do NOT validate the
+ * shape beyond JSON validity — the union's discriminator
+ * (`msg.type`) is the only field the dispatch switch reads.
+ *
+ * Extracted in Phase 56A for unit-testability — the inline
+ * `if (data === undefined) return;` + `try { JSON.parse } catch`
+ * block in the message handler had 4 branches (no-data, valid
+ * JSON, invalid JSON, the cast itself) that were not directly
+ * testable without driving a full WebSocket lifecycle. Splitting
+ * parsing from dispatch lets the parser be unit-tested with
+ * focused tests instead of full end-to-end message scenarios.
+ */
+export type ServerMessageParseResult =
+  | { readonly ok: true; readonly msg: ServerMessage }
+  | { readonly ok: false; readonly reason: "no-data" | "invalid-json" };
+
+export function parseServerMessage(
+  data: string | undefined,
+): ServerMessageParseResult {
+  if (data === undefined) {
+    return { ok: false, reason: "no-data" };
+  }
+  try {
+    const msg = JSON.parse(data) as ServerMessage;
+    return { ok: true, msg };
+  } catch {
+    return { ok: false, reason: "invalid-json" };
+  }
+}
+
+/**
+ * `shouldCrashOnError(msg)` — pure predicate: does this error
+ * message represent a non-recoverable failure that should
+ * put the client into the terminal `crashed` state? The
+ * protocol's `error` message carries a `recoverable: boolean`
+ * field; when `recoverable === false`, the client must stop
+ * reconnecting and surface the failure to the user.
+ *
+ * Extracted in Phase 56A for unit-testability — the inline
+ * `if (!msg.recoverable) { ... }` block in the error case of
+ * the handleMessage switch had 2 branches (recoverable=true
+ * is a no-op, recoverable=false triggers crash + socket
+ * close) that were not directly testable in isolation.
+ * Splitting the predicate from the side effects lets the
+ * predicate be unit-tested with focused tests.
+ */
+export function shouldCrashOnError(msg: {
+  readonly recoverable: boolean;
+}): boolean {
+  return !msg.recoverable;
+}
+
+/**
+ * `buildPongPayload(pingTs)` — pure function: build the JSON
+ * payload for the auto-pong response to a `ping` message.
+ * The protocol carries a `ts` field in both directions; the
+ * client echoes the server's ts back so the server can
+ * measure round-trip latency.
+ *
+ * Extracted in Phase 56A for unit-testability — the inline
+ * `JSON.stringify({ type: "pong", ts: msg.ts })` in the ping
+ * case of the handleMessage switch was not directly testable
+ * without driving a full ping/pong round-trip. Splitting the
+ * payload construction from the WebSocket send lets the
+ * payload shape be unit-tested with focused tests.
+ */
+export function buildPongPayload(pingTs: number): {
+  readonly type: "pong";
+  readonly ts: number;
+} {
+  return { type: "pong", ts: pingTs };
+}
+
 /** Minimal WebSocket interface — the global `WebSocket` is the production
  *  impl, the test fakes it via this interface. */
 export interface WebSocketLike {
@@ -428,15 +514,9 @@ export class WebSocketClient {
 
     socket.addEventListener("message", (event) => {
       const data = (event as { data?: string }).data;
-      if (data === undefined) return;
-      let msg: ServerMessage;
-      try {
-        msg = JSON.parse(data) as ServerMessage;
-      } catch {
-        // Invalid JSON — ignore (matches the server-side tolerance).
-        return;
-      }
-      this.handleMessage(msg);
+      const parsed = parseServerMessage(data);
+      if (!parsed.ok) return;
+      this.handleMessage(parsed.msg);
     });
 
     socket.addEventListener("close", () => {
@@ -495,7 +575,7 @@ export class WebSocketClient {
             // best-effort
           }
         }
-        if (!msg.recoverable) {
+        if (shouldCrashOnError(msg)) {
           this.closedByCaller = true;
           this.setStatus("crashed");
           if (this.socket !== null) {
@@ -509,11 +589,13 @@ export class WebSocketClient {
         }
         return;
       case "ping":
-        // Auto-respond with pong. The literal `1` matches the
-        // WebSocket.OPEN constant (see `send` for rationale).
-        if (this.socket !== null && this.socket.readyState === 1) {
+        // Auto-respond with pong. The `shouldQueueSend` predicate
+        // is the same one used by `send()` — reusing it here
+        // means the WS-OPEN check is a single source of truth
+        // (Phase 56A refactor).
+        if (shouldQueueSend(this.socket)) {
           try {
-            this.socket.send(JSON.stringify({ type: "pong", ts: msg.ts }));
+            this.socket.send(JSON.stringify(buildPongPayload(msg.ts)));
           } catch {
             // best-effort
           }
