@@ -252,4 +252,68 @@ test.describe("53C — /api/strategies error branches", () => {
       )
       .toBeGreaterThan(0);
   });
+
+  test("53C-10 — primitive body: .ep-feed__meta shows 'not an object' (Phase 54F coverage)", async ({
+    page,
+  }) => {
+    // Mock /api/strategies with HTTP 200 and a JSON string literal
+    // as the body. `parseStrategiesResponse` checks `typeof body !== "object"`
+    // after the null check, so a string body hits the "not an object"
+    // branch.
+    await page.route("**/api/strategies", (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: '"just a string"',
+      });
+    });
+
+    const harness = await setupWsPeer(page);
+    await gotoAppBare(page);
+    await harness.waitForWsCount(3);
+    sendInitialServerMessages(harness);
+
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".ep-feed__meta")
+            .filter({ hasText: /not an object/ })
+            .count(),
+        { timeout: 5_000, message: "expected .ep-feed__meta to show 'not an object'" },
+      )
+      .toBeGreaterThan(0);
+  });
+
+  test("53C-11 — array body: .ep-feed__meta shows 'array, not object' (Phase 54F coverage)", async ({
+    page,
+  }) => {
+    // Mock /api/strategies with HTTP 200 and a JSON array literal
+    // as the body. `parseStrategiesResponse` checks `Array.isArray(body)`
+    // after the typeof check, so an array body hits the "is array"
+    // branch.
+    await page.route("**/api/strategies", (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[1, 2, 3]",
+      });
+    });
+
+    const harness = await setupWsPeer(page);
+    await gotoAppBare(page);
+    await harness.waitForWsCount(3);
+    sendInitialServerMessages(harness);
+
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".ep-feed__meta")
+            .filter({ hasText: /array, not object/ })
+            .count(),
+        { timeout: 5_000, message: "expected .ep-feed__meta to show 'array, not object'" },
+      )
+      .toBeGreaterThan(0);
+  });
 });
