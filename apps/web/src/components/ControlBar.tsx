@@ -1,5 +1,6 @@
 import React from "react";
 import { useWebSocket } from "../ws-client.js";
+import { confirmKill } from "./control-helpers.js";
 
 /**
  * `ControlBar` — sticky bottom bar with the 4 main control buttons.
@@ -35,10 +36,9 @@ export function ControlBar(): React.JSX.Element {
     send({ type: "control", command: "pause", paused: false });
   };
   const onKillSwitch = (): void => {
-    const confirmed = window.confirm(
-      "Type KILL to confirm kill-switch. This will halt all open positions and stop the bot immediately.",
-    );
-    if (confirmed) {
+    // Phase 54C: extracted to a pure helper for direct unit-testability
+    // of the false-branch (user dismissed the confirmation dialog).
+    if (confirmKill(window)) {
       send({ type: "control", command: "kill_switch" });
     }
   };
