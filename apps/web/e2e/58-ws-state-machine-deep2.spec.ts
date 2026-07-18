@@ -191,7 +191,7 @@ test.describe("58 — ws-client state machine: runtime-uncovered reduce() branch
     harness.broadcast(state);
 
     // Wait for the dashboard to render
-    await page.waitForSelector(".ep-chart-card", { timeout: 5000 }).catch(() => {});
+    await page.waitForSelector(".ep-chart-card", { timeout: 5000 }).catch(() => undefined);
 
     // Now send INVALID JSON to all WSes
     for (const ws of harness.getAllWs()) {
@@ -234,7 +234,7 @@ test.describe("58 — ws-client state machine: runtime-uncovered reduce() branch
         ohlcBootstrap: { BTCUSDT: { "1h": [] } },
       }),
     );
-    await page.waitForSelector(".ep-chart-card", { timeout: 5000 }).catch(() => {});
+    await page.waitForSelector(".ep-chart-card", { timeout: 5000 }).catch(() => undefined);
 
     // Send a message with a known-shape but unknown type field
     for (const ws of harness.getAllWs()) {
@@ -277,7 +277,7 @@ test.describe("58 — ws-client state machine: runtime-uncovered reduce() branch
         ohlcBootstrap: { BTCUSDT: { "1h": [] } },
       }),
     );
-    await page.waitForSelector(".ep-chart-card", { timeout: 5000 }).catch(() => {});
+    await page.waitForSelector(".ep-chart-card", { timeout: 5000 }).catch(() => undefined);
 
     // Send 10 ticks to exercise the for-loop in DISPATCH tick effect
     for (let n = 0; n < 10; n++) {
@@ -328,7 +328,7 @@ test.describe("58 — ws-client state machine: runtime-uncovered reduce() branch
         ohlcBootstrap: { BTCUSDT: { "1h": [] } },
       }),
     );
-    await page.waitForSelector(".ep-chart-card", { timeout: 5000 }).catch(() => {});
+    await page.waitForSelector(".ep-chart-card", { timeout: 5000 }).catch(() => undefined);
 
     // Close all WSes to trigger reconnect
     for (const ws of harness.getAllWs()) {
@@ -339,7 +339,7 @@ test.describe("58 — ws-client state machine: runtime-uncovered reduce() branch
     await page.waitForTimeout(1500);
 
     // Should have new WS connections
-    await harness.waitForWsCount(6, 5000).catch(() => {});
+    await harness.waitForWsCount(6, 5000).catch(() => undefined);
 
     // Drive the new WSes to connected
     const newWsList = harness.getAllWs();
