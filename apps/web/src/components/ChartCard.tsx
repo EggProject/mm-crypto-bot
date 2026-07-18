@@ -53,6 +53,11 @@ import {
   timeframeHasLabel,
   type CardHeight,
 } from "../lib/chart-card-helpers.js";
+import { getIndicatorRegistry } from "../lib/indicators-singleton.js";
+import type {
+  IndicatorContext,
+  RenderedIndicator,
+} from "../indicators/registry.js";
 
 // The eggproject-design skill's LcWrap CSS — provides the chrome
 // (`.line-chart-wrapper`, `.line-chart-wrapper__header`, etc.).
@@ -96,6 +101,27 @@ export interface ChartCardProps {
   readonly bars: readonly OHLCBar[];
   /** Optional trade markers (long/short entries & exits). */
   readonly markers?: readonly ChartMarker[];
+  /**
+   * Phase 55-5: optional indicator series. Each entry is
+   * `{ name, series }` where `name` is the registry key
+   * (e.g. `"donchian"`, `"funding"`, `"cascade"`,
+   * `"signals"`) and `series` is the per-bar value array
+   * (or sparse-event array, for cascade/signals). The chart
+   * card looks up the renderer in the IndicatorRegistry
+   * singleton and invokes it on every `bars` or `indicators`
+   * change. Unknown names are silently skipped (the registry
+   * has() check).
+   *
+   * **Disposal:** the previous render's `RenderedIndicator`
+   * is disposed before the next render — the renderers do
+   * NOT track their own state, the caller is responsible
+   * for cleanup. The markers plugin is shared between the
+   * markers effect and the cascade/signals renderers (last
+   * write wins; a future phase can split markers into
+   * "trade markers" + "indicator markers" via two
+   * `createSeriesMarkers` wrappers on different series).
+   */
+  readonly indicators?: readonly { name: string; series: object }[];
   /** Feed connection state. */
   readonly feedState: ChartFeedState;
   /** Optional feed meta tail (latency, age, "8 ms" / "42 s"). */
@@ -293,16 +319,20 @@ function toSeriesMarker(marker: ChartMarker): SeriesMarker<Time> {
  *
  * The component is a pure renderer. It does NOT own subscription
  * state, replay logic, or reconnect — those live in the parent
- * (Phase 48B chart grid). The parent passes `bars` and `markers`
- * down, and the component mounts/updates a lightweight-charts
- * instance to match.
+ * (Phase 48B chart grid). The parent passes `bars`, `markers`,
+ * and `indicators` down, and the component mounts/updates a
+ * lightweight-charts instance to match.
  *
  * Mount lifecycle:
  *   1. `useEffect` on first render: read theme, create chart,
  *      add a candlestick series, attach a series-markers plugin.
  *   2. `useEffect` on `bars` change: `series.setData(...)`.
  *   3. `useEffect` on `markers` change: `markersPlugin.setMarkers(...)`.
- *   4. `ResizeObserver` on the container: `chart.applyOptions({width, height})`.
+ *   4. `useEffect` on `indicators` or `bars` change (Phase 55-5):
+ *      look up the renderer in the `IndicatorRegistry` singleton,
+ *      invoke it, store the `RenderedIndicator` in a ref, and
+ *      dispose the previous render before re-rendering.
+ *   5. `ResizeObserver` on the container: `chart.applyOptions({width, height})`.
  *   5. Cleanup on unmount: `chart.remove()`.
  */
 export function ChartCard(props: ChartCardProps): React.JSX.Element {
@@ -312,6 +342,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
     timeframe,
     bars,
     markers,
+    indicators,
     feedState,
     feedMeta,
     ranges,
@@ -324,6 +355,20 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const markersRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
+  // Phase 55-5: the last-rendered `RenderedIndicator` (from the
+  // indicator registry). Stored in a ref so the disposal can
+  // happen on the NEXT render (the renderer protocol is "call
+  // dispose before re-invoking"). The ref is null on first
+  // mount; the disposal in the indicator effect short-circuits
+  // when the ref is null.
+  const indicatorRef = useRef<RenderedIndicator | null>(null);
+  // The names of the indicators successfully rendered on the
+  // last effect run. Exposed via `data-indicator-rendered` on
+  // the root element so the e2e suite can assert which
+  // indicators are visible (the lightweight-charts canvas
+  // itself is not easily inspectable). The string is a
+  // space-separated list, e.g. `"donchian funding"`.
+  const [renderedIndicatorNames, setRenderedIndicatorNames] = useState<string>("");
 
   const cardHeight = resolveHeight(height);
   // eslint-disable-next-line security/detect-object-injection -- feedState is a closed union
@@ -415,6 +460,21 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
     ro.observe(container);
 
     return () => {
+      // Phase 55-5: dispose any pending indicator render BEFORE
+      // the chart is removed. The dispose closure captures the
+      // `chart` variable; removing the series from a removed
+      // chart is a no-op (the chart's internal `tb` map is
+      // already empty by the time `chart.remove()` runs), but
+      // being explicit here keeps the disposal symmetric with
+      // the indicator effect's `indicatorRef.current.dispose()`.
+      if (indicatorRef.current !== null) {
+        try {
+          indicatorRef.current.dispose();
+        } catch {
+          // best-effort — the chart may already be torn down
+        }
+        indicatorRef.current = null;
+      }
       ro.disconnect();
       markersRef.current = null;
       seriesRef.current = null;
@@ -451,6 +511,135 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   }, [markers]);
 
   // --------------------------------------------------------------------------
+  // Effect 4: render indicators when `indicators` (or `bars`) change
+  // Phase 55-5.
+  //
+  // The flow:
+  //   1. Dispose the previous render's `RenderedIndicator` (the
+  //      renderers do NOT track state; the caller cleans up).
+  //   2. For each `{ name, series }` entry in the `indicators`
+  //      prop, look up the renderer in the `IndicatorRegistry`
+  //      singleton. Unknown names are silently skipped.
+  //   3. If the renderer is found and `bars.length > 0` (the
+  //      renderers require non-empty bars for donchian/funding
+  //      and an unfiltered event list for cascade/signals),
+  //      invoke the renderer with the chart context.
+  //   4. Store the `RenderedIndicator` in `indicatorRef` so the
+  //      next render can dispose it.
+  //   5. Update `renderedIndicatorNames` so the DOM attribute
+  //      reflects the successfully rendered indicator list
+  //      (e2e assertions + future UI badges).
+  //
+  // **Why the effect depends on `bars` (not just `indicators`):**
+  // the donchian and funding renderers are per-bar (each
+  // `LineData` is anchored to a `bars[i].time`); if the bars
+  // array changes, the renderer's `setData(...)` must be
+  // re-invoked. The renderers' protocol is "dispose +
+  // re-invoke" on every change; we honor that by including
+  // `bars` in the deps.
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    const markersPlugin = markersRef.current;
+    if (chart === null || series === null || markersPlugin === null) {
+      // Chart not yet mounted; the indicator render will
+      // happen in the next effect run (after Effect 1
+      // populates the refs). No state update needed.
+      return;
+    }
+
+    // Dispose the previous render (if any). The renderers
+    // expose `dispose()` as a no-op when no series were
+    // added (e.g. empty bars input), so we always call it.
+    if (indicatorRef.current !== null) {
+      try {
+        indicatorRef.current.dispose();
+      } catch {
+        // best-effort
+      }
+      indicatorRef.current = null;
+    }
+
+    // No indicators → clear the data attribute and return.
+    if (indicators === undefined || indicators.length === 0) {
+      setRenderedIndicatorNames("");
+      return;
+    }
+
+    // The registry is a module-level singleton; the first
+    // call bootstraps the four renderers. The chart and
+    // markers-plugin are stable refs.
+    const registry = getIndicatorRegistry();
+    const ctx: IndicatorContext = {
+      chart,
+      bars,
+      // The renderers accept the loose `IndicatorSeries`
+      // type. The runtime type check happens inside each
+      // renderer's validator (e.g. `validateDonchianSeries`).
+      indicatorSeries: indicators[0]?.series as never,
+      color: "#E3B563",
+      strategy,
+      timeframe,
+      // The cascade + signals renderers use the markers
+      // plugin as their "candle series" (the plugin
+      // exposes `setMarkers`, the bare series does not).
+      // The structural cast is a documented design
+      // choice; see `indicators/cascade.ts` for the
+      // canonical pattern.
+      candleSeries: markersPlugin as unknown as ISeriesApi<"Candlestick">,
+    };
+    const names: string[] = [];
+    let lastRendered: RenderedIndicator | null = null;
+    for (const ind of indicators) {
+      const renderer = registry.get(ind.name);
+      if (renderer === undefined) {
+        // Unknown indicator name — the registry doesn't
+        // have a renderer for it. Silently skip; the
+        // `data-indicator-rendered` attribute will NOT
+        // include this name. A console.warn would be
+        // noisy in production; the e2e tests can check
+        // the attribute directly.
+        continue;
+      }
+      try {
+        const rendered = renderer(ctx);
+        // We only keep the last-rendered indicator for
+        // disposal (each renderer's `dispose()` removes
+        // ITS OWN series; multiple renderers in the same
+        // effect run are independent). Today the dashboard
+        // sends one indicator per (strategy, timeframe)
+        // pair; future phases may send multiple and the
+        // disposal needs to be coordinated.
+        if (lastRendered !== null) {
+          // Dispose the previous one before we overwrite
+          // the ref. Without this, only the LAST
+          // indicator's series would be cleaned up on
+          // unmount, leaking the rest.
+          try {
+            lastRendered.dispose();
+          } catch {
+            // best-effort
+          }
+        }
+        lastRendered = rendered;
+        names.push(rendered.name);
+      } catch (e) {
+        // The renderer threw (e.g. invalid series). Log
+        // and continue with the next indicator. The
+        // thrown error is NOT re-thrown — the chart
+        // card remains usable.
+        console.warn(
+          `[ChartCard] indicator '${ind.name}' for ${strategy}@${timeframe} threw:`,
+          e,
+        );
+      }
+    }
+    indicatorRef.current = lastRendered;
+    setRenderedIndicatorNames(names.join(" "));
+  }, [bars, indicators, strategy, timeframe]);
+
+  // --------------------------------------------------------------------------
   // Render — the chrome is re-implemented in TSX using the same CSS
   // classes the eggproject-design `lc-wrap.css` defines. The visual
   // output is byte-identical to the skill's LcWrap.
@@ -466,6 +655,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
       data-symbol={symbol}
       data-strategy={strategy}
       data-timeframe={timeframe}
+      data-indicator-rendered={renderedIndicatorNames}
     >
       <header className="line-chart-wrapper__header">
         <div className="line-chart-wrapper__title-group">

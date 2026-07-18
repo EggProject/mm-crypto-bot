@@ -85,6 +85,12 @@ export type TickMessage = Extract<ServerMessage, { type: "tick" }>;
 /** `BarMessage` — alias for the `bar` arm of the `ServerMessage` union. */
 export type BarMessage = Extract<ServerMessage, { type: "bar" }>;
 
+/** `IndicatorMessage` — alias for the `indicator` arm of the
+ *  `ServerMessage` union. Phase 55-5: the dashboard's
+ *  `useWebSocket()` hook subscribes to this and feeds the
+ *  data into `indicatorsByKey` for the chart cards. */
+export type IndicatorMessage = Extract<ServerMessage, { type: "indicator" }>;
+
 export type ClientMessage =
   | { type: "subscribe"; symbol: string; timeframe: string }
   | { type: "unsubscribe"; symbol: string; timeframe: string }
@@ -114,6 +120,14 @@ export interface WebSocketState {
   readonly lastTick: TickMessage | null;
   /** Latest bar received, batched via `requestAnimationFrame`. */
   readonly lastBar: BarMessage | null;
+  /** Phase 55-5: subscription to `indicator` messages. The
+   *  hook exposes the live `subscribe`/`unsubscribe` API
+   *  rather than a state value (the indicator data is
+   *  accumulated by the caller via `useState`, e.g. into an
+   *  `indicatorsByKey` map keyed by `${strategy}|${timeframe}`).
+   *  This avoids redundant `Record<...>` allocations on every
+   *  tick. */
+  readonly onIndicator: (listener: (m: IndicatorMessage) => void) => () => void;
   readonly send: (msg: ClientMessage) => void;
 }
 
@@ -282,6 +296,16 @@ export class WebSocketClient {
   // produces ONE React setState per frame, not 60.
   private readonly tickListeners = new Set<(m: TickMessage) => void>();
   private readonly barListeners = new Set<(m: BarMessage) => void>();
+  // Phase 55-5: indicator listeners. The dashboard's `useWebSocket`
+  // hook subscribes to these and feeds the data into
+  // `indicatorsByKey` for the chart cards. Unlike tick/bar,
+  // indicators are NOT batched via `RealtimeBatcher` — the
+  // indicators are sparse (the state-feed emits on a
+  // per-update cadence, not a 60Hz cadence) and React's
+  // 16ms rAF coalesce already gives natural back-pressure.
+  private readonly indicatorListeners = new Set<
+    (m: IndicatorMessage) => void
+  >();
 
   constructor(options: WebSocketClientOptions = {}) {
     this.url = options.url ?? DEFAULT_URL;
@@ -397,6 +421,25 @@ export class WebSocketClient {
     this.barListeners.add(listener);
     return () => {
       this.barListeners.delete(listener);
+    };
+  }
+
+  /**
+   * `onIndicator(listener)` — Phase 55-5: subscribe to
+   * `indicator` messages. The listener is invoked once per
+   * `indicator` frame (NOT batched — the indicators are
+   * sparse, not 60Hz). Returns an unsubscribe function.
+   *
+   * The dashboard's `useWebSocket()` hook subscribes to this
+   * and feeds the data into the `indicatorsByKey` map for the
+   * chart cards. The renderers themselves (donchian, funding,
+   * cascade, signals) look up the entry by `(strategy, timeframe)`
+   * when the chart re-renders.
+   */
+  onIndicator(listener: (m: IndicatorMessage) => void): Unsubscribe {
+    this.indicatorListeners.add(listener);
+    return () => {
+      this.indicatorListeners.delete(listener);
     };
   }
 
@@ -537,7 +580,22 @@ export class WebSocketClient {
           }
         }
         return;
-      // hello, indicator, marker — not yet wired (Phase 49+).
+      // Phase 55-5: wire the `indicator` arm of the protocol.
+      // The state-feed sends per-(strategy, timeframe) computed
+      // series (donchian upper/middle/lower, funding dydx/cex/spread,
+      // cascade events, signal entries) and the dashboard's
+      // `useWebSocket()` hook subscribes to this dispatch to
+      // accumulate `indicatorsByKey` for the chart cards.
+      case "indicator":
+        for (const listener of this.indicatorListeners) {
+          try {
+            listener(msg);
+          } catch {
+            // best-effort
+          }
+        }
+        return;
+      // hello, marker — not yet wired (future phase).
       default:
         return;
     }
@@ -651,6 +709,34 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
     clientRef.current?.send(msg);
   }, []);
 
+  // Phase 55-5: expose `onIndicator` as a stable callback.
+  // The hook does NOT maintain a `lastIndicator` state (the
+  // indicator is sparse, not 60Hz; the caller decides the
+  // accumulation policy). The caller pattern is:
+  //
+  //   useEffect(() => onIndicator((m) => {
+  //     setIndicatorsByKey((prev) => mergeIndicatorsByKey(prev, m));
+  //   }), [onIndicator]);
+  //
+  // where `mergeIndicatorsByKey` is the pure helper in
+  // `lib/indicator-bridge.ts`.
+  const onIndicator = useCallback(
+    (listener: (m: IndicatorMessage) => void): (() => void) => {
+      const c = clientRef.current;
+      if (c === null) {
+        // No client yet (effect hasn't run); return a no-op
+        // unsubscribe so the caller's effect cleanup is
+        // symmetric. The caller's useEffect will re-run after
+        // the mount effect establishes the client.
+        return (): void => {
+          // no-op
+        };
+      }
+      return c.onIndicator(listener);
+    },
+    [],
+  );
+
   return {
     status,
     snapshot,
@@ -658,6 +744,7 @@ export function useWebSocket(url: string = DEFAULT_URL): WebSocketState {
     lastError,
     lastTick,
     lastBar,
+    onIndicator,
     send,
   };
 }

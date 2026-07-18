@@ -6,6 +6,7 @@ import { PositionsTable } from "./components/PositionsTable.js";
 import { ChartGrid, type StrategyDescriptor } from "./components/ChartGrid.js";
 import { chartKeyToString } from "./lib/subscription.js";
 import { parseStrategiesResponse } from "./lib/strategies-parser.js";
+import { mergeIndicatorsByKey, type IndicatorEntry } from "./lib/indicator-bridge.js";
 import type { OHLCBar } from "./lib/ohlc-bridge.js";
 
 /**
@@ -42,6 +43,15 @@ import type { OHLCBar } from "./lib/ohlc-bridge.js";
  * Phase 48D will add Playwright e2e tests against this component; for
  * now, behavioral coverage is limited to the snapshot-shape
  * smoke tests in the existing 47D test files.
+ *
+ * Phase 55-5: the `useWebSocket()` hook now exposes an
+ * `onIndicator` subscription. The dashboard accumulates
+ * `INDICATOR` messages into `indicatorsByKey` (keyed by
+ * `${strategy}|${timeframe}`) and passes the map to
+ * `ChartGrid` for per-chart rendering. The chart card looks
+ * up the entry by its `(strategy, timeframe)` pair and
+ * dispatches the appropriate renderer via the
+ * `IndicatorRegistry` singleton.
  */
 
 // The bot's HTTP server (apps/bot/src/web-client/http-server.ts)
@@ -104,7 +114,17 @@ function extractBarsByKey(
 }
 
 export function App(): React.JSX.Element {
-  const { status, snapshot, lastError, send } = useWebSocket();
+  const { status, snapshot, lastError, send, onIndicator } = useWebSocket();
+  // Phase 55-5: indicators keyed by `${strategy}|${timeframe}`.
+  // The chart card for a (strategy, timeframe) pair looks up its
+  // entry and dispatches the appropriate renderer via the
+  // IndicatorRegistry. New messages for the same key REPLACE
+  // the previous entry (the state-feed retransmits on every
+  // update; the latest wins). The map is empty until the first
+  // INDICATOR message arrives.
+  const [indicatorsByKey, setIndicatorsByKey] = useState<
+    Readonly<Record<string, IndicatorEntry>>
+  >({});
   // Phase 52F follow-up: pre-populate the strategy list with the
   // MSW default (1 strategy × 1 symbol × 2 timeframes) so the
   // `ChartGrid` renders the chrome (and its `.ep-feed` indicator)
@@ -198,6 +218,24 @@ export function App(): React.JSX.Element {
   );
 
   // -----------------------------------------------------------------
+  // Phase 55-5: subscribe to INDICATOR messages and accumulate
+  // them into `indicatorsByKey`. The subscription is stable
+  // across renders (the `onIndicator` callback is a `useCallback`
+  // with `[]` deps, so the effect runs once per mount).
+  //
+  // **Why a separate useEffect and not an inline callback:** the
+  // `onIndicator` listener calls `setIndicatorsByKey((prev) => ...)`,
+  // which uses the functional setter form so we always operate
+  // on the freshest state. The `mergeIndicatorsByKey` helper is
+  // pure and tested in `indicator-bridge.test.ts`.
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    return onIndicator((msg) => {
+      setIndicatorsByKey((prev) => mergeIndicatorsByKey(prev, msg));
+    });
+  }, [onIndicator]);
+
+  // -----------------------------------------------------------------
   // Adapter: ChartGrid's send expects only subscribe/unsubscribe;
   // useWebSocket's send is the full ClientMessage union. The
   // narrower type is a structural subset, so the cast is safe at
@@ -277,6 +315,7 @@ export function App(): React.JSX.Element {
             strategies={strategies}
             barsByKey={barsByKey}
             markersByKey={{}}
+            indicatorsByKey={indicatorsByKey}
             feedState={feedState}
             feedMeta={feedMeta}
             send={chartSend}

@@ -49,6 +49,7 @@ import {
   type ChartKey,
   type SubscriptionState,
 } from "../lib/subscription.js";
+import { chartIndicatorKey, type IndicatorEntry } from "../lib/indicator-bridge.js";
 import type { ChartMarker, OHLCBar } from "../lib/ohlc-bridge.js";
 
 // ============================================================================
@@ -74,11 +75,21 @@ export interface StrategyDescriptor {
  * formátum: `symbol|timeframe`. A Phase 48C `App.tsx` építi ezeket
  * a state-feed `bar` / `marker` üzeneteiből + a snapshot
  * `ohlcBootstrap` adataiból.
+ *
+ * Az `indicatorsByKey` kulcsa a `chartIndicatorKey` formátum:
+ * `strategy|timeframe` (a `INDICATOR` WS üzenetek nem tartalmaznak
+ * `symbol` mezőt; a state-feed per-symbol bontásban küldi az
+ * indicator-okat, a dashboard a `(strategy, timeframe)` kulccsal
+ * merge-öl). A Phase 55-5-ös bekötés: az `App.tsx` `onIndicator`
+ * listener-e gyűjti az üzeneteket, a `ChartGrid` pedig a
+ * `(strategy, timeframe)` lookup-pal adja át a releváns
+ * `IndicatorEntry`-t a `ChartCard`-nak.
  */
 export interface ChartGridProps {
   readonly strategies: readonly StrategyDescriptor[];
   readonly barsByKey: Readonly<Record<string, readonly OHLCBar[]>>;
   readonly markersByKey: Readonly<Record<string, readonly ChartMarker[]>>;
+  readonly indicatorsByKey?: Readonly<Record<string, IndicatorEntry>>;
   readonly feedState: "live" | "stale" | "paused" | "crashed" | "disconnected";
   readonly feedMeta?: string;
   /**
@@ -196,8 +207,15 @@ const GRID_CSS = `
  *   This keeps the subscription alive so the bootstrap arrives ASAP.
  */
 export function ChartGrid(props: ChartGridProps): React.JSX.Element {
-  const { strategies, barsByKey, markersByKey, feedState, feedMeta, send } =
-    props;
+  const {
+    strategies,
+    barsByKey,
+    markersByKey,
+    indicatorsByKey,
+    feedState,
+    feedMeta,
+    send,
+  } = props;
 
   // --------------------------------------------------------------------------
   // 1. Flatten strategies × symbols × timeframes into a memoized list.
@@ -321,6 +339,24 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
         const bars: readonly OHLCBar[] = barsByKey[keyStr] ?? [];
         // eslint-disable-next-line security/detect-object-injection
         const markers: readonly ChartMarker[] = markersByKey[keyStr] ?? [];
+        // Phase 55-5: lookup the indicator entry by
+        // `${strategy}|${timeframe}` (the convention used by the
+        // state-feed's INDICATOR messages). An indicator only
+        // applies to a specific (strategy, timeframe) pair;
+        // multiple charts sharing the same strategy but
+        // different symbols will all receive the same indicator
+        // (the indicator protocol is per-(strategy, timeframe),
+        // not per-symbol). The ChartCard receives an array of
+        // indicators (today: 0 or 1 entry; future: potentially
+        // multiple per chart if a strategy emits both donchian
+        // and funding).
+        const indicatorKey = chartIndicatorKey(strategy, key.timeframe);
+        // eslint-disable-next-line security/detect-object-injection -- key is internally built
+        const indicatorEntry = indicatorsByKey?.[indicatorKey];
+        const indicators: readonly { name: string; series: object }[] =
+          indicatorEntry === undefined
+            ? []
+            : [{ name: indicatorEntry.name, series: indicatorEntry.series }];
         // Phase 52F follow-up: always render the full `ChartCard`
         // (with empty bars) instead of a "Loading…" placeholder.
         // The range-tab selector (`.line-chart-wrapper__range-button`)
@@ -340,6 +376,7 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
             data-symbol={key.symbol}
             data-strategy={strategy}
             data-timeframe={key.timeframe}
+            data-indicator-key={indicatorKey}
           >
             <ChartCard
               symbol={key.symbol}
@@ -347,6 +384,7 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
               timeframe={key.timeframe}
               bars={bars}
               markers={markers}
+              indicators={indicators}
               feedState={feedState}
               feedMeta={feedMeta ?? ""}
             />
