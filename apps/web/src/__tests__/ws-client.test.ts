@@ -15,7 +15,13 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
-import { WebSocketClient, type WebSocketLike, nextBackoffMs } from "../ws-client.js";
+import {
+  WebSocketClient,
+  type WebSocketLike,
+  nextBackoffMs,
+  shouldQueueSend,
+  shouldScheduleReconnect,
+} from "../ws-client.js";
 
 // ============================================================================
 // FakeWebSocket — implements the WebSocketLike interface
@@ -476,6 +482,61 @@ describe("WebSocketClient", () => {
     expect(trace).toEqual(["connecting"]);
     client.close();
   });
+
+  // Phase 54B: cover the `default` arm of `handleMessage`'s switch
+  // (unknown message type). The current `handleMessage` does nothing
+  // for an unrecognized `type` and the client stays "connected" with
+  // no listener firing. This is the path exercised when the server
+  // sends a future or experimental message type the client doesn't
+  // know about — the contract is "ignore gracefully".
+  it("ignores unknown message types in the default switch case", () => {
+    const client = new WebSocketClient({
+      url: "ws://test/ws",
+      createSocket: (u) => new FakeWebSocket(u),
+      scheduler: makeSyncScheduler(),
+    });
+    const snapshots: object[] = [];
+    const states: object[] = [];
+    const errors: object[] = [];
+    const ticks: object[] = [];
+    const bars: object[] = [];
+    client.onSnapshot((m) => {
+      snapshots.push(m);
+    });
+    client.onState((m) => {
+      states.push(m);
+    });
+    client.onError((m) => {
+      errors.push(m);
+    });
+    client.onTick((m) => {
+      ticks.push(m);
+    });
+    client.onBar((m) => {
+      bars.push(m);
+    });
+    client.start();
+    const socket = FakeWebSocket.instances[0];
+    if (socket === undefined) throw new Error("socket not created");
+    socket.open();
+    expect(client.getStatus()).toBe("connected");
+    // Send an unknown message type — the client must NOT throw, must
+    // stay connected, and must NOT fire any of the typed listeners.
+    // The cast bypasses the `ServerMessage` union narrowing since
+    // the test is specifically about an unrecognized `type`.
+    expect(() =>
+      socket.receive({ type: "unknown_message_type", foo: 1 } as never),
+    ).not.toThrow();
+    expect(client.getStatus()).toBe("connected");
+    expect(snapshots.length).toBe(0);
+    expect(states.length).toBe(0);
+    expect(errors.length).toBe(0);
+    expect(ticks.length).toBe(0);
+    expect(bars.length).toBe(0);
+    // The unknown message must not have been echoed back either.
+    expect(socket.sentMessages.length).toBe(0);
+    client.close();
+  });
 });
 
 // ============================================================================
@@ -532,5 +593,59 @@ describe("nextBackoffMs", () => {
     nextBackoffMs(5, schedule);
     nextBackoffMs(99, schedule);
     expect(schedule).toEqual(snapshot);
+  });
+});
+
+// ============================================================================
+// `shouldQueueSend` — pure predicate (Phase 54B)
+// ============================================================================
+
+describe("shouldQueueSend", () => {
+  it("returns false for null socket", () => {
+    expect(shouldQueueSend(null)).toBe(false);
+  });
+
+  it("returns false when readyState is 0 (CONNECTING)", () => {
+    const fake = { readyState: 0 } as WebSocketLike;
+    expect(shouldQueueSend(fake)).toBe(false);
+  });
+
+  it("returns true when readyState is 1 (OPEN)", () => {
+    const fake = { readyState: 1 } as WebSocketLike;
+    expect(shouldQueueSend(fake)).toBe(true);
+  });
+
+  it("returns false when readyState is 2 (CLOSING)", () => {
+    const fake = { readyState: 2 } as WebSocketLike;
+    expect(shouldQueueSend(fake)).toBe(false);
+  });
+
+  it("returns false when readyState is 3 (CLOSED)", () => {
+    const fake = { readyState: 3 } as WebSocketLike;
+    expect(shouldQueueSend(fake)).toBe(false);
+  });
+});
+
+// ============================================================================
+// `shouldScheduleReconnect` — pure predicate (Phase 54B)
+// ============================================================================
+
+describe("shouldScheduleReconnect", () => {
+  it("returns false when currentStatus is 'crashed'", () => {
+    expect(shouldScheduleReconnect("crashed", false)).toBe(false);
+  });
+
+  it("returns false when closedByCaller is true (user-initiated close)", () => {
+    expect(shouldScheduleReconnect("disconnected", true)).toBe(false);
+  });
+
+  it("returns true when status is 'disconnected' and closedByCaller is false", () => {
+    expect(shouldScheduleReconnect("disconnected", false)).toBe(true);
+  });
+
+  it("returns true when status is 'connecting' and closedByCaller is false", () => {
+    // The status is whatever the close event observes; the predicate
+    // only short-circuits on 'crashed' or closedByCaller.
+    expect(shouldScheduleReconnect("connecting", false)).toBe(true);
   });
 });
