@@ -1,11 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useWebSocket, type WebSocketStatus } from "./ws-client.js";
+import { useWebSocket } from "./ws-client.js";
 import { ControlBar } from "./components/ControlBar.js";
 import { PositionsTable } from "./components/PositionsTable.js";
 import { ChartGrid, type StrategyDescriptor } from "./components/ChartGrid.js";
-import { chartKeyToString } from "./lib/subscription.js";
 import { parseStrategiesResponse } from "./lib/strategies-parser.js";
+import {
+  applyParsedStrategies,
+  buildFetchErrorMessage,
+  buildFeedMeta,
+  buildStatusLabel,
+  extractBarsByKey,
+  mapFeedState,
+} from "./lib/app-helpers.js";
 import type { OHLCBar } from "./lib/ohlc-bridge.js";
 
 /**
@@ -36,12 +43,20 @@ import type { OHLCBar } from "./lib/ohlc-bridge.js";
  *     around the WS `send` is all that's needed.
  *   - Shows a "Disconnected — reconnecting…" banner on
  *     `status === "disconnected"` (above the chart grid, below the
- *     top-nav). The crashed banner from 47D is preserved.
+ *     topbar). The crashed banner from 47D is preserved.
  *   - Markers are empty in 48C; the live marker pipeline arrives in 49C.
  *
  * Phase 48D will add Playwright e2e tests against this component; for
  * now, behavioral coverage is limited to the snapshot-shape
  * smoke tests in the existing 47D test files.
+ *
+ * Phase 56B: the inline `mapFeedState`, `extractBarsByKey`,
+ * `statusLabel` map, `feedMeta` chain, and the fetch catch-block
+ * were extracted into `lib/app-helpers.ts` for direct
+ * unit-testability. The 6 helpers are pure (no React, no DOM, no
+ * I/O) and covered 100% by `lib/__tests__/app-helpers.test.ts`.
+ * The e2e suite (`e2e/56B-app-helpers.spec.ts`) drives the React
+ * flow through every previously-uncovered branch.
  */
 
 // The bot's HTTP server (apps/bot/src/web-client/http-server.ts)
@@ -52,56 +67,9 @@ import type { OHLCBar } from "./lib/ohlc-bridge.js";
 // configured server-side.
 const STRATEGIES_URL = "http://127.0.0.1:7913/api/strategies" as const;
 
-/**
- * `feedState` — the ChartGrid prop is a strict union of 5 values;
- * we map the WS status to it. "connecting" maps to "stale" because
- * we have not yet received a snapshot (so the data is not live, but
- * the connection has not been declared failed either).
- */
-type FeedState = "live" | "stale" | "paused" | "crashed" | "disconnected";
-
-function mapFeedState(status: WebSocketStatus): FeedState {
-  if (status === "connected") return "live";
-  if (status === "crashed") return "crashed";
-  if (status === "disconnected") return "disconnected";
-  return "stale";
-}
-
-/**
- * `extractBarsByKey` — defensively walk the snapshot's
- * `ohlcBootstrap` and produce a flat `Record<"symbol|tf", readonly OHLCBar[]>`
- * keyed by `chartKeyToString`.
- *
- * The ws-client types `ohlcBootstrap` as `object` (loose), so we
- * validate at runtime. Malformed inputs (non-objects, non-array
- * bar lists) are silently dropped — the ChartGrid will simply not
- * have data for those keys and will show the "Loading…" placeholder
- * until the next valid snapshot arrives.
- */
-function extractBarsByKey(
-  snapshot: unknown,
-): Readonly<Record<string, readonly OHLCBar[]>> {
-  if (typeof snapshot !== "object" || snapshot === null) return {};
-  const raw = (snapshot as { ohlcBootstrap?: unknown }).ohlcBootstrap;
-  if (typeof raw !== "object" || raw === null) return {};
-  const out: Record<string, readonly OHLCBar[]> = {};
-  for (const [symbol, perTf] of Object.entries(
-    raw as Record<string, unknown>,
-  )) {
-    if (typeof perTf !== "object" || perTf === null) continue;
-    for (const [tf, bars] of Object.entries(perTf as Record<string, unknown>)) {
-      // The bar shape is verified at the state-feed publisher; if
-      // the publisher is honest, every array here is a valid
-      // OHLCBar[]. We cast rather than re-validate to keep the hot
-      // path cheap (this runs on every snapshot).
-      if (Array.isArray(bars)) {
-        out[chartKeyToString({ symbol, timeframe: tf })] =
-          bars as readonly OHLCBar[];
-      }
-    }
-  }
-  return out;
-}
+// `FeedState` is exported from app-helpers.ts. The local binding
+// `feedState` is inferred from `mapFeedState(status)`'s return
+// type, so no explicit annotation is needed here.
 
 export function App(): React.JSX.Element {
   const { status, snapshot, lastError, send } = useWebSocket();
@@ -166,19 +134,27 @@ export function App(): React.JSX.Element {
         // abort check above and this call), so the abort signal
         // cannot have changed — a second check would be dead code
         // and the linter flags it as such.
-        const parsed = parseStrategiesResponse(body);
-        if (parsed.ok) {
-          setStrategies(parsed.strategies);
-          setStrategiesError(null);
-        } else {
-          setStrategiesError(parsed.error);
+        // Phase 56B: also delegate the `parsed.ok` dispatch to
+        // `applyParsedStrategies` (unit-tested in
+        // `app-helpers.test.ts`). The helper returns a
+        // `FetchNextState` so we apply the next values via two
+        // `setState` calls (one for strategies, one for error)
+        // without an inline if-else.
+        const next = applyParsedStrategies(parseStrategiesResponse(body));
+        if (next.strategies !== null) {
+          setStrategies(next.strategies);
         }
+        setStrategiesError(next.error);
       } catch (e) {
         if (controller.signal.aborted) return;
-        if (e instanceof Error && e.name === "AbortError") return;
-        setStrategiesError(
-          e instanceof Error ? e.message : "fetch failed",
-        );
+        // Phase 56B: delegate the error message extraction to
+        // `buildFetchErrorMessage` (unit-tested in
+        // `app-helpers.test.ts`). The helper returns `null` for
+        // an AbortError (no error to surface) or a human-readable
+        // message for any other error.
+        const msg = buildFetchErrorMessage(e);
+        if (msg === null) return;
+        setStrategiesError(msg);
       }
     })();
     return (): void => {
@@ -220,26 +196,19 @@ export function App(): React.JSX.Element {
     [send],
   );
 
-  const feedState: FeedState = mapFeedState(status);
+  const feedState = mapFeedState(status);
 
   // feedMeta tail: surface the most recent recoverable error
   // (WS error or strategies fetch error) on the chart grid chrome.
   // The ChartGrid falls back to "" when undefined, so we always
-  // pass a string.
-  const feedMeta: string =
-    lastError?.message ?? strategiesError ?? "";
+  // pass a string. Phase 56B: delegate to the pure helper
+  // `buildFeedMeta` (unit-tested in `app-helpers.test.ts`).
+  const feedMeta = buildFeedMeta(lastError, strategiesError);
 
-  // Human-readable WS status label (unchanged from 47D).
-  const statusLabel: Record<WebSocketStatus, string> = {
-    disconnected: "WebSocket: disconnected",
-    connecting: "WebSocket: connecting…",
-    connected: `WebSocket: connected${
-      snapshot !== null
-        ? ` (${snapshot.strategies.length} strategies)`
-        : ""
-    }`,
-    crashed: `WebSocket: crashed — ${lastError?.message ?? "unknown"}`,
-  };
+  // Human-readable WS status label. Phase 56B: delegate to the
+  // pure helper `buildStatusLabel` (unit-tested in
+  // `app-helpers.test.ts`).
+  const statusLabel = buildStatusLabel(status, snapshot, lastError);
 
   return (
     <div className="ep-app">
@@ -250,8 +219,7 @@ export function App(): React.JSX.Element {
         </div>
         <div className="ep-app__status">
           <span className="ep-app__status-dot" data-status={status} />
-          {/* eslint-disable-next-line security/detect-object-injection */}
-          <span className="ep-app__status-text">{statusLabel[status]}</span>
+          <span className="ep-app__status-text">{statusLabel}</span>
         </div>
       </header>
       <main className="ep-app__main">
