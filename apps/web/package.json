@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --no-error-on-unmatched-pattern --max-warnings=0 \"src/**/*.{ts,tsx}\" \"e2e/**/*.{ts,tsx}\"",
-    "test": "bun test --pass-with-no-tests --preload ./test-setup.ts src/",
+    "test": "bun test --pass-with-no-tests src/",
     "e2e": "playwright test --reporter=line",
     "e2e:full": "playwright test --reporter=line",
     "e2e:headed": "playwright test --reporter=line --headed"
