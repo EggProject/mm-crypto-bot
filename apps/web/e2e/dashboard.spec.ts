@@ -60,6 +60,9 @@ import {
 } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// Phase 57: import the coverage accumulator reader so the
+// dashboard `afterAll` can merge coverage from other spec files.
+import { readAllAccumulators } from "./_helpers/coverage.js";
 
 const { createCoverageMap } = istanbulCoverage as unknown as {
   createCoverageMap: (data: unknown) => {
@@ -68,6 +71,7 @@ const { createCoverageMap } = istanbulCoverage as unknown as {
       branches: { pct: number };
       functions: { pct: number };
     };
+    merge: (other: unknown) => void;
   };
 };
 
@@ -214,10 +218,28 @@ function flushAndReport(): CoverageReport {
   // is strict about the FileCoverageData shape (it requires a
   // specific `path` field that istanbul's runtime output satisfies
   // but the TS types don't allow us to declare directly).
-  const map = createCoverageMap(
+  //
+  // **Phase 57 merge:** we create a base map from the dashboard
+  // accumulator, then merge in the external accumulators from
+  // other spec files. `map.merge()` takes the UNION of covered
+  // lines/branches across runs, which is what we want.
+  const baseMap = createCoverageMap(
     coverageAccumulator as unknown as Parameters<typeof createCoverageMap>[0],
   );
-  writeFileSync(COVERAGE_FINAL, JSON.stringify(map, null, 2), "utf8");
+  // `readAllAccumulators()` is called in the `afterAll` before
+  // `flushAndReport`. The external data has already been merged
+  // into `coverageAccumulator` via the `afterAll` code. But
+  // `createCoverageMap` does a SHALLOW merge of per-file entries
+  // (last one wins). To get a proper UNION, we need to use
+  // `map.merge()`.
+  const externalData = readAllAccumulators();
+  if (Object.keys(externalData).length > 0) {
+    const externalMap = createCoverageMap(
+      externalData as unknown as Parameters<typeof createCoverageMap>[0],
+    );
+    baseMap.merge(externalMap);
+  }
+  writeFileSync(COVERAGE_FINAL, JSON.stringify(baseMap, null, 2), "utf8");
 
   const reportDir = resolve(COVERAGE_DIR, "report");
   try {
@@ -341,6 +363,10 @@ test.afterAll(() => {
   // is empty + the threshold check would spuriously fail).
   if (Object.keys(coverageAccumulator).length === 0) return;
   if (!existsSync(COVERAGE_DIR)) return;
+  // Phase 57: `flushAndReport` reads external accumulators from
+  // `coverage/playwright/accumulators/*.json` and merges them
+  // into the base map using `map.merge()` (UNION of covered
+  // lines/branches).
   const report = flushAndReport();
   checkThresholds(report);
 });
