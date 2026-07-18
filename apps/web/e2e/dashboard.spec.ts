@@ -145,7 +145,6 @@ const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "dashboard.png");
 // Target: +15-25pp lines, +20-30pp branches (close the 25pp
 // branches gap to within 5pp), +12-18pp functions. Goal: 80%
 // across all 3 metrics.
-const COVERAGE_THRESHOLDS = { lines: 80, branches: 80, functions: 80 } as const;
 //
 // The CI will fail on this PR. Phase 55+ scope (in
 // `.mavis/notes/phase55-scope.md`) plans how to close the gap:
