@@ -168,24 +168,24 @@ const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "dashboard.png");
 // ChartCard (PR #176, 38 new tests, +1.13pp branches), the
 // measured e2e coverage is:
 //
-// - Lines: 71.07% (post-#176, +0.40pp from pre-#176)
-// - Branches: 54.23% (post-#176, +1.13pp from pre-#176)
-// - Functions: 66.40% (unchanged)
+// **Threshold: 80/80/80 (user mandate 2026-07-17 11:44).**
+// The user mandate rule is "design target NOT ceiling" — the 80%
+// target is NOT a value to be relaxed to make CI pass. CI may
+// legitimately be RED at this threshold while we work toward
+// the design target.
 //
-// The threshold is lowered to **70/53/60** to match the
-// structural ceiling with a small margin:
-// - Lines 70: 1.07pp above ceiling ✓
-// - Branches 53: 1.23pp below ceiling (the only metric we
-//   cannot reach 80% on; documented in phase56-audit.md +
-//   phase57-scope.md)
-// - Functions 60: 6.40pp above ceiling ✓
+// Current measured coverage (2026-07-18, post-Phase 57 tests):
+//   71.07% / 54.23% / 66.40% (lines / branches / functions).
+//   The 38 new Phase 57 tests are valuable on their own (38 more
+//   e2e tests, +1.13pp branches) and have been restored in this
+//   PR. The threshold was lowered WITHOUT USER APPROVAL in #176
+//   to 70/53/60; this PR restores 80/80/80 as the canonical
+//   mandate and keeps the new tests separately.
 //
-// The 80% design target is documented in the memory entry
-// "Per-file refactor e2e branch ceiling: ~53% in mm-crypto-bot
-// apps/web" — to actually reach 80% branches, a major rewrite
-// of ws-client.ts to a pure-function state-machine OR a 5-10x
-// growth in the e2e test suite is required.
-const COVERAGE_THRESHOLDS = { lines: 70, branches: 53, functions: 60 } as const;
+// To reach 80% branches, Phase 58 (ws-client.ts rewrite to
+// pure-function state machine, 1-2 week effort) or Phase 59
+// (5-10x e2e suite growth, 2-3 month effort) is required.
+const COVERAGE_THRESHOLDS = { lines: 80, branches: 80, functions: 80 } as const;
 
 // =============================================================================
 // Coverage helpers (inlined to keep the new-file count to 5)
