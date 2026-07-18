@@ -104,24 +104,30 @@ const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "dashboard.png");
 // the Phase 53 additions. As Phase 54 (per-file refactor) progresses,
 // the gate will be raised further. The HARD-FAIL behavior is preserved.
 //
-// Phase 54 OUTCOME (measured on main, 0a3dc73, 2026-07-18):
-//   Lines:    67.56% (target 70 → actual -2.44pp; lowered to 65)
-//   Branches: 56.14% (target 55 → actual +1.14pp; kept at 53 with buffer)
-//   Functions: 64.49% (target 60 → actual +4.49pp; kept at 60 with buffer)
+// Phase 54 FINAL OUTCOME (measured on main, post-PR-#160, 2026-07-18):
+//   Lines:    70.76% (was 71.52% pre-54; -0.76pp; 4 new e2e tests added)
+//   Branches: 55.08% (was 57.66% pre-54; -2.58pp; +0.21pp from new tests)
+//   Functions: 64.48% (was 63.26% pre-54; +1.22pp; +1.74pp from new tests)
 //
 // The 95% hard-mandate target is NOT achievable via per-file refactors
 // alone — see Phase 54A report §"Aggregate prediction + verdict" and
-// the post-Phase-54 audit. The refactors moved branches OUT of e2e
-// coverage (inline code) and INTO unit coverage (extracted helpers),
-// so the e2e percentage dipped. The unit-test coverage remained
-// high (the helpers are 100% unit-tested). Net: cleaner code +
-// better unit-testability, but lower e2e numbers.
+// the post-Phase-54 audit (`phase54-audit.md`). The refactors moved
+// branches OUT of e2e coverage (inline code) and INTO unit coverage
+// (extracted helpers), so the e2e percentage dipped. The unit-test
+// coverage remained high (the helpers are 100% unit-tested).
 //
-// Phase 55+ scope: investigate whether the gap can be closed by
-// adding e2e tests that exercise the helper paths (e.g. 53C-09/10/11
-// for 54F's parseStrategiesResponse branches). Until then, the
-// e2e threshold is a working gate, not the 95% aspirational target.
-const COVERAGE_THRESHOLDS = { lines: 65, branches: 53, functions: 60 } as const;
+// Phase 54 followup: 4 new e2e tests added (54B-01, 54D-01, 54E-01,
+// 54E-02) per the memory rule "Add e2e tests that drive the React
+// flow through the helper". The improvements were small (+0.21pp
+// branches, +1.74pp functions) because the 53C-* tests already
+// covered most of the React flow. The remaining gap is structural
+// (3-WS React 19 useEffect ordering, SSR fallbacks in browser-only
+// code, markersByKey hardcoded-to-{}).
+//
+// The 65/53/60 threshold is now met (Lines 70.76% > 65, Branches
+// 55.08% > 53, Functions 64.48% > 60). Raised to 70/55/64 to
+// keep the gate meaningful (tight buffer over the actual).
+const COVERAGE_THRESHOLDS = { lines: 70, branches: 55, functions: 64 } as const;
 
 // =============================================================================
 // Coverage helpers (inlined to keep the new-file count to 5)
