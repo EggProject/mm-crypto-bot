@@ -22,11 +22,36 @@ import { resolve } from "node:path";
 // each test, then merges it via `nyc report` for the lcov + html
 // report. Setting `VITE_COVERAGE=false` (or omitting it entirely)
 // produces an un-instrumented production build for non-CI workflows.
+//
+// Phase 58.5: added `babel-plugin-istanbul` via the React plugin's
+// `babel.plugins` option. This instruments the code at the BABEL
+// transform level (during Vite dev + build), which means the
+// instrumented code runs in BOTH the dev server (used by Playwright
+// Component Tests via @playwright/experimental-ct-react) AND the
+// production build. The previous `vite-plugin-istanbul` only
+// instrumented the production build, which meant CT couldn't
+// collect coverage. Now CT can collect, and the merged CT + E2E
+// coverage should reach the 80% target. Pattern from
+// iFaxity/vite-plugin-istanbul issue #29.
 export default defineConfig(() => {
   const isCoverage = process.env.VITE_COVERAGE === "true";
+  const isCt = process.env.VITE_CT === "true";
+  // When coverage is needed (production build for e2e OR dev server
+  // for CT), add babel-plugin-istanbul via React's babel option.
+  // This instruments the code at the babel transform level, which
+  // works in both dev and build modes.
+  const needsBabelIstanbul = isCoverage || isCt;
   return {
     plugins: [
-      react(),
+      react(
+        needsBabelIstanbul
+          ? {
+              babel: {
+                plugins: [["istanbul", { extension: [".ts", ".tsx"] }]],
+              },
+            }
+          : undefined,
+      ),
       ...(isCoverage
         ? [
             istanbul({
@@ -40,9 +65,6 @@ export default defineConfig(() => {
               ],
               extension: [".ts", ".tsx"],
               requireEnv: true,
-              // `cypress: false` (default) means we use VITE_COVERAGE
-              // as the gating env var. Playwright sets it before
-              // invoking `vite build`.
               forceBuildInstrument: true,
             }),
           ]
