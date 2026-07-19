@@ -531,11 +531,6 @@ test.describe("58C — coverage for low-coverage files", () => {
   test("58C-12: /api/strategies returns null — parseStrategiesResponse 'null body' branch (line 2)", async ({
     page,
   }) => {
-    // Disable MSW so the page.route override actually wins (MSW
-    // service worker intercepts the request before page.route).
-    await page.addInitScript(() => {
-      (window as unknown as { MSW_STARTED?: boolean }).MSW_STARTED = false;
-    });
     const harness = await setupWsPeer(page);
     // Second `page.route` for /api/strategies — overrides
     // setupWsPeer's default valid response with `null`. The LAST
@@ -566,10 +561,6 @@ test.describe("58C — coverage for low-coverage files", () => {
   test("58C-13: /api/strategies returns a primitive (number) — parseStrategiesResponse 'not an object' branch (line 5)", async ({
     page,
   }) => {
-    // Disable MSW so the page.route override actually wins.
-    await page.addInitScript(() => {
-      (window as unknown as { MSW_STARTED?: boolean }).MSW_STARTED = false;
-    });
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
       return route.fulfill({
@@ -597,10 +588,6 @@ test.describe("58C — coverage for low-coverage files", () => {
   test("58C-14: /api/strategies returns an array (not an object) — parseStrategiesResponse 'array, not object' branch (line 8)", async ({
     page,
   }) => {
-    // Disable MSW so the page.route override actually wins.
-    await page.addInitScript(() => {
-      (window as unknown as { MSW_STARTED?: boolean }).MSW_STARTED = false;
-    });
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
       return route.fulfill({
@@ -628,10 +615,6 @@ test.describe("58C — coverage for low-coverage files", () => {
   test("58C-15: /api/strategies returns object without 'strategies' key — parseStrategiesResponse 'invalid shape' branch (line 12)", async ({
     page,
   }) => {
-    // Disable MSW so the page.route override actually wins.
-    await page.addInitScript(() => {
-      (window as unknown as { MSW_STARTED?: boolean }).MSW_STARTED = false;
-    });
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
       return route.fulfill({
