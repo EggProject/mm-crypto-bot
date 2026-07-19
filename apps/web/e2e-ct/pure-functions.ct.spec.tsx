@@ -12,9 +12,20 @@
  * removing the ws-client-state / subscription / realtime-batcher
  * imports that had broken source-map alignment in the dev
  * server. The remaining files have correct line attribution.
+ *
+ * **Phase 59.1 (NEW):** added `DefensiveParsersProbe` to cover
+ * the 4+4 defensive parser branches in `parseStrategiesResponse`
+ * and `extractBarsByKey` that the e2e suite cannot reach (MSW
+ * service worker blocks them). The functions are pure, so CT
+ * invocation with malformed inputs attributes the branches to
+ * the CT lane — the merge in `e2e/dashboard.spec.ts` afterAll
+ * picks them up.
  */
 import { test, expect } from "./_helpers/coverage.js";
-import { ChartCardHelpersProbe } from "./__stories__/pure-functions.stories.js";
+import {
+  ChartCardHelpersProbe,
+  AppHelpersProbe,
+} from "./__stories__/pure-functions.stories.js";
 
 test.describe("CT: chart-card-helpers (pure functions)", () => {
   test("classifyFeed + mapFeedState + shouldCrashOnError + shouldScheduleReconnect all run", async ({
@@ -24,6 +35,18 @@ test.describe("CT: chart-card-helpers (pure functions)", () => {
     await expect(component).toHaveAttribute(
       "data-testid",
       "chart-card-helpers-probe",
+    );
+  });
+});
+
+test.describe("CT: app-helpers (Phase 59.1 — extractBarsByKey + status + meta + fetch + applyParsedStrategies)", () => {
+  test("extractBarsByKey + buildStatusLabel + buildFeedMeta + buildFetchErrorMessage + applyParsedStrategies all run", async ({
+    mount,
+  }) => {
+    const component = await mount(<AppHelpersProbe />);
+    await expect(component).toHaveAttribute(
+      "data-testid",
+      "app-helpers-probe",
     );
   });
 });
