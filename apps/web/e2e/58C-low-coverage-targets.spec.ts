@@ -533,9 +533,14 @@ test.describe("58C — coverage for low-coverage files", () => {
     context,
   }) => {
     // Disable MSW via context-level addInitScript (runs before any
-    // page script). Use Object.defineProperty to make the value
-    // immutable — subsequent sets (e.g. by main.tsx) are no-ops,
-    // so the page.route override always wins.
+    // page script). Three layers of defense:
+    //   1. Make window.MSW_STARTED immutable (false) so main.tsx
+    //      skips the MSW bootstrap.
+    //   2. Unregister any existing MSW service worker so the SW
+    //      doesn't intercept the request at the network layer.
+    //   3. Use the page.route override (set later) to provide
+    //      the malformed body — now it wins because no MSW
+    //      service worker is intercepting.
     await context.addInitScript(() => {
       Object.defineProperty(window, "MSW_STARTED", {
         configurable: true,
@@ -544,6 +549,18 @@ test.describe("58C — coverage for low-coverage files", () => {
           /* ignore subsequent sets */
         },
       });
+      // Unregister any existing MSW service workers (registered
+      // by previous tests in the same context). The MSW SW is
+      // identified by its scope (the test app's origin).
+      if (navigator.serviceWorker !== undefined) {
+        void navigator.serviceWorker
+          .getRegistrations()
+          .then((regs) => {
+            for (const r of regs) {
+              void r.unregister();
+            }
+          });
+      }
     });
     const harness = await setupWsPeer(page);
     // Second `page.route` for /api/strategies — overrides
@@ -577,9 +594,14 @@ test.describe("58C — coverage for low-coverage files", () => {
     context,
   }) => {
     // Disable MSW via context-level addInitScript (runs before any
-    // page script). Use Object.defineProperty to make the value
-    // immutable — subsequent sets (e.g. by main.tsx) are no-ops,
-    // so the page.route override always wins.
+    // page script). Three layers of defense:
+    //   1. Make window.MSW_STARTED immutable (false) so main.tsx
+    //      skips the MSW bootstrap.
+    //   2. Unregister any existing MSW service worker so the SW
+    //      doesn't intercept the request at the network layer.
+    //   3. Use the page.route override (set later) to provide
+    //      the malformed body — now it wins because no MSW
+    //      service worker is intercepting.
     await context.addInitScript(() => {
       Object.defineProperty(window, "MSW_STARTED", {
         configurable: true,
@@ -588,6 +610,18 @@ test.describe("58C — coverage for low-coverage files", () => {
           /* ignore subsequent sets */
         },
       });
+      // Unregister any existing MSW service workers (registered
+      // by previous tests in the same context). The MSW SW is
+      // identified by its scope (the test app's origin).
+      if (navigator.serviceWorker !== undefined) {
+        void navigator.serviceWorker
+          .getRegistrations()
+          .then((regs) => {
+            for (const r of regs) {
+              void r.unregister();
+            }
+          });
+      }
     });
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
@@ -618,9 +652,14 @@ test.describe("58C — coverage for low-coverage files", () => {
     context,
   }) => {
     // Disable MSW via context-level addInitScript (runs before any
-    // page script). Use Object.defineProperty to make the value
-    // immutable — subsequent sets (e.g. by main.tsx) are no-ops,
-    // so the page.route override always wins.
+    // page script). Three layers of defense:
+    //   1. Make window.MSW_STARTED immutable (false) so main.tsx
+    //      skips the MSW bootstrap.
+    //   2. Unregister any existing MSW service worker so the SW
+    //      doesn't intercept the request at the network layer.
+    //   3. Use the page.route override (set later) to provide
+    //      the malformed body — now it wins because no MSW
+    //      service worker is intercepting.
     await context.addInitScript(() => {
       Object.defineProperty(window, "MSW_STARTED", {
         configurable: true,
@@ -629,6 +668,18 @@ test.describe("58C — coverage for low-coverage files", () => {
           /* ignore subsequent sets */
         },
       });
+      // Unregister any existing MSW service workers (registered
+      // by previous tests in the same context). The MSW SW is
+      // identified by its scope (the test app's origin).
+      if (navigator.serviceWorker !== undefined) {
+        void navigator.serviceWorker
+          .getRegistrations()
+          .then((regs) => {
+            for (const r of regs) {
+              void r.unregister();
+            }
+          });
+      }
     });
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
@@ -659,9 +710,14 @@ test.describe("58C — coverage for low-coverage files", () => {
     context,
   }) => {
     // Disable MSW via context-level addInitScript (runs before any
-    // page script). Use Object.defineProperty to make the value
-    // immutable — subsequent sets (e.g. by main.tsx) are no-ops,
-    // so the page.route override always wins.
+    // page script). Three layers of defense:
+    //   1. Make window.MSW_STARTED immutable (false) so main.tsx
+    //      skips the MSW bootstrap.
+    //   2. Unregister any existing MSW service worker so the SW
+    //      doesn't intercept the request at the network layer.
+    //   3. Use the page.route override (set later) to provide
+    //      the malformed body — now it wins because no MSW
+    //      service worker is intercepting.
     await context.addInitScript(() => {
       Object.defineProperty(window, "MSW_STARTED", {
         configurable: true,
@@ -670,6 +726,18 @@ test.describe("58C — coverage for low-coverage files", () => {
           /* ignore subsequent sets */
         },
       });
+      // Unregister any existing MSW service workers (registered
+      // by previous tests in the same context). The MSW SW is
+      // identified by its scope (the test app's origin).
+      if (navigator.serviceWorker !== undefined) {
+        void navigator.serviceWorker
+          .getRegistrations()
+          .then((regs) => {
+            for (const r of regs) {
+              void r.unregister();
+            }
+          });
+      }
     });
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
