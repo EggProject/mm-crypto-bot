@@ -133,13 +133,22 @@ export const test = baseTest.extend({
       "collectIstanbulCoverage",
       (coverageJSON: string) => {
         if (coverageJSON !== "") {
-          writeUtf8(
-            path.join(
-              NYC_OUTPUT_DIR,
-              `playwright_ct_${generateUUID()}.json`,
-            ),
-            coverageJSON,
+          const filePath = path.join(
+            NYC_OUTPUT_DIR,
+            `playwright_ct_${generateUUID()}.json`,
           );
+          try {
+            writeUtf8(filePath, coverageJSON);
+            // eslint-disable-next-line no-console
+            console.log(
+              `[ct-coverage] wrote ${filePath} (${coverageJSON.length} bytes)`,
+            );
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.log(
+              `[ct-coverage] write_error filePath=${filePath} err=${(e as Error).message}`,
+            );
+          }
         }
       },
     );
