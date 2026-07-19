@@ -530,20 +530,11 @@ test.describe("58C — coverage for low-coverage files", () => {
 
   test("58C-12: /api/strategies returns null — parseStrategiesResponse 'null body' branch (line 2)", async ({
     page,
-    context,
   }) => {
-    // Disable MSW via context-level addInitScript (runs before any
-    // page script). Use Object.defineProperty to make the value
-    // immutable — subsequent sets (e.g. by main.tsx) are no-ops,
-    // so the page.route override always wins.
-    await context.addInitScript(() => {
-      Object.defineProperty(window, "MSW_STARTED", {
-        configurable: true,
-        get: () => false,
-        set: () => {
-          /* ignore subsequent sets */
-        },
-      });
+    // Disable MSW so the page.route override actually wins (MSW
+    // service worker intercepts the request before page.route).
+    await page.addInitScript(() => {
+      (window as unknown as { MSW_STARTED?: boolean }).MSW_STARTED = false;
     });
     const harness = await setupWsPeer(page);
     // Second `page.route` for /api/strategies — overrides
@@ -574,20 +565,10 @@ test.describe("58C — coverage for low-coverage files", () => {
 
   test("58C-13: /api/strategies returns a primitive (number) — parseStrategiesResponse 'not an object' branch (line 5)", async ({
     page,
-    context,
   }) => {
-    // Disable MSW via context-level addInitScript (runs before any
-    // page script). Use Object.defineProperty to make the value
-    // immutable — subsequent sets (e.g. by main.tsx) are no-ops,
-    // so the page.route override always wins.
-    await context.addInitScript(() => {
-      Object.defineProperty(window, "MSW_STARTED", {
-        configurable: true,
-        get: () => false,
-        set: () => {
-          /* ignore subsequent sets */
-        },
-      });
+    // Disable MSW so the page.route override actually wins.
+    await page.addInitScript(() => {
+      (window as unknown as { MSW_STARTED?: boolean }).MSW_STARTED = false;
     });
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
@@ -615,20 +596,10 @@ test.describe("58C — coverage for low-coverage files", () => {
 
   test("58C-14: /api/strategies returns an array (not an object) — parseStrategiesResponse 'array, not object' branch (line 8)", async ({
     page,
-    context,
   }) => {
-    // Disable MSW via context-level addInitScript (runs before any
-    // page script). Use Object.defineProperty to make the value
-    // immutable — subsequent sets (e.g. by main.tsx) are no-ops,
-    // so the page.route override always wins.
-    await context.addInitScript(() => {
-      Object.defineProperty(window, "MSW_STARTED", {
-        configurable: true,
-        get: () => false,
-        set: () => {
-          /* ignore subsequent sets */
-        },
-      });
+    // Disable MSW so the page.route override actually wins.
+    await page.addInitScript(() => {
+      (window as unknown as { MSW_STARTED?: boolean }).MSW_STARTED = false;
     });
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
@@ -656,20 +627,10 @@ test.describe("58C — coverage for low-coverage files", () => {
 
   test("58C-15: /api/strategies returns object without 'strategies' key — parseStrategiesResponse 'invalid shape' branch (line 12)", async ({
     page,
-    context,
   }) => {
-    // Disable MSW via context-level addInitScript (runs before any
-    // page script). Use Object.defineProperty to make the value
-    // immutable — subsequent sets (e.g. by main.tsx) are no-ops,
-    // so the page.route override always wins.
-    await context.addInitScript(() => {
-      Object.defineProperty(window, "MSW_STARTED", {
-        configurable: true,
-        get: () => false,
-        set: () => {
-          /* ignore subsequent sets */
-        },
-      });
+    // Disable MSW so the page.route override actually wins.
+    await page.addInitScript(() => {
+      (window as unknown as { MSW_STARTED?: boolean }).MSW_STARTED = false;
     });
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
