@@ -63,6 +63,7 @@ import { fileURLToPath } from "node:url";
 // Phase 57: import the coverage accumulator reader so the
 // dashboard `afterAll` can merge coverage from other spec files.
 import { readAllAccumulators } from "./_helpers/coverage.js";
+import { readAllCtAccumulators } from "../e2e-ct/_helpers/coverage.js";
 
 const { createCoverageMap } = istanbulCoverage as unknown as {
   createCoverageMap: (data: unknown) => {
@@ -253,6 +254,17 @@ function flushAndReport(): CoverageReport {
       externalData as unknown as Parameters<typeof createCoverageMap>[0],
     );
     baseMap.merge(externalMap);
+  }
+  // Phase 58: merge CT (Component Test) accumulators too. The CT
+  // lane uses `coverage/ct/accumulators/*.json` and we union them
+  // into the final E2E coverage map. This is the "여기어때"
+  // pattern: CT + E2E merged coverage.
+  const ctExternalData = readAllCtAccumulators();
+  if (Object.keys(ctExternalData).length > 0) {
+    const ctMap = createCoverageMap(
+      ctExternalData as unknown as Parameters<typeof createCoverageMap>[0],
+    );
+    baseMap.merge(ctMap);
   }
   writeFileSync(COVERAGE_FINAL, JSON.stringify(baseMap, null, 2), "utf8");
 

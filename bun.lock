@@ -55,6 +55,7 @@
         "react-dom": "^19.0.0",
       },
       "devDependencies": {
+        "@playwright/experimental-ct-react": "^1.61.1",
         "@playwright/test": "^1.49.0",
         "@types/istanbul-lib-coverage": "^2.0.6",
         "@types/node": "^22.13.0",
@@ -313,6 +314,10 @@
     "@open-draft/logger": ["@open-draft/logger@0.3.0", "", { "dependencies": { "is-node-process": "^1.2.0", "outvariant": "^1.4.0" } }, "sha512-X2g45fzhxH238HKO4xbSr7+wBS8Fvw6ixhTDuvLd5mqh6bJJCFAPwU9mPDxbcrRtfxv4u5IHCEH77BmxvXmmxQ=="],
 
     "@open-draft/until": ["@open-draft/until@2.1.0", "", {}, "sha512-U69T3ItWHvLwGg5eJ0n3I62nWuE6ilHlmz7zM0npLBRvPRd7e6NYmg54vvRtP5mZG7kZqZCFVdsTWo7BPtBujg=="],
+
+    "@playwright/experimental-ct-core": ["@playwright/experimental-ct-core@1.61.1", "", { "dependencies": { "playwright": "1.61.1", "playwright-core": "1.61.1", "vite": "^6.4.1" } }, "sha512-O3KeEn5wYHCT57TBGbKYk5A0xHlAvXGiukPEu+Hy5FeEqvxt4LFKY+5M//VnqqCIFGsh2iGtgQbtfpdvHgt0zg=="],
+
+    "@playwright/experimental-ct-react": ["@playwright/experimental-ct-react@1.61.1", "", { "dependencies": { "@playwright/experimental-ct-core": "1.61.1", "@vitejs/plugin-react": "^4.2.1" }, "bin": { "playwright": "cli.js" } }, "sha512-NVIXJ2QxanU8n1KX/bANLXWSI0FcK4B8kBvGBDD9uEMnTF9pYf4S628nIgPaUBYEEDLYQxFxCVzN2eYN/Oz7Yw=="],
 
     "@playwright/test": ["@playwright/test@1.61.1", "", { "dependencies": { "playwright": "1.61.1" }, "bin": { "playwright": "cli.js" } }, "sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig=="],
 

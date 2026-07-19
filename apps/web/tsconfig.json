@@ -21,5 +21,12 @@
       "@mm-crypto-bot/core": ["../../packages/core/src/index.ts"]
     }
   },
-  "include": ["src", "e2e", "playwright.config.ts", "vite.config.ts"]
+  "include": [
+    "src",
+    "e2e",
+    "e2e-ct",
+    "playwright.config.ts",
+    "playwright-ct.config.ts",
+    "vite.config.ts"
+  ]
 }
