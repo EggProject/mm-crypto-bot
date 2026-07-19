@@ -46,6 +46,7 @@ import {
   buildFetchErrorMessage,
   applyParsedStrategies,
 } from "../../src/lib/app-helpers.js";
+import { parseStrategiesResponse } from "../../src/lib/strategies-parser.js";
 
 /**
  * `ChartCardHelpersProbe` — render a small DOM that exercises
@@ -233,6 +234,17 @@ export function AppHelpersProbe(): React.JSX.Element {
   // applyParsedStrategies — 2 branches
   void applyParsedStrategies({ ok: true, strategies: [] });
   void applyParsedStrategies({ ok: false, error: "bad" });
+
+  // parseStrategiesResponse — 5 branches (Phase 59.4 source map fix:
+  // docstring shortened + import type below fn body so Vite dev
+  // server attributes the function body to its actual line range
+  // instead of lines 1-16 of the file)
+  void parseStrategiesResponse(null);
+  void parseStrategiesResponse("string");
+  void parseStrategiesResponse(42);
+  void parseStrategiesResponse([]);
+  void parseStrategiesResponse({ strategies: "not-an-array" });
+  void parseStrategiesResponse({ strategies: [] });
 
   return <div data-testid="app-helpers-probe" />;
 }
