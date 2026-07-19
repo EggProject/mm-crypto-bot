@@ -39,6 +39,14 @@
  *   - The boundary is `dispatch(event)`: the class calls the reducer
  *     with the current state + the event, then sets `this.state =
  *     nextState` and runs the returned effects.
+ *
+ * **Phase 59.5 source map note:** a previous attempt to shorten this
+ * docstring to fix the Vite dev-server source-map misalignment CAUSED
+ * a merge mismatch with the e2e production build (CT and e2e produced
+ * different instrumentation for the modified file). The original
+ * docstring was restored. The ws-client-state.ts branches remain at
+ * 31% in CI; the structural ceiling is real and the only path to
+ * improvement is via e2e (not CT) for this file.
  */
 
 // =============================================================================
