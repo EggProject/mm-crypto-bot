@@ -85,6 +85,16 @@ async function captureAndWrite(page: Page): Promise<void> {
   }
 }
 
+/** `afterEachCapture` — per-test capture. Playwright CT creates a
+ *  new page per test (the `mount()` fixture), so we hook into
+ *  `test.afterEach` to capture the page's coverage reliably. The
+ *  `page` argument comes from Playwright's CT-specific fixture. */
+async function afterEachCapture(
+  { page }: { page: Page },
+): Promise<void> {
+  await captureAndWrite(page);
+}
+
 export const test = baseTest.extend({
   context: async ({ context }, use) => {
     // 1. Register a beforeunload handler in every new page in the
@@ -123,16 +133,15 @@ export const test = baseTest.extend({
       await captureAndWrite(page);
     }
   },
-  // 5. Per-test capture hook. The `page` fixture is provided by
-  //    Playwright CT and points at the page used for the current
-  //    test (created fresh per test by `mount()`).
-  page: async ({ page }, use) => {
-    await use(page);
-    // After the test completes, capture the page's coverage
-    // (this runs BEFORE the spec-level `use(context)` resumes).
-    await captureAndWrite(page);
-  },
 });
+
+// Per-test capture: Playwright CT creates a new page per test (the
+// `mount()` fixture). We hook into `test.afterEach` to capture the
+// page's coverage reliably. The `page` fixture is provided by
+// Playwright's CT runtime and points at the page used for the
+// current test. This runs BEFORE the spec-level `use(context)`
+// resumes, ensuring the page is still alive.
+test.afterEach(afterEachCapture);
 
 export { expect };
 
