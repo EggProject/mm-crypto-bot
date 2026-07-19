@@ -34,6 +34,18 @@ import {
   shouldScheduleReconnect,
   shouldCrashOnError,
 } from "../../src/ws-client-state.js";
+import {
+  chartKeyToString,
+  chartKeyFromString,
+  computeSubscriptionDiff,
+  applySubscriptionDiff,
+  initialSubscriptionState,
+} from "../../src/lib/subscription.js";
+import {
+  RealtimeBatcher,
+  shouldFlush,
+  coalesceFrames,
+} from "../../src/lib/realtime-batcher.js";
 import type { ServerMessage } from "../../src/ws-client.js";
 
 /**
@@ -130,6 +142,64 @@ export function ChartCardHelpersProbe(): React.JSX.Element {
     void shouldCrashOnError({ recoverable: true });
     void shouldCrashOnError({ recoverable: false });
   }
+  // Drive subscription.ts pure functions.
+  void chartKeyToString({ symbol: "BTCUSDT", timeframe: "1h" });
+  void chartKeyFromString("BTCUSDT|1h");
+  void chartKeyFromString("invalid");
+  void computeSubscriptionDiff(
+    null,
+    [{ symbol: "BTCUSDT", timeframe: "1h" }],
+  );
+  void computeSubscriptionDiff(
+    [{ symbol: "BTCUSDT", timeframe: "1h" }],
+    [
+      { symbol: "BTCUSDT", timeframe: "1h" },
+      { symbol: "ETHUSDT", timeframe: "4h" },
+    ],
+  );
+  void computeSubscriptionDiff(
+    [
+      { symbol: "BTCUSDT", timeframe: "1h" },
+      { symbol: "BTCUSDT", timeframe: "1h" }, // dedup test
+    ],
+    [{ symbol: "BTCUSDT", timeframe: "1h" }],
+  );
+  void applySubscriptionDiff(initialSubscriptionState(), []);
+  void applySubscriptionDiff(initialSubscriptionState(), [
+    { type: "subscribe", symbol: "BTCUSDT", timeframe: "1h" },
+  ]);
+  void applySubscriptionDiff(initialSubscriptionState(), [
+    { type: "unsubscribe", symbol: "BTCUSDT", timeframe: "1h" },
+  ]);
+  // Drive realtime-batcher.ts pure functions (RealtimeBatcher class + helpers).
+  void shouldFlush({ frameHandle: null }, 0);
+  void shouldFlush({ frameHandle: null }, 100);
+  void coalesceFrames([1, 2, 3, 4], 2);
+  void coalesceFrames([1, 2, 3, 4]);
+  // RealtimeBatcher class — use a synchronous scheduler so the
+  // callback fires immediately (no setTimeout / requestAnimationFrame
+  // shim needed in CT).
+  let batchedItems: number[] = [];
+  const batcher = new RealtimeBatcher<number>(
+    (items) => {
+      batchedItems = items.slice();
+    },
+    {
+      scheduler: {
+        setTimeout: (cb) => {
+          cb();
+          return null;
+        },
+        clearTimeout: () => {
+          /* noop */
+        },
+      },
+    },
+  );
+  batcher.push(1);
+  batcher.pushMany([2, 3, 4]);
+  batcher.flushNow();
+  void batchedItems;
   return <div data-testid="chart-card-helpers-probe" />;
 }
 
