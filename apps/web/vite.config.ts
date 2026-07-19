@@ -81,6 +81,11 @@ export default defineConfig(() => {
     server: {
       port: 5173,
       strictPort: false,
+      // Phase 58.5: enable sourcemap in the dev server so the CT
+      // coverage data has correct line numbers (the cov_ functions
+      // need accurate source-line attribution for the merge with
+      // the e2e production build).
+      sourcemap: true,
     },
     preview: {
       // Phase 48D: pin the preview port to 7913 — the same loopback
