@@ -89,9 +89,9 @@ async function captureAndWrite(page: Page): Promise<void> {
  *  new page per test (the `mount()` fixture), so we hook into
  *  `test.afterEach` to capture the page's coverage reliably. The
  *  `page` argument comes from Playwright's CT-specific fixture. */
-async function afterEachCapture(
-  { page }: { page: Page },
-): Promise<void> {
+async function afterEachCapture({ page }: { page: Page }): Promise<void> {
+  // eslint-disable-next-line no-console
+  console.log(`[ct-coverage] afterEachCapture cwd=${process.cwd()} dir=${NYC_OUTPUT_DIR}`);
   await captureAndWrite(page);
 }
 
