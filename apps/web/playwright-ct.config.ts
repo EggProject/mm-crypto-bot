@@ -61,6 +61,25 @@ export default defineConfig({
     // Vite config when bundling the CT entry + the component under
     // test. This is where the coverage instrumentation must live.
     ctViteConfig: {
+      // Alias `../ws-client.js` (relative imports from
+      // `src/components/*`) and `./ws-client.js` (from `src/*`)
+      // to the mock module. The mock is ONLY active during CT —
+      // production builds use the real `useWebSocket`. The mock
+      // is the linchpin for covering ControlBar's `disabled`
+      // branch (status=disconnected → buttons disabled) which
+      // the real hook could never reach in a CT environment.
+      resolve: {
+        alias: {
+          "../ws-client.js": new URL(
+            "./e2e-ct/__mocks__/ws-client-mock.ts",
+            import.meta.url,
+          ).pathname,
+          "./ws-client.js": new URL(
+            "./e2e-ct/__mocks__/ws-client-mock.ts",
+            import.meta.url,
+          ).pathname,
+        },
+      },
       plugins: [
         react(),
         istanbul({

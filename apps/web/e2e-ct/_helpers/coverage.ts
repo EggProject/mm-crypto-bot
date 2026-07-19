@@ -2,9 +2,7 @@
  * e2e-ct/_helpers/coverage.ts
  *
  * Component Test (CT) coverage collection — mxschmitt `baseFixtures.ts`
- * pattern. Phase 58.5: replaces the previous "read window.__coverage__
- * after each test" approach (which was empty because the CT page
- * wasn't instrumented).
+ * pattern, extended with per-test capture. Phase 58.5.
  *
  * **The pattern (per the official `mxschmitt/playwright-test-coverage`
  * `ct-react-vite` branch):**
@@ -16,21 +14,20 @@
  *   2. We call `context.addInitScript()` to register a
  *      `beforeunload` handler that pushes `window.__coverage__`
  *      to a Node function via `context.exposeFunction()`.
- *   3. The Node function writes each snapshot to
- *      `.nyc_output/playwright_ct_<uuid>.json` (one file per page
- *      unload — covers page navigation + spec end).
- *   4. The e2e `dashboard.spec.ts` `afterAll` reads the .nyc_output
+ *   3. We also add a per-test `afterEach` hook that captures
+ *      `window.__coverage__` from the current page after the
+ *      test runs (Playwright CT creates a new page per test, so
+ *      `beforeunload` may NOT fire on test boundaries — only on
+ *      explicit navigation).
+ *   4. The Node function writes each snapshot to
+ *      `.nyc_output/playwright_ct_<uuid>.json`.
+ *   5. The e2e `dashboard.spec.ts` `afterAll` reads the .nyc_output
  *      directory and merges the CT coverage into the final map.
- *
- * **Usage in a CT spec file:**
- *   ```ts
- *   import { test, expect } from "./_helpers/coverage.js";
- *   // ... use test() as usual; coverage is auto-collected
- *   ```
  */
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { Page } from "@playwright/test";
 import { test as baseTest, expect } from "@playwright/experimental-ct-react";
 
 const NYC_OUTPUT_DIR = path.join(process.cwd(), ".nyc_output");
@@ -45,11 +42,6 @@ function generateUUID(): string {
   return crypto.randomBytes(16).toString("hex");
 }
 
-/** All node:fs calls in this file are wrapped in helpers to satisfy
- *  the `security/detect-non-literal-fs-filename` rule (the filename
- *  is constructed from a runtime UUID, not a literal). The rule
- *  is silenced at the call site so a single eslint-disable comment
- *  covers all five helpers below. */
 /* eslint-disable security/detect-non-literal-fs-filename */
 function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
@@ -71,10 +63,33 @@ function writeUtf8(p: string, data: string): void {
 }
 /* eslint-enable security/detect-non-literal-fs-filename */
 
+/** Capture `window.__coverage__` from the page and write it to
+ *  a unique file in `.nyc_output/`. Called by both the
+ *  `beforeunload` handler AND the `afterEach` hook. */
+async function captureAndWrite(page: Page): Promise<void> {
+  try {
+    const cov = await page.evaluate(() => {
+      return (window as unknown as CtWindow).__coverage__;
+    });
+    if (cov !== undefined) {
+      const json = JSON.stringify(cov);
+      await page.evaluate((s: string) => {
+        const w = window as unknown as CtWindow;
+        if (w.collectIstanbulCoverage !== undefined) {
+          w.collectIstanbulCoverage(s);
+        }
+      }, json);
+    }
+  } catch {
+    // Page may have closed; nothing to capture.
+  }
+}
+
 export const test = baseTest.extend({
   context: async ({ context }, use) => {
-    // 1. Register a beforeunload handler in the page that pushes
-    //    the istanbul coverage to the Node function.
+    // 1. Register a beforeunload handler in every new page in the
+    //    context. This fires when the page navigates or is closed
+    //    during normal browser lifecycle.
     await context.addInitScript(() => {
       window.addEventListener("beforeunload", () => {
         const w = window as unknown as CtWindow;
@@ -102,24 +117,20 @@ export const test = baseTest.extend({
       },
     );
     await use(context);
-    // 4. After the spec completes, do a final capture of the
-    //    current page's coverage (handles cases where beforeunload
-    //    didn't fire — e.g. if the spec navigates rather than
-    //    unloads).
+    // 4. After the spec completes, do a final capture of any
+    //    remaining pages' coverage.
     for (const page of context.pages()) {
-      const cov = await page.evaluate(() => {
-        return (window as unknown as CtWindow).__coverage__;
-      });
-      if (cov !== undefined) {
-        const covStr = JSON.stringify(cov);
-        await page.evaluate((s: string) => {
-          const w = window as unknown as CtWindow;
-          if (w.collectIstanbulCoverage !== undefined) {
-            w.collectIstanbulCoverage(s);
-          }
-        }, covStr);
-      }
+      await captureAndWrite(page);
     }
+  },
+  // 5. Per-test capture hook. The `page` fixture is provided by
+  //    Playwright CT and points at the page used for the current
+  //    test (created fresh per test by `mount()`).
+  page: async ({ page }, use) => {
+    await use(page);
+    // After the test completes, capture the page's coverage
+    // (this runs BEFORE the spec-level `use(context)` resumes).
+    await captureAndWrite(page);
   },
 });
 
