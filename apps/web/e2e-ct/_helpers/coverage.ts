@@ -90,25 +90,6 @@ async function captureAndWrite(page: Page): Promise<void> {
  *  `test.afterEach` to capture the page's coverage reliably. The
  *  `page` argument comes from Playwright's CT-specific fixture. */
 async function afterEachCapture({ page }: { page: Page }): Promise<void> {
-  try {
-    const hasCoverage = await page.evaluate(() => {
-      const w = window as unknown as CtWindow;
-      return {
-        hasCoverage: w.__coverage__ !== undefined,
-        hasCollect: w.collectIstanbulCoverage !== undefined,
-      };
-    });
-    // eslint-disable-next-line no-console
-    console.log(
-      `[ct-coverage] afterEachCapture cwd=${process.cwd()} dir=${NYC_OUTPUT_DIR} has=${JSON.stringify(hasCoverage)}`,
-    );
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[ct-coverage] afterEachCapture cwd=${process.cwd()} dir=${NYC_OUTPUT_DIR} evaluate_error=${(e as Error).message}`,
-    );
-    return;
-  }
   await captureAndWrite(page);
 }
 
@@ -133,22 +114,13 @@ export const test = baseTest.extend({
       "collectIstanbulCoverage",
       (coverageJSON: string) => {
         if (coverageJSON !== "") {
-          const filePath = path.join(
-            NYC_OUTPUT_DIR,
-            `playwright_ct_${generateUUID()}.json`,
+          writeUtf8(
+            path.join(
+              NYC_OUTPUT_DIR,
+              `playwright_ct_${generateUUID()}.json`,
+            ),
+            coverageJSON,
           );
-          try {
-            writeUtf8(filePath, coverageJSON);
-            // eslint-disable-next-line no-console
-            console.log(
-              `[ct-coverage] wrote ${filePath} (${coverageJSON.length} bytes)`,
-            );
-          } catch (e) {
-            // eslint-disable-next-line no-console
-            console.log(
-              `[ct-coverage] write_error filePath=${filePath} err=${(e as Error).message}`,
-            );
-          }
         }
       },
     );
