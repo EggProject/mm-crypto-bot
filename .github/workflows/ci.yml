@@ -181,16 +181,19 @@ jobs:
         id: e2e-ct
         run: cd apps/web && bun run e2e:ct
         timeout-minutes: 10
-      - name: Verify CT coverage files exist before upload
-        run: ls -la apps/web/.nyc_output/ && pwd && find apps/web/.nyc_output -type f | head -10
-      - name: Upload Playwright CT coverage (.nyc_output)
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-ct-coverage
-          path: ${{ github.workspace }}/apps/web/.nyc_output/playwright_ct_*.json
-          if-no-files-found: warn
-          retention-days: 30
+      # PHASE 58.5: the CT writes per-page coverage JSONs to
+      # `apps/web/.nyc_output/playwright_ct_*.json` (via the
+      # `vite-plugin-istanbul` `ctViteConfig.plugins` + the
+      # `addInitScript`/`exposeFunction` pattern in
+      # `apps/web/e2e-ct/_helpers/coverage.ts`). The e2e
+      # `dashboard.spec.ts` `afterAll` reads the files via
+      # `readAllCtCoverageFiles()` + `map.merge()`s them into
+      # the final E2E coverage map. No artifact upload needed
+      # — the e2e step consumes the data directly.
+      - name: Run Playwright e2e suite (20-min suite timeout, coverage gate)
+        id: e2e
+        run: cd apps/web && bun run e2e
+        timeout-minutes: 20
       - name: Run Playwright e2e suite (20-min suite timeout, coverage gate)
         id: e2e
         run: cd apps/web && bun run e2e
