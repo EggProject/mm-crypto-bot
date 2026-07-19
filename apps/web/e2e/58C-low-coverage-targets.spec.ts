@@ -638,4 +638,143 @@ test.describe("58C — coverage for low-coverage files", () => {
       )
       .toBeGreaterThan(0);
   });
+
+  // =============================================================================
+  // extractBarsByKey defensive parser branches (app-helpers.ts)
+  // =============================================================================
+  // The e2e suite sends snapshots with valid `ohlcBootstrap` data,
+  // so the perTf + Array.isArray(bars) inner branches are hit. But
+  // the OUTER defensive branches (typeof perTf !== "object" +
+  // !Array.isArray(bars)) are NOT hit. These 3 tests send snapshots
+  // with deliberately malformed ohlcBootstrap data so the parser
+  // takes each defensive path.
+  //
+  //   - 58C-16: ohlcBootstrap = null (raw === null) — early return
+  //   - 58C-17: ohlcBootstrap[SYMBOL] = "not-an-object" (perTf check TRUE)
+  //   - 58C-18: ohlcBootstrap[SYMBOL]["1h"] = "not-an-array" (Array.isArray FALSE)
+  //
+  // The `extractBarsByKey` function silently drops malformed
+  // entries (returns `{}` or skips the bad key). The dashboard
+  // should still render (with empty state). The assertion is just
+  // that the page doesn't crash.
+
+  test("58C-16: snapshot with ohlcBootstrap=null — extractBarsByKey early-return branch", async ({
+    page,
+  }) => {
+    const harness = await setupWsPeer(page);
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    const now = Date.now();
+    harness.broadcast(
+      JSON.stringify({ type: "hello", ts: now, serverVersion: "0.1.0-test", protocolVersion: 1 }),
+    );
+    // Send snapshot with ohlcBootstrap=null (defensive case)
+    harness.broadcast(
+      JSON.stringify({
+        type: "snapshot",
+        ts: now,
+        snapshot: {},
+        strategies: [],
+        ohlcBootstrap: null,
+      }),
+    );
+    harness.broadcast(
+      JSON.stringify({
+        type: "state",
+        ts: now,
+        snapshot: {},
+        positions: [],
+        closedTrades: [],
+        killSwitch: "off",
+        paused: false,
+        statistics: { trades: 0, pnl: 0, drawdown: 0 },
+      }),
+    );
+    await page.waitForTimeout(500);
+    // Page should not crash; status pill is still defined
+    const status = await page.evaluate(
+      () => document.querySelector(".ep-app__status-dot")?.getAttribute("data-status"),
+    );
+    expect(status).toBeDefined();
+  });
+
+  test("58C-17: snapshot with ohlcBootstrap[SYMBOL] = non-object — extractBarsByKey perTf defensive branch", async ({
+    page,
+  }) => {
+    const harness = await setupWsPeer(page);
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    const now = Date.now();
+    harness.broadcast(
+      JSON.stringify({ type: "hello", ts: now, serverVersion: "0.1.0-test", protocolVersion: 1 }),
+    );
+    // ohlcBootstrap["BTCUSDT"] = 42 (not an object) → perTf check fails
+    // The parser should skip this symbol silently.
+    harness.broadcast(
+      JSON.stringify({
+        type: "snapshot",
+        ts: now,
+        snapshot: {},
+        strategies: [],
+        ohlcBootstrap: { BTCUSDT: 42 },
+      }),
+    );
+    harness.broadcast(
+      JSON.stringify({
+        type: "state",
+        ts: now,
+        snapshot: {},
+        positions: [],
+        closedTrades: [],
+        killSwitch: "off",
+        paused: false,
+        statistics: { trades: 0, pnl: 0, drawdown: 0 },
+      }),
+    );
+    await page.waitForTimeout(500);
+    const status = await page.evaluate(
+      () => document.querySelector(".ep-app__status-dot")?.getAttribute("data-status"),
+    );
+    expect(status).toBeDefined();
+  });
+
+  test("58C-18: snapshot with ohlcBootstrap[SYMBOL][TF] = non-array — extractBarsByKey bars defensive branch", async ({
+    page,
+  }) => {
+    const harness = await setupWsPeer(page);
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    const now = Date.now();
+    harness.broadcast(
+      JSON.stringify({ type: "hello", ts: now, serverVersion: "0.1.0-test", protocolVersion: 1 }),
+    );
+    // ohlcBootstrap["BTCUSDT"]["1h"] = "not-an-array" (not an array) → bars check fails
+    // The parser should skip this tf silently.
+    harness.broadcast(
+      JSON.stringify({
+        type: "snapshot",
+        ts: now,
+        snapshot: {},
+        strategies: [],
+        ohlcBootstrap: { BTCUSDT: { "1h": "not-an-array" } },
+      }),
+    );
+    harness.broadcast(
+      JSON.stringify({
+        type: "state",
+        ts: now,
+        snapshot: {},
+        positions: [],
+        closedTrades: [],
+        killSwitch: "off",
+        paused: false,
+        statistics: { trades: 0, pnl: 0, drawdown: 0 },
+      }),
+    );
+    await page.waitForTimeout(500);
+    const status = await page.evaluate(
+      () => document.querySelector(".ep-app__status-dot")?.getAttribute("data-status"),
+    );
+    expect(status).toBeDefined();
+  });
 });
