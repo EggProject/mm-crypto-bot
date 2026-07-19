@@ -470,4 +470,172 @@ test.describe("58C — coverage for low-coverage files", () => {
     );
     expect(status).toBeDefined();
   });
+
+  // =============================================================================
+  // strategies-parser defensive branches — Phase 58.5 follow-up
+  // =============================================================================
+  // The 58C-08/09/10 tests above DIDN'T drive the WS to "connected"
+  // state, so App.tsx's useEffect never fired the fetch, so the
+  // parser was never called. These 4 tests (58C-12..58C-15) use
+  // setupWsPeer + drive the WS to "connected" so the fetch fires,
+  // and use a SECOND `page.route` (after setupWsPeer) to override
+  // the response with a malformed body — the last `page.route`
+  // wins, so the malformed response reaches App.tsx.
+  //
+  // Each test hits one of the 4 defensive branches in
+  // `parseStrategiesResponse`:
+  //   1. body === null (line 2) — returns "null body"
+  //   2. typeof body !== "object" (line 5) — returns "not an object"
+  //   3. Array.isArray(body) (line 8) — returns "array, not object"
+  //   4. !Array.isArray(strategies) (line 12) — returns "invalid /api/strategies response shape"
+  //
+  // The default success path (line 12 false → return ok) is hit
+  // by EVERY other e2e test (MSW returns valid data). Together
+  // with these 4 defensive tests, all 5 paths are covered.
+
+  const broadcastConnectedMessages = (
+    harness: WsTestHarness,
+  ): void => {
+    const now = Date.now();
+    harness.broadcast(
+      JSON.stringify({
+        type: "hello",
+        ts: now,
+        serverVersion: "0.1.0-test",
+        protocolVersion: 1,
+      }),
+    );
+    harness.broadcast(
+      JSON.stringify({
+        type: "snapshot",
+        ts: now,
+        snapshot: {},
+        strategies: [],
+        ohlcBootstrap: { BTCUSDT: { "1h": [] } },
+      }),
+    );
+    harness.broadcast(
+      JSON.stringify({
+        type: "state",
+        ts: now,
+        snapshot: {},
+        positions: [],
+        closedTrades: [],
+        killSwitch: "off",
+        paused: false,
+        statistics: { trades: 0, pnl: 0, drawdown: 0 },
+      }),
+    );
+  };
+
+  test("58C-12: /api/strategies returns null — parseStrategiesResponse 'null body' branch (line 2)", async ({
+    page,
+  }) => {
+    const harness = await setupWsPeer(page);
+    // Second `page.route` for /api/strategies — overrides
+    // setupWsPeer's default valid response with `null`. The LAST
+    // page.route wins.
+    await page.route("**/api/strategies", (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "null",
+      });
+    });
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    broadcastConnectedMessages(harness);
+    await page.waitForTimeout(500);
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".ep-feed__meta")
+            .filter({ hasText: /null body/ })
+            .count(),
+        { timeout: 3_000 },
+      )
+      .toBeGreaterThan(0);
+  });
+
+  test("58C-13: /api/strategies returns a primitive (number) — parseStrategiesResponse 'not an object' branch (line 5)", async ({
+    page,
+  }) => {
+    const harness = await setupWsPeer(page);
+    await page.route("**/api/strategies", (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "42",
+      });
+    });
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    broadcastConnectedMessages(harness);
+    await page.waitForTimeout(500);
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".ep-feed__meta")
+            .filter({ hasText: /not an object/ })
+            .count(),
+        { timeout: 3_000 },
+      )
+      .toBeGreaterThan(0);
+  });
+
+  test("58C-14: /api/strategies returns an array (not an object) — parseStrategiesResponse 'array, not object' branch (line 8)", async ({
+    page,
+  }) => {
+    const harness = await setupWsPeer(page);
+    await page.route("**/api/strategies", (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "[]",
+      });
+    });
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    broadcastConnectedMessages(harness);
+    await page.waitForTimeout(500);
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".ep-feed__meta")
+            .filter({ hasText: /array, not object/ })
+            .count(),
+        { timeout: 3_000 },
+      )
+      .toBeGreaterThan(0);
+  });
+
+  test("58C-15: /api/strategies returns object without 'strategies' key — parseStrategiesResponse 'invalid shape' branch (line 12)", async ({
+    page,
+  }) => {
+    const harness = await setupWsPeer(page);
+    await page.route("**/api/strategies", (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: '{"foo": "bar"}',
+      });
+    });
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    broadcastConnectedMessages(harness);
+    await page.waitForTimeout(500);
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".ep-feed__meta")
+            .filter({ hasText: /invalid/ })
+            .count(),
+        { timeout: 3_000 },
+      )
+      .toBeGreaterThan(0);
+  });
 });
