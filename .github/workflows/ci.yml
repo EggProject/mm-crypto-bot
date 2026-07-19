@@ -194,10 +194,6 @@ jobs:
         id: e2e
         run: cd apps/web && bun run e2e
         timeout-minutes: 20
-      - name: Run Playwright e2e suite (20-min suite timeout, coverage gate)
-        id: e2e
-        run: cd apps/web && bun run e2e
-        timeout-minutes: 20
       - name: Upload Playwright coverage (lcov + json-summary + html)
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
