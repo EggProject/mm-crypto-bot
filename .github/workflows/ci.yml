@@ -181,6 +181,8 @@ jobs:
         id: e2e-ct
         run: cd apps/web && bun run e2e:ct
         timeout-minutes: 10
+      - name: Verify CT coverage files exist before upload
+        run: ls -la apps/web/.nyc_output/ || echo "no dir"
       - name: Upload Playwright CT coverage (.nyc_output)
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
