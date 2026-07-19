@@ -11,11 +11,8 @@
  * bodies to the CT lane (so when CT + E2E coverage is merged,
  * the branches count as covered).
  */
-import { test, expect } from "@playwright/experimental-ct-react";
+import { test, expect } from "./_helpers/coverage.js";
 import { ControlHelpersProbe } from "./__stories__/control-helpers.stories.js";
-import { installCtCoverageHooks } from "./_helpers/coverage.js";
-
-installCtCoverageHooks("control-helpers");
 
 test.describe("CT: control-helpers (pure functions)", () => {
   test("confirmKill returns true when user accepts", async ({ mount }) => {

@@ -170,6 +170,25 @@ jobs:
             playwright-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
+      # PHASE 58.5: Component Tests (CT) run BEFORE the e2e suite
+      # so that the CT coverage data is available for the e2e
+      # `afterAll` to merge. The CT lane writes per-page coverage
+      # JSONs to `apps/web/.nyc_output/playwright_ct_*.json` (via
+      # the `vite-plugin-istanbul` `ctViteConfig.plugins` + the
+      # `addInitScript`/`exposeFunction` pattern in
+      # `apps/web/e2e-ct/_helpers/coverage.ts`).
+      - name: Run Playwright Component Tests (CT, populates .nyc_output)
+        id: e2e-ct
+        run: cd apps/web && bun run e2e:ct
+        timeout-minutes: 10
+      - name: Upload Playwright CT coverage (.nyc_output)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-ct-coverage
+          path: apps/web/.nyc_output/playwright_ct_*.json
+          if-no-files-found: warn
+          retention-days: 30
       - name: Run Playwright e2e suite (20-min suite timeout, coverage gate)
         id: e2e
         run: cd apps/web && bun run e2e

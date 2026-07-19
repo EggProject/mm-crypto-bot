@@ -3,26 +3,46 @@
  *
  * Playwright Component Test (CT) config for mm-crypto-bot.
  *
- * Per the "여기어때" (Korean) Playwright coverage case study, the
- * way to achieve 80%+ coverage on a React + Vite + Playwright
- * stack is to combine Component Tests (CT) + E2E Tests, then
- * merge the two coverage reports.
+ * Per the "여기어때" (Korean) Playwright coverage case study AND the
+ * official `mxschmitt/playwright-test-coverage` `ct-react-vite` branch,
+ * the way to achieve 80%+ coverage on a React + Vite + Playwright
+ * stack is to combine:
+ *   - E2E tests — user journey, happy path (production build with
+ *     `vite-plugin-istanbul`)
+ *   - Component Tests (CT) — individual component branches (Playwright
+ *     CT's internal Vite bundler with `vite-plugin-istanbul` injected
+ *     via `ctViteConfig.plugins`)
+ *   - Merge both coverage reports → total coverage
  *
- * This config:
- *   - Uses `@playwright/experimental-ct-react` to mount individual
- *     React components in a real browser
- *   - Uses the PRODUCTION BUNDLE (built with VITE_COVERAGE=true)
- *     so `window.__coverage__` is exposed by vite-plugin-istanbul
- *   - The Vite dev server doesn't set `window.__coverage__` in dev
- *     mode — the production build is required for coverage collection
- *   - Writes per-spec coverage to `coverage/ct/accumulators/*.json`
- *   - The CI script merges CT + E2E coverage via the `merge-ct-coverage.mjs`
- *     script (see `apps/web/e2e-ct/merge-ct-coverage.mjs`)
+ * **Critical config (the fix that made 80% reachable):**
+ * The `ctViteConfig.plugins` MUST include `vite-plugin-istanbul` with
+ * `forceBuildInstrument: true`. This tells Playwright's internal
+ * Vite-based bundler to instrument the source code at serve time,
+ * so `window.__coverage__` is populated when components mount.
+ *
+ * Without this, the CT tests pass (components render + assertions
+ * pass) but `window.__coverage__` is never set, the accumulator
+ * stays `{}`, and the merge produces no CT coverage. This is the
+ * exact "Phase 58 known coverage gap" we had pre-Phase 58.5.
+ *
+ * Reference:
+ *   - https://github.com/mxschmitt/playwright-test-coverage/tree/ct-react-vite
+ *   - https://playwright.dev/docs/test-components
+ *   - https://github.com/iFaxity/vite-plugin-istanbul
+ *
+ * Phase 58.5: replaced the previous `webServer: vite preview` setup
+ * (which served the production bundle, but the CT's `mount()` API
+ * uses its OWN Vite bundler and ignores `webServer`) with the
+ * `ctViteConfig` approach that Playwright's CT runner natively
+ * supports. Coverage now flows from the mounted components into
+ * `window.__coverage__` → `beforeunload` → `exposeFunction` →
+ * `.nyc_output/*.json` → merged by the e2e `afterAll`.
  */
-import { defineConfig } from "@playwright/experimental-ct-react";
+import { defineConfig, devices } from "@playwright/experimental-ct-react";
+import react from "@vitejs/plugin-react";
+import istanbul from "vite-plugin-istanbul";
 
-const PORT = 7913; // same port as e2e for consistency
-const BASE_URL = `http://127.0.0.1:${PORT}`;
+const PORT = 3100; // Playwright CT's internal dev server port
 
 export default defineConfig({
   testDir: "./e2e-ct",
@@ -32,22 +52,45 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "line",
   use: {
-    baseURL: BASE_URL,
     trace: "on-first-retry",
+    // Playwright CT runs an INTERNAL Vite dev server (separate from
+    // the e2e `webServer` of `vite preview`). The `ctPort` is the
+    // port Playwright uses for that internal dev server.
+    ctPort: PORT,
+    // The `ctViteConfig.plugins` are added to Playwright's internal
+    // Vite config when bundling the CT entry + the component under
+    // test. This is where the coverage instrumentation must live.
+    ctViteConfig: {
+      plugins: [
+        react(),
+        istanbul({
+          // Match all .ts/.tsx under `src/`. The plugin's `include`
+          // is a path glob; `src/**/*` is the safe glob for our
+          // app structure (App.tsx, components/, lib/, hooks/, etc).
+          include: ["src/**/*"],
+          exclude: [
+            "node_modules",
+            "**/__tests__/**",
+            "**/*.test.*",
+            "**/*.spec.*",
+            "e2e/**",
+            "e2e-ct/**",
+          ],
+          extension: [".ts", ".tsx"],
+          // CRITICAL: `forceBuildInstrument: true` tells
+          // `vite-plugin-istanbul` to instrument code at SERVE time
+          // (not just build time). Without this, the dev server
+          // Playwright CT uses would NOT emit `__cov_*` calls and
+          // `window.__coverage__` would be undefined.
+          forceBuildInstrument: true,
+        }),
+      ],
+    },
   },
-  // CT uses the PRODUCTION build (with VITE_COVERAGE=true) served
-  // by `vite preview`. The build is run by the CI script before
-  // invoking the CT runner. This is necessary because vite-plugin-
-  // istanbul only instruments the production build, not the dev
-  // server.
-  webServer: {
-    command: "vite preview --port 7913 --strictPort --host 127.0.0.1",
-    url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-    // The build is expected to be done by the CI script before
-    // running CT. In local dev, run `bun run build` first.
-    stdout: "pipe",
-    stderr: "pipe",
-  },
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
 });

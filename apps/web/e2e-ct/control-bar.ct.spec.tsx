@@ -1,8 +1,5 @@
-import { test, expect } from "@playwright/experimental-ct-react";
+import { test, expect } from "./_helpers/coverage.js";
 import { ControlBarProbe } from "./__stories__/control-bar.stories.js";
-import { installCtCoverageHooks } from "./_helpers/coverage.js";
-
-installCtCoverageHooks("control-bar");
 
 test.describe("CT: ControlBar", () => {
   test("renders without crash", async ({ mount }) => {
