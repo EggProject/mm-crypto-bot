@@ -82,6 +82,17 @@ export default defineConfig({
       },
       plugins: [
         react(),
+        // CRITICAL: the CT uses the SAME `vite-plugin-istanbul`
+        // configuration as the e2e production build. This is the
+        // key to consistent source-map alignment between the CT
+        // dev-server build and the e2e prod build — so the
+        // `map.merge()` in the e2e `afterAll` correctly unions
+        // the two coverage maps at the source-line level.
+        //
+        // The `ctViteConfig` is loaded by Playwright's internal
+        // Vite bundler when serving the CT page. The istanbul
+        // plugin's `transform` hook instruments the source at
+        // serve time (so the dev server code is instrumented).
         istanbul({
           // Match all .ts/.tsx under `src/`. The plugin's `include`
           // is a path glob; `src/**/*` is the safe glob for our
@@ -96,11 +107,11 @@ export default defineConfig({
             "e2e-ct/**",
           ],
           extension: [".ts", ".tsx"],
-          // CRITICAL: `forceBuildInstrument: true` tells
-          // `vite-plugin-istanbul` to instrument code at SERVE time
-          // (not just build time). Without this, the dev server
-          // Playwright CT uses would NOT emit `__cov_*` calls and
-          // `window.__coverage__` would be undefined.
+          // `forceBuildInstrument: true` tells `vite-plugin-istanbul`
+          // to instrument code at SERVE time (not just build time).
+          // Without this, the dev server Playwright CT uses would
+          // NOT emit `__cov_*` calls and `window.__coverage__` would
+          // be undefined.
           forceBuildInstrument: true,
         }),
       ],
