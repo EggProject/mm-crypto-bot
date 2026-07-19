@@ -472,7 +472,7 @@ test.describe("58C — coverage for low-coverage files", () => {
   });
 
   // =============================================================================
-  // strategies-parser defensive branches — Phase 58.5 follow-up
+  // strategies-parser defensive branches — Phase 59.2
   // =============================================================================
   // The 58C-08/09/10 tests above DIDN'T drive the WS to "connected"
   // state, so App.tsx's useEffect never fired the fetch, so the
@@ -481,6 +481,16 @@ test.describe("58C — coverage for low-coverage files", () => {
   // and use a SECOND `page.route` (after setupWsPeer) to override
   // the response with a malformed body — the last `page.route`
   // wins, so the malformed response reaches App.tsx.
+  //
+  // **Phase 59.2 (2026-07-19):** added `test.use({ serviceWorkers:
+  // 'block' })` per test to BYPASS the MSW service worker. Per the
+  // official Playwright docs (playwright.dev/docs/service-workers),
+  // `serviceWorkers: 'block'` prevents the MSW service worker from
+  // registering, allowing `page.route()` to intercept the fetch
+  // directly. Without this, the MSW service worker intercepts at
+  // the network layer BEFORE `page.route` can override, and the
+  // React app sees MSW's default success response (not the
+  // malformed body we set).
   //
   // Each test hits one of the 4 defensive branches in
   // `parseStrategiesResponse`:
@@ -528,9 +538,18 @@ test.describe("58C — coverage for low-coverage files", () => {
     );
   };
 
-  test("58C-12: /api/strategies returns null — parseStrategiesResponse 'null body' branch (line 2)", async ({
-    page,
-  }) => {
+  // Phase 59.2: bypass MSW service worker for the 4
+  // strategies-parser tests so page.route can intercept the
+  // fetch with the malformed body. Wrapped in their own
+  // describe block + test.use({ serviceWorkers: 'block' })
+  // at the describe level (Playwright test.use must be at
+  // file or describe scope, not inside a test body).
+  test.describe("58C-12..15 (MSW bypass for strategies-parser defensive branches)", () => {
+    test.use({ serviceWorkers: "block" });
+
+    test("58C-12: /api/strategies returns null — parseStrategiesResponse 'null body' branch (line 2)", async ({
+      page,
+    }) => {
     const harness = await setupWsPeer(page);
     // Second `page.route` for /api/strategies — overrides
     // setupWsPeer's default valid response with `null`. The LAST
@@ -558,9 +577,9 @@ test.describe("58C — coverage for low-coverage files", () => {
       .toBeGreaterThan(0);
   });
 
-  test("58C-13: /api/strategies returns a primitive (number) — parseStrategiesResponse 'not an object' branch (line 5)", async ({
-    page,
-  }) => {
+    test("58C-13: /api/strategies returns a primitive (number) — parseStrategiesResponse 'not an object' branch (line 5)", async ({
+      page,
+    }) => {
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
       return route.fulfill({
@@ -585,9 +604,9 @@ test.describe("58C — coverage for low-coverage files", () => {
       .toBeGreaterThan(0);
   });
 
-  test("58C-14: /api/strategies returns an array (not an object) — parseStrategiesResponse 'array, not object' branch (line 8)", async ({
-    page,
-  }) => {
+    test("58C-14: /api/strategies returns an array (not an object) — parseStrategiesResponse 'array, not object' branch (line 8)", async ({
+      page,
+    }) => {
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
       return route.fulfill({
@@ -612,9 +631,9 @@ test.describe("58C — coverage for low-coverage files", () => {
       .toBeGreaterThan(0);
   });
 
-  test("58C-15: /api/strategies returns object without 'strategies' key — parseStrategiesResponse 'invalid shape' branch (line 12)", async ({
-    page,
-  }) => {
+    test("58C-15: /api/strategies returns object without 'strategies' key — parseStrategiesResponse 'invalid shape' branch (line 12)", async ({
+      page,
+    }) => {
     const harness = await setupWsPeer(page);
     await page.route("**/api/strategies", (route) => {
       return route.fulfill({
@@ -638,6 +657,7 @@ test.describe("58C — coverage for low-coverage files", () => {
       )
       .toBeGreaterThan(0);
   });
+  }); // close describe("58C-12..15 (MSW bypass...)")
 
   // =============================================================================
   // extractBarsByKey defensive parser branches (app-helpers.ts)
