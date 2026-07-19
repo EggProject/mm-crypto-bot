@@ -46,7 +46,6 @@ import {
   buildFetchErrorMessage,
   applyParsedStrategies,
 } from "../../src/lib/app-helpers.js";
-import { parseStrategiesResponse } from "../../src/lib/strategies-parser.js";
 // Phase 59.4 source map: the strategies-parser docstring was shortened
 // to fix the Vite dev-server source-map misalignment (the long docstring
 // + type-only import was collapsing the function body to lines 1-16 of
@@ -54,7 +53,8 @@ import { parseStrategiesResponse } from "../../src/lib/strategies-parser.js";
 // in the probe below — verified that the CT sees 10/10 stmts + 8/4
 // branches + 1/1 fn for the function. The e2e production build, however,
 // produces DIFFERENT instrumentation (20 stmts, 8 branches, 2 fns) so
-// the merge is broken. The CT contribution is dropped for now.
+// the merge is broken. The CT contribution is dropped for now — the
+// import is removed to avoid the unused-var lint error.
 
 /**
  * `ChartCardHelpersProbe` — render a small DOM that exercises
