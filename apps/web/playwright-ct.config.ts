@@ -118,10 +118,13 @@ export default defineConfig({
           exclude: [
             "node_modules",
             "**/__tests__/**",
+            "**/__mocks__/**",
             "**/*.test.*",
             "**/*.spec.*",
+            "**/*.d.ts",
             "e2e/**",
             "e2e-ct/**",
+            "e2e/mocks/**",
           ],
           extension: [".ts", ".tsx"],
           // `forceBuildInstrument: true` tells `vite-plugin-istanbul`
