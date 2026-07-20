@@ -81,7 +81,24 @@ export default defineConfig({
         },
       },
       plugins: [
-        react(),
+        // Phase 60: `retainLines: true` is the fix for
+        // https://github.com/vitejs/vite-plugin-react/issues/235.
+        // Babel re-arranges JSX across multiple lines by default,
+        // which makes the `__source` line numbers that
+        // `vite-plugin-istanbul` reads WRONG, so coverage
+        // attribution points to a different line than the source
+        // line the test actually executed. `retainLines: true`
+        // keeps each generated babel output on the same line as
+        // the source. Mirrored in `vite.config.ts` so the CT
+        // dev-server and the e2e production build have matching
+        // source-map line numbers — required for the
+        // `map.merge()` in the e2e `afterAll` to correctly
+        // union the two coverage maps at the source-line level.
+        react({
+          babel: {
+            retainLines: true,
+          },
+        }),
         // CRITICAL: the CT uses the SAME `vite-plugin-istanbul`
         // configuration as the e2e production build. This is the
         // key to consistent source-map alignment between the CT

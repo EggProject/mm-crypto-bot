@@ -32,11 +32,32 @@ import { resolve } from "node:path";
 // e2e instrumentation, breaking the merge. Removed the babel
 // instrumentation. The CT now uses ONLY `vite-plugin-istanbul`
 // (configured in `playwright-ct.config.ts` `ctViteConfig.plugins`).
+//
+// Phase 60: added `babel: { retainLines: true }` to the React
+// plugin. This is the fix for
+// https://github.com/vitejs/vite-plugin-react/issues/235 — babel
+// re-arranges JSX across multiple lines (one statement per JSX
+// child) by default, which makes the `__source` line numbers
+// that `vite-plugin-istanbul` reads WRONG, so coverage
+// attribution points to a different line than the source line
+// the test actually executed. `retainLines: true` keeps each
+// generated babel output on the same line as the source. PR
+// #246 added this option to the React plugin; we set it in BOTH
+// the prod build (here) and the CT dev server (see
+// `playwright-ct.config.ts`) so source-map line numbers match
+// across the two lanes. The "DEV ONLY" warning in the PR
+// description refers to HMR debug ergonomics, not coverage —
+// for coverage we want consistent line numbers in BOTH dev
+// (CT) and prod (e2e).
 export default defineConfig(() => {
   const isCoverage = process.env.VITE_COVERAGE === "true";
   return {
     plugins: [
-      react(),
+      react({
+        babel: {
+          retainLines: true,
+        },
+      }),
       ...(isCoverage
         ? [
             istanbul({

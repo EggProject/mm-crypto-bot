@@ -210,6 +210,37 @@ export function App(): React.JSX.Element {
   // `app-helpers.test.ts`).
   const statusLabel = buildStatusLabel(status, snapshot, lastError);
 
+  // Phase 60 coverage fix: extract the JSX `&&` chains into named
+  // consts above the return. The V8 + ast-v8-to-istanbul pipeline
+  // (vite-plugin-istanbul + Playwright CT/e2e merge) does NOT
+  // attribute branch coverage to `{condition && <X />}` patterns
+  // inside JSX expressions — the branch is invisible to the
+  // instrumentation. Extracting the conditional to a `const`
+  // surfaces the branch as a plain JS expression, which V8's
+  // code coverage tracks correctly. See the V8 coverage
+  // limitations write-up: https://dev.to/stevez/v8-coverage-limitations-and-how-to-work-around-them-2eh2
+  //
+  // Behavior is preserved exactly: `null` renders as nothing in
+  // React, identical to the prior `false` from the `&&` short-
+  // circuit. No new tests, no logic changes — this is a pure
+  // refactor for source-map / branch-attribution alignment.
+  const disconnectedBanner =
+    status === "disconnected" ? (
+      <div
+        className="ep-app__disconnected-banner"
+        data-testid="disconnected-banner"
+        role="status"
+      >
+        <p>Disconnected — reconnecting…</p>
+      </div>
+    ) : null;
+  const errorBanner =
+    status === "crashed" ? (
+      <div className="ep-app__error" data-testid="error-banner">
+        <p>Engine crashed: {lastError?.message ?? "unknown error"}</p>
+      </div>
+    ) : null;
+
   return (
     <div className="ep-app">
       <header className="ep-app__topbar">
@@ -223,23 +254,8 @@ export function App(): React.JSX.Element {
         </div>
       </header>
       <main className="ep-app__main">
-        {status === "disconnected" && (
-          <div
-            className="ep-app__disconnected-banner"
-            data-testid="disconnected-banner"
-            role="status"
-          >
-            <p>Disconnected — reconnecting…</p>
-          </div>
-        )}
-        {status === "crashed" && (
-          <div
-            className="ep-app__error"
-            data-testid="error-banner"
-          >
-            <p>Engine crashed: {lastError?.message ?? "unknown error"}</p>
-          </div>
-        )}
+        {disconnectedBanner}
+        {errorBanner}
         <div className="ep-app__charts" data-testid="charts">
           <ChartGrid
             strategies={strategies}
