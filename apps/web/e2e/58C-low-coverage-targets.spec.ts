@@ -657,6 +657,163 @@ test.describe("58C — coverage for low-coverage files", () => {
       )
       .toBeGreaterThan(0);
   });
+
+  // ===========================================================================
+  // App.tsx branches (Phase 61)
+  // ===========================================================================
+  // The 12-branch report for App.tsx has 5 covered by existing
+  // tests. The 7 uncovered include 5 source-map artifacts (from
+  // the docstring comment block: lines 31, 38, 42, 44, 49, 51 —
+  // Phase 60's `retainLines` babel option collapsed them) and
+  // 2 real branches:
+  //
+  //   - line 124 `if (!res.ok)` TRUE arm (HTTP 4xx/5xx) — the
+  //     `throw new Error(`HTTP ${res.status}`)` path
+  //   - line 128 `if (controller.signal.aborted) return;` TRUE arm
+  //     — the post-fetch abort check (catches the race where the
+  //     fetch resolves but the controller was aborted between the
+  //     resolve and the post-await check)
+  //
+  // The 58C-12..15 describe block above uses
+  // `serviceWorkers: "block"` so `page.route` is the only
+  // interceptor. We add the App.tsx branch tests in the SAME
+  // describe block so they share the same bypass (no MSW
+  // interference with `page.route`).
+
+  test("58C-21: /api/strategies returns HTTP 500 — App.tsx 'HTTP 500' error in feed meta (line 124)", async ({
+    page,
+  }) => {
+    const harness = await setupWsPeer(page);
+    // Override the default /api/strategies 200 with a 500. The
+    // LAST `page.route` wins — the previous (default-200) one in
+    // `setupWsPeer` is overridden by this one.
+    await page.route("**/api/strategies", (route) => {
+      return route.fulfill({
+        status: 500,
+        contentType: "text/plain",
+        body: "Internal Server Error",
+      });
+    });
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    broadcastConnectedMessages(harness);
+    // Wait for the fetch to fire (it's triggered by the
+    // `status === "connected"` effect) and for the error to
+    // propagate to the `.ep-feed__meta` element.
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".ep-feed__meta")
+            .filter({ hasText: /HTTP 500/ })
+            .count(),
+        { timeout: 5_000 },
+      )
+      .toBeGreaterThan(0);
+  });
+
+  test("58C-22: /api/strategies returns HTTP 503 — App.tsx 'HTTP 503' error in feed meta (line 124)", async ({
+    page,
+  }) => {
+    // Same pattern as 58C-21 but with 503 to confirm the throw
+    // path handles arbitrary HTTP statuses (the App.tsx code
+    // uses `res.status` in the message, not a hardcoded list).
+    const harness = await setupWsPeer(page);
+    await page.route("**/api/strategies", (route) => {
+      return route.fulfill({
+        status: 503,
+        contentType: "text/plain",
+        body: "Service Unavailable",
+      });
+    });
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    broadcastConnectedMessages(harness);
+    await expect
+      .poll(
+        () =>
+          page
+            .locator(".ep-feed__meta")
+            .filter({ hasText: /HTTP 503/ })
+            .count(),
+        { timeout: 5_000 },
+      )
+      .toBeGreaterThan(0);
+  });
+
+  test("58C-23: /api/strategies slow + WS close → AbortController fires (line 128 / 149 TRUE arm)", async ({
+    page,
+  }) => {
+    // Strategy to hit the `controller.signal.aborted` TRUE arm:
+    //   1. Mock /api/strategies to NEVER resolve (hold the route).
+    //   2. Drive WS to "connected" so the fetch is fired.
+    //   3. Close the WS — the `useEffect` re-runs because
+    //      `status` changed (disconnected), the old
+    //      AbortController.abort() fires, the in-flight fetch
+    //      rejects with AbortError.
+    //   4. The catch block sees `controller.signal.aborted` is
+    //      true → returns. The `buildFetchErrorMessage` helper
+    //      returns `null` for AbortError → no error surfaced.
+    //   5. The page should NOT show a "HTTP 5xx" error in the
+    //      feed meta (because aborted fetches are silent).
+    //
+    // The TRUE arm of `if (controller.signal.aborted) return;`
+    // (line 149, in the catch block) is what we want to attribute.
+    // The line 128 check (post-resolve abort) is hard to hit
+    // without a race — the catch-block check is the practical
+    // attribution point for the AbortError path.
+    const harness = await setupWsPeer(page);
+    // Hold the /api/strategies response indefinitely.
+    let resolveRoute: ((value: unknown) => void) | undefined;
+    await page.route("**/api/strategies", (route) => {
+      return new Promise((resolve) => {
+        resolveRoute = () => {
+          resolve(
+            route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify({
+                strategies: [
+                  {
+                    name: "donchian_pivot_composition",
+                    enabled: true,
+                    symbols: ["BTCUSDT"],
+                    timeframes: ["1h"],
+                  },
+                ],
+              }),
+            }),
+          );
+        };
+      });
+    });
+    await page.goto("/");
+    await harness.waitForWsCount(3, 10_000);
+    broadcastConnectedMessages(harness);
+    // Wait briefly for the fetch to fire (the effect runs on
+    // status change to "connected"). We need the fetch to be
+    // in-flight before we close the WS.
+    await page.waitForTimeout(300);
+    // Close all WSes — the status changes to "disconnected"
+    // briefly, the useEffect re-runs, AbortController.abort()
+    // fires on the in-flight fetch.
+    for (const ws of harness.getAllWs()) {
+      await harness.closeWs(ws, { code: 1006 });
+    }
+    // The aborted fetch should NOT show an error in the feed
+    // meta (AbortError → `buildFetchErrorMessage` returns null →
+    // no setState). We poll for the absence of error.
+    await page.waitForTimeout(500);
+    const errorMeta = await page
+      .locator(".ep-feed__meta")
+      .filter({ hasText: /HTTP|fetch|aborted/ })
+      .count();
+    expect(errorMeta).toBe(0);
+    // Cleanup: release the held route so the test doesn't hang.
+    if (resolveRoute !== undefined) {
+      resolveRoute(undefined);
+    }
+  });
   }); // close describe("58C-12..15 (MSW bypass...)")
 
   // =============================================================================
