@@ -131,8 +131,10 @@ function flushAccumulator(): void {
     // The `filePath` keys come from Playwright's instrumentation
     // (absolute source file paths in the project), not user
     // input, so the dynamic property access is safe.
+    // eslint-disable-next-line security/detect-object-injection
     const entry = dataField[filePath];
     if (entry !== undefined) {
+      // eslint-disable-next-line security/detect-object-injection
       flat[filePath] = entry;
     }
   }
@@ -181,7 +183,9 @@ export function readAllAccumulators(): Record<string, unknown> {
   for (const file of readdirSync(ACCUMULATOR_DIR)) {
     if (!file.endsWith(".json")) continue;
     try {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      // The file path is derived from the accumulator directory
+      // (constant) + a `.json` file name (from `readdirSync`,
+      // not user input).
       const data = JSON.parse(
         // eslint-disable-next-line security/detect-non-literal-fs-filename
         readFileSync(resolve(ACCUMULATOR_DIR, file), "utf8"),
