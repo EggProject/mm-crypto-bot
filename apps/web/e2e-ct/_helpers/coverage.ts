@@ -148,21 +148,80 @@ export { expect };
  * files and return the merged coverage map. Called by the e2e
  * `dashboard.spec.ts` `afterAll` to merge CT coverage into the
  * final report.
+ *
+ * **Phase 60.2 fix (2026-07-20):** the previous implementation used
+ * `Object.assign(merged, data)` which is a SHALLOW merge per file.
+ * When the same source file (e.g. `ControlBar.tsx`) appears in
+ * multiple CT captures (e.g. the 12 tests that mount `ControlBar`
+ * via `ctViteConfig.resolve.alias`), the LATER capture's per-file
+ * coverage entry completely overwrites the earlier ones. This
+ * costs the merged report ~2-5pp of CT coverage because the
+ * "best" coverage per file is the last write, not the union.
+ *
+ * The fix: use `istanbul-lib-coverage.createCoverageMap().merge()`
+ * per file. This does a proper per-statement / per-branch UNION
+ * across all captures for the same file. Statements/branches hit
+ * in ANY capture count as hit in the merged map.
+ *
+ * The `istanbulCoverage` import is the same CJS module the e2e
+ * `dashboard.spec.ts` uses (with the same destructure pattern).
  */
+import istanbulCoverage from "istanbul-lib-coverage";
+
+const { createCoverageMap } = istanbulCoverage as unknown as {
+  createCoverageMap: (data: unknown) => {
+    merge: (other: unknown) => void;
+  };
+};
+
 export function readAllCtCoverageFiles(): Record<string, unknown> {
   if (!pathExists(NYC_OUTPUT_DIR)) return {};
   const files = listFiles(NYC_OUTPUT_DIR).filter(
     (f) => f.startsWith("playwright_ct_") && f.endsWith(".json"),
   );
-  const merged: Record<string, unknown> = {};
+  if (files.length === 0) return {};
+  // Per-file accumulator: each key is a source file path, the value
+  // is the cumulative coverage map for that file. We merge into the
+  // accumulator using `createCoverageMap().merge()` which does a
+  // proper per-statement / per-branch UNION.
+  const fileAcc = new Map<string, ReturnType<typeof createCoverageMap>>();
   for (const f of files) {
     try {
       const data = JSON.parse(
         readUtf8(path.join(NYC_OUTPUT_DIR, f)),
       ) as Record<string, unknown>;
-      Object.assign(merged, data);
+      for (const [filePath, fileCov] of Object.entries(data)) {
+        const existing = fileAcc.get(filePath);
+        if (existing === undefined) {
+          fileAcc.set(
+            filePath,
+            createCoverageMap({ [filePath]: fileCov }),
+          );
+        } else {
+          existing.merge({ [filePath]: fileCov });
+        }
+      }
     } catch {
       // Skip malformed file
+    }
+  }
+  // Flatten the per-file maps into a single Record<string, fileCov>.
+  // We extract the per-file coverage from each `createCoverageMap`
+  // by re-reading the merged data (the library's `toJSON()` is
+  // expensive, so we use the internal field instead — istanbul
+  // stores the per-file entries at `.data`).
+  const merged: Record<string, unknown> = {};
+  for (const [filePath, map] of fileAcc.entries()) {
+    // `map.data` is the internal Record<filePath, FileCoverageData>.
+    // We expose just the single entry for `filePath`. The filePath
+    // keys are emitted by Playwright's instrumentation (not user
+    // input), so the dynamic property access is safe.
+    const dataField = (map as unknown as { data: Record<string, unknown> }).data;
+    // eslint-disable-next-line security/detect-object-injection
+    const entry = dataField[filePath];
+    if (entry !== undefined) {
+      // eslint-disable-next-line security/detect-object-injection
+      merged[filePath] = entry;
     }
   }
   return merged;
