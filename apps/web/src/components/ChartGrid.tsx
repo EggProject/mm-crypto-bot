@@ -321,6 +321,15 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
         const bars: readonly OHLCBar[] = barsByKey[keyStr] ?? [];
         // eslint-disable-next-line security/detect-object-injection
         const markers: readonly ChartMarker[] = markersByKey[keyStr] ?? [];
+        // Phase 60 coverage fix: extract the ternary in the
+        // template-literal className into a named const above the
+        // JSX. The V8 + ast-v8-to-istanbul pipeline does NOT
+        // attribute branch coverage to ternary expressions inside
+        // JSX attribute template-literal expressions — the branch
+        // is invisible to the instrumentation. Extracting the
+        // conditional to a `const` surfaces the branch as a plain
+        // JS expression, which V8's code coverage tracks correctly.
+        // The original ternary is preserved verbatim in the const.
         // Phase 52F follow-up: always render the full `ChartCard`
         // (with empty bars) instead of a "Loading…" placeholder.
         // The range-tab selector (`.line-chart-wrapper__range-button`)
@@ -332,9 +341,10 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
         // `bars=[]` keeps the selector stable; the chart body shows
         // an empty `lightweight-charts` canvas for a frame until
         // the first BAR message populates it.
+        const chartCardCls = `ep-chart-card${bars.length === 0 ? " ep-chart-card--loading" : ""}`;
         return (
           <div
-            className={`ep-chart-card${bars.length === 0 ? " ep-chart-card--loading" : ""}`}
+            className={chartCardCls}
             key={keyStr}
             data-chart-key={keyStr}
             data-symbol={key.symbol}

@@ -8,11 +8,14 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint --no-error-on-unmatched-pattern --max-warnings=0 \"src/**/*.{ts,tsx}\" \"e2e/**/*.{ts,tsx}\"",
+    "lint": "eslint --no-error-on-unmatched-pattern --max-warnings=0 \"src/**/*.{ts,tsx}\" \"e2e/**/*.{ts,tsx}\" \"e2e-ct/**/*.{ts,tsx}\"",
     "test": "bun test --pass-with-no-tests src/",
     "e2e": "playwright test --reporter=line",
     "e2e:full": "playwright test --reporter=line",
-    "e2e:headed": "playwright test --reporter=line --headed"
+    "e2e:headed": "playwright test --reporter=line --headed",
+    "e2e:ct": "playwright test --config=playwright-ct.config.ts --reporter=line",
+    "e2e:ct:headed": "playwright test --config=playwright-ct.config.ts --reporter=line --headed",
+    "e2e:all": "bun run e2e:ct && bun run e2e"
   },
   "dependencies": {
     "lightweight-charts": "^5.2.0",
@@ -20,12 +23,14 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/experimental-ct-react": "^1.61.1",
     "@playwright/test": "^1.49.0",
     "@types/istanbul-lib-coverage": "^2.0.6",
     "@types/node": "^22.13.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "babel-plugin-istanbul": "^8.0.0",
     "bun-types": "^1.1.0",
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-report": "^3.0.1",

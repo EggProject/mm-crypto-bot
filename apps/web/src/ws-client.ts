@@ -29,10 +29,27 @@
  * so a burst of 60Hz ticks only triggers ONE `setState` call per
  * frame, not 60. The batcher lives in a `useRef` and is flushed
  * on unmount so no items are lost.
+ *
+ * Phase 58: the state machine is extracted into a pure reducer
+ * (`reduce(state, event) → { state, effects }`) in
+ * `apps/web/src/ws-client-state.ts`. The class is now a thin
+ * shell: it holds the imperative bits (the socket, the scheduler
+ * handle, the listener sets), the State, and forwards every
+ * event to the reducer. The reducer's branches are unit-testable
+ * WITHOUT a WebSocket / Playwright / React renderer.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { RealtimeBatcher } from "./lib/realtime-batcher.js";
+import {
+  buildPongPayload,
+  DEFAULT_BACKOFF_SEQUENCE_MS,
+  INITIAL_WS_STATE,
+  type WsEffect,
+  type WsEvent,
+  type WsState,
+  reduce,
+} from "./ws-client-state.js";
 
 // =============================================================================
 // Message types — mirror the apps/bot/src/state-feed/protocol.ts protocol
@@ -122,181 +139,31 @@ export interface WebSocketState {
 // =============================================================================
 
 const DEFAULT_URL = "ws://127.0.0.1:7913/ws";
-const BACKOFF_SEQUENCE_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000] as const;
 
-/**
- * `nextBackoffMs(attempt, schedule)` — pure function: given a
- * reconnect attempt counter and a backoff schedule, return the
- * delay (in ms) before the next reconnect attempt.
- *
- * Semantics:
- *   - `attempt < schedule.length` → `schedule[attempt]`
- *   - `attempt >= schedule.length` → the LAST element of `schedule`
- *     (the schedule is a CAP, not a hard error — once we've blown
- *     past the last value, we keep retrying at the cap interval)
- *   - empty `schedule` → `30_000` (the well-known fallback; matches
- *     the prior inline `?? 30_000` behavior in the close handler)
- *
- * Pure: no side effects, no I/O, no `this`. Extracted in
- * Phase 53C for unit-testability — the inline `Math.min(...) ?? 30_000`
- * expression in the close handler was not directly testable without
- * driving a full WebSocket lifecycle, but the math itself is the
- * actual unit of interest.
- */
-export function nextBackoffMs(
-  attempt: number,
-  schedule: readonly number[],
-): number {
-  if (schedule.length === 0) return 30_000;
-  // `Math.min(attempt, schedule.length - 1)` clamps `attempt` to
-  // the last valid index. For an empty schedule the early-return
-  // above avoids `schedule.length - 1 === -1` selecting
-  // `schedule[-1] === undefined`.
-  const idx = Math.min(attempt, schedule.length - 1);
-  // The index is clamped via `Math.min` above; the only way `idx`
-  // could be out-of-bounds is if the schedule is a `readonly`
-  // array with `Object.prototype` pollution. Production callers
-  // pass the default `BACKOFF_SEQUENCE_MS` or a test-supplied
-  // array — both safe.
-  // eslint-disable-next-line security/detect-object-injection
-  return schedule[idx] ?? 30_000;
-}
+// =============================================================================
+// Re-exports of the pure helpers + reducer (Phase 53C / 54B / 56A / 58)
+//
+// The actual implementations live in `ws-client-state.ts`. The class
+// (and the existing test file) imports them through this module for
+// backward compatibility.
+// =============================================================================
 
-/**
- * `shouldQueueSend(socket)` — pure predicate: is the socket
- * in the `OPEN` state (`readyState === 1`) and therefore ready
- * to accept a `send()` call? Mirrors the `WebSocket.OPEN`
- * constant but uses the literal `1` for the same reason
- * `send()` does: the test suite replaces `globalThis.WebSocket`
- * with a `FakeWebSocket` whose `readyState` is tracked as a
- * raw number, not via the `WebSocket.OPEN` static.
- *
- * Extracted in Phase 54B for unit-testability — the inline
- * `this.socket !== null && this.socket.readyState === 1`
- * expression in `send()` was not directly testable without
- * driving a full WebSocketClient lifecycle, but the predicate
- * itself is the actual unit of interest.
- */
-export function shouldQueueSend(
-  socket: WebSocketLike | null,
-): socket is WebSocketLike {
-  return socket !== null && socket.readyState === 1;
-}
-
-/**
- * `shouldScheduleReconnect(currentStatus, closedByCaller)` —
- * pure predicate: should the close handler schedule a reconnect
- * attempt? Two early-exit cases:
- *
- *   1. `currentStatus === "crashed"` — a non-recoverable error
- *      has already put the client in the terminal `crashed`
- *      state; reconnecting would mask the failure.
- *   2. `closedByCaller === true` — the user called `close()`;
- *      we must NOT reconnect.
- *
- * Otherwise the close was an unexpected socket-level close
- * (network drop, server restart, idle timeout) and we should
- * schedule a reconnect with exponential backoff.
- *
- * Extracted in Phase 54B for unit-testability — the inline
- * guards in the close handler were not directly testable
- * without driving a full close-event sequence, but the
- * decision logic is the actual unit of interest.
- */
-export function shouldScheduleReconnect(
-  currentStatus: WebSocketStatus,
-  closedByCaller: boolean,
-): boolean {
-  if (currentStatus === "crashed") return false;
-  if (closedByCaller) return false;
-  return true;
-}
-
-/**
- * `parseServerMessage(data)` — pure function: parse the raw
- * `data` payload of a WebSocket message event into a typed
- * `ServerMessage` (or report why parsing failed). Two failure
- * modes are distinguished:
- *
- *   - `reason: "no-data"` — the event had no `data` field
- *     (the browser may emit a message event with no payload
- *     for some edge cases; the legacy code early-returned).
- *   - `reason: "invalid-json"` — the `data` was a string but
- *     `JSON.parse` threw (malformed payload, server bug, etc.).
- *
- * The success case returns `{ ok: true, msg }` where `msg` is
- * the cast-typed `ServerMessage`. We do NOT validate the
- * shape beyond JSON validity — the union's discriminator
- * (`msg.type`) is the only field the dispatch switch reads.
- *
- * Extracted in Phase 56A for unit-testability — the inline
- * `if (data === undefined) return;` + `try { JSON.parse } catch`
- * block in the message handler had 4 branches (no-data, valid
- * JSON, invalid JSON, the cast itself) that were not directly
- * testable without driving a full WebSocket lifecycle. Splitting
- * parsing from dispatch lets the parser be unit-tested with
- * focused tests instead of full end-to-end message scenarios.
- */
-export type ServerMessageParseResult =
-  | { readonly ok: true; readonly msg: ServerMessage }
-  | { readonly ok: false; readonly reason: "no-data" | "invalid-json" };
-
-export function parseServerMessage(
-  data: string | undefined,
-): ServerMessageParseResult {
-  if (data === undefined) {
-    return { ok: false, reason: "no-data" };
-  }
-  try {
-    const msg = JSON.parse(data) as ServerMessage;
-    return { ok: true, msg };
-  } catch {
-    return { ok: false, reason: "invalid-json" };
-  }
-}
-
-/**
- * `shouldCrashOnError(msg)` — pure predicate: does this error
- * message represent a non-recoverable failure that should
- * put the client into the terminal `crashed` state? The
- * protocol's `error` message carries a `recoverable: boolean`
- * field; when `recoverable === false`, the client must stop
- * reconnecting and surface the failure to the user.
- *
- * Extracted in Phase 56A for unit-testability — the inline
- * `if (!msg.recoverable) { ... }` block in the error case of
- * the handleMessage switch had 2 branches (recoverable=true
- * is a no-op, recoverable=false triggers crash + socket
- * close) that were not directly testable in isolation.
- * Splitting the predicate from the side effects lets the
- * predicate be unit-tested with focused tests.
- */
-export function shouldCrashOnError(msg: {
-  readonly recoverable: boolean;
-}): boolean {
-  return !msg.recoverable;
-}
-
-/**
- * `buildPongPayload(pingTs)` — pure function: build the JSON
- * payload for the auto-pong response to a `ping` message.
- * The protocol carries a `ts` field in both directions; the
- * client echoes the server's ts back so the server can
- * measure round-trip latency.
- *
- * Extracted in Phase 56A for unit-testability — the inline
- * `JSON.stringify({ type: "pong", ts: msg.ts })` in the ping
- * case of the handleMessage switch was not directly testable
- * without driving a full ping/pong round-trip. Splitting the
- * payload construction from the WebSocket send lets the
- * payload shape be unit-tested with focused tests.
- */
-export function buildPongPayload(pingTs: number): {
-  readonly type: "pong";
-  readonly ts: number;
-} {
-  return { type: "pong", ts: pingTs };
-}
+export {
+  nextBackoffMs,
+  shouldQueueSend,
+  shouldScheduleReconnect,
+  parseServerMessage,
+  shouldCrashOnError,
+  buildPongPayload,
+  reduce,
+  INITIAL_WS_STATE,
+  DEFAULT_BACKOFF_SEQUENCE_MS,
+  type WsState,
+  type WsEvent,
+  type WsEffect,
+  type WsReduceResult,
+  type ServerMessageParseResult,
+} from "./ws-client-state.js";
 
 /** Minimal WebSocket interface — the global `WebSocket` is the production
  *  impl, the test fakes it via this interface. */
@@ -314,7 +181,7 @@ export interface WebSocketLike {
 export type WebSocketFactory = (url: string) => WebSocketLike;
 
 // =============================================================================
-// `WebSocketClient` — the testable core
+// `WebSocketClient` — the testable core (Phase 58: thin shell over reducer)
 // =============================================================================
 
 export interface WebSocketClientOptions {
@@ -332,10 +199,13 @@ export interface WebSocketClientOptions {
 type Unsubscribe = () => void;
 
 /**
- * `WebSocketClient` — pure class that maintains a single WebSocket
- * connection to the bot's web-client /ws endpoint. Auto-reconnects with
- * exponential backoff on close. Exposes a subscribe-based event surface
- * for the React hook (and for tests).
+ * `WebSocketClient` — thin shell that holds the imperative bits
+ * (the socket, the scheduler handle, the listener sets) and the
+ * pure `WsState`. Every event flows through `dispatch(event)` →
+ * `reduce(state, event) → { state, effects }` → the class executes
+ * the effects. The reducer is the source of truth for the state
+ * machine; the class is the source of truth for the imperative
+ * side effects.
  */
 export class WebSocketClient {
   private readonly url: string;
@@ -346,11 +216,13 @@ export class WebSocketClient {
     clearTimeout: (handle: unknown) => void;
   };
 
+  // The pure state machine. Mutated only via `dispatch()` (which
+  // calls the reducer and replaces `this.state` with the new state).
+  private state: WsState = INITIAL_WS_STATE;
+
+  // Imperative bits (NOT in the state):
   private socket: WebSocketLike | null = null;
-  private attempt = 0;
-  private closedByCaller = false;
   private reconnectHandle: unknown = null;
-  private currentStatus: WebSocketStatus = "disconnected";
 
   // Subscribers — the hook subscribes to these to mirror the state.
   private readonly statusListeners = new Set<(s: WebSocketStatus) => void>();
@@ -373,7 +245,7 @@ export class WebSocketClient {
     this.url = options.url ?? DEFAULT_URL;
     this.createSocket =
       options.createSocket ?? ((u: string): WebSocketLike => new WebSocket(u));
-    this.backoffMs = options.backoffMs ?? BACKOFF_SEQUENCE_MS;
+    this.backoffMs = options.backoffMs ?? DEFAULT_BACKOFF_SEQUENCE_MS;
     this.scheduler = options.scheduler ?? {
       setTimeout: (cb, ms): ReturnType<typeof setTimeout> => {
         return setTimeout(cb, ms);
@@ -386,43 +258,22 @@ export class WebSocketClient {
 
   /** Returns the current status. */
   getStatus(): WebSocketStatus {
-    return this.currentStatus;
+    return this.state.status;
   }
 
   /** Starts the connect loop. Idempotent. */
   start(): void {
-    this.closedByCaller = false;
-    this.connect();
+    this.dispatch({ type: "START" });
   }
 
   /** Closes the socket permanently and cancels any pending reconnect. */
   close(): void {
-    this.closedByCaller = true;
-    if (this.reconnectHandle !== null) {
-      this.scheduler.clearTimeout(this.reconnectHandle);
-      this.reconnectHandle = null;
-    }
-    if (this.socket !== null) {
-      // Set the status FIRST so the close event (which fires
-      // synchronously inside `socket.close()`) sees the right state
-      // and does not emit a duplicate "disconnected" transition.
-      this.setStatus("disconnected");
-      try {
-        this.socket.close();
-      } catch {
-        // best-effort
-      }
-      this.socket = null;
-    } else {
-      this.setStatus("disconnected");
-    }
+    this.dispatch({ type: "CLOSE_USER" });
   }
 
   /** Sends a message; no-op if the socket is not open. */
   send(msg: ClientMessage): void {
-    if (shouldQueueSend(this.socket)) {
-      this.socket.send(JSON.stringify(msg));
-    }
+    this.dispatch({ type: "SEND", msg });
   }
 
   // Subscriptions — used by the hook and the tests.
@@ -490,139 +341,182 @@ export class WebSocketClient {
   // Internals
   // ---------------------------------------------------------------------------
 
-  private setStatus(s: WebSocketStatus): void {
-    this.currentStatus = s;
-    for (const listener of this.statusListeners) {
-      try {
-        listener(s);
-      } catch {
-        // best-effort
+  /**
+   * `dispatch(event)` — the bridge between the imperative class and
+   * the pure reducer. Calls `reduce(state, event)`, replaces
+   * `this.state` with the new state, and executes the returned
+   * effects in order. Every event source (user API, socket
+   * lifecycle) goes through this single function.
+   */
+  private dispatch(event: WsEvent): void {
+    const { state: nextState, effects } = reduce(
+      this.state,
+      event,
+      this.backoffMs,
+    );
+    this.state = nextState;
+    for (const effect of effects) {
+      this.executeEffect(effect);
+    }
+  }
+
+  /**
+   * `executeEffect(effect)` — perform the imperative side effect
+   * corresponding to the reducer's command. The reducer is the
+   * source of truth for the state machine; this method is the
+   * source of truth for the imperative actions.
+   */
+  private executeEffect(effect: WsEffect): void {
+    switch (effect.type) {
+      case "SET_STATUS": {
+        for (const listener of this.statusListeners) {
+          try {
+            listener(effect.status);
+          } catch {
+            // best-effort
+          }
+        }
+        return;
+      }
+      case "DISPATCH": {
+        switch (effect.kind) {
+          case "snapshot":
+            for (const listener of this.snapshotListeners) {
+              try {
+                listener(
+                  effect.msg as Extract<ServerMessage, { type: "snapshot" }>,
+                );
+              } catch {
+                // best-effort
+              }
+            }
+            return;
+          case "state":
+            for (const listener of this.stateListeners) {
+              try {
+                listener(
+                  effect.msg as Extract<ServerMessage, { type: "state" }>,
+                );
+              } catch {
+                // best-effort
+              }
+            }
+            return;
+          case "error":
+            for (const listener of this.errorListeners) {
+              try {
+                listener(
+                  effect.msg as Extract<ServerMessage, { type: "error" }>,
+                );
+              } catch {
+                // best-effort
+              }
+            }
+            return;
+          case "tick":
+            for (const listener of this.tickListeners) {
+              try {
+                listener(effect.msg as TickMessage);
+              } catch {
+                // best-effort
+              }
+            }
+            return;
+          case "bar":
+            for (const listener of this.barListeners) {
+              try {
+                listener(effect.msg as BarMessage);
+              } catch {
+                // best-effort
+              }
+            }
+            return;
+        }
+        return;
+      }
+      case "SEND_PONG": {
+        if (this.socket !== null) {
+          try {
+            this.socket.send(JSON.stringify(buildPongPayload(effect.ts)));
+          } catch {
+            // best-effort
+          }
+        }
+        return;
+      }
+      case "SEND_RAW": {
+        if (this.socket !== null) {
+          try {
+            this.socket.send(effect.text);
+          } catch {
+            // best-effort
+          }
+        }
+        return;
+      }
+      case "SCHEDULE_RECONNECT": {
+        this.reconnectHandle = this.scheduler.setTimeout(() => {
+          this.reconnectHandle = null;
+          // The reconnect "fires" by emitting a START event, which
+          // the reducer will turn into a new CONNECT effect (creating
+          // a fresh socket). The status is already "disconnected" at
+          // this point, so the reducer's START → "connecting"
+          // transition will be observed.
+          this.dispatch({ type: "START" });
+        }, effect.delayMs);
+        return;
+      }
+      case "CANCEL_RECONNECT": {
+        if (this.reconnectHandle !== null) {
+          this.scheduler.clearTimeout(this.reconnectHandle);
+          this.reconnectHandle = null;
+        }
+        return;
+      }
+      case "CLOSE_SOCKET": {
+        if (this.socket !== null) {
+          try {
+            this.socket.close();
+          } catch {
+            // best-effort
+          }
+          this.socket = null;
+        }
+        return;
+      }
+      case "CONNECT": {
+        this.createSocketAndWire();
+        return;
       }
     }
   }
 
-  private connect(): void {
-    if (this.closedByCaller) return;
-    this.setStatus("connecting");
+  /**
+   * `createSocketAndWire()` — imperative side of the CONNECT
+   * effect. Creates a new socket via the factory and wires its
+   * lifecycle events to `dispatch()`. This is the only place
+   * where the class creates a new socket.
+   */
+  private createSocketAndWire(): void {
     const socket = this.createSocket(this.url);
     this.socket = socket;
 
     socket.addEventListener("open", () => {
-      this.attempt = 0;
-      this.setStatus("connected");
+      this.dispatch({ type: "SOCKET_OPEN" });
     });
-
     socket.addEventListener("message", (event) => {
       const data = (event as { data?: string }).data;
-      const parsed = parseServerMessage(data);
-      if (!parsed.ok) return;
-      this.handleMessage(parsed.msg);
+      this.dispatch({ type: "RAW_MESSAGE", data });
     });
-
     socket.addEventListener("close", () => {
       this.socket = null;
-      // The two early-exit guards ("crashed" status + caller-initiated
-      // close) are encapsulated in `shouldScheduleReconnect` for
-      // unit-testability (Phase 54B). If the predicate says no, the
-      // close event was either a terminal crash (already handled by
-      // the `error` message branch) or a user-initiated shutdown
-      // (already handled by `close()`).
-      if (!shouldScheduleReconnect(this.currentStatus, this.closedByCaller)) {
-        return;
-      }
-      // Schedule reconnect with exponential backoff. `nextBackoffMs`
-      // is a pure function exported for unit-testability (Phase 53C).
-      const delay = nextBackoffMs(this.attempt, this.backoffMs);
-      this.attempt += 1;
-      this.setStatus("disconnected");
-      this.reconnectHandle = this.scheduler.setTimeout(() => {
-        this.reconnectHandle = null;
-        this.connect();
-      }, delay);
+      this.dispatch({ type: "SOCKET_CLOSE" });
     });
-
     socket.addEventListener("error", () => {
       // The "close" event fires after "error" — the reconnect logic
-      // lives in the close handler.
+      // lives in the close handler. This is a no-op.
+      this.dispatch({ type: "SOCKET_ERROR" });
     });
-  }
-
-  private handleMessage(msg: ServerMessage): void {
-    switch (msg.type) {
-      case "snapshot":
-        for (const listener of this.snapshotListeners) {
-          try {
-            listener(msg);
-          } catch {
-            // best-effort
-          }
-        }
-        return;
-      case "state":
-        for (const listener of this.stateListeners) {
-          try {
-            listener(msg);
-          } catch {
-            // best-effort
-          }
-        }
-        return;
-      case "error":
-        for (const listener of this.errorListeners) {
-          try {
-            listener(msg);
-          } catch {
-            // best-effort
-          }
-        }
-        if (shouldCrashOnError(msg)) {
-          this.closedByCaller = true;
-          this.setStatus("crashed");
-          if (this.socket !== null) {
-            try {
-              this.socket.close();
-            } catch {
-              // best-effort
-            }
-            this.socket = null;
-          }
-        }
-        return;
-      case "ping":
-        // Auto-respond with pong. The `shouldQueueSend` predicate
-        // is the same one used by `send()` — reusing it here
-        // means the WS-OPEN check is a single source of truth
-        // (Phase 56A refactor).
-        if (shouldQueueSend(this.socket)) {
-          try {
-            this.socket.send(JSON.stringify(buildPongPayload(msg.ts)));
-          } catch {
-            // best-effort
-          }
-        }
-        return;
-      case "tick":
-        for (const listener of this.tickListeners) {
-          try {
-            listener(msg);
-          } catch {
-            // best-effort
-          }
-        }
-        return;
-      case "bar":
-        for (const listener of this.barListeners) {
-          try {
-            listener(msg);
-          } catch {
-            // best-effort
-          }
-        }
-        return;
-      // hello, indicator, marker — not yet wired (Phase 49+).
-      default:
-        return;
-    }
   }
 }
 

@@ -63,6 +63,7 @@ import { fileURLToPath } from "node:url";
 // Phase 57: import the coverage accumulator reader so the
 // dashboard `afterAll` can merge coverage from other spec files.
 import { readAllAccumulators } from "./_helpers/coverage.js";
+import { readAllCtCoverageFiles } from "../e2e-ct/_helpers/coverage.js";
 
 const { createCoverageMap } = istanbulCoverage as unknown as {
   createCoverageMap: (data: unknown) => {
@@ -191,12 +192,25 @@ const COVERAGE_THRESHOLDS = { lines: 80, branches: 80, functions: 80 } as const;
 // Coverage helpers (inlined to keep the new-file count to 5)
 // =============================================================================
 
-/** In-memory coverage accumulator. The accumulator is a flat
- *  `Record<filePath, coverageEntry>` that we merge into with each
- *  test's `window.__coverage__` payload. */
-const coverageAccumulator: Record<string, unknown> = {};
+/** Per-file CoverageMap accumulator. Each source-file path gets
+ *  its own `createCoverageMap` so `merge()` does a per-file UNION
+ *  of covered lines/branches across all tests in the suite.
+ *
+ *  **Phase 61 fix (2026-07-20):** the previous implementation
+ *  used `Object.assign(coverageAccumulator, cov)` which is a
+ *  SHALLOW per-file replace — the LAST test's per-file coverage
+ *  entry wins, dropping earlier tests' data for the same file.
+ *  This dropped ~2-5pp of coverage on the strategies-parser
+ *  branches (the 58C-12..15 tests each hit ONE TRUE arm of
+ *  `parseStrategiesResponse`, but the shallow merge dropped all
+ *  but the last test's hit). The fix mirrors `e2e-ct/_helpers/
+ *  coverage.ts` `readAllCtCoverageFiles()` and `e2e/_helpers/
+ *  coverage.ts` `collectCoverageFromPage()` — per-file CoverageMap
+ *  with `merge()` for a proper per-statement / per-branch UNION. */
+const fileAcc = new Map<string, ReturnType<typeof createCoverageMap>>();
 
-/** Read `window.__coverage__` from the page and merge into the accumulator. */
+/** Read `window.__coverage__` from the page and union-merge into
+ *  the per-file accumulator. */
 async function collectCoverageFromPage(page: Page): Promise<void> {
   const cov = await page.evaluate(() => {
     return (
@@ -205,7 +219,17 @@ async function collectCoverageFromPage(page: Page): Promise<void> {
     );
   });
   if (cov === null) return;
-  Object.assign(coverageAccumulator, cov);
+  for (const [filePath, fileCov] of Object.entries(cov)) {
+    const existing = fileAcc.get(filePath);
+    if (existing === undefined) {
+      fileAcc.set(
+        filePath,
+        createCoverageMap({ [filePath]: fileCov }),
+      );
+    } else {
+      existing.merge({ [filePath]: fileCov });
+    }
+  }
 }
 
 interface CoverageReport {
@@ -221,38 +245,68 @@ function flushAndReport(): CoverageReport {
   // rule flags them as non-literal at the call site, but the
   // values are 100% controlled by the test (not user input).
   mkdirSync(COVERAGE_DIR, { recursive: true });
-  if (Object.keys(coverageAccumulator).length === 0) {
+  if (fileAcc.size === 0) {
     throw new Error(
       "No coverage data collected — `window.__coverage__` was never set. " +
         "Check that VITE_COVERAGE=true is exported before `vite build`.",
     );
   }
+  // Flatten the per-file CoverageMap accumulator back into a flat
+  // `Record<filePath, FileCoverageData>` so we can seed the base
+  // CoverageMap. The internal `.data` field is istanbul's per-file
+  // entry map (one entry per source file).
+  const flat: Record<string, unknown> = {};
+  for (const [filePath, map] of fileAcc.entries()) {
+    const dataField = (map as unknown as { data: Record<string, unknown> }).data;
+    // The `filePath` keys come from Playwright's instrumentation
+    // (absolute source file paths in the project), not user
+    // input, so the dynamic property access is safe.
+    // eslint-disable-next-line security/detect-object-injection
+    const entry = dataField[filePath];
+    if (entry !== undefined) {
+      // eslint-disable-next-line security/detect-object-injection
+      flat[filePath] = entry;
+    }
+  }
   // The `createCoverageMap` API accepts a flat
-  // `Record<filePath, FileCoverageData>` object. Our accumulator
-  // matches that shape; we cast because `@types/istanbul-lib-coverage`
-  // is strict about the FileCoverageData shape (it requires a
-  // specific `path` field that istanbul's runtime output satisfies
-  // but the TS types don't allow us to declare directly).
+  // `Record<filePath, FileCoverageData>` object. Our flattened
+  // accumulator matches that shape; we cast because
+  // `@types/istanbul-lib-coverage` is strict about the
+  // FileCoverageData shape (it requires a specific `path` field
+  // that istanbul's runtime output satisfies but the TS types
+  // don't allow us to declare directly).
   //
   // **Phase 57 merge:** we create a base map from the dashboard
   // accumulator, then merge in the external accumulators from
   // other spec files. `map.merge()` takes the UNION of covered
   // lines/branches across runs, which is what we want.
   const baseMap = createCoverageMap(
-    coverageAccumulator as unknown as Parameters<typeof createCoverageMap>[0],
+    flat as unknown as Parameters<typeof createCoverageMap>[0],
   );
-  // `readAllAccumulators()` is called in the `afterAll` before
-  // `flushAndReport`. The external data has already been merged
-  // into `coverageAccumulator` via the `afterAll` code. But
-  // `createCoverageMap` does a SHALLOW merge of per-file entries
-  // (last one wins). To get a proper UNION, we need to use
-  // `map.merge()`.
+  // `readAllAccumulators()` returns the per-file-merged data
+  // from the `e2e/_helpers/coverage.ts` spec accumulators
+  // (which themselves use the same per-file `createCoverageMap
+  // .merge()` pattern, so each file in `externalData` is
+  // already the union of all that spec's tests for that file).
   const externalData = readAllAccumulators();
   if (Object.keys(externalData).length > 0) {
     const externalMap = createCoverageMap(
       externalData as unknown as Parameters<typeof createCoverageMap>[0],
     );
     baseMap.merge(externalMap);
+  }
+  // Phase 58: merge CT (Component Test) accumulators too. The CT
+  // lane writes per-page `.nyc_output/playwright_ct_*.json` files
+  // (mxschmitt `baseFixtures.ts` pattern) and we union them into
+  // the final E2E coverage map. This is the "여기어때" pattern:
+  // CT + E2E merged coverage. The merge uses `map.merge()` which
+  // takes the UNION of covered lines/branches across runs.
+  const ctExternalData = readAllCtCoverageFiles();
+  if (Object.keys(ctExternalData).length > 0) {
+    const ctMap = createCoverageMap(
+      ctExternalData as unknown as Parameters<typeof createCoverageMap>[0],
+    );
+    baseMap.merge(ctMap);
   }
   writeFileSync(COVERAGE_FINAL, JSON.stringify(baseMap, null, 2), "utf8");
 
@@ -376,7 +430,7 @@ test.afterEach(async ({ page }) => {
 test.afterAll(() => {
   // Only flush if at least one test ran (else coverage-final.json
   // is empty + the threshold check would spuriously fail).
-  if (Object.keys(coverageAccumulator).length === 0) return;
+  if (fileAcc.size === 0) return;
   if (!existsSync(COVERAGE_DIR)) return;
   // Phase 57: `flushAndReport` reads external accumulators from
   // `coverage/playwright/accumulators/*.json` and merges them

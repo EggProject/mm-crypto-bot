@@ -307,6 +307,47 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   };
 
   // --------------------------------------------------------------------------
+  // Phase 60 coverage fix: extract the JSX `&&` chains into named
+  // consts above the return. The V8 + ast-v8-to-istanbul pipeline
+  // (vite-plugin-istanbul + Playwright CT/e2e merge) does NOT
+  // attribute branch coverage to `{condition && <X />}` patterns
+  // inside JSX expressions — the branch is invisible to the
+  // instrumentation. Extracting the conditional to a `const`
+  // surfaces the branch as a plain JS expression, which V8's
+  // code coverage tracks correctly.
+  //
+  // Behavior is preserved exactly: `null` renders as nothing in
+  // React, identical to the prior `false` from the `&&` short-
+  // circuit. No new tests, no logic changes — this is a pure
+  // refactor for source-map / branch-attribution alignment.
+  // --------------------------------------------------------------------------
+  const symbolLabel =
+    symbol !== "" ? (
+      <span className="line-chart-wrapper__symbol">{symbol}</span>
+    ) : null;
+  const strategyTitle = strategyHasTitle(strategy) ? (
+    <span className="line-chart-wrapper__title">{strategy}</span>
+  ) : null;
+  const timeframeMeta = timeframeHasLabel(timeframe) ? (
+    <span className="line-chart-wrapper__meta">{timeframe}</span>
+  ) : null;
+  const feedMetaEl = isFeedMetaVisible(feedMeta) ? (
+    <span className="ep-feed__meta">{feedMeta}</span>
+  ) : null;
+  const markersLegend = markersAreVisible(markers) ? (
+    <span className="line-chart-wrapper__legend-item">
+      <span
+        className="line-chart-wrapper__legend-swatch"
+        style={{
+          background: "var(--ep-yolk-500)",
+          borderRadius: "50%",
+        }}
+      />
+      Trade markers ({markers.length})
+    </span>
+  ) : null;
+
+  // --------------------------------------------------------------------------
   // Effect 1: mount / unmount the chart (run once per container lifetime)
   // --------------------------------------------------------------------------
   useEffect(() => {
@@ -442,15 +483,9 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
     >
       <header className="line-chart-wrapper__header">
         <div className="line-chart-wrapper__title-group">
-          {symbol !== "" && (
-            <span className="line-chart-wrapper__symbol">{symbol}</span>
-          )}
-          {strategyHasTitle(strategy) && (
-            <span className="line-chart-wrapper__title">{strategy}</span>
-          )}
-          {timeframeHasLabel(timeframe) && (
-            <span className="line-chart-wrapper__meta">{timeframe}</span>
-          )}
+          {symbolLabel}
+          {strategyTitle}
+          {timeframeMeta}
         </div>
         <div className="line-chart-wrapper__actions">
           <div
@@ -485,9 +520,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
               aria-hidden="true"
             />
             <span className="ep-feed__label">{feed.label}</span>
-            {isFeedMetaVisible(feedMeta) && (
-              <span className="ep-feed__meta">{feedMeta}</span>
-            )}
+            {feedMetaEl}
           </span>
         </div>
       </header>
@@ -507,18 +540,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
           <span className="line-chart-wrapper__legend-swatch line-chart-wrapper__legend-swatch--candle-down" />
           Down candle
         </span>
-        {markersAreVisible(markers) && (
-          <span className="line-chart-wrapper__legend-item">
-            <span
-              className="line-chart-wrapper__legend-swatch"
-              style={{
-                background: "var(--ep-yolk-500)",
-                borderRadius: "50%",
-              }}
-            />
-            Trade markers ({markers.length})
-          </span>
-        )}
+        {markersLegend}
       </div>
     </section>
   );
