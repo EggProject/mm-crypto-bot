@@ -214,6 +214,23 @@ jobs:
           path: apps/web/coverage/playwright/html-report
           if-no-files-found: warn
           retention-days: 30
+      # PHASE 63: per user mandate 2026-07-21 — print the e2e
+      # coverage summary to the GitHub Actions JOB SUMMARY
+      # (`$GITHUB_STEP_SUMMARY`, rendered as Markdown on the
+      # run page). The user explicitly wants the table visible
+      # in the run summary, not only the downloadable artifact.
+      # The script `apps/web/scripts/coverage-summary-md.mjs`
+      # reads the nyc `coverage-summary.json` and emits a
+      # Markdown table (total + per-file).
+      - name: Append e2e coverage to job summary
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "## 📊 Playwright e2e coverage (apps/web)"
+            echo ""
+            node apps/web/scripts/coverage-summary-md.mjs \
+              apps/web/coverage/playwright/report/coverage-summary.json
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Comment coverage on PR
         if: github.event_name == 'pull_request' && github.ref != 'refs/heads/main'
         uses: marocchino/sticky-pull-request-comment@v2
