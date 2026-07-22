@@ -58,7 +58,7 @@ The e2e suite is in `apps/web/e2e/dashboard.spec.ts`. It runs against a coverage
 
 ### Coverage gate
 
-The e2e suite enforces **95% lines / 90% branches / 95% functions** on `apps/web/src/**` via `nyc check-coverage`. The full report lands in `apps/web/coverage/playwright/`:
+The e2e suite enforces **80% lines / 80% branches / 80% functions** on `apps/web/src/**` via `nyc check-coverage` (Phase 62 — lowered from the original 95/90/95 baseline after the 80% design target was met in CI 29704276432). The full report lands in `apps/web/coverage/playwright/`:
 
 ```
 apps/web/coverage/playwright/
@@ -167,7 +167,7 @@ apps/web/
 ├─ package.json              # @mm-crypto-bot/web workspace package
 ├─ tsconfig.json             # strict + react-jsx (no `noUncheckedIndexedAccess`)
 ├─ vite.config.ts            # Vite 6 + React + vite-plugin-istanbul (coverage)
-├─ playwright.config.ts      # Playwright + MSW + 95% coverage gate
+├─ playwright.config.ts      # Playwright + MSW + 80% coverage gate
 ├─ public/
 │  └─ mockServiceWorker.js   # MSW service worker (generated, checked-in)
 ├─ src/
@@ -197,7 +197,7 @@ apps/web/
 - **No skills/ symlink** — the project's `apps/web/src/styles/` are vendored copies of the EggProject design tokens. The build is self-contained; you do NOT need to symlink or clone any external repo.
 - **TypeScript** — `apps/web/tsconfig.json` uses `strict: true` (no `noUncheckedIndexedAccess`; use `?? default` patterns instead). Components are `.tsx`; lib + e2e are `.ts`.
 - **Tests** — `apps/web/src/__tests__/*.test.ts(x)` for unit tests (run with `bun test`); `apps/web/e2e/*.spec.ts` for e2e (run with `bun run e2e`). Bun's test discovery is used; the e2e suite is intentionally separate (Playwright runner).
-- **Coverage** — `apps/web` is exempt from the per-package 100% OWN gate (which is server-only). The 95/90/95% gate comes from the Playwright e2e suite via `nyc check-coverage`.
+- **Coverage** — `apps/web` is exempt from the per-package 100% OWN gate (which is server-only). The 80% gate (lines/branches/functions) comes from the Playwright e2e suite via `nyc check-coverage`.
 
 ## License
 
