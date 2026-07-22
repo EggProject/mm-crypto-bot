@@ -208,7 +208,7 @@ bun run e2e:full            # Playwright + MSW + nyc coverage report (30-min cap
 bun run e2e:headed          # headed mode (debug)
 ```
 
-The e2e suite enforces **95% lines / 90% branches / 95% functions** on `apps/web/src/**` via `nyc check-coverage`. The CI uploads the coverage report and the Playwright HTML report as artifacts.
+The e2e suite enforces **80% lines / 80% branches / 80% functions** on `apps/web/src/**` via `nyc check-coverage` (Phase 62 — lowered from the original 95/90/95 baseline after the 80% design target was met in CI run 29852770116 on PR #179). The CI uploads the coverage report and the Playwright HTML report as artifacts, and prints the coverage table to the run summary (`$GITHUB_STEP_SUMMARY`).
 
 ## CI (7 jobs)
 
@@ -222,7 +222,7 @@ GitHub Actions runs the following jobs in parallel on every PR (`.github/workflo
 | 4 | `build` | `turbo run build` (cache: false) — every package compiles |
 | 5 | `coverage` | `bun run coverage:per-package` — 7/7 server packages at 100% OWN |
 | 6 | `test` | `bun run test` — every Vitest suite passes |
-| 7 | `e2e:playwright` | `cd apps/web && bun run e2e` — Playwright + MSW + 95% coverage gate (20-min suite timeout) |
+| 7 | `e2e:playwright` | `cd apps/web && bun run e2e` — Playwright + MSW + 80% coverage gate (20-min suite timeout) |
 
 A PR is mergeable only when all 7 jobs are green.
 
@@ -312,7 +312,7 @@ Result: 7/7 PASS
 
 Az egyesített (cross-package importokat is tartalmazó) lefedettség jelenleg **51.2%** — ez a 100%-hoz 50+ új tesztfájlt igényelne (multi-week scope, nem része ennek a mandátumnak).
 
-A `apps/web` package saját lefedettsége a **Playwright e2e suite-ből** jön (`apps/web/coverage/playwright/`), nem a Vitest-ből. A 95/90/95% gate a CI `e2e:playwright` job-ban fut, és a `nyc check-coverage` enforce-eli.
+A `apps/web` package saját lefedettsége a **Playwright e2e suite-ből** jön (`apps/web/coverage/playwright/`), nem a Vitest-ből. A 80% gate (lines/branches/functions) a CI `e2e:playwright` job-ban fut, és a `nyc check-coverage` enforce-eli. A coverage tábla a run summary-ban is megjelenik (`$GITHUB_STEP_SUMMARY` az `apps/web/scripts/coverage-summary-md.mjs` segítségével).
 
 ## Live trading
 
