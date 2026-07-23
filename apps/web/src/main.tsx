@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { App } from "./App.js";
 import { applyInitialTheme, mountThemeToggle } from "./theme.js";
 import "./styles/app.css";
+import "./styles/control-bar.css";
 
 // Apply the initial theme from localStorage (or the html attribute default).
 applyInitialTheme();

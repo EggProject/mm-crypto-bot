@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="hu" data-theme="dark" data-flourish="sapphire" data-noise="off" data-spot="on" data-motion="full" data-radius="kerek">
+<head>
+<meta charset="utf-8" />
+<title>EggProject — Dark theme v2 · Éjszakai műszak</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<!-- Design system tokens (single source of truth).
+     The @import inside colors_and_type.css pulls in the local
+     self-hosted Roboto + JetBrains Mono fonts — no Google Fonts CDN. -->
+<link rel="stylesheet" href="../colors_and_type.css" />
+
+<style>
+/* ── Button (inlined, token-based) ──
+   The demo's primary/secondary/ghost/danger buttons. This skill (the
+   design-system root) imports nothing cross-skill, so the button
+   styling lives here, built on the shared semantic tokens. No new tokens. */
+.btn {
+  font: 500 14px/1 var(--ep-font-sans);
+  padding: 11px 18px;
+  border-radius: var(--ep-radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: all var(--ep-dur-base) var(--ep-ease-out);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  letter-spacing: 0;
+}
+.btn--primary {
+  background: var(--ep-accent);
+  color: var(--ep-accent-on);
+  box-shadow: var(--ep-shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.30);
+}
+.btn--primary:hover { background: var(--ep-accent-hover); }
+.btn--secondary {
+  background: var(--ep-bg-elevated);
+  color: var(--ep-fg);
+  border-color: var(--ep-border);
+}
+.btn--secondary:hover { border-color: var(--ep-fg); }
+.btn--ghost { background: transparent; color: var(--ep-accent); }
+.btn--ghost:hover { background: var(--ep-accent-bg); }
+.btn--danger { background: transparent; color: var(--ep-danger); border-color: var(--ep-danger); }
+.btn--danger:hover { background: var(--ep-danger-bg); }
+.btn svg { width: 14px; height: 14px; }
+
+/* ════════════════════════════════════════════════════════════════
+   DARK THEME v2 — „Éjszakai műszak"
+   A v1-ben véglegesített paletta (grafit alap, tinta felületek,
+   arany akcent, zafír második hang) — de élő, szerkesztőségi
+   formában: óriás tipó, bento-rács, finom üveg-réteg, mozgás.
+   ════════════════════════════════════════════════════════════════ */
+
+/* —— Véglegesített alapok (v1-ből) —— */
+html {
+  --nt-base-0:#0C0D11;
+  --nt-base-s:#080A10;
+  --nt-base-1:#131720;
+  --nt-base-2:#181D29;
+  --nt-gold:#E3B563;
+  --nt-gold-bright:#EFCB85;
+  --nt-gold-deep:#B98A2E;
+
+  /* véglegesített atmoszféra (a Tweaks beállításaiból beégetve) */
+  --glow: 1.8;          /* ragyogás · 90 */
+  --r-tile: 26px;       /* sarkok · kerek */
+  --dur-x: 0.55;        /* mozgás · finom */
+}
+html[data-radius="feszes"] { --r-tile: 8px; }
+html[data-radius="lagy"]   { --r-tile: 16px; }
+html[data-radius="kerek"]  { --r-tile: 26px; }
+
+html[data-theme="dark"] {
+  --ep-tint: var(--nt-gold);
+  --ep-bg:          color-mix(in oklab, var(--nt-base-0) 97%, var(--nt-gold));
+  --ep-bg-sunken:   color-mix(in oklab, var(--nt-base-s) 98%, var(--nt-gold));
+  --ep-bg-elevated: color-mix(in oklab, var(--nt-base-1) 95%, var(--nt-gold));
+  --ep-bg-raised:   color-mix(in oklab, var(--nt-base-2) 93%, var(--nt-gold));
+
+  --ep-fg:#ECE7DA; --ep-fg-muted:#C7C0AF; --ep-fg-subtle:#A49D8C; --ep-fg-faint:#7C766A;
+
+  --ep-border:#2A2E38; --ep-border-subtle:#20242D;
+  --ep-border-strong:rgba(255,255,255,.22); --ep-divider:rgba(255,255,255,.07);
+
+  --ep-accent-warm:var(--nt-gold); --ep-accent-warm-hover:var(--nt-gold-bright);
+  --ep-accent-warm-bg:rgba(227,181,99,.13); --ep-accent-warm-fg:var(--nt-gold-bright);
+  --ep-warning:var(--nt-gold); --ep-warning-bg:rgba(227,181,99,.15);
+  --ep-shadow-focus-warm:0 0 0 3px rgba(227,181,99,.40);
+
+  /* arany primér akció (véglegesítve) */
+  --ep-accent:var(--nt-gold); --ep-accent-hover:var(--nt-gold-bright);
+  --ep-accent-press:#D9A845; --ep-accent-bg:rgba(227,181,99,.14);
+  --ep-accent-fg:var(--nt-gold-bright); --ep-shadow-focus:0 0 0 3px rgba(227,181,99,.40);
+}
+.btn--primary { color:#16130C; box-shadow: var(--ep-shadow-sm), inset 0 1px 0 rgba(255,255,255,.30); }
+
+/* headline-kiemelés (Tweaks: arany/zafír) */
+html[data-flourish="sapphire"] em.fl { color: var(--ep-blue-400); }
+html[data-flourish="gold"]     em.fl { color: var(--nt-gold); }
+em.fl { font-style: normal; }
+
+/* ════════ Alap ════════ */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--ep-font-sans);
+  color: var(--ep-fg);
+  font-size: 16px; line-height: 1.6;
+  background: var(--ep-bg);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* háttér-ragyogás — két sarok + lassan sodródó blob */
+.bgfx { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.bgfx .corner {
+  position: absolute; inset: 0;
+  opacity: calc(.9 * var(--glow));
+  background:
+    radial-gradient(1000px 640px at 8% -10%, rgba(227,181,99,.09), transparent 60%),
+    radial-gradient(900px 700px at 102% -2%, rgba(79,123,238,.07), transparent 55%);
+}
+.bgfx .blob {
+  position: absolute; width: 560px; height: 560px; border-radius: 50%;
+  filter: blur(90px); opacity: calc(.13 * var(--glow));
+  background: radial-gradient(circle at 35% 35%, #E3B563, transparent 65%);
+  top: 38%; left: 58%;
+  animation: drift calc(36s / var(--dur-x)) ease-in-out infinite alternate;
+}
+@keyframes drift {
+  from { transform: translate(0,0) scale(1); }
+  to   { transform: translate(-180px, 110px) scale(1.18); }
+}
+/* kurzor-spotlight */
+.spot {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(420px 420px at var(--mx, 50vw) var(--my, 30vh), rgba(227,181,99,.05), transparent 70%);
+}
+html[data-spot="off"] .spot { display: none; }
+/* szemcsés zaj */
+.noise {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+html[data-noise="off"] .noise { display: none; }
+
+.page { position: relative; z-index: 2; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+
+/* ════════ Felső sáv ════════ */
+.topbar {
+  display: flex; align-items: center; gap: 18px;
+  padding: 22px 0 0;
+  font: 500 12px var(--ep-font-mono);
+  color: var(--ep-fg-faint); letter-spacing: .08em;
+}
+.topbar .mark {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: linear-gradient(135deg, var(--nt-gold), var(--nt-gold-deep));
+  color: #16130C; display: grid; place-items: center;
+  font: 800 13px var(--ep-font-sans); letter-spacing: 0;
+}
+.topbar .crumb b { color: var(--ep-fg-subtle); font-weight: 500; }
+.topbar .live {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
+  color: #7DD3A8;
+}
+.topbar .live i {
+  width: 7px; height: 7px; border-radius: 50%; background: currentColor; font-style: normal;
+  box-shadow: 0 0 0 0 rgba(125,211,168,.5);
+  animation: ping calc(2s / var(--dur-x)) ease-out infinite;
+}
+@keyframes ping {
+  0% { box-shadow: 0 0 0 0 rgba(125,211,168,.45); }
+  80%,100% { box-shadow: 0 0 0 9px rgba(125,211,168,0); }
+}
+
+/* ════════ Hero ════════ */
+.hero { padding: 96px 0 72px; position: relative; }
+.hero .kicker {
+  font: 500 12px var(--ep-font-mono); letter-spacing: .3em; text-transform: uppercase;
+  color: var(--nt-gold); display: flex; align-items: center; gap: 14px; margin-bottom: 30px;
+}
+.hero .kicker::before { content: ""; width: 44px; height: 1px; background: var(--nt-gold); }
+.hero .kicker .idx { color: var(--ep-fg-faint); letter-spacing: .12em; }
+
+h1.display {
+  font-family: var(--ep-font-display);
+  font-weight: 100;
+  font-size: clamp(56px, 9.2vw, 124px);
+  line-height: .98; letter-spacing: -0.025em;
+  margin: 0; text-wrap: balance;
+}
+h1.display b { font-weight: 800; letter-spacing: -0.03em; }
+h1.display .line { display: block; overflow: hidden; }
+h1.display .w { display: inline-block; }
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion="full"] h1.display.play .w {
+    animation: rise calc(.9s / var(--dur-x)) cubic-bezier(.22,1,.36,1) both;
+  }
+  html[data-motion="full"] h1.display.play .line:nth-child(2) .w { animation-delay: .12s; }
+  html[data-motion="full"] h1.display.play .line:nth-child(3) .w { animation-delay: .24s; }
+}
+/* végállapot-garancia: ha a rAF/animáció be van fagyasztva (pl. előnézet),
+   a .done a látható végállapotra kényszeríti a szavakat */
+h1.display.done .w { animation: none !important; transform: none !important; }
+@keyframes rise { from { transform: translateY(108%); } to { transform: translateY(0); } }
+
+.hero .row { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); gap: 56px; margin-top: 44px; align-items: end; }
+.hero .lede { font-size: 18.5px; color: var(--ep-fg-muted); max-width: 56ch; margin: 0; text-wrap: pretty; }
+.hero .lede strong { color: var(--ep-fg); font-weight: 600; }
+.hero .cta { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+
+.hero .spec {
+  font: 400 12.5px/2.1 var(--ep-font-mono); color: var(--ep-fg-subtle);
+  border-left: 1px solid var(--ep-border); padding-left: 22px;
+}
+.hero .spec b { color: var(--nt-gold); font-weight: 500; }
+.hero .spec i { color: var(--ep-blue-400); font-style: normal; }
+.hero .spec .sw {
+  display: inline-block; width: 9px; height: 9px; border-radius: 3px;
+  vertical-align: -1px; margin-right: 8px; border: 1px solid var(--ep-divider);
+}
+
+/* ════════ Futószalag ════════ */
+.belt {
+  border-top: 1px solid var(--ep-border-subtle);
+  border-bottom: 1px solid var(--ep-border-subtle);
+  overflow: hidden; padding: 15px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.belt .track {
+  display: flex; gap: 0; width: max-content;
+  animation: slide calc(38s / var(--dur-x)) linear infinite;
+}
+.belt span {
+  font: 500 12.5px var(--ep-font-mono); letter-spacing: .22em; text-transform: uppercase;
+  color: var(--ep-fg-faint); white-space: nowrap; padding: 0 26px;
+}
+.belt span::after { content: "◆"; color: var(--nt-gold-deep); margin-left: 52px; font-size: 9px; vertical-align: 2px; }
+@keyframes slide { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .belt .track, .bgfx .blob, .topbar .live i { animation: none !important; }
+}
+html[data-motion="off"] .belt .track,
+html[data-motion="off"] .bgfx .blob,
+html[data-motion="off"] .topbar .live i { animation: none !important; }
+
+/* ════════ Szekciófej ════════ */
+.shead { display: flex; align-items: baseline; gap: 20px; padding: 76px 0 34px; }
+.shead .gnum {
+  font: 100 78px var(--ep-font-sans); line-height: 1; letter-spacing: -.04em;
+  color: transparent; -webkit-text-stroke: 1px var(--ep-border-strong);
+}
+.shead h2 {
+  font: 300 clamp(28px,3.6vw,40px)/1.08 var(--ep-font-display);
+  letter-spacing: -.02em; margin: 0;
+}
+.shead h2 b { font-weight: 700; }
+.shead .tag { margin-left: auto; font: 500 11px var(--ep-font-mono); letter-spacing: .2em; color: var(--ep-fg-faint); text-transform: uppercase; }
+
+/* ════════ Bento ════════ */
+.bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+.tile {
+  position: relative; overflow: hidden;
+  background: var(--ep-bg-elevated);
+  border: 1px solid var(--ep-border-subtle);
+  border-radius: var(--r-tile);
+  padding: 26px;
+  transition: border-color .25s ease, transform .25s ease, box-shadow .25s ease;
+}
+.tile:hover {
+  border-color: var(--nt-gold-deep);
+  transform: translateY(-3px);
+  box-shadow: 0 18px 44px -18px rgba(0,0,0,.6), 0 0 0 1px rgba(227,181,99,.06);
+}
+html[data-motion="off"] .tile:hover { transform: none; }
+.tile .tl {
+  font: 500 10.5px var(--ep-font-mono); letter-spacing: .2em; text-transform: uppercase;
+  color: var(--ep-fg-faint); display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+}
+.tile .tl::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--nt-gold); }
+
+.t-stat   { grid-column: span 3; }
+.t-pal    { grid-column: span 5; }
+.t-feed   { grid-column: span 4; grid-row: span 2; }
+.t-type   { grid-column: span 4; }
+.t-glass  { grid-column: span 4; }
+.t-bench  { grid-column: span 8; }
+
+/* stat */
+.t-stat .num {
+  font: 100 64px/1 var(--ep-font-sans); letter-spacing: -.03em; color: var(--ep-fg);
+  font-variant-numeric: tabular-nums;
+}
+.t-stat .num small { font-size: 26px; color: var(--nt-gold); font-weight: 400; }
+.t-stat .sub { font-size: 13px; color: var(--ep-fg-subtle); margin-top: 8px; }
+
+/* paletta */
+.t-pal .strip { display: flex; height: 116px; gap: 7px; }
+.t-pal .c {
+  flex: 1; border-radius: calc(var(--r-tile) - 7px); border: 1px solid var(--ep-divider);
+  position: relative; cursor: pointer;
+  transition: flex .45s cubic-bezier(.22,1,.36,1);
+  display: flex; align-items: flex-end; padding: 9px 10px;
+}
+.t-pal .c i {
+  font: 500 10px var(--ep-font-mono); font-style: normal; letter-spacing: .04em;
+  opacity: 0; transform: translateY(4px); transition: opacity .3s ease .1s, transform .3s ease .1s;
+  white-space: nowrap;
+}
+.t-pal .c:hover { flex: 3.2; }
+.t-pal .c:hover i { opacity: 1; transform: none; }
+html[data-motion="off"] .t-pal .c, html[data-motion="off"] .t-pal .c i { transition: none; }
+
+/* élő feed */
+.t-feed { display: flex; flex-direction: column; }
+.t-feed .log {
+  flex: 1; font: 400 12px/2 var(--ep-font-mono); color: var(--ep-fg-subtle);
+  display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden;
+}
+.t-feed .log div { display: flex; gap: 10px; }
+.t-feed .log .ts { color: var(--ep-fg-faint); }
+.t-feed .log .ok { color: #7DD3A8; }
+.t-feed .log .au { color: var(--nt-gold); }
+.t-feed .log .bl { color: var(--ep-blue-400); }
+.t-feed .log div:last-child { animation: rowin .35s ease both; }
+@keyframes rowin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.t-feed .foot {
+  margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--ep-border);
+  font: 500 11px var(--ep-font-mono); color: var(--ep-fg-faint); letter-spacing: .08em;
+  display: flex; justify-content: space-between;
+}
+
+/* type minta */
+.t-type .ag {
+  font: 100 88px/1 var(--ep-font-display); letter-spacing: -.02em;
+  background: linear-gradient(115deg, var(--ep-fg) 30%, var(--nt-gold) 65%, var(--ep-blue-400));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.t-type .ag b { font-weight: 800; }
+.t-type .meta { font: 400 12px/1.9 var(--ep-font-mono); color: var(--ep-fg-subtle); margin-top: 12px; }
+
+/* üveg-tile — finom glassmorphism a blob fölött */
+.t-glass {
+  background: rgba(19,23,32,.55);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-color: rgba(227,181,99,.22);
+}
+.t-glass::before {
+  content: ""; position: absolute; inset: -40%;
+  background: radial-gradient(circle at 80% 15%, rgba(227,181,99,.16), transparent 55%);
+  pointer-events: none;
+}
+.t-glass p { margin: 0; font-size: 15.5px; color: var(--ep-fg); text-wrap: pretty; }
+.t-glass p strong { color: var(--nt-gold-bright); font-weight: 600; }
+
+/* gomb-próbapad */
+.t-bench .row1 { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.t-bench .chips { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 18px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 13px;
+  border-radius: 999px; font: 500 12px var(--ep-font-sans);
+}
+.chip i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; font-style: normal; }
+.chip--info { background: rgba(79,123,238,.15); color: var(--ep-blue-300); }
+.chip--ok   { background: rgba(47,156,106,.16); color: #7DD3A8; }
+.chip--run  { background: rgba(227,181,99,.15); color: var(--nt-gold-bright); }
+.chip--err  { background: rgba(199,56,78,.18); color: #F09CA8; }
+.chip--gold { background: transparent; color: var(--nt-gold); box-shadow: inset 0 0 0 1px var(--nt-gold-deep); }
+.t-bench .fnote { margin-top: 18px; font: 400 12px var(--ep-font-mono); color: var(--ep-fg-faint); }
+.t-bench .fnote b { color: var(--ep-fg-subtle); font-weight: 500; }
+
+/* ════════ Manifesztó ════════ */
+.manif { padding: 88px 0 96px; }
+.manif blockquote {
+  margin: 0; max-width: 21ch;
+  font: 300 clamp(34px,4.6vw,58px)/1.14 var(--ep-font-display);
+  letter-spacing: -.02em; text-wrap: balance;
+}
+.manif blockquote b { font-weight: 700; }
+.manif blockquote .u {
+  background-image: linear-gradient(var(--nt-gold), var(--nt-gold));
+  background-repeat: no-repeat; background-size: 100% 2px; background-position: 0 96%;
+}
+.manif .who { margin-top: 26px; font: 500 12px var(--ep-font-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--ep-fg-faint); }
+.manif .who b { color: var(--nt-gold); font-weight: 500; }
+
+/* reveal on scroll */
+.rv { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion="full"] .rv.pending { opacity: 0; transform: translateY(26px); }
+  html[data-motion="full"] .rv { transition: opacity .7s ease, transform .7s cubic-bezier(.22,1,.36,1); }
+}
+
+/* ════════ Lábléc ════════ */
+.foot {
+  border-top: 1px solid var(--ep-border-subtle);
+  padding: 40px 0 110px;
+  display: flex; gap: 24px; align-items: baseline; flex-wrap: wrap;
+  font: 500 12px var(--ep-font-mono); letter-spacing: .1em; color: var(--ep-fg-faint);
+}
+.foot .r { margin-left: auto; }
+.foot b { color: var(--ep-fg-subtle); font-weight: 500; }
+
+@media (max-width: 980px) {
+  .t-stat, .t-pal, .t-feed, .t-type, .t-glass, .t-bench { grid-column: span 12; }
+  .t-feed { grid-row: span 1; min-height: 280px; }
+  .hero .row { grid-template-columns: 1fr; gap: 36px; }
+  .shead .gnum { font-size: 52px; }
+}
+</style>
+</head>
+<body>
+
+<div class="bgfx"><div class="corner"></div><div class="blob"></div></div>
+<div class="spot"></div>
+<div class="noise"></div>
+
+<div class="page">
+<div class="wrap">
+
+  <!-- ── Felső sáv ── -->
+  <div class="topbar" data-screen-label="Felső sáv">
+    <span class="mark">E</span>
+    <span class="crumb">eggproject / theme / <b>dark-v2</b></span>
+    <span class="live"><i></i>ÉLŐ ELŐNÉZET</span>
+  </div>
+
+  <!-- ── Hero ── -->
+  <header class="hero" data-screen-label="Hero">
+    <p class="kicker"><span>Éjszakai műszak</span><span class="idx">— dark theme · v2</span></p>
+    <h1 class="display">
+      <span class="line"><span class="w">A sötét nem</span></span>
+      <span class="line"><span class="w">szín. <b>A sötét</b></span></span>
+      <span class="line"><span class="w"><b>a <em class="fl">színpad.</em></b></span></span>
+    </h1>
+    <div class="row">
+      <div>
+        <p class="lede">
+          A felület grafit és csendes — minden fényt a tartalom kap.
+          A <strong>krém szöveg</strong> viszi a melegséget, az <strong>arany</strong> jelöli,
+          ahol cselekedni lehet, a zafír pedig ott szólal meg, ahol magyarázunk.
+        </p>
+        <div class="cta">
+          <button class="btn btn--primary" type="button">Theme átvezetése</button>
+          <button class="btn btn--ghost" type="button">Token-térkép →</button>
+        </div>
+      </div>
+      <div class="spec">
+        <div><span class="sw" style="background:#0C0D11;"></span>felület&nbsp;&nbsp;#0C0D11 · grafit</div>
+        <div><span class="sw" style="background:#ECE7DA;"></span>szöveg&nbsp;&nbsp;&nbsp;#ECE7DA · krém — 14,2:1</div>
+        <div><span class="sw" style="background:#E3B563;"></span>akció&nbsp;&nbsp;&nbsp;&nbsp;<b>#E3B563 · arany</b></div>
+        <div><span class="sw" style="background:#4F7BEE;"></span>kiemelés&nbsp;<i>#4F7BEE · zafír</i></div>
+      </div>
+    </div>
+  </header>
+
+</div>
+
+  <!-- ── Futószalag ── -->
+  <div class="belt" aria-hidden="true">
+    <div class="track" id="belt-track">
+      <span>Grafit alap</span><span>Arany fókusz</span><span>Krém tipográfia</span>
+      <span>Zafír második hang</span><span>3,5% szemcse</span><span>WCAG AAA</span>
+    </div>
+  </div>
+
+<div class="wrap">
+
+  <!-- ── Bento ── -->
+  <section data-screen-label="Bento">
+    <div class="shead rv pending">
+      <span class="gnum">01</span>
+      <h2>A rendszer <b>működés közben</b></h2>
+      <span class="tag">élő komponensek</span>
+    </div>
+
+    <div class="bento">
+      <div class="tile t-stat rv pending">
+        <span class="tl">Kontraszt</span>
+        <div class="num" id="cnt" data-target="14.2">0<small>:1</small></div>
+        <p class="sub">krém szöveg grafit alapon — AAA, hosszú olvasásra hangolva</p>
+      </div>
+
+      <div class="tile t-pal rv pending">
+        <span class="tl">Paletta — vidd rá az egeret</span>
+        <div class="strip">
+          <div class="c" style="background:#080A10;"><i style="color:#7C766A;">sunken #080A10</i></div>
+          <div class="c" style="background:#0C0D11;"><i style="color:#A49D8C;">alap #0C0D11</i></div>
+          <div class="c" style="background:#131720;"><i style="color:#A49D8C;">kártya #131720</i></div>
+          <div class="c" style="background:#181D29;"><i style="color:#C7C0AF;">kiemelt #181D29</i></div>
+          <div class="c" style="background:#E3B563;"><i style="color:#16130C;">arany #E3B563</i></div>
+          <div class="c" style="background:#4F7BEE;"><i style="color:#fff;">zafír #4F7BEE</i></div>
+          <div class="c" style="background:#ECE7DA;"><i style="color:#16130C;">krém #ECE7DA</i></div>
+        </div>
+      </div>
+
+      <div class="tile t-feed rv pending">
+        <span class="tl">Token-napló</span>
+        <div class="log" id="feedlog"></div>
+        <div class="foot"><span>tokens.css</span><span id="feedcount">0 esemény</span></div>
+      </div>
+
+      <div class="tile t-type rv pending">
+        <span class="tl">Tipográfia</span>
+        <div class="ag">Aa <b>Gg</b></div>
+        <div class="meta">Roboto Thin 100 → Black 900<br />JetBrains Mono · adatok, naplók, kód</div>
+      </div>
+
+      <div class="tile t-glass rv pending">
+        <span class="tl">Kulcs-gondolat</span>
+        <p>Oldalanként <strong>egy</strong> arany pillanat elég. Ha minden ragyog, semmi sem ragyog.</p>
+      </div>
+
+      <div class="tile t-bench rv pending">
+        <span class="tl">Próbapad — éles komponens-CSS</span>
+        <div class="row1">
+          <button class="btn btn--primary" type="button">Projekt indítása</button>
+          <button class="btn btn--secondary" type="button">Dokumentáció</button>
+          <button class="btn btn--ghost" type="button">Részletek</button>
+          <button class="btn btn--danger" type="button">Törlés</button>
+        </div>
+        <div class="chips">
+          <span class="chip chip--info"><i></i>Info</span>
+          <span class="chip chip--ok"><i></i>Kész</span>
+          <span class="chip chip--run"><i></i>Folyamatban</span>
+          <span class="chip chip--err"><i></i>Hiba</span>
+          <span class="chip chip--gold">Kiemelt</span>
+        </div>
+        <p class="fnote">A gombokat helyben, ugyanazokra a tokenekre építve stílusozzuk — csak a tokenek újak alattuk.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Manifesztó ── -->
+  <section class="manif" data-screen-label="Manifesztó">
+    <div class="rv pending">
+      <blockquote>„A kék a <b>márkáé</b>, az arany a <b><span class="u">fényé</span></b>.”</blockquote>
+      <p class="who">— a theme egymondatos modellje · <b>v1-ben véglegesítve</b></p>
+    </div>
+  </section>
+
+  <!-- ── Lábléc ── -->
+  <footer class="foot" data-screen-label="Lábléc">
+    <span><b>EGGPROJECT</b> · DARK THEME V2</span>
+    <span>FORRÁS: HERMES-REFERENCIA + 2026 TRENDEK</span>
+    <span class="r"><b>VÉGLEGESÍTVE</b> · TOKENEK: COLORS_AND_TYPE.CSS</span>
+  </footer>
+
+</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var motionOK = function () {
+    return document.documentElement.getAttribute("data-motion") !== "off" &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  };
+
+  /* futószalag: tartalom duplázása a végtelen hurokhoz */
+  var track = document.getElementById("belt-track");
+  track.innerHTML += track.innerHTML;
+
+  /* hero headline rise — az alapállapot LÁTHATÓ. Az animáció csak rAF-ben
+     kapott .play osztállyal indul (befagyott rAF-nál — pl. előnézet —
+     sosem rejtjük el), a setTimeout-os .done pedig !important-tal a
+     látható végállapotra kényszerít, ha az animáció be lenne fagyva. */
+  var hero = document.querySelector("h1.display");
+  if (hero && motionOK()) {
+    requestAnimationFrame(function () { hero.classList.add("play"); });
+    setTimeout(function () { hero.classList.add("done"); }, 2000);
+  }
+
+  /* kurzor-spotlight */
+  var raf = null;
+  document.addEventListener("mousemove", function (e) {
+    if (raf) return;
+    raf = requestAnimationFrame(function () {
+      document.documentElement.style.setProperty("--mx", e.clientX + "px");
+      document.documentElement.style.setProperty("--my", e.clientY + "px");
+      raf = null;
+    });
+  });
+
+  /* scroll-reveal */
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting) { en.target.classList.remove("pending"); io.unobserve(en.target); }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".rv").forEach(function (el) { io.observe(el); });
+
+  /* számláló */
+  var cnt = document.getElementById("cnt");
+  var played = false;
+  var cio = new IntersectionObserver(function (entries) {
+    if (!entries[0].isIntersecting || played) return;
+    played = true; cio.disconnect();
+    var target = parseFloat(cnt.getAttribute("data-target"));
+    if (!motionOK()) { cnt.firstChild.textContent = String(target).replace(".", ","); return; }
+    var t0 = null;
+    function step(t) {
+      if (!t0) t0 = t;
+      var p = Math.min((t - t0) / 1300, 1);
+      var ease = 1 - Math.pow(1 - p, 3);
+      cnt.firstChild.textContent = (target * ease).toFixed(1).replace(".", ",");
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }, { threshold: 0.4 });
+  cio.observe(cnt);
+
+  /* token-napló */
+  var log = document.getElementById("feedlog");
+  var count = document.getElementById("feedcount");
+  var n = 0;
+  var lines = [
+    ['<span class="ts">{t}</span>', '<span class="ok">✓</span>', '--ep-bg <span class="ts">→</span> #0C0D11'],
+    ['<span class="ts">{t}</span>', '<span class="au">◆</span>', '--ep-accent <span class="ts">→</span> arany'],
+    ['<span class="ts">{t}</span>', '<span class="ok">✓</span>', '--ep-fg <span class="ts">→</span> #ECE7DA'],
+    ['<span class="ts">{t}</span>', '<span class="bl">ℹ</span>', 'em.fl <span class="ts">→</span> zafír'],
+    ['<span class="ts">{t}</span>', '<span class="ok">✓</span>', 'kontraszt: AAA'],
+    ['<span class="ts">{t}</span>', '<span class="au">◆</span>', 'fókuszgyűrű: arany 40%'],
+    ['<span class="ts">{t}</span>', '<span class="ok">✓</span>', '--ep-border <span class="ts">→</span> #2A2E38'],
+    ['<span class="ts">{t}</span>', '<span class="bl">ℹ</span>', 'zaj: 3,5% szemcse']
+  ];
+  function stamp() {
+    var d = new Date();
+    return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2) + ":" + ("0" + d.getSeconds()).slice(-2);
+  }
+  function push() {
+    var row = document.createElement("div");
+    row.innerHTML = lines[n % lines.length].join(" ").replace("{t}", stamp());
+    log.appendChild(row);
+    n += 1;
+    count.textContent = n + " esemény";
+    while (log.children.length > 9) log.removeChild(log.firstChild);
+  }
+  for (var i = 0; i < 5; i++) push();
+  setInterval(function () { if (motionOK()) push(); }, 2600);
+})();
+</script>
+</body>
+</html>

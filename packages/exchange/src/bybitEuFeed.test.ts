@@ -322,6 +322,93 @@ describe("bybitEuFeed", () => {
       await f.close();
     });
 
+    // -----------------------------------------------------------------
+    // Phase 66: CCXT 4.5.64 bybit.eu does NOT support watchTicker /
+    // watchOHLCV (throws "NotSupported: bybiteu watchTicker() is not
+    // supported yet"). The feed must fall back to fetchTicker /
+    // fetchOHLCV polling at 1s intervals. Covers the polling-fallback
+    // branches in bybitEuFeed.ts:367-380 (ticker) and :476-486 (ohlcv).
+    // -----------------------------------------------------------------
+    it("watchTicker NotSupported falls back to fetchTicker polling", async () => {
+      let fetchTickerCalls = 0;
+      const receivedTicks: number[] = [];
+      const newFake = makeFakeExchange({
+        watchTicker: async (_symbol: string): Promise<unknown> => {
+          const err = new Error("bybiteu watchTicker() is not supported yet");
+          err.name = "NotSupported";
+          throw err;
+        },
+        fetchTicker: async (_symbol: string) => {
+          fetchTickerCalls++;
+          return {
+            symbol: "BTC/USDC",
+            timestamp: Date.now(),
+            bid: 59_999,
+            ask: 60_001,
+            last: 60_000 + fetchTickerCalls,
+            baseVolume: 0,
+            quoteVolume: 0,
+          };
+        },
+      });
+      const f = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 10,
+        sandbox: false,
+        exchange: asCcxt(newFake),
+      });
+      await f.open();
+      await f.subscribeTicker(asSymbol("BTC/USDC"), (event) => {
+        if (event.kind === "ticker") {
+          receivedTicks.push(event.payload.last);
+        }
+      });
+      // The polling loop runs at 1s intervals; wait ~2.2s for ≥2 polls.
+      await new Promise<void>((r) => setTimeout(r, 2200));
+      expect(fetchTickerCalls).toBeGreaterThanOrEqual(2);
+      expect(receivedTicks.length).toBeGreaterThanOrEqual(2);
+      // The listener should have received the polled values.
+      expect(receivedTicks[0]).toBeGreaterThan(60_000);
+      await f.close();
+    });
+
+    it("watchOHLCV NotSupported falls back to fetchOHLCV polling", async () => {
+      let fetchOhlcvCalls = 0;
+      const receivedCandles: unknown[] = [];
+      const newFake = makeFakeExchange({
+        watchOHLCV: async (_symbol: string, _tf: string): Promise<unknown> => {
+          const err = new Error("bybiteu watchOHLCV() is not supported yet");
+          err.name = "NotSupported";
+          throw err;
+        },
+        fetchOHLCV: async (_symbol: string, _tf: string) => {
+          fetchOhlcvCalls++;
+          return [
+            [Date.now(), 60_000, 60_100, 59_900, 60_050, 12.345 + fetchOhlcvCalls],
+          ];
+        },
+      });
+      const f = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 10,
+        sandbox: false,
+        exchange: asCcxt(newFake),
+      });
+      await f.open();
+      await f.subscribeOhlcv(asSymbol("BTC/USDC"), "1h", (event) => {
+        if (event.kind === "ohlcv") {
+          receivedCandles.push(event.payload.candle);
+        }
+      });
+      // The polling loop runs at 1s intervals; wait ~2.2s for ≥2 polls.
+      await new Promise<void>((r) => setTimeout(r, 2200));
+      expect(fetchOhlcvCalls).toBeGreaterThanOrEqual(2);
+      expect(receivedCandles.length).toBeGreaterThanOrEqual(2);
+      await f.close();
+    });
+
     it("subscribeOrderBook átadja a limit paramétert", async () => {
       let receivedLimit: number | undefined;
       const newFake = makeFakeExchange({

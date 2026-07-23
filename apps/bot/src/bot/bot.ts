@@ -68,6 +68,7 @@ import { PositionManager } from "./position-manager.js";
 import { MockDydxFundingSource } from "./mock-dydx-funding-source.js";
 import { StateStore, type BotState } from "./state-store.js";
 import { Telemetry, formatUptime } from "./telemetry.js";
+import type { StateFeedHandle } from "../state-feed/index.js";
 import type { KillSwitchRegistry, KillSwitch} from "./kill-switches.js";
 import { createDefaultRegistry } from "./kill-switches.js";
 import {
@@ -151,6 +152,10 @@ export class Bot {
   private telemetry: Telemetry | null = null;
   private killSwitches: KillSwitchRegistry | null = null;
   private runner: StrategyRunner | null = null;
+  // Phase 66: state-feed handle set externally by `start.ts` BEFORE `bot.start()`.
+  // The `run()` OHLCV/ticker callback publishes bars + tickers here.
+  // Without this, the web client dashboard shows "No charts configured".
+  private stateFeed: StateFeedHandle | null = null;
   // Phase 37 Track 4 — portfolió-koordináció.
   private riskBudget: RiskBudgetAllocator | null = null;
   private correlation: CorrelationMatrix | null = null;
@@ -232,7 +237,6 @@ export class Bot {
     // Wait briefly for the run-loop to exit. The run() finally block
     // sets `this.running = false` when the loop exits, so this loop
     // will unblock within ~50ms after `stopRequested` is observed.
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- this.running is mutated cross-method (run() finally)
     const isStillRunning = (): boolean => this.running;
     const deadline = Date.now() + 5_000;
     while (isStillRunning() && Date.now() < deadline) {
@@ -362,31 +366,61 @@ export class Bot {
    * `init` — a komponensek összeállítása. Nem indítja el a feed subscription-t.
    */
   private async init(): Promise<void> {
+    // Detect once at the top — used by the feed-init branch AND the
+    // balances branch below. Paper mode without credentials is supported
+    // (real bybit.eu market data, but no private endpoints).
+    const hasCreds =
+      typeof process.env["BYBIT_API_KEY"] === "string" &&
+      process.env["BYBIT_API_KEY"].length > 0;
+
     // -----------------------------------------------------------------------
     // 1) Exchange feed
     // -----------------------------------------------------------------------
     if (this.options.feed !== undefined) {
       this.feed = this.options.feed;
-    } else if (this.config.exchange.id === "mock" || this.config.bot.mode === "paper") {
-      // Phase 38 Fix #42: paper mode always uses MockExchangeFeed (no auth
-      // required). The `exchange.id` field is preserved for backward compat
-      // and informational purposes, but the actual feed in paper mode is the
-      // mock (with PRNG data, in-memory balance, in-memory order book).
-      // Live mode requires the real `bybiteu` feed and BYBIT_API_KEY/SECRET.
+    } else if (this.config.exchange.id === "mock") {
+      // MockExchangeFeed is reserved for explicit `exchange.id === "mock"`
+      // (deterministic backtesting only). Paper mode uses the REAL bybit.eu
+      // feed for market data — see Phase 66.
       this.feed = new MockExchangeFeed();
     } else {
-      this.feed = createExchangeClient({ useMock: false });
+      // Phase 66: paper mode uses the real bybit.eu feed for market data
+      // (fetchTicker, fetchOhlcv — PUBLIC endpoints, no auth). The
+      // PaperTrader has its OWN fillOrder logic and never calls
+      // submitOrder on the feed → no real orders are ever sent. If
+      // we're in paper mode and the env vars are not set, we pass an
+      // empty-credential override to skip the readExchangeCredentials()
+      // throw, and skip fetchBalances below.
+      if (this.config.bot.mode === "paper" && !hasCreds) {
+        this.feed = createExchangeClient({
+          useMock: false,
+          override: { apiKey: "", secret: "" },
+        });
+      } else {
+        this.feed = createExchangeClient({ useMock: false });
+      }
     }
     await this.feed.open();
     this.logger.info("[bot] feed opened", { exchangeId: this.feed.exchangeId });
 
     // -----------------------------------------------------------------------
-    // 2) Balances
+    // 2) Balances — paper mode without credentials skips the PRIVATE
+    //    fetchBalances call (401 without auth) and uses the default
+    //    initial equity. The PaperTrader manages its own internal balance.
     // -----------------------------------------------------------------------
-    const balances = await this.feed.fetchBalances();
-    const usdcBalance = balances.find((b) => b.currency === "USDC");
-    const initialEquity = usdcBalance?.total ?? 10_000;
-    this.logger.info("[bot] initial equity", { usdc: initialEquity });
+    let initialEquity: number;
+    if (this.config.bot.mode === "paper" && !hasCreds) {
+      initialEquity = 10_000;
+      this.logger.info(
+        "[bot] paper mode without credentials — using default initial equity",
+        { usdc: initialEquity },
+      );
+    } else {
+      const balances = await this.feed.fetchBalances();
+      const usdcBalance = balances.find((b) => b.currency === "USDC");
+      initialEquity = usdcBalance?.total ?? 10_000;
+      this.logger.info("[bot] initial equity", { usdc: initialEquity });
+    }
 
     // -----------------------------------------------------------------------
     // 3) PositionManager
@@ -420,6 +454,10 @@ export class Bot {
       feed: this.feed,
       getPositionContext: () => positionManager.getPositionContext(),
       logger: this.logger,
+      // Phase 66: paper mode skips the real feed.placeOrder (which needs
+      // bybit.eu API credentials) and simulates a filled order locally.
+      // Live mode (mode = "live") requires real API keys AND sets BYBIT_API_KEY.
+      paperMode: this.config.bot.mode === "paper",
     });
 
     // -----------------------------------------------------------------------
@@ -576,16 +614,75 @@ export class Bot {
       throw new Error("[bot] init() must be called before run()");
     }
 
-    // Subscribe to all enabled symbols.
+    // Subscribe to all enabled symbols (ticker + OHLCV per timeframe).
+    // Phase 66: the web dashboard's chart grid needs historical OHLC bars
+    // to render; the ticker alone is not enough.
+    const timeframes: readonly ("1h" | "4h" | "1d")[] = ["1h", "4h", "1d"];
     for (const symbol of this.config.symbols.enabled) {
       const exchangeSymbol = asSymbol(symbol);
-      const sub = await this.feed.subscribeTicker(exchangeSymbol, (event: FeedEvent) => {
+      // Ticker (real-time price)
+      const tickerSub = await this.feed.subscribeTicker(exchangeSymbol, (event: FeedEvent) => {
         if (this.runner !== null) {
           void this.runner.onFeedEvent(event);
         }
       });
-      this.feedSubscriptions.push(sub);
+      this.feedSubscriptions.push(tickerSub);
       this.logger.info("[bot] subscribed to ticker", { symbol });
+
+      // OHLCV per timeframe (chart bars)
+      for (const timeframe of timeframes) {
+        try {
+          const ohlcvSub = await this.feed.subscribeOhlcv(
+            exchangeSymbol,
+            timeframe,
+            (event: FeedEvent) => {
+              if (this.runner !== null) {
+                void this.runner.onFeedEvent(event);
+              }
+              // Phase 66: also publish to the state-feed so the web
+              // client chart grid gets the bars. The candle is
+              // CCXT-format [time, open, high, low, close, volume] and
+              // publishBar expects the named-field ohlc shape.
+              if (event.kind === "ohlcv" && this.stateFeed !== null) {
+                const { symbol: s, timeframe: tf, candle } = event.payload;
+                const [time, open, high, low, close, volume] = candle as unknown as [
+                  number,
+                  number,
+                  number,
+                  number,
+                  number,
+                  number,
+                ];
+                this.stateFeed.publisher.publishBar(s, tf, {
+                  time,
+                  open,
+                  high,
+                  low,
+                  close,
+                  volume,
+                });
+                this.logger.info("[bot] published bar", {
+                  symbol: s,
+                  timeframe: tf,
+                  close,
+                });
+              } else if (event.kind === "ohlcv") {
+                this.logger.warn(
+                  "[bot] ohlcv event but stateFeed is null — bar dropped",
+                  { symbol: event.payload.symbol, timeframe: event.payload.timeframe },
+                );
+              }
+            },
+          );
+          this.feedSubscriptions.push(ohlcvSub);
+          this.logger.info("[bot] subscribed to ohlcv", { symbol, timeframe });
+        } catch (err) {
+          this.logger.warn(
+            `[bot] OHLCV subscribe failed for ${symbol}/${timeframe}`,
+            { error: err instanceof Error ? err.message : String(err) },
+          );
+        }
+      }
     }
 
     this.logger.info("[bot] run loop started", {
@@ -706,5 +803,20 @@ export class Bot {
       uptimeHuman: formatUptime(Date.now() - this.startedAt),
       activeStrategies: this.runner?.getActiveStrategyNames() ?? [],
     };
+  }
+
+  /**
+   * Phase 66: `attachStateFeed` — the `start.ts` calls this AFTER
+   * `attachStateFeed(bot, ...)` returns, so the OHLCV/ticker callback
+   * inside `run()` can publish bars + state to the state-feed TCP
+   * socket, which the web client dashboard subscribes to.
+   *
+   * Without this wiring, the `this.stateFeed` field stays `null` and
+   * the `if (event.kind === "ohlcv" && this.stateFeed !== null)`
+   * guard drops every bar — the dashboard shows "No charts configured".
+   */
+  public attachStateFeed(handle: StateFeedHandle): void {
+    this.stateFeed = handle;
+    this.logger.info("[bot] state-feed handle attached");
   }
 }

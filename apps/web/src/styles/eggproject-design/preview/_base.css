@@ -1,0 +1,22 @@
+/* Shared base for preview cards — minimal frame */
+@import url('../colors_and_type.css');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--ep-bg);
+  color: var(--ep-fg);
+  font-family: var(--ep-font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  padding: 28px;
+  min-height: 100vh;
+}
+
+.row { display: flex; gap: 12px; align-items: center; }
+.col { display: flex; flex-direction: column; gap: 12px; }
+.label { font: var(--ep-text-overline); letter-spacing: var(--ep-track-overline); text-transform: uppercase; color: var(--ep-fg-subtle); }
+.meta  { font: var(--ep-text-meta); color: var(--ep-fg-subtle); font-family: var(--ep-font-mono); }

@@ -287,6 +287,12 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
       initialEquityUsdt: 10_000,
       strategies: strategiesFromConfig,
     });
+    // Phase 66: wire the state-feed handle INTO the bot so the OHLCV/ticker
+    // callback inside `run()` can publish bars to the state-feed TCP socket.
+    // Without this, `this.stateFeed` is `null` and the dashboard shows
+    // "No charts configured" even though the bot is streaming real bybit.eu
+    // data.
+    bot.attachStateFeed(stateFeed);
     // A bot engine indítása a state-feed attach UTÁN — a publisher
     // a bot engine-en át kapja a notify-kat, és a state-feed TCP
     // socket-ére továbbítja a kliens felé.

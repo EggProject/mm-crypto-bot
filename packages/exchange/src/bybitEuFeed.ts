@@ -345,12 +345,50 @@ export class BybitEuFeed implements ExchangeFeed {
         listener(event);
       }
     } catch (err) {
-      if (!cancelled) {
-        // Hiba esetén a felsőbb rétegünk felelőssége a loggolás / reconnect —
-        // itt csak az event-et továbbítjuk, hogy a paper engine tudja,
-        // hogy a feed megszakadt.
-        throw new ExchangeFeedError(`Ticker watch hiba: ${symbol}`, err);
+      if (cancelled) return;
+      // Phase 66: the CCXT bybit.eu `watchTicker()` is not supported
+      // in CCXT 4.5.64 (`NotSupported: bybiteu watchTicker() is not
+      // supported yet`). Fall back to polling `fetchTicker` at 1s
+      // intervals — the public REST endpoint works without auth.
+      const isNotSupported =
+        err instanceof Error &&
+        (err.name === "NotSupported" ||
+          err.message.includes("NotSupported") ||
+          err.message.includes("is not supported yet"));
+      if (isNotSupported) {
+        while (!cancelled) {
+          try {
+            const raw = await this.client.fetchTicker(symbol);
+            cancelled = sub.cancelled;
+            if (cancelled) return;
+            const t = normalizeTicker(raw, symbol);
+            const event: FeedEvent = { kind: "ticker", payload: t };
+            listener(event);
+          } catch {
+            if (cancelled) return;
+          }
+          // Wait 1s before next poll, with a cancellable delay.
+          await new Promise<void>((resolve) => {
+            const handle = setTimeout(resolve, 1000);
+            const checkInterval = setInterval(() => {
+              if (sub.cancelled) {
+                clearTimeout(handle);
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 100);
+          });
+          cancelled = sub.cancelled;
+        }
+        return;
       }
+      // At this point the `if (isNotSupported) { ... }` block has
+      // either returned early (cancelled) or exited its inner `while`
+      // loop (which only ends when `cancelled === true`). Throwing
+      // here is therefore unconditional; the `if (!cancelled)` guard
+      // was dead code (the @typescript-eslint/no-unnecessary-condition
+      // rule flagged it in CI).
+      throw new ExchangeFeedError(`Ticker watch hiba: ${symbol}`, err);
     }
   }
 
@@ -414,9 +452,51 @@ export class BybitEuFeed implements ExchangeFeed {
         }
       }
     } catch (err) {
-      if (!cancelled) {
-        throw new ExchangeFeedError(`OHLCV watch hiba: ${symbol}/${timeframe}`, err);
+      if (cancelled) return;
+      // Phase 66: bybit.eu CCXT 4.5.64 doesn't support watchOHLCV
+      // either. Fall back to polling fetchOHLCV at 1s.
+      const isNotSupported =
+        err instanceof Error &&
+        (err.name === "NotSupported" ||
+          err.message.includes("NotSupported") ||
+          err.message.includes("is not supported yet"));
+      if (isNotSupported) {
+        while (!cancelled) {
+          try {
+            const raw = await this.client.fetchOHLCV(symbol, timeframe, undefined, 100);
+            cancelled = sub.cancelled;
+            if (cancelled) return;
+            for (const candle of raw) {
+              const event: FeedEvent = {
+                kind: "ohlcv",
+                payload: { symbol, timeframe, candle: candle as unknown as Ohlcv },
+              };
+              listener(event);
+            }
+          } catch {
+            if (cancelled) return;
+          }
+          await new Promise<void>((resolve) => {
+            const handle = setTimeout(resolve, 1000);
+            const checkInterval = setInterval(() => {
+              if (sub.cancelled) {
+                clearTimeout(handle);
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 100);
+          });
+          cancelled = sub.cancelled;
+        }
+        return;
       }
+      // At this point the `if (isNotSupported) { ... }` block has
+      // either returned early (cancelled) or exited its inner `while`
+      // loop (which only ends when `cancelled === true`). Throwing
+      // here is therefore unconditional; the `if (!cancelled)` guard
+      // was dead code (the @typescript-eslint/no-unnecessary-condition
+      // rule flagged it in CI).
+      throw new ExchangeFeedError(`OHLCV watch hiba: ${symbol}/${timeframe}`, err);
     }
   }
 

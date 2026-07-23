@@ -35,7 +35,14 @@
  */
 
 import type { Brand } from "@mm-crypto-bot/shared";
-import type { ClientOrderId, ExchangeFeed, Order, OrderRequest, Symbol } from "@mm-crypto-bot/exchange";
+import type {
+  ClientOrderId,
+  ExchangeFeed,
+  ExchangeOrderId,
+  Order,
+  OrderRequest,
+  Symbol,
+} from "@mm-crypto-bot/exchange";
 import {
   assertLeverageInvariant,
   type LeverageInvariantConfig,
@@ -137,6 +144,16 @@ export interface OrderManagerOptions {
   readonly getPositionContext: () => PositionSizeQuery;
   readonly leverage?: LeverageInvariantConfig;
   readonly logger?: Logger;
+  /**
+   * Phase 66: when `true`, the `placeOrder` does NOT call `feed.placeOrder`
+   * (which requires API credentials on bybit.eu). Instead, it simulates a
+   * filled order locally — the L2 leverage check still runs, the
+   * `clientOrderId` is still generated, and the synthetic Order is
+   * returned with `status: "filled"` so the `StrategyRunner.recordFill`
+   * path runs normally and the position is tracked. The `feed` is still
+   * required for the constructor signature but is never called.
+   */
+  readonly paperMode?: boolean;
 }
 
 // ============================================================================
@@ -164,6 +181,7 @@ export class OrderManager {
   private readonly leverage: LeverageInvariantConfig;
   private readonly logger: Logger;
   private readonly inFlight = new Map<ClientOrderId, Order>();
+  private readonly paperMode: boolean;
   private readonly counters = {
     placed: 0,
     filled: 0,
@@ -176,6 +194,7 @@ export class OrderManager {
     this.getPositionContext = opts.getPositionContext;
     this.leverage = opts.leverage ?? { maxLeverage: 10, tolerance: 1e-6, warnOnApproach: 0.95 };
     this.logger = opts.logger ?? createLogger("info");
+    this.paperMode = opts.paperMode ?? false;
   }
 
   // --------------------------------------------------------------------------
@@ -278,19 +297,60 @@ export class OrderManager {
     };
 
     let order: Order;
-    try {
-      order = await this.feed.placeOrder(orderRequest);
-    } catch (err) {
-      this.counters.rejected++;
-      this.logger.error("[order-manager] feed.placeOrder failed", {
+    if (this.paperMode) {
+      // Phase 66: paper mode — simulate a filled order locally. The bybit.eu
+      // `feed.placeOrder` requires API credentials we don't have, but the
+      // strategy logic + L2 leverage check + recordFill path must still run
+      // so the position book reflects the simulated trade.
+      //
+      // The Order shape follows the `Order` type in
+      // `packages/exchange/src/types.ts:91` (the only normalized shape the
+      // rest of the codebase consumes). The OrderStatus union is
+      // `"open" | "closed" | "canceled"` (no `"filled"`) — the codebase
+      // normalizes bybit's `"filled"` response to `"closed"` in
+      // `bybitEuFeed.ts:606`. We use `"closed"` here for consistency.
+      //
+      // NOTE: the `Order` type does NOT carry `fee` / `feeCurrency` /
+      // `remaining` / `createdAt` / `averagePrice` — those are tracked
+      // separately in the position book (`PositionManager.recordFill`
+      // computes fee from the fill amount + a 10bps spot-taker estimate
+      // in `position-manager.ts`).
+      order = {
+        clientOrderId,
+        exchangeId: `paper-${String(Date.now())}-${String(this.counters.placed)}` as unknown as ExchangeOrderId,
+        symbol: intent.symbol,
+        side: intent.signal.side,
+        type: intent.type,
+        amount: intent.amount,
+        price: intent.referencePrice,
+        status: "closed" as const,
+        filled: intent.amount,
+        average: intent.referencePrice,
+        submitTimestamp: Date.now(),
+        updateTimestamp: Date.now(),
+      };
+      this.logger.info("[order-manager] paper-mode order simulated (no exchange call)", {
         symbol: intent.symbol,
         clientOrderId,
-        error: err instanceof Error ? err.message : String(err),
+        side: order.side,
+        amount: order.amount,
+        price: order.price,
       });
-      throw new OrderManagerError(
-        `[order-manager] placeOrder failed for ${intent.symbol} (clientOrderId=${clientOrderId}): ${err instanceof Error ? err.message : String(err)}`,
-        err,
-      );
+    } else {
+      try {
+        order = await this.feed.placeOrder(orderRequest);
+      } catch (err) {
+        this.counters.rejected++;
+        this.logger.error("[order-manager] feed.placeOrder failed", {
+          symbol: intent.symbol,
+          clientOrderId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw new OrderManagerError(
+          `[order-manager] placeOrder failed for ${intent.symbol} (clientOrderId=${clientOrderId}): ${err instanceof Error ? err.message : String(err)}`,
+          err,
+        );
+      }
     }
 
     this.inFlight.set(clientOrderId, order);

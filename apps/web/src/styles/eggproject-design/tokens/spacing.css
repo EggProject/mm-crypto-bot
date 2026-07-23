@@ -1,0 +1,29 @@
+/* ============================================================
+   EggProject — Spacing & layout
+   4px-base spacing scale + page/layout max-width tokens.
+   Theme-neutral.
+   ============================================================ */
+:root {
+  /* === Spacing scale (4px base) ========================== */
+  --ep-space-0:  0;
+  --ep-space-1:  4px;
+  --ep-space-2:  8px;
+  --ep-space-3:  12px;
+  --ep-space-4:  16px;
+  --ep-space-5:  20px;
+  --ep-space-6:  24px;
+  --ep-space-8:  32px;
+  --ep-space-10: 40px;
+  --ep-space-12: 48px;
+  --ep-space-16: 64px;
+  --ep-space-20: 80px;
+  --ep-space-24: 96px;
+  --ep-space-32: 128px;
+
+  /* === Layout max widths ================================ */
+  --ep-layout-max-app:        1240px;  /* logged-in app shell (matches marketing) */
+  --ep-layout-max-marketing:  1240px;  /* brochure / editorial surfaces */
+  --ep-layout-max-prose:      720px;   /* long-form reading column */
+  --ep-layout-max-narrow:     480px;   /* signin, single-form surfaces */
+  --ep-layout-gutter:         24px;    /* horizontal page padding */
+}

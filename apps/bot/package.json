@@ -7,7 +7,7 @@
     "mm-bot": "./src/index.ts"
   },
   "scripts": {
-    "build": "bun build src/index.ts --target=bun --outdir=dist --format=esm --external protobufjs",
+    "build": "bun build src/index.ts --target=bun --outdir=dist --format=esm",
     "dev": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",

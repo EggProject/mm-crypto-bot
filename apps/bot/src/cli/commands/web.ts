@@ -221,6 +221,16 @@ export const webCommand: SubcommandHandler = async (args) => {
   const webPort = getWebPort(args.flags);
   const feedHost = getFeedHost(args.flags);
   const feedPort = getFeedPort(args.flags);
+  // Phase 66 — the bundled `mm-bot` lives at `apps/bot/dist/index.js`, ONE
+  // level higher than the source `apps/bot/src/web-client/index.ts`. The
+  // built-in `resolveWebDistDir` walks the wrong number of `dirname`s and
+  // produces a non-existent path under the cwd's PARENT directory. The
+  // `MM_BOT_WEB_DIST_DIR` env var (and `--web-dist-dir` flag) override.
+  const webDistDir =
+    typeof args.flags.get("web-dist-dir") === "string" &&
+    (args.flags.get("web-dist-dir") as string).length > 0
+      ? (args.flags.get("web-dist-dir") as string)
+      : process.env["MM_BOT_WEB_DIST_DIR"];
 
   // -------------------------------------------------------------------------
   // 3) State-feed reachability check.
@@ -243,6 +253,12 @@ export const webCommand: SubcommandHandler = async (args) => {
     webHostname: "127.0.0.1",
     feedHost,
     feedPort,
+    // `webDistDir?: string` with `exactOptionalPropertyTypes: true` means
+    // either omit the key OR pass a `string` — NOT `string | undefined`.
+    // Spread-conditional avoids the `undefined` value slipping through.
+    ...(webDistDir !== undefined && webDistDir.length > 0
+      ? { webDistDir }
+      : {}),
   });
 
   process.stderr.write(`[web] web client listening on http://127.0.0.1:${String(client.port)}\n`);
@@ -305,7 +321,7 @@ export function createSignalHandler(
  */
 function printWebHelp(): void {
   const lines: string[] = [
-    "Usage: mm-bot web [--web-port=7913] [--feed-host=127.0.0.1] [--feed-port=7914] [--no-color] [--help]",
+    "Usage: mm-bot web [--web-port=7913] [--feed-host=127.0.0.1] [--feed-port=7914] [--web-dist-dir=PATH] [--no-color] [--help]",
     "",
     "Launch the web client in a SEPARATE process. The web client connects",
     "to a running bot's state-feed (TCP loopback, 127.0.0.1:7914) and serves",
@@ -317,15 +333,17 @@ function printWebHelp(): void {
     "  Browser:     open http://127.0.0.1:7913",
     "",
     "Options:",
-    "  --web-port=<port>    HTTP / WebSocket port (default: 7913)",
-    "  --feed-host=<host>   State-feed host (default: 127.0.0.1)",
-    "  --feed-port=<port>   State-feed port (default: 7914)",
-    "  --no-color           Disable ANSI color codes",
-    "  --help, -h           Show this help",
+    "  --web-port=<port>       HTTP / WebSocket port (default: 7913)",
+    "  --feed-host=<host>      State-feed host (default: 127.0.0.1)",
+    "  --feed-port=<port>      State-feed port (default: 7914)",
+    "  --web-dist-dir=PATH     Path to apps/web/dist (built bundle)",
+    "  --no-color              Disable ANSI color codes",
+    "  --help, -h              Show this help",
     "",
     "Environment variables:",
     "  MM_BOT_WEB_PORT      HTTP / WebSocket port (overridden by --web-port)",
     "  MM_BOT_FEED_PORT     State-feed port (overridden by --feed-port)",
+    "  MM_BOT_WEB_DIST_DIR  Path to apps/web/dist (overridden by --web-dist-dir)",
     "",
     "Exit codes:",
     "  0 — clean shutdown (SIGINT / SIGTERM)",

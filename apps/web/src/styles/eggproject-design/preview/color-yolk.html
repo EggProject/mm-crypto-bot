@@ -1,0 +1,33 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Yolk Accent</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 22px 28px; display: flex; gap: 24px; align-items: center; }
+  .hero {
+    width: 160px; height: 200px; border-radius: 50% / 56%;
+    background: linear-gradient(160deg, #F4D9A0 0%, #E3B563 55%, #9A6F26 100%);
+    box-shadow: var(--ep-shadow-lg), inset 8px -12px 24px rgba(0,0,0,0.12), inset -6px 4px 12px rgba(255,255,255,0.4);
+    flex-shrink: 0;
+  }
+  .info { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .info h3 { font: var(--ep-text-h3); font-family: var(--ep-font-display); font-weight: 400; font-size: 28px; letter-spacing: -0.02em; color: var(--ep-fg); }
+  .info p { font: var(--ep-text-small); color: var(--ep-fg-muted); max-width: 320px; }
+  .ramp { display: flex; gap: 6px; margin-top: 4px; }
+  .ramp div { flex: 1; height: 36px; border-radius: var(--ep-radius-sm); display: flex; align-items: flex-end; padding: 4px; }
+  .ramp .l { font: var(--ep-text-meta); font-family: var(--ep-font-mono); font-size: 9px; color: rgba(0,0,0,0.5); }
+</style></head>
+<body>
+  <div class="hero"></div>
+  <div class="info">
+    <h3>Gold — primary action</h3>
+    <p>The primary action color, system-wide. Marks where you can act — every primary button, focus ring, selected state. A solid gold fill carries dark ink text (#16130C), never white. „Az arany a fényé.” Never on body text.</p>
+    <div class="ramp">
+      <div style="background:#FBEFD6"><span class="l">100</span></div>
+      <div style="background:#F4D9A0"><span class="l">300</span></div>
+      <div style="background:#EFCB85"><span class="l">400</span></div>
+      <div style="background:#E3B563"><span class="l">500</span></div>
+      <div style="background:#B98A2E"><span class="l" style="color:rgba(255,255,255,0.8)">600</span></div>
+      <div style="background:#9A6F26"><span class="l" style="color:rgba(255,255,255,0.8)">700</span></div>
+    </div>
+  </div>
+</body></html>

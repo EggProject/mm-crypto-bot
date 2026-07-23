@@ -1,0 +1,86 @@
+/* ============================================================
+   EggProject — Light theme (default)
+   Semantic roles for the default (light) theme: surfaces, text,
+   borders, interaction states, the gold primary action, the
+   sapphire second voice, and status colors. These map onto the
+   fixed primitives in colors.css. The dark/auto themes remap the
+   same role names (see theme-dark.css / theme-auto.css).
+   ============================================================ */
+:root {
+  /* Semantic status (light) */
+  --ep-success: #2F9C6A;
+  --ep-success-bg: #E1F4EB;
+  --ep-success-fg: #1F6849;   /* success TEXT on light — AA 6.70:1 (raw --ep-success fails 4.5 as text) */
+  --ep-warning: #D4831A;
+  --ep-warning-bg: #FBEED1;
+  --ep-warning-fg: #9E5C16;   /* warning TEXT/meaningful-icon on light — AA white 5.25 / paper 4.99 / warning-bg 4.57 */
+  --ep-danger:  #C7384E;
+  --ep-danger-bg: #FADEE2;
+  --ep-info:    var(--ep-blue-600);
+  --ep-info-bg: var(--ep-blue-100);
+
+  /* === Semantic surface / text =========================== */
+  --ep-bg:           var(--ep-paper-50);
+  --ep-bg-elevated:  #FFFFFF;
+  --ep-bg-raised:    var(--ep-bg-elevated);   /* light has no extra tonal step — collapses onto elevated (dark splits them via the M3 tint) */
+  --ep-bg-sunken:    var(--ep-paper-100);
+  --ep-bg-inverse:   var(--ep-ink-900);
+
+  --ep-fg:           var(--ep-ink-900);        /* primary text */
+  --ep-fg-muted:     var(--ep-slate-600);      /* secondary */
+  --ep-fg-subtle:    var(--ep-slate-500);      /* tertiary / meta */
+  --ep-fg-faint:     var(--ep-slate-400);      /* decorative faint only (NOT placeholders) */
+  --ep-fg-placeholder: var(--ep-slate-500);    /* input placeholder text — AA 5.54:1 white / 5.26 paper */
+  --ep-fg-on-blue:   var(--ep-accent-on, #16130C); /* ink on filled GOLD accent (legacy name) */
+  --ep-fg-on-ink:    var(--ep-paper-100);
+
+  --ep-border:       var(--ep-paper-300);
+  --ep-border-subtle:var(--ep-paper-200);
+  --ep-border-strong:var(--ep-ink-900);
+  --ep-control-border:var(--ep-slate-400);   /* interactive control edge — AA 3.22:1 on white (was var(--ep-border) 1.46, too faint) */
+  --ep-divider:      rgba(10, 18, 48, 0.08);
+
+  /* === Interaction surfaces (May 2026) ====================
+     Replaces ad-hoc raw-token use (paper-100/200/300, slate-50/100,
+     blue-50/600) across component CSS so light/dark each pick a
+     correct neutral. In light: warm paper washes; in dark: small
+     additive white washes layered on top of the elevated surface. */
+  --ep-bg-hover:     var(--ep-paper-100);    /* row / button hover */
+  --ep-bg-pressed:   var(--ep-paper-200);    /* row / button active */
+  --ep-bg-control:   var(--ep-paper-300);    /* toggle off-track, range track */
+  --ep-accent-bg:    rgba(227, 181, 99, 0.16);  /* gold tag / ghost-hover fill */
+  --ep-accent-fg:    #8A6220;        /* gold text on accent-bg — AA 4.95:1 (was yolk-700 #9A6F26, 4.08) */
+
+  /* === Primary action = GOLD (system-wide, May 2026) =======
+     „Az arany a fényé” — gold marks where you can act. A solid gold
+     fill carries dark ink text (--ep-accent-on), never white. */
+  --ep-accent:       var(--ep-yolk-500);   /* #E3B563 gold */
+  --ep-accent-hover: var(--ep-yolk-400);   /* #EFCB85 gold-bright */
+  --ep-accent-press: #D9A845;
+  --ep-accent-on:    #16130C;              /* ink text/icon on SOLID gold */
+
+  /* Yolk badge — THEME-INDEPENDENT pair. Defined once in :root and intentionally
+     NOT overridden in dark/auto, so the yolk badge stays a fixed light chip in
+     both themes (matching the other fixed-hex badge variants). Do NOT point this
+     at the theme-dependent --ep-accent-fg (it would flip light in dark mode). */
+  --ep-badge-yolk-fg: #8A6220;   /* AA 4.85:1 on --ep-badge-yolk-bg */
+  --ep-badge-yolk-bg: #FAF1DC;
+
+  /* === Second voice = SAPPHIRE („a kék a márkáé”) =========
+     The brand hue: explanatory highlights, info chrome, and the
+     bold headline flourish (--ep-flourish). Not the primary action. */
+  --ep-second:       var(--ep-blue-600);
+  --ep-second-hover: var(--ep-blue-700);
+  --ep-second-press: var(--ep-blue-800);
+  --ep-second-bg:    var(--ep-blue-50);
+  --ep-second-fg:    var(--ep-blue-800);
+  --ep-flourish:     var(--ep-blue-600);   /* headline em flourish (sapphire) */
+
+  /* Warm accent — back-compat alias; now folds into the gold primary. */
+  --ep-accent-warm:       var(--ep-yolk-500);
+  --ep-accent-warm-hover: var(--ep-yolk-400);
+  --ep-accent-warm-bg:    var(--ep-yolk-100);
+  --ep-accent-warm-fg:    var(--ep-yolk-700);
+
+  color-scheme: light;
+}

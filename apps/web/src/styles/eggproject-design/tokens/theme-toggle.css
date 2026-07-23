@@ -1,0 +1,45 @@
+/* ============================================================
+   Theme toggle — the canonical light/dark switch.
+   A one-tap icon button meant to live INSIDE a menu (sidebar foot
+   or top-bar actions), not float in a corner. It matches the
+   system's icon-button family (34px, --ep-fg-muted → --ep-fg on
+   hover, sapphire focus ring). The icon shows the theme you'll
+   switch TO: a moon in light, a sun in dark — driven purely by the
+   [data-theme] attribute on <html>, so no per-instance JS is needed
+   to paint state. Wire the click with preview/_theme.js (static HTML
+   surfaces) or a framework handler that flips data-theme on <html>
+   and persists to localStorage['eggTheme']. Markup:
+
+     <button class="ep-theme-toggle" type="button"
+             data-ep-theme-toggle aria-label="Switch theme">
+       <svg class="ep-theme-toggle__moon" …moon path… ></svg>
+       <svg class="ep-theme-toggle__sun"  …sun path…  ></svg>
+     </button>
+   ============================================================ */
+.ep-theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: 0 0 auto;
+  width: 34px; height: 34px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ep-radius-md);
+  color: var(--ep-fg-muted);
+  cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  transition: background var(--ep-dur-fast) var(--ep-ease-out),
+              color var(--ep-dur-fast) var(--ep-ease-out),
+              border-color var(--ep-dur-fast) var(--ep-ease-out);
+}
+.ep-theme-toggle:hover { color: var(--ep-fg); background: var(--ep-bg-hover); }
+.ep-theme-toggle:focus-visible { outline: none; box-shadow: var(--ep-shadow-focus); }
+.ep-theme-toggle svg { width: 16px; height: 16px; display: block; }
+/* Show the icon for the theme you'll switch TO. */
+.ep-theme-toggle .ep-theme-toggle__sun  { display: none; }
+.ep-theme-toggle .ep-theme-toggle__moon { display: block; }
+[data-theme="dark"] .ep-theme-toggle .ep-theme-toggle__sun  { display: block; }
+[data-theme="dark"] .ep-theme-toggle .ep-theme-toggle__moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] .ep-theme-toggle .ep-theme-toggle__sun  { display: block; }
+  [data-theme="auto"] .ep-theme-toggle .ep-theme-toggle__moon { display: none; }
+}

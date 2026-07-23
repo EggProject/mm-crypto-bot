@@ -1,0 +1,56 @@
+/* ============================================================
+   EggProject — Color primitives (brand palette)
+   Fixed raw color scales. These hex values are IDENTICAL across
+   light/dark/auto — only the semantic roles that consume them
+   (see theme-light/dark/auto.css) remap per theme.
+   Premium-modern development brand: gold primary, sapphire second
+   voice, paper-cream (light) / warm-graphite (dark) neutrals.
+   ============================================================ */
+:root {
+  /* === Brand Colors ====================================== */
+
+  /* Midnight (deep ink) — used for primary text on cream */
+  --ep-ink-950: #060B1F;
+  --ep-ink-900: #0A1230;
+  --ep-ink-800: #131C44;
+  --ep-ink-700: #1E2A5C;
+
+  /* Sapphire (signature blue) — primary brand color */
+  --ep-blue-900: #16245E;
+  --ep-blue-800: #1F378E;
+  --ep-blue-700: #2949B8;
+  --ep-blue-600: #2E5BE0;   /* primary */
+  --ep-blue-500: #4F7BEE;
+  --ep-blue-400: #7E9EF5;
+  --ep-blue-300: #A8BFFA;
+  --ep-blue-200: #CDDBFD;
+  --ep-blue-100: #E4ECFE;
+  --ep-blue-50:  #F2F5FF;
+
+  /* Paper (warm cream neutrals) — backgrounds */
+  --ep-paper-50:  #FBF9F4;   /* page bg */
+  --ep-paper-100: #F6F3EB;
+  --ep-paper-200: #ECE7DA;
+  --ep-paper-300: #DCD5C3;
+  --ep-paper-400: #B8AE94;
+
+  /* Slate (cool neutrals) — for app/dashboard surfaces */
+  --ep-slate-50:  #F5F7FB;
+  --ep-slate-100: #E9EDF5;
+  --ep-slate-200: #D6DCE8;
+  --ep-slate-300: #B3BCCC;
+  --ep-slate-400: #8390A8;
+  --ep-slate-500: #5C6981;
+  --ep-slate-600: #3E4A60;
+  --ep-slate-700: #2A3447;
+  --ep-slate-800: #19202E;
+
+  /* Gold (egg-yolk reference) — the PRIMARY action color, system-wide.
+     Retuned May 2026 to the „Éjszakai műszak” gold (#E3B563). */
+  --ep-yolk-700: #9A6F26;   /* deep — gold text on warm-bg (light) */
+  --ep-yolk-600: #B98A2E;   /* gold-deep — primary press / dark warm text */
+  --ep-yolk-500: #E3B563;   /* GOLD — primary action */
+  --ep-yolk-400: #EFCB85;   /* gold-bright — primary hover */
+  --ep-yolk-300: #F4D9A0;
+  --ep-yolk-100: #FBEFD6;
+}

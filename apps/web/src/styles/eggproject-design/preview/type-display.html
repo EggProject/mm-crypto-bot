@@ -1,0 +1,27 @@
+<!-- @dsCard group="Type" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Display Type</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 24px 32px; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+  .specimen {
+    font-family: var(--ep-font-display);
+    font-size: 88px; line-height: 0.95;
+    letter-spacing: -0.02em;
+    color: var(--ep-fg);
+    font-weight: 400;
+  }
+  /* Flourish: bold + sapphire color on the second phrase. Roboto ships a
+     real 700 (Bold) weight, so the flourish is a true bold cut. */
+  .specimen .accent {
+    color: var(--ep-blue-600);
+    font-weight: 700;
+  }
+  .meta-row { display: flex; gap: 24px; align-items: baseline; }
+</style></head>
+<body>
+  <div class="specimen">A new way<br/>to <span class="accent">ship.</span></div>
+  <div class="meta-row">
+    <span class="label">Roboto · Regular + bold sapphire flourish</span>
+    <span class="meta">font-family: var(--ep-font-display)</span>
+  </div>
+</body></html>

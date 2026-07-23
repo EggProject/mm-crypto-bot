@@ -1,0 +1,36 @@
+<!-- @dsCard group="Brand" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Logo on Ink</title><script src="_theme.js" defer></script>
+<style>
+  body { background: var(--ep-ink-900); display: flex; align-items: center; justify-content: center; gap: 56px; padding: 24px 40px; }
+  .lockup { display: flex; align-items: center; gap: 16px; }
+  .lockup img { width: 64px; height: 64px; }
+  .word {
+    font-family: var(--ep-font-sans);
+    font-weight: 600;
+    font-size: 38px;
+    line-height: 1;
+    color: var(--ep-paper-50);
+    letter-spacing: -0.025em;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .word .dot { display: inline-block; width: 7px; height: 7px; background: var(--ep-blue-400); border-radius: 50%; margin-bottom: 4px; }
+  .divider { width: 1px; height: 80px; background: rgba(255,255,255,0.12); }
+  .swatch { display: flex; gap: 10px; }
+  .swatch div { width: 56px; height: 56px; border-radius: 50%; }
+  .s1 { background: var(--ep-accent); }
+  .s2 { background: var(--ep-blue-400); }
+  .s3 { background: var(--ep-yolk-500); }
+</style></head>
+<body>
+  <div class="lockup">
+    <img src="../assets/logo-mark-inverse.svg" alt="">
+    <span class="word">EggProject<span class="dot"></span></span>
+  </div>
+  <div class="divider"></div>
+  <div class="swatch">
+    <div class="s1"></div><div class="s2"></div><div class="s3"></div>
+  </div>
+</body></html>

@@ -1,0 +1,34 @@
+<!-- @dsCard group="Spacing" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Radii</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 22px 28px; display: flex; flex-direction: column; gap: 14px; justify-content: center; }
+  .row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .box {
+    aspect-ratio: 1;
+    background: var(--ep-bg-elevated);
+    border: 1px solid var(--ep-border);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 4px;
+  }
+  .box .n { font: 600 14px var(--ep-font-sans); color: var(--ep-fg); }
+  .box .v { font: var(--ep-text-meta); font-family: var(--ep-font-mono); color: var(--ep-fg-subtle); font-size: 10px; }
+  .r-sm { border-radius: 6px; }
+  .r-md { border-radius: 12px; }
+  .r-lg { border-radius: 18px; }
+  .r-xl { border-radius: 26px; }
+  .r-2xl { border-radius: 36px; }
+  .r-pill { border-radius: 999px; }
+</style></head>
+<body>
+  <div class="row">
+    <div class="box r-sm"><span class="n">sm</span><span class="v">6</span></div>
+    <div class="box r-md"><span class="n">md</span><span class="v">12</span></div>
+    <div class="box r-lg"><span class="n">lg</span><span class="v">18</span></div>
+    <div class="box r-xl"><span class="n">xl</span><span class="v">26</span></div>
+    <div class="box r-2xl"><span class="n">2xl</span><span class="v">36</span></div>
+    <div class="box r-pill"><span class="n">pill</span><span class="v">999</span></div>
+  </div>
+  <span class="label">Radii — rounder system (May 2026); sharp corners still valid for editorial layouts</span>
+</body></html>
