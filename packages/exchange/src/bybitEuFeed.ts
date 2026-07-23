@@ -382,9 +382,13 @@ export class BybitEuFeed implements ExchangeFeed {
         }
         return;
       }
-      if (!cancelled) {
-        throw new ExchangeFeedError(`Ticker watch hiba: ${symbol}`, err);
-      }
+      // At this point the `if (isNotSupported) { ... }` block has
+      // either returned early (cancelled) or exited its inner `while`
+      // loop (which only ends when `cancelled === true`). Throwing
+      // here is therefore unconditional; the `if (!cancelled)` guard
+      // was dead code (the @typescript-eslint/no-unnecessary-condition
+      // rule flagged it in CI).
+      throw new ExchangeFeedError(`Ticker watch hiba: ${symbol}`, err);
     }
   }
 
@@ -486,9 +490,13 @@ export class BybitEuFeed implements ExchangeFeed {
         }
         return;
       }
-      if (!cancelled) {
-        throw new ExchangeFeedError(`OHLCV watch hiba: ${symbol}/${timeframe}`, err);
-      }
+      // At this point the `if (isNotSupported) { ... }` block has
+      // either returned early (cancelled) or exited its inner `while`
+      // loop (which only ends when `cancelled === true`). Throwing
+      // here is therefore unconditional; the `if (!cancelled)` guard
+      // was dead code (the @typescript-eslint/no-unnecessary-condition
+      // rule flagged it in CI).
+      throw new ExchangeFeedError(`OHLCV watch hiba: ${symbol}/${timeframe}`, err);
     }
   }
 

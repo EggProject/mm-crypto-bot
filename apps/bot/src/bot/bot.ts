@@ -237,7 +237,6 @@ export class Bot {
     // Wait briefly for the run-loop to exit. The run() finally block
     // sets `this.running = false` when the loop exits, so this loop
     // will unblock within ~50ms after `stopRequested` is observed.
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- this.running is mutated cross-method (run() finally)
     const isStillRunning = (): boolean => this.running;
     const deadline = Date.now() + 5_000;
     while (isStillRunning() && Date.now() < deadline) {
@@ -646,15 +645,14 @@ export class Bot {
               // publishBar expects the named-field ohlc shape.
               if (event.kind === "ohlcv" && this.stateFeed !== null) {
                 const { symbol: s, timeframe: tf, candle } = event.payload;
-                const [time, open, high, low, close, volume] =
-                  candle as unknown as readonly [
-                    number,
-                    number,
-                    number,
-                    number,
-                    number,
-                    number,
-                  ];
+                const [time, open, high, low, close, volume] = candle as unknown as [
+                  number,
+                  number,
+                  number,
+                  number,
+                  number,
+                  number,
+                ];
                 this.stateFeed.publisher.publishBar(s, tf, {
                   time,
                   open,

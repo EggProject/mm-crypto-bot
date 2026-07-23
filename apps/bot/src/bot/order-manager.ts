@@ -35,7 +35,14 @@
  */
 
 import type { Brand } from "@mm-crypto-bot/shared";
-import type { ClientOrderId, ExchangeFeed, Order, OrderRequest, Symbol } from "@mm-crypto-bot/exchange";
+import type {
+  ClientOrderId,
+  ExchangeFeed,
+  ExchangeOrderId,
+  Order,
+  OrderRequest,
+  Symbol,
+} from "@mm-crypto-bot/exchange";
 import {
   assertLeverageInvariant,
   type LeverageInvariantConfig,
@@ -295,22 +302,32 @@ export class OrderManager {
       // `feed.placeOrder` requires API credentials we don't have, but the
       // strategy logic + L2 leverage check + recordFill path must still run
       // so the position book reflects the simulated trade.
+      //
+      // The Order shape follows the `Order` type in
+      // `packages/exchange/src/types.ts:91` (the only normalized shape the
+      // rest of the codebase consumes). The OrderStatus union is
+      // `"open" | "closed" | "canceled"` (no `"filled"`) — the codebase
+      // normalizes bybit's `"filled"` response to `"closed"` in
+      // `bybitEuFeed.ts:606`. We use `"closed"` here for consistency.
+      //
+      // NOTE: the `Order` type does NOT carry `fee` / `feeCurrency` /
+      // `remaining` / `createdAt` / `averagePrice` — those are tracked
+      // separately in the position book (`PositionManager.recordFill`
+      // computes fee from the fill amount + a 10bps spot-taker estimate
+      // in `position-manager.ts`).
       order = {
         clientOrderId,
-        exchangeOrderId: `paper-${Date.now()}-${this.counters.placed}`,
+        exchangeId: `paper-${String(Date.now())}-${String(this.counters.placed)}` as unknown as ExchangeOrderId,
         symbol: intent.symbol,
         side: intent.signal.side,
         type: intent.type,
         amount: intent.amount,
         price: intent.referencePrice,
-        averagePrice: intent.referencePrice,
-        status: "filled" as const,
+        status: "closed" as const,
         filled: intent.amount,
-        remaining: 0,
-        fee: intent.amount * intent.referencePrice * 0.001, // 10bps spot taker (rough)
-        feeCurrency: "USDC" as const,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        average: intent.referencePrice,
+        submitTimestamp: Date.now(),
+        updateTimestamp: Date.now(),
       };
       this.logger.info("[order-manager] paper-mode order simulated (no exchange call)", {
         symbol: intent.symbol,

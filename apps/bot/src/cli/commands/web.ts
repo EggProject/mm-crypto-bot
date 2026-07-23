@@ -253,7 +253,12 @@ export const webCommand: SubcommandHandler = async (args) => {
     webHostname: "127.0.0.1",
     feedHost,
     feedPort,
-    webDistDir: webDistDir !== undefined && webDistDir.length > 0 ? webDistDir : undefined,
+    // `webDistDir?: string` with `exactOptionalPropertyTypes: true` means
+    // either omit the key OR pass a `string` — NOT `string | undefined`.
+    // Spread-conditional avoids the `undefined` value slipping through.
+    ...(webDistDir !== undefined && webDistDir.length > 0
+      ? { webDistDir }
+      : {}),
   });
 
   process.stderr.write(`[web] web client listening on http://127.0.0.1:${String(client.port)}\n`);

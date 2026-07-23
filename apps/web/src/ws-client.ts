@@ -139,9 +139,8 @@ export interface WebSocketState {
 // =============================================================================
 
 const DEFAULT_URL =
-  typeof import.meta.env["VITE_WS_URL"] === "string" &&
-  import.meta.env["VITE_WS_URL"].length > 0
-    ? (import.meta.env["VITE_WS_URL"] as string)
+  typeof import.meta.env.VITE_WS_URL === "string" && import.meta.env.VITE_WS_URL.length > 0
+    ? import.meta.env.VITE_WS_URL
     : "ws://127.0.0.1:7913/ws";
 
 // =============================================================================
