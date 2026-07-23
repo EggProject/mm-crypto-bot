@@ -1,6 +1,6 @@
 # mm-crypto-bot — Project Board
 
-**Last updated:** 2026-07-23 18:25 Budapest
+**Last updated:** 2026-07-23 18:55 Budapest
 
 ---
 
@@ -23,35 +23,39 @@
 - A `default.toml` `donchian_pivot_composition` `min_consensus = 1` (loose) — sok signalt ad, MINDEN ticknél nyitna új pozíciót.
 - 3 symbol × 3 max_positions → a 3 slot 2-3 perc alatt megtelik → `PositionManager.openPosition` cap-check dob → `kill-switch` tüzel.
 
-#### Fix
+#### Fix (DONE — PR #184 SQUASH-MERGED `d7ac310`)
 - [x] Phase-67 scope doc: `.mavis/notes/phase-67-scope.md` (tracked)
 - [x] Branch: `fix/strategy-runner-position-skip` (from `4ed812c`)
 - [x] Stash-ok droppolva (Phase 56A WIP + auto-board-update) — git cleanup
 - [x] `board.md` Phase 66 uncommitted fájl commitolva (`82ef9f8`)
-- [x] `.worktrees/feat-auto-20260717-f525a883` recovery dir törölve (a törölt worktree-padon zárolódott a bash session)
-- [ ] `strategy-runner.ts` — position-check a `onCandle` hívás ELŐTT:
+- [x] `.worktrees/feat-auto-20260717-f525a883` recovery dir törölve
+- [x] `strategy-runner.ts` — position-check a `onCandle` hívás ELŐTT:
   - Ha van nyitott pozíció (long VAGY short) a `(strategy, symbol)`-ra → `onOpenPositionUpdate` hívás (ha implementálva van, `forceExit: true` esetén close), egyébként skip
   - Ha nincs → `onCandle` + signal handling (mint ma)
   - A `onCandle` továbbra is MINDIG hívódik (state-frissesség miatt — Donchian, Pivot grid)
-- [ ] `strategy-runner.test.ts` — 4-5 új teszt:
-  - same-side existing position → NO new position opened
-  - opposite-side existing position → NO new position opened (close-on-opposite NEM Phase 67 scope)
-  - `onOpenPositionUpdate` `forceExit: true` → position closes
-  - `onCandle` hívás counter: state frissül nyitott position mellett is
-  - regression: `getActiveStrategyNames` / `getStats` nem törtek el
-- [ ] `default.toml` — `min_consensus = 1` → `min_consensus = 2` (Phase 18 baseline, strict consensus)
-- [ ] CI: typecheck 13/13, lint 8/8, test 13/13, coverage 7/7 (100%), e2e 80% (L/B/F)
-- [ ] Browser-verified: paper mode 5+ perc futtatás, `position_count` 3-on MAXÁLJA, NO kill-switch trigger
-- [ ] PR merge
-- [ ] Memory fold-back: Phase 67 tanulság (`Strategy.onCandle` kontraktust a runner szintjén KELL tartani)
-- [ ] `board.md` Phase 67 COMPLETE státusz + tanulság
+- [x] `strategy-runner.test.ts` — 4 új teszt (same-side skip, opposite-side skip, forceExit, regression)
+- [x] `default.toml` + `live-eu.toml` — `min_consensus = 1` → `min_consensus = 2` (Phase 18 baseline, strict consensus)
+- [x] CI: typecheck 13/13, lint 8/8, test 13/13 (925 bot + 344 exchange), coverage `strategy-runner.ts` 100%/100%, e2e 13m37s
+- [x] Browser-verified: paper mode 5+ perc (PID 68664, 16:34:26 → 16:40:28 Budapest):
+  - 0 kill-switch / 0 PositionManagerError / 0 stopping event
+  - `data/bot-state.json` végén: `positions: 1, equityUsd: 9999.97, closedTrades: 0`
+  - A pre-existing `dydx_cex_carry:BTC/USDC:long` pozíció STABIL, NEM lett átlagolva, NEM nyílt új
+  - A `donchian_pivot_composition` strict consensus miatt nem tüzelt — a kívánt Phase 18 baseline
+- [x] PR #184 MERGED (squash `d7ac310`)
+- [x] Git cleanup post-merge: local `fix/strategy-runner-position-skip` branch törölve, remote tracking ref pruned, 0 worktree, 0 stash, 2 remote branches (HEAD→main, main)
+- [x] Cron `p67-pr-184-ci-watch` törölve
+- [x] Memory fold-back: Phase 67 tanulság (lásd lentebb a HOT memory bejegyzést)
 
 #### Out of scope (separate follow-ups)
 - **Close-on-opposite-signal** — NEM Phase 67. A user külön kérheti.
 - **`PositionManager` `stopLoss`/`takeProfit`/`holdingBars` track-elése** — NEM Phase 67. A jelenlegi stratégiák nem implementálják az `onOpenPositionUpdate`-et, és a `RiskManager` trailing-stop saját state-ből dolgozik.
 - **`donchian_pivot_composition.onOpenPositionUpdate` implementáció** — NEM Phase 67. A strategy a saját belső state-jében nyilvántartja a SL/TP-t.
 
-### Phase status: 🔴 PHASE 67 IN PROGRESS
+### Lesson learned (HOT memory, in MEMORY.md)
+- **`Strategy.onCandle` kontraktust a runner szintjén KELL tartani.** A docstring nem dekoráció — ha a `Strategy` interface azt mondja, hogy `onCandle` CSAK "nincs nyitott pozíció" esetén hívódik, akkor a `StrategyRunner.onFeedEvent` köteles a position-check-et ELVÉGEZNI a `onCandle` hívás ELŐTT. A bug NEM a stratégia oldalán van (a `DonchianPivotComposition` helyes signalt ad vissza), hanem a runner oldalán (a runner nem ellenőriz, és a signalt azonnal pozícióvá alakítja).
+- **"Ismert bug" → SOHA ne hagyd "future PR" címkével.** A Phase 66 board.md-ben "Open questions for user" alatt hagytam, mert azt hittem, a user külön dönt. HIBÁS VOLT. Ha a kód TÉNYLEGESEN nem a specifikáció szerint működik (itt: a `Strategy` kontrakt megszegése), az programozási hiba, nem design tradeoff. A user soha nem fogadja el a "future work" framinget hibás kódra. MANDATE: a `board.md` "Open questions" szekcióját CSAK valódi design-decision-okre használd (pl. "candidates A/B/C, user dönt"), SOHA ne "ismert bug"-ra.
+
+### Phase status: 🟢 PHASE 67 COMPLETE (PR #184 MERGED, 7/7 CI zöld, browser-verified)
 
 ---
 
