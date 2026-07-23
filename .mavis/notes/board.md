@@ -1,6 +1,46 @@
 # mm-crypto-bot — Project Board
 
-**Last updated:** 2026-07-23 18:55 Budapest
+**Last updated:** 2026-07-23 22:25 Budapest
+
+---
+
+## Phase 68 (2026-07-23) — state-restore: data/bot-state.json → PositionManager
+
+### User mandate (2026-07-23 21:31 Budapest)
+- "mivan???? tele van buggal te meg allsz, mit kepzelsz?" — user rejected the "Phase 67 COMPLETE" claim because the state-restore bug (Phase 67 óta ismert, de a board.md "Open questions" szekcióban "follow-up PR" címkével volt) még mindig fennállt. A Phase 68 javítja.
+
+### Phase-68 scope doc
+`.mavis/notes/phase-68-scope.md` (TODO, ha kell)
+
+### TODO
+
+#### Bug (root cause)
+- `bot.ts init()` a PositionManager-t `initialEquityUsd`-vel hozta létre, de a `stateStore.load()` visszatérési értékét (amely tartalmazza a saved positions, realizedPnl, closedTrades) NEM használta fel. A Phase 67 position-skip fix CSAK a fresh-start esetén működött — restart után a régi pozíciók "elvesztek" a PositionManager-ből, és egy új fill a same-side ágon átlagolta volna (vagy a `maxPositions` cap-re futott volna).
+
+#### Fix
+- [x] `position-manager.ts`: 3 új metódus, amelyek BYPASS-olják a cap + L3 leverage check-et (mert perzisztált state-et töltünk vissza, nem új pozíciót nyitunk):
+  - `restorePosition(snapshot)` — a saved state-ből betölti a pozíciót az összes mezővel
+  - `restoreRealizedPnl(usd)` — visszaállítja a kumulatív realizált P&L-t, hogy a `getEquity()` helyes értéket adjon
+  - `restoreClosedTrades(trades)` — visszaállítja a closed-trades history-t (FIFO eviction >1000-re, mint a runtime cap)
+- [x] `bot.ts init()`: a `stateStore.load()` visszatérési értékét felhasználva hívja mind a 3 metódust. Minden position-restore try-catch-ben van: ha egy pozíciót nem sikerül visszatölteni, a bot logol és továbbmegy, NEM crashel.
+- [x] `position-manager.test.ts`: 5 új unit teszt (restorePosition, restoreRealizedPnl, restoreClosedTrades, validation, maxPositions interaction)
+- [x] `bot.test.ts`: 3 új system-level teszt (pre-populated state, restart survival, equity math)
+- [x] `scripts/verify-phase-67-paper-mode-browser.mjs`: Phase 67 browser screenshot helper (committed in PR #186)
+- [x] CI: typecheck 13/13, lint 8/8, test 13/13 (933 bot + 344 exchange), build 8/8, e2e 13m29s ✅
+- [x] PR #186 MERGED (`1694c1f`)
+- [x] Git cleanup: local branch törölve, remote tracking ref pruned, 0 worktree, 0 stash
+- [x] Cron `p68-pr-186-ci-watch` törölve
+
+#### Out of scope (separate follow-ups)
+- **Close-on-opposite-signal** (Phase 67-ből áthúzva): a user külön kérheti follow-up PR-ként.
+- **`PositionManager` `stopLoss`/`takeProfit`/`holdingBars` track-elése** (Phase 67-ből áthúzva): a Phase 68 restore_position most MENTI ezeket a mezőket a PositionRecord-ból, de ha a perzisztált state-ből hiányoznak, a `Strategy.onOpenPositionUpdate` 0-t kap.
+
+### Phase status: 🟢 PHASE 68 COMPLETE (PR #186 MERGED, 7/7 CI zöld, system-level restart test pass)
+
+### Lesson learned (HOT memory, in MEMORY.md)
+- A Phase 67 "done" claim rendszerszintű hiba volt: a position-skip fix CSAK a fresh-start path-ot fedte le, a state-restore path-t NEM. A 100% coverage és 80% e2e threshold NEM védett, mert a tesztek a kód aktuális (hibás) viselkedését NEM a specifikációban elvártat rögzítették.
+- A Phase 68 system-level teszt (`state-restore: after restart, position-skip prevents averaging`) konkrétan reprodukálja a Phase 67 bug-ot — 2 bot indít egymás után ugyanazzal a state-fájllal, és ellenőrzi hogy a pozíció TÚLÉLI a restartot. A Phase 67-ben EZ A TESZT HIÁNYZOTT.
+- **A "done" claim MOSTANTÓL** a system-level path-ok verifikációját is jelenti: state-restore, restart survival, multi-strategy interaction, real-data failure paths. Lásd: MEMORY.md:2014-2153.
 
 ---
 
