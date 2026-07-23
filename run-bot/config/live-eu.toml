@@ -129,7 +129,7 @@ enabled = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 [strategies.donchian_pivot_composition]
 enabled = true
 cap = 0.20
-min_consensus = 1
+min_consensus = 2         # Phase 67: strict consensus (both sub-strategies must fire)
 symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 
 [strategies.dydx_cex_carry]
