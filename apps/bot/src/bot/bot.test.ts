@@ -10,7 +10,13 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { MockExchangeFeed, asSymbol, type Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
+import {
+  MockExchangeFeed,
+  asSymbol,
+  type Symbol as ExchangeSymbol,
+} from "@mm-crypto-bot/exchange";
+import { LiveStatePublisher } from "../state-feed/publisher.js";
+import type { StateFeedHandle } from "../state-feed/index.js";
 
 import { Bot } from "./bot.js";
 import { BotStateSchema } from "./state-store.js";
@@ -707,6 +713,83 @@ describe("Bot", () => {
 
     await bot.stop();
     await p;
+  });
+
+  // ---------------------------------------------------------------------------
+  // 18b) Phase 66: OHLCV events with a stateFeed attached trigger
+  //      `stateFeed.publisher.publishBar(...)` so the web client chart
+  //      grid receives the bars. Covers bot.ts:646-670.
+  // ---------------------------------------------------------------------------
+  it("OHLCV events propagate to the attached stateFeed.publisher.publishBar", async () => {
+    const config = buildTestConfig(stateFile);
+    const bot = new Bot({
+      config,
+      feed,
+      stateSaveIntervalMs: 10_000,
+      killSwitchEvalIntervalMs: 10_000,
+      heartbeatIntervalMs: 10_000,
+    });
+
+    // A Phase 66 stateFeed-attach path-ot fedjük le: a Bot.attachStateFeed
+    // public method egy `StateFeedHandle`-t vár, aminek van `publisher` mezője.
+    // Egy valódi `LiveStatePublisher` példányt használunk, és az
+    // `addEventListener` callback-jében rögzítjük a publishBar hívásokat.
+    const publisher = new LiveStatePublisher({
+      bot,
+      enabledSymbols: ["BTC/USDC"],
+      initialEquityUsdt: 10_000,
+      strategies: [],
+    });
+    await publisher.start();
+    const stateFeed: StateFeedHandle = {
+      close: async () => {
+        await publisher.dispose();
+      },
+      get port(): number {
+        return 0;
+      },
+      get clientCount(): number {
+        return 0;
+      },
+      publisher,
+    };
+    bot.attachStateFeed(stateFeed);
+
+    const barEvents: Array<{ symbol: string; timeframe: string; close: number }> = [];
+    publisher.addEventListener((event) => {
+      if (event.type === "bar") {
+        barEvents.push({
+          symbol: event.symbol,
+          timeframe: event.timeframe,
+          close: event.ohlc.close,
+        });
+      }
+    });
+
+    const p = bot.start();
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    // Push an OHLCV event into the mock feed (CCXT-format tuple).
+    const now = Date.now();
+    feed.pushEvent({
+      kind: "ohlcv",
+      payload: {
+        symbol: asSymbol("BTC/USDC") as unknown as ExchangeSymbol,
+        timeframe: "1h",
+        candle: [now, 60_000, 60_100, 59_900, 60_050, 12.345],
+      },
+    });
+    await new Promise<void>((r) => setTimeout(r, 50));
+
+    // The bar event MUST reach the publisher.
+    expect(barEvents.length).toBe(1);
+    expect(barEvents[0]?.symbol).toBe("BTC/USDC");
+    expect(barEvents[0]?.timeframe).toBe("1h");
+    expect(barEvents[0]?.close).toBe(60_050);
+
+    await bot.stop();
+    await p;
+    await stateFeed.close();
   });
 
   // ---------------------------------------------------------------------------
