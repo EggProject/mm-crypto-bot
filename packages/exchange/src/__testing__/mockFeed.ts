@@ -1,6 +1,11 @@
-// packages/exchange/src/mockFeed.ts — teszteléshez használt `MockExchangeFeed`
+// packages/exchange/src/__testing__/mockFeed.ts — TEST-ONLY `MockExchangeFeed`
 //
-// FELADAT: A paper engine és a unit tesztek számára egy előre programozott
+// ⚠️  TEST-ONLY. Production code MUST NOT import or instantiate this class.
+//    The `__testing__/` directory name signals the test-only contract to
+//    reviewers; this file is also excluded from the public package export
+//    in `index.ts` and from `createExchangeClient`'s surface API.
+//
+// FELADAT: A unit tesztek számára egy előre programozott
 // `ExchangeFeed` implementáció. A mock feed:
 //   - Tetszőleges `FeedEvent` sorozatot tud "lejátszani" a `pushEvent` metódussal
 //   - A `subscribe*` hívásra azonnal visszaad egy `SubscriptionId`-t
@@ -9,10 +14,19 @@
 //
 // A cél: a paper engine 100%-os unit teszt lefedettsége anélkül, hogy
 // valódi CCXT vagy valódi hálózati kapcsolat kellene.
+//
+// === PHASE 66 ENFORCEMENT ===
+//   Per user mandate "csak a test hasznalhatja a mock feed -et!", this
+//   file was moved from `packages/exchange/src/mockFeed.ts` to
+//   `packages/exchange/src/__testing__/mockFeed.ts` and removed from
+//   the public package surface (`index.ts`, `factory.ts`). The Bot's
+//   exchange-feed wire-up (apps/bot/src/bot/bot.ts) no longer falls
+//   back to `new MockExchangeFeed()` when `exchange.id === "mock"` —
+//   it throws with a clear error pointing at the test-only path.
 
 /* eslint-disable @typescript-eslint/require-await -- Az `ExchangeFeed` interfész Promise-alapú, de egyes metódusok szinkron belső state-ből dolgoznak. */
 
-import type { ExchangeFeed, FeedListener, SubscriptionId } from "./feed.js";
+import type { ExchangeFeed, FeedListener, SubscriptionId } from "../feed.js";
 import type {
   Balance,
   ClientOrderId,
@@ -26,7 +40,7 @@ import type {
   Symbol,
   Ticker,
   Timeframe,
-} from "./types.js";
+} from "../types.js";
 
 /** A mock feed belső subscription-nyilvántartása. */
 interface MockSubscription {

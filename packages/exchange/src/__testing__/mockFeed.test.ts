@@ -1,7 +1,7 @@
 /**
- * packages/exchange/src/mockFeed.test.ts
+ * packages/exchange/src/__testing__/mockFeed.test.ts
  *
- * 100% coverage test for `mockFeed.ts` — the `MockExchangeFeed`
+ * 100% coverage test for `__testing__/mockFeed.ts` — the `MockExchangeFeed`
  * class (the in-memory test double for `ExchangeFeed`) and the
  * 3 helper functions: `defaultTicker`, `defaultOrderBook`,
  * `defaultMarketMeta`.
@@ -9,6 +9,10 @@
  * Phase 35b gap closer — no exchange-package test was covering the
  * mock feed's lifecycle, push event routing, placeOrder limit-price
  * branch, setBalance create-vs-update branch, and the default-* helpers.
+ *
+ * Phase 66: this test file was moved from `packages/exchange/src/mockFeed.test.ts`
+ * to the `__testing__/` subdirectory to signal that the mock feed is
+ * TEST-ONLY (per user mandate "csak a test hasznalhatja a mock feed -et!").
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
@@ -18,8 +22,8 @@ import {
   defaultOrderBook,
   defaultTicker,
 } from "./mockFeed.js";
-import { type Symbol, type Timeframe } from "./types.js";
-import { asSymbol } from "./symbols.js";
+import { type Symbol, type Timeframe } from "../types.js";
+import { asSymbol } from "../symbols.js";
 
 describe("mockFeed", () => {
   let feed: MockExchangeFeed;

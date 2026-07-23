@@ -57,7 +57,9 @@ describe("feed", () => {
       // Fordítási idejű típusellenőrzés: a MockExchangeFeed
       // megfelel az ExchangeFeed interface-nek.
       // Futtatáskor is ellenőrizzük, hogy minden metódus létezik.
-      const { MockExchangeFeed } = await import("./mockFeed.js");
+      // Phase 66: a `MockExchangeFeed` a `__testing__/` almappába
+      // került (test-only).
+      const { MockExchangeFeed } = await import("./__testing__/mockFeed.js");
       const feed: ExchangeFeed = new MockExchangeFeed();
 
       // A típusellenőrzés a `feed: ExchangeFeed` cast-ból adódik.
@@ -84,7 +86,7 @@ describe("feed", () => {
 
   describe("SubscriptionId type", () => {
     it("a subscribe visszatérési értéke number (SubscriptionId = number)", async () => {
-      const { MockExchangeFeed } = await import("./mockFeed.js");
+      const { MockExchangeFeed } = await import("./__testing__/mockFeed.js");
       const { asSymbol } = await import("./symbols.js");
       const feed = new MockExchangeFeed();
       await feed.open();
@@ -100,7 +102,7 @@ describe("feed", () => {
 
   describe("FeedListener type", () => {
     it("a FeedListener típusú callback meghívódik ticker event-nél", async () => {
-      const { MockExchangeFeed } = await import("./mockFeed.js");
+      const { MockExchangeFeed } = await import("./__testing__/mockFeed.js");
       const { asSymbol } = await import("./symbols.js");
       const feed = new MockExchangeFeed();
       await feed.open();

@@ -46,7 +46,6 @@
 
 import type { ExchangeFeed, FeedEvent } from "@mm-crypto-bot/exchange";
 import {
-  MockExchangeFeed,
   createExchangeClient,
   asSymbol,
 } from "@mm-crypto-bot/exchange";
@@ -377,12 +376,27 @@ export class Bot {
     // 1) Exchange feed
     // -----------------------------------------------------------------------
     if (this.options.feed !== undefined) {
+      // Az `options.feed` az egyetlen TESZT-CSATORNA a mock feed-hez
+      // (a unit/integration tesztek ezen keresztül injectelik a
+      // `MockExchangeFeed`-et, lásd `apps/bot/src/bot/bot.test.ts`).
+      // Production kódból a `MockExchangeFeed` NEM érhető el (a fájl a
+      // `__testing__/` almappában van, nem exportálódik a public
+      // surface-en) — lásd a PHASE 66 ENFORCEMENT blokkot a
+      // `packages/exchange/src/index.ts` fájlban.
       this.feed = this.options.feed;
     } else if (this.config.exchange.id === "mock") {
-      // MockExchangeFeed is reserved for explicit `exchange.id === "mock"`
-      // (deterministic backtesting only). Paper mode uses the REAL bybit.eu
-      // feed for market data — see Phase 66.
-      this.feed = new MockExchangeFeed();
+      // Phase 66 enforcement: `exchange.id === "mock"` a CONFIG-ban
+      // ÉRVÉNYES, de a `MockExchangeFeed` osztály NEM elérhető
+      // production kódból. A tesztek a `Bot`-ot `options.feed`-en
+      // keresztül injectelik (lásd fentebb). Ha itt tartunk, a
+      // hívó elfelejtette beadni a feed-et — ez programozási hiba,
+      // nem runtime körülmény.
+      throw new Error(
+        "Bot: 'exchange.id = mock' in production config is not supported. " +
+          "MockExchangeFeed is test-only and not importable from production code. " +
+          "Tests must inject the mock feed via `new Bot({ config, feed })`. " +
+          "For real exchange data, use exchange.id = 'bybiteu' (or any non-mock id).",
+      );
     } else {
       // Phase 66: paper mode uses the real bybit.eu feed for market data
       // (fetchTicker, fetchOhlcv — PUBLIC endpoints, no auth). The
@@ -393,11 +407,10 @@ export class Bot {
       // throw, and skip fetchBalances below.
       if (this.config.bot.mode === "paper" && !hasCreds) {
         this.feed = createExchangeClient({
-          useMock: false,
           override: { apiKey: "", secret: "" },
         });
       } else {
-        this.feed = createExchangeClient({ useMock: false });
+        this.feed = createExchangeClient({});
       }
     }
     await this.feed.open();

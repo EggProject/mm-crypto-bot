@@ -281,8 +281,8 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
       port: feedPort,
       enabledSymbols: config.symbols.enabled,
       // A bot config jelenleg nem tárolja az initial equity-t külön
-      // mezőként (a MockExchangeFeed balances[]-ából jön); a Phase
-      // 45A-ban 10_000 USDT a default. A Phase 45B a config-ból fogja
+      // mezőként (a mock feed balances[]-ából jön; a Phase 45A óta
+      // 10 000 USDT a default). A Phase 45B a config-ból fogja
       // venni a `risk.max_position_fraction`-ből számítva.
       initialEquityUsdt: 10_000,
       strategies: strategiesFromConfig,

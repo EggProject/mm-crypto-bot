@@ -3,13 +3,17 @@
  *
  * 100% coverage test for `factory.ts` — the exchange feed factory
  * functions: `readExchangeCredentials`, `detectExchangeEnv`,
- * `createExchangeClient` (mock + live paths), `createMockFeed`,
- * the `MissingCredentialsError` class, and the `ExchangeEnv` /
- * `ExchangeCredentials` types.
+ * `createExchangeClient` (the real bybit.eu wire-up path), and the
+ * `MissingCredentialsError` class.
  *
  * Phase 35b gap closer — no exchange-package test was covering the
  * factory logic directly. We mock `process.env` (saved/restored
  * around each test) to exercise the credential-detection branches.
+ *
+ * Phase 66: the previous `useMock: true` branch and the `createMockFeed`
+ * factory were REMOVED — the `MockExchangeFeed` is now test-only and
+ * lives in the `__testing__/` subdirectory (not exportable from
+ * production). The corresponding tests are deleted from this file.
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
@@ -18,11 +22,9 @@ import {
   type BybitEuFeedOptions,
   MissingCredentialsError,
   createExchangeClient,
-  createMockFeed,
   detectExchangeEnv,
   readExchangeCredentials,
 } from "./factory.js";
-import { MockExchangeFeed } from "./mockFeed.js";
 
 describe("factory", () => {
   const originalEnv: Record<string, string | undefined> = {};
@@ -112,15 +114,13 @@ describe("factory", () => {
   });
 
   describe("createExchangeClient", () => {
-    it("MockExchangeFeed-et ad vissza, ha useMock=true", () => {
-      const feed = createExchangeClient({ useMock: true });
-      expect(feed).toBeInstanceOf(MockExchangeFeed);
-      expect(feed.exchangeId).toBe("mock");
-    });
+    // Phase 66: a `useMock: true` branch és a `createMockFeed` factory
+    // TÖRÖLVE. A `MockExchangeFeed` a `__testing__/mockFeed.ts`-ban
+    // van, és NEM érhető el production kódból. A függvény most
+    // kizárólag `BybitEuFeed`-et ad vissza.
 
-    it("BybitEuFeed-et ad vissza override-olt kulcsokkal (useMock=false)", () => {
+    it("BybitEuFeed-et ad vissza override-olt kulcsokkal", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
       });
       expect(feed).toBeInstanceOf(BybitEuFeed);
@@ -130,19 +130,16 @@ describe("factory", () => {
     it("BybitEuFeed-et ad vissza env-ből olvasott kulcsokkal", () => {
       process.env["BYBIT_API_KEY"] = "env-key";
       process.env["BYBIT_API_SECRET"] = "env-secret";
-      const feed = createExchangeClient({ useMock: false });
+      const feed = createExchangeClient({});
       expect(feed).toBeInstanceOf(BybitEuFeed);
     });
 
-    it("MissingCredentialsError-t dob, ha useMock=false és nincs override sem env sem", () => {
-      expect(() => createExchangeClient({ useMock: false })).toThrow(
-        MissingCredentialsError,
-      );
+    it("MissingCredentialsError-t dob, ha nincs override sem env sem", () => {
+      expect(() => createExchangeClient({})).toThrow(MissingCredentialsError);
     });
 
     it("alkalmazza a rateLimitMs opciót (default 100ms)", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
       });
       // A BybitEuFeed tárolja a rateLimitMs-t; ezt az exchangeId-n
@@ -152,7 +149,6 @@ describe("factory", () => {
 
     it("alkalmazza a rateLimitMs opciót explicit értékkel", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
         rateLimitMs: 250,
       });
@@ -163,7 +159,7 @@ describe("factory", () => {
       process.env["BYBIT_API_KEY"] = "k";
       process.env["BYBIT_API_SECRET"] = "s";
       process.env["CCXT_RATE_LIMIT_MS"] = "500";
-      const feed = createExchangeClient({ useMock: false });
+      const feed = createExchangeClient({});
       expect(feed).toBeInstanceOf(BybitEuFeed);
     });
 
@@ -171,13 +167,12 @@ describe("factory", () => {
       process.env["BYBIT_API_KEY"] = "k";
       process.env["BYBIT_API_SECRET"] = "s";
       process.env["CCXT_RATE_LIMIT_MS"] = "not-a-number";
-      const feed = createExchangeClient({ useMock: false });
+      const feed = createExchangeClient({});
       expect(feed).toBeInstanceOf(BybitEuFeed);
     });
 
     it("alkalmazza a sandbox=true opciót", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
         sandbox: true,
       });
@@ -186,23 +181,9 @@ describe("factory", () => {
 
     it("alapértelmezetten sandbox=false", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
       });
       expect(feed).toBeInstanceOf(BybitEuFeed);
-    });
-  });
-
-  describe("createMockFeed", () => {
-    it("opciók nélkül is MockExchangeFeed-et ad", () => {
-      const feed = createMockFeed();
-      expect(feed).toBeInstanceOf(MockExchangeFeed);
-      expect(feed.exchangeId).toBe("mock");
-    });
-
-    it("opciókkal is MockExchangeFeed-et ad", () => {
-      const feed = createMockFeed({ initialUsdcBalance: 50_000 });
-      expect(feed).toBeInstanceOf(MockExchangeFeed);
     });
   });
 

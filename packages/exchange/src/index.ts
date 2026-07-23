@@ -1,14 +1,22 @@
 // packages/exchange/src/index.ts — a `@mm/exchange` csomag belépési pontja
 //
-// FELADAT: Aggregálja a `feed`, `factory`, `bybitEuFeed`, `mockFeed`,
-// `symbols` és `types` modulok összes publikus API-ját, hogy a fogyasztók
+// FELADAT: Aggregálja a `feed`, `factory`, `bybitEuFeed`, `symbols`
+// és `types` modulok összes publikus API-ját, hogy a fogyasztók
 // (paper engine, backtest, TUI) egyetlen `import { ... } from "@mm/exchange"`
 // sorral hozzáférjenek mindenhez.
 //
-// A factory-k (`createExchangeClient`, `createMockFeed`) a `factory.ts`-
-// ből jönnek — ezek a fő belépési pontok az alkalmazáskód számára.
-// A típusok a `types.ts`-ból, az implementációk a `bybitEuFeed.ts` /
-// `mockFeed.ts`-ből származnak.
+// A factory (`createExchangeClient`) a `factory.ts`-ből jön — ez a fő
+// belépési pont az alkalmazáskód számára. A típusok a `types.ts`-ból,
+// az implementációk a `bybitEuFeed.ts`-ból származnak.
+//
+// === PHASE 66 ENFORCEMENT ===
+//   A `MockExchangeFeed` class, a `createMockFeed` factory, a
+//   `MockFeedOptions` / `MockExchangeFeedOptions` típusok, valamint a
+//   `defaultTicker` / `defaultOrderBook` / `defaultMarketMeta` helper
+//   függvények NEM exportálódnak a public surface-en. A mock feed a
+//   `__testing__/mockFeed.ts`-ban van, és CSAK a tesztek importálhatják
+//   közvetlenül (lásd a felhasználói mandátumot: "csak a test hasznalhatja
+//   a mock feed -et!").
 
 export type {
   Balance,
@@ -37,13 +45,16 @@ export { SUPPORTED_SYMBOLS, isSupportedSymbol, asSymbol, symbolOf, baseCurrencyO
 
 export { BybitEuFeed, type BybitEuFeedOptions, normalizeTicker, normalizeOrderBook, normalizeTrade, normalizeMarketMeta, normalizeBalances, normalizeOrder } from "./bybitEuFeed.js";
 
-export { MockExchangeFeed, defaultTicker, defaultOrderBook, defaultMarketMeta, type MockExchangeFeedOptions } from "./mockFeed.js";
+// ⚠️  TEST-ONLY: `MockExchangeFeed` and the `createMockFeed` factory
+//    are NOT exported from this public surface. Tests must import the
+//    class directly from `"./__testing__/mockFeed.js"`. Production
+//    code (bot, web, TUI) cannot reach the mock feed via
+//    `@mm-crypto-bot/exchange`.
 
 export {
   readExchangeCredentials,
   detectExchangeEnv,
   createExchangeClient,
-  createMockFeed,
   MissingCredentialsError,
   type ExchangeCredentials,
   type ExchangeEnv,

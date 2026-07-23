@@ -40,7 +40,9 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { MockExchangeFeed } from "@mm-crypto-bot/exchange";
+// Phase 66: `MockExchangeFeed` is test-only — import from the
+// `@exchange-testing/*` path alias (see tsconfig.base.json).
+import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
 
 import { Bot } from "../bot/bot.js";
 import { DEFAULT_BOT_CONFIG } from "../config/defaults.js";

@@ -11,10 +11,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  MockExchangeFeed,
   asSymbol,
   type Symbol as ExchangeSymbol,
 } from "@mm-crypto-bot/exchange";
+// Phase 66: `MockExchangeFeed` is test-only — the package no longer
+// exports it from `@mm-crypto-bot/exchange`. Tests reach it via the
+// `@exchange-testing/*` path alias (see tsconfig.base.json).
+import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
 import { LiveStatePublisher } from "../state-feed/publisher.js";
 import type { StateFeedHandle } from "../state-feed/index.js";
 
