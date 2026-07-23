@@ -755,7 +755,7 @@ describe("Bot", () => {
     };
     bot.attachStateFeed(stateFeed);
 
-    const barEvents: Array<{ symbol: string; timeframe: string; close: number }> = [];
+    const barEvents: { symbol: string; timeframe: string; close: number }[] = [];
     publisher.addEventListener((event) => {
       if (event.type === "bar") {
         barEvents.push({
