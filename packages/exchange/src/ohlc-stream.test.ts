@@ -26,7 +26,9 @@ import {
   type OhlcStreamBarEvent,
   type OhlcStreamErrorEvent,
 } from "./ohlc-stream.js";
-import { MockExchangeFeed } from "./mockFeed.js";
+// Phase 66: the mock feed moved to the `__testing__/` subdirectory.
+// Update the relative import to match.
+import { MockExchangeFeed } from "./__testing__/mockFeed.js";
 import type { FeedEvent, Trade } from "./types.js";
 import { asSymbol } from "./symbols.js";
 

@@ -5,7 +5,10 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { asSymbol, MockExchangeFeed, type Ohlcv, type Symbol as ExchangeSymbol, type Ticker, type Timeframe } from "@mm-crypto-bot/exchange";
+import { asSymbol, type Ohlcv, type Symbol as ExchangeSymbol, type Ticker, type Timeframe } from "@mm-crypto-bot/exchange";
+// Phase 66: `MockExchangeFeed` is test-only — import from the
+// `@exchange-testing/*` path alias (see tsconfig.base.json).
+import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
 import type { Strategy, StrategyContext, StrategySignal } from "@mm-crypto-bot/core";
 
 import { OrderManager } from "./order-manager.js";

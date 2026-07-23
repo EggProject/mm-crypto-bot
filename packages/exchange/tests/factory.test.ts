@@ -1,15 +1,21 @@
 // packages/exchange/tests/factory.test.ts — a `factory.ts` tesztjei
+// (vitest test, the `bun test` runner picks this up via the
+// `bun test src tests` script in `package.json`).
+//
+// Phase 66: the previous `useMock: true` branch and the `createMockFeed`
+// factory were REMOVED. The `MockExchangeFeed` is test-only and lives
+// in the `__testing__/` subdirectory (NOT exportable from production).
+// The corresponding `useMock: true` and `createMockFeed` tests are
+// deleted from this file.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import {
   readExchangeCredentials,
   detectExchangeEnv,
   createExchangeClient,
-  createMockFeed,
   MissingCredentialsError,
 } from "../src/factory.js";
 import { BybitEuFeed } from "../src/bybitEuFeed.js";
-import { MockExchangeFeed } from "../src/mockFeed.js";
 
 describe("factory", () => {
   const originalEnv = process.env;
@@ -77,33 +83,30 @@ describe("factory", () => {
   });
 
   describe("createExchangeClient", () => {
-    it("MockExchangeFeed-et ad vissza, ha useMock = true", () => {
-      const feed = createExchangeClient({ useMock: true });
-      expect(feed).toBeInstanceOf(MockExchangeFeed);
-    });
+    // Phase 66: a `useMock: true` branch TÖRÖLVE — a `MockExchangeFeed`
+    // a `__testing__/mockFeed.ts`-ban van, nem érhető el production
+    // kódból. A `createExchangeClient` kizárólag `BybitEuFeed`-et ad.
 
-    it("BybitEuFeed-et ad vissza, ha useMock = false override opcióval", () => {
+    it("BybitEuFeed-et ad vissza override opcióval", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
       });
       expect(feed).toBeInstanceOf(BybitEuFeed);
     });
 
-    it("BybitEuFeed-et ad vissza, ha useMock = false és env-ben vannak kulcsok", () => {
+    it("BybitEuFeed-et ad vissza env-ben lévő kulcsokkal", () => {
       process.env["BYBIT_API_KEY"] = "k";
       process.env["BYBIT_API_SECRET"] = "s";
-      const feed = createExchangeClient({ useMock: false });
+      const feed = createExchangeClient({});
       expect(feed).toBeInstanceOf(BybitEuFeed);
     });
 
-    it("MissingCredentialsError-t dob, ha useMock = false és nincs kulcs", () => {
-      expect(() => createExchangeClient({ useMock: false })).toThrow(MissingCredentialsError);
+    it("MissingCredentialsError-t dob, ha nincs kulcs", () => {
+      expect(() => createExchangeClient({})).toThrow(MissingCredentialsError);
     });
 
     it("a BybitEuFeed exchangeId 'bybiteu'", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
       });
       expect(feed.exchangeId).toBe("bybiteu");
@@ -112,7 +115,6 @@ describe("factory", () => {
     it("default rateLimitMs 100, ha nincs CCXT_RATE_LIMIT_MS", () => {
       delete process.env["CCXT_RATE_LIMIT_MS"];
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
       });
       expect(feed).toBeInstanceOf(BybitEuFeed);
@@ -120,7 +122,6 @@ describe("factory", () => {
 
     it("explicit rateLimitMs-t használ, ha meg van adva", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
         rateLimitMs: 50,
       });
@@ -129,7 +130,6 @@ describe("factory", () => {
 
     it("explicit sandbox=false flag-et elfogad", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
         sandbox: false,
       });
@@ -138,23 +138,10 @@ describe("factory", () => {
 
     it("explicit sandbox=true flag-et elfogad", () => {
       const feed = createExchangeClient({
-        useMock: false,
         override: { apiKey: "k", secret: "s" },
         sandbox: true,
       });
       expect(feed).toBeInstanceOf(BybitEuFeed);
-    });
-  });
-
-  describe("createMockFeed", () => {
-    it("üres opciókkal is működik", () => {
-      const feed = createMockFeed();
-      expect(feed).toBeInstanceOf(MockExchangeFeed);
-    });
-
-    it("opciókkal is működik", () => {
-      const feed = createMockFeed({ exchangeId: "custom-mock" });
-      expect(feed.exchangeId).toBe("custom-mock");
     });
   });
 });

@@ -39,6 +39,18 @@
 
     /* === Bun / CCXT kompatibilitás === */
     "skipLibCheck": true,
-    "types": ["bun-types"]
+    "types": ["bun-types"],
+    "ignoreDeprecations": "6.0",
+
+    /* === Phase 66: TEST-ONLY path alias ===
+       A `MockExchangeFeed` osztály a `packages/exchange/src/__testing__/mockFeed.ts`-
+       be került (production surface-ről leválasztva, lásd PHASE 66 ENFORCEMENT
+       blokk). A tesztek ezen az alias-on keresztül érik el — így a relative
+       path (`../../../../packages/exchange/src/__testing__/mockFeed`) NEM
+       kell mindenhol karbantartani. */
+    "baseUrl": ".",
+    "paths": {
+      "@exchange-testing/*": ["packages/exchange/src/__testing__/*"]
+    }
   }
 }

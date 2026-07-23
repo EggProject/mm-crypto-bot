@@ -13,7 +13,10 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { asSymbol, MockExchangeFeed, type Order, type Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
+import { asSymbol, type Order, type Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
+// Phase 66: `MockExchangeFeed` is test-only — import from the
+// `@exchange-testing/*` path alias (see tsconfig.base.json).
+import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
 
 import { OrderManager } from "../bot/order-manager.js";
 import { PositionManager } from "../bot/position-manager.js";

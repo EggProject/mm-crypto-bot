@@ -1,7 +1,7 @@
-// packages/exchange/tests/mockFeed.test.ts — a `mockFeed.ts` tesztjei
+// packages/exchange/tests/mockFeed.test.ts — a `__testing__/mockFeed.ts` tesztjei
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { MockExchangeFeed, defaultTicker, defaultOrderBook, defaultMarketMeta } from "../src/mockFeed.js";
+import { MockExchangeFeed, defaultTicker, defaultOrderBook, defaultMarketMeta } from "../src/__testing__/mockFeed.js";
 import type { ClientOrderId, FeedEvent, Symbol, Timeframe, Ticker, OrderBook, MarketMeta, OrderRequest } from "../src/types.js";
 
 const BTC_USDC: Symbol = "BTC/USDC" as Symbol;

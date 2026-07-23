@@ -1,10 +1,10 @@
 // packages/exchange/src/factory.ts — exchange feed factory-k
 //
-// FELADAT: A factory-k egyetlen belépési pontot adnak a `BybitEuFeed` és
-// a `MockExchangeFeed` példányosításához. A `createExchangeClient`
-// factory a környezeti változókból (`BYBIT_API_KEY`, `BYBIT_API_SECRET`)
-// olvassa a hitelesítő adatokat, és a `BUN_ENV` értéke alapján dönti el,
-// hogy melyik feed-et adja vissza.
+// FELADAT: A factory-k egyetlen belépési pontot adnak a `BybitEuFeed`
+// példányosításához. A `createExchangeClient` factory a környezeti
+// változókból (`BYBIT_API_KEY`, `BYBIT_API_SECRET`) olvassa a
+// hitelesítő adatokat, és a `BUN_ENV` értéke alapján dönti el, hogy
+// melyik feed-et adja vissza.
 //
 // FONTOS (fail-safe): a rendszer ALAPÉRTELMEZETTEN paper módban indul —
 // ha `BUN_ENV === "live"` ÉS a `BYBIT_API_KEY`/`BYBIT_API_SECRET` nincs
@@ -12,12 +12,16 @@
 // mindig a `BybitEuFeed`-et adjuk vissza (mert a paper mód a valódi
 // WS feedre épül — lásd `docs/research/stack-findings.md` §1.4).
 //
-// A `createMockFeed` factory a unit tesztek és a `bun run paper --dry`
-// smoke teszthez használható. Soha ne hívd production kódból!
+// === PHASE 66 ENFORCEMENT ===
+//   The previous `createMockFeed` factory and the `useMock: true` branch
+//   in `createExchangeClient` were REMOVED. The `MockExchangeFeed` class
+//   lives in `packages/exchange/src/__testing__/mockFeed.ts` (test-only)
+//   and is intentionally NOT importable from production code. Tests
+//   import it directly via the relative path; the Bot's runtime feed
+//   wire-up is always real bybit.eu (or injected via `options.feed`).
 
 import type { ExchangeFeed } from "./feed.js";
 import { BybitEuFeed, type BybitEuFeedOptions } from "./bybitEuFeed.js";
-import { MockExchangeFeed, type MockExchangeFeedOptions } from "./mockFeed.js";
 
 /** `ExchangeEnv` — a futtatókörnyezet módja. */
 export type ExchangeEnv = "paper" | "live";
@@ -64,18 +68,17 @@ export function detectExchangeEnv(): ExchangeEnv {
 }
 
 /**
- * `createExchangeClient` — a fő factory függvény.
- * - Ha a `useMock` true, egy `MockExchangeFeed`-et ad vissza.
- * - Ha a `useMock` false, a környezeti változókból olvasott kulcsokkal
- *   egy `BybitEuFeed`-et hoz létre.
+ * `createExchangeClient` — a fő factory függvény. KIZÁRÓLAG a `BybitEuFeed`
+ * példányosításához (real bybit.eu, paper vagy live).
  *
- * A függvény opcionálisan fogad egy `Override`-et, amivel a kulcsok
- * explicit megadhatók (pl. smoke tesztnél vagy a `bun run paper --dry` parancsnál).
+ * A `MockExchangeFeed` (a unit/integration tesztekhez) külön fájlban van,
+ * a `__testing__/` almappában, és NEM érhető el a production kódból —
+ * lásd a fájl tetején lévő PHASE 66 ENFORCEMENT blokkot.
+ *
+ * Az opcionális `override` paraméterrel a kulcsok explicit megadhatók
+ * (pl. smoke tesztnél vagy a `bun run paper --dry` parancsnál).
  */
-export function createExchangeClient(opts: { readonly useMock: boolean; readonly override?: ExchangeCredentials | undefined; readonly sandbox?: boolean | undefined; readonly rateLimitMs?: number | undefined }): ExchangeFeed {
-  if (opts.useMock) {
-    return new MockExchangeFeed();
-  }
+export function createExchangeClient(opts: { readonly override?: ExchangeCredentials | undefined; readonly sandbox?: boolean | undefined; readonly rateLimitMs?: number | undefined }): ExchangeFeed {
   const creds = opts.override ?? readExchangeCredentials();
   const bybitOpts: BybitEuFeedOptions = {
     apiKey: creds.apiKey,
@@ -86,15 +89,5 @@ export function createExchangeClient(opts: { readonly useMock: boolean; readonly
   return new BybitEuFeed(bybitOpts);
 }
 
-/**
- * `createMockFeed` — explicit mock feed factory, opciókkal együtt.
- * A unit tesztek és a `bun run paper --dry` smoke teszt használja.
- */
-export function createMockFeed(opts: MockExchangeFeedOptions = {}): MockExchangeFeed {
-  return new MockExchangeFeed(opts);
-}
-
 /** A `BybitEuFeed` re-exportja — a felsőbb rétegeknek, akiknek típus-konkrét kód kell. */
 export { BybitEuFeed, type BybitEuFeedOptions } from "./bybitEuFeed.js";
-export { MockExchangeFeed, type MockExchangeFeedOptions } from "./mockFeed.js";
-export type { MockExchangeFeedOptions as MockFeedOptions } from "./mockFeed.js";
