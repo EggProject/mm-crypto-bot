@@ -246,6 +246,12 @@ export class PositionManager {
    * Ha a position már nyitva van (strategy:symbol:side) → `recordFill`-hez
    * irányítjuk, mert a második fill valójában a meglévő pozíció
    * növelése (vagy részleges zárás).
+   *
+   * FONTOS: Új pozíciókhoz HASZNÁLD. State-restore-hoz (bot restart
+   * után a `data/bot-state.json`-ból betöltött pozíciókhoz) a
+   * `restorePosition()` metódust használd — az NEM dob a cap + L3
+   * check-eken, mert a perzisztált state-et visszatöltjük, nem új
+   * pozíciót nyitunk.
    */
   public openPosition(
     strategy: string,
@@ -525,6 +531,144 @@ export class PositionManager {
    */
   public setRiskManager(rm: RiskManager | null): void {
     this.riskManager = rm;
+  }
+
+  /**
+   * `restorePosition` — Phase 68: a `data/bot-state.json`-ból betöltött
+   * pozíció visszatöltése a belső Map-be. SZÁMÍTÁSI KÜLÖNBSÉG az
+   * `openPosition`-höz képest:
+   *
+   *   - **NEM ellenőrzi a `maxPositions` cap-et.** Ha a perzisztált
+   *     state 5 pozíciót tartalmaz, és közben a config `max_positions=3`-ra
+   *     csökkent, a restore BETÖLTI mind az 5-öt — a config-cap csökkentés
+   *     NEM töröl már megnyitott pozíciókat. (Ha később új pozíciót akar
+   *     nyitni, az `openPosition` már a friss cap-et fogja használni.)
+   *   - **NEM futtatja az L3 leverage check-et.** A perzisztált state
+   *     az equity egy korábbi pillanatában volt érvényes — ha közben
+   *     az equity változott, a leverage-arány is változhat, és a
+   *     `getEquity()`/`assertAggregateLeverage` az aktuális értékekkel
+   *     fog számolni.
+   *   - **A `realizedPnlTotal`-t is visszaállítja**, ha a bot a
+   *     `data/bot-state.json`-ból indult újra — különben a korábbi
+   *     realizált P&L elveszne, és a `getEquity()` hamis értéket adna.
+   *
+   * A `currentPrice` + `unrealizedPnl` + `realizedPnl` + `notionalUsd`
+   * mezők a perzisztált state-ből jönnek (a PositionManager NEM
+   * számítja újra a restore pillanatában — az `updateMarketPrice` hívás
+   * fogja újraszámolni a következő tick-en).
+   *
+   * Phase 68 root cause (Phase 67 óta ismert): a `bot.ts init()` a
+   * PositionManager-t az `initialEquityUsd`-vel hozta létre, de a
+   * `stateStore.load()` utáni pozíciókat SOHA nem töltötte be a
+   * PositionManager-be. A Phase 67 position-skip fix csak a frissen
+   * indított botra vonatkozott — restart után a régi pozíció "elveszett"
+   * a PositionManager szempontjából, és egy új fill átlagolta volna
+   * (vagy cap-re futott volna).
+   */
+  public restorePosition(snapshot: {
+    readonly strategy: string;
+    readonly symbol: Symbol;
+    readonly side: PositionSide;
+    readonly quantity: number;
+    readonly entryPrice: number;
+    readonly currentPrice: number;
+    readonly leverage: number;
+    readonly unrealizedPnl: number;
+    readonly realizedPnl: number;
+    readonly openedAt: number;
+    readonly notionalUsd: number;
+  }): PositionSnapshot {
+    if (snapshot.quantity <= 0) {
+      throw new PositionManagerError(
+        `[position-manager] restorePosition: quantity must be positive, got ${String(snapshot.quantity)}`,
+      );
+    }
+    if (snapshot.entryPrice <= 0) {
+      throw new PositionManagerError(
+        `[position-manager] restorePosition: entryPrice must be positive, got ${String(snapshot.entryPrice)}`,
+      );
+    }
+    if (snapshot.leverage < 1 || snapshot.leverage > 10) {
+      throw new PositionManagerError(
+        `[position-manager] restorePosition: leverage=${String(snapshot.leverage)} violates 1:10 MANDATE (must be 1..10)`,
+      );
+    }
+    const id = this.positionId(snapshot.strategy, snapshot.symbol, snapshot.side);
+    const record: PositionRecord = {
+      id,
+      strategy: snapshot.strategy,
+      symbol: snapshot.symbol,
+      side: snapshot.side,
+      quantity: snapshot.quantity,
+      entryPrice: snapshot.entryPrice,
+      currentPrice: snapshot.currentPrice,
+      leverage: snapshot.leverage,
+      unrealizedPnl: snapshot.unrealizedPnl,
+      realizedPnl: snapshot.realizedPnl,
+      openedAt: snapshot.openedAt,
+      notionalUsd: snapshot.notionalUsd,
+    };
+    this.positions.set(id, record);
+    this.logger.info("[position-manager] position restored from state", {
+      strategy: snapshot.strategy,
+      symbol: String(snapshot.symbol),
+      side: snapshot.side,
+      quantity: snapshot.quantity,
+      entryPrice: snapshot.entryPrice,
+      currentPrice: snapshot.currentPrice,
+      leverage: snapshot.leverage,
+      notionalUsd: snapshot.notionalUsd,
+    });
+    return { ...record };
+  }
+
+  /**
+   * `restoreRealizedPnl` — Phase 68: a `realizedPnlTotal` visszaállítása
+   * a perzisztált state-ből. A bot restart után az új fill-ek P&L-jéhez
+   * hozzáadódik a korábbi realizált P&L, így a `getEquity()` helyes
+   * értéket ad vissza.
+   */
+  public restoreRealizedPnl(realizedPnlUsd: number): void {
+    if (this.realizedPnlTotal !== 0) {
+      this.logger.warn(
+        "[position-manager] restoreRealizedPnl: overwriting non-zero realizedPnlTotal",
+        {
+          existing: this.realizedPnlTotal,
+          new: realizedPnlUsd,
+        },
+      );
+    }
+    this.realizedPnlTotal = realizedPnlUsd;
+  }
+
+  /**
+   * `restoreClosedTrades` — Phase 68: a `closedTrades` history
+   * visszaállítása a perzisztált state-ből. A pozíció-menedzser
+   * belső listája FIFO eviction-t használ (cap 1000), ezért a restore
+   * túl hosszú history esetén levágja a legrégebbi elemeket — ez
+   * konzisztens a `recordFill`/`closePosition` viselkedésével.
+   */
+  public restoreClosedTrades(
+    trades: readonly {
+      readonly strategy: string;
+      readonly symbol: Symbol;
+      readonly side: PositionSide;
+      readonly quantity: number;
+      readonly entryPrice: number;
+      readonly exitPrice: number;
+      readonly pnl: number;
+      readonly pnlPct: number;
+      readonly closedAt: number;
+    }[],
+  ): void {
+    // Apply the same FIFO eviction as `closedTrades = [...this.closedTrades, t]` in closePosition.
+    const cap = 1000;
+    const trimmed = trades.length > cap ? trades.slice(trades.length - cap) : trades;
+    this.closedTrades = [...trimmed];
+    this.logger.info("[position-manager] closed trades restored from state", {
+      count: this.closedTrades.length,
+      droppedIfAny: trades.length - this.closedTrades.length,
+    });
   }
 
   /**

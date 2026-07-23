@@ -44,7 +44,7 @@
  * A `Bot` mindhármat inicializálja és futtatja.
  */
 
-import type { ExchangeFeed, FeedEvent } from "@mm-crypto-bot/exchange";
+import type { ExchangeFeed, FeedEvent, Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
 import {
   createExchangeClient,
   asSymbol,
@@ -452,7 +452,74 @@ export class Bot {
       filePath: this.config.bot.state_file,
       logger: this.logger,
     });
-    this.stateStore.load();
+    // Phase 68: a `load()` visszatérési értékét azonnal felhasználjuk
+    // a PositionManager state-restore-hoz (a Phase 67 óta ismert bug:
+    // a state-ből töltött pozíciók NEM kerültek be a PositionManager-be,
+    // így restart után a Phase 67 position-skip fix nem működött).
+    // A `closedTrades`-t is visszatöltjük, hogy a `getClosedTrades()` history
+    // konzisztens legyen a `realizedPnlTotal`-lal.
+    const loadedState = this.stateStore.load();
+    if (loadedState !== null) {
+      // 1) realizedPnl — vissza kell állítani, különben a getEquity() hamis értéket ad
+      if (loadedState.realizedPnlUsd !== 0) {
+        this.positionManager.restoreRealizedPnl(loadedState.realizedPnlUsd);
+      }
+      // 2) closed trades history — a P&L history konzisztenciájához
+      if (loadedState.closedTrades.length > 0) {
+        this.positionManager.restoreClosedTrades(
+          loadedState.closedTrades.map((t) => ({
+            strategy: t.strategy,
+            symbol: t.symbol as unknown as ExchangeSymbol,
+            side: t.side,
+            quantity: t.quantity,
+            entryPrice: t.entryPrice,
+            exitPrice: t.exitPrice,
+            pnl: t.pnl,
+            pnlPct: t.pnlPct,
+            closedAt: t.closedAt,
+          })),
+        );
+      }
+      // 3) nyitott pozíciók — a Phase 67 position-skip fix ettől kezdve
+      //    ténylegesen működik restart után is
+      if (loadedState.positions.length > 0) {
+        this.logger.info("[bot] restoring positions from state", {
+          count: loadedState.positions.length,
+          strategies: [...new Set(loadedState.positions.map((p) => p.strategy))],
+        });
+        for (const p of loadedState.positions) {
+          try {
+            this.positionManager.restorePosition({
+              strategy: p.strategy,
+              symbol: p.symbol as unknown as ExchangeSymbol,
+              side: p.side,
+              quantity: p.quantity,
+              entryPrice: p.entryPrice,
+              currentPrice: p.currentPrice,
+              leverage: p.leverage,
+              unrealizedPnl: p.unrealizedPnl,
+              realizedPnl: p.realizedPnl,
+              openedAt: p.openedAt,
+              notionalUsd: p.notionalUsd,
+            });
+          } catch (err) {
+            this.logger.error(
+              "[bot] failed to restore position from state — skipping",
+              {
+                strategy: p.strategy,
+                symbol: p.symbol,
+                side: p.side,
+                error: err instanceof Error ? err.message : String(err),
+              },
+            );
+            // A restore HIBÁJA NEM ÁLLÍTJA LE A BOTOT. A Phase 68 tanulsága:
+            // ha egy pozíciót nem sikerül visszatölteni (pl. séma-eltérés
+            // miatt), a bot inkább induljon el a maradék state-tel, mintsem
+            // crasheljen. A skip-elt pozíciót a user manuálisan lezárhatja.
+          }
+        }
+      }
+    }
 
     // -----------------------------------------------------------------------
     // 5) OrderManager
