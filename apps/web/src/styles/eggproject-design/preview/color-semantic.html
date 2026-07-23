@@ -1,0 +1,24 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Semantic Colors</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 22px 28px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .pill { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: var(--ep-radius-lg); }
+  .pill .icn { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+  .pill strong { font: 600 14px var(--ep-font-sans); }
+  .pill span { font: var(--ep-text-meta); font-family: var(--ep-font-mono); color: var(--ep-fg-subtle); }
+  .info { background: #E4ECFE; color: #1F378E; }    .info .icn { background: #2E5BE0; }
+  .success { background: #E1F4EB; color: #1F6849; } .success .icn { background: #2F9C6A; }
+  .warning { background: #FBEED1; color: #7A4D14; } .warning .icn { background: #D4831A; }
+  .danger  { background: #FADEE2; color: #8A2230; } .danger  .icn { background: #C7384E; }
+</style></head>
+<body>
+  <div class="row">
+    <div class="pill info"><div class="icn">i</div><strong>Info</strong><span>blue-600 / blue-100</span></div>
+    <div class="pill success"><div class="icn">✓</div><strong>Success</strong><span>--ep-success</span></div>
+    <div class="pill warning"><div class="icn">!</div><strong>Warning</strong><span>--ep-warning</span></div>
+    <div class="pill danger"><div class="icn">×</div><strong>Danger</strong><span>--ep-danger</span></div>
+  </div>
+  <span class="label">Semantic feedback — paired bg + ink shades</span>
+</body></html>

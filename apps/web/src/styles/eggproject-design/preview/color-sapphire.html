@@ -1,0 +1,39 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Sapphire Scale</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 22px 28px; display: flex; flex-direction: column; gap: 14px; justify-content: center; }
+  .scale { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
+  .sw { aspect-ratio: 1; border-radius: var(--ep-radius-md); position: relative; }
+  .sw::after {
+    content: attr(data-n);
+    position: absolute; bottom: 4px; left: 6px;
+    font: var(--ep-text-meta); font-family: var(--ep-font-mono);
+    color: var(--ep-fg-subtle); font-size: 10px;
+  }
+  .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .anchor { display: flex; gap: 16px; align-items: center; padding: 12px 14px; background: var(--ep-second-bg); border-radius: var(--ep-radius-md); border: 1px solid var(--ep-blue-100); }
+  .anchor .chip { width: 40px; height: 40px; border-radius: var(--ep-radius-sm); background: var(--ep-blue-600); box-shadow: 0 0 0 4px var(--ep-blue-100); }
+  .anchor .info { display: flex; flex-direction: column; }
+  .anchor .info strong { font: 600 14px var(--ep-font-sans); color: var(--ep-fg); }
+  .anchor .info span  { font: var(--ep-text-meta); color: var(--ep-fg-subtle); font-family: var(--ep-font-mono); }
+</style></head>
+<body>
+  <div class="anchor">
+    <div class="chip"></div>
+    <div class="info"><strong>Sapphire 600 — brand / second voice</strong><span>#2E5BE0 · var(--ep-second)</span></div>
+  </div>
+  <div class="scale">
+    <div class="sw" data-n="50"  style="background:#F2F5FF"></div>
+    <div class="sw" data-n="100" style="background:#E4ECFE"></div>
+    <div class="sw" data-n="200" style="background:#CDDBFD"></div>
+    <div class="sw" data-n="300" style="background:#A8BFFA"></div>
+    <div class="sw" data-n="400" style="background:#7E9EF5"></div>
+    <div class="sw" data-n="500" style="background:#4F7BEE"></div>
+    <div class="sw" data-n="600" style="background:#2E5BE0; box-shadow: 0 0 0 2px var(--ep-ink-900);"></div>
+    <div class="sw" data-n="700" style="background:#2949B8; color:#fff"></div>
+    <div class="sw" data-n="800" style="background:#1F378E; color:#fff"></div>
+    <div class="sw" data-n="900" style="background:#16245E; color:#fff"></div>
+  </div>
+  <div class="row"><span class="label">Sapphire — brand hue · second voice & flourish</span><span class="meta">10-step ramp</span></div>
+</body></html>

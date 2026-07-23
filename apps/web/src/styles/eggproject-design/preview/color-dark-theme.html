@@ -1,0 +1,238 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html>
+<html data-theme="light"><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Light & Dark themes</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 22px 28px; display: flex; flex-direction: column; gap: 16px; justify-content: center; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .panel {
+    position: relative;
+    background: var(--ep-bg);
+    color: var(--ep-fg);
+    border: 1px solid var(--ep-border-subtle);
+    border-radius: var(--ep-radius-lg);
+    padding: 18px 18px 16px;
+    display: flex; flex-direction: column; gap: 12px;
+    overflow: hidden;
+  }
+  .panel .tag {
+    position: absolute; top: 12px; right: 14px;
+    font: 500 10px var(--ep-font-mono);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ep-fg-subtle);
+  }
+  .stack { display: flex; flex-direction: column; gap: 5px; padding-top: 18px; }
+  .stack-row {
+    display: flex; align-items: center; justify-content: space-between;
+    border-radius: var(--ep-radius-sm);
+    padding: 7px 10px;
+    font: 500 11px var(--ep-font-mono);
+    color: var(--ep-fg);
+    border: 1px solid var(--ep-divider);
+    gap: 12px;
+  }
+  .stack-row .key { letter-spacing: 0; color: var(--ep-fg); white-space: nowrap; }
+  .stack-row .val {
+    color: var(--ep-fg-subtle); font-size: 10px;
+    display: inline-flex; align-items: center; gap: 10px;
+    white-space: nowrap;
+  }
+  .stack-row.bg        { background: var(--ep-bg); }
+  .stack-row.elevated  { background: var(--ep-bg-elevated); }
+  .stack-row.sunken    { background: var(--ep-bg-sunken); }
+  .stack-row.raised    { background: var(--ep-bg-raised, var(--ep-bg-elevated)); }
+  .stack-row .pct {
+    font-size: 9px; color: var(--ep-fg-faint);
+    letter-spacing: 0.02em;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--ep-divider);
+  }
+
+  .card-sample {
+    background: var(--ep-bg-elevated);
+    border: 1px solid var(--ep-border);
+    border-radius: var(--ep-radius-md);
+    padding: 12px 14px;
+    box-shadow: var(--ep-shadow-sm);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .card-sample h4 {
+    font: 600 13px var(--ep-font-sans);
+    letter-spacing: -0.01em;
+    color: var(--ep-fg);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap;
+  }
+  .card-sample h4 > span:first-child { flex: 1 1 auto; min-width: 0; }
+  .card-sample h4 em {
+    font-family: var(--ep-font-display);
+    font-size: 15px;
+ font-weight: 700; 
+    /* The headline flourish is SAPPHIRE (the brand hue) — not the gold
+       primary action. „a kék a márkáé, az arany a fényé.” */
+    color: var(--ep-flourish);
+  }
+  .card-sample p {
+    font: 400 12px/1.45 var(--ep-font-sans);
+    color: var(--ep-fg-muted);
+  }
+  .badge-warm {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--ep-accent-warm-bg, var(--ep-yolk-100));
+    color: var(--ep-accent-warm-fg, var(--ep-yolk-700));
+    border: 1px solid color-mix(in oklab, var(--ep-accent-warm, var(--ep-yolk-600)) 30%, transparent);
+    padding: 2px 8px;
+    border-radius: var(--ep-radius-pill);
+    font: 600 10px var(--ep-font-sans);
+    letter-spacing: 0.04em; text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .badge-warm::before {
+    content: ""; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--ep-accent-warm, var(--ep-yolk-600));
+  }
+  .row-actions { display: flex; gap: 6px; align-items: center; padding-top: 4px; }
+  .btn-primary {
+    background: var(--ep-accent); color: var(--ep-fg-on-blue);
+    padding: 6px 12px; border-radius: var(--ep-radius-pill);
+    font: 600 11px var(--ep-font-sans); border: 0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16);
+  }
+  .btn-warm {
+    background: var(--ep-accent-warm-bg, var(--ep-yolk-100));
+    color: var(--ep-accent-warm-fg, var(--ep-yolk-700));
+    padding: 6px 12px; border-radius: var(--ep-radius-pill);
+    font: 600 11px var(--ep-font-sans);
+    border: 1px solid color-mix(in oklab, var(--ep-accent-warm, var(--ep-yolk-600)) 35%, transparent);
+  }
+  .btn-warm:focus-visible {
+    outline: none;
+    box-shadow: var(--ep-shadow-focus-warm, var(--ep-shadow-focus));
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .meta-line {
+    font: var(--ep-text-meta); font-family: var(--ep-font-mono);
+    color: var(--ep-fg-subtle);
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* WCAG annotation strip */
+  .wcag {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 6px; padding-top: 2px;
+  }
+  .wcag .cell {
+    font: 500 9px/1.2 var(--ep-font-mono);
+    letter-spacing: 0.04em;
+    color: var(--ep-fg-subtle);
+    border: 1px solid var(--ep-divider);
+    border-radius: var(--ep-radius-sm);
+    padding: 6px 7px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .wcag .cell strong {
+    font: 600 10px var(--ep-font-sans);
+    color: var(--ep-fg);
+    letter-spacing: 0;
+  }
+  .wcag .cell .grade {
+    align-self: flex-start;
+    font: 700 8px var(--ep-font-sans); letter-spacing: 0.08em;
+    color: var(--ep-success);
+    background: var(--ep-success-bg);
+    border-radius: 3px;
+    padding: 1px 4px;
+  }
+  .wcag .cell .grade.warn {
+    color: var(--ep-warning); background: var(--ep-warning-bg);
+  }
+  .wcag .swatch {
+    width: 12px; height: 12px; border-radius: 3px;
+    display: inline-block; margin-right: 5px;
+    border: 1px solid var(--ep-divider);
+    vertical-align: -2px;
+  }
+
+  .footer { display: flex; justify-content: space-between; align-items: baseline; }
+  .footer .label { font: var(--ep-text-overline); letter-spacing: var(--ep-track-overline); text-transform: uppercase; color: var(--ep-fg-subtle); }
+  .footer .meta  { font: var(--ep-text-meta); font-family: var(--ep-font-mono); color: var(--ep-fg-subtle); }
+</style></head>
+<body>
+  <div class="pair">
+
+    <!-- Light -->
+    <div class="panel" data-theme="light">
+      <span class="tag">data-theme · light</span>
+      <div class="stack">
+        <div class="stack-row sunken"><span class="key">--ep-bg-sunken</span><span class="val">paper-100</span></div>
+        <div class="stack-row bg"><span class="key">--ep-bg</span><span class="val">paper-50</span></div>
+        <div class="stack-row elevated"><span class="key">--ep-bg-elevated</span><span class="val">#FFFFFF</span></div>
+      </div>
+      <div class="card-sample">
+        <h4>
+          <span>Crafted code, <em>shipped on time.</em></span>
+          <span class="badge-warm">Signature</span>
+        </h4>
+        <p>Semantic tokens drive the surface, text, border and shadow. Brand scales stay constant; the warm accent reads quietly here.</p>
+        <div class="meta-line">
+          <span class="dot" style="background:var(--ep-success)"></span>
+          v1.0.0 · ready
+        </div>
+        <div class="row-actions">
+          <button class="btn-primary">Start a project</button>
+          <button class="btn-warm">Premium</button>
+        </div>
+      </div>
+
+      <div class="wcag" aria-label="WCAG contrast on light">
+        <div class="cell"><strong><span class="swatch" style="background:var(--ep-fg)"></span>fg / bg</strong><span>16.2 : 1</span><span class="grade">AAA</span></div>
+        <div class="cell"><strong><span class="swatch" style="background:var(--ep-fg-muted)"></span>fg-muted</strong><span>7.1 : 1</span><span class="grade">AAA</span></div>
+        <div class="cell"><strong><span class="swatch" style="background:var(--ep-accent)"></span>ink / gold</strong><span>9.1 : 1</span><span class="grade">AAA</span></div>
+        <div class="cell"><strong><span class="swatch" style="background:var(--ep-second)"></span>sapphire</strong><span>5.4 : 1</span><span class="grade">AA</span></div>
+      </div>
+    </div>
+
+    <!-- Dark -->
+    <div class="panel" data-theme="dark">
+      <span class="tag">data-theme · dark</span>
+      <div class="stack">
+        <div class="stack-row sunken"><span class="key">--ep-bg-sunken</span><span class="val">graphite #080A10 + gold<span class="pct">sunken</span></span></div>
+        <div class="stack-row bg"><span class="key">--ep-bg</span><span class="val">graphite #0C0D11 + gold<span class="pct">page</span></span></div>
+        <div class="stack-row elevated"><span class="key">--ep-bg-elevated</span><span class="val">graphite #131720 + gold<span class="pct">card</span></span></div>
+        <div class="stack-row raised"><span class="key">--ep-bg-raised</span><span class="val">graphite #181D29 + gold<span class="pct">raised</span></span></div>
+      </div>
+      <div class="card-sample">
+        <h4>
+          <span>Crafted code, <em>shipped on time.</em></span>
+          <span class="badge-warm">Signature</span>
+        </h4>
+        <p>Surfaces are warm graphite with a trace of gold mixed in — the dark theme reads as warm graphite, not a cold server rack. Gold drives the primary action; sapphire stays the explanatory flourish.</p>
+        <div class="meta-line">
+          <span class="dot" style="background:var(--ep-success)"></span>
+          v1.0.0 · ready
+          <span style="flex:1"></span>
+          <span class="dot" style="background:var(--ep-accent-warm)"></span>
+          premium
+        </div>
+        <div class="row-actions">
+          <button class="btn-primary">Start a project</button>
+          <button class="btn-warm">Premium</button>
+        </div>
+      </div>
+
+      <div class="wcag" aria-label="WCAG contrast on dark">
+        <div class="cell"><strong><span class="swatch" style="background:var(--ep-fg)"></span>fg / bg</strong><span>14.2 : 1</span><span class="grade">AAA</span></div>
+        <div class="cell"><strong><span class="swatch" style="background:var(--ep-fg-muted)"></span>fg-muted</strong><span>9.8 : 1</span><span class="grade">AAA</span></div>
+        <div class="cell"><strong><span class="swatch" style="background:var(--ep-accent)"></span>gold / bg</strong><span>7.0 : 1</span><span class="grade">AAA</span></div>
+        <div class="cell"><strong><span class="swatch" style="background:var(--ep-second)"></span>sapphire</strong><span>6.5 : 1</span><span class="grade">AAA</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <span class="label">warm graphite · gold tint · WCAG&nbsp;AA verified</span>
+    <span class="meta">[data-theme="dark"] · color-mix(in oklab, graphite, gold)</span>
+  </div>
+</body></html>

@@ -1,0 +1,24 @@
+<!-- @dsCard group="Type" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Mono Type</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 22px 28px; justify-content: center; display: flex; flex-direction: column; gap: 14px; }
+  .code-block {
+    background: var(--ep-ink-900); color: var(--ep-paper-100);
+    padding: 18px 22px; border-radius: var(--ep-radius-lg);
+    font: var(--ep-text-code); font-size: 14px;
+    box-shadow: var(--ep-shadow-md);
+  }
+  .code-block .k { color: var(--ep-blue-400); }
+  .code-block .s { color: var(--ep-yolk-400); }
+  .code-block .c { color: var(--ep-slate-400); font-style: italic; }
+  .inline { font: var(--ep-text-body); color: var(--ep-fg-muted); }
+  .inline code { font: var(--ep-text-code); background: var(--ep-accent-bg); color: var(--ep-accent-fg); padding: 2px 7px; border-radius: 4px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; }
+</style></head>
+<body>
+  <div class="code-block"><span class="c">// EggProject — predictable shipping</span><br/>
+<span class="k">const</span> ship = (project) =&gt; project.<span class="k">build</span>(<span class="s">"production"</span>);</div>
+  <div class="inline">Inline tokens read like <code>--ep-blue-600</code> · <code>var(--ep-radius-md)</code></div>
+  <div class="row"><span class="label">JetBrains Mono · 400 / 500</span><span class="meta">var(--ep-font-mono)</span></div>
+</body></html>

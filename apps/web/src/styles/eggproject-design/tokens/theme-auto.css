@@ -1,0 +1,72 @@
+/* ============================================================
+   EggProject — Auto theme (follows OS)
+   Auto dark — opt-in by setting [data-theme="auto"]. Falls back to
+   system preference. Most surfaces should set theme="dark" explicitly;
+   "auto" is for surfaces that follow the OS chrome (docs, status page).
+   Mirrors theme-dark.css under a prefers-color-scheme: dark query.
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] {
+    --ep-tint: #E3B563;
+
+    --ep-bg:           color-mix(in oklab, #0C0D11 97%, var(--ep-tint));
+    --ep-bg-sunken:    color-mix(in oklab, #080A10 98%, var(--ep-tint));
+    --ep-bg-elevated:  color-mix(in oklab, #131720 95%, var(--ep-tint));
+    --ep-bg-raised:    color-mix(in oklab, #181D29 93%, var(--ep-tint));
+    --ep-bg-inverse:   var(--ep-paper-50);
+
+    --ep-fg:           #ECE7DA;
+    --ep-fg-muted:     #C7C0AF;
+    --ep-fg-subtle:    #A49D8C;
+    --ep-fg-faint:     #7C766A;
+    --ep-fg-placeholder: #938C7C;
+    --ep-fg-on-blue:   var(--ep-accent-on, #16130C);
+    --ep-fg-on-ink:    #ECE7DA;
+
+    --ep-border:       #2A2E38;
+    --ep-border-subtle:#20242D;
+    --ep-border-strong:rgba(255, 255, 255, 0.22);
+    --ep-control-border:rgba(255, 255, 255, 0.34);
+    --ep-divider:      rgba(255, 255, 255, 0.07);
+
+    --ep-accent:       #E3B563;
+    --ep-accent-hover: #EFCB85;
+    --ep-accent-press: #D9A845;
+    --ep-accent-on:    #16130C;
+
+    --ep-bg-hover:     rgba(255, 255, 255, 0.05);
+    --ep-bg-pressed:   rgba(255, 255, 255, 0.09);
+    --ep-bg-control:   rgba(255, 255, 255, 0.14);
+    --ep-accent-bg:    rgba(227, 181, 99, 0.14);
+    --ep-accent-fg:    #EFCB85;
+
+    --ep-second:       var(--ep-blue-500);
+    --ep-second-hover: var(--ep-blue-400);
+    --ep-second-press: var(--ep-blue-300);
+    --ep-second-bg:    rgba(79, 123, 238, 0.16);
+    --ep-second-fg:    var(--ep-blue-300);
+    --ep-flourish:     var(--ep-blue-400);
+
+    --ep-accent-warm:       #E3B563;
+    --ep-accent-warm-hover: #EFCB85;
+    --ep-accent-warm-bg:    rgba(227, 181, 99, 0.16);
+    --ep-accent-warm-fg:    #EFCB85;
+
+    --ep-success: #7DD3A8; --ep-success-bg: rgba(47, 156, 106, 0.16); --ep-success-fg: #7DD3A8;
+    --ep-warning: #E3B563; --ep-warning-bg: rgba(227, 181, 99, 0.15); --ep-warning-fg: #E3B563;
+    --ep-danger:  #F09CA8; --ep-danger-bg:  rgba(199, 56, 78, 0.18);
+    --ep-info:    var(--ep-blue-400); --ep-info-bg: rgba(79, 123, 238, 0.18);
+
+    --ep-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --ep-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+    --ep-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.36), 0 8px 16px rgba(0, 0, 0, 0.44);
+    --ep-shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.36), 0 16px 32px rgba(0, 0, 0, 0.55);
+    --ep-shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.44), 0 32px 64px rgba(0, 0, 0, 0.64);
+    --ep-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+    --ep-shadow-focus: 0 0 0 2px rgba(10, 18, 48, 0.9), 0 0 0 4px #E3B563;
+    --ep-shadow-focus-warm: 0 0 0 2px rgba(10, 18, 48, 0.9), 0 0 0 4px #E3B563;
+    --ep-shadow-focus-second: 0 0 0 3px rgba(168, 191, 250, 0.6);
+
+    color-scheme: dark;
+  }
+}

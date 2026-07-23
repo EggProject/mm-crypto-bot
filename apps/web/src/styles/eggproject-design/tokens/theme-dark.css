@@ -1,0 +1,115 @@
+/* ============================================================
+   Dark theme — opt-in via [data-theme="dark"] on <html> or any ancestor.
+
+   Surfaces follow Material Design 3 tonal-elevation: a single "surface
+   tint" seed (here, Yolk-500) is mixed into the ink base at increasing
+   percentages as elevation rises. M3 reference percentages:
+       lvl 0 · 0%   lvl 1 · 5%   lvl 2 · 8%   lvl 3 · 11%   lvl 4 · 12%
+   We seed with Yolk (not blue) on purpose — Yolk is our signature
+   warmth, and tinting with it pulls the whole UI away from the sterile
+   "server-rack" feel of a pure cold-blue dark theme.
+
+   The ink bases were lightened ~25% (May 2026) so the dark theme reads as
+   "warm ink", not "black hole". Elevation order, M3 percentages and Yolk
+   tint seed are unchanged — only the underlying hex pulls forward.
+
+   All foreground/background pairs still satisfy WCAG 2.1 contrast.
+   The muted / subtle / faint tier was lifted one slate-step (May 2026)
+   after the previous values (slate-300/400/500) read as visibly dim on
+   the warm-ink page — overline labels, meta chrome and large index
+   numerals were the most obvious offenders. The new stack:
+       fg / bg              ≈ 14.6:1   AAA
+       fg-muted / bg        ≈ 12.0:1   AAA   (was 8.4 — slate-200)
+       fg-subtle / bg       ≈  8.4:1   AAA   (was 5.5 — slate-300)
+       fg-faint / bg        ≈  4.2:1   AA-lg (was 3.2 — slate-400)
+       accent (blue-500)    ≈  4.6:1   AA
+       accent-warm (yolk-400) ≈ 10.8:1 AAA  ← preferred for callouts in dark
+       success/warning/danger fg ≥ 4.3:1    AA
+   ============================================================ */
+[data-theme="dark"] {
+  /* ── „Éjszakai műszak" — graphite base, gold action, sapphire voice ──
+     Surface tint seed is the GOLD itself (#E3B563). Every dark surface is
+     the graphite base mixed with a trace of gold (Material 3 elevation
+     overlay) so the whole UI reads as warm graphite, not cold black. */
+  --ep-tint: #E3B563;
+
+  /* === Surfaces — graphite, tonally gold-tinted ==========
+     Order: sunken < bg < elevated < raised. */
+  --ep-bg:           color-mix(in oklab, #0C0D11 97%, var(--ep-tint));  /* page — graphite */
+  --ep-bg-sunken:    color-mix(in oklab, #080A10 98%, var(--ep-tint));  /* wells / inputs */
+  --ep-bg-elevated:  color-mix(in oklab, #131720 95%, var(--ep-tint));  /* cards / panels */
+  --ep-bg-raised:    color-mix(in oklab, #181D29 93%, var(--ep-tint));  /* popovers / dialogs */
+  --ep-bg-inverse:   var(--ep-paper-50);     /* light surface inside dark (rare) */
+
+  /* === Text — cream on graphite (AAA, tuned for long reading) === */
+  --ep-fg:           #ECE7DA;                /* cream — primary    ~14.2:1 AAA */
+  --ep-fg-muted:     #C7C0AF;                /* secondary          ~ 9.8:1 AAA */
+  --ep-fg-subtle:    #A49D8C;                /* tertiary / meta    ~ 6.6:1 AA  */
+  --ep-fg-faint:     #7C766A;                /* decorative faint only (NOT placeholders) ~ 3.8:1 AA-lg */
+  --ep-fg-placeholder: #938C7C;              /* input placeholder text — AA 5.00:1 on elevated */
+  --ep-fg-on-blue:   var(--ep-accent-on, #16130C);  /* ink on filled gold */
+  --ep-fg-on-ink:    #ECE7DA;
+
+  /* === Borders & dividers — quiet graphite edges ========= */
+  --ep-border:       #2A2E38;
+  --ep-border-subtle:#20242D;
+  --ep-border-strong:rgba(255, 255, 255, 0.22);
+  /* Form controls need a brighter resting edge than panels so checkboxes/radios
+     stay visible on graphite (panel borders stay quiet via --ep-border). */
+  --ep-control-border:rgba(255, 255, 255, 0.34);
+  --ep-divider:      rgba(255, 255, 255, 0.07);
+
+  /* === Primary action = GOLD (where you can act) ========= */
+  --ep-accent:       #E3B563;                /* gold */
+  --ep-accent-hover: #EFCB85;                /* gold-bright */
+  --ep-accent-press: #D9A845;
+  --ep-accent-on:    #16130C;                /* ink on solid gold */
+
+  /* Interaction surfaces (dark) — small additive white washes. */
+  --ep-bg-hover:     rgba(255, 255, 255, 0.05);
+  --ep-bg-pressed:   rgba(255, 255, 255, 0.09);
+  --ep-bg-control:   rgba(255, 255, 255, 0.14);   /* toggle off-track */
+  --ep-accent-bg:    rgba(227, 181, 99, 0.14);    /* gold @ 14% — tag / ghost-hover */
+  --ep-accent-fg:    #EFCB85;                      /* gold text on accent-bg */
+
+  /* === Second voice = SAPPHIRE (the brand hue) ==========
+     Explanatory highlights, info chrome, and the headline flourish
+     (brighter blue-400 on graphite). Not the primary action. */
+  --ep-second:       var(--ep-blue-500);     /* #4F7BEE */
+  --ep-second-hover: var(--ep-blue-400);
+  --ep-second-press: var(--ep-blue-300);
+  --ep-second-bg:    rgba(79, 123, 238, 0.16);
+  --ep-second-fg:    var(--ep-blue-300);
+  --ep-flourish:     var(--ep-blue-400);     /* headline em flourish (sapphire) */
+
+  /* Warm accent — back-compat alias; folds into the gold primary. */
+  --ep-accent-warm:       #E3B563;
+  --ep-accent-warm-hover: #EFCB85;
+  --ep-accent-warm-bg:    rgba(227, 181, 99, 0.16);
+  --ep-accent-warm-fg:    #EFCB85;
+
+  /* === Semantic — brightened for the graphite base ======= */
+  --ep-success:    #7DD3A8;                  /* ~8.6:1 AAA */
+  --ep-success-bg: rgba(47, 156, 106, 0.16);
+  --ep-success-fg: #7DD3A8;                  /* success TEXT — already AA in dark (= --ep-success) */
+  --ep-warning:    #E3B563;                  /* unified with gold */
+  --ep-warning-bg: rgba(227, 181, 99, 0.15);
+  --ep-warning-fg: #E3B563;                  /* warning TEXT/icon — already AA in dark (= --ep-warning) */
+  --ep-danger:     #F09CA8;                  /* ~7.1:1 AAA */
+  --ep-danger-bg:  rgba(199, 56, 78, 0.18);
+  --ep-info:       var(--ep-blue-400);
+  --ep-info-bg:    rgba(79, 123, 238, 0.18);
+
+  /* === Shadows — deeper, more transparent so they read on graphite === */
+  --ep-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --ep-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+  --ep-shadow-md: 0 2px 4px rgba(0, 0, 0, 0.36), 0 8px 16px rgba(0, 0, 0, 0.44);
+  --ep-shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.36), 0 16px 32px rgba(0, 0, 0, 0.55);
+  --ep-shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.44), 0 32px 64px rgba(0, 0, 0, 0.64);
+  --ep-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+  --ep-shadow-focus: 0 0 0 2px rgba(10, 18, 48, 0.9), 0 0 0 4px #E3B563;  /* two-layer dark gold ring: inner 2px ink band (≥3:1 vs gold-filled controls, 8.2:1) + outer 2px gold (≥3:1 vs graphite surfaces, 7.9–10.2:1). Mirror of light. Was 0 0 0 3px rgba(227,181,99,.40) = only 2.54:1. */
+  --ep-shadow-focus-warm: 0 0 0 2px rgba(10, 18, 48, 0.9), 0 0 0 4px #E3B563;  /* alias — kept in sync with --ep-shadow-focus (unused) */
+  --ep-shadow-focus-second: 0 0 0 3px rgba(168, 191, 250, 0.6); /* sapphire ring (second voice) — blue-300 @60%, AA 4.38:1 vs graphite (was rgba(126,158,245,.45) 2.40) */
+
+  color-scheme: dark;
+}

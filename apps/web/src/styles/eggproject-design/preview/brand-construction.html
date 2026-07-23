@@ -1,0 +1,32 @@
+<!-- @dsCard group="Brand" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Brand Construction</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 24px 32px; }
+  .stage { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center; }
+  .construct { position: relative; width: 220px; height: 220px; margin: 0 auto; }
+  .construct svg.guide { position: absolute; inset: 0; }
+  .construct img { position: absolute; inset: 28px; width: calc(100% - 56px); height: calc(100% - 56px); }
+  .notes { display: flex; flex-direction: column; gap: 14px; }
+  .note { display: grid; grid-template-columns: 12px 1fr; gap: 12px; align-items: start; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 8px; background: var(--ep-accent); }
+  .note h4 { font: var(--ep-text-h4); margin-bottom: 2px; }
+  .note p { font: var(--ep-text-small); color: var(--ep-fg-muted); }
+</style></head>
+<body>
+  <div class="stage">
+    <div class="construct">
+      <svg class="guide" viewBox="0 0 220 220">
+        <rect x="0.5" y="0.5" width="219" height="219" fill="none" stroke="#2E5BE0" stroke-opacity="0.2" stroke-dasharray="2 4"/>
+        <rect x="28" y="28" width="164" height="164" fill="none" stroke="#2E5BE0" stroke-opacity="0.4" stroke-dasharray="3 3"/>
+        <circle cx="110" cy="110" r="82" fill="none" stroke="#D4AC5E" stroke-opacity="0.5" stroke-dasharray="2 3"/>
+      </svg>
+      <img src="../assets/logo-mark.svg" alt="">
+    </div>
+    <div class="notes">
+      <div class="note"><div class="dot"></div><div><h4>Clearspace</h4><p>Minimum padding equal to ¼ the mark height on all sides.</p></div></div>
+      <div class="note"><div class="dot" style="background:var(--ep-yolk-600)"></div><div><h4>Minimum size</h4><p>24px digital · 12mm print. Below this, switch to monogram.</p></div></div>
+      <div class="note"><div class="dot" style="background:var(--ep-ink-900)"></div><div><h4>Don't</h4><p>Recolor the mark · stretch · rotate · re-set the wordmark in another typeface.</p></div></div>
+    </div>
+  </div>
+</body></html>

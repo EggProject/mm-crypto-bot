@@ -1,0 +1,31 @@
+<!-- @dsCard group="Colors" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Paper Neutrals</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 22px 28px; display: flex; flex-direction: column; gap: 14px; justify-content: center; }
+  .scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .sw { height: 80px; border-radius: var(--ep-radius-md); padding: 10px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--ep-divider); }
+  .sw .n { font: var(--ep-text-meta); font-family: var(--ep-font-mono); font-size: 10px; }
+  .sw .h { font: var(--ep-text-meta); font-family: var(--ep-font-mono); font-size: 11px; }
+  /* Light paper swatches: dark ink labels (paper 400 is the darkest cream, still ~6:1) */
+  .scale.paper .sw .n { color: #0A1230; }
+  .scale.paper .sw .h { color: #2A3447; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; }
+</style></head>
+<body>
+  <div class="scale paper">
+    <div class="sw" style="background:#FBF9F4"><span class="n">paper 50</span><span class="h">#FBF9F4</span></div>
+    <div class="sw" style="background:#F6F3EB"><span class="n">paper 100</span><span class="h">#F6F3EB</span></div>
+    <div class="sw" style="background:#ECE7DA"><span class="n">paper 200</span><span class="h">#ECE7DA</span></div>
+    <div class="sw" style="background:#DCD5C3"><span class="n">paper 300</span><span class="h">#DCD5C3</span></div>
+    <div class="sw" style="background:#B8AE94"><span class="n">paper 400</span><span class="h">#B8AE94</span></div>
+  </div>
+  <div class="scale">
+    <div class="sw" style="background:#060B1F"><span class="n" style="color:#E6EAF2">ink 950</span><span class="h" style="color:#B3BCCC">#060B1F</span></div>
+    <div class="sw" style="background:#0A1230"><span class="n" style="color:#E6EAF2">ink 900</span><span class="h" style="color:#B3BCCC">#0A1230</span></div>
+    <div class="sw" style="background:#131C44"><span class="n" style="color:#E6EAF2">ink 800</span><span class="h" style="color:#B3BCCC">#131C44</span></div>
+    <div class="sw" style="background:#1E2A5C"><span class="n" style="color:#E6EAF2">ink 700</span><span class="h" style="color:#B3BCCC">#1E2A5C</span></div>
+    <div class="sw" style="background:#2A3447"><span class="n" style="color:#E6EAF2">slate 700</span><span class="h" style="color:#B3BCCC">#2A3447</span></div>
+  </div>
+  <div class="row"><span class="label">Paper cream · Midnight ink — warm/cool neutrals</span><span class="meta">surfaces &amp; text</span></div>
+</body></html>

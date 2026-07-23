@@ -149,10 +149,40 @@ export function createWsRelay(options: WsRelayOptions): WsRelayHandle {
   // a lezáráskor való iterate-hoz kell.
   const browsers = new Set<ServerWebSocket<WsData>>();
 
+  // Phase 66: cache the last SNAPSHOT (including ohlcBootstrap) so a
+  // newly-connected browser can receive it on `open`. Before this fix,
+  // the state-feed's `handleOpen` (TCP) sent HELLO+SNAPSHOT to the
+  // relay when the relay first connected — but if any browser joined
+  // AFTER that initial SNAPSHOT had already been relayed, it would
+  // never see the bootstrap bars (only the streaming `bar` events),
+  // and the dashboard's `barsByKey` stayed empty until the next
+  // `snapshot`/`state` event. The cache is overwritten on every
+  // incoming SNAPSHOT from the state-feed (line 195 below).
+  let lastSnapshot: { snapshot: StateFeedSnapshot; ohlcBootstrap: Readonly<Record<string, Readonly<Record<string, readonly StateFeedOHLC[]>>>> } | null = null;
+
   const handlers: WebSocketHandler<WsData> = {
     open(ws: ServerWebSocket<WsData>) {
       ws.data = { subscriptions: new Set<string>(), closed: false };
       browsers.add(ws);
+      // Replay the last SNAPSHOT to the new browser. The state-feed
+      // `handleOpen` (TCP-level) doesn't fire when a NEW browser
+      // connects through the relay — only when the relay itself
+      // reconnects. Without this replay, the browser would only see
+      // the streaming `bar` events (no bootstrap), and the dashboard
+      // chart grid would stay empty.
+      if (lastSnapshot !== null) {
+        try {
+          const payload = JSON.stringify({
+            type: "snapshot",
+            ts: Date.now(),
+            snapshot: lastSnapshot.snapshot,
+            ohlcBootstrap: lastSnapshot.ohlcBootstrap,
+          });
+          ws.send(payload);
+        } catch {
+          // best-effort
+        }
+      }
     },
     message(ws: ServerWebSocket<WsData>, raw: string | Uint8Array) {
       // A böngésző a state-feed protokoll egy részhalmazát küldi:
@@ -187,6 +217,7 @@ export function createWsRelay(options: WsRelayOptions): WsRelayHandle {
       if (message.type === "ping") return;
       // A SNAPSHOT-ot a http-server cache-eli.
       if (message.type === "snapshot") {
+        lastSnapshot = { snapshot: message.snapshot, ohlcBootstrap: message.ohlcBootstrap };
         options.onSnapshot(message.snapshot, message.ohlcBootstrap);
       }
       // A relay minden böngészőnek elküldi az üzenetet (a Set iteráció

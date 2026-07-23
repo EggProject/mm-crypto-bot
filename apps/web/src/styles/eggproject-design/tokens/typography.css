@@ -1,0 +1,76 @@
+/* ============================================================
+   EggProject — Typography
+   Font families, the semantic type scale, tracking helpers, and
+   the reusable .ep-* type classes + the bold display flourish.
+   Theme-neutral: the same scale serves light and dark.
+   ============================================================ */
+:root {
+  /* === Typography Families =============================== */
+  --ep-font-display: 'Roboto', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --ep-font-sans:    'Roboto', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --ep-font-mono:    'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  /* === Type Scale (semantic) ============================= */
+  --ep-text-display-lg: 700 clamp(56px, 8vw, 96px)/0.95 var(--ep-font-display);
+  --ep-text-display:    400 clamp(44px, 6vw, 72px)/1.02 var(--ep-font-display);
+  --ep-text-h1:         400 48px/1.05 var(--ep-font-display);
+  --ep-text-h2:         400 36px/1.1  var(--ep-font-display);
+  --ep-text-h3:         600 24px/1.25 var(--ep-font-sans);
+  --ep-text-h4:         600 18px/1.3  var(--ep-font-sans);
+  --ep-text-lead:       400 20px/1.5  var(--ep-font-sans);
+  --ep-text-body:       400 16px/1.55 var(--ep-font-sans);
+  --ep-text-small:      400 14px/1.5  var(--ep-font-sans);
+  --ep-text-meta:       500 12px/1.4  var(--ep-font-sans);
+  --ep-text-overline:   500 12px/1.2  var(--ep-font-sans); /* + tracking, uppercase */
+  --ep-text-code:       500 14px/1.5  var(--ep-font-mono);
+
+  /* Tracking helpers */
+  --ep-track-tight:   -0.02em;
+  --ep-track-normal:   0; /* @kind other */
+  --ep-track-wide:     0.08em;
+  --ep-track-overline: 0.14em;
+}
+
+/* ============================================================
+   Reusable semantic typography classes
+   ============================================================ */
+.ep-display-lg { font: var(--ep-text-display-lg); letter-spacing: var(--ep-track-tight); color: var(--ep-fg); }
+.ep-display    { font: var(--ep-text-display);    letter-spacing: var(--ep-track-tight); color: var(--ep-fg); }
+.ep-h1 { font: var(--ep-text-h1); letter-spacing: var(--ep-track-tight); color: var(--ep-fg); }
+.ep-h2 { font: var(--ep-text-h2); letter-spacing: var(--ep-track-tight); color: var(--ep-fg); }
+.ep-h3 { font: var(--ep-text-h3); color: var(--ep-fg); }
+.ep-h4 { font: var(--ep-text-h4); color: var(--ep-fg); }
+.ep-lead   { font: var(--ep-text-lead);   color: var(--ep-fg-muted); }
+.ep-body   { font: var(--ep-text-body);   color: var(--ep-fg); }
+.ep-small  { font: var(--ep-text-small);  color: var(--ep-fg-muted); }
+.ep-meta   { font: var(--ep-text-meta);   color: var(--ep-fg-subtle); }
+.ep-overline {
+  font: var(--ep-text-overline);
+  letter-spacing: var(--ep-track-overline);
+  text-transform: uppercase;
+  color: var(--ep-fg-subtle);
+}
+.ep-code   { font: var(--ep-text-code); color: var(--ep-blue-800); background: var(--ep-blue-50); padding: 1px 6px; border-radius: var(--ep-radius-sm); }
+
+/* Bold display flourish — the brand's signature emphasis sits on the
+   second word/phrase of a display headline. Color: SAPPHIRE (the brand
+   hue) via --ep-flourish, NOT the gold primary action — „a kék a
+   márkáé, az arany a fényé”. So even though gold is now the primary
+   accent, the headline flourish stays sapphire.
+
+   Targets bare h1–h4 em as well as the `.ep-*` semantic classes so
+   any author who writes `<h1>Crafted code, <em>shipped on time.</em></h1>`
+   gets the flourish for free — no class plumbing required. */
+.ep-display-bold,
+h1 em, h2 em, h3 em, h4 em,
+.ep-h1 em, .ep-h2 em, .ep-display em, .ep-display-lg em {
+  font-family: var(--ep-font-display);
+  font-weight: 700;
+  font-style: normal;
+  color: var(--ep-flourish);
+  /* Roboto ships a real 700 (Bold) weight, so the flourish is a true
+     bold cut rather than a synthesised one. */
+}
+
+/* Back-compat alias — some older surfaces still reference .ep-display-italic */
+.ep-display-italic { font-family: var(--ep-font-display); font-weight: 700; color: var(--ep-flourish); }

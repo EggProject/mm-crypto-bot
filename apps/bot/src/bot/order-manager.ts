@@ -137,6 +137,16 @@ export interface OrderManagerOptions {
   readonly getPositionContext: () => PositionSizeQuery;
   readonly leverage?: LeverageInvariantConfig;
   readonly logger?: Logger;
+  /**
+   * Phase 66: when `true`, the `placeOrder` does NOT call `feed.placeOrder`
+   * (which requires API credentials on bybit.eu). Instead, it simulates a
+   * filled order locally — the L2 leverage check still runs, the
+   * `clientOrderId` is still generated, and the synthetic Order is
+   * returned with `status: "filled"` so the `StrategyRunner.recordFill`
+   * path runs normally and the position is tracked. The `feed` is still
+   * required for the constructor signature but is never called.
+   */
+  readonly paperMode?: boolean;
 }
 
 // ============================================================================
@@ -164,6 +174,7 @@ export class OrderManager {
   private readonly leverage: LeverageInvariantConfig;
   private readonly logger: Logger;
   private readonly inFlight = new Map<ClientOrderId, Order>();
+  private readonly paperMode: boolean;
   private readonly counters = {
     placed: 0,
     filled: 0,
@@ -176,6 +187,7 @@ export class OrderManager {
     this.getPositionContext = opts.getPositionContext;
     this.leverage = opts.leverage ?? { maxLeverage: 10, tolerance: 1e-6, warnOnApproach: 0.95 };
     this.logger = opts.logger ?? createLogger("info");
+    this.paperMode = opts.paperMode ?? false;
   }
 
   // --------------------------------------------------------------------------
@@ -278,19 +290,50 @@ export class OrderManager {
     };
 
     let order: Order;
-    try {
-      order = await this.feed.placeOrder(orderRequest);
-    } catch (err) {
-      this.counters.rejected++;
-      this.logger.error("[order-manager] feed.placeOrder failed", {
+    if (this.paperMode) {
+      // Phase 66: paper mode — simulate a filled order locally. The bybit.eu
+      // `feed.placeOrder` requires API credentials we don't have, but the
+      // strategy logic + L2 leverage check + recordFill path must still run
+      // so the position book reflects the simulated trade.
+      order = {
+        clientOrderId,
+        exchangeOrderId: `paper-${Date.now()}-${this.counters.placed}`,
+        symbol: intent.symbol,
+        side: intent.signal.side,
+        type: intent.type,
+        amount: intent.amount,
+        price: intent.referencePrice,
+        averagePrice: intent.referencePrice,
+        status: "filled" as const,
+        filled: intent.amount,
+        remaining: 0,
+        fee: intent.amount * intent.referencePrice * 0.001, // 10bps spot taker (rough)
+        feeCurrency: "USDC" as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.logger.info("[order-manager] paper-mode order simulated (no exchange call)", {
         symbol: intent.symbol,
         clientOrderId,
-        error: err instanceof Error ? err.message : String(err),
+        side: order.side,
+        amount: order.amount,
+        price: order.price,
       });
-      throw new OrderManagerError(
-        `[order-manager] placeOrder failed for ${intent.symbol} (clientOrderId=${clientOrderId}): ${err instanceof Error ? err.message : String(err)}`,
-        err,
-      );
+    } else {
+      try {
+        order = await this.feed.placeOrder(orderRequest);
+      } catch (err) {
+        this.counters.rejected++;
+        this.logger.error("[order-manager] feed.placeOrder failed", {
+          symbol: intent.symbol,
+          clientOrderId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw new OrderManagerError(
+          `[order-manager] placeOrder failed for ${intent.symbol} (clientOrderId=${clientOrderId}): ${err instanceof Error ? err.message : String(err)}`,
+          err,
+        );
+      }
     }
 
     this.inFlight.set(clientOrderId, order);

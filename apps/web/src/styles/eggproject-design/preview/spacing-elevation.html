@@ -1,0 +1,25 @@
+<!-- @dsCard group="Spacing" -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css"><title>Elevation</title><script src="_theme.js" defer></script>
+<style>
+  body { padding: 32px 28px; display: flex; gap: 18px; justify-content: center; align-items: center; }
+  .card {
+    width: 100px; height: 100px; background: var(--ep-bg-elevated);
+    border-radius: var(--ep-radius-lg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font: var(--ep-text-meta); font-family: var(--ep-font-mono); color: var(--ep-fg-subtle); gap: 6px;
+  }
+  .card strong { font: 600 13px var(--ep-font-sans); color: var(--ep-fg); font-family: var(--ep-font-sans); }
+  .e-xs { box-shadow: var(--ep-shadow-xs); }
+  .e-sm { box-shadow: var(--ep-shadow-sm); }
+  .e-md { box-shadow: var(--ep-shadow-md); }
+  .e-lg { box-shadow: var(--ep-shadow-lg); }
+  .e-xl { box-shadow: var(--ep-shadow-xl); }
+</style></head>
+<body>
+  <div class="card e-xs"><strong>xs</strong><span>flat</span></div>
+  <div class="card e-sm"><strong>sm</strong><span>rest</span></div>
+  <div class="card e-md"><strong>md</strong><span>hover</span></div>
+  <div class="card e-lg"><strong>lg</strong><span>popover</span></div>
+  <div class="card e-xl"><strong>xl</strong><span>modal</span></div>
+</body></html>

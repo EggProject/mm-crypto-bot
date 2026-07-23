@@ -157,7 +157,7 @@ export function buildStatusLabel(
       return "WebSocket: connecting…";
     case "connected":
       return `WebSocket: connected${
-        snapshot !== null
+        snapshot !== null && Array.isArray(snapshot.strategies)
           ? ` (${snapshot.strategies.length} strategies)`
           : ""
       }`;

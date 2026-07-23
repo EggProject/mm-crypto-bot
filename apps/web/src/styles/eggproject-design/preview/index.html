@@ -1,0 +1,90 @@
+<!doctype html>
+<!-- Design-system showcase gallery — A-local. Links to the token / type /
+     color / spacing / brand demonstration cards + the two theme demos.
+     Styled only with this skill's own tokens (via _base.css). -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>EggProject — Design showcase</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="_base.css" />
+<script src="_theme.js" defer></script>
+<style>
+  body { padding: 48px 40px 96px; }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  header.page { padding-bottom: 20px; border-bottom: 1px solid var(--ep-border); margin-bottom: 36px; }
+  header.page h1 { font: var(--ep-text-h1); font-family: var(--ep-font-display); font-weight: 700; letter-spacing: -0.02em; color: var(--ep-fg); margin-bottom: 8px; }
+  header.page p { font: var(--ep-text-body); color: var(--ep-fg-muted); max-width: var(--ep-layout-max-prose); }
+  section { margin-bottom: 40px; }
+  h2.grp { font: var(--ep-text-overline); letter-spacing: var(--ep-track-overline); text-transform: uppercase; color: var(--ep-fg-subtle); margin-bottom: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  a.card {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 16px 18px; text-decoration: none;
+    background: var(--ep-bg-elevated); border: 1px solid var(--ep-border);
+    border-radius: var(--ep-radius-md); box-shadow: var(--ep-shadow-xs);
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  }
+  a.card:hover { border-color: var(--ep-accent); box-shadow: var(--ep-shadow-sm); transform: translateY(-1px); }
+  a.card .name { font: var(--ep-text-h4); color: var(--ep-fg); }
+  a.card .file { font: var(--ep-text-meta); font-family: var(--ep-font-mono); color: var(--ep-fg-faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <h1>Design showcase</h1>
+    <p>Reference cards for the EggProject design foundation — palette, type scale, spacing, and brand. Every card renders only on this skill's own tokens and self-hosted fonts. Toggle light/dark with the pill, top-right.</p>
+  </header>
+
+  <section>
+    <h2 class="grp">Brand</h2>
+    <div class="grid">
+      <a class="card" href="brand-logo.html"><span class="name">Logo Primary</span><span class="file">brand-logo.html</span></a>
+      <a class="card" href="brand-logo-inverse.html"><span class="name">Logo on Ink</span><span class="file">brand-logo-inverse.html</span></a>
+      <a class="card" href="brand-construction.html"><span class="name">Brand Construction</span><span class="file">brand-construction.html</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="grp">Type</h2>
+    <div class="grid">
+      <a class="card" href="type-display.html"><span class="name">Display</span><span class="file">type-display.html</span></a>
+      <a class="card" href="type-body.html"><span class="name">Body</span><span class="file">type-body.html</span></a>
+      <a class="card" href="type-mono.html"><span class="name">Mono</span><span class="file">type-mono.html</span></a>
+      <a class="card" href="type-scale.html"><span class="name">Type Scale</span><span class="file">type-scale.html</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="grp">Color</h2>
+    <div class="grid">
+      <a class="card" href="color-sapphire.html"><span class="name">Sapphire</span><span class="file">color-sapphire.html</span></a>
+      <a class="card" href="color-neutrals.html"><span class="name">Neutrals</span><span class="file">color-neutrals.html</span></a>
+      <a class="card" href="color-yolk.html"><span class="name">Yolk Accent</span><span class="file">color-yolk.html</span></a>
+      <a class="card" href="color-semantic.html"><span class="name">Semantic</span><span class="file">color-semantic.html</span></a>
+      <a class="card" href="color-dark-theme.html"><span class="name">Dark Theme</span><span class="file">color-dark-theme.html</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="grp">Spacing</h2>
+    <div class="grid">
+      <a class="card" href="spacing-scale.html"><span class="name">Scale</span><span class="file">spacing-scale.html</span></a>
+      <a class="card" href="spacing-radii.html"><span class="name">Radii</span><span class="file">spacing-radii.html</span></a>
+      <a class="card" href="spacing-elevation.html"><span class="name">Elevation</span><span class="file">spacing-elevation.html</span></a>
+      <a class="card" href="spacing-motion.html"><span class="name">Motion</span><span class="file">spacing-motion.html</span></a>
+      <a class="card" href="spacing-layout.html"><span class="name">Layout</span><span class="file">spacing-layout.html</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="grp">Theme demos</h2>
+    <div class="grid">
+      <a class="card" href="theme-tweaks.html"><span class="name">Theme tweaks</span><span class="file">theme-tweaks.html</span></a>
+      <a class="card" href="demo-new-theme-v2.html"><span class="name">Dark theme v2</span><span class="file">demo-new-theme-v2.html</span></a>
+    </div>
+  </section>
+</div>
+</body>
+</html>

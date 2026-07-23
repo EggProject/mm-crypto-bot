@@ -1,0 +1,56 @@
+/* ============================================================
+   EggProject — Breakpoints, large-display containers & fluid space
+   2026 modernization layer. ADDITIVE — extends tokens/spacing.css
+   (the 4px scale + the original --ep-layout-max-* widths still live
+   there and are NOT redefined here). Theme-neutral.
+
+   Why a separate module: spacing.css holds the timeless primitives
+   (the 4px scale, the four canonical content widths, the gutter);
+   this file holds the things that track hardware trends — viewport
+   breakpoints, large-monitor caps, full-bleed, and fluid units —
+   so the foundational scale stays stable while these can evolve.
+
+   Loads after spacing.css in the barrel so it can reference
+   --ep-layout-gutter / --ep-layout-max-prose.
+   ============================================================ */
+:root {
+  /* === Viewport breakpoints =============================
+     sm–2xl mirror Tailwind v4 defaults (the de-facto 2026
+     reference); 3xl/4xl are additive large-display tiers.
+     Use in @media (min-width: …). Px on purpose: breakpoints
+     compare against the unscaled viewport, not the root font. */
+  --ep-screen-sm:   640px;   /* large phone / small tablet  */
+  --ep-screen-md:   768px;   /* tablet                      */
+  --ep-screen-lg:   1024px;  /* small laptop                */
+  --ep-screen-xl:   1280px;  /* desktop                     */
+  --ep-screen-2xl:  1536px;  /* large desktop (Tailwind 2xl)*/
+  --ep-screen-3xl:  1920px;  /* FHD / large monitor         */
+  --ep-screen-4xl:  2560px;  /* QHD / ultrawide (2560x1080 / 2560x1440) */
+  /* 5xl (3440px UW-QHD) deferred — no consensus standard label.   */
+
+  /* === Large-display container caps =====================
+     The 2026 pattern for ultrawide/4K is NOT a new breakpoint
+     but a max-width cap: pin content, let the gutters absorb
+     the excess. These complement the four widths in spacing.css. */
+  --ep-layout-max-wide:   1440px;  /* data-dense dashboards / wide tables */
+  --ep-layout-max-fhd:    1920px;  /* hard cap on FHD/ultrawide: no over-stretch */
+  --ep-layout-measure:    65ch;    /* typographic reading measure (50-75ch sweet spot) */
+
+  /* Full-bleed / full-width: edge-to-edge, NO max-width.
+     There is no numeric width for "full" — it is the ABSENCE of a
+     cap. Use this sentinel where a token slot expects a value
+     (e.g. `max-inline-size: var(--ep-layout-max-full)` == uncapped). */
+  --ep-layout-max-full:   none;    /* sentinel: 100% / no max-width */
+
+  /* === Fluid spacing (clamp) ============================
+     Companions to the fixed 4px scale: viewport-fluid gutter and
+     section rhythm. rem+vw inside clamp() avoids zero-point drift. */
+  --ep-layout-gutter-fluid:   clamp(1rem, 2.5vw + 0.5rem, 2rem);  /* ~16 -> 32px */
+  --ep-layout-section-fluid:  clamp(3rem, 6vw + 1rem, 6rem);      /* ~48 -> 96px */
+
+  /* === Full-height ======================================
+     Dynamic viewport height: tracks mobile browser chrome so
+     full-screen sections don't overflow under the URL bar.
+     Prefer over 100vh for heroes / modals / app shells. */
+  --ep-layout-full-height: 100dvh;
+}

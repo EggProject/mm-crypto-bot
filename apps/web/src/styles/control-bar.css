@@ -1,0 +1,93 @@
+/* ============================================================================
+ * apps/web/src/styles/control-bar.css
+ *
+ * Phase 65: ControlBar sticky bottom bar — EggProject design system tokens.
+ * A `ep-control-bar` + `ep-control-bar__btn` (+ primary / danger modifier)
+ * class-okat használja a `ControlBar.tsx`.
+ *
+ * Token forrása: `apps/web/src/styles/eggproject-design/colors_and_type.css`
+ * (a `main.tsx` importálja — a cascade betölti a light/dark theme-eket).
+ * ============================================================================
+ */
+
+.ep-control-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ep-space-2, 8px);
+  padding: var(--ep-space-3, 12px) var(--ep-layout-gutter, 24px);
+  background: var(--ep-bg-elevated, #1a1d24);
+  border-top: 1px solid var(--ep-border, rgba(255, 255, 255, 0.08));
+  box-shadow: var(--ep-shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18));
+  z-index: 10;
+}
+
+.ep-control-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ep-space-2, 8px);
+  padding: var(--ep-space-2, 8px) var(--ep-space-4, 16px);
+  font-family: inherit;
+  font-size: var(--ep-text-small, 0.875rem);
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ep-fg, #ece7da);
+  background: var(--ep-bg, #0c0d11);
+  border: 1px solid var(--ep-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--ep-radius-md, 12px);
+  cursor: pointer;
+  transition:
+    background var(--ep-dur-base, 220ms) var(--ep-ease-out, ease),
+    border-color var(--ep-dur-base, 220ms) var(--ep-ease-out, ease),
+    transform var(--ep-dur-base, 220ms) var(--ep-ease-out, ease);
+  user-select: none;
+}
+
+.ep-control-bar__btn:hover:not(:disabled) {
+  background: var(--ep-bg-sunken, #13161d);
+  border-color: var(--ep-border-subtle, rgba(255, 255, 255, 0.16));
+}
+
+.ep-control-bar__btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.ep-control-bar__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ep-shadow-focus, rgba(227, 181, 99, 0.5));
+}
+
+.ep-control-bar__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Primary action — gold (Start) */
+.ep-control-bar__btn--primary {
+  color: var(--ep-accent-on, #16130c);
+  background: var(--ep-accent, #e3b563);
+  border-color: var(--ep-accent, #e3b563);
+}
+
+.ep-control-bar__btn--primary:hover:not(:disabled) {
+  background: var(--ep-yolk-600, #d4a256);
+  border-color: var(--ep-yolk-600, #d4a256);
+}
+
+/* Danger — Kill Switch */
+.ep-control-bar__btn--danger {
+  color: var(--ep-danger-on, #ffffff);
+  background: var(--ep-danger, #c24a3f);
+  border-color: var(--ep-danger, #c24a3f);
+  margin-left: auto;
+}
+
+.ep-control-bar__btn--danger:hover:not(:disabled) {
+  background: var(--ep-danger-bg, #5a1e1a);
+  color: var(--ep-danger, #c24a3f);
+  border-color: var(--ep-danger, #c24a3f);
+}

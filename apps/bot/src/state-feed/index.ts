@@ -56,7 +56,7 @@
 import type { Bot } from "../bot/bot.js";
 import { FeedServer, type FeedServerHandle } from "./feed-server.js";
 import { LiveStatePublisher, type StateFeedStrategyDescriptor } from "./publisher.js";
-import type { OhlcStore } from "./ohlc-store.js";
+import { OhlcStore } from "./ohlc-store.js";
 
 // ============================================================================
 // Options
@@ -156,6 +156,13 @@ export async function attachStateFeed(
   await publisher.start();
 
   // 2) FeedServer — a publisher event-emitter-ére hallgat.
+  // Phase 66: auto-create an OhlcStore if the caller didn't pass one —
+  // otherwise the SNAPSHOT's `ohlcBootstrap` is `{}` and the dashboard's
+  // `barsByKey` stays empty, so the chart grid never renders (the
+  // "No charts configured" empty state keeps showing). The `bar` events
+  // from the publisher fill the store, and the snapshot picks it up
+  // automatically via the `feed-server.ts` `resolveOhlcBootstrap()` helper.
+  const ohlcStore = options.ohlcStore ?? new OhlcStore();
   const feedServer = new FeedServer({
     port,
     hostname,
@@ -163,7 +170,7 @@ export async function attachStateFeed(
     ...(options.getOhlcBootstrap !== undefined ? { getOhlcBootstrap: options.getOhlcBootstrap } : {}),
     ...(options.handleControl !== undefined ? { handleControl: options.handleControl } : {}),
     ...(options.handlePong !== undefined ? { handlePong: options.handlePong } : {}),
-    ...(options.ohlcStore !== undefined ? { ohlcStore: options.ohlcStore } : {}),
+    ohlcStore,
     ...(options.pingIntervalMs !== undefined ? { pingIntervalMs: options.pingIntervalMs } : {}),
     ...(options.pongTimeoutMs !== undefined ? { pongTimeoutMs: options.pongTimeoutMs } : {}),
   });

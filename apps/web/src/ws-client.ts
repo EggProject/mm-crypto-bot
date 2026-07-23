@@ -138,7 +138,11 @@ export interface WebSocketState {
 // Constants
 // =============================================================================
 
-const DEFAULT_URL = "ws://127.0.0.1:7913/ws";
+const DEFAULT_URL =
+  typeof import.meta.env["VITE_WS_URL"] === "string" &&
+  import.meta.env["VITE_WS_URL"].length > 0
+    ? (import.meta.env["VITE_WS_URL"] as string)
+    : "ws://127.0.0.1:7913/ws";
 
 // =============================================================================
 // Re-exports of the pure helpers + reducer (Phase 53C / 54B / 56A / 58)

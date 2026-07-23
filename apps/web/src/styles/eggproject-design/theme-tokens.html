@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EggProject — theme tokens (palette + type)</title>
+<!-- Self-contained: this demo uses ONLY skill A's own token CSS.
+     The @import inside colors_and_type.css pulls in the local fonts. -->
+<link rel="stylesheet" href="colors_and_type.css">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--ep-bg); color: var(--ep-fg); font-family: var(--ep-font-sans);
+         -webkit-font-smoothing: antialiased; padding: var(--ep-space-10) var(--ep-space-8) var(--ep-space-16); }
+  .wrap { max-width: var(--ep-layout-max-marketing); margin: 0 auto; }
+  header.page { display:flex; align-items:flex-end; justify-content:space-between; gap:var(--ep-space-6);
+                padding-bottom: var(--ep-space-6); border-bottom: 1px solid var(--ep-border); margin-bottom: var(--ep-space-10); }
+  section { margin-bottom: var(--ep-space-16); }
+  h2.sec { font: var(--ep-text-h3); color: var(--ep-fg); margin-bottom: var(--ep-space-2); }
+  p.sec-note { font: var(--ep-text-small); color: var(--ep-fg-muted); margin-bottom: var(--ep-space-6); max-width: var(--ep-layout-max-prose); }
+
+  /* swatch grids */
+  .swatches { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: var(--ep-space-3); }
+  .sw { border:1px solid var(--ep-border); border-radius: var(--ep-radius-md); overflow:hidden; background: var(--ep-bg-elevated); box-shadow: var(--ep-shadow-sm); }
+  .sw .chip { height: 64px; }
+  .sw .info { padding: var(--ep-space-2) var(--ep-space-3); }
+  .sw .name { font: var(--ep-text-meta); font-family: var(--ep-font-mono); color: var(--ep-fg); }
+  .sw .val  { font: var(--ep-text-meta); font-family: var(--ep-font-mono); color: var(--ep-fg-subtle); }
+
+  /* role tokens row */
+  .roles { display:grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: var(--ep-space-3); }
+  .role { display:flex; align-items:center; gap: var(--ep-space-3); padding: var(--ep-space-3);
+          border:1px solid var(--ep-border); border-radius: var(--ep-radius-md); background: var(--ep-bg-elevated); }
+  .role .dot { width:34px;height:34px;border-radius:var(--ep-radius-sm);flex:0 0 auto;border:1px solid var(--ep-divider); }
+  .role .lbl { font: var(--ep-text-meta); font-family: var(--ep-font-mono); color: var(--ep-fg-muted); }
+
+  /* primary-action proof */
+  .btn-row { display:flex; gap: var(--ep-space-3); flex-wrap:wrap; align-items:center; }
+  .btn { font: var(--ep-text-h4); border:0; cursor:pointer; padding: 10px 20px; border-radius: var(--ep-radius-md); }
+  .btn--primary { background: var(--ep-accent); color: var(--ep-accent-on); box-shadow: var(--ep-shadow-sm); }
+  .btn--secondary  { background: transparent; color: var(--ep-second); border:1px solid var(--ep-second); }
+  .btn--ghost   { background: var(--ep-accent-bg); color: var(--ep-accent-fg); }
+
+  /* type specimens */
+  .type-stack > * { margin-bottom: var(--ep-space-4); }
+  code.mono { font: var(--ep-text-code); color: var(--ep-blue-800); background: var(--ep-blue-50); padding:1px 6px; border-radius: var(--ep-radius-sm); }
+  [data-theme="dark"] code.mono { color: var(--ep-second-fg); background: var(--ep-second-bg); }
+
+  .theme-tag { font: var(--ep-text-overline); letter-spacing: var(--ep-track-overline); text-transform:uppercase;
+               color: var(--ep-accent-fg); background: var(--ep-accent-bg); padding: 4px 10px; border-radius: var(--ep-radius-pill); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <div>
+      <div class="ep-overline">EggProject design system</div>
+      <h1 class="ep-display" style="margin-top:8px">Theme <em>tokens.</em></h1>
+    </div>
+    <div class="row" style="display:flex;align-items:center;gap:12px">
+      <span class="theme-tag" id="theme-name">light</span>
+      <!-- canonical in-menu toggle from colors_and_type.css -->
+      <button class="ep-theme-toggle" type="button" data-ep-theme-toggle aria-label="Switch theme">
+        <svg class="ep-theme-toggle__moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="ep-theme-toggle__sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <section>
+    <h2 class="sec">Primary action = gold · second voice = sapphire</h2>
+    <p class="sec-note">Gold (<code class="mono">--ep-accent</code>) marks every primary action in both themes; a solid gold fill always carries dark ink (<code class="mono">--ep-accent-on</code>). Sapphire (<code class="mono">--ep-second</code>) is the brand's second voice and headline flourish — never the primary button.</p>
+    <div class="btn-row">
+      <button class="btn btn--primary">Start a project →</button>
+      <button class="btn btn--secondary">Read the docs</button>
+      <button class="btn btn--ghost">Ghost action</button>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">Semantic surface &amp; text roles</h2>
+    <p class="sec-note">These remap between light and dark — every component built on them inherits both themes. Toggle the theme to watch them flip.</p>
+    <div class="roles">
+      <div class="role"><span class="dot" style="background:var(--ep-bg)"></span><span class="lbl">--ep-bg</span></div>
+      <div class="role"><span class="dot" style="background:var(--ep-bg-elevated)"></span><span class="lbl">--ep-bg-elevated</span></div>
+      <div class="role"><span class="dot" style="background:var(--ep-bg-sunken)"></span><span class="lbl">--ep-bg-sunken</span></div>
+      <div class="role"><span class="dot" style="background:var(--ep-fg)"></span><span class="lbl">--ep-fg</span></div>
+      <div class="role"><span class="dot" style="background:var(--ep-fg-muted)"></span><span class="lbl">--ep-fg-muted</span></div>
+      <div class="role"><span class="dot" style="background:var(--ep-border)"></span><span class="lbl">--ep-border</span></div>
+      <div class="role"><span class="dot" style="background:var(--ep-success)"></span><span class="lbl">--ep-success</span></div>
+      <div class="role"><span class="dot" style="background:var(--ep-warning)"></span><span class="lbl">--ep-warning</span></div>
+      <div class="role"><span class="dot" style="background:var(--ep-danger)"></span><span class="lbl">--ep-danger</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">Brand palette (fixed across themes)</h2>
+    <p class="sec-note">Sapphire, gold/yolk, paper, slate and ink scales keep their hex in both themes — only which stop each semantic role points at changes.</p>
+    <div class="swatches" id="palette"></div>
+  </section>
+
+  <section>
+    <h2 class="sec">Typography — Roboto (display + body) &amp; JetBrains Mono</h2>
+    <p class="sec-note">One sans family carries the whole hierarchy through size, weight and tracking. The bold sapphire flourish lands on the second phrase of a display headline via <code class="mono">&lt;em&gt;</code>.</p>
+    <div class="type-stack">
+      <div class="ep-display-lg">Crafted code, <em>shipped on time.</em></div>
+      <div class="ep-h1">Heading one <em>flourish.</em></div>
+      <div class="ep-h3">Heading three — UI section title</div>
+      <div class="ep-lead">Lead paragraph: a small senior team. We design, we engineer, we deliver. Árvíztűrő tükörfúrógép.</div>
+      <div class="ep-body">Body copy in Roboto 400. The brand works in English and Hungarian — „Gondosan írt kód, <em>időben szállítva.</em>” Accented glyphs (á é í ó ö ő ú ü ű) come from the latin-ext subset.</div>
+      <div class="ep-meta">META · 12px · uppercase tracking lives in .ep-overline</div>
+      <div><code class="mono">const ship = () =&gt; deploy();  // JetBrains Mono · tabular-nums 0123456789</code></div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // Build the brand palette from the actual computed token values, so the
+  // swatches prove the CSS variables resolved (not hard-coded hex).
+  var families = [
+    ['Sapphire', ['--ep-blue-900','--ep-blue-700','--ep-blue-600','--ep-blue-500','--ep-blue-300','--ep-blue-100']],
+    ['Gold / yolk', ['--ep-yolk-700','--ep-yolk-600','--ep-yolk-500','--ep-yolk-400','--ep-yolk-300','--ep-yolk-100']],
+    ['Paper', ['--ep-paper-50','--ep-paper-100','--ep-paper-200','--ep-paper-300','--ep-paper-400']],
+    ['Slate', ['--ep-slate-50','--ep-slate-200','--ep-slate-400','--ep-slate-600','--ep-slate-800']],
+    ['Ink', ['--ep-ink-950','--ep-ink-900','--ep-ink-800','--ep-ink-700']]
+  ];
+  var root = getComputedStyle(document.documentElement);
+  var host = document.getElementById('palette');
+  families.forEach(function(f){
+    f[1].forEach(function(v){
+      var val = root.getPropertyValue(v).trim();
+      var el = document.createElement('div'); el.className='sw';
+      el.innerHTML = '<div class="chip" style="background:'+ 'var('+v+')' +'"></div>'+
+        '<div class="info"><div class="name">'+v+'</div><div class="val">'+(val||'—')+'</div></div>';
+      host.appendChild(el);
+    });
+  });
+  // Keep the theme name tag honest (the toggle itself is wired by _theme.js).
+  function syncName(){ document.getElementById('theme-name').textContent = document.documentElement.getAttribute('data-theme') || 'light'; }
+  new MutationObserver(syncName).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  syncName();
+</script>
+<script src="preview/_theme.js"></script>
+</body>
+</html>

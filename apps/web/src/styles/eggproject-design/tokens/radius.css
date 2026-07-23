@@ -1,0 +1,13 @@
+/* ============================================================
+   EggProject — Radius
+   Corner-radius scale. Theme-neutral.
+   ============================================================ */
+:root {
+  /* === Radius ============================================ */
+  --ep-radius-sm: 6px;
+  --ep-radius-md: 12px;
+  --ep-radius-lg: 18px;
+  --ep-radius-xl: 26px;
+  --ep-radius-2xl: 36px;
+  --ep-radius-pill: 999px;
+}

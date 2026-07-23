@@ -1,0 +1,13 @@
+/* ============================================================
+   EggProject — Motion
+   Easing curves + durations. Theme-neutral.
+   ============================================================ */
+:root {
+  /* === Motion ============================================ */
+  --ep-ease-out:    cubic-bezier(0.22, 1, 0.36, 1); /* @kind other */
+  --ep-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* @kind other */
+  --ep-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* @kind other */
+  --ep-dur-fast:    140ms; /* @kind other */
+  --ep-dur-base:    220ms; /* @kind other */
+  --ep-dur-slow:    360ms; /* @kind other */
+}

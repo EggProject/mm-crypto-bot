@@ -1,0 +1,201 @@
+<!doctype html>
+<!-- @dsCard group="Brand" name="Demo · Theme tweaks" -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>EggProject — Theme Tweaks</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Design system tokens (single source of truth).
+       The @import inside colors_and_type.css pulls in the local
+       self-hosted fonts — no Google Fonts CDN. -->
+  <link rel="stylesheet" href="../colors_and_type.css" />
+
+  <style>
+    /* ============================================================
+       Page chrome — uses semantic tokens so the dark toggle Just Works.
+       ============================================================ */
+    html, body { background: var(--ep-bg); color: var(--ep-fg); }
+    body {
+      margin: 0;
+      font-family: var(--ep-font-sans);
+      min-height: 100vh;
+      transition: background-color .24s ease, color .24s ease;
+    }
+
+    .stage {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 80px 32px 160px;
+    }
+
+    .overline {
+      font: 500 11px var(--ep-font-mono);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ep-fg-subtle);
+      margin: 0 0 24px;
+    }
+    .overline::before {
+      content: "";
+      display: inline-block;
+      width: 24px; height: 1px;
+      background: currentColor;
+      vertical-align: middle;
+      margin-right: 12px;
+      transform: translateY(-2px);
+    }
+
+    h1.display {
+      font-family: var(--ep-font-display);
+      font-weight: 300;
+      font-size: clamp(48px, 6vw, 76px);
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+      margin: 0 0 28px;
+      color: var(--ep-fg);
+      text-wrap: balance;
+    }
+    h1.display em {
+      font-style: normal;
+      font-weight: 700;
+      color: var(--ep-accent);
+    }
+    /* In dark, the warm yolk accent is more luminous than sapphire on ink */
+    [data-theme="dark"] h1.display em { color: var(--ep-accent-warm); }
+
+    p.lede {
+      font-size: 19px;
+      line-height: 1.55;
+      color: var(--ep-fg-muted);
+      max-width: 56ch;
+      margin: 0 0 56px;
+      text-wrap: pretty;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin: 0 0 48px;
+    }
+
+    .card {
+      background: var(--ep-bg-elevated);
+      border: 1px solid var(--ep-border);
+      border-radius: var(--ep-radius-lg, 14px);
+      padding: 24px;
+      box-shadow: var(--ep-shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: background-color .24s ease, border-color .24s ease;
+    }
+    .card .label {
+      font: 500 10px var(--ep-font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ep-fg-subtle);
+    }
+    .card .value {
+      font-family: var(--ep-font-display);
+      font-weight: 400;
+      font-size: 40px;
+      line-height: 1;
+      color: var(--ep-fg);
+      font-variant-numeric: tabular-nums;
+    }
+    .card .meta {
+      font-size: 13px;
+      color: var(--ep-fg-muted);
+      margin-top: 4px;
+    }
+    .card .meta .delta-up { color: var(--ep-success); font-weight: 500; }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 0 0 56px;
+    }
+    .btn {
+      font-family: var(--ep-font-sans);
+      font-weight: 500;
+      font-size: 14px;
+      padding: 12px 20px;
+      border-radius: var(--ep-radius-md, 10px);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+    }
+    .btn-primary {
+      background: var(--ep-accent);
+      color: var(--ep-fg-on-blue);
+    }
+    .btn-primary:hover { background: var(--ep-accent-hover, var(--ep-accent)); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--ep-fg);
+      border-color: var(--ep-border-strong, var(--ep-border));
+    }
+    .btn-ghost:hover { background: var(--ep-bg-elevated); }
+
+    .footnote {
+      font: 500 12px var(--ep-font-mono);
+      color: var(--ep-fg-faint);
+      letter-spacing: 0.04em;
+      border-top: 1px solid var(--ep-border);
+      padding-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <main class="stage">
+    <p class="overline">Theme tweaks · demo</p>
+
+    <h1 class="display">Switch theme<br/><em>without a refresh.</em></h1>
+
+    <p class="lede">
+      Toggle the pill in the top-right corner (injected by the design system's
+      <code style="font-family:var(--ep-font-mono); font-size:.9em;">_theme.js</code>).
+      The page swaps between the warm paper-cream light surface and the warm-ink
+      dark surface, driven entirely by
+      <code style="font-family:var(--ep-font-mono); font-size:.9em;">data-theme="dark"</code>
+      on the <code style="font-family:var(--ep-font-mono); font-size:.9em;">&lt;html&gt;</code> element.
+    </p>
+
+    <div class="card-grid">
+      <div class="card">
+        <span class="label">Revenue</span>
+        <span class="value">$48.2k</span>
+        <span class="meta"><span class="delta-up">&#9650; 12.4%</span> &nbsp;vs. last week</span>
+      </div>
+      <div class="card">
+        <span class="label">Active projects</span>
+        <span class="value">7</span>
+        <span class="meta">3 shipping this sprint</span>
+      </div>
+      <div class="card">
+        <span class="label">Response time</span>
+        <span class="value">42<small style="font-size:.5em; color:var(--ep-fg-subtle); margin-left:4px;">min</small></span>
+        <span class="meta">Median, business hours</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary">Start a project</button>
+      <button class="btn btn-ghost">Read the docs</button>
+    </div>
+
+    <p class="footnote">EGGPROJECT &middot; DESIGN SYSTEM &middot; v1.0</p>
+  </main>
+
+  <!-- Light/dark switch — pure, dependency-free design-system runtime.
+       _theme.js injects a floating L/D pill (top-right) when no in-menu
+       toggle is present, persists to localStorage, and applies the theme
+       via [data-theme] on <html>. No React, no Babel, no CDN. -->
+  <script src="_theme.js" defer></script>
+
+</body>
+</html>
