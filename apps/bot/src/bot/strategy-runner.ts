@@ -51,7 +51,7 @@ import type { BotStrategyInstance } from "../config/strategy-registry.js";
 import type { RiskManager } from "../risk/index.js";
 import type { PortfolioManager } from "../portfolio/index.js";
 import type { OrderIntent, OrderManager } from "./order-manager.js";
-import type { PositionManager } from "./position-manager.js";
+import type { PositionManager, PositionSnapshot } from "./position-manager.js";
 import type { BotState } from "./state-store.js";
 
 // ============================================================================
@@ -226,12 +226,101 @@ export class StrategyRunner {
       };
       for (const instance of this.instances.values()) {
         if (instance.kind !== "strategy") continue;
+        const strategyName = instance.name;
+        const strategy = instance.instance;
         try {
-          const signal = instance.instance.onCandle(ctx);
+          // Phase 67: position-check BEFORE the new-signal path.
+          // The `Strategy.onCandle` contract (packages/core/src/types.ts:185)
+          // states it is called only when NO open position exists for the
+          // (strategy, symbol). The runner MUST honor this contract —
+          // otherwise the strategy emits a fresh signal every LTF candle
+          // and the runner opens (or averages into) positions until the
+          // `max_positions` cap triggers the kill-switch in 2-3 minutes
+          // (the "donchian_pivot_composition never-closes" bug).
+          //
+          // We ALWAYS call `onCandle` (below) to keep the strategy's
+          // internal indicator state fresh (Donchian channel, Pivot grid
+          // levels, etc.). The position-check only gates the
+          // new-signal → placeOrder path.
+          const existingPosition = this.findOpenPosition(strategyName, symbol);
+
+          if (existingPosition !== null) {
+            // Position is open. Two paths:
+            //   1. The strategy may implement `onOpenPositionUpdate` for
+            //      per-bar position management (trailing-stop override,
+            //      time-based exit, etc.). If it returns `forceExit: true`,
+            //      we close the position at the candle close.
+            //   2. Otherwise, skip the new-signal path entirely. The
+            //      position can still be closed by:
+            //        - SL/TP fill (OrderManager-side checks)
+            //        - Trailing stop (RiskManager — Phase 37 Track 1)
+            //        - Portfolio stop (PortfolioManager)
+            // The position is NOT closed by the runner's own logic.
+            if (strategy.onOpenPositionUpdate !== undefined) {
+              const update = strategy.onOpenPositionUpdate({
+                openPosition: {
+                  side: existingPosition.side === "long" ? "buy" : "sell",
+                  entryTime: existingPosition.openedAt,
+                  entryPrice: existingPosition.entryPrice,
+                  quantity: existingPosition.quantity,
+                  // Phase 67: `stopLoss` / `takeProfit` / `holdingBars`
+                  // are NOT tracked by `PositionManager` (they live in
+                  // the strategy's own state or the original signal).
+                  // Pass 0 — strategies that care about these should
+                  // implement their own tracking. The `RiskManager`
+                  // trailing-stop uses its own internal state, so this
+                  // is a no-op for the currently wired strategies.
+                  stopLoss: 0,
+                  takeProfit: 0,
+                  holdingBars: 0,
+                },
+                candle: this.toCandle(candle),
+                candleIndex: this.ticksProcessed,
+                mtfState: {
+                  htf: { close: candle[4] },
+                  mtf: { close: candle[4] },
+                  ltf: { close: candle[4] },
+                },
+                pricePrecision: 2,
+              });
+              if (update !== null && update.forceExit === true) {
+                const exitPrice = update.exitPrice ?? candle[4];
+                this.positionManager.closePosition(
+                  strategyName,
+                  symbol,
+                  exitPrice,
+                  Date.now(),
+                );
+                this.logger.info("[strategy-runner] position force-closed by strategy", {
+                  strategy: strategyName,
+                  symbol,
+                  side: existingPosition.side,
+                  exitPrice,
+                  reason: update.reason ?? "force_exit",
+                });
+                if (strategy.onPositionClosed !== undefined) {
+                  strategy.onPositionClosed(update.reason ?? "force_exit");
+                }
+              }
+            }
+            // Still call `onCandle` below to keep strategy state fresh
+            // (Donchian channel, Pivot grid, etc.). But do NOT act on
+            // its return value — the new-signal path is gated.
+            strategy.onCandle(ctx);
+            this.logger.debug("[strategy-runner] position open — skipping new signal", {
+              strategy: strategyName,
+              symbol,
+              existingSide: existingPosition.side,
+            });
+            continue;
+          }
+
+          // No open position — call `onCandle` and act on the signal.
+          const signal = strategy.onCandle(ctx);
           if (signal !== null) {
             await this.handleSignal(
-              instance.name,
-              instance.instance,
+              strategyName,
+              strategy,
               signal,
               symbol,
               candle[4],
@@ -273,6 +362,35 @@ export class StrategyRunner {
   // --------------------------------------------------------------------------
   // Internals
   // --------------------------------------------------------------------------
+
+  /**
+   * `findOpenPosition` — az adott (strategy, symbol) párhoz tartozó
+   * nyitott pozíció keresése (long VAGY short). A Phase 67
+   * position-skip fix használja: ha van nyitott pozíció, a runner
+   * NEM nyit újat (a `Strategy.onCandle` kontrakt értelmében).
+   *
+   * Phase 67: a `PositionManager` csak a (strategy, symbol, side)
+   * azonosítójú pozíciókat tárolja (`positionId` formátum:
+   * `<strategy>:<symbol>:<side>` — lásd `position-manager.ts:668`).
+   * Egy adott (strategy, symbol) kombóra tehát max 1 long + 1 short
+   * lehet, de a gyakorlatban a legtöbb stratégia csak 1 oldalt használ.
+   * A `getPositions()` segítségével iterálunk, mert nincs dedikált
+   * `getAllPositionsFor(strategy, symbol)` API.
+   *
+   * @returns A `PositionSnapshot` (a `getPositions()` által készített
+   *          másolat) vagy `null` ha nincs nyitott pozíció.
+   */
+  private findOpenPosition(
+    strategyName: StrategyName,
+    symbol: ExchangeSymbol,
+  ): PositionSnapshot | null {
+    for (const p of this.positionManager.getPositions()) {
+      if (p.strategy === strategyName && p.symbol === symbol) {
+        return p;
+      }
+    }
+    return null;
+  }
 
   /**
    * `handleSignal` — egy `StrategySignal` feldolgozása: sizing → intent → place.

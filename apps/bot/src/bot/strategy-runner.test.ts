@@ -9,7 +9,13 @@ import { asSymbol, type Ohlcv, type Symbol as ExchangeSymbol, type Ticker, type 
 // Phase 66: `MockExchangeFeed` is test-only — import from the
 // `@exchange-testing/*` path alias (see tsconfig.base.json).
 import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
-import type { Strategy, StrategyContext, StrategySignal } from "@mm-crypto-bot/core";
+import type {
+  PositionManagementContext,
+  PositionUpdate,
+  Strategy,
+  StrategyContext,
+  StrategySignal,
+} from "@mm-crypto-bot/core";
 
 import { OrderManager } from "./order-manager.js";
 import { PositionManager } from "./position-manager.js";
@@ -31,13 +37,47 @@ class FixedSignalStrategy implements Strategy {
   readonly name = "fixed-signal";
   readonly timeframes = ["15m"] as const;
   private readonly _signal: StrategySignal;
+  public onCandleCallCount = 0;
 
   public constructor(signal: StrategySignal) {
     this._signal = signal;
   }
 
   public onCandle(_ctx: StrategyContext): StrategySignal {
+    this.onCandleCallCount++;
     return this._signal;
+  }
+
+  public warmup(): number {
+    return 0;
+  }
+}
+
+/**
+ * `ForceExitStrategy` — a `Strategy` interface implementációja, ami
+ * minden `onCandle` hívásra egy fix signalt ad, ÉS minden
+ * `onOpenPositionUpdate` hívásra `forceExit: true`-t. A Phase 67
+ * position-check + `onOpenPositionUpdate` wire-up tesztelésére.
+ */
+class ForceExitStrategy implements Strategy {
+  readonly name = "force-exit-strategy";
+  readonly timeframes = ["15m"] as const;
+  private readonly _signal: StrategySignal;
+  public onCandleCallCount = 0;
+  public onOpenPositionUpdateCallCount = 0;
+
+  public constructor(signal: StrategySignal) {
+    this._signal = signal;
+  }
+
+  public onCandle(_ctx: StrategyContext): StrategySignal {
+    this.onCandleCallCount++;
+    return this._signal;
+  }
+
+  public onOpenPositionUpdate(_ctx: PositionManagementContext): PositionUpdate {
+    this.onOpenPositionUpdateCallCount++;
+    return { forceExit: true, reason: "trend_reversal" };
   }
 
   public warmup(): number {
@@ -418,5 +458,258 @@ describe("StrategyRunner", () => {
     });
     // Drawdown scaler in kill region → 0 size → no position
     expect(pm.getPositionCount()).toBe(0);
+  });
+
+  // ===========================================================================
+  // Phase 67 — position-skip + onOpenPositionUpdate force-exit
+  // ===========================================================================
+
+  // ---------------------------------------------------------------------------
+  // 10) ohlcv with existing position on SAME side does NOT open a new position
+  //     (the "donchian_pivot_composition never-closes" bug fix)
+  // ---------------------------------------------------------------------------
+  it("Phase 67: ohlcv with existing same-side position does NOT open a new one", async () => {
+    const feed = new MockExchangeFeed({
+      balances: [{ currency: "USDC", free: 100_000, total: 100_000 }],
+    });
+    await feed.open();
+    const pm = new PositionManager({
+      initialEquityUsd: 100_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    const om = new OrderManager({
+      feed,
+      getPositionContext: () => pm.getPositionContext(),
+    });
+    // Pre-populate a long position for (test-strategy, BTC/USDC).
+    pm.openPosition("test-strategy", makeSymbol(), "long", 0.1, 60_000, 1);
+    expect(pm.getPositionCount()).toBe(1);
+
+    const strategy = new FixedSignalStrategy({
+      side: "buy", // same side as the existing long → should be SKIPPED
+      confidence: 0.8,
+      reason: "test",
+      stopLoss: 0,
+      takeProfit: 0,
+    });
+    const instances = new Map([
+      ["test-strategy" as const, { kind: "strategy" as const, name: "test-strategy" as const, instance: strategy as unknown as Strategy }],
+    ]);
+    const runner = new StrategyRunner({
+      instances,
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await feed.subscribeOhlcv(makeSymbol(), "15m", (event) => {
+      void runner.onFeedEvent(event);
+    });
+
+    // Send 3 OHLCV ticks with buy signals. The existing long should
+    // stay unchanged — NO new positions should be opened, NO entry
+    // price averaging should occur.
+    for (let i = 0; i < 3; i++) {
+      const candle: Ohlcv = [Date.now() + i * 1000, 60_000, 60_500, 59_500, 60_200, 100];
+      pushOhlcvTick(feed, makeSymbol(), "15m", candle);
+      await new Promise<void>((r) => {
+        setTimeout(r, 20);
+      });
+    }
+
+    // Position count is STILL 1 (no new position opened).
+    expect(pm.getPositionCount()).toBe(1);
+    // The existing long is unchanged (entry price still 60_000).
+    const pos = pm.getPosition("test-strategy", makeSymbol(), "long");
+    expect(pos?.entryPrice).toBe(60_000);
+    expect(pos?.quantity).toBeCloseTo(0.1, 8);
+    // `onCandle` is STILL called every tick (state freshness).
+    expect(strategy.onCandleCallCount).toBe(3);
+    // `totalSignals` is 0 because the new-signal path was gated.
+    // (FixedSignalStrategy always returns a signal, but the runner
+    // never reached `handleSignal`.)
+    expect(runner.getStats().totalSignals).toBe(0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // 11) ohlcv with existing position on OPPOSITE side does NOT open a new one
+  //     (close-on-opposite-signal is OUT of Phase 67 scope; the existing
+  //     position stays open until SL/TP/trailing-stop/portfolio-stop closes it)
+  // ---------------------------------------------------------------------------
+  it("Phase 67: ohlcv with existing opposite-side position does NOT open a new one", async () => {
+    const feed = new MockExchangeFeed({
+      balances: [{ currency: "USDC", free: 100_000, total: 100_000 }],
+    });
+    await feed.open();
+    const pm = new PositionManager({
+      initialEquityUsd: 100_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    const om = new OrderManager({
+      feed,
+      getPositionContext: () => pm.getPositionContext(),
+    });
+    // Pre-populate a long position.
+    pm.openPosition("test-strategy", makeSymbol(), "long", 0.1, 60_000, 1);
+    expect(pm.getPositionCount()).toBe(1);
+
+    const strategy = new FixedSignalStrategy({
+      side: "sell", // opposite side as the existing long
+      confidence: 0.8,
+      reason: "test",
+      stopLoss: 0,
+      takeProfit: 0,
+    });
+    const instances = new Map([
+      ["test-strategy" as const, { kind: "strategy" as const, name: "test-strategy" as const, instance: strategy as unknown as Strategy }],
+    ]);
+    const runner = new StrategyRunner({
+      instances,
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await feed.subscribeOhlcv(makeSymbol(), "15m", (event) => {
+      void runner.onFeedEvent(event);
+    });
+
+    const candle: Ohlcv = [Date.now(), 60_000, 60_500, 59_500, 60_200, 100];
+    pushOhlcvTick(feed, makeSymbol(), "15m", candle);
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+
+    // Position count is STILL 1 (no new short position opened).
+    expect(pm.getPositionCount()).toBe(1);
+    // The long is still open.
+    const pos = pm.getPosition("test-strategy", makeSymbol(), "long");
+    expect(pos).toBeDefined();
+    // No new short.
+    const shortPos = pm.getPosition("test-strategy", makeSymbol(), "short");
+    expect(shortPos).toBeUndefined();
+    // `onCandle` was called once.
+    expect(strategy.onCandleCallCount).toBe(1);
+    // `totalSignals` is 0 (gated).
+    expect(runner.getStats().totalSignals).toBe(0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // 12) onOpenPositionUpdate forceExit: true closes the position
+  // ---------------------------------------------------------------------------
+  it("Phase 67: onOpenPositionUpdate forceExit closes the open position", async () => {
+    const feed = new MockExchangeFeed({
+      balances: [{ currency: "USDC", free: 100_000, total: 100_000 }],
+    });
+    await feed.open();
+    const pm = new PositionManager({
+      initialEquityUsd: 100_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    const om = new OrderManager({
+      feed,
+      getPositionContext: () => pm.getPositionContext(),
+    });
+    // Pre-populate a long position.
+    pm.openPosition("test-strategy", makeSymbol(), "long", 0.1, 60_000, 1);
+    expect(pm.getPositionCount()).toBe(1);
+
+    const strategy = new ForceExitStrategy({
+      side: "buy",
+      confidence: 0.8,
+      reason: "test",
+      stopLoss: 0,
+      takeProfit: 0,
+    });
+    const instances = new Map([
+      ["test-strategy" as const, { kind: "strategy" as const, name: "test-strategy" as const, instance: strategy as unknown as Strategy }],
+    ]);
+    const runner = new StrategyRunner({
+      instances,
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await feed.subscribeOhlcv(makeSymbol(), "15m", (event) => {
+      void runner.onFeedEvent(event);
+    });
+
+    const candle: Ohlcv = [Date.now(), 60_000, 60_500, 59_500, 60_200, 100];
+    pushOhlcvTick(feed, makeSymbol(), "15m", candle);
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+
+    // The position was force-closed by the strategy.
+    expect(pm.getPositionCount()).toBe(0);
+    // onOpenPositionUpdate was called once.
+    expect(strategy.onOpenPositionUpdateCallCount).toBe(1);
+    // onCandle was also called once.
+    expect(strategy.onCandleCallCount).toBe(1);
+    // The closed trade is recorded.
+    const closed = pm.getClosedTrades();
+    expect(closed.length).toBe(1);
+    expect(closed[0]?.side).toBe("long");
+  });
+
+  // ---------------------------------------------------------------------------
+  // 13) Phase 67 regression: getActiveStrategyNames + getStats work after fix
+  // ---------------------------------------------------------------------------
+  it("Phase 67: getActiveStrategyNames and getStats still work with position-skip", async () => {
+    const feed = new MockExchangeFeed({
+      balances: [{ currency: "USDC", free: 100_000, total: 100_000 }],
+    });
+    await feed.open();
+    const pm = new PositionManager({
+      initialEquityUsd: 100_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    const om = new OrderManager({
+      feed,
+      getPositionContext: () => pm.getPositionContext(),
+    });
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 0.8,
+      reason: "test",
+      stopLoss: 0,
+      takeProfit: 0,
+    });
+    const instances = new Map([
+      ["a" as const, { kind: "strategy" as const, name: "a" as const, instance: strategy as unknown as Strategy }],
+      ["b" as const, { kind: "strategy" as const, name: "b" as const, instance: strategy as unknown as Strategy }],
+    ]);
+    const runner = new StrategyRunner({
+      instances,
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    expect(runner.getActiveStrategyNames()).toEqual(["a", "b"]);
+
+    // Run a tick; verify stats are sensible.
+    await feed.subscribeOhlcv(makeSymbol(), "15m", (event) => {
+      void runner.onFeedEvent(event);
+    });
+    const candle: Ohlcv = [Date.now(), 60_000, 60_500, 59_500, 60_200, 100];
+    pushOhlcvTick(feed, makeSymbol(), "15m", candle);
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+
+    const stats = runner.getStats();
+    expect(stats.ticksProcessed).toBe(1);
+    expect(stats.totalSignals).toBe(2); // a + b both fired
+    expect(stats.activeStrategies).toEqual(["a", "b"]);
+    // Two DIFFERENT strategies, same symbol — each gets its own
+    // position (position-skip is per (strategy, symbol), not per
+    // symbol). 2 positions opened, both at entry 60_200.
+    expect(pm.getPositionCount()).toBe(2);
   });
 });
