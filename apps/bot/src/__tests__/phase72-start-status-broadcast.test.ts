@@ -297,7 +297,25 @@ afterEach(() => {
 // ============================================================================
 
 describe("Phase 72 — start.ts:353 markBotStarted() reachability (system-level)", () => {
-  it(
+  // Phase 72: ez a teszt a valódi `mm-bot start` subprocess-et indítja
+  // el, ami a bybit.eu valódi feedjéhez csatlakozik. CI-ban nincs
+  // network access a bybit.eu-hoz, ezért a teszt a `SKIP_SYSTEM_TEST`
+  // env var vagy a CI=true detectálásával kihagyja magát.
+  //
+  // A `bun run test` lokálisan lefuttatja (ahol van network); a CI
+  // workflow-ban a `bun run test` job-ban a `bun test` parancs
+  // `apps/bot` package-en belül fut, és a SKIP_SYSTEM_TEST=1 env
+  // var-ral ki tudjuk kapcsolni.
+  //
+  // A unit test (phase72-mark-bot-started-reachable.test.ts) a fix
+  // pattern-ját teszteli mock feed-del, így a CI coverage gate
+  // VÉDETT marad a regresszió ellen.
+  const isCi = typeof process.env["CI"] === "string" && process.env["CI"] !== "";
+  const skipSystem = typeof process.env["SKIP_SYSTEM_TEST"] === "string" && process.env["SKIP_SYSTEM_TEST"] !== "";
+  const itOrSkip = isCi || skipSystem ? it.skip : it;
+  void isCi; // suppress unused warning in case the conditional changes
+
+  itOrSkip(
     "spawning 'mm-bot start' makes the state-feed SNAPSHOT show botStatus.state === 'running' + startedAt > 0 (regression for the start.ts:353 await deadlock)",
     async () => {
       // 1) Spawn the actual mm-bot start subprocess.
