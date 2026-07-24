@@ -6,75 +6,107 @@
 
 The bot runs in two separate processes, each in its own terminal. The web client is the user-facing UI; the bot is the headless engine that publishes state to it.
 
-**Terminal 1 — the bot (headless, pure engine + state-feed publisher):**
+### Choose your config
+
+| Config | Purpose | Strategy | When to use |
+|---|---|---|---|
+| `run-bot/config/default.toml` | FAILSAFE — Phase 67 baseline, `min_consensus = 2` | 1 strategy | default `mm-bot start` (no `--config` flag) |
+| **`run-bot/config/paper-backtest-verified.toml`** | **PHASE 30b BACKTEST-VERIFIED — `min_consensus = 1`, BTC 2024-01 → 2026-07: 11048 trades, 64.74% win, +34.41%/mo** | 1 strategy | **ha a backtest-tel azonos viselkedést akarod paper módban** ← AJÁNLOTT |
+| `run-bot/config/live-eu.toml` | LIVE template (bybit.eu SPOT, `mode = "live"`) | 1 strategy | live deploy előtt (lásd [`apps/bot/README.md` §7](./apps/bot/README.md#7-live-testing-workflow-manual)) |
+| `run-bot/config/live-eu.example.toml` | LIVE template example | 1 strategy | user config init (soha ne editáld közvetlenül) |
+
+> **A `default.toml` a `min_consensus = 2` (Phase 67 position-skip fix safety baseline), nem a backtest-verified `1`.** Ha a backtest-tel AZONOS viselkedést akarsz paper módban, használd a **`paper-backtest-verified.toml`**-t (Phase 69 óta érhető el, Phase 30b backtest reprodukálására készült).
+
+### Terminal 1 — the bot (headless, pure engine + state-feed publisher)
+
+**A) AJÁNLOTT — backtest-verified paper mode (Phase 30b reprodukálás):**
 
 ```bash
-bun run start --config=run-bot/config/default.toml
-# VAGY (ha a node_modules/.bin/ a PATH-ban van):
-mm-bot start --config=run-bot/config/default.toml
+bun run mm-bot start --config=run-bot/config/paper-backtest-verified.toml
+# VAGY ha a node_modules/.bin/ a PATH-ban van:
+mm-bot start --config=run-bot/config/paper-backtest-verified.toml
 ```
 
-The bot starts and prints a single status line to stderr:
+**B) Default failsafe (Phase 67 baseline):**
+
+```bash
+bun run mm-bot start --config=run-bot/config/default.toml
+# VAGY röviden (a default.toml a fallback ha nincs --config):
+bun run mm-bot start
+```
+
+A bot indul, és egyetlen státusz sort ír ki stderr-re:
 
 ```
 [start] state-feed listening on 127.0.0.1:7914
 ```
 
-**Terminal 2 — the web client (HTTP + WebSocket + REST + SPA):**
+### Terminal 2 — a web client (HTTP + WebSocket + REST + SPA)
 
 ```bash
+bun run mm-bot web
+# VAGY:
 mm-bot web
 ```
 
-The web client connects to the bot's state-feed, then starts an HTTP server and prints:
+A web client csatlakozik a bot state-feed-jéhez, majd HTTP szervert indít és kiírja:
 
 ```
 [web] state-feed reachable — starting web client
 [web] web client listening on http://127.0.0.1:7913
 ```
 
-**Browser — open the dashboard:**
+### Browser — nyisd meg a dashboardot:
 
 ```
 http://127.0.0.1:7913
 ```
 
-The dashboard loads with:
+A dashboard betölti:
 
-- **Top-nav** — `mm-crypto-bot` brand mark on the left, `[● connected]` status pill on the right
-- **Chart grid** — one `ChartCard` per `(symbol, timeframe)` pair from the active strategy
-- **Positions table** — open positions with `qty`, `entry`, `mark`, `uPnl` columns
-- **Sticky control bar** — `Start` / `Stop` / `Pause` / `Resume` / `Kill Switch` buttons at the bottom of the viewport
+- **Top-nav** — `mm-crypto-bot` brand mark balra, `[● connected]` státusz pill jobbra
+- **Status banner** — `Bot: RUNNING · uptime X · last update Y · N active strategies · M open positions` (Phase 72 fix, valós idejű frissítés)
+- **Chart grid** — vertikális flex stack (Phase 69), minden `ChartCard` `(symbol, timeframe)` párra
+- **Positions table** — nyitott pozíciók `qty`, `entry`, `mark`, `uPnl` oszlopokkal
+- **Sticky control bar** — `Start` / `Stop` / `Pause` / `Resume` / `Kill Switch` gombok a viewport alján (state-aware enable/disable)
 
-If the `mm-bot` command is not found after `bun install`, regenerate the wrapper (the postinstall hook normally handles this):
+Ha az `mm-bot` parancs a `bun install` után nem található, regeneráld a wrapper-t (a postinstall hook normálisan megteszi):
 
 ```bash
 bash scripts/install-mm-bot.sh
 # VAGY használd a `bun run` wrapper-t (mindig működik):
-bun run mm-bot start
+bun run mm-bot start --config=run-bot/config/paper-backtest-verified.toml
 bun run mm-bot web
 ```
 
 ## Státusz
 
-**Phase 51** — web dashboard fully shipped (Phases 44-51). 7/7 server packages at 100% line coverage on OWN `src/` files (standard `lcov` C tool, gate in CI). The `mm-bot` CLI is production-ready: 8 subcommands, pure headless bot, separate web client process, 1:10 leverage three-layer protection. **Live trading** is gated on a user-run workflow (config + bybit.eu key + paper-test) — see [`apps/bot/README.md` §7](./apps/bot/README.md#7-live-testing-workflow-manual).
+**Phase 72** COMPLETE — status broadcast fix (`Bot: RUNNING` + valós idejű uptime + positions a dashboardon, Phase 30b backtest-verified `paper-backtest-verified.toml` konfiggal paper módban). 7/7 CI zöld, browser-verified real bybit.eu paper mode run. A `mm-bot` CLI production-ready: 8 subcommand, pure headless bot, külön web client process, 1:10 leverage három-rétegű védelem. **Live trading** user-run workflow-hoz kötött (config + bybit.eu key + paper-test) — lásd [`apps/bot/README.md` §7](./apps/bot/README.md#7-live-testing-workflow-manual).
 
 | Artifact | Státusz |
 |---|---|
 | Monorepo + turbo pipeline | ✅ Phase 0-3 |
-| Exchange adapter (bybit.eu / CCXT) + mock feed | ✅ Phase 4-7 |
-| Backtest engine (cost model, metrics, OOS) | ✅ Phase 8-15 |
+| Exchange adapter (bybit.eu / CCXT) + mock feed (test-only) | ✅ Phase 4-7 + Phase 66 |
+| Backtest engine (cost model, metrics, OOS decay) | ✅ Phase 8-15 |
 | Paper engine + PaperTrader | ✅ Phase 16-18 |
-| Stratégiák (5 db: donchian, dydx-carry, cascade-fade, funding-flip, regime-detector) | ✅ Phase 19-25 |
+| Stratégiák (donchian, dydx-carry, cascade-fade, funding-flip, regime-detector) | ✅ Phase 19-25 |
+| Portfolio coordination (RiskBudget + CorrelationMatrix + PortfolioStop) | ✅ Phase 37 |
 | State-feed publisher (TCP, ND-JSON, 4Hz throttle) | ✅ Phase 45 |
 | Web client (Hono + bun-websocket + static server) | ✅ Phase 46 |
-| `apps/web` SPA skeleton (React 19 + Vite 6 + lightweight-charts) | ✅ Phase 47 |
+| `apps/web` SPA (React 19 + Vite 6 + lightweight-charts) | ✅ Phase 47 |
 | WS client + reconnect + ControlBar + PositionsTable | ✅ Phase 47 |
 | Chart grid + multi-TF + OHLC bootstrap | ✅ Phase 48 |
 | Indicator registry (Donchian, funding, cascade, signals) | ✅ Phase 49 |
 | Realtime batching (rAF) | ✅ Phase 50 |
-| Playwright e2e + MSW + CI gate | ✅ Phase 48D |
+| Playwright e2e + MSW + 80% coverage gate | ✅ Phase 48D + Phase 62 |
 | **Deployment README + final smoke test** | ✅ Phase 51 |
+| **StrategyRunner position-skip + onOpenPositionUpdate** | ✅ Phase 67 |
+| **state-restore: data/bot-state.json → PositionManager** | ✅ Phase 68 |
+| **Web UI control panel + vertical chart stack + status banner** | ✅ Phase 69 |
+| **backtest-verified paper config (`paper-backtest-verified.toml`)** | ✅ Phase 69 |
+| **kill-switch `>` fix (no false-positive on `current == max`)** | ✅ Phase 70 |
+| **status broadcast positions propagation** | ✅ Phase 71 |
+| **status broadcast state/startedAt propagation (deadlock fix)** | ✅ Phase 72 |
 | **Live deploy** | ⏸️ user workflow (config + bybit.eu key + paper-test) |
 
 ## Stack (verzió-pin-ek)
