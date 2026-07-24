@@ -23,12 +23,25 @@ import { ControlBar } from "../../src/components/ControlBar.js";
 /**
  * Default probe — the real ControlBar with the mock
  * `useWebSocket` returning whatever `window.__CT_STATUS__` is
- * set to (defaults to "connected").
+ * set to (defaults to "connected"). Phase 69: the `availability`
+ * + `botState` props are set to the "running" state so the
+ * default probe exercises the "all buttons enabled" branch
+ * (Start disabled, Stop/Pause/Kill enabled). Tests that need
+ * a different state use a different probe.
  */
 export function ControlBarProbe(): React.JSX.Element {
   return (
     <div data-testid="control-bar-wrapper">
-      <ControlBar />
+      <ControlBar
+        availability={{
+          start: false,
+          stop: true,
+          pause: true,
+          resume: false,
+          killSwitch: true,
+        }}
+        botState="running"
+      />
     </div>
   );
 }
@@ -80,4 +93,58 @@ export function ControlBarCrashedProbe(): React.JSX.Element {
       "crashed";
   }
   return <ControlBarProbe />;
+}
+
+/**
+ * Phase 69: a probe that exercises the `botState="stopped"`
+ * branch (Start enabled, others disabled). Used by the
+ * "click Start" CT test, which previously assumed the
+ * default ControlBarProbe was enough (back when Start was
+ * always enabled in the "connected" state).
+ */
+export function ControlBarStoppedProbe(): React.JSX.Element {
+  if (typeof window !== "undefined") {
+    (window as unknown as { __CT_STATUS__?: string }).__CT_STATUS__ =
+      "connected";
+  }
+  return (
+    <div data-testid="control-bar-wrapper">
+      <ControlBar
+        availability={{
+          start: true,
+          stop: false,
+          pause: false,
+          resume: false,
+          killSwitch: false,
+        }}
+        botState="stopped"
+      />
+    </div>
+  );
+}
+
+/**
+ * Phase 69: a probe that exercises the `botState="paused"`
+ * branch (Resume + Kill Switch enabled, others disabled).
+ * Used by the "click Resume" CT test.
+ */
+export function ControlBarPausedProbe(): React.JSX.Element {
+  if (typeof window !== "undefined") {
+    (window as unknown as { __CT_STATUS__?: string }).__CT_STATUS__ =
+      "connected";
+  }
+  return (
+    <div data-testid="control-bar-wrapper">
+      <ControlBar
+        availability={{
+          start: false,
+          stop: false,
+          pause: false,
+          resume: true,
+          killSwitch: true,
+        }}
+        botState="paused"
+      />
+    </div>
+  );
 }
