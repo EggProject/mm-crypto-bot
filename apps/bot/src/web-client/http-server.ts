@@ -214,6 +214,15 @@ async function handleHttpRequest(req: Request, ctx: HttpHandlerContext): Promise
     return handleGetOhlc(url, ctx);
   }
 
+  // Phase 69: GET /api/status — a dashboard status banner forrása.
+  // A cache-elt SNAPSHOT `botStatus` mezőjét adja vissza; a UI poll-ozza
+  // ezt az endpoint-ot a real-time WS frissítések mellett (a WS a
+  // SNAPSHOT message-ben szállítja a `botStatus`-t, de a poll biztosítja,
+  // hogy reconnect után is frissüljön a status).
+  if (method === "GET" && path === "/api/status") {
+    return handleGetStatus(ctx);
+  }
+
   // POST /api/control — a body { command, ...args } → state-feed CONTROL.
   if (method === "POST" && path === "/api/control") {
     return await handlePostControl(req, ctx);
@@ -237,6 +246,41 @@ function handleGetStrategies(ctx: HttpHandlerContext): Response {
   return jsonResponse({
     strategies: buildStrategiesList(ctx.snapshot),
   });
+}
+
+/**
+ * `handleGetStatus` — Phase 69: a dashboard status banner forrása.
+ *
+ * A cache-elt SNAPSHOT `botStatus` mezőjét adja vissza:
+ *   - `state` — a bot magas-szintű állapota ("running" / "paused" / "stopped")
+ *   - `startedAt` — a `markBotStarted()` utolsó hívásának timestamp-je
+ *                    (0 ha még soha nem futott)
+ *   - `lastUpdate` — a state-frissítés timestamp-je
+ *   - `activeStrategyCount` — a `strategies` listából az `enabled === true` elemek száma
+ *
+ * A `state-feed disconnected` 503-as branch-et a router elején kezeljük;
+ * ez a handler CSAK akkor fut le, ha a state-feed connected.
+ *
+ * Ha még nincs SNAPSHOT cache (a state-feed frissen csatlakozott, de
+ * a HELLO + SNAPSHOT még nem jött meg), a 503-as branch ad vissza
+ * `snapshot not yet received from state-feed` üzenetet — a UI ezt a
+ * `state === "stopped"` fallback-ként kezeli.
+ */
+function handleGetStatus(ctx: HttpHandlerContext): Response {
+  if (ctx.snapshot === null) {
+    return jsonResponse(
+      {
+        botStatus: {
+          state: "stopped",
+          startedAt: 0,
+          lastUpdate: 0,
+          activeStrategyCount: 0,
+        },
+      },
+      503,
+    );
+  }
+  return jsonResponse({ botStatus: ctx.snapshot.botStatus });
 }
 
 /**

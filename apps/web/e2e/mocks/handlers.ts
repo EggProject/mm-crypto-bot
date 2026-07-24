@@ -102,6 +102,15 @@ const state = {
       openedAt: Date.now() - 60 * 60 * 1000,
     },
   ] as readonly MockPosition[],
+  // Phase 69: the bot's high-level state. The dashboard's status
+  // banner + the ControlBar's button enable/disable logic both read
+  // this. Default = "stopped" (the dashboard's first-paint state).
+  // The handler mutates this on each CONTROL message (matching the
+  // real bot's state-machine), and tests can override via
+  // `setBotState` for explicit assertions on the button states.
+  botState: "stopped" as "running" | "paused" | "stopped",
+  startedAt: 0 as number,
+  activeStrategyCount: 1 as number,
 };
 
 /** Recording — pushed to by the WS handler as the page sends messages. */
@@ -116,6 +125,24 @@ const controlCommands: {
 export function reset(): void {
   clientMessages.length = 0;
   controlCommands.length = 0;
+  // Phase 69: the bot state also resets to "stopped" on `reset()` —
+  // the dashboard's status banner should match the production
+  // first-paint state in every test.
+  state.botState = "stopped";
+  state.startedAt = 0;
+  state.activeStrategyCount = 1;
+}
+
+// Phase 69: auto-reset the bot state on every new page load. The
+// MSW worker maintains a single state closure across all tests;
+// without this auto-reset, the state from the previous test (e.g.
+// "paused" from a test that paused the bot) bleeds into the next.
+// Each new page load = a fresh test = a fresh state. The reset
+// is also exposed via the `__mswResetState` global for tests that
+// need to explicitly reset between sub-assertions.
+if (typeof window !== "undefined") {
+  (window as unknown as { __mswResetState?: () => void }).__mswResetState =
+    reset;
 }
 
 /** `setStrategies(s)` — override the served strategy list. */
@@ -126,6 +153,26 @@ export function setStrategies(s: readonly MockStrategy[]): void {
 /** `setPositions(p)` — override the served positions list. */
 export function setPositions(p: readonly MockPosition[]): void {
   state.positions = p;
+}
+
+/** `setBotState(s)` — override the served bot state (Phase 69). */
+export function setBotState(s: "running" | "paused" | "stopped"): void {
+  state.botState = s;
+}
+
+/** `getBotState()` — read the currently-served bot state. */
+export function getBotState(): "running" | "paused" | "stopped" {
+  return state.botState;
+}
+
+/** `setStartedAt(ts)` — override the bot startedAt timestamp. */
+export function setStartedAt(ts: number): void {
+  state.startedAt = ts;
+}
+
+/** `setActiveStrategyCount(n)` — override the active strategy count. */
+export function setActiveStrategyCount(n: number): void {
+  state.activeStrategyCount = n;
 }
 
 /** `getClientMessages()` — read the WS frames the page sent. */
@@ -227,6 +274,11 @@ const ohlcHandler = http.get(
  * 48D dashboard uses the WS CONTROL message, but the spec includes
  * this REST endpoint for completeness (the bot's web-client serves
  * both). Returns 202 Accepted, matching the real handler.
+ *
+ * Phase 69: this is now the PRIMARY control endpoint for the
+ * dashboard's Start/Stop/Pause/Resume buttons. The handler mutates
+ * the mock `state.botState` to mirror the real bot's state machine
+ * (so the next `/api/status` poll returns the updated state).
  */
 const controlHandler = http.post(
   "http://127.0.0.1:7913/api/control",
@@ -237,7 +289,56 @@ const controlHandler = http.post(
       confirm?: boolean;
     };
     controlCommands.push(body);
+    // Phase 69: update the mock bot state to match the real bot's
+    // state machine. This is the MOCK side of the HTTP /api/control
+    // wiring — the real bot's web-client HTTP handler does the same
+    // dispatch via the `handleControl` callback in start.ts.
+    switch (body.command) {
+      case "start":
+        state.botState = "running";
+        state.startedAt = Date.now();
+        break;
+      case "stop":
+        state.botState = "stopped";
+        // Note: `startedAt` is NOT reset (the real bot's
+        // `markBotStopped()` keeps the historical timestamp; the
+        // dashboard only displays uptime while running).
+        break;
+      case "pause":
+        state.botState = "paused";
+        break;
+      case "resume":
+        state.botState = "running";
+        break;
+      case "kill_switch":
+        state.botState = "stopped";
+        break;
+    }
     return new HttpResponse(null, { status: 202 });
+  },
+);
+
+/**
+ * `GET /api/status` — Phase 69: the dashboard's status banner
+ * source. Returns the current `botStatus` object (matching the real
+ * bot's `web-client/http-server.ts` `handleGetStatus` shape).
+ *
+ * The dashboard polls this endpoint on mount and every 5s as a
+ * fallback (the primary source is the WS `state` message). The
+ * `GET /api/health` endpoint is also useful for liveness checks
+ * (no bot state, just connection status).
+ */
+const statusHandler = http.get(
+  "http://127.0.0.1:7913/api/status",
+  () => {
+    return HttpResponse.json({
+      botStatus: {
+        state: state.botState,
+        startedAt: state.startedAt,
+        lastUpdate: Date.now(),
+        activeStrategyCount: state.activeStrategyCount,
+      },
+    });
   },
 );
 
@@ -330,15 +431,27 @@ const wsHandler = chat.addEventListener("connection", ({ client }) => {
   //     e2e we send ONE STATE on connect. Tests that need a different
   //     state (e.g. paused) can send a CONTROL message, which
   //     triggers a fresh STATE reply.
+  //
+  // Phase 69: the STATE message's `snapshot` field now also embeds
+  // the `botStatus` (mirroring the real bot's `StateFeedSnapshot`
+  // shape — the WS `state` message carries the full snapshot, so
+  // the botStatus comes through automatically).
   client.send(
     JSON.stringify({
       type: "state",
       ts: Date.now(),
-      snapshot: {},
+      snapshot: {
+        botStatus: {
+          state: state.botState,
+          startedAt: state.startedAt,
+          lastUpdate: Date.now(),
+          activeStrategyCount: state.activeStrategyCount,
+        },
+      },
       positions: state.positions,
       closedTrades: [],
       killSwitch: "off",
-      paused: false,
+      paused: state.botState === "paused",
       statistics: { trades: 0, pnl: 0, drawdown: 0 },
     }),
   );
@@ -449,16 +562,48 @@ const wsHandler = chat.addEventListener("connection", ({ client }) => {
         const confirm =
           typeof msg.confirm === "boolean" ? msg.confirm : undefined;
         controlCommands.push({ command, paused, confirm });
+        // Phase 69: update the mock bot state to mirror the real
+        // bot's state machine (the HTTP /api/control handler also
+        // does this, but the WS handler is the canonical source of
+        // truth for the dashboard).
+        switch (command) {
+          case "start":
+            state.botState = "running";
+            state.startedAt = Date.now();
+            break;
+          case "stop":
+            state.botState = "stopped";
+            break;
+          case "pause":
+            state.botState = "paused";
+            break;
+          case "resume":
+            state.botState = "running";
+            break;
+          case "kill_switch":
+            state.botState = "stopped";
+            break;
+        }
         // Reply with a STATE update reflecting the new state.
+        // Phase 69: the snapshot's `botStatus` is the source of truth
+        // for the dashboard's status banner (the WS state message
+        // carries the full snapshot, which includes the botStatus).
         client.send(
           JSON.stringify({
             type: "state",
             ts: Date.now(),
-            snapshot: {},
+            snapshot: {
+              botStatus: {
+                state: state.botState,
+                startedAt: state.startedAt,
+                lastUpdate: Date.now(),
+                activeStrategyCount: state.activeStrategyCount,
+              },
+            },
             positions: state.positions,
             closedTrades: [],
             killSwitch: "off",
-            paused: paused === true,
+            paused: state.botState === "paused",
             statistics: { trades: 0, pnl: 0, drawdown: 0 },
           }),
         );
@@ -486,5 +631,6 @@ export const handlers = [
   strategiesHandler,
   ohlcHandler,
   controlHandler,
+  statusHandler,
   wsHandler,
 ];

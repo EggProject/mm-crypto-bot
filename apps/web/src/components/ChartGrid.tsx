@@ -109,13 +109,19 @@ interface FlatChart {
  * CSS for the `ep-chart-grid*` classes. Self-contained: only uses
  * EggProject design tokens (already loaded by the app shell) and
  * falls back to sensible defaults if the tokens are missing.
+ *
+ * **Phase 69 layout change:** a korábbi `grid-template-columns:
+ * repeat(auto-fit, minmax(360px, 1fr))` 3x3 grid volt, ami keskeny
+ * chart-okat eredményezett. A user kérésére a grid mostantól SINGLE
+ * COLUMN flex layout: minden chart teljes szélességű, 420px magas,
+ * 3 symbol × 3 timeframe = 9 chart egymás alatt.
  */
 const GRID_CSS = `
 .ep-chart-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 20px;
-  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 20px 0;
 }
@@ -123,12 +129,22 @@ const GRID_CSS = `
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* Phase 69: a teljes szélességű chart-ok fix magassága — a korábbi
+   * 220px-es loading placeholder túl alacsony volt a 16:9-es chart-okhoz.
+   * A 420px magasság a lightweight-charts alapértelmezett 600-as chart
+   * konténeréhez van igazítva, hogy a price scale + a chart body
+   * kényelmesen elférjen. */
+  min-height: 420px;
+  background: var(--ep-bg-elevated, #0C0D11);
+  border: 1px solid var(--ep-border-subtle, rgba(255, 255, 255, 0.10));
+  border-radius: var(--ep-radius-lg, 12px);
+  overflow: hidden;
 }
 .ep-chart-card--loading {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 220px;
+  min-height: 420px;
   padding: 20px;
   background: var(--ep-bg-elevated, #0C0D11);
   border: 1px dashed var(--ep-border-subtle, rgba(255, 255, 255, 0.10));
@@ -150,7 +166,7 @@ const GRID_CSS = `
   color: var(--ep-fg-muted, #A49D8C);
   font: 500 16px var(--ep-font-sans, sans-serif);
   text-align: center;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 .ep-chart-grid__empty p {

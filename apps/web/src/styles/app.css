@@ -85,3 +85,64 @@ html, body {
   color: #ECE7DA;
   opacity: 0.7;
 }
+
+/* ============================================================================
+ * Phase 69: status banner — the bot's high-level state pill below the topbar.
+ * Color-coded by the `data-bot-state` attribute:
+ *   - "running" → green
+ *   - "paused"  → amber
+ *   - "stopped" → neutral gray
+ * ============================================================================
+ */
+.ep-app__status-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px 0;
+  padding: 12px 16px;
+  background: var(--ep-bg-elevated, #0C0D11);
+  border: 1px solid var(--ep-border-subtle, rgba(255, 255, 255, 0.10));
+  border-radius: var(--ep-radius-lg, 12px);
+  font-size: 14px;
+  color: var(--ep-fg, #ECE7DA);
+}
+
+.ep-app__status-banner-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #888; /* default = "stopped" */
+  box-shadow: 0 0 6px currentColor;
+}
+
+.ep-app__status-banner-dot[data-bot-state="running"] {
+  background: #4CAF50; /* green */
+}
+
+.ep-app__status-banner-dot[data-bot-state="paused"] {
+  background: #E3B563; /* amber — matches the brand yolk */
+}
+
+.ep-app__status-banner-dot[data-bot-state="stopped"] {
+  background: #888; /* gray */
+}
+
+.ep-app__status-banner[data-bot-state="running"] {
+  border-left: 4px solid #4CAF50;
+}
+
+.ep-app__status-banner[data-bot-state="paused"] {
+  border-left: 4px solid #E3B563;
+}
+
+.ep-app__status-banner[data-bot-state="stopped"] {
+  border-left: 4px solid #888;
+}
+
+.ep-app__status-banner-text {
+  font-family: var(--ep-font-mono, ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace);
+  font-size: 13px;
+  line-height: 1.5;
+}

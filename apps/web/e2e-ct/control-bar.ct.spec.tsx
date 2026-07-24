@@ -14,6 +14,14 @@
  * The `send` mock records every call into
  * `window.__CT_SENT_MESSAGES__` so the CT can assert on the
  * commands sent.
+ *
+ * Phase 69: the ControlBar now also calls `POST /api/control`
+ * (in addition to the WS `send`). The CT tests still assert on
+ * the WS `__CT_SENT_MESSAGES__` buffer (the legacy path); the
+ * HTTP path is covered by the e2e suite
+ * (e2e/69-status-panel.spec.ts). The CT mock shim
+ * (`window.fetch`) prevents the HTTP fetch from hitting the
+ * real network stack.
  */
 import { test, expect } from "./_helpers/coverage.js";
 import {
@@ -21,17 +29,28 @@ import {
   ControlBarDisconnectedProbe,
   ControlBarConnectingProbe,
   ControlBarCrashedProbe,
+  ControlBarStoppedProbe,
+  ControlBarPausedProbe,
 } from "./__stories__/control-bar.stories.js";
 
 test.describe("CT: ControlBar branches", () => {
-  test("status=connected → all 5 buttons enabled", async ({ mount }) => {
+  test("status=connected → ControlBar renders 5 buttons", async ({ mount }) => {
     const component = await mount(<ControlBarConnectedProbe />);
     await expect(component).toBeVisible();
+    // Phase 69: the default probe sets `botState="running"`, so
+    // the 3 "running" buttons (Stop / Pause / Kill Switch) are
+    // enabled; Start and Resume are disabled. The original
+    // assertion ("all 5 enabled") no longer holds because the
+    // new ControlBar gates buttons on bot state, not just WS
+    // status. The 5 buttons are still present, just with
+    // state-aware enable/disable.
     const buttons = component.locator(".ep-control-bar__btn");
     await expect(buttons).toHaveCount(5);
-    for (let i = 0; i < 5; i++) {
-      await expect(buttons.nth(i)).toBeEnabled();
-    }
+    await expect(buttons.nth(0)).toBeDisabled(); // Start (disabled in "running")
+    await expect(buttons.nth(1)).toBeEnabled(); // Stop
+    await expect(buttons.nth(2)).toBeEnabled(); // Pause
+    await expect(buttons.nth(3)).toBeDisabled(); // Resume (disabled in "running")
+    await expect(buttons.nth(4)).toBeEnabled(); // Kill Switch
   });
 
   test("status=disconnected → all 5 buttons disabled", async ({ mount }) => {
@@ -64,10 +83,13 @@ test.describe("CT: ControlBar branches", () => {
     }
   });
 
-  test("click Start when connected → send('start') recorded", async ({
+  test("click Start when stopped → send('start') recorded", async ({
     mount,
   }) => {
-    const component = await mount(<ControlBarConnectedProbe />);
+    // Phase 69: Start is only enabled in the "stopped" state.
+    // Use the StoppedProbe (which sets `botState="stopped"`) to
+    // exercise this branch.
+    const component = await mount(<ControlBarStoppedProbe />);
     await component.locator('.ep-control-bar__btn:has-text("Start")').click();
     const sent = await component.evaluate(() => {
       return (window as unknown as { __CT_SENT_MESSAGES__?: unknown[] })
@@ -104,10 +126,12 @@ test.describe("CT: ControlBar branches", () => {
     });
   });
 
-  test("click Resume when connected → send('pause', paused=false) recorded", async ({
+  test("click Resume when paused → send('pause', paused=false) recorded", async ({
     mount,
   }) => {
-    const component = await mount(<ControlBarConnectedProbe />);
+    // Phase 69: Resume is only enabled in the "paused" state.
+    // Use the PausedProbe.
+    const component = await mount(<ControlBarPausedProbe />);
     await component
       .locator('.ep-control-bar__btn:has-text("Resume")')
       .click();
@@ -138,6 +162,10 @@ test.describe("CT: ControlBar branches", () => {
       return (window as unknown as { __CT_SENT_MESSAGES__?: unknown[] })
         .__CT_SENT_MESSAGES__;
     });
-    expect(sent?.[0]).toEqual({ type: "control", command: "kill_switch" });
+    expect(sent?.[0]).toEqual({
+      type: "control",
+      command: "kill_switch",
+      confirm: true,
+    });
   });
 });

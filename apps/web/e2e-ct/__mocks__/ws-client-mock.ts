@@ -25,6 +25,13 @@
  * top-level files) to this mock. The mock is ONLY active
  * during CT — production builds (vite preview) use the real
  * `useWebSocket`.
+ *
+ * **Phase 69:** the ControlBar now also calls
+ * `fetch("/api/control", ...)` (in addition to the WS
+ * `send`). The CT tests still assert on the WS
+ * `__CT_SENT_MESSAGES__` buffer (the legacy path). The HTTP
+ * fetch is shimmed (returns 202, no network access) so the
+ * click doesn't error.
  */
 import type { WebSocketState, WebSocketStatus } from "../../src/ws-client.js";
 
@@ -68,6 +75,31 @@ export function useWebSocket(_url?: string): WebSocketState {
       recordSend(msg);
     },
   };
+}
+
+// Phase 69: shim `window.fetch` so the ControlBar's
+// `POST /api/control` calls don't hit the real network
+// stack (which 404s in the CT environment). We return a
+// synthetic 202 Accepted — the click handler treats this
+// as success and continues.
+if (
+  typeof window !== "undefined" &&
+  !(window as unknown as { __fetchShimmed?: boolean }).__fetchShimmed
+) {
+  (window as unknown as { __fetchShimmed: boolean }).__fetchShimmed = true;
+  const origFetch = window.fetch.bind(window);
+  window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    if (url.includes("/api/control")) {
+      return Promise.resolve(new Response(null, { status: 202 }));
+    }
+    return origFetch(input, init);
+  }) as typeof fetch;
 }
 
 // Re-export the types so the ControlBar import works.

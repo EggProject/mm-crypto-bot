@@ -449,6 +449,15 @@ describe("Broadcast — subscription filtering (BAR / INDICATOR / MARKER)", () =
       tickerEvents: [],
       paused: false,
       killSwitchThresholdPct: -10,
+      // Phase 69: a snapshot `botStatus` mezője — a tesztekben a
+      // bot "stopped" állapotban van (a publisher `markBotStarted()`
+      // hívása nélkül).
+      botStatus: {
+        state: "stopped",
+        startedAt: 0,
+        lastUpdate: 0,
+        activeStrategyCount: 0,
+      },
     };
     const snapshot: StateFeedServerMessage = {
       type: "snapshot",
@@ -496,6 +505,14 @@ describe("Broadcast — subscription filtering (BAR / INDICATOR / MARKER)", () =
       tickerEvents: [],
       paused: false,
       killSwitchThresholdPct: -10,
+      // Phase 69: a snapshot `botStatus` mezője — a tesztekben a
+      // bot "stopped" állapotban van.
+      botStatus: {
+        state: "stopped",
+        startedAt: 0,
+        lastUpdate: 0,
+        activeStrategyCount: 0,
+      },
     };
     const stateMsg: StateFeedServerMessage = { type: "state", ts: 1000, snapshot: snap };
     broadcast.publish(stateMsg);

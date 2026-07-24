@@ -286,6 +286,60 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
       // venni a `risk.max_position_fraction`-ből számítva.
       initialEquityUsdt: 10_000,
       strategies: strategiesFromConfig,
+      // Phase 69: a state-feed CONTROL üzeneteit a bot életciklusához
+      // kötjük. A `web-client HTTP /api/control` endpoint ezen a
+      // csatornán küldi a start / stop / pause / resume / kill_switch
+      // parancsokat; a `FeedServer` a state-feed-ből jövő CONTROL
+      // üzeneteket a `handleControl` callback-en át ide továbbítja.
+      //
+      // A bot engine indulás utáni életciklusát (markBotStarted /
+      // markBotStopped) a `bot.start()` / `bot.stop()` Promise
+      // resolve-ja UTÁN hívjuk — a publisher a `botRunning` flag-en
+      // és a `paused` flag-en át jelzi a dashboardnak a state-váltást.
+      handleControl: (command, payload) => {
+        switch (command) {
+          case "start":
+            // A `bot.start()` idempotens: ha már fut, a Bot osztály
+            // `[bot] already running` hibát dob. A start parancs a
+            // dashboardról jön, amikor a user újraindítja a botot egy
+            // korábbi stop után — ilyenkor a bot le van állítva, és
+            // a hívás sikeres. A hibát a finally blokk elkapja.
+            void bot.start().then(() => {
+              stateFeed?.publisher.markBotStarted();
+            }).catch((err: unknown) => {
+              const msg = err instanceof Error ? err.message : String(err);
+              console.error(`[start] handleControl(start) failed: ${msg}`);
+            });
+            return;
+          case "stop":
+            void bot.stop().then(() => {
+              stateFeed?.publisher.markBotStopped();
+            }).catch((err: unknown) => {
+              const msg = err instanceof Error ? err.message : String(err);
+              console.error(`[start] handleControl(stop) failed: ${msg}`);
+            });
+            return;
+          case "pause":
+            // A `paused` flag a state-feed protokoll szerint a
+            // `paused` payload mezőben jön (boolean). A Phase 69 UI
+            // a Pause gombbal `paused: true`-t küld, a Resume gombbal
+            // `paused: false`-t. A `publisher.setPaused()` a UI-flag-et
+            // állítja; a bot engine nem áll le, csak a dashboard
+            // jelzi a `[PAUSED]` state-et.
+            stateFeed?.publisher.setPaused(payload.paused ?? true);
+            return;
+          case "resume":
+            stateFeed?.publisher.setPaused(false);
+            return;
+          case "kill_switch":
+            // A kill-switch vészleállító: a botot leállítja ÉS a
+            // kill-switch UI-state-et `triggered`-re állítja. A
+            // `publisher.killSwitch()` a `bot.stop()`-ot is hívja,
+            // és a `killSwitchState` flag-et is frissíti.
+            void stateFeed?.publisher.killSwitch();
+            return;
+        }
+      },
     });
     // Phase 66: wire the state-feed handle INTO the bot so the OHLCV/ticker
     // callback inside `run()` can publish bars to the state-feed TCP socket.
@@ -297,6 +351,10 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
     // a bot engine-en át kapja a notify-kat, és a state-feed TCP
     // socket-ére továbbítja a kliens felé.
     await bot.start();
+    // A bot engine indítása SIKERES volt — a publisher `running` flag-jét
+    // `true`-ra állítjuk, és a `lastStartedAt` timestamp-et rögzítjük
+    // (a dashboard uptime számításhoz).
+    stateFeed.publisher.markBotStarted();
     // A state-feed listening message az EGYETLEN stderr sor —
     // a Phase 43 Track 3 log-routing policy-nak megfelelően.
     process.stderr.write(
