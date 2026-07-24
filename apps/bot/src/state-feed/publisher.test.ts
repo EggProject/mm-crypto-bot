@@ -305,13 +305,16 @@ function makeBaseSnapshot(): StateFeedSnapshot {
     tickerEvents: [],
     paused: false,
     killSwitchThresholdPct: -10,
-    // Phase 69: a base snapshot `botStatus` mezője — a tesztek
+    // Phase 71: a base snapshot `botStatus` mezője — a tesztek
     // többsége a "stopped" állapotot használja (a bot még nem indult).
+    // A `positions: []` a Phase 71 bővítés (a `getBotStatus()` a
+    // `lastEngineState.positions`-ből olvas, ami `null` esetén `[]`).
     botStatus: {
       state: "stopped",
       startedAt: 0,
       lastUpdate: 0,
       activeStrategyCount: 0,
+      positions: [],
     },
   };
 }
@@ -980,5 +983,248 @@ describe("LiveStateProvider — getBotStatus (Phase 69)", () => {
     expect(snap.botStatus).toBeDefined();
     expect(snap.botStatus.state).toBe("running");
     expect(snap.botStatus.startedAt).toBeGreaterThan(0);
+  });
+
+  // Phase 71 (status broadcast fix): a `getBotStatus()` a
+  // `lastEngineState.positions`-ből olvassa a `positions` tömböt.
+  // Amíg a `lastEngineState === null` (a bot még nem küldött
+  // state-et), a `positions: []` a default.
+  it("returns positions: [] when lastEngineState is null (no engine state yet)", () => {
+    const provider = createTestProviderWithStrategies([
+      { name: "donchian_pivot_composition", enabled: true },
+    ]);
+    provider.markBotStarted();
+    const status = provider.getBotStatus();
+    expect(status.positions).toEqual([]);
+  });
+
+  // Phase 71 (status broadcast fix): a `getBotStatus()` a
+  // `lastEngineState.positions`-ből olvassa a `positions` tömböt,
+  // `mapPosition()` formátumra konvertálva. Ez a teszt a
+  // Phase 71 system-level invariantot ellenőrzi: a status snapshot
+  // tartalmazza a bot valódi nyitott pozícióit.
+  it("returns positions from the latest engine state (Phase 71 system test)", () => {
+    // Létrehozunk egy `Bot`-ot, ahol a `subscribe` listener eltárolja
+    // a state-eket, és a `getState` a latest engine state-et adja.
+    let latestState: BotState | null = null;
+    let subscribedListener: ((s: BotState) => void) | null = null;
+    const bot = {
+      subscribe: (listener: (s: BotState) => void) => {
+        subscribedListener = listener;
+        return () => {
+          subscribedListener = null;
+        };
+      },
+      getState: () => latestState,
+      stop: async () => undefined,
+    } as unknown as Bot;
+    const provider = new LiveStatePublisher({
+      bot,
+      strategies: [
+        {
+          name: "donchian_pivot_composition",
+          enabled: true,
+          symbols: ["BTC/USDC"],
+          timeframes: ["1h", "4h", "1d"] as const,
+        },
+      ],
+    });
+    void provider.start();
+
+    // 1) Amíg a bot nem küldött state-et, a positions: [].
+    expect(provider.getBotStatus().positions).toEqual([]);
+
+    // 2) A bot küld egy state-et EGY nyitott pozícióval.
+    latestState = {
+      version: 1,
+      savedAt: 1000,
+      equityUsd: 10_000,
+      initialEquityUsd: 10_000,
+      realizedPnlUsd: 0,
+      positions: [makeEnginePosition({ id: "pos-1", symbol: "BTC/USDC", side: "long" })],
+      closedTrades: [],
+      inFlightOrderIds: [],
+      counters: { placed: 0, filled: 0, cancelled: 0, rejected: 0 },
+    };
+    subscribedListener?.(latestState);
+
+    // 3) A `getBotStatus()` most már a pozíciót is tartalmazza.
+    const status = provider.getBotStatus();
+    expect(status.positions.length).toBe(1);
+    expect(status.positions[0]?.id).toBe("pos-1");
+    expect(status.positions[0]?.symbol).toBe("BTC/USDC");
+    expect(status.positions[0]?.side).toBe("buy"); // long → buy
+    expect(status.positions[0]?.entryPrice).toBe(60_000);
+    expect(status.positions[0]?.currentPrice).toBe(61_000);
+    expect(status.positions[0]?.quantity).toBe(0.01);
+    expect(status.positions[0]?.leverage).toBe(5);
+
+    // 4) A snapshot is tartalmazza (a refreshFromBot a snapshot-ba írja).
+    const snap = provider.getSnapshot();
+    expect(snap.botStatus.positions.length).toBe(1);
+    expect(snap.botStatus.positions[0]?.id).toBe("pos-1");
+
+    void provider.dispose();
+  });
+});
+
+// ===========================================================================
+// Phase 71 (status broadcast fix) — periodic refresh
+// ===========================================================================
+//
+// A Phase 69-es design-ban a publisher CSAK a bot `getState()` hívásakor
+// frissítette a snapshot-ot. A bot engine `getState()`-ja a 60s state-save
+// intervalhoz van kötve — a strategy runner / kill-switch eval NEM hívja
+// a `getState()`-t, így egy új pozíció megnyitása NEM frissítette a
+// snapshot-ot 60 másodpercig.
+//
+// A Phase 71 fix: a publisher `setInterval`-on át hívja a `bot.getState()`-et
+// (alapértelmezetten 1000ms-enként). A `getState()` a `notifyStateListeners`-
+// en át triggereli a publisher `onEngineStateChanged` callback-jét —
+// a publisher így a bot engine `getState()` 60s-os state-save intervaljától
+// FÜGGETLENÜL is frissíti a `lastEngineState`-et.
+
+describe("LiveStateProvider — periodic refresh (Phase 71)", () => {
+  it("default periodicRefreshMs is 1000 (1 second)", () => {
+    // A konstruktor default-ja 1s. Ez a teszt a default-ot őrzi meg
+    // (a regression check: ha valaki megváltoztatja a default-ot, a
+    // teszt figyelmeztet).
+    const bot = {
+      subscribe: () => () => undefined,
+      getState: () => null,
+      stop: async () => undefined,
+    } as unknown as Bot;
+    const provider = new LiveStatePublisher({ bot });
+    expect((provider as unknown as { periodicRefreshMs: number }).periodicRefreshMs).toBe(1_000);
+  });
+
+  it("periodicRefreshMs: 0 disables the periodic refresh (test-friendly)", async () => {
+    let getStateCount = 0;
+    const bot = {
+      subscribe: () => () => undefined,
+      getState: () => {
+        getStateCount += 1;
+        return null;
+      },
+      stop: async () => undefined,
+    } as unknown as Bot;
+    const provider = new LiveStatePublisher({ bot, periodicRefreshMs: 0 });
+    await provider.start();
+    // Várunk 50ms-t — ha a periodic refresh aktív, a getStateCount > 0 lenne.
+    await new Promise<void>((r) => {
+      setTimeout(r, 50);
+    });
+    expect(getStateCount).toBe(0);
+    await provider.dispose();
+  });
+
+  // Phase 71 system-level test #2: a status re-publishes within 2 seconds
+  // of a new position opening. A teszt szimulálja a bot engine
+  // viselkedését: a `getState()`-et hívó periodic refresh 50ms-enként
+  // fut (a teszt gyorsaságáért). A bot a `getState()`-ben
+  // új pozíciót ad vissza — a publisher snapshot-jában 50ms-en belül
+  // megjelenik a pozíció.
+  it("status re-publishes within 2 seconds of a new position opening (system test)", async () => {
+    let latestState: BotState | null = null;
+    let subscribedListener: ((s: BotState) => void) | null = null;
+    const bot = {
+      subscribe: (listener: (s: BotState) => void) => {
+        subscribedListener = listener;
+        return () => {
+          subscribedListener = null;
+        };
+      },
+      // A valódi `Bot.getState()` a `notifyStateListeners(state)` hívással
+      // együtt adja vissza az új state-et. A teszt mock is ezt teszi —
+      // különben a publisher `onEngineStateChanged` callback-je SOHA nem
+      // hívódna a `getState()` által.
+      getState: () => {
+        if (latestState !== null && subscribedListener !== null) {
+          subscribedListener(latestState);
+        }
+        return latestState;
+      },
+      stop: async () => undefined,
+    } as unknown as Bot;
+    const provider = new LiveStatePublisher({
+      bot,
+      strategies: [
+        {
+          name: "donchian_pivot_composition",
+          enabled: true,
+          symbols: ["BTC/USDC"],
+          timeframes: ["1h", "4h", "1d"] as const,
+        },
+      ],
+      // A periodic refresh 50ms — a teszt gyorsaságáért (a default
+      // 1000ms, de a system-test célja a "frissülés 2s-en belül" —
+      // az 50ms is ezt bizonyítja).
+      periodicRefreshMs: 50,
+    });
+    await provider.start();
+    provider.markBotStarted();
+
+    // 1) Kezdetben a snapshot-botStatus-nak nincs pozíciója.
+    expect(provider.getSnapshot().botStatus.positions).toEqual([]);
+
+    // 2) Track the snapshot reference changes (a Phase 71 fix bizonyítéka:
+    // a `stateEqualsIgnoringTimestamp` észleli a positions-változást, és
+    // új snapshot referenciát ad).
+    const lastSnapshot = provider.getSnapshot();
+
+    // 3) A bot engine "megnyit egy pozíciót" — a `getState()` legközelebbi
+    // hívásakor már az új pozíciót adja vissza. A periodic refresh
+    // a `bot.getState()`-et hívja 50ms-enként, ami a `notifyStateListeners`
+    // -en át triggereli a publisher `onEngineStateChanged`-jét.
+    latestState = {
+      version: 1,
+      savedAt: 1000,
+      equityUsd: 10_000,
+      initialEquityUsd: 10_000,
+      realizedPnlUsd: 0,
+      positions: [makeEnginePosition({ id: "new-pos", symbol: "BTC/USDC" })],
+      closedTrades: [],
+      inFlightOrderIds: [],
+      counters: { placed: 0, filled: 0, cancelled: 0, rejected: 0 },
+    };
+
+    // 4) Várunk, amíg a periodic refresh triggerel (max 2 másodperc).
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline) {
+      if (provider.getSnapshot() !== lastSnapshot) {
+        // Új snapshot referencia — a periodic refresh sikeresen
+        // triggerelte a `getState()`-et ÉS a publisher frissítette a snapshot-ot.
+        break;
+      }
+      await new Promise<void>((r) => {
+        setTimeout(r, 25);
+      });
+    }
+
+    // 5) A snapshot most már tartalmazza a pozíciót.
+    const updatedSnap = provider.getSnapshot();
+    expect(updatedSnap.botStatus.positions.length).toBe(1);
+    expect(updatedSnap.botStatus.positions[0]?.id).toBe("new-pos");
+
+    await provider.dispose();
+  });
+
+  it("the periodic refresh timer is cleared on dispose() (no leak)", async () => {
+    const bot = {
+      subscribe: () => () => undefined,
+      getState: () => null,
+      stop: async () => undefined,
+    } as unknown as Bot;
+    const provider = new LiveStatePublisher({ bot, periodicRefreshMs: 25 });
+    await provider.start();
+    // A timer handle a `start()` után nem null.
+    expect(
+      (provider as unknown as { periodicRefreshTimer: unknown }).periodicRefreshTimer,
+    ).not.toBeNull();
+    await provider.dispose();
+    // A dispose() törli a timer handle-t.
+    expect(
+      (provider as unknown as { periodicRefreshTimer: unknown }).periodicRefreshTimer,
+    ).toBeNull();
   });
 });

@@ -49,10 +49,18 @@ const botState: {
   state: "running" | "paused" | "stopped";
   startedAt: number;
   activeStrategyCount: number;
+  /**
+   * Phase 71: a bot `positionManager.getPositions()` pillanatképe —
+   * a `buildStatusBannerText` ezt használja a "N open position(s)"
+   * suffix generálásához. Az e2e teszt dinamikusan állítja (a
+   * pozíció-nyitás / zárás szimulációjához).
+   */
+  openPositionCount: number;
 } = {
   state: "stopped",
   startedAt: 0,
   activeStrategyCount: 1,
+  openPositionCount: 0,
 };
 
 const CONTROL_REQUESTS: { command: string; paused?: boolean; confirm?: boolean }[] = [];
@@ -140,12 +148,30 @@ function currentBotStatus(): {
   startedAt: number;
   lastUpdate: number;
   activeStrategyCount: number;
+  positions: readonly { id: string; symbol: string; side: "buy" | "sell"; entryPrice: number; currentPrice: number; quantity: number; leverage: number; unrealizedPnl: number; unrealizedPnlPct: number; openedAt: number }[];
 } {
+  // Phase 71: a `positions` tömb `openPositionCount` alapján generálódik
+  // (az e2e tesztnek nincs szüksége a pozíciók részletes adataira —
+  // a `buildStatusBannerText` csak a `length`-et olvassa). A `mapPosition`
+  // formátumot utánozzuk, hogy a `extractBotStatus` helyesen parse-olja.
+  const positions = Array.from({ length: botState.openPositionCount }, (_, i) => ({
+    id: `mock-pos-${String(i)}`,
+    symbol: "BTCUSDT",
+    side: "buy" as const,
+    entryPrice: 60_000,
+    currentPrice: 60_100,
+    quantity: 0.01,
+    leverage: 5,
+    unrealizedPnl: 1,
+    unrealizedPnlPct: 1.67,
+    openedAt: Date.now() - 60_000,
+  }));
   return {
     state: botState.state,
     startedAt: botState.startedAt,
     lastUpdate: Date.now(),
     activeStrategyCount: botState.activeStrategyCount,
+    positions,
   };
 }
 
@@ -240,6 +266,7 @@ test.beforeEach(async ({ page }) => {
   botState.state = "stopped";
   botState.startedAt = 0;
   botState.activeStrategyCount = 1;
+  botState.openPositionCount = 0;
   CONTROL_REQUESTS.length = 0;
   // Install HTTP routes FIRST (so the dashboard's first /api/strategies
   // and /api/status fetches hit the mocks). The WS peer is set up
@@ -312,6 +339,48 @@ test.describe("Phase 69: status banner", () => {
     await gotoApp(page);
     const banner = page.locator('[data-testid="bot-status-banner"]');
     await expect(banner).toContainText("3 active strategies");
+  });
+
+  // Phase 71: a banner "X open position(s)" suffix-ot is mutat, ha a
+  // botnak van nyitott pozíciója. A "0 open positions" NEM jelenik meg
+  // (a `buildStatusBannerText` a `> 0` check-et használja). Az 1
+  // pozíció singularis, a 2+ pluralis.
+  test("does NOT include 'open position' text when no positions are open (Phase 71)", async ({
+    page,
+  }) => {
+    botState.openPositionCount = 0;
+    botState.state = "running";
+    botState.startedAt = Date.now();
+    await gotoApp(page);
+    const banner = page.locator('[data-testid="bot-status-banner"]');
+    await expect(banner).toContainText("Bot: RUNNING");
+    await expect(banner).not.toContainText("open position");
+  });
+
+  test("includes '1 open position' (singular) when 1 position is open (Phase 71)", async ({
+    page,
+  }) => {
+    botState.openPositionCount = 1;
+    botState.state = "running";
+    botState.startedAt = Date.now();
+    await gotoApp(page);
+    const banner = page.locator('[data-testid="bot-status-banner"]');
+    await expect(banner).toContainText("Bot: RUNNING");
+    await expect(banner).toContainText("1 open position");
+    // Singular (not plural)
+    await expect(banner).not.toContainText("1 open positions");
+  });
+
+  test("includes 'N open positions' (plural) when >1 positions are open (Phase 71)", async ({
+    page,
+  }) => {
+    botState.openPositionCount = 3;
+    botState.state = "running";
+    botState.startedAt = Date.now();
+    await gotoApp(page);
+    const banner = page.locator('[data-testid="bot-status-banner"]');
+    await expect(banner).toContainText("Bot: RUNNING");
+    await expect(banner).toContainText("3 open positions");
   });
 });
 

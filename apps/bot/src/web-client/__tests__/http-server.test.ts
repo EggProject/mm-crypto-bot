@@ -200,12 +200,14 @@ describe("http-server", () => {
           // (donchian_pivot_composition a tickers-ből) fut le.
           paused: false,
           killSwitchThresholdPct: -10,
-          // Phase 69: a bot indulás előtt "stopped" állapotban van.
+          // Phase 71: a bot indulás előtt "stopped" állapotban van,
+          // a `positions: []` a Phase 71 bővítés.
           botStatus: {
             state: "stopped",
             startedAt: 0,
             lastUpdate: 0,
             activeStrategyCount: 0,
+            positions: [],
           },
         },
         {},
@@ -263,12 +265,14 @@ describe("http-server", () => {
           ],
           paused: false,
           killSwitchThresholdPct: -10,
-          // Phase 69: a bot indulás előtt "stopped" állapotban van.
+          // Phase 71: a bot indulás előtt "stopped" állapotban van,
+          // a `positions: []` a Phase 71 bővítés.
           botStatus: {
             state: "stopped",
             startedAt: 0,
             lastUpdate: 0,
             activeStrategyCount: 3,
+            positions: [],
           },
         },
         {},
@@ -300,10 +304,11 @@ describe("http-server", () => {
       const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
       const res = await factory.fetch(makeRequest("/api/status"));
       expect(res.status).toBe(503);
-      const body = (await res.json()) as { botStatus: { state: string; startedAt: number; activeStrategyCount: number } };
+      const body = (await res.json()) as { botStatus: { state: string; startedAt: number; activeStrategyCount: number; positions: unknown[] } };
       expect(body.botStatus.state).toBe("stopped");
       expect(body.botStatus.startedAt).toBe(0);
       expect(body.botStatus.activeStrategyCount).toBe(0);
+      expect(body.botStatus.positions).toEqual([]);
     });
 
     it("returns 200 with the snapshot's botStatus when present", async () => {
@@ -344,12 +349,14 @@ describe("http-server", () => {
           tickerEvents: [],
           paused: false,
           killSwitchThresholdPct: -10,
-          // Phase 69: a bot aktívan fut, 3 enabled stratégia van.
+          // Phase 71: a bot aktívan fut, 3 enabled stratégia van.
+          // A `positions: []` a Phase 71 bővítés.
           botStatus: {
             state: "running",
             startedAt: 1_700_000_000_000,
             lastUpdate: 1_700_000_060_000,
             activeStrategyCount: 3,
+            positions: [],
           },
         },
         {},
@@ -357,12 +364,13 @@ describe("http-server", () => {
       const res = await factory.fetch(makeRequest("/api/status"));
       expect(res.status).toBe(200);
       const body = (await res.json()) as {
-        botStatus: { state: string; startedAt: number; lastUpdate: number; activeStrategyCount: number };
+        botStatus: { state: string; startedAt: number; lastUpdate: number; activeStrategyCount: number; positions: unknown[] };
       };
       expect(body.botStatus.state).toBe("running");
       expect(body.botStatus.startedAt).toBe(1_700_000_000_000);
       expect(body.botStatus.lastUpdate).toBe(1_700_000_060_000);
       expect(body.botStatus.activeStrategyCount).toBe(3);
+      expect(body.botStatus.positions).toEqual([]);
     });
 
     it("returns 'paused' status when the snapshot.paused flag is set", async () => {
@@ -403,11 +411,13 @@ describe("http-server", () => {
           tickerEvents: [],
           paused: true,
           killSwitchThresholdPct: -10,
+          // Phase 71: a `positions: []` a Phase 71 bővítés.
           botStatus: {
             state: "paused",
             startedAt: 1_700_000_000_000,
             lastUpdate: 1_700_000_060_000,
             activeStrategyCount: 2,
+            positions: [],
           },
         },
         {},
@@ -423,6 +433,132 @@ describe("http-server", () => {
       const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
       const res = await factory.fetch(makeRequest("/api/status"));
       expect(res.status).toBe(503);
+    });
+
+    // Phase 71 (status broadcast fix): a /api/status endpoint a
+    // CACHE-ELT snapshot `botStatus` mezőjét adja vissza. A
+    // Phase 71 fix biztosítja, hogy a cache rendszeresen frissüljön
+    // (a publisher `setInterval`-ja másodpercenként hívja a
+    // `bot.getState()`-et, ami a snapshot frissítését triggereli).
+    //
+    // Ez a system-level teszt szimulálja a teljes flow-t:
+    //   1) A cache-be egy "régi" snapshot kerül (a bot "stopped").
+    //   2) A `setSnapshot()` egy "friss" snapshot-tal frissíti a
+    //      cache-t (a bot "running", 1 pozíció).
+    //   3) A /api/status a friss snapshot-ot adja vissza (NEM a régit).
+    it("returns the freshest state after setSnapshot replaces the cached snapshot (Phase 71 system test)", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+
+      // 1) A cache-be egy "régi" (stale) snapshot kerül — a bot
+      // "stopped", 0 pozíció, 0 strategy.
+      factory.setSnapshot(
+        {
+          status: { mode: "with-bot", engineAvailable: true, engineError: null, connected: true, lastUpdate: 1000 },
+          running: false,
+          killSwitch: "armed",
+          positions: [],
+          statistics: {
+            totalPnlUsdt: 0, totalPnlPct: 0, winRate: 0, totalTrades: 0,
+            winningTrades: 0, losingTrades: 0, maxDrawdownPct: 0, currentDrawdownPct: 0,
+            avgWinPnl: 0, avgLossPnl: 0, bestTradePnl: 0, worstTradePnl: 0,
+            profitFactor: 0, sharpeRatio: 0, equityUsdt: 0, initialEquityUsdt: 0,
+          },
+          history: [],
+          tickers: [],
+          tickerEvents: [],
+          paused: false,
+          killSwitchThresholdPct: -10,
+          strategies: [],
+          botStatus: {
+            state: "stopped",
+            startedAt: 0,
+            lastUpdate: 1000,
+            activeStrategyCount: 0,
+            positions: [],
+          },
+        },
+        {},
+      );
+
+      // 2) A `setSnapshot()` egy "friss" snapshot-tal frissíti a
+      //    cache-t (a bot "running", 1 pozíció, 1 strategy).
+      factory.setSnapshot(
+        {
+          status: { mode: "with-bot", engineAvailable: true, engineError: null, connected: true, lastUpdate: 2000 },
+          running: true,
+          killSwitch: "armed",
+          positions: [
+            {
+              id: "fresh-pos",
+              symbol: "BTC/USDC",
+              side: "buy",
+              entryPrice: 60000,
+              currentPrice: 60100,
+              quantity: 0.01,
+              leverage: 5,
+              unrealizedPnl: 1,
+              unrealizedPnlPct: 1.67,
+              openedAt: 1500,
+            },
+          ],
+          statistics: {
+            totalPnlUsdt: 0, totalPnlPct: 0, winRate: 0, totalTrades: 0,
+            winningTrades: 0, losingTrades: 0, maxDrawdownPct: 0, currentDrawdownPct: 0,
+            avgWinPnl: 0, avgLossPnl: 0, bestTradePnl: 0, worstTradePnl: 0,
+            profitFactor: 0, sharpeRatio: 0, equityUsdt: 0, initialEquityUsdt: 0,
+          },
+          history: [],
+          tickers: [],
+          tickerEvents: [],
+          paused: false,
+          killSwitchThresholdPct: -10,
+          strategies: [],
+          botStatus: {
+            state: "running",
+            startedAt: 1500,
+            lastUpdate: 2000,
+            activeStrategyCount: 1,
+            positions: [
+              {
+                id: "fresh-pos",
+                symbol: "BTC/USDC",
+                side: "buy",
+                entryPrice: 60000,
+                currentPrice: 60100,
+                quantity: 0.01,
+                leverage: 5,
+                unrealizedPnl: 1,
+                unrealizedPnlPct: 1.67,
+                openedAt: 1500,
+              },
+            ],
+          },
+        },
+        {},
+      );
+
+      // 3) A /api/status a FRISS snapshot-ot adja vissza.
+      const res = await factory.fetch(makeRequest("/api/status"));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        botStatus: {
+          state: string;
+          startedAt: number;
+          lastUpdate: number;
+          activeStrategyCount: number;
+          positions: { id: string; symbol: string }[];
+        };
+      };
+      // A "stopped" állapot NEM jelenik meg — a cache frissült.
+      expect(body.botStatus.state).toBe("running");
+      expect(body.botStatus.startedAt).toBe(1500);
+      expect(body.botStatus.lastUpdate).toBe(2000);
+      expect(body.botStatus.activeStrategyCount).toBe(1);
+      // A positions tömb a friss pozíciót tartalmazza.
+      expect(body.botStatus.positions.length).toBe(1);
+      expect(body.botStatus.positions[0]?.id).toBe("fresh-pos");
+      expect(body.botStatus.positions[0]?.symbol).toBe("BTC/USDC");
     });
   });
 

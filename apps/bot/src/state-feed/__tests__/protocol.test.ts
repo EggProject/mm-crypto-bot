@@ -109,12 +109,15 @@ describe("serializeMessage / parseMessage round-trip", () => {
         tickerEvents: [],
         paused: false,
         killSwitchThresholdPct: -10,
-        // Phase 69: a snapshot `botStatus` mezője is szerializálódik.
+        // Phase 71: a snapshot `botStatus` mezője is szerializálódik.
+        // A `positions: []` a Phase 71 bővítés (a StateFeedBotStatus
+        // új kötelező mezője).
         botStatus: {
           state: "running",
           startedAt: 1_700_000_000_000,
           lastUpdate: 1_700_000_060_000,
           activeStrategyCount: 1,
+          positions: [],
         },
       },
       ohlcBootstrap: { "BTC/USDC": { "1h": [] } },
@@ -218,12 +221,14 @@ describe("serializeMessage / parseMessage round-trip", () => {
         tickerEvents: [],
         paused: false,
         killSwitchThresholdPct: -10,
-        // Phase 69: a snapshot `botStatus` mezője is szerializálódik.
+        // Phase 71: a snapshot `botStatus` mezője is szerializálódik.
+        // A `positions: []` a Phase 71 bővítés.
         botStatus: {
           state: "stopped",
           startedAt: 0,
           lastUpdate: 0,
           activeStrategyCount: 0,
+          positions: [],
         },
       },
     };

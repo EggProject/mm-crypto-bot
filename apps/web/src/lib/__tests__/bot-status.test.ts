@@ -66,12 +66,13 @@ describe("extractBotStatus", () => {
           startedAt: 0,
           lastUpdate: 0,
           activeStrategyCount: 0,
+          positions: [],
         },
       }),
     ).toBeNull();
     expect(
       extractBotStatus({
-        botStatus: { state: 42, startedAt: 0, lastUpdate: 0, activeStrategyCount: 0 },
+        botStatus: { state: 42, startedAt: 0, lastUpdate: 0, activeStrategyCount: 0, positions: [] },
       }),
     ).toBeNull();
   });
@@ -84,6 +85,7 @@ describe("extractBotStatus", () => {
           startedAt: "1700000000000",
           lastUpdate: 0,
           activeStrategyCount: 0,
+          positions: [],
         },
       }),
     ).toBeNull();
@@ -94,6 +96,7 @@ describe("extractBotStatus", () => {
           startedAt: 0,
           lastUpdate: "0",
           activeStrategyCount: 0,
+          positions: [],
         },
       }),
     ).toBeNull();
@@ -104,6 +107,7 @@ describe("extractBotStatus", () => {
           startedAt: 0,
           lastUpdate: 0,
           activeStrategyCount: "1",
+          positions: [],
         },
       }),
     ).toBeNull();
@@ -116,6 +120,7 @@ describe("extractBotStatus", () => {
         startedAt: 1_700_000_000_000,
         lastUpdate: 1_700_000_060_000,
         activeStrategyCount: 3,
+        positions: [],
       },
     });
     expect(result).toEqual({
@@ -123,6 +128,7 @@ describe("extractBotStatus", () => {
       startedAt: 1_700_000_000_000,
       lastUpdate: 1_700_000_060_000,
       activeStrategyCount: 3,
+      positions: [],
     });
   });
 
@@ -133,6 +139,7 @@ describe("extractBotStatus", () => {
         startedAt: 0,
         lastUpdate: 1_700_000_060_000,
         activeStrategyCount: 0,
+        positions: [],
       },
     });
     expect(result).toEqual({
@@ -140,6 +147,7 @@ describe("extractBotStatus", () => {
       startedAt: 0,
       lastUpdate: 1_700_000_060_000,
       activeStrategyCount: 0,
+      positions: [],
     });
   });
 
@@ -150,6 +158,7 @@ describe("extractBotStatus", () => {
         startedAt: 0,
         lastUpdate: 0,
         activeStrategyCount: 0,
+        positions: [],
       },
     });
     expect(result).toEqual({
@@ -157,7 +166,100 @@ describe("extractBotStatus", () => {
       startedAt: 0,
       lastUpdate: 0,
       activeStrategyCount: 0,
+      positions: [],
     });
+  });
+
+  // Phase 71: a `positions` mező opcionális a backward-compat
+  // miatt (a Phase 69 szerverek nem küldték). Ha hiányzik vagy
+  // nem tömb, üres tömböt adunk vissza.
+  it("returns positions: [] when the field is missing (Phase 69 backward-compat)", () => {
+    const result = extractBotStatus({
+      botStatus: {
+        state: "running",
+        startedAt: 1_700_000_000_000,
+        lastUpdate: 1_700_000_060_000,
+        activeStrategyCount: 0,
+      },
+    });
+    expect(result).not.toBeNull();
+    expect(result?.positions).toEqual([]);
+  });
+
+  it("returns positions: [] when the field is not an array (defensive)", () => {
+    const result = extractBotStatus({
+      botStatus: {
+        state: "running",
+        startedAt: 0,
+        lastUpdate: 0,
+        activeStrategyCount: 0,
+        positions: "not-an-array",
+      },
+    });
+    expect(result).not.toBeNull();
+    expect(result?.positions).toEqual([]);
+  });
+
+  it("extracts valid positions and drops invalid ones (Phase 71)", () => {
+    const result = extractBotStatus({
+      botStatus: {
+        state: "running",
+        startedAt: 0,
+        lastUpdate: 0,
+        activeStrategyCount: 0,
+        positions: [
+          {
+            id: "valid-1",
+            symbol: "BTC/USDC",
+            side: "buy",
+            entryPrice: 60000,
+            currentPrice: 60100,
+            quantity: 0.01,
+            leverage: 5,
+            unrealizedPnl: 10,
+            unrealizedPnlPct: 1.67,
+            openedAt: 1000,
+          },
+          // invalid: missing fields
+          { id: "invalid-1" },
+          // invalid: wrong side
+          {
+            id: "invalid-2",
+            symbol: "ETH/USDC",
+            side: "long",
+            entryPrice: 3000,
+            currentPrice: 3010,
+            quantity: 0.1,
+            leverage: 3,
+            unrealizedPnl: 1,
+            unrealizedPnlPct: 1.0,
+            openedAt: 2000,
+          },
+          // null entry — invalid
+          null,
+          // valid #2
+          {
+            id: "valid-2",
+            symbol: "ETH/USDC",
+            side: "sell",
+            entryPrice: 3000,
+            currentPrice: 2990,
+            quantity: 0.1,
+            leverage: 3,
+            unrealizedPnl: 1,
+            unrealizedPnlPct: 1.0,
+            openedAt: 2000,
+          },
+        ],
+      },
+    });
+    expect(result).not.toBeNull();
+    expect(result?.positions.length).toBe(2);
+    expect(result?.positions[0]?.id).toBe("valid-1");
+    expect(result?.positions[0]?.symbol).toBe("BTC/USDC");
+    expect(result?.positions[0]?.side).toBe("buy");
+    expect(result?.positions[1]?.id).toBe("valid-2");
+    expect(result?.positions[1]?.side).toBe("sell");
   });
 });
 
@@ -329,6 +431,7 @@ describe("buildStatusBannerText", () => {
         startedAt: 0,
         lastUpdate: 1_700_000_000_000,
         activeStrategyCount: 1,
+        positions: [],
       },
       1_700_000_000_000,
     );
@@ -345,6 +448,7 @@ describe("buildStatusBannerText", () => {
         startedAt: 1_700_000_000_000,
         lastUpdate: 1_700_000_060_000,
         activeStrategyCount: 3,
+        positions: [],
       },
       1_700_000_000_000 + 2 * 3_600_000 + 13 * 60_000,
     );
@@ -361,11 +465,74 @@ describe("buildStatusBannerText", () => {
         startedAt: 1_700_000_000_000,
         lastUpdate: 1_700_000_000_000,
         activeStrategyCount: 0,
+        positions: [],
       },
       1_700_000_000_000 + 47_000,
     );
     expect(banner).toContain("Bot: PAUSED");
     expect(banner).toContain("uptime 47s");
     expect(banner).toContain("0 active strategies");
+  });
+
+  // Phase 71: a positions.length > 0 esetén a bannerben megjelenik
+  // a "X open position(s)" suffix is.
+  it("includes 'N open position(s)' when positions.length > 0 (Phase 71)", () => {
+    const banner = buildStatusBannerText(
+      {
+        state: "running",
+        startedAt: 1_700_000_000_000,
+        lastUpdate: 1_700_000_000_000,
+        activeStrategyCount: 1,
+        positions: [
+          {
+            id: "p1",
+            symbol: "BTC/USDC",
+            side: "buy",
+            entryPrice: 60000,
+            currentPrice: 60100,
+            quantity: 0.01,
+            leverage: 5,
+            unrealizedPnl: 1,
+            unrealizedPnlPct: 1.67,
+            openedAt: 1000,
+          },
+        ],
+      },
+      1_700_000_000_000 + 60_000,
+    );
+    expect(banner).toContain("Bot: RUNNING");
+    expect(banner).toContain("1 open position");
+    expect(banner).toContain("1 active strategies");
+  });
+
+  it("includes 'N open positions' (plural) when positions.length > 1 (Phase 71)", () => {
+    const banner = buildStatusBannerText(
+      {
+        state: "running",
+        startedAt: 1_700_000_000_000,
+        lastUpdate: 1_700_000_000_000,
+        activeStrategyCount: 1,
+        positions: [
+          { id: "p1", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, currentPrice: 60100, quantity: 0.01, leverage: 5, unrealizedPnl: 1, unrealizedPnlPct: 1.67, openedAt: 1000 },
+          { id: "p2", symbol: "ETH/USDC", side: "sell", entryPrice: 3000, currentPrice: 2990, quantity: 0.1, leverage: 3, unrealizedPnl: 1, unrealizedPnlPct: 1.0, openedAt: 1000 },
+        ],
+      },
+      1_700_000_000_000 + 60_000,
+    );
+    expect(banner).toContain("2 open positions");
+  });
+
+  it("omits position count when positions.length === 0 (Phase 71)", () => {
+    const banner = buildStatusBannerText(
+      {
+        state: "running",
+        startedAt: 1_700_000_000_000,
+        lastUpdate: 1_700_000_000_000,
+        activeStrategyCount: 1,
+        positions: [],
+      },
+      1_700_000_000_000 + 60_000,
+    );
+    expect(banner).not.toContain("open position");
   });
 });
