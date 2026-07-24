@@ -140,6 +140,13 @@ export class MaxDrawdownKillSwitch implements KillSwitch {
  * Defensive: a PositionManager saját maga is dob, ha túllépik
  * (`maxPositions` enforcement az `openPosition`-ben). Ez a kapcsoló
  * csak OBSERVER, és a Bot.run ciklusban figyelmeztet, ha a cap közeleg.
+ *
+ * Phase 70 fix: a `engaged` feltétel `current > max` (STRICT túllépés),
+ * nem `current >= max` (cap-elérés). A 3 pozíció 3-as cap-en NEM
+ * trigger; a 4 pozíció 3-as cap-en AZ. A Phase 69 óta a
+ * `paper-backtest-verified.toml` `min_consensus = 1`-gyel fut, ami
+ * miatt a Donchian stratégia azonnal megnyit 1-1 pozíciót mindhárom
+ * symbolra (BTC/ETH/SOL) — a cap elérése NEM hiba, a túllépés AZ.
  */
 export class MaxPositionsKillSwitch implements KillSwitch {
   readonly id = "max-positions";
@@ -159,13 +166,37 @@ export class MaxPositionsKillSwitch implements KillSwitch {
   public evaluate(): KillSwitchVerdict {
     const current = this.positionManager.getPositionCount();
     const max = this.positionManager.getMaxPositions();
-    const engaged = current >= max;
+    // Phase 70 fix: use STRICT `>` (exceeds) instead of `>=` (hits).
+    //
+    // The Hungarian doc-string (`túllépi` = exceeds) and the class
+    // semantics are "kill-switch fires when the count EXCEEDS the cap".
+    // The old `>=` fired when the count EQUALLED the cap — but a bot
+    // at-the-cap (e.g. 1 position per enabled symbol, max = 3) is a
+    // LEGITIMATE state, not a kill-switch trigger.
+    //
+    // The Phase 69 regression: PR #188 introduced
+    // `paper-backtest-verified.toml` with `min_consensus = 1`, which
+    // lets the Donchian strategy fire on every M15 candle. Within a
+    // few seconds the strategy opens 1 position per enabled symbol
+    // (BTC/ETH/SOL = 3 positions, max = 3). The old `>=` immediately
+    // fired the kill-switch and the bot could not start. The fix is
+    // one operator: the kill-switch only fires when the cap is
+    // EXCEEDED (e.g. the Phase 68 state-restore restored 4 positions
+    // into a config with `max_positions = 3` — THAT should trip the
+    // kill-switch; 3 positions at a cap of 3 should NOT).
+    //
+    // The `PositionManager.openPosition()` already throws on the cap
+    // (defense-in-depth), so this kill-switch is only OBSERVER: it
+    // catches the case where positions leaked in via `restorePosition`
+    // (which bypasses the cap check by design — see the Phase 68
+    // `restorePosition` doc-block).
+    const engaged = current > max;
     const warning = current >= Math.floor(max * this.softCapFraction);
     return {
       switchId: this.id,
       engaged,
       reason: engaged
-        ? `positions ${current} ≥ max ${max}`
+        ? `positions ${current} > max ${max}`
         : warning
           ? `positions ${current} approaching max ${max}`
           : `positions ${current} < max ${max}`,
