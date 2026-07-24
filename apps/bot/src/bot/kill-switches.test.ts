@@ -50,7 +50,12 @@ describe("MaxDrawdownKillSwitch", () => {
 });
 
 describe("MaxPositionsKillSwitch", () => {
-  it("engages when positionCount >= maxPositions", () => {
+  it("engages when positionCount EXCEEDS maxPositions", () => {
+    // Phase 70 fix: a kill-switch csak TúLLÉPÉS esetén tüzel (current > max),
+    // nem cap-eléréskor (current >= max). Ez a teszt 3 pozíciót tölt be 2-es
+    // cap-re a Phase 68 `restorePosition` útvonalon (amely szándékosan
+    // bypassolja a cap-check-et, hogy a perzisztált state-et vissza tudja
+    // tölteni). Az `openPosition` a cap-en throwol, ezért restore kell.
     const pm = new PositionManager({
       initialEquityUsd: 1_000_000,
       maxPositions: 2,
@@ -65,9 +70,26 @@ describe("MaxPositionsKillSwitch", () => {
       3_000,
       1,
     );
+    // 3rd position: túllépés a 2-es cap-en. restorePosition szándékosan
+    // NEM ellenőrzi a cap-et (lásd Phase 68 a `position-manager.ts`-ben).
+    pm.restorePosition({
+      strategy: "strategy-c",
+      symbol: asSymbol("SOL/USDC") as unknown as ExchangeSymbol,
+      side: "long",
+      quantity: 0.01,
+      entryPrice: 100,
+      currentPrice: 100,
+      leverage: 1,
+      unrealizedPnl: 0,
+      realizedPnl: 0,
+      openedAt: 1_700_000_000_000,
+      notionalUsd: 1,
+    });
     const sw = new MaxPositionsKillSwitch({ positionManager: pm });
     const v = sw.evaluate();
     expect(v.engaged).toBe(true);
+    // A reason szövegnek tükröznie kell az új `>` szemantikát.
+    expect(v.reason).toBe("positions 3 > max 2");
   });
 
   it("does not engage when below max", () => {
@@ -80,6 +102,165 @@ describe("MaxPositionsKillSwitch", () => {
     const sw = new MaxPositionsKillSwitch({ positionManager: pm });
     const v = sw.evaluate();
     expect(v.engaged).toBe(false);
+  });
+
+  // Phase 70 regression — PR #188 (Phase 69) introduced
+  // `paper-backtest-verified.toml` with `min_consensus = 1`, which let
+  // the Donchian strategy open 1 position per enabled symbol (BTC/ETH/SOL
+  // = 3) within seconds of starting. The old `>=` immediately fired the
+  // kill-switch and the bot could not start. The fix (`>`) ensures:
+  //
+  //   1) empty state (count=0) does NOT trip the kill-switch
+  //   2) 1 position loaded (count=1) does NOT trip the kill-switch
+  //
+  // Both are below the cap, and "at the cap" (count == max) is also
+  // legitimate (Phase 68 state-restore can put the bot there). The
+  // kill-switch should only fire when the cap is EXCEEDED.
+  it("Phase 70: does NOT trigger on empty state (count=0, max=3)", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    expect(pm.getPositionCount()).toBe(0);
+    const sw = new MaxPositionsKillSwitch({ positionManager: pm });
+    const v = sw.evaluate();
+    expect(v.engaged).toBe(false);
+    expect(v.switchId).toBe("max-positions");
+    expect(v.reason).toBe("positions 0 < max 3");
+  });
+
+  it("Phase 70: does NOT trigger with 1 position loaded (count=1, max=3)", () => {
+    // Reproduces the Phase 68 state-restore path: bot restart, state file
+    // has 1 position, the restorePosition() call bypasses the cap check
+    // by design. With the old `>=` operator the kill-switch did not fire
+    // (1 < 3), but with the spec change we want this path explicitly
+    // covered — a "near-cap" warning is fine, but NOT an engage.
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    pm.restorePosition({
+      strategy: "dydx_cex_carry",
+      symbol: makeSymbol(),
+      side: "long",
+      quantity: 0.01,
+      entryPrice: 60_000,
+      currentPrice: 60_000,
+      leverage: 10,
+      unrealizedPnl: 0,
+      realizedPnl: 0,
+      openedAt: 1_700_000_000_000,
+      notionalUsd: 600,
+    });
+    expect(pm.getPositionCount()).toBe(1);
+    const sw = new MaxPositionsKillSwitch({ positionManager: pm });
+    const v = sw.evaluate();
+    expect(v.engaged).toBe(false);
+    expect(v.switchId).toBe("max-positions");
+    // Az 1 pozíció a 3-as cap 33%-ánál jár — nincs soft-cap warning sem
+    // (softCapFraction=0.9, floor(3*0.9)=2; 1 < 2).
+    expect(v.reason).toBe("positions 1 < max 3");
+  });
+
+  it("Phase 70: does NOT trigger when count EQUALS max (3 positions, max=3)", () => {
+    // Ez a Phase 70 fix legfontosabb regressziós tesztje. A Phase 69
+    // óta ez a NORMÁL üzemállapot: 1 pozíció / symbol × 3 symbol = 3
+    // pozíció, max = 3. A kill-switch NEM tüzel — csak a soft-cap
+    // warning szövege jelenik meg ("approaching max", nem "engaged").
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    pm.restorePosition({
+      strategy: "donchian_pivot_composition",
+      symbol: makeSymbol(),
+      side: "long",
+      quantity: 0.01,
+      entryPrice: 60_000,
+      currentPrice: 60_000,
+      leverage: 10,
+      unrealizedPnl: 0,
+      realizedPnl: 0,
+      openedAt: 1_700_000_000_000,
+      notionalUsd: 600,
+    });
+    pm.restorePosition({
+      strategy: "donchian_pivot_composition",
+      symbol: asSymbol("ETH/USDC") as unknown as ExchangeSymbol,
+      side: "long",
+      quantity: 0.01,
+      entryPrice: 3_000,
+      currentPrice: 3_000,
+      leverage: 10,
+      unrealizedPnl: 0,
+      realizedPnl: 0,
+      openedAt: 1_700_000_000_000,
+      notionalUsd: 30,
+    });
+    pm.restorePosition({
+      strategy: "donchian_pivot_composition",
+      symbol: asSymbol("SOL/USDC") as unknown as ExchangeSymbol,
+      side: "long",
+      quantity: 0.1,
+      entryPrice: 150,
+      currentPrice: 150,
+      leverage: 10,
+      unrealizedPnl: 0,
+      realizedPnl: 0,
+      openedAt: 1_700_000_000_000,
+      notionalUsd: 15,
+    });
+    expect(pm.getPositionCount()).toBe(3);
+    const sw = new MaxPositionsKillSwitch({ positionManager: pm });
+    const v = sw.evaluate();
+    // A Phase 70 fix előtt ez volt a bug: 3 >= 3 = true → kill-switch
+    // tüzelt. A fix után: 3 > 3 = false → nem tüzel.
+    expect(v.engaged).toBe(false);
+    // A soft-cap warning viszont tüzel (floor(3 * 0.9) = 2; 3 >= 2),
+    // tehát a szöveg "approaching max" — ez NEM engaged, csak info.
+    expect(v.reason).toBe("positions 3 approaching max 3");
+  });
+
+  it("Phase 70: DOES trigger when count EXCEEDS max (4 positions, max=3)", () => {
+    // A Phase 68 state-restore: ha a config `max_positions=3`-ra
+    // csökkent, de a perzisztált state 4 pozíciót tartalmaz, a
+    // restorePosition mind a 4-et betölti (a cap-check szándékosan
+    // ki van kapcsolva). Ezt az inkonzisztens állapotot KELL jeleznie
+    // a kill-switchnek — 4 > 3, tehát a `>` operátor triggerel.
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    const syms = [
+      makeSymbol(),
+      asSymbol("ETH/USDC") as unknown as ExchangeSymbol,
+      asSymbol("SOL/USDC") as unknown as ExchangeSymbol,
+      asSymbol("AVAX/USDC") as unknown as ExchangeSymbol,
+    ];
+    for (const s of syms) {
+      pm.restorePosition({
+        strategy: "donchian_pivot_composition",
+        symbol: s,
+        side: "long",
+        quantity: 0.01,
+        entryPrice: 60_000,
+        currentPrice: 60_000,
+        leverage: 10,
+        unrealizedPnl: 0,
+        realizedPnl: 0,
+        openedAt: 1_700_000_000_000,
+        notionalUsd: 600,
+      });
+    }
+    expect(pm.getPositionCount()).toBe(4);
+    const sw = new MaxPositionsKillSwitch({ positionManager: pm });
+    const v = sw.evaluate();
+    expect(v.engaged).toBe(true);
+    expect(v.reason).toBe("positions 4 > max 3");
   });
 });
 
