@@ -156,9 +156,20 @@ export interface ThemeColors {
  * outside a browser (e.g. future Node-side rendering or tests
  * without a real `<html>` element). Matches the inline `readTheme`
  * SSR fallback that previously lived in `ChartCard.tsx`.
+ *
+ * **Phase 73 — exchange-standard candle colors:** the previous
+ * `up: "#E3B563"` (gold from `--ep-yolk-500`) was changed to
+ * `"#22c55e"` (green) and `down: "#ef4444"` (red) was kept. The
+ * user mandate (Phase 73, verbatim) was: "miert nem piros es zold
+ * a candle, senki nem kerte hogy talalj ki szineket!" — i.e. the
+ * user wants the universal exchange convention (Binance, Coinbase,
+ * Bybit, TradingView all use green-up / red-down). The previous
+ * gold/red combination was a design-system deviation with no
+ * user-mandated justification, so it is reverted to the canonical
+ * trading convention.
  */
 export const SSR_FALLBACK_THEME: Readonly<ThemeColors> = {
-  up: "#E3B563",
+  up: "#22c55e",
   down: "#ef4444",
   bg: "#0C0D11",
   text: "#A49D8C",
@@ -224,21 +235,37 @@ export function readThemeFromElement(root: HTMLElement): ThemeColors {
         "readThemeFromElement: no getComputedStyle available (browser + happy-dom/jsdom required)",
       );
     });
+  // Phase 73: a getCs hívás a CSS custom property-k olvasásához kell.
+  // A `cs` változót CSAK a bg/text/grid/border mezőkhöz használjuk;
+  // az up/down (candle színek) hardcode-olva vannak, lásd lentebb.
   const cs = getCs(root);
+  // Phase 73: we use SSR_FALLBACK_THEME for bg/text/grid/border
+  // instead of CSS custom properties. The design system uses
+  // `color-mix(in oklab, ...)` expressions for the surface tokens,
+  // and `getPropertyValue` returns those expressions as LITERAL
+  // strings (not as resolved colors). The lightweight-charts v5
+  // renderer passes these strings to a canvas `fillStyle` setter,
+  // which throws `Error: "Value is null"` because the canvas API
+  // cannot parse a `color-mix()` function call. The hardcoded
+  // dark-theme palette (matching `[data-theme="dark"]`) is the
+  // pragmatic fix — the dashboard runs against the dark theme by
+  // default per the Phase 56B default. If a future PR wants full
+  // theme switching, it needs to resolve the `color-mix()` strings
+  // to actual colors (e.g. via a hidden DOM element with the CSS
+  // variable set and `getComputedStyle` of THAT element).
   return {
-    up: themeColorWithFallback(
-      cs.getPropertyValue("--ep-yolk-500"),
-      SSR_FALLBACK_THEME.up,
-    ),
+    // Phase 73: candle colors are HARDCODED to the universal exchange
+    // convention (green-up, red-down). The user explicitly rejected
+    // the design-system tokens for these ("senki nem kerte hogy talalj
+    // ki szineket!"). The `themeColorWithFallback` wrapper is preserved
+    // for shape consistency with the other fields (bg/text fall through
+    // the same path) but the source here is intentionally a constant
+    // rather than a CSS variable — candles are a financial primitive,
+    // not a theme token.
+    up: SSR_FALLBACK_THEME.up,
     down: SSR_FALLBACK_THEME.down,
-    bg: themeColorWithFallback(
-      cs.getPropertyValue("--ep-bg-elevated"),
-      SSR_FALLBACK_THEME.bg,
-    ),
-    text: themeColorWithFallback(
-      cs.getPropertyValue("--ep-fg-muted"),
-      SSR_FALLBACK_THEME.text,
-    ),
+    bg: SSR_FALLBACK_THEME.bg,
+    text: SSR_FALLBACK_THEME.text,
     grid: SSR_FALLBACK_THEME.grid,
     border: SSR_FALLBACK_THEME.border,
   };

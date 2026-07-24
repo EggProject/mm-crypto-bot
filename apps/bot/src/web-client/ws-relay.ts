@@ -217,8 +217,24 @@ export function createWsRelay(options: WsRelayOptions): WsRelayHandle {
       if (message.type === "ping") return;
       // A SNAPSHOT-ot a http-server cache-eli.
       if (message.type === "snapshot") {
-        lastSnapshot = { snapshot: message.snapshot, ohlcBootstrap: message.ohlcBootstrap };
-        options.onSnapshot(message.snapshot, message.ohlcBootstrap);
+        // Phase 73: a SNAPSHOT `ohlcBootstrap` mezője a kezdeti
+        // connect utáni `handleOpen` üzenetben tartalmazza a historical
+        // OHLCV-t. A későbbi broadcast-olt SNAPSHOT-ok ezt kihagyják
+        // (lásd a feed-server.ts kommentjét). A `lastSnapshot.ohlcBootstrap`
+        // cache-et CSAK NEM ÜRES ohlcBootstrap esetén frissítjük —
+        // így a későbbi böngésző reconnect-ek is megkapják a historical
+        // adatot a `handlers.open` callback-en át.
+        const newOhlc: Readonly<Record<string, Readonly<Record<string, readonly StateFeedOHLC[]>>>> =
+          message.ohlcBootstrap;
+        if (Object.keys(newOhlc).length > 0) {
+          lastSnapshot = { snapshot: message.snapshot, ohlcBootstrap: newOhlc };
+        } else if (lastSnapshot !== null) {
+          // A snapshot mezőt frissítjük, az ohlcBootstrap-ot megtartjuk.
+          lastSnapshot = { snapshot: message.snapshot, ohlcBootstrap: lastSnapshot.ohlcBootstrap };
+        } else {
+          lastSnapshot = { snapshot: message.snapshot, ohlcBootstrap: {} };
+        }
+        options.onSnapshot(message.snapshot, lastSnapshot.ohlcBootstrap);
       }
       // A relay minden böngészőnek elküldi az üzenetet (a Set iteráció
       // közben a `close` callback-ben törölhet, ezért a `try` + `delete`

@@ -263,11 +263,24 @@ export class FeedServer {
       serverVersion: SERVER_VERSION,
       protocolVersion: PROTOCOL_VERSION,
     };
+    // Phase 73: a SNAPSHOT-ból KIHAGYJUK az ohlcBootstrap-ot — a
+    // historical OHLCV (~8MB) külön HTTP endpoint-on (`/api/ohlc`)
+    // érhető el, NEM a WS csatornán. A WS csatorna a SNAPSHOT-ot +
+    // a valós idejű BAR-okat szállítja; a historical adat a HTTP-n
+    // keresztül töltődik. Ez azért fontos, mert a Bun.socket.write()
+    // NEM atomi: a 8MB+ üzenet a kernel buffer-től függően
+    // truncálódhat, és a kliens csonkolt JSON-t kapna.
+    //
+    // A `resolveOhlcBootstrap()` hívás CSAK a kompatibilitás miatt
+    // maradt itt — a jövőbeli, opcionális WS-bootstrap vissza-
+    // kapcsolásához. Jelenleg a visszatérési értéke figyelmen kívül
+    // van hagyva, és a SNAPSHOT `ohlcBootstrap` mezője üres.
+    void this.resolveOhlcBootstrap();
     const snapshotMessage: StateFeedServerMessage = {
       type: "snapshot",
       ts: Date.now(),
       snapshot: this.options.publisher.getSnapshot(),
-      ohlcBootstrap: this.resolveOhlcBootstrap(),
+      ohlcBootstrap: {},
     };
     this.enqueueWrite(socket, serializeMessage(helloMessage));
     this.enqueueWrite(socket, serializeMessage(snapshotMessage));
@@ -454,6 +467,15 @@ export class FeedServer {
    * `resolveOhlcBootstrap` — az OHLC bootstrap forrása. A `ohlcStore`
    * opciót használja, ha van; egyébként a `getOhlcBootstrap` callback-re
    * fallbackel; végső esetben üres objektum.
+   *
+   * Phase 73: a `handleOpen` a kezdeti SNAPSHOT-ba KIHAGYJA az
+   * ohlcBootstrap-ot (a CSV fallback biztosítja a historical adatot
+   * a HTTP `/api/ohlc` endpoint-on át). A `handlePublisherEvent` a
+   * broadcast-olt SNAPSHOT-ból szintén kihagyja (csak `{}`-t küld).
+   * Emiatt ez a metódus a Phase 73 óta NEM hívódik — meghagytuk a
+   * jövőbeli, opcionális használatra (pl. ha egy jövőbeli, kisebb
+   * payload-ot használó protokoll-verzió visszahozza a WS-csatornás
+   * bootstrap-ot).
    */
   private resolveOhlcBootstrap(): Readonly<Record<string, Readonly<Record<string, readonly { time: number; open: number; high: number; low: number; close: number; volume: number }[]>>>> {
     if (this.options.ohlcStore !== undefined) {
@@ -535,15 +557,33 @@ export class FeedServer {
    * `handlePublisherEvent` — a publisher-től kapott event-et
    * broadcast-olja. A `snapshot` event-ből SNAPSHOT message-t
    * készít, a többi event-ből a megfelelő típusú üzenetet.
+   *
+   * Phase 73: a broadcast-olt SNAPSHOT NEM tartalmazza az
+   * `ohlcBootstrap`-ot. A `ohlcBootstrap` (a 30 hónapnyi historical
+   * OHLCV, ~8MB JSON) CSAK a `handleOpen`-ben (az új kliens első
+   * csatlakozásakor) kerül bele a SNAPSHOT-ba. A broadcast-olt
+   * SNAPSHOT csak az aktuális pillanatnyi `publisher.getSnapshot()`-t
+   * tartalmazza — így a per-bar overhead az 1-2 KB-os `bar` üzenet,
+   * nem a 8MB-os `ohlcBootstrap`.
+   *
+   * A kliens oldali cache (`http-server.ts` `setSnapshot`) megőrzi
+   * az eredeti ohlcBootstrap-ot a `handleOpen`-ből; a későbbi
+   * SNAPSHOT-ok felülírják a `snapshot` mezőt, de az `ohlcBootstrap`-ot
+   * NEM bántják (a http-server.ts `setSnapshot` hívásakor a cache-elt
+   * ohlcBootstrap megmarad, ha az új SNAPSHOT-ból hiányzik).
    */
   private handlePublisherEvent(event: { type: string }): void {
     if (event.type === "snapshot") {
       const snap = this.options.publisher.getSnapshot();
+      // Az `ohlcBootstrap` mező OMITTED a broadcast-olt SNAPSHOT-ból.
+      // A kliens az eredeti ohlcBootstrap-ot a `handleOpen`-ből kapta
+      // meg, és a http-server.ts / ws-relay.ts cache-eli. Ha itt is
+      // küldenénk, minden BAR event 8MB+ overhead-del járna.
       const message: StateFeedServerMessage = {
         type: "snapshot",
         ts: Date.now(),
         snapshot: snap,
-        ohlcBootstrap: this.resolveOhlcBootstrap(),
+        ohlcBootstrap: {},
       };
       this.broadcast.publish(message);
       return;

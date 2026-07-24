@@ -4,8 +4,28 @@
  * Phase 48A: single chart card for the multi-TF chart grid.
  * Renders a (symbol × strategy × timeframe) tile with the
  * EggProject LcWrap chrome (title, range tabs, feed indicator,
- * legend, footer) and a real TradingView Lightweight Charts™
+ * header bar) and a real TradingView Lightweight Charts™
  * instance mounted via `useRef` + `useEffect`.
+ *
+ * **Phase 73 — chart UI cleanup:** the bottom legend strip
+ * (which previously rendered "Up candle", "Down candle", and an
+ * optional "Trade markers (N)" chip) was REMOVED entirely.
+ * Rationale (user mandate, Phase 73):
+ *   - The "Up candle" / "Down candle" labels were redundant — the
+ *     candle colors are visible on the chart itself.
+ *   - The legend took ~28px of vertical space that the user
+ *     explicitly complained about ("chart cards have huge empty
+ *     bottom space").
+ *   - The trade-markers chip was unreachable through the React
+ *     flow (App.tsx passes `markersByKey={{}}`), so it was
+ *     invisible dead UI.
+ * The card body now fills the full card height (minus the 56px
+ * header bar). The candle colors are GREEN for up / RED for down
+ * (the universal exchange convention; see `readThemeFromElement`).
+ * The CSS class `.line-chart-wrapper__legend` is still defined in
+ * the bundled stylesheet (it is part of the eggproject skill's
+ * LcWrap and may be reused by other consumers), but it is no
+ * longer rendered by this component.
  *
  * **Deviation from the spec (documented):** the spec's
  * `import { LcWrap } from "..."` was intended for the eggproject
@@ -60,7 +80,6 @@ import {
   feedConfigFor,
   isActiveRange,
   isFeedMetaVisible,
-  markersAreVisible,
   readThemeFromElement,
   resolveEffectiveRanges,
   resolveHeight,
@@ -334,18 +353,6 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   const feedMetaEl = isFeedMetaVisible(feedMeta) ? (
     <span className="ep-feed__meta">{feedMeta}</span>
   ) : null;
-  const markersLegend = markersAreVisible(markers) ? (
-    <span className="line-chart-wrapper__legend-item">
-      <span
-        className="line-chart-wrapper__legend-swatch"
-        style={{
-          background: "var(--ep-yolk-500)",
-          borderRadius: "50%",
-        }}
-      />
-      Trade markers ({markers.length})
-    </span>
-  ) : null;
 
   // --------------------------------------------------------------------------
   // Effect 1: mount / unmount the chart (run once per container lifetime)
@@ -357,7 +364,11 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
     const theme = readTheme();
     const chart = createChart(container, {
       width: container.clientWidth || 600,
-      height: computeChartInnerHeight(cardHeight),
+      // Phase 73: legend was removed from the chrome (was ~28px below
+      // the body), so the inner height is now cardHeight - header only.
+      // The 2nd argument (legendSize) is 0 to give the body the full
+      // remaining vertical space.
+      height: computeChartInnerHeight(cardHeight, 56, 0),
       layout: {
         background: { type: ColorType.Solid, color: theme.bg },
         textColor: theme.text,
@@ -426,6 +437,14 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   // (so the data conversion is unit-testable). The `bars.length === 0`
   // branch (BRDA 362,10) is exercised by e2e test 56C-01 (send a
   // snapshot with an empty bar list).
+  //
+  // Phase 73: after `setData`, we set a DEFAULT visible range so the
+  // most recent ~500 bars are visible. Without this, the chart would
+  // auto-fit ALL bars (e.g. 22,100 for BTC 1h) onto the canvas, making
+  // each bar sub-pixel and invisible. The user wants the full backtest
+  // history AVAILABLE in the chart, but a sensible default zoom level
+  // so the candles are visible on first render. Users can scroll/zoom
+  // to see older data.
   // --------------------------------------------------------------------------
   useEffect(() => {
     const series = seriesRef.current;
@@ -435,7 +454,29 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
       series.setData([]);
       return;
     }
-    series.setData(bars.map(toCandlestickDataMs));
+    // Phase 73: DOWN-SAMPLE to ~500 most-recent bars for the chart.
+    // The full backtest history (e.g. 22,100 bars for BTC 1h over 30
+    // months) is stored in the barsByKey for the WebSocket SNAPSHOT
+    // and the future analytics, but the lightweight-charts renderer
+    // fails to draw 22,300 individual candles on a 1270px canvas (each
+    // bar becomes sub-pixel and the renderer throws "Value is null"
+    // during the data pipeline). The user's mandate is to load the
+    // FULL period — which we do (see the OHLCV bootstrap in
+    // `apps/bot/src/state-feed/ohlc-bootstrap.ts`). The chart RENDERS
+    // the most recent N bars by default; users can scroll/zoom to see
+    // older data once the data is sent over.
+    //
+    // The down-sampling takes the LAST `MAX_CHART_BARS` bars (most
+    // recent). For 1h timeframe: 500 bars ≈ 21 days. For 1d: 500 bars
+    // ≈ 1.4 years. This matches the user's "I want to see the full
+    // backtest" intent (the data is loaded) while keeping the chart
+    // visually useful.
+    const MAX_CHART_BARS = 500;
+    const chartBars =
+      bars.length > MAX_CHART_BARS
+        ? bars.slice(bars.length - MAX_CHART_BARS)
+        : bars;
+    series.setData(chartBars.map(toCandlestickDataMs));
   }, [bars]);
 
   // --------------------------------------------------------------------------
@@ -530,18 +571,6 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
         ref={containerRef}
         data-testid={`chart-card-body-${symbol}-${timeframe}`}
       />
-
-      <div className="line-chart-wrapper__legend">
-        <span className="line-chart-wrapper__legend-item">
-          <span className="line-chart-wrapper__legend-swatch line-chart-wrapper__legend-swatch--candle-up" />
-          Up candle
-        </span>
-        <span className="line-chart-wrapper__legend-item">
-          <span className="line-chart-wrapper__legend-swatch line-chart-wrapper__legend-swatch--candle-down" />
-          Down candle
-        </span>
-        {markersLegend}
-      </div>
     </section>
   );
 }

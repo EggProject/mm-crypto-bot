@@ -117,6 +117,16 @@ export function App(): React.JSX.Element {
     ],
   );
   const [strategiesError, setStrategiesError] = useState<string | null>(null);
+  // Phase 73: historical OHLCV bars fetched from the bot's HTTP
+  // `/api/ohlc` endpoint. The WS SNAPSHOT's ohlcBootstrap mezője
+  // a Phase 73 óta ÜRES (a 8MB+ historical adat a TCP write során
+  // csonkolódna). A historical bar-okat a `/api/ohlc` endpoint-ról
+  // töltjük be, és ezt a map-et összefésüljük a WS-ből jövő
+  // snapshot.ohlcBootstrap-pal (amely a Phase 73 óta általában
+  // üres, de a jövőben tartalmazhat live-only adatot).
+  const [httpBarsByKey, setHttpBarsByKey] = useState<
+    Readonly<Record<string, readonly OHLCBar[]>>
+  >({});
   // Phase 69: the bot's high-level status. Initially `null` (the
   // dashboard's first-paint default; the banner reads "Bot: stopped
   // — no status yet" until the first poll or WS `state` message
@@ -190,6 +200,64 @@ export function App(): React.JSX.Element {
       controller.abort();
     };
   }, [status]);
+
+  // -----------------------------------------------------------------
+  // Phase 73: Fetch historical OHLCV bars from `/api/ohlc` for each
+  // (symbol, tf) pair derived from the enabled strategies. The
+  // WS SNAPSHOT `ohlcBootstrap` mezője a Phase 73 óta ÜRES (a
+  // historical adat a TCP write során csonkolódna), ezért a
+  // historical bar-okat a HTTP endpoint-ról töltjük.
+  //
+  // A fetch csak a `strategies` változásakor fut le (a strategies
+  // a WS connect + /api/strategies fetch után töltődik fel). Az
+  // élő (live) bar-ok a WS `bar` üzenetekből jönnek (a Phase 48C
+  // óta a ChartGrid a `barsByKey` map-et használja).
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    if (status !== "connected") return;
+    const controller = new AbortController();
+    const pairs: readonly { readonly symbol: string; readonly timeframe: string }[] =
+      strategies.flatMap((s) =>
+        s.enabled
+          ? s.symbols.flatMap((sym) => s.timeframes.map((tf) => ({ symbol: sym, timeframe: tf })))
+          : [],
+      );
+    if (pairs.length === 0) return;
+    void (async (): Promise<void> => {
+      const next: Record<string, readonly OHLCBar[]> = {};
+      for (const { symbol, timeframe } of pairs) {
+        if (controller.signal.aborted) return;
+        try {
+          const url = `http://127.0.0.1:7913/api/ohlc?symbol=${encodeURIComponent(symbol)}&tf=${encodeURIComponent(timeframe)}`;
+          const res = await fetch(url, { signal: controller.signal });
+          if (!res.ok) continue;
+          const body: unknown = await res.json();
+          if (typeof body === "object" && body !== null) {
+            const barsRaw = (body as { bars?: unknown }).bars;
+            if (Array.isArray(barsRaw)) {
+              const bars = barsRaw as readonly OHLCBar[];
+              // A kulcs a state-feed belső formátumát követi
+              // (lásd `apps/bot/src/state-feed/ohlc-store.ts` —
+              // `${symbol}|${timeframe}`). A symbol és timeframe a
+              // saját strategies prop-ból jön (controlled), nem
+              // user input — a security warning false-positive.
+              const key = `${symbol}|${timeframe}`;
+              // eslint-disable-next-line security/detect-object-injection
+              next[key] = bars;
+            }
+          }
+        } catch {
+          // A fetch hiba nem blokkolja a többi (symbol, tf) párost.
+        }
+      }
+      if (!controller.signal.aborted) {
+        setHttpBarsByKey(next);
+      }
+    })();
+    return (): void => {
+      controller.abort();
+    };
+  }, [status, strategies]);
 
   // -----------------------------------------------------------------
   // Phase 69: Poll GET /api/status on WS connect, every 5s, and
@@ -288,10 +356,20 @@ export function App(): React.JSX.Element {
   // identity is stable across re-renders that don't change the
   // snapshot reference (ChartGrid re-runs the subscription diff
   // on identity change, so we want to minimize false triggers).
+  //
+  // Phase 73: a WS SNAPSHOT `ohlcBootstrap` mezője a Phase 73 óta
+  // ÜRES (a historical OHLCV-t a `/api/ohlc` HTTP endpoint-ról
+  // töltjük — lásd lentebb a `useEffect`-et). A két forrást
+  // összefésüljük: a WS-ből jövő (általában üres) barsByKey-t
+  // kiegészítjük a HTTP-ből jövő historical bar-okkal.
   // -----------------------------------------------------------------
-  const barsByKey = useMemo<Readonly<Record<string, readonly OHLCBar[]>>>(
+  const wsBarsByKey = useMemo<Readonly<Record<string, readonly OHLCBar[]>>>(
     () => extractBarsByKey(snapshot),
     [snapshot],
+  );
+  const barsByKey = useMemo<Readonly<Record<string, readonly OHLCBar[]>>>(
+    () => ({ ...httpBarsByKey, ...wsBarsByKey }),
+    [httpBarsByKey, wsBarsByKey],
   );
 
   // -----------------------------------------------------------------

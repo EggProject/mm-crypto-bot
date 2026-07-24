@@ -135,14 +135,26 @@ describe("themeColorWithFallback", () => {
 
 describe("SSR_FALLBACK_THEME", () => {
   it("is a valid ThemeColors object with the expected dark-theme defaults", () => {
+    // Phase 73: candle colors are GREEN / RED (the universal exchange
+    // convention), not the previous gold/red deviation. The user
+    // explicitly rejected the design-system yolk color for candles
+    // ("senki nem kerte hogy talalj ki szineket!").
     expect(SSR_FALLBACK_THEME).toEqual({
-      up: "#E3B563",
+      up: "#22c55e",
       down: "#ef4444",
       bg: "#0C0D11",
       text: "#A49D8C",
       grid: "rgba(255, 255, 255, 0.06)",
       border: "rgba(255, 255, 255, 0.10)",
     });
+  });
+
+  it("uses #22c55e (green) for up — the universal exchange convention", () => {
+    expect(SSR_FALLBACK_THEME.up).toBe("#22c55e");
+  });
+
+  it("uses #ef4444 (red) for down — the universal exchange convention", () => {
+    expect(SSR_FALLBACK_THEME.down).toBe("#ef4444");
   });
 });
 
@@ -181,19 +193,35 @@ describe("readThemeFromElement", () => {
 
   it("returns the resolved tokens when all CSS variables are set (BRDA 246,0 / 248,0 / 249,0 LHS branches)", () => {
     const root = makeMockElement({
-      "--ep-yolk-500": "  #FFD700  ",
+      // Phase 73: --ep-yolk-500 is no longer consulted for the `up`
+      // color (candles are hardcoded to green), but the bg / text
+      // CSS variables ARE still read.
       "--ep-bg-elevated": "  #1A1B1F  ",
       "--ep-fg-muted": "  #B0B0B0  ",
     });
     const theme: ThemeColors = readThemeFromElement(root);
     expect(theme).toEqual({
-      up: "#FFD700",
+      up: "#22c55e",
       down: "#ef4444",
       bg: "#1A1B1F",
       text: "#B0B0B0",
       grid: "rgba(255, 255, 255, 0.06)",
       border: "rgba(255, 255, 255, 0.10)",
     });
+  });
+
+  it("ignores --ep-yolk-500 even if it is set — candles are hardcoded to green", () => {
+    // Phase 73: even if a caller sets --ep-yolk-500 to gold, the
+    // chart must use green for up. The user explicitly rejected the
+    // design-system yolk color.
+    const root = makeMockElement({
+      "--ep-yolk-500": "#FFD700",
+      "--ep-bg-elevated": "#1A1B1F",
+      "--ep-fg-muted": "#B0B0B0",
+    });
+    const theme: ThemeColors = readThemeFromElement(root);
+    expect(theme.up).toBe("#22c55e");
+    expect(theme.up).not.toBe("#FFD700");
   });
 
   it("falls back to the SSR defaults when the CSS variables are empty (BRDA 246,1 / 248,2 / 249,3 RHS branches)", () => {
@@ -204,12 +232,11 @@ describe("readThemeFromElement", () => {
 
   it("falls back per-variable when only some CSS variables are set (mixed coverage)", () => {
     const root = makeMockElement({
-      "--ep-yolk-500": "#FFD700",
       // --ep-bg-elevated missing → fallback
       "--ep-fg-muted": "#B0B0B0",
     });
     const theme: ThemeColors = readThemeFromElement(root);
-    expect(theme.up).toBe("#FFD700");
+    expect(theme.up).toBe(SSR_FALLBACK_THEME.up);
     expect(theme.bg).toBe(SSR_FALLBACK_THEME.bg);
     expect(theme.text).toBe("#B0B0B0");
     expect(theme.down).toBe("#ef4444");
@@ -219,7 +246,6 @@ describe("readThemeFromElement", () => {
 
   it("treats whitespace-only CSS variable values as missing (per themeColorWithFallback)", () => {
     const root = makeMockElement({
-      "--ep-yolk-500": "   ",
       "--ep-bg-elevated": "\t\n",
       "--ep-fg-muted": " ",
     });
@@ -262,6 +288,9 @@ describe("clampChartDimension", () => {
 
 describe("computeChartInnerHeight", () => {
   it("subtracts the default header (56) and legend (28) sizes from the card height", () => {
+    // Phase 73: defaults are unchanged (56/28) for backward compat —
+    // the component now passes `0` as the second arg explicitly, but
+    // the helper's default is preserved for any other consumer.
     expect(computeChartInnerHeight(320)).toBe(320 - 56 - 28);
     expect(computeChartInnerHeight(320)).toBe(236);
   });
@@ -269,6 +298,15 @@ describe("computeChartInnerHeight", () => {
   it("honors custom headerSize and legendSize overrides", () => {
     expect(computeChartInnerHeight(400, 60, 30)).toBe(310);
     expect(computeChartInnerHeight(400, 0, 0)).toBe(400);
+  });
+
+  it("returns the full card height when legendSize=0 (Phase 73 chrome — legend removed)", () => {
+    // Phase 73: the chart card no longer renders the bottom legend
+    // strip, so the body should fill the full card minus the header.
+    // The component passes `computeChartInnerHeight(cardHeight, 56, 0)`.
+    expect(computeChartInnerHeight(320, 56, 0)).toBe(264);
+    expect(computeChartInnerHeight(220, 56, 0)).toBe(164);
+    expect(computeChartInnerHeight(480, 56, 0)).toBe(424);
   });
 
   it("clamps to 0 when the card height is smaller than header+legend", () => {

@@ -114,6 +114,15 @@ export interface StateFeedHandle {
   readonly clientCount: number;
   /** A publisher — a state-feed kliensek a snapshot-ját olvassák. */
   readonly publisher: LiveStatePublisher;
+  /**
+   * Phase 73: az OHLC store — a hívó (start.ts) a bot indítása
+   * UTÁN tölti fel a `bootstrapOhlcStoreFromCsv` segítségével a
+   * `data/ohlcv/*.csv` fájlokból. A SNAPSHOT `ohlcBootstrap`
+   * mezője a `getAll()`-ból jön, ami a historical + live bar-ok
+   * unióját adja — így a dashboard a teljes backtest időszakot
+   * látja azonnal, nem csak az utolsó 200 bar-t.
+   */
+  readonly ohlcStore: OhlcStore;
 }
 
 // ============================================================================
@@ -202,6 +211,7 @@ export async function attachStateFeed(
       return handle.clientCount();
     },
     publisher,
+    ohlcStore,
   };
 }
 

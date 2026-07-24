@@ -67,6 +67,8 @@ import type { StateFeedSnapshot } from "../state-feed/publisher.js";
 import { type StateFeedClientMessage, type StateFeedOHLC } from "../state-feed/protocol.js";
 import type { StateFeedClientHandle } from "./state-feed-client.js";
 import { createStaticHandler } from "./static-server.js";
+import { resolve as resolvePath } from "node:path";
+import { readFile } from "node:fs/promises";
 
 // ============================================================================
 // Types
@@ -127,6 +129,23 @@ export function createHttpHandler(
 
   const staticHandler = createStaticHandler({ webDistDir: options.webDistDir });
 
+  // Phase 73: a historical OHLCV-t a `data/ohlcv/*.csv` fájlokból
+  // TÖLTI BE a cache-be indításkor. A state-feed SNAPSHOT-ból származó
+  // ohlcBootstrap a 8MB+ mérete miatt NEM kerül bele a SNAPSHOT
+  // message-be (a TCP write csonkolná). A CSV pre-load biztosítja,
+  // hogy a `/api/ohlc` endpoint azonnal szolgálja a historical
+  // adatot, amint a web kliens csatlakozik.
+  void loadHistoricalFromCsv().then((loaded) => {
+    if (Object.keys(loaded).length > 0) {
+      ohlcBootstrap = loaded;
+    }
+  }).catch(() => {
+    // A CSV-k hiányozhatnak (ha a user nem futtatta a `bun run ohlcv`-t).
+    // Ilyenkor a cache üres marad, és a /api/ohlc 404-et ad — a
+    // dashboard "no data" üzenetet jelez, a korábbi viselkedéssel
+    // konzisztensen.
+  });
+
   const context: HttpHandlerContext = {
     get stateFeed(): StateFeedClientHandle {
       return stateFeed;
@@ -143,8 +162,16 @@ export function createHttpHandler(
   const factory: HttpHandlerFactory = {
     fetch: (req: Request) => handleHttpRequest(req, context),
     setSnapshot(newSnapshot, newOhlc) {
+      // Phase 73: a broadcast-olt SNAPSHOT-ok NEM tartalmazzák az
+      // ohlcBootstrap-ot (lásd a feed-server.ts `handlePublisherEvent`
+      // kommentjét) — csak a `handleOpen`-beli kezdeti SNAPSHOT
+      // tartalmazza. Ha az új ohlcBootstrap NEM üres, felülírjuk a
+      // cache-t. A `/api/ohlc` végpont a CSV-fallback-et használja,
+      // ha a cache üres (lásd `handleGetOhlc`).
+      if (Object.keys(newOhlc).length > 0) {
+        ohlcBootstrap = newOhlc;
+      }
       snapshot = newSnapshot;
-      ohlcBootstrap = newOhlc;
     },
     clearSnapshot() {
       snapshot = null;
@@ -211,7 +238,7 @@ async function handleHttpRequest(req: Request, ctx: HttpHandlerContext): Promise
 
   // GET /api/ohlc?symbol=&tf=&count=
   if (method === "GET" && path === "/api/ohlc") {
-    return handleGetOhlc(url, ctx);
+    return await handleGetOhlc(url, ctx);
   }
 
   // Phase 69: GET /api/status — a dashboard status banner forrása.
@@ -343,8 +370,14 @@ function buildStrategiesList(
  * `handleGetOhlc` — a state-feed `ohlcBootstrap`-jából adja vissza
  * a kért (symbol, tf) OHLC bar-okat, a `count` paraméter által
  * korlátozva.
+ *
+ * Phase 73: a historical OHLCV adat a `data/ohlcv/*.csv` fájlokból
+ * is betölthető, ha a state-feed `ohlcBootstrap` cache-e üres. A
+ * WS csatorna NEM szállítja a historical adatot (a 8MB+ SNAPSHOT
+ * a TCP write során csonkolódna). A CSV-fallback biztosítja, hogy
+ * a dashboard a teljes backtest időszakot lássa.
  */
-function handleGetOhlc(url: URL, ctx: HttpHandlerContext): Response {
+async function handleGetOhlc(url: URL, ctx: HttpHandlerContext): Promise<Response> {
   const symbol = url.searchParams.get("symbol");
   const tf = url.searchParams.get("tf");
   const countRaw = url.searchParams.get("count");
@@ -352,16 +385,147 @@ function handleGetOhlc(url: URL, ctx: HttpHandlerContext): Response {
     return jsonResponse({ error: "missing required query params: symbol, tf" }, 400);
   }
   const perSymbol = ctx.ohlcBootstrap[symbol];
-  if (perSymbol === undefined) {
-    return jsonResponse({ error: "unknown symbol", symbol }, 404);
+  let bars: readonly StateFeedOHLC[] | undefined;
+  if (perSymbol !== undefined) {
+    bars = perSymbol[tf];
   }
-  const bars = perSymbol[tf];
   if (bars === undefined) {
-    return jsonResponse({ error: "unknown timeframe", symbol, tf }, 404);
+    // CSV-fallback: a `data/ohlcv/*.csv` fájlból olvassuk a historical
+    // adatot. A fájlnév konvenció: `binance_{fileSym}_{tf}.csv`,
+    // ahol `fileSym` a `TRADING_TO_FILE_SYMBOL` map-ből jön.
+    const fileSym = TRADING_TO_FILE_SYMBOL[symbol];
+    if (fileSym === undefined) {
+      return jsonResponse({ error: "unknown symbol", symbol }, 404);
+    }
+    const filename = `binance_${fileSym}_${tf}.csv`;
+    const filepath = resolvePath(process.cwd(), "data", "ohlcv", filename);
+    try {
+      bars = await readOhlcvCsvLocal(filepath);
+    } catch {
+      // A CSV hiányzik (a user nem futtatta a `bun run ohlcv`-t, vagy
+      // a kért (symbol, tf) nincs a letöltött készletben) — 404-gyel
+      // jelezzük, hogy az adott (symbol, tf) jelenleg nem elérhető.
+      // A korábbi viselkedéssel konzisztens: a "no data" state a
+      // dashboardon is megjelenik.
+      return jsonResponse({ error: "unknown timeframe", symbol, tf }, 404);
+    }
+    if (bars === undefined || bars.length === 0) {
+      return jsonResponse({ error: "unknown timeframe", symbol, tf }, 404);
+    }
   }
   const count = countRaw === null ? bars.length : Math.max(0, Math.min(Number(countRaw) || bars.length, bars.length));
   const tail = count === bars.length ? bars : bars.slice(bars.length - count);
   return jsonResponse({ symbol, tf, bars: tail });
+}
+
+/**
+ * `TRADING_TO_FILE_SYMBOL` — a CSV fájlnév-beli kisbetűs ticker
+ * (`btc`) és a config / state-feed által használt slashed formátum
+ * (`BTC/USDC`) közötti inverz mapping. A Binance-en nincs `BTC/USDC`
+ * market (a USDC market alacsony likviditású), ezért a `bun run ohlcv`
+ * a `BTC/USDT` párt tölti le, de a bot config és a state-feed a
+ * `BTC/USDC` nevet használja (USDC kvázi 1:1 USDT-vel).
+ */
+const TRADING_TO_FILE_SYMBOL: Readonly<Record<string, string>> = {
+  "BTC/USDC": "btc",
+  "ETH/USDC": "eth",
+  "SOL/USDC": "sol",
+};
+
+/**
+ * `loadHistoricalFromCsv` — a `data/ohlcv/*.csv` fájlokból induláskor
+ * betölti a historical OHLCV-t a cache-be. A standard timeframes
+ * (`1h`, `4h`, `1d`) és a standard szimbólumok (`BTC/USDC`, `ETH/USDC`,
+ * `SOL/USDC`) mindegyikét megpróbálja betölteni.
+ *
+ * A `setSnapshot` CSAK NEM ÜRES ohlcBootstrap esetén írja felül a
+ * cache-t — így a CSV-ből betöltött adat a state-feed SNAPSHOT-jától
+ * függetlenül megmarad. Ha a state-feed később küld ohlcBootstrap-ot
+ * (pl. egy jövőbeli, kisebb payload-ot használó protokoll-verzióval),
+ * az felülírja a CSV-cache-t.
+ */
+async function loadHistoricalFromCsv(): Promise<HttpHandlerContext["ohlcBootstrap"]> {
+  const out: Record<string, Record<string, readonly StateFeedOHLC[]>> = {};
+  const dataDir = resolvePath(process.cwd(), "data", "ohlcv");
+  for (const [tradingSym, fileSym] of Object.entries(TRADING_TO_FILE_SYMBOL)) {
+    for (const tf of ["1h", "4h", "1d"]) {
+      const filename = `binance_${fileSym}_${tf}.csv`;
+      const filepath = resolvePath(dataDir, filename);
+      try {
+        const bars = await readOhlcvCsvLocal(filepath);
+        if (bars !== undefined && bars.length > 0) {
+          let bucket = out[tradingSym];
+          if (bucket === undefined) {
+            bucket = {};
+            out[tradingSym] = bucket;
+          }
+          bucket[tf] = bars;
+        }
+      } catch {
+        // A CSV hiányozhat — kihagyjuk, a cache többi része megmarad.
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * `readOhlcvCsvLocal` — a `data/ohlcv/binance_{sym}_{tf}.csv` fájl
+ * olvasása (HTTPP szerver lokális fallback-je). A CSV formátum:
+ *
+ *   ```
+ *   timestamp,open,high,low,close,volume
+ *   1704067200000,42283.58,42554.57,42261.02,42475.23,1271.68108
+ *   ...
+ *   ```
+ *
+ * A `timestamp` UNIX milliszekundumban van. A parse-olás defensív:
+ * a hibás sorok kimaradnak, a `readOhlcvCsv` (state-feed) verzióval
+ * konzisztens.
+ */
+async function readOhlcvCsvLocal(filepath: string): Promise<readonly StateFeedOHLC[] | undefined> {
+  const text = await readFile(filepath, "utf8");
+  const lines = text.split("\n");
+  if (lines.length === 0) return undefined;
+  const headerLine = lines[0];
+  if (headerLine !== "timestamp,open,high,low,close,volume") {
+    return undefined;
+  }
+  const bars: StateFeedOHLC[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i]?.trim() ?? "";
+    if (line.length === 0) continue;
+    const cols = line.split(",");
+    if (cols.length !== 6) continue;
+    const tsRaw = cols[0];
+    const oRaw = cols[1];
+    const hRaw = cols[2];
+    const lRaw = cols[3];
+    const cRaw = cols[4];
+    const vRaw = cols[5];
+    if (tsRaw === undefined || oRaw === undefined || hRaw === undefined ||
+        lRaw === undefined || cRaw === undefined || vRaw === undefined) {
+      continue;
+    }
+    const time = Number(tsRaw);
+    const open = Number(oRaw);
+    const high = Number(hRaw);
+    const low = Number(lRaw);
+    const close = Number(cRaw);
+    const volume = Number(vRaw);
+    if (
+      !Number.isFinite(time) || time <= 0 ||
+      !Number.isFinite(open) || open <= 0 ||
+      !Number.isFinite(high) || high <= 0 ||
+      !Number.isFinite(low) || low <= 0 ||
+      !Number.isFinite(close) || close <= 0 ||
+      !Number.isFinite(volume) || volume < 0
+    ) {
+      continue;
+    }
+    bars.push({ time, open, high, low, close, volume });
+  }
+  return bars;
 }
 
 /**

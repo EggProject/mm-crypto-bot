@@ -73,11 +73,12 @@
 import { ConfigError, loadBotConfig } from "../../config/index.js";
 import type { BotConfig } from "../../config/schema.js";
 import type { FileHandle } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { mkdir, open } from "node:fs/promises";
 import { Bot } from "../../bot/bot.js";
 import type { SubcommandHandler } from "../router.js";
 import { attachStateFeed, resolveFeedPort, type StateFeedHandle } from "../../state-feed/index.js";
+import { bootstrapOhlcStoreFromCsv } from "../../state-feed/ohlc-bootstrap.js";
 
 /**
  * `getConfigPath` — pull the `--config=path` flag, or `undefined`.
@@ -353,6 +354,51 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
     // "No charts configured" even though the bot is streaming real bybit.eu
     // data.
     bot.attachStateFeed(stateFeed);
+    // -------------------------------------------------------------------------
+    // PHASE 73 — HISTORICAL OHLCV BOOTSTRAP
+    // -------------------------------------------------------------------------
+    //   A bot indítása ELŐTT feltöltjük az `OhlcStore`-t a
+    //   `data/ohlcv/*.csv` fájlokból. Ez a state-feed SNAPSHOT
+    //   `ohlcBootstrap` mezőjének a forrása — így a dashboard a
+    //   teljes backtest időszakot látja azonnal (BTC 2024-01-01
+    //   → 2026-07-09 = 30 hónap), nem csak az utolsó 200 bar-t.
+    //
+    //   A CSV-k a `data/ohlcv/` mappában vannak (a `bun run ohlcv`
+    //   parancs tölti le). A bot config `symbols.enabled` listája
+    //   szűri, hogy mely (symbol, tf) párosok kerüljenek
+    //   bootstrappelésre.
+    //
+    //   A bootstrap HIBAKEZELŐ: a hiányzó CSV WARNING-ot ír, de a
+    //   bot indul. A `console.log` a Phase 43 Track 3 óta a
+    //   `<state_file>.log` fájlba megy, de a bootstrap státuszt
+    //   a felhasználó is lássa (a user a `bun run ohlcv` hiánya
+    //   esetén is tudni akarja, miért üres a chart).
+    // -------------------------------------------------------------------------
+    const dataDir = resolve(
+      process.cwd(),
+      "data",
+      "ohlcv",
+    );
+    const bootstrapResult = await bootstrapOhlcStoreFromCsv(stateFeed.ohlcStore, {
+      dataDir,
+      symbols: config.symbols.enabled,
+    });
+    process.stderr.write(
+      `[start] OHLCV bootstrap: ${String(bootstrapResult.loaded)} loaded, ` +
+        `${String(bootstrapResult.skipped)} skipped, ` +
+        `${String(bootstrapResult.totalBars)} total bars\n`,
+    );
+    for (const detail of bootstrapResult.details) {
+      const firstIso = new Date(detail.firstTs).toISOString();
+      const lastIso = new Date(detail.lastTs).toISOString();
+      process.stderr.write(
+        `[start]   ${detail.symbol} ${detail.timeframe}: ` +
+          `${String(detail.bars)} bars (${firstIso} → ${lastIso})\n`,
+      );
+    }
+    for (const warning of bootstrapResult.warnings) {
+      process.stderr.write(`[start]   ${warning}\n`);
+    }
     // A bot engine indítása a state-feed attach UTÁN — a publisher
     // a bot engine-en át kapja a notify-kat, és a state-feed TCP
     // socket-ére továbbítja a kliens felé.

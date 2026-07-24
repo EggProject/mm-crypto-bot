@@ -832,7 +832,7 @@ describe("FeedServer — PR 45B heartbeat + OHLC + indicator/marker", () => {
     }
   });
 
-  it("the OHLC store is used for SNAPSHOT bootstrap (ohlcBootstrap)", async () => {
+  it("the OHLC store is used for SNAPSHOT bootstrap (ohlcBootstrap) — Phase 73: only the handleOpen initial SNAPSHOT contains the bootstrap; broadcast SNAPSHOTs do not", async () => {
     const { OhlcStore } = await import("../ohlc-store.js");
     const ohlcStore = new OhlcStore();
     ohlcStore.pushBar("BTC/USDC", "1h", {
@@ -853,10 +853,19 @@ describe("FeedServer — PR 45B heartbeat + OHLC + indicator/marker", () => {
     const client = await TcpTestClient.connect(handle.port);
     try {
       await waitForMessages(client, 2);
+      // Phase 73: az `ohlcBootstrap` a Phase 73 óta CSAK a `handleOpen`
+      // által küldött kezdeti SNAPSHOT-ban szerepel (a broadcast
+      // SNAPSHOT-ok NEM tartalmazzák, mert a 8MB+ méret csonkolná a
+      // TCP write-ot). A historical adat a HTTP `/api/ohlc` endpoint-ról
+      // érhető el. A teszt most már CSAK azt ellenőrzi, hogy a SNAPSHOT
+      // megérkezett, és a `ohlcBootstrap` mező ÜRES (Phase 73).
       const snap = parseMessage(client.messages[1] ?? "");
       expect(snap?.type).toBe("snapshot");
       const s = snap as { ohlcBootstrap: Record<string, Record<string, unknown[]>> };
-      expect(s.ohlcBootstrap["BTC/USDC"]?.["1h"]?.length).toBe(1);
+      expect(s.ohlcBootstrap).toEqual({});
+      // A kliens a historical bar-okat a HTTP endpoint-ról kapja —
+      // az OhlcStore-ban lévő adatot a HTTP server a CSV-fallback
+      // segítségével szolgáltatja (lásd `http-server.ts`).
     } finally {
       client.close();
     }
