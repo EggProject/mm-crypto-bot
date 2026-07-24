@@ -14,6 +14,14 @@
  * The `send` mock records every call into
  * `window.__CT_SENT_MESSAGES__` so the CT can assert on the
  * commands sent.
+ *
+ * Phase 69: the ControlBar now also calls `POST /api/control`
+ * (in addition to the WS `send`). The CT tests still assert on
+ * the WS `__CT_SENT_MESSAGES__` buffer (the legacy path); the
+ * HTTP path is covered by the e2e suite
+ * (e2e/69-status-panel.spec.ts). The CT mock shim
+ * (`window.fetch`) prevents the HTTP fetch from hitting the
+ * real network stack.
  */
 import { test, expect } from "./_helpers/coverage.js";
 import {

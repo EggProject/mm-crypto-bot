@@ -9,6 +9,14 @@
  * which the test sets via `page.addInitScript()` BEFORE mounting
  * the component. This lets each test exercise a different status
  * branch of the ControlBar's `disabled = status !== "connected"`.
+ *
+ * **Phase 69:** the ControlBar now also takes optional
+ * `availability` + `botState` props (driving the per-button
+ * enable/disable logic). The probes below omit these props to
+ * use the defaults — the `__CT_STATUS__` mock determines
+ * whether the WS is "connected" (and thus the buttons are
+ * enabled). The new `availability`/`botState` branches are
+ * covered by the e2e suite (e2e/69-status-panel.spec.ts).
  */
 import { ControlBar } from "../../src/components/ControlBar.js";
 

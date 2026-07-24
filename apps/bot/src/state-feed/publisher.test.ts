@@ -305,6 +305,14 @@ function makeBaseSnapshot(): StateFeedSnapshot {
     tickerEvents: [],
     paused: false,
     killSwitchThresholdPct: -10,
+    // Phase 69: a base snapshot `botStatus` mezője — a tesztek
+    // többsége a "stopped" állapotot használja (a bot még nem indult).
+    botStatus: {
+      state: "stopped",
+      startedAt: 0,
+      lastUpdate: 0,
+      activeStrategyCount: 0,
+    },
   };
 }
 
@@ -884,5 +892,93 @@ describe("LiveStateProvider — Phase 45 publish methods", () => {
     const r = received as { message: string; recoverable: boolean };
     expect(r.message).toBe("DydxFundingSource missing");
     expect(r.recoverable).toBe(true);
+  });
+});
+
+// ============================================================================
+// Phase 69 — getBotStatus (dashboard status banner forrása)
+// ============================================================================
+
+describe("LiveStateProvider — getBotStatus (Phase 69)", () => {
+  function createTestProviderWithStrategies(
+    strategies: readonly { name: string; enabled: boolean }[],
+  ): LiveStatePublisher {
+    const bot = {
+      subscribe: () => () => undefined,
+      getState: () => null,
+      stop: async () => undefined,
+    } as unknown as Bot;
+    return new LiveStatePublisher({
+      bot,
+      strategies: strategies.map((s) => ({
+        name: s.name,
+        enabled: s.enabled,
+        symbols: ["BTC/USDC"],
+        timeframes: ["1h", "4h", "1d"] as const,
+      })),
+    });
+  }
+
+  it("returns 'stopped' before markBotStarted() is called", () => {
+    const provider = createTestProviderWithStrategies([
+      { name: "donchian_pivot_composition", enabled: true },
+      { name: "dydx_cex_carry", enabled: false },
+    ]);
+    const status = provider.getBotStatus();
+    expect(status.state).toBe("stopped");
+    expect(status.startedAt).toBe(0);
+    expect(status.activeStrategyCount).toBe(1);
+    expect(status.lastUpdate).toBeGreaterThan(0);
+  });
+
+  it("returns 'running' after markBotStarted() and 'stopped' after markBotStopped()", () => {
+    const provider = createTestProviderWithStrategies([
+      { name: "donchian_pivot_composition", enabled: true },
+    ]);
+    const beforeStart = Date.now();
+    provider.markBotStarted();
+    const afterStart = Date.now();
+    const runningStatus = provider.getBotStatus();
+    expect(runningStatus.state).toBe("running");
+    expect(runningStatus.startedAt).toBeGreaterThanOrEqual(beforeStart);
+    expect(runningStatus.startedAt).toBeLessThanOrEqual(afterStart);
+
+    provider.markBotStopped();
+    const stoppedStatus = provider.getBotStatus();
+    expect(stoppedStatus.state).toBe("stopped");
+    // A `startedAt` a stop után is megmarad (historikus adat).
+    expect(stoppedStatus.startedAt).toBe(runningStatus.startedAt);
+  });
+
+  it("returns 'paused' when paused flag is set during running", () => {
+    const provider = createTestProviderWithStrategies([
+      { name: "donchian_pivot_composition", enabled: true },
+    ]);
+    provider.markBotStarted();
+    expect(provider.getBotStatus().state).toBe("running");
+    provider.setPaused(true);
+    expect(provider.getBotStatus().state).toBe("paused");
+    provider.setPaused(false);
+    expect(provider.getBotStatus().state).toBe("running");
+  });
+
+  it("counts only enabled strategies for activeStrategyCount", () => {
+    const provider = createTestProviderWithStrategies([
+      { name: "donchian_pivot_composition", enabled: true },
+      { name: "dydx_cex_carry", enabled: false },
+      { name: "cascade_fade", enabled: true },
+    ]);
+    expect(provider.getBotStatus().activeStrategyCount).toBe(2);
+  });
+
+  it("snapshot includes the botStatus field (Phase 69: dashboard consumes it)", () => {
+    const provider = createTestProviderWithStrategies([
+      { name: "donchian_pivot_composition", enabled: true },
+    ]);
+    provider.markBotStarted();
+    const snap = provider.getSnapshot();
+    expect(snap.botStatus).toBeDefined();
+    expect(snap.botStatus.state).toBe("running");
+    expect(snap.botStatus.startedAt).toBeGreaterThan(0);
   });
 });

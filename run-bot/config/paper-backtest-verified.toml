@@ -1,0 +1,135 @@
+# ======================================================================
+# mm-crypto-bot — PAPER MODE, BACKTEST-VERIFIED CONFIGURATION
+# ======================================================================
+#
+# Phase 69 — `paper-backtest-verified.toml`
+#
+# Ez a config a Phase 30b backtest által verifikált setup-ot
+# reprodukálja PAPER módban. A Phase 30b backtest 11048 trade-et
+# futtatott BTC-n, 2024-01-01 → 2026-07-09 között (kb. 30 hónap),
+# és az alábbi eredményeket produkálta:
+#
+#   - 11048 db trade
+#   - 64.74% win rate
+#   - +34.41% / hó hozam
+#
+# A Phase 67 óta a `default.toml` `min_consensus = 2`-vel fut
+# (a Phase 67 position-skip fix safety-konszenzusa — a Phase 67
+# commit message részletezi). Ez a `paper-backtest-verified.toml`
+# VISSZAÁLLÍTJA a Phase 30b backtest-által verifikált
+# `min_consensus = 1` értéket, hogy a user az új config fájllal
+# a Phase 30b backtest-tel AZONOS viselkedést kapja paper módban.
+#
+# HASZNÁLAT
+# --------
+#   1) Másold át a saját mappádba (opcionális):
+#        cp apps/bot/config/paper-backtest-verified.toml ~/.mm-bot/paper.toml
+#   2) Indítsd a botot ezzel a config-gal:
+#        mm-bot start --config=./run-bot/config/paper-backtest-verified.toml
+#
+# A `default.toml` ÉS a `live-eu.toml` NEM MÓDOSUL — ez a fájl
+# kizárólag a Phase 30b backtest-eredmények reprodukálására szolgál
+# paper módban, a user kérésére (a Phase 69 megnyitásakor explicit
+# kiemelt 4-ből az 1. issue).
+#
+# KÜLÖNBSÉGEK a `default.toml`-hoz képest
+# --------------------------------------
+#   - `[strategies.donchian_pivot_composition].min_consensus = 1`
+#     (a Phase 30b backtest verifikálta; a `default.toml` Phase 67
+#     óta `min_consensus = 2`-re van állítva a position-skip fix
+#     safety-konszenzusához).
+#
+# Minden más szekció (`[bot]`, `[exchange]`, `[compliance]`,
+# `[risk]`, `[symbols]`, `[strategies.*]`, `[telemetry]`,
+# `[portfolio]`) a `default.toml` értékeit tükrözi.
+# ======================================================================
+
+# ======================================================================
+# 1) BOT — indítási mód, log-szint, state-fájl
+# ======================================================================
+[bot]
+mode = "paper"
+log_level = "info"
+state_file = "data/bot-state.json"
+
+# ======================================================================
+# 2) EXCHANGE — bybit.eu edge endpoint
+# ======================================================================
+[exchange]
+id = "bybiteu"
+endpoint = "https://api.bybit.eu"
+ws_endpoint = "wss://stream.bybit.eu"
+timeout_ms = 5000
+rate_limit_ms = 80
+sandbox = false
+slippage_pct = 0.03
+fee_tier = "vip"
+rate_limit_per_min = 200
+ws_reconnect_delay_ms = 500
+
+# ======================================================================
+# 2.5) COMPLIANCE — EU joghatóság
+# ======================================================================
+[compliance]
+jurisdiction = "EU"
+
+# ======================================================================
+# 3) RISK — projekt-szintű kockázati limitek
+# ======================================================================
+[risk]
+risk_per_trade = 0.01
+kelly_fraction = 0.25
+max_drawdown_pct = 0.15
+max_positions = 3
+max_leverage = 10
+
+# ======================================================================
+# 4) SYMBOLS
+# ======================================================================
+[symbols]
+enabled = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
+
+# ======================================================================
+# 5) STRATEGIES
+# ======================================================================
+[strategies.donchian_pivot_composition]
+enabled = true
+cap = 0.20
+min_consensus = 1   # Phase 30b backtest: 11048 trades, 64.74% win, +34.41%/mo
+symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
+
+[strategies.dydx_cex_carry]
+enabled = false
+cap = 0.025
+notional_per_leg_usd = 125000
+
+[strategies.cascade_fade]
+enabled = false
+max_notional_per_event_usd = 1000000
+cooldown_hours = 24
+
+[strategies.funding_flip_kill_switch]
+enabled = false
+
+[strategies.regime_detector]
+enabled = false
+
+# ======================================================================
+# 6) TELEMETRY
+# ======================================================================
+[telemetry]
+log_dir = "logs/bot"
+metrics_interval_sec = 60
+log_level = "info"
+log_destination = "both"
+metrics_enabled = true
+heartbeat_interval_sec = 30
+
+# ======================================================================
+# 7) PORTFOLIO
+# ======================================================================
+[portfolio]
+total_risk_per_cycle_usd = 100
+correlation_penalty_threshold = 0.7
+correlation_window_size = 30
+max_dd_pct = 0.10

@@ -209,6 +209,30 @@ export interface StateFeedStrategyDescriptor {
   readonly cap?: number;
 }
 
+/**
+ * `StateFeedBotStatus` — Phase 69: a bot magas-szintű futási állapota
+ * (a dashboard status banner számára).
+ *
+ * A `state` mező a három magas-szintű állapotot kódolja:
+ *   - `"running"` — a bot fut (a `running === true` ÉS `paused === false`)
+ *   - `"paused"`  — a bot fut, de a `paused` flag aktív (UI-flag; a bot
+ *                   engine nem áll le, csak a UI jelzi)
+ *   - `"stopped"` — a bot nem fut
+ *
+ * A `startedAt` a `markBotStarted()` hívás timestamp-je (0 ha még soha
+ * nem futott). Az uptime `Date.now() - startedAt` (a UI számítja).
+ *
+ * Az `activeStrategyCount` a SNAPSHOT `strategies` listából a
+ * `enabled === true` elemek száma — a dashboard "X strategies" szöveget
+ * mutatja mellé.
+ */
+export interface StateFeedBotStatus {
+  readonly state: "running" | "paused" | "stopped";
+  readonly startedAt: number;
+  readonly lastUpdate: number;
+  readonly activeStrategyCount: number;
+}
+
 /** A state-feed `Snapshot` — a publisher által publikált teljes state. */
 export interface StateFeedSnapshot {
   readonly status: StateFeedStatus;
@@ -222,6 +246,11 @@ export interface StateFeedSnapshot {
   readonly strategies: readonly StateFeedStrategyDescriptor[];
   readonly paused: boolean;
   readonly killSwitchThresholdPct: number;
+  /**
+   * Phase 69: a dashboard status banner forrása. A `state` a három
+   * magas-szintű állapot egyike; a `startedAt` az uptime számításhoz.
+   */
+  readonly botStatus: StateFeedBotStatus;
 }
 
 // ============================================================================
@@ -319,6 +348,17 @@ export function stateEqualsIgnoringTimestamp(
 
   // Statistics: object — minden mezőt egyenként hasonlítunk.
   if (!statisticsEquals(a.statistics, b.statistics)) return false;
+
+  // Phase 69: a `botStatus` mező is a snapshot része — a state,
+  // startedAt, lastUpdate, activeStrategyCount mezőket hasonlítjuk.
+  // A `lastUpdate` ms-pontosságú, de a status-bannerhez másodperces
+  // pontosság kell — a UI a `startedAt`-ból számítja az uptime-ot,
+  // nem a `lastUpdate`-ból, így itt a `lastUpdate` változása NEM
+  // okoz felesleges snapshot-emission-t (a `status.lastUpdate` már
+  // ki van hagyva a függvényből, hasonló megfontolásból).
+  if (a.botStatus.state !== b.botStatus.state) return false;
+  if (a.botStatus.startedAt !== b.botStatus.startedAt) return false;
+  if (a.botStatus.activeStrategyCount !== b.botStatus.activeStrategyCount) return false;
 
   return true;
 }
@@ -567,6 +607,13 @@ function initialStateFeedSnapshot(
     strategies,
     paused: false,
     killSwitchThresholdPct: -10,
+    // Phase 69: induláskor a bot "stopped" állapotban van.
+    botStatus: {
+      state: "stopped",
+      startedAt: 0,
+      lastUpdate: 0,
+      activeStrategyCount: strategies.filter((s) => s.enabled).length,
+    },
   };
 }
 
@@ -664,6 +711,14 @@ export class LiveStatePublisher {
 
   private killSwitchState: StateFeedKillSwitchState = "armed";
   private lastEngineState: EngineBotState | null = null;
+
+  /**
+   * Phase 69: a `markBotStarted()` utolsó hívásának timestamp-je.
+   * Az uptime számításához használja a dashboard. A `markBotStopped()`
+   * hívás NEM nullázza (az "uptime at last start" historikus adat);
+   * csak a `state` flag-en át jelzi, hogy a bot most nem fut.
+   */
+  private lastStartedAt = 0;
 
   /**
    * Ticker-event rolling buffer (max 32 event).
@@ -807,10 +862,13 @@ export class LiveStatePublisher {
    * resolve-ja után. A `state.running` mezőt `true`-ra állítja.
    *
    * A flag idempotens: többszöri hívás nem okoz állapotváltást.
+   * Phase 69: a `lastStartedAt` timestamp-et is rögzíti (az uptime
+   * számításhoz).
    */
   public markBotStarted(): void {
     if (this.botRunning) return;
     this.botRunning = true;
+    this.lastStartedAt = Date.now();
     this.refreshFromBot();
     this.emit({ type: "started" });
   }
@@ -820,6 +878,8 @@ export class LiveStatePublisher {
    * resolve-ja után. A `state.running` mezőt `false`-ra állítja.
    *
    * A flag idempotens: többszöri hívás nem okoz állapotváltást.
+   * Phase 69: a `lastStartedAt` marad (az "uptime at last start"
+   * historikus adat); a `state === "stopped"` jelzi, hogy most nem fut.
    */
   public markBotStopped(): void {
     if (!this.botRunning) return;
@@ -844,6 +904,32 @@ export class LiveStatePublisher {
     this.refreshFromBot();
     this.emit({ type: "kill-switch", state: "triggered" });
     this.emit({ type: "stopped" });
+  }
+
+  /**
+   * Phase 69: a dashboard status banner forrása — a bot magas-szintű
+   * futási állapota. A `state` a `running` + `paused` flag-ekből
+   * származik; a `startedAt` az utolsó `markBotStarted()` timestamp-je.
+   *
+   * A helper független a snapshot többi mezőjétől (csak a belső
+   * `botRunning` / `currentState.paused` / `lastStartedAt` /
+   * `staticStrategies` flag-eket olvassa), így a `start.ts` /
+   * HTTP /api/status handler is hívhatja a snapshot re-build nélkül.
+   */
+  public getBotStatus(): StateFeedBotStatus {
+    const now = Date.now();
+    const activeCount = this.staticStrategies.filter((s) => s.enabled).length;
+    const state: StateFeedBotStatus["state"] = !this.botRunning
+      ? "stopped"
+      : this.currentState.paused
+        ? "paused"
+        : "running";
+    return {
+      state,
+      startedAt: this.lastStartedAt,
+      lastUpdate: now,
+      activeStrategyCount: activeCount,
+    };
   }
 
   /**
@@ -1083,6 +1169,8 @@ export class LiveStatePublisher {
         tickers,
         tickerEvents: this.tickerEventBuffer.slice(),
         strategies: this.staticStrategies,
+        // Phase 69: a dashboard status banner forrása.
+        botStatus: this.getBotStatus(),
       };
       if (stateEqualsIgnoringTimestamp(this.currentState, candidate)) {
         // Nincs változás — ne cseréljük a referenciát, ne notify-oljunk.
@@ -1122,6 +1210,8 @@ export class LiveStatePublisher {
       strategies: this.staticStrategies,
       paused: this.currentState.paused,
       killSwitchThresholdPct: this.currentState.killSwitchThresholdPct,
+      // Phase 69: a dashboard status banner forrása.
+      botStatus: this.getBotStatus(),
     };
     if (stateEqualsIgnoringTimestamp(this.currentState, candidate)) {
       // A többi mező referenciája is csak a tényleges változásnál

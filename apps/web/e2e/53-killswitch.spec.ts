@@ -135,7 +135,16 @@ function sendInitialServerMessages(harness: WsTestHarness): void {
   const snapshot = JSON.stringify({
     type: "snapshot",
     ts: now,
-    snapshot: {},
+    // Phase 69: include the botStatus in the initial snapshot
+    // (the "running" state enables the Kill Switch button).
+    snapshot: {
+      botStatus: {
+        state: "running",
+        startedAt: now,
+        lastUpdate: now,
+        activeStrategyCount: 1,
+      },
+    },
     strategies: [
       {
         name: "donchian_pivot_composition",
@@ -151,7 +160,16 @@ function sendInitialServerMessages(harness: WsTestHarness): void {
   const state = JSON.stringify({
     type: "state",
     ts: now,
-    snapshot: {},
+    // Phase 69: the WS state message's `snapshot.botStatus` is
+    // the source of truth for the dashboard's status banner.
+    snapshot: {
+      botStatus: {
+        state: "running",
+        startedAt: now,
+        lastUpdate: now,
+        activeStrategyCount: 1,
+      },
+    },
     positions: [],
     closedTrades: [],
     killSwitch: "off",
@@ -222,6 +240,9 @@ test.describe("53C — Kill-switch confirm branches", () => {
       "connected",
       { timeout: 5_000 },
     );
+    // Phase 69: the initial WS state message has `botStatus.state
+    // = "running"` (set by `sendInitialServerMessages`), which
+    // enables the Kill Switch button.
     const killBtn = page.locator(
       '.ep-control-bar__btn--danger:has-text("Kill Switch")',
     );
@@ -263,6 +284,8 @@ test.describe("53C — Kill-switch confirm branches", () => {
       "connected",
       { timeout: 5_000 },
     );
+    // Phase 69: the initial WS state message has `botStatus.state
+    // = "running"`, which enables the Kill Switch button.
     const killBtn = page.locator(
       '.ep-control-bar__btn--danger:has-text("Kill Switch")',
     );

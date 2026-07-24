@@ -177,12 +177,21 @@ describe("http-server", () => {
           positions: [],
           statistics: {
             totalPnlUsdt: 0,
+            totalPnlPct: 0,
             winRate: 0,
-            maxDrawdownPct: 0,
             totalTrades: 0,
             winningTrades: 0,
             losingTrades: 0,
+            maxDrawdownPct: 0,
+            currentDrawdownPct: 0,
+            avgWinPnl: 0,
+            avgLossPnl: 0,
+            bestTradePnl: 0,
+            worstTradePnl: 0,
+            profitFactor: 0,
             sharpeRatio: 0,
+            equityUsdt: 0,
+            initialEquityUsdt: 0,
           },
           history: [],
           tickers: [{ symbol: "BTC/USDC", price: 60000, ts: 1 }],
@@ -191,6 +200,13 @@ describe("http-server", () => {
           // (donchian_pivot_composition a tickers-ből) fut le.
           paused: false,
           killSwitchThresholdPct: -10,
+          // Phase 69: a bot indulás előtt "stopped" állapotban van.
+          botStatus: {
+            state: "stopped",
+            startedAt: 0,
+            lastUpdate: 0,
+            activeStrategyCount: 0,
+          },
         },
         {},
       );
@@ -219,12 +235,21 @@ describe("http-server", () => {
           positions: [],
           statistics: {
             totalPnlUsdt: 0,
+            totalPnlPct: 0,
             winRate: 0,
-            maxDrawdownPct: 0,
             totalTrades: 0,
             winningTrades: 0,
             losingTrades: 0,
+            maxDrawdownPct: 0,
+            currentDrawdownPct: 0,
+            avgWinPnl: 0,
+            avgLossPnl: 0,
+            bestTradePnl: 0,
+            worstTradePnl: 0,
+            profitFactor: 0,
             sharpeRatio: 0,
+            equityUsdt: 0,
+            initialEquityUsdt: 0,
           },
           history: [],
           tickers: [{ symbol: "BTC/USDC", price: 60000, ts: 1 }],
@@ -238,6 +263,13 @@ describe("http-server", () => {
           ],
           paused: false,
           killSwitchThresholdPct: -10,
+          // Phase 69: a bot indulás előtt "stopped" állapotban van.
+          botStatus: {
+            state: "stopped",
+            startedAt: 0,
+            lastUpdate: 0,
+            activeStrategyCount: 3,
+          },
         },
         {},
       );
@@ -258,6 +290,139 @@ describe("http-server", () => {
         expect(s.symbols.length).toBeGreaterThan(0);
         expect(s.timeframes.length).toBeGreaterThan(0);
       }
+    });
+  });
+
+  // Phase 69: GET /api/status — a dashboard status banner forrása.
+  describe("GET /api/status", () => {
+    it("returns 503 with default 'stopped' status when no snapshot is cached", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const res = await factory.fetch(makeRequest("/api/status"));
+      expect(res.status).toBe(503);
+      const body = (await res.json()) as { botStatus: { state: string; startedAt: number; activeStrategyCount: number } };
+      expect(body.botStatus.state).toBe("stopped");
+      expect(body.botStatus.startedAt).toBe(0);
+      expect(body.botStatus.activeStrategyCount).toBe(0);
+    });
+
+    it("returns 200 with the snapshot's botStatus when present", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        {
+          status: {
+            mode: "with-bot",
+            engineAvailable: true,
+            engineError: null,
+            connected: true,
+            lastUpdate: 0,
+          },
+          running: true,
+          killSwitch: "armed",
+          positions: [],
+          statistics: {
+            totalPnlUsdt: 0,
+            totalPnlPct: 0,
+            winRate: 0,
+            totalTrades: 0,
+            winningTrades: 0,
+            losingTrades: 0,
+            maxDrawdownPct: 0,
+            currentDrawdownPct: 0,
+            avgWinPnl: 0,
+            avgLossPnl: 0,
+            bestTradePnl: 0,
+            worstTradePnl: 0,
+            profitFactor: 0,
+            sharpeRatio: 0,
+            equityUsdt: 0,
+            initialEquityUsdt: 0,
+          },
+          history: [],
+          tickers: [],
+          tickerEvents: [],
+          paused: false,
+          killSwitchThresholdPct: -10,
+          // Phase 69: a bot aktívan fut, 3 enabled stratégia van.
+          botStatus: {
+            state: "running",
+            startedAt: 1_700_000_000_000,
+            lastUpdate: 1_700_000_060_000,
+            activeStrategyCount: 3,
+          },
+        },
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/status"));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        botStatus: { state: string; startedAt: number; lastUpdate: number; activeStrategyCount: number };
+      };
+      expect(body.botStatus.state).toBe("running");
+      expect(body.botStatus.startedAt).toBe(1_700_000_000_000);
+      expect(body.botStatus.lastUpdate).toBe(1_700_000_060_000);
+      expect(body.botStatus.activeStrategyCount).toBe(3);
+    });
+
+    it("returns 'paused' status when the snapshot.paused flag is set", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        {
+          status: {
+            mode: "with-bot",
+            engineAvailable: true,
+            engineError: null,
+            connected: true,
+            lastUpdate: 0,
+          },
+          running: true,
+          killSwitch: "armed",
+          positions: [],
+          statistics: {
+            totalPnlUsdt: 0,
+            totalPnlPct: 0,
+            winRate: 0,
+            totalTrades: 0,
+            winningTrades: 0,
+            losingTrades: 0,
+            maxDrawdownPct: 0,
+            currentDrawdownPct: 0,
+            avgWinPnl: 0,
+            avgLossPnl: 0,
+            bestTradePnl: 0,
+            worstTradePnl: 0,
+            profitFactor: 0,
+            sharpeRatio: 0,
+            equityUsdt: 0,
+            initialEquityUsdt: 0,
+          },
+          history: [],
+          tickers: [],
+          tickerEvents: [],
+          paused: true,
+          killSwitchThresholdPct: -10,
+          botStatus: {
+            state: "paused",
+            startedAt: 1_700_000_000_000,
+            lastUpdate: 1_700_000_060_000,
+            activeStrategyCount: 2,
+          },
+        },
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/status"));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { botStatus: { state: string } };
+      expect(body.botStatus.state).toBe("paused");
+    });
+
+    it("returns 503 when state-feed is disconnected", async () => {
+      const { handle } = makeFakeStateFeed({ connected: false });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const res = await factory.fetch(makeRequest("/api/status"));
+      expect(res.status).toBe(503);
     });
   });
 
@@ -473,6 +638,89 @@ describe("http-server", () => {
       expect(ctrl.type).toBe("control");
       expect(ctrl.command).toBe("pause");
       expect(ctrl.paused).toBe(true);
+    });
+
+    // Phase 69: a dashboard Start/Stop/Pause/Resume/Kill gombjai mind
+    // ezen az endpoint-on át küldenek CONTROL üzeneteket. Mindegyik
+    // commandot külön teszteli, hogy a state-feed üzenet helyes
+    // típussal és payload-dal menjen ki.
+    it("forwards 'start' control message", async () => {
+      const { handle, sent } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const res = await factory.fetch(
+        makeRequest("/api/control", {
+          method: "POST",
+          body: JSON.stringify({ command: "start" }),
+          headers: { "content-type": "application/json" },
+        }),
+      );
+      expect(res.status).toBe(202);
+      expect(sent.length).toBe(1);
+      const ctrl = sent[0] as { type: string; command: string };
+      expect(ctrl.type).toBe("control");
+      expect(ctrl.command).toBe("start");
+    });
+
+    it("forwards 'stop' control message", async () => {
+      const { handle, sent } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const res = await factory.fetch(
+        makeRequest("/api/control", {
+          method: "POST",
+          body: JSON.stringify({ command: "stop" }),
+          headers: { "content-type": "application/json" },
+        }),
+      );
+      expect(res.status).toBe(202);
+      const ctrl = sent[0] as { type: string; command: string };
+      expect(ctrl.command).toBe("stop");
+    });
+
+    it("forwards 'resume' control message", async () => {
+      const { handle, sent } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const res = await factory.fetch(
+        makeRequest("/api/control", {
+          method: "POST",
+          body: JSON.stringify({ command: "resume" }),
+          headers: { "content-type": "application/json" },
+        }),
+      );
+      expect(res.status).toBe(202);
+      const ctrl = sent[0] as { type: string; command: string };
+      expect(ctrl.command).toBe("resume");
+    });
+
+    it("forwards 'pause' control message with paused:true from body", async () => {
+      const { handle, sent } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const res = await factory.fetch(
+        makeRequest("/api/control", {
+          method: "POST",
+          body: JSON.stringify({ command: "pause", paused: false }),
+          headers: { "content-type": "application/json" },
+        }),
+      );
+      expect(res.status).toBe(202);
+      const ctrl = sent[0] as { type: string; command: string; paused?: boolean };
+      expect(ctrl.command).toBe("pause");
+      expect(ctrl.paused).toBe(false);
+    });
+
+    it("forwards 'kill_switch' control message with confirm:true", async () => {
+      const { handle, sent } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const res = await factory.fetch(
+        makeRequest("/api/control", {
+          method: "POST",
+          body: JSON.stringify({ command: "kill_switch", confirm: true }),
+          headers: { "content-type": "application/json" },
+        }),
+      );
+      expect(res.status).toBe(202);
+      const ctrl = sent[0] as { type: string; command: string; confirm?: boolean };
+      expect(ctrl.command).toBe("kill_switch");
+      expect(ctrl.confirm).toBe(true);
     });
 
     it("returns 503 when stateFeed.send returns false", async () => {

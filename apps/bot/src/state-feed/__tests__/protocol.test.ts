@@ -109,6 +109,13 @@ describe("serializeMessage / parseMessage round-trip", () => {
         tickerEvents: [],
         paused: false,
         killSwitchThresholdPct: -10,
+        // Phase 69: a snapshot `botStatus` mezője is szerializálódik.
+        botStatus: {
+          state: "running",
+          startedAt: 1_700_000_000_000,
+          lastUpdate: 1_700_000_060_000,
+          activeStrategyCount: 1,
+        },
       },
       ohlcBootstrap: { "BTC/USDC": { "1h": [] } },
     };
@@ -211,6 +218,13 @@ describe("serializeMessage / parseMessage round-trip", () => {
         tickerEvents: [],
         paused: false,
         killSwitchThresholdPct: -10,
+        // Phase 69: a snapshot `botStatus` mezője is szerializálódik.
+        botStatus: {
+          state: "stopped",
+          startedAt: 0,
+          lastUpdate: 0,
+          activeStrategyCount: 0,
+        },
       },
     };
     const wire = serializeMessage(original);
