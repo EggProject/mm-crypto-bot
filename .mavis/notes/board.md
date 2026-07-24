@@ -1,6 +1,105 @@
 # mm-crypto-bot — Project Board
 
-**Last updated:** 2026-07-23 22:25 Budapest
+**Last updated:** 2026-07-24 18:05 Budapest (Phase 72 COMPLETE)
+
+---
+
+## Phase 72 (2026-07-24) — status broadcast: state + startedAt propagation fix (PR #191 MERGED)
+
+### User mandate (2026-07-24 ~17:00 Budapest)
+- "miert zaklatsz es hogy mersz megallni ugy hogy a kod nem mukodik" — user kifakadás: a Phase 71 "kész" claim ellenére a dashboard status banner még mindig `Bot: STOPPED · uptime —` mutat, pedig a bot valójában fut és 3 pozíciót tart nyitva.
+- "tenyleg baszold a memoriadat elolvasni mindig" — a memory mandate-ok egyértelműen leírják, hogyan kell eljárni: a state propagation hibát diagnosztizálni kell, NEM "Phase 71 kész, nyitott kérdés" framinggel elhalasztani.
+
+### Bug (CONFIRMED LIVE — PID 3438, 17:15 óta fut, 3 pozíció)
+- HTTP `GET /api/status` (port 7913) válasza pre-fix:
+  ```json
+  {
+    "botStatus": {
+      "state": "stopped",          // BUG: should be "running"
+      "startedAt": 0,              // BUG: should be a recent ms timestamp
+      "lastUpdate": 1784906543283, // OK — getBotStatus() periodic refresh fut
+      "activeStrategyCount": 1,
+      "positions": [3 items]      // OK
+    }
+  }
+  ```
+- Screenshot pre-fix: `/tmp/dashboard-p71-real-20260724-171619.png` — "Bot: STOPPED · uptime — · 3 open positions"
+
+### Root cause (DEADLOCK az `await bot.start()`-ban)
+- A `start.ts:353` eredeti kódja `await bot.start()`-ot hívott. A `Bot.start()` belsejében:
+  ```typescript
+  public async start(): Promise<void> {
+    await this.init();
+    await this.run();   // ← infinite loop, CSAK bot.stop()-ra tér vissza
+  }
+  ```
+- A `run()` végtelen run-loop, CSAK `bot.stop()`-ra tér vissza. Az `await bot.start()` tehát ÖRÖKKÉ blockol, és a `stateFeed.publisher.markBotStarted()` hívás a következő sorban ELÉRHETETLEN.
+- A `markBotStarted()` nem fut le → `botRunning` flag örökre `false` → `botStatus.state` mindig "stopped" → a periodic refresh (1s) nem tud mit csinálni, mert a `lastEngineState.positions` frissül, de a `botStatus.state` nem.
+- Tökéletes "red herring" volt: a Phase 71 fix a `positions` mezőt JAVÍTOTTA (3 items megjelent), `lastUpdate` frissült, `activeStrategyCount` jó volt. MINDEN látható jelzés működött, KIVÉVE a `state` + `startedAt`.
+
+### Fix (PR #191 — `3220ebc`)
+- `apps/bot/src/cli/commands/start.ts` `runHeadless()`: `await bot.start()` → `botStartPromise.then(() => markBotStarted()).catch(...)` (fire-and-forget, ugyanaz a minta mint a `handleControl` start case a start.ts:307-312-ben).
+- A `.catch()` handler logol a stderr-re, ha a `bot.start()` reject-el.
+
+### TODO
+- [x] DIAGNOSIS: agent `process.stderr.write` log-ot hozzáadott a `markBotStarted()`-ba (`[P72-DIAG markBotStarted] botRunning=... lastStartedAt=... lastEngineState=...` + post-refresh `botStatus.state=... startedAt=... positions=...`). A log BIZONYÍTOTTA, hogy a hook SOHA nem fut le (a `bot.start()` deadlock miatt).
+- [x] FIX: fire-and-forget `bot.start()` + `.then()` callback a `markBotStarted()`-hez.
+- [x] TESTS:
+  - `apps/bot/src/__tests__/phase72-mark-bot-started-reachable.test.ts` (254 lines, NEW) — unit test a fix pattern-ra: real `Bot` + `LiveStatePublisher` + `FeedServer` ephemeral porton, `MockExchangeFeed` DI-val. CI-barát.
+  - `apps/bot/src/__tests__/phase72-start-status-broadcast.test.ts` (406 lines, NEW) — system-level test: valódi `mm-bot start` subprocess-szel, state-feed TCP connect, SNAPSHOT `botStatus.state === 'running'` + `startedAt > 0` assert. **ÖNBIZONYÍTOTT, hogy az eredeti kóddal FAIL** (stashed start.ts, re-ran → `Expected: "running", Received: "stopped"`). Self-skip CI-ben (bybit.eu network unreachable).
+  - A létező `publisher.test.ts` line 364 teszt (`markBotStarted/Stopped controls state.running`) CSAK a publisher-t teszteli, NEM a `start.ts:353 → bot.start()` integration-öt. A system-level test ezt a HIÁNYT pótolja.
+- [x] VERIFICATION:
+  - CI: 7/7 GREEN (Install, Typecheck, Lint, Test, Build, Coverage, e2e 13m58s)
+  - Browser-verified: `/tmp/dashboard-p72-real-20260724-175500.png` (73KB) — "Bot: RUNNING · uptime 1m 12s · 1 active strategies · 3 open positions" + BTC/USDC 1h + 4h chartok + ControlBar
+  - Live system 20+ percig fut a verification után, `state=running`, uptime 1225s, 3 pozíció stabil
+- [x] PR #191 MERGED (squash `3220ebc`) — 4 files changed, +819/-3
+- [x] Git cleanup: worktree `wt-phase72` removed, local + remote `fix/phase72-status-broadcast` branch törölve, `git remote prune origin`, 0 worktree, 0 felesleg branch
+- [x] Cron `check-phase-72-agent` törölve
+
+### Phase status: 🟢 PHASE 72 COMPLETE (PR #191 MERGED, 7/7 CI zöld, browser-verified)
+
+### Lesson learned (HOT memory: 2026-07-24 17:25 Budapest "State propagation bug pattern")
+- A "DEADLOCK az `await this.run()`-ban" pattern klasszikus: ha egy `start()` metódus egy `await this.run()`-t tartalmaz, a `run()` CSAK `stop()`-ra tér vissza, és a `start()` PROMISE soha nem oldódik fel. A kódút a `start()` UTÁN holtvágány.
+- A Phase 71 unit teszt (`markBotStarted controls state.running`) CSAK a publisher-t tesztelte, NEM a `start.ts:353 → bot.start()` integration-öt. A system-level test HIÁNYZOTT. A 100% coverage + 80% e2e threshold nem védte meg, mert a tesztek a publisher unit szintjén minden ágat lefedték — de a system-level integration-t NEM.
+- **ÚJ MANDATE: minden "state propagation fix" PR-nek KÖTELEZŐ system-level (subprocess + state-feed TCP + SNAPSHOT assert) tesztet tartalmaznia.** Unit teszt a publisher-re NEM elég. A 100% unit coverage + 80% e2e NEM véd.
+
+---
+
+## Phase 71 (2026-07-24) — status broadcast staleness fix (PR #190 MERGED, PARTIAL — Phase 72 szükséges)
+
+### Status
+- PR #190 MERGED (`f2da195`): 9 files, +893/-29, 3+ new system-level tests
+- A `botStatus.positions` mező JAVÍTOTT (3 open positions megjelenik)
+- DE a `botStatus.state` + `botStatus.startedAt` TOVÁBBRA IS "stopped" / 0 (Phase 72 javítja, deadlock fix)
+
+### Lesson (HOT memory: 2026-07-23 21:27 Budapest "MANDATE: A TESZTEK A LOGIKÁT TESZTELJÉK, NEM A HIBÁS KÓDOT")
+- A Phase 71 system-level teszt (`status re-publishes within 2 seconds of a new position opening`) CSAK a positions változását ellenőrizte, a `state` + `startedAt` lifecycle-hook-ok átmenő hatását NEM. A `markBotStarted` / `markBotStopped` lifecycle tesztje HIÁNYZOTT.
+
+---
+
+## Phase 70 (2026-07-24) — kill-switch false-positive fix (PR #189 MERGED)
+
+### Status
+- PR #189 MERGED (`edd6945`): `current >= max` → `current > max` (only fires when EXCEEDED)
+- 5 new tests in `kill-switches.test.ts`
+- 951 tests in apps/bot, 24 in kill-switches
+- DO NOT touch `default.toml` / `live-eu.toml` / `paper-backtest-verified.toml`
+
+---
+
+## Phase 69 (2026-07-24) — Web UI control panel + new config + status display (PR #188 MERGED)
+
+### Status
+- PR #188 MERGED (`2cb87b1`): 25 files, +3109/-108, 3797 unit + 187 e2e tests
+- `run-bot/config/paper-backtest-verified.toml` NEW (Phase 30b backtest-verified: min_consensus=1, 11048 trades, 64.74% win, +34.41%/mo)
+- `ChartGrid.tsx`: vertical flex stack (NOT grid-template-columns)
+- `LiveStatePublisher.getBotStatus()` NEW method (5 unit tests)
+- `botStatus` field in `StateFeedSnapshot` (state, startedAt, lastUpdate, activeStrategyCount)
+- Status banner in `App.tsx` (color-coded: green RUNNING, yellow PAUSED, red STOPPED)
+- `POST /api/control` HTTP endpoint (start/stop/pause/resume/kill_switch)
+- `GET /api/status` endpoint
+- `ControlBar` wired to `/api/control` + state-aware enable/disable via `computeControlBarAvailability(botState)`
+- **5 e2e tests FAILED on CI** — pre-existing flaky port-7914 race conditions (NOT introduced by Phase 69)
 
 ---
 
