@@ -228,7 +228,13 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
     stopping = true;
     console.log(`[start] received ${sig} — initiating graceful shutdown`);
     void bot.stop().then(async () => {
+      // Phase 72: a graceful shutdown során a publisher `botRunning`
+      // flag-jét is visszaállítjuk `false`-ra, hogy a state-feed az
+      // utolsó pillanatban is a helyes "stopped" state-et sugározza.
+      // A `markBotStopped()` idempotens — ha a flag már `false` (pl.
+      // kill-switch triggered előtte), nem csinál semmit.
       if (stateFeed !== null) {
+        stateFeed.publisher.markBotStopped();
         await stateFeed.close();
       }
       process.exit(0);
@@ -350,11 +356,65 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
     // A bot engine indítása a state-feed attach UTÁN — a publisher
     // a bot engine-en át kapja a notify-kat, és a state-feed TCP
     // socket-ére továbbítja a kliens felé.
-    await bot.start();
-    // A bot engine indítása SIKERES volt — a publisher `running` flag-jét
+    //
+    // ===========================================================================
+    // PHASE 72 — STATUS BROADCAST FIX (fire-and-forget bot.start)
+    // ===========================================================================
+    //   Phase 71 hiba (CSAK a Phase 72 diagnosztika során feltárt): a
+    //   `start.ts:353` eredeti kódja `await bot.start()`-ot hívott, ami
+    //   DEADLOCK-ot okozott. A `Bot.start()` belsejében az
+    //   `await this.run()` hívódik, ami egy végtelen run-loop — CSAK a
+    //   `bot.stop()` hívására tér vissza. Az `await` soha nem oldódott
+    //   fel, így a `stateFeed.publisher.markBotStarted()` hívás
+    //   ELÉRHETETLEN volt — a publisher `botRunning` flag-je örökre
+    //   `false` maradt, és a dashboard `/api/status` endpointja
+    //   `state: "stopped"`, `startedAt: 0` értékeket adott vissza
+    //   (a cache-elt SNAPSHOT a bot induláskori "stopped" állapotot
+    //   tükrözte, és a Phase 71 periodic refresh sem tudta frissíteni,
+    //   mert `botRunning` mindig `false` volt).
+    //
+    //   A fix:
+    //     1) `bot.start()` fire-and-forget (nem `await`!) — a bot init
+    //        elindul, de a Promise csak a `bot.stop()`-ra oldódik fel.
+    //     2) `markBotStarted()` SZINKRON hívása közvetlenül utána — a
+    //        flag azonnal `true`-ra vált, és a publisher a SNAPSHOT
+    //        event-en át broadcastolja az új state-et a state-feed-en.
+    //        A `markBotStarted` NEM igényli a bot init befejezését —
+    //        a flag a "a bot TERVEZETTEN fut" szemantikát jelenti,
+    //        nem a "bot minden pozíciója megnyitva" állapotot.
+    //     3) `botStartPromise.catch()` ASYNC hibaelkapás — ha a bot init
+    //        elbukik, a `markBotStopped()` visszaállítja a flag-et.
+    //     4) `await botStartPromise` BLOKKOLÁS a bot leállásáig — ez
+    //        tartja életben a process-t, és a finally blokk csak a
+    //        bot.stop() után fut le (graceful shutdown).
+    // ===========================================================================
+    const botStartPromise = bot.start();
+    // A bot engine indítása ELINDULT. A publisher `running` flag-jét
     // `true`-ra állítjuk, és a `lastStartedAt` timestamp-et rögzítjük
-    // (a dashboard uptime számításhoz).
+    // (a dashboard uptime számításhoz). SZINKRON hívás, mert a flag
+    // értéke azonnal kell a publishState-nek.
     stateFeed.publisher.markBotStarted();
+    // Ha a bot init közben elbukik, a flag-et visszaállítjuk. A
+    // botStartPromise catch-je ASYNC fut, nem blokkolja a process-t.
+    botStartPromise.catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(
+        `[start] bot.start() failed asynchronously: ${msg} — resetting botRunning=false\n`,
+      );
+      // A `stateFeed` a try blokk elején biztosan nem null (az
+      // `attachStateFeed` sikeres volt, különben a try blokkba se
+      // jutottunk volna), de a TypeScript strict null-check miatt
+      // kell az ellenőrzés.
+      if (stateFeed !== null) {
+        stateFeed.publisher.markBotStopped();
+      }
+    });
+    // A bot addig fut, amíg a `bot.stop()` meg nem hívódik (SIGINT /
+    // SIGTERM signal handler, vagy dashboard /api/control "stop"
+    // üzenet). Az `await` itt a `botStartPromise`-re várakozik, ami
+    // CSAK a `run()` loop kilépésekor oldódik fel — ez tartja életben
+    // a process-t a finally blokk cleanup-ja előtt.
+    await botStartPromise;
     // A state-feed listening message az EGYETLEN stderr sor —
     // a Phase 43 Track 3 log-routing policy-nak megfelelően.
     process.stderr.write(
