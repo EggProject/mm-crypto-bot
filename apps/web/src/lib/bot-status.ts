@@ -54,18 +54,50 @@
 export type BotState = "running" | "paused" | "stopped";
 
 /**
+ * `PositionInfo` — a UI-nak szánt position-forma (Phase 71).
+ *
+ * A `LiveStatePublisher.getBotStatus()` a `lastEngineState.positions`
+ * tömböt `mapPosition()` formátumra konvertálja, és a `botStatus.positions`
+ * mezőben adja vissza. A UI a státusz banner "X open positions" szövegét
+ * ebből a tömbből olvassa.
+ *
+ * A `PositionInfo` shape a `StateFeedPosition` (publisher oldali) egy
+ * RÉSZHALMAZA — a UI csak a dashboard szempontjából lényeges mezőket
+ * olvassa (symbol, side, entryPrice, currentPrice, quantity, leverage,
+ * unrealizedPnl). Az extra mezőket a `extractBotStatus` eldobja.
+ */
+export interface PositionInfo {
+  readonly id: string;
+  readonly symbol: string;
+  readonly side: "buy" | "sell";
+  readonly entryPrice: number;
+  readonly currentPrice: number;
+  readonly quantity: number;
+  readonly leverage: number;
+  readonly unrealizedPnl: number;
+  readonly unrealizedPnlPct: number;
+  readonly openedAt: number;
+}
+
+/**
  * `BotStatus` — the full bot status object returned by the
  * `/api/status` HTTP endpoint and the `state` WS message's
  * `snapshot.botStatus` field.
  *
  * The `lastUpdate` is the timestamp of the most recent state-feed
  * tick (ms precision, like the rest of the protocol).
+ *
+ * Phase 71: a `positions` mező a bot `positionManager.getPositions()`
+ * pillanatképe, `mapPosition()` formátumra konvertálva. A `getBotStatus()`
+ * a `lastEngineState.positions`-ből olvas (NEM a `currentState.positions`
+ * -ből — az utóbbi csak a `refreshFromBot()` hívások között frissül).
  */
 export interface BotStatus {
   readonly state: BotState;
   readonly startedAt: number;
   readonly lastUpdate: number;
   readonly activeStrategyCount: number;
+  readonly positions: readonly PositionInfo[];
 }
 
 /**
@@ -95,6 +127,11 @@ export interface ControlBarAvailability {
  * (`object`), so the helper validates the shape at runtime.
  * Tests for the helper cover all 3 valid `state` values + the
  * "missing field" / "wrong type" branches.
+ *
+ * Phase 71: a `positions` mezőt is validáljuk + kibontjuk. Ha a
+ * mező hiányzik vagy nem tömb, a default `[]` kerül a válaszba
+ * (a backward-compat a Phase 69-el: a Phase 69-es szerverek nem
+ * küldtek `positions` mezőt).
  */
 export function extractBotStatus(snapshot: unknown): BotStatus | null {
   if (typeof snapshot !== "object" || snapshot === null) return null;
@@ -118,11 +155,48 @@ export function extractBotStatus(snapshot: unknown): BotStatus | null {
   if (typeof startedAtRaw !== "number") return null;
   if (typeof lastUpdateRaw !== "number") return null;
   if (typeof activeStrategyCountRaw !== "number") return null;
+  // Phase 71: a `positions` mező validáció + parse. A mező
+  // OPCIÓNS a backward-compat miatt (a Phase 69 szerverek nem
+  // küldték). Ha hiányzik vagy nem tömb, üres tömböt adunk vissza
+  // (a UI a "no open positions" fallback-et így is jól kezeli).
+  const positionsRaw = obj.positions;
+  const positions: readonly PositionInfo[] = Array.isArray(positionsRaw)
+    ? positionsRaw.flatMap((p) => {
+        if (typeof p !== "object" || p === null) return [];
+        const pos = p as Record<string, unknown>;
+        // Minden kötelező mezőt validálunk — ha bármelyik hiányzik
+        // vagy rossz típusú, a pozíciót eldobjuk (a tömbből kimarad,
+        // de a többi pozíció megmarad).
+        if (typeof pos.id !== "string") return [];
+        if (typeof pos.symbol !== "string") return [];
+        if (pos.side !== "buy" && pos.side !== "sell") return [];
+        if (typeof pos.entryPrice !== "number") return [];
+        if (typeof pos.currentPrice !== "number") return [];
+        if (typeof pos.quantity !== "number") return [];
+        if (typeof pos.leverage !== "number") return [];
+        if (typeof pos.unrealizedPnl !== "number") return [];
+        if (typeof pos.unrealizedPnlPct !== "number") return [];
+        if (typeof pos.openedAt !== "number") return [];
+        return [{
+          id: pos.id,
+          symbol: pos.symbol,
+          side: pos.side,
+          entryPrice: pos.entryPrice,
+          currentPrice: pos.currentPrice,
+          quantity: pos.quantity,
+          leverage: pos.leverage,
+          unrealizedPnl: pos.unrealizedPnl,
+          unrealizedPnlPct: pos.unrealizedPnlPct,
+          openedAt: pos.openedAt,
+        }];
+      })
+    : [];
   return {
     state: stateRaw,
     startedAt: startedAtRaw,
     lastUpdate: lastUpdateRaw,
     activeStrategyCount: activeStrategyCountRaw,
+    positions,
   };
 }
 
@@ -262,9 +336,14 @@ export function computeControlBarAvailability(
 /**
  * `buildStatusBannerText(botStatus, now)` — the human-readable
  * text for the dashboard's status banner. Combines the bot
- * state, uptime, last-update time, and active strategy count
- * into a single line. Returns a short fallback "Bot: stopped"
- * if `botStatus` is `null`.
+ * state, uptime, last-update time, active strategy count, AND
+ * open position count into a single line. Returns a short
+ * fallback "Bot: stopped" if `botStatus` is `null`.
+ *
+ * Phase 71: a `positions.length` is megjelenik a bannerben
+ * ("X open positions"). Ha 0, a szöveg kimarad (a UI
+ * "No open positions" fallback-et a PositionsTable jeleníti
+ * meg külön).
  *
  * Pure: no I/O. The caller passes `Date.now()` as `now`.
  */
@@ -279,5 +358,13 @@ export function buildStatusBannerText(
   const uptime = formatUptime(botStatus.startedAt, now);
   const lastUpdate = formatLastUpdate(botStatus.lastUpdate, now);
   const active = botStatus.activeStrategyCount;
-  return `Bot: ${stateLabel} · uptime ${uptime} · last update ${lastUpdate} · ${String(active)} active strategies`;
+  const openPositions = botStatus.positions.length;
+  // Phase 71: a pozíció-számot a "X active strategies" után
+  // fűzzük, ha > 0. A nulla pozíciót nem írjuk ki (a banner
+  // tiszta marad, ha a bot csak fut, de még nincs nyitott trade).
+  const positionsSuffix =
+    openPositions > 0
+      ? ` · ${String(openPositions)} open ${openPositions === 1 ? "position" : "positions"}`
+      : "";
+  return `Bot: ${stateLabel} · uptime ${uptime} · last update ${lastUpdate} · ${String(active)} active strategies${positionsSuffix}`;
 }

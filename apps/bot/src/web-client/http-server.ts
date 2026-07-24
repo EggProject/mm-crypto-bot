@@ -268,6 +268,10 @@ function handleGetStrategies(ctx: HttpHandlerContext): Response {
  */
 function handleGetStatus(ctx: HttpHandlerContext): Response {
   if (ctx.snapshot === null) {
+    // Phase 71: a fallback response is kibővítve a `positions: []`
+    // mezővel, hogy a UI parser a friss snapshot-ból és a fallback-ből
+    // is ugyanazt a shape-et kapja. A `positions: []` a default "no
+    // engine state yet" állapotot tükrözi.
     return jsonResponse(
       {
         botStatus: {
@@ -275,6 +279,7 @@ function handleGetStatus(ctx: HttpHandlerContext): Response {
           startedAt: 0,
           lastUpdate: 0,
           activeStrategyCount: 0,
+          positions: [],
         },
       },
       503,

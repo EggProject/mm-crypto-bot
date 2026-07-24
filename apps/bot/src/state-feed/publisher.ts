@@ -210,8 +210,15 @@ export interface StateFeedStrategyDescriptor {
 }
 
 /**
- * `StateFeedBotStatus` — Phase 69: a bot magas-szintű futási állapota
+ * `StateFeedBotStatus` — a bot magas-szintű futási állapota
  * (a dashboard status banner számára).
+ *
+ * Phase 71 (status broadcast fix): a `positions` mező a bot
+ * `positionManager.getPositions()` pillanatképe, `mapPosition` formátumra
+ * konvertálva. A `getBotStatus()` minden híváskor a LATEST
+ * `lastEngineState.positions` tömböt olvassa — így a UI a bot valódi
+ * nyitott pozícióit látja, nem egy snapshot-időpontban rögzített
+ * régi listát.
  *
  * A `state` mező a három magas-szintű állapotot kódolja:
  *   - `"running"` — a bot fut (a `running === true` ÉS `paused === false`)
@@ -231,6 +238,15 @@ export interface StateFeedBotStatus {
   readonly startedAt: number;
   readonly lastUpdate: number;
   readonly activeStrategyCount: number;
+  /**
+   * Phase 71: a bot `positionManager.getPositions()` pillanatképe,
+   * `mapPosition()` formátumra konvertálva. A `getBotStatus()` minden
+   * híváskor a `lastEngineState.positions`-ből olvassa (NEM a
+   * `currentState.positions`-ből — az utóbbi csak a `refreshFromBot()`
+   * hívások között frissül). A `[]` default érték a `lastEngineState`
+   * `null` állapotában (bot még nem futott).
+   */
+  readonly positions: readonly StateFeedPosition[];
 }
 
 /** A state-feed `Snapshot` — a publisher által publikált teljes state. */
@@ -349,16 +365,22 @@ export function stateEqualsIgnoringTimestamp(
   // Statistics: object — minden mezőt egyenként hasonlítunk.
   if (!statisticsEquals(a.statistics, b.statistics)) return false;
 
-  // Phase 69: a `botStatus` mező is a snapshot része — a state,
-  // startedAt, lastUpdate, activeStrategyCount mezőket hasonlítjuk.
-  // A `lastUpdate` ms-pontosságú, de a status-bannerhez másodperces
-  // pontosság kell — a UI a `startedAt`-ból számítja az uptime-ot,
-  // nem a `lastUpdate`-ból, így itt a `lastUpdate` változása NEM
-  // okoz felesleges snapshot-emission-t (a `status.lastUpdate` már
+  // Phase 71: a `botStatus` mező is a snapshot része — a state,
+  // startedAt, lastUpdate, activeStrategyCount, positions mezőket
+  // hasonlítjuk. A `lastUpdate` ms-pontosságú, de a status-bannerhez
+  // másodperces pontosság kell — a UI a `startedAt`-ból számítja az
+  // uptime-ot, nem a `lastUpdate`-ból, így itt a `lastUpdate` változása
+  // NEM okoz felesleges snapshot-emission-t (a `status.lastUpdate` már
   // ki van hagyva a függvényből, hasonló megfontolásból).
   if (a.botStatus.state !== b.botStatus.state) return false;
   if (a.botStatus.startedAt !== b.botStatus.startedAt) return false;
   if (a.botStatus.activeStrategyCount !== b.botStatus.activeStrategyCount) return false;
+  // Phase 71: a `botStatus.positions` tömböt is összehasonlítjuk.
+  // A `getBotStatus()` a `lastEngineState.positions`-ből olvas, és a
+  // `state.botStatus.positions` mező a snapshot része — ha a bot
+  // új pozíciót nyit, a frissítéskor a tömb referenciája más lesz,
+  // és a snapshot-emission megtörténik.
+  if (!arrayDeepEqual(a.botStatus.positions, b.botStatus.positions)) return false;
 
   return true;
 }
@@ -607,12 +629,16 @@ function initialStateFeedSnapshot(
     strategies,
     paused: false,
     killSwitchThresholdPct: -10,
-    // Phase 69: induláskor a bot "stopped" állapotban van.
+    // Phase 71: induláskor a bot "stopped" állapotban van, nincsenek
+    // nyitott pozíciók. A `getBotStatus()` a `lastEngineState`-ből
+    // olvas, ami induláskor `null` — a default `[]` a "no engine
+    // state yet" állapotot tükrözi.
     botStatus: {
       state: "stopped",
       startedAt: 0,
       lastUpdate: 0,
       activeStrategyCount: strategies.filter((s) => s.enabled).length,
+      positions: [],
     },
   };
 }
@@ -659,6 +685,23 @@ export interface LiveStatePublisherOptions {
    * a `bot.config.strategies`-ből próbálja származtatni (best-effort).
    */
   readonly strategies?: readonly StateFeedStrategyDescriptor[];
+  /**
+   * Phase 71: a snapshot periodic refresh interval (ms). A publisher
+   * a `setInterval`-on át hívja a `refreshFromBot()`-ot, hogy a
+   * snapshot akkor is frissüljön, ha a bot engine nem küld új
+   * state-notificationt (a bot engine `getState()`-ja a 60s state-save
+   * intervalhoz van kötve; a strategy runner / kill-switch eval
+   * nem hívja a `getState()`-t, így a pozíció-nyitás / kill-switch
+   * trigger NEM generál state-notificationt a publisher felé).
+   *
+   * A default 1000ms (1 másodperc) — a dashboard status banner
+   * "legfeljebb 1 másodperces késleltetéssel" frissül.
+   *
+   * Ha `0` (vagy negatív), a periodic refresh KI VAN KAPCSOLVA
+   * (a snapshot csak explicit notify-ra frissül). A tesztek ezt
+   * használják a determinisztikus viselkedéshez.
+   */
+  readonly periodicRefreshMs?: number;
 }
 
 /**
@@ -732,12 +775,26 @@ export class LiveStatePublisher {
   private readonly tickerEventBuffer: StateFeedTickerEvent[] = [];
   private nextTickerSeq = 1;
 
+  /**
+   * Phase 71: a periodic refresh timer handle. A `start()` hívásakor
+   * indul (ha a `periodicRefreshMs > 0`), a `stop()` / `dispose()`
+   * hívásakor törlődik. A timer a `refreshFromBot()`-ot hívja, hogy
+   * a snapshot akkor is frissüljön, ha a bot engine nem küld új
+   * state-notificationt.
+   */
+  private periodicRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly periodicRefreshMs: number;
+
   public constructor(options: LiveStatePublisherOptions) {
     this.bot = options.bot;
     this.tickerSymbolOrder = options.enabledSymbols ?? [];
     // Phase 52E bugfix: a strategies listát a konstruktorban tároljuk,
     // és az initialStateFeedSnapshot + a refreshFromBot a currentState-be írja.
     this.staticStrategies = options.strategies ?? [];
+    // Phase 71: a periodic refresh interval a konstruktorban tárolódik,
+    // és a `start()` indítja el (ha > 0). A `0` vagy negatív érték
+    // letiltja a periodic refresh-t (a tesztek ezt használják).
+    this.periodicRefreshMs = options.periodicRefreshMs ?? 1_000;
     this.currentState = initialStateFeedSnapshot(
       options.initialEquityUsdt ?? 10_000,
       this.staticStrategies,
@@ -825,6 +882,12 @@ export class LiveStatePublisher {
    * állítja `true`-ra). A `botRunning` flag-et NEM állítja — a
    * `start.ts` hívja a `markBotStarted()`-et a `bot.start()` sikeres
    * resolve-ja után.
+   *
+   * Phase 71: a `periodicRefreshMs` konfigurálva van, a `start()`
+   * elindítja a periodic refresh timert is. A timer a `refreshFromBot()`
+   * -ot hívja, hogy a snapshot a bot engine notify-ciklusától
+   * FÜGGETLENÜL is frissüljön (a bot engine `getState()`-ja a 60s
+   * state-save intervalhoz van kötve).
    */
   // eslint-disable-next-line @typescript-eslint/require-await
   public async start(): Promise<void> {
@@ -835,16 +898,41 @@ export class LiveStatePublisher {
     this.subscribeToBot();
     // A bot aktuális állapotát lekérdezzük.
     this.refreshFromBot();
+    // Phase 71: a periodic refresh timer indítása. A timer
+    // `bot.getState()`-et hív, ami a `notifyStateListeners()`-en át
+    // a publisher `onEngineStateChanged` callback-jét triggereli —
+    // a publisher így a bot engine `getState()` 60s-os state-save
+    // intervaljától FÜGGETLENÜL is frissíti a `lastEngineState`-et.
+    //
+    // A `getState()` híváskor dobhat (ha a bot nincs inicializálva);
+    // a hibát elkapjuk, hogy a periodic refresh ne álljon le.
+    // A `refreshFromBot()` a `stateEqualsIgnoringTimestamp` ellenőrzéssel
+    // védett — ha a state valóban nem változott, nem cserélünk
+    // referenciát, nem notify-olunk.
+    if (this.periodicRefreshMs > 0 && this.periodicRefreshTimer === null) {
+      this.periodicRefreshTimer = setInterval(() => {
+        try {
+          this.bot.getState();
+        } catch {
+          // A bot még nincs inicializálva (a `getState()` dob). A
+          // periodic refresh ilyenkor nem csinál semmit — a
+          // következő tick-en újra próbálkozik.
+        }
+      }, this.periodicRefreshMs);
+    }
   }
 
   /**
    * `stop` — a state-feed kliens felől jövő stop kérés. A botot
    * leállítja (graceful), a bot subscription-t törli, és a saját
    * state-et frissíti.
+   *
+   * Phase 71: a periodic refresh timer is leállításra kerül.
    */
   public async stop(): Promise<void> {
     if (!this.active) return;
     this.active = false;
+    this.clearPeriodicRefreshTimer();
     this.unsubscribeFromBot();
     // A stop kérés a bot futását is leállítja — a `botRunning` flag
     // is `false`-ra vált.
@@ -907,14 +995,25 @@ export class LiveStatePublisher {
   }
 
   /**
-   * Phase 69: a dashboard status banner forrása — a bot magas-szintű
+   * Phase 71: a dashboard status banner forrása — a bot magas-szintű
    * futási állapota. A `state` a `running` + `paused` flag-ekből
-   * származik; a `startedAt` az utolsó `markBotStarted()` timestamp-je.
+   * származik; a `startedAt` az utolsó `markBotStarted()` timestamp-je;
+   * a `positions` a LATEST `lastEngineState.positions` tömb
+   * (a `mapPosition` formátumra konvertálva).
    *
    * A helper független a snapshot többi mezőjétől (csak a belső
    * `botRunning` / `currentState.paused` / `lastStartedAt` /
-   * `staticStrategies` flag-eket olvassa), így a `start.ts` /
-   * HTTP /api/status handler is hívhatja a snapshot re-build nélkül.
+   * `staticStrategies` flag-eket és a `lastEngineState.positions`
+   * tömböt olvassa), így a `start.ts` / HTTP /api/status handler is
+   * hívhatja a snapshot re-build nélkül.
+   *
+   * A `positions` a `lastEngineState.positions`-ből jön, NEM a
+   * `currentState.positions`-ből — az utóbbi csak a `refreshFromBot()`
+   * hívások között frissül (ami a Phase 71 előtt csak 60s-onként
+   * történt). A `lastEngineState` viszont minden `bot.subscribe`
+   * notification-nél frissül — a periodic refresh 1s-enként hívja
+   * a `refreshFromBot()`-ot, ami a `getBotStatus()`-on át a
+   * `lastEngineState`-et olvassa.
    */
   public getBotStatus(): StateFeedBotStatus {
     const now = Date.now();
@@ -924,11 +1023,20 @@ export class LiveStatePublisher {
       : this.currentState.paused
         ? "paused"
         : "running";
+    // Phase 71: a LATEST engine state-ből olvasunk (NEM a currentState-ből).
+    // A `lastEngineState` minden `bot.subscribe` notification-nél
+    // frissül, és a periodic refresh (1s) a `getBotStatus()`-ot
+    // hívja a snapshot re-build során, ami a `mapPosition` formátumra
+    // konvertálja a positions tömböt.
+    const positions = this.lastEngineState !== null
+      ? this.lastEngineState.positions.map(mapPosition)
+      : [];
     return {
       state,
       startedAt: this.lastStartedAt,
       lastUpdate: now,
       activeStrategyCount: activeCount,
+      positions,
     };
   }
 
@@ -1062,12 +1170,28 @@ export class LiveStatePublisher {
 
   /**
    * `dispose` — a state-feed kliens lecsatlakozásakor hívja.
+   *
+   * Phase 71: a periodic refresh timer is törlésre kerül a
+   * `clearPeriodicRefreshTimer()` híváson át.
    */
   // eslint-disable-next-line @typescript-eslint/require-await
   public async dispose(): Promise<void> {
+    this.clearPeriodicRefreshTimer();
     this.unsubscribeFromBot();
     this.listeners.clear();
     this.eventListeners.clear();
+  }
+
+  /**
+   * Phase 71: a periodic refresh timer törlése. A `stop()` és a
+   * `dispose()` hívja. A helper idempotens — többszöri hívás nem
+   * dob hibát.
+   */
+  private clearPeriodicRefreshTimer(): void {
+    if (this.periodicRefreshTimer !== null) {
+      clearInterval(this.periodicRefreshTimer);
+      this.periodicRefreshTimer = null;
+    }
   }
 
   // --------------------------------------------------------------------------
