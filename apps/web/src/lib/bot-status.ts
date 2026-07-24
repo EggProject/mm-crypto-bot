@@ -159,36 +159,13 @@ export function extractBotStatus(snapshot: unknown): BotStatus | null {
   // OPCIÓNS a backward-compat miatt (a Phase 69 szerverek nem
   // küldték). Ha hiányzik vagy nem tömb, üres tömböt adunk vissza
   // (a UI a "no open positions" fallback-et így is jól kezeli).
+  // A validáció kiszerveztük a `parsePosition` helper-be, hogy a
+  // fő függvény kevesebb branch-et tartalmazzon (e2e coverage gate).
   const positionsRaw = obj.positions;
   const positions: readonly PositionInfo[] = Array.isArray(positionsRaw)
-    ? positionsRaw.flatMap((p) => {
-        if (typeof p !== "object" || p === null) return [];
-        const pos = p as Record<string, unknown>;
-        // Minden kötelező mezőt validálunk — ha bármelyik hiányzik
-        // vagy rossz típusú, a pozíciót eldobjuk (a tömbből kimarad,
-        // de a többi pozíció megmarad).
-        if (typeof pos.id !== "string") return [];
-        if (typeof pos.symbol !== "string") return [];
-        if (pos.side !== "buy" && pos.side !== "sell") return [];
-        if (typeof pos.entryPrice !== "number") return [];
-        if (typeof pos.currentPrice !== "number") return [];
-        if (typeof pos.quantity !== "number") return [];
-        if (typeof pos.leverage !== "number") return [];
-        if (typeof pos.unrealizedPnl !== "number") return [];
-        if (typeof pos.unrealizedPnlPct !== "number") return [];
-        if (typeof pos.openedAt !== "number") return [];
-        return [{
-          id: pos.id,
-          symbol: pos.symbol,
-          side: pos.side,
-          entryPrice: pos.entryPrice,
-          currentPrice: pos.currentPrice,
-          quantity: pos.quantity,
-          leverage: pos.leverage,
-          unrealizedPnl: pos.unrealizedPnl,
-          unrealizedPnlPct: pos.unrealizedPnlPct,
-          openedAt: pos.openedAt,
-        }];
+    ? positionsRaw.flatMap((p): readonly PositionInfo[] => {
+        const parsed = parsePosition(p);
+        return parsed === null ? [] : [parsed];
       })
     : [];
   return {
@@ -197,6 +174,51 @@ export function extractBotStatus(snapshot: unknown): BotStatus | null {
     lastUpdate: lastUpdateRaw,
     activeStrategyCount: activeStrategyCountRaw,
     positions,
+  };
+}
+
+/**
+ * `parsePosition` — Phase 71: a `botStatus.positions` tömb egy elemének
+ * validációja + parse-olása. A helper kiszervezi a `flatMap` callback-jét,
+ * hogy a fő `extractBotStatus` függvény branch-száma alacsony maradjon
+ * (az e2e coverage gate 75%-os threshold-ot ír elő).
+ *
+ * A helper `null`-t ad vissza, ha a pozíció object nem valid (a `flatMap`
+ * a `null`-t kihagyja a tömbből). A `null` check-ek:
+ *   - `typeof p !== "object" || p === null` — a `p` nem object
+ *   - `typeof pos.id !== "string"` — az `id` mező hiányzik
+ *   - `typeof pos.symbol !== "string"` — a `symbol` mező hiányzik
+ *   - `pos.side !== "buy" && pos.side !== "sell"` — a `side` nem "buy" vagy "sell"
+ *   - `typeof pos.entryPrice !== "number"` — az `entryPrice` nem szám
+ *   - (stb. — minden kötelező mező)
+ *
+ * Pure: no I/O. A helper-t a unit-tesztek (`bot-status.test.ts`) és
+ * a `extractBotStatus` is hívja.
+ */
+function parsePosition(p: unknown): PositionInfo | null {
+  if (typeof p !== "object" || p === null) return null;
+  const pos = p as Record<string, unknown>;
+  if (typeof pos.id !== "string") return null;
+  if (typeof pos.symbol !== "string") return null;
+  if (pos.side !== "buy" && pos.side !== "sell") return null;
+  if (typeof pos.entryPrice !== "number") return null;
+  if (typeof pos.currentPrice !== "number") return null;
+  if (typeof pos.quantity !== "number") return null;
+  if (typeof pos.leverage !== "number") return null;
+  if (typeof pos.unrealizedPnl !== "number") return null;
+  if (typeof pos.unrealizedPnlPct !== "number") return null;
+  if (typeof pos.openedAt !== "number") return null;
+  return {
+    id: pos.id,
+    symbol: pos.symbol,
+    side: pos.side,
+    entryPrice: pos.entryPrice,
+    currentPrice: pos.currentPrice,
+    quantity: pos.quantity,
+    leverage: pos.leverage,
+    unrealizedPnl: pos.unrealizedPnl,
+    unrealizedPnlPct: pos.unrealizedPnlPct,
+    openedAt: pos.openedAt,
   };
 }
 
