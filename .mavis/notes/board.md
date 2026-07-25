@@ -2,6 +2,56 @@
 
 ---
 
+## Phase 79 (2026-07-25) — strategy-specific indicators + signals + markers (PR #205 MERGED)
+
+### User mandate (2026-07-25 22:00 Budapest)
+- Phase 78 megoldotta a donchian band universal rajzolását (minden charton ott van), DE ez nem strategy-specific.
+- "tehat akkor minden charton adott strategiahoz szukseges inditactorok es egyeb jelolesek, rajzok stb van?"
+- A Phase 79 kizárólag arról szól, hogy minden chart a SAJÁT stratégiájának indicator-jait + signal-jait + marker-jeit mutassa, ne csak a univerzális donchian band-et.
+
+### Phase-79 fix (1 agent, NO TIME LIMIT, + 1 retry for lint)
+**Commits:**
+- `8e1992c fix(web-charts): render strategy-specific indicators + signals + markers` (initial)
+- `20cb56e fix(web-charts): address lint warnings in strategy-specific indicators` (lint fix after CI caught 4 unused/needed disable directives)
+
+**Módosítás (5 files, +1100 lines, -44 lines):**
+- `apps/web/src/indicators/strategy-indicators.ts` (NEW, 389 lines) — strategy-specific indicator registry + per-strategy signal/marker computation. 5 strategy entries + 1 universal fallback.
+- `apps/web/src/indicators/client-compute.ts` (+285 lines) — `computePivotFromBars(bars, lookback=24)` + `computeBreakoutSignalsFromBars(bars, donchian)` client-side compute, with full warmup + Fibonacci band math.
+- `apps/web/src/components/ChartCard.tsx` (+165 lines) — after Phase 78 donchian band, wire up per-strategy indicators from `getStrategyIndicatorSet(name)` and apply lines + markers to the chart.
+- `apps/web/src/indicators/strategy-indicators.test.ts` (NEW, 100 lines) — registry + per-strategy fallback tests.
+- `apps/web/src/indicators/client-compute.test.ts` (+205 lines) — pivot + breakout signal math + warmup tests.
+
+**Strategy-specific mappings (5 strategies):**
+- `donchian_pivot_composition` (enabled, the only running one): **donchian band** (Phase 78) + **pivot level** (NEW, dashed slate) + **breakout ENTRY/EXIT markers** (NEW, arrowUp/arrowDown + green/red color + ENTRY/EXIT text)
+- `dydx_cex_carry` (disabled): universal fallback (Donchian only — needs external perp funding data not yet wired to the client)
+- `cascade_fade` (disabled): universal fallback (needs external liquidation cascade data not yet wired)
+- `funding_flip_kill_switch` (disabled): universal fallback (needs external funding flip signals not yet wired)
+- `regime_detector` (disabled): universal fallback (needs external regime classification not yet wired)
+
+### Browser-verified (REAL bybit.eu data, paper-backtest-verified.toml)
+- ✅ **"Bot: RUNNING · uptime 6m 55s · last update 19 seconds ago · 1 active strategies · 3 open positions"** status banner
+- ✅ BTC/USDC 1h: candles + **GOLD Donchian upper** + **slate Donchian middle** + **RED Donchian lower** + **DASHED pivot level** + **green ENTRY markers** + **red EXIT markers**
+- ✅ BTC/USDC 4h: same strategy-specific drawings
+- ✅ BTC/USDC 1d: same strategy-specific drawings (multi-month view)
+- ✅ Screenshot: `/tmp/dashboard-p79-final.png` (153KB), 0 page errors
+
+### CI: 6/7 pass + e2e infra flake (continue-on-error)
+- 974/974 apps/bot tests pass
+- 486/486 apps/web unit tests pass (19 new tests in this PR)
+- 13/13 typecheck
+- 0 lint errors (4 problems fixed in commit 20cb56e — agent's initial report falsely claimed "0 lint errors" but CI caught 4 in the new files)
+- e2e: pre-existing Playwright 1.61+ infra flake (coverage.ts:156:8 `test.afterEach()` from outside context, `continue-on-error: true` since Phase 74)
+
+### Lesson learned (HOT memory: 2026-07-25 22:30 Budapest)
+- **"Donchian band ≠ strategy-specific indicators":** a Phase 78 egy univerzális donchian band-et rakott minden chartra, DE ez NEM volt strategy-specific. A user ezt azonnal kiszúrta: "adott strategiahoz szukseges inditactorok es egyeb jelolesek". A "show all X" minta Phase 78 óta iteratívan mélyül: cards → candles → universal indicators → strategy-specific indicators. **A "kész" claim mindig AZ UTOLSÓ user-feedbackre adott válasz, nem a kód commit.**
+- **Az agent LIED about lint passing.** Az agent reportja azt írta: "lint 0 errors", DE a CI Lint lane FAILED, 4 problems a new files-ban (2 unused disable directives + 2 needed disable directives in tests). Ezért CI-vel ellenőriztem mielőtt merge-öltem. **Bármilyen agent claim-et CI-validálni kell merge előtt, NEM a self-reported "all green"-t elhinni.** (Phase 75-78-ban is volt hasonló — ez egy ismétlődő failure mode.)
+- **Strategy-specific vs universal fallback registry pattern:** 1 `STRATEGY_INDICATOR_SETS` map (5 strategies) + 1 `getStrategyIndicatorSet(name)` function (lookup + universal fallback for unknown names). A disabled strategies a universal fallbackot kapják (1 line: Donchian, 0 markers) — a jövőbeli phase-ekben a strategy-specific rendererek drop-in behelyezhetők.
+- **A "kész" claim MINDIG browser-verified screenshot kell, AHOL a TÉNYLEGES user-visible state látszik.** A Phase 79 screenshot a BTC/USDC charton MUTATJA a strategy-specific drawings-t (donchian + pivot + entry/exit markers), NEM csak a status banner-t. Ez a Phase 73-78-as "browser-verified" kudarcok tanulsága.
+
+### Phase status: ✅ PHASE 79 COMPLETE (PR #205 MERGED, strategy-specific indicators + signals + markers renderelődnek)
+
+---
+
 ## Phase 78 (2026-07-25) — render strategy indicators on the chart (donchian band) (PR #203 MERGED)
 
 ### User mandate (2026-07-25 21:00 Budapest)
@@ -220,7 +270,7 @@ A Phase 73 PR óta fennálló, Phase 74-re is ható issue: a `playwright-core@1.
 
 ### Phase status: ✅ PHASE 74 COMPLETE (PR #195 MERGED, 4/4 user-reported bugs fixed)
 
----**Last updated:** 2026-07-25 21:30 Budapest (Phase 78 COMPLETE, PR #203 MERGED)
+---**Last updated:** 2026-07-25 22:45 Budapest (Phase 79 COMPLETE, PR #205 MERGED)
 
 ---
 
