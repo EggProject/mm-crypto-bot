@@ -98,6 +98,9 @@ export interface ChartGridProps {
 
 interface FlatChart {
   readonly strategy: string;
+  /** Phase 76: the strategy's `enabled` flag, passed to ChartCard
+   *  so it can render the "(disabled)" suffix on the chrome title. */
+  readonly enabled: boolean;
   readonly key: ChartKey;
 }
 
@@ -194,8 +197,18 @@ const GRID_CSS = `
  * `ChartGrid` — responsive grid of ChartCard tiles.
  *
  * **Render tree:**
- *   - empty state (no enabled strategy) → centered "No charts configured…"
+ *   - empty state (no strategies at all) → centered "No charts configured…"
  *   - non-empty → CSS-grid of cards, one per (strategy, symbol, tf)
+ *
+ * **Phase 76:** the prior `if (!strat.enabled) continue;` filter is
+ * REMOVED. The user mandate: "minden strategiat a chartokon meg kell
+ * jeleniteni" — every configured strategy must be displayed on the
+ * charts, regardless of whether it's currently `enabled` in the bot
+ * config. The `enabled` flag is preserved on the descriptor (so a
+ * future "show only running" toggle can be added without re-fetching),
+ * and the status banner's "X active strategies" text is the source of
+ * truth for the running count (built from the publisher's
+ * `activeStrategyCount`).
  *
  * **Subscription lifecycle:**
  *   - On every `flatCharts` change, compute the SUBSCRIBE/UNSUBSCRIBE
@@ -205,11 +218,14 @@ const GRID_CSS = `
  *
  * **Empty branches:**
  *   - empty `strategies` → empty state
- *   - all strategies `enabled=false` → empty state
+ *   - all strategies `enabled=false` → empty state (every strategy
+ *     is in the list, but the bot isn't running any of them — the
+ *     user gets a clear "nothing running" message instead of 27
+ *     identical empty cards)
  *   - `barsByKey` is empty (no data at all) → empty state
  *
- *   When there ARE enabled strategies but a particular (symbol, tf)
- *   has no bars yet, we still render the card and pass empty bars
+ *   When there ARE strategies but a particular (symbol, tf) has no
+ *   bars yet, we still render the card and pass empty bars
  *   (ChartCard handles the "no data" case by clearing the chart).
  *   This keeps the subscription alive so the bootstrap arrives ASAP.
  */
@@ -223,14 +239,24 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
   //    (in prop order), then timeframes (in prop order). This
   //    deterministic order is what makes the SUBSCRIBE message order
   //    stable across renders (assuming the same strategies prop).
+  //
+  //    Phase 76: the prior `if (!strat.enabled) continue;` is removed.
+  //    We render one card per (strategy, symbol, tf) REGARDLESS of
+  //    whether the strategy is currently enabled. The `enabled` flag
+  //    is preserved on each row so the ChartCard can render a
+  //    "(disabled)" suffix on its title (per-card visual cue for
+  //    "configured but not running").
   // --------------------------------------------------------------------------
   const flatCharts = useMemo<readonly FlatChart[]>(() => {
     const out: FlatChart[] = [];
     for (const strat of strategies) {
-      if (!strat.enabled) continue;
       for (const sym of strat.symbols) {
         for (const tf of strat.timeframes) {
-          out.push({ strategy: strat.name, key: { symbol: sym, timeframe: tf } });
+          out.push({
+            strategy: strat.name,
+            enabled: strat.enabled,
+            key: { symbol: sym, timeframe: tf },
+          });
         }
       }
     }
@@ -305,12 +331,20 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
   }, []);
 
   // --------------------------------------------------------------------------
-  // 5. Empty-state branches — no enabled strategy, OR no bar data at all.
+  // 5. Empty-state branches — no strategies at all, no enabled strategy,
+  //    OR no bar data at all.
+  //
+  //    Phase 76: we still treat "no enabled strategy" as an empty
+  //    state (the user mandate says "minden strategiat" — every
+  //    strategy — must be displayed, but if ZERO strategies are
+  //    enabled, there's nothing useful to render and the user gets
+  //    a clear "nothing running" message instead of 0 cards).
   // --------------------------------------------------------------------------
+  const hasAnyStrategy = strategies.length > 0;
   const hasAnyEnabledStrategy = strategies.some((s) => s.enabled);
   const hasAnyBars = Object.keys(barsByKey).length > 0;
 
-  if (strategies.length === 0 || !hasAnyEnabledStrategy || !hasAnyBars) {
+  if (!hasAnyStrategy || !hasAnyEnabledStrategy || !hasAnyBars) {
     return (
       <div className="ep-chart-grid__empty" data-testid="chart-grid-empty">
         <style>{GRID_CSS}</style>
@@ -328,7 +362,7 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
   return (
     <div className="ep-chart-grid" data-testid="chart-grid">
       <style>{GRID_CSS}</style>
-      {flatCharts.map(({ strategy, key }) => {
+      {flatCharts.map(({ strategy, enabled, key }) => {
         const keyStr = chartKeyToString(key);
         // `barsByKey` / `markersByKey` kulcsai a state-feedből jönnek
         // (a `chartKeyToString` formátumban), nem user input. A két
@@ -368,10 +402,12 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
             data-symbol={key.symbol}
             data-strategy={strategy}
             data-timeframe={key.timeframe}
+            data-strategy-enabled={enabled ? "true" : "false"}
           >
             <ChartCard
               symbol={key.symbol}
               strategy={strategy}
+              enabled={enabled}
               timeframe={key.timeframe}
               bars={bars}
               markers={markers}
