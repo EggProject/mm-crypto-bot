@@ -79,6 +79,24 @@ describe("OhlcStore — pushBar + getOHLC", () => {
     const all = store.getOHLC("BTC/USDC", "1h", 100);
     expect(all.length).toBe(3);
   });
+
+  // Phase 77: the REST /api/ohlc endpoint and the WS subscriber
+  // consume getOHLC(); both require time-ascending data (chart
+  // invariant). The historical+live concat is sorted by the same fix
+  // as in getAll().
+  it("getOHLC returns bars sorted by time ascending when historical overlaps live", () => {
+    store.bootstrapHistorical("BTC/USDC", "1h", [
+      makeBar(1000, 60_000),
+      makeBar(2000, 60_100),
+      makeBar(5000, 60_400),
+    ]);
+    store.pushBar("BTC/USDC", "1h", makeBar(3000, 60_250));
+    store.pushBar("BTC/USDC", "1h", makeBar(6000, 60_500));
+
+    const all = store.getOHLC("BTC/USDC", "1h");
+    const times = all.map((b) => b.time);
+    expect(times).toEqual([1000, 2000, 3000, 5000, 6000]);
+  });
 });
 
 // ============================================================================
@@ -159,6 +177,71 @@ describe("OhlcStore — getAll (SNAPSHOT bootstrap)", () => {
     expect(btc["4h"]?.[0]?.close).toBe(60_100);
     const eth = all["ETH/USDC"];
     expect(eth?.["1h"]?.[0]?.close).toBe(3_000);
+  });
+
+  // Phase 77: the SNAPSHOT ohlcBootstrap is fed to the web app's
+  // lightweight-charts `series.setData()`, which requires strictly
+  // time-ascending data. The `historical ++ live` concat in `getAll()`
+  // can produce an out-of-order boundary (the live ring buffer's first
+  // bar can have a time earlier than the historical tail). The fix
+  // sorts the merged array by `time` ascending; the e2e test (without
+  // this unit test) would have caught the bug only via the chart's
+  // `Value is null` page error.
+  it("returns bars sorted by time ascending even when historical tail overlaps live head", () => {
+    const store = new OhlcStore();
+    // Historical tail ends at t=5000, but live bars started arriving
+    // at t=3000 (overlap — the live feed started before the CSV
+    // bootstrap finished). After concat without sort: [1000..5000, 3000, 4500, 6000]
+    // — the 3000/4500 entries are out of order.
+    store.bootstrapHistorical("BTC/USDC", "1h", [
+      makeBar(1000, 60_000),
+      makeBar(2000, 60_100),
+      makeBar(3000, 60_200),
+      makeBar(4000, 60_300),
+      makeBar(5000, 60_400),
+    ]);
+    store.pushBar("BTC/USDC", "1h", makeBar(3500, 60_250));
+    store.pushBar("BTC/USDC", "1h", makeBar(4500, 60_350));
+    store.pushBar("BTC/USDC", "1h", makeBar(6000, 60_500));
+
+    const all = store.getAll();
+    const btc1h = all["BTC/USDC"]?.["1h"];
+    expect(btc1h).toBeDefined();
+    const times = btc1h?.map((b) => b.time) ?? [];
+    // Strictly time-ascending — the lightweight-charts v5 invariant.
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i] ?? 0).toBeGreaterThan(times[i - 1] ?? 0);
+    }
+    // The full set is the union, sorted.
+    expect(times).toEqual([1000, 2000, 3000, 3500, 4000, 4500, 5000, 6000]);
+  });
+
+  // Phase 77 (part 2): the live feed can ALSO re-push the last N
+  // historical bars (a reconnect or a duplicate-publisher bug), which
+  // makes the concat have duplicate times. The lightweight-charts v5
+  // `series.setData()` rejects duplicate times too (same `Value is null`
+  // error). The fix dedupes by time, keeping the FIRST occurrence
+  // (the historical bar is the canonical source).
+  it("dedupes bars by time when the live feed re-pushes historical tail", () => {
+    const store = new OhlcStore();
+    store.bootstrapHistorical("BTC/USDC", "1h", [
+      makeBar(1000, 60_000),
+      makeBar(2000, 60_100),
+      makeBar(3000, 60_200),
+      makeBar(4000, 60_300),
+    ]);
+    // Live feed re-pushes the last 2 historical bars (overlap).
+    store.pushBar("BTC/USDC", "1h", makeBar(3000, 60_200));
+    store.pushBar("BTC/USDC", "1h", makeBar(4000, 60_300));
+    // Plus a new live bar.
+    store.pushBar("BTC/USDC", "1h", makeBar(5000, 60_400));
+
+    const all = store.getAll();
+    const btc1h = all["BTC/USDC"]?.["1h"];
+    expect(btc1h).toBeDefined();
+    const times = btc1h?.map((b) => b.time) ?? [];
+    // No duplicates, strictly ascending.
+    expect(times).toEqual([1000, 2000, 3000, 4000, 5000]);
   });
 });
 
