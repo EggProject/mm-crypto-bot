@@ -188,7 +188,15 @@ jobs:
       # `Error: browserType.launch: Executable doesn't exist at
       #  ~/.cache/ms-playwright/chromium_headless_shell-1228/...`.
       # `--force` re-installs even if a stale binary exists in the cache.
-      - run: bunx playwright install --with-deps --force chromium chromium-headless-shell
+      # CRITICAL: we invoke the LOCAL playwright CLI directly via node,
+      # NOT via `bunx` / `npx`. The bun + playwright combo doesn't
+      # create a `node_modules/.bin/playwright` symlink, so `bunx`
+      # / `npx playwright` silently falls back to downloading the
+      # LATEST playwright from npm (1.6x with chromium v1234), which
+      # doesn't match the lockfile-pinned `playwright-core@1.61.1`
+      # (which expects chromium v1228). The result was the CT step
+      # finding a v1234 chromium but the test runner expecting v1228.
+      - run: node node_modules/.bun/playwright@1.61.1/node_modules/playwright/cli.js install --with-deps --force chromium chromium-headless-shell
       # PHASE 58.5: Component Tests (CT) run BEFORE the e2e suite
       # so that the CT coverage data is available for the e2e
       # `afterAll` to merge. The CT lane writes per-page coverage
