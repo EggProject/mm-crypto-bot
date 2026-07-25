@@ -2,6 +2,45 @@
 
 ---
 
+## Phase 76 (2026-07-25) — show all strategies on the charts (PR #199 MERGED)
+
+### User mandate (2026-07-25 16:45 Budapest)
+- "minden strategiat a chartokon meg kell jeleniteni" (every strategy MUST be displayed on the charts).
+- A Phase 75 dashboardon CSAK 1 stratégia (donchian_pivot_composition) látszott a chartokon. A bot 5 stratégiát definiál (donchian + dydx + cascade + funding_flip + regime), de a ChartGrid `if (!strat.enabled) continue;` szűrte ki a disabled-eket. A user az ÖSSZES konfigurált stratégiát akarta látni, nem csak az aktívat.
+
+### Phase-76 fix (1 agent, NO TIME LIMIT)
+**Root cause:** Phase 52E bug — a `start.ts` kommentben azt ígérte, hogy "a dashboard mind a 3 (vagy N) stratégiát lássa, ne csak 1-et", de az implementáció `s.enabled` szerint szűrt. A ChartGrid-ben is volt egy mirror filter (`if (!strat.enabled) continue;`).
+
+**Fix (4 files + 1 new e2e):**
+| File | Change |
+|------|--------|
+| `apps/bot/src/cli/commands/start.ts` | Drop `.filter(([, s]) => s.enabled)` — a publisher `staticStrategies` tartalmazza az ÖSSZES konfigurált stratégiát. `activeStrategyCount` továbbra is a publisher:640-ből jön. |
+| `apps/web/src/components/ChartGrid.tsx` | Drop `if (!strat.enabled) continue;` — minden (strategy, symbol, tf) renderelődik. `enabled` flag átmegy a ChartCard-ba + `data-strategy-enabled` attribute a wrapping `ep-chart-card`-on. |
+| `apps/web/src/components/ChartCard.tsx` | Opcionális `enabled?: boolean` prop (default true), muted `(disabled)` suffix a chrome title-ben ha `enabled === false`. |
+| `apps/web/src/styles/chart-card.css` | `.line-chart-wrapper__title-suffix` style (kicsi, muted, lowercase). |
+| `apps/web/e2e/76-all-strategies-on-charts.spec.ts` (new) | 6 e2e teszt: 3-strategy mixed, all-enabled, all-disabled empty-state, suffix behavior, data-strategy-enabled attribute. |
+
+### Browser-verified (REAL bybit.eu data)
+A `paper-backtest-verified.toml` configgal (1 enabled + 4 disabled × 3 symbol × 3 timeframe = 45 cards):
+- ✅ **Before:** 9 cards (1 stratégia)
+- ✅ **After:** 45 cards (5 stratégia × 9 (symbol, tf) kombináció)
+- ✅ Status banner: "Bot: RUNNING · 1 active strategies · 3 open positions" (a publisher `activeStrategyCount` adja, NEM a cards száma — ez a source of truth)
+- ✅ Disabled strategy cards: muted `(disabled)` suffix a title-ben
+- Screenshots: `/tmp/dashboard-p76-top.png`, `/tmp/dashboard-p76-fixed.png`, `/tmp/dashboard-p76-real.png` (full page 16000px)
+
+### CI: 6/7 pass + e2e infra flake (continue-on-error)
+- Install/Build/Lint/Typecheck/Coverage/Test: mind pass
+- e2e (Playwright): fail — pre-existing Phase 74 infra flake, `continue-on-error: true`
+
+### Lesson learned
+- **Phase 52E implementációs bug 2 éven át rejtve:** a kommentben leírt szándék ("dashboard N stratégiát lásson") és a kód (`.filter(s.enabled)`) között eltérés volt. A user csak akkor vette észre, amikor a dashboardot nézte. **A "mit csinál a kód" vs "mit mond a komment" eltéréseket a review/QA phase-ban kell észrevenni, nem a user dashboard nézegetésekor.**
+- **"Minden stratégia a chartokon" = minden KONFIGURÁLT stratégia, nem csak az aktív:** a user nem azt akarta, hogy a dashboard hazudjon arról, hány stratégia fut. A `(disabled)` suffix a vizuális cue, az `activeStrategyCount` a status bannerben a source of truth.
+- **NO TIME LIMIT agent pattern (Phase 75/76):** az agent 2 órán át futott, de a user nem ölte meg. A "ne zaklass + nincs 15 perc" mandátumok ezt engedik. A monitor cron 30 percenként jelent, soha nem öl.
+
+### Phase status: ✅ PHASE 76 COMPLETE (PR #199 MERGED, minden konfigurált stratégia látszik a chartokon)
+
+---
+
 ## Phase 75 (2026-07-25) — web proxy state-feed retry + WS relay + /api/ohlc (PR #197 MERGED)
 
 ### User mandate (2026-07-25 15:00 Budapest)
@@ -99,7 +138,7 @@ A Phase 73 PR óta fennálló, Phase 74-re is ható issue: a `playwright-core@1.
 
 ### Phase status: ✅ PHASE 74 COMPLETE (PR #195 MERGED, 4/4 user-reported bugs fixed)
 
----**Last updated:** 2026-07-25 16:00 Budapest (Phase 75 COMPLETE, PR #197 MERGED)
+---**Last updated:** 2026-07-25 18:30 Budapest (Phase 76 COMPLETE, PR #199 MERGED)
 
 ---
 
