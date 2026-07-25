@@ -332,6 +332,7 @@ describe("computePivotFromBars", () => {
   it("returns an empty (all-null) series for an empty bar list", () => {
     const out = computePivotFromBars([], 24);
     for (const key of ["pp", "r1", "r2", "s1", "s2"] as const) {
+      // eslint-disable-next-line security/detect-object-injection -- `key` is from a const-tuple literal above
       expect(out[key]).toEqual([]);
     }
   });

@@ -51,6 +51,7 @@ describe("STRATEGY_INDICATOR_SETS", () => {
       "funding_flip_kill_switch",
       "regime_detector",
     ] as const) {
+      // eslint-disable-next-line security/detect-object-injection -- `name` is from a const-tuple literal above
       const set = STRATEGY_INDICATOR_SETS[name];
       expect(set).toBeDefined();
       // The disabled strategies have 1 line (Donchian) and NO

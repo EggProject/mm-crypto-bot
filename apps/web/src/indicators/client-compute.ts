@@ -400,9 +400,7 @@ export function computeBreakoutSignalsFromBars(
     // is "close above the channel, where the channel didn't
     // include this bar's price yet".
     if (openSide === null && i > 0) {
-      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter (i > 0)
       const prevU = upper[i - 1];
-      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter (i > 0)
       const prevL = lower[i - 1];
       if (prevU === null || prevL === null) continue;
       if (bar.close > prevU) {
