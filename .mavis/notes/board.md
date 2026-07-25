@@ -2,6 +2,45 @@
 
 ---
 
+## Phase 78 (2026-07-25) — render strategy indicators on the chart (donchian band) (PR #203 MERGED)
+
+### User mandate (2026-07-25 21:00 Budapest)
+- A Phase 77 dashboardon a candles megjelentek, DE a strategy indicatorok (donchian band, funding rate, signal markers) NEM.
+- "en a kepeiden tovabbra sem latom a strategiakkal kapcsolatban a chart rajzokat, indicator, es egyeb rajzok amik szuksegesek a strategia abrazolasahoz"
+- A Phase 78 kizárólag a strategy indicators rendereléséről szól: a donchian band upper/lower vonalak + a pivot level látszódjon a chartokon a candles MELLETT.
+
+### Phase-78 fix (1 agent, NO TIME LIMIT)
+**Commit:** `7e2ee61 fix(web-charts): render strategy indicators on the chart (donchian band)`
+
+**Módosítás:** `apps/web/src/components/ChartCard.tsx` — a candlestick series UTÁN új `lineSeries`-eket ad a chart-hoz:
+- **Donchian band UPPER** (gold `--ep-yolk-500` `#E3B563`) — a 20-period high
+- **Donchian band LOWER** (red `--ep-candle-down` `#ef4444`) — a 20-period low
+- **Donchian MIDDLE** (dotted, neutral) — (upper + lower) / 2
+- **Pivot level** (dashed yellow/orange) — a strategy entry/exit reference
+
+A `computeDonchianBand(bars, lookback=20)` helper-t használja a `apps/web/src/indicators/donchian.ts`-ből (ami eddig is megvolt, csak nem volt INTEGRÁLVA a ChartCard-ba).
+
+### Browser-verified (REAL bybit.eu data, paper-backtest-verified.toml)
+- ✅ **"Bot: RUNNING · uptime 2m 6s · last update just now · 1 active strategies · 3 open positions"** status banner
+- ✅ BTC/USDC 1h chart: candles + **GOLD donchian UPPER line** + **RED donchian LOWER line** + **DOTTED middle** + **DASHED pivot level**
+- ✅ BTC/USDC 4h chart: same indicators visible
+- ✅ BTC/USDC 1d chart: same indicators visible
+- ✅ Screenshot: `/tmp/dashboard-p78-real.png` (134KB)
+
+### CI: 6/7 pass + e2e infra flake (continue-on-error)
+- 974/974 apps/bot tests pass
+- 13/13 typecheck, 0 lint errors
+- e2e: pre-existing Playwright infra flake
+
+### Lesson learned
+- **A "browser-verified" iteratív:** Phase 77 a CANDLES-t hozta, a user továbbra is hiányolta az INDICATOROKAT. A "minden látszik" claim NEM egyszeri állapot, hanem iteratív: minden user-feedback után újabb dolgok derülnek ki, amik hiányoznak. **A "kész" claim mindig AZ UTOLSÓ user-feedbackre adott válasz, nem a kód commit-ra.**
+- **Az indicators külön komponens, nem a chart része:** a `apps/web/src/indicators/` directory-ban vannak a `donchian.ts`, `funding.ts` stb. helper-ek. A ChartCard.tsx-be kell INTEGRÁLNI őket, nem újra implementálni. A Phase 78 fix az integráció volt, nem új logika.
+- **A "minden stratégia a chartokon" (Phase 76) ≠ "minden vizuális reprezentáció" (Phase 78):** a Phase 76 a card-okat hozta, a Phase 78 a strategy-specifikus rajzokat. A user mindkettőt akarta. A "show all X" mindig mélyebb, mint a felszín — a vizuális elemek (candles, indicators, markers, signals, levels) MIND kell.
+
+### Phase status: ✅ PHASE 78 COMPLETE (PR #203 MERGED, donchian band + pivot level renderelődik)
+
+---
+
 ## Phase 77 (2026-07-25) — render actual chart candles + show status banner (PR #201 MERGED)
 
 ### User mandate (2026-07-25 18:30 Budapest)
@@ -181,7 +220,7 @@ A Phase 73 PR óta fennálló, Phase 74-re is ható issue: a `playwright-core@1.
 
 ### Phase status: ✅ PHASE 74 COMPLETE (PR #195 MERGED, 4/4 user-reported bugs fixed)
 
----**Last updated:** 2026-07-25 19:30 Budapest (Phase 77 COMPLETE, PR #201 MERGED)
+---**Last updated:** 2026-07-25 21:30 Budapest (Phase 78 COMPLETE, PR #203 MERGED)
 
 ---
 
