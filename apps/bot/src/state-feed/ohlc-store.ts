@@ -3,32 +3,46 @@
  *
  * ============================================================================
  * PHASE 45B — OHLC RING BUFFER STORE
+ * PHASE 73  — historical bootstrap map (CSV → in-memory, no capacity cap)
+ * PHASE 74  — `getAll()` returns historical ++ live (concat) so the SNAPSHOT
+ *             message carries the full 30-month OHLCV history (BTC/USDC 1h:
+ *             22100 bars, × 3 symbols × 3 timeframes = 85638 bars).
  * ============================================================================
  *
  * A `OhlcStore` a state-feed snapshot-ok OHLC bootstrappel való
- * feltöltésére szolgál. A `StrategyRunner` a bar close event-ekből
- * tölti (`pushBar`), és a SNAPSHOT message `ohlcBootstrap` mezője a
- * `getAll()`-ból jön.
+ * feltöltésére szolgál. Két adatszerkezet:
+ *
+ *   1. `historical: Map<key, OhlcBar[]>` — a CSV-ből betöltött régi bar-ok,
+ *      kapacitás NINCS limitálva (a teljes 30 hónap elfér).
+ *   2. `buffers: Map<key, RingBuffer<OhlcBar>>` — a `pushBar` által adott
+ *      LIVE bar-ok, kapacitás `DEFAULT_CAPACITY = 200` (per Phase 44 terv).
+ *
+ * A `getAll()` a `[...historical, ...live]` konkatenációját adja minden
+ * kulcsra, így a SNAPSHOT `ohlcBootstrap` mezője a TELJES history-t
+ * tartalmazza.
  *
  * ============================================================================
- * DESIGN
+ * DESIGN — WHY THE HISTORICAL MAP
  * ============================================================================
- *
- *   - A store egy `Map<(symbol|tf), RingBuffer<OhlcBar>>` adatszerkezet.
- *   - A ring buffer kapacitása `DEFAULT_CAPACITY = 200` (per Phase 44
- *     terv).
- *   - A push O(1), a `getOHLC(symbol, tf, count)` O(count).
- *   - A `subscribeOHLC(symbol, tf, listener)` callback-et ad vissza,
- *     amit a StrategyRunner hívhat a bar close-oknál — a listener a
- *     bar tömb utolsó elemét kapja.
+ *   A ring buffer kapacitása 200 (Phase 44 terv: 1d × 200 nap = 6.5 hónap,
+ *   elég a Donchian 50/100, MA 200 indikátorokhoz). A `data/ohlcv/`-ben
+ *   viszont 85638 bar van BTC+ETH+SOL × 1h+4h+1d (≈ 30 hónap). A Phase 73
+ *   hozzáadta a `historical` map-ot, ami kapacitás nélküli — a CSV-ből
+ *   indul, a `getAll()` hozzáfűzi a live ring bufferhez.
  *
  * ============================================================================
- * WHY 200-BAR CAPACITY
+ * API
  * ============================================================================
- *   A legnagyobb chart-timeframe (1d) 200 napja = 6.5 hónap. Ez
- *   elegendő a legtöbb indikátor (Donchian 50/100, MA 200) bootstrap-
- *   éhez. Ha egy kliens több bar-t kér, a `getOHLC(symbol, tf, 500)`
- *   csak a legutóbbi 200-at adja.
+ *
+ *   - `bootstrapHistorical(symbol, tf, bars)` — a CSV-reader hívja a
+ *     bot indításakor. A `bars` tömböt a `historical` map-ba másolja.
+ *   - `pushBar(symbol, tf, bar)` — a StrategyRunner hívja bar close-nál.
+ *     A `buffers` ring bufferbe ír (200-as kapacitás, régi élő bar eldobódik).
+ *   - `getAll()` — a `[historical + live]` konkatenációját adja minden
+ *     kulcsra. Ezt olvassa a `FeedServer.resolveOhlcBootstrap()` a SNAPSHOT-ba.
+ *   - `getOHLC(symbol, tf, count?)` — az utolsó N bar, vagy az összes ha
+ *     count undefined.
+ *   - `subscribeOHLC(symbol, tf, listener)` — a live bar push event-jeire.
  */
 
 import type { StateFeedOHLC } from "./protocol.js";
@@ -37,7 +51,7 @@ import type { StateFeedOHLC } from "./protocol.js";
 // Constants
 // ============================================================================
 
-/** Az alapértelmezett ring buffer kapacitás. */
+/** Az alapértelmezett ring buffer kapacitás (csak a LIVE bar-okra). */
 export const DEFAULT_CAPACITY = 200 as const;
 
 // ============================================================================
@@ -114,15 +128,18 @@ class RingBuffer<T> {
 // ============================================================================
 
 /**
- * `OhlcStore` — a per-(symbol, tf) OHLC bar-okat tároló ring buffer
- * kollekció.
+ * `OhlcStore` — a per-(symbol, tf) OHLC bar-okat tároló historikus + live
+ * adatszerkezet.
  *
- * A SNAPSHOT üzenet az `OhlcStore.getAll()`-ból tölti a `ohlcBootstrap`
- * mezőt. A `pushBar()` a `StrategyRunner`-ból jön (Phase 45B wire-up).
+ * Phase 73: két adatszerkezet — a `historical` map (kapacitás nélküli) a
+ * CSV-ből jövő bar-okat tárolja, a `buffers` map (200-as ring buffer) a
+ * LIVE bar-okat. A `getAll()` a kettő konkatenációját adja, hogy a SNAPSHOT
+ * `ohlcBootstrap` mezője a TELJES history-t tartalmazza.
  */
 export class OhlcStore {
   private readonly capacity: number;
   private readonly buffers = new Map<string, RingBuffer<OhlcBar>>();
+  private readonly historical = new Map<string, OhlcBar[]>();
   private readonly listeners = new Map<string, Set<OhlcListener>>();
 
   public constructor(options: { readonly capacity?: number } = {}) {
@@ -137,7 +154,35 @@ export class OhlcStore {
   }
 
   /**
-   * `pushBar` — egy új OHLC bar hozzáadása a (symbol, tf) buffer-hez.
+   * `bootstrapHistorical` — a CSV-ből betöltött OHLC bar-ok tárolása.
+   * Phase 73: a `historical` map-ba kerülnek (kapacitás nélkül). A
+   * `getAll()` a historical + live konkatenációját adja.
+   *
+   * A `bars` tömb time-ascending sorrendben kell legyen (a CSV reader
+   * biztosítja). A függvény DEEP COPY-t csinál, hogy a caller által
+   * később módosított tömb ne szennyezze a store-t.
+   *
+   * Ha a kulcshoz már van historical adat, FELÜLÍRJUK — a bot indításakor
+   * a CSV-reader egyszer hívja, nincs inkrementális update.
+   */
+  public bootstrapHistorical(symbol: string, timeframe: string, bars: readonly OhlcBarInput[]): void {
+    const key = this.keyOf(symbol, timeframe);
+    const cloned: OhlcBar[] = bars.map((b) => ({
+      time: b.time,
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume,
+    }));
+    this.historical.set(key, cloned);
+  }
+
+  /**
+   * `pushBar` — egy új LIVE OHLC bar hozzáadása a (symbol, tf) ring bufferhez.
+   *
+   * A historical NEM frissül — csak a live ring bufferbe írunk. A
+   * `getAll()` a `historical ++ live` konkatenációt adja.
    *
    * Ha a buffer kapacitása megtelt, a legrégebbi bar eldobódik (true
    * ring buffer semantics). A `subscribeOHLC` listener-ei meghívódnak
@@ -176,26 +221,33 @@ export class OhlcStore {
    * `getOHLC` — a (symbol, tf) buffer utolsó `count` bar-ját adja vissza
    * (vagy kevesebbet, ha a buffer még nem telt meg).
    *
-   * Ha a `count` undefined, a teljes buffert adja.
+   * **Phase 74**: a historical + live konkatenációjából adja a tail N
+   * bar-t, hogy a REST `/api/ohlc?count=N` endpoint és a WS subscriber
+   * is a TELJES history utolsó N bar-ját lássák.
    */
   public getOHLC(symbol: string, timeframe: string, count?: number): readonly OhlcBar[] {
-    const buf = this.buffers.get(this.keyOf(symbol, timeframe));
-    if (buf === undefined) return [];
-    const all = buf.toArray();
+    const key = this.keyOf(symbol, timeframe);
+    const hist = this.historical.get(key) ?? [];
+    const buf = this.buffers.get(key);
+    const live = buf === undefined ? [] : buf.toArray();
+    const all = hist.length === 0 ? live : hist.concat(live);
     if (count === undefined) return all;
     return all.slice(-count);
   }
 
   /**
    * `getAll` — az összes (symbol, tf) buffer tartalma, a SNAPSHOT
-   * `ohlcBootstrap` mezőjéhez.
+   * `ohlcBootstrap` mezőjéhez. Phase 74: a historical + live
+   * konkatenációját adja, hogy a 85638 bar eljusson a web app-ba.
    *
    * A visszatérési érték `Record<symbol, Record<tf, readonly OhlcBar[]>>`
    * formátumú.
    */
   public getAll(): Readonly<Record<string, Readonly<Record<string, readonly OhlcBar[]>>>> {
     const out: Record<string, Record<string, readonly OhlcBar[]>> = {};
-    for (const [key, buf] of this.buffers) {
+    // Összegyűjtjük az összes kulcsot (historical + live).
+    const allKeys = new Set<string>([...this.historical.keys(), ...this.buffers.keys()]);
+    for (const key of allKeys) {
       const sepIdx = key.indexOf("|");
       if (sepIdx < 0) continue;
       const symbol = key.slice(0, sepIdx);
@@ -205,15 +257,20 @@ export class OhlcStore {
         symbolBucket = {};
         out[symbol] = symbolBucket;
       }
-      symbolBucket[timeframe] = buf.toArray();
+      const hist = this.historical.get(key) ?? [];
+      const buf = this.buffers.get(key);
+      const live = buf === undefined ? [] : buf.toArray();
+      symbolBucket[timeframe] = hist.length === 0 ? live : hist.concat(live);
     }
     return out;
   }
 
   /**
-   * `subscribeOHLC` — feliratkozás a (symbol, tf) bar push event-jeire.
+   * `subscribeOHLC` — feliratkozás a (symbol, tf) LIVE bar push event-jeire.
    *
-   * A visszatérési érték egy `unsubscribe` függvény (idempotens).
+   * A historical bar-okra NEM iratkozik fel (azok a bootstrap-ből jönnek,
+   * a `getAll()` egyszeri hívással elérhetők). A visszatérési érték egy
+   * `unsubscribe` függvény (idempotens).
    */
   public subscribeOHLC(
     symbol: string,
@@ -240,11 +297,20 @@ export class OhlcStore {
   }
 
   /**
-   * `bufferSize` — a (symbol, tf) buffer jelenlegi mérete.
+   * `bufferSize` — a (symbol, tf) LIVE ring buffer jelenlegi mérete.
+   * (A historical méretet NEM adja — a `historicalSize()` adja.)
    */
   public bufferSize(symbol: string, timeframe: string): number {
     const buf = this.buffers.get(this.keyOf(symbol, timeframe));
     return buf === undefined ? 0 : buf.size;
+  }
+
+  /**
+   * `historicalSize` — a (symbol, tf) historical map mérete.
+   * Phase 73: a bootstrap-ből betöltött bar-ok száma.
+   */
+  public historicalSize(symbol: string, timeframe: string): number {
+    return this.historical.get(this.keyOf(symbol, timeframe))?.length ?? 0;
   }
 
   /**
@@ -253,6 +319,7 @@ export class OhlcStore {
    */
   public clear(): void {
     this.buffers.clear();
+    this.historical.clear();
     this.listeners.clear();
   }
 }

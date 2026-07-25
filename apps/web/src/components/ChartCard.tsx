@@ -531,17 +531,15 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
         data-testid={`chart-card-body-${symbol}-${timeframe}`}
       />
 
-      <div className="line-chart-wrapper__legend">
-        <span className="line-chart-wrapper__legend-item">
-          <span className="line-chart-wrapper__legend-swatch line-chart-wrapper__legend-swatch--candle-up" />
-          Up candle
-        </span>
-        <span className="line-chart-wrapper__legend-item">
-          <span className="line-chart-wrapper__legend-swatch line-chart-wrapper__legend-swatch--candle-down" />
-          Down candle
-        </span>
-        {markersLegend}
-      </div>
+      {/* Phase 74: the "Up candle / Down candle" legend was removed
+          (user mandate: a felesleges szöveg zavaros volt, hiszen minden
+          gyertya vagy up vagy down — triviális). Csak a trade markers
+          legend maradt (az információ-többlet, amit a user keres). */}
+      {markersAreVisible(markers) ? (
+        <div className="line-chart-wrapper__legend">
+          {markersLegend}
+        </div>
+      ) : null}
     </section>
   );
 }

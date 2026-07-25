@@ -376,25 +376,27 @@ describe("Phase 72 — start.ts:353 markBotStarted() reachability (system-level)
       try {
         // 2) Wait for the state-feed TCP socket to listen on the ephemeral port.
         //    The bot init takes 3-5s (bybit.eu feed open, OHLCV subscribe),
-        //    so we give it 15s.
-        const portReady = await waitForTcpPort("127.0.0.1", ephemeralFeedPort, 15_000);
+        //    so we give it 30s (Phase 74 OHLCV bootstrap adds ~5-8s before
+        //    the state-feed port is even opened).
+        const portReady = await waitForTcpPort("127.0.0.1", ephemeralFeedPort, 30_000);
         expect(portReady).toBe(true);
         if (!portReady) {
           // Port never came up — read the bot's stderr to help debugging
           throw new Error(
-            `state-feed port ${String(ephemeralFeedPort)} did not become available within 15s. Bot stderr at: ${stderrLogPath}`,
+            `state-feed port ${String(ephemeralFeedPort)} did not become available within 30s. Bot stderr at: ${stderrLogPath}`,
           );
         }
 
         // 3) Connect to the state-feed and read the HELLO + first SNAPSHOT.
         //    The HELLO is sent immediately on connect. The SNAPSHOT is the
-        //    first SNAPSHOT message after HELLO. The 15s timeout covers
-        //    the bot's bybit.eu feed init + the periodic refresh cycle.
-        const result = await connectAndReadSnapshot(ephemeralFeedPort, 15_000);
+        //    first SNAPSHOT message after HELLO. The 30s timeout covers
+        //    the bot's bybit.eu feed init + the Phase 74 OHLCV bootstrap
+        //    (~5-8s reading 9 CSVs from data/ohlcv/) + the periodic refresh.
+        const result = await connectAndReadSnapshot(ephemeralFeedPort, 30_000);
         expect(result).not.toBeNull();
         if (result === null) {
           throw new Error(
-            `Did not receive HELLO + SNAPSHOT within 15s on port ${String(ephemeralFeedPort)}`,
+            `Did not receive HELLO + SNAPSHOT within 30s on port ${String(ephemeralFeedPort)}`,
           );
         }
 

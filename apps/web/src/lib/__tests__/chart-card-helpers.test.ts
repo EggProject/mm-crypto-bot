@@ -135,8 +135,13 @@ describe("themeColorWithFallback", () => {
 
 describe("SSR_FALLBACK_THEME", () => {
   it("is a valid ThemeColors object with the expected dark-theme defaults", () => {
+    // Phase 74: the up color is now green (exchange-standard
+    // "close > open" bullish) instead of the egg-yolk gold. The
+    // egg theme stays for non-candle UI; the candle palette is
+    // independent via the new --ep-candle-up / --ep-candle-down
+    // CSS variables.
     expect(SSR_FALLBACK_THEME).toEqual({
-      up: "#E3B563",
+      up: "#22c55e",
       down: "#ef4444",
       bg: "#0C0D11",
       text: "#A49D8C",
@@ -181,13 +186,13 @@ describe("readThemeFromElement", () => {
 
   it("returns the resolved tokens when all CSS variables are set (BRDA 246,0 / 248,0 / 249,0 LHS branches)", () => {
     const root = makeMockElement({
-      "--ep-yolk-500": "  #FFD700  ",
+      "--ep-candle-up": "  #26A69A  ",
       "--ep-bg-elevated": "  #1A1B1F  ",
       "--ep-fg-muted": "  #B0B0B0  ",
     });
     const theme: ThemeColors = readThemeFromElement(root);
     expect(theme).toEqual({
-      up: "#FFD700",
+      up: "#26A69A",
       down: "#ef4444",
       bg: "#1A1B1F",
       text: "#B0B0B0",
@@ -204,12 +209,12 @@ describe("readThemeFromElement", () => {
 
   it("falls back per-variable when only some CSS variables are set (mixed coverage)", () => {
     const root = makeMockElement({
-      "--ep-yolk-500": "#FFD700",
+      "--ep-candle-up": "#26A69A",
       // --ep-bg-elevated missing → fallback
       "--ep-fg-muted": "#B0B0B0",
     });
     const theme: ThemeColors = readThemeFromElement(root);
-    expect(theme.up).toBe("#FFD700");
+    expect(theme.up).toBe("#26A69A");
     expect(theme.bg).toBe(SSR_FALLBACK_THEME.bg);
     expect(theme.text).toBe("#B0B0B0");
     expect(theme.down).toBe("#ef4444");
@@ -219,7 +224,7 @@ describe("readThemeFromElement", () => {
 
   it("treats whitespace-only CSS variable values as missing (per themeColorWithFallback)", () => {
     const root = makeMockElement({
-      "--ep-yolk-500": "   ",
+      "--ep-candle-up": "   ",
       "--ep-bg-elevated": "\t\n",
       "--ep-fg-muted": " ",
     });

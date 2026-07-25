@@ -156,9 +156,21 @@ export interface ThemeColors {
  * outside a browser (e.g. future Node-side rendering or tests
  * without a real `<html>` element). Matches the inline `readTheme`
  * SSR fallback that previously lived in `ChartCard.tsx`.
+ *
+ * **Phase 74 fix (user mandate: "RED/GREEN candle colors"):** the
+ * previous `up: "#E3B563"` (egg-yolk gold) was the brand primary
+ * color, not the financial-convention green. The user explicitly
+ * wanted RED/GREEN exchange-standard colors:
+ *   - up   → `#22c55e` (green, "close > open" bullish)
+ *   - down → `#ef4444` (red, "close < open" bearish)
+ * The gold stays for non-candle UI (range tabs, primary buttons,
+ * `--ep-yolk-500`). The candle series reads from the NEW
+ * `--ep-candle-up` / `--ep-candle-down` CSS variables (these
+ * fallback values) so the egg theme and the candle palette are
+ * independent — a brand switch does not flip the chart colors.
  */
 export const SSR_FALLBACK_THEME: Readonly<ThemeColors> = {
-  up: "#E3B563",
+  up: "#22c55e",
   down: "#ef4444",
   bg: "#0C0D11",
   text: "#A49D8C",
@@ -226,11 +238,19 @@ export function readThemeFromElement(root: HTMLElement): ThemeColors {
     });
   const cs = getCs(root);
   return {
+    // Phase 74: candle colors now read from the new `--ep-candle-up`
+    // / `--ep-candle-down` CSS variables (default green/red). The
+    // previous `--ep-yolk-500` (egg gold) is intentionally NOT used
+    // here — the egg theme is for UI chrome, not for chart series.
+    // The user mandate was "RED/GREEN candle colors".
     up: themeColorWithFallback(
-      cs.getPropertyValue("--ep-yolk-500"),
+      cs.getPropertyValue("--ep-candle-up"),
       SSR_FALLBACK_THEME.up,
     ),
-    down: SSR_FALLBACK_THEME.down,
+    down: themeColorWithFallback(
+      cs.getPropertyValue("--ep-candle-down"),
+      SSR_FALLBACK_THEME.down,
+    ),
     bg: themeColorWithFallback(
       cs.getPropertyValue("--ep-bg-elevated"),
       SSR_FALLBACK_THEME.bg,
