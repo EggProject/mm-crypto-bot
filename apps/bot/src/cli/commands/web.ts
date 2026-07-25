@@ -22,8 +22,16 @@
  * STATE-FEED REACHABILITY CHECK
  * ============================================================================
  *
- *   A parancs ELŐSZÖR egy 2 másodperces TCP connect-próbát tesz a
- *   state-feed felé. Ha a connect elbukik, a parancs NEM indul el —
+ *   A parancs ELŐSZÖR megvárja, amíg a state-feed port elérhetővé
+ *   válik — Phase 75 óta retry loop-pal (30 próba × 1s = 30s max).
+ *
+ *   A Phase 74 OHLCV bootstrap 5-8s-ig tart (9 CSV, 85638 bar
+ *   betöltése a `data/ohlcv/` mappából), és a state-feed port CSAK
+ *   a bootstrap UTÁN nyílik meg. A korábbi 2 másodperces single-shot
+ *   probe ezért mindig elbukott, ha a felhasználó két terminálban
+ *   egyszerre indította a `mm-bot start`-ot és a `mm-bot web`-et.
+ *
+ *   Ha a 30s alatt sem lesz elérhető, a parancs NEM indul el —
  *   a felhasználó egyértelmű hibaüzenetet kap:
  *
  *     [web] Cannot connect to state-feed at <host>:<port>
@@ -191,6 +199,50 @@ export async function probeStateFeed(
   }
 }
 
+/**
+ * `waitForStateFeed` — poll a TCP port until it accepts connections, or
+ * until the total timeout (Phase 75: 30 attempts × 1s = 30s) elapses.
+ * Returns `true` on the first successful connect, `false` if the port
+ * never became reachable.
+ *
+ * Phase 75 fix: a `Bun.connect()` against a closed TCP port returns
+ * `ECONNREFUSED` IMMEDIATELY (no need to wait for the 1s probe timeout).
+ * A `Bun.connect()` against an unreachable host (firewall-drop) blocks
+ * for the full `probeTimeoutMs` — so a 30s total budget is 30 attempts
+ * with 1s probe timeout each.
+ *
+ * This mirrors the Phase 72 `waitForTcpPort` test helper, but lives in
+ * the source (not the test) because the production code itself needs
+ * the retry. The function is exported for testability.
+ */
+export async function waitForStateFeed(
+  host: string,
+  port: number,
+  options: {
+    readonly attempts?: number;
+    readonly intervalMs?: number;
+    readonly probeTimeoutMs?: number;
+  } = {},
+): Promise<boolean> {
+  const attempts = options.attempts ?? 30;
+  // Default interval between attempts is 1s — total budget with 30
+  // attempts is ~30s, which covers the worst-case Phase 74 OHLCV
+  // bootstrap (5-8s) + a 22s safety margin. With intervalMs=0 the
+  // retry would loop 30 times in <1ms (ECONNREFUSED is instant),
+  // defeating the purpose.
+  const intervalMs = options.intervalMs ?? 1_000;
+  const probeTimeoutMs = options.probeTimeoutMs ?? 1_000;
+  for (let i = 0; i < attempts; i += 1) {
+    if (await probeStateFeed(host, port, probeTimeoutMs)) {
+      return true;
+    }
+    if (i < attempts - 1 && intervalMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+  return false;
+}
+
 // ============================================================================
 // webCommand
 // ============================================================================
@@ -233,10 +285,28 @@ export const webCommand: SubcommandHandler = async (args) => {
       : process.env["MM_BOT_WEB_DIST_DIR"];
 
   // -------------------------------------------------------------------------
-  // 3) State-feed reachability check.
+  // 3) State-feed reachability check (Phase 75 — retry up to 30s).
+  //
+  //    The bot's state-feed port opens AFTER the Phase 74 OHLCV
+  //    bootstrap finishes (5-8s for 9 CSVs / 85638 bars from
+  //    `data/ohlcv/`). A user who runs `mm-bot start` in one terminal
+  //    and `mm-bot web` in another would see `mm-bot web` exit with
+  //    "Cannot connect to state-feed" because the port isn't listening
+  //    yet. We retry every 1s for up to 30s, which covers the
+  //    worst-case bootstrap.
   // -------------------------------------------------------------------------
-  process.stderr.write(`[web] probing state-feed at ${feedHost}:${String(feedPort)}\n`);
-  const reachable = await probeStateFeed(feedHost, feedPort);
+  process.stderr.write(`[web] waiting for state-feed at ${feedHost}:${String(feedPort)} (up to 30s)\n`);
+  // Phase 75: support a `MM_BOT_WEB_STATE_FEED_RETRY_MS` env var override
+  // so tests can short-circuit the 30s budget. The retry budget is
+  // the total wall time (attempts × intervalMs). Setting this to a
+  // small value (e.g. 200) makes the `webCommand` fail-fast in tests
+  // while keeping the production default at 30s.
+  const retryMsOverride = Number(process.env["MM_BOT_WEB_STATE_FEED_RETRY_MS"] ?? "");
+  const retryOptions =
+    Number.isFinite(retryMsOverride) && retryMsOverride > 0
+      ? { attempts: 3, intervalMs: Math.max(50, Math.floor(retryMsOverride / 3)), probeTimeoutMs: 200 }
+      : undefined;
+  const reachable = await waitForStateFeed(feedHost, feedPort, retryOptions);
   if (!reachable) {
     process.stderr.write(`[web] Cannot connect to state-feed at ${feedHost}:${String(feedPort)}\n`);
     process.stderr.write("[web] Is the bot running? Start it first:\n");

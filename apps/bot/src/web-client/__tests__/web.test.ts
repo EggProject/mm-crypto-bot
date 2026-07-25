@@ -98,9 +98,11 @@ describe("webCommand (mm-bot web)", () => {
     // Egy port, amin biztosan NEM hallgat senki (a teszt során
     // bezárjuk a stub-ot, így biztosan nem lesz ott semmi).
     flags.set("feed-port", "1");
+    // Phase 75: a retry loop 30s-ig vár (30×1s). 35s timeout hogy
+    // kényelmesen beleférjen a tesztbe.
     const code = await webCommand(makeArgs(flags), makeCtx());
     expect(code).toBe(2);
-  });
+  }, 35_000);
 
   it("starts the web client when the state-feed is reachable", async () => {
     stub = new StubStateFeedServer();
@@ -127,34 +129,39 @@ describe("webCommand (mm-bot web)", () => {
 
   it("uses the MM_BOT_WEB_PORT env var when --web-port is absent", async () => {
     process.env["MM_BOT_WEB_PORT"] = "9999";
+    // Phase 75: short-circuit the 30s retry for fast tests.
+    process.env["MM_BOT_WEB_STATE_FEED_RETRY_MS"] = "200";
     // A flag-ek üresek, a feed-port egy nem-létező port.
     const code = await webCommand(makeArgs(new Map()), makeCtx());
     expect(code).toBe(2); // Az unreachable state-feed miatt 2.
-  });
+  }, 5_000);
 
   it("uses the MM_BOT_FEED_PORT env var when --feed-port is absent", async () => {
     process.env["MM_BOT_FEED_PORT"] = "19999";
+    process.env["MM_BOT_WEB_STATE_FEED_RETRY_MS"] = "200";
     const code = await webCommand(makeArgs(new Map()), makeCtx());
     expect(code).toBe(2);
-  });
+  }, 5_000);
 
   it("overrides the env var with the --web-port flag", async () => {
     process.env["MM_BOT_WEB_PORT"] = "9999";
+    process.env["MM_BOT_WEB_STATE_FEED_RETRY_MS"] = "200";
     const flags = new Map<string, string | boolean>();
     flags.set("web-port", "8888");
     // A feed-port nem elérhető → 2-es exit.
     const code = await webCommand(makeArgs(flags), makeCtx());
     expect(code).toBe(2);
-  });
+  }, 5_000);
 
   it("falls back to defaults for invalid port strings", async () => {
+    process.env["MM_BOT_WEB_STATE_FEED_RETRY_MS"] = "200";
     const flags = new Map<string, string | boolean>();
     flags.set("web-port", "not-a-number");
     flags.set("feed-port", "also-not-a-number");
     const code = await webCommand(makeArgs(flags), makeCtx());
     // A default portokra megyünk, amik nem lesznek elérhetők → 2.
     expect(code).toBe(2);
-  });
+  }, 5_000);
 
   it("returns 2 when the state-feed connect probe times out", async () => {
     // A TEST-NET-1 (`192.0.2.0/24`) nem routolható — a connect SYN
