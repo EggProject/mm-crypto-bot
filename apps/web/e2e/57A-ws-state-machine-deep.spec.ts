@@ -44,13 +44,23 @@
 
 import { type Page, expect, test } from "@playwright/test";
 import type { WebSocketRoute } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
-
+import {
+  setSpecName,
+  collectCoverageFromPage,
+  flushAccumulator,
+} from "./_helpers/coverage.js";
 // Phase 57: register coverage collection hooks so this spec's
 // `window.__coverage__` data is merged into the final lcov report
 // (written by `dashboard.spec.ts`'s `afterAll`).
-installCoverageHooks("57A-ws-state-machine-deep");
+setSpecName("57A-ws-state-machine-deep");
 
+test.afterEach(async ({ page }) => {
+  await collectCoverageFromPage(page);
+});
+
+test.afterAll(() => {
+  flushAccumulator();
+});
 // =============================================================================
 // Test helpers (mirror the 56A-ws-client-helpers pattern)
 // =============================================================================

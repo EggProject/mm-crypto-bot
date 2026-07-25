@@ -23,10 +23,20 @@ import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { WebSocketRoute } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
+import {
+  setSpecName,
+  collectCoverageFromPage,
+  flushAccumulator,
+} from "./_helpers/coverage.js";
+setSpecName("69-screenshot");
 
-installCoverageHooks("69-screenshot");
+test.afterEach(async ({ page }) => {
+  await collectCoverageFromPage(page);
+});
 
+test.afterAll(() => {
+  flushAccumulator();
+});
 // `import.meta.dir` is bun-specific; Playwright runs the spec in
 // Node ESM, where we need the `fileURLToPath(import.meta.url)`
 // dance. The spec lives at `apps/web/e2e/69-screenshot.spec.ts`,

@@ -28,11 +28,21 @@
 
 import { type Page, expect, test } from "@playwright/test";
 import type { WebSocketRoute } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
-
+import {
+  setSpecName,
+  collectCoverageFromPage,
+  flushAccumulator,
+} from "./_helpers/coverage.js";
 // Phase 57: register coverage collection hooks.
-installCoverageHooks("54-helper-coverage");
+setSpecName("54-helper-coverage");
 
+test.afterEach(async ({ page }) => {
+  await collectCoverageFromPage(page);
+});
+
+test.afterAll(() => {
+  flushAccumulator();
+});
 // =============================================================================
 // Test helpers (mirror the 53-strategies-errors.spec.ts pattern)
 // =============================================================================

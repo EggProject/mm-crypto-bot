@@ -66,10 +66,20 @@
  */
 import { type Page, expect, test } from "@playwright/test";
 import type { WebSocketRoute } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
+import {
+  setSpecName,
+  collectCoverageFromPage,
+  flushAccumulator,
+} from "./_helpers/coverage.js";
+setSpecName("58E-ws-client-imperative-branches");
 
-installCoverageHooks("58E-ws-client-imperative-branches");
+test.afterEach(async ({ page }) => {
+  await collectCoverageFromPage(page);
+});
 
+test.afterAll(() => {
+  flushAccumulator();
+});
 // =============================================================================
 // WsTestHarness (shared pattern from 57A / 58A / 58C / 58D)
 // =============================================================================

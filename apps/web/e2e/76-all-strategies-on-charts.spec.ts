@@ -31,11 +31,21 @@
  */
 
 import { type Page, type Route, expect, test } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
-
+import {
+  setSpecName,
+  collectCoverageFromPage,
+  flushAccumulator,
+} from "./_helpers/coverage.js";
 // Phase 57: register coverage collection hooks.
-installCoverageHooks("76-all-strategies-on-charts");
+setSpecName("76-all-strategies-on-charts");
 
+test.afterEach(async ({ page }) => {
+  await collectCoverageFromPage(page);
+});
+
+test.afterAll(() => {
+  flushAccumulator();
+});
 // =============================================================================
 // Test helpers
 // =============================================================================

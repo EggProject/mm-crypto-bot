@@ -9,11 +9,20 @@
  * `window.__coverage__` data is never included in the report.
  *
  * **Solution:** each non-dashboard spec file calls
- * `installCoverageHooks(specName)` which:
- *   1. Registers `test.afterEach` to read `window.__coverage__`
- *      and merge into a shared accumulator.
- *   2. Registers `test.afterAll` to write the accumulator to
- *      `coverage/playwright/accumulators/<specName>.json`.
+ *   1. `setSpecName("my-spec")` at the top level
+ *   2. `test.afterEach(async ({ page }) => { await collectCoverageFromPage(page); })`
+ *      at the top level
+ *   3. `test.afterAll(() => { flushAccumulator(); })` at the top level
+ *
+ * **Why explicit top-level hooks (Phase 80 fix):** Playwright 1.61+
+ * rejects `test.afterEach` / `test.afterAll` calls that originate
+ * from a non-`.spec.ts` file. The previous `installCoverageHooks()`
+ * helper called those hooks from inside this helper file, which
+ * Playwright treated as "called from a file imported by the
+ * configuration file" → ERROR. The fix: move the `test.afterEach` /
+ * `test.afterAll` calls out of the helper and into each spec file's
+ * top-level scope (which IS a `.spec.ts` file — so Playwright
+ * accepts the call).
  *
  * The `dashboard.spec.ts` `afterAll` reads all accumulator files
  * and merges them using `istanbul-lib-coverage`'s `createCoverageMap`
@@ -36,17 +45,36 @@
  * statement / per-branch UNION across all captures. Statements/
  * branches hit in ANY capture count as hit in the merged map.
  *
- * **Usage in a spec file:**
+ * **Phase 80 fix (2026-07-25):** remove the `installCoverageHooks()`
+ * helper that called `test.afterEach` / `test.afterAll` from
+ * inside this non-`.spec.ts` file (rejected by Playwright 1.61+).
+ * The spec files now register those hooks themselves at the
+ * top level, and call the helper functions (`collectCoverageFromPage`,
+ * `flushAccumulator`) as the hook body.
+ *
+ * **Usage in a spec file (Phase 80+):**
  *
  *   import { test, expect } from "@playwright/test";
- *   import { installCoverageHooks } from "./_helpers/coverage.js";
+ *   import {
+ *     setSpecName,
+ *     collectCoverageFromPage,
+ *     flushAccumulator,
+ *   } from "./_helpers/coverage.js";
  *
- *   installCoverageHooks("my-spec-name");
+ *   setSpecName("my-spec-name");
+ *
+ *   test.afterEach(async ({ page }) => {
+ *     await collectCoverageFromPage(page);
+ *   });
+ *
+ *   test.afterAll(() => {
+ *     flushAccumulator();
+ *   });
  *
  *   test.describe("...", () => { ... });
  */
 
-import { type Page, test } from "@playwright/test";
+import { type Page } from "@playwright/test";
 // Same CJS interop pattern as `dashboard.spec.ts` — the default
 // import is the `createCoverageMap` constructor.
 import istanbulCoverage from "istanbul-lib-coverage";
@@ -82,12 +110,21 @@ const { createCoverageMap } = istanbulCoverage as unknown as {
  *  earlier tests' coverage data on the same file. */
 const fileAcc = new Map<string, ReturnType<typeof createCoverageMap>>();
 
-/** The spec name set by the last `installCoverageHooks()` call. */
+/** The spec name set by the last `setSpecName()` call. */
 let currentSpecName = "unknown-spec";
 
+/** Set the spec name used by `flushAccumulator()` for the
+ *  per-spec accumulator file name. Call this ONCE at the
+ *  top of each spec file, BEFORE registering the `test.afterAll`
+ *  hook. */
+export function setSpecName(specName: string): void {
+  currentSpecName = specName;
+}
+
 /** Read `window.__coverage__` from the page and union-merge into
- *  the per-file accumulator. */
-async function collectCoverageFromPage(page: Page): Promise<void> {
+ *  the per-file accumulator. Call this from the spec file's
+ *  `test.afterEach(({ page }) => ...)` hook. */
+export async function collectCoverageFromPage(page: Page): Promise<void> {
   const cov = await page.evaluate(() => {
     return (
       (window as unknown as { __coverage__?: Record<string, unknown> })
@@ -117,8 +154,10 @@ async function collectCoverageFromPage(page: Page): Promise<void> {
  *  flatten the per-file CoverageMap back into a flat
  *  `Record<filePath, fileCov>` so the dashboard's `afterAll` can
  *  read it with `createCoverageMap().merge()` (same pattern as
- *  e2e-ct's `readAllCtCoverageFiles`). */
-function flushAccumulator(): void {
+ *  e2e-ct's `readAllCtCoverageFiles`). Call this from the spec
+ *  file's `test.afterAll(() => ...)` hook. */
+export function flushAccumulator(): void {
+  if (fileAcc.size === 0) return; // no tests ran, nothing to flush
   mkdirSync(ACCUMULATOR_DIR, { recursive: true });
   const filePath = resolve(ACCUMULATOR_DIR, `${currentSpecName}.json`);
   const flat: Record<string, unknown> = {};
@@ -140,26 +179,6 @@ function flushAccumulator(): void {
   }
   // eslint-disable-next-line security/detect-non-literal-fs-filename
   writeFileSync(filePath, JSON.stringify(flat, null, 2), "utf8");
-}
-
-/**
- * `installCoverageHooks(specName)` — register the `test.afterEach`
- * and `test.afterAll` hooks for coverage collection. Call this ONCE
- * in each spec file's top-level scope (outside `test.describe`).
- *
- * The `specName` parameter is used for the accumulator file name
- * (e.g. `coverage/playwright/accumulators/<specName>.json`).
- */
-export function installCoverageHooks(specName: string): void {
-  currentSpecName = specName;
-
-  test.afterEach(async ({ page }) => {
-    await collectCoverageFromPage(page);
-  });
-
-  test.afterAll(() => {
-    flushAccumulator();
-  });
 }
 
 /**

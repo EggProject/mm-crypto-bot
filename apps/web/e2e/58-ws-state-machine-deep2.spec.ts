@@ -20,14 +20,24 @@
  */
 import { type Page, expect, test } from "@playwright/test";
 import type { WebSocketRoute } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
-
+import {
+  setSpecName,
+  collectCoverageFromPage,
+  flushAccumulator,
+} from "./_helpers/coverage.js";
 // Register coverage collection hooks for this spec. MUST be called at
 // the top level of the spec file (NOT inside a test.describe or
 // beforeEach) — Playwright's `test.afterEach` only works in sync
 // describe blocks.
-installCoverageHooks("58-ws-state-machine-deep2");
+setSpecName("58-ws-state-machine-deep2");
 
+test.afterEach(async ({ page }) => {
+  await collectCoverageFromPage(page);
+});
+
+test.afterAll(() => {
+  flushAccumulator();
+});
 // WsTestHarness pattern from 57A — uses page.routeWebSocket() to be
 // the WS peer directly (NOT page.on("websocket", ...)).
 interface PerWsState {
