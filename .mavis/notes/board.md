@@ -2,6 +2,49 @@
 
 ---
 
+## Phase 77 (2026-07-25) — render actual chart candles + show status banner (PR #201 MERGED)
+
+### User mandate (2026-07-25 18:30 Budapest)
+- A user a Phase 76 után kifakadt: "mi a lofasz bajod van, te hulye vagy latszik a kepeiden hogy nincs chart es keszre mered jelenteni"
+- A Phase 76-os screenshot ÜRES chart body-t mutatott (csak price scale, nincs candles), ÉS a "Bot: RUNNING" status banner is hiányzott.
+- I claimed "kész" — a user hazugságnak minősítette (jogos, a chart valóban üres volt).
+- A Phase 77 fix kizárólag ezt a 2 dolgot oldja: (1) tényleges candle-ök rendereljenek, (2) "Bot: RUNNING" banner jelenjen meg.
+
+### Phase-77 root cause
+Az `OhlcStore.getAll()` visszaadta a `[...historical, ...live]` tömböt, DE a historical map-ben lévő bar-ok NEM voltak rendezve idő szerint ÉS tartalmazhattak duplikátumokat (ugyanaz a timestamp többször). A lightweight-charts library NEM renderel candle-öket, ha a bar lista nem szigorúan növekvő időrendben van ÉS/ÓRA van benne duplikátum — a library a rendezetlen adatot egyszerűen figyelmen kívül hagyja.
+
+A status banner a Phase 72 deadlock fix óta jelen volt a SNAPSHOT-ban, DE a chart body üressége miatt a Phase 76 screenshoton nem volt látható (a Phase 76-os PR body screenshotja HIBA-screenshot volt, nem a fix-elt state).
+
+### Phase-77 fix (1 agent, NO TIME LIMIT, 2. attempt)
+**Commit:** `36e881c fix(state-feed): sort + dedupe OHLC bars in getAll/getOHLC`
+
+**Módosítás:** `apps/bot/src/state-feed/ohlc-store.ts` — `getAll()` és `getOHLC(symbol, tf, count?)` rendezi a bar-okat idő szerint (`b.time - a.time`) ÉS deduplikálja a `Map<key, OhlcBar[]>` SET-jével (ugyanaz a timestamp csak egyszer). A 3 új unit teszt a rendezés + dedup invariánst teszteli.
+
+### Browser-verified (REAL bybit.eu data, paper-backtest-verified.toml)
+- ✅ **"Bot: RUNNING · uptime 1m 17s · last update just now · 1 active strategies · 3 open positions"** status banner visible
+- ✅ BTC/USDC 1h chart: **ACTUAL CANDLES** (RED/GREEN bars) — 30-day view, $62000-$68000 range
+- ✅ BTC/USDC 4h chart: candles, ~30-day view
+- ✅ BTC/USDC 1d chart: candles, multi-month view ($60000-$100000 range, 2026 Jan-Jul)
+- ✅ WebSocket: connected (zöld pötty)
+- ✅ Range tabs: 1H 4H 1D Live mind functional
+- ✅ Screenshot: `/tmp/dashboard-p77-real.png` (100KB, candles visible)
+
+### CI: 6/7 pass + e2e infra flake (continue-on-error)
+- 974/974 apps/bot tests pass (3 new from Phase 77: sort + dedup invariáns)
+- 13/13 typecheck
+- 0 lint errors
+- e2e: pre-existing Playwright infra flake (Phase 74 óta)
+
+### Lesson learned (HOT memory: 2026-07-25 19:30 Budapest)
+- **"Browser-verified" ≠ "card count megnőtt".** A Phase 76-ban 9→45 cards növekedést mutattam, mint proof, DE a user rámutatott: a chart body ÜRES volt, csak a price scale mutatott. A card count ≠ a chart renderelődik. **A "kész" claim MINDIG browser-verified screenshot kell, ahol a TÉNYLEGES USER-VISIBLE STATE látszik — nem card count, nem státusz badge, hanem a chart-on a CANDLES.**
+- **OhlcStore rendezés + dedup kötelező:** a lightweight-charts library szigorúan növekvő időrendet vár, duplikátum nélkül. A Phase 74 historical map-ből olvasáskor a CSV-ből jövő bar-ok NEM garantáltan rendezettek (a CSV bármilyen rendezési sorrendben lehet). **A getAll() + getOHBC() a `historical` és `live` concat után KÖTELEZŐEN rendez + dedupol.**
+- **Phase 77 retry pattern:** az első agent FAILED 0 commit + 0 screenshot. A retry (2. attempt) sikeres lett, mert: (1) RÖVID scope (csak a 2 hiányzó dologra fókuszált, NEM a teljes Phase 74 refactort), (2) a prompt-ban explicit "DO NOT claim success without ACTUAL CANDLES", (3) a screenshot path előre definiálva, (4) "iterálj a saját munkádban, NE spawnolj új agentet" — a retry agent iterált a saját javításán, amíg a candles meg nem jelentek.
+- **NE higgy a saját PR description-ödnek:** a Phase 76 PR body-ban azt írtam, hogy "9 cards → 45 cards, all 5 strategies visible", DE a screenshot ÜRES chart body-t mutatott. A user ezt azonnal észrevette. **A PR body screenshotja MINDIG legyen a FIX-elt state, NEM a bug-reprodukció.**
+
+### Phase status: ✅ PHASE 77 COMPLETE (PR #201 MERGED, ACTUAL candles render + status banner visible)
+
+---
+
 ## Phase 76 (2026-07-25) — show all strategies on the charts (PR #199 MERGED)
 
 ### User mandate (2026-07-25 16:45 Budapest)
@@ -138,7 +181,7 @@ A Phase 73 PR óta fennálló, Phase 74-re is ható issue: a `playwright-core@1.
 
 ### Phase status: ✅ PHASE 74 COMPLETE (PR #195 MERGED, 4/4 user-reported bugs fixed)
 
----**Last updated:** 2026-07-25 18:30 Budapest (Phase 76 COMPLETE, PR #199 MERGED)
+---**Last updated:** 2026-07-25 19:30 Budapest (Phase 77 COMPLETE, PR #201 MERGED)
 
 ---
 
