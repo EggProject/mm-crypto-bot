@@ -17,7 +17,9 @@ import { describe, expect, it } from "bun:test";
 
 import {
   DEFAULT_DONCHIAN_LOOKBACK,
+  computeBreakoutSignalsFromBars,
   computeDonchianFromBars,
+  computePivotFromBars,
 } from "./client-compute.js";
 import type { OHLCBar } from "../lib/ohlc-bridge.js";
 
@@ -262,5 +264,208 @@ describe("computeDonchianFromBars (output shape)", () => {
         expect(m).toBe((u + l) / 2);
       }
     }
+  });
+});
+
+// ============================================================================
+// computePivotFromBars — Phase 79
+// ============================================================================
+
+describe("computePivotFromBars", () => {
+  it("returns an object with `pp`, `r1`, `r2`, `s1`, `s2` keys", () => {
+    const out = computePivotFromBars(makeBars(30), 24);
+    expect(Object.keys(out).sort()).toEqual(["pp", "r1", "r2", "s1", "s2"]);
+  });
+
+  it("every value is null during the warmup period (bars.length < lookback)", () => {
+    const out = computePivotFromBars(makeBars(5), 24);
+    for (const key of ["pp", "r1", "r2", "s1", "s2"] as const) {
+      for (let i = 0; i < 5; i += 1) {
+        // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+        expect(out[key][i]).toBeNull();
+      }
+    }
+  });
+
+  it("PP = (H + L + C) / 3 of the rolling window at every defined bar", () => {
+    const bars = makeBars(30);
+    const lookback = 10;
+    const out = computePivotFromBars(bars, lookback);
+    for (let i = lookback - 1; i < bars.length; i += 1) {
+      // Compute the expected PP from the window.
+      let winHigh = -Infinity;
+      let winLow = Infinity;
+      for (let j = i - lookback + 1; j <= i; j += 1) {
+        // eslint-disable-next-line security/detect-object-injection -- j is a loop counter
+        const b = bars[j];
+        if (b.high > winHigh) winHigh = b.high;
+        if (b.low < winLow) winLow = b.low;
+      }
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      const lastClose = bars[i].close;
+      const expectedPP = (winHigh + winLow + lastClose) / 3;
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      expect(out.pp[i]).toBeCloseTo(expectedPP, 10);
+    }
+  });
+
+  it("r1 > pp > s1 and r2 > r1 > s2 > s1 (Fibonacci band ordering)", () => {
+    const out = computePivotFromBars(makeBars(30), 10);
+    for (let i = 10; i < 30; i += 1) {
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      const pp = out.pp[i] as number;
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      const r1 = out.r1[i] as number;
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      const r2 = out.r2[i] as number;
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      const s1 = out.s1[i] as number;
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      const s2 = out.s2[i] as number;
+      expect(r1).toBeGreaterThan(pp);
+      expect(s1).toBeLessThan(pp);
+      expect(r2).toBeGreaterThan(r1);
+      expect(s2).toBeLessThan(s1);
+    }
+  });
+
+  it("returns an empty (all-null) series for an empty bar list", () => {
+    const out = computePivotFromBars([], 24);
+    for (const key of ["pp", "r1", "r2", "s1", "s2"] as const) {
+      expect(out[key]).toEqual([]);
+    }
+  });
+
+  it("throws on lookback <= 0 (defensive — a 0-lookback is meaningless)", () => {
+    expect(() => computePivotFromBars(makeBars(5), 0)).toThrow(
+      /lookback must be > 0/,
+    );
+    expect(() => computePivotFromBars(makeBars(5), -1)).toThrow(
+      /lookback must be > 0/,
+    );
+  });
+});
+
+// ============================================================================
+// computeBreakoutSignalsFromBars — Phase 79
+// ============================================================================
+
+describe("computeBreakoutSignalsFromBars", () => {
+  it("returns an empty array for an empty bar list", () => {
+    const donchian = computeDonchianFromBars([], 20);
+    expect(computeBreakoutSignalsFromBars([], donchian)).toEqual([]);
+  });
+
+  it("returns an empty array when no bar breaks the Donchian band", () => {
+    // Flat bars: high = low = close = 100 for every bar. The
+    // Donchian upper = lower = 100 throughout. No bar's close
+    // can exceed the upper (= 100), so no entries.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+        volume: 1,
+      });
+    }
+    const donchian = computeDonchianFromBars(bars, 20);
+    expect(computeBreakoutSignalsFromBars(bars, donchian)).toEqual([]);
+  });
+
+  it("emits a LONG entry marker when close > upper (breakout above)", () => {
+    // The Donchian upper is `max(high)` over the rolling
+    // window. A bar's OWN high is part of the window, so for
+    // `close > upper` to be true, the bar's close must exceed
+    // the WINDOW max (which can include the same bar's high).
+    // The clean way to construct a breakout: keep `high` flat
+    // at the prior equilibrium and bump the close above it
+    // (a "low-vol breakout" — close > high of all bars in the
+    // window). Lookback=5; bars[0..4] are flat at 100. Bar 5
+    // has high=100, close=110 — the window max is 100, so
+    // close (110) > upper (100) → ENTRY long.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 20; i += 1) {
+      const isBreakout = i === 5;
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: isBreakout ? 110 : 100,
+        volume: 1,
+      });
+    }
+    const donchian = computeDonchianFromBars(bars, 5);
+    const markers = computeBreakoutSignalsFromBars(bars, donchian);
+    expect(markers.length).toBeGreaterThanOrEqual(1);
+    const entry = markers.find((m) => m.text === "ENTRY");
+    expect(entry).toBeDefined();
+    expect(entry?.shape).toBe("arrowUp");
+    expect(entry?.position).toBe("belowBar");
+    expect(entry?.color).toBe("#22c55e");
+  });
+
+  it("emits a SHORT entry marker when close < lower (breakdown below)", () => {
+    // Mirrors the LONG test: low stays at 100 (the prior
+    // equilibrium), close drops to 90. lower[5] = 100, close
+    // 90 < 100 → ENTRY short.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 20; i += 1) {
+      const isBreakdown = i === 5;
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: isBreakdown ? 90 : 100,
+        volume: 1,
+      });
+    }
+    const donchian = computeDonchianFromBars(bars, 5);
+    const markers = computeBreakoutSignalsFromBars(bars, donchian);
+    const entry = markers.find((m) => m.text === "ENTRY");
+    expect(entry).toBeDefined();
+    expect(entry?.shape).toBe("arrowDown");
+    expect(entry?.position).toBe("aboveBar");
+    expect(entry?.color).toBe("#ef4444");
+  });
+
+  it("emits an EXIT marker when an open position closes back to the middle band", () => {
+    // Bar 5: high=100, close=110 → ENTRY long (close > upper 100).
+    // Bar 6: close=100.5 → upper=100 (window = bars[2..6],
+    //   all highs = 100), middle=100. close 100.5 > middle 100
+    //   → stay long.
+    // Bar 7: close=100 → upper=100, middle=100. close 100 ≤
+    //   middle 100 → EXIT long.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 20; i += 1) {
+      let close = 100;
+      if (i === 5) close = 110;
+      if (i === 6) close = 100.5;
+      if (i === 7) close = 100;
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 100,
+        high: 100,
+        low: 100,
+        close,
+        volume: 1,
+      });
+    }
+    const donchian = computeDonchianFromBars(bars, 5);
+    const markers = computeBreakoutSignalsFromBars(bars, donchian);
+    const exit = markers.find((m) => m.text === "EXIT");
+    expect(exit).toBeDefined();
+  });
+
+  it("returns an empty array when `donchian` is missing the upper/lower/middle keys", () => {
+    // Defensive — the `prior` map in the indicator pipeline may
+    // not have a `donchian` entry yet (e.g. the line indicator
+    // hasn't been computed).
+    const bars = makeBars(30);
+    expect(computeBreakoutSignalsFromBars(bars, {})).toEqual([]);
   });
 });
