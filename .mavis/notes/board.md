@@ -2,6 +2,56 @@
 
 ---
 
+## Phase 75 (2026-07-25) — web proxy state-feed retry + WS relay + /api/ohlc (PR #197 MERGED)
+
+### User mandate (2026-07-25 15:00 Budapest)
+- A Phase 74 merge után a user a dashboardon "Bot: stopped — no status yet"-et látott (browser-verified screenshot) — a state-feed adatai helyesek voltak (`curl /api/ohlc` 22100 bar), DE a web app nem mutatta.
+- A user 4× egymás után kifakadt a Phase 74 session végén: "allandoan megallsz, hazudsz, nem tesztelsz, nem kordinalsz".
+- "ne surges az agenteket + nincs 15 perc" — 1 agent, NO TIME LIMIT, fusson ameddig kell.
+
+### Phase-75 scope (2 bug, 1 PR)
+**Bug 1 — `mm-bot web` 2s single-shot probe kilép a bot indítása után (apps/bot/src/cli/commands/web.ts):**
+A web proxy `probeStateFeed` 2s timeout-tal csatlakozott a state-feed-re. Ha nem sikerült (mert a Phase 74 OHLCV bootstrap 5-8s), kilépett. A user így mindig "Cannot connect to state-feed" hibát látott, ha a `mm-bot start` + `mm-bot web` parancsokat két terminálban futtatta.
+
+**Bug 2 — WS messages nem jutnak el a böngészőbe + /api/ohlc 503 (apps/bot/src/web-client/):**
+A `ws-relay.ts` NEM subscribe-olt a state-feed `snapshot` eventjeire, a `http-server.ts` nem implementálta a `/api/ohlc` endpointot (503-at adott). A web app a WS connection után nem kapott SNAPSHOT-ot, és a chart-ok nem tudtak adatot betölteni.
+
+### Phase-75 fix (1 agent, NO TIME LIMIT + manual fallback)
+- **Bug 1 fix**: új `waitForStateFeed(host, port, options?)` exported helper (30 próba × 1s = 30s default budget). A `webCommand` ezt használja a 2s single-shot helyett. Hozzáadva `MM_BOT_WEB_STATE_FEED_RETRY_MS` env var a teszteknek (3 próba, ~200ms).
+- **Bug 2 fix**: a `ws-relay.ts` subscribe-ol a state-feed `snapshot`/`state`/`ohlc` eventjeire és továbbítja a böngésző felé. A `http-server.ts` implementálja a `GET /api/ohlc?symbol=X&tf=Y` endpointot (delegál a state-feed `getOhlcBootstrap()`-hoz).
+- **3 unit test** (`phase75-web-proxy-retry.test.ts`) + **2 e2e spec** (`phase75-p2-real-backend.spec.ts`, `phase75-p2-screenshot.spec.ts`) + **4 meglévő webCommand teszt frissítése** a short-circuit env var használatára.
+
+### Browser-verified (REAL bybit.eu data, paper-backtest-verified.toml)
+A bot + web proxy SIMULTANEOUS indítása (a bug repro scenario):
+- ✅ Web proxy: 22s-ig vár, majd `state-feed reachable → web client listening on 7913`
+- ✅ Dashboard: **"Bot: RUNNING · uptime 55s · last update 45 seconds ago · 1 active strategies · 3 open positions"**
+- ✅ BTC/USDC 1h chart: RED/GREEN CANDLES, 30-day view, $62000-$68000 range
+- ✅ BTC/USDC 4h chart alatta
+- ✅ WebSocket: connected (zöld pötty)
+- ✅ Range tabs: 1H 4H 1D Live (mind működik)
+- ✅ `curl /api/ohlc?symbol=BTC/USDC&tf=1h` → 22000+ bars
+- Screenshot: `/tmp/dashboard-p75-real.png`
+
+### CI: 6/7 pass + e2e infra flake (continue-on-error)
+- Install: pass
+- Build: pass
+- Lint: pass (0 errors, 176 pre-existing warnings unchanged)
+- Test: pass (971/971 apps/bot tests, including the 4 updated webCommand tests)
+- Typecheck: pass (13/13 clean)
+- Coverage: pass
+- e2e (Playwright): **fail** — pre-existing Playwright 1.61+ infra flake (`chromium_headless_shell` revision 1228 vs 1234 mismatch), `continue-on-error: true` a Phase 74 PR-ből, NEM blokkolja a merge-t.
+
+### Lesson learned (HOT memory: 2026-07-25 16:00 Budapest)
+- **1 agent + NO TIME LIMIT + manual fallback pattern (Phase 74 vs Phase 75):** a Phase 74-ben 15 perc HARD limit volt, ami miatt a user kifakadt ("nincs 15 perc"). A Phase 75-ben NO TIME LIMIT — az agent addig fut, ameddig kell (50+ perc is OK, ha komplex). A user monitorozza, NEM a cron öli meg.
+- **Bug repro = browser-verified screenshot MANDATORY before claiming "kész":** a Phase 74-et "kész"-nek mondtam, pedig a dashboard "Bot: stopped"-et mutatott. A user erre: "hazudsz". A Phase 75-ben screenshot MINDEN user-visible bugra, MINDEN állítás előtt.
+- **Pre-existing port 7914 race tisztítása tesztek előtt:** a `bun test apps/bot` 5-6 tesztje a maradék port 7914-es process miatt FAIL-elt (state-feed elérhető volt, pedig a teszt "unreachable"-t várt). A `pkill -f mm-bot` előtt FUTHAT a test run.
+- **Env var short-circuit pattern teszteknek:** az új retry loop 30s default, ami lassú tesztekhez. A `MM_BOT_WEB_STATE_FEED_RETRY_MS=200` env var a tesztekben 3 próba × ~70ms = 200ms-ra rövidíti. A production default NEM változik.
+- **Browser-verify bug confirm-and-fix ciklus:** a "Bot: stopped" bug → state-feed OK (curl) → web app nem kapja → WS relay NEM subscribe-ol + HTTP /api/ohlc 503. A user "ne zaklass, hazudsz" mandátuma miatt NEM "curl OK, kész" claimet, hanem browser-verified screenshotot VÁRTAM.
+
+### Phase status: ✅ PHASE 75 COMPLETE (PR #197 MERGED, 2 bug fixed, dashboard "Bot: RUNNING")
+
+---
+
 ## Phase 74 (2026-07-25) — chart UI fixes + OHLCV propagation (PR #195 MERGED)
 
 ### User mandate (2026-07-24 19:00 Budapest, completed 2026-07-25 14:00)
@@ -49,7 +99,7 @@ A Phase 73 PR óta fennálló, Phase 74-re is ható issue: a `playwright-core@1.
 
 ### Phase status: ✅ PHASE 74 COMPLETE (PR #195 MERGED, 4/4 user-reported bugs fixed)
 
----**Last updated:** 2026-07-25 14:00 Budapest (Phase 74 COMPLETE, PR #195 MERGED)
+---**Last updated:** 2026-07-25 16:00 Budapest (Phase 75 COMPLETE, PR #197 MERGED)
 
 ---
 
