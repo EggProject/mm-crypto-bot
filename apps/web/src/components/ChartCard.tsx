@@ -104,6 +104,16 @@ export interface ChartCardProps {
   readonly symbol: string;
   /** Strategy id, e.g. "donchian_pivot_composition". */
   readonly strategy: string;
+  /**
+   * Phase 76: whether the strategy is currently enabled (running)
+   * in the bot. `false` means the strategy is in the config but
+   * disabled (e.g. derivatives-only on a spot-only setup); the chart
+   * still renders (so the user can see the strategy is configured)
+   * but the chrome adds a "(disabled)" suffix to the title for
+   * clarity. Defaults to `true` for backward compatibility with
+   * existing call sites that haven't been updated yet.
+   */
+  readonly enabled?: boolean;
   /** Timeframe label, e.g. "1h". */
   readonly timeframe: string;
   /** OHLC bars, time-ascending, in UNIX milliseconds. */
@@ -260,6 +270,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   const {
     symbol,
     strategy,
+    enabled = true,
     timeframe,
     bars,
     markers,
@@ -326,7 +337,26 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
       <span className="line-chart-wrapper__symbol">{symbol}</span>
     ) : null;
   const strategyTitle = strategyHasTitle(strategy) ? (
-    <span className="line-chart-wrapper__title">{strategy}</span>
+    <span
+      className="line-chart-wrapper__title"
+      data-enabled={enabled ? "true" : "false"}
+    >
+      {strategy}
+      {/* Phase 76: a "(disabled)" suffix on the chrome title makes
+          it immediately clear which strategies are configured but
+          not currently running. The status banner's "X active
+          strategies" is the source of truth for the running count;
+          this suffix is a per-card visual cue that survives even
+          when the user is scrolled past the banner. */}
+      {enabled ? null : (
+        <span
+          className="line-chart-wrapper__title-suffix"
+          data-testid="chart-card-disabled-suffix"
+        >
+          {" "}(disabled)
+        </span>
+      )}
+    </span>
   ) : null;
   const timeframeMeta = timeframeHasLabel(timeframe) ? (
     <span className="line-chart-wrapper__meta">{timeframe}</span>

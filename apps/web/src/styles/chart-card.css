@@ -766,6 +766,16 @@ h1 em, h2 em, h3 em, h4 em,
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Phase 76: a small "(disabled)" suffix on the chrome title, for
+   strategies that are configured but not currently running.
+   Subtle muted color so it doesn't compete with the strategy name. */
+.line-chart-wrapper__title-suffix {
+  font: 500 11px var(--ep-font-sans);
+  color: var(--ep-fg-faint, #6b6b6b);
+  letter-spacing: 0.01em;
+  text-transform: lowercase;
+  margin-left: 4px;
+}
 .line-chart-wrapper__symbol {
   font: 600 15px var(--ep-font-mono);
   color: var(--ep-fg);

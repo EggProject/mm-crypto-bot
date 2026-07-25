@@ -257,8 +257,23 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
     // Phase 52E bugfix #2: a config.strategies objektumból a
     // publisher-stratégia listát is átadjuk, hogy a dashboard
     // mind a 3 (vagy N) stratégiát lássa, ne csak 1-et.
+    //
+    // Phase 76 fix: a korábbi `.filter(([, s]) => s.enabled)` sort
+    // TÖRÖLTÜK. A user kérése: "minden strategiat a chartokon meg
+    // kell jeleniteni" — a dashboard minden konfigurált stratégiát
+    // mutasson, ne csak az engedélyezetteket. A chart kártya
+    // `enabled` flag-je jelzi, hogy a stratégia valójában fut-e;
+    // a `activeStrategyCount` a status banner-ban a publisher
+    // `staticStrategies.filter(s => s.enabled).length`-ből jön
+    // (publisher.ts:640), tehát a "X active strategies" szöveg
+    // továbbra is a tényleges futó stratégiák számát mutatja.
+    // A disabled stratégiák chartja ugyanazt az OHLC adatot
+    // mutatja (a chart a (symbol, tf) párokra subscribe-ol, nem
+    // stratégiára), csak a strategy név jelenik meg a title-ban
+    // — így a user LÁTTA mind a 3 stratégiát, és a status banner
+    // "1 active strategies" feliratból tudja, hogy valójában
+    // mennyi fut.
     const strategiesFromConfig = Object.entries(config.strategies)
-      .filter(([, s]) => s.enabled)
       .map(([name, s]) => {
         const section = s as {
           enabled?: boolean;
