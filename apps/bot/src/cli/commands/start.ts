@@ -78,6 +78,8 @@ import { mkdir, open } from "node:fs/promises";
 import { Bot } from "../../bot/bot.js";
 import type { SubcommandHandler } from "../router.js";
 import { attachStateFeed, resolveFeedPort, type StateFeedHandle } from "../../state-feed/index.js";
+import { OhlcStore } from "../../state-feed/ohlc-store.js";
+import { bootstrapOhlcStore } from "../../state-feed/ohlc-bootstrap.js";
 
 /**
  * `getConfigPath` — pull the `--config=path` flag, or `undefined`.
@@ -283,6 +285,17 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
         }
         return descriptor;
       });
+    // Phase 73/74: bootstrap the OhlcStore from the data/ohlcv/ CSVs
+    // BEFORE creating the state-feed. The `getAll()` method on the
+    // store will return `[...historical, ...live]` for each (symbol, tf)
+    // key, so the SNAPSHOT `ohlcBootstrap` field carries the full
+    // 30-month history (85638 bars across 9 keys) into the web app
+    // via the ws-relay → http-server cache → /api/ohlc path.
+    const ohlcStore = new OhlcStore();
+    const bootstrapResult = await bootstrapOhlcStore(ohlcStore);
+    process.stderr.write(
+      `[start] OHLCV bootstrap: ${String(bootstrapResult.loaded)} loaded, ${String(bootstrapResult.skipped)} skipped, ${String(bootstrapResult.totalBars)} total bars\n`,
+    );
     stateFeed = await attachStateFeed(bot, {
       port: feedPort,
       enabledSymbols: config.symbols.enabled,
@@ -291,6 +304,10 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
       // 10 000 USDT a default). A Phase 45B a config-ból fogja
       // venni a `risk.max_position_fraction`-ből számítva.
       initialEquityUsdt: 10_000,
+      // Phase 73/74: pass the pre-bootstrapped store so the SNAPSHOT
+      // message carries the full 30-month history (instead of the
+      // default 200-bar ring buffer).
+      ohlcStore,
       strategies: strategiesFromConfig,
       // Phase 69: a state-feed CONTROL üzeneteit a bot életciklusához
       // kötjük. A `web-client HTTP /api/control` endpoint ezen a

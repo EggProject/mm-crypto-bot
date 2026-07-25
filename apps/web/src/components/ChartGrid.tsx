@@ -129,12 +129,14 @@ const GRID_CSS = `
   min-width: 0;
   display: flex;
   flex-direction: column;
-  /* Phase 69: a teljes szélességű chart-ok fix magassága — a korábbi
-   * 220px-es loading placeholder túl alacsony volt a 16:9-es chart-okhoz.
-   * A 420px magasság a lightweight-charts alapértelmezett 600-as chart
-   * konténeréhez van igazítva, hogy a price scale + a chart body
-   * kényelmesen elférjen. */
-  min-height: 420px;
+  /* Phase 74: a korábbi min-height: 420px + a ChartCard belső
+   * height: 320px MIATT 100px üres hely maradt a chart alján
+   * (a .line-chart-wrapper display: grid; grid-template-rows:
+   * auto 1fr auto; a body-t 1fr-re állítja, de a wrapper height
+   * 320, a parent 420 → 100px üres). A fix: a parent méretét
+   * a child határozza meg (nincs min-height). A ChartCard
+   * belső magassága a cardHeight prop-pal szabályozható
+   * (default md = 320px). */
   background: var(--ep-bg-elevated, #0C0D11);
   border: 1px solid var(--ep-border-subtle, rgba(255, 255, 255, 0.10));
   border-radius: var(--ep-radius-lg, 12px);

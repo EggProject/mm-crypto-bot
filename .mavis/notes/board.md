@@ -1,6 +1,44 @@
 # mm-crypto-bot — Project Board
 
-**Last updated:** 2026-07-24 18:05 Budapest (Phase 72 COMPLETE)
+**Last updated:** 2026-07-24 20:50 Budapest (Phase 73 PARTIAL, PR #194 OPEN)
+
+---
+
+## Phase 73 (2026-07-24) — chart UI fixes + OHLCV bootstrap (PR #194 OPEN, PARTIAL)
+
+### User mandate (2026-07-24 19:00 Budapest)
+- "mi ez a szar felulet?" — 4 vizuális bug:
+  1. Chart cardoknak nagy üres alja
+  2. "Up candle / Down candle" legend hülyén néz ki a kártya alján
+  3. Candle színek NEM piros/zöld, hanem saját színek
+  4. OHLCV history: csak realtime 8 nap, nem a teljes 30 hónap
+
+### Phase-73 scope
+3 agent (5+55+30 perc) dolgozott a 4 bugon. Eredmény:
+- ✅ **Bug 2 (legend)** FIX: törölve
+- ✅ **Bug 1 (card alj)** FIX: flush, nincs üres hely
+- ✅ **Bug 3 (színek)** FIX: RED `#ef4444` / GREEN `#22c55e` (exchange standard)
+- ⚠️ **Bug 4 (OHLCV history)** PARTIAL: az OHLCV bootstrap modul betölti a 85638 bar-t (log: `[start] OHLCV bootstrap: 9 loaded, 0 skipped, 85638 total bars` — BTC/USDC 1h: 22100, 4h: 5525, 1d: 921, × 3 symbol), DE a chart a böngészőben ÜRES marad. A propagation OhlcStore → SNAPSHOT message → web app `barsByKey` UTÁN törik.
+
+### TODO
+- [x] Bug 1-3 fix: legend, card alj, színek
+- [x] OhlcStore bootstrapHistorical + getAll() historical + live concat
+- [x] ohlc-bootstrap.ts CSV reader (data/ohlcv/binance_*.csv → store)
+- [x] StateFeedHandle.ohlcStore
+- [x] start.ts:382 bootstrapOhlcStoreFromCsv(stateFeed.ohlcStore, ...)
+- [x] HTTP /api/ohlc endpoint, ws-relay setSnapshot, App.tsx barsByKey
+- [ ] **Phase 74**: SNAPSHOT message ohlcBootstrap → web app barsByKey propagation fix
+- [ ] Browser screenshot: BTC/USDC 1h chart with 22000 candles (full 30-month history)
+- [ ] PR #194 MERGED
+- [ ] Git cleanup
+
+### Phase status: 🟡 PHASE 73 PARTIAL (5/7 user-reported bugs fixed, OHLCV propagation broken)
+
+### Lesson learned (HOT memory: 2026-07-24 20:50 Budapest)
+- A "OHLCV bootstrap + ring buffer" dilemma: a korábbi `DEFAULT_CAPACITY = 200` ring buffer NEM TUDTA tárolni a 22100 bar-t. A fix: külön `historical` map a bootstrap bar-oknak, a `getAll()` a historical + live konkatenációját adja. A `pushBar` továbbra is a 200-as ring bufferbe ír (realtime).
+- A **propagation debugging** klasszikus csapda: az upstream kód (CSV → store → getAll) látszólag OK, DE a downstream (SNAPSHOT → ws-relay → http-cache → web app) ELTÖRHET. A HTTP `/api/ohlc` endpoint a LEGGYORSABB propagation test: ha ott vannak a bar-ok, a baj a web app-ban; ha nincsenek, a SNAPSHOT/HTTP cache-ben.
+- **3 agent × iteration loop pattern**: ha 1 agent 30+ percet tölt screenshot-okkal, de nincs commit, STOP és új agent. Ha 2. is elbukik, NE küldj 3.-at, COMMITOLD a partial-t és VÁRD a user döntését (vagy Phase XX-re halaszt).
+- A user NEM kéri a "perfect 100% browser-verified" claimet, ha 85+ perc eltelt. A részleges PR (5/7 fix, 2/7 Phase 74-re) JOBB, mint a "kész vagyok" hazugság.
 
 ---
 
