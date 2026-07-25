@@ -74,6 +74,35 @@ export interface OhlcBarInput {
 /** A `subscribeOHLC` listener-típusa. */
 export type OhlcListener = (bar: OhlcBar) => void;
 
+/**
+ * `dedupeOhlcBars` — Phase 77: a `historical ++ live` concat-ban a live
+ * feed néha DUPLIKÁLJA a historical utolsó N bar-ját (a CSV tail és a
+ * live feed átfedésben van, és a live feed újra elküldi a már meglévő
+ * bar-okat a reconnect után). A lightweight-charts v5
+ * `series.setData()` NEM fogad el duplicate time-okat (`Value is null`
+ * hibát dob). A dedupe megtartja az ELSŐ előfordulást (a historical
+ * adat a kanonikus forrás).
+ *
+ * Az input time-ascending rendezett kell legyen (a hívó `sort`-ol
+ * a dedupe előtt). A függvény NEM mutálja az inputot (új tömböt ad).
+ */
+function dedupeOhlcBars(bars: readonly OhlcBar[]): readonly OhlcBar[] {
+  if (bars.length === 0) return bars;
+  const out: OhlcBar[] = [];
+  const first = bars[0]!;
+  let lastTime = first.time;
+  out.push(first);
+  for (let i = 1; i < bars.length; i++) {
+    const b = bars[i];
+    if (b === undefined) continue;
+    if (b.time !== lastTime) {
+      out.push(b);
+      lastTime = b.time;
+    }
+  }
+  return out;
+}
+
 // ============================================================================
 // Ring buffer (private)
 // ============================================================================
@@ -230,7 +259,9 @@ export class OhlcStore {
     const hist = this.historical.get(key) ?? [];
     const buf = this.buffers.get(key);
     const live = buf === undefined ? [] : buf.toArray();
-    const all = hist.length === 0 ? live : hist.concat(live);
+    const all = dedupeOhlcBars(
+      (hist.length === 0 ? live : hist.concat(live)).slice().sort((a, b) => a.time - b.time),
+    );
     if (count === undefined) return all;
     return all.slice(-count);
   }
@@ -260,7 +291,10 @@ export class OhlcStore {
       const hist = this.historical.get(key) ?? [];
       const buf = this.buffers.get(key);
       const live = buf === undefined ? [] : buf.toArray();
-      symbolBucket[timeframe] = hist.length === 0 ? live : hist.concat(live);
+      const merged = dedupeOhlcBars(
+        (hist.length === 0 ? live : hist.concat(live)).slice().sort((a, b) => a.time - b.time),
+      );
+      symbolBucket[timeframe] = merged;
     }
     return out;
   }
