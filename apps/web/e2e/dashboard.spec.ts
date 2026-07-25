@@ -192,18 +192,7 @@ const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "dashboard.png");
 // via the dashboard e2e alone). The threshold is temporarily
 // relaxed from 80 → 75 to accommodate. The 95% user mandate
 // stays in scope — the gap is tracked as a follow-up.
-//
-// PHASE 80: further relaxed branches from 75 → 70 to accommodate
-// Phase 78 (donchian band indicators on chart) + Phase 79 (strategy-
-// specific indicators) which added ~1100 lines of branch-rich code
-// (`donchian.ts`, `strategy-indicators.ts`, `client-compute.ts`,
-// `bot-status.ts`) that the existing e2e suite doesn't fully
-// exercise. The 75% threshold was set in Phase 48D as a stretch
-// goal; the actual coverage with the new chart indicator code is
-// 87% lines / 72% branches / 87% functions (per the last CI run).
-// 70% branches is the floor; the 95% user mandate stays in scope
-// and is tracked as a follow-up (Phase 81+).
-const COVERAGE_THRESHOLDS = { lines: 75, branches: 70, functions: 75 } as const;
+const COVERAGE_THRESHOLDS = { lines: 75, branches: 75, functions: 75 } as const;
 
 // =============================================================================
 // Coverage helpers (inlined to keep the new-file count to 5)
