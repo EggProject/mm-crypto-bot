@@ -187,7 +187,20 @@ async function gotoApp(
     "connected",
     { timeout: 15_000 },
   );
-  await expect(page.locator('[data-testid="chart-grid"]')).toBeVisible();
+  // PHASE 80: when ZERO strategies are enabled, the ChartGrid renders
+  // `<div data-testid="chart-grid-empty">` (the "No charts configured"
+  // message) INSTEAD of `<div data-testid="chart-grid">`. The previous
+  // assertion `expect(chart-grid).toBeVisible()` would fail on that
+  // path even though the page rendered correctly. We now wait for
+  // EITHER the populated grid OR the empty-state placeholder, so the
+  // helper works for both "with strategies" and "all-disabled" cases.
+  // This is the same shape as the production code's
+  // `hasAnyEnabledStrategy` branch in `apps/web/src/components/ChartGrid.tsx:347`.
+  await expect(
+    page
+      .locator('[data-testid="chart-grid"], [data-testid="chart-grid-empty"]')
+      .first(),
+  ).toBeVisible();
 }
 
 // =============================================================================
