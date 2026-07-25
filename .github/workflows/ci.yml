@@ -180,10 +180,15 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
       - run: bun install --frozen-lockfile
-      # PHASE 80: `--force` re-installs even if a stale binary exists
-      # in the cache. Combined with the new cache key, this guarantees
-      # the chromium-1228 (matching playwright-core@1.61.1) is present.
-      - run: bunx playwright install --with-deps --force chromium
+      # PHASE 80: install BOTH `chromium` AND `chromium-headless-shell`
+      # (the Component Tests need the headless-shell variant; the e2e
+      # tests use the regular chromium). Without explicitly passing
+      # `chromium-headless-shell`, the install only fetches the regular
+      # chromium binary, and the CT fails with
+      # `Error: browserType.launch: Executable doesn't exist at
+      #  ~/.cache/ms-playwright/chromium_headless_shell-1228/...`.
+      # `--force` re-installs even if a stale binary exists in the cache.
+      - run: bunx playwright install --with-deps --force chromium chromium-headless-shell
       # PHASE 58.5: Component Tests (CT) run BEFORE the e2e suite
       # so that the CT coverage data is available for the e2e
       # `afterAll` to merge. The CT lane writes per-page coverage
