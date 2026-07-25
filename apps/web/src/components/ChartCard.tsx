@@ -75,6 +75,16 @@ import {
   type FeedConfig,
   type ThemeColors,
 } from "../lib/chart-card-helpers.js";
+// Phase 78: client-side indicator rendering. The bot's strategy
+// runners do not currently publish `publishIndicator` calls (the
+// infra is in place but no strategy is using it), so the only way
+// to surface the strategy-specific drawings on the chart is to
+// derive them client-side. The user mandate: "a kepeiden tovabbra
+// sem latom a strategiakkal kapcsolatban a chart rajzokat" — the
+// strategy-specific chart drawings MUST be visible, not just candles.
+import { renderDonchian } from "../indicators/donchian.js";
+import { computeDonchianFromBars } from "../indicators/client-compute.js";
+import type { RenderedIndicator } from "../indicators/registry.js";
 
 // The eggproject-design skill's LcWrap CSS — provides the chrome
 // (`.line-chart-wrapper`, `.line-chart-wrapper__header`, etc.).
@@ -286,6 +296,11 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const markersRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
+  // Phase 78: the currently-rendered strategy indicator. The bars
+  // effect re-renders the donchian band every time the bar stream
+  // updates; we dispose the previous render before invoking a new
+  // one so the chart doesn't accumulate stale line series.
+  const indicatorRef = useRef<RenderedIndicator | null>(null);
 
   const cardHeight = resolveHeight(height);
   const feed = feedConfigFor(feedState, FEED_CONFIG);
@@ -441,6 +456,13 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
 
     return () => {
       ro.disconnect();
+      // Phase 78: dispose the rendered indicator before the chart
+      // is removed. The chart.remove() call below would otherwise
+      // leave the indicator's line series orphaned (the chart
+      // engine's chart.remove() does NOT call dispose() on the
+      // renderers, it just drops the chart instance).
+      indicatorRef.current?.dispose();
+      indicatorRef.current = null;
       markersRef.current = null;
       seriesRef.current = null;
       chart.remove();
@@ -463,10 +485,55 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
     if (bars.length === 0) {
       // lightweight-charts accepts []; clears the visible bars.
       series.setData([]);
+      // Phase 78: also clear the rendered indicator. The previous
+      // donchian band lines are removed; when the next bar stream
+      // arrives, the indicator effect (below) will re-render them.
+      indicatorRef.current?.dispose();
+      indicatorRef.current = null;
       return;
     }
     series.setData(bars.map(toCandlestickDataMs));
   }, [bars]);
+
+  // --------------------------------------------------------------------------
+  // Effect 2b: render strategy indicators (donchian band) from bars
+  //
+  // Phase 78: the user mandate ("a kepeiden tovabbra sem latom a
+  // strategiakkal kapcsolatban a chart rajzokat") demands that the
+  // strategy's indicator lines be visible on the chart, not just
+  // the candles. The bot's strategy runners do not currently
+  // publish `publishIndicator` calls, so the only path is to
+  // compute the indicator client-side from the bar stream and
+  // invoke the existing `renderDonchian` renderer.
+  //
+  // The renderer adds 3 line series (upper gold / middle muted /
+  // lower red) to the chart and returns a `RenderedIndicator`
+  // whose `dispose()` removes them. We dispose the previous
+  // render before invoking a new one so the chart doesn't
+  // accumulate stale line series as the bar stream updates.
+  //
+  // Effect deps: `[bars, strategy, timeframe]` — recompute the
+  // indicator whenever the bar stream or the (strategy, tf) key
+  // changes. The `chart` is read from a ref so it doesn't trigger
+  // a re-run on every render.
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (chart === null) return;
+    // Dispose the previous render so stale lines don't accumulate.
+    indicatorRef.current?.dispose();
+    indicatorRef.current = null;
+    if (bars.length === 0) return;
+    const indicatorSeries = computeDonchianFromBars(bars);
+    indicatorRef.current = renderDonchian({
+      chart,
+      bars,
+      indicatorSeries,
+      color: "",
+      strategy,
+      timeframe,
+    });
+  }, [bars, strategy, timeframe]);
 
   // --------------------------------------------------------------------------
   // Effect 3: update markers when `markers` change
