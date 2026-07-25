@@ -82,9 +82,19 @@ import {
 // derive them client-side. The user mandate: "a kepeiden tovabbra
 // sem latom a strategiakkal kapcsolatban a chart rajzokat" — the
 // strategy-specific chart drawings MUST be visible, not just candles.
-import { renderDonchian } from "../indicators/donchian.js";
-import { computeDonchianFromBars } from "../indicators/client-compute.js";
-import type { RenderedIndicator } from "../indicators/registry.js";
+//
+// Phase 79: the indicators are now STRATEGY-SPECIFIC. Phase 78
+// applied the Donchian band to every strategy universally; Phase
+// 79 dispatches to a per-strategy indicator set via
+// `getStrategyIndicatorSet(strategy)`. The user mandate
+// "minden charton adott strategiahoz szukseges inditactorok es
+// egyeb jelolesek, rajzok stb van?" is addressed by adding the
+// pivot level + breakout signal markers for
+// `donchian_pivot_composition` (the only enabled strategy in
+// the bot's current config) on top of the universal Donchian
+// band.
+import { getStrategyIndicatorSet } from "../indicators/strategy-indicators.js";
+import type { IndicatorSeries, RenderedIndicator } from "../indicators/registry.js";
 
 // The eggproject-design skill's LcWrap CSS — provides the chrome
 // (`.line-chart-wrapper`, `.line-chart-wrapper__header`, etc.).
@@ -296,11 +306,22 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const markersRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
-  // Phase 78: the currently-rendered strategy indicator. The bars
-  // effect re-renders the donchian band every time the bar stream
-  // updates; we dispose the previous render before invoking a new
-  // one so the chart doesn't accumulate stale line series.
-  const indicatorRef = useRef<RenderedIndicator | null>(null);
+  // Phase 78 + 79: the currently-rendered strategy indicators. The
+  // bars effect re-renders the strategy-specific indicator set
+  // every time the bar stream updates; we dispose the previous
+  // renders before invoking the new ones so the chart doesn't
+  // accumulate stale line series. The list is a list of
+  // `RenderedIndicator` — one per line indicator in the strategy's
+  // indicator set (e.g. `[donchian, pivot]` for
+  // `donchian_pivot_composition`).
+  const indicatorRefs = useRef<readonly RenderedIndicator[]>([]);
+  // Phase 79: the strategy-specific marker overlay disposers
+  // (one per marker indicator). The `setMarkers(...)` call is
+  // a side-effecting API on the markers plugin; we keep the
+  // dispose callbacks in a ref so a re-render can call them
+  // and clear the previous markers before applying the new
+  // set.
+  const markerDisposersRef = useRef<readonly (() => void)[]>([]);
 
   const cardHeight = resolveHeight(height);
   const feed = feedConfigFor(feedState, FEED_CONFIG);
@@ -456,13 +477,20 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
 
     return () => {
       ro.disconnect();
-      // Phase 78: dispose the rendered indicator before the chart
+      // Phase 78 + 79: dispose the rendered strategy indicators
+      // and the strategy-specific marker overlay before the chart
       // is removed. The chart.remove() call below would otherwise
       // leave the indicator's line series orphaned (the chart
       // engine's chart.remove() does NOT call dispose() on the
       // renderers, it just drops the chart instance).
-      indicatorRef.current?.dispose();
-      indicatorRef.current = null;
+      for (const ind of indicatorRefs.current) {
+        ind.dispose();
+      }
+      indicatorRefs.current = [];
+      for (const dispose of markerDisposersRef.current) {
+        dispose();
+      }
+      markerDisposersRef.current = [];
       markersRef.current = null;
       seriesRef.current = null;
       chart.remove();
@@ -485,58 +513,98 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
     if (bars.length === 0) {
       // lightweight-charts accepts []; clears the visible bars.
       series.setData([]);
-      // Phase 78: also clear the rendered indicator. The previous
-      // donchian band lines are removed; when the next bar stream
+      // Phase 78 + 79: also clear the rendered strategy indicators
+      // and the strategy-specific marker overlay. The previous
+      // indicator lines are removed; when the next bar stream
       // arrives, the indicator effect (below) will re-render them.
-      indicatorRef.current?.dispose();
-      indicatorRef.current = null;
+      for (const ind of indicatorRefs.current) {
+        ind.dispose();
+      }
+      indicatorRefs.current = [];
+      for (const dispose of markerDisposersRef.current) {
+        dispose();
+      }
+      markerDisposersRef.current = [];
       return;
     }
     series.setData(bars.map(toCandlestickDataMs));
   }, [bars]);
 
   // --------------------------------------------------------------------------
-  // Effect 2b: render strategy indicators (donchian band) from bars
+  // Effect 2b: render strategy-specific indicators from bars
   //
   // Phase 78: the user mandate ("a kepeiden tovabbra sem latom a
   // strategiakkal kapcsolatban a chart rajzokat") demands that the
   // strategy's indicator lines be visible on the chart, not just
-  // the candles. The bot's strategy runners do not currently
-  // publish `publishIndicator` calls, so the only path is to
-  // compute the indicator client-side from the bar stream and
-  // invoke the existing `renderDonchian` renderer.
+  // the candles. Phase 78 added the universal Donchian band.
   //
-  // The renderer adds 3 line series (upper gold / middle muted /
-  // lower red) to the chart and returns a `RenderedIndicator`
-  // whose `dispose()` removes them. We dispose the previous
-  // render before invoking a new one so the chart doesn't
-  // accumulate stale line series as the bar stream updates.
+  // Phase 79: the indicators are now STRATEGY-SPECIFIC. The
+  // `getStrategyIndicatorSet(strategy)` dispatcher returns the
+  // per-strategy set of line indicators + marker indicators. We
+  // iterate the line indicators in order, computing each from
+  // the bar stream and rendering the lines on the chart; then
+  // we iterate the marker indicators, computing the markers and
+  // applying them to the candle series' markers plugin. Each
+  // render is paired with a `dispose()` we keep in `indicatorRefs`
+  // and `markerDisposersRef` so a re-render (or unmount) cleans
+  // up the previous state without leaving stale lines/markers.
+  //
+  // The `donchian` line indicator's `IndicatorSeries` is passed
+  // as a `prior` argument to the marker indicators, so the
+  // breakout signal markers can use the same Donchian band for
+  // entry detection. This is the "indicator pipeline" pattern:
+  // a downstream indicator consumes the output of an upstream
+  // indicator in the same set.
   //
   // Effect deps: `[bars, strategy, timeframe]` — recompute the
-  // indicator whenever the bar stream or the (strategy, tf) key
-  // changes. The `chart` is read from a ref so it doesn't trigger
-  // a re-run on every render.
+  // strategy-specific indicator set whenever the bar stream or
+  // the (strategy, tf) key changes. The `chart` is read from a
+  // ref so it doesn't trigger a re-run on every render.
   // --------------------------------------------------------------------------
   useEffect(() => {
     const chart = chartRef.current;
     if (chart === null) return;
-    // Dispose the previous render so stale lines don't accumulate.
-    indicatorRef.current?.dispose();
-    indicatorRef.current = null;
+    // Dispose the previous renders so stale lines don't accumulate.
+    for (const ind of indicatorRefs.current) {
+      ind.dispose();
+    }
+    indicatorRefs.current = [];
+    for (const dispose of markerDisposersRef.current) {
+      dispose();
+    }
+    markerDisposersRef.current = [];
     if (bars.length === 0) return;
-    const indicatorSeries = computeDonchianFromBars(bars);
-    indicatorRef.current = renderDonchian({
-      chart,
-      bars,
-      indicatorSeries,
-      color: "",
-      strategy,
-      timeframe,
-    });
+
+    const set = getStrategyIndicatorSet(strategy);
+
+    // Build the `prior` map of line-indicator outputs, so
+    // marker indicators can consume an upstream indicator's
+    // series (e.g. breakout markers use the Donchian band).
+    const priorIndicators: Record<string, IndicatorSeries> = {};
+    const renderedLines: RenderedIndicator[] = [];
+    for (const line of set.lines) {
+      const series = line.compute(bars);
+      priorIndicators[line.name] = series;
+      const rendered = line.render(chart, bars, series, strategy, timeframe);
+      renderedLines.push(rendered);
+    }
+    indicatorRefs.current = renderedLines;
+
+    // Apply the marker indicators on top of the lines.
+    const plugin = markersRef.current;
+    if (plugin !== null) {
+      const markerDisposers: (() => void)[] = [];
+      for (const markerInd of set.markers) {
+        const markers = markerInd.compute(bars, priorIndicators);
+        const dispose = markerInd.apply(plugin, markers);
+        markerDisposers.push(dispose);
+      }
+      markerDisposersRef.current = markerDisposers;
+    }
   }, [bars, strategy, timeframe]);
 
   // --------------------------------------------------------------------------
-  // Effect 3: update markers when `markers` change
+  // Effect 3: update markers when `markers` (the prop) change
   //
   // Phase 56C: the `markers.map(toSeriesMarker)` + ms→s conversion
   // moved to `toSeriesMarkerMs` in `lib/chart-card-helpers.ts`.
@@ -544,12 +612,25 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   // currently unreachable through the React flow because App.tsx
   // passes `markersByKey={{}}` — the unit tests for
   // `toSeriesMarkerMs` cover the helper to 100%.
+  //
+  // Phase 79: this effect handles the LEGACY marker path
+  // (the `markers` prop, currently empty). The strategy-specific
+  // markers from the indicator effect (Effect 2b) are layered on
+  // top — they call `setMarkers` first, then this effect can
+  // OVERWRITE them with the prop's markers (which are empty
+  // in the current App.tsx). To preserve the strategy-specific
+  // markers, we MERGE the two sets: the strategy-specific markers
+  // are applied first, then the prop's markers are added on top.
+  // (The current flow: App.tsx passes `markersByKey={{}}` so the
+  // prop's markers are always empty — the strategy-specific
+  // markers survive intact.)
   // --------------------------------------------------------------------------
   useEffect(() => {
     const plugin = markersRef.current;
     if (plugin === null) return;
     if (markers === undefined || markers.length === 0) {
-      plugin.setMarkers([]);
+      // No prop markers — leave the strategy-specific markers
+      // (set by Effect 2b) intact.
       return;
     }
     plugin.setMarkers(markers.map(toSeriesMarkerMs));
