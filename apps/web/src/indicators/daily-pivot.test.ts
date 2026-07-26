@@ -634,6 +634,57 @@ describe("renderDailyPivot", () => {
     }
   });
 
+  it("calls console.warn and only adds 2 series when 'r1' is missing (the valuesFor r1 FALSE branch)", () => {
+    // The valuesFor function's `r1` case has a `hasArrayKey(..., "r1")
+    // ? indicatorSeries.r1 : undefined` ternary. The FALSE branch (the
+    // `undefined` half) fires when the r1 key is absent.
+    const chart = makeMockChart();
+    const bars = makeBars(3);
+    const series: IndicatorSeries = {
+      pp: [100, 101, 102],
+      // no r1
+      s1: [99, 100, 101],
+    };
+    const ctx = makeContext(chart, bars, series);
+
+    const warnCapture = captureConsoleWarn();
+    try {
+      const out = renderDailyPivot(ctx);
+      expect(out.series).toHaveLength(2);
+      const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
+      expect(addSeriesCalls).toHaveLength(2);
+      expect(warnCapture.calls).toHaveLength(1);
+      expect(warnCapture.calls[0] ?? "").toContain("r1");
+    } finally {
+      warnCapture.restore();
+    }
+  });
+
+  it("calls console.warn and only adds 2 series when 's1' is missing (the valuesFor s1 FALSE branch)", () => {
+    // Same pattern as the r1 test — the valuesFor `s1` case's FALSE
+    // branch fires when the s1 key is absent.
+    const chart = makeMockChart();
+    const bars = makeBars(3);
+    const series: IndicatorSeries = {
+      pp: [100, 101, 102],
+      r1: [101, 102, 103],
+      // no s1
+    };
+    const ctx = makeContext(chart, bars, series);
+
+    const warnCapture = captureConsoleWarn();
+    try {
+      const out = renderDailyPivot(ctx);
+      expect(out.series).toHaveLength(2);
+      const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
+      expect(addSeriesCalls).toHaveLength(2);
+      expect(warnCapture.calls).toHaveLength(1);
+      expect(warnCapture.calls[0] ?? "").toContain("s1");
+    } finally {
+      warnCapture.restore();
+    }
+  });
+
   it("dispose() removes all 3 series from the chart", () => {
     const chart = makeMockChart();
     const bars = makeBars(3);

@@ -218,6 +218,39 @@ describe("computeDonchianFromBars (rolling window)", () => {
     expect(out.upper[2]).toBe(100);
   });
 
+  it("uses the FAST PATH when the leaving bar is not the current max/min (line 136-138 fast path)", () => {
+    // 4 bars, lookback 3. Initial window = bars[0..2] → max=200, min=50.
+    // At i=3, the leaving bar (bar 0) has high=100, low=10. It is NOT
+    // the current max (200) NOR the current min (50 — wait, bar 0's low
+    // is 10, the current min is 50 → bar 0's low 10 is less than 50,
+    // so bar 0 IS the min).
+    //
+    // To force the FAST PATH: the leaving bar's high must be < winHigh
+    // AND the leaving bar's low must be > winLow. AND the entering
+    // bar's high must be <= winHigh AND entering bar's low >= winLow.
+    //
+    // Set highs=[150, 100, 200, 150] and lows=[100, 50, 150, 100].
+    // Initial window [0..2] = [150, 100, 200] highs → max=200;
+    // [100, 50, 150] lows → min=50.
+    // At i=3, leaving=bar 0: high=150 (not the max 200), low=100 (not
+    // the min 50). Entering=bar 3: high=150 (not > 200), low=100 (not
+    // < 50). → FAST PATH fires.
+    const highs = [150, 100, 200, 150];
+    const lows = [100, 50, 150, 100];
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    const bars = makeCustomBars(4, (i) => highs[i] ?? 0, (i) => lows[i] ?? 0);
+    const out = computeDonchianFromBars(bars, 3);
+    // Index 2: initial window max=200, min=50.
+    expect(out.upper[2]).toBe(200);
+    expect(out.lower[2]).toBe(50);
+    // Index 3: leaving bar (bar 0: high=150, low=100) is not the max
+    // (200) and not the min (50). Entering bar (bar 3: high=150,
+    // low=100) does not exceed the max and does not undercut the min.
+    // → FAST PATH: winHigh stays 200, winLow stays 50.
+    expect(out.upper[3]).toBe(200);
+    expect(out.lower[3]).toBe(50);
+  });
+
   it("handles a long rolling window with non-monotonic data", () => {
     // 10 bars; high values: [5, 9, 2, 7, 1, 8, 3, 6, 0, 4], lookback 4
     const highs = [5, 9, 2, 7, 1, 8, 3, 6, 0, 4];
@@ -533,6 +566,47 @@ describe("computeFundingRateFromBars", () => {
       /lookback must be > 0/,
     );
   });
+
+  it("returns 0 for a bar where the previous close is non-positive (line 531 fallback)", () => {
+    // 9 bars with lookback 8. The 9th bar's prev (bar 0) has
+    // close = 0. The `prev.close <= 0` branch fires → funding[8] = 0
+    // (the fallback for non-positive close prices; log(0) is
+    // -Infinity which would propagate as NaN otherwise).
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 9; i += 1) {
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 100,
+        high: 101,
+        low: 99,
+        // Bar 0 has close = 0; the rest are positive.
+        close: i === 0 ? 0 : 100 + i,
+        volume: 1,
+      });
+    }
+    const out = computeFundingRateFromBars(bars, 8);
+    // Bar 8 (the first computable bar) uses bar 0 as the prev.
+    // prev.close = 0 → the fallback fires → funding[8] = 0.
+    expect(out.funding[8]).toBe(0);
+  });
+
+  it("returns 0 for a bar where the current close is non-positive (line 531 fallback)", () => {
+    // 9 bars, lookback 8. Bar 8 (the first computable bar) has
+    // close = 0. The `cur.close <= 0` branch fires → funding[8] = 0.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 9; i += 1) {
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 100,
+        high: 101,
+        low: 99,
+        close: i === 8 ? 0 : 100 + i,
+        volume: 1,
+      });
+    }
+    const out = computeFundingRateFromBars(bars, 8);
+    expect(out.funding[8]).toBe(0);
+  });
 });
 
 // ============================================================================
@@ -812,6 +886,48 @@ describe("computeRegimeFromBars", () => {
   it("returns an all-'ranging' array for bars.length < lookback (warmup)", () => {
     const regimes = computeRegimeFromBars(makeBars(5), 20);
     expect(regimes.every((r) => r === "ranging")).toBe(true);
+  });
+
+  it("classifies a bar with mean <= 0 as 'ranging' (the line 890 fallback)", () => {
+    // 30 bars, all with close = 0 (so the rolling mean is 0,
+    // triggering the `mean <= 0` branch → regime = "ranging").
+    // We can't just pass close=0 because the regime detection
+    // skips bars with non-positive mean; the fallback is
+    // `out[i] = "ranging"` and `continue`.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 0,
+        high: 0,
+        low: 0,
+        close: 0,
+        volume: 1,
+      });
+    }
+    const regimes = computeRegimeFromBars(bars, 20);
+    // Every bar (post-warmup) must be 'ranging' (the fallback).
+    const definedBars = regimes.slice(20);
+    expect(definedBars.every((r) => r === "ranging")).toBe(true);
+  });
+
+  it("classifies a bar with NEGATIVE mean as 'ranging' (the line 890 fallback)", () => {
+    // 30 bars with close = -1 (all negative). The rolling mean
+    // is -1, which is <= 0 → the fallback fires → 'ranging'.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: -1,
+        high: -1,
+        low: -1,
+        close: -1,
+        volume: 1,
+      });
+    }
+    const regimes = computeRegimeFromBars(bars, 20);
+    const definedBars = regimes.slice(20);
+    expect(definedBars.every((r) => r === "ranging")).toBe(true);
   });
 
   it("classifies a strongly trending bar series as 'trending'", () => {
