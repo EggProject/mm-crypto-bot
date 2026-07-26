@@ -30,15 +30,20 @@ describe("STRATEGY_INDICATOR_SETS", () => {
     expect(names).toContain("regime_detector");
   });
 
-  it("the ENABLED strategy (donchian_pivot_composition) has 2 line indicators + 1 marker indicator", () => {
+  it("the ENABLED strategy (donchian_pivot_composition) has 4 line indicators + 1 marker indicator (Phase 81: +Bollinger, +daily_pivot)", () => {
     const set = STRATEGY_INDICATOR_SETS["donchian_pivot_composition"];
     expect(set).toBeDefined();
-    expect(set?.lines.length).toBe(2);
+    // Phase 79 had 2 lines (donchian + pivot). Phase 81 added 2
+    // more (bollinger + daily_pivot) for a total of 4.
+    expect(set?.lines.length).toBe(4);
     expect(set?.markers.length).toBe(1);
-    // The two lines are the Donchian band + the pivot level.
+    // The four lines are: Donchian band + rolling pivot + Bollinger
+    // band + daily pivot.
     const lineNames = set?.lines.map((l) => l.name) ?? [];
     expect(lineNames).toContain("donchian");
     expect(lineNames).toContain("pivot");
+    expect(lineNames).toContain("bollinger");
+    expect(lineNames).toContain("daily_pivot");
     // The marker is the breakout signal.
     const markerNames = set?.markers.map((m) => m.name) ?? [];
     expect(markerNames).toContain("breakout_signals");
@@ -71,7 +76,7 @@ describe("getStrategyIndicatorSet", () => {
   it("returns the registered set for a known strategy", () => {
     const set = getStrategyIndicatorSet("donchian_pivot_composition");
     expect(set.strategy).toBe("donchian_pivot_composition");
-    expect(set.lines.length).toBe(2);
+    expect(set.lines.length).toBe(4);
     expect(set.markers.length).toBe(1);
   });
 
