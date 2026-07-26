@@ -16,9 +16,8 @@ import {
 import {
   buildStatusBannerText,
   computeControlBarAvailability,
-  extractBotStatus,
-  type BotStatus,
 } from "./lib/bot-status.js";
+import { useBotStatus } from "./lib/use-bot-status.js";
 import type { OHLCBar } from "./lib/ohlc-bridge.js";
 
 /**
@@ -72,26 +71,28 @@ import type { OHLCBar } from "./lib/ohlc-bridge.js";
 // the SPA shell; the API is a separate origin). CORS headers are
 // configured server-side.
 const STRATEGIES_URL = "http://127.0.0.1:7913/api/strategies" as const;
-// Phase 69: the bot's high-level status (state, startedAt, lastUpdate,
-// activeStrategyCount). Polled on mount and every 5s as a fallback
-// for the WS `state` message (which already carries the botStatus in
-// the `snapshot.botStatus` field — the polling ensures the dashboard
-// stays fresh even if the WS state message is missed).
-const STATUS_URL = "http://127.0.0.1:7913/api/status" as const;
-// Phase 69: the status poll interval. The WS `state` message is the
-// primary source of truth (every ~1s on the real bot); the HTTP poll
-// is a 1s fallback that bridges the gap between the App's WS and
-// the ControlBar's WS (each `useWebSocket()` instance has its own
-// connection, so a CONTROL message sent on the ControlBar's WS
-// doesn't reach the App's WS in the MSW worker's broadcast model).
-const STATUS_POLL_INTERVAL_MS = 1_000;
+// Phase 81: the bot's high-level status (`botStatus`) is now
+// derived from the existing WebSocket `state` / `snapshot` messages
+// via the `useBotStatus` hook (see `lib/use-bot-status.ts`). The
+// previous design polled `GET /api/status` every 1 second — the user
+// mandate: "a backendnek kene ertesiteni es nem a frontendnek
+// keregetni!". The WS push is now the primary source of truth; the
+// HTTP `/api/status` endpoint is only used as a one-shot bootstrap
+// fetch on mount + a 30s slow-poll fallback when the WS is
+// disconnected (the slow poll lives inside the hook, not here).
 
 // `FeedState` is exported from app-helpers.ts. The local binding
 // `feedState` is inferred from `mapFeedState(status)`'s return
 // type, so no explicit annotation is needed here.
 
 export function App(): React.JSX.Element {
-  const { status, snapshot, lastError, lastState, send } = useWebSocket();
+  const { status, snapshot, lastError, send } = useWebSocket();
+  // Phase 81: the bot's high-level status. The `useBotStatus` hook
+  // subscribes to the WS `state` / `snapshot` messages, fires a
+  // one-shot HTTP bootstrap on mount, and falls back to a 30s slow
+  // poll when the WS is disconnected. The 1s polling from Phase 69
+  // is GONE — the backend now pushes the data via the WS.
+  const botStatus = useBotStatus();
   // Phase 52F follow-up: pre-populate the strategy list with the
   // MSW default (1 strategy × 1 symbol × 2 timeframes) so the
   // `ChartGrid` renders the chrome (and its `.ep-feed` indicator)
@@ -117,15 +118,15 @@ export function App(): React.JSX.Element {
     ],
   );
   const [strategiesError, setStrategiesError] = useState<string | null>(null);
-  // Phase 69: the bot's high-level status. Initially `null` (the
-  // dashboard's first-paint default; the banner reads "Bot: stopped
-  // — no status yet" until the first poll or WS `state` message
-  // arrives). Polled on mount + every 5s as a fallback for the WS.
-  const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
-  // Phase 69: a clock value that re-renders the banner every second
-  // so the uptime / last-update labels stay fresh without polling
-  // the bot. `null` until the first poll resolves; updated by a
-  // 1-second `setInterval`.
+  // Phase 81: the bot's high-level status comes from `useBotStatus()`
+  // (the WS-driven hook). The previous Phase 69 design kept a
+  // local `botStatus` state + a 1s polling `useEffect`; both are
+  // removed because the backend now pushes the data via the WS.
+  //
+  // The clock below re-renders the banner every second so the
+  // uptime / last-update labels stay fresh without polling the
+  // bot. The `now` value is used in `buildStatusBannerText`'s
+  // `formatUptime` + `formatLastUpdate` calls.
   const [now, setNow] = useState<number>(Date.now());
 
   // -----------------------------------------------------------------
@@ -192,51 +193,12 @@ export function App(): React.JSX.Element {
   }, [status]);
 
   // -----------------------------------------------------------------
-  // Phase 69: Poll GET /api/status on WS connect, every 5s, and
-  // also re-poll on every WS `state` message (so the banner
-  // reflects the latest state immediately after a CONTROL click).
-  // The endpoint is cached server-side; the fetch is cheap.
-  //
-  // The `snapshot` dep is intentional — when the WS sends a new
-  // `state` message, the `lastState` reference changes, the effect
-  // re-runs, and we re-fetch /api/status to get the freshest data
-  // (the WS `state.snapshot.botStatus` is the same data, but the
-  // HTTP path is simpler and matches the bot's "single source of
-  // truth" contract).
-  // -----------------------------------------------------------------
-  useEffect(() => {
-    if (status !== "connected") return;
-    const controller = new AbortController();
-    let cancelled = false;
-    const fetchOnce = async (): Promise<void> => {
-      try {
-        const res = await fetch(STATUS_URL, { signal: controller.signal });
-        if (!res.ok) return;
-        const body: unknown = await res.json();
-        if (cancelled) return;
-        const parsed = extractBotStatus(body);
-        if (parsed !== null) {
-          setBotStatus(parsed);
-        }
-      } catch {
-        // AbortError / network blip — best-effort.
-      }
-    };
-    // Fire immediately, then every STATUS_POLL_INTERVAL_MS.
-    void fetchOnce();
-    const timer = setInterval(() => {
-      void fetchOnce();
-    }, STATUS_POLL_INTERVAL_MS);
-    return (): void => {
-      cancelled = true;
-      controller.abort();
-      clearInterval(timer);
-    };
-  }, [status, lastState]);
-
-  // Phase 69: a 1-second clock that re-renders the banner so the
+  // Phase 81: a 1-second clock that re-renders the banner so the
   // uptime + last-update labels stay fresh. The bot status changes
-  // are rare; the wall-clock ticks every second.
+  // are pushed by the backend via the WS (no polling); the
+  // wall-clock ticks every second to keep the "uptime Xs" text
+  // up-to-date.
+  // -----------------------------------------------------------------
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(Date.now());
@@ -245,43 +207,6 @@ export function App(): React.JSX.Element {
       clearInterval(timer);
     };
   }, []);
-
-  // Phase 69: read the botStatus from the WS `state` message
-  // (the message carries the full snapshot, which includes
-  // `snapshot.botStatus`). The HTTP poll above is the source of
-  // truth, but reading from the WS state message gives us
-  // instantaneous feedback on CONTROL clicks (the next HTTP
-  // poll might be 5s away).
-  useEffect(() => {
-    if (lastState === null) return;
-    // The WS `state` message's `snapshot.botStatus` is the source
-    // of truth (the state message wraps the full snapshot).
-    // The `extractBotStatus` helper reads `body.botStatus` so we
-    // pass the inner `snapshot` object (which is the actual
-    // `StateFeedSnapshot`).
-    const stateMessage = lastState as { snapshot?: unknown };
-    const innerSnapshot = stateMessage.snapshot;
-    if (innerSnapshot === undefined || innerSnapshot === null) return;
-    const parsed = extractBotStatus(innerSnapshot);
-    if (parsed !== null) {
-      setBotStatus(parsed);
-    }
-  }, [lastState]);
-
-  // Phase 69: also extract the botStatus from the WS SNAPSHOT
-  // message (the initial connect sends SNAPSHOT before the
-  // first state message). The snapshot message's structure
-  // matches the state message: `{ type: "snapshot", snapshot: ... }`.
-  useEffect(() => {
-    if (snapshot === null) return;
-    const snap = snapshot as { snapshot?: unknown };
-    const innerSnapshot = snap.snapshot;
-    if (innerSnapshot === undefined || innerSnapshot === null) return;
-    const parsed = extractBotStatus(innerSnapshot);
-    if (parsed !== null) {
-      setBotStatus(parsed);
-    }
-  }, [snapshot]);
 
   // -----------------------------------------------------------------
   // Build barsByKey from snapshot.ohlcBootstrap. Memoized so the

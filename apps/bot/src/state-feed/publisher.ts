@@ -1060,6 +1060,13 @@ export class LiveStatePublisher {
    * a `Bot` önállóan kezeli a saját position-nyitási logikáját, és
    * a pause NEM állítja meg a bot futását. A flag célja, hogy a
    * state-feed klienseken a `[PAUSED]` badge megjelenjen.
+   *
+   * Phase 81: a `paused` event mellett egy dedikált `state` event-et
+   * is kibocsátunk, hogy a feed-server egy WS `state` üzenetet
+   * küldjön a dashboardnak. A `state` event a frissített snapshot-ot
+   * hordozza (a `paused` flag az új értékre van állítva), és a
+   * dashboard `useBotStatus` hook-ja a `botStatus.state` mezőben
+   * azonnal látja a `running` / `paused` / `stopped` átmenetet.
    */
   public setPaused(paused: boolean): void {
     if (this.currentState.paused === paused) {
@@ -1068,6 +1075,11 @@ export class LiveStatePublisher {
     this.currentState = { ...this.currentState, paused };
     this.notifyListeners();
     this.emit({ type: "paused", paused });
+    // Phase 81: a `state` event a dashboard status banner azonnali
+    // frissítéséhez. A `paused` flag a `botStatus` származtatott
+    // mezőjét is érinti (a `state === "paused"`), így a WS `state`
+    // üzenet a banner szövegének azonnali átmenetét okozza.
+    this.emit({ type: "state", snapshot: this.currentState });
   }
 
   /**
@@ -1270,6 +1282,14 @@ export class LiveStatePublisher {
    * `refreshFromBot` — a `lastEngineState` (vagy a bot `getState()`)
    * alapján újraszámolja a state-feed snapshot-ot, és notify-olja
    * a klienseket.
+   *
+   * Phase 81: a snapshot mellett egy dedikált `state` event-et is
+   * kibocsátunk. A feed-server a `state` event-ből egy WS `state`
+   * üzenetet készít, amit a dashboard `useBotStatus` hook-ja
+   * fogad (a `snapshot` üzenet mellett). A kettős kibocsátás a
+   * backward-compat-ot is megőrzi: a Phase 46-80 kliensek
+   * (amelyek csak a `snapshot` üzenetet figyelik) továbbra is
+   * megkapják a frissítést.
    */
   private refreshFromBot(): void {
     const engine = this.lastEngineState;
@@ -1303,6 +1323,11 @@ export class LiveStatePublisher {
       this.currentState = candidate;
       this.notifyListeners();
       this.emit({ type: "snapshot", snapshot: this.currentState });
+      // Phase 81: a dedikált `state` event — a feed-server egy
+      // WS `state` üzenetté alakítja, amit a dashboard a
+      // status banner frissítésére használ. A `botStatus`
+      // mezőt a snapshot hordozza (a feed-server ezt olvassa).
+      this.emit({ type: "state", snapshot: this.currentState });
       return;
     }
 
@@ -1346,6 +1371,14 @@ export class LiveStatePublisher {
     this.currentState = candidate;
     this.notifyListeners();
     this.emit({ type: "snapshot", snapshot: this.currentState });
+    // Phase 81: a dedikált `state` event — a feed-server egy
+    // WS `state` üzenetté alakítja, amit a dashboard a
+    // status banner frissítésére használ (a `botStatus` mezőt
+    // a snapshot hordozza). A kettős kibocsátás a
+    // backward-compat-ot is megőrzi: a Phase 46-80 kliensek
+    // (amelyek csak a `snapshot` üzenetet figyelik) továbbra
+    // is megkapják a frissítést.
+    this.emit({ type: "state", snapshot: this.currentState });
   }
 
   /**

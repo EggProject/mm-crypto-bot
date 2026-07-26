@@ -1228,3 +1228,163 @@ describe("LiveStateProvider — periodic refresh (Phase 71)", () => {
     ).toBeNull();
   });
 });
+
+// ============================================================================
+// Phase 81 — `state` event emission from refreshFromBot
+// ============================================================================
+
+describe("LiveStateProvider — Phase 81: state event on every state change", () => {
+  /**
+   * Phase 81 mandate: the dashboard's status banner must update within
+   * 1-2 seconds of a CONTROL click. The previous design relied on a
+   * 1-second HTTP poll (`STATUS_POLL_INTERVAL_MS` in `App.tsx`) — the
+   * user mandate: "a backendnek kene ertesiteni es nem a frontendnek
+   * keregetni!". The fix has two parts:
+   *
+   *   1. The `LiveStatePublisher.refreshFromBot()` now emits a
+   *      `state` event IN ADDITION TO the `snapshot` event on every
+   *      state change. The feed-server turns the `state` event into
+   *      a WS `state` message (carrying the full snapshot including
+   *      `botStatus`); the dashboard's `useBotStatus` hook consumes
+   *      the `state` message and updates the banner.
+   *
+   *   2. The `markBotStarted()` / `markBotStopped()` / `setPaused()`
+   *      methods already call `refreshFromBot()`, so a CONTROL click
+   *      triggers the `state` event within 1 frame.
+   *
+   * The backward-compat is preserved: the `snapshot` event is STILL
+   * emitted, so Phase 46-80 clients that listen to `snapshot` only
+   * still see the state change.
+   *
+   * The tests below verify:
+   *   - `markBotStarted()` emits a `state` event (after the `snapshot` event).
+   *   - `markBotStopped()` emits a `state` event.
+   *   - `setPaused()` emits a `state` event.
+   *   - The `state` event carries the full snapshot (including
+   *     `botStatus`).
+   */
+
+  function createMockBot(): Bot {
+    return {
+      subscribe: () => () => undefined,
+      getState: () => null,
+      stop: async () => undefined,
+    } as unknown as Bot;
+  }
+
+  it("markBotStarted emits BOTH a 'snapshot' event and a 'state' event", async () => {
+    const provider = new LiveStatePublisher({
+      bot: createMockBot(),
+      periodicRefreshMs: 0,
+    });
+    await provider.start();
+    const events: string[] = [];
+    provider.addEventListener((e) => {
+      events.push(e.type);
+    });
+    provider.markBotStarted();
+    // A `snapshot` event-et ÉS a `state` event-et is kibocsátjuk.
+    // A sorrend: snapshot → state (a refreshFromBot végén).
+    expect(events).toContain("snapshot");
+    expect(events).toContain("state");
+    // Az index of `state` >= index of `snapshot` (a state a snapshot után jön).
+    expect(events.indexOf("state")).toBeGreaterThan(events.indexOf("snapshot"));
+    // A `state` event a `started` event UTÁN jön (a markBotStarted
+    // belső sorrendje: botRunning=true, refreshFromBot, emit started).
+    expect(events).toContain("started");
+    await provider.dispose();
+  });
+
+  it("markBotStopped emits BOTH a 'snapshot' event and a 'state' event", async () => {
+    const provider = new LiveStatePublisher({
+      bot: createMockBot(),
+      periodicRefreshMs: 0,
+    });
+    await provider.start();
+    provider.markBotStarted();
+    const events: string[] = [];
+    provider.addEventListener((e) => {
+      events.push(e.type);
+    });
+    provider.markBotStopped();
+    expect(events).toContain("snapshot");
+    expect(events).toContain("state");
+    expect(events).toContain("stopped");
+    await provider.dispose();
+  });
+
+  it("setPaused emits a 'state' event (Phase 81: dashboard banner needs immediate state update)", async () => {
+    // A `setPaused` nem a `refreshFromBot`-on át megy (a paused flag
+    // a UI-only flag, a bot engine nem notify-ol a paused változásról),
+    // de a Phase 81 dashboard hook-nak szüksége van a `state` event-re,
+    // hogy a banner azonnal átváltson `running` → `paused`-ra. A
+    // `snapshot` event-et a `setPaused` NEM bocsátja ki (az csak a
+    // periodic refresh + a `markBotStarted/Stopped` útvonalakon
+    // jelenik meg); a `state` event az, ami a feed-servert a WS
+    // `state` üzenet küldésére ösztönzi.
+    const provider = new LiveStatePublisher({
+      bot: createMockBot(),
+      periodicRefreshMs: 0,
+    });
+    await provider.start();
+    provider.markBotStarted();
+    const events: string[] = [];
+    provider.addEventListener((e) => {
+      events.push(e.type);
+    });
+    provider.setPaused(true);
+    // A `state` event + a `paused` event megjelenik.
+    expect(events).toContain("state");
+    expect(events).toContain("paused");
+    // A `state` event a `paused` event UTÁN jön (a setPaused belső
+    // sorrendje: currentState update → emit paused → emit state).
+    expect(events.indexOf("state")).toBeGreaterThan(events.indexOf("paused"));
+    await provider.dispose();
+  });
+
+  it("the 'state' event carries the full snapshot (including botStatus)", async () => {
+    const provider = new LiveStatePublisher({
+      bot: createMockBot(),
+      periodicRefreshMs: 0,
+    });
+    await provider.start();
+    let stateSnapshot: StateFeedSnapshot | null = null;
+    provider.addEventListener((e) => {
+      if (e.type === "state") {
+        stateSnapshot = e.snapshot;
+      }
+    });
+    provider.markBotStarted();
+    // A `state` event snapshot-ja a `provider.getSnapshot()` referenciája.
+    expect(stateSnapshot).toBe(provider.getSnapshot());
+    // A snapshot tartalmazza a `botStatus` mezőt.
+    expect(stateSnapshot?.botStatus.state).toBe("running");
+  });
+
+  it("a no-op state change (e.g. markBotStarted when already started) does NOT emit a 'state' event", async () => {
+    // A `stateEqualsIgnoringTimestamp` őrzi a felesleges event-emissiont —
+    // ha a `markBotStarted()` hívás nem változtatja a snapshot-ot
+    // (mert a `botRunning` már `true` volt), a `state` event NEM
+    // emisszálódik. Ez véd a flood ellen (amikor a periodic refresh
+    // másodpercenként hívja a `bot.getState()`-et, és a snapshot
+    // nem változott).
+    const provider = new LiveStatePublisher({
+      bot: createMockBot(),
+      periodicRefreshMs: 0,
+    });
+    await provider.start();
+    provider.markBotStarted();
+    // Az új listener-t az első markBotStarted UTÁN regisztráljuk,
+    // hogy csak a második (idempotens) hívás event-jeit lássuk.
+    const events: string[] = [];
+    provider.addEventListener((e) => {
+      events.push(e.type);
+    });
+    // A második markBotStarted() idempotens: nem változtatja a
+    // botRunning flag-et, nem hívja a refreshFromBot-ot, nem
+    // emittál semmit.
+    provider.markBotStarted();
+    expect(events).toEqual([]);
+    await provider.dispose();
+  });
+});

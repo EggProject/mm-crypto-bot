@@ -383,4 +383,131 @@ describe("ws-relay", () => {
     // Csak az érvényes kulcsok kerülnek újraküldésre.
     expect(stateFeed.sent.length).toBe(2);
   });
+
+  // ========================================================================
+  // Phase 81 — `state` message forwarding for status push
+  // ========================================================================
+
+  /**
+   * Phase 81 mandate: the dashboard's status banner must update
+   * within 1-2 seconds of a CONTROL click. The previous design
+   * polled `GET /api/status` every 1 second — the user mandate
+   * "a backendnek kene ertesiteni es nem a frontendnek keregetni!".
+   *
+   * The fix: the `LiveStatePublisher.refreshFromBot()` (and
+   * `setPaused()`) now emits a `state` event in addition to the
+   * `snapshot` event. The feed-server turns the `state` event into
+   * a WS `state` message (the relay forwards it to all connected
+   * browsers).
+   *
+   * The relay's `relayFromStateFeed()` already forwards ALL
+   * non-PING messages to the browser (line 213-235), so the `state`
+   * event is forwarded automatically. This test verifies that
+   * the forwarding works end-to-end.
+   */
+  it("forwards 'state' messages from the state-feed to the browser (Phase 81: dashboard status push)", () => {
+    const stateFeed = makeFakeStateFeed();
+    const relay = createWsRelay({
+      stateFeed,
+      onSnapshot: () => undefined,
+    });
+    const { ws, callOpen } = makeFakeWs();
+    callOpen(relay);
+    // A `state` message a `LiveStatePublisher`-ből jön — a
+    // snapshot.botStatus mezőt hordozza, amit a dashboard
+    // `useBotStatus` hook-ja olvas.
+    relay.relayFromStateFeed({
+      type: "state",
+      ts: 1,
+      snapshot: {
+        status: { mode: "with-bot", engineAvailable: true, engineError: null, connected: true, lastUpdate: 0 },
+        running: true,
+        killSwitch: "armed",
+        positions: [],
+        statistics: {
+          totalPnlUsdt: 0,
+          winRate: 0,
+          maxDrawdownPct: 0,
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0,
+          sharpeRatio: 0,
+        },
+        history: [],
+        tickers: [],
+        tickerEvents: [],
+        paused: false,
+        killSwitchThresholdPct: -10,
+        botStatus: {
+          state: "running",
+          startedAt: 1_700_000_000_000,
+          lastUpdate: 1_700_000_060_000,
+          activeStrategyCount: 3,
+          positions: [],
+        },
+      },
+    });
+    // A `state` üzenet megérkezett a böngészőhöz.
+    expect(ws.sent.length).toBe(1);
+    const sent = JSON.parse(ws.sent[0] as string) as {
+      type: string;
+      ts: number;
+      snapshot: { botStatus: { state: string; startedAt: number; activeStrategyCount: number } };
+    };
+    expect(sent.type).toBe("state");
+    expect(sent.ts).toBe(1);
+    expect(sent.snapshot.botStatus.state).toBe("running");
+    expect(sent.snapshot.botStatus.startedAt).toBe(1_700_000_000_000);
+    expect(sent.snapshot.botStatus.activeStrategyCount).toBe(3);
+  });
+
+  it("forwards 'state' messages to ALL connected browsers (broadcast)", () => {
+    const stateFeed = makeFakeStateFeed();
+    const relay = createWsRelay({
+      stateFeed,
+      onSnapshot: () => undefined,
+    });
+    const { ws: ws1, callOpen: open1 } = makeFakeWs();
+    const { ws: ws2, callOpen: open2 } = makeFakeWs();
+    open1(relay);
+    open2(relay);
+    relay.relayFromStateFeed({
+      type: "state",
+      ts: 1,
+      snapshot: {
+        status: { mode: "with-bot", engineAvailable: true, engineError: null, connected: true, lastUpdate: 0 },
+        running: true,
+        killSwitch: "armed",
+        positions: [],
+        statistics: {
+          totalPnlUsdt: 0,
+          winRate: 0,
+          maxDrawdownPct: 0,
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0,
+          sharpeRatio: 0,
+        },
+        history: [],
+        tickers: [],
+        tickerEvents: [],
+        paused: false,
+        killSwitchThresholdPct: -10,
+        botStatus: {
+          state: "running",
+          startedAt: 0,
+          lastUpdate: 0,
+          activeStrategyCount: 0,
+          positions: [],
+        },
+      },
+    });
+    // Mindkét böngésző megkapja.
+    expect(ws1.sent.length).toBe(1);
+    expect(ws2.sent.length).toBe(1);
+    const sent1 = JSON.parse(ws1.sent[0] as string) as { type: string };
+    const sent2 = JSON.parse(ws2.sent[0] as string) as { type: string };
+    expect(sent1.type).toBe("state");
+    expect(sent2.type).toBe("state");
+  });
 });
