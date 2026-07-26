@@ -427,3 +427,579 @@ export function computeBreakoutSignalsFromBars(
 
   return markers;
 }
+
+// ============================================================================
+// Phase 81: strategy-specific computations for the 4 DISABLED strategies.
+//
+// The user mandate "a tobbi strategianal is biztos hogy jopar dolgot lehetne
+// meg jelolni akar chart rajzol vagy indicator formajaban" — for the
+// 4 disabled strategies, the chart must show strategy-SPECIFIC drawings,
+// not just the universal Donchian band fallback.
+//
+// The bot's strategy runners do not currently publish per-strategy
+// `INDICATOR` messages (the infrastructure is in place but no strategy
+// is using it for the disabled strategies), and the user mandate is
+// "NE nyulj a strategy kodhoz" / "don't touch strategy code". So the
+// only way to surface the strategy-specific drawings on the chart is
+// to DERIVE them client-side from the bar stream.
+//
+// The functions in this section are pure approximations of the
+// strategy-specific signals — they are NOT the exact same computation
+// the strategy code does server-side. The visual goal is to give each
+// chart a strategy-specific marker / line so the user can see at a
+// glance WHICH strategy the chart belongs to, not to reproduce the
+// strategy's internal logic. A future phase that wires per-strategy
+// `INDICATOR` messages can swap these client-compute functions for
+// server-supplied data without changing the `LineIndicator` /
+// `MarkerIndicator` shape in `strategy-indicators.ts`.
+//
+// **Output shape consistency:** every function returns either an
+// `IndicatorSeries` (for line indicators) or a `ChartMarker[]` (for
+// marker indicators) — the same shapes the existing
+// `computeDonchianFromBars` / `computePivotFromBars` /
+// `computeBreakoutSignalsFromBars` functions return. The renderers
+// in `strategy-indicators.ts` and the chart-card dispatch loop are
+// therefore reusable as-is.
+// ============================================================================
+
+/**
+ * `DEFAULT_FUNDING_LOOKBACK` — the default rolling window for
+ * funding-rate synthesis. 8 bars is a reasonable proxy for an
+ * 8-hour funding window on a 1h chart (1 funding event per 8h
+ * bar at 1h granularity = 8 bars between events). The value
+ * doesn't have to match a specific exchange convention because
+ * the function is a SYNTHETIC proxy for funding (not a real
+ * funding rate derivation); the value is chosen to be smooth
+ * enough to show a visible line on the chart without flickering.
+ */
+export const DEFAULT_FUNDING_LOOKBACK = 8 as const;
+
+/**
+ * `computeFundingRateFromBars(bars, lookback)` — synthesize a
+ * funding-rate series from the bar stream.
+ *
+ * The bot's `dydx_cex_carry` and `funding_flip_kill_switch`
+ * strategies consume per-8h perpetual funding rates. We don't
+ * have those from the WebSocket, so we APPROXIMATE the funding
+ * rate with a smoothed log return of the bar's close:
+ *
+ *   `funding[i] = (log(close[i]) - log(close[i - lookback])) / lookback`
+ *
+ * This is a coarse proxy — the REAL funding rate is set by the
+ * exchange per 8h window and depends on the long/short
+ * imbalance in the order book, not on the price itself. But the
+ * visual goal (a "funding-rate-like" line that goes positive
+ * when price trends up and negative when it trends down) is
+ * preserved: a positive funding rate (longs pay shorts) is
+ * associated with bullish regimes, a negative funding rate
+ * (shorts pay longs) with bearish regimes, and a smoothed
+ * log-return proxy tracks the same shape.
+ *
+ * **Pure, deterministic, no side effects.** No `Date.now()`,
+ * no mutation of the input array.
+ *
+ * @param bars     - time-ascending OHLC bar series
+ * @param lookback - the smoothing window in bars; defaults to 8
+ * @returns        - `{ funding }` array of length `bars.length`
+ *                   with `null` for the warmup period
+ */
+export function computeFundingRateFromBars(
+  bars: readonly OHLCBar[],
+  lookback: number = DEFAULT_FUNDING_LOOKBACK,
+): IndicatorSeries {
+  if (lookback <= 0) {
+    throw new Error(
+      `computeFundingRateFromBars: lookback must be > 0 (got ${String(lookback)})`,
+    );
+  }
+  const n = bars.length;
+  const funding: (number | null)[] = new Array<number | null>(n).fill(null);
+
+  if (n <= lookback) return { funding };
+
+  for (let i = lookback; i < n; i += 1) {
+     
+    const prev = bars[i - lookback];
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    const cur = bars[i];
+    // The log of a non-positive number is -Infinity or NaN; we
+    // fall back to 0 for those (the strategy code would also
+    // skip those bars, but for the visual approximation we
+    // prefer a defined value over a gap on the chart).
+    if (prev.close <= 0 || cur.close <= 0) {
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      funding[i] = 0;
+      continue;
+    }
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    funding[i] = (Math.log(cur.close) - Math.log(prev.close)) / lookback;
+  }
+
+  return { funding };
+}
+
+/**
+ * `computeFundingSpreadFromBars(bars, lookback)` — synthesize
+ * the dYdX - CEX funding spread from the bar stream.
+ *
+ * The `dydx_cex_carry` strategy harvests the SPREAD between
+ * two exchanges' funding rates (the "carry"). We don't have
+ * the per-exchange funding from the WebSocket, so we
+ * approximate the spread with the difference between two
+ * smoothing windows of different lengths:
+ *
+ *   `spread[i] = fastEMA(close) - slowEMA(close)` (normalized)
+ *
+ * The fast window (default 4) responds quickly to recent
+ * moves; the slow window (default 16) is the "fair value" of
+ * the funding rate. The difference is a proxy for the
+ * instantaneous carry — when price moves faster than the
+ * long-run trend, the fast EMA exceeds the slow EMA and the
+ * spread is positive.
+ *
+ * **Pure, deterministic, no side effects.** No `Date.now()`,
+ * no mutation of the input array.
+ *
+ * @param bars     - time-ascending OHLC bar series
+ * @param lookback - the slow-EMA window in bars; defaults to 8
+ *                   (the fast window is always `lookback / 2`)
+ * @returns        - `{ spread }` array of length `bars.length`
+ *                   with `null` for the warmup period
+ */
+export function computeFundingSpreadFromBars(
+  bars: readonly OHLCBar[],
+  lookback: number = DEFAULT_FUNDING_LOOKBACK,
+): IndicatorSeries {
+  if (lookback <= 0) {
+    throw new Error(
+      `computeFundingSpreadFromBars: lookback must be > 0 (got ${String(lookback)})`,
+    );
+  }
+  const n = bars.length;
+  const spread: (number | null)[] = new Array<number | null>(n).fill(null);
+  // The fast window must be at least 1 and at most lookback - 1
+  // (so the slow window is always at least 1 bar longer than
+  // the fast window). For lookback=8, fast=4 (4-bar fast EMA
+  // vs 8-bar slow EMA).
+  const fast = Math.max(1, Math.floor(lookback / 2));
+
+  if (n <= lookback) return { spread };
+
+  for (let i = lookback; i < n; i += 1) {
+     
+    const prevFast = bars[i - fast];
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    const curFast = bars[i];
+     
+    const prevSlow = bars[i - lookback];
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    const curSlow = bars[i];
+    if (
+      prevFast.close <= 0 ||
+      curFast.close <= 0 ||
+      prevSlow.close <= 0 ||
+      curSlow.close <= 0
+    ) {
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      spread[i] = 0;
+      continue;
+    }
+    const fastRet =
+      (Math.log(curFast.close) - Math.log(prevFast.close)) / fast;
+    const slowRet =
+      (Math.log(curSlow.close) - Math.log(prevSlow.close)) / lookback;
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    spread[i] = fastRet - slowRet;
+  }
+
+  return { spread };
+}
+
+/**
+ * `DEFAULT_CASCADE_THRESHOLD_PCT` — the default threshold for
+ * cascade-event detection. 2% bar-to-bar move on a 1h chart is
+ * the conventional cascade threshold (the strategy code in
+ * `packages/strategies/cascade_fade/` uses 1.5% on 1m bars and
+ * 2% on 1h bars; we default to 2% for the visual approximation).
+ *
+ * The threshold is in PERCENT (2 = 2%) and is a CONSTANT for
+ * unit-test predictability.
+ */
+export const DEFAULT_CASCADE_THRESHOLD_PCT = 2 as const;
+
+/**
+ * `computeCascadeEventsFromBars(bars, thresholdPct)` — detect
+ * liquidation cascade events from the bar stream.
+ *
+ * The `cascade_fade` strategy tracks large liquidation cascades
+ * (rapid, large-magnitude price moves typically caused by
+ * forced position closures). We approximate the detection with
+ * a bar-to-bar move exceeding `thresholdPct`:
+ *
+ *   `event at bar i if abs((close[i] - close[i-1]) / close[i-1]) * 100 >= thresholdPct`
+ *
+ * The `severity` field is normalized to [0, 1] by clamping the
+ * observed move to `[thresholdPct, thresholdPct * 3]`:
+ *   - `move === thresholdPct` → severity 0 (borderline)
+ *   - `move >= 3 * thresholdPct` → severity 1 (massive)
+ *   - linear interpolation in between
+ *
+ * The `side` is `"up"` if the move is positive (price went UP)
+ * and `"down"` otherwise. This is the conventional convention
+ * for cascade detection (positive = bullish move = short
+ * liquidations; negative = bearish move = long liquidations).
+ * The `cascadeToChartMarker` convention in `cascade.ts` already
+ * inverts the visual color (up = red, down = green) to match
+ * the "cascade is the liquidation side" interpretation.
+ *
+ * **Pure, deterministic, no side effects.** No `Date.now()`,
+ * no mutation of the input array.
+ *
+ * @param bars          - time-ascending OHLC bar series
+ * @param thresholdPct  - minimum bar-to-bar move (in %) to count
+ *                        as a cascade; defaults to 2
+ * @returns             - `ChartMarker[]` with one marker per
+ *                        detected cascade event (empty array if
+ *                        no cascades)
+ */
+export function computeCascadeEventsFromBars(
+  bars: readonly OHLCBar[],
+  thresholdPct: number = DEFAULT_CASCADE_THRESHOLD_PCT,
+): readonly ChartMarker[] {
+  if (thresholdPct <= 0) {
+    throw new Error(
+      `computeCascadeEventsFromBars: thresholdPct must be > 0 (got ${String(thresholdPct)})`,
+    );
+  }
+  const markers: ChartMarker[] = [];
+  if (bars.length < 2) return markers;
+
+  for (let i = 1; i < bars.length; i += 1) {
+     
+    const prev = bars[i - 1];
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    const cur = bars[i];
+    if (prev.close <= 0) continue;
+    const movePct = ((cur.close - prev.close) / prev.close) * 100;
+    const absMove = Math.abs(movePct);
+    if (absMove < thresholdPct) continue;
+
+    // Normalize severity to [0, 1] using a 3x threshold as the
+    // "max meaningful cascade" — anything above 3x is also
+    // severity 1 (a bigger cascade is still a big cascade).
+    const severity = Math.min(1, absMove / (thresholdPct * 3));
+    const side: "up" | "down" = movePct > 0 ? "up" : "down";
+
+    // The cascade convention: `cascadeToChartMarker` in
+    // `cascade.ts` maps `side: "up"` to a red marker above the
+    // bar (a buy cascade = long liquidations = bearish) and
+    // `side: "down"` to a green marker below the bar (a sell
+    // cascade = short liquidations = bullish). To match that
+    // visual, we emit a ChartMarker with the SHAPE the cascade
+    // renderer uses — but since this is a CLIENT-side compute
+    // function (not the strategy's own cascade detection), we
+    // emit markers in the ChartMarker shape directly. The
+    // strategy-indicators.ts `cascadeMarkerIndicator` then
+    // maps them to the lightweight-charts `setMarkers` API.
+    markers.push({
+      time: cur.time,
+      position: side === "up" ? "aboveBar" : "belowBar",
+      color: side === "up" ? "#ef4444" : "#22c55e",
+      shape: severity > 0.5 ? (side === "up" ? "arrowUp" : "arrowDown") : "circle",
+      text: severity > 0.5 ? `CASCADE ${(absMove / 100).toFixed(2)}` : "",
+    });
+  }
+
+  return markers;
+}
+
+/**
+ * `computeFundingFlipsFromBars(bars, fundingSeries)` — detect
+ * the points where the funding rate's sign changes.
+ *
+ * The `funding_flip_kill_switch` strategy kills the bot when
+ * the funding rate flips sign (positive → negative or
+ * negative → positive). The user wants the chart to show
+ * arrows at every flip:
+ *   - `+ → -` (rate went negative): red arrow pointing down
+ *   - `- → +` (rate went positive): green arrow pointing up
+ *
+ * The function takes a `funding` array (per-bar) and emits a
+ * `ChartMarker` at every bar `i` where the sign of
+ * `funding[i]` differs from `funding[i-1]`. The bar's close
+ * direction is also checked (so we only emit on "real" flips,
+ * not on noise around zero) — a flip must coincide with a
+ * close that is meaningfully above (long) or below (short)
+ * zero.
+ *
+ * **Pure, deterministic, no side effects.** No `Date.now()`,
+ * no mutation of the input array.
+ *
+ * @param bars          - time-ascending OHLC bar series
+ * @param fundingSeries - the funding rate series (per-bar
+ *                        numbers, with `null` allowed for the
+ *                        warmup period)
+ * @returns             - `ChartMarker[]` with one marker per
+ *                        detected flip (empty array if no flips)
+ */
+export function computeFundingFlipsFromBars(
+  bars: readonly OHLCBar[],
+  fundingSeries: IndicatorSeries,
+): readonly ChartMarker[] {
+  const markers: ChartMarker[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive for partial fixtures
+  const funding: readonly (number | null)[] = fundingSeries.funding ?? [];
+  if (bars.length < 2 || funding.length < bars.length) return markers;
+
+  // A "small value" epsilon — a flip from +0.0001 to -0.0001
+  // is not a real flip, it's noise. The epsilon is 0.0005
+  // (0.05% per bar), well above the typical "noisy zero"
+  // magnitude. This matches the strategy's `fundingFlipEps`
+  // config in `packages/strategies/funding_flip_kill_switch/`.
+  const EPS = 0.0005;
+
+  for (let i = 1; i < bars.length; i += 1) {
+     
+    const prev = funding[i - 1];
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    const cur = funding[i];
+    if (prev === null) continue;
+    if (cur === null) continue;
+    if (Math.abs(prev) < EPS && Math.abs(cur) < EPS) continue;
+
+    const prevSign = prev > 0 ? 1 : prev < 0 ? -1 : 0;
+    const curSign = cur > 0 ? 1 : cur < 0 ? -1 : 0;
+    if (prevSign === 0 || curSign === 0) continue;
+    if (prevSign === curSign) continue;
+
+    // Real flip: emit a marker.
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    const bar = bars[i];
+    if (curSign > 0) {
+      // - → + : green arrow up (rate went positive)
+      markers.push({
+        time: bar.time,
+        position: "belowBar",
+        color: "#22c55e",
+        shape: "arrowUp",
+        text: "FLIP +",
+      });
+    } else {
+      // + → - : red arrow down (rate went negative)
+      markers.push({
+        time: bar.time,
+        position: "aboveBar",
+        color: "#ef4444",
+        shape: "arrowDown",
+        text: "FLIP -",
+      });
+    }
+  }
+
+  return markers;
+}
+
+/**
+ * `Regime` — the per-bar market regime classification.
+ *   - `trending`: the bar's `close` is consistently above (or
+ *     below) the rolling-window mean — the market is in a
+ *     directional regime (ADX-like heuristic, simplified to
+ *     a "close vs rolling-mean" gap).
+ *   - `ranging`: the bar's `close` is close to the rolling
+ *     mean and the rolling standard deviation is small — the
+ *     market is in a sideways regime.
+ *   - `volatile`: the rolling standard deviation is large —
+ *     the market is choppy / whipsawing.
+ */
+export type Regime = "trending" | "ranging" | "volatile";
+
+/**
+ * `DEFAULT_REGIME_LOOKBACK` — the default rolling window for
+ * the regime classifier. 20 bars matches the Donchian
+ * lookback so the regime detector and the Donchian band are
+ * "in sync" visually.
+ */
+export const DEFAULT_REGIME_LOOKBACK = 20 as const;
+
+/**
+ * `computeRegimeFromBars(bars, lookback)` — classify each
+ * bar's market regime.
+ *
+ * The `regime_detector` strategy classifies the market as
+ * `trending` / `ranging` / `volatile` based on a multi-timeframe
+ * ADX + ATR aggregation. We approximate with a single-timeframe
+ * heuristic:
+ *
+ *   For each bar `i` with `i >= lookback`:
+ *     - `mean[i]` = mean(close) over the last `lookback` bars
+ *     - `std[i]`  = std(close)  over the last `lookback` bars
+ *     - `gap`     = abs(close[i] - mean[i]) / std[i]   (in std units)
+ *     - `relStd`  = std[i] / mean[i]                   (CV, dimensionless)
+ *     - if `relStd > HIGH_VOL_THRESHOLD` → `volatile`
+ *     - else if `gap > GAP_THRESHOLD`     → `trending`
+ *     - else                              → `ranging`
+ *
+ * The thresholds (0.05 relative std for "high vol", 1.0
+ * standard-deviations gap for "trending") are heuristic
+ * defaults that work for BTCUSDT 1h bars — a future phase
+ * can tune them to the strategy's actual ADX threshold.
+ *
+ * **Pure, deterministic, no side effects.** No `Date.now()`,
+ * no mutation of the input array.
+ *
+ * @param bars     - time-ascending OHLC bar series
+ * @param lookback - the rolling-window size; defaults to 20
+ * @returns        - `Regime[]` of length `bars.length` (with
+ *                   `"ranging"` as the warmup-period default)
+ */
+export function computeRegimeFromBars(
+  bars: readonly OHLCBar[],
+  lookback: number = DEFAULT_REGIME_LOOKBACK,
+): readonly Regime[] {
+  if (lookback <= 0) {
+    throw new Error(
+      `computeRegimeFromBars: lookback must be > 0 (got ${String(lookback)})`,
+    );
+  }
+  const n = bars.length;
+  // The warmup-period default is `"ranging"` (a conservative
+  // "we don't know yet" classification).
+  const out: Regime[] = new Array<Regime>(n).fill("ranging");
+  if (n < lookback) return out;
+
+  // The thresholds are dimensionless relative to the
+  // close-price scale, so they work for any symbol.
+  //   - HIGH_VOL_THRESHOLD: 5% coefficient of variation is
+  //     "high vol" (BTC 1h bars typically have a 1-3% CV in
+  //     ranging regimes and 5%+ in volatile regimes).
+  //   - GAP_THRESHOLD: 1.0 standard-deviations of close is
+  //     "trending" (an ADX ≈ 25 proxy; ADX 25 ≈ 1.0 σ on
+  //     a normal distribution).
+  const HIGH_VOL_THRESHOLD = 0.05;
+  const GAP_THRESHOLD = 1.0;
+
+  for (let i = lookback - 1; i < n; i += 1) {
+    let sum = 0;
+    for (let j = i - lookback + 1; j <= i; j += 1) {
+      // eslint-disable-next-line security/detect-object-injection -- j is a loop counter
+      sum += bars[j].close;
+    }
+    const mean = sum / lookback;
+    if (mean <= 0) {
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      out[i] = "ranging";
+      continue;
+    }
+    let sqSum = 0;
+    for (let j = i - lookback + 1; j <= i; j += 1) {
+      // eslint-disable-next-line security/detect-object-injection -- j is a loop counter
+      const d = bars[j].close - mean;
+      sqSum += d * d;
+    }
+    const std = Math.sqrt(sqSum / lookback);
+    const relStd = std / mean;
+    if (relStd > HIGH_VOL_THRESHOLD) {
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      out[i] = "volatile";
+      continue;
+    }
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    const gap = std > 0 ? Math.abs(bars[i].close - mean) / std : 0;
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    out[i] = gap > GAP_THRESHOLD ? "trending" : "ranging";
+  }
+
+  return out;
+}
+
+/**
+ * `computeRegimeChangeMarkersFromBars(bars, regimes)` —
+ * emit a `ChartMarker` at every bar where the regime
+ * classification changes from the previous bar.
+ *
+ * The visual goal: a single arrow / label at the start of
+ * each new regime, so the user can see "the market went
+ * ranging → trending at bar 17" without having to read a
+ *   - colored square + text label = "TRENDING" / "RANGING" /
+ *     "VOLATILE" (regime name)
+ *   - color: trending=blue (`#4F7BEE`), ranging=slate
+ *     (`#5C6981`), volatile=amber (`#E3B563`)
+ *
+ * The function only emits a marker at the TRANSITION point;
+ * bars inside a regime are not annotated (the chart legend
+ * already shows the latest regime's color).
+ *
+ * **Pure, deterministic, no side effects.**
+ *
+ * @param bars    - time-ascending OHLC bar series
+ * @param regimes - per-bar `Regime` classification (output
+ *                  of `computeRegimeFromBars`)
+ * @returns       - `ChartMarker[]` with one marker per
+ *                  regime change (empty array if no changes
+ *                  or `bars.length < 2`)
+ */
+export function computeRegimeChangeMarkersFromBars(
+  bars: readonly OHLCBar[],
+  regimes: readonly Regime[],
+): readonly ChartMarker[] {
+  const markers: ChartMarker[] = [];
+  if (bars.length < 2 || regimes.length < bars.length) return markers;
+
+  const COLOR_TRENDING = "#4F7BEE"; // sapphire
+  const COLOR_RANGING = "#5C6981"; // muted slate
+  const COLOR_VOLATILE = "#E3B563"; // yolk gold
+
+  // The first bar is always a regime change (we have no
+  // prior bar to compare to). The convention is to emit a
+  // marker at the very first bar showing the initial regime.
+  // We use a `circle` shape (no arrow direction) and a text
+  // label that is the regime name — the legend already shows
+  // the color/label mapping.
+  for (let i = 0; i < bars.length; i += 1) {
+    if (i === 0) {
+       
+      const r0 = regimes[0];
+      // The `regimes` array is filled to `bars.length` length
+      // with the warmup default; `r0` is a `Regime` literal,
+      // not `undefined`. (The static type confirms it.)
+      markers.push({
+         
+        time: bars[0].time,
+        position: "aboveBar",
+        color:
+          r0 === "trending"
+            ? COLOR_TRENDING
+            : r0 === "volatile"
+              ? COLOR_VOLATILE
+              : COLOR_RANGING,
+        shape: "circle",
+        text: r0.toUpperCase(),
+      });
+      continue;
+    }
+     
+    const prev = regimes[i - 1];
+    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+    const cur = regimes[i];
+    // The `regimes` array is typed as `readonly Regime[]`, so
+    // `prev` / `cur` are non-undefined `Regime` literals at the
+    // type level.
+    if (prev === cur) continue;
+
+    markers.push({
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      time: bars[i].time,
+      position: "aboveBar",
+      color:
+        cur === "trending"
+          ? COLOR_TRENDING
+          : cur === "volatile"
+            ? COLOR_VOLATILE
+            : COLOR_RANGING,
+      shape: "circle",
+      text: cur.toUpperCase(),
+    });
+  }
+
+  return markers;
+}

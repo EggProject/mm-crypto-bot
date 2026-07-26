@@ -42,8 +42,14 @@
 import type { OHLCBar } from "../lib/ohlc-bridge.js";
 import {
   computeBreakoutSignalsFromBars,
+  computeCascadeEventsFromBars,
   computeDonchianFromBars,
+  computeFundingFlipsFromBars,
+  computeFundingRateFromBars,
+  computeFundingSpreadFromBars,
   computePivotFromBars,
+  computeRegimeChangeMarkersFromBars,
+  computeRegimeFromBars,
 } from "./client-compute.js";
 import { renderDonchian } from "./donchian.js";
 import {
@@ -337,6 +343,288 @@ const breakoutMarkerIndicator: MarkerIndicator = {
 };
 
 // ============================================================================
+// Phase 81: strategy-specific indicators for the 4 DISABLED strategies
+// ============================================================================
+//
+// The user mandate "a tobbi strategianal is biztos hogy jopar dolgot
+// lehetne meg jelolni akar chart rajzol vagy indicator formajaban"
+// (Phase 81) — every strategy's chart must show its SPECIFIC drawings.
+//
+// For the 4 disabled strategies (dydx_cex_carry, cascade_fade,
+// funding_flip_kill_switch, regime_detector), Phase 78 + 79 used the
+// universal Donchian band as a fallback. Phase 81 replaces that
+// fallback with strategy-specific indicators that derive from the
+// bar stream (the user mandate is to NOT touch strategy code, so
+// server-side per-strategy `INDICATOR` messages are out of scope).
+//
+// The new indicators are CLIENT-SIDE approximations of the strategy's
+// internal logic. They are NOT bit-exact equivalents — the visual
+// goal is to give each chart a recognizable, strategy-specific
+// marker / line so the user can see at a glance which strategy the
+// chart belongs to. A future phase that wires per-strategy
+// `INDICATOR` messages can swap these for server-supplied data
+// without changing the registry shape.
+//
+// **Reuse pattern:** every new `LineIndicator` and `MarkerIndicator`
+// below follows the same `(compute, render)` contract as the
+// existing `donchianLineIndicator` / `breakoutMarkerIndicator`. The
+// renderers in this file are thin wrappers that add a line series
+// to the chart (for line indicators) or call `setMarkers` on the
+// candle series' markers plugin (for marker indicators). No
+// additional rendering infrastructure is needed — the chart-card
+// dispatch loop in `ChartCard.tsx` already iterates both shapes
+// (see Effect 2b in `ChartCard.tsx:564-604`).
+
+/**
+ * `fundingRateLineIndicator` — a single-line indicator that
+ * renders the synthesized funding rate as a sapphire blue
+ * line on the chart. Used by `dydx_cex_carry` and
+ * `funding_flip_kill_switch`.
+ *
+ * The renderer mirrors `pivotLineIndicator`: it adds a single
+ * `LineSeries` with the `pp`-key value of the indicator series.
+ * The color (`#4F7BEE`, sapphire) matches the dYdX convention
+ * in `funding.ts` — visually consistent with the funding
+ * renderer's dydx-line color.
+ */
+function makeSingleLineIndicator(
+  name: string,
+  compute: (bars: readonly OHLCBar[]) => IndicatorSeries,
+  seriesKey: string,
+  color: string,
+  lineWidth: 1 | 2 | 3 | 4 = 1,
+  lineStyle: 0 | 1 | 2 | 3 | 4 = 0,
+): LineIndicator {
+  return {
+    name,
+    compute,
+    render: (chart, bars, series, strategy, timeframe) => {
+      // Defensive: use Object.prototype.hasOwnProperty.call so the
+      // security linter's dynamic-key warning is satisfied AND a
+      // missing key returns `undefined` (which the `?? []` then
+      // converts to an empty array). The `seriesKey` is from a
+      // closed call site (always "funding" / "spread" / "pp")
+      // so the dynamic-key access is safe.
+      const rec = series as Readonly<Record<string, unknown>>;
+      const values: readonly (number | null)[] =
+         
+        Object.prototype.hasOwnProperty.call(rec, seriesKey)
+          ? // eslint-disable-next-line security/detect-object-injection -- seriesKey is a known string from a closed call site
+            ((rec[seriesKey] ?? []) as readonly (number | null)[])
+          : [];
+      const lineData: { time: number; value: number }[] = [];
+      for (let i = 0; i < bars.length; i += 1) {
+        // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+        const v = values[i];
+        // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+        const bar = bars[i];
+        if (v === null) continue;
+        lineData.push({ time: Math.floor(bar.time / 1000), value: v });
+      }
+      if (lineData.length === 0) {
+        return {
+          name: `${name}-${timeframe}-${strategy}`,
+          series: [],
+          dispose: (): void => {
+            // no-op
+          },
+        };
+      }
+      const lineSeries = chart.addSeries(LineSeries, {
+        color,
+        lineWidth,
+        lineStyle,
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+      // The setData call needs UTCTimestamp values; the array is
+      // already pre-converted (ms → s) in the loop above.
+      lineSeries.setData(
+        lineData as unknown as { time: UTCTimestamp; value: number }[],
+      );
+      return {
+        name: `${name}-${timeframe}-${strategy}`,
+        series: [lineSeries],
+        dispose: (): void => {
+          chart.removeSeries(lineSeries);
+        },
+      };
+    },
+  };
+}
+
+/**
+ * `fundingRateLineIndicator` — the per-bar funding rate,
+ * computed via `computeFundingRateFromBars` (smoothed log
+ * return). Used by `dydx_cex_carry` and
+ * `funding_flip_kill_switch` — the funding rate is the
+ * primary signal for both strategies.
+ *
+ * The `name` is `"funding_rate"` so the `prior` map is
+ * key-stable; the marker indicators (funding_paid,
+ * funding_flips) read it via `prior["funding_rate"]`.
+ */
+const fundingRateLineIndicator: LineIndicator = makeSingleLineIndicator(
+  "funding_rate",
+  (bars) => computeFundingRateFromBars(bars),
+  "funding",
+  "#4F7BEE", // sapphire — matches the dydx-line convention
+  1,
+  0, // solid
+);
+
+/**
+ * `fundingSpreadLineIndicator` — the dYdX - CEX funding
+ * spread, computed via `computeFundingSpreadFromBars`
+ * (fast-EMA - slow-EMA of log returns). Used by
+ * `dydx_cex_carry` — the spread is the carry the strategy
+ * harvests.
+ */
+const fundingSpreadLineIndicator: LineIndicator = makeSingleLineIndicator(
+  "funding_spread",
+  (bars) => computeFundingSpreadFromBars(bars),
+  "spread",
+  "#E3B563", // yolk gold — matches the cex-line convention
+  1,
+  0,
+);
+
+/**
+ * `makeSimpleMarkerIndicator` — a factory for marker
+ * indicators that derive `ChartMarker[]` from the bar
+ * stream (and optionally the `prior` line-indicator map).
+ *
+ * The `apply` is the same as `breakoutMarkerIndicator`'s:
+ * call `setMarkers` with the markers converted to the
+ * lightweight-charts v5 shape, and return a dispose that
+ * clears them.
+ */
+function makeSimpleMarkerIndicator(
+  name: string,
+  compute: (
+    bars: readonly OHLCBar[],
+    prior: Readonly<Record<string, IndicatorSeries>>,
+  ) => readonly ChartMarker[],
+): MarkerIndicator {
+  return {
+    name,
+    compute,
+    apply: (markersPlugin, markers) => {
+      markersPlugin.setMarkers(markers.map(toSeriesMarkerMs));
+      return (): void => {
+        markersPlugin.setMarkers([]);
+      };
+    },
+  };
+}
+
+/**
+ * `fundingPaidMarkerIndicator` — small markers on the
+ * chart every 8 bars (the conventional funding-payment
+ * cadence on a 1h chart). The marker is green when the
+ * synthesized funding rate is positive (the position is
+ * receiving the carry), red when negative (the position
+ * is paying the carry). A `circle` shape with no text
+ * (the markers are dense — labels would clutter the
+ * chart).
+ *
+ * The computation reads the `funding_rate` prior line
+ * indicator; if it's missing, the function falls back to
+ * computing it on the fly.
+ */
+const fundingPaidMarkerIndicator: MarkerIndicator = makeSimpleMarkerIndicator(
+  "funding_paid",
+  (bars, prior) => {
+    // Defensive: read the `funding_rate` prior via a typed
+    // bracket access. The `prior` map is keyed by line-indicator
+    // name (e.g. "funding_rate"); we look it up by name and fall
+    // back to computing on the fly.
+    const priorRec = prior as Readonly<Record<string, IndicatorSeries | undefined>>;
+    // The bracket access is required because the index
+    // signature is `string`, not a known key — the linter
+    // prefers dot access for known keys, but the key
+    // "funding_rate" is a dynamic map lookup. The disable
+    // covers the dot-notation preference.
+    // eslint-disable-next-line @typescript-eslint/dot-notation -- "funding_rate" is a dynamic key from the prior map
+    const fromPrior = priorRec["funding_rate"];
+    const funding: IndicatorSeries = fromPrior ?? computeFundingRateFromBars(bars);
+    const fundingRec = funding as Readonly<Record<string, unknown>>;
+    // eslint-disable-next-line @typescript-eslint/dot-notation -- "funding" is a dynamic key on IndicatorSeries
+    const fundingArrRaw: unknown = fundingRec["funding"];
+    const fundingArr: readonly (number | null)[] = Array.isArray(fundingArrRaw)
+      ? (fundingArrRaw as readonly (number | null)[])
+      : [];
+    const out: ChartMarker[] = [];
+    // The funding-payment cadence is conventionally 8 bars on
+    // a 1h chart (every 8h). We honor that convention here.
+    // A future phase can vary the cadence per the chart's
+    // timeframe (1h → 8 bars, 4h → 2 bars, 1d → 1 bar).
+    const cadence = 8;
+    for (let i = cadence; i < bars.length; i += 1) {
+      if (i % cadence !== 0) continue;
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      const v = fundingArr[i];
+      if (v === null) continue;
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      const bar = bars[i];
+      out.push({
+        time: bar.time,
+        position: v > 0 ? "belowBar" : "aboveBar",
+        color: v > 0 ? "#22c55e" : "#ef4444",
+        shape: "circle",
+        text: "",
+      });
+    }
+    return out;
+  },
+);
+
+/**
+ * `cascadeMarkerIndicator` — markers on the chart at every
+ * detected cascade event (large bar-to-bar move). The
+ * computation reads the bar stream directly and uses
+ * `computeCascadeEventsFromBars` (the 2% bar-to-bar
+ * threshold; see `DEFAULT_CASCADE_THRESHOLD_PCT`).
+ *
+ * The marker shape follows the cascade convention (red
+ * above / green below) — see `cascade.ts` for the rationale.
+ */
+const cascadeMarkerIndicator: MarkerIndicator = makeSimpleMarkerIndicator(
+  "cascade_events",
+  (bars) => computeCascadeEventsFromBars(bars),
+);
+
+/**
+ * `fundingFlipsMarkerIndicator` — arrows at every bar
+ * where the funding rate's sign changes. The computation
+ * reads the `funding_rate` prior line indicator (or falls
+ * back to computing it on the fly).
+ */
+const fundingFlipsMarkerIndicator: MarkerIndicator = makeSimpleMarkerIndicator(
+  "funding_flips",
+  (bars, prior) => {
+    // eslint-disable-next-line @typescript-eslint/dot-notation -- "funding_rate" is a known line-indicator name
+    const funding = prior["funding_rate"] ?? computeFundingRateFromBars(bars);
+    return computeFundingFlipsFromBars(bars, funding);
+  },
+);
+
+/**
+ * `regimeChangeMarkerIndicator` — markers at every bar
+ * where the regime classification changes (trending ↔
+ * ranging ↔ volatile). The computation reads the bar
+ * stream and uses `computeRegimeFromBars` (rolling
+ * 20-bar mean + std classifier; see `DEFAULT_REGIME_LOOKBACK`).
+ */
+const regimeChangeMarkerIndicator: MarkerIndicator = makeSimpleMarkerIndicator(
+  "regime_changes",
+  (bars) => {
+    const regimes = computeRegimeFromBars(bars);
+    return computeRegimeChangeMarkersFromBars(bars, regimes);
+  },
+);
+
+// ============================================================================
 // Per-strategy indicator sets
 // ============================================================================
 
@@ -345,23 +633,23 @@ const breakoutMarkerIndicator: MarkerIndicator = {
  *
  * The 5 strategy IDs are the 5 strategies in the bot's config
  * (see `run-bot/config/paper-backtest-verified.toml`):
- *   - `donchian_pivot_composition` (enabled) → 3 line/marker indicators
- *   - `dydx_cex_carry`             (disabled) → just the Donchian band
- *   - `cascade_fade`               (disabled) → just the Donchian band
- *   - `funding_flip_kill_switch`   (disabled) → just the Donchian band
- *   - `regime_detector`            (disabled) → just the Donchian band
+ *   - `donchian_pivot_composition` (enabled)  → Donchian + pivot + breakout signals
+ *   - `dydx_cex_carry`             (disabled) → Donchian + funding rate + funding spread + funding paid markers
+ *   - `cascade_fade`               (disabled) → Donchian + cascade event markers
+ *   - `funding_flip_kill_switch`   (disabled) → Donchian + funding rate line + funding flip markers
+ *   - `regime_detector`            (disabled) → Donchian + regime change markers
  *
- * For the disabled strategies, the user mandate is to keep them
- * visible on the chart with the "(disabled)" chrome suffix (Phase
- * 76). The chart's indicator set for those is the universal
- * Donchian band (Phase 78) — the strategy-specific renderers
- * would need external data (perpetual funding rates, liquidation
- * cascades, multi-TF regime classifications) that the client
- * doesn't have access to without additional server-side work
- * (out of scope for Phase 79).
+ * Phase 81: each disabled strategy now has a STRATEGY-SPECIFIC
+ * indicator set in addition to the universal Donchian band. The
+ * strategy-specific data is DERIVED CLIENT-SIDE from the bar
+ * stream (the bot's strategy runners do not currently publish
+ * per-strategy `INDICATOR` messages for the disabled strategies,
+ * and the user mandate is to NOT touch strategy code).
  *
- * The user can always re-define the indicator set for a disabled
- * strategy in a future phase by adding a new entry here.
+ * The visual goal is to give each chart a recognizable,
+ * strategy-specific marker / line so the user can see at a
+ * glance which strategy the chart belongs to — not to
+ * reproduce the strategy's internal logic bit-exact.
  */
 export const STRATEGY_INDICATOR_SETS: Readonly<
   Record<string, StrategyIndicatorSet>
@@ -392,42 +680,65 @@ export const STRATEGY_INDICATOR_SETS: Readonly<
     markers: [breakoutMarkerIndicator],
   },
 
-  // ---- 2-5. The DISABLED strategies ----
-  // For each of the 4 disabled strategies, we render the universal
-  // Donchian band (the Phase 78 baseline) so the chart isn't
-  // empty. The strategy-specific indicator sets would need
-  // external data the client doesn't have (perpetual funding,
-  // liquidation cascades, multi-TF regime classifications).
-  // The strategy-specific dispatch is wired up (the set is
-  // registered), so a future phase can drop in a richer
-  // computation by adding new entries to `STRATEGY_INDICATOR_SETS`.
+  // ---- 2. dydx_cex_carry (disabled) — funding-rate carry strategy ----
+  // The strategy harvests the dYdX - CEX funding spread. Phase 81
+  // shows:
+  //   - The synthesized funding rate (sapphire line)
+  //   - The synthesized funding spread (gold line) — the carry
+  //   - Small funding-paid markers every 8 bars (green=received,
+  //     red=paid) on the candle series
   dydx_cex_carry: {
     strategy: "dydx_cex_carry",
     description:
-      "Donchian band baseline (strategy-specific funding-rate carry indicators require server-side funding data, not yet wired)",
-    lines: [donchianLineIndicator],
-    markers: [],
+      "Donchian band + synthesized funding rate (sapphire) + funding spread (gold) + funding-paid markers (green=received, red=paid) every 8 bars",
+    lines: [
+      donchianLineIndicator,
+      fundingRateLineIndicator,
+      fundingSpreadLineIndicator,
+    ],
+    markers: [fundingPaidMarkerIndicator],
   },
+
+  // ---- 3. cascade_fade (disabled) — liquidation cascade strategy ----
+  // The strategy fades large liquidation cascades. Phase 81 shows:
+  //   - The cascade event markers (red above for "up" cascades,
+  //     green below for "down" cascades) at every bar with a
+  //     >2% bar-to-bar move.
   cascade_fade: {
     strategy: "cascade_fade",
     description:
-      "Donchian band baseline (strategy-specific cascade markers require server-side liquidation data, not yet wired)",
+      "Donchian band + cascade-event markers (red above for up-cascades / green below for down-cascades) at every bar with >2% bar-to-bar move",
     lines: [donchianLineIndicator],
-    markers: [],
+    markers: [cascadeMarkerIndicator],
   },
+
+  // ---- 4. funding_flip_kill_switch (disabled) — funding-flip strategy ----
+  // The strategy kills the bot when the funding rate flips sign.
+  // Phase 81 shows:
+  //   - The synthesized funding rate (sapphire line) — same as
+  //     `dydx_cex_carry` for visual consistency
+  //   - Funding flip arrows (green up for -→+, red down for +→-)
+  //     at every sign-change point
   funding_flip_kill_switch: {
     strategy: "funding_flip_kill_switch",
     description:
-      "Donchian band baseline (strategy-specific funding-flip signals require server-side funding data, not yet wired)",
-    lines: [donchianLineIndicator],
-    markers: [],
+      "Donchian band + funding rate line (sapphire) + funding-flip arrows (green up for -→+, red down for +→-) at every sign-change point",
+    lines: [donchianLineIndicator, fundingRateLineIndicator],
+    markers: [fundingFlipsMarkerIndicator],
   },
+
+  // ---- 5. regime_detector (disabled) — market regime classifier ----
+  // The strategy classifies the market as trending / ranging /
+  // volatile based on multi-TF ADX + ATR. Phase 81 approximates
+  // with a single-TF rolling mean + std classifier and shows:
+  //   - Regime change markers (color-coded by new regime) at every
+  //     bar where the classification changes
   regime_detector: {
     strategy: "regime_detector",
     description:
-      "Donchian band baseline (strategy-specific regime markers require multi-TF aggregation, not yet wired)",
+      "Donchian band + regime-change markers (sapphire=trending / slate=ranging / yolk=volatile) at every bar where the classification changes",
     lines: [donchianLineIndicator],
-    markers: [],
+    markers: [regimeChangeMarkerIndicator],
   },
 };
 

@@ -18,8 +18,14 @@ import { describe, expect, it } from "bun:test";
 import {
   DEFAULT_DONCHIAN_LOOKBACK,
   computeBreakoutSignalsFromBars,
+  computeCascadeEventsFromBars,
   computeDonchianFromBars,
+  computeFundingFlipsFromBars,
+  computeFundingRateFromBars,
+  computeFundingSpreadFromBars,
   computePivotFromBars,
+  computeRegimeChangeMarkersFromBars,
+  computeRegimeFromBars,
 } from "./client-compute.js";
 import type { OHLCBar } from "../lib/ohlc-bridge.js";
 
@@ -468,5 +474,490 @@ describe("computeBreakoutSignalsFromBars", () => {
     // hasn't been computed).
     const bars = makeBars(30);
     expect(computeBreakoutSignalsFromBars(bars, {})).toEqual([]);
+  });
+});
+
+// ============================================================================
+// Phase 81: computeFundingRateFromBars
+// ============================================================================
+
+describe("computeFundingRateFromBars", () => {
+  it("returns an all-null series for empty bars", () => {
+    const out = computeFundingRateFromBars([]);
+    expect(out.funding).toEqual([]);
+  });
+
+  it("returns an all-null series for bars.length <= lookback (warmup)", () => {
+    const bars = makeBars(5);
+    const out = computeFundingRateFromBars(bars, 8);
+    expect(out.funding.every((v) => v === null)).toBe(true);
+  });
+
+  it("returns a positive funding rate when close prices are rising", () => {
+    // 30 bars with close rising from 100 to 130. The log
+    // return over the 8-bar window should be positive.
+    const out = computeFundingRateFromBars(makeBars(30), 8);
+    // Bar 8 is the first computable bar. Its funding rate
+    // is log(108.5) - log(100.5) ≈ 0.077, divided by 8 ≈
+    // 0.0096. We don't check the exact value (floating
+    // point), just the sign.
+    const v = out.funding[8];
+    expect(v).not.toBeNull();
+    expect((v as number | null) ?? 0).toBeGreaterThan(0);
+  });
+
+  it("returns a negative funding rate when close prices are falling", () => {
+    // 30 bars with close prices DECREASING from 100 to 70.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 100 - i,
+        high: 101 - i,
+        low: 99 - i,
+        close: 100.5 - i,
+        volume: 1,
+      });
+    }
+    const out = computeFundingRateFromBars(bars, 8);
+    const v = out.funding[8];
+    expect(v).not.toBeNull();
+    expect((v as number | null) ?? 0).toBeLessThan(0);
+  });
+
+  it("throws on lookback <= 0 (defensive)", () => {
+    expect(() => computeFundingRateFromBars(makeBars(5), 0)).toThrow(
+      /lookback must be > 0/,
+    );
+    expect(() => computeFundingRateFromBars(makeBars(5), -1)).toThrow(
+      /lookback must be > 0/,
+    );
+  });
+});
+
+// ============================================================================
+// Phase 81: computeFundingSpreadFromBars
+// ============================================================================
+
+describe("computeFundingSpreadFromBars", () => {
+  it("returns an all-null series for empty bars", () => {
+    const out = computeFundingSpreadFromBars([]);
+    expect(out.spread).toEqual([]);
+  });
+
+  it("returns an all-null series for bars.length <= lookback (warmup)", () => {
+    const bars = makeBars(5);
+    const out = computeFundingSpreadFromBars(bars, 8);
+    expect(out.spread.every((v) => v === null)).toBe(true);
+  });
+
+  it("returns a defined spread for bars with a clear trend", () => {
+    const out = computeFundingSpreadFromBars(makeBars(30), 8);
+    // Bar 8 is the first computable bar. The fast window
+    // (4 bars) responds faster to the trend than the slow
+    // window (8 bars), so the spread is positive.
+    const v = out.spread[8];
+    expect(v).not.toBeNull();
+    expect(typeof v).toBe("number");
+  });
+
+  it("returns 0 when close prices are non-positive (defensive)", () => {
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 0,
+        high: 0,
+        low: 0,
+        close: 0,
+        volume: 1,
+      });
+    }
+    const out = computeFundingSpreadFromBars(bars, 8);
+    // The fallback value is 0 (not null) for non-positive
+    // prices — the renderer shows a gap on the chart for
+    // null values, but 0 keeps the line continuous.
+    const v = out.spread[8];
+    expect(v).toBe(0);
+  });
+
+  it("throws on lookback <= 0 (defensive)", () => {
+    expect(() => computeFundingSpreadFromBars(makeBars(5), 0)).toThrow(
+      /lookback must be > 0/,
+    );
+  });
+});
+
+// ============================================================================
+// Phase 81: computeCascadeEventsFromBars
+// ============================================================================
+
+describe("computeCascadeEventsFromBars", () => {
+  it("returns an empty array for fewer than 2 bars", () => {
+    expect(computeCascadeEventsFromBars([])).toEqual([]);
+    const oneBar: OHLCBar[] = [makeBars(1)[0] as OHLCBar];
+    expect(computeCascadeEventsFromBars(oneBar)).toEqual([]);
+  });
+
+  it("returns an empty array for bars with no large moves", () => {
+    // 30 bars with close prices rising smoothly by 0.5 per
+    // bar — about 0.5% per bar, well below the 2% threshold.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      const close = 100 + i * 0.5;
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: close,
+        high: close + 0.1,
+        low: close - 0.1,
+        close,
+        volume: 1,
+      });
+    }
+    expect(computeCascadeEventsFromBars(bars)).toEqual([]);
+  });
+
+  it("detects a +3% bar-to-bar move as an 'up' cascade with severity ~0.5", () => {
+    // bar 0: close = 100
+    // bar 1: close = 103 (+3% = 1.5x threshold, severity = 0.5)
+    const bars: OHLCBar[] = [
+      {
+        time: 1_700_000_000_000,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+        volume: 1,
+      },
+      {
+        time: 1_700_000_000_000 + 60_000,
+        open: 103,
+        high: 103,
+        low: 103,
+        close: 103,
+        volume: 1,
+      },
+    ];
+    const events = computeCascadeEventsFromBars(bars);
+    expect(events).toHaveLength(1);
+    const event = events[0] as { position: string; color: string };
+    // 'up' cascade → aboveBar + red
+    expect(event.position).toBe("aboveBar");
+    expect(event.color).toBe("#ef4444");
+  });
+
+  it("detects a -3% bar-to-bar move as a 'down' cascade with green marker", () => {
+    // bar 0: close = 100
+    // bar 1: close = 97 (-3% = 1.5x threshold)
+    const bars: OHLCBar[] = [
+      {
+        time: 1_700_000_000_000,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+        volume: 1,
+      },
+      {
+        time: 1_700_000_000_000 + 60_000,
+        open: 97,
+        high: 97,
+        low: 97,
+        close: 97,
+        volume: 1,
+      },
+    ];
+    const events = computeCascadeEventsFromBars(bars);
+    expect(events).toHaveLength(1);
+    const event = events[0] as { position: string; color: string };
+    // 'down' cascade → belowBar + green
+    expect(event.position).toBe("belowBar");
+    expect(event.color).toBe("#22c55e");
+  });
+
+  it("uses arrowUp/arrowDown for severity > 0.5 and circle for <= 0.5", () => {
+    // bar 0: close = 100
+    // bar 1: close = 102.5 (+2.5%, severity ≈ 0.42 → circle)
+    // bar 2: close = 110 (+7.3%, severity → 1.0 → arrowUp)
+    const bars: OHLCBar[] = [
+      {
+        time: 1_700_000_000_000,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+        volume: 1,
+      },
+      {
+        time: 1_700_000_000_000 + 60_000,
+        open: 102.5,
+        high: 102.5,
+        low: 102.5,
+        close: 102.5,
+        volume: 1,
+      },
+      {
+        time: 1_700_000_000_000 + 120_000,
+        open: 110,
+        high: 110,
+        low: 110,
+        close: 110,
+        volume: 1,
+      },
+    ];
+    const events = computeCascadeEventsFromBars(bars);
+    expect(events).toHaveLength(2);
+    expect((events[0] as { shape: string }).shape).toBe("circle");
+    expect((events[1] as { shape: string }).shape).toBe("arrowUp");
+  });
+
+  it("throws on thresholdPct <= 0 (defensive)", () => {
+    expect(() => computeCascadeEventsFromBars(makeBars(5), 0)).toThrow(
+      /thresholdPct must be > 0/,
+    );
+  });
+});
+
+// ============================================================================
+// Phase 81: computeFundingFlipsFromBars
+// ============================================================================
+
+describe("computeFundingFlipsFromBars", () => {
+  it("returns an empty array for fewer than 2 bars", () => {
+    const funding = computeFundingRateFromBars(makeBars(10));
+    expect(computeFundingFlipsFromBars([], funding)).toEqual([]);
+  });
+
+  it("returns an empty array when funding has no sign change", () => {
+    // 30 bars with monotonically rising prices → all-positive
+    // funding, no flips.
+    const bars = makeBars(30);
+    const funding = computeFundingRateFromBars(bars);
+    expect(computeFundingFlipsFromBars(bars, funding)).toEqual([]);
+  });
+
+  it("detects a + → - flip and emits a red arrowDown", () => {
+    // Synthesize bars with a clear price pattern: rising
+    // for the first 15 bars, then sharply falling for the
+    // next 15 bars. The funding rate should flip from
+    // positive to negative.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      const close = i < 15 ? 100 + i * 2 : 130 - (i - 15) * 4;
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: close,
+        high: close + 0.1,
+        low: close - 0.1,
+        close,
+        volume: 1,
+      });
+    }
+    const funding = computeFundingRateFromBars(bars);
+    const markers = computeFundingFlipsFromBars(bars, funding);
+    // The exact flip bar depends on the lookback window; we
+    // just check that at least one flip is detected.
+    expect(markers.length).toBeGreaterThan(0);
+    // The first detected flip (when the rate goes from + to -)
+    // should be a red arrowDown above the bar.
+    const flip = markers.find(
+      (m) => m.color === "#ef4444" && m.shape === "arrowDown",
+    );
+    expect(flip).toBeDefined();
+  });
+
+  it("detects a - → + flip and emits a green arrowUp", () => {
+    // Falling for the first 15 bars, then rising for the
+    // next 15 bars. The funding rate should flip from
+    // negative to positive.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      const close = i < 15 ? 200 - i * 2 : 170 + (i - 15) * 4;
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: close,
+        high: close + 0.1,
+        low: close - 0.1,
+        close,
+        volume: 1,
+      });
+    }
+    const funding = computeFundingRateFromBars(bars);
+    const markers = computeFundingFlipsFromBars(bars, funding);
+    expect(markers.length).toBeGreaterThan(0);
+    const flip = markers.find(
+      (m) => m.color === "#22c55e" && m.shape === "arrowUp",
+    );
+    expect(flip).toBeDefined();
+  });
+
+  it("returns an empty array when the funding series is too short", () => {
+    const bars = makeBars(10);
+    // Empty funding series — defensive fallback.
+    const markers = computeFundingFlipsFromBars(bars, {});
+    expect(markers).toEqual([]);
+  });
+});
+
+// ============================================================================
+// Phase 81: computeRegimeFromBars
+// ============================================================================
+
+describe("computeRegimeFromBars", () => {
+  it("returns an all-'ranging' array for empty bars", () => {
+    const regimes = computeRegimeFromBars([]);
+    expect(regimes).toEqual([]);
+  });
+
+  it("returns an all-'ranging' array for bars.length < lookback (warmup)", () => {
+    const regimes = computeRegimeFromBars(makeBars(5), 20);
+    expect(regimes.every((r) => r === "ranging")).toBe(true);
+  });
+
+  it("classifies a strongly trending bar series as 'trending'", () => {
+    // 30 bars with close prices rising slowly. The rolling
+    // std is small relative to the mean (low coefficient of
+    // variation), and the bar's close is far from the
+    // rolling mean — the regime should be 'trending'.
+    // Note: the step size must be small enough that the
+    // coefficient of variation (std/mean) stays below 5%
+    // (the HIGH_VOL_THRESHOLD) — a step of 1 per bar at
+    // close=100 gives relStd ≈ 1% which is well below 5%.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      const close = 100 + i;
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: close,
+        high: close + 0.1,
+        low: close - 0.1,
+        close,
+        volume: 1,
+      });
+    }
+    const regimes = computeRegimeFromBars(bars, 20);
+    // The classification is bar-by-bar, but the warmup
+    // period (first 19 bars) is 'ranging'. After that, the
+    // regime should be 'trending' for at least some bars.
+    const trendingBars = regimes.filter((r) => r === "trending");
+    expect(trendingBars.length).toBeGreaterThan(0);
+  });
+
+  it("classifies a high-volatility bar series as 'volatile'", () => {
+    // 30 bars with close prices bouncing between 50 and 150
+    // — a high coefficient of variation, which is the
+    // 'volatile' trigger.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      const close = i % 2 === 0 ? 50 : 150;
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: close,
+        high: close + 0.1,
+        low: close - 0.1,
+        close,
+        volume: 1,
+      });
+    }
+    const regimes = computeRegimeFromBars(bars, 20);
+    const volatileBars = regimes.filter((r) => r === "volatile");
+    expect(volatileBars.length).toBeGreaterThan(0);
+  });
+
+  it("classifies a stable bar series as 'ranging'", () => {
+    // 30 bars with close prices stable at 100 (low std,
+    // low gap from the mean). The regime should be
+    // 'ranging'.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      const close = 100;
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 100,
+        high: 100,
+        low: 100,
+        close,
+        volume: 1,
+      });
+    }
+    const regimes = computeRegimeFromBars(bars, 20);
+    // All bars after the warmup should be 'ranging' (no
+    // significant gap from the mean).
+    const postWarmup = regimes.slice(20);
+    expect(postWarmup.every((r) => r === "ranging")).toBe(true);
+  });
+
+  it("throws on lookback <= 0 (defensive)", () => {
+    expect(() => computeRegimeFromBars(makeBars(5), 0)).toThrow(
+      /lookback must be > 0/,
+    );
+  });
+});
+
+// ============================================================================
+// Phase 81: computeRegimeChangeMarkersFromBars
+// ============================================================================
+
+describe("computeRegimeChangeMarkersFromBars", () => {
+  it("emits an initial-regime marker at the first bar", () => {
+    // The first bar always emits a marker showing the
+    // initial regime. This is the convention (we have no
+    // prior bar to compare to).
+    // Use FLAT bars (all close=100) so the post-warmup
+    // regime is the same as the warmup default ('ranging'),
+    // and we only get the initial marker.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: 100,
+        high: 100,
+        low: 100,
+        close: 100,
+        volume: 1,
+      });
+    }
+    const regimes = computeRegimeFromBars(bars, 5);
+    const markers = computeRegimeChangeMarkersFromBars(bars, regimes);
+    // The first bar's regime is the warmup default
+    // ('ranging'), and the post-warmup regime (for flat
+    // bars) is also 'ranging' — so we should only have
+    // the initial marker.
+    expect(markers).toHaveLength(1);
+    expect(markers[0]?.text).toBe("RANGING");
+  });
+
+  it("emits a marker at every bar where the regime changes", () => {
+    // Build a bar series that starts trending and then
+    // turns volatile.
+    const bars: OHLCBar[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      // First 15: trending (rising prices)
+      // Next 15: volatile (bouncing prices)
+      const close =
+        i < 15 ? 100 + i * 5 : (i % 2 === 0 ? 50 : 150);
+      bars.push({
+        time: 1_700_000_000_000 + i * 60_000,
+        open: close,
+        high: close + 0.1,
+        low: close - 0.1,
+        close,
+        volume: 1,
+      });
+    }
+    const regimes = computeRegimeFromBars(bars, 20);
+    const markers = computeRegimeChangeMarkersFromBars(bars, regimes);
+    // The first marker is the initial regime. The second
+    // marker (if any) is the regime change.
+    expect(markers.length).toBeGreaterThanOrEqual(1);
+    // The text labels are uppercase regime names.
+    const labels = markers.map((m) => m.text);
+    expect(
+      labels.every((t) => t === "TRENDING" || t === "RANGING" || t === "VOLATILE"),
+    ).toBe(true);
+  });
+
+  it("returns an empty array for fewer than 2 bars", () => {
+    expect(computeRegimeChangeMarkersFromBars([], [])).toEqual([]);
   });
 });
