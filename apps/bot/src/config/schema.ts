@@ -96,20 +96,42 @@ export const BotConfigSchema = z.object({
   // 1) Bot section — indítási mód, log-szint, state-fájl, auto_start.
   //
   // A `bot.auto_start` flag a Phase 36 Track A1 user-mandate:
-  //   `mm-bot start` ALAPÉRTELMEZETTEN NEM indítja el a botot — a
-  //   TUI `stopped` állapotban nyílik, a usernek a `[s]` billentyűvel
-  //   kell indítania. A `bot.auto_start = true` (vagy a `--auto-start`
-  //   CLI flag) visszakapcsolja a régi viselkedést (a bot indul a TUI
-  //   indulásával egyidőben). Lásd `docs/audits/phase36-tui-ux-revamp-scope.md`
+  //   Ha `false`, a `mm-bot start` NEM indítja el a botot — a
+  //   dashboard `stopped` állapotban nyílik, a user a "Start" gombbal
+  //   indítja. A `true` (vagy a `--auto-start` CLI flag) visszakapcsolja
+  //   az auto-indulást (a bot a `mm-bot start` kiadásával egyidőben
+  //   indul). Lásd `docs/audits/phase36-tui-ux-revamp-scope.md`
   //   §1 user issue #1, valamint `phase36-research-findings.md` §5 (Angle E).
+  //
+  // PHASE 81 — DEFAULT FLIP `false` → `true` (BACKWARD COMPAT)
+  // ----------------------------------------------------------------------
+  //   A Phase 36-ban a default `false` volt (TUI-ban a user a `[s]`
+  //   billentyűvel indított). A Phase 44-gyel a TUI törölve lett
+  //   (`PURE HEADLESS start`), és a bot MINDIG indult a `mm-bot start`
+  //   parancsra — függetlenül a config-tól. A Phase 81 user mandate
+  //   ("a paper-backtest-verified.toml-mal indított bot ne induljon
+  //   automatikusan") a konfiguráció-vezérelt viselkedést hozza vissza,
+  //   DE a backward compatibility kedvéért a default `true` marad —
+  //   azaz a meglévő config-ok (amelyek nem definiálják a flag-et)
+  //   TOVÁBBRA IS auto-startolnak. A `paper-backtest-verified.toml`
+  //   explicit `auto_start = false`-t állít be; a `live-eu.toml` explicit
+  //   `auto_start = true`-t (ami egyenértékű a hiányzó mezővel).
   // --------------------------------------------------------------------------
   bot: z
     .object({
       mode: z.enum(["paper", "live"]).default("paper"),
       log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
       state_file: z.string().default("data/bot-state.json"),
-      /** Ha `true`, a bot indul a TUI-val együtt. Default: `false` (manual start). */
-      auto_start: z.boolean().default(false),
+      /**
+       * Phase 81: ha `true`, a bot indul a `mm-bot start` parancs
+       * kiadásával egyidőben. Ha `false`, a bot `stopped` állapotban
+       * marad — a state-feed csatlakozik, a dashboard `Bot: STOPPED`
+       * feliratot mutat, és a user a "Start" gombra kattintva indítja
+       * a botot. Default: `true` (backward compat — a meglévő
+       * config-ok, amelyek nem definiálják a flag-et, továbbra is
+       * auto-startolnak). A CLI `--no-auto-start` flag felülírja.
+       */
+      auto_start: z.boolean().default(true),
     })
     .default({}),
 
