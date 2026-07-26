@@ -265,21 +265,23 @@ function buildLineData(
  * a TS error here.
  */
 function colorFor(key: DonchianSeriesKey): string {
-  switch (key) {
-    case "upper": {
-      return DONCHIAN_COLORS.upper;
-    }
-    case "middle": {
-      return DONCHIAN_COLORS.middle;
-    }
-    case "lower": {
-      return DONCHIAN_COLORS.lower;
-    }
-    default: {
-      const _exhaustive: never = key;
-      throw new Error(`colorFor: unknown key ${String(_exhaustive)}`);
-    }
-  }
+  if (key === "upper") return DONCHIAN_COLORS.upper;
+  if (key === "middle") return DONCHIAN_COLORS.middle;
+  // The final equality is "unnecessary" at the type level
+  // (TypeScript has narrowed `key` to `"lower"`), but the
+  // runtime check is required so the exhaustiveness cast
+  // below fires if the type system is bypassed (e.g. `as
+  // unknown` in a test). The ESLint rule would otherwise
+  // delete the branch.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (key === "lower") return DONCHIAN_COLORS.lower;
+  // Exhaustiveness check: if a new key is added to
+  // DonchianSeriesKey without a branch above, this assignment
+  // fails to compile (TypeScript proves `key` is not `never`).
+  // The throw below IS reachable at runtime when the type
+  // system is bypassed (e.g. `as unknown` in a test).
+  const _exhaustive: never = key;
+  throw new Error(`colorFor: unknown key ${String(_exhaustive)}`);
 }
 
 /**
@@ -299,27 +301,28 @@ function valuesFor(
   indicatorSeries: IndicatorSeries,
   key: DonchianSeriesKey,
 ): readonly (number | null)[] | undefined {
-  switch (key) {
-    case "upper": {
-      return hasArrayKey(indicatorSeries, "upper")
-        ? indicatorSeries.upper
-        : undefined;
-    }
-    case "middle": {
-      return hasArrayKey(indicatorSeries, "middle")
-        ? indicatorSeries.middle
-        : undefined;
-    }
-    case "lower": {
-      return hasArrayKey(indicatorSeries, "lower")
-        ? indicatorSeries.lower
-        : undefined;
-    }
-    default: {
-      const _exhaustive: never = key;
-      throw new Error(`valuesFor: unknown key ${String(_exhaustive)}`);
-    }
+  if (key === "upper") {
+    return hasArrayKey(indicatorSeries, "upper")
+      ? indicatorSeries.upper
+      : undefined;
   }
+  if (key === "middle") {
+    return hasArrayKey(indicatorSeries, "middle")
+      ? indicatorSeries.middle
+      : undefined;
+  }
+  // Same runtime-vs-type reasoning as `colorFor` above — the
+  // final equality is "unnecessary" at the type level but
+  // required at runtime.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (key === "lower") {
+    return hasArrayKey(indicatorSeries, "lower")
+      ? indicatorSeries.lower
+      : undefined;
+  }
+  // Same exhaustiveness pattern as `colorFor` above.
+  const _exhaustive: never = key;
+  throw new Error(`valuesFor: unknown key ${String(_exhaustive)}`);
 }
 
 /**
@@ -435,3 +438,16 @@ export const renderDonchian: IndicatorRenderer = (
     dispose,
   };
 };
+
+/**
+ * `@internal` test-only re-exports. Production code uses
+ * `colorFor` / `valuesFor` indirectly through `renderDonchian`,
+ * which only passes the closed-set `DonchianSeriesKey` values.
+ * The `__testing` export exists ONLY so unit tests can exercise
+ * the TypeScript `never`-typed `default: throw` branches with a
+ * deliberately invalid key (cast through `unknown`) — without it,
+ * 100% branch coverage is impossible (the `default` branch is
+ * unreachable from the public API). Do NOT import `__testing`
+ * from production code.
+ */
+export const __testing = { colorFor, valuesFor } as const;

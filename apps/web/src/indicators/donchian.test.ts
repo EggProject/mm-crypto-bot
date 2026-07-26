@@ -26,6 +26,7 @@ import {
   DONCHIAN_SERIES_KEYS,
   renderDonchian,
   validateDonchianSeries,
+  __testing,
 } from "./donchian.js";
 import {
   IndicatorRegistry,
@@ -878,5 +879,67 @@ describe("IndicatorRegistry", () => {
     a.register("a-only", fn);
     expect(a.has("a-only")).toBe(true);
     expect(b.has("a-only")).toBe(false);
+  });
+});
+
+// ============================================================================
+// __testing re-exports — exercise the TypeScript `never`-typed default
+// branches in `colorFor` / `valuesFor` so coverage is 100% on every line.
+// ============================================================================
+
+describe("__testing.colorFor — the default-throw (exhaustiveness) branch", () => {
+  it("throws when given an unknown key (TypeScript bypass via `as never`)", () => {
+    // The `as never` cast simulates the "impossible at compile time,
+    // possible at runtime" case: an unknown key in the IndicatorSeries
+    // record. `colorFor` is unexported, so the test re-enters it via
+    // the `__testing` namespace; the type system still complains at
+    // the call site unless we cast.
+    expect(() =>
+      (__testing.colorFor as (k: unknown) => string)("invalid-key"),
+    ).toThrow("colorFor: unknown key invalid-key");
+  });
+
+  it("throws even for an empty string (defensive: empty string is not a valid DonchianSeriesKey)", () => {
+    expect(() =>
+      (__testing.colorFor as (k: unknown) => string)(""),
+    ).toThrow("colorFor: unknown key ");
+  });
+
+  it("throws for a numeric key (defensive: only string keys are valid)", () => {
+    expect(() =>
+      (__testing.colorFor as (k: unknown) => string)(42),
+    ).toThrow("colorFor: unknown key 42");
+  });
+});
+
+describe("__testing.valuesFor — the default-throw (exhaustiveness) branch", () => {
+  it("throws when given an unknown key (TypeScript bypass via `as never`)", () => {
+    const series = makeDonchianSeries(3);
+    expect(() =>
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, "bogus"),
+    ).toThrow("valuesFor: unknown key bogus");
+  });
+
+  it("throws for an empty string (defensive: empty string is not a valid DonchianSeriesKey)", () => {
+    const series = makeDonchianSeries(3);
+    expect(() =>
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, ""),
+    ).toThrow("valuesFor: unknown key ");
+  });
+
+  it("throws for a numeric key (defensive: only string keys are valid)", () => {
+    const series = makeDonchianSeries(3);
+    expect(() =>
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, 99),
+    ).toThrow("valuesFor: unknown key 99");
   });
 });
