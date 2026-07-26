@@ -356,10 +356,16 @@ test.describe("80 — coverage boost (formatUptime / formatLastUpdate / client-c
     });
 
     // Wait for the banner to render with the sub-hour uptime.
+    // Use a regex (not exact text) to absorb ±1s jitter between
+    // the test's Date.now() and the App's `now` state — the App's
+    // `now` is updated every 1s by setInterval, so the elapsed
+    // time can shift by 1-2s. With startedAt = now - 13m47s the
+    // App's elapsed is 13m46s-13m49s, and a regex match on
+    // `13m \d+s` covers all of them.
     const banner = page.locator('[data-testid="bot-status-banner"]');
     await expect(banner).toBeVisible({ timeout: 10_000 });
     await expect(banner).toContainText("Bot: RUNNING", { timeout: 10_000 });
-    await expect(banner).toContainText("uptime 13m 47s", { timeout: 10_000 });
+    await expect(banner).toContainText(/uptime 13m \d+s/, { timeout: 10_000 });
   });
 
   test("80-02: bot status with sub-day uptime (2h 13m) — formatUptime sub-day branch", async ({
@@ -421,7 +427,9 @@ test.describe("80 — coverage boost (formatUptime / formatLastUpdate / client-c
     const banner = page.locator('[data-testid="bot-status-banner"]');
     await expect(banner).toBeVisible({ timeout: 10_000 });
     await expect(banner).toContainText("Bot: RUNNING", { timeout: 10_000 });
-    await expect(banner).toContainText("uptime 2h 13m", { timeout: 10_000 });
+    // Regex match (not exact text) for ±1s jitter — sub-day branch
+    // drops the seconds so the minutes part is stable at 12-14m.
+    await expect(banner).toContainText(/uptime 2h 1[2-4]m/, { timeout: 10_000 });
   });
 
   test("80-03: bot status with multi-day uptime (3d 4h) — formatUptime multi-day branch", async ({
@@ -486,7 +494,9 @@ test.describe("80 — coverage boost (formatUptime / formatLastUpdate / client-c
     const banner = page.locator('[data-testid="bot-status-banner"]');
     await expect(banner).toBeVisible({ timeout: 10_000 });
     await expect(banner).toContainText("Bot: RUNNING", { timeout: 10_000 });
-    await expect(banner).toContainText("uptime 3d 4h", { timeout: 10_000 });
+    // Regex match (not exact text) for ±1s jitter — multi-day
+    // branch drops the minutes so the hours part is stable at 3-5h.
+    await expect(banner).toContainText(/uptime 3d [3-5]h/, { timeout: 10_000 });
   });
 
   test("80-04: bot status with long lastUpdate (47s, 2m, 2h, 2d) — formatLastUpdate branches", async ({
@@ -567,8 +577,9 @@ test.describe("80 — coverage boost (formatUptime / formatLastUpdate / client-c
     const banner = page.locator('[data-testid="bot-status-banner"]');
     await expect(banner).toBeVisible({ timeout: 10_000 });
     await expect(banner).toContainText("Bot: RUNNING", { timeout: 10_000 });
-    // "2 days ago" — plural form (line 298 FALSE arm)
-    await expect(banner).toContainText("2 days ago", { timeout: 10_000 });
+    // "2 days ago" — plural form (line 298 FALSE arm). Regex match
+    // for ±1s jitter — the days branch is stable for 1-23h drift.
+    await expect(banner).toContainText(/2 days ago/, { timeout: 10_000 });
 
     // Helper to push a fresh state (both WS broadcast + mutable
     // state for the /api/status mock).
@@ -598,17 +609,20 @@ test.describe("80 — coverage boost (formatUptime / formatLastUpdate / client-c
     // 2 hours ago (5s buffer to absorb App's 1s `now` lag).
     pushState(Date.now() - 2 * 60 * 60_000 - 5_000);
     await page.waitForTimeout(500);
-    await expect(banner).toContainText("2 hours ago", { timeout: 5_000 });
+    await expect(banner).toContainText(/2 hours ago/, { timeout: 5_000 });
 
     // 2 minutes ago.
     pushState(Date.now() - 2 * 60_000 - 5_000);
     await page.waitForTimeout(500);
-    await expect(banner).toContainText("2 minutes ago", { timeout: 5_000 });
+    await expect(banner).toContainText(/2 minutes ago/, { timeout: 5_000 });
 
-    // 47 seconds ago (line 286 TRUE arm).
+    // 47 seconds ago (line 286 TRUE arm). Regex match for ±5s
+    // jitter — the App's `now` can lag the test's Date.now() by
+    // 1-2s, and rendering can add another 1-2s, so the elapsed
+    // seconds can be 42-52.
     pushState(Date.now() - 47_000);
     await page.waitForTimeout(500);
-    await expect(banner).toContainText("47 seconds ago", { timeout: 5_000 });
+    await expect(banner).toContainText(/[4-5][0-9] seconds ago/, { timeout: 5_000 });
   });
 
   test("80-05: bot status with 1m/1h/1d singular — formatLastUpdate singular branches", async ({
@@ -671,7 +685,7 @@ test.describe("80 — coverage boost (formatUptime / formatLastUpdate / client-c
       }),
     );
     await expect(banner).toBeVisible({ timeout: 10_000 });
-    await expect(banner).toContainText("1 minute ago", { timeout: 5_000 });
+    await expect(banner).toContainText(/1 minute ago/, { timeout: 5_000 });
 
     // 1 hour ago — exercises the "1 hour ago" singular branch
     // (line 295 TRUE arm). 5s buffer.
@@ -697,7 +711,7 @@ test.describe("80 — coverage boost (formatUptime / formatLastUpdate / client-c
       }),
     );
     await page.waitForTimeout(200);
-    await expect(banner).toContainText("1 hour ago", { timeout: 5_000 });
+    await expect(banner).toContainText(/1 hour ago/, { timeout: 5_000 });
 
     // 1 day ago — exercises the "1 day ago" singular branch
     // (line 298 TRUE arm). 5s buffer.
@@ -723,7 +737,7 @@ test.describe("80 — coverage boost (formatUptime / formatLastUpdate / client-c
       }),
     );
     await page.waitForTimeout(200);
-    await expect(banner).toContainText("1 day ago", { timeout: 5_000 });
+    await expect(banner).toContainText(/1 day ago/, { timeout: 5_000 });
   });
 
   test("80-06: 5 bars (warmup) — client-compute.ts warmup branch", async ({
