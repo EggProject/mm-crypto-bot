@@ -66,9 +66,19 @@ A dashboard betölti:
 
 - **Top-nav** — `mm-crypto-bot` brand mark balra, `[● connected]` státusz pill jobbra
 - **Status banner** — `Bot: RUNNING · uptime X · last update Y · N active strategies · M open positions` (Phase 72 fix, valós idejű frissítés)
-- **Chart grid** — vertikális flex stack (Phase 69), minden `ChartCard` `(symbol, timeframe)` párra
+- **Chart grid** — vertikális flex stack (Phase 69), minden `ChartCard` `(strategy, symbol, timeframe)` hármasra. **5 strategy × 3 symbol (BTC/ETH/SOL × USDC) × 3 timeframe (1h/4h/1d) = 45 card** (Phase 76: minden configured strategy látszik, nem csak az enabled; disabled strategy-k címe után `(disabled)` suffix). Minden chart a SAJÁT stratégiájának strategy-specific indicator-jait mutatja (Phase 78 + Phase 79):
+  - **`donchian_pivot_composition`** (enabled, az egyetlen futó) — **Donchian band UPPER (gold)** + **MIDDLE (slate, dotted)** + **LOWER (red)** + **Pivot level (dashed)** + **breakout ENTRY (zöld arrowUp) / EXIT (piros arrowDown) signal markers** (Phase 78 + 79)
+  - **`dydx_cex_carry` / `cascade_fade` / `funding_flip_kill_switch` / `regime_detector`** (disabled) — univerzális Donchian band fallback (strategy-specific rendererek drop-in helyezhetők a jövőben)
 - **Positions table** — nyitott pozíciók `qty`, `entry`, `mark`, `uPnl` oszlopokkal
 - **Sticky control bar** — `Start` / `Stop` / `Pause` / `Resume` / `Kill Switch` gombok a viewport alján (state-aware enable/disable)
+
+### Phase 80 browser-verified screenshot
+
+Az alábbi screenshot a `paper-backtest-verified.toml` konfiggal, valós bybit.eu paper mode-ban készült (`Bot: RUNNING · uptime 1m 32s · 1 active strategies · 3 open positions`):
+
+![dashboard-p80-final](https://raw.githubusercontent.com/EggProject/mm-crypto-bot/main/docs/dashboard-p80-final.png)
+
+Látható: BTC/USDC 1h/4h/1d chart-ok, mindegyiken a **Donchian band (gold/slate/red) + pivot level (dashed) + ENTRY/EXIT signal markers** — a Phase 78 (univerzális donchian) + Phase 79 (strategy-specific signals) + Phase 76 (minden strategy látszik) együtt.
 
 Ha az `mm-bot` parancs a `bun install` után nem található, regeneráld a wrapper-t (a postinstall hook normálisan megteszi):
 
@@ -81,7 +91,7 @@ bun run mm-bot web
 
 ## Státusz
 
-**Phase 72** COMPLETE — status broadcast fix (`Bot: RUNNING` + valós idejű uptime + positions a dashboardon, Phase 30b backtest-verified `paper-backtest-verified.toml` konfiggal paper módban). 7/7 CI zöld, browser-verified real bybit.eu paper mode run. A `mm-bot` CLI production-ready: 8 subcommand, pure headless bot, külön web client process, 1:10 leverage három-rétegű védelem. **Live trading** user-run workflow-hoz kötött (config + bybit.eu key + paper-test) — lásd [`apps/bot/README.md` §7](./apps/bot/README.md#7-live-testing-workflow-manual).
+**Phase 80** COMPLETE — Playwright 1.61+ infra fix (a 6 phase óta `continue-on-error: true`-val maszkolt e2e infra flake kijavítva: `test.afterEach` helper-ből spec top-level-be + `chromium-1228` cache key + local playwright CLI). 7/7 CI zöld, branch coverage 90.22% / **77.92%** / 87.34% functions (threshold 75/75/75). Phase 78 (Donchian band + pivot level a chartokon) + Phase 79 (strategy-specific ENTRY/EXIT signal markers) a `donchian_pivot_composition` strategy-hoz valós bybit.eu paper mode-ban browser-verified. A `mm-bot` CLI production-ready: 8 subcommand, pure headless bot, külön web client process, 1:10 leverage három-rétegű védelem. **Live trading** user-run workflow-hoz kötött (config + bybit.eu key + paper-test) — lásd [`apps/bot/README.md` §7](./apps/bot/README.md#7-live-testing-workflow-manual).
 
 | Artifact | Státusz |
 |---|---|
