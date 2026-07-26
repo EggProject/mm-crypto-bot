@@ -74,7 +74,15 @@ export default defineConfig({
   // than a confusing 30-second timeout. The user's mandate:
   // "phase75-p2-*-t ne futtasd CI-ban, mert nem mukodik" (skip
   // phase75-p2 in CI because it doesn't work).
-  testIgnore: ["**/phase75-p2-*"],
+  //
+  // Phase 81: also skip the `p81-screenshots.spec.ts` +
+  // `p81-real-screenshots.spec.ts` specs — same reason (need
+  // real bot). The local user runs them with:
+  //   bunx playwright test p81-screenshots p81-real-screenshots
+  // when the bot + web client are up. The e2e/81-ws-status-push.spec.ts
+  // (the non-screenshot e2e that uses MSW mocks) IS in CI — only
+  // the screenshot specs are skipped.
+  testIgnore: ["**/phase75-p2-*", "**/p81-screenshots.spec.ts", "**/p81-real-screenshots.spec.ts"],
   // The e2e suite is intentionally small (1 file, 10 tests).
   // The 20-min suite timeout is the user-mandated hard cap.
   timeout: TEST_TIMEOUT_MS,
