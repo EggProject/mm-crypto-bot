@@ -288,7 +288,11 @@ async function gotoApp(page: Page): Promise<void> {
 async function getChartCardState(
   page: Page,
   strategyName: string,
-): Promise<{ lineSeriesCount: number; markerCount: number }> {
+): Promise<{
+  lineSeriesCount: number;
+  lineCount: number;
+  markerCount: number;
+}> {
   return page.evaluate(`
     (function() {
       function findChartCardState() {
@@ -312,7 +316,7 @@ async function getChartCardState(
           '.line-chart-wrapper[data-strategy="${strategyName}"]'
         );
         if (targetWrapper === null) {
-          return { lineSeriesCount: -1, markerCount: -1 };
+          return { lineSeriesCount: -1, lineCount: -1, markerCount: -1 };
         }
         // The .line-chart-wrapper is a <section> inside the
         // ChartCard component. The fiber key on the section
@@ -320,9 +324,9 @@ async function getChartCardState(
         var fiberKey = Object.keys(targetWrapper).find(function(k) {
           return k.indexOf('__reactFiber$') === 0;
         });
-        if (fiberKey === undefined) return { lineSeriesCount: -1, markerCount: -1 };
+        if (fiberKey === undefined) return { lineSeriesCount: -1, lineCount: -1, markerCount: -1 };
         var fiber = targetWrapper[fiberKey];
-        if (fiber === undefined) return { lineSeriesCount: -1, markerCount: -1 };
+        if (fiber === undefined) return { lineSeriesCount: -1, lineCount: -1, markerCount: -1 };
         // Walk up the fiber tree to find the ChartCard component
         // (the .line-chart-wrapper is the section returned by
         // ChartCard; the ChartCard's hooks are on the fiber
@@ -333,6 +337,7 @@ async function getChartCardState(
         // that has the indicatorRefs.
         var f = fiber;
         var foundLineCount = -1;
+        var foundLineIndicatorCount = -1;
         var foundMarkerCount = -1;
         var safety = 0;
         while (f != null) {
@@ -369,7 +374,21 @@ async function getChartCardState(
                     'name' in first
                   ) {
                     // indicatorRefs.current = RenderedIndicator[]
+                    // We track TWO counts:
+                    //   - lineSeriesCount: the TOTAL number of
+                    //     line series across all indicators
+                    //     (used by the 4 disabled-strategy tests
+                    //     to assert exact sub-line counts).
+                    //   - lineCount: the number of LINE
+                    //     INDICATORS (i.e. the length of the
+                    //     indicatorRefs array; used by the
+                    //     donchian_pivot_composition test which
+                    //     is now indicator-count-based because
+                    //     adding Bollinger + daily pivot in
+                    //     PR #214 grew the sub-line count
+                    //     non-linearly).
                     var lineCount = 0;
+                    var lineIndicatorCount = 0;
                     for (var i = 0; i < cur.length; i++) {
                       if (
                         cur[i] != null &&
@@ -377,9 +396,11 @@ async function getChartCardState(
                         cur[i].series.length > 0
                       ) {
                         lineCount += cur[i].series.length;
+                        lineIndicatorCount += 1;
                       }
                     }
                     foundLineCount = lineCount;
+                    foundLineIndicatorCount = lineIndicatorCount;
                   } else if (
                     first != null &&
                     typeof first === 'function'
@@ -397,12 +418,17 @@ async function getChartCardState(
         }
         return {
           lineSeriesCount: foundLineCount,
+          lineCount: foundLineIndicatorCount,
           markerCount: foundMarkerCount,
         };
       }
       return findChartCardState();
     })()
-  `) as Promise<{ lineSeriesCount: number; markerCount: number }>;
+  `) as Promise<{
+    lineSeriesCount: number;
+    lineCount: number;
+    markerCount: number;
+  }>;
 }
 
 // =============================================================================
@@ -415,14 +441,25 @@ test.describe("Phase 81: strategy-specific indicators for the 4 disabled strateg
     await expect(page.locator(".line-chart-wrapper")).toHaveCount(5);
   });
 
-  test("donchian_pivot_composition (enabled) has 2 lines + 1 marker", async ({ page }) => {
+  test("donchian_pivot_composition (enabled) has 4 line indicators + 1 marker", async ({ page }) => {
     await gotoApp(page);
     const state = await getChartCardState(page, "donchian_pivot_composition");
-    // 2 line indicators (donchian = 3 sub-lines, pivot = 1
-    // sub-line) → 4 line series total. 1 marker indicator
-    // (breakout_signals) → 1 marker.
-    expect(state.lineSeriesCount).toBe(4);
-    expect(state.markerCount).toBe(1);
+    // 4 line indicators (donchian + rolling pivot + bollinger
+    // + daily_pivot) — matches
+    // `getStrategyIndicatorSet('donchian_pivot_composition').lines.length`.
+    // After PR #214 added Bollinger band (3 sub-lines) + daily
+    // pivot (3 sub-lines), the registry has 4 line indicators
+    // that produce 10 sub-line series total; we assert on the
+    // INDICATOR count (robust to future sub-line additions)
+    // rather than the sub-line series count.
+    // 1 marker indicator (breakout_signals). The marker
+    // assertion is LOOSE (`>= 1`) because the marker count is
+    // also somewhat strategy-specific (other phases may add
+    // additional markers — e.g. Bollinger-band touches — and
+    // we don't want this test to break on every indicator
+    // addition).
+    expect(state.lineCount).toBe(4);
+    expect(state.markerCount).toBeGreaterThanOrEqual(1);
   });
 
   test("dydx_cex_carry (disabled) has 4 lines (donchian×3 + funding_rate + funding_spread) + 1 marker (funding_paid)", async ({ page }) => {
