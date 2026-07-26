@@ -1086,3 +1086,83 @@ describe("indicator lifecycle — compute → render → dispose", () => {
     }
   });
 });
+
+// ============================================================================
+// makeSingleLineIndicator — the no-op `dispose` closure (line 428)
+// ============================================================================
+//
+// The factory's `makeSingleLineIndicator` returns one of TWO `dispose`
+// closures depending on whether the line was actually added to the chart:
+//   1. The post-addSeries `dispose` (line 448) → `chart.removeSeries(...)`
+//   2. The no-op `dispose` (line 428) → no series was added, so nothing
+//      to remove
+// The post-add dispose is exercised by the lifecycle tests + the happy-path
+// `fundingRate.render`/`fundingSpread.render` tests (when the series has
+// non-null values, the for-loop pushes data points → post-add path).
+// The no-op dispose is exercised here — when `lineData.length === 0`,
+// the render returns the empty-RenderedIndicator branch and its `dispose`
+// must be callable without throwing and without calling
+// `chart.removeSeries`. The previous 50-test suite left this function
+// uncovered (the three "empty" tests at lines 624, 650, 672 never called
+// `out.dispose()` on the no-op closure).
+describe("makeSingleLineIndicator — the no-op `dispose` closure (line 428)", () => {
+  it("fundingRate.render returns the no-op `dispose` when the series is empty (no `funding` key + empty bars) — calling it does not throw and does not call removeSeries", () => {
+    const set = STRATEGY_INDICATOR_SETS["dydx_cex_carry"]!;
+    const fundingRate = set.lines.find((l) => l.name === "funding_rate")!;
+    const chart = makeMockChart();
+    // Empty bars + no `funding` key → `lineData` stays empty → the
+    // `lineData.length === 0` short-circuit at line 424 returns the
+    // no-op dispose (line 428).
+    const out = fundingRate.render(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock chart is structurally compatible at the call site
+      chart as any,
+      [],
+      {} as IndicatorSeries,
+      "dydx_cex_carry",
+      "1h",
+    );
+    expect(out.series).toHaveLength(0);
+    // Snapshot the removeSeries call count BEFORE the no-op dispose.
+    const removeBefore = chart.calls.filter(
+      (c) => c.method === "removeSeries",
+    ).length;
+    // The no-op dispose must run without throwing.
+    expect(() => out.dispose()).not.toThrow();
+    // The no-op dispose must NOT call `chart.removeSeries` (no series
+    // was added → nothing to remove).
+    const removeAfter = chart.calls.filter(
+      (c) => c.method === "removeSeries",
+    ).length;
+    expect(removeAfter).toBe(removeBefore);
+  });
+
+  it("fundingSpread.render returns the no-op `dispose` when the series is present but all-null — calling it does not throw", () => {
+    // Same branch as above but with a non-empty bars array — exercises
+    // the `v === null` continue-skip path in the for-loop and confirms
+    // the no-op dispose is the one returned.
+    const set = STRATEGY_INDICATOR_SETS["dydx_cex_carry"]!;
+    const fundingSpread = set.lines.find((l) => l.name === "funding_spread")!;
+    const chart = makeMockChart();
+    const bars = makeBars(3);
+    const series: IndicatorSeries = {
+      spread: [null, null, null],
+    };
+    const out = fundingSpread.render(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock chart is structurally compatible at the call site
+      chart as any,
+      bars,
+      series,
+      "dydx_cex_carry",
+      "1h",
+    );
+    expect(out.series).toHaveLength(0);
+    const removeBefore = chart.calls.filter(
+      (c) => c.method === "removeSeries",
+    ).length;
+    expect(() => out.dispose()).not.toThrow();
+    const removeAfter = chart.calls.filter(
+      (c) => c.method === "removeSeries",
+    ).length;
+    expect(removeAfter).toBe(removeBefore);
+  });
+});
