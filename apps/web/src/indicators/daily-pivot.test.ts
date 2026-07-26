@@ -23,6 +23,7 @@ import {
   DAILY_PIVOT_COLORS,
   DAILY_PIVOT_INDICATOR_NAME,
   DAILY_PIVOT_SERIES_KEYS,
+  __testing,
   computeDailyPivot,
   renderDailyPivot,
   validateDailyPivotSeries,
@@ -785,5 +786,130 @@ describe("PP/R1/S1 invariants", () => {
     expect(result.pp[1]).not.toBeNull();
     if (result.s1[1] === null || result.pp[1] === null) return;
     expect(result.s1[1]).toBeLessThan(result.pp[1]);
+  });
+});
+
+// ============================================================================
+// __testing re-exports — exercise the TypeScript `never`-typed default
+// branches in `colorFor` / `valuesFor` so coverage is 100% on every line.
+// ============================================================================
+
+describe("__testing.colorFor — the default-throw (exhaustiveness) branch", () => {
+  it("throws when given an unknown key (TypeScript bypass via `as never`)", () => {
+    expect(() =>
+      (__testing.colorFor as (k: unknown) => string)("invalid-key"),
+    ).toThrow("colorFor: unknown key invalid-key");
+  });
+
+  it("throws even for an empty string (defensive: empty string is not a valid DailyPivotSeriesKey)", () => {
+    expect(() =>
+      (__testing.colorFor as (k: unknown) => string)(""),
+    ).toThrow("colorFor: unknown key ");
+  });
+
+  it("throws for a numeric key (defensive: only string keys are valid)", () => {
+    expect(() =>
+      (__testing.colorFor as (k: unknown) => string)(42),
+    ).toThrow("colorFor: unknown key 42");
+  });
+});
+
+describe("__testing.valuesFor — the default-throw (exhaustiveness) branch", () => {
+  it("throws when given an unknown key (TypeScript bypass via `as never`)", () => {
+    const series: IndicatorSeries = {
+      pp: [1, 2, 3],
+      r1: [1, 2, 3],
+      s1: [1, 2, 3],
+    };
+    expect(() =>
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, "bogus"),
+    ).toThrow("valuesFor: unknown key bogus");
+  });
+
+  it("throws for an empty string (defensive: empty string is not a valid DailyPivotSeriesKey)", () => {
+    const series: IndicatorSeries = {
+      pp: [1, 2, 3],
+      r1: [1, 2, 3],
+      s1: [1, 2, 3],
+    };
+    expect(() =>
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, ""),
+    ).toThrow("valuesFor: unknown key ");
+  });
+
+  it("throws for a numeric key (defensive: only string keys are valid)", () => {
+    const series: IndicatorSeries = {
+      pp: [1, 2, 3],
+      r1: [1, 2, 3],
+      s1: [1, 2, 3],
+    };
+    expect(() =>
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, 99),
+    ).toThrow("valuesFor: unknown key 99");
+  });
+
+  it("returns the values array when the key IS present (the happy path)", () => {
+    const series: IndicatorSeries = {
+      pp: [10, 20, 30],
+      r1: [11, 21, 31],
+      s1: [12, 22, 32],
+    };
+    expect(
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, "pp"),
+    ).toEqual([10, 20, 30]);
+    expect(
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, "r1"),
+    ).toEqual([11, 21, 31]);
+    expect(
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, "s1"),
+    ).toEqual([12, 22, 32]);
+  });
+
+  it("returns undefined when 'r1' is absent (the r1 false branch)", () => {
+    // The series is missing the "r1" key — exercises the
+    // `hasOwnProperty` false branch on the R1 case.
+    const series = {
+      pp: [1, 2, 3],
+      s1: [4, 5, 6],
+    } as IndicatorSeries;
+    expect(
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, "r1"),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when 's1' is absent (the s1 false branch)", () => {
+    // The series is missing the "s1" key — exercises the
+    // `hasOwnProperty` false branch on the S1 case.
+    const series = {
+      pp: [1, 2, 3],
+      r1: [4, 5, 6],
+    } as IndicatorSeries;
+    expect(
+      (__testing.valuesFor as (
+        s: IndicatorSeries,
+        k: unknown,
+      ) => readonly (number | null)[] | undefined)(series, "s1"),
+    ).toBeUndefined();
   });
 });
