@@ -480,21 +480,19 @@ function buildLineData(
  * a TS error here.
  */
 function colorFor(key: BollingerSeriesKey): string {
-  switch (key) {
-    case "upper": {
-      return BOLLINGER_COLORS.upper;
-    }
-    case "middle": {
-      return BOLLINGER_COLORS.middle;
-    }
-    case "lower": {
-      return BOLLINGER_COLORS.lower;
-    }
-    default: {
-      const _exhaustive: never = key;
-      throw new Error(`colorFor: unknown key ${String(_exhaustive)}`);
-    }
-  }
+  if (key === "upper") return BOLLINGER_COLORS.upper;
+  if (key === "middle") return BOLLINGER_COLORS.middle;
+  // The final equality is "unnecessary" at the type level
+  // (TypeScript has narrowed `key` to `"lower"`), but the
+  // runtime check is required so the exhaustiveness cast
+  // below fires if the type system is bypassed.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (key === "lower") return BOLLINGER_COLORS.lower;
+  // Exhaustiveness check: if a new key is added to
+  // BollingerSeriesKey without a branch above, this assignment
+  // fails to compile (TypeScript proves `key` is not `never`).
+  const _exhaustive: never = key;
+  throw new Error(`colorFor: unknown key ${String(_exhaustive)}`);
 }
 
 /**
@@ -514,27 +512,26 @@ function valuesFor(
   indicatorSeries: IndicatorSeries,
   key: BollingerSeriesKey,
 ): readonly (number | null)[] | undefined {
-  switch (key) {
-    case "upper": {
-      return hasArrayKey(indicatorSeries, "upper")
-        ? indicatorSeries.upper
-        : undefined;
-    }
-    case "middle": {
-      return hasArrayKey(indicatorSeries, "middle")
-        ? indicatorSeries.middle
-        : undefined;
-    }
-    case "lower": {
-      return hasArrayKey(indicatorSeries, "lower")
-        ? indicatorSeries.lower
-        : undefined;
-    }
-    default: {
-      const _exhaustive: never = key;
-      throw new Error(`valuesFor: unknown key ${String(_exhaustive)}`);
-    }
+  if (key === "upper") {
+    return hasArrayKey(indicatorSeries, "upper")
+      ? indicatorSeries.upper
+      : undefined;
   }
+  if (key === "middle") {
+    return hasArrayKey(indicatorSeries, "middle")
+      ? indicatorSeries.middle
+      : undefined;
+  }
+  // Same runtime-vs-type reasoning as `colorFor` above.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (key === "lower") {
+    return hasArrayKey(indicatorSeries, "lower")
+      ? indicatorSeries.lower
+      : undefined;
+  }
+  // Same exhaustiveness pattern as `colorFor` above.
+  const _exhaustive: never = key;
+  throw new Error(`valuesFor: unknown key ${String(_exhaustive)}`);
 }
 
 /**
@@ -651,3 +648,13 @@ export const renderBollinger: IndicatorRenderer = (
     dispose,
   };
 };
+
+/**
+ * `@internal` test-only re-exports. Production code uses
+ * `colorFor` / `valuesFor` indirectly through `renderBollinger`.
+ * The `__testing` export exists ONLY so unit tests can exercise
+ * the TypeScript `never`-typed default branches with invalid
+ * keys (cast through `unknown`). Do NOT import `__testing` from
+ * production code.
+ */
+export const __testing = { colorFor, valuesFor } as const;
