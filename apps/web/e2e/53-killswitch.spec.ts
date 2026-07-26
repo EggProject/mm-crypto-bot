@@ -36,11 +36,23 @@
 
 import { type Page, expect, test } from "@playwright/test";
 import type { WebSocketRoute } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
+import {
+  setSpecName,
+  collectCoverageFromPage,
+  flushAccumulator,
+} from "./_helpers/coverage.js";
+// Phase 57/80: register coverage collection hooks (Phase 80: top-level
+// so Playwright 1.61+ accepts the `test.afterEach`/`test.afterAll` calls
+// from this .spec.ts file).
+setSpecName("53-killswitch");
 
-// Phase 57: register coverage collection hooks.
-installCoverageHooks("53-killswitch");
+test.afterEach(async ({ page }) => {
+  await collectCoverageFromPage(page);
+});
 
+test.afterAll(() => {
+  flushAccumulator();
+});
 // =============================================================================
 // Test helpers
 // =============================================================================

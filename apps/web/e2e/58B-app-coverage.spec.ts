@@ -37,11 +37,21 @@
 
 import { type Page, expect, test } from "@playwright/test";
 import type { WebSocketRoute } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
-
+import {
+  setSpecName,
+  collectCoverageFromPage,
+  flushAccumulator,
+} from "./_helpers/coverage.js";
 // Phase 58B: register coverage collection hooks.
-installCoverageHooks("58B-app-coverage");
+setSpecName("58B-app-coverage");
 
+test.afterEach(async ({ page }) => {
+  await collectCoverageFromPage(page);
+});
+
+test.afterAll(() => {
+  flushAccumulator();
+});
 // =============================================================================
 // Test helpers
 // =============================================================================

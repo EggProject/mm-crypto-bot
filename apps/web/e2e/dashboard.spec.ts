@@ -51,19 +51,13 @@ import { type Page, expect, test } from "@playwright/test";
 // it as a named export). The default import + destructure pattern
 // works for both ESM and CJS interop.
 import istanbulCoverage from "istanbul-lib-coverage";
-import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
-  readFileSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-// Phase 57: import the coverage accumulator reader so the
-// dashboard `afterAll` can merge coverage from other spec files.
-import { readAllAccumulators } from "./_helpers/coverage.js";
-import { readAllCtCoverageFiles } from "../e2e-ct/_helpers/coverage.js";
 
 const { createCoverageMap } = istanbulCoverage as unknown as {
   createCoverageMap: (data: unknown) => {
@@ -84,7 +78,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const APPS_WEB = resolve(__dirname, "..");
 const COVERAGE_DIR = resolve(APPS_WEB, "coverage/playwright");
-const COVERAGE_FINAL = resolve(COVERAGE_DIR, "coverage-final.json");
 const SCREENSHOT_DIR = resolve(COVERAGE_DIR, "screenshots");
 const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "dashboard.png");
 // Phase 53 (REVISED 2026-07-18): the e2e Playwright coverage gate.
@@ -192,7 +185,12 @@ const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "dashboard.png");
 // via the dashboard e2e alone). The threshold is temporarily
 // relaxed from 80 → 75 to accommodate. The 95% user mandate
 // stays in scope — the gap is tracked as a follow-up.
-const COVERAGE_THRESHOLDS = { lines: 75, branches: 75, functions: 75 } as const;
+//
+// Phase 80: the `COVERAGE_THRESHOLDS` constant + the threshold
+// check moved to `e2e/_helpers/coverage-teardown.ts` (the
+// Playwright `globalTeardown`). The constants are duplicated
+// there (one for the e2e lane, one for the CT lane) so the
+// teardown can run without importing this file.
 
 // =============================================================================
 // Coverage helpers (inlined to keep the new-file count to 5)
@@ -238,35 +236,29 @@ async function collectCoverageFromPage(page: Page): Promise<void> {
   }
 }
 
-interface CoverageReport {
-  readonly lines: number;
-  readonly branches: number;
-  readonly functions: number;
-}
-
-/** Flush the accumulator → `coverage-final.json` → `nyc report` → threshold check. */
-function flushAndReport(): CoverageReport {
-  // The COVERAGE_DIR / COVERAGE_FINAL paths are constants resolved
-  // at module load; the `security/detect-non-literal-fs-filename`
-  // rule flags them as non-literal at the call site, but the
-  // values are 100% controlled by the test (not user input).
-  mkdirSync(COVERAGE_DIR, { recursive: true });
-  if (fileAcc.size === 0) {
-    throw new Error(
-      "No coverage data collected — `window.__coverage__` was never set. " +
-        "Check that VITE_COVERAGE=true is exported before `vite build`.",
-    );
-  }
-  // Flatten the per-file CoverageMap accumulator back into a flat
-  // `Record<filePath, FileCoverageData>` so we can seed the base
-  // CoverageMap. The internal `.data` field is istanbul's per-file
-  // entry map (one entry per source file).
+/** Flush the dashboard's local per-file CoverageMap accumulator to
+ *  `coverage/playwright/accumulators/dashboard.json` so the
+ *  `globalTeardown` can read it. The `globalTeardown` then merges
+ *  this with the other per-spec accumulators + CT data, runs
+ *  `nyc report`, and checks the threshold.
+ *
+ *  This is the Phase 80 fix: the previous design had the report
+ *  generation + threshold check inside the afterAll, which was
+ *  order-dependent with `workers > 1`. The split moves the
+ *  threshold check to `globalTeardown` (which always runs after
+ *  every spec's afterAll) and keeps the per-spec flush here.
+ */
+function flushDashboardAccumulator(): void {
+  mkdirSync(resolve(COVERAGE_DIR, "accumulators"), { recursive: true });
+  const out = resolve(COVERAGE_DIR, "accumulators/dashboard.json");
+  // Flatten the per-file CoverageMap back into a flat
+  // `Record<filePath, fileCov>` so the globalTeardown can read it
+  // with `createCoverageMap().merge()` (same pattern as
+  // `_helpers/coverage.ts` `flushAccumulator`).
   const flat: Record<string, unknown> = {};
   for (const [filePath, map] of fileAcc.entries()) {
-    const dataField = (map as unknown as { data: Record<string, unknown> }).data;
-    // The `filePath` keys come from Playwright's instrumentation
-    // (absolute source file paths in the project), not user
-    // input, so the dynamic property access is safe.
+    const dataField = (map as unknown as { data: Record<string, unknown> })
+      .data;
     // eslint-disable-next-line security/detect-object-injection
     const entry = dataField[filePath];
     if (entry !== undefined) {
@@ -274,128 +266,18 @@ function flushAndReport(): CoverageReport {
       flat[filePath] = entry;
     }
   }
-  // The `createCoverageMap` API accepts a flat
-  // `Record<filePath, FileCoverageData>` object. Our flattened
-  // accumulator matches that shape; we cast because
-  // `@types/istanbul-lib-coverage` is strict about the
-  // FileCoverageData shape (it requires a specific `path` field
-  // that istanbul's runtime output satisfies but the TS types
-  // don't allow us to declare directly).
-  //
-  // **Phase 57 merge:** we create a base map from the dashboard
-  // accumulator, then merge in the external accumulators from
-  // other spec files. `map.merge()` takes the UNION of covered
-  // lines/branches across runs, which is what we want.
-  const baseMap = createCoverageMap(
-    flat as unknown as Parameters<typeof createCoverageMap>[0],
-  );
-  // `readAllAccumulators()` returns the per-file-merged data
-  // from the `e2e/_helpers/coverage.ts` spec accumulators
-  // (which themselves use the same per-file `createCoverageMap
-  // .merge()` pattern, so each file in `externalData` is
-  // already the union of all that spec's tests for that file).
-  const externalData = readAllAccumulators();
-  if (Object.keys(externalData).length > 0) {
-    const externalMap = createCoverageMap(
-      externalData as unknown as Parameters<typeof createCoverageMap>[0],
-    );
-    baseMap.merge(externalMap);
-  }
-  // Phase 58: merge CT (Component Test) accumulators too. The CT
-  // lane writes per-page `.nyc_output/playwright_ct_*.json` files
-  // (mxschmitt `baseFixtures.ts` pattern) and we union them into
-  // the final E2E coverage map. This is the "여기어때" pattern:
-  // CT + E2E merged coverage. The merge uses `map.merge()` which
-  // takes the UNION of covered lines/branches across runs.
-  const ctExternalData = readAllCtCoverageFiles();
-  if (Object.keys(ctExternalData).length > 0) {
-    const ctMap = createCoverageMap(
-      ctExternalData as unknown as Parameters<typeof createCoverageMap>[0],
-    );
-    baseMap.merge(ctMap);
-  }
-  writeFileSync(COVERAGE_FINAL, JSON.stringify(baseMap, null, 2), "utf8");
-
-  const reportDir = resolve(COVERAGE_DIR, "report");
-  try {
-    execFileSync(
-      "npx",
-      [
-        "nyc",
-        "report",
-        `--temp-dir=${COVERAGE_DIR}`,
-        `--report-dir=${reportDir}`,
-        "--reporter=lcov",
-        "--reporter=json-summary",
-        "--reporter=text",
-        "--reporter=html",
-      ],
-      { cwd: APPS_WEB, stdio: "pipe" },
-    );
-  } catch (e) {
-    const err = e as { stdout?: Buffer; stderr?: Buffer };
-    throw new Error(
-      `nyc report failed:\nSTDOUT:\n${err.stdout?.toString() ?? ""}\n` +
-        `STDERR:\n${err.stderr?.toString() ?? ""}`,
-      // eslint-disable-next-line preserve-caught-error
-      { cause: err as Error },
-    );
-  }
-
-  const summary = JSON.parse(
-    readFileSync(resolve(reportDir, "coverage-summary.json"), "utf8"),
-  ) as {
-    total: {
-      lines: { pct: number };
-      branches: { pct: number };
-      functions: { pct: number };
-    };
-  };
-  return {
-    lines: summary.total.lines.pct,
-    branches: summary.total.branches.pct,
-    functions: summary.total.functions.pct,
-  };
+  writeFileSync(out, JSON.stringify(flat, null, 2), "utf8");
 }
 
-/** `checkThresholds` — THROWS on below-threshold (hard fail). The
- *  user mandate (2026-07-17 00:08 + 12:30) is 95% lines / 90%
- *  branches / 95% functions, and the threshold check is a HARD
- *  gate: the e2e:playwright CI job FAILS if coverage drops below
- *  the threshold. The 48D warning-only behavior was a transitional
- *  baseline; Phase 52F restores the strict gate.
- */
-function checkThresholds(report: CoverageReport): void {
-  const args = [
-    "check-coverage",
-    `--lines=${COVERAGE_THRESHOLDS.lines}`,
-    `--branches=${COVERAGE_THRESHOLDS.branches}`,
-    `--functions=${COVERAGE_THRESHOLDS.functions}`,
-    `--temp-dir=${COVERAGE_DIR}`,
-  ];
-  try {
-    execFileSync("npx", ["nyc", ...args], { cwd: APPS_WEB, stdio: "pipe" });
-    console.log(
-      `\n✓ Coverage OK: ${report.lines.toFixed(2)}% lines / ` +
-        `${report.branches.toFixed(2)}% branches / ` +
-        `${report.functions.toFixed(2)}% functions ` +
-        `(thresholds ${COVERAGE_THRESHOLDS.lines}/${COVERAGE_THRESHOLDS.branches}/${COVERAGE_THRESHOLDS.functions})`,
-    );
-  } catch (e) {
-    const err = e as { stdout?: Buffer; stderr?: Buffer };
-    throw new Error(
-      `Coverage threshold FAILED: ` +
-        `${report.lines.toFixed(2)}% lines / ` +
-        `${report.branches.toFixed(2)}% branches / ` +
-        `${report.functions.toFixed(2)}% functions ` +
-        `(thresholds ${COVERAGE_THRESHOLDS.lines}/${COVERAGE_THRESHOLDS.branches}/${COVERAGE_THRESHOLDS.functions})\n` +
-        `nyc stdout:\n${err.stdout?.toString() ?? ""}\n` +
-        `nyc stderr:\n${err.stderr?.toString() ?? ""}`,
-      // eslint-disable-next-line preserve-caught-error
-      { cause: err as Error },
-    );
-  }
-}
+// Phase 80: `flushAndReport` + `checkThresholds` + `CoverageReport`
+// moved to `e2e/_helpers/coverage-teardown.ts` (the Playwright
+// `globalTeardown`). The previous in-`afterAll` implementation
+// was order-dependent: with `workers > 1`, the dashboard worker
+// could complete before the `80-coverage-boost` worker, dropping
+// the new tests' branch hits from the report. The split moves
+// the report generation + threshold check to the runner process
+// (which always runs after every spec's `afterAll`), while the
+// per-spec `afterAll` only flushes the local accumulator.
 
 // =============================================================================
 // Shared MSW setup
@@ -434,16 +316,23 @@ test.afterEach(async ({ page }) => {
 });
 
 test.afterAll(() => {
-  // Only flush if at least one test ran (else coverage-final.json
-  // is empty + the threshold check would spuriously fail).
+  // Phase 80: the threshold check moved to a `globalTeardown` (see
+  // `e2e/_helpers/coverage-teardown.ts` + `playwright.config.ts`).
+  // The previous design had the threshold check here, which was
+  // order-dependent: with `workers > 1`, the dashboard worker
+  // could complete before the `80-coverage-boost` worker — the
+  // partial accumulator state would either fail the threshold
+  // check OR drop the new tests' branch hits. With globalTeardown,
+  // the check runs ONCE after every spec's `afterAll` has written
+  // its accumulator to disk.
+  //
+  // The `afterAll`'s job is now limited to flushing the local
+  // `fileAcc` to `accumulators/dashboard.json` so the
+  // globalTeardown can read it. The `flushDashboardAccumulator`
+  // helper is defined at the top of this file (next to
+  // `collectCoverageFromPage`).
   if (fileAcc.size === 0) return;
-  if (!existsSync(COVERAGE_DIR)) return;
-  // Phase 57: `flushAndReport` reads external accumulators from
-  // `coverage/playwright/accumulators/*.json` and merges them
-  // into the base map using `map.merge()` (UNION of covered
-  // lines/branches).
-  const report = flushAndReport();
-  checkThresholds(report);
+  flushDashboardAccumulator();
 });
 
 // =============================================================================

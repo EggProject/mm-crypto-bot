@@ -42,10 +42,20 @@
 
 import { type Page, expect, test } from "@playwright/test";
 import type { WebSocketRoute } from "@playwright/test";
-import { installCoverageHooks } from "./_helpers/coverage.js";
+import {
+  setSpecName,
+  collectCoverageFromPage,
+  flushAccumulator,
+} from "./_helpers/coverage.js";
+setSpecName("62-targeted-branch-coverage");
 
-installCoverageHooks("62-targeted-branch-coverage");
+test.afterEach(async ({ page }) => {
+  await collectCoverageFromPage(page);
+});
 
+test.afterAll(() => {
+  flushAccumulator();
+});
 // =============================================================================
 // WsTestHarness (shared pattern)
 // =============================================================================
