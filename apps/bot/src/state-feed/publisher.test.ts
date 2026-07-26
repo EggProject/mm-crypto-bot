@@ -1228,3 +1228,190 @@ describe("LiveStateProvider — periodic refresh (Phase 71)", () => {
     ).toBeNull();
   });
 });
+
+// ===========================================================================
+// Phase 81 — state event push (dashboard WS state message arrives immediately)
+// ===========================================================================
+//
+// A Phase 71-es design-ban a publisher CSAK a specifikus event-eket bocsátotta
+// ki (`paused`, `started`, `stopped`, `snapshot`) — a dashboard
+// `useBotStatus` hook-ja a `state` event-re figyel, de ilyen event
+// csak a bot engine `bot.subscribe` notification-jénél (`publishState`)
+// vagy a `refreshFromBot` oldalán (soha) jött létre. Eredmény: a
+// user Pause/Resume / Start/Stop kattintásakor a UI csak a következő
+// `snapshot` ciklusban (5+ másodperc múlva) frissült.
+//
+// A Phase 81 fix: a `setPaused`, `markBotStarted`, `markBotStopped`
+// és `refreshFromBot` metódusok a specifikus event mellé (vagy
+// a `snapshot` event mellé) egy `state` event-et is kibocsátanak.
+// A `state` event payload-ja a teljes `StateFeedSnapshot`, így a
+// dashboard a `useBotStatus` hook-on át a `botStatus` mezőt azonnal
+// megkapja — nem kell a `snapshot` ciklusra várni.
+
+describe("LiveStateProvider — Phase 81 state event push", () => {
+  function createTestProvider(): LiveStatePublisher {
+    const bot = {
+      subscribe: () => () => undefined,
+      getState: () => null,
+      stop: async () => undefined,
+    } as unknown as Bot;
+    return new LiveStatePublisher({ bot });
+  }
+
+  // ---- setPaused --------------------------------------------------------
+
+  it("setPaused(true) emits a 'state' event with paused=true in the snapshot", () => {
+    const provider = createTestProvider();
+    let stateEvent: { snapshot: StateFeedSnapshot } | null = null;
+    provider.addEventListener((e) => {
+      if (e.type === "state") stateEvent = e;
+    });
+
+    // A default `paused` érték `false` — a `setPaused(true)` valódi
+    // state-váltás.
+    provider.setPaused(true);
+
+    expect(stateEvent).not.toBeNull();
+    expect(stateEvent!.snapshot.paused).toBe(true);
+  });
+
+  it("setPaused(false) emits a 'state' event with paused=false in the snapshot", () => {
+    const provider = createTestProvider();
+    // Először `paused = true`-ra állítjuk, hogy a második hívás
+    // (setPaused(false)) valódi state-váltás legyen.
+    provider.setPaused(true);
+
+    let stateEvent: { snapshot: StateFeedSnapshot } | null = null;
+    provider.addEventListener((e) => {
+      if (e.type === "state") stateEvent = e;
+    });
+
+    provider.setPaused(false);
+
+    expect(stateEvent).not.toBeNull();
+    expect(stateEvent!.snapshot.paused).toBe(false);
+  });
+
+  it("setPaused called with the SAME value is a no-op (no 'state' event emitted)", () => {
+    const provider = createTestProvider();
+    // A default `paused` érték `false` — a `setPaused(false)` no-op.
+    let stateEventCount = 0;
+    provider.addEventListener((e) => {
+      if (e.type === "state") stateEventCount += 1;
+    });
+
+    provider.setPaused(false);
+    expect(stateEventCount).toBe(0);
+
+    // Most `paused = true`-ra állítjuk, és újra `setPaused(true)` —
+    // a második hívás no-op.
+    provider.setPaused(true);
+    // Az első hívás kibocsátott egy `state` event-et.
+    expect(stateEventCount).toBe(1);
+    provider.setPaused(true);
+    // A második hívás no-op — NINCS újabb `state` event.
+    expect(stateEventCount).toBe(1);
+  });
+
+  // ---- markBotStarted / markBotStopped ---------------------------------
+
+  it("markBotStarted() emits a 'state' event with botStatus.state === 'running'", () => {
+    const provider = createTestProvider();
+    const stateEvents: { snapshot: StateFeedSnapshot }[] = [];
+    provider.addEventListener((e) => {
+      if (e.type === "state") stateEvents.push(e);
+    });
+
+    provider.markBotStarted();
+
+    // A `markBotStarted()` legalább egy `state` event-et kibocsát
+    // (a `refreshFromBot()`-ból ÉS az explicit `state` event-ből
+    // is jöhet egy). A lényeg: a `snapshot.botStatus.state`
+    // mező "running" legyen.
+    expect(stateEvents.length).toBeGreaterThanOrEqual(1);
+    const lastStateEvent = stateEvents[stateEvents.length - 1]!;
+    expect(lastStateEvent.snapshot.botStatus.state).toBe("running");
+    expect(lastStateEvent.snapshot.running).toBe(true);
+  });
+
+  it("markBotStopped() emits a 'state' event with botStatus.state === 'stopped'", () => {
+    const provider = createTestProvider();
+    provider.markBotStarted();
+    const stateEvents: { snapshot: StateFeedSnapshot }[] = [];
+    provider.addEventListener((e) => {
+      if (e.type === "state") stateEvents.push(e);
+    });
+
+    provider.markBotStopped();
+
+    expect(stateEvents.length).toBeGreaterThanOrEqual(1);
+    const lastStateEvent = stateEvents[stateEvents.length - 1]!;
+    expect(lastStateEvent.snapshot.botStatus.state).toBe("stopped");
+    expect(lastStateEvent.snapshot.running).toBe(false);
+  });
+
+  // ---- refreshFromBot emits both 'snapshot' AND 'state' ----------------
+
+  it("refreshFromBot() emits BOTH 'snapshot' and 'state' events (Phase 81 dual-emit)", async () => {
+    const provider = createTestProvider();
+    // A `start()` meghívja a `refreshFromBot()`-ot egyszer (a `this.active`
+    // `false` → `true` váltás miatt a `stateEqualsIgnoringTimestamp`
+    // ellenőrzés nem short-circuit-öl). Ilyenkor a Phase 81
+    // implementáció szerint a `refreshFromBot()` MIND a `snapshot`,
+    // MIND a `state` event-et kibocsátja.
+    //
+    // A listener-t a `start()` ELŐTT regisztráljuk, hogy elkapjuk
+    // a `start()` által triggerelt `refreshFromBot()` emission-t.
+    const events: string[] = [];
+    provider.addEventListener((e) => {
+      events.push(e.type);
+    });
+
+    await provider.start();
+
+    // Az order fontos: a Phase 81 implementáció a `snapshot` event-et
+    // ELŐBB bocsátja ki, mint a `state` event-et (így a historical
+    // chart-update-ok előbb futnak le, mielőtt a status banner
+    // frissülne).
+    expect(events).toContain("snapshot");
+    expect(events).toContain("state");
+
+    // Az order check: a `snapshot` index ≤ a `state` index.
+    const snapshotIdx = events.indexOf("snapshot");
+    const stateIdx = events.indexOf("state");
+    expect(snapshotIdx).toBeLessThan(stateIdx);
+  });
+
+  it("refreshFromBot() called with a state change emits BOTH 'snapshot' and 'state' events (backdoor call)", async () => {
+    const provider = createTestProvider();
+    // A `start()` + `markBotStarted()` után a `botRunning === true` és
+    // a `currentState.running === true`, `currentState.botStatus.state === "running"`.
+    // A `setPaused(true)` KÖZVETLENÜL a `currentState.paused` mezőt
+    // módosítja (`refreshFromBot` NÉLKÜL), így a `currentState.paused`
+    // `true` lesz, de a `currentState.botStatus.state` TOVÁBBRA IS
+    // "running" marad (a `setPaused` nem hívja a `getBotStatus()`-ot).
+    await provider.start();
+    provider.markBotStarted();
+    provider.setPaused(true);
+
+    // A fenti két hívás már kibocsátott `state` event-eket — a
+    // backdoor-os `refreshFromBot()` ELŐTT regisztráljuk a listener-t,
+    // hogy CSAK a backdoor hívás emission-ját mérjük.
+    //
+    // Miért várunk event-et a backdoor hívástól? Mert a candidate
+    // `botStatus.state`-et a `getBotStatus()` ÚJRA kiszámolja
+    // (`botRunning === true && paused === true` → "paused"), míg a
+    // `currentState.botStatus.state` még "running". Az
+    // `stateEqualsIgnoringTimestamp` a `botStatus.state` eltérést
+    // észleli → a candidate ≠ currentState → a refresh kibocsátja
+    // a `snapshot` + `state` event-eket.
+    const events: string[] = [];
+    provider.addEventListener((e) => {
+      events.push(e.type);
+    });
+    (provider as unknown as { refreshFromBot: () => void }).refreshFromBot();
+
+    expect(events).toContain("snapshot");
+    expect(events).toContain("state");
+  });
+});
