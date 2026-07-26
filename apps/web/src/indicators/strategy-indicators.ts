@@ -47,6 +47,11 @@ import {
 } from "./client-compute.js";
 import { renderDonchian } from "./donchian.js";
 import {
+  computeBollingerBand,
+  renderBollinger,
+} from "./bollinger.js";
+import { computeDailyPivot, renderDailyPivot } from "./daily-pivot.js";
+import {
   LineSeries,
   type IChartApi,
   type ISeriesMarkersPluginApi,
@@ -226,6 +231,74 @@ const pivotLineIndicator: LineIndicator = {
 };
 
 /**
+ * `bollingerLineIndicator` — the proper Bollinger band
+ * (upper / middle / lower), wrapped in the `LineIndicator`
+ * interface. The compute is `computeBollingerBand` (the pure
+ * function in `bollinger.ts`); the renderer is `renderBollinger`.
+ *
+ * Phase 81: the user mandate is "boilenger szallagot" (Bollinger
+ * band) — the existing Donchian band is a separate indicator
+ * (max-high / min-low over a window); the Bollinger band is
+ * SMA ± k·σ over a window. Adding the Bollinger band as a
+ * SECOND line indicator on the `donchian_pivot_composition`
+ * chart lets the user visually compare the two envelopes on
+ * the same time axis.
+ *
+ * The Bollinger band's color palette (gold / slate / red) is
+ * identical to the Donchian band's (Phase 78 convention) so
+ * the chart's "overbought / equilibrium / oversold" envelope
+ * reads consistently across the two indicators. The visual
+ * differentiator is the line SHAPE: a Donchian band is a flat
+ * rectangle (constant upper / lower until the rolling window
+ * shifts); a Bollinger band is a smooth wave (the SMA tracks
+ * the close; the bands breathe around the SMA).
+ */
+const bollingerLineIndicator: LineIndicator = {
+  name: "bollinger",
+  compute: (bars) => computeBollingerBand(bars),
+  render: (chart, bars, series, strategy, timeframe) =>
+    renderBollinger({
+      chart,
+      bars,
+      indicatorSeries: series,
+      color: "",
+      strategy,
+      timeframe,
+    }),
+};
+
+/**
+ * `dailyPivotLineIndicator` — the classic daily pivot (PP /
+ * R1 / S1), computed from the PREVIOUS bar's H/L/C. The
+ * compute is `computeDailyPivot` (the pure function in
+ * `daily-pivot.ts`); the renderer is `renderDailyPivot`.
+ *
+ * Phase 81: the user mandate is "napi pivot szint" (daily
+ * pivot level). The existing `pivotLineIndicator` (Phase 79)
+ * is a ROLLING Fibonacci pivot (24-bar rolling H/L/C with
+ * 0.382 / 0.618 multipliers). The new `dailyPivotLineIndicator`
+ * is the CLASSIC daily pivot (previous bar's H/L/C; 2x PP
+ * for R1/S1). The two are intentionally different — the
+ * chart shows BOTH, distinguished by line color (the rolling
+ * pivot is the dashed slate from Phase 79; the daily pivot
+ * is the dashed-slate PP + green R1 + red S1 from this
+ * phase).
+ */
+const dailyPivotLineIndicator: LineIndicator = {
+  name: "daily_pivot",
+  compute: (bars) => computeDailyPivot(bars),
+  render: (chart, bars, series, strategy, timeframe) =>
+    renderDailyPivot({
+      chart,
+      bars,
+      indicatorSeries: series,
+      color: "",
+      strategy,
+      timeframe,
+    }),
+};
+
+/**
  * `breakoutMarkerIndicator` — the Donchian-breakout entry/exit
  * signal markers, computed from the bar stream + the prior
  * `donchian` line indicator. The `apply` is a thin wrapper
@@ -298,14 +371,24 @@ export const STRATEGY_INDICATOR_SETS: Readonly<
   // inditactorok es egyeb jelolesek, rajzok stb van?" — this is
   // the strategy we MUST show the SPECIFIC drawings for. The set:
   //   - Donchian band (3 lines, gold/slate/red) — the channel
-  //   - Pivot level (1 line, dashed slate) — the equilibrium
+  //   - Rolling pivot level (1 line, dashed slate) — short-term
+  //     equilibrium (Phase 79)
+  //   - Bollinger band (3 lines, gold/slate/red) — the overbought/
+  //     oversold envelope (Phase 81)
+  //   - Daily pivot (3 lines: dashed slate PP + green R1 + red S1)
+  //     — the classical "previous day" floor pivot (Phase 81)
   //   - Breakout signals (entry/exit arrows) — the strategy's
-  //     actual entries and exits, derived from the same band.
+  //     actual entries and exits, derived from the Donchian band.
   donchian_pivot_composition: {
     strategy: "donchian_pivot_composition",
     description:
-      "Donchian channel (3 lines) + rolling pivot level (dashed) + breakout entry/exit markers",
-    lines: [donchianLineIndicator, pivotLineIndicator],
+      "Donchian channel (3 lines) + rolling pivot level (dashed) + Bollinger band (3 lines) + daily pivot (PP/R1/S1) + breakout entry/exit markers",
+    lines: [
+      donchianLineIndicator,
+      pivotLineIndicator,
+      bollingerLineIndicator,
+      dailyPivotLineIndicator,
+    ],
     markers: [breakoutMarkerIndicator],
   },
 
