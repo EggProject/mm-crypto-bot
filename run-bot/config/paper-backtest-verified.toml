@@ -38,6 +38,9 @@
 #     (a Phase 30b backtest verifikálta; a `default.toml` Phase 67
 #     óta `min_consensus = 2`-re van állítva a position-skip fix
 #     safety-konszenzusához).
+#   - `[bot] auto_start = false` (Phase 81) — a bot `stopped`
+#     állapotban indul, a user a dashboard "Start" gombbal indítja.
+#     A default.toml-ban a flag hiányzik (= `true`, auto-start).
 #
 # Minden más szekció (`[bot]`, `[exchange]`, `[compliance]`,
 # `[risk]`, `[symbols]`, `[strategies.*]`, `[telemetry]`,
@@ -51,6 +54,11 @@
 mode = "paper"
 log_level = "info"
 state_file = "data/bot-state.json"
+# Phase 81: a paper mode-ban a user a dashboard "Start" gombbal
+# indítja a botot — a config betöltése UTÁN a bot `stopped`
+# állapotban marad, és a state-feed csatlakozik a dashboardhoz.
+# A `[live-eu.toml]`-ban ez `true` (a live bot mindig indul).
+auto_start = false
 
 # ======================================================================
 # 2) EXCHANGE — bybit.eu edge endpoint

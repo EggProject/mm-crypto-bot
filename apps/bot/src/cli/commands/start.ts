@@ -1,8 +1,8 @@
 /**
  * apps/bot/src/cli/commands/start.ts
  *
- * Phase 33 Track D + Phase 34 Track A + Phase 36 Track A1 + Phase 44 —
- * `mm-bot start` — a bot indítása.
+ * Phase 33 Track D + Phase 34 Track A + Phase 36 Track A1 + Phase 44 +
+ * Phase 81 — `mm-bot start` — a bot indítása.
  *
  * ===========================================================================
  * PHASE 44 — PURE HEADLESS START (2026-07-16)
@@ -23,7 +23,7 @@
  * lenne), nincs Ink dependency, nincs React, nincs WebSocket.
  *
  * A headless mód:
- *   - A bot elindul a `bot.start()` hívással.
+ *   - A bot a `bot.auto_start` config mező értékétől függően indul.
  *   - A `console.log` / `console.error` egy log fájlba íródik
  *     át (`<state_file>.log`), hogy a bot futása alatt a stdout
  *     tiszta maradjon (a Phase 43 Track 3-ból megörökölt log-routing
@@ -31,14 +31,41 @@
  *   - A SIGINT / SIGTERM signal-okra a bot graceful leáll.
  *
  * ===========================================================================
+ * PHASE 81 — `auto_start` HONORED IN HEADLESS MODE (2026-07-25)
+ * ===========================================================================
+ *
+ *   User mandate (2026-07-25 Budapest, verbatim):
+ *     "a paper-backtest-verified.toml-mal indított bot ne induljon
+ *      automatikusan — a user a dashboard 'Start' gombbal indítsa."
+ *
+ *   A Phase 36 Track A1 óta a `[bot] auto_start` config mező a
+ *   sémában van, de a Phase 44 óta a `mm-bot start` MINDIG indítja
+ *   a botot (a flag-ek parsolva vannak, de nincs hatásuk). A
+ *   Phase 81 a konfiguráció-vezérelt viselkedést visszahozza:
+ *
+ *     - `bot.auto_start = true` (vagy hiányzó) → bot indul a parancs
+ *       kiadásával egyidőben (BACKWARD COMPAT — a meglévő config-ok
+ *       nem törnek el).
+ *     - `bot.auto_start = false` → a bot `stopped` állapotban marad.
+ *       A state-feed csatlakozik, a dashboard `Bot: STOPPED` feliratot
+ *       mutat, és a user a "Start" gombra kattintva indítja a botot.
+ *       A folyamat a SIGINT / SIGTERM-ig fut (a state-feed TCP szerver
+ *       tartja életben az event loopot).
+ *
+ *   A `paper-backtest-verified.toml` explicit `auto_start = false`-t
+ *   állít be (a Phase 30b backtest-eredmények reprodukálásához a user
+ *   kézi indítása mellett); a `live-eu.toml` explicit `auto_start = true`-t
+ *   (ami egyenértékű a hiányzó mezővel).
+ *
+ * ===========================================================================
  * FLAGS
  * ===========================================================================
  *   --config=<path>     TOML config file (opcionális; default-ot használ)
- *   --auto-start        A bot induljon a parancs kiadásakor (default: true)
- *   --no-auto-start     Ne indítsa el a botot — a state-feed csatlakozáshoz
- *                       kell (Phase 45+). A Phase 44-ben ez egy no-op
- *                       (nincs state-feed szerver), de a flag parsolva
- *                       van a backward compatibility kedvéért.
+ *   --auto-start        A bot induljon a parancs kiadásakor
+ *                       (CLI override: felülírja a config `[bot] auto_start` értéket)
+ *   --no-auto-start     Ne indítsa el a botot — a state-feed csatlakozik,
+ *                       de a bot `stopped` állapotban marad. A dashboard
+ *                       "Start" gombbal indítja.
  *   --no-color          Letiltja az ANSI színkódokat. A NO_COLOR=1
  *                       env var-t a `startCommand` végén is beállítja
  *                       (a subcommand-handler-ek futása ELŐTT, a
@@ -48,12 +75,16 @@
  * ===========================================================================
  * FLAG PRECEDENCE
  * ===========================================================================
- *   A `bot.auto_start` érték feloldási sorrendje (Phase 36 Track A1):
+ *   A `bot.auto_start` érték feloldási sorrendje (Phase 36 Track A1 +
+ *   Phase 81):
  *     1) CLI flag (--auto-start / --no-auto-start) — utolsó nyer
- *     2) TOML config (`[bot] auto_start = true/false`)
- *     3) Default: `true` (a Phase 44-gyel: a bot mindig indul, ha a
- *                     `start` parancsot kiadjuk; a `--no-auto-start`
- *                     a Phase 45 state-feed csatlakozáshoz kell).
+ *        Ha a user mindkettőt kiírta, a PARSER last-write-wins alapján
+ *        utolsó érvényesül (a Map setter felülírja a korábbi értéket).
+ *     2) TOML config (`[bot] auto_start = true/false`) — ha a CLI flag
+ *        NINCS kiírva, a config értéke érvényesül.
+ *     3) Default: `true` (Phase 81 — backward compat). A meglévő
+ *        config-ok, amelyek nem definiálják a flag-et, TOVÁBBRA IS
+ *        auto-startolnak.
  *
  * ===========================================================================
  * 1:10 LEVERAGE INVARIANT (Phase 10G §3-layer defense-in-depth)
@@ -106,21 +137,57 @@ function isNoColor(flags: ReadonlyMap<string, string | boolean>): boolean {
 }
 
 /**
+ * `resolveAutoStart` — a `bot.auto_start` effektív értékének feloldása
+ * (Phase 81).
+ *
+ * Precedence (last-wins a CLI flag-eknél):
+ *   1) `--auto-start` vagy `--no-auto-start` CLI flag → utolsó nyer
+ *   2) `config.bot.auto_start` (a Zod séma default-ja: `true`)
+ *
+ * A parser a `--auto-start` → `flags.get("auto-start") === true` és
+ * `--no-auto-start` → `flags.get("auto-start") === false` (valamint
+ * `flags.get("no-auto-start") === true`) formátumban tárolja. Ha a
+ * user mindkettőt kiírta, a Map setter last-write-wins viselkedése
+ * miatt az utolsó nyer.
+ *
+ * Visszatérés: `{ autoStart: boolean, source: "cli" | "config" }`
+ *   - `source` jelzi, hogy a CLI flag vagy a config értéke volt a
+ *     nyertes — a `startCommand` ezt használja a "CLI override"
+ *     WARN kiírásához.
+ */
+function resolveAutoStart(
+  flags: ReadonlyMap<string, string | boolean>,
+  configAutoStart: boolean,
+): { readonly autoStart: boolean; readonly source: "cli" | "config" } {
+  // A parser a `flags.get("auto-start")` értékétől függően tárolja
+  // a CLI döntést. Ha a user explicit kiírt --auto-start VAGY
+  // --no-auto-start flag-et, a Map-ben jelen van az "auto-start" kulcs
+  // (a --no- a meglévő --no-X szabály miatt `false` értékkel írja be).
+  // Ha a kulcs hiányzik, a CLI nem mondott semmit — a config dönt.
+  if (flags.has("auto-start")) {
+    const v = flags.get("auto-start");
+    // A `--auto-start=true` / `--auto-start=false` explicit formát a
+    // parser STRING-ként tárolja. A `String(v) === "true"` konverzió
+    // ezt normalizálja.
+    const autoStart = v === true || (typeof v === "string" && v === "true");
+    return { autoStart, source: "cli" };
+  }
+  return { autoStart: configAutoStart, source: "config" };
+}
+
+/**
  * `startCommand` — a `mm-bot start` handler.
  *
  * Phase 44: a parancs PURE HEADLESS. Nincs TUI, nincs Ink, nincs React.
  * A bot a `runHeadless` útvonalon indul el, és a console.log/console.error
  * a `<state_file>.log` fájlba íródik.
  *
- * Megjegyzés a `--auto-start` / `--no-auto-start` flag-ekről:
- *   Ezek a flag-ek a Phase 36 Track A1 user mandate-ból származnak
- *   (a TUI `stopped` alapállapotához). A Phase 44-gyel a TUI törölve
- *   lett, és a bot MINDIG indul a `start` parancs kiadásakor. A
- *   flag-ek a backward-compat kedvéért PARSOLVA maradnak, de a
- *   jelenlegi implementációban nincs hatásuk. A Phase 45+ state-feed
- *   szerver bevezetésekor a `--no-auto-start` flag ismét értelmet
- *   nyer (a state-feed csatlakozáshoz kell — a bot indítása nélkül
- *   figyeli a bot state-ét).
+ * Phase 81: a `bot.auto_start` config mező (ÉS a `--auto-start` /
+ * `--no-auto-start` CLI flag-ek) mostantól valóban szabályozzák a bot
+ * indulását:
+ *   - `autoStart = true`  → a bot a parancs kiadásával egyidőben indul
+ *   - `autoStart = false` → a bot `stopped` állapotban marad; a
+ *     dashboard "Start" gombbal indítja
  */
 export const startCommand: SubcommandHandler = async (args) => {
   const configPath = getConfigPath(args.flags);
@@ -170,29 +237,56 @@ export const startCommand: SubcommandHandler = async (args) => {
   }
 
   // --------------------------------------------------------------------------
-  // 4) Create Bot instance + run headless. A `--no-auto-start` flag
-  //    jelenleg no-op (a Phase 45+ state-feed attach path-hoz kell).
-  //    A bot mindig indul a `mm-bot start` parancsra.
+  // 4) Resolve the effective `auto_start` value (Phase 81).
+  //    Precedence: CLI flag (--auto-start/--no-auto-start, last wins) >
+  //    config `[bot] auto_start` (Zod default: `true`).
+  //    Ha a CLI override-olta a config-ot, WARN-t írunk (a user
+  //    tudja, mit csinál, de a nyilvánvaló figyelmeztetés segít).
+  // --------------------------------------------------------------------------
+  const { autoStart, source } = resolveAutoStart(args.flags, config.bot.auto_start);
+  if (source === "cli" && autoStart !== config.bot.auto_start) {
+    const cliValue = String(autoStart);
+    const configValue = String(config.bot.auto_start);
+    console.warn(
+      `[start] WARNING: --${autoStart ? "auto-start" : "no-auto-start"} (CLI) ` +
+        `overrides config [bot] auto_start = ${configValue} → effective = ${cliValue}`,
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // 5) Create Bot instance + run headless.
   // --------------------------------------------------------------------------
   const bot = new Bot({ config });
 
   // --------------------------------------------------------------------------
-  // 5) Run headless — a console.log/console.error átirányítása a log
+  // 6) Run headless — a console.log/console.error átirányítása a log
   //    fájlba, hogy a bot futása alatt a stdout tiszta maradjon.
+  //    A `runHeadless` megkapja az `autoStart` értéket, és ennek
+  //    megfelelően hívja / NEM hívja a `bot.start()`-ot.
   // --------------------------------------------------------------------------
-  return await runHeadless(bot, config);
+  return await runHeadless(bot, config, autoStart);
 };
 
 /**
- * `runHeadless` — a plain text log mód. A bot-ot elindítja, és a
- * SIGINT/SIGTERM signal-okra graceful leállítja.
+ * `runHeadless` — a plain text log mód. A bot-ot elindítja (vagy
+ * `stopped` állapotban hagyja — Phase 81), és a SIGINT/SIGTERM
+ * signal-okra graceful leállítja.
  *
  * Phase 44 óta ez az EGYETLEN mód — nincs TUI/headless branch. A
  * console.log/console.error a `<state_file>.log` fájlba íródik, hogy
  * a bot futása alatt a stdout tiszta maradjon (a Phase 43 Track 3-ból
  * megörökölt log-routing logika).
+ *
+ * Phase 81: a `autoStart` paraméter szabályozza, hogy a bot indul-e
+ *   - `true`  → `bot.start()` fire-and-forget hívódik, `markBotStarted()` is
+ *   - `false` → a bot `stopped` állapotban marad, a state-feed csatlakozik,
+ *               a dashboard "Start" gombbal indítja (a `handleControl("start")`
+ *               callback hívja a `bot.start()`-ot)
+ *
+ * A process mindkét esetben a SIGINT/SIGTERM-ig fut — a state-feed TCP
+ * szerver (vagy a `bot.start()` promise) tartja életben az event loopot.
  */
-async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
+async function runHeadless(bot: Bot, config: BotConfig, autoStart: boolean): Promise<number> {
   // -------------------------------------------------------------------------
   // Phase 43 Track 3 — Console redirection in headless mode
   // -------------------------------------------------------------------------
@@ -337,19 +431,55 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
       handleControl: (command, payload) => {
         switch (command) {
           case "start":
-            // A `bot.start()` idempotens: ha már fut, a Bot osztály
-            // `[bot] already running` hibát dob. A start parancs a
-            // dashboardról jön, amikor a user újraindítja a botot egy
-            // korábbi stop után — ilyenkor a bot le van állítva, és
-            // a hívás sikeres. A hibát a finally blokk elkapja.
-            void bot.start().then(() => {
-              stateFeed?.publisher.markBotStarted();
-            }).catch((err: unknown) => {
+            // Phase 81 fix: a `markBotStarted()` SZINKRON hívása
+            // közvetlenül a `bot.start()` ELŐTT — ugyanaz a pattern,
+            // amit az auto-start branch használ (Phase 72 fix).
+            //
+            // Az eredeti kód a `markBotStarted()`-et a `bot.start()`
+            // `.then()` blokkjában hívta. A `bot.start()` Promise-ja
+            // CSAK a `bot.stop()` hívásakor oldódik fel (a run loop
+            // végtelen ciklus), tehát a `markBotStarted()` soha nem
+            // hívódott volna meg a `bot.stop()`-ig — a dashboard
+            // "Bot: STOPPED" feliratot mutatott volna a teljes futás
+            // alatt, annak ellenére, hogy a bot valójában futott.
+            //
+            // A fix: a `markBotStarted()` szinkron hívódik, a
+            // `bot.start()` pedig fire-and-forget (mint az auto-start
+            // branch-ben). Ha a `bot.start()` elbukik (pl. "already
+            // running"), a `markBotStopped()` visszaállítja a flag-et
+            // (idempotens: ha a flag már `false`, nem csinál semmit).
+            stateFeed?.publisher.markBotStarted();
+            void bot.start().catch((err: unknown) => {
               const msg = err instanceof Error ? err.message : String(err);
+              // Az "already running" hiba NEM számít valódi
+              // indulási hibának — a user (vagy a dashboard) egy
+              // második start parancsot küldött, miközben a bot már
+              // fut. Ebben az esetben a `botRunning` flag-et NEM
+              // szabad `false`-ra állítani, mert a bot valójában
+              // fut (csak a második `bot.start()` hívás volt
+              // felesleges). A Phase 81 user mandate: a Start
+              // gomb működjön, és a dashboard mutassa a helyes
+              // állapotot.
+              if (msg.includes("already running")) {
+                process.stderr.write(
+                  `[start] handleControl(start) ignored — bot is already running\n`,
+                );
+                return;
+              }
               console.error(`[start] handleControl(start) failed: ${msg}`);
+              // A `stateFeed` a try blokk elején biztosan nem null,
+              // de a TypeScript strict null-check miatt kell az
+              // ellenőrzés.
+              if (stateFeed !== null) {
+                stateFeed.publisher.markBotStopped();
+              }
             });
             return;
           case "stop":
+            // A `bot.stop()` Promise-ja a run loop kilépésekor
+            // oldódik fel — ez gyors (nem blokkoló). A `markBotStopped()`
+            // a `.then()` blokkban hívódik (szemben a `start` esettel,
+            // ahol a Promise soha nem oldódik fel).
             void bot.stop().then(() => {
               stateFeed?.publisher.markBotStopped();
             }).catch((err: unknown) => {
@@ -420,35 +550,77 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
     //        tartja életben a process-t, és a finally blokk csak a
     //        bot.stop() után fut le (graceful shutdown).
     // ===========================================================================
-    const botStartPromise = bot.start();
-    // A bot engine indítása ELINDULT. A publisher `running` flag-jét
-    // `true`-ra állítjuk, és a `lastStartedAt` timestamp-et rögzítjük
-    // (a dashboard uptime számításhoz). SZINKRON hívás, mert a flag
-    // értéke azonnal kell a publishState-nek.
-    stateFeed.publisher.markBotStarted();
-    // Ha a bot init közben elbukik, a flag-et visszaállítjuk. A
-    // botStartPromise catch-je ASYNC fut, nem blokkolja a process-t.
-    botStartPromise.catch((err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
+    //
+    // ===========================================================================
+    // PHASE 81 — `autoStart` HONORED (manual start from dashboard)
+    // ===========================================================================
+    //   Phase 81 user mandate: a `paper-backtest-verified.toml` config-gal
+    //   indított bot NE induljon automatikusan. A `bot.auto_start = false`
+    //   esetén:
+    //     - NEM hívunk `bot.start()`-ot a `mm-bot start` parancsra.
+    //     - A `stateFeed` csatlakozik, a dashboard `Bot: STOPPED` UI-t
+    //       mutat, és a user a "Start" gombra kattintva indítja a botot.
+    //     - A process-t a SIGINT/SIGTERM signal tartja életben (a
+    //       `onSignal` handler hívja a `process.exit(0)`-t).
+    //     - A `bot.start()` hívás később a `handleControl("start")`
+    //       callback-en át történik (amikor a dashboard "Start" gombját
+    //       megnyomja a user) — a meglévő callback logika változatlan.
+    //   Ha `autoStart = true` (vagy hiányzik a flag), a régi viselkedés
+    //   él: a `bot.start()` fire-and-forget hívódik, és a publisher
+    //   `markBotStarted()` jelzi a dashboardnak, hogy a bot fut.
+    // ===========================================================================
+    if (autoStart) {
+      const botStartPromise = bot.start();
+      // A bot engine indítása ELINDULT. A publisher `running` flag-jét
+      // `true`-ra állítjuk, és a `lastStartedAt` timestamp-et rögzítjük
+      // (a dashboard uptime számításhoz). SZINKRON hívás, mert a flag
+      // értéke azonnal kell a publishState-nek.
+      stateFeed.publisher.markBotStarted();
+      // Ha a bot init közben elbukik, a flag-et visszaállítjuk. A
+      // botStartPromise catch-je ASYNC fut, nem blokkolja a process-t.
+      botStartPromise.catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(
+          `[start] bot.start() failed asynchronously: ${msg} — resetting botRunning=false\n`,
+        );
+        // A `stateFeed` a try blokk elején biztosan nem null (az
+        // `attachStateFeed` sikeres volt, különben a try blokkba se
+        // jutottunk volna), de a TypeScript strict null-check miatt
+        // kell az ellenőrzés.
+        if (stateFeed !== null) {
+          stateFeed.publisher.markBotStopped();
+        }
+      });
+      // A bot addig fut, amíg a `bot.stop()` meg nem hívódik (SIGINT /
+      // SIGTERM signal handler, vagy dashboard /api/control "stop"
+      // üzenet). Az `await` itt a `botStartPromise`-re várakozik, ami
+      // CSAK a `run()` loop kilépésekor oldódik fel — ez tartja életben
+      // a process-t a finally blokk cleanup-ja előtt.
+      await botStartPromise;
+    } else {
+      // Phase 81: a bot `stopped` állapotban marad. A `botRunning` flag
+      // `false` (mert a `markBotStarted()` nem hívódik), a dashboard
+      // "Bot: STOPPED" feliratot mutat. A user a dashboard "Start"
+      // gombbal indítja a botot — a `handleControl("start")` callback
+      // hívja a `bot.start()`-ot.
       process.stderr.write(
-        `[start] bot.start() failed asynchronously: ${msg} — resetting botRunning=false\n`,
+        `[start] auto_start=false — bot is in STOPPED state. ` +
+          `Click "Start" in the dashboard to begin trading.\n`,
       );
-      // A `stateFeed` a try blokk elején biztosan nem null (az
-      // `attachStateFeed` sikeres volt, különben a try blokkba se
-      // jutottunk volna), de a TypeScript strict null-check miatt
-      // kell az ellenőrzés.
-      if (stateFeed !== null) {
-        stateFeed.publisher.markBotStopped();
-      }
-    });
-    // A bot addig fut, amíg a `bot.stop()` meg nem hívódik (SIGINT /
-    // SIGTERM signal handler, vagy dashboard /api/control "stop"
-    // üzenet). Az `await` itt a `botStartPromise`-re várakozik, ami
-    // CSAK a `run()` loop kilépésekor oldódik fel — ez tartja életben
-    // a process-t a finally blokk cleanup-ja előtt.
-    await botStartPromise;
+      // A process-t a SIGINT/SIGTERM signal tartja életben. Az
+      // `await new Promise<void>(() => undefined)` egy soha-fel-nem-oldódó
+      // Promise — CSAK a `process.exit(0)` hívás (az `onSignal`
+      // handler-ben) tud kilépni. A state-feed TCP szerver amúgy is
+      // tartja az event loopot.
+      await new Promise<never>(() => undefined);
+    }
     // A state-feed listening message az EGYETLEN stderr sor —
     // a Phase 43 Track 3 log-routing policy-nak megfelelően.
+    // MEGJEGYZÉS: a Phase 81-gyel ez a sor csak `autoStart=true`
+    // esetén fut le (a `bot.start()` promise resolve-ja után). Ha
+    // `autoStart=false`, a fenti `new Promise<never>` soha nem
+    // oldódik fel, és a sor nem fut le — de a process amúgy is a
+    // SIGINT-re vár, ahol a `process.exit(0)` azonnal kilép.
     process.stderr.write(
       `[start] state-feed listening on 127.0.0.1:${String(stateFeed.port)}\n`,
     );
@@ -475,7 +647,7 @@ async function runHeadless(bot: Bot, config: BotConfig): Promise<number> {
  */
 function printStartHelp(): void {
   const lines: string[] = [
-    "Usage: mm-bot start [--config=path] [--no-color] [--help]",
+    "Usage: mm-bot start [--config=path] [--auto-start|--no-auto-start] [--no-color] [--help]",
     "",
     "Launch the bot in PURE HEADLESS mode (no TUI, no Ink, no React).",
     "  The bot runs until SIGINT/SIGTERM, or until it crashes.",
@@ -483,13 +655,23 @@ function printStartHelp(): void {
     "",
     "Options:",
     "  --config=<path>       TOML config file (optional; uses defaults if absent)",
+    "  --auto-start          Start the bot on launch (overrides [bot] auto_start = false)",
+    "  --no-auto-start       Leave the bot in STOPPED state on launch (overrides",
+    "                        [bot] auto_start = true). Click 'Start' in the dashboard",
+    "                        to begin trading. (Phase 81)",
     "  --no-color            Disable ANSI color codes",
     "  --help, -h            Show this help",
+    "",
+    "Auto-start precedence:",
+    "  1) CLI flag (--auto-start / --no-auto-start) — last wins",
+    "  2) TOML config [bot] auto_start — used if no CLI flag",
+    "  3) Default: true (backward compat — existing configs auto-start)",
     "",
     "Examples:",
     "  mm-bot start                          # start the bot (paper mode by default)",
     "  mm-bot start --no-color               # start the bot without color",
     "  mm-bot start --config=./prod.toml     # start the bot with custom config",
+    "  mm-bot start --config=./paper.toml --no-auto-start   # paper bot in STOPPED state",
   ];
   for (const line of lines) {
     console.error(line);
