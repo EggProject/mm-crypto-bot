@@ -959,6 +959,13 @@ export class LiveStatePublisher {
     this.lastStartedAt = Date.now();
     this.refreshFromBot();
     this.emit({ type: "started" });
+    // Phase 81: a dashboard `useBotStatus` hook a `state` event-re
+    // figyel — a `started` event önmagában NEM frissíti a UI-t
+    // (a `started` event payload-jában nincs snapshot). Explicit
+    // `state` event-et is kibocsátunk, hogy a dashboard a
+    // legfrissebb `botStatus`-szal (state: "running", startedAt: …)
+    // azonnal frissüljön, ne a következő `snapshot` ciklusig (5+s).
+    this.emit({ type: "state", snapshot: this.currentState });
   }
 
   /**
@@ -974,6 +981,11 @@ export class LiveStatePublisher {
     this.botRunning = false;
     this.refreshFromBot();
     this.emit({ type: "stopped" });
+    // Phase 81: a dashboard `useBotStatus` hook a `state` event-re
+    // figyel — explicit `state` event a `stopped` event mellé, hogy
+    // a UI a frissített `botStatus.state === "stopped"` értéket
+    // azonnal lássa (ne a következő periodic refresh-ig).
+    this.emit({ type: "state", snapshot: this.currentState });
   }
 
   /**
@@ -1068,6 +1080,17 @@ export class LiveStatePublisher {
     this.currentState = { ...this.currentState, paused };
     this.notifyListeners();
     this.emit({ type: "paused", paused });
+    // Phase 81: a dashboard `useBotStatus` hook a `state` event-re
+    // figyel — a `paused` event payload-ja önmagában nem tartalmazza
+    // a teljes snapshot-ot (`botStatus.state` "running" → "paused" /
+    // "paused" → "running" váltását), így a dashboard nem tudná
+    // önmagából a `paused` event-ből frissíteni a UI-t. A `state`
+    // event a teljes snapshot-ot hordozza, így a UI azonnal megkapja
+    // a frissített `botStatus`-t (és a `getBotStatus()`-on át
+    // a `botStatus.state` mezőt is). Az early-return a no-op
+    // setPaused() hívásra is véd — ekkor NEM bocsátunk ki `state`
+    // event-et (a teszt ezt ellenőrzi).
+    this.emit({ type: "state", snapshot: this.currentState });
   }
 
   /**
@@ -1303,6 +1326,17 @@ export class LiveStatePublisher {
       this.currentState = candidate;
       this.notifyListeners();
       this.emit({ type: "snapshot", snapshot: this.currentState });
+      // Phase 81: a `snapshot` event payload-ját a web-client
+      // túlnyomórészt a historical chart-ok frissítésére használja
+      // (candles, history, statistics). A dashboard status banner
+      // viszont a `state` event-re figyel — a `state` event a teljes
+      // snapshot-ot hordozza, és a `useBotStatus` hook a `snapshot`
+      // ciklustól függetlenül azonnal frissíti a UI-t. Ha a bot
+      // futása közben a snapshot bármi miatt megváltozik (pl.
+      // a periodic refresh során), a `state` event biztosítja, hogy
+      // a dashboard a `botStatus` mezőt (running/paused/stopped,
+      // startedAt, positions) azonnal lássa.
+      this.emit({ type: "state", snapshot: this.currentState });
       return;
     }
 
@@ -1346,6 +1380,13 @@ export class LiveStatePublisher {
     this.currentState = candidate;
     this.notifyListeners();
     this.emit({ type: "snapshot", snapshot: this.currentState });
+    // Phase 81: a `snapshot` mellett `state` event-et is bocsátunk
+    // ki, hogy a dashboard status banner a frissített `botStatus`
+    // mezőt (state / startedAt / positions) a `snapshot` ciklustól
+    // függetlenül, azonnal megkapja. A `useBotStatus` hook a
+    // `state` event listener-e a primary broadcast — a `snapshot`
+    // event a historical state-et (candles / history) szállítja.
+    this.emit({ type: "state", snapshot: this.currentState });
   }
 
   /**
