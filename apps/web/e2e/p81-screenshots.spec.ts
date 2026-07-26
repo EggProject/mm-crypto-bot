@@ -4,7 +4,7 @@
  * another screenshot, click Stop, take another.
  */
 
-import { test, expect, type Page, type Route } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 const SCREENSHOT_DIR = "/tmp/p81-screenshots";
 
