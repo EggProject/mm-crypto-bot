@@ -45,7 +45,7 @@
  * ```
  */
 
-import type { ISeriesApi, LineData } from "lightweight-charts";
+import type { LineData } from "lightweight-charts";
 
 /**
  * `MockLineSeries` — a stub for the `ISeriesApi<"Line">` returned
