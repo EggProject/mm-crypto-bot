@@ -43,6 +43,7 @@ import type {
   IndicatorSeries,
   RenderedIndicator,
 } from "./registry.js";
+import type { IChartApi } from "lightweight-charts";
 
 // ============================================================================
 // Test fixtures
@@ -441,7 +442,7 @@ describe("pivotLineIndicator.render — internal branches", () => {
       s2: [],
     };
     const out = pivot.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "donchian_pivot_composition",
@@ -476,7 +477,7 @@ describe("pivotLineIndicator.render — internal branches", () => {
       pp: [null, null, null, null, null],
     };
     const out = pivot.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "donchian_pivot_composition",
@@ -504,7 +505,7 @@ describe("pivotLineIndicator.render — internal branches", () => {
     // Empty object (no pp key) → `series["pp"] ?? []` → [] → empty.
     const series: IndicatorSeries = {};
     const out = pivot.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "donchian_pivot_composition",
@@ -524,7 +525,7 @@ describe("pivotLineIndicator.render — internal branches", () => {
       pp: [10, null, 12, 13],
     };
     pivot.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "donchian_pivot_composition",
@@ -548,7 +549,7 @@ describe("pivotLineIndicator.render — internal branches", () => {
       pp: [100, 101],
     };
     pivot.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "donchian_pivot_composition",
@@ -579,7 +580,7 @@ describe("makeSingleLineIndicator — the factory used by fundingRate + fundingS
       funding: [0.01, 0.02, 0.015, 0.012, 0.018],
     };
     const out = fundingRate.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "dydx_cex_carry",
@@ -607,7 +608,7 @@ describe("makeSingleLineIndicator — the factory used by fundingRate + fundingS
       spread: [0.001, 0.002, 0.0015, 0.0012, 0.0018],
     };
     const out = fundingSpread.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "dydx_cex_carry",
@@ -635,7 +636,7 @@ describe("makeSingleLineIndicator — the factory used by fundingRate + fundingS
     // No "funding" key — only "garbage".
     const series: IndicatorSeries = { garbage: [1, 2, 3] };
     const out = fundingRate.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "dydx_cex_carry",
@@ -660,7 +661,7 @@ describe("makeSingleLineIndicator — the factory used by fundingRate + fundingS
       funding: [null, null, null],
     };
     const out = fundingRate.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "dydx_cex_carry",
@@ -681,7 +682,7 @@ describe("makeSingleLineIndicator — the factory used by fundingRate + fundingS
       funding: [null, null, null],
     };
     const out = fundingRate.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "dydx_cex_carry",
@@ -700,7 +701,7 @@ describe("makeSingleLineIndicator — the factory used by fundingRate + fundingS
       funding: [0.01, null, 0.02, 0.03],
     };
     fundingRate.render(
-      chart as any,
+      chart as unknown as IChartApi,
       bars,
       series,
       "dydx_cex_carry",
@@ -739,7 +740,6 @@ describe("breakoutMarkerIndicator — compute() + apply()", () => {
     // breakout-signal logic just needs the upper/lower to detect
     // the cross.
     const prior: Readonly<Record<string, IndicatorSeries>> = {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fixture
       "donchian": {
         upper: [110, 110, 110, 110, 110],
         middle: [100, 100, 100, 100, 100],
@@ -837,7 +837,6 @@ describe("fundingPaidMarkerIndicator — compute() funding-paid markers", () => 
     const bars = makeBars(24);
     // prior with a funding_rate line (so the prior-branch is taken).
     const prior: Readonly<Record<string, IndicatorSeries>> = {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fixture
       "funding_rate": {
         funding: [0.01, 0.02, -0.01, 0.015, 0.012, 0.018, -0.005, 0.01,
                   0.02, -0.01, 0.015, 0.012, 0.018, -0.005, 0.01, 0.02,
@@ -858,7 +857,6 @@ describe("fundingPaidMarkerIndicator — compute() funding-paid markers", () => 
     if (fundingPaid === undefined) return;
     const bars = makeBars(9);
     const prior: Readonly<Record<string, IndicatorSeries>> = {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fixture
       "funding_rate": {
         funding: [0, 0, 0, 0, 0, 0, 0, 0, 0.05],
       } as IndicatorSeries,
@@ -903,7 +901,6 @@ describe("fundingPaidMarkerIndicator — compute() funding-paid markers", () => 
     if (fundingPaid === undefined) return;
     const bars = makeBars(5);
     const prior: Readonly<Record<string, IndicatorSeries>> = {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fixture
       "funding_rate": {
         funding: [0.01, 0.02, 0.03, 0.04, 0.05],
       } as IndicatorSeries,
@@ -975,7 +972,6 @@ describe("fundingFlipsMarkerIndicator — compute() returns the funding flips", 
     if (flips === undefined) return;
     const bars = makeBars(30);
     const prior: Readonly<Record<string, IndicatorSeries>> = {
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fixture
       "funding_rate": {
         funding: new Array(30).fill(0.01) as (number | null)[],
       } as IndicatorSeries,
@@ -1044,7 +1040,7 @@ describe("indicator lifecycle — compute → render → dispose", () => {
     for (const line of set.lines) {
       const series = line.compute(bars);
       const out = line.render(
-        chart as any,
+        chart as unknown as IChartApi,
         bars,
         series,
         "donchian_pivot_composition",
@@ -1074,7 +1070,7 @@ describe("indicator lifecycle — compute → render → dispose", () => {
       for (const line of set.lines) {
         const series = line.compute(bars);
         const out = line.render(
-          chart as any,
+          chart as unknown as IChartApi,
           bars,
           series,
           name,
