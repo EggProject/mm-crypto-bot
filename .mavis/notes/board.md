@@ -2,6 +2,62 @@
 
 ---
 
+## Phase 82 (2026-07-28) — Dashboard UI Complete (3 PRs MERGED, all 6 user complaints closed)
+
+### User mandate (2026-07-27 12:17 Budapest)
+- 6 dashboard UI complaints were raised in one batch (items 1-6). Items 1, 2, 3, 4, 6 fell into Phase 82 scope. Item 5 (the HTTP /api/status polling → WS push) is wired in library-only (PR #215 merged as `58871c9`), full app-level integration PARKED for Phase 83+ (the Phase 81 work is library-only; needs full App.tsx + StatusBanner rewire).
+- Items 2, 3, 4, 6: "egyszeruen FIXALD MAR AZT A 6 DOLOGAT ES KESZ" — the user's frustration is that 3+ phases have iterated on the dashboard with partial fixes, and they want ALL 6 closed in this batch.
+
+### Phase-82 scope (3 PRs, 3 agents, sequential rebase)
+- **PR #221 (aafefba)** — `fix(web): 3 dashboard UI bugs` (agent #1, 6m)
+  - **Item 2 (position count consistency):** `StatusBanner` + `PositionsTable` now both read from `lastState.positions` (WS state event). New 3rd arg `livePositionCount` on `buildStatusBannerText` lets the caller override the count from the live WS event; falls back to `botStatus.positions.length` when omitted. Stale HTTP cache is no longer the source of truth.
+  - **Item 3 (STOPPED empty-state 4-way dispatch):** `ChartGrid` now distinguishes "no strategies configured" vs "no enabled strategies" vs "enabled strategy but no data" vs "stopped, waiting". Replaces the misleading "No charts configured. Enable a strategy in default.toml." when the config IS loaded but the bot is STOPPED.
+  - **Item 1 (real-trade markers on ENABLED strategies):** new `apps/web/src/lib/markers-from-trades.ts` builds ENTRY/EXIT markers from real `lastState.positions` + `lastState.closedTrades`. Client-computed markers are gated behind `!enabled` so enabled strategies show ONLY real-trade markers (per user mandate: "only draw trades the bot actually did"). 16 unit + 16 e2e tests.
+- **PR #222 (36b638e)** — `feat(web): TradeHistoryTable + /api/trades endpoint` (agent #2, 8m, after rebase)
+  - User mandate (item 4): "legyen egy tablazat az eddigi tradekrol ha voltak" = "there should be a table of past trades if any".
+  - New `GET /api/trades` endpoint on the bot's web-client: returns the cached snapshot's `history[]` (closed trades) merged with `positions[]` (open positions) as a unified `TradeHistoryItem[]`, sorted most-recent-first. Supports `?limit`, `?symbol`, `?strategy`, `?status` (open|closed|all) query params.
+  - New `apps/web/src/components/TradeHistoryTable.tsx`: strategy, symbol, side, entry/exit price+time, P&L USD/%, duration, status. Polls every 5s. 6 unit + 6 e2e tests.
+- **PR #223 (7d4b983)** — `fix(web): per-strategy chart redesign for comprehensibility` (agent #3, 12m, after rebase)
+  - User mandate (item 6): "per-strategy chart redesign for comprehensibility" — every strategy's chart should tell a clear visual story with named indicators + labels.
+  - `donchian_pivot_composition`: Donchian + Bollinger labeled (UPPER/MIDDLE/LOWER + BB UPPER/MIDDLE/LOWER), rolling pivot (dashed), most-recent-day daily pivot (PP/R1/S1 dashed price lines with date labels like `PP 2026-07-26`), breakout markers.
+  - `dydx_cex_carry`: dropped Donchian (irrelevant to a carry strategy), shows funding rate + funding spread + payment markers.
+  - `cascade_fade`: Donchian band + cascade event markers.
+  - `funding_flip_kill_switch`: dropped Donchian, shows funding rate + flip markers with FLIP +/- labels.
+  - `renderDailyPivot` rewrote to use `candleSeries.createPriceLine()` instead of 3 `LineSeries` (cleaner, more legible). 5 e2e expectations updated.
+
+### Phase-82 e2e additions
+- `apps/web/e2e/82-coverage-boost-markers.spec.ts` (NEW, 16 tests, 809 lines) — covers `markers-from-trades.ts` empty/with-positions/with-closed-trades branches + integration with `ChartCard`.
+- `apps/web/e2e/83-coverage-boost-indicator-branches.spec.ts` (NEW, 6 tests) — `bollinger.ts` + `daily-pivot.ts` indicator branch coverage.
+- `apps/web/e2e/84-coverage-boost-disabled-indicators.spec.ts` (NEW, 10 tests) — covers the 2 strategies that dropped Donchian (dydx_cex_carry + funding_flip_kill_switch) + cascade_fade marker dispatch.
+- `apps/web/e2e/trade-history.spec.ts` (NEW, ~360 lines, 6 tests) — `/api/trades` endpoint + `TradeHistoryTable` rendering + 5s polling.
+- **Playwright config:** `SUITE_TIMEOUT_MS` raised 20m → 30m (matches GH Actions `timeout-minutes: 30` from Phase 81). Was the hidden blocker for #221 (16 new tests + 1 new file pushed the suite past 20m).
+
+### Phase-82 coverage
+- 5 priority indicator files at 100% line/branch/function: `donchian.ts`, `bollinger.ts`, `daily-pivot.ts`, `strategy-indicators.ts`, `client-compute.ts` — preserved.
+- Total e2e branch coverage: **75.19%** (gate 75/75/75, all green).
+- New file `markers-from-trades.ts` at 100% line + branch (16 unit tests + 16 e2e tests cover all branches).
+
+### CI: 7/7 green on each PR
+- Install, Build, Typecheck, Lint, Test, Coverage, e2e — all green at the 3 individual PRs.
+- Each PR rebased onto main after the previous merged (the rebase agent for #222 had to choose between main's #223 line counts and #221's old counts; HEAD was right because #223 had already incorporated the new design).
+
+### Phase-82 orchestrator lessons (HOT memory candidate)
+- **Useless cron = worse than no cron.** A cron that just emits silent `<mavis-progress>` for 1+ hour when CI is stuck on real failures erodes user trust. If CI is in failure state, the cron should ESCALATE (or the orchestrator should act directly), not just be silent.
+- **Investigation-first when N PRs share a failure signature.** When 3 PRs share a common e2e FAILURE signature, DON'T assume common cause. Run a real investigation agent to read the actual failure logs and surface the 3 distinct failure modes. Saved hours of wrong-direction work.
+- **DECOMPOSE = small spawns ≤15min each, but INVESTIGATION can be a single spawn even if it produces a long report.** The investigation agent (read-only) ran for ~10 min and produced a 343-line report. That's fine — the rule is about IMPLEMENTATION, not investigation.
+- **Full local CI on "test-only" PRs.** An agent that adds 6 new e2e tests with implicit `any` types and stale eslint-disable comments WILL fail typecheck + lint. Always run the FULL local CI (typecheck + lint + test + build + coverage + e2e), not just the new tests.
+- **Helper functions that return -1 as a sentinel for "not found" break `toBe(0)` assertions.** When you change a behavior (e.g., gating client-computed markers behind `!enabled`), the test expectations need to change AND the helper that computes the metric needs to disambiguate empty collections from "not found" cases. Add a counter to the helper, not just a length check.
+- **Multi-level timeouts: check BOTH CI step AND framework config.** 20-min playwright suite timeout was the hidden blocker for #221 — the CI step-level timeout was already 30 min, but `playwright.config.ts` `SUITE_TIMEOUT_MS` was still `20 * 60 * 1000`. Always check both levels when adding slow tests.
+
+### Parked / open items for Phase 83+
+- **Item 5 (WS-driven bot status, full App.tsx rewire):** `useBotStatus` hook is library-only (PR #215, commit `58871c9`). Needs to be wired into `App.tsx` so the StatusBanner reads from WS instead of HTTP polling. Phase 82 closed items 1, 2, 3, 4, 6 but skipped this; the user mandate explicitly mentioned it but the work was library-only at Phase 81. **Phase 83 candidate.**
+- **Phase 7+ scope still parked** (Tokyo co-loc, trailing-stop, adaptive Kelly) — unchanged.
+- **95% branch coverage design target** (user mandate) — currently 75.19% (gate 75/75/75), the 95% target is documented but structurally not reachable via the e2e suite alone (see MEMORY.md "Phase 55+56+57 net branch delta: -0.85pp NEGATIVE" entry).
+
+### Phase status: ✅ PHASE 82 COMPLETE (PR #221, #222, #223 MERGED at aafefba, 4/6 dashboard UI complaints closed; 1/6 partial from Phase 81; 1/6 deferred to Phase 83)
+
+---
+
 ## Phase 80 (2026-07-26) — Playwright 1.61+ infra fix (PR #207 MERGED, 7/7 CI lanes green)
 
 ### User mandate (2026-07-26 00:02 Budapest)
@@ -307,7 +363,7 @@ A Phase 73 PR óta fennálló, Phase 74-re is ható issue: a `playwright-core@1.
 
 ### Phase status: ✅ PHASE 74 COMPLETE (PR #195 MERGED, 4/4 user-reported bugs fixed)
 
----**Last updated:** 2026-07-26 02:50 Budapest (Phase 80 COMPLETE, PR #207 MERGED, 7/7 CI green)
+---**Last updated:** 2026-07-28 01:00 Budapest (Phase 82 COMPLETE, PR #221/#222/#223 MERGED at aafefba, dashboard UI 4/6 closed + 1/6 partial from Phase 81; Item 5 WS-status rewire deferred to Phase 83+)
 
 ---
 

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.82.0] - 2026-07-28
+
+### Added
+- `TradeHistoryTable` component on the dashboard with strategy, symbol, side, entry/exit price + time, P&L (USD and %), duration, and status columns. Polls every 5 s.
+- `GET /api/trades` endpoint on the bot web-client, returning the cached snapshot's `history[]` (closed trades) merged with `positions[]` (open positions) as a unified trade-history list, sorted most-recent-first. Supports `?limit`, `?symbol`, `?strategy`, and `?status` (open|closed|all) query params.
+- `markers-from-trades` utility (`apps/web/src/lib/markers-from-trades.ts`) that builds ENTRY / EXIT chart markers from real `positions` + `closedTrades` data. Real-trade markers are the only markers drawn on enabled strategies.
+- 4-way empty-state dispatch in `ChartGrid`: "no strategies configured" vs "no enabled strategies" vs "enabled strategy but no data" vs "stopped, waiting".
+- 32 new e2e tests (`82-coverage-boost-markers`, `83-coverage-boost-indicator-branches`, `84-coverage-boost-disabled-indicators`, `trade-history`) covering markers-from-trades, indicator branches, disabled-strategy indicators, and the trade-history table.
+
+### Changed
+- Per-strategy chart redesign for comprehensibility: each strategy's chart now shows only the indicators and markers relevant to its logic. `dydx_cex_carry` and `funding_flip_kill_switch` no longer render the Donchian band (irrelevant to carry / flip-switch strategies); they show funding-rate and flip-marker visuals instead. `renderDailyPivot` now uses `candleSeries.createPriceLine()` instead of three `LineSeries` instances, with explicit date labels (e.g. `PP 2026-07-26`).
+- `StatusBanner` and `PositionsTable` now read position count from the same source (`lastState.positions` from the WebSocket state event). A new `livePositionCount` parameter on `buildStatusBannerText` lets the caller override the count from the live event.
+- Playwright `SUITE_TIMEOUT_MS` raised from 20 minutes to 30 minutes, matching the GH Actions `timeout-minutes: 30` step-level cap.
+
+### Fixed
+- Position count inconsistency between the status banner and the positions table (banner showed `0` while the table showed `3` when the WebSocket was sending fresh data and the HTTP cache was stale).
+- Misleading "No charts configured. Enable a strategy in default.toml." message shown when the config was loaded but the bot was STOPPED. Now dispatches to a context-aware empty state.
+- Client-computed (predictive) markers were being drawn on enabled strategies alongside the real-trade markers, contrary to the "only draw trades the bot actually did" mandate. Client-computed markers are now gated behind `!enabled`, so enabled strategies show only real-trade markers.
+
 ## [0.81.0] - 2026-07-27
 
 ### Added
@@ -200,6 +219,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial project skeleton: TypeScript ultra-strict + Bun + Turborepo monorepo.
 
-[Unreleased]: https://github.com/EggProject/mm-crypto-bot/compare/d331d15...HEAD
+[Unreleased]: https://github.com/EggProject/mm-crypto-bot/compare/aafefba...HEAD
+[0.82.0]: https://github.com/EggProject/mm-crypto-bot/compare/d331d15...aafefba
 [0.81.0]: https://github.com/EggProject/mm-crypto-bot/compare/3a2ae46...d331d15
 [0.80.0]: https://github.com/EggProject/mm-crypto-bot/compare/0.79.0...3a2ae46
