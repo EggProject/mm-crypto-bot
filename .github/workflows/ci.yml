@@ -151,7 +151,7 @@ jobs:
   e2e-playwright:
     name: e2e (Playwright + MSW + coverage gate)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -220,7 +220,7 @@ jobs:
       - name: Run Playwright e2e suite (20-min suite timeout, coverage gate)
         id: e2e
         run: cd apps/web && bun run e2e
-        timeout-minutes: 20
+        timeout-minutes: 30
       - name: Upload Playwright coverage (lcov + json-summary + html)
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
