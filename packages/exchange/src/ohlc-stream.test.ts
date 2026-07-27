@@ -29,7 +29,7 @@ import {
 // Phase 66: the mock feed moved to the `__testing__/` subdirectory.
 // Update the relative import to match.
 import { MockExchangeFeed } from "./__testing__/mockFeed.js";
-import type { FeedEvent, Trade } from "./types.js";
+import type { FeedEvent, Ohlcv, Trade } from "./types.js";
 import { asSymbol } from "./symbols.js";
 
 const SYM = asSymbol("BTC/USDT");
@@ -152,6 +152,14 @@ describe("OhlcStream (default config)", () => {
   beforeEach(() => {
     feed = new MockExchangeFeed();
     emitter = new EventEmitter();
+    // A C4 fix óta az `OhlcStream.start()` REST backfillt végez a
+    // ring buffer feltöltésére. A meglévő trade-aggregációs tesztek
+    // viszont kifejezetten üres bufferrel dolgoznak — a backfillt
+    // itt lokálisan kikapcsoljuk, hogy a C4 hatását kizárólag az
+    // új, dedikált tesztek ellenőrizzék.
+    for (const tf of DEFAULT_OHLC_STREAM_CONFIG.timeframes) {
+      feed.setOhlcv(SYM, tf, []);
+    }
     stream = new OhlcStream(feed, emitter);
   });
 
@@ -184,6 +192,9 @@ describe("OhlcStream (default config)", () => {
   });
 
   it("start() feliratkozik a trade stream-re minden symbol-ra", async () => {
+    // A C4 fix miatt a backfill SYM2-re is le kell fusson — kapcsoljuk
+    // ki lokálisan, hogy a trade-aggregációs vizsgálat tiszta maradjon.
+    feed.setOhlcv(SYM2, "1m", []);
     const customStream = new OhlcStream(feed, emitter, {
       timeframes: ["1m"],
       bufferSize: 10,
@@ -380,5 +391,236 @@ describe("OhlcStream (egyedi config — 1 symbol, 1 timeframe)", () => {
     expect(s.config.timeframes).toEqual(["1m"]);
     expect(s.config.bufferSize).toBe(5);
     expect(s.config.symbols).toEqual([SYM]);
+  });
+});
+
+describe("OhlcStream — C4 fix: REST backfill on start()", () => {
+  it("start() a subscribeTrades ELŐTT feltölti a ring buffer-t a REST history-val", async () => {
+    // A C4 fix lényege: a ring buffer NEM üres a start() után. A
+    // strategy (ohlc-trend 200-as EMA) azonnal kap history-t, nem
+    // kell 8 napot várni az első signalig.
+    const feed = new MockExchangeFeed();
+    const emitter = new EventEmitter();
+    // Explicit history-t állítunk be, hogy az ellenőrzés determinisztikus legyen.
+    const t0 = 1_700_000_000_000; // UTC 2023-11-14 22:13:20 (1m grid-en)
+    const history: Ohlcv[] = [];
+    for (let i = 0; i < 5; i++) {
+      const ts = t0 + i * 60_000; // 5 db 1m bar
+      history.push([ts, 100 + i, 105 + i, 95 + i, 102 + i, 10 + i]);
+    }
+    feed.setOhlcv(SYM, "1m", history);
+    feed.setOhlcv(SYM, "5m", history); // más timeframe-ökre is
+    feed.setOhlcv(SYM, "15m", history);
+    feed.setOhlcv(SYM, "1h", history);
+    feed.setOhlcv(SYM, "4h", history);
+    feed.setOhlcv(SYM, "1d", history);
+
+    const stream = new OhlcStream(feed, emitter, {
+      timeframes: ["1m", "5m", "15m", "1h", "4h", "1d"],
+      bufferSize: 200,
+      symbols: [SYM],
+    });
+    // A start() előtt a buffer üres.
+    expect(stream.bufferSizeOf(SYM, "1m")).toBe(0);
+    await stream.start();
+    // A start() UTÁN minden timeframe-re pontosan 5 backfilled bar van.
+    expect(stream.bufferSizeOf(SYM, "1m")).toBe(5);
+    expect(stream.bufferSizeOf(SYM, "5m")).toBe(5);
+    expect(stream.bufferSizeOf(SYM, "15m")).toBe(5);
+    expect(stream.bufferSizeOf(SYM, "1h")).toBe(5);
+    expect(stream.bufferSizeOf(SYM, "4h")).toBe(5);
+    expect(stream.bufferSizeOf(SYM, "1d")).toBe(5);
+    // Az OHLCV mezők helyesen másolódtak át OhlcBar-ra.
+    const bar1m = stream.getBars(SYM, "1m");
+    expect(bar1m[0]?.open).toBe(100);
+    expect(bar1m[0]?.high).toBe(105);
+    expect(bar1m[0]?.low).toBe(95);
+    expect(bar1m[0]?.close).toBe(102);
+    expect(bar1m[0]?.volume).toBe(10);
+    // A backfillből nem tudjuk a tradeCount-ot → 0.
+    expect(bar1m[0]?.tradeCount).toBe(0);
+    await stream.stop();
+  });
+
+  it("start() a limit=200 history-t kéri le a feed-től (strategy slowEma period)", async () => {
+    // A C4 fix a strategy `slowEma=200` periódusával egyező backfillt
+    // végez. Ellenőrizzük, hogy a feed a megfelelő `limit` értéket
+    // kapja.
+    const feed = new MockExchangeFeed();
+    const emitter = new EventEmitter();
+    let observedLimit: number | undefined;
+    const origFetch = feed.fetchOHLCV.bind(feed);
+    feed.fetchOHLCV = async (symbol, timeframe, since, limit) => {
+      observedLimit = limit;
+      return origFetch(symbol, timeframe, since, limit);
+    };
+    const stream = new OhlcStream(feed, emitter, {
+      timeframes: ["1m"],
+      bufferSize: 200,
+      symbols: [SYM],
+    });
+    await stream.start();
+    expect(observedLimit).toBe(200);
+    await stream.stop();
+  });
+
+  it("backfill() segédmetódus közvetlenül is hívható (test + backtest path)", async () => {
+    // A backfill() publikus, hogy a backtest fixture és a tesztek
+    // közvetlenül is használhassák a history seed-elésre.
+    const feed = new MockExchangeFeed();
+    await feed.open();
+    const emitter = new EventEmitter();
+    const t0 = 1_700_000_000_000;
+    feed.setOhlcv(SYM, "1h", [
+      [t0, 100, 110, 90, 105, 50],
+      [t0 + 3_600_000, 105, 115, 100, 110, 60],
+    ]);
+    const stream = new OhlcStream(feed, emitter, {
+      timeframes: ["1h"],
+      bufferSize: 200,
+      symbols: [SYM],
+    });
+    await stream.backfill(SYM, "1h", 200);
+    expect(stream.bufferSizeOf(SYM, "1h")).toBe(2);
+    expect(stream.getBars(SYM, "1h")[0]?.close).toBe(105);
+    expect(stream.getBars(SYM, "1h")[1]?.close).toBe(110);
+  });
+
+  it("ha a feed üres history-t ad vissza, a buffer üres marad (graceful degradation)", async () => {
+    // A REST endpoint átmenetileg elérhetetlen lehet, vagy új
+    // symbol-on 0 history van. A C4 fix NEM throw-ol — a start()
+    // sikeres, és a trade-ek szépen aggregálódnak a 0-ról induló
+    // bufferbe.
+    const feed = new MockExchangeFeed();
+    const emitter = new EventEmitter();
+    feed.setOhlcv(SYM, "1m", []);
+    const stream = new OhlcStream(feed, emitter, {
+      timeframes: ["1m"],
+      bufferSize: 200,
+      symbols: [SYM],
+    });
+    await stream.start();
+    expect(stream.bufferSizeOf(SYM, "1m")).toBe(0);
+    // Az első trade az aktív bar-t seed-eli, és a backfill utáni
+    // 0. completed bar-ról indulunk tovább.
+    stream.ingest(mkTrade({ timestamp: 1_700_000_400_000, price: 100, amount: 1 }));
+    expect(stream.bufferSizeOf(SYM, "1m")).toBe(0);
+    await stream.stop();
+  });
+});
+
+describe("OhlcStream — C5 fix: out-of-order trade detection", () => {
+  it("a késői trade (current bar-nál korábbi bucket) eldobódik, és a counter nő", () => {
+    // 1. Aktív bar seed-elése t0-n.
+    // 2. Rollover egy új bucketbe (t0+60s).
+    // 3. KÉSŐ trade jön t0-30s timestamp-pel (a régi bucketbe tartozik).
+    // A C5 fix ezt a trade-et eldobja, a counter 1-re nő, és a
+    // ring buffer tartalma változatlan marad (1 completed bar).
+    const t0 = 1_700_000_400_000; // 1m grid-en
+    const stream = new OhlcStream(
+      new MockExchangeFeed(),
+      new EventEmitter(),
+      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
+    );
+    expect(stream.droppedLateTrades()).toBe(0);
+
+    stream.ingest(mkTrade({ timestamp: t0, price: 100, amount: 1 }));
+    stream.ingest(mkTrade({ timestamp: t0 + 60_000, price: 110, amount: 1 }));
+    // 2 trade → 1 completed bar (az 1. lezárult, a 2. aktív).
+    expect(stream.bufferSizeOf(SYM, "1m")).toBe(1);
+    expect(stream.droppedLateTrades()).toBe(0);
+
+    // Késői trade: bucketStart = t0-60_000 (a korábbi perc), ami < t0+60_000.
+    stream.ingest(mkTrade({ timestamp: t0 - 30_000, price: 95, amount: 1 }));
+    // A counter 1-re nőtt, a ring buffer VÁLTOZATLAN.
+    expect(stream.droppedLateTrades()).toBe(1);
+    expect(stream.bufferSizeOf(SYM, "1m")).toBe(1);
+  });
+
+  it("az aktív bar értékei nem korruptálódnak késői trade hatására", () => {
+    // Specifikus regression teszt: a C5 fix előtt a késői trade
+    // lezárta az aktív bart és seed-elt egy újat a múltban, így a
+    // `lastBar.close` értéke a késői trade price-ára ugrott.
+    // Most: a késői trade eldobódik, az aktív bar close értéke
+    // változatlan.
+    const t0 = 1_700_000_400_000;
+    const stream = new OhlcStream(
+      new MockExchangeFeed(),
+      new EventEmitter(),
+      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
+    );
+    // Aktív bar seed-elése t0-n, close=100.
+    stream.ingest(mkTrade({ timestamp: t0, price: 100, amount: 1 }));
+    // Rollover t0+60s, új aktív bar close=110.
+    stream.ingest(mkTrade({ timestamp: t0 + 60_000, price: 110, amount: 1 }));
+    // Késői trade: t0-30s, price=999. Ha nem lenne C5 fix, az
+    // aktív bar lezárulna (close=110), és a késői trade-ből új
+    // bar seed-elődne (close=999) a `active` map-ben.
+    stream.ingest(mkTrade({ timestamp: t0 - 30_000, price: 999, amount: 1 }));
+    // Most: az aktív bar (a `lastBar` mivel nincs lezárt bar a t0+60s után)
+    // HIBÁSAN nézi ki a ring buffer-ből — a teszt a bufferSizeOf-szal
+    // és a droppedLateTrades counter-rel ellenőrzi a C5 fixet.
+    expect(stream.droppedLateTrades()).toBe(1);
+    // A ring bufferben 1 bar van (a t0-n lezárt), és NEM 2 (nem
+    // zárt le egy második bart a késői trade).
+    expect(stream.bufferSizeOf(SYM, "1m")).toBe(1);
+    expect(stream.getBars(SYM, "1m")[0]?.close).toBe(100);
+  });
+
+  it("a dropped counter több késői trade-re is növekszik", () => {
+    const t0 = 1_700_000_400_000;
+    const stream = new OhlcStream(
+      new MockExchangeFeed(),
+      new EventEmitter(),
+      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
+    );
+    stream.ingest(mkTrade({ timestamp: t0, price: 100, amount: 1 }));
+    stream.ingest(mkTrade({ timestamp: t0 + 60_000, price: 110, amount: 1 }));
+    stream.ingest(mkTrade({ timestamp: t0 - 30_000, price: 90, amount: 1 }));
+    stream.ingest(mkTrade({ timestamp: t0 - 90_000, price: 80, amount: 1 }));
+    stream.ingest(mkTrade({ timestamp: t0 + 30_000, price: 105, amount: 1 })); // t0+30s, current=t0+60s → késői
+    expect(stream.droppedLateTrades()).toBe(3);
+  });
+
+  it("a normál (in-order) trade-ek NEM növelik a dropped countert", () => {
+    const t0 = 1_700_000_400_000;
+    const stream = new OhlcStream(
+      new MockExchangeFeed(),
+      new EventEmitter(),
+      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
+    );
+    // 5 in-order trade: aktív bar seed + 4 rollover.
+    for (let i = 0; i < 5; i++) {
+      stream.ingest(mkTrade({ timestamp: t0 + i * 60_000, price: 100 + i, amount: 1 }));
+    }
+    expect(stream.droppedLateTrades()).toBe(0);
+    expect(stream.bufferSizeOf(SYM, "1m")).toBe(4);
+  });
+
+  it("a késői trade warning logot ír a console-ra (diagnosztika)", () => {
+    // A C5 fix console.warn-nel jelzi a késői trade-et, hogy a
+    // üzemeltető lássa a normál üzemtől való eltérést.
+    const t0 = 1_700_000_400_000;
+    const stream = new OhlcStream(
+      new MockExchangeFeed(),
+      new EventEmitter(),
+      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
+    );
+    stream.ingest(mkTrade({ timestamp: t0, price: 100, amount: 1 }));
+    stream.ingest(mkTrade({ timestamp: t0 + 60_000, price: 110, amount: 1 }));
+    const warnings: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map((a) => String(a)).join(" "));
+    };
+    try {
+      stream.ingest(mkTrade({ timestamp: t0 - 30_000, price: 95, amount: 1 }));
+    } finally {
+      console.warn = origWarn;
+    }
+    expect(warnings.length).toBe(1);
+    expect(warnings[0]).toContain("dropped late trade");
+    expect(warnings[0]).toContain("BTC/USDT");
+    expect(warnings[0]).toContain("1m");
   });
 });

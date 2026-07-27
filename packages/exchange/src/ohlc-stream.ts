@@ -76,6 +76,15 @@ export const DEFAULT_OHLC_STREAM_CONFIG: OhlcStreamConfig = {
   symbols: ["BTC/USDT" as Symbol],
 };
 
+/**
+ * `BACKFILL_LIMIT` — a `start()` hívásakor ennyi lezárt bar-ral tölti
+ * fel a `OhlcStream` a ring buffer-t a REST backfill során. A 200-as
+ * érték a `ohlc-trend` strategy `slowEma` periódusával egyezik
+ * (`packages/core/src/strategy/ohlc-trend.ts`). Kisebb limit → az EMA
+ * az első N trade-en instabil, nagyobb limit → fölösleges REST forgalom.
+ */
+export const OHLC_STREAM_BACKFILL_LIMIT = 200;
+
 /** Payload of the `bar` event emitted on close. */
 export interface OhlcStreamBarEvent {
   readonly bar: OhlcBar;
@@ -190,6 +199,14 @@ export class OhlcStream {
   private readonly active = new Map<BarKey, ActiveBar>();
   private subscriptions = new Map<SubscriptionId, Symbol>();
   private running = false;
+  /**
+   * `droppedLateTrades` — számláló, hány out-of-order trade-et dobtunk
+   * el a C5 fix óta. Publikus, hogy a tesztek és a diagnosztika
+   * (pl. health check) lássák. A WS reconnect backlog, CCXT micro-batch
+   * és clock-skew egyaránt okozhat ilyen trade-eket; a normál üzemben
+   * a counter 0 vagy nagyon alacsony.
+   */
+  private droppedLateTradesCount = 0;
 
   constructor(feed: ExchangeFeed, emitter: EventEmitter, config: Partial<OhlcStreamConfig> = {}) {
     this.feed = feed;
@@ -207,13 +224,29 @@ export class OhlcStream {
   }
 
   /**
-   * `start` — open the feed (if not open) and subscribe to trades for
-   * every symbol in `config.symbols`. Idempotent: a second `start()`
+   * `start` — open the feed (if not open), backfill the ring buffer with
+   * the most recent historical bars (C4 fix), then subscribe to trades
+   * for every symbol in `config.symbols`. Idempotent: a second `start()`
    * while running is a no-op.
+   *
+   * **C4 fix (REST backfill on start):** the strategy's 200-period EMA
+   * needs 200 bars of history. Without this backfill, the bot waits
+   * 8.3 days (1h bars) before emitting any signal. We seed the ring
+   * buffer up to `OHLC_STREAM_BACKFILL_LIMIT` bars BEFORE opening the
+   * trade subscription, so the strategy can compute its indicator
+   * immediately.
    */
   async start(): Promise<void> {
     if (this.running) return;
     await this.feed.open();
+    // C4 fix: backfill every (symbol, timeframe) ring buffer with the
+    // most recent historical bars. The 200 limit matches the strategy's
+    // `slowEma` period — see `packages/core/src/strategy/ohlc-trend.ts`.
+    for (const symbol of this.config.symbols) {
+      for (const tf of this.config.timeframes) {
+        await this.backfill(symbol, tf, OHLC_STREAM_BACKFILL_LIMIT);
+      }
+    }
     for (const symbol of this.config.symbols) {
       const id = await this.feed.subscribeTrades(symbol, (event) => {
         if (event.kind !== "trade") return;
@@ -288,6 +321,50 @@ export class OhlcStream {
   }
 
   /**
+   * `backfill` — REST history lekérése a feed-en keresztül, és a ring
+   * buffer feltöltése. A `start()` hívja a C4 fix részeként, hogy a
+   * strategy (pl. 200-as EMA) azonnal kapjon elegendő history-t.
+   *
+   * A `tradeCount` mezőt 0-ra állítjuk, mert a backfillből nem tudjuk,
+   * hogy az egyes bar-ok hány trade-ből álltak össze (csak az OHLCV
+   * végösszegeket kapjuk). A `ohlc-trend` strategy nem használja a
+   * `tradeCount`-ot, így ez nem okoz regressziót.
+   *
+   * Publikus, hogy a tesztek közvetlenül is hívhassák.
+   */
+  async backfill(symbol: Symbol, timeframe: Timeframe, limit: number): Promise<void> {
+    const ohlcv = await this.feed.fetchOHLCV(symbol, timeframe, undefined, limit);
+    const buf = this.buffers.get(barKey(symbol, timeframe));
+    if (buf === undefined) return;
+    for (const candle of ohlcv) {
+      const [ts, open, high, low, close, volume] = candle;
+      const bar: OhlcBar = {
+        timestamp: ts,
+        symbol,
+        timeframe,
+        open,
+        high,
+        low,
+        close,
+        volume,
+        tradeCount: 0,
+      };
+      buf.push(bar);
+    }
+  }
+
+  /**
+   * `droppedLateTrades` — hány out-of-order trade-et dobtunk el a C5
+   * fix óta. Publikus getter, hogy a tesztek és a diagnosztika
+   * (pl. health check) lássák a normál üzemtől való eltérést.
+   * Normál esetben 0; tartósan magas érték clock-skew-re vagy
+   * WS reconnect backlog-ra utal.
+   */
+  droppedLateTrades(): number {
+    return this.droppedLateTradesCount;
+  }
+
+  /**
    * `bufferSize` — return the current size of the ring buffer for
    * `(symbol, timeframe)`. Exposed for tests + diagnostics.
    */
@@ -302,8 +379,16 @@ export class OhlcStream {
 
   /**
    * `handleTrade` — single-trade aggregation path. For every enabled
-   * timeframe, either fold the trade into the active bar (if same bucket)
-   * or close the active bar (push to ring buffer) and open a new one.
+   * timeframe, either fold the trade into the active bar (if same bucket),
+   * close the active bar and start a new one (bucket rollover), or
+   * drop the trade if it is out-of-order (C5 fix).
+   *
+   * **C5 fix (out-of-order trade handling):** a késői trade-ek
+   * (bucketStart < current.timestamp) mostantól warning + counter
+   * mellett eldobásra kerülnek. Korábban az `else` ág vakon
+   * végrehajtotta a rollover-t, és a lezárt bar-t egy új, múltbeli
+   * bar-ral írta felül — ez az EMA-t és a backtest fixture-t is
+   * csendben elrontotta.
    */
   private handleTrade(trade: Trade): void {
     for (const tf of this.config.timeframes) {
@@ -331,7 +416,7 @@ export class OhlcStream {
         current.close = trade.price;
         current.volume += trade.amount;
         current.tradeCount += 1;
-      } else {
+      } else if (bucketStart > current.timestamp) {
         // Bucket rolled over — close the previous bar, push to ring, start new.
         this.pushBar(current);
         this.active.set(key, {
@@ -345,6 +430,15 @@ export class OhlcStream {
           volume: trade.amount,
           tradeCount: 1,
         });
+      } else {
+        // C5 fix: out-of-order trade (bucketStart < current.timestamp).
+        // A trade a korábbi bucketbe tartozik, mint az aktív bar.
+        // Okozói lehetnek: WS reconnect backlog, CCXT micro-batch,
+        // clock-skew. Dobjuk el, hogy a lezált bar-t ne rontsuk el.
+        this.droppedLateTradesCount += 1;
+        console.warn(
+          `[OhlcStream] dropped late trade: ${trade.symbol}/${tf} trade.ts=${trade.timestamp} bucketStart=${bucketStart} activeBar.ts=${current.timestamp} (price=${trade.price}, amount=${trade.amount})`,
+        );
       }
     }
   }

@@ -28,6 +28,7 @@ import type {
   ExchangeOrderId,
   FeedEvent,
   MarketMeta,
+  Ohlcv,
   Order,
   OrderBook,
   OrderRequest,
@@ -85,6 +86,22 @@ export interface ExchangeFeed {
   /** REST snapshot az order book-ról (CCXT Pro `fetchOrderBook`). */
   fetchOrderBookSnapshot(symbol: Symbol, limit: number): Promise<OrderBook>;
 
+  /**
+   * REST OHLCV history lekérése (CCXT Pro `fetchOHLCV`).
+   *
+   * A `OhlcStream.start()` használja a backfill-hez: az indítás előtt
+   * feltölti a ring buffer-t az utolsó `limit` darab lezárt bar-ral,
+   * hogy a strategy (pl. `ohlc-trend` 200-as EMA) ne 8 napig várjon
+   * az első signálra.
+   *
+   * - `since` (opcionális): ms timestamp, csak az ez utáni bar-okat adja vissza
+   * - `limit`: max visszaadott bar-ok száma
+   *
+   * A visszaadott `Ohlcv` tuple `[ts, o, h, l, c, v]` formátumban van
+   * (CCXT natív shape). A `OhlcStream.backfill()` konvertálja `OhlcBar`-ra.
+   */
+  fetchOHLCV(symbol: Symbol, timeframe: Timeframe, since: number | undefined, limit: number): Promise<readonly Ohlcv[]>;
+
   /** Piaci metaadatok (precision, min amounts) — CCXT Pro `loadMarkets`. */
   fetchMarketMeta(symbol: Symbol): Promise<MarketMeta>;
 
@@ -114,7 +131,7 @@ export interface ExchangeFeed {
 }
 
 /** Re-export a kényelem kedvéért. */
-export type { Balance, ClientOrderId, ExchangeOrderId, FeedEvent, MarketMeta, Order, OrderRequest, OrderStatus, Symbol, Timeframe };
+export type { Balance, ClientOrderId, ExchangeOrderId, FeedEvent, MarketMeta, Ohlcv, Order, OrderRequest, OrderStatus, Symbol, Timeframe };
 
 /** `placeOrder` CCXT error típusok — a feed wrapper dobhatja ezeket. */
 export class ExchangeFeedError extends Error {
