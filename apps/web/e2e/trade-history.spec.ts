@@ -403,3 +403,137 @@ test("applies the negative-PnL class for a losing trade", async ({ page }) => {
   const row = page.locator('[data-testid="trades-row"]').first();
   await expect(row.locator(".ep-trades__pnl--neg")).toHaveCount(2);
 });
+
+/**
+ * Defensive: when the backend returns a malformed trade item, the
+ * component's `parseTradeItem` filters it out and the table still
+ * renders the valid ones. This exercises the `if (typeof X !== ...)`
+ * branches in `parseTradeItem` (which the e2e coverage gate
+ * requires for the 75% branch floor).
+ */
+test("filters out malformed items from /api/trades (defensive parseTradeItem branches)", async ({ page }) => {
+  // Override the /api/trades route to return a mix of valid + invalid items.
+  // The `setupHttpRoutes` call in beforeEach already registered a handler
+  // that returns `tradeHistory`, but we re-register here with a custom
+  // response (page.route allows multiple handlers, last-wins).
+  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        trades: [
+          // Valid closed trade
+          {
+            id: "good-1",
+            strategy: "donchian",
+            symbol: "BTC/USDC",
+            side: "buy",
+            entryPrice: 60000,
+            entryTime: Date.now() - 3_600_000,
+            exitPrice: 61000,
+            exitTime: Date.now() - 1_800_000,
+            quantity: 0.01,
+            leverage: 1,
+            pnl: 10,
+            pnlPct: 1,
+            duration: 1_800_000,
+            status: "closed",
+          },
+          // Missing required fields — should be filtered out
+          { id: "bad-missing" },
+          // Invalid side — should be filtered out
+          {
+            id: "bad-side",
+            strategy: "donchian",
+            symbol: "BTC/USDC",
+            side: "sideways",
+            entryPrice: 60000,
+            entryTime: 0,
+            exitPrice: 61000,
+            exitTime: 1000,
+            quantity: 0.01,
+            leverage: 1,
+            pnl: 10,
+            pnlPct: 1,
+            duration: 1000,
+            status: "closed",
+          },
+          // Invalid status — should be filtered out
+          {
+            id: "bad-status",
+            strategy: "donchian",
+            symbol: "BTC/USDC",
+            side: "buy",
+            entryPrice: 60000,
+            entryTime: 0,
+            exitPrice: 61000,
+            exitTime: 1000,
+            quantity: 0.01,
+            leverage: 1,
+            pnl: 10,
+            pnlPct: 1,
+            duration: 1000,
+            status: "settled",
+          },
+          // Non-number exitPrice — should be filtered out
+          {
+            id: "bad-exit-price",
+            strategy: "donchian",
+            symbol: "BTC/USDC",
+            side: "buy",
+            entryPrice: 60000,
+            entryTime: 0,
+            exitPrice: "string",
+            exitTime: 1000,
+            quantity: 0.01,
+            leverage: 1,
+            pnl: 10,
+            pnlPct: 1,
+            duration: 1000,
+            status: "closed",
+          },
+          // NaN entryPrice — should be filtered out
+          {
+            id: "bad-nan",
+            strategy: "donchian",
+            symbol: "BTC/USDC",
+            side: "buy",
+            entryPrice: Number.NaN,
+            entryTime: 0,
+            exitPrice: 61000,
+            exitTime: 1000,
+            quantity: 0.01,
+            leverage: 1,
+            pnl: 10,
+            pnlPct: 1,
+            duration: 1000,
+            status: "closed",
+          },
+        ],
+        count: 6,
+      }),
+    });
+  });
+  await gotoApp(page);
+  // Only the one valid item should render.
+  await expect(page.locator('[data-testid="trades-row"]')).toHaveCount(1, {
+    timeout: 10_000,
+  });
+  await expect(
+    page.locator('[data-testid="trades-row"]').first(),
+  ).toHaveAttribute("data-status", "closed");
+});
+
+/**
+ * Defensive: when the /api/trades endpoint returns an empty list
+ * (e.g., right after a bot restart with no trades yet), the table
+ * shows the empty state — not a broken render.
+ */
+test("renders the empty state when /api/trades returns trades: []", async ({ page }) => {
+  // The default `setupHttpRoutes` returns an empty tradeHistory; nothing
+  // to override here. We do want to assert the empty state explicitly.
+  await gotoApp(page);
+  await expect(page.locator('[data-testid="trades-empty"]')).toBeVisible({
+    timeout: 10_000,
+  });
+});
