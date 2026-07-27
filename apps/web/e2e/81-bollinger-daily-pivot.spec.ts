@@ -448,9 +448,17 @@ test.describe("Phase 81: Bollinger band + daily pivot indicators on the chart", 
     expect(bollinger?.seriesCount).toBe(3);
   });
 
-  test("81-03: the daily pivot produces 3 line series (PP / R1 / S1)", async ({
+  test("81-03: the daily pivot produces 0 line series (renders as 3 price lines on the candle series instead)", async ({
     page,
   }) => {
+    // Phase 82 chart redesign: the daily-pivot renderer was
+    // rewritten to use `candleSeries.createPriceLine()` for
+    // the most recent day's PP / R1 / S1 (3 horizontal price
+    // lines on the candle series) instead of three LineSeries
+    // (a per-bar stair-step history). The descriptor still
+    // surfaces in `indicatorRefs.current` but the line-series
+    // count is now 0; the 3 price lines are attached to the
+    // candle series, not to the indicators array.
     const harness = await setupWsPeer(page);
     await gotoAppBare(page);
     await harness.waitForWsCount(3);
@@ -471,17 +479,19 @@ test.describe("Phase 81: Bollinger band + daily pivot indicators on the chart", 
       (d) => d.name === "daily_pivot-1h-donchian_pivot_composition",
     );
     expect(dailyPivot).toBeDefined();
-    expect(dailyPivot?.seriesCount).toBe(3);
+    expect(dailyPivot?.seriesCount).toBe(0);
   });
 
-  test("81-04: the total line series count on the strategy chart is 10 (3 + 1 + 3 + 3)", async ({
+  test("81-04: the total line series count on the strategy chart is 7 (3 + 1 + 3 + 0)", async ({
     page,
   }) => {
     // Sanity: Donchian band = 3, rolling pivot = 1, Bollinger
-    // band = 3, daily pivot = 3 → 10 line series on the chart
-    // for the donchian_pivot_composition strategy (Phase 81
-    // bumps from Phase 79's 4 line series — 3 Donchian + 1
-    // rolling pivot — to 10).
+    // band = 3, daily pivot = 0 (Phase 82 redesign — daily
+    // pivot now renders as 3 price lines on the candle series
+    // rather than 3 line series). Total = 7 line series on the
+    // chart for the donchian_pivot_composition strategy. The
+    // 3 daily-pivot price lines (PP / R1 / S1) are tracked
+    // separately on the candle series, not in this sum.
     const harness = await setupWsPeer(page);
     await gotoAppBare(page);
     await harness.waitForWsCount(3);
@@ -505,7 +515,7 @@ test.describe("Phase 81: Bollinger band + daily pivot indicators on the chart", 
       (sum, d) => sum + d.seriesCount,
       0,
     );
-    expect(totalSeries).toBe(10);
+    expect(totalSeries).toBe(7);
   });
 
   test("81-05: empty bars cause the chart to render without runtime error and clear the indicator lines", async ({

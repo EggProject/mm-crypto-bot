@@ -441,34 +441,42 @@ test.describe("Phase 81: strategy-specific indicators for the 4 disabled strateg
     await expect(page.locator(".line-chart-wrapper")).toHaveCount(5);
   });
 
-  test("donchian_pivot_composition (enabled) has 4 line indicators + 1 marker", async ({ page }) => {
+  test("donchian_pivot_composition (enabled) has 3 line indicators with line series + 1 marker", async ({ page }) => {
     await gotoApp(page);
     const state = await getChartCardState(page, "donchian_pivot_composition");
-    // 4 line indicators (donchian + rolling pivot + bollinger
-    // + daily_pivot) — matches
-    // `getStrategyIndicatorSet('donchian_pivot_composition').lines.length`.
-    // After PR #214 added Bollinger band (3 sub-lines) + daily
-    // pivot (3 sub-lines), the registry has 4 line indicators
-    // that produce 10 sub-line series total; we assert on the
-    // INDICATOR count (robust to future sub-line additions)
-    // rather than the sub-line series count.
+    // 4 line indicators in the registry (donchian + rolling
+    // pivot + bollinger + daily_pivot), but `getChartCardState`
+    // counts only those with at least 1 line series. The Phase
+    // 82 redesign rewrote `renderDailyPivot` to use
+    // `candleSeries.createPriceLine()` (3 horizontal price
+    // lines on the candle series) instead of 3 LineSeries —
+    // so the daily_pivot descriptor contributes 0 line series
+    // and is NOT counted. The 3 sub-line series are:
+    //   - donchian (3)
+    //   - pivot (1)
+    //   - bollinger (3)
+    // = 7 sub-line series total (see 81-04 in the bollinger-
+    // daily-pivot spec); this test asserts the INDICATOR
+    // count of those that actually rendered line series (3).
     // 1 marker indicator (breakout_signals). The marker
     // assertion is LOOSE (`>= 1`) because the marker count is
     // also somewhat strategy-specific (other phases may add
     // additional markers — e.g. Bollinger-band touches — and
     // we don't want this test to break on every indicator
     // addition).
-    expect(state.lineCount).toBe(4);
+    expect(state.lineCount).toBe(3);
     expect(state.markerCount).toBeGreaterThanOrEqual(1);
   });
 
-  test("dydx_cex_carry (disabled) has 4 lines (donchian×3 + funding_rate + funding_spread) + 1 marker (funding_paid)", async ({ page }) => {
+  test("dydx_cex_carry (disabled) has 2 lines (funding_rate + funding_spread) + 1 marker (funding_paid)", async ({ page }) => {
     await gotoApp(page);
     const state = await getChartCardState(page, "dydx_cex_carry");
-    // 3 line indicators: donchian (3 sub-lines) + funding_rate
-    // (1) + funding_spread (1) = 5 line series total.
+    // Phase 82 redesign: the Donchian band was dropped (it's
+    // irrelevant to a funding-rate carry strategy). 2 line
+    // indicators remain: funding_rate (1 sub-line) +
+    // funding_spread (1) = 2 line series total.
     // 1 marker indicator: funding_paid.
-    expect(state.lineSeriesCount).toBe(5);
+    expect(state.lineSeriesCount).toBe(2);
     expect(state.markerCount).toBe(1);
   });
 
@@ -481,13 +489,15 @@ test.describe("Phase 81: strategy-specific indicators for the 4 disabled strateg
     expect(state.markerCount).toBe(1);
   });
 
-  test("funding_flip_kill_switch (disabled) has 4 lines (donchian×3 + funding_rate) + 1 marker (funding_flips)", async ({ page }) => {
+  test("funding_flip_kill_switch (disabled) has 1 line (funding_rate) + 1 marker (funding_flips)", async ({ page }) => {
     await gotoApp(page);
     const state = await getChartCardState(page, "funding_flip_kill_switch");
-    // 2 line indicators: donchian (3 sub-lines) + funding_rate
-    // (1) = 4 line series total. 1 marker indicator:
+    // Phase 82 redesign: the Donchian band was dropped (the
+    // strategy is about funding-rate sign flips, not channel
+    // breakouts). 1 line indicator remains: funding_rate (1
+    // sub-line) = 1 line series total. 1 marker indicator:
     // funding_flips.
-    expect(state.lineSeriesCount).toBe(4);
+    expect(state.lineSeriesCount).toBe(1);
     expect(state.markerCount).toBe(1);
   });
 
