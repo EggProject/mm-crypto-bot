@@ -146,3 +146,80 @@ html, body {
   font-size: 13px;
   line-height: 1.5;
 }
+
+/* ============================================================================
+ * Phase 82 (item 4 — user mandate 2026-07-27 12:17): trade history tábla
+ * a dashboard alján. A `TradeHistoryTable` komponens a `data-testid`
+ * attribútumokkal van jelölve (e2e tesztekhez), a class nevek a
+ * `ep-trades*` prefixet használják.
+ *
+ * A styling a többi dark-mode komponenssel konzisztens: meleg grafít
+ * háttér, krém szöveg, zöld/piros P&L. A "trades" panel ugyanazt a
+ * section-h2 megjelenést kapja, mint a "Open positions" — az
+ * `.ep-app__main h2` selector itt most az egész dashboard section-jaira
+ * egységes, így a `ep-app__trades` örökli.
+ * ============================================================================
+ */
+.ep-app__trades {
+  margin: 24px 0;
+  padding: 16px;
+  background: var(--ep-bg-elevated, #0C0D11);
+  border: 1px solid var(--ep-border-subtle, rgba(255, 255, 255, 0.10));
+  border-radius: var(--ep-radius-lg, 12px);
+}
+
+.ep-app__trades h2 {
+  font: var(--ep-text-h3, 600 24px/1.2 var(--ep-font-display, system-ui, sans-serif));
+  margin: 0 0 12px 0;
+  color: var(--ep-fg, #ECE7DA);
+}
+
+.ep-trades {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--ep-font-mono, ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace);
+  font-size: 13px;
+  color: var(--ep-fg, #ECE7DA);
+}
+
+.ep-trades th,
+.ep-trades td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ep-border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.ep-trades th {
+  font-weight: 600;
+  color: var(--ep-fg-subtle, #B8B0A0);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  background: var(--ep-bg-elevated, #0C0D11);
+  position: sticky;
+  top: 0;
+}
+
+.ep-trades tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ep-trades__pnl--pos {
+  color: #4CAF50; /* green — same as running-state banner */
+}
+
+.ep-trades__pnl--neg {
+  color: #E74C3C; /* red — same as crashed-state pill */
+}
+
+.ep-trades--empty,
+.ep-trades--error {
+  padding: 16px;
+  text-align: center;
+  color: var(--ep-fg-subtle, #B8B0A0);
+  font-size: 14px;
+}
+
+.ep-trades--error {
+  color: #E74C3C;
+}

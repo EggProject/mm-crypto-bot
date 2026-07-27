@@ -689,6 +689,352 @@ describe("http-server", () => {
     });
   });
 
+  // ====================================================================
+  // Phase 82 (item 4 — user mandate 2026-07-27 12:17):
+  // GET /api/trades — a dashboard trade history tábla forrása.
+  // A history[] + positions[] merge-elt listáját adja vissza, opcionális
+  // ?limit / ?symbol / ?strategy / ?status filterekkel.
+  // ====================================================================
+  describe("GET /api/trades", () => {
+    // Helper: build a snapshot with the given history + positions + strategies
+    function buildSnapshotWithTrades(opts: {
+      readonly history?: readonly object[];
+      readonly positions?: readonly object[];
+    }): {
+      readonly status: object;
+      readonly running: boolean;
+      readonly killSwitch: object;
+      readonly positions: readonly object[];
+      readonly statistics: object;
+      readonly history: readonly object[];
+      readonly tickers: readonly object[];
+      readonly tickerEvents: readonly object[];
+      readonly strategies: readonly object[];
+      readonly paused: boolean;
+      readonly killSwitchThresholdPct: number;
+      readonly botStatus: object;
+    } {
+      return {
+        status: { mode: "with-bot", engineAvailable: true, engineError: null, connected: true, lastUpdate: 0 },
+        running: false,
+        killSwitch: "armed",
+        positions: opts.positions ?? [],
+        statistics: {
+          totalPnlUsdt: 0, totalPnlPct: 0, winRate: 0, totalTrades: 0,
+          winningTrades: 0, losingTrades: 0, maxDrawdownPct: 0, currentDrawdownPct: 0,
+          avgWinPnl: 0, avgLossPnl: 0, bestTradePnl: 0, worstTradePnl: 0,
+          profitFactor: 0, sharpeRatio: 0, equityUsdt: 0, initialEquityUsdt: 0,
+        },
+        history: opts.history ?? [],
+        tickers: [],
+        tickerEvents: [],
+        strategies: [],
+        paused: false,
+        killSwitchThresholdPct: -10,
+        botStatus: {
+          state: "stopped",
+          startedAt: 0,
+          lastUpdate: 0,
+          activeStrategyCount: 0,
+          positions: [],
+        },
+      };
+    }
+
+    it("returns 503 when no snapshot is cached", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const res = await factory.fetch(makeRequest("/api/trades"));
+      expect(res.status).toBe(503);
+    });
+
+    it("returns 503 when state-feed is disconnected (router-level)", async () => {
+      const { handle } = makeFakeStateFeed({ connected: false });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const res = await factory.fetch(makeRequest("/api/trades"));
+      expect(res.status).toBe(503);
+    });
+
+    it("returns { trades: [], count: 0 } when both history and positions are empty", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(buildSnapshotWithTrades({}), {});
+      const res = await factory.fetch(makeRequest("/api/trades"));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { trades: unknown[]; count: number };
+      expect(body.trades).toEqual([]);
+      expect(body.count).toBe(0);
+    });
+
+    it("maps closed history entries to TradeHistoryItem with status:'closed'", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        buildSnapshotWithTrades({
+          history: [
+            {
+              id: "t-1",
+              symbol: "BTC/USDC",
+              side: "buy",
+              entryPrice: 60000,
+              exitPrice: 61000,
+              quantity: 0.01,
+              leverage: 5,
+              pnlUsdt: 5,
+              pnlPct: 0.83,
+              openedAt: 1_700_000_000_000,
+              closedAt: 1_700_003_600_000, // 1h later
+              reason: "donchian_pivot_composition",
+            },
+          ],
+        }),
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/trades"));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        trades: {
+          id: string;
+          strategy: string;
+          symbol: string;
+          side: string;
+          entryPrice: number;
+          entryTime: number;
+          exitPrice: number | null;
+          exitTime: number | null;
+          quantity: number;
+          leverage: number;
+          pnl: number;
+          pnlPct: number;
+          duration: number;
+          status: string;
+        }[];
+        count: number;
+      };
+      expect(body.count).toBe(1);
+      const t = body.trades[0]!;
+      expect(t.id).toBe("t-1");
+      expect(t.strategy).toBe("donchian_pivot_composition");
+      expect(t.symbol).toBe("BTC/USDC");
+      expect(t.side).toBe("buy");
+      expect(t.entryPrice).toBe(60000);
+      expect(t.exitPrice).toBe(61000);
+      expect(t.entryTime).toBe(1_700_000_000_000);
+      expect(t.exitTime).toBe(1_700_003_600_000);
+      expect(t.pnl).toBe(5);
+      expect(t.pnlPct).toBe(0.83);
+      expect(t.duration).toBe(3_600_000); // 1h
+      expect(t.status).toBe("closed");
+      expect(t.quantity).toBe(0.01);
+      expect(t.leverage).toBe(5);
+    });
+
+    it("maps open positions to TradeHistoryItem with status:'open' and exitPrice:null", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        buildSnapshotWithTrades({
+          positions: [
+            {
+              id: "donchian_pivot_composition:BTC/USDC:long",
+              symbol: "BTC/USDC",
+              side: "buy",
+              entryPrice: 60000,
+              currentPrice: 60100,
+              quantity: 0.01,
+              leverage: 5,
+              unrealizedPnl: 1,
+              unrealizedPnlPct: 0.17,
+              openedAt: Date.now() - 5_000, // 5 sec ago (keep upper bound tight)
+              stopLoss: null,
+              takeProfit: null,
+            },
+          ],
+        }),
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/trades"));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        trades: {
+          strategy: string;
+          exitPrice: number | null;
+          exitTime: number | null;
+          pnl: number;
+          pnlPct: number;
+          duration: number;
+          status: string;
+        }[];
+      };
+      expect(body.trades.length).toBe(1);
+      const t = body.trades[0]!;
+      expect(t.strategy).toBe("donchian_pivot_composition");
+      expect(t.exitPrice).toBeNull();
+      expect(t.exitTime).toBeNull();
+      expect(t.pnl).toBe(1);
+      expect(t.pnlPct).toBe(0.17);
+      expect(t.status).toBe("open");
+      expect(t.duration).toBeGreaterThan(0);
+      expect(t.duration).toBeLessThan(60_000); // ~5s, generous upper bound
+    });
+
+    it("merges open + closed items, sorted by most recent first", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const now = 1_700_010_000_000;
+      factory.setSnapshot(
+        buildSnapshotWithTrades({
+          history: [
+            { id: "old-closed", symbol: "ETH/USDC", side: "sell", entryPrice: 3000, exitPrice: 2900, quantity: 0.5, leverage: 3, pnlUsdt: 50, pnlPct: 5, openedAt: now - 7_200_000, closedAt: now - 7_200_000, reason: "donchian" },
+            { id: "new-closed", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, exitPrice: 61000, quantity: 0.01, leverage: 5, pnlUsdt: 5, pnlPct: 0.83, openedAt: now - 600_000, closedAt: now - 600_000, reason: "donchian" },
+          ],
+          positions: [
+            { id: "donchian:open", symbol: "SOL/USDC", side: "buy", entryPrice: 100, currentPrice: 105, quantity: 1, leverage: 5, unrealizedPnl: 5, unrealizedPnlPct: 5, openedAt: now - 60_000, stopLoss: null, takeProfit: null },
+          ],
+        }),
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/trades"));
+      const body = (await res.json()) as { trades: { id: string; status: string }[]; count: number };
+      expect(body.count).toBe(3);
+      // Most recent first: open (60s ago) > new-closed (10m ago) > old-closed (2h ago)
+      expect(body.trades[0]!.id).toBe("donchian:open");
+      expect(body.trades[1]!.id).toBe("new-closed");
+      expect(body.trades[2]!.id).toBe("old-closed");
+    });
+
+    it("filters by ?status=open", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        buildSnapshotWithTrades({
+          history: [
+            { id: "t-1", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, exitPrice: 61000, quantity: 0.01, leverage: 1, pnlUsdt: 10, pnlPct: 1, openedAt: 0, closedAt: 1000, reason: "donchian" },
+          ],
+          positions: [
+            { id: "donchian:BTC/USDC:long", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, currentPrice: 60000, quantity: 0.01, leverage: 1, unrealizedPnl: 0, unrealizedPnlPct: 0, openedAt: 2000, stopLoss: null, takeProfit: null },
+          ],
+        }),
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/trades?status=open"));
+      const body = (await res.json()) as { trades: { status: string }[]; count: number };
+      expect(body.count).toBe(1);
+      expect(body.trades[0]!.status).toBe("open");
+    });
+
+    it("filters by ?status=closed", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        buildSnapshotWithTrades({
+          history: [
+            { id: "t-1", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, exitPrice: 61000, quantity: 0.01, leverage: 1, pnlUsdt: 10, pnlPct: 1, openedAt: 0, closedAt: 1000, reason: "donchian" },
+          ],
+          positions: [
+            { id: "donchian:BTC/USDC:long", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, currentPrice: 60000, quantity: 0.01, leverage: 1, unrealizedPnl: 0, unrealizedPnlPct: 0, openedAt: 2000, stopLoss: null, takeProfit: null },
+          ],
+        }),
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/trades?status=closed"));
+      const body = (await res.json()) as { trades: { status: string }[]; count: number };
+      expect(body.count).toBe(1);
+      expect(body.trades[0]!.status).toBe("closed");
+    });
+
+    it("filters by ?symbol", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        buildSnapshotWithTrades({
+          history: [
+            { id: "t-btc", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, exitPrice: 61000, quantity: 0.01, leverage: 1, pnlUsdt: 10, pnlPct: 1, openedAt: 0, closedAt: 1000, reason: "donchian" },
+            { id: "t-eth", symbol: "ETH/USDC", side: "sell", entryPrice: 3000, exitPrice: 2900, quantity: 0.5, leverage: 1, pnlUsdt: 50, pnlPct: 5, openedAt: 0, closedAt: 2000, reason: "donchian" },
+          ],
+        }),
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/trades?symbol=ETH/USDC"));
+      const body = (await res.json()) as { trades: { id: string }[]; count: number };
+      expect(body.count).toBe(1);
+      expect(body.trades[0]!.id).toBe("t-eth");
+    });
+
+    it("filters by ?strategy", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        buildSnapshotWithTrades({
+          history: [
+            { id: "t-1", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, exitPrice: 61000, quantity: 0.01, leverage: 1, pnlUsdt: 10, pnlPct: 1, openedAt: 0, closedAt: 1000, reason: "donchian_pivot_composition" },
+            { id: "t-2", symbol: "ETH/USDC", side: "sell", entryPrice: 3000, exitPrice: 2900, quantity: 0.5, leverage: 1, pnlUsdt: 50, pnlPct: 5, openedAt: 0, closedAt: 2000, reason: "dydx_cex_carry" },
+          ],
+        }),
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/trades?strategy=dydx_cex_carry"));
+      const body = (await res.json()) as { trades: { id: string }[]; count: number };
+      expect(body.count).toBe(1);
+      expect(body.trades[0]!.id).toBe("t-2");
+    });
+
+    it("respects ?limit=N", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      const history = Array.from({ length: 10 }, (_, i) => ({
+        id: `t-${i}`,
+        symbol: "BTC/USDC",
+        side: "buy" as const,
+        entryPrice: 60000,
+        exitPrice: 61000,
+        quantity: 0.01,
+        leverage: 1,
+        pnlUsdt: 10,
+        pnlPct: 1,
+        openedAt: i * 1000,
+        closedAt: i * 1000 + 500,
+        reason: "donchian",
+      }));
+      factory.setSnapshot(buildSnapshotWithTrades({ history }), {});
+      const res = await factory.fetch(makeRequest("/api/trades?limit=3"));
+      const body = (await res.json()) as { trades: unknown[]; count: number };
+      expect(body.count).toBe(3);
+      expect(body.trades.length).toBe(3);
+    });
+
+    it("clamps ?limit to 1000 max", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      // Just verify it doesn't crash with absurd values; we don't generate 100k items.
+      factory.setSnapshot(buildSnapshotWithTrades({}), {});
+      const res = await factory.fetch(makeRequest("/api/trades?limit=99999999"));
+      expect(res.status).toBe(200);
+    });
+
+    it("skips malformed closed-trade entries (defensive shape check)", async () => {
+      const { handle } = makeFakeStateFeed({ connected: true });
+      const factory = createHttpHandler(handle, { webDistDir: "/nonexistent" });
+      factory.setSnapshot(
+        buildSnapshotWithTrades({
+          history: [
+            // Missing required fields
+            { id: "bad-1" } as object,
+            // Valid entry
+            { id: "good-1", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, exitPrice: 61000, quantity: 0.01, leverage: 1, pnlUsdt: 10, pnlPct: 1, openedAt: 0, closedAt: 1000, reason: "donchian" },
+            // Invalid side
+            { id: "bad-2", symbol: "BTC/USDC", side: "sideways", entryPrice: 60000, exitPrice: 61000, quantity: 0.01, leverage: 1, pnlUsdt: 10, pnlPct: 1, openedAt: 0, closedAt: 1000, reason: "donchian" } as object,
+          ],
+        }),
+        {},
+      );
+      const res = await factory.fetch(makeRequest("/api/trades"));
+      const body = (await res.json()) as { trades: { id: string }[]; count: number };
+      expect(body.count).toBe(1);
+      expect(body.trades[0]!.id).toBe("good-1");
+    });
+  });
+
   describe("POST /api/control", () => {
     it("returns 400 when body is invalid JSON", async () => {
       const { handle } = makeFakeStateFeed({ connected: true });

@@ -69,6 +69,31 @@ export interface MockPosition {
   readonly openedAt: number;
 }
 
+/**
+ * `MockTrade` — closed-trade shape served by `/api/trades` in the
+ * MSW handlers. Matches the production `StateFeedTrade` →
+ * `TradeHistoryItem` mapping: same field names, same units.
+ *
+ * Used in Phase 82 (item 4 — user mandate 2026-07-27 12:17) to
+ * drive the trade history table e2e tests. `side` is `"long"` /
+ * `"short"` (the bot's internal convention); the handler maps it
+ * to the WS / HTTP `"buy"` / `"sell"` convention.
+ */
+export interface MockTrade {
+  readonly id: string;
+  readonly strategy: string;
+  readonly symbol: string;
+  readonly side: "long" | "short";
+  readonly entryPrice: number;
+  readonly exitPrice: number;
+  readonly quantity: number;
+  readonly leverage: number;
+  readonly pnlUsdt: number;
+  readonly pnlPct: number;
+  readonly openedAt: number;
+  readonly closedAt: number;
+}
+
 // =============================================================================
 // State — the "current bot state" the mocks serve
 // =============================================================================
@@ -111,6 +136,13 @@ const state = {
   botState: "stopped" as "running" | "paused" | "stopped",
   startedAt: 0 as number,
   activeStrategyCount: 1 as number,
+  /**
+   * Phase 82 (item 4 — user mandate 2026-07-27 12:17): closed trades
+   * served by the `/api/trades` endpoint. Defaults to an empty array
+   * (the dashboard's "No closed trades yet" empty state). Tests can
+   * override via `setTrades()`.
+   */
+  trades: [] as readonly MockTrade[],
 };
 
 /** Recording — pushed to by the WS handler as the page sends messages. */
@@ -197,6 +229,19 @@ export function getStrategies(): readonly MockStrategy[] {
 /** `getPositions()` — read the currently-served positions. */
 export function getPositions(): readonly MockPosition[] {
   return state.positions;
+}
+
+/**
+ * `setTrades(t)` — Phase 82: override the served closed trades
+ * list (served by `/api/trades`).
+ */
+export function setTrades(t: readonly MockTrade[]): void {
+  state.trades = t;
+}
+
+/** `getTrades()` — Phase 82: read the currently-served closed trades. */
+export function getTrades(): readonly MockTrade[] {
+  return state.trades;
 }
 
 // =============================================================================
@@ -339,6 +384,114 @@ const statusHandler = http.get(
         activeStrategyCount: state.activeStrategyCount,
       },
     });
+  },
+);
+
+// =============================================================================
+// Phase 82 (item 4 — user mandate 2026-07-27 12:17): GET /api/trades —
+// the dashboard's trade history table source. Returns
+// `{ trades: TradeHistoryItem[], count: N }`, mirroring the real
+// bot's HTTP handler. Defaults to an empty list; tests use
+// `setTrades()` to override.
+//
+// The MSW handler intentionally reuses the existing `positions` and
+// `closedTrades` (the latter is currently empty on the MSW side) to
+// build the response — keeping the mock's contract close to the real
+// `handleGetTrades` logic (open + closed merged, sorted by
+// most-recent-first).
+const tradesHandler = http.get(
+  "http://127.0.0.1:7913/api/trades",
+  ({ request }) => {
+    const url = new URL(request.url);
+    const limitRaw = url.searchParams.get("limit");
+    const symbolFilter = url.searchParams.get("symbol");
+    const strategyFilter = url.searchParams.get("strategy");
+    const statusFilter = url.searchParams.get("status") ?? "all";
+    const limit = (() => {
+      if (limitRaw === null) return 200;
+      const n = Number(limitRaw);
+      if (!Number.isFinite(n) || n <= 0) return 200;
+      return Math.min(Math.floor(n), 1000);
+    })();
+
+    // Use the mutable `state.trades` array; build TradeHistoryItem[]
+    // matching the real handler's shape.
+    const now = Date.now();
+    const items: {
+      id: string;
+      strategy: string;
+      symbol: string;
+      side: "buy" | "sell";
+      entryPrice: number;
+      entryTime: number;
+      exitPrice: number | null;
+      exitTime: number | null;
+      quantity: number;
+      leverage: number;
+      pnl: number;
+      pnlPct: number;
+      duration: number;
+      status: "open" | "closed";
+    }[] = [];
+
+    if (statusFilter === "all" || statusFilter === "open") {
+      for (const p of state.positions) {
+        if (symbolFilter !== null && p.symbol !== symbolFilter) continue;
+        // Mock positions have an id like "pos-1"; no strategy prefix,
+        // so default to "donchian_pivot_composition" (the only enabled
+        // strategy in the mock).
+        const strategy = "donchian_pivot_composition";
+        if (strategyFilter !== null && strategy !== strategyFilter) continue;
+        const side: "buy" | "sell" = p.side === "long" ? "buy" : "sell";
+        items.push({
+          id: p.id,
+          strategy,
+          symbol: p.symbol,
+          side,
+          entryPrice: p.entryPrice,
+          entryTime: p.openedAt,
+          exitPrice: null,
+          exitTime: null,
+          quantity: p.quantity,
+          leverage: p.leverage,
+          pnl: p.unrealizedPnl,
+          pnlPct: p.unrealizedPnlPct,
+          duration: now - p.openedAt,
+          status: "open",
+        });
+      }
+    }
+    if (statusFilter === "all" || statusFilter === "closed") {
+      for (const t of state.trades) {
+        if (symbolFilter !== null && t.symbol !== symbolFilter) continue;
+        if (strategyFilter !== null && t.strategy !== strategyFilter) continue;
+        const side: "buy" | "sell" = t.side === "long" ? "buy" : "sell";
+        items.push({
+          id: `${t.strategy}-${t.symbol}-${t.side}-${t.closedAt}`,
+          strategy: t.strategy,
+          symbol: t.symbol,
+          side,
+          entryPrice: t.entryPrice,
+          entryTime: t.openedAt,
+          exitPrice: t.exitPrice,
+          exitTime: t.closedAt,
+          quantity: t.quantity,
+          leverage: t.leverage,
+          pnl: t.pnlUsdt,
+          pnlPct: t.pnlPct,
+          duration: Math.max(0, t.closedAt - t.openedAt),
+          status: "closed",
+        });
+      }
+    }
+    // Sort by most recent first.
+    items.sort((a, b) => {
+      const aTs = a.exitTime ?? a.entryTime;
+      const bTs = b.exitTime ?? b.entryTime;
+      return bTs - aTs;
+    });
+    const sliced = items.length > limit ? items.slice(0, limit) : items;
+    return HttpResponse.json({ trades: sliced, count: sliced.length });
   },
 );
 
@@ -632,5 +785,6 @@ export const handlers = [
   ohlcHandler,
   controlHandler,
   statusHandler,
+  tradesHandler,
   wsHandler,
 ];
