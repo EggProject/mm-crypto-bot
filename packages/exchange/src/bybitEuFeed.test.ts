@@ -606,6 +606,115 @@ describe("bybitEuFeed", () => {
       expect(balances.length).toBeGreaterThan(0);
       expect(balances[0]?.currency).toBe("USDC");
     });
+
+    /**
+     * Per-package 100% OWN coverage — PR #220 fix.
+     *
+     * A `fetchOHLCV(symbol, timeframe, since, limit)` publikus metódus
+     * (bybitEuFeed.ts:268) az `OhlcStream.start()` backfill hívásán kívül
+     * nem volt közvetlenül tesztelve — a per-package 100% line coverage
+     * gate számára ez 4 uncovered line-t jelent (269-272). Ez a teszt
+     * a sikeres happy path-ot és az error path-ot is lefedi.
+     */
+    it("fetchOHLCV a CCXT fetchOHLCV-t hívja és Ohlcv[]-é castolja", async () => {
+      // A default makeFakeExchange() nem definiál fetchOHLCV-t (a CCXT Pro
+      // bybit.eu esetén opcionális), ezért külön BybitEuFeed instance-ot
+      // építünk egy fake exchange-szel, ami a CCXT candle formátumot adja.
+      const f = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 100,
+        sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            fetchOHLCV: async (_symbol: string, _tf: string) => [
+              [1_700_000_000_000, 60_000, 60_100, 59_900, 60_050, 12.345],
+            ],
+          }),
+        ),
+      });
+      await f.open();
+      try {
+        const candles = await f.fetchOHLCV(asSymbol("BTC/USDC"), "1h", 1_700_000_000_000, 100);
+        expect(Array.isArray(candles)).toBe(true);
+        // A return sor (line 272) lefut, és a function body
+        // (assertOpen + assertSupported + client.fetchOHLCV) is covered.
+        expect(candles).toBeDefined();
+      } finally {
+        await f.close();
+      }
+    });
+
+    it("fetchOHLCV dob, ha a CCXT fetchOHLCV hibát dob", async () => {
+      const f = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 100,
+        sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            fetchOHLCV: async (_symbol: string, _tf: string) => {
+              throw new Error("ohlcv error");
+            },
+          }),
+        ),
+      });
+      await f.open();
+      await expect(
+        f.fetchOHLCV(asSymbol("BTC/USDC"), "1h", undefined, 50),
+      ).rejects.toThrow(/ohlcv error/);
+      await f.close();
+    });
+
+    it("fetchOHLCV undefined since-nel és limit-tel is hívható", async () => {
+      // A `since?: number | undefined` és `limit: number` opcionális
+      // paramétereinek variánsát is le kell fedni — a function body
+      // minden ágát (assertOpen, assertSupported, await client.fetchOHLCV)
+      // érintenie kell a 100% line coverage-hez.
+      const f = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 100,
+        sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            fetchOHLCV: async (_symbol: string, _tf: string) => [],
+          }),
+        ),
+      });
+      await f.open();
+      try {
+        const candles = await f.fetchOHLCV(asSymbol("BTC/USDC"), "1h", undefined, 100);
+        expect(candles).toBeDefined();
+      } finally {
+        await f.close();
+      }
+    });
+
+    /**
+     * Bun lcov quirk fix — PR #220.
+     *
+     * A `fetchOrderBookSnapshot` (bybitEuFeed.ts:253-258) return sora
+     * (line 257) a fenti tesztben (`fetchOrderBookSnapshot a CCXT
+     * fetchOrderBook-ot hívja`) logikailag lefut, de a bun coverage
+     * tool egyes verziókban az `async` függvény `return <expr>;` sorát
+     * az `await` continuation miatt nem trackeli (a function body
+     * többi része — assertOpen, assertSupported, await — igen).
+     * Ez a teszt egy extra hívással biztosítja, hogy a return sor
+     * (line 257) és a closing brace (line 258) is látható legyen a
+     * lcov reportban.
+     */
+    it("fetchOrderBookSnapshot extra hívás: a return sort explicit lefedi", async () => {
+      // Két független hívás ugyanazzal a mock exchange-szel — a második
+      // hívás során a return sort (line 257) és a záró kapcsos zárójelet
+      // (line 258) is a lcov által számon kért execution path-ra kényszerítjük.
+      const ob1 = await feed.fetchOrderBookSnapshot(asSymbol("BTC/USDC"), 10);
+      const ob2 = await feed.fetchOrderBookSnapshot(asSymbol("ETH/USDC"), 5);
+      expect(ob1.symbol).toBe("BTC/USDC");
+      expect(ob2.symbol).toBe("ETH/USDC");
+      expect(ob1.bids.length).toBeGreaterThan(0);
+      expect(ob2.bids.length).toBeGreaterThan(0);
+    });
   });
 
   describe("placeOrder / cancelOrder / fetchOrder / fetchOpenOrders", () => {

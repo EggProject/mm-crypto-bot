@@ -257,6 +257,21 @@ export class BybitEuFeed implements ExchangeFeed {
     return normalizeOrderBook(raw, symbol);
   }
 
+  /**
+   * `fetchOHLCV` — REST OHLCV history lekérése (CCXT Pro `fetchOHLCV`).
+   *
+   * A `OhlcStream.start()` hívja a backfill során, hogy az indítás
+   * előtt feltöltse a ring buffer-t az utolsó `limit` darab lezárt
+   * bar-ral. A bybit V5 default limit 1000 — ezt a CCXt saját
+   * default-jára bízzuk (a hívó felelőssége a `limit` megadása).
+   */
+  async fetchOHLCV(symbol: Symbol, timeframe: Timeframe, since: number | undefined, limit: number): Promise<readonly Ohlcv[]> {
+    this.assertOpen();
+    this.assertSupported(symbol);
+    const raw = await this.client.fetchOHLCV(symbol, timeframe, since, limit);
+    return raw as readonly Ohlcv[];
+  }
+
   async fetchMarketMeta(symbol: Symbol): Promise<MarketMeta> {
     this.assertOpen();
     this.assertSupported(symbol);

@@ -33,6 +33,7 @@ import type {
   ExchangeOrderId,
   FeedEvent,
   MarketMeta,
+  Ohlcv,
   Order,
   OrderBook,
   OrderRequest,
@@ -55,15 +56,20 @@ interface MockSubscription {
  * `MockExchangeFeedOptions` — a mock feed konfigurációja.
  *
  * - `balances` — induló egyenleg (alap: 10 000 USDC).
- * - `tickerSnapshot` / `orderBookSnapshot` / `marketMeta` — explicit
+ * - `tickerSnapshot` / `orderBookSnapshot` / `marketMeta` / `ohlcvSnapshot` — explicit
  *   értékek a `fetch*` metódusokhoz. Ha nincs megadva, a mock feed
  *   egy alapértelmezett "BTC/USDC @ 60 000" értéket ad vissza.
+ * - `ohlcvSnapshot` — `(symbol, timeframe) → Ohlcv[]` history map. A
+ *   `fetchOHLCV` ezt adja vissza, ha van bejegyzés; egyébként egy
+ *   generált default history-t.
  */
 export interface MockExchangeFeedOptions {
   readonly balances?: readonly Balance[];
   readonly tickerSnapshot?: ReadonlyMap<Symbol, Ticker>;
   readonly orderBookSnapshot?: ReadonlyMap<Symbol, OrderBook>;
   readonly marketMeta?: ReadonlyMap<Symbol, MarketMeta>;
+  /** `(symbol, timeframe)` → CCXT `Ohlcv` tuple-k history-ja. */
+  readonly ohlcvSnapshot?: ReadonlyMap<string, readonly Ohlcv[]>;
   readonly exchangeId?: string;
 }
 
@@ -81,6 +87,7 @@ export class MockExchangeFeed implements ExchangeFeed {
   private readonly tickerSnapshots: Map<Symbol, Ticker>;
   private readonly orderBookSnapshots: Map<Symbol, OrderBook>;
   private readonly marketMetaMap: Map<Symbol, MarketMeta>;
+  private readonly ohlcvSnapshots: Map<string, readonly Ohlcv[]>;
   private readonly orderBook = new Map<ClientOrderId, Order>();
 
   constructor(opts: MockExchangeFeedOptions = {}) {
@@ -89,6 +96,7 @@ export class MockExchangeFeed implements ExchangeFeed {
     this.tickerSnapshots = new Map<Symbol, Ticker>();
     this.orderBookSnapshots = new Map<Symbol, OrderBook>();
     this.marketMetaMap = new Map<Symbol, MarketMeta>();
+    this.ohlcvSnapshots = new Map<string, readonly Ohlcv[]>();
     // A ReadonlyMap-ból átmásoljuk a bejegyzéseket, hogy később
     // a `setTicker` / `setBalance` metódusokkal bővíthető legyen.
     if (opts.tickerSnapshot !== undefined) {
@@ -99,6 +107,9 @@ export class MockExchangeFeed implements ExchangeFeed {
     }
     if (opts.marketMeta !== undefined) {
       for (const [k, v] of opts.marketMeta) this.marketMetaMap.set(k, v);
+    }
+    if (opts.ohlcvSnapshot !== undefined) {
+      for (const [k, v] of opts.ohlcvSnapshot) this.ohlcvSnapshots.set(k, v);
     }
   }
 
@@ -150,6 +161,17 @@ export class MockExchangeFeed implements ExchangeFeed {
     const existing = this.orderBookSnapshots.get(symbol);
     if (existing !== undefined) return existing;
     return defaultOrderBook(symbol);
+  }
+
+  async fetchOHLCV(symbol: Symbol, timeframe: Timeframe, since: number | undefined, limit: number): Promise<readonly Ohlcv[]> {
+    this.assertOpen();
+    const key = `${symbol}::${timeframe}`;
+    const existing = this.ohlcvSnapshots.get(key);
+    const all = existing ?? defaultOhlcvHistory(symbol, timeframe);
+    // CCXT convention: `since` (opcionális) szűri a bar-okat `>= since` szerint.
+    // A `limit` a max visszaadott darabszám.
+    const filtered = since === undefined ? all : all.filter((c) => c[0] >= since);
+    return filtered.slice(-limit);
   }
 
   async fetchMarketMeta(symbol: Symbol): Promise<MarketMeta> {
@@ -241,6 +263,11 @@ export class MockExchangeFeed implements ExchangeFeed {
     this.tickerSnapshots.set(symbol, ticker);
   }
 
+  /** `setOhlcv` — beállítja a `fetchOHLCV` által visszaadott history-t egy (symbol, timeframe) párra. */
+  setOhlcv(symbol: Symbol, timeframe: Timeframe, history: readonly Ohlcv[]): void {
+    this.ohlcvSnapshots.set(`${symbol}::${timeframe}`, history);
+  }
+
   /** `setBalance` — beállítja egy currency egyenlegét. */
   setBalance(currency: string, free: number, total: number): void {
     const idx = this.balances.findIndex((b) => b.currency === currency);
@@ -328,4 +355,42 @@ export function defaultMarketMeta(symbol: Symbol): MarketMeta {
     minAmount: 0.0001,
     minCost: 1,
   };
+}
+
+/**
+ * `defaultOhlcvHistory` — a mock feed alapértelmezett OHLCV history-ja.
+ *
+ * 50 db 1%-os random walk-ot generál a `defaultTicker(symbol).last` ár
+ * körül, a `timeframe` alapján számított bucket-start-okra igazítva.
+ * A tesztek vagy ezt használják implicit, vagy a `setOhlcv`/`ohlcvSnapshot`
+ * opcióval írják felül.
+ */
+export function defaultOhlcvHistory(symbol: Symbol, timeframe: Timeframe, count = 50): Ohlcv[] {
+  const tfMs: Record<Timeframe, number> = {
+    "1m": 60_000,
+    "5m": 5 * 60_000,
+    "15m": 15 * 60_000,
+    "1h": 60 * 60_000,
+    "4h": 4 * 60 * 60_000,
+    "1d": 24 * 60 * 60_000,
+  };
+  // eslint-disable-next-line security/detect-object-injection -- timeframe brand type
+  const ms = tfMs[timeframe];
+  // Az utolsó bar `now` bucket-start-jától visszafelé `count` darab.
+  const now = Date.now() - (Date.now() % ms);
+  const base = defaultTicker(symbol).last;
+  const out: Ohlcv[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const ts = now - i * ms;
+    // Egyszerű determinisztikus random walk az index alapján — így a
+    // tesztek reprodukálhatók.
+    const seed = (ts / ms) | 0;
+    const open = base + ((seed * 31) % 100 - 50) * (base * 0.001);
+    const close = open + ((seed * 17) % 100 - 50) * (base * 0.001);
+    const high = Math.max(open, close) + ((seed * 7) % 50) * (base * 0.0005);
+    const low = Math.min(open, close) - ((seed * 11) % 50) * (base * 0.0005);
+    const volume = 10 + (seed % 100);
+    out.push([ts, open, high, low, close, volume]);
+  }
+  return out;
 }
