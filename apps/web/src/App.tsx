@@ -21,6 +21,7 @@ import {
   type BotStatus,
 } from "./lib/bot-status.js";
 import type { OHLCBar } from "./lib/ohlc-bridge.js";
+import { buildMarkersByKey } from "./lib/markers-from-trades.js";
 
 /**
  * `App` — the Top-nav app shell for the mm-crypto-bot web dashboard.
@@ -296,6 +297,64 @@ export function App(): React.JSX.Element {
   );
 
   // -----------------------------------------------------------------
+  // Phase 82 (item 5): Build markersByKey from the WS `state`
+  // event's `positions` + `closedTrades`. The chart markers now
+  // reflect the bot's ACTUAL executed trades (open positions →
+  // ENTRY arrows; closed trades → ENTRY + EXIT markers), not the
+  // client-computed hypothetical breakout entries from the
+  // `indicators/strategy-indicators.ts` renderers. The set of
+  // (symbol, timeframe) pairs the markers are replicated across
+  // is derived from the strategy descriptors (every chart that
+  // covers the symbol gets the trade marker).
+  //
+  // Memoized so the identity is stable across re-renders that
+  // don't change `lastState` or `strategies` (the markers map
+  // is then passed to ChartGrid which compares by reference
+  // for re-render decisions).
+  // -----------------------------------------------------------------
+  const symbolsAndTimeframes = useMemo<
+    Readonly<Record<string, readonly string[]>>
+  >(() => {
+    const out: Record<string, string[]> = {};
+    for (const strat of strategies) {
+      for (const sym of strat.symbols) {
+        // The keys are state-feed symbols + strategy timeframes,
+        // never user input — the security lint false-positives
+        // on object-injection are acceptable to suppress here.
+        // eslint-disable-next-line security/detect-object-injection
+        const tfs: string[] = out[sym] ?? [];
+        for (const tf of strat.timeframes) {
+          if (!tfs.includes(tf)) tfs.push(tf);
+        }
+        // eslint-disable-next-line security/detect-object-injection
+        out[sym] = tfs;
+      }
+    }
+    return out;
+  }, [strategies]);
+  const markersByKey = useMemo(
+    () => buildMarkersByKey(lastState, symbolsAndTimeframes),
+    [lastState, symbolsAndTimeframes],
+  );
+
+  // Phase 82 (item 2): derive the live position count from the
+  // WS `state` event (`lastState.positions.length`) so the
+  // status banner shows the SAME count as the PositionsTable.
+  // The PositionsTable already reads from `lastState.positions`
+  // — the status banner was reading from the HTTP-cached
+  // `botStatus.positions.length` and lagged, which caused the
+  // "3 open positions" (top) vs "0" (bottom) inconsistency.
+  // When `lastState` is `null` (no WS state yet), fall back
+  // to `botStatus.positions.length` so the banner still has
+  // a count to display.
+  const livePositionsCount = useMemo<number | undefined>(() => {
+    if (lastState === null) return undefined;
+    const state = lastState as { positions?: unknown };
+    if (!Array.isArray(state.positions)) return undefined;
+    return state.positions.length;
+  }, [lastState]);
+
+  // -----------------------------------------------------------------
   // Adapter: ChartGrid's send expects only subscribe/unsubscribe;
   // useWebSocket's send is the full ClientMessage union. The
   // narrower type is a structural subset, so the cast is safe at
@@ -335,7 +394,16 @@ export function App(): React.JSX.Element {
   // Phase 69: the status banner text + the ControlBar button
   // enable/disable map. The pure helpers in `lib/bot-status.ts`
   // do the work; the App component is a thin orchestrator.
-  const statusBannerText = buildStatusBannerText(botStatus, now);
+  // Phase 82 (item 2): pass `livePositionsCount` (the WS-derived
+  // position count) as the 3rd arg so the banner shows the same
+  // count as the PositionsTable. When `lastState` is null
+  // (no WS state yet), the helper falls back to the HTTP-cached
+  // `botStatus.positions.length`.
+  const statusBannerText = buildStatusBannerText(
+    botStatus,
+    now,
+    livePositionsCount,
+  );
   const controlBarAvailability = computeControlBarAvailability(
     botStatus?.state ?? null,
   );
@@ -410,10 +478,11 @@ export function App(): React.JSX.Element {
           <ChartGrid
             strategies={strategies}
             barsByKey={barsByKey}
-            markersByKey={{}}
+            markersByKey={markersByKey}
             feedState={feedState}
             feedMeta={feedMeta}
             send={chartSend}
+            botState={botStateRaw}
           />
         </div>
         <div

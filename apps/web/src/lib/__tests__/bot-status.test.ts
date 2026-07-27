@@ -535,4 +535,67 @@ describe("buildStatusBannerText", () => {
     );
     expect(banner).not.toContain("open position");
   });
+
+  // Phase 82 (item 2): the new 3rd arg `livePositionCount` lets
+  // the caller override the position count from the WS `state`
+  // event. The banner should use the live count (and fall back
+  // to `botStatus.positions.length` when the live count is
+  // undefined). This is the fix for the "3 open positions" (top
+  // banner) vs "0" (bottom PositionsTable) inconsistency — both
+  // surfaces now read from the same WS-derived count.
+  it("uses livePositionCount when provided (Phase 82 item 2)", () => {
+    const banner = buildStatusBannerText(
+      {
+        state: "running",
+        startedAt: 1_700_000_000_000,
+        lastUpdate: 1_700_000_000_000,
+        activeStrategyCount: 1,
+        // HTTP cache says 0 positions (stale snapshot)
+        positions: [],
+      },
+      1_700_000_000_000 + 60_000,
+      // WS state event says 3 positions are open (the source of truth)
+      3,
+    );
+    expect(banner).toContain("3 open positions");
+  });
+
+  it("treats livePositionCount === 0 as 'no positions' (not as 'no override')", () => {
+    const banner = buildStatusBannerText(
+      {
+        state: "running",
+        startedAt: 1_700_000_000_000,
+        lastUpdate: 1_700_000_000_000,
+        activeStrategyCount: 1,
+        // HTTP cache says 3 positions (stale)
+        positions: [
+          { id: "p1", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, currentPrice: 60100, quantity: 0.01, leverage: 5, unrealizedPnl: 1, unrealizedPnlPct: 1.67, openedAt: 1000 },
+          { id: "p2", symbol: "ETH/USDC", side: "buy", entryPrice: 3000, currentPrice: 3000, quantity: 0.1, leverage: 3, unrealizedPnl: 1, unrealizedPnlPct: 1.0, openedAt: 1000 },
+          { id: "p3", symbol: "SOL/USDC", side: "buy", entryPrice: 100, currentPrice: 100, quantity: 1, leverage: 1, unrealizedPnl: 1, unrealizedPnlPct: 1.0, openedAt: 1000 },
+        ],
+      },
+      1_700_000_000_000 + 60_000,
+      // WS state event says 0 (the user just stopped, positions closed)
+      0,
+    );
+    // Live count wins — banner should NOT show "3 open positions"
+    expect(banner).not.toContain("open position");
+  });
+
+  it("falls back to botStatus.positions.length when livePositionCount is undefined", () => {
+    const banner = buildStatusBannerText(
+      {
+        state: "running",
+        startedAt: 1_700_000_000_000,
+        lastUpdate: 1_700_000_000_000,
+        activeStrategyCount: 1,
+        positions: [
+          { id: "p1", symbol: "BTC/USDC", side: "buy", entryPrice: 60000, currentPrice: 60100, quantity: 0.01, leverage: 5, unrealizedPnl: 1, unrealizedPnlPct: 1.67, openedAt: 1000 },
+        ],
+      },
+      1_700_000_000_000 + 60_000,
+      // no 3rd arg — falls back to botStatus.positions.length
+    );
+    expect(banner).toContain("1 open position");
+  });
 });

@@ -275,7 +275,18 @@ function sendInitialServerMessages(
     type: "state",
     ts: now,
     snapshot: { botStatus },
-    positions: [],
+    // Phase 82 (item 2): forward `botStatus.positions` to the WS
+    // `state` event's top-level `positions` field. Previously
+    // this was hard-coded to `[]`, which meant the WS state
+    // event's position count was always 0 even when the HTTP
+    // cache said 1+. The user's "3 open positions" vs "0"
+    // inconsistency was a direct consequence of the WS state
+    // event being out of sync with the HTTP cache — this
+    // helper now keeps them in sync (the real bot's publisher
+    // does the same: both `botStatus.positions` and the top-
+    // level `positions` are populated from
+    // `lastEngineState.positions`).
+    positions: botStatus.positions ?? [],
     closedTrades: [],
     killSwitch: "off",
     paused: false,

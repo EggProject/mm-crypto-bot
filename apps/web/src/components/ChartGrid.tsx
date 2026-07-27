@@ -74,6 +74,23 @@ export interface StrategyDescriptor {
  * formátum: `symbol|timeframe`. A Phase 48C `App.tsx` építi ezeket
  * a state-feed `bar` / `marker` üzeneteiből + a snapshot
  * `ohlcBootstrap` adataiból.
+ *
+ * Phase 82 (3 dashboard UI bugs): added the optional `botState` prop.
+ * When provided, the empty-state branch distinguishes the 3 cases:
+ *
+ *   - no strategies configured → "No strategies configured. Check
+ *     `default.toml`."
+ *   - all strategies disabled → "All strategies are disabled. Enable
+ *     one in `default.toml`."
+ *   - bot is stopped → "Bot is stopped. Click Start to begin."
+ *   - bot is running but no bars yet → "Bot is starting up. Bars will
+ *     appear in a few seconds."
+ *
+ * Previously the same generic "No charts configured. Enable a strategy
+ * in `default.toml`." message was shown for ALL 4 conditions, which was
+ * misleading when the config was already loaded but the bot was just
+ * stopped (the user complained: "nincs config betoltve" — "no config
+ * loaded" — when the bot was actually STOPPED, not mis-configured).
  */
 export interface ChartGridProps {
   readonly strategies: readonly StrategyDescriptor[];
@@ -90,6 +107,14 @@ export interface ChartGridProps {
     symbol: string;
     timeframe: string;
   }) => void;
+  /**
+   * Phase 82: the bot's high-level state (from the WS `state`
+   * event's `botStatus.state` or `null` if the WS hasn't pushed a
+   * state yet). Used to differentiate the empty-state messages.
+   * Optional for backward-compat — when omitted, the empty-state
+   * message collapses to the prior "starting up" message.
+   */
+  readonly botState?: "running" | "paused" | "stopped" | null;
 }
 
 // ============================================================================
@@ -230,8 +255,15 @@ const GRID_CSS = `
  *   This keeps the subscription alive so the bootstrap arrives ASAP.
  */
 export function ChartGrid(props: ChartGridProps): React.JSX.Element {
-  const { strategies, barsByKey, markersByKey, feedState, feedMeta, send } =
-    props;
+  const {
+    strategies,
+    barsByKey,
+    markersByKey,
+    feedState,
+    feedMeta,
+    send,
+    botState,
+  } = props;
 
   // --------------------------------------------------------------------------
   // 1. Flatten strategies × symbols × timeframes into a memoized list.
@@ -331,27 +363,74 @@ export function ChartGrid(props: ChartGridProps): React.JSX.Element {
   }, []);
 
   // --------------------------------------------------------------------------
-  // 5. Empty-state branches — no strategies at all, no enabled strategy,
-  //    OR no bar data at all.
+  // 5. Empty-state branches — distinguish the 4 conditions.
   //
   //    Phase 76: we still treat "no enabled strategy" as an empty
   //    state (the user mandate says "minden strategiat" — every
   //    strategy — must be displayed, but if ZERO strategies are
   //    enabled, there's nothing useful to render and the user gets
   //    a clear "nothing running" message instead of 0 cards).
+  //
+  //    Phase 82 (3 dashboard UI bugs): the single message "No charts
+  //    configured. Enable a strategy in `default.toml`." was
+  //    misleading because the same message appeared when the bot was
+  //    STOPPED (no bars yet) — the user couldn't tell whether the
+  //    config was missing or just the bot wasn't started. The fix:
+  //    differentiate 4 conditions with specific, actionable messages:
+  //
+  //      - no strategies at all      → "No strategies configured. Check `default.toml`."
+  //      - all strategies disabled   → "All strategies are disabled. Enable one in `default.toml`."
+  //      - bot stopped               → "Bot is stopped. Click Start to begin."
+  //      - bot starting up           → "Bot is starting up. Bars will appear in a few seconds."
+  //
+  //    The bot's state comes from the new `botState` prop (passed in
+  //    by `App.tsx` from the WS `state` event's `botStatus.state`).
+  //    When the prop is omitted (backward-compat) the empty state
+  //    falls back to the "starting up" message (the most common
+  //    transient case before the first WS state event arrives).
   // --------------------------------------------------------------------------
   const hasAnyStrategy = strategies.length > 0;
   const hasAnyEnabledStrategy = strategies.some((s) => s.enabled);
   const hasAnyBars = Object.keys(barsByKey).length > 0;
 
   if (!hasAnyStrategy || !hasAnyEnabledStrategy || !hasAnyBars) {
+    // Decide WHICH message to show based on the 4 conditions above.
+    // Each branch is a separate `if` (not a 3-arm ternary) so the
+    // V8 + ast-v8-to-istanbul coverage pipeline attributes each
+    // branch correctly. The `!hasAnyStrategy` check takes priority
+    // over `!hasAnyEnabledStrategy` (a missing config is more
+    // severe than an all-disabled config).
+    let emptyMessage: React.JSX.Element;
+    if (!hasAnyStrategy) {
+      emptyMessage = (
+        <p>
+          No strategies configured. Check <code>default.toml</code>.
+        </p>
+      );
+    } else if (!hasAnyEnabledStrategy) {
+      emptyMessage = (
+        <p>
+          All strategies are disabled. Enable one in{" "}
+          <code>default.toml</code>.
+        </p>
+      );
+    } else if (botState === "stopped" || botState === null) {
+      // "stopped" + "null" (no state yet → "not running") are
+      // both treated as "the bot isn't running". The message
+      // guides the user to the action (click Start).
+      emptyMessage = <p>Bot is stopped. Click Start to begin trading.</p>;
+    } else {
+      // botState === "running" | "paused" — the bot is configured
+      // and enabled, but no bars have arrived yet. The message
+      // tells the user this is a transient startup state.
+      emptyMessage = (
+        <p>Bot is starting up. Bars will appear in a few seconds.</p>
+      );
+    }
     return (
       <div className="ep-chart-grid__empty" data-testid="chart-grid-empty">
         <style>{GRID_CSS}</style>
-        <p>
-          No charts configured. Enable a strategy in{" "}
-          <code>default.toml</code>.
-        </p>
+        {emptyMessage}
       </div>
     );
   }
