@@ -172,13 +172,15 @@ describe("STRATEGY_INDICATOR_SETS", () => {
   // that is strategy-specific (not the universal Donchian).
   // -------------------------------------------------------------------------
 
-  it("dydx_cex_carry has the Donchian band + funding rate + funding spread + funding-paid markers", () => {
+  it("dydx_cex_carry has the funding rate + funding spread + funding-paid markers (Phase 82: dropped Donchian — irrelevant to a carry strategy)", () => {
     const set = STRATEGY_INDICATOR_SETS["dydx_cex_carry"];
     expect(set).toBeDefined();
-    // 3 lines: donchian, funding_rate, funding_spread
-    expect(set?.lines.length).toBe(3);
+    // Phase 82: the Donchian band is DROPPED — a carry strategy
+    // doesn't trade channel breakouts, so the channel envelope
+    // is visual noise. 2 lines: funding_rate, funding_spread.
+    expect(set?.lines.length).toBe(2);
     const lineNames = set?.lines.map((l) => l.name) ?? [];
-    expect(lineNames).toContain("donchian");
+    expect(lineNames).not.toContain("donchian");
     expect(lineNames).toContain("funding_rate");
     expect(lineNames).toContain("funding_spread");
     // 1 marker: funding_paid
@@ -200,13 +202,15 @@ describe("STRATEGY_INDICATOR_SETS", () => {
     expect(markerNames).toContain("cascade_events");
   });
 
-  it("funding_flip_kill_switch has the Donchian band + funding rate + funding-flip markers", () => {
+  it("funding_flip_kill_switch has the funding rate + funding-flip markers (Phase 82: dropped Donchian — irrelevant to a flip strategy)", () => {
     const set = STRATEGY_INDICATOR_SETS["funding_flip_kill_switch"];
     expect(set).toBeDefined();
-    // 2 lines: donchian, funding_rate
-    expect(set?.lines.length).toBe(2);
+    // Phase 82: the Donchian band is DROPPED — a funding-flip
+    // strategy doesn't trade channel breakouts, so the channel
+    // envelope is visual noise. 1 line: funding_rate.
+    expect(set?.lines.length).toBe(1);
     const lineNames = set?.lines.map((l) => l.name) ?? [];
-    expect(lineNames).toContain("donchian");
+    expect(lineNames).not.toContain("donchian");
     expect(lineNames).toContain("funding_rate");
     // 1 marker: funding_flips
     expect(set?.markers.length).toBe(1);
@@ -401,13 +405,17 @@ describe("line indicators — render() happy path", () => {
     out.dispose();
   });
 
-  it("dailyPivotLineIndicator.render delegates to renderDailyPivot (3 line series + name + dispose)", () => {
+  it("dailyPivotLineIndicator.render delegates to renderDailyPivot (Phase 82: 0 line series — 3 price lines on candle series + name + dispose)", () => {
     const set = STRATEGY_INDICATOR_SETS["donchian_pivot_composition"];
     const dailyPivot = set?.lines.find((l) => l.name === "daily_pivot");
     if (dailyPivot === undefined) return;
     const chart = makeMockChart();
     const bars = makeBars(5);
     const series = dailyPivot.compute(bars);
+    // Phase 82: the renderer now needs a candle series to
+    // create price lines. We mock it as a no-op placeholder
+    // for this test (the unit-test suite for `renderDailyPivot`
+    // itself in `daily-pivot.test.ts` has a richer mock).
     const out = dailyPivot.render(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock chart is structurally compatible at the call site
       chart as any,
@@ -415,10 +423,15 @@ describe("line indicators — render() happy path", () => {
       series,
       "donchian_pivot_composition",
       "1h",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- no candle series in this minimal unit test
+      undefined as any,
     );
-    expect(out.series).toHaveLength(3);
+    // No line series are added (price lines live on the candle
+    // series, which is not present in this minimal test).
+    expect(out.series).toHaveLength(0);
     expect(out.name).toBe("daily_pivot-1h-donchian_pivot_composition");
-    out.dispose();
+    // Dispose must not throw.
+    expect(() => out.dispose()).not.toThrow();
   });
 });
 

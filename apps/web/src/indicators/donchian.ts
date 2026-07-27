@@ -107,6 +107,23 @@ export const DONCHIAN_COLORS: Readonly<Record<DonchianSeriesKey, string>> = {
 };
 
 /**
+ * `DONCHIAN_TITLES` — the per-line `title` option set on each
+ * `addSeries(LineSeries, ...)` call. The title appears in the
+ * lightweight-charts built-in legend (right-side last-value
+ * label) so the user can identify each line at a glance.
+ *
+ * Phase 82 (chart redesign): the user mandate is that the chart
+ * shows what each line MEANS — not just colored lines. The
+ * titles "Donchian UPPER" / "Donchian MIDDLE" / "Donchian
+ * LOWER" make the channel immediately self-explanatory.
+ */
+export const DONCHIAN_TITLES: Readonly<Record<DonchianSeriesKey, string>> = {
+  upper: "Donchian UPPER",
+  middle: "Donchian MIDDLE",
+  lower: "Donchian LOWER",
+};
+
+/**
  * The typed shape of a validated Donchian series.
  *
  * Every value is `number | null` (the `null` case is filtered out
@@ -285,6 +302,21 @@ function colorFor(key: DonchianSeriesKey): string {
 }
 
 /**
+ * Look up the legend title for `key`. Mirrors `colorFor` but
+ * returns the human-readable label for the lightweight-charts
+ * built-in legend. The values come from `DONCHIAN_TITLES`.
+ */
+function titleFor(key: DonchianSeriesKey): string {
+  if (key === "upper") return DONCHIAN_TITLES.upper;
+  if (key === "middle") return DONCHIAN_TITLES.middle;
+  // Same runtime-vs-type reasoning as `colorFor` above.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (key === "lower") return DONCHIAN_TITLES.lower;
+  const _exhaustive: never = key;
+  throw new Error(`titleFor: unknown key ${String(_exhaustive)}`);
+}
+
+/**
  * Look up the values array for `key` in `indicatorSeries`. Returns
  * `undefined` if the key is absent.
  *
@@ -407,16 +439,25 @@ export const renderDonchian: IndicatorRenderer = (
       continue;
     }
 
-    // `addSeries(LineSeries, opts)` — v5 API. `priceLineVisible: false`
-    // suppresses the horizontal "current value" line on the right axis
-    // (a Donchian channel renders three lines; each one's right-edge
-    // marker would visually clutter the chart). `lastValueVisible: false`
-    // suppresses the label of the last value.
+    // `addSeries(LineSeries, opts)` — v5 API. Phase 82: the `title`
+    // option sets the line's legend label (visible in the chart's
+    // built-in legend + next to the last value on the right edge),
+    // so each line of the Donchian channel is self-explanatory:
+    // "Donchian UPPER" (gold, top of the channel), "Donchian
+    // MIDDLE" (slate, equilibrium), "Donchian LOWER" (red, bottom).
+    // `priceLineVisible: false` suppresses the horizontal "current
+    // value" line on the right axis (the chart has a price scale
+    // already; a Donchian channel renders 3 lines; their right-edge
+    // price-line markers would visually clutter the chart).
+    // `lastValueVisible: true` enables the right-edge last-value
+    // label — required so the title appears in the chart's
+    // built-in legend.
     const lineSeries = chart.addSeries(LineSeries, {
       color: colorFor(key),
       lineWidth: 1,
       priceLineVisible: false,
-      lastValueVisible: false,
+      lastValueVisible: true,
+      title: titleFor(key),
     });
 
     lineSeries.setData(buildLineData(bars, values));
@@ -450,4 +491,4 @@ export const renderDonchian: IndicatorRenderer = (
  * unreachable from the public API). Do NOT import `__testing`
  * from production code.
  */
-export const __testing = { colorFor, valuesFor } as const;
+export const __testing = { colorFor, valuesFor, titleFor } as const;

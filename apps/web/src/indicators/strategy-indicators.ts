@@ -60,6 +60,7 @@ import { computeDailyPivot, renderDailyPivot } from "./daily-pivot.js";
 import {
   LineSeries,
   type IChartApi,
+  type ISeriesApi,
   type ISeriesMarkersPluginApi,
   type Time,
   type UTCTimestamp,
@@ -97,6 +98,17 @@ export interface LineIndicator {
     series: IndicatorSeries,
     strategy: string,
     timeframe: string,
+    /**
+     * Phase 82: optional candle series. The daily-pivot
+     * renderer creates price lines on the candle series (NOT
+     * on a separate line series). Other renderers ignore
+     * this parameter. The `ChartCard` passes the candle
+     * series it created in the mount effect; the
+     * `IndicatorContext` type already has `candleSeries` as
+     * optional (for backward compatibility with the older
+     * `IndicatorRenderer` contract that didn't need it).
+     */
+    candleSeries?: ISeriesApi<"Candlestick">,
   ) => RenderedIndicator;
 }
 
@@ -139,7 +151,19 @@ export interface MarkerIndicator {
 export interface StrategyIndicatorSet {
   /** The strategy's strategy_id (e.g. "donchian_pivot_composition"). */
   readonly strategy: string;
-  /** A short human-readable description for the legend. */
+  /**
+   * Phase 82: a short human-readable display name for the
+   * chart-card header (e.g. "Donchian + Bollinger + Breakouts").
+   * The `ChartCard` renders this next to the strategy id so the
+   * user can see at a glance WHAT this chart shows. The full
+   * `description` (below) is the longer form for tooltips / docs.
+   */
+  readonly displayName: string;
+  /**
+   * A longer human-readable description (e.g. for tooltips or
+   * doc strings). The chart-card header uses `displayName` for
+   * the visible label; this is the rich form.
+   */
   readonly description: string;
   /** Line indicators (each adds 1+ line series to the chart). */
   readonly lines: readonly LineIndicator[];
@@ -161,7 +185,7 @@ export interface StrategyIndicatorSet {
 const donchianLineIndicator: LineIndicator = {
   name: "donchian",
   compute: (bars) => computeDonchianFromBars(bars),
-  render: (chart, bars, series, strategy, timeframe) =>
+  render: (chart, bars, series, strategy, timeframe, _candleSeries) =>
     renderDonchian({
       chart,
       bars,
@@ -195,7 +219,7 @@ const pivotLineIndicator: LineIndicator = {
     // `null`-filter drops the unused keys.
     return computePivotFromBars(bars);
   },
-  render: (chart, bars, series, strategy, timeframe) => {
+  render: (chart, bars, series, strategy, timeframe, _candleSeries) => {
     // eslint-disable-next-line @typescript-eslint/dot-notation -- "pp" is a dynamic IndicatorSeries key
     const pp: readonly (number | null)[] = series["pp"] ?? [];
     const lineData: { time: number; value: number }[] = [];
@@ -262,7 +286,7 @@ const pivotLineIndicator: LineIndicator = {
 const bollingerLineIndicator: LineIndicator = {
   name: "bollinger",
   compute: (bars) => computeBollingerBand(bars),
-  render: (chart, bars, series, strategy, timeframe) =>
+  render: (chart, bars, series, strategy, timeframe, _candleSeries) =>
     renderBollinger({
       chart,
       bars,
@@ -293,7 +317,7 @@ const bollingerLineIndicator: LineIndicator = {
 const dailyPivotLineIndicator: LineIndicator = {
   name: "daily_pivot",
   compute: (bars) => computeDailyPivot(bars),
-  render: (chart, bars, series, strategy, timeframe) =>
+  render: (chart, bars, series, strategy, timeframe, candleSeries) =>
     renderDailyPivot({
       chart,
       bars,
@@ -301,6 +325,7 @@ const dailyPivotLineIndicator: LineIndicator = {
       color: "",
       strategy,
       timeframe,
+      candleSeries,
     }),
 };
 
@@ -398,7 +423,7 @@ function makeSingleLineIndicator(
   return {
     name,
     compute,
-    render: (chart, bars, series, strategy, timeframe) => {
+    render: (chart, bars, series, strategy, timeframe, _candleSeries) => {
       // Defensive: use Object.prototype.hasOwnProperty.call so the
       // security linter's dynamic-key warning is satisfied AND a
       // missing key returns `undefined` (which the `?? []` then
@@ -633,13 +658,21 @@ const regimeChangeMarkerIndicator: MarkerIndicator = makeSimpleMarkerIndicator(
  *
  * The 5 strategy IDs are the 5 strategies in the bot's config
  * (see `run-bot/config/paper-backtest-verified.toml`):
- *   - `donchian_pivot_composition` (enabled)  → Donchian + pivot + breakout signals
- *   - `dydx_cex_carry`             (disabled) → Donchian + funding rate + funding spread + funding paid markers
+ *   - `donchian_pivot_composition` (enabled)  → Donchian + Bollinger + rolling pivot + most-recent-day daily pivot (price lines with date labels) + breakout signals
+ *   - `dydx_cex_carry`             (disabled) → funding rate + funding spread + funding-paid markers (no Donchian — irrelevant to a carry strategy)
  *   - `cascade_fade`               (disabled) → Donchian + cascade event markers
- *   - `funding_flip_kill_switch`   (disabled) → Donchian + funding rate line + funding flip markers
+ *   - `funding_flip_kill_switch`   (disabled) → funding rate + funding-flip arrows (no Donchian — irrelevant to a flip strategy)
  *   - `regime_detector`            (disabled) → Donchian + regime change markers
  *
- * Phase 81: each disabled strategy now has a STRATEGY-SPECIFIC
+ * Phase 82 chart redesign: each strategy's chart now tells a
+ * clear visual story. The Donchian band is used only for
+ * strategies where a channel envelope is meaningful (channel
+ * breakouts, cascade detection, regime classification) — NOT
+ * for the funding-rate strategies (dydx_cex_carry,
+ * funding_flip_kill_switch) where the band would just be
+ * visual noise.
+ *
+ * Phase 81: each disabled strategy has a STRATEGY-SPECIFIC
  * indicator set in addition to the universal Donchian band. The
  * strategy-specific data is DERIVED CLIENT-SIDE from the bar
  * stream (the bot's strategy runners do not currently publish
@@ -655,22 +688,27 @@ export const STRATEGY_INDICATOR_SETS: Readonly<
   Record<string, StrategyIndicatorSet>
 > = {
   // ---- 1. The ENABLED strategy (donchian_pivot_composition) ----
-  // The user mandate: "minden charton adott strategiahoz szukseges
-  // inditactorok es egyeb jelolesek, rajzok stb van?" — this is
-  // the strategy we MUST show the SPECIFIC drawings for. The set:
-  //   - Donchian band (3 lines, gold/slate/red) — the channel
-  //   - Rolling pivot level (1 line, dashed slate) — short-term
-  //     equilibrium (Phase 79)
-  //   - Bollinger band (3 lines, gold/slate/red) — the overbought/
-  //     oversold envelope (Phase 81)
-  //   - Daily pivot (3 lines: dashed slate PP + green R1 + red S1)
-  //     — the classical "previous day" floor pivot (Phase 81)
+  // Phase 82 chart redesign: the chart now tells a clear visual
+  // story with 3 envelopes + 1 rolling pivot + 1 most-recent-day
+  // daily pivot (with date labels) + breakout signals.
+  //   - Donchian band (3 lines, with titles "Donchian UPPER /
+  //     MIDDLE / LOWER" so they appear in the chart legend)
+  //   - Bollinger band (3 lines, with titles "BB UPPER / MIDDLE
+  //     / LOWER" — distinguished from the Donchian titles)
+  //   - Rolling pivot level (1 dashed slate line — the
+  //     short-term equilibrium)
+  //   - Daily pivot: NOW rendered as 3 horizontal price lines on
+  //     the candle series (one per level: PP / R1 / S1) with
+  //     date labels like "PP 2026-07-26". The per-bar stair-step
+  //     history is DROPPED (the "ribbon indicator" clutter the
+  //     user complained about).
   //   - Breakout signals (entry/exit arrows) — the strategy's
   //     actual entries and exits, derived from the Donchian band.
   donchian_pivot_composition: {
     strategy: "donchian_pivot_composition",
+    displayName: "Donchian + Bollinger + Breakouts",
     description:
-      "Donchian channel (3 lines) + rolling pivot level (dashed) + Bollinger band (3 lines) + daily pivot (PP/R1/S1) + breakout entry/exit markers",
+      "Donchian band (UPPER/MIDDLE/LOWER) + Bollinger band (BB UPPER/MIDDLE/LOWER) + rolling pivot (dashed) + most-recent-day daily pivot (PP/R1/S1 with date labels) + breakout entry/exit markers",
     lines: [
       donchianLineIndicator,
       pivotLineIndicator,
@@ -681,62 +719,66 @@ export const STRATEGY_INDICATOR_SETS: Readonly<
   },
 
   // ---- 2. dydx_cex_carry (disabled) — funding-rate carry strategy ----
-  // The strategy harvests the dYdX - CEX funding spread. Phase 81
-  // shows:
-  //   - The synthesized funding rate (sapphire line)
-  //   - The synthesized funding spread (gold line) — the carry
+  // Phase 82 chart redesign: the user mandate is to drop the
+  // Donchian band (it's irrelevant to a carry strategy — the
+  // band is a channel indicator, the strategy is a funding-rate
+  // carry). The chart now shows ONLY:
+  //   - The synthesized funding rate (sapphire line, labeled
+  //     "Funding")
+  //   - The synthesized funding spread (gold line, labeled
+  //     "Spread") — the carry being harvested
   //   - Small funding-paid markers every 8 bars (green=received,
   //     red=paid) on the candle series
   dydx_cex_carry: {
     strategy: "dydx_cex_carry",
+    displayName: "Funding + Spread + Payments",
     description:
-      "Donchian band + synthesized funding rate (sapphire) + funding spread (gold) + funding-paid markers (green=received, red=paid) every 8 bars",
-    lines: [
-      donchianLineIndicator,
-      fundingRateLineIndicator,
-      fundingSpreadLineIndicator,
-    ],
+      "Synthesized funding rate (sapphire, labeled 'Funding') + funding spread (gold, labeled 'Spread') + funding-paid markers (green=received, red=paid) every 8 bars",
+    lines: [fundingRateLineIndicator, fundingSpreadLineIndicator],
     markers: [fundingPaidMarkerIndicator],
   },
 
   // ---- 3. cascade_fade (disabled) — liquidation cascade strategy ----
-  // The strategy fades large liquidation cascades. Phase 81 shows:
-  //   - The cascade event markers (red above for "up" cascades,
-  //     green below for "down" cascades) at every bar with a
-  //     >2% bar-to-bar move.
+  // Phase 82 chart redesign: minimal — Donchian band (3 lines
+  // with labels) + cascade event markers. The Donchian band is
+  // relevant here (the strategy fades cascades that break the
+  // channel).
   cascade_fade: {
     strategy: "cascade_fade",
+    displayName: "Donchian + Cascade Events",
     description:
-      "Donchian band + cascade-event markers (red above for up-cascades / green below for down-cascades) at every bar with >2% bar-to-bar move",
+      "Donchian band (UPPER/MIDDLE/LOWER) + cascade-event markers (red above for up-cascades / green below for down-cascades) at every bar with >2% bar-to-bar move",
     lines: [donchianLineIndicator],
     markers: [cascadeMarkerIndicator],
   },
 
   // ---- 4. funding_flip_kill_switch (disabled) — funding-flip strategy ----
-  // The strategy kills the bot when the funding rate flips sign.
-  // Phase 81 shows:
-  //   - The synthesized funding rate (sapphire line) — same as
-  //     `dydx_cex_carry` for visual consistency
+  // Phase 82 chart redesign: drop the Donchian band (the
+  // strategy is about funding-rate sign flips, not channel
+  // breakouts). The chart now shows ONLY:
+  //   - The synthesized funding rate (sapphire line, labeled
+  //     "Funding")
   //   - Funding flip arrows (green up for -→+, red down for +→-)
   //     at every sign-change point
   funding_flip_kill_switch: {
     strategy: "funding_flip_kill_switch",
+    displayName: "Funding + Flip Arrows",
     description:
-      "Donchian band + funding rate line (sapphire) + funding-flip arrows (green up for -→+, red down for +→-) at every sign-change point",
-    lines: [donchianLineIndicator, fundingRateLineIndicator],
+      "Funding rate line (sapphire, labeled 'Funding') + funding-flip arrows (green up for -→+, red down for +→-) at every sign-change point",
+    lines: [fundingRateLineIndicator],
     markers: [fundingFlipsMarkerIndicator],
   },
 
   // ---- 5. regime_detector (disabled) — market regime classifier ----
-  // The strategy classifies the market as trending / ranging /
-  // volatile based on multi-TF ADX + ATR. Phase 81 approximates
-  // with a single-TF rolling mean + std classifier and shows:
-  //   - Regime change markers (color-coded by new regime) at every
-  //     bar where the classification changes
+  // Phase 82 chart redesign: Donchian band (3 lines with
+  // labels) + regime change markers (color-coded by regime).
+  // The Donchian band is relevant here (regime detection
+  // classifies channel behavior).
   regime_detector: {
     strategy: "regime_detector",
+    displayName: "Donchian + Regime Markers",
     description:
-      "Donchian band + regime-change markers (sapphire=trending / slate=ranging / yolk=volatile) at every bar where the classification changes",
+      "Donchian band (UPPER/MIDDLE/LOWER) + regime-change markers (sapphire=trending / slate=ranging / yolk=volatile) at every bar where the classification changes",
     lines: [donchianLineIndicator],
     markers: [regimeChangeMarkerIndicator],
   },
@@ -752,6 +794,7 @@ export const STRATEGY_INDICATOR_SETS: Readonly<
  */
 export const UNIVERSAL_FALLBACK_SET: StrategyIndicatorSet = {
   strategy: "unknown",
+  displayName: "Donchian (fallback)",
   description: "Donchian band baseline (unknown strategy — falling back to universal set)",
   lines: [donchianLineIndicator],
   markers: [],

@@ -58,13 +58,6 @@
  * markers) — the chart's color vocabulary is consistent.
  */
 
-import {
-  LineSeries,
-  type ISeriesApi,
-  type LineData,
-  type UTCTimestamp,
-} from "lightweight-charts";
-
 import type { OHLCBar } from "../lib/ohlc-bridge.js";
 import type {
   IndicatorContext,
@@ -122,9 +115,9 @@ export const DAILY_PIVOT_COLORS: Readonly<Record<DailyPivotSeriesKey, string>> =
 /**
  * The typed shape of a validated daily-pivot series.
  *
- * Every value is `number | null` (the `null` case is filtered out
- * by the renderer when building the `LineData` arrays — see
- * `renderDailyPivot`).
+ * Every value is `number | null` (the `null` case is filtered
+ * by the renderer when extracting the most recent non-null
+ * level — see `renderDailyPivot`).
  */
 export interface DailyPivotSeries extends IndicatorSeries {
   readonly pp: readonly (number | null)[];
@@ -320,48 +313,6 @@ export function validateDailyPivotSeries(
 // ============================================================================
 
 /**
- * Build the `LineData[]` for one daily-pivot sub-series.
- *
- * The bar `time` is in UNIX milliseconds (the state-feed protocol);
- * lightweight-charts v5 wants `UTCTimestamp` (UNIX seconds). The
- * `/ 1000` conversion happens here, in the renderer, so the
- * indicator layer is the single source of truth for "indicators
- * speak ms, charts speak seconds" — the same conversion
- * `ChartCard.tsx` applies to the OHLC bars themselves.
- *
- * `null` values are dropped from the output array — lightweight-
- * charts rejects `null` in `LineData[].value` and would log a
- * warning, so the filter is defensive as well as correct.
- */
-function buildLineData(
-  bars: readonly OHLCBar[],
-  values: readonly (number | null)[],
-): LineData<UTCTimestamp>[] {
-  const out: LineData<UTCTimestamp>[] = [];
-  for (let i = 0; i < bars.length; i += 1) {
-    // `apps/web` does NOT enable `noUncheckedIndexedAccess`, so
-    // `bars[i]` and `values[i]` are typed as `OHLCBar` and
-    // `number | null` respectively (not `T | undefined`). We still
-    // do a runtime `v === null` filter because `null` is a valid
-    // value in the series and lightweight-charts rejects it.
-    //
-    // The `i` is a loop counter bounded by `bars.length`, not user
-    // input — the `security/detect-object-injection` warning is a
-    // false positive.
-    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
-    const bar = bars[i];
-    // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
-    const v = values[i];
-    if (v === null) continue;
-    out.push({
-      time: (bar.time / 1000) as UTCTimestamp,
-      value: v,
-    });
-  }
-  return out;
-}
-
-/**
  * Look up the theme color for `key` using dot access (not indexed
  * access) so the `security/detect-object-injection` rule has no
  * dynamic-key surface to flag. The switch is exhaustive over
@@ -456,23 +407,102 @@ function hasArrayKey(
 }
 
 /**
+ * `extractMostRecentPivot` — read the last non-null values of
+ * `pp` / `r1` / `s1` from a `DailyPivotSeries`. Returns `null`
+ * when the array is empty or every value is `null` (the
+ * renderer's defensive short-circuit).
+ *
+ * Phase 82: the redesign uses ONLY the most recent day's
+ * pivot levels (the "yesterday's pivot" reference level that
+ * floor traders watch). Older pivot values are dropped — the
+ * chart's per-bar stair-step history of pivot levels is the
+ * "ribbon indicator" clutter the user complained about.
+ */
+function extractMostRecentPivot(
+  pp: readonly (number | null)[] | undefined,
+  r1: readonly (number | null)[] | undefined,
+  s1: readonly (number | null)[] | undefined,
+): { pp: number; r1: number; s1: number } | null {
+  const lastNonNull = (
+    arr: readonly (number | null)[] | undefined,
+  ): number | null => {
+    if (arr === undefined) return null;
+    for (let i = arr.length - 1; i >= 0; i -= 1) {
+      // eslint-disable-next-line security/detect-object-injection -- i is a loop counter
+      const v = arr[i];
+      if (v !== null) return v;
+    }
+    return null;
+  };
+  const ppV = lastNonNull(pp);
+  const r1V = lastNonNull(r1);
+  const s1V = lastNonNull(s1);
+  if (ppV === null || r1V === null || s1V === null) return null;
+  return { pp: ppV, r1: r1V, s1: s1V };
+}
+
+/**
+ * `formatPivotDate` — format the most-recent bar's UNIX-ms
+ * `time` as a `YYYY-MM-DD` UTC date string for the price-line
+ * title (e.g. "PP 2026-07-26"). The date is the "previous
+ * session" date (the bar that the pivot was computed from,
+ * NOT the current bar — see `computeDailyPivot`'s `bars[i-1]`
+ * convention).
+ *
+ * UTC is used (not local) because the user mandate example
+ * is "PP 2026-07-26" — a stable, locale-independent label
+ * that any trader can read.
+ */
+function formatPivotDate(prevBarTimeMs: number): string {
+  // Date.UTC returns a ms-since-epoch timestamp; the `getUTC*`
+  // methods then extract the UTC date components. We assemble
+  // the YYYY-MM-DD string from the components (NOT via
+  // `toISOString().slice(0, 10)` because `toISOString` adds
+  // a `T` and a Z; the slice is fine but the explicit format
+  // documents the intent).
+  const d = new Date(prevBarTimeMs);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * `renderDailyPivot` — the `IndicatorRenderer` for the daily pivot.
  *
- * Adds three line series to the chart (pp, r1, s1) and returns a
- * `RenderedIndicator` whose `dispose()` removes them all from the
- * chart. The renderer is pure (no side effects on the registry);
- * it only mutates the `chart` instance it receives via context.
+ * Phase 82 (chart redesign): instead of three line series drawing
+ * the per-bar stair-step history of pivot levels, the renderer
+ * creates THREE PRICE LINES on the candle series — one for each
+ * of the most recent day's PP / R1 / S1. Each price line has a
+ * `title` of the form "PP 2026-07-26" / "R1 2026-07-26" /
+ * "S1 2026-07-26" so the user can see what each level is
+ * AND what day it applies to. The user mandate is that the
+ * pivot should be labeled with days ("pivotnal szinteket kene
+ * jelolni napokon") — `createPriceLine` is the lightweight-charts
+ * API that gives us labeled horizontal levels.
+ *
+ * **Why price lines, not line series:**
+ *   - A line series would draw the per-bar stair-step history
+ *     (the "ribbon" the user complained about).
+ *   - A price line is a single horizontal level that extends
+ *     across the visible chart — perfect for "yesterday's PP
+ *     at $X" which is the same value across the whole day.
+ *   - The price line's `title` is a lightweight-charts built-in
+ *     feature: it shows next to the line on the chart AND on
+ *     the right axis (the user mandate: "pivotnal szinteket
+ *     kene jelolni napokon").
+ *
+ * **Output shape:**
+ *   - `series` is `[]` (no line series are added — the
+ *     contract allows this; the dispose handles the price
+ *     lines).
+ *   - `dispose` removes the 3 price lines.
  *
  * **Graceful handling:**
- *   - Empty `bars` → no series are added, the returned
- *     `RenderedIndicator` has `series: []` and a no-op `dispose`.
- *   - Missing series (e.g. `pp: undefined` in `indicatorSeries`)
- *     → `console.warn` is called, only the present series are added.
- *   - `null` values inside a series → silently dropped from the
- *     `LineData[]` (the line just has a gap on the chart, which is
- *     the conventional way to render a partial pivot — the first
- *     bar's PP / R1 / S1 are all `null` because there is no
- *     "previous bar" at `index 0`).
+ *   - Empty `bars` → no price lines, no-op dispose.
+ *   - Missing series / all-null values → no price lines (the
+ *     most recent pivot is undefined).
+ *   - Missing `candleSeries` (defensive) → console.warn, no-op.
  *
  * **Idempotency:** the renderer does NOT track prior state — the
  * caller is expected to call the previous `RenderedIndicator.dispose()`
@@ -481,62 +511,113 @@ function hasArrayKey(
 export const renderDailyPivot: IndicatorRenderer = (
   ctx: IndicatorContext,
 ): RenderedIndicator => {
-  const { chart, bars, indicatorSeries, strategy, timeframe } = ctx;
+  const { bars, indicatorSeries, strategy, timeframe, candleSeries } = ctx;
 
-  // Short-circuit: no bars → no series.
+  // Short-circuit: no bars → no price lines.
   if (bars.length === 0) {
     return {
       name: `daily_pivot-${timeframe}-${strategy}`,
       series: [],
       dispose: (): void => {
-        // no-op: nothing to dispose when no series were added
+        // no-op: nothing to dispose when no price lines were added
       },
     };
   }
 
-  // Per-key handling: log + skip if the key is missing.
-  const series: ISeriesApi<"Line">[] = [];
-  for (const key of DAILY_PIVOT_SERIES_KEYS) {
-    const values = valuesFor(indicatorSeries, key);
-    if (values === undefined) {
-      console.warn(
-        `[renderDailyPivot] missing '${key}' series for ${strategy}@${timeframe} — skipping`,
-      );
-      continue;
-    }
-
-    // `addSeries(LineSeries, opts)` — v5 API. `priceLineVisible: false`
-    // suppresses the horizontal "current value" line on the right axis
-    // (a daily pivot renders three lines; each one's right-edge
-    // marker would visually clutter the chart). `lastValueVisible: false`
-    // suppresses the label of the last value. The PP line uses a
-    // dashed lineStyle (2) to distinguish it from the Donchian middle
-    // and the Bollinger middle (both solid slate).
-    const lineStyle: number = key === "pp" ? 2 : 0; // Dashed for PP; solid for R1/S1.
-    const lineSeries = chart.addSeries(LineSeries, {
-      color: colorFor(key),
-      lineWidth: 1,
-      lineStyle,
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-
-    lineSeries.setData(buildLineData(bars, values));
-    series.push(lineSeries);
+  // Defensive: price lines need a candle series to attach to.
+  if (candleSeries === undefined) {
+    console.warn(
+      `[renderDailyPivot] candleSeries is undefined for ${strategy}@${timeframe} — skipping price lines`,
+    );
+    return {
+      name: `daily_pivot-${timeframe}-${strategy}`,
+      series: [],
+      dispose: (): void => {
+        // no-op: no price lines were created
+      },
+    };
   }
 
-  // `dispose` removes every series in a single pass; `removeSeries`
-  // is O(N) in the chart's own bookkeeping but constant in the
-  // number of series we added (3 for the daily pivot).
+  // Defensive: missing series → log + skip. The renderer only
+  // requires pp/r1/s1 keys; if any is missing, skip with a
+  // warning (matches the existing `renderDonchian` /
+  // `renderBollinger` convention of "missing series → skip").
+  const ppValues = valuesFor(indicatorSeries, "pp");
+  const r1Values = valuesFor(indicatorSeries, "r1");
+  const s1Values = valuesFor(indicatorSeries, "s1");
+  if (ppValues === undefined || r1Values === undefined || s1Values === undefined) {
+    console.warn(
+      `[renderDailyPivot] missing pp/r1/s1 series for ${strategy}@${timeframe} — skipping`,
+    );
+    return {
+      name: `daily_pivot-${timeframe}-${strategy}`,
+      series: [],
+      dispose: (): void => {
+        // no-op
+      },
+    };
+  }
+
+  // Extract the most recent day's PP/R1/S1.
+  const mostRecent = extractMostRecentPivot(ppValues, r1Values, s1Values);
+  if (mostRecent === null) {
+    return {
+      name: `daily_pivot-${timeframe}-${strategy}`,
+      series: [],
+      dispose: (): void => {
+        // no-op: every value was null
+      },
+    };
+  }
+
+  // The "previous bar" date for the pivot title. The pivot
+  // uses `bars[i-1]` (the previous bar's H/L/C) — for the
+  // most recent bar, the "previous bar" is `bars[bars.length
+  // - 2]`. If the bar stream has only 1 bar, the pivot is
+  // undefined (we already returned above for `bars.length < 2`).
+  const prevBar = bars[bars.length - 2];
+  const dateStr = formatPivotDate(prevBar.time);
+
+  // The PP / R1 / S1 price lines. The PP line is dashed
+  // (lineStyle=2) per the convention; R1 (green, resistance)
+  // and S1 (red, support) are solid. The `axisLabelVisible:
+  // true` puts the title on the right axis (the conventional
+  // "price line label" position in trading platforms).
+  const ppLine = candleSeries.createPriceLine({
+    price: mostRecent.pp,
+    color: colorFor("pp"),
+    lineWidth: 1,
+    lineStyle: 2, // Dashed
+    axisLabelVisible: true,
+    title: `PP ${dateStr}`,
+  });
+  const r1Line = candleSeries.createPriceLine({
+    price: mostRecent.r1,
+    color: colorFor("r1"),
+    lineWidth: 1,
+    lineStyle: 0, // Solid
+    axisLabelVisible: true,
+    title: `R1 ${dateStr}`,
+  });
+  const s1Line = candleSeries.createPriceLine({
+    price: mostRecent.s1,
+    color: colorFor("s1"),
+    lineWidth: 1,
+    lineStyle: 0, // Solid
+    axisLabelVisible: true,
+    title: `S1 ${dateStr}`,
+  });
+
+  // `dispose` removes every price line in a single pass.
   const dispose = (): void => {
-    for (const s of series) {
-      chart.removeSeries(s);
-    }
+    candleSeries.removePriceLine(ppLine);
+    candleSeries.removePriceLine(r1Line);
+    candleSeries.removePriceLine(s1Line);
   };
 
   return {
     name: `daily_pivot-${timeframe}-${strategy}`,
-    series,
+    series: [],
     dispose,
   };
 };
@@ -546,7 +627,13 @@ export const renderDailyPivot: IndicatorRenderer = (
  * `colorFor` / `valuesFor` indirectly through `renderDailyPivot`.
  * The `__testing` export exists ONLY so unit tests can exercise
  * the TypeScript `never`-typed default branches with invalid
- * keys (cast through `unknown`). Do NOT import `__testing` from
- * production code.
+ * keys (cast through `unknown`) and the new
+ * `extractMostRecentPivot` / `formatPivotDate` helpers.
+ * Do NOT import `__testing` from production code.
  */
-export const __testing = { colorFor, valuesFor } as const;
+export const __testing = {
+  colorFor,
+  valuesFor,
+  extractMostRecentPivot,
+  formatPivotDate,
+} as const;

@@ -433,7 +433,7 @@ describe("renderDonchian", () => {
     expect(addSeriesCalls[2]?.args[1]).toMatchObject({ color: DONCHIAN_COLORS.lower });
   });
 
-  it("uses lineWidth: 1 and disables priceLineVisible + lastValueVisible on every series", () => {
+  it("uses lineWidth: 1 and disables priceLineVisible + ENABLES lastValueVisible (Phase 82: legend) on every series", () => {
     const chart = makeMockChart();
     const bars = makeBars(3);
     const series = makeDonchianSeries(3);
@@ -443,12 +443,33 @@ describe("renderDonchian", () => {
 
     const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
     for (const call of addSeriesCalls) {
+      // Phase 82: lastValueVisible is now true (was false) so
+      // the lightweight-charts built-in legend shows the
+      // line's title next to its last value on the right edge.
+      // priceLineVisible remains false (the chart has a price
+      // scale already; 3+ line series with right-edge price
+      // lines would visually clutter the chart).
       expect(call.args[1]).toMatchObject({
         lineWidth: 1,
         priceLineVisible: false,
-        lastValueVisible: false,
+        lastValueVisible: true,
       });
     }
+  });
+
+  it("sets a series title on every line so the chart legend identifies each one (Phase 82)", () => {
+    const chart = makeMockChart();
+    const bars = makeBars(3);
+    const series = makeDonchianSeries(3);
+    const ctx = makeContext(chart, bars, series);
+
+    renderDonchian(ctx);
+
+    const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
+    // The 3 lines have distinct titles — UPPER / MIDDLE / LOWER.
+    expect(addSeriesCalls[0]?.args[1]).toMatchObject({ title: "Donchian UPPER" });
+    expect(addSeriesCalls[1]?.args[1]).toMatchObject({ title: "Donchian MIDDLE" });
+    expect(addSeriesCalls[2]?.args[1]).toMatchObject({ title: "Donchian LOWER" });
   });
 
   it("converts bar time from milliseconds to seconds (UTCTimestamp) in setData", () => {
