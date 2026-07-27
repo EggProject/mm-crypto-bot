@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useWebSocket } from "./ws-client.js";
 import { ControlBar } from "./components/ControlBar.js";
 import { PositionsTable } from "./components/PositionsTable.js";
+import { TradeHistoryTable } from "./components/TradeHistoryTable.js";
 import { ChartGrid, type StrategyDescriptor } from "./components/ChartGrid.js";
 import { parseStrategiesResponse } from "./lib/strategies-parser.js";
 import {
@@ -421,6 +422,20 @@ export function App(): React.JSX.Element {
         >
           <h2>Open positions</h2>
           <PositionsTable />
+        </div>
+        {/*
+         * Phase 82 (item 4 — user mandate 2026-07-27 12:17):
+         * trade history tábla — a bot eddigi (zárt + nyitott) trade-jeit
+         * mutatja. A `TradeHistoryTable` a `/api/trades` endpoint-ot
+         * poll-ozza 5s-onként. A "no closed trades yet" empty state
+         * akkor jelenik meg, ha egyáltalán nincs trade.
+         */}
+        <div
+          className="ep-app__trades"
+          data-testid="trades"
+        >
+          <h2>Trade history</h2>
+          <TradeHistoryTable />
         </div>
       </main>
       <ControlBar

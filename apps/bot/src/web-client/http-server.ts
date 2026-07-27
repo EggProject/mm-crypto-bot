@@ -63,7 +63,11 @@
  *   tesztjeihez hasonlóan).
  */
 
-import type { StateFeedSnapshot } from "../state-feed/publisher.js";
+import type {
+  StateFeedPosition,
+  StateFeedSnapshot,
+  StateFeedTrade,
+} from "../state-feed/publisher.js";
 import { type StateFeedClientMessage, type StateFeedOHLC } from "../state-feed/protocol.js";
 import type { StateFeedClientHandle } from "./state-feed-client.js";
 import { createStaticHandler } from "./static-server.js";
@@ -223,6 +227,16 @@ async function handleHttpRequest(req: Request, ctx: HttpHandlerContext): Promise
     return handleGetStatus(ctx);
   }
 
+  // Phase 82 (item 4 — user mandate 2026-07-27 12:17): GET /api/trades —
+  // a dashboard trade history táblájának forrása. A cache-elt SNAPSHOT
+  // `history[]` (lezárt trade-ek) + `positions[]` (nyitott pozíciók)
+  // mezőit adja vissza egységes TradeHistoryItem formátumban. A UI
+  // poll-ozza ezt az endpoint-ot (5s) — a forrás a cache-elt SNAPSHOT,
+  // tehát a válasz azonnali (nincs state-feed round-trip).
+  if (method === "GET" && path === "/api/trades") {
+    return handleGetTrades(url, ctx);
+  }
+
   // POST /api/control — a body { command, ...args } → state-feed CONTROL.
   if (method === "POST" && path === "/api/control") {
     return await handlePostControl(req, ctx);
@@ -286,6 +300,223 @@ function handleGetStatus(ctx: HttpHandlerContext): Response {
     );
   }
   return jsonResponse({ botStatus: ctx.snapshot.botStatus });
+}
+
+/**
+ * `TradeHistoryItem` — a trade history tábla egységes sora. A Phase 82
+ * (item 4 — user mandate 2026-07-27 12:17) dashboard feature a zárt
+ * trade-eket ÉS a nyitott pozíciókat egyetlen táblában mutatja, így
+ * a `status` mező (`"open"` / `"closed"`) szétválogatja őket.
+ *
+ * - `id`           — a pozíció / trade egyedi azonosítója.
+ * - `strategy`     — a `StateFeedTrade.reason` mezőből jön (a bot
+ *                    a `closedTrade.strategy`-t írja oda); nyitott
+ *                    pozícióknál a `position.id` eleje (strategy prefix).
+ * - `symbol`       — pl. `"BTC/USDC"`.
+ * - `side`         — `"buy"` / `"sell"` (a state-feed / WS terminológia).
+ * - `entryPrice`   — az entry-ár.
+ * - `entryTime`    — az entry timestamp-je.
+ * - `exitPrice`    — a zárási ár (null nyitott pozíciónál).
+ * - `exitTime`     — a zárás timestamp-je (null nyitott pozíciónál).
+ * - `quantity`     — a méret (instrument unit).
+ * - `leverage`     — a pozíció leverage-e.
+ * - `pnl`          — realizált P&L (zárt) VAGY unrealized P&L (nyitott), USD.
+ * - `pnlPct`       — ugyanaz, százalékban.
+ * - `duration`     — `exitTime - entryTime` (zárt) VAGY `now - entryTime`
+ *                    (nyitott), ms-ben.
+ * - `status`       — `"open"` VAGY `"closed"`.
+ */
+export interface TradeHistoryItem {
+  readonly id: string;
+  readonly strategy: string;
+  readonly symbol: string;
+  readonly side: "buy" | "sell";
+  readonly entryPrice: number;
+  readonly entryTime: number;
+  readonly exitPrice: number | null;
+  readonly exitTime: number | null;
+  readonly quantity: number;
+  readonly leverage: number;
+  readonly pnl: number;
+  readonly pnlPct: number;
+  readonly duration: number;
+  readonly status: "open" | "closed";
+}
+
+/**
+ * `handleGetTrades` — Phase 82 (item 4 — user mandate 2026-07-27 12:17):
+ * a dashboard trade history táblájának forrása. A cache-elt SNAPSHOT
+ * `history[]` (lezárt trade-ek, `StateFeedTrade[]`) és `positions[]`
+ * (nyitott pozíciók, `StateFeedPosition[]`) mezőit egyesíti
+ * `TradeHistoryItem[]` formátumban.
+ *
+ * Query paramok (mind opcionális):
+ *   - `?limit=N`          — max N elemet ad vissza (default: 200).
+ *   - `?symbol=BTC/USDC`  — csak a megadott symbol-t.
+ *   - `?strategy=NAME`    — csak a megadott stratégiát.
+ *   - `?status=open|closed|all` — default: "all".
+ *
+ * Ha nincs SNAPSHOT cache (a state-feed frissen csatlakozott, de a
+ * HELLO + SNAPSHOT még nem jött meg), a `state-feed disconnected`
+ * ág nem fut le — ez a handler a `snapshot` meglétére is ellenőriz.
+ * A `state-feed disconnected` 503-at a router elején kezeljük.
+ */
+function handleGetTrades(url: URL, ctx: HttpHandlerContext): Response {
+  if (ctx.snapshot === null) {
+    return jsonResponse({ error: "snapshot not yet received from state-feed" }, 503);
+  }
+  const limit = parseLimitParam(url.searchParams.get("limit"));
+  const symbolFilter = url.searchParams.get("symbol");
+  const strategyFilter = url.searchParams.get("strategy");
+  const statusFilter = parseStatusParam(url.searchParams.get("status"));
+
+  const trades: TradeHistoryItem[] = [];
+  if (statusFilter === "all" || statusFilter === "open") {
+    for (const p of ctx.snapshot.positions) {
+      const item = openPositionToTradeItem(p);
+      if (item !== null && matchesFilters(item, symbolFilter, strategyFilter)) {
+        trades.push(item);
+      }
+    }
+  }
+  if (statusFilter === "all" || statusFilter === "closed") {
+    for (const t of ctx.snapshot.history) {
+      const item = closedTradeToTradeItem(t);
+      if (item !== null && matchesFilters(item, symbolFilter, strategyFilter)) {
+        trades.push(item);
+      }
+    }
+  }
+  // Legfrissebb elöl (exitTime desc, nyitottaknál entryTime desc fallback).
+  trades.sort((a, b) => {
+    const aTs = a.exitTime ?? a.entryTime;
+    const bTs = b.exitTime ?? b.entryTime;
+    return bTs - aTs;
+  });
+  const sliced = trades.length > limit ? trades.slice(0, limit) : trades;
+  return jsonResponse({ trades: sliced, count: sliced.length });
+}
+
+/**
+ * `parseLimitParam` — a `?limit=N` query param feldolgozása. Érvénytelen
+ * vagy hiányzó érték esetén 200 (a default cap).
+ */
+function parseLimitParam(raw: string | null): number {
+  if (raw === null) return 200;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 200;
+  return Math.min(Math.floor(n), 1000);
+}
+
+/**
+ * `parseStatusParam` — a `?status=...` query param feldolgozása. Csak
+ * a három megengedett értéket fogadja el; minden más esetben "all".
+ */
+function parseStatusParam(raw: string | null): "all" | "open" | "closed" {
+  if (raw === "open" || raw === "closed" || raw === "all") return raw;
+  return "all";
+}
+
+/**
+ * `matchesFilters` — a trade history item symbol + strategy szűrőkre
+ * való illeszkedésének ellenőrzése. A `null` filter = "nincs szűrő".
+ */
+function matchesFilters(
+  item: TradeHistoryItem,
+  symbolFilter: string | null,
+  strategyFilter: string | null,
+): boolean {
+  if (symbolFilter !== null && item.symbol !== symbolFilter) return false;
+  if (strategyFilter !== null && item.strategy !== strategyFilter) return false;
+  return true;
+}
+
+/**
+ * `openPositionToTradeItem` — a `StateFeedPosition` → `TradeHistoryItem`
+ * konverzió. A nyitott pozíció `exitPrice` / `exitTime` mezői `null`
+ * (még nincs zárás); a `pnl` az unrealized P&L; a `duration` a
+ * `now - openedAt`.
+ *
+ * A `strategy` mezőt a `position.id` elejéről nyerjük ki (a Phase 68
+ * `restorePosition` óta a formátum `<strategy>:<symbol>:<side>`); ha
+ * a feloldás nem sikerül (legacy / mock adat), a fallback `"unknown"`.
+ */
+function openPositionToTradeItem(p: StateFeedPosition): TradeHistoryItem | null {
+  if (typeof p.symbol !== "string" || p.symbol.length === 0) return null;
+  if (typeof p.id !== "string" || p.id.length === 0) return null;
+  // Az ESLint `@typescript-eslint/no-unnecessary-condition` miatt kell
+  // a disable: a `p.side` típusa `"buy" | "sell"` (mindig truthy a check),
+  // DE a legacy / mock adatokkal meghívott `setSnapshot` átadhat
+  // érvénytelen side-ot is — a futásidőben védünk, hogy ne dőljön el
+  // a többi mező mappingja egy falsy side-dal.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (p.side !== "buy" && p.side !== "sell") return null;
+  if (typeof p.entryPrice !== "number" || !Number.isFinite(p.entryPrice)) return null;
+  if (typeof p.openedAt !== "number" || !Number.isFinite(p.openedAt)) return null;
+  if (typeof p.quantity !== "number" || !Number.isFinite(p.quantity)) return null;
+  const strategy = p.id.includes(":") ? (p.id.split(":")[0] ?? "unknown") : "unknown";
+  return {
+    id: p.id,
+    strategy,
+    symbol: p.symbol,
+    side: p.side,
+    entryPrice: p.entryPrice,
+    entryTime: p.openedAt,
+    exitPrice: null,
+    exitTime: null,
+    quantity: p.quantity,
+    leverage: typeof p.leverage === "number" && Number.isFinite(p.leverage) ? p.leverage : 1,
+    pnl: typeof p.unrealizedPnl === "number" && Number.isFinite(p.unrealizedPnl) ? p.unrealizedPnl : 0,
+    pnlPct:
+      typeof p.unrealizedPnlPct === "number" && Number.isFinite(p.unrealizedPnlPct)
+        ? p.unrealizedPnlPct
+        : 0,
+    duration: Date.now() - p.openedAt,
+    status: "open",
+  };
+}
+
+/**
+ * `closedTradeToTradeItem` — a `StateFeedTrade` → `TradeHistoryItem`
+ * konverzió. A zárt trade minden mezője kitöltött; a `strategy` a
+ * `trade.reason` mezőből jön (a `mapClosedTrade` oda írja a bot
+ * `closedTrade.strategy`-jét).
+ *
+ * Defensive shape check: ha bármely mező hiányzik / érvénytelen,
+ * `null`-t adunk vissza (a handler kiszűri). A bot helyes publikálása
+ * mellett ez a védelem csak a legacy / mock adatok ellen kell.
+ */
+function closedTradeToTradeItem(t: StateFeedTrade): TradeHistoryItem | null {
+  if (typeof t.symbol !== "string" || t.symbol.length === 0) return null;
+  // Az ESLint `@typescript-eslint/no-unnecessary-condition` miatt kell
+  // a disable: a `t.side` típusa `"buy" | "sell"` (mindig truthy a check),
+  // DE a legacy / mock adatokkal meghívott `setSnapshot` átadhat
+  // érvénytelen side-ot is — a futásidőben védünk, hogy ne dőljön el
+  // a többi mező mappingja egy falsy side-dal.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (t.side !== "buy" && t.side !== "sell") return null;
+  if (typeof t.entryPrice !== "number" || !Number.isFinite(t.entryPrice)) return null;
+  if (typeof t.exitPrice !== "number" || !Number.isFinite(t.exitPrice)) return null;
+  if (typeof t.closedAt !== "number" || !Number.isFinite(t.closedAt)) return null;
+  if (typeof t.openedAt !== "number" || !Number.isFinite(t.openedAt)) return null;
+  if (typeof t.quantity !== "number" || !Number.isFinite(t.quantity)) return null;
+  if (typeof t.id !== "string" || t.id.length === 0) return null;
+  return {
+    id: t.id,
+    strategy: typeof t.reason === "string" && t.reason.length > 0 ? t.reason : "unknown",
+    symbol: t.symbol,
+    side: t.side,
+    entryPrice: t.entryPrice,
+    entryTime: t.openedAt,
+    exitPrice: t.exitPrice,
+    exitTime: t.closedAt,
+    quantity: t.quantity,
+    leverage: typeof t.leverage === "number" && Number.isFinite(t.leverage) ? t.leverage : 1,
+    pnl: typeof t.pnlUsdt === "number" && Number.isFinite(t.pnlUsdt) ? t.pnlUsdt : 0,
+    pnlPct: typeof t.pnlPct === "number" && Number.isFinite(t.pnlPct) ? t.pnlPct : 0,
+    duration: Math.max(0, t.closedAt - t.openedAt),
+    status: "closed",
+  };
 }
 
 /**
