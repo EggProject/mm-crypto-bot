@@ -356,22 +356,38 @@ export function computeControlBarAvailability(
 // ============================================================================
 
 /**
- * `buildStatusBannerText(botStatus, now)` — the human-readable
- * text for the dashboard's status banner. Combines the bot
- * state, uptime, last-update time, active strategy count, AND
- * open position count into a single line. Returns a short
- * fallback "Bot: stopped" if `botStatus` is `null`.
+ * `buildStatusBannerText(botStatus, now, livePositionCount?)` —
+ * the human-readable text for the dashboard's status banner.
+ * Combines the bot state, uptime, last-update time, active
+ * strategy count, AND open position count into a single line.
+ * Returns a short fallback "Bot: stopped" if `botStatus` is
+ * `null`.
  *
  * Phase 71: a `positions.length` is megjelenik a bannerben
  * ("X open positions"). Ha 0, a szöveg kimarad (a UI
  * "No open positions" fallback-et a PositionsTable jeleníti
  * meg külön).
  *
+ * Phase 82 (3 dashboard UI bugs):
+ *   - Added the optional `livePositionCount` parameter so the
+ *     status banner can read positions from the SAME source as
+ *     PositionsTable (the WS `state` event's `lastState.positions`).
+ *     Previously the banner read `botStatus.positions.length` from
+ *     the HTTP `/api/status` cache, which lags the WS event and
+ *     caused a "3 open positions" (top banner) vs "0" (bottom
+ *     PositionsTable) inconsistency.
+ *   - When `livePositionCount` is provided, it OVERRIDES the
+ *     `botStatus.positions.length` count — the WS `state` event
+ *     is the authoritative source. When it's omitted, the helper
+ *     falls back to the HTTP-cached `botStatus.positions.length`
+ *     (preserves the prior behavior for any non-React caller).
+ *
  * Pure: no I/O. The caller passes `Date.now()` as `now`.
  */
 export function buildStatusBannerText(
   botStatus: BotStatus | null,
   now: number,
+  livePositionCount?: number,
 ): string {
   if (botStatus === null) {
     return "Bot: stopped — no status yet";
@@ -380,7 +396,12 @@ export function buildStatusBannerText(
   const uptime = formatUptime(botStatus.startedAt, now);
   const lastUpdate = formatLastUpdate(botStatus.lastUpdate, now);
   const active = botStatus.activeStrategyCount;
-  const openPositions = botStatus.positions.length;
+  // Phase 82: prefer the live (WS `state` event) count when supplied,
+  // fall back to the HTTP-cached `botStatus.positions.length` count
+  // otherwise. The `??` handles `livePositionCount === 0` (a valid
+  // count — bot has zero open positions) the same as the fallback
+  // `botStatus.positions.length === 0` (no override → 0).
+  const openPositions = livePositionCount ?? botStatus.positions.length;
   // Phase 71: a pozíció-számot a "X active strategies" után
   // fűzzük, ha > 0. A nulla pozíciót nem írjuk ki (a banner
   // tiszta marad, ha a bot csak fut, de még nincs nyitott trade).

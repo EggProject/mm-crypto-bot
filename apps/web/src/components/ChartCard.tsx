@@ -574,10 +574,37 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   // a downstream indicator consumes the output of an upstream
   // indicator in the same set.
   //
-  // Effect deps: `[bars, strategy, timeframe]` — recompute the
-  // strategy-specific indicator set whenever the bar stream or
-  // the (strategy, tf) key changes. The `chart` is read from a
-  // ref so it doesn't trigger a re-run on every render.
+  // Phase 82 (3 dashboard UI bugs — item 5): the marker indicators
+  // are ONLY applied when the strategy is `enabled === false`
+  // (i.e. the strategy is in the config but the bot is not
+  // actually running it). For ENABLED strategies, the markers
+  // come from the parent (`markersByKey` → `markers` prop → this
+  // component's `markers` effect) which is built from the bot's
+  // ACTUAL `positions` + `closedTrades` (the WS `state` event).
+  // The user complaint: "chartokon csak olyan trade-t rajzoljunk
+  // ki amit a robot csinalt es csak a jovobeli jelzeseke" (only
+  // draw trades that the bot actually did and only future signals).
+  // The client-computed breakout signals were HYPOTHETICAL
+  // entries derived from the Donchian band, not the bot's
+  // actual executions. Gating them behind `enabled === false`
+  // preserves the visualization for the 4 disabled strategies
+  // (where the bot has no real trades to show) and removes the
+  // misleading hypothetical markers from the ENABLED strategy
+  // (where the real-trade markers from the WS state event are
+  // the source of truth).
+  //
+  // The `donchian` + `pivot` + `bollinger` + `daily_pivot` line
+  // indicators are STILL rendered for ENABLED strategies — the
+  // user's complaint was about MARKERS, not lines. The line
+  // indicators visualize the strategy's logic (the channels the
+  // bot is watching), the markers visualize the bot's actions.
+  // Lines are always shown; markers are real-trade only.
+  //
+  // Effect deps: `[bars, strategy, timeframe, enabled]` — the
+  // `enabled` dep is new in Phase 82; flipping the enabled flag
+  // triggers a re-render of the markers without the bars having
+  // to change. The `chart` is read from a ref so it doesn't
+  // trigger a re-run on every render.
   // --------------------------------------------------------------------------
   useEffect(() => {
     const chart = chartRef.current;
@@ -619,9 +646,17 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
     }
     indicatorRefs.current = renderedLines;
 
-    // Apply the marker indicators on top of the lines.
+    // Apply the marker indicators ONLY for DISABLED strategies.
+    // For ENABLED strategies, the `markers` prop (from the
+    // `markersByKey` map built by App.tsx from the WS `state`
+    // event's `positions` + `closedTrades`) is the source of
+    // truth — the strategy-specific marker renderers below
+    // would draw HYPOTHETICAL breakout entries that the bot
+    // may not have actually executed, which is exactly what
+    // the user complained about. See the long comment above
+    // for the full rationale.
     const plugin = markersRef.current;
-    if (plugin !== null) {
+    if (plugin !== null && !enabled) {
       const markerDisposers: (() => void)[] = [];
       for (const markerInd of set.markers) {
         const markers = markerInd.compute(bars, priorIndicators);
@@ -630,7 +665,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
       }
       markerDisposersRef.current = markerDisposers;
     }
-  }, [bars, strategy, timeframe]);
+  }, [bars, strategy, timeframe, enabled]);
 
   // --------------------------------------------------------------------------
   // Effect 3: update markers when `markers` (the prop) change
@@ -653,17 +688,36 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
   // (The current flow: App.tsx passes `markersByKey={{}}` so the
   // prop's markers are always empty — the strategy-specific
   // markers survive intact.)
+  //
+  // Phase 82 (item 5): App.tsx now passes a real `markersByKey`
+  // (built from the WS `state` event's `positions` +
+  // `closedTrades`). The prop's markers are the SOURCE OF TRUTH
+  // for ENABLED strategies (real bot trades) and EMPTY for
+  // DISABLED strategies (no real trades, the strategy-specific
+  // indicator markers from Effect 2b are the only markers). The
+  // effect below handles BOTH paths:
+  //
+  //   - markers.length > 0 (ENABLED strategy + real trades):
+  //     apply the prop's markers; Effect 2b already skipped the
+  //     strategy-specific marker render (gated by `!enabled`),
+  //     so there's nothing to preserve.
+  //   - markers.length === 0 (no real trades yet OR disabled
+  //     strategy): the prop is empty, so we leave the markers
+  //     plugin in its current state. For ENABLED strategies with
+  //     no trades yet, that's a no-op (no markers to show). For
+  //     DISABLED strategies, Effect 2b already applied the
+  //     client-computed strategy markers, and we preserve them.
   // --------------------------------------------------------------------------
   useEffect(() => {
     const plugin = markersRef.current;
     if (plugin === null) return;
     if (markers === undefined || markers.length === 0) {
       // No prop markers — leave the strategy-specific markers
-      // (set by Effect 2b) intact.
+      // (set by Effect 2b for DISABLED strategies) intact.
       return;
     }
     plugin.setMarkers(markers.map(toSeriesMarkerMs));
-  }, [markers]);
+  }, [markers, enabled]);
 
   // --------------------------------------------------------------------------
   // Render — the chrome is re-implemented in TSX using the same CSS

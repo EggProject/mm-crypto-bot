@@ -8,12 +8,11 @@
  * web-client uses, so the dashboard's real fetch + WebSocket
  * URLs work unmodified).
  *
- * **Suite timeout:** 20 minutes (per the user mandate
- * 2026-07-17 00:08). The `e2e` script is the fast path; the
- * `e2e:full` script (30-min cap) is reserved for the longer
- * full-coverage run (e.g. CI nightly). GitHub Actions also
- * enforces a 20-min `timeout-minutes:` on the e2e:playwright
- * job — a hard kill if the suite doesn't finish.
+ * **Suite timeout:** 30 minutes (raised from 20 min per the
+ * 2026-07-27 CI-fix mandate, to match the GitHub Actions
+ * `timeout-minutes: 30` on the e2e:playwright job after the
+ * 16 new `82-coverage-boost-markers.spec.ts` tests pushed
+ * the suite past the 20-min cap).
  *
  * **Per-test timeout:** 30 seconds. Each of the 10 dashboard
  * tests should finish in <5s on local Chromium; the 30s cap
@@ -58,7 +57,7 @@ import { defineConfig, devices } from "@playwright/test";
  */
 const PORT = 7913 as const;
 const ORIGIN = `http://127.0.0.1:${PORT}` as const;
-const SUITE_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
+const SUITE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const TEST_TIMEOUT_MS = 30 * 1000; // 30 seconds
 
 export default defineConfig({
@@ -75,8 +74,8 @@ export default defineConfig({
   // "phase75-p2-*-t ne futtasd CI-ban, mert nem mukodik" (skip
   // phase75-p2 in CI because it doesn't work).
   testIgnore: ["**/phase75-p2-*"],
-  // The e2e suite is intentionally small (1 file, 10 tests).
-  // The 20-min suite timeout is the user-mandated hard cap.
+  // The 30-min suite timeout is enforced via `globalTimeout`
+  // below (matching the GH Actions `timeout-minutes: 30`).
   timeout: TEST_TIMEOUT_MS,
   expect: { timeout: 5_000 },
   fullyParallel: false, // serial — the WS heartbeat timer + port sharing make parallelism flaky
@@ -135,17 +134,18 @@ export default defineConfig({
     stderr: "pipe",
   },
 
-  // The 20-min suite timeout. The user mandate is "maximum 20 min,
-  // 30 min for e2e:full mode" — the 20-min cap matches the GitHub
-  // Actions `timeout-minutes: 20` on the e2e:playwright job.
-  // Playwright enforces this per-test-run, not per-test; if the
-  // entire suite doesn't finish in 20 min, the run is killed.
-  // (Note: the `timeout:` field above is the per-test timeout;
-  // there is no built-in "suite timeout" — we enforce it via
-  // `globalTimeout` if available, else via the GitHub Actions
-  // job timeout. As of Playwright 1.49, the test runner respects
-  // the deadline passed in via the `--deadline` CLI flag or
-  // `globalTimeout` config; we use the latter.)
+  // The 30-min suite timeout (raised from 20 min on 2026-07-27
+  // to match the GitHub Actions `timeout-minutes: 30` on the
+  // e2e:playwright job after the 16 new markers tests pushed
+  // the suite past the 20-min cap). Playwright enforces this
+  // per-test-run, not per-test; if the entire suite doesn't
+  // finish in 30 min, the run is killed. (Note: the `timeout:`
+  // field above is the per-test timeout; there is no built-in
+  // "suite timeout" — we enforce it via `globalTimeout` if
+  // available, else via the GitHub Actions job timeout. As of
+  // Playwright 1.49, the test runner respects the deadline
+  // passed in via the `--deadline` CLI flag or `globalTimeout`
+  // config; we use the latter.)
   globalTimeout: SUITE_TIMEOUT_MS,
 
   // Phase 80: the coverage threshold check moved from
