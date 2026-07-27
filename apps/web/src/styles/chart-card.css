@@ -788,6 +788,21 @@ h1 em, h2 em, h3 em, h4 em,
   text-transform: lowercase;
 }
 
+/* Phase 82: a small subtitle showing the strategy's
+   human-readable display name (e.g. "Donchian + Bollinger +
+   Breakouts"). Muted slate, smaller than the strategy id, so
+   it reads as a descriptive subtitle rather than competing
+   with the strategy id for attention. */
+.line-chart-wrapper__display-name {
+  font: 500 11px var(--ep-font-sans);
+  color: var(--ep-fg-muted, #888);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: 4px;
+}
+
 /* Price readout — big mono number for live mark price */
 .line-chart-wrapper__price {
   display: inline-flex; align-items: baseline; gap: 6px;
@@ -974,6 +989,24 @@ h1 em, h2 em, h3 em, h4 em,
 }
 .line-chart-wrapper__legend-swatch--candle-up   { background: var(--ep-success); }
 .line-chart-wrapper__legend-swatch--candle-down { background: var(--ep-danger); }
+
+/* Phase 82: the indicator-name legend (the "Donchian
+   UPPER/MIDDLE/LOWER" + "BB UPPER/MIDDLE/LOWER" + "Daily PP/R1/S1"
+   + marker names static labels). Sits between the chart body
+   and the marker legend (or alone, if no markers). Items are
+   small slate pills so they read as info, not as the chart's
+   data. */
+.line-chart-wrapper__indicator-legend {
+  display: flex; align-items: center;
+  gap: 8px; flex-wrap: wrap;
+  padding: 6px 18px;
+  background: var(--ep-bg-elevated);
+  border-top: 1px solid var(--ep-divider);
+}
+.line-chart-wrapper__legend-item--marker {
+  font-style: italic;
+  color: var(--ep-fg-faint, #888);
+}
 
 /* ---- Footer (optional) --------------------------------- */
 .line-chart-wrapper__footer {

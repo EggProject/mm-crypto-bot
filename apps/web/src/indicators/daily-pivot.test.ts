@@ -111,11 +111,54 @@ interface MockSeries {
   setData: (data: readonly unknown[]) => void;
 }
 
+/**
+ * `MockPriceLine` — a stand-in for a lightweight-charts
+ * `IPriceLine`. Phase 82: the daily-pivot renderer creates 3
+ * price lines on the candle series (one per level: PP / R1 /
+ * S1). The mock captures the `createPriceLine` arguments so
+ * the test can assert on the price, color, and title.
+ */
+interface MockPriceLine {
+  readonly id: number;
+  readonly opts: unknown;
+}
+
+/**
+ * `MockCandleSeries` — a stand-in for the candle series with
+ * the `createPriceLine` / `removePriceLine` methods that
+ * lightweight-charts v5 exposes on every series type.
+ */
+interface MockCandleSeries {
+  readonly createdPriceLines: readonly MockPriceLine[];
+  readonly calls: readonly MockCall[];
+  createPriceLine: (opts: unknown) => MockPriceLine;
+  removePriceLine: (line: unknown) => void;
+}
+
 interface MockChart {
-  readonly calls: MockCall[];
+  readonly calls: readonly MockCall[];
   readonly createdSeries: readonly MockSeries[];
   addSeries: (definition: unknown, opts: unknown) => MockSeries;
   removeSeries: (s: unknown) => void;
+}
+
+function makeMockCandleSeries(): MockCandleSeries {
+  const createdPriceLines: MockPriceLine[] = [];
+  const calls: MockCall[] = [];
+  return {
+    createdPriceLines,
+    calls,
+    createPriceLine: (opts: unknown): MockPriceLine => {
+      const id = createdPriceLines.length;
+      const line: MockPriceLine = { id, opts };
+      createdPriceLines.push(line);
+      calls.push({ method: "createPriceLine", args: [opts] });
+      return line;
+    },
+    removePriceLine: (line: unknown): void => {
+      calls.push({ method: "removePriceLine", args: [line] });
+    },
+  };
 }
 
 function makeMockChart(): MockChart {
@@ -173,6 +216,7 @@ function makeContext(
   chart: MockChart,
   bars: readonly OHLCBar[],
   series: IndicatorSeries,
+  candleSeries?: MockCandleSeries,
 ): IndicatorContext {
   return {
     chart: chart as unknown as IChartApi,
@@ -181,6 +225,9 @@ function makeContext(
     color: "#000000",
     strategy: "donchian_pivot_composition",
     timeframe: "1h",
+    candleSeries: candleSeries as unknown as Parameters<
+      typeof renderDailyPivot
+    >[0]["candleSeries"],
   };
 }
 
@@ -495,215 +542,303 @@ describe("validateDailyPivotSeries", () => {
 describe("renderDailyPivot", () => {
   it("returns an empty RenderedIndicator when bars is empty", () => {
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const series = makeDailyPivotSeries(0);
-    const ctx = makeContext(chart, [], series);
+    const ctx = makeContext(chart, [], series, candle);
 
     const out = renderDailyPivot(ctx);
 
     expect(out.series).toEqual([]);
     expect(out.name).toBe("daily_pivot-1h-donchian_pivot_composition");
     expect(chart.calls).toEqual([]);
+    expect(candle.calls).toEqual([]);
   });
 
   it("empty-bars dispose is a safe no-op (does not throw)", () => {
     const chart = makeMockChart();
-    const out = renderDailyPivot(makeContext(chart, [], makeDailyPivotSeries(0)));
+    const candle = makeMockCandleSeries();
+    const out = renderDailyPivot(
+      makeContext(chart, [], makeDailyPivotSeries(0), candle),
+    );
     expect(() => out.dispose()).not.toThrow();
   });
 
-  it("adds 3 line series for valid bars + valid series", () => {
+  it("console.warns and returns an empty RenderedIndicator when candleSeries is undefined (defensive)", () => {
+    // The renderer is called WITHOUT a candle series — the
+    // defensive branch fires, console.warn is called, and no
+    // series/price-lines are created.
     const chart = makeMockChart();
     const bars = makeBars(3);
     const series = makeDailyPivotSeries(3);
-    const ctx = makeContext(chart, bars, series);
+    const ctx = makeContext(chart, bars, series); // no candle
+
+    const warnCapture = captureConsoleWarn();
+    try {
+      const out = renderDailyPivot(ctx);
+      expect(out.series).toEqual([]);
+      expect(out.name).toBe("daily_pivot-1h-donchian_pivot_composition");
+      // console.warn called with the "candleSeries is undefined" message.
+      expect(warnCapture.calls.length).toBeGreaterThanOrEqual(1);
+      const candleWarn = warnCapture.calls.find((m) =>
+        m.includes("candleSeries is undefined"),
+      );
+      expect(candleWarn).toBeDefined();
+    } finally {
+      warnCapture.restore();
+    }
+  });
+
+  it("creates 3 price lines on the candle series (PP / R1 / S1) for the most recent day", () => {
+    // Phase 82: the renderer is now price-line based, not
+    // line-series based. The 3 line series are replaced by
+    // 3 `createPriceLine` calls on the candle series.
+    const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
+    const bars = makeBars(3);
+    const series = makeDailyPivotSeries(3);
+    const ctx = makeContext(chart, bars, series, candle);
 
     const out = renderDailyPivot(ctx);
 
-    expect(out.series).toHaveLength(3);
+    // No line series are added.
+    expect(out.series).toEqual([]);
     const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
-    const setDataCalls = chart.calls.filter((c) => c.method === "setData");
-    expect(addSeriesCalls).toHaveLength(3);
-    expect(setDataCalls).toHaveLength(3);
+    expect(addSeriesCalls).toHaveLength(0);
+    // 3 price lines are created on the candle series.
+    expect(candle.createdPriceLines).toHaveLength(3);
+    expect(candle.calls.filter((c) => c.method === "createPriceLine")).toHaveLength(3);
   });
 
-  it("uses the DAILY_PIVOT_COLORS palette for the 3 series (pp/r1/s1 order)", () => {
+  it("uses the DAILY_PIVOT_COLORS palette for the 3 price lines (pp/r1/s1 order)", () => {
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(3);
     const series = makeDailyPivotSeries(3);
-    const ctx = makeContext(chart, bars, series);
+    const ctx = makeContext(chart, bars, series, candle);
 
     renderDailyPivot(ctx);
 
-    const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
-    expect(addSeriesCalls[0]?.args[1]).toMatchObject({ color: DAILY_PIVOT_COLORS.pp });
-    expect(addSeriesCalls[1]?.args[1]).toMatchObject({ color: DAILY_PIVOT_COLORS.r1 });
-    expect(addSeriesCalls[2]?.args[1]).toMatchObject({ color: DAILY_PIVOT_COLORS.s1 });
+    // The 3 price lines are created in pp → r1 → s1 order with
+    // the corresponding DAILY_PIVOT_COLORS palette.
+    const createCalls = candle.calls.filter((c) => c.method === "createPriceLine");
+    expect(createCalls[0]?.args[0]).toMatchObject({ color: DAILY_PIVOT_COLORS.pp });
+    expect(createCalls[1]?.args[0]).toMatchObject({ color: DAILY_PIVOT_COLORS.r1 });
+    expect(createCalls[2]?.args[0]).toMatchObject({ color: DAILY_PIVOT_COLORS.s1 });
   });
 
-  it("uses dashed lineStyle (2) for the PP line, solid for R1/S1", () => {
+  it("uses dashed lineStyle (2) for the PP line, solid for R1/S1 (Phase 82: price-line lineStyle)", () => {
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(3);
     const series = makeDailyPivotSeries(3);
-    const ctx = makeContext(chart, bars, series);
+    const ctx = makeContext(chart, bars, series, candle);
 
     renderDailyPivot(ctx);
 
-    const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
+    const createCalls = candle.calls.filter((c) => c.method === "createPriceLine");
     // PP (index 0) is dashed.
-    expect(addSeriesCalls[0]?.args[1]).toMatchObject({ lineStyle: 2 });
+    expect(createCalls[0]?.args[0]).toMatchObject({ lineStyle: 2 });
     // R1 (index 1) is solid (0).
-    expect(addSeriesCalls[1]?.args[1]).toMatchObject({ lineStyle: 0 });
+    expect(createCalls[1]?.args[0]).toMatchObject({ lineStyle: 0 });
     // S1 (index 2) is solid (0).
-    expect(addSeriesCalls[2]?.args[1]).toMatchObject({ lineStyle: 0 });
+    expect(createCalls[2]?.args[0]).toMatchObject({ lineStyle: 0 });
   });
 
-  it("uses lineWidth: 1 and disables priceLineVisible + lastValueVisible on every series", () => {
+  it("sets the price of each line to the most recent non-null pp/r1/s1 value", () => {
+    // The 3 bar series have [10, 20, 30] for each level — the
+    // most recent non-null is 30, so all 3 price lines are at
+    // price 30.
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(3);
     const series = makeDailyPivotSeries(3);
-    const ctx = makeContext(chart, bars, series);
+    const ctx = makeContext(chart, bars, series, candle);
 
     renderDailyPivot(ctx);
 
-    const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
-    for (const call of addSeriesCalls) {
-      expect(call.args[1]).toMatchObject({
+    const createCalls = candle.calls.filter((c) => c.method === "createPriceLine");
+    expect(createCalls[0]?.args[0]).toMatchObject({ price: 102 }); // pp[2] = 100+2 = 102
+    expect(createCalls[1]?.args[0]).toMatchObject({ price: 102 });
+    expect(createCalls[2]?.args[0]).toMatchObject({ price: 102 });
+  });
+
+  it("uses the most recent non-null value when later bars are null (the `lastNonNull` skip branch)", () => {
+    // The last bar is null → the renderer should pick the
+    // last non-null value (bar[1], not bar[2]).
+    const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
+    const bars = makeBars(3);
+    const series: IndicatorSeries = {
+      pp: [10, 20, null],
+      r1: [11, 21, null],
+      s1: [9, 19, null],
+    };
+    const ctx = makeContext(chart, bars, series, candle);
+
+    renderDailyPivot(ctx);
+
+    const createCalls = candle.calls.filter((c) => c.method === "createPriceLine");
+    expect(createCalls[0]?.args[0]).toMatchObject({ price: 20 });
+    expect(createCalls[1]?.args[0]).toMatchObject({ price: 21 });
+    expect(createCalls[2]?.args[0]).toMatchObject({ price: 19 });
+  });
+
+  it("returns an empty RenderedIndicator (no price lines) when the most recent value of any level is null (the all-null short-circuit)", () => {
+    // Every value is null → the renderer should return early
+    // without creating any price lines.
+    const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
+    const bars = makeBars(3);
+    const series: IndicatorSeries = {
+      pp: [null, null, null],
+      r1: [null, null, null],
+      s1: [null, null, null],
+    };
+    const ctx = makeContext(chart, bars, series, candle);
+
+    const out = renderDailyPivot(ctx);
+    expect(out.series).toEqual([]);
+    expect(candle.createdPriceLines).toHaveLength(0);
+  });
+
+  it("includes the previous bar's date in each price-line title (e.g. 'PP 2023-11-14')", () => {
+    // The pivot uses `bars[i-1]` (the previous bar's H/L/C).
+    // The date label on the price line is the UTC date of that
+    // previous bar. For bars[0..2] = 1_700_000_000_000 (ms),
+    // 1_700_000_060_000, 1_700_000_120_000, the most recent
+    // bar is bars[2] and the previous bar is bars[1] =
+    // 1_700_000_060_000 ms. The UTC date of 1_700_000_060_000
+    // is 2023-11-14 (1700000060 sec ≈ 2023-11-14 22:14:20 UTC).
+    const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
+    const bars = makeBars(3);
+    const series = makeDailyPivotSeries(3);
+    const ctx = makeContext(chart, bars, series, candle);
+
+    renderDailyPivot(ctx);
+
+    const createCalls = candle.calls.filter((c) => c.method === "createPriceLine");
+    expect(createCalls[0]?.args[0]).toMatchObject({ title: "PP 2023-11-14" });
+    expect(createCalls[1]?.args[0]).toMatchObject({ title: "R1 2023-11-14" });
+    expect(createCalls[2]?.args[0]).toMatchObject({ title: "S1 2023-11-14" });
+  });
+
+  it("uses lineWidth: 1 and axisLabelVisible: true on every price line", () => {
+    const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
+    const bars = makeBars(3);
+    const series = makeDailyPivotSeries(3);
+    const ctx = makeContext(chart, bars, series, candle);
+
+    renderDailyPivot(ctx);
+
+    const createCalls = candle.calls.filter((c) => c.method === "createPriceLine");
+    for (const call of createCalls) {
+      expect(call.args[0]).toMatchObject({
         lineWidth: 1,
-        priceLineVisible: false,
-        lastValueVisible: false,
+        axisLabelVisible: true,
       });
     }
   });
 
-  it("converts bar time from milliseconds to seconds (UTCTimestamp) in setData", () => {
+  it("console.warns and returns empty when 'pp' is missing from the indicator series", () => {
+    // Phase 82: the per-key defensive check. If pp is missing,
+    // no price lines are created (we don't want a partial
+    // pivot without the equilibrium).
     const chart = makeMockChart();
-    const bars = makeBars(3);
-    const series = makeDailyPivotSeries(3, (i) => 100 + i);
-    const ctx = makeContext(chart, bars, series);
-
-    renderDailyPivot(ctx);
-
-    const setDataCalls = chart.calls.filter((c) => c.method === "setData");
-    const ppData = setDataCalls[0]?.args[2] as readonly {
-      time: number;
-      value: number;
-    }[];
-    expect(ppData[0]?.time).toBe(1_700_000_000);
-    expect(ppData[0]?.value).toBe(100);
-  });
-
-  it("filters null values out of the LineData arrays", () => {
-    const chart = makeMockChart();
-    const bars = makeBars(3);
-    const series: IndicatorSeries = {
-      pp: [100, null, 102],
-      r1: [101, 102, 103],
-      s1: [99, 100, 101],
-    };
-    const ctx = makeContext(chart, bars, series);
-
-    renderDailyPivot(ctx);
-
-    const setDataCalls = chart.calls.filter((c) => c.method === "setData");
-    const ppData = setDataCalls[0]?.args[2] as readonly unknown[];
-    expect(ppData).toHaveLength(2);
-  });
-
-  it("calls console.warn and only adds 2 series when 'pp' is missing", () => {
-    const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(3);
     const series: IndicatorSeries = {
       r1: [101, 102, 103],
       s1: [99, 100, 101],
     };
-    const ctx = makeContext(chart, bars, series);
+    const ctx = makeContext(chart, bars, series, candle);
 
     const warnCapture = captureConsoleWarn();
     try {
       const out = renderDailyPivot(ctx);
-
-      expect(out.series).toHaveLength(2);
-      const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
-      expect(addSeriesCalls).toHaveLength(2);
-      expect(warnCapture.calls).toHaveLength(1);
-      const warnMsg = warnCapture.calls[0] ?? "";
-      expect(warnMsg).toContain("pp");
-      expect(warnMsg).toContain("donchian_pivot_composition");
-      expect(warnMsg).toContain("1h");
+      expect(out.series).toEqual([]);
+      expect(candle.createdPriceLines).toHaveLength(0);
+      expect(warnCapture.calls.length).toBeGreaterThanOrEqual(1);
+      const missingWarn = warnCapture.calls.find((m) =>
+        m.includes("missing pp/r1/s1"),
+      );
+      expect(missingWarn).toBeDefined();
     } finally {
       warnCapture.restore();
     }
   });
 
-  it("calls console.warn and only adds 2 series when 'r1' is missing (the valuesFor r1 FALSE branch)", () => {
-    // The valuesFor function's `r1` case has a `hasArrayKey(..., "r1")
-    // ? indicatorSeries.r1 : undefined` ternary. The FALSE branch (the
-    // `undefined` half) fires when the r1 key is absent.
+  it("console.warns and returns empty when 'r1' is missing from the indicator series", () => {
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(3);
     const series: IndicatorSeries = {
       pp: [100, 101, 102],
-      // no r1
       s1: [99, 100, 101],
     };
-    const ctx = makeContext(chart, bars, series);
+    const ctx = makeContext(chart, bars, series, candle);
 
     const warnCapture = captureConsoleWarn();
     try {
       const out = renderDailyPivot(ctx);
-      expect(out.series).toHaveLength(2);
-      const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
-      expect(addSeriesCalls).toHaveLength(2);
-      expect(warnCapture.calls).toHaveLength(1);
-      expect(warnCapture.calls[0] ?? "").toContain("r1");
+      expect(out.series).toEqual([]);
+      expect(candle.createdPriceLines).toHaveLength(0);
+      expect(warnCapture.calls.length).toBeGreaterThanOrEqual(1);
+      const missingWarn = warnCapture.calls.find((m) =>
+        m.includes("missing pp/r1/s1"),
+      );
+      expect(missingWarn).toBeDefined();
     } finally {
       warnCapture.restore();
     }
   });
 
-  it("calls console.warn and only adds 2 series when 's1' is missing (the valuesFor s1 FALSE branch)", () => {
-    // Same pattern as the r1 test — the valuesFor `s1` case's FALSE
-    // branch fires when the s1 key is absent.
+  it("console.warns and returns empty when 's1' is missing from the indicator series", () => {
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(3);
     const series: IndicatorSeries = {
       pp: [100, 101, 102],
       r1: [101, 102, 103],
-      // no s1
     };
-    const ctx = makeContext(chart, bars, series);
+    const ctx = makeContext(chart, bars, series, candle);
 
     const warnCapture = captureConsoleWarn();
     try {
       const out = renderDailyPivot(ctx);
-      expect(out.series).toHaveLength(2);
-      const addSeriesCalls = chart.calls.filter((c) => c.method === "addSeries");
-      expect(addSeriesCalls).toHaveLength(2);
-      expect(warnCapture.calls).toHaveLength(1);
-      expect(warnCapture.calls[0] ?? "").toContain("s1");
+      expect(out.series).toEqual([]);
+      expect(candle.createdPriceLines).toHaveLength(0);
+      expect(warnCapture.calls.length).toBeGreaterThanOrEqual(1);
+      const missingWarn = warnCapture.calls.find((m) =>
+        m.includes("missing pp/r1/s1"),
+      );
+      expect(missingWarn).toBeDefined();
     } finally {
       warnCapture.restore();
     }
   });
 
-  it("dispose() removes all 3 series from the chart", () => {
+  it("dispose() removes all 3 price lines from the candle series", () => {
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(3);
     const series = makeDailyPivotSeries(3);
-    const ctx = makeContext(chart, bars, series);
+    const ctx = makeContext(chart, bars, series, candle);
 
     const out = renderDailyPivot(ctx);
     out.dispose();
 
-    const removeCalls = chart.calls.filter((c) => c.method === "removeSeries");
+    const removeCalls = candle.calls.filter((c) => c.method === "removePriceLine");
     expect(removeCalls).toHaveLength(3);
-    const createdSeries = chart.createdSeries;
-    const removedSeries: readonly unknown[] = removeCalls.map((c) => c.args[0]);
-    expect(removedSeries).toEqual(createdSeries);
+    const createdPriceLines = candle.createdPriceLines;
+    const removedPriceLines: readonly unknown[] = removeCalls.map((c) => c.args[0]);
+    expect(removedPriceLines).toEqual(createdPriceLines);
   });
 
   it("composes the RenderedIndicator.name as daily_pivot-<timeframe>-<strategy>", () => {
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(2);
     const series = makeDailyPivotSeries(2);
     const ctx: IndicatorContext = {
@@ -713,6 +848,9 @@ describe("renderDailyPivot", () => {
       color: "#000000",
       strategy: "alt_strategy",
       timeframe: "4h",
+      candleSeries: candle as unknown as Parameters<
+        typeof renderDailyPivot
+      >[0]["candleSeries"],
     };
     const out = renderDailyPivot(ctx);
     expect(out.name).toBe("daily_pivot-4h-alt_strategy");
@@ -720,10 +858,11 @@ describe("renderDailyPivot", () => {
 
   it("preserves the input bars array (does not mutate)", () => {
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(3);
     const series = makeDailyPivotSeries(3);
     const before = JSON.stringify(bars);
-    renderDailyPivot(makeContext(chart, bars, series));
+    renderDailyPivot(makeContext(chart, bars, series, candle));
     expect(JSON.stringify(bars)).toBe(before);
   });
 });
@@ -741,20 +880,23 @@ describe("IndicatorRegistry with daily_pivot", () => {
     expect(registry.list()).toEqual(["daily_pivot"]);
   });
 
-  it("the full register + render + dispose round-trip works", () => {
+  it("the full register + render + dispose round-trip works (Phase 82: 3 price lines on candle series, not 3 line series)", () => {
     const registry = new IndicatorRegistry();
     registry.register("daily_pivot", renderDailyPivot);
     const chart = makeMockChart();
+    const candle = makeMockCandleSeries();
     const bars = makeBars(3);
     const series = makeDailyPivotSeries(3);
-    const ctx = makeContext(chart, bars, series);
+    const ctx = makeContext(chart, bars, series, candle);
     const renderer = registry.get("daily_pivot");
     expect(renderer).not.toBeUndefined();
     if (renderer === undefined) return;
     const out = renderer(ctx);
-    expect(out.series).toHaveLength(3);
+    // Phase 82: 0 line series (they were dropped in favor of
+    // price lines).
+    expect(out.series).toHaveLength(0);
     out.dispose();
-    const removeCalls = chart.calls.filter((c) => c.method === "removeSeries");
+    const removeCalls = candle.calls.filter((c) => c.method === "removePriceLine");
     expect(removeCalls).toHaveLength(3);
   });
 });

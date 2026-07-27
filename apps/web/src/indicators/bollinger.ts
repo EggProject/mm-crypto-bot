@@ -132,6 +132,25 @@ export const BOLLINGER_COLORS: Readonly<Record<BollingerSeriesKey, string>> = {
 };
 
 /**
+ * `BOLLINGER_TITLES` — the per-line `title` option set on each
+ * `addSeries(LineSeries, ...)` call. The title appears in the
+ * lightweight-charts built-in legend so the user can identify
+ * each line at a glance.
+ *
+ * Phase 82 (chart redesign): the chart shows the Bollinger band
+ * ALONGSIDE the Donchian channel (both indicators are on the
+ * same chart for `donchian_pivot_composition`). The Bollinger
+ * titles are prefixed with "BB " to distinguish them from the
+ * Donchian UPPER/MIDDLE/LOWER titles — same vertical position
+ * visually, different label.
+ */
+export const BOLLINGER_TITLES: Readonly<Record<BollingerSeriesKey, string>> = {
+  upper: "BB UPPER",
+  middle: "BB MIDDLE",
+  lower: "BB LOWER",
+};
+
+/**
  * The typed shape of a validated Bollinger series.
  *
  * Every value is `number | null` (the `null` case is filtered out
@@ -496,6 +515,21 @@ function colorFor(key: BollingerSeriesKey): string {
 }
 
 /**
+ * Look up the legend title for `key`. Mirrors `colorFor` but
+ * returns the human-readable label for the lightweight-charts
+ * built-in legend. The values come from `BOLLINGER_TITLES`.
+ */
+function titleFor(key: BollingerSeriesKey): string {
+  if (key === "upper") return BOLLINGER_TITLES.upper;
+  if (key === "middle") return BOLLINGER_TITLES.middle;
+  // Same runtime-vs-type reasoning as `colorFor` above.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (key === "lower") return BOLLINGER_TITLES.lower;
+  const _exhaustive: never = key;
+  throw new Error(`titleFor: unknown key ${String(_exhaustive)}`);
+}
+
+/**
  * Look up the values array for `key` in `indicatorSeries`. Returns
  * `undefined` if the key is absent.
  *
@@ -617,16 +651,24 @@ export const renderBollinger: IndicatorRenderer = (
       continue;
     }
 
-    // `addSeries(LineSeries, opts)` — v5 API. `priceLineVisible: false`
-    // suppresses the horizontal "current value" line on the right axis
-    // (a Bollinger band renders three lines; each one's right-edge
-    // marker would visually clutter the chart). `lastValueVisible: false`
-    // suppresses the label of the last value.
+    // `addSeries(LineSeries, opts)` — v5 API. Phase 82: the `title`
+    // option sets the line's legend label so the user can see
+    // "BB UPPER" / "BB MIDDLE" / "BB LOWER" in the chart's
+    // built-in legend — distinguishes the Bollinger band from
+    // the Donchian band (both are on the same chart for
+    // `donchian_pivot_composition`). `priceLineVisible: false`
+    // suppresses the right-edge price-line marker (the chart
+    // has a price scale already; 3 Bollinger + 3 Donchian + 1
+    // pivot + 1 daily-pivot = 8 right-edge markers would
+    // visually clutter the chart). `lastValueVisible: true`
+    // enables the right-edge last-value label — required so
+    // the title appears in the chart's built-in legend.
     const lineSeries = chart.addSeries(LineSeries, {
       color: colorFor(key),
       lineWidth: 1,
       priceLineVisible: false,
-      lastValueVisible: false,
+      lastValueVisible: true,
+      title: titleFor(key),
     });
 
     lineSeries.setData(buildLineData(bars, values));
@@ -657,4 +699,4 @@ export const renderBollinger: IndicatorRenderer = (
  * keys (cast through `unknown`). Do NOT import `__testing` from
  * production code.
  */
-export const __testing = { colorFor, valuesFor } as const;
+export const __testing = { colorFor, valuesFor, titleFor } as const;

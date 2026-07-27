@@ -394,6 +394,24 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
       )}
     </span>
   ) : null;
+  // Phase 82: a short human-readable display name for the
+  // strategy (e.g. "Donchian + Bollinger + Breakouts") so the
+  // user can see at a glance WHAT this chart shows — not just
+  // the strategy id ("donchian_pivot_composition"). The display
+  // name is read from the per-strategy `StrategyIndicatorSet`
+  // (the same registry that drives the per-strategy indicator
+  // set). For unknown strategies, the `getStrategyIndicatorSet`
+  // fallback's `displayName` is "Donchian (fallback)" — the
+  // same convention the unknown-strategy set uses for its lines.
+  const strategySetForTitle = getStrategyIndicatorSet(strategy);
+  const displayNameLabel = (
+    <span
+      className="line-chart-wrapper__display-name"
+      data-testid="chart-card-display-name"
+    >
+      {strategySetForTitle.displayName}
+    </span>
+  );
   const timeframeMeta = timeframeHasLabel(timeframe) ? (
     <span className="line-chart-wrapper__meta">{timeframe}</span>
   ) : null;
@@ -580,12 +598,23 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
     // Build the `prior` map of line-indicator outputs, so
     // marker indicators can consume an upstream indicator's
     // series (e.g. breakout markers use the Donchian band).
+    // Phase 82: the line indicators now also receive the
+    // candle series (the daily-pivot renderer creates
+    // price lines on the candle series).
     const priorIndicators: Record<string, IndicatorSeries> = {};
     const renderedLines: RenderedIndicator[] = [];
+    const candleSeriesForRender = seriesRef.current;
     for (const line of set.lines) {
       const series = line.compute(bars);
       priorIndicators[line.name] = series;
-      const rendered = line.render(chart, bars, series, strategy, timeframe);
+      const rendered = line.render(
+        chart,
+        bars,
+        series,
+        strategy,
+        timeframe,
+        candleSeriesForRender ?? undefined,
+      );
       renderedLines.push(rendered);
     }
     indicatorRefs.current = renderedLines;
@@ -664,6 +693,14 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
           {symbolLabel}
           {strategyTitle}
           {timeframeMeta}
+          {/* Phase 82: a small subtitle showing the strategy's
+              human-readable display name (e.g. "Donchian +
+              Bollinger + Breakouts"). The display name is read
+              from the `STRATEGY_INDICATOR_SETS[strategy].displayName`
+              field so it stays in sync with the per-strategy
+              indicator set. The subtitle is muted slate so it
+              doesn't compete with the strategy id. */}
+          {displayNameLabel}
         </div>
         <div className="line-chart-wrapper__actions">
           <div
@@ -708,6 +745,62 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
         ref={containerRef}
         data-testid={`chart-card-body-${symbol}-${timeframe}`}
       />
+
+      {/* Phase 82: a small legend showing the indicator NAMES
+          for the strategy (e.g. "Donchian UPPER", "Donchian
+          MIDDLE", "Donchian LOWER" for the donchian band; the
+          Bollinger band adds "BB UPPER / BB MIDDLE / BB LOWER";
+          the daily pivot adds "PP / R1 / S1"; etc.). The
+          lightweight-charts built-in legend (titles next to
+          the last value) is the PRIMARY legend; this HTML
+          legend is a SECONDARY static legend that survives
+          zoom + pan + chart-area cropping — it's the user's
+          "at a glance" reference of WHAT is on the chart. */}
+      <div
+        className="line-chart-wrapper__indicator-legend"
+        data-testid="chart-card-indicator-legend"
+      >
+        {strategySetForTitle.lines.map((line) => (
+          <span
+            key={line.name}
+            className="line-chart-wrapper__legend-item"
+            data-indicator-name={line.name}
+          >
+            {line.name === "donchian"
+              ? "Donchian UPPER/MIDDLE/LOWER"
+              : line.name === "bollinger"
+                ? "BB UPPER/MIDDLE/LOWER"
+                : line.name === "pivot"
+                  ? "Rolling Pivot"
+                  : line.name === "daily_pivot"
+                    ? "Daily PP/R1/S1 (most recent day)"
+                    : line.name === "funding_rate"
+                      ? "Funding Rate"
+                      : line.name === "funding_spread"
+                        ? "Funding Spread"
+                        : line.name}
+          </span>
+        ))}
+        {strategySetForTitle.markers.map((marker) => (
+          <span
+            key={marker.name}
+            className="line-chart-wrapper__legend-item line-chart-wrapper__legend-item--marker"
+            data-marker-name={marker.name}
+          >
+            {marker.name === "breakout_signals"
+              ? "Breakout entries/exits"
+              : marker.name === "funding_paid"
+                ? "Funding payments (every 8 bars)"
+                : marker.name === "cascade_events"
+                  ? "Cascade events (>2%)"
+                  : marker.name === "funding_flips"
+                    ? "Funding sign flips"
+                    : marker.name === "regime_changes"
+                      ? "Regime changes"
+                      : marker.name}
+          </span>
+        ))}
+      </div>
 
       {/* Phase 74: the "Up candle / Down candle" legend was removed
           (user mandate: a felesleges szöveg zavaros volt, hiszen minden
