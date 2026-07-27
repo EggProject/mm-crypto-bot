@@ -110,11 +110,12 @@ export class BybitEuFeed implements ExchangeFeed {
     if (opts.exchange !== undefined) {
       this.client = opts.exchange;
     } else {
-      // A CCXT factory `pro: true` flag-gel hozza létre a CCXT Pro belső WS
-      // client-jét. A `new ccxt.pro.bybiteu(...)` is működne, de az ESM
-      // import miatt az alap `ccxt.bybiteu` a CCXT Pro metódusait is tartalmazza
-      // (4.5.x óta, lásd stack-findings.md §1.1).
-      this.client = new ccxt.bybiteu({
+      // A CCXT CJS disztribúcióban a `watch*` metódusok kizárólag a
+      // `ccxt.pro.bybiteu` namespace-en érhetők el (a `ccxt.bybiteu` a
+      // REST-only class — `pro instance instanceof ccxt.bybiteu === false`).
+      // Az `instanceof` ellenőrzés a tesztben (C1) garantálja, hogy a
+      // production konstruktor a WS-enabled osztályt használja.
+      this.client = new ccxt.pro.bybiteu({
         apiKey: opts.apiKey,
         secret: opts.secret,
         enableRateLimit: true,
@@ -156,6 +157,11 @@ export class BybitEuFeed implements ExchangeFeed {
     }
     this.subs.clear();
     this.opened = false;
+    // C3 fix: a CCXT Pro NEM zárja be magát a watch* promise-ok cleanup-ja
+    // után — a `client.close()` hívás szükséges az underlying WS connection
+    // lezárásához. A `latency-monitor.ts` és a CCXT Pro dokumentáció ezt
+    // explicit kéri (ld. /tmp/ccxt-FINAL-REPORT.md C3).
+    await this.client.close();
   }
 
   async subscribeTicker(symbol: Symbol, listener: FeedListener): Promise<SubscriptionId> {
@@ -406,9 +412,44 @@ export class BybitEuFeed implements ExchangeFeed {
         listener(event);
       }
     } catch (err) {
-      if (!cancelled) {
-        throw new ExchangeFeedError(`OrderBook watch hiba: ${symbol}`, err);
+      if (cancelled) return;
+      // C2 fix: defenzív NotSupported → REST polling fallback. A C1 fix
+      // (ccxt.pro.bybiteu) után ez sosem fut le, DE ha a CCXT verzió
+      // downgrade-elődik vagy a `ccxt.pro` namespace eltűnik, a fallback
+      // megmenti a botot az összeomlástól (ugyanaz a minta, mint a
+      // `runTickerLoop` 358-383 sorokon).
+      const isNotSupported =
+        err instanceof Error &&
+        (err.name === "NotSupported" ||
+          err.message.includes("NotSupported") ||
+          err.message.includes("is not supported yet"));
+      if (isNotSupported) {
+        while (!cancelled) {
+          try {
+            const raw = await this.client.fetchOrderBook(symbol, limit);
+            cancelled = sub.cancelled;
+            if (cancelled) return;
+            const ob = normalizeOrderBook(raw, symbol);
+            const event: FeedEvent = { kind: "orderbook", payload: ob };
+            listener(event);
+          } catch {
+            if (cancelled) return;
+          }
+          await new Promise<void>((resolve) => {
+            const handle = setTimeout(resolve, 1000);
+            const checkInterval = setInterval(() => {
+              if (sub.cancelled) {
+                clearTimeout(handle);
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 100);
+          });
+          cancelled = sub.cancelled;
+        }
+        return;
       }
+      throw new ExchangeFeedError(`OrderBook watch hiba: ${symbol}`, err);
     }
   }
 
@@ -428,9 +469,44 @@ export class BybitEuFeed implements ExchangeFeed {
         }
       }
     } catch (err) {
-      if (!cancelled) {
-        throw new ExchangeFeedError(`Trades watch hiba: ${symbol}`, err);
+      if (cancelled) return;
+      // C2 fix: defenzív NotSupported → REST polling fallback (ugyanaz
+      // a minta, mint a `runTickerLoop` 358-383 sorokon és az
+      // `runOrderBookLoop`-ban fent).
+      const isNotSupported =
+        err instanceof Error &&
+        (err.name === "NotSupported" ||
+          err.message.includes("NotSupported") ||
+          err.message.includes("is not supported yet"));
+      if (isNotSupported) {
+        while (!cancelled) {
+          try {
+            const raw = await this.client.fetchTrades(symbol);
+            cancelled = sub.cancelled;
+            if (cancelled) return;
+            for (const trade of raw) {
+              const t = normalizeTrade(trade, symbol);
+              const event: FeedEvent = { kind: "trade", payload: t };
+              listener(event);
+            }
+          } catch {
+            if (cancelled) return;
+          }
+          await new Promise<void>((resolve) => {
+            const handle = setTimeout(resolve, 1000);
+            const checkInterval = setInterval(() => {
+              if (sub.cancelled) {
+                clearTimeout(handle);
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 100);
+          });
+          cancelled = sub.cancelled;
+        }
+        return;
       }
+      throw new ExchangeFeedError(`Trades watch hiba: ${symbol}`, err);
     }
   }
 

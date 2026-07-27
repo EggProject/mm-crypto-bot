@@ -23,7 +23,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { asSymbol, type Timeframe } from "./symbols.js";
 import type { ClientOrderId, OrderRequest } from "./types.js";
-import type { Exchange as CcxtExchange } from "ccxt";
+import ccxt, { type Exchange as CcxtExchange } from "ccxt";
 
 import { BybitEuFeed, normalizeTrade } from "./bybitEuFeed.js";
 
@@ -42,7 +42,9 @@ interface FakeExchange {
   watchOHLCV: (symbol: string, timeframe: string) => Promise<unknown>;
   fetchTicker: (symbol: string) => Promise<unknown>;
   fetchOrderBook: (symbol: string, limit: number) => Promise<unknown>;
+  fetchTrades: (symbol: string) => Promise<unknown[]>;
   fetchBalance: () => Promise<unknown>;
+  fetchOHLCV?: (symbol: string, timeframe: string, since?: number, limit?: number) => Promise<unknown>;
   createOrder: (
     symbol: string,
     type: string,
@@ -60,6 +62,7 @@ interface FakeExchange {
     symbol: string,
   ) => Promise<unknown>;
   fetchOpenOrders: (symbol: string) => Promise<unknown[]>;
+  close: () => Promise<void>;
 }
 
 function makeFakeExchange(overrides: Partial<FakeExchange> = {}): FakeExchange {
@@ -102,6 +105,7 @@ function makeFakeExchange(overrides: Partial<FakeExchange> = {}): FakeExchange {
       bids: [[59_999, 1]],
       asks: [[60_001, 1]],
     }),
+    fetchTrades: async (_symbol: string) => [],
     fetchBalance: async () => ({
       USDC: { free: 10_000, total: 10_000, used: 0 },
       info: {},
@@ -144,6 +148,7 @@ function makeFakeExchange(overrides: Partial<FakeExchange> = {}): FakeExchange {
       status: "open",
     }),
     fetchOpenOrders: async (_symbol: string) => [],
+    close: async () => { /* no-op — tracked via overrides for C3 test */ },
   };
   return { ...base, ...overrides };
 }
@@ -838,6 +843,148 @@ describe("bybitEuFeed", () => {
       expect(trade.amount).toBe(0);
       // Hiányzó side esetén a takerSide "buy" (mert `raw.side === "sell"` hamis)
       expect(trade.takerSide).toBe("buy");
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // CRITICAL FIX VERIFICATION (per /tmp/ccxt-FINAL-REPORT.md, /tmp/ccxt-review-3-ws.md)
+  //
+  // C1: bybitEuFeed.ts:118 — ccxt.bybiteu (REST-only) → ccxt.pro.bybiteu (WS-enabled).
+  //     The CJS distribution's pro namespace is the only WS-enabled bybiteu.
+  //     Verified at runtime: `pro instanceof ccxt.bybiteu === false`.
+  // C2: bybitEuFeed.ts:401, 456 — watchOrderBook and watchTrades now have
+  //     NotSupported → REST polling fallback (matching runTickerLoop/runOhlcvLoop).
+  //     Defense-in-depth: even if CCXT regresses, the bot doesn't crash.
+  // C3: bybitEuFeed.ts:164 — close() now calls this.client.close() to release
+  //     the underlying WS connection. CCXT Pro does NOT self-close.
+  // -----------------------------------------------------------------
+  describe("C1/C2/C3 critical fix verification", () => {
+    it("C1: a constructor ccxt.pro.bybiteu-t használ, nem a REST-only ccxt.bybiteu-t", () => {
+      // Ne adjunk át `exchange` opciót — a production code path fusson le.
+      // A CCXT class nem nyit network connection-t a konstruktorban
+      // (a loadMarkets() az open()-ben hívódik), ezért a teszt biztonságos.
+      const feed = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 100,
+        sandbox: false,
+      });
+      // A belső client a WS-enabled `ccxt.pro.bybiteu` kell legyen,
+      // NEM a REST-only `ccxt.bybiteu`. Ez a root cause: a kettő
+      // különböző osztály (`pro instance instanceof ccxt.bybiteu === false`).
+      const client = (feed as unknown as { client: unknown }).client;
+      expect(client).toBeInstanceOf(ccxt.pro.bybiteu);
+      // A REST-only class-ba NEM szabad esnie — az garantálja, hogy
+      // tényleg a Pro namespace-t használjuk, nem egy rename/alias trükköt.
+      expect(client).not.toBeInstanceOf(ccxt.bybiteu);
+    });
+
+    it("C2: watchOrderBook NotSupported falls back to fetchOrderBook polling", async () => {
+      let fetchOrderBookCalls = 0;
+      const receivedBooks: unknown[] = [];
+      const newFake = makeFakeExchange({
+        watchOrderBook: async (_symbol: string, _limit: number): Promise<unknown> => {
+          const err = new Error("bybiteu watchOrderBook() is not supported yet");
+          err.name = "NotSupported";
+          throw err;
+        },
+        fetchOrderBook: async (_symbol: string, _limit: number) => {
+          fetchOrderBookCalls++;
+          return {
+            symbol: "BTC/USDC",
+            timestamp: Date.now(),
+            nonce: fetchOrderBookCalls,
+            bids: [[59_999 + fetchOrderBookCalls, 1]],
+            asks: [[60_001 + fetchOrderBookCalls, 1]],
+          };
+        },
+      });
+      const f = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 10,
+        sandbox: false,
+        exchange: asCcxt(newFake),
+      });
+      await f.open();
+      await f.subscribeOrderBook(asSymbol("BTC/USDC"), 10, (event) => {
+        if (event.kind === "orderbook") {
+          receivedBooks.push(event.payload);
+        }
+      });
+      // The polling loop runs at 1s intervals; wait ~2.2s for ≥2 polls.
+      await new Promise<void>((r) => setTimeout(r, 2200));
+      expect(fetchOrderBookCalls).toBeGreaterThanOrEqual(2);
+      expect(receivedBooks.length).toBeGreaterThanOrEqual(2);
+      await f.close();
+    });
+
+    it("C2: watchTrades NotSupported falls back to fetchTrades polling", async () => {
+      let fetchTradesCalls = 0;
+      const receivedTrades: unknown[] = [];
+      const newFake = makeFakeExchange({
+        watchTrades: async (_symbol: string): Promise<unknown> => {
+          const err = new Error("bybiteu watchTrades() is not supported yet");
+          err.name = "NotSupported";
+          throw err;
+        },
+        fetchTrades: async (_symbol: string) => {
+          fetchTradesCalls++;
+          return [
+            {
+              id: `trade-${fetchTradesCalls}`,
+              timestamp: Date.now(),
+              symbol: "BTC/USDC",
+              side: "buy" as const,
+              price: 60_000,
+              amount: 0.01,
+            },
+          ];
+        },
+      });
+      const f = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 10,
+        sandbox: false,
+        exchange: asCcxt(newFake),
+      });
+      await f.open();
+      await f.subscribeTrades(asSymbol("BTC/USDC"), (event) => {
+        if (event.kind === "trade") {
+          receivedTrades.push(event.payload);
+        }
+      });
+      // The polling loop runs at 1s intervals; wait ~2.2s for ≥2 polls.
+      await new Promise<void>((r) => setTimeout(r, 2200));
+      expect(fetchTradesCalls).toBeGreaterThanOrEqual(2);
+      expect(receivedTrades.length).toBeGreaterThanOrEqual(2);
+      await f.close();
+    });
+
+    it("C3: close() hívja a this.client.close()-t a WS connection lezárásához", async () => {
+      // Mockoljuk a CCXT client close metódusát, és asserteljük, hogy
+      // a BybitEuFeed.close() tényleg hívja. CCXT Pro NEM zárja be
+      // magát — a feed-nek kell explicit hívnia.
+      let closeCalled = false;
+      const newFake = makeFakeExchange({
+        close: async () => {
+          closeCalled = true;
+        },
+      });
+      const f = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 100,
+        sandbox: false,
+        exchange: asCcxt(newFake),
+      });
+      await f.open();
+      expect(closeCalled).toBe(false);
+      await f.close();
+      // A C3 fix: a this.client.close() a subs.clear() UTÁN hívódik.
+      // Korábban a close() nem hívta — ez volt a WS leak.
+      expect(closeCalled).toBe(true);
     });
   });
 });

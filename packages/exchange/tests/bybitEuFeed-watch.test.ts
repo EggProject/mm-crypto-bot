@@ -141,6 +141,9 @@ function makeMockClient(): {
         symbol: sym,
       },
     ],
+    // C3 fix: close() a this.client.close() hívásához a BybitEuFeed.close()-ban.
+    // A CCXT Pro NEM zárja be magát — a feed-nek explicit hívnia kell.
+    close: async () => undefined,
     get markets() {
       return markets;
     },
