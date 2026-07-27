@@ -292,6 +292,26 @@ export interface LatencyMonitorResult {
 export class LatencyMonitor {
   private readonly defaultConfig: Required<Omit<LatencyMonitorConfig, "exchangeIds">>;
 
+  /**
+   * `cancelled` — megszakítás-flag. Ha `abort()` hívódik, a belső
+   * `measureRtt` / `measureMessageGap` ciklusok a következő iteráció
+   * előtt kilépnek (a `while` feltételben ellenőrzik). Az `measureExchange`
+   * a `try { ... } finally { await exchange.close() }` blokkban gondoskodik
+   * a WS connection cleanup-ról — a CCXT Pro nem zárja be magát.
+   *
+   * A flag a `measureExchange` indításakor `false`-ra resetelődik, hogy
+   * egy abort után indított új mérés ne lépjen ki azonnal.
+   */
+  private cancelled = false;
+
+  /**
+   * `activeExchange` — az aktuálisan mért CCXT exchange instance. Az
+   * `abort()` ezen hívja a `close()`-t, hogy a WS connection azonnal
+   * felszabaduljon (a try/finally a `measureExchange` végén ezt
+   * amúgy is megtenné, de az `abort()` gyorsabb reakciót ad).
+   */
+  private activeExchange: CcxtExchange | null = null;
+
   constructor() {
     this.defaultConfig = {
       symbol: "BTC/USDT",
@@ -301,6 +321,31 @@ export class LatencyMonitor {
       measureReconnect: true,
       forcedDisconnectAtMs: 15_000,
     };
+  }
+
+  /**
+   * `abort` — megszakítja az in-flight mérést. A belső ciklusok a
+   * következő iteráció előtt kilépnek, és a `try/finally` a
+   * `measureExchange`-ben lezárja az exchange WS connection-jét.
+   *
+   * **Miért kritikus:** ha a felhasználó Ctrl-C-t nyom vagy a CI
+   * timeout-olja a processzt, a CCXT Pro WS connection az OS TCP
+   * timeout-ig (percek) nyitva marad az exchange oldalán. A `try/finally`
+   * önmagában csak a `Promise.all` reject esetén fut le — a Ctrl-C-re
+   * nincs automatikus cleanup. Az `abort()` ezt a hiányzó API-t pótolja.
+   *
+   * Idempotens — többször is hívható. Ha nincs aktív mérés, csak a
+   * flag-et állítja (a következő `measureExchange` indításkor resetelődik).
+   */
+  async abort(): Promise<void> {
+    this.cancelled = true;
+    if (this.activeExchange !== null) {
+      try {
+        await this.activeExchange.close();
+      } catch {
+        // Best-effort cleanup — a close() lehet, hogy már le van zárva.
+      }
+    }
   }
 
   /**
@@ -354,26 +399,46 @@ export class LatencyMonitor {
     const samples: LatencySample[] = [];
     const exchange = this.createExchange(exchangeId);
 
-    // === RTT mérés (REST request-response) ===
-    const rttPromise = this.measureRtt(exchange, exchangeId, symbol, durationMs, rttIntervalMs).then(
-      (rttSamples) => {
-        samples.push(...rttSamples);
-      },
-    );
+    // Regisztráljuk az exchange-t az abort() számára, és reseteljük a
+    // cancelled flag-et, hogy egy korábbi abort() ne legyen hatással erre
+    // a mérésre.
+    this.activeExchange = exchange;
+    this.cancelled = false;
 
-    // === Message gap mérés (WS subscribe) ===
-    const gapPromise = this.measureMessageGap(
-      exchange,
-      exchangeId,
-      symbol,
-      durationMs,
-      wsMessageBudget,
-      measureReconnect ? forcedDisconnectAtMs : Number.POSITIVE_INFINITY,
-    ).then((gapSamples) => {
-      samples.push(...gapSamples);
-    });
+    try {
+      // === RTT mérés (REST request-response) ===
+      const rttPromise = this.measureRtt(exchange, exchangeId, symbol, durationMs, rttIntervalMs).then(
+        (rttSamples) => {
+          samples.push(...rttSamples);
+        },
+      );
 
-    await Promise.all([rttPromise, gapPromise]);
+      // === Message gap mérés (WS subscribe) ===
+      const gapPromise = this.measureMessageGap(
+        exchange,
+        exchangeId,
+        symbol,
+        durationMs,
+        wsMessageBudget,
+        measureReconnect ? forcedDisconnectAtMs : Number.POSITIVE_INFINITY,
+      ).then((gapSamples) => {
+        samples.push(...gapSamples);
+      });
+
+      await Promise.all([rttPromise, gapPromise]);
+    } finally {
+      // A WS connection cleanup-ját MINDIG elvégezzük — akár a happy
+      // path, akár egy reject, akár egy abort() hívás miatt lépünk ki.
+      // A CCXT Pro nem zárja be magát: ha ez a sor kimarad, a WS
+      // connection nyitva marad az exchange oldalán az OS TCP timeout-ig.
+      this.activeExchange = null;
+      try {
+        await exchange.close();
+      } catch {
+        // Best-effort cleanup — a close() lehet, hogy már le van zárva
+        // (pl. az abort() már hívta, vagy a reconnect block).
+      }
+    }
 
     const stats = aggregateStats(exchangeId, samples);
     return { samples, stats };
@@ -399,7 +464,7 @@ export class LatencyMonitor {
     const startTime = Date.now();
     const endTime = startTime + durationMs;
 
-    while (Date.now() < endTime) {
+    while (Date.now() < endTime && !this.cancelled) {
       const t0 = Date.now();
       // A `success` flag a try-catch mindkét ágában definiált: a try
       // siker esetén `true`, a catch hiba esetén `false`. Az explicit
@@ -458,7 +523,7 @@ export class LatencyMonitor {
 
     // A WS loop addig fut, amíg a mérési idő el nem telik, VAGY amíg a
     // message budget-et el nem érjük.
-    while (Date.now() < endTime && messagesSinceConnect < wsMessageBudget) {
+    while (Date.now() < endTime && messagesSinceConnect < wsMessageBudget && !this.cancelled) {
       // A reconnect trigger a mérés felénél (vagy a forcedDisconnectAtMs-nél).
       // A `reconnectStartAt` egyszer triggerelődik (mert utána !== undefined).
       const shouldReconnect =

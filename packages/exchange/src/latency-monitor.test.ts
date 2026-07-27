@@ -475,3 +475,155 @@ describe("LatencyMonitor.createExchange", () => {
     ).toThrow(/Ismeretlen exchange/);
   });
 });
+
+describe("LatencyMonitor.abort", () => {
+  /**
+   * Teszt #7 — Abort API: mid-measurement cleanup.
+   *
+   * A teszt indít egy hosszú (5000ms) mérést egy gyors mock watchOrderBook
+   * mellett, majd 50ms után meghívja az `abort()`-ot. Az assertálja, hogy:
+   *   1. A mérés nem fut le a duration végéig (az abort leállítja).
+   *   2. Az `exchange.close()` az `abort()` hívásától számított 100ms-on
+   *      belül meghívódik (a try/finally azonnal cleanup-ol).
+   *   3. A mérés visszatér (a promise feloldódik, nem függ).
+   */
+  it("aborts in-flight measurement and triggers cleanup within 100ms", async () => {
+    const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
+    const ex = mocks.get("binance") as MockCcxtExchange;
+
+    ex.fetchTickerImpl = async () => ({});
+    // A `watchOrderBook` azonnal visszatér, hogy a belső ciklus a
+    // `!this.cancelled` flag-et minél gyorsabban ellenőrizze.
+    ex.watchOrderBookImpl = async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      return { bids: [], asks: [], timestamp: Date.now() };
+    };
+    // A close() felold egy promise-ot, hogy a teszt szinkronban mérhesse
+    // a close() hívásának időpontját az abort() hívásához képest.
+    let closeResolve: () => void = () => {
+      // No-op default — felülírja a Promise constructor.
+    };
+    const closeCalled = new Promise<void>((r) => {
+      closeResolve = r;
+    });
+    ex.closeImpl = async () => {
+      closeResolve();
+    };
+
+    const measureStart = Date.now();
+    const measurePromise = monitor.measureExchange("binance", {
+      exchangeIds: ["binance"],
+      symbol: "BTC/USDT",
+      durationMs: 5000, // 5s — jóval több, mint amennyit a teszt vár
+      rttIntervalMs: 50,
+      wsMessageBudget: 100_000,
+      measureReconnect: false,
+    });
+
+    // Várunk 50ms-ot, hogy a ciklusok elinduljanak
+    await new Promise((r) => setTimeout(r, 50));
+    const abortCallStart = Date.now();
+    await monitor.abort();
+
+    // A close()-nak az abort() hívásától számított 100ms-on belül meg
+    // kell hívódnia — a `closeCalled` promise jelzi a hívás időpontját.
+    const closeResult = await Promise.race([
+      closeCalled.then(() => "closed" as const),
+      new Promise<"timeout">((r) => setTimeout(() => r("timeout"), 200)),
+    ]);
+    const cleanupLatencyMs = Date.now() - abortCallStart;
+    expect(closeResult).toBe("closed");
+    expect(cleanupLatencyMs).toBeLessThan(100);
+
+    // A mérés a try/finally-n keresztül visszatér — várjuk meg.
+    await measurePromise;
+    // A mérés az abort miatt sokkal hamarabb befejeződött, mint 5s.
+    const totalDurationMs = Date.now() - measureStart;
+    expect(totalDurationMs).toBeLessThan(2000);
+  });
+
+  /**
+   * Teszt #8 — Abort API: idempotens / no-op ha nincs aktív mérés.
+   *
+   * Ha `abort()`-ot hívunk MIELŐTT bármilyen `measureExchange` elindult,
+   * a `cancelled` flag-et beállítja, de az `activeExchange` null, tehát
+   * nem hív `close()`-t. A következő `measureExchange` reseteli a flag-et,
+   * és normálisan fut.
+   */
+  it("is a no-op when no measurement is in flight (no close() call, but resets cleanly)", async () => {
+    const monitor = new LatencyMonitor();
+    // abort() aktív mérés nélkül — nem dob, nem crashel.
+    await monitor.abort();
+    // Ezután indított mérésnek normálisan kell futnia (a flag resetelődik
+    // a measureExchange elején).
+    const { mocks } = makeMonitorWithMocks(["binance"]);
+    // Lecseréljük a monitor createExchange-ét, hogy a frissen készített
+    // mock-ot használja.
+    (monitor as unknown as {
+      createExchange: (id: SupportedExchangeId) => MockCcxtExchange;
+    }).createExchange = (id: SupportedExchangeId): MockCcxtExchange => {
+      const m = mocks.get(id);
+      if (m === undefined) throw new Error(`mock for ${id} not found`);
+      return m;
+    };
+
+    const ex = mocks.get("binance") as MockCcxtExchange;
+    let closeCount = 0;
+    ex.fetchTickerImpl = async () => ({});
+    ex.watchOrderBookImpl = async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      return { bids: [], asks: [], timestamp: Date.now() };
+    };
+    ex.closeImpl = async () => {
+      closeCount += 1;
+    };
+
+    const result = await monitor.measureExchange("binance", {
+      exchangeIds: ["binance"],
+      symbol: "BTC/USDT",
+      durationMs: 200,
+      rttIntervalMs: 100,
+      wsMessageBudget: 5,
+      measureReconnect: false,
+    });
+    // Normálisan lefutott — nem lépett ki azonnal a flag miatt.
+    expect(result.stats.rttCount).toBeGreaterThanOrEqual(1);
+    // A close() hívódik: az inner measureMessageGap cleanup-ja + a külső
+    // try/finally is hívja (mindkettő best-effort try/catch-ben). A
+    // pontos szám (2) nem kritikus — a lényeg, hogy a cleanup lefutott.
+    expect(closeCount).toBeGreaterThanOrEqual(1);
+  });
+
+  /**
+   * Teszt #9 — Abort API: a `close()` által dobott hibát a best-effort
+   * try/catch elnyeli (nem crasheli az abort()-ot).
+   */
+  it("swallows close() errors during abort (best-effort cleanup)", async () => {
+    const { monitor, mocks } = makeMonitorWithMocks(["binance"]);
+    const ex = mocks.get("binance") as MockCcxtExchange;
+
+    ex.fetchTickerImpl = async () => ({});
+    ex.watchOrderBookImpl = async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      return { bids: [], asks: [], timestamp: Date.now() };
+    };
+    ex.closeImpl = async () => {
+      throw new Error("WS already closed");
+    };
+
+    const measurePromise = monitor.measureExchange("binance", {
+      exchangeIds: ["binance"],
+      symbol: "BTC/USDT",
+      durationMs: 5000,
+      rttIntervalMs: 50,
+      wsMessageBudget: 100_000,
+      measureReconnect: false,
+    });
+
+    await new Promise((r) => setTimeout(r, 50));
+    // Az abort() a close() hibája ellenére feloldódik.
+    await expect(monitor.abort()).resolves.toBeUndefined();
+    // A measureExchange finally blokkja is elnyeli a close() hibát.
+    await expect(measurePromise).resolves.toBeDefined();
+  });
+});
