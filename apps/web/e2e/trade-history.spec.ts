@@ -746,7 +746,12 @@ test("renders 'unknown error' when /api/trades fetch throws a non-Error value", 
   await page.addInitScript(() => {
     const originalFetch = window.fetch.bind(window);
     let tradesCallCount = 0;
-    window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    // The `as unknown as typeof fetch` cast is required because
+    // `window.fetch` is typed as the full standard fetch (with
+    // `preconnect`, etc.), and our shim only implements the call
+    // signature. This is the project pattern for window-property
+    // monkey-patches (see `dashboard.spec.ts:782`).
+    window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const url =
         typeof input === "string"
           ? input
@@ -758,12 +763,15 @@ test("renders 'unknown error' when /api/trades fetch throws a non-Error value", 
         if (tradesCallCount === 1) {
           // Throw a NON-Error to exercise the
           // `setError("unknown error")` fallback arm.
-          // eslint-disable-next-line @typescript-eslint/no-throw-literal
+          // The throw is inside an `addInitScript` callback that
+          // Playwright serializes to a string and runs in the
+          // browser context — no Node-side TS/eslint rule applies
+          // here.
           throw "synthetic non-Error throw from /api/trades";
         }
       }
       return originalFetch(input, init);
-    };
+    }) as unknown as typeof fetch;
   });
   await page.goto("/");
   await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
