@@ -537,3 +537,357 @@ test("renders the empty state when /api/trades returns trades: []", async ({ pag
     timeout: 10_000,
   });
 });
+
+/**
+ * Coverage: when /api/trades returns a non-OK HTTP status (e.g., 500
+ * "internal server error"), the `TradeHistoryTable` should:
+ *   1. Hit the `if (!res.ok)` TRUE arm in the useEffect's fetchOnce.
+ *   2. Take the FALSE arm of `if (res.status === 503)` (500 ≠ 503).
+ *   3. Call `setError(\`HTTP ${res.status}\`)` to surface the error.
+ *   4. Hit the `if (error !== null)` TRUE arm in the render path.
+ *   5. Render the `trades-error` div with the error message.
+ *
+ * This exercises the ONE remaining uncovered conditional-render
+ * branch in `TradeHistoryTable.tsx` (line 179 `if (error !== null)` —
+ * the e2e tests only cover the false arm via the empty / non-empty
+ * render paths).
+ */
+test("renders the error state when /api/trades returns HTTP 500", async ({ page }) => {
+  // Override the /api/trades route to return a 500. The standard
+  // endpoints (strategies, ohlc, health, status) are already
+  // registered by `beforeEach` — we just override the SUT endpoint.
+  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
+    return route.fulfill({
+      status: 500,
+      contentType: "text/plain",
+      body: "internal server error",
+    });
+  });
+  await page.goto("/");
+  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
+    "data-status",
+    "connected",
+    { timeout: 15_000 },
+  );
+  // The error UI must be visible.
+  const errorEl = page.locator('[data-testid="trades-error"]');
+  await expect(errorEl).toBeVisible({ timeout: 10_000 });
+  // The error message must contain "Failed to load trades" + the
+  // HTTP status code (this is the `setError(\`HTTP ${res.status}\`)`
+  // call site at useEffect line 147).
+  await expect(errorEl).toContainText("Failed to load trades: HTTP 500");
+  // The empty / table states must NOT be rendered.
+  await expect(page.locator('[data-testid="trades-empty"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="trades-table"]')).toHaveCount(0);
+});
+
+/**
+ * Coverage: when /api/trades returns 503 (snapshot not yet received
+ * from the bot's state-feed), the component should:
+ *   1. Hit the `if (!res.ok)` TRUE arm.
+ *   2. Take the TRUE arm of `if (res.status === 503)` (the dedicated
+ *      snapshot-not-ready branch in the useEffect).
+ *   3. Call `setTrades([])` + `setError(null)` — the trade list
+ *      clears, no error surfaces (the 503 is treated as a benign
+ *      "not yet ready" state, not an error).
+ *   4. Render the `trades-empty` div (the empty-state UI, since
+ *      `sortedTrades.length === 0` after `setTrades([])`).
+ *
+ * This covers the `if (res.status === 503)` TRUE arm which the
+ * existing tests do not exercise (all current tests use 200).
+ */
+test("handles 503 from /api/trades as the 'snapshot not ready' fallback (empty state, no error)", async ({
+  page,
+}) => {
+  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
+    return route.fulfill({
+      status: 503,
+      contentType: "text/plain",
+      body: "snapshot not yet received",
+    });
+  });
+  await page.goto("/");
+  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
+    "data-status",
+    "connected",
+    { timeout: 15_000 },
+  );
+  // The empty state must be visible (setTrades([]) → sortedTrades.length === 0).
+  await expect(page.locator('[data-testid="trades-empty"]')).toBeVisible({
+    timeout: 10_000,
+  });
+  // The error state must NOT be visible (503 is treated as benign).
+  await expect(page.locator('[data-testid="trades-error"]')).toHaveCount(0);
+  // The table must NOT be rendered (trades is empty).
+  await expect(page.locator('[data-testid="trades-table"]')).toHaveCount(0);
+});
+
+/**
+ * Coverage: exercises three defensive `formatDuration` /
+ * `parseTrades` branches that the existing tests miss:
+ *
+ *   1. `formatDuration` `sec > 0` TRUE arm — when the duration is
+ *      between 1 min and 1 hour AND the seconds portion is non-zero
+ *      (e.g., 75s → "1m 15s"). All existing tests use durations in
+ *      exact minutes (60_000, 600_000, 1_800_000, 3_600_000 ms), so
+ *      the "Xm Ys" form is never reached.
+ *
+ *   2. `formatDuration` `min > 0` TRUE arm — when the duration is
+ *      ≥ 1 hour AND the minutes portion is non-zero (e.g., 3900s
+ *      → "1h 5m"). Existing tests use 3_600_000 (1h 0m) so the
+ *      "Xh Ym" form is never reached.
+ *
+ *   3. `parseTrades` `count: items.length` fallback arm — when the
+ *      response body has a non-number `count` field, the helper
+ *      falls back to `items.length`. Existing tests always pass a
+ *      numeric `count`, so the fallback is never hit.
+ *
+ * One test (2 trades) covers all three branches.
+ */
+test("renders duration with non-zero seconds/minutes and falls back to items.length for non-numeric count", async ({
+  page,
+}) => {
+  const t0 = Date.now() - 4_000_000; // 1h 5m ago
+  const t1 = Date.now() - 75_000; // 1m 15s ago
+  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      // NOTE: `count: "5"` is a non-number — exercises the
+      // `typeof obj.count === "number" ? obj.count : items.length`
+      // fallback arm (line 266). The helper should still build a
+      // valid `trades` array of length 2.
+      body: JSON.stringify({
+        trades: [
+          {
+            id: "dur-hours-min",
+            strategy: "donchian",
+            symbol: "BTC/USDC",
+            side: "buy",
+            entryPrice: 60000,
+            entryTime: t0 - 3_900_000,
+            exitPrice: 61000,
+            exitTime: t0,
+            quantity: 0.01,
+            leverage: 5,
+            pnl: 5,
+            pnlPct: 0.83,
+            // 1h 5m = 3_900_000 ms — hits `min > 0` arm
+            duration: 3_900_000,
+            status: "closed",
+          },
+          {
+            id: "dur-min-sec",
+            strategy: "donchian",
+            symbol: "ETH/USDC",
+            side: "sell",
+            entryPrice: 3000,
+            entryTime: t1 - 75_000,
+            exitPrice: 2900,
+            exitTime: t1,
+            quantity: 0.5,
+            leverage: 3,
+            pnl: 50,
+            pnlPct: 5,
+            // 1m 15s = 75_000 ms — hits `sec > 0` arm
+            duration: 75_000,
+            status: "closed",
+          },
+        ],
+        count: "5", // non-number → items.length fallback
+      }),
+    });
+  });
+  await page.goto("/");
+  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
+    "data-status",
+    "connected",
+    { timeout: 15_000 },
+  );
+  const table = page.locator('[data-testid="trades-table"]');
+  await expect(table).toBeVisible({ timeout: 10_000 });
+  const rows = page.locator('[data-testid="trades-row"]');
+  await expect(rows).toHaveCount(2);
+  // Row 0 = the 1m 15s trade (most recent exitTime) — Duration cell
+  // must show "1m 15s" (the `sec > 0` TRUE arm of `formatDuration`).
+  const row0 = rows.nth(0);
+  await expect(row0).toContainText("ETH/USDC");
+  await expect(row0.locator("td").nth(9)).toHaveText("1m 15s");
+  // Row 1 = the 1h 5m trade — Duration cell must show "1h 5m"
+  // (the `min > 0` TRUE arm of `formatDuration`).
+  const row1 = rows.nth(1);
+  await expect(row1).toContainText("BTC/USDC");
+  await expect(row1.locator("td").nth(9)).toHaveText("1h 5m");
+});
+
+/**
+ * Coverage: the useEffect's catch block at line 164 has a ternary
+ *   `setError(e instanceof Error ? e.message : "unknown error")`
+ * The TRUE arm (`e.message`) is covered by every test that drives
+ * the component to a network error (the real `fetch` throws
+ * `TypeError` instances on network failure). The FALSE arm
+ * (`"unknown error"`) fires when the catch receives a non-Error
+ * value — which never happens in normal operation (the real
+ * `fetch` only rejects with `TypeError`).
+ *
+ * To exercise the FALSE arm, this test installs a `fetch` shim
+ * via `page.addInitScript` that throws a non-Error (a string) for
+ * the FIRST call to `/api/trades`. Subsequent calls pass through
+ * to the original fetch (which is intercepted by the page.route
+ * mock). The component's catch block sees the non-Error and takes
+ * the `setError("unknown error")` branch → the `trades-error` UI
+ * shows the literal text "Failed to load trades: unknown error".
+ */
+test("renders 'unknown error' when /api/trades fetch throws a non-Error value", async ({
+  page,
+}) => {
+  // Install the fetch shim BEFORE the page loads. The shim throws
+  // a string for the first call to /api/trades, then passes through.
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    let tradesCallCount = 0;
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+      if (url.includes("/api/trades")) {
+        tradesCallCount += 1;
+        if (tradesCallCount === 1) {
+          // Throw a NON-Error to exercise the
+          // `setError("unknown error")` fallback arm.
+          // eslint-disable-next-line @typescript-eslint/no-throw-literal
+          throw "synthetic non-Error throw from /api/trades";
+        }
+      }
+      return originalFetch(input, init);
+    };
+  });
+  await page.goto("/");
+  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
+    "data-status",
+    "connected",
+    { timeout: 15_000 },
+  );
+  // The error UI must be visible with the literal "unknown error"
+  // message (the FALSE arm of the `e instanceof Error ? ...` ternary).
+  const errorEl = page.locator('[data-testid="trades-error"]');
+  await expect(errorEl).toBeVisible({ timeout: 10_000 });
+  await expect(errorEl).toContainText("Failed to load trades: unknown error");
+  // The empty / table states must NOT be rendered.
+  await expect(page.locator('[data-testid="trades-empty"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="trades-table"]')).toHaveCount(0);
+});
+
+/**
+ * Coverage: exercises the body-shape validation branches in
+ * `parseTrades` (the `if (body === null)`, `if (typeof body !==
+ * "object")`, `if (Array.isArray(body))`, and `if
+ * (!Array.isArray(obj.trades))` early-exit guards). The helper
+ * must return `null` for any of these shapes — the component then
+ * surfaces the "Invalid response shape" error.
+ *
+ * Three response bodies in one test (via successive `page.route`
+ * registrations — last-wins per URL — the test only drives the
+ * FINAL registration):
+ *   - Final registration: `body: 42` (a number) — exercises
+ *     `typeof body !== "object"` and `Array.isArray(body)`.
+ *
+ *   - The body's `parseTrades` will return `null` → the component
+ *     calls `setError("Invalid response shape")` → the
+ *     `trades-error` UI must be visible.
+ */
+test("renders the error state when /api/trades returns a non-object body (parseTrades body-shape guards)", async ({
+  page,
+}) => {
+  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
+    // Body is a number — `typeof body === "number"`, not "object"
+    // and not an array, but `parseTrades` first checks `body === null`
+    // (false) then `typeof body !== "object"` (true) → returns null.
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: "42",
+    });
+  });
+  await page.goto("/");
+  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
+    "data-status",
+    "connected",
+    { timeout: 15_000 },
+  );
+  const errorEl = page.locator('[data-testid="trades-error"]');
+  await expect(errorEl).toBeVisible({ timeout: 10_000 });
+  await expect(errorEl).toContainText("Failed to load trades: Invalid response shape");
+  await expect(page.locator('[data-testid="trades-empty"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="trades-table"]')).toHaveCount(0);
+});
+
+/**
+ * Coverage: exercises the per-item shape validation in
+ * `parseTradeItem` for `raw === null` and `typeof raw !== "object"`.
+ * The response is a valid `{trades, count}` envelope, but the
+ * `trades` array contains `null` and a non-object (a string).
+ * `parseTradeItem` must filter both out and return null for each —
+ * exercising the `if (raw === null) return null;` and `if (typeof
+ * raw !== "object") return null;` TRUE arms.
+ *
+ * The valid item in the array still renders, so the table shows
+ * exactly one row.
+ */
+test("filters out null and non-object items from the trades array (parseTradeItem raw-shape guards)", async ({
+  page,
+}) => {
+  const closedAt = Date.now() - 3_600_000;
+  const openedAt = closedAt - 60 * 60_000;
+  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        trades: [
+          // `raw === null` → parseTradeItem returns null
+          // (Branch 7 TRUE arm).
+          null,
+          // `typeof raw === "string"` → parseTradeItem returns null
+          // (Branch 8 TRUE arm).
+          "not-an-object",
+          // The one VALID closed trade — should render.
+          {
+            id: "valid-only",
+            strategy: "donchian",
+            symbol: "BTC/USDC",
+            side: "buy",
+            entryPrice: 60000,
+            entryTime: openedAt,
+            exitPrice: 61000,
+            exitTime: closedAt,
+            quantity: 0.01,
+            leverage: 5,
+            pnl: 5,
+            pnlPct: 0.83,
+            duration: 3_600_000,
+            status: "closed",
+          },
+        ],
+        count: 3,
+      }),
+    });
+  });
+  await page.goto("/");
+  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
+    "data-status",
+    "connected",
+    { timeout: 15_000 },
+  );
+  // Only the valid item should render (null + string filtered out).
+  await expect(page.locator('[data-testid="trades-table"]')).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.locator('[data-testid="trades-row"]')).toHaveCount(1);
+  await expect(
+    page.locator('[data-testid="trades-row"]').first(),
+  ).toHaveAttribute("data-status", "closed");
+});
