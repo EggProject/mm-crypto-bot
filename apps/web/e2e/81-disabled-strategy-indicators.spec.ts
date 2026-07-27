@@ -346,16 +346,29 @@ async function getChartCardState(
             f.memoizedState != null &&
             typeof f.memoizedState === 'object'
           ) {
-            // Walk the hook list — the ChartCard has 6 refs:
-            //   - containerRef (null)
-            //   - chartRef (IChartApi)
-            //   - seriesRef (ISeriesApi)
-            //   - markersRef (plugin)
-            //   - indicatorRefs (RenderedIndicator[])
-            //   - markerDisposersRef (() => void[])
-            // We need to find the one with the right shape.
+            // Walk the hook list. ChartCard has 6 useRefs in
+            // declaration order:
+            //   1. containerRef (HTMLDivElement | null)
+            //   2. chartRef (IChartApi | null)
+            //   3. seriesRef (ISeriesApi | null)
+            //   4. markersRef (markers plugin | null)
+            //   5. indicatorRefs (RenderedIndicator[])
+            //   6. markerDisposersRef ((() => void)[])
+            // Only the 5th and 6th are arrays. We identify them
+            // by element shape (indicator: {series, name};
+            // marker: function), with a position-based fallback
+            // for empty arrays (where the shape check does not
+            // fire). Without the fallback, an ENABLED strategy
+            // with no client-computed markers (e.g.
+            // donchian_pivot_composition, whose markers are
+            // gated behind enabled === false) leaves
+            // markerDisposersRef.current = [], the walk would
+            // not recognise it, and foundMarkerCount would stay
+            // at the -1 sentinel, failing the
+            // expect(state.markerCount).toBe(0) assertion.
             var hook = f.memoizedState;
             var hookSafety = 0;
+            var useRefCount = 0;
             while (hook != null) {
               if (++hookSafety > 30) break;
               var refObj = hook.memoizedState;
@@ -364,9 +377,10 @@ async function getChartCardState(
                 typeof refObj === 'object' &&
                 'current' in refObj
               ) {
+                useRefCount++;
                 var cur = refObj.current;
-                if (Array.isArray(cur) && cur.length > 0) {
-                  var first = cur[0];
+                if (Array.isArray(cur)) {
+                  var first = cur.length > 0 ? cur[0] : null;
                   if (
                     first != null &&
                     typeof first === 'object' &&
@@ -401,12 +415,22 @@ async function getChartCardState(
                     }
                     foundLineCount = lineCount;
                     foundLineIndicatorCount = lineIndicatorCount;
-                  } else if (
-                    first != null &&
-                    typeof first === 'function'
-                  ) {
+                  } else if (first != null && typeof first === 'function') {
                     // markerDisposersRef.current = (() => void)[]
                     foundMarkerCount = cur.length;
+                  } else if (cur.length === 0) {
+                    // Empty array — the shape check above doesn't
+                    // fire. Disambiguate by useRef position
+                    // (ChartCard hook order is fixed; see the
+                    // 6-ref list in the comment above).
+                    if (useRefCount === 5) {
+                      // indicatorRefs.current = []
+                      foundLineCount = 0;
+                      foundLineIndicatorCount = 0;
+                    } else if (useRefCount === 6) {
+                      // markerDisposersRef.current = []
+                      foundMarkerCount = 0;
+                    }
                   }
                 }
               }
@@ -441,7 +465,7 @@ test.describe("Phase 81: strategy-specific indicators for the 4 disabled strateg
     await expect(page.locator(".line-chart-wrapper")).toHaveCount(5);
   });
 
-  test("donchian_pivot_composition (enabled) has 3 line indicators with line series + 1 marker", async ({ page }) => {
+  test("donchian_pivot_composition (enabled) has 3 line indicators with line series; 0 client-computed markers (real-trade markers are covered by 82M-04/82M-05)", async ({ page }) => {
     await gotoApp(page);
     const state = await getChartCardState(page, "donchian_pivot_composition");
     // 4 line indicators in the registry (donchian + rolling
@@ -458,14 +482,20 @@ test.describe("Phase 81: strategy-specific indicators for the 4 disabled strateg
     // = 7 sub-line series total (see 81-04 in the bollinger-
     // daily-pivot spec); this test asserts the INDICATOR
     // count of those that actually rendered line series (3).
-    // 1 marker indicator (breakout_signals). The marker
-    // assertion is LOOSE (`>= 1`) because the marker count is
-    // also somewhat strategy-specific (other phases may add
-    // additional markers — e.g. Bollinger-band touches — and
-    // we don't want this test to break on every indicator
-    // addition).
+    //
+    // Phase 82: the client-computed marker indicators
+    // (breakout_signals, etc.) are gated behind
+    // `enabled === false` in ChartCard Effect 2b. For the
+    // ENABLED strategy, markers come from the `markers` prop
+    // (built from `markers-from-trades.ts` via the WS `state`
+    // event's `positions` + `closedTrades`). The test fixture
+    // has no positions/closedTrades → 0 markers. The 4
+    // disabled strategies (covered by the tests below) still
+    // get the client-computed markers. To exercise the
+    // real-trade marker path, see 82M-04 / 82M-05 in
+    // `82-coverage-boost-markers.spec.ts`.
     expect(state.lineCount).toBe(3);
-    expect(state.markerCount).toBeGreaterThanOrEqual(1);
+    expect(state.markerCount).toBe(0);
   });
 
   test("dydx_cex_carry (disabled) has 2 lines (funding_rate + funding_spread) + 1 marker (funding_paid)", async ({ page }) => {
