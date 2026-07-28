@@ -153,6 +153,21 @@ const controlCommands: {
   confirm?: boolean;
 }[] = [];
 
+/**
+ * Phase 83: `openClients` — module-scope set of every currently-open
+ * MSW WS client. The previous CONTROL handler replied with a STATE
+ * message to ONLY the client that sent CONTROL (`client.send(...)`
+ * is not a broadcast) — the real bot (`apps/bot/src/web-client/
+ * ws-relay.ts`) broadcasts every state message to every connected
+ * client. We mirror that here so the dashboard's `useBotStatus()`
+ * (which now reads from App.tsx's WS, not its own) sees the
+ * state update after a CONTROL click and the status banner flips
+ * within the 10s test timeout. On `connection`, the client is
+ * added; on `close`, it is removed. On CONTROL, the STATE reply
+ * is iterated over this set and sent to every open client.
+ */
+const openClients = new Set<{ send: (data: string) => void }>();
+
 /** `reset()` — clear the recordings (call from `beforeEach`). */
 export function reset(): void {
   clientMessages.length = 0;
@@ -518,6 +533,11 @@ const tradesHandler = http.get(
 const chat = ws.link("ws://127.0.0.1:7913/ws");
 
 const wsHandler = chat.addEventListener("connection", ({ client }) => {
+  // Phase 83: track this client so the CONTROL handler can
+  // broadcast the STATE reply to every open WS (mirrors the real
+  // bot's `ws-relay.ts` behavior). Removed in the `close`
+  // listener below.
+  openClients.add(client);
   // 1. HELLO — sent first, before SNAPSHOT. The client-side WS code
   //    in apps/web/src/ws-client.ts does NOT react to HELLO (it
   //    only handles "snapshot" / "state" / "error" / "ping"), so
@@ -741,25 +761,44 @@ const wsHandler = chat.addEventListener("connection", ({ client }) => {
         // Phase 69: the snapshot's `botStatus` is the source of truth
         // for the dashboard's status banner (the WS state message
         // carries the full snapshot, which includes the botStatus).
-        client.send(
-          JSON.stringify({
-            type: "state",
-            ts: Date.now(),
-            snapshot: {
-              botStatus: {
-                state: state.botState,
-                startedAt: state.startedAt,
-                lastUpdate: Date.now(),
-                activeStrategyCount: state.activeStrategyCount,
-              },
+        //
+        // Phase 83: broadcast to EVERY open client, not just
+        // `client` (the one that sent CONTROL). The real bot's
+        // `ws-relay.ts` broadcasts the state message to every
+        // connected client, so the dashboard's App-level WS
+        // (which `useBotStatus()` now reads from) sees the
+        // state update after a CONTROL click and the status
+        // banner flips within the 10s test timeout. The Set
+        // tracks every currently-open MSW WS client; the
+        // `try { ... } catch` is belt-and-braces in case a
+        // client disconnected between the `add` and the
+        // broadcast (the `close` handler removes it, but a
+        // race is possible under heavy parallel load).
+        const stateMsg = JSON.stringify({
+          type: "state",
+          ts: Date.now(),
+          snapshot: {
+            botStatus: {
+              state: state.botState,
+              startedAt: state.startedAt,
+              lastUpdate: Date.now(),
+              activeStrategyCount: state.activeStrategyCount,
             },
-            positions: state.positions,
-            closedTrades: [],
-            killSwitch: "off",
-            paused: state.botState === "paused",
-            statistics: { trades: 0, pnl: 0, drawdown: 0 },
-          }),
-        );
+          },
+          positions: state.positions,
+          closedTrades: [],
+          killSwitch: "off",
+          paused: state.botState === "paused",
+          statistics: { trades: 0, pnl: 0, drawdown: 0 },
+        });
+        for (const c of openClients) {
+          try {
+            c.send(stateMsg);
+          } catch {
+            // Client disconnected mid-iteration — the `close`
+            // handler will drop it from the Set. Safe to skip.
+          }
+        }
         return;
       }
       default:
@@ -773,6 +812,9 @@ const wsHandler = chat.addEventListener("connection", ({ client }) => {
   client.addEventListener("close", () => {
     clearInterval(heartbeat);
     clearInterval(tickInterval);
+    // Phase 83: drop the client from the broadcast set so the
+    // CONTROL handler's iteration skips disconnected sockets.
+    openClients.delete(client);
   });
 });
 

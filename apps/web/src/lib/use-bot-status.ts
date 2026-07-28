@@ -80,7 +80,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { useWebSocket, type WebSocketStatus } from "../ws-client.js";
+import { type WebSocketStatus } from "../ws-client.js";
 import { extractBotStatus, type BotStatus } from "./bot-status.js";
 
 // ============================================================================
@@ -438,9 +438,9 @@ export class BotStatusController {
  * status (`BotStatus | null`). The hook is a thin React glue layer
  * over `BotStatusController`:
  *
- *   1. Subscribes to `useWebSocket()` and forwards `state` /
- *      `snapshot` messages and the `status` change to the
- *      controller.
+ *   1. Subscribes to a `useWebSocket()` instance (passed in as the
+ *      `ws` prop — Phase 83) and forwards `state` / `snapshot`
+ *      messages and the `status` change to the controller.
  *   2. Creates a controller on mount and disposes it on unmount.
  *   3. Subscribes to the controller's `onUpdate()` and mirrors
  *      the value into React state.
@@ -452,13 +452,23 @@ export class BotStatusController {
  * (in `bot-status.ts`'s `buildStatusBannerText`) handles the
  * `null` case.
  *
- * **This hook is library-only in Phase 81.** App.tsx still uses
- * the old polling code; wiring the hook into the dashboard is
- * a separate task (the regression risk is contained because
- * App.tsx is untouched, so the existing e2e tests don't change).
+ * **Why the WS state is a prop, not an internal `useWebSocket()`
+ * call (Phase 83):** the dashboard already has 3 `useWebSocket()`
+ * instances in flight (App + ControlBar + PositionsTable). If this
+ * hook opened a 4th, the 3-WS architecture tests would fail (every
+ * `=== 3` assert on `getAllWs().length` would see 4) and the
+ * `allWs[allWs.length - 1]` "App's WS" index that ~20 e2e tests
+ * rely on would shift. Instead, the hook reads from the WS state
+ * App.tsx already maintains. The controller is still the testable
+ * seam (see the `BotStatusController` class above); the hook is
+ * a 30-line "React glue" wrapper.
  */
-export function useBotStatus(): BotStatus | null {
-  const { status, snapshot, lastState } = useWebSocket();
+export function useBotStatus(ws: {
+  status: WebSocketStatus;
+  snapshot: unknown;
+  lastState: unknown;
+}): BotStatus | null {
+  const { status, snapshot, lastState } = ws;
   const [botStatus, setBotStatus] = useState<BotStatus | null>(null);
   // The controller lives in a ref so it survives across renders
   // without being recreated (recreation would lose any in-flight

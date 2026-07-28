@@ -122,7 +122,16 @@ export function App(): React.JSX.Element {
   // 1s `setInterval` poll + the WS state/snapshot effect chain
   // (which were duplicative and burned an HTTP request per second
   // while the WS was connected).
-  const botStatus = useBotStatus();
+  //
+  // Phase 83: the hook now takes the WS state as a prop (instead
+  // of opening its own `useWebSocket()`). Passing App's existing
+  // destructure keeps the WS count at 3 (App + ControlBar +
+  // PositionsTable) — a 4th WS would break the 3-WS architecture
+  // tests and shift the `allWs[allWs.length - 1]` "App's WS" index
+  // that ~20 other e2e tests rely on. The MSW CONTROL handler
+  // (`e2e/mocks/handlers.ts`) broadcasts the STATE update to all
+  // open clients, so this App-level WS receives the same push.
+  const botStatus = useBotStatus({ status, snapshot, lastState });
   // Phase 69: a clock value that re-renders the banner every second
   // so the uptime / last-update labels stay fresh without polling
   // the bot. Independent of the botStatus state (the hook doesn't
