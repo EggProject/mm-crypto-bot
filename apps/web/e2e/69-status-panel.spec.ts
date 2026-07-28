@@ -122,6 +122,54 @@ async function setupWsPeer(page: Page): Promise<WsTestHarness> {
         },
       }),
     );
+    // Phase 83: `useBotStatus` removed the 1s HTTP poll; the dashboard
+    // now expects state changes via WS push. Mirror the real bot's
+    // CONTROL handler: update `botState` + broadcast a `state`
+    // message to ALL open WSes (ControlBar uses its own
+    // `useWebSocket`, so the control arrives on a different WS than
+    // the one whose `lastState` App's `useBotStatus` reads).
+    ws.onMessage((data) => {
+      const raw = typeof data === "string" ? data : data.toString();
+      let msg: { type?: string; command?: string; paused?: boolean };
+      try {
+        msg = JSON.parse(raw) as typeof msg;
+      } catch {
+        return;
+      }
+      if (msg.type !== "control" || typeof msg.command !== "string") return;
+      switch (msg.command) {
+        case "start":
+          botState.state = "running";
+          botState.startedAt = Date.now();
+          break;
+        case "stop":
+          botState.state = "stopped";
+          break;
+        case "pause":
+          botState.state = msg.paused === false ? "running" : "paused";
+          break;
+        case "resume":
+          botState.state = "running";
+          break;
+        case "kill_switch":
+          botState.state = "stopped";
+          break;
+      }
+      const payload = JSON.stringify({
+        type: "state",
+        ts: Date.now(),
+        snapshot: { botStatus: currentBotStatus() },
+      });
+      setTimeout(() => {
+        for (const w of allWs) {
+          try {
+            w.send(payload);
+          } catch {
+            // best-effort
+          }
+        }
+      }, 50);
+    });
   });
 
   const waitForWsCount = async (
