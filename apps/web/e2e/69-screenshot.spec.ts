@@ -62,6 +62,8 @@ const botState: BotState = {
 };
 
 async function setupRoutes(page: Page): Promise<void> {
+  // Phase 83: broadcast to every open WS (ControlBar + App use separate ones).
+  const allWs: WebSocketRoute[] = [];
   // /api/strategies — 3 symbols × 3 timeframes = 9 cards.
   await page.route("http://127.0.0.1:7913/api/strategies", (route: Route) => {
     return route.fulfill({
@@ -141,6 +143,7 @@ async function setupRoutes(page: Page): Promise<void> {
   });
   // WS peer — drive the dashboard to "connected".
   await page.routeWebSocket("ws://127.0.0.1:7913/ws", (ws: WebSocketRoute) => {
+    allWs.push(ws);
     ws.send(
       JSON.stringify({
         type: "hello",
@@ -176,6 +179,53 @@ async function setupRoutes(page: Page): Promise<void> {
         },
       }),
     );
+    ws.onMessage((data) => {
+      const raw = typeof data === "string" ? data : data.toString();
+      let msg: { type?: string; command?: string; paused?: boolean };
+      try {
+        msg = JSON.parse(raw) as typeof msg;
+      } catch {
+        return;
+      }
+      if (msg.type !== "control" || typeof msg.command !== "string") return;
+      switch (msg.command) {
+        case "start":
+          botState.state = "running";
+          botState.startedAt = Date.now();
+          break;
+        case "stop":
+        case "kill_switch":
+          botState.state = "stopped";
+          break;
+        case "pause":
+          botState.state = msg.paused === false ? "running" : "paused";
+          break;
+        case "resume":
+          botState.state = "running";
+          break;
+      }
+      const payload = JSON.stringify({
+        type: "state",
+        ts: Date.now(),
+        snapshot: {
+          botStatus: {
+            state: botState.state,
+            startedAt: botState.startedAt,
+            lastUpdate: Date.now(),
+            activeStrategyCount: botState.activeStrategyCount,
+          },
+        },
+      });
+      setTimeout(() => {
+        for (const w of allWs) {
+          try {
+            w.send(payload);
+          } catch {
+            /* best-effort */
+          }
+        }
+      }, 50);
+    });
   });
 }
 
