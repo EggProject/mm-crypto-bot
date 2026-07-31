@@ -22,6 +22,7 @@ import { useBotStatus } from "./lib/use-bot-status.js";
 import type { OHLCBar } from "./lib/ohlc-bridge.js";
 import { buildMarkersByKey } from "./lib/markers-from-trades.js";
 import { appendOrReplaceBar } from "./lib/bars-from-bar.js";
+import { applyTickToBars } from "./lib/bars-from-tick.js";
 
 /**
  * `App` — the Top-nav app shell for the mm-crypto-bot web dashboard.
@@ -92,7 +93,16 @@ export function App(): React.JSX.Element {
   // live OHLCV updates from the WS `bar` event (previously the chart
   // was bootstrapped from the SNAPSHOT's `ohlcBootstrap` and then
   // FROZEN — see the barsByKey useState/useEffect block below).
-  const { status, snapshot, lastError, lastState, lastBar, send } = useWebSocket();
+  // Phase 83.5 (Bug 1): destructure `lastBar` so the chart can stream
+  // live OHLCV updates from the WS `bar` event (previously the chart
+  // was bootstrapped from the SNAPSHOT's `ohlcBootstrap` and then
+  // FROZEN — see the barsByKey useState/useEffect block below).
+  // Phase 83.6: also destructure `lastTick` so the chart's
+  // in-progress bar updates close/high/low in real-time on every
+  // price tick (the `bar` event only fires at bar BOUNDARIES, so
+  // between boundaries the chart would stay frozen on the last
+  // closed bar without this).
+  const { status, snapshot, lastError, lastState, lastBar, lastTick, send } = useWebSocket();
   // Phase 52F follow-up: pre-populate the strategy list with the
   // MSW default (1 strategy × 1 symbol × 2 timeframes) so the
   // `ChartGrid` renders the chrome (and its `.ep-feed` indicator)
@@ -336,6 +346,26 @@ export function App(): React.JSX.Element {
     () => buildMarkersByKey(lastState, symbolsAndTimeframes),
     [lastState, symbolsAndTimeframes],
   );
+
+  // Phase 83.6: tick-by-tick OHLCV updates. When a WS `tick` event
+  // arrives (lastTick ref change), apply it via the pure
+  // `applyTickToBars` helper. The helper updates the in-progress
+  // bar's close/high/low in real-time (REPLACE on same bar time,
+  // APPEND on bar-boundary crossing, no-op on stale / malformed /
+  // symbol-not-rendered). The `RealtimeBatcher` in `useWebSocket`
+  // (rAF coalescing — see `ws-client.ts:572-587`) already collapses
+  // burst ticks into one `setLastTick` per frame, so this effect
+  // fires at most once per rAF (~60Hz ceiling).
+  //
+  // The dependency array includes `symbolsAndTimeframes` (the
+  // useMemo above) so the effect re-binds when the strategy
+  // descriptor set changes (e.g. an UNSUBSCRIBE that removes a
+  // symbol from the chart grid). The `setBarsByKey` updater is
+  // stable, so it's not in the dep array.
+  useEffect(() => {
+    if (lastTick === null) return;
+    setBarsByKey((prev) => applyTickToBars(prev, lastTick, symbolsAndTimeframes));
+  }, [lastTick, symbolsAndTimeframes]);
 
   // Phase 82 (item 2): derive the live position count from the
   // WS `state` event (`lastState.positions.length`) so the
