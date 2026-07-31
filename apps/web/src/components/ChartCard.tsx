@@ -798,6 +798,7 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
         className="line-chart-wrapper__body"
         ref={containerRef}
         data-testid={`chart-card-body-${symbol}-${timeframe}`}
+        data-bars-count={bars.length}
       />
 
       {/* Phase 82: a small legend showing the indicator NAMES

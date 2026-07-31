@@ -2,29 +2,39 @@
  * apps/web/src/components/TradeHistoryTable.tsx
  *
  * ============================================================================
- * PHASE 82 (item 4 — user mandate 2026-07-27 12:17)
+ * PHASE 82 (item 4 — user mandate 2026-07-27 12:17) + PHASE 83.5 (Bug 2)
  * ============================================================================
  *
  * `TradeHistoryTable` — a dashboard table that shows the bot's past
  * trades (and current open positions) in a single sortable view.
  *
- * A user kérésére ("legyen egy tablazat az eddigi tradekrol ha voltak"
- * = "there should be a table of past trades if any") a Phase 82-es
- * dashboard bővítés a `/api/trades` HTTP endpoint-ot használja,
- * ami a state-feed SNAPSHOT `history[]` (zárt trade-ek) +
- * `positions[]` (nyitott pozíciók) mezőit egyesíti egységes
- * `TradeHistoryItem` formátumban.
+ * **Phase 82** built this as a self-polling component that fetched
+ * `GET /api/trades` every 5 seconds. The user mandate for Phase 83.5
+ * (Bug 2) is to use the WebSocket for ALL real-time data — NO polling.
+ * The WS `state` event already carries the bot's `positions` (open) +
+ * `history` (closed) on every state notification; the `/api/trades`
+ * endpoint just aggregates those same two arrays.
  *
- * Az endpoint URL-je a `/api/trades`; a válasz formátuma:
- *   {
- *     trades: TradeHistoryItem[],
- *     count: number
- *   }
+ * **Phase 83.5 changes:**
+ *   - The component is now CONTROLLED (prop-driven) — `App.tsx` passes
+ *     `lastState` (the WS `state` event) + `status` (the WS
+ *     connection status) as props. The component no longer subscribes
+ *     to the WS directly (the 3-WS architecture rule — only App,
+ *     ControlBar, and PositionsTable are allowed to call
+ *     `useWebSocket()`; see `e2e/55-2-3ws-architecture.spec.ts`).
+ *   - The 5s `setInterval` + `fetchOnce` are DELETED. The pure
+ *     `tradesFromState(lastState)` helper in
+ *     `apps/web/src/lib/trades-from-state.ts` derives the rows.
+ *   - On `status !== "connected"`, the table shows a "Waiting for
+ *     WebSocket…" placeholder (NO fallback poll, matching the
+ *     `useBotStatus` hook's WS-first + 30s-slow-poll-only-on-disconnect
+ *     pattern from `lib/use-bot-status.ts`).
  *
- * A komponens poll-ozza az endpoint-ot mount + 5s-onként (a WS
- * `state` message-ben is jönnek a pozíciók, de a history-t a
- * `SNAPSHOT` message-ből kapjuk — a 5s-os poll biztosítja, hogy a
- * history frissüljön a dashboard bezárása nélkül is).
+ * **HTTP endpoint retained** — the `GET /api/trades` HTTP endpoint
+ * (apps/bot/src/web-client/http-server.ts:364-398) STAYS for the
+ * `mm-bot trades` CLI command and external scripts. The endpoint is
+ * also exercised by `http-server.test.ts:692-1060` (15+ tests). The
+ * dashboard simply doesn't poll it from the browser anymore.
  *
  * ============================================================================
  * OSZLOPOK (a user kérésnek megfelelően)
@@ -54,14 +64,21 @@
  * sem, ÉS nincs nyitott pozíció), a tábla helyett egy
  * "No closed trades yet" üzenet jelenik meg — a user kérés
  * "ha voltak" (if any) feltétele szerint.
+ *
+ * Ha a WS nincs csatlakoztatva (`status !== "connected"`), a
+ * tábla egy "Waiting for WebSocket…" placeholdert mutat — sem
+ * a 5s-os poll, sem a fallback HTTP fetch nem indul el.
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
+import type { WebSocketStatus } from "../ws-client.js";
+import { tradesFromState } from "../lib/trades-from-state.js";
 
 /**
- * A backend `TradeHistoryItem` shape-jének mirror-ja. A `parseTrades`
- * helper runtime validációt végez (a shape-re a TS-típus mellett is),
- * hogy a tesztek / mock adatok ellen is védjen.
+ * A backend `TradeHistoryItem` shape-jének mirror-ja. A
+ * `tradesFromState` helper runtime validációt végez (a shape-re
+ * a TS-típus mellett is), hogy a tesztek / mock adatok ellen is
+ * védjen.
  */
 export interface TradeHistoryItem {
   readonly id: string;
@@ -80,106 +97,59 @@ export interface TradeHistoryItem {
   readonly status: "open" | "closed";
 }
 
-/** A `/api/trades` válasz formátuma. */
-interface TradesResponse {
-  readonly trades: readonly TradeHistoryItem[];
-  readonly count: number;
+/**
+ * `TradeHistoryTableProps` — Phase 83.5 (Bug 2): the component is
+ * now prop-driven (no internal `useWebSocket` / `setInterval` / fetch).
+ * The parent (`App.tsx`) owns the WS connection and passes the
+ * relevant slices down.
+ *
+ * - `lastState` — the `Extract<ServerMessage, {type:"state"}>` from
+ *   the WS client, or `null` if no state event has arrived yet. The
+ *   component derives the trade rows from this via the pure
+ *   `tradesFromState(lastState)` helper.
+ * - `status`    — the current WS connection status. The component
+ *   shows a "Waiting for WebSocket…" placeholder when the WS is
+ *   not `connected` (no fallback poll, matching the user's
+ *   "WS for all real-time data" mandate).
+ */
+export interface TradeHistoryTableProps {
+  readonly lastState: unknown;
+  readonly status: WebSocketStatus;
 }
 
 /**
- * A `TRADES_URL` — a bot HTTP szervere által kiszolgált endpoint. A
- * többi dashboard endpoint-pal (lásd `App.tsx`) konzisztens: 127.0.0.1:7913
- * (loopback), nincs Vite proxy.
+ * `TradeHistoryTable` — Phase 83.5 (Bug 2): controlled, prop-driven
+ * component. Receives `lastState` + `status` from `App.tsx` and
+ * derives the `TradeHistoryItem[]` rows via the pure `tradesFromState`
+ * helper. The previous self-polling / self-fetching behavior is
+ * DELETED.
  */
-const TRADES_URL = "http://127.0.0.1:7913/api/trades" as const;
+export function TradeHistoryTable(props: TradeHistoryTableProps): React.JSX.Element {
+  const { lastState, status } = props;
 
-/**
- * `POLL_INTERVAL_MS` — a history frissítési gyakorisága. A WS `state`
- * message a pozíciókat real-time szállítja, de a history-t a
- * `SNAPSHOT` (5s-onkénti publisher frissítés) tartja karban — a
- * 5s-os poll összhangban van a publisher ütemezésével.
- */
-const POLL_INTERVAL_MS = 5_000;
-
-/**
- * `TradeHistoryTable` — a fő komponens. State: `trades`, `error`,
- * `loading`. Az üres állapotot akkor mutatja, ha a `trades` lista
- * üres (és nincs hiba).
- */
-export function TradeHistoryTable(): React.JSX.Element {
-  const [trades, setTrades] = useState<readonly TradeHistoryItem[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  /**
-   * A backend (`/api/trades` handler) a trade-eket exitTime desc
-   * rendezve adja vissza. Defensive sort itt is — ha a backend
-   * sorrendje bármiért változna (legacy adat, mock), a UI akkor is
-   * a legfrissebb trade-et mutatja elöl. A `useMemo` a `trades`
-   * referencia-változásaira fut (a fetch + setState triggereli).
-   */
-  const sortedTrades = useMemo<readonly TradeHistoryItem[]>(() => {
-    if (trades.length === 0) return trades;
-    return [...trades].sort((a, b) => {
-      const aTs = a.exitTime ?? a.entryTime;
-      const bTs = b.exitTime ?? b.entryTime;
-      return bTs - aTs;
-    });
-  }, [trades]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
-    const fetchOnce = async (): Promise<void> => {
-      try {
-        const res = await fetch(TRADES_URL, { signal: controller.signal });
-        if (!res.ok) {
-          // A 503 (snapshot not yet received) NEM hiba — a dashboard
-          // "Bot: stopped" fallback állapotában elfogadjuk az üres
-          // listát. Csak a nem-503 hibákat surface-eljük.
-          if (res.status === 503) {
-            if (!cancelled) {
-              setTrades([]);
-              setError(null);
-            }
-            return;
-          }
-          if (!cancelled) {
-            setError(`HTTP ${res.status}`);
-          }
-          return;
-        }
-        const body: unknown = await res.json();
-        if (cancelled) return;
-        const parsed = parseTrades(body);
-        if (parsed === null) {
-          setError("Invalid response shape");
-        } else {
-          setTrades(parsed.trades);
-          setError(null);
-        }
-      } catch (e) {
-        if (cancelled) return;
-        // Az AbortError a normál unmount — nem surface-eljük.
-        if (e instanceof Error && e.name === "AbortError") return;
-        setError(e instanceof Error ? e.message : "unknown error");
-      }
-    };
-    void fetchOnce();
-    const timer = setInterval(() => {
-      void fetchOnce();
-    }, POLL_INTERVAL_MS);
-    return (): void => {
-      cancelled = true;
-      controller.abort();
-      clearInterval(timer);
-    };
-  }, []);
+  // Phase 83.5 (Bug 2): derive the trade rows from the WS `state`
+  // event via the pure helper. NO polling, NO setInterval, NO fetch.
+  // The `useMemo` ensures stable identity across re-renders that
+  // don't change `lastState` (the chart grid + positions table use
+  // the same `lastState` ref so the trade rows re-render in sync
+  // with the rest of the dashboard).
+  const sortedTrades = useMemo<readonly TradeHistoryItem[]>(
+    () => tradesFromState(lastState),
+    [lastState],
+  );
 
   // ----- Render -----
-  if (error !== null) {
+  // Phase 83.5 (Bug 2): the WS-first pattern from `useBotStatus` —
+  // when the WS is not connected, show a "Waiting for WebSocket…"
+  // placeholder. NO fallback HTTP poll. The user's mandate is
+  // unambiguous: "use WS for ALL real-time data, no polling".
+  if (status !== "connected") {
     return (
-      <div className="ep-trades ep-trades--error" data-testid="trades-error">
-        <p>Failed to load trades: {error}</p>
+      <div
+        className="ep-trades ep-trades--waiting"
+        data-testid="trades-waiting"
+      >
+        <p>Waiting for WebSocket…</p>
       </div>
     );
   }
@@ -241,83 +211,9 @@ export function TradeHistoryTable(): React.JSX.Element {
 }
 
 // ============================================================================
-// Helpers (extracted for testability)
+// Helpers (kept local — these are formatting utilities, not data
+// mappers; the data mapping now lives in `lib/trades-from-state.ts`)
 // ============================================================================
-
-/**
- * `parseTrades` — a `/api/trades` válasz runtime shape-checkje. A
- * `TradeHistoryItem` TS-típustól függetlenül ellenőrzi, hogy a JSON
- * válasz a várt struktúrájú-e (külső / mock adatok elleni védelem).
- *
- * @returns A parse-elt válasz (`TradesResponse`), vagy `null` ha a
- *          shape érvénytelen.
- */
-export function parseTrades(body: unknown): TradesResponse | null {
-  if (body === null) return null;
-  if (typeof body !== "object") return null;
-  if (Array.isArray(body)) return null;
-  const obj = body as { trades?: unknown; count?: unknown };
-  if (!Array.isArray(obj.trades)) return null;
-  const items: TradeHistoryItem[] = [];
-  for (const raw of obj.trades as readonly unknown[]) {
-    const item = parseTradeItem(raw);
-    if (item !== null) items.push(item);
-  }
-  const count = typeof obj.count === "number" ? obj.count : items.length;
-  return { trades: items, count };
-}
-
-function parseTradeItem(raw: unknown): TradeHistoryItem | null {
-  if (raw === null) return null;
-  if (typeof raw !== "object") return null;
-  if (Array.isArray(raw)) return null;
-  const r = raw as {
-    id?: unknown;
-    strategy?: unknown;
-    symbol?: unknown;
-    side?: unknown;
-    entryPrice?: unknown;
-    entryTime?: unknown;
-    exitPrice?: unknown;
-    exitTime?: unknown;
-    quantity?: unknown;
-    leverage?: unknown;
-    pnl?: unknown;
-    pnlPct?: unknown;
-    duration?: unknown;
-    status?: unknown;
-  };
-  if (typeof r.id !== "string" || r.id.length === 0) return null;
-  if (typeof r.strategy !== "string") return null;
-  if (typeof r.symbol !== "string" || r.symbol.length === 0) return null;
-  if (r.side !== "buy" && r.side !== "sell") return null;
-  if (typeof r.entryPrice !== "number" || !Number.isFinite(r.entryPrice)) return null;
-  if (typeof r.entryTime !== "number" || !Number.isFinite(r.entryTime)) return null;
-  if (r.exitPrice !== null && typeof r.exitPrice !== "number") return null;
-  if (r.exitTime !== null && typeof r.exitTime !== "number") return null;
-  if (typeof r.quantity !== "number" || !Number.isFinite(r.quantity)) return null;
-  if (typeof r.leverage !== "number" || !Number.isFinite(r.leverage)) return null;
-  if (typeof r.pnl !== "number" || !Number.isFinite(r.pnl)) return null;
-  if (typeof r.pnlPct !== "number" || !Number.isFinite(r.pnlPct)) return null;
-  if (typeof r.duration !== "number" || !Number.isFinite(r.duration)) return null;
-  if (r.status !== "open" && r.status !== "closed") return null;
-  return {
-    id: r.id,
-    strategy: r.strategy,
-    symbol: r.symbol,
-    side: r.side,
-    entryPrice: r.entryPrice,
-    entryTime: r.entryTime,
-    exitPrice: r.exitPrice,
-    exitTime: r.exitTime,
-    quantity: r.quantity,
-    leverage: r.leverage,
-    pnl: r.pnl,
-    pnlPct: r.pnlPct,
-    duration: r.duration,
-    status: r.status,
-  };
-}
 
 /**
  * `formatTimestamp` — egy ms-timestamp emberi olvasható formátumra
