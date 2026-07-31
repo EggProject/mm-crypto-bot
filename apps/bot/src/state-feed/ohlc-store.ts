@@ -80,24 +80,32 @@ export type OhlcListener = (bar: OhlcBar) => void;
  * live feed átfedésben van, és a live feed újra elküldi a már meglévő
  * bar-okat a reconnect után). A lightweight-charts v5
  * `series.setData()` NEM fogad el duplicate time-okat (`Value is null`
- * hibát dob). A dedupe megtartja az ELSŐ előfordulást (a historical
- * adat a kanonikus forrás).
+ * hibát dob).
+ *
+ * Phase 83.7 (fix): a dedupe az UTOLSÓ előfordulást tartja meg (a
+ * live bar a kanonikus forrás, mert a CSV bootstrap adat a régi
+ * close-t tartalmazza, míg a live bar a frissített close-t). Az
+ * `getAll()` a `historical ++ live` konkatenációt adja — a live bar
+ * a bootstrap után jön, így a LAST-occurrence dedupe a live close-t
+ * őrzi meg a snapshot `ohlcBootstrap` mezőjében.
  *
  * Az input time-ascending rendezett kell legyen (a hívó `sort`-ol
  * a dedupe előtt). A függvény NEM mutálja az inputot (új tömböt ad).
+ * Az output az UTOLSÓ előfordulás értékeit tartalmazza, de a
+ * sorrend az ELSŐ előfordulás sorrendjét őrzi (time-ascending).
  */
 function dedupeOhlcBars(bars: readonly OhlcBar[]): readonly OhlcBar[] {
   if (bars.length === 0) return bars;
   const out: OhlcBar[] = [];
-  const first = bars[0]!;
-  let lastTime = first.time;
-  out.push(first);
-  for (let i = 1; i < bars.length; i++) {
-    const b = bars[i];
-    if (b === undefined) continue;
-    if (b.time !== lastTime) {
+  const timeToIndex = new Map<number, number>();
+  for (const b of bars) {
+    const existingIdx = timeToIndex.get(b.time);
+    if (existingIdx !== undefined) {
+      // LAST-wins: a későbbi előfordulás felülírja a korábbit.
+      out[existingIdx] = b;
+    } else {
+      timeToIndex.set(b.time, out.length);
       out.push(b);
-      lastTime = b.time;
     }
   }
   return out;
