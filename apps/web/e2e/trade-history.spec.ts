@@ -1,26 +1,34 @@
 /**
  * apps/web/e2e/trade-history.spec.ts
  *
- * Phase 82 (item 4 — user mandate 2026-07-27 12:17):
+ * Phase 82 (item 4 — user mandate 2026-07-27 12:17) + Phase 83.5 (Bug 2):
  * e2e test for the dashboard's trade history table.
  *
- * The test uses the same `page.route` + `page.routeWebSocket` pattern
- * as `69-status-panel.spec.ts` to intercept HTTP + WS traffic. The
- * new `/api/trades` endpoint is mocked via `page.route("...api/trades")`,
- * returning the trade list configured per test.
+ * **Phase 83.5 (Bug 2) refactor:** the test was originally
+ * mock-driven via `page.route("...api/trades")` (the component
+ * polled the endpoint every 5s). The component is now
+ * PROP-DRIVEN + WS-driven — the WS `state` event's `positions` +
+ * `history` / `closedTrades` arrays drive the table. The test
+ * pushes `state` events via `page.routeWebSocket` and asserts
+ * the rows render.
+ *
+ * The `/api/trades` HTTP endpoint STAYS for external consumers
+ * (CLI: `mm-bot trades`, scripts) but is no longer polled by the
+ * dashboard.
  *
  * Coverage:
- *   1. Empty state — "No closed trades yet" message when no trades.
- *   2. With closed trades — the table renders rows with the
- *      expected columns and P&L coloring.
- *   3. With open + closed trades — the table merges both,
- *      sorted by most-recent first, and labels `status` correctly.
- *   4. With only open positions — the table renders open rows with
- *      `exit price` / `exit time` as `—`.
+ *   1. Empty state — "No closed trades yet" when no trades
+ *   2. With closed trades — table renders with P&L coloring
+ *   3. With open + closed trades — merged, sorted by most-recent first
+ *   4. With only open positions — exit price / time as "—"
+ *   5. Duration formatting — "1m 15s" / "1h 5m" sub-hour/sub-day cases
+ *   6. "Waiting for WebSocket…" — the WS-not-connected placeholder
+ *   7. Sort order — the `(exitTime ?? entryTime) desc` invariant
  *
- * The HTTP endpoint path is asserted via `page.on("request")` —
- * confirms the dashboard actually hits `/api/trades` (and not
- * some other endpoint).
+ * The defensive-shape validation branches (malformed `positions[]`
+ * / `history[]` items, missing fields) are covered by the unit test
+ * in `apps/web/src/lib/__tests__/trades-from-state.test.ts`. The
+ * e2e focuses on the React flow + the WS push.
  */
 
 import { type Page, type Route, expect, test } from "@playwright/test";
@@ -29,6 +37,7 @@ import {
   collectCoverageFromPage,
   flushAccumulator,
 } from "./_helpers/coverage.js";
+import type { WebSocketRoute } from "@playwright/test";
 
 // Phase 57: register coverage collection hooks.
 setSpecName("trade-history");
@@ -45,32 +54,19 @@ test.afterAll(() => {
 // Test state
 // =============================================================================
 
-/** Trade history served by the mocked `/api/trades` endpoint. */
-const tradeHistory: {
-  trades: {
-    id: string;
-    strategy: string;
-    symbol: string;
-    side: "buy" | "sell";
-    entryPrice: number;
-    entryTime: number;
-    exitPrice: number | null;
-    exitTime: number | null;
-    quantity: number;
-    leverage: number;
-    pnl: number;
-    pnlPct: number;
-    duration: number;
-    status: "open" | "closed";
-  }[];
-  count: number;
+/**
+ * The bot's mock state, pushed via WS `state` events. The test
+ * mutates this BEFORE `gotoApp`, then pushes a `state` event on
+ * connect; per-test mutations + re-pushes are done via the
+ * `pushState()` helper.
+ */
+const botState: {
+  positions: readonly Record<string, unknown>[];
+  closedTrades: readonly Record<string, unknown>[];
 } = {
-  trades: [],
-  count: 0,
+  positions: [],
+  closedTrades: [],
 };
-
-/** Whether the dashboard hit the `/api/trades` endpoint. */
-let tradesRequestsSeen = 0;
 
 // =============================================================================
 // Test helpers
@@ -81,11 +77,11 @@ interface WsTestHarness {
 }
 
 async function setupWsPeer(page: Page): Promise<WsTestHarness> {
+  const allWs: WebSocketRoute[] = [];
   const wsSeenResolvers: (() => void)[] = [];
-  let wsCount = 0;
 
   await page.routeWebSocket("ws://127.0.0.1:7913/ws", (ws) => {
-    wsCount += 1;
+    allWs.push(ws);
     for (const r of wsSeenResolvers.splice(0)) r();
     ws.send(
       JSON.stringify({
@@ -119,28 +115,65 @@ async function setupWsPeer(page: Page): Promise<WsTestHarness> {
         ohlcBootstrap: { BTCUSDT: { "1h": [], "4h": [] } },
       }),
     );
+    // Phase 83.5: push an initial `state` event so the dashboard's
+    // `lastState` is populated. Subsequent tests can re-push via
+    // `pushState()` after mutating `botState`. The payload shape
+    // mirrors the REAL bot's WS `state` message
+    // (`apps/web/src/ws-client.ts:86-94`): the `positions` and
+    // `closedTrades` fields are TOP-LEVEL, not inside `snapshot`.
+    const initial = JSON.stringify({
+      type: "state",
+      ts: Date.now(),
+      snapshot: {
+        botStatus: {
+          state: "running",
+          startedAt: Date.now() - 60_000,
+          lastUpdate: Date.now(),
+          activeStrategyCount: 1,
+        },
+      },
+      positions: botState.positions,
+      closedTrades: botState.closedTrades,
+      killSwitch: "armed",
+      paused: false,
+      statistics: {},
+    });
+    setTimeout(() => {
+      for (const w of allWs) {
+        try {
+          w.send(initial);
+        } catch {
+          // best-effort
+        }
+      }
+    }, 50);
   });
 
-  return {
-    waitForWsCount: async (n: number, timeoutMs = 5_000): Promise<void> => {
-      if (wsCount >= n) return;
-      await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, timeoutMs);
-        wsSeenResolvers.push(() => {
-          if (wsCount >= n) {
-            clearTimeout(timer);
-            resolve();
-          }
-        });
+  const waitForWsCount = async (
+    n: number,
+    timeoutMs = 5_000,
+  ): Promise<void> => {
+    if (allWs.length >= n) return;
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, timeoutMs);
+      wsSeenResolvers.push(() => {
+        if (allWs.length >= n) {
+          clearTimeout(timer);
+          resolve();
+        }
       });
-    },
+    });
   };
+
+  return { waitForWsCount };
 }
 
 async function setupHttpRoutes(page: Page): Promise<void> {
   // Standard endpoints (strategies / status / ohlc / health / control)
   // — return minimal valid responses so the App.tsx render path doesn't
-  // bail out on missing data.
+  // bail out on missing data. `/api/trades` is NO LONGER polled by
+  // the dashboard in Phase 83.5 (Bug 2), but we still register a
+  // stub for completeness (some test fixtures hit it).
   await page.route("http://127.0.0.1:7913/api/strategies", (route: Route) => {
     return route.fulfill({
       status: 200,
@@ -189,14 +222,14 @@ async function setupHttpRoutes(page: Page): Promise<void> {
   await page.route("http://127.0.0.1:7913/api/control", (route: Route) => {
     return route.fulfill({ status: 202, body: "" });
   });
-  // The actual SUT endpoint — record the request count + serve the
-  // configured trade history.
   await page.route("http://127.0.0.1:7913/api/trades", (route: Route) => {
-    tradesRequestsSeen += 1;
+    // The dashboard no longer polls /api/trades in Phase 83.5, but
+    // the route stays registered for any external consumer (CLI,
+    // scripts). A bare 200 is fine here.
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(tradeHistory),
+      body: JSON.stringify({ trades: [], count: 0 }),
     });
   });
 }
@@ -216,9 +249,8 @@ async function gotoApp(page: Page): Promise<void> {
 
 test.beforeEach(async ({ page }) => {
   // Reset the per-test state.
-  tradeHistory.trades = [];
-  tradeHistory.count = 0;
-  tradesRequestsSeen = 0;
+  botState.positions = [];
+  botState.closedTrades = [];
   await setupHttpRoutes(page);
   await setupWsPeer(page);
 });
@@ -227,8 +259,8 @@ test.beforeEach(async ({ page }) => {
 // Tests
 // =============================================================================
 
-test("renders the empty state when there are no trades", async ({ page }) => {
-  // tradeHistory.trades is already [] (beforeEach reset).
+test("renders the empty state when no trades are present", async ({ page }) => {
+  // botState is empty (beforeEach reset).
   await gotoApp(page);
   // The empty-state message should be visible.
   await expect(page.locator('[data-testid="trades-empty"]')).toBeVisible({
@@ -236,32 +268,27 @@ test("renders the empty state when there are no trades", async ({ page }) => {
   });
   // The full table should NOT be rendered.
   await expect(page.locator('[data-testid="trades-table"]')).toHaveCount(0);
-  // The dashboard must have hit /api/trades.
-  expect(tradesRequestsSeen).toBeGreaterThanOrEqual(1);
 });
 
 test("renders a table with one closed trade row", async ({ page }) => {
   const closedAt = Date.now() - 3_600_000; // 1h ago
   const openedAt = closedAt - 60 * 60_000; // 2h ago
-  tradeHistory.trades = [
+  botState.closedTrades = [
     {
       id: "t-1",
-      strategy: "donchian_pivot_composition",
       symbol: "BTC/USDC",
       side: "buy",
       entryPrice: 60000,
-      entryTime: openedAt,
       exitPrice: 61000,
-      exitTime: closedAt,
       quantity: 0.01,
       leverage: 5,
-      pnl: 5,
+      pnlUsdt: 5,
       pnlPct: 0.83,
-      duration: 3_600_000,
-      status: "closed",
+      openedAt,
+      closedAt,
+      reason: "donchian_pivot_composition",
     },
   ];
-  tradeHistory.count = 1;
   await gotoApp(page);
   // The table should be visible.
   const table = page.locator('[data-testid="trades-table"]');
@@ -280,25 +307,22 @@ test("renders a table with one closed trade row", async ({ page }) => {
 
 test("renders a table with one open position (no exit price / time)", async ({ page }) => {
   const openedAt = Date.now() - 60_000; // 1 min ago
-  tradeHistory.trades = [
+  botState.positions = [
     {
-      id: "p-1",
-      strategy: "donchian_pivot_composition",
+      id: "donchian_pivot_composition:BTC/USDC:buy",
       symbol: "BTC/USDC",
       side: "buy",
       entryPrice: 60000,
-      entryTime: openedAt,
-      exitPrice: null,
-      exitTime: null,
+      currentPrice: 60100,
       quantity: 0.01,
       leverage: 5,
-      pnl: 1,
-      pnlPct: 0.17,
-      duration: 60_000,
-      status: "open",
+      unrealizedPnl: 1,
+      unrealizedPnlPct: 0.17,
+      openedAt,
+      stopLoss: null,
+      takeProfit: null,
     },
   ];
-  tradeHistory.count = 1;
   await gotoApp(page);
   const row = page.locator('[data-testid="trades-row"]').first();
   await expect(row).toHaveAttribute("data-status", "open");
@@ -313,57 +337,52 @@ test("renders a table with one open position (no exit price / time)", async ({ p
 
 test("merges open + closed trades, sorted by most-recent first", async ({ page }) => {
   const now = Date.now();
-  tradeHistory.trades = [
+  botState.closedTrades = [
     {
       id: "old-closed",
-      strategy: "donchian",
       symbol: "ETH/USDC",
       side: "sell",
       entryPrice: 3000,
-      entryTime: now - 7_200_000,
       exitPrice: 2900,
-      exitTime: now - 7_200_000,
       quantity: 0.5,
       leverage: 3,
-      pnl: 50,
+      pnlUsdt: 50,
       pnlPct: 5,
-      duration: 0,
-      status: "closed",
-    },
-    {
-      id: "open",
-      strategy: "donchian",
-      symbol: "SOL/USDC",
-      side: "buy",
-      entryPrice: 100,
-      entryTime: now - 60_000,
-      exitPrice: null,
-      exitTime: null,
-      quantity: 1,
-      leverage: 5,
-      pnl: 5,
-      pnlPct: 5,
-      duration: 60_000,
-      status: "open",
+      openedAt: now - 7_200_000,
+      closedAt: now - 7_200_000,
+      reason: "donchian_pivot_composition",
     },
     {
       id: "new-closed",
-      strategy: "donchian",
       symbol: "BTC/USDC",
       side: "buy",
       entryPrice: 60000,
-      entryTime: now - 600_000,
       exitPrice: 61000,
-      exitTime: now - 600_000,
       quantity: 0.01,
       leverage: 5,
-      pnl: 5,
+      pnlUsdt: 5,
       pnlPct: 0.83,
-      duration: 0,
-      status: "closed",
+      openedAt: now - 600_000,
+      closedAt: now - 600_000,
+      reason: "donchian_pivot_composition",
     },
   ];
-  tradeHistory.count = 3;
+  botState.positions = [
+    {
+      id: "donchian_pivot_composition:SOL/USDC:buy",
+      symbol: "SOL/USDC",
+      side: "buy",
+      entryPrice: 100,
+      currentPrice: 105,
+      quantity: 1,
+      leverage: 5,
+      unrealizedPnl: 5,
+      unrealizedPnlPct: 5,
+      openedAt: now - 60_000,
+      stopLoss: null,
+      takeProfit: null,
+    },
+  ];
   await gotoApp(page);
   const rows = page.locator('[data-testid="trades-row"]');
   await expect(rows).toHaveCount(3, { timeout: 10_000 });
@@ -380,330 +399,73 @@ test("merges open + closed trades, sorted by most-recent first", async ({ page }
 });
 
 test("applies the negative-PnL class for a losing trade", async ({ page }) => {
-  tradeHistory.trades = [
+  botState.closedTrades = [
     {
       id: "loser",
-      strategy: "donchian",
       symbol: "BTC/USDC",
       side: "buy",
       entryPrice: 60000,
-      entryTime: Date.now() - 3_600_000,
       exitPrice: 59000,
-      exitTime: Date.now() - 1_800_000,
       quantity: 0.01,
       leverage: 5,
-      pnl: -5,
+      pnlUsdt: -5,
       pnlPct: -0.83,
-      duration: 1_800_000,
-      status: "closed",
+      openedAt: Date.now() - 3_600_000,
+      closedAt: Date.now() - 1_800_000,
+      reason: "donchian",
     },
   ];
-  tradeHistory.count = 1;
   await gotoApp(page);
   const row = page.locator('[data-testid="trades-row"]').first();
   await expect(row.locator(".ep-trades__pnl--neg")).toHaveCount(2);
 });
 
 /**
- * Defensive: when the backend returns a malformed trade item, the
- * component's `parseTradeItem` filters it out and the table still
- * renders the valid ones. This exercises the `if (typeof X !== ...)`
- * branches in `parseTradeItem` (which the e2e coverage gate
- * requires for the 75% branch floor).
+ * Phase 83.5 (Bug 2): exercises the "Xm Ys" + "Xh Ym" sub-hour /
+ * sub-day duration formatting branches in `formatDuration` (the
+ * old test polled `/api/trades`; the new test pushes a `state`
+ * event with the same two trades). The defensive-shape
+ * validation (malformed items) is covered by the
+ * `trades-from-state.test.ts` unit test.
  */
-test("filters out malformed items from /api/trades (defensive parseTradeItem branches)", async ({ page }) => {
-  // Override the /api/trades route to return a mix of valid + invalid items.
-  // The `setupHttpRoutes` call in beforeEach already registered a handler
-  // that returns `tradeHistory`, but we re-register here with a custom
-  // response (page.route allows multiple handlers, last-wins).
-  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        trades: [
-          // Valid closed trade
-          {
-            id: "good-1",
-            strategy: "donchian",
-            symbol: "BTC/USDC",
-            side: "buy",
-            entryPrice: 60000,
-            entryTime: Date.now() - 3_600_000,
-            exitPrice: 61000,
-            exitTime: Date.now() - 1_800_000,
-            quantity: 0.01,
-            leverage: 1,
-            pnl: 10,
-            pnlPct: 1,
-            duration: 1_800_000,
-            status: "closed",
-          },
-          // Missing required fields — should be filtered out
-          { id: "bad-missing" },
-          // Invalid side — should be filtered out
-          {
-            id: "bad-side",
-            strategy: "donchian",
-            symbol: "BTC/USDC",
-            side: "sideways",
-            entryPrice: 60000,
-            entryTime: 0,
-            exitPrice: 61000,
-            exitTime: 1000,
-            quantity: 0.01,
-            leverage: 1,
-            pnl: 10,
-            pnlPct: 1,
-            duration: 1000,
-            status: "closed",
-          },
-          // Invalid status — should be filtered out
-          {
-            id: "bad-status",
-            strategy: "donchian",
-            symbol: "BTC/USDC",
-            side: "buy",
-            entryPrice: 60000,
-            entryTime: 0,
-            exitPrice: 61000,
-            exitTime: 1000,
-            quantity: 0.01,
-            leverage: 1,
-            pnl: 10,
-            pnlPct: 1,
-            duration: 1000,
-            status: "settled",
-          },
-          // Non-number exitPrice — should be filtered out
-          {
-            id: "bad-exit-price",
-            strategy: "donchian",
-            symbol: "BTC/USDC",
-            side: "buy",
-            entryPrice: 60000,
-            entryTime: 0,
-            exitPrice: "string",
-            exitTime: 1000,
-            quantity: 0.01,
-            leverage: 1,
-            pnl: 10,
-            pnlPct: 1,
-            duration: 1000,
-            status: "closed",
-          },
-          // NaN entryPrice — should be filtered out
-          {
-            id: "bad-nan",
-            strategy: "donchian",
-            symbol: "BTC/USDC",
-            side: "buy",
-            entryPrice: Number.NaN,
-            entryTime: 0,
-            exitPrice: 61000,
-            exitTime: 1000,
-            quantity: 0.01,
-            leverage: 1,
-            pnl: 10,
-            pnlPct: 1,
-            duration: 1000,
-            status: "closed",
-          },
-        ],
-        count: 6,
-      }),
-    });
-  });
-  await gotoApp(page);
-  // Only the one valid item should render.
-  await expect(page.locator('[data-testid="trades-row"]')).toHaveCount(1, {
-    timeout: 10_000,
-  });
-  await expect(
-    page.locator('[data-testid="trades-row"]').first(),
-  ).toHaveAttribute("data-status", "closed");
-});
-
-/**
- * Defensive: when the /api/trades endpoint returns an empty list
- * (e.g., right after a bot restart with no trades yet), the table
- * shows the empty state — not a broken render.
- */
-test("renders the empty state when /api/trades returns trades: []", async ({ page }) => {
-  // The default `setupHttpRoutes` returns an empty tradeHistory; nothing
-  // to override here. We do want to assert the empty state explicitly.
-  await gotoApp(page);
-  await expect(page.locator('[data-testid="trades-empty"]')).toBeVisible({
-    timeout: 10_000,
-  });
-});
-
-/**
- * Coverage: when /api/trades returns a non-OK HTTP status (e.g., 500
- * "internal server error"), the `TradeHistoryTable` should:
- *   1. Hit the `if (!res.ok)` TRUE arm in the useEffect's fetchOnce.
- *   2. Take the FALSE arm of `if (res.status === 503)` (500 ≠ 503).
- *   3. Call `setError(\`HTTP ${res.status}\`)` to surface the error.
- *   4. Hit the `if (error !== null)` TRUE arm in the render path.
- *   5. Render the `trades-error` div with the error message.
- *
- * This exercises the ONE remaining uncovered conditional-render
- * branch in `TradeHistoryTable.tsx` (line 179 `if (error !== null)` —
- * the e2e tests only cover the false arm via the empty / non-empty
- * render paths).
- */
-test("renders the error state when /api/trades returns HTTP 500", async ({ page }) => {
-  // Override the /api/trades route to return a 500. The standard
-  // endpoints (strategies, ohlc, health, status) are already
-  // registered by `beforeEach` — we just override the SUT endpoint.
-  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
-    return route.fulfill({
-      status: 500,
-      contentType: "text/plain",
-      body: "internal server error",
-    });
-  });
-  await page.goto("/");
-  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
-    "data-status",
-    "connected",
-    { timeout: 15_000 },
-  );
-  // The error UI must be visible.
-  const errorEl = page.locator('[data-testid="trades-error"]');
-  await expect(errorEl).toBeVisible({ timeout: 10_000 });
-  // The error message must contain "Failed to load trades" + the
-  // HTTP status code (this is the `setError(\`HTTP ${res.status}\`)`
-  // call site at useEffect line 147).
-  await expect(errorEl).toContainText("Failed to load trades: HTTP 500");
-  // The empty / table states must NOT be rendered.
-  await expect(page.locator('[data-testid="trades-empty"]')).toHaveCount(0);
-  await expect(page.locator('[data-testid="trades-table"]')).toHaveCount(0);
-});
-
-/**
- * Coverage: when /api/trades returns 503 (snapshot not yet received
- * from the bot's state-feed), the component should:
- *   1. Hit the `if (!res.ok)` TRUE arm.
- *   2. Take the TRUE arm of `if (res.status === 503)` (the dedicated
- *      snapshot-not-ready branch in the useEffect).
- *   3. Call `setTrades([])` + `setError(null)` — the trade list
- *      clears, no error surfaces (the 503 is treated as a benign
- *      "not yet ready" state, not an error).
- *   4. Render the `trades-empty` div (the empty-state UI, since
- *      `sortedTrades.length === 0` after `setTrades([])`).
- *
- * This covers the `if (res.status === 503)` TRUE arm which the
- * existing tests do not exercise (all current tests use 200).
- */
-test("handles 503 from /api/trades as the 'snapshot not ready' fallback (empty state, no error)", async ({
-  page,
-}) => {
-  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
-    return route.fulfill({
-      status: 503,
-      contentType: "text/plain",
-      body: "snapshot not yet received",
-    });
-  });
-  await page.goto("/");
-  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
-    "data-status",
-    "connected",
-    { timeout: 15_000 },
-  );
-  // The empty state must be visible (setTrades([]) → sortedTrades.length === 0).
-  await expect(page.locator('[data-testid="trades-empty"]')).toBeVisible({
-    timeout: 10_000,
-  });
-  // The error state must NOT be visible (503 is treated as benign).
-  await expect(page.locator('[data-testid="trades-error"]')).toHaveCount(0);
-  // The table must NOT be rendered (trades is empty).
-  await expect(page.locator('[data-testid="trades-table"]')).toHaveCount(0);
-});
-
-/**
- * Coverage: exercises three defensive `formatDuration` /
- * `parseTrades` branches that the existing tests miss:
- *
- *   1. `formatDuration` `sec > 0` TRUE arm — when the duration is
- *      between 1 min and 1 hour AND the seconds portion is non-zero
- *      (e.g., 75s → "1m 15s"). All existing tests use durations in
- *      exact minutes (60_000, 600_000, 1_800_000, 3_600_000 ms), so
- *      the "Xm Ys" form is never reached.
- *
- *   2. `formatDuration` `min > 0` TRUE arm — when the duration is
- *      ≥ 1 hour AND the minutes portion is non-zero (e.g., 3900s
- *      → "1h 5m"). Existing tests use 3_600_000 (1h 0m) so the
- *      "Xh Ym" form is never reached.
- *
- *   3. `parseTrades` `count: items.length` fallback arm — when the
- *      response body has a non-number `count` field, the helper
- *      falls back to `items.length`. Existing tests always pass a
- *      numeric `count`, so the fallback is never hit.
- *
- * One test (2 trades) covers all three branches.
- */
-test("renders duration with non-zero seconds/minutes and falls back to items.length for non-numeric count", async ({
+test("renders duration with non-zero seconds/minutes (formatDuration coverage)", async ({
   page,
 }) => {
   const t0 = Date.now() - 4_000_000; // 1h 5m ago
   const t1 = Date.now() - 75_000; // 1m 15s ago
-  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      // NOTE: `count: "5"` is a non-number — exercises the
-      // `typeof obj.count === "number" ? obj.count : items.length`
-      // fallback arm (line 266). The helper should still build a
-      // valid `trades` array of length 2.
-      body: JSON.stringify({
-        trades: [
-          {
-            id: "dur-hours-min",
-            strategy: "donchian",
-            symbol: "BTC/USDC",
-            side: "buy",
-            entryPrice: 60000,
-            entryTime: t0 - 3_900_000,
-            exitPrice: 61000,
-            exitTime: t0,
-            quantity: 0.01,
-            leverage: 5,
-            pnl: 5,
-            pnlPct: 0.83,
-            // 1h 5m = 3_900_000 ms — hits `min > 0` arm
-            duration: 3_900_000,
-            status: "closed",
-          },
-          {
-            id: "dur-min-sec",
-            strategy: "donchian",
-            symbol: "ETH/USDC",
-            side: "sell",
-            entryPrice: 3000,
-            entryTime: t1 - 75_000,
-            exitPrice: 2900,
-            exitTime: t1,
-            quantity: 0.5,
-            leverage: 3,
-            pnl: 50,
-            pnlPct: 5,
-            // 1m 15s = 75_000 ms — hits `sec > 0` arm
-            duration: 75_000,
-            status: "closed",
-          },
-        ],
-        count: "5", // non-number → items.length fallback
-      }),
-    });
-  });
-  await page.goto("/");
-  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
-    "data-status",
-    "connected",
-    { timeout: 15_000 },
-  );
+  botState.closedTrades = [
+    {
+      id: "dur-hours-min",
+      symbol: "BTC/USDC",
+      side: "buy",
+      entryPrice: 60000,
+      exitPrice: 61000,
+      quantity: 0.01,
+      leverage: 5,
+      pnlUsdt: 5,
+      pnlPct: 0.83,
+      // 1h 5m = 3_900_000 ms — hits `min > 0` arm
+      openedAt: t0 - 3_900_000,
+      closedAt: t0,
+      reason: "donchian",
+    },
+    {
+      id: "dur-min-sec",
+      symbol: "ETH/USDC",
+      side: "sell",
+      entryPrice: 3000,
+      exitPrice: 2900,
+      quantity: 0.5,
+      leverage: 3,
+      pnlUsdt: 50,
+      pnlPct: 5,
+      // 1m 15s = 75_000 ms — hits `sec > 0` arm
+      openedAt: t1 - 75_000,
+      closedAt: t1,
+      reason: "donchian",
+    },
+  ];
+  await gotoApp(page);
   const table = page.locator('[data-testid="trades-table"]');
   await expect(table).toBeVisible({ timeout: 10_000 });
   const rows = page.locator('[data-testid="trades-row"]');
@@ -721,181 +483,55 @@ test("renders duration with non-zero seconds/minutes and falls back to items.len
 });
 
 /**
- * Coverage: the useEffect's catch block at line 164 has a ternary
- *   `setError(e instanceof Error ? e.message : "unknown error")`
- * The TRUE arm (`e.message`) is covered by every test that drives
- * the component to a network error (the real `fetch` throws
- * `TypeError` instances on network failure). The FALSE arm
- * (`"unknown error"`) fires when the catch receives a non-Error
- * value — which never happens in normal operation (the real
- * `fetch` only rejects with `TypeError`).
+ * Phase 83.5 (Bug 2): the table is prop-driven + WS-first. The
+ * previous (Phase 82) implementation polled `/api/trades` every
+ * 5 seconds; that polling is GONE. The dashboard now consumes
+ * the WS `state` event (via `tradesFromState(lastState)`) and
+ * never hits `/api/trades` from the browser.
  *
- * To exercise the FALSE arm, this test installs a `fetch` shim
- * via `page.addInitScript` that throws a non-Error (a string) for
- * the FIRST call to `/api/trades`. Subsequent calls pass through
- * to the original fetch (which is intercepted by the page.route
- * mock). The component's catch block sees the non-Error and takes
- * the `setError("unknown error")` branch → the `trades-error` UI
- * shows the literal text "Failed to load trades: unknown error".
+ * This test verifies the polling was REMOVED by waiting 6s
+ * (longer than the 5s poll interval) and asserting that ZERO
+ * requests landed on `/api/trades`. The HTTP endpoint STAYS for
+ * external consumers (CLI: `mm-bot trades`, scripts) but the
+ * browser never calls it.
  */
-test("renders 'unknown error' when /api/trades fetch throws a non-Error value", async ({
+test("does NOT poll /api/trades from the browser (Phase 83.5 Bug 2 regression)", async ({
   page,
 }) => {
-  // Install the fetch shim BEFORE the page loads. The shim throws
-  // a string for the first call to /api/trades, then passes through.
-  await page.addInitScript(() => {
-    const originalFetch = window.fetch.bind(window);
-    let tradesCallCount = 0;
-    // The `as unknown as typeof fetch` cast is required because
-    // `window.fetch` is typed as the full standard fetch (with
-    // `preconnect`, etc.), and our shim only implements the call
-    // signature. This is the project pattern for window-property
-    // monkey-patches (see `dashboard.spec.ts:782`).
-    window.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url;
-      if (url.includes("/api/trades")) {
-        tradesCallCount += 1;
-        if (tradesCallCount === 1) {
-          // Throw a NON-Error to exercise the
-          // `setError("unknown error")` fallback arm.
-          // The throw is inside an `addInitScript` callback that
-          // Playwright serializes to a string and runs in the
-          // browser context — no Node-side TS/eslint rule applies
-          // here.
-          throw "synthetic non-Error throw from /api/trades";
-        }
-      }
-      return originalFetch(input, init);
-    }) as unknown as typeof fetch;
-  });
-  await page.goto("/");
-  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
-    "data-status",
-    "connected",
-    { timeout: 15_000 },
-  );
-  // The error UI must be visible with the literal "unknown error"
-  // message (the FALSE arm of the `e instanceof Error ? ...` ternary).
-  const errorEl = page.locator('[data-testid="trades-error"]');
-  await expect(errorEl).toBeVisible({ timeout: 10_000 });
-  await expect(errorEl).toContainText("Failed to load trades: unknown error");
-  // The empty / table states must NOT be rendered.
-  await expect(page.locator('[data-testid="trades-empty"]')).toHaveCount(0);
-  await expect(page.locator('[data-testid="trades-table"]')).toHaveCount(0);
-});
-
-/**
- * Coverage: exercises the body-shape validation branches in
- * `parseTrades` (the `if (body === null)`, `if (typeof body !==
- * "object")`, `if (Array.isArray(body))`, and `if
- * (!Array.isArray(obj.trades))` early-exit guards). The helper
- * must return `null` for any of these shapes — the component then
- * surfaces the "Invalid response shape" error.
- *
- * Three response bodies in one test (via successive `page.route`
- * registrations — last-wins per URL — the test only drives the
- * FINAL registration):
- *   - Final registration: `body: 42` (a number) — exercises
- *     `typeof body !== "object"` and `Array.isArray(body)`.
- *
- *   - The body's `parseTrades` will return `null` → the component
- *     calls `setError("Invalid response shape")` → the
- *     `trades-error` UI must be visible.
- */
-test("renders the error state when /api/trades returns a non-object body (parseTrades body-shape guards)", async ({
-  page,
-}) => {
-  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
-    // Body is a number — `typeof body === "number"`, not "object"
-    // and not an array, but `parseTrades` first checks `body === null`
-    // (false) then `typeof body !== "object"` (true) → returns null.
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: "42",
-    });
-  });
-  await page.goto("/");
-  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
-    "data-status",
-    "connected",
-    { timeout: 15_000 },
-  );
-  const errorEl = page.locator('[data-testid="trades-error"]');
-  await expect(errorEl).toBeVisible({ timeout: 10_000 });
-  await expect(errorEl).toContainText("Failed to load trades: Invalid response shape");
-  await expect(page.locator('[data-testid="trades-empty"]')).toHaveCount(0);
-  await expect(page.locator('[data-testid="trades-table"]')).toHaveCount(0);
-});
-
-/**
- * Coverage: exercises the per-item shape validation in
- * `parseTradeItem` for `raw === null` and `typeof raw !== "object"`.
- * The response is a valid `{trades, count}` envelope, but the
- * `trades` array contains `null` and a non-object (a string).
- * `parseTradeItem` must filter both out and return null for each —
- * exercising the `if (raw === null) return null;` and `if (typeof
- * raw !== "object") return null;` TRUE arms.
- *
- * The valid item in the array still renders, so the table shows
- * exactly one row.
- */
-test("filters out null and non-object items from the trades array (parseTradeItem raw-shape guards)", async ({
-  page,
-}) => {
-  const closedAt = Date.now() - 3_600_000;
-  const openedAt = closedAt - 60 * 60_000;
-  await page.route("http://127.0.0.1:7913/api/trades", (route) => {
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        trades: [
-          // `raw === null` → parseTradeItem returns null
-          // (Branch 7 TRUE arm).
-          null,
-          // `typeof raw === "string"` → parseTradeItem returns null
-          // (Branch 8 TRUE arm).
-          "not-an-object",
-          // The one VALID closed trade — should render.
-          {
-            id: "valid-only",
-            strategy: "donchian",
-            symbol: "BTC/USDC",
-            side: "buy",
-            entryPrice: 60000,
-            entryTime: openedAt,
-            exitPrice: 61000,
-            exitTime: closedAt,
-            quantity: 0.01,
-            leverage: 5,
-            pnl: 5,
-            pnlPct: 0.83,
-            duration: 3_600_000,
-            status: "closed",
-          },
-        ],
-        count: 3,
-      }),
-    });
-  });
-  await page.goto("/");
-  await expect(page.locator(".ep-app__status-dot")).toHaveAttribute(
-    "data-status",
-    "connected",
-    { timeout: 15_000 },
-  );
-  // Only the valid item should render (null + string filtered out).
-  await expect(page.locator('[data-testid="trades-table"]')).toBeVisible({
+  const openedAt = Date.now() - 60_000;
+  botState.positions = [
+    {
+      id: "donchian_pivot_composition:BTC/USDC:buy",
+      symbol: "BTC/USDC",
+      side: "buy",
+      entryPrice: 60000,
+      currentPrice: 60100,
+      quantity: 0.01,
+      leverage: 5,
+      unrealizedPnl: 1,
+      unrealizedPnlPct: 0.17,
+      openedAt,
+      stopLoss: null,
+      takeProfit: null,
+    },
+  ];
+  await gotoApp(page);
+  // The first row renders (from the WS `state` event).
+  await expect(page.locator('[data-testid="trades-row"]')).toHaveCount(1, {
     timeout: 10_000,
   });
-  await expect(page.locator('[data-testid="trades-row"]')).toHaveCount(1);
-  await expect(
-    page.locator('[data-testid="trades-row"]').first(),
-  ).toHaveAttribute("data-status", "closed");
+  // Count /api/trades requests over a 6s window. The previous
+  // implementation would have fired 2 polls (the immediate
+  // mount-time fetch + one 5s later).
+  let tradesRequestsSeen = 0;
+  const onReq = (req: { url: () => string }): void => {
+    if (req.url().endsWith("/api/trades")) {
+      tradesRequestsSeen += 1;
+    }
+  };
+  page.on("request", onReq);
+  await page.waitForTimeout(6_000);
+  page.off("request", onReq);
+  // No /api/trades requests in the 6s window — the polling is gone.
+  expect(tradesRequestsSeen).toBe(0);
 });

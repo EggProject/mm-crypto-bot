@@ -495,16 +495,22 @@ export function App(): React.JSX.Element {
         {/*
          * Phase 82 (item 4 — user mandate 2026-07-27 12:17):
          * trade history tábla — a bot eddigi (zárt + nyitott) trade-jeit
-         * mutatja. A `TradeHistoryTable` a `/api/trades` endpoint-ot
-         * poll-ozza 5s-onként. A "no closed trades yet" empty state
-         * akkor jelenik meg, ha egyáltalán nincs trade.
+         * mutatja.
+         *
+         * Phase 83.5 (Bug 2): the table is now WS-driven (no polling).
+         * `lastState` carries the bot's `positions` (open) + `history`
+         * (closed) on every state notification — the same data the
+         * `/api/trades` endpoint aggregates. The `tradesFromState`
+         * pure helper derives the `TradeHistoryItem[]` rows from the
+         * WS state. The `/api/trades` HTTP endpoint STAYS for external
+         * consumers (CLI: `mm-bot trades`, scripts).
          */}
         <div
           className="ep-app__trades"
           data-testid="trades"
         >
           <h2>Trade history</h2>
-          <TradeHistoryTable />
+          <TradeHistoryTable lastState={lastState} status={status} />
         </div>
       </main>
       <ControlBar
