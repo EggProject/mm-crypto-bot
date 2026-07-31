@@ -705,6 +705,25 @@ export class Bot {
         if (this.runner !== null) {
           void this.runner.onFeedEvent(event);
         }
+        // Phase 83.6: also publish the tick to the state-feed so the
+        // web dashboard's chart grid can update the in-progress
+        // bar's close/high/low in real-time (not just on bar
+        // boundaries). The 4Hz broadcast throttle in
+        // `state-feed/feed-server.ts` handles per-client
+        // rate-limiting; for bybit.eu the `fetchTicker` 1Hz polling
+        // fallback is the production ceiling, but the wire-up is
+        // correct for any future `watchTicker`-native CCXT Pro.
+        if (event.kind === "ticker" && this.stateFeed !== null) {
+          this.stateFeed.publisher.publishTick(
+            event.payload.symbol,
+            event.payload.last,
+          );
+        } else if (event.kind === "ticker") {
+          this.logger.warn(
+            "[bot] ticker event but stateFeed is null — tick dropped",
+            { symbol: event.payload.symbol },
+          );
+        }
       });
       this.feedSubscriptions.push(tickerSub);
       this.logger.info("[bot] subscribed to ticker", { symbol });
