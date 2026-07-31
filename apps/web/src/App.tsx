@@ -21,6 +21,7 @@ import {
 import { useBotStatus } from "./lib/use-bot-status.js";
 import type { OHLCBar } from "./lib/ohlc-bridge.js";
 import { buildMarkersByKey } from "./lib/markers-from-trades.js";
+import { appendOrReplaceBar } from "./lib/bars-from-bar.js";
 
 /**
  * `App` — the Top-nav app shell for the mm-crypto-bot web dashboard.
@@ -87,7 +88,11 @@ const STRATEGIES_URL = "http://127.0.0.1:7913/api/strategies" as const;
 // type, so no explicit annotation is needed here.
 
 export function App(): React.JSX.Element {
-  const { status, snapshot, lastError, lastState, send } = useWebSocket();
+  // Phase 83.5 (Bug 1): destructure `lastBar` so the chart can stream
+  // live OHLCV updates from the WS `bar` event (previously the chart
+  // was bootstrapped from the SNAPSHOT's `ohlcBootstrap` and then
+  // FROZEN — see the barsByKey useState/useEffect block below).
+  const { status, snapshot, lastError, lastState, lastBar, send } = useWebSocket();
   // Phase 52F follow-up: pre-populate the strategy list with the
   // MSW default (1 strategy × 1 symbol × 2 timeframes) so the
   // `ChartGrid` renders the chrome (and its `.ep-feed` indicator)
@@ -244,15 +249,52 @@ export function App(): React.JSX.Element {
   }, []);
 
   // -----------------------------------------------------------------
-  // Build barsByKey from snapshot.ohlcBootstrap. Memoized so the
-  // identity is stable across re-renders that don't change the
-  // snapshot reference (ChartGrid re-runs the subscription diff
-  // on identity change, so we want to minimize false triggers).
+  // Phase 83.5 (Bug 1): build barsByKey from snapshot.ohlcBootstrap
+  // AND keep it fresh as `bar` events arrive over the WebSocket.
+  //
+  // The previous `useMemo([snapshot])` only re-evaluated when the
+  // `snapshot` reference changed, but `snapshot` is set ONCE on
+  // mount (the initial SNAPSHOT message) — every subsequent
+  // `bar` event updates `lastBar` (a different ref), so the chart
+  // stayed frozen on the bootstrap bars.
+  //
+  // The new pattern is a `useState` + 2 `useEffect`s:
+  //
+  //   1. `useState` initialised from the SNAPSHOT seed (so the
+  //      first render already has the bootstrap bars — no flash
+  //      of "no data").
+  //   2. `useEffect([snapshot])` — re-seeds the `barsByKey` when
+  //      a NEW SNAPSHOT arrives (e.g. after a WS reconnect, the
+  //      server sends a fresh full snapshot). The next `bar`
+  //      events from the live feed will then append/replace on
+  //      top of the new seed.
+  //   3. `useEffect([lastBar])` — applies each WS `bar` event
+  //      via the pure `appendOrReplaceBar` helper. The helper
+  //      handles 3 cases: new key (no-op until snapshot seeds),
+  //      same `time` (REPLACE the last bar — the live in-progress
+  //      OHLCV update), new `time` (APPEND).
+  //
+  // The `useMemo` is GONE — the state IS the source of truth.
   // -----------------------------------------------------------------
-  const barsByKey = useMemo<Readonly<Record<string, readonly OHLCBar[]>>>(
-    () => extractBarsByKey(snapshot),
-    [snapshot],
-  );
+  const [barsByKey, setBarsByKey] = useState<
+    Readonly<Record<string, readonly OHLCBar[]>>
+  >(() => extractBarsByKey(snapshot));
+
+  // Seed effect — when a new SNAPSHOT arrives, replace the entire
+  // map. The dependency is the `snapshot` ref (set ONCE on mount
+  // normally, but reset on a WS reconnect).
+  useEffect(() => {
+    setBarsByKey(extractBarsByKey(snapshot));
+  }, [snapshot]);
+
+  // Append/replace effect — when a WS `bar` event arrives (lastBar
+  // ref change), apply it via the pure helper. The helper is a
+  // no-op for null/malformed payloads and for keys not yet in the
+  // map (the snapshot hasn't seeded them yet).
+  useEffect(() => {
+    if (lastBar === null) return;
+    setBarsByKey((prev) => appendOrReplaceBar(prev, lastBar).next);
+  }, [lastBar]);
 
   // -----------------------------------------------------------------
   // Phase 82 (item 5): Build markersByKey from the WS `state`
