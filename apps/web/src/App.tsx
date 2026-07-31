@@ -21,7 +21,7 @@ import {
 import { useBotStatus } from "./lib/use-bot-status.js";
 import type { OHLCBar } from "./lib/ohlc-bridge.js";
 import { buildMarkersByKey } from "./lib/markers-from-trades.js";
-import { appendOrReplaceBar } from "./lib/bars-from-bar.js";
+import { appendOrReplaceBar, mergeSnapshotBars } from "./lib/bars-from-bar.js";
 import { applyTickToBars } from "./lib/bars-from-tick.js";
 
 /**
@@ -259,8 +259,10 @@ export function App(): React.JSX.Element {
   }, []);
 
   // -----------------------------------------------------------------
-  // Phase 83.5 (Bug 1): build barsByKey from snapshot.ohlcBootstrap
-  // AND keep it fresh as `bar` events arrive over the WebSocket.
+  // Phase 83.5 (Bug 1) + Phase 83.6.1 (Bug 1.1 — snapshot clobber
+  // fix): build barsByKey from snapshot.ohlcBootstrap AND keep it
+  // fresh as `bar` events arrive over the WebSocket AND as
+  // subsequent SNAPSHOTs arrive (without clobbering tick updates).
   //
   // The previous `useMemo([snapshot])` only re-evaluated when the
   // `snapshot` reference changed, but `snapshot` is set ONCE on
@@ -268,21 +270,30 @@ export function App(): React.JSX.Element {
   // `bar` event updates `lastBar` (a different ref), so the chart
   // stayed frozen on the bootstrap bars.
   //
-  // The new pattern is a `useState` + 2 `useEffect`s:
+  // The new pattern is a `useState` + 3 `useEffect`s:
   //
   //   1. `useState` initialised from the SNAPSHOT seed (so the
   //      first render already has the bootstrap bars — no flash
   //      of "no data").
-  //   2. `useEffect([snapshot])` — re-seeds the `barsByKey` when
-  //      a NEW SNAPSHOT arrives (e.g. after a WS reconnect, the
-  //      server sends a fresh full snapshot). The next `bar`
-  //      events from the live feed will then append/replace on
-  //      top of the new seed.
+  //   2. `useEffect([snapshot])` — MERGES the SNAPSHOT's
+  //      `ohlcBootstrap` into the existing `barsByKey` (the
+  //      previous Phase 83.5 effect was a REPLACE; Phase 83.6.1
+  //      fixed the bug where every periodic refresh re-seeded the
+  //      chart and clobbered tick updates). The `mergeSnapshotBars`
+  //      helper is a per-key "only add NEWER bars" operation —
+  //      see `apps/web/src/lib/bars-from-bar.ts` for the 4
+  //      branches (empty snapshot / missing key / no-newer-bars /
+  //      appended-newer-bars). The replay case (the same
+  //      `ohlcBootstrap` re-broadcast every 1-2s) is a no-op,
+  //      so the tick updates from `applyTickToBars` and the
+  //      `bar` updates from `appendOrReplaceBar` are preserved.
   //   3. `useEffect([lastBar])` — applies each WS `bar` event
   //      via the pure `appendOrReplaceBar` helper. The helper
   //      handles 3 cases: new key (no-op until snapshot seeds),
   //      same `time` (REPLACE the last bar — the live in-progress
   //      OHLCV update), new `time` (APPEND).
+  //   4. `useEffect([lastTick])` (Phase 83.6) — applies each WS
+  //      `tick` event via the pure `applyTickToBars` helper.
   //
   // The `useMemo` is GONE — the state IS the source of truth.
   // -----------------------------------------------------------------
@@ -290,11 +301,16 @@ export function App(): React.JSX.Element {
     Readonly<Record<string, readonly OHLCBar[]>>
   >(() => extractBarsByKey(snapshot));
 
-  // Seed effect — when a new SNAPSHOT arrives, replace the entire
-  // map. The dependency is the `snapshot` ref (set ONCE on mount
-  // normally, but reset on a WS reconnect).
+  // Seed effect — when a new SNAPSHOT arrives, MERGE the
+  // `ohlcBootstrap` into the existing `barsByKey` instead of
+  // replacing it. The merge is per-key: missing keys get all
+  // bars from the snapshot; existing keys only get bars whose
+  // `time` is strictly newer than the last bar already in the
+  // map. The common SNAPSHOT replay case (the periodic refresh
+  // re-broadcasts the same `ohlcBootstrap`) is a no-op, so the
+  // tick / bar updates from the other two effects are preserved.
   useEffect(() => {
-    setBarsByKey(extractBarsByKey(snapshot));
+    setBarsByKey((prev) => mergeSnapshotBars(prev, snapshot).next);
   }, [snapshot]);
 
   // Append/replace effect — when a WS `bar` event arrives (lastBar
