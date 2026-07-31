@@ -325,6 +325,19 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
 
   const cardHeight = resolveHeight(height);
   const feed = feedConfigFor(feedState, FEED_CONFIG);
+  // Phase 83.6: expose the last bar's close/high/low as
+  // data-* attributes on the body div. The e2e spec
+  // (`apps/web/e2e/83-6-tick-realtime.spec.ts`) reads these to
+  // assert that the in-progress bar's OHLC updates on every WS
+  // `tick` event (not just on `bar` events). The values are empty
+  // strings when the chart has no bars — Playwright's
+  // `toHaveAttribute` works with empty strings the same way as
+  // missing attributes. A getter is used (computed on every
+  // render) so the attributes always reflect the latest bars.
+  const lastBar = bars.length > 0 ? bars[bars.length - 1] : null;
+  const lastBarClose = lastBar !== null ? lastBar.close : "";
+  const lastBarHigh = lastBar !== null ? lastBar.high : "";
+  const lastBarLow = lastBar !== null ? lastBar.low : "";
 
   // --------------------------------------------------------------------------
   // Range-tab defaults — Phase 52F follow-up + 56C refactor
@@ -799,6 +812,9 @@ export function ChartCard(props: ChartCardProps): React.JSX.Element {
         ref={containerRef}
         data-testid={`chart-card-body-${symbol}-${timeframe}`}
         data-bars-count={bars.length}
+        data-last-bar-close={lastBarClose}
+        data-last-bar-high={lastBarHigh}
+        data-last-bar-low={lastBarLow}
       />
 
       {/* Phase 82: a small legend showing the indicator NAMES
