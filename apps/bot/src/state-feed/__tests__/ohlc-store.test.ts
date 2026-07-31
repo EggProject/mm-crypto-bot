@@ -220,8 +220,14 @@ describe("OhlcStore — getAll (SNAPSHOT bootstrap)", () => {
   // historical bars (a reconnect or a duplicate-publisher bug), which
   // makes the concat have duplicate times. The lightweight-charts v5
   // `series.setData()` rejects duplicate times too (same `Value is null`
-  // error). The fix dedupes by time, keeping the FIRST occurrence
-  // (the historical bar is the canonical source).
+  // error).
+  //
+  // Phase 83.7 (fix): the dedupe keeps the LAST occurrence (the live
+  // bar is the canonical source — its close is fresher than the CSV
+  // bootstrap close). When the live bar re-pushes with the SAME value
+  // as the historical, both occurrences agree, so the test result is
+  // unchanged. When they DIFFER (e.g. the in-progress bar's close
+  // moved), the live close wins. See the regression test below.
   it("dedupes bars by time when the live feed re-pushes historical tail", () => {
     const store = new OhlcStore();
     store.bootstrapHistorical("BTC/USDC", "1h", [
@@ -242,6 +248,122 @@ describe("OhlcStore — getAll (SNAPSHOT bootstrap)", () => {
     const times = btc1h?.map((b) => b.time) ?? [];
     // No duplicates, strictly ascending.
     expect(times).toEqual([1000, 2000, 3000, 4000, 5000]);
+  });
+
+  // Phase 83.7 (regression test): the in-progress bar's close must
+  // come from the LIVE pushBar (not the stale CSV bootstrap close).
+  // Before the fix, the dedupe kept the FIRST occurrence (the
+  // bootstrap close), so the snapshot's ohlcBootstrap carried a stale
+  // close and the chart's last bar was not updated by the live bar.
+  it("keeps the LIVE close when pushBar() overlaps the last historical bar (LAST-occurrence wins)", () => {
+    const store = new OhlcStore();
+    // Historical tail: 3 bars; the last one (time=3000) is the
+    // in-progress bar, close=60_200 (the CSV bootstrap value).
+    store.bootstrapHistorical("BTC/USDC", "1h", [
+      makeBar(1000, 60_000),
+      makeBar(2000, 60_100),
+      makeBar(3000, 60_200), // bootstrap close — stale
+    ]);
+    // Live push: same time=3000, but the close has moved to 60_250
+    // (the live bar's latest tick update). The dedupe MUST keep the
+    // live close (60_250), not the bootstrap close (60_200).
+    store.pushBar("BTC/USDC", "1h", makeBar(3000, 60_250)); // live close — fresh
+
+    const all = store.getAll();
+    const btc1h = all["BTC/USDC"]?.["1h"];
+    expect(btc1h).toBeDefined();
+    const times = btc1h?.map((b) => b.time) ?? [];
+    // No duplicates, strictly ascending.
+    expect(times).toEqual([1000, 2000, 3000]);
+    // The in-progress bar's close comes from the live push (LAST wins).
+    expect(btc1h?.[2]?.close).toBe(60_250);
+  });
+
+  // Phase 83.7: dedupe edge cases — keep LAST occurrence per time.
+  describe("OhlcStore — dedupe keeps LAST occurrence (Phase 83.7)", () => {
+    it("2 bars with the same time → kept 1 bar with the LAST values", () => {
+      const store = new OhlcStore();
+      store.bootstrapHistorical("BTC/USDC", "1h", [makeBar(1000, 60_000)]);
+      store.pushBar("BTC/USDC", "1h", makeBar(1000, 60_999));
+
+      const all = store.getAll();
+      const btc1h = all["BTC/USDC"]?.["1h"];
+      expect(btc1h?.length).toBe(1);
+      expect(btc1h?.[0]?.close).toBe(60_999);
+    });
+
+    it("3 bars with 2 distinct times, 1 duplicate → kept 2 bars, duplicate's value is from the 2nd occurrence", () => {
+      const store = new OhlcStore();
+      store.bootstrapHistorical("BTC/USDC", "1h", [
+        makeBar(1000, 60_000),
+        makeBar(2000, 60_100),
+      ]);
+      // Live pushes a different close for t=1000 (the last live
+      // push for a given time wins), and a new bar for t=2000 (also
+      // with a different close).
+      store.pushBar("BTC/USDC", "1h", makeBar(1000, 60_050));
+      store.pushBar("BTC/USDC", "1h", makeBar(2000, 60_150));
+
+      const all = store.getAll();
+      const btc1h = all["BTC/USDC"]?.["1h"];
+      expect(btc1h?.length).toBe(2);
+      // Time-ascending order preserved.
+      expect(btc1h?.[0]?.time).toBe(1000);
+      expect(btc1h?.[1]?.time).toBe(2000);
+      // LAST values win for each time.
+      expect(btc1h?.[0]?.close).toBe(60_050);
+      expect(btc1h?.[1]?.close).toBe(60_150);
+    });
+
+    it("5 bars all with the same time → kept 1 bar with the 5th's values", () => {
+      const store = new OhlcStore();
+      store.bootstrapHistorical("BTC/USDC", "1h", [makeBar(1000, 60_000)]);
+      store.pushBar("BTC/USDC", "1h", makeBar(1000, 60_100));
+      store.pushBar("BTC/USDC", "1h", makeBar(1000, 60_200));
+      store.pushBar("BTC/USDC", "1h", makeBar(1000, 60_300));
+      store.pushBar("BTC/USDC", "1h", makeBar(1000, 60_400));
+
+      const all = store.getAll();
+      const btc1h = all["BTC/USDC"]?.["1h"];
+      expect(btc1h?.length).toBe(1);
+      expect(btc1h?.[0]?.close).toBe(60_400);
+    });
+
+    it("deduplication preserves the time-ascending order of first occurrence", () => {
+      const store = new OhlcStore();
+      // Bootstrap order: 1000, 2000, 3000 (ascending).
+      store.bootstrapHistorical("BTC/USDC", "1h", [
+        makeBar(1000, 60_000),
+        makeBar(2000, 60_100),
+        makeBar(3000, 60_200),
+      ]);
+      // Live re-pushes 2000 (different close) and adds 4000.
+      store.pushBar("BTC/USDC", "1h", makeBar(2000, 60_150));
+      store.pushBar("BTC/USDC", "1h", makeBar(4000, 60_300));
+
+      const all = store.getAll();
+      const btc1h = all["BTC/USDC"]?.["1h"];
+      const times = btc1h?.map((b) => b.time) ?? [];
+      // Order is preserved: 1000, 2000, 3000, 4000 — 2000 stays at
+      // index 1 (its first-occurrence position), 3000 at index 2.
+      expect(times).toEqual([1000, 2000, 3000, 4000]);
+    });
+
+    it("getOHLC also returns the LIVE close when pushBar() overlaps the last historical bar (LAST-occurrence wins)", () => {
+      const store = new OhlcStore();
+      store.bootstrapHistorical("BTC/USDC", "1h", [
+        makeBar(1000, 60_000),
+        makeBar(2000, 60_100),
+        makeBar(3000, 60_200),
+      ]);
+      store.pushBar("BTC/USDC", "1h", makeBar(3000, 60_250));
+
+      const ohlc = store.getOHLC("BTC/USDC", "1h");
+      const times = ohlc.map((b) => b.time);
+      expect(times).toEqual([1000, 2000, 3000]);
+      // The last bar carries the live close.
+      expect(ohlc[2]?.close).toBe(60_250);
+    });
   });
 });
 
