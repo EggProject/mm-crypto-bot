@@ -36,13 +36,21 @@
 
 import type { Brand } from "@mm-crypto-bot/shared";
 import type {
+  Balance,
   ClientOrderId,
   ExchangeFeed,
   ExchangeOrderId,
+  ExchangePosition,
+  Execution,
+  FeedEvent,
+  MarketMeta,
   Order,
   OrderRequest,
+  ProtectiveOrderKind,
   Symbol,
+  Ticker,
 } from "@mm-crypto-bot/exchange";
+import type { SubscriptionId } from "@mm-crypto-bot/exchange";
 import {
   assertLeverageInvariant,
   type LeverageInvariantConfig,
@@ -109,6 +117,15 @@ export interface OrderIntent {
   readonly type: OrderType;
   readonly limitPrice?: number;
   readonly clientOrderIdHint?: string;
+  /** Safety closes are reduce-only and must never be rejected as added exposure. */
+  readonly reduceOnly?: boolean;
+  /** The resolved config value, recorded with the request boundary for auditability. */
+  readonly leverage?: number;
+  /** Strategy owner, required to validate a strategy-attributed safety close. */
+  readonly strategy?: string;
+  /** Native post-fill conditional exit semantics. */
+  readonly protectiveKind?: ProtectiveOrderKind;
+  readonly triggerPrice?: number;
 }
 
 /**
@@ -124,6 +141,12 @@ export interface PositionSizeQuery {
   readonly equityUsd: number;
   readonly positions: readonly LeveragePosition[];
 }
+
+export type OrderLifecycleEvent =
+  | { readonly kind: "order"; readonly order: Order; readonly deltaFilled: number }
+  | { readonly kind: "execution"; readonly order: Order; readonly execution: Execution; readonly deltaFilled: number };
+
+export type OrderLifecycleListener = (event: OrderLifecycleEvent) => void;
 
 // ============================================================================
 // OrderManagerOptions
@@ -142,6 +165,8 @@ export interface PositionSizeQuery {
 export interface OrderManagerOptions {
   readonly feed: ExchangeFeed;
   readonly getPositionContext: () => PositionSizeQuery;
+  /** Exact local quantity/side for reduce-only validation when a position book is available. */
+  readonly getReduciblePosition?: (symbol: Symbol, strategy: string | undefined) => { readonly side: "long" | "short"; readonly quantity: number } | undefined;
   readonly leverage?: LeverageInvariantConfig;
   readonly logger?: Logger;
   /**
@@ -178,10 +203,24 @@ export interface OrderManagerOptions {
 export class OrderManager {
   private readonly feed: ExchangeFeed;
   private readonly getPositionContext: () => PositionSizeQuery;
+  private readonly getReduciblePosition: ((symbol: Symbol, strategy: string | undefined) => { readonly side: "long" | "short"; readonly quantity: number } | undefined) | undefined;
   private readonly leverage: LeverageInvariantConfig;
   private readonly logger: Logger;
   private readonly inFlight = new Map<ClientOrderId, Order>();
+  /** Cancel ACK is asynchronous on Bybit; retain identity for a late fill. */
+  private readonly cancelRaceOrders = new Map<ClientOrderId, Order>();
   private readonly paperMode: boolean;
+  private readonly lifecycleListeners = new Set<OrderLifecycleListener>();
+  private readonly lifecycleSubscriptions: SubscriptionId[] = [];
+  private readonly seenExecutionIds = new Set<string>();
+  /** Total quantity already exposed to lifecycle consumers (or returned filled by placeOrder). */
+  private readonly bookedCumulative = new Map<ClientOrderId, number>();
+  /** Quantity booked from order snapshots which later executions must absorb, not re-emit. */
+  private readonly snapshotRecoveryCoverage = new Map<ClientOrderId, number>();
+  /** Sum of unique private executions observed for audit/recovery correlation. */
+  private readonly executionCumulative = new Map<ClientOrderId, number>();
+  /** Bounded identity ledger so late executions can correlate after terminal order updates. */
+  private readonly knownOrders = new Map<ClientOrderId, Order>();
   private readonly counters = {
     placed: 0,
     filled: 0,
@@ -192,6 +231,7 @@ export class OrderManager {
   public constructor(opts: OrderManagerOptions) {
     this.feed = opts.feed;
     this.getPositionContext = opts.getPositionContext;
+    this.getReduciblePosition = opts.getReduciblePosition;
     this.leverage = opts.leverage ?? { maxLeverage: 10, tolerance: 1e-6, warnOnApproach: 0.95 };
     this.logger = opts.logger ?? createLogger("info");
     this.paperMode = opts.paperMode ?? false;
@@ -234,6 +274,16 @@ export class OrderManager {
         new Error("missing limit price"),
       );
     }
+    if (intent.protectiveKind !== undefined && (!Number.isFinite(intent.triggerPrice) || (intent.triggerPrice ?? 0) <= 0)) {
+      throw new OrderManagerError(`[order-manager] ${intent.protectiveKind} requires a positive triggerPrice`, new Error("invalid trigger price"));
+    }
+    const effectiveLeverage = intent.leverage ?? 1;
+    if (!Number.isFinite(effectiveLeverage) || effectiveLeverage <= 0 || effectiveLeverage > this.leverage.maxLeverage) {
+      throw new OrderManagerError(
+        `[order-manager] invalid effective leverage=${String(effectiveLeverage)} (global max=${String(this.leverage.maxLeverage)})`,
+        new Error("invalid effective leverage"),
+      );
+    }
 
     // -----------------------------------------------------------------------
     // L2: LEVERAGE INVARIANT CHECK — 2nd defense-in-depth layer.
@@ -246,8 +296,36 @@ export class OrderManager {
     // -----------------------------------------------------------------------
     const ctx = this.getPositionContext();
     const notional = intent.amount * intent.referencePrice;
+    const effectiveNotional = notional * effectiveLeverage;
     const existingNotional = ctx.positions.reduce((acc, p) => acc + Math.abs(p.effectiveNotionalUsd), 0);
-    const totalNotional = existingNotional + notional;
+    // A reduce-only order can only shrink an opposite-signed existing
+    // exposure.  It is deliberately excluded from the new-exposure cap, but
+    // still rejected if it would flip a position or has the wrong side.
+    const reducing = intent.reduceOnly === true;
+    const matchingExposure = ctx.positions
+      .filter((position) => position.symbol === String(intent.symbol))
+      .reduce((sum, position) => sum + position.effectiveNotionalUsd, 0);
+    if (reducing) {
+      const expectedSell = matchingExposure > 0;
+      const sideMatches = expectedSell ? intent.signal.side === "sell" : intent.signal.side === "buy";
+      const local = this.getReduciblePosition?.(intent.symbol, intent.strategy);
+      const exactSideMatches = local === undefined || (local.side === "long" ? intent.signal.side === "sell" : intent.signal.side === "buy");
+      const exactQuantityMatches = local === undefined || intent.amount <= local.quantity + this.leverage.tolerance;
+      // The production Bot supplies exact local position metadata.  A generic
+      // caller without it may still submit an emergency close; rejecting a
+      // hedged/net-zero symbol would be less safe than allowing the exchange
+      // reduce-only invariant to reject it.  Such callers cannot claim a
+      // confirmed local close until reconciliation succeeds.
+      if ((local !== undefined && (!exactSideMatches || !exactQuantityMatches)) ||
+        (local === undefined && matchingExposure !== 0 && !sideMatches)) {
+        this.counters.rejected++;
+        throw new OrderManagerError(
+          `[order-manager] invalid reduce-only close for ${intent.symbol}: side/quantity does not match open exposure`,
+          new Error("invalid reduce-only close"),
+        );
+      }
+    }
+    const totalNotional = reducing ? existingNotional : existingNotional + effectiveNotional;
 
     try {
       assertLeverageInvariant(totalNotional, ctx.equityUsd, this.leverage);
@@ -258,6 +336,8 @@ export class OrderManager {
         amount: intent.amount,
         referencePrice: intent.referencePrice,
         notional,
+        effectiveLeverage,
+        effectiveNotional,
         existingNotional,
         totalNotional,
         equityUsd: ctx.equityUsd,
@@ -292,8 +372,8 @@ export class OrderManager {
       type: intent.type,
       amount: intent.amount,
       ...(intent.type === "limit" ? { price: intent.limitPrice ?? intent.referencePrice } : {}),
-      ...(intent.signal.takeProfit > 0 ? { takeProfitPrice: intent.signal.takeProfit } : {}),
-      ...(intent.signal.stopLoss > 0 ? { stopLossPrice: intent.signal.stopLoss } : {}),
+      ...(reducing ? { reduceOnly: true } : {}),
+      ...(intent.protectiveKind !== undefined ? { protectiveKind: intent.protectiveKind, triggerPrice: intent.triggerPrice } : {}),
     };
 
     let order: Order;
@@ -354,6 +434,9 @@ export class OrderManager {
     }
 
     this.inFlight.set(clientOrderId, order);
+    this.bookedCumulative.set(clientOrderId, order.filled);
+    this.snapshotRecoveryCoverage.set(clientOrderId, order.filled);
+    this.rememberOrder(order);
     this.counters.placed++;
     this.logger.info("[order-manager] order placed", {
       symbol: intent.symbol,
@@ -373,8 +456,16 @@ export class OrderManager {
    */
   public async cancelOrder(clientOrderId: ClientOrderId, symbol: Symbol): Promise<Order> {
     try {
+      const prior = this.inFlight.get(clientOrderId);
       const order = await this.feed.cancelOrder(clientOrderId, symbol);
       this.inFlight.delete(clientOrderId);
+      if (prior !== undefined) {
+        this.cancelRaceOrders.set(clientOrderId, prior);
+        if (this.cancelRaceOrders.size > 1_000) {
+          const oldest = this.cancelRaceOrders.keys().next().value;
+          if (oldest !== undefined) this.cancelRaceOrders.delete(oldest);
+        }
+      }
       this.counters.cancelled++;
       this.logger.info("[order-manager] order cancelled", {
         clientOrderId,
@@ -425,6 +516,13 @@ export class OrderManager {
    * végett az OrderManager csak az adminisztrációért felel.
    */
   public recordFill(clientOrderId: ClientOrderId, updated: Order): void {
+    const prior = this.bookedCumulative.get(clientOrderId) ?? 0;
+    const cumulative = Math.max(prior, updated.filled);
+    this.bookedCumulative.set(clientOrderId, cumulative);
+    if (cumulative > prior) {
+      this.snapshotRecoveryCoverage.set(clientOrderId, (this.snapshotRecoveryCoverage.get(clientOrderId) ?? 0) + cumulative - prior);
+    }
+    this.rememberOrder(updated);
     if (this.inFlight.has(clientOrderId)) {
       this.inFlight.set(clientOrderId, updated);
       if (updated.status === "closed") {
@@ -432,6 +530,163 @@ export class OrderManager {
         this.inFlight.delete(clientOrderId);
       } else if (updated.status === "canceled") {
         this.inFlight.delete(clientOrderId);
+      }
+    }
+  }
+
+  /**
+   * Bounded REST reconciliation fallback for the private order stream.
+   * `deltaFilled` is calculated from the monotonic cumulative CCXT `filled`
+   * field, so repeated snapshots and late duplicate updates cannot book a
+   * fill twice.  Without execution IDs the delta is valued at the latest
+   * exchange cumulative average; this limitation is explicit at this boundary.
+   */
+  public async reconcileOrder(clientOrderId: ClientOrderId, symbol: Symbol): Promise<{ readonly order: Order; readonly deltaFilled: number }> {
+    const previous = this.findKnownOrder(clientOrderId);
+    let updated: Order;
+    try {
+      updated = await this.feed.fetchOrder(clientOrderId, symbol);
+    } catch (err) {
+      throw new OrderManagerError(`[order-manager] reconcile fetchOrder failed for ${clientOrderId}: ${err instanceof Error ? err.message : String(err)}`, err);
+    }
+    const { merged, deltaFilled } = this.applyOrderSnapshot(updated, previous);
+    updated = merged;
+    this.inFlight.set(clientOrderId, updated);
+    if (updated.status === "closed") {
+      this.counters.filled++;
+      this.inFlight.delete(clientOrderId);
+    } else if (updated.status === "canceled") {
+      this.counters.cancelled++;
+      this.inFlight.delete(clientOrderId);
+    }
+    return { order: updated, deltaFilled };
+  }
+
+  /** Register a consumer for normalized private order/execution progress. */
+  public onLifecycle(listener: OrderLifecycleListener): () => void {
+    this.lifecycleListeners.add(listener);
+    return () => this.lifecycleListeners.delete(listener);
+  }
+
+  /** Start authenticated WS reconciliation; REST fetchOrder stays recovery-only. */
+  public async startLifecycle(): Promise<void> {
+    if (this.paperMode || this.lifecycleSubscriptions.length > 0) return;
+    if (this.feed.subscribeOrderUpdates !== undefined) {
+      this.lifecycleSubscriptions.push(await this.feed.subscribeOrderUpdates((event) => { this.handleLifecycleFeedEvent(event); }));
+    }
+    if (this.feed.subscribeExecutions !== undefined) {
+      this.lifecycleSubscriptions.push(await this.feed.subscribeExecutions((event) => { this.handleLifecycleFeedEvent(event); }));
+    }
+  }
+
+  /** Stop/unwatch private streams before the exchange connection is closed. */
+  public async stopLifecycle(): Promise<void> {
+    const ids = this.lifecycleSubscriptions.splice(0);
+    await Promise.all(ids.map(async (id) => this.feed.unsubscribe(id)));
+  }
+
+  private handleLifecycleFeedEvent(event: FeedEvent): void {
+    if (event.kind === "order") {
+      const updated = event.payload;
+      const previous = this.findKnownOrder(updated.clientOrderId);
+      if (previous === undefined) return;
+      const { merged, deltaFilled } = this.applyOrderSnapshot(updated, previous);
+      this.updateTrackedOrder(merged);
+      this.emitLifecycle({ kind: "order", order: merged, deltaFilled });
+      return;
+    }
+    if (event.kind !== "execution") return;
+    const execution = event.payload;
+    if (this.seenExecutionIds.has(execution.executionId)) return;
+    this.seenExecutionIds.add(execution.executionId);
+    const clientOrderId = execution.clientOrderId ?? [...this.knownOrders.values()]
+      .find((order) => order.exchangeId === execution.exchangeOrderId)?.clientOrderId;
+    if (clientOrderId === undefined) return;
+    const previous = this.findKnownOrder(clientOrderId);
+    if (previous === undefined) return;
+    const prior = this.bookedCumulative.get(clientOrderId) ?? 0;
+    const recoveryCoverage = this.snapshotRecoveryCoverage.get(clientOrderId) ?? 0;
+    const absorbedByRecovery = Math.min(recoveryCoverage, execution.quantity);
+    this.snapshotRecoveryCoverage.set(clientOrderId, recoveryCoverage - absorbedByRecovery);
+    this.executionCumulative.set(clientOrderId, (this.executionCumulative.get(clientOrderId) ?? 0) + execution.quantity);
+    const deltaFilled = Math.max(0, Math.min(execution.quantity - absorbedByRecovery, previous.amount - prior));
+    const cumulative = prior + deltaFilled;
+    const previousValue = prior * (previous.average ?? execution.price);
+    const average = cumulative > 0 ? (previousValue + deltaFilled * execution.price) / cumulative : previous.average;
+    const merged: Order = {
+      ...previous,
+      filled: cumulative,
+      average,
+      status: cumulative >= previous.amount ? "closed" : previous.status === "canceled" ? "canceled" : "open",
+      updateTimestamp: execution.timestamp,
+    };
+    this.bookedCumulative.set(clientOrderId, cumulative);
+    this.updateTrackedOrder(merged);
+    this.emitLifecycle({ kind: "execution", order: merged, execution, deltaFilled });
+  }
+
+  private updateTrackedOrder(order: Order): void {
+    this.rememberOrder(order);
+    if (order.status === "open") {
+      if (this.cancelRaceOrders.has(order.clientOrderId)) this.cancelRaceOrders.set(order.clientOrderId, order);
+      else this.inFlight.set(order.clientOrderId, order);
+    } else if (order.status === "canceled" && this.cancelRaceOrders.has(order.clientOrderId)) {
+      this.cancelRaceOrders.set(order.clientOrderId, order);
+    } else {
+      this.inFlight.delete(order.clientOrderId);
+      this.cancelRaceOrders.delete(order.clientOrderId);
+    }
+  }
+
+  /**
+   * Order cumulative fill is a recovery checkpoint, never an independent fill
+   * stream.  Only the part not yet booked by executions/snapshots is emitted.
+   * If the matching execution arrives later, `snapshotRecoveryCoverage`
+   * absorbs it so order->execution and execution->order converge identically.
+   */
+  private applyOrderSnapshot(updated: Order, previous?: Order): { readonly merged: Order; readonly deltaFilled: number } {
+    const clientOrderId = updated.clientOrderId;
+    const prior = this.bookedCumulative.get(clientOrderId) ?? 0;
+    const deltaFilled = Math.max(0, Math.min(updated.filled - prior, updated.amount - prior));
+    const cumulative = prior + deltaFilled;
+    if (deltaFilled > 0) {
+      this.snapshotRecoveryCoverage.set(
+        clientOrderId,
+        (this.snapshotRecoveryCoverage.get(clientOrderId) ?? 0) + deltaFilled,
+      );
+    }
+    this.bookedCumulative.set(clientOrderId, cumulative);
+    const status = previous?.status === "closed" || updated.status === "closed" || cumulative >= updated.amount
+      ? "closed"
+      : previous?.status === "canceled" && updated.status === "open"
+        ? "canceled"
+        : updated.status;
+    const merged: Order = { ...updated, status, filled: cumulative };
+    this.rememberOrder(merged);
+    return { merged, deltaFilled };
+  }
+
+  private findKnownOrder(clientOrderId: ClientOrderId): Order | undefined {
+    return this.inFlight.get(clientOrderId) ?? this.cancelRaceOrders.get(clientOrderId) ?? this.knownOrders.get(clientOrderId);
+  }
+
+  private rememberOrder(order: Order): void {
+    this.knownOrders.delete(order.clientOrderId);
+    this.knownOrders.set(order.clientOrderId, order);
+    while (this.knownOrders.size > 5_000) {
+      const oldest = this.knownOrders.keys().next().value;
+      if (oldest === undefined) break;
+      this.knownOrders.delete(oldest);
+      this.bookedCumulative.delete(oldest);
+      this.snapshotRecoveryCoverage.delete(oldest);
+      this.executionCumulative.delete(oldest);
+    }
+  }
+
+  private emitLifecycle(event: OrderLifecycleEvent): void {
+    for (const listener of this.lifecycleListeners) {
+      try { listener(event); } catch (err) {
+        this.logger.error("[order-manager] lifecycle listener failed", { error: err instanceof Error ? err.message : String(err) });
       }
     }
   }
@@ -448,6 +703,77 @@ export class OrderManager {
    */
   public getInFlightCount(): number {
     return this.inFlight.size;
+  }
+
+  /** True only for the deterministic local paper executor. */
+  public isPaperMode(): boolean {
+    return this.paperMode;
+  }
+
+  /** Snapshot for lifecycle coordinators; exchange state remains authoritative. */
+  public getInFlightOrderIds(): readonly ClientOrderId[] {
+    return [...this.inFlight.keys()];
+  }
+
+  /**
+   * Read the venue's position state for an emergency operation.  `undefined`
+   * is never used for "no positions": it means the venue cannot authoritatively
+   * answer, and the caller must leave its emergency latch retryable.
+   */
+  public async getAuthoritativePositions(symbols?: readonly Symbol[]): Promise<readonly ExchangePosition[]> {
+    if (this.paperMode) return [];
+    if (this.feed.fetchPositions === undefined) {
+      throw new OrderManagerError("[order-manager] exchange does not expose authoritative positions", new Error("fetchPositions unavailable"));
+    }
+    try {
+      return await this.feed.fetchPositions(symbols);
+    } catch (err) {
+      throw new OrderManagerError(
+        `[order-manager] authoritative position query failed: ${err instanceof Error ? err.message : String(err)}`,
+        err,
+      );
+    }
+  }
+
+  /** Venue wallet state, used to reconcile spot inventory where positions do not exist. */
+  public async getAuthoritativeBalances(): Promise<readonly Balance[]> {
+    try {
+      return await this.feed.fetchBalances();
+    } catch (err) {
+      throw new OrderManagerError(`[order-manager] authoritative balance query failed: ${err instanceof Error ? err.message : String(err)}`, err);
+    }
+  }
+
+  /** Market metadata used to distinguish spot inventory from contracts. */
+  public async getMarketMeta(symbol: Symbol): Promise<MarketMeta> {
+    try {
+      return await this.feed.fetchMarketMeta(symbol);
+    } catch (err) {
+      throw new OrderManagerError(`[order-manager] market metadata query failed for ${symbol}: ${err instanceof Error ? err.message : String(err)}`, err);
+    }
+  }
+
+  /** Latest executable reference price for a venue-only spot emergency close. */
+  public async getTickerSnapshot(symbol: Symbol): Promise<Ticker> {
+    try {
+      return await this.feed.fetchTickerSnapshot(symbol);
+    } catch (err) {
+      throw new OrderManagerError(`[order-manager] ticker query failed for ${symbol}: ${err instanceof Error ? err.message : String(err)}`, err);
+    }
+  }
+
+  /** Cancel every locally tracked unfilled order before an emergency flatten. */
+  public async cancelTrackedOrders(preserve: ReadonlySet<ClientOrderId> = new Set()): Promise<readonly { readonly clientOrderId: ClientOrderId; readonly symbol: Symbol; readonly error?: string }[]> {
+    const tracked = [...this.inFlight.values()].filter((order) => !preserve.has(order.clientOrderId));
+    return Promise.all(tracked.map(async (order) => {
+      if (order.status !== "open") return { clientOrderId: order.clientOrderId, symbol: order.symbol };
+      try {
+        await this.cancelOrder(order.clientOrderId, order.symbol);
+        return { clientOrderId: order.clientOrderId, symbol: order.symbol };
+      } catch (err) {
+        return { clientOrderId: order.clientOrderId, symbol: order.symbol, error: err instanceof Error ? err.message : String(err) };
+      }
+    }));
   }
 
   /**

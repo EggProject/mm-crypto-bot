@@ -2,14 +2,13 @@ import React, { useCallback } from "react";
 import { useWebSocket } from "../ws-client.js";
 import { confirmKill } from "./control-helpers.js";
 import type { BotState, ControlBarAvailability } from "../lib/bot-status.js";
+import { dashboardApiUrl } from "../lib/dashboard-url.js";
 
 // The HTTP control endpoint (apps/bot/src/web-client/http-server.ts
-// `POST /api/control`). 127.0.0.1 is hard-coded — the dev workflow is
-// browser ↔ loopback. The HTTP endpoint is the canonical control
-// channel per the Phase 69 user mandate ("Wire Start/Stop/Pause/
-// Resume buttons to /api/control"); the WS CONTROL message is also
-// supported as a fallback.
-const CONTROL_URL = "http://127.0.0.1:7913/api/control" as const;
+// `POST /api/control`) uses the dashboard's current origin. The HTTP endpoint
+// is the canonical control channel per the Phase 69 user mandate; the WS
+// CONTROL message is also supported as a fallback.
+const CONTROL_URL = dashboardApiUrl("api/control");
 
 /**
  * `ControlBar` — sticky bottom bar with the 5 main control buttons.

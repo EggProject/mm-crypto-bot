@@ -179,6 +179,41 @@ describe("factory", () => {
       expect(feed).toBeInstanceOf(BybitEuFeed);
     });
 
+    it("a configból átadott rate limitet, timeoutot és REST/WS origin-eket a CCXT kliensre viszi", () => {
+      const feed = createExchangeClient({
+        override: { apiKey: "k", secret: "s" },
+        rateLimitMs: 321,
+        timeoutMs: 4_321,
+        endpoint: "https://rest.example.test",
+        wsEndpoint: "wss://stream.example.test",
+      }) as BybitEuFeed;
+      const raw = feed.raw as unknown as {
+        rateLimit: number;
+        timeout: number;
+        urls: { api: { spot: string; private: string; ws: { public: { spot: string } } } };
+      };
+      expect(raw.rateLimit).toBe(321);
+      expect(raw.timeout).toBe(4_321);
+      expect(raw.urls.api.spot).toBe("https://rest.example.test");
+      expect(raw.urls.api.private).toBe("https://rest.example.test");
+      expect(raw.urls.api.ws.public.spot).toBe("wss://stream.example.test/v5/public/spot");
+    });
+
+    it("nem ignorálja a nem támogatott sandbox + endpoint kombinációt", () => {
+      expect(() => createExchangeClient({
+        override: { apiKey: "k", secret: "s" },
+        sandbox: true,
+        endpoint: "https://rest.example.test",
+      })).toThrow(/sandbox cannot be combined/);
+    });
+
+    it("elutasítja a CCXT URL-térképet félrevezető path-os endpointot", () => {
+      expect(() => createExchangeClient({
+        override: { apiKey: "k", secret: "s" },
+        endpoint: "https://rest.example.test/v5",
+      })).toThrow(/must be an origin/);
+    });
+
     it("alapértelmezetten sandbox=false", () => {
       const feed = createExchangeClient({
         override: { apiKey: "k", secret: "s" },

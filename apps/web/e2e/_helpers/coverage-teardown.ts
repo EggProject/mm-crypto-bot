@@ -1,3 +1,4 @@
+/* eslint-disable security/detect-non-literal-fs-filename -- all paths are test-runner-owned roots */
 /**
  * apps/web/e2e/_helpers/coverage-teardown.ts
  *
@@ -64,9 +65,22 @@ const __dirname = dirname(__filename);
 // to `apps/web/`.
 const APPS_WEB = resolve(__dirname, "../..");
 const COVERAGE_DIR = resolve(APPS_WEB, "coverage/playwright");
-const COVERAGE_FINAL = resolve(COVERAGE_DIR, "coverage-final.json");
 const ACCUMULATOR_DIR = resolve(COVERAGE_DIR, "accumulators");
 const CT_NYC_OUTPUT = resolve(APPS_WEB, ".nyc_output");
+
+export interface CoveragePaths {
+  readonly appDir: string;
+  readonly coverageDir: string;
+  readonly accumulatorDir: string;
+  readonly ctNycOutput: string;
+}
+
+const DEFAULT_PATHS: CoveragePaths = {
+  appDir: APPS_WEB,
+  coverageDir: COVERAGE_DIR,
+  accumulatorDir: ACCUMULATOR_DIR,
+  ctNycOutput: CT_NYC_OUTPUT,
+};
 
 // Phase 80 (user mandate 2026-07-25): the threshold is 75/75/75
 // (lines/branches/functions). The previous higher target (80/80/80)
@@ -98,15 +112,14 @@ interface CoverageReport {
  * `createCoverageMap().merge()` so the same source file hit by
  * multiple specs gets the UNION of their branch hits.
  */
-function readAllAccumulators(): Record<string, unknown> {
-  if (!existsSync(ACCUMULATOR_DIR)) return {};
+function readAllAccumulators(paths: CoveragePaths): Record<string, unknown> {
+  if (!existsSync(paths.accumulatorDir)) return {};
   const merged = new Map<string, ReturnType<typeof createCoverageMap>>();
-  for (const file of readdirSync(ACCUMULATOR_DIR)) {
+  for (const file of readdirSync(paths.accumulatorDir)) {
     if (!file.endsWith(".json")) continue;
     try {
       const data = JSON.parse(
-        // eslint-disable-next-line security/detect-non-literal-fs-filename
-        readFileSync(resolve(ACCUMULATOR_DIR, file), "utf8"),
+        readFileSync(resolve(paths.accumulatorDir, file), "utf8"),
       ) as Record<string, unknown>;
       for (const [filePath, fileCov] of Object.entries(data)) {
         const existing = merged.get(filePath);
@@ -141,15 +154,14 @@ function readAllAccumulators(): Record<string, unknown> {
  * into the final E2E coverage map. This is the "여기어때" pattern:
  * CT + E2E merged coverage.
  */
-function readAllCtCoverageFiles(): Record<string, unknown> {
-  if (!existsSync(CT_NYC_OUTPUT)) return {};
+function readAllCtCoverageFiles(paths: CoveragePaths): Record<string, unknown> {
+  if (!existsSync(paths.ctNycOutput)) return {};
   const merged = new Map<string, ReturnType<typeof createCoverageMap>>();
-  for (const file of readdirSync(CT_NYC_OUTPUT)) {
+  for (const file of readdirSync(paths.ctNycOutput)) {
     if (!file.startsWith("playwright_ct_") || !file.endsWith(".json")) continue;
     try {
       const data = JSON.parse(
-        // eslint-disable-next-line security/detect-non-literal-fs-filename
-        readFileSync(resolve(CT_NYC_OUTPUT, file), "utf8"),
+        readFileSync(resolve(paths.ctNycOutput, file), "utf8"),
       ) as Record<string, unknown>;
       for (const [filePath, fileCov] of Object.entries(data)) {
         const existing = merged.get(filePath);
@@ -182,12 +194,25 @@ function readAllCtCoverageFiles(): Record<string, unknown> {
  * + CT data, write `coverage-final.json`, and run `nyc report` to
  * produce the lcov + json-summary + html reports.
  */
-function buildReport(): CoverageReport {
-  mkdirSync(COVERAGE_DIR, { recursive: true });
+export function assertCoverageInputs(
+  e2eData: Record<string, unknown>,
+  ctData: Record<string, unknown>,
+): void {
+  if (Object.keys(e2eData).length === 0 && Object.keys(ctData).length === 0) {
+    throw new Error(
+      "No fresh CT or E2E coverage accumulators were collected; refusing to use stale merged output.",
+    );
+  }
+}
+
+export function buildReport(paths: CoveragePaths = DEFAULT_PATHS): CoverageReport {
+  mkdirSync(paths.coverageDir, { recursive: true });
   // Build a base map from the e2e accumulators. With `globalTeardown`
   // running after every spec's `afterAll`, every spec's data is on
   // disk by now — no partial-state ordering issue.
-  const externalData = readAllAccumulators();
+  const externalData = readAllAccumulators(paths);
+  const ctExternalData = readAllCtCoverageFiles(paths);
+  assertCoverageInputs(externalData, ctExternalData);
   if (Object.keys(externalData).length === 0) {
     throw new Error(
       "No coverage data collected — `accumulators/` is empty. " +
@@ -197,32 +222,33 @@ function buildReport(): CoverageReport {
   }
   const baseMap = createCoverageMap(externalData);
   // Merge in the CT data.
-  const ctExternalData = readAllCtCoverageFiles();
   if (Object.keys(ctExternalData).length > 0) {
     const ctMap = createCoverageMap(ctExternalData);
     baseMap.merge(ctMap);
   }
-  writeFileSync(COVERAGE_FINAL, JSON.stringify(baseMap, null, 2), "utf8");
-  const reportDir = resolve(COVERAGE_DIR, "report");
+  const coverageFinal = resolve(paths.coverageDir, "coverage-final.json");
+  writeFileSync(coverageFinal, JSON.stringify(baseMap, null, 2), "utf8");
+  const reportDir = resolve(paths.coverageDir, "report");
   try {
     execFileSync(
       "npx",
       [
         "nyc",
         "report",
-        `--temp-dir=${COVERAGE_DIR}`,
+        `--temp-dir=${paths.coverageDir}`,
         `--report-dir=${reportDir}`,
         "--reporter=lcov",
         "--reporter=json-summary",
         "--reporter=text",
         "--reporter=html",
       ],
-      { cwd: APPS_WEB, stdio: "pipe" },
+      { cwd: paths.appDir, stdio: "pipe" },
     );
   } catch (e) {
-    const err = e as { stdout?: Buffer; stderr?: Buffer };
+    const err = e as { message?: string; status?: number; stdout?: Buffer; stderr?: Buffer };
     throw new Error(
-      `nyc report failed:\nSTDOUT:\n${err.stdout?.toString() ?? ""}\n` +
+      `nyc report failed (status ${String(err.status)}): ${err.message ?? ""}\n` +
+        `STDOUT:\n${err.stdout?.toString() ?? ""}\n` +
         `STDERR:\n${err.stderr?.toString() ?? ""}`,
       // eslint-disable-next-line preserve-caught-error
       { cause: err },
@@ -249,16 +275,19 @@ function buildReport(): CoverageReport {
  * user-mandated thresholds (75/75/75). Throws on below-threshold;
  * logs the ✓ Coverage OK line on success.
  */
-function checkThresholds(report: CoverageReport): void {
+export function checkThresholds(
+  report: CoverageReport,
+  paths: CoveragePaths = DEFAULT_PATHS,
+): void {
   const args = [
     "check-coverage",
     `--lines=${COVERAGE_THRESHOLDS.lines}`,
     `--branches=${COVERAGE_THRESHOLDS.branches}`,
     `--functions=${COVERAGE_THRESHOLDS.functions}`,
-    `--temp-dir=${COVERAGE_DIR}`,
+    `--temp-dir=${paths.coverageDir}`,
   ];
   try {
-    execFileSync("npx", ["nyc", ...args], { cwd: APPS_WEB, stdio: "pipe" });
+    execFileSync("npx", ["nyc", ...args], { cwd: paths.appDir, stdio: "pipe" });
     console.log(
       `\n✓ Coverage OK: ${report.lines.toFixed(2)}% lines / ` +
         `${report.branches.toFixed(2)}% branches / ` +
@@ -290,16 +319,6 @@ function checkThresholds(report: CoverageReport): void {
  */
 // eslint-disable-next-line @typescript-eslint/require-await
 export default async function globalTeardown(): Promise<void> {
-  if (!existsSync(ACCUMULATOR_DIR) && !existsSync(CT_NYC_OUTPUT)) {
-    // No coverage data at all — most likely a misconfigured run.
-    // Skip the threshold check rather than fail spuriously; CI
-    // gates will catch the missing data via the report artifact
-    // upload step.
-    console.log(
-      "[globalTeardown] No coverage data on disk — skipping threshold check.",
-    );
-    return;
-  }
   const report = buildReport();
   checkThresholds(report);
 }

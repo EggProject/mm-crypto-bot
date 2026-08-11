@@ -2,7 +2,7 @@
  * apps/web/src/ws-client.ts
  *
  * Phase 47C: WebSocket client for the apps/web/ frontend. Connects to the
- * `mm-bot web` server on ws://127.0.0.1:7913/ws. Handles JSON messages
+ * `mm-bot web` server on the page's same-origin WebSocket endpoint. Handles JSON messages
  * from the server (snapshot / tick / bar / indicator / marker / state /
  * error / ping) and exposes a useWebSocket() hook for React.
  *
@@ -41,6 +41,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { RealtimeBatcher } from "./lib/realtime-batcher.js";
+import { dashboardWebSocketUrl } from "./lib/dashboard-url.js";
 import {
   buildPongPayload,
   DEFAULT_BACKOFF_SEQUENCE_MS,
@@ -141,7 +142,7 @@ export interface WebSocketState {
 const DEFAULT_URL =
   typeof import.meta.env.VITE_WS_URL === "string" && import.meta.env.VITE_WS_URL.length > 0
     ? import.meta.env.VITE_WS_URL
-    : "ws://127.0.0.1:7913/ws";
+    : dashboardWebSocketUrl();
 
 // =============================================================================
 // Re-exports of the pure helpers + reducer (Phase 53C / 54B / 56A / 58)

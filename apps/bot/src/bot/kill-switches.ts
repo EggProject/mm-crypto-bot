@@ -323,6 +323,23 @@ export class KillSwitchRegistry {
   }
 
   /**
+   * Feed an equity observation to all drawdown switches.  The registry owns
+   * the concrete switches, so this avoids callers depending on their order or
+   * reaching into private state.
+   */
+  public updateEquity(equity: number): void {
+    if (!Number.isFinite(equity) || equity < 0) {
+      this.logger.warn("[kill-switches] ignoring invalid equity observation", { equity });
+      return;
+    }
+    for (const sw of this.switches) {
+      if (sw instanceof MaxDrawdownKillSwitch) {
+        sw.updateEquity(equity);
+      }
+    }
+  }
+
+  /**
    * `evaluate` — kiértékeli az összes kapcsolót. Ha bármelyik tüzel,
    * a callback-ek hívódnak. A `firedOnce` biztosítja, hogy egy
    * tüzelés csak egyszer aktiválódjon (a Bot run-loopja a `stop()`

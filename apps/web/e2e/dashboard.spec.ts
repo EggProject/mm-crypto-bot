@@ -586,17 +586,17 @@ test.describe("apps/web dashboard e2e", () => {
   }) => {
     await gotoApp(page);
 
-    // The default state is "live" (the WS is connected, the
-    // snapshot was received). The feed indicator is a span with
-    // `data-feed-state` set.
-    const feeds = page.locator(".ep-feed");
-    const count = await feeds.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      const feed = feeds.nth(i);
-      await expect(feed).toHaveAttribute("data-feed-state", "live");
-      await expect(feed).toContainText("Live");
-    }
+    // The MSW strategy renders exactly two ChartCard-owned feeds. Use a
+    // web-first locator assertion: the websocket can be connected before
+    // React finishes the REST-backed ChartGrid commit.
+    const liveFeeds = page.locator(
+      '.line-chart-wrapper .ep-feed[data-feed-state="live"]',
+    );
+    await expect(liveFeeds).toHaveCount(2);
+    await expect(liveFeeds.locator(".ep-feed__label")).toHaveText([
+      "Live",
+      "Live",
+    ]);
   });
 
   test("09 — sticky control bar is pinned to the bottom of the viewport", async ({

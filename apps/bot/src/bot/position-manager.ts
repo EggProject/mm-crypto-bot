@@ -696,16 +696,16 @@ export class PositionManager {
           const atrProxy = record.quantity > 0
             ? (record.notionalUsd / record.quantity) * 0.01
             : record.entryPrice * 0.01;
-          const decision = this.riskManager.onTick({
+          this.riskManager.onTick({
             positionId: record.id,
             side: record.side,
             currentPrice: price,
             atr: atrProxy,
           });
-          if (decision.kind === "close") {
-            this.closePosition(record.strategy, record.symbol, decision.closePrice);
-            this.riskManager.disarmTrailingStop(record.id);
-          }
+          // A trailing decision is an intent, not an exchange fill.  The
+          // RiskManager callback is wired by StrategyRunner to an async
+          // reduce-only order lifecycle.  Local exposure remains intact until
+          // a confirmed execution is booked through recordFill().
         }
       }
     }
@@ -734,6 +734,21 @@ export class PositionManager {
     const id = this.positionId(strategy, symbol, side);
     const record = this.positions.get(id);
     return record === undefined ? undefined : { ...record };
+  }
+
+  /**
+   * Removes a local-only record after the authoritative venue confirms that
+   * no such exposure exists.  This is deliberately not a synthetic fill: no
+   * P&L is invented and the incident remains observable in logs/telemetry.
+   */
+  public reconcileVenueAbsent(id: string): boolean {
+    const position = this.positions.get(id);
+    if (position === undefined) return false;
+    this.positions.delete(id);
+    this.logger.error("[position-manager] local position quarantined — absent on venue", {
+      strategy: position.strategy, symbol: String(position.symbol), side: position.side, quantity: position.quantity,
+    });
+    return true;
   }
 
   /**

@@ -44,7 +44,7 @@
  * A `Bot` mindhármat inicializálja és futtatja.
  */
 
-import type { ExchangeFeed, FeedEvent, Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
+import type { ExchangeFeed, ExchangePosition, FeedEvent, Symbol as ExchangeSymbol, Timeframe } from "@mm-crypto-bot/exchange";
 import {
   createExchangeClient,
   asSymbol,
@@ -53,8 +53,8 @@ import type { DydxFundingSource } from "@mm-crypto-bot/core";
 import type { Logger } from "@mm-crypto-bot/shared";
 import { createLogger } from "@mm-crypto-bot/shared";
 
-import { createStrategyInstances } from "../config/strategy-registry.js";
-import type { BotConfig } from "../config/schema.js";
+import { createStrategyInstances, type BotStrategyInstance } from "../config/strategy-registry.js";
+import type { BotConfig, StrategyName } from "../config/schema.js";
 import {
   CorrelationMatrix,
   PortfolioManager,
@@ -75,6 +75,15 @@ import {
   defaultSizingFn,
   type StrategyRunnerOptions,
 } from "./strategy-runner.js";
+import { RiskManager } from "../risk/index.js";
+
+const SUPPORTED_TIMEFRAMES: ReadonlySet<string> = new Set([
+  "1m", "5m", "15m", "1h", "4h", "1d",
+]);
+
+function isSupportedTimeframe(value: string): value is Timeframe {
+  return SUPPORTED_TIMEFRAMES.has(value);
+}
 
 // ============================================================================
 // Public types
@@ -151,10 +160,19 @@ export class Bot {
   private telemetry: Telemetry | null = null;
   private killSwitches: KillSwitchRegistry | null = null;
   private runner: StrategyRunner | null = null;
+  private riskManager: RiskManager | null = null;
+  private strategyInstances: ReadonlyMap<StrategyName, BotStrategyInstance> | null = null;
   // Phase 66: state-feed handle set externally by `start.ts` BEFORE `bot.start()`.
   // The `run()` OHLCV/ticker callback publishes bars + tickers here.
   // Without this, the web client dashboard shows "No charts configured".
   private stateFeed: StateFeedHandle | null = null;
+  /**
+   * Readiness listeners are notified exactly after critical initialization
+   * succeeds and immediately before the long-lived market-data run loop.
+   * The CLI uses this boundary to publish `running`; `start()` itself does
+   * not resolve until shutdown, so it is not a readiness signal.
+   */
+  private readonly initializedListeners = new Set<() => void>();
   // Phase 37 Track 4 — portfolió-koordináció.
   private riskBudget: RiskBudgetAllocator | null = null;
   private correlation: CorrelationMatrix | null = null;
@@ -164,6 +182,12 @@ export class Bot {
   private startedAt = 0;
   private stopRequested = false;
   private running = false;
+  private stopping = false;
+  private paused = false;
+  /** A kill latch blocks all new signal handling before shutdown begins. */
+  private killSwitchEngaged = false;
+  /** Single Bot-owned emergency workflow shared by every trigger source. */
+  private emergencyPromise: Promise<void> | null = null;
   private readonly feedSubscriptions: number[] = [];
   private stateSaveInterval: ReturnType<typeof setInterval> | null = null;
   private killSwitchInterval: ReturnType<typeof setInterval> | null = null;
@@ -183,6 +207,8 @@ export class Bot {
   private readonly stateSaveIntervalMs: number;
   private readonly killSwitchEvalIntervalMs: number;
   private readonly heartbeatIntervalMs: number;
+  private authoritativeEquityUsd: number | null = null;
+  private authorityReconciliationInFlight = false;
   private readonly telemetryMetricsIntervalSec: number;
 
   public constructor(options: BotOptions) {
@@ -208,6 +234,10 @@ export class Bot {
       throw new Error("[bot] already running");
     }
     this.stopRequested = false;
+    this.stopping = false;
+    this.paused = false;
+    this.killSwitchEngaged = false;
+    this.emergencyPromise = null;
     this.running = true;
     this.startedAt = Date.now();
     this.logger.info("[bot] starting", {
@@ -217,8 +247,40 @@ export class Bot {
         .filter(([_, s]) => s.enabled)
         .map(([k]) => k),
     });
-    await this.init();
-    await this.run();
+    try {
+      await this.init();
+      this.notifyInitialized();
+      await this.run();
+    } catch (err) {
+      // A failed initialization used to leave `running=true` and partially
+      // constructed timers/feed resources behind.  Treat start as a
+      // transaction: either the ready boundary is reached, or all resources
+      // created so far are released and the next attempt begins cleanly.
+      this.stopRequested = true;
+      this.running = false;
+      try {
+        await this.cleanup();
+      } catch (cleanupErr) {
+        this.logger.warn("[bot] startup rollback cleanup failed", {
+          error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+        });
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Subscribe to the one-shot readiness boundary of the current or a future
+   * start attempt.  A listener is deliberately invoked synchronously: the
+   * caller can publish a coherent external state before `run()` accepts its
+   * first market-data event.  Listener failures abort startup and therefore
+   * receive the same rollback guarantees as any other initialization failure.
+   */
+  public onInitialized(listener: () => void): () => void {
+    this.initializedListeners.add(listener);
+    return () => {
+      this.initializedListeners.delete(listener);
+    };
   }
 
   /**
@@ -230,7 +292,8 @@ export class Bot {
    *   - leállítja a Telemetry intervalt.
    */
   public async stop(): Promise<void> {
-    if (!this.running) return;
+    if (!this.running || this.stopping) return;
+    this.stopping = true;
     this.stopRequested = true;
     this.logger.info("[bot] stopping — graceful shutdown requested");
     // Wait briefly for the run-loop to exit. The run() finally block
@@ -249,6 +312,41 @@ export class Bot {
       this.running = false;
     }
     await this.cleanup();
+  }
+
+  /**
+   * Pause only the trading engine. Market-data subscriptions remain open so
+   * the dashboard stays current, but the runner rejects both newly received
+   * events and any signal that reaches the order-emission boundary after the
+   * pause has been requested.
+   */
+  public pause(): void {
+    if (this.killSwitchEngaged) {
+      this.logger.warn("[bot] pause requested after kill-switch — engine remains latched");
+      return;
+    }
+    this.paused = true;
+    this.runner?.pause();
+    this.logger.info("[bot] trading engine paused");
+  }
+
+  /** Resume processing after an operator pause. A kill-switch latch cannot be resumed. */
+  public resume(): void {
+    if (this.killSwitchEngaged) {
+      this.logger.warn("[bot] resume rejected — kill-switch is engaged");
+      return;
+    }
+    this.paused = false;
+    this.runner?.resume();
+    this.logger.info("[bot] trading engine resumed");
+  }
+
+  public isPaused(): boolean {
+    return this.paused;
+  }
+
+  public isKillSwitchEngaged(): boolean {
+    return this.killSwitchEngaged;
   }
 
   /**
@@ -357,6 +455,13 @@ export class Bot {
     }
   }
 
+  /** Notify the startup-ready boundary without retaining stale listeners. */
+  private notifyInitialized(): void {
+    for (const listener of [...this.initializedListeners]) {
+      listener();
+    }
+  }
+
   // --------------------------------------------------------------------------
   // Internals
   // --------------------------------------------------------------------------
@@ -368,9 +473,10 @@ export class Bot {
     // Detect once at the top — used by the feed-init branch AND the
     // balances branch below. Paper mode without credentials is supported
     // (real bybit.eu market data, but no private endpoints).
-    const hasCreds =
-      typeof process.env["BYBIT_API_KEY"] === "string" &&
-      process.env["BYBIT_API_KEY"].length > 0;
+    const apiKey = process.env["BYBIT_API_KEY"]?.trim();
+    const apiSecret = process.env["BYBIT_API_SECRET"]?.trim();
+    const hasCreds = apiKey !== undefined && apiKey.length > 0 &&
+      apiSecret !== undefined && apiSecret.length > 0;
 
     // -----------------------------------------------------------------------
     // 1) Exchange feed
@@ -408,9 +514,20 @@ export class Bot {
       if (this.config.bot.mode === "paper" && !hasCreds) {
         this.feed = createExchangeClient({
           override: { apiKey: "", secret: "" },
+          rateLimitMs: this.config.exchange.rate_limit_ms,
+          sandbox: this.config.exchange.sandbox,
+          timeoutMs: this.config.exchange.timeout_ms,
+          ...(this.config.exchange.endpoint !== undefined ? { endpoint: this.config.exchange.endpoint } : {}),
+          ...(this.config.exchange.ws_endpoint !== undefined ? { wsEndpoint: this.config.exchange.ws_endpoint } : {}),
         });
       } else {
-        this.feed = createExchangeClient({});
+        this.feed = createExchangeClient({
+          rateLimitMs: this.config.exchange.rate_limit_ms,
+          sandbox: this.config.exchange.sandbox,
+          timeoutMs: this.config.exchange.timeout_ms,
+          ...(this.config.exchange.endpoint !== undefined ? { endpoint: this.config.exchange.endpoint } : {}),
+          ...(this.config.exchange.ws_endpoint !== undefined ? { wsEndpoint: this.config.exchange.ws_endpoint } : {}),
+        });
       }
     }
     await this.feed.open();
@@ -442,8 +559,41 @@ export class Bot {
       initialEquityUsd: initialEquity,
       maxPositions: this.config.risk.max_positions,
       maxLeverage: this.config.risk.max_leverage,
+      leverageConfig: {
+        maxLeverage: this.config.risk.max_leverage,
+        tolerance: 1e-6,
+        warnOnApproach: 0.95,
+      },
       logger: this.logger,
     });
+
+    // All adaptive-risk modules remain disabled by their schema defaults, so
+    // attaching this sidecar preserves legacy sizing when the user has not
+    // opted in.  When enabled, both the runner and PositionManager observe
+    // the same instance (Kelly/drawdown sizing + trailing-stop lifecycle).
+    this.riskManager = new RiskManager({
+      trailingStop: {
+        enabled: this.config.risk.trailing_stop.enabled,
+        atrPeriod: this.config.risk.trailing_stop.atr_period,
+        atrMultiplier: this.config.risk.trailing_stop.atr_multiplier,
+        side: this.config.risk.trailing_stop.side,
+      },
+      kelly: {
+        enabled: this.config.risk.kelly.enabled,
+        fraction: this.config.risk.kelly.fraction,
+        windowSize: this.config.risk.kelly.window_size,
+        minTrades: this.config.risk.kelly.min_trades,
+        fallbackFraction: this.config.risk.kelly.fallback_fraction,
+        maxFraction: this.config.risk.max_position_fraction,
+      },
+      drawdownScaler: {
+        enabled: this.config.risk.drawdown_scaler.enabled,
+        maxDdPct: this.config.risk.drawdown_scaler.max_dd_pct,
+        initialEquity,
+      },
+      logger: this.logger,
+    });
+    this.positionManager.setRiskManager(this.riskManager);
 
     // -----------------------------------------------------------------------
     // 4) StateStore
@@ -533,6 +683,15 @@ export class Bot {
     this.orderManager = new OrderManager({
       feed: this.feed,
       getPositionContext: () => positionManager.getPositionContext(),
+      getReduciblePosition: (symbol, strategy) => {
+        const position = positionManager.getPositions().find((item) => item.symbol === symbol && (strategy === undefined || item.strategy === strategy));
+        return position === undefined ? undefined : { side: position.side, quantity: position.quantity };
+      },
+      leverage: {
+        maxLeverage: this.config.risk.max_leverage,
+        tolerance: 1e-6,
+        warnOnApproach: 0.95,
+      },
       logger: this.logger,
       // Phase 66: paper mode skips the real feed.placeOrder (which needs
       // bybit.eu API credentials) and simulates a filled order locally.
@@ -570,6 +729,7 @@ export class Bot {
     const instances = createStrategyInstances(this.config, {
       ...(this.fundingSource !== null ? { dydxFundingSource: this.fundingSource } : {}),
     });
+    this.strategyInstances = instances;
     this.logger.info("[bot] strategy instances created", {
       count: instances.size,
       names: [...instances.keys()],
@@ -604,6 +764,8 @@ export class Bot {
       portfolioStop: this.portfolioStop,
       positionManager: this.positionManager,
       orderManager: this.orderManager,
+      requireAuthoritativeEmergencyState: this.config.bot.mode === "live",
+      configuredSymbols: this.config.symbols.enabled,
       logger: this.logger,
     });
     // Az aktív stratégiák büdzsé-konfigurációjának regisztrálása
@@ -637,9 +799,27 @@ export class Bot {
       positionManager: this.positionManager,
       sizingFn: this.options.sizingFn ?? defaultSizingFn,
       enabledSymbols: this.config.symbols.enabled,
+      riskPerTrade: this.config.risk.risk_per_trade,
+      maxLeverage: this.config.risk.max_leverage,
+      strategyPolicies: new Map(
+        Object.entries(this.config.strategies)
+          .filter(([, section]) => section.enabled)
+          .map(([name, section]) => [name as StrategyName, {
+            ...(section.symbols !== undefined ? { symbols: section.symbols } : {}),
+            ...(section.risk_per_trade !== undefined ? { riskPerTrade: section.risk_per_trade } : {}),
+            ...(section.max_positions !== undefined ? { maxPositions: section.max_positions } : {}),
+            ...(section.leverage !== undefined ? { leverage: section.leverage } : {}),
+          }]),
+      ),
+      riskManager: this.riskManager,
       portfolioManager: this.portfolioManager,
+      onEmergency: (reason) => this.engageEmergency(reason),
       logger: this.logger,
     });
+    // Authenticated private order/execution streams are the primary source of
+    // fill progress.  They are started after all lifecycle consumers exist,
+    // and remain alive through emergency close coordination.
+    await this.orderManager.startLifecycle();
 
     // -----------------------------------------------------------------------
     // 8) KillSwitchRegistry
@@ -653,9 +833,8 @@ export class Bot {
         : {}),
       logger: this.logger,
     });
-    this.killSwitches.onTrigger(async () => {
-      this.logger.error("[bot] kill-switch triggered — stopping bot");
-      await this.stop();
+    this.killSwitches.onTrigger(async (snapshot) => {
+      await this.engageEmergency(`kill-switch: ${snapshot.reasons.join(", ")}`);
     });
 
     // -----------------------------------------------------------------------
@@ -679,6 +858,7 @@ export class Bot {
     }, this.stateSaveIntervalMs);
     this.killSwitchInterval = setInterval(() => {
       if (this.killSwitches !== null && this.telemetry !== null) {
+        this.observeEquity();
         const snap = this.killSwitches.evaluate();
         this.telemetry.setEngaged(snap.engaged, snap.reasons);
       }
@@ -694,10 +874,12 @@ export class Bot {
       throw new Error("[bot] init() must be called before run()");
     }
 
-    // Subscribe to all enabled symbols (ticker + OHLCV per timeframe).
-    // Phase 66: the web dashboard's chart grid needs historical OHLC bars
-    // to render; the ticker alone is not enough.
-    const timeframes: readonly ("1h" | "4h" | "1d")[] = ["1h", "4h", "1d"];
+    // Subscribe to all enabled symbols (ticker + OHLCV per timeframe). The
+    // dashboard needs the standard chart bars, while strategies need their
+    // own configured/native timeframes (notably Donchian's 15m LTF).  Build
+    // a per-symbol set so overlapping strategy configs never create duplicate
+    // CCXT subscriptions.
+    const timeframesBySymbol = this.subscriptionTimeframesBySymbol();
     for (const symbol of this.config.symbols.enabled) {
       const exchangeSymbol = asSymbol(symbol);
       // Ticker (real-time price)
@@ -728,8 +910,8 @@ export class Bot {
       this.feedSubscriptions.push(tickerSub);
       this.logger.info("[bot] subscribed to ticker", { symbol });
 
-      // OHLCV per timeframe (chart bars)
-      for (const timeframe of timeframes) {
+      // OHLCV per timeframe (chart bars + enabled strategy requirements)
+      for (const timeframe of timeframesBySymbol.get(symbol) ?? []) {
         try {
           const ohlcvSub = await this.feed.subscribeOhlcv(
             exchangeSymbol,
@@ -791,26 +973,7 @@ export class Bot {
     // Periodic kill-switch evaluation (heartbeat — in addition to the
     // 5s interval from init). Configurable via BotOptions for tests.
     const heartbeat = setInterval(() => {
-      if (this.killSwitches !== null && this.telemetry !== null) {
-        const snap = this.killSwitches.evaluate();
-        this.telemetry.setEngaged(snap.engaged, snap.reasons);
-        if (snap.engaged) {
-          void this.stop();
-        }
-      }
-      // Phase 37 Track 4 — portfolio-stop check + equity update. A
-      // `recordEquity` a PortfolioStop-on keresztül tüzelhet, ami
-      // a `PortfolioManager.executeCloseAll`-ját hívja (a trip-action
-      // a konstruktorban van ráhúzva). Ha a stop tüzelt, a botot is
-      // leállítjuk, hogy a user felülvizsgálhassa a helyzetet.
-      if (this.portfolioManager !== null) {
-        const equity = this.positionManager?.getEquity() ?? 0;
-        this.portfolioManager.recordEquity(equity);
-        if (this.portfolioManager.isTripped()) {
-          this.logger.error("[bot] portfolio-stop tripped — stopping bot");
-          void this.stop();
-        }
-      }
+      void this.runHeartbeat();
     }, this.heartbeatIntervalMs);
 
     try {
@@ -825,6 +988,96 @@ export class Bot {
       // to cleanup without deadlock.
       this.running = false;
     }
+  }
+
+  /** One ordered heartbeat: venue reconciliation must precede risk decisions. */
+  private async runHeartbeat(): Promise<void> {
+      await this.reconcileAuthoritativeEquity();
+      if (this.killSwitches !== null && this.telemetry !== null) {
+        this.observeEquity(this.authoritativeEquityUsd ?? undefined);
+        const snap = this.killSwitches.evaluate();
+        this.telemetry.setEngaged(snap.engaged, snap.reasons);
+        if (snap.engaged) {
+          await this.engageEmergency(`registry: ${snap.reasons.join(", ")}`);
+        }
+      }
+      // Phase 37 Track 4 — portfolio-stop check + equity update. A
+      // `recordEquity` a PortfolioStop-on keresztül tüzelhet, ami
+      // a `PortfolioManager.executeCloseAll`-ját hívja (a trip-action
+      // a konstruktorban van ráhúzva). Ha a stop tüzelt, a botot is
+      // leállítjuk, hogy a user felülvizsgálhassa a helyzetet.
+      if (this.portfolioManager !== null) {
+        const equity = this.authoritativeEquityUsd ?? this.positionManager?.getEquity() ?? 0;
+        this.portfolioManager.recordEquity(equity);
+        if (this.portfolioManager.isTripped()) {
+          await this.engageEmergency("portfolio-stop");
+        }
+      }
+  }
+
+  /** Latch, join and settle one emergency close attempt while feeds stay live. */
+  private async engageEmergency(reason: string): Promise<void> {
+    if (this.emergencyPromise !== null) return this.emergencyPromise;
+    this.killSwitchEngaged = true;
+    this.paused = true;
+    this.runner?.pause();
+    this.emergencyPromise = (async () => {
+      this.logger.error("[bot] emergency coordinator engaged", { reason });
+      const report = await this.portfolioManager?.executeCloseAll();
+      const unresolved = report?.unresolved ?? ["portfolio manager unavailable"];
+      this.logger.error("[bot] emergency close report", {
+        closed: report?.closed ?? [], unresolved, cancelledOrders: report?.cancelledOrders ?? [],
+      });
+      // Never tear down private reconciliation while an acknowledged close is
+      // unresolved. A later heartbeat/trigger retries only after this joined
+      // workflow releases.
+      if (unresolved.length === 0) await this.stop();
+    })().finally(() => { this.emergencyPromise = null; });
+    return this.emergencyPromise;
+  }
+
+  /**
+   * Resolve the OHLCV subscriptions required for each active symbol.
+   *
+   * The historical 1h/4h/1d dashboard series are retained.  For every
+   * enabled strategy we additionally include its constructed strategy-native
+   * timeframes and its TOML `htf`/`mtf`/`ltf` overrides.  A strategy that
+   * declares `symbols` only contributes to the intersection with the bot's
+   * enabled symbols; otherwise it applies to all active symbols.
+   */
+  private subscriptionTimeframesBySymbol(): ReadonlyMap<string, readonly Timeframe[]> {
+    const chartTimeframes: readonly Timeframe[] = ["1h", "4h", "1d"];
+    const bySymbol = new Map<string, Set<Timeframe>>();
+    for (const symbol of this.config.symbols.enabled) {
+      bySymbol.set(symbol, new Set(chartTimeframes));
+    }
+    const add = (symbol: string, timeframe: string): void => {
+      if (!isSupportedTimeframe(timeframe)) return;
+      bySymbol.get(symbol)?.add(timeframe);
+    };
+    for (const [name, section] of Object.entries(this.config.strategies) as [StrategyName, BotConfig["strategies"][StrategyName]][]) {
+      if (!section.enabled) continue;
+      const configuredSymbols = section.symbols?.filter((symbol) => bySymbol.has(symbol)) ?? this.config.symbols.enabled;
+      const configuredTimeframes = [
+        section.timeframes?.htf,
+        section.timeframes?.mtf,
+        section.timeframes?.ltf,
+      ];
+      for (const symbol of configuredSymbols) {
+        for (const timeframe of configuredTimeframes) {
+          if (timeframe !== undefined) add(symbol, timeframe);
+        }
+      }
+      const instance = this.strategyInstances?.get(name);
+      if (instance?.kind === "strategy") {
+        for (const symbol of configuredSymbols) {
+          for (const timeframe of instance.instance.timeframes) {
+            add(symbol, timeframe);
+          }
+        }
+      }
+    }
+    return new Map([...bySymbol].map(([symbol, timeframes]) => [symbol, [...timeframes]]));
   }
 
   /**
@@ -842,6 +1095,12 @@ export class Bot {
     if (this.telemetry !== null) {
       this.telemetry.stop();
     }
+    try {
+      await this.orderManager?.stopLifecycle();
+    } catch (err) {
+      this.logger.warn("[bot] private lifecycle cleanup failed", { error: err instanceof Error ? err.message : String(err) });
+    }
+    this.runner?.dispose();
     if (this.stateStore !== null) {
       try {
         this.stateStore.flush(this.getState());
@@ -872,6 +1131,65 @@ export class Bot {
     this.logger.info("[bot] stopped", {
       uptime: formatUptime(Date.now() - this.startedAt),
     });
+  }
+
+  /**
+   * The PositionManager is the runtime equity projection fed by every price
+   * and fill event.  Forward every observation to both drawdown consumers;
+   * previously the MaxDrawdownKillSwitch kept its initial value forever.
+   *
+   * Exchange fill/balance reconciliation may refine this projection, but it
+   * must call this same method only after an authoritative update has been
+   * confirmed.  This deliberately never marks a position closed itself.
+   */
+  private observeEquity(authoritativeEquityUsd?: number): void {
+    if (this.positionManager === null) return;
+    const equity = authoritativeEquityUsd ?? this.positionManager.getEquity();
+    this.killSwitches?.updateEquity(equity);
+    this.riskManager?.onEquityUpdate(equity);
+  }
+
+  /**
+   * Live reconciliation values the venue balance, spot inventory, and
+   * derivative UPL without adding derivative notional (which would double
+   * count collateral).  A failed query leaves the previous observation intact.
+   */
+  private async reconcileAuthoritativeEquity(): Promise<void> {
+    if (this.config.bot.mode !== "live" || this.feed === null || this.authorityReconciliationInFlight) return;
+    this.authorityReconciliationInFlight = true;
+    try {
+      const balances = await this.feed.fetchBalances();
+      let equity = balances.find((balance) => balance.currency === "USDC")?.total ?? 0;
+      let derivativePositions: readonly ExchangePosition[] = [];
+      if (this.feed.fetchPositions !== undefined) {
+        try {
+          derivativePositions = await this.feed.fetchPositions(this.config.symbols.enabled as never);
+        } catch {
+          // Spot categories correctly reject fetchPositions; balances below
+          // are then the authoritative inventory source.
+        }
+      }
+      // Contract notional is deliberately excluded: wallet collateral already
+      // represents it, so only UPL changes account equity.  Spot inventory is
+      // valued independently, including in mixed spot/derivative accounts.
+      equity += derivativePositions.reduce((sum, position) => sum + (position.unrealizedPnl ?? 0), 0);
+      for (const symbolText of this.config.symbols.enabled) {
+        const market = await this.feed.fetchMarketMeta(asSymbol(symbolText));
+        if (market.isSpot !== true || market.base === "USDC") continue;
+        const amount = balances.find((balance) => balance.currency === market.base)?.total ?? 0;
+        if (amount <= 0) continue;
+        const ticker = await this.feed.fetchTickerSnapshot(asSymbol(symbolText));
+        equity += amount * ticker.last;
+      }
+      if (Number.isFinite(equity) && equity > 0) {
+        this.authoritativeEquityUsd = equity;
+        this.observeEquity(equity);
+      }
+    } catch (err) {
+      this.logger.warn("[bot] authoritative equity reconciliation failed", { error: err instanceof Error ? err.message : String(err) });
+    } finally {
+      this.authorityReconciliationInFlight = false;
+    }
   }
 
   /**

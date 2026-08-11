@@ -105,6 +105,73 @@ export function aggregateToTimeframe(
 }
 
 /**
+ * Produces only complete, gap-free target-timeframe candles from LTF data.
+ *
+ * `Candle.timestamp` is the opening time.  A target candle is therefore
+ * usable only when every constituent LTF candle exists and its close has
+ * occurred.  The public `aggregateToTimeframe` helper intentionally keeps
+ * its historical "include the final partial bucket" behaviour for display
+ * use; the trading engine must use this stricter variant instead.
+ */
+function aggregateCompleteToTimeframe(
+  ltfCandles: readonly Candle[],
+  ltfMs: number,
+  targetMs: number,
+): readonly Candle[] {
+  if (targetMs < ltfMs || targetMs % ltfMs !== 0) {
+    throw new Error("HTF and MTF timeframes must be whole multiples of the LTF timeframe");
+  }
+
+  const expectedCount = targetMs / ltfMs;
+  const byBucket = new Map<number, Candle[]>();
+  for (const candle of ltfCandles) {
+    const bucketStart = candle.timestamp - (candle.timestamp % targetMs);
+    const bucket = byBucket.get(bucketStart);
+    if (bucket === undefined) {
+      byBucket.set(bucketStart, [candle]);
+    } else {
+      bucket.push(candle);
+    }
+  }
+
+  const completed: Candle[] = [];
+  for (const [bucketStart, bucket] of [...byBucket.entries()].sort(([a], [b]) => a - b)) {
+    if (bucket.length !== expectedCount) continue;
+    bucket.sort((a, b) => a.timestamp - b.timestamp);
+    let isGapFree = true;
+    for (let i = 0; i < expectedCount; i++) {
+      if (bucket[i]!.timestamp !== bucketStart + i * ltfMs) {
+        isGapFree = false;
+        break;
+      }
+    }
+    if (!isGapFree) continue;
+    completed.push({
+      timestamp: bucketStart,
+      open: bucket[0]!.open,
+      high: Math.max(...bucket.map((c) => c.high)),
+      low: Math.min(...bucket.map((c) => c.low)),
+      close: bucket[bucket.length - 1]!.close,
+      volume: bucket.reduce((sum, c) => sum + c.volume, 0),
+    });
+  }
+  return completed;
+}
+
+function recordEquityPoint(
+  equityCurve: EquityPoint[],
+  timestamp: number,
+  equity: number,
+): void {
+  const previous = equityCurve[equityCurve.length - 1];
+  if (previous?.timestamp === timestamp) {
+    equityCurve[equityCurve.length - 1] = { timestamp, equity };
+    return;
+  }
+  equityCurve.push({ timestamp, equity });
+}
+
+/**
  `runBacktest` — a fő backtest futtató függvény.
 */
 export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult> {
@@ -115,21 +182,34 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
     throw new Error("initialEquityUsd must be positive");
   }
   // 1) LTF candle-ek betöltése a feed-ből.
-  const ltfCandles = await opts.feed.fetchOHLCV(opts.symbol, opts.ltfTimeframe, {
+  const requestedLtfCandles = await opts.feed.fetchOHLCV(opts.symbol, opts.ltfTimeframe, {
     since: opts.startTime.getTime(),
     limit: Number.MAX_SAFE_INTEGER,
   });
+  // A window admits candles opened at/after startTime whose *close* is at or
+  // before endTime.  For grid-aligned windows this is exactly the usual
+  // half-open [start, end) set of candle-open timestamps, while also refusing
+  // a partially completed final candle for a non-aligned endTime. Adjacent
+  // walk-forward windows therefore remain disjoint. Do not rely on a feed
+  // honouring `since` (CSV and exchange feeds have different pagination
+  // semantics), so enforce both boundaries here.
+  const ltfMs = TIMEFRAME_MS[opts.ltfTimeframe];
+  const ltfCandles = requestedLtfCandles
+    .filter((c) => c.timestamp >= opts.startTime.getTime() && c.timestamp + ltfMs <= opts.endTime.getTime())
+    .sort((a, b) => a.timestamp - b.timestamp);
   // 2) HTF és MTF candle-ek aggregálása a LTF candle-ekből.
   const htfMs = TIMEFRAME_MS[opts.htfTimeframe];
   const mtfMs = TIMEFRAME_MS[opts.mtfTimeframe];
-  const htfCandles = aggregateToTimeframe(ltfCandles, htfMs);
-  const mtfCandles = aggregateToTimeframe(ltfCandles, mtfMs);
-  if (htfCandles.length === 0 || mtfCandles.length === 0 || ltfCandles.length === 0) {
+  const htfCandles = aggregateCompleteToTimeframe(ltfCandles, ltfMs, htfMs);
+  const mtfCandles = aggregateCompleteToTimeframe(ltfCandles, ltfMs, mtfMs);
+  if (ltfCandles.length === 0) {
     throw new Error("No candles in the requested period");
   }
   // 3) Equity + trade-lista inicializálása.
   let equity = opts.initialEquityUsd;
-  const equityCurve: EquityPoint[] = [];
+  // The opening balance is an explicit point so total return is measured from
+  // actual starting cash, including a trade opened on the first candle.
+  const equityCurve: EquityPoint[] = [{ timestamp: opts.startTime.getTime(), equity }];
   const trades: Trade[] = [];
   let killSwitchTriggered = false;
   // A nyitott pozíció nyilvántartása.
@@ -143,9 +223,12 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
   // 4) LTF candle-enkénti iteráció.
   for (let i = 0; i < ltfCandles.length; i++) {
     const ltfCandle = ltfCandles[i]!;
+    const decisionTime = ltfCandle.timestamp + ltfMs;
     // 4.1) A HTF/MTF "ablak" — az LTF candle timestamp-jéig lezárt HTF/MTF candle-ek.
-    const htfSlice = htfCandles.filter((c) => c.timestamp <= ltfCandle.timestamp);
-    const mtfSlice = mtfCandles.filter((c) => c.timestamp <= ltfCandle.timestamp);
+    // A candle timestampje a bucket nyitása.  Csak akkor látható a stratégia
+    // számára, ha teljesen lezárult a jelenlegi LTF candle döntési idejére.
+    const htfSlice = htfCandles.filter((c) => c.timestamp + htfMs <= decisionTime);
+    const mtfSlice = mtfCandles.filter((c) => c.timestamp + mtfMs <= decisionTime);
     // 4.2) Indikátorok számítása + a stratégia jeleinek fogadása.
     const indicators = computeIndicators(htfSlice, mtfSlice, ltfCandles.slice(0, i + 1), {
       htfDonchianPeriod: 20,
@@ -336,7 +419,7 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
       unrealizedPnl -= fundingCost(openPosition.notionalUsd, holdingHours, opts.costModel);
     }
     const currentEquity = equity + unrealizedPnl;
-    equityCurve.push({ timestamp: ltfCandle.timestamp, equity: currentEquity });
+    recordEquityPoint(equityCurve, decisionTime, currentEquity);
     if (currentEquity > peakEquity) {
       peakEquity = currentEquity;
     }
@@ -361,14 +444,17 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
           opts.costModel,
         );
         trades.push(trade);
+        equity += trade.pnlUsd;
         // Phase 7 Track A — notify strategy of kill-switch close
         if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
           (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed("kill_switch");
         }
-        // A kill-switch close PnL-je a `trades` tömbben és a metrics.totalReturnPct-ben
-        // jelenik meg; az `equity` lokális változót a függvény nem olvassa a
-        // return előtt, ezért itt szándékosan nem frissítjük.
         openPosition = null;
+        // Replace the mark-to-market point for this candle with the actual
+        // liquidation cash value.  Replacing (rather than appending) keeps
+        // the equity curve strictly increasing in timestamp and prevents the
+        // realized P&L/fees from being counted twice.
+        recordEquityPoint(equityCurve, decisionTime, equity);
       }
       // A kill-switch aktiválódása minden esetben leállítja a további iterációt —
       // függetlenül attól, hogy volt-e nyitott pozíció.
@@ -385,16 +471,15 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
       opts.costModel,
     );
     trades.push(trade);
+    equity += trade.pnlUsd;
     // Phase 7 Track A — notify strategy of end-of-data close
     if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
       (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed("end_of_data");
     }
-    // A végső `equity` frissítés és az `openPosition = null` itt szándékosan
-    // kimaradnak — a függvény a return előtt már nem olvassa ezeket, és a
-    // `equityCurve` az utolsó LTF candle-en már rögzítette az aktuális
-    // állapotot. Az end-of-data trade PnL-je a `trades` tömbben és a
-    // `metrics.totalReturnPct`-ben jelenik meg (computeMetrics a trades-ből
-    // számolja a teljes hozamot).
+    // The final candle was already marked before the terminal close. Replace
+    // that same timestamp with realized cash so metrics see the terminal P&L
+    // and all exit costs exactly once.
+    recordEquityPoint(equityCurve, lastCandle.timestamp + ltfMs, equity);
   }
   // 6) Metrikák számítása + a BacktestResult összeállítása.
   const periodsPerYear = (365 * 24 * 60 * 60 * 1000) / TIMEFRAME_MS[opts.ltfTimeframe];

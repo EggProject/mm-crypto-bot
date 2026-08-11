@@ -22,6 +22,8 @@ export type {
   Balance,
   ClientOrderId,
   ExchangeOrderId,
+  ExchangePosition,
+  Execution,
   FeedEvent,
   MarketMeta,
   Ohlcv,
@@ -32,6 +34,7 @@ export type {
   OrderSide,
   OrderStatus,
   OrderType,
+  ProtectiveOrderKind,
   Symbol,
   Ticker,
   Timeframe,
@@ -43,7 +46,7 @@ export { ExchangeFeedError } from "./feed.js";
 
 export { SUPPORTED_SYMBOLS, isSupportedSymbol, asSymbol, symbolOf, baseCurrencyOf, quoteCurrencyOf, InvalidSymbolError } from "./symbols.js";
 
-export { BybitEuFeed, type BybitEuFeedOptions, normalizeTicker, normalizeOrderBook, normalizeTrade, normalizeMarketMeta, normalizeBalances, normalizeOrder } from "./bybitEuFeed.js";
+export { BybitEuFeed, type BybitEuFeedOptions, normalizeTicker, normalizeOrderBook, normalizeTrade, normalizeMarketMeta, normalizeBalances, normalizeExecution, normalizeOrder } from "./bybitEuFeed.js";
 
 // ⚠️  TEST-ONLY: `MockExchangeFeed` and the `createMockFeed` factory
 //    are NOT exported from this public surface. Tests must import the

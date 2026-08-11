@@ -88,12 +88,14 @@ for pkg in "${PACKAGES[@]}"; do
     continue
   fi
 
-  # Compute the percentage with awk (avoids bc dependency).
+  # Compute the percentage only for display. The gate itself must compare the
+  # raw LCOV counters: a rounded `100.0%` can otherwise hide a missed line
+  # (for example LH=1999, LF=2000 is displayed as 100.0% at one decimal).
   line_pct=$(awk -v lf="$lf" -v lh="$lh" 'BEGIN { if (lf > 0) printf "%.1f", (lh * 100.0) / lf; else print "0" }')
 
   summary="lines.......: ${line_pct}% (${lh} of ${lf} lines)"
 
-  if [ "${line_pct%.*}" = "100" ]; then
+  if [ "$lh" -eq "$lf" ]; then
     echo "  ✓ ${pkg}  ${summary}"
     PASS=$((PASS + 1))
   else

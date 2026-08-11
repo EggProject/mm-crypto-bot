@@ -198,26 +198,38 @@ export class PaperTrader {
         openedAt: Date.now(),
         leverage: 1,
       });
-      this.state.cash -= cost + fee;
     } else {
-      // Meglevo pozicio modositasa - egyszerusitett avg price update
+      // Azonos irányban az átlagár súlyozott, ellenirányban viszont a
+      // megmaradó pozíció a korábbi entry-t őrzi. Csak valódi reversalnál
+      // lesz az új maradék pozíció entry-je az aktuális fill ára.
       const totalAmount = existing.amount + signedAmount;
-      if (Math.sign(totalAmount) === Math.sign(existing.amount) || existing.amount === 0) {
-        // Még mindig ugyanabban az irányban nyitunk
+      if (Math.sign(existing.amount) === Math.sign(signedAmount)) {
+        // Még mindig ugyanabban az irányban nyitunk.
         existing.avgEntryPrice =
           (Math.abs(existing.amount) * existing.avgEntryPrice + Math.abs(signedAmount) * input.price) /
           Math.abs(totalAmount);
         existing.amount = totalAmount;
+      } else if (totalAmount === 0) {
+        // A pozíció teljesen lezárult; null-mennyiségű "pozíciót" nem
+        // tartunk a snapshotban, mert az félrevezetné a felsőbb rétegeket.
+        this.state.positions.delete(input.symbol);
+      } else if (Math.sign(totalAmount) === Math.sign(existing.amount)) {
+        // Részleges csökkentés: az entry és nyitási idő változatlan.
+        existing.amount = totalAmount;
       } else {
-        // Elleniranyu fill - teljes vagy reszleges zarodas
+        // Reversal: a lezárást meghaladó rész új, ellenkező pozíció.
         existing.avgEntryPrice = input.price;
         existing.amount = totalAmount;
-        if (totalAmount === 0) {
-          existing.openedAt = Date.now();
-        }
+        existing.side = totalAmount > 0 ? "long" : "short";
+        existing.openedAt = Date.now();
       }
-      this.state.cash -= input.side === "buy" ? cost + fee : -cost + fee;
     }
+
+    // Cash-accounting convention: buy = quote outflow, sell = quote inflow;
+    // the marked-to-market equity is cash + signed base position * mark.
+    // Így short nyitáskor a short sale proceeds nőnek a cash-en, covernél
+    // pedig csökkennek, miközben minden fill díja azonnal levonódik.
+    this.state.cash -= signedAmount * input.price + fee;
 
     const fill: FillRecord = {
       id: `fill-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

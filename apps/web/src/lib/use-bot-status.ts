@@ -82,6 +82,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { type WebSocketStatus } from "../ws-client.js";
 import { extractBotStatus, type BotStatus } from "./bot-status.js";
+import { dashboardApiUrl } from "./dashboard-url.js";
 
 // ============================================================================
 // Constants
@@ -93,11 +94,10 @@ import { extractBotStatus, type BotStatus } from "./bot-status.js";
  * from the cached state-feed snapshot (no per-request work — the
  * response is a 1-line JSON read).
  *
- * 127.0.0.1 is hard-coded — the dev workflow is browser ↔ loopback,
- * and the Vite dev server proxies nothing on this port (Vite serves
- * the SPA shell; the API is a separate origin).
+ * The URL is derived from the dashboard's current origin, so custom ports,
+ * reverse proxies and HTTPS use the matching backend endpoint.
  */
-const STATUS_URL = "http://127.0.0.1:7913/api/status";
+const STATUS_URL = dashboardApiUrl("api/status");
 
 /**
  * `SLOW_POLL_INTERVAL_MS` — when the WS is disconnected for an

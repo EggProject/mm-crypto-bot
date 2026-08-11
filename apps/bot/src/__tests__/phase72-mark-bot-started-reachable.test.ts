@@ -12,8 +12,9 @@
  *   only returns when `bot.stop()` is called. So `await bot.start()` blocked
  *   FOREVER, and the `markBotStarted()` call was UNREACHABLE.
  *
- *   The fix: use fire-and-forget (`void bot.start()`) and call
- *   `markBotStarted()` synchronously right after.
+ *   The fix: register the explicit post-init readiness boundary before the
+ *   fire-and-forget `bot.start()` call, then publish `running` only from that
+ *   boundary.  `Bot.start()` itself still resolves only at shutdown.
  *
  *   The system-level test in `phase72-start-status-broadcast.test.ts`
  *   spawns the real `mm-bot start` subprocess and verifies the state-feed
@@ -39,6 +40,7 @@ import { LiveStatePublisher } from "../state-feed/publisher.js";
 import { FeedServer } from "../state-feed/feed-server.js";
 import { OhlcStore } from "../state-feed/ohlc-store.js";
 import type { StateFeedServerMessage } from "../state-feed/protocol.js";
+import { DEFAULT_BOT_CONFIG } from "../config/defaults.js";
 
 /**
  * `connectAndReadSnapshot` — connect to a TCP state-feed and read the first
@@ -127,9 +129,9 @@ afterEach(() => {
   }
 });
 
-describe("Phase 72 — markBotStarted() reachable after fire-and-forget bot.start()", () => {
+describe("Phase 72 — markBotStarted() follows the post-init ready boundary", () => {
   it(
-    "after void bot.start() (fire-and-forget), markBotStarted() is called and the state-feed SNAPSHOT shows running state + non-zero startedAt",
+    "after Bot initialization succeeds, the state-feed SNAPSHOT shows running state + non-zero startedAt",
     async () => {
       // Build a real bot + publisher + feed-server on an ephemeral port.
       // This simulates what `start.ts` does internally — no subprocess.
@@ -138,8 +140,9 @@ describe("Phase 72 — markBotStarted() reachable after fire-and-forget bot.star
 
       const bot = new Bot({
         config: {
-          bot: { mode: "paper", state_file: stateFile, log_level: "error", auto_start: false },
+          bot: { ...DEFAULT_BOT_CONFIG.bot, mode: "paper", state_file: stateFile, log_level: "error", auto_start: false },
           exchange: {
+            ...DEFAULT_BOT_CONFIG.exchange,
             id: "mock",
             endpoint: "https://api.bybit.eu",
             ws_endpoint: "wss://stream.bybit.eu",
@@ -153,6 +156,7 @@ describe("Phase 72 — markBotStarted() reachable after fire-and-forget bot.star
           },
           symbols: { enabled: ["BTC/USDC"] },
           strategies: {
+            ...DEFAULT_BOT_CONFIG.strategies,
             donchian_pivot_composition: {
               enabled: true,
               cap: 0.20,
@@ -161,15 +165,17 @@ describe("Phase 72 — markBotStarted() reachable after fire-and-forget bot.star
             },
           },
           risk: {
+            ...DEFAULT_BOT_CONFIG.risk,
             risk_per_trade: 0.01,
             kelly_fraction: 0.25,
             max_drawdown_pct: 0.15,
             max_positions: 1,
             max_leverage: 10,
           },
-          telemetry: { log_dir: join(tmpDir, "logs"), metrics_interval_sec: 60 },
-          compliance: { jurisdiction: "EU" },
+          telemetry: { ...DEFAULT_BOT_CONFIG.telemetry, log_dir: join(tmpDir, "logs"), metrics_interval_sec: 60 },
+          compliance: { ...DEFAULT_BOT_CONFIG.compliance, jurisdiction: "EU" },
           portfolio: {
+            ...DEFAULT_BOT_CONFIG.portfolio,
             correlation_window_size: 30,
             correlation_penalty_threshold: 0.7,
           },
@@ -195,16 +201,23 @@ describe("Phase 72 — markBotStarted() reachable after fire-and-forget bot.star
       });
       const handle = await feedServer.start();
       const port = handle.port;
+      let unsubscribeReady: () => void = () => undefined;
 
       try {
         // ================================================================
-        // The fix: fire-and-forget the bot.start() and call markBotStarted()
-        // synchronously (just like the fixed start.ts does).
+        // The lifecycle registers readiness before fire-and-forget start. This
+        // preserves reachability without advertising running before init.
         // ================================================================
+        let resolveReady: (() => void) | null = null;
+        const initialized = new Promise<void>((resolve) => {
+          resolveReady = resolve;
+        });
+        unsubscribeReady = bot.onInitialized(() => {
+          publisher.markBotStarted();
+          resolveReady?.();
+        });
         const botStartPromise = bot.start();
-        // SYNCHRONOUS markBotStarted — this is the line that was unreachable
-        // in the original start.ts (because of the `await bot.start()` deadlock).
-        publisher.markBotStarted();
+        await initialized;
         // Catch any async failure of bot.start() so the test doesn't hang.
         botStartPromise.catch(() => undefined);
 
@@ -247,6 +260,7 @@ describe("Phase 72 — markBotStarted() reachable after fire-and-forget bot.star
         } catch {
           // best-effort
         }
+        unsubscribeReady();
       }
     },
     20_000,

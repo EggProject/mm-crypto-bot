@@ -32,6 +32,8 @@ const DEFAULT_FEE: ExchangeFeeConfig = {
   maintenanceMarginRatio: 1.0,
 };
 
+const ZERO_FEE: ExchangeFeeConfig = { ...DEFAULT_FEE, spotTakerFee: 0 };
+
 /**
  * A mock feed alapértelmezett tickerét használjuk (last/bid/ask = 100/100/101).
  */
@@ -72,7 +74,7 @@ describe("PaperTrader — konstruktor és snapshot", () => {
     const feed = makeFeed();
     const pt = new PaperTrader(feed, {
       initialBalanceQuote: 10_000,
-      fee: DEFAULT_FEE,
+      fee: ZERO_FEE,
     });
     const snap = pt.snapshot();
     expect(snap.cash).toBe(10_000);
@@ -320,11 +322,9 @@ describe("PaperTrader.executeSignal — fillOrder: új pozíció nyitása", () =
     const pos = snap.positions[0]!;
     expect(pos.side).toBe("short");
     expect(pos.amount).toBe(0.5);
-    // A jelenlegi implementáció új pozíciónál (long VAGY short) a
-    //   `this.state.cash -= cost + fee` ágat használja — vagyis a cash
-    // a (cost + fee) értékkel csökken a short nyitáskor is.
-    // cost = 100 * 0.5 = 50, fee = 50 * 0.001 = 0.05, összesen 50.05.
-    expect(snap.cash).toBeCloseTo(10_000 - 50 - 0.05, 6);
+    // Cash-accounting: short nyitáskor a short-sale proceeds beérkezik,
+    // a taker fee pedig azonnal levonódik.
+    expect(snap.cash).toBeCloseTo(10_000 + 50 - 0.05, 6);
   });
 });
 
@@ -362,28 +362,114 @@ describe("PaperTrader.executeSignal — fillOrder: ellentétes irányú fill", (
     const feed = makeFeed();
     const pt = new PaperTrader(feed, {
       initialBalanceQuote: 10_000,
-      fee: DEFAULT_FEE,
+      fee: ZERO_FEE,
     });
     await pt.executeSignal(buySignal({ suggestedAmount: 2, suggestedPrice: 100 }));
     await pt.executeSignal(sellSignal({ suggestedAmount: 1, suggestedPrice: 150 }));
     const pos = pt.snapshot().positions[0]!;
     expect(pos.amount).toBe(1);
-    // A jelenlegi implementáció a sign nem-váltó ágat használja
-    // (totalAmount=1, sign megegyezik existing.amount=2 sign-jával).
-    // Az átlagár a kód szerint: (2*100 + 1*150) / 1 = 350.
-    expect(pos.avgEntryPrice).toBe(350);
+    // Részleges csökkentés nem írja át a megmaradó long entry árát.
+    expect(pos.avgEntryPrice).toBe(100);
+    expect(pt.snapshot().cash).toBe(9_950);
+    expect(pt.snapshot().cash + pos.amount * 150).toBe(10_100);
   });
 
-  it("egy ellentétes sell ami pontosan kiegyenlíti a longot, nullázza az amount-ot", async () => {
+  it("egy ellentétes sell ami pontosan kiegyenlíti a longot, eltávolítja a pozíciót", async () => {
     const feed = makeFeed();
     const pt = new PaperTrader(feed, {
       initialBalanceQuote: 10_000,
-      fee: DEFAULT_FEE,
+      fee: ZERO_FEE,
     });
     await pt.executeSignal(buySignal({ suggestedAmount: 2, suggestedPrice: 100 }));
     await pt.executeSignal(sellSignal({ suggestedAmount: 2, suggestedPrice: 100 }));
-    const pos = pt.snapshot().positions[0]!;
-    expect(pos.amount).toBe(0);
+    const snap = pt.snapshot();
+    expect(snap.positions).toEqual([]);
+    expect(snap.cash).toBe(10_000);
+  });
+
+  it("short részleges covernél megtartja a short entry-t és a cash/equity konzisztens", async () => {
+    const feed = makeFeed();
+    const pt = new PaperTrader(feed, { initialBalanceQuote: 10_000, fee: ZERO_FEE });
+    await pt.executeSignal(sellSignal({ suggestedAmount: 2, suggestedPrice: 100 }));
+    await pt.executeSignal(buySignal({ suggestedAmount: 1, suggestedPrice: 50 }));
+    const snap = pt.snapshot();
+    const pos = snap.positions[0]!;
+    expect(pos.side).toBe("short");
+    expect(pos.amount).toBe(1);
+    expect(pos.avgEntryPrice).toBe(100);
+    expect(snap.cash).toBe(10_150);
+    // cash + signed inventory at the current mark = 10_100 (50 realized gain).
+    expect(snap.cash - pos.amount * 50).toBe(10_100);
+  });
+
+  it("long -> short reversalnál csak a maradék kap új entry árat", async () => {
+    const feed = makeFeed();
+    const pt = new PaperTrader(feed, { initialBalanceQuote: 10_000, fee: ZERO_FEE });
+    await pt.executeSignal(buySignal({ suggestedAmount: 2, suggestedPrice: 100 }));
+    await pt.executeSignal(sellSignal({ suggestedAmount: 3, suggestedPrice: 150 }));
+    const snap = pt.snapshot();
+    const pos = snap.positions[0]!;
+    expect(pos.side).toBe("short");
+    expect(pos.amount).toBe(1);
+    expect(pos.avgEntryPrice).toBe(150);
+    expect(snap.cash).toBe(10_250);
+    expect(snap.cash - pos.amount * 150).toBe(10_100);
+  });
+
+  it("short -> long reversalnál csak a maradék kap új entry árat", async () => {
+    const feed = makeFeed();
+    const pt = new PaperTrader(feed, { initialBalanceQuote: 10_000, fee: ZERO_FEE });
+    await pt.executeSignal(sellSignal({ suggestedAmount: 2, suggestedPrice: 100 }));
+    await pt.executeSignal(buySignal({ suggestedAmount: 3, suggestedPrice: 50 }));
+    const snap = pt.snapshot();
+    const pos = snap.positions[0]!;
+    expect(pos.side).toBe("long");
+    expect(pos.amount).toBe(1);
+    expect(pos.avgEntryPrice).toBe(50);
+    expect(snap.cash).toBe(10_050);
+    expect(snap.cash + pos.amount * 50).toBe(10_100);
+  });
+
+  it("long -> short reversal nem nulla díjnál is megőrzi a cash/equity invariánst", async () => {
+    const feed = makeFeed();
+    const pt = new PaperTrader(feed, { initialBalanceQuote: 10_000, fee: DEFAULT_FEE });
+    await pt.executeSignal(buySignal({ suggestedAmount: 2, suggestedPrice: 100 }));
+    await pt.executeSignal(sellSignal({ suggestedAmount: 3, suggestedPrice: 150 }));
+    const snap = pt.snapshot();
+    const pos = snap.positions[0]!;
+    expect(pos.side).toBe("short");
+    expect(pos.amount).toBe(1);
+    expect(pos.avgEntryPrice).toBe(150);
+    // 10_000 - 200 - 0.20 + 450 - 0.45
+    expect(snap.cash).toBeCloseTo(10_249.35, 8);
+    // Gross realized PnL 100, total fees 0.65.
+    expect(snap.cash - pos.amount * 150).toBeCloseTo(10_099.35, 8);
+  });
+
+  it("short -> long reversal nem nulla díjnál is megőrzi a cash/equity invariánst", async () => {
+    const feed = makeFeed();
+    const pt = new PaperTrader(feed, { initialBalanceQuote: 10_000, fee: DEFAULT_FEE });
+    await pt.executeSignal(sellSignal({ suggestedAmount: 2, suggestedPrice: 100 }));
+    await pt.executeSignal(buySignal({ suggestedAmount: 3, suggestedPrice: 50 }));
+    const snap = pt.snapshot();
+    const pos = snap.positions[0]!;
+    expect(pos.side).toBe("long");
+    expect(pos.amount).toBe(1);
+    expect(pos.avgEntryPrice).toBe(50);
+    // 10_000 + 200 - 0.20 - 150 - 0.15
+    expect(snap.cash).toBeCloseTo(10_049.65, 8);
+    // Gross realized PnL 100, total fees 0.35.
+    expect(snap.cash + pos.amount * 50).toBeCloseTo(10_099.65, 8);
+  });
+
+  it("short teljes covernél a cash visszatér a kezdeti egyenlegre", async () => {
+    const feed = makeFeed();
+    const pt = new PaperTrader(feed, { initialBalanceQuote: 10_000, fee: ZERO_FEE });
+    await pt.executeSignal(sellSignal({ suggestedAmount: 2, suggestedPrice: 100 }));
+    await pt.executeSignal(buySignal({ suggestedAmount: 2, suggestedPrice: 100 }));
+    const snap = pt.snapshot();
+    expect(snap.positions).toEqual([]);
+    expect(snap.cash).toBe(10_000);
   });
 });
 
@@ -706,18 +792,14 @@ describe("PaperTrader — openedAt timestamp", () => {
     expect(pos.openedAt).toBeLessThanOrEqual(after + 5);
   });
 
-  it("egy ellentétes fill, ami nullázza az amount-ot, frissíti az openedAt-ot", async () => {
+  it("egy ellentétes fill, ami nullázza az amount-ot, eltávolítja a pozíciót", async () => {
     const feed = makeFeed();
     const pt = new PaperTrader(feed, {
       initialBalanceQuote: 10_000,
       fee: DEFAULT_FEE,
     });
     await pt.executeSignal(buySignal({ suggestedAmount: 1, suggestedPrice: 100 }));
-    const firstOpenedAt = pt.snapshot().positions[0]!.openedAt;
-    // Várunk kicsit, hogy az openedAt biztosan különböző legyen.
-    await new Promise((r) => setTimeout(r, 5));
     await pt.executeSignal(sellSignal({ suggestedAmount: 1, suggestedPrice: 100 }));
-    const pos = pt.snapshot().positions[0]!;
-    expect(pos.openedAt).toBeGreaterThan(firstOpenedAt);
+    expect(pt.snapshot().positions).toEqual([]);
   });
 });

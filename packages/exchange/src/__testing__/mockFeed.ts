@@ -31,6 +31,7 @@ import type {
   Balance,
   ClientOrderId,
   ExchangeOrderId,
+  ExchangePosition,
   FeedEvent,
   MarketMeta,
   Ohlcv,
@@ -71,6 +72,7 @@ export interface MockExchangeFeedOptions {
   /** `(symbol, timeframe)` → CCXT `Ohlcv` tuple-k history-ja. */
   readonly ohlcvSnapshot?: ReadonlyMap<string, readonly Ohlcv[]>;
   readonly exchangeId?: string;
+  readonly positions?: readonly ExchangePosition[];
 }
 
 /**
@@ -89,6 +91,7 @@ export class MockExchangeFeed implements ExchangeFeed {
   private readonly marketMetaMap: Map<Symbol, MarketMeta>;
   private readonly ohlcvSnapshots: Map<string, readonly Ohlcv[]>;
   private readonly orderBook = new Map<ClientOrderId, Order>();
+  private positions: ExchangePosition[];
 
   constructor(opts: MockExchangeFeedOptions = {}) {
     this.exchangeId = opts.exchangeId ?? "mock";
@@ -97,6 +100,7 @@ export class MockExchangeFeed implements ExchangeFeed {
     this.orderBookSnapshots = new Map<Symbol, OrderBook>();
     this.marketMetaMap = new Map<Symbol, MarketMeta>();
     this.ohlcvSnapshots = new Map<string, readonly Ohlcv[]>();
+    this.positions = [...(opts.positions ?? [])];
     // A ReadonlyMap-ból átmásoljuk a bejegyzéseket, hogy később
     // a `setTicker` / `setBalance` metódusokkal bővíthető legyen.
     if (opts.tickerSnapshot !== undefined) {
@@ -184,6 +188,13 @@ export class MockExchangeFeed implements ExchangeFeed {
   async fetchBalances(): Promise<readonly Balance[]> {
     this.assertOpen();
     return [...this.balances];
+  }
+
+  async fetchPositions(symbols?: readonly Symbol[]): Promise<readonly ExchangePosition[]> {
+    this.assertOpen();
+    return symbols === undefined
+      ? [...this.positions]
+      : this.positions.filter((position) => symbols.includes(position.symbol));
   }
 
   async placeOrder(req: OrderRequest): Promise<Order> {
@@ -279,6 +290,11 @@ export class MockExchangeFeed implements ExchangeFeed {
     }
   }
 
+  /** Replaces the exchange-authoritative position view for lifecycle tests. */
+  setPositions(positions: readonly ExchangePosition[]): void {
+    this.positions = [...positions];
+  }
+
   /** `getOrder` — visszaadja egy order aktuális állapotát (tesztek számára). */
   getOrder(clientOrderId: ClientOrderId): Order | undefined {
     return this.orderBook.get(clientOrderId);
@@ -354,6 +370,7 @@ export function defaultMarketMeta(symbol: Symbol): MarketMeta {
     pricePrecision: 2,
     minAmount: 0.0001,
     minCost: 1,
+    isSpot: true,
   };
 }
 

@@ -25,7 +25,7 @@
 import type {
   Balance,
   ClientOrderId,
-  ExchangeOrderId,
+  ExchangePosition,
   FeedEvent,
   MarketMeta,
   Ohlcv,
@@ -73,6 +73,12 @@ export interface ExchangeFeed {
   /** Feliratkozás OHLCV (candle) stream-re (CCXT Pro `watchOHLCV`). */
   subscribeOhlcv(symbol: Symbol, timeframe: Timeframe, listener: FeedListener): Promise<SubscriptionId>;
 
+  /** Authenticated private order lifecycle (`watchOrders`), when supported. */
+  subscribeOrderUpdates?(listener: FeedListener): Promise<SubscriptionId>;
+
+  /** Authenticated private executions (`watchMyTrades`), when supported. */
+  subscribeExecutions?(listener: FeedListener): Promise<SubscriptionId>;
+
   /** Leiratkozás egy korábbi `subscribe*` hívásról. */
   unsubscribe(id: SubscriptionId): Promise<void>;
 
@@ -108,6 +114,14 @@ export interface ExchangeFeed {
   /** Saját számla-egyenleg lekérése (CCXT Pro `fetchBalance`). */
   fetchBalances(): Promise<readonly Balance[]>;
 
+  /**
+   * Authoritative derivative positions from the venue.  Optional because a
+   * spot-only venue/category may not implement CCXT `fetchPositions`; callers
+   * must treat an unavailable query as an unresolved emergency, never as an
+   * empty position list.
+   */
+  fetchPositions?(symbols?: readonly Symbol[]): Promise<readonly ExchangePosition[]>;
+
   /** Order placement — CCXT Pro `createOrder`. */
   placeOrder(req: OrderRequest): Promise<Order>;
 
@@ -131,7 +145,7 @@ export interface ExchangeFeed {
 }
 
 /** Re-export a kényelem kedvéért. */
-export type { Balance, ClientOrderId, ExchangeOrderId, FeedEvent, MarketMeta, Ohlcv, Order, OrderRequest, OrderStatus, Symbol, Timeframe };
+export type { Balance, ClientOrderId, ExchangeOrderId, ExchangePosition, Execution, FeedEvent, MarketMeta, Ohlcv, Order, OrderRequest, OrderStatus, Symbol, Timeframe } from "./types.js";
 
 /** `placeOrder` CCXT error típusok — a feed wrapper dobhatja ezeket. */
 export class ExchangeFeedError extends Error {

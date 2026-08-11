@@ -111,6 +111,9 @@ import type { SubcommandHandler } from "../router.js";
 import { attachStateFeed, resolveFeedPort, type StateFeedHandle } from "../../state-feed/index.js";
 import { OhlcStore } from "../../state-feed/ohlc-store.js";
 import { bootstrapOhlcStore } from "../../state-feed/ohlc-bootstrap.js";
+import { HeadlessBotLifecycle } from "./start-lifecycle.js";
+
+export { HeadlessBotLifecycle } from "./start-lifecycle.js";
 
 /**
  * `getConfigPath` — pull the `--config=path` flag, or `undefined`.
@@ -278,7 +281,8 @@ export const startCommand: SubcommandHandler = async (args) => {
  * megörökölt log-routing logika).
  *
  * Phase 81: a `autoStart` paraméter szabályozza, hogy a bot indul-e
- *   - `true`  → `bot.start()` fire-and-forget hívódik, `markBotStarted()` is
+ *   - `true`  → a lifecycle elindítja a botot, és csak sikeres init után
+ *                publikálja a `running` állapotot
  *   - `false` → a bot `stopped` állapotban marad, a state-feed csatlakozik,
  *               a dashboard "Start" gombbal indítja (a `handleControl("start")`
  *               callback hívja a `bot.start()`-ot)
@@ -306,10 +310,9 @@ async function runHeadless(bot: Bot, config: BotConfig, autoStart: boolean): Pro
   // -------------------------------------------------------------------------
   // Phase 45 — State-feed attach
   // -------------------------------------------------------------------------
-  // A state-feed a `bot.start()` UTÁN indul, mert a state-feed a
-  // bot engine-ből kapja a state-változásokat. Ha a state-feed
-  // a bot előtt indulna, a HELLO + SNAPSHOT üzenetek egy üres
-  // snapshot-ot küldenének.
+  // The state-feed starts before the engine so its TCP port is available while
+  // initialization is in progress.  It intentionally exposes a coherent
+  // `stopped` snapshot until the post-init readiness boundary marks it running.
   //
   // A port az `MM_BOT_FEED_PORT` env var-ból jön (fallback 7914).
   // A state-feed egyetlen stderr-sort ír: `[start] state-feed
@@ -317,13 +320,15 @@ async function runHeadless(bot: Bot, config: BotConfig, autoStart: boolean): Pro
   // a Phase 43 Track 3 log-routing óta.
   const feedPort = resolveFeedPort(process.env["MM_BOT_FEED_PORT"]);
   let stateFeed: StateFeedHandle | null = null;
+  let lifecycle: HeadlessBotLifecycle | null = null;
 
   let stopping = false;
   const onSignal = (sig: NodeJS.Signals): void => {
     if (stopping) return;
     stopping = true;
     console.log(`[start] received ${sig} — initiating graceful shutdown`);
-    void bot.stop().then(async () => {
+    const stop = lifecycle === null ? bot.stop() : lifecycle.stop();
+    void stop.then(async () => {
       // Phase 72: a graceful shutdown során a publisher `botRunning`
       // flag-jét is visszaállítjuk `false`-ra, hogy a state-feed az
       // utolsó pillanatban is a helyes "stopped" state-et sugározza.
@@ -431,58 +436,15 @@ async function runHeadless(bot: Bot, config: BotConfig, autoStart: boolean): Pro
       handleControl: (command, payload) => {
         switch (command) {
           case "start":
-            // Phase 81 fix: a `markBotStarted()` SZINKRON hívása
-            // közvetlenül a `bot.start()` ELŐTT — ugyanaz a pattern,
-            // amit az auto-start branch használ (Phase 72 fix).
-            //
-            // Az eredeti kód a `markBotStarted()`-et a `bot.start()`
-            // `.then()` blokkjában hívta. A `bot.start()` Promise-ja
-            // CSAK a `bot.stop()` hívásakor oldódik fel (a run loop
-            // végtelen ciklus), tehát a `markBotStarted()` soha nem
-            // hívódott volna meg a `bot.stop()`-ig — a dashboard
-            // "Bot: STOPPED" feliratot mutatott volna a teljes futás
-            // alatt, annak ellenére, hogy a bot valójában futott.
-            //
-            // A fix: a `markBotStarted()` szinkron hívódik, a
-            // `bot.start()` pedig fire-and-forget (mint az auto-start
-            // branch-ben). Ha a `bot.start()` elbukik (pl. "already
-            // running"), a `markBotStopped()` visszaállítja a flag-et
-            // (idempotens: ha a flag már `false`, nem csinál semmit).
-            stateFeed?.publisher.markBotStarted();
-            void bot.start().catch((err: unknown) => {
+            // The lifecycle resolves at Bot's post-init boundary, not at the
+            // long-lived `Bot.start()` shutdown promise.
+            void lifecycle?.start().catch((err: unknown) => {
               const msg = err instanceof Error ? err.message : String(err);
-              // Az "already running" hiba NEM számít valódi
-              // indulási hibának — a user (vagy a dashboard) egy
-              // második start parancsot küldött, miközben a bot már
-              // fut. Ebben az esetben a `botRunning` flag-et NEM
-              // szabad `false`-ra állítani, mert a bot valójában
-              // fut (csak a második `bot.start()` hívás volt
-              // felesleges). A Phase 81 user mandate: a Start
-              // gomb működjön, és a dashboard mutassa a helyes
-              // állapotot.
-              if (msg.includes("already running")) {
-                process.stderr.write(
-                  `[start] handleControl(start) ignored — bot is already running\n`,
-                );
-                return;
-              }
               console.error(`[start] handleControl(start) failed: ${msg}`);
-              // A `stateFeed` a try blokk elején biztosan nem null,
-              // de a TypeScript strict null-check miatt kell az
-              // ellenőrzés.
-              if (stateFeed !== null) {
-                stateFeed.publisher.markBotStopped();
-              }
             });
             return;
           case "stop":
-            // A `bot.stop()` Promise-ja a run loop kilépésekor
-            // oldódik fel — ez gyors (nem blokkoló). A `markBotStopped()`
-            // a `.then()` blokkban hívódik (szemben a `start` esettel,
-            // ahol a Promise soha nem oldódik fel).
-            void bot.stop().then(() => {
-              stateFeed?.publisher.markBotStopped();
-            }).catch((err: unknown) => {
+            void (lifecycle === null ? bot.stop() : lifecycle.stop()).catch((err: unknown) => {
               const msg = err instanceof Error ? err.message : String(err);
               console.error(`[start] handleControl(stop) failed: ${msg}`);
             });
@@ -491,12 +453,15 @@ async function runHeadless(bot: Bot, config: BotConfig, autoStart: boolean): Pro
             // A `paused` flag a state-feed protokoll szerint a
             // `paused` payload mezőben jön (boolean). A Phase 69 UI
             // a Pause gombbal `paused: true`-t küld, a Resume gombbal
-            // `paused: false`-t. A `publisher.setPaused()` a UI-flag-et
-            // állítja; a bot engine nem áll le, csak a dashboard
-            // jelzi a `[PAUSED]` state-et.
+            // `paused: false`-t.  The publisher flag is only the UI mirror;
+            // the engine gate lives on Bot/StrategyRunner and must be changed
+            // in the same control action so a displayed pause cannot emit
+            // orders in the background.
+            bot.pause();
             stateFeed?.publisher.setPaused(payload.paused ?? true);
             return;
           case "resume":
+            bot.resume();
             stateFeed?.publisher.setPaused(false);
             return;
           case "kill_switch":
@@ -515,6 +480,13 @@ async function runHeadless(bot: Bot, config: BotConfig, autoStart: boolean): Pro
     // "No charts configured" even though the bot is streaming real bybit.eu
     // data.
     bot.attachStateFeed(stateFeed);
+    lifecycle = new HeadlessBotLifecycle(bot, stateFeed.publisher);
+    // `attachStateFeed()` completed the TCP bind. Publish the listening
+    // milestone before any engine work so the run loop can never delay port
+    // availability or hide the initial stopped snapshot.
+    process.stderr.write(
+      `[start] state-feed listening on 127.0.0.1:${String(stateFeed.port)}\n`,
+    );
     // A bot engine indítása a state-feed attach UTÁN — a publisher
     // a bot engine-en át kapja a notify-kat, és a state-feed TCP
     // socket-ére továbbítja a kliens felé.
@@ -570,33 +542,8 @@ async function runHeadless(bot: Bot, config: BotConfig, autoStart: boolean): Pro
     //   `markBotStarted()` jelzi a dashboardnak, hogy a bot fut.
     // ===========================================================================
     if (autoStart) {
-      const botStartPromise = bot.start();
-      // A bot engine indítása ELINDULT. A publisher `running` flag-jét
-      // `true`-ra állítjuk, és a `lastStartedAt` timestamp-et rögzítjük
-      // (a dashboard uptime számításhoz). SZINKRON hívás, mert a flag
-      // értéke azonnal kell a publishState-nek.
-      stateFeed.publisher.markBotStarted();
-      // Ha a bot init közben elbukik, a flag-et visszaállítjuk. A
-      // botStartPromise catch-je ASYNC fut, nem blokkolja a process-t.
-      botStartPromise.catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        process.stderr.write(
-          `[start] bot.start() failed asynchronously: ${msg} — resetting botRunning=false\n`,
-        );
-        // A `stateFeed` a try blokk elején biztosan nem null (az
-        // `attachStateFeed` sikeres volt, különben a try blokkba se
-        // jutottunk volna), de a TypeScript strict null-check miatt
-        // kell az ellenőrzés.
-        if (stateFeed !== null) {
-          stateFeed.publisher.markBotStopped();
-        }
-      });
-      // A bot addig fut, amíg a `bot.stop()` meg nem hívódik (SIGINT /
-      // SIGTERM signal handler, vagy dashboard /api/control "stop"
-      // üzenet). Az `await` itt a `botStartPromise`-re várakozik, ami
-      // CSAK a `run()` loop kilépésekor oldódik fel — ez tartja életben
-      // a process-t a finally blokk cleanup-ja előtt.
-      await botStartPromise;
+      await lifecycle.start();
+      await lifecycle.waitForStop();
     } else {
       // Phase 81: a bot `stopped` állapotban marad. A `botRunning` flag
       // `false` (mert a `markBotStarted()` nem hívódik), a dashboard
@@ -614,16 +561,6 @@ async function runHeadless(bot: Bot, config: BotConfig, autoStart: boolean): Pro
       // tartja az event loopot.
       await new Promise<never>(() => undefined);
     }
-    // A state-feed listening message az EGYETLEN stderr sor —
-    // a Phase 43 Track 3 log-routing policy-nak megfelelően.
-    // MEGJEGYZÉS: a Phase 81-gyel ez a sor csak `autoStart=true`
-    // esetén fut le (a `bot.start()` promise resolve-ja után). Ha
-    // `autoStart=false`, a fenti `new Promise<never>` soha nem
-    // oldódik fel, és a sor nem fut le — de a process amúgy is a
-    // SIGINT-re vár, ahol a `process.exit(0)` azonnal kilép.
-    process.stderr.write(
-      `[start] state-feed listening on 127.0.0.1:${String(stateFeed.port)}\n`,
-    );
     return 0;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

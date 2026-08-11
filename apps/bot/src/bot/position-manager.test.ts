@@ -301,6 +301,8 @@ describe("PositionManager", () => {
       drawdownScaler: { enabled: true, maxDdPct: 0.20, initialEquity: 10_000 },
     });
     pm.setRiskManager(rm);
+    let closeIntents = 0;
+    rm.onTrailingStopClose(() => { closeIntents++; });
     pm.setRiskManager(null);
     pm.setRiskManager(rm);
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);
@@ -310,7 +312,10 @@ describe("PositionManager", () => {
     expect(rm.getDrawdownScaler().getState().currentEquity).toBe(10_005);
     // Second tick — drop below the trail (60_500 - 3*600 = 58_700)
     pm.updateMarketPrice(makeSymbol(), 58_000);
-    expect(pm.getPositionCount()).toBe(0);
+    expect(closeIntents).toBe(1);
+    // A risk decision is only a close intent; local exposure remains until a
+    // reduce-only execution is confirmed by the order lifecycle.
+    expect(pm.getPositionCount()).toBe(1);
   });
 
   it("updateMarketPrice feeds RiskManager only when set", () => {

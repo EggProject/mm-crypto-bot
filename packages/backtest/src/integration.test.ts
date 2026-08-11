@@ -165,7 +165,7 @@ describe("runBacktest — stratégia szignálok nélkül", () => {
 });
 
 describe("runBacktest — equity-görbe és metrikák", () => {
-  it("az equity-görbe minden LTF candle-re tartalmaz egy pontot", async () => {
+  it("az equity-görbe kezdőcash-pontot és minden LTF candle-re egy pontot tartalmaz", async () => {
     const candles = mkUptrendCandles(10, 100, 1);
     const feed = new MockFeed(candles);
     const opts: BacktestOptions = {
@@ -181,7 +181,8 @@ describe("runBacktest — equity-görbe és metrikák", () => {
       positionSize: POSITION_SIZE,
     };
     const result = await runBacktest(opts);
-    expect(result.equityCurve.length).toBe(candles.length);
+    expect(result.equityCurve.length).toBe(candles.length + 1);
+    expect(result.equityCurve[0]).toEqual({ timestamp: 0, equity: 10000 });
   });
 
   it("a metrikák konzisztensek a trade-listával", async () => {

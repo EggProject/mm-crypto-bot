@@ -62,8 +62,8 @@
  *   `application/octet-stream`.
  */
 
-import { existsSync, statSync } from "node:fs";
-import { extname, join, normalize, resolve } from "node:path";
+import { realpathSync, statSync } from "node:fs";
+import { extname, isAbsolute, relative, resolve, sep, win32 } from "node:path";
 
 // ============================================================================
 // Constants
@@ -231,11 +231,14 @@ function serveIndexHtml(webDistDir: string): Response {
   if (!isDirectory(webDistDir)) {
     return htmlResponse(PLACEHOLDER_HTML);
   }
-  const indexPath = join(webDistDir, "index.html");
-  if (!isFile(indexPath)) {
+  const indexFile = resolveContainedFile(webDistDir, "index.html");
+  if (indexFile.kind === "forbidden") {
+    return textResponse("forbidden", 403);
+  }
+  if (indexFile.kind === "missing") {
     return htmlResponse(PLACEHOLDER_HTML);
   }
-  const file = Bun.file(indexPath);
+  const file = Bun.file(indexFile.path);
   return new Response(file, {
     headers: { "content-type": "text/html; charset=utf-8" },
   });
@@ -250,28 +253,99 @@ function serveStaticFile(webDistDir: string, relativePath: string): Response {
   if (!isDirectory(webDistDir)) {
     return htmlResponse(PLACEHOLDER_HTML, 404);
   }
-  // A `decodeURIComponent` a `%20` / `%2F` / stb. kezeli.
-  let decoded: string;
+  // URL pathname normally preserves encoded separators. Never accept those
+  // spellings: a proxy/runtime may decode them at a different stage than Bun.
+  if (/%2f|%5c/i.test(relativePath)) {
+    return textResponse("forbidden", 403);
+  }
+  let decoded = relativePath;
   try {
-    decoded = decodeURIComponent(relativePath);
+    // Decode repeatedly so `%252e%252e` cannot become traversal after a
+    // second decoding layer in front of this handler. The bounded loop avoids
+    // pathological input while still covering nested encoding.
+    for (let index = 0; index < 4; index += 1) {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    }
   } catch {
     return textResponse("invalid path", 400);
   }
-  // A `..` szegmensek eltávolítása — a path normalization a `..` /
-  // `.` szegmenseket a `node:path` `normalize` metódusával kezeli.
-  const normalized = normalize(decoded);
-  if (normalized.startsWith("..") || normalized.includes("../")) {
+  if (
+    decoded.includes("\0") ||
+    decoded.includes("\\") ||
+    isAbsolute(decoded) ||
+    win32.isAbsolute(decoded)
+  ) {
     return textResponse("forbidden", 403);
   }
-  const fullPath = resolve(webDistDir, normalized);
-  if (!isFile(fullPath)) {
+
+  const fullPath = resolve(webDistDir, decoded);
+  const pathFromRoot = relative(resolve(webDistDir), fullPath);
+  // `relative()` plus this separator-aware test proves the resolved candidate
+  // is a descendant of the configured root; a prefix comparison alone would
+  // accept siblings such as `/dist-private` for a `/dist` root.
+  if (
+    pathFromRoot === "" ||
+    pathFromRoot === ".." ||
+    pathFromRoot.startsWith(`..${sep}`) ||
+    isAbsolute(pathFromRoot)
+  ) {
+    return textResponse("forbidden", 403);
+  }
+
+  const containedFile = resolveContainedFile(webDistDir, decoded);
+  if (containedFile.kind === "forbidden") {
+    return textResponse("forbidden", 403);
+  }
+  if (containedFile.kind === "missing") {
     return textResponse("not found", 404);
   }
-  const file = Bun.file(fullPath);
-  const contentType = contentTypeForPath(fullPath);
+  const file = Bun.file(containedFile.path);
+  const contentType = contentTypeForPath(containedFile.path);
   return new Response(file, {
     headers: { "content-type": contentType },
   });
+}
+
+type ContainedFileResult =
+  | { readonly kind: "file"; readonly path: string }
+  | { readonly kind: "forbidden" }
+  | { readonly kind: "missing" };
+
+/**
+ * Resolve both the configured root and an existing candidate through the real
+ * filesystem before the final containment decision. Internal symlinks are
+ * allowed only when their canonical target remains below the canonical root;
+ * external symlinks are rejected.
+ *
+ * `realpath` followed by `Bun.file` still has the usual local-writer TOCTOU
+ * window: a process that can mutate the deployment directory could swap a
+ * symlink after validation. The deployment directory must therefore not be
+ * writable by untrusted local users while the server is running.
+ */
+function resolveContainedFile(webDistDir: string, relativePath: string): ContainedFileResult {
+  try {
+    const canonicalRoot = realpathSync(webDistDir);
+    const canonicalCandidate = realpathSync(resolve(webDistDir, relativePath));
+
+    const canonicalRelative = relative(canonicalRoot, canonicalCandidate);
+    if (
+      canonicalRelative === "" ||
+      canonicalRelative === ".." ||
+      canonicalRelative.startsWith(`..${sep}`) ||
+      isAbsolute(canonicalRelative)
+    ) {
+      return { kind: "forbidden" };
+    }
+
+    if (!statSync(canonicalCandidate).isFile()) return { kind: "missing" };
+    return { kind: "file", path: canonicalCandidate };
+  } catch {
+    // Missing files, broken symlinks and permission errors are all reported as
+    // an opaque miss; filesystem details never reach the HTTP response.
+    return { kind: "missing" };
+  }
 }
 
 // ============================================================================
@@ -294,15 +368,11 @@ function contentTypeForPath(path: string): string {
  * nem directory (false).
  */
 function isDirectory(path: string): boolean {
-  return existsSync(path) && statSync(path).isDirectory();
-}
-
-/**
- * `isFile` — a path fájl-e. A `existsSync` ellenőrzi a létezést,
- * a `statSync` a típust.
- */
-function isFile(path: string): boolean {
-  return existsSync(path) && statSync(path).isFile();
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 /**

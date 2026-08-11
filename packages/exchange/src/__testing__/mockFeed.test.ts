@@ -22,7 +22,7 @@ import {
   defaultOrderBook,
   defaultTicker,
 } from "./mockFeed.js";
-import { type Symbol, type Timeframe } from "../types.js";
+import { type Balance, type ExchangePosition, type Symbol, type Timeframe } from "../types.js";
 import { asSymbol } from "../symbols.js";
 
 describe("mockFeed", () => {
@@ -315,11 +315,50 @@ describe("mockFeed", () => {
       expect(mm.quote).toBe("USDC");
     });
 
-    it("fetchBalances a másolt tömböt adja vissza (nem az eredeti referenciát)", async () => {
+    it("fetchBalances a másolt tömböt adja vissza, amelynek módosítása nem írja felül a feedet", async () => {
       const balances1 = await feed.fetchBalances();
       const balances2 = await feed.fetchBalances();
       expect(balances1).not.toBe(balances2);
       expect(balances1).toEqual(balances2);
+
+      (balances1 as Balance[]).pop();
+      expect((await feed.fetchBalances()).length).toBe(balances2.length);
+    });
+  });
+
+  describe("exchange-authoritative positions", () => {
+    beforeEach(async () => {
+      await feed.open();
+    });
+
+    it("returns a defensive full snapshot and filters it by the requested symbols", async () => {
+      const btc: ExchangePosition = {
+        symbol: asSymbol("BTC/USDC"),
+        side: "long",
+        quantity: 0.25,
+        entryPrice: 60_000,
+        markPrice: 60_100,
+        unrealizedPnl: 25,
+        updateTimestamp: 1_700_000_000_000,
+      };
+      const eth: ExchangePosition = {
+        symbol: asSymbol("ETH/USDC"),
+        side: "short",
+        quantity: 2,
+        entryPrice: 3_000,
+        markPrice: 2_990,
+        unrealizedPnl: 20,
+        updateTimestamp: 1_700_000_000_001,
+      };
+      feed.setPositions([btc, eth]);
+
+      const fullSnapshot = await feed.fetchPositions();
+      expect(fullSnapshot).toEqual([btc, eth]);
+
+      (fullSnapshot as ExchangePosition[]).pop();
+      expect(await feed.fetchPositions()).toEqual([btc, eth]);
+      expect(await feed.fetchPositions([asSymbol("ETH/USDC")])).toEqual([eth]);
+      expect(await feed.fetchPositions([asSymbol("SOL/USDC")])).toEqual([]);
     });
   });
 

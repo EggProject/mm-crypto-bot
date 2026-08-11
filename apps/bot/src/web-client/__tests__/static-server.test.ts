@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -74,6 +74,24 @@ describe("static-server", () => {
         expect(text).toBe("<html>EXPLICIT</html>");
       } finally {
         rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("refuses an index.html symlink whose canonical target escapes webDistDir", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      const outside = mkdtempSync(join(tmpdir(), "static-outside-"));
+      try {
+        writeFileSync(join(outside, "index.html"), "outside bundle");
+        symlinkSync(join(outside, "index.html"), join(tmp, "index.html"));
+        const handler = createStaticHandler({ webDistDir: tmp });
+
+        const res = await handler(new Request("http://localhost/"));
+
+        expect(res.status).toBe(403);
+        expect(await res.text()).toBe("forbidden");
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+        rmSync(outside, { recursive: true, force: true });
       }
     });
   });
@@ -150,6 +168,21 @@ describe("static-server", () => {
       }
     });
 
+    it("does not serve a directory as a static file", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      try {
+        mkdirSync(join(tmp, "assets"));
+        const handler = createStaticHandler({ webDistDir: tmp });
+
+        const res = await handler(new Request("http://localhost/static/assets"));
+
+        expect(res.status).toBe(404);
+        expect(await res.text()).toBe("not found");
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
     it("serves files in nested subdirectories", async () => {
       const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
       try {
@@ -161,6 +194,50 @@ describe("static-server", () => {
         const res = await handler(new Request("http://localhost/static/assets/logo.png"));
         expect(res.status).toBe(200);
         expect(res.headers.get("content-type")).toContain("image/png");
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("rejects a symlink whose canonical target escapes webDistDir", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      const outside = mkdtempSync(join(tmpdir(), "static-outside-"));
+      try {
+        writeFileSync(join(outside, "secret.txt"), "outside-secret");
+        symlinkSync(join(outside, "secret.txt"), join(tmp, "escape.txt"));
+        const handler = createStaticHandler({ webDistDir: tmp });
+        const res = await handler(new Request("http://localhost/static/escape.txt"));
+        expect(res.status).toBe(403);
+        expect(await res.text()).toBe("forbidden");
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+        rmSync(outside, { recursive: true, force: true });
+      }
+    });
+
+    it("allows an internal symlink when its canonical target remains inside webDistDir", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      try {
+        mkdirSync(join(tmp, "real"));
+        writeFileSync(join(tmp, "real", "asset.js"), "console.log('internal');");
+        symlinkSync(join(tmp, "real", "asset.js"), join(tmp, "linked.js"));
+        const handler = createStaticHandler({ webDistDir: tmp });
+        const res = await handler(new Request("http://localhost/static/linked.js"));
+        expect(res.status).toBe(200);
+        expect(await res.text()).toBe("console.log('internal');");
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("returns an opaque 404 for a broken symlink", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      try {
+        symlinkSync(join(tmp, "missing.js"), join(tmp, "broken.js"));
+        const handler = createStaticHandler({ webDistDir: tmp });
+        const res = await handler(new Request("http://localhost/static/broken.js"));
+        expect(res.status).toBe(404);
+        expect(await res.text()).toBe("not found");
       } finally {
         rmSync(tmp, { recursive: true, force: true });
       }
@@ -178,6 +255,25 @@ describe("static-server", () => {
           new Request("http://localhost/static/.." + encodeURIComponent("/../etc/passwd")),
         );
         expect(res.status).toBe(403);
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("rejects absolute, Windows, encoded-separator, NUL, and double-encoded traversal paths", async () => {
+      const tmp = mkdtempSync(join(tmpdir(), "static-test-"));
+      try {
+        const handler = createStaticHandler({ webDistDir: tmp });
+        for (const path of [
+          "%2Fetc%2Fhosts",
+          "C:%5CWindows%5Cwin.ini",
+          "%255c%255cserver%255cshare",
+          "%252e%252e%252fetc%252fpasswd",
+          "safe%00.js",
+        ]) {
+          const res = await handler(new Request(`http://localhost/static/${path}`));
+          expect(res.status).toBe(403);
+        }
       } finally {
         rmSync(tmp, { recursive: true, force: true });
       }

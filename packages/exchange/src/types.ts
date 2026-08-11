@@ -103,13 +103,32 @@ export interface Balance {
 }
 
 /**
+ * Normalized exchange-side position.  This is intentionally separate from
+ * the bot's strategy-attributed position book: on a kill switch the exchange
+ * is the authority for what is actually exposed.
+ */
+export interface ExchangePosition {
+  readonly symbol: Symbol;
+  readonly side: "long" | "short";
+  readonly quantity: number;
+  readonly entryPrice: number | undefined;
+  readonly markPrice: number | undefined;
+  readonly unrealizedPnl: number | undefined;
+  readonly updateTimestamp: number | undefined;
+}
+
+/**
  * `OrderType` — a támogatott order-típusok a paper engine-ben.
  * A CCXT Pro támogatja a `stop_market`, `stop_limit` típusokat is, de a
  * paper engine csak a leggyakoribb kettővel dolgozik (limit + market).
- * A TP/SL-t külön `attachedTpSl` opcióval kezeljük (CCXT Pro natívan
- * támogatja a `createOrder` params.takeProfitPrice / stopLossPrice-szel).
+ * Protective exits are lifecycle-managed after a confirmed entry fill.  They
+ * are not blindly encoded on a market entry because venue/category support
+ * differs (Bybit V5 spot attached TP/SL is limit-entry specific).
  */
 export type OrderType = "market" | "limit";
+
+/** Purpose of a post-fill conditional protective order. */
+export type ProtectiveOrderKind = "stop_loss" | "take_profit";
 
 /**
  * `OrderSide` — long/short irány.
@@ -134,15 +153,20 @@ export interface OrderRequest {
   readonly amount: number;
   /** Limit price (kötelező ha type === "limit", market-nél figyelmen kívül hagyva). */
   readonly price?: number;
+  /** Only valid for derivatives/options on Bybit; safety close intent. */
+  readonly reduceOnly?: boolean;
+  /** Post-fill native conditional exit; never attached blindly to an entry. */
+  readonly protectiveKind?: ProtectiveOrderKind;
+  /** Conditional trigger price, required when `protectiveKind` is set. */
+  readonly triggerPrice?: number;
   /**
-   * Take-profit trigger ár (opcionális). Ha meg van adva, a pozíció záróárát
-   * a rendszer automatikusan figyeli és TP-nél zárja (paper módban saját
-   * fill-motor, live módban a CCXT Pro `createOrder` params.takeProfitPrice).
+   * Requested take-profit, retained as an intent-level value for the
+   * protective-exit lifecycle.  The low-level entry adapter does not forward
+   * it as an unconditional CCXT parameter.
    */
   readonly takeProfitPrice?: number;
   /**
-   * Stop-loss trigger ár (opcionális). Hasonló a take-profit-hoz, de
-   * ellenkező irányú zárást jelent.
+   * Requested stop-loss; see takeProfitPrice for lifecycle semantics.
    */
   readonly stopLossPrice?: number;
 }
@@ -167,6 +191,20 @@ export interface Order {
   readonly updateTimestamp: number | undefined;
 }
 
+/** One authenticated private execution, normalized from CCXT `Trade`. */
+export interface Execution {
+  readonly executionId: string;
+  readonly clientOrderId: ClientOrderId | undefined;
+  readonly exchangeOrderId: ExchangeOrderId | undefined;
+  readonly symbol: Symbol;
+  readonly side: OrderSide;
+  readonly quantity: number;
+  readonly price: number;
+  readonly fee: number;
+  readonly feeCurrency: string | undefined;
+  readonly timestamp: number;
+}
+
 /**
  * `MarketMeta` — egy adott symbol piaci metaadatai (precision, limits).
  * A CCXT `Market` típusából csak a legszükségesebbeket emeljük ki.
@@ -179,6 +217,8 @@ export interface MarketMeta {
   readonly pricePrecision: number;
   readonly minAmount: number;
   readonly minCost: number;
+  /** True only when the normalized venue market is a spot market. */
+  readonly isSpot?: boolean;
 }
 
 /**
@@ -189,4 +229,6 @@ export type FeedEvent =
   | { readonly kind: "ticker"; readonly payload: Ticker }
   | { readonly kind: "orderbook"; readonly payload: OrderBook }
   | { readonly kind: "trade"; readonly payload: Trade }
-  | { readonly kind: "ohlcv"; readonly payload: { readonly symbol: Symbol; readonly timeframe: Timeframe; readonly candle: Ohlcv } };
+  | { readonly kind: "ohlcv"; readonly payload: { readonly symbol: Symbol; readonly timeframe: Timeframe; readonly candle: Ohlcv } }
+  | { readonly kind: "order"; readonly payload: Order }
+  | { readonly kind: "execution"; readonly payload: Execution };

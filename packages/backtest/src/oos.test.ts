@@ -150,6 +150,42 @@ describe("runWalkForward", () => {
     expect(result.avgOosSharpe).toBe(0);
     expect(result.oosIsSharpeRatio).toBe(0);
   });
+
+  it("az egymás melletti IS/OOS ablakok határgyertyái diszjunktak és együtt lefedik a teljes tartományt", async () => {
+    const hourMs = 60 * 60 * 1000;
+    const candles = Array.from({ length: 48 }, (_, hour) => mkCandle(hour * hourMs, 100));
+    const opts: BacktestOptions = {
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(48 * hourMs),
+      initialEquityUsd: 10_000,
+      feed: new MockFeed(candles),
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy: new NullStrategy(),
+    };
+
+    const result = await runWalkForward(opts, {
+      inSampleDays: 1,
+      outOfSampleDays: 1,
+      stepDays: 1,
+    });
+
+    expect(result.windowCount).toBe(1);
+    const isCandleOpens = result.isResults[0]!.equityCurve
+      .slice(1)
+      .map((point) => point.timestamp - hourMs);
+    const oosCandleOpens = result.oosResults[0]!.equityCurve
+      .slice(1)
+      .map((point) => point.timestamp - hourMs);
+    expect(isCandleOpens).toEqual(Array.from({ length: 24 }, (_, hour) => hour * hourMs));
+    expect(oosCandleOpens).toEqual(Array.from({ length: 24 }, (_, hour) => (24 + hour) * hourMs));
+    expect(isCandleOpens.filter((timestamp) => oosCandleOpens.includes(timestamp))).toEqual([]);
+    expect([...isCandleOpens, ...oosCandleOpens]).toEqual(candles.map((item) => item.timestamp));
+  });
 });
 
 describe("computeOosIsRatio", () => {

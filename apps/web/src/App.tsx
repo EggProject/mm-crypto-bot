@@ -23,6 +23,7 @@ import type { OHLCBar } from "./lib/ohlc-bridge.js";
 import { buildMarkersByKey } from "./lib/markers-from-trades.js";
 import { appendOrReplaceBar, mergeSnapshotBars } from "./lib/bars-from-bar.js";
 import { applyTickToBars } from "./lib/bars-from-tick.js";
+import { dashboardApiUrl } from "./lib/dashboard-url.js";
 
 /**
  * `App` — the Top-nav app shell for the mm-crypto-bot web dashboard.
@@ -38,7 +39,7 @@ import { applyTickToBars } from "./lib/bars-from-tick.js";
  *
  * Phase 48C: integrates the ChartGrid above the PositionsTable:
  *   - On WS connect, fetches `GET /api/strategies` from the bot's HTTP
- *     server (http://127.0.0.1:7913) and passes the descriptor list to
+ *     server (the current page origin) and passes the descriptor list to
  *     ChartGrid as the `strategies` prop.
  *   - Builds a `barsByKey` map from the snapshot's `ohlcBootstrap` field
  *     (keyed by `chartKeyToString({symbol, timeframe})` — the format
@@ -76,13 +77,10 @@ import { applyTickToBars } from "./lib/bars-from-tick.js";
  * mount + a 30s slow-poll fallback when the WS is disconnected.
  */
 
-// The bot's HTTP server (apps/bot/src/web-client/http-server.ts)
-// serves /api/strategies from the cached state-feed snapshot.
-// 127.0.0.1 is hard-coded — the dev workflow is browser ↔ loopback,
-// and the Vite dev server proxies nothing on this port (Vite serves
-// the SPA shell; the API is a separate origin). CORS headers are
-// configured server-side.
-const STRATEGIES_URL = "http://127.0.0.1:7913/api/strategies" as const;
+// The bot's HTTP server (apps/bot/src/web-client/http-server.ts) serves
+// /api/strategies from the cached state-feed snapshot on the dashboard's
+// current origin (including its configured port/base path).
+const STRATEGIES_URL = dashboardApiUrl("api/strategies");
 
 // `FeedState` is exported from app-helpers.ts. The local binding
 // `feedState` is inferred from `mapFeedState(status)`'s return

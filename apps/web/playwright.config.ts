@@ -121,14 +121,15 @@ export default defineConfig({
    *   2. `vite preview --port 7913 --strictPort` to serve the dist
    *
    * The `--single-run` is implicit (preview doesn't watch the dist).
-   * The `reuseExistingServer` is `true` locally (so a `bun run dev`
-   * or prior `bun run preview` doesn't get killed) but `false` on CI
-   * (deterministic).
+   * This suite always owns its preview process. Reusing a developer server
+   * lets an interrupted test run leak that server into later tests and makes
+   * coverage come from an unknown build. A busy port therefore fails fast.
    */
   webServer: {
     command: "VITE_COVERAGE=true bun run build && bun run preview --port 7913 --strictPort --host 127.0.0.1",
     url: ORIGIN,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
     timeout: 120_000, // 2 min for the build + preview start
     stdout: "pipe",
     stderr: "pipe",

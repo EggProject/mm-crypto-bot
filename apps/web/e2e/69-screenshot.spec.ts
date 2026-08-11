@@ -9,8 +9,7 @@
  *   3. Working Start/Stop/Pause/Resume/Kill Switch buttons
  *
  * The screenshot is saved to `coverage/playwright/screenshots/phase-69.png`
- * AND copied to `.mavis/notes/phase-69-dashboard.png` (the
- * user-facing artifact for the PR body).
+ * as a disposable test artifact. It never writes the tracked worktree.
  *
  * **Setup:** uses `page.route` to serve 3 symbols × 3 timeframes
  * (9 cards) + a WS peer for the state feed. The bot starts
@@ -19,7 +18,7 @@
  */
 
 import { type Page, type Route, expect, test } from "@playwright/test";
-import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { WebSocketRoute } from "@playwright/test";
@@ -46,8 +45,6 @@ const __dirname = dirname(__filename);
 const APPS_WEB = resolve(__dirname, "..");
 const SCREENSHOT_DIR = resolve(APPS_WEB, "coverage/playwright/screenshots");
 const SCREENSHOT_PATH = resolve(SCREENSHOT_DIR, "phase-69.png");
-const NOTES_DIR = resolve(APPS_WEB, "../../.mavis/notes");
-const NOTES_SCREENSHOT_PATH = resolve(NOTES_DIR, "phase-69-dashboard.png");
 
 interface BotState {
   state: "running" | "paused" | "stopped";
@@ -293,16 +290,11 @@ test.describe("Phase 69: deployment screenshot", () => {
     await expect(resumeBtn).toBeDisabled();
     await expect(killBtn).toBeEnabled();
 
-    // 6) Take the full-page screenshot. Save to the standard
-    //    coverage/screenshots path AND copy to the user-facing
-    //    .mavis/notes/ path.
+    // 6) Take the full-page screenshot only under the ignored coverage
+    //    artifact root. Test execution must not dirty tracked files.
     mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await page.screenshot({ path: SCREENSHOT_PATH, fullPage: true });
     expect(existsSync(SCREENSHOT_PATH)).toBe(true);
 
-    // Copy to the user-facing notes path.
-    mkdirSync(NOTES_DIR, { recursive: true });
-    copyFileSync(SCREENSHOT_PATH, NOTES_SCREENSHOT_PATH);
-    expect(existsSync(NOTES_SCREENSHOT_PATH)).toBe(true);
   });
 });

@@ -31,7 +31,7 @@ type AnyMock = Record<string, (...args: unknown[]) => unknown>;
  */
 function makeMockClient(): {
   client: CcxtExchange;
-  release: (kind: "ticker" | "orderbook" | "trades" | "ohlcv", value: unknown) => Promise<void>;
+  release: (kind: "ticker" | "orderbook" | "trades" | "ohlcv" | "orders" | "executions", value: unknown) => Promise<void>;
   setMarkets: (markets: Record<string, unknown>) => void;
   calls: { kind: string; args: unknown[] }[];
 } {
@@ -42,6 +42,8 @@ function makeMockClient(): {
     orderbook: [],
     trades: [],
     ohlcv: [],
+    orders: [],
+    executions: [],
   };
   function makeDefer() {
     let resolveFn!: (v: unknown) => void;
@@ -66,11 +68,19 @@ function makeMockClient(): {
   };
   const client: AnyMock = {
     loadMarkets: async () => undefined,
+    // `placeOrder` branches by CCXT market category to keep Bybit's spot
+    // parameter grammar separate from contract reduce-only orders.
+    market: (_symbol: string) => ({ spot: false }),
     setSandboxMode: (_v: unknown) => undefined,
     watchTicker: watchHelper("ticker"),
     watchOrderBook: watchHelper("orderbook"),
     watchTrades: watchHelper("trades"),
     watchOHLCV: watchHelper("ohlcv"),
+    watchOrders: watchHelper("orders"),
+    watchMyTrades: watchHelper("executions"),
+    unWatchOrders: async () => { calls.push({ kind: "unWatchOrders", args: [] }); },
+    unWatchMyTrades: async () => { calls.push({ kind: "unWatchMyTrades", args: [] }); },
+    has: { unWatchOrders: true, unWatchMyTrades: true },
     fetchTicker: async (sym: string) => ({
       symbol: sym,
       timestamp: 12345,
@@ -105,9 +115,12 @@ function makeMockClient(): {
         timestamp: 1234,
       };
     },
-    cancelOrderWithClientOrderId: async (cid: string) => ({
+    cancelOrder: async (...args: unknown[]) => {
+      calls.push({ kind: "cancelOrder", args });
+      const params = args[2] as { orderLinkId?: string } | undefined;
+      return {
       id: "x",
-      clientOrderId: cid,
+      clientOrderId: params?.orderLinkId,
       status: "canceled",
       side: "buy",
       type: "limit",
@@ -115,10 +128,14 @@ function makeMockClient(): {
       price: 100,
       filled: 0,
       timestamp: 1,
-    }),
-    fetchOrderWithClientOrderId: async (cid: string) => ({
+      };
+    },
+    fetchOrder: async (...args: unknown[]) => {
+      calls.push({ kind: "fetchOrder", args });
+      const params = args[2] as { orderLinkId?: string } | undefined;
+      return {
       id: "x",
-      clientOrderId: cid,
+      clientOrderId: params?.orderLinkId,
       status: "open",
       side: "buy",
       type: "limit",
@@ -126,7 +143,8 @@ function makeMockClient(): {
       price: 100,
       filled: 0,
       timestamp: 1,
-    }),
+      };
+    },
     fetchOpenOrders: async (sym: string) => [
       {
         id: "x",
@@ -198,11 +216,11 @@ describe("BybitEuFeed — open/close + watch loops", () => {
   describe("close()", () => {
     it("az aktív subscriptionöket cancelled-re állítja, majd törli a map-ből", async () => {
       Object.defineProperty(feed, "opened", { value: true, writable: true });
-      const subs = (feed as unknown as { subs: Map<number, { cancelled: boolean }> }).subs;
-      const s1 = { cancelled: false };
-      const s2 = { cancelled: false };
-      subs.set(1, s1 as { cancelled: boolean });
-      subs.set(2, s2 as { cancelled: boolean });
+      const subs = (feed as unknown as { subs: Map<number, { cancelled: boolean; abortController: AbortController }> }).subs;
+      const s1 = { cancelled: false, abortController: new AbortController() };
+      const s2 = { cancelled: false, abortController: new AbortController() };
+      subs.set(1, s1);
+      subs.set(2, s2);
       await feed.close();
       expect(s1.cancelled).toBe(true);
       expect(s2.cancelled).toBe(true);
@@ -281,7 +299,10 @@ describe("BybitEuFeed — open/close + watch loops", () => {
       Object.defineProperty(feed, "opened", { value: true, writable: true });
       const events: unknown[] = [];
       const id = await feed.subscribeOhlcv(BTC_USDC, "1m", (e) => events.push(e));
-      await mock.release("ohlcv", [[1, 100, 101, 99, 100, 10]]);
+      await mock.release("ohlcv", [
+        [1, 100, 101, 99, 100, 10],
+        [60_001, 100, 102, 99, 101, 11],
+      ]);
       await feed.unsubscribe(id);
       await mock.release("ohlcv", null);
       expect(events.length).toBeGreaterThan(0);
@@ -289,6 +310,30 @@ describe("BybitEuFeed — open/close + watch loops", () => {
       expect(
         (events[0] as { kind: string; payload: { candle: unknown[] } }).payload.candle,
       ).toEqual([1, 100, 101, 99, 100, 10]);
+    });
+  });
+
+  describe("private order/execution loops", () => {
+    it("normalizes authenticated updates and explicitly unwatches both streams", async () => {
+      Object.defineProperty(feed, "opened", { value: true, writable: true });
+      const events: unknown[] = [];
+      const orderId = await feed.subscribeOrderUpdates((event) => events.push(event));
+      const executionId = await feed.subscribeExecutions((event) => events.push(event));
+      await mock.release("orders", [{
+        id: "venue-1", clientOrderId: "client-1", symbol: "BTC/USDC", side: "buy", type: "market",
+        amount: 2, filled: 1, average: 100, status: "open", timestamp: 1,
+      }]);
+      await mock.release("executions", [{
+        id: "exec-1", order: "venue-1", symbol: "BTC/USDC", side: "buy", amount: 1, price: 100,
+        timestamp: 2, fee: { cost: 0.1, currency: "USDC" }, info: { orderLinkId: "client-1" },
+      }]);
+      await feed.unsubscribe(orderId);
+      await feed.unsubscribe(executionId);
+      await mock.release("orders", []);
+      await mock.release("executions", []);
+      expect(events.map((event) => (event as { kind: string }).kind)).toEqual(["order", "execution"]);
+      expect(mock.calls.filter((call) => call.kind === "unWatchOrders")).toHaveLength(1);
+      expect(mock.calls.filter((call) => call.kind === "unWatchMyTrades")).toHaveLength(1);
     });
   });
 
@@ -322,8 +367,8 @@ describe("BybitEuFeed — open/close + watch loops", () => {
 
     it("létező id esetén törli a sub-ot és cancelled-re állítja", async () => {
       Object.defineProperty(feed, "opened", { value: true, writable: true });
-      const subs = (feed as unknown as { subs: Map<number, { cancelled: boolean }> }).subs;
-      subs.set(1, { cancelled: false } as { cancelled: boolean });
+      const subs = (feed as unknown as { subs: Map<number, { cancelled: boolean; abortController: AbortController }> }).subs;
+      subs.set(1, { cancelled: false, abortController: new AbortController() });
       await feed.unsubscribe(1 as never);
       expect(subs.has(1)).toBe(false);
     });
@@ -394,7 +439,7 @@ describe("BybitEuFeed — fetch* methods", () => {
       expect(mock.calls.some((c) => c.kind === "createOrder")).toBe(true);
     });
 
-    it("a takeProfitPrice és stopLossPrice paramétereket átadja a CCXT-nek", async () => {
+    it("does not attach TP/SL blindly to a market entry", async () => {
       await feed.placeOrder({
         clientOrderId: "cid" as ClientOrderId,
         symbol: BTC_USDC,
@@ -407,22 +452,45 @@ describe("BybitEuFeed — fetch* methods", () => {
       const call = mock.calls.find((c) => c.kind === "createOrder");
       expect(call).toBeDefined();
       const params = (call!.args[5] ?? {}) as Record<string, unknown>;
-      expect(params["takeProfitPrice"]).toBe(110);
-      expect(params["stopLossPrice"]).toBe(90);
+      // Bybit V5 accepts spot attached TP/SL only on limit entries and
+      // reduceOnly cannot be mixed with TP/SL.  The execution lifecycle
+      // must create protected exits after the entry has a confirmed fill.
+      expect(params["takeProfitPrice"]).toBeUndefined();
+      expect(params["stopLossPrice"]).toBeUndefined();
+    });
+
+    it("forwards a reduce-only safety close without TP/SL fields", async () => {
+      await feed.placeOrder({
+        clientOrderId: "close" as ClientOrderId,
+        symbol: BTC_USDC,
+        side: "sell",
+        type: "market",
+        amount: 0.5,
+        reduceOnly: true,
+      });
+      const call = mock.calls.find((item) => item.kind === "createOrder");
+      const params = (call!.args[5] ?? {}) as Record<string, unknown>;
+      expect(params["reduceOnly"]).toBe(true);
+      expect(params["takeProfitPrice"]).toBeUndefined();
+      expect(params["stopLossPrice"]).toBeUndefined();
     });
   });
 
   describe("cancelOrder", () => {
-    it("a CCXT cancelOrderWithClientOrderId-t hívja", async () => {
+    it("explicit V5 orderLinkId-val hívja a cancelOrder-t, üres orderId nélkül", async () => {
       const o = await feed.cancelOrder("cid" as ClientOrderId, BTC_USDC);
       expect(o.status).toBe("canceled");
+      expect(mock.calls.find((call) => call.kind === "cancelOrder")?.args)
+        .toEqual([undefined, BTC_USDC, { orderLinkId: "cid" }]);
     });
   });
 
   describe("fetchOrder", () => {
-    it("a CCXT fetchOrderWithClientOrderId-t hívja", async () => {
+    it("explicit V5 orderLinkId-val és acknowledged-del hívja a fetchOrder-t", async () => {
       const o = await feed.fetchOrder("cid" as ClientOrderId, BTC_USDC);
       expect(o.status).toBe("open");
+      expect(mock.calls.find((call) => call.kind === "fetchOrder")?.args)
+        .toEqual([undefined, BTC_USDC, { orderLinkId: "cid", acknowledged: true }]);
     });
   });
 

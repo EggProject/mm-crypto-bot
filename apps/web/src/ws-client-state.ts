@@ -189,8 +189,6 @@ export const DEFAULT_BACKOFF_SEQUENCE_MS: readonly number[] = [
 // a single self-contained module. `ws-client.ts` re-exports them
 // for backward compatibility with the existing test file.
 
-const DEFAULT_URL_FOR_HELPERS = "ws://127.0.0.1:7913/ws";
-
 /**
  * `nextBackoffMs(attempt, schedule)` — pure function: given a
  * reconnect attempt counter and a backoff schedule, return the
@@ -530,7 +528,3 @@ function reduceForParsedMessage(
     }
   }
 }
-
-// Keep the no-unused-vars lint happy in case the helper is ever
-// dropped in a future refactor.
-void DEFAULT_URL_FOR_HELPERS;

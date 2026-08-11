@@ -12,7 +12,9 @@ import { join } from "node:path";
 
 import {
   asSymbol,
+  type MarketMeta,
   type Symbol as ExchangeSymbol,
+  type Ticker,
 } from "@mm-crypto-bot/exchange";
 // Phase 66: `MockExchangeFeed` is test-only — the package no longer
 // exports it from `@mm-crypto-bot/exchange`. Tests reach it via the
@@ -46,6 +48,20 @@ function buildTestConfig(stateFile: string): BotConfig {
   };
 }
 
+async function reconcileLiveEquity(bot: Bot): Promise<number | null> {
+  const internal = bot as unknown as {
+    init(): Promise<void>;
+    reconcileAuthoritativeEquity(): Promise<void>;
+    cleanup(): Promise<void>;
+    authoritativeEquityUsd: number | null;
+  };
+  await internal.init();
+  await internal.reconcileAuthoritativeEquity();
+  const equity = internal.authoritativeEquityUsd;
+  await internal.cleanup();
+  return equity;
+}
+
 describe("Bot", () => {
   let tmpDir: string;
   let stateFile: string;
@@ -65,6 +81,76 @@ describe("Bot", () => {
     }
   });
 
+  describe("authoritative live equity", () => {
+    it("values configured spot inventory from venue balances", async () => {
+      const symbol = asSymbol("BTC/USDC") as ExchangeSymbol;
+      const spotFeed = new MockExchangeFeed({
+        balances: [{ currency: "USDC", free: 1_000, total: 1_000 }, { currency: "BTC", free: 2, total: 2 }],
+      });
+      const ticker: Ticker = { symbol, timestamp: Date.now(), bid: 99, ask: 101, last: 100, baseVolume: 0, quoteVolume: 0 };
+      spotFeed.setTicker(symbol, ticker);
+      const config = { ...buildTestConfig(stateFile), bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const } };
+      expect(await reconcileLiveEquity(new Bot({ config, feed: spotFeed }))).toBe(1_200);
+    });
+
+    it("adds derivative UPL but never derivative notional or base balance", async () => {
+      const symbol = asSymbol("BTC/USDC") as ExchangeSymbol;
+      const derivativeMeta: MarketMeta = { symbol, base: "BTC", quote: "USDC", amountPrecision: 4, pricePrecision: 2, minAmount: 0.0001, minCost: 1, isSpot: false };
+      const derivativeFeed = new MockExchangeFeed({
+        balances: [{ currency: "USDC", free: 1_000, total: 1_000 }, { currency: "BTC", free: 2, total: 2 }],
+        marketMeta: new Map([[symbol, derivativeMeta]]),
+        positions: [{ symbol, side: "long", quantity: 2, entryPrice: 100, markPrice: 105, unrealizedPnl: 10, updateTimestamp: Date.now() }],
+      });
+      const config = { ...buildTestConfig(stateFile), bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const } };
+      expect(await reconcileLiveEquity(new Bot({ config, feed: derivativeFeed }))).toBe(1_010);
+    });
+
+    it("adds spot inventory and derivative UPL exactly once in a mixed account", async () => {
+      const btc = asSymbol("BTC/USDC") as ExchangeSymbol;
+      const eth = asSymbol("ETH/USDC") as ExchangeSymbol;
+      const mixedFeed = new MockExchangeFeed({
+        balances: [{ currency: "USDC", free: 1_000, total: 1_000 }, { currency: "BTC", free: 1, total: 1 }],
+        marketMeta: new Map([
+          [btc, { symbol: btc, base: "BTC", quote: "USDC", amountPrecision: 4, pricePrecision: 2, minAmount: 0.0001, minCost: 1, isSpot: true }],
+          [eth, { symbol: eth, base: "ETH", quote: "USDC", amountPrecision: 4, pricePrecision: 2, minAmount: 0.0001, minCost: 1, isSpot: false }],
+        ]),
+        positions: [{ symbol: eth, side: "short", quantity: 1, entryPrice: 10, markPrice: 12, unrealizedPnl: -5, updateTimestamp: Date.now() }],
+      });
+      mixedFeed.setTicker(btc, { symbol: btc, timestamp: Date.now(), bid: 99, ask: 101, last: 100, baseVolume: 0, quoteVolume: 0 });
+      const config = {
+        ...buildTestConfig(stateFile),
+        bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const },
+        symbols: { enabled: [String(btc), String(eth)] },
+      };
+      expect(await reconcileLiveEquity(new Bot({ config, feed: mixedFeed }))).toBe(1_095);
+    });
+
+    it("trips the portfolio drawdown stop from an authoritative derivative loss", async () => {
+      const symbol = asSymbol("BTC/USDC") as ExchangeSymbol;
+      const derivativeFeed = new MockExchangeFeed({
+        balances: [{ currency: "USDC", free: 1_000, total: 1_000 }],
+        marketMeta: new Map([[symbol, { symbol, base: "BTC", quote: "USDC", amountPrecision: 4, pricePrecision: 2, minAmount: 0.0001, minCost: 1, isSpot: false }]]),
+      });
+      const config = { ...buildTestConfig(stateFile), bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const } };
+      const bot = new Bot({ config, feed: derivativeFeed });
+      const internal = bot as unknown as {
+        init(): Promise<void>;
+        runHeartbeat(): Promise<void>;
+        cleanup(): Promise<void>;
+        portfolioManager: { isTripped(): boolean };
+      };
+      await internal.init();
+      await internal.runHeartbeat(); // establishes the 1,000 USD high-water mark
+      derivativeFeed.setPositions([{ symbol, side: "long", quantity: 1, entryPrice: 100, markPrice: 89, unrealizedPnl: -110, updateTimestamp: Date.now() }]);
+      await internal.runHeartbeat();
+      expect(internal.portfolioManager.isTripped()).toBe(true);
+      // The trip action is deliberately fire-and-forget from the stop
+      // callback; let its authoritative close attempt settle before teardown.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      await internal.cleanup();
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // 1) Start → stop lifecycle
   // ---------------------------------------------------------------------------
@@ -75,6 +161,93 @@ describe("Bot", () => {
     await new Promise<void>((r) => setTimeout(r, 100));
     await bot.stop();
     await p;
+  });
+
+  it("subscribes once to the configured 15m LTF in addition to dashboard timeframes", async () => {
+    const config: BotConfig = {
+      ...buildTestConfig(stateFile),
+      strategies: {
+        donchian_pivot_composition: {
+          enabled: true,
+          // All three config values deliberately overlap with native/chart
+          // timeframes except LTF. The resulting subscription set must be
+          // ticker + 1h/4h/1d/15m, not duplicate subscriptions.
+          timeframes: { htf: "1h", mtf: "4h", ltf: "15m" },
+        },
+        dydx_cex_carry: { enabled: false },
+        cascade_fade: { enabled: false },
+        funding_flip_kill_switch: { enabled: false },
+        regime_detector: { enabled: false },
+      },
+    };
+    const bot = new Bot({ config, feed });
+    const running = bot.start();
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    expect(feed.subscriptionCount()).toBe(5);
+    await bot.stop();
+    await running;
+  });
+
+  it("wires one configured RiskManager into both runner and PositionManager", async () => {
+    const config: BotConfig = {
+      ...buildTestConfig(stateFile),
+      risk: {
+        ...DEFAULT_BOT_CONFIG.risk,
+        trailing_stop: { ...DEFAULT_BOT_CONFIG.risk.trailing_stop, enabled: true },
+        kelly: { ...DEFAULT_BOT_CONFIG.risk.kelly, enabled: true },
+        drawdown_scaler: { ...DEFAULT_BOT_CONFIG.risk.drawdown_scaler, enabled: true },
+      },
+    };
+    const bot = new Bot({ config, feed });
+    const running = bot.start();
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    const internals = bot as unknown as {
+      riskManager: unknown;
+      runner: { riskManager: unknown };
+      positionManager: { riskManager: unknown };
+    };
+    expect(internals.riskManager).not.toBeNull();
+    expect(internals.runner.riskManager).toBe(internals.riskManager);
+    expect(internals.positionManager.riskManager).toBe(internals.riskManager);
+    await bot.stop();
+    await running;
+  });
+
+  it("pauses and resumes the engine gate independently of feed subscriptions", async () => {
+    const bot = new Bot({ config: buildTestConfig(stateFile), feed });
+    const running = bot.start();
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    bot.pause();
+    expect(bot.isPaused()).toBe(true);
+    const internals = bot as unknown as { runner: { isPaused(): boolean } };
+    expect(internals.runner.isPaused()).toBe(true);
+    bot.resume();
+    expect(bot.isPaused()).toBe(false);
+    expect(internals.runner.isPaused()).toBe(false);
+    await bot.stop();
+    await running;
+  });
+
+  it("feeds runtime equity observations into the max-drawdown kill switch", async () => {
+    const config: BotConfig = {
+      ...buildTestConfig(stateFile),
+      risk: { ...DEFAULT_BOT_CONFIG.risk, max_drawdown_pct: 0.1 },
+    };
+    const bot = new Bot({
+      config,
+      feed,
+      killSwitchEvalIntervalMs: 5,
+      heartbeatIntervalMs: 5,
+    });
+    const running = bot.start();
+    await new Promise<void>((resolve) => setTimeout(resolve, 30));
+    const internals = bot as unknown as {
+      positionManager: { restoreRealizedPnl(pnl: number): void };
+    };
+    internals.positionManager.restoreRealizedPnl(-2_000);
+    await new Promise<void>((resolve) => setTimeout(resolve, 40));
+    expect(bot.isKillSwitchEngaged()).toBe(true);
+    await running;
   });
 
   // ---------------------------------------------------------------------------

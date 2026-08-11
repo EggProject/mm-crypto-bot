@@ -301,8 +301,8 @@ describe("BybitEuFeed instance", () => {
       // Privát flag beállítása (a CCXT loadMarkets-et kikerüljük).
       Object.defineProperty(feed, "opened", { value: true, writable: true });
       // Kézzel felveszünk egy subscriptiont.
-      const subs = (feed as unknown as { subs: Map<number, { cancelled: boolean }> }).subs;
-      subs.set(1, { cancelled: false } as { cancelled: boolean });
+      const subs = (feed as unknown as { subs: Map<number, { cancelled: boolean; abortController: AbortController }> }).subs;
+      subs.set(1, { cancelled: false, abortController: new AbortController() });
       await feed.close();
       expect(subs.size).toBe(0);
     });

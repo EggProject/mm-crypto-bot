@@ -38,8 +38,8 @@
     "test:install-warnings": "bash scripts/install-no-warnings.sh",
     "coverage": "turbo run coverage",
     "coverage:per-package": "bash scripts/coverage-per-package.sh",
-    "coverage:merge": "mkdir -p coverage/merged && lcov --add-tracefile 'apps/*/coverage/lcov.info' --add-tracefile 'packages/*/coverage/lcov.info' --ignore-errors empty,inconsistent -o coverage/merged/lcov.info",
-    "coverage:report": "lcov --summary coverage/merged/lcov.info",
+    "coverage:merge": "bun scripts/lcov-tools.mjs merge coverage/merged/lcov.info apps/bot/coverage/lcov.info packages/paper/coverage/lcov.info packages/exchange/coverage/lcov.info packages/core/coverage/lcov.info packages/shared/coverage/lcov.info packages/backtest/coverage/lcov.info packages/backtest-tools/coverage/lcov.info",
+    "coverage:report": "bun scripts/lcov-tools.mjs summary coverage/merged/lcov.info",
     "coverage:html": "genhtml coverage/merged/lcov.info -o coverage/merged/html --ignore-errors empty,inconsistent,source --legend",
     "coverage:enforce": "bun run coverage:per-package",
     "coverage:full": "bash scripts/coverage-full.sh",
@@ -69,5 +69,11 @@
   },
   "trustedDependencies": [
     "ccxt"
-  ]
+  ],
+  "overrides": {
+    "uuid": "11.1.1",
+    "js-yaml": "3.15.1",
+    "nanoid": "3.3.17",
+    "postcss": "8.5.26"
+  }
 }

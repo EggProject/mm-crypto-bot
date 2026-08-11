@@ -78,13 +78,26 @@ export function detectExchangeEnv(): ExchangeEnv {
  * Az opcionális `override` paraméterrel a kulcsok explicit megadhatók
  * (pl. smoke tesztnél vagy a `bun run paper --dry` parancsnál).
  */
-export function createExchangeClient(opts: { readonly override?: ExchangeCredentials | undefined; readonly sandbox?: boolean | undefined; readonly rateLimitMs?: number | undefined }): ExchangeFeed {
+export interface CreateExchangeClientOptions {
+  readonly override?: ExchangeCredentials | undefined;
+  readonly sandbox?: boolean | undefined;
+  readonly rateLimitMs?: number | undefined;
+  readonly timeoutMs?: number | undefined;
+  readonly endpoint?: string | undefined;
+  readonly wsEndpoint?: string | undefined;
+}
+
+export function createExchangeClient(opts: CreateExchangeClientOptions): ExchangeFeed {
   const creds = opts.override ?? readExchangeCredentials();
+  const envRateLimit = Number.parseInt(process.env["CCXT_RATE_LIMIT_MS"] ?? "100", 10);
   const bybitOpts: BybitEuFeedOptions = {
     apiKey: creds.apiKey,
     secret: creds.secret,
-    rateLimitMs: opts.rateLimitMs ?? Number.parseInt(process.env["CCXT_RATE_LIMIT_MS"] ?? "100", 10),
+    rateLimitMs: opts.rateLimitMs ?? (Number.isFinite(envRateLimit) ? envRateLimit : 100),
     sandbox: opts.sandbox ?? false,
+    ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
+    ...(opts.endpoint !== undefined ? { endpoint: opts.endpoint } : {}),
+    ...(opts.wsEndpoint !== undefined ? { wsEndpoint: opts.wsEndpoint } : {}),
   };
   return new BybitEuFeed(bybitOpts);
 }

@@ -21,6 +21,7 @@ import ccxt, {
   type Trade as CcxtTrade,
   type MarketInterface as CcxtMarket,
   type Order as CcxtOrder,
+  type Position as CcxtPosition,
 } from "ccxt";
 
 import type { ExchangeFeed, FeedListener, SubscriptionId } from "./feed.js";
@@ -29,6 +30,8 @@ import type {
   Balance,
   ClientOrderId,
   ExchangeOrderId,
+  ExchangePosition,
+  Execution,
   FeedEvent,
   MarketMeta,
   Ohlcv,
@@ -61,6 +64,23 @@ export interface BybitEuFeedOptions {
    * ez csak opcionális — a paper mód NEM használja, csak manuális debughoz.
    */
   readonly sandbox: boolean;
+  /** REST request timeout passed to the CCXT exchange instance. */
+  readonly timeoutMs?: number;
+  /**
+   * Optional REST API origin.  CCXT's bybiteu adapter exposes separate
+   * `spot`, `futures`, `v2`, `public`, and `private` REST URLs, therefore a
+   * single configured origin is applied consistently to all five.
+   *
+   * Only an origin is accepted.  Supplying a path would make the generated
+   * CCXT V5 request path ambiguous, so it is rejected rather than ignored.
+   */
+  readonly endpoint?: string;
+  /**
+   * Optional WebSocket origin.  The feed appends the documented V5 paths for
+   * public spot and private streams.  As with `endpoint`, a path is rejected
+   * to avoid silently constructing an invalid URL.
+   */
+  readonly wsEndpoint?: string;
   /**
    * `exchange` — opcionális, dependency injection célokra (tesztek).
    * Ha meg van adva, a feed ezt a CCXT exchange instance-ot használja
@@ -82,12 +102,107 @@ export interface BybitEuFeedOptions {
 interface Subscription {
   readonly id: SubscriptionId;
   readonly listener: FeedListener;
-  readonly kind: "ticker" | "orderbook" | "trades" | "ohlcv";
-  readonly symbol: Symbol;
+  readonly kind: "ticker" | "orderbook" | "trades" | "ohlcv" | "orders" | "executions";
+  readonly symbol: Symbol | undefined;
   readonly timeframe: Timeframe | undefined;
   cancelled: boolean;
+  /**
+   * Megszakítja a REST fallback várakozását leiratkozáskor/close()-kor.
+   * A már futó CCXT fetch Promise nem abortálható ezen az interfészen;
+   * ezért minden fetch után, emit előtt újra ellenőrizzük a cancelled flaget.
+   */
+  readonly abortController: AbortController;
   /** A CCXT watch promise lánc — leiratkozáskor break-elünk. */
   runner: Promise<void>;
+}
+
+/**
+ * Bybit V5 addresses orders created with an `orderLinkId`; CCXT's generic
+ * `*WithClientOrderId` fallbacks do not translate that field for Bybit.  Keep
+ * the request category required to retrieve/cancel a conditional spot order
+ * until the normal bounded order lifecycle has had a chance to settle it.
+ */
+interface ClientOrderMetadata {
+  readonly symbol: Symbol;
+  readonly spotOrderFilter: "Order" | "StopOrder" | undefined;
+  terminalAt: number | undefined;
+}
+
+const CLIENT_ORDER_METADATA_LIMIT = 5_000;
+const CLIENT_ORDER_TERMINAL_TTL_MS = 60 * 60 * 1_000;
+
+const TIMEFRAME_MS: Readonly<Record<Timeframe, number>> = {
+  "1m": 60_000,
+  "5m": 5 * 60_000,
+  "15m": 15 * 60_000,
+  "1h": 60 * 60_000,
+  "4h": 4 * 60 * 60_000,
+  "1d": 24 * 60 * 60_000,
+};
+
+function isNotSupportedError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.name === "NotSupported" ||
+      err.message.includes("NotSupported") ||
+      err.message.includes("is not supported yet"))
+  );
+}
+
+/**
+ * A fallback polling két kör között azonnal felébreszthető. A korábbi
+ * `setInterval`-alapú megoldás minden normál timeout után hátrahagyta az
+ * intervalt; itt egyetlen timeout és egy egyszer lefutó abort-listener él.
+ */
+function waitForNextPoll(signal: AbortSignal, delayMs = 1_000): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timeout = setTimeout(finish, delayMs);
+    if (signal.aborted) {
+      finish();
+      return;
+    }
+    signal.addEventListener("abort", finish, { once: true });
+  });
+}
+
+function isClosedOhlcv(candle: Ohlcv, timeframe: Timeframe, now = Date.now()): boolean {
+  return candle[0] + TIMEFRAME_MS[timeframe] <= now;
+}
+
+/**
+ * CCXT expects base origins in its `urls` map and appends exchange-specific
+ * paths itself. Accepting an arbitrary path here would either duplicate V5
+ * paths or silently redirect requests to a different route, so reject it.
+ */
+function validateOrigin(value: string, field: "endpoint" | "wsEndpoint"): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new ExchangeFeedError(`[bybiteu] ${field} must be an absolute URL, got ${value}`, undefined);
+  }
+  const expectedProtocol = field === "endpoint" ? "https:" : "wss:";
+  if (parsed.protocol !== expectedProtocol) {
+    throw new ExchangeFeedError(
+      `[bybiteu] ${field} must use ${expectedProtocol}, got ${parsed.protocol}`,
+      undefined,
+    );
+  }
+  if (parsed.pathname !== "/" || parsed.search !== "" || parsed.hash !== "") {
+    throw new ExchangeFeedError(
+      `[bybiteu] ${field} must be an origin without path, query, or fragment: ${value}`,
+      undefined,
+    );
+  }
+  return parsed.origin;
 }
 
 /**
@@ -101,6 +216,7 @@ export class BybitEuFeed implements ExchangeFeed {
   readonly exchangeId = "bybiteu";
   private readonly client: CcxtExchange;
   private readonly subs = new Map<SubscriptionId, Subscription>();
+  private readonly clientOrderMetadata = new Map<ClientOrderId, ClientOrderMetadata>();
   private nextId: SubscriptionId = 1;
   private opened = false;
 
@@ -120,8 +236,16 @@ export class BybitEuFeed implements ExchangeFeed {
         secret: opts.secret,
         enableRateLimit: true,
         rateLimit: opts.rateLimitMs,
+        ...(opts.timeoutMs !== undefined ? { timeout: opts.timeoutMs } : {}),
         options: { defaultType: "spot" },
       });
+    }
+    if (opts.sandbox && (opts.endpoint !== undefined || opts.wsEndpoint !== undefined)) {
+      throw new ExchangeFeedError(
+        "[bybiteu] sandbox cannot be combined with endpoint or wsEndpoint overrides; " +
+          "CCXT setSandboxMode replaces the exchange URL set",
+        undefined,
+      );
     }
     if (opts.sandbox) {
       // A CCXT Pro setSandboxMode(true) azonnal átvált a testnet URL-re.
@@ -129,6 +253,51 @@ export class BybitEuFeed implements ExchangeFeed {
       // publikus sandbox, a CCXT kód nem tiltja — lásd stack-findings.md §1.3).
       this.client.setSandboxMode(true);
     }
+    if (opts.endpoint !== undefined) {
+      this.applyRestEndpoint(opts.endpoint);
+    }
+    if (opts.wsEndpoint !== undefined) {
+      this.applyWebsocketEndpoint(opts.wsEndpoint);
+    }
+  }
+
+  /** Apply an explicit REST origin to every REST route used by CCXT bybiteu. */
+  private applyRestEndpoint(endpoint: string): void {
+    const origin = validateOrigin(endpoint, "endpoint");
+    const urls = this.client.urls as unknown as {
+      api: Record<string, unknown>;
+    };
+    for (const key of ["spot", "futures", "v2", "public", "private"] as const) {
+      urls.api[key] = origin;
+    }
+  }
+
+  /** Apply a WebSocket origin using the V5 stream paths documented by Bybit. */
+  private applyWebsocketEndpoint(wsEndpoint: string): void {
+    const origin = validateOrigin(wsEndpoint, "wsEndpoint");
+    const urls = this.client.urls as unknown as {
+      api: {
+        ws?: {
+          public?: Record<string, unknown>;
+          private?: {
+            spot?: Record<string, unknown>;
+            contract?: unknown;
+            trade?: unknown;
+          };
+        };
+      };
+    };
+    const ws = urls.api.ws;
+    if (ws?.public === undefined || ws.private === undefined) {
+      throw new ExchangeFeedError("[bybiteu] CCXT bybiteu adapter does not expose configurable V5 WebSocket URLs", undefined);
+    }
+    ws.public["spot"] = `${origin}/v5/public/spot`;
+    if (ws.private.spot !== undefined) {
+      ws.private.spot["unified"] = `${origin}/v5/private`;
+      ws.private.spot["nonUnified"] = `${origin}/spot/private/v3`;
+    }
+    ws.private.contract = `${origin}/v5/private`;
+    ws.private.trade = `${origin}/v5/trade`;
   }
 
   /**
@@ -154,6 +323,7 @@ export class BybitEuFeed implements ExchangeFeed {
     // belső state-jében a `watch*` promise-okat cleanup-olja.
     for (const sub of this.subs.values()) {
       sub.cancelled = true;
+      sub.abortController.abort();
     }
     this.subs.clear();
     this.opened = false;
@@ -174,6 +344,7 @@ export class BybitEuFeed implements ExchangeFeed {
       symbol,
       timeframe: undefined,
       cancelled: false,
+      abortController: new AbortController(),
       runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
@@ -191,6 +362,7 @@ export class BybitEuFeed implements ExchangeFeed {
       symbol,
       timeframe: undefined,
       cancelled: false,
+      abortController: new AbortController(),
       runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
@@ -208,6 +380,7 @@ export class BybitEuFeed implements ExchangeFeed {
       symbol,
       timeframe: undefined,
       cancelled: false,
+      abortController: new AbortController(),
       runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
@@ -225,6 +398,7 @@ export class BybitEuFeed implements ExchangeFeed {
       symbol,
       timeframe,
       cancelled: false,
+      abortController: new AbortController(),
       runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
@@ -232,11 +406,47 @@ export class BybitEuFeed implements ExchangeFeed {
     return id;
   }
 
+  async subscribeOrderUpdates(listener: FeedListener): Promise<SubscriptionId> {
+    this.assertOpen();
+    const id = this.nextId++;
+    const sub: Subscription = {
+      id, listener, kind: "orders", symbol: undefined, timeframe: undefined,
+      cancelled: false, abortController: new AbortController(), runner: undefined as unknown as Promise<void>,
+    };
+    this.subs.set(id, sub);
+    sub.runner = this.runPrivateOrdersLoop(id, listener);
+    return id;
+  }
+
+  async subscribeExecutions(listener: FeedListener): Promise<SubscriptionId> {
+    this.assertOpen();
+    const id = this.nextId++;
+    const sub: Subscription = {
+      id, listener, kind: "executions", symbol: undefined, timeframe: undefined,
+      cancelled: false, abortController: new AbortController(), runner: undefined as unknown as Promise<void>,
+    };
+    this.subs.set(id, sub);
+    sub.runner = this.runPrivateExecutionsLoop(id, listener);
+    return id;
+  }
+
   async unsubscribe(id: SubscriptionId): Promise<void> {
     const sub = this.subs.get(id);
     if (sub === undefined) return;
     sub.cancelled = true;
+    sub.abortController.abort();
     this.subs.delete(id);
+    try {
+      if (sub.kind === "orders" && this.client.has["unWatchOrders"] === true) {
+        await this.client.unWatchOrders();
+      } else if (sub.kind === "executions" && this.client.has["unWatchMyTrades"] === true) {
+        await this.client.unWatchMyTrades();
+      }
+    } catch {
+      // `close()` still tears down the underlying private socket.  Some CCXT
+      // market modes expose watch but not unwatch; local cancellation already
+      // prevents any further callback delivery.
+    }
     // A CCXT promise chain-t NEM tudjuk megszakítani, de a `cancelled` flag
     // miatt a callback-eket már nem hívjuk — a következő tick-ek
     // no-op-ként mennek tovább a CCXT-en belül, amíg a CCXt belső
@@ -296,37 +506,119 @@ export class BybitEuFeed implements ExchangeFeed {
     return normalizeBalances(raw);
   }
 
+  /**
+   * Exchange-authoritative positions for emergency reconciliation.  Bybit's
+   * spot category does not support positions, so CCXT capability is checked
+   * explicitly instead of silently returning an empty list.
+   */
+  async fetchPositions(symbols?: readonly Symbol[]): Promise<readonly ExchangePosition[]> {
+    this.assertOpen();
+    if (this.client.has["fetchPositions"] !== true) {
+      throw new ExchangeFeedError("The configured Bybit category does not support fetchPositions", undefined);
+    }
+    const raw = await this.client.fetchPositions(symbols === undefined ? undefined : [...symbols]);
+    return raw
+      .map((position) => normalizePosition(position))
+      .filter((position): position is ExchangePosition => position !== undefined);
+  }
+
   async placeOrder(req: OrderRequest): Promise<Order> {
     this.assertOpen();
     this.assertSupported(req.symbol);
     if (req.type === "limit" && req.price === undefined) {
       throw new ExchangeFeedError(`Limit order-hez kötelező a price mező: ${req.clientOrderId}`, undefined);
     }
-    const params: Record<string, unknown> = {
-      clientOrderId: req.clientOrderId,
-      // A CCXT Pro bybit V5 támogatja a takeProfitPrice / stopLossPrice
-      // params-ot — a bybit API automatikusan trigger order-t hoz létre.
-      ...(req.takeProfitPrice !== undefined ? { takeProfitPrice: req.takeProfitPrice } : {}),
-      ...(req.stopLossPrice !== undefined ? { stopLossPrice: req.stopLossPrice } : {}),
-    };
+    const market = this.client.market(req.symbol);
+    // Explicit V5 key: CCXT also accepts clientOrderId and translates it,
+    // but preserving orderLinkId at this boundary avoids an adapter-specific
+    // generic client-id path and makes the intended wire identifier clear.
+    const params: Record<string, unknown> = { orderLinkId: req.clientOrderId };
+    if (req.protectiveKind !== undefined) {
+      if (req.triggerPrice === undefined) throw new ExchangeFeedError("Protective order requires triggerPrice", undefined);
+      if (market.spot) {
+        // V5 spot conditional: triggerPrice + StopOrder.  CCXT 4.5.64 also
+        // derives this filter, but pass it explicitly to keep the wire shape
+        // stable.  Spot has no reduceOnly; the order sells only the confirmed
+        // acquired base quantity and sibling cancellation provides OCO-like
+        // lifecycle handling.
+        Object.assign(params, { triggerPrice: req.triggerPrice, orderFilter: "StopOrder" });
+      } else {
+        // CCXT maps these fields to V5 conditional close orders with the
+        // correct triggerDirection for the close side. closeOnTrigger avoids
+        // an SL failing merely because other orders consume margin.
+        Object.assign(params, {
+          reduceOnly: true,
+          closeOnTrigger: true,
+          ...(req.protectiveKind === "stop_loss"
+            ? { stopLossPrice: req.triggerPrice }
+            : { takeProfitPrice: req.triggerPrice }),
+        });
+      }
+    } else if (req.reduceOnly === true && !market.spot) {
+      Object.assign(params, { reduceOnly: true });
+    }
     const raw = await this.client.createOrder(req.symbol, req.type, req.side, req.amount, req.price, params);
-    return normalizeOrder(raw, req);
+    const order = normalizeOrder(raw, req);
+    this.rememberClientOrder(req.clientOrderId, req.symbol, market.spot
+      ? (req.protectiveKind === undefined ? "Order" : "StopOrder")
+      : undefined, order.status);
+    return order;
   }
 
   async cancelOrder(clientOrderId: ClientOrderId, symbol: Symbol): Promise<Order> {
     this.assertOpen();
     this.assertSupported(symbol);
-    // A bybit V5 API-nak van dedikált `cancelOrderWithClientOrderId`
-    // végpontja (lásd stack-findings.md §7.3 — idempotency).
-    const raw = await this.client.cancelOrderWithClientOrderId(clientOrderId, symbol);
-    return normalizeOrder(raw, undefined);
+    const metadata = this.clientOrderMetadata.get(clientOrderId);
+    const isSpot = this.client.market(symbol).spot;
+    const params: Record<string, unknown> = { orderLinkId: clientOrderId };
+    if (isSpot) params["orderFilter"] = metadata?.spotOrderFilter ?? "Order";
+    // Do not use CCXT's generic cancelOrderWithClientOrderId().  In pinned
+    // CCXT it produces `orderId: ""` + `clientOrderId`, neither of which is
+    // Bybit V5's documented `orderLinkId` request field.
+    const raw = await this.client.cancelOrder(undefined as unknown as string, symbol, params);
+    const order = normalizeOrder(raw, undefined);
+    this.rememberClientOrder(clientOrderId, symbol, isSpot ? (params["orderFilter"] as "Order" | "StopOrder") : undefined, order.status);
+    return order;
   }
 
   async fetchOrder(clientOrderId: ClientOrderId, symbol: Symbol): Promise<Order> {
     this.assertOpen();
     this.assertSupported(symbol);
-    const raw = await this.client.fetchOrderWithClientOrderId(clientOrderId, symbol);
-    return normalizeOrder(raw, undefined);
+    const metadata = this.clientOrderMetadata.get(clientOrderId);
+    const isSpot = this.client.market(symbol).spot;
+    const params: Record<string, unknown> = { orderLinkId: clientOrderId, acknowledged: true };
+    if (isSpot && metadata?.spotOrderFilter === "StopOrder") {
+      // CCXT maps `trigger` to Bybit's spot StopOrder filter for realtime
+      // lookup.  This is distinct from an attached TP/SL order.
+      params["trigger"] = true;
+    }
+    // Passing undefined suppresses CCXT's `orderId` field; `orderLinkId` is
+    // the sole identifier on the V5 request. `acknowledged` is required by
+    // CCXT's Bybit fetchOrder guard for its limited realtime-order endpoint.
+    const raw = await this.client.fetchOrder(undefined as unknown as string, symbol, params);
+    const order = normalizeOrder(raw, undefined);
+    this.rememberClientOrder(clientOrderId, symbol, isSpot ? metadata?.spotOrderFilter : undefined, order.status);
+    return order;
+  }
+
+  private rememberClientOrder(
+    clientOrderId: ClientOrderId,
+    symbol: Symbol,
+    spotOrderFilter: "Order" | "StopOrder" | undefined,
+    status: OrderStatus,
+  ): void {
+    const terminalAt = status === "open" ? undefined : Date.now();
+    this.clientOrderMetadata.delete(clientOrderId);
+    this.clientOrderMetadata.set(clientOrderId, { symbol, spotOrderFilter, terminalAt });
+    const cutoff = Date.now() - CLIENT_ORDER_TERMINAL_TTL_MS;
+    for (const [id, value] of this.clientOrderMetadata) {
+      if (value.terminalAt !== undefined && value.terminalAt < cutoff) this.clientOrderMetadata.delete(id);
+    }
+    while (this.clientOrderMetadata.size > CLIENT_ORDER_METADATA_LIMIT) {
+      const oldest = this.clientOrderMetadata.keys().next().value;
+      if (oldest === undefined) break;
+      this.clientOrderMetadata.delete(oldest);
+    }
   }
 
   async fetchOpenOrders(symbol: Symbol): Promise<readonly Order[]> {
@@ -371,11 +663,7 @@ export class BybitEuFeed implements ExchangeFeed {
       // in CCXT 4.5.64 (`NotSupported: bybiteu watchTicker() is not
       // supported yet`). Fall back to polling `fetchTicker` at 1s
       // intervals — the public REST endpoint works without auth.
-      const isNotSupported =
-        err instanceof Error &&
-        (err.name === "NotSupported" ||
-          err.message.includes("NotSupported") ||
-          err.message.includes("is not supported yet"));
+      const isNotSupported = isNotSupportedError(err);
       if (isNotSupported) {
         while (!cancelled) {
           try {
@@ -388,17 +676,7 @@ export class BybitEuFeed implements ExchangeFeed {
           } catch {
             if (cancelled) return;
           }
-          // Wait 1s before next poll, with a cancellable delay.
-          await new Promise<void>((resolve) => {
-            const handle = setTimeout(resolve, 1000);
-            const checkInterval = setInterval(() => {
-              if (sub.cancelled) {
-                clearTimeout(handle);
-                clearInterval(checkInterval);
-                resolve();
-              }
-            }, 100);
-          });
+          await waitForNextPoll(sub.abortController.signal);
           cancelled = sub.cancelled;
         }
         return;
@@ -433,11 +711,7 @@ export class BybitEuFeed implements ExchangeFeed {
       // downgrade-elődik vagy a `ccxt.pro` namespace eltűnik, a fallback
       // megmenti a botot az összeomlástól (ugyanaz a minta, mint a
       // `runTickerLoop` 358-383 sorokon).
-      const isNotSupported =
-        err instanceof Error &&
-        (err.name === "NotSupported" ||
-          err.message.includes("NotSupported") ||
-          err.message.includes("is not supported yet"));
+      const isNotSupported = isNotSupportedError(err);
       if (isNotSupported) {
         while (!cancelled) {
           try {
@@ -450,16 +724,7 @@ export class BybitEuFeed implements ExchangeFeed {
           } catch {
             if (cancelled) return;
           }
-          await new Promise<void>((resolve) => {
-            const handle = setTimeout(resolve, 1000);
-            const checkInterval = setInterval(() => {
-              if (sub.cancelled) {
-                clearTimeout(handle);
-                clearInterval(checkInterval);
-                resolve();
-              }
-            }, 100);
-          });
+          await waitForNextPoll(sub.abortController.signal);
           cancelled = sub.cancelled;
         }
         return;
@@ -488,11 +753,7 @@ export class BybitEuFeed implements ExchangeFeed {
       // C2 fix: defenzív NotSupported → REST polling fallback (ugyanaz
       // a minta, mint a `runTickerLoop` 358-383 sorokon és az
       // `runOrderBookLoop`-ban fent).
-      const isNotSupported =
-        err instanceof Error &&
-        (err.name === "NotSupported" ||
-          err.message.includes("NotSupported") ||
-          err.message.includes("is not supported yet"));
+      const isNotSupported = isNotSupportedError(err);
       if (isNotSupported) {
         while (!cancelled) {
           try {
@@ -507,16 +768,7 @@ export class BybitEuFeed implements ExchangeFeed {
           } catch {
             if (cancelled) return;
           }
-          await new Promise<void>((resolve) => {
-            const handle = setTimeout(resolve, 1000);
-            const checkInterval = setInterval(() => {
-              if (sub.cancelled) {
-                clearTimeout(handle);
-                clearInterval(checkInterval);
-                resolve();
-              }
-            }, 100);
-          });
+          await waitForNextPoll(sub.abortController.signal);
           cancelled = sub.cancelled;
         }
         return;
@@ -529,54 +781,76 @@ export class BybitEuFeed implements ExchangeFeed {
     const sub = this.subs.get(id);
     if (sub === undefined) return;
     let cancelled = sub.cancelled;
+    // A CCXT Pro a cache-elt OHLCV tömböt adja vissza minden update-nél.
+    // Ezért subscriptionönként vízjelet tartunk: ugyanaz a lezárt candle
+    // nem jut el kétszer a trading réteghez, de külön szimbólum/idősík
+    // subscriptionök egymástól függetlenek maradnak.
+    let lastEmittedTimestamp: number | undefined;
+    let pendingWatchCandle: Ohlcv | undefined;
+    const emitClosedCandles = (raw: readonly unknown[], source: "watch" | "rest"): void => {
+      const candles = raw
+        .map((candle) => candle as Ohlcv)
+        .sort((a, b) => a[0] - b[0]);
+      // CCXT's unified OHLCV tuple deliberately drops Bybit's raw
+      // `confirm` flag.  For the websocket path we therefore never infer
+      // finality merely from wall-clock time: the newest bucket is retained
+      // until a strictly later bucket is observed.  Repeated open updates,
+      // reconnect cache replays and a late final update only replace this
+      // pending value; exactly one decision is emitted for the timestamp.
+      // REST history has no confirm flag either, but its older buckets can be
+      // closed with the explicit end-time rule while the current bucket stays
+      // excluded.
+      const candidates = source === "watch"
+        ? (() => {
+            const merged = pendingWatchCandle === undefined ? candles : [pendingWatchCandle, ...candles];
+            const byTimestamp = new Map<number, Ohlcv>();
+            for (const candle of merged) byTimestamp.set(candle[0], candle);
+            const ordered = [...byTimestamp.values()].sort((a, b) => a[0] - b[0]);
+            pendingWatchCandle = ordered.at(-1);
+            return ordered.slice(0, -1);
+          })()
+        : candles.filter((candle) => isClosedOhlcv(candle, timeframe));
+      for (const candle of candidates) {
+        if (lastEmittedTimestamp !== undefined && candle[0] <= lastEmittedTimestamp) continue;
+        const event: FeedEvent = {
+          kind: "ohlcv",
+          payload: { symbol, timeframe, candle },
+        };
+        listener(event);
+        lastEmittedTimestamp = candle[0];
+        // A listener szinkron módon hívhatja az async unsubscribe()-ot.
+        // Az unsubscribe a legelső await előtt állítja a flaget, ezért a
+        // cache következő candle-jét már ebben a ciklusban sem emitáljuk.
+        if (sub.cancelled) return;
+      }
+    };
     try {
       while (!cancelled) {
         const raw = await this.client.watchOHLCV(symbol, timeframe);
         cancelled = sub.cancelled;
         if (cancelled) return;
-        for (const candle of raw) {
-          const event: FeedEvent = {
-            kind: "ohlcv",
-            payload: { symbol, timeframe, candle: candle as unknown as Ohlcv },
-          };
-          listener(event);
-        }
+        emitClosedCandles(raw, "watch");
+        cancelled = sub.cancelled;
+        if (cancelled) return;
       }
     } catch (err) {
       if (cancelled) return;
       // Phase 66: bybit.eu CCXT 4.5.64 doesn't support watchOHLCV
       // either. Fall back to polling fetchOHLCV at 1s.
-      const isNotSupported =
-        err instanceof Error &&
-        (err.name === "NotSupported" ||
-          err.message.includes("NotSupported") ||
-          err.message.includes("is not supported yet"));
+      const isNotSupported = isNotSupportedError(err);
       if (isNotSupported) {
         while (!cancelled) {
           try {
             const raw = await this.client.fetchOHLCV(symbol, timeframe, undefined, 100);
             cancelled = sub.cancelled;
             if (cancelled) return;
-            for (const candle of raw) {
-              const event: FeedEvent = {
-                kind: "ohlcv",
-                payload: { symbol, timeframe, candle: candle as unknown as Ohlcv },
-              };
-              listener(event);
-            }
+            emitClosedCandles(raw, "rest");
+            cancelled = sub.cancelled;
+            if (cancelled) return;
           } catch {
             if (cancelled) return;
           }
-          await new Promise<void>((resolve) => {
-            const handle = setTimeout(resolve, 1000);
-            const checkInterval = setInterval(() => {
-              if (sub.cancelled) {
-                clearTimeout(handle);
-                clearInterval(checkInterval);
-                resolve();
-              }
-            }, 100);
-          });
+          await waitForNextPoll(sub.abortController.signal);
           cancelled = sub.cancelled;
         }
         return;
@@ -588,6 +862,52 @@ export class BybitEuFeed implements ExchangeFeed {
       // was dead code (the @typescript-eslint/no-unnecessary-condition
       // rule flagged it in CI).
       throw new ExchangeFeedError(`OHLCV watch hiba: ${symbol}/${timeframe}`, err);
+    }
+  }
+
+  private async runPrivateOrdersLoop(id: SubscriptionId, listener: FeedListener): Promise<void> {
+    const sub = this.subs.get(id);
+    if (sub === undefined) return;
+    let cancelled = sub.cancelled;
+    try {
+      while (!cancelled) {
+        const updates = await this.client.watchOrders();
+        cancelled = sub.cancelled;
+        if (cancelled) return;
+        for (const raw of updates) {
+          const order = normalizeOrder(raw, undefined);
+          if (order.clientOrderId === "" || String(order.symbol) === "UNKNOWN") continue;
+          listener({ kind: "order", payload: order });
+          cancelled = sub.cancelled;
+          if (cancelled) return;
+        }
+      }
+    } catch (err) {
+      if (sub.cancelled) return;
+      throw new ExchangeFeedError("Private order watch hiba", err);
+    }
+  }
+
+  private async runPrivateExecutionsLoop(id: SubscriptionId, listener: FeedListener): Promise<void> {
+    const sub = this.subs.get(id);
+    if (sub === undefined) return;
+    let cancelled = sub.cancelled;
+    try {
+      while (!cancelled) {
+        const updates = await this.client.watchMyTrades();
+        cancelled = sub.cancelled;
+        if (cancelled) return;
+        for (const raw of updates) {
+          const execution = normalizeExecution(raw);
+          if (execution === undefined) continue;
+          listener({ kind: "execution", payload: execution });
+          cancelled = sub.cancelled;
+          if (cancelled) return;
+        }
+      }
+    } catch (err) {
+      if (sub.cancelled) return;
+      throw new ExchangeFeedError("Private execution watch hiba", err);
     }
   }
 
@@ -673,6 +993,7 @@ export function normalizeMarketMeta(raw: CcxtMarket, symbol: Symbol): MarketMeta
     pricePrecision,
     minAmount: raw.limits.amount?.min ?? 0,
     minCost: raw.limits.cost?.min ?? 0,
+    isSpot: raw.spot,
   };
 }
 
@@ -689,6 +1010,44 @@ export function normalizeBalances(raw: CcxtBalancesLike): readonly Balance[] {
     });
   }
   return out;
+}
+
+/** CCXT derivative Position → emergency reconciliation shape. */
+export function normalizePosition(raw: CcxtPosition): ExchangePosition | undefined {
+  const quantity = raw.contracts ?? 0;
+  if (!raw.symbol || !Number.isFinite(quantity) || quantity <= 0) return undefined;
+  if (raw.side !== "long" && raw.side !== "short") return undefined;
+  return {
+    symbol: raw.symbol as Symbol,
+    side: raw.side,
+    quantity,
+    entryPrice: raw.entryPrice,
+    markPrice: raw.markPrice,
+    unrealizedPnl: raw.unrealizedPnl,
+    updateTimestamp: raw.lastUpdateTimestamp,
+  };
+}
+
+/** CCXT authenticated trade -> execution. `id` is Bybit's execId. */
+export function normalizeExecution(raw: CcxtTrade): Execution | undefined {
+  if (raw.id === undefined || raw.id === "" || raw.symbol === undefined || raw.price === undefined || raw.amount === undefined) {
+    return undefined;
+  }
+  const info = raw.info as Record<string, unknown> | undefined;
+  const clientOrderIdRaw = info?.["orderLinkId"] ?? info?.["c"];
+  const exchangeOrderIdRaw = raw.order ?? info?.["orderId"] ?? info?.["o"];
+  return {
+    executionId: raw.id,
+    clientOrderId: typeof clientOrderIdRaw === "string" && clientOrderIdRaw !== "" ? clientOrderIdRaw as ClientOrderId : undefined,
+    exchangeOrderId: typeof exchangeOrderIdRaw === "string" && exchangeOrderIdRaw !== "" ? exchangeOrderIdRaw as ExchangeOrderId : undefined,
+    symbol: raw.symbol as Symbol,
+    side: raw.side === "sell" ? "sell" : "buy",
+    quantity: raw.amount,
+    price: raw.price,
+    fee: raw.fee?.cost ?? 0,
+    feeCurrency: raw.fee?.currency,
+    timestamp: raw.timestamp ?? Date.now(),
+  };
 }
 
 /** CCXT `Order` → a mi `Order` típusunk. */

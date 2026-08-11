@@ -81,7 +81,12 @@ export interface BacktestOptions {
   readonly htfTimeframe: Timeframe;
   readonly mtfTimeframe: Timeframe;
   readonly ltfTimeframe: Timeframe;
+  /** Inclusive LTF candle-open boundary. */
   readonly startTime: Date;
+  /**
+   * Exclusive window boundary: a candle is eligible only when its close is
+   * at or before this time. This makes adjacent walk-forward windows disjoint.
+   */
   readonly endTime: Date;
   readonly initialEquityUsd: number;
   readonly feed: ExchangeFeed;
@@ -105,8 +110,8 @@ export interface WalkForwardConfig {
 }
 
 /**
- `EquityPoint` — az equity-görbe egy pontja. A backtest motor minden
- LTF candle-re rögzíti az aktuális equity-t.
+ `EquityPoint` — az equity-görbe egy pontja. A backtest motor a kezdő cash
+ értéket és minden lezárt LTF candle utáni equity-t rögzíti.
 */
 export interface EquityPoint {
   readonly timestamp: number;

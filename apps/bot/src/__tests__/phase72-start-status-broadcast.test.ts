@@ -297,10 +297,10 @@ afterEach(() => {
 // ============================================================================
 
 describe("Phase 72 — start.ts:353 markBotStarted() reachability (system-level)", () => {
-  // Phase 72: ez a teszt a valódi `mm-bot start` subprocess-et indítja
-  // el, ami a bybit.eu valódi feedjéhez csatlakozik. CI-ban nincs
-  // network access a bybit.eu-hoz, ezért a teszt a `SKIP_SYSTEM_TEST`
-  // env var vagy a CI=true detectálásával kihagyja magát.
+  // Optional smoke only: this starts a real subprocess with the real Bybit
+  // feed and a large historical OHLC bootstrap.  The deterministic lifecycle
+  // contract is covered without network in start-lifecycle.test.ts; keeping
+  // this opt-in avoids making correctness depend on venue/network throughput.
   //
   // A `bun run test` lokálisan lefuttatja (ahol van network); a CI
   // workflow-ban a `bun run test` job-ban a `bun test` parancs
@@ -310,10 +310,8 @@ describe("Phase 72 — start.ts:353 markBotStarted() reachability (system-level)
   // A unit test (phase72-mark-bot-started-reachable.test.ts) a fix
   // pattern-ját teszteli mock feed-del, így a CI coverage gate
   // VÉDETT marad a regresszió ellen.
-  const isCi = typeof process.env["CI"] === "string" && process.env["CI"] !== "";
-  const skipSystem = typeof process.env["SKIP_SYSTEM_TEST"] === "string" && process.env["SKIP_SYSTEM_TEST"] !== "";
-  const itOrSkip = isCi || skipSystem ? it.skip : it;
-  void isCi; // suppress unused warning in case the conditional changes
+  const runSystemSmoke = process.env["RUN_SYSTEM_TEST"] === "1";
+  const itOrSkip = runSystemSmoke ? it : it.skip;
 
   itOrSkip(
     "spawning 'mm-bot start' makes the state-feed SNAPSHOT show botStatus.state === 'running' + startedAt > 0 (regression for the start.ts:353 await deadlock)",
