@@ -3,10 +3,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
+import { parseWindowArg } from "./run-oos.js";
+
 const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
 async function runRootWorkflow(
-  command: "backtest" | "sweep" | "oos",
+  command: "backtest" | "sweep" | "oos" | "report",
   args: readonly string[],
 ): Promise<{ code: number; output: string }> {
   const process = Bun.spawn(["bun", "run", command, "--", ...args], {
@@ -52,6 +54,10 @@ describe("documented root backtest workflows", () => {
       expect(result.output).toContain("Completed candle must open >= start");
       expect(result.output).toContain("Completed candle must close <= end");
       expect(result.output).not.toContain("Module not found");
+      if (command === "oos") {
+        expect(result.output).toContain("--step-days=90");
+        expect(result.output).toContain("non-overlapping OOS default");
+      }
     });
   }
 
@@ -97,6 +103,25 @@ describe("documented root backtest workflows", () => {
     expect(envelope.results.map((item) => item.maxPositionPctEquity)).toEqual([0.04, 0.08]);
     expect(envelope.results.every((item) => Number.isInteger(item.result.totalTrades))).toBe(true);
     expect(envelope.results.every((item) => item.result.equityCurve.length > 1)).toBe(true);
+
+    const reportOutput = resolve(fixtureDir, "SWEEP-REPORT.md");
+    const reportResult = await runRootWorkflow("report", [
+      `--baselines=${resolve(fixtureDir, "missing-baseline.json")}`,
+      `--sweep=${output}`,
+      `--oos=${resolve(fixtureDir, "missing-oos.json")}`,
+      `--output=${reportOutput}`,
+    ]);
+    expect(reportResult.code).toBe(0);
+    expect(reportResult.output).toContain("[report] Saved");
+    const report = await readFile(reportOutput, "utf8");
+    expect(report).toContain("## 2. Paraméter sweep");
+    expect(report).toContain("4.00%");
+    expect(report).toContain("8.00%");
+  });
+
+  it("oos defaults use non-overlapping 90-day OOS windows", () => {
+    const parsed = parseWindowArg([]);
+    expect([parsed.inSampleDays, parsed.outOfSampleDays, parsed.stepDays]).toEqual([365, 90, 90]);
   });
 
   it("oos executes one deterministic IS/OOS window and writes its essential schema", async () => {

@@ -502,6 +502,7 @@ export class PortfolioOrchestrator {
    */
   async run(startMs: number, endMs: number): Promise<PortfolioEnvelope> {
     // Initialize per-symbol SCv1 + DecisionEngine instances.
+    if (this._initialized) this.reset();
     this.init();
     // Load OHLCV bars for each symbol.
     const barsBySymbol = new Map<string, Bar[]>();
@@ -575,6 +576,7 @@ export class PortfolioOrchestrator {
             fundingRate: snap.fundingRate,
             regime: "neutral",
             source: `funding-feed-${symbol}`,
+            symbol,
             timestampMs: snap.fundingTime,
           });
           // Phase 14C: also forward to cross-symbol funding-differential
@@ -613,7 +615,7 @@ export class PortfolioOrchestrator {
           barBySymbolPrevTs.set(symbol, ts);
           this.config.feedPlugins(symbol, sc, bar, fundingInBar);
         }
-        if (sc !== undefined) sc.onBar(bar);
+        if (sc !== undefined) await sc.onBarAsync(bar);
         // Optional cross-symbol feed — forwards (symbol, close, ts) to
         // any cross-symbol hedge plugins the runner wired up.
         if (this.config.crossSymbolRecordClose !== undefined) {

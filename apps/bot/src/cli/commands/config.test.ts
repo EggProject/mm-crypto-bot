@@ -208,28 +208,18 @@ max_leverage = 50
   // --------------------------------------------------------------------------
   // 8) init with no --out → uses ./mm-bot.toml
   // --------------------------------------------------------------------------
-  it("init uses ./mm-bot.toml by default", async () => {
-    // We don't actually want to create a file in CWD during tests —
-    // redirect to a tempdir by changing CWD via the chdir trick. But
-    // since we can't easily chdir in bun:test, this test only asserts
-    // the code path tries to write SOMETHING. We mock by writing to a
-    // path we control.
-    //
-    // Simpler: assert that when --out is missing, the function does NOT
-    // crash. We can't easily verify the exact path without CWD control,
-    // so we just check the return code is not 0 (it will fail because
-    // ./mm-bot.toml may not be writable, or succeed if it is — but
-    // either way, the function doesn't crash on missing --out).
-    //
-    // To keep the test deterministic, we run from a tempdir.
+  it("init uses ./mm-bot.toml by default independently of cwd", async () => {
+    // The target is deliberately CWD-relative, but the canonical source
+    // template must be resolved relative to the module. This regression
+    // catches suite-order/process.chdir leakage in the init path.
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-cwd-"));
     const originalCwd = process.cwd();
     try {
       process.chdir(dir);
       const code = await runConfig(["config", "init"]);
-      // We accept either 0 (file written) or 1 (refused to overwrite
-      // an existing ./mm-bot.toml). The test asserts no crash + non-2.
-      expect([0, 1]).toContain(code);
+      expect(code).toBe(0);
+      expect(existsSync(join(dir, "mm-bot.toml"))).toBe(true);
+      expect(readFileSync(join(dir, "mm-bot.toml"), "utf8").length).toBeGreaterThan(0);
     } finally {
       process.chdir(originalCwd);
       rmSync(dir, { recursive: true, force: true });

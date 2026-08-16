@@ -396,6 +396,7 @@ describe("SOLFlipKillSwitchPlugin", () => {
     const clearedRisk = risks.find((r) => r.breach === false);
     expect(clearedRisk).toBeDefined();
     expect(clearedRisk!.reason).toBe("regime-cleared");
+    expect(clearedRisk!.closeNotionalUsd).toBeUndefined();
   });
 
   // -----------------------------------------------------------------------
@@ -420,26 +421,17 @@ describe("SOLFlipKillSwitchPlugin", () => {
     expect(p.state.fundingHistory.length).toBeGreaterThan(0);
   });
 
-  it("multi-symbol enable: both SOL and ETH register independently", () => {
-    const p = new SOLFlipKillSwitchPlugin({
+  it("multi-symbol config fails loud because kill state is single-instrument", () => {
+    expect(() => new SOLFlipKillSwitchPlugin({
       enabledSymbols: ["SOL/USDT", "ETH/USDT"],
-    });
-    wirePlugin(p);
-    const ts0 = 1_700_000_000_000;
-    // Drive ETH flip regime — engages kill-switch.
-    const rates = mkFlipRegimeSequence(7);
-    driveSequence(p, "ETH/USDT", rates, ts0);
-    expect(p.state.killSwitchEngaged).toBe(true);
-    // Verify per-symbol history has ETH but not SOL.
-    expect(p.state.perSymbolFundingHistory.has("ETH/USDT")).toBe(true);
-    expect(p.state.perSymbolFundingHistory.has("SOL/USDT")).toBe(false);
+    })).toThrow(/exactly one enabled symbol/);
   });
 
   it("enabledSymbolsList returns the configured list", () => {
     const p = new SOLFlipKillSwitchPlugin({
-      enabledSymbols: ["SOL/USDT", "ETH/USDT"],
+      enabledSymbols: ["ETH/USDT"],
     });
-    expect(p.enabledSymbolsList()).toEqual(["SOL/USDT", "ETH/USDT"]);
+    expect(p.enabledSymbolsList()).toEqual(["ETH/USDT"]);
   });
 
   it("default enabledSymbols is SOL/USDT only (BTC/ETH not registered)", () => {

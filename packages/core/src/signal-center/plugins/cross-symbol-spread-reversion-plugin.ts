@@ -198,6 +198,8 @@ interface SymbolPriceState {
   closes: number[];
   /** Most-recent log-return (used for telemetry). */
   lastLogReturn: number | null;
+  lastTimestampMs: number | null;
+  closesByTimestamp: Map<number, number>;
 }
 
 // ---------------------------------------------------------------------------
@@ -369,6 +371,7 @@ export function clampStrength(absZ: number): number {
  *     emit; counter `leverageClampCount` increments on any clamp.
  */
 export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
+  private _lastOnBarTimestampMs: number | null = null;
   // ---------------------------------------------------------------------
   // Static metadata
   // ---------------------------------------------------------------------
@@ -611,6 +614,8 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   onBar(_bar: Bar, _state: PluginState): void {
+    if (this._lastOnBarTimestampMs === _bar.timestamp) return;
+    this._lastOnBarTimestampMs = _bar.timestamp;
     this.state.barsProcessed += 1;
     // Advance holdBars counter for every in-flight pair position.
     for (const ps of this.state.pairState.values()) {
@@ -792,6 +797,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   reset(): void {
+    this._lastOnBarTimestampMs = null;
     this.state.symbolState.clear();
     this.state.pairState.clear();
     for (const p of this.config.enabledPairs) {
@@ -854,15 +860,23 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       this.state.malformedCloseDrops += 1;
       return emitted;
     }
-    void timestampMs;
     this.state.recordClosesProcessed += 1;
 
     // 1. Update per-symbol price state.
     const ss = this._getOrCreateSymbolState(symbol);
+    const effectiveTs = timestampMs ?? ((ss.lastTimestampMs ?? -1) + 1);
+    if (ss.lastTimestampMs !== null && effectiveTs <= ss.lastTimestampMs) return emitted;
+    ss.lastTimestampMs = effectiveTs;
+    ss.closesByTimestamp.set(effectiveTs, close);
     ss.closes.push(close);
     const maxObs = this.config.windowDays + this.config.minHoldBars;
     if (ss.closes.length > maxObs) {
       ss.closes.splice(0, ss.closes.length - maxObs);
+    }
+    while (ss.closesByTimestamp.size > maxObs) {
+      const oldest = ss.closesByTimestamp.keys().next().value;
+      if (oldest === undefined) break;
+      ss.closesByTimestamp.delete(oldest);
     }
     if (ss.closes.length >= 2) {
       const prev = ss.closes[ss.closes.length - 2]!;
@@ -880,7 +894,9 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       if (symbol !== legB) continue; // this update is not the legB of this pair
       const ssA = this.state.symbolState.get(legA);
       if (!ssA || ssA.closes.length === 0) continue; // need legA first
-      const priceA = ssA.closes[ssA.closes.length - 1]!;
+      const alignedPriceA = ssA.closesByTimestamp.get(effectiveTs);
+      if (alignedPriceA === undefined) continue;
+      const priceA = alignedPriceA;
       const priceB = close;
       const spread = computeSpread(priceA, priceB);
       if (spread === null) continue;
@@ -1059,6 +1075,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       // downstream DecisionEngines (and telemetry) can attribute each
       // signal to its target symbol even before they ingest.
       source: `${this.metadata.name}:${symbol}`,
+      symbol,
     };
     const tsField =
       timestampMs !== undefined ? { timestampMs } : {};
@@ -1120,7 +1137,12 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
   private _getOrCreateSymbolState(symbol: string): SymbolPriceState {
     let ss = this.state.symbolState.get(symbol);
     if (!ss) {
-      ss = { closes: [], lastLogReturn: null };
+      ss = {
+        closes: [],
+        lastLogReturn: null,
+        lastTimestampMs: null,
+        closesByTimestamp: new Map(),
+      };
       this.state.symbolState.set(symbol, ss);
     }
     return ss;

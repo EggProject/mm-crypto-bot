@@ -8,9 +8,10 @@
 // Purpose
 // -------
 // `RegimeDetectorMetaPlugin` is the FIFTH Phase 11+ drop-in plugin for the
-// Signal Center architecture and the FIRST defensive META plugin (reads
-// ALL upstream plugin signals to detect regime shifts, not a source of
-// alpha itself). It wraps a 3-state Hidden Markov Model (HMM) over
+// Signal Center architecture and the FIRST defensive META plugin. It is
+// driven exclusively by causal OHLCV closes supplied through recordClose;
+// upstream alpha signals are deliberately not consumed. It wraps a
+// 3-state Hidden Markov Model (HMM) over
 // log-returns — `trending`, `ranging`, `volatile` — and emits RiskSignals
 // that instruct downstream sizing plugins to scale their notional
 // exposure by a per-regime multiplier:
@@ -139,16 +140,10 @@ import type {
 } from "../strategy-registry.js";
 import {
   type Bar,
-  type CarrySignal,
   type ConfigError,
-  type DirectionSignal,
   type PluginState,
   type Result,
   type RiskSignal,
-  type SizingSignal,
-  isCarry,
-  isDirection,
-  isSizing,
   ok,
 } from "../types.js";
 
@@ -326,6 +321,8 @@ interface SymbolRegimeState {
   regimeTransitionsObserved: number;
   /** Per-symbol most recent size modifier emitted. Null until first emission. */
   lastSizeModifier: number | null;
+  lastTimestampMs: number | null;
+  transitionHistory: (readonly [HMMStateIndex, HMMStateIndex])[];
 }
 
 // ---------------------------------------------------------------------------
@@ -360,9 +357,8 @@ export interface RegimeDetectorMetaPluginState {
 /**
  * `RegimeDetectorMetaPlugin` — Phase 11.2a defensive meta-plugin.
  *
- * Reads DirectionSignals + CarrySignals + SizingSignals from the
- * SignalBus (the canonical injection points — DOES NOT directly read
- * OHLCV); maintains a per-symbol HMM posterior; emits RiskSignals with
+ * Reads causal OHLCV closes from the central runner via `recordClose`;
+ * maintains a per-symbol HMM posterior; emits RiskSignals with
  * a per-regime `sizeModifier` and an implied `closeNotionalUsd` for
  * downstream sizing plugins to apply.
  *
@@ -385,9 +381,8 @@ export interface RegimeDetectorMetaPluginState {
  *
  *   1. `new RegimeDetectorMetaPlugin({ ... })`.
  *   2. `plugin.validateConfig(...)` — boot-time audit.
- *   3. `plugin.subscribe(bus)` — wires `direction`, `carry`, `sizing`
- *      subscribers (per-symbol via `recordDirectionSignal` /
- *      `recordCarrySignal` / `recordSizingSignal` direct API).
+ *   3. `plugin.subscribe(bus)` — stores the output bus only. No upstream
+ *      signal kinds are subscribed because they are not model inputs.
  *   4. `plugin.recordClose(symbol, close)` — feed OHLCV closes; the
  *      forward algorithm advances per bar per symbol.
  *   5. `plugin.onBar(bar, state)` — per-bar tick (currently a no-op
@@ -409,9 +404,9 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
       "Phase 11.2a FIFTH drop-in plugin (defensive meta) — HMM 3-state " +
       "regime detection (trending/ranging/volatile) emitting RiskSignals " +
       "with per-regime size multipliers (trending 1.0, ranging 0.7, " +
-      "volatile 0.4). Reads DirectionSignals + CarrySignals + SizingSignals " +
-      "from the bus + OHLCV closes via `recordClose`. BTC/ETH/SOL " +
-      "default-on; meta-plugin scans all upstream signals and emits " +
+      "volatile 0.4). Driven exclusively by causal OHLCV closes via " +
+      "`recordClose`; upstream bus signals are not model inputs. BTC/ETH/SOL " +
+      "default-on; meta-plugin emits " +
       "defensive RiskSignals on regime shifts.",
     dependencies: [],
   };
@@ -424,10 +419,6 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
   public readonly state: RegimeDetectorMetaPluginState;
   /** Captured bus reference (set in subscribe). */
   private _bus: SignalBus | null = null;
-  /** Unsubscribe handles for each signal-kind subscriber. */
-  private _unsubDirection: (() => void) | null = null;
-  private _unsubCarry: (() => void) | null = null;
-  private _unsubSizing: (() => void) | null = null;
   /** Whether subscribe() has been called. */
   private _wired = false;
 
@@ -592,26 +583,11 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
   }
 
   // ---------------------------------------------------------------------
-  // subscribe — wire SignalBus handlers (defensive meta reads all kinds)
+  // subscribe — capture the output bus; OHLCV is the only model input
   // ---------------------------------------------------------------------
 
   subscribe(bus: SignalBus): void {
     this._bus = bus;
-    // Subscribe to DirectionSignals (read-side: long/short strength).
-    this._unsubDirection = bus.subscribe("direction", (s) => {
-      if (!isDirection(s)) return;
-      this._onDirectionSignal(s);
-    });
-    // Subscribe to CarrySignals (read-side: funding-rate state).
-    this._unsubCarry = bus.subscribe("carry", (s) => {
-      if (!isCarry(s)) return;
-      this._onCarrySignal(s);
-    });
-    // Subscribe to SizingSignals (read-side: recommended notional).
-    this._unsubSizing = bus.subscribe("sizing", (s) => {
-      if (!isSizing(s)) return;
-      this._onSizingSignal(s);
-    });
     this._wired = true;
   }
 
@@ -787,30 +763,6 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   dispose(): void {
-    if (this._unsubDirection) {
-      try {
-        this._unsubDirection();
-      } catch {
-        // defensive — unsubscriber throws are swallowed
-      }
-      this._unsubDirection = null;
-    }
-    if (this._unsubCarry) {
-      try {
-        this._unsubCarry();
-      } catch {
-        // defensive
-      }
-      this._unsubCarry = null;
-    }
-    if (this._unsubSizing) {
-      try {
-        this._unsubSizing();
-      } catch {
-        // defensive
-      }
-      this._unsubSizing = null;
-    }
     this._bus = null;
     this._wired = false;
   }
@@ -835,9 +787,11 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
   ): void {
     if (!Number.isFinite(close) || close <= 0) return;
     if (!this.config.enabledSymbols.includes(symbol)) return;
-    const ts = timestampMs ?? Date.now();
+    const ts = timestampMs ?? 0;
 
     const ss = this._getOrCreateSymbolState(symbol);
+    if (ss.lastTimestampMs !== null && ts <= ss.lastTimestampMs) return;
+    ss.lastTimestampMs = ts;
     ss.closes.push(close);
 
     // Trim to transitionLearningDays + a small buffer. Since HMM is
@@ -937,35 +891,6 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
   }
 
   // ---------------------------------------------------------------------
-  // Internal — handlers (read-side only — meta plugin does not re-emit)
-  // ---------------------------------------------------------------------
-
-  /**
-   * `_onDirectionSignal` — increment the per-plugin receive counter.
-   * The plugin reads DirectionSignals for telemetry but does not
-   * forward them (meta-plugin is a reader, not a passthrough).
-   */
-  private _onDirectionSignal(_s: DirectionSignal): void {
-    this.state.directionSignalsReceived += 1;
-  }
-
-  /**
-   * `_onCarrySignal` — increment the per-plugin receive counter.
-   */
-  private _onCarrySignal(_s: CarrySignal): void {
-    this.state.carrySignalsReceived += 1;
-  }
-
-  /**
-   * `_onSizingSignal` — increment the per-plugin receive counter.
-   * The HMM-based position-size scaling is communicated via RiskSignals
-   * (not by re-emitting SizingSignals), so this is read-side only.
-   */
-  private _onSizingSignal(_s: SizingSignal): void {
-    this.state.sizingSignalsReceived += 1;
-  }
-
-  // ---------------------------------------------------------------------
   // Internal — HMM forward algorithm
   // ---------------------------------------------------------------------
 
@@ -989,7 +914,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     void timestampMs;
     const ss = this._getOrCreateSymbolState(symbol);
     const sigma = this.config.stateEmissionStdDev;
-    const Tmat = this.config.transitionMatrix;
+    const Tmat = this._learnedTransitionMatrix(ss);
     const prevAlpha: [number, number, number] | null = ss.forwardProbs;
 
     // Emit probabilities B[j] = P(o | state=j) — Gaussian(0, sigma[j]).
@@ -1118,6 +1043,18 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
       ss.regimeTransitionsObserved += 1;
       this.state.regimeTransitionEmissions += 1;
     }
+    if (prevRegime !== null) {
+      ss.transitionHistory.push([
+        regimeLabelToIndex(prevRegime),
+        regimeLabelToIndex(regime),
+      ]);
+      if (ss.transitionHistory.length > this.config.transitionLearningDays) {
+        ss.transitionHistory.splice(
+          0,
+          ss.transitionHistory.length - this.config.transitionLearningDays,
+        );
+      }
+    }
     ss.lastRegime = regime;
 
     const reason = isTransition
@@ -1135,6 +1072,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
       correlationPenalty: 0,
       drawdownLimit: sizeModifier === 1.0 ? 1.0 : sizeModifier,
       source: `${this.metadata.name}:${symbol}`, // stamp symbol on source for downstream attribution
+      symbol,
       timestampMs,
       breach: isTransition,
       reason,
@@ -1173,10 +1111,24 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
         lastRiskSignal: null,
         regimeTransitionsObserved: 0,
         lastSizeModifier: null,
+        lastTimestampMs: null,
+        transitionHistory: [],
       };
       this.state.symbolState.set(symbol, ss);
     }
     return ss;
+  }
+
+  private _learnedTransitionMatrix(
+    ss: SymbolRegimeState,
+  ): readonly [readonly [number, number, number], readonly [number, number, number], readonly [number, number, number]] {
+    if (ss.transitionHistory.length === 0) return this.config.transitionMatrix;
+    const counts = this.config.transitionMatrix.map((row) => [...row]);
+    for (const [from, to] of ss.transitionHistory) counts[from]![to]! += 1;
+    return counts.map((row) => {
+      const total = row.reduce((sum, value) => sum + value, 0);
+      return row.map((value) => value / total) as [number, number, number];
+    }) as unknown as readonly [readonly [number, number, number], readonly [number, number, number], readonly [number, number, number]];
   }
 }
 

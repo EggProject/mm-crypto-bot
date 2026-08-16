@@ -287,6 +287,10 @@ interface PerAssetVenueState {
   ok8h: number | null;
   /** Timestamp of last poll/feed for this asset (ms). */
   lastUpdateMs: number;
+  hlUpdateMs: number;
+  bzUpdateMs: number;
+  byUpdateMs: number;
+  okUpdateMs: number;
   /** Last emitted snapshot for this asset (for telemetry + tests). */
   lastSnapshot: FundingSnapshotSignal | null;
   /** Count of snapshots emitted for this asset. */
@@ -358,6 +362,7 @@ export interface CrossDexFundingWatcherPluginState {
  *   7. `plugin.reset()` / `plugin.dispose()` — backtest lifecycle.
  */
 export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
+  private _lastPollAtMs: number | null = null;
   // ---------------------------------------------------------------------
   // Static metadata
   // ---------------------------------------------------------------------
@@ -510,6 +515,9 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
 
   onBar(_bar: Bar, _state: PluginState): void {
     this.state.barsProcessed += 1;
+    const intervalMs = this.config.pollIntervalSec * 1_000;
+    if (this._lastPollAtMs !== null && _bar.timestamp - this._lastPollAtMs < intervalMs) return;
+    this._lastPollAtMs = _bar.timestamp;
     // Per-bar emission cycle — same path as `recordSnapshot`/`pollAndEmit`.
     // We use `_bar.timestamp` as the emission timestamp so backtest runs
     // are deterministic. (Live mode ignores the bar timestamp and uses
@@ -632,6 +640,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   reset(): void {
+    this._lastPollAtMs = null;
     this.state.perAsset.clear();
     this.state.totalSnapshotsEmitted = 0;
     this.state.totalVenueFeeds = 0;
@@ -687,9 +696,12 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
       predictedHourlyRate = null;
     }
     const ss = this._getOrCreatePerAsset(asset);
+    const ts = timestampMs ?? Date.now();
+    if (ss.hlUpdateMs > ts) return;
     ss.hlHourly = hourlyRate;
     ss.hlPredictedHourly = predictedHourlyRate;
-    ss.lastUpdateMs = timestampMs ?? Date.now();
+    ss.lastUpdateMs = Math.max(ss.lastUpdateMs, ts);
+    ss.hlUpdateMs = ts;
     this.state.hlFeeds += 1;
     this.state.totalVenueFeeds += 1;
   }
@@ -710,8 +722,11 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
       return;
     }
     const ss = this._getOrCreatePerAsset(asset);
+    const ts = timestampMs ?? Date.now();
+    if (ss.bzUpdateMs > ts) return;
     ss.bz8h = funding8h;
-    ss.lastUpdateMs = timestampMs ?? Date.now();
+    ss.lastUpdateMs = Math.max(ss.lastUpdateMs, ts);
+    ss.bzUpdateMs = ts;
     this.state.bzFeeds += 1;
     this.state.totalVenueFeeds += 1;
   }
@@ -730,8 +745,11 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
       return;
     }
     const ss = this._getOrCreatePerAsset(asset);
+    const ts = timestampMs ?? Date.now();
+    if (ss.byUpdateMs > ts) return;
     ss.by8h = funding8h;
-    ss.lastUpdateMs = timestampMs ?? Date.now();
+    ss.lastUpdateMs = Math.max(ss.lastUpdateMs, ts);
+    ss.byUpdateMs = ts;
     this.state.byFeeds += 1;
     this.state.totalVenueFeeds += 1;
   }
@@ -750,8 +768,11 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
       return;
     }
     const ss = this._getOrCreatePerAsset(asset);
+    const ts = timestampMs ?? Date.now();
+    if (ss.okUpdateMs > ts) return;
     ss.ok8h = funding8h;
-    ss.lastUpdateMs = timestampMs ?? Date.now();
+    ss.lastUpdateMs = Math.max(ss.lastUpdateMs, ts);
+    ss.okUpdateMs = ts;
     this.state.okFeeds += 1;
     this.state.totalVenueFeeds += 1;
   }
@@ -780,13 +801,16 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
 
       // Need at least 2 venues with data to compute a meaningful spread.
       const presentVenues: number[] = [];
-      if (ss.hlHourly !== null) {
+      const maxAgeMs = this.config.pollIntervalSec * 2_000;
+      const freshAt = (updatedMs: number): boolean =>
+        updatedMs <= ts && ts - updatedMs <= maxAgeMs;
+      if (ss.hlHourly !== null && freshAt(ss.hlUpdateMs)) {
         // HL is hourly — multiply by 8 to get 8h-equivalent rate, then ×10000 for bps.
         presentVenues.push(ss.hlHourly * 8 * 10_000);
       }
-      if (ss.bz8h !== null) presentVenues.push(ss.bz8h * 10_000);
-      if (ss.by8h !== null) presentVenues.push(ss.by8h * 10_000);
-      if (ss.ok8h !== null) presentVenues.push(ss.ok8h * 10_000);
+      if (ss.bz8h !== null && freshAt(ss.bzUpdateMs)) presentVenues.push(ss.bz8h * 10_000);
+      if (ss.by8h !== null && freshAt(ss.byUpdateMs)) presentVenues.push(ss.by8h * 10_000);
+      if (ss.ok8h !== null && freshAt(ss.okUpdateMs)) presentVenues.push(ss.ok8h * 10_000);
 
       if (presentVenues.length < 2) continue;
 
@@ -796,15 +820,15 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
 
       // 8h-equivalent bps per venue (null if no data).
       const hl8h =
-        ss.hlHourly !== null ? ss.hlHourly * 8 * 10_000 : Number.NaN;
-      const bz = ss.bz8h !== null ? ss.bz8h * 10_000 : Number.NaN;
-      const by = ss.by8h !== null ? ss.by8h * 10_000 : Number.NaN;
-      const ok = ss.ok8h !== null ? ss.ok8h * 10_000 : Number.NaN;
+        ss.hlHourly !== null && freshAt(ss.hlUpdateMs) ? ss.hlHourly * 8 * 10_000 : Number.NaN;
+      const bz = ss.bz8h !== null && freshAt(ss.bzUpdateMs) ? ss.bz8h * 10_000 : Number.NaN;
+      const by = ss.by8h !== null && freshAt(ss.byUpdateMs) ? ss.by8h * 10_000 : Number.NaN;
+      const ok = ss.ok8h !== null && freshAt(ss.okUpdateMs) ? ss.ok8h * 10_000 : Number.NaN;
 
       // Predicted gap = predicted - realized, in 8h-equivalent bps.
       // Only computable when both HL hourly + HL predicted hourly are present.
       let predictedGap = 0;
-      if (ss.hlHourly !== null && ss.hlPredictedHourly !== null) {
+      if (ss.hlHourly !== null && ss.hlPredictedHourly !== null && freshAt(ss.hlUpdateMs)) {
         predictedGap =
           (ss.hlPredictedHourly - ss.hlHourly) * 8 * 10_000;
       }
@@ -820,6 +844,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
         predictedGap,
         timestamp: ts,
         source: `${this.metadata.name}:${asset}`,
+        symbol: asset,
         timestampMs: ts,
       };
 
@@ -906,6 +931,10 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
         by8h: null,
         ok8h: null,
         lastUpdateMs: 0,
+        hlUpdateMs: 0,
+        bzUpdateMs: 0,
+        byUpdateMs: 0,
+        okUpdateMs: 0,
         lastSnapshot: null,
         snapshotsEmitted: 0,
       };

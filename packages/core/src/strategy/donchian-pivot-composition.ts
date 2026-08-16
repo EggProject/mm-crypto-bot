@@ -220,6 +220,10 @@ export class DonchianPivotComposition implements Strategy {
     return Math.max(this.donchianRange.warmup(), this.pivotGrid.warmup());
   }
 
+  onCandleObserved(ctx: StrategyContext): void {
+    this.pivotGrid.onCandleObserved(ctx);
+  }
+
   /**
    * `onCandle` — runs both sub-strategies on the LTF candle and applies
    * the consensus (or solo) aggregation logic.

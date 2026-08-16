@@ -1,0 +1,549 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    "donchian_pivot_composition",
+    "dydx_cex_carry",
+    "cascade_fade",
+    "funding_flip_kill_switch",
+    "regime_detector"
+  ],
+  "rows": [
+    {
+      "mask": "00001",
+      "enabled": [
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": false,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": false,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_SIGNAL_REPLAY",
+      "reason": "Nincs archivált Direction/Carry/Sizing SignalBus stream.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "00010",
+      "enabled": [
+        "funding_flip_kill_switch"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": false,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": true,
+      "regime_detector": false,
+      "status": "FUNCTIONAL_REPLAY_ONLY",
+      "reason": "A SOL plugin döntése replayelhető, de önálló PnL és DD nem értelmezhető.",
+      "validSymbols": [
+        "SOL/USDT"
+      ],
+      "invalidSymbols": [
+        "BTC/USDT",
+        "ETH/USDT"
+      ]
+    },
+    {
+      "mask": "00011",
+      "enabled": [
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": false,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": true,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "00100",
+      "enabled": [
+        "cascade_fade"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": false,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": false,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "00101",
+      "enabled": [
+        "cascade_fade",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": false,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": false,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "00110",
+      "enabled": [
+        "cascade_fade",
+        "funding_flip_kill_switch"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": false,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": true,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "00111",
+      "enabled": [
+        "cascade_fade",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": false,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": true,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "01000",
+      "enabled": [
+        "dydx_cex_carry"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": true,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": false,
+      "regime_detector": false,
+      "status": "BLOCKED_MISSING_DATA",
+      "reason": "A teljes dYdX órás funding dataset/cache hiányzik.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "01001",
+      "enabled": [
+        "dydx_cex_carry",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": true,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": false,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "01010",
+      "enabled": [
+        "dydx_cex_carry",
+        "funding_flip_kill_switch"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": true,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": true,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "01011",
+      "enabled": [
+        "dydx_cex_carry",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": true,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": true,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "01100",
+      "enabled": [
+        "dydx_cex_carry",
+        "cascade_fade"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": true,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": false,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "01101",
+      "enabled": [
+        "dydx_cex_carry",
+        "cascade_fade",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": true,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": false,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "01110",
+      "enabled": [
+        "dydx_cex_carry",
+        "cascade_fade",
+        "funding_flip_kill_switch"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": true,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": true,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "01111",
+      "enabled": [
+        "dydx_cex_carry",
+        "cascade_fade",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": false,
+      "dydx_cex_carry": true,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": true,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "10000",
+      "enabled": [
+        "donchian_pivot_composition"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": false,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": false,
+      "regime_detector": false,
+      "status": "SUPPORTED_REAL_DATA",
+      "reason": "Valós, hash-ellenőrzött Binance OHLCV runner elérhető.",
+      "validSymbols": [
+        "BTC/USDT",
+        "ETH/USDT",
+        "SOL/USDT"
+      ],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "10001",
+      "enabled": [
+        "donchian_pivot_composition",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": false,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": false,
+      "regime_detector": true,
+      "status": "SUPPORTED_REAL_DATA",
+      "reason": "A validált DPC+Regime overlay runner valós OHLCV-n BTC/ETH/SOL szimbólumon elérhető.",
+      "validSymbols": [
+        "BTC/USDT",
+        "ETH/USDT",
+        "SOL/USDT"
+      ],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "10010",
+      "enabled": [
+        "donchian_pivot_composition",
+        "funding_flip_kill_switch"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": false,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": true,
+      "regime_detector": false,
+      "status": "SUPPORTED_REAL_DATA",
+      "reason": "A validált DPC overlay runner valós OHLCV+funding adaton SOL/USDT-re elérhető; BTC/ETH explicit INVALID_MASK, nem no-op.",
+      "validSymbols": [
+        "SOL/USDT"
+      ],
+      "invalidSymbols": [
+        "BTC/USDT",
+        "ETH/USDT"
+      ]
+    },
+    {
+      "mask": "10011",
+      "enabled": [
+        "donchian_pivot_composition",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": false,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": true,
+      "regime_detector": true,
+      "status": "SUPPORTED_REAL_DATA",
+      "reason": "A validált DPC overlay runner valós OHLCV+funding adaton SOL/USDT-re elérhető; BTC/ETH explicit INVALID_MASK, nem no-op.",
+      "validSymbols": [
+        "SOL/USDT"
+      ],
+      "invalidSymbols": [
+        "BTC/USDT",
+        "ETH/USDT"
+      ]
+    },
+    {
+      "mask": "10100",
+      "enabled": [
+        "donchian_pivot_composition",
+        "cascade_fade"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": false,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": false,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "10101",
+      "enabled": [
+        "donchian_pivot_composition",
+        "cascade_fade",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": false,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": false,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "10110",
+      "enabled": [
+        "donchian_pivot_composition",
+        "cascade_fade",
+        "funding_flip_kill_switch"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": false,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": true,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "10111",
+      "enabled": [
+        "donchian_pivot_composition",
+        "cascade_fade",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": false,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": true,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "11000",
+      "enabled": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": true,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": false,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "11001",
+      "enabled": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": true,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": false,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "11010",
+      "enabled": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "funding_flip_kill_switch"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": true,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": true,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "11011",
+      "enabled": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": true,
+      "cascade_fade": false,
+      "funding_flip_kill_switch": true,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "11100",
+      "enabled": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "cascade_fade"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": true,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": false,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "11101",
+      "enabled": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "cascade_fade",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": true,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": false,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "11110",
+      "enabled": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "cascade_fade",
+        "funding_flip_kill_switch"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": true,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": true,
+      "regime_detector": false,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    },
+    {
+      "mask": "11111",
+      "enabled": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "cascade_fade",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "donchian_pivot_composition": true,
+      "dydx_cex_carry": true,
+      "cascade_fade": true,
+      "funding_flip_kill_switch": true,
+      "regime_detector": true,
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "validSymbols": [],
+      "invalidSymbols": []
+    }
+  ]
+}

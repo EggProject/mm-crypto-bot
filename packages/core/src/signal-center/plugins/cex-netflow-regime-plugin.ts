@@ -865,6 +865,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     symbol: string,
     netflow: number,
     timestampMs: number,
+    observedAtMs: number = timestampMs,
   ): boolean {
     if (!Number.isFinite(netflow)) return false;
     if (!Number.isFinite(timestampMs) || timestampMs < 0) return false;
@@ -873,7 +874,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     // Staleness filter: drop samples that are too old. Without
     // `nowMs` we use the sample's own timestamp as the reference.
     // If the sample is older than `maxStaleMs` from now, skip.
-    const now = Date.now();
+    const now = observedAtMs;
     const ageMs = now - timestampMs;
     if (ageMs > this.config.maxStaleMs) {
       const ss = this._getOrCreateSymbolState(symbol);
@@ -883,6 +884,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     }
 
     const ss = this._getOrCreateSymbolState(symbol);
+    if (ss.lastSampleMs !== null && timestampMs < ss.lastSampleMs) return false;
     ss.samples.push(netflow);
     ss.lastSampleMs = timestampMs;
     ss.observationsCount += 1;
@@ -952,10 +954,15 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
    * any), feeding each via `recordNetflowSample`.
    *
    * Returns the number of NEW samples successfully recorded (across
-   * all enabled symbols). Returns 0 when the adapter is unavailable.
+   * all enabled symbols). A missing live adapter is a startup-contract
+   * violation; replay callers must use `recordNetflowSample` instead.
    */
   async refreshLive(nowMs: number = Date.now()): Promise<number> {
-    if (!this.config.adapter) return 0;
+    if (!this.config.adapter || this.config.adapter instanceof NullNetflowAdapter) {
+      throw new Error(
+        "[CexNetFlowRegimePlugin] live refresh requires an explicit netflow adapter; use recordNetflowSample() for deterministic replay",
+      );
+    }
     let count = 0;
     for (const sym of this.config.enabledSymbols) {
       try {
@@ -968,6 +975,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
           sym,
           sample.netflow,
           sample.timestampMs,
+          nowMs,
         );
         if (ok) {
           count += 1;
@@ -991,6 +999,11 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
    * twice stops and re-starts the timer. Returns the interval id.
    */
   startLivePolling(): ReturnType<typeof setInterval> {
+    if (!this.config.adapter || this.config.adapter instanceof NullNetflowAdapter) {
+      throw new Error(
+        "[CexNetFlowRegimePlugin] live polling requires an explicit netflow adapter; refusing inert startup",
+      );
+    }
     this.stopLivePolling();
     this._pollTimer = setInterval(() => {
       void this.refreshLive();
@@ -1128,6 +1141,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
       regime,
       zScore,
       source: this.metadata.name,
+      symbol,
       timestampMs,
       // `confidence` and `staleMs` are Phase 12 OPTIONAL fields per
       // FactorSignal type contract — they're omitted entirely (not
@@ -1284,11 +1298,9 @@ export function classifyRegime(
 // ---------------------------------------------------------------------------
 
 /**
- * `NullNetflowAdapter` — the default adapter. Returns `null` for every
- * symbol, simulating "no data feed". The plugin behaves identically
- * with this adapter as without one — every fetch returns null,
- * `refreshLive` returns 0, but `recordNetflowSample` (direct
- * injection) still works. Use this for backtests and tests.
+ * `NullNetflowAdapter` — replay-only marker adapter. Direct
+ * `recordNetflowSample` injection remains supported, but live refresh
+ * and polling fail loud while this adapter is configured.
  */
 export class NullNetflowAdapter implements IExchangeNetflowAdapter {
   public readonly name = "null";

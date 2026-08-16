@@ -97,6 +97,9 @@ export type SignalBusMode = "backtest" | "live";
 export interface SignalBusOptions {
   readonly mode?: SignalBusMode;
   readonly maxEmitsPerSecond?: number;
+  /** Optional pre-dispatch gate. Returning false drops the signal completely. */
+  readonly signalGate?: (signal: Signal) => boolean;
+  readonly scopeSymbol?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +134,8 @@ export class SignalBus {
   public mode: SignalBusMode;
   /** Live-mode backpressure threshold (emits/sec). */
   public maxEmitsPerSecond: number;
+  /** Optional instrument scope owned by the enclosing SignalCenter. */
+  public readonly scopeSymbol: string | undefined;
 
   private readonly subscriptions: Subscription[] = [];
   private readonly snapshotLog: Signal[] = [];
@@ -141,10 +146,18 @@ export class SignalBus {
   private readonly latencySamples: number[] = [];
   /** Wall-clock timestamp of last emit (live mode only). */
   private lastEmitMs: number | null = null;
+  private signalGate: (signal: Signal) => boolean;
 
   constructor(options: SignalBusOptions = {}) {
     this.mode = options.mode ?? "backtest";
     this.maxEmitsPerSecond = options.maxEmitsPerSecond ?? 10_000;
+    this.scopeSymbol = options.scopeSymbol;
+    this.signalGate = options.signalGate ?? (() => true);
+  }
+
+  /** Replace the pre-dispatch gate used by kill-switch/lifecycle owners. */
+  setSignalGate(gate: (signal: Signal) => boolean): void {
+    this.signalGate = gate;
   }
 
   // -------------------------------------------------------------------------
@@ -222,6 +235,7 @@ export class SignalBus {
         `SignalBus.emit: signal.kind must be a string, got ${typeof kind}`,
       );
     }
+    if (!this.signalGate(s)) return;
     this.snapshotLog.push(s);
 
     if (this.mode === "backtest") {

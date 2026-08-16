@@ -27,6 +27,7 @@ import { join } from "node:path";
 
 import { DEFAULT_BOT_CONFIG } from "./defaults.js";
 import { ConfigError, loadBotConfig } from "./loader.js";
+import { BotConfigSchema } from "./schema.js";
 
 describe("loadBotConfig", () => {
   // --------------------------------------------------------------------------
@@ -191,7 +192,7 @@ enabled = false
       const config = loadBotConfig(path);
       expect(config.strategies.donchian_pivot_composition.enabled).toBe(false);
       // Other defaults preserved
-      expect(config.strategies.dydx_cex_carry.enabled).toBe(true);
+      expect(config.strategies.dydx_cex_carry.enabled).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -217,11 +218,63 @@ custom_field_v2 = "future use case"
       const config = loadBotConfig(path);
       const section = config.strategies.donchian_pivot_composition;
       expect(section.enabled).toBe(true);
-      // The Zod passthrough preserves `min_consensus` and the custom field
-      expect((section as { min_consensus?: number }).min_consensus).toBe(1);
+      // `min_consensus` is typed/validated, while unrelated future fields
+      // continue to pass through the shared strategy schema.
+      expect(section.min_consensus).toBe(1);
       expect((section as { custom_field_v2?: string }).custom_field_v2).toBe(
         "future use case",
       );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("strictly validates donchian_pivot_composition.min_consensus in the schema", () => {
+    for (const minConsensus of [1, 2]) {
+      const parsed = BotConfigSchema.safeParse({
+        strategies: {
+          donchian_pivot_composition: { enabled: true, min_consensus: minConsensus },
+        },
+      });
+      expect(parsed.success).toBe(true);
+    }
+
+    for (const minConsensus of [0, 3, 1.5]) {
+      const parsed = BotConfigSchema.safeParse({
+        strategies: {
+          donchian_pivot_composition: { enabled: true, min_consensus: minConsensus },
+        },
+      });
+      expect(parsed.success).toBe(false);
+      if (parsed.success) continue;
+      expect(parsed.error.issues[0]?.path.join(".")).toBe(
+        "strategies.donchian_pivot_composition.min_consensus",
+      );
+    }
+  });
+
+  it("accepts only min_consensus 1 or 2 from TOML", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
+    try {
+      for (const minConsensus of [1, 2]) {
+        const path = join(dir, `valid-consensus-${String(minConsensus)}.toml`);
+        writeFileSync(
+          path,
+          `[strategies.donchian_pivot_composition]\nenabled = true\nmin_consensus = ${String(minConsensus)}\n`,
+          "utf8",
+        );
+        expect(loadBotConfig(path).strategies.donchian_pivot_composition.min_consensus).toBe(minConsensus);
+      }
+
+      for (const minConsensus of [0, 3, 1.5]) {
+        const path = join(dir, `invalid-consensus-${String(minConsensus)}.toml`);
+        writeFileSync(
+          path,
+          `[strategies.donchian_pivot_composition]\nenabled = true\nmin_consensus = ${String(minConsensus)}\n`,
+          "utf8",
+        );
+        expect(() => loadBotConfig(path)).toThrow(/strategies\.donchian_pivot_composition\.min_consensus/);
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -250,7 +303,7 @@ notional_per_leg_usd = 250000
       ).toBe(250_000);
       // Preserved default
       expect(config.strategies.dydx_cex_carry.cap).toBe(0.025);
-      expect(config.strategies.dydx_cex_carry.enabled).toBe(true);
+      expect(config.strategies.dydx_cex_carry.enabled).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

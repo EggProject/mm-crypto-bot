@@ -285,7 +285,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     p.subscribe(bus);
     for (let i = 0; i < 20; i++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 110);
-    expect(received.length).toBe(2);
+    expect(received.length).toBe(1);
     expect(received[0]!.source).toBe("cross-symbol-momentum-overlay-v1");
   });
 
@@ -492,7 +492,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     expect(p.state.longEmissions).toBe(0);
   });
 
-  it("subscribeBuses broadcasts signals to all subscribed buses", () => {
+  it("subscribeBuses routes exactly one symbol-bearing signal to each target bus", () => {
     const p = new CrossSymbolMomentumOverlayPlugin({
       lookbackDays: 10,
       momentumThreshold: 0.05,
@@ -515,11 +515,8 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     // Generate +20% BTC momentum to cross threshold.
     for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 120);
-    // Both buses receive the same DirectionSignal (one per enabledSymbol
-    // since the plugin emits a signal per symbol in the for-loop).
-    // Phase 14A: each signal is broadcast to all subscribed buses.
-    expect(btcDir.length).toBe(2); // 1 per enabledSymbol
-    expect(ethDir.length).toBe(2); // same signals, broadcast to ETH bus
+    expect(btcDir.length).toBe(1);
+    expect(ethDir.length).toBe(1);
     expect(btcDir.every((d) => d.side === "long")).toBe(true);
     expect(ethDir.every((d) => d.side === "long")).toBe(true);
   });

@@ -111,6 +111,13 @@ const COST_MODEL: CostModel = {
   fundingRatePer8h: 0, // SPOT only
 };
 
+/** Convert a full-period return to its geometrically equivalent monthly return. */
+export function calculateMonthlyReturn(totalReturn: number, totalMonths: number): number {
+  const terminalGrowth = 1 + totalReturn;
+  if (terminalGrowth <= 0) return -1;
+  return Math.pow(terminalGrowth, 1 / totalMonths) - 1;
+}
+
 export async function main(): Promise<void> {
   const args = parseArgs();
   const tf = timeframesForPivotGrid(args.timeframe);
@@ -158,7 +165,7 @@ export async function main(): Promise<void> {
   // Report (matches run-baseline.ts CLI envelope for downstream REPORT.md parsing).
   const totalDays = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60 * 24);
   const totalMonths = totalDays / 30.44;
-  const monthlyReturn = result.totalReturn > 0 ? (Math.pow(1 + result.totalReturn, 1 / totalMonths) - 1) : 0;
+  const monthlyReturn = calculateMonthlyReturn(result.totalReturn, totalMonths);
   const wins = result.trades.filter((t) => t.pnlUsd > 0);
   const losses = result.trades.filter((t) => t.pnlUsd < 0);
   const winRate = result.trades.length > 0 ? wins.length / result.trades.length : 0;
@@ -209,9 +216,11 @@ export async function main(): Promise<void> {
   console.log(`\n[pivot-grid] Saved: ${args.outputPath}`);
 }
 
-// Phase 35b — entry point removed for 100% function coverage.
-// Az entry point blokk (if (import.meta.main)) a subprocess
-// tesztekben sem elérhető (bun coverage NEM követi a subprocess-t).
-// A main() továbbra is exportálva van; a `bun run` parancs helyett
-// a main()-t közvetlenül kell hívni, vagy egy wrapper scriptet
-// kell írni a `src/cli/bin/` mappába.
+export function handleFatal(error: unknown): void {
+  console.error("[pivot-grid] FATAL:", error);
+  process.exitCode = 1;
+}
+
+if (import.meta.main) {
+  main().catch(handleFatal);
+}

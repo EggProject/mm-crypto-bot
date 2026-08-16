@@ -273,12 +273,17 @@ interface SymbolAccumulator {
   sizeModifier: number;
   /** Carry regime multiplier — MIN across emits (default 1.0). */
   carryMultiplier: number;
+  /** Most defensive final sizing notional received this round. */
+  sizingNotionalUsd: number | null;
+  /** Active close/kill instruction. */
+  forceClose: boolean;
   /** Last seen DirectionSignal timestamp. */
   lastDirectionTs: number;
   /** Last seen CarrySignal timestamp. */
   lastCarryTs: number;
   /** Last seen RiskSignal timestamp. */
   lastRiskTs: number;
+  lastSizingTs: number;
   /** Last seen FactorSignal — informational only. */
   lastFactorSignal: FactorSignal | null;
   /** Last seen FundingSnapshotSignal — informational only. */
@@ -494,10 +499,7 @@ export class DecisionEngine {
         this.state.carrySignalsReceived += 1;
         return;
       case "sizing":
-        // SizingSignals currently informational (the engine consumes
-        // DirectionSignals for the directional vote). They contribute
-        // to the input counter for diagnostics.
-        if (isSizing(signal)) void signal;
+        if (isSizing(signal)) this._onSizingSignal(signal);
         this.state.sizingSignalsReceived += 1;
         return;
       case "risk":
@@ -531,7 +533,7 @@ export class DecisionEngine {
     // OR from `timestampMs` if present. Central runners are expected
     // to emit per-symbol directions; the engine falls back to a
     // single-symbol bucket labeled "unknown" when symbol is missing.
-    const symbol = this._extractSymbol(s.source);
+    const symbol = this._signalSymbol(s);
     const acc = this._getOrCreateAccumulator(symbol);
     const weight = this._weightForSource(s.source);
     const contribution = Math.max(0, Math.min(1, s.strength)) * weight;
@@ -553,7 +555,7 @@ export class DecisionEngine {
    * carry multiplier (MIN across emits — most defensive wins).
    */
   private _onCarrySignal(s: CarrySignal): void {
-    const symbol = this._extractSymbol(s.source);
+    const symbol = this._signalSymbol(s);
     const acc = this._getOrCreateAccumulator(symbol);
     let mult: number;
     switch (s.regime) {
@@ -583,14 +585,29 @@ export class DecisionEngine {
    * modifier here).
    */
   private _onRiskSignal(s: RiskSignal): void {
-    const symbol = this._extractSymbol(s.source);
+    const symbol = this._signalSymbol(s);
     const acc = this._getOrCreateAccumulator(symbol);
     if (s.sizeModifier !== undefined) {
       const m = Math.max(0, Math.min(1, s.sizeModifier));
       if (m < acc.sizeModifier) acc.sizeModifier = m;
     }
+    if (s.breach === true || (s.closeNotionalUsd ?? 0) > 0) {
+      acc.forceClose = true;
+    }
     if (s.timestampMs !== undefined && s.timestampMs > acc.lastRiskTs) {
       acc.lastRiskTs = s.timestampMs;
+    }
+  }
+
+  private _onSizingSignal(s: SizingSignal): void {
+    const symbol = this._signalSymbol(s);
+    const acc = this._getOrCreateAccumulator(symbol);
+    const candidate = Math.abs(s.notional);
+    acc.sizingNotionalUsd = acc.sizingNotionalUsd === null
+      ? candidate
+      : Math.min(acc.sizingNotionalUsd, candidate);
+    if (s.timestampMs !== undefined && s.timestampMs > acc.lastSizingTs) {
+      acc.lastSizingTs = s.timestampMs;
     }
   }
 
@@ -599,7 +616,7 @@ export class DecisionEngine {
    * only. FactorSignals do NOT contribute to direction or size.
    */
   private _onFactorSignal(s: FactorSignal): void {
-    const symbol = this._extractSymbol(s.source);
+    const symbol = this._signalSymbol(s);
     const acc = this._getOrCreateAccumulator(symbol);
     acc.lastFactorSignal = s;
   }
@@ -610,7 +627,7 @@ export class DecisionEngine {
    * contribute to direction or size.
    */
   private _onFundingSnapshotSignal(s: FundingSnapshotSignal): void {
-    const symbol = this._extractSymbol(s.source);
+    const symbol = s.symbol ?? s.asset;
     const acc = this._getOrCreateAccumulator(symbol);
     acc.lastFundingSnapshotSignal = s;
   }
@@ -633,8 +650,7 @@ export class DecisionEngine {
     this.state.arbitrateCallCount += 1;
     const acc = this.state.symbols.get(symbol);
     if (
-      acc === undefined ||
-      acc.totalWeight === 0
+      acc === undefined
     ) {
       this.state.emptyArbitrateCount += 1;
       const empty: PositionDecision = {
@@ -644,7 +660,7 @@ export class DecisionEngine {
         sizeMultiplier: 1.0,
         confidence: 0,
         sourceWeights: {},
-        timestampMs: this._nowMs(),
+        timestampMs: 0,
       };
       this.state.decisions.push(empty);
       return empty;
@@ -652,19 +668,19 @@ export class DecisionEngine {
     // Compute the winner.
     const { winner, confidence, sourceWeights } = this._pickWinner(acc);
     const sizeMultiplier = this._computeSizeMultiplier(acc);
-    const notionalRaw =
-      this.config.maxNotionalPerSymbolUsd * Math.max(0, sizeMultiplier);
+    const notionalBase = acc.sizingNotionalUsd ?? this.config.maxNotionalPerSymbolUsd;
+    const notionalRaw = notionalBase * Math.max(0, sizeMultiplier);
     const notionalUsd = Math.max(
       0,
       Math.min(this.config.maxNotionalPerSymbolUsd, notionalRaw),
     );
-    const side: PositionDecision["side"] =
+    const side: PositionDecision["side"] = acc.forceClose ||
       confidence < this.config.minConsensusStrength ? "flat" : winner;
     const timestampMs = Math.max(
       acc.lastDirectionTs,
       acc.lastCarryTs,
       acc.lastRiskTs,
-      this._nowMs(),
+      acc.lastSizingTs,
     );
     const decision: PositionDecision = {
       symbol,
@@ -849,6 +865,10 @@ export class DecisionEngine {
     return source.slice(idx + 1);
   }
 
+  private _signalSymbol(signal: { readonly symbol?: string; readonly source: string }): string {
+    return signal.symbol ?? this._extractSymbol(signal.source);
+  }
+
   /**
    * `_weightForSource` — return the engine's weight for a given
    * DirectionSignal source. Defensive plugins get
@@ -881,9 +901,12 @@ export class DecisionEngine {
         totalWeight: 0,
         sizeModifier: 1.0,
         carryMultiplier: 1.0,
+        sizingNotionalUsd: null,
+        forceClose: false,
         lastDirectionTs: 0,
         lastCarryTs: 0,
         lastRiskTs: 0,
+        lastSizingTs: 0,
         lastFactorSignal: null,
         lastFundingSnapshotSignal: null,
         sourceWeights: {},
@@ -956,14 +979,6 @@ export class DecisionEngine {
     return Math.max(0, Math.min(1, raw));
   }
 
-  /**
-   * `_nowMs` — wall-clock millisecond timestamp. Tests can swap this
-   * via the engine constructor (extension hook reserved for future
-   * use; default is `Date.now()`).
-   */
-  private _nowMs(): number {
-    return Date.now();
-  }
 }
 
 // ---------------------------------------------------------------------------

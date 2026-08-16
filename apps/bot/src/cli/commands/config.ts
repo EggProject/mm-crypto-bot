@@ -33,6 +33,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { ConfigError, DEFAULT_BOT_CONFIG, loadBotConfig, type BotConfig } from "../../config/index.js";
 import { colorize } from "../color.js";
@@ -274,9 +275,10 @@ export function validateConfigForEdit(target: string): number {
  *
  * Writes a starter TOML config to the given path (default: `./mm-bot.toml`).
  * We do NOT have a separate "template" file — we reuse the canonical
- * `run-bot/config/default.toml` shipped in the repo (path resolved relative
- * to the current working directory). This way the user gets the production-
- * default starting point, with all the helpful comments.
+ * `run-bot/config/default.toml` shipped in the repo. The primary path is
+ * resolved relative to this module, so an unrelated `process.chdir()` cannot
+ * make config generation fail. This way the user gets the production-default
+ * starting point, with all the helpful comments.
  *
  * If the user passes `--out` to a path that already exists, we refuse to
  * overwrite (no `--force` to avoid silent data loss).
@@ -301,7 +303,11 @@ function runInit(outPath: string | undefined): number {
   // legacy fallback (52D removes it; this lookup chain is here
   // for in-flight 52B/52A branches that haven't yet picked up
   // the relocation).
+  const moduleRelativeDefault = fileURLToPath(
+    new URL("../../../../../run-bot/config/default.toml", import.meta.url),
+  );
   const candidates = [
+    moduleRelativeDefault,
     "run-bot/config/default.toml",
     "config/default.toml",
     "../config/default.toml",

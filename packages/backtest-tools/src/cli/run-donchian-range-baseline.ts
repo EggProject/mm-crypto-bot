@@ -17,7 +17,7 @@ import { DonchianRangeChannelStrategy, DEFAULT_DONCHIAN_RANGE_CONFIG } from "@mm
 import type { ExchangeFeed } from "@mm-crypto-bot/backtest";
 import { makeSymbol, type Timeframe } from "@mm-crypto-bot/shared/types";
 
-interface CliArgs {
+export interface CliArgs {
   readonly symbol: string;
   readonly timeframe: Timeframe;
   readonly initialEquity: number;
@@ -25,6 +25,8 @@ interface CliArgs {
   readonly startTime: Date;
   readonly endTime: Date;
   readonly dataDir: string;
+  readonly donchianPeriod: number;
+  readonly adxTrendThreshold: number;
 }
 
 // A `parseArgs` exportálva van a 100% line-coverage tesztekhez.
@@ -42,6 +44,8 @@ export function parseArgs(): CliArgs {
   // Phase 35b — accept --data-dir= to override the OHLCV data directory.
   // Tests use a tmp dir with minimal data so the subprocess runs in seconds.
   let dataDir: string | null = null;
+  let donchianPeriod = DEFAULT_DONCHIAN_RANGE_CONFIG.donchianPeriod;
+  let adxTrendThreshold = DEFAULT_DONCHIAN_RANGE_CONFIG.adxTrendThreshold;
   for (const arg of args) {
     if (arg.startsWith("--symbol=")) {
       symbol = arg.slice("--symbol=".length);
@@ -62,6 +66,16 @@ export function parseArgs(): CliArgs {
       endTime = new Date(arg.slice("--end=".length));
     } else if (arg.startsWith("--data-dir=")) {
       dataDir = arg.slice("--data-dir=".length);
+    } else if (arg.startsWith("--donchian-period=")) {
+      donchianPeriod = Number(arg.slice("--donchian-period=".length));
+      if (!Number.isInteger(donchianPeriod) || donchianPeriod < 2) {
+        throw new Error(`--donchian-period must be an integer >= 2, got: ${donchianPeriod}`);
+      }
+    } else if (arg.startsWith("--adx-trend-threshold=")) {
+      adxTrendThreshold = Number(arg.slice("--adx-trend-threshold=".length));
+      if (!Number.isFinite(adxTrendThreshold) || adxTrendThreshold <= 0) {
+        throw new Error(`--adx-trend-threshold must be positive, got: ${adxTrendThreshold}`);
+      }
     }
   }
   const resolvedDataDir = dataDir ?? resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
@@ -73,6 +87,8 @@ export function parseArgs(): CliArgs {
     startTime,
     endTime,
     dataDir: resolvedDataDir,
+    donchianPeriod,
+    adxTrendThreshold,
   };
 }
 
@@ -105,11 +121,23 @@ const COST_MODEL: CostModel = {
   fundingRatePer8h: 0,
 };
 
+/** Convert a full-period return to its geometrically equivalent monthly return. */
+export function calculateMonthlyReturn(totalReturn: number, totalMonths: number): number {
+  const terminalGrowth = 1 + totalReturn;
+  if (terminalGrowth <= 0) return -1;
+  return Math.pow(terminalGrowth, 1 / totalMonths) - 1;
+}
+
 export async function main(): Promise<void> {
   const args = parseArgs();
   const tf = timeframesForDonchianRange(args.timeframe);
   const feed = new CsvExchangeFeed(args.dataDir) as unknown as ExchangeFeed;
-  const strategy = new DonchianRangeChannelStrategy(DEFAULT_DONCHIAN_RANGE_CONFIG);
+  const strategyConfig = {
+    ...DEFAULT_DONCHIAN_RANGE_CONFIG,
+    donchianPeriod: args.donchianPeriod,
+    adxTrendThreshold: args.adxTrendThreshold,
+  };
+  const strategy = new DonchianRangeChannelStrategy(strategyConfig);
 
   // Phase 35b — start/end is now CLI-configurable so the subprocess
   // test suite can run on a 1-day window and finish in seconds.
@@ -119,6 +147,7 @@ export async function main(): Promise<void> {
   console.log(`[donchian-range] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
   console.log(`[donchian-range] period: ${startTime.toISOString()} → ${endTime.toISOString()}`);
   console.log(`[donchian-range] initial equity: $${args.initialEquity}`);
+  console.log(`[donchian-range] donchian-period=${args.donchianPeriod} adx-trend-threshold=${args.adxTrendThreshold}`);
 
   const result: BacktestResult = await runBacktest({
     symbol: makeSymbol(args.symbol),
@@ -138,12 +167,13 @@ export async function main(): Promise<void> {
       minPositionPctEquity: 0.01,
     },
     strategy,
+    htfDonchianPeriod: args.donchianPeriod,
   });
 
   // Report envelope.
   const totalDays = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60 * 24);
   const totalMonths = totalDays / 30.44;
-  const monthlyReturn = result.totalReturn > 0 ? (Math.pow(1 + result.totalReturn, 1 / totalMonths) - 1) : 0;
+  const monthlyReturn = calculateMonthlyReturn(result.totalReturn, totalMonths);
   // Phase 35b — wins/losses filter arrows eltávolítva, mert a
   // strategy 0 tradet generál a szintetikus teszt adatsorral, és
   // a 2 filter callback függvény a function-coverage-ot 71.43%-ra
@@ -178,6 +208,8 @@ export async function main(): Promise<void> {
       {
         args,
         strategy: "donchian-range",
+        strategyConfig,
+        indicatorConfig: { htfDonchianPeriod: args.donchianPeriod },
         timeframe: tf,
         monthlyReturn,
         totalMonths,
@@ -196,26 +228,14 @@ export async function main(): Promise<void> {
  * named function so the in-process unit tests can exercise the
  * error-handler body (Phase 35b — function-coverage mandate).
  *
- * Note: the call to `process.exit(1)` is wrapped in a try/catch so
- * tests can call `handleFatal` without terminating the test process.
- * In production, the `process.exit(1)` is unconditional.
+ * Setting `process.exitCode` lets pending stderr writes flush and makes the
+ * handler safe to exercise in-process without terminating the test runner.
  */
-export function handleFatal(err: unknown): never {
-  // Phase 35b — egyszerűsített FATAL handler. A `process.exit(1)`
-  // hívás kikerült, mert a `bun run` runtime-ban az unhandled rejection
-  // is exit code != 0-at ad, és a test process kijáratása nélkül is
-  // 100%-ra tesztelhető a throw.
+export function handleFatal(err: unknown): void {
   console.error("[donchian-range] FATAL:", err);
-  throw err instanceof Error ? err : new Error(String(err));
+  process.exitCode = 1;
 }
 
-// Phase 35b — entry point removed for 100% function coverage.
-//
-// Az eredeti `if (import.meta.main) { main().catch(handleFatal); }`
-// entry point blokk az in-process tesztekben SOHA nem fut le (mert
-// import.meta.main mindig false, és a subprocess-t a bun coverage
-// report NEM követi). A main() továbbra is exportálva van, így a
-// unit tesztek közvetlenül hívhatják, és egy wrapper script
-// (pl. `bun run src/cli/bin/run-donchian-range-baseline.ts`) hívhatja
-// a parancssorból.
-
+if (import.meta.main) {
+  main().catch(handleFatal);
+}

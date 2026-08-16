@@ -1,0 +1,5077 @@
+{
+  "schemaVersion": 1,
+  "dryRun": true,
+  "generatedAt": "2026-08-16T12:31:54.995Z",
+  "codeRevision": "320972c0dc8f372f7eb67a5c230191e0959adf29",
+  "dataSnapshot": "search-best-config/data-snapshot.json",
+  "phases": [
+    "is",
+    "validation",
+    "oos"
+  ],
+  "combinationCount": 31,
+  "representedMasks": [
+    "00001",
+    "00010",
+    "00011",
+    "00100",
+    "00101",
+    "00110",
+    "00111",
+    "01000",
+    "01001",
+    "01010",
+    "01011",
+    "01100",
+    "01101",
+    "01110",
+    "01111",
+    "10000",
+    "10001",
+    "10010",
+    "10011",
+    "10100",
+    "10101",
+    "10110",
+    "10111",
+    "11000",
+    "11001",
+    "11010",
+    "11011",
+    "11100",
+    "11101",
+    "11110",
+    "11111"
+  ],
+  "jobs": [
+    {
+      "runId": "production-00001",
+      "componentMask": "00001",
+      "enabledComponents": [
+        "regime_detector"
+      ],
+      "strategyId": "regime_detector",
+      "status": "UNSUPPORTED_SIGNAL_REPLAY",
+      "reason": "Nincs archivált Direction/Carry/Sizing SignalBus stream.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-00010",
+      "componentMask": "00010",
+      "enabledComponents": [
+        "funding_flip_kill_switch"
+      ],
+      "strategyId": "funding_flip_kill_switch",
+      "status": "FUNCTIONAL_REPLAY_ONLY",
+      "reason": "A plugin döntése replayelhető, de önálló PnL és DD nem értelmezhető.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-00011",
+      "componentMask": "00011",
+      "enabledComponents": [
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "strategyId": "funding_flip_kill_switch+regime_detector",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-00100",
+      "componentMask": "00100",
+      "enabledComponents": [
+        "cascade_fade"
+      ],
+      "strategyId": "cascade_fade",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-00101",
+      "componentMask": "00101",
+      "enabledComponents": [
+        "cascade_fade",
+        "regime_detector"
+      ],
+      "strategyId": "cascade_fade+regime_detector",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-00110",
+      "componentMask": "00110",
+      "enabledComponents": [
+        "cascade_fade",
+        "funding_flip_kill_switch"
+      ],
+      "strategyId": "cascade_fade+funding_flip_kill_switch",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-00111",
+      "componentMask": "00111",
+      "enabledComponents": [
+        "cascade_fade",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "strategyId": "cascade_fade+funding_flip_kill_switch+regime_detector",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-01000",
+      "componentMask": "01000",
+      "enabledComponents": [
+        "dydx_cex_carry"
+      ],
+      "strategyId": "dydx_cex_carry",
+      "status": "BLOCKED_MISSING_DATA",
+      "reason": "A teljes dYdX órás funding dataset/cache hiányzik.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-01001",
+      "componentMask": "01001",
+      "enabledComponents": [
+        "dydx_cex_carry",
+        "regime_detector"
+      ],
+      "strategyId": "dydx_cex_carry+regime_detector",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-01010",
+      "componentMask": "01010",
+      "enabledComponents": [
+        "dydx_cex_carry",
+        "funding_flip_kill_switch"
+      ],
+      "strategyId": "dydx_cex_carry+funding_flip_kill_switch",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-01011",
+      "componentMask": "01011",
+      "enabledComponents": [
+        "dydx_cex_carry",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "strategyId": "dydx_cex_carry+funding_flip_kill_switch+regime_detector",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-01100",
+      "componentMask": "01100",
+      "enabledComponents": [
+        "dydx_cex_carry",
+        "cascade_fade"
+      ],
+      "strategyId": "dydx_cex_carry+cascade_fade",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-01101",
+      "componentMask": "01101",
+      "enabledComponents": [
+        "dydx_cex_carry",
+        "cascade_fade",
+        "regime_detector"
+      ],
+      "strategyId": "dydx_cex_carry+cascade_fade+regime_detector",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-01110",
+      "componentMask": "01110",
+      "enabledComponents": [
+        "dydx_cex_carry",
+        "cascade_fade",
+        "funding_flip_kill_switch"
+      ],
+      "strategyId": "dydx_cex_carry+cascade_fade+funding_flip_kill_switch",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-01111",
+      "componentMask": "01111",
+      "enabledComponents": [
+        "dydx_cex_carry",
+        "cascade_fade",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "strategyId": "dydx_cex_carry+cascade_fade+funding_flip_kill_switch+regime_detector",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-1of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.04",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-1of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-1of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.08",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-1of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-1of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.12",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-1of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-1of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.15",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-1of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-1of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.2",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-1of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-2of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-2of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-2of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.08",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-2of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-2of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.12",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-2of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-2of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.15",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-2of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-btc-2of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.2",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-btc-2of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-1of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.04",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-1of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-1of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.08",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-1of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-1of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.12",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-1of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-1of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.15",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-1of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-1of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.2",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-1of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-2of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-2of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-2of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.08",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-2of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-2of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.12",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-2of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-2of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.15",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-2of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-eth-2of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.2",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-eth-2of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-1of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.04",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-1of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-1of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.08",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-1of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-1of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.12",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-1of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-1of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.15",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-1of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-1of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.2",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-1of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-2of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-2of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-2of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.08",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-2of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-2of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.12",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-2of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-2of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.15",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-2of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-is-sol-2of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "is",
+        "start": "2024-01-01",
+        "end": "2025-07-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.2",
+        "--start=2024-01-01",
+        "--end=2025-07-01",
+        "--output=search-best-config/results/raw/dpc-is-sol-2of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-1of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.04",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-1of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-1of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.08",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-1of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-1of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.12",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-1of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-1of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.15",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-1of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-1of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.2",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-1of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-2of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-2of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-2of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.08",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-2of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-2of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.12",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-2of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-2of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.15",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-2of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-btc-2of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.2",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-btc-2of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-1of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.04",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-1of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-1of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.08",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-1of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-1of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.12",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-1of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-1of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.15",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-1of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-1of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.2",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-1of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-2of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-2of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-2of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.08",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-2of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-2of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.12",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-2of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-2of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.15",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-2of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-eth-2of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.2",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-eth-2of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-1of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.04",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-1of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-1of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.08",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-1of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-1of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.12",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-1of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-1of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.15",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-1of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-1of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.2",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-1of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-2of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-2of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-2of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.08",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-2of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-2of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.12",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-2of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-2of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.15",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-2of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-validation-sol-2of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "validation",
+        "start": "2025-07-01",
+        "end": "2026-01-01"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.2",
+        "--start=2025-07-01",
+        "--end=2026-01-01",
+        "--output=search-best-config/results/raw/dpc-validation-sol-2of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-1of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.04",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-1of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-1of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.08",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-1of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-1of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.12",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-1of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-1of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.15",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-1of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-1of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.2",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-1of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-2of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-2of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-2of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.08",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-2of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-2of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.12",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-2of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-2of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.15",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-2of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-btc-2of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "BTC/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.2",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-btc-2of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-1of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.04",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-1of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-1of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.08",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-1of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-1of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.12",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-1of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-1of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.15",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-1of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-1of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.2",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-1of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-2of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-2of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-2of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.08",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-2of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-2of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.12",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-2of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-2of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.15",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-2of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-eth-2of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "ETH/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=ETH/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.2",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-eth-2of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-1of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.04",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-1of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-1of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.08",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-1of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-1of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.12",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-1of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-1of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.15",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-1of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-1of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 1,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=1",
+        "--max-position-pct-equity=0.2",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-1of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-2of2-cap040",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.04
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-2of2-cap040.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-2of2-cap080",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.08
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.08",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-2of2-cap080.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-2of2-cap120",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.12
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.12",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-2of2-cap120.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-2of2-cap150",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.15
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.15",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-2of2-cap150.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "dpc-oos-sol-2of2-cap200",
+      "componentMask": "10000",
+      "enabledComponents": [
+        "donchian_pivot_composition"
+      ],
+      "strategyId": "donchian_pivot_composition",
+      "status": "READY_DRY_RUN",
+      "reason": null,
+      "parameters": {
+        "symbol": "SOL/USDT",
+        "timeframe": "15m",
+        "initialEquityUsd": 10000,
+        "minConsensus": 2,
+        "maxPositionPctEquity": 0.2
+      },
+      "split": {
+        "id": "oos",
+        "start": "2026-01-01",
+        "end": "2026-07-09"
+      },
+      "command": [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=SOL/USDT",
+        "--timeframe=15m",
+        "--equity=10000",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.2",
+        "--start=2026-01-01",
+        "--end=2026-07-09",
+        "--output=search-best-config/results/raw/dpc-oos-sol-2of2-cap200.json"
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-10001",
+      "componentMask": "10001",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "regime_detector"
+      ],
+      "strategyId": "donchian_pivot_composition+regime_detector",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-10010",
+      "componentMask": "10010",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "funding_flip_kill_switch"
+      ],
+      "strategyId": "donchian_pivot_composition+funding_flip_kill_switch",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-10011",
+      "componentMask": "10011",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "strategyId": "donchian_pivot_composition+funding_flip_kill_switch+regime_detector",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-10100",
+      "componentMask": "10100",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "cascade_fade"
+      ],
+      "strategyId": "donchian_pivot_composition+cascade_fade",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-10101",
+      "componentMask": "10101",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "cascade_fade",
+        "regime_detector"
+      ],
+      "strategyId": "donchian_pivot_composition+cascade_fade+regime_detector",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-10110",
+      "componentMask": "10110",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "cascade_fade",
+        "funding_flip_kill_switch"
+      ],
+      "strategyId": "donchian_pivot_composition+cascade_fade+funding_flip_kill_switch",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-10111",
+      "componentMask": "10111",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "cascade_fade",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "strategyId": "donchian_pivot_composition+cascade_fade+funding_flip_kill_switch+regime_detector",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-11000",
+      "componentMask": "11000",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry"
+      ],
+      "strategyId": "donchian_pivot_composition+dydx_cex_carry",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-11001",
+      "componentMask": "11001",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "regime_detector"
+      ],
+      "strategyId": "donchian_pivot_composition+dydx_cex_carry+regime_detector",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-11010",
+      "componentMask": "11010",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "funding_flip_kill_switch"
+      ],
+      "strategyId": "donchian_pivot_composition+dydx_cex_carry+funding_flip_kill_switch",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-11011",
+      "componentMask": "11011",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "strategyId": "donchian_pivot_composition+dydx_cex_carry+funding_flip_kill_switch+regime_detector",
+      "status": "UNSUPPORTED_JOINT_RUNNER",
+      "reason": "Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-11100",
+      "componentMask": "11100",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "cascade_fade"
+      ],
+      "strategyId": "donchian_pivot_composition+dydx_cex_carry+cascade_fade",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-11101",
+      "componentMask": "11101",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "cascade_fade",
+        "regime_detector"
+      ],
+      "strategyId": "donchian_pivot_composition+dydx_cex_carry+cascade_fade+regime_detector",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-11110",
+      "componentMask": "11110",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "cascade_fade",
+        "funding_flip_kill_switch"
+      ],
+      "strategyId": "donchian_pivot_composition+dydx_cex_carry+cascade_fade+funding_flip_kill_switch",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    },
+    {
+      "runId": "production-11111",
+      "componentMask": "11111",
+      "enabledComponents": [
+        "donchian_pivot_composition",
+        "dydx_cex_carry",
+        "cascade_fade",
+        "funding_flip_kill_switch",
+        "regime_detector"
+      ],
+      "strategyId": "donchian_pivot_composition+dydx_cex_carry+cascade_fade+funding_flip_kill_switch+regime_detector",
+      "status": "UNSUPPORTED_DATA",
+      "reason": "Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.",
+      "parameters": {},
+      "split": null,
+      "command": null,
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactor": null,
+        "winRatePct": null,
+        "totalTrades": null,
+        "killSwitchTriggered": null
+      }
+    }
+  ]
+}

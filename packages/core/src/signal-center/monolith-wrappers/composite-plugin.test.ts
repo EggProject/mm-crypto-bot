@@ -19,6 +19,28 @@ import {
   DEFAULT_COMPOSITE_PLUGIN_CONFIG,
 } from "./composite-plugin.js";
 import type { Bar } from "../types.js";
+import type { Strategy } from "../../types.js";
+
+const makeComponent = (name: string): Strategy & { reset(): void } => ({
+  name,
+  timeframes: ["1h"],
+  warmup: () => 0,
+  onCandle: () => null,
+  reset: () => { void 0; },
+});
+
+const validConfig = () => ({
+  symbol: "BTC/USDT",
+  timeframe: "1h" as const,
+  strategy: {
+    component1: makeComponent("trend"),
+    component2: makeComponent("entry"),
+  },
+});
+
+const mkPlugin = (
+  overrides: ConstructorParameters<typeof CompositePlugin>[0] = {},
+): CompositePlugin => new CompositePlugin({ ...validConfig(), ...overrides });
 
 const mkBus = (): SignalBus => new SignalBus({ mode: "backtest" });
 
@@ -38,8 +60,25 @@ const mkBar = (close = 50_000): Bar => ({
 });
 
 describe("CompositePlugin", () => {
+  it("fails loud when components or instrument context are missing", () => {
+    expect(() => new CompositePlugin()).toThrow(/component1.*component2/);
+    expect(() => new CompositePlugin({ strategy: validConfig().strategy })).toThrow(/symbol is required/);
+  });
+
+  it("fails loud at construction when either component lacks reset()", () => {
+    const noReset: Strategy = {
+      name: "stateful-without-reset",
+      timeframes: ["1h"],
+      warmup: () => 0,
+      onCandle: () => null,
+    };
+    expect(() => mkPlugin({
+      strategy: { component1: noReset, component2: makeComponent("entry") },
+    })).toThrow(/lacks reset.*fresh-run lifecycle/);
+  });
+
   it("construction with default config succeeds", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     expect(p.config.leverage).toBe(10);
     expect(p.config.baseNotionalUsd).toBe(10_000);
     expect(p.effectiveLeverage()).toBe(10);
@@ -47,7 +86,7 @@ describe("CompositePlugin", () => {
   });
 
   it("metadata declares maxLeverage=10 (1:10 HARD GUARDRAIL)", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     expect(p.metadata.maxLeverage).toBe(10);
     expect(p.metadata.name).toBe("composite-v1");
     expect(p.metadata.edgeClass).toBe("mixed");
@@ -55,18 +94,18 @@ describe("CompositePlugin", () => {
 
   it("registry accepts the plugin", () => {
     const registry = new StrategyRegistry();
-    registry.register(new CompositePlugin());
+    registry.register(mkPlugin());
     expect(registry.size).toBe(1);
   });
 
   it("subscribe() stores bus reference + Layer 2 assertion fires", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     wirePlugin(p);
     expect(p.layer2AssertionCountForTest()).toBe(1);
   });
 
   it("onBar emits a DirectionSignal (flat by default with minimal context)", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     const bus = wirePlugin(p);
     const received: unknown[] = [];
     bus.subscribe("direction", (s) => received.push(s));
@@ -79,7 +118,7 @@ describe("CompositePlugin", () => {
   });
 
   it("multiple onBar calls increment directionSignalCount", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     wirePlugin(p);
     for (let i = 0; i < 5; i++) {
       p.onBar(mkBar(50_000 + i), null);
@@ -89,7 +128,7 @@ describe("CompositePlugin", () => {
   });
 
   it("reset() clears all state", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     wirePlugin(p);
     for (let i = 0; i < 3; i++) p.onBar(mkBar(), null);
     expect(p.state.directionSignalCount).toBe(3);
@@ -100,7 +139,7 @@ describe("CompositePlugin", () => {
   });
 
   it("dispose() releases bus reference", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     wirePlugin(p);
     p.dispose();
     p.onBar(mkBar(), null);
@@ -108,48 +147,48 @@ describe("CompositePlugin", () => {
   });
 
   it("construction rejects leverage ∉ {1, 10}", () => {
-    expect(() => new CompositePlugin({ leverage: 5 as 1 | 10 })).toThrow(/1:10 HARD GUARDRAIL/);
-    expect(() => new CompositePlugin({ leverage: 0 as 1 | 10 })).toThrow(/1:10 HARD GUARDRAIL/);
+    expect(() => mkPlugin({ leverage: 5 as 1 | 10 })).toThrow(/1:10 HARD GUARDRAIL/);
+    expect(() => mkPlugin({ leverage: 0 as 1 | 10 })).toThrow(/1:10 HARD GUARDRAIL/);
   });
 
   it("construction rejects non-positive baseNotionalUsd", () => {
-    expect(() => new CompositePlugin({ baseNotionalUsd: 0 })).toThrow(/baseNotionalUsd/);
-    expect(() => new CompositePlugin({ baseNotionalUsd: -1 })).toThrow(/baseNotionalUsd/);
+    expect(() => mkPlugin({ baseNotionalUsd: 0 })).toThrow(/baseNotionalUsd/);
+    expect(() => mkPlugin({ baseNotionalUsd: -1 })).toThrow(/baseNotionalUsd/);
   });
 
   it("validateConfig returns ok for undefined / null", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     expect(p.validateConfig(undefined).ok).toBe(true);
     expect(p.validateConfig(null).ok).toBe(true);
   });
 
   it("validateConfig rejects invalid leverage", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     const r = p.validateConfig({ leverage: 5 });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.field).toBe("leverage");
   });
 
   it("validateConfig rejects non-object input", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     const r = p.validateConfig("not an object");
     expect(r.ok).toBe(false);
   });
 
   it("validateConfig rejects non-positive baseNotionalUsd", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     const r = p.validateConfig({ baseNotionalUsd: -1 });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.field).toBe("baseNotionalUsd");
   });
 
   it("effectiveMaxNotionalUsd is baseNotional × 10", () => {
-    expect(new CompositePlugin({ baseNotionalUsd: 5_000 }).effectiveMaxNotionalUsd()).toBe(50_000);
-    expect(new CompositePlugin().effectiveMaxNotionalUsd()).toBe(100_000);
+    expect(mkPlugin({ baseNotionalUsd: 5_000 }).effectiveMaxNotionalUsd()).toBe(50_000);
+    expect(mkPlugin().effectiveMaxNotionalUsd()).toBe(100_000);
   });
 
   it("createCompositePlugin factory works", () => {
-    const p = createCompositePlugin();
+    const p = createCompositePlugin(validConfig());
     expect(p).toBeInstanceOf(CompositePlugin);
   });
 
@@ -159,7 +198,7 @@ describe("CompositePlugin", () => {
   });
 
   it("emitSizingForTest triggers Layer 3 sizing path", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     const bus = wirePlugin(p);
     const sizingReceived: unknown[] = [];
     bus.subscribe("sizing", (s) => sizingReceived.push(s));
@@ -173,7 +212,7 @@ describe("CompositePlugin", () => {
   });
 
   it("emitSizingForTest with strength=0 emits kellyFraction=0", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     wirePlugin(p);
     p.emitSizingForTest(0, 1_700_000_000_000);
     expect(p.state.sizingSignalCount).toBe(1);
@@ -181,14 +220,14 @@ describe("CompositePlugin", () => {
   });
 
   it("emitSizingForTest with strength >1 clamps to 1.0", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     wirePlugin(p);
     p.emitSizingForTest(2.5, 1_700_000_000_000);
     expect(p.state.lastSizingSignal?.kellyFraction).toBe(1.0);
   });
 
   it("lastUnderlyingSignal is null when underlying returns null", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     wirePlugin(p);
     p.onBar(mkBar(), null);
     expect(p.state.lastUnderlyingSignal).toBeNull();
@@ -196,7 +235,7 @@ describe("CompositePlugin", () => {
   });
 
   it("subscribe → onBar → dispose cycle works", () => {
-    const p = new CompositePlugin();
+    const p = mkPlugin();
     const bus = wirePlugin(p);
     const received: unknown[] = [];
     bus.subscribe("direction", (s) => received.push(s));
@@ -208,7 +247,7 @@ describe("CompositePlugin", () => {
   });
 
   it("leverage=1 (baseline) accepted", () => {
-    const p = new CompositePlugin({ leverage: 1 });
+    const p = mkPlugin({ leverage: 1 });
     expect(p.effectiveLeverage()).toBe(1);
     expect(p.effectiveNotionalUsd()).toBe(10_000);
     wirePlugin(p);

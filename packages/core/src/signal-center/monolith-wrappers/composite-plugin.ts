@@ -54,6 +54,7 @@ import type {
   StrategyContext,
   StrategySignal,
 } from "../../types.js";
+import type { Timeframe } from "@mm-crypto-bot/shared/types";
 
 /**
  * `CompositePluginConfig` — configuration for the wrapper. Includes the
@@ -67,6 +68,9 @@ export interface CompositePluginConfig {
   readonly leverage: 1 | 10;
   /** Pass-through to the underlying strategy. Optional — defaults to underlying defaults. */
   readonly strategy?: Partial<CompositeStrategyConfig>;
+  /** Instrument/timeframe are mandatory; the wrapper never guesses them. */
+  readonly symbol?: string;
+  readonly timeframe?: Timeframe;
   /** Leverage invariant config (Layer 2/3 reference). Default 1:10. */
   readonly leverageInvariant: LeverageInvariantConfig;
 }
@@ -153,9 +157,28 @@ export class CompositePlugin implements StrategyPlugin {
         `[CompositePlugin] baseNotionalUsd must be positive finite, got ${String(merged.baseNotionalUsd)}`,
       );
     }
+    if (!merged.strategy?.component1 || !merged.strategy.component2) {
+      throw new Error("[CompositePlugin] strategy.component1 and strategy.component2 are required");
+    }
+    if (typeof merged.symbol !== "string" || merged.symbol.length === 0) {
+      throw new Error("[CompositePlugin] symbol is required; implicit BTC attribution is forbidden");
+    }
+    if (merged.timeframe === undefined) {
+      throw new Error("[CompositePlugin] timeframe is required; implicit 1h context is forbidden");
+    }
+    for (const component of [
+      merged.strategy.component1,
+      merged.strategy.component2,
+    ]) {
+      if (typeof (component as { reset?: unknown }).reset !== "function") {
+        throw new Error(
+          `[CompositePlugin] component "${component.name}" lacks reset(); fresh-run lifecycle cannot be guaranteed`,
+        );
+      }
+    }
     this.config = merged;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    this.underlying = new CompositeStrategy({ ...DEFAULT_COMPOSITE_CONFIG, ...merged.strategy } as unknown as CompositeStrategyConfig);
+    this.underlying = new CompositeStrategy({ ...DEFAULT_COMPOSITE_CONFIG, ...merged.strategy } as CompositeStrategyConfig);
     this.state = this._mkState();
   }
 
@@ -186,12 +209,7 @@ export class CompositePlugin implements StrategyPlugin {
     this.barCount += 1;
     this.candleIndex += 1;
     const ctx = this._buildContext(bar);
-    let signal: StrategySignal | null = null;
-    try {
-      signal = this.underlying.onCandle(ctx);
-    } catch (e: unknown) {
-      void e;
-    }
+    const signal: StrategySignal | null = this.underlying.onCandle(ctx);
     this.state.lastUnderlyingSignal = signal;
     this._emitFromSignal(signal, bar.timestamp);
   }
@@ -234,6 +252,16 @@ export class CompositePlugin implements StrategyPlugin {
   }
 
   reset(): void {
+    for (const component of [
+      this.underlying.config.component1,
+      this.underlying.config.component2,
+    ]) {
+      const reset = (component as { reset?: () => void }).reset;
+      if (reset === undefined) {
+        throw new Error(`[CompositePlugin] component "${component.name}" lacks reset(); fresh-run lifecycle cannot be guaranteed`);
+      }
+      reset.call(component);
+    }
     this.state.directionSignalCount = 0;
     this.state.sizingSignalCount = 0;
     this.state.leverageClampCount = 0;
@@ -303,8 +331,8 @@ export class CompositePlugin implements StrategyPlugin {
 
   private _buildContext(bar: Bar): StrategyContext {
     return {
-      symbol: "BTC/USDT" as unknown as StrategyContext["symbol"],
-      timeframe: "1h",
+      symbol: this.config.symbol as StrategyContext["symbol"],
+      timeframe: this.config.timeframe!,
       candleIndex: this.candleIndex,
       candle: {
         timestamp: bar.timestamp,
@@ -351,6 +379,7 @@ export class CompositePlugin implements StrategyPlugin {
       side,
       strength: Math.max(0, Math.min(1, strength)),
       source: this.metadata.name,
+      symbol: this.config.symbol!,
       timestampMs,
     };
     this.state.lastDirectionSignal = signal;
@@ -405,6 +434,7 @@ export class CompositePlugin implements StrategyPlugin {
       volMultiplier,
       notional,
       source: this.metadata.name,
+      symbol: this.config.symbol!,
       timestampMs,
     };
     this.state.lastSizingSignal = signal;

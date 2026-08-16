@@ -1,0 +1,32 @@
+mask,donchian_pivot_composition,dydx_cex_carry,cascade_fade,funding_flip_kill_switch,regime_detector,enabled,status,valid_symbols,invalid_symbols,reason
+00001,false,false,false,false,true,regime_detector,UNSUPPORTED_SIGNAL_REPLAY,,,Nincs archivált Direction/Carry/Sizing SignalBus stream.
+00010,false,false,false,true,false,funding_flip_kill_switch,FUNCTIONAL_REPLAY_ONLY,SOL/USDT,BTC/USDT+ETH/USDT,"A SOL plugin döntése replayelhető, de önálló PnL és DD nem értelmezhető."
+00011,false,false,false,true,true,funding_flip_kill_switch+regime_detector,UNSUPPORTED_JOINT_RUNNER,,,"Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner."
+00100,false,false,true,false,false,cascade_fade,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+00101,false,false,true,false,true,cascade_fade+regime_detector,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+00110,false,false,true,true,false,cascade_fade+funding_flip_kill_switch,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+00111,false,false,true,true,true,cascade_fade+funding_flip_kill_switch+regime_detector,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+01000,false,true,false,false,false,dydx_cex_carry,BLOCKED_MISSING_DATA,,,A teljes dYdX órás funding dataset/cache hiányzik.
+01001,false,true,false,false,true,dydx_cex_carry+regime_detector,UNSUPPORTED_JOINT_RUNNER,,,"Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner."
+01010,false,true,false,true,false,dydx_cex_carry+funding_flip_kill_switch,UNSUPPORTED_JOINT_RUNNER,,,"Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner."
+01011,false,true,false,true,true,dydx_cex_carry+funding_flip_kill_switch+regime_detector,UNSUPPORTED_JOINT_RUNNER,,,"Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner."
+01100,false,true,true,false,false,dydx_cex_carry+cascade_fade,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+01101,false,true,true,false,true,dydx_cex_carry+cascade_fade+regime_detector,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+01110,false,true,true,true,false,dydx_cex_carry+cascade_fade+funding_flip_kill_switch,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+01111,false,true,true,true,true,dydx_cex_carry+cascade_fade+funding_flip_kill_switch+regime_detector,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+10000,true,false,false,false,false,donchian_pivot_composition,SUPPORTED_REAL_DATA,BTC/USDT+ETH/USDT+SOL/USDT,,"Valós, hash-ellenőrzött Binance OHLCV runner elérhető."
+10001,true,false,false,false,true,donchian_pivot_composition+regime_detector,SUPPORTED_REAL_DATA,BTC/USDT+ETH/USDT+SOL/USDT,,A validált DPC+Regime overlay runner valós OHLCV-n BTC/ETH/SOL szimbólumon elérhető.
+10010,true,false,false,true,false,donchian_pivot_composition+funding_flip_kill_switch,SUPPORTED_REAL_DATA,SOL/USDT,BTC/USDT+ETH/USDT,"A validált DPC overlay runner valós OHLCV+funding adaton SOL/USDT-re elérhető; BTC/ETH explicit INVALID_MASK, nem no-op."
+10011,true,false,false,true,true,donchian_pivot_composition+funding_flip_kill_switch+regime_detector,SUPPORTED_REAL_DATA,SOL/USDT,BTC/USDT+ETH/USDT,"A validált DPC overlay runner valós OHLCV+funding adaton SOL/USDT-re elérhető; BTC/ETH explicit INVALID_MASK, nem no-op."
+10100,true,false,true,false,false,donchian_pivot_composition+cascade_fade,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+10101,true,false,true,false,true,donchian_pivot_composition+cascade_fade+regime_detector,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+10110,true,false,true,true,false,donchian_pivot_composition+cascade_fade+funding_flip_kill_switch,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+10111,true,false,true,true,true,donchian_pivot_composition+cascade_fade+funding_flip_kill_switch+regime_detector,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+11000,true,true,false,false,false,donchian_pivot_composition+dydx_cex_carry,UNSUPPORTED_JOINT_RUNNER,,,"Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner."
+11001,true,true,false,false,true,donchian_pivot_composition+dydx_cex_carry+regime_detector,UNSUPPORTED_JOINT_RUNNER,,,"Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner."
+11010,true,true,false,true,false,donchian_pivot_composition+dydx_cex_carry+funding_flip_kill_switch,UNSUPPORTED_JOINT_RUNNER,,,"Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner."
+11011,true,true,false,true,true,donchian_pivot_composition+dydx_cex_carry+funding_flip_kill_switch+regime_detector,UNSUPPORTED_JOINT_RUNNER,,,"Nincs közös, időrendhelyes production portfólió- és SignalBus-replay runner."
+11100,true,true,true,false,false,donchian_pivot_composition+dydx_cex_carry+cascade_fade,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+11101,true,true,true,false,true,donchian_pivot_composition+dydx_cex_carry+cascade_fade+regime_detector,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+11110,true,true,true,true,false,donchian_pivot_composition+dydx_cex_carry+cascade_fade+funding_flip_kill_switch,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.
+11111,true,true,true,true,true,donchian_pivot_composition+dydx_cex_carry+cascade_fade+funding_flip_kill_switch+regime_detector,UNSUPPORTED_DATA,,,Nincs valódi historikus liquidation/OI/funding/ELR cascade tape.

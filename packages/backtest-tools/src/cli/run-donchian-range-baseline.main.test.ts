@@ -15,7 +15,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import { main, handleFatal } from "./run-donchian-range-baseline.js";
+import {
+  calculateMonthlyReturn,
+  handleFatal,
+  main,
+  parseArgs,
+} from "./run-donchian-range-baseline.js";
+
+const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
 /** OHLCV writer — generate 30 days of data with clear up/down trends
  * so the Donchian-Range strategy can fire both long and short signals.
@@ -142,6 +149,49 @@ async function withArgv<T>(args: readonly string[], fn: () => Promise<T>): Promi
 }
 
 describe("run-donchian-range-baseline — main() in-process", () => {
+  it("a közvetlen bun run belépési pont meghívja a main()-t és hibánál nem nulla kóddal lép ki", async () => {
+    const child = Bun.spawn([
+      "bun",
+      "run",
+      "packages/backtest-tools/src/cli/run-donchian-range-baseline.ts",
+      "--timeframe=1h",
+    ], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stderr, exitCode] = await Promise.all([
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("[donchian-range] FATAL:");
+    expect(stderr).toContain("requires 15m timeframe");
+  });
+
+  it("a negatív teljes hozamot geometriailag helyes negatív havi hozammá alakítja", () => {
+    expect(calculateMonthlyReturn(-0.36, 12)).toBeCloseTo(Math.pow(0.64, 1 / 12) - 1, 12);
+    expect(calculateMonthlyReturn(-0.36, 12)).toBeLessThan(0);
+    expect(calculateMonthlyReturn(-1, 12)).toBe(-1);
+  });
+
+  it("a Donchian/ADX grid-paramétereket parse-olja és validálja", () => {
+    const previous = process.argv;
+    try {
+      process.argv = ["bun", "runner", "--donchian-period=12", "--adx-trend-threshold=31.5"];
+      const args = parseArgs();
+      expect(args.donchianPeriod).toBe(12);
+      expect(args.adxTrendThreshold).toBe(31.5);
+      process.argv = ["bun", "runner", "--donchian-period=1"];
+      expect(() => parseArgs()).toThrow(/integer >= 2/);
+      process.argv = ["bun", "runner", "--adx-trend-threshold=0"];
+      expect(() => parseArgs()).toThrow(/must be positive/);
+    } finally {
+      process.argv = previous;
+    }
+  });
+
   it("happy-path: trades.length > 0 ág — JSON output megíródik, minden riportsor megjelenik", async () => {
     // Phase 35b — a donchian-range strategy kevésbé triviális jelet ad,
     // mint a pivot-grid (ADX szűrő + szűk Donchian sáv). A 4 napos
@@ -162,6 +212,8 @@ describe("run-donchian-range-baseline — main() in-process", () => {
         "--start=2024-01-01",
         "--end=2024-01-30",
         "--equity=10000",
+        "--donchian-period=12",
+        "--adx-trend-threshold=31.5",
         `--data-dir=${dataDir}`,
         `--output=${outFile}`,
       ], () => main());
@@ -181,9 +233,13 @@ describe("run-donchian-range-baseline — main() in-process", () => {
       args: { symbol: string; timeframe: string };
       strategy: string;
       result: { totalTrades: number };
+      strategyConfig: { donchianPeriod: number; adxTrendThreshold: number };
+      indicatorConfig: { htfDonchianPeriod: number };
     };
     expect(parsed.args.symbol).toBe("BTC/USDT");
     expect(parsed.strategy).toBe("donchian-range");
+    expect(parsed.strategyConfig).toEqual({ donchianPeriod: 12, adxTrendThreshold: 31.5 });
+    expect(parsed.indicatorConfig.htfDonchianPeriod).toBe(12);
   });
 
   it("trades.length === 0: a riport megíródik trade-stats nélkül (Phase 35b — a trade-stats block eltávolítva)", async () => {
@@ -231,20 +287,20 @@ describe("run-donchian-range-baseline — main() in-process", () => {
     expect(true).toBe(true);
   });
 
-  it("handleFatal: a FATAL handler throw-ol (Phase 35b — egyszerűsített, process.exit nélkül)", () => {
-    // Phase 35b — a handleFatal függvény a `process.exit(1)` hívás
-    // nélkül throw-ol, így a teszt process nem áll le. A `bun run`
-    // runtime-ban az unhandled rejection ugyanúgy exit code != 0-t ad.
+  it("handleFatal: biztonságosan nem nulla exit kódot állít", () => {
     const stderrChunks: string[] = [];
     const origErr = console.error;
+    const originalExitCode = process.exitCode;
     console.error = (...args: unknown[]) => {
       stderrChunks.push(args.map(String).join(" "));
     };
     try {
-      expect(() => handleFatal(new Error("test error"))).toThrow("test error");
+      handleFatal(new Error("test error"));
+      expect(Number(process.exitCode)).toBe(1);
       expect(stderrChunks.join("\n")).toContain("FATAL");
     } finally {
       console.error = origErr;
+      process.exitCode = originalExitCode ?? 0;
     }
   });
 });

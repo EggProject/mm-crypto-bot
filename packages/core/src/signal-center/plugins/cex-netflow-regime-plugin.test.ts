@@ -539,7 +539,7 @@ describe("CexNetFlowRegimePlugin", () => {
       enabledSymbols: ["BTC"],
     });
     const oldTs = Date.now() - 2 * HOUR_MS; // 2h old → stale
-    const r = p.recordNetflowSample("BTC", 100, oldTs);
+    const r = p.recordNetflowSample("BTC", 100, oldTs, Date.now());
     expect(r).toBe(false);
     // Window was NOT populated
     const ss = p.state.symbolState.get("BTC");
@@ -733,7 +733,9 @@ describe("CexNetFlowRegimePlugin", () => {
   });
 
   it("dispose() releases poll timer and bus reference", () => {
-    const p = new CexNetFlowRegimePlugin();
+    const p = new CexNetFlowRegimePlugin({
+      adapter: new MockNetflowAdapter("poll-test", {}),
+    });
     wirePlugin(p);
     p.startLivePolling();
     p.dispose();
@@ -743,7 +745,9 @@ describe("CexNetFlowRegimePlugin", () => {
   });
 
   it("startLivePolling() returns the timer handle (cover 995. sor)", () => {
-    const p = new CexNetFlowRegimePlugin();
+    const p = new CexNetFlowRegimePlugin({
+      adapter: new MockNetflowAdapter("poll-test", {}),
+    });
     wirePlugin(p);
     const handle = p.startLivePolling();
     expect(handle).toBeDefined();
@@ -752,7 +756,9 @@ describe("CexNetFlowRegimePlugin", () => {
   });
 
   it("stopLivePolling() is idempotent and a no-op when no timer is active", () => {
-    const p = new CexNetFlowRegimePlugin();
+    const p = new CexNetFlowRegimePlugin({
+      adapter: new MockNetflowAdapter("poll-test", {}),
+    });
     wirePlugin(p);
     // Stop without starting — should be a no-op (idempotent guard)
     expect(() => p.stopLivePolling()).not.toThrow();
@@ -767,7 +773,10 @@ describe("CexNetFlowRegimePlugin", () => {
     // Use a 1000ms poll interval (the minimum allowed) so the setInterval
     // callback fires and exercises the `void this.refreshLive()` line in
     // the closure.
-    const p = new CexNetFlowRegimePlugin({ pollIntervalMs: 1000 });
+    const p = new CexNetFlowRegimePlugin({
+      pollIntervalMs: 1000,
+      adapter: new MockNetflowAdapter("poll-test", {}),
+    });
     wirePlugin(p);
     p.startLivePolling();
     // Wait for at least 2 ticks (poll interval is 1000ms)
@@ -784,6 +793,12 @@ describe("CexNetFlowRegimePlugin", () => {
     expect(a.name).toBe("null");
     expect(await a.fetchNetflowSample("BTC")).toBeNull();
     expect(await a.fetchNetflowSample("XYZ")).toBeNull();
+  });
+
+  it("default replay-only adapter fails loud on live refresh and polling", async () => {
+    const p = new CexNetFlowRegimePlugin();
+    await expect(p.refreshLive(1_700_000_000_000)).rejects.toThrow(/explicit netflow adapter/);
+    expect(() => p.startLivePolling()).toThrow(/refusing inert startup/);
   });
 
   it("CoinglassNetflowAdapter without API key returns null (graceful degradation)", async () => {
@@ -1053,7 +1068,10 @@ describe("Phase 35b — CexNetFlowRegimePlugin setInterval callback", () => {
     // Bun's coverage tracks this as a separate function. The existing
     // test at line 766 waits 1100ms, which should be enough. We add
     // an explicit test to ensure the arrow is registered as "hit".
-    const p = new CexNetFlowRegimePlugin({ pollIntervalMs: 1000 });
+    const p = new CexNetFlowRegimePlugin({
+      pollIntervalMs: 1000,
+      adapter: new MockNetflowAdapter("poll-test", {}),
+    });
     let calls = 0;
     const orig = p.refreshLive.bind(p);
     p.refreshLive = async (...args) => {

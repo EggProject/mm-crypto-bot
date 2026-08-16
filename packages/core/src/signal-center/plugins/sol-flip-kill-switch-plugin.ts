@@ -229,6 +229,7 @@ export interface SOLFlipKillSwitchPluginState {
   lastRiskSignal: RiskSignal | null;
   /** Per-symbol funding history keyed by symbol. */
   perSymbolFundingHistory: Map<string, number[]>;
+  perSymbolLastTimestampMs: Map<string, number>;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,6 +309,11 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     // does the non-throwing audit; this enforces invariants BEFORE the
     // plugin is registered.
     SOLFlipKillSwitchPlugin.assertConfigInvariants(merged);
+    if (merged.enabledSymbols.length !== 1) {
+      throw new Error(
+        "[SOLFlipKillSwitchPlugin] exactly one enabled symbol is required; kill state is intentionally single-instrument",
+      );
+    }
     this.config = merged;
     this.detectorConfig = {
       flipWindowDays: merged.signFlipWindowDays,
@@ -343,14 +349,13 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
       // Use timestampMs if present; otherwise treat as 'now'. For
       // backtest determinism, the central runner is expected to
       // provide timestampMs on every signal.
-      const ts = s.timestampMs ?? Date.now();
-      // We don't know the symbol from the carry signal alone; we
-      // record against each enabled symbol. This is intentionally
-      // conservative — the central runner should use
-      // `recordFundingSample(symbol, rate, ts)` for per-symbol routing.
-      for (const sym of this.config.enabledSymbols) {
-        this.recordFundingSample(sym, s.fundingRate, ts);
+      const suffix = s.source.includes(":") ? s.source.slice(s.source.indexOf(":") + 1) : undefined;
+      const symbol = s.symbol ?? suffix ??
+        (this.config.enabledSymbols.length === 1 ? this.config.enabledSymbols[0] : undefined);
+      if (symbol === undefined) {
+        throw new Error("[SOLFlipKillSwitchPlugin] carry signal requires explicit symbol attribution");
       }
+      this.recordFundingSample(symbol, s.fundingRate, s.timestampMs ?? 0);
     });
     this.unsubscribers.push(unsub);
   }
@@ -553,6 +558,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     this.state.leverageAssertionCount = 0;
     this.state.lastRiskSignal = null;
     this.state.perSymbolFundingHistory = new Map();
+    this.state.perSymbolLastTimestampMs = new Map();
   }
 
   dispose(): void {
@@ -603,6 +609,11 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
       // Non-enabled symbol — return current regime without mutation.
       return this.state.lastRegime;
     }
+    const lastTimestampMs = this.state.perSymbolLastTimestampMs.get(symbol);
+    if (lastTimestampMs !== undefined && timestampMs <= lastTimestampMs) {
+      return this.state.lastRegime;
+    }
+    this.state.perSymbolLastTimestampMs.set(symbol, timestampMs);
 
     // Update per-symbol funding history.
     let symbolHistory = this.state.perSymbolFundingHistory.get(symbol);
@@ -681,7 +692,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     // persistence window. The downstream consumer decides what to do
     // with breach: true / breach: false.
     if (isFreshRegimeSignal || (!wasEngaged && isEngaged) || (wasEngaged && !isEngaged)) {
-      this._emitRiskSignal(timestampMs, isEngaged, decision);
+      this._emitRiskSignal(symbol, timestampMs, isEngaged, decision);
     }
 
     return decision;
@@ -752,6 +763,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
       leverageAssertionCount: 0,
       lastRiskSignal: null,
       perSymbolFundingHistory: new Map(),
+      perSymbolLastTimestampMs: new Map(),
     };
   }
 
@@ -783,6 +795,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
    *   - calm → "regime-cleared" (kill-switch disengagement)
    */
   private _emitRiskSignal(
+    symbol: string,
     timestampMs: number,
     isEngaged: boolean,
     decision: RegimeDecision,
@@ -802,7 +815,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     // Conditional closeNotionalUsd — must use object spread to satisfy
     // `exactOptionalPropertyTypes: true` (omit the field entirely
     // when emitCloseInstruction is false, never assign undefined).
-    const closeNotionalField = this.config.emitCloseInstruction
+    const closeNotionalField = isEngaged && this.config.emitCloseInstruction
       ? { closeNotionalUsd: impliedCloseNotional }
       : {};
     const riskSig: RiskSignal = {
@@ -811,6 +824,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
       correlationPenalty: 0,
       drawdownLimit: isEngaged ? 0 : 1.0, // 0 = force-close, 1.0 = no drawdown limit
       source: this.metadata.name,
+      symbol,
       timestampMs,
       breach,
       reason,

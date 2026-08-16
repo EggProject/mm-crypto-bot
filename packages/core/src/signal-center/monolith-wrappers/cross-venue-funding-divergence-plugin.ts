@@ -717,9 +717,11 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       this.state.malformedPayloadDrops += 1;
       return;
     }
-    const ss = this._getOrCreatePerAsset(asset, timestampMs);
+    const ts = timestampMs ?? Date.now();
+    const ss = this._prepareAssetForFeed(asset, ts);
+    if (ss === null || (ss.slots.hl.rateDecimal !== null && ts <= ss.slots.hl.lastFeedMs)) return;
     ss.slots.hl.rateDecimal = fundingHourly;
-    ss.slots.hl.lastFeedMs = timestampMs ?? Date.now();
+    ss.slots.hl.lastFeedMs = ts;
     if (hlPredictedHourly !== null && !Number.isFinite(hlPredictedHourly)) {
       this.state.malformedPayloadDrops += 1;
     } else {
@@ -745,9 +747,11 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       this.state.malformedPayloadDrops += 1;
       return;
     }
-    const ss = this._getOrCreatePerAsset(asset, timestampMs);
+    const ts = timestampMs ?? Date.now();
+    const ss = this._prepareAssetForFeed(asset, ts);
+    if (ss === null || (ss.slots.dydx.rateDecimal !== null && ts <= ss.slots.dydx.lastFeedMs)) return;
     ss.slots.dydx.rateDecimal = fundingHourly;
-    ss.slots.dydx.lastFeedMs = timestampMs ?? Date.now();
+    ss.slots.dydx.lastFeedMs = ts;
     this.state.dydxFeeds += 1;
     this.state.totalVenueFeeds += 1;
   }
@@ -767,9 +771,11 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       this.state.malformedPayloadDrops += 1;
       return;
     }
-    const ss = this._getOrCreatePerAsset(asset, timestampMs);
+    const ts = timestampMs ?? Date.now();
+    const ss = this._prepareAssetForFeed(asset, ts);
+    if (ss === null || (ss.slots.binance.rateDecimal !== null && ts <= ss.slots.binance.lastFeedMs)) return;
     ss.slots.binance.rateDecimal = funding8h;
-    ss.slots.binance.lastFeedMs = timestampMs ?? Date.now();
+    ss.slots.binance.lastFeedMs = ts;
     this.state.bzFeeds += 1;
     this.state.totalVenueFeeds += 1;
   }
@@ -788,9 +794,11 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       this.state.malformedPayloadDrops += 1;
       return;
     }
-    const ss = this._getOrCreatePerAsset(asset, timestampMs);
+    const ts = timestampMs ?? Date.now();
+    const ss = this._prepareAssetForFeed(asset, ts);
+    if (ss === null || (ss.slots.bybit.rateDecimal !== null && ts <= ss.slots.bybit.lastFeedMs)) return;
     ss.slots.bybit.rateDecimal = funding8h;
-    ss.slots.bybit.lastFeedMs = timestampMs ?? Date.now();
+    ss.slots.bybit.lastFeedMs = ts;
     this.state.byFeeds += 1;
     this.state.totalVenueFeeds += 1;
   }
@@ -809,9 +817,11 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       this.state.malformedPayloadDrops += 1;
       return;
     }
-    const ss = this._getOrCreatePerAsset(asset, timestampMs);
+    const ts = timestampMs ?? Date.now();
+    const ss = this._prepareAssetForFeed(asset, ts);
+    if (ss === null || (ss.slots.okx.rateDecimal !== null && ts <= ss.slots.okx.lastFeedMs)) return;
     ss.slots.okx.rateDecimal = funding8h;
-    ss.slots.okx.lastFeedMs = timestampMs ?? Date.now();
+    ss.slots.okx.lastFeedMs = ts;
     this.state.okFeeds += 1;
     this.state.totalVenueFeeds += 1;
   }
@@ -831,9 +841,11 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       this.state.malformedPayloadDrops += 1;
       return;
     }
-    const ss = this._getOrCreatePerAsset(asset, timestampMs);
+    const ts = timestampMs ?? Date.now();
+    const ss = this._prepareAssetForFeed(asset, ts);
+    if (ss === null || (ss.slots.bitget.rateDecimal !== null && ts <= ss.slots.bitget.lastFeedMs)) return;
     ss.slots.bitget.rateDecimal = funding8h;
-    ss.slots.bitget.lastFeedMs = timestampMs ?? Date.now();
+    ss.slots.bitget.lastFeedMs = ts;
     this.state.bitgetFeeds += 1;
     this.state.totalVenueFeeds += 1;
   }
@@ -1006,6 +1018,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
         predictedGap,
         timestamp: ts,
         source: `${this.metadata.name}:${asset}`,
+        symbol: asset,
         timestampMs: ts,
         divergenceBps,
         bucketStartMs,
@@ -1105,6 +1118,20 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
   // Internal helpers
   // ---------------------------------------------------------------------
+
+  private _prepareAssetForFeed(
+    asset: string,
+    timestampMs: number,
+  ): PerAssetBucketState | null {
+    let ss = this.state.perAsset.get(asset);
+    if (ss === undefined) return this._getOrCreatePerAsset(asset, timestampMs);
+    if (timestampMs < ss.bucketStartMs) return null;
+    if (timestampMs >= ss.bucketStartMs + this.config.bucketSizeMs) {
+      this.pollAndEmit(timestampMs);
+      ss = this.state.perAsset.get(asset);
+    }
+    return ss ?? null;
+  }
 
   private _getOrCreatePerAsset(
     asset: string,

@@ -20,7 +20,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import { main } from "./run-pivot-grid-baseline.js";
+import {
+  calculateMonthlyReturn,
+  handleFatal,
+  main,
+} from "./run-pivot-grid-baseline.js";
+
+const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
 /**
  * `writeTinyOhlcv` — kiírja a minimális 1d/4h/15m OHLCV adatokat a
@@ -146,6 +152,50 @@ async function withArgv<T>(args: readonly string[], fn: () => Promise<T>): Promi
 // === main() tesztek ===
 
 describe("run-pivot-grid-baseline — main() in-process", () => {
+  it("a közvetlen bun run belépési pont meghívja a main()-t és hibánál nem nulla kóddal lép ki", async () => {
+    const child = Bun.spawn([
+      "bun",
+      "run",
+      "packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts",
+      "--timeframe=1h",
+    ], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stderr, exitCode] = await Promise.all([
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("[pivot-grid] FATAL:");
+    expect(stderr).toContain("requires 15m timeframe");
+  });
+
+  it("a negatív teljes hozamot geometriailag helyes negatív havi hozammá alakítja", () => {
+    expect(calculateMonthlyReturn(-0.36, 12)).toBeCloseTo(Math.pow(0.64, 1 / 12) - 1, 12);
+    expect(calculateMonthlyReturn(-0.36, 12)).toBeLessThan(0);
+    expect(calculateMonthlyReturn(-1.1, 12)).toBe(-1);
+  });
+
+  it("handleFatal: biztonságosan nem nulla exit kódot állít", () => {
+    const originalError = console.error;
+    const originalExitCode = process.exitCode;
+    const errors: string[] = [];
+    console.error = (...args: unknown[]) => {
+      errors.push(args.map(String).join(" "));
+    };
+    try {
+      handleFatal(new Error("entry failure"));
+      expect(Number(process.exitCode)).toBe(1);
+      expect(errors.join("\n")).toContain("[pivot-grid] FATAL: Error: entry failure");
+    } finally {
+      console.error = originalError;
+      process.exitCode = originalExitCode ?? 0;
+    }
+  });
+
   it("happy-path: trades.length > 0 ág — JSON output megíródik, minden riportsor megjelenik", async () => {
     const outFile = resolve(outputDir, "pivot-grid-happy.json");
     const stdoutChunks: string[] = [];

@@ -77,6 +77,7 @@ const cascadeWindow = (
   symbol = "BTC",
   overrides: Partial<{
     totalUsd: number;
+    midPriceUsd: number;
     longUsd: number;
     shortUsd: number;
     exchangeCount: number;
@@ -85,6 +86,7 @@ const cascadeWindow = (
   windowStartMs: startMs,
   symbol,
   totalUsd: overrides.totalUsd ?? 60_000_000,
+  midPriceUsd: overrides.midPriceUsd ?? (symbol === "BTC" ? 60_000 : 3_000),
   longUsd: overrides.longUsd ?? 60_000_000,
   shortUsd: overrides.shortUsd ?? 0,
   distinctExchangeCount: overrides.exchangeCount ?? 3,
@@ -208,6 +210,15 @@ describe("CascadeFadeDetector — config invariants", () => {
         capacityMaxPerEventUsd: 1_000_000,
       }),
     ).toThrow(/per-symbol cap/);
+  });
+
+  it("rejects an invalid tradable mid instead of treating liquidation volume as price", () => {
+    const det = new CascadeFadeDetector();
+    expect(() => det.observe({
+      nowMs: T0,
+      window: cascadeWindow(T0, "BTC", { midPriceUsd: Number.NaN }),
+      oi: oi(T0),
+    })).toThrow(/midPriceUsd/);
   });
 });
 
@@ -538,6 +549,7 @@ describe("CascadeFadeDetector — Layer 3 (execution)", () => {
     expect(ev?.state).toBe("POST_CASCADE");
     expect(ev?.entry).not.toBeNull();
     expect(ev?.entry?.side).toBe("buy");
+    expect(ev?.entry?.entryMidPriceUsd).toBe(60_000);
     expect(ev?.entry?.entryDistanceBps).toBeGreaterThanOrEqual(5);
     expect(ev?.entry?.entryDistanceBps).toBeLessThanOrEqual(15);
     expect(ev?.entry?.exitWindowMinutes).toBeGreaterThanOrEqual(3);

@@ -743,4 +743,13 @@ describe("DecisionEngine — determinism", () => {
     const r2 = runOnce();
     expect(r1).toEqual(r2);
   });
+
+  it("missing signal timestamps use replay-stable zero rather than wall clock", () => {
+    const engine = new DecisionEngine();
+    const bus = wire(engine);
+    bus.emit(dirSig("alpha:BTC/USDT", "long", 1));
+    const decision = engine.arbitrate("BTC/USDT");
+    expect(decision.timestampMs).toBe(0);
+    engine.dispose();
+  });
 });

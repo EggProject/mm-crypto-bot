@@ -471,6 +471,37 @@ describe("CrossVenueFundingDivergencePlugin — divergence computation", () => {
     expect(bucketClose.length).toBe(1);
   });
 
+  it("a first feed in the next bucket closes the prior bucket and rejects late prior-bucket data", () => {
+    const p = new CrossVenueFundingDivergencePlugin({ assets: ["BTC"] });
+    const bus = wirePlugin(p);
+    const received: FundingSnapshotSignal[] = [];
+    bus.subscribe("funding-snapshot", (s) => {
+      if (isFundingSnapshot(s)) received.push(s);
+    });
+    const t0 = 1_700_000_040_000;
+    p.recordHlFunding("BTC", 10 / (8 * 10_000), null, t0);
+    p.recordBzFunding("BTC", 1 / 10_000, t0);
+
+    p.recordHlFunding("BTC", 4 / (8 * 10_000), null, t0 + p.bucketSizeMs());
+    expect(received).toHaveLength(1);
+    expect(received[0]!.bucketStartMs).toBe(t0);
+    expect(p.bucketStartMsFor("BTC")).toBe(t0 + p.bucketSizeMs());
+
+    const bzFeedsBeforeLate = p.state.bzFeeds;
+    p.recordBzFunding("BTC", 20 / 10_000, t0 + p.bucketSizeMs() - 1);
+    expect(p.state.bzFeeds).toBe(bzFeedsBeforeLate);
+  });
+
+  it("rejects repeated or out-of-order updates from the same venue", () => {
+    const p = new CrossVenueFundingDivergencePlugin({ assets: ["BTC"] });
+    wirePlugin(p);
+    const t0 = 1_700_000_040_000;
+    p.recordBzFunding("BTC", 1 / 10_000, t0 + 10);
+    p.recordBzFunding("BTC", 2 / 10_000, t0 + 10);
+    p.recordBzFunding("BTC", 3 / 10_000, t0 + 9);
+    expect(p.state.bzFeeds).toBe(1);
+  });
+
   it("bucket clears between emits (last-write-wins per bucket)", () => {
     const p = new CrossVenueFundingDivergencePlugin({ assets: ["BTC"] });
     wirePlugin(p);

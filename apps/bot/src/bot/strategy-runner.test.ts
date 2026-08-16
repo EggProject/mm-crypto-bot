@@ -22,12 +22,19 @@ import {
 // `@exchange-testing/*` path alias (see tsconfig.base.json).
 import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
 import type {
+  CarryMarket,
+  DydxFundingSource,
+  FundingSnapshot,
   StrategyPlugin,
   PositionManagementContext,
   PositionUpdate,
   Strategy,
   StrategyContext,
   StrategySignal,
+} from "@mm-crypto-bot/core";
+import {
+  DydxCexCarryStrategy,
+  newKillSwitchVerdicts,
 } from "@mm-crypto-bot/core";
 
 import { OrderManager } from "./order-manager.js";
@@ -47,6 +54,33 @@ class FailTakeProfitFeed extends MockExchangeFeed {
   public override async placeOrder(req: OrderRequest) {
     if (req.protectiveKind === "take_profit") throw new Error("injected TP conditional failure");
     return super.placeOrder(req);
+  }
+}
+
+class ManualFundingSource implements DydxFundingSource {
+  subscribeCalls = 0;
+  closeCalls = 0;
+  private listener: ((snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void) | null = null;
+  subscribe(
+    _market: CarryMarket,
+    listener: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
+  ): { readonly close: () => void } {
+    this.subscribeCalls += 1;
+    this.listener = listener;
+    return { close: () => { this.closeCalls += 1; this.listener = null; } };
+  }
+  fire(timestampMs: number): void {
+    this.listener?.({
+      dydx: { symbol: "BTC-USD", fundingTime: timestampMs, fundingRate: -0.001, markPrice: 100 },
+      cex: { symbol: "BTC-USD", fundingTime: timestampMs, fundingRate: 0.001, markPrice: 100 },
+    });
+  }
+  lastTickAgeMs(_market: CarryMarket, _nowMs: number): number | null { return 0; }
+  lastChainBlockHeight(_market: CarryMarket): number | null { return 1; }
+  lastChainBlockTs(_market: CarryMarket): number | null { return Date.now(); }
+  bybitEuSpotDepthUsd(_market: CarryMarket, _nowMs: number): number | null { return 1_000_000; }
+  health(): { readonly lastTickMs: number | null; readonly chainBlockHeight: number | null } {
+    return { lastTickMs: Date.now(), chainBlockHeight: 1 };
   }
 }
 
@@ -114,6 +148,7 @@ class FixedSignalStrategy implements Strategy {
   readonly timeframes = ["15m"] as const;
   private readonly _signal: StrategySignal;
   public onCandleCallCount = 0;
+  public observedCallCount = 0;
 
   public constructor(signal: StrategySignal) {
     this._signal = signal;
@@ -122,6 +157,10 @@ class FixedSignalStrategy implements Strategy {
   public onCandle(_ctx: StrategyContext): StrategySignal {
     this.onCandleCallCount++;
     return this._signal;
+  }
+
+  public onCandleObserved(_ctx: StrategyContext): void {
+    this.observedCallCount++;
   }
 
   public warmup(): number {
@@ -141,6 +180,7 @@ class ForceExitStrategy implements Strategy {
   private readonly _signal: StrategySignal;
   public onCandleCallCount = 0;
   public onOpenPositionUpdateCallCount = 0;
+  public observedCallCount = 0;
 
   public constructor(signal: StrategySignal) {
     this._signal = signal;
@@ -154,6 +194,10 @@ class ForceExitStrategy implements Strategy {
   public onOpenPositionUpdate(_ctx: PositionManagementContext): PositionUpdate {
     this.onOpenPositionUpdateCallCount++;
     return { forceExit: true, reason: "trend_reversal" };
+  }
+
+  public onCandleObserved(_ctx: StrategyContext): void {
+    this.observedCallCount++;
   }
 
   public warmup(): number {
@@ -215,6 +259,66 @@ class RiskActionPlugin extends LifecyclePlugin {
     this.bus?.emit({
       kind: "risk", varDaily95: 0, correlationPenalty: 0, drawdownLimit: 0,
       source: this.source, breach: true, reason: "test-breach",
+    });
+  }
+}
+
+class AsyncRiskActionPlugin {
+  private bus: { emit(signal: unknown): void } | null = null;
+  public completed = false;
+
+  public subscribe(bus: { emit(signal: unknown): void }): void {
+    this.bus = bus;
+  }
+
+  public async onBar(): Promise<void> {
+    await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+    this.completed = true;
+    this.bus?.emit({
+      kind: "risk",
+      varDaily95: 0,
+      correlationPenalty: 0,
+      drawdownLimit: 0,
+      source: "async-risk-probe:BTC/USDC",
+      breach: true,
+      reason: "async-test-breach",
+    });
+  }
+
+  public reset(): void { this.completed = false; }
+  public validateConfig(): { readonly ok: true; readonly value: undefined } {
+    return { ok: true, value: undefined };
+  }
+  public dispose(): void { this.bus = null; }
+
+  public readonly metadata = {
+    name: "async-risk-probe",
+    version: "1.0.0",
+    edgeClass: "risk" as const,
+    capitalRequirement: 0,
+    maxLeverage: 1,
+    onBarMode: "async" as const,
+  };
+}
+
+class RegimeSizingPlugin extends LifecyclePlugin {
+  private bus: { emit(signal: unknown): void } | null = null;
+  public override subscribe(bus: { emit(signal: unknown): void }): void {
+    super.subscribe(bus);
+    this.bus = bus;
+  }
+  public override onBar(bar: { readonly timestamp: number; readonly close: number }): void {
+    super.onBar(bar);
+    this.bus?.emit({
+      kind: "risk",
+      varDaily95: 0,
+      correlationPenalty: 0,
+      drawdownLimit: 0.4,
+      source: "regime-detector-v1:BTC/USDC",
+      timestampMs: bar.timestamp,
+      breach: false,
+      reason: "regime-volatile",
+      sizeModifier: 0.4,
     });
   }
 }
@@ -323,6 +427,48 @@ describe("StrategyRunner", () => {
     runner.resume(); // explicit operator-safe reset boundary
     await runner.onFeedEvent(candle(3));
     expect(om.getCounters().placed).toBe(1);
+    runner.dispose();
+  });
+
+  it("awaits async plugin work and drains its risk signal before strategy entry", async () => {
+    const feed = new MockExchangeFeed();
+    await feed.open();
+    const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
+    const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
+    const plugin = new AsyncRiskActionPlugin();
+    const strategy = new FixedSignalStrategy({
+      side: "buy", confidence: 1, reason: "must-wait-for-plugin", stopLoss: 0, takeProfit: 0,
+    });
+    let emergencyCalls = 0;
+    const runner = new StrategyRunner({
+      instances: new Map([
+        ["async-risk" as const, {
+          kind: "plugin" as const,
+          name: "async-risk" as const,
+          instance: plugin as unknown as StrategyPlugin,
+        }],
+        ["signal-strategy" as const, {
+          kind: "strategy" as const,
+          name: "signal-strategy" as const,
+          instance: strategy,
+        }],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 1,
+      enabledSymbols: ["BTC/USDC"],
+      onEmergency: () => { emergencyCalls += 1; },
+    });
+
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+    });
+
+    expect(plugin.completed).toBe(true);
+    expect(emergencyCalls).toBe(1);
+    expect(strategy.onCandleCallCount).toBe(0);
+    expect(pm.getPositionCount()).toBe(0);
     runner.dispose();
   });
   // ---------------------------------------------------------------------------
@@ -616,6 +762,8 @@ describe("StrategyRunner", () => {
     expect(context?.timeframe).toBe("15m");
     expect(context?.mtfState.htf.donchianUpper).toBe(39);
     expect(context?.mtfState.htf.donchianLower).toBe(5);
+    expect(context?.mtfState.htf.adx).toBeDefined();
+    expect(context?.mtfState.htf.adx).toBeGreaterThan(25);
     expect(context?.mtfState.ltf.atr).toBeGreaterThan(0);
     expect(context?.mtfState.mtf.close).toBeUndefined();
   });
@@ -727,6 +875,103 @@ describe("StrategyRunner", () => {
     runner.dispose();
     runner.dispose();
     expect(plugin.disposeCalls).toBe(1);
+  });
+
+  it("feeds only daily closes into the enabled Regime detector for the configured quote symbol", async () => {
+    const config: BotConfig = {
+      ...DEFAULT_BOT_CONFIG,
+      symbols: { enabled: ["BTC/USDC"] },
+      strategies: {
+        ...DEFAULT_BOT_CONFIG.strategies,
+        donchian_pivot_composition: { enabled: false },
+        dydx_cex_carry: { enabled: false },
+        cascade_fade: { enabled: false },
+        funding_flip_kill_switch: { enabled: false },
+        regime_detector: { enabled: true },
+      },
+    };
+    const instances = createStrategyInstances(config);
+    const entry = instances.get("regime_detector");
+    expect(entry?.kind).toBe("plugin");
+    if (entry?.kind !== "plugin") return;
+    const regime = entry.instance as unknown as { observationsForSymbol(symbol: string): number };
+    const feed = new MockExchangeFeed();
+    const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
+    const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
+    const runner = new StrategyRunner({
+      instances, orderManager: om, positionManager: pm, sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "1d", candle: [1, 100, 101, 99, 100, 1] } });
+    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [2, 100, 102, 99, 101, 1] } });
+    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "1d", candle: [3, 101, 103, 100, 102, 1] } });
+    expect(regime.observationsForSymbol("BTC/USDC")).toBe(1);
+    runner.dispose();
+  });
+
+  it("applies the latest per-symbol Regime sizeModifier before order placement", async () => {
+    const feed = new MockExchangeFeed();
+    const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
+    const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
+    const plugin = new RegimeSizingPlugin();
+    const strategy = new FixedSignalStrategy({
+      side: "buy", confidence: 1, reason: "regime-sized", stopLoss: 90, takeProfit: 110,
+    });
+    const runner = new StrategyRunner({
+      instances: new Map([
+        ["regime_detector" as const, { kind: "plugin" as const, name: "regime_detector" as const, instance: plugin as unknown as StrategyPlugin }],
+        ["sized" as const, { kind: "strategy" as const, name: "sized" as const, instance: strategy }],
+      ]),
+      orderManager: om, positionManager: pm, sizingFn: () => 1,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+    });
+    expect(pm.getPosition("sized", makeSymbol(), "long")?.quantity).toBeCloseTo(0.4, 8);
+    runner.dispose();
+  });
+
+  it("owns the dYdX funding subscription and executes a kill-switch exit for an open carry", async () => {
+    const fundingSource = new ManualFundingSource();
+    const strategy = new DydxCexCarryStrategy({ fundingSource });
+    const feed = new MockExchangeFeed();
+    const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
+    const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
+    const runner = new StrategyRunner({
+      instances: new Map([["dydx_cex_carry", {
+        kind: "strategy" as const,
+        name: "dydx_cex_carry" as const,
+        instance: strategy,
+      }]]),
+      orderManager: om, positionManager: pm, sizingFn: () => 1,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    expect(fundingSource.subscribeCalls).toBe(1);
+    fundingSource.fire(1_000);
+    expect(strategy.state.fundingPeriods).toBe(1);
+
+    pm.openPosition("dydx_cex_carry", makeSymbol(), "long", 1, 100, 1);
+    strategy.onPositionOpened({
+      side: "buy", entryTime: 1, entryPrice: 100, quantity: 1,
+      stopLoss: 99, takeProfit: 10_000, holdingBars: 0,
+    });
+    strategy.state.killSwitchVerdicts = {
+      ...newKillSwitchVerdicts(),
+      "indexer-stale": { engaged: true, reason: "test stale" },
+    };
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "1d", candle: [2_000, 100, 101, 99, 100, 1] },
+    });
+    expect(pm.getPositionCount()).toBe(0);
+    expect(strategy.state.hasEntered).toBe(false);
+
+    runner.dispose();
+    expect(fundingSource.closeCalls).toBe(1);
+    fundingSource.fire(3_000);
+    expect(strategy.state.fundingPeriods).toBe(1);
   });
 
   it("rolls back already-started plugins when a later subscription rejects", () => {
@@ -1259,8 +1504,8 @@ describe("StrategyRunner", () => {
     const pos = pm.getPosition("test-strategy", makeSymbol(), "long");
     expect(pos?.entryPrice).toBe(60_000);
     expect(pos?.quantity).toBeCloseTo(0.1, 8);
-    // `onCandle` is STILL called every tick (state freshness).
-    expect(strategy.onCandleCallCount).toBe(3);
+    expect(strategy.onCandleCallCount).toBe(0);
+    expect(strategy.observedCallCount).toBe(3);
     // `totalSignals` is 0 because the new-signal path was gated.
     // (FixedSignalStrategy always returns a signal, but the runner
     // never reached `handleSignal`.)
@@ -1326,8 +1571,8 @@ describe("StrategyRunner", () => {
     // No new short.
     const shortPos = pm.getPosition("test-strategy", makeSymbol(), "short");
     expect(shortPos).toBeUndefined();
-    // `onCandle` was called once.
-    expect(strategy.onCandleCallCount).toBe(1);
+    expect(strategy.onCandleCallCount).toBe(0);
+    expect(strategy.observedCallCount).toBe(1);
     // `totalSignals` is 0 (gated).
     expect(runner.getStats().totalSignals).toBe(0);
   });
@@ -1385,8 +1630,8 @@ describe("StrategyRunner", () => {
     expect(pm.getPositionCount()).toBe(0);
     // onOpenPositionUpdate was called once.
     expect(strategy.onOpenPositionUpdateCallCount).toBe(1);
-    // onCandle was also called once.
-    expect(strategy.onCandleCallCount).toBe(1);
+    expect(strategy.onCandleCallCount).toBe(0);
+    expect(strategy.observedCallCount).toBe(1);
     // The closed trade is recorded.
     const closed = pm.getClosedTrades();
     expect(closed.length).toBe(1);

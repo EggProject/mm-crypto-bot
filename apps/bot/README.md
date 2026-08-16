@@ -106,7 +106,10 @@ the full TUI reference, and §7 for real bybit.eu paper/live testing.
 3. Constructs `OrderManager`, `PositionManager`, `StateStore`,
    `Telemetry`, and `KillSwitchRegistry`.
 4. Subscribes to the configured exchange feed.
-5. Dispatches each LTF bar to every active strategy's `onCandle(ctx)`.
+5. Dispatches each LTF bar to every active strategy's `onCandle(ctx)`, calls
+   enabled plugins' `onBar`, then drains their shared `SignalBus`; the regime
+   detector receives its close-history input specifically from closed `1d`
+   bars.
 6. Pipes emitted `StrategySignal`s through the order pipeline
    (sizing → leverage-invariant check → `feed.placeOrder`).
 7. On SIGINT / SIGTERM: gracefully shuts down, finalizes state file.
@@ -309,29 +312,33 @@ is invisible to the runtime, not a no-op shadow of the enabled version.
 
 ### 4.1 The 5 configurable strategies
 
-| Name | Default | Purpose |
-|------|---------|---------|
-| `donchian_pivot_composition` | ✅ enabled | M15 baseline — Donchian + Pivot 2-component composition |
-| `dydx_cex_carry` | ✅ enabled | BTC-USD cross-venue funding carry (dYdX v4 vs CEX) |
-| `cascade_fade` | ✅ enabled | Liquidation-cascade "fade-the-cascade" detector |
-| `funding_flip_kill_switch` | ❌ disabled | SOL funding-flip defensive opt-in |
-| `regime_detector` | ❌ disabled | HMM 3-state regime meta-plugin (sizing modifier) |
+| Name | Default | Runtime input / behaviour |
+|------|---------|---------------------------|
+| `donchian_pivot_composition` | ✅ enabled | M15 OHLCV baseline — Donchian + Pivot 2-component composition |
+| `dydx_cex_carry` | ❌ disabled | Requires both a funding source and a production precondition re-verifier; startup fails loudly if explicitly enabled before the verifier is wired |
+| `cascade_fade` | ❌ disabled | Requires a live liquidation + OI + ELR event bridge; startup fails loudly if enabled while that bridge is absent |
+| `funding_flip_kill_switch` | ❌ disabled | Requires an explicit SOL funding-rate producer; startup fails loudly if enabled without one |
+| `regime_detector` | ❌ disabled | Closed `1d` OHLCV feeds it; its latest per-symbol sizing multiplier is applied by the runtime (default 1.0 before any signal) |
 
 ### 4.2 Per-strategy overrides
 
 Each section accepts forward-compatible overrides (cap, leverage, symbols,
-timeframes, ...). Example — turn Donchian+Pivot off and bump the cascade-fade
-event cap:
+timeframes, ...). Example — turn Donchian+Pivot off and opt in to the wired
+daily-close regime detector:
 
 ```toml
 [strategies.donchian_pivot_composition]
 enabled = false       # do not instantiate
 
-[strategies.cascade_fade]
+[strategies.regime_detector]
 enabled = true
-max_notional_per_event_usd = 500_000   # tighter than the 1M default
-cooldown_hours = 48                    # 2-day cooldown
+symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 ```
+
+Do not enable `cascade_fade` until the production process provides its
+liquidation/OI/ELR event bridge, or `funding_flip_kill_switch` until it
+provides an explicit SOL funding-rate producer. Both configurations fail at
+startup instead of silently creating inert safety components.
 
 ### 4.3 Verifying the change
 
@@ -342,8 +349,9 @@ mm-bot config validate --config=path/to/your.toml
 mm-bot strategies --config=path/to/your.toml
 ```
 
-`mm-bot strategies` prints the on/off state and all per-strategy overrides —
-that's the ground truth of what the bot will instantiate at startup.
+`mm-bot strategies` prints the requested on/off state and all per-strategy
+overrides. Startup additionally enforces external-data dependencies and aborts
+if an enabled component cannot be made operational.
 
 ---
 
@@ -536,12 +544,12 @@ restart. The state file is preserved.
   │                                                                  │
   │   ├─ kind: "strategy" → Strategy (onCandle dispatch)             │
   │   │   ├─ donchian_pivot_composition  ✅                          │
-  │   │   ├─ dydx_cex_carry              ✅                          │
-  │   │   └─ cascade_fade                ✅                          │
+  │   │   ├─ dydx_cex_carry              ❌ (verifier required)      │
+  │   │   └─ cascade_fade                ❌ (bridge required)        │
   │   │                                                              │
   │   └─ kind: "plugin" → StrategyPlugin (SignalBus)                │
-  │       ├─ funding_flip_kill_switch    ❌ (opt-in)                 │
-  │       └─ regime_detector             ❌ (opt-in)                 │
+  │       ├─ funding_flip_kill_switch    ❌ (producer required)      │
+  │       └─ regime_detector             ❌ (opt-in; 1d feed wired)  │
   └──────────────────────────────────────────────────────────────────┘
 
   ┌──────────────────────────────────────────────────────────────────┐
@@ -670,12 +678,14 @@ and the Phase 34 fixup PR for the test additions.
   to flip `mode = "live"` (via the typed "LIVE" guard in the
   Phase 36 settings panel). This is by user mandate, not a TODO.
 
-- **Signal-center plugins not wired at runtime.** `funding_flip_kill_switch`
-  and `regime_detector` are registered in the strategy-registry
-  (as `kind: "plugin"` instances) but are opt-in. The current StrategyRunner
-  only dispatches `kind: "strategy"` instances to the feed. Enabling the
-  plugins via `enabled = true` in the config is a no-op in this build;
-  wire-up of the SignalBus is a future-track item.
+- **Plugin data dependencies remain explicit.** Enabled plugins subscribe to
+  the shared `SignalBus`, and the regime detector receives closed `1d` prices.
+  Its current regime sizing output is informational/telemetry-only until the
+  portfolio sizing path consumes `sizeModifier`. The SOL funding-flip plugin
+  cannot be derived from OHLCV: enabling it without an explicit SOL
+  funding-rate producer fails loudly at startup. Likewise, Cascade Fade stays
+  off unless a liquidation/OI/ELR event bridge is provided; enabling it without
+  that bridge fails instead of running an inert strategy.
 
 - **LatencyGate is disarmed in paper mode.** The bybit.eu SPOT paper-mode
   doesn't have a real feed to measure latency against. The kill-switch

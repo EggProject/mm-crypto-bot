@@ -376,6 +376,19 @@ describe("PortfolioOrchestrator — construction + config validation", () => {
     expect(orchestrator.initialized).toBe(false);
   });
 
+  test("a second run starts from fresh lifecycle state and reproduces the first envelope", async () => {
+    const startTs = 1_700_000_000_000;
+    const barCount = 5;
+    const { envelope: first, orchestrator } = await runOrchestrator({ barCount });
+    const second = await orchestrator.run(
+      startTs,
+      startTs + (barCount - 1) * 86_400_000,
+    );
+
+    expect(second).toEqual(first);
+    expect(orchestrator.getSnapshots()).toHaveLength(first.snapshots.length);
+  });
+
   test("getBusesBySymbol returns empty map before init()", () => {
     const orch = new PortfolioOrchestrator({
       dataDir: tmpDir,

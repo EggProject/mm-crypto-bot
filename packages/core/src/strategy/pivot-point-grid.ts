@@ -105,6 +105,16 @@ const ENGINE_MAX_POSITION_PCT_EQUITY = 0.2;
 /** HTF window length in milliseconds (one UTC day). */
 const HTF_MS = 86_400_000;
 
+interface PivotSymbolState {
+  currHtfHigh?: number;
+  currHtfLow?: number;
+  currHtfClose?: number;
+  prevHtfHigh?: number;
+  prevHtfLow?: number;
+  prevHtfClose?: number;
+  committedPrevHtfAtLeastOnce: boolean;
+}
+
 export class PivotPointGridStrategy implements Strategy {
   readonly name = "Pivot Point Grid (Phase 15 M15 range-mean-reversion)";
   readonly timeframes = ["1d", "15m"] as const;
@@ -117,12 +127,7 @@ export class PivotPointGridStrategy implements Strategy {
   // finished HTF candle. Pivot points are computed from prev*.
   // ---------------------------------------------------------------------------
 
-  private currHtfHigh: number | undefined;
-  private currHtfLow: number | undefined;
-  private currHtfClose: number | undefined;
-  private prevHtfHigh: number | undefined;
-  private prevHtfLow: number | undefined;
-  private prevHtfClose: number | undefined;
+  private readonly symbolState = new Map<string, PivotSymbolState>();
 
   /**
    * `committedPrevHtfAtLeastOnce` — true after the strategy has committed
@@ -130,7 +135,9 @@ export class PivotPointGridStrategy implements Strategy {
    * has no previous-day data to compute pivots from, and `onCandle` returns
    * null. Exposed for tests to assert the boundary-detection contract.
    */
-  committedPrevHtfAtLeastOnce = false;
+  get committedPrevHtfAtLeastOnce(): boolean {
+    return [...this.symbolState.values()].some((state) => state.committedPrevHtfAtLeastOnce);
+  }
 
   constructor(config: Partial<PivotPointGridConfig> = {}) {
     this.config = { ...DEFAULT_PIVOT_GRID_CONFIG, ...config };
@@ -168,54 +175,21 @@ export class PivotPointGridStrategy implements Strategy {
       return null;
     }
 
-    // -----------------------------------------------------------------------
-    // HTF accumulator update — boundary detection at 1d rollup.
-    // -----------------------------------------------------------------------
-    if (candle.timestamp % HTF_MS === 0) {
-      // This 15m candle starts a new 1d bucket. The currently-accumulated
-      // H/L/C slots represent the just-finished 1d candle's values, so we
-      // commit them to prev* BEFORE resetting for the new bucket.
-      // (If the accumulator is undefined — first candle happens to land on
-      // a boundary — we skip the commit and just start fresh.)
-      if (
-        this.currHtfHigh !== undefined &&
-        this.currHtfLow !== undefined &&
-        this.currHtfClose !== undefined
-      ) {
-        this.prevHtfHigh = this.currHtfHigh;
-        this.prevHtfLow = this.currHtfLow;
-        this.prevHtfClose = this.currHtfClose;
-        this.committedPrevHtfAtLeastOnce = true;
-      }
-      // Reset accumulator — this candle is the FIRST of the new HTF bucket.
-      this.currHtfHigh = candle.high;
-      this.currHtfLow = candle.low;
-      this.currHtfClose = candle.close;
-    } else {
-      // Inside an HTF bucket — extend the running H/L/C with this LTF candle.
-      if (this.currHtfHigh === undefined || this.currHtfLow === undefined) {
-        this.currHtfHigh = candle.high;
-        this.currHtfLow = candle.low;
-      } else {
-        if (candle.high > this.currHtfHigh) this.currHtfHigh = candle.high;
-        if (candle.low < this.currHtfLow) this.currHtfLow = candle.low;
-      }
-      // Last candle's close wins for the in-progress HTF close.
-      this.currHtfClose = candle.close;
-    }
+    this.onCandleObserved(ctx);
+    const state = this.getSymbolState(String(ctx.symbol));
 
     // Need a committed previous HTF candle for pivots.
     if (
-      this.prevHtfHigh === undefined ||
-      this.prevHtfLow === undefined ||
-      this.prevHtfClose === undefined
+      state.prevHtfHigh === undefined ||
+      state.prevHtfLow === undefined ||
+      state.prevHtfClose === undefined
     ) {
       return null;
     }
 
-    const H = this.prevHtfHigh;
-    const L = this.prevHtfLow;
-    const C = this.prevHtfClose;
+    const H = state.prevHtfHigh;
+    const L = state.prevHtfLow;
+    const C = state.prevHtfClose;
     const range = H - L;
     const PP = (H + L + C) / 3;
 
@@ -307,5 +281,44 @@ export class PivotPointGridStrategy implements Strategy {
 
     // Middle zone — S1 < close < R1 — no signal.
     return null;
+  }
+
+  onCandleObserved(ctx: StrategyContext): void {
+    if (ctx.candleIndex < this.warmup()) return;
+    const { candle } = ctx;
+    const state = this.getSymbolState(String(ctx.symbol));
+    if (candle.timestamp % HTF_MS === 0) {
+      if (
+        state.currHtfHigh !== undefined &&
+        state.currHtfLow !== undefined &&
+        state.currHtfClose !== undefined
+      ) {
+        state.prevHtfHigh = state.currHtfHigh;
+        state.prevHtfLow = state.currHtfLow;
+        state.prevHtfClose = state.currHtfClose;
+        state.committedPrevHtfAtLeastOnce = true;
+      }
+      state.currHtfHigh = candle.high;
+      state.currHtfLow = candle.low;
+      state.currHtfClose = candle.close;
+      return;
+    }
+    if (state.currHtfHigh === undefined || state.currHtfLow === undefined) {
+      state.currHtfHigh = candle.high;
+      state.currHtfLow = candle.low;
+    } else {
+      if (candle.high > state.currHtfHigh) state.currHtfHigh = candle.high;
+      if (candle.low < state.currHtfLow) state.currHtfLow = candle.low;
+    }
+    state.currHtfClose = candle.close;
+  }
+
+  private getSymbolState(symbol: string): PivotSymbolState {
+    let state = this.symbolState.get(symbol);
+    if (state === undefined) {
+      state = { committedPrevHtfAtLeastOnce: false };
+      this.symbolState.set(symbol, state);
+    }
+    return state;
   }
 }

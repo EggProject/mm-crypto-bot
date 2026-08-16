@@ -5,7 +5,7 @@
 // és a position-sizing a `docs/research/selected-strategy.md` §5 szerint
 // 1/4-Kelly + 1% risk / trade.
 
-import type { Strategy } from "@mm-crypto-bot/core";
+import type { Strategy, StrategySignal } from "@mm-crypto-bot/core";
 import type { Candle, Timeframe, Trade } from "@mm-crypto-bot/shared/types";
 
 /**
@@ -98,7 +98,38 @@ export interface BacktestOptions {
   readonly walkForward?: WalkForwardConfig;
   /** Egyedi stratégia (alapértelmezetten a kiválasztott MTF-TKC). */
   readonly strategy?: Strategy;
+  /** Historical indicator override used by Donchian grid/ablation runners. */
+  readonly htfDonchianPeriod?: number;
+  /**
+   * Read-only historical execution observer. It receives the exact notional
+   * produced by the engine after confidence/risk scaling, before the entry is
+   * opened. This is intended for deterministic SignalBus telemetry and must
+   * not mutate the backtest decision.
+   */
+  readonly onPositionSized?: (event: HistoricalPositionSizingEvent) => void;
+  /**
+   * Diagnostic regression switch. Production uses the causal precomputed
+   * indicator timeline; `legacy` retains the prefix-recompute path solely for
+   * result-equivalence tests and benchmark comparisons.
+   */
+  readonly historicalIndicatorMode?: "precomputed" | "legacy";
 }
+
+export interface HistoricalPositionSizingEvent {
+  readonly timestamp: number;
+  readonly signal: StrategySignal;
+  readonly equityUsd: number;
+  readonly notionalUsd: number;
+}
+
+/**
+ * Fresh strategy instance provider for repeated backtest runs.
+ *
+ * Stateful strategies must not be shared between independent IS/OOS windows;
+ * callers of `runWalkForward` can pass this factory to create one instance per
+ * individual backtest run.
+ */
+export type StrategyFactory = () => Strategy;
 
 export interface WalkForwardConfig {
   /** In-sample ablak hossza (napokban). */

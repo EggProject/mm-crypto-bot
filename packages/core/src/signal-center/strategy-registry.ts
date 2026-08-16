@@ -115,6 +115,8 @@ export interface StrategyPluginMetadata {
    * by default.
    */
   readonly dependencies?: readonly string[];
+  /** Declares that onBar must be driven through the awaited registry path. */
+  readonly onBarMode?: "sync" | "async";
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +177,7 @@ export interface StrategyPlugin {
    * `subscribe`). It MUST NOT throw on benign inputs (missing data,
    * zero-vol period) — defensive programming.
    */
-  onBar(bar: Bar, state: PluginState): void;
+  onBar(bar: Bar, state: PluginState): void | Promise<void>;
   /**
    * `validateConfig` — non-throwing config validation. Returns
    * `ok(undefined)` on success, `err({ pluginName, field, message })`
@@ -469,13 +471,54 @@ export class StrategyRegistry {
    */
   onBarAll(bar: Bar, state: PluginState): void {
     for (const plugin of this.plugins) {
+      if (plugin.metadata.onBarMode === "async") {
+        throw new Error(
+          `Plugin "${plugin.metadata.name}" is asynchronous; use onBarAllAsync()`,
+        );
+      }
+      let result: void | Promise<void>;
       try {
-        plugin.onBar(bar, state);
+        result = plugin.onBar(bar, state);
       } catch (e: unknown) {
         // Best-effort logging az opcionális logger-en keresztül
         // (alapértelmezetten no-op, így a tesztekben nincs zaj).
         this.logger.error(
           `[StrategyRegistry] Plugin "${plugin.metadata.name}" threw on onBar:`,
+          e instanceof Error ? e.message : String(e),
+        );
+        continue;
+      }
+      if (result instanceof Promise) {
+        throw new Error(
+          `Plugin "${plugin.metadata.name}" is asynchronous; use onBarAllAsync()`,
+        );
+      }
+    }
+  }
+
+  /** Await every plugin in registration order so async adapters are causal. */
+  async onBarAllAsync(bar: Bar, state: PluginState): Promise<void> {
+    for (const plugin of this.plugins) {
+      try {
+        await plugin.onBar(bar, state);
+      } catch (e: unknown) {
+        this.logger.error(
+          `[StrategyRegistry] Plugin "${plugin.metadata.name}" threw on async onBar:`,
+          e instanceof Error ? e.message : String(e),
+        );
+        throw e;
+      }
+    }
+  }
+
+  /** Dispose all wiring without unregistering plugins. Safe and idempotent. */
+  disposeAll(): void {
+    for (const plugin of this.plugins) {
+      try {
+        plugin.dispose?.();
+      } catch (e: unknown) {
+        this.logger.error(
+          `[StrategyRegistry] Plugin "${plugin.metadata.name}" threw on dispose:`,
           e instanceof Error ? e.message : String(e),
         );
       }

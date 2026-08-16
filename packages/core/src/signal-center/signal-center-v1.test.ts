@@ -266,6 +266,10 @@ describe("SignalCenterV1 — plugin lifecycle", () => {
     // Reset preserves registry plugin list — start() works without re-register.
     sc.start();
     expect(sc.isStarted).toBe(true);
+    expect(sc.bus.subscriberCount).toBe(6);
+    sc.reset();
+    sc.start();
+    expect(sc.bus.subscriberCount).toBe(6);
   });
 
   it("getRegisteredPlugins returns metadata", () => {
@@ -405,7 +409,7 @@ describe("SignalCenterV1 — 3-layer 1:10 leverage invariant", () => {
   });
 
   it("Layer 3: per-bar leverageInvariantGuard fires on aggregate breach", () => {
-    const sc = new SignalCenterV1({ initialEquity: 10_000, maxLeverage: 10 });
+    const sc = new SignalCenterV1({ initialEquity: 10_000, maxLeverage: 10, symbol: "BTC/USDT" });
     // Two plugins at 6× each → 12× aggregate (breach).
     const p1 = new SyntheticSizingPlugin(60_000); // 6× of 10k
     const p2 = new SyntheticSizingPlugin(60_000); // 6× of 10k
@@ -422,6 +426,11 @@ describe("SignalCenterV1 — 3-layer 1:10 leverage invariant", () => {
     // The risk engine should have recorded a breach.
     const risk = sc.getPortfolioRisk();
     expect(risk.numLeverageBreaches).toBeGreaterThanOrEqual(1);
+    const emittedBreach = sc.bus.snapshot().find(
+      (signal): signal is RiskSignal => signal.kind === "risk" && signal.breach === true,
+    );
+    expect(emittedBreach).toBeDefined();
+    expect(emittedBreach?.symbol).toBe("BTC/USDT");
   });
 
   it("Layer 3: no breach when aggregate stays within 1:10", () => {
@@ -551,7 +560,7 @@ describe("SignalCenterV1 — kill-switch", () => {
     expect(history[0]?.reason).toBe("test kill");
   });
 
-  it("signals from killed plugin are dropped by telemetry (kill-switch filter)", () => {
+  it("signals from killed plugins are rejected before every central consumer", () => {
     const sc = new SignalCenterV1({ symbol: "BTC/USDT" });
     const plugin = new SyntheticSizingPlugin(50_000); // 5× leverage
     sc.registerPlugin(plugin);
@@ -561,12 +570,11 @@ describe("SignalCenterV1 — kill-switch", () => {
     expect(sc.signalsSubmitted).toBe(1);
     // Kill the plugin.
     sc.killPlugin(plugin.metadata.name);
-    // Emit another sizing signal — telemetry drops it (kill-switch filter).
+    const acceptedBeforeKill = sc.bus.snapshot().length;
+    // Emit another sizing signal — the bus gate drops it before risk and telemetry.
     sc.bus.emit(plugin.emitSizing());
-    // _signalsSubmitted counts submissions to the risk engine, which
-    // happens BEFORE telemetry's kill-switch filter. So it still
-    // increments. But telemetry's submitSignal returns false for the
-    // dropped signal. Verify via snapshot:
+    expect(sc.signalsSubmitted).toBe(1);
+    expect(sc.bus.snapshot().length).toBe(acceptedBeforeKill);
     const telem = sc.getTelemetrySnapshot();
     expect(telem.numDisabledStrategies).toBe(1);
   });

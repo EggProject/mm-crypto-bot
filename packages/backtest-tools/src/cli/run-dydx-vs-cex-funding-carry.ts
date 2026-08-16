@@ -129,6 +129,80 @@ export const WINDOW_DEFS: Readonly<Record<WindowId, WindowDef>> = {
   },
 };
 
+const HOUR_MS = 3_600_000;
+const DAY_MS = 86_400_000;
+
+/**
+ * A result is empirical only when dYdX covers at least 90% of both the
+ * requested hourly slots and UTC days. The two-dimensional gate prevents a
+ * dense sample from a handful of days from masquerading as quarter coverage.
+ */
+export const DYDX_COVERAGE_GATE = Object.freeze({
+  minimumHourlyRatio: 0.9,
+  minimumDailyRatio: 0.9,
+});
+
+export interface DydxCoverageStatus {
+  readonly status: "SUFFICIENT" | "INSUFFICIENT";
+  readonly sufficient: boolean;
+  readonly expectedHourlySlots: number;
+  readonly observedHourlySlots: number;
+  readonly hourlyCoverageRatio: number;
+  readonly expectedDays: number;
+  readonly observedDays: number;
+  readonly dailyCoverageRatio: number;
+  readonly minimumHourlyRatio: number;
+  readonly minimumDailyRatio: number;
+  readonly reasons: readonly string[];
+}
+
+/** Assess unique dYdX observations over a half-open [start, end) interval. */
+export function assessDydxCoverage(
+  hourly: readonly DydxHourlyFunding[],
+  startTime: number,
+  endTimeExclusive: number,
+): DydxCoverageStatus {
+  const durationMs = endTimeExclusive - startTime;
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    throw new Error("dYdX coverage interval must have a positive finite duration");
+  }
+
+  const expectedHourlySlots = Math.ceil(durationMs / HOUR_MS);
+  const expectedDays = Math.ceil(durationMs / DAY_MS);
+  const hourlySlots = new Set<number>();
+  const daySlots = new Set<number>();
+  for (const row of hourly) {
+    if (row.fundingTime < startTime || row.fundingTime >= endTimeExclusive) continue;
+    hourlySlots.add(Math.floor((row.fundingTime - startTime) / HOUR_MS));
+    daySlots.add(Math.floor((row.fundingTime - startTime) / DAY_MS));
+  }
+
+  const hourlyCoverageRatio = hourlySlots.size / expectedHourlySlots;
+  const dailyCoverageRatio = daySlots.size / expectedDays;
+  const reasons: string[] = [];
+  if (hourlyCoverageRatio < DYDX_COVERAGE_GATE.minimumHourlyRatio) {
+    reasons.push("hourly_coverage_below_threshold");
+  }
+  if (dailyCoverageRatio < DYDX_COVERAGE_GATE.minimumDailyRatio) {
+    reasons.push("daily_coverage_below_threshold");
+  }
+  const sufficient = reasons.length === 0;
+
+  return {
+    status: sufficient ? "SUFFICIENT" : "INSUFFICIENT",
+    sufficient,
+    expectedHourlySlots,
+    observedHourlySlots: hourlySlots.size,
+    hourlyCoverageRatio,
+    expectedDays,
+    observedDays: daySlots.size,
+    dailyCoverageRatio,
+    minimumHourlyRatio: DYDX_COVERAGE_GATE.minimumHourlyRatio,
+    minimumDailyRatio: DYDX_COVERAGE_GATE.minimumDailyRatio,
+    reasons,
+  };
+}
+
 export interface CliArgs {
   readonly symbol: SymbolId;
   readonly window: WindowId;
@@ -303,12 +377,12 @@ interface CarryPoint {
 
 export interface CarryResult {
   readonly totalReturn: number;
-  readonly annualizedReturn: number;
-  readonly monthlyCarry: number;
+  readonly annualizedReturn: number | null;
+  readonly monthlyCarry: number | null;
   readonly averageDivergence: number;
   readonly medianRebalanceHours: number;
   readonly maxDrawdown: number;
-  readonly sharpeRatio: number;
+  readonly sharpeRatio: number | null;
   readonly winRate: number;
   readonly fundingCollectedUsd: number;
   readonly rebalanceCount: number;
@@ -404,6 +478,8 @@ export function simulateDydxVsCexCarry(opts: {
   readonly targetNotionalUsd: number;
   readonly rebalanceCostBps: number;
   readonly withdrawalLatencyMinutes: number;
+  /** False when the caller's data-coverage gate forbids normalized metrics. */
+  readonly normalizedMetricsAllowed?: boolean;
 }): CarryResult {
   const {
     dydxHourly,
@@ -414,6 +490,7 @@ export function simulateDydxVsCexCarry(opts: {
     targetNotionalUsd,
     rebalanceCostBps,
     withdrawalLatencyMinutes,
+    normalizedMetricsAllowed = true,
   } = opts;
 
   // Sort snapshots ascending.
@@ -614,9 +691,13 @@ export function simulateDydxVsCexCarry(opts: {
   const totalReturn = (fundingCollectedUsd - rebalanceCostUsd) / initialEquity;
   const elapsedDays = (endTime - startTime) / (1000 * 60 * 60 * 24);
   const years = elapsedDays / 365.25;
-  const annualizedReturn = years > 0 ? Math.pow(1 + totalReturn, 1 / years) - 1 : 0;
+  const annualizedReturn = normalizedMetricsAllowed
+    ? years > 0 ? Math.pow(1 + totalReturn, 1 / years) - 1 : 0
+    : null;
   const totalMonths = elapsedDays / 30.44;
-  const monthlyCarry = totalMonths > 0 ? Math.pow(1 + totalReturn, 1 / totalMonths) - 1 : 0;
+  const monthlyCarry = normalizedMetricsAllowed
+    ? totalMonths > 0 ? Math.pow(1 + totalReturn, 1 / totalMonths) - 1 : 0
+    : null;
   const averageDivergence = mean(divergenceSeries);
   const halfLife = estimateHalfLifeHours(divergenceSeries);
 
@@ -651,7 +732,9 @@ export function simulateDydxVsCexCarry(opts: {
       ? returns.reduce((acc, r) => acc + (r - meanR) ** 2, 0) / (returns.length - 1)
       : 0;
   const stdR = Math.sqrt(variance);
-  const sharpeRatio = stdR > 0 ? (meanR / stdR) * Math.sqrt(24 * 365) : 0;
+  const sharpeRatio = normalizedMetricsAllowed
+    ? stdR > 0 ? (meanR / stdR) * Math.sqrt(24 * 365) : 0
+    : null;
 
   // Max DD.
   let peak = equityCurve[0]?.equity ?? initialEquity;
@@ -705,6 +788,12 @@ export function simulateDydxVsCexCarry(opts: {
 export interface RunOutput {
   readonly args: CliArgs;
   readonly result: CarryResult;
+  readonly coverage: DydxCoverageStatus;
+  readonly verdict: {
+    readonly valid: boolean;
+    readonly classification: "POSITIVE" | "NEGATIVE" | "MARGINAL" | null;
+    readonly reason: "coverage_sufficient" | "insufficient_dydx_coverage";
+  };
   readonly skippedTardisDays: readonly string[];
   readonly dydxHourlyCount: number;
   readonly cex8hCount: number;
@@ -713,7 +802,7 @@ export interface RunOutput {
 }
 
 // A `main` is exportálva van a 100% line-coverage tesztekhez.
-export async function main(): Promise<void> {
+export async function main(): Promise<RunOutput> {
   const args = parseArgs();
   const dydxSymbol = SYMBOL_TO_DYDX[args.symbol];
   const cexSymbol = SYMBOL_TO_CEX[args.symbol];
@@ -728,10 +817,21 @@ export async function main(): Promise<void> {
   const cexCsvPath = resolve(args.fundingCsvDir, `binance_${args.symbol}usdt_funding_8h.csv`);
   console.log(`[dydx-vs-cex] loading CEX funding: ${cexCsvPath}`);
   const cexAll = await loadCexFundingCsv(cexCsvPath, cexSymbol);
+  const endTimeExclusive = win.end.getTime() + DAY_MS;
   const cexInWindow = cexAll.filter(
-    (s) => s.fundingTime >= win.start.getTime() && s.fundingTime <= win.end.getTime() + 86_400_000,
+    (s) => s.fundingTime >= win.start.getTime() && s.fundingTime < endTimeExclusive,
   );
   console.log(`[dydx-vs-cex] CEX funding in window: ${cexInWindow.length} (of ${cexAll.length} total)`);
+
+  // Fail before touching the substantially larger dYdX cache. Apart from
+  // making the invalid-input path deterministic under parallel test load,
+  // there is no meaningful coverage verdict or carry replay without a CEX
+  // leg, so loading the other venue cannot affect this error.
+  if (cexInWindow.length === 0) {
+    throw new Error(
+      `No CEX funding data for ${args.symbol} in ${args.window}. Check ${cexCsvPath}.`,
+    );
+  }
 
   // Load dYdX hourly funding from Tardis.
   const { hourly: dydxHourlyAll, skippedDays } = await loadDydxHourly(
@@ -741,51 +841,51 @@ export async function main(): Promise<void> {
     args.skipTardisFetch,
   );
   const dydxInWindow = dydxHourlyAll.filter(
-    (h) => h.fundingTime >= win.start.getTime() && h.fundingTime <= win.end.getTime() + 86_400_000,
+    (h) => h.fundingTime >= win.start.getTime() && h.fundingTime < endTimeExclusive,
   );
   console.log(
     `[dydx-vs-cex] dYdX hourly in window: ${dydxInWindow.length} (skipped days: ${skippedDays.length})`,
   );
 
-  if (cexInWindow.length === 0) {
-    throw new Error(
-      `No CEX funding data for ${args.symbol} in ${args.window}. Check ${cexCsvPath}.`,
-    );
-  }
   if (dydxInWindow.length === 0 && !args.skipTardisFetch) {
     console.warn(
       `[dydx-vs-cex] WARNING: no dYdX hourly data. Run without --skip-tardis-fetch to populate.`,
     );
   }
 
+  const coverage = assessDydxCoverage(dydxInWindow, win.start.getTime(), endTimeExclusive);
+
   const t0 = Date.now();
   const result = simulateDydxVsCexCarry({
     dydxHourly: dydxInWindow,
     cex8h: cexInWindow,
     startTime: win.start.getTime(),
-    endTime: win.end.getTime(),
+    endTime: endTimeExclusive,
     initialEquity: args.initialEquity,
     targetNotionalUsd: args.targetNotionalUsd,
     rebalanceCostBps: args.rebalanceCostBps,
     withdrawalLatencyMinutes: args.withdrawalLatencyMinutes,
+    normalizedMetricsAllowed: coverage.sufficient,
   });
   const elapsedMs = Date.now() - t0;
 
-  const windowDays = (win.end.getTime() - win.start.getTime()) / (1000 * 60 * 60 * 24);
+  const windowDays = (endTimeExclusive - win.start.getTime()) / DAY_MS;
+  const normalizedMetricsValid = result.monthlyCarry !== null;
 
   console.log(`\n=== DYDX-VS-CEX CARRY RESULTS ${args.symbol} ${args.window} ===`);
   console.log(`Elapsed:                ${elapsedMs}ms`);
   console.log(`Window days:            ${windowDays.toFixed(0)}`);
   console.log(`Total return:           ${(result.totalReturn * 100).toFixed(2)}%`);
-  console.log(`Monthly carry:          ${(result.monthlyCarry * 100).toFixed(4)}%/mo`);
-  console.log(`Annualized:             ${(result.annualizedReturn * 100).toFixed(2)}%`);
+  console.log(`dYdX coverage:          ${coverage.status} (hours=${coverage.observedHourlySlots}/${coverage.expectedHourlySlots}, days=${coverage.observedDays}/${coverage.expectedDays})`);
+  console.log(`Monthly carry:          ${result.monthlyCarry !== null ? `${(result.monthlyCarry * 100).toFixed(4)}%/mo` : "N/A (insufficient dYdX coverage)"}`);
+  console.log(`Annualized:             ${result.annualizedReturn !== null ? `${(result.annualizedReturn * 100).toFixed(2)}%` : "N/A (insufficient dYdX coverage)"}`);
   console.log(`Avg divergence (8h-eq): ${(result.averageDivergence * 100).toFixed(4)}%/8h`);
   console.log(`  dYdX avg (8h-eq):     ${(result.avgDydx8hEquiv * 100).toFixed(4)}%/8h`);
   console.log(`  CEX avg (8h):         ${(result.avgCex8h * 100).toFixed(4)}%/8h`);
   console.log(`  dYdX median (8h-eq):  ${(result.medianDydx8hEquiv * 100).toFixed(4)}%/8h`);
   console.log(`  CEX median (8h):      ${(result.medianCex8h * 100).toFixed(4)}%/8h`);
   console.log(`Mean-reversion 1/2-life: ${result.meanReversionHalfLifeHours.toFixed(1)} hours`);
-  console.log(`Sharpe (hourly ann.):   ${result.sharpeRatio.toFixed(3)}`);
+  console.log(`Sharpe (hourly ann.):   ${result.sharpeRatio !== null ? result.sharpeRatio.toFixed(3) : "N/A (insufficient dYdX coverage)"}`);
   console.log(`Max DD:                 ${(result.maxDrawdown * 100).toFixed(4)}%`);
   console.log(`Win rate:               ${(result.winRate * 100).toFixed(2)}%`);
   console.log(`Funding periods:        ${result.fundingPeriods}`);
@@ -796,13 +896,21 @@ export async function main(): Promise<void> {
   console.log(`Kill-switch (7d <0.0005): TRIGGERED=${result.killSwitch7DayCompressionTriggered}, compressed_days=${result.compressedDivergenceDays}, data_sufficient_days=${result.dataSufficientDays}`);
 
   // Empirical verdict per Phase 25 #2 Track B §7.2 + T1 spec.
-  const verdict =
-    result.monthlyCarry > 0.005
+  const classification = result.monthlyCarry !== null
+    ? result.monthlyCarry > 0.005
       ? "POSITIVE"
       : result.monthlyCarry < 0.003
         ? "NEGATIVE"
-        : "MARGINAL";
-  console.log(`\n[dydx-vs-cex] TRACK B EMPIRICAL VERDICT: ${verdict} (monthlyCarry=${(result.monthlyCarry * 100).toFixed(4)}%, threshold POSITIVE > 0.5% / NEGATIVE < 0.3%)`);
+        : "MARGINAL"
+    : null;
+  const verdict: RunOutput["verdict"] = normalizedMetricsValid
+    ? { valid: true, classification, reason: "coverage_sufficient" }
+    : { valid: false, classification: null, reason: "insufficient_dydx_coverage" };
+  console.log(
+    normalizedMetricsValid
+      ? `\n[dydx-vs-cex] TRACK B EMPIRICAL VERDICT: ${classification} (monthlyCarry=${(result.monthlyCarry * 100).toFixed(4)}%, threshold POSITIVE > 0.5% / NEGATIVE < 0.3%)`
+      : `\n[dydx-vs-cex] TRACK B EMPIRICAL VERDICT: INVALID (insufficient dYdX coverage; required hourly>=${(coverage.minimumHourlyRatio * 100).toFixed(0)}% and daily>=${(coverage.minimumDailyRatio * 100).toFixed(0)}%)`,
+  );
 
   const out: RunOutput = {
     args,
@@ -811,6 +919,8 @@ export async function main(): Promise<void> {
       // Sample the equity curve to ~600 points to keep JSON readable.
       equityCurve: result.equityCurve.filter((_, idx) => idx % Math.max(1, Math.floor(result.equityCurve.length / 600)) === 0),
     },
+    coverage,
+    verdict,
     skippedTardisDays: skippedDays,
     dydxHourlyCount: dydxInWindow.length,
     cex8hCount: cexInWindow.length,
@@ -827,6 +937,7 @@ export async function main(): Promise<void> {
   await mkdir(resolve(absOutput, ".."), { recursive: true });
   await writeFile(absOutput, JSON.stringify(out, null, 2), "utf8");
   console.log(`[dydx-vs-cex] Saved: ${absOutput}`);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -840,4 +951,15 @@ export { parseDerivativeTickerCsv, aggregateToHourlyFunding };
 // deklarációkban — itt csak a re-export `from "../data/..."` típusok
 // maradnak, hogy ne legyen duplicate-export hiba.
 
-// Phase 35b — entry point removed for 100% function coverage.
+export function handleFatal(error: unknown): void {
+  console.error("[dydx-vs-cex] FATAL:", error);
+  process.exitCode = 1;
+}
+
+if (import.meta.main) {
+  main()
+    .then((out) => {
+      if (!out.coverage.sufficient) process.exitCode = 2;
+    })
+    .catch(handleFatal);
+}

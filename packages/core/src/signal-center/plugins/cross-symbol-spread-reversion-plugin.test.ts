@@ -340,7 +340,9 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     const bus = new SignalBus();
     p.subscribe(bus);
     // Build up legA history with stable price.
-    for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
+    for (let i = 0; i < 10; i++) {
+      p.recordClose("BTC/USDT", 100, TS_BASE + i * 86_400_000);
+    }
     // Now feed legB with diverging prices (BTC stable at 100, ETH goes 100 -> 90 -> 80 -> 60 -> 50).
     const ethPrices = [100, 100, 100, 100, 100, 100, 100, 100, 100, 50];
     let emitted: readonly { kind: string; side: string; strength: number }[] = [];
@@ -419,9 +421,9 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     // Now mean-revert ETH back toward 100. We need > minHoldBars to exit.
     p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 100);
-    p.onBar(makeBar(), makePluginState());
-    p.onBar(makeBar(), makePluginState());
-    p.onBar(makeBar(), makePluginState());
+    p.onBar(makeBar(TS_BASE), makePluginState());
+    p.onBar(makeBar(TS_BASE + 1), makePluginState());
+    p.onBar(makeBar(TS_BASE + 2), makePluginState());
     p.recordClose("ETH/USDT", 100);
     const exits = p.state.exitsEmitted;
     expect(exits).toBeGreaterThanOrEqual(1);
@@ -597,8 +599,8 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
     for (let i = 0; i < 10; i++) p.recordClose("ETH/USDT", i === 9 ? 50 : 100);
     expect(p.state.entriesEmitted).toBeGreaterThanOrEqual(1);
-    p.onBar(makeBar(), makePluginState());
-    p.onBar(makeBar(), makePluginState());
+    p.onBar(makeBar(TS_BASE), makePluginState());
+    p.onBar(makeBar(TS_BASE + 1), makePluginState());
     const ps = p.state.pairState.get(pairKey(["BTC/USDT", "ETH/USDT"]))!;
     expect(ps.holdBars).toBe(2);
   });
@@ -606,8 +608,8 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
   it("onBar is no-op for flat positions", () => {
     const p = new CrossSymbolSpreadReversionPlugin();
     p.subscribe(new SignalBus());
-    p.onBar(makeBar(), makePluginState());
-    p.onBar(makeBar(), makePluginState());
+    p.onBar(makeBar(TS_BASE), makePluginState());
+    p.onBar(makeBar(TS_BASE + 1), makePluginState());
     expect(p.state.barsProcessed).toBe(2);
     const ps = p.state.pairState.get(pairKey(["BTC/USDT", "ETH/USDT"]))!;
     expect(ps.holdBars).toBe(0);

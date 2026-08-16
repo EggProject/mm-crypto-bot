@@ -55,6 +55,21 @@ class NullStrategy implements Strategy {
   }
 }
 
+class StatefulProbeStrategy implements Strategy {
+  readonly name = "stateful-probe";
+  readonly timeframes = ["1h"] as const;
+  calls = 0;
+
+  onCandle(_ctx: StrategyContext): StrategySignal | null {
+    this.calls += 1;
+    return null;
+  }
+
+  warmup(): number {
+    return 0;
+  }
+}
+
 const POSITION_SIZE = {
   riskPerTrade: 0.01,
   kellyFraction: 0.25,
@@ -185,6 +200,43 @@ describe("runWalkForward", () => {
     expect(oosCandleOpens).toEqual(Array.from({ length: 24 }, (_, hour) => (24 + hour) * hourMs));
     expect(isCandleOpens.filter((timestamp) => oosCandleOpens.includes(timestamp))).toEqual([]);
     expect([...isCandleOpens, ...oosCandleOpens]).toEqual(candles.map((item) => item.timestamp));
+  });
+
+  it("strategy factoryval minden IS és OOS futás friss stratégiapéldányt kap", async () => {
+    const hourMs = 60 * 60 * 1000;
+    const candles = Array.from({ length: 72 }, (_, hour) => mkCandle(hour * hourMs, 100));
+    const instances: StatefulProbeStrategy[] = [];
+    const createStrategy = (): StatefulProbeStrategy => {
+      const strategy = new StatefulProbeStrategy();
+      instances.push(strategy);
+      return strategy;
+    };
+    const opts: BacktestOptions = {
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(72 * hourMs),
+      initialEquityUsd: 10_000,
+      feed: new MockFeed(candles),
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      // A legacy instance intentionally differs from the factory output. The
+      // factory must override it without mutating the caller's base options.
+      strategy: new NullStrategy(),
+    };
+
+    const result = await runWalkForward(opts, {
+      inSampleDays: 1,
+      outOfSampleDays: 1,
+      stepDays: 1,
+    }, createStrategy);
+
+    expect(result.windowCount).toBe(2);
+    expect(instances).toHaveLength(4);
+    expect(new Set(instances).size).toBe(4);
+    expect(instances.map((strategy) => strategy.calls)).toEqual([24, 24, 24, 24]);
   });
 });
 

@@ -205,6 +205,8 @@ interface SymbolState {
   volMultiplier: number | null;
   /** Sharpe observations count (for cold-start guard). */
   fundingSharpeObservations: number;
+  lastFundingTimestampMs: number | null;
+  lastCloseTimestampMs: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -319,6 +321,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
   private _unsubSizing: (() => void) | null = null;
   /** Whether subscribe() has been called. */
   private _wired = false;
+  private _boundSymbol: string | null = null;
 
   // ---------------------------------------------------------------------
   // Construction
@@ -424,6 +427,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
 
   subscribe(bus: SignalBus): void {
     this._bus = bus;
+    this._boundSymbol = bus.scopeSymbol ?? null;
     // Subscribe to CarrySignals — these carry the funding-rate samples
     // needed for the funding-Sharpe-based Kelly bucket. The bus
     // subscriber is the canonical injection path: the central runner
@@ -673,6 +677,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
     }
     this._bus = null;
     this._wired = false;
+    this._boundSymbol = null;
   }
 
   // ---------------------------------------------------------------------
@@ -705,6 +710,8 @@ export class HybridKellyPlugin implements StrategyPlugin {
     this.state.fundingSamplesReceived += 1;
 
     const ss = this._getOrCreateSymbolState(symbol);
+    if (ss.lastFundingTimestampMs !== null && timestampMs <= ss.lastFundingTimestampMs) return;
+    ss.lastFundingTimestampMs = timestampMs;
     ss.fundingSamples.push(fundingRate);
     ss.lastFundingRate = fundingRate;
     this.state.lastFundingRatePerSymbol.set(symbol, fundingRate);
@@ -735,11 +742,14 @@ export class HybridKellyPlugin implements StrategyPlugin {
    * Per-symbol enable filter is applied here: samples for non-enabled
    * symbols are silently dropped.
    */
-  recordClose(symbol: string, close: number): void {
+  recordClose(symbol: string, close: number, timestampMs?: number): void {
     if (!Number.isFinite(close) || close <= 0) return;
     if (!this.config.enabledSymbols.includes(symbol)) return;
 
     const ss = this._getOrCreateSymbolState(symbol);
+    const ts = timestampMs ?? ((ss.lastCloseTimestampMs ?? -1) + 1);
+    if (ss.lastCloseTimestampMs !== null && ts <= ss.lastCloseTimestampMs) return;
+    ss.lastCloseTimestampMs = ts;
     ss.closes.push(close);
 
     // Trim to volWindowDays (rolling 30d default).
@@ -840,12 +850,14 @@ export class HybridKellyPlugin implements StrategyPlugin {
    * `recordFundingSample(symbol, rate, ts)` for per-symbol routing).
    */
   private _onCarrySignal(s: CarrySignal): void {
-    const ts = s.timestampMs ?? Date.now();
-    // CarrySignal doesn't carry a symbol — broadcast to all enabled
-    // symbols as a fallback. The central runner should use
-    // `recordFundingSample(symbol, rate, ts)` for per-symbol routing.
-    for (const sym of this.config.enabledSymbols) {
-      this.recordFundingSample(sym, s.fundingRate, ts);
+    const sourceSep = s.source.indexOf(":");
+    const sourceSymbol = sourceSep >= 0 && sourceSep < s.source.length - 1
+      ? s.source.slice(sourceSep + 1)
+      : null;
+    const symbol = s.symbol ?? sourceSymbol ?? this._boundSymbol;
+    const symbols = symbol === null ? this.config.enabledSymbols : [symbol];
+    for (const attributedSymbol of symbols) {
+      this.recordFundingSample(attributedSymbol, s.fundingRate, s.timestampMs ?? 0);
     }
   }
 
@@ -855,6 +867,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
    * assert the 1:10 invariant (Layer 3), and re-emit.
    */
   private _onSizingSignal(original: SizingSignal): void {
+    if (original.transformedBy?.includes(this.metadata.name) === true) return;
     this.state.sizingSignalsReceived += 1;
 
     // Per-symbol enable check (skip non-enabled symbols).
@@ -926,6 +939,8 @@ export class HybridKellyPlugin implements StrategyPlugin {
       volMultiplier: newVolMultiplier,
       notional: newNotional,
       source: this.metadata.name,
+      ...(original.symbol === undefined ? {} : { symbol: original.symbol }),
+      transformedBy: [...(original.transformedBy ?? []), this.metadata.name],
       ...(original.timestampMs !== undefined
         ? { timestampMs: original.timestampMs }
         : {}),
@@ -965,6 +980,8 @@ export class HybridKellyPlugin implements StrategyPlugin {
         realizedDailyVol: null,
         volMultiplier: null,
         fundingSharpeObservations: 0,
+        lastFundingTimestampMs: null,
+        lastCloseTimestampMs: null,
       };
       this.state.symbolState.set(symbol, ss);
     }
@@ -1054,6 +1071,7 @@ function clamp(value: number, min: number, max: number): number {
  * generic-sizing upstream).
  */
 export function inferSymbol(signal: SizingSignal): string | null {
+  if (signal.symbol !== undefined) return signal.symbol;
   const src = signal.source;
   const idx = src.indexOf(":");
   if (idx < 0 || idx === src.length - 1) return null;

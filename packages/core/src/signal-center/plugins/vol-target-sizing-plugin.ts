@@ -159,6 +159,7 @@ interface SymbolVolState {
   seeded: boolean;
   /** Latest computed daily-realized volatility (stddev). null until seed + 2 returns. */
   realizedDailyVol: number | null;
+  lastTimestampMs: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -343,7 +344,7 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
    * symbol. Standard Phase 11.1c integration entry point for per-symbol
    * realized-vol computation.
    */
-  recordClose(symbol: string, close: number): void {
+  recordClose(symbol: string, close: number, timestampMs?: number): void {
     if (!Number.isFinite(close) || close <= 0) return;
     let ss = this.state.symbolState.get(symbol);
     if (!ss) {
@@ -352,10 +353,14 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
         lastClose: close,
         seeded: true,
         realizedDailyVol: null,
+        lastTimestampMs: timestampMs ?? 0,
       };
       this.state.symbolState.set(symbol, ss);
       return;
     }
+    const ts = timestampMs ?? ((ss.lastTimestampMs ?? -1) + 1);
+    if (ss.lastTimestampMs !== null && ts <= ss.lastTimestampMs) return;
+    ss.lastTimestampMs = ts;
     if (!ss.seeded) {
       ss.lastClose = close;
       ss.seeded = true;
@@ -602,8 +607,9 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   private _onSizingSignal(original: SizingSignal): void {
-    // Re-entrancy guard: if the signal was just emitted by US, ignore it.
-    if (original.source === this.metadata.name) {
+    // Explicit provenance makes composition finite even when multiple
+    // sizing transformers subscribe to the same synchronous bus.
+    if (original.transformedBy?.includes(this.metadata.name) === true) {
       return;
     }
     this.state.signalsReceived += 1;
@@ -668,6 +674,8 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
       volMultiplier: newVolMultiplier,
       notional: newNotional,
       source: this.metadata.name,
+      ...(original.symbol === undefined ? {} : { symbol: original.symbol }),
+      transformedBy: [...(original.transformedBy ?? []), this.metadata.name],
       ...(original.timestampMs !== undefined
         ? { timestampMs: original.timestampMs }
         : {}),
@@ -756,6 +764,7 @@ function clamp(value: number, min: number, max: number): number {
  * but still respects the 1:10 cap).
  */
 function inferSymbol(signal: SizingSignal): string | null {
+  if (signal.symbol !== undefined) return signal.symbol;
   const src = signal.source;
   const idx = src.indexOf(":");
   if (idx < 0 || idx === src.length - 1) return null;

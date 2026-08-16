@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-16T13:56:37.787Z",
+  "snapshot": {
+    "id": "repo-data-2026-07-09",
+    "path": "search-best-config/data-snapshot.json",
+    "sha256": "444bb93a8aa0ca5e0bda8d9ec1b80d40fef030e21b7d2525101b8a6b7d478334"
+  },
+  "execution": {
+    "codeRevision": "320972c0dc8f372f7eb67a5c230191e0959adf29",
+    "dirtyDiffSha256": "971eefe688b3437172349a01f6c275a8e6fc86c2afb97a04411e7ab5c43bd366",
+    "startedAt": "2026-08-16T13:46:42.903Z",
+    "finishedAt": "2026-08-16T13:54:04.172Z",
+    "wallTimeSeconds": 441.269,
+    "command": "bun search-best-config/scripts/run-search.ts --execute --strategy=all-runnable --phase=is,validation,oos --concurrency=2 --resume=true --output-dir=search-best-config/results/repo-data-2026-07-09/full-v1-320972c0-971eefe6"
+  },
+  "normalization": {
+    "codeRevision": "320972c0dc8f372f7eb67a5c230191e0959adf29",
+    "dirtyDiffSha256": "c14fcddd6d33bf3c48cfeb212ab5f8d73386c3d95046ac6b7fcaefab074296d5"
+  },
+  "counts": {
+    "manifestJobs": 1467,
+    "uniqueRunIds": 1467,
+    "statuses": {
+      "INVALID_MASK": 120,
+      "SUCCESS": 1347
+    },
+    "rawOutputs": 1347,
+    "provenanceSidecars": 1347,
+    "normalizedRows": 1467,
+    "csvRowsIncludingHeader": 1468,
+    "strategicSuccessRows": 1104,
+    "strategicRowsWithCompleteMetricsAndProvenance": 1104
+  },
+  "requiredStrategicMetrics": [
+    "totalReturnPct",
+    "monthlyReturnPct",
+    "annualizedReturnPct",
+    "sharpe",
+    "sortino",
+    "maxDrawdownPct",
+    "profitFactor",
+    "winRatePct",
+    "totalTrades"
+  ],
+  "artifacts": {
+    "manifest": "search-best-config/results/repo-data-2026-07-09/full-v1-320972c0-971eefe6/run-manifest.json",
+    "normalized": "search-best-config/results/repo-data-2026-07-09/full-v1-320972c0-971eefe6/normalized.ndjson",
+    "csv": "search-best-config/results/repo-data-2026-07-09/full-v1-320972c0-971eefe6/all-results.csv",
+    "markdown": "search-best-config/results/repo-data-2026-07-09/full-v1-320972c0-971eefe6/all-results.md",
+    "phaseStrategy": "search-best-config/results/repo-data-2026-07-09/full-v1-320972c0-971eefe6/phase-strategy-summary.json",
+    "pareto": "search-best-config/results/repo-data-2026-07-09/full-v1-320972c0-971eefe6/pareto-candidates.json"
+  }
+}

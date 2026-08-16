@@ -201,6 +201,7 @@ export interface DvolRegimeSizingPluginState {
  * "no scale-up" rule from the vol-target-sizing-plugin's design).
  */
 export class DvolRegimeSizingPlugin implements StrategyPlugin {
+  private _boundSymbol: string | null = null;
   // ---------------------------------------------------------------------
   // Static metadata
   // ---------------------------------------------------------------------
@@ -366,6 +367,7 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   subscribe(bus: SignalBus): void {
+    this._boundSymbol = bus.scopeSymbol ?? null;
     this._bus = bus;
     this._wired = true;
   }
@@ -376,8 +378,11 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
     // (The bar argument is the BTC bar; all symbols share the same
     // date in 1d bars, so we use bar.timestamp for the DVOL lookup
     // regardless of which symbol's bar is being processed.)
-    for (const symbol of this.config.enabledSymbols) {
-      this._processSymbol(symbol, bar.timestamp);
+    const symbols = this._boundSymbol === null
+      ? this.config.enabledSymbols
+      : [this._boundSymbol];
+    for (const symbol of symbols) {
+      if (this.config.enabledSymbols.includes(symbol)) this._processSymbol(symbol, bar.timestamp);
     }
   }
 
@@ -431,6 +436,7 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
   dispose(): void {
     this._bus = null;
     this._wired = false;
+    this._boundSymbol = null;
   }
 
   // ---------------------------------------------------------------------
@@ -532,9 +538,9 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
       volMultiplier,
       notional: clampedNotional,
       source: this.metadata.name,
+      symbol,
       timestampMs,
     };
-    void symbol; // currently unused in the SizingSignal shape; reserved for future symbol-tagged extension
     this.state.sizingSignalsEmitted += 1;
     this._bus.emit(signal);
   }

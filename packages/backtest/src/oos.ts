@@ -11,16 +11,21 @@
 // Sharpe legalább 60%-os, a stratégia élesíthető.
 
 import { runBacktest } from "./engine.js";
-import type { BacktestOptions, BacktestResult, WalkForwardConfig } from "./types.js";
+import type { BacktestOptions, BacktestResult, StrategyFactory, WalkForwardConfig } from "./types.js";
 
 /**
  `runWalkForward` — a walk-forward OOS validáció futtatása.
  A backtest motor minden OOS ablakra újrafuttatja a stratégiát, és
  összesíti az eredményeket (aggregált Sharpe, OOS/IS Sharpe arány).
+
+ Ha `strategyFactory` meg van adva, minden IS és OOS backtest külön,
+ friss stratégiapéldányt kap. A harmadik paraméter opcionális, így a
+ korábbi, `baseOptions.strategy`-t használó hívások kompatibilisek maradnak.
 */
 export async function runWalkForward(
   baseOptions: BacktestOptions,
   wf: WalkForwardConfig,
+  strategyFactory?: StrategyFactory,
 ): Promise<WalkForwardResult> {
   if (wf.inSampleDays <= 0 || wf.outOfSampleDays <= 0 || wf.stepDays <= 0) {
     throw new Error("WalkForward config must have positive day values");
@@ -43,6 +48,7 @@ export async function runWalkForward(
       ...baseOptions,
       startTime: isStart,
       endTime: isEnd,
+      ...(strategyFactory === undefined ? {} : { strategy: strategyFactory() }),
     });
     isResults.push(isResult);
     // Out-of-sample futtatás.
@@ -50,6 +56,7 @@ export async function runWalkForward(
       ...baseOptions,
       startTime: oosStart,
       endTime: oosEnd,
+      ...(strategyFactory === undefined ? {} : { strategy: strategyFactory() }),
     });
     oosResults.push(oosResult);
     windowStart += stepMs;

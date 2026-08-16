@@ -166,7 +166,7 @@ export interface PositionUpdate {
   readonly newTakeProfit?: number;
   readonly forceExit?: boolean;
   readonly exitPrice?: number;
-  readonly reason?: "trailing_stop" | "trend_reversal" | "stop_loss" | "take_profit" | "time_exit";
+  readonly reason?: "trailing_stop" | "trend_reversal" | "stop_loss" | "take_profit" | "time_exit" | "kill_switch";
 }
 
 /**
@@ -183,6 +183,13 @@ export interface Strategy {
     maga számolja azokat.
   */
   onCandle(ctx: StrategyContext): StrategySignal | null;
+  /**
+    Side-effect-only closed-bar observer. Engines call this while a position
+    is open so rolling state stays current without requesting a fresh entry.
+    Stateful `onCandle` implementations should invoke it themselves while
+    flat before evaluating an entry.
+  */
+  onCandleObserved?(ctx: StrategyContext): void;
   /**
     `warmup` — visszaadja, hogy hány LTF gyertyára van szükség a HTF
     indikátorok (EMA 200) bemelegedéséhez. A backtest az első

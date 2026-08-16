@@ -286,7 +286,14 @@ export class DecisionEngine implements DecisionEngineLike {
    * Returns an unsubscribe function (idempotent).
    */
   subscribe(bus: SignalBus): UnsubscribeFn {
-    const kinds = ["direction", "carry", "sizing", "risk"] as const;
+    const kinds = [
+      "direction",
+      "carry",
+      "sizing",
+      "risk",
+      "factor",
+      "funding-snapshot",
+    ] as const;
     for (const kind of kinds) {
       const unsub = bus.subscribe(kind, (s: Signal) => {
         this.ingest(s);
@@ -369,10 +376,13 @@ export class DecisionEngine implements DecisionEngineLike {
     // We accept all signals — defensively skip malformed ones.
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (typeof signal !== "object" || signal === null) return;
-    const arr = this.pendingBySymbol.get(this.symbol);
+    const attributedSymbol = signal.symbol ??
+      (signal.kind === "funding-snapshot" ? signal.asset : this.symbol);
+    if (attributedSymbol !== this.symbol) return;
+    const arr = this.pendingBySymbol.get(attributedSymbol);
     if (arr === undefined) {
       const fresh: Signal[] = [signal];
-      this.pendingBySymbol.set(this.symbol, fresh);
+      this.pendingBySymbol.set(attributedSymbol, fresh);
     } else {
       arr.push(signal);
     }
@@ -405,13 +415,8 @@ export class DecisionEngine implements DecisionEngineLike {
     let totalStrength = 0;
     const sourceWeights: Record<string, number> = {};
     let carrySizeMultiplier = 1.0;
-    let sizingNotional = 0;
-    let sizingNotionalCount = 0;
-    // Phase 14D: SizingSignal.volMultiplier is composed via min() with
-    // carrySizeMultiplier × defensiveSizeModifier. This is the
-    // contract the Phase 14C research assumed — DVOL's forward-looking
-    // volMultiplier scales position size during stress windows.
-    let sizingVolMultiplier = 1.0;
+    let sizingNotional: number | null = null;
+    let forceClose = false;
 
     for (const s of signals) {
       if (isDirection(s)) {
@@ -436,22 +441,21 @@ export class DecisionEngine implements DecisionEngineLike {
         if (carrySizeMultiplier > 1.5) carrySizeMultiplier = 1.5;
         sourceWeights[s.source] = (sourceWeights[s.source] ?? 0) + this.weightFor(s.source);
       } else if (isSizing(s)) {
-        // Average SizingSignals — keep it simple (most plugins won't
-        // emit multiples per bar; this is a defensive aggregation).
-        sizingNotional += s.notional;
-        sizingNotionalCount += 1;
-        // Phase 14D: track minimum SizingSignal.volMultiplier (defensive
-        // composition). The smallest volMultiplier among all sizing
-        // sources wins — DVOL's stress signal reduces position size
-        // before realized vol picks up.
-        if (s.volMultiplier < sizingVolMultiplier) {
-          sizingVolMultiplier = s.volMultiplier;
-        }
+        // `notional` is the final sizing-plugin output. Pick the most
+        // defensive proposal and never apply volMultiplier a second time.
+        const candidate = Math.abs(s.notional);
+        sizingNotional = sizingNotional === null
+          ? candidate
+          : Math.min(sizingNotional, candidate);
+        sourceWeights[s.source] = sourceWeights[s.source] ?? 0;
       } else if (isRisk(s)) {
         // Defensive RiskSignals with sizeModifier override.
         if (s.sizeModifier !== undefined && s.sizeModifier < this._defensiveSizeModifier) {
           // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           this._defensiveSizeModifier = Math.max(0, s.sizeModifier);
+        }
+        if (s.breach === true || (s.closeNotionalUsd ?? 0) > 0) {
+          forceClose = true;
         }
         sourceWeights[s.source] = (sourceWeights[s.source] ?? 0) + this.weightFor(s.source);
       } else if (isFactor(s) || isFundingSnapshot(s)) {
@@ -488,20 +492,20 @@ export class DecisionEngine implements DecisionEngineLike {
       confidence = 1 - Math.abs(longWeight - shortWeight) / Math.max(totalStrength, 1e-9);
     }
 
-    // Final size multiplier — compose carry × defensive × sizingVolMultiplier
-    // (min() composition: the more defensive of all three wins).
-    // Phase 14D: added sizingVolMultiplier (SizingSignal min) so DVOL
-    // can scale position size during acute stress.
+    if (forceClose) side = "flat";
+
+    // Sizing plugins already applied their own Kelly/vol transforms to
+    // `notional`; only cross-cutting carry and risk modifiers apply here.
     const sizeMultiplier = Math.max(
       0,
-      Math.min(1, carrySizeMultiplier * this._defensiveSizeModifier * sizingVolMultiplier),
+      Math.min(1, carrySizeMultiplier * this._defensiveSizeModifier),
     );
 
     // Notional: prefer SizingSignals' average notional, scaled by side
     // sign. If no sizing signals, derive from baseNotional × sizeMult × confidence.
     let notionalUsd: number;
-    if (sizingNotionalCount > 0 && sizingNotional > 0) {
-      notionalUsd = (sizingNotional / sizingNotionalCount) * sizeMultiplier;
+    if (sizingNotional !== null && sizingNotional > 0) {
+      notionalUsd = sizingNotional * sizeMultiplier;
     } else {
       // No SizingSignals → notional = 0 (decision has no executable size).
       notionalUsd = 0;

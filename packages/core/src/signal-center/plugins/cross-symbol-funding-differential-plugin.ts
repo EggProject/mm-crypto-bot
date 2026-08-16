@@ -101,6 +101,8 @@ interface PairFundingState {
   tsAMs: number | null;
   tsBMs: number | null;
   carryActive: boolean;
+  activeHighLeg: string | null;
+  hasEvaluated: boolean;
   lastDifferential: number | null;
   entryCount: number;
   exitCount: number;
@@ -279,6 +281,8 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
         tsAMs: null,
         tsBMs: null,
         carryActive: false,
+        activeHighLeg: null,
+        hasEvaluated: false,
         lastDifferential: null,
         entryCount: 0,
         exitCount: 0,
@@ -449,6 +453,8 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
         tsAMs: null,
         tsBMs: null,
         carryActive: false,
+        activeHighLeg: null,
+        hasEvaluated: false,
         lastDifferential: null,
         entryCount: 0,
         exitCount: 0,
@@ -493,13 +499,20 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       if (symbol !== legA && symbol !== legB) continue;
       const ps = this.state.pairState.get(pairKey(pair))!;
       if (symbol === legA) {
+        if (timestampMs !== undefined && ps.tsAMs !== null && timestampMs <= ps.tsAMs) continue;
         ps.fundingA = rate;
         ps.tsAMs = timestampMs ?? null;
       } else {
+        if (timestampMs !== undefined && ps.tsBMs !== null && timestampMs <= ps.tsBMs) continue;
         ps.fundingB = rate;
         ps.tsBMs = timestampMs ?? null;
       }
       if (ps.fundingA === null || ps.fundingB === null) continue;
+      if (
+        ps.tsAMs !== null &&
+        ps.tsBMs !== null &&
+        Math.abs(ps.tsAMs - ps.tsBMs) > 5_000
+      ) continue;
 
       const differential = computeFundingDifferential(ps.fundingA, ps.fundingB);
       if (differential === null) continue;
@@ -508,37 +521,41 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       if (differential > this.config.minDifferentialPer8h) {
         const highLeg = ps.fundingA >= ps.fundingB ? legA : legB;
         const lowLeg = ps.fundingA >= ps.fundingB ? legB : legA;
-        if (!ps.carryActive) {
+        if (!ps.carryActive || ps.activeHighLeg !== highLeg) {
           ps.carryActive = true;
+          ps.activeHighLeg = highLeg;
           ps.entryCount += 1;
-        }
-        const strength = clampStrengthFromDifferential(differential);
-        const dirHigh = this._buildDirectionSignal(highLeg, "short", strength, timestampMs);
-        const dirLow = this._buildDirectionSignal(lowLeg, "long", strength, timestampMs);
-        ps.lastDirectionA = highLeg === legA ? dirHigh : dirLow;
-        ps.lastDirectionB = lowLeg === legA ? dirLow : dirHigh;
-        directionSignals.push(dirHigh, dirLow);
+          const strength = clampStrengthFromDifferential(differential);
+          const dirHigh = this._buildDirectionSignal(highLeg, "short", strength, timestampMs);
+          const dirLow = this._buildDirectionSignal(lowLeg, "long", strength, timestampMs);
+          ps.lastDirectionA = highLeg === legA ? dirHigh : dirLow;
+          ps.lastDirectionB = lowLeg === legA ? dirLow : dirHigh;
+          directionSignals.push(dirHigh, dirLow);
 
-        const carry = this._buildCarrySignal(
-          differential,
-          "high",
-          highLeg,
-          lowLeg,
-          timestampMs,
-        );
-        ps.lastCarrySignal = carry;
-        carrySignals.push(carry);
-      } else {
-        if (ps.carryActive) {
-          ps.carryActive = false;
-          ps.exitCount += 1;
+          const carry = this._buildCarrySignal(
+            differential,
+            "high",
+            highLeg,
+            lowLeg,
+            timestampMs,
+          );
+          ps.lastCarrySignal = carry;
+          carrySignals.push(carry);
         }
-        const strength = clampStrengthFromDifferential(differential);
-        const dirA = this._buildDirectionSignal(legA, "flat", strength, timestampMs);
-        const dirB = this._buildDirectionSignal(legB, "flat", strength, timestampMs);
-        ps.lastDirectionA = dirA;
-        ps.lastDirectionB = dirB;
-        directionSignals.push(dirA, dirB);
+        ps.hasEvaluated = true;
+      } else {
+        if (ps.carryActive || !ps.hasEvaluated) {
+          ps.carryActive = false;
+          ps.activeHighLeg = null;
+          ps.exitCount += 1;
+          const strength = clampStrengthFromDifferential(differential);
+          const dirA = this._buildDirectionSignal(legA, "flat", strength, timestampMs);
+          const dirB = this._buildDirectionSignal(legB, "flat", strength, timestampMs);
+          ps.lastDirectionA = dirA;
+          ps.lastDirectionB = dirB;
+          directionSignals.push(dirA, dirB);
+        }
+        ps.hasEvaluated = true;
       }
     }
     return { directionSignals, carrySignals };
@@ -597,6 +614,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       strength,
       // Phase 14A: source suffixed with leg symbol for leg attribution.
       source: `${this.metadata.name}:${symbol}`,
+      symbol,
     };
     const tsField =
       timestampMs !== undefined ? { timestampMs } : {};
@@ -631,6 +649,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       fundingRate,
       regime,
       source: `${this.metadata.name}:${highLeg}->${lowLeg}`,
+      symbol: highLeg,
     };
     const tsField =
       timestampMs !== undefined ? { timestampMs } : {};

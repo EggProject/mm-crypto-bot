@@ -47,6 +47,7 @@ import {
   extractSizingSignal,
   inferSymbol,
 } from "./hybrid-kelly-plugin.js";
+import { VolTargetSizingPlugin } from "./vol-target-sizing-plugin.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -139,6 +140,28 @@ describe("HybridKellyPlugin — construction and metadata", () => {
     const p = new HybridKellyPlugin();
     expect(p.metadata.description).toContain("Phase 11.1e");
     expect(p.metadata.description).toContain("Phase 9 9E");
+  });
+});
+
+describe("HybridKellyPlugin — sizing-transform composition", () => {
+  it("terminates deterministically when composed with VolTargetSizingPlugin", () => {
+    const bus = mkBus();
+    const hybrid = new HybridKellyPlugin({ enabledSymbols: ["BTC/USDT"] });
+    const volTarget = new VolTargetSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+    hybrid.subscribe(bus);
+    volTarget.subscribe(bus);
+
+    bus.emit(mkSizing({
+      symbol: "BTC/USDT",
+      source: "alpha",
+      timestampMs: 1_700_000_000_000,
+    }));
+
+    const sizingSignals = bus.snapshot().filter(isSizing);
+    expect(sizingSignals).toHaveLength(5);
+    expect(sizingSignals.filter((s) => s.transformedBy?.includes(hybrid.metadata.name))).toHaveLength(3);
+    expect(sizingSignals.filter((s) => s.transformedBy?.includes(volTarget.metadata.name))).toHaveLength(3);
+    expect(sizingSignals.filter((s) => s.transformedBy?.length === 2)).toHaveLength(2);
   });
 });
 

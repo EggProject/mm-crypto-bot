@@ -218,7 +218,7 @@ export class NullLiquidationAdapter implements ILiquidationFeedAdapter {
     return Promise.resolve({
       source: "null",
       symbol,
-      timestampMs: Date.now(),
+      timestampMs: 0,
       oiDrop24h: 0,
       lsrRatio: 1.0,
       top5AskDepthUsd: 0,
@@ -450,6 +450,8 @@ export function evaluateCascadeHeuristic(
 // ---------------------------------------------------------------------------
 
 export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
+  private _lastPollAtMs: number | null = null;
+  private _boundSymbol: string | null = null;
   // ---------------------------------------------------------------------
   // Static metadata
   // ---------------------------------------------------------------------
@@ -460,6 +462,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     edgeClass: "risk", // defensive overlay
     capitalRequirement: 0, // read-only defensive signal plugin
     maxLeverage: ONE_TO_TEN_LEVERAGE, // LAYER 1 defense — 1:10 mandate
+    onBarMode: "async",
     description:
       "Phase 12 Track C NINTH drop-in (DEFENSIVE overlay, read-only). " +
       "Detects imminent liquidation cascades on Hyperliquid + dYdX v4 + GMX v2 " +
@@ -708,6 +711,20 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   public subscribe(bus: SignalBus): void {
+    const allAdaptersAreBuiltInStubs = this.config.adapters.every((adapter) =>
+      adapter instanceof NullLiquidationAdapter ||
+      adapter instanceof ZeroArchiveLiquidationAdapter ||
+      adapter instanceof HypurrScanLiquidationAdapter ||
+      adapter instanceof GoldRushLiquidationAdapter ||
+      adapter instanceof CoinGlassLiquidationAdapter ||
+      adapter instanceof HyperTrackerLiquidationAdapter
+    );
+    if (allAdaptersAreBuiltInStubs) {
+      throw new Error(
+        "[PerpDexLiquidationSignalsPlugin] no operational liquidation adapter configured; refusing inert startup",
+      );
+    }
+    this._boundSymbol = bus.scopeSymbol ?? null;
     this._bus = bus;
     // LAYER 2 — structural sanity check. The plugin holds ZERO notional
     // by construction (defensive signal only); the assertion catches
@@ -722,18 +739,24 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
   // cascade-imminent AND throttle cooldown elapsed).
   // ---------------------------------------------------------------------
 
-  public onBar(bar: Bar, _state: PluginState): void {
+  public async onBar(bar: Bar, _state: PluginState): Promise<void> {
     if (!this._wired || this._bus === null) {
       // Defensive — refuse to operate before subscribe() is called.
       return;
     }
     this.state.barsProcessed += 1;
+    const intervalMs = this.config.pollIntervalSec * 1_000;
+    if (this._lastPollAtMs !== null && bar.timestamp - this._lastPollAtMs < intervalMs) return;
+    this._lastPollAtMs = bar.timestamp;
 
     // Evaluate each enabled symbol. We poll all 5 adapters per symbol
     // and pick the FRESHEST non-stale snapshot (most-recent timestampMs).
     // In backtest mode the adapters return deterministic mock snapshots.
-    for (const symbol of this.config.enabledSymbols) {
-      void this._evaluateSymbol(symbol, bar.timestamp);
+    const symbols = this._boundSymbol === null
+      ? this.config.enabledSymbols
+      : [this._boundSymbol];
+    for (const symbol of symbols) {
+      if (this.config.enabledSymbols.includes(symbol)) await this._evaluateSymbol(symbol, bar.timestamp);
     }
   }
 
@@ -750,7 +773,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     );
     // Pick the freshest non-stale snapshot.
     const fresh = snapshots
-      .filter((s) => !s.stale)
+      .filter((s) => !s.stale && s.timestampMs <= timestampMs)
       .sort((a, b) => b.timestampMs - a.timestampMs);
     if (fresh.length === 0) {
       this.state.totalStaleFeedsSkips += 1;
@@ -784,6 +807,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     const sig: RiskSignal = {
       kind: "risk",
       source: this.metadata.name,
+      symbol,
       varDaily95: 0,
       correlationPenalty: 0,
       drawdownLimit: 0,
@@ -859,6 +883,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   public reset(): void {
+    this._lastPollAtMs = null;
     this.state.perSymbol.clear();
     this._throttle.clear();
     // Reset counters but keep config + bus + wired flag.
@@ -874,6 +899,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
   public dispose(): void {
     this._bus = null;
     this._wired = false;
+    this._boundSymbol = null;
     this._throttle.clear();
   }
 }

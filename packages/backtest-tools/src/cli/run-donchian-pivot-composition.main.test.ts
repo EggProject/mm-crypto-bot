@@ -14,7 +14,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import { main, parseSymbols } from "./run-donchian-pivot-composition.js";
+import {
+  calculateMonthlyReturn,
+  handleFatal,
+  main,
+  parseSymbols,
+} from "./run-donchian-pivot-composition.js";
+
+const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
 /** OHLCV writer — generates a dataset that triggers Donchian-Pivot signals. */
 function writeTinyOhlcv(dataDir: string): void {
@@ -100,6 +107,65 @@ async function withArgv<T>(args: readonly string[], fn: () => Promise<T>): Promi
 }
 
 describe("run-donchian-pivot-composition — main() in-process", () => {
+  it("a közvetlen bun run belépési pont meghívja a main()-t", async () => {
+    const outFile = resolve(outputDir, "dp-direct-entry.json");
+    const process = Bun.spawn([
+      "bun",
+      "run",
+      "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+      "--symbol=BTC/USDT",
+      "--timeframe=15m",
+      "--min-consensus=2",
+      "--max-position-pct-equity=0.04",
+      "--start=2024-01-01",
+      "--end=2024-01-04",
+      "--equity=10000",
+      `--data-dir=${dataDir}`,
+      `--output=${outFile}`,
+    ], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(process.stdout).text(),
+      new Response(process.stderr).text(),
+      process.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(stdout).toContain("=== RESULTS donchian-pivot 2of2 BTC/USDT 15m ===");
+    expect(existsSync(outFile)).toBe(true);
+  });
+
+  it("a negatív teljes hozamot geometriailag helyes negatív havi hozammá alakítja", () => {
+    expect(calculateMonthlyReturn(-0.36, 12)).toBeCloseTo(Math.pow(0.64, 1 / 12) - 1, 12);
+    expect(calculateMonthlyReturn(-0.36, 12)).toBeLessThan(0);
+  });
+
+  it("a teljes veszteséget biztonságosan -100% havi hozamként kezeli", () => {
+    expect(calculateMonthlyReturn(-1, 12)).toBe(-1);
+    expect(calculateMonthlyReturn(-1.1, 12)).toBe(-1);
+  });
+
+  it("a közvetlen belépési pont hibakezelője nem nulla exit kódot állít", () => {
+    const originalError = console.error;
+    const originalExitCode = process.exitCode;
+    const errors: string[] = [];
+    console.error = (...args: unknown[]) => {
+      errors.push(args.map(String).join(" "));
+    };
+    try {
+      handleFatal(new Error("entry failure"));
+      expect(Number(process.exitCode)).toBe(1);
+      expect(errors.join("\n")).toContain("[donchian-pivot] FATAL: Error: entry failure");
+    } finally {
+      console.error = originalError;
+      process.exitCode = originalExitCode ?? 0;
+    }
+  });
+
   it("single-symbol mode: JSON output megíródik, minden riportsor megjelenik", async () => {
     const outFile = resolve(outputDir, "dp-single.json");
     const stdoutChunks: string[] = [];

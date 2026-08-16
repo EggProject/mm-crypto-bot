@@ -70,3 +70,6 @@ Desktop.ini
 # === Runtime state files (bot persistent state) ===
 data/
 backtest-results/
+
+# Reprodukálható backtest jobonkénti nyers outputok (a kompakt összesítők követettek)
+search-best-config/results/**/raw/

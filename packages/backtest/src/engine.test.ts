@@ -609,7 +609,10 @@ describe("runBacktest — signal.confidence wiring", () => {
    * Run a 10-candle backtest with the given strategy. Candles rise from
    * 100 → 145 so the take-profit (130) is hit and the trade closes cleanly.
    */
-  async function runConfidenceBacktest(strategy: ConfidenceStrategy): Promise<BacktestResult> {
+  async function runConfidenceBacktest(
+    strategy: ConfidenceStrategy,
+    onPositionSized?: BacktestOptions["onPositionSized"],
+  ): Promise<BacktestResult> {
     const candles: Candle[] = [];
     for (let i = 0; i < 10; i++) {
       candles.push(mkCandle(i * HOUR_MS, 100 + i * 5, { high: 150, low: 95 }));
@@ -627,6 +630,7 @@ describe("runBacktest — signal.confidence wiring", () => {
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
       strategy,
+      ...(onPositionSized === undefined ? {} : { onPositionSized }),
     };
     return runBacktest(opts);
   }
@@ -638,6 +642,18 @@ describe("runBacktest — signal.confidence wiring", () => {
     // 100 <= 1000 <= 2000 → no clamp
     // toBeCloseTo guards against IEEE-754 float drift in (10000 * 0.01 * 1.0) / 0.10.
     expect(result.trades[0]!.notionalUsd).toBeCloseTo(1000, 6);
+  });
+
+  it("reports the exact post-confidence notional through the read-only sizing observer", async () => {
+    const events: Parameters<NonNullable<BacktestOptions["onPositionSized"]>>[0][] = [];
+    await runConfidenceBacktest(new ConfidenceStrategy(0.5), (event) => events.push(event));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      timestamp: HOUR_MS,
+      equityUsd: EQUITY,
+      notionalUsd: 500,
+    });
+    expect(events[0]!.signal.confidence).toBe(0.5);
   });
 
   it("confidence=0.7 → riskPerTrade scaled to 70% (shallow entry)", async () => {
@@ -959,5 +975,49 @@ describe("runBacktest — strategy callbacks (coverage)", () => {
     expect(result.totalTrades).toBe(1);
     expect(result.trades[0]!.exitReason).toBe("trailing_stop");
     expect(strategy.lastExitReason).toBe("trailing_stop");
+  });
+});
+
+describe("runBacktest — open-position state observation", () => {
+  it("updates strategy state on every still-open bar without evaluating another entry", async () => {
+    class ObservedStrategy implements Strategy {
+      readonly name = "observed";
+      readonly timeframes = ["1h"] as const;
+      entryCalls = 0;
+      observedCalls = 0;
+      onCandle(ctx: StrategyContext): StrategySignal | null {
+        this.entryCalls += 1;
+        if (this.entryCalls > 1) return null;
+        return {
+          side: "buy",
+          confidence: 1,
+          reason: "hold",
+          stopLoss: ctx.candle.close * 0.1,
+          takeProfit: ctx.candle.close * 10,
+        };
+      }
+      onCandleObserved(): void { this.observedCalls += 1; }
+      warmup(): number { return 0; }
+    }
+    const strategy = new ObservedStrategy();
+    const candles = Array.from({ length: 4 }, (_, i) => mkCandle(i * HOUR_MS, 100, { high: 101, low: 99 }));
+    await runBacktest({
+      symbol: "BTC/USDC",
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "1h",
+      startTime: new Date(0),
+      endTime: new Date(candles.at(-1)!.timestamp),
+      initialEquityUsd: 10_000,
+      feed: new MockFeed(candles),
+      costModel: COST_MODEL,
+      positionSize: POSITION_SIZE,
+      strategy,
+    });
+    expect(strategy.entryCalls).toBe(1);
+    // Entry bar is handled by onCandle; the final bar exits via the engine's
+    // end-of-window rule before observation. The two intervening open bars
+    // must update state without another entry evaluation.
+    expect(strategy.observedCalls).toBe(2);
   });
 });

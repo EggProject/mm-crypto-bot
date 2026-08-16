@@ -288,10 +288,17 @@ export class SignalCenterV1 {
       );
     }
     this.config = merged;
-    this.bus = createSignalBus({ mode: "backtest" });
+    this.bus = createSignalBus({
+      mode: "backtest",
+      ...(merged.symbol === undefined ? {} : { scopeSymbol: merged.symbol }),
+    });
     this.registry = createStrategyRegistry();
     this.riskEngine = new PortfolioRiskEngine(merged.riskEngine ?? DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG);
     this.telemetry = new StrategyTelemetry(merged.telemetry ?? DEFAULT_STRATEGY_TELEMETRY_CONFIG);
+    this.bus.setSignalGate((signal) => {
+      const sourcePlugin = signal.source.split(":", 1)[0]!;
+      return !this.telemetry.isPluginDisabled(sourcePlugin);
+    });
 
     // Subscribe the central risk engine + telemetry to ALL bus signals.
     // The risk engine only cares about SizingSignals (which carry notional
@@ -307,6 +314,12 @@ export class SignalCenterV1 {
       this.ingestSignal(s);
     });
     this.bus.subscribe("risk", (s: Signal) => {
+      this.ingestSignal(s);
+    });
+    this.bus.subscribe("factor", (s: Signal) => {
+      this.ingestSignal(s);
+    });
+    this.bus.subscribe("funding-snapshot", (s: Signal) => {
       this.ingestSignal(s);
     });
   }
@@ -416,6 +429,7 @@ export class SignalCenterV1 {
    * `riskEngine.clear()`, and `telemetry.clear()`.
    */
   reset(): void {
+    this.registry.disposeAll();
     this.registry.resetAll();
     this.bus.clear();
     this.riskEngine.clear();
@@ -453,34 +467,34 @@ export class SignalCenterV1 {
     // closure. Errors are swallowed at the registry layer (defensive
     // isolation — one misbehaving plugin doesn't crash the whole stack).
     this.registry.onBarAll(bar, null);
-    // Layer 3 of 3-layer defense: per-bar leverage invariant guard.
-    // We don't have direct access to the aggregate notional from the bus
-    // (bus is signal-event based, not position-state based). The risk
-    // engine tracks positions internally via its submitSignal method.
-    // Since plugins don't directly submit to the risk engine (they emit
-    // on the bus, and we route), we need to call leverageInvariantGuard
-    // explicitly here using the current risk engine state.
-    //
-    // We guard with a small tolerance: if the guard fires, we emit a
-    // RiskSignal on the bus and mark a snapshot of the breach.
-    const breach = this.riskEngine.leverageInvariantGuard(this.config.initialEquity);
-    if (breach !== null) {
-      // 3rd layer fired: aggregate leverage breached. Emit a RiskSignal
-      // on the bus so subscribers can react. We don't throw here —
-      // per-bar guards should be observable, not crashing.
-      // Translate the risk engine's RiskSignal shape (Track B) into the
-      // Signal Center's RiskSignal shape (Track A) for bus emission.
-      const scBreach: ScRiskSignal = {
-        kind: "risk",
-        source: breach.source,
-        varDaily95: breach.varDaily95 ?? 0,
-        correlationPenalty: 0,
-        drawdownLimit: 0,
-        timestampMs: breach.timestamp,
-      };
-      this.bus.emit(scBreach);
-    }
+    this.emitLeverageBreachIfNeeded();
     return this.telemetry.snapshot();
+  }
+
+  /** Async causal variant required by plugins backed by async adapters. */
+  async onBarAsync(bar: Bar): Promise<TelemetrySnapshot> {
+    if (!this._started) return this.telemetry.snapshot();
+    this._barCount += 1;
+    await this.registry.onBarAllAsync(bar, null);
+    this.emitLeverageBreachIfNeeded();
+    return this.telemetry.snapshot();
+  }
+
+  private emitLeverageBreachIfNeeded(): void {
+    const breach = this.riskEngine.leverageInvariantGuard(this.config.initialEquity);
+    if (breach === null) return;
+    const signal: ScRiskSignal = {
+      kind: "risk",
+      source: breach.source,
+      varDaily95: breach.varDaily95 ?? 0,
+      correlationPenalty: 0,
+      drawdownLimit: 0,
+      timestampMs: breach.timestamp,
+      breach: true,
+      reason: breach.reason,
+      ...(this.config.symbol === undefined ? {} : { symbol: this.config.symbol }),
+    };
+    this.bus.emit(signal);
   }
 
   // -------------------------------------------------------------------------
@@ -586,7 +600,7 @@ export class SignalCenterV1 {
     // Track the source's first/last seen timestamp (every signal kind).
     // Translate Track A's signal shapes (Signal Center) into Track B's
     // risk engine signal shapes for the telemetry module.
-    const telemetrySignal = toRiskEngineSignal(signal, this.config.symbol ?? "?");
+    const telemetrySignal = toRiskEngineSignal(signal, signal.symbol ?? this.config.symbol ?? "?");
     this.telemetry.submitSignal(telemetrySignal);
     // Route SizingSignals to the risk engine — they carry notional info
     // that the risk engine aggregates into positions. Note: the risk
@@ -609,10 +623,10 @@ export class SignalCenterV1 {
       const reSignal: RiskEngineSizingSignal = {
         kind: "sizing",
         source: signal.source,
-        symbol: this.config.symbol ?? "?",
+        symbol: signal.symbol ?? this.config.symbol ?? "?",
         effectiveNotionalUsd: signal.notional,
         leverage: signal.notional > 0 ? signal.notional / this.config.initialEquity : 0,
-        timestamp: signal.timestampMs ?? Date.now(),
+        timestamp: signal.timestampMs ?? 0,
       };
       this.riskEngine.submitSignal(reSignal);
       this._signalsSubmitted += 1;
@@ -627,9 +641,9 @@ export class SignalCenterV1 {
         source: signal.source,
         drawdownLimit: signal.drawdownLimit,
         varDaily95: signal.varDaily95,
-        reason: signal.source,
-        timestamp: signal.timestampMs ?? Date.now(),
-        breach: false,
+        reason: signal.reason ?? signal.source,
+        timestamp: signal.timestampMs ?? 0,
+        breach: signal.breach ?? false,
       };
       this.riskEngine.submitSignal(reRisk);
       this._signalsSubmitted += 1;
@@ -709,13 +723,14 @@ export function toRiskEngineSignal(
   signal: Signal,
   symbol: string,
 ): importRiskEngine.Signal {
-  const ts = signal.timestampMs ?? Date.now();
+  const ts = signal.timestampMs ?? 0;
+  const attributedSymbol = signal.symbol ?? symbol;
   switch (signal.kind) {
     case "direction":
       return {
         kind: "direction",
         source: signal.source,
-        symbol,
+        symbol: attributedSymbol,
         side: signal.side === "flat" ? "long" : signal.side,
         confidence: signal.strength,
         effectiveNotionalUsd: 0,
@@ -725,7 +740,7 @@ export function toRiskEngineSignal(
       return {
         kind: "carry",
         source: signal.source,
-        symbol,
+        symbol: attributedSymbol,
         effectiveNotionalUsd: 0,
         timestamp: ts,
       };
@@ -733,7 +748,7 @@ export function toRiskEngineSignal(
       return {
         kind: "sizing",
         source: signal.source,
-        symbol,
+        symbol: attributedSymbol,
         effectiveNotionalUsd: signal.notional,
         leverage: signal.notional > 0 ? signal.notional / 10_000 : 0,
         timestamp: ts,
@@ -742,12 +757,12 @@ export function toRiskEngineSignal(
       return {
         kind: "risk",
         source: signal.source,
-        symbol,
+        symbol: attributedSymbol,
         drawdownLimit: signal.drawdownLimit,
         varDaily95: signal.varDaily95,
         reason: signal.source,
         timestamp: ts,
-        breach: false,
+        breach: signal.breach ?? false,
       };
     case "factor":
       // Phase 12+ — read-only FactorSignal (e.g., CexNetFlowRegimePlugin)
@@ -758,7 +773,7 @@ export function toRiskEngineSignal(
       return {
         kind: "carry",
         source: signal.source,
-        symbol,
+        symbol: attributedSymbol,
         effectiveNotionalUsd: 0,
         timestamp: ts,
       };
@@ -773,7 +788,7 @@ export function toRiskEngineSignal(
       return {
         kind: "direction",
         source: signal.source,
-        symbol,
+        symbol: attributedSymbol,
         // Side must be 'long' or 'short' per internal DirectionSignal;
         // 'long' is the neutral-default when funding-snapshot has no
         // directional instruction. confidence: 0 ensures the risk engine

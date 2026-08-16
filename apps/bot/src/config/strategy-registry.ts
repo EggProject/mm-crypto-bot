@@ -44,7 +44,6 @@ import {
   DEFAULT_MIN_OBSERVATIONS,
   DEFAULT_NUM_STATES,
   DEFAULT_REGIME_DETECTOR_BASE_NOTIONAL_USD,
-  DEFAULT_REGIME_DETECTOR_ENABLED_SYMBOLS,
   DEFAULT_REGIME_SIZE_MULTIPLIER_RANGING,
   DEFAULT_REGIME_SIZE_MULTIPLIER_TRENDING,
   DEFAULT_REGIME_SIZE_MULTIPLIER_VOLATILE,
@@ -82,10 +81,9 @@ export type BotStrategyInstance =
 /**
  * `BotDependencies` — a factory-k által igényelt dependency-k.
  *
- * A `dydx_cex_carry` stratégia runtime-követelménye a `DydxFundingSource`
- * (a dYdX v4 indexer feed). Ha a config engedélyezi a stratégiát,
- * de nincs funding source, a factory `ConfigError`-t dob — így a
- * felhasználó azonnal látja, hogy mit kell bekötni.
+ * A `dydx_cex_carry` runtime-követelménye a `DydxFundingSource` mellett
+ * egy folyamatos precondition re-verifier producer. Amíg az utóbbi nincs
+ * bekötve, az explicit engedélyezés fail-fast `ConfigError`-ral leáll.
  *
  * A jövőbeli track-ek (Track C Bot runtime) tölti fel a `deps`-t
  * tényleges implementációkkal. A config system most a szerződést
@@ -119,7 +117,9 @@ export interface BotDependencies {
  * sub-configokban lehet felülírni — lásd
  * `DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG`).
  */
-function buildDonchianPivotConfig(section: StrategySection): {
+function buildDonchianPivotConfig(
+  section: BotConfig["strategies"]["donchian_pivot_composition"],
+): {
   readonly minConsensus: number;
   readonly ltf: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 } {
@@ -130,12 +130,9 @@ function buildDonchianPivotConfig(section: StrategySection): {
     ltfOverride === "1h" || ltfOverride === "4h" || ltfOverride === "1d")
     ? ltfOverride
     : "15m";
-  // Az 1..2 tartományon kívüli értéket a DonchianPivotComposition
-  // saját RangeError-rel elutasítja — itt csak a defaultot adjuk.
-  const minConsensusRaw = (section as { min_consensus?: unknown }).min_consensus;
-  const minConsensus = typeof minConsensusRaw === "number" && minConsensusRaw >= 1 && minConsensusRaw <= 2
-    ? minConsensusRaw
-    : DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG.minConsensus;
+  // A BotConfigSchema garantálja, hogy az override egész 1 vagy 2; itt már
+  // nincs csendes helyreállítás egy hibás felhasználói értékről.
+  const minConsensus = section.min_consensus ?? DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG.minConsensus;
   return { minConsensus, ltf };
 }
 
@@ -154,7 +151,7 @@ function buildDonchianPivotConfig(section: StrategySection): {
  * `DEFAULT_DYDX_CEX_CARRY_CONFIG`-ból jönnek, és NEM overridable-ök
  * a TOML-ból (az orchestrator scope lock szerint).
  */
-function buildDydxCexCarryConfig(
+export function buildDydxCexCarryConfig(
   section: StrategySection,
   fundingSource: DydxFundingSource,
 ): {
@@ -242,7 +239,7 @@ function buildFundingFlipKillSwitchConfig(): typeof DEFAULT_SOL_FLIP_KILL_SWITCH
  *   - `transitionMatrix`        — 3×3-as tuple
  *   - `initialStateProbs`       — 3-as tuple
  */
-function buildRegimeDetectorConfig(): {
+function buildRegimeDetectorConfig(enabledSymbols: readonly string[]): {
   readonly numStates: number;
   readonly stateEmissionStdDev: readonly [number, number, number];
   readonly transitionMatrix: readonly [
@@ -270,7 +267,7 @@ function buildRegimeDetectorConfig(): {
     minObservations: DEFAULT_MIN_OBSERVATIONS,
     transitionLearningDays: DEFAULT_TRANSITION_LEARNING_DAYS,
     baseNotionalUsd: DEFAULT_REGIME_DETECTOR_BASE_NOTIONAL_USD,
-    enabledSymbols: DEFAULT_REGIME_DETECTOR_ENABLED_SYMBOLS,
+    enabledSymbols: [...enabledSymbols],
   };
 }
 
@@ -296,9 +293,8 @@ function makeDonchianPivotComposition(
 /**
  * `makeDydxCexCarry` — a `DydxCexCarryStrategy` factory.
  *
- * Ha a per-strategy `enabled = true`, de a `deps.dydxFundingSource`
- * hiányzik, a factory `ConfigError`-t dob — ezzel szembesíti a
- * felhasználót a runtime-dependency-vel.
+ * Ha bármely kötelező producer hiányzik, a factory `ConfigError`-t dob,
+ * így nem ad vissza csendben örökre gate-elt carry stratégiát.
  */
 function makeDydxCexCarry(
   section: StrategySection,
@@ -314,8 +310,17 @@ function makeDydxCexCarry(
     );
   }
   const config = buildDydxCexCarryConfig(section, fundingSource);
-  const strategy = new DydxCexCarryStrategy(config);
-  return { kind: "strategy", instance: strategy };
+  // Validate every currently-configurable invariant before reporting the
+  // missing producer. The bot runtime has no non-test source that calls
+  // `recordPreconditionReverify`, so returning an instance here would create
+  // a permanently gated, silently inert strategy.
+  void new DydxCexCarryStrategy(config);
+  throw new ConfigError(
+    "Strategy 'dydx_cex_carry' requires an explicit precondition re-verifier producer " +
+      "wired to recordPreconditionReverify; the bot runtime does not provide one yet.",
+    "strategies.dydx_cex_carry",
+    [],
+  );
 }
 
 /**
@@ -325,8 +330,12 @@ function makeCascadeFade(
   section: StrategySection,
 ): { readonly kind: "strategy"; readonly instance: Strategy } {
   const config = buildCascadeFadeConfig(section);
-  const strategy = new CascadeFadeStrategy(config);
-  return { kind: "strategy", instance: strategy };
+  void new CascadeFadeStrategy(config);
+  throw new ConfigError(
+    "Strategy 'cascade_fade' requires a live liquidation + OI + ELR event bridge; OHLCV-only runtime would be inert.",
+    "strategies.cascade_fade",
+    [],
+  );
 }
 
 /**
@@ -334,15 +343,19 @@ function makeCascadeFade(
  */
 function makeFundingFlipKillSwitch(): { readonly kind: "plugin"; readonly instance: StrategyPlugin } {
   const config = buildFundingFlipKillSwitchConfig();
-  const plugin = new SOLFlipKillSwitchPlugin(config);
-  return { kind: "plugin", instance: plugin };
+  void new SOLFlipKillSwitchPlugin(config);
+  throw new ConfigError(
+    "Plugin 'funding_flip_kill_switch' requires an explicit SOL funding-rate producer; OHLCV does not contain funding data.",
+    "strategies.funding_flip_kill_switch",
+    [],
+  );
 }
 
 /**
  * `makeRegimeDetector` — a `RegimeDetectorMetaPlugin` factory.
  */
-function makeRegimeDetector(): { readonly kind: "plugin"; readonly instance: StrategyPlugin } {
-  const config = buildRegimeDetectorConfig();
+function makeRegimeDetector(enabledSymbols: readonly string[]): { readonly kind: "plugin"; readonly instance: StrategyPlugin } {
+  const config = buildRegimeDetectorConfig(enabledSymbols);
   const plugin = new RegimeDetectorMetaPlugin(config);
   return { kind: "plugin", instance: plugin };
 }
@@ -386,8 +399,8 @@ export function createStrategyInstances(
     );
   }
 
-  // 2) dYdX-vs-CEX cross-venue funding carry (default ON, requires
-  //    DydxFundingSource).
+  // 2) dYdX-vs-CEX cross-venue funding carry (default OFF; explicit opt-in
+  //    fails until both funding and precondition producers are wired).
   if (strategies.dydx_cex_carry.enabled) {
     instances.set(
       "dydx_cex_carry",
@@ -395,7 +408,7 @@ export function createStrategyInstances(
     );
   }
 
-  // 3) Liquidation cascade fade (default ON, event-driven satellite).
+  // 3) Liquidation cascade fade (default OFF; event bridge required).
   if (strategies.cascade_fade.enabled) {
     instances.set(
       "cascade_fade",
@@ -415,7 +428,10 @@ export function createStrategyInstances(
   if (strategies.regime_detector.enabled) {
     instances.set(
       "regime_detector",
-      { name: "regime_detector", ...makeRegimeDetector() },
+      {
+        name: "regime_detector",
+        ...makeRegimeDetector(strategies.regime_detector.symbols ?? config.symbols.enabled),
+      },
     );
   }
 

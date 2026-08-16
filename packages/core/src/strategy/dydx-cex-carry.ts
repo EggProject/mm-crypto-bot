@@ -90,7 +90,14 @@
 // `state` field at exit and `restore(state)` at startup.  See
 // `serializeState()` / `DydxCexCarryStrategy.fromSnapshot()` below.
 
-import type { Strategy, StrategyContext, StrategySignal } from "../types.js";
+import type {
+  OpenPositionSnapshot,
+  PositionManagementContext,
+  PositionUpdate,
+  Strategy,
+  StrategyContext,
+  StrategySignal,
+} from "../types.js";
 import { ONE_TO_TEN_LEVERAGE } from "../risk/leverage-invariant.js";
 import type { FundingSnapshot } from "./funding-snapshot.js";
 // Phase 30 LatencyGate live wiring — the dYdX-vs-CEX carry uses the
@@ -454,8 +461,9 @@ export function evaluatePrecondition(
     throw new Error(`Precondition id mismatch: ${id} vs ${input.kind}`);
   }
   const nextSatisfied = input.satisfied;
-  const firstSatisfiedMs =
-    prev.firstSatisfiedMs ?? (nextSatisfied ? nowMs : null);
+  const firstSatisfiedMs = nextSatisfied
+    ? (prev.satisfied ? (prev.firstSatisfiedMs ?? nowMs) : nowMs)
+    : null;
   return {
     satisfied: nextSatisfied,
     firstSatisfiedMs,
@@ -896,20 +904,14 @@ export class DydxCexCarryStrategy implements Strategy {
     // gate stays fresh between funding ticks.  This is the
     // per-candle entry-point for live latency updates.
     this.pollLatencySource(ctx.candle.timestamp);
-    // Kill-switch fired? → defensive close (sell if in carry).
+    // Kill-switches are handled by `onOpenPositionUpdate` while a position
+    // exists. Never emit a naked sell from the flat-entry hook.
     if (this.state.killSwitchVerdicts !== null) {
       const anyHalt = this.state.killSwitchVerdicts["indexer-stale"].engaged
         || this.state.killSwitchVerdicts["chain-non-finalized"].engaged
         || this.state.killSwitchVerdicts["divergence-7d-compression"].engaged;
       if (anyHalt && this.state.hasEntered) {
-        this.state.hasEntered = false;
-        return {
-          side: "sell",
-          confidence: 1,
-          reason: `[DydxCexCarry] kill-switch halt: ${this._haltReason()}`,
-          stopLoss: ctx.candle.close * 0.99,
-          takeProfit: ctx.candle.close * 0.99,
-        };
+        return null;
       }
     }
     // Already in carry? → hold.  Note: latency pause does NOT
@@ -926,7 +928,15 @@ export class DydxCexCarryStrategy implements Strategy {
       this.state.lastMarkPrice = ctx.candle.close;
       return null;
     }
-    this.state.hasEntered = true;
+    const preconditions = allPreconditionsSatisfied(
+      this.state.preconditions,
+      ctx.candle.timestamp,
+      this.config.precondition,
+    );
+    if (!preconditions.ok) {
+      this.state.lastMarkPrice = ctx.candle.close;
+      return null;
+    }
     this.state.lastMarkPrice = ctx.candle.close;
     return {
       side: "buy",
@@ -935,6 +945,28 @@ export class DydxCexCarryStrategy implements Strategy {
       stopLoss: ctx.candle.close * 0.99,
       takeProfit: ctx.candle.close * 100,
     };
+  }
+
+  onCandleObserved(ctx: StrategyContext): void {
+    this.state.lastMarkPrice = ctx.candle.close;
+  }
+
+  onOpenPositionUpdate(ctx: PositionManagementContext): PositionUpdate | null {
+    this.state.lastMarkPrice = ctx.candle.close;
+    if (!this.isHalted()) return null;
+    return {
+      forceExit: true,
+      exitPrice: ctx.candle.close,
+      reason: "kill_switch",
+    };
+  }
+
+  onPositionOpened(_snapshot: OpenPositionSnapshot): void {
+    this.state.hasEntered = true;
+  }
+
+  onPositionClosed(_reason: string): void {
+    this.state.hasEntered = false;
   }
 
   // -------------------------------------------------------------------------
@@ -1296,7 +1328,7 @@ export class DydxCexCarryStrategy implements Strategy {
     this.state.killSwitchVerdicts = verdicts;
   }
 
-  private _haltReason(): string {
+  _haltReason(): string {
     if (this.state.killSwitchVerdicts === null) return "init";
     const v = this.state.killSwitchVerdicts;
     if (v["indexer-stale"].engaged) return v["indexer-stale"].reason;

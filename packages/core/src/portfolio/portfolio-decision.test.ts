@@ -19,7 +19,7 @@
 
 import { describe, expect, test } from "bun:test";
 
-import type { CarrySignal, DirectionSignal, SizingSignal } from "../index.js";
+import type { CarrySignal, DirectionSignal, RiskSignal, SizingSignal } from "../index.js";
 
 import {
   assertExhaustiveSignal,
@@ -461,6 +461,54 @@ describe("DecisionEngine.synthesize", () => {
     const latest = engine.latestDecision("BTCUSDT");
     expect(latest).not.toBeNull();
     expect(latest?.timestampMs).toBe(1_700_000_001_000);
+  });
+
+  test("a sizing notional a kanonikus érték, volMultiplier nincs kétszer alkalmazva", async () => {
+    const engine = new DecisionEngine({ symbol: "BTCUSDT" });
+    const { createSignalBus } = await import("../index.js");
+    const bus = createSignalBus();
+    engine.subscribe(bus);
+    bus.emit(mkDirectionSignal("alpha", "long", 1));
+    bus.emit(mkSizingSignal("sizer", 4_000, 0.25));
+
+    const decision = engine.synthesize("BTCUSDT", 1_700_000_000_000);
+    expect(decision?.notionalUsd).toBe(4_000);
+  });
+
+  test("risk breach vagy close utasítás végrehajthatatlan irány helyett flat/0 döntést ad", async () => {
+    for (const risk of [
+      { breach: true },
+      { breach: false, closeNotionalUsd: 1_000 },
+    ] satisfies (Pick<RiskSignal, "breach"> & Partial<Pick<RiskSignal, "closeNotionalUsd">>)[]) {
+      const engine = new DecisionEngine({ symbol: "BTCUSDT" });
+      const { createSignalBus } = await import("../index.js");
+      const bus = createSignalBus();
+      engine.subscribe(bus);
+      bus.emit(mkDirectionSignal("alpha", "long", 1));
+      bus.emit(mkSizingSignal("sizer", 4_000));
+      bus.emit({
+        kind: "risk",
+        source: "risk-guard",
+        symbol: "BTCUSDT",
+        varDaily95: 0,
+        correlationPenalty: 0,
+        drawdownLimit: 0,
+        ...risk,
+      });
+
+      const decision = engine.synthesize("BTCUSDT", 1_700_000_000_000);
+      expect(decision?.side).toBe("flat");
+      expect(decision?.notionalUsd).toBe(0);
+    }
+  });
+
+  test("explicit symbol attribution prevents cross-symbol ingestion", async () => {
+    const engine = new DecisionEngine({ symbol: "BTCUSDT" });
+    const { createSignalBus } = await import("../index.js");
+    const bus = createSignalBus();
+    engine.subscribe(bus);
+    bus.emit({ ...mkDirectionSignal("alpha", "long", 1), symbol: "ETHUSDT" });
+    expect(engine.synthesize("BTCUSDT", 1_700_000_000_000)).toBeNull();
   });
 });
 

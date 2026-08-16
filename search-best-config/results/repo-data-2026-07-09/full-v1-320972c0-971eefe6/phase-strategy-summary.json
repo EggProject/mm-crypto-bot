@@ -1,0 +1,973 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-16T13:56:51Z",
+  "rows": 1467,
+  "groups": [
+    {
+      "phase": "is",
+      "strategyId": "donchian_pivot_composition",
+      "total": 30,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 30
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 324.8480381404586,
+          "max": 42599507277.76601,
+          "mean": 1624797352.634377
+        },
+        "monthlyReturnPct": {
+          "min": 8.382850554247678,
+          "max": 202.1465835796577,
+          "mean": 62.54359840069908
+        },
+        "annualizedReturnPct": {
+          "min": 162.54590402306542,
+          "max": 57305228.99593491,
+          "mean": 2584441.702726171
+        },
+        "maxDrawdownPct": {
+          "min": 0.2942121894447263,
+          "max": 5.855462773359561,
+          "mean": 2.190468074903719
+        },
+        "sharpe": {
+          "min": 21.51139989714981,
+          "max": 49.00513441453211,
+          "mean": 35.63568133854606
+        },
+        "sortino": {
+          "min": 32.895150478082655,
+          "max": 135.2694349561144,
+          "mean": 81.58558403200797
+        },
+        "profitFactorFinite": {
+          "min": 3.7568100347389306,
+          "max": 415.61670711606496,
+          "mean": 75.67683558108303
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 69.87043580683157,
+          "max": 95.33333333333334,
+          "mean": 81.54139172336265
+        },
+        "totalTrades": {
+          "min": 1350,
+          "max": 9288,
+          "mean": 5085.5
+        }
+      }
+    },
+    {
+      "phase": "is",
+      "strategyId": "donchian_range_channel",
+      "total": 27,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 27
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 630.2132719854892,
+          "max": 162139146233074800,
+          "mean": 6006935787860117
+        },
+        "monthlyReturnPct": {
+          "min": 11.699211878825121,
+          "max": 602.1258575556528,
+          "mean": 133.6992411550465
+        },
+        "annualizedReturnPct": {
+          "min": 276.84201821015637,
+          "max": 1409918226298.7434,
+          "mean": 52497880543.26572
+        },
+        "maxDrawdownPct": {
+          "min": 1.2876190823759028,
+          "max": 7.496929899186988,
+          "mean": 3.4828414780669816
+        },
+        "sharpe": {
+          "min": 13.9374647245231,
+          "max": 57.79471446937285,
+          "mean": 34.570561043135925
+        },
+        "sortino": {
+          "min": 11.649718827603197,
+          "max": 139.7872537945813,
+          "mean": 69.74307163312609
+        },
+        "profitFactorFinite": {
+          "min": 18.683502283568707,
+          "max": 507.77535934953573,
+          "mean": 77.99809582322133
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 70.33112582781456,
+          "max": 95.82790091264668,
+          "mean": 84.5406360557053
+        },
+        "totalTrades": {
+          "min": 755,
+          "max": 8085,
+          "mean": 3341.296296296296
+        }
+      }
+    },
+    {
+      "phase": "is",
+      "strategyId": "funding_flip_kill_switch",
+      "total": 81,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 81
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactorFinite": null,
+        "profitFactorInfinityCount": 0,
+        "winRatePct": null,
+        "totalTrades": null
+      }
+    },
+    {
+      "phase": "is",
+      "strategyId": "ohlc_trend",
+      "total": 216,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 216
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": -20.02109755522096,
+          "max": 6.433129478116735,
+          "mean": -5.032347282422505
+        },
+        "monthlyReturnPct": {
+          "min": -1.2355429010508234,
+          "max": 0.347555749985351,
+          "mean": -0.3004670037770804
+        },
+        "annualizedReturnPct": {
+          "min": -13.849493576898574,
+          "max": 4.247997541714876,
+          "mean": -3.441626048761254
+        },
+        "maxDrawdownPct": {
+          "min": 1.086329144686677,
+          "max": 21.10646275901131,
+          "mean": 7.808796264757016
+        },
+        "sharpe": {
+          "min": -3.6249619652914347,
+          "max": 1.3888970328179326,
+          "mean": -1.048398249083561
+        },
+        "sortino": {
+          "min": -1.4588074947777883,
+          "max": 0.4093359584257661,
+          "mean": -0.3572194327340163
+        },
+        "profitFactorFinite": {
+          "min": 0.266377142648148,
+          "max": 3.3510205132929216,
+          "mean": 0.8039425089288222
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 16.071428571428573,
+          "max": 72.72727272727273,
+          "mean": 35.64980561514455
+        },
+        "totalTrades": {
+          "min": 11,
+          "max": 151,
+          "mean": 56.81944444444444
+        }
+      }
+    },
+    {
+      "phase": "is",
+      "strategyId": "overlay_combination",
+      "total": 120,
+      "statuses": [
+        {
+          "status": "INVALID_MASK",
+          "count": 40
+        },
+        {
+          "status": "SUCCESS",
+          "count": 80
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 324.2763364821353,
+          "max": 42599507277.76601,
+          "mean": 649052667.6103675
+        },
+        "monthlyReturnPct": {
+          "min": 8.37472917438058,
+          "max": 202.14658357965777,
+          "mean": 58.52088236118135
+        },
+        "annualizedReturnPct": {
+          "min": 162.31010397371017,
+          "max": 57305228.99593491,
+          "mean": 1191975.4754363615
+        },
+        "maxDrawdownPct": {
+          "min": 0.2764254809517922,
+          "max": 5.855462773359561,
+          "mean": 2.1136109627411517
+        },
+        "sharpe": {
+          "min": 21.51139989714981,
+          "max": 49.00513441453211,
+          "mean": 36.224603347021045
+        },
+        "sortino": {
+          "min": 25.329628770020648,
+          "max": 135.2694349561144,
+          "mean": 77.42762652032982
+        },
+        "profitFactorFinite": {
+          "min": 3.4281274785025033,
+          "max": 415.61670711606496,
+          "mean": 62.54890465588102
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 69.87043580683157,
+          "max": 95.33333333333334,
+          "mean": 82.02006481447748
+        },
+        "totalTrades": {
+          "min": 1350,
+          "max": 9288,
+          "mean": 5014.25
+        }
+      }
+    },
+    {
+      "phase": "is",
+      "strategyId": "pivot_point_grid",
+      "total": 15,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 15
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 226.3916252793337,
+          "max": 4107929.86610586,
+          "mean": 467763.5383843762
+        },
+        "monthlyReturnPct": {
+          "min": 6.804378990570004,
+          "max": 80.61094729225522,
+          "mean": 37.90878422068939
+        },
+        "annualizedReturnPct": {
+          "min": 120.19412929593885,
+          "max": 119730.45410952909,
+          "mean": 18673.213811405345
+        },
+        "maxDrawdownPct": {
+          "min": 4.712965708376541,
+          "max": 7.794700079382892,
+          "mean": 6.4639200127372485
+        },
+        "sharpe": {
+          "min": 12.385224951498623,
+          "max": 28.63995095568599,
+          "mean": 23.176850363523798
+        },
+        "sortino": {
+          "min": 11.060870390782988,
+          "max": 48.92015302784834,
+          "mean": 30.11322782974317
+        },
+        "profitFactorFinite": {
+          "min": 1.5637625881726966,
+          "max": 4.127413001600493,
+          "mean": 2.8268888005099835
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 62.71929824561403,
+          "max": 64.44401987008025,
+          "mean": 63.749983486934504
+        },
+        "totalTrades": {
+          "min": 5234,
+          "max": 6156,
+          "mean": 5674.333333333333
+        }
+      }
+    },
+    {
+      "phase": "oos",
+      "strategyId": "donchian_pivot_composition",
+      "total": 30,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 30
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 6.724117263254575,
+          "max": 1341.3930438623388,
+          "mean": 284.0388949112327
+        },
+        "monthlyReturnPct": {
+          "min": 1.0536300581653224,
+          "max": 53.68497552024514,
+          "mean": 18.686084650815125
+        },
+        "annualizedReturnPct": {
+          "min": 13.391671256095261,
+          "max": 17192.597484773494,
+          "mean": 2273.8187209830553
+        },
+        "maxDrawdownPct": {
+          "min": 0.12592040923082837,
+          "max": 9.205496332223081,
+          "mean": 2.8930968961751304
+        },
+        "sharpe": {
+          "min": 16.796591503069763,
+          "max": 35.74701693553327,
+          "mean": 24.39488530756139
+        },
+        "sortino": {
+          "min": 7.7173442693867855,
+          "max": 76.21178996309737,
+          "mean": 34.49698545753908
+        },
+        "profitFactorFinite": {
+          "min": 2.2369296544244195,
+          "max": 60.48479184985172,
+          "mean": 20.63536977360798
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 62.039779940753284,
+          "max": 90.68100358422939,
+          "mean": 74.86463185279958
+        },
+        "totalTrades": {
+          "min": 273,
+          "max": 2787,
+          "mean": 1453.5
+        }
+      }
+    },
+    {
+      "phase": "oos",
+      "strategyId": "donchian_range_channel",
+      "total": 27,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 27
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 15.08961248596408,
+          "max": 6416.137547106013,
+          "mean": 761.5539540640608
+        },
+        "monthlyReturnPct": {
+          "min": 2.2893382364167936,
+          "max": 95.95574712752672,
+          "mean": 30.463691129657963
+        },
+        "annualizedReturnPct": {
+          "min": 31.181926145509475,
+          "max": 318472.7838151985,
+          "mean": 18160.687212283538
+        },
+        "maxDrawdownPct": {
+          "min": 1.0221331898817085,
+          "max": 4.913876563826124,
+          "mean": 2.4787323098102005
+        },
+        "sharpe": {
+          "min": 10.665786145832508,
+          "max": 36.486394719875015,
+          "mean": 24.026865948372414
+        },
+        "sortino": {
+          "min": 3.378855083954639,
+          "max": 74.98942505096765,
+          "mean": 32.78368062815116
+        },
+        "profitFactorFinite": {
+          "min": 4.573872690432602,
+          "max": 78.87844400790604,
+          "mean": 22.32114839299083
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 64.8936170212766,
+          "max": 89.22558922558923,
+          "mean": 79.79852672710507
+        },
+        "totalTrades": {
+          "min": 138,
+          "max": 1697,
+          "mean": 773.5555555555555
+        }
+      }
+    },
+    {
+      "phase": "oos",
+      "strategyId": "funding_flip_kill_switch",
+      "total": 81,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 81
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactorFinite": null,
+        "profitFactorInfinityCount": 0,
+        "winRatePct": null,
+        "totalTrades": null
+      }
+    },
+    {
+      "phase": "oos",
+      "strategyId": "ohlc_trend",
+      "total": 216,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 216
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": -9.676865845322245,
+          "max": 1.3892040933002316,
+          "mean": -3.272381753110873
+        },
+        "monthlyReturnPct": {
+          "min": -1.6258333713834672,
+          "max": 0.22244988912811792,
+          "mean": -0.5382935073255353
+        },
+        "annualizedReturnPct": {
+          "min": -17.844190665616942,
+          "max": 2.700202337427715,
+          "mean": -6.175031707571412
+        },
+        "maxDrawdownPct": {
+          "min": 0.2136857276364084,
+          "max": 9.676865845322245,
+          "mean": 4.051450652088191
+        },
+        "sharpe": {
+          "min": -5.875693465318971,
+          "max": 1.7256975824131748,
+          "mean": -2.2248087118690725
+        },
+        "sortino": {
+          "min": -1.9916507827121857,
+          "max": 0.9527491238969978,
+          "mean": -0.6895782277698055
+        },
+        "profitFactorFinite": {
+          "min": 0,
+          "max": 0.8468938943263815,
+          "mean": 0.3352449614294561
+        },
+        "profitFactorInfinityCount": 18,
+        "winRatePct": {
+          "min": 0,
+          "max": 100,
+          "mean": 30.09558795293478
+        },
+        "totalTrades": {
+          "min": 2,
+          "max": 46,
+          "mean": 19.680555555555557
+        }
+      }
+    },
+    {
+      "phase": "oos",
+      "strategyId": "overlay_combination",
+      "total": 120,
+      "statuses": [
+        {
+          "status": "INVALID_MASK",
+          "count": 40
+        },
+        {
+          "status": "SUCCESS",
+          "count": 80
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 6.724117263254575,
+          "max": 1341.3930438623388,
+          "mean": 237.2843662191305
+        },
+        "monthlyReturnPct": {
+          "min": 1.0536300581653224,
+          "max": 53.68497552024516,
+          "mean": 17.631636698978284
+        },
+        "annualizedReturnPct": {
+          "min": 13.391671256095261,
+          "max": 17192.597484773494,
+          "mean": 1553.3960034109784
+        },
+        "maxDrawdownPct": {
+          "min": 0.12592040923082837,
+          "max": 9.205496332223081,
+          "mean": 2.8045985253841503
+        },
+        "sharpe": {
+          "min": 16.796591503069763,
+          "max": 35.94851450310821,
+          "mean": 24.56748881726503
+        },
+        "sortino": {
+          "min": 7.69403071509952,
+          "max": 76.21178996309737,
+          "mean": 33.319127693439796
+        },
+        "profitFactorFinite": {
+          "min": 2.0752636349248226,
+          "max": 167.82438660675092,
+          "mean": 33.58401203112332
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 62.039779940753284,
+          "max": 95.39877300613497,
+          "mean": 76.67271810572802
+        },
+        "totalTrades": {
+          "min": 273,
+          "max": 2787,
+          "mean": 1338.375
+        }
+      }
+    },
+    {
+      "phase": "oos",
+      "strategyId": "pivot_point_grid",
+      "total": 15,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 15
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 11.323015709369157,
+          "max": 2188.996744373721,
+          "mean": 494.5170449165546
+        },
+        "monthlyReturnPct": {
+          "min": 1.7426137281479237,
+          "max": 65.57013616906475,
+          "mean": 26.314503169562627
+        },
+        "annualizedReturnPct": {
+          "min": 23.017152122285232,
+          "max": 42144.46188324628,
+          "mean": 5524.034735882247
+        },
+        "maxDrawdownPct": {
+          "min": 7.783818918234865,
+          "max": 11.080427084950758,
+          "mean": 9.431593715396426
+        },
+        "sharpe": {
+          "min": 3.003038961347341,
+          "max": 26.621643738236482,
+          "mean": 17.402905804990542
+        },
+        "sortino": {
+          "min": 2.4536184143526305,
+          "max": 48.20206910092816,
+          "mean": 23.221680610281144
+        },
+        "profitFactorFinite": {
+          "min": 1.1318376700642963,
+          "max": 3.2172225529572334,
+          "mean": 2.105781610110086
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 53.78893537889354,
+          "max": 57.94573643410853,
+          "mean": 56.20777825049568
+        },
+        "totalTrades": {
+          "min": 1967,
+          "max": 2151,
+          "mean": 2060.6666666666665
+        }
+      }
+    },
+    {
+      "phase": "validation",
+      "strategyId": "donchian_pivot_composition",
+      "total": 30,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 30
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 10.619102932374917,
+          "max": 3433.069401041653,
+          "mean": 506.2687765126051
+        },
+        "monthlyReturnPct": {
+          "min": 1.6836268888597017,
+          "max": 80.35085993896682,
+          "mean": 24.375195911569076
+        },
+        "annualizedReturnPct": {
+          "min": 22.16467465689591,
+          "max": 117677.60684420024,
+          "mean": 9739.595053042945
+        },
+        "maxDrawdownPct": {
+          "min": 0.004797121487253509,
+          "max": 8.422811864659035,
+          "mean": 2.2822210619009144
+        },
+        "sharpe": {
+          "min": 14.572445460487794,
+          "max": 38.369541168671844,
+          "mean": 24.062785261574117
+        },
+        "sortino": {
+          "min": 14.359237793324303,
+          "max": 101.26868476188447,
+          "mean": 54.693748671383545
+        },
+        "profitFactorFinite": {
+          "min": 2.5938186940875285,
+          "max": 293.8122862340126,
+          "mean": 54.04363933041253
+        },
+        "profitFactorInfinityCount": 5,
+        "winRatePct": {
+          "min": 58.84630274874178,
+          "max": 100,
+          "mean": 76.89688084908907
+        },
+        "totalTrades": {
+          "min": 113,
+          "max": 2583,
+          "mean": 1348.1666666666667
+        }
+      }
+    },
+    {
+      "phase": "validation",
+      "strategyId": "donchian_range_channel",
+      "total": 27,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 27
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 7.357535636089506,
+          "max": 56911.80278219502,
+          "mean": 6759.903067108268
+        },
+        "monthlyReturnPct": {
+          "min": 1.1814208016207584,
+          "max": 185.71459994303106,
+          "mean": 50.64093782086034
+        },
+        "annualizedReturnPct": {
+          "min": 15.123070219749879,
+          "max": 29308517.968160946,
+          "mean": 2878199.885360994
+        },
+        "maxDrawdownPct": {
+          "min": 0.6725208591406497,
+          "max": 7.440061849617464,
+          "mean": 2.7017942508361195
+        },
+        "sharpe": {
+          "min": 5.225179389759073,
+          "max": 41.99366031941188,
+          "mean": 23.877314309097333
+        },
+        "sortino": {
+          "min": 2.0463431812461086,
+          "max": 117.08486185226221,
+          "mean": 33.66860405545722
+        },
+        "profitFactorFinite": {
+          "min": 2.0603921150610445,
+          "max": 275.6657902077816,
+          "mean": 66.52222409320073
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 47.756410256410255,
+          "max": 97.73755656108597,
+          "mean": 80.94335321207711
+        },
+        "totalTrades": {
+          "min": 130,
+          "max": 2275,
+          "mean": 712.1851851851852
+        }
+      }
+    },
+    {
+      "phase": "validation",
+      "strategyId": "funding_flip_kill_switch",
+      "total": 81,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 81
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": null,
+        "monthlyReturnPct": null,
+        "annualizedReturnPct": null,
+        "maxDrawdownPct": null,
+        "sharpe": null,
+        "sortino": null,
+        "profitFactorFinite": null,
+        "profitFactorInfinityCount": 0,
+        "winRatePct": null,
+        "totalTrades": null
+      }
+    },
+    {
+      "phase": "validation",
+      "strategyId": "ohlc_trend",
+      "total": 216,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 216
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": -13.169468915376308,
+          "max": 2.7906208000255175,
+          "mean": -2.5422493677601428
+        },
+        "monthlyReturnPct": {
+          "min": -2.309059364489152,
+          "max": 0.4563797179514939,
+          "mean": -0.4387132108133558
+        },
+        "annualizedReturnPct": {
+          "min": -24.430800770893736,
+          "max": 5.611712333028174,
+          "mean": -4.801664949805234
+        },
+        "maxDrawdownPct": {
+          "min": 0.4284793450811897,
+          "max": 14.349724107029607,
+          "mean": 3.895239017895847
+        },
+        "sharpe": {
+          "min": -7.961908768907138,
+          "max": 2.5876726895701085,
+          "mean": -1.7077959064899884
+        },
+        "sortino": {
+          "min": -2.633528303247529,
+          "max": 0.6312329539049822,
+          "mean": -0.5994893743882049
+        },
+        "profitFactorFinite": {
+          "min": 0,
+          "max": 3.4788737129896585,
+          "mean": 0.7198062716605287
+        },
+        "profitFactorInfinityCount": 18,
+        "winRatePct": {
+          "min": 0,
+          "max": 100,
+          "mean": 36.49877677286658
+        },
+        "totalTrades": {
+          "min": 1,
+          "max": 53,
+          "mean": 19.5
+        }
+      }
+    },
+    {
+      "phase": "validation",
+      "strategyId": "overlay_combination",
+      "total": 120,
+      "statuses": [
+        {
+          "status": "INVALID_MASK",
+          "count": 40
+        },
+        {
+          "status": "SUCCESS",
+          "count": 80
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 10.619102932374917,
+          "max": 3433.069401041653,
+          "mean": 359.5226385341074
+        },
+        "monthlyReturnPct": {
+          "min": 1.6836268888597017,
+          "max": 80.35085993896685,
+          "mean": 21.3160263110481
+        },
+        "annualizedReturnPct": {
+          "min": 22.16467465689591,
+          "max": 117677.60684420024,
+          "mean": 5044.496711854239
+        },
+        "maxDrawdownPct": {
+          "min": 0.004797121487252127,
+          "max": 8.422811864659035,
+          "mean": 2.15705755291808
+        },
+        "sharpe": {
+          "min": 14.572445460487794,
+          "max": 38.369541168671844,
+          "mean": 23.16875444100172
+        },
+        "sortino": {
+          "min": 13.04652926713961,
+          "max": 118.52670668355806,
+          "mean": 60.283678541275364
+        },
+        "profitFactorFinite": {
+          "min": 2.326631410820509,
+          "max": 293.8122862340126,
+          "mean": 42.500477169783245
+        },
+        "profitFactorInfinityCount": 20,
+        "winRatePct": {
+          "min": 58.84630274874178,
+          "max": 100,
+          "mean": 78.52004680882352
+        },
+        "totalTrades": {
+          "min": 113,
+          "max": 2583,
+          "mean": 1247.625
+        }
+      }
+    },
+    {
+      "phase": "validation",
+      "strategyId": "pivot_point_grid",
+      "total": 15,
+      "statuses": [
+        {
+          "status": "SUCCESS",
+          "count": 15
+        }
+      ],
+      "metrics": {
+        "totalReturnPct": {
+          "min": 13.743927304428599,
+          "max": 7135.543573520416,
+          "mean": 1045.9672741144159
+        },
+        "monthlyReturnPct": {
+          "min": 2.153316933631433,
+          "max": 103.0585158726248,
+          "mean": 33.89411879910954
+        },
+        "annualizedReturnPct": {
+          "min": 29.105446947247437,
+          "max": 488130.44982423034,
+          "mean": 42525.67941797323
+        },
+        "maxDrawdownPct": {
+          "min": 4.936812025316098,
+          "max": 8.351942244402272,
+          "mean": 6.616392397945294
+        },
+        "sharpe": {
+          "min": 4.651145312559845,
+          "max": 32.468453682132434,
+          "mean": 20.869781027193525
+        },
+        "sortino": {
+          "min": 3.9050161661161003,
+          "max": 62.396226350091005,
+          "mean": 27.721639660393166
+        },
+        "profitFactorFinite": {
+          "min": 1.2141183864923153,
+          "max": 4.948099639219299,
+          "mean": 2.7986188658705524
+        },
+        "profitFactorInfinityCount": 0,
+        "winRatePct": {
+          "min": 55.83809029579657,
+          "max": 64.31279620853081,
+          "mean": 60.892114917599976
+        },
+        "totalTrades": {
+          "min": 1927,
+          "max": 2110,
+          "mean": 2000.3333333333333
+        }
+      }
+    }
+  ]
+}

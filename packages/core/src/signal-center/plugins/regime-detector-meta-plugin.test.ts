@@ -295,15 +295,10 @@ describe("RegimeDetectorMetaPlugin", () => {
   // subscribe / onBar
   // -----------------------------------------------------------------------
 
-  it("subscribe wires all 3 kinds + increments per-kind counters", () => {
+  it("subscribe captures only the output bus and does not pretend upstream signals are model inputs", () => {
     const p = new RegimeDetectorMetaPlugin();
     const bus = wirePlugin(p);
-    // 3 subscribers (one per kind: direction, carry, sizing).
-    expect(bus.subscriberCount).toBe(3);
-    expect(bus.subscribersForKind("direction")).toBe(1);
-    expect(bus.subscribersForKind("carry")).toBe(1);
-    expect(bus.subscribersForKind("sizing")).toBe(1);
-    // Emit some signals and verify counters.
+    expect(bus.subscriberCount).toBe(0);
     bus.emit({ kind: "direction", side: "long", strength: 0.5, source: "x" });
     bus.emit({ kind: "carry", fundingRate: 0.0001, regime: "neutral", source: "x" });
     bus.emit({
@@ -313,9 +308,9 @@ describe("RegimeDetectorMetaPlugin", () => {
       notional: 50_000,
       source: "x",
     });
-    expect(p.state.directionSignalsReceived).toBe(1);
-    expect(p.state.carrySignalsReceived).toBe(1);
-    expect(p.state.sizingSignalsReceived).toBe(1);
+    expect(p.state.directionSignalsReceived).toBe(0);
+    expect(p.state.carrySignalsReceived).toBe(0);
+    expect(p.state.sizingSignalsReceived).toBe(0);
   });
 
   it("onBar is a no-op (doesn't throw)", () => {
@@ -612,7 +607,7 @@ describe("RegimeDetectorMetaPlugin", () => {
   it("dispose() releases bus subscriptions", () => {
     const p = new RegimeDetectorMetaPlugin();
     const bus = wirePlugin(p);
-    expect(bus.subscriberCount).toBe(3);
+    expect(bus.subscriberCount).toBe(0);
     p.dispose();
     expect(bus.subscriberCount).toBe(0);
   });
@@ -814,7 +809,7 @@ describe("RegimeDetectorMetaPlugin", () => {
     expect(probs[1]).toBeGreaterThan(probs[2]); // ranging > volatile
   });
 
-  it("carry-signal subscriber: increments counter on each carry emission", () => {
+  it("carry signals are explicitly ignored because OHLCV is the sole model input", () => {
     const p = new RegimeDetectorMetaPlugin();
     const bus = wirePlugin(p);
     for (let i = 0; i < 5; i++) {
@@ -826,7 +821,7 @@ describe("RegimeDetectorMetaPlugin", () => {
         timestampMs: 1_700_000_000_000 + i * 8 * HOUR_MS,
       });
     }
-    expect(p.state.carrySignalsReceived).toBe(5);
+    expect(p.state.carrySignalsReceived).toBe(0);
   });
 
   it("observationsForSymbol returns correct count across feeds", () => {

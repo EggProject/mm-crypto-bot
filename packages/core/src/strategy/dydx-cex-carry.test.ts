@@ -59,6 +59,7 @@ import {
   DEFAULT_DYDX_CEX_CARRY_CONFIG,
   ALL_KILL_SWITCHES,
   evaluateKillSwitches,
+  evaluatePrecondition,
   allPreconditionsSatisfied,
   newPreconditionsState,
   newTickDensityState,
@@ -170,6 +171,12 @@ function mkStrategy(source: MockFundingSource, override: Partial<typeof DEFAULT_
     fundingSource: source,
     ...override,
   });
+}
+
+function satisfyPreconditions(strategy: DydxCexCarryStrategy, nowMs = FIXED_NOW): void {
+  strategy.recordPreconditionReverify("live-divergence", true, nowMs - 8 * DAY);
+  strategy.recordPreconditionReverify("chain-incident-clear", true, nowMs - 4 * DAY);
+  strategy.recordPreconditionReverify("no-recent-governance", true, nowMs - 15 * DAY);
 }
 
 function mkSnapshot(
@@ -419,6 +426,44 @@ describe("allPreconditionsSatisfied — duration gates", () => {
     const r = allPreconditionsSatisfied(state, FIXED_NOW, cfg);
     expect(r.ok).toBe(false);
     expect(r.reasons.some((x) => x.includes("no-recent-governance"))).toBe(true);
+  });
+
+  it("resets the sustained timer after a failed re-verification", () => {
+    const first = evaluatePrecondition(
+      "live-divergence",
+      { satisfied: false, firstSatisfiedMs: null, lastVerifiedMs: null },
+      FIXED_NOW - 8 * DAY,
+      { kind: "live-divergence", satisfied: true },
+    );
+    const failed = evaluatePrecondition(
+      "live-divergence", first, FIXED_NOW - DAY,
+      { kind: "live-divergence", satisfied: false },
+    );
+    const recovered = evaluatePrecondition(
+      "live-divergence", failed, FIXED_NOW,
+      { kind: "live-divergence", satisfied: true },
+    );
+    expect(failed.firstSatisfiedMs).toBeNull();
+    expect(recovered.firstSatisfiedMs).toBe(FIXED_NOW);
+  });
+
+  it("gates entry on all preconditions and changes hasEntered only on position lifecycle", () => {
+    const strategy = mkStrategy(new MockFundingSource());
+    const ctx = {
+      candleIndex: 25,
+      candle: { timestamp: FIXED_NOW, open: 100, high: 101, low: 99, close: 100, volume: 1 },
+    } as unknown as Parameters<typeof strategy.onCandle>[0];
+    expect(strategy.onCandle(ctx)).toBeNull();
+    satisfyPreconditions(strategy);
+    expect(strategy.onCandle(ctx)?.side).toBe("buy");
+    expect(strategy.state.hasEntered).toBe(false);
+    strategy.onPositionOpened({
+      side: "buy", entryTime: FIXED_NOW, entryPrice: 100, quantity: 1,
+      stopLoss: 99, takeProfit: 10_000, holdingBars: 0,
+    });
+    expect(strategy.state.hasEntered).toBe(true);
+    strategy.onPositionClosed("rejected-or-closed");
+    expect(strategy.state.hasEntered).toBe(false);
   });
 });
 
@@ -757,6 +802,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
 
   it("48. onCandle does NOT enter when latency paused (live wire-up integrity)", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    satisfyPreconditions(s);
     // Phase 33 cleanup: the auto-promote 7-day paper-trade gate is gone,
     // so we no longer need to force `liveOrdersEnabled = true` to test
     // entry behavior.  The strategy emits an entry signal whenever
@@ -774,6 +820,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     expect(sigBefore?.side).toBe("buy");
     // Reset and pause → should NOT enter.
     s.reset();
+    satisfyPreconditions(s);
     s.recordLatencySnapshot(
       { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
       FIXED_NOW,
@@ -838,6 +885,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     // a sell.  Existing positions stay open until a kill-switch fires
     // or the position is closed via the engine's normal flow.
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
+    satisfyPreconditions(s);
     const pastWarmup = 25;
     const ctx = {
       candleIndex: pastWarmup,
@@ -848,6 +896,15 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     // First entry.
     const entrySig = s.onCandle(ctx);
     expect(entrySig?.side).toBe("buy");
+    s.onPositionOpened({
+      side: "buy",
+      entryTime: FIXED_NOW,
+      entryPrice: 60_000,
+      quantity: 1,
+      stopLoss: 59_400,
+      takeProfit: 6_000_000,
+      holdingBars: 0,
+    });
     expect(s.state.hasEntered).toBe(true);
     // Then pause latency.
     s.recordLatencySnapshot(

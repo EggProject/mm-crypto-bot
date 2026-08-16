@@ -132,6 +132,8 @@ export interface CascadeWindowInput {
   readonly symbol: string;
   /** Aggregate USD value across all venues × sides for this minute. */
   readonly totalUsd: number;
+  /** Tradable bybit.eu spot mid in USD. Required before an entry can be built. */
+  readonly midPriceUsd?: number;
   /** Long-side USD value. */
   readonly longUsd: number;
   /** Short-side USD value. */
@@ -489,6 +491,8 @@ export class CascadeFadeDetector {
   private readonly oiHistory = new Map<string, { ts: number; oiUsd: number }[]>();
   private readonly fundingHistory = new Map<string, { ts: number; funding8h: number }[]>();
   private readonly elrHistory = new Map<string, { ts: number; elr: number }[]>();
+  /** Latest explicit tradable spot mid; never inferred from liquidation volume. */
+  private readonly lastMidPriceBySymbol = new Map<string, number>();
   /** Last BTC cascade entry timestamp (for 24h cooldown). */
   private lastBtcEntryTsMs = -Infinity;
   /** Hard-stop cooldown — set when rolling 7d DD breaches. */
@@ -669,6 +673,13 @@ export class CascadeFadeDetector {
     const portfolioDd = risk.portfolioDd;
     const perpDexOiOverSma = risk.perpDexOiOverSma;
     const overlayOpenPnlPct = risk.overlayOpenPnlPct;
+
+    if (window.midPriceUsd !== undefined) {
+      if (!Number.isFinite(window.midPriceUsd) || window.midPriceUsd <= 0) {
+        throw new Error("[CascadeFade] midPriceUsd must be positive and finite");
+      }
+      this.lastMidPriceBySymbol.set(window.symbol, window.midPriceUsd);
+    }
 
     this.recordOi(oi);
     if (funding !== undefined) this.recordFunding(funding);
@@ -864,6 +875,7 @@ export class CascadeFadeDetector {
     this.oiHistory.clear();
     this.fundingHistory.clear();
     this.elrHistory.clear();
+    this.lastMidPriceBySymbol.clear();
     this.openPositions.clear();
     this.pnlLedgerBps.length = 0;
     this.entryLedgerUsd.length = 0;
@@ -1068,9 +1080,12 @@ export class CascadeFadeDetector {
     window: CascadeWindowInput,
     nowMs: number,
   ): CascadeEntry {
-    // Mid price is approximated by window's most-recent price — for paper
-    // trade we use the same window; live would source bybit.eu SPOT mid.
-    const midPriceUsd = window.totalUsd > 0 ? window.totalUsd : 100_000;
+    const midPriceUsd = window.midPriceUsd ?? this.lastMidPriceBySymbol.get(window.symbol);
+    if (midPriceUsd === undefined || !Number.isFinite(midPriceUsd) || midPriceUsd <= 0) {
+      throw new Error(
+        "[CascadeFade] entry requires a positive finite bybit.eu spot midPriceUsd; liquidation USD volume is not a price",
+      );
+    }
     const distanceBps = (this.config.layer3MinDistanceFromMidBps + this.config.layer3MaxDistanceFromMidBps) / 2;
     const distanceFrac = distanceBps / 10_000;
     // BUY entry, so limit price = mid * (1 + distanceFrac) — willingness

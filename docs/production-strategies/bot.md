@@ -17,8 +17,8 @@ canonical config reference, see
 | Name (config key) | Class | Default | Kind |
 |-------------------|-------|---------|------|
 | `donchian_pivot_composition` | `DonchianPivotComposition` | ✅ enabled | `strategy` |
-| `dydx_cex_carry` | `DydxCexCarryStrategy` | ✅ enabled | `strategy` |
-| `cascade_fade` | `CascadeFadeStrategy` | ✅ enabled | `strategy` |
+| `dydx_cex_carry` | `DydxCexCarryStrategy` | ❌ disabled | `strategy` |
+| `cascade_fade` | `CascadeFadeStrategy` | ❌ disabled | `strategy` |
 | `funding_flip_kill_switch` | `SOLFlipKillSwitchPlugin` | ❌ disabled | `plugin` |
 | `regime_detector` | `RegimeDetectorMetaPlugin` | ❌ disabled | `plugin` |
 
@@ -90,7 +90,7 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]   # override default symbol list
 2-of-2 mode envelope (Phase 24 #2) is +18.82%/mo @ max-DD ~4.64% — a
 safer downshift option, also at `cap=0.20`.
 
-### 3.2 `dydx_cex_carry` (default ON)
+### 3.2 `dydx_cex_carry` (default OFF; verifier required)
 
 Cross-venue funding-rate carry: long on dYdX v4, short on CEX, when
 the dYdX funding rate is positive (or short-dYdX long-CEX when negative).
@@ -98,7 +98,7 @@ Captures the funding-rate differential with delta-neutral positioning.
 
 ```toml
 [strategies.dydx_cex_carry]
-enabled = true                          # factory builds the instance iff true
+enabled = false                         # no production precondition verifier is wired yet
 cap = 0.025                             # max position as fraction of equity
 leverage = 10                           # 1:10 MANDATE (Zod enforces max 10)
 notional_per_leg_usd = 125_000          # $125k/leg (per BTC-USD spec)
@@ -113,16 +113,18 @@ notional_per_leg_usd = 125_000          # $125k/leg (per BTC-USD spec)
 | `notional_per_leg_usd` | `notionalPerLegUsd` | USD, must be positive. |
 | `fundingSource` | (Bot-level) | Injected by `BotDependencies.dydxFundingSource` — required at runtime. |
 
-**Special note:** the `dydx_cex_carry` strategy is the only one that
-needs an external dependency (the dYdX v4 indexer + CEX funding feed).
-If you enable it without providing a `DydxFundingSource` via the
-`BotDependencies`, `createStrategyInstances` throws `ConfigError` at
-startup — a fail-fast signal to the user.
+**Special note:** carry needs both the dYdX v4 indexer + CEX funding feed
+and a producer that continuously re-verifies the mandatory entry
+preconditions. The bot currently wires the funding subscription lifecycle,
+but has no production source for `recordPreconditionReverify`. Therefore the
+schema default is OFF and explicit enablement throws `ConfigError` at startup
+even when `DydxFundingSource` is present. This prevents an enabled-but-inert
+strategy. Re-enable it only after the verifier dependency/lifecycle is wired.
 
 **Scope lock:** BTC-USD only (per Phase 25 #2 T2). Kill-switches and
 pre-conditions are NOT overridable from TOML (orchestrator-decided).
 
-### 3.3 `cascade_fade` (default ON)
+### 3.3 `cascade_fade` (default OFF; event bridge required)
 
 Detects liquidation-cascade events on the perps market and "fades" the
 cascade — i.e., trades in the direction of the cascade as a
@@ -189,26 +191,24 @@ in `apps/bot/src/config/strategy-registry.ts` is the single point where
 TOML config becomes runtime strategy instances.
 
 ```ts
-// Example: enabled = 3 strategies, 2 plugins remain unwired
+// Default: only the fully-wired OHLCV baseline is enabled.
 const config = loadBotConfig("config/prod.toml");
-const instances = createStrategyInstances(config, {
-  dydxFundingSource: new DydxV4IndexerFundingSource(),  // required for dydx_cex_carry
-});
+const instances = createStrategyInstances(config);
 
 // instances is Map<StrategyName, BotStrategyInstance>
 //   → Map {
 //       "donchian_pivot_composition" → { kind: "strategy", instance: DonchianPivotComposition },
-//       "dydx_cex_carry"            → { kind: "strategy", instance: DydxCexCarryStrategy },
-//       "cascade_fade"              → { kind: "strategy", instance: CascadeFadeStrategy },
 //     }
 //
-//   funding_flip_kill_switch and regime_detector are NOT in the Map
+//   dydx_cex_carry, cascade_fade, funding_flip_kill_switch and regime_detector
+//   are NOT in the Map
 //   (enabled = false → no instantiation, wire-up integrity).
 ```
 
-The factory throws `ConfigError` if a strategy is enabled but its
-runtime dependency is missing (e.g. `dydx_cex_carry` without
-`DydxFundingSource`). This is a **fail-fast** signal at startup.
+The factory throws `ConfigError` if a strategy is enabled but its runtime
+producer is missing. For carry this includes the mandatory precondition
+re-verifier, not only `DydxFundingSource`. This is a **fail-fast** signal at
+startup.
 
 ---
 
@@ -284,13 +284,13 @@ min_consensus = 1    # loose: more trades
 symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 
 [strategies.dydx_cex_carry]
-enabled = true
+enabled = false    # verifier producer is not wired in the bot runtime
 cap = 0.025
 leverage = 10
 notional_per_leg_usd = 125_000
 
 [strategies.cascade_fade]
-enabled = true
+enabled = false    # liquidation/OI/ELR event bridge is not wired
 max_notional_per_event_usd = 1_000_000
 cooldown_hours = 24
 ```
@@ -302,7 +302,7 @@ cooldown_hours = 24
 enabled = false    # turn off the M15 baseline
 
 [strategies.dydx_cex_carry]
-enabled = true
+enabled = false    # verifier producer is not wired in the bot runtime
 cap = 0.025
 notional_per_leg_usd = 100_000
 
@@ -310,9 +310,7 @@ notional_per_leg_usd = 100_000
 enabled = false
 
 [strategies.regime_detector]
-enabled = true    # opt in to the regime meta-plugin
-# (currently registers but is not subscribed to the SignalBus at runtime —
-#  see apps/bot/README.md §9 for the current limitation)
+enabled = true    # opt in; daily closes feed it and runtime applies sizing
 ```
 
 After every edit:

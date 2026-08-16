@@ -540,16 +540,17 @@ describe("CrossDexFundingWatcherPlugin", () => {
     expect(s1!.timestamp).toBe(s2!.timestamp);
   });
 
-  it("clock-skew tolerance: out-of-order timestamps accepted (lastUpdateMs wins)", () => {
+  it("clock-skew tolerance is per venue and aggregate time never regresses", () => {
     const p = new CrossDexFundingWatcherPlugin({ assets: ["BTC"] });
     p.recordBzFunding("BTC", 0.0001, 2_000);
-    p.recordByFunding("BTC", 0.0002, 1_000); // earlier ts — accepted (we don't enforce ordering)
+    p.recordByFunding("BTC", 0.0002, 1_000);
     expect(p.hasAnyVenueData("BTC")).toBe(true);
     const ss = p.state.perAsset.get("BTC")!;
-    // lastUpdateMs reflects the most-recent call (Bybit feed)
-    expect(ss.lastUpdateMs).toBe(1_000);
+    expect(ss.lastUpdateMs).toBe(2_000);
     expect(ss.bz8h).toBe(0.0001);
     expect(ss.by8h).toBe(0.0002);
+    p.recordBzFunding("BTC", 0.0009, 1_500);
+    expect(ss.bz8h).toBe(0.0001);
   });
 
   // -----------------------------------------------------------------------

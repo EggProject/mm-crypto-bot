@@ -39,11 +39,14 @@
 import type { ClientOrderId, FeedEvent, Ohlcv, Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
 import type {
   Bar,
+  CarryMarket,
+  DydxFundingSource,
+  FundingSnapshot,
   Strategy,
   StrategyContext,
   StrategySignal,
 } from "@mm-crypto-bot/core";
-import { SignalBus } from "@mm-crypto-bot/core";
+import { adx, lastAdx, SignalBus } from "@mm-crypto-bot/core";
 import type { UnsubscribeFn } from "@mm-crypto-bot/core";
 import type { Candle, Logger } from "@mm-crypto-bot/shared";
 import { createLogger } from "@mm-crypto-bot/shared";
@@ -185,6 +188,9 @@ export class StrategyRunner {
   /** Shared live SignalBus for enabled StrategyPlugin instances. */
   private readonly pluginBus = new SignalBus({ mode: "live" });
   private readonly pluginBusUnsubscribers: UnsubscribeFn[] = [];
+  private readonly fundingSourceClosers: (() => void)[] = [];
+  /** Latest HMM regime sizing multiplier per enabled symbol; absent means 1.0. */
+  private readonly regimeSizeModifiers = new Map<ExchangeSymbol, number>();
   private pluginClosePromise: Promise<void> | null = null;
   private paused = false;
   private pluginsDisposed = false;
@@ -213,6 +219,7 @@ export class StrategyRunner {
   private readonly pendingOrderMeta = new Map<ClientOrderId, {
     readonly strategy: StrategyName; readonly symbol: ExchangeSymbol; readonly side: "long" | "short";
     readonly leverage: number; readonly signal: StrategySignal; readonly strategyInstance: Strategy;
+    positionOpenedNotified: boolean;
   }>();
   /** Trailing-stop close intents are retained until confirmed execution. */
   private readonly pendingRiskCloses = new Map<string, ClientOrderId | null>();
@@ -254,6 +261,7 @@ export class StrategyRunner {
       void this.onOrderLifecycle(event);
     });
     this.startPlugins();
+    this.startFundingSources();
     this.riskManager?.onTrailingStopClose((event) => {
       void this.requestTrailingStopClose(event.positionId, event.closePrice, event.reason);
     });
@@ -300,6 +308,15 @@ export class StrategyRunner {
       }
     }
     for (const unsubscribe of this.pluginBusUnsubscribers.splice(0)) unsubscribe();
+    for (const close of this.fundingSourceClosers.splice(0)) {
+      try {
+        close();
+      } catch (err) {
+        this.logger.warn("[strategy-runner] funding subscription close threw", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
     this.pluginBus.clear();
   }
 
@@ -359,7 +376,7 @@ export class StrategyRunner {
       this.latestPrice.set(symbol, candle[4]); // close price
       this.positionManager.updateMarketPrice(symbol, candle[4]);
       this.recordClosedBar(symbol, timeframe, this.toCandle(candle));
-      this.processPlugins({
+      await this.processPlugins(symbol, timeframe, {
         timestamp: candle[0],
         open: candle[1],
         high: candle[2],
@@ -401,6 +418,7 @@ export class StrategyRunner {
             if (await this.enforceProtection(strategyName, strategy, existingPosition, candle)) {
               continue;
             }
+            strategy.onCandleObserved?.(ctx);
             // Position is open. Two paths:
             //   1. The strategy may implement `onOpenPositionUpdate` for
             //      per-bar position management (trailing-stop override,
@@ -442,38 +460,10 @@ export class StrategyRunner {
                   if (closed) strategy.onPositionClosed?.(update.reason ?? "force_exit");
                   continue;
                 }
-                const closingSide = existingPosition.side === "long" ? "sell" : "buy";
-                const closeOrder = await this.orderManager.placeOrder({
-                  signal: { side: closingSide, confidence: 1, reason: update.reason ?? "force_exit", stopLoss: 0, takeProfit: 0 },
-                  symbol,
-                  amount: existingPosition.quantity,
-                  referencePrice: exitPrice,
-                  type: "market",
-                  reduceOnly: true,
-                  strategy: strategyName,
-                  clientOrderIdHint: `${strategyName}-force-exit`,
-                });
-                this.orderManager.recordFill(closeOrder.clientOrderId, closeOrder);
-                if (closeOrder.filled > 0) {
-                  this.positionManager.recordFill({
-                    strategy: strategyName,
-                    symbol,
-                    side: closingSide === "sell" ? "short" : "long",
-                    quantity: closeOrder.filled,
-                    price: closeOrder.average ?? closeOrder.price ?? exitPrice,
-                    leverage: existingPosition.leverage,
-                    timestamp: closeOrder.updateTimestamp ?? Date.now(),
-                  });
-                  if (strategy.onPositionClosed !== undefined && closeOrder.filled >= existingPosition.quantity) {
-                    strategy.onPositionClosed(update.reason ?? "force_exit");
-                  }
-                }
+                await this.requestTrailingStopClose(existingPosition.id, exitPrice, update.reason ?? "force_exit");
+                continue;
               }
             }
-            // Still call `onCandle` below to keep strategy state fresh
-            // (Donchian channel, Pivot grid, etc.). But do NOT act on
-            // its return value — the new-signal path is gated.
-            strategy.onCandle(ctx);
             this.logger.debug("[strategy-runner] position open — skipping new signal", {
               strategy: strategyName,
               symbol,
@@ -540,7 +530,21 @@ export class StrategyRunner {
       // regime updates remain telemetry-only.  A source suffix after ':' is
       // treated as symbol attribution and rejected unless the bot enabled it.
       this.pluginBusUnsubscribers.push(this.pluginBus.subscribe("risk", (signal) => {
-        if (signal.kind !== "risk" || signal.breach !== true || this.isOrderEmissionBlocked()) return;
+        if (signal.kind !== "risk" || this.isOrderEmissionBlocked()) return;
+        if (signal.source.startsWith("regime-detector-v1:")) {
+          const attributed = signal.source.slice(signal.source.lastIndexOf(":") + 1) as ExchangeSymbol;
+          const modifier = signal.sizeModifier;
+          if (
+            !this.enabledSymbols.has(attributed) || modifier === undefined ||
+            !Number.isFinite(modifier) || modifier < 0 || modifier > 1
+          ) {
+            this.paused = true;
+            throw new Error(`[strategy-runner] invalid regime sizing signal source=${signal.source} modifier=${String(modifier)}`);
+          }
+          this.regimeSizeModifiers.set(attributed, modifier);
+          return;
+        }
+        if (signal.breach !== true) return;
         const attributed = signal.source.includes(":") ? signal.source.slice(signal.source.lastIndexOf(":") + 1) : undefined;
         if (attributed !== undefined && !this.enabledSymbols.has(attributed as ExchangeSymbol)) {
           this.logger.warn("[strategy-runner] plugin risk signal blocked for disabled symbol", { source: signal.source, symbol: attributed });
@@ -580,6 +584,41 @@ export class StrategyRunner {
     }
   }
 
+  /** Own live dYdX funding subscriptions for the same lifetime as the runner. */
+  private startFundingSources(): void {
+    for (const instance of this.instances.values()) {
+      if (instance.kind !== "strategy" || instance.name !== "dydx_cex_carry") continue;
+      const strategy = instance.instance as Strategy & {
+        readonly config: {
+          readonly market: CarryMarket;
+          readonly fundingSource: DydxFundingSource;
+        };
+        recordFundingTick(dydx: FundingSnapshot, cex: FundingSnapshot, nowMs: number): number;
+      };
+      const subscription = strategy.config.fundingSource.subscribe(
+        strategy.config.market,
+        ({ dydx, cex }) => {
+          const observedAt = Math.max(dydx.fundingTime, cex.fundingTime);
+          const nowMs = Number.isFinite(observedAt) && observedAt >= 0 ? observedAt : Date.now();
+          try {
+            strategy.recordFundingTick(dydx, cex, nowMs);
+          } catch (err) {
+            this.logger.error("[strategy-runner] dYdX funding tick rejected", {
+              strategy: instance.name,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        },
+      );
+      this.fundingSourceClosers.push(() => {
+        subscription.close();
+      });
+      this.logger.info("[strategy-runner] dYdX funding source subscribed", {
+        market: strategy.config.market,
+      });
+    }
+  }
+
   /** Convert a trailing-stop decision into a deduplicated reduce-only intent. */
   private async requestTrailingStopClose(positionId: string, closePrice: number, reason: string): Promise<void> {
     if (this.isOrderEmissionBlocked() || this.pendingRiskCloses.has(positionId)) return;
@@ -616,6 +655,7 @@ export class StrategyRunner {
       if (remaining === undefined) {
         this.riskManager?.disarmTrailingStop(positionId);
         this.pendingRiskCloses.delete(positionId);
+        this.notifyStrategyClosed(position.strategy, reason);
       } else if (order.status === "open") {
         this.pendingRiskCloses.set(positionId, order.clientOrderId);
       } else {
@@ -656,6 +696,7 @@ export class StrategyRunner {
         if (remaining === undefined) {
           this.riskManager?.disarmTrailingStop(positionId);
           this.pendingRiskCloses.delete(positionId);
+          this.notifyStrategyClosed(position.strategy, "risk_close");
         } else if (order.status !== "open") {
           this.pendingRiskCloses.delete(positionId);
         }
@@ -666,15 +707,21 @@ export class StrategyRunner {
   }
 
   /** Drive plugin per-bar work and dispatch its queued live-bus signals. */
-  private processPlugins(bar: Bar): void {
+  private async processPlugins(symbol: ExchangeSymbol, timeframe: string, bar: Bar): Promise<void> {
     for (const instance of this.instances.values()) {
       if (instance.kind !== "plugin") continue;
       try {
+        if (instance.name === "regime_detector" && timeframe === "1d") {
+          const regime = instance.instance as unknown as {
+            recordClose(symbol: string, close: number, timestampMs: number): void;
+          };
+          regime.recordClose(String(symbol), bar.close, bar.timestamp);
+        }
         // Plugins own their mutable state; current built-ins expose it as a
         // public `state` property.  The interface intentionally accepts
         // unknown, so plugins without one receive undefined safely.
         const pluginState = (instance.instance as unknown as { state?: unknown }).state;
-        instance.instance.onBar(bar, pluginState);
+        await instance.instance.onBar(bar, pluginState);
       } catch (err) {
         this.logger.error("[strategy-runner] plugin onBar threw", {
           plugin: instance.name,
@@ -807,6 +854,15 @@ export class StrategyRunner {
       return;
     }
 
+    amount *= this.regimeSizeModifiers.get(symbol) ?? 1;
+    if (amount <= 0) {
+      this.logger.info("[strategy-runner] regime sizing modifier blocked entry", {
+        strategy: strategyName,
+        symbol,
+      });
+      return;
+    }
+
     // Phase 37 Track 4 — büdzsé-CAP alkalmazása. A kért notional
     // (amount * referencePrice) nem haladhatja meg a
     // `portfolioManager.getBudgetFor(strategyName)`-et.
@@ -872,6 +928,7 @@ export class StrategyRunner {
         this.pendingOrderMeta.set(order.clientOrderId, {
           strategy: strategyName, symbol, side: signal.side === "buy" ? "long" : "short",
           leverage: effectiveLeverage, signal, strategyInstance: strategy,
+          positionOpenedNotified: order.filled > 0,
         });
       }
       this.orderManager.recordFill(order.clientOrderId, order);
@@ -888,9 +945,9 @@ export class StrategyRunner {
       if (order.filled > 0 && strategy.onPositionOpened !== undefined) {
         strategy.onPositionOpened({
           side: signal.side,
-          entryTime: Date.now(),
-          entryPrice: referencePrice,
-          quantity: amount,
+          entryTime: order.updateTimestamp ?? Date.now(),
+          entryPrice: order.average ?? order.price ?? referencePrice,
+          quantity: order.filled,
           stopLoss: signal.stopLoss,
           takeProfit: signal.takeProfit,
           holdingBars: 0,
@@ -923,17 +980,18 @@ export class StrategyRunner {
             strategy: meta.strategy, symbol, side: meta.side, quantity: deltaFilled, leverage: meta.leverage,
             signal: meta.signal, referencePrice: order.average ?? order.price ?? this.latestPrice.get(symbol) ?? 0,
           });
-        }
-        if (order.status !== "open") {
-          this.pendingOrderMeta.delete(clientOrderId);
-          this.pendingEntries.delete(this.protectionKey(meta.strategy, symbol));
-          if (order.status === "closed" && order.filled > 0) {
+          if (!meta.positionOpenedNotified) {
             meta.strategyInstance.onPositionOpened?.({
               side: meta.signal.side, entryTime: order.updateTimestamp ?? Date.now(),
               entryPrice: order.average ?? order.price ?? 0, quantity: order.filled,
               stopLoss: meta.signal.stopLoss, takeProfit: meta.signal.takeProfit, holdingBars: 0,
             });
+            meta.positionOpenedNotified = true;
           }
+        }
+        if (order.status !== "open") {
+          this.pendingOrderMeta.delete(clientOrderId);
+          this.pendingEntries.delete(this.protectionKey(meta.strategy, symbol));
         }
       } catch (err) {
         this.logger.warn("[strategy-runner] pending order reconciliation failed; retaining safety gate", {
@@ -968,17 +1026,18 @@ export class StrategyRunner {
           leverage: pending.leverage, signal: pending.signal,
           referencePrice: order.average ?? order.price ?? this.latestPrice.get(symbol) ?? 0,
         });
-      }
-      if (order.status !== "open") {
-        this.pendingOrderMeta.delete(order.clientOrderId);
-        this.pendingEntries.delete(this.protectionKey(pending.strategy, symbol));
-        if (order.status === "closed" && order.filled > 0) {
+        if (!pending.positionOpenedNotified) {
           pending.strategyInstance.onPositionOpened?.({
             side: pending.signal.side, entryTime: order.updateTimestamp ?? Date.now(),
             entryPrice: order.average ?? order.price ?? 0, quantity: order.filled,
             stopLoss: pending.signal.stopLoss, takeProfit: pending.signal.takeProfit, holdingBars: 0,
           });
+          pending.positionOpenedNotified = true;
         }
+      }
+      if (order.status !== "open") {
+        this.pendingOrderMeta.delete(order.clientOrderId);
+        this.pendingEntries.delete(this.protectionKey(pending.strategy, symbol));
       }
       return;
     }
@@ -997,6 +1056,7 @@ export class StrategyRunner {
           });
         }
         const remaining = this.findOpenPosition(protection.strategy, symbol);
+        if (remaining === null) this.notifyStrategyClosed(protection.strategy, protection.kind);
         if (group !== undefined) {
           group.desired = remaining === null ? null : {
             strategy: protection.strategy, symbol, side: protection.side, quantity: remaining.quantity,
@@ -1025,6 +1085,7 @@ export class StrategyRunner {
       if (remaining === undefined) {
         this.riskManager?.disarmTrailingStop(positionId);
         this.pendingRiskCloses.delete(positionId);
+        if (position !== undefined) this.notifyStrategyClosed(position.strategy, "risk_close");
       } else if (order.status !== "open") {
         this.pendingRiskCloses.delete(positionId);
       }
@@ -1034,6 +1095,11 @@ export class StrategyRunner {
 
   private barKey(symbol: ExchangeSymbol, timeframe: string): string {
     return `${String(symbol)}\u0000${timeframe}`;
+  }
+
+  private notifyStrategyClosed(strategyName: string, reason: string): void {
+    const instance = this.instances.get(strategyName as StrategyName);
+    if (instance?.kind === "strategy") instance.instance.onPositionClosed?.(reason);
   }
 
   private protectionKey(strategy: string, symbol: ExchangeSymbol): string {
@@ -1323,7 +1389,7 @@ export class StrategyRunner {
     const last = bars.at(-1);
     if (last === undefined) return {};
     const state: {
-      close?: number; candleIndex?: number; donchianUpper?: number; donchianLower?: number; atr?: number;
+      close?: number; candleIndex?: number; donchianUpper?: number; donchianLower?: number; atr?: number; adx?: number;
     } = { close: last.close, candleIndex: bars.length };
     if (bars.length >= 20) {
       const window = bars.slice(-20);
@@ -1337,6 +1403,8 @@ export class StrategyRunner {
       });
       state.atr = tr.reduce((sum, value) => sum + value, 0) / tr.length;
     }
+    const adxValue = lastAdx(adx(bars, 14));
+    if (adxValue !== undefined) state.adx = adxValue;
     return state;
   }
 

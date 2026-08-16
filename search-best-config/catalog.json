@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "productionRegistry": {
+    "source": "apps/bot/src/config/schema.ts",
+    "components": [
+      {
+        "id": "donchian_pivot_composition",
+        "kind": "strategy",
+        "production": true,
+        "dataRequirements": ["ohlcv:15m", "ohlcv:4h", "ohlcv:1d"],
+        "runner": "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "support": "SUPPORTED_REAL_DATA"
+      },
+      {
+        "id": "dydx_cex_carry",
+        "kind": "strategy",
+        "production": true,
+        "dataRequirements": ["binance-funding:8h", "dydx-funding:1h"],
+        "runner": "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts",
+        "support": "BLOCKED_MISSING_DATA",
+        "reason": "A teljes dYdX órás cache nincs a repóban; a korábbi negyedéves artifact csak három mintanapot tartalmaz."
+      },
+      {
+        "id": "cascade_fade",
+        "kind": "strategy",
+        "production": true,
+        "dataRequirements": ["liquidation:1m", "open-interest", "funding", "elr", "cross-venue-confirmation"],
+        "runner": null,
+        "support": "UNSUPPORTED_DATA",
+        "reason": "Nincs valódi historikus eseménytape; a committed replay dokumentáltan szintetikus helyettesítő."
+      },
+      {
+        "id": "funding_flip_kill_switch",
+        "kind": "plugin",
+        "production": true,
+        "dataRequirements": ["binance-funding:8h"],
+        "runner": "packages/backtest-tools/src/cli/run-sol-flip-funding-replay.ts",
+        "support": "SUPPORTED_REAL_DATA_REPLAY",
+        "reason": "Valós Binance fundingon végrehajtható funkcionális replay; önálló PnL/DD továbbra sem értelmezhető."
+      },
+      {
+        "id": "regime_detector",
+        "kind": "plugin",
+        "production": true,
+        "dataRequirements": ["direction-signals", "carry-signals", "sizing-signals"],
+        "runner": null,
+        "support": "UNSUPPORTED_SIGNAL_REPLAY",
+        "reason": "Nincs archivált SignalBus eseményfolyam és közös portfólió-replay runner."
+      }
+    ]
+  },
+  "implementedInventory": [
+    {
+      "id": "donchian_range_channel",
+      "source": "packages/core/src/strategy/donchian-range-channel.ts",
+      "classification": "production-subcomponent",
+      "support": "SUPPORTED_REAL_DATA"
+    },
+    {
+      "id": "pivot_point_grid",
+      "source": "packages/core/src/strategy/pivot-point-grid.ts",
+      "classification": "production-subcomponent",
+      "support": "SUPPORTED_REAL_DATA"
+    },
+    {
+      "id": "ohlc_trend",
+      "source": "packages/core/src/strategy/ohlc-trend.ts",
+      "classification": "implemented-non-production",
+      "support": "SUPPORTED_REAL_DATA",
+      "runner": "packages/backtest-tools/src/cli/run-ohlc-trend-baseline.ts"
+    },
+    {
+      "id": "composite",
+      "source": "packages/core/src/strategy/composite.ts",
+      "classification": "generic-wrapper",
+      "support": "NOT_STANDALONE"
+    },
+    {
+      "id": "funding_snapshot",
+      "source": "packages/core/src/strategy/funding-snapshot.ts",
+      "classification": "type-only",
+      "support": "NOT_A_STRATEGY"
+    },
+    {
+      "id": "multi_class_ensemble",
+      "source": "packages/core/src/strategy/multi-class-ensemble.ts",
+      "classification": "removed-placeholder",
+      "support": "DEPRECATED"
+    },
+    {
+      "id": "funding_flip_strategy",
+      "source": "packages/core/src/strategy/funding-flip-kill-switch.ts",
+      "classification": "removed-placeholder",
+      "support": "REPLACED_BY_PLUGIN"
+    }
+  ],
+  "jointBacktest": {
+    "support": "LIMITED_DPC_OVERLAY_RUNNER",
+    "runner": "packages/backtest-tools/src/cli/run-dpc-overlay-combination.ts",
+    "supportedMasks": ["dpc", "dpc-solflip", "dpc-regime", "dpc-solflip-regime"],
+    "productionMaskRouting": [
+      {
+        "mask": "10000",
+        "status": "SUPPORTED_REAL_DATA",
+        "runner": "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "overlayMask": null,
+        "validSymbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+        "invalidSymbols": []
+      },
+      {
+        "mask": "10001",
+        "status": "SUPPORTED_REAL_DATA",
+        "runner": "search-best-config/scripts/run-overlay-adapter.ts",
+        "overlayMask": "dpc-regime",
+        "validSymbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+        "invalidSymbols": []
+      },
+      {
+        "mask": "10010",
+        "status": "SUPPORTED_REAL_DATA",
+        "runner": "search-best-config/scripts/run-overlay-adapter.ts",
+        "overlayMask": "dpc-solflip",
+        "validSymbols": ["SOL/USDT"],
+        "invalidSymbols": ["BTC/USDT", "ETH/USDT"]
+      },
+      {
+        "mask": "10011",
+        "status": "SUPPORTED_REAL_DATA",
+        "runner": "search-best-config/scripts/run-overlay-adapter.ts",
+        "overlayMask": "dpc-solflip-regime",
+        "validSymbols": ["SOL/USDT"],
+        "invalidSymbols": ["BTC/USDT", "ETH/USDT"]
+      },
+      {
+        "mask": "00011",
+        "status": "UNSUPPORTED_JOINT_RUNNER",
+        "runner": null,
+        "overlayMask": null,
+        "validSymbols": [],
+        "invalidSymbols": [],
+        "reason": "A SOLFlip+Regime kombináció DPC alpha nélkül nem támogatott; az overlay CLI nem önálló plugin-portfólió runner."
+      }
+    ],
+    "reason": "DPC + SOLFlip/Regime overlay maszkokhoz időrendhelyes IS/validation/OOS runner van; ez nem általános több-alpha vagy teljes production portfólió runner. SOLFlip csak SOL-on érvényes."
+  },
+  "optionalAdapters": [
+    {
+      "id": "overlay_combination",
+      "candidateRunner": "packages/backtest-tools/src/cli/run-dpc-overlay-combination.ts",
+      "adapterCli": "search-best-config/scripts/run-overlay-adapter.ts",
+      "support": "SUPPORTED_VALIDATED_ADAPTER",
+      "activationGate": "A runner fájl létezése önmagában nem elég: sikeres --help contract és érvényes JSON-t író --smoke futás szükséges; ezután az execute helper automatikusan aktiválja."
+    }
+  ]
+}

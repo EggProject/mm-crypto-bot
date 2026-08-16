@@ -368,18 +368,12 @@ describe("Bot", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 1c) Phase 43 Track 1: paper mode auto-provides MockDydxFundingSource.
-  // The default config has dydx_cex_carry enabled. Before the fix, this
-  // triggered `makeDydxCexCarry` which threw ConfigError because no
-  // `DydxFundingSource` was provided. The fix: paper mode auto-constructs
-  // a `MockDydxFundingSource` (synthetic 1Hz PRNG data). Live mode still
-  // requires an explicit `DydxFundingSource`.
-  //
-  // Phase 66 update: the test injects the mock feed explicitly so the
-  // strategy runner never reaches the real bybit.eu network. The
-  // "MockDydxFundingSource auto-provided" assertion is preserved.
+  // 1c) Explicit carry opt-in must fail fast until every mandatory
+  // producer is wired. Paper mode may construct a MockDydxFundingSource,
+  // but it does not have a precondition re-verifier producer. Starting a
+  // permanently gated strategy would therefore be a silent no-op.
   // ---------------------------------------------------------------------------
-  it("paper mode with dydx_cex_carry enabled + no fundingSource starts successfully", async () => {
+  it("paper mode with dydx_cex_carry enabled fails fast without a precondition producer", async () => {
     const origKey = process.env["BYBIT_API_KEY"];
     const origSecret = process.env["BYBIT_API_SECRET"];
     delete process.env["BYBIT_API_KEY"];
@@ -408,12 +402,7 @@ describe("Bot", () => {
         },
       };
       const bot = new Bot({ config, feed }); // explicit mock feed — exercises the init path
-      const p = bot.start();
-      await new Promise<void>((r) => setTimeout(r, 200));
-      await bot.stop();
-      await p;
-      // If we got here without "Strategy 'dydx_cex_carry' is enabled but no
-      // DydxFundingSource was provided", the fix works.
+      await expect(bot.start()).rejects.toThrow(/precondition re-verifier producer/);
     } finally {
       if (origKey !== undefined) process.env["BYBIT_API_KEY"] = origKey;
       if (origSecret !== undefined) process.env["BYBIT_API_SECRET"] = origSecret;

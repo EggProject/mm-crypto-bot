@@ -106,6 +106,7 @@ export const MOMENTUM_NORMALIZER = 0.10 as const;
 
 interface SymbolPriceState {
   closes: number[];
+  lastTimestampMs: number | null;
 }
 
 export type OverlayPosition = "long" | "flat";
@@ -446,11 +447,13 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
       this.state.malformedCloseDrops += 1;
       return emitted;
     }
-    void timestampMs;
     this.state.recordClosesProcessed += 1;
 
     const leadSymbol = this.config.enabledSymbols[0]!;
     const ss = this._getOrCreateSymbolState(symbol);
+    const effectiveTs = timestampMs ?? ((ss.lastTimestampMs ?? -1) + 1);
+    if (ss.lastTimestampMs !== null && effectiveTs <= ss.lastTimestampMs) return emitted;
+    ss.lastTimestampMs = effectiveTs;
     ss.closes.push(close);
     const maxObs = this.config.lookbackDays + 1;
     if (ss.closes.length > maxObs) {
@@ -546,6 +549,7 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
       side,
       strength,
       source: this.metadata.name,
+      symbol,
     };
     const tsField =
       timestampMs !== undefined ? { timestampMs } : {};
@@ -553,17 +557,10 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
       ...baseFields,
       ...tsField,
     };
-    void symbol;
     this.state.directionSignalsEmitted += 1;
     if (this._wired) {
-      // Phase 14A: broadcast the same DirectionSignal on every
-      // subscribed bus. Each bus's DecisionEngine binds the signal
-      // to its own symbol via its constructor-bound `symbol` field.
-      // No source-string symbol suffix is needed because the engine
-      // uses `this.symbol` for attribution, not `_extractSymbol`.
-      for (const bus of this._busesBySymbol.values()) {
-        bus.emit(signal);
-      }
+      const bus = this._busesBySymbol.get(symbol);
+      if (bus !== undefined) bus.emit(signal);
     }
     return signal;
   }
@@ -588,7 +585,7 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
   private _getOrCreateSymbolState(symbol: string): SymbolPriceState {
     let ss = this.state.symbolState.get(symbol);
     if (!ss) {
-      ss = { closes: [] };
+      ss = { closes: [], lastTimestampMs: null };
       this.state.symbolState.set(symbol, ss);
     }
     return ss;

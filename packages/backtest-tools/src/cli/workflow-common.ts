@@ -24,6 +24,10 @@ export const COST_MODEL: CostModel = {
   fundingRatePer8h: 0,
 };
 
+function createDonchianPivotComposition(): DonchianPivotComposition {
+  return new DonchianPivotComposition(DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG, "15m");
+}
+
 const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
 export function parseWorkflowArgs(argv: readonly string[], defaultOutput: string): WorkflowArgs {
@@ -72,7 +76,7 @@ export async function runCompositionBacktest(
       maxPositionPctEquity,
       minPositionPctEquity: 0.01,
     },
-    strategy: new DonchianPivotComposition(DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG, "15m"),
+    strategy: createDonchianPivotComposition(),
   });
 }
 
@@ -100,8 +104,7 @@ export async function runCompositionWalkForward(
       maxPositionPctEquity: 0.2,
       minPositionPctEquity: 0.01,
     },
-    strategy: new DonchianPivotComposition(DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG, "15m"),
-  }, { inSampleDays, outOfSampleDays, stepDays });
+  }, { inSampleDays, outOfSampleDays, stepDays }, createDonchianPivotComposition);
 }
 
 export async function writeWorkflowOutput(output: string, value: unknown): Promise<void> {

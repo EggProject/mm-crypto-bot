@@ -319,6 +319,25 @@ describe("StrategyRegistry", () => {
     expect(order).toEqual(["alpha", "beta", "gamma"]);
   });
 
+  it("async plugins fail loud on sync dispatch and are awaited in order", async () => {
+    const reg = new StrategyRegistry();
+    const order: string[] = [];
+    const plugin = mkPlugin(
+      mkMetadata({ name: "async-alpha", onBarMode: "async" }),
+      {
+        onBar: async () => {
+          await Promise.resolve();
+          order.push("async-alpha");
+        },
+      },
+    );
+    reg.register(plugin);
+    expect(() => reg.onBarAll(mkBar(), {})).toThrow(/onBarAllAsync/);
+    expect(order).toEqual([]);
+    await reg.onBarAllAsync(mkBar(), {});
+    expect(order).toEqual(["async-alpha"]);
+  });
+
   it("onBarAll swallows plugin exceptions (defensive isolation)", () => {
     const reg = new StrategyRegistry();
     const p1 = mkPlugin(mkMetadata({ name: "alpha" }), {

@@ -3,13 +3,13 @@
 // olvasásra szánt markdown riportot generál.
 //
 // ÜGYNÖK #6 (data + backtest) — Phase 3 utolsó lépése.
-// Beolvassa a baseline.json / sweep.csv / oos.json fájlokat, és
+// Beolvassa a baseline.json / sweep.json (vagy legacy sweep.csv) / oos.json fájlokat, és
 // egyetlen `.md` riportot ír ki a backtest-results/ mappába.
 //
 // Használat:
 //   bun scripts/generate-report.ts
 //   bun scripts/generate-report.ts --baseline=backtest-results/baseline.json \
-//                                  --sweep=backtest-results/sweep.csv \
+//                                  --sweep=backtest-results/sweep.json \
 //                                  --oos=backtest-results/oos.json \
 //                                  --output=backtest-results/REPORT.md
 
@@ -33,7 +33,7 @@ export function parseArgs(): CliArgs {
     "backtest-results/baseline-eth-1h.json",
     "backtest-results/baseline-sol-1h.json",
   ];
-  let sweep = "backtest-results/sweep.csv";
+  let sweep = "backtest-results/sweep.json";
   let oos = "backtest-results/oos.json";
   let output = "backtest-results/REPORT.md";
   for (const arg of args) {
@@ -103,6 +103,21 @@ interface OosPayload {
   }[];
 }
 
+interface SweepReportRow {
+  readonly maxPositionPctEquity?: number | undefined;
+  readonly riskPerTrade?: number | undefined;
+  readonly kellyFraction?: number | undefined;
+  readonly maxDrawdownLimit?: number | undefined;
+  readonly monthlyReturn?: number | undefined;
+  readonly totalReturn: number;
+  readonly sharpeRatio: number;
+  readonly maxDrawdown: number;
+  readonly profitFactor: number;
+  readonly winRate: number;
+  readonly totalTrades: number;
+  readonly killSwitchTriggered: boolean;
+}
+
 // A `formatPct` exportálva van a 100% line-coverage tesztekhez.
 export function formatPct(n: number, d = 2): string {
   return `${(n * 100).toFixed(d)}%`;
@@ -115,6 +130,75 @@ export async function loadFile(path: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+function optionalNumber(value: string | undefined): number | undefined {
+  if (value === undefined || value.length === 0) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/** Parse the current sweep JSON envelope, with backward compatibility for the
+ * historical header-based CSV format. */
+export function parseSweepRows(text: string): readonly SweepReportRow[] {
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{")) {
+    const envelope = JSON.parse(trimmed) as {
+      readonly workflow?: unknown;
+      readonly results?: readonly {
+        readonly maxPositionPctEquity?: unknown;
+        readonly result?: {
+          readonly totalReturn?: unknown;
+          readonly sharpeRatio?: unknown;
+          readonly maxDrawdown?: unknown;
+          readonly profitFactor?: unknown;
+          readonly winRate?: unknown;
+          readonly totalTrades?: unknown;
+          readonly killSwitchTriggered?: unknown;
+        };
+      }[];
+    };
+    if (envelope.workflow !== "sweep" || envelope.results === undefined) {
+      throw new Error("Invalid sweep JSON envelope");
+    }
+    return envelope.results.map((item) => {
+      const result = item.result;
+      if (result === undefined) throw new Error("Sweep JSON result is missing");
+      return {
+        maxPositionPctEquity: Number(item.maxPositionPctEquity),
+        totalReturn: Number(result.totalReturn),
+        sharpeRatio: Number(result.sharpeRatio),
+        maxDrawdown: Number(result.maxDrawdown),
+        profitFactor: Number(result.profitFactor),
+        winRate: Number(result.winRate),
+        totalTrades: Number(result.totalTrades),
+        killSwitchTriggered: result.killSwitchTriggered === true,
+      };
+    });
+  }
+
+  const lines = trimmed.split(/\r?\n/).filter((line) => line.length > 0);
+  const header = lines[0]?.split(",") ?? [];
+  return lines.slice(1).map((line) => {
+    const cells = line.split(",");
+    const cell = (name: string): string | undefined => {
+      const index = header.indexOf(name);
+      return index >= 0 ? cells[index] : undefined;
+    };
+    return {
+      riskPerTrade: optionalNumber(cell("risk_per_trade")),
+      kellyFraction: optionalNumber(cell("kelly_fraction")),
+      maxDrawdownLimit: optionalNumber(cell("max_drawdown")),
+      monthlyReturn: optionalNumber(cell("monthly_return")),
+      totalReturn: Number(cell("total_return")),
+      sharpeRatio: Number(cell("sharpe_ratio")),
+      maxDrawdown: Number(cell("max_drawdown_pct")),
+      profitFactor: Number(cell("profit_factor")),
+      winRate: Number(cell("win_rate")),
+      totalTrades: Number(cell("total_trades")),
+      killSwitchTriggered: cell("kill_switch_triggered") === "1" || cell("kill_switch_triggered") === "true",
+    };
+  });
 }
 
 export async function main(): Promise<void> {
@@ -199,21 +283,30 @@ export async function main(): Promise<void> {
   }
 
   if (sweepText !== null) {
-    const rows = sweepText.trim().split("\n").slice(1); // skip header
-    lines.push("## 2. Paraméter sweep");
-    lines.push("");
-    lines.push(`A risk-per-trade × Kelly-fraction × max-drawdown rács (${rows.length} kombináció) legjobb eredményei (havi hozam szerint).`);
-    lines.push("");
-    lines.push("| Risk/Trade | Kelly | MaxDD | Havi hozam | Sharpe | Max DD% | Win% | Trades | Kill |");
-    lines.push("|---:|---:|---:|---:|---:|---:|---:|---:|:---:|");
-    for (const r of rows.slice(0, 8)) {
-      const cells = r.split(",");
-      if (cells.length < 16) continue;
-      lines.push(
-        `| ${cells[2]} | ${cells[3]} | ${cells[4]} | ${formatPct(Number(cells[6]))} | ${Number(cells[8]).toFixed(3)} | ${formatPct(Number(cells[10]))} | ${formatPct(Number(cells[12]))} | ${cells[13]} | ${cells[14] === "1" ? "⚠️" : ""} |`,
-      );
+    try {
+      const rows = [...parseSweepRows(sweepText)].sort((a, b) => b.totalReturn - a.totalReturn);
+      lines.push("## 2. Paraméter sweep");
+      lines.push("");
+      lines.push(`A sweep ${rows.length} kombinációjának eredményei (teljes hozam szerint rendezve).`);
+      lines.push("");
+      lines.push("| Cap | Risk/Trade | Kelly | DD limit | Total Return | Havi hozam | Sharpe | Max DD | Profit factor | Win | Trades | Kill |");
+      lines.push("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---:|");
+      for (const row of rows.slice(0, 8)) {
+        lines.push(
+          `| ${row.maxPositionPctEquity === undefined ? "—" : formatPct(row.maxPositionPctEquity)} | ` +
+          `${row.riskPerTrade === undefined ? "—" : formatPct(row.riskPerTrade)} | ` +
+          `${row.kellyFraction === undefined ? "—" : row.kellyFraction.toFixed(2)} | ` +
+          `${row.maxDrawdownLimit === undefined ? "—" : formatPct(row.maxDrawdownLimit)} | ` +
+          `${formatPct(row.totalReturn)} | ${row.monthlyReturn === undefined ? "—" : formatPct(row.monthlyReturn)} | ` +
+          `${row.sharpeRatio.toFixed(3)} | ${formatPct(row.maxDrawdown)} | ${row.profitFactor.toFixed(3)} | ` +
+          `${formatPct(row.winRate)} | ${row.totalTrades} | ${row.killSwitchTriggered ? "⚠️" : ""} |`,
+        );
+      }
+      lines.push("");
+    } catch (e) {
+      lines.push(`## 2. Paraméter sweep — HIBA: ${(e as Error).message}`);
+      lines.push("");
     }
-    lines.push("");
   } else {
     lines.push("## 2. Paraméter sweep — NEM LEFUTTATOTT");
     lines.push("");
@@ -310,7 +403,7 @@ export async function main(): Promise<void> {
   lines.push("---");
   lines.push("");
   lines.push(
-    "_Ez a riport automatikusan generálódik a `bun scripts/generate-report.ts` paranccsal. A forrás-raw data a `backtest-results/{baseline.json, sweep.csv, oos.json}` fájlokban található._",
+    "_Ez a riport automatikusan generálódik a `bun run report` paranccsal. A forrás-raw data a `backtest-results/{baseline.json, sweep.json, oos.json}` fájlokban található._",
   );
 
   const absOutput = resolve(root, args.output);
@@ -319,4 +412,11 @@ export async function main(): Promise<void> {
   console.log(`[report] Saved → ${absOutput}`);
 }
 
-// Phase 35b — entry point removed for 100% function coverage.
+export function handleFatal(error: unknown): void {
+  console.error("[report] FATAL:", error);
+  process.exitCode = 1;
+}
+
+if (import.meta.main) {
+  main().catch(handleFatal);
+}

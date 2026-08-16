@@ -239,6 +239,40 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
     expect(sides).toEqual(["long", "short"]);
   });
 
+  it("rejects stale/skewed legs and de-duplicates an unchanged active pair", () => {
+    const p = new CrossSymbolFundingDifferentialPlugin({
+      minDifferentialPer8h: 0.0001,
+    });
+    p.subscribe(new SignalBus());
+    p.recordFundingRate("BTC/USDT", 0.0003, TS_BASE);
+    const entry = p.recordFundingRate("ETH/USDT", 0.0001, TS_BASE + 1_000);
+    expect(entry.directionSignals).toHaveLength(2);
+
+    const unchanged = p.recordFundingRate("BTC/USDT", 0.0003, TS_BASE + 2_000);
+    expect(unchanged.directionSignals).toHaveLength(0);
+    expect(unchanged.carrySignals).toHaveLength(0);
+
+    const stale = p.recordFundingRate("BTC/USDT", -0.001, TS_BASE + 1_500);
+    expect(stale.directionSignals).toHaveLength(0);
+    expect(p.state.pairState.get("BTC/USDT|ETH/USDT")?.lastDifferential).toBeCloseTo(0.0002);
+
+    const skewed = p.recordFundingRate("BTC/USDT", 0.0004, TS_BASE + 10_000);
+    expect(skewed.directionSignals).toHaveLength(0);
+    expect(skewed.carrySignals).toHaveLength(0);
+  });
+
+  it("emits the initial neutral transition only once", () => {
+    const p = new CrossSymbolFundingDifferentialPlugin({
+      minDifferentialPer8h: 0.0005,
+    });
+    p.subscribe(new SignalBus());
+    p.recordFundingRate("BTC/USDT", 0.0002, TS_BASE);
+    const firstNeutral = p.recordFundingRate("ETH/USDT", 0.0002, TS_BASE + 1_000);
+    const duplicateNeutral = p.recordFundingRate("BTC/USDT", 0.0002, TS_BASE + 2_000);
+    expect(firstNeutral.directionSignals).toHaveLength(2);
+    expect(duplicateNeutral.directionSignals).toHaveLength(0);
+  });
+
   it("recordFundingRate: differential <= min emits flat on both legs (no carry)", () => {
     const p = new CrossSymbolFundingDifferentialPlugin({
       minDifferentialPer8h: 0.0005,

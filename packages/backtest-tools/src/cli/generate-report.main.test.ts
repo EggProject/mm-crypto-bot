@@ -9,7 +9,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import { main } from "./generate-report.js";
+import { handleFatal, main } from "./generate-report.js";
+
+const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
 /** Helper: write a baseline JSON file. */
 function writeBaselineJson(path: string, opts: {
@@ -75,6 +77,50 @@ async function withArgv<T>(args: readonly string[], fn: () => Promise<T>): Promi
 }
 
 describe("generate-report — main() in-process", () => {
+  it("a közvetlen bun run belépési pont reportot generál", async () => {
+    const reportFile = resolve(outputDir, "DIRECT-REPORT.md");
+    const process = Bun.spawn([
+      "bun",
+      "run",
+      "packages/backtest-tools/src/cli/generate-report.ts",
+      `--baselines=${resolve(outputDir, "missing-baseline.json")}`,
+      `--sweep=${resolve(outputDir, "missing-sweep.json")}`,
+      `--oos=${resolve(outputDir, "missing-oos.json")}`,
+      `--output=${reportFile}`,
+    ], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(process.stdout).text(),
+      new Response(process.stderr).text(),
+      process.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(stdout).toContain("[report] Saved");
+    expect(existsSync(reportFile)).toBe(true);
+  });
+
+  it("a report entrypoint hibakezelője nem nulla exit kódot állít", () => {
+    const originalError = console.error;
+    const originalExitCode = process.exitCode;
+    const errors: string[] = [];
+    console.error = (...args: unknown[]) => {
+      errors.push(args.map(String).join(" "));
+    };
+    try {
+      handleFatal(new Error("report failure"));
+      expect(Number(process.exitCode)).toBe(1);
+      expect(errors.join("\n")).toContain("[report] FATAL: Error: report failure");
+    } finally {
+      console.error = originalError;
+      process.exitCode = originalExitCode ?? 0;
+    }
+  });
+
   it("happy-path: baseline JSON-ok → report.md megíródik", async () => {
     const baselineFile = resolve(outputDir, "baseline.json");
     writeBaselineJson(baselineFile, {
@@ -172,6 +218,57 @@ describe("generate-report — main() in-process", () => {
     const report = readFileSync(reportFile, "utf8");
     expect(report).toContain("## 2. Paraméter sweep");
     expect(report).toContain("Risk/Trade");
+    expect(report).toContain("1.00%");
+    expect(report).toContain("50.00%");
+  });
+
+  it("a jelenlegi sweep.json envelope betöltésekor cap eredményt ír a riportba", async () => {
+    const sweepFile = resolve(outputDir, "sweep.json");
+    writeFileSync(sweepFile, JSON.stringify({
+      workflow: "sweep",
+      args: { symbol: "BTC/USDT" },
+      results: [{
+        maxPositionPctEquity: 0.04,
+        result: {
+          totalReturn: 0.2,
+          sharpeRatio: 1.25,
+          maxDrawdown: 0.08,
+          profitFactor: 1.7,
+          winRate: 0.55,
+          totalTrades: 9,
+          killSwitchTriggered: false,
+        },
+      }],
+    }));
+    const reportFile = resolve(outputDir, "REPORT-JSON.md");
+
+    await withArgv([
+      `--baselines=${resolve(outputDir, "missing.json")}`,
+      `--sweep=${sweepFile}`,
+      `--oos=${resolve(outputDir, "missing-oos.json")}`,
+      `--output=${reportFile}`,
+    ], () => main());
+
+    const report = readFileSync(reportFile, "utf8");
+    expect(report).toContain("## 2. Paraméter sweep");
+    expect(report).toContain("| 4.00% | — | — | — | 20.00%");
+    expect(report).toContain("1.250");
+  });
+
+  it("hibás sweep JSON envelope esetén HIBA szakaszt ír, de elkészíti a riportot", async () => {
+    const sweepFile = resolve(outputDir, "invalid-sweep.json");
+    writeFileSync(sweepFile, JSON.stringify({ workflow: "not-sweep", results: [] }));
+    const reportFile = resolve(outputDir, "REPORT-INVALID-SWEEP.md");
+
+    await withArgv([
+      `--baselines=${resolve(outputDir, "missing.json")}`,
+      `--sweep=${sweepFile}`,
+      `--oos=${resolve(outputDir, "missing-oos.json")}`,
+      `--output=${reportFile}`,
+    ], () => main());
+
+    const report = readFileSync(reportFile, "utf8");
+    expect(report).toContain("## 2. Paraméter sweep — HIBA: Invalid sweep JSON envelope");
   });
 
   it("oos.json betöltése: a walk-forward táblázat megjelenik a riportban", async () => {

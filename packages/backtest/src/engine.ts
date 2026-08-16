@@ -16,8 +16,27 @@
 // (az utolsó lezárt HTF/MTF candle értékeit használja).
 
 import { TIMEFRAME_MS, type Candle, type ExitReason, type Symbol, type Trade } from "@mm-crypto-bot/shared/types";
-import { computeIndicators, createStrategy } from "@mm-crypto-bot/core";
-import type { Strategy, StrategySignal } from "@mm-crypto-bot/core";
+import {
+  adx,
+  atr,
+  bb,
+  computeIndicators,
+  createStrategy,
+  donchian,
+  ema,
+  rsi,
+  supertrend,
+  volumeMa,
+} from "@mm-crypto-bot/core";
+import type {
+  BollingerBands,
+  DonchianChannel,
+  IndicatorState,
+  MtfState,
+  Strategy,
+  StrategySignal,
+  SupertrendPoint,
+} from "@mm-crypto-bot/core";
 
 import {
   applySlippage,
@@ -171,6 +190,98 @@ function recordEquityPoint(
   equityCurve.push({ timestamp, equity });
 }
 
+type IndicatorConfig = Parameters<typeof computeIndicators>[3];
+
+export interface HistoricalIndicatorTimeline {
+  readonly htf: readonly IndicatorState[];
+  readonly mtf: readonly IndicatorState[];
+  readonly ltf: readonly IndicatorState[];
+}
+
+function carryForward<T>(series: readonly (T | undefined)[]): readonly (T | undefined)[] {
+  const carried: (T | undefined)[] = new Array<T | undefined>(series.length);
+  let latest: T | undefined;
+  for (let i = 0; i < series.length; i++) {
+    if (series[i] !== undefined) latest = series[i];
+    carried[i] = latest;
+  }
+  return carried;
+}
+
+function legacyCompatibleRsi(
+  candles: readonly Candle[],
+  period: number,
+): readonly (number | undefined)[] {
+  const series = rsi(candles, period);
+  // The existing RSI function deliberately returns before seeding when a
+  // prefix has exactly period+1 candles. A full-series call does contain the
+  // seed at that index, so mask it to reproduce prefix-recompute timing.
+  if (series.length > period) series[period] = undefined;
+  return carryForward<number>(series);
+}
+
+/**
+ * Precompute every causal indicator series once. Indicator value `i` is
+ * identical to computing the same indicator on `candles.slice(0, i + 1)`;
+ * carry-forward mirrors `computeIndicators`' last-defined-value semantics.
+ */
+export function precomputeHistoricalIndicatorTimeline(
+  htfCandles: readonly Candle[],
+  mtfCandles: readonly Candle[],
+  ltfCandles: readonly Candle[],
+  config: IndicatorConfig,
+): HistoricalIndicatorTimeline {
+  const htfDon = carryForward<DonchianChannel>(donchian(htfCandles, config.htfDonchianPeriod));
+  const htfSt = carryForward<SupertrendPoint>(supertrend(htfCandles, config.htfSupertrendPeriod, config.htfSupertrendMultiplier));
+  const htfFast = carryForward<number>(ema(htfCandles, config.htfEmaFast));
+  const htfSlow = carryForward<number>(ema(htfCandles, config.htfEmaSlow));
+  const htfAdx = carryForward<number>(adx(htfCandles, config.htfAdxPeriod));
+  const htf = htfCandles.map((candle, i): IndicatorState => {
+    const don = htfDon[i];
+    const st = htfSt[i];
+    return {
+      close: candle.close,
+      candleIndex: i,
+      ...(don === undefined ? {} : { donchianUpper: don.upper, donchianLower: don.lower }),
+      ...(st === undefined ? {} : { supertrend: st.value, supertrendDir: st.direction }),
+      ...(htfFast[i] === undefined ? {} : { ema50: htfFast[i] }),
+      ...(htfSlow[i] === undefined ? {} : { ema200: htfSlow[i] }),
+      ...(htfAdx[i] === undefined ? {} : { adx: htfAdx[i] }),
+    };
+  });
+
+  const mtfBb = carryForward<BollingerBands>(bb(mtfCandles, config.mtfBbPeriod, config.mtfBbStddev));
+  const mtfAdx = carryForward<number>(adx(mtfCandles, config.mtfAdxPeriod));
+  const mtfRsi = legacyCompatibleRsi(mtfCandles, config.mtfRsiPeriod);
+  const mtfDon = config.mtfDonchianPeriod === undefined
+    ? []
+    : carryForward<DonchianChannel>(donchian(mtfCandles, config.mtfDonchianPeriod));
+  const mtf = mtfCandles.map((candle, i): IndicatorState => {
+    const bands = mtfBb[i];
+    const don = mtfDon[i];
+    return {
+      close: candle.close,
+      candleIndex: i,
+      ...(bands === undefined ? {} : { bbUpper: bands.upper, bbLower: bands.lower, bbMiddle: bands.middle }),
+      ...(mtfAdx[i] === undefined ? {} : { adx: mtfAdx[i] }),
+      ...(mtfRsi[i] === undefined ? {} : { rsi: mtfRsi[i] }),
+      ...(don === undefined ? {} : { donchianUpper: don.upper, donchianLower: don.lower }),
+    };
+  });
+
+  const ltfRsi = legacyCompatibleRsi(ltfCandles, config.ltfRsiPeriod);
+  const ltfVolume = carryForward<number>(volumeMa(ltfCandles, config.ltfVolumeMaPeriod));
+  const ltfAtr = carryForward<number>(atr(ltfCandles, config.ltfAtrPeriod));
+  const ltf = ltfCandles.map((candle, i): IndicatorState => ({
+    close: candle.close,
+    candleIndex: i,
+    ...(ltfRsi[i] === undefined ? {} : { rsi: ltfRsi[i] }),
+    ...(ltfVolume[i] === undefined ? {} : { volumeMa: ltfVolume[i] }),
+    ...(ltfAtr[i] === undefined ? {} : { atr: ltfAtr[i] }),
+  }));
+  return { htf, mtf, ltf };
+}
+
 /**
  `runBacktest` — a fő backtest futtató függvény.
 */
@@ -220,6 +331,28 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
   // Phase 7 Track A — az aktuális nyitott pozíció entry-bar-indexe (a
   // holdingBars számláláshoz a PositionManagementContext-ben).
   let entryBarIndex = -1;
+  const indicatorConfig: IndicatorConfig = {
+    htfDonchianPeriod: opts.htfDonchianPeriod ?? 20,
+    mtfDonchianPeriod: 20,
+    htfSupertrendPeriod: 10,
+    htfSupertrendMultiplier: 3,
+    htfEmaFast: 50,
+    htfEmaSlow: 200,
+    htfAdxPeriod: 14,
+    mtfBbPeriod: 20,
+    mtfBbStddev: 2,
+    mtfAdxPeriod: 14,
+    mtfRsiPeriod: 14,
+    ltfRsiPeriod: 14,
+    ltfVolumeMaPeriod: 20,
+    ltfAtrPeriod: 14,
+  };
+  const useLegacyIndicators = opts.historicalIndicatorMode === "legacy";
+  const indicatorTimeline = useLegacyIndicators
+    ? null
+    : precomputeHistoricalIndicatorTimeline(htfCandles, mtfCandles, ltfCandles, indicatorConfig);
+  let htfCursor = -1;
+  let mtfCursor = -1;
   // 4) LTF candle-enkénti iteráció.
   for (let i = 0; i < ltfCandles.length; i++) {
     const ltfCandle = ltfCandles[i]!;
@@ -227,26 +360,24 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
     // 4.1) A HTF/MTF "ablak" — az LTF candle timestamp-jéig lezárt HTF/MTF candle-ek.
     // A candle timestampje a bucket nyitása.  Csak akkor látható a stratégia
     // számára, ha teljesen lezárult a jelenlegi LTF candle döntési idejére.
-    const htfSlice = htfCandles.filter((c) => c.timestamp + htfMs <= decisionTime);
-    const mtfSlice = mtfCandles.filter((c) => c.timestamp + mtfMs <= decisionTime);
-    // 4.2) Indikátorok számítása + a stratégia jeleinek fogadása.
-    const indicators = computeIndicators(htfSlice, mtfSlice, ltfCandles.slice(0, i + 1), {
-      htfDonchianPeriod: 20,
-      // Phase 5 — MTF Donchian az 5.C DonchianBreakoutStrategy számára.
-      mtfDonchianPeriod: 20,
-      htfSupertrendPeriod: 10,
-      htfSupertrendMultiplier: 3,
-      htfEmaFast: 50,
-      htfEmaSlow: 200,
-      htfAdxPeriod: 14,
-      mtfBbPeriod: 20,
-      mtfBbStddev: 2,
-      mtfAdxPeriod: 14,
-      mtfRsiPeriod: 14,
-      ltfRsiPeriod: 14,
-      ltfVolumeMaPeriod: 20,
-      ltfAtrPeriod: 14,
-    });
+    let indicators: MtfState;
+    if (indicatorTimeline === null) {
+      const htfSlice = htfCandles.filter((c) => c.timestamp + htfMs <= decisionTime);
+      const mtfSlice = mtfCandles.filter((c) => c.timestamp + mtfMs <= decisionTime);
+      indicators = computeIndicators(htfSlice, mtfSlice, ltfCandles.slice(0, i + 1), indicatorConfig);
+    } else {
+      while (htfCursor + 1 < htfCandles.length && htfCandles[htfCursor + 1]!.timestamp + htfMs <= decisionTime) {
+        htfCursor += 1;
+      }
+      while (mtfCursor + 1 < mtfCandles.length && mtfCandles[mtfCursor + 1]!.timestamp + mtfMs <= decisionTime) {
+        mtfCursor += 1;
+      }
+      indicators = {
+        htf: htfCursor < 0 ? { candleIndex: -1 } : indicatorTimeline.htf[htfCursor]!,
+        mtf: mtfCursor < 0 ? { candleIndex: -1 } : indicatorTimeline.mtf[mtfCursor]!,
+        ltf: indicatorTimeline.ltf[i]!,
+      };
+    }
     // 4.3) Ha van nyitott pozíció, ellenőrizzük a kilépési feltételeket.
     if (openPosition !== null) {
       const exit = checkExit(openPosition, ltfCandle, opts.costModel);
@@ -260,58 +391,68 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
         if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
           (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed(exit.reason);
         }
-      } else if (typeof (strategy as { onOpenPositionUpdate?: unknown }).onOpenPositionUpdate === "function") {
-        // Phase 7 Track A — per-bar position management hook (HWM-based trailing-stop).
-        // A `checkExit` nem triggerelt kilépést, így van lehetőség a trailing-stop
-        // logika futtatására. A hook visszatérési értéke (`PositionUpdate`)
-        // alapján módosítjuk a nyitott pozíció SL/TP szintjét, vagy `forceExit`
-        // esetén azonnal zárjuk azt.
-        const holdingBars = i - entryBarIndex;
-        const update = (strategy as {
-          onOpenPositionUpdate: (ctx: {
-            openPosition: { side: "buy" | "sell"; entryTime: number; entryPrice: number; quantity: number; stopLoss: number; takeProfit: number; holdingBars: number };
-            candle: typeof ltfCandle;
-            candleIndex: number;
-            mtfState: typeof indicators;
-            pricePrecision: number;
-          }) => { newStopLoss?: number; newTakeProfit?: number; forceExit?: boolean; exitPrice?: number; reason?: "trailing_stop" | "trend_reversal" | "stop_loss" | "take_profit" | "time_exit" } | null;
-        }).onOpenPositionUpdate({
-          openPosition: {
-            side: openPosition.side,
-            entryTime: openPosition.entryTime,
-            entryPrice: openPosition.entryPrice,
-            quantity: openPosition.quantity,
-            stopLoss: openPosition.stopLoss,
-            takeProfit: openPosition.takeProfit,
-            holdingBars,
-          },
-          candle: ltfCandle,
+      } else {
+        strategy.onCandleObserved?.({
+          symbol: opts.symbol as never,
+          timeframe: opts.ltfTimeframe,
           candleIndex: i,
+          candle: ltfCandle,
           mtfState: indicators,
           pricePrecision: 2,
         });
-        if (update !== null) {
-          const currentPos: OpenPosition = openPosition;
-          if (update.newStopLoss !== undefined) {
-            openPosition = { ...currentPos, stopLoss: update.newStopLoss };
-          }
-          if (update.newTakeProfit !== undefined) {
-            openPosition = { ...currentPos, takeProfit: update.newTakeProfit };
-          }
-          if (update.forceExit === true) {
-            const exitReason = (update.reason ?? "trailing_stop") as "stop_loss" | "take_profit" | "trailing_stop" | "trend_reversal" | "time_exit" | "kill_switch" | "end_of_data";
-            const trade = closePosition(
-              openPosition,
-              ltfCandle,
-              { reason: exitReason, exitPrice: update.exitPrice ?? ltfCandle.close },
-              opts.costModel,
-            );
-            trades.push(trade);
-            equity += trade.pnlUsd;
-            if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
-              (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed(exitReason);
+        if (typeof (strategy as { onOpenPositionUpdate?: unknown }).onOpenPositionUpdate === "function") {
+          // Phase 7 Track A — per-bar position management hook (HWM-based trailing-stop).
+          // A `checkExit` nem triggerelt kilépést, így van lehetőség a trailing-stop
+          // logika futtatására. A hook visszatérési értéke (`PositionUpdate`)
+          // alapján módosítjuk a nyitott pozíció SL/TP szintjét, vagy `forceExit`
+          // esetén azonnal zárjuk azt.
+          const holdingBars = i - entryBarIndex;
+          const update = (strategy as {
+            onOpenPositionUpdate: (ctx: {
+              openPosition: { side: "buy" | "sell"; entryTime: number; entryPrice: number; quantity: number; stopLoss: number; takeProfit: number; holdingBars: number };
+              candle: typeof ltfCandle;
+              candleIndex: number;
+              mtfState: typeof indicators;
+              pricePrecision: number;
+            }) => { newStopLoss?: number; newTakeProfit?: number; forceExit?: boolean; exitPrice?: number; reason?: "trailing_stop" | "trend_reversal" | "stop_loss" | "take_profit" | "time_exit" | "kill_switch" } | null;
+          }).onOpenPositionUpdate({
+            openPosition: {
+              side: openPosition.side,
+              entryTime: openPosition.entryTime,
+              entryPrice: openPosition.entryPrice,
+              quantity: openPosition.quantity,
+              stopLoss: openPosition.stopLoss,
+              takeProfit: openPosition.takeProfit,
+              holdingBars,
+            },
+            candle: ltfCandle,
+            candleIndex: i,
+            mtfState: indicators,
+            pricePrecision: 2,
+          });
+          if (update !== null) {
+            const currentPos: OpenPosition = openPosition;
+            if (update.newStopLoss !== undefined) {
+              openPosition = { ...currentPos, stopLoss: update.newStopLoss };
             }
-            openPosition = null;
+            if (update.newTakeProfit !== undefined) {
+              openPosition = { ...currentPos, takeProfit: update.newTakeProfit };
+            }
+            if (update.forceExit === true) {
+              const exitReason = (update.reason ?? "trailing_stop") as "stop_loss" | "take_profit" | "trailing_stop" | "trend_reversal" | "time_exit" | "kill_switch" | "end_of_data";
+              const trade = closePosition(
+                openPosition,
+                ltfCandle,
+                { reason: exitReason, exitPrice: update.exitPrice ?? ltfCandle.close },
+                opts.costModel,
+              );
+              trades.push(trade);
+              equity += trade.pnlUsd;
+              if (typeof (strategy as { onPositionClosed?: unknown }).onPositionClosed === "function") {
+                (strategy as { onPositionClosed: (reason: string) => void }).onPositionClosed(exitReason);
+              }
+              openPosition = null;
+            }
           }
         }
       }
@@ -356,6 +497,12 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
           signal.stopLoss,
           { ...opts.positionSize, riskPerTrade: confidenceScaledRisk },
         );
+        opts.onPositionSized?.({
+          timestamp: decisionTime,
+          signal,
+          equityUsd: equity,
+          notionalUsd: notional,
+        });
         // A fill-ár a slippage+spread alkalmazásával.
         const entryPrice = applySlippage(
           applySpread(ltfCandle.close, signal.side, opts.costModel.spreadRate),

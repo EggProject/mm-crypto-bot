@@ -296,6 +296,7 @@ import {
   formatPct,
   loadFile,
   parseArgs as generateReportParseArgs,
+  parseSweepRows,
 } from "./generate-report.js";
 import { mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -307,7 +308,7 @@ describe("generate-report — parseArgs", () => {
     const args = generateReportParseArgs();
     expect(args.baselines.length).toBe(5);
     expect(args.baselines[0]).toBe("backtest-results/baseline-btc-1h.json");
-    expect(args.sweep).toBe("backtest-results/sweep.csv");
+    expect(args.sweep).toBe("backtest-results/sweep.json");
     expect(args.oos).toBe("backtest-results/oos.json");
     expect(args.output).toBe("backtest-results/REPORT.md");
   });
@@ -356,6 +357,44 @@ describe("generate-report — formatPct", () => {
     expect(formatPct(0.05, 4)).toBe("5.0000%");
     expect(formatPct(0.12345, 1)).toBe("12.3%");
     expect(formatPct(-0.5, 0)).toBe("-50%");
+  });
+});
+
+describe("generate-report — sweep input compatibility", () => {
+  it("a jelenlegi sweep JSON envelope eredményeit parse-olja", () => {
+    const rows = parseSweepRows(JSON.stringify({
+      workflow: "sweep",
+      results: [{
+        maxPositionPctEquity: 0.08,
+        result: {
+          totalReturn: 0.25,
+          sharpeRatio: 1.5,
+          maxDrawdown: 0.1,
+          profitFactor: 1.8,
+          winRate: 0.6,
+          totalTrades: 12,
+          killSwitchTriggered: false,
+        },
+      }],
+    }));
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.maxPositionPctEquity).toBe(0.08);
+    expect(rows[0]?.totalReturn).toBe(0.25);
+    expect(rows[0]?.totalTrades).toBe(12);
+  });
+
+  it("a legacy sweep CSV-t fejlécnév alapján továbbra is parse-olja", () => {
+    const rows = parseSweepRows([
+      "iteration,risk_per_trade,kelly_fraction,max_drawdown,monthly_return,total_months,total_return,sharpe_ratio,sortino_ratio,max_drawdown_pct,profit_factor,win_rate,total_trades,kill_switch_triggered",
+      "0,0.01,0.25,0.5,-0.02,12,-0.22,1.5,1.7,0.1,1.6,0.6,10,1",
+    ].join("\n"));
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.riskPerTrade).toBe(0.01);
+    expect(rows[0]?.monthlyReturn).toBe(-0.02);
+    expect(rows[0]?.sharpeRatio).toBe(1.5);
+    expect(rows[0]?.killSwitchTriggered).toBe(true);
   });
 });
 

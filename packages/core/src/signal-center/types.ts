@@ -90,6 +90,8 @@ export interface DirectionSignal {
   readonly side: DirectionSide;
   readonly strength: number; // 0..1
   readonly source: string;
+  /** Explicit instrument attribution. Consumers must prefer this over source parsing. */
+  readonly symbol?: string;
   readonly timestampMs?: number;
 }
 
@@ -122,6 +124,7 @@ export interface CarrySignal {
   readonly fundingRate: number;
   readonly regime: CarryRegime;
   readonly source: string;
+  readonly symbol?: string;
   readonly timestampMs?: number;
 }
 
@@ -152,7 +155,10 @@ export interface SizingSignal {
   readonly volMultiplier: number;
   readonly notional: number;
   readonly source: string;
+  readonly symbol?: string;
   readonly timestampMs?: number;
+  /** Sizing transforms already applied to this signal (cycle prevention). */
+  readonly transformedBy?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +209,7 @@ export interface RiskSignal {
   readonly correlationPenalty: number;
   readonly drawdownLimit: number;
   readonly source: string;
+  readonly symbol?: string;
   readonly timestampMs?: number;
   /** Phase 11.1d+ — active breach flag. */
   readonly breach?: boolean;
@@ -290,6 +297,7 @@ export interface FundingSnapshotSignal {
   readonly predictedGap: number;
   readonly timestamp: number;
   readonly source: string;
+  readonly symbol?: string;
   readonly timestampMs?: number;
   /** Phase 25 #2 T4 — dYdX v4 8h-equivalent rate in bps. */
   readonly dydx8h?: number;
@@ -365,6 +373,7 @@ export interface FactorSignal {
   readonly regime: FactorRegime;
   readonly zScore: number;
   readonly source: string;
+  readonly symbol?: string;
   readonly timestampMs?: number;
   /** Observation-quality weight in [0, 1]. Default: 1.0. */
   readonly confidence?: number;

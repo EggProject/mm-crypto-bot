@@ -10,6 +10,9 @@ import { gzipSync } from "node:zlib";
 import type { FundingSnapshot } from "@mm-crypto-bot/core";
 
 import {
+  assessDydxCoverage,
+  DYDX_COVERAGE_GATE,
+  handleFatal,
   loadCexFundingCsv,
   loadDydxHourly,
   main,
@@ -18,6 +21,8 @@ import {
   simulateDydxVsCexCarry,
   WINDOW_DEFS,
 } from "./run-dydx-vs-cex-funding-carry.js";
+
+const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
 describe("parseArgs", () => {
   it("alapértelmezett értékeket ad vissza ha nincs flag", () => {
@@ -76,6 +81,89 @@ describe("WINDOW_DEFS", () => {
         expect(d.getUTCDate()).toBe(1); // free tier = first of month
       }
       void id;
+    }
+  });
+});
+
+describe("dYdX coverage gate", () => {
+  it("90%-os órás és napi lefedettséget követel", () => {
+    expect(DYDX_COVERAGE_GATE).toEqual({
+      minimumHourlyRatio: 0.9,
+      minimumDailyRatio: 0.9,
+    });
+  });
+
+  it("a néhány mintanapot nem tekinti teljes negyedéves lefedettségnek", () => {
+    const start = Date.UTC(2025, 0, 1);
+    const endExclusive = Date.UTC(2025, 3, 1);
+    const hourly = Array.from({ length: 72 }, (_, index) => ({
+      fundingTime: start + index * 3_600_000,
+      symbol: "BTC-USD",
+      fundingRate: 0.0001,
+      markPrice: 100_000,
+    }));
+
+    const coverage = assessDydxCoverage(hourly, start, endExclusive);
+    expect(coverage.status).toBe("INSUFFICIENT");
+    expect(coverage.sufficient).toBe(false);
+    expect(coverage.observedHourlySlots).toBe(72);
+    expect(coverage.expectedHourlySlots).toBe(90 * 24);
+    expect(coverage.observedDays).toBe(3);
+    expect(coverage.reasons).toContain("hourly_coverage_below_threshold");
+    expect(coverage.reasons).toContain("daily_coverage_below_threshold");
+  });
+
+  it("a sűrű, küszöb feletti mintát elfogadja", () => {
+    const start = Date.UTC(2025, 0, 1);
+    const endExclusive = start + 10 * 3_600_000;
+    const hourly = Array.from({ length: 9 }, (_, index) => ({
+      fundingTime: start + index * 3_600_000,
+      symbol: "BTC-USD",
+      fundingRate: 0.0001,
+      markPrice: null,
+    }));
+
+    const coverage = assessDydxCoverage(hourly, start, endExclusive);
+    expect(coverage.status).toBe("SUFFICIENT");
+    expect(coverage.hourlyCoverageRatio).toBe(0.9);
+    expect(coverage.dailyCoverageRatio).toBe(1);
+  });
+
+  it("érvénytelen intervallumot elutasít", () => {
+    expect(() => assessDydxCoverage([], 10, 10)).toThrow(/positive finite duration/);
+  });
+
+  it("a közvetlen bun run belépési pont hibáját nem nulla exit kóddal jelzi", async () => {
+    const child = Bun.spawn([
+      "bun",
+      "run",
+      "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts",
+      "--symbol=doge",
+    ], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stderr, exitCode] = await Promise.all([
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("[dydx-vs-cex] FATAL:");
+    expect(stderr).toContain("Invalid --symbol");
+  });
+
+  it("handleFatal nem dob újra kezeletlen hibát", () => {
+    const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+    const originalExitCode = process.exitCode;
+    try {
+      handleFatal(new Error("entry failure"));
+      expect(Number(process.exitCode)).toBe(1);
+      expect(errorSpy).toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+      process.exitCode = originalExitCode ?? 0;
     }
   });
 });
@@ -793,8 +881,9 @@ describe("main() — in-process integration", () => {
       "--output=" + outFile,
       "--skip-tardis-fetch",
     ];
+    let runOutput: Awaited<ReturnType<typeof main>> | undefined;
     try {
-      await main();
+      runOutput = await main();
     } finally {
       process.argv = originalArgv;
     }
@@ -806,11 +895,79 @@ describe("main() — in-process integration", () => {
       args: { symbol: string; window: string };
       dydxHourlyCount: number;
       cex8hCount: number;
+      result: { monthlyCarry: number | null; annualizedReturn: number | null; sharpeRatio: number | null };
+      coverage: { status: string; sufficient: boolean; observedHourlySlots: number; expectedHourlySlots: number };
+      verdict: { valid: boolean; classification: string | null; reason: string };
     };
     expect(parsed.args.symbol).toBe("btc");
     expect(parsed.args.window).toBe("2025-Q1");
     expect(parsed.dydxHourlyCount).toBe(72);
     expect(parsed.cex8hCount).toBe(3);
+    expect(parsed.coverage.status).toBe("INSUFFICIENT");
+    expect(parsed.coverage.sufficient).toBe(false);
+    expect(parsed.coverage.observedHourlySlots).toBe(24);
+    expect(parsed.coverage.expectedHourlySlots).toBe(90 * 24);
+    expect(parsed.result.monthlyCarry).toBeNull();
+    expect(parsed.result.annualizedReturn).toBeNull();
+    expect(parsed.result.sharpeRatio).toBeNull();
+    expect(parsed.verdict).toEqual({
+      valid: false,
+      classification: null,
+      reason: "insufficient_dydx_coverage",
+    });
+    expect(runOutput?.coverage.sufficient).toBe(false);
+  });
+
+  it("a közvetlen CLI ritka dYdX adatnál 2-es kóddal lép ki, de auditálható invalid outputot ír", async () => {
+    const cexTime = Date.UTC(2025, 0, 1);
+    writeFileSync(
+      resolve(fundingDir, "binance_btcusdt_funding_8h.csv"),
+      buildCexCsv([
+        { fundingTime: cexTime, fundingRate: 0.0001, markPrice: 100_000 },
+        { fundingTime: cexTime + 8 * 3_600_000, fundingRate: 0.0001, markPrice: 100_500 },
+      ]),
+    );
+    const csv = Array.from({ length: 24 }, (_, hour) => buildTardisCsv(hour, 0.0001, 100_000)).join("\n");
+    const cacheFile = resolve(cacheDir, "2025-01-01", "BTC-USD.csv.gz");
+    mkdirSync(resolve(cacheFile, ".."), { recursive: true });
+    writeFileSync(cacheFile, gzipSync(csv));
+    const outFile = resolve(outputDir, "direct-invalid.json");
+
+    const child = Bun.spawn([
+      "bun",
+      "run",
+      "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts",
+      "--window=2025-Q1",
+      `--funding-csv-dir=${fundingDir}`,
+      `--cache-dir=${cacheDir}`,
+      `--output=${outFile}`,
+      "--skip-tardis-fetch",
+    ], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      child.exited,
+    ]);
+
+    expect(exitCode).toBe(2);
+    expect(stdout).toContain("TRACK B EMPIRICAL VERDICT: INVALID");
+    expect(existsSync(outFile)).toBe(true);
+    const parsed = JSON.parse(await Bun.file(outFile).text()) as {
+      result: { monthlyCarry: number | null; annualizedReturn: number | null };
+      coverage: { status: string; sufficient: boolean };
+      verdict: { valid: boolean; classification: string | null; reason: string };
+    };
+    expect(parsed.coverage).toMatchObject({ status: "INSUFFICIENT", sufficient: false });
+    expect(parsed.result.monthlyCarry).toBeNull();
+    expect(parsed.result.annualizedReturn).toBeNull();
+    expect(parsed.verdict).toEqual({
+      valid: false,
+      classification: null,
+      reason: "insufficient_dydx_coverage",
+    });
   });
 
   it("a {symbol} és {window} placeholder-eket feloldja az output path-ban", async () => {

@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 import { parseWorkflowArgs, runCompositionWalkForward, workflowHelp, writeWorkflowOutput } from "./workflow-common.js";
 
-function parseWindowArg(argv: readonly string[]): { readonly inSampleDays: number; readonly outOfSampleDays: number; readonly stepDays: number; readonly rest: readonly string[] } {
+export function parseWindowArg(argv: readonly string[]): { readonly inSampleDays: number; readonly outOfSampleDays: number; readonly stepDays: number; readonly rest: readonly string[] } {
   let inSampleDays = 365;
   let outOfSampleDays = 90;
-  let stepDays = 30;
+  let stepDays = 90;
   const rest: string[] = [];
   for (const arg of argv) {
     if (arg.startsWith("--in-sample-days=")) inSampleDays = Number(arg.slice("--in-sample-days=".length));
@@ -23,7 +23,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     console.log(workflowHelp("oos", [
       "  --in-sample-days=365       In-sample window length",
       "  --out-of-sample-days=90   OOS window length",
-      "  --step-days=30             Window step",
+      "  --step-days=90             Window step (non-overlapping OOS default)",
     ]));
     return;
   }

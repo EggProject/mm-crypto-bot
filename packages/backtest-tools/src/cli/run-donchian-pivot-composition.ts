@@ -170,6 +170,18 @@ const COST_MODEL: CostModel = {
   fundingRatePer8h: 0,
 };
 
+/**
+ * Convert a full-period return into its geometrically equivalent monthly
+ * return. A terminal equity of zero (or an impossible negative terminal
+ * equity) is treated as a total loss instead of feeding a non-positive base
+ * to `Math.pow`, which would produce `NaN` for fractional month exponents.
+ */
+export function calculateMonthlyReturn(totalReturn: number, totalMonths: number): number {
+  const terminalGrowth = 1 + totalReturn;
+  if (terminalGrowth <= 0) return -1;
+  return Math.pow(terminalGrowth, 1 / totalMonths) - 1;
+}
+
 async function runSingle(
   args: CliArgs,
   _dataDir: string,
@@ -216,7 +228,7 @@ async function runSingle(
 
   const totalDays = (args.endTime.getTime() - args.startTime.getTime()) / (1000 * 60 * 60 * 24);
   const totalMonths = totalDays / 30.44;
-  const monthlyReturn = result.totalReturn > 0 ? (Math.pow(1 + result.totalReturn, 1 / totalMonths) - 1) : 0;
+  const monthlyReturn = calculateMonthlyReturn(result.totalReturn, totalMonths);
   // Phase 35b — a `wins` filter arrow eltávolítva, mert a 0-trade
   // teszt ágban a filter callback body nem hívódik (üres a trades
   // array), ami a function-coverage-ot 14/15-re csökkentette.
@@ -351,4 +363,11 @@ export async function main(): Promise<void> {
   console.log(`\n[donchian-pivot] Saved combined envelope: ${combinedPath}`);
 }
 
-// Phase 35b — entry point removed for 100% function coverage.
+export function handleFatal(error: unknown): void {
+  console.error("[donchian-pivot] FATAL:", error);
+  process.exitCode = 1;
+}
+
+if (import.meta.main) {
+  main().catch(handleFatal);
+}

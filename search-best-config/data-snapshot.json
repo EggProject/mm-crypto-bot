@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "snapshotId": "repo-data-2026-07-09",
+  "createdAt": "2026-08-16T00:00:00.000Z",
+  "datasets": [
+    {
+      "id": "binance-ohlcv",
+      "kind": "ohlcv-manifest",
+      "provenance": "REAL_DOWNLOADED",
+      "source": "Binance public API via CCXT; actual quote asset USDT",
+      "manifestPath": "data/ohlcv/MANIFEST.json",
+      "manifestSha256": "424afc8f960f38322991046ef1ed96bb34d4ba67850a1ca1a510ccc75ec55db3",
+      "expectedFileCount": 15,
+      "expectedTotalRows": 1146429
+    },
+    {
+      "id": "binance-funding",
+      "kind": "funding-csv",
+      "provenance": "REAL_DOWNLOADED",
+      "source": "https://fapi.binance.com/fapi/v1/fundingRate",
+      "cadenceMs": 28800000,
+      "cadenceToleranceMs": 60000,
+      "files": [
+        {
+          "path": "data/funding/binance_btcusdt_funding_8h.csv",
+          "sha256": "4004660926f1a12dfa6adbb139b66452921266fb487b633bd09453e6cb3ce0ad",
+          "bytes": 133654,
+          "rows": 2761,
+          "firstTs": 1704067200000,
+          "lastTs": 1783555200000,
+          "symbol": "BTCUSDT"
+        },
+        {
+          "path": "data/funding/binance_ethusdt_funding_8h.csv",
+          "sha256": "a0dcb789631c1b11e456f4daf8f07ee55d1c52a28014105c9a57ddd0c526e6a1",
+          "bytes": 130258,
+          "rows": 2761,
+          "firstTs": 1704067200000,
+          "lastTs": 1783555200000,
+          "symbol": "ETHUSDT"
+        },
+        {
+          "path": "data/funding/binance_solusdt_funding_8h.csv",
+          "sha256": "78cbbd154596c5590508a75cbe3324b6885de815df0acc3c14807a2bb2b9e765",
+          "bytes": 127355,
+          "rows": 2761,
+          "firstTs": 1704067200000,
+          "lastTs": 1783555200000,
+          "symbol": "SOLUSDT"
+        }
+      ]
+    },
+    {
+      "id": "deribit-btc-dvol",
+      "kind": "dvol-csv",
+      "provenance": "REAL_DOWNLOADED_SNAPSHOT_ONLY",
+      "source": "Deribit public API; downloader is not committed",
+      "cadenceMs": 86400000,
+      "cadenceToleranceMs": 0,
+      "files": [
+        {
+          "path": "data/deribit/deribit_btc_dvol_daily.csv",
+          "sha256": "0a693e60240a266df21a0f99b47af476a039d7ab7377c02c70b5bdc03195273a",
+          "bytes": 31838,
+          "rows": 641,
+          "firstTs": 1728000000000,
+          "lastTs": 1783296000000,
+          "symbol": "BTC-DVOL"
+        }
+      ]
+    }
+  ],
+  "missing": [
+    {
+      "id": "dydx-hourly-funding",
+      "requiredBy": ["dydx_cex_carry"],
+      "status": "MISSING"
+    },
+    {
+      "id": "cascade-event-tape",
+      "requiredBy": ["cascade_fade"],
+      "status": "MISSING_REAL_DATA"
+    },
+    {
+      "id": "signal-bus-replay",
+      "requiredBy": ["regime_detector", "joint-production-combinations"],
+      "status": "MISSING"
+    }
+  ]
+}

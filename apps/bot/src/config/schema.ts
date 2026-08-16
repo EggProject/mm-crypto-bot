@@ -73,6 +73,15 @@ export const StrategySectionSchema = z
 /** `StrategySection` — a Zod-inferred type. */
 export type StrategySection = z.infer<typeof StrategySectionSchema>;
 
+/**
+ * A Donchian/Pivot kompozit stratégia szekciója. A közös séma továbbra is
+ * forward-compatible marad, de a runtime által értelmezett `min_consensus`
+ * mező itt már nem csúszhat át validálatlan passthrough értékként.
+ */
+export const DonchianPivotStrategySectionSchema = StrategySectionSchema.extend({
+  min_consensus: z.number().int().min(1).max(2).optional(),
+});
+
 // ============================================================================
 // 2) Top-level config schema
 // ============================================================================
@@ -86,8 +95,8 @@ export type StrategySection = z.infer<typeof StrategySectionSchema>;
  * A `strategies` szekció default-jai a Phase 33 scope plan §"Track B"
  * táblázatából jönnek:
  *   - donchian_pivot_composition: enabled (default production)
- *   - dydx_cex_carry:            enabled (default production)
- *   - cascade_fade:              enabled (default production)
+ *   - dydx_cex_carry:            disabled (requires precondition verifier)
+ *   - cascade_fade:              disabled (requires liquidation/OI/ELR bridge)
  *   - funding_flip_kill_switch:  disabled (defensive opt-in)
  *   - regime_detector:           disabled (meta-plugin opt-in)
  */
@@ -335,19 +344,19 @@ export const BotConfigSchema = z.object({
   strategies: z
     .object({
       /** Donchian + Pivot 2-component composition (Phase 18 #1 baseline). */
-      donchian_pivot_composition: StrategySectionSchema.default({
+      donchian_pivot_composition: DonchianPivotStrategySectionSchema.default({
         enabled: true,
         cap: 0.2,
       }),
       /** dYdX-vs-CEX cross-venue funding carry (Phase 25 #2 T2). */
       dydx_cex_carry: StrategySectionSchema.default({
-        enabled: true,
+        enabled: false,
         cap: 0.025,
         notional_per_leg_usd: 125_000,
       }),
       /** Liquidation cascade "fade-the-cascade" detector (Phase 25 #2 T2D). */
       cascade_fade: StrategySectionSchema.default({
-        enabled: true,
+        enabled: false,
         max_notional_per_event_usd: 1_000_000,
         cooldown_hours: 24,
       }),

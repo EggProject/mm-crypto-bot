@@ -337,12 +337,18 @@ describe("PerpDexLiquidationSignalsPlugin — 3-layer 1:10 defense", () => {
     expect(p.metadata.maxLeverage).toBe(ONE_TO_TEN_LEVERAGE);
   });
 
-  it("LAYER 2: subscribe(bus) increments layer2AssertionCount", () => {
-    const p = new PerpDexLiquidationSignalsPlugin();
+  it("LAYER 2: subscribe(bus) increments layer2AssertionCount with an operational adapter", () => {
+    const adapter = new MockLiquidationAdapter("mock", () => mkQuietSnapshot("BTC"));
+    const p = new PerpDexLiquidationSignalsPlugin({ adapters: [adapter] });
     const bus = createSignalBus();
     expect(p.state.layer2AssertionCount).toBe(0);
     p.subscribe(bus);
     expect(p.state.layer2AssertionCount).toBe(1);
+  });
+
+  it("fails loud at startup when every configured adapter is an inert built-in stub", () => {
+    const p = new PerpDexLiquidationSignalsPlugin();
+    expect(() => p.subscribe(createSignalBus())).toThrow(/no operational liquidation adapter.*inert startup/);
   });
 
   it("LAYER 3: per-emit increments layer3AssertionCount", async () => {
@@ -463,8 +469,8 @@ describe("PerpDexLiquidationSignalsPlugin — emit + throttle", () => {
     p.onBar(TEST_BAR, undefined);
     await new Promise((r) => setTimeout(r, 50));
     expect(p.state.totalSignalsEmitted).toBe(1);
-    // Second bar 1ms later — cooldown active.
-    const bar2: Bar = { ...TEST_BAR, timestamp: TEST_BAR.timestamp + 1 };
+    // Second poll after the configured poll interval, still inside cooldown.
+    const bar2: Bar = { ...TEST_BAR, timestamp: TEST_BAR.timestamp + 60_000 };
     p.onBar(bar2, undefined);
     await new Promise((r) => setTimeout(r, 50));
     expect(p.state.totalSignalsEmitted).toBe(1);
@@ -483,7 +489,7 @@ describe("PerpDexLiquidationSignalsPlugin — emit + throttle", () => {
     p.onBar(TEST_BAR, undefined);
     await new Promise((r) => setTimeout(r, 50));
     expect(p.state.totalSignalsEmitted).toBe(1);
-    const bar2: Bar = { ...TEST_BAR, timestamp: TEST_BAR.timestamp + 200 };
+    const bar2: Bar = { ...TEST_BAR, timestamp: TEST_BAR.timestamp + 60_000 };
     p.onBar(bar2, undefined);
     await new Promise((r) => setTimeout(r, 50));
     expect(p.state.totalSignalsEmitted).toBe(2);
@@ -503,7 +509,10 @@ describe("PerpDexLiquidationSignalsPlugin — emit + throttle", () => {
   });
 
   it("graceful degradation: all stale feeds → no emit, totalStaleFeedsSkips++", async () => {
-    const staleAdapter = new NullLiquidationAdapter();
+    const staleAdapter = new MockLiquidationAdapter("stale-live-feed", (symbol) => ({
+      ...mkQuietSnapshot(symbol),
+      stale: true,
+    }));
     const p = new PerpDexLiquidationSignalsPlugin({
       enabledSymbols: ["BTC"],
       adapters: [staleAdapter, staleAdapter, staleAdapter, staleAdapter, staleAdapter],
@@ -539,7 +548,8 @@ describe("PerpDexLiquidationSignalsPlugin — reset / dispose", () => {
   });
 
   it("dispose() clears bus + throttle + wired flag", () => {
-    const p = new PerpDexLiquidationSignalsPlugin();
+    const adapter = new MockLiquidationAdapter("mock", () => mkQuietSnapshot("BTC"));
+    const p = new PerpDexLiquidationSignalsPlugin({ adapters: [adapter] });
     const bus = createSignalBus();
     p.subscribe(bus);
     p.dispose();
@@ -574,15 +584,13 @@ describe("PerpDexLiquidationSignalsPlugin — adversarial probes", () => {
   });
 
   it("ADVERSARIAL: missing feed (all 5 adapters stale) → no emit, no crash", async () => {
+    const staleAdapter = new MockLiquidationAdapter("stale-live-feed", (symbol) => ({
+      ...mkQuietSnapshot(symbol),
+      stale: true,
+    }));
     const p = new PerpDexLiquidationSignalsPlugin({
       enabledSymbols: ["BTC"],
-      adapters: [
-        new NullLiquidationAdapter(),
-        new NullLiquidationAdapter(),
-        new NullLiquidationAdapter(),
-        new NullLiquidationAdapter(),
-        new NullLiquidationAdapter(),
-      ],
+      adapters: [staleAdapter, staleAdapter, staleAdapter, staleAdapter, staleAdapter],
     });
     const bus = createSignalBus();
     p.subscribe(bus);

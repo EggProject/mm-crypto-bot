@@ -4,12 +4,10 @@
  * A `createStrategyInstances` factory tesztjei.
  *
  * Coverage (≥ 8 assertions, all on `bun:test`):
- *   1.  With default config (all 3 production strategies ON), returns
- *       3 Strategy instances (dydx_cex_carry needs deps; if not provided,
- *       throws ConfigError — covered separately in test #2).
+ *   1.  Default config starts only the OHLCV-capable baseline.
  *   2.  dydx_cex_carry enabled but no DydxFundingSource → throws ConfigError.
- *   3.  With funding source provided, all 3 production strategies
- *       are returned as Map entries with `kind: "strategy"`.
+ *   3.  dydx_cex_carry with funding but without a production precondition
+ *       re-verifier fails loudly instead of remaining inert.
  *   4.  All strategies disabled → empty Map.
  *   5.  Disabling donchian_pivot_composition only → 2 instances (no dpc).
  *   6.  Per-strategy `cap` override flows to DydxCexCarryConfig.capFraction
@@ -32,7 +30,11 @@ import { describe, expect, it } from "bun:test";
 
 import { BotConfigSchema } from "./schema.js";
 import type { BotConfig } from "./schema.js";
-import { createStrategyInstances, type BotDependencies } from "./strategy-registry.js";
+import {
+  buildDydxCexCarryConfig,
+  createStrategyInstances,
+  type BotDependencies,
+} from "./strategy-registry.js";
 import type { DydxFundingSource, CarryMarket } from "@mm-crypto-bot/core";
 import type { FundingSnapshot } from "@mm-crypto-bot/core";
 
@@ -91,19 +93,18 @@ function buildDeps(): BotDependencies {
 
 describe("createStrategyInstances", () => {
   // --------------------------------------------------------------------------
-  // 1) Default config — 3 production strategies ON, 2 defensive OFF.
+  // 1) Default config — only the fully-wired OHLCV strategy is enabled.
   // --------------------------------------------------------------------------
-  it("with default config + funding source: 3 Strategy instances (2 plugins OFF)", () => {
+  it("with default config: only the OHLCV-capable strategy starts", () => {
     const config = buildConfig({});
-    const instances = createStrategyInstances(config, buildDeps());
-    // Default: dpc + dydx + cascade ON; ffk + regime OFF.
-    expect(instances.size).toBe(3);
+    const instances = createStrategyInstances(config, {});
+    expect(instances.size).toBe(1);
     expect(instances.has("donchian_pivot_composition")).toBe(true);
-    expect(instances.has("dydx_cex_carry")).toBe(true);
-    expect(instances.has("cascade_fade")).toBe(true);
+    expect(instances.has("dydx_cex_carry")).toBe(false);
+    expect(instances.has("cascade_fade")).toBe(false);
     expect(instances.has("funding_flip_kill_switch")).toBe(false);
     expect(instances.has("regime_detector")).toBe(false);
-    // All 3 are Strategy-kind (not plugin).
+    // The sole default instance is Strategy-kind (not plugin).
     for (const entry of instances.values()) {
       expect(entry.kind).toBe("strategy");
     }
@@ -113,8 +114,9 @@ describe("createStrategyInstances", () => {
   // 2) dydx_cex_carry enabled but no funding source → ConfigError.
   // --------------------------------------------------------------------------
   it("throws ConfigError when dydx_cex_carry is enabled but no funding source is provided", () => {
-    const config = buildConfig({});
-    // dydx_cex_carry default is enabled → factory MUST throw.
+    const config = buildConfig({
+      strategies: { dydx_cex_carry: { enabled: true } },
+    });
     expect(() => createStrategyInstances(config, {})).toThrow(/dydx_cex_carry/);
   });
 
@@ -126,16 +128,16 @@ describe("createStrategyInstances", () => {
       strategies: {
         dydx_cex_carry: { enabled: false },
         donchian_pivot_composition: { enabled: true },
-        cascade_fade: { enabled: true },
+        cascade_fade: { enabled: false },
         funding_flip_kill_switch: { enabled: false },
         regime_detector: { enabled: false },
       },
     });
     const instances = createStrategyInstances(config, {});
-    expect(instances.size).toBe(2);
+    expect(instances.size).toBe(1);
     expect(instances.has("dydx_cex_carry")).toBe(false);
     expect(instances.has("donchian_pivot_composition")).toBe(true);
-    expect(instances.has("cascade_fade")).toBe(true);
+    expect(instances.has("cascade_fade")).toBe(false);
   });
 
   // --------------------------------------------------------------------------
@@ -156,23 +158,19 @@ describe("createStrategyInstances", () => {
   });
 
   // --------------------------------------------------------------------------
-  // 5) Disabling only donchian_pivot_composition → 2 strategy instances.
+  // 5) Explicit carry opt-in with funding still requires a verifier producer.
   // --------------------------------------------------------------------------
-  it("disabling only donchian_pivot_composition: 2 strategy instances remain", () => {
+  it("fails loudly when carry has funding but no precondition re-verifier", () => {
     const config = buildConfig({
       strategies: {
         donchian_pivot_composition: { enabled: false },
         dydx_cex_carry: { enabled: true },
-        cascade_fade: { enabled: true },
+        cascade_fade: { enabled: false },
         funding_flip_kill_switch: { enabled: false },
         regime_detector: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
-    expect(instances.size).toBe(2);
-    expect(instances.has("donchian_pivot_composition")).toBe(false);
-    expect(instances.has("dydx_cex_carry")).toBe(true);
-    expect(instances.has("cascade_fade")).toBe(true);
+    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/precondition re-verifier/);
   });
 
   // --------------------------------------------------------------------------
@@ -188,18 +186,11 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
-    const entry = instances.get("dydx_cex_carry");
-    expect(entry).toBeDefined();
-    if (entry?.kind !== "strategy") {
-      throw new Error("Expected strategy-kind instance for dydx_cex_carry");
-    }
-    const strategy = entry.instance;
-    // The DydxCexCarryStrategy exposes its config as `config.capFraction`.
-    // We need to cast to access the public `config` field.
-    const capFraction = (strategy as unknown as { config: { capFraction: number } }).config
-      .capFraction;
-    expect(capFraction).toBe(0.04);
+    const carryConfig = buildDydxCexCarryConfig(
+      config.strategies.dydx_cex_carry,
+      new MockFundingSource(),
+    );
+    expect(carryConfig.capFraction).toBe(0.04);
   });
 
   // --------------------------------------------------------------------------
@@ -215,41 +206,42 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
-    const entry = instances.get("dydx_cex_carry");
-    expect(entry?.kind).toBe("strategy");
-    if (entry?.kind !== "strategy") return;
-    const cfg = (entry.instance as unknown as { config: { notionalPerLegUsd: number } }).config;
-    expect(cfg.notionalPerLegUsd).toBe(250_000);
+    const carryConfig = buildDydxCexCarryConfig(
+      config.strategies.dydx_cex_carry,
+      new MockFundingSource(),
+    );
+    expect(carryConfig.notionalPerLegUsd).toBe(250_000);
   });
 
   // --------------------------------------------------------------------------
   // 8) Per-strategy min_consensus override flows to DonchianPivotComposition.
   // --------------------------------------------------------------------------
-  it("per-strategy min_consensus override flows to DonchianPivotComposition", () => {
-    const config = buildConfig({
-      strategies: {
-        donchian_pivot_composition: { enabled: true, min_consensus: 1 },
-        dydx_cex_carry: { enabled: false },
-        cascade_fade: { enabled: false },
-        funding_flip_kill_switch: { enabled: false },
-        regime_detector: { enabled: false },
-      },
-    });
-    const instances = createStrategyInstances(config, buildDeps());
-    const entry = instances.get("donchian_pivot_composition");
-    expect(entry?.kind).toBe("strategy");
-    if (entry?.kind !== "strategy") return;
-    const dpc = entry.instance as unknown as {
-      config: { minConsensus: number };
-    };
-    expect(dpc.config.minConsensus).toBe(1);
+  it("per-strategy min_consensus 1 and 2 flow to DonchianPivotComposition", () => {
+    for (const minConsensus of [1, 2] as const) {
+      const config = buildConfig({
+        strategies: {
+          donchian_pivot_composition: { enabled: true, min_consensus: minConsensus },
+          dydx_cex_carry: { enabled: false },
+          cascade_fade: { enabled: false },
+          funding_flip_kill_switch: { enabled: false },
+          regime_detector: { enabled: false },
+        },
+      });
+      const instances = createStrategyInstances(config, buildDeps());
+      const entry = instances.get("donchian_pivot_composition");
+      expect(entry?.kind).toBe("strategy");
+      if (entry?.kind !== "strategy") continue;
+      const dpc = entry.instance as unknown as {
+        config: { minConsensus: number };
+      };
+      expect(dpc.config.minConsensus).toBe(minConsensus);
+    }
   });
 
   // --------------------------------------------------------------------------
   // 9) Per-strategy max_notional_per_event_usd override flows to CascadeFade.
   // --------------------------------------------------------------------------
-  it("per-strategy max_notional_per_event_usd override flows to CascadeFadeStrategy", () => {
+  it("fails loudly when cascade_fade is enabled without its event bridge", () => {
     const config = buildConfig({
       strategies: {
         cascade_fade: { enabled: true, max_notional_per_event_usd: 500_000 },
@@ -259,24 +251,13 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
-    const entry = instances.get("cascade_fade");
-    expect(entry?.kind).toBe("strategy");
-    if (entry?.kind !== "strategy") return;
-    // The CascadeFadeStrategy wraps a `detector` (CascadeFadeDetector).
-    // The detector's config is the public field `config`.
-    const detectorCfg = (
-      entry.instance as unknown as {
-        detector: { config: { capacityMaxPerSymbolEventUsd: number } };
-      }
-    ).detector.config;
-    expect(detectorCfg.capacityMaxPerSymbolEventUsd).toBe(500_000);
+    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/liquidation \+ OI \+ ELR event bridge/);
   });
 
   // --------------------------------------------------------------------------
   // 10) Per-strategy cooldown_hours override flows to CascadeFade.
   // --------------------------------------------------------------------------
-  it("per-strategy cooldown_hours override flows to CascadeFadeStrategy riskBtCooldownMs", () => {
+  it("never silently accepts cascade_fade overrides without a producer", () => {
     const config = buildConfig({
       strategies: {
         cascade_fade: { enabled: true, cooldown_hours: 12 },
@@ -286,23 +267,13 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
-    const entry = instances.get("cascade_fade");
-    if (entry?.kind !== "strategy") {
-      throw new Error("Expected strategy-kind instance for cascade_fade");
-    }
-    const cfg = (
-      entry.instance as unknown as {
-        detector: { config: { riskBtCooldownMs: number } };
-      }
-    ).detector.config;
-    expect(cfg.riskBtCooldownMs).toBe(12 * 60 * 60 * 1000);
+    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/OHLCV-only runtime would be inert/);
   });
 
   // --------------------------------------------------------------------------
   // 11) Enable funding_flip_kill_switch (default OFF) → plugin in Map.
   // --------------------------------------------------------------------------
-  it("enabling funding_flip_kill_switch adds a plugin-kind instance", () => {
+  it("fails loudly when funding_flip_kill_switch has no SOL funding producer", () => {
     const config = buildConfig({
       strategies: {
         funding_flip_kill_switch: { enabled: true },
@@ -312,12 +283,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
-    expect(instances.size).toBe(1);
-    const entry = instances.get("funding_flip_kill_switch");
-    expect(entry?.kind).toBe("plugin");
-    if (entry?.kind !== "plugin") return;
-    expect(entry.instance.metadata.name).toBe("sol-flip-kill-switch");
+    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/SOL funding-rate producer/);
   });
 
   // --------------------------------------------------------------------------
@@ -344,7 +310,7 @@ describe("createStrategyInstances", () => {
   // --------------------------------------------------------------------------
   // 13) With all 5 enabled + funding source → 5 instances, mix kinds.
   // --------------------------------------------------------------------------
-  it("with all 5 enabled: 3 strategies + 2 plugins, distinct kinds", () => {
+  it("all-enabled configuration fails closed on unsupported event producers", () => {
     const config = buildConfig({
       strategies: {
         donchian_pivot_composition: { enabled: true },
@@ -354,15 +320,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: true },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
-    expect(instances.size).toBe(5);
-    // Verify the kind distribution.
-    const kinds: Record<string, number> = { strategy: 0, plugin: 0 };
-    for (const entry of instances.values()) {
-      kinds[entry.kind] = (kinds[entry.kind] ?? 0) + 1;
-    }
-    expect(kinds.strategy).toBe(3);
-    expect(kinds.plugin).toBe(2);
+    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/precondition re-verifier/);
   });
 
   // --------------------------------------------------------------------------
@@ -378,15 +336,11 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
-    const entry = instances.get("dydx_cex_carry");
-    if (entry?.kind !== "strategy") {
-      throw new Error("Expected strategy-kind instance for dydx_cex_carry");
-    }
-    const leverage = (
-      entry.instance as unknown as { config: { leverage: 1 | 10 } }
-    ).config.leverage;
-    expect(leverage).toBe(1);
+    const carryConfig = buildDydxCexCarryConfig(
+      config.strategies.dydx_cex_carry,
+      new MockFundingSource(),
+    );
+    expect(carryConfig.leverage).toBe(1);
   });
 
   // --------------------------------------------------------------------------

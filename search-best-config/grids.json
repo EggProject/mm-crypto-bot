@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "selectionPolicy": {
+    "optimizeOn": ["is", "validation"],
+    "lockedEvaluation": "oos",
+    "ranking": "pareto",
+    "note": "Az OOS eredmény nem használható paraméterhangolásra; a teljes táblából a felhasználó választ."
+  },
+  "splits": [
+    { "id": "is", "start": "2024-01-01", "end": "2025-07-01" },
+    { "id": "validation", "start": "2025-07-01", "end": "2026-01-01" },
+    { "id": "oos", "start": "2026-01-01", "end": "2026-07-09" }
+  ],
+  "production": {
+    "donchian_pivot_composition": {
+      "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      "timeframe": "15m",
+      "initialEquityUsd": 10000,
+      "minConsensus": [1, 2],
+      "maxPositionPctEquity": [0.04, 0.08, 0.12, 0.15, 0.2]
+    },
+    "dydx_cex_carry": {
+      "status": "BLOCKED_MISSING_DATA",
+      "symbols": ["btc"],
+      "notionalUsd": [50000, 125000, 250000],
+      "rebalanceBps": [10, 20, 30],
+      "latencyMinutes": [5, 15, 30],
+      "minimumHourlyCoverageRatio": 0.9,
+      "minimumDailyCoverageRatio": 0.9
+    },
+    "cascade_fade": {
+      "status": "UNSUPPORTED_DATA",
+      "parameters": []
+    },
+    "funding_flip_kill_switch": {
+      "status": "SUPPORTED_REAL_DATA_REPLAY",
+      "pnlApplicable": false,
+      "input": "data/funding/binance_solusdt_funding_8h.csv",
+      "signFlipWindowDays": [3, 7, 14],
+      "extremeSigmaThreshold": [1, 1.5, 2],
+      "persistenceDays": [3, 5, 7],
+      "volWindowDays": [14, 30, 60]
+    },
+    "regime_detector": {
+      "status": "UNSUPPORTED_SIGNAL_REPLAY",
+      "parameters": []
+    }
+  },
+  "ablations": {
+    "donchian_range_channel": {
+      "status": "SUPPORTED_REAL_DATA",
+      "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      "timeframe": "15m",
+      "initialEquityUsd": 10000,
+      "adxTrendThreshold": [20, 25, 30],
+      "donchianPeriod": [10, 20, 30]
+    },
+    "pivot_point_grid": {
+      "status": "SUPPORTED_REAL_DATA",
+      "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      "timeframe": "15m",
+      "initialEquityUsd": 10000,
+      "maxPositionPctEquity": [0.02, 0.04, 0.08, 0.12, 0.2]
+    },
+    "ohlc_trend": {
+      "status": "SUPPORTED_REAL_DATA",
+      "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      "initialEquityUsd": 10000,
+      "emaPairs": [[20, 100], [50, 200]],
+      "atrStopMultiplier": [1, 1.5, 2],
+      "rewardToRisk": [2, 3],
+      "crossLookback": [1, 5, 20],
+      "timeframe": ["1h", "4h"]
+    }
+  },
+  "optionalAdapters": {
+    "overlay_combination": {
+      "status": "SUPPORTED_VALIDATED_ADAPTER",
+      "candidateRunner": "packages/backtest-tools/src/cli/run-dpc-overlay-combination.ts",
+      "adapterCli": "search-best-config/scripts/run-overlay-adapter.ts",
+      "supportedPhases": ["is", "validation", "oos"],
+      "masks": ["dpc", "dpc-solflip", "dpc-regime", "dpc-solflip-regime"],
+      "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+      "minConsensus": [1, 2],
+      "maxPositionPctEquity": [0.04, 0.08, 0.12, 0.15, 0.2],
+      "fundingInput": "data/funding/binance_solusdt_funding_8h.csv",
+      "activationGate": "A fájl létezik, --help felsorolja a --smoke/--mask/--symbol/--output/--start/--end flag-eket, és a --smoke érvényes JSON outputot ír. SOLFlip maszk BTC/ETH szimbólummal mindig INVALID_MASK sor."
+    }
+  }
+}
