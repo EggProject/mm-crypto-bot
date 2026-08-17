@@ -1,0 +1,62 @@
+24 darab 1H candle-t 1 db 1D candle-re aggregál
+48 darab 1H candle-t 2 db 1D candle-re aggregál
+Phase 1 OHLCV aggregáció: 21958 1h candle → ~5490 4h candle
+a PnL% a notional %-ában van kifejezve
+a high a max, a low a min az ablakban
+a hátralévő nyitott pozíció az end_of_data exit reasonnel zárul
+a kill-switch nem dob TypeError-t, ha nincs nyitott pozíció (Phase 27 regression test)
+a kill-switch triggerelődik a drawdown elérésekor
+a kill-switch triggerelődik nyitott pozíció nélkül is
+a kill-switch triggerelődik, ha a drawdown eléri a maxDrawdown-t
+a position sizing helyes: a notional = equity * riskPerTrade / stopDistance
+a short pozíció take-profit triggerelődik
+a stop-loss exit triggerelődik
+a take-profit exit triggerelődik
+a time-exit triggerelődik 72 óra után
+a trade entry és exit timestamp-ek helyesek
+a trade entryPrice az eredeti entryPrice-rel egyezik
+a volume összeadódik
+az első candle a bucket határán: bucket = null ág is lefut
+az end_of_data exit triggerelődik, ha a trade a backtest végéig nyitva marad
+confidence < 0 defensively clamped to 0 → notional = minNotional ($100)
+confidence > 1 defensively clamped to 1.0 → notional = base ($1000), NOT max clamp ($2000)
+confidence=0.0 → position size hits minimum clamp (signal suppressed)
+confidence=0.2 → riskPerTrade scaled to 20% (Phase 16 cap effect)
+confidence=0.7 → riskPerTrade scaled to 70% (shallow entry)
+confidence=1.0 → riskPerTrade unchanged (full position size)
+does not aggregate a bucket with duplicate candles standing in for a missing interval
+does not expose a 4h candle before its fourth 1h constituent has closed
+does not use a final candle that would close after a non-grid-aligned endTime
+end-of-data liquidation realizes fee, slippage, spread, borrow and funding costs into metrics
+enforces the documented [startTime, endTime) candle-open window even when a feed returns extra data
+is bit-identical to legacy prefix recomputation at every HTF/MTF/LTF step
+kill-switch liquidation realizes every modeled cost into the final equity and return
+komplett trade-ek a take-profit és stop-loss kilépéssel
+long pozíció: nincs kilépés, ha a candle se a stop-ot, se a TP-t nem éri el
+long pozíció: stop-loss triggerelődik, ha a candle low eléri a stop-ot
+long pozíció: take-profit triggerelődik, ha a candle high eléri a TP-t
+long pozíció: time-exit 72 óra után NEM triggerelődik, ha veszteséges
+long pozíció: time-exit 72 óra után, ha nyereséges
+long stop-loss exit: negatív PnL-t ad
+long take-profit exit: pozitív PnL-t ad (a fee-k levonása után)
+negatív vagy 0 targetMs esetén üres tömböt ad
+nem-grid-aligned kezdő timestamp-ről indulva is helyes aggregációt ad
+never exposes an incomplete terminal 4h bucket
+onOpenPositionUpdate with forceExit closes the position mid-backtest (engine.ts lines 218-232)
+onOpenPositionUpdate with newStopLoss tightens the stop (engine.ts lines 186-213)
+onOpenPositionUpdate with newTakeProfit tightens the TP (engine.ts lines 215-217)
+onPositionClosed fires when end_of_data triggers (engine.ts line 382 path)
+onPositionClosed fires when kill-switch triggers (engine.ts line 361 path)
+onPositionClosed fires when take-profit triggers (engine.ts line 178 path)
+onPositionOpened fires exactly once per opened position
+rejects context timeframes that are not whole LTF multiples
+replaces the kill-switch mark with realized liquidation cash
+reports the exact post-confidence notional through the read-only sizing observer
+short pozíció: stop-loss triggerelődik, ha a candle high eléri a stop-ot
+short pozíció: take-profit triggerelődik, ha a candle low eléri a TP-t
+short pozíció: time-exit 72 óra után, ha nyereséges
+short take-profit exit: pozitív PnL-t ad
+updates strategy state on every still-open bar without evaluating another entry
+writes terminal end-of-data realized P&L to one final equity point
+új bucket kezdése: a c.timestamp pontosan bucketEnd-nél van
+üres candle-listára üres tömböt ad

@@ -23,15 +23,15 @@ const CONFIG = {
 } as const;
 
 function candles(count: number, stepMs: number, phase: number): readonly Candle[] {
-  return Array.from({ length: count }, (_, i) => {
-    const close = 100 + i * 0.07 + Math.sin((i + phase) / 5) * 3 + Math.cos((i + phase) / 17);
+  return Array.from({ length: count }, (_, index) => {
+    const close = 100 + index * 0.07 + Math.sin((index + phase) / 5) * 3 + Math.cos((index + phase) / 17);
     return {
-      timestamp: i * stepMs,
-      open: close - Math.sin(i) * 0.2,
-      high: close + 1 + (i % 3) * 0.1,
-      low: close - 1 - (i % 5) * 0.1,
+      timestamp: index * stepMs,
+      open: close - Math.sin(index) * 0.2,
+      high: close + 1 + (index % 3) * 0.1,
+      low: close - 1 - (index % 5) * 0.1,
       close,
-      volume: 1_000 + (i % 19) * 13,
+      volume: 1000 + (index % 19) * 13,
     };
   });
 }
@@ -43,14 +43,14 @@ describe("precomputeHistoricalIndicatorTimeline", () => {
     const ltf = candles(360, 900_000, 13);
     const timeline = precomputeHistoricalIndicatorTimeline(htf, mtf, ltf, CONFIG);
 
-    for (let i = 0; i < htf.length; i++) {
-      expect(timeline.htf[i]).toEqual(computeIndicators(htf.slice(0, i + 1), [], [], CONFIG).htf);
+    for (let index = 0; index < htf.length; index++) {
+      expect(timeline.htf.at(index)).toEqual(computeIndicators(htf.slice(0, index + 1), [], [], CONFIG).htf);
     }
-    for (let i = 0; i < mtf.length; i++) {
-      expect(timeline.mtf[i]).toEqual(computeIndicators([], mtf.slice(0, i + 1), [], CONFIG).mtf);
+    for (let index = 0; index < mtf.length; index++) {
+      expect(timeline.mtf.at(index)).toEqual(computeIndicators([], mtf.slice(0, index + 1), [], CONFIG).mtf);
     }
-    for (let i = 0; i < ltf.length; i++) {
-      expect(timeline.ltf[i]).toEqual(computeIndicators([], [], ltf.slice(0, i + 1), CONFIG).ltf);
+    for (let index = 0; index < ltf.length; index++) {
+      expect(timeline.ltf.at(index)).toEqual(computeIndicators([], [], ltf.slice(0, index + 1), CONFIG).ltf);
     }
   });
 });

@@ -12,6 +12,8 @@ import type { Candle } from "@mm-crypto-bot/shared/types";
 
 import type { CostModel } from "./types.js";
 
+import { requireFirst } from "./engine-scenarios.test-support.js";
+
 import { aggregateToTimeframe, checkExit, closePosition, type OpenPosition } from "./engine.js";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -24,12 +26,12 @@ const COST_MODEL: CostModel = {
   borrowRatePerHour: 0.0001,
 };
 
-function mkCandle(timestamp: number, price: number, opts?: { high?: number; low?: number }): Candle {
+function mkCandle(timestamp: number, price: number, options?: { high?: number; low?: number }): Candle {
   return {
     timestamp,
     open: price,
-    high: opts?.high ?? price * 1.01,
-    low: opts?.low ?? price * 0.99,
+    high: options?.high ?? price * 1.01,
+    low: options?.low ?? price * 0.99,
     close: price,
     volume: 1000,
   };
@@ -67,6 +69,13 @@ function mkShortPosition(entryTime: number, entryPrice: number): OpenPosition {
   };
 }
 
+function requireExit(result: ReturnType<typeof checkExit>): NonNullable<ReturnType<typeof checkExit>> {
+  if (result) {
+    return result;
+  }
+  throw new Error("Expected an exit decision.");
+}
+
 describe("aggregateToTimeframe", () => {
   it("üres candle-listára üres tömböt ad", () => {
     expect(aggregateToTimeframe([], HOUR_MS)).toEqual([]);
@@ -84,8 +93,9 @@ describe("aggregateToTimeframe", () => {
     }
     const result = aggregateToTimeframe(candles, DAY_MS);
     expect(result.length).toBe(1);
-    expect(result[0]!.close).toBe(123);
-    expect(result[0]!.open).toBe(100);
+    const firstCandle = requireFirst(result, "aggregated candle");
+    expect(firstCandle.close).toBe(123);
+    expect(firstCandle.open).toBe(100);
   });
 
   it("48 darab 1H candle-t 2 db 1D candle-re aggregál", () => {
@@ -95,8 +105,8 @@ describe("aggregateToTimeframe", () => {
     }
     const result = aggregateToTimeframe(candles, DAY_MS);
     expect(result.length).toBe(2);
-    expect(result[0]!.close).toBe(123);
-    expect(result[1]!.close).toBe(147);
+    expect(requireFirst(result, "first aggregated candle").close).toBe(123);
+    expect(requireFirst(result.slice(1), "second aggregated candle").close).toBe(147);
   });
 
   it("a high a max, a low a min az ablakban", () => {
@@ -106,8 +116,9 @@ describe("aggregateToTimeframe", () => {
       mkCandle(2 * HOUR_MS, 108, { high: 120, low: 90 }),
     ];
     const result = aggregateToTimeframe(candles, DAY_MS);
-    expect(result[0]!.high).toBe(120);
-    expect(result[0]!.low).toBe(90);
+    const firstCandle = requireFirst(result, "aggregated candle");
+    expect(firstCandle.high).toBe(120);
+    expect(firstCandle.low).toBe(90);
   });
 
   it("a volume összeadódik", () => {
@@ -116,7 +127,7 @@ describe("aggregateToTimeframe", () => {
       candles.push({ ...mkCandle(h * HOUR_MS, 100), volume: 100 + h });
     }
     const result = aggregateToTimeframe(candles, DAY_MS);
-    expect(result[0]!.volume).toBe(100 + 101 + 102 + 103 + 104);
+    expect(requireFirst(result, "aggregated candle").volume).toBe(100 + 101 + 102 + 103 + 104);
   });
 
   it("új bucket kezdése: a c.timestamp pontosan bucketEnd-nél van", () => {
@@ -125,23 +136,20 @@ describe("aggregateToTimeframe", () => {
     for (let h = 0; h < 24; h++) {
       candles.push(mkCandle(h * HOUR_MS, 100 + h));
     }
-    candles.push(mkCandle(24 * HOUR_MS, 200));
-    candles.push(mkCandle(25 * HOUR_MS, 210));
+    candles.push(mkCandle(24 * HOUR_MS, 200), mkCandle(25 * HOUR_MS, 210));
     const result = aggregateToTimeframe(candles, DAY_MS);
     expect(result.length).toBe(2);
-    expect(result[0]!.close).toBe(123);
-    expect(result[1]!.close).toBe(210);
+    expect(requireFirst(result, "first aggregated candle").close).toBe(123);
+    expect(requireFirst(result.slice(1), "second aggregated candle").close).toBe(210);
   });
 
   it("az első candle a bucket határán: bucket = null ág is lefut", () => {
     // Az első candle pontosan a bucket határán van (timestamp = DAY_MS).
     // Ez a bucket === null false ágat triggereli (63. sor).
-    const candles: Candle[] = [];
-    candles.push(mkCandle(DAY_MS, 100));
-    candles.push(mkCandle(DAY_MS + HOUR_MS, 110));
+    const candles = [mkCandle(DAY_MS, 100), mkCandle(DAY_MS + HOUR_MS, 110)];
     const result = aggregateToTimeframe(candles, DAY_MS);
     expect(result.length).toBe(1);
-    expect(result[0]!.close).toBe(110);
+    expect(requireFirst(result, "aggregated candle").close).toBe(110);
   });
 
   it("nem-grid-aligned kezdő timestamp-ről indulva is helyes aggregációt ad", () => {
@@ -152,7 +160,7 @@ describe("aggregateToTimeframe", () => {
     // Bucket-határ az induló timestamp grid-re vágva: 1704067200000
     //   - (1704067200000 % 4h) = 1704067200000 - 0 = 1704067200000.
     // A 4. óra (1704081600000) már új bucketet nyit.
-    const startTs = 1704067200000;
+    const startTs = 1_704_067_200_000;
     const candles: Candle[] = [];
     for (let h = 0; h < 8; h++) {
       candles.push(mkCandle(startTs + h * HOUR_MS, 100 + h));
@@ -160,8 +168,8 @@ describe("aggregateToTimeframe", () => {
     const result = aggregateToTimeframe(candles, 4 * HOUR_MS);
     // 8 darab 1h candle → 2 darab 4h candle.
     expect(result.length).toBe(2);
-    expect(result[0]!.close).toBe(103);
-    expect(result[1]!.close).toBe(107);
+    expect(requireFirst(result, "first aggregated candle").close).toBe(103);
+    expect(requireFirst(result.slice(1), "second aggregated candle").close).toBe(107);
   });
 
   it("Phase 1 OHLCV aggregáció: 21958 1h candle → ~5490 4h candle", () => {
@@ -170,9 +178,9 @@ describe("aggregateToTimeframe", () => {
     // 6.1 candle/nap ≈ 5490). Az eredeti bug miatt 21958 db 4h candle
     // jött létre (1:1 copy). Ez a regression-teszt biztosítja, hogy a
     // javítás után a helyes darabszámot kapjuk.
-    const startTs = 1704067200000;
+    const startTs = 1_704_067_200_000;
     const candles: Candle[] = [];
-    for (let h = 0; h < 21958; h++) {
+    for (let h = 0; h < 21_958; h++) {
       candles.push(mkCandle(startTs + h * HOUR_MS, 100));
     }
     const result = aggregateToTimeframe(candles, 4 * HOUR_MS);
@@ -189,7 +197,7 @@ describe("checkExit", () => {
     const candle = mkCandle(HOUR_MS, 100, { low: 96.5, high: 105 });
     const result = checkExit(pos, candle, COST_MODEL);
     expect(result).not.toBeNull();
-    expect(result!.reason).toBe("stop_loss");
+    expect(requireExit(result).reason).toBe("stop_loss");
   });
 
   it("long pozíció: take-profit triggerelődik, ha a candle high eléri a TP-t", () => {
@@ -197,7 +205,7 @@ describe("checkExit", () => {
     const candle = mkCandle(HOUR_MS, 105, { low: 102, high: 111 });
     const result = checkExit(pos, candle, COST_MODEL);
     expect(result).not.toBeNull();
-    expect(result!.reason).toBe("take_profit");
+    expect(requireExit(result).reason).toBe("take_profit");
   });
 
   it("long pozíció: nincs kilépés, ha a candle se a stop-ot, se a TP-t nem éri el", () => {
@@ -212,7 +220,7 @@ describe("checkExit", () => {
     const candle = mkCandle(HOUR_MS, 100, { low: 95, high: 103.5 });
     const result = checkExit(pos, candle, COST_MODEL);
     expect(result).not.toBeNull();
-    expect(result!.reason).toBe("stop_loss");
+    expect(requireExit(result).reason).toBe("stop_loss");
   });
 
   it("short pozíció: take-profit triggerelődik, ha a candle low eléri a TP-t", () => {
@@ -220,7 +228,7 @@ describe("checkExit", () => {
     const candle = mkCandle(HOUR_MS, 95, { low: 89, high: 100 });
     const result = checkExit(pos, candle, COST_MODEL);
     expect(result).not.toBeNull();
-    expect(result!.reason).toBe("take_profit");
+    expect(requireExit(result).reason).toBe("take_profit");
   });
 
   it("long pozíció: time-exit 72 óra után, ha nyereséges", () => {
@@ -229,7 +237,7 @@ describe("checkExit", () => {
     const candle = mkCandle(73 * HOUR_MS, 105, { low: 102, high: 108 });
     const result = checkExit(pos, candle, COST_MODEL);
     expect(result).not.toBeNull();
-    expect(result!.reason).toBe("time_exit");
+    expect(requireExit(result).reason).toBe("time_exit");
   });
 
   it("long pozíció: time-exit 72 óra után NEM triggerelődik, ha veszteséges", () => {
@@ -246,7 +254,7 @@ describe("checkExit", () => {
     const candle = mkCandle(73 * HOUR_MS, 95, { low: 92, high: 98 });
     const result = checkExit(pos, candle, COST_MODEL);
     expect(result).not.toBeNull();
-    expect(result!.reason).toBe("time_exit");
+    expect(requireExit(result).reason).toBe("time_exit");
   });
 });
 

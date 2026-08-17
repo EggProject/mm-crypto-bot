@@ -4,6 +4,7 @@ import type { Strategy, StrategyContext, StrategySignal } from "@mm-crypto-bot/c
 import type { Candle, Timeframe } from "@mm-crypto-bot/shared/types";
 
 import { runBacktest } from "./engine.js";
+import { noSignal, requireFirst } from "./engine-scenarios.test-support.js";
 import type { BacktestOptions, CostModel, ExchangeFeed } from "./types.js";
 
 const HOUR = 60 * 60 * 1000;
@@ -40,7 +41,7 @@ class Feed implements ExchangeFeed {
   public requestedSince: number | undefined;
   constructor(private readonly candles: readonly Candle[]) {}
 
-  async fetchOHLCV(
+  fetchOHLCV(
     _symbol: string,
     _timeframe: Timeframe,
     options: { readonly since?: number; readonly limit?: number },
@@ -48,7 +49,7 @@ class Feed implements ExchangeFeed {
     this.requestedSince = options.since;
     // Deliberately ignore since: the engine, rather than an individual feed,
     // owns the backtest-window invariant.
-    return this.candles;
+    return Promise.resolve(this.candles);
   }
 }
 
@@ -57,13 +58,13 @@ class RecordingStrategy implements Strategy {
   readonly timeframes = ["1h"] as const;
   readonly seen: { timestamp: number; htfClose: number | undefined; mtfClose: number | undefined }[] = [];
 
-  onCandle(ctx: StrategyContext): StrategySignal | null {
+  onCandle(context: StrategyContext): StrategySignal | null {
     this.seen.push({
-      timestamp: ctx.candle.timestamp,
-      htfClose: ctx.mtfState.htf.close,
-      mtfClose: ctx.mtfState.mtf.close,
+      timestamp: context.candle.timestamp,
+      htfClose: context.mtfState.htf.close,
+      mtfClose: context.mtfState.mtf.close,
     });
-    return null;
+    return noSignal();
   }
 
   warmup(): number {
@@ -72,16 +73,17 @@ class RecordingStrategy implements Strategy {
 }
 
 class OpenOnceStrategy implements Strategy {
+  private opened = false;
+
   readonly name = "open-once";
   readonly timeframes = ["1h"] as const;
-  private opened = false;
   constructor(
     private readonly stopLoss: number,
     private readonly takeProfit: number,
   ) {}
 
-  onCandle(_ctx: StrategyContext): StrategySignal | null {
-    if (this.opened) return null;
+  onCandle(_context: StrategyContext): StrategySignal | null {
+    if (this.opened) return noSignal();
     this.opened = true;
     return {
       side: "buy",
@@ -186,14 +188,22 @@ describe("runBacktest window and closed-candle invariants", () => {
     const feed = new Feed([candle(0, 100), candle(4, 104)]);
     const strategy = new RecordingStrategy();
 
-    await expect(
-      runBacktest({
+    let receivedError: unknown;
+    try {
+      await runBacktest({
         ...options(feed, strategy, 0, 8),
         ltfTimeframe: "4h",
         htfTimeframe: "1h",
         mtfTimeframe: "4h",
-      }),
-    ).rejects.toThrow("HTF and MTF timeframes must be whole multiples of the LTF timeframe");
+      });
+    } catch (error: unknown) {
+      receivedError = error;
+    }
+    expect(receivedError).toBeInstanceOf(Error);
+    expect(receivedError).toHaveProperty(
+      "message",
+      "HTF and MTF timeframes must be whole multiples of the LTF timeframe",
+    );
   });
 
   it("does not aggregate a bucket with duplicate candles standing in for a missing interval", async () => {
@@ -212,9 +222,9 @@ describe("runBacktest window and closed-candle invariants", () => {
 
   it("writes terminal end-of-data realized P&L to one final equity point", async () => {
     const feed = new Feed([candle(0, 100), candle(1, 110)]);
-    const result = await runBacktest(options(feed, new OpenOnceStrategy(90, 1_000), 0, 2));
+    const result = await runBacktest(options(feed, new OpenOnceStrategy(90, 1000), 0, 2));
 
-    expect(result.trades[0]!.exitReason).toBe("end_of_data");
+    expect(requireFirst(result.trades, "trade").exitReason).toBe("end_of_data");
     expect(result.equityCurve).toEqual([
       { timestamp: 0, equity: 10_000 },
       { timestamp: HOUR, equity: 10_000 },
@@ -227,13 +237,13 @@ describe("runBacktest window and closed-candle invariants", () => {
   it("replaces the kill-switch mark with realized liquidation cash", async () => {
     const feed = new Feed([candle(0, 100), candle(1, 90)]);
     const result = await runBacktest({
-      ...options(feed, new OpenOnceStrategy(1, 1_000), 0, 2),
+      ...options(feed, new OpenOnceStrategy(1, 1000), 0, 2),
       positionSize: { ...POSITION_SIZE, riskPerTrade: 0.5, maxDrawdown: 0.01 },
     });
 
     expect(result.killSwitchTriggered).toBe(true);
-    expect(result.trades[0]!.exitReason).toBe("kill_switch");
-    expect(result.equityCurve[result.equityCurve.length - 1]).toEqual({ timestamp: 2 * HOUR, equity: 9_800 });
+    expect(requireFirst(result.trades, "trade").exitReason).toBe("kill_switch");
+    expect(result.equityCurve.at(-1)).toEqual({ timestamp: 2 * HOUR, equity: 9800 });
     expect(result.totalReturn).toBe(-0.02);
     expect(new Set(result.equityCurve.map((point) => point.timestamp)).size).toBe(result.equityCurve.length);
   });
@@ -241,12 +251,12 @@ describe("runBacktest window and closed-candle invariants", () => {
   it("end-of-data liquidation realizes fee, slippage, spread, borrow and funding costs into metrics", async () => {
     const candles = Array.from({ length: 9 }, (_, hour) => candle(hour, hour === 8 ? 110 : 100));
     const result = await runBacktest({
-      ...options(new Feed(candles), new OpenOnceStrategy(90, 1_000), 0, 9),
+      ...options(new Feed(candles), new OpenOnceStrategy(90, 1000), 0, 9),
       costModel: COSTLY_MODEL,
     });
 
-    const trade = result.trades[0]!;
-    const notional = 1_000;
+    const trade = requireFirst(result.trades, "trade");
+    const notional = 1000;
     const entryPrice = 100 * (1 + COSTLY_MODEL.spreadRate / 2) * (1 + COSTLY_MODEL.slippageRate);
     const exitPrice = 110 * (1 - COSTLY_MODEL.spreadRate / 2) * (1 - COSTLY_MODEL.slippageRate);
     const grossPnl = (exitPrice - entryPrice) * (notional / entryPrice);
@@ -269,13 +279,13 @@ describe("runBacktest window and closed-candle invariants", () => {
   it("kill-switch liquidation realizes every modeled cost into the final equity and return", async () => {
     const candles = Array.from({ length: 9 }, (_, hour) => candle(hour, hour === 8 ? 90 : 100));
     const result = await runBacktest({
-      ...options(new Feed(candles), new OpenOnceStrategy(1, 1_000), 0, 9),
+      ...options(new Feed(candles), new OpenOnceStrategy(1, 1000), 0, 9),
       costModel: COSTLY_MODEL,
       positionSize: { ...POSITION_SIZE, riskPerTrade: 0.5, maxDrawdown: 0.01 },
     });
 
-    const trade = result.trades[0]!;
-    const notional = 2_000;
+    const trade = requireFirst(result.trades, "trade");
+    const notional = 2000;
     const entryPrice = 100 * (1 + COSTLY_MODEL.spreadRate / 2) * (1 + COSTLY_MODEL.slippageRate);
     const exitPrice = 90 * (1 - COSTLY_MODEL.spreadRate / 2) * (1 - COSTLY_MODEL.slippageRate);
     const grossPnl = (exitPrice - entryPrice) * (notional / entryPrice);

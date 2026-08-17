@@ -324,3 +324,70 @@ Exit 0 means no selected-file category match; exit 2 means one or more matches
 and is a blocker requiring redacted handling; any other non-zero exit means
 the scan is NOT EVIDENCED. This is not a comprehensive repository secret audit,
 and it does not replace the required final security and supply-chain gates.
+
+## DRAFT: Slice C3a durable engine-test-name preservation evidence
+
+At `2026-08-18T00:34:30+02:00` Europe/Budapest, from
+`/home/eggp/projects/mm-crypto-bot`, the durable proof compared the declared
+baseline scope at commit `2c4e6f3fc103c9c2f2a49fe9bdaf9cac84e02f8a` (four
+engine test modules) with the seven current C3a engine test modules. The
+replayable extractor is
+[`evidence/c3a-extract-engine-test-names.mjs`](evidence/c3a-extract-engine-test-names.mjs).
+It accepts only same-line literal double-quoted `it(...)` or `test(...)` calls;
+any dynamic or unsupported matching call, unreadable baseline path, missing
+current path, empty declared-scope module, or invalid selector throws and makes
+the pipeline fail. It requires exactly one selector: `--baseline` or
+`--current`; zero arguments exit **64**, an extra argument exits **65**, and an
+invalid selector exits **66**. These negative paths only write diagnostics and
+cannot mutate an evidence artifact. It preserves duplicate names before the
+C-locale sort.
+
+```sh
+set -o pipefail
+LC_ALL=C bun plans/full-refactor/evidence/c3a-extract-engine-test-names.mjs --baseline | LC_ALL=C sort | cmp -s - plans/full-refactor/evidence/c3a-engine-test-names.before.txt
+LC_ALL=C bun plans/full-refactor/evidence/c3a-extract-engine-test-names.mjs --current | LC_ALL=C sort | cmp -s - plans/full-refactor/evidence/c3a-engine-test-names.after.txt
+wc -l plans/full-refactor/evidence/c3a-engine-test-names.before.txt plans/full-refactor/evidence/c3a-engine-test-names.after.txt
+sha256sum plans/full-refactor/evidence/c3a-engine-test-names.before.txt plans/full-refactor/evidence/c3a-engine-test-names.after.txt
+cmp -s plans/full-refactor/evidence/c3a-engine-test-names.before.txt plans/full-refactor/evidence/c3a-engine-test-names.after.txt
+```
+
+Both replay pipelines exited 0; `wc -l` is **62 / 62**; the final `cmp` exited
+0. Both evidence files have SHA-256
+`fb966418a57ba105d6e13bb9edacb56a5d475c67c90e5d8558e6653a93a3227e` and are
+[`before`](evidence/c3a-engine-test-names.before.txt) and
+[`after`](evidence/c3a-engine-test-names.after.txt). This establishes only the
+test-name multiset preservation for C3a; it is not an implementation or
+coverage PASS.
+
+The four new C3a files were separately checked with the untracked-safe form
+below. For each file, `git diff --no-index --check /dev/null <file>` returned
+exit **1** (the expected content-difference status) with **0 diagnostic bytes**:
+`engine-confidence.test.ts`, `engine-execution-outcomes.test.ts`,
+`engine-scenarios.test-support.ts`, and `engine-strategy-callbacks.test.ts`.
+
+```sh
+diagnostic=$(git diff --no-index --check /dev/null "$file" 2>&1)
+rc=$?
+test "$rc" -eq 1 && test -z "$diagnostic"
+```
+
+At `2026-08-18T00:40:02+02:00`, selector-negative replays confirmed the
+fail-closed contract: no selector exited **64**, `--unsupported` exited **66**,
+and `--current unexpected` exited **65**. The latter is the explicit
+extra-argument regression replay. The existing baseline/current positive
+replays stayed at exit 0, produced the same 62/62 lists, and retained the
+same evidence-file hashes above.
+
+At `2026-08-18T00:41:02+02:00`, untracked-safe whitespace checks for the
+extractor and both durable list files each produced the expected exit **1**
+with zero diagnostics. The zsh plan-package self-check and `git diff --check`
+also exited **0**.
+
+This evidence delta is **PENDING PROCESS RE-REVIEW**. It does not replace the
+independent technical/process reviews required for C3a.
+
+At `2026-08-18T00:36:34+02:00`, the documented plan-package self-check was
+rerun under zsh with explicit expected-exit handling for untracked files and
+exited **0**. A local Markdown file-link check also found **0 broken links**,
+and `git diff --check` exited **0**. These are plan/evidence consistency checks
+only and do not create an implementation PASS.
