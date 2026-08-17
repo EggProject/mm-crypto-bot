@@ -15,8 +15,8 @@
 Track E researches **order-flow toxicity and liquidation cascade microstructure** in crypto perpetual-futures markets — the layer between L1 trade tape and L2 derivatives positioning that determines whether the next 0.5–3% move is a clean trend or a cascade. The angle is distinct from Phase 11.2's funding carry, basis trade, and regime detector in three ways:
 
 1. **Signal frequency**: order-flow signals operate on seconds-to-minutes (VPIN on 50-volume buckets, OFI on 1-second L2 snapshots), not 8-hour funding intervals or daily closes.
-2. **Information source**: cascades are *forced flow* — taker-of-last-resort, not voluntary positioning. The microstructure that produces them is non-equilibrium (Brunnermeier–Pedersen 2005 "liquidity spirals"), not the steady-state carry that Phase 11.2's plugins assume.
-3. **Direction detection**: cascade detection gives **both** alpha (predict the cascade 12–48h before) and risk management (reduce leverage when cascade probability is elevated). For our 1:10 bybit.eu signal center, this is a *defensive overlay with conditional alpha*, not a stand-alone directional strategy.
+2. **Information source**: cascades are _forced flow_ — taker-of-last-resort, not voluntary positioning. The microstructure that produces them is non-equilibrium (Brunnermeier–Pedersen 2005 "liquidity spirals"), not the steady-state carry that Phase 11.2's plugins assume.
+3. **Direction detection**: cascade detection gives **both** alpha (predict the cascade 12–48h before) and risk management (reduce leverage when cascade probability is elevated). For our 1:10 bybit.eu signal center, this is a _defensive overlay with conditional alpha_, not a stand-alone directional strategy.
 
 The research question for this track is **NOT** "does VPIN/OFI predict BTC returns?" (Easley/O'Hara proved it for equities in 2012). The question is **"how do these metrics translate to crypto perp markets where cascade mechanics differ fundamentally from equity stops?"** Specifically: crypto perps have 24/7 trading, no circuit breakers, no end-of-day settlement, leverage tiers from 1×–125×, cross-margined portfolios, and synthetic basis via Ethena/Liquid restaking that distorts the funding signal. These are post-2020 crypto-native structural features that the 2012 VPIN paper did not anticipate.
 
@@ -25,6 +25,7 @@ The research question for this track is **NOT** "does VPIN/OFI predict BTC retur
 ## §2. SOURCE INVENTORY (≥10 primary sources, multi-language)
 
 ### Academic / quantitative-finance foundations
+
 1. **Brunnermeier & Pedersen (2009, RFS) — "Market Liquidity and Funding Liquidity"** [Princeton/NYU] — Foundational model: market liquidity and funding liquidity reinforce each other into "liquidity spirals." Cites liquidity can (i) suddenly dry up, (ii) has commonality across securities, (iii) co-moves with volatility, (iv) experiences flight-to-quality. This is the theoretical justification for why crypto cascade contagion is structurally similar to 2008. URL: https://www.princeton.edu/~markus/research/papers/liquidity.pdf
 2. **Cont, Kukanov, Stoikov (2014) — "The Price Impact of Order Book Events"** — Original OFI definition; established that best-bid/best-ask queue changes explain price better than trade volume. URL: https://arxiv.org/pdf/2112.13213v2 (Cont, Cucuringu, Zhang 2022 multi-level/cross-asset extension)
 3. **Easley, López de Prado, O'Hara (2011/2012) — "Flow Toxicity and Liquidity in a High-Frequency World"** — VPIN original on volume-time bucketing. URL: https://www.quantresearch.org/VPIN.pdf
@@ -37,6 +38,7 @@ The research question for this track is **NOT** "does VPIN/OFI predict BTC retur
 10. **Frontiers in Blockchain (2026) — "Microstructure alpha: hierarchical learning and cross-asset transfer"** — Constructs VPIN over 50-min rolling taker-buy volume window, depth imbalance, OFI on 30-min window; cross-asset transfer learning between BTC/ETH. URL: https://www.frontiersin.org/journals/blockchain/articles/10.3389/fbloc.2026.1811716/full
 
 ### Exchange & vendor practitioner sources
+
 11. **Huobi Research (2019, 火量学派5) — "VPIN在高波动市场中的应用"** [Chinese] — First crypto-native VPIN backtest on 1token data; BTC April 2019 pump + EOS January dump both preceded by VPIN spike. URL: https://www.sgpjbg.com/baogao/15834.html (also https://www.docin.com/p-2233563903.html)
 12. **MEXC Research (2026) — "I Used a 2012 Market Microstructure Paper to Find Alpha in BTC"** — 26-month OOS backtest on Binance USD-M perp, 1-min klines, VPIN + flow_sign signal: mean OOS Sharpe 0.88, +59.4 bps/trade gross, +31.4 bps net (t=8.68). **Critical finding: alpha is decaying 2024: +82 bps → 2025: +38 → 2026 YTD: +12 bps.** Only works on BTC. URL: https://www.mexc.com/news/1002105
 13. **note.com hht (Japanese botter) — "VPINによるパンプ検出と仮想通貨トレードへの応用"** [Japanese] — VPIN CDF >0.9 = "crash imminent"; >0.95–0.98 = "crash now". URL: https://note.com/hht/n/n64cc4d9fcc60
@@ -56,6 +58,7 @@ The research question for this track is **NOT** "does VPIN/OFI predict BTC retur
 27. **Delphic Alpha Substack — "HFT Secrets 1/5: Order Flow Imbalance"** — 5-day Binance L2 March 2026: BTC IC 0.1376, ETH IC 0.1202 at 1-sec; signal fades by 60 sec. URL: https://delphicalpha.substack.com/p/hft-secrets-15-order-flow-imbalance
 
 ### Chinese-language practitioner depth (multiple)
+
 28. **fxh.ai — "比特币期货市场微观结构：清算级联、资金费率状态与持仓量信号"** — Synthesis of OI + funding + liquidation cascade feedback loop in Chinese. URL: https://fxh.ai/en-us/news/12316532.html
 29. **CoinGlass Chinese — "CVD指標深度解析"** [Traditional Chinese] — Practitioner-level CVD explanation. URL: https://www.coinglass.com/zh/learn/cvd-tw
 30. **Gate.com (zh-tw) — "比特幣清算地圖深度解析"** [Traditional Chinese] — Live case: 102k–103.5k short liq cluster vs 106.8k+ long liq cluster at $105,380 BTC price. URL: https://www.gate.com/zh-tw/learn/articles/bitcoin-liquidation-map-analysis-identifying-market-flashpoints/12037
@@ -65,6 +68,7 @@ The research question for this track is **NOT** "does VPIN/OFI predict BTC retur
 34. **BigQuant — "交易者结构：知情交易与流动性——学界纵横系列之二"** [Chinese] — Quant-finance series explaining VPIN via 2010 Flash Crash narrative. URL: https://cdn.bigquant.com/square/paper/5272c28b-a031-416c-9946-e46b806d4c2c
 
 ### Korean / Japanese source-anchor
+
 35. **mdpi.com/1911-8074/19/1/59 — "Informed Trading Through the COVID-19 Pandemic"** — Korean-language abstract confirms VPIN applicability pre-/post-2020 regimes. URL: https://www.mdpi.com/1911-8074/19/1/59
 
 ---
@@ -83,7 +87,7 @@ The research question for this track is **NOT** "does VPIN/OFI predict BTC retur
 
 **Expected return character**: ~30–60 trades/year per symbol; Sharpe 0.8–1.5 if executed at 1-min aggregation; +0.3–0.5%/month at 1:10 net of fees. Alpha decays as more participants load on the heatmap — CoinGuan notes "liquidity is pulled, not predicted," so edge = being faster than the next cohort.
 
-**Risk character**: Catastrophic if a cascade ignites *through* your entry (1:10 liquidates you faster than the cluster). Mitigation: stop-loss tied to the OPPOSITE cluster boundary (i.e., if longing toward short cluster below, stop is the long cluster above). MaxDD per trade: 1.5% of position.
+**Risk character**: Catastrophic if a cascade ignites _through_ your entry (1:10 liquidates you faster than the cluster). Mitigation: stop-loss tied to the OPPOSITE cluster boundary (i.e., if longing toward short cluster below, stop is the long cluster above). MaxDD per trade: 1.5% of position.
 
 **Decay susceptibility**: Moderate. CoinGlass has been public since 2019; institutional participants now co-load. The MEXC VPIN researcher found +82→+38→+12 bps/trade decay in 26 months. Realistic decay window for H1: 18–30 months before alpha drops <10 bps/trade net.
 
@@ -111,7 +115,7 @@ The research question for this track is **NOT** "does VPIN/OFI predict BTC retur
 
 **Data feed required**: CoinGlass OI history + CryptoQuant ELR (free for current snapshot, Pro for history) + Glassnode liquidation intensity.
 
-**Applicability to 1:10 bybit.eu**: **MATCHES mandate AND CRITICAL**. Our Phase 11.2a RegimeDetector already does regime detection; H3 is a *liquidation-specific* defensive layer that complements rather than duplicates it. This is the highest-priority Phase 11.4+ candidate because it reduces DD without sacrificing expected return (cascade events historically cap at -35% DD on V4 but can exceed -50% without overlay).
+**Applicability to 1:10 bybit.eu**: **MATCHES mandate AND CRITICAL**. Our Phase 11.2a RegimeDetector already does regime detection; H3 is a _liquidation-specific_ defensive layer that complements rather than duplicates it. This is the highest-priority Phase 11.4+ candidate because it reduces DD without sacrificing expected return (cascade events historically cap at -35% DD on V4 but can exceed -50% without overlay).
 
 **Expected return character**: Direct contribution: 0% (defensive). Indirect: ~+0.2%/month by avoiding the 2–3 worst historical events per year. Crucially: reduces left-tail DD by an estimated 20–40%.
 
@@ -158,19 +162,24 @@ The research question for this track is **NOT** "does VPIN/OFI predict BTC retur
 These are strategies we built in earlier phases that this research demonstrates will not have crypto-edge on order-flow / cascade signals:
 
 ### A1 — Generic "VPIN on equities" copy-paste without crypto-native adaptation
+
 Phase 1 had a brief prototype of VPIN applied to BTC OHLCV without distinguishing volume-time vs clock-time, without using taker_buy_base_asset_volume (instead trying to infer from price-change heuristics), and without crypto-specific volume-bucket calibration (Easley 2012 used US equities where daily volume ≈ 2B shares; BTC perp daily volume ranges 100k–500k BTC). The crypto-native fix: use aggTrades taker_buy field directly, calibrate bucket to daily_avg_volume / 50 (per MEXC 2026). Without these adaptations, VPIN on crypto is no better than volume-weighted Bollinger Bands — it's general-purpose quant, not crypto-native alpha.
 
 ### A2 — Treat cascade signal as directional alpha, not defensive overlay
-Phase 5–8 tried to *trade into* cascade detection (e.g., short when funding > 0.1%/8h) which historically gets steamrolled by the cascade itself. The MEXC 2026 paper found BTC-only directional VPIN alpha is decaying 60–85%/year. The Amberdata / Axel Adler research converges on the correct interpretation: cascade detection is a *risk-scaling signal*, not a directional entry. Phase 11.2a RegimeDetector does regime scaling; H3 above is a *cascade-specific* defensive overlay that does NOT duplicate it (RegimeDetector looks at trend/volatility, cascade-overlay looks at leverage density + funding extremes).
+
+Phase 5–8 tried to _trade into_ cascade detection (e.g., short when funding > 0.1%/8h) which historically gets steamrolled by the cascade itself. The MEXC 2026 paper found BTC-only directional VPIN alpha is decaying 60–85%/year. The Amberdata / Axel Adler research converges on the correct interpretation: cascade detection is a _risk-scaling signal_, not a directional entry. Phase 11.2a RegimeDetector does regime scaling; H3 above is a _cascade-specific_ defensive overlay that does NOT duplicate it (RegimeDetector looks at trend/volatility, cascade-overlay looks at leverage density + funding extremes).
 
 ### A3 — Single-venue cascade view (Binance-only) treating it as the market
+
 Phase 9 SCv1 signal center had OI/funding data via one vendor. MarketTrace's research shows single-venue cascade signals are systematically biased: **when Binance prints a cloud while Bybit/OKX stay quiet, it's isolated Binance funding; the opposite signal on Bybit = concentrated Bybit-leveraged cohort.** Using only Binance = missing half the cross-venue arb alpha and mis-attributing venue-specific events to "the market." Phase 11.4+ must aggregate Coinglass (cross-venue aggregated) + per-venue Binance/Bybit/OKX feeds.
 
 ### A4 — Reading OI without ELR normalization
+
 Phase 7 V2 used raw OI as a signal. CryptoQuant's Estimated Leverage Ratio (= OI / exchange reserve) normalizes for exchange growth and shows leverage-vs-capital more cleanly. Raw OI $54.7B in Oct 2025 looked "high" but only revealed the cascade when paired with ELR collapsing from 0.6+ to multi-month lows simultaneously. Without ELR, raw OI growth looks bullish (more capital entering) when it actually signals over-leverage that primes cascade.
 
 ### A5 — Ignoring cross-asset contagion lag
-Phase 11.1 set assumed BTC/ETH/SOL signals were independent. Oct 10–11 2025 cascade demonstrated **"within 25 minutes, non-BTC and non-ETH crypto prices sank about 33%"** — the contagion lag from BTC to ETH to SOL is <30 minutes, and cross-margined portfolios (the Anatomy paper's 11pp SOL gap finding) make SOL the *amplifier* not just the follower. Phase 11.4+ signals must include BTC-led contagion detection: when BTC liquidates >$500M and ETH liquidates >$200M within 30 min, SOL/altcoin OI is the next cascade vector.
+
+Phase 11.1 set assumed BTC/ETH/SOL signals were independent. Oct 10–11 2025 cascade demonstrated **"within 25 minutes, non-BTC and non-ETH crypto prices sank about 33%"** — the contagion lag from BTC to ETH to SOL is <30 minutes, and cross-margined portfolios (the Anatomy paper's 11pp SOL gap finding) make SOL the _amplifier_ not just the follower. Phase 11.4+ signals must include BTC-led contagion detection: when BTC liquidates >$500M and ETH liquidates >$200M within 30 min, SOL/altcoin OI is the next cascade vector.
 
 ---
 
@@ -179,6 +188,7 @@ Phase 11.1 set assumed BTC/ETH/SOL signals were independent. Oct 10–11 2025 ca
 Ranked by 1:10 bybit.eu buildability and expected impact:
 
 ### Plugin E1: CascadeDefensiveOverlay (HIGHEST PRIORITY)
+
 - **Function**: Reads OI, ELR, funding-rate, liquidation-cluster proximity from CoinGlass API. Reduces effective leverage from 1:10 → 1:5 → 1:3 as composite cascade-risk score increases.
 - **Mechanism**: Defensive only. No new directional entries.
 - **Data feeds**: CoinGlass API (hobbyist $29/mo sufficient for OI + funding + liq heatmap); CryptoQuant free tier for ELR snapshot.
@@ -186,6 +196,7 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 - **Build cost**: ~250 LOC. Phase 11.4 priority.
 
 ### Plugin E2: CrossExchangeFundingArb (HIGH PRIORITY)
+
 - **Function**: Monitors Binance/Bybit/OKX funding rates in real-time; executes long-spot / short-perp on the high-funding venue, reverse on the low-funding venue when spread > threshold.
 - **Mechanism**: Already a known Phase 11.2b candidate; E research refines it with the cross-venue cascade-divergence signal (H4 above) as the entry trigger rather than raw funding-rate level.
 - **Data feeds**: Binance/Bybit/OKX public perp REST + WebSocket; CoinGlass funding-rate aggregation.
@@ -193,6 +204,7 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 - **Build cost**: ~400 LOC. Phase 11.5 candidate.
 
 ### Plugin E3: CascadeExhaustionReversal (MEDIUM PRIORITY)
+
 - **Function**: Post-cascade mean-reversion entry. Triggers on extreme 30-day OI decline + 24h liquidation > $300M + CVD divergence. Phase 11.2a RegimeDetector gate prevents entry in confirmed bear regimes.
 - **Mechanism**: H5 above.
 - **Data feeds**: CoinGlass aggregated liquidation history + Binance aggTrades CVD calc.
@@ -200,6 +212,7 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 - **Build cost**: ~300 LOC. Phase 11.6 candidate.
 
 ### Plugin E4: VpinFlowDirection (LOW PRIORITY — DECAYING)
+
 - **Function**: BTC-only VPIN + flow direction signal. MEXC 2026 found Sharpe 0.88 but alpha decaying 60–85%/year.
 - **Mechanism**: H2 above. Build but plan to retire within 18 months.
 - **Data feeds**: Binance aggTrades free.
@@ -207,6 +220,7 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 - **Build cost**: ~350 LOC. Phase 11.6+ candidate.
 
 ### Plugin E5: CascadeProximity (NOT RECOMMENDED for 1:10 scope)
+
 - **Function**: H1 above — trade toward nearest liquidation cluster.
 - **Verdict**: REQUIRES capital scale or Tokyo co-loc to compete with the speed of institutional heatmap readers. Out of scope for 1:10 bybit.eu retail. Defer to Phase 12+.
 
@@ -214,17 +228,17 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 
 ## §6. SOURCE LANGUAGE DISTRIBUTION TABLE
 
-| Language | Count of distinct sources cited | Type |
-|----------|----------------------------------|------|
-| English (academic + practitioner) | 18 | Easley/Cont/Brunnermeier; Glassnode; arXiv; MarketTrace; CoinGuan; Substack; MEXC research |
-| Simplified Chinese (zh) | 11 | Huobi Research 火量学派5; CoinDesk zh; PANews; BlockBeats/Tencent; CoinGlass zh; 528btc; php.cn; fxh.ai; The Kingfisher; Gate.com zh; Zhihu |
-| Traditional Chinese (zh-tw) | 3 | Gate.com zh-tw; CoinGlass zh-TW; Binance zh-TC Square |
-| Japanese (ja) | 3 | note.com hht (bitFlyer + VPIN); Bitget ja; CryptoQuant ja; Binance ja; bitbank Support; GMO Coin Support |
-| Korean (kr) | 1 (abstract) | MDPI 1911-8074/19/1/59 (Korean-affiliated authorship, English abstract) |
-| Italian (it) | 1 | UNITesi 2022; Alperen-Unal master's thesis (Politecnico) |
-| Spanish (es) | 1 | Coinglass es regional page |
-| Vietnamese (vi) | 1 | CoinGlass vi regional page |
-| Indonesian (id) | 1 | CoinGlass id regional page; OKX id |
+| Language                          | Count of distinct sources cited | Type                                                                                                                                        |
+| --------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| English (academic + practitioner) | 18                              | Easley/Cont/Brunnermeier; Glassnode; arXiv; MarketTrace; CoinGuan; Substack; MEXC research                                                  |
+| Simplified Chinese (zh)           | 11                              | Huobi Research 火量学派5; CoinDesk zh; PANews; BlockBeats/Tencent; CoinGlass zh; 528btc; php.cn; fxh.ai; The Kingfisher; Gate.com zh; Zhihu |
+| Traditional Chinese (zh-tw)       | 3                               | Gate.com zh-tw; CoinGlass zh-TW; Binance zh-TC Square                                                                                       |
+| Japanese (ja)                     | 3                               | note.com hht (bitFlyer + VPIN); Bitget ja; CryptoQuant ja; Binance ja; bitbank Support; GMO Coin Support                                    |
+| Korean (kr)                       | 1 (abstract)                    | MDPI 1911-8074/19/1/59 (Korean-affiliated authorship, English abstract)                                                                     |
+| Italian (it)                      | 1                               | UNITesi 2022; Alperen-Unal master's thesis (Politecnico)                                                                                    |
+| Spanish (es)                      | 1                               | Coinglass es regional page                                                                                                                  |
+| Vietnamese (vi)                   | 1                               | CoinGlass vi regional page                                                                                                                  |
+| Indonesian (id)                   | 1                               | CoinGlass id regional page; OKX id                                                                                                          |
 
 **Proof of doctrine compliance**: zh + ja + en all represented with significant depth (zh is largest non-English bucket — appropriate per doctrine's "CJK priority" rule). Italian academic source adds cross-language rigor. NO Hungarian anywhere. The Phase 11.3 doctrine mandate is honored.
 
@@ -233,6 +247,7 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 ## §7. REFERENCES (mixed-language, 35+ sources)
 
 **Academic / quant-finance (English + 1 Italian):**
+
 - R1. Easley, López de Prado, O'Hara (2011/2012) — "Flow Toxicity and Liquidity in a High-Frequency World" / VPIN. https://www.quantresearch.org/VPIN.pdf
 - R2. Brunnermeier & Pedersen (2009, RFS) — "Market Liquidity and Funding Liquidity." https://www.princeton.edu/~markus/research/papers/liquidity.pdf
 - R3. Cont, Kukanov, Stoikov (2014) — "The Price Impact of Order Book Events."
@@ -247,6 +262,7 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 - R12. MDPI 19/1/59 — "Informed Trading Through the COVID-19 Pandemic" (VPIN during COVID). https://www.mdpi.com/1911-8074/19/1/59
 
 **English vendor / practitioner:**
+
 - R13. Glassnode Insights — "An Early Black Friday" Week 41 2025. https://research.glassnode.com/the-week-onchain-week-41-2025/
 - R14. Glassnode Insights — "Mid-Cycle Wipeout" Week 32 2024. https://insights.glassnode.com/the-week-onchain-week-32-2024/
 - R15. Amberdata — "Leverage & Liquidations: The $31B Deleveraging." https://blog.amberdata.io/leverage-liquidations-the-31b-deleveraging
@@ -264,6 +280,7 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 - R27. TickDistill — "What Is Order-Flow Microstructure?" (L1 vs L4 OFI distinction). https://dev.to/tickdistill/what-is-order-flow-microstructure-a-plain-english-guide-to-reading-the-tape-58dj
 
 **Chinese-language:**
+
 - R28. Huobi Research (2019) — "VPIN在高波动市场中的应用" (火量学派5). https://www.sgpjbg.com/baogao/15834.html
 - R29. fxh.ai — "比特币期货市场微观结构：清算级联、资金费率状态与持仓量信号." https://fxh.ai/en-us/news/12316532.html
 - R30. CoinGlass zh-TW — "CVD指標深度解析." https://www.coinglass.com/zh/learn/cvd-tw
@@ -274,12 +291,14 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 - R35. Gate.com zh-tw — "比特幣清算地圖深度解析." https://www.gate.com/zh-tw/learn/articles/bitcoin-liquidation-map-analysis-identifying-market-flashpoints/12037
 
 **Japanese-language:**
+
 - R36. note.com hht — "VPINによるパンプ検出と仮想通貨トレードへの応用." https://note.com/hht/n/n64cc4d9fcc60
 - R37. note.com hht — "bitFlyerの高頻度ボットを食らうクジラへの対策" (bFFX microstructure). https://note.com/hht/n/n12158bda4e4d
 - R38. CryptoQuant ja — "推定レバレッジ率" docs. https://userguide.cryptoquant.com/ja/mketto/estimated-leverage-ratio
 - R39. Binance Square zh-TC — "只有頂級分析師才知道的最危險和最精確的指標" (CVD + footprint framework). https://www.binance.com/zh-TC/square/post/30644827908777
 
 **Multi-language regional (CoinGlass + exchange pages — secondary citation only):**
+
 - R40. CoinGlass API V4 specs (English + zh-TW + Vietnamese + Indonesian + Spanish regional pages). https://www.coinglass.com/CryptoApi
 - R41. OKX — Understanding Bitcoin's taker buy-sell ratio (English + Indonesian). https://www.okx.com/id/learn/taker-buy-sell-ratio
 
@@ -288,6 +307,7 @@ Ranked by 1:10 bybit.eu buildability and expected impact:
 ## §8. EXECUTION SUMMARY
 
 This research covered 7 distinct crypto-native sub-angles within the order-flow / liquidation cascade track:
+
 - (1) VPIN adaptation to crypto perp L1 tape — 5 distinct empirical sources (Huobi 2019, MEXC 2026, Wang 2026, Tsinghua 2025, Frontiers 2026)
 - (2) OFI (Cont 2014) adapted to crypto perp L2 — 4 sources (UNITesi/Silantyev, Delphic Alpha, arXiv 2602.00776, vnpy/Cont2023 extension)
 - (3) Footprint + liquidation cluster combination — 3 sources (Exocharts/Stratbase, MarketTrace cross-exchange, CoinGuan 2024)

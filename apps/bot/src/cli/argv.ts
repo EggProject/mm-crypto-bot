@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/argv.ts
  *
- * Phase 33 Track D — hand-rolled argv parser for the `mm-bot` CLI.
+ * Phase 33 Track D — hand-rolled argv parser for the direct bot CLI.
  *
  * Design goals (user mandate 2026-07-11 23:42 Budapest):
  *   - **Zero external dependencies** — no `commander`, no `yargs`, no `minimist`.
@@ -60,7 +60,7 @@
  *     - `true`    — for `--flag` (boolean flag with no value)
  *     - `false`   — for `--no-flag` (negation)
  * - `positional` — non-flag arguments that appear AFTER the subcommand.
- *   Useful for `mm-bot config <validate|show|init>` (sub-subcommands).
+ *   Useful for `config <validate|show|init>` sub-subcommands.
  */
 export interface ParsedArgs {
   readonly subcommand: string;

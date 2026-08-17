@@ -19,7 +19,7 @@
 
 3. **Cross-exchange funding spread is documented as +28-42% APR for HYPE-USD and SOL-USD pairs at June 2026 levels**, with ArbitrageScanner reporting "When you have a fully hedged position (long Binance and short Hyperliquid) and no fee associated with that position, you could have a 28% to 42% annualized rate of return on your carry yield" ([ArbitrageScanner HYPE/Binance Guide](https://arbitragescanner.io/blog/hyperliquid-binance-funding-rate-arbitrage)). After fees, well-executed desks report **18-32% APR on $50K-$200K capital**, dropping to 12-20% APR above that capital level ([ArbitrageScanner](https://arbitragescanner.io/blog/hyperliquid-binance-funding-rate-arbitrage); [Buildix Cross-DEX arb](https://www.buildix.trade/blog/crypto-funding-rate-arbitrage-delta-neutral-hyperliquid-binance)).
 
-4. **Academic confirmation: cross-DEX arb is INCOMPLETE despite the 17% of minutes showing ≥20bps spreads.** Zhivkov 2026 (MDPI Mathematics, *The Two-Tiered Structure of Cryptocurrency Funding Rate Markets*, 35.7M 1-min observations across 26 exchanges) finds "all significant information flow runs CEX-to-DEX with zero reverse causality" — CEX drives, DEX follows — and "only 40% of top opportunities generate positive returns after transaction costs and spread reversals", with "forced exits occurring in 95% of opportunities" ([MDPI 14/2/346 — Zhivkov 2026](https://ideas.repec.org/a/gam/jmathe/v14y2026i2p346-d1844705.html)). Translation: spread exists, but capturing it requires both a wide spread AND a sufficient holding window before reversion.
+4. **Academic confirmation: cross-DEX arb is INCOMPLETE despite the 17% of minutes showing ≥20bps spreads.** Zhivkov 2026 (MDPI Mathematics, _The Two-Tiered Structure of Cryptocurrency Funding Rate Markets_, 35.7M 1-min observations across 26 exchanges) finds "all significant information flow runs CEX-to-DEX with zero reverse causality" — CEX drives, DEX follows — and "only 40% of top opportunities generate positive returns after transaction costs and spread reversals", with "forced exits occurring in 95% of opportunities" ([MDPI 14/2/346 — Zhivkov 2026](https://ideas.repec.org/a/gam/jmathe/v14y2026i2p346-d1844705.html)). Translation: spread exists, but capturing it requires both a wide spread AND a sufficient holding window before reversion.
 
 5. **The Phase 11.4d TermStructure plugin was based on synthetic AR(1) basis data — that was insufficient for production cross-DEX alpha.** Phase 11.5 needs multi-venue wiring: Hyperliquid `metaAndAssetCtxs` + `predictedFundings` (already returns multi-venue predicted rates natively), Binance/OKX/Bybit REST + WebSocket funding endpoints, and CoinGlass's `/futures/fundingRate/arbitrage-list` for cross-venue ranking ([Hyperliquid API docs](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals); [CoinGlass V4 API](https://docs.coinglass.com/reference/fr-arbitrage); [0xArchive API ref](https://0xarchive-e895b8e7.mintlify.app/api-reference/hyperliquid--funding/get-hyperliquid-funding-rate-history)). The Boros/Pendle BTC+ETH fixed-funding market (Arbitrum) already provides a tradable proxy for forward-funding-rate forecasting if we want term-structure-of-funding rather than spot funding diffusion ([Boros by Pendle — Medium](https://medium.com/boros-fi/cross-exchange-funding-rate-arbitrage-a-fixed-yield-strategy-through-boros-c9e828b61215); [Blockworks Research — sUSDe Term Structure](https://app.blockworksresearch.com/unlocked/defi-yield-curve)).
 
@@ -34,14 +34,14 @@
 
 ## §2. Edge Hypotheses Ranked (Phase 11.5 build-priority order)
 
-| Rank | Hypothesis | Direction | Expected monthly net | Build cost | Decay |
-|------|------------|-----------|---------------------|------------|-------|
-| 1 | **H1 Cross-DEX funding carry (Hyperliquid short ↔ CEX long)** | Long perp on lowest-funding venue, short perp on highest, target alt-pairs | +0.40–0.70%/mo | 600 LOC | Moderate (12-24 mo) |
-| 2 | **H2 Term-spread (Boros YU ↔ live funding) overlay** | Long Boros YU when front-month implied > live, short when inverted | +0.10–0.25%/mo | 300 LOC | Low (fixed-rate primitive) |
-| 3 | **H3 Predicted-vs-realized funding spread** | When Hyperliquid `predictedFundings` says next-hour funding > current by >5bps → fade with size | +0.05–0.15%/mo | 200 LOC | Low (model-driven) |
-| 4 | **H4 Cross-venue cascade divergence → defensive overlay** | When one venue's funding diverges from OI-weighted >30bps for >4h, reduce exposure | −DD: 20-40% | 250 LOC | Low |
-| 5 | **H5 HIP-3 deployer-market funding arb** | Trade HIP-3 markets (xyz, flx, vnti) versus CEX perp on the same underlying token | +0.20–0.50%/mo | 500 LOC | High (market-by-market) |
-| 6 | **H6 KRW-spot listing-spike funding (Korean retail flow)** | Detect pre/post Upbit/Bithumb listing funding dislocation on Bybit/Korean-accessible perp | +0.05–0.10%/mo (frequency: ~5-10 events/year) | 200 LOC | Low |
+| Rank | Hypothesis                                                    | Direction                                                                                       | Expected monthly net                          | Build cost | Decay                      |
+| ---- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------- | ---------- | -------------------------- |
+| 1    | **H1 Cross-DEX funding carry (Hyperliquid short ↔ CEX long)** | Long perp on lowest-funding venue, short perp on highest, target alt-pairs                      | +0.40–0.70%/mo                                | 600 LOC    | Moderate (12-24 mo)        |
+| 2    | **H2 Term-spread (Boros YU ↔ live funding) overlay**          | Long Boros YU when front-month implied > live, short when inverted                              | +0.10–0.25%/mo                                | 300 LOC    | Low (fixed-rate primitive) |
+| 3    | **H3 Predicted-vs-realized funding spread**                   | When Hyperliquid `predictedFundings` says next-hour funding > current by >5bps → fade with size | +0.05–0.15%/mo                                | 200 LOC    | Low (model-driven)         |
+| 4    | **H4 Cross-venue cascade divergence → defensive overlay**     | When one venue's funding diverges from OI-weighted >30bps for >4h, reduce exposure              | −DD: 20-40%                                   | 250 LOC    | Low                        |
+| 5    | **H5 HIP-3 deployer-market funding arb**                      | Trade HIP-3 markets (xyz, flx, vnti) versus CEX perp on the same underlying token               | +0.20–0.50%/mo                                | 500 LOC    | High (market-by-market)    |
+| 6    | **H6 KRW-spot listing-spike funding (Korean retail flow)**    | Detect pre/post Upbit/Bithumb listing funding dislocation on Bybit/Korean-accessible perp       | +0.05–0.10%/mo (frequency: ~5-10 events/year) | 200 LOC    | Low                        |
 
 Phase 11.4d/11.4e built the **detector substrate** (term-structure + regime-shift on synthetic AR(1)). Phase 11.5 wires it to **real multi-venue funding data** and executes H1 as the primary realized alpha.
 
@@ -54,6 +54,7 @@ Phase 11.4d/11.4e built the **detector substrate** (term-structure + regime-shif
 **Mechanism.** When the same asset's funding rate differs by ≥10bps per 8h-equivalent between Hyperliquid and a CEX (Binance/Bybit/OKX), borrow the long perp on the lower-funding venue, borrow the short perp on the higher-funding venue, and collect the spread. The aggregate net carry is the (HL_funding − CEX_funding) per 8h averaged over the holding window, less (HL_taker_fee + CEX_taker_fee + spread crossing slippage).
 
 **Empirical anchors (≥2 sources):**
+
 - [ArbitrageScanner — HYPE Funding Rate Arbitrage, June 2026](https://arbitragescanner.io/blog/hyperliquid-binance-funding-rate-arbitrage): "In the first week of June 2026, HYPE-USD on Hyperliquid pays a funding rate of approximately .011% to .018% per hour compared to Binance Futures, which has a funding of .005% to .012% every 8 hours. If you have a fully hedged position (long Binance and short Hyperliquid) and no fee associated with that position, you could have a 28% to 42% annualized rate of return on your carry yield."
 - [Button — Hyperliquid Funding Rates Guide](https://button.xyz/blog/hyperliquid-funding-rates): "Hyperliquid funding rates consistently run 2-3x higher than centralized exchanges. BTC funding that averages 2-4% annualized on Binance runs 4-8% on Hyperliquid... When Hyperliquid BTC funding is 6% annualized and Binance is 2%, the spread is 4%. Capture it: (1) Long BTC perp on Binance (paying 2% funding), (2) Short BTC perp on Hyperliquid (collecting 6% funding), (3) Net carry: 4% annualized on combined notional."
 - [BitMEX Q3 2025 Derivatives Report](https://www.bitmex.com/blog/2025q3-derivatives-report): "Hyperliquid, whose funding rate exhibits significant volatility and frequent spikes far above this baseline—a phenomenon we will dissect. BitMEX had the most stable funding rates compared to Binance and Hyperliquid, hitting the 0.01% anchor more often than others... On Hyperliquid, ETH's funding rate was 0.0131%, nearly 35% higher than BTC's 0.0097%."
@@ -64,10 +65,11 @@ Phase 11.4d/11.4e built the **detector substrate** (term-structure + regime-shif
 **Fee structure cross-check.** Hyperliquid: base taker 0.045%, maker 0.015%; with HYPE-staking discount 40% off → effective 0.027% taker. Binance: taker 0.050% (default VIP-0), maker 0.020% ([Hyperliquid Eco fees 2026](https://eco.com/support/en/articles/15191998-hyperliquid-fees-explained-maker-taker-funding-and-withdrawal-in-2026); [hyperliquidguide compare](https://hyperliquidguide.com/compare/hyperliquid-vs-binance)). On $100K leg: taker total ≈ 0.045% + 0.05% = 0.095% round-trip. The documented $50K round-trip cost of ~0.10% ([ArbitrageScanner](https://arbitragescanner.io/blog/hyperliquid-binance-funding-rate-arbitrage)) matches this. **Even with the round-trip cost, on HYPE the gross 28-42% APR minus 10bps round-trip = 25-39% APR post-fees**, which is exceptional.
 
 **Phase 11.4d TermStructure + 11.4e RegimeShift as filters (not sources).** Phase 11.4d/11.4e, built on synthetic AR(1) basis data, gave us detector-shape primitives. They are useful as **gating logic** for H1:
+
 - **H1-A (Regime gate):** enter only when RegimeShift returns "funding_normal" (regime = BASE_CARRY for >5 consecutive 8h periods); skip in regime = CAPITULATION_FUNDING or EXHAUSTION_MEAN_REVERSION.
 - **H1-B (Term gate):** enter only when the Boros front-month implied > Boros back-month implied (front > back = contango = market expects higher funding = favorable for the carry); skip when flat or inverted.
 
-**Why does the edge persist?** Zhivkov 2026 quantifies it: "cryptocurrency derivatives markets exhibit a persistent two-tiered structure in which centralized platforms dominate price discovery while transaction costs and spread reversal risks prevent arbitrage from eliminating large mispricings between platforms, resolving the apparent paradox of substantial price fragmentation coexisting with market efficiency" ([MDPI Zhivkov 2026](https://ideas.repec.org/a/gam/jmathe/v14y2026i2p346-d1844705.html)). In other words: CEX drives, DEX continues to misprice because (a) withdrawal/deposit friction between venues prevents institutional capital from saturating the spread, (b) the spread reverses in ~5h half-life forcing 95% of positions out before full capture, (c) the *top* opportunities are still profitable in 40% of cases after costs — i.e. the edge is real but *conditional on holding through the reversal*.
+**Why does the edge persist?** Zhivkov 2026 quantifies it: "cryptocurrency derivatives markets exhibit a persistent two-tiered structure in which centralized platforms dominate price discovery while transaction costs and spread reversal risks prevent arbitrage from eliminating large mispricings between platforms, resolving the apparent paradox of substantial price fragmentation coexisting with market efficiency" ([MDPI Zhivkov 2026](https://ideas.repec.org/a/gam/jmathe/v14y2026i2p346-d1844705.html)). In other words: CEX drives, DEX continues to misprice because (a) withdrawal/deposit friction between venues prevents institutional capital from saturating the spread, (b) the spread reverses in ~5h half-life forcing 95% of positions out before full capture, (c) the _top_ opportunities are still profitable in 40% of cases after costs — i.e. the edge is real but _conditional on holding through the reversal_.
 
 **Decay susceptibility.** Moderate. The CryptoQuant + Q3 2025 BitMEX data already shows Ethena-style capital entering when premiums exceed 10.95% APY baseline — "Players like Ethena have billions of ready-to-deploy dollars to capture this delta-neutral yield" ([BitMEX — Boros Blueprint](https://www.bitmex.com/blog/the-boros-blueprint); [aicoin on Boros](https://www.aicoin.com/en/article/478235)). Edge window realistic estimate: 18-30 months before institutional arb compresses HYPE-tier (5-10bps/8h) spreads to <2bps. By that point H5 (HIP-3 deployer markets) will have to replace the bulk of H1, because the deployer-controlled funding multipliers give us a fresh supply of mispriced markets.
 
@@ -83,7 +85,7 @@ Phase 11.4d/11.4e built the **detector substrate** (term-structure + regime-shif
 
 **Empirical anchor #2 (BitMEX + aicoin):** [BitMEX — Boros Blueprint](https://www.bitmex.com/blog/the-boros-blueprint): "The baseline funding rate is annualised to 10.95% APY. This is roughly 100% more than the risk-free rate offered by USD money market funds. Players like Ethena have billions of ready-to-deploy dollars to capture this delta-neutral yield by shorting the perpetual and buying the spot asset... Trading on deviations from this anchor allows for profit as the implied rate reverts to its structural mean."
 
-**Edge operationalization.** Maintain a *term-spread* signal = (front-month YU implied − back-month YU implied) in basis-points annualized. When the term spread crosses below −100bps (i.e., market expects funding to compress materially over 1-3 months), open a *short-dated* funding carry position (1-week horizon) on H1 candidate assets. When the term spread crosses above +50bps, *exit* existing H1 positions early because the carry is expected to compress.
+**Edge operationalization.** Maintain a _term-spread_ signal = (front-month YU implied − back-month YU implied) in basis-points annualized. When the term spread crosses below −100bps (i.e., market expects funding to compress materially over 1-3 months), open a _short-dated_ funding carry position (1-week horizon) on H1 candidate assets. When the term spread crosses above +50bps, _exit_ existing H1 positions early because the carry is expected to compress.
 
 **Why this matters here.** Phase 11.4d TermStructure relied on synthetic multi-tenor basis data. Boros is the **first on-chain market that prices forward funding rates**, not just spot funding. Layering Boros forward-looking signals over the H1 spot-funding watcher is the natural Phase 11.5 integration. Empirical case: [PANews — Boros Pendle](https://www.panewslab.com/en/articles/d82cd10f-24f9-415f-a957-1fa2aa19838f): "Boros is designed to hedge funding rate exposure or leveraged trading by shorting or longing Yield Units (YUs)... Protocols like Ethena, which currently has $9.71 billion in TVL, benefit significantly."
 
@@ -95,13 +97,13 @@ Phase 11.4d/11.4e built the **detector substrate** (term-structure + regime-shif
 
 ### H3 — Predicted-vs-Realized Funding Spread (Hyperliquid-native alpha)
 
-**Mechanism.** Hyperliquid publishes a `predictedFundings` endpoint that returns the *next-settlement* funding rate computed every block, alongside the current settled rate. The spread between predicted and realized is effectively a forecast error that arbitrageurs can fade — when predicted jumps >5bps above realized, the next hour's funding is likely to revert. This is direct alpha because all CEX lagged publication makes them second-movers.
+**Mechanism.** Hyperliquid publishes a `predictedFundings` endpoint that returns the _next-settlement_ funding rate computed every block, alongside the current settled rate. The spread between predicted and realized is effectively a forecast error that arbitrageurs can fade — when predicted jumps >5bps above realized, the next hour's funding is likely to revert. This is direct alpha because all CEX lagged publication makes them second-movers.
 
 **Empirical anchor #1:** [Hyperliquid API — predictedFundings](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals): "Retrieve predicted funding rates for different venues... `predicted_fundings()` returns [coin, [[venue, {fundingRate, nextFundingTime, fundingIntervalHours}]]] tuples."
 **Empirical anchor #2:** [Zirodelta — Hyperliquid funding rates](https://docs.zirodelta.com/hyperliquid/funding-rates): "Hyperliquid calculates a predicted funding rate based on the current premium between the perpetual price and the oracle price... predicted = clamp(premium / fundingIntervalHours, -0.05%, +0.05%)."
 **Empirical anchor #3:** [Hyperliquid Guide compare](https://hyperliquidguide.com/compare/hyperliquid-vs-binance): "Hyperliquid's funding accrues and settles every hour rather than on Binance's 8-hour cadence, so the rate reprices faster when the market leans hard one way — during sharp directional moves we've watched Hyperliquid funding spike and then mean-revert within a couple of hours while the equivalent Binance rate lagged behind into its next settlement."
 
-**Operationalization.** Subscribe to Hyperliquid `predictedFundings` WebSocket; compute per asset: spread_bps = (predicted_bps − realized_bps). When spread > 5bps for 3 consecutive samples (i.e. predicted is forecasting a non-trivial rate move), open a position that *fades* the prediction (short when predicted > realized by >5bps, long when predicted < realized by <−5bps), hold for 1 hour, target 50% spread capture.
+**Operationalization.** Subscribe to Hyperliquid `predictedFundings` WebSocket; compute per asset: spread_bps = (predicted_bps − realized_bps). When spread > 5bps for 3 consecutive samples (i.e. predicted is forecasting a non-trivial rate move), open a position that _fades_ the prediction (short when predicted > realized by >5bps, long when predicted < realized by <−5bps), hold for 1 hour, target 50% spread capture.
 
 **Decay susceptibility.** Moderate; the predicted-vs-realized gap is a specific microstructure feature, but more shops will replicate it. Realistic 12-18 month edge window.
 
@@ -109,7 +111,7 @@ Phase 11.4d/11.4e built the **detector substrate** (term-structure + regime-shif
 
 ### H4 — Cross-Venue Cascade Divergence → Defensive Overlay
 
-**Mechanism.** When one CEX prints a funding spike while others stay flat, that is **venue-specific leverage-loading**. Phase 11.3 Track E documented that "when Binance fires a cloud of liquidations while Bybit/OKX stay quiet, it is almost always isolated Binance funding that wiped out local longs without touching the same book on other venues" (see Phase 11.3 track-e report §3.H4). Funding-rate divergence is the *precursor* of that liquidation cluster.
+**Mechanism.** When one CEX prints a funding spike while others stay flat, that is **venue-specific leverage-loading**. Phase 11.3 Track E documented that "when Binance fires a cloud of liquidations while Bybit/OKX stay quiet, it is almost always isolated Binance funding that wiped out local longs without touching the same book on other venues" (see Phase 11.3 track-e report §3.H4). Funding-rate divergence is the _precursor_ of that liquidation cluster.
 
 **Empirical anchor #1:** Phase 11.3 Track E report (this repo, `docs/research/phase11-3-archive/track-e/report.md` §3.H4 — Cross-Exchange Liquidation Divergence) — the original analysis.
 **Empirical anchor #2:** MarketTrace — Cross-Exchange Liquidations: https://markettrace.ai/perpetuals/liquidations — real-time cross-venue liquidation tape.
@@ -125,7 +127,7 @@ Phase 11.4d/11.4e built the **detector substrate** (term-structure + regime-shif
 
 **Mechanism.** HIP-3 (live mainnet 2025-10-13 per [Odaily](https://www.odaily.news/zh-CN/post/5206835); [Hyperliquid — HIP-3 docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-3-builder-deployed-perpetuals)) allows qualified deployers (500k HYPE staked ≈ $25M) to deploy perp markets on HyperCore with custom funding multipliers (0-10×) and interest rates (−0.01 to 0.01). Three live HIP-3 deployments at search-time: `xyz`, `flx`, `vnti` ([Sina Wu Shuo 2025-11-26](https://finance.sina.com.cn/blockchain/roll/2025-11-26/doc-infytqic1726279.shtml)) — 24h volume $500M+ by late November 2025. Stock perps (NVDA, GOOGL, XYZ100) showing $66M-$320M daily volume per single underlying.
 
-**Why is this distinct from H1?** Each deployer chooses their own oracle, leverage cap, and funding multiplier. The 0-10× funding multiplier means deployers can *intentionally widen* the funding-rate dispersion between HIP-3 markets and CEX perps on the same underlying (e.g., HYPE on HyperCore validator-market vs HYPE on a HIP-3 sub-DEX with a different oracle). This is a fresh, **deployer-controlled** source of basis arb that wasn't possible pre-HIP-3.
+**Why is this distinct from H1?** Each deployer chooses their own oracle, leverage cap, and funding multiplier. The 0-10× funding multiplier means deployers can _intentionally widen_ the funding-rate dispersion between HIP-3 markets and CEX perps on the same underlying (e.g., HYPE on HyperCore validator-market vs HYPE on a HIP-3 sub-DEX with a different oracle). This is a fresh, **deployer-controlled** source of basis arb that wasn't possible pre-HIP-3.
 
 **Empirical anchor #1:** [Hyperliquid HIP-3 docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-3-builder-deployed-perpetuals): deployers can set `fundingMultiplier` 0-10× and `fundingInterestRate` -0.01 to 0.01. This is the dispersion engine.
 **Empirical anchor #2:** [FalconX — Transformational Potential of HIP-3](https://www.falconx.io/newsroom/the-transformational-potential-of-hyperliquids-hip-3): "Perp deployers can set a custom open interest cap per asset."
@@ -133,7 +135,7 @@ Phase 11.4d/11.4e built the **detector substrate** (term-structure + regime-shif
 
 **Operationalization.** Poll Hyperliquid `metaAndAssetCtxs` for all assets marked as HIP-3 (name suffix convention varies; deployers typically include `:` or `xyz:` etc). For each HIP-3 asset that has a CEX-equivalent listing, compute funding spread vs CEX. Because HIP-3 deployers set their own multipliers, **the spread can be entirely custom** — not a market-beta signal. This is structurally broader-than-H1 alpha.
 
-**Risk character.** HIP-3 deployer slashing risk: validator vote can slash up to 100% of stake ([Hyperliquid docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-3-builder-deployed-perpetuals)). For us as a *trader*, this means we add deployer-risk layer — track stake at-risk ratio, give lower size to markets run by newer deployers.
+**Risk character.** HIP-3 deployer slashing risk: validator vote can slash up to 100% of stake ([Hyperliquid docs](https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-3-builder-deployed-perpetuals)). For us as a _trader_, this means we add deployer-risk layer — track stake at-risk ratio, give lower size to markets run by newer deployers.
 
 ---
 
@@ -141,11 +143,11 @@ Phase 11.4d/11.4e built the **detector substrate** (term-structure + regime-shif
 
 **Mechanism.** Korean retail heavily drives listing pumps via Upbit/Bithumb, but those exchanges offer KRW spot only; the perp market for the new token is on Bybit, OKX, or smaller venues. The Korean retail buying → Korean spot pump → no liquid perp exposure on the spot-driven listing → perp funding on the new listing can spike or invert sharply.
 
-**Empirical anchor #1:** [Followin.io — Upbit/Bithumb ESP+SKR listing 2026-02-24](https://followin.io/en/trendingTopic/6378): "ESP and SKR saw significant gains after Upbit and Bithumb's IPOs (ESP +152.2%, SKR +39.9%). However, technical indicators show ESP is extremely overbought (1-hour RSI 91.4), and derivatives data indicates crowded long positions (funding rate **-169.2%**) and a very high proportion of short liquidations (99% of ESP short liquidations)." This was a *negative-funded* listing — shorts paid longs 1.69% per 8h because Korean bid-side (KRW) overwhelmed perp short side.
+**Empirical anchor #1:** [Followin.io — Upbit/Bithumb ESP+SKR listing 2026-02-24](https://followin.io/en/trendingTopic/6378): "ESP and SKR saw significant gains after Upbit and Bithumb's IPOs (ESP +152.2%, SKR +39.9%). However, technical indicators show ESP is extremely overbought (1-hour RSI 91.4), and derivatives data indicates crowded long positions (funding rate **-169.2%**) and a very high proportion of short liquidations (99% of ESP short liquidations)." This was a _negative-funded_ listing — shorts paid longs 1.69% per 8h because Korean bid-side (KRW) overwhelmed perp short side.
 **Empirical anchor #2:** [BeInCrypto — Bithumb / Upbit market share](https://beincrypto.com/bithumb-lost-crypto-upbit-dominates-youth/): Upbit claims "44% of young Koreans" and dominates the KRW market — its listing announcements are the canonical trigger for Korean-retail perp dislocation on Bybit/OKX.
 **Empirical anchor #3 (Korean source):** [Yahoo Finance Korea — Kimchi Premium 2026-06-04](https://biz.chosun.com/stock/finance/2026/06/04/I5SVAR5A4ZFC3OEIKNXH4HATLE/) — Chosun Biz: "국내 가상 자산 거래소에서 거래되는 비트코인이 해외 거래소 시세보다 200만원 저렴한 가격에 형성되는 '역프리미엄(역프)' 현상" (BTC on Korean exchanges trading at a 2M KRW discount, "reverse Kimchi Premium"). The structural Korean FX-channel issue is documented repeatedly.
 
-**Operationalization.** Subscribe to Upbit/Bithumb listing announcement channels (Upbit Notice Telegram channel: [@upbit_sun](https://t.me/s/BWEnews) aggregators; Bithumb similar). Cross-reference the listing token against Bybit/OKX perp funding rate via CoinGlass listing-announcement webhook. When a KRW-spot dual-list happens AND perp funding on the same token extends beyond ±30bps/8h within 24h, open a *fade* position (short perp if funding is deeply positive, long perp if deeply negative), target 50% reversion within 1-3 days. Estimated 5-10 events/year.
+**Operationalization.** Subscribe to Upbit/Bithumb listing announcement channels (Upbit Notice Telegram channel: [@upbit_sun](https://t.me/s/BWEnews) aggregators; Bithumb similar). Cross-reference the listing token against Bybit/OKX perp funding rate via CoinGlass listing-announcement webhook. When a KRW-spot dual-list happens AND perp funding on the same token extends beyond ±30bps/8h within 24h, open a _fade_ position (short perp if funding is deeply positive, long perp if deeply negative), target 50% reversion within 1-3 days. Estimated 5-10 events/year.
 
 **Decay susceptibility.** Low. Korean retail liquidity cycle is structurally tied to KRW FX and Travel Rule restrictions on outbound capital flows ([Arbitrage Report on Medium - Korean Kimchi Premium structural causes](https://medium.com/arbitrage-report/%EA%B9%80%EC%B9%98-%ED%94%84%EB%A6%AC%EB%AF%B8%EC%97%84-%ED%98%84%EC%83%81%EC%9D%98-%EA%B7%BC%EB%B3%B8%EC%A0%81%EC%9D%B8-%EC%9B%90%EC%9D%B8%EA%B3%BC-4%EA%B0%80%EC%A7%80-%EC%A3%BC%EC%9A%94-%EB%B3%80%EC%88%98-9f989ddda59d)) — these are macro-level structural frictions, not market-microstructure that arb would close.
 
@@ -164,20 +166,20 @@ Phase 11.4e (RegimeShift) was a Markov regime-switching layer built on top of Ph
 
 **What multi-venue wiring would enable:**
 
-| Component | Endpoint | Cadence | Cost (api/mo) |
-|-----------|----------|---------|---------------|
-| Hyperliquid `metaAndAssetCtxs` (current funding + mark + oracle + OI) | public Info endpoint `https://api.hyperliquid.xyz/info` | 5s poll | free |
-| Hyperliquid `predictedFundings` (predicted next-settlement, all venues) | same | 5s poll | free |
-| Hyperliquid `fundingHistory` | same, with `startTime` / `endTime` | one-shot | free |
-| Binance `fapi/v1/fundingRate` (history) + WebSocket `markPrice@1s` | public | 1s push | free |
-| Bybit `v5/market/funding/history` + WebSocket `tickers` | public | 1s push | free |
-| OKX `api/v5/public/funding-rate` + WebSocket `funding-rate` | public | 1s push | free |
-| bitFlyer FX `v1/getfundingrate` | public, Japanese per [bitFlyer Lightning Docs](https://lightning.bitflyer.com/docs?lang=ja) | per 8h cadence | free |
-| CoinGlass `futures/fundingRate/arbitrage-list` (cross-venue spread) | [CoinGlass API](https://docs.coinglass.com/reference/fr-arbitrage) | 1min | $29 hobbyist / $79 startup |
-| Coinalyze `futures/funding` (OHLC funding time-series) | free tier | 1min | free |
-| Glassnode aggregated perpetual funding | [Glassnode Studio](https://studio.glassnode.com/charts/derivatives.FuturesFundingRatePerpetual) | 1h | paid |
-| Boros YU prices | Pendle API + Arbitrum subgraphs | 1min | free |
-| Boros fixed-funding-rate reference | [BitMEX — Boros Blueprint](https://www.bitmex.com/blog/the-boros-blueprint) | daily | free |
+| Component                                                               | Endpoint                                                                                        | Cadence        | Cost (api/mo)              |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------- | -------------------------- |
+| Hyperliquid `metaAndAssetCtxs` (current funding + mark + oracle + OI)   | public Info endpoint `https://api.hyperliquid.xyz/info`                                         | 5s poll        | free                       |
+| Hyperliquid `predictedFundings` (predicted next-settlement, all venues) | same                                                                                            | 5s poll        | free                       |
+| Hyperliquid `fundingHistory`                                            | same, with `startTime` / `endTime`                                                              | one-shot       | free                       |
+| Binance `fapi/v1/fundingRate` (history) + WebSocket `markPrice@1s`      | public                                                                                          | 1s push        | free                       |
+| Bybit `v5/market/funding/history` + WebSocket `tickers`                 | public                                                                                          | 1s push        | free                       |
+| OKX `api/v5/public/funding-rate` + WebSocket `funding-rate`             | public                                                                                          | 1s push        | free                       |
+| bitFlyer FX `v1/getfundingrate`                                         | public, Japanese per [bitFlyer Lightning Docs](https://lightning.bitflyer.com/docs?lang=ja)     | per 8h cadence | free                       |
+| CoinGlass `futures/fundingRate/arbitrage-list` (cross-venue spread)     | [CoinGlass API](https://docs.coinglass.com/reference/fr-arbitrage)                              | 1min           | $29 hobbyist / $79 startup |
+| Coinalyze `futures/funding` (OHLC funding time-series)                  | free tier                                                                                       | 1min           | free                       |
+| Glassnode aggregated perpetual funding                                  | [Glassnode Studio](https://studio.glassnode.com/charts/derivatives.FuturesFundingRatePerpetual) | 1h             | paid                       |
+| Boros YU prices                                                         | Pendle API + Arbitrum subgraphs                                                                 | 1min           | free                       |
+| Boros fixed-funding-rate reference                                      | [BitMEX — Boros Blueprint](https://www.bitmex.com/blog/the-boros-blueprint)                     | daily          | free                       |
 
 **Implementation sketch for Phase 11.5.4 (cross-DEX funding-watcher):**
 
@@ -185,9 +187,9 @@ Phase 11.4e (RegimeShift) was a Markov regime-switching layer built on top of Ph
 // Pseudocode based on the architecture's existing Plugin interface
 interface CrossDexFundingWatcher extends Plugin {
   id: "cross-dex-funding-watcher";
-  
+
   poll(): Promise<void> {
-    const [hlMeta, hlPredicted, binanceFunding, bybitFunding, okxFunding] = 
+    const [hlMeta, hlPredicted, binanceFunding, bybitFunding, okxFunding] =
       await Promise.all([
         this.feed.hyperliquid.metaAndAssetCtxs(),
         this.feed.hyperliquid.predictedFundings(),
@@ -195,7 +197,7 @@ interface CrossDexFundingWatcher extends Plugin {
         this.feed.bybit.fundingTickers(["BTCUSDT","ETHUSDT","SOLUSDT","HYPEUSDT"]),
         this.feed.okx.fundingRates(["BTC-USDT-SWAP","ETH-USDT-SWAP","SOL-USDT-SWAP"]),
       ]);
-    
+
     const assets = ["BTC","ETH","SOL","HYPE","DOGE","JUP"];
     for (const asset of assets) {
       // normalize all to 8h-equivalent rate (divide HL by 8 since hourly)
@@ -203,11 +205,11 @@ interface CrossDexFundingWatcher extends Plugin {
       const bz = binanceFunding.find(b => b.symbol === `${asset}USDT`)?.fundingRate * 100;
       const by = bybitFunding.find(b => b.symbol === `${asset}USDT`)?.fundingRate * 100;
       const ok = okxFunding.find(o => o.instId === `${asset}-USDT-SWAP`)?.fundingRate * 100;
-      
+
       // predicted-vs-realized
       const pred = hlPredicted[asset]?.find(p => p[0] === "HlPerp")?.[1].fundingRate;
       const realizedGap = pred ? (pred - hl) : 0;
-      
+
       this.bus.publish("cross-dex-funding-snapshot", {
         asset,
         hl8h: hl, bz, by, ok,
@@ -220,7 +222,7 @@ interface CrossDexFundingWatcher extends Plugin {
 }
 ```
 
-The plugin produces a *signal stream*; H1-E2 takes the stream and opens/closes positions via the existing spot-perp synthetic pipeline. This keeps Plugin E1 in the **read-only** category (low build cost, low risk) and Plugin E2 (execution) gated behind our existing paper-trade/PnL validation.
+The plugin produces a _signal stream_; H1-E2 takes the stream and opens/closes positions via the existing spot-perp synthetic pipeline. This keeps Plugin E1 in the **read-only** category (low build cost, low risk) and Plugin E2 (execution) gated behind our existing paper-trade/PnL validation.
 
 ---
 
@@ -395,7 +397,7 @@ The plugin produces a *signal stream*; H1-E2 takes the stream and opens/closes p
 
 6. **PERP-DEX vs CEX transfer friction cost.** Zhivkov 2026's "withdrawal/deposit friction prevents arbitrage" claim is qualitative. We need quantitative: Hyperliquid USDC withdrawal = $1 flat ([Eco](https://eco.com/support/en/articles/15191998-hyperliquid-fees-explained-maker-taker-funding-and-withdrawal-in-2026)); Binance USDT withdrawal to certain networks is network-fee-only. Both go through Arbitrum/Optimism or direct CEX → CEX route. The cost-of-capital-lockup needs quantification for sizing E2's capital-rotation cadence.
 
-7. **Term structure of funding by venue.** Boros now covers Binance BTC/ETH and is starting Hyperliquid ([OAK Research](https://oakresearch.io/en/analyses/innovations/boros-funding-rate-futures-on-pendle)). But the term-structure across *venues* (Binance vs Hyperliquid vs Bybit) is not yet tradable. Phase 12 could integrate multi-venue fixed-funding derivatives if/when Boros expands.
+7. **Term structure of funding by venue.** Boros now covers Binance BTC/ETH and is starting Hyperliquid ([OAK Research](https://oakresearch.io/en/analyses/innovations/boros-funding-rate-futures-on-pendle)). But the term-structure across _venues_ (Binance vs Hyperliquid vs Bybit) is not yet tradable. Phase 12 could integrate multi-venue fixed-funding derivatives if/when Boros expands.
 
 ### Channels worth opening to require human input
 
@@ -410,4 +412,4 @@ The plugin produces a *signal stream*; H1-E2 takes the stream and opens/closes p
 
 ---
 
-*End of Phase 11.5 Track E Report. Total distinct sources: 77. Languages: en + zh + ja + kr + zh-tw. Total web queries executed: 22. Doctrine compliance: crypto-native ✓, multi-language ✓, ≥15 queries ✓, ≥2 independent sources per empirical claim ✓, no Hungarian ✓.*
+_End of Phase 11.5 Track E Report. Total distinct sources: 77. Languages: en + zh + ja + kr + zh-tw. Total web queries executed: 22. Doctrine compliance: crypto-native ✓, multi-language ✓, ≥15 queries ✓, ≥2 independent sources per empirical claim ✓, no Hungarian ✓._

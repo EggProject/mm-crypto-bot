@@ -83,9 +83,7 @@ function writeToStderr(text: string): void {
  * A hagyományos string-alapú hívásforma is támogatott backward-compat
  * okokból: `createLogger("info")` ≡ `createLogger({ level: "info" })`.
  */
-export function createLogger(
-  levelOrOptions: LogLevel | CreateLoggerOptions = "info",
-): Logger {
+export function createLogger(levelOrOptions: LogLevel | CreateLoggerOptions = "info"): Logger {
   // Backward-compat: a régi `createLogger(level: LogLevel)` forma.
   // Ha a paraméter string, átalakítjuk opció-objektummá.
   const options: CreateLoggerOptions =
@@ -100,8 +98,8 @@ export function createLogger(
   // `createLogger` hívásakor fut le — a tesztek a `logDir` opcióval
   // egyedi tmp-könyvtárba írhatnak.
   const logFilePath: string | null = noFile
-      ? null
-      : (() => {
+    ? null
+    : (() => {
         // A `mkdirSync({ recursive: true })` idempotens.
         // eslint-disable-next-line security/detect-non-literal-fs-filename -- logDir is the explicit caller-selected logger destination
         mkdirSync(logDir, { recursive: true });
@@ -116,11 +114,7 @@ export function createLogger(
    *   - Az `info` + `debug` szintek a fájlba (vagy stderr-re, ha `noFile`).
    *   - A meta objektum spread-elve az entry-be.
    */
-  const emit = (
-    msgLevel: LogLevel,
-    msg: string,
-    meta?: Readonly<Record<string, unknown>>,
-  ): void => {
+  const emit = (msgLevel: LogLevel, msg: string, meta?: Readonly<Record<string, unknown>>): void => {
     if (!shouldLog(msgLevel, level)) return;
     const entry: Record<string, unknown> = {
       ts: new Date().toISOString(),

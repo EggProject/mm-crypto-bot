@@ -8,8 +8,21 @@
  * ezt a lefedettséget itt teszteljük.
  */
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { MockExchangeFeed, defaultMockTicker } from "./test-helpers.js";
+
+async function expectRejectedWith(promise: Promise<unknown>, message: string): Promise<void> {
+  try {
+    await promise;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      expect(error.message).toContain(message);
+      return;
+    }
+    throw new Error("Expected MockExchangeFeed to reject with an Error", { cause: error });
+  }
+  throw new Error("Expected MockExchangeFeed to reject");
+}
 
 describe("MockExchangeFeed — default konstruktor", () => {
   it("a default id='mock' és name='Mock Exchange'", () => {
@@ -35,7 +48,7 @@ describe("MockExchangeFeed — fetchTicker", () => {
 
   it("a lastFetchedSymbol frissül a fetchTicker hívásra", async () => {
     const feed = new MockExchangeFeed();
-    expect(feed.lastFetchedSymbol).toBeNull();
+    expect(feed.lastFetchedSymbol).toBeUndefined();
     await feed.fetchTicker("ETH/USDT");
     expect(feed.lastFetchedSymbol).toBe("ETH/USDT");
   });
@@ -44,28 +57,37 @@ describe("MockExchangeFeed — fetchTicker", () => {
     const feed = new MockExchangeFeed({
       tickerError: (sym) => new Error(`Ticker hiba: ${sym}`),
     });
-    await expect(feed.fetchTicker("BTC/USDT")).rejects.toThrow("Ticker hiba: BTC/USDT");
+    await expectRejectedWith(feed.fetchTicker("BTC/USDT"), "Ticker hiba: BTC/USDT");
   });
 
   it("ha a symbol === 'NETWORK_ERROR' és networkErrorMessage meg van adva, a fetchTicker azt a hibát dobja", async () => {
     const feed = new MockExchangeFeed({
       networkErrorMessage: "Network timeout",
     });
-    await expect(feed.fetchTicker("NETWORK_ERROR")).rejects.toThrow("Network timeout");
+    await expectRejectedWith(feed.fetchTicker("NETWORK_ERROR"), "Network timeout");
   });
 });
 
 describe("MockExchangeFeed — watchTicker", () => {
   it("a watchTickerImpl hívódik a watchTicker hívásra", async () => {
-    let called = false;
+    let isCalled = false;
     const feed = new MockExchangeFeed({
       watchTickerImpl: () => {
-        called = true;
+        isCalled = true;
         return Promise.resolve(defaultMockTicker("BTC/USDT"));
       },
     });
     await feed.watchTicker("BTC/USDT");
-    expect(called).toBe(true);
+    expect(isCalled).toBe(true);
+    expect(feed.watchTickerCalls).toEqual(["BTC/USDT"]);
+  });
+
+  it("a sorba tett watchTicker hiba a hívás után elutasítódik", async () => {
+    const feed = new MockExchangeFeed({
+      queuedWatchTickerErrors: [new Error("queued ticker error")],
+    });
+    await expectRejectedWith(feed.watchTicker("BTC/USDT"), "queued ticker error");
+    expect(feed.watchTickerCalls).toEqual(["BTC/USDT"]);
   });
 
   it("a default watchTickerImpl soha-nem-resolve-ölő Promise-t ad vissza", async () => {
@@ -73,9 +95,14 @@ describe("MockExchangeFeed — watchTicker", () => {
     // Nem hívunk await-ot — csak ellenőrizzük, hogy a Promise pending.
     const p = feed.watchTicker("BTC/USDT");
     // A race Promise-el megoldjuk a tesztet 1ms után, hogy ne legyen pending.
-    const raceResult = await Promise.race([
-      p.then(() => "resolved" as const),
-      new Promise<"timeout">((r) => setTimeout(() => r("timeout"), 5)),
+    const raceResult = await Promise.race<"resolved" | "timeout">([
+      (async (): Promise<"resolved"> => {
+        await p;
+        return "resolved";
+      })(),
+      new Promise<"timeout">((resolve) => {
+        setTimeout(resolve, 5, "timeout");
+      }),
     ]);
     expect(raceResult).toBe("timeout");
   });
@@ -84,69 +111,67 @@ describe("MockExchangeFeed — watchTicker", () => {
 describe("MockExchangeFeed — unimplemented metódusok", () => {
   it("loadMarkets hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.loadMarkets()).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.loadMarkets(), "not implemented");
   });
 
   it("fetchOrderBook hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.fetchOrderBook("BTC/USDT")).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.fetchOrderBook("BTC/USDT"), "not implemented");
   });
 
   it("fetchTrades hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.fetchTrades("BTC/USDT")).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.fetchTrades("BTC/USDT"), "not implemented");
   });
 
   it("fetchOHLCV hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.fetchOHLCV("BTC/USDT", "1h")).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.fetchOHLCV("BTC/USDT", "1h"), "not implemented");
   });
 
   it("watchOrderBook hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.watchOrderBook("BTC/USDT", 10)).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.watchOrderBook("BTC/USDT", 10), "not implemented");
   });
 
   it("watchTrades hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.watchTrades("BTC/USDT")).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.watchTrades("BTC/USDT"), "not implemented");
   });
 
   it("watchOHLCV hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.watchOHLCV("BTC/USDT", "1h")).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.watchOHLCV("BTC/USDT", "1h"), "not implemented");
   });
 
   it("watchOrders hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.watchOrders("BTC/USDT")).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.watchOrders("BTC/USDT"), "not implemented");
   });
 
   it("watchBalance hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.watchBalance()).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.watchBalance(), "not implemented");
   });
 
   it("watchPositions hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.watchPositions()).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.watchPositions(), "not implemented");
   });
 
   it("fetchBalance hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.fetchBalance()).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.fetchBalance(), "not implemented");
   });
 
   it("createOrder hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.createOrder("BTC/USDT", "market", "buy", 1)).rejects.toThrow(
-      "not implemented",
-    );
+    await expectRejectedWith(feed.createOrder("BTC/USDT", "market", "buy", 1), "not implemented");
   });
 
   it("cancelOrder hibát dob", async () => {
     const feed = new MockExchangeFeed();
-    await expect(feed.cancelOrder("order-1")).rejects.toThrow("not implemented");
+    await expectRejectedWith(feed.cancelOrder("order-1"), "not implemented");
   });
 });
 

@@ -90,10 +90,16 @@ function parseSnapshot(value: unknown): Snapshot {
       kind,
       ...(typeof entry["manifestPath"] === "string" ? { manifestPath: entry["manifestPath"] } : {}),
       ...(typeof entry["manifestSha256"] === "string" ? { manifestSha256: entry["manifestSha256"] } : {}),
-      ...(typeof entry["expectedFileCount"] === "number" ? { expectedFileCount: entry["expectedFileCount"] } : {}),
-      ...(typeof entry["expectedTotalRows"] === "number" ? { expectedTotalRows: entry["expectedTotalRows"] } : {}),
+      ...(typeof entry["expectedFileCount"] === "number"
+        ? { expectedFileCount: entry["expectedFileCount"] }
+        : {}),
+      ...(typeof entry["expectedTotalRows"] === "number"
+        ? { expectedTotalRows: entry["expectedTotalRows"] }
+        : {}),
       ...(typeof entry["cadenceMs"] === "number" ? { cadenceMs: entry["cadenceMs"] } : {}),
-      ...(typeof entry["cadenceToleranceMs"] === "number" ? { cadenceToleranceMs: entry["cadenceToleranceMs"] } : {}),
+      ...(typeof entry["cadenceToleranceMs"] === "number"
+        ? { cadenceToleranceMs: entry["cadenceToleranceMs"] }
+        : {}),
       ...(Array.isArray(files) ? { files: files.map(parseExpectedFile) } : {}),
     };
   });
@@ -178,7 +184,8 @@ async function verifyCsv(
     previousTs = timestamp;
     if (isFunding) {
       if (!finite(parts, [0, 2, 3])) issues.push(`Nem véges funding adat: ${index + 2}`);
-      if (expected.symbol !== undefined && parts[1] !== expected.symbol) issues.push(`Symbol eltérés: ${index + 2}`);
+      if (expected.symbol !== undefined && parts[1] !== expected.symbol)
+        issues.push(`Symbol eltérés: ${index + 2}`);
     } else {
       const offset = isDvol ? 2 : 1;
       if (!finite(parts, isDvol ? [0, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5])) {
@@ -209,25 +216,34 @@ async function verifyCsv(
   };
 }
 
-async function verifyOhlcvManifest(repoRoot: string, dataset: SnapshotDataset): Promise<readonly VerificationRow[]> {
+async function verifyOhlcvManifest(
+  repoRoot: string,
+  dataset: SnapshotDataset,
+): Promise<readonly VerificationRow[]> {
   if (dataset.manifestPath === undefined || dataset.manifestSha256 === undefined) {
     throw new Error(`${dataset.id}: hiányzó manifestPath/manifestSha256`);
   }
   const manifestPath = resolve(repoRoot, dataset.manifestPath);
   const manifestHash = await sha256(manifestPath);
   if (manifestHash !== dataset.manifestSha256) {
-    return [{
-      datasetId: dataset.id,
-      path: dataset.manifestPath,
-      status: "FAIL",
-      rows: null,
-      firstTs: null,
-      lastTs: null,
-      issues: [`Manifest SHA-256 eltérés: ${manifestHash}`],
-    }];
+    return [
+      {
+        datasetId: dataset.id,
+        path: dataset.manifestPath,
+        status: "FAIL",
+        rows: null,
+        firstTs: null,
+        lastTs: null,
+        issues: [`Manifest SHA-256 eltérés: ${manifestHash}`],
+      },
+    ];
   }
   const rawManifest = await readJson(manifestPath);
-  if (!isObject(rawManifest) || !Array.isArray(rawManifest["files"]) || !isObject(rawManifest["timeframeMs"])) {
+  if (
+    !isObject(rawManifest) ||
+    !Array.isArray(rawManifest["files"]) ||
+    !isObject(rawManifest["timeframeMs"])
+  ) {
     throw new Error(`${dataset.id}: hibás OHLCV manifest`);
   }
   const manifestFiles = rawManifest["files"].map(parseExpectedFile);
@@ -244,7 +260,8 @@ async function verifyOhlcvManifest(repoRoot: string, dataset: SnapshotDataset): 
   for (const expected of manifestFiles) {
     const timeframe = /_(1m|5m|15m|1h|4h|1d)\.csv$/.exec(expected.path)?.[1];
     const timeframeMs = rawManifest["timeframeMs"];
-    const cadenceValue = timeframe === undefined || !isObject(timeframeMs) ? undefined : timeframeMs[timeframe];
+    const cadenceValue =
+      timeframe === undefined || !isObject(timeframeMs) ? undefined : timeframeMs[timeframe];
     if (typeof cadenceValue !== "number") throw new Error(`Hiányzó timeframe cadence: ${expected.path}`);
     const csvDataset: SnapshotDataset = { ...dataset, cadenceMs: cadenceValue, cadenceToleranceMs: 0 };
     rows.push(await verifyCsv(repoRoot, csvDataset, expected, resolve(baseDir, expected.path)));
@@ -263,12 +280,15 @@ async function verifyOhlcvManifest(repoRoot: string, dataset: SnapshotDataset): 
   return rows;
 }
 
-export async function verifySnapshot(snapshotPath: string, repoRoot = REPO_ROOT): Promise<VerificationReport> {
+export async function verifySnapshot(
+  snapshotPath: string,
+  repoRoot = REPO_ROOT,
+): Promise<VerificationReport> {
   const snapshot = parseSnapshot(await readJson(snapshotPath));
   const rows: VerificationRow[] = [];
   for (const dataset of snapshot.datasets) {
     if (dataset.kind === "ohlcv-manifest") {
-      rows.push(...await verifyOhlcvManifest(repoRoot, dataset));
+      rows.push(...(await verifyOhlcvManifest(repoRoot, dataset)));
       continue;
     }
     if (dataset.files === undefined) throw new Error(`${dataset.id}: hiányzó files lista`);
@@ -288,7 +308,9 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   const snapshotPath = resolve(REPO_ROOT, getArg(args, "snapshot", "search-best-config/data-snapshot.json"));
   const report = await verifySnapshot(snapshotPath);
   for (const row of report.rows) {
-    console.log(`${row.status}\t${row.datasetId}\t${row.path}\trows=${String(row.rows)}${row.issues.length > 0 ? `\t${row.issues.join("; ")}` : ""}`);
+    console.log(
+      `${row.status}\t${row.datasetId}\t${row.path}\trows=${String(row.rows)}${row.issues.length > 0 ? `\t${row.issues.join("; ")}` : ""}`,
+    );
   }
   console.log(`${report.status}: ${report.filesChecked} fájl, ${report.rowsChecked} adatsor`);
   if (report.status !== "PASS") process.exitCode = 2;

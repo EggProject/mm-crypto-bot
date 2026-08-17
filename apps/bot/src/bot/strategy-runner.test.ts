@@ -32,10 +32,7 @@ import type {
   StrategyContext,
   StrategySignal,
 } from "@mm-crypto-bot/core";
-import {
-  DydxCexCarryStrategy,
-  newKillSwitchVerdicts,
-} from "@mm-crypto-bot/core";
+import { DydxCexCarryStrategy, newKillSwitchVerdicts } from "@mm-crypto-bot/core";
 
 import { OrderManager } from "./order-manager.js";
 import { PositionManager } from "./position-manager.js";
@@ -60,14 +57,20 @@ class FailTakeProfitFeed extends MockExchangeFeed {
 class ManualFundingSource implements DydxFundingSource {
   subscribeCalls = 0;
   closeCalls = 0;
-  private listener: ((snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void) | null = null;
+  private listener:
+    ((snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void) | null = null;
   subscribe(
     _market: CarryMarket,
     listener: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
   ): { readonly close: () => void } {
     this.subscribeCalls += 1;
     this.listener = listener;
-    return { close: () => { this.closeCalls += 1; this.listener = null; } };
+    return {
+      close: () => {
+        this.closeCalls += 1;
+        this.listener = null;
+      },
+    };
   }
   fire(timestampMs: number): void {
     this.listener?.({
@@ -75,10 +78,18 @@ class ManualFundingSource implements DydxFundingSource {
       cex: { symbol: "BTC-USD", fundingTime: timestampMs, fundingRate: 0.001, markPrice: 100 },
     });
   }
-  lastTickAgeMs(_market: CarryMarket, _nowMs: number): number | null { return 0; }
-  lastChainBlockHeight(_market: CarryMarket): number | null { return 1; }
-  lastChainBlockTs(_market: CarryMarket): number | null { return Date.now(); }
-  bybitEuSpotDepthUsd(_market: CarryMarket, _nowMs: number): number | null { return 1_000_000; }
+  lastTickAgeMs(_market: CarryMarket, _nowMs: number): number | null {
+    return 0;
+  }
+  lastChainBlockHeight(_market: CarryMarket): number | null {
+    return 1;
+  }
+  lastChainBlockTs(_market: CarryMarket): number | null {
+    return Date.now();
+  }
+  bybitEuSpotDepthUsd(_market: CarryMarket, _nowMs: number): number | null {
+    return 1_000_000;
+  }
   health(): { readonly lastTickMs: number | null; readonly chainBlockHeight: number | null } {
     return { lastTickMs: Date.now(), chainBlockHeight: 1 };
   }
@@ -98,10 +109,13 @@ class FailFirstProtectionCancelFeed extends MockExchangeFeed {
 
 /** A live acknowledgement with a deterministic terminal/partial outcome. */
 class TrailingCloseOutcomeFeed extends MockExchangeFeed {
-  public constructor(private readonly outcome: "canceled" | "partial" | "throw") { super(); }
+  public constructor(private readonly outcome: "canceled" | "partial" | "throw") {
+    super();
+  }
 
   public override async placeOrder(req: OrderRequest) {
-    if (this.outcome === "throw" && req.reduceOnly === true) throw new Error("injected trailing close failure");
+    if (this.outcome === "throw" && req.reduceOnly === true)
+      throw new Error("injected trailing close failure");
     const order = await super.placeOrder(req);
     if (req.reduceOnly !== true) return order;
     if (this.outcome === "canceled") return { ...order, status: "canceled" as const };
@@ -121,8 +135,14 @@ function attachPrivateLifecycle(feed: MockExchangeFeed): {
   let orderListener: FeedListener | undefined;
   let executionListener: FeedListener | undefined;
   Object.assign(feed, {
-    subscribeOrderUpdates: async (listener: FeedListener) => { orderListener = listener; return 9_001; },
-    subscribeExecutions: async (listener: FeedListener) => { executionListener = listener; return 9_002; },
+    subscribeOrderUpdates: async (listener: FeedListener) => {
+      orderListener = listener;
+      return 9_001;
+    },
+    subscribeExecutions: async (listener: FeedListener) => {
+      executionListener = listener;
+      return 9_002;
+    },
   });
   return {
     emitOrder: (order) => orderListener?.({ kind: "order", payload: order } as FeedEvent),
@@ -135,7 +155,9 @@ async function flushPrivateLifecycle(): Promise<void> {
   // boundary.  Yield twice so the per-symbol serializer and any conditional
   // protection placement it awaits have both run.
   await Promise.resolve();
-  await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
   await Promise.resolve();
 }
 
@@ -245,7 +267,12 @@ class LifecyclePlugin {
 }
 
 class RiskActionPlugin extends LifecyclePlugin {
-  public constructor(private readonly source: string, private readonly once = false) { super(); }
+  public constructor(
+    private readonly source: string,
+    private readonly once = false,
+  ) {
+    super();
+  }
   private bus: { emit(signal: unknown): void } | null = null;
   private emitted = false;
   public override subscribe(bus: { emit(signal: unknown): void }): void {
@@ -257,8 +284,13 @@ class RiskActionPlugin extends LifecyclePlugin {
     if (this.once && this.emitted) return;
     this.emitted = true;
     this.bus?.emit({
-      kind: "risk", varDaily95: 0, correlationPenalty: 0, drawdownLimit: 0,
-      source: this.source, breach: true, reason: "test-breach",
+      kind: "risk",
+      varDaily95: 0,
+      correlationPenalty: 0,
+      drawdownLimit: 0,
+      source: this.source,
+      breach: true,
+      reason: "test-breach",
     });
   }
 }
@@ -272,7 +304,9 @@ class AsyncRiskActionPlugin {
   }
 
   public async onBar(): Promise<void> {
-    await new Promise<void>((resolve) => { setTimeout(resolve, 0); });
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
     this.completed = true;
     this.bus?.emit({
       kind: "risk",
@@ -285,11 +319,15 @@ class AsyncRiskActionPlugin {
     });
   }
 
-  public reset(): void { this.completed = false; }
+  public reset(): void {
+    this.completed = false;
+  }
   public validateConfig(): { readonly ok: true; readonly value: undefined } {
     return { ok: true, value: undefined };
   }
-  public dispose(): void { this.bus = null; }
+  public dispose(): void {
+    this.bus = null;
+  }
 
   public readonly metadata = {
     name: "async-risk-probe",
@@ -336,7 +374,12 @@ function pushTickerTick(feed: MockExchangeFeed, symbol: ExchangeSymbol, last: nu
   feed.pushEvent({ kind: "ticker", payload: ticker });
 }
 
-function pushOhlcvTick(feed: MockExchangeFeed, symbol: ExchangeSymbol, timeframe: Timeframe, candle: Ohlcv): void {
+function pushOhlcvTick(
+  feed: MockExchangeFeed,
+  symbol: ExchangeSymbol,
+  timeframe: Timeframe,
+  candle: Ohlcv,
+): void {
   feed.pushEvent({
     kind: "ohlcv",
     payload: { symbol, timeframe, candle },
@@ -344,23 +387,42 @@ function pushOhlcvTick(feed: MockExchangeFeed, symbol: ExchangeSymbol, timeframe
 }
 
 describe("StrategyRunner", () => {
-
   it("uses min(global max leverage, strategy request) for the booked position", async () => {
-    for (const [globalMax, requested, expected] of [[1, 10, 1], [10, 1, 1]] as const) {
+    for (const [globalMax, requested, expected] of [
+      [1, 10, 1],
+      [10, 1, 1],
+    ] as const) {
       const feed = new MockExchangeFeed();
       await feed.open();
       const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: globalMax });
       const om = new OrderManager({
-        feed, getPositionContext: () => pm.getPositionContext(), paperMode: true,
+        feed,
+        getPositionContext: () => pm.getPositionContext(),
+        paperMode: true,
         leverage: { maxLeverage: globalMax, tolerance: 1e-6, warnOnApproach: 0.95 },
       });
-      const strategy = new FixedSignalStrategy({ side: "buy", confidence: 1, reason: "leverage", stopLoss: 0, takeProfit: 0 });
+      const strategy = new FixedSignalStrategy({
+        side: "buy",
+        confidence: 1,
+        reason: "leverage",
+        stopLoss: 0,
+        takeProfit: 0,
+      });
       const runner = new StrategyRunner({
-        instances: new Map([["lev" as const, { kind: "strategy" as const, name: "lev" as const, instance: strategy }]]),
-        orderManager: om, positionManager: pm, sizingFn: () => 1, enabledSymbols: ["BTC/USDC"], maxLeverage: globalMax,
+        instances: new Map([
+          ["lev" as const, { kind: "strategy" as const, name: "lev" as const, instance: strategy }],
+        ]),
+        orderManager: om,
+        positionManager: pm,
+        sizingFn: () => 1,
+        enabledSymbols: ["BTC/USDC"],
+        maxLeverage: globalMax,
         strategyPolicies: new Map([["lev" as const, { leverage: requested }]]),
       });
-      await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] } });
+      await runner.onFeedEvent({
+        kind: "ohlcv",
+        payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+      });
       expect(pm.getPosition("lev", makeSymbol(), "long")?.leverage).toBe(expected);
       runner.dispose();
     }
@@ -375,16 +437,34 @@ describe("StrategyRunner", () => {
       const plugin = new RiskActionPlugin(source);
       let actions = 0;
       const portfolio = {
-        executeCloseAll: async () => { actions++; return { closed: [], unresolved: [], cancelledOrders: [] }; },
+        executeCloseAll: async () => {
+          actions++;
+          return { closed: [], unresolved: [], cancelledOrders: [] };
+        },
         isTripped: () => false,
       };
       const runner = new StrategyRunner({
-        instances: new Map([["risk-plugin" as const, { kind: "plugin" as const, name: "risk-plugin" as const, instance: plugin as unknown as StrategyPlugin }]]),
-        orderManager: om, positionManager: pm, sizingFn: () => 0, enabledSymbols: ["BTC/USDC"],
+        instances: new Map([
+          [
+            "risk-plugin" as const,
+            {
+              kind: "plugin" as const,
+              name: "risk-plugin" as const,
+              instance: plugin as unknown as StrategyPlugin,
+            },
+          ],
+        ]),
+        orderManager: om,
+        positionManager: pm,
+        sizingFn: () => 0,
+        enabledSymbols: ["BTC/USDC"],
         portfolioManager: portfolio as unknown as PortfolioManager,
       });
       if (paused) runner.pause();
-      await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] } });
+      await runner.onFeedEvent({
+        kind: "ohlcv",
+        payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+      });
       await Promise.resolve();
       runner.dispose();
       return actions;
@@ -400,20 +480,45 @@ describe("StrategyRunner", () => {
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
     const plugin = new RiskActionPlugin("risk-probe:BTC/USDC", true);
-    const strategy = new FixedSignalStrategy({ side: "buy", confidence: 1, reason: "must-be-gated", stopLoss: 0, takeProfit: 0 });
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "must-be-gated",
+      stopLoss: 0,
+      takeProfit: 0,
+    });
     let emergencyCalls = 0;
     let releaseEmergency: (() => void) | undefined;
-    const unresolvedEmergency = new Promise<void>((resolve) => { releaseEmergency = resolve; });
+    const unresolvedEmergency = new Promise<void>((resolve) => {
+      releaseEmergency = resolve;
+    });
     const runner = new StrategyRunner({
       instances: new Map([
-        ["risk-plugin" as const, { kind: "plugin" as const, name: "risk-plugin" as const, instance: plugin as unknown as StrategyPlugin }],
-        ["signal-strategy" as const, { kind: "strategy" as const, name: "signal-strategy" as const, instance: strategy }],
+        [
+          "risk-plugin" as const,
+          {
+            kind: "plugin" as const,
+            name: "risk-plugin" as const,
+            instance: plugin as unknown as StrategyPlugin,
+          },
+        ],
+        [
+          "signal-strategy" as const,
+          { kind: "strategy" as const, name: "signal-strategy" as const, instance: strategy },
+        ],
       ]),
-      orderManager: om, positionManager: pm, sizingFn: () => 1, enabledSymbols: ["BTC/USDC"],
-      onEmergency: () => { emergencyCalls++; return unresolvedEmergency; },
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 1,
+      enabledSymbols: ["BTC/USDC"],
+      onEmergency: () => {
+        emergencyCalls++;
+        return unresolvedEmergency;
+      },
     });
     const candle = (timestamp: number): FeedEvent => ({
-      kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [timestamp, 100, 101, 99, 100, 1] },
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [timestamp, 100, 101, 99, 100, 1] },
     });
     await runner.onFeedEvent(candle(1));
     expect(emergencyCalls).toBe(1);
@@ -437,27 +542,39 @@ describe("StrategyRunner", () => {
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
     const plugin = new AsyncRiskActionPlugin();
     const strategy = new FixedSignalStrategy({
-      side: "buy", confidence: 1, reason: "must-wait-for-plugin", stopLoss: 0, takeProfit: 0,
+      side: "buy",
+      confidence: 1,
+      reason: "must-wait-for-plugin",
+      stopLoss: 0,
+      takeProfit: 0,
     });
     let emergencyCalls = 0;
     const runner = new StrategyRunner({
       instances: new Map([
-        ["async-risk" as const, {
-          kind: "plugin" as const,
-          name: "async-risk" as const,
-          instance: plugin as unknown as StrategyPlugin,
-        }],
-        ["signal-strategy" as const, {
-          kind: "strategy" as const,
-          name: "signal-strategy" as const,
-          instance: strategy,
-        }],
+        [
+          "async-risk" as const,
+          {
+            kind: "plugin" as const,
+            name: "async-risk" as const,
+            instance: plugin as unknown as StrategyPlugin,
+          },
+        ],
+        [
+          "signal-strategy" as const,
+          {
+            kind: "strategy" as const,
+            name: "signal-strategy" as const,
+            instance: strategy,
+          },
+        ],
       ]),
       orderManager: om,
       positionManager: pm,
       sizingFn: () => 1,
       enabledSymbols: ["BTC/USDC"],
-      onEmergency: () => { emergencyCalls += 1; },
+      onEmergency: () => {
+        emergencyCalls += 1;
+      },
     });
 
     await runner.onFeedEvent({
@@ -524,7 +641,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["test-strategy" as const, { kind: "strategy" as const, name: "test-strategy" as const, instance: strategy as unknown as Strategy }],
+      [
+        "test-strategy" as const,
+        {
+          kind: "strategy" as const,
+          name: "test-strategy" as const,
+          instance: strategy as unknown as Strategy,
+        },
+      ],
     ]);
     const runner = new StrategyRunner({
       instances,
@@ -572,7 +696,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["test-strategy" as const, { kind: "strategy" as const, name: "test-strategy" as const, instance: strategy as unknown as Strategy }],
+      [
+        "test-strategy" as const,
+        {
+          kind: "strategy" as const,
+          name: "test-strategy" as const,
+          instance: strategy as unknown as Strategy,
+        },
+      ],
     ]);
     const runner = new StrategyRunner({
       instances,
@@ -599,12 +730,26 @@ describe("StrategyRunner", () => {
     await feed.open();
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
-    const strategy = new FixedSignalStrategy({ side: "buy", confidence: 1, reason: "ack", stopLoss: 0, takeProfit: 0 });
-    const runner = new StrategyRunner({
-      instances: new Map([["ack" as const, { kind: "strategy" as const, name: "ack" as const, instance: strategy }]]),
-      orderManager: om, positionManager: pm, sizingFn: defaultSizingFn, enabledSymbols: ["BTC/USDC"],
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "ack",
+      stopLoss: 0,
+      takeProfit: 0,
     });
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] } });
+    const runner = new StrategyRunner({
+      instances: new Map([
+        ["ack" as const, { kind: "strategy" as const, name: "ack" as const, instance: strategy }],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+    });
     expect(om.getInFlightCount()).toBe(1);
     expect(pm.getPositionCount()).toBe(0);
   });
@@ -614,12 +759,26 @@ describe("StrategyRunner", () => {
     await feed.open();
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
-    const strategy = new FixedSignalStrategy({ side: "buy", confidence: 1, reason: "race", stopLoss: 0, takeProfit: 0 });
-    const runner = new StrategyRunner({
-      instances: new Map([["race" as const, { kind: "strategy" as const, name: "race" as const, instance: strategy }]]),
-      orderManager: om, positionManager: pm, sizingFn: () => 1, enabledSymbols: ["BTC/USDC"],
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "race",
+      stopLoss: 0,
+      takeProfit: 0,
     });
-    const event = (timestamp: number): FeedEvent => ({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [timestamp, 100, 101, 99, 100, 1] } });
+    const runner = new StrategyRunner({
+      instances: new Map([
+        ["race" as const, { kind: "strategy" as const, name: "race" as const, instance: strategy }],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 1,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    const event = (timestamp: number): FeedEvent => ({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [timestamp, 100, 101, 99, 100, 1] },
+    });
     await Promise.all([runner.onFeedEvent(event(1)), runner.onFeedEvent(event(2))]);
     expect(om.getCounters().placed).toBe(1);
     expect(pm.getPositionCount()).toBe(0);
@@ -630,19 +789,66 @@ describe("StrategyRunner", () => {
     await feed.open();
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
-    const strategy = new FixedSignalStrategy({ side: "buy", confidence: 1, reason: "late", stopLoss: 0, takeProfit: 0 });
-    const runner = new StrategyRunner({
-      instances: new Map([["late" as const, { kind: "strategy" as const, name: "late" as const, instance: strategy }]]),
-      orderManager: om, positionManager: pm, sizingFn: () => 2, enabledSymbols: ["BTC/USDC"],
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "late",
+      stopLoss: 0,
+      takeProfit: 0,
     });
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] } });
+    const runner = new StrategyRunner({
+      instances: new Map([
+        ["late" as const, { kind: "strategy" as const, name: "late" as const, instance: strategy }],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 2,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+    });
     const id = om.getInFlightOrderIds()[0]!;
     feed.setOrderStatus(id, { filled: 1, average: 101, status: "open" });
-    await runner.onFeedEvent({ kind: "ticker", payload: { symbol: makeSymbol(), timestamp: 2, bid: 100, ask: 102, last: 101, baseVolume: 1, quoteVolume: 101 } });
-    await runner.onFeedEvent({ kind: "ticker", payload: { symbol: makeSymbol(), timestamp: 3, bid: 100, ask: 102, last: 101, baseVolume: 1, quoteVolume: 101 } });
+    await runner.onFeedEvent({
+      kind: "ticker",
+      payload: {
+        symbol: makeSymbol(),
+        timestamp: 2,
+        bid: 100,
+        ask: 102,
+        last: 101,
+        baseVolume: 1,
+        quoteVolume: 101,
+      },
+    });
+    await runner.onFeedEvent({
+      kind: "ticker",
+      payload: {
+        symbol: makeSymbol(),
+        timestamp: 3,
+        bid: 100,
+        ask: 102,
+        last: 101,
+        baseVolume: 1,
+        quoteVolume: 101,
+      },
+    });
     expect(pm.getPosition("late", makeSymbol(), "long")?.quantity).toBe(1);
     feed.setOrderStatus(id, { filled: 2, average: 102, status: "closed" });
-    await runner.onFeedEvent({ kind: "ticker", payload: { symbol: makeSymbol(), timestamp: 4, bid: 101, ask: 103, last: 102, baseVolume: 1, quoteVolume: 102 } });
+    await runner.onFeedEvent({
+      kind: "ticker",
+      payload: {
+        symbol: makeSymbol(),
+        timestamp: 4,
+        bid: 101,
+        ask: 103,
+        last: 102,
+        baseVolume: 1,
+        quoteVolume: 102,
+      },
+    });
     expect(pm.getPosition("late", makeSymbol(), "long")?.quantity).toBe(2);
     expect(om.getInFlightCount()).toBe(0);
   });
@@ -652,25 +858,62 @@ describe("StrategyRunner", () => {
     await feed.open();
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
-    const strategy = new FixedSignalStrategy({ side: "buy", confidence: 1, reason: "native", stopLoss: 90, takeProfit: 110 });
-    const runner = new StrategyRunner({
-      instances: new Map([["native" as const, { kind: "strategy" as const, name: "native" as const, instance: strategy }]]),
-      orderManager: om, positionManager: pm, sizingFn: () => 2, enabledSymbols: ["BTC/USDC"],
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "native",
+      stopLoss: 90,
+      takeProfit: 110,
     });
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] } });
+    const runner = new StrategyRunner({
+      instances: new Map([
+        ["native" as const, { kind: "strategy" as const, name: "native" as const, instance: strategy }],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 2,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+    });
     const entryId = om.getInFlightOrderIds()[0]!;
     feed.setOrderStatus(entryId, { filled: 1, average: 100, status: "open" });
-    await runner.onFeedEvent({ kind: "ticker", payload: { symbol: makeSymbol(), timestamp: 2, bid: 99, ask: 101, last: 100, baseVolume: 1, quoteVolume: 100 } });
+    await runner.onFeedEvent({
+      kind: "ticker",
+      payload: {
+        symbol: makeSymbol(),
+        timestamp: 2,
+        bid: 99,
+        ask: 101,
+        last: 100,
+        baseVolume: 1,
+        quoteVolume: 100,
+      },
+    });
     const firstProtectionIds = om.getInFlightOrderIds().filter((id) => id !== entryId);
     expect(firstProtectionIds).toHaveLength(2);
     feed.setOrderStatus(entryId, { filled: 2, average: 100, status: "closed" });
-    await runner.onFeedEvent({ kind: "ticker", payload: { symbol: makeSymbol(), timestamp: 3, bid: 99, ask: 101, last: 100, baseVolume: 1, quoteVolume: 100 } });
+    await runner.onFeedEvent({
+      kind: "ticker",
+      payload: {
+        symbol: makeSymbol(),
+        timestamp: 3,
+        bid: 99,
+        ask: 101,
+        last: 100,
+        baseVolume: 1,
+        quoteVolume: 100,
+      },
+    });
     // Bybit cancel ACK is asynchronous: no replacement is authoritative yet.
     expect(om.getInFlightOrderIds().filter((id) => id !== entryId)).toHaveLength(0);
     for (const old of firstProtectionIds) expect(feed.getOrder(old)?.status).toBe("canceled");
     for (const old of firstProtectionIds) {
       (om as unknown as { handleLifecycleFeedEvent(event: FeedEvent): void }).handleLifecycleFeedEvent({
-        kind: "order", payload: feed.getOrder(old)!,
+        kind: "order",
+        payload: feed.getOrder(old)!,
       });
     }
     await flushPrivateLifecycle();
@@ -680,12 +923,24 @@ describe("StrategyRunner", () => {
     const triggered = replacementProtectionIds[0]!;
     const sibling = replacementProtectionIds[1]!;
     feed.setOrderStatus(triggered, { filled: 1, average: 90, status: "closed" });
-    await runner.onFeedEvent({ kind: "ticker", payload: { symbol: makeSymbol(), timestamp: 4, bid: 89, ask: 91, last: 90, baseVolume: 1, quoteVolume: 90 } });
+    await runner.onFeedEvent({
+      kind: "ticker",
+      payload: {
+        symbol: makeSymbol(),
+        timestamp: 4,
+        bid: 89,
+        ask: 91,
+        last: 90,
+        baseVolume: 1,
+        quoteVolume: 90,
+      },
+    });
     expect(feed.getOrder(sibling)?.status).toBe("canceled");
     expect(pm.getPosition("native", makeSymbol(), "long")?.quantity).toBe(1);
     expect(om.getInFlightOrderIds()).toHaveLength(0);
     (om as unknown as { handleLifecycleFeedEvent(event: FeedEvent): void }).handleLifecycleFeedEvent({
-      kind: "order", payload: feed.getOrder(sibling)!,
+      kind: "order",
+      payload: feed.getOrder(sibling)!,
     });
     await flushPrivateLifecycle();
     const residualProtectionIds = om.getInFlightOrderIds();
@@ -698,20 +953,48 @@ describe("StrategyRunner", () => {
     await feed.open();
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
-    const strategy = new FixedSignalStrategy({ side: "buy", confidence: 1, reason: "failsafe", stopLoss: 90, takeProfit: 110 });
-    const runner = new StrategyRunner({
-      instances: new Map([["failsafe" as const, { kind: "strategy" as const, name: "failsafe" as const, instance: strategy }]]),
-      orderManager: om, positionManager: pm, sizingFn: () => 1, enabledSymbols: ["BTC/USDC"],
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "failsafe",
+      stopLoss: 90,
+      takeProfit: 110,
     });
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] } });
+    const runner = new StrategyRunner({
+      instances: new Map([
+        ["failsafe" as const, { kind: "strategy" as const, name: "failsafe" as const, instance: strategy }],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 1,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+    });
     const entryId = om.getInFlightOrderIds()[0]!;
     feed.setOrderStatus(entryId, { filled: 1, average: 100, status: "closed" });
-    await runner.onFeedEvent({ kind: "ticker", payload: { symbol: makeSymbol(), timestamp: 2, bid: 99, ask: 101, last: 100, baseVolume: 1, quoteVolume: 100 } });
+    await runner.onFeedEvent({
+      kind: "ticker",
+      payload: {
+        symbol: makeSymbol(),
+        timestamp: 2,
+        bid: 99,
+        ask: 101,
+        last: 100,
+        baseVolume: 1,
+        quoteVolume: 100,
+      },
+    });
     let orders = [...feed["orderBook"].values()];
     expect(orders.find((order) => order.clientOrderId.includes("stop_loss"))?.status).toBe("canceled");
     expect(orders.find((order) => order.clientOrderId.includes("protection-failsafe"))).toBeUndefined();
     const canceledProtection = orders.find((order) => order.clientOrderId.includes("stop_loss"))!;
-    (om as unknown as { handleLifecycleFeedEvent(event: FeedEvent): void }).handleLifecycleFeedEvent({ kind: "order", payload: canceledProtection });
+    (om as unknown as { handleLifecycleFeedEvent(event: FeedEvent): void }).handleLifecycleFeedEvent({
+      kind: "order",
+      payload: canceledProtection,
+    });
     await flushPrivateLifecycle();
     orders = [...feed["orderBook"].values()];
     expect(orders.find((order) => order.clientOrderId.includes("protection-failsafe"))?.side).toBe("sell");
@@ -722,19 +1005,38 @@ describe("StrategyRunner", () => {
     await feed.open();
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({
-      feed, getPositionContext: () => pm.getPositionContext(), paperMode: true,
+      feed,
+      getPositionContext: () => pm.getPositionContext(),
+      paperMode: true,
       getReduciblePosition: (symbol) => {
         const position = pm.getPositions().find((item) => item.symbol === symbol);
         return position === undefined ? undefined : { side: position.side, quantity: position.quantity };
       },
     });
-    const strategy = new FixedSignalStrategy({ side: "buy", confidence: 1, reason: "protected", stopLoss: 90, takeProfit: 110 });
-    const runner = new StrategyRunner({
-      instances: new Map([["protected" as const, { kind: "strategy" as const, name: "protected" as const, instance: strategy }]]),
-      orderManager: om, positionManager: pm, sizingFn: () => 1, enabledSymbols: ["BTC/USDC"],
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "protected",
+      stopLoss: 90,
+      takeProfit: 110,
     });
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] } });
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [2, 95, 111, 89, 100, 1] } });
+    const runner = new StrategyRunner({
+      instances: new Map([
+        ["protected" as const, { kind: "strategy" as const, name: "protected" as const, instance: strategy }],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 1,
+      enabledSymbols: ["BTC/USDC"],
+    });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+    });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [2, 95, 111, 89, 100, 1] },
+    });
     expect(pm.getPositionCount()).toBe(0);
     expect(pm.getClosedTrades().at(-1)?.exitPrice).toBe(90);
   });
@@ -746,18 +1048,38 @@ describe("StrategyRunner", () => {
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
     let context: StrategyContext | undefined;
     const strategy: Strategy = {
-      name: "mtf", timeframes: ["1d", "4h", "15m"], warmup: () => 0,
-      onCandle: (ctx) => { context = ctx; return null; },
+      name: "mtf",
+      timeframes: ["1d", "4h", "15m"],
+      warmup: () => 0,
+      onCandle: (ctx) => {
+        context = ctx;
+        return null;
+      },
     };
     const runner = new StrategyRunner({
-      instances: new Map([["mtf" as const, { kind: "strategy" as const, name: "mtf" as const, instance: strategy }]]),
-      orderManager: om, positionManager: pm, sizingFn: defaultSizingFn, enabledSymbols: ["BTC/USDC"],
+      instances: new Map([
+        ["mtf" as const, { kind: "strategy" as const, name: "mtf" as const, instance: strategy }],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
+      enabledSymbols: ["BTC/USDC"],
     });
     for (let i = 0; i < 20; i++) {
-      await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "1d", candle: [i, 10 + i, 20 + i, 5 + i, 15 + i, 1] } });
+      await runner.onFeedEvent({
+        kind: "ohlcv",
+        payload: { symbol: makeSymbol(), timeframe: "1d", candle: [i, 10 + i, 20 + i, 5 + i, 15 + i, 1] },
+      });
     }
     for (let i = 0; i < 15; i++) {
-      await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [100 + i, 100, 105 + i, 95 - i, 100 + i, 1] } });
+      await runner.onFeedEvent({
+        kind: "ohlcv",
+        payload: {
+          symbol: makeSymbol(),
+          timeframe: "15m",
+          candle: [100 + i, 100, 105 + i, 95 - i, 100 + i, 1],
+        },
+      });
     }
     expect(context?.timeframe).toBe("15m");
     expect(context?.mtfState.htf.donchianUpper).toBe(39);
@@ -791,7 +1113,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["test-strategy" as const, { kind: "strategy" as const, name: "test-strategy" as const, instance: strategy as unknown as Strategy }],
+      [
+        "test-strategy" as const,
+        {
+          kind: "strategy" as const,
+          name: "test-strategy" as const,
+          instance: strategy as unknown as Strategy,
+        },
+      ],
     ]);
     const runner = new StrategyRunner({
       instances,
@@ -818,11 +1147,22 @@ describe("StrategyRunner", () => {
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
     const strategy = new FixedSignalStrategy({
-      side: "buy", confidence: 1, reason: "pause-test", stopLoss: 0, takeProfit: 0,
+      side: "buy",
+      confidence: 1,
+      reason: "pause-test",
+      stopLoss: 0,
+      takeProfit: 0,
     });
     const runner = new StrategyRunner({
       instances: new Map([
-        ["fixed-signal" as const, { kind: "strategy" as const, name: "fixed-signal" as const, instance: strategy as unknown as Strategy }],
+        [
+          "fixed-signal" as const,
+          {
+            kind: "strategy" as const,
+            name: "fixed-signal" as const,
+            instance: strategy as unknown as Strategy,
+          },
+        ],
       ]),
       orderManager: om,
       positionManager: pm,
@@ -854,11 +1194,14 @@ describe("StrategyRunner", () => {
     const plugin = new LifecyclePlugin();
     const runner = new StrategyRunner({
       instances: new Map([
-        ["lifecycle-plugin" as const, {
-          kind: "plugin" as const,
-          name: "lifecycle-plugin" as const,
-          instance: plugin as unknown as StrategyPlugin,
-        }],
+        [
+          "lifecycle-plugin" as const,
+          {
+            kind: "plugin" as const,
+            name: "lifecycle-plugin" as const,
+            instance: plugin as unknown as StrategyPlugin,
+          },
+        ],
       ]),
       orderManager: om,
       positionManager: pm,
@@ -899,12 +1242,24 @@ describe("StrategyRunner", () => {
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
     const runner = new StrategyRunner({
-      instances, orderManager: om, positionManager: pm, sizingFn: defaultSizingFn,
+      instances,
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: defaultSizingFn,
       enabledSymbols: ["BTC/USDC"],
     });
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "1d", candle: [1, 100, 101, 99, 100, 1] } });
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [2, 100, 102, 99, 101, 1] } });
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "1d", candle: [3, 101, 103, 100, 102, 1] } });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "1d", candle: [1, 100, 101, 99, 100, 1] },
+    });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [2, 100, 102, 99, 101, 1] },
+    });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "1d", candle: [3, 101, 103, 100, 102, 1] },
+    });
     expect(regime.observationsForSymbol("BTC/USDC")).toBe(1);
     runner.dispose();
   });
@@ -915,14 +1270,27 @@ describe("StrategyRunner", () => {
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
     const plugin = new RegimeSizingPlugin();
     const strategy = new FixedSignalStrategy({
-      side: "buy", confidence: 1, reason: "regime-sized", stopLoss: 90, takeProfit: 110,
+      side: "buy",
+      confidence: 1,
+      reason: "regime-sized",
+      stopLoss: 90,
+      takeProfit: 110,
     });
     const runner = new StrategyRunner({
       instances: new Map([
-        ["regime_detector" as const, { kind: "plugin" as const, name: "regime_detector" as const, instance: plugin as unknown as StrategyPlugin }],
+        [
+          "regime_detector" as const,
+          {
+            kind: "plugin" as const,
+            name: "regime_detector" as const,
+            instance: plugin as unknown as StrategyPlugin,
+          },
+        ],
         ["sized" as const, { kind: "strategy" as const, name: "sized" as const, instance: strategy }],
       ]),
-      orderManager: om, positionManager: pm, sizingFn: () => 1,
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 1,
       enabledSymbols: ["BTC/USDC"],
     });
     await runner.onFeedEvent({
@@ -940,12 +1308,19 @@ describe("StrategyRunner", () => {
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
     const runner = new StrategyRunner({
-      instances: new Map([["dydx_cex_carry", {
-        kind: "strategy" as const,
-        name: "dydx_cex_carry" as const,
-        instance: strategy,
-      }]]),
-      orderManager: om, positionManager: pm, sizingFn: () => 1,
+      instances: new Map([
+        [
+          "dydx_cex_carry",
+          {
+            kind: "strategy" as const,
+            name: "dydx_cex_carry" as const,
+            instance: strategy,
+          },
+        ],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 1,
       enabledSymbols: ["BTC/USDC"],
     });
     expect(fundingSource.subscribeCalls).toBe(1);
@@ -954,8 +1329,13 @@ describe("StrategyRunner", () => {
 
     pm.openPosition("dydx_cex_carry", makeSymbol(), "long", 1, 100, 1);
     strategy.onPositionOpened({
-      side: "buy", entryTime: 1, entryPrice: 100, quantity: 1,
-      stopLoss: 99, takeProfit: 10_000, holdingBars: 0,
+      side: "buy",
+      entryTime: 1,
+      entryPrice: 100,
+      quantity: 1,
+      stopLoss: 99,
+      takeProfit: 10_000,
+      holdingBars: 0,
     });
     strategy.state.killSwitchVerdicts = {
       ...newKillSwitchVerdicts(),
@@ -980,15 +1360,37 @@ describe("StrategyRunner", () => {
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext(), paperMode: true });
     const started = new LifecyclePlugin();
     const rejecting = new LifecyclePlugin();
-    rejecting.subscribe = () => { throw new Error("plugin rejected startup"); };
+    rejecting.subscribe = () => {
+      throw new Error("plugin rejected startup");
+    };
 
-    expect(() => new StrategyRunner({
-      instances: new Map([
-        ["started" as const, { kind: "plugin" as const, name: "started" as const, instance: started as unknown as StrategyPlugin }],
-        ["rejecting" as const, { kind: "plugin" as const, name: "rejecting" as const, instance: rejecting as unknown as StrategyPlugin }],
-      ]),
-      orderManager: om, positionManager: pm, sizingFn: () => 0, enabledSymbols: ["BTC/USDC"],
-    })).toThrow("plugin rejected startup");
+    expect(
+      () =>
+        new StrategyRunner({
+          instances: new Map([
+            [
+              "started" as const,
+              {
+                kind: "plugin" as const,
+                name: "started" as const,
+                instance: started as unknown as StrategyPlugin,
+              },
+            ],
+            [
+              "rejecting" as const,
+              {
+                kind: "plugin" as const,
+                name: "rejecting" as const,
+                instance: rejecting as unknown as StrategyPlugin,
+              },
+            ],
+          ]),
+          orderManager: om,
+          positionManager: pm,
+          sizingFn: () => 0,
+          enabledSymbols: ["BTC/USDC"],
+        }),
+    ).toThrow("plugin rejected startup");
     expect(started.subscribeCalls).toBe(1);
     expect(started.disposeCalls).toBe(1);
   });
@@ -1001,21 +1403,44 @@ describe("StrategyRunner", () => {
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
     let opened = 0;
     const strategy: Strategy = {
-      name: "private-entry", timeframes: ["15m"], warmup: () => 0,
+      name: "private-entry",
+      timeframes: ["15m"],
+      warmup: () => 0,
       onCandle: () => ({ side: "buy", confidence: 1, reason: "private", stopLoss: 0, takeProfit: 0 }),
-      onPositionOpened: () => { opened++; },
+      onPositionOpened: () => {
+        opened++;
+      },
     };
     const runner = new StrategyRunner({
-      instances: new Map([["private-entry" as const, { kind: "strategy" as const, name: "private-entry" as const, instance: strategy }]]),
-      orderManager: om, positionManager: pm, sizingFn: () => 2, enabledSymbols: ["BTC/USDC"],
+      instances: new Map([
+        [
+          "private-entry" as const,
+          { kind: "strategy" as const, name: "private-entry" as const, instance: strategy },
+        ],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 2,
+      enabledSymbols: ["BTC/USDC"],
     });
     await om.startLifecycle();
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] } });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+    });
     const entry = om.getInFlightOrderIds()[0]!;
     const initial = feed.getOrder(entry)!;
     const execution = (executionId: string, quantity: number, price: number): Execution => ({
-      executionId, clientOrderId: entry, exchangeOrderId: initial.exchangeId, symbol: makeSymbol(), side: "buy",
-      quantity, price, fee: 0, feeCurrency: "USDC", timestamp: Date.now(),
+      executionId,
+      clientOrderId: entry,
+      exchangeOrderId: initial.exchangeId,
+      symbol: makeSymbol(),
+      side: "buy",
+      quantity,
+      price,
+      fee: 0,
+      feeCurrency: "USDC",
+      timestamp: Date.now(),
     });
     lifecycle.emitExecution(execution("late-first", 1, 101));
     lifecycle.emitExecution(execution("late-first", 1, 101)); // duplicate execution id
@@ -1031,7 +1456,10 @@ describe("StrategyRunner", () => {
     // Terminal private evidence removes the idempotency gate, so a later bar
     // can create a new intent after this position has been independently closed.
     pm.closePosition("private-entry", makeSymbol(), 100);
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [2, 100, 101, 99, 100, 1] } });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [2, 100, 101, 99, 100, 1] },
+    });
     expect(om.getCounters().placed).toBe(2);
     runner.dispose();
     await om.stopLifecycle();
@@ -1043,18 +1471,43 @@ describe("StrategyRunner", () => {
     const lifecycle = attachPrivateLifecycle(feed);
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
-    const strategy = new FixedSignalStrategy({ side: "buy", confidence: 1, reason: "private-protection", stopLoss: 90, takeProfit: 110 });
+    const strategy = new FixedSignalStrategy({
+      side: "buy",
+      confidence: 1,
+      reason: "private-protection",
+      stopLoss: 90,
+      takeProfit: 110,
+    });
     const runner = new StrategyRunner({
-      instances: new Map([["private-protection" as const, { kind: "strategy" as const, name: "private-protection" as const, instance: strategy }]]),
-      orderManager: om, positionManager: pm, sizingFn: () => 2, enabledSymbols: ["BTC/USDC"],
+      instances: new Map([
+        [
+          "private-protection" as const,
+          { kind: "strategy" as const, name: "private-protection" as const, instance: strategy },
+        ],
+      ]),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 2,
+      enabledSymbols: ["BTC/USDC"],
     });
     await om.startLifecycle();
-    await runner.onFeedEvent({ kind: "ohlcv", payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] } });
+    await runner.onFeedEvent({
+      kind: "ohlcv",
+      payload: { symbol: makeSymbol(), timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
+    });
     const entryId = om.getInFlightOrderIds()[0]!;
     const entry = feed.getOrder(entryId)!;
     lifecycle.emitExecution({
-      executionId: "entry-full", clientOrderId: entryId, exchangeOrderId: entry.exchangeId, symbol: makeSymbol(), side: "buy",
-      quantity: 2, price: 100, fee: 0, feeCurrency: "USDC", timestamp: Date.now(),
+      executionId: "entry-full",
+      clientOrderId: entryId,
+      exchangeOrderId: entry.exchangeId,
+      symbol: makeSymbol(),
+      side: "buy",
+      quantity: 2,
+      price: 100,
+      fee: 0,
+      feeCurrency: "USDC",
+      timestamp: Date.now(),
     });
     await flushPrivateLifecycle();
     const protectionIds = om.getInFlightOrderIds();
@@ -1069,8 +1522,16 @@ describe("StrategyRunner", () => {
     const triggeredId = protectionIds[1]!;
     const triggered = feed.getOrder(triggeredId)!;
     lifecycle.emitExecution({
-      executionId: "partial-stop", clientOrderId: triggeredId, exchangeOrderId: triggered.exchangeId, symbol: makeSymbol(), side: triggered.side,
-      quantity: 1, price: 90, fee: 0, feeCurrency: "USDC", timestamp: Date.now(),
+      executionId: "partial-stop",
+      clientOrderId: triggeredId,
+      exchangeOrderId: triggered.exchangeId,
+      symbol: makeSymbol(),
+      side: triggered.side,
+      quantity: 1,
+      price: 90,
+      fee: 0,
+      feeCurrency: "USDC",
+      timestamp: Date.now(),
     });
     await flushPrivateLifecycle();
     expect(pm.getPosition("private-protection", makeSymbol(), "long")?.quantity).toBe(1);
@@ -1087,23 +1548,63 @@ describe("StrategyRunner", () => {
   it("serializes delayed cancel/fill races for spot and contracts without over-closing", async () => {
     for (const isSpot of [true, false]) {
       const symbol = makeSymbol();
-      const feed = new MockExchangeFeed({ marketMeta: new Map([[symbol, {
-        symbol, base: "BTC", quote: "USDC", amountPrecision: 4, pricePrecision: 2,
-        minAmount: 0.0001, minCost: 1, isSpot,
-      }]]) });
+      const feed = new MockExchangeFeed({
+        marketMeta: new Map([
+          [
+            symbol,
+            {
+              symbol,
+              base: "BTC",
+              quote: "USDC",
+              amountPrecision: 4,
+              pricePrecision: 2,
+              minAmount: 0.0001,
+              minCost: 1,
+              isSpot,
+            },
+          ],
+        ]),
+      });
       await feed.open();
       const lifecycle = attachPrivateLifecycle(feed);
       const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
       const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
-      const runner = new StrategyRunner({ instances: new Map(), orderManager: om, positionManager: pm, sizingFn: () => 0, enabledSymbols: [String(symbol)] });
+      const runner = new StrategyRunner({
+        instances: new Map(),
+        orderManager: om,
+        positionManager: pm,
+        sizingFn: () => 0,
+        enabledSymbols: [String(symbol)],
+      });
       await om.startLifecycle();
       pm.openPosition("serialized", symbol, "long", 1, 100, 1);
-      const signal = { side: "buy" as const, confidence: 1, reason: "serialized", stopLoss: 90, takeProfit: 110 };
-      const install = (runner["installProtections"] as (input: {
-        strategy: "serialized"; symbol: ExchangeSymbol; side: "long"; quantity: number; leverage: number;
-        signal: StrategySignal; referencePrice: number;
-      }) => Promise<void>).bind(runner);
-      const input = { strategy: "serialized" as const, symbol, side: "long" as const, quantity: 1, leverage: 1, signal, referencePrice: 100 };
+      const signal = {
+        side: "buy" as const,
+        confidence: 1,
+        reason: "serialized",
+        stopLoss: 90,
+        takeProfit: 110,
+      };
+      const install = (
+        runner["installProtections"] as (input: {
+          strategy: "serialized";
+          symbol: ExchangeSymbol;
+          side: "long";
+          quantity: number;
+          leverage: number;
+          signal: StrategySignal;
+          referencePrice: number;
+        }) => Promise<void>
+      ).bind(runner);
+      const input = {
+        strategy: "serialized" as const,
+        symbol,
+        side: "long" as const,
+        quantity: 1,
+        leverage: 1,
+        signal,
+        referencePrice: 100,
+      };
       await install(input);
       const retired = om.getInFlightOrderIds();
       expect(retired).toHaveLength(2);
@@ -1125,8 +1626,16 @@ describe("StrategyRunner", () => {
       // authoritative exposure and cancels the entire replacement pair.
       const late = feed.getOrder(retired[0]!)!;
       lifecycle.emitExecution({
-        executionId: `late-${String(isSpot)}`, clientOrderId: late.clientOrderId, exchangeOrderId: late.exchangeId,
-        symbol, side: "sell", quantity: 0.4, price: 90, fee: 0, feeCurrency: "USDC", timestamp: Date.now(),
+        executionId: `late-${String(isSpot)}`,
+        clientOrderId: late.clientOrderId,
+        exchangeOrderId: late.exchangeId,
+        symbol,
+        side: "sell",
+        quantity: 0.4,
+        price: 90,
+        fee: 0,
+        feeCurrency: "USDC",
+        timestamp: Date.now(),
       });
       await flushPrivateLifecycle();
       expect(pm.getPosition("serialized", symbol, "long")?.quantity).toBeCloseTo(0.6);
@@ -1140,8 +1649,16 @@ describe("StrategyRunner", () => {
       // new siblings prove canceled, zero exposure never rebuilds zero-level protection.
       const lateSibling = feed.getOrder(retired[1]!)!;
       lifecycle.emitExecution({
-        executionId: `late-flat-${String(isSpot)}`, clientOrderId: lateSibling.clientOrderId, exchangeOrderId: lateSibling.exchangeId,
-        symbol, side: "sell", quantity: 0.8, price: 110, fee: 0, feeCurrency: "USDC", timestamp: Date.now(),
+        executionId: `late-flat-${String(isSpot)}`,
+        clientOrderId: lateSibling.clientOrderId,
+        exchangeOrderId: lateSibling.exchangeId,
+        symbol,
+        side: "sell",
+        quantity: 0.8,
+        price: 110,
+        fee: 0,
+        feeCurrency: "USDC",
+        timestamp: Date.now(),
       });
       await flushPrivateLifecycle();
       expect(pm.getPositionCount()).toBe(0);
@@ -1159,21 +1676,41 @@ describe("StrategyRunner", () => {
     const lifecycle = attachPrivateLifecycle(feed);
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const om = new OrderManager({ feed, getPositionContext: () => pm.getPositionContext() });
-    const runner = new StrategyRunner({ instances: new Map(), orderManager: om, positionManager: pm, sizingFn: () => 0, enabledSymbols: [String(makeSymbol())] });
+    const runner = new StrategyRunner({
+      instances: new Map(),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 0,
+      enabledSymbols: [String(makeSymbol())],
+    });
     await om.startLifecycle();
     pm.openPosition("cancel-retry", makeSymbol(), "long", 1, 100, 1);
-    const install = (runner["installProtections"] as (input: {
-      strategy: "cancel-retry"; symbol: ExchangeSymbol; side: "long"; quantity: number; leverage: number;
-      signal: StrategySignal; referencePrice: number;
-    }) => Promise<void>).bind(runner);
+    const install = (
+      runner["installProtections"] as (input: {
+        strategy: "cancel-retry";
+        symbol: ExchangeSymbol;
+        side: "long";
+        quantity: number;
+        leverage: number;
+        signal: StrategySignal;
+        referencePrice: number;
+      }) => Promise<void>
+    ).bind(runner);
     const input = {
-      strategy: "cancel-retry" as const, symbol: makeSymbol(), side: "long" as const, quantity: 1, leverage: 1,
-      signal: { side: "buy" as const, confidence: 1, reason: "cancel-retry", stopLoss: 90, takeProfit: 110 }, referencePrice: 100,
+      strategy: "cancel-retry" as const,
+      symbol: makeSymbol(),
+      side: "long" as const,
+      quantity: 1,
+      leverage: 1,
+      signal: { side: "buy" as const, confidence: 1, reason: "cancel-retry", stopLoss: 90, takeProfit: 110 },
+      referencePrice: 100,
     };
     await install(input);
     const originalIds = om.getInFlightOrderIds();
     await install(input);
-    const terminal = originalIds.map((id) => feed.getOrder(id)!).find((order) => order.status === "canceled")!;
+    const terminal = originalIds
+      .map((id) => feed.getOrder(id)!)
+      .find((order) => order.status === "canceled")!;
     lifecycle.emitOrder(terminal);
     await flushPrivateLifecycle();
     expect([...feed["orderBook"].values()]).toHaveLength(2);
@@ -1193,19 +1730,34 @@ describe("StrategyRunner", () => {
     const lifecycle = attachPrivateLifecycle(feed);
     const rm = new RiskManager({
       trailingStop: { enabled: true, atrPeriod: 2, atrMultiplier: 1, side: "both" },
-      kelly: { enabled: false, fraction: 0.25, windowSize: 5, minTrades: 1, fallbackFraction: 0.01, maxFraction: 0.1 },
+      kelly: {
+        enabled: false,
+        fraction: 0.25,
+        windowSize: 5,
+        minTrades: 1,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
       drawdownScaler: { enabled: false, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     pm.setRiskManager(rm);
     const om = new OrderManager({
-      feed, getPositionContext: () => pm.getPositionContext(),
+      feed,
+      getPositionContext: () => pm.getPositionContext(),
       getReduciblePosition: (symbol) => {
         const position = pm.getPositions().find((item) => item.symbol === symbol);
         return position === undefined ? undefined : { side: position.side, quantity: position.quantity };
       },
     });
-    const runner = new StrategyRunner({ instances: new Map(), orderManager: om, positionManager: pm, sizingFn: () => 0, enabledSymbols: ["BTC/USDC"], riskManager: rm });
+    const runner = new StrategyRunner({
+      instances: new Map(),
+      orderManager: om,
+      positionManager: pm,
+      sizingFn: () => 0,
+      enabledSymbols: ["BTC/USDC"],
+      riskManager: rm,
+    });
     await om.startLifecycle();
     const position = pm.openPosition("trail", makeSymbol(), "long", 1, 100, 1);
     rm.onTick({ positionId: position.id, side: "long", currentPrice: 105, atr: 1 });
@@ -1215,8 +1767,16 @@ describe("StrategyRunner", () => {
     const close = feed.getOrder(closeId)!;
     expect(close.side).toBe("sell");
     lifecycle.emitExecution({
-      executionId: "trail-close", clientOrderId: closeId, exchangeOrderId: close.exchangeId, symbol: makeSymbol(), side: "sell",
-      quantity: 1, price: 103, fee: 0, feeCurrency: "USDC", timestamp: Date.now(),
+      executionId: "trail-close",
+      clientOrderId: closeId,
+      exchangeOrderId: close.exchangeId,
+      symbol: makeSymbol(),
+      side: "sell",
+      quantity: 1,
+      price: 103,
+      fee: 0,
+      feeCurrency: "USDC",
+      timestamp: Date.now(),
     });
     await flushPrivateLifecycle();
     expect(pm.getPositionCount()).toBe(0);
@@ -1231,16 +1791,27 @@ describe("StrategyRunner", () => {
       await feed.open();
       const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
       const om = new OrderManager({
-        feed, getPositionContext: () => pm.getPositionContext(),
+        feed,
+        getPositionContext: () => pm.getPositionContext(),
         getReduciblePosition: (symbol) => {
           const position = pm.getPositions().find((item) => item.symbol === symbol);
           return position === undefined ? undefined : { side: position.side, quantity: position.quantity };
         },
       });
-      const runner = new StrategyRunner({ instances: new Map(), orderManager: om, positionManager: pm, sizingFn: () => 0, enabledSymbols: ["BTC/USDC"] });
+      const runner = new StrategyRunner({
+        instances: new Map(),
+        orderManager: om,
+        positionManager: pm,
+        sizingFn: () => 0,
+        enabledSymbols: ["BTC/USDC"],
+      });
       const position = pm.openPosition("retry", makeSymbol(), "long", 1, 100, 1);
       const requestClose = (positionId: string, closePrice: number, reason: string) =>
-        (runner["requestTrailingStopClose"] as (id: string, price: number, why: string) => Promise<void>)(positionId, closePrice, reason);
+        (runner["requestTrailingStopClose"] as (id: string, price: number, why: string) => Promise<void>)(
+          positionId,
+          closePrice,
+          reason,
+        );
       await requestClose(position.id, 95, outcome);
       const afterFirst = pm.getPosition("retry", makeSymbol(), "long");
       expect(afterFirst?.quantity).toBe(outcome === "partial" ? 0.5 : 1);
@@ -1265,8 +1836,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["a" as const, { kind: "strategy" as const, name: "a" as const, instance: strategy as unknown as Strategy }],
-      ["b" as const, { kind: "strategy" as const, name: "b" as const, instance: strategy as unknown as Strategy }],
+      [
+        "a" as const,
+        { kind: "strategy" as const, name: "a" as const, instance: strategy as unknown as Strategy },
+      ],
+      [
+        "b" as const,
+        { kind: "strategy" as const, name: "b" as const, instance: strategy as unknown as Strategy },
+      ],
     ]);
     const runner = new StrategyRunner({
       instances,
@@ -1339,8 +1916,15 @@ describe("StrategyRunner", () => {
     });
     const rm = new RiskManager({
       trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: true, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: false, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: true,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 5,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: false, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     runner.setRiskManager(rm);
     runner.setRiskManager(null);
@@ -1363,7 +1947,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["fixed-signal" as const, { kind: "strategy" as const, name: "fixed-signal" as const, instance: strategy as unknown as Strategy }],
+      [
+        "fixed-signal" as const,
+        {
+          kind: "strategy" as const,
+          name: "fixed-signal" as const,
+          instance: strategy as unknown as Strategy,
+        },
+      ],
     ]);
     const symbol = makeSymbol();
     const runner = new StrategyRunner({
@@ -1375,8 +1966,15 @@ describe("StrategyRunner", () => {
     });
     const rm = new RiskManager({
       trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: true, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.02, maxFraction: 0.1 },
-      drawdownScaler: { enabled: false, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: true,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 5,
+        fallbackFraction: 0.02,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: false, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     runner.setRiskManager(rm);
     await feed.subscribeOhlcv(symbol, "15m", (event) => {
@@ -1409,7 +2007,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["fixed-signal" as const, { kind: "strategy" as const, name: "fixed-signal" as const, instance: strategy as unknown as Strategy }],
+      [
+        "fixed-signal" as const,
+        {
+          kind: "strategy" as const,
+          name: "fixed-signal" as const,
+          instance: strategy as unknown as Strategy,
+        },
+      ],
     ]);
     const symbol = makeSymbol();
     const runner = new StrategyRunner({
@@ -1421,8 +2026,15 @@ describe("StrategyRunner", () => {
     });
     const rm = new RiskManager({
       trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: false, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: true, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: false,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 5,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: true, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     // Pre-warm equity to a kill-region value
     rm.onEquityUpdate(7_000); // -30% from 10k = 150% of 20% → kill
@@ -1474,7 +2086,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["test-strategy" as const, { kind: "strategy" as const, name: "test-strategy" as const, instance: strategy as unknown as Strategy }],
+      [
+        "test-strategy" as const,
+        {
+          kind: "strategy" as const,
+          name: "test-strategy" as const,
+          instance: strategy as unknown as Strategy,
+        },
+      ],
     ]);
     const runner = new StrategyRunner({
       instances,
@@ -1544,7 +2163,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["test-strategy" as const, { kind: "strategy" as const, name: "test-strategy" as const, instance: strategy as unknown as Strategy }],
+      [
+        "test-strategy" as const,
+        {
+          kind: "strategy" as const,
+          name: "test-strategy" as const,
+          instance: strategy as unknown as Strategy,
+        },
+      ],
     ]);
     const runner = new StrategyRunner({
       instances,
@@ -1607,7 +2233,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["test-strategy" as const, { kind: "strategy" as const, name: "test-strategy" as const, instance: strategy as unknown as Strategy }],
+      [
+        "test-strategy" as const,
+        {
+          kind: "strategy" as const,
+          name: "test-strategy" as const,
+          instance: strategy as unknown as Strategy,
+        },
+      ],
     ]);
     const runner = new StrategyRunner({
       instances,
@@ -1664,8 +2297,14 @@ describe("StrategyRunner", () => {
       takeProfit: 0,
     });
     const instances = new Map([
-      ["a" as const, { kind: "strategy" as const, name: "a" as const, instance: strategy as unknown as Strategy }],
-      ["b" as const, { kind: "strategy" as const, name: "b" as const, instance: strategy as unknown as Strategy }],
+      [
+        "a" as const,
+        { kind: "strategy" as const, name: "a" as const, instance: strategy as unknown as Strategy },
+      ],
+      [
+        "b" as const,
+        { kind: "strategy" as const, name: "b" as const, instance: strategy as unknown as Strategy },
+      ],
     ]);
     const runner = new StrategyRunner({
       instances,

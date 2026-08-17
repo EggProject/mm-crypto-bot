@@ -225,9 +225,7 @@ export const MAX_ALLOWED_PLUGIN_LEVERAGE = 10;
  *   - `edgeClass` is one of the valid literals.
  *   - `capitalRequirement` is non-negative.
  */
-export function validatePluginMetadata(
-  meta: StrategyPluginMetadata,
-): Result<void, ConfigError> {
+export function validatePluginMetadata(meta: StrategyPluginMetadata): Result<void, ConfigError> {
   if (!meta.name || meta.name.trim() === "") {
     return err({
       pluginName: meta.name.length > 0 ? meta.name : "<empty>",
@@ -472,9 +470,7 @@ export class StrategyRegistry {
   onBarAll(bar: Bar, state: PluginState): void {
     for (const plugin of this.plugins) {
       if (plugin.metadata.onBarMode === "async") {
-        throw new Error(
-          `Plugin "${plugin.metadata.name}" is asynchronous; use onBarAllAsync()`,
-        );
+        throw new Error(`Plugin "${plugin.metadata.name}" is asynchronous; use onBarAllAsync()`);
       }
       let result: void | Promise<void>;
       try {
@@ -489,9 +485,7 @@ export class StrategyRegistry {
         continue;
       }
       if (result instanceof Promise) {
-        throw new Error(
-          `Plugin "${plugin.metadata.name}" is asynchronous; use onBarAllAsync()`,
-        );
+        throw new Error(`Plugin "${plugin.metadata.name}" is asynchronous; use onBarAllAsync()`);
       }
     }
   }

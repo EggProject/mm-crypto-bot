@@ -22,19 +22,11 @@ import {
   type RiskSignal,
   type SizingSignal,
 } from "./portfolio-risk-engine.js";
-import {
-  DEFAULT_LEVERAGE_INVARIANT_CONFIG,
-  ONE_TO_TEN_LEVERAGE,
-} from "./leverage-invariant.js";
+import { DEFAULT_LEVERAGE_INVARIANT_CONFIG, ONE_TO_TEN_LEVERAGE } from "./leverage-invariant.js";
 
 const DAY_MS = 86_400_000;
 
-function makeSizing(
-  source: string,
-  symbol: string,
-  notionalUsd: number,
-  timestamp: number,
-): SizingSignal {
+function makeSizing(source: string, symbol: string, notionalUsd: number, timestamp: number): SizingSignal {
   return {
     kind: "sizing",
     source,
@@ -72,15 +64,15 @@ describe("PortfolioRiskEngine — constructor + config validation", () => {
   });
 
   test("invalid confidence (0) → throws", () => {
-    expect(
-      () => new PortfolioRiskEngine({ ...DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG, confidence: 0 }),
-    ).toThrow(/confidence/);
+    expect(() => new PortfolioRiskEngine({ ...DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG, confidence: 0 })).toThrow(
+      /confidence/,
+    );
   });
 
   test("invalid confidence (1) → throws", () => {
-    expect(
-      () => new PortfolioRiskEngine({ ...DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG, confidence: 1 }),
-    ).toThrow(/confidence/);
+    expect(() => new PortfolioRiskEngine({ ...DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG, confidence: 1 })).toThrow(
+      /confidence/,
+    );
   });
 
   test("invalid correlationWindowDays (0) → throws", () => {
@@ -106,9 +98,7 @@ describe("PortfolioRiskEngine — constructor + config validation", () => {
   test("default config — leverage cap is 10 (1:10 mandate)", () => {
     const engine = new PortfolioRiskEngine();
     expect(engine.config.leverageInvariant.maxLeverage).toBe(ONE_TO_TEN_LEVERAGE);
-    expect(engine.config.leverageInvariant.maxLeverage).toBe(
-      DEFAULT_LEVERAGE_INVARIANT_CONFIG.maxLeverage,
-    );
+    expect(engine.config.leverageInvariant.maxLeverage).toBe(DEFAULT_LEVERAGE_INVARIANT_CONFIG.maxLeverage);
   });
 });
 
@@ -157,9 +147,7 @@ describe("PortfolioRiskEngine — signal ingestion", () => {
 describe("PortfolioRiskEngine — leverage invariant guard (1:10 HARD GUARDRAIL)", () => {
   test("single signal at 10× → no breach", () => {
     const engine = new PortfolioRiskEngine();
-    const result = engine.submitSignal(
-      makeSizing("donchian", "BTC/USDT", 100_000, DAY_MS),
-    );
+    const result = engine.submitSignal(makeSizing("donchian", "BTC/USDT", 100_000, DAY_MS));
     expect(result).toBeNull();
     expect(engine.leverageInvariantGuard(10_000)).toBeNull();
   });
@@ -336,7 +324,10 @@ describe("PortfolioRiskEngine — crossStrategyCorrelation", () => {
   });
 
   test("rolling window truncates to correlationWindowDays", () => {
-    const engine = new PortfolioRiskEngine({ ...DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG, correlationWindowDays: 5 });
+    const engine = new PortfolioRiskEngine({
+      ...DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG,
+      correlationWindowDays: 5,
+    });
     // Feed 20 observations — only last 5 should count.
     for (let i = 0; i < 20; i++) {
       engine.recordSourceReturn("A", DAY_MS * (i + 1), 0.01);
@@ -393,7 +384,10 @@ describe("PortfolioRiskEngine — aggregateDrawdown", () => {
   });
 
   test("DD exceeds threshold → isAtLimit = true", () => {
-    const engine = new PortfolioRiskEngine({ ...DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG, maxAggregateDrawdownPct: 0.20 });
+    const engine = new PortfolioRiskEngine({
+      ...DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG,
+      maxAggregateDrawdownPct: 0.2,
+    });
     engine.recordEquitySnapshot(DAY_MS, 10_000);
     engine.recordEquitySnapshot(DAY_MS * 2, 7_500); // -25% DD
     const dd = engine.aggregateDrawdown();
@@ -547,9 +541,7 @@ describe("PortfolioRiskEngine — determinism", () => {
       }
       return out;
     };
-    expect(JSON.stringify(normalizeTimestamps(s1))).toBe(
-      JSON.stringify(normalizeTimestamps(s2)),
-    );
+    expect(JSON.stringify(normalizeTimestamps(s1))).toBe(JSON.stringify(normalizeTimestamps(s2)));
   });
 });
 

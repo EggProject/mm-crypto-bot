@@ -44,11 +44,14 @@
  * A `Bot` mindhármat inicializálja és futtatja.
  */
 
-import type { ExchangeFeed, ExchangePosition, FeedEvent, Symbol as ExchangeSymbol, Timeframe } from "@mm-crypto-bot/exchange";
-import {
-  createExchangeClient,
-  asSymbol,
+import type {
+  ExchangeFeed,
+  ExchangePosition,
+  FeedEvent,
+  Symbol as ExchangeSymbol,
+  Timeframe,
 } from "@mm-crypto-bot/exchange";
+import { createExchangeClient, asSymbol } from "@mm-crypto-bot/exchange";
 import type { DydxFundingSource } from "@mm-crypto-bot/core";
 import type { Logger } from "@mm-crypto-bot/shared";
 import { createLogger } from "@mm-crypto-bot/shared";
@@ -67,18 +70,12 @@ import { PositionManager } from "./position-manager.js";
 import { MockDydxFundingSource } from "./mock-dydx-funding-source.js";
 import { StateStore, type BotState } from "./state-store.js";
 import { Telemetry, formatUptime } from "./telemetry.js";
-import type { KillSwitchRegistry, KillSwitch} from "./kill-switches.js";
+import type { KillSwitchRegistry, KillSwitch } from "./kill-switches.js";
 import { createDefaultRegistry } from "./kill-switches.js";
-import {
-  StrategyRunner,
-  defaultSizingFn,
-  type StrategyRunnerOptions,
-} from "./strategy-runner.js";
+import { StrategyRunner, defaultSizingFn, type StrategyRunnerOptions } from "./strategy-runner.js";
 import { RiskManager } from "../risk/index.js";
 
-const SUPPORTED_TIMEFRAMES: ReadonlySet<string> = new Set([
-  "1m", "5m", "15m", "1h", "4h", "1d",
-]);
+const SUPPORTED_TIMEFRAMES: ReadonlySet<string> = new Set(["1m", "5m", "15m", "1h", "4h", "1d"]);
 
 function isSupportedTimeframe(value: string): value is Timeframe {
   return SUPPORTED_TIMEFRAMES.has(value);
@@ -357,8 +354,8 @@ export class Bot {
     // (real bybit.eu market data, but no private endpoints).
     const apiKey = process.env["BYBIT_API_KEY"]?.trim();
     const apiSecret = process.env["BYBIT_API_SECRET"]?.trim();
-    const hasCreds = apiKey !== undefined && apiKey.length > 0 &&
-      apiSecret !== undefined && apiSecret.length > 0;
+    const hasCreds =
+      apiKey !== undefined && apiKey.length > 0 && apiSecret !== undefined && apiSecret.length > 0;
 
     // -----------------------------------------------------------------------
     // 1) Exchange feed
@@ -401,7 +398,9 @@ export class Bot {
           sandbox: this.config.exchange.sandbox,
           timeoutMs: this.config.exchange.timeout_ms,
           ...(this.config.exchange.endpoint !== undefined ? { endpoint: this.config.exchange.endpoint } : {}),
-          ...(this.config.exchange.ws_endpoint !== undefined ? { wsEndpoint: this.config.exchange.ws_endpoint } : {}),
+          ...(this.config.exchange.ws_endpoint !== undefined
+            ? { wsEndpoint: this.config.exchange.ws_endpoint }
+            : {}),
         });
       } else {
         feed = this.exchangeFeedFactory({
@@ -409,7 +408,9 @@ export class Bot {
           sandbox: this.config.exchange.sandbox,
           timeoutMs: this.config.exchange.timeout_ms,
           ...(this.config.exchange.endpoint !== undefined ? { endpoint: this.config.exchange.endpoint } : {}),
-          ...(this.config.exchange.ws_endpoint !== undefined ? { wsEndpoint: this.config.exchange.ws_endpoint } : {}),
+          ...(this.config.exchange.ws_endpoint !== undefined
+            ? { wsEndpoint: this.config.exchange.ws_endpoint }
+            : {}),
         });
       }
     }
@@ -425,10 +426,9 @@ export class Bot {
     let initialEquity: number;
     if (this.config.bot.mode === "paper" && !hasCreds) {
       initialEquity = 10_000;
-      this.logger.info(
-        "[bot] paper mode without credentials — using default initial equity",
-        { usdc: initialEquity },
-      );
+      this.logger.info("[bot] paper mode without credentials — using default initial equity", {
+        usdc: initialEquity,
+      });
     } else {
       const balances = await feed.fetchBalances();
       const usdcBalance = balances.find((b) => b.currency === "USDC");
@@ -549,7 +549,9 @@ export class Bot {
       feed,
       getPositionContext: () => positionManager.getPositionContext(),
       getReduciblePosition: (symbol, strategy) => {
-        const position = positionManager.getPositions().find((item) => item.symbol === symbol && (strategy === undefined || item.strategy === strategy));
+        const position = positionManager
+          .getPositions()
+          .find((item) => item.symbol === symbol && (strategy === undefined || item.strategy === strategy));
         return position === undefined ? undefined : { side: position.side, quantity: position.quantity };
       },
       leverage: {
@@ -671,12 +673,15 @@ export class Bot {
       strategyPolicies: new Map(
         Object.entries(this.config.strategies)
           .filter(([, section]) => section.enabled)
-          .map(([name, section]) => [name as StrategyName, {
-            ...(section.symbols !== undefined ? { symbols: section.symbols } : {}),
-            ...(section.risk_per_trade !== undefined ? { riskPerTrade: section.risk_per_trade } : {}),
-            ...(section.max_positions !== undefined ? { maxPositions: section.max_positions } : {}),
-            ...(section.leverage !== undefined ? { leverage: section.leverage } : {}),
-          }]),
+          .map(([name, section]) => [
+            name as StrategyName,
+            {
+              ...(section.symbols !== undefined ? { symbols: section.symbols } : {}),
+              ...(section.risk_per_trade !== undefined ? { riskPerTrade: section.risk_per_trade } : {}),
+              ...(section.max_positions !== undefined ? { maxPositions: section.max_positions } : {}),
+              ...(section.leverage !== undefined ? { leverage: section.leverage } : {}),
+            },
+          ]),
       ),
       riskManager,
       portfolioManager,
@@ -729,7 +734,16 @@ export class Bot {
       const snap = killSwitches.evaluate();
       telemetry.setEngaged(snap.engaged, snap.reasons);
     }, this.killSwitchEvalIntervalMs);
-    return { feed, runner, positionManager, riskManager, killSwitches, telemetry, portfolioManager, emergencyHandler };
+    return {
+      feed,
+      runner,
+      positionManager,
+      riskManager,
+      killSwitches,
+      telemetry,
+      portfolioManager,
+      emergencyHandler,
+    };
   }
 
   /**
@@ -753,20 +767,15 @@ export class Bot {
       // OHLCV per enabled-strategy timeframe.
       for (const timeframe of timeframes) {
         try {
-          const ohlcvSub = await feed.subscribeOhlcv(
-            exchangeSymbol,
-            timeframe,
-            (event: FeedEvent) => {
-              void runner.onFeedEvent(event);
-            },
-          );
+          const ohlcvSub = await feed.subscribeOhlcv(exchangeSymbol, timeframe, (event: FeedEvent) => {
+            void runner.onFeedEvent(event);
+          });
           this.feedSubscriptions.push(ohlcvSub);
           this.logger.info("[bot] subscribed to ohlcv", { symbol, timeframe });
         } catch (err) {
-          this.logger.warn(
-            `[bot] OHLCV subscribe failed for ${symbol}/${timeframe}`,
-            { error: errorMessage(err) },
-          );
+          this.logger.warn(`[bot] OHLCV subscribe failed for ${symbol}/${timeframe}`, {
+            error: errorMessage(err),
+          });
         }
       }
     }
@@ -797,28 +806,28 @@ export class Bot {
 
   /** One ordered heartbeat: venue reconciliation must precede risk decisions. */
   private async runHeartbeat(context: BotRunContext): Promise<void> {
-      await this.reconcileAuthoritativeEquity(context);
-      this.observeEquity(
-        context.positionManager,
-        context.killSwitches,
-        context.riskManager,
-        this.authoritativeEquityUsd ?? undefined,
-      );
-      const snap = context.killSwitches.evaluate();
-      context.telemetry.setEngaged(snap.engaged, snap.reasons);
-      if (snap.engaged) {
-        await context.emergencyHandler(`registry: ${snap.reasons.join(", ")}`);
-      }
-      // Phase 37 Track 4 — portfolio-stop check + equity update. A
-      // `recordEquity` a PortfolioStop-on keresztül tüzelhet, ami
-      // a `PortfolioManager.executeCloseAll`-ját hívja (a trip-action
-      // a konstruktorban van ráhúzva). Ha a stop tüzelt, a botot is
-      // leállítjuk, hogy a user felülvizsgálhassa a helyzetet.
-      const equity = this.authoritativeEquityUsd ?? context.positionManager.getEquity();
-      context.portfolioManager.recordEquity(equity);
-      if (context.portfolioManager.isTripped()) {
-        await context.emergencyHandler("portfolio-stop");
-      }
+    await this.reconcileAuthoritativeEquity(context);
+    this.observeEquity(
+      context.positionManager,
+      context.killSwitches,
+      context.riskManager,
+      this.authoritativeEquityUsd ?? undefined,
+    );
+    const snap = context.killSwitches.evaluate();
+    context.telemetry.setEngaged(snap.engaged, snap.reasons);
+    if (snap.engaged) {
+      await context.emergencyHandler(`registry: ${snap.reasons.join(", ")}`);
+    }
+    // Phase 37 Track 4 — portfolio-stop check + equity update. A
+    // `recordEquity` a PortfolioStop-on keresztül tüzelhet, ami
+    // a `PortfolioManager.executeCloseAll`-ját hívja (a trip-action
+    // a konstruktorban van ráhúzva). Ha a stop tüzelt, a botot is
+    // leállítjuk, hogy a user felülvizsgálhassa a helyzetet.
+    const equity = this.authoritativeEquityUsd ?? context.positionManager.getEquity();
+    context.portfolioManager.recordEquity(equity);
+    if (context.portfolioManager.isTripped()) {
+      await context.emergencyHandler("portfolio-stop");
+    }
   }
 
   /** Latch, join and settle one emergency close attempt while feeds stay live. */
@@ -831,13 +840,17 @@ export class Bot {
       const report = await portfolioManager.executeCloseAll();
       const unresolved = report.unresolved;
       this.logger.error("[bot] emergency close report", {
-        closed: report.closed, unresolved, cancelledOrders: report.cancelledOrders,
+        closed: report.closed,
+        unresolved,
+        cancelledOrders: report.cancelledOrders,
       });
       // Never tear down private reconciliation while an acknowledged close is
       // unresolved. A later heartbeat/trigger retries only after this joined
       // workflow releases.
       if (unresolved.length === 0) await this.stop();
-    })().finally(() => { this.emergencyPromise = null; });
+    })().finally(() => {
+      this.emergencyPromise = null;
+    });
     return this.emergencyPromise;
   }
 
@@ -858,9 +871,13 @@ export class Bot {
       if (!isSupportedTimeframe(timeframe)) return;
       bySymbol.get(symbol)?.add(timeframe);
     };
-    for (const [name, section] of Object.entries(this.config.strategies) as [StrategyName, BotConfig["strategies"][StrategyName]][]) {
+    for (const [name, section] of Object.entries(this.config.strategies) as [
+      StrategyName,
+      BotConfig["strategies"][StrategyName],
+    ][]) {
       if (!section.enabled) continue;
-      const configuredSymbols = section.symbols?.filter((symbol) => bySymbol.has(symbol)) ?? this.config.symbols.enabled;
+      const configuredSymbols =
+        section.symbols?.filter((symbol) => bySymbol.has(symbol)) ?? this.config.symbols.enabled;
       const configuredTimeframes = [
         section.timeframes?.htf,
         section.timeframes?.mtf,
@@ -1029,5 +1046,4 @@ export class Bot {
       activeStrategies: runner.getActiveStrategyNames(),
     };
   }
-
 }

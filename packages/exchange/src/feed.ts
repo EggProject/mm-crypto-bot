@@ -106,7 +106,12 @@ export interface ExchangeFeed {
    * A visszaadott `Ohlcv` tuple `[ts, o, h, l, c, v]` formátumban van
    * (CCXT natív shape). A `OhlcStream.backfill()` konvertálja `OhlcBar`-ra.
    */
-  fetchOHLCV(symbol: Symbol, timeframe: Timeframe, since: number | undefined, limit: number): Promise<readonly Ohlcv[]>;
+  fetchOHLCV(
+    symbol: Symbol,
+    timeframe: Timeframe,
+    since: number | undefined,
+    limit: number,
+  ): Promise<readonly Ohlcv[]>;
 
   /** Piaci metaadatok (precision, min amounts) — CCXT Pro `loadMarkets`. */
   fetchMarketMeta(symbol: Symbol): Promise<MarketMeta>;
@@ -145,7 +150,21 @@ export interface ExchangeFeed {
 }
 
 /** Re-export a kényelem kedvéért. */
-export type { Balance, ClientOrderId, ExchangeOrderId, ExchangePosition, Execution, FeedEvent, MarketMeta, Ohlcv, Order, OrderRequest, OrderStatus, Symbol, Timeframe } from "./types.js";
+export type {
+  Balance,
+  ClientOrderId,
+  ExchangeOrderId,
+  ExchangePosition,
+  Execution,
+  FeedEvent,
+  MarketMeta,
+  Ohlcv,
+  Order,
+  OrderRequest,
+  OrderStatus,
+  Symbol,
+  Timeframe,
+} from "./types.js";
 
 /** `placeOrder` CCXT error típusok — a feed wrapper dobhatja ezeket. */
 export class ExchangeFeedError extends Error {

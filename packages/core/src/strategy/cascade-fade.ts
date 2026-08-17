@@ -193,13 +193,7 @@ export interface ElrInput {
  * map at once.
  */
 export type CrossConfirmationProvider =
-  | "coinglass_v4"
-  | "bitquery_hl"
-  | "goldrush_hl"
-  | "binance_perp"
-  | "okx_perp"
-  | "bybit_perp"
-  | "other";
+  "coinglass_v4" | "bitquery_hl" | "goldrush_hl" | "binance_perp" | "okx_perp" | "bybit_perp" | "other";
 
 /**
  * `CascadeCrossSource` — one observation reported by a single provider
@@ -366,7 +360,7 @@ export const DEFAULT_CASCADE_FADE_CONFIG: CascadeFadeConfig = {
   layer1CrossConfirmWindowMs: 60_000,
 
   layer2OiDrop48hPct: 0.15,
-  layer2ElrFloor: 0.40,
+  layer2ElrFloor: 0.4,
   layer2StabilizingOiPctPerHr: 0.005,
   layer2FundingNearZero: 0.0001,
 
@@ -597,20 +591,10 @@ export class CascadeFadeDetector {
     if (ev.entry !== null) return false;
     // Layer 4 — risk governor gates.
     if (this.isHardStopped(nowMs)) return false;
-    if (
-      risk.portfolioDd !== undefined &&
-      !this.validatePortfolioDd(risk.portfolioDd)
-    )
+    if (risk.portfolioDd !== undefined && !this.validatePortfolioDd(risk.portfolioDd)) return false;
+    if (risk.perpDexOiOverSma !== undefined && this.validatePerpDexOiOverSma(risk.perpDexOiOverSma))
       return false;
-    if (
-      risk.perpDexOiOverSma !== undefined &&
-      this.validatePerpDexOiOverSma(risk.perpDexOiOverSma)
-    )
-      return false;
-    if (
-      risk.overlayOpenPnlPct !== undefined &&
-      this.validateOverlayOpenPnl(risk.overlayOpenPnlPct)
-    )
+    if (risk.overlayOpenPnlPct !== undefined && this.validateOverlayOpenPnl(risk.overlayOpenPnlPct))
       return false;
     // BTC cooldown (24h between consecutive BTC entries).
     if (ev.symbol === "BTC" && this.isInBtcCooldown(nowMs)) return false;
@@ -638,10 +622,7 @@ export class CascadeFadeDetector {
     for (const pos of this.openPositions.values()) {
       openSymbols.add(pos.symbol);
     }
-    if (
-      !openSymbols.has(ev.symbol) &&
-      openSymbols.size >= this.config.capacityMaxConcurrentSymbols
-    )
+    if (!openSymbols.has(ev.symbol) && openSymbols.size >= this.config.capacityMaxConcurrentSymbols)
       return false;
     return true;
   }
@@ -687,9 +668,7 @@ export class CascadeFadeDetector {
 
     // ---- Layer 1: real-time detector trigger ----
     const layer1Args: Parameters<CascadeFadeDetector["checkLayer1Trigger"]>[0] =
-      crossConfirmation !== undefined
-        ? { window, oi, crossConfirmation }
-        : { window, oi };
+      crossConfirmation !== undefined ? { window, oi, crossConfirmation } : { window, oi };
     const layer1Fired = this.checkLayer1Trigger(layer1Args);
     let event = this.findEventBySymbol(window.symbol);
     if (layer1Fired && event === undefined) {
@@ -734,16 +713,8 @@ export class CascadeFadeDetector {
       // CLOSE existing positions. BTC cooldown is a separate check — it
       // BLOCKS new entries only (handled in `canEnter()`) and does NOT
       // close an open position.
-      const killSwitchActive = this.isKillSwitchActive(
-        portfolioDd,
-        perpDexOiOverSma,
-        overlayOpenPnlPct,
-      );
-      if (
-        event.entry !== null &&
-        event.exit === null &&
-        killSwitchActive
-      ) {
+      const killSwitchActive = this.isKillSwitchActive(portfolioDd, perpDexOiOverSma, overlayOpenPnlPct);
+      if (event.entry !== null && event.exit === null && killSwitchActive) {
         const exit = this.closeEvent(event, nowMs, "risk_kill");
         this.recordExit(exit, nowMs);
         return [event];
@@ -758,12 +729,7 @@ export class CascadeFadeDetector {
         // the timed exit deadline, we do NOT have a live bybit.eu mid
         // tap wired in, so we use the captured entry mid. Real production
         // wires `forceExit()` from a market-data tick.
-        this.forceExit(
-          event.id,
-          nowMs,
-          event.entry.entryMidPriceUsd,
-          "timed_exit",
-        );
+        this.forceExit(event.id, nowMs, event.entry.entryMidPriceUsd, "timed_exit");
         return [event];
       }
 
@@ -772,11 +738,7 @@ export class CascadeFadeDetector {
       // capacity) are evaluated inside `canEnter`. The adversarial run
       // with portfolioDd=0.15 / perpDexOiOverSma=true /
       // overlayOpenPnlPct=-0.025 + SOL symbol cannot pass this gate.
-      if (
-        event.state === "POST_CASCADE" &&
-        event.entry === null &&
-        this.canEnter(event.id, nowMs, risk)
-      ) {
+      if (event.state === "POST_CASCADE" && event.entry === null && this.canEnter(event.id, nowMs, risk)) {
         const entry = this.processEntry(event, window, nowMs);
         event.entry = entry;
         this.openPositions.set(event.id, entry);
@@ -825,9 +787,7 @@ export class CascadeFadeDetector {
       // so positive pnlBps = profit. (Track D §5: overshoot capture is the alpha.)
       pnlBps:
         evMaybe.entry.entryMidPriceUsd > 0
-          ? ((exitMidPriceUsd - evMaybe.entry.entryLimitPriceUsd) /
-              evMaybe.entry.entryMidPriceUsd) *
-            10_000
+          ? ((exitMidPriceUsd - evMaybe.entry.entryLimitPriceUsd) / evMaybe.entry.entryMidPriceUsd) * 10_000
           : 0,
       exitReason: reason,
     };
@@ -890,11 +850,7 @@ export class CascadeFadeDetector {
    * `openPositions` with a null entry — the public path always sets
    * entry before adding to openPositions).
    */
-  __testing_closeEvent(
-    event: CascadeEvent,
-    nowMs: number,
-    reason: CascadeExit["exitReason"],
-  ): CascadeExit {
+  __testing_closeEvent(event: CascadeEvent, nowMs: number, reason: CascadeExit["exitReason"]): CascadeExit {
     return this.closeEvent(event, nowMs, reason);
   }
 
@@ -943,11 +899,7 @@ export class CascadeFadeDetector {
     }
     const oiPasses = oiDropPct >= this.config.layer1OiDrop5minPct;
     // Threshold 3: cross-confirmation predicate.
-    const xConfPasses = this.evaluateCrossConfirmation(
-      crossConfirmation,
-      oi.timestampMs,
-      window.symbol,
-    );
+    const xConfPasses = this.evaluateCrossConfirmation(crossConfirmation, oi.timestampMs, window.symbol);
     return liqPasses && oiPasses && xConfPasses;
   }
 
@@ -987,11 +939,7 @@ export class CascadeFadeDetector {
     // This is stricter than a numeric `sourceCount`: duplicate provider
     // echoes, two stale perp venues without CoinGlass, or cross-symbol
     // payloads cannot create a Layer 1 cascade.
-    return (
-      distinctProviders.size >= this.config.layer1MinCrossConfirmations &&
-      hasCoinGlass &&
-      hasPerpFeed
-    );
+    return distinctProviders.size >= this.config.layer1MinCrossConfirmations && hasCoinGlass && hasPerpFeed;
   }
 
   private nextState(event: CascadeEvent, nowMs: number): CascadeState {
@@ -1069,24 +1017,18 @@ export class CascadeFadeDetector {
   // -------------------------------------------------------------------------
 
   private plannedEntryNotionalUsd(): number {
-    return Math.min(
-      this.config.capacityMaxPerSymbolEventUsd,
-      this.config.capacityMaxPerEventUsd,
-    );
+    return Math.min(this.config.capacityMaxPerSymbolEventUsd, this.config.capacityMaxPerEventUsd);
   }
 
-  private processEntry(
-    event: CascadeEvent,
-    window: CascadeWindowInput,
-    nowMs: number,
-  ): CascadeEntry {
+  private processEntry(event: CascadeEvent, window: CascadeWindowInput, nowMs: number): CascadeEntry {
     const midPriceUsd = window.midPriceUsd ?? this.lastMidPriceBySymbol.get(window.symbol);
     if (midPriceUsd === undefined || !Number.isFinite(midPriceUsd) || midPriceUsd <= 0) {
       throw new Error(
         "[CascadeFade] entry requires a positive finite bybit.eu spot midPriceUsd; liquidation USD volume is not a price",
       );
     }
-    const distanceBps = (this.config.layer3MinDistanceFromMidBps + this.config.layer3MaxDistanceFromMidBps) / 2;
+    const distanceBps =
+      (this.config.layer3MinDistanceFromMidBps + this.config.layer3MaxDistanceFromMidBps) / 2;
     const distanceFrac = distanceBps / 10_000;
     // BUY entry, so limit price = mid * (1 + distanceFrac) — willingness
     // to pay up to mid + Xbps to lift offers / capture RPI depth.
@@ -1111,11 +1053,7 @@ export class CascadeFadeDetector {
     };
   }
 
-  private closeEvent(
-    event: CascadeEvent,
-    nowMs: number,
-    reason: CascadeExit["exitReason"],
-  ): CascadeExit {
+  private closeEvent(event: CascadeEvent, nowMs: number, reason: CascadeExit["exitReason"]): CascadeExit {
     if (event.entry === null) {
       const placeholder: CascadeExit = {
         eventId: event.id,
@@ -1170,14 +1108,12 @@ export class CascadeFadeDetector {
     overlayOpenPnlPct?: number,
   ): boolean {
     if (portfolioDd !== undefined && portfolioDd > this.config.riskPortfolioDdCap) return true;
-    if (
-      this.config.riskPerpDexOiOverSmaHalts &&
-      perpDexOiOverSma === true
-    ) return true;
+    if (this.config.riskPerpDexOiOverSmaHalts && perpDexOiOverSma === true) return true;
     if (
       overlayOpenPnlPct !== undefined &&
       overlayOpenPnlPct < this.config.riskOverlayDrawdownKillBps / 10_000
-    ) return true;
+    )
+      return true;
     return false;
   }
 
@@ -1256,7 +1192,10 @@ export class CascadeFadeDetector {
     if (cfg.allowedSymbols.length === 0) {
       throw new Error("CascadeFadeDetector: allowedSymbols must be non-empty");
     }
-    if (cfg.layer3MinDistanceFromMidBps <= 0 || cfg.layer3MaxDistanceFromMidBps < cfg.layer3MinDistanceFromMidBps) {
+    if (
+      cfg.layer3MinDistanceFromMidBps <= 0 ||
+      cfg.layer3MaxDistanceFromMidBps < cfg.layer3MinDistanceFromMidBps
+    ) {
       throw new Error("CascadeFadeDetector: invalid layer3 distance range");
     }
     if (cfg.layer3ExitMaxMinutes < cfg.layer3ExitMinMinutes) {
@@ -1268,7 +1207,11 @@ export class CascadeFadeDetector {
     if (cfg.riskPortfolioDdCap <= 0 || cfg.riskPortfolioDdCap > 1) {
       throw new Error("CascadeFadeDetector: riskPortfolioDdCap out of (0,1] range");
     }
-    if (cfg.capacityMaxPerSymbolEventUsd <= 0 || cfg.capacityMaxPerEventUsd <= 0 || cfg.capacityMaxPerWeekUsd <= 0) {
+    if (
+      cfg.capacityMaxPerSymbolEventUsd <= 0 ||
+      cfg.capacityMaxPerEventUsd <= 0 ||
+      cfg.capacityMaxPerWeekUsd <= 0
+    ) {
       throw new Error("CascadeFadeDetector: capacity caps must be positive");
     }
     if (cfg.capacityMaxPerSymbolEventUsd > cfg.capacityMaxPerEventUsd) {
@@ -1318,7 +1261,12 @@ export function simulateBybitEuPaperFill(args: {
   readonly exitMidPriceUsd: number;
   readonly layer1Fired: boolean;
   readonly takerFeeBps?: number;
-}): { readonly pnlBps: number; readonly pnlUsd: number; readonly filledAtEntry: boolean; readonly filledAtExit: boolean } {
+}): {
+  readonly pnlBps: number;
+  readonly pnlUsd: number;
+  readonly filledAtEntry: boolean;
+  readonly filledAtExit: boolean;
+} {
   const takerFeeBps = args.takerFeeBps ?? 10; // Bybit SPOT taker fee = 0.10%
   // Entry fill: at mid ± distance. If the distance is too tight, no fill.
   const slipBps = syntheticBybitEuSlippageBps({
@@ -1370,18 +1318,18 @@ export interface CascadeReplayObservation {
   readonly funding?: FundingRateInput;
   readonly elr?: ElrInput;
   readonly crossConfirmation?: CrossConfirmationInput;
-    /**
-     * Optional risk context. Replay scenarios that omit this field run
-     * with NO risk gates active (default `{}`).  Replay fixtures that
-     * verify the detector's cascade-state transitions omit
-     * kill-switches — we want to verify the detector ENTERS POST_CASCADE
-     * and FIRES an entry; kill-switch behavior is verified separately.
-     * (Phase 33 cleanup: the historical `run-cascade-replay-2025-10-10.ts`
-     * CLI has been removed per user mandate — automated live-test
-     * scaffolding is gone.  The `replayCascadeEvent` / `simulateBybitEuPaperFill`
-     * APIs remain for unit-test fixtures and ad-hoc validator review.)
-     */
-    readonly risk?: RiskSnapshotInput;
+  /**
+   * Optional risk context. Replay scenarios that omit this field run
+   * with NO risk gates active (default `{}`).  Replay fixtures that
+   * verify the detector's cascade-state transitions omit
+   * kill-switches — we want to verify the detector ENTERS POST_CASCADE
+   * and FIRES an entry; kill-switch behavior is verified separately.
+   * (Phase 33 cleanup: the historical `run-cascade-replay-2025-10-10.ts`
+   * CLI has been removed per user mandate — automated live-test
+   * scaffolding is gone.  The `replayCascadeEvent` / `simulateBybitEuPaperFill`
+   * APIs remain for unit-test fixtures and ad-hoc validator review.)
+   */
+  readonly risk?: RiskSnapshotInput;
 }
 
 export interface CascadeReplayResult {
@@ -1392,9 +1340,7 @@ export interface CascadeReplayResult {
   readonly reachedPostCascadeAtMs: number | null;
 }
 
-export function replayCascadeEvent(
-  observations: readonly CascadeReplayObservation[],
-): CascadeReplayResult {
+export function replayCascadeEvent(observations: readonly CascadeReplayObservation[]): CascadeReplayResult {
   const detector = new CascadeFadeDetector();
   const eventTimeline: CascadeEvent[] = [];
   let reachedPostCascadeAtMs: number | null = null;

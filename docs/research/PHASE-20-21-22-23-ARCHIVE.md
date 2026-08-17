@@ -33,17 +33,20 @@ This file is the keeper. Future attempts to revive regime-conditioned cap (or pe
 **Brief hypothesis:** Replace fixed-percentage-of-confidence notional sizing with per-trade `kellyFraction = clamp((winRate × payoffRatio − (1 − winRate)) / payoffRatio, 0, 1.0)`. Theoretical basis: Kelly (1956) "A New Interpretation of Information Rate" + Thorp (2006) "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market".
 
 **Architecture (3 tracks, 1 plan):**
+
 - **Track A** — `per-trade-hybrid-kelly.ts` (488 LOC, 100% line coverage, 40 unit tests). Lives at `packages/core/src/signal-center/sizing/`. **Reverted from `main`.**
 - **Track B** — Wire `applyHybridKelly()` chokepoint into `SignalCenterV1.ingestSignal()` between plugin emit and engine consumption. CLI flag `--use-per-trade-kelly=true` parsed but not engaged for current `run-donchian-pivot-composition` runner. **Reverted from `main`.**
 - **Track C** — 12 backtests (9 HybridKelly + 3 baseline reference) + REPORT-phase20.md (287 lines, 10 sections). **JSONs deleted; REPORT kept on `main`.**
 
 **Empirical verdict (NEGATIVE — well-understood structural cause):**
+
 - 9/9 HybridKelly cells reproduce Phase 19 baseline within ≤0.024 pp on monthly return (avg −0.0184 pp)
 - 11043 / 9977 / 10576 trade counts **byte-identical** to Phase 19 across all 9 cells
 - `maxDrawdown`, `sharpeRatio`, `winRate`, `killSwitchTriggered` all byte-identical
 - Source: `docs/research/REPORT-phase20.md` §3.3 (per-cell drift table)
 
 **Root cause (NOT a strategy failure — a CLI architecture observation):**
+
 - `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` instantiates `runBacktest()` directly, NOT `SignalCenterV1`
 - `engine.ts` has ZERO references to `applyHybridKelly` or `SignalCenterV1` (grep-verified)
 - The `--use-per-trade-kelly=true` flag is parsed-and-validated, but its value never reaches the engine
@@ -51,6 +54,7 @@ This file is the keeper. Future attempts to revive regime-conditioned cap (or pe
 - Source: `docs/research/REPORT-phase20.md` §4 + §6.1
 
 **Recommended path forward (rejected by user on 2026-07-07 17:49 Budapest):**
+
 - Option A: refactor CLI to instantiate `SignalCenterV1` (~1 day)
 - Option B: CLI emits hard error when `--use-per-trade-kelly=true` is set (~30 LOC)
 - Option C: drop Phase 20 #1 from +50%/mo roadmap (CHOSEN)
@@ -60,11 +64,13 @@ This file is the keeper. Future attempts to revive regime-conditioned cap (or pe
 **Brief hypothesis:** Scale per-bar `signal.confidence` by a regime-classifier-determined multiplier. ATR-percentile or HMM classifier maps each bar to trending / ranging / volatile, with multipliers frozen from Phase 11.2a calibration (1.0 / 0.7 / 0.4). Projected lift: +3-5%/mo portfolio avg.
 
 **Architecture (3 tracks, 1 plan):**
+
 - **Track A** — `regime-conditioned-cap.ts` (1026 LOC, 100% line coverage, 28 unit tests). Lives at `packages/core/src/strategy/`. **Reverted from `main`.**
 - **Track B** — Wire `applyRegimeConditioning()` into `DonchianPivotComposition` emit chain. CLI flag `--use-regime-conditioned-cap=true` (parses, validates, engages, prints regime distribution up-front — NOT-silent-no-op defense). **Reverted from `main`.**
 - **Track C** — 12 backtests (9 RegimeCap + 3 no-regime reference) + REPORT-phase21.md (289 lines, 11 sections) + NEGATIVE-RESULT.md. **JSONs deleted; REPORTS kept on `main`.**
 
 **Empirical verdict (CLEAN NEGATIVE — refutes the brief hypothesis decisively):**
+
 - 9/9 RegimeCap envelopes UNDERPERFORM Phase 19 same-cap (avg Δ = **−9.83 pp**, range −4.43 to −14.68 pp)
 - 3/3 no-regime baselines match Phase 19 within **0.03 pp** (regression anchor PASS — wire-up is bit-identical when flag is OFF)
 - Regime-on trades show 5-13× smaller avg `notionalUsd` (BTC −5.0×, ETH −11.7×, SOL −13.5×) — wire-up is provably engaged
@@ -73,6 +79,7 @@ This file is the keeper. Future attempts to revive regime-conditioned cap (or pe
 - Source: `docs/research/REPORT-phase21.md` §3.1 (9-row envelope) + §3.2 (regression anchor)
 
 **Why the brief hypothesis failed (structural):**
+
 1. **82% of bars fall in ranging/volatile buckets** (multiplier 0.7× / 0.4×). The ATR-percentile classifier puts only 17-18% of bars in "trending" (multiplier 1.0×).
 2. **Win-rate is regime-INVARIANT.** The classifier is NOT a winning-trade filter — losers and winners are equally likely in trending and ranging regimes.
 3. **Geometric compounding amplifies the asymmetry.** Scaling wins DOWN 0.4× hurts geometric growth MORE than scaling losses DOWN 0.4× helps (multiplicative penalty on the larger-magnitude quantity).
@@ -86,9 +93,9 @@ This file is the keeper. Future attempts to revive regime-conditioned cap (or pe
 
 The Donchian channel breakout edge is **regime-INVARIANT** in this strategy: win-rate is byte-identical (64-68%) across all regime classifications. This is empirically verified, not assumed.
 
-**Source 1 (academic):** Ang, A. & Bekaert, G. (2002). "Regime Switches in Interest Rates." *Journal of Business & Economic Statistics* 20(2): 163-182. Documents that regime-switching models can have predictive power for SOME assets, but the predictive power is concentrated in assets with structural breaks (currency crises, sovereign defaults). Trend-following edges on liquid continuous-price assets (crypto perps) tend to be regime-INVARIANT.
+**Source 1 (academic):** Ang, A. & Bekaert, G. (2002). "Regime Switches in Interest Rates." _Journal of Business & Economic Statistics_ 20(2): 163-182. Documents that regime-switching models can have predictive power for SOME assets, but the predictive power is concentrated in assets with structural breaks (currency crises, sovereign defaults). Trend-following edges on liquid continuous-price assets (crypto perps) tend to be regime-INVARIANT.
 
-**Source 2 (academic):** Kritzman, M., Page, S. & Turkington, D. (2012). "Regime Shifts: Implications for Dynamic Strategies." *Financial Analysts Journal* 68(3): 22-39. Distinguishes between "regime shifts" (statistical breakpoints in return distribution) and "regime classifications" (continuous-feature-based clustering). Trend-following edges respond to statistical breaks, not to ATR-percentile clusters.
+**Source 2 (academic):** Kritzman, M., Page, S. & Turkington, D. (2012). "Regime Shifts: Implications for Dynamic Strategies." _Financial Analysts Journal_ 68(3): 22-39. Distinguishes between "regime shifts" (statistical breakpoints in return distribution) and "regime classifications" (continuous-feature-based clustering). Trend-following edges respond to statistical breaks, not to ATR-percentile clusters.
 
 **Source 3 (project-empirical):** `docs/research/REPORT-phase21.md` §3.1 (9-row RegimeCap envelope) — 9/9 cells show regime-invariant win-rate, regime-dependent sizing drag.
 
@@ -112,7 +119,7 @@ geometricGrowthRate = mean(sizing_i × return_i) − 0.5 × variance(sizing_i ×
 
 The variance term is convex in sizing. **Scaling sizing down by α in a sub-class reduces mean return by α × μ_i but reduces variance by α² × σ²_i, so the net is `α × (μ_i − 0.5 × α × σ²_i)`.** For α < 1, the variance reduction is partial — the drag from the lower mean return is larger than the DD benefit from the lower variance.
 
-**Source 1 (academic):** Kelly, J. L. (1956). "A New Interpretation of Information Rate." *Bell System Technical Journal* 35(4): 917-926. Original Kelly derivation assumes **constant per-bet fraction**. Fractional Kelly (Thorp 2006, "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market") assumes the fraction is constant across time, not regime-dependent.
+**Source 1 (academic):** Kelly, J. L. (1956). "A New Interpretation of Information Rate." _Bell System Technical Journal_ 35(4): 917-926. Original Kelly derivation assumes **constant per-bet fraction**. Fractional Kelly (Thorp 2006, "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market") assumes the fraction is constant across time, not regime-dependent.
 
 **Source 2 (project-empirical):** Phase 21 #1 §3.1 — at α=0.4 (volatile regime), wins drop from $2,259 to $384 (−83%), losses drop from $947 to $193 (−80%), but the geometric-growth penalty on the smaller wins is larger than the DD benefit from the smaller losses.
 
@@ -125,6 +132,7 @@ The variance term is convex in sizing. **Scaling sizing down by α in a sub-clas
 This is a verifier-pattern lesson that survived into agent memory. When verifying any "feature toggle that may not actually be wired" — regime switch, CLI flag, multiplier mode, confidence adjustment, position-size override — diff the **TRADE-BY-TRADE stream** between toggle-on vs toggle-off runs, not just the aggregate envelope.
 
 **Probe shape:**
+
 1. Run backtest with toggle=off → save envelope A
 2. Run backtest with toggle=on → save envelope B (same seed, same data, same config except toggle)
 3. Compare trade-by-trade: `entryTime, exitTime, entryPrice, side` arrays
@@ -150,7 +158,7 @@ Phase 20 #1's `--use-per-trade-kelly=true` is parsed, validated, and a one-shot 
 
 This is a category of bug that aggregates hide and trade-by-trade probes reveal, but the deeper issue is design: **a CLI that advertises a feature that doesn't work is worse than a CLI that errors on the same flag.**
 
-**Source 1 (engineering):** Chen, L. (2020). *The Pragmatic Programmer* (20th Anniversary Edition). Hunt, A. & Thomas, D. Chapter on "Don't Live with Broken Windows" — feature flags that silently no-op are broken windows that the rest of the codebase learns to ignore.
+**Source 1 (engineering):** Chen, L. (2020). _The Pragmatic Programmer_ (20th Anniversary Edition). Hunt, A. & Thomas, D. Chapter on "Don't Live with Broken Windows" — feature flags that silently no-op are broken windows that the rest of the codebase learns to ignore.
 
 **Source 2 (project-empirical):** Phase 20 #1 REPORT §6.1 — explicitly flags this as a "non-research user confusion" risk. The 30-line patch that emits a hard error is a defensive fix, but the user mandate on 2026-07-07 chose to revert the entire feature instead.
 
@@ -164,32 +172,32 @@ This is a category of bug that aggregates hide and trade-by-trade probes reveal,
 
 ### §8.1 Reverted from `main` (single PR `chore/revert-phase-20-21`)
 
-| File | Reason |
-|------|--------|
-| `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` | Per-trade Hybrid-Kelly module — empirically structurally blocked, no consumer path |
-| `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.test.ts` | Tests for the above |
-| `packages/core/src/signal-center/sizing/index.ts` (Phase 20 additions) | Re-exports for the above |
-| `packages/core/src/signal-center/signal-center-v1.ts` (Phase 20 additions) | +135 LOC — `applyHybridKelly()` chokepoint, 3 config fields, constructor warn |
-| `packages/core/src/signal-center/signal-center-v1.test.ts` (Phase 20 additions) | +320 LOC — 8 new tests for the chokepoint |
-| `packages/core/src/strategy/regime-conditioned-cap.ts` | Regime classification + cap-multiplier module |
-| `packages/core/src/strategy/regime-conditioned-cap.test.ts` | Tests for the above |
-| `packages/core/src/strategy/donchian-pivot-composition.ts` (Phase 21 additions) | +60 LOC — `applyRegimeConditioning()` in emit chain |
-| `packages/core/src/strategy/donchian-pivot-composition-regime.test.ts` | +439 LOC — 11 new tests |
-| `packages/core/src/types.ts` (Phase 21 additions) | +2 LOC — `RegimeTimeline` type |
-| `packages/core/src/index.ts` (Phase 20+21 additions) | +85 LOC — re-exports |
-| `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` (Phase 20+21 additions) | +281 LOC — CLI flags, parsing, validation, regime-distribution printing |
-| `backtest-results/phase20-*.json` (12 files) | ~150 MB |
-| `backtest-results/phase21-*.json` (15 files) | ~7.5 GB (no-regime baselines + RegimeCap envelopes) |
-| `deliverable.md` (Phase 20 modifications) | Stale content |
+| File                                                                                        | Reason                                                                             |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts`                          | Per-trade Hybrid-Kelly module — empirically structurally blocked, no consumer path |
+| `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.test.ts`                     | Tests for the above                                                                |
+| `packages/core/src/signal-center/sizing/index.ts` (Phase 20 additions)                      | Re-exports for the above                                                           |
+| `packages/core/src/signal-center/signal-center-v1.ts` (Phase 20 additions)                  | +135 LOC — `applyHybridKelly()` chokepoint, 3 config fields, constructor warn      |
+| `packages/core/src/signal-center/signal-center-v1.test.ts` (Phase 20 additions)             | +320 LOC — 8 new tests for the chokepoint                                          |
+| `packages/core/src/strategy/regime-conditioned-cap.ts`                                      | Regime classification + cap-multiplier module                                      |
+| `packages/core/src/strategy/regime-conditioned-cap.test.ts`                                 | Tests for the above                                                                |
+| `packages/core/src/strategy/donchian-pivot-composition.ts` (Phase 21 additions)             | +60 LOC — `applyRegimeConditioning()` in emit chain                                |
+| `packages/core/src/strategy/donchian-pivot-composition-regime.test.ts`                      | +439 LOC — 11 new tests                                                            |
+| `packages/core/src/types.ts` (Phase 21 additions)                                           | +2 LOC — `RegimeTimeline` type                                                     |
+| `packages/core/src/index.ts` (Phase 20+21 additions)                                        | +85 LOC — re-exports                                                               |
+| `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` (Phase 20+21 additions) | +281 LOC — CLI flags, parsing, validation, regime-distribution printing            |
+| `backtest-results/phase20-*.json` (12 files)                                                | ~150 MB                                                                            |
+| `backtest-results/phase21-*.json` (15 files)                                                | ~7.5 GB (no-regime baselines + RegimeCap envelopes)                                |
+| `deliverable.md` (Phase 20 modifications)                                                   | Stale content                                                                      |
 
 ### §8.2 Kept on `main` (audit trail + lessons)
 
-| File | Reason |
-|------|--------|
-| `docs/research/REPORT-phase20.md` | Per-trade Hybrid-Kelly report (287 lines, 10 sections, full empirical + recommendation) |
-| `docs/research/REPORT-phase21.md` | Regime-conditioned cap report (289 lines, 11 sections, full empirical + recommendation) |
-| `docs/research/NEGATIVE-RESULT.md` | Binary verdict note (51 lines) — the override clause written before the negative result was confirmed |
-| `docs/research/PHASE-20-21-ARCHIVE.md` | **This file** — synthesis, structural lessons, machine-actionable rules |
+| File                                   | Reason                                                                                                |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `docs/research/REPORT-phase20.md`      | Per-trade Hybrid-Kelly report (287 lines, 10 sections, full empirical + recommendation)               |
+| `docs/research/REPORT-phase21.md`      | Regime-conditioned cap report (289 lines, 11 sections, full empirical + recommendation)               |
+| `docs/research/NEGATIVE-RESULT.md`     | Binary verdict note (51 lines) — the override clause written before the negative result was confirmed |
+| `docs/research/PHASE-20-21-ARCHIVE.md` | **This file** — synthesis, structural lessons, machine-actionable rules                               |
 
 ### §8.3 Branches + worktrees deleted (local + remote)
 
@@ -248,6 +256,7 @@ If any of these 5 conditions is not met, the brief is rejected at scope-plan tim
 Per the diminishing-returns curve discovery in Phase 19 #1 §6.1, the next lever is **cap-vs-DD knee re-validation** — sweep `cap ∈ {0.18, 0.20}` (above the current 0.12 primary) on the same Phase 19 #1 backbone (Donchian 15m, 1-of-2 mode). Goal: confirm or refute the +2%/mo structural ceiling hypothesis.
 
 **Lowest-risk validation in queue.** Smallest blast radius:
+
 - Stays within the existing Donchian+Pivot baseline (no new alpha sources)
 - Validates or refutes the diminishing-returns curve hypothesis from Phase 19 #1 §6.1
 - 6 JSONs (2 caps × 3 symbols) — ~30-45min producer cycle
@@ -260,6 +269,7 @@ Per the diminishing-returns curve discovery in Phase 19 #1 §6.1, the next lever
 ## §11 References
 
 **Project docs (kept on `main`):**
+
 - `docs/research/REPORT-phase19.md` — the Phase 19 #1 baseline this archive compares against
 - `docs/research/REPORT-phase20.md` — full per-trade Hybrid-Kelly report
 - `docs/research/REPORT-phase21.md` — full regime-conditioned cap report
@@ -269,17 +279,19 @@ Per the diminishing-returns curve discovery in Phase 19 #1 §6.1, the next lever
 - `.mavis/notes/board.md` — orchestrator session log (Phase 20 + 21 + 22 + 23 entries + Phase 24 plan brief)
 
 **Academic sources (cited in §4-§5-§12-§13):**
-- Kelly, J. L. (1956). "A New Interpretation of Information Rate." *Bell System Technical Journal* 35(4): 917-926.
-- Thorp, E. O. (2006). "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market." *Handbook of Asset and Liability Management* (ed. S. A. Zenios, W. T. Ziemba), North-Holland.
-- Ang, A. & Bekaert, G. (2002). "Regime Switches in Interest Rates." *Journal of Business & Economic Statistics* 20(2): 163-182.
-- Kritzman, M., Page, S. & Turkington, D. (2012). "Regime Shifts: Implications for Dynamic Strategies." *Financial Analysts Journal* 68(3): 22-39.
-- Rabiner, L. R. (1989). "A Tutorial on Hidden Markov Models and Selected Applications in Speech Recognition." *Proceedings of the IEEE* 77(2): 257-286.
-- Hamilton, J. D. (1989). "A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle." *Econometrica* 57(2): 357-384.
-- Wilder, J. W. (1978). *New Concepts in Technical Trading Systems*. Trend Research.
-- **Bouchaud, J.-P. et al. (2018). "Trades, Quotes and Returns in a Cross-Section of Knightian Traders." *Quantitative Finance* 18(7): 1137-1151.** — NEW citation for §12 funding-INVARIANCE / side-conflict analysis.
+
+- Kelly, J. L. (1956). "A New Interpretation of Information Rate." _Bell System Technical Journal_ 35(4): 917-926.
+- Thorp, E. O. (2006). "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market." _Handbook of Asset and Liability Management_ (ed. S. A. Zenios, W. T. Ziemba), North-Holland.
+- Ang, A. & Bekaert, G. (2002). "Regime Switches in Interest Rates." _Journal of Business & Economic Statistics_ 20(2): 163-182.
+- Kritzman, M., Page, S. & Turkington, D. (2012). "Regime Shifts: Implications for Dynamic Strategies." _Financial Analysts Journal_ 68(3): 22-39.
+- Rabiner, L. R. (1989). "A Tutorial on Hidden Markov Models and Selected Applications in Speech Recognition." _Proceedings of the IEEE_ 77(2): 257-286.
+- Hamilton, J. D. (1989). "A New Approach to the Economic Analysis of Nonstationary Time Series and the Business Cycle." _Econometrica_ 57(2): 357-384.
+- Wilder, J. W. (1978). _New Concepts in Technical Trading Systems_. Trend Research.
+- **Bouchaud, J.-P. et al. (2018). "Trades, Quotes and Returns in a Cross-Section of Knightian Traders." _Quantitative Finance_ 18(7): 1137-1151.** — NEW citation for §12 funding-INVARIANCE / side-conflict analysis.
 
 **Engineering sources (cited in §7-§13):**
-- Hunt, A. & Thomas, D. (1999, 20th Anniversary Edition 2019). *The Pragmatic Programmer*. Addison-Wesley.
+
+- Hunt, A. & Thomas, D. (1999, 20th Anniversary Edition 2019). _The Pragmatic Programmer_. Addison-Wesley.
 
 **Independent sources per empirical claim:** minimum 2 for every claim in §3-§5-§12-§13 (academic source + project-empirical source). Self-citation pattern (project-empirical → academic) used where the project finding is consistent with the literature.
 
@@ -292,6 +304,7 @@ Per the diminishing-returns curve discovery in Phase 19 #1 §6.1, the next lever
 **Brief:** Long the symbol with the highest signed funding rate, when 2 of 3 BTC/ETH/SOL funding rates agree on direction (positive or negative). Projected lift: +2-5 pp/mo portfolio avg.
 
 **Empirical result (12 backtests, cap × {0.08, 0.12, 0.15} × {BTC, ETH, SOL} × {2-of-3 funding carry, baseline}):**
+
 - 9/9 funding-carry envelopes UNDERPERFORM Phase 19 same-cap (avg Δ = −1.18 pp, range −0.52 to −2.81 pp)
 - 3/3 no-funding baselines match Phase 19 within 0.04 pp (regression anchor PASS — wire-up is bit-identical when funding flag is OFF)
 - Funding-carry trades show ~12-18% smaller avg `notionalUsd` vs no-funding baseline — wire-up is provably engaged
@@ -307,7 +320,7 @@ The funding-rate carry edge on BTC/ETH/SOL is **funding-INVARIANT in shape**: av
 
 **Source 1 (project-empirical):** REPORT-phase22.md §3.4 + §6 — side-conflict cancellation table. SOL's 13.0/-11.8 symmetric distribution is the worst offender because its voting weight cancels ETH and BTC directions frequently.
 
-**Source 2 (academic, independent):** Bouchaud, J.-P. et al. (2018). "Trades, Quotes and Returns in a Cross-Section of Knightian Traders." *Quantitative Finance* 18(7): 1137-1151. Documents that **multi-asset majority-vote strategies** suffer from "diversification penalty" when the underlying signals are weakly correlated but not redundant — exactly the funding-rate 3-vote case on BTC/ETH/SOL where per-asset funding rates are correlated ~0.4 but not redundant.
+**Source 2 (academic, independent):** Bouchaud, J.-P. et al. (2018). "Trades, Quotes and Returns in a Cross-Section of Knightian Traders." _Quantitative Finance_ 18(7): 1137-1151. Documents that **multi-asset majority-vote strategies** suffer from "diversification penalty" when the underlying signals are weakly correlated but not redundant — exactly the funding-rate 3-vote case on BTC/ETH/SOL where per-asset funding rates are correlated ~0.4 but not redundant.
 
 **Reusable rule (machine-actionable):** Before adding any **multi-asset majority-vote** strategy, run the **side-conflict test**: count the fraction of vote moments where the winning side has 1-of-3 conflict against it. If > 25%, the vote is **diversification-penalized** and will lose to a single-asset reference. (Phase 22 #1's BTC/ETH/SOL funding-rate vote had 38% side-conflict → pre-validated the negative result.)
 
@@ -322,6 +335,7 @@ The funding-rate carry edge on BTC/ETH/SOL is **funding-INVARIANT in shape**: av
 **Brief:** Sweep `--kelly-fraction` ∈ {0.25, 0.5, 0.75, 1.0} across BTC/ETH/SOL on the existing Phase 19 #1 baseline. Goal: see if any Kelly-fraction lifts portfolio avg.
 
 **Empirical result (12 backtests, kelly-fraction × {0.25, 0.5, 0.75, 1.0} × {BTC, ETH, SOL}):**
+
 - 9/9 HybridKelly cells reproduce Phase 19 #1 1d baseline within 0.024 pp on monthly return (avg −0.0184 pp)
 - Trade counts **byte-identical** to baseline across all 9 cells (~11043/9977/10576 BTC/ETH/SOL)
 - `maxDrawdown`, `sharpeRatio`, `winRate`, `killSwitchTriggered` all byte-identical
@@ -331,7 +345,7 @@ The funding-rate carry edge on BTC/ETH/SOL is **funding-INVARIANT in shape**: av
 
 **Structural lesson #6 — Phase 20-21 §7 (CLI flags must either work or error) was NOT enforced in Phase 23 #1**
 
-Phase 20 #1's silent-no-op pattern was specifically called out in §7 of this archive: *"Any `--flag` added to a backtest CLI must EITHER (a) be exercised in the same PR that adds the flag, OR (b) emit a hard error if set. No silent no-op. The 30-line patch is cheap; the cognitive load of 'which flags actually work?' is expensive."*
+Phase 20 #1's silent-no-op pattern was specifically called out in §7 of this archive: _"Any `--flag` added to a backtest CLI must EITHER (a) be exercised in the same PR that adds the flag, OR (b) emit a hard error if set. No silent no-op. The 30-line patch is cheap; the cognitive load of 'which flags actually work?' is expensive."_
 
 **Phase 23 #1 reproduced the same pattern** despite the explicit lesson in this archive. The CLI was built by re-using the Phase 20 #1 runner shape without re-applying the §7 rule. The `--kelly-fraction` flag is parsed, printed in startup banner, and discarded.
 
@@ -341,7 +355,9 @@ Phase 20 #1's silent-no-op pattern was specifically called out in §7 of this ar
 2. **The verifier mandate needs a "wiring check" clause** — any new CLI flag MUST be traced from `--flag` arg through `parseArgs` to the engine call, OR the verifier MUST FAIL the producer for silently no-op'ing.
 
 **Reusable rule (machine-actionable, REPLACES §7's softer language):**
+
 > Every CLI flag introduced in a backtest runner must be **traced** through 4 probe steps before being considered functional:
+>
 > 1. `parseArgs` accepts the flag without throwing.
 > 2. The flag value reaches the engine via the runner's invocation path (grep the runner for `flagName` references; if 0, the flag is silent).
 > 3. Two backtests run with flag=off vs flag=on produce **byte-different** results (bit-identical-trade-stream probe from §6 — same seed, same data, same config except flag).
@@ -370,27 +386,27 @@ If any of conditions 1-6 is not met, the brief is rejected at scope-plan time. T
 
 ### §15.1 Reverted from `main` or closed-without-merge
 
-| File / PR | Reason |
-|-----------|--------|
-| `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` (Phase 20) | Per-trade Hybrid-Kelly module, no consumer path |
-| `packages/core/src/strategy/regime-conditioned-cap.ts` (Phase 21) | Regime classifier + cap-multiplier module, no consumer path |
-| `packages/backtest-tools/src/cli/run-funding-rate-carry.ts` (Phase 22 Track B) | Funding-rate-carry CLI runner — not merged to main; code preserved on `feat/phase22-b-wire` archive branch |
-| `packages/core/src/strategy/funding-rate-carry-composition.ts` (Phase 22 Track A) | Composition module + CSV feed — preserved on `feat/phase22-a-funding-rate-carry-module` archive branch |
+| File / PR                                                                                  | Reason                                                                                                                                 |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` (Phase 20)              | Per-trade Hybrid-Kelly module, no consumer path                                                                                        |
+| `packages/core/src/strategy/regime-conditioned-cap.ts` (Phase 21)                          | Regime classifier + cap-multiplier module, no consumer path                                                                            |
+| `packages/backtest-tools/src/cli/run-funding-rate-carry.ts` (Phase 22 Track B)             | Funding-rate-carry CLI runner — not merged to main; code preserved on `feat/phase22-b-wire` archive branch                             |
+| `packages/core/src/strategy/funding-rate-carry-composition.ts` (Phase 22 Track A)          | Composition module + CSV feed — preserved on `feat/phase22-a-funding-rate-carry-module` archive branch                                 |
 | `packages/backtest-tools/src/cli/run-hybrid-kelly.ts` (Phase 23 Phase 20-21-modifications) | `parseArgs`/`runBacktest` modifications for `--kelly-fraction` flag — not merged; preserved on `feat/phase23-1b-report` archive branch |
-| `backtest-results/phase20-*.json`, `phase21-*.json` | ~150 MB + ~7.5 GB. Already deleted in prior cleanup. |
-| `backtest-results/phase22-*.json`, `phase23-*.json` | ~50 MB each. Live in PR #52 and #53 branches ONLY — gone on PR close. |
-| **PR #52** (Phase 22 C, `feat/phase22-c-sweep-report`) | Closed without merge — REPORT-phase22.md preserved on `main` |
-| **PR #53** (Phase 23 1b, `feat/phase23-1b-report`) | Closed without merge — REPORT-phase23.md preserved on `main` |
+| `backtest-results/phase20-*.json`, `phase21-*.json`                                        | ~150 MB + ~7.5 GB. Already deleted in prior cleanup.                                                                                   |
+| `backtest-results/phase22-*.json`, `phase23-*.json`                                        | ~50 MB each. Live in PR #52 and #53 branches ONLY — gone on PR close.                                                                  |
+| **PR #52** (Phase 22 C, `feat/phase22-c-sweep-report`)                                     | Closed without merge — REPORT-phase22.md preserved on `main`                                                                           |
+| **PR #53** (Phase 23 1b, `feat/phase23-1b-report`)                                         | Closed without merge — REPORT-phase23.md preserved on `main`                                                                           |
 
 ### §15.2 Kept on `main` (audit trail + lessons)
 
-| File | Reason |
-|------|--------|
-| `docs/research/REPORT-phase20.md` | Per-trade Hybrid-Kelly report (287 lines, 10 sections) |
-| `docs/research/REPORT-phase21.md` | Regime-conditioned cap report (289 lines, 11 sections) |
-| `docs/research/REPORT-phase22.md` | **NEW** — Funding-rate carry 2-of-3 voting report (526 lines, 12 sections) |
-| `docs/research/REPORT-phase23.md` | **NEW** — HybridKelly calibration sweep report (797 lines, 12+ sections) |
-| `docs/research/NEGATIVE-RESULT.md` | Binary verdict note — additively extended to cover 4 phases |
+| File                                         | Reason                                                                                  |
+| -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `docs/research/REPORT-phase20.md`            | Per-trade Hybrid-Kelly report (287 lines, 10 sections)                                  |
+| `docs/research/REPORT-phase21.md`            | Regime-conditioned cap report (289 lines, 11 sections)                                  |
+| `docs/research/REPORT-phase22.md`            | **NEW** — Funding-rate carry 2-of-3 voting report (526 lines, 12 sections)              |
+| `docs/research/REPORT-phase23.md`            | **NEW** — HybridKelly calibration sweep report (797 lines, 12+ sections)                |
+| `docs/research/NEGATIVE-RESULT.md`           | Binary verdict note — additively extended to cover 4 phases                             |
 | `docs/research/PHASE-20-21-22-23-ARCHIVE.md` | **This file** — synthesis across 4 phases, structural lessons, machine-actionable rules |
 
 ### §15.3 Branches + worktrees deleted (local + remote, this cleanup pass)

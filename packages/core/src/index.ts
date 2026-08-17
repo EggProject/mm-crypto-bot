@@ -172,10 +172,7 @@ export type {
   SizingSignal,
 } from "./signal-center/types.js";
 // Typed pub/sub for Signal events (backtest/live modes).
-export {
-  createSignalBus,
-  SignalBus,
-} from "./signal-center/signal-bus.js";
+export { createSignalBus, SignalBus } from "./signal-center/signal-bus.js";
 export type {
   SignalBusMode,
   SignalBusOptions,
@@ -189,11 +186,7 @@ export {
   StrategyRegistry,
   validatePluginMetadata,
 } from "./signal-center/strategy-registry.js";
-export type {
-  EdgeClass,
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "./signal-center/strategy-registry.js";
+export type { EdgeClass, StrategyPlugin, StrategyPluginMetadata } from "./signal-center/strategy-registry.js";
 // Phase 32: CarryBaselinePlugin was deleted. Replaced by HybridKelly
 // (the kept SizingSignal-emitting plugin). The reference carry plugin
 // exports are removed from the public API.
@@ -484,24 +477,18 @@ export type {
   SymbolCascadeState,
 } from "./signal-center/plugins/perpdex-liquidation-signals-plugin.js";
 // Phase 13 Track C — Cross-symbol hedge plugins (3 NEW plugins: BTC-ETH spread reversion, BTC-driven momentum overlay, cross-symbol funding-rate arb).
-export {
-  CrossSymbolSpreadReversionPlugin,
-} from "./signal-center/plugins/cross-symbol-spread-reversion-plugin.js";
+export { CrossSymbolSpreadReversionPlugin } from "./signal-center/plugins/cross-symbol-spread-reversion-plugin.js";
 export type {
   CrossSymbolSpreadReversionConfig,
   CrossSymbolSpreadReversionPluginState,
   SymbolPair,
 } from "./signal-center/plugins/cross-symbol-spread-reversion-plugin.js";
-export {
-  CrossSymbolMomentumOverlayPlugin,
-} from "./signal-center/plugins/cross-symbol-momentum-overlay-plugin.js";
+export { CrossSymbolMomentumOverlayPlugin } from "./signal-center/plugins/cross-symbol-momentum-overlay-plugin.js";
 export type {
   CrossSymbolMomentumOverlayConfig,
   CrossSymbolMomentumOverlayPluginState,
 } from "./signal-center/plugins/cross-symbol-momentum-overlay-plugin.js";
-export {
-  CrossSymbolFundingDifferentialPlugin,
-} from "./signal-center/plugins/cross-symbol-funding-differential-plugin.js";
+export { CrossSymbolFundingDifferentialPlugin } from "./signal-center/plugins/cross-symbol-funding-differential-plugin.js";
 export type {
   CrossSymbolFundingDifferentialConfig,
   CrossSymbolFundingDifferentialPluginState,
@@ -513,9 +500,7 @@ export {
   SignalCenterV1,
   toRiskEngineSignal,
 } from "./signal-center/signal-center-v1.js";
-export type {
-  SignalCenterV1Config,
-} from "./signal-center/signal-center-v1.js";
+export type { SignalCenterV1Config } from "./signal-center/signal-center-v1.js";
 // Phase 10G Track B — Leverage invariant hard guardrail (1:10 MANDATORY leverage 3rd defense-in-depth layer).
 export {
   assertLeverageInvariant,
@@ -527,17 +512,11 @@ export {
   ONE_TO_TEN_LEVERAGE,
   ONE_X_LEVERAGE,
 } from "./risk/leverage-invariant.js";
-export type {
-  LeverageInvariantConfig,
-  Position,
-} from "./risk/leverage-invariant.js";
+export type { LeverageInvariantConfig, Position } from "./risk/leverage-invariant.js";
 // Phase 10G Track B — Cross-strategy portfolio risk engine (VaR + correlation + drawdown + leverage guard).
 // NOTE: This engine accepts Track B's internal signal shapes (see risk/portfolio-risk-engine.ts).
 // Track A's SignalBus signal shapes are translated by SignalCenterV1 (Track C integration layer).
-export {
-  DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG,
-  PortfolioRiskEngine,
-} from "./risk/portfolio-risk-engine.js";
+export { DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG, PortfolioRiskEngine } from "./risk/portfolio-risk-engine.js";
 export type {
   AggregateDrawdownState,
   CorrelationMatrix,
@@ -553,10 +532,7 @@ export type {
   Signal as RiskEngineSignal,
 } from "./risk/portfolio-risk-engine.js";
 // Phase 10G Track B — Per-strategy telemetry (PnL attribution + Sharpe + kill-switch + export).
-export {
-  DEFAULT_STRATEGY_TELEMETRY_CONFIG,
-  StrategyTelemetry,
-} from "./telemetry/strategy-telemetry.js";
+export { DEFAULT_STRATEGY_TELEMETRY_CONFIG, StrategyTelemetry } from "./telemetry/strategy-telemetry.js";
 export type {
   KillSwitchEvent,
   PerStrategyStats,
@@ -584,10 +560,7 @@ export type {
 export * from "./portfolio/index.js";
 
 // Phase 15 Track B — Pivot Point Grid (M15 mean-reversion, pivot-anchored range).
-export {
-  PivotPointGridStrategy,
-  DEFAULT_PIVOT_GRID_CONFIG,
-} from "./strategy/pivot-point-grid.js";
+export { PivotPointGridStrategy, DEFAULT_PIVOT_GRID_CONFIG } from "./strategy/pivot-point-grid.js";
 export type { PivotPointGridConfig } from "./strategy/pivot-point-grid.js";
 
 // Phase 15 Track B — Bollinger Range Squeeze (M5 breakout after bbWidth squeeze).
@@ -607,10 +580,7 @@ export type { DonchianRangeChannelConfig } from "./strategy/donchian-range-chann
 // signals on golden cross (long) or death cross (short), with RSI overbought/
 // oversold filters. Designed to be driven by the `OhlcStream` class from
 // `@mm/exchange` (live) or a historical fixture replay (backtest).
-export {
-  OhlcTrendStrategy,
-  DEFAULT_OHLC_TREND_CONFIG,
-} from "./strategy/ohlc-trend.js";
+export { OhlcTrendStrategy, DEFAULT_OHLC_TREND_CONFIG } from "./strategy/ohlc-trend.js";
 export type { OhlcTrendConfig, OhlcTrendSignal } from "./strategy/ohlc-trend.js";
 
 // Phase 15 Track C — Keltner Volatility-Adaptive Grid (M5 grid in Keltner channel).
@@ -687,7 +657,10 @@ export {
   newTickDensityState,
   newKillSwitchVerdicts,
 } from "./strategy/dydx-cex-carry.js";
-export { DydxCexCarryPaperTrader, DEFAULT_PAPER_TRADE_RUNNER_CONFIG } from "./strategy/dydx-cex-carry.paper-trade.js";
+export {
+  DydxCexCarryPaperTrader,
+  DEFAULT_PAPER_TRADE_RUNNER_CONFIG,
+} from "./strategy/dydx-cex-carry.paper-trade.js";
 export type {
   DydxFundingSource,
   DydxCexCarryConfig,

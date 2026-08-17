@@ -53,13 +53,7 @@
  * step 4 fails the compiler with `Type 'XxxSignal' is not assignable to
  * type 'never'` (the classic discriminated-union exhaustiveness trick).
  */
-export type SignalKind =
-  | "direction"
-  | "carry"
-  | "sizing"
-  | "risk"
-  | "factor"
-  | "funding-snapshot";
+export type SignalKind = "direction" | "carry" | "sizing" | "risk" | "factor" | "funding-snapshot";
 
 // ---------------------------------------------------------------------------
 // DirectionSignal — a directional view (long / short / flat) with strength.
@@ -396,12 +390,7 @@ export interface FactorSignal {
  * ```
  */
 export type Signal =
-  | DirectionSignal
-  | CarrySignal
-  | SizingSignal
-  | RiskSignal
-  | FactorSignal
-  | FundingSnapshotSignal;
+  DirectionSignal | CarrySignal | SizingSignal | RiskSignal | FactorSignal | FundingSnapshotSignal;
 
 // ---------------------------------------------------------------------------
 // Type guards — runtime narrowing for type-safe consumption.

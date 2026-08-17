@@ -6,7 +6,7 @@
 
 ## Verdict
 
-Phase 21 #1's success criterion was: *"regime-conditioned cap @ cap=0.12 1-of-2 lifts portfolio avg from +32.24%/mo (Phase 19) toward +35–37%/mo."*
+Phase 21 #1's success criterion was: _"regime-conditioned cap @ cap=0.12 1-of-2 lifts portfolio avg from +32.24%/mo (Phase 19) toward +35–37%/mo."_
 
 **The empirical envelope is NEGATIVE: Phase 21 RegimeCap @ cap=0.12 portfolio avg = +21.97%/mo, a Δ of −10.27 pp vs Phase 19.** All 9 RegimeCap envelopes UNDERPERFORM Phase 19 same-cap (avg Δ = −9.83 pp, range −4.43 to −14.68 pp).
 
@@ -46,7 +46,7 @@ The strategy needs MORE sizing to compound, not less.
 
 This is a CLEAN NEGATIVE — the work is research-grade correct (Track A module + Track B CLI wire-up both PASS verifier; 13/13 typecheck; 0 lint errors; 2506/2506 tests PASS; NOT-silent-no-op proven via per-trade notional divergence). The empirical envelope impact is the binary verdict of Phase 21 #1, and it is decisively refuted.
 
-Per the task brief override clause: *"If regime cap envelope DOESN'T beat Phase 19 baseline — STOP, write a `NEGATIVE-RESULT.md` (in addition to REPORT-phase21.md), and report the negative finding honestly. Do NOT silently rubber-stamp."*
+Per the task brief override clause: _"If regime cap envelope DOESN'T beat Phase 19 baseline — STOP, write a `NEGATIVE-RESULT.md` (in addition to REPORT-phase21.md), and report the negative finding honestly. Do NOT silently rubber-stamp."_
 
 This document is that override. The full per-row envelope table is in `docs/research/REPORT-phase21.md` §3.
 
@@ -61,25 +61,25 @@ This document is that override. The full per-row envelope table is in `docs/rese
 
 ## Verdict
 
-Phase 24 #2's success criterion was: *"2-of-2 mode cap ∈ {0.18, 0.20} lifts portfolio avg toward +30%/mo threshold."*
+Phase 24 #2's success criterion was: _"2-of-2 mode cap ∈ {0.18, 0.20} lifts portfolio avg toward +30%/mo threshold."_
 
 **The empirical envelope is NEGATIVE — but CEILING-DEFINED, NOT FAIL-MODE.**
 
-| cap | BTC | ETH | SOL | **PORTFOLIO AVG** | threshold | outcome |
-|----:|----:|----:|----:|------------------:|----------:|---------|
-| 0.18 | 15.44% | 15.52% | 22.28% | **17.74%/mo** | ≥30%/mo | ❌ -12.26pp below |
-| 0.20 | 16.64% | 16.27% | 23.54% | **18.82%/mo** | ≥30%/mo | ❌ -11.18pp below |
+|  cap |    BTC |    ETH |    SOL | **PORTFOLIO AVG** | threshold | outcome           |
+| ---: | -----: | -----: | -----: | ----------------: | --------: | ----------------- |
+| 0.18 | 15.44% | 15.52% | 22.28% |     **17.74%/mo** |   ≥30%/mo | ❌ -12.26pp below |
+| 0.20 | 16.64% | 16.27% | 23.54% |     **18.82%/mo** |   ≥30%/mo | ❌ -11.18pp below |
 
 Both caps in 2-of-2 mode FAIL the +30%/mo acceptance threshold. Phase 24 #1 recommendation (1-of-2 cap=0.20 → +39.38%/mo) stands alone.
 
 ## Why this NEGATIVE is structurally different from Phase 20-23 (the fail-mode streak)
 
-| Phase 20-23 (fail-mode) | Phase 24 #2 (ceiling-defined) |
-|-------------------------|-------------------------------|
-| Per-bar feature classifier (regime, kelly) interfered with a working baseline | 2-of-2 mode is structurally valid; trade frequency is just 4.15× lower than 1-of-2 |
+| Phase 20-23 (fail-mode)                                                                                         | Phase 24 #2 (ceiling-defined)                                                                        |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Per-bar feature classifier (regime, kelly) interfered with a working baseline                                   | 2-of-2 mode is structurally valid; trade frequency is just 4.15× lower than 1-of-2                   |
 | Win-rate byte-identical between baseline and modifier → modifier is not a filter, scaling geometric compounding | Win-rate byte-identical to Phase 19 #2 (73.16% BTC / 84.47% ETH / 74.38% SOL) → 2-of-2 has same edge |
-| Result: −4 to −15pp drag from the modifier | Result: ceiling at +18.82%/mo because 2-of-2 trades 4× less → cumulative compounding is 4× smaller |
-| Root cause: regime-INVARIANT strategy + sizing-down drag | Root cause: trade-frequency × geometric compounding envelope, NOT broken |
+| Result: −4 to −15pp drag from the modifier                                                                      | Result: ceiling at +18.82%/mo because 2-of-2 trades 4× less → cumulative compounding is 4× smaller   |
+| Root cause: regime-INVARIANT strategy + sizing-down drag                                                        | Root cause: trade-frequency × geometric compounding envelope, NOT broken                             |
 
 **This NEGATIVE does NOT require a code revert** — no production code was added. The empirical finding is that 2-of-2 mode at cap ∈ {0.18, 0.20} is a structural ceiling for whole-strategy consensus, not an inversion point.
 
@@ -99,7 +99,7 @@ Both caps in 2-of-2 mode FAIL the +30%/mo acceptance threshold. Phase 24 #1 reco
 
 4. **The diminishing-returns curve is monotonic NON-INVERTING** in 2-of-2 mode above cap=0.15 — monthlyReturn climbs monotonically from cap=0.04 through cap=0.20. The brief's hypothesis "2-of-2 inverts at knee above cap=0.15" is **REFUTED**.
 
-5. **The mode ceiling is structural**: 1-of-2 mode BTC cap=0.20 produces 11043 trades vs 2-of-2 cap=0.20 produces 2660 (4.15× difference). Geometric compounding on 4× fewer trades caps the monthly envelope at ~half of 1-of-2 (~+18.82%/mo vs ~+39.38%/mo).
+5. **The mode ceiling is structural**: 1-of-2 mode BTC cap=0.20 produces 11043 trades vs 2-of-2 cap=0.20 produces 2660 (4.15× difference). Geometric compounding on 4× fewer trades caps the monthly envelope at ~~half of 1-of-2 (~~+18.82%/mo vs ~+39.38%/mo).
 
 ## Recommended action
 
@@ -120,7 +120,7 @@ Both caps in 2-of-2 mode FAIL the +30%/mo acceptance threshold. Phase 24 #1 reco
 
 This is a CLEAN CEILING-DEFINED NEGATIVE — the work is research-grade correct (engine integrity confirmed via byte-identical BTC cap=0.20 anchor; all quality gates pass; no production-code changes; trade-stream wire-up proven bit-identical to Phase 19 #2). The empirical envelope at +18.82%/mo is the structurally determined result of 2-of-2 mode at the cap-vs-DD knee — not a bug, not a fail-mode, not an inversion. Phase 24 #2's empirical contribution is documenting this ceiling and demonstrating that 2-of-2 mode is structurally viable at cap ∈ {0.18, 0.20} (Phase 19 #2's pre-conception that 2-of-2 cap=0.20 would exceed DD-threshold was empirically refuted).
 
-Per the task brief override clause: *"Run the regression anchor BEFORE claiming the sweep result. The BTC cap=0.20 cell MUST be byte-identical to Phase 19 #2 BTC cap=0.20 reference. If it diverges, the entire 2-of-2 sweep is invalidated."* The anchor PASSED byte-identically. The sweep is valid; the verdict (NEGATIVE) is empirically determined, not a regression-anchor failure.
+Per the task brief override clause: _"Run the regression anchor BEFORE claiming the sweep result. The BTC cap=0.20 cell MUST be byte-identical to Phase 19 #2 BTC cap=0.20 reference. If it diverges, the entire 2-of-2 sweep is invalidated."_ The anchor PASSED byte-identically. The sweep is valid; the verdict (NEGATIVE) is empirically determined, not a regression-anchor failure.
 
 The full per-row envelope table is in `deliverable.md` §2 at worktree root.
 
@@ -134,7 +134,7 @@ The full per-row envelope table is in `deliverable.md` §2 at worktree root.
 
 ## Verdict
 
-Phase 22 #1's success criterion was: *"funding-rate carry 2-of-3 voting @ cap=0.12 1-of-2 lifts portfolio avg from +32.24%/mo (Phase 19) toward +34–37%/mo."*
+Phase 22 #1's success criterion was: _"funding-rate carry 2-of-3 voting @ cap=0.12 1-of-2 lifts portfolio avg from +32.24%/mo (Phase 19) toward +34–37%/mo."_
 
 **The empirical envelope is NEGATIVE: Phase 22 funding-carry-2of3 @ cap=0.12 portfolio avg = +31.72%/mo, a Δ of −0.52 pp vs Phase 19.** All 9 funding-carry envelopes UNDERPERFORM Phase 19 same-cap (avg Δ = −1.18 pp, range −0.52 to −2.81 pp). DD budget stays within 8% hard cap on all 9 cells.
 
@@ -171,13 +171,14 @@ Phase 22 #1's success criterion was: *"funding-rate carry 2-of-3 voting @ cap=0.
 
 ## Verdict
 
-Phase 23 #1's success criterion was: *"HybridKelly kelly-fraction sweep across {0.25, 0.5, 0.75, 1.0} on BTC/ETH/SOL — any kelly-fraction lifts portfolio avg vs Phase 19 #1 1d baseline (0.0 pp lift = null result)."*
+Phase 23 #1's success criterion was: _"HybridKelly kelly-fraction sweep across {0.25, 0.5, 0.75, 1.0} on BTC/ETH/SOL — any kelly-fraction lifts portfolio avg vs Phase 19 #1 1d baseline (0.0 pp lift = null result)."_
 
 **The empirical envelope is NEGATIVE: Phase 23 #1 portfolio avg = +0.0737%/mo, Δ −0.0040 pp vs Phase 19 #1 1d baseline.** All 9 HybridKelly cells reproduce Phase 19 #1 within 0.024 pp on monthly return (avg −0.0184 pp). The 12 backtests collapse to **3 distinct cells** (one per symbol), with all 4 kelly-fraction values **byte-identical within each cell**.
 
 ## The smoking gun: Phase 20 #1 silent-no-op reproduced EXACTLY
 
 `packages/backtest-tools/src/cli/run-hybrid-kelly.ts`:
+
 - `parseArgs()` lines 74-107: **missing `--kelly-fraction` branch.**
 - Line 225: **`baseKellyFraction: 0.5` hardcoded.**
 - The flag is parsed and printed in startup banner, but **never reaches `runBacktest()`.**

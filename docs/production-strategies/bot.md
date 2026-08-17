@@ -14,13 +14,13 @@ canonical config reference, see
 
 ## 1. The 5 configurable strategies
 
-| Name (config key) | Class | Default | Kind |
-|-------------------|-------|---------|------|
-| `donchian_pivot_composition` | `DonchianPivotComposition` | ✅ enabled | `strategy` |
-| `dydx_cex_carry` | `DydxCexCarryStrategy` | ❌ disabled | `strategy` |
-| `cascade_fade` | `CascadeFadeStrategy` | ❌ disabled | `strategy` |
-| `funding_flip_kill_switch` | `SOLFlipKillSwitchPlugin` | ❌ disabled | `plugin` |
-| `regime_detector` | `RegimeDetectorMetaPlugin` | ❌ disabled | `plugin` |
+| Name (config key)            | Class                      | Default     | Kind       |
+| ---------------------------- | -------------------------- | ----------- | ---------- |
+| `donchian_pivot_composition` | `DonchianPivotComposition` | ✅ enabled  | `strategy` |
+| `dydx_cex_carry`             | `DydxCexCarryStrategy`     | ❌ disabled | `strategy` |
+| `cascade_fade`               | `CascadeFadeStrategy`      | ❌ disabled | `strategy` |
+| `funding_flip_kill_switch`   | `SOLFlipKillSwitchPlugin`  | ❌ disabled | `plugin`   |
+| `regime_detector`            | `RegimeDetectorMetaPlugin` | ❌ disabled | `plugin`   |
 
 **Wire-up integrity guarantee (Phase 21 #1):** an `enabled = false` strategy
 is **not instantiated** by `createStrategyInstances(config)`. The runtime
@@ -78,12 +78,12 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]   # override default symbol list
 
 **Config → constructor mapping** (in `buildDonchianPivotConfig()`):
 
-| TOML field | Strategy param | Notes |
-|------------|----------------|-------|
-| `min_consensus` | `minConsensus` (1 or 2) | Anything outside [1, 2] falls back to the default (`1`). |
-| `timeframes.ltf` | `ltf` (M1/M5/M15/M1H/M4H/D1) | M15 is the production default. |
-| `cap` | (Bot-level) | Applied at position-sizing time by the Bot runtime, not in the Strategy. |
-| `symbols` | (Bot-level) | Filter applied by the StrategyRunner, not in the Strategy. |
+| TOML field       | Strategy param               | Notes                                                                    |
+| ---------------- | ---------------------------- | ------------------------------------------------------------------------ |
+| `min_consensus`  | `minConsensus` (1 or 2)      | Anything outside [1, 2] falls back to the default (`1`).                 |
+| `timeframes.ltf` | `ltf` (M1/M5/M15/M1H/M4H/D1) | M15 is the production default.                                           |
+| `cap`            | (Bot-level)                  | Applied at position-sizing time by the Bot runtime, not in the Strategy. |
+| `symbols`        | (Bot-level)                  | Filter applied by the StrategyRunner, not in the Strategy.               |
 
 **Envelopes (Phase 31 fresh-start audit):** +41.99%/mo portfolio avg
 @ ≤7.70% max-DD at `cap=0.20`, 1-of-2 mode, BTC/ETH/SOL. The
@@ -106,12 +106,12 @@ notional_per_leg_usd = 125_000          # $125k/leg (per BTC-USD spec)
 
 **Config → constructor mapping** (in `buildDydxCexCarryConfig()`):
 
-| TOML field | Strategy param | Notes |
-|------------|----------------|-------|
-| `cap` | `capFraction` | Clamped to `(0, 0.5]`. |
-| `leverage` | `leverage` (1 or 10) | Anything other than 1 ⇒ 10. |
-| `notional_per_leg_usd` | `notionalPerLegUsd` | USD, must be positive. |
-| `fundingSource` | (Bot-level) | Injected by `BotDependencies.dydxFundingSource` — required at runtime. |
+| TOML field             | Strategy param       | Notes                                                                  |
+| ---------------------- | -------------------- | ---------------------------------------------------------------------- |
+| `cap`                  | `capFraction`        | Clamped to `(0, 0.5]`.                                                 |
+| `leverage`             | `leverage` (1 or 10) | Anything other than 1 ⇒ 10.                                            |
+| `notional_per_leg_usd` | `notionalPerLegUsd`  | USD, must be positive.                                                 |
+| `fundingSource`        | (Bot-level)          | Injected by `BotDependencies.dydxFundingSource` — required at runtime. |
 
 **Special note:** carry needs both the dYdX v4 indexer + CEX funding feed
 and a producer that continuously re-verifies the mandatory entry
@@ -140,10 +140,10 @@ cooldown_hours = 24                            # 24h cooldown between BTC entrie
 
 **Config → constructor mapping** (in `buildCascadeFadeConfig()`):
 
-| TOML field | Strategy param | Notes |
-|------------|----------------|-------|
-| `max_notional_per_event_usd` | `capacityMaxPerSymbolEventUsd` | USD, must be positive. |
-| `cooldown_hours` | `riskBtCooldownMs` | Converted to ms (`× 60 × 60 × 1000`). |
+| TOML field                   | Strategy param                 | Notes                                 |
+| ---------------------------- | ------------------------------ | ------------------------------------- |
+| `max_notional_per_event_usd` | `capacityMaxPerSymbolEventUsd` | USD, must be positive.                |
+| `cooldown_hours`             | `riskBtCooldownMs`             | Converted to ms (`× 60 × 60 × 1000`). |
 
 **Scope lock:** the other CascadeFadeConfig fields (Layer 1/2/3
 thresholds, risk governor, default symbol list) are NOT overridable

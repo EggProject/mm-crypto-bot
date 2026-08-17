@@ -60,21 +60,12 @@
 //   - Pedersen (2015) "Efficiently Inefficient" Ch. 4 — defensive
 //     sizing via realized vol.
 
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 
 // Re-export so test suite + downstream consumers can import from one place.
 export { ONE_TO_TEN_LEVERAGE };
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  Bar,
-  ConfigError,
-  PluginState,
-  Result,
-  SizingSignal,
-} from "../types.js";
+import type { Bar, ConfigError, PluginState, Result, SizingSignal } from "../types.js";
 import { isSizing } from "../types.js";
 import type { StrategyPlugin } from "../strategy-registry.js";
 
@@ -133,11 +124,7 @@ export const DEFAULT_VOL_WINDOW_DAYS = 30 as const;
 export const DEFAULT_MAX_VOL_MULTIPLIER = 1.0 as const; // HARD CAP — 1:10 mandate
 export const DEFAULT_MIN_VOL_MULTIPLIER = 0.25 as const;
 export const DEFAULT_BASE_NOTIONAL_USD = 10_000 as const;
-export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = [
-  "BTC/USDT",
-  "ETH/USDT",
-  "SOL/USDT",
-];
+export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
 
 export const MIN_TARGET_DAILY_VOL = 0.005 as const; // 0.5%
 export const MAX_TARGET_DAILY_VOL = 0.05 as const; // 5%
@@ -242,10 +229,8 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
     this.config = {
       targetDailyVol: overrides.targetDailyVol ?? DEFAULT_TARGET_DAILY_VOL,
       volWindowDays: overrides.volWindowDays ?? DEFAULT_VOL_WINDOW_DAYS,
-      maxVolMultiplier:
-        overrides.maxVolMultiplier ?? DEFAULT_MAX_VOL_MULTIPLIER,
-      minVolMultiplier:
-        overrides.minVolMultiplier ?? DEFAULT_MIN_VOL_MULTIPLIER,
+      maxVolMultiplier: overrides.maxVolMultiplier ?? DEFAULT_MAX_VOL_MULTIPLIER,
+      minVolMultiplier: overrides.minVolMultiplier ?? DEFAULT_MIN_VOL_MULTIPLIER,
       baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
       enabledSymbols: overrides.enabledSymbols ?? DEFAULT_ENABLED_SYMBOLS,
     };
@@ -286,9 +271,7 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
       );
     }
     if (this.config.baseNotionalUsd <= 0) {
-      throw new Error(
-        `[VolTargetSizingPlugin] baseNotionalUsd=${this.config.baseNotionalUsd} must be > 0.`,
-      );
+      throw new Error(`[VolTargetSizingPlugin] baseNotionalUsd=${this.config.baseNotionalUsd} must be > 0.`);
     }
 
     this.state = {
@@ -358,7 +341,7 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
       this.state.symbolState.set(symbol, ss);
       return;
     }
-    const ts = timestampMs ?? ((ss.lastTimestampMs ?? -1) + 1);
+    const ts = timestampMs ?? (ss.lastTimestampMs ?? -1) + 1;
     if (ss.lastTimestampMs !== null && ts <= ss.lastTimestampMs) return;
     ss.lastTimestampMs = ts;
     if (!ss.seeded) {
@@ -387,11 +370,7 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   validateConfig(config: unknown): Result<void, ConfigError> {
-    const makeErr = (
-      field: string,
-      message: string,
-      value: unknown,
-    ): Result<void, ConfigError> => ({
+    const makeErr = (field: string, message: string, value: unknown): Result<void, ConfigError> => ({
       ok: false,
       error: {
         pluginName: this.metadata.name,
@@ -408,11 +387,7 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
     // maxVolMultiplier: HARD CAP at 1.0
     if (c["maxVolMultiplier"] !== undefined) {
       if (typeof c["maxVolMultiplier"] !== "number" || !Number.isFinite(c["maxVolMultiplier"])) {
-        return makeErr(
-          "maxVolMultiplier",
-          "must be a finite number",
-          c["maxVolMultiplier"],
-        );
+        return makeErr("maxVolMultiplier", "must be a finite number", c["maxVolMultiplier"]);
       }
       if (c["maxVolMultiplier"] > 1.0) {
         return makeErr(
@@ -422,25 +397,14 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
         );
       }
       if (c["maxVolMultiplier"] <= 0) {
-        return makeErr(
-          "maxVolMultiplier",
-          "must be > 0",
-          c["maxVolMultiplier"],
-        );
+        return makeErr("maxVolMultiplier", "must be > 0", c["maxVolMultiplier"]);
       }
     }
     if (c["targetDailyVol"] !== undefined) {
       if (typeof c["targetDailyVol"] !== "number" || !Number.isFinite(c["targetDailyVol"])) {
-        return makeErr(
-          "targetDailyVol",
-          "must be a finite number",
-          c["targetDailyVol"],
-        );
+        return makeErr("targetDailyVol", "must be a finite number", c["targetDailyVol"]);
       }
-      if (
-        c["targetDailyVol"] < MIN_TARGET_DAILY_VOL ||
-        c["targetDailyVol"] > MAX_TARGET_DAILY_VOL
-      ) {
+      if (c["targetDailyVol"] < MIN_TARGET_DAILY_VOL || c["targetDailyVol"] > MAX_TARGET_DAILY_VOL) {
         return makeErr(
           "targetDailyVol",
           `must be in [${MIN_TARGET_DAILY_VOL}, ${MAX_TARGET_DAILY_VOL}]`,
@@ -450,11 +414,7 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
     }
     if (c["volWindowDays"] !== undefined) {
       if (typeof c["volWindowDays"] !== "number" || !Number.isFinite(c["volWindowDays"])) {
-        return makeErr(
-          "volWindowDays",
-          "must be a finite number",
-          c["volWindowDays"],
-        );
+        return makeErr("volWindowDays", "must be a finite number", c["volWindowDays"]);
       }
       if (
         c["volWindowDays"] < MIN_VOL_WINDOW_DAYS ||
@@ -470,16 +430,9 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
     }
     if (c["minVolMultiplier"] !== undefined) {
       if (typeof c["minVolMultiplier"] !== "number" || !Number.isFinite(c["minVolMultiplier"])) {
-        return makeErr(
-          "minVolMultiplier",
-          "must be a finite number",
-          c["minVolMultiplier"],
-        );
+        return makeErr("minVolMultiplier", "must be a finite number", c["minVolMultiplier"]);
       }
-      if (
-        c["minVolMultiplier"] < MIN_MIN_VOL_MULTIPLIER ||
-        c["minVolMultiplier"] > MAX_MIN_VOL_MULTIPLIER
-      ) {
+      if (c["minVolMultiplier"] < MIN_MIN_VOL_MULTIPLIER || c["minVolMultiplier"] > MAX_MIN_VOL_MULTIPLIER) {
         return makeErr(
           "minVolMultiplier",
           `must be in [${MIN_MIN_VOL_MULTIPLIER}, ${MAX_MIN_VOL_MULTIPLIER}]`,
@@ -489,35 +442,19 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
     }
     if (c["baseNotionalUsd"] !== undefined) {
       if (typeof c["baseNotionalUsd"] !== "number" || !Number.isFinite(c["baseNotionalUsd"])) {
-        return makeErr(
-          "baseNotionalUsd",
-          "must be a finite number",
-          c["baseNotionalUsd"],
-        );
+        return makeErr("baseNotionalUsd", "must be a finite number", c["baseNotionalUsd"]);
       }
       if (c["baseNotionalUsd"] <= 0) {
-        return makeErr(
-          "baseNotionalUsd",
-          "must be > 0",
-          c["baseNotionalUsd"],
-        );
+        return makeErr("baseNotionalUsd", "must be > 0", c["baseNotionalUsd"]);
       }
     }
     if (c["enabledSymbols"] !== undefined) {
       if (!Array.isArray(c["enabledSymbols"])) {
-        return makeErr(
-          "enabledSymbols",
-          "must be an array of strings",
-          c["enabledSymbols"],
-        );
+        return makeErr("enabledSymbols", "must be an array of strings", c["enabledSymbols"]);
       }
       for (const sym of c["enabledSymbols"]) {
         if (typeof sym !== "string" || sym.length === 0) {
-          return makeErr(
-            "enabledSymbols",
-            "each entry must be a non-empty string",
-            sym as unknown,
-          );
+          return makeErr("enabledSymbols", "each entry must be a non-empty string", sym as unknown);
         }
       }
     }
@@ -642,11 +579,7 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
       if (m !== null) multiplier = m;
     }
     // Always clamp to config bounds (defensive even when m is null).
-    multiplier = clamp(
-      multiplier,
-      this.config.minVolMultiplier,
-      this.config.maxVolMultiplier,
-    );
+    multiplier = clamp(multiplier, this.config.minVolMultiplier, this.config.maxVolMultiplier);
 
     // Rescale volMultiplier multiplicatively.
     const newVolMultiplier = clamp(
@@ -676,9 +609,7 @@ export class VolTargetSizingPlugin implements StrategyPlugin {
       source: this.metadata.name,
       ...(original.symbol === undefined ? {} : { symbol: original.symbol }),
       transformedBy: [...(original.transformedBy ?? []), this.metadata.name],
-      ...(original.timestampMs !== undefined
-        ? { timestampMs: original.timestampMs }
-        : {}),
+      ...(original.timestampMs !== undefined ? { timestampMs: original.timestampMs } : {}),
     };
 
     // LAYER 3 — assert the rescaled signal still respects 1:10 BEFORE emit.

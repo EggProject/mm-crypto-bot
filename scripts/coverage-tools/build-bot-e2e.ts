@@ -4,11 +4,7 @@ import { basename, resolve } from "node:path";
 
 import instrumentPackage from "istanbul-lib-instrument";
 
-import {
-  REPOSITORY_ROOT,
-  absoluteRuntimeFiles,
-  loadScopeManifest,
-} from "./bot-runtime-scope.ts";
+import { REPOSITORY_ROOT, absoluteRuntimeFiles, loadScopeManifest } from "./bot-runtime-scope.ts";
 
 const createInstrumenter = instrumentPackage.createInstrumenter.bind(instrumentPackage);
 const OUTPUT_DIRECTORY = resolve(REPOSITORY_ROOT, "apps/bot/coverage/e2e/bundle");

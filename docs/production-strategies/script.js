@@ -7,14 +7,18 @@ function fmt(v, suffix = "") {
   return s + suffix;
 }
 
-function pct(v) { return fmt(v * 100, "%"); }
+function pct(v) {
+  return fmt(v * 100, "%");
+}
 
 // SVG helper: vonal rajzolása
 function line(x1, y1, x2, y2, opts = {}) {
   const ns = "http://www.w3.org/2000/svg";
   const el = document.createElementNS(ns, "line");
-  el.setAttribute("x1", x1); el.setAttribute("y1", y1);
-  el.setAttribute("x2", x2); el.setAttribute("y2", y2);
+  el.setAttribute("x1", x1);
+  el.setAttribute("y1", y1);
+  el.setAttribute("x2", x2);
+  el.setAttribute("y2", y2);
   el.setAttribute("stroke", opts.color || "#58a6ff");
   el.setAttribute("stroke-width", opts.width || 2);
   if (opts.dash) el.setAttribute("stroke-dasharray", opts.dash);
@@ -26,15 +30,21 @@ function rect(x, y, w, h, opts = {}) {
   // Becsomagoljuk egy <g>-be, hogy a text gyerek is renderelve legyen (SVG-ben a <text> nem lehet <rect> gyereke)
   const g = document.createElementNS(ns, "g");
   const el = document.createElementNS(ns, "rect");
-  el.setAttribute("x", x); el.setAttribute("y", y);
-  el.setAttribute("width", w); el.setAttribute("height", h);
+  el.setAttribute("x", x);
+  el.setAttribute("y", y);
+  el.setAttribute("width", w);
+  el.setAttribute("height", h);
   el.setAttribute("fill", opts.fill || "#161b22");
   el.setAttribute("stroke", opts.stroke || "#30363d");
   el.setAttribute("stroke-width", opts.strokeWidth || 1);
   if (opts.rx) el.setAttribute("rx", opts.rx);
   g.appendChild(el);
   if (opts.label) {
-    const t = text(x + w / 2, y + h / 2 + 4, opts.label, { fill: opts.textColor || "#c9d1d9", size: opts.size || 12, anchor: "middle" });
+    const t = text(x + w / 2, y + h / 2 + 4, opts.label, {
+      fill: opts.textColor || "#c9d1d9",
+      size: opts.size || 12,
+      anchor: "middle",
+    });
     g.appendChild(t);
   }
   return g;
@@ -43,7 +53,8 @@ function rect(x, y, w, h, opts = {}) {
 function text(x, y, str, opts = {}) {
   const ns = "http://www.w3.org/2000/svg";
   const el = document.createElementNS(ns, "text");
-  el.setAttribute("x", x); el.setAttribute("y", y);
+  el.setAttribute("x", x);
+  el.setAttribute("y", y);
   el.setAttribute("fill", opts.fill || "#c9d1d9");
   el.setAttribute("font-size", opts.size || 13);
   el.setAttribute("font-family", "-apple-system, sans-serif");
@@ -58,7 +69,8 @@ function circle(cx, cy, r, opts = {}) {
   // Ugyanaz a <g> trükk: a <text> csak a <circle> testvércsomópontjaként renderelődik
   const g = document.createElementNS(ns, "g");
   const el = document.createElementNS(ns, "circle");
-  el.setAttribute("cx", cx); el.setAttribute("cy", cy);
+  el.setAttribute("cx", cx);
+  el.setAttribute("cy", cy);
   el.setAttribute("r", r);
   el.setAttribute("fill", opts.fill || "#58a6ff");
   el.setAttribute("stroke", opts.stroke || "#0d1117");
@@ -66,7 +78,12 @@ function circle(cx, cy, r, opts = {}) {
   if (opts.class) el.setAttribute("class", opts.class);
   g.appendChild(el);
   if (opts.label) {
-    const t = text(cx, cy + 4, opts.label, { fill: opts.textColor || "#0d1117", size: opts.size || 11, anchor: "middle", weight: 700 });
+    const t = text(cx, cy + 4, opts.label, {
+      fill: opts.textColor || "#0d1117",
+      size: opts.size || 11,
+      anchor: "middle",
+      weight: 700,
+    });
     g.appendChild(t);
   }
   return g;
@@ -75,8 +92,10 @@ function circle(cx, cy, r, opts = {}) {
 function arrow(x1, y1, x2, y2, opts = {}) {
   const ns = "http://www.w3.org/2000/svg";
   const el = document.createElementNS(ns, "line");
-  el.setAttribute("x1", x1); el.setAttribute("y1", y1);
-  el.setAttribute("x2", x2); el.setAttribute("y2", y2);
+  el.setAttribute("x1", x1);
+  el.setAttribute("y1", y1);
+  el.setAttribute("x2", x2);
+  el.setAttribute("y2", y2);
   el.setAttribute("stroke", opts.color || "#58a6ff");
   el.setAttribute("stroke-width", opts.width || 2);
   el.setAttribute("marker-end", opts.markerEnd || "url(#arrowhead)");
@@ -151,7 +170,12 @@ function lineChart(svg, prices, opts = {}) {
       const i = sig.index;
       const x = pad + stepX * i;
       const y = pad + ch - ((prices[i] - min) / range) * ch;
-      const c = circle(x, y, 6, { fill: sig.side === "long" ? "#2ea043" : "#f85149", label: sig.side === "long" ? "L" : "S", textColor: "#fff", size: 8 });
+      const c = circle(x, y, 6, {
+        fill: sig.side === "long" ? "#2ea043" : "#f85149",
+        label: sig.side === "long" ? "L" : "S",
+        textColor: "#fff",
+        size: 8,
+      });
       svg.appendChild(c);
     }
   }
@@ -164,7 +188,10 @@ function bindSlider(sliderId, valueId, fmtFn = (v) => v) {
   const s = document.getElementById(sliderId);
   const v = document.getElementById(valueId);
   if (!s || !v) return null;
-  const update = () => { v.textContent = fmtFn(s.value); s.dispatchEvent(new Event("input")); };
+  const update = () => {
+    v.textContent = fmtFn(s.value);
+    s.dispatchEvent(new Event("input"));
+  };
   s.addEventListener("input", update);
   update();
   return s;

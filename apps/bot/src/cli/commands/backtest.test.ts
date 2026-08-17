@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/backtest.test.ts
  *
- * Phase 37 Track 3 — `mm-bot backtest <strategy>` unit tests.
+ * Phase 37 Track 3 — direct `backtest <strategy>` unit tests.
  *
  * Coverage:
  *   1. help (no positional arg) → returns 0 + prints the registry
@@ -56,7 +56,7 @@ describe("backtestCommand (Phase 37 Track 3)", () => {
     const code = await runBacktest(["backtest"]);
     expect(code).toBe(0);
     const out = logged.join("\n");
-    expect(out).toContain("Usage: mm-bot backtest");
+    expect(out).toContain("Usage: bun run apps/bot/src/index.ts backtest");
     expect(out).toContain("ohlc-trend");
   });
 
@@ -206,7 +206,10 @@ describe("checkSlTpHit (Phase 37 Track 3 SL/TP helper)", () => {
     stopLoss: 95,
     takeProfit: 115, // 3:1 R:R
     timestamp: 1,
-    fastEma: 0, slowEma: 0, rsi: 0, atr: 0,
+    fastEma: 0,
+    slowEma: 0,
+    rsi: 0,
+    atr: 0,
   };
   const shortSignal: OhlcTrendSignal = {
     side: "sell",
@@ -216,7 +219,10 @@ describe("checkSlTpHit (Phase 37 Track 3 SL/TP helper)", () => {
     stopLoss: 105,
     takeProfit: 85,
     timestamp: 1,
-    fastEma: 0, slowEma: 0, rsi: 0, atr: 0,
+    fastEma: 0,
+    slowEma: 0,
+    rsi: 0,
+    atr: 0,
   };
 
   it("long: candle.low <= SL → SL exit", () => {
@@ -264,7 +270,10 @@ describe("applyClose (Phase 37 Track 3 close helper)", () => {
         stopLoss: 95,
         takeProfit: 115,
         timestamp: 1,
-        fastEma: 0, slowEma: 0, rsi: 0, atr: 0,
+        fastEma: 0,
+        slowEma: 0,
+        rsi: 0,
+        atr: 0,
       },
       entryPrice: 100,
     };
@@ -289,7 +298,10 @@ describe("applyClose (Phase 37 Track 3 close helper)", () => {
         stopLoss: 105,
         takeProfit: 85,
         timestamp: 1,
-        fastEma: 0, slowEma: 0, rsi: 0, atr: 0,
+        fastEma: 0,
+        slowEma: 0,
+        rsi: 0,
+        atr: 0,
       },
       entryPrice: 100,
     };
@@ -312,7 +324,10 @@ describe("applyClose (Phase 37 Track 3 close helper)", () => {
         stopLoss: 95,
         takeProfit: 115,
         timestamp: 1,
-        fastEma: 0, slowEma: 0, rsi: 0, atr: 0,
+        fastEma: 0,
+        slowEma: 0,
+        rsi: 0,
+        atr: 0,
       },
       entryPrice: 100,
     };
@@ -335,7 +350,10 @@ describe("applyClose (Phase 37 Track 3 close helper)", () => {
         stopLoss: 95,
         takeProfit: 115,
         timestamp: 1,
-        fastEma: 0, slowEma: 0, rsi: 0, atr: 0,
+        fastEma: 0,
+        slowEma: 0,
+        rsi: 0,
+        atr: 0,
       },
       entryPrice: 100,
     };
@@ -369,7 +387,10 @@ describe("applyClose (Phase 37 Track 3 close helper)", () => {
         stopLoss: 95,
         takeProfit: 115,
         timestamp: 1,
-        fastEma: 0, slowEma: 0, rsi: 0, atr: 0,
+        fastEma: 0,
+        slowEma: 0,
+        rsi: 0,
+        atr: 0,
       },
       entryPrice: 100,
     };
@@ -390,7 +411,10 @@ describe("applyClose (Phase 37 Track 3 close helper)", () => {
         stopLoss: 100,
         takeProfit: 115,
         timestamp: 1,
-        fastEma: 0, slowEma: 0, rsi: 0, atr: 0,
+        fastEma: 0,
+        slowEma: 0,
+        rsi: 0,
+        atr: 0,
       },
       entryPrice: 100,
     };

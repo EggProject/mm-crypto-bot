@@ -15,10 +15,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 
-import {
-  parseArgs as pivotGridParseArgs,
-  timeframesForPivotGrid,
-} from "./run-pivot-grid-baseline.js";
+import { parseArgs as pivotGridParseArgs, timeframesForPivotGrid } from "./run-pivot-grid-baseline.js";
 import {
   parseArgs as donchianRangeParseArgs,
   timeframesForDonchianRange,
@@ -68,34 +65,18 @@ describe("run-pivot-grid-baseline — parseArgs", () => {
   });
 
   it("elutasítja a nem-15m timeframe-öt", () => {
-    process.argv = [
-      "bun",
-      "run-pivot-grid-baseline.ts",
-      "--timeframe=1h",
-    ];
+    process.argv = ["bun", "run-pivot-grid-baseline.ts", "--timeframe=1h"];
     expect(() => pivotGridParseArgs()).toThrow(/requires 15m/);
   });
 
   it("elutasítja a (0, 1] tartományon kívüli --max-position-pct-equity értéket", () => {
-    process.argv = [
-      "bun",
-      "run-pivot-grid-baseline.ts",
-      "--max-position-pct-equity=0",
-    ];
+    process.argv = ["bun", "run-pivot-grid-baseline.ts", "--max-position-pct-equity=0"];
     expect(() => pivotGridParseArgs()).toThrow(/must be in \(0, 1\]/);
 
-    process.argv = [
-      "bun",
-      "run-pivot-grid-baseline.ts",
-      "--max-position-pct-equity=1.5",
-    ];
+    process.argv = ["bun", "run-pivot-grid-baseline.ts", "--max-position-pct-equity=1.5"];
     expect(() => pivotGridParseArgs()).toThrow(/must be in \(0, 1\]/);
 
-    process.argv = [
-      "bun",
-      "run-pivot-grid-baseline.ts",
-      "--max-position-pct-equity=NaN",
-    ];
+    process.argv = ["bun", "run-pivot-grid-baseline.ts", "--max-position-pct-equity=NaN"];
     expect(() => pivotGridParseArgs()).toThrow(/must be in \(0, 1\]/);
   });
 });
@@ -140,11 +121,7 @@ describe("run-donchian-range-baseline — parseArgs", () => {
   });
 
   it("elutasítja a nem-15m timeframe-öt", () => {
-    process.argv = [
-      "bun",
-      "run-donchian-range-baseline.ts",
-      "--timeframe=1d",
-    ];
+    process.argv = ["bun", "run-donchian-range-baseline.ts", "--timeframe=1d"];
     expect(() => donchianRangeParseArgs()).toThrow(/requires 15m/);
   });
 });
@@ -194,16 +171,12 @@ describe("run-donchian-pivot-composition — parseArgs", () => {
     expect(args.timeframe).toBe("15m");
     expect(args.initialEquity).toBe(10_000);
     expect(args.minConsensus).toBe(2);
-    expect(args.maxPositionPctEquity).toBe(0.20);
+    expect(args.maxPositionPctEquity).toBe(0.2);
     expect(args.multiSymbolMode).toBe(false);
   });
 
   it("multi-symbol mód bekapcsol, ha --symbols= át van adva", () => {
-    process.argv = [
-      "bun",
-      "run-donchian-pivot-composition.ts",
-      "--symbols=BTC/USDT,ETH/USDT",
-    ];
+    process.argv = ["bun", "run-donchian-pivot-composition.ts", "--symbols=BTC/USDT,ETH/USDT"];
     const args = compositionParseArgs();
     expect(args.symbols).toEqual(["BTC/USDT", "ETH/USDT"]);
     expect(args.multiSymbolMode).toBe(true);
@@ -220,47 +193,27 @@ describe("run-donchian-pivot-composition — parseArgs", () => {
     ];
     const args = compositionParseArgs();
     expect(args.minConsensus).toBe(1);
-    expect(args.maxPositionPctEquity).toBe(0.10);
+    expect(args.maxPositionPctEquity).toBe(0.1);
     expect(args.startTime.toISOString()).toBe("2024-01-01T00:00:00.000Z");
     expect(args.endTime.toISOString()).toBe("2025-12-31T00:00:00.000Z");
   });
 
   it("elutasítja a nem-15m timeframe-öt", () => {
-    process.argv = [
-      "bun",
-      "run-donchian-pivot-composition.ts",
-      "--timeframe=4h",
-    ];
+    process.argv = ["bun", "run-donchian-pivot-composition.ts", "--timeframe=4h"];
     expect(() => compositionParseArgs()).toThrow(/requires 15m/);
   });
 
   it("elutasítja a nem 1 vagy 2 --min-consensus értéket", () => {
-    process.argv = [
-      "bun",
-      "run-donchian-pivot-composition.ts",
-      "--min-consensus=0",
-    ];
+    process.argv = ["bun", "run-donchian-pivot-composition.ts", "--min-consensus=0"];
     expect(() => compositionParseArgs()).toThrow(/min-consensus/);
-    process.argv = [
-      "bun",
-      "run-donchian-pivot-composition.ts",
-      "--min-consensus=3",
-    ];
+    process.argv = ["bun", "run-donchian-pivot-composition.ts", "--min-consensus=3"];
     expect(() => compositionParseArgs()).toThrow(/min-consensus/);
   });
 
   it("elutasítja a (0, 0.5] tartományon kívüli --max-position-pct-equity értéket", () => {
-    process.argv = [
-      "bun",
-      "run-donchian-pivot-composition.ts",
-      "--max-position-pct-equity=0",
-    ];
+    process.argv = ["bun", "run-donchian-pivot-composition.ts", "--max-position-pct-equity=0"];
     expect(() => compositionParseArgs()).toThrow(/must be in \(0, 0.5\]/);
-    process.argv = [
-      "bun",
-      "run-donchian-pivot-composition.ts",
-      "--max-position-pct-equity=0.6",
-    ];
+    process.argv = ["bun", "run-donchian-pivot-composition.ts", "--max-position-pct-equity=0.6"];
     expect(() => compositionParseArgs()).toThrow(/must be in \(0, 0.5\]/);
   });
 
@@ -314,21 +267,13 @@ describe("generate-report — parseArgs", () => {
   });
 
   it("parseolja a --baselines= vesszővel elválasztott listát", () => {
-    process.argv = [
-      "bun",
-      "generate-report.ts",
-      "--baselines=a.json,b.json,c.json",
-    ];
+    process.argv = ["bun", "generate-report.ts", "--baselines=a.json,b.json,c.json"];
     const args = generateReportParseArgs();
     expect(args.baselines).toEqual(["a.json", "b.json", "c.json"]);
   });
 
   it("a --baseline= (single, backward compat) egyelemű listát ad", () => {
-    process.argv = [
-      "bun",
-      "generate-report.ts",
-      "--baseline=only.json",
-    ];
+    process.argv = ["bun", "generate-report.ts", "--baseline=only.json"];
     const args = generateReportParseArgs();
     expect(args.baselines).toEqual(["only.json"]);
   });
@@ -362,21 +307,25 @@ describe("generate-report — formatPct", () => {
 
 describe("generate-report — sweep input compatibility", () => {
   it("a jelenlegi sweep JSON envelope eredményeit parse-olja", () => {
-    const rows = parseSweepRows(JSON.stringify({
-      workflow: "sweep",
-      results: [{
-        maxPositionPctEquity: 0.08,
-        result: {
-          totalReturn: 0.25,
-          sharpeRatio: 1.5,
-          maxDrawdown: 0.1,
-          profitFactor: 1.8,
-          winRate: 0.6,
-          totalTrades: 12,
-          killSwitchTriggered: false,
-        },
-      }],
-    }));
+    const rows = parseSweepRows(
+      JSON.stringify({
+        workflow: "sweep",
+        results: [
+          {
+            maxPositionPctEquity: 0.08,
+            result: {
+              totalReturn: 0.25,
+              sharpeRatio: 1.5,
+              maxDrawdown: 0.1,
+              profitFactor: 1.8,
+              winRate: 0.6,
+              totalTrades: 12,
+              killSwitchTriggered: false,
+            },
+          },
+        ],
+      }),
+    );
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.maxPositionPctEquity).toBe(0.08);
@@ -385,10 +334,12 @@ describe("generate-report — sweep input compatibility", () => {
   });
 
   it("a legacy sweep CSV-t fejlécnév alapján továbbra is parse-olja", () => {
-    const rows = parseSweepRows([
-      "iteration,risk_per_trade,kelly_fraction,max_drawdown,monthly_return,total_months,total_return,sharpe_ratio,sortino_ratio,max_drawdown_pct,profit_factor,win_rate,total_trades,kill_switch_triggered",
-      "0,0.01,0.25,0.5,-0.02,12,-0.22,1.5,1.7,0.1,1.6,0.6,10,1",
-    ].join("\n"));
+    const rows = parseSweepRows(
+      [
+        "iteration,risk_per_trade,kelly_fraction,max_drawdown,monthly_return,total_months,total_return,sharpe_ratio,sortino_ratio,max_drawdown_pct,profit_factor,win_rate,total_trades,kill_switch_triggered",
+        "0,0.01,0.25,0.5,-0.02,12,-0.22,1.5,1.7,0.1,1.6,0.6,10,1",
+      ].join("\n"),
+    );
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.riskPerTrade).toBe(0.01);

@@ -363,7 +363,9 @@ export function splitIntoWindows(
   stepDays: number,
 ): readonly WalkForwardSplit[] {
   if (trainDays <= 0 || testDays <= 0 || stepDays <= 0) {
-    throw new Error(`walk-forward windows must have positive day values: ${trainDays}/${testDays}/${stepDays}`);
+    throw new Error(
+      `walk-forward windows must have positive day values: ${trainDays}/${testDays}/${stepDays}`,
+    );
   }
   if (trades.length === 0) {
     throw new Error("Cannot split empty trade list");
@@ -459,7 +461,7 @@ function perWindowSharpe(trades: readonly Trade[]): number {
   if (trades.length < 2) {
     return 0;
   }
-  const returns = trades.map((t) => (t.pnlUsd / t.notionalUsd) || 0);
+  const returns = trades.map((t) => t.pnlUsd / t.notionalUsd || 0);
   const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
   const variance = returns.reduce((a, b) => a + (b - mean) ** 2, 0) / returns.length;
   const std = Math.sqrt(variance);
@@ -534,7 +536,7 @@ export function runWalkForwardValidation(
   //   MED  : positiveTestKellyFraction >= 0.5  AND oosIsReturnRatio >= 0.3
   //   HIGH : else
   let overfitRisk: "LOW" | "MEDIUM" | "HIGH" = "HIGH";
-    const posKelly = positiveKellyCount / records.length;
+  const posKelly = positiveKellyCount / records.length;
   const posSharpe = positiveSharpeCount / records.length;
   if (posKelly >= 0.7 && oosIsSharpeRatio >= 0.6 && posSharpe >= 0.5) {
     overfitRisk = "LOW";

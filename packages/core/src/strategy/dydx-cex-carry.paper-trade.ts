@@ -216,11 +216,7 @@ export class DydxCexCarryPaperTrader {
    * If a HALT kill-switch fires mid-run, the simulation stops early
    * and the report's `halted = true` + `haltReason` are populated.
    */
-  runForDays(
-    days: number,
-    fundingSource: DydxFundingSource,
-    nowMs: number = Date.now(),
-  ): PaperTradeReport {
+  runForDays(days: number, fundingSource: DydxFundingSource, nowMs: number = Date.now()): PaperTradeReport {
     if (!Number.isFinite(days) || days <= 0) {
       throw new Error(`days must be positive finite, got ${days}`);
     }
@@ -339,12 +335,7 @@ export class DydxCexCarryPaperTrader {
           if (typeof adv === "function") {
             adv.call(fundingSource, currentMs);
           }
-          this.strategy.recordChainHeartbeat(
-            this.strategy.config.market,
-            blockHeight,
-            currentMs,
-            currentMs,
-          );
+          this.strategy.recordChainHeartbeat(this.strategy.config.market, blockHeight, currentMs, currentMs);
           heartbeatsRecorded += 1;
         }
 
@@ -405,12 +396,10 @@ export class DydxCexCarryPaperTrader {
         : {
             pausedTickCount: latencyPausedTickCount,
             totalTickCount: ticksRecorded,
-            pausedFraction:
-              ticksRecorded > 0 ? latencyPausedTickCount / ticksRecorded : 0,
+            pausedFraction: ticksRecorded > 0 ? latencyPausedTickCount / ticksRecorded : 0,
             maxRoundTripMs: latencyMaxMs,
             minRoundTripMs: latencyMinMs,
-            meanRoundTripMs:
-              latencyObsCount > 0 ? latencySumMs / latencyObsCount : null,
+            meanRoundTripMs: latencyObsCount > 0 ? latencySumMs / latencyObsCount : null,
             arbThresholdMs: this.strategy.config.latencyArbThresholdMs,
           };
     return {
@@ -440,9 +429,7 @@ export class DydxCexCarryPaperTrader {
     };
   }
 
-  private _haltReasonFromVerdicts(
-    v: KillSwitchVerdicts | null,
-  ): string | null {
+  private _haltReasonFromVerdicts(v: KillSwitchVerdicts | null): string | null {
     if (v === null) return null;
     if (v["indexer-stale"].engaged) return v["indexer-stale"].reason;
     if (v["chain-non-finalized"].engaged) return v["chain-non-finalized"].reason;

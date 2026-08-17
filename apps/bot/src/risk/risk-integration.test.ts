@@ -37,8 +37,15 @@ describe("RiskManager integration", () => {
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const rm = new RiskManager({
       trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: false, fraction: 0.25, windowSize: 50, minTrades: 10, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: false, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: false,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 10,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: false, maxDdPct: 0.2, initialEquity: 10_000 },
     });
 
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);
@@ -74,8 +81,15 @@ describe("RiskManager integration", () => {
   it("Kelly sizer returns a sized position after warmup trades", () => {
     const rm = new RiskManager({
       trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: true, fraction: 0.25, windowSize: 50, minTrades: 10, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: false, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: true,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 10,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: false, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     // Cold start: 5 trades → fallbackFraction 0.01
     for (let i = 0; i < 5; i++) rm.onTradeClosed(100, i);
@@ -92,8 +106,15 @@ describe("RiskManager integration", () => {
   it("drawdown scaler blocks new positions in kill region", () => {
     const rm = new RiskManager({
       trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: false, fraction: 0.25, windowSize: 50, minTrades: 10, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: true, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: false,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 10,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: true, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     // Simulate equity drop → kill region
     rm.onEquityUpdate(8_000); // -20% from 10_000 = 100% of 20% → kill
@@ -106,8 +127,15 @@ describe("RiskManager integration", () => {
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const rm = new RiskManager({
       trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: true, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: true, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: true,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 5,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: true, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     // Pre-warm Kelly with 7 wins + 3 losses → active region
     for (let i = 0; i < 7; i++) rm.onTradeClosed(100, i);
@@ -143,8 +171,15 @@ describe("RiskManager integration", () => {
     const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
     const rm = new RiskManager({
       trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: false, fraction: 0.25, windowSize: 50, minTrades: 10, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: false, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: false,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 10,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: false, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     pm.openPosition("strategy-a", makeSymbol(), "short", 0.01, 60_000, 10, 1_000);
     rm.armTrailingStop("strategy-a:BTC/USDC:short", "short", 60_000, 100);
@@ -161,8 +196,15 @@ describe("RiskManager integration", () => {
   it("getSnapshot returns a coherent picture", () => {
     const rm = new RiskManager({
       trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: true, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: true, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: true,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 5,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: true, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     rm.armTrailingStop("a", "long", 60_000, 100);
     rm.onEquityUpdate(11_000);

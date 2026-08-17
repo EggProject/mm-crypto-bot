@@ -58,11 +58,7 @@
 //      bursty emit rates (e.g., a market-data gap-fill firing 100k
 //      signals in 1s).
 
-import {
-  type Signal,
-  type SignalKind,
-  assertExhaustiveSignal,
-} from "./types.js";
+import { type Signal, type SignalKind, assertExhaustiveSignal } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Type aliases
@@ -231,9 +227,7 @@ export class SignalBus {
     // The `typeof kind === "string"` check protects against that.
     const kind = (s as { kind: SignalKind }).kind;
     if (typeof kind !== "string") {
-      throw new Error(
-        `SignalBus.emit: signal.kind must be a string, got ${typeof kind}`,
-      );
+      throw new Error(`SignalBus.emit: signal.kind must be a string, got ${typeof kind}`);
     }
     if (!this.signalGate(s)) return;
     this.snapshotLog.push(s);

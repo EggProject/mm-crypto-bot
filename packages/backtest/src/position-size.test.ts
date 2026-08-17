@@ -4,7 +4,12 @@ import { describe, expect, it } from "bun:test";
 
 import { DEFAULT_POSITION_SIZE } from "./types.js";
 
-import { kellyFraction, kellyPositionFraction, positionNotionalUsd, stopDistancePct } from "./position-size.js";
+import {
+  kellyFraction,
+  kellyPositionFraction,
+  positionNotionalUsd,
+  stopDistancePct,
+} from "./position-size.js";
 
 describe("stopDistancePct", () => {
   it("long pozíció: stop a belépő alatt", () => {

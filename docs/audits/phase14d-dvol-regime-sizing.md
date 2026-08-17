@@ -8,6 +8,7 @@
 Phase 14D implements the first **forward-looking volatility sizing source** for mm-crypto-bot. The plugin reads BTC options implied volatility (Deribit DVOL) per bar and emits a SizingSignal whose `volMultiplier` is bucketed by DVOL regime.
 
 While implementing, the audit revealed **two hidden bugs in the Track B composition** that the Phase 14C research assumed were already fixed:
+
 1. **Track B did NOT compose SizingSignal.volMultiplier** (the original `arbitrate()` ignored the `volMultiplier` field entirely, using only `sizingNotional` average). Phase 14C research assumed this was in place; it wasn't.
 2. **CarryBaseline encoded the carry regime in BOTH `CarrySignal.carrySizeMultiplier` AND `SizingSignal.volMultiplier`** (redundant). With the Track B min() composition introduced, the redundant `SizingSignal.volMultiplier` (0.5 in high regime) caused a carry-strategy regression — sizing DOWN during high carry windows, the exact opposite of what carry wants.
 
@@ -25,15 +26,17 @@ Both bugs are fixed in Phase 14D.
 ### Plugin design
 
 **Bucketing strategy** (BTC options IV, Deribit DVOL):
-| DVOL | Regime | volMultiplier | % of test window |
-|---|---|---|---|
-| > 80 | acute-stress | 0.5 | 0.3% (1 day) |
-| 65-80 | elevated | 0.75 | 0% (0 days) |
-| 50-65 | normal | 1.0 | 18.9% (69 days) |
-| < 50 | compressed | 1.0 | 80.9% (296 days) |
-| no data | no-data | 1.0 (fail-open) | n/a |
+
+| DVOL    | Regime       | volMultiplier   | % of test window |
+| ------- | ------------ | --------------- | ---------------- |
+| > 80    | acute-stress | 0.5             | 0.3% (1 day)     |
+| 65-80   | elevated     | 0.75            | 0% (0 days)      |
+| 50-65   | normal       | 1.0             | 18.9% (69 days)  |
+| < 50    | compressed   | 1.0             | 80.9% (296 days) |
+| no data | no-data      | 1.0 (fail-open) | n/a              |
 
 **Composition with Track B** (after Phase 14D fix):
+
 ```ts
 sizeMultiplier = clamp(
   carrySizeMultiplier        // from CarrySignal.carrySizeMultiplier
@@ -65,6 +68,7 @@ The original Track B `arbitrate()` only summed the `notional` field. The `volMul
 **File:** `packages/core/src/signal-center/plugins/carry-baseline-plugin.ts:540-567` (original code)
 
 CarryBaseline encoded the carry regime in BOTH:
+
 - `CarrySignal` to `carrySizeMultiplier` in Track B (high=1.2 to clamp 1.0, neutral=1.0, flip=0.5)
 - `SizingSignal.volMultiplier` (high=0.5, neutral=1.0, flip=0.25)
 
@@ -74,23 +78,24 @@ The CarrySignal path was the intended regime carrier. The SizingSignal.volMultip
 
 ## Result envelope (1:10 leverage, 365d binance)
 
-| Symbol  | Phase 14C (no DVOL) | **Phase 14D (with DVOL + fixes)** | Delta |
-|---|---:|---:|---:|
-| BTC | +2.74%/mo | **+3.25%/mo** | +0.51% (+19%) |
-| ETH | +1.13%/mo | **+1.16%/mo** | +0.03% (+3%) |
-| SOL | +1.34%/mo | **+1.63%/mo** | +0.29% (+22%) |
-| **Portfolio** | **+1.76%/mo** | **+2.06%/mo** | **+0.30% (+17%)** |
-| Sharpe | 1.20 | **1.31** | +0.11 |
-| **Max DD (portfolio)** | 10.58% | 10.58% | 0 |
-| Max DD (SOL) | 20.34% | 20.34% | 0 |
-| 0 leverage breaches | yes | yes | |
-| 0 liquidations | yes | yes | |
+| Symbol                 | Phase 14C (no DVOL) | **Phase 14D (with DVOL + fixes)** |             Delta |
+| ---------------------- | ------------------: | --------------------------------: | ----------------: |
+| BTC                    |           +2.74%/mo |                     **+3.25%/mo** |     +0.51% (+19%) |
+| ETH                    |           +1.13%/mo |                     **+1.16%/mo** |      +0.03% (+3%) |
+| SOL                    |           +1.34%/mo |                     **+1.63%/mo** |     +0.29% (+22%) |
+| **Portfolio**          |       **+1.76%/mo** |                     **+2.06%/mo** | **+0.30% (+17%)** |
+| Sharpe                 |                1.20 |                          **1.31** |             +0.11 |
+| **Max DD (portfolio)** |              10.58% |                            10.58% |                 0 |
+| Max DD (SOL)           |              20.34% |                            20.34% |                 0 |
+| 0 leverage breaches    |                 yes |                               yes |                   |
+| 0 liquidations         |                 yes |                               yes |                   |
 
 ## Why Max DD did not drop
 
 The DVOL plugin's `volMultiplier=0.5` only fires on DVOL > 80. In the 1y backtest window, **only 1 day** crossed the acute-stress threshold (2026-02-05, DVOL=82.62, the well-known Feb 2026 BTC correction). On that day, the BTC/ETH/SOL size multiplier was 0.5, but the actual price moves on that single day did not produce a Max-DD event in the SOL leg (which dominates the DD at 20.34%).
 
 To see the DD-reduction benefit, we need either:
+
 - **Longer backtest windows** (e.g., 3-5 years) — DVOL spikes happen 2-3x per year
 - **A future regime of higher DVOL** (e.g., 2022-style bear market)
 - **Real-time production with live DVOL** — the plugin's value is in avoiding the NEXT acute drawdown

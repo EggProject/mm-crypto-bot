@@ -297,9 +297,7 @@ export const BotConfigSchema = z.object({
   // --------------------------------------------------------------------------
   symbols: z
     .object({
-      enabled: z
-        .array(z.string())
-        .default(["BTC/USDC", "ETH/USDC", "SOL/USDC"]),
+      enabled: z.array(z.string()).default(["BTC/USDC", "ETH/USDC", "SOL/USDC"]),
     })
     .default({}),
 
@@ -383,7 +381,7 @@ export const BotConfigSchema = z.object({
       total_risk_per_cycle_usd: z.number().min(1).max(10_000).default(100),
       correlation_penalty_threshold: z.number().min(0).max(1).default(0.7),
       correlation_window_size: z.number().int().min(2).max(1000).default(30),
-      max_dd_pct: z.number().min(0.01).max(0.30).default(0.10),
+      max_dd_pct: z.number().min(0.01).max(0.3).default(0.1),
     })
     .default({}),
 });

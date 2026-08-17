@@ -7,13 +7,11 @@
 
 import { describe, expect, it } from "bun:test";
 
-import {
-  RiskBudgetAllocator,
-  RISK_BUDGET_HARD_CAPS,
-  type StrategyRiskConfig,
-} from "./risk-budget.js";
+import { RiskBudgetAllocator, RISK_BUDGET_HARD_CAPS, type StrategyRiskConfig } from "./risk-budget.js";
 
-function makeConfigs(entries: readonly (readonly [string, number, number])[]): Map<string, StrategyRiskConfig> {
+function makeConfigs(
+  entries: readonly (readonly [string, number, number])[],
+): Map<string, StrategyRiskConfig> {
   const map = new Map<string, StrategyRiskConfig>();
   for (const [id, weight, riskPerTrade] of entries) {
     map.set(id, { strategyId: id, weight, riskPerTrade });
@@ -21,7 +19,9 @@ function makeConfigs(entries: readonly (readonly [string, number, number])[]): M
   return map;
 }
 
-function makeMatrix(rows: readonly (readonly [string, readonly (readonly [string, number])[]])[]): ReadonlyMap<string, ReadonlyMap<string, number>> {
+function makeMatrix(
+  rows: readonly (readonly [string, readonly (readonly [string, number])[]])[],
+): ReadonlyMap<string, ReadonlyMap<string, number>> {
   const matrix = new Map<string, ReadonlyMap<string, number>>();
   for (const [id, cells] of rows) {
     const row = new Map<string, number>();
@@ -60,7 +60,9 @@ describe("RiskBudgetAllocator", () => {
     });
 
     it("rejects totalRiskUsd above hard cap", () => {
-      expect(() => new RiskBudgetAllocator({ totalRiskUsd: RISK_BUDGET_HARD_CAPS.totalRiskUsdMax + 1 })).toThrow(RangeError);
+      expect(
+        () => new RiskBudgetAllocator({ totalRiskUsd: RISK_BUDGET_HARD_CAPS.totalRiskUsdMax + 1 }),
+      ).toThrow(RangeError);
     });
 
     it("accepts totalRiskUsd at the hard cap", () => {
@@ -69,8 +71,12 @@ describe("RiskBudgetAllocator", () => {
     });
 
     it("rejects threshold outside [0..1]", () => {
-      expect(() => new RiskBudgetAllocator({ totalRiskUsd: 100, correlationPenaltyThreshold: -0.1 })).toThrow(RangeError);
-      expect(() => new RiskBudgetAllocator({ totalRiskUsd: 100, correlationPenaltyThreshold: 1.1 })).toThrow(RangeError);
+      expect(() => new RiskBudgetAllocator({ totalRiskUsd: 100, correlationPenaltyThreshold: -0.1 })).toThrow(
+        RangeError,
+      );
+      expect(() => new RiskBudgetAllocator({ totalRiskUsd: 100, correlationPenaltyThreshold: 1.1 })).toThrow(
+        RangeError,
+      );
     });
   });
 
@@ -142,8 +148,20 @@ describe("RiskBudgetAllocator", () => {
         ["b", 0.5, 0.01],
       ]);
       const matrix = makeMatrix([
-        ["a", [["a", 1], ["b", 0.6]]],
-        ["b", [["a", 0.6], ["b", 1]]],
+        [
+          "a",
+          [
+            ["a", 1],
+            ["b", 0.6],
+          ],
+        ],
+        [
+          "b",
+          [
+            ["a", 0.6],
+            ["b", 1],
+          ],
+        ],
       ]);
       const result = alloc.computeBudgets(configs, () => matrix);
       // corr 0.6 < threshold 0.7 → no penalty
@@ -160,8 +178,20 @@ describe("RiskBudgetAllocator", () => {
         ["b", 0.5, 0.01],
       ]);
       const matrix = makeMatrix([
-        ["a", [["a", 1], ["b", 0.9]]],
-        ["b", [["a", 0.9], ["b", 1]]],
+        [
+          "a",
+          [
+            ["a", 1],
+            ["b", 0.9],
+          ],
+        ],
+        [
+          "b",
+          [
+            ["a", 0.9],
+            ["b", 1],
+          ],
+        ],
       ]);
       const result = alloc.computeBudgets(configs, () => matrix);
       // penalty = (0.9 - 0.7) / (1 - 0.7) = 0.2/0.3 = 0.6667
@@ -179,8 +209,20 @@ describe("RiskBudgetAllocator", () => {
         ["b", 0.5, 0.01],
       ]);
       const matrix = makeMatrix([
-        ["a", [["a", 1], ["b", 1]]],
-        ["b", [["a", 1], ["b", 1]]],
+        [
+          "a",
+          [
+            ["a", 1],
+            ["b", 1],
+          ],
+        ],
+        [
+          "b",
+          [
+            ["a", 1],
+            ["b", 1],
+          ],
+        ],
       ]);
       const result = alloc.computeBudgets(configs, () => matrix);
       // (1 - 0.7) / (1 - 0.7) = 1
@@ -198,8 +240,20 @@ describe("RiskBudgetAllocator", () => {
         ["b", 0.5, 0.01],
       ]);
       const matrix = makeMatrix([
-        ["a", [["a", 1], ["b", -0.9]]],
-        ["b", [["a", -0.9], ["b", 1]]],
+        [
+          "a",
+          [
+            ["a", 1],
+            ["b", -0.9],
+          ],
+        ],
+        [
+          "b",
+          [
+            ["a", -0.9],
+            ["b", 1],
+          ],
+        ],
       ]);
       const result = alloc.computeBudgets(configs, () => matrix);
       // |−0.9| = 0.9 → penalty = 0.6667
@@ -213,8 +267,20 @@ describe("RiskBudgetAllocator", () => {
         ["b", 0.5, 0.01],
       ]);
       const matrix = makeMatrix([
-        ["a", [["a", 1], ["b", 1]]],
-        ["b", [["a", 1], ["b", 1]]],
+        [
+          "a",
+          [
+            ["a", 1],
+            ["b", 1],
+          ],
+        ],
+        [
+          "b",
+          [
+            ["a", 1],
+            ["b", 1],
+          ],
+        ],
       ]);
       const result = alloc.computeBudgets(configs, () => matrix);
       // threshold=1 → (1-1) is 0, span guard returns penalty=0
@@ -231,9 +297,30 @@ describe("RiskBudgetAllocator", () => {
       ]);
       // a-b corr = 0.3, a-c corr = 0.8 → max for a is 0.8
       const matrix = makeMatrix([
-        ["a", [["a", 1], ["b", 0.3], ["c", 0.8]]],
-        ["b", [["a", 0.3], ["b", 1], ["c", 0.4]]],
-        ["c", [["a", 0.8], ["b", 0.4], ["c", 1]]],
+        [
+          "a",
+          [
+            ["a", 1],
+            ["b", 0.3],
+            ["c", 0.8],
+          ],
+        ],
+        [
+          "b",
+          [
+            ["a", 0.3],
+            ["b", 1],
+            ["c", 0.4],
+          ],
+        ],
+        [
+          "c",
+          [
+            ["a", 0.8],
+            ["b", 0.4],
+            ["c", 1],
+          ],
+        ],
       ]);
       const result = alloc.computeBudgets(configs, () => matrix);
       expect(result.get("a")?.maxCorrelation).toBeCloseTo(0.8, 5);
@@ -250,7 +337,10 @@ describe("RiskBudgetAllocator", () => {
   describe("edge cases", () => {
     it("splits weight evenly when every configured weight is non-positive", () => {
       const alloc = new RiskBudgetAllocator({ totalRiskUsd: 100 });
-      const configs = makeConfigs([["a", 0, 0.01], ["b", -1, 0.01]]);
+      const configs = makeConfigs([
+        ["a", 0, 0.01],
+        ["b", -1, 0.01],
+      ]);
       const result = alloc.computeBudgets(configs);
       expect(result.get("a")?.weight).toBe(0);
       expect(result.get("b")?.weight).toBe(0);
@@ -284,8 +374,20 @@ describe("RiskBudgetAllocator", () => {
         ["b", 0.5, 0.01],
       ]);
       const matrix = makeMatrix([
-        ["a", [["a", 1], ["b", Number.NaN]]],
-        ["b", [["a", Number.NaN], ["b", 1]]],
+        [
+          "a",
+          [
+            ["a", 1],
+            ["b", Number.NaN],
+          ],
+        ],
+        [
+          "b",
+          [
+            ["a", Number.NaN],
+            ["b", 1],
+          ],
+        ],
       ]);
       const result = alloc.computeBudgets(configs, () => matrix);
       // NaN is filtered out → maxCorrelation = 0
@@ -301,7 +403,13 @@ describe("RiskBudgetAllocator", () => {
       ]);
       // a has no row at all
       const matrix = makeMatrix([
-        ["b", [["a", 0.9], ["b", 1]]],
+        [
+          "b",
+          [
+            ["a", 0.9],
+            ["b", 1],
+          ],
+        ],
       ]);
       const result = alloc.computeBudgets(configs, () => matrix);
       expect(result.get("a")?.maxCorrelation).toBe(0);
@@ -309,10 +417,25 @@ describe("RiskBudgetAllocator", () => {
 
     it("computeBudgets is pure (does not mutate inputs)", () => {
       const alloc = new RiskBudgetAllocator({ totalRiskUsd: 100 });
-      const configs = makeConfigs([["a", 0.5, 0.01], ["b", 0.5, 0.01]]);
+      const configs = makeConfigs([
+        ["a", 0.5, 0.01],
+        ["b", 0.5, 0.01],
+      ]);
       const matrix = makeMatrix([
-        ["a", [["a", 1], ["b", 0.9]]],
-        ["b", [["a", 0.9], ["b", 1]]],
+        [
+          "a",
+          [
+            ["a", 1],
+            ["b", 0.9],
+          ],
+        ],
+        [
+          "b",
+          [
+            ["a", 0.9],
+            ["b", 1],
+          ],
+        ],
       ]);
       const resultA = alloc.computeBudgets(configs, () => matrix);
       const resultB = alloc.computeBudgets(configs, () => matrix);

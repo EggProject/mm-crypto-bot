@@ -16,15 +16,18 @@ const poisonedCredentials = {
 
 describe("bot E2E child environment boundary", () => {
   it("drops Bybit and exchange credential variants while retaining non-secret context", () => {
-    const environment = buildBotE2eChildEnvironment({
-      PATH: "/test/bin",
-      EXCHANGE: "bybiteu",
-      BYBIT_REGION: "EU",
-      ...poisonedCredentials,
-    }, {
-      MM_BOT_E2E_ENTRY_KIND: "canonical-cli",
-      MM_BOT_E2E_CASE_ID: "credential-boundary",
-    });
+    const environment = buildBotE2eChildEnvironment(
+      {
+        PATH: "/test/bin",
+        EXCHANGE: "bybiteu",
+        BYBIT_REGION: "EU",
+        ...poisonedCredentials,
+      },
+      {
+        MM_BOT_E2E_ENTRY_KIND: "canonical-cli",
+        MM_BOT_E2E_CASE_ID: "credential-boundary",
+      },
+    );
 
     expect(environment).toEqual({
       PATH: "/test/bin",

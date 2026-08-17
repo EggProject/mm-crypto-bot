@@ -94,17 +94,9 @@
 //     "A good kill switch is not one red button. It's a ladder"
 //     (https://alphastrat.io/tradeideas/guides/kill-switch-design-automated-trading/)
 
-import type {
-  Bar,
-  RiskSignal as ScRiskSignal,
-  Signal,
-} from "./types.js";
+import type { Bar, RiskSignal as ScRiskSignal, Signal } from "./types.js";
 import { isCarry, isRisk, isSizing } from "./types.js";
-import {
-  type StrategyPlugin,
-  type StrategyRegistry,
-  createStrategyRegistry,
-} from "./strategy-registry.js";
+import { type StrategyPlugin, type StrategyRegistry, createStrategyRegistry } from "./strategy-registry.js";
 import { type SignalBus, createSignalBus } from "./signal-bus.js";
 import {
   DEFAULT_LEVERAGE_INVARIANT_CONFIG,
@@ -195,10 +187,7 @@ export interface SignalCenterV1Config {
  *   - 40% per-symbol concentration cap (3-symbol portfolio)
  *   - 20% aggregate drawdown cap (practitioner circuit-breaker)
  */
-export const DEFAULT_SIGNAL_CENTER_V1_CONFIG: Omit<
-  SignalCenterV1Config,
-  "symbol"
-> = {
+export const DEFAULT_SIGNAL_CENTER_V1_CONFIG: Omit<SignalCenterV1Config, "symbol"> = {
   initialEquity: 10_000,
   maxLeverage: ONE_TO_TEN_LEVERAGE,
   riskEngine: DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG,
@@ -219,10 +208,10 @@ export const DEFAULT_SIGNAL_CENTER_V1_CONFIG: Omit<
  *      engine, telemetry.
  *   2. **Register**: `sc.registerPlugin(plugin)`. The plugin is added to
  *      the registry (which enforces maxLeverage ≤ 10 per plugin).
-*   3. **Start**: `sc.start()`. Validates ALL plugins' configs
-   *      (`registry.validateAll()`). Runs `assertLeverageInvariant` on
-   *      the risk engine's initial notional state at boot (Layer 2 of
-   *      3-layer defense). Wires plugins to the bus.
+ *   3. **Start**: `sc.start()`. Validates ALL plugins' configs
+ *      (`registry.validateAll()`). Runs `assertLeverageInvariant` on
+ *      the risk engine's initial notional state at boot (Layer 2 of
+ *      3-layer defense). Wires plugins to the bus.
  *   4. **Drive**: `sc.onBar(bar)` once per bar. Dispatches to plugins,
  *      collects signals via the bus, runs risk engine, updates
  *      telemetry, runs `leverageInvariantGuard` (Layer 3 of 3-layer
@@ -272,17 +261,11 @@ export class SignalCenterV1 {
       );
     }
     if (!Number.isFinite(merged.initialEquity) || merged.initialEquity <= 0) {
-      throw new Error(
-        `[SignalCenterV1] initialEquity must be positive finite, got ${merged.initialEquity}`,
-      );
+      throw new Error(`[SignalCenterV1] initialEquity must be positive finite, got ${merged.initialEquity}`);
     }
     // Validate the leverage-invariant sub-config (if explicitly provided).
     const levConfig = merged.leverageInvariant ?? DEFAULT_LEVERAGE_INVARIANT_CONFIG;
-    if (
-      !Number.isFinite(levConfig.maxLeverage) ||
-      levConfig.maxLeverage < 1 ||
-      levConfig.maxLeverage > 10
-    ) {
+    if (!Number.isFinite(levConfig.maxLeverage) || levConfig.maxLeverage < 1 || levConfig.maxLeverage > 10) {
       throw new Error(
         `[SignalCenterV1] leverageInvariant.maxLeverage must be in [1, 10], got ${levConfig.maxLeverage}`,
       );
@@ -392,9 +375,7 @@ export class SignalCenterV1 {
     // Validate ALL plugin configs (aggregated errors).
     const v = this.registry.validateAll();
     if (!v.ok) {
-      throw new Error(
-        `[SignalCenterV1] Boot validation failed: ${v.error.summary}`,
-      );
+      throw new Error(`[SignalCenterV1] Boot validation failed: ${v.error.summary}`);
     }
     if (this.registry.size === 0) {
       throw new Error(
@@ -409,10 +390,7 @@ export class SignalCenterV1 {
     // positions (or a previous run left state), start() throws here
     // BEFORE any plugin is wired and BEFORE any onBar() can fire.
     const positions = this.riskEngine.getPositions();
-    const totalNotionalUsd = positions.reduce(
-      (sum, p) => sum + Math.abs(p.effectiveNotionalUsd),
-      0,
-    );
+    const totalNotionalUsd = positions.reduce((sum, p) => sum + Math.abs(p.effectiveNotionalUsd), 0);
     assertLeverageInvariant(
       totalNotionalUsd,
       this.config.initialEquity,
@@ -536,7 +514,12 @@ export class SignalCenterV1 {
   /**
    * `getRegisteredPlugins` — metadata for all registered plugins.
    */
-  getRegisteredPlugins(): readonly { name: string; version: string; edgeClass: string; maxLeverage: number }[] {
+  getRegisteredPlugins(): readonly {
+    name: string;
+    version: string;
+    edgeClass: string;
+    maxLeverage: number;
+  }[] {
     return this.registry.list().map((m) => ({
       name: m.name,
       version: m.version,
@@ -719,10 +702,7 @@ export class SignalCenterV1 {
  *     false` (Track A's RiskSignal has VaR95, correlationPenalty,
  *     drawdownLimit, but not the risk engine's `reason`/`breach`).
  */
-export function toRiskEngineSignal(
-  signal: Signal,
-  symbol: string,
-): importRiskEngine.Signal {
+export function toRiskEngineSignal(signal: Signal, symbol: string): importRiskEngine.Signal {
   const ts = signal.timestampMs ?? 0;
   const attributedSymbol = signal.symbol ?? symbol;
   switch (signal.kind) {
@@ -809,8 +789,6 @@ export function toRiskEngineSignal(
  * `createSignalCenterV1` — convenience factory. Same as
  * `new SignalCenterV1(config)`.
  */
-export function createSignalCenterV1(
-  config?: Partial<SignalCenterV1Config>,
-): SignalCenterV1 {
+export function createSignalCenterV1(config?: Partial<SignalCenterV1Config>): SignalCenterV1 {
   return new SignalCenterV1(config);
 }

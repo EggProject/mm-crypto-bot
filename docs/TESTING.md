@@ -49,9 +49,9 @@ bun run coverage:full        # tests + infra + both bot gates + package LCOV
 
 Both strict gates currently pass:
 
-| Gate | Statements | Branches | Functions | Lines |
-|---|---:|---:|---:|---:|
-| Unit (23 files, 482 tests) | 1599/1599 (100%) | 866/866 (100%) | 278/278 (100%) | 1495/1495 (100%) |
+| Gate                                      |       Statements |       Branches |      Functions |            Lines |
+| ----------------------------------------- | ---------------: | -------------: | -------------: | ---------------: |
+| Unit (23 files, 482 tests)                | 1599/1599 (100%) | 866/866 (100%) | 278/278 (100%) | 1495/1495 (100%) |
 | Bun subprocess E2E (45/45 required cases) | 1597/1597 (100%) | 866/866 (100%) | 279/279 (100%) | 1492/1492 (100%) |
 
 The unit and subprocess reports remain separate. Neither gate ignores owned

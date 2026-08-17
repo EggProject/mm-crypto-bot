@@ -108,17 +108,17 @@ Mivel a bybit.eu-n nem érhető el sandbox/demo, saját emulátort kell
 
 ### 2.2 Spot és tőkeáttétel
 
-| Tulajdonság | bybit.com (global) | bybit.eu (MiCAR) |
-|---|---|---|
-| Spot | ✅ natív | ✅ natív |
-| Spot Margin | ✅ (max 10×) | ✅ (max **10×**, 2025-08-18 óta) `[2.1]` `[2.5]` |
-| Margin típus | Cross + Isolated | **Csak Cross Margin** `[2.1]` |
-| Maintenance Margin | Változó | **100% MMR% → liquidation** `[2.1]` `[2.5]` |
-| Hourly borrow fee | Változó | Pl. USDT 0.01%/h `[2.4]` |
-| Liquidation fee | Változó | 2% az insurance pool-ba `[2.4]` |
-| Futures (retail) | ✅ max 1:200 `[2.11]` | ❌ **MiCA tiltja** retail-nek `[2.4]` |
-| Options | ✅ | ❌ |
-| Leverage tudáskvíz | Nem kötelező | **Kötelező** (`client readiness testing`) `[2.1]` |
+| Tulajdonság        | bybit.com (global)    | bybit.eu (MiCAR)                                  |
+| ------------------ | --------------------- | ------------------------------------------------- |
+| Spot               | ✅ natív              | ✅ natív                                          |
+| Spot Margin        | ✅ (max 10×)          | ✅ (max **10×**, 2025-08-18 óta) `[2.1]` `[2.5]`  |
+| Margin típus       | Cross + Isolated      | **Csak Cross Margin** `[2.1]`                     |
+| Maintenance Margin | Változó               | **100% MMR% → liquidation** `[2.1]` `[2.5]`       |
+| Hourly borrow fee  | Változó               | Pl. USDT 0.01%/h `[2.4]`                          |
+| Liquidation fee    | Változó               | 2% az insurance pool-ba `[2.4]`                   |
+| Futures (retail)   | ✅ max 1:200 `[2.11]` | ❌ **MiCA tiltja** retail-nek `[2.4]`             |
+| Options            | ✅                    | ❌                                                |
+| Leverage tudáskvíz | Nem kötelező          | **Kötelező** (`client readiness testing`) `[2.1]` |
 
 ### 2.3 Díjak
 
@@ -135,14 +135,14 @@ Mivel a bybit.eu-n nem érhető el sandbox/demo, saját emulátort kell
 A bybit spot directory és a Convert lista alapján mindhárom coin elérhető
 a bybit.eu-n:
 
-| Pár | bybit.com | bybit.eu | Forrás |
-|---|---|---|---|
-| BTC/USDT | ✅ | ✅ (spot margin 10×) | `[2.7]` `[2.6]` |
-| BTC/USDC | ✅ | ✅ | `[2.1]` `[2.7]` |
-| ETH/USDT | ✅ | ✅ | `[2.7]` |
-| ETH/USDC | ✅ | ✅ (spot margin 10×) | `[2.1]` `[2.7]` |
-| SOL/USDC | ✅ | ✅ | `[2.7]` |
-| SOL/USDT | ✅ | ✅ | `[2.7]` |
+| Pár      | bybit.com | bybit.eu             | Forrás          |
+| -------- | --------- | -------------------- | --------------- |
+| BTC/USDT | ✅        | ✅ (spot margin 10×) | `[2.7]` `[2.6]` |
+| BTC/USDC | ✅        | ✅                   | `[2.1]` `[2.7]` |
+| ETH/USDT | ✅        | ✅                   | `[2.7]`         |
+| ETH/USDC | ✅        | ✅ (spot margin 10×) | `[2.1]` `[2.7]` |
+| SOL/USDC | ✅        | ✅                   | `[2.7]`         |
+| SOL/USDT | ✅        | ✅                   | `[2.7]`         |
 
 A bybit.eu-n **a 1:10 spot margin BTC/USDC és ETH/USDC párokon** érhető el
 explicit, ahogy a Bybit EU 2025-08-18-as launch-közleménye hangsúlyozza
@@ -326,8 +326,8 @@ a Bun-nal és a CCXT-vel való kompatibilitáshoz szükséges opciókkal
 
     /* Bun/CCXT-kompatibilitás */
     "skipLibCheck": true,
-    "types": ["bun-types"]
-  }
+    "types": ["bun-types"],
+  },
 }
 ```
 
@@ -391,7 +391,7 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        projectService: true,        // v8+ ajánlott: typescript-eslint
+        projectService: true, // v8+ ajánlott: typescript-eslint
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -404,7 +404,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unnecessary-condition": "error",
 
       // Security
-      "security/detect-object-injection": "warn",  // FP-veszélyes, ezért warn
+      "security/detect-object-injection": "warn", // FP-veszélyes, ezért warn
       "security/detect-non-literal-regexp": "error",
       "security/detect-unsafe-regex": "error",
       "security/detect-eval-with-expression": "error",
@@ -499,7 +499,7 @@ const bybit = new ccxt.bybiteu({
   apiKey: process.env.BYBIT_API_KEY!,
   secret: process.env.BYBIT_API_SECRET!,
   enableRateLimit: true,
-  rateLimit: 100,  // 10 req/sec — bybit V5 biztonságos alap
+  rateLimit: 100, // 10 req/sec — bybit V5 biztonságos alap
   // options: { defaultType: "spot" },
 });
 await bybit.loadMarkets();
@@ -527,14 +527,14 @@ while (!shuttingDown) {
 A pontos verziók és a forrásaik a [`version-pins.md`](./version-pins.md)
 fájlban. A döntésünk a fenti kutatás alapján:
 
-| Komponens | Verzió | Indoklás |
-|---|---|---|
-| Bun | `1.3.14` | Stabil, TS natív, Turborepo stable támogatás |
-| Turborepo | `2.10.2` | Bun PM stable, lockfile-aware cache |
-| TypeScript | `6.0.3` | Stabil, az összes ultra-strict opció támogatott |
-| CCXT | `4.5.64` | `bybiteu` első osztályú ID, CCXT Pro WS támogatás |
-| Ink | `7.1.0` | Bun/TS koherens, React komponens modell |
-| ESLint | `10.6.0` | Flat config stabil, typescript-eslint v8-kompatibilis |
-| @typescript-eslint | `8.62.1` | `strict-type-checked` preset, `projectService` támogatás |
-| eslint-plugin-security | `4.0.1` | 14 security rule, széles körben használt |
-| @tsconfig/bases | `1.0.25` | `@tsconfig/strictest` preset |
+| Komponens              | Verzió   | Indoklás                                                 |
+| ---------------------- | -------- | -------------------------------------------------------- |
+| Bun                    | `1.3.14` | Stabil, TS natív, Turborepo stable támogatás             |
+| Turborepo              | `2.10.2` | Bun PM stable, lockfile-aware cache                      |
+| TypeScript             | `6.0.3`  | Stabil, az összes ultra-strict opció támogatott          |
+| CCXT                   | `4.5.64` | `bybiteu` első osztályú ID, CCXT Pro WS támogatás        |
+| Ink                    | `7.1.0`  | Bun/TS koherens, React komponens modell                  |
+| ESLint                 | `10.6.0` | Flat config stabil, typescript-eslint v8-kompatibilis    |
+| @typescript-eslint     | `8.62.1` | `strict-type-checked` preset, `projectService` támogatás |
+| eslint-plugin-security | `4.0.1`  | 14 security rule, széles körben használt                 |
+| @tsconfig/bases        | `1.0.25` | `@tsconfig/strictest` preset                             |

@@ -73,11 +73,7 @@ import {
   isVenueId,
   rateDecimalToBps8h,
 } from "./cross-venue-funding-divergence-plugin.js";
-import {
-  isFundingSnapshot,
-  type Bar,
-  type FundingSnapshotSignal,
-} from "../types.js";
+import { isFundingSnapshot, type Bar, type FundingSnapshotSignal } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -85,9 +81,7 @@ import {
 
 const mkBus = (): SignalBus => new SignalBus({ mode: "backtest" });
 
-const wirePlugin = (
-  plugin: CrossVenueFundingDivergencePlugin,
-): SignalBus => {
+const wirePlugin = (plugin: CrossVenueFundingDivergencePlugin): SignalBus => {
   const bus = mkBus();
   plugin.subscribe(bus);
   return bus;
@@ -122,12 +116,7 @@ const feedAllVenuesAndEmit = (
   timestampMs: number,
 ): FundingSnapshotSignal[] => {
   if (rates.hlHourly !== undefined) {
-    plugin.recordHlFunding(
-      asset,
-      rates.hlHourly,
-      rates.hlPredictedHourly ?? null,
-      timestampMs,
-    );
+    plugin.recordHlFunding(asset, rates.hlHourly, rates.hlPredictedHourly ?? null, timestampMs);
   }
   if (rates.dydxHourly !== undefined) {
     plugin.recordDydxFunding(asset, rates.dydxHourly, timestampMs);
@@ -157,9 +146,7 @@ describe("CrossVenueFundingDivergencePlugin — construction", () => {
     const p = new CrossVenueFundingDivergencePlugin();
     expect(p.config.bucketSizeMs).toBe(DEFAULT_BUCKET_SIZE_MS);
     expect(p.config.bucketSizeMs).toBe(60_000);
-    expect(p.config.divergenceThresholdBps).toBe(
-      DEFAULT_DIVERGENCE_THRESHOLD_BPS,
-    );
+    expect(p.config.divergenceThresholdBps).toBe(DEFAULT_DIVERGENCE_THRESHOLD_BPS);
     expect(p.config.baseNotionalUsd).toBe(DEFAULT_BASE_NOTIONAL_USD);
     expect(p.config.assets).toEqual(DEFAULT_ASSETS);
     expect(p.config.venues).toEqual(DEFAULT_VENUES);
@@ -263,27 +250,16 @@ describe("CrossVenueFundingDivergencePlugin — config validation", () => {
   });
 
   it("construction rejects bad baseNotionalUsd", () => {
-    expect(
-      () =>
-        new CrossVenueFundingDivergencePlugin({ baseNotionalUsd: 0 }),
-    ).toThrow(/baseNotionalUsd/);
-    expect(
-      () =>
-        new CrossVenueFundingDivergencePlugin({ baseNotionalUsd: -1 }),
-    ).toThrow(/baseNotionalUsd/);
+    expect(() => new CrossVenueFundingDivergencePlugin({ baseNotionalUsd: 0 })).toThrow(/baseNotionalUsd/);
+    expect(() => new CrossVenueFundingDivergencePlugin({ baseNotionalUsd: -1 })).toThrow(/baseNotionalUsd/);
   });
 
   it("construction rejects empty assets", () => {
-    expect(
-      () => new CrossVenueFundingDivergencePlugin({ assets: [] }),
-    ).toThrow(/assets/);
+    expect(() => new CrossVenueFundingDivergencePlugin({ assets: [] })).toThrow(/assets/);
   });
 
   it("construction rejects duplicate assets", () => {
-    expect(
-      () =>
-        new CrossVenueFundingDivergencePlugin({ assets: ["BTC", "BTC"] }),
-    ).toThrow(/duplicate/);
+    expect(() => new CrossVenueFundingDivergencePlugin({ assets: ["BTC", "BTC"] })).toThrow(/duplicate/);
   });
 
   it("construction rejects bad venues (not in VenueId)", () => {
@@ -296,9 +272,7 @@ describe("CrossVenueFundingDivergencePlugin — config validation", () => {
   });
 
   it("construction rejects empty venues", () => {
-    expect(
-      () => new CrossVenueFundingDivergencePlugin({ venues: [] }),
-    ).toThrow(/venues/);
+    expect(() => new CrossVenueFundingDivergencePlugin({ venues: [] })).toThrow(/venues/);
   });
 
   it("construction rejects duplicate venues", () => {
@@ -577,9 +551,7 @@ describe("CrossVenueFundingDivergencePlugin — bus publish + integration", () =
     expect(received.length).toBe(1);
     expect(received[0]!.kind).toBe("funding-snapshot");
     expect(received[0]!.asset).toBe("BTC");
-    expect(received[0]!.source).toBe(
-      "cross-venue-funding-divergence-v1:BTC",
-    );
+    expect(received[0]!.source).toBe("cross-venue-funding-divergence-v1:BTC");
   });
 
   it("divergenceBps optional field is present on emitted snapshot", () => {
@@ -856,12 +828,8 @@ describe("CrossVenueFundingDivergencePlugin — factory + adversarial", () => {
     const t0 = 1_700_000_000_000;
     // Should not throw — drop silently.
     expect(() => p.recordHlFunding("BTC", Number.NaN, null, t0)).not.toThrow();
-    expect(() =>
-      p.recordDydxFunding("BTC", Number.POSITIVE_INFINITY, t0),
-    ).not.toThrow();
-    expect(() =>
-      p.recordBzFunding("BTC", Number.NEGATIVE_INFINITY, t0),
-    ).not.toThrow();
+    expect(() => p.recordDydxFunding("BTC", Number.POSITIVE_INFINITY, t0)).not.toThrow();
+    expect(() => p.recordBzFunding("BTC", Number.NEGATIVE_INFINITY, t0)).not.toThrow();
     expect(p.state.malformedPayloadDrops).toBe(3);
     // Feed a valid pair → bucket still emits.
     p.recordByFunding("BTC", 1 / 10_000, t0);

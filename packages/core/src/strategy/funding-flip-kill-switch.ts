@@ -39,9 +39,7 @@
 export type AllowedKillSwitchLeverage = 1 | 10;
 
 /** `ALLOWED_KILL_SWITCH_LEVERAGE` — frozen array of allowed values. */
-export const ALLOWED_KILL_SWITCH_LEVERAGE: readonly AllowedKillSwitchLeverage[] = Object.freeze([
-  1, 10,
-]);
+export const ALLOWED_KILL_SWITCH_LEVERAGE: readonly AllowedKillSwitchLeverage[] = Object.freeze([1, 10]);
 
 /**
  * `assert1to10Leverage` — guardrail that asserts the leverage is in
@@ -162,7 +160,7 @@ export function computeFlipDetectorMetrics(
   for (let i = 1; i < nonZeroSlice.length; i++) {
     const a = nonZeroSlice[i - 1]!;
     const b = nonZeroSlice[i]!;
-    if ((a > 0) !== (b > 0)) flipCount += 1;
+    if (a > 0 !== b > 0) flipCount += 1;
   }
 
   // 2. Negative dominance — fraction of trailing window snapshots that
@@ -175,31 +173,28 @@ export function computeFlipDetectorMetrics(
 
   // 3. |rate| statistics for trailing flip window.
   const absRates = flipSlice.map((r) => Math.abs(r));
-  const absRateMean = absRates.length > 0
-    ? absRates.reduce((a, b) => a + b, 0) / absRates.length
-    : 0;
-  const absRateVariance = absRates.length > 1
-    ? absRates.reduce((a, b) => a + (b - absRateMean) ** 2, 0) / (absRates.length - 1)
-    : 0;
+  const absRateMean = absRates.length > 0 ? absRates.reduce((a, b) => a + b, 0) / absRates.length : 0;
+  const absRateVariance =
+    absRates.length > 1
+      ? absRates.reduce((a, b) => a + (b - absRateMean) ** 2, 0) / (absRates.length - 1)
+      : 0;
   const absRateStdDev = Math.sqrt(absRateVariance);
 
   // 4. |rate| statistics for trailing vol baseline window.
   const volWindowSize = cfg.volWindowDays * 3;
   const volSlice = history.slice(-Math.min(volWindowSize, history.length));
   const volAbsRates = volSlice.map((r) => Math.abs(r));
-  const baselineAbsRateMean = volAbsRates.length > 0
-    ? volAbsRates.reduce((a, b) => a + b, 0) / volAbsRates.length
-    : 0;
-  const baselineVariance = volAbsRates.length > 1
-    ? volAbsRates.reduce((a, b) => a + (b - baselineAbsRateMean) ** 2, 0) / (volAbsRates.length - 1)
-    : 0;
+  const baselineAbsRateMean =
+    volAbsRates.length > 0 ? volAbsRates.reduce((a, b) => a + b, 0) / volAbsRates.length : 0;
+  const baselineVariance =
+    volAbsRates.length > 1
+      ? volAbsRates.reduce((a, b) => a + (b - baselineAbsRateMean) ** 2, 0) / (volAbsRates.length - 1)
+      : 0;
   const baselineAbsRateStdDev = Math.sqrt(baselineVariance);
 
   // 5. Z-score — (flipMean - baselineMean) / baselineStdDev. If
   // baselineStdDev is 0, zscore = 0 (degenerate case, no signal).
-  const zscore = baselineAbsRateStdDev > 0
-    ? (absRateMean - baselineAbsRateMean) / baselineAbsRateStdDev
-    : 0;
+  const zscore = baselineAbsRateStdDev > 0 ? (absRateMean - baselineAbsRateMean) / baselineAbsRateStdDev : 0;
 
   return {
     flipCount,
@@ -236,21 +231,15 @@ export interface RegimeDecision {
  * detector metrics. Returns a `RegimeDecision` that downstream consumers
  * (e.g. `sol-flip-kill-switch-plugin.ts`) use to gate carry exposure.
  */
-export function evaluateRegime(
-  metrics: FlipDetectorMetrics,
-  cfg: FlipDetectorConfig,
-): RegimeDecision {
+export function evaluateRegime(metrics: FlipDetectorMetrics, cfg: FlipDetectorConfig): RegimeDecision {
   const flipRegime = metrics.flipCount >= cfg.flipThreshold;
-  const negativeDominanceRegime =
-    metrics.negativeDominance >= cfg.negativeDominanceThreshold;
+  const negativeDominanceRegime = metrics.negativeDominance >= cfg.negativeDominanceThreshold;
   const extremeRegime = Math.abs(metrics.zscore) >= cfg.extremeZscoreThreshold;
   const regimeActive = flipRegime || negativeDominanceRegime || extremeRegime;
 
   const reasons: string[] = [];
   if (flipRegime) {
-    reasons.push(
-      `flipCount=${metrics.flipCount} ≥ ${cfg.flipThreshold} (7d window)`,
-    );
+    reasons.push(`flipCount=${metrics.flipCount} ≥ ${cfg.flipThreshold} (7d window)`);
   }
   if (negativeDominanceRegime) {
     reasons.push(
@@ -258,9 +247,7 @@ export function evaluateRegime(
     );
   }
   if (extremeRegime) {
-    reasons.push(
-      `|zscore|=${Math.abs(metrics.zscore).toFixed(2)} ≥ ${cfg.extremeZscoreThreshold}`,
-    );
+    reasons.push(`|zscore|=${Math.abs(metrics.zscore).toFixed(2)} ≥ ${cfg.extremeZscoreThreshold}`);
   }
   const reason = regimeActive
     ? `regime-active: ${reasons.join("; ")}`

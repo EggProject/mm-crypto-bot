@@ -129,7 +129,17 @@ describe("alignToTimeframe", () => {
 describe("barsToCandles + barsToOhlcv", () => {
   it("barsToCandles visszaadja a Candle shape-et, volume mezővel együtt", () => {
     const bars: OhlcBar[] = [
-      { timestamp: 1, symbol: SYM, timeframe: "1m", open: 10, high: 11, low: 9, close: 10.5, volume: 100, tradeCount: 2 },
+      {
+        timestamp: 1,
+        symbol: SYM,
+        timeframe: "1m",
+        open: 10,
+        high: 11,
+        low: 9,
+        close: 10.5,
+        volume: 100,
+        tradeCount: 2,
+      },
     ];
     const candles = barsToCandles(bars);
     expect(candles).toEqual([{ timestamp: 1, open: 10, high: 11, low: 9, close: 10.5, volume: 100 }]);
@@ -137,7 +147,17 @@ describe("barsToCandles + barsToOhlcv", () => {
 
   it("barsToOhlcv a CCXT tuple formátumot adja vissza", () => {
     const bars: OhlcBar[] = [
-      { timestamp: 1, symbol: SYM, timeframe: "1m", open: 10, high: 11, low: 9, close: 10.5, volume: 100, tradeCount: 2 },
+      {
+        timestamp: 1,
+        symbol: SYM,
+        timeframe: "1m",
+        open: 10,
+        high: 11,
+        low: 9,
+        close: 10.5,
+        volume: 100,
+        tradeCount: 2,
+      },
     ];
     const ohlcv = barsToOhlcv(bars);
     expect(ohlcv).toEqual([[1, 10, 11, 9, 10.5, 100]]);
@@ -517,11 +537,11 @@ describe("OhlcStream — C5 fix: out-of-order trade detection", () => {
     // A C5 fix ezt a trade-et eldobja, a counter 1-re nő, és a
     // ring buffer tartalma változatlan marad (1 completed bar).
     const t0 = 1_700_000_400_000; // 1m grid-en
-    const stream = new OhlcStream(
-      new MockExchangeFeed(),
-      new EventEmitter(),
-      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
-    );
+    const stream = new OhlcStream(new MockExchangeFeed(), new EventEmitter(), {
+      timeframes: ["1m"],
+      bufferSize: 10,
+      symbols: [SYM],
+    });
     expect(stream.droppedLateTrades()).toBe(0);
 
     stream.ingest(mkTrade({ timestamp: t0, price: 100, amount: 1 }));
@@ -544,11 +564,11 @@ describe("OhlcStream — C5 fix: out-of-order trade detection", () => {
     // Most: a késői trade eldobódik, az aktív bar close értéke
     // változatlan.
     const t0 = 1_700_000_400_000;
-    const stream = new OhlcStream(
-      new MockExchangeFeed(),
-      new EventEmitter(),
-      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
-    );
+    const stream = new OhlcStream(new MockExchangeFeed(), new EventEmitter(), {
+      timeframes: ["1m"],
+      bufferSize: 10,
+      symbols: [SYM],
+    });
     // Aktív bar seed-elése t0-n, close=100.
     stream.ingest(mkTrade({ timestamp: t0, price: 100, amount: 1 }));
     // Rollover t0+60s, új aktív bar close=110.
@@ -569,11 +589,11 @@ describe("OhlcStream — C5 fix: out-of-order trade detection", () => {
 
   it("a dropped counter több késői trade-re is növekszik", () => {
     const t0 = 1_700_000_400_000;
-    const stream = new OhlcStream(
-      new MockExchangeFeed(),
-      new EventEmitter(),
-      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
-    );
+    const stream = new OhlcStream(new MockExchangeFeed(), new EventEmitter(), {
+      timeframes: ["1m"],
+      bufferSize: 10,
+      symbols: [SYM],
+    });
     stream.ingest(mkTrade({ timestamp: t0, price: 100, amount: 1 }));
     stream.ingest(mkTrade({ timestamp: t0 + 60_000, price: 110, amount: 1 }));
     stream.ingest(mkTrade({ timestamp: t0 - 30_000, price: 90, amount: 1 }));
@@ -584,11 +604,11 @@ describe("OhlcStream — C5 fix: out-of-order trade detection", () => {
 
   it("a normál (in-order) trade-ek NEM növelik a dropped countert", () => {
     const t0 = 1_700_000_400_000;
-    const stream = new OhlcStream(
-      new MockExchangeFeed(),
-      new EventEmitter(),
-      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
-    );
+    const stream = new OhlcStream(new MockExchangeFeed(), new EventEmitter(), {
+      timeframes: ["1m"],
+      bufferSize: 10,
+      symbols: [SYM],
+    });
     // 5 in-order trade: aktív bar seed + 4 rollover.
     for (let i = 0; i < 5; i++) {
       stream.ingest(mkTrade({ timestamp: t0 + i * 60_000, price: 100 + i, amount: 1 }));
@@ -601,11 +621,11 @@ describe("OhlcStream — C5 fix: out-of-order trade detection", () => {
     // A C5 fix console.warn-nel jelzi a késői trade-et, hogy a
     // üzemeltető lássa a normál üzemtől való eltérést.
     const t0 = 1_700_000_400_000;
-    const stream = new OhlcStream(
-      new MockExchangeFeed(),
-      new EventEmitter(),
-      { timeframes: ["1m"], bufferSize: 10, symbols: [SYM] },
-    );
+    const stream = new OhlcStream(new MockExchangeFeed(), new EventEmitter(), {
+      timeframes: ["1m"],
+      bufferSize: 10,
+      symbols: [SYM],
+    });
     stream.ingest(mkTrade({ timestamp: t0, price: 100, amount: 1 }));
     stream.ingest(mkTrade({ timestamp: t0 + 60_000, price: 110, amount: 1 }));
     const warnings: string[] = [];

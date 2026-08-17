@@ -14,13 +14,13 @@ Five parallel research agents investigated perp-DEX funding microstructure as Ph
 
 **Verdict by track:**
 
-| # | Track | Angle | Verdict | Realistic alpha | Phase 25 #2 action |
-|---|---|---|---|---|---|
-| **A** | Hyperliquid funding microstructure | en | **NEGATIVE** (regulatory cliff + capacity) | +0.3-0.6%/mo at < 1/3 of Phase 24 floor | **Monitor only** (free data feed) |
-| **B** | dYdX v4 funding microstructure | en + ja | **POSITIVE** (with 3 pre-conditions) | +7-8% net annualized → +0.6-1.0%/mo at $250k notional | **IMPLEMENT as primary carry** |
-| **C** | Cross-venue funding divergence | en + zh | **NEGATIVE** for direct carry / **MARGINAL** for lead-lag | +0.2-0.5%/mo carry (below entry bar); signal-pool use case | **Read-only monitor as regime indicator** |
-| **D** | Perp-DEX liquidation cascade | en + ko | **CONDITIONAL POSITIVE** (event-driven overlay) | +0.5-1.5%/mo at <3% incremental DD | **IMPLEMENT as event-driven satellite** |
-| **E** | Bybit perp-vs-spot basis / MiCAR | en + ru | **NEGATIVE** for direct basis / **POSITIVE** structural read | bybit.eu isolated, no perp, no basis to arb | **Defer to Phase 26** (watch Bybit X MiFID II) |
+| #     | Track                              | Angle   | Verdict                                                      | Realistic alpha                                            | Phase 25 #2 action                             |
+| ----- | ---------------------------------- | ------- | ------------------------------------------------------------ | ---------------------------------------------------------- | ---------------------------------------------- |
+| **A** | Hyperliquid funding microstructure | en      | **NEGATIVE** (regulatory cliff + capacity)                   | +0.3-0.6%/mo at < 1/3 of Phase 24 floor                    | **Monitor only** (free data feed)              |
+| **B** | dYdX v4 funding microstructure     | en + ja | **POSITIVE** (with 3 pre-conditions)                         | +7-8% net annualized → +0.6-1.0%/mo at $250k notional      | **IMPLEMENT as primary carry**                 |
+| **C** | Cross-venue funding divergence     | en + zh | **NEGATIVE** for direct carry / **MARGINAL** for lead-lag    | +0.2-0.5%/mo carry (below entry bar); signal-pool use case | **Read-only monitor as regime indicator**      |
+| **D** | Perp-DEX liquidation cascade       | en + ko | **CONDITIONAL POSITIVE** (event-driven overlay)              | +0.5-1.5%/mo at <3% incremental DD                         | **IMPLEMENT as event-driven satellite**        |
+| **E** | Bybit perp-vs-spot basis / MiCAR   | en + ru | **NEGATIVE** for direct basis / **POSITIVE** structural read | bybit.eu isolated, no perp, no basis to arb                | **Defer to Phase 26** (watch Bybit X MiFID II) |
 
 **Phase 25 #2 ranked recommendation:**
 
@@ -32,12 +32,12 @@ Five parallel research agents investigated perp-DEX funding microstructure as Ph
 
 **Combined Phase 25 #2 portfolio projection (Track B primary + Track D satellite):**
 
-| Component | Capital | Gross alpha/mo | Incremental DD | Risk-adjusted rationale |
-|---|---|---|---|---|
-| Phase 24 #1 core (cap=0.18) | $500k notional | +39.4% (proven) | <8% | Donchian + Pivot + DVOL regime (PROVEN) |
-| Track B dYdX funding carry | $250k notional | +0.6-1.0% | <1% (hedged) | Structural-negative dYdX funding vs CEX majors |
-| Track D cascade overlay | $500k-$1M notional | +0.5-1.5% | +2-3% | Event-driven, 1-3 trades/month |
-| **Combined target** | mixed | **+40.5-42.0%/mo** | **<11-12% DD** | Within user's DD 15% mandate |
+| Component                   | Capital            | Gross alpha/mo     | Incremental DD | Risk-adjusted rationale                        |
+| --------------------------- | ------------------ | ------------------ | -------------- | ---------------------------------------------- |
+| Phase 24 #1 core (cap=0.18) | $500k notional     | +39.4% (proven)    | <8%            | Donchian + Pivot + DVOL regime (PROVEN)        |
+| Track B dYdX funding carry  | $250k notional     | +0.6-1.0%          | <1% (hedged)   | Structural-negative dYdX funding vs CEX majors |
+| Track D cascade overlay     | $500k-$1M notional | +0.5-1.5%          | +2-3%          | Event-driven, 1-3 trades/month                 |
+| **Combined target**         | mixed              | **+40.5-42.0%/mo** | **<11-12% DD** | Within user's DD 15% mandate                   |
 
 This is not transformational — it's **+1.1-2.5%/mo incremental** at the design target. But it's the **first uncorrelated alpha** the portfolio has added since Phase 18 (regime-conditioned sizing empirically refuted, reverted in `8c56e2a`). The structural finding is that perp-DEX funding microstructure is real, tradeable, and crypto-native — exactly what Phase 24 needed to break the cap-tuning ceiling.
 
@@ -49,14 +49,14 @@ This is not transformational — it's **+1.1-2.5%/mo incremental** at the design
 
 ### §2.1 Quality gates (all 5 tracks)
 
-| Track | Queries | Languages | Words | Sections | Sources | Forbidden sources | Verifier verdict |
-|---|---|---|---|---|---|---|---|
-| A — Hyperliquid | 11 | en | 4757 | 7 | 39 URLs | 0 | OVERRIDE_ACCEPT (Check 4 meta-citation only) |
-| B — dYdX v4 | 16 | en + ja (7 ja) | 2918 | 8 | 25 URLs | 0 | **PASS** |
-| C — Cross-venue | 10+ targeted | en + zh (8 zh) | 4625 | 8 | 47 URLs | 0 | **PASS** (research-quality NEGATIVE) |
-| D — Liquidation | 22+ | en + ko (9 ko) | 4717 | 10 | 34 URLs | 0 | **PASS** |
-| E — Bybit basis | 18 | en + ru (≥2 ru) | 5990 | multi-section | ≥10 rows | 0 | **PASS** |
-| **TOTAL** | **77+** | **en + ja + zh + ko + ru** | **23,007** | — | **155+ URLs** | **0** | — |
+| Track           | Queries      | Languages                  | Words      | Sections      | Sources       | Forbidden sources | Verifier verdict                             |
+| --------------- | ------------ | -------------------------- | ---------- | ------------- | ------------- | ----------------- | -------------------------------------------- |
+| A — Hyperliquid | 11           | en                         | 4757       | 7             | 39 URLs       | 0                 | OVERRIDE_ACCEPT (Check 4 meta-citation only) |
+| B — dYdX v4     | 16           | en + ja (7 ja)             | 2918       | 8             | 25 URLs       | 0                 | **PASS**                                     |
+| C — Cross-venue | 10+ targeted | en + zh (8 zh)             | 4625       | 8             | 47 URLs       | 0                 | **PASS** (research-quality NEGATIVE)         |
+| D — Liquidation | 22+          | en + ko (9 ko)             | 4717       | 10            | 34 URLs       | 0                 | **PASS**                                     |
+| E — Bybit basis | 18           | en + ru (≥2 ru)            | 5990       | multi-section | ≥10 rows      | 0                 | **PASS**                                     |
+| **TOTAL**       | **77+**      | **en + ja + zh + ko + ru** | **23,007** | —             | **155+ URLs** | **0**             | —                                            |
 
 Every track passes the multi-language doctrine (en + 1 secondary, ≥2 sources in secondary lang). Every track rejects the "konzervatív régi forex kereskedők" forbidden-source class. Every numerical claim has ≥2 independent sources per the research doctrine. The Phase 25 #1 research fleet meets the **crypto-native + multi-language + ≥5 parallel agents + ≥10 queries/angle** doctrine from MEMORY (hot layer, Mavis).
 
@@ -64,13 +64,13 @@ Every track passes the multi-language doctrine (en + 1 secondary, ≥2 sources i
 
 The five tracks share a single empirical backbone: **perp-DEX funding rates cluster at a structural-positive anchor of +0.01%/8h ≈ 11% APR on CEX majors (Binance, Bybit, OKX), but with venue-specific deviations**:
 
-| Venue | Settlement cadence | Anchor | Q1-Q2 2026 30D Avg BTC | Q1-Q2 2026 30D Avg ETH | Notable structural deviation |
-|---|---|---|---|---|---|
-| Binance | 8h | +0.01%/8h | +0.0080%/8h | +0.0085%/8h | Neutral reference |
-| Bybit | 8h | +0.01%/8h | +0.0080%/8h | +0.0082%/8h | Tightly tracks Binance |
-| OKX | 8h | +0.01%/8h (most) | +0.0080%/8h | similar | Tightly tracks Binance |
-| **Hyperliquid** | **1h** | 0.00125%/h | +0.0017%/8h-equiv | +0.0015%/8h-equiv | HL structurally tighter, but max hourly bursts up to 0.067% (BTC), 0.075% (ETH) — "far beyond what other exchanges experienced" |
-| **dYdX v4** | **1h** | varies | **−0.0022%/8h** | **−0.0017%/8h** | **Structurally NEGATIVE** — arbitrage window |
+| Venue           | Settlement cadence | Anchor           | Q1-Q2 2026 30D Avg BTC | Q1-Q2 2026 30D Avg ETH | Notable structural deviation                                                                                                    |
+| --------------- | ------------------ | ---------------- | ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Binance         | 8h                 | +0.01%/8h        | +0.0080%/8h            | +0.0085%/8h            | Neutral reference                                                                                                               |
+| Bybit           | 8h                 | +0.01%/8h        | +0.0080%/8h            | +0.0082%/8h            | Tightly tracks Binance                                                                                                          |
+| OKX             | 8h                 | +0.01%/8h (most) | +0.0080%/8h            | similar                | Tightly tracks Binance                                                                                                          |
+| **Hyperliquid** | **1h**             | 0.00125%/h       | +0.0017%/8h-equiv      | +0.0015%/8h-equiv      | HL structurally tighter, but max hourly bursts up to 0.067% (BTC), 0.075% (ETH) — "far beyond what other exchanges experienced" |
+| **dYdX v4**     | **1h**             | varies           | **−0.0022%/8h**        | **−0.0017%/8h**        | **Structurally NEGATIVE** — arbitrage window                                                                                    |
 
 The cross-venue finding: **Binance leads Hyperliquid by 700ms on price moves (29/29 assets tested) and Lighter leads Hyperliquid by 800ms (27/29 assets) per Hayashi-Yoshida lead-lag estimator (16-day window Feb 2026)** [Track C §1 citing Binance Square / Hu 2026]. Hyperliquid is a structural **price-taker** on price discovery, not a leader.
 
@@ -135,6 +135,7 @@ The user's Phase 14B mandate ("DD 15% is fine, size to 15% DD") and Phase 24 por
 **Sizing (Track B §7.3):** Initial cap=0.05 (1/4 of Phase 24 #1 portfolio cap of 0.18). Position size $50k-$250k per leg, scaled to ≤10 bps slippage on dYdX v4 BTC-USD. Symbol set: BTC-USD, ETH-USD, SOL-USD only. No isolated markets <30 days old.
 
 **Implementation roadmap (4 weeks):**
+
 - Week 1: Wire Indexer WebSocket feed into mm-crypto-bot funding-source plugin. Build divergence monitor.
 - Week 2: Backtest on Tardis.dev historical data (~$50-100/month for dYdX v4). Validate 11% annualized carry.
 - Week 3: Live paper-trade 7 days, verify divergence persistence.
@@ -165,6 +166,7 @@ The user's Phase 14B mandate ("DD 15% is fine, size to 15% DD") and Phase 24 por
 3. **Regime-change risk:** The 2022-05 Terra/LUNA cascade did not mean-revert; UST and LUNA went to zero. The 2022-11 FTX cascade did not mean-revert within 30 days.
 
 **Mitigations (Track D §6 + §7):**
+
 - Three-layer filter: CoinGlass + Bitquery gRPC + Axel Adler OI/ELR rule (OI drop >15% in 48h, ELR < 0.40)
 - Timed exit ≤10 minutes (no TP/SL — curupira rule)
 - Hard stop at -5% rolling 7d on overlay book (regime-change detector)
@@ -217,11 +219,11 @@ Track A's monitoring-only recommendation preserves the option value: if Track B 
 
 Per the user's Mavis memory directive ("Explicit numeric targets = design targets, NOT ceilings"): the +0.5-1.0%/mo realistic target is the **design center**, not a ceiling to be conservatively undershot. Phase 25 #2 should size TO the +1.0%/mo realistic upper bound:
 
-| Component | Realistic low | Realistic high | Design target |
-|---|---|---|---|
-| Track B (dYdX carry) | +0.6%/mo | +1.0%/mo | **+0.8%/mo** |
-| Track D (cascade overlay) | +0.5%/mo | +1.5%/mo | **+1.0%/mo** |
-| **Combined incremental** | **+1.1%/mo** | **+2.5%/mo** | **+1.8%/mo design target** |
+| Component                 | Realistic low | Realistic high | Design target              |
+| ------------------------- | ------------- | -------------- | -------------------------- |
+| Track B (dYdX carry)      | +0.6%/mo      | +1.0%/mo       | **+0.8%/mo**               |
+| Track D (cascade overlay) | +0.5%/mo      | +1.5%/mo       | **+1.0%/mo**               |
+| **Combined incremental**  | **+1.1%/mo**  | **+2.5%/mo**   | **+1.8%/mo design target** |
 
 Combined with Phase 24 #1 core (+39.4%/mo at cap=0.18), the **target portfolio is +40.5-42.0%/mo at <11-12% DD**, still inside the user's "DD 15% is fine" mandate.
 
@@ -234,38 +236,42 @@ The "conservative tier below the user's stated target" anti-pattern from memory 
 ### §5.1 Sequence (4-week plan)
 
 **Week 1 — Track B (dYdX v4 funding carry) wiring:**
+
 - Wire `https://indexer.dydx.trade/v4/historical-funding` WebSocket + REST into mm-crypto-bot funding-source plugin (additive to Coinglass/Coinalyze)
 - Build divergence monitor: dYdX-vs-bybit perp funding-rate spread, BTC-USD + ETH-USD + SOL-USD, 1-minute bucket
 - Backtest on Tardis.dev historical data (~$50-100/month subscription)
 - Output: divergence monitor running in paper mode, historical backtest report
 
 **Week 2 — Track B live paper-trade:**
+
 - Live paper-trade divergence strategy 7 days, verify ≥0.0005/8h persistence
 - Set up bybit.eu SPOT hedge leg plumbing (existing execution layer)
 - Verify all 3 Track B pre-conditions: divergence ≥ 0.0005/8h, dYdX status operational ≥72h, no active governance proposal
 - Output: 7-day paper-trade P&L, kill-switch wiring validated
 
 **Week 3 — Track B live execution + Track D cascade detector:**
+
 - Track B: size to cap=0.05, $50k-$250k per leg, BTC-USD + ETH-USD + SOL-USD
 - Track D: build cascade detector (CoinGlass WS + Bitquery gRPC + Axel Adler OI/ELR filter)
 - Both running in parallel, with Track D in **paper-trade mode only**
 - Output: Track B live P&L (Week 1), Track D cascade detector validated against historical 2025-10-10 event
 
 **Week 4 — Track D paper-trade + Phase 25 #2 final report:**
+
 - Track D: live paper-trade cascade overlay for ≥7 days, validate against CoinGlass historical liquidation windows
 - Phase 25 #2 final synthesis REPORT-phase25-2.md with combined P&L, DD series, Sharpe
 - Output: PR with Phase 25 #2 implementation + Track B live + Track D paper-trade validated
 
 ### §5.2 Critical-path risk factors
 
-| Risk | Probability | Mitigation |
-|---|---|---|
-| Track B divergence compresses <0.0005/8h during implementation | Medium (already documented structural component persists but cyclical noise) | 7-day paper-trade pre-flight + weekly rolling-window check; halt strategy if compressed |
-| Track D paper-trade underperforms curupira live result | High (anomiq.io full-year negative result is the relevant baseline) | Paper-trade ≥30 days, not 7; reconcile against CoinGlass historical backtest with 30bps round-trip |
-| dYdX v4 chain incident (Oct-2025 precedent = 7hr downtime) | Low-Medium | Hard kill-switch on chain non-finalized >10min; halt all dYdX exposure |
-| bybit.eu SPOT depth collapses during cascade event | Medium (post-hack 7% global share, RPI orders 50% depth 5-10bps) | Cap at $1M/symbol/event; rely on RPI internalizer for depth |
-| Track C cross-venue signal-pool integration takes longer than 1 week | Medium | Defer to Week 5+ if needed; not on critical path |
-| MiCAR/MiFID II enforcement action against private trader | Low (operator-level, not bot-level) | Track free data feeds only for Track A; bybit.eu is already MiCAR-compliant for Track D execution |
+| Risk                                                                 | Probability                                                                  | Mitigation                                                                                         |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Track B divergence compresses <0.0005/8h during implementation       | Medium (already documented structural component persists but cyclical noise) | 7-day paper-trade pre-flight + weekly rolling-window check; halt strategy if compressed            |
+| Track D paper-trade underperforms curupira live result               | High (anomiq.io full-year negative result is the relevant baseline)          | Paper-trade ≥30 days, not 7; reconcile against CoinGlass historical backtest with 30bps round-trip |
+| dYdX v4 chain incident (Oct-2025 precedent = 7hr downtime)           | Low-Medium                                                                   | Hard kill-switch on chain non-finalized >10min; halt all dYdX exposure                             |
+| bybit.eu SPOT depth collapses during cascade event                   | Medium (post-hack 7% global share, RPI orders 50% depth 5-10bps)             | Cap at $1M/symbol/event; rely on RPI internalizer for depth                                        |
+| Track C cross-venue signal-pool integration takes longer than 1 week | Medium                                                                       | Defer to Week 5+ if needed; not on critical path                                                   |
+| MiCAR/MiFID II enforcement action against private trader             | Low (operator-level, not bot-level)                                          | Track free data feeds only for Track A; bybit.eu is already MiCAR-compliant for Track D execution  |
 
 ### §5.3 What we explicitly do NOT do in Phase 25 #2
 
@@ -343,4 +349,4 @@ Items that emerged from Phase 25 #1 but are out of scope for Phase 25 #2:
 
 ---
 
-*End of synthesis. Track reports (REPORT.md) and source bibliographies (sources.md) at `docs/research/phase25/track-{a,b,c,d,e}/`. All artifacts on branch `feat/phase25-research-fleet` (commits `bb84caa`, `f3a2296`, `be877b1`).*
+_End of synthesis. Track reports (REPORT.md) and source bibliographies (sources.md) at `docs/research/phase25/track-{a,b,c,d,e}/`. All artifacts on branch `feat/phase25-research-fleet` (commits `bb84caa`, `f3a2296`, `be877b1`)._

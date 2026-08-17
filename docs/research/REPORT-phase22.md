@@ -13,18 +13,18 @@ Phase 22 #1 aimed to lift the Phase 19 cap-sweep envelope (+32.24%/mo portfolio 
 
 ### Headline finding
 
-| Metric | Phase 19 #1 (1-of-2 cap=0.12 portfolio avg) | Phase 22 #1 baseline (no carry, cap=0.12) | Phase 22 #1 FundingRate (carry 2of3, cap=0.12) | Δ vs Phase 19 |
-|---|---:|---:|---:|---:|
-| Monthly return % | +32.2416% | +32.2070% | +31.7208% | **−0.52 pp** (NEGATIVE) |
-| Max DD (worst-of-3, SOL 0.12) | 4.70% | 4.70% | 4.70% | **0.00 pp** (carry does NOT reduce DD) |
-| Trade count (BTC/ETH/SOL sum) | 31,596 | 31,596 | 29,577 | **−2,019 (−6.4%)** (carry suppresses 6.4% of trades) |
-| Win-rate (BTC/ETH/SOL @ 0.12) | 64.77% / 68.62% / 68.21% | 64.77% / 68.62% / 68.21% | 65.46% / 68.48% / 66.17% | +0.69 / −0.14 / −2.04 pp (BTC up, SOL down) |
-| Avg `notionalUsd` (BTC 0.12) | $223,088 | $223,088 | $1,266.88 (worst) / larger in winners | carry mostly small early trades; the carry confidence routing makes early small-win trade the limiting case |
-| Kill-switch triggered | false | false | false | identical |
-| Funding distribution (BTC) | n/a | n/a | 14.3% pos / 2.5% neg / 83.1% neutral | mostly NEUTRAL — carry abstains 83% of the time |
-| Funding distribution (ETH) | n/a | n/a | 17.0% pos / 2.3% neg / 80.7% neutral | mostly NEUTRAL |
-| Funding distribution (SOL) | n/a | n/a | 13.0% pos / 11.8% neg / 75.2% neutral | much more ACTIVE (24.8% non-neutral vs BTC 16.8%) |
-| 1:10 leverage audit (worst trade per run) | n/a | n/a | max ratio 0.0800–0.1500× across all 9 cells | PASS — well under the 10× mandate |
+| Metric                                    | Phase 19 #1 (1-of-2 cap=0.12 portfolio avg) | Phase 22 #1 baseline (no carry, cap=0.12) | Phase 22 #1 FundingRate (carry 2of3, cap=0.12) |                                                                                               Δ vs Phase 19 |
+| ----------------------------------------- | ------------------------------------------: | ----------------------------------------: | ---------------------------------------------: | ----------------------------------------------------------------------------------------------------------: |
+| Monthly return %                          |                                   +32.2416% |                                 +32.2070% |                                      +31.7208% |                                                                                     **−0.52 pp** (NEGATIVE) |
+| Max DD (worst-of-3, SOL 0.12)             |                                       4.70% |                                     4.70% |                                          4.70% |                                                                      **0.00 pp** (carry does NOT reduce DD) |
+| Trade count (BTC/ETH/SOL sum)             |                                      31,596 |                                    31,596 |                                         29,577 |                                                        **−2,019 (−6.4%)** (carry suppresses 6.4% of trades) |
+| Win-rate (BTC/ETH/SOL @ 0.12)             |                    64.77% / 68.62% / 68.21% |                  64.77% / 68.62% / 68.21% |                       65.46% / 68.48% / 66.17% |                                                                 +0.69 / −0.14 / −2.04 pp (BTC up, SOL down) |
+| Avg `notionalUsd` (BTC 0.12)              |                                    $223,088 |                                  $223,088 |          $1,266.88 (worst) / larger in winners | carry mostly small early trades; the carry confidence routing makes early small-win trade the limiting case |
+| Kill-switch triggered                     |                                       false |                                     false |                                          false |                                                                                                   identical |
+| Funding distribution (BTC)                |                                         n/a |                                       n/a |           14.3% pos / 2.5% neg / 83.1% neutral |                                                             mostly NEUTRAL — carry abstains 83% of the time |
+| Funding distribution (ETH)                |                                         n/a |                                       n/a |           17.0% pos / 2.3% neg / 80.7% neutral |                                                                                              mostly NEUTRAL |
+| Funding distribution (SOL)                |                                         n/a |                                       n/a |          13.0% pos / 11.8% neg / 75.2% neutral |                                                           much more ACTIVE (24.8% non-neutral vs BTC 16.8%) |
+| 1:10 leverage audit (worst trade per run) |                                         n/a |                                       n/a |    max ratio 0.0800–0.1500× across all 9 cells |                                                                           PASS — well under the 10× mandate |
 
 ### Why this is a CLEAN NEGATIVE at the portfolio level (not noise)
 
@@ -51,12 +51,12 @@ The strategy's edge is **carry-invariant** — the Donchian channel breakouts wo
 
 ### Pick table
 
-| Pick | Verdict | Notes |
-|---|---|---|
-| Track A module + CSV feed | PASS (verifier-confirmed) | 100% coverage, 30+39 tests, hysteresis 2 bars, throw-not-zero on missing CSV |
-| Track B wire-up + 8 integration tests | PASS (verifier-confirmed) | NOT-silent-no-op proven, hard-error path on missing CSV, 1:10 mandate holds |
-| Track C empirical envelope @ cap=0.12 | **NEGATIVE — −0.52 pp portfolio avg, SOL −2.21 pp** | This report's finding |
-| Recommended action | Drop Phase 22 #1 from the +50%/mo roadmap | See §10 Phase 23 candidates |
+| Pick                                  | Verdict                                             | Notes                                                                        |
+| ------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Track A module + CSV feed             | PASS (verifier-confirmed)                           | 100% coverage, 30+39 tests, hysteresis 2 bars, throw-not-zero on missing CSV |
+| Track B wire-up + 8 integration tests | PASS (verifier-confirmed)                           | NOT-silent-no-op proven, hard-error path on missing CSV, 1:10 mandate holds  |
+| Track C empirical envelope @ cap=0.12 | **NEGATIVE — −0.52 pp portfolio avg, SOL −2.21 pp** | This report's finding                                                        |
+| Recommended action                    | Drop Phase 22 #1 from the +50%/mo roadmap           | See §10 Phase 23 candidates                                                  |
 
 ---
 
@@ -68,11 +68,11 @@ Per the Phase 20/21 archive (`docs/research/PHASE-20-21-ARCHIVE.md` §3), before
 
 ### Edge-INVARIANCE pre-flight results (FundingRate @ cap=0.12)
 
-| Symbol | Positive funding bucket | Negative funding bucket | Neutral bucket | Spread (max−min) | Verdict |
-|---|---|---|---|---:|---|
-| **BTC/USDT** | n=635, **WR=77.48%** | n=13, WR=38.46% (noisy, n<30) | n=9,723, WR=64.71% | **12.77 pp** | **FILTER** — positive-funding trades win more |
-| **ETH/USDT** | n=659, **WR=71.93%** | n=118, WR=47.46% | n=8,792, WR=68.51% | **24.47 pp** | **FILTER** — strong positive-funding bias |
-| **SOL/USDT** | n=863, WR=67.56% | n=870, **WR=71.26%** | n=7,904, WR=65.46% | **5.80 pp** | **FILTER (marginal)** — negative-funding slightly better |
+| Symbol       | Positive funding bucket | Negative funding bucket       | Neutral bucket     | Spread (max−min) | Verdict                                                  |
+| ------------ | ----------------------- | ----------------------------- | ------------------ | ---------------: | -------------------------------------------------------- |
+| **BTC/USDT** | n=635, **WR=77.48%**    | n=13, WR=38.46% (noisy, n<30) | n=9,723, WR=64.71% |     **12.77 pp** | **FILTER** — positive-funding trades win more            |
+| **ETH/USDT** | n=659, **WR=71.93%**    | n=118, WR=47.46%              | n=8,792, WR=68.51% |     **24.47 pp** | **FILTER** — strong positive-funding bias                |
+| **SOL/USDT** | n=863, WR=67.56%        | n=870, **WR=71.26%**          | n=7,904, WR=65.46% |      **5.80 pp** | **FILTER (marginal)** — negative-funding slightly better |
 
 **Data sources:** `backtest-results/phase22-funding-rate-carry-2of3-{btc,eth,sol}-15m-0.12.json` (trade arrays); `data/funding/binance_{btc,eth,sol}usdt_funding_8h.csv` (funding-rate history).
 
@@ -160,10 +160,10 @@ funding-rate carry engaged; mode=2of3; bars=7466; funding-distribution=positive:
 
 This is the line grep'd in Test 7. Captured distribution lines for all 9 funding-rate runs:
 
-| Symbol | Captured stdout distribution line |
-|---|---|
-| BTC/USDT (all 3 caps) | `funding-rate carry engaged; mode=2of3; bars=7466; funding-distribution=positive:14.3%, negative:2.5%, neutral:83.1%` |
-| ETH/USDT (all 3 caps) | `funding-rate carry engaged; mode=2of3; bars=7232; funding-distribution=positive:17.0%, negative:2.3%, neutral:80.7%` |
+| Symbol                | Captured stdout distribution line                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| BTC/USDT (all 3 caps) | `funding-rate carry engaged; mode=2of3; bars=7466; funding-distribution=positive:14.3%, negative:2.5%, neutral:83.1%`  |
+| ETH/USDT (all 3 caps) | `funding-rate carry engaged; mode=2of3; bars=7232; funding-distribution=positive:17.0%, negative:2.3%, neutral:80.7%`  |
 | SOL/USDT (all 3 caps) | `funding-rate carry engaged; mode=2of3; bars=6433; funding-distribution=positive:13.0%, negative:11.8%, neutral:75.2%` |
 
 ### Hard-error path verification (Track B integration tests, all PASS)
@@ -174,6 +174,7 @@ This is the line grep'd in Test 7. Captured distribution lines for all 9 funding
 ### Bit-identical-trade-stream probe (Track B integration test 3, all PASS)
 
 Per `(entryTime, side, notionalUsd, pnlUsd)` tuple matching:
+
 - BTC 0.12: 0 tuples match across 11,043 OFF and 10,371 ON trades (carry confidence routing changes every surviving trade's notional via the consensus mean-confidence)
 - ETH 0.12: similar — trade stream fully differentiated
 - SOL 0.12: similar
@@ -192,17 +193,17 @@ All within the 5pp invariant. The carry is a signal source, not a strategy repla
 
 Max `notionalUsd / equityAtTradeTime` across all trades in each FundingRate run:
 
-| Symbol | Cap | Max ratio | Status | Worst trade info (notional / ts / equity) |
-|---|---|---:|---|---|
-| BTC | 0.08 | 0.0800× | PASS | $10,620.12 @ ts=1729283400000 equity=$132,738.76 |
-| BTC | 0.12 | 0.1200× | PASS | $1,266.88 @ ts=1704719700000 equity=$10,555.81 |
-| BTC | 0.15 | 0.1500× | PASS | $1,585.76 @ ts=1704714300000 equity=$10,569.84 |
-| ETH | 0.08 | 0.0800× | PASS | $43,128.33 @ ts=1752098400000 equity=$539,052.36 |
-| ETH | 0.12 | 0.1200× | PASS | $1,305.57 @ ts=1704917700000 equity=$10,878.22 |
-| ETH | 0.15 | 0.1500× | PASS | $1,578.45 @ ts=1704737700000 equity=$10,521.08 |
-| SOL | 0.08 | 0.0800× | PASS | $678,869.38 @ ts=1775025000000 equity=$8,485,052.15 |
-| SOL | 0.12 | 0.1200× | PASS | $1,247.29 @ ts=1705473900000 equity=$10,392.57 |
-| SOL | 0.15 | 0.1500× | PASS | $1,546.19 @ ts=1705390200000 equity=$10,306.10 |
+| Symbol | Cap  | Max ratio | Status | Worst trade info (notional / ts / equity)           |
+| ------ | ---- | --------: | ------ | --------------------------------------------------- |
+| BTC    | 0.08 |   0.0800× | PASS   | $10,620.12 @ ts=1729283400000 equity=$132,738.76    |
+| BTC    | 0.12 |   0.1200× | PASS   | $1,266.88 @ ts=1704719700000 equity=$10,555.81      |
+| BTC    | 0.15 |   0.1500× | PASS   | $1,585.76 @ ts=1704714300000 equity=$10,569.84      |
+| ETH    | 0.08 |   0.0800× | PASS   | $43,128.33 @ ts=1752098400000 equity=$539,052.36    |
+| ETH    | 0.12 |   0.1200× | PASS   | $1,305.57 @ ts=1704917700000 equity=$10,878.22      |
+| ETH    | 0.15 |   0.1500× | PASS   | $1,578.45 @ ts=1704737700000 equity=$10,521.08      |
+| SOL    | 0.08 |   0.0800× | PASS   | $678,869.38 @ ts=1775025000000 equity=$8,485,052.15 |
+| SOL    | 0.12 |   0.1200× | PASS   | $1,247.29 @ ts=1705473900000 equity=$10,392.57      |
+| SOL    | 0.15 |   0.1500× | PASS   | $1,546.19 @ ts=1705390200000 equity=$10,306.10      |
 
 Equity-at-trade-time is read from the `equityCurve` via binary search (handles compounding — initial equity is insufficient because the strategy wins big and equity grows). **Worst ratio across all 9 runs = 0.15×, ~67× UNDER the 1:10 mandate.** The Track B 3-layer defense holds.
 
@@ -308,27 +309,27 @@ The full envelope comparison is auto-generated at `docs/research/ENVELOPE-COMPAR
 
 ### 9 FundingRate envelopes (carry 2of3) vs Phase 19 #1 same-cap
 
-| Symbol | Cap | FR monthly% | Ph19 monthly% | Δ(pp) | FR DD% | Ph19 DD% | DD drift | FR trades | Ph19 trades | FR winrate | Ph19 winrate | Kill | FR JSON |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
-| BTC | 0.08 | 19.81% | 20.36% | **−0.54pp** | 2.95% | 2.95% | 0.00pp | 10,371 | 11,043 | 65.46% | 64.77% | no | `phase22-funding-rate-carry-2of3-btc-15m-0.08.json` |
-| BTC | 0.12 | 27.21% | 26.67% | **+0.54pp** | 4.39% | 4.39% | 0.00pp | 10,371 | 11,043 | 65.46% | 64.77% | no | `phase22-funding-rate-carry-2of3-btc-15m-0.12.json` |
-| BTC | 0.15 | 31.41% | 30.28% | **+1.13pp** | 5.46% | 5.46% | 0.00pp | 10,371 | 11,043 | 65.46% | 64.77% | no | `phase22-funding-rate-carry-2of3-btc-15m-0.15.json` |
-| ETH | 0.08 | 25.19% | 25.85% | **−0.66pp** | 2.37% | 2.37% | 0.00pp | 9,569 | 9,977 | 68.48% | 68.62% | no | `phase22-funding-rate-carry-2of3-eth-15m-0.08.json` |
-| ETH | 0.12 | 32.25% | 32.14% | **+0.11pp** | 3.33% | 3.33% | 0.00pp | 9,569 | 9,977 | 68.48% | 68.62% | no | `phase22-funding-rate-carry-2of3-eth-15m-0.12.json` |
-| ETH | 0.15 | 35.86% | 35.10% | **+0.76pp** | 4.06% | 4.06% | 0.00pp | 9,569 | 9,977 | 68.48% | 68.62% | no | `phase22-funding-rate-carry-2of3-eth-15m-0.15.json` |
-| SOL | 0.08 | 27.65% | 30.53% | **−2.88pp** | 3.15% | 3.15% | 0.00pp | 9,637 | 10,576 | 66.17% | 68.21% | no | `phase22-funding-rate-carry-2of3-sol-15m-0.08.json` |
-| SOL | 0.12 | 35.70% | 37.91% | **−2.21pp** | 4.70% | 4.70% | 0.00pp | 9,637 | 10,576 | 66.17% | 68.21% | no | `phase22-funding-rate-carry-2of3-sol-15m-0.12.json` |
-| SOL | 0.15 | 40.06% | 41.75% | **−1.70pp** | 5.84% | 5.84% | 0.00pp | 9,637 | 10,576 | 66.17% | 68.21% | no | `phase22-funding-rate-carry-2of3-sol-15m-0.15.json` |
+| Symbol | Cap  | FR monthly% | Ph19 monthly% |       Δ(pp) | FR DD% | Ph19 DD% | DD drift | FR trades | Ph19 trades | FR winrate | Ph19 winrate | Kill | FR JSON                                             |
+| ------ | ---- | ----------: | ------------: | ----------: | -----: | -------: | -------: | --------: | ----------: | ---------: | -----------: | ---- | --------------------------------------------------- |
+| BTC    | 0.08 |      19.81% |        20.36% | **−0.54pp** |  2.95% |    2.95% |   0.00pp |    10,371 |      11,043 |     65.46% |       64.77% | no   | `phase22-funding-rate-carry-2of3-btc-15m-0.08.json` |
+| BTC    | 0.12 |      27.21% |        26.67% | **+0.54pp** |  4.39% |    4.39% |   0.00pp |    10,371 |      11,043 |     65.46% |       64.77% | no   | `phase22-funding-rate-carry-2of3-btc-15m-0.12.json` |
+| BTC    | 0.15 |      31.41% |        30.28% | **+1.13pp** |  5.46% |    5.46% |   0.00pp |    10,371 |      11,043 |     65.46% |       64.77% | no   | `phase22-funding-rate-carry-2of3-btc-15m-0.15.json` |
+| ETH    | 0.08 |      25.19% |        25.85% | **−0.66pp** |  2.37% |    2.37% |   0.00pp |     9,569 |       9,977 |     68.48% |       68.62% | no   | `phase22-funding-rate-carry-2of3-eth-15m-0.08.json` |
+| ETH    | 0.12 |      32.25% |        32.14% | **+0.11pp** |  3.33% |    3.33% |   0.00pp |     9,569 |       9,977 |     68.48% |       68.62% | no   | `phase22-funding-rate-carry-2of3-eth-15m-0.12.json` |
+| ETH    | 0.15 |      35.86% |        35.10% | **+0.76pp** |  4.06% |    4.06% |   0.00pp |     9,569 |       9,977 |     68.48% |       68.62% | no   | `phase22-funding-rate-carry-2of3-eth-15m-0.15.json` |
+| SOL    | 0.08 |      27.65% |        30.53% | **−2.88pp** |  3.15% |    3.15% |   0.00pp |     9,637 |      10,576 |     66.17% |       68.21% | no   | `phase22-funding-rate-carry-2of3-sol-15m-0.08.json` |
+| SOL    | 0.12 |      35.70% |        37.91% | **−2.21pp** |  4.70% |    4.70% |   0.00pp |     9,637 |      10,576 |     66.17% |       68.21% | no   | `phase22-funding-rate-carry-2of3-sol-15m-0.12.json` |
+| SOL    | 0.15 |      40.06% |        41.75% | **−1.70pp** |  5.84% |    5.84% |   0.00pp |     9,637 |      10,576 |     66.17% |       68.21% | no   | `phase22-funding-rate-carry-2of3-sol-15m-0.15.json` |
 
 ### 3 Reference baselines (no funding-rate) vs Phase 19 #1 same-cap
 
 The regression anchor — the new runner with `--enable-funding-rate-carry=false` must match Phase 19 #1 within 0.04pp (engine determinism tolerance).
 
-| Symbol | Cap | P22 baseline monthly% | Ph19 monthly% | Δ(pp) | P22 DD% | Ph19 DD% | P22 trades | Ph19 trades | Winrate | P22 JSON |
-|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|
-| BTC | 0.12 | 26.64% | 26.67% | **−0.03pp** | 4.39% | 4.39% | 11,043 | 11,043 | 64.77% | `phase22-baseline-1of2-btc-15m-0.12.json` |
-| ETH | 0.12 | 32.11% | 32.14% | **−0.03pp** | 3.33% | 3.33% | 9,977 | 9,977 | 68.62% | `phase22-baseline-1of2-eth-15m-0.12.json` |
-| SOL | 0.12 | 37.87% | 37.91% | **−0.04pp** | 4.70% | 4.70% | 10,576 | 10,576 | 68.21% | `phase22-baseline-1of2-sol-15m-0.12.json` |
+| Symbol | Cap  | P22 baseline monthly% | Ph19 monthly% |       Δ(pp) | P22 DD% | Ph19 DD% | P22 trades | Ph19 trades | Winrate | P22 JSON                                  |
+| ------ | ---- | --------------------: | ------------: | ----------: | ------: | -------: | ---------: | ----------: | ------- | ----------------------------------------- |
+| BTC    | 0.12 |                26.64% |        26.67% | **−0.03pp** |   4.39% |    4.39% |     11,043 |      11,043 | 64.77%  | `phase22-baseline-1of2-btc-15m-0.12.json` |
+| ETH    | 0.12 |                32.11% |        32.14% | **−0.03pp** |   3.33% |    3.33% |      9,977 |       9,977 | 68.62%  | `phase22-baseline-1of2-eth-15m-0.12.json` |
+| SOL    | 0.12 |                37.87% |        37.91% | **−0.04pp** |   4.70% |    4.70% |     10,576 |      10,576 | 68.21%  | `phase22-baseline-1of2-sol-15m-0.12.json` |
 
 **Regression anchor verdict:** PASS — all 3 baselines match Phase 19 #1 within 0.04pp. The Track B wire-up does NOT leak when the carry flag is OFF.
 
@@ -352,27 +353,27 @@ The CSV files have been archived to `backtest-results/funding-rate-history-{btc,
 
 ### Phase 22 #1 (FundingRate carry 2of3, 9 envelopes)
 
-| Cap | BTC monthly% / DD% | ETH monthly% / DD% | SOL monthly% / DD% | Portfolio avg monthly% / worst DD% |
-|---|---|---|---|---|
-| 0.08 | 19.81% / 2.95% | 25.19% / 2.37% | 27.65% / 3.15% | **24.22% / 3.15%** |
-| 0.12 | 27.21% / 4.39% | 32.25% / 3.33% | 35.70% / 4.70% | **31.72% / 4.70%** |
-| 0.15 | 31.41% / 5.46% | 35.86% / 4.06% | 40.06% / 5.84% | **35.78% / 5.84%** |
+| Cap  | BTC monthly% / DD% | ETH monthly% / DD% | SOL monthly% / DD% | Portfolio avg monthly% / worst DD% |
+| ---- | ------------------ | ------------------ | ------------------ | ---------------------------------- |
+| 0.08 | 19.81% / 2.95%     | 25.19% / 2.37%     | 27.65% / 3.15%     | **24.22% / 3.15%**                 |
+| 0.12 | 27.21% / 4.39%     | 32.25% / 3.33%     | 35.70% / 4.70%     | **31.72% / 4.70%**                 |
+| 0.15 | 31.41% / 5.46%     | 35.86% / 4.06%     | 40.06% / 5.84%     | **35.78% / 5.84%**                 |
 
 ### Phase 19 #1 (same caps, no carry)
 
-| Cap | BTC monthly% / DD% | ETH monthly% / DD% | SOL monthly% / DD% | Portfolio avg monthly% / worst DD% |
-|---|---|---|---|---|
-| 0.08 | 20.36% / 2.95% | 25.85% / 2.37% | 30.53% / 3.15% | **25.58% / 3.15%** |
-| 0.12 | 26.67% / 4.39% | 32.14% / 3.33% | 37.91% / 4.70% | **32.24% / 4.70%** |
-| 0.15 | 30.28% / 5.46% | 35.10% / 4.06% | 41.75% / 5.84% | **35.71% / 5.84%** |
+| Cap  | BTC monthly% / DD% | ETH monthly% / DD% | SOL monthly% / DD% | Portfolio avg monthly% / worst DD% |
+| ---- | ------------------ | ------------------ | ------------------ | ---------------------------------- |
+| 0.08 | 20.36% / 2.95%     | 25.85% / 2.37%     | 30.53% / 3.15%     | **25.58% / 3.15%**                 |
+| 0.12 | 26.67% / 4.39%     | 32.14% / 3.33%     | 37.91% / 4.70%     | **32.24% / 4.70%**                 |
+| 0.15 | 30.28% / 5.46%     | 35.10% / 4.06%     | 41.75% / 5.84%     | **35.71% / 5.84%**                 |
 
 ### Carry envelope vs Phase 19 envelope — Δ Return and Δ DD
 
-| Cap | Δ monthly% (avg) | Δ DD (worst) | Notes |
-|---|---:|---:|---|
-| 0.08 | **−1.36 pp** | 0.00 pp | carry HURTS — SOL −2.88pp drags the average |
-| 0.12 | **−0.52 pp** | 0.00 pp | headline: NEGATIVE. BTC +0.54pp, ETH +0.11pp, SOL −2.21pp |
-| 0.15 | **+0.07 pp** | 0.00 pp | carry just barely breaks even at higher cap (BTC +1.13pp, ETH +0.76pp, SOL −1.70pp) |
+| Cap  | Δ monthly% (avg) | Δ DD (worst) | Notes                                                                               |
+| ---- | ---------------: | -----------: | ----------------------------------------------------------------------------------- |
+| 0.08 |     **−1.36 pp** |      0.00 pp | carry HURTS — SOL −2.88pp drags the average                                         |
+| 0.12 |     **−0.52 pp** |      0.00 pp | headline: NEGATIVE. BTC +0.54pp, ETH +0.11pp, SOL −2.21pp                           |
+| 0.15 |     **+0.07 pp** |      0.00 pp | carry just barely breaks even at higher cap (BTC +1.13pp, ETH +0.76pp, SOL −1.70pp) |
 
 **Return-vs-DD shape:** the carry envelope tracks Phase 19 #1's DD curve EXACTLY (DDs are byte-identical per symbol per cap — the carry does not reduce DD because the kill-switch never triggers in either envelope). The return curve is a near-parallel shift DOWN at lower caps (SOL drag) and ~equal at cap=0.15.
 
@@ -392,11 +393,11 @@ The +50%/mo goal needs to compound from the Phase 19 #1 baseline:
 
 ### Per-cap progress
 
-| Cap | Phase 19 #1 portfolio avg | +50%/mo is X× short | Phase 22 #1 carry portfolio avg | +50%/mo is X× short | Δ |
-|---|---:|---:|---:|---:|---:|
-| 0.08 | 25.58% | 1.955× | 24.22% | 2.064× | +0.109× (regressed) |
-| 0.12 | 32.24% | 1.551× | 31.72% | 1.576× | +0.025× (regressed) |
-| 0.15 | 35.71% | 1.400× | 35.78% | 1.397× | −0.003× (effectively flat) |
+| Cap  | Phase 19 #1 portfolio avg | +50%/mo is X× short | Phase 22 #1 carry portfolio avg | +50%/mo is X× short |                          Δ |
+| ---- | ------------------------: | ------------------: | ------------------------------: | ------------------: | -------------------------: |
+| 0.08 |                    25.58% |              1.955× |                          24.22% |              2.064× |        +0.109× (regressed) |
+| 0.12 |                    32.24% |              1.551× |                          31.72% |              1.576× |        +0.025× (regressed) |
+| 0.15 |                    35.71% |              1.400× |                          35.78% |              1.397× | −0.003× (effectively flat) |
 
 **Best per-symbol carry result:** SOL cap=0.15 = 40.06%/mo → 50%/mo is **1.248× short**. This is the closest Phase 22 #1 ever gets to the +50%/mo target, but it requires SOL cap=0.15 (5.84% DD) which is the right tail of the cap-vs-DD risk curve. The carry envelope at SOL cap=0.15 (40.06%) is BELOW Phase 19 #1 SOL cap=0.15 (41.75%) — the carry actually loses 1.70pp on the best-case SOL envelope.
 

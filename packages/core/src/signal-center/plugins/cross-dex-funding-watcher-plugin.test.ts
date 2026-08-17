@@ -186,20 +186,30 @@ describe("CrossDexFundingWatcherPlugin", () => {
   });
 
   it("construction with bad maxSpreadBpsThreshold REJECTED", () => {
-    expect(() => new CrossDexFundingWatcherPlugin({ maxSpreadBpsThreshold: 0 })).toThrow(/maxSpreadBpsThreshold/);
-    expect(() => new CrossDexFundingWatcherPlugin({ maxSpreadBpsThreshold: -1 })).toThrow(/maxSpreadBpsThreshold/);
-    expect(() => new CrossDexFundingWatcherPlugin({ maxSpreadBpsThreshold: 9999 })).toThrow(/maxSpreadBpsThreshold/);
+    expect(() => new CrossDexFundingWatcherPlugin({ maxSpreadBpsThreshold: 0 })).toThrow(
+      /maxSpreadBpsThreshold/,
+    );
+    expect(() => new CrossDexFundingWatcherPlugin({ maxSpreadBpsThreshold: -1 })).toThrow(
+      /maxSpreadBpsThreshold/,
+    );
+    expect(() => new CrossDexFundingWatcherPlugin({ maxSpreadBpsThreshold: 9999 })).toThrow(
+      /maxSpreadBpsThreshold/,
+    );
   });
 
   it("construction with bad maxPredictedGapBps REJECTED", () => {
     expect(() => new CrossDexFundingWatcherPlugin({ maxPredictedGapBps: 0 })).toThrow(/maxPredictedGapBps/);
-    expect(() => new CrossDexFundingWatcherPlugin({ maxPredictedGapBps: 9999 })).toThrow(/maxPredictedGapBps/);
+    expect(() => new CrossDexFundingWatcherPlugin({ maxPredictedGapBps: 9999 })).toThrow(
+      /maxPredictedGapBps/,
+    );
   });
 
   it("construction with bad baseNotionalUsd REJECTED", () => {
     expect(() => new CrossDexFundingWatcherPlugin({ baseNotionalUsd: 0 })).toThrow(/baseNotionalUsd/);
     expect(() => new CrossDexFundingWatcherPlugin({ baseNotionalUsd: -1 })).toThrow(/baseNotionalUsd/);
-    expect(() => new CrossDexFundingWatcherPlugin({ baseNotionalUsd: Number.NaN })).toThrow(/baseNotionalUsd/);
+    expect(() => new CrossDexFundingWatcherPlugin({ baseNotionalUsd: Number.NaN })).toThrow(
+      /baseNotionalUsd/,
+    );
   });
 
   it("construction with empty assets REJECTED", () => {
@@ -572,9 +582,7 @@ describe("CrossDexFundingWatcherPlugin", () => {
 
   it("ADVERSARIAL: NaN/Infinity funding rates rejected at the parse layer", () => {
     expect(parseHlMetaAndAssetCtxs([[{}, [{ coin: "BTC", funding: Number.NaN }]]]).size).toBe(0);
-    expect(
-      parseBzMarkPrice({ e: "markPriceUpdate", s: "BTCUSDT", r: Number.POSITIVE_INFINITY }),
-    ).toBeNull();
+    expect(parseBzMarkPrice({ e: "markPriceUpdate", s: "BTCUSDT", r: Number.POSITIVE_INFINITY })).toBeNull();
     expect(
       parseByTicker({ topic: "tickers.BTCUSDT", data: { symbol: "BTCUSDT", fundingRate: Number.NaN } }),
     ).toBeNull();

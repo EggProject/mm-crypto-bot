@@ -76,24 +76,15 @@
 //     `packages/core/src/risk/adaptive-kelly-vol-hybrid.ts` for the
 //     full per-symbol walk-forward validation at 1:10 leverage.
 
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 import { computeVolMultiplier } from "../../risk/vol-targeted-sizer.js";
-import {
-  sharpeToKellyBucket,
-  type AdaptiveKellyBucket,
-} from "../../risk/kelly-adaptive.js";
+import { sharpeToKellyBucket, type AdaptiveKellyBucket } from "../../risk/kelly-adaptive.js";
 
 // Re-export so test suite + downstream consumers can import from one place.
 export { ONE_TO_TEN_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type CarrySignal,
@@ -171,11 +162,7 @@ export const DEFAULT_TARGET_DAILY_VOL = 0.02 as const;
 export const DEFAULT_VOL_WINDOW_DAYS = 30 as const;
 export const DEFAULT_FUNDING_SHARPE_WINDOW_DAYS = 30 as const;
 export const DEFAULT_BASE_NOTIONAL_USD = 10_000 as const;
-export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = [
-  "BTC/USDT",
-  "ETH/USDT",
-  "SOL/USDT",
-];
+export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
 
 export const MIN_TARGET_DAILY_VOL = 0.005 as const;
 export const MAX_TARGET_DAILY_VOL = 0.05 as const;
@@ -334,8 +321,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
       minVolMultiplier: overrides.minVolMultiplier ?? DEFAULT_MIN_VOL_MULTIPLIER,
       targetDailyVol: overrides.targetDailyVol ?? DEFAULT_TARGET_DAILY_VOL,
       volWindowDays: overrides.volWindowDays ?? DEFAULT_VOL_WINDOW_DAYS,
-      fundingSharpeWindowDays:
-        overrides.fundingSharpeWindowDays ?? DEFAULT_FUNDING_SHARPE_WINDOW_DAYS,
+      fundingSharpeWindowDays: overrides.fundingSharpeWindowDays ?? DEFAULT_FUNDING_SHARPE_WINDOW_DAYS,
       baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
       enabledSymbols: overrides.enabledSymbols ?? DEFAULT_ENABLED_SYMBOLS,
     };
@@ -391,9 +377,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
       );
     }
     if (this.config.baseNotionalUsd <= 0) {
-      throw new Error(
-        `[HybridKellyPlugin] baseNotionalUsd=${this.config.baseNotionalUsd} must be > 0.`,
-      );
+      throw new Error(`[HybridKellyPlugin] baseNotionalUsd=${this.config.baseNotionalUsd} must be > 0.`);
     }
     if (this.config.minVolMultiplier <= 0 || this.config.minVolMultiplier > this.config.maxVolMultiplier) {
       throw new Error(
@@ -464,11 +448,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   validateConfig(config: unknown): Result<void, ConfigError> {
-    const makeErr = (
-      field: string,
-      message: string,
-      value: unknown,
-    ): Result<void, ConfigError> => ({
+    const makeErr = (field: string, message: string, value: unknown): Result<void, ConfigError> => ({
       ok: false,
       error: {
         pluginName: this.metadata.name,
@@ -501,11 +481,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
     // maxVolMultiplier: HARD CAP at 1.0
     if (c["maxVolMultiplier"] !== undefined) {
       if (typeof c["maxVolMultiplier"] !== "number" || !Number.isFinite(c["maxVolMultiplier"])) {
-        return makeErr(
-          "maxVolMultiplier",
-          "must be a finite number",
-          c["maxVolMultiplier"],
-        );
+        return makeErr("maxVolMultiplier", "must be a finite number", c["maxVolMultiplier"]);
       }
       if (c["maxVolMultiplier"] > 1.0) {
         return makeErr(
@@ -520,18 +496,16 @@ export class HybridKellyPlugin implements StrategyPlugin {
     }
     if (c["minVolMultiplier"] !== undefined) {
       if (typeof c["minVolMultiplier"] !== "number" || !Number.isFinite(c["minVolMultiplier"])) {
-        return makeErr(
-          "minVolMultiplier",
-          "must be a finite number",
-          c["minVolMultiplier"],
-        );
+        return makeErr("minVolMultiplier", "must be a finite number", c["minVolMultiplier"]);
       }
       if (c["minVolMultiplier"] <= 0) {
         return makeErr("minVolMultiplier", "must be > 0", c["minVolMultiplier"]);
       }
-      if (c["maxVolMultiplier"] !== undefined &&
-          typeof c["maxVolMultiplier"] === "number" &&
-          c["minVolMultiplier"] > c["maxVolMultiplier"]) {
+      if (
+        c["maxVolMultiplier"] !== undefined &&
+        typeof c["maxVolMultiplier"] === "number" &&
+        c["minVolMultiplier"] > c["maxVolMultiplier"]
+      ) {
         return makeErr(
           "minVolMultiplier",
           `must be ≤ maxVolMultiplier (${String(c["maxVolMultiplier"])})`,
@@ -541,16 +515,9 @@ export class HybridKellyPlugin implements StrategyPlugin {
     }
     if (c["targetDailyVol"] !== undefined) {
       if (typeof c["targetDailyVol"] !== "number" || !Number.isFinite(c["targetDailyVol"])) {
-        return makeErr(
-          "targetDailyVol",
-          "must be a finite number",
-          c["targetDailyVol"],
-        );
+        return makeErr("targetDailyVol", "must be a finite number", c["targetDailyVol"]);
       }
-      if (
-        c["targetDailyVol"] < MIN_TARGET_DAILY_VOL ||
-        c["targetDailyVol"] > MAX_TARGET_DAILY_VOL
-      ) {
+      if (c["targetDailyVol"] < MIN_TARGET_DAILY_VOL || c["targetDailyVol"] > MAX_TARGET_DAILY_VOL) {
         return makeErr(
           "targetDailyVol",
           `must be in [${MIN_TARGET_DAILY_VOL}, ${MAX_TARGET_DAILY_VOL}]`,
@@ -560,11 +527,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
     }
     if (c["volWindowDays"] !== undefined) {
       if (typeof c["volWindowDays"] !== "number" || !Number.isFinite(c["volWindowDays"])) {
-        return makeErr(
-          "volWindowDays",
-          "must be a finite number",
-          c["volWindowDays"],
-        );
+        return makeErr("volWindowDays", "must be a finite number", c["volWindowDays"]);
       }
       if (
         c["volWindowDays"] < MIN_VOL_WINDOW_DAYS ||
@@ -579,12 +542,11 @@ export class HybridKellyPlugin implements StrategyPlugin {
       }
     }
     if (c["fundingSharpeWindowDays"] !== undefined) {
-      if (typeof c["fundingSharpeWindowDays"] !== "number" || !Number.isFinite(c["fundingSharpeWindowDays"])) {
-        return makeErr(
-          "fundingSharpeWindowDays",
-          "must be a finite number",
-          c["fundingSharpeWindowDays"],
-        );
+      if (
+        typeof c["fundingSharpeWindowDays"] !== "number" ||
+        !Number.isFinite(c["fundingSharpeWindowDays"])
+      ) {
+        return makeErr("fundingSharpeWindowDays", "must be a finite number", c["fundingSharpeWindowDays"]);
       }
       if (
         c["fundingSharpeWindowDays"] < MIN_FUNDING_SHARPE_WINDOW_DAYS ||
@@ -600,11 +562,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
     }
     if (c["baseNotionalUsd"] !== undefined) {
       if (typeof c["baseNotionalUsd"] !== "number" || !Number.isFinite(c["baseNotionalUsd"])) {
-        return makeErr(
-          "baseNotionalUsd",
-          "must be a finite number",
-          c["baseNotionalUsd"],
-        );
+        return makeErr("baseNotionalUsd", "must be a finite number", c["baseNotionalUsd"]);
       }
       if (c["baseNotionalUsd"] <= 0) {
         return makeErr("baseNotionalUsd", "must be > 0", c["baseNotionalUsd"]);
@@ -612,19 +570,11 @@ export class HybridKellyPlugin implements StrategyPlugin {
     }
     if (c["enabledSymbols"] !== undefined) {
       if (!Array.isArray(c["enabledSymbols"])) {
-        return makeErr(
-          "enabledSymbols",
-          "must be an array of strings",
-          c["enabledSymbols"],
-        );
+        return makeErr("enabledSymbols", "must be an array of strings", c["enabledSymbols"]);
       }
       for (const sym of c["enabledSymbols"]) {
         if (typeof sym !== "string" || sym.length === 0) {
-          return makeErr(
-            "enabledSymbols",
-            "each entry must be a non-empty string",
-            sym as unknown,
-          );
+          return makeErr("enabledSymbols", "each entry must be a non-empty string", sym as unknown);
         }
       }
     }
@@ -747,7 +697,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
     if (!this.config.enabledSymbols.includes(symbol)) return;
 
     const ss = this._getOrCreateSymbolState(symbol);
-    const ts = timestampMs ?? ((ss.lastCloseTimestampMs ?? -1) + 1);
+    const ts = timestampMs ?? (ss.lastCloseTimestampMs ?? -1) + 1;
     if (ss.lastCloseTimestampMs !== null && ts <= ss.lastCloseTimestampMs) return;
     ss.lastCloseTimestampMs = ts;
     ss.closes.push(close);
@@ -851,9 +801,8 @@ export class HybridKellyPlugin implements StrategyPlugin {
    */
   private _onCarrySignal(s: CarrySignal): void {
     const sourceSep = s.source.indexOf(":");
-    const sourceSymbol = sourceSep >= 0 && sourceSep < s.source.length - 1
-      ? s.source.slice(sourceSep + 1)
-      : null;
+    const sourceSymbol =
+      sourceSep >= 0 && sourceSep < s.source.length - 1 ? s.source.slice(sourceSep + 1) : null;
     const symbol = s.symbol ?? sourceSymbol ?? this._boundSymbol;
     const symbols = symbol === null ? this.config.enabledSymbols : [symbol];
     for (const attributedSymbol of symbols) {
@@ -941,9 +890,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
       source: this.metadata.name,
       ...(original.symbol === undefined ? {} : { symbol: original.symbol }),
       transformedBy: [...(original.transformedBy ?? []), this.metadata.name],
-      ...(original.timestampMs !== undefined
-        ? { timestampMs: original.timestampMs }
-        : {}),
+      ...(original.timestampMs !== undefined ? { timestampMs: original.timestampMs } : {}),
     };
 
     // LAYER 3 — assert the rescaled signal still respects 1:10 BEFORE emit.
@@ -1086,9 +1033,7 @@ export function inferSymbol(signal: SizingSignal): string | null {
  * `createHybridKellyPlugin` — factory. Mirrors the convention of
  * `createVolTargetSizingPlugin` / `createCarryBaselinePlugin`.
  */
-export function createHybridKellyPlugin(
-  overrides: Partial<HybridKellyConfig> = {},
-): HybridKellyPlugin {
+export function createHybridKellyPlugin(overrides: Partial<HybridKellyConfig> = {}): HybridKellyPlugin {
   return new HybridKellyPlugin(overrides);
 }
 

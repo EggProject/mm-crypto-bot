@@ -18,11 +18,11 @@ The Phase 17 engine-side confidence wiring (Track A, PR #39) **succeeds**: multi
 
 **Phase 17 +50%/month verdict: STILL NOT ACHIEVABLE at 4% cap.** The achievable envelope is **+20–25%/mo** with 4% cap + confidence scaling. Removing the cap returns to the compounding-explosion regime documented in Phase 15.
 
-| Comparison | BTC | ETH | SOL | Portfolio |
-|------------|----:|----:|----:|----------:|
-| Phase 15nocap (old engine) | +60.07%/mo | +90.34%/mo | +78.87%/mo | +76.4%/mo |
+| Comparison                   |            BTC |            ETH |            SOL |     Portfolio |
+| ---------------------------- | -------------: | -------------: | -------------: | ------------: |
+| Phase 15nocap (old engine)   |     +60.07%/mo |     +90.34%/mo |     +78.87%/mo |     +76.4%/mo |
 | **Phase 17fixed (cap=0.04)** | **+20.06%/mo** | **+25.21%/mo** | **+20.47%/mo** | **+21.9%/mo** |
-| Phase 14A-D baseline | — | — | — | +2.06%/mo |
+| Phase 14A-D baseline         |              — |              — |              — |     +2.06%/mo |
 
 JSON sources: `backtest-results/phase17-pivot-grid-{btc,eth,sol}-15m-fixed.json` (fixed engine); `backtest-results/phase15-pivot-grid-{btc,eth,sol}-15m.json` (Phase 15nocap).
 
@@ -43,7 +43,7 @@ const notional = positionNotionalUsd(
   equity,
   ltfCandle.close,
   signal.stopLoss,
-  opts.positionSize,  // signal.confidence not consulted
+  opts.positionSize, // signal.confidence not consulted
 );
 ```
 
@@ -60,12 +60,10 @@ if (signal.confidence < 0) {
   clampedConfidence = signal.confidence;
 }
 const confidenceScaledRisk = opts.positionSize.riskPerTrade * clampedConfidence;
-const notional = positionNotionalUsd(
-  equity,
-  ltfCandle.close,
-  signal.stopLoss,
-  { ...opts.positionSize, riskPerTrade: confidenceScaledRisk },
-);
+const notional = positionNotionalUsd(equity, ltfCandle.close, signal.stopLoss, {
+  ...opts.positionSize,
+  riskPerTrade: confidenceScaledRisk,
+});
 ```
 
 ### Why this is the correct place for the fix
@@ -81,6 +79,7 @@ Three alternative approaches were considered and rejected:
 **Why the engine call site is correct:** the engine is the single choke point where signals become positions. Multiplying `riskPerTrade` by `clampedConfidence` preserves signal semantics (confidence encodes entry conviction) while propagating it to notional computation. The `riskPerTrade` is a pre-leverage scalar; multiplying by `confidence` (also in [0, 1]) gives a smaller pre-leverage risk, which `positionNotionalUsd` then converts to notional using stop distance. This is the cleanest, most maintainable fix.
 
 **Defensive clamping (three-layer enforcement per memory rule `mm-crypto-bot-context.md` §"Three-layer enforcement for hard constraints"):**
+
 - `confidence < 0` → 0 → `confidenceScaledRisk = 0` → `positionNotionalUsd` returns `minNotional` → minimum-size position opens (zero-confidence signal suppressed at the strategy level preferred)
 - `confidence > 1` → 1 → no over-sized positions from misbehaving strategies
 - All existing strategies (`PivotPointGridStrategy`, `RegimeRoutedEnsemble`, `BollingerRangeSqueeze`, `DonchianRangeChannel`, `KeltnerGrid`) explicitly emit `confidence` per the `StrategySignal` contract requiring `confidence: number`
@@ -90,19 +89,20 @@ Three alternative approaches were considered and rejected:
 ## §3. Pivot Grid: Fixed Engine vs Phase 15 Baseline
 
 **Source files:**
+
 - Fixed engine: `backtest-results/phase17-pivot-grid-{btc,eth,sol}-15m-fixed.json`
 - Phase 15nocap baseline: `backtest-results/phase15-pivot-grid-{btc,eth,sol}-15m.json`
 
 ### Per-symbol comparison table
 
-| Symbol | Source JSON | Engine | Monthly return | Sharpe | Max DD | PF | Win rate | Trades | Kill-switch |
-|--------|-------------|--------|---------------:|-------:|-------:|---:|---------:|-------:|:-----------:|
-| BTC | `phase15-pivot-grid-btc-15m.json` | Old (no-op cap) | **+60.07%/mo** | 29.294 | 6.77% | 5.732 | 65.03% | 9717 | no |
-| BTC | `phase17-pivot-grid-btc-15m-fixed.json` | Fixed (conf×cap) | **+20.06%/mo** | 24.958 | 6.76% | 3.132 | 65.03% | 9717 | no |
-| ETH | `phase15-pivot-grid-eth-15m.json` | Old (no-op cap) | **+90.34%/mo** | 32.057 | 5.39% | 5.781 | 68.40% | 9668 | no |
-| ETH | `phase17-pivot-grid-eth-15m-fixed.json` | Fixed (conf×cap) | **+25.21%/mo** | 27.565 | 4.59% | 3.103 | 68.40% | 9668 | no |
-| SOL | `phase15-pivot-grid-sol-15m.json` | Old (no-op cap) | **+78.87%/mo** | 27.461 | 7.57% | 7.330 | 65.87% | 8317 | no |
-| SOL | `phase17-pivot-grid-sol-15m-fixed.json` | Fixed (conf×cap) | **+20.47%/mo** | 21.388 | 7.70% | 2.866 | 65.87% | 8317 | no |
+| Symbol | Source JSON                             | Engine           | Monthly return | Sharpe | Max DD |    PF | Win rate | Trades | Kill-switch |
+| ------ | --------------------------------------- | ---------------- | -------------: | -----: | -----: | ----: | -------: | -----: | :---------: |
+| BTC    | `phase15-pivot-grid-btc-15m.json`       | Old (no-op cap)  | **+60.07%/mo** | 29.294 |  6.77% | 5.732 |   65.03% |   9717 |     no      |
+| BTC    | `phase17-pivot-grid-btc-15m-fixed.json` | Fixed (conf×cap) | **+20.06%/mo** | 24.958 |  6.76% | 3.132 |   65.03% |   9717 |     no      |
+| ETH    | `phase15-pivot-grid-eth-15m.json`       | Old (no-op cap)  | **+90.34%/mo** | 32.057 |  5.39% | 5.781 |   68.40% |   9668 |     no      |
+| ETH    | `phase17-pivot-grid-eth-15m-fixed.json` | Fixed (conf×cap) | **+25.21%/mo** | 27.565 |  4.59% | 3.103 |   68.40% |   9668 |     no      |
+| SOL    | `phase15-pivot-grid-sol-15m.json`       | Old (no-op cap)  | **+78.87%/mo** | 27.461 |  7.57% | 7.330 |   65.87% |   8317 |     no      |
+| SOL    | `phase17-pivot-grid-sol-15m-fixed.json` | Fixed (conf×cap) | **+20.47%/mo** | 21.388 |  7.70% | 2.866 |   65.87% |   8317 |     no      |
 
 ### Key observations
 
@@ -123,6 +123,7 @@ Three alternative approaches were considered and rejected:
 ## §4. Pivot Grid: Fixed Engine vs Phase 16 No-Op Cap
 
 **Source files:**
+
 - Old engine nocap: `backtest-results/phase17-pivot-grid-{btc,eth,sol}-15m-nocap.json`
 - Old engine 04cap: `backtest-results/phase17-pivot-grid-{btc,eth,sol}-15m-04cap.json`
 - Fixed engine 04cap: `backtest-results/phase17-pivot-grid-{btc,eth,sol}-15m-fixed.json`
@@ -130,19 +131,19 @@ Three alternative approaches were considered and rejected:
 
 ### Before/after: does the 4% cap now make a difference?
 
-| Symbol | Source JSON | Engine | Cap | Monthly return | Delta vs Phase 15nocap |
-|--------|-------------|--------|-----|---------------:|------------------------|
-| BTC | `phase15-pivot-grid-btc-15m.json` | Old | None | +60.07%/mo | baseline |
-| BTC | `phase17-pivot-grid-btc-15m-nocap.json` | Old | None | +60.07%/mo | 0.00% |
-| BTC | `phase16-pivot-grid-btc-15m-capped.json` | Old | 0.04 | +60.07%/mo | 0.00% (no-op) |
-| BTC | `phase17-pivot-grid-btc-15m-04cap.json` | Old | 0.04 | +60.07%/mo | 0.00% (no-op) |
-| **BTC** | **`phase17-pivot-grid-btc-15m-fixed.json`** | **Fixed** | **0.04** | **+20.06%/mo** | **-40.01%/mo** |
-| ETH | `phase15-pivot-grid-eth-15m.json` | Old | None | +90.34%/mo | baseline |
-| ETH | `phase17-pivot-grid-eth-15m-04cap.json` | Old | 0.04 | +90.33%/mo | -0.01%/mo (no-op) |
-| **ETH** | **`phase17-pivot-grid-eth-15m-fixed.json`** | **Fixed** | **0.04** | **+25.21%/mo** | **-65.13%/mo** |
-| SOL | `phase15-pivot-grid-sol-15m.json` | Old | None | +78.87%/mo | baseline |
-| SOL | `phase17-pivot-grid-sol-15m-04cap.json` | Old | 0.04 | +78.86%/mo | -0.01%/mo (no-op) |
-| **SOL** | **`phase17-pivot-grid-sol-15m-fixed.json`** | **Fixed** | **0.04** | **+20.47%/mo** | **-58.40%/mo** |
+| Symbol  | Source JSON                                 | Engine    | Cap      | Monthly return | Delta vs Phase 15nocap |
+| ------- | ------------------------------------------- | --------- | -------- | -------------: | ---------------------- |
+| BTC     | `phase15-pivot-grid-btc-15m.json`           | Old       | None     |     +60.07%/mo | baseline               |
+| BTC     | `phase17-pivot-grid-btc-15m-nocap.json`     | Old       | None     |     +60.07%/mo | 0.00%                  |
+| BTC     | `phase16-pivot-grid-btc-15m-capped.json`    | Old       | 0.04     |     +60.07%/mo | 0.00% (no-op)          |
+| BTC     | `phase17-pivot-grid-btc-15m-04cap.json`     | Old       | 0.04     |     +60.07%/mo | 0.00% (no-op)          |
+| **BTC** | **`phase17-pivot-grid-btc-15m-fixed.json`** | **Fixed** | **0.04** | **+20.06%/mo** | **-40.01%/mo**         |
+| ETH     | `phase15-pivot-grid-eth-15m.json`           | Old       | None     |     +90.34%/mo | baseline               |
+| ETH     | `phase17-pivot-grid-eth-15m-04cap.json`     | Old       | 0.04     |     +90.33%/mo | -0.01%/mo (no-op)      |
+| **ETH** | **`phase17-pivot-grid-eth-15m-fixed.json`** | **Fixed** | **0.04** | **+25.21%/mo** | **-65.13%/mo**         |
+| SOL     | `phase15-pivot-grid-sol-15m.json`           | Old       | None     |     +78.87%/mo | baseline               |
+| SOL     | `phase17-pivot-grid-sol-15m-04cap.json`     | Old       | 0.04     |     +78.86%/mo | -0.01%/mo (no-op)      |
+| **SOL** | **`phase17-pivot-grid-sol-15m-fixed.json`** | **Fixed** | **0.04** | **+20.47%/mo** | **-58.40%/mo**         |
 
 **The Phase 16 4% cap IS NOW making a massive difference.** Before the fix, setting `--max-position-pct-equity=0.04` had zero effect on returns (Phase 16 showed this explicitly). After the fix, the cap constrains position sizing through the `confidence × capScale` chain, producing the 3.3× return reduction observed in §3.
 
@@ -154,14 +155,15 @@ Three alternative approaches were considered and rejected:
 
 Phase 16 §2 claimed "+20–50%/mo realistic envelope with 4% cap." Phase 17 empirical data **partially validates this claim**:
 
-| Scenario | BTC | ETH | SOL | Portfolio avg |
-|----------|----:|----:|----:|-------------:|
-| Phase 15nocap (old engine, no cap) | +60.07%/mo | +90.34%/mo | +78.87%/mo | +76.4%/mo |
+| Scenario                                       |            BTC |            ETH |            SOL | Portfolio avg |
+| ---------------------------------------------- | -------------: | -------------: | -------------: | ------------: |
+| Phase 15nocap (old engine, no cap)             |     +60.07%/mo |     +90.34%/mo |     +78.87%/mo |     +76.4%/mo |
 | **Phase 17 fixed (4% cap + confidence wired)** | **+20.06%/mo** | **+25.21%/mo** | **+20.47%/mo** | **+21.9%/mo** |
-| Phase 14A-D baseline (reference) | — | — | — | +2.06%/mo |
-| Phase 15 Simple Retail Ensemble (reference) | +4.73%/mo | -48.80% | +4.28%/mo | ~-13% |
+| Phase 14A-D baseline (reference)               |              — |              — |              — |     +2.06%/mo |
+| Phase 15 Simple Retail Ensemble (reference)    |      +4.73%/mo |        -48.80% |      +4.28%/mo |         ~-13% |
 
 **The +20–25%/mo envelope is achievable** with Pivot Grid + 4% cap + confidence wiring. This is:
+
 - **10.6× the Phase 14A-D baseline** (+2.06%/mo)
 - **4.6× the Phase 15 Simple Retail Ensemble** average (BTC only +4.73%/mo)
 - **Below the +50%/mo target** by 2–2.5×
@@ -183,20 +185,21 @@ Three options, in order of difficulty:
 ## §6. Regime-Routed Ensemble: No Regression
 
 **Source files:**
+
 - Phase 16 regime ensemble (old engine): `backtest-results/phase16-regime-ensemble-btc-15m.json`
 - Phase 17 fixed regime ensemble (new engine): `backtest-results/phase17-regime-ensemble-btc-15m-fixed.json`
 
-| Metric | Phase 16 (old engine) | Phase 17 (fixed engine) | Delta |
-|--------|----------------------|-------------------------|------:|
-| Monthly return | +0.12%/mo | 0.00%/mo | -0.12%/mo |
-| Total return | 3.69% | -1.40% | -5.09% |
-| Sharpe ratio | 1.486 | -0.500 | -1.986 |
-| Sortino ratio | 1.852 | -0.615 | -2.467 |
-| Max DD | 50.01% | 50.00% | ≈0 |
-| Profit factor | 1.032 | 0.987 | -0.045 |
-| Win rate | 26.96% | 26.96% | 0 |
-| Trade count | 1265 | 1265 | 0 |
-| Kill-switch | YES | YES | — |
+| Metric         | Phase 16 (old engine) | Phase 17 (fixed engine) |     Delta |
+| -------------- | --------------------- | ----------------------- | --------: |
+| Monthly return | +0.12%/mo             | 0.00%/mo                | -0.12%/mo |
+| Total return   | 3.69%                 | -1.40%                  |    -5.09% |
+| Sharpe ratio   | 1.486                 | -0.500                  |    -1.986 |
+| Sortino ratio  | 1.852                 | -0.615                  |    -2.467 |
+| Max DD         | 50.01%                | 50.00%                  |        ≈0 |
+| Profit factor  | 1.032                 | 0.987                   |    -0.045 |
+| Win rate       | 26.96%                | 26.96%                  |         0 |
+| Trade count    | 1265                  | 1265                    |         0 |
+| Kill-switch    | YES                   | YES                     |         — |
 
 **No regression: the engine fix does not affect the regime ensemble's signal generation or position sizing in a way that changes outcomes.** Trade count is identical (1265). Win rate is identical (26.96%). The regime ensemble's kill-switch was triggered before the engine fix (Max DD 50.01%) and after (Max DD 50.00%) — the same outcome driven by the ADX-based regime routing, not by notional.
 
@@ -242,15 +245,15 @@ Even with the 4% cap, the fixed engine produces best trades of $5K–$47K on BTC
 
 Ranked by ROI per Phase 16 §8 (updated with Phase 17 findings):
 
-| # | Candidate | Est. time | Priority | Rationale |
-|---|-----------|----------:|----------|-----------|
-| **1** | **Regime-Ensemble 1-of-2 consensus relaxation** | 30 min | **HIGH** | Phase 16 regime killswitched on all 3 symbols (2-of-2 too strict). Dropping to 1-of-2 (either sub-strategy fires → emit) likely lifts BTC from 0.00%/mo to +5–15%/mo. Cheap change (1 parameter flip). |
-| **2** | **Donchian + Pivot 2-component composition** | 30 min | HIGH | Both M15-native (no M5 aggregation issue). Both mean-reversion family. Likely +15–25%/mo BTC on top of single-strategy baseline. Uses existing `SimpleRetailEnsemble` with 2-of-2 consensus = more disciplined than Phase 15's 4-of-4. |
-| **3** | **Keltner ADX filter** | 15 min | MEDIUM | Phase 15 §6 noted Keltner Grid converts from -50% to positive if ADX < 20 filter (same as Donchian) is applied. Single condition in `onCandle()`. Highest ROI per LOC in Phase 18. |
-| **4** | **Cap sweep: find the cap value that hits +50%/mo** | 15 min | MEDIUM | Back-calculate: cap=0.04 → 21%/mo, cap=0.10 → ~50%/mo (estimated). Test cap=0.08 / 0.10 / 0.12 / 0.15 systematically to map the return–cap curve. Enables informed cap selection for live deployment. |
-| **5** | **BB Squeeze + DVOL regime** | 30 min | MEDIUM | Phase 14D DVOL sizing applied to M5 breakout. With Phase 17's regime ensemble fix, BB Squeeze might survive DVOL gating where ADX routing failed. |
-| **6** | **Adaptive Kelly for retail ensemble** | 30 min | LOW | Phase 11.1e HybridKellyPlugin is already drop-in. Scales notional to in-sample Sharpe. Likely +0.5–2%/mo on top of any composition. |
-| **7** | **PortfolioOrchestrator wrap** | 45 min | LOW | Run Phase 17 ensemble through Phase 13 PortfolioOrchestrator for simultaneous BTC+ETH+SOL + notional division. Highest-ROI IF single-symbol envelope is genuine. But Phase 16 SOL kill-switch means realistic portfolio envelope is still constrained. |
+| #     | Candidate                                           | Est. time | Priority | Rationale                                                                                                                                                                                                                                              |
+| ----- | --------------------------------------------------- | --------: | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1** | **Regime-Ensemble 1-of-2 consensus relaxation**     |    30 min | **HIGH** | Phase 16 regime killswitched on all 3 symbols (2-of-2 too strict). Dropping to 1-of-2 (either sub-strategy fires → emit) likely lifts BTC from 0.00%/mo to +5–15%/mo. Cheap change (1 parameter flip).                                                 |
+| **2** | **Donchian + Pivot 2-component composition**        |    30 min | HIGH     | Both M15-native (no M5 aggregation issue). Both mean-reversion family. Likely +15–25%/mo BTC on top of single-strategy baseline. Uses existing `SimpleRetailEnsemble` with 2-of-2 consensus = more disciplined than Phase 15's 4-of-4.                 |
+| **3** | **Keltner ADX filter**                              |    15 min | MEDIUM   | Phase 15 §6 noted Keltner Grid converts from -50% to positive if ADX < 20 filter (same as Donchian) is applied. Single condition in `onCandle()`. Highest ROI per LOC in Phase 18.                                                                     |
+| **4** | **Cap sweep: find the cap value that hits +50%/mo** |    15 min | MEDIUM   | Back-calculate: cap=0.04 → 21%/mo, cap=0.10 → ~50%/mo (estimated). Test cap=0.08 / 0.10 / 0.12 / 0.15 systematically to map the return–cap curve. Enables informed cap selection for live deployment.                                                  |
+| **5** | **BB Squeeze + DVOL regime**                        |    30 min | MEDIUM   | Phase 14D DVOL sizing applied to M5 breakout. With Phase 17's regime ensemble fix, BB Squeeze might survive DVOL gating where ADX routing failed.                                                                                                      |
+| **6** | **Adaptive Kelly for retail ensemble**              |    30 min | LOW      | Phase 11.1e HybridKellyPlugin is already drop-in. Scales notional to in-sample Sharpe. Likely +0.5–2%/mo on top of any composition.                                                                                                                    |
+| **7** | **PortfolioOrchestrator wrap**                      |    45 min | LOW      | Run Phase 17 ensemble through Phase 13 PortfolioOrchestrator for simultaneous BTC+ETH+SOL + notional division. Highest-ROI IF single-symbol envelope is genuine. But Phase 16 SOL kill-switch means realistic portfolio envelope is still constrained. |
 
 **Recommended Phase 18 focus:** items 1 and 2 in parallel (both ~30 min, independent). Item 1 validates regime ensemble fix; item 2 creates the best-performing composition. Combined, these could push the realistic envelope to **+15–30%/mo** — a meaningful step toward the +50%/mo target without requiring cap inflation.
 
@@ -260,18 +263,18 @@ Ranked by ROI per Phase 16 §8 (updated with Phase 17 findings):
 
 ### Backtest JSONs (4 new + 6 from Track B)
 
-| File | Engine | Cap | Monthly return | Max DD | Trades |
-|------|--------|-----|---------------:|-------:|-------:|
-| `phase17-pivot-grid-btc-15m-fixed.json` | Fixed | 0.04 | +20.06%/mo | 6.76% | 9717 |
-| `phase17-pivot-grid-eth-15m-fixed.json` | Fixed | 0.04 | +25.21%/mo | 4.59% | 9668 |
-| `phase17-pivot-grid-sol-15m-fixed.json` | Fixed | 0.04 | +20.47%/mo | 7.70% | 8317 |
-| `phase17-regime-ensemble-btc-15m-fixed.json` | Fixed | engine | 0.00%/mo | 50.00% | 1265 |
-| `phase17-pivot-grid-btc-15m-nocap.json` | Old | None | +60.07%/mo | 6.77% | 9717 |
-| `phase17-pivot-grid-eth-15m-nocap.json` | Old | None | +90.33%/mo | 5.39% | 9668 |
-| `phase17-pivot-grid-sol-15m-nocap.json` | Old | None | +78.86%/mo | 7.57% | 8317 |
-| `phase17-pivot-grid-btc-15m-04cap.json` | Old | 0.04 | +60.07%/mo | 6.77% | 9717 |
-| `phase17-pivot-grid-eth-15m-04cap.json` | Old | 0.04 | +90.33%/mo | 5.39% | 9668 |
-| `phase17-pivot-grid-sol-15m-04cap.json` | Old | 0.04 | +78.86%/mo | 7.57% | 8317 |
+| File                                         | Engine | Cap    | Monthly return | Max DD | Trades |
+| -------------------------------------------- | ------ | ------ | -------------: | -----: | -----: |
+| `phase17-pivot-grid-btc-15m-fixed.json`      | Fixed  | 0.04   |     +20.06%/mo |  6.76% |   9717 |
+| `phase17-pivot-grid-eth-15m-fixed.json`      | Fixed  | 0.04   |     +25.21%/mo |  4.59% |   9668 |
+| `phase17-pivot-grid-sol-15m-fixed.json`      | Fixed  | 0.04   |     +20.47%/mo |  7.70% |   8317 |
+| `phase17-regime-ensemble-btc-15m-fixed.json` | Fixed  | engine |       0.00%/mo | 50.00% |   1265 |
+| `phase17-pivot-grid-btc-15m-nocap.json`      | Old    | None   |     +60.07%/mo |  6.77% |   9717 |
+| `phase17-pivot-grid-eth-15m-nocap.json`      | Old    | None   |     +90.33%/mo |  5.39% |   9668 |
+| `phase17-pivot-grid-sol-15m-nocap.json`      | Old    | None   |     +78.86%/mo |  7.57% |   8317 |
+| `phase17-pivot-grid-btc-15m-04cap.json`      | Old    | 0.04   |     +60.07%/mo |  6.77% |   9717 |
+| `phase17-pivot-grid-eth-15m-04cap.json`      | Old    | 0.04   |     +90.33%/mo |  5.39% |   9668 |
+| `phase17-pivot-grid-sol-15m-04cap.json`      | Old    | 0.04   |     +78.86%/mo |  7.57% |   8317 |
 
 Track B's 6 old-engine JSONs are preserved for completeness but are superseded by Track C's 4 fixed-engine JSONs.
 

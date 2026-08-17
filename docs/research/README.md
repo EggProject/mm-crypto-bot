@@ -29,18 +29,18 @@ A kiválasztott stratégia specifikációja: [`selected-strategy.md`](./selected
 
 ## 2. Fő döntések összefoglalása
 
-| Kérdés | Döntés | Rövid indoklás |
-|---|---|---|
-| Eszközklaszter | **csak BTC, ETH, SOL** | bybit.eu spot marginon elérhető, likvid, korreláló de eltérő belső volatilitású |
-| Stratégia típusa | **Donchian-channel / Supertrend trendkövetés + Bollinger mean-reversion kompozit (MTF szűrővel)** | Trendkövetés a 8,5 éves backtestek alapján a legrobosztusabb család; a BTC mean-reversion RSI-vel önállóan nem működik, de trend-szűrővel együtt használható |
-| Időtáv | **HTF: 1D (1W bias), MTF: 4H, LTF: 1H** | A 4H/1D a legtöbb kutatásban a legjobb zaj/megbízhatóság arányú; 1H trigger, 15m túl zajos 10x leverage mellett |
-| Tőkeáttétel | **1:10 spot margin (max), tényleges 1:3–1:5 Kelly-frakcióval** | bybit.eu max 10x; 1:10 mindig beállítva, de a tényleges méret Kelly-alapon ≤ 30% margin |
-| Portfólió allokáció | **BTC 50% / ETH 30% / SOL 20%** | BTC alacsonyabb volatilitás → core; SOL magasabb → kisebb weight; ETH közte |
-| Pozíció-méret | **0,5% – 1% risk / trade, max 2% portfolio risk** | Fix fractional; full-Kelly túl agresszív (akár 25-30%), 1/4 Kelly a biztonságos |
-| TP / SL | **ATR-alapú: SL = 1,5×ATR(14), TP = 2,5–3×ATR(14)** (R:R ≈ 1:2) | Volatilitás-illesztett, nem fix %; trendkövetésnél trailing stop a 20-period Donchian alsó sávján |
-| Max DD limit | **15% számla-szinten → kill-switch** | A kutatások 30-50% DD-t mutatnak reális kereskedésnél; 15% fölött leállás |
-| Napi pozíció-limit | **max 6 belépés / nap / eszköz** | Túl-kereskedés ellen |
-| Out-of-sample validáció | **12 hónap walk-forward, 3 hónapos in-sample ablakkal** | Iparági standard; 49 stratégia tesztje 0-t hozott 40% DD limit mellett |
+| Kérdés                  | Döntés                                                                                            | Rövid indoklás                                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Eszközklaszter          | **csak BTC, ETH, SOL**                                                                            | bybit.eu spot marginon elérhető, likvid, korreláló de eltérő belső volatilitású                                                                              |
+| Stratégia típusa        | **Donchian-channel / Supertrend trendkövetés + Bollinger mean-reversion kompozit (MTF szűrővel)** | Trendkövetés a 8,5 éves backtestek alapján a legrobosztusabb család; a BTC mean-reversion RSI-vel önállóan nem működik, de trend-szűrővel együtt használható |
+| Időtáv                  | **HTF: 1D (1W bias), MTF: 4H, LTF: 1H**                                                           | A 4H/1D a legtöbb kutatásban a legjobb zaj/megbízhatóság arányú; 1H trigger, 15m túl zajos 10x leverage mellett                                              |
+| Tőkeáttétel             | **1:10 spot margin (max), tényleges 1:3–1:5 Kelly-frakcióval**                                    | bybit.eu max 10x; 1:10 mindig beállítva, de a tényleges méret Kelly-alapon ≤ 30% margin                                                                      |
+| Portfólió allokáció     | **BTC 50% / ETH 30% / SOL 20%**                                                                   | BTC alacsonyabb volatilitás → core; SOL magasabb → kisebb weight; ETH közte                                                                                  |
+| Pozíció-méret           | **0,5% – 1% risk / trade, max 2% portfolio risk**                                                 | Fix fractional; full-Kelly túl agresszív (akár 25-30%), 1/4 Kelly a biztonságos                                                                              |
+| TP / SL                 | **ATR-alapú: SL = 1,5×ATR(14), TP = 2,5–3×ATR(14)** (R:R ≈ 1:2)                                   | Volatilitás-illesztett, nem fix %; trendkövetésnél trailing stop a 20-period Donchian alsó sávján                                                            |
+| Max DD limit            | **15% számla-szinten → kill-switch**                                                              | A kutatások 30-50% DD-t mutatnak reális kereskedésnél; 15% fölött leállás                                                                                    |
+| Napi pozíció-limit      | **max 6 belépés / nap / eszköz**                                                                  | Túl-kereskedés ellen                                                                                                                                         |
+| Out-of-sample validáció | **12 hónap walk-forward, 3 hónapos in-sample ablakkal**                                           | Iparági standard; 49 stratégia tesztje 0-t hozott 40% DD limit mellett                                                                                       |
 
 ---
 
@@ -102,16 +102,16 @@ E három együttesen, **szigorú kockázati limitek** mellett (max 2% portfolio 
 
 ## 5. Kockázati korlátok és kill-switch (numerikusan)
 
-| Limit | Érték | Forrás / indoklás |
-|---|---|---|
-| Max risk / trade | **1% equity** | CoinSwitch „don't risk more than 1-2% on any trade"; ipari standard |
-| Max portfolio risk | **2% (long + short összesen)** | PRUVIQ Kelly útmutató: „< 1-2% worst-day loss" |
-| Max nyitott pozíció | **3 (1/eszköz)** | Korreláció figyelembevétele (BTC-ETH-SOL ρ≈0,78-0,85) |
-| Max DD / 30 nap | **10%** | Sárga jelzés, méret-csökkentés |
-| Kill-switch DD | **15% egyenleg-szinten** | Agresszív, de az irodalom 30-50% DD-t jelez reálisan, mi 15-nél leállunk |
-| Napi trade-limit | **6 / eszköz, 18 / nap összesen** | Túl-kereskedés ellen |
-| Leveraged position max | **1:5 tényleges (1:10-es limitből)** | „10x above is donating money to the exchange" — Reddit tapasztalat |
-| Napi funding/borrow cost figyelés | **>0,05% / 8h** | Coincryptorank funding range: normál 0,01-0,1% / 8h |
+| Limit                             | Érték                                | Forrás / indoklás                                                        |
+| --------------------------------- | ------------------------------------ | ------------------------------------------------------------------------ |
+| Max risk / trade                  | **1% equity**                        | CoinSwitch „don't risk more than 1-2% on any trade"; ipari standard      |
+| Max portfolio risk                | **2% (long + short összesen)**       | PRUVIQ Kelly útmutató: „< 1-2% worst-day loss"                           |
+| Max nyitott pozíció               | **3 (1/eszköz)**                     | Korreláció figyelembevétele (BTC-ETH-SOL ρ≈0,78-0,85)                    |
+| Max DD / 30 nap                   | **10%**                              | Sárga jelzés, méret-csökkentés                                           |
+| Kill-switch DD                    | **15% egyenleg-szinten**             | Agresszív, de az irodalom 30-50% DD-t jelez reálisan, mi 15-nél leállunk |
+| Napi trade-limit                  | **6 / eszköz, 18 / nap összesen**    | Túl-kereskedés ellen                                                     |
+| Leveraged position max            | **1:5 tényleges (1:10-es limitből)** | „10x above is donating money to the exchange" — Reddit tapasztalat       |
+| Napi funding/borrow cost figyelés | **>0,05% / 8h**                      | Coincryptorank funding range: normál 0,01-0,1% / 8h                      |
 
 ---
 

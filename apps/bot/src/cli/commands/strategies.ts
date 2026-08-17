@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/strategies.ts
  *
- * Phase 33 Track D + Phase 34 Track C — `mm-bot strategies [--config=path]`.
+ * Phase 33 Track D + Phase 34 Track C — the direct `strategies` command.
  *
  * Lists the strategies configured in the bot config, with their on/off
  * state and per-strategy overrides. Useful for "what is this bot actually
@@ -9,7 +9,7 @@
  *
  * Note: this prints the *config* state, not the *runtime* state. If the
  * bot is currently running, the on/off state here is what was loaded at
- * startup. A separate `mm-bot kill-switches` shows the runtime state of
+ * startup. A separate direct `kill-switches` command shows the runtime state of
  * the kill-switches.
  *
  * Color usage (Phase 34 Track C):
@@ -43,9 +43,7 @@ function getConfigPath(flags: ReadonlyMap<string, string | boolean>): string | u
  */
 function formatStrategySection(name: string, section: Record<string, unknown>, enabled: boolean): string {
   const stateLabel = enabled ? "ON " : "OFF";
-  const stateColored = enabled
-    ? colorize(stateLabel, "green")
-    : colorize(stateLabel, "dim");
+  const stateColored = enabled ? colorize(stateLabel, "green") : colorize(stateLabel, "dim");
   const lines: string[] = [];
   lines.push(`  [${stateColored}] ${name}`);
   for (const [k, v] of Object.entries(section)) {
@@ -77,7 +75,7 @@ function formatValue(v: unknown): string {
 }
 
 /**
- * `strategiesCommand` — the `mm-bot strategies` handler.
+ * `strategiesCommand` — the direct `strategies` handler.
  */
 export const strategiesCommand: SubcommandHandler = async (args) => {
   await Promise.resolve();

@@ -9,6 +9,7 @@
 **Attempt:** 2 of 2 (attempt 1 auto-rejected on PR-creation gate; this is the verifier-confirmed-9/10-PASS follow-up)
 
 **User mandate (verbatim, 2026-07-06 00:12 Budapest):**
+
 > "alap beallitasok ezzel felul irva: backtest + binance + risk per trade: 5% + max leverage: 10 + max positions: 7 -val futtasd a vegen ami elkeszul"
 > "btc,eth,sol -on egyszerre kereskedjen"
 > "nezd meg hogy van-e hedge vagy vedekezo strategiank? ha nincs akkor epitsunk be parat az 1-es lepesben irt signal kozpontba"
@@ -22,16 +23,17 @@ Phase 13 hides every Phase 1–9 monolith strategy behind a single `Signal Cente
 
 ### Final backtest envelope (user spec, 1y, REPRODUCED 2026-07-06 01:25 Budapest)
 
-| Symbol | Monthly avg | Sharpe | Max DD | Final equity | Decisions | Open positions |
-|---|---|---|---|---|---|---|
-| **BTC/USDT** | **+0.71%/mo** | **1.442** | **0.00%** | **$10,880.72** | **365** | 7 (carry) |
-| **ETH/USDT** | 0.00%/mo | 0.000 | 0.00% | $10,000.00 | 366 | 0 (flat) |
-| **SOL/USDT** | 0.00%/mo | 0.000 | 0.00% | $10,000.00 | 365 | 0 (flat) |
-| **PORTFOLIO (combined)** | **+0.24%/mo** | **1.442** | **0.00%** | **$30,880.72** | **1,096** | **7** |
+| Symbol                   | Monthly avg   | Sharpe    | Max DD    | Final equity   | Decisions | Open positions |
+| ------------------------ | ------------- | --------- | --------- | -------------- | --------- | -------------- |
+| **BTC/USDT**             | **+0.71%/mo** | **1.442** | **0.00%** | **$10,880.72** | **365**   | 7 (carry)      |
+| **ETH/USDT**             | 0.00%/mo      | 0.000     | 0.00%     | $10,000.00     | 366       | 0 (flat)       |
+| **SOL/USDT**             | 0.00%/mo      | 0.000     | 0.00%     | $10,000.00     | 365       | 0 (flat)       |
+| **PORTFOLIO (combined)** | **+0.24%/mo** | **1.442** | **0.00%** | **$30,880.72** | **1,096** | **7**          |
 
 Window: 2025-07-03 → 2026-07-03 (365 days, 366 OHLCV bars + 1,096 funding snapshots per symbol).
 
 **Hard-constraint verification (re-verified on attempt 2):**
+
 - 0 leverage breaches (1:10 MANDATE held cleanly across 1,096 decisions)
 - 0 liquidations observed
 - All decisions cleared the 3-layer 1:10 defense (constructor metadata + subscribe assertion + per-emit clamp)
@@ -90,6 +92,7 @@ The user mandate required that **every** previously-written strategy be hidden b
 The portfolio orchestrator (Track B) layers on top: it owns 3 per-symbol `SignalCenterV1` instances (one per symbol), plus 3 per-symbol `DecisionEngine` instances, plus a shared cross-symbol `PortfolioRiskEngine`. Per bar, the orchestrator feeds funding + OHLCV into each SCv1, calls each DecisionEngine's `synthesize()` to drain pending signals into a single arbitrated `PositionDecision`, and applies cross-symbol caps (max positions, concentration, VaR, Pearson-r correlation penalty) before taking a snapshot.
 
 **Track D extensions to PortfolioOrchestrator (3 surgical config fields):**
+
 1. `pluginsBySymbol?: (symbol, sc) => StrategyPlugin[]` — overrides default CarryBaselinePlugin with the full Phase 11+ per-symbol plugin set.
 2. `crossSymbolRecordClose?: (symbol, close, ts) => void` — forwards per-bar closes to the 3 cross-symbol hedge plugins (Phase 13 Track C).
 3. `feedPlugins?: (symbol, sc, bar, fundingInBar) => void` — lets the runner push per-bar closes + funding snapshots into per-plugin state machines (Carry, HybridKelly, SFK) BEFORE bus dispatch.
@@ -97,6 +100,7 @@ The portfolio orchestrator (Track B) layers on top: it owns 3 per-symbol `Signal
 These 3 fields are the ONLY orchestrator changes Track D introduces; they are backward-compatible (all existing Track B tests still pass — 41 tests / 230 expect() calls).
 
 References:
+
 - arXiv 2412.02654 (Simple and Effective Portfolio Construction with Crypto Assets) — iterated EWMA correlation matrix for crypto — https://arxiv.org/html/2412.02654v1
 - bybit.eu SPOT margin FAQ — "Spot Margin Trading supports up to 10x leverage" — https://www.bybit.com/en/help-center/article/FAQ-Spot-Margin-Trading
 - HKMA Mar 2020 "Sound risk management practices for algorithmic trading" — https://brdr.hkma.gov.hk/eng/docId/getPdf/20200306-4-EN/20200306-4-EN.pdf
@@ -119,16 +123,19 @@ The `DecisionEngine` arbitrates between signals from N plugins per bar using a w
 ### Worked example
 
 Setup: BTC bar at T=10. Three plugins emit signals:
+
 - `CarryBaselinePlugin`: `CarrySignal { regime: "high", fundingRate: 0.0005, source: "carry-baseline" }`
 - `DirectionalMTFPlugin`: `DirectionSignal { side: "long", strength: 0.6, source: "directional-mtf-v1" }` (hypothetical — BTC has no DirectionalMTF in our final spec)
 - `RegimeDetectorMetaPlugin`: `RiskSignal { sizeModifier: 0.5, source: "regime-detector-v1" }`
 
 Arbitration:
+
 1. DirectionSignal: long weight += 1.0 × 0.6 = 0.6, totalStrength = 0.6.
 2. CarrySignal: regime "high" → carrySizeMultiplier = 1.2. Source weight += weightFor("carry-baseline") = 1.0.
 3. RiskSignal: sizeModifier 0.5 < defensive (default 1.0) → _defensiveSizeModifier = max(0, 0.5) = 0.5.
 
 Final state:
+
 - longWeight = 0.6, totalStrength = 0.6 ≥ 0.3 → side = "long"
 - sizeMultiplier = min(1, max(0, 1.2 × 0.5)) = 0.6
 - notional = 0 (no SizingSignals emitted in this scenario) → final notional = 0
@@ -141,16 +148,17 @@ For a working notional to be emitted, a sizing-modifier plugin (HybridKellyPlugi
 
 The user mandate asked: "is there a hedge or defensive strategy? if not, build some into the signal center from step 1." An audit found 4 existing hedge/defensive plugins, **all PER-SYMBOL**:
 
-| File | Edge class | Scope |
-|---|---|---|
-| `funding-carry.ts` | carry | PER-SYMBOL (long-spot + short-perp on same symbol) |
-| `regime-detector-meta-plugin.ts` | risk (defensive) | PER-SYMBOL HMM |
-| `perpdex-liquidation-signals-plugin.ts` | risk (defensive) | PER-SYMBOL cascade detection |
-| `sol-flip-kill-switch-plugin.ts` | risk (defensive) | SOL-specific flip detection |
+| File                                    | Edge class       | Scope                                              |
+| --------------------------------------- | ---------------- | -------------------------------------------------- |
+| `funding-carry.ts`                      | carry            | PER-SYMBOL (long-spot + short-perp on same symbol) |
+| `regime-detector-meta-plugin.ts`        | risk (defensive) | PER-SYMBOL HMM                                     |
+| `perpdex-liquidation-signals-plugin.ts` | risk (defensive) | PER-SYMBOL cascade detection                       |
+| `sol-flip-kill-switch-plugin.ts`        | risk (defensive) | SOL-specific flip detection                        |
 
 **No cross-symbol hedge existed.** Track C introduced 3 NEW cross-symbol plugins (all `StrategyPlugin`-compatible, bus-emitter pattern):
 
 ### 4.1 `CrossSymbolSpreadReversionPlugin` (1,083 LOC, 52 tests)
+
 - **Edge class:** directional
 - **Logic:** BTC/ETH log-spread z-score mean reversion. When `z > 2` → short-A + long-B; when `z < -2` → long-A + short-B. Enforces `minHoldBars` cooldown (default 5) to avoid whipsaw.
 - **Refs:**
@@ -160,6 +168,7 @@ The user mandate asked: "is there a hedge or defensive strategy? if not, build s
   - Krauss (2017) "Statistical Arbitrage Pairs Trading Strategies Based on Quantile Regression" FAU Discussion Paper — https://www.fi.ncsu.edu/wp-content/uploads/2017/08/dp2017-1.pdf
 
 ### 4.2 `CrossSymbolMomentumOverlayPlugin` (549 LOC, 42 tests)
+
 - **Edge class:** directional
 - **Logic:** BTC-driven momentum overlay across all enabled symbols. When BTC's rolling N-day momentum > +threshold → all enabled symbols LONG; when < -threshold → all FLAT; deadzone emits nothing.
 - **Refs:**
@@ -167,6 +176,7 @@ The user mandate asked: "is there a hedge or defensive strategy? if not, build s
   - Hurst, Ooi, Pedersen (2017) "A Century of Evidence on Trend-Following Investing" Journal of Portfolio Management 44(1): 22-50
 
 ### 4.3 `CrossSymbolFundingDifferentialPlugin` (619 LOC, 45 tests)
+
 - **Edge class:** carry
 - **Logic:** Cross-symbol funding-rate arbitrage. Short the HIGH-funding leg (collect funding) + long the LOW-funding leg (pay less funding) when differential > `minDifferentialPer8h`. Emits CarrySignal `{ regime: "high" }`.
 - **Refs:**
@@ -176,17 +186,18 @@ The user mandate asked: "is there a hedge or defensive strategy? if not, build s
 
 ### How they complement per-symbol defensive
 
-| Edge type | Per-symbol defensive | Cross-symbol hedge |
-|---|---|---|
-| Funding risk | `CarryBaselinePlugin` (delta-neutral on same symbol) | `CrossSymbolFundingDifferentialPlugin` (long low-fund + short high-fund across symbols) |
-| Drawdown risk | `RegimeDetectorMetaPlugin` (per-symbol HMM) | `CrossSymbolMomentumOverlayPlugin` (BTC drives defensive flat across all) |
-| Mean-reversion alpha | (none previously) | `CrossSymbolSpreadReversionPlugin` (BTC/ETH log-spread z-score) |
+| Edge type            | Per-symbol defensive                                 | Cross-symbol hedge                                                                      |
+| -------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Funding risk         | `CarryBaselinePlugin` (delta-neutral on same symbol) | `CrossSymbolFundingDifferentialPlugin` (long low-fund + short high-fund across symbols) |
+| Drawdown risk        | `RegimeDetectorMetaPlugin` (per-symbol HMM)          | `CrossSymbolMomentumOverlayPlugin` (BTC drives defensive flat across all)               |
+| Mean-reversion alpha | (none previously)                                    | `CrossSymbolSpreadReversionPlugin` (BTC/ETH log-spread z-score)                         |
 
 The per-symbol defensive layers guard against within-symbol edge erosion. The cross-symbol hedges add alpha AND additional defense by diversifying the signal sources.
 
 ### 3-layer 1:10 leverage defense (each plugin)
 
 Each cross-symbol plugin enforces the project-wide 1:10 mandate at 3 layers:
+
 - **Layer 1 (CONSTRUCTOR):** `metadata.maxLeverage = ONE_TO_TEN_LEVERAGE` + constructor assertion throws on any drift.
 - **Layer 2 (SUBSCRIBE):** `_assertInitialState()` runs in `subscribe()` — validates state shape + enabled pairs + base notional.
 - **Layer 3 (PER-EMIT):** every `bus.emit(...)` is preceded by `assertLeverageInvariant(clampedNotional, baseNotionalUsd)` with a hard counter `leverageClampCount` incrementing on any clamp.
@@ -201,25 +212,26 @@ The user's mandate: "Hide every previously-written strategy behind the signal ce
 
 15 monolith strategies from `packages/core/src/strategy/` were each wrapped behind the `StrategyPlugin` interface:
 
-| Plugin class | Strategy wrapped | Edge class | Tests |
-|---|---|---|---|
-| `AlwaysInTrendPlugin` | Phase 5 `AlwaysInTrendStrategy` | directional | 24 |
-| `CompositePlugin` | Phase 5 `CompositeStrategy` | mixed | 23 |
-| `DonchianBreakoutPlugin` | Phase 5 `DonchianBreakoutStrategy` | directional | 23 |
-| `DonchianMtfPlugin` | Phase 8 `DonchianMtfStrategy` | directional | 23 |
-| `DonchianTrailingPlugin` | Phase 7 `DonchianTrailingStrategy` | directional | 23 |
-| `FundingCarryPlugin` | Phase 6 `FundingCarryStrategy` | carry | 23 |
-| `FundingCarryLeveragePlugin` | Phase 8 `FundingCarryLeverageStrategy` | carry | 23 |
-| `FundingCarryTimingPlugin` | Phase 8 `FundingCarryTimingStrategy` | carry | 23 |
-| `FundingFlipKillSwitchPlugin` | Phase 9 `FundingFlipKillSwitchStrategy` | risk | 23 |
-| `MeanReversionBbPlugin` | Phase 4 `MeanReversionBbStrategy` | directional | 23 |
-| `MtfTrendConfluencePlugin` | `MtfTrendConfluenceStrategy` | directional | 23 |
-| `MultiClassEnsemblePlugin` | Phase 6 `MultiClassEnsemble` | mixed | 23 |
-| `MultiClassEnsembleV2Plugin` | Phase 7 `MultiClassEnsembleV2` | mixed | 23 |
-| `MultiClassEnsembleV3Plugin` | Phase 8 `MultiClassEnsembleV3` | mixed | 23 |
-| `MultiClassEnsembleV4Plugin` | Phase 9 `MultiClassEnsembleV4` | mixed | 23 |
+| Plugin class                  | Strategy wrapped                        | Edge class  | Tests |
+| ----------------------------- | --------------------------------------- | ----------- | ----- |
+| `AlwaysInTrendPlugin`         | Phase 5 `AlwaysInTrendStrategy`         | directional | 24    |
+| `CompositePlugin`             | Phase 5 `CompositeStrategy`             | mixed       | 23    |
+| `DonchianBreakoutPlugin`      | Phase 5 `DonchianBreakoutStrategy`      | directional | 23    |
+| `DonchianMtfPlugin`           | Phase 8 `DonchianMtfStrategy`           | directional | 23    |
+| `DonchianTrailingPlugin`      | Phase 7 `DonchianTrailingStrategy`      | directional | 23    |
+| `FundingCarryPlugin`          | Phase 6 `FundingCarryStrategy`          | carry       | 23    |
+| `FundingCarryLeveragePlugin`  | Phase 8 `FundingCarryLeverageStrategy`  | carry       | 23    |
+| `FundingCarryTimingPlugin`    | Phase 8 `FundingCarryTimingStrategy`    | carry       | 23    |
+| `FundingFlipKillSwitchPlugin` | Phase 9 `FundingFlipKillSwitchStrategy` | risk        | 23    |
+| `MeanReversionBbPlugin`       | Phase 4 `MeanReversionBbStrategy`       | directional | 23    |
+| `MtfTrendConfluencePlugin`    | `MtfTrendConfluenceStrategy`            | directional | 23    |
+| `MultiClassEnsemblePlugin`    | Phase 6 `MultiClassEnsemble`            | mixed       | 23    |
+| `MultiClassEnsembleV2Plugin`  | Phase 7 `MultiClassEnsembleV2`          | mixed       | 23    |
+| `MultiClassEnsembleV3Plugin`  | Phase 8 `MultiClassEnsembleV3`          | mixed       | 23    |
+| `MultiClassEnsembleV4Plugin`  | Phase 9 `MultiClassEnsembleV4`          | mixed       | 23    |
 
 Each wrapper:
+
 - Holds the underlying `Strategy` instance + a `StrategyContext` rebuilt from the bar.
 - Emits `DirectionSignal` (long/short/flat) + `SizingSignal` on entry.
 - 3-layer 1:10 leverage defense (constructor metadata + subscribe assertion + per-emit clamp).
@@ -250,12 +262,12 @@ Window: 2025-07-03 → 2026-07-03. Data: 366 OHLCV bars + 1,096 funding snapshot
 
 ### 6.2 Per-symbol envelope (5 envelope JSONs + decision-log.jsonl)
 
-| Symbol | monthlyReturn | annualizedReturn | Sharpe | Max DD | Final equity | Decisions | Open positions |
-|---|---|---|---|---|---|---|---|
-| **BTC/USDT** | +0.71%/mo | +8.81%/yr | 1.442 | 0.00% | $10,880.72 | 365 | 7 (carry) |
-| **ETH/USDT** | 0.00%/mo | 0.00%/yr | 0.000 | 0.00% | $10,000.00 | 366 | 0 (flat) |
-| **SOL/USDT** | 0.00%/mo | 0.00%/yr | 0.000 | 0.00% | $10,000.00 | 365 | 0 (flat) |
-| **PORTFOLIO** | **+0.24%/mo** | **+2.94%/yr** | **1.442** | **0.00%** | **$30,880.72** | **1,096** | **7** |
+| Symbol        | monthlyReturn | annualizedReturn | Sharpe    | Max DD    | Final equity   | Decisions | Open positions |
+| ------------- | ------------- | ---------------- | --------- | --------- | -------------- | --------- | -------------- |
+| **BTC/USDT**  | +0.71%/mo     | +8.81%/yr        | 1.442     | 0.00%     | $10,880.72     | 365       | 7 (carry)      |
+| **ETH/USDT**  | 0.00%/mo      | 0.00%/yr         | 0.000     | 0.00%     | $10,000.00     | 366       | 0 (flat)       |
+| **SOL/USDT**  | 0.00%/mo      | 0.00%/yr         | 0.000     | 0.00%     | $10,000.00     | 365       | 0 (flat)       |
+| **PORTFOLIO** | **+0.24%/mo** | **+2.94%/yr**    | **1.442** | **0.00%** | **$30,880.72** | **1,096** | **7**          |
 
 ### 6.3 Why ETH and SOL produced 0 envelope
 
@@ -266,13 +278,13 @@ These are NOT bugs in the orchestrator or the DecisionEngine — they are prereq
 
 ### 6.4 3-layer 1:10 defense verification
 
-| Layer | Check | Result |
-|---|---|---|
-| Layer 1 (constructor) | `PortfolioOrchestrator` + `SignalCenterV1` + every plugin constructor refuses `maxLeverage > 10` | PASS (0 breaches) |
-| Layer 2 (subscribe) | `start()` runs `assertLeverageInvariant` on initial state | PASS (orchestrator started cleanly with maxLeverage=10) |
-| Layer 3 (per-bar) | `leverageInvariantGuard` fires per-bar aggregate check | PASS (0 breaches counter) |
-| **Aggregate** | `PortfolioOrchestrator.leverageBreaches` counter | **0** |
-| **Aggregate** | `PortfolioOrchestrator.liquidations` counter | **0** |
+| Layer                 | Check                                                                                            | Result                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| Layer 1 (constructor) | `PortfolioOrchestrator` + `SignalCenterV1` + every plugin constructor refuses `maxLeverage > 10` | PASS (0 breaches)                                       |
+| Layer 2 (subscribe)   | `start()` runs `assertLeverageInvariant` on initial state                                        | PASS (orchestrator started cleanly with maxLeverage=10) |
+| Layer 3 (per-bar)     | `leverageInvariantGuard` fires per-bar aggregate check                                           | PASS (0 breaches counter)                               |
+| **Aggregate**         | `PortfolioOrchestrator.leverageBreaches` counter                                                 | **0**                                                   |
+| **Aggregate**         | `PortfolioOrchestrator.liquidations` counter                                                     | **0**                                                   |
 
 The 1:10 MANDATE held cleanly. No liquidations. No leverage breaches. The hard constraint is honored in the codebase and in the run.
 
@@ -321,13 +333,14 @@ The measured final backtest envelope is **+0.24%/mo at the portfolio level** (+0
 
 Based on the Phase 11.1e baselines and Phase 12 + Phase 13 backtests, the realistic ceiling for a signal-center-based crypto portfolio at 1:10 leverage is:
 
-| Architecture | Realistic monthly return | Sharpe | Max DD |
-|---|---|---|---|
-| Carry-only (BTC) | +0.5–1.0%/mo | 0.5–1.5 | 0–5% |
-| Carry + directional (MTF) | +1.0–2.0%/mo | 0.8–1.5 | 5–15% |
-| Carry + directional + cross-symbol hedges | +1.5–3.0%/mo | 1.0–2.0 | 10–20% |
+| Architecture                              | Realistic monthly return | Sharpe  | Max DD |
+| ----------------------------------------- | ------------------------ | ------- | ------ |
+| Carry-only (BTC)                          | +0.5–1.0%/mo             | 0.5–1.5 | 0–5%   |
+| Carry + directional (MTF)                 | +1.0–2.0%/mo             | 0.8–1.5 | 5–15%  |
+| Carry + directional + cross-symbol hedges | +1.5–3.0%/mo             | 1.0–2.0 | 10–20% |
 
 **Realistic ceiling for THIS Phase 13 system: +0.5–1.0%/mo** at the portfolio level. The +50%/mo target requires either:
+
 - 100×+ higher leverage (forbidden by the 1:10 mandate)
 - Daily directional alpha with Sharpe > 5 (no such strategy exists in the Phase 1–9 codebase)
 - Latency-arb infrastructure (Tokyo co-loc, separate workstream)
@@ -343,12 +356,14 @@ Phase 11.1e measured BTC +1.68/mo, ETH +2.38/mo, SOL +1.25/mo on the MTF-Trend-K
 ### 7.3 Where Phase 13 closes the gap
 
 The Phase 13 architecture delivers:
+
 - **Risk control parity** — every plugin passes the 3-layer 1:10 defense (zero breaches across 1,096 decisions).
 - **Arbitration determinism** — weighted voting + min consensus + defensive-weight multiplier = predictable behavior.
 - **Cross-symbol visibility** — the orchestrator's correlation penalty + maxPositions cap prevent concentration risk.
 - **Composition overhead ≤ 1%** vs the Phase 12 baseline — the orchestrator's incremental cost is well within the project's "drop-in ≤ 1% of baseline" memory rule.
 
 What Phase 13 does NOT do:
+
 - **Generate new alpha.** The signal-center arbitrates between existing strategies; it does not invent new signals. To beat +50%/mo, new alpha is needed (latency-arb, on-chain microstructure, perp-DEX cascade sniping) — all of which are Phase 14+ scope.
 
 ---
@@ -370,6 +385,7 @@ What Phase 13 does NOT do:
 ### 8.2 The simplified plugin set
 
 The Phase 13 runner uses a SIMPLIFIED per-symbol plugin set (vs the Phase 12 baseline):
+
 - BTC: CarryBaseline + HybridKelly (was: + VolTarget + RegimeDetector in Phase 12)
 - ETH: + DirectionalMTF
 - SOL: + SOLFlipKillSwitch
@@ -446,6 +462,7 @@ VolTarget + RegimeDetector were dropped to avoid the sizing-emit cascade and to 
 ```
 
 **Observations:**
+
 - All 10 lines are `side: "flat"` with `notional: 0`. This is because the DecisionEngine's `totalStrength` requires DirectionSignals to produce non-zero weighted votes, and DirectionalMTF (ETH-only) didn't fire non-flat in this early window.
 - `funding-feed-{symbol}` is the orchestrator's per-bar funding-feed transport (not a real plugin). It contributes to `sourceWeights` for telemetry but not to the weighted-vote side decision.
 - `carry-baseline` carries weight 3 per bar (one carry signal per funding snapshot in the bar's window — typically 0-1 funding snapshots per 1d bar).
@@ -504,6 +521,7 @@ Liquidations:    0
 The verifier (attempt 1) confirmed **9/10 acceptance checks PASS with high-quality evidence** (independent recomputation matches exactly, real data confirmed, build/lint/typecheck/test all green, envelope is reproducible from source artifacts). The single FAIL was on the PR-creation gate.
 
 `gh pr create` cannot succeed in this session because **no GitHub credentials are available**:
+
 - `~/.config/gh/hosts.yml` has the user configured (`eggprojectteams`) but no `oauth_token` stored
 - `gh auth status` returns: "You are not logged into any GitHub hosts."
 - No `GH_TOKEN` / `GITHUB_TOKEN` environment variable
@@ -517,6 +535,7 @@ The branch IS fully pushed at `origin/feat/phase13-d-runner-and-report` (commit 
 (a) **Provide a `GH_TOKEN`** — the Coder can retry `gh pr create` with `--with-token` against `origin/feat/phase13-d-runner-and-report` once a token is in `GH_TOKEN` / `GITHUB_TOKEN` env var.
 
 (b) **Accept branch-pushed state** — set `task_overrides.phase13-track-d-runner-and-report.verify_skip_reason` similarly to Track B:
+
 > "Owner override: Track D work is fully complete on disk (branch pushed 2bdbfd8) and empirically verified by independent verifier probe (9/10 PASS, 1 FAIL was environmental — no GH credentials in session). PR can be opened manually via https://github.com/EggProject/mm-crypto-bot/compare/main...feat/phase13-d-runner-and-report?expand=1 . Skipping per-task verifier gate because workspace gates PASS (1915/0) + envelope reproduces exactly from source artifacts."
 
 (c) **Different PR-creation path** — orchestrator opens the PR via web UI or a different CI integration.
@@ -535,20 +554,20 @@ https://github.com/EggProject/mm-crypto-bot/compare/main...feat/phase13-d-runner
 
 ## Appendix D — Acceptance gates (re-verified on attempt 2)
 
-| Criterion | Status | Evidence |
-|---|---|---|
-| typecheck (`bun run typecheck --force`) | **PASS** | 13/13 tasks, 0 errors |
-| lint (`bun run lint`) | **PASS** | 8/8 tasks, 0 errors, 259 warnings (all pre-existing `security/detect-object-injection`) |
-| test (`bun run test --force`) | **PASS** | 13/13 tasks, 1915 pass / 0 fail / 15252 expect() across 64 files |
-| Direct test (`bun test packages/core/src/portfolio/ packages/core/src/signal-center/`) | **PASS** | 1114 pass / 0 fail / 7851 expect() across 32 files |
-| Backtest ran with user spec (5%/10x/7/binance/1y) | **PASS** | Final envelope committed; **reproduced identically** on attempt 2 |
-| 0 leverage breaches | **PASS** | Verified at orchestrator level + per-plugin |
-| 0 liquidations | **PASS** | `PortfolioOrchestrator.liquidations = 0` |
-| 5 envelope JSONs + decision-log.jsonl committed | **PASS** | All under `backtest-results/portfolio-orchestrator/` |
-| REPORT-phase13.md has 10 sections | **PASS** | 5,300+ words (extended with Appendix C handoff + Appendix D gates) |
-| Branch pushed to origin | **PASS** | `origin/feat/phase13-d-runner-and-report` @ `2bdbfd8` |
-| PR opened | **PENDING** | See Appendix C — `gh` CLI not authenticated; manual URL provided |
-| deliverable.md present (worktree + plan outputs) | **PASS** | Both files written fresh on attempt 2 |
+| Criterion                                                                              | Status      | Evidence                                                                                |
+| -------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------- |
+| typecheck (`bun run typecheck --force`)                                                | **PASS**    | 13/13 tasks, 0 errors                                                                   |
+| lint (`bun run lint`)                                                                  | **PASS**    | 8/8 tasks, 0 errors, 259 warnings (all pre-existing `security/detect-object-injection`) |
+| test (`bun run test --force`)                                                          | **PASS**    | 13/13 tasks, 1915 pass / 0 fail / 15252 expect() across 64 files                        |
+| Direct test (`bun test packages/core/src/portfolio/ packages/core/src/signal-center/`) | **PASS**    | 1114 pass / 0 fail / 7851 expect() across 32 files                                      |
+| Backtest ran with user spec (5%/10x/7/binance/1y)                                      | **PASS**    | Final envelope committed; **reproduced identically** on attempt 2                       |
+| 0 leverage breaches                                                                    | **PASS**    | Verified at orchestrator level + per-plugin                                             |
+| 0 liquidations                                                                         | **PASS**    | `PortfolioOrchestrator.liquidations = 0`                                                |
+| 5 envelope JSONs + decision-log.jsonl committed                                        | **PASS**    | All under `backtest-results/portfolio-orchestrator/`                                    |
+| REPORT-phase13.md has 10 sections                                                      | **PASS**    | 5,300+ words (extended with Appendix C handoff + Appendix D gates)                      |
+| Branch pushed to origin                                                                | **PASS**    | `origin/feat/phase13-d-runner-and-report` @ `2bdbfd8`                                   |
+| PR opened                                                                              | **PENDING** | See Appendix C — `gh` CLI not authenticated; manual URL provided                        |
+| deliverable.md present (worktree + plan outputs)                                       | **PASS**    | Both files written fresh on attempt 2                                                   |
 
 ---
 

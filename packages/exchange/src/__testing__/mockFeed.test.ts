@@ -16,12 +16,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
-import {
-  MockExchangeFeed,
-  defaultMarketMeta,
-  defaultOrderBook,
-  defaultTicker,
-} from "./mockFeed.js";
+import { MockExchangeFeed, defaultMarketMeta, defaultOrderBook, defaultTicker } from "./mockFeed.js";
 import { type Balance, type ExchangePosition, type Symbol, type Timeframe } from "../types.js";
 import { asSymbol } from "../symbols.js";
 
@@ -120,7 +115,9 @@ describe("mockFeed", () => {
 
     it("close() törli a subscription-öket és opened=false", async () => {
       await feed.open();
-      await feed.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
+      await feed.subscribeTicker(asSymbol("BTC/USDC"), () => {
+        /* no-op */
+      });
       expect(feed.subscriptionCount()).toBe(1);
       await feed.close();
       expect(feed.subscriptionCount()).toBe(0);
@@ -129,9 +126,7 @@ describe("mockFeed", () => {
     it("open() hívása nélkül a metódusok dob", async () => {
       // Nincs open() hívás.
       await expect(feed.fetchBalances()).rejects.toThrow(/MockFeed.*open/);
-      await expect(feed.fetchTickerSnapshot(asSymbol("BTC/USDC"))).rejects.toThrow(
-        /MockFeed.*open/,
-      );
+      await expect(feed.fetchTickerSnapshot(asSymbol("BTC/USDC"))).rejects.toThrow(/MockFeed.*open/);
     });
   });
 
@@ -141,39 +136,49 @@ describe("mockFeed", () => {
     });
 
     it("subscribeTicker visszaad egy subscription id-t", async () => {
-      const id = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
+      const id = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => {
+        /* no-op */
+      });
       expect(typeof id).toBe("number");
       expect(feed.subscriptionCount()).toBe(1);
     });
 
     it("subscribeOrderBook figyelmen kívül hagyja a limit paramétert", async () => {
-      const id = await feed.subscribeOrderBook(asSymbol("BTC/USDC"), 50, () => { /* no-op */ });
+      const id = await feed.subscribeOrderBook(asSymbol("BTC/USDC"), 50, () => {
+        /* no-op */
+      });
       expect(typeof id).toBe("number");
     });
 
     it("subscribeTrades visszaad egy id-t", async () => {
-      const id = await feed.subscribeTrades(asSymbol("ETH/USDC"), () => { /* no-op */ });
+      const id = await feed.subscribeTrades(asSymbol("ETH/USDC"), () => {
+        /* no-op */
+      });
       expect(typeof id).toBe("number");
     });
 
     it("subscribeOhlcv timeframe paramétert is eltárolja", async () => {
-      const id = await feed.subscribeOhlcv(
-        asSymbol("BTC/USDC"),
-        "1m" as Timeframe,
-        () => { /* no-op */ },
-      );
+      const id = await feed.subscribeOhlcv(asSymbol("BTC/USDC"), "1m" as Timeframe, () => {
+        /* no-op */
+      });
       expect(typeof id).toBe("number");
     });
 
     it("unsubscribe törli a subscription-t", async () => {
-      const id = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
+      const id = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => {
+        /* no-op */
+      });
       await feed.unsubscribe(id);
       expect(feed.subscriptionCount()).toBe(0);
     });
 
     it("a subscription id-k egyediek (monoton növekvő)", async () => {
-      const id1 = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
-      const id2 = await feed.subscribeTicker(asSymbol("ETH/USDC"), () => { /* no-op */ });
+      const id1 = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => {
+        /* no-op */
+      });
+      const id2 = await feed.subscribeTicker(asSymbol("ETH/USDC"), () => {
+        /* no-op */
+      });
       expect(id2).toBeGreaterThan(id1);
     });
   });
@@ -408,9 +413,9 @@ describe("mockFeed", () => {
     });
 
     it("cancelOrder ismeretlen order-re dob", async () => {
-      await expect(
-        feed.cancelOrder("unknown" as never, asSymbol("BTC/USDC")),
-      ).rejects.toThrow(/ismeretlen order/);
+      await expect(feed.cancelOrder("unknown" as never, asSymbol("BTC/USDC"))).rejects.toThrow(
+        /ismeretlen order/,
+      );
     });
 
     it("cancelOrder létező order-t canceled-re állít", async () => {
@@ -427,9 +432,9 @@ describe("mockFeed", () => {
     });
 
     it("fetchOrder ismeretlen order-re dob", async () => {
-      await expect(
-        feed.fetchOrder("unknown" as never, asSymbol("BTC/USDC")),
-      ).rejects.toThrow(/ismeretlen order/);
+      await expect(feed.fetchOrder("unknown" as never, asSymbol("BTC/USDC"))).rejects.toThrow(
+        /ismeretlen order/,
+      );
     });
 
     it("fetchOrder létező order-t ad vissza", async () => {

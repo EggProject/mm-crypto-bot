@@ -104,5 +104,5 @@ export interface KellyOptAggregate {
  */
 export const DEFAULT_KELLY_OPT_AGGREGATE: KellyOptAggregate = {
   kellyFraction: 0.5,
-  kellyCapPctEquity: 0.20,
+  kellyCapPctEquity: 0.2,
 };

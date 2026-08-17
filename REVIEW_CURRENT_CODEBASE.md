@@ -42,15 +42,15 @@ Valódi Bybit credentiallel hitelesített live ordert nem küldtünk. A paper/te
 
 14. **RESOLVED — A konfigurált RiskManager nincs productionbe kötve.** A Bot példányosítja és mind a PositionManagerhez, mind a runnerhez csatolja (`apps/bot/src/bot/bot.ts:574`, `apps/bot/src/bot/bot.ts:596`, `apps/bot/src/bot/strategy-runner.ts:267`). A Kelly, drawdown scaler és trailing stop order-producing close útvonalon fut. Regresszió: opt-in risk feature és trailing close tesztek.
 
-16. **RESOLVED — A friss paper telepítés hamis credentiallel private API-t hív.** A `.env.example` credential mezői üresek; paper módban credential nélkül kizárólag public market-data kliens készül, a private balance fetch kimarad (`apps/bot/src/bot/bot.ts:507`, `apps/bot/src/bot/bot.ts:537`). Regresszió: friss `cp .env.example .env` paper startup és no-private-call teszt.
+15. **RESOLVED — A friss paper telepítés hamis credentiallel private API-t hív.** A `.env.example` credential mezői üresek; paper módban credential nélkül kizárólag public market-data kliens készül, a private balance fetch kimarad (`apps/bot/src/bot/bot.ts:507`, `apps/bot/src/bot/bot.ts:537`). Regresszió: friss `cp .env.example .env` paper startup és no-private-call teszt.
 
-17. **RESOLVED — Az enabled production pluginok inertek.** A runner az enabled pluginok `onBar` lifecycle-ját valódi plugin state-tel meghívja (`apps/bot/src/bot/strategy-runner.ts:675`); risk breach esetén szinkron pause/emergency latch tilt minden további entryt explicit resume-ig (`apps/bot/src/bot/strategy-runner.ts:538`, `apps/bot/src/bot/strategy-runner.ts:690`). Regresszió: valódi enabled risk plugin + signal-producing strategy breach és subsequent-candle teszt.
+16. **RESOLVED — Az enabled production pluginok inertek.** A runner az enabled pluginok `onBar` lifecycle-ját valódi plugin state-tel meghívja (`apps/bot/src/bot/strategy-runner.ts:675`); risk breach esetén szinkron pause/emergency latch tilt minden további entryt explicit resume-ig (`apps/bot/src/bot/strategy-runner.ts:538`, `apps/bot/src/bot/strategy-runner.ts:690`). Regresszió: valódi enabled risk plugin + signal-producing strategy breach és subsequent-candle teszt.
 
-18. **RESOLVED — A per-strategy safety override-ok nagy része nincs végrehajtva.** A Bot teljes strategy-policy mapet épít symbols/risk/max_positions/leverage értékekkel (`apps/bot/src/bot/bot.ts:802`), a runner a strategy policy alapján route-ol és méretez (`apps/bot/src/bot/strategy-runner.ts:244`, `apps/bot/src/bot/strategy-runner.ts:377`). Regresszió: BTC-only stratégia, strategy max-position és eltérő risk/leverage tesztek.
+17. **RESOLVED — A per-strategy safety override-ok nagy része nincs végrehajtva.** A Bot teljes strategy-policy mapet épít symbols/risk/max_positions/leverage értékekkel (`apps/bot/src/bot/bot.ts:802`), a runner a strategy policy alapján route-ol és méretez (`apps/bot/src/bot/strategy-runner.ts:244`, `apps/bot/src/bot/strategy-runner.ts:377`). Regresszió: BTC-only stratégia, strategy max-position és eltérő risk/leverage tesztek.
 
-19. **RESOLVED — Az exchange safety/performance config nem jut el a factoryhoz.** A Bot átadja a `rate_limit_ms`, `sandbox`, `timeout_ms`, REST és WS origin értékeket (`apps/bot/src/bot/bot.ts:517`); a factory és adapter validálja és alkalmazza őket (`packages/exchange/src/factory.ts:83`, `packages/exchange/src/bybitEuFeed.ts:185`). A sandbox és custom endpoint tiltott kombinációja fail-fast. Regresszió: factory config és malformed-origin tesztek.
+18. **RESOLVED — Az exchange safety/performance config nem jut el a factoryhoz.** A Bot átadja a `rate_limit_ms`, `sandbox`, `timeout_ms`, REST és WS origin értékeket (`apps/bot/src/bot/bot.ts:517`); a factory és adapter validálja és alkalmazza őket (`packages/exchange/src/factory.ts:83`, `packages/exchange/src/bybitEuFeed.ts:185`). A sandbox és custom endpoint tiltott kombinációja fail-fast. Regresszió: factory config és malformed-origin tesztek.
 
-20. **RESOLVED — A REST OHLCV fallback minden másodpercben újrajátssza az utolsó 100 gyertyát.** Subscription-szintű `lastEmittedTimestamp` szűri az ismétlést (`packages/exchange/src/bybitEuFeed.ts:788`, `packages/exchange/src/bybitEuFeed.ts:814`), és minden fallback wait abortálható timer-szivárgás nélkül. Regresszió: ismételt historikus batch, unsubscribe és reconnect tesztek.
+19. **RESOLVED — A REST OHLCV fallback minden másodpercben újrajátssza az utolsó 100 gyertyát.** Subscription-szintű `lastEmittedTimestamp` szűri az ismétlést (`packages/exchange/src/bybitEuFeed.ts:788`, `packages/exchange/src/bybitEuFeed.ts:814`), és minden fallback wait abortálható timer-szivárgás nélkül. Regresszió: ismételt historikus batch, unsubscribe és reconnect tesztek.
 
 ### P1 — backtest validitás és workflow
 
@@ -86,22 +86,22 @@ Valódi Bybit credentiallel hitelesített live ordert nem küldtünk. A paper/te
 
 ## Végső gate-ek
 
-| Gate | Végső eredmény |
-|---|---:|
-| `bun install --frozen-lockfile` | PASS — 222 install, 240 package |
-| `bun run build` | PASS — 7/7 task |
-| `bun run typecheck` | PASS — 12/12 task |
-| `bun run lint` | EXIT 0, NONCONFORMING — 7/7 task, 0 error, 588 pre-existing warning: backtest 33; backtest-tools 192; bot 89; core 264; exchange 6; paper 0; shared 4. Ez nem felel meg a warningmentes engineering standardnak. |
-| Módosított TypeScript/JavaScript lint | PASS — `--max-warnings=0` |
-| `bun run test` | PASS — 12/12 task; bot 737, exchange 379, shared 122, core 1548, paper 71, backtest 155, backtest-tools 247; összesen 3259 pass, 0 fail |
-| `bun run coverage:full` | FAIL-CLOSED — a producer tesztek PASS, a 4/7 OWN line gate exit 1 |
-| Workspace OWN line coverage | bot 1495/1495; paper 253/253; exchange 1494/1494; core 12545/12565; shared 189/189; backtest 918/921; backtest-tools 3272/3587 |
-| Bot unit gate | PASS — 23 fájl, 482 teszt; statement 1599/1599, branch 866/866, function 278/278, line 1495/1495 |
-| Bot subprocess E2E gate | PASS — 45/45 case; statement 1597/1597, branch 866/866, function 279/279, line 1492/1492 |
-| Bun LCOV mérőkorlát | A workspace per-package kapu kizárólag OWN-line bizonyíték. A bot statement/branch/function bizonyítékát a külön Vitest V8 és Istanbul subprocess riport adja. |
-| Root CLI help (`backtest`, `sweep`, `oos`) | PASS — mind exit 0 |
-| `bun audit` | PASS — No vulnerabilities found |
-| `git diff --check` | PASS |
+| Gate                                       |                                                                                                                                                                                                   Végső eredmény |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+| `bun install --frozen-lockfile`            |                                                                                                                                                                                  PASS — 222 install, 240 package |
+| `bun run build`                            |                                                                                                                                                                                                  PASS — 7/7 task |
+| `bun run typecheck`                        |                                                                                                                                                                                                PASS — 12/12 task |
+| `bun run lint`                             | EXIT 0, NONCONFORMING — 7/7 task, 0 error, 588 pre-existing warning: backtest 33; backtest-tools 192; bot 89; core 264; exchange 6; paper 0; shared 4. Ez nem felel meg a warningmentes engineering standardnak. |
+| Módosított TypeScript/JavaScript lint      |                                                                                                                                                                                        PASS — `--max-warnings=0` |
+| `bun run test`                             |                                                                          PASS — 12/12 task; bot 737, exchange 379, shared 122, core 1548, paper 71, backtest 155, backtest-tools 247; összesen 3259 pass, 0 fail |
+| `bun run coverage:full`                    |                                                                                                                                                FAIL-CLOSED — a producer tesztek PASS, a 4/7 OWN line gate exit 1 |
+| Workspace OWN line coverage                |                                                                                   bot 1495/1495; paper 253/253; exchange 1494/1494; core 12545/12565; shared 189/189; backtest 918/921; backtest-tools 3272/3587 |
+| Bot unit gate                              |                                                                                                                 PASS — 23 fájl, 482 teszt; statement 1599/1599, branch 866/866, function 278/278, line 1495/1495 |
+| Bot subprocess E2E gate                    |                                                                                                                         PASS — 45/45 case; statement 1597/1597, branch 866/866, function 279/279, line 1492/1492 |
+| Bun LCOV mérőkorlát                        |                                                   A workspace per-package kapu kizárólag OWN-line bizonyíték. A bot statement/branch/function bizonyítékát a külön Vitest V8 és Istanbul subprocess riport adja. |
+| Root CLI help (`backtest`, `sweep`, `oos`) |                                                                                                                                                                                               PASS — mind exit 0 |
+| `bun audit`                                |                                                                                                                                                                                  PASS — No vulnerabilities found |
+| `git diff --check`                         |                                                                                                                                                                                                             PASS |
 
 ## Források
 

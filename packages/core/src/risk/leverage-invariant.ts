@@ -193,19 +193,12 @@ export class LeverageBreachError extends Error {
  *
  * Pure function, no side effects.
  */
-export function computeEffectiveLeverage(
-  positions: readonly Position[],
-  baseCapital: number,
-): number {
+export function computeEffectiveLeverage(positions: readonly Position[], baseCapital: number): number {
   if (!Number.isFinite(baseCapital)) {
-    throw new Error(
-      `baseCapital must be a finite number, got ${String(baseCapital)}`,
-    );
+    throw new Error(`baseCapital must be a finite number, got ${String(baseCapital)}`);
   }
   if (baseCapital <= 0) {
-    throw new Error(
-      `baseCapital must be positive, got ${String(baseCapital)}`,
-    );
+    throw new Error(`baseCapital must be positive, got ${String(baseCapital)}`);
   }
   if (positions.length === 0) {
     return 0;
@@ -254,14 +247,10 @@ export function assertLeverageInvariant(
     );
   }
   if (!Number.isFinite(baseCapital)) {
-    throw new Error(
-      `[leverage-invariant] baseCapital must be a finite number, got ${String(baseCapital)}`,
-    );
+    throw new Error(`[leverage-invariant] baseCapital must be a finite number, got ${String(baseCapital)}`);
   }
   if (baseCapital <= 0) {
-    throw new Error(
-      `[leverage-invariant] baseCapital must be positive, got ${String(baseCapital)}`,
-    );
+    throw new Error(`[leverage-invariant] baseCapital must be positive, got ${String(baseCapital)}`);
   }
   if (!Number.isFinite(config.maxLeverage) || config.maxLeverage <= 0) {
     throw new Error(
@@ -335,10 +324,7 @@ export function assertPositionsInvariant(
   baseCapital: number,
   config: LeverageInvariantConfig = DEFAULT_LEVERAGE_INVARIANT_CONFIG,
 ): number {
-  const totalEffectiveNotional = positions.reduce(
-    (acc, p) => acc + Math.abs(p.effectiveNotionalUsd),
-    0,
-  );
+  const totalEffectiveNotional = positions.reduce((acc, p) => acc + Math.abs(p.effectiveNotionalUsd), 0);
   assertLeverageInvariant(totalEffectiveNotional, baseCapital, config);
   return totalEffectiveNotional / baseCapital;
 }

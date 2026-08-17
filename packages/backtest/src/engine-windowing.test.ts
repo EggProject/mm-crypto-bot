@@ -66,25 +66,43 @@ class RecordingStrategy implements Strategy {
     return null;
   }
 
-  warmup(): number { return 0; }
+  warmup(): number {
+    return 0;
+  }
 }
 
 class OpenOnceStrategy implements Strategy {
   readonly name = "open-once";
   readonly timeframes = ["1h"] as const;
   private opened = false;
-  constructor(private readonly stopLoss: number, private readonly takeProfit: number) {}
+  constructor(
+    private readonly stopLoss: number,
+    private readonly takeProfit: number,
+  ) {}
 
   onCandle(_ctx: StrategyContext): StrategySignal | null {
     if (this.opened) return null;
     this.opened = true;
-    return { side: "buy", confidence: 1, reason: "test", stopLoss: this.stopLoss, takeProfit: this.takeProfit };
+    return {
+      side: "buy",
+      confidence: 1,
+      reason: "test",
+      stopLoss: this.stopLoss,
+      takeProfit: this.takeProfit,
+    };
   }
 
-  warmup(): number { return 0; }
+  warmup(): number {
+    return 0;
+  }
 }
 
-function options(feed: ExchangeFeed, strategy: Strategy, startHour: number, endHour: number): BacktestOptions {
+function options(
+  feed: ExchangeFeed,
+  strategy: Strategy,
+  startHour: number,
+  endHour: number,
+): BacktestOptions {
   return {
     symbol: "BTC/USDT",
     htfTimeframe: "4h",
@@ -127,12 +145,24 @@ describe("runBacktest window and closed-candle invariants", () => {
     await runBacktest(options(feed, strategy, 0, 8));
 
     expect(strategy.seen.map((item) => item.htfClose)).toEqual([
-      undefined, undefined, undefined, 103,
-      103, 103, 103, 107,
+      undefined,
+      undefined,
+      undefined,
+      103,
+      103,
+      103,
+      103,
+      107,
     ]);
     expect(strategy.seen.map((item) => item.mtfClose)).toEqual([
-      undefined, undefined, undefined, 103,
-      103, 103, 103, 107,
+      undefined,
+      undefined,
+      undefined,
+      103,
+      103,
+      103,
+      103,
+      107,
     ]);
   });
 
@@ -143,7 +173,12 @@ describe("runBacktest window and closed-candle invariants", () => {
     await runBacktest(options(feed, strategy, 0, 6));
 
     expect(strategy.seen.map((item) => item.htfClose)).toEqual([
-      undefined, undefined, undefined, 103, 103, 103,
+      undefined,
+      undefined,
+      undefined,
+      103,
+      103,
+      103,
     ]);
   });
 
@@ -151,35 +186,28 @@ describe("runBacktest window and closed-candle invariants", () => {
     const feed = new Feed([candle(0, 100), candle(4, 104)]);
     const strategy = new RecordingStrategy();
 
-    await expect(runBacktest({
-      ...options(feed, strategy, 0, 8),
-      ltfTimeframe: "4h",
-      htfTimeframe: "1h",
-      mtfTimeframe: "4h",
-    })).rejects.toThrow("HTF and MTF timeframes must be whole multiples of the LTF timeframe");
+    await expect(
+      runBacktest({
+        ...options(feed, strategy, 0, 8),
+        ltfTimeframe: "4h",
+        htfTimeframe: "1h",
+        mtfTimeframe: "4h",
+      }),
+    ).rejects.toThrow("HTF and MTF timeframes must be whole multiples of the LTF timeframe");
   });
 
   it("does not aggregate a bucket with duplicate candles standing in for a missing interval", async () => {
     // Four records alone are insufficient evidence for a closed 4h candle:
     // this has two 03:00 records and no 02:00 record.  Treating it as a
     // complete HTF candle would leak a malformed close into the strategy.
-    const feed = new Feed([
-      candle(0, 100),
-      candle(1, 101),
-      candle(3, 103),
-      candle(3, 104),
-    ]);
+    const feed = new Feed([candle(0, 100), candle(1, 101), candle(3, 103), candle(3, 104)]);
     const strategy = new RecordingStrategy();
 
     await runBacktest(options(feed, strategy, 0, 4));
 
     expect(strategy.seen).toHaveLength(4);
-    expect(strategy.seen.map((item) => item.htfClose)).toEqual([
-      undefined, undefined, undefined, undefined,
-    ]);
-    expect(strategy.seen.map((item) => item.mtfClose)).toEqual([
-      undefined, undefined, undefined, undefined,
-    ]);
+    expect(strategy.seen.map((item) => item.htfClose)).toEqual([undefined, undefined, undefined, undefined]);
+    expect(strategy.seen.map((item) => item.mtfClose)).toEqual([undefined, undefined, undefined, undefined]);
   });
 
   it("writes terminal end-of-data realized P&L to one final equity point", async () => {

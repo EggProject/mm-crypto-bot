@@ -57,7 +57,10 @@ function parseEnvelope(path: string, name: string, manifest: BotRuntimeScopeMani
   try {
     value = JSON.parse(readFileSync(path, "utf8"));
   } catch (error) {
-    throw new Error(`malformed raw coverage JSON ${name}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    throw new Error(
+      `malformed raw coverage JSON ${name}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
   }
   assertPlainObject(value, `raw coverage envelope ${name}`);
   const filenamePid = Number(match.groups["pid"]);
@@ -103,7 +106,8 @@ export function collectBotE2eCoverage({
     const envelope = parseEnvelope(resolve(rawDirectory, entry.name), entry.name, manifest);
     const files = Object.keys(envelope.coverage);
     for (const file of files) {
-      if (!expectedFiles.has(resolve(file))) throw new Error(`raw coverage contains out-of-scope file: ${file}`);
+      if (!expectedFiles.has(resolve(file)))
+        throw new Error(`raw coverage contains out-of-scope file: ${file}`);
     }
     map.merge(envelope.coverage);
     observedCases.add(`${envelope.entryKind}:${envelope.caseId}`);
@@ -117,13 +121,16 @@ export function collectBotE2eCoverage({
   const missingCases = Object.entries(manifest.e2eCases)
     .flatMap(([kind, ids]) => ids.map((id) => `${kind}:${id}`))
     .filter((caseKey) => !observedCases.has(caseKey));
-  if (missingCases.length > 0) throw new Error(`required E2E cases did not produce coverage: ${missingCases.join(", ")}`);
+  if (missingCases.length > 0)
+    throw new Error(`required E2E cases did not produce coverage: ${missingCases.join(", ")}`);
 
   const total = map.getCoverageSummary().toJSON();
-  const files = Object.fromEntries(map.files().sort().map((file) => [
-    relative(REPOSITORY_ROOT, file),
-    map.fileCoverageFor(file).toSummary().toJSON(),
-  ]));
+  const files = Object.fromEntries(
+    map
+      .files()
+      .sort()
+      .map((file) => [relative(REPOSITORY_ROOT, file), map.fileCoverageFor(file).toSummary().toJSON()]),
+  );
   const failures: CoverageMetric[] = [];
   for (const metric of METRICS) {
     if (!exactMetric(total, metric)) failures.push(metric);

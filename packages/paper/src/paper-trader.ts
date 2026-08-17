@@ -27,11 +27,17 @@ import type {
 } from "@mm-crypto-bot/shared";
 
 export interface PaperTraderOptions {
-  /** Kezdo egyenleg quote currency-ban (pl. USDT/USDC) */
+  /**
+  Kezdo egyenleg quote currency-ban (pl. USDT/USDC)
+  */
   readonly initialBalanceQuote: number;
-  /** Exchange fee konfiguracio (borrow_rate, spot fee stb.) */
+  /**
+  Exchange fee konfiguracio (borrow_rate, spot fee stb.)
+  */
   readonly fee: ExchangeFeeConfig;
-  /** Trade-ek history maximalis hossza */
+  /**
+  Trade-ek history maximalis hossza
+  */
   readonly maxHistory?: number;
 }
 
@@ -59,115 +65,21 @@ export class PaperTrader {
   private readonly feed: ExchangeFeed;
   private readonly opts: Required<PaperTraderOptions>;
   private readonly state: InternalState;
-  private lastSeqByChannel: Map<string, number> = new Map<string, number>();
+  private readonly lastSeqByChannel: Map<string, number> = new Map<string, number>();
   private running = false;
 
-  constructor(feed: ExchangeFeed, opts: PaperTraderOptions) {
+  constructor(feed: ExchangeFeed, options: PaperTraderOptions) {
     this.feed = feed;
     this.opts = {
       maxHistory: 1000,
-      ...opts,
+      ...options,
     };
     this.state = {
-      cash: opts.initialBalanceQuote,
+      cash: options.initialBalanceQuote,
       positions: new Map(),
       history: [],
     };
   }
-
-  /** Aktualis Cash + Position allapot snapshot. */
-  snapshot(): { cash: number; positions: PositionSnapshot[] } {
-    return {
-      cash: this.state.cash,
-      positions: Array.from(this.state.positions.values()).map((p) => ({
-        symbol: p.symbol,
-        side: p.amount >= 0 ? "long" : "short",
-        amount: Math.abs(p.amount),
-        avgEntryPrice: p.avgEntryPrice,
-        unrealizedPnl: 0, // kalkulacio a watchTicker alapjan, kesobb
-        realizedPnl: 0, // history aggregacio, kesobb
-        openedAt: p.openedAt,
-        leverage: p.leverage,
-      })),
-    };
-  }
-
-  /** Eddigi trade-ek history (read-only copy). */
-  history_(): readonly FillRecord[] {
-    return [...this.state.history];
-  }
-
-  /**
-   * Trading signal feldolgozasa - a strategy altal generalt jelet
-   * szimulalt trade-e alakitja.
-   */
-  async executeSignal(signal: TradingSignal): Promise<FillRecord | null> {
-    if (signal.action === "hold") {
-      return null;
-    }
-
-    const ticker = await this.feed.fetchTicker(signal.symbol);
-    const fillPrice =
-      signal.suggestedPrice ??
-      (signal.action === "buy" ? ticker.ask ?? ticker.last ?? 0 : ticker.bid ?? ticker.last ?? 0);
-
-    if (fillPrice <= 0) {
-      return null;
-    }
-
-    const amount = signal.suggestedAmount ?? this.computeKellySize(signal, fillPrice);
-    if (amount <= 0) {
-      return null;
-    }
-
-    return this.fillOrder({
-      orderId: `paper-${Date.now()}`,
-      symbol: signal.symbol,
-      side: signal.action === "buy" ? "buy" : "sell",
-      price: fillPrice,
-      amount,
-      feeRate: this.opts.fee.spotTakerFee,
-    });
-  }
-
-  /** Stop loss / take profit figyeles a watchTicker stream-en. */
-  async start(options: { symbols: string[]; watchOpts?: WatchOptions }): Promise<void> {
-    if (this.feed.watchTicker === undefined) {
-      throw new Error(
-        "A feed nem tamogatja a watchTicker-t - a paper-trader csak CCXT Pro adapterrel mukodik",
-      );
-    }
-    // .bind(feed) megőrzi a this kontextust, igy a watchTicker nem unbound-method
-    const watchTicker = this.feed.watchTicker.bind(this.feed);
-    this.running = true;
-    // A CCXT Pro watch ciklusok reconnect-et es exponential backoff-ot
-    // automatikusan kezelnek (ld. stack-findings 7.2).
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- this.running externally mutatodik a stop() metodussal
-    while (this.running) {
-      try {
-        // Sorrend fontossaga: ticker eloszor (olcsobb), majd trades a fill-szimulaciohoz.
-        for (const symbol of options.symbols) {
-          const ticker = await watchTicker.call(this.feed, symbol, options.watchOpts);
-          // Sequence drift detekcio (ha a feed tartalmaz 'seq' mezot).
-          this.checkSeq("ticker:" + symbol, ticker.timestamp);
-          this.checkStops(symbol, ticker.last ?? 0);
-        }
-      } catch (err) {
-        if (err instanceof Error && err.message.includes("Network")) {
-          // CCXT Pro reconnect - csak logolunk, a ciklus folytatodik.
-          continue;
-        }
-        throw err;
-      }
-    }
-  }
-
-  /** Graceful stop. */
-  stop(): void {
-    this.running = false;
-  }
-
-  // ─── Privat segedek ──────────────────────────────────────────────
 
   private fillOrder(input: {
     orderId: string;
@@ -181,12 +93,7 @@ export class PaperTrader {
     const fee = cost * input.feeRate;
     const existing = this.state.positions.get(input.symbol);
 
-    let signedAmount: number;
-    if (input.side === "buy") {
-      signedAmount = input.amount;
-    } else {
-      signedAmount = -input.amount;
-    }
+    const signedAmount = input.side === "buy" ? input.amount : -input.amount;
 
     if (existing === undefined) {
       // Új pozíció nyitása
@@ -210,8 +117,7 @@ export class PaperTrader {
           Math.abs(totalAmount);
         existing.amount = totalAmount;
       } else if (totalAmount === 0) {
-        // A pozíció teljesen lezárult; null-mennyiségű "pozíciót" nem
-        // tartunk a snapshotban, mert az félrevezetné a felsőbb rétegeket.
+        // A fully closed position is removed instead of retaining a misleading zero quantity.
         this.state.positions.delete(input.symbol);
       } else if (Math.sign(totalAmount) === Math.sign(existing.amount)) {
         // Részleges csökkentés: az entry és nyitási idő változatlan.
@@ -232,7 +138,7 @@ export class PaperTrader {
     this.state.cash -= signedAmount * input.price + fee;
 
     const fill: FillRecord = {
-      id: `fill-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: "fill-" + String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8),
       orderId: input.orderId,
       symbol: input.symbol,
       side: input.side,
@@ -259,7 +165,7 @@ export class PaperTrader {
       // Sequence drift - kuldojelzes a felsőbb retegnek.
       // Itt csak logolunk; a magasabb szint donti el, hogy felfuggeszti-e.
       console.warn(
-        `[paper] sequence drift detected on ${channel}: expected ${last + 1}, got ${seq}`,
+        `[paper] sequence drift detected on ${channel}: expected ${String(last + 1)}, got ${String(seq)}`,
       );
     }
     this.lastSeqByChannel.set(channel, seq);
@@ -280,11 +186,115 @@ export class PaperTrader {
    * TODO: a confidence es a historikus win-rate ismereteben pontositani.
    */
   private computeKellySize(signal: TradingSignal, price: number): number {
-    if (price <= 0) return 0;
     const kellyFraction = 0.25; // = 1/4-Kelly, ld. config
     const confidence = Math.min(1, Math.max(0, signal.confidence));
     const equity = this.state.cash;
     const fraction = confidence * kellyFraction;
     return (equity * fraction) / price;
+  }
+
+  private isRunning(): boolean {
+    return this.running;
+  }
+
+  /**
+   * Returns the current cash and position state as an immutable snapshot.
+   */
+  snapshot(): { cash: number; positions: PositionSnapshot[] } {
+    return {
+      cash: this.state.cash,
+      positions: Array.from(this.state.positions.values(), (position) => ({
+        symbol: position.symbol,
+        side: position.amount >= 0 ? "long" : "short",
+        amount: Math.abs(position.amount),
+        avgEntryPrice: position.avgEntryPrice,
+        unrealizedPnl: 0,
+        realizedPnl: 0,
+        openedAt: position.openedAt,
+        leverage: position.leverage,
+      })),
+    };
+  }
+
+  /**
+   * Returns a read-only copy of the recorded paper fills.
+   */
+  history_(): readonly FillRecord[] {
+    return [...this.state.history];
+  }
+
+  /**
+   * Converts a strategy signal into a simulated fill when the signal is executable.
+   */
+  async executeSignal(signal: TradingSignal): Promise<FillRecord | null> {
+    if (signal.action === "hold") {
+      // eslint-disable-next-line unicorn/no-null -- Public no-fill contract distinguishes no fill from a successful FillRecord.
+      return null;
+    }
+
+    const ticker = await this.feed.fetchTicker(signal.symbol);
+    const fillPrice =
+      signal.suggestedPrice ??
+      (signal.action === "buy" ? (ticker.ask ?? ticker.last ?? 0) : (ticker.bid ?? ticker.last ?? 0));
+
+    if (fillPrice <= 0) {
+      // eslint-disable-next-line unicorn/no-null -- Public no-fill contract distinguishes no fill from a successful FillRecord.
+      return null;
+    }
+
+    const amount = signal.suggestedAmount ?? this.computeKellySize(signal, fillPrice);
+    if (amount <= 0) {
+      // eslint-disable-next-line unicorn/no-null -- Public no-fill contract distinguishes no fill from a successful FillRecord.
+      return null;
+    }
+
+    return this.fillOrder({
+      orderId: "paper-" + String(Date.now()),
+      symbol: signal.symbol,
+      side: signal.action === "buy" ? "buy" : "sell",
+      price: fillPrice,
+      amount,
+      feeRate: this.opts.fee.spotTakerFee,
+    });
+  }
+
+  /**
+   * Starts the ticker watch loop for the provided symbols.
+   */
+  async start(options: { symbols: string[]; watchOpts?: WatchOptions }): Promise<void> {
+    if (this.feed.watchTicker === undefined) {
+      throw new Error(
+        "A feed nem tamogatja a watchTicker-t - a paper-trader csak CCXT Pro adapterrel mukodik",
+      );
+    }
+    // .bind(feed) megőrzi a this kontextust, igy a watchTicker nem unbound-method
+    const watchTicker = this.feed.watchTicker.bind(this.feed);
+    this.running = true;
+    // A CCXT Pro watch ciklusok reconnect-et es exponential backoff-ot
+    // automatikusan kezelnek (ld. stack-findings 7.2).
+    while (this.isRunning()) {
+      try {
+        // Sorrend fontossaga: ticker eloszor (olcsobb), majd trades a fill-szimulaciohoz.
+        for (const symbol of options.symbols) {
+          const ticker = await watchTicker.call(this.feed, symbol, options.watchOpts);
+          // Sequence drift detekcio (ha a feed tartalmaz 'seq' mezot).
+          this.checkSeq("ticker:" + symbol, ticker.timestamp);
+          this.checkStops(symbol, ticker.last ?? 0);
+        }
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Network")) {
+          // CCXT Pro reconnect - csak logolunk, a ciklus folytatodik.
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Stops the ticker watch loop after the active watch operation settles.
+   */
+  stop(): void {
+    this.running = false;
   }
 }

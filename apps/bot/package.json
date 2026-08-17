@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "type": "module",
   "main": "./src/index.ts",
-  "bin": {
-    "mm-bot": "./src/index.ts"
-  },
   "scripts": {
     "build": "bun build src/index.ts --target=bun --outdir=dist --format=esm",
     "dev": "bun run src/index.ts",
@@ -23,7 +20,7 @@
     "@mm-crypto-bot/exchange": "workspace:*",
     "@mm-crypto-bot/paper": "workspace:*",
     "@mm-crypto-bot/shared": "workspace:*",
-    "picocolors": "^1.1.1",
+    "picocolors": "1.1.1",
     "zod": "3.25.76"
   },
   "devDependencies": {

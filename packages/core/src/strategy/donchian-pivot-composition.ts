@@ -163,8 +163,7 @@ export const DONCHIAN_PIVOT_COMPOSITION_DEFAULT_LTF: Timeframe = "15m";
  * can read per-strategy state for the REPORT's regime correlation analysis.
  */
 export class DonchianPivotComposition implements Strategy {
-  readonly name =
-    "Donchian + Pivot Composition (Phase 18 — 2-component M15-native mean-reversion)";
+  readonly name = "Donchian + Pivot Composition (Phase 18 — 2-component M15-native mean-reversion)";
   readonly timeframes: readonly Timeframe[];
   readonly config: DonchianPivotCompositionConfig;
   readonly donchianRange: DonchianRangeChannelStrategy;
@@ -187,8 +186,7 @@ export class DonchianPivotComposition implements Strategy {
     // `minConsensus` is REQUIRED at the type level (no `undefined`), so we
     // default it to 2 when the caller does not provide the config object.
     const resolved: DonchianPivotCompositionConfig = {
-      minConsensus:
-        config.minConsensus ?? DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG.minConsensus,
+      minConsensus: config.minConsensus ?? DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG.minConsensus,
       donchianRange: { ...DEFAULT_DONCHIAN_RANGE_CONFIG, ...(config.donchianRange ?? {}) },
       pivotGrid: { ...DEFAULT_PIVOT_GRID_CONFIG, ...(config.pivotGrid ?? {}) },
     };
@@ -279,16 +277,13 @@ export class DonchianPivotComposition implements Strategy {
     const sorted = [...fired].sort((a, b) => b.signal.confidence - a.signal.confidence);
     const winner = sorted[0]!;
     const side = winner.signal.side;
-    const meanConfidence =
-      fired.reduce((sum, entry) => sum + entry.signal.confidence, 0) / fired.length;
-    const meanTakeProfit =
-      fired.reduce((sum, entry) => sum + entry.signal.takeProfit, 0) / fired.length;
+    const meanConfidence = fired.reduce((sum, entry) => sum + entry.signal.confidence, 0) / fired.length;
+    const meanTakeProfit = fired.reduce((sum, entry) => sum + entry.signal.takeProfit, 0) / fired.length;
     // Tighter stop wins — for LONG (stop below entry), tighter = higher
     // stopLoss number (closer to entry). For SHORT (stop above entry),
     // tighter = lower stopLoss number. Use `min` for short, `max` for long.
     const stopLosses = fired.map((entry) => entry.signal.stopLoss);
-    const tighterStop =
-      side === "buy" ? Math.max(...stopLosses) : Math.min(...stopLosses);
+    const tighterStop = side === "buy" ? Math.max(...stopLosses) : Math.min(...stopLosses);
 
     // Round take-profit to pricePrecision. The composition does not own
     // pricePrecision (it lives on `ctx`), so we forward it through

@@ -87,20 +87,14 @@
 //   - Publishes per-asset cross-venue snapshots + spread metrics +
 //     predicted-vs-realized gap to the bus via `FundingSnapshotSignal`.
 
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 
 // Re-export the leverage constant for downstream consumers (mirrors the
 // pattern used by RegimeDetectorMetaPlugin and HybridKellyPlugin).
 export { ONE_TO_TEN_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type ConfigError,
@@ -198,14 +192,7 @@ export const DEFAULT_BASE_NOTIONAL_USD = 10_000 as const;
  * HYPE (Hyperliquid-native, documented funding divergence) + DOGE +
  * JUP (mid-cap alts with funding volatility).
  */
-export const DEFAULT_ASSETS: readonly string[] = [
-  "BTC",
-  "ETH",
-  "SOL",
-  "HYPE",
-  "DOGE",
-  "JUP",
-];
+export const DEFAULT_ASSETS: readonly string[] = ["BTC", "ETH", "SOL", "HYPE", "DOGE", "JUP"];
 
 // ---------------------------------------------------------------------------
 // Public types — venue payload shapes (parsed from raw WS messages)
@@ -401,14 +388,10 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
   constructor(overrides: Partial<CrossDexFundingWatcherConfig> = {}) {
     this.config = {
       assets: overrides.assets ?? DEFAULT_ASSETS,
-      pollIntervalSec:
-        overrides.pollIntervalSec ?? DEFAULT_POLL_INTERVAL_SEC,
-      maxSpreadBpsThreshold:
-        overrides.maxSpreadBpsThreshold ?? DEFAULT_MAX_SPREAD_BPS_THRESHOLD,
-      maxPredictedGapBps:
-        overrides.maxPredictedGapBps ?? DEFAULT_MAX_PREDICTED_GAP_BPS,
-      baseNotionalUsd:
-        overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
+      pollIntervalSec: overrides.pollIntervalSec ?? DEFAULT_POLL_INTERVAL_SEC,
+      maxSpreadBpsThreshold: overrides.maxSpreadBpsThreshold ?? DEFAULT_MAX_SPREAD_BPS_THRESHOLD,
+      maxPredictedGapBps: overrides.maxPredictedGapBps ?? DEFAULT_MAX_PREDICTED_GAP_BPS,
+      baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
     };
 
     // LAYER 1 — constructor assertion. The metadata declares
@@ -451,10 +434,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
         `[CrossDexFundingWatcherPlugin] maxPredictedGapBps=${this.config.maxPredictedGapBps} must be in (0, ${MAX_PREDICTED_GAP_BPS}].`,
       );
     }
-    if (
-      !Number.isFinite(this.config.baseNotionalUsd) ||
-      this.config.baseNotionalUsd <= 0
-    ) {
+    if (!Number.isFinite(this.config.baseNotionalUsd) || this.config.baseNotionalUsd <= 0) {
       throw new Error(
         `[CrossDexFundingWatcherPlugin] baseNotionalUsd=${this.config.baseNotionalUsd} must be a finite number > 0.`,
       );
@@ -469,14 +449,10 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
     for (let i = 0; i < assetsArr.length; i++) {
       const a = assetsArr[i]!;
       if (typeof a !== "string" || a.length === 0) {
-        throw new Error(
-          `[CrossDexFundingWatcherPlugin] assets[${i}] must be a non-empty string.`,
-        );
+        throw new Error(`[CrossDexFundingWatcherPlugin] assets[${i}] must be a non-empty string.`);
       }
       if (seen.has(a)) {
-        throw new Error(
-          `[CrossDexFundingWatcherPlugin] assets contains duplicate "${a}".`,
-        );
+        throw new Error(`[CrossDexFundingWatcherPlugin] assets contains duplicate "${a}".`);
       }
       seen.add(a);
     }
@@ -530,11 +506,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   validateConfig(config: unknown): Result<void, ConfigError> {
-    const makeErr = (
-      field: string,
-      message: string,
-      value?: unknown,
-    ): Result<void, ConfigError> => ({
+    const makeErr = (field: string, message: string, value?: unknown): Result<void, ConfigError> => ({
       ok: false,
       error: {
         pluginName: this.metadata.name,
@@ -565,12 +537,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
     }
     if (c["maxSpreadBpsThreshold"] !== undefined) {
       const ms = c["maxSpreadBpsThreshold"];
-      if (
-        typeof ms !== "number" ||
-        !Number.isFinite(ms) ||
-        ms <= 0 ||
-        ms > MAX_SPREAD_BPS_THRESHOLD
-      ) {
+      if (typeof ms !== "number" || !Number.isFinite(ms) || ms <= 0 || ms > MAX_SPREAD_BPS_THRESHOLD) {
         return makeErr(
           "maxSpreadBpsThreshold",
           `must be a finite number in (0, ${MAX_SPREAD_BPS_THRESHOLD}]`,
@@ -580,51 +547,26 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
     }
     if (c["maxPredictedGapBps"] !== undefined) {
       const mp = c["maxPredictedGapBps"];
-      if (
-        typeof mp !== "number" ||
-        !Number.isFinite(mp) ||
-        mp <= 0 ||
-        mp > MAX_PREDICTED_GAP_BPS
-      ) {
-        return makeErr(
-          "maxPredictedGapBps",
-          `must be a finite number in (0, ${MAX_PREDICTED_GAP_BPS}]`,
-          mp,
-        );
+      if (typeof mp !== "number" || !Number.isFinite(mp) || mp <= 0 || mp > MAX_PREDICTED_GAP_BPS) {
+        return makeErr("maxPredictedGapBps", `must be a finite number in (0, ${MAX_PREDICTED_GAP_BPS}]`, mp);
       }
     }
     if (c["baseNotionalUsd"] !== undefined) {
       const bn = c["baseNotionalUsd"];
-      if (
-        typeof bn !== "number" ||
-        !Number.isFinite(bn) ||
-        bn <= 0
-      ) {
-        return makeErr(
-          "baseNotionalUsd",
-          "must be a finite number > 0",
-          bn,
-        );
+      if (typeof bn !== "number" || !Number.isFinite(bn) || bn <= 0) {
+        return makeErr("baseNotionalUsd", "must be a finite number > 0", bn);
       }
     }
     if (c["assets"] !== undefined) {
       if (!Array.isArray(c["assets"]) || c["assets"].length === 0) {
-        return makeErr(
-          "assets",
-          "must be a non-empty array of non-empty strings",
-          c["assets"],
-        );
+        return makeErr("assets", "must be a non-empty array of non-empty strings", c["assets"]);
       }
       const seen = new Set<string>();
       const assetsArr = c["assets"] as readonly unknown[];
       for (let i = 0; i < assetsArr.length; i++) {
         const a: unknown = assetsArr[i];
         if (typeof a !== "string" || a.length === 0) {
-          return makeErr(
-            "assets",
-            `assets[${i}] must be a non-empty string`,
-            a,
-          );
+          return makeErr("assets", `assets[${i}] must be a non-empty string`, a);
         }
         if (seen.has(a)) {
           return makeErr("assets", `duplicate asset "${a}"`, a);
@@ -688,10 +630,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
       this.state.malformedPayloadDrops += 1;
       return;
     }
-    if (
-      predictedHourlyRate !== null &&
-      !Number.isFinite(predictedHourlyRate)
-    ) {
+    if (predictedHourlyRate !== null && !Number.isFinite(predictedHourlyRate)) {
       this.state.malformedPayloadDrops += 1;
       predictedHourlyRate = null;
     }
@@ -711,11 +650,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
    * 8h-equivalent bps is computed as `rate × 10_000` directly (no
    * cadence normalization needed — Binance is already 8h).
    */
-  recordBzFunding(
-    asset: string,
-    funding8h: number,
-    timestampMs?: number,
-  ): void {
+  recordBzFunding(asset: string, funding8h: number, timestampMs?: number): void {
     if (!this.config.assets.includes(asset)) return;
     if (!Number.isFinite(funding8h)) {
       this.state.malformedPayloadDrops += 1;
@@ -734,11 +669,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
   /**
    * `recordByFunding` — feed a Bybit 8h-native funding rate (decimal).
    */
-  recordByFunding(
-    asset: string,
-    funding8h: number,
-    timestampMs?: number,
-  ): void {
+  recordByFunding(asset: string, funding8h: number, timestampMs?: number): void {
     if (!this.config.assets.includes(asset)) return;
     if (!Number.isFinite(funding8h)) {
       this.state.malformedPayloadDrops += 1;
@@ -757,11 +688,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
   /**
    * `recordOkFunding` — feed an OKX 8h-native funding rate (decimal).
    */
-  recordOkFunding(
-    asset: string,
-    funding8h: number,
-    timestampMs?: number,
-  ): void {
+  recordOkFunding(asset: string, funding8h: number, timestampMs?: number): void {
     if (!this.config.assets.includes(asset)) return;
     if (!Number.isFinite(funding8h)) {
       this.state.malformedPayloadDrops += 1;
@@ -802,8 +729,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
       // Need at least 2 venues with data to compute a meaningful spread.
       const presentVenues: number[] = [];
       const maxAgeMs = this.config.pollIntervalSec * 2_000;
-      const freshAt = (updatedMs: number): boolean =>
-        updatedMs <= ts && ts - updatedMs <= maxAgeMs;
+      const freshAt = (updatedMs: number): boolean => updatedMs <= ts && ts - updatedMs <= maxAgeMs;
       if (ss.hlHourly !== null && freshAt(ss.hlUpdateMs)) {
         // HL is hourly — multiply by 8 to get 8h-equivalent rate, then ×10000 for bps.
         presentVenues.push(ss.hlHourly * 8 * 10_000);
@@ -819,8 +745,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
       const spreadMax = max - min;
 
       // 8h-equivalent bps per venue (null if no data).
-      const hl8h =
-        ss.hlHourly !== null && freshAt(ss.hlUpdateMs) ? ss.hlHourly * 8 * 10_000 : Number.NaN;
+      const hl8h = ss.hlHourly !== null && freshAt(ss.hlUpdateMs) ? ss.hlHourly * 8 * 10_000 : Number.NaN;
       const bz = ss.bz8h !== null && freshAt(ss.bzUpdateMs) ? ss.bz8h * 10_000 : Number.NaN;
       const by = ss.by8h !== null && freshAt(ss.byUpdateMs) ? ss.by8h * 10_000 : Number.NaN;
       const ok = ss.ok8h !== null && freshAt(ss.okUpdateMs) ? ss.ok8h * 10_000 : Number.NaN;
@@ -829,8 +754,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
       // Only computable when both HL hourly + HL predicted hourly are present.
       let predictedGap = 0;
       if (ss.hlHourly !== null && ss.hlPredictedHourly !== null && freshAt(ss.hlUpdateMs)) {
-        predictedGap =
-          (ss.hlPredictedHourly - ss.hlHourly) * 8 * 10_000;
+        predictedGap = (ss.hlPredictedHourly - ss.hlHourly) * 8 * 10_000;
       }
 
       const snap: FundingSnapshotSignal = {
@@ -860,10 +784,9 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
         // Should never fire — re-throw with `cause` chained for
         // diagnostic context.
         const msg = e instanceof Error ? e.message : String(e);
-        throw new Error(
-          `[CrossDexFundingWatcherPlugin] LAYER 2 BREACH (defensive hook): ${msg}`,
-          { cause: e },
-        );
+        throw new Error(`[CrossDexFundingWatcherPlugin] LAYER 2 BREACH (defensive hook): ${msg}`, {
+          cause: e,
+        });
       }
 
       ss.lastSnapshot = snap;
@@ -909,12 +832,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
   hasAnyVenueData(asset: string): boolean {
     const ss = this.state.perAsset.get(asset);
     if (!ss) return false;
-    return (
-      ss.hlHourly !== null ||
-      ss.bz8h !== null ||
-      ss.by8h !== null ||
-      ss.ok8h !== null
-    );
+    return ss.hlHourly !== null || ss.bz8h !== null || ss.by8h !== null || ss.ok8h !== null;
   }
 
   // ---------------------------------------------------------------------
@@ -959,9 +877,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
  * Returns a Map keyed by coin symbol with `HlAssetCtx` values. Skips
  * entries with non-finite funding.
  */
-export function parseHlMetaAndAssetCtxs(
-  payload: unknown,
-): Map<string, HlAssetCtx> {
+export function parseHlMetaAndAssetCtxs(payload: unknown): Map<string, HlAssetCtx> {
   const out = new Map<string, HlAssetCtx>();
   if (!Array.isArray(payload) || payload.length < 2) return out;
   const assetCtxsUnknown: unknown = payload[1];
@@ -991,9 +907,7 @@ export function parseHlMetaAndAssetCtxs(
  * Returns a Map keyed by `${coin}:${venue}` with `HlPredictedFunding`
  * values. Skips entries with non-finite fundingRate.
  */
-export function parseHlPredictedFundings(
-  payload: unknown,
-): Map<string, HlPredictedFunding> {
+export function parseHlPredictedFundings(payload: unknown): Map<string, HlPredictedFunding> {
   const out = new Map<string, HlPredictedFunding>();
   if (!Array.isArray(payload)) return out;
   const payloadArr = payload as readonly unknown[];
@@ -1013,10 +927,7 @@ export function parseHlPredictedFundings(
         continue;
       }
       const d = details as Record<string, unknown>;
-      if (
-        typeof d["fundingRate"] !== "number" ||
-        !Number.isFinite(d["fundingRate"])
-      ) {
+      if (typeof d["fundingRate"] !== "number" || !Number.isFinite(d["fundingRate"])) {
         continue;
       }
       out.set(`${coin}:${venue}`, {
@@ -1053,9 +964,7 @@ export function parseBzMarkPrice(payload: unknown): BinanceMarkPrice | null {
  * entries from a WS array payload (the documented Binance shape when
  * subscribing to multiple symbols).
  */
-export function parseBzMarkPriceBatch(
-  payload: unknown,
-): BinanceMarkPrice[] {
+export function parseBzMarkPriceBatch(payload: unknown): BinanceMarkPrice[] {
   if (!Array.isArray(payload)) return [];
   const out: BinanceMarkPrice[] = [];
   for (const entry of payload) {

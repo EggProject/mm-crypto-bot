@@ -342,9 +342,7 @@ export interface DecisionEngineState {
  * Hierarchies") + Type-Level TypeScript (Alex Vakulov, 2023).
  */
 export function assertNever(x: never): never {
-  throw new Error(
-    `[DecisionEngine] Non-exhaustive switch — unhandled value: ${JSON.stringify(x)}`,
-  );
+  throw new Error(`[DecisionEngine] Non-exhaustive switch — unhandled value: ${JSON.stringify(x)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -384,18 +382,10 @@ export class DecisionEngine {
       ...DEFAULT_DECISION_ENGINE_CONFIG,
       ...config,
     };
-    if (
-      !Number.isFinite(merged.defaultWeight) ||
-      merged.defaultWeight <= 0
-    ) {
-      throw new Error(
-        `[DecisionEngine] defaultWeight must be positive finite, got ${merged.defaultWeight}`,
-      );
+    if (!Number.isFinite(merged.defaultWeight) || merged.defaultWeight <= 0) {
+      throw new Error(`[DecisionEngine] defaultWeight must be positive finite, got ${merged.defaultWeight}`);
     }
-    if (
-      !Number.isFinite(merged.defensiveWeight) ||
-      merged.defensiveWeight <= 0
-    ) {
+    if (!Number.isFinite(merged.defensiveWeight) || merged.defensiveWeight <= 0) {
       throw new Error(
         `[DecisionEngine] defensiveWeight must be positive finite, got ${merged.defensiveWeight}`,
       );
@@ -409,10 +399,7 @@ export class DecisionEngine {
         `[DecisionEngine] minConsensusStrength must be finite in [0, 1], got ${merged.minConsensusStrength}`,
       );
     }
-    if (
-      !Number.isFinite(merged.maxNotionalPerSymbolUsd) ||
-      merged.maxNotionalPerSymbolUsd <= 0
-    ) {
+    if (!Number.isFinite(merged.maxNotionalPerSymbolUsd) || merged.maxNotionalPerSymbolUsd <= 0) {
       throw new Error(
         `[DecisionEngine] maxNotionalPerSymbolUsd must be positive finite, got ${merged.maxNotionalPerSymbolUsd}`,
       );
@@ -450,14 +437,7 @@ export class DecisionEngine {
     // Subscribe to ALL FOUR signal kinds — the bus routes by kind.
     // We don't currently emit signals ourselves; the engine is a
     // pure consumer + PositionDecision producer.
-    for (const kind of [
-      "direction",
-      "carry",
-      "sizing",
-      "risk",
-      "factor",
-      "funding-snapshot",
-    ] as const) {
+    for (const kind of ["direction", "carry", "sizing", "risk", "factor", "funding-snapshot"] as const) {
       const unsub = bus.subscribe(kind, (s: Signal) => {
         this._handleSignal(s);
       });
@@ -542,10 +522,7 @@ export class DecisionEngine {
     else acc.flatScore += contribution;
     acc.totalWeight += weight;
     acc.sourceWeights[s.source] = weight;
-    if (
-      s.timestampMs !== undefined &&
-      s.timestampMs > acc.lastDirectionTs
-    ) {
+    if (s.timestampMs !== undefined && s.timestampMs > acc.lastDirectionTs) {
       acc.lastDirectionTs = s.timestampMs;
     }
   }
@@ -603,9 +580,8 @@ export class DecisionEngine {
     const symbol = this._signalSymbol(s);
     const acc = this._getOrCreateAccumulator(symbol);
     const candidate = Math.abs(s.notional);
-    acc.sizingNotionalUsd = acc.sizingNotionalUsd === null
-      ? candidate
-      : Math.min(acc.sizingNotionalUsd, candidate);
+    acc.sizingNotionalUsd =
+      acc.sizingNotionalUsd === null ? candidate : Math.min(acc.sizingNotionalUsd, candidate);
     if (s.timestampMs !== undefined && s.timestampMs > acc.lastSizingTs) {
       acc.lastSizingTs = s.timestampMs;
     }
@@ -649,9 +625,7 @@ export class DecisionEngine {
   arbitrate(symbol: string): PositionDecision {
     this.state.arbitrateCallCount += 1;
     const acc = this.state.symbols.get(symbol);
-    if (
-      acc === undefined
-    ) {
+    if (acc === undefined) {
       this.state.emptyArbitrateCount += 1;
       const empty: PositionDecision = {
         symbol,
@@ -670,18 +644,10 @@ export class DecisionEngine {
     const sizeMultiplier = this._computeSizeMultiplier(acc);
     const notionalBase = acc.sizingNotionalUsd ?? this.config.maxNotionalPerSymbolUsd;
     const notionalRaw = notionalBase * Math.max(0, sizeMultiplier);
-    const notionalUsd = Math.max(
-      0,
-      Math.min(this.config.maxNotionalPerSymbolUsd, notionalRaw),
-    );
-    const side: PositionDecision["side"] = acc.forceClose ||
-      confidence < this.config.minConsensusStrength ? "flat" : winner;
-    const timestampMs = Math.max(
-      acc.lastDirectionTs,
-      acc.lastCarryTs,
-      acc.lastRiskTs,
-      acc.lastSizingTs,
-    );
+    const notionalUsd = Math.max(0, Math.min(this.config.maxNotionalPerSymbolUsd, notionalRaw));
+    const side: PositionDecision["side"] =
+      acc.forceClose || confidence < this.config.minConsensusStrength ? "flat" : winner;
+    const timestampMs = Math.max(acc.lastDirectionTs, acc.lastCarryTs, acc.lastRiskTs, acc.lastSizingTs);
     const decision: PositionDecision = {
       symbol,
       side,
@@ -784,10 +750,7 @@ export class DecisionEngine {
       return { ok: false, error: { message: "config must be an object" } };
     }
     const c = config as Partial<DecisionEngineConfig>;
-    if (
-      c.defaultWeight !== undefined &&
-      (!Number.isFinite(c.defaultWeight) || c.defaultWeight <= 0)
-    ) {
+    if (c.defaultWeight !== undefined && (!Number.isFinite(c.defaultWeight) || c.defaultWeight <= 0)) {
       return {
         ok: false,
         error: {
@@ -795,10 +758,7 @@ export class DecisionEngine {
         },
       };
     }
-    if (
-      c.defensiveWeight !== undefined &&
-      (!Number.isFinite(c.defensiveWeight) || c.defensiveWeight <= 0)
-    ) {
+    if (c.defensiveWeight !== undefined && (!Number.isFinite(c.defensiveWeight) || c.defensiveWeight <= 0)) {
       return {
         ok: false,
         error: {
@@ -808,9 +768,7 @@ export class DecisionEngine {
     }
     if (
       c.minConsensusStrength !== undefined &&
-      (!Number.isFinite(c.minConsensusStrength) ||
-        c.minConsensusStrength < 0 ||
-        c.minConsensusStrength > 1)
+      (!Number.isFinite(c.minConsensusStrength) || c.minConsensusStrength < 0 || c.minConsensusStrength > 1)
     ) {
       return {
         ok: false,
@@ -821,8 +779,7 @@ export class DecisionEngine {
     }
     if (
       c.maxNotionalPerSymbolUsd !== undefined &&
-      (!Number.isFinite(c.maxNotionalPerSymbolUsd) ||
-        c.maxNotionalPerSymbolUsd <= 0)
+      (!Number.isFinite(c.maxNotionalPerSymbolUsd) || c.maxNotionalPerSymbolUsd <= 0)
     ) {
       return {
         ok: false,
@@ -978,7 +935,6 @@ export class DecisionEngine {
     const raw = acc.carryMultiplier * acc.sizeModifier;
     return Math.max(0, Math.min(1, raw));
   }
-
 }
 
 // ---------------------------------------------------------------------------
@@ -989,9 +945,7 @@ export class DecisionEngine {
  * `createDecisionEngine` — convenience factory. Same as
  * `new DecisionEngine(config)`.
  */
-export function createDecisionEngine(
-  config?: Partial<DecisionEngineConfig>,
-): DecisionEngine {
+export function createDecisionEngine(config?: Partial<DecisionEngineConfig>): DecisionEngine {
   return new DecisionEngine(config);
 }
 

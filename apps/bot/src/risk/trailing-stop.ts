@@ -281,9 +281,7 @@ export class TrailingStopManager {
     if (!Number.isFinite(atr) || atr <= 0) return;
     const distance = atr * this.atrMultiplier;
     const newTrail =
-      s.side === "long"
-        ? Math.max(s.trail, s.high - distance)
-        : Math.min(s.trail, s.high + distance);
+      s.side === "long" ? Math.max(s.trail, s.high - distance) : Math.min(s.trail, s.high + distance);
     this.states.set(positionId, { ...s, atr, trail: newTrail });
   }
 

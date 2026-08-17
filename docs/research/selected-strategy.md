@@ -32,21 +32,21 @@ kockázat-korrigáltan**.
 
 ## 2. Indikátorok és paraméterek (numerikus)
 
-| Réteg | Indikátor | Paraméterek | Számítási mód |
-|---|---|---|---|
-| HTF | **Donchian Channels** | period=20 (entry), period=10 (exit) | `Upper = Highest(high, 20)`, `Lower = Lowest(low, 10)` |
-| HTF | **Supertrend** | ATR_period=10, multiplier=3.0 | `(High+Low)/2 ± ATR(10) × 3.0` |
-| HTF | **EMA(50)** | period=50 | `EMA(close, 50)` |
-| HTF | **EMA(200)** | period=200 | trend-megerősítés |
-| MTF | **Bollinger Bands** | period=20, stddev=2.0 | `MA(20) ± 2×StdDev(20)` |
-| MTF | **ADX(14)** | period=14 | trend-erősség |
-| MTF | **RSI(14)** | period=14 | momentum |
-| LTF | **RSI(14)** | period=14 | trigger |
-| LTF | **Volume MA(20)** | period=20 | trigger-konfirmáció |
-| LTF | **ATR(14)** | period=14 | volatilitás-alapú SL |
-| Risk | **Kelly-frakció** | 1/4-Kelly | position-sizing |
-| Risk | **Max risk / trade** | 1% equity | kockázati limit |
-| Risk | **Max portfolio DD** | 15% (kill-switch) | globális limit |
+| Réteg | Indikátor             | Paraméterek                         | Számítási mód                                          |
+| ----- | --------------------- | ----------------------------------- | ------------------------------------------------------ |
+| HTF   | **Donchian Channels** | period=20 (entry), period=10 (exit) | `Upper = Highest(high, 20)`, `Lower = Lowest(low, 10)` |
+| HTF   | **Supertrend**        | ATR_period=10, multiplier=3.0       | `(High+Low)/2 ± ATR(10) × 3.0`                         |
+| HTF   | **EMA(50)**           | period=50                           | `EMA(close, 50)`                                       |
+| HTF   | **EMA(200)**          | period=200                          | trend-megerősítés                                      |
+| MTF   | **Bollinger Bands**   | period=20, stddev=2.0               | `MA(20) ± 2×StdDev(20)`                                |
+| MTF   | **ADX(14)**           | period=14                           | trend-erősség                                          |
+| MTF   | **RSI(14)**           | period=14                           | momentum                                               |
+| LTF   | **RSI(14)**           | period=14                           | trigger                                                |
+| LTF   | **Volume MA(20)**     | period=20                           | trigger-konfirmáció                                    |
+| LTF   | **ATR(14)**           | period=14                           | volatilitás-alapú SL                                   |
+| Risk  | **Kelly-frakció**     | 1/4-Kelly                           | position-sizing                                        |
+| Risk  | **Max risk / trade**  | 1% equity                           | kockázati limit                                        |
+| Risk  | **Max portfolio DD**  | 15% (kill-switch)                   | globális limit                                         |
 
 > Forrás: Boring Edge (Donchian, Supertrend), Quantified Strategies (EMA), Changelly (BB),
 > BingX/CoinXSight/Quantpedia (MTF), PRUVIQ (Kelly), Altrady (Kelly crypto).
@@ -58,22 +58,26 @@ kockázat-korrigáltan**.
 ### 3.1 LONG belépés
 
 **HTF feltétel (1D chart, mind szükséges):**
+
 - `close > Donchian_upper(20)` — trend-erős, új 20-napos csúcs
 - **VAGY** Supertrend irány = up (close > Supertrend vonal)
 - `close > EMA(50)` AND `EMA(50) > EMA(200)` — bullish EMA-szerkezet
 - **ÉS** `ADX(14, 1D) > 20` — trend-erősség megerősítve
 
 **MTF feltétel (4H chart, mind szükséges):**
+
 - `close ≤ BB_lower(20, 2σ)` — pullback a BB alsó sávhoz (mean-reversion setup)
 - **ÉS** `RSI(14, 4H) ≤ 35` — momentum kimerült
 - **ÉS** `ADX(14, 4H) > 20` — a trend 4H-n is él
 
 **LTF trigger (1H chart, mind szükséges):**
+
 - `RSI(14, 1H)` visszatér 30 fölé (cross-back trigger, nem azonnali 30 alá lépés)
 - `close > BB_middle(20)` — visszatérés a középvonalhoz
 - `volume(1H) ≥ 1.2 × VolumeMA(20, 1H)` — volumennel megerősített
 
 **Belépés:**
+
 - **Order type:** limit order a trigger candle nyitóáránál vagy stop-market a trigger
   candle csúcsánál + 0,1% buffer
 - **Long entry price = trigger candle high + 0,1%** (vagy BB middle, amelyik közelebb)
@@ -81,17 +85,20 @@ kockázat-korrigáltan**.
 ### 3.2 SHORT belépés
 
 **HTF feltétel (1D chart, mind szükséges):**
+
 - `close < Donchian_lower(20)` — 20-napos mélypont
 - **VAGY** Supertrend irány = down (close < Supertrend vonal)
 - `close < EMA(50)` AND `EMA(50) < EMA(200)` — bearish EMA-szerkezet
 - **ÉS** `ADX(14, 1D) > 20`
 
 **MTF feltétel (4H chart, mind szükséges):**
+
 - `close ≥ BB_upper(20, 2σ)` — túlvett pullback
 - **ÉS** `RSI(14, 4H) ≥ 65`
 - **ÉS** `ADX(14, 4H) > 20`
 
 **LTF trigger (1H chart, mind szükséges):**
+
 - `RSI(14, 1H)` visszatér 70 alá (cross-back)
 - `close < BB_middle(20, 4H)` — középvonal alá zár
 - `volume(1H) ≥ 1.2 × VolumeMA(20, 1H)`
@@ -111,6 +118,7 @@ kockázat-korrigáltan**.
 A tényleges SL-t a bybit.eu **stop-limit order** formájában kell elhelyezni.
 
 **Trailing stop (opcionális, trend-trade-eknél):**
+
 - **Long trailing SL** = `max(entry − 1.5×ATR, Donchian_lower(20, 4H))`
 - **Short trailing SL** = `min(entry + 1.5×ATR, Donchian_upper(20, 4H))`
 
@@ -151,6 +159,7 @@ ahol:
 ```
 
 **Példa** (a Quantified Strategies tipikus trend-követő statisztikái):
+
 - Win rate: 35% (0,35)
 - Avg win / avg loss arány: 4,0
 - Kelly% = 0,35 − (1 − 0,35) / 4,0 = 0,35 − 0,1625 = **0,1875 → 18,75%**
@@ -171,6 +180,7 @@ ahol:
 ```
 
 **Példa:**
+
 - equity = 10 000 USD
 - BTC entry = 60 000 USD, SL = 58 200 USD → stop_distance = 3,0%
 - position_notional = (10 000 × 0,01) / 0,03 = 3 333 USD
@@ -178,6 +188,7 @@ ahol:
 - Margin-igény 1:10 leverage mellett = 333 USD (3,33% equity)
 
 **Limit:**
+
 - position_notional max = **20% equity** (ha kisebb lenne a Kelly-frakciónál,
   a Kelly-limitet használjuk)
 - position_notional min = **1% equity** (a fee-költség fedezésére)
@@ -197,11 +208,11 @@ ahol:
 
 ### 6.1 Alap allokáció
 
-| Eszköz | Alap allokáció | Indoklás |
-|---|---|---|
-| **BTC** | **50%** | legalacsonyabb volatilitás a három közül, legmagasabb likviditás; core holding |
-| **ETH** | **30%** | közepes volatilitás; staking yield elérhető (5% APY USDC/USDT helyett) |
-| **SOL** | **20%** | legmagasabb volatilitás, legnagyobb „growth", de legnagyobb drawdown-kockázat |
+| Eszköz  | Alap allokáció | Indoklás                                                                       |
+| ------- | -------------- | ------------------------------------------------------------------------------ |
+| **BTC** | **50%**        | legalacsonyabb volatilitás a három közül, legmagasabb likviditás; core holding |
+| **ETH** | **30%**        | közepes volatilitás; staking yield elérhető (5% APY USDC/USDT helyett)         |
+| **SOL** | **20%**        | legmagasabb volatilitás, legnagyobb „growth", de legnagyobb drawdown-kockázat  |
 
 **Forrás:** Davensi „Crypto Portfolio Diversification 2026" — BTC 50%, ETH 15-30%, alt 5-15%;
 XBTO „BTC-ETH korreláció 0,7-0,8"; Thrive — „3 korrelált long = 1 nagy pozíció".
@@ -225,19 +236,19 @@ XBTO „BTC-ETH korreláció 0,7-0,8"; Thrive — „3 korrelált long = 1 nagy 
 
 ## 7. Risk Management — konkrét limitek
 
-| Limit | Érték | Akció |
-|---|---|---|
-| **Risk / trade** | 1% equity | pozíció-méret számítás |
-| **Max nyitott pozíció** | 3 (1/eszköz) | belépés-block, ha teli |
-| **Max napi trade** | 6 / eszköz, 18 / nap | túl-kereskedés ellen |
-| **Max DD / 30 nap** | 10% | sárga jelzés: Kelly-frakció 1/8-ra csökken |
-| **Kill-switch DD** | **15% equity-szinten** | rendszer-leállás, manuális review |
-| **Max korrelált kitettség** | 3 korrelált long = 1 | korreláció-trigger aktiválás |
-| **Max leverage** | 1:10 (beállított) | bybit.eu limit |
-| **Tényleges átlag leverage** | 1:3–1:5 | Kelly-frakcióból |
-| **Funding rate monitoring** | > 0,05% / 8h | Funding-arb ráépítés aktiválás (opcionális) |
-| **Borrow rate monitoring** | > 0,10% / óra | margin-posíció csökkentése |
-| **Idő-limit pozíciónként** | max 14 nap | zárás vagy review |
+| Limit                        | Érték                  | Akció                                       |
+| ---------------------------- | ---------------------- | ------------------------------------------- |
+| **Risk / trade**             | 1% equity              | pozíció-méret számítás                      |
+| **Max nyitott pozíció**      | 3 (1/eszköz)           | belépés-block, ha teli                      |
+| **Max napi trade**           | 6 / eszköz, 18 / nap   | túl-kereskedés ellen                        |
+| **Max DD / 30 nap**          | 10%                    | sárga jelzés: Kelly-frakció 1/8-ra csökken  |
+| **Kill-switch DD**           | **15% equity-szinten** | rendszer-leállás, manuális review           |
+| **Max korrelált kitettség**  | 3 korrelált long = 1   | korreláció-trigger aktiválás                |
+| **Max leverage**             | 1:10 (beállított)      | bybit.eu limit                              |
+| **Tényleges átlag leverage** | 1:3–1:5                | Kelly-frakcióból                            |
+| **Funding rate monitoring**  | > 0,05% / 8h           | Funding-arb ráépítés aktiválás (opcionális) |
+| **Borrow rate monitoring**   | > 0,10% / óra          | margin-posíció csökkentése                  |
+| **Idő-limit pozíciónként**   | max 14 nap             | zárás vagy review                           |
 
 **Forrás:** CoinSwitch „1-2% risk per trade", Kraken „position size formula",
 PRUVIQ Kelly 1/10–1/20 javaslat, Davensi korreláció-mátrix.
@@ -256,14 +267,14 @@ PRUVIQ Kelly 1/10–1/20 javaslat, Davensi korreláció-mátrix.
 
 ### 8.2 Szükséges minimum-mutatók (OOS)
 
-| Metrika | Minimum-küszöb | Cél-érték |
-|---|---|---|
-| **Sharpe ratio** | ≥ 1,0 | ≥ 1,5 |
-| **Max drawdown** | ≤ 30% | ≤ 15% |
-| **Win rate** | ≥ 30% | ≥ 40% |
-| **Profit factor** | ≥ 1,3 | ≥ 1,8 |
-| **OOS / IS Sharpe arány** | ≥ 0,6 | ≥ 0,8 |
-| **Recovery factor** | ≥ 1,5 | ≥ 3,0 |
+| Metrika                   | Minimum-küszöb | Cél-érték |
+| ------------------------- | -------------- | --------- |
+| **Sharpe ratio**          | ≥ 1,0          | ≥ 1,5     |
+| **Max drawdown**          | ≤ 30%          | ≤ 15%     |
+| **Win rate**              | ≥ 30%          | ≥ 40%     |
+| **Profit factor**         | ≥ 1,3          | ≥ 1,8     |
+| **OOS / IS Sharpe arány** | ≥ 0,6          | ≥ 0,8     |
+| **Recovery factor**       | ≥ 1,5          | ≥ 3,0     |
 
 Ha az OOS-metrikák nem érik el a minimum-küszöböt, **a stratégia nem megy élőbe**.
 
@@ -274,7 +285,7 @@ Ha az OOS-metrikák nem érik el a minimum-küszöböt, **a stratégia nem megy 
 2. **Paraméter-érzékenység:** ±20%-os változtatás az entry-küszöböknél (RSI 30→36,
    BB stddev 2.0→2.4) → Sharpe-nek nem szabad 30%-nál többet esnie.
 3. **Slippage-teszt:** backtest fee + slippage = 0,1% / side (bybit.eu taker)
-   + 0,05% becsült piaci impact a három eszköz 24h forgalma alapján.
+   - 0,05% becsült piaci impact a három eszköz 24h forgalma alapján.
 4. **Bootstrap-próba:** 1000 véletlen trade-sorrend → 5%-os legrosszabb eset DD < 25%.
 
 ### 8.4 Paper-trade fázis
@@ -295,33 +306,33 @@ Ha az OOS-metrikák nem érik el a minimum-küszöböt, **a stratégia nem megy 
 
 ## 9. Backtestnél figyelembe veendő költségek (numerikus értékekkel)
 
-| Költség-típus | Érték | Forrás |
-|---|---|---|
-| **Taker fee (spot)** | **0,1% / side** | Bybit EU Help Center (Non-VIP, all spot pairs) |
-| **Maker fee (spot)** | **0,1% / side** | Bybit EU Help Center (Non-VIP) |
-| **Borrow rate (margin, USDT)** | **0,01% / óra** = 0,24% / nap = 7,2% / hó | Gate.io review (Bybit EU borrow 0.01%/h for USDT) |
-| **Borrow rate (margin, USDC)** | **0,01-0,03% / óra** = 0,24-0,72% / nap | Bybit FAQ — varies daily |
-| **Liquidation fee** | **2%** | Gate.io — 2% liquidated assets → insurance pool |
-| **Spread (BTC/USDC, normál)** | **1-3 bps** | Bybit orderbook (BTC likvid) |
-| **Spread (ETH/USDC, normál)** | **2-5 bps** | Bybit orderbook |
-| **Spread (SOL/USDC, normál)** | **5-15 bps** | Bybit orderbook (SOL kevésbé likvid) |
-| **Slippage (5k USD market order)** | **0,05-0,1%** | Bybit hidden-cost guideline |
-| **Slippage (50k USD market order)** | **0,1-0,3%** | Bybit limit order ajánlott |
-| **Funding rate (perp, bybit.com, BTC)** | **0,01% / 8h normál, max 0,05%** | Bybit contract rules |
+| Költség-típus                           | Érték                                     | Forrás                                            |
+| --------------------------------------- | ----------------------------------------- | ------------------------------------------------- |
+| **Taker fee (spot)**                    | **0,1% / side**                           | Bybit EU Help Center (Non-VIP, all spot pairs)    |
+| **Maker fee (spot)**                    | **0,1% / side**                           | Bybit EU Help Center (Non-VIP)                    |
+| **Borrow rate (margin, USDT)**          | **0,01% / óra** = 0,24% / nap = 7,2% / hó | Gate.io review (Bybit EU borrow 0.01%/h for USDT) |
+| **Borrow rate (margin, USDC)**          | **0,01-0,03% / óra** = 0,24-0,72% / nap   | Bybit FAQ — varies daily                          |
+| **Liquidation fee**                     | **2%**                                    | Gate.io — 2% liquidated assets → insurance pool   |
+| **Spread (BTC/USDC, normál)**           | **1-3 bps**                               | Bybit orderbook (BTC likvid)                      |
+| **Spread (ETH/USDC, normál)**           | **2-5 bps**                               | Bybit orderbook                                   |
+| **Spread (SOL/USDC, normál)**           | **5-15 bps**                              | Bybit orderbook (SOL kevésbé likvid)              |
+| **Slippage (5k USD market order)**      | **0,05-0,1%**                             | Bybit hidden-cost guideline                       |
+| **Slippage (50k USD market order)**     | **0,1-0,3%**                              | Bybit limit order ajánlott                        |
+| **Funding rate (perp, bybit.com, BTC)** | **0,01% / 8h normál, max 0,05%**          | Bybit contract rules                              |
 
 ### 9.1 Összesített költség-modell
 
 Round-trip trade (long, 1:5 leverage, 5k USD position):
 
-| Tétel | Számítás | Költség |
-|---|---|---|
-| Belépés (taker) | 5 000 × 0,1% | 5,00 USD |
-| Kilépés (taker) | 5 000 × 0,1% | 5,00 USD |
-| Margin-költség (12 óra, 1:5) | 1 000 × 0,01%/h × 12 | 1,20 USD |
-| Spread (BTC) | 5 000 × 2 bps | 1,00 USD |
-| Slippage (becsült) | 5 000 × 0,05% | 2,50 USD |
-| **Összesen** | | **14,70 USD** |
-| **% -ban (5 000 position)** | | **0,294% / trade** |
+| Tétel                        | Számítás             | Költség            |
+| ---------------------------- | -------------------- | ------------------ |
+| Belépés (taker)              | 5 000 × 0,1%         | 5,00 USD           |
+| Kilépés (taker)              | 5 000 × 0,1%         | 5,00 USD           |
+| Margin-költség (12 óra, 1:5) | 1 000 × 0,01%/h × 12 | 1,20 USD           |
+| Spread (BTC)                 | 5 000 × 2 bps        | 1,00 USD           |
+| Slippage (becsült)           | 5 000 × 0,05%        | 2,50 USD           |
+| **Összesen**                 |                      | **14,70 USD**      |
+| **% -ban (5 000 position)**  |                      | **0,294% / trade** |
 
 **Következtetés:** a trade-eknek minimum **0,3%** bruttó mozgást kell produkálniuk,
 csak hogy a költségeket fedezzék. Ez alátámasztja a **2,5×ATR SL** és **R:R = 1:2,5**

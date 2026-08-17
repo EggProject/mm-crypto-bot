@@ -131,8 +131,7 @@ function stubSubStrategies(
 ): void {
   c.donchianRange.onCandle = (_ctx: StrategyContext): StrategySignal | null =>
     stubs["donchian-range"] ?? null;
-  c.pivotGrid.onCandle = (_ctx: StrategyContext): StrategySignal | null =>
-    stubs["pivot-grid"] ?? null;
+  c.pivotGrid.onCandle = (_ctx: StrategyContext): StrategySignal | null => stubs["pivot-grid"] ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -142,9 +141,7 @@ function stubSubStrategies(
 describe("DonchianPivotComposition — construction", () => {
   it("default construction: name, timeframes (1d, 4h, 15m), minConsensus=2, both sub-strategies exist", () => {
     const c = new DonchianPivotComposition();
-    expect(c.name).toBe(
-      "Donchian + Pivot Composition (Phase 18 — 2-component M15-native mean-reversion)",
-    );
+    expect(c.name).toBe("Donchian + Pivot Composition (Phase 18 — 2-component M15-native mean-reversion)");
     // Default LTF = "15m"
     expect(c.timeframes).toEqual(["1d", "4h", "15m"]);
     expect(DONCHIAN_PIVOT_COMPOSITION_DEFAULT_LTF).toBe("15m");

@@ -56,7 +56,11 @@ class MockFundingSource implements DydxFundingSource {
     _market: CarryMarket,
     _onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
   ): { readonly close: () => void } {
-    return { close: () => { /* no-op */ } };
+    return {
+      close: () => {
+        /* no-op */
+      },
+    };
   }
   lastTickAgeMs(_market: CarryMarket, nowMs: number): number | null {
     // Return a fresh age — strategy's `lastTickMs` is set on the first
@@ -186,10 +190,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const carryConfig = buildDydxCexCarryConfig(
-      config.strategies.dydx_cex_carry,
-      new MockFundingSource(),
-    );
+    const carryConfig = buildDydxCexCarryConfig(config.strategies.dydx_cex_carry, new MockFundingSource());
     expect(carryConfig.capFraction).toBe(0.04);
   });
 
@@ -206,10 +207,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const carryConfig = buildDydxCexCarryConfig(
-      config.strategies.dydx_cex_carry,
-      new MockFundingSource(),
-    );
+    const carryConfig = buildDydxCexCarryConfig(config.strategies.dydx_cex_carry, new MockFundingSource());
     expect(carryConfig.notionalPerLegUsd).toBe(250_000);
   });
 
@@ -251,7 +249,9 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/liquidation \+ OI \+ ELR event bridge/);
+    expect(() => createStrategyInstances(config, buildDeps())).toThrow(
+      /liquidation \+ OI \+ ELR event bridge/,
+    );
   });
 
   // --------------------------------------------------------------------------
@@ -336,10 +336,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const carryConfig = buildDydxCexCarryConfig(
-      config.strategies.dydx_cex_carry,
-      new MockFundingSource(),
-    );
+    const carryConfig = buildDydxCexCarryConfig(config.strategies.dydx_cex_carry, new MockFundingSource());
     expect(carryConfig.leverage).toBe(1);
   });
 

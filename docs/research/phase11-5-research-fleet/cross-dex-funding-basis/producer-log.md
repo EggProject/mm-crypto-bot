@@ -28,30 +28,30 @@
 
 22 distinct queries executed; full audit trail:
 
-| # | Query | Language scope | Notes |
-|---|-------|----------------|-------|
-| 1 | `Hyperliquid vs Binance funding rate divergence cross-exchange arbitrage basis 2025` | en | Found AlgoVault MCP, Button, BitMEX Q3 report |
-| 2 | `Hyperliquid funding rate API documentation 8h formula HIP-3` | en | Official Hyperliquid funding docs + HIP-3 deployer actions |
-| 3 | `永续合约资金费率套利 跨交易所 比特币 机制` | zh | Cross-exchange funding-rate arbitrage mechanism |
-| 4 | `Hyperliquid 大宗交易 资金费率 HYPE 套利 中文` | zh | Chinese-language practice depth — Hyperliquid EVM arb team strategy |
-| 5 | `Crypto funding rate time of day effect Asian European US session hour pattern` | en | Time-of-day seasonality depth |
-| 6 | `ETH funding rate sticky regime mean reversion 2025 Boros delta-neutral` | en | Sticky-regime length + Boros as fixed-rate primitive |
-| 7 | `Hyperliquid Hyperps DEXX vs Binance funding SOL DOGE HYPE JUP altcoin` | en | Alt-coin funding dispersion; HAL/PERP cross-venue |
-| 8 | `비트코인 비트멕스 바이낸스 거래소 자금조달비율 김치프리미엄 차이` | kr | Korean funding-rate + Kimchi premium arb context |
-| 9 | `Coinglass funding rate comparison tracker multiple exchanges arbitrage dashboard` | en | Coinglass's native cross-venue tracker + API endpoints |
-| 10 | `crypto funding rate forward curve term structure implied yield curve` | en | Term-structure academic + sUSDe Blockworks research |
-| 11 | `bitFlyer FX Perpetual funding rate basis bFFX BTC 毎時データ` | en+ja | BitFlyer FX perp + Japanese docs |
-| 12 | `academic paper perpetual futures funding rate arbitrage crypto Ethereum two-tiered structure mdpi` | en | Zhivkov 2026 — anchor academic for §3.H1 |
-| 13 | `"Phase 11.4" OR "Phase 11.5" mm-crypto-bot research TermStructure RegimeShift` | en | Tried to find prior in-repo context; only generic hits |
-| 14 | `crypto funding rate inversion regime shift 2025 2026 sticky high positive mean reversion` | en | Sticky regime persistence + Feb 2026 collapse data |
-| 15 | `GMO coin bitFlyer Japan 暗号資産 資金調達率 データ 取引所` | ja | Japan local-exchange funding depth |
-| 16 | `Upbit Bithumb 비트코인 선물 Upbit perpetual funding rate Korean market launch` | kr | Korean KRW-spot listing event-driven funding spike |
-| 17 | `Hyperliquid HIP-3 funding multiplier deployer custom perp market` | en | HIP-3 protocol spec + OI history (deployer-controlled dispersion) |
-| 18 | `HYPE token Hyperliquid 市场 中性 期现套利 收益 中文币圈` | zh | HyperEVM arbitrage team post-mortem (LBank Chinese source) |
-| 19 | `Hyperliquid 中文费率 资金费率 套利 跨所` | zh (via chaincatcher + chainup) | Chinese-language practitioner cross-venue |
-| 20 | `crypto funding rate calendar UTC settlement Asian session` | en | Verified 00:00/08:00/16:00 UTC settlement mapping |
-| 21 | `Hyperliquid predicted funding rate API endpoint metaAndAssetCtxs` | en | H3 mechanism — predicted-vs-realized |
-| 22 | `Hyperliquid HYPE whale airdrop funding rate spike June 2026` | en | Empirical anchor for H1 timing (HYPE-airdrop-driven HL funding) |
+| #   | Query                                                                                               | Language scope                  | Notes                                                               |
+| --- | --------------------------------------------------------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------- |
+| 1   | `Hyperliquid vs Binance funding rate divergence cross-exchange arbitrage basis 2025`                | en                              | Found AlgoVault MCP, Button, BitMEX Q3 report                       |
+| 2   | `Hyperliquid funding rate API documentation 8h formula HIP-3`                                       | en                              | Official Hyperliquid funding docs + HIP-3 deployer actions          |
+| 3   | `永续合约资金费率套利 跨交易所 比特币 机制`                                                         | zh                              | Cross-exchange funding-rate arbitrage mechanism                     |
+| 4   | `Hyperliquid 大宗交易 资金费率 HYPE 套利 中文`                                                      | zh                              | Chinese-language practice depth — Hyperliquid EVM arb team strategy |
+| 5   | `Crypto funding rate time of day effect Asian European US session hour pattern`                     | en                              | Time-of-day seasonality depth                                       |
+| 6   | `ETH funding rate sticky regime mean reversion 2025 Boros delta-neutral`                            | en                              | Sticky-regime length + Boros as fixed-rate primitive                |
+| 7   | `Hyperliquid Hyperps DEXX vs Binance funding SOL DOGE HYPE JUP altcoin`                             | en                              | Alt-coin funding dispersion; HAL/PERP cross-venue                   |
+| 8   | `비트코인 비트멕스 바이낸스 거래소 자금조달비율 김치프리미엄 차이`                                  | kr                              | Korean funding-rate + Kimchi premium arb context                    |
+| 9   | `Coinglass funding rate comparison tracker multiple exchanges arbitrage dashboard`                  | en                              | Coinglass's native cross-venue tracker + API endpoints              |
+| 10  | `crypto funding rate forward curve term structure implied yield curve`                              | en                              | Term-structure academic + sUSDe Blockworks research                 |
+| 11  | `bitFlyer FX Perpetual funding rate basis bFFX BTC 毎時データ`                                      | en+ja                           | BitFlyer FX perp + Japanese docs                                    |
+| 12  | `academic paper perpetual futures funding rate arbitrage crypto Ethereum two-tiered structure mdpi` | en                              | Zhivkov 2026 — anchor academic for §3.H1                            |
+| 13  | `"Phase 11.4" OR "Phase 11.5" mm-crypto-bot research TermStructure RegimeShift`                     | en                              | Tried to find prior in-repo context; only generic hits              |
+| 14  | `crypto funding rate inversion regime shift 2025 2026 sticky high positive mean reversion`          | en                              | Sticky regime persistence + Feb 2026 collapse data                  |
+| 15  | `GMO coin bitFlyer Japan 暗号資産 資金調達率 データ 取引所`                                         | ja                              | Japan local-exchange funding depth                                  |
+| 16  | `Upbit Bithumb 비트코인 선물 Upbit perpetual funding rate Korean market launch`                     | kr                              | Korean KRW-spot listing event-driven funding spike                  |
+| 17  | `Hyperliquid HIP-3 funding multiplier deployer custom perp market`                                  | en                              | HIP-3 protocol spec + OI history (deployer-controlled dispersion)   |
+| 18  | `HYPE token Hyperliquid 市场 中性 期现套利 收益 中文币圈`                                           | zh                              | HyperEVM arbitrage team post-mortem (LBank Chinese source)          |
+| 19  | `Hyperliquid 中文费率 资金费率 套利 跨所`                                                           | zh (via chaincatcher + chainup) | Chinese-language practitioner cross-venue                           |
+| 20  | `crypto funding rate calendar UTC settlement Asian session`                                         | en                              | Verified 00:00/08:00/16:00 UTC settlement mapping                   |
+| 21  | `Hyperliquid predicted funding rate API endpoint metaAndAssetCtxs`                                  | en                              | H3 mechanism — predicted-vs-realized                                |
+| 22  | `Hyperliquid HYPE whale airdrop funding rate spike June 2026`                                       | en                              | Empirical anchor for H1 timing (HYPE-airdrop-driven HL funding)     |
 
 ### Detail fetches (full page reads)
 
@@ -61,25 +61,25 @@
 
 ## 3. Doctrine compliance verification
 
-| Rule | Status | Evidence |
-|------|--------|----------|
-| No Hungarian | ✓ | No Hungarian text anywhere; English + zh + ja + kr + zh-tw only |
-| ≥15 web queries | ✓ | 22 queries executed |
-| Asian forums first-class | ✓ | Korean (Upbit/Bithumb 김치 premium, Korean sources Chosun Biz, BeInCrypto), Chinese (Odaily, PANews, ChainCatcher, Sina, Tencent News, Foresight News, CoinGlass zh-TW, 1Token, luyouqi, Hyperliquid CN, php.cn, 知乎), Japanese (bitFlyer Lightning docs + FAQ, GMO Coin comparison, Coinbase/Coincheck Japanese sources, CryptoQuant Japan, note.com practitioners) — all 4 are first-class. |
-| Crypto-native only | ✓ | No equity/forex source cited as primary; Coinbase/Kraken mentioned only in passing as reference venues. |
-| ≥2 independent sources per empirical claim | ✓ | Each H1-H6 mechanism and historical claim has ≥2 cited sources; Empirics of funding spread (HYPE 28-42% annualized) cited from ArbitrageScanner + Button + BitMEX Q3 report + Buildix (4 sources). |
-| In-line citations | ✓ | All claims cite URL immediately. |
+| Rule                                       | Status | Evidence                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No Hungarian                               | ✓      | No Hungarian text anywhere; English + zh + ja + kr + zh-tw only                                                                                                                                                                                                                                                                                                                                |
+| ≥15 web queries                            | ✓      | 22 queries executed                                                                                                                                                                                                                                                                                                                                                                            |
+| Asian forums first-class                   | ✓      | Korean (Upbit/Bithumb 김치 premium, Korean sources Chosun Biz, BeInCrypto), Chinese (Odaily, PANews, ChainCatcher, Sina, Tencent News, Foresight News, CoinGlass zh-TW, 1Token, luyouqi, Hyperliquid CN, php.cn, 知乎), Japanese (bitFlyer Lightning docs + FAQ, GMO Coin comparison, Coinbase/Coincheck Japanese sources, CryptoQuant Japan, note.com practitioners) — all 4 are first-class. |
+| Crypto-native only                         | ✓      | No equity/forex source cited as primary; Coinbase/Kraken mentioned only in passing as reference venues.                                                                                                                                                                                                                                                                                        |
+| ≥2 independent sources per empirical claim | ✓      | Each H1-H6 mechanism and historical claim has ≥2 cited sources; Empirics of funding spread (HYPE 28-42% annualized) cited from ArbitrageScanner + Button + BitMEX Q3 report + Buildix (4 sources).                                                                                                                                                                                             |
+| In-line citations                          | ✓      | All claims cite URL immediately.                                                                                                                                                                                                                                                                                                                                                               |
 
 ## 4. Source language distribution
 
-| Language | Count of distinct sources | Type |
-|----------|---------------------------|------|
-| English | ~28 | Academic (Wharton, MDPI, Blockworks, SSRN, Springer), vendor (CoinGlass, BitMEX, Glassnode, Phemex, MEXC, Buildix, Button, ArbitrageScanner, Chainup, Eco, Dwellir, Zirodelta, AlgoVault, Fundingview, Hyperliquid Guide), exchange data (coinperps, loris.tools), practitioner Twitter/X, Reddit |
-| Simplified Chinese | ~26 | Sina/吴说, Odaily (Foresight News), Tencent News, PANews, CoinGlass zh, ChainCatcher, luyouqi, lbank, hyperlink CN, php.cn (中文), Bitbo (zh), Hyperliquid CN, 1token zh, virtualcurrency.cc, heth.ink, marketmaker.cc, volcengine, 521BTC, Juejin |
-| Traditional Chinese | ~3 | CoinGlass zh-TW (3 sub-pages), Gate.com zh-TW |
-| Japanese | ~6 | bitFlyer Lightning docs JA, bitFlyer FAQ, JPM-trader, CryptoQuant JA, GMO Coin comparison table, Coinbase JP/bitbank, GMO Internet Group history |
-| Korean | ~6 | Chosun Biz, BeInCrypto Korea, Yahoo Finance Korea, Follow.in (EN but Korea-listed signals), Premium IDX (Naver), TradingView KR, Bitcointalk Korea |
-| Other (Italian, Spanish, etc.) | ~3 | Springer (Italian/Spanish co-authors), Coinglass regional pages (vi, id, es) |
+| Language                       | Count of distinct sources | Type                                                                                                                                                                                                                                                                                              |
+| ------------------------------ | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| English                        | ~28                       | Academic (Wharton, MDPI, Blockworks, SSRN, Springer), vendor (CoinGlass, BitMEX, Glassnode, Phemex, MEXC, Buildix, Button, ArbitrageScanner, Chainup, Eco, Dwellir, Zirodelta, AlgoVault, Fundingview, Hyperliquid Guide), exchange data (coinperps, loris.tools), practitioner Twitter/X, Reddit |
+| Simplified Chinese             | ~26                       | Sina/吴说, Odaily (Foresight News), Tencent News, PANews, CoinGlass zh, ChainCatcher, luyouqi, lbank, hyperlink CN, php.cn (中文), Bitbo (zh), Hyperliquid CN, 1token zh, virtualcurrency.cc, heth.ink, marketmaker.cc, volcengine, 521BTC, Juejin                                                |
+| Traditional Chinese            | ~3                        | CoinGlass zh-TW (3 sub-pages), Gate.com zh-TW                                                                                                                                                                                                                                                     |
+| Japanese                       | ~6                        | bitFlyer Lightning docs JA, bitFlyer FAQ, JPM-trader, CryptoQuant JA, GMO Coin comparison table, Coinbase JP/bitbank, GMO Internet Group history                                                                                                                                                  |
+| Korean                         | ~6                        | Chosun Biz, BeInCrypto Korea, Yahoo Finance Korea, Follow.in (EN but Korea-listed signals), Premium IDX (Naver), TradingView KR, Bitcointalk Korea                                                                                                                                                |
+| Other (Italian, Spanish, etc.) | ~3                        | Springer (Italian/Spanish co-authors), Coinglass regional pages (vi, id, es)                                                                                                                                                                                                                      |
 
 Total: ~70 distinct URLs (numbered 1-77 in REPORT.md §5; some URLs are referenced more than once).
 

@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/trades.ts
  *
- * Phase 33 Track D + Phase 34 Track C — `mm-bot trades [--limit=N] [--symbol=...] [--config=path]`.
+ * Phase 33 Track D + Phase 34 Track C — the direct `trades` command.
  *
  * Reads the persisted state file and prints the most recent closed trades
  * (default: 20). Optionally filter by symbol.
@@ -34,7 +34,10 @@ function getConfigPath(flags: ReadonlyMap<string, string | boolean>): string | u
  * `formatTimestamp` — ISO-ish local time.
  */
 function formatTimestamp(ms: number): string {
-  return new Date(ms).toISOString().replace("T", " ").replace(/\.\d+Z$/, "Z");
+  return new Date(ms)
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "Z");
 }
 
 /**
@@ -51,7 +54,7 @@ function colorizePnl(value: number, formatted: string): string {
 }
 
 /**
- * `tradesCommand` — the `mm-bot trades` handler.
+ * `tradesCommand` — the direct `trades` handler.
  */
 export const tradesCommand: SubcommandHandler = async (args) => {
   await Promise.resolve();
@@ -64,9 +67,8 @@ export const tradesCommand: SubcommandHandler = async (args) => {
 
   // --symbol
   const symbolFilterRaw = args.flags.get("symbol");
-  const symbolFilter = typeof symbolFilterRaw === "string" && symbolFilterRaw.length > 0
-    ? symbolFilterRaw
-    : null;
+  const symbolFilter =
+    typeof symbolFilterRaw === "string" && symbolFilterRaw.length > 0 ? symbolFilterRaw : null;
 
   // Load config to get the state file path.
   let config;
@@ -86,7 +88,9 @@ export const tradesCommand: SubcommandHandler = async (args) => {
   const stateFile = config.bot.state_file;
   if (!existsSync(stateFile)) {
     console.error(`State file not found: ${stateFile}`);
-    console.error("The bot has not written any state yet. Run `mm-bot start` to begin.");
+    console.error(
+      "The bot has not written any state yet. Run `bun run apps/bot/src/index.ts start` to begin.",
+    );
     return 1;
   }
 
@@ -110,7 +114,9 @@ export const tradesCommand: SubcommandHandler = async (args) => {
 
   const validated = BotStateSchema.safeParse(parsed);
   if (!validated.success) {
-    console.error(`State file schema invalid: ${validated.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+    console.error(
+      `State file schema invalid: ${validated.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+    );
     return 1;
   }
 
@@ -133,7 +139,9 @@ export const tradesCommand: SubcommandHandler = async (args) => {
   }
 
   // Header
-  console.log("  closed_at            strategy            side   qty      symbol         entry        exit         pnl            pnl%");
+  console.log(
+    "  closed_at            strategy            side   qty      symbol         entry        exit         pnl            pnl%",
+  );
   for (const t of recent) {
     // Color the PnL columns; the rest stays plain for column-alignment.
     // ANSI escape codes don't affect the visible width for `padStart`/`padEnd`

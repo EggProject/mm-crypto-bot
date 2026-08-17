@@ -157,39 +157,27 @@ describe("SOLFlipKillSwitchPlugin", () => {
   });
 
   it("construction with timingLeverage=2 REJECTED (1:10 hard guardrail)", () => {
-    expect(() => new SOLFlipKillSwitchPlugin({ timingLeverage: 2 as 1 | 10 })).toThrow(
-      /1:10 HARD GUARDRAIL/,
-    );
+    expect(() => new SOLFlipKillSwitchPlugin({ timingLeverage: 2 as 1 | 10 })).toThrow(/1:10 HARD GUARDRAIL/);
   });
 
   it("construction with signFlipWindowDays=0 REJECTED", () => {
-    expect(() => new SOLFlipKillSwitchPlugin({ signFlipWindowDays: 0 })).toThrow(
-      /signFlipWindowDays/,
-    );
+    expect(() => new SOLFlipKillSwitchPlugin({ signFlipWindowDays: 0 })).toThrow(/signFlipWindowDays/);
   });
 
   it("construction with extremeSigmaThreshold=-1 REJECTED", () => {
-    expect(
-      () => new SOLFlipKillSwitchPlugin({ extremeSigmaThreshold: -1 }),
-    ).toThrow(/extremeSigmaThreshold/);
+    expect(() => new SOLFlipKillSwitchPlugin({ extremeSigmaThreshold: -1 })).toThrow(/extremeSigmaThreshold/);
   });
 
   it("construction with persistenceDays=-1 REJECTED", () => {
-    expect(() => new SOLFlipKillSwitchPlugin({ persistenceDays: -1 })).toThrow(
-      /persistenceDays/,
-    );
+    expect(() => new SOLFlipKillSwitchPlugin({ persistenceDays: -1 })).toThrow(/persistenceDays/);
   });
 
   it("construction with volWindowDays=0 REJECTED", () => {
-    expect(() => new SOLFlipKillSwitchPlugin({ volWindowDays: 0 })).toThrow(
-      /volWindowDays/,
-    );
+    expect(() => new SOLFlipKillSwitchPlugin({ volWindowDays: 0 })).toThrow(/volWindowDays/);
   });
 
   it("construction with baseNotionalUsd=0 REJECTED", () => {
-    expect(() => new SOLFlipKillSwitchPlugin({ baseNotionalUsd: 0 })).toThrow(
-      /baseNotionalUsd/,
-    );
+    expect(() => new SOLFlipKillSwitchPlugin({ baseNotionalUsd: 0 })).toThrow(/baseNotionalUsd/);
   });
 
   // -----------------------------------------------------------------------
@@ -214,9 +202,7 @@ describe("SOLFlipKillSwitchPlugin", () => {
     const p = new SOLFlipKillSwitchPlugin();
     const bus = wirePlugin(p);
     // Internal bus reference is set — recordFundingSnapshot should NOT throw.
-    expect(() =>
-      p.recordFundingSample("SOL/USDT", 0.0001, 1_700_000_000_000),
-    ).not.toThrow();
+    expect(() => p.recordFundingSample("SOL/USDT", 0.0001, 1_700_000_000_000)).not.toThrow();
     // Should have subscribed to 'carry' signals.
     expect(bus.subscriberCount).toBe(1);
     expect(bus.subscribersForKind("carry")).toBe(1);
@@ -422,9 +408,12 @@ describe("SOLFlipKillSwitchPlugin", () => {
   });
 
   it("multi-symbol config fails loud because kill state is single-instrument", () => {
-    expect(() => new SOLFlipKillSwitchPlugin({
-      enabledSymbols: ["SOL/USDT", "ETH/USDT"],
-    })).toThrow(/exactly one enabled symbol/);
+    expect(
+      () =>
+        new SOLFlipKillSwitchPlugin({
+          enabledSymbols: ["SOL/USDT", "ETH/USDT"],
+        }),
+    ).toThrow(/exactly one enabled symbol/);
   });
 
   it("enabledSymbolsList returns the configured list", () => {
@@ -606,23 +595,19 @@ describe("SOLFlipKillSwitchPlugin", () => {
   it("recordFundingSample throws on non-finite fundingRate", () => {
     const p = new SOLFlipKillSwitchPlugin();
     wirePlugin(p);
-    expect(() =>
-      p.recordFundingSample("SOL/USDT", Number.NaN, 1_700_000_000_000),
-    ).toThrow(/fundingRate must be finite/);
-    expect(() =>
-      p.recordFundingSample("SOL/USDT", Number.POSITIVE_INFINITY, 1_700_000_000_000),
-    ).toThrow(/fundingRate must be finite/);
+    expect(() => p.recordFundingSample("SOL/USDT", Number.NaN, 1_700_000_000_000)).toThrow(
+      /fundingRate must be finite/,
+    );
+    expect(() => p.recordFundingSample("SOL/USDT", Number.POSITIVE_INFINITY, 1_700_000_000_000)).toThrow(
+      /fundingRate must be finite/,
+    );
   });
 
   it("recordFundingSample throws on non-finite timestampMs", () => {
     const p = new SOLFlipKillSwitchPlugin();
     wirePlugin(p);
-    expect(() => p.recordFundingSample("SOL/USDT", 0.0001, Number.NaN)).toThrow(
-      /timestampMs must be/,
-    );
-    expect(() =>
-      p.recordFundingSample("SOL/USDT", 0.0001, -1),
-    ).toThrow(/timestampMs must be/);
+    expect(() => p.recordFundingSample("SOL/USDT", 0.0001, Number.NaN)).toThrow(/timestampMs must be/);
+    expect(() => p.recordFundingSample("SOL/USDT", 0.0001, -1)).toThrow(/timestampMs must be/);
   });
 
   // -----------------------------------------------------------------------

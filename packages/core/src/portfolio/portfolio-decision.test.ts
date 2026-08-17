@@ -95,9 +95,7 @@ describe("assertExhaustiveSignal", () => {
   test("dob egy Error-t, ha bármilyen értéket kap (never fallback)", () => {
     // A `never` típust kikerülve, 'as never' cast-tal hívjuk, hogy
     // a runtime throw ágat triggereljük.
-    expect(() => assertExhaustiveSignal(undefined as never)).toThrow(
-      /Non-exhaustive Signal switch/,
-    );
+    expect(() => assertExhaustiveSignal(undefined as never)).toThrow(/Non-exhaustive Signal switch/);
   });
 
   test("a hibaüzenet tartalmazza az értéket (JSON.stringify)", () => {
@@ -191,75 +189,75 @@ describe("DecisionEngine konstruktor", () => {
   });
 
   test("defaultWeight <= 0 → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: 0 }),
-    ).toThrow(/defaultWeight must be positive finite/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: 0 })).toThrow(
+      /defaultWeight must be positive finite/,
+    );
   });
 
   test("defaultWeight = NaN → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: Number.NaN }),
-    ).toThrow(/defaultWeight must be positive finite/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: Number.NaN })).toThrow(
+      /defaultWeight must be positive finite/,
+    );
   });
 
   test("defaultWeight = Infinity → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: Number.POSITIVE_INFINITY }),
-    ).toThrow(/defaultWeight must be positive finite/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: Number.POSITIVE_INFINITY })).toThrow(
+      /defaultWeight must be positive finite/,
+    );
   });
 
   test("defaultWeight = -1 → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: -1 }),
-    ).toThrow(/defaultWeight must be positive finite/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: -1 })).toThrow(
+      /defaultWeight must be positive finite/,
+    );
   });
 
   test("defensiveWeight <= 0 → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", defensiveWeight: -0.5 }),
-    ).toThrow(/defensiveWeight must be positive finite/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defensiveWeight: -0.5 })).toThrow(
+      /defensiveWeight must be positive finite/,
+    );
   });
 
   test("defensiveWeight = NaN → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", defensiveWeight: Number.NaN }),
-    ).toThrow(/defensiveWeight must be positive finite/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defensiveWeight: Number.NaN })).toThrow(
+      /defensiveWeight must be positive finite/,
+    );
   });
 
   test("minConsensusStrength < 0 → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", minConsensusStrength: -0.1 }),
-    ).toThrow(/minConsensusStrength must be in/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", minConsensusStrength: -0.1 })).toThrow(
+      /minConsensusStrength must be in/,
+    );
   });
 
   test("minConsensusStrength > 1 → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", minConsensusStrength: 1.5 }),
-    ).toThrow(/minConsensusStrength must be in/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", minConsensusStrength: 1.5 })).toThrow(
+      /minConsensusStrength must be in/,
+    );
   });
 
   test("minConsensusStrength = NaN → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", minConsensusStrength: Number.NaN }),
-    ).toThrow(/minConsensusStrength must be in/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", minConsensusStrength: Number.NaN })).toThrow(
+      /minConsensusStrength must be in/,
+    );
   });
 
   test("maxNotionalPerSymbolUsd <= 0 → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", maxNotionalPerSymbolUsd: 0 }),
-    ).toThrow(/maxNotionalPerSymbolUsd must be positive finite/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", maxNotionalPerSymbolUsd: 0 })).toThrow(
+      /maxNotionalPerSymbolUsd must be positive finite/,
+    );
   });
 
   test("maxNotionalPerSymbolUsd = -1 → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", maxNotionalPerSymbolUsd: -1 }),
-    ).toThrow(/maxNotionalPerSymbolUsd must be positive finite/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", maxNotionalPerSymbolUsd: -1 })).toThrow(
+      /maxNotionalPerSymbolUsd must be positive finite/,
+    );
   });
 
   test("maxNotionalPerSymbolUsd = NaN → throw", () => {
-    expect(
-      () => new DecisionEngine({ symbol: "BTCUSDT", maxNotionalPerSymbolUsd: Number.NaN }),
-    ).toThrow(/maxNotionalPerSymbolUsd must be positive finite/);
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", maxNotionalPerSymbolUsd: Number.NaN })).toThrow(
+      /maxNotionalPerSymbolUsd must be positive finite/,
+    );
   });
 
   test("üres symbol → throw", () => {
@@ -268,9 +266,7 @@ describe("DecisionEngine konstruktor", () => {
 
   test("symbol hossza ellenőrizve van (length === 0 fail)", () => {
     // Típuskényszerítéssel kikerüljük a típusrendszert.
-    expect(() => new DecisionEngine({ symbol: "" as string })).toThrow(
-      /symbol must be a non-empty string/,
-    );
+    expect(() => new DecisionEngine({ symbol: "" as string })).toThrow(/symbol must be a non-empty string/);
   });
 });
 
@@ -476,10 +472,11 @@ describe("DecisionEngine.synthesize", () => {
   });
 
   test("risk breach vagy close utasítás végrehajthatatlan irány helyett flat/0 döntést ad", async () => {
-    for (const risk of [
-      { breach: true },
-      { breach: false, closeNotionalUsd: 1_000 },
-    ] satisfies (Pick<RiskSignal, "breach"> & Partial<Pick<RiskSignal, "closeNotionalUsd">>)[]) {
+    for (const risk of [{ breach: true }, { breach: false, closeNotionalUsd: 1_000 }] satisfies (Pick<
+      RiskSignal,
+      "breach"
+    > &
+      Partial<Pick<RiskSignal, "closeNotionalUsd">>)[]) {
       const engine = new DecisionEngine({ symbol: "BTCUSDT" });
       const { createSignalBus } = await import("../index.js");
       const bus = createSignalBus();

@@ -43,11 +43,9 @@ async function waitUntil(predicate: () => boolean, timeoutMs = 2_000): Promise<v
 
 describe("headless log-path boundary", () => {
   it("derives the adjacent log path for relative and absolute state files", () => {
-    expect(resolveLogFilePath(configWithStateFile("data/bot-state.json"))).toBe(
-      "data/bot-state.json.log",
-    );
-    expect(resolveLogFilePath(configWithStateFile("/var/lib/mm-bot/state.json"))).toBe(
-      "/var/lib/mm-bot/state.json.log",
+    expect(resolveLogFilePath(configWithStateFile("data/bot-state.json"))).toBe("data/bot-state.json.log");
+    expect(resolveLogFilePath(configWithStateFile("/var/lib/mm-crypto-bot/state.json"))).toBe(
+      "/var/lib/mm-crypto-bot/state.json.log",
     );
     expect(resolveLogFilePath(configWithStateFile("bot-state"))).toBe("bot-state.log");
   });
@@ -109,7 +107,7 @@ describe("headless lifecycle", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "mm-bot-headless-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "mm-crypto-bot-headless-"));
   });
 
   afterEach(() => {
@@ -135,9 +133,7 @@ describe("headless lifecycle", () => {
     expect(code).toBe(0);
     expect(starts).toBe(1);
     expect(stops).toBe(0);
-    expect(await Bun.file(join(tmpDir, "normal.json.log")).text()).toContain(
-      "normal completion",
-    );
+    expect(await Bun.file(join(tmpDir, "normal.json.log")).text()).toContain("normal completion");
   });
 
   it("returns one and records Error and non-Error startup failures", async () => {
@@ -227,7 +223,7 @@ describe("start command boundary", () => {
   let originalStop: typeof Bot.prototype.stop;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "mm-bot-start-command-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "mm-crypto-bot-start-command-"));
     originalStart = Bot.prototype.start;
     originalStop = Bot.prototype.stop;
   });
@@ -245,13 +241,9 @@ describe("start command boundary", () => {
       messages.push(values.join(" "));
     };
     try {
-      expect(
-        await startCommand(parsedArgs(new Map([["mystery-option", true]])), CLI_CONTEXT),
-      ).toBe(1);
+      expect(await startCommand(parsedArgs(new Map([["mystery-option", true]])), CLI_CONTEXT)).toBe(1);
       expect(await startCommand(parsedArgs(new Map([["config", true]])), CLI_CONTEXT)).toBe(1);
-      expect(
-        await startCommand(parsedArgs(new Map([["color", "always"]])), CLI_CONTEXT),
-      ).toBe(1);
+      expect(await startCommand(parsedArgs(new Map([["color", "always"]])), CLI_CONTEXT)).toBe(1);
       expect(await startCommand(parsedArgs(new Map(), ["extra"]), CLI_CONTEXT)).toBe(1);
     } finally {
       console.error = originalError;
@@ -272,7 +264,12 @@ describe("start command boundary", () => {
     };
     try {
       const code = await startCommand(
-        parsedArgs(new Map<string, string | boolean>([["color", false], ["help", true]])),
+        parsedArgs(
+          new Map<string, string | boolean>([
+            ["color", false],
+            ["help", true],
+          ]),
+        ),
         CLI_CONTEXT,
       );
       expect(code).toBe(1);
@@ -282,7 +279,7 @@ describe("start command boundary", () => {
       if (originalNoColor === undefined) delete process.env["NO_COLOR"];
       else process.env["NO_COLOR"] = originalNoColor;
     }
-    expect(messages.join("\n")).toContain("Usage: mm-bot start");
+    expect(messages.join("\n")).toContain("Usage: bun run apps/bot/src/index.ts start");
   });
 
   it("returns config and defensive runtime load errors with distinct exit codes", async () => {
@@ -294,9 +291,7 @@ describe("start command boundary", () => {
       messages.push(values.join(" "));
     };
     try {
-      expect(
-        await startCommand(parsedArgs(new Map([["config", invalidPath]])), CLI_CONTEXT),
-      ).toBe(2);
+      expect(await startCommand(parsedArgs(new Map([["config", invalidPath]])), CLI_CONTEXT)).toBe(2);
 
       class ThrowingConfigFlags extends Map<string, string | boolean> {
         public override get(key: string): string | boolean | undefined {
@@ -305,10 +300,7 @@ describe("start command boundary", () => {
         }
       }
       expect(
-        await startCommand(
-          parsedArgs(new ThrowingConfigFlags([["config", "unused.toml"]])),
-          CLI_CONTEXT,
-        ),
+        await startCommand(parsedArgs(new ThrowingConfigFlags([["config", "unused.toml"]])), CLI_CONTEXT),
       ).toBe(1);
     } finally {
       console.error = originalError;
@@ -328,9 +320,7 @@ describe("start command boundary", () => {
     };
     Bot.prototype.stop = async (): Promise<void> => undefined;
 
-    expect(
-      await startCommand(parsedArgs(new Map([["config", configPath]])), CLI_CONTEXT),
-    ).toBe(0);
+    expect(await startCommand(parsedArgs(new Map([["config", configPath]])), CLI_CONTEXT)).toBe(0);
     expect(starts).toBe(1);
     expect(await Bun.file(`${stateFile}.log`).exists()).toBe(true);
   });
@@ -349,9 +339,7 @@ describe("start command boundary", () => {
     Bot.prototype.start = async (): Promise<void> => undefined;
     Bot.prototype.stop = async (): Promise<void> => undefined;
     try {
-      expect(
-        await startCommand(parsedArgs(new Map([["config", configPath]])), CLI_CONTEXT),
-      ).toBe(0);
+      expect(await startCommand(parsedArgs(new Map([["config", configPath]])), CLI_CONTEXT)).toBe(0);
     } finally {
       console.warn = originalWarn;
       if (originalKey === undefined) delete process.env["BYBIT_API_KEY"];
@@ -377,9 +365,13 @@ describe("start command boundary", () => {
   it("renders Error loader failures through the command boundary", async () => {
     const messages: string[] = [];
     const originalError = console.error;
-    console.error = (...values: unknown[]): void => { messages.push(values.join(" ")); };
+    console.error = (...values: unknown[]): void => {
+      messages.push(values.join(" "));
+    };
     const command = createStartCommand({
-      loadConfig: () => { throw new Error("loader Error"); },
+      loadConfig: () => {
+        throw new Error("loader Error");
+      },
     });
     try {
       expect(await command(parsedArgs(), CLI_CONTEXT)).toBe(1);
@@ -393,7 +385,9 @@ describe("start command boundary", () => {
     const originalKey = process.env["BYBIT_API_KEY"];
     const originalWarn = console.warn;
     const warnings: string[] = [];
-    console.warn = (...values: unknown[]): void => { warnings.push(values.join(" ")); };
+    console.warn = (...values: unknown[]): void => {
+      warnings.push(values.join(" "));
+    };
     const liveConfig: BotConfig = { ...DEFAULT_BOT_CONFIG, bot: { ...DEFAULT_BOT_CONFIG.bot, mode: "live" } };
     const command = createStartCommand({
       loadConfig: () => liveConfig,

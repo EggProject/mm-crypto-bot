@@ -6,10 +6,7 @@
 
 import { describe, expect, it } from "bun:test";
 
-import {
-  DEFAULT_DONCHIAN_RANGE_CONFIG,
-  DonchianRangeChannelStrategy,
-} from "./donchian-range-channel.js";
+import { DEFAULT_DONCHIAN_RANGE_CONFIG, DonchianRangeChannelStrategy } from "./donchian-range-channel.js";
 import type { StrategyContext } from "../types.js";
 
 const baseCandle = (close: number) => ({
@@ -29,15 +26,8 @@ type DonchianCtxOverrides = Partial<StrategyContext> & {
 };
 
 const makeCtx = (overrides: DonchianCtxOverrides = {}): StrategyContext => {
-  const {
-    htfDonchianUpper,
-    htfDonchianLower,
-    htfAdx,
-    ltfAtr,
-    ...rest
-  } = overrides;
-  const htf: { donchianUpper?: number; donchianLower?: number; adx?: number } =
-    {};
+  const { htfDonchianUpper, htfDonchianLower, htfAdx, ltfAtr, ...rest } = overrides;
+  const htf: { donchianUpper?: number; donchianLower?: number; adx?: number } = {};
   if (htfDonchianUpper !== undefined) htf.donchianUpper = htfDonchianUpper;
   if (htfDonchianLower !== undefined) htf.donchianLower = htfDonchianLower;
   if (htfAdx !== undefined) htf.adx = htfAdx;

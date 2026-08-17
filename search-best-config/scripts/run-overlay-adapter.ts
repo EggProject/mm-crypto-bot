@@ -19,10 +19,20 @@ Supported masks: dpc, dpc-solflip, dpc-regime, dpc-solflip-regime
 The --smoke mode executes the real target CLI on one day of downloaded BTC OHLCV and validates its JSON envelope.
 `;
 
-async function runTarget(args: readonly string[]): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
+async function runTarget(
+  args: readonly string[],
+): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
   await access(resolve(REPO_ROOT, TARGET));
-  const child = Bun.spawn(["bun", "run", TARGET, ...args], { cwd: REPO_ROOT, stdout: "pipe", stderr: "pipe" });
-  const [exitCode, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
+  const child = Bun.spawn(["bun", "run", TARGET, ...args], {
+    cwd: REPO_ROOT,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [exitCode, stdout, stderr] = await Promise.all([
+    child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+  ]);
   return { exitCode, stdout, stderr };
 }
 
@@ -43,10 +53,17 @@ async function smoke(argv: readonly string[]): Promise<void> {
   ]);
   if (result.exitCode !== 0) throw new Error(`Target smoke failed (${result.exitCode}): ${result.stderr}`);
   const parsed = JSON.parse(await readFile(output, "utf8")) as unknown;
-  if (!isObject(parsed) || !isObject(parsed["result"]) || !isObject(parsed["derivedMetrics"]) || !isObject(parsed["overlayMetrics"])) {
+  if (
+    !isObject(parsed) ||
+    !isObject(parsed["result"]) ||
+    !isObject(parsed["derivedMetrics"]) ||
+    !isObject(parsed["overlayMetrics"])
+  ) {
     throw new Error("Target smoke output misses result/derivedMetrics/overlayMetrics");
   }
-  console.log("PASS: overlay adapter target exists, executes on real minimal OHLCV, and writes the complete JSON envelope");
+  console.log(
+    "PASS: overlay adapter target exists, executes on real minimal OHLCV, and writes the complete JSON envelope",
+  );
 }
 
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<void> {

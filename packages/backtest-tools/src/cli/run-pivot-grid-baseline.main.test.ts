@@ -20,11 +20,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import {
-  calculateMonthlyReturn,
-  handleFatal,
-  main,
-} from "./run-pivot-grid-baseline.js";
+import { calculateMonthlyReturn, handleFatal, main } from "./run-pivot-grid-baseline.js";
 
 const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
@@ -153,20 +149,15 @@ async function withArgv<T>(args: readonly string[], fn: () => Promise<T>): Promi
 
 describe("run-pivot-grid-baseline — main() in-process", () => {
   it("a közvetlen bun run belépési pont meghívja a main()-t és hibánál nem nulla kóddal lép ki", async () => {
-    const child = Bun.spawn([
-      "bun",
-      "run",
-      "packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts",
-      "--timeframe=1h",
-    ], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stderr, exitCode] = await Promise.all([
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
+    const child = Bun.spawn(
+      ["bun", "run", "packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts", "--timeframe=1h"],
+      {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [stderr, exitCode] = await Promise.all([new Response(child.stderr).text(), child.exited]);
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain("[pivot-grid] FATAL:");
@@ -204,16 +195,19 @@ describe("run-pivot-grid-baseline — main() in-process", () => {
       stdoutChunks.push(args.map(String).join(" "));
     };
     try {
-      await withArgv([
-        "--symbol=BTC/USDT",
-        "--timeframe=15m",
-        "--start=2024-01-01",
-        "--end=2024-01-06",
-        "--equity=10000",
-        "--max-position-pct-equity=0.04",
-        `--data-dir=${dataDir}`,
-        `--output=${outFile}`,
-      ], () => main());
+      await withArgv(
+        [
+          "--symbol=BTC/USDT",
+          "--timeframe=15m",
+          "--start=2024-01-01",
+          "--end=2024-01-06",
+          "--equity=10000",
+          "--max-position-pct-equity=0.04",
+          `--data-dir=${dataDir}`,
+          `--output=${outFile}`,
+        ],
+        () => main(),
+      );
     } finally {
       console.log = origLog;
     }
@@ -258,14 +252,17 @@ describe("run-pivot-grid-baseline — main() in-process", () => {
       stdoutChunks.push(args.map(String).join(" "));
     };
     try {
-      await withArgv([
-        "--symbol=BTC/USDT",
-        "--timeframe=15m",
-        "--start=2024-01-01",
-        "--end=2024-01-02",
-        `--data-dir=${flatDataDir}`,
-        `--output=${outFile}`,
-      ], () => main());
+      await withArgv(
+        [
+          "--symbol=BTC/USDT",
+          "--timeframe=15m",
+          "--start=2024-01-01",
+          "--end=2024-01-02",
+          `--data-dir=${flatDataDir}`,
+          `--output=${outFile}`,
+        ],
+        () => main(),
+      );
     } finally {
       console.log = origLog;
     }
@@ -283,26 +280,14 @@ describe("run-pivot-grid-baseline — main() in-process", () => {
     // A 15m-en kívül minden mást a parseArgs() elutasít. A hiba
     // a main() catch-ágja nélkül propagálódik — az in-process unit
     // teszt ezt a throw-t várja.
-    await expect(
-      withArgv(
-        [
-          "--timeframe=1h",
-          `--data-dir=${dataDir}`,
-        ],
-        () => main(),
-      ),
-    ).rejects.toThrow(/requires 15m|Pivot Grid baseline/);
+    await expect(withArgv(["--timeframe=1h", `--data-dir=${dataDir}`], () => main())).rejects.toThrow(
+      /requires 15m|Pivot Grid baseline/,
+    );
   });
 
   it("--max-position-pct-equity érvénytelen érték → main() throw-ol", async () => {
     await expect(
-      withArgv(
-        [
-          "--max-position-pct-equity=0",
-          `--data-dir=${dataDir}`,
-        ],
-        () => main(),
-      ),
+      withArgv(["--max-position-pct-equity=0", `--data-dir=${dataDir}`], () => main()),
     ).rejects.toThrow(/must be in \(0, 1\]/);
   });
 });

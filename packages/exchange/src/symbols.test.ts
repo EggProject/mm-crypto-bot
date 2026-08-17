@@ -31,11 +31,7 @@ import {
 describe("symbols", () => {
   describe("SUPPORTED_SYMBOLS", () => {
     it("tartalmazza a 3 támogatott párt (BTC, ETH, SOL USDC)", () => {
-      expect(SUPPORTED_SYMBOLS).toEqual([
-        "BTC/USDC",
-        "ETH/USDC",
-        "SOL/USDC",
-      ]);
+      expect(SUPPORTED_SYMBOLS).toEqual(["BTC/USDC", "ETH/USDC", "SOL/USDC"]);
     });
 
     it("a lista readonly (TypeScript típus szinten)", () => {

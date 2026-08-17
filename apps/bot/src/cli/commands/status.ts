@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/status.ts
  *
- * Phase 33 Track D + Phase 34 Track C — `mm-bot status [--config=path]`.
+ * Phase 33 Track D + Phase 34 Track C — the direct `status` command.
  *
  * Reads the persisted state file (no live Bot instance) and prints:
  *   - mode + state file path
@@ -64,7 +64,10 @@ function formatDuration(ms: number): string {
  * `formatTimestamp` — ISO-ish local time (no timezone offset).
  */
 function formatTimestamp(ms: number): string {
-  return new Date(ms).toISOString().replace("T", " ").replace(/\.\d+Z$/, "Z");
+  return new Date(ms)
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\.\d+Z$/, "Z");
 }
 
 /**
@@ -87,9 +90,7 @@ function colorizePnl(value: number, formatted: string): string {
  *   - `state` is the validated `BotState` on success.
  *   - `error` is a human-readable string if the file is missing or invalid.
  */
-function loadState(
-  filePath: string,
-): { state: BotState | null; error: string | null } {
+function loadState(filePath: string): { state: BotState | null; error: string | null } {
   if (!existsSync(filePath)) {
     return { state: null, error: `state file not found: ${filePath}` };
   }
@@ -118,7 +119,7 @@ function loadState(
 }
 
 /**
- * `statusCommand` — the `mm-bot status` handler.
+ * `statusCommand` — the direct `status` handler.
  */
 export const statusCommand: SubcommandHandler = async (args) => {
   await Promise.resolve();
@@ -162,7 +163,9 @@ export const statusCommand: SubcommandHandler = async (args) => {
   const ageMs = Date.now() - state.savedAt;
   console.log(`Saved:       ${formatTimestamp(state.savedAt)}  (${formatDuration(ageMs)} ago)`);
   console.log("");
-  console.log(`Equity:      $${state.equityUsd.toFixed(2)}  (initial: $${state.initialEquityUsd.toFixed(2)})`);
+  console.log(
+    `Equity:      $${state.equityUsd.toFixed(2)}  (initial: $${state.initialEquityUsd.toFixed(2)})`,
+  );
   // PnL is the headline number for the operator; color it green/red/dim.
   const pnlText = `$${state.realizedPnlUsd.toFixed(2)}`;
   console.log(`Realized PnL: ${colorizePnl(state.realizedPnlUsd, pnlText)}`);

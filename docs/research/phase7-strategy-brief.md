@@ -11,12 +11,12 @@
 
 A Phase 6 riport részletezi, a lényeg:
 
-| Phase | Best edge | Monthly return | +50%/hó verdict |
-|---|---|---:|---|
-| Phase 1-3 | artifact (engine buggy) | -0.71%/hó | NEM |
-| Phase 4 | Mean-Reversion BB | -46.7% total | NEM |
-| Phase 5 single-class (Donchian 1d) | +0.04-0.10%/hó | **+0.07%/hó** | NEM |
-| Phase 6 multi-class (Donchian + Carry + Kelly) | +0.47-0.56%/hó | **+0.52%/hó** | NEM (96× short) |
+| Phase                                          | Best edge               | Monthly return | +50%/hó verdict |
+| ---------------------------------------------- | ----------------------- | -------------: | --------------- |
+| Phase 1-3                                      | artifact (engine buggy) |      -0.71%/hó | NEM             |
+| Phase 4                                        | Mean-Reversion BB       |   -46.7% total | NEM             |
+| Phase 5 single-class (Donchian 1d)             | +0.04-0.10%/hó          |  **+0.07%/hó** | NEM             |
+| Phase 6 multi-class (Donchian + Carry + Kelly) | +0.47-0.56%/hó          |  **+0.52%/hó** | NEM (96× short) |
 
 **A Phase 7 célja: a +50%/hó realitásvizsgálat 4. köre.** Három párhuzamos amplifikációs track a meglévő edge-eken:
 
@@ -163,6 +163,7 @@ A Phase 7 empirikus eredmények alapján egyértelmű IGEN/NEM válasz. A Phase 
 ### 3.4 Report-back a root session-nek
 
 Minden track milestone után (M1 track complete) küldj report-ot:
+
 ```
 mavis communication send \
   --from <YOUR_SESSION_ID> \
@@ -181,32 +182,33 @@ mavis communication send \
 
 ## 4. Output-ok (végleges lista)
 
-| Fájl | Tartalom | Mikor | Ki |
-|------|----------|-------|----|
-| `docs/research/phase7-strategy-brief.md` | Ez a fájl (root session hozta létre) | M0 | owner |
-| `docs/research/phase7-trailing-stop.md` | Track A empirikus riport | M1.1 végén | Strategy Specialist |
-| `packages/core/src/strategy/donchian-trailing.ts` + `.test.ts` | Track A trailing-stop implementáció | M1.1 végén | Strategy Specialist |
-| `packages/backtest-tools/src/cli/run-donchian-trailing-baseline.ts` | Track A CLI runner | M1.1 végén | Strategy Specialist |
-| `backtest-results/baseline-donchian-trailing-{btc,eth,sol}-1d.json` | Track A baseline JSON-ok | M1.1 végén | Strategy Specialist |
-| `docs/research/phase7-adaptive-kelly.md` | Track B empirikus riport | M1.2 végén | Strategy Specialist |
-| `packages/core/src/risk/kelly-adaptive.ts` + `.test.ts` | Track B adaptive Kelly | M1.2 végén | Strategy Specialist |
-| `packages/backtest-tools/src/cli/run-kelly-adaptive.ts` | Track B CLI runner | M1.2 végén | Strategy Specialist |
-| `backtest-results/baseline-kelly-adaptive-{btc,eth,sol}-1d.json` | Track B baseline JSON-ok | M1.2 végén | Strategy Specialist |
-| `docs/research/phase7-carry-leverage.md` | Track C empirikus riport | M1.3 végén | Crypto Expert |
-| `packages/core/src/strategy/funding-carry-leverage.ts` + `.test.ts` | Track C leveraged carry | M1.3 végén | Crypto Expert |
-| `packages/backtest-tools/src/cli/run-funding-carry-leverage.ts` | Track C CLI runner | M1.3 végén | Crypto Expert |
-| `backtest-results/baseline-funding-carry-leverage-{btc,eth,sol}-1h.json` | Track C baseline JSON-ok | M1.3 végén | Crypto Expert |
-| `packages/core/src/strategy/multi-class-ensemble-v2.ts` + `.test.ts` | M2 ensemble V2 | M2 végén | owner |
-| `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts` | M2 ensemble V2 CLI | M2 végén | owner |
-| `backtest-results/baseline-multi-class-v2-{btc,eth,sol}-1d.json` | M2 ensemble V2 JSON-ok | M2 végén | owner |
-| `backtest-results/REPORT-phase7.md` | Végső Phase 7 riport | M2 végén | owner |
-| `feat/phase7-amplification` branch | Push-olva origin-re, PR a root session által | M3 | owner |
+| Fájl                                                                     | Tartalom                                     | Mikor      | Ki                  |
+| ------------------------------------------------------------------------ | -------------------------------------------- | ---------- | ------------------- |
+| `docs/research/phase7-strategy-brief.md`                                 | Ez a fájl (root session hozta létre)         | M0         | owner               |
+| `docs/research/phase7-trailing-stop.md`                                  | Track A empirikus riport                     | M1.1 végén | Strategy Specialist |
+| `packages/core/src/strategy/donchian-trailing.ts` + `.test.ts`           | Track A trailing-stop implementáció          | M1.1 végén | Strategy Specialist |
+| `packages/backtest-tools/src/cli/run-donchian-trailing-baseline.ts`      | Track A CLI runner                           | M1.1 végén | Strategy Specialist |
+| `backtest-results/baseline-donchian-trailing-{btc,eth,sol}-1d.json`      | Track A baseline JSON-ok                     | M1.1 végén | Strategy Specialist |
+| `docs/research/phase7-adaptive-kelly.md`                                 | Track B empirikus riport                     | M1.2 végén | Strategy Specialist |
+| `packages/core/src/risk/kelly-adaptive.ts` + `.test.ts`                  | Track B adaptive Kelly                       | M1.2 végén | Strategy Specialist |
+| `packages/backtest-tools/src/cli/run-kelly-adaptive.ts`                  | Track B CLI runner                           | M1.2 végén | Strategy Specialist |
+| `backtest-results/baseline-kelly-adaptive-{btc,eth,sol}-1d.json`         | Track B baseline JSON-ok                     | M1.2 végén | Strategy Specialist |
+| `docs/research/phase7-carry-leverage.md`                                 | Track C empirikus riport                     | M1.3 végén | Crypto Expert       |
+| `packages/core/src/strategy/funding-carry-leverage.ts` + `.test.ts`      | Track C leveraged carry                      | M1.3 végén | Crypto Expert       |
+| `packages/backtest-tools/src/cli/run-funding-carry-leverage.ts`          | Track C CLI runner                           | M1.3 végén | Crypto Expert       |
+| `backtest-results/baseline-funding-carry-leverage-{btc,eth,sol}-1h.json` | Track C baseline JSON-ok                     | M1.3 végén | Crypto Expert       |
+| `packages/core/src/strategy/multi-class-ensemble-v2.ts` + `.test.ts`     | M2 ensemble V2                               | M2 végén   | owner               |
+| `packages/backtest-tools/src/cli/run-multi-class-baseline-v2.ts`         | M2 ensemble V2 CLI                           | M2 végén   | owner               |
+| `backtest-results/baseline-multi-class-v2-{btc,eth,sol}-1d.json`         | M2 ensemble V2 JSON-ok                       | M2 végén   | owner               |
+| `backtest-results/REPORT-phase7.md`                                      | Végső Phase 7 riport                         | M2 végén   | owner               |
+| `feat/phase7-amplification` branch                                       | Push-olva origin-re, PR a root session által | M3         | owner               |
 
 ---
 
 ## 5. Kilépési kritérium
 
 A Phase 7 akkor zárható le, ha **MIND** az alábbi teljesül:
+
 1. ✅ Mind a 3 track (trailing-stop, adaptive Kelly, carry-leverage) implementálva van + unit tesztek + CLI runner + baseline JSON + empirikus riport
 2. ✅ A multi-class ensemble V2 (M2) integrálva van a 3 track edge-eiből + saját unit tesztek + ensemble baseline JSON
 3. ✅ `bun run typecheck && bun run lint && bun run test && bun run coverage` MIND zöld
@@ -223,6 +225,7 @@ A user explicit utasítása: „ne állj meg addig amíg a célt el nem éred". 
 A Phase 7 legjobb esetben (minden track +50-100% boost) PROJECTED +1.5-3%/hó szintre hozza a rendszert, ami **17-33×-del** még mindig a +50%/hó target alatt van.
 
 **Ha Phase 7 után is messze vagyunk, a Phase 8-nak kell:**
+
 - Options volatility surface arb (deribit, institutional edge, +5-15%/hó projected)
 - Cross-venue market-making (sub-10ms execution, +10-30%/hó projected, de 5-15% DD)
 - ML on order flow (LSTM/transformer on L2 book, +3-10%/hó projected, research-only phase)
@@ -234,11 +237,11 @@ Ezek kutatásigényesek és kevésbé validálhatók a jelenlegi 1h-1d adatbázi
 
 ## 7. Agent assignment
 
-| Track | Agent neve | Miért ő |
-|-------|------------|---------|
-| Track A: Trailing-stop engine | `agent-5394bdd48751` (Strategy Specialist) | Strategy + signal + risk specialist, Phase 6 Track C (Kelly) tapasztalat |
-| Track B: Adaptive Kelly | `agent-5394bdd48751` (Strategy Specialist) | Same specialist — Kelly és walk-framework implementációban jártas |
-| Track C: Carry leverage | `agent-c53b5725d31d` (Crypto Expert) | Market structure + funding + leverage specialist, Phase 6 Track A (funding-carry) tapasztalat |
+| Track                         | Agent neve                                 | Miért ő                                                                                       |
+| ----------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Track A: Trailing-stop engine | `agent-5394bdd48751` (Strategy Specialist) | Strategy + signal + risk specialist, Phase 6 Track C (Kelly) tapasztalat                      |
+| Track B: Adaptive Kelly       | `agent-5394bdd48751` (Strategy Specialist) | Same specialist — Kelly és walk-framework implementációban jártas                             |
+| Track C: Carry leverage       | `agent-c53b5725d31d` (Crypto Expert)       | Market structure + funding + leverage specialist, Phase 6 Track A (funding-carry) tapasztalat |
 
 A Track A és Track B megosztja ugyanazt a Strategy Specialist agent-ot — egymás utáni feladatok, nem párhuzamosak a specialist agent session-ön belül.
 

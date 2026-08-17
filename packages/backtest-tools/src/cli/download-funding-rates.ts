@@ -34,7 +34,10 @@ function parseArgs(): CliArgs {
   let outDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "funding");
   for (const arg of args) {
     if (arg.startsWith("--symbols=")) {
-      symbols = arg.slice("--symbols=".length).split(",").map((s) => s.trim().toUpperCase());
+      symbols = arg
+        .slice("--symbols=".length)
+        .split(",")
+        .map((s) => s.trim().toUpperCase());
     } else if (arg.startsWith("--start=")) {
       startMs = Date.parse(arg.slice("--start=".length));
     } else if (arg.startsWith("--end=")) {
@@ -69,7 +72,12 @@ async function fetchPage(symbol: string, startMs: number, endMs: number): Promis
   return data;
 }
 
-async function downloadSymbol(symbol: string, startMs: number, endMs: number, outFile: string): Promise<number> {
+async function downloadSymbol(
+  symbol: string,
+  startMs: number,
+  endMs: number,
+  outFile: string,
+): Promise<number> {
   const rows: FundingRow[] = [];
   let cursor = startMs;
   while (cursor < endMs) {
@@ -85,9 +93,7 @@ async function downloadSymbol(symbol: string, startMs: number, endMs: number, ou
   const fs = await import("node:fs/promises");
   await fs.mkdir(resolve(outFile, ".."), { recursive: true });
   const header = "fundingTime,symbol,fundingRate,markPrice\n";
-  const body = rows
-    .map((r) => `${r.fundingTime},${r.symbol},${r.fundingRate},${r.markPrice}`)
-    .join("\n");
+  const body = rows.map((r) => `${r.fundingTime},${r.symbol},${r.fundingRate},${r.markPrice}`).join("\n");
   await fs.writeFile(outFile, header + body + "\n", "utf8");
   return rows.length;
 }
@@ -95,7 +101,9 @@ async function downloadSymbol(symbol: string, startMs: number, endMs: number, ou
 async function main(): Promise<void> {
   const args = parseArgs();
   console.log(`[download-funding-rates] symbols=${args.symbols.join(",")}`);
-  console.log(`[download-funding-rates] period=${new Date(args.startMs).toISOString()} → ${new Date(args.endMs).toISOString()}`);
+  console.log(
+    `[download-funding-rates] period=${new Date(args.startMs).toISOString()} → ${new Date(args.endMs).toISOString()}`,
+  );
   console.log(`[download-funding-rates] outDir=${args.outDir}`);
 
   const t0 = Date.now();

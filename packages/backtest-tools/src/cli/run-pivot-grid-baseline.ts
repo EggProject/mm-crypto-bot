@@ -140,7 +140,9 @@ export async function main(): Promise<void> {
   console.log(`[pivot-grid] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
   console.log(`[pivot-grid] period: ${startTime.toISOString()} → ${endTime.toISOString()}`);
   console.log(`[pivot-grid] initial equity: $${args.initialEquity}`);
-  console.log(`[pivot-grid] max-position-pct-equity (strategy-side cap, default 0.04): ${args.maxPositionPctEquity}`);
+  console.log(
+    `[pivot-grid] max-position-pct-equity (strategy-side cap, default 0.04): ${args.maxPositionPctEquity}`,
+  );
 
   const result: BacktestResult = await runBacktest({
     symbol: makeSymbol(args.symbol),
@@ -170,9 +172,13 @@ export async function main(): Promise<void> {
   const losses = result.trades.filter((t) => t.pnlUsd < 0);
   const winRate = result.trades.length > 0 ? wins.length / result.trades.length : 0;
 
-  console.log(`\n=== RESULTS pivot-grid ${args.symbol} ${args.timeframe} (cap=${args.maxPositionPctEquity}) ===`);
+  console.log(
+    `\n=== RESULTS pivot-grid ${args.symbol} ${args.timeframe} (cap=${args.maxPositionPctEquity}) ===`,
+  );
   console.log(`Total return:     ${(result.totalReturn * 100).toFixed(2)}%`);
-  console.log(`Monthly avg:      ${(monthlyReturn * 100).toFixed(2)}%/mo (over ${totalMonths.toFixed(1)} months)`);
+  console.log(
+    `Monthly avg:      ${(monthlyReturn * 100).toFixed(2)}%/mo (over ${totalMonths.toFixed(1)} months)`,
+  );
   console.log(`Annualized:       ${(result.annualizedReturn * 100).toFixed(2)}%`);
   console.log(`Sharpe:           ${result.sharpeRatio.toFixed(3)}`);
   console.log(`Sortino:          ${result.sortinoRatio.toFixed(3)}`);

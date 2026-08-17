@@ -89,11 +89,7 @@ import {
   type NetflowSample,
   type CexNetFlowRegimePluginState,
 } from "./cex-netflow-regime-plugin.js";
-import {
-  type FactorSignal,
-  isFactor,
-  type Signal,
-} from "../types.js";
+import { type FactorSignal, isFactor, type Signal } from "../types.js";
 import type { Bar } from "../types.js";
 import { ONE_TO_TEN_LEVERAGE } from "../../risk/leverage-invariant.js";
 
@@ -103,9 +99,7 @@ import { ONE_TO_TEN_LEVERAGE } from "../../risk/leverage-invariant.js";
 
 const mkBus = (): SignalBus => new SignalBus({ mode: "backtest" });
 
-const wirePlugin = (
-  plugin: CexNetFlowRegimePlugin,
-): SignalBus => {
+const wirePlugin = (plugin: CexNetFlowRegimePlugin): SignalBus => {
   const bus = mkBus();
   plugin.subscribe(bus);
   return bus;
@@ -138,11 +132,7 @@ const feedNetflowSeries = (
   intervalMs = 0,
 ): void => {
   for (let i = 0; i < netflows.length; i++) {
-    p.recordNetflowSample(
-      symbol,
-      netflows[i]!,
-      startTs + i * intervalMs,
-    );
+    p.recordNetflowSample(symbol, netflows[i]!, startTs + i * intervalMs);
   }
 };
 
@@ -256,15 +246,11 @@ describe("CexNetFlowRegimePlugin", () => {
   // -----------------------------------------------------------------------
 
   it("constructor rejects bad windowDays (<30)", () => {
-    expect(() => new CexNetFlowRegimePlugin({ windowDays: 7 })).toThrow(
-      /windowDays.*must be an integer in/,
-    );
+    expect(() => new CexNetFlowRegimePlugin({ windowDays: 7 })).toThrow(/windowDays.*must be an integer in/);
   });
 
   it("constructor rejects non-integer windowDays", () => {
-    expect(() => new CexNetFlowRegimePlugin({ windowDays: 30.5 })).toThrow(
-      /windowDays/,
-    );
+    expect(() => new CexNetFlowRegimePlugin({ windowDays: 30.5 })).toThrow(/windowDays/);
   });
 
   it("constructor rejects regimeLowerZ ≥ regimeUpperZ", () => {
@@ -299,48 +285,30 @@ describe("CexNetFlowRegimePlugin", () => {
   });
 
   it("constructor rejects bad pollIntervalMs", () => {
-    expect(() =>
-      new CexNetFlowRegimePlugin({ pollIntervalMs: 100 }),
-    ).toThrow(/pollIntervalMs/);
+    expect(() => new CexNetFlowRegimePlugin({ pollIntervalMs: 100 })).toThrow(/pollIntervalMs/);
   });
 
   it("constructor rejects bad factorScalingZ (≤0 or >10)", () => {
-    expect(() =>
-      new CexNetFlowRegimePlugin({ factorScalingZ: 0 }),
-    ).toThrow(/factorScalingZ/);
-    expect(() =>
-      new CexNetFlowRegimePlugin({ factorScalingZ: 50 }),
-    ).toThrow(/factorScalingZ/);
+    expect(() => new CexNetFlowRegimePlugin({ factorScalingZ: 0 })).toThrow(/factorScalingZ/);
+    expect(() => new CexNetFlowRegimePlugin({ factorScalingZ: 50 })).toThrow(/factorScalingZ/);
   });
 
   it("constructor rejects bad minObservations (<2 or >90)", () => {
-    expect(() =>
-      new CexNetFlowRegimePlugin({ minObservations: 1 }),
-    ).toThrow(/minObservations/);
-    expect(() =>
-      new CexNetFlowRegimePlugin({ minObservations: 200 }),
-    ).toThrow(/minObservations/);
+    expect(() => new CexNetFlowRegimePlugin({ minObservations: 1 })).toThrow(/minObservations/);
+    expect(() => new CexNetFlowRegimePlugin({ minObservations: 200 })).toThrow(/minObservations/);
   });
 
   it("constructor rejects bad maxStaleMs (≤0)", () => {
-    expect(() => new CexNetFlowRegimePlugin({ maxStaleMs: 500 })).toThrow(
-      /maxStaleMs/,
-    );
+    expect(() => new CexNetFlowRegimePlugin({ maxStaleMs: 500 })).toThrow(/maxStaleMs/);
   });
 
   it("constructor rejects empty enabledSymbols / non-string entries", () => {
-    expect(() => new CexNetFlowRegimePlugin({ enabledSymbols: [] })).toThrow(
-      /enabledSymbols/,
-    );
-    expect(() =>
-      new CexNetFlowRegimePlugin({ enabledSymbols: ["BTC", ""] }),
-    ).toThrow(/enabledSymbols/);
+    expect(() => new CexNetFlowRegimePlugin({ enabledSymbols: [] })).toThrow(/enabledSymbols/);
+    expect(() => new CexNetFlowRegimePlugin({ enabledSymbols: ["BTC", ""] })).toThrow(/enabledSymbols/);
   });
 
   it("constructor rejects bad baseNotionalUsd (≤0)", () => {
-    expect(() =>
-      new CexNetFlowRegimePlugin({ baseNotionalUsd: 0 }),
-    ).toThrow(/baseNotionalUsd/);
+    expect(() => new CexNetFlowRegimePlugin({ baseNotionalUsd: 0 })).toThrow(/baseNotionalUsd/);
   });
 
   it("validateConfig with null/undefined returns ok(undefined)", () => {
@@ -467,12 +435,8 @@ describe("CexNetFlowRegimePlugin", () => {
     // The implementation explicitly normalizes all non-finite inputs
     // (NaN, ±Infinity) to "neutral" to avoid undefined branching.
     expect(classifyRegime(NaN, 1.5, -1.5)).toBe("neutral");
-    expect(classifyRegime(Number.POSITIVE_INFINITY, 1.5, -1.5)).toBe(
-      "neutral",
-    );
-    expect(classifyRegime(Number.NEGATIVE_INFINITY, 1.5, -1.5)).toBe(
-      "neutral",
-    );
+    expect(classifyRegime(Number.POSITIVE_INFINITY, 1.5, -1.5)).toBe("neutral");
+    expect(classifyRegime(Number.NEGATIVE_INFINITY, 1.5, -1.5)).toBe("neutral");
   });
 
   // -----------------------------------------------------------------------
@@ -563,12 +527,8 @@ describe("CexNetFlowRegimePlugin", () => {
     const p = new CexNetFlowRegimePlugin({
       enabledSymbols: ["BTC"],
     });
-    expect(
-      p.recordNetflowSample("BTC", Number.NaN, Date.now()),
-    ).toBe(false);
-    expect(
-      p.recordNetflowSample("BTC", Number.POSITIVE_INFINITY, Date.now()),
-    ).toBe(false);
+    expect(p.recordNetflowSample("BTC", Number.NaN, Date.now())).toBe(false);
+    expect(p.recordNetflowSample("BTC", Number.POSITIVE_INFINITY, Date.now())).toBe(false);
     // Invalid samples do NOT create symbol state (defensive: short-circuit
     // before allocate). Valid samples DO create state.
     expect(p.state.symbolState.has("BTC")).toBe(false);
@@ -682,9 +642,7 @@ describe("CexNetFlowRegimePlugin", () => {
     expect(captured!.source).toBe("cex-netflow-regime-v1");
     expect(captured!.kind).toBe("factor");
     expect(captured!.factor).toBeGreaterThan(0);
-    expect(["accumulation", "neutral", "distribution"]).toContain(
-      captured!.regime,
-    );
+    expect(["accumulation", "neutral", "distribution"]).toContain(captured!.regime);
   });
 
   it("FactorSignal payload shape: factor ∈ (-1, 1), zScore is unbounded, regime ∈ {acc, neut, dist}", () => {
@@ -802,9 +760,7 @@ describe("CexNetFlowRegimePlugin", () => {
   });
 
   it("CoinglassNetflowAdapter without API key returns null (graceful degradation)", async () => {
-    const { CoinglassNetflowAdapter } = await import(
-      "./cex-netflow-regime-plugin.js"
-    );
+    const { CoinglassNetflowAdapter } = await import("./cex-netflow-regime-plugin.js");
     const a = new CoinglassNetflowAdapter(null);
     expect(await a.fetchNetflowSample("BTC")).toBeNull();
     // With a fake API key: still null (live fetch not implemented in v1)
@@ -813,17 +769,13 @@ describe("CexNetFlowRegimePlugin", () => {
   });
 
   it("CryptoQuantNetflowAdapter without API key returns null", async () => {
-    const { CryptoQuantNetflowAdapter } = await import(
-      "./cex-netflow-regime-plugin.js"
-    );
+    const { CryptoQuantNetflowAdapter } = await import("./cex-netflow-regime-plugin.js");
     const a = new CryptoQuantNetflowAdapter(null);
     expect(await a.fetchNetflowSample("ETH")).toBeNull();
   });
 
   it("CoinGlassExchangeBalanceAdapter returns null", async () => {
-    const { CoinGlassExchangeBalanceAdapter } = await import(
-      "./cex-netflow-regime-plugin.js"
-    );
+    const { CoinGlassExchangeBalanceAdapter } = await import("./cex-netflow-regime-plugin.js");
     const a = new CoinGlassExchangeBalanceAdapter();
     expect(await a.fetchNetflowSample("SOL")).toBeNull();
   });
@@ -1055,9 +1007,11 @@ describe("Phase 35b — CexNetFlowRegimePlugin private method coverage via cast"
     };
     // Valid config — should not throw
     expect(() =>
-      (CexNetFlowRegimePlugin as unknown as {
-        _assertConfigInvariants: (c: CexNetFlowRegimeConfig) => void;
-      })._assertConfigInvariants(validConfig),
+      (
+        CexNetFlowRegimePlugin as unknown as {
+          _assertConfigInvariants: (c: CexNetFlowRegimeConfig) => void;
+        }
+      )._assertConfigInvariants(validConfig),
     ).not.toThrow();
   });
 });

@@ -1,6 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["tsconfig.base.json", "eslint.config.js", ".env"],
+  "globalDependencies": [
+    "tsconfig.base.json",
+    "eslint.config.js",
+    ".prettierrc.json",
+    ".prettierignore",
+    "lefthook.yml",
+    "bunfig.toml",
+    "package.json",
+    "bun.lock"
+  ],
   "globalEnv": ["NODE_ENV", "BUN_ENV"],
   "tasks": {
     "build": {
@@ -24,6 +33,18 @@
       "outputs": [],
       "inputs": ["src/**", "eslint.config.js", "package.json"]
     },
+    "format": {
+      "cache": false,
+      "outputs": []
+    },
+    "format:check": {
+      "cache": false,
+      "outputs": []
+    },
+    "clean:artifacts": {
+      "cache": false,
+      "outputs": []
+    },
     "test": {
       "cache": false,
       "dependsOn": ["^build"],
@@ -40,13 +61,7 @@
       "cache": false,
       "dependsOn": ["coverage"],
       "outputs": ["coverage/merged/**"],
-      "inputs": [
-        "src/**",
-        "test/**",
-        "tests/**",
-        "scripts/merge-coverage.mjs",
-        "package.json"
-      ]
+      "inputs": ["src/**", "test/**", "tests/**", "scripts/merge-coverage.mjs", "package.json"]
     },
     "clean": {
       "cache": false,

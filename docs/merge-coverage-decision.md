@@ -17,6 +17,7 @@ coverage report! (look up with websearch how to set it up so there's a merged
 report!)"
 
 **Hard guarantees required:**
+
 1. ONE `bun run coverage:merge` command — runs ALL tests across ALL packages, produces ONE merged coverage report at the end.
 2. Outputs: text + lcov + html + json.
 3. Works with the existing `bun test` runner (no test-runner migration).
@@ -24,15 +25,15 @@ report!)"
 
 ## Websearch log (5+ queries, English only)
 
-| # | Query (verbatim) | Top result & key takeaway |
-|---|------------------|---------------------------|
-| 1 | `bun test coverage merge monorepo multiple packages` | [GitHub oven-sh/bun Discussion #11762](https://github.com/oven-sh/bun/discussions/11762) — "bun test --coverage" only supports `text` and `lcov` reporters. No native merge. |
-| 2 | `vitest merge coverage workspaces monorepo` | [vitest guide/workspace](https://vitest.dev/guide/projects) — Vitest's "Projects" feature merges coverage out-of-the-box, but requires every package to be a vitest project. |
-| 3 | `nyc merge coverage from multiple packages monorepo` | [dev.to/mbarzeev](https://dev.to/mbarzeev/aggregating-unit-test-coverage-for-all-monorepos-packages-20c6) + [stackoverflow #62560224](https://stackoverflow.com/questions/62560224/jest-how-to-merge-coverage-reports-from-different-jest-test-runs) — `nyc merge` + `nyc report` is the canonical solution for cross-package JSON coverage, but it needs JSON reporters. |
-| 4 | `turbo monorepo vitest merged coverage report` | [turborepo.dev/docs/guides/tools/vitest](https://turborepo.dev/docs/guides/tools/vitest) — Turborepo explicitly recommends "blob" reporter + `vitest --merge-reports --coverage` for merged coverage. Re-confirms approach (2). |
-| 5 | `istanbul merge json coverage report nyc report` | [istanbuljs/nyc README](https://github.com/istanbuljs/nyc) + [stackoverflow #61547209](https://stackoverflow.com/questions/61547209/how-to-generate-nyc-report-from-json-results-no-nyc-output/61643904) — `nyc merge <src_dir> <out.json>` then `nyc report -t <temp_dir> --reporter=html --reporter=text`. Operates on `coverage-final.json` files. |
-| 6 | `c8 report merge multiple coverage json monorepo` | [GitHub bcoe/c8 #336](https://github.com/bcoe/c8/issues/336) + [c8 #487](https://github.com/bcoe/c8/issues/487) — c8 itself does NOT merge coverage. Community uses `nyc merge` on c8-generated `coverage-final.json`. |
-| 7 | `bun test --coverage --coverage-reporter json support` | [bun.com/docs/test/code-coverage](https://bun.com/docs/test/code-coverage) + empirical `bun test --help` — **bun only supports `text` and `lcov`. JSON is NOT available in bun 1.3.14.** |
+| #   | Query (verbatim)                                       | Top result & key takeaway                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `bun test coverage merge monorepo multiple packages`   | [GitHub oven-sh/bun Discussion #11762](https://github.com/oven-sh/bun/discussions/11762) — "bun test --coverage" only supports `text` and `lcov` reporters. No native merge.                                                                                                                                                                                              |
+| 2   | `vitest merge coverage workspaces monorepo`            | [vitest guide/workspace](https://vitest.dev/guide/projects) — Vitest's "Projects" feature merges coverage out-of-the-box, but requires every package to be a vitest project.                                                                                                                                                                                              |
+| 3   | `nyc merge coverage from multiple packages monorepo`   | [dev.to/mbarzeev](https://dev.to/mbarzeev/aggregating-unit-test-coverage-for-all-monorepos-packages-20c6) + [stackoverflow #62560224](https://stackoverflow.com/questions/62560224/jest-how-to-merge-coverage-reports-from-different-jest-test-runs) — `nyc merge` + `nyc report` is the canonical solution for cross-package JSON coverage, but it needs JSON reporters. |
+| 4   | `turbo monorepo vitest merged coverage report`         | [turborepo.dev/docs/guides/tools/vitest](https://turborepo.dev/docs/guides/tools/vitest) — Turborepo explicitly recommends "blob" reporter + `vitest --merge-reports --coverage` for merged coverage. Re-confirms approach (2).                                                                                                                                           |
+| 5   | `istanbul merge json coverage report nyc report`       | [istanbuljs/nyc README](https://github.com/istanbuljs/nyc) + [stackoverflow #61547209](https://stackoverflow.com/questions/61547209/how-to-generate-nyc-report-from-json-results-no-nyc-output/61643904) — `nyc merge <src_dir> <out.json>` then `nyc report -t <temp_dir> --reporter=html --reporter=text`. Operates on `coverage-final.json` files.                     |
+| 6   | `c8 report merge multiple coverage json monorepo`      | [GitHub bcoe/c8 #336](https://github.com/bcoe/c8/issues/336) + [c8 #487](https://github.com/bcoe/c8/issues/487) — c8 itself does NOT merge coverage. Community uses `nyc merge` on c8-generated `coverage-final.json`.                                                                                                                                                    |
+| 7   | `bun test --coverage --coverage-reporter json support` | [bun.com/docs/test/code-coverage](https://bun.com/docs/test/code-coverage) + empirical `bun test --help` — **bun only supports `text` and `lcov`. JSON is NOT available in bun 1.3.14.**                                                                                                                                                                                  |
 
 ## Bun's coverage output (verified empirically 2026-07-12)
 
@@ -75,6 +76,7 @@ A 565-line apps/bot run produces 16,484 lines of lcov output, including records 
 **Idea:** add a `vitest.workspace.ts` at the root listing all 8 packages; run `vitest --coverage` once; coverage is merged automatically.
 
 **Why rejected:**
+
 1. Every package currently uses `bun test` for tests. Migrating to vitest is a massive scope (different runner, different API, different `mock`, different timer API). The user mandate says "all tests run together" — not "switch test runners".
 2. Vitest 4.1.9 is already in devDeps (some prior Phase 33 work) but the package-level `vitest.config.ts` only exists in `packages/exchange`; everywhere else `bun test` is hardcoded in `package.json` scripts. Re-wiring all 8 packages breaks the test contracts.
 3. Vitest in the root config cannot also use `bun test`'s test file discovery (`bun test` and `vitest` find different files in some edge cases — e.g. `*.test.ts` colocated next to source vs `tests/*.test.ts` directory split used in `packages/exchange`).
@@ -91,6 +93,7 @@ A 565-line apps/bot run produces 16,484 lines of lcov output, including records 
 **Idea:** per-package `bun test --coverage` produces lcov; convert lcov → coverage-final.json; `nyc merge` + `nyc report`.
 
 **Why rejected:**
+
 1. Bun 1.3.14 does NOT emit JSON. Converting lcov → coverage-final.json requires a third-party tool (`lcov-parse` or `lcov2istanbul`). Adds two new deps and a non-trivial conversion step.
 2. `nyc report` on a JSON produced from bun's lcov risks path remapping issues (see [GitHub istanbuljs/nyc #1342](https://github.com/istanbuljs/nyc/issues/1342) — "you have to be in the parent directory of the instrumented code when you are generating a report"). Our monorepo has no single "parent directory" because the code lives in `apps/*` and `packages/*` subtrees.
 3. The conversion → merge → report pipeline is 3 steps with 2 new deps for what is fundamentally a 200-line Node script.
@@ -113,6 +116,7 @@ A 565-line apps/bot run produces 16,484 lines of lcov output, including records 
 8. Emits a basic but functional HTML report at `coverage/merged/html/index.html` (per-file table with uncovered line ranges, color-coded).
 
 **Why chosen:**
+
 1. **Zero new runtime dependencies.** We already have `node` (>=22) and the script is pure ESM Node.
 2. **Bun test stays the test runner.** No migration, no per-package config rewrites.
 3. **One invocation.** `bun run coverage:merge` runs `turbo run coverage`, then runs the merge script.
@@ -159,6 +163,7 @@ bun run coverage:merge   # produces coverage/merged/ with all 4 artifacts
 ## Why this is defensible
 
 The user wanted ONE command, ONE report. We deliver `bun run coverage:merge` which:
+
 1. Runs `turbo run coverage` (per-package `bun test --coverage --coverage-reporter=lcov`).
 2. Then runs `node scripts/merge-coverage.mjs` which reads all per-package lcovs, merges by absolute path, and writes the 4 artifacts.
 3. The script is 100% pure Node ESM, no deps, easy to read in PR review.

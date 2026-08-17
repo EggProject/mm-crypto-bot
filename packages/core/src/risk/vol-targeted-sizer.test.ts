@@ -95,7 +95,7 @@ describe("validateOneToTenLeverage", () => {
     expect(() => validateOneToTenLeverage(11)).toThrow(/1:10 MANDATE VIOLATION/);
   });
 
-it("rejects NaN and Infinity", () => {
+  it("rejects NaN and Infinity", () => {
     expect(() => validateOneToTenLeverage(Number.NaN)).toThrow(/1:10 MANDATE/i);
     expect(() => validateOneToTenLeverage(Number.POSITIVE_INFINITY)).toThrow(/1:10 MANDATE/i);
   });
@@ -174,8 +174,7 @@ describe("rollingRealizedDailyVol", () => {
     // window's contents. Compute it manually for the window [0.01, -0.01, 0.02, -0.02, 0.015]:
     const windowReturns = returns.slice(0, 5);
     const mean = windowReturns.reduce((a, b) => a + b, 0) / 5;
-    const variance =
-      windowReturns.reduce((a, b) => a + (b - mean) ** 2, 0) / 4; // sample std = n-1
+    const variance = windowReturns.reduce((a, b) => a + (b - mean) ** 2, 0) / 4; // sample std = n-1
     const expectedStd = Math.sqrt(variance);
     expect(out[4]).toBeCloseTo(expectedStd, 10);
   });
@@ -205,7 +204,7 @@ describe("computeVolMultiplier", () => {
 
   it("clamps high-vol (low multiplier) to 0.25 floor (defensive)", () => {
     // target 2%, realized 10% → raw 0.2 → below 0.25 floor → clamped to 0.25
-    const r = computeVolMultiplier(0.10, 0.02, 0.25, 1.0);
+    const r = computeVolMultiplier(0.1, 0.02, 0.25, 1.0);
     expect(r.raw).toBeCloseTo(0.2, 10);
     expect(r.clamped).toBeCloseTo(0.25, 10);
   });
@@ -306,13 +305,13 @@ describe("computeVolTargetedSizer", () => {
 
   it("lowerClampFraction > 0 when realized vol consistently above target", () => {
     // 10% daily vol vs 2% target → raw = 0.2 → clamped to 0.25 floor.
-    const candles = mkVolSeries(120, 0.10);
+    const candles = mkVolSeries(120, 0.1);
     const result = computeVolTargetedSizer(candles, 2000);
     expect(result.lowerClampFraction).toBeGreaterThan(0);
     // After the first 2 warmup days (realizedVol=0 -> max=1.0), the average
     // settles close to 0.25 (the floor). Exact: (2 * 1.0 + 118 * 0.25)/120 = 0.2625.
     expect(result.avgVolMultiplier).toBeGreaterThan(0.25);
-    expect(result.avgVolMultiplier).toBeLessThan(0.30);
+    expect(result.avgVolMultiplier).toBeLessThan(0.3);
   });
 
   it("upperClampFraction > 0 when realized vol consistently below target", () => {
@@ -349,17 +348,13 @@ describe("computeVolTargetedSizer", () => {
   it("avgRealizedAnnualizedVol = avgRealizedDailyVol × √365", () => {
     const candles = mkVolSeries(120, 0.03);
     const result = computeVolTargetedSizer(candles, 2000);
-    expect(result.avgRealizedAnnualizedVol).toBeCloseTo(
-      result.avgRealizedDailyVol * Math.sqrt(365),
-      8,
-    );
+    expect(result.avgRealizedAnnualizedVol).toBeCloseTo(result.avgRealizedDailyVol * Math.sqrt(365), 8);
   });
 
   it("sums of clamp fractions + middle fraction = 1.0 (full coverage)", () => {
     const candles = mkVolSeries(120, 0.03);
     const result = computeVolTargetedSizer(candles, 2000);
-    const total =
-      result.lowerClampFraction + result.upperClampFraction + result.middleFraction;
+    const total = result.lowerClampFraction + result.upperClampFraction + result.middleFraction;
     expect(total).toBeCloseTo(1.0, 6);
   });
 });

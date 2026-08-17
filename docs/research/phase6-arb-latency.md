@@ -5,6 +5,7 @@
 > **Worktree:** `.worktrees/wt-phase6-track-b` (branch `feat/phase6-track-b-arb-latency`)
 > **Brief:** `docs/research/phase6-strategy-brief.md` §1.2.2 / M1.2
 > **Deliverables:**
+>
 > - `packages/exchange/src/latency-monitor.ts` + `latency-monitor.test.ts` (20/20 unit tests pass)
 > - `packages/backtest-tools/src/cli/run-arb-latency.ts` (CLI runner)
 > - `backtest-results/arb-latency-{binance-bybit-btc, binance-kucoin-eth, bybit-kucoin-sol}-sample.json` (3 sample JSONs)
@@ -18,11 +19,11 @@
 
 The empirical latency sample taken from a Central European residential/business connection (Europe/Budapest, UTC+2, ~2026-07-03 23:55–24:00 UTC) against the public WebSocket and REST endpoints of binance, bybit, and kucoin shows:
 
-| Exchange pair | Symbol | Median REST RTT | Median WS gap | p95 REST RTT | Estimated arb round-trip (p95) | Sub-100ms feasible? |
-|---|---|---:|---:|---:|---:|:---:|
-| binance ↔ bybit | BTC/USDT | 284 ms / 677 ms | 100 ms / 23 ms | 343 ms / 688 ms | **1081 ms** | **No** |
-| binance ↔ kucoin | ETH/USDT | 284 ms / 1752 ms | 100 ms / 109 ms | 343 ms / 4547 ms | **4940 ms** | **No** |
-| bybit ↔ kucoin | SOL/USDT | 678 ms / 1759 ms | 21 ms / 106 ms | 680 ms / 3887 ms | **4617 ms** | **No** |
+| Exchange pair    | Symbol   |  Median REST RTT |   Median WS gap |     p95 REST RTT | Estimated arb round-trip (p95) | Sub-100ms feasible? |
+| ---------------- | -------- | ---------------: | --------------: | ---------------: | -----------------------------: | :-----------------: |
+| binance ↔ bybit  | BTC/USDT |  284 ms / 677 ms |  100 ms / 23 ms |  343 ms / 688 ms |                    **1081 ms** |       **No**        |
+| binance ↔ kucoin | ETH/USDT | 284 ms / 1752 ms | 100 ms / 109 ms | 343 ms / 4547 ms |                    **4940 ms** |       **No**        |
+| bybit ↔ kucoin   | SOL/USDT | 678 ms / 1759 ms |  21 ms / 106 ms | 680 ms / 3887 ms |                    **4617 ms** |       **No**        |
 
 **The estimated round-trip latency for a two-leg arbitrage (detect on A, buy on B, sell on A) is 10×–50× the sub-100 ms threshold that the brief spec (§1.2.2) requires.** Combined with observed cross-exchange spreads of **0.3–2.6 bps median on liquid pairs** (BTC/USDT specifically showed 0.45 bps median in the 20-second sample), **zero** of the detected spread opportunities were profitable after the latency cost was subtracted.
 
@@ -56,16 +57,16 @@ Ez a riport mindhárom kérdésre empirikus választ ad, és a +50 %/hó targeth
 
 10 web query-t futtattam a Phase 6 brief §3.3 (angol nyelvű, ≥5–10 query, ≥2 független forrás per állítás) előírás szerint. A lekérdezések a következő területeket fedték le:
 
-| # | Query | Source pool |
-|---|---|---|
-| 1 | `CCXT Pro WebSocket latency benchmark binance bybit kucoin` | GitHub ccxt issues, Reddit r/highfreqtrading, Medium tutorials |
-| 2 | `cross-exchange bitcoin arbitrage latency requirements sub-100ms` | Medium (HFT), BJF Trading Group, HFT Advisory Substack, Quant StackExchange |
-| 3 | `binance websocket orderbook latency round-trip time` | binance developer docs, dev.to, Substack latency analysis, Reddit |
-| 4 | `bybit API latency SLA round-trip spot market data` | bybit API docs, Arbitron, bybit-api GitHub, Webeyez guide |
-| 5 | `CCXT Pro WebSocket reconnect time stability production` | ccxt.pro.manual wiki, Readmex, GitHub issues |
-| 6 | `cross-exchange crypto arbitrage profitability 2024 2025 academic research` | IDEAS/RePEc, IJITDM, arXiv, ResearchGate |
-| 7 | `kucoin API latency websocket co-location Tokyo Singapore` | KuCoin docs, Arbitron, Substack, Nikhil Padala blog |
-| 8 | (synthesis query, internal) — `cross-exchange latency tier arbitrage infrastructure` | co-location blog post |
+| #   | Query                                                                                | Source pool                                                                 |
+| --- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| 1   | `CCXT Pro WebSocket latency benchmark binance bybit kucoin`                          | GitHub ccxt issues, Reddit r/highfreqtrading, Medium tutorials              |
+| 2   | `cross-exchange bitcoin arbitrage latency requirements sub-100ms`                    | Medium (HFT), BJF Trading Group, HFT Advisory Substack, Quant StackExchange |
+| 3   | `binance websocket orderbook latency round-trip time`                                | binance developer docs, dev.to, Substack latency analysis, Reddit           |
+| 4   | `bybit API latency SLA round-trip spot market data`                                  | bybit API docs, Arbitron, bybit-api GitHub, Webeyez guide                   |
+| 5   | `CCXT Pro WebSocket reconnect time stability production`                             | ccxt.pro.manual wiki, Readmex, GitHub issues                                |
+| 6   | `cross-exchange crypto arbitrage profitability 2024 2025 academic research`          | IDEAS/RePEc, IJITDM, arXiv, ResearchGate                                    |
+| 7   | `kucoin API latency websocket co-location Tokyo Singapore`                           | KuCoin docs, Arbitron, Substack, Nikhil Padala blog                         |
+| 8   | (synthesis query, internal) — `cross-exchange latency tier arbitrage infrastructure` | co-location blog post                                                       |
 
 A teljes source-lista a §7-ben található.
 
@@ -114,47 +115,47 @@ The CLI default is 30 seconds per pair (3 × 30s = 90s total for the 3 samples).
 
 **Sample 1 — binance ↔ bybit, BTC/USDT** (`backtest-results/arb-latency-binance-bybit-btc-sample.json`):
 
-| Metric | binance | bybit |
-|---|---:|---:|
-| RTT median | **284 ms** | **677 ms** |
-| RTT p95 | 343 ms | 688 ms |
-| RTT p99 | 1812 ms | 5928 ms |
-| RTT min/max | 280 / 1812 ms | 676 / 5928 ms |
-| RTT success rate | 100% (38/38) | 100% (22/22) |
-| WS message gap median | **100 ms** | **23 ms** |
-| WS message gap p95 | 102 ms | 299 ms |
-| Reconnect count | 1 | 1 |
-| Reconnect time median | 1809 ms | 897 ms |
-| **Estimated arb round-trip (p95)** | — | **1081 ms** |
-| Spread opportunities (≥0.3 bps threshold) | 21 | — |
-| Profitable after latency | 0 (0 %) | — |
-| Verdict | **FAIL** | sub-100 ms not feasible |
+| Metric                                    |       binance |                   bybit |
+| ----------------------------------------- | ------------: | ----------------------: |
+| RTT median                                |    **284 ms** |              **677 ms** |
+| RTT p95                                   |        343 ms |                  688 ms |
+| RTT p99                                   |       1812 ms |                 5928 ms |
+| RTT min/max                               | 280 / 1812 ms |           676 / 5928 ms |
+| RTT success rate                          |  100% (38/38) |            100% (22/22) |
+| WS message gap median                     |    **100 ms** |               **23 ms** |
+| WS message gap p95                        |        102 ms |                  299 ms |
+| Reconnect count                           |             1 |                       1 |
+| Reconnect time median                     |       1809 ms |                  897 ms |
+| **Estimated arb round-trip (p95)**        |             — |             **1081 ms** |
+| Spread opportunities (≥0.3 bps threshold) |            21 |                       — |
+| Profitable after latency                  |       0 (0 %) |                       — |
+| Verdict                                   |      **FAIL** | sub-100 ms not feasible |
 
 **Sample 2 — binance ↔ kucoin, ETH/USDT** (`backtest-results/arb-latency-binance-kucoin-eth-sample.json`):
 
-| Metric | binance | kucoin |
-|---|---:|---:|
-| RTT median | 284 ms | **1752 ms** |
-| RTT p95 | 343 ms | 4547 ms |
-| WS message gap median | 100 ms | 109 ms |
-| Reconnect time median | 1923 ms | 1523 ms |
-| **Estimated arb round-trip (p95)** | — | **4940 ms** |
-| Spread opportunities | 8 | — |
-| Profitable after latency | 0 (0 %) | — |
-| Verdict | **FAIL** | sub-100 ms not feasible |
+| Metric                             |  binance |                  kucoin |
+| ---------------------------------- | -------: | ----------------------: |
+| RTT median                         |   284 ms |             **1752 ms** |
+| RTT p95                            |   343 ms |                 4547 ms |
+| WS message gap median              |   100 ms |                  109 ms |
+| Reconnect time median              |  1923 ms |                 1523 ms |
+| **Estimated arb round-trip (p95)** |        — |             **4940 ms** |
+| Spread opportunities               |        8 |                       — |
+| Profitable after latency           |  0 (0 %) |                       — |
+| Verdict                            | **FAIL** | sub-100 ms not feasible |
 
 **Sample 3 — bybit ↔ kucoin, SOL/USDT** (`backtest-results/arb-latency-bybit-kucoin-sol-sample.json`):
 
-| Metric | bybit | kucoin |
-|---|---:|---:|
-| RTT median | 678 ms | **1759 ms** |
-| RTT p95 | 680 ms | 3887 ms |
-| WS message gap median | 21 ms | 106 ms |
-| Reconnect time median | 896 ms | 1498 ms |
-| **Estimated arb round-trip (p95)** | — | **4617 ms** |
-| Spread opportunities | 0 | — |
-| Profitable after latency | N/A | — |
-| Verdict | **FAIL** | sub-100 ms not feasible |
+| Metric                             |    bybit |                  kucoin |
+| ---------------------------------- | -------: | ----------------------: |
+| RTT median                         |   678 ms |             **1759 ms** |
+| RTT p95                            |   680 ms |                 3887 ms |
+| WS message gap median              |    21 ms |                  106 ms |
+| Reconnect time median              |   896 ms |                 1498 ms |
+| **Estimated arb round-trip (p95)** |        — |             **4617 ms** |
+| Spread opportunities               |        0 |                       — |
+| Profitable after latency           |      N/A |                       — |
+| Verdict                            | **FAIL** | sub-100 ms not feasible |
 
 ### 4.2 Cross-pair observations
 
@@ -167,6 +168,7 @@ The CLI default is 30 seconds per pair (3 × 30s = 90s total for the 3 samples).
 ### 4.3 Spread opportunity frequency
 
 Across the 3 samples:
+
 - **Total spread samples** (best-cross-spread ≥ 0.3 bps): 29 (21 + 8 + 0)
 - **Profitable after latency** (spread ≥ p95 round-trip / 10 bps heuristic): 0
 - **Median best-cross-spread**: 0.37–0.52 bps on liquid pairs
@@ -181,25 +183,27 @@ The arbitrage latency required by the brief spec is **sub-100 ms round-trip**. C
 
 The cross-exchange arbitrage literature [13][14][15] describes a clear **deployment-tier hierarchy**:
 
-| Tier | Latency | Infrastructure | Our measurement | Compatible with sub-100 ms arb? |
-|---|---:|---|---|:---:|
-| **Tier 0 — Retail** | 180–500 ms | Home PC / residential internet | (Phase 1—5 mm-crypto-bot baseline) | **No** |
-| **Tier 1 — VPS in random region** | 100–350 ms | Cheap cloud VPS (any region) | — | **No** |
-| **Tier 2 — Co-located VPS in matching region** | 15–50 ms | AWS Tokyo `ap-northeast-1` for bybit/kucoin/binance; AWS Singapore for OKX [7][8] | — | **Yes** |
-| **Tier 3 — Co-located FIX/direct WS** | 1–10 ms | Equinix TY11/SG3, FIX 4.4, dedicated WS endpoint [7] | — | **Yes** |
-| **Tier 4 — FPGA / kernel-bypass** | sub-ms | Custom hardware, exclusive HFT shops | — | **Yes (overkill)** |
+| Tier                                           |    Latency | Infrastructure                                                                    | Our measurement                    | Compatible with sub-100 ms arb? |
+| ---------------------------------------------- | ---------: | --------------------------------------------------------------------------------- | ---------------------------------- | :-----------------------------: |
+| **Tier 0 — Retail**                            | 180–500 ms | Home PC / residential internet                                                    | (Phase 1—5 mm-crypto-bot baseline) |             **No**              |
+| **Tier 1 — VPS in random region**              | 100–350 ms | Cheap cloud VPS (any region)                                                      | —                                  |             **No**              |
+| **Tier 2 — Co-located VPS in matching region** |   15–50 ms | AWS Tokyo `ap-northeast-1` for bybit/kucoin/binance; AWS Singapore for OKX [7][8] | —                                  |             **Yes**             |
+| **Tier 3 — Co-located FIX/direct WS**          |    1–10 ms | Equinix TY11/SG3, FIX 4.4, dedicated WS endpoint [7]                              | —                                  |             **Yes**             |
+| **Tier 4 — FPGA / kernel-bypass**              |     sub-ms | Custom hardware, exclusive HFT shops                                              | —                                  |       **Yes (overkill)**        |
 
 **Our measurement (284 ms median RTT for binance, 677–1752 ms for bybit/kucoin) places us firmly in Tier 0/1**. For the Phase 6 brief's sub-100 ms target, we need **Tier 2 minimum** (AWS Tokyo VPS for bybit/kucoin/binance, all three of which are Tokyo-primary per [7][8][9]).
 
 ### 5.1 Cost estimate (Phase 7+ scope)
 
 For Tier 2:
+
 - AWS Tokyo `ap-northeast-1` reserved instance (c6i.2xlarge): ~$200/mo
 - 1 Gbps unmetered bandwidth: ~$0
 - Total: ~$200–$400/mo per co-located instance
 - Two instances (one for Tokyo, one for backup/HK failover): ~$400–$800/mo
 
 For Tier 3:
+
 - Equinix TY11 colocation rack unit: ~$500–$1500/mo
 - Plus hardware, redundant cross-connects: ~$2000–$5000/mo total
 
@@ -218,9 +222,11 @@ Our measured binance REST RTT of **284 ms median from Europe** matches the publi
 - **[18]** A latency analysis by Viktoriia Tsybko (Substack): binance from Europe would be 200–350 ms range, consistent.
 
 Our bybit REST RTT of **677 ms median from Europe** also matches:
+
 - **[19]** Arbitron's bybit latency map: from Frankfurt `eu-central-1`, ~188 ms; from London `eu-west-1`, ~201 ms; from N. Virginia, ~304 ms. These are REST ticker round-trips measured in 2026. Our 677 ms is higher because the test ran from Budapest (a metro further from bybit's Tokyo-primary infrastructure than Frankfurt/London are). This is consistent with bybit's primary matching infrastructure being in Tokyo (Equinix TY11) per [7].
 
 Our kucoin REST RTT of **1752 ms median from Europe** matches:
+
 - **[20]** Arbitron's kucoin latency map: from Frankfurt ~509 ms; from London ~495 ms; from Tokyo ~19 ms. Our 1752 ms is higher than Frankfurt, suggesting a CDN cache or routing inefficiency on the path our connection took. This warrants further investigation in Phase 7+ but is **not blocking** — even at 509 ms (the best Europe measurement), kucoin's RTT exceeds the sub-100 ms threshold.
 
 ### 6.2 WS message gap — alignment with exchange documentation
@@ -303,6 +309,7 @@ The brief §3.5 specifies that the worker has döntési autonómia (decision aut
 The brief spec's §1.2.2 hypothesized **+0.1–0.3 %/month** cross-exchange arb contribution. Our empirical measurement **contradicts** even this conservative estimate, given the current infrastructure: **0 %/month is the realistic figure**.
 
 To capture the hypothesized +0.1–0.3 %/month, Phase 7+ requires:
+
 1. **Co-located VPS in AWS Tokyo** (or Singapore for OKX) for binance + bybit + kucoin: ~$400/mo cost.
 2. **Direct FIX API access** (Tier 3): ~$2000–5000/mo cost, but enables sub-10 ms latency.
 3. **Improved CCXT Pro reconnect handling** — our measured 0.9–1.9 s reconnect time is acceptable for spot arb but eats into the budget.
@@ -328,16 +335,16 @@ Following the brief §3.5 döntési autonómia elv (decision autonomy principle)
 
 ### 9.1 A Phase 6 Track B deliverables listája (CHECKLIST)
 
-| Deliverable | Status | Location |
-|---|---|---|
-| `packages/exchange/src/latency-monitor.ts` | ✅ KÉSZ | `packages/exchange/src/latency-monitor.ts` |
-| `packages/exchange/src/latency-monitor.test.ts` (≥6 unit tests) | ✅ KÉSZ (20/20 pass) | `packages/exchange/src/latency-monitor.test.ts` |
-| `packages/backtest-tools/src/cli/run-arb-latency.ts` | ✅ KÉSZ | `packages/backtest-tools/src/cli/run-arb-latency.ts` |
-| `backtest-results/arb-latency-binance-bybit-btc-sample.json` | ✅ KÉSZ | `backtest-results/arb-latency-binance-bybit-btc-sample.json` |
-| `backtest-results/arb-latency-binance-kucoin-eth-sample.json` | ✅ KÉSZ | `backtest-results/arb-latency-binance-kucoin-eth-sample.json` |
-| `backtest-results/arb-latency-bybit-kucoin-sol-sample.json` | ✅ KÉSZ | `backtest-results/arb-latency-bybit-kucoin-sol-sample.json` |
-| `docs/research/phase6-arb-latency.md` (≥3 független forrás per claim) | ✅ KÉSZ (28 forrás) | Ez a fájl |
-| Quality gates: typecheck/lint/test/coverage | ✅ ZÖLD (131 tests, monorepo) | `bun run typecheck/lint/test/coverage` |
+| Deliverable                                                           | Status                        | Location                                                      |
+| --------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------- |
+| `packages/exchange/src/latency-monitor.ts`                            | ✅ KÉSZ                       | `packages/exchange/src/latency-monitor.ts`                    |
+| `packages/exchange/src/latency-monitor.test.ts` (≥6 unit tests)       | ✅ KÉSZ (20/20 pass)          | `packages/exchange/src/latency-monitor.test.ts`               |
+| `packages/backtest-tools/src/cli/run-arb-latency.ts`                  | ✅ KÉSZ                       | `packages/backtest-tools/src/cli/run-arb-latency.ts`          |
+| `backtest-results/arb-latency-binance-bybit-btc-sample.json`          | ✅ KÉSZ                       | `backtest-results/arb-latency-binance-bybit-btc-sample.json`  |
+| `backtest-results/arb-latency-binance-kucoin-eth-sample.json`         | ✅ KÉSZ                       | `backtest-results/arb-latency-binance-kucoin-eth-sample.json` |
+| `backtest-results/arb-latency-bybit-kucoin-sol-sample.json`           | ✅ KÉSZ                       | `backtest-results/arb-latency-bybit-kucoin-sol-sample.json`   |
+| `docs/research/phase6-arb-latency.md` (≥3 független forrás per claim) | ✅ KÉSZ (28 forrás)           | Ez a fájl                                                     |
+| Quality gates: typecheck/lint/test/coverage                           | ✅ ZÖLD (131 tests, monorepo) | `bun run typecheck/lint/test/coverage`                        |
 
 ### 9.2 Ajánlás a root session-nek (Phase 7+ scope-hoz)
 

@@ -5,15 +5,16 @@
 
 ## Baseline (per `bun test src --coverage` text reporter)
 
-| Package | Lines | Funcs | Status |
-|---|---|---|---|
-| packages/backtest | 100% | 100% | already at 100% (8/8 src files covered by existing tests) |
-| packages/exchange | 100% | 100% | Track F holds, no regression |
-| packages/backtest-tools | 80.34% | 78.36% | needs work |
+| Package                 | Lines  | Funcs  | Status                                                    |
+| ----------------------- | ------ | ------ | --------------------------------------------------------- |
+| packages/backtest       | 100%   | 100%   | already at 100% (8/8 src files covered by existing tests) |
+| packages/exchange       | 100%   | 100%   | Track F holds, no regression                              |
+| packages/backtest-tools | 80.34% | 78.36% | needs work                                                |
 
 ## backtest-tools gap analysis (7 partially-tested files, 9 untested)
 
 7 partially-tested files (in scope for this track):
+
 - src/cli/run-dydx-vs-cex-funding-carry.ts: 64.55% lines, 76.19% funcs (835 lines)
 - src/data/tardis-dydx-funding.ts: 62.32% lines, 60.00% funcs (384 lines)
 - src/data/dydx-indexer-feed.ts: 76.55% lines, 78.57% funcs (588 lines)
@@ -23,6 +24,7 @@
 - src/data/csv-feed.ts: 100% (already done)
 
 9 untested files (out of scope for this track — each 30-60min of test work, total budget insufficient):
+
 - src/cli/download-funding-rates.ts
 - src/cli/download-ohlcv.ts
 - src/cli/generate-report.ts

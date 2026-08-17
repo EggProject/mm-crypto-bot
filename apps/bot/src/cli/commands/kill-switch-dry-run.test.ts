@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/kill-switch-dry-run.test.ts
  *
- * Phase 37 Track 5 — `mm-bot kill-switch-dry-run` unit tests.
+ * Phase 37 Track 5 — direct `kill-switch-dry-run` unit tests.
  *
  * ===========================================================================
  * COVERAGE TARGET: 100% line coverage on `kill-switch-dry-run.ts`.
@@ -79,20 +79,22 @@ function makeState(overrides: Partial<BotState> = {}): BotState {
 /**
  * `makePosition` — build a single position record.
  */
-function makePosition(overrides: {
-  readonly id?: string;
-  readonly strategy?: string;
-  readonly symbol?: string;
-  readonly side?: "long" | "short";
-  readonly quantity?: number;
-  readonly entryPrice?: number;
-  readonly currentPrice?: number;
-  readonly leverage?: number;
-  readonly unrealizedPnl?: number;
-  readonly realizedPnl?: number;
-  readonly openedAt?: number;
-  readonly notionalUsd?: number;
-} = {}): BotState["positions"][number] {
+function makePosition(
+  overrides: {
+    readonly id?: string;
+    readonly strategy?: string;
+    readonly symbol?: string;
+    readonly side?: "long" | "short";
+    readonly quantity?: number;
+    readonly entryPrice?: number;
+    readonly currentPrice?: number;
+    readonly leverage?: number;
+    readonly unrealizedPnl?: number;
+    readonly realizedPnl?: number;
+    readonly openedAt?: number;
+    readonly notionalUsd?: number;
+  } = {},
+): BotState["positions"][number] {
   return {
     id: overrides.id ?? "pos-1",
     strategy: overrides.strategy ?? "donchian_pivot_composition",
@@ -504,9 +506,7 @@ describe("printHumanReadable", () => {
   it("lists each closure with symbol/side/qty/lev/notional", () => {
     const report = buildReport({
       state: makeState({
-        positions: [
-          makePosition({ symbol: "BTC/USDC", side: "long", quantity: 0.5, leverage: 5 }),
-        ],
+        positions: [makePosition({ symbol: "BTC/USDC", side: "long", quantity: 0.5, leverage: 5 })],
       }),
       stateFilePath: "/s.json",
       configPath: undefined,
@@ -599,7 +599,7 @@ describe("killSwitchDryRunCommand", () => {
     const code = await runCommand(["kill-switch-dry-run", "--help"]);
     expect(code).toBe(0);
     const out = logged.join("\n");
-    expect(out).toContain("Usage: mm-bot kill-switch-dry-run");
+    expect(out).toContain("Usage: bun run apps/bot/src/index.ts kill-switch-dry-run");
     expect(out).toContain("--json");
     expect(out).toContain("--config=");
   });
@@ -612,17 +612,9 @@ describe("killSwitchDryRunCommand", () => {
     // being absent — it actively creates an isolated fixture).
     const dir = mkdtempSync(join(tmpdir(), "ksdr-no-state-"));
     const configFile = join(dir, "config.toml");
-    writeFileSync(
-      configFile,
-      `[bot]\nstate_file = "${join(dir, "does-not-exist.json")}"\n`,
-      "utf8",
-    );
+    writeFileSync(configFile, `[bot]\nstate_file = "${join(dir, "does-not-exist.json")}"\n`, "utf8");
     try {
-      const code = await runCommand([
-        "kill-switch-dry-run",
-        "--json",
-        `--config=${configFile}`,
-      ]);
+      const code = await runCommand(["kill-switch-dry-run", "--json", `--config=${configFile}`]);
       expect(code).toBe(1);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -634,16 +626,9 @@ describe("killSwitchDryRunCommand", () => {
     // human-readable error path.
     const dir = mkdtempSync(join(tmpdir(), "ksdr-no-state-hr-"));
     const configFile = join(dir, "config.toml");
-    writeFileSync(
-      configFile,
-      `[bot]\nstate_file = "${join(dir, "does-not-exist.json")}"\n`,
-      "utf8",
-    );
+    writeFileSync(configFile, `[bot]\nstate_file = "${join(dir, "does-not-exist.json")}"\n`, "utf8");
     try {
-      const code = await runCommand([
-        "kill-switch-dry-run",
-        `--config=${configFile}`,
-      ]);
+      const code = await runCommand(["kill-switch-dry-run", `--config=${configFile}`]);
       expect(code).toBe(1);
       expect(errored.join("\n")).toContain("state file not found");
     } finally {
@@ -661,18 +646,12 @@ describe("killSwitchDryRunCommand", () => {
       stateFile,
       JSON.stringify(
         makeState({
-          positions: [
-            makePosition({ symbol: "BTC/USDC", side: "long", quantity: 0.5, leverage: 5 }),
-          ],
+          positions: [makePosition({ symbol: "BTC/USDC", side: "long", quantity: 0.5, leverage: 5 })],
         }),
       ),
       "utf8",
     );
-    writeFileSync(
-      configFile,
-      `[bot]\nstate_file = "${stateFile}"\n`,
-      "utf8",
-    );
+    writeFileSync(configFile, `[bot]\nstate_file = "${stateFile}"\n`, "utf8");
     try {
       const code = await runCommand(["kill-switch-dry-run", `--config=${configFile}`]);
       expect(code).toBe(0);
@@ -690,22 +669,10 @@ describe("killSwitchDryRunCommand", () => {
     const dir = mkdtempSync(join(tmpdir(), "ksdr-cmd-json-"));
     const stateFile = join(dir, "state.json");
     const configFile = join(dir, "config.toml");
-    writeFileSync(
-      stateFile,
-      JSON.stringify(makeState({ positions: [makePosition()] })),
-      "utf8",
-    );
-    writeFileSync(
-      configFile,
-      `[bot]\nstate_file = "${stateFile}"\n`,
-      "utf8",
-    );
+    writeFileSync(stateFile, JSON.stringify(makeState({ positions: [makePosition()] })), "utf8");
+    writeFileSync(configFile, `[bot]\nstate_file = "${stateFile}"\n`, "utf8");
     try {
-      const code = await runCommand([
-        "kill-switch-dry-run",
-        "--json",
-        `--config=${configFile}`,
-      ]);
+      const code = await runCommand(["kill-switch-dry-run", "--json", `--config=${configFile}`]);
       expect(code).toBe(0);
       // The entire output should be a single JSON object.
       const parsed = JSON.parse(logged.join("\n"));
@@ -720,17 +687,9 @@ describe("killSwitchDryRunCommand", () => {
   it("returns 0 + JSON error envelope in --json mode when state file is missing", async () => {
     const dir = mkdtempSync(join(tmpdir(), "ksdr-no-state-json-"));
     const configFile = join(dir, "config.toml");
-    writeFileSync(
-      configFile,
-      `[bot]\nstate_file = "${join(dir, "does-not-exist.json")}"\n`,
-      "utf8",
-    );
+    writeFileSync(configFile, `[bot]\nstate_file = "${join(dir, "does-not-exist.json")}"\n`, "utf8");
     try {
-      const code = await runCommand([
-        "kill-switch-dry-run",
-        "--json",
-        `--config=${configFile}`,
-      ]);
+      const code = await runCommand(["kill-switch-dry-run", "--json", `--config=${configFile}`]);
       expect(code).toBe(1);
       const parsed = JSON.parse(logged.join("\n"));
       expect(parsed.error).toContain("state file not found");

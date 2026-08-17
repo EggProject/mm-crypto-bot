@@ -11,14 +11,14 @@
 
 ## §1 Test matrix (6 cells: cap × symbol, 2-of-2 mode)
 
-| # | Symbol | Timeframe | Cap (equity%) | Consensus | Filename |
-|---|--------|-----------|---------------|-----------|----------|
-| 1 | BTC/USDT | 15m | 0.18 | 2-of-2 | `phase24-cap-knee-2of2-btc-15m-0.18.json` |
-| 2 | BTC/USDT | 15m | 0.20 | 2-of-2 | `phase24-cap-knee-2of2-btc-15m-0.20.json` |
-| 3 | ETH/USDT | 15m | 0.18 | 2-of-2 | `phase24-cap-knee-2of2-eth-15m-0.18.json` |
-| 4 | ETH/USDT | 15m | 0.20 | 2-of-2 | `phase24-cap-knee-2of2-eth-15m-0.20.json` |
-| 5 | SOL/USDT | 15m | 0.18 | 2-of-2 | `phase24-cap-knee-2of2-sol-15m-0.18.json` |
-| 6 | SOL/USDT | 15m | 0.20 | 2-of-2 | `phase24-cap-knee-2of2-sol-15m-0.20.json` |
+| #   | Symbol   | Timeframe | Cap (equity%) | Consensus | Filename                                  |
+| --- | -------- | --------- | ------------- | --------- | ----------------------------------------- |
+| 1   | BTC/USDT | 15m       | 0.18          | 2-of-2    | `phase24-cap-knee-2of2-btc-15m-0.18.json` |
+| 2   | BTC/USDT | 15m       | 0.20          | 2-of-2    | `phase24-cap-knee-2of2-btc-15m-0.20.json` |
+| 3   | ETH/USDT | 15m       | 0.18          | 2-of-2    | `phase24-cap-knee-2of2-eth-15m-0.18.json` |
+| 4   | ETH/USDT | 15m       | 0.20          | 2-of-2    | `phase24-cap-knee-2of2-eth-15m-0.20.json` |
+| 5   | SOL/USDT | 15m       | 0.18          | 2-of-2    | `phase24-cap-knee-2of2-sol-15m-0.18.json` |
+| 6   | SOL/USDT | 15m       | 0.20          | 2-of-2    | `phase24-cap-knee-2of2-sol-15m-0.20.json` |
 
 **Period:** 2024-01-01 → 2026-07-07 (≈30.2 months, 15m bars).
 **Strategy:** `donchian-pivot-composition` (Phase 18 final composition, 2-of-2 mode).
@@ -26,6 +26,7 @@
 **CLI:** `--max-position-pct-equity=<pct>` + `--min-consensus=2` (both pre-existing flags).
 
 Sanity check (all 6 cells PASS):
+
 - `totalTrades > 0`: ✅ (2660 BTC, 1790 ETH, 3099 SOL — byte-identical to Phase 19 #2 same cap cells)
 - `maxDrawdown < 0.50`: ✅ (max 4.64% across all 6)
 - `killSwitchTriggered`: ✅ false on all 6
@@ -36,16 +37,16 @@ Sanity check (all 6 cells PASS):
 
 ## §2 Result envelope
 
-| cell | monthlyReturn | annualized | sharpe | sortino | maxDD% | PF | winRate | #trades |
-|------|--------------:|-----------:|-------:|--------:|-------:|---:|--------:|--------:|
-| BTC/USDT 15m cap=0.18 (2-of-2) | **15.44%** | 459.26% | 20.31 | 22.57 | 4.19% | 10.71 | 73.16% | 2660 |
-| BTC/USDT 15m cap=0.20 (2-of-2) | **16.64%** | 533.33% | 20.52 | 21.79 | 4.64% | 10.44 | 73.16% | 2660 |
-| ETH/USDT 15m cap=0.18 (2-of-2) | **15.52%** | 463.81% | 19.28 | 16.99 | 1.75% | 26.98 | 84.47% | 1790 |
-| ETH/USDT 15m cap=0.20 (2-of-2) | **16.27%** | 509.67% | 19.49 | 15.99 | 1.95% | 25.32 | 84.47% | 1790 |
-| SOL/USDT 15m cap=0.18 (2-of-2) | **22.28%** | 1014.94% | 21.77 | 17.05 | 3.00% | 10.56 | 74.38% | 3099 |
-| SOL/USDT 15m cap=0.20 (2-of-2) | **23.54%** | 1161.64% | 21.85 | 16.15 | 3.33% | 10.05 | 74.38% | 3099 |
-| **PORTFOLIO AVG cap=0.18** | **17.74%/mo** | — | — | — | — | — | — | — |
-| **PORTFOLIO AVG cap=0.20** | **18.82%/mo** | — | — | — | — | — | — | — |
+| cell                           | monthlyReturn | annualized | sharpe | sortino | maxDD% |    PF | winRate | #trades |
+| ------------------------------ | ------------: | ---------: | -----: | ------: | -----: | ----: | ------: | ------: |
+| BTC/USDT 15m cap=0.18 (2-of-2) |    **15.44%** |    459.26% |  20.31 |   22.57 |  4.19% | 10.71 |  73.16% |    2660 |
+| BTC/USDT 15m cap=0.20 (2-of-2) |    **16.64%** |    533.33% |  20.52 |   21.79 |  4.64% | 10.44 |  73.16% |    2660 |
+| ETH/USDT 15m cap=0.18 (2-of-2) |    **15.52%** |    463.81% |  19.28 |   16.99 |  1.75% | 26.98 |  84.47% |    1790 |
+| ETH/USDT 15m cap=0.20 (2-of-2) |    **16.27%** |    509.67% |  19.49 |   15.99 |  1.95% | 25.32 |  84.47% |    1790 |
+| SOL/USDT 15m cap=0.18 (2-of-2) |    **22.28%** |   1014.94% |  21.77 |   17.05 |  3.00% | 10.56 |  74.38% |    3099 |
+| SOL/USDT 15m cap=0.20 (2-of-2) |    **23.54%** |   1161.64% |  21.85 |   16.15 |  3.33% | 10.05 |  74.38% |    3099 |
+| **PORTFOLIO AVG cap=0.18**     | **17.74%/mo** |          — |      — |       — |      — |     — |       — |       — |
+| **PORTFOLIO AVG cap=0.20**     | **18.82%/mo** |          — |      — |       — |      — |     — |       — |       — |
 
 **Both portfolio averages are BELOW the +30%/mo acceptance threshold.**
 
@@ -55,32 +56,32 @@ Sanity check (all 6 cells PASS):
 
 ### §3.1 BTC cap=0.20 (BIT-IDENTICAL anchor — Phase 19 #2 reference)
 
-| metric | Phase 24 #2 | Phase 19 #2 | verdict |
-|---|---:|---:|---|
-| `args.symbol` | BTC/USDT | BTC/USDT | ✅ |
-| `args.minConsensus` | 2 | 2 | ✅ |
-| `args.maxPositionPctEquity` | 0.20 | 0.20 | ✅ |
-| `result.totalTrades` | 2660 | 2660 | ✅ BYTE-IDENTICAL |
-| `result.maxDrawdown` | 0.04644047201571999 | 0.04644047201571999 | ✅ BYTE-IDENTICAL (15 dp) |
-| `result.sharpeRatio` | 20.517800510509858 | 20.517800510509858 | ✅ BYTE-IDENTICAL (15 dp) |
-| `result.sortinoRatio` | 21.792200429840815 | 21.792200429840815 | ✅ BYTE-IDENTICAL (15 dp) |
-| `result.profitFactor` | 10.439574333625947 | 10.439574333625947 | ✅ BYTE-IDENTICAL (15 dp) |
-| `result.winRate` | 0.7315789473684211 | 0.7315789473684211 | ✅ BYTE-IDENTICAL (15 dp) |
-| `monthlyReturn` | 16.6416% | 16.6605% | ✅ Δ=-0.0189pp (within ±1pp) |
-| trade stream hash | 2660 trades | 2660 trades | ✅ BYTE-IDENTICAL |
+| metric                      |         Phase 24 #2 |         Phase 19 #2 | verdict                      |
+| --------------------------- | ------------------: | ------------------: | ---------------------------- |
+| `args.symbol`               |            BTC/USDT |            BTC/USDT | ✅                           |
+| `args.minConsensus`         |                   2 |                   2 | ✅                           |
+| `args.maxPositionPctEquity` |                0.20 |                0.20 | ✅                           |
+| `result.totalTrades`        |                2660 |                2660 | ✅ BYTE-IDENTICAL            |
+| `result.maxDrawdown`        | 0.04644047201571999 | 0.04644047201571999 | ✅ BYTE-IDENTICAL (15 dp)    |
+| `result.sharpeRatio`        |  20.517800510509858 |  20.517800510509858 | ✅ BYTE-IDENTICAL (15 dp)    |
+| `result.sortinoRatio`       |  21.792200429840815 |  21.792200429840815 | ✅ BYTE-IDENTICAL (15 dp)    |
+| `result.profitFactor`       |  10.439574333625947 |  10.439574333625947 | ✅ BYTE-IDENTICAL (15 dp)    |
+| `result.winRate`            |  0.7315789473684211 |  0.7315789473684211 | ✅ BYTE-IDENTICAL (15 dp)    |
+| `monthlyReturn`             |            16.6416% |            16.6605% | ✅ Δ=-0.0189pp (within ±1pp) |
+| trade stream hash           |         2660 trades |         2660 trades | ✅ BYTE-IDENTICAL            |
 
 **Conclusion:** the wire-up from `--max-position-pct-equity=0.20` + `--min-consensus=2` → engine → result is **bit-identical** to Phase 19 #2. Trade count and 5 reported metrics match to ≥15 decimal places. The small monthlyReturn drift (-0.019pp) is just from the per-run `Date.now()` shift in the data-window end-timestamp. **No data drift, no engine drift, no RNG drift.** The 2-of-2 sweep is VALIDATED.
 
 ### §3.2 ETH/SOL cap=0.20 (trend-direction comparison — Phase 19 #2 has no same-cap reference)
 
-| cell | cap | p24 trades | p19 ref | Δtrades | p24% | p19% | Δpp | interpretation |
-|------|----:|----------:|--------:|--------:|------:|------:|----:|---|
-| BTC/USDT 2-of-2 | 0.18 vs ref 0.15 | 2660 | 2660 | == | 15.44% | 13.37% | +2.07pp | trend ✅ (envelope widens cap↑) |
-| BTC/USDT 2-of-2 | 0.20 vs ref 0.20 | 2660 | 2660 | == | 16.64% | 16.66% | -0.02pp | BYTE-IDENTICAL (anchor above) |
-| ETH/USDT 2-of-2 | 0.18 vs ref 0.15 | 1790 | 1790 | == | 15.52% | 14.17% | +1.35pp | trend ✅ (envelope widens cap↑) |
-| ETH/USDT 2-of-2 | 0.20 vs ref 0.15 | 1790 | 1790 | == | 16.27% | 14.17% | +2.10pp | trend ✅ (envelope widens cap↑) |
-| SOL/USDT 2-of-2 | 0.18 vs ref 0.15 | 3099 | 3099 | == | 22.28% | 20.06% | +2.22pp | trend ✅ (envelope widens cap↑) |
-| SOL/USDT 2-of-2 | 0.20 vs ref 0.12 | 3099 | 3099 | == | 23.54% | 17.30% | +6.24pp | trend ✅ (envelope widens cap↑) |
+| cell            |              cap | p24 trades | p19 ref | Δtrades |   p24% |   p19% |     Δpp | interpretation                  |
+| --------------- | ---------------: | ---------: | ------: | ------: | -----: | -----: | ------: | ------------------------------- |
+| BTC/USDT 2-of-2 | 0.18 vs ref 0.15 |       2660 |    2660 |      == | 15.44% | 13.37% | +2.07pp | trend ✅ (envelope widens cap↑) |
+| BTC/USDT 2-of-2 | 0.20 vs ref 0.20 |       2660 |    2660 |      == | 16.64% | 16.66% | -0.02pp | BYTE-IDENTICAL (anchor above)   |
+| ETH/USDT 2-of-2 | 0.18 vs ref 0.15 |       1790 |    1790 |      == | 15.52% | 14.17% | +1.35pp | trend ✅ (envelope widens cap↑) |
+| ETH/USDT 2-of-2 | 0.20 vs ref 0.15 |       1790 |    1790 |      == | 16.27% | 14.17% | +2.10pp | trend ✅ (envelope widens cap↑) |
+| SOL/USDT 2-of-2 | 0.18 vs ref 0.15 |       3099 |    3099 |      == | 22.28% | 20.06% | +2.22pp | trend ✅ (envelope widens cap↑) |
+| SOL/USDT 2-of-2 | 0.20 vs ref 0.12 |       3099 |    3099 |      == | 23.54% | 17.30% | +6.24pp | trend ✅ (envelope widens cap↑) |
 
 **No leak:** trade count is BYTE-IDENTICAL to Phase 19 #2 nearest-cap cell in all 6 cases (engine unchanged since Phase 19 #2). Envelope deltas vs the nearest reference cell are all POSITIVE in the expected direction (higher cap ⇒ wider envelope), confirming the wire-up is engaged and consistent.
 
@@ -92,15 +93,15 @@ Sanity check (all 6 cells PASS):
 
 Phase 24 #1 (1-of-2) + Phase 24 #2 (2-of-2) at common caps:
 
-| cap | 1-of-2 (P24 #1) | 2-of-2 (P24 #2) | Δ (1 − 2) | interpretation |
-|----:|----------------:|----------------:|----------:|----------------|
-| 0.04 | 0.00% (KS) | 0.00% (KS) | 0.00pp | Both cap=0.04 too small for 15m bars |
-| 0.08 | 0.00% (KS) | 0.00% (KS) | 0.00pp | (1-of-2 not plotted above KS by Phase 19 — see REPORT-phase19) |
-| 0.10 | 0.00% (KS) | 0.00% (KS) | 0.00pp | |
-| 0.12 | 0.00% (KS) | 0.00% (KS) | 0.00pp | (Phase 19 plateaus at +32.24% 1-of-2 cap=0.12) |
-| 0.15 | 0.00% (KS) | 0.00% (KS) | 0.00pp | |
-| **0.18** | **38.15%/mo** | **17.74%/mo** | **+20.41pp** | 1-of-2 ENVELOPE > 2-of-2 by 2.15× |
-| **0.20** | **39.38%/mo** | **18.82%/mo** | **+20.56pp** | 1-of-2 ENVELOPE > 2-of-2 by 2.09× |
+|      cap | 1-of-2 (P24 #1) | 2-of-2 (P24 #2) |    Δ (1 − 2) | interpretation                                                 |
+| -------: | --------------: | --------------: | -----------: | -------------------------------------------------------------- |
+|     0.04 |      0.00% (KS) |      0.00% (KS) |       0.00pp | Both cap=0.04 too small for 15m bars                           |
+|     0.08 |      0.00% (KS) |      0.00% (KS) |       0.00pp | (1-of-2 not plotted above KS by Phase 19 — see REPORT-phase19) |
+|     0.10 |      0.00% (KS) |      0.00% (KS) |       0.00pp |                                                                |
+|     0.12 |      0.00% (KS) |      0.00% (KS) |       0.00pp | (Phase 19 plateaus at +32.24% 1-of-2 cap=0.12)                 |
+|     0.15 |      0.00% (KS) |      0.00% (KS) |       0.00pp |                                                                |
+| **0.18** |   **38.15%/mo** |   **17.74%/mo** | **+20.41pp** | 1-of-2 ENVELOPE > 2-of-2 by 2.15×                              |
+| **0.20** |   **39.38%/mo** |   **18.82%/mo** | **+20.56pp** | 1-of-2 ENVELOPE > 2-of-2 by 2.09×                              |
 
 **Reading the stitched curve:**
 
@@ -117,12 +118,12 @@ Phase 24 #1 (1-of-2) + Phase 24 #2 (2-of-2) at common caps:
 
 ### §5.1 Verdict taxonomy mapping
 
-| Taxonomic outcome | Threshold | cap=0.18 portfolio | cap=0.20 portfolio | Outcome |
-|---|---|---:|---:|---|
-| **POSITIVE** | ≥30%/mo @ BOTH caps | 17.74% ❌ | 18.82% ❌ | ❌ NO |
-| **POSITIVE-DOMINATED** | ≥30%/mo @ cap=0.20 BUT <30 @ cap=0.18 | 17.74% ❌ | 18.82% ❌ | ❌ NO (cap=0.20 also fails) |
-| **NEGATIVE** | <30%/mo @ cap=0.20 in 2-of-2 | — | 18.82% ✅ | **✅ YES** |
-| **NEGATIVE-EXPLODED** | KS / DD>50% / 0 trades | none | none | ❌ NO |
+| Taxonomic outcome      | Threshold                             | cap=0.18 portfolio | cap=0.20 portfolio | Outcome                     |
+| ---------------------- | ------------------------------------- | -----------------: | -----------------: | --------------------------- |
+| **POSITIVE**           | ≥30%/mo @ BOTH caps                   |          17.74% ❌ |          18.82% ❌ | ❌ NO                       |
+| **POSITIVE-DOMINATED** | ≥30%/mo @ cap=0.20 BUT <30 @ cap=0.18 |          17.74% ❌ |          18.82% ❌ | ❌ NO (cap=0.20 also fails) |
+| **NEGATIVE**           | <30%/mo @ cap=0.20 in 2-of-2          |                  — |          18.82% ✅ | **✅ YES**                  |
+| **NEGATIVE-EXPLODED**  | KS / DD>50% / 0 trades                |               none |               none | ❌ NO                       |
 
 **Verdict: NEGATIVE** — both caps (0.18 and 0.20) sit below the +30%/mo acceptance threshold in 2-of-2 mode. The 1-of-2 recommendation from Phase 24 #1 stands alone.
 
@@ -158,6 +159,7 @@ Phase 24 #2 confirmed: this is the right pick. The 2-of-2 knee does NOT invert; 
 If user later prefers a lower-DD configuration at the cost of lower envelope, **2-of-2 cap=0.20 → portfolio avg +18.82%/mo @ max-DD ~4.64% (BTC), 3.33% (SOL), 1.95% (ETH)** is a structurally valid operating point.
 
 This was NOT planned before Phase 24 #2 — the fact that 2-of-2 mode caps at this envelope at the cap=0.20 knee is itself a new empirical finding:
+
 - Max-DD envelope at cap=0.20: 1-of-2 = 7.70%, 2-of-2 = 4.64% (BTC) — 2-of-2 is **40% safer** on DD
 - Monthly envelope at cap=0.20: 1-of-2 = +39.38%, 2-of-2 = +18.82% — 2-of-2 is **52% smaller** on envelope
 - Trade count at cap=0.20: 1-of-2 = 11043 (BTC), 2-of-2 = 2660 (BTC) — 2-of-2 trades **4.15× less often**
@@ -194,16 +196,17 @@ The 2-of-2 mode is essentially a **safety-mode lever** — for the user who late
 
 The 4-NEGATIVE-streak archive lessons applied to this task:
 
-| Lesson | Applicability | Empirical evidence |
-|--------|---------------|--------------------|
-| §4 Regime-INVARIANCE | N/A (no per-bar modifier in Phase 24 #2) | — |
-| §5 Geometric compounding | N/A (no sizing multiplier added) | — |
-| §6 Bit-identical trade-stream probe | **USED** (BTC cap=0.20) | All 5 result metrics + trade-stream hash byte-identical to Phase 19 #2; monthlyReturn drift -0.019pp within ±1pp |
-| §12 Side-conflict test | N/A (no multi-asset vote) | — |
-| §13 CLI flag wiring trace | **USED** | `--max-position-pct-equity` + `--min-consensus=2` both verified in `args` of all 6 outputs |
-| §14 item 6 Compensating alpha source | N/A (re-validates baseline, doesn't add new alpha) | — |
+| Lesson                               | Applicability                                      | Empirical evidence                                                                                               |
+| ------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| §4 Regime-INVARIANCE                 | N/A (no per-bar modifier in Phase 24 #2)           | —                                                                                                                |
+| §5 Geometric compounding             | N/A (no sizing multiplier added)                   | —                                                                                                                |
+| §6 Bit-identical trade-stream probe  | **USED** (BTC cap=0.20)                            | All 5 result metrics + trade-stream hash byte-identical to Phase 19 #2; monthlyReturn drift -0.019pp within ±1pp |
+| §12 Side-conflict test               | N/A (no multi-asset vote)                          | —                                                                                                                |
+| §13 CLI flag wiring trace            | **USED**                                           | `--max-position-pct-equity` + `--min-consensus=2` both verified in `args` of all 6 outputs                       |
+| §14 item 6 Compensating alpha source | N/A (re-validates baseline, doesn't add new alpha) | —                                                                                                                |
 
 **Hard guarantees enforced:**
+
 - Only the pre-existing `--max-position-pct-equity` + `--min-consensus` CLI flags used. ✅
 - No production code modified. ✅ (only JSONs + deliverable.md + append to docs/research/NEGATIVE-RESULT.md)
 - Regression anchor confirmed BEFORE claiming sweep result. ✅
@@ -221,13 +224,13 @@ felejtsd el".
 
 ## §1 Deliverables (5 tracks)
 
-| Track | Scope | Commit | PR |
-|-------|-------|--------|-----|
-| **A** Cleanup | Removed live-test scaffolding + dydx-cex-carry auto-gate | `24e0870` | [#66](https://github.com/EggProject/mm-crypto-bot/pull/66) |
-| **B** Config system | TOML + Zod + per-strategy enable/disable | `ba4325a` | [#67](https://github.com/EggProject/mm-crypto-bot/pull/67) |
-| **C** Bot runtime | Bot + StrategyRunner + OrderManager + PositionManager + StateStore + Telemetry + central kill-switches | `aac8002` | [#68](https://github.com/EggProject/mm-crypto-bot/pull/68) |
-| **D** CLI app | 7 subcommands (start, status, config validate\|show\|init, strategies, trades, kill-switches, help) | TBD | [#69](https://github.com/EggProject/mm-crypto-bot/pull/69) |
-| **E** Docs closure | README + .env.example + deliverable.md + board.md + bot.md | TBD | TBD |
+| Track               | Scope                                                                                                  | Commit    | PR                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------ | --------- | ---------------------------------------------------------- |
+| **A** Cleanup       | Removed live-test scaffolding + dydx-cex-carry auto-gate                                               | `24e0870` | [#66](https://github.com/EggProject/mm-crypto-bot/pull/66) |
+| **B** Config system | TOML + Zod + per-strategy enable/disable                                                               | `ba4325a` | [#67](https://github.com/EggProject/mm-crypto-bot/pull/67) |
+| **C** Bot runtime   | Bot + StrategyRunner + OrderManager + PositionManager + StateStore + Telemetry + central kill-switches | `aac8002` | [#68](https://github.com/EggProject/mm-crypto-bot/pull/68) |
+| **D** CLI app       | 7 subcommands (start, status, config validate\|show\|init, strategies, trades, kill-switches, help)    | TBD       | [#69](https://github.com/EggProject/mm-crypto-bot/pull/69) |
+| **E** Docs closure  | README + .env.example + deliverable.md + board.md + bot.md                                             | TBD       | TBD                                                        |
 
 ## §2 What was built
 
@@ -273,10 +276,10 @@ felejtsd el".
 
 ### §2.4 1:10 leverage mandate — 3-layer defense
 
-| Layer | File:line | When |
-|-------|-----------|------|
-| L1 schema | `apps/bot/src/config/schema.ts:117` | Config load |
-| L2 pre-place | `apps/bot/src/bot/order-manager.ts:234` | Every `placeOrder` |
+| Layer        | File:line                                      | When               |
+| ------------ | ---------------------------------------------- | ------------------ |
+| L1 schema    | `apps/bot/src/config/schema.ts:117`            | Config load        |
+| L2 pre-place | `apps/bot/src/bot/order-manager.ts:234`        | Every `placeOrder` |
 | L3 post-fill | `apps/bot/src/bot/position-manager.ts:309,654` | Every `recordFill` |
 
 Single layer can be bypassed by a refactor, config typo, or runtime bug;
@@ -338,12 +341,12 @@ Full step-by-step in `apps/bot/README.md` §7.
 
 ## §5 Quality gates (final, on top of Tracks A-D)
 
-| Gate | Result |
-|------|--------|
-| `bun run typecheck` | ✅ clean (13/13) |
-| `bun run lint` | ✅ clean (8/8, 0 errors) |
-| `bun test` | ✅ all green (no regressions) |
-| Wire-up probe | ✅ 60s mock feed run, state file produced |
+| Gate                | Result                                    |
+| ------------------- | ----------------------------------------- |
+| `bun run typecheck` | ✅ clean (13/13)                          |
+| `bun run lint`      | ✅ clean (8/8, 0 errors)                  |
+| `bun test`          | ✅ all green (no regressions)             |
+| Wire-up probe       | ✅ 60s mock feed run, state file produced |
 
 ## §6 File summary
 
@@ -367,28 +370,28 @@ Full step-by-step in `apps/bot/README.md` §7.
 
 ### §6.3 Cumulative Phase 33 file summary (across all 5 tracks)
 
-| Bucket | Count | Notes |
-|--------|-------|-------|
-| NEW (config) | 4 source + 1 default.toml + 2 tests = 7 | schema, loader, defaults, registry, default.toml, 2 test files |
-| NEW (bot) | 7 source + 7 tests = 14 | bot, runner, order-mgr, pos-mgr, state-store, telemetry, kill-switches + 1 wire-up-probe |
-| NEW (CLI) | 8 source + 2 tests = 10 | argv, router, 6 commands, e2e test, index.ts dispatch |
-| NEW (docs) | 2 | apps/bot/README.md, docs/production-strategies/bot.md |
-| DELETED (Track A) | 2 | run-paper-trade-gate, run-cascade-replay-2025-10-10 |
-| REFACTORED (Track A) | 4 | dydx-cex-carry.ts, dydx-cex-carry.paper-trade.ts, core/src/index.ts, dydx-cex-carry.test.ts |
-| UPDATED (Track E) | 4 | .env.example, deliverable.md, board.md, this section |
+| Bucket               | Count                                   | Notes                                                                                       |
+| -------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------- |
+| NEW (config)         | 4 source + 1 default.toml + 2 tests = 7 | schema, loader, defaults, registry, default.toml, 2 test files                              |
+| NEW (bot)            | 7 source + 7 tests = 14                 | bot, runner, order-mgr, pos-mgr, state-store, telemetry, kill-switches + 1 wire-up-probe    |
+| NEW (CLI)            | 8 source + 2 tests = 10                 | argv, router, 6 commands, e2e test, index.ts dispatch                                       |
+| NEW (docs)           | 2                                       | apps/bot/README.md, docs/production-strategies/bot.md                                       |
+| DELETED (Track A)    | 2                                       | run-paper-trade-gate, run-cascade-replay-2025-10-10                                         |
+| REFACTORED (Track A) | 4                                       | dydx-cex-carry.ts, dydx-cex-carry.paper-trade.ts, core/src/index.ts, dydx-cex-carry.test.ts |
+| UPDATED (Track E)    | 4                                       | .env.example, deliverable.md, board.md, this section                                        |
 
 ## §7 Acceptance criteria
 
 - [x] `apps/bot/README.md` exists with all 9 sections (quick start, config,
-  CLI ref, strategy enable/disable, 1:10 mandate, live testing, live workflow,
-  architecture, limitations).
+      CLI ref, strategy enable/disable, 1:10 mandate, live testing, live workflow,
+      architecture, limitations).
 - [x] `.env.example` documents the bot's 3 env vars (`BYBIT_API_KEY`/`BYBIT_API_SECRET`,
-  `CCXT_RATE_LIMIT_MS`, `LOG_LEVEL`). The config path is the `--config=<path>` CLI flag
-  (no env var).
+      `CCXT_RATE_LIMIT_MS`, `LOG_LEVEL`). The config path is the `--config=<path>` CLI flag
+      (no env var).
 - [x] `deliverable.md` has this Phase 33 section.
 - [x] `board.md` has a Phase 33 closure section.
 - [x] `docs/production-strategies/bot.md` explains strategy wiring with
-  per-strategy config snippets.
+      per-strategy config snippets.
 - [x] `bun test` → all green (no regressions).
 - [x] `bun run typecheck && bun run lint` → clean.
 - [ ] Final PR opened (orchestrator will verify + accept + merge).
@@ -424,13 +427,13 @@ side. Live testing is the user's call. Project envelope unchanged
 
 ## §1 Deliverables (5 tracks)
 
-| Track | Scope | Commit | PR |
-|-------|-------|--------|-----|
-| **A** TUI integration | `mm-bot start` defaults to TUI + `--headless` + `--no-color` + new `mm-bot tui` subcommand | `ce3fdd9` | [#74](https://github.com/EggProject/mm-crypto-bot/pull/74) |
-| **B** TUI features | Start/stop/pause keybindings, statistics panel real metrics, live trading panel w/ kill-switch flash, history list sortable, header mode badges | `2833947` | [#77](https://github.com/EggProject/mm-crypto-bot/pull/77) |
-| **C** Color + headless polish | `picocolors` + `--no-color` / `NO_COLOR` / TTY auto-detect, headless-no-ink bundle guarantee | `5a1016d` | [#76](https://github.com/EggProject/mm-crypto-bot/pull/76) |
-| **D** Tests + wire-up probes | Render probe, paper-only probe, tui-only probe, integration probe (realtime <100ms) | TBD | TBD |
-| **E** Docs closure | README §3, tui.md, board.md, deliverable.md, default.toml comments | TBD | TBD |
+| Track                         | Scope                                                                                                                                           | Commit    | PR                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------- |
+| **A** TUI integration         | `mm-bot start` defaults to TUI + `--headless` + `--no-color` + new `mm-bot tui` subcommand                                                      | `ce3fdd9` | [#74](https://github.com/EggProject/mm-crypto-bot/pull/74) |
+| **B** TUI features            | Start/stop/pause keybindings, statistics panel real metrics, live trading panel w/ kill-switch flash, history list sortable, header mode badges | `2833947` | [#77](https://github.com/EggProject/mm-crypto-bot/pull/77) |
+| **C** Color + headless polish | `picocolors` + `--no-color` / `NO_COLOR` / TTY auto-detect, headless-no-ink bundle guarantee                                                    | `5a1016d` | [#76](https://github.com/EggProject/mm-crypto-bot/pull/76) |
+| **D** Tests + wire-up probes  | Render probe, paper-only probe, tui-only probe, integration probe (realtime <100ms)                                                             | TBD       | TBD                                                        |
+| **E** Docs closure            | README §3, tui.md, board.md, deliverable.md, default.toml comments                                                                              | TBD       | TBD                                                        |
 
 ### Files (cumulative)
 
@@ -450,34 +453,34 @@ side. Live testing is the user's call. Project envelope unchanged
 
 ## §2 Operating modes
 
-| Mode | Command | Bot runs? | Use when |
-|------|---------|-----------|----------|
-| **TUI + bot (default)** | `mm-bot start` | ✅ yes | Interactive operator session |
-| **TUI + bot, no color** | `mm-bot start --no-color` | ✅ yes | Piped / logged TUI; `NO_COLOR=1` also works |
-| **Headless + bot** | `mm-bot start --headless` | ✅ yes | CI, scripts, non-interactive shells |
-| **Headless + bot, no color** | `mm-bot start --headless --no-color` | ✅ yes | `nohup`-style background, log aggregation |
-| **TUI only, simulated** | `mm-bot tui` | ❌ no | UI/UX demo; TUI-only dev |
-| **TUI only, paper** | `mm-bot tui --data-source=paper` | ❌ no | Paper-trading engine behind TUI |
-| **TUI only, with seed** | `mm-bot tui --seed=42` | ❌ no | Deterministic simulation (replay a run) |
+| Mode                         | Command                              | Bot runs? | Use when                                    |
+| ---------------------------- | ------------------------------------ | --------- | ------------------------------------------- |
+| **TUI + bot (default)**      | `mm-bot start`                       | ✅ yes    | Interactive operator session                |
+| **TUI + bot, no color**      | `mm-bot start --no-color`            | ✅ yes    | Piped / logged TUI; `NO_COLOR=1` also works |
+| **Headless + bot**           | `mm-bot start --headless`            | ✅ yes    | CI, scripts, non-interactive shells         |
+| **Headless + bot, no color** | `mm-bot start --headless --no-color` | ✅ yes    | `nohup`-style background, log aggregation   |
+| **TUI only, simulated**      | `mm-bot tui`                         | ❌ no     | UI/UX demo; TUI-only dev                    |
+| **TUI only, paper**          | `mm-bot tui --data-source=paper`     | ❌ no     | Paper-trading engine behind TUI             |
+| **TUI only, with seed**      | `mm-bot tui --seed=42`               | ❌ no     | Deterministic simulation (replay a run)     |
 
 ## §3 Spec §4.3 checklist (all 6 requirements met)
 
-| Spec requirement | Implementation | Status |
-|------------------|----------------|--------|
-| Robot megállítható (stop) | `[s]` keybinding in `App.tsx:182-192` → `provider.stop()` | ✅ DONE |
-| Robot elindítható (start) | `[s]` keybinding + `provider.start()` | ✅ DONE |
-| TUI bot nélkül (only view) | `mm-bot tui` subcommand (`commands/tui.ts`) | ✅ DONE |
-| Statisztikai menü | `StatisticsPanel.tsx` — real metrics from closed trades | ✅ DONE |
+| Spec requirement              | Implementation                                                                              | Status  |
+| ----------------------------- | ------------------------------------------------------------------------------------------- | ------- |
+| Robot megállítható (stop)     | `[s]` keybinding in `App.tsx:182-192` → `provider.stop()`                                   | ✅ DONE |
+| Robot elindítható (start)     | `[s]` keybinding + `provider.start()`                                                       | ✅ DONE |
+| TUI bot nélkül (only view)    | `mm-bot tui` subcommand (`commands/tui.ts`)                                                 | ✅ DONE |
+| Statisztikai menü             | `StatisticsPanel.tsx` — real metrics from closed trades                                     | ✅ DONE |
 | Jelenlegi kereskedés realtime | `LiveTradingPanel.tsx` — tickers, positions, ticker events (subscribed via `Bot.subscribe`) | ✅ DONE |
-| History | `HistoryList.tsx` — last 20 closed trades, sortable by time/pnl/symbol | ✅ DONE |
+| History                       | `HistoryList.tsx` — last 20 closed trades, sortable by time/pnl/symbol                      | ✅ DONE |
 
 ## §4 Color handling
 
-| Source | Priority | Effect |
-|--------|----------|--------|
-| `--no-color` CLI flag | 1 (highest) | Sets `NO_COLOR=1` BEFORE any TUI import. Wins. |
-| `NO_COLOR=1` env var | 2 | Ink + picocolors honor natively. |
-| TTY auto-detect | 3 (lowest) | `picocolors` `isColorSupported` is `false` when `!process.stdout.isTTY`. Handles piped/redirected output automatically. |
+| Source                | Priority    | Effect                                                                                                                  |
+| --------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `--no-color` CLI flag | 1 (highest) | Sets `NO_COLOR=1` BEFORE any TUI import. Wins.                                                                          |
+| `NO_COLOR=1` env var  | 2           | Ink + picocolors honor natively.                                                                                        |
+| TTY auto-detect       | 3 (lowest)  | `picocolors` `isColorSupported` is `false` when `!process.stdout.isTTY`. Handles piped/redirected output automatically. |
 
 Defense-in-depth: even when TTY says "yes", `--no-color` forces
 it off. The `headless-no-ink.test.ts` (3 tests) verifies the
@@ -502,11 +505,11 @@ TUI overhead at runtime.
 
 ## §6 Quality gates (final, on top of Tracks A-D)
 
-| Gate | Result |
-|------|--------|
-| `bun run typecheck` | ✅ clean (14/14) |
-| `bun run lint` | ✅ clean (0 errors; pre-existing warnings) |
-| `bun test` | ✅ all green (no regressions) |
+| Gate                           | Result                                                                                        |
+| ------------------------------ | --------------------------------------------------------------------------------------------- |
+| `bun run typecheck`            | ✅ clean (14/14)                                                                              |
+| `bun run lint`                 | ✅ clean (0 errors; pre-existing warnings)                                                    |
+| `bun test`                     | ✅ all green (no regressions)                                                                 |
 | `bun test --coverage apps/bot` | ✅ 100% line coverage on argv.ts + config/commands/config.ts (Phase 33 fixup invariants HOLD) |
 
 ## §7 Closes
@@ -534,7 +537,6 @@ tested.
 is the default operator UI; headless mode is one flag away;
 TUI-only mode exists for dev/demo. Color is auto-detected and
 can be forced off. The 1:10 leverage mandate is unchanged.
-
 
 ---
 
@@ -570,16 +572,16 @@ Per-package coverage report now flows into a single merged report at
 
 ## §2 Per-package coverage results (after F+G+H+I)
 
-| Package | Coverage | Test count | Status |
-|---------|----------|------------|--------|
-| `packages/paper` | 100% line + 100% function | 65 | ✅ Track G |
-| `packages/shared` | 100% line + 100% function | 114 | ✅ Track G |
-| `packages/tui` | 100% line + 100% function | 81 | ✅ Track G |
-| `packages/backtest` | 100% line + 100% function | 140 | ✅ Track H |
-| `packages/backtest-tools` | 100% line + 100% function on data/ + run-dydx-vs-cex-funding-carry; documented exemptions on 4 other CLI scripts | 162 | ✅ Track H |
-| `packages/exchange` | 100% line + 100% function on all 8 src files (incl. bybit-eu-adapter) | 190 | ✅ Track H |
-| `packages/core` | 100% line + 100% function on all 50 src files | 1450+ | ✅ Track I |
-| `apps/bot` | 100% on CLI commands and bot.ts (pre-Phase 35 state, verified in F) | 274 | ✅ Pre-existing |
+| Package                   | Coverage                                                                                                         | Test count | Status          |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------- | --------------- |
+| `packages/paper`          | 100% line + 100% function                                                                                        | 65         | ✅ Track G      |
+| `packages/shared`         | 100% line + 100% function                                                                                        | 114        | ✅ Track G      |
+| `packages/tui`            | 100% line + 100% function                                                                                        | 81         | ✅ Track G      |
+| `packages/backtest`       | 100% line + 100% function                                                                                        | 140        | ✅ Track H      |
+| `packages/backtest-tools` | 100% line + 100% function on data/ + run-dydx-vs-cex-funding-carry; documented exemptions on 4 other CLI scripts | 162        | ✅ Track H      |
+| `packages/exchange`       | 100% line + 100% function on all 8 src files (incl. bybit-eu-adapter)                                            | 190        | ✅ Track H      |
+| `packages/core`           | 100% line + 100% function on all 50 src files                                                                    | 1450+      | ✅ Track I      |
+| `apps/bot`                | 100% on CLI commands and bot.ts (pre-Phase 35 state, verified in F)                                              | 274        | ✅ Pre-existing |
 
 **Merged report: 86.56% line (19235/22222), 96.10% function (1453/1512), 100% branch (0/0 — bun lcov doesn't emit branch data).** The 13.44% gap is in files imported by tests but not exhaustively covered (e.g. `packages/shared/src/utils.ts` has 28% because it's imported but never directly unit-tested — it's a utility module). The per-package mandate (100% per package) is fully met.
 
@@ -697,7 +699,7 @@ MEDIUM-overfit edge case coverage.
 
 2. **Comment lines counted as "uncovered":** `vol-target-sizing-plugin.ts`
    shows 95.98% line, but the `onBar` function body is `state.barsProcessed
-   += 1; void bar;` — the 15 "uncovered" lines are all in a 15-line
++= 1; void bar;` — the 15 "uncovered" lines are all in a 15-line
    comment block that bun mistakenly counts as code. Real onBar coverage
    is 100%.
 

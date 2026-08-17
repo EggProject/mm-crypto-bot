@@ -130,9 +130,7 @@ export function kellyFraction(winRate: number, winLossRatio: number): number {
     throw new Error(`kellyFraction: winRate must be in [0, 1]: ${String(winRate)}`);
   }
   if (!Number.isFinite(winLossRatio) || winLossRatio < 0) {
-    throw new Error(
-      `kellyFraction: winLossRatio must be non-negative finite: ${String(winLossRatio)}`,
-    );
+    throw new Error(`kellyFraction: winLossRatio must be non-negative finite: ${String(winLossRatio)}`);
   }
   if (winLossRatio === 0) {
     return 0;
@@ -174,9 +172,7 @@ export function computeStats(trades: readonly ClosedTrade[]): {
     if (t.pnlUsd > 0) wins.push(t.pnlUsd);
     else if (t.pnlUsd < 0) losses.push(Math.abs(t.pnlUsd));
   }
-  const winRate = (wins.length + losses.length) > 0
-    ? wins.length / (wins.length + losses.length)
-    : 0;
+  const winRate = wins.length + losses.length > 0 ? wins.length / (wins.length + losses.length) : 0;
   const avgWin = wins.length > 0 ? wins.reduce((a, b) => a + b, 0) / wins.length : 0;
   const avgLoss = losses.length > 0 ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
   const winLossRatio = avgLoss > 0 ? avgWin / avgLoss : 0;
@@ -221,15 +217,15 @@ export class KellySizer {
     if (!Number.isInteger(config.minTrades) || config.minTrades < 1) {
       throw new Error(`kelly: minTrades must be a positive integer, got ${String(config.minTrades)}`);
     }
-    if (!Number.isFinite(config.fallbackFraction) || config.fallbackFraction < 0 || config.fallbackFraction > 1) {
-      throw new Error(
-        `kelly: fallbackFraction must be in [0, 1], got ${String(config.fallbackFraction)}`,
-      );
+    if (
+      !Number.isFinite(config.fallbackFraction) ||
+      config.fallbackFraction < 0 ||
+      config.fallbackFraction > 1
+    ) {
+      throw new Error(`kelly: fallbackFraction must be in [0, 1], got ${String(config.fallbackFraction)}`);
     }
     if (!Number.isFinite(config.maxFraction) || config.maxFraction <= 0 || config.maxFraction > 1) {
-      throw new Error(
-        `kelly: maxFraction must be in (0, 1], got ${String(config.maxFraction)}`,
-      );
+      throw new Error(`kelly: maxFraction must be in (0, 1], got ${String(config.maxFraction)}`);
     }
     this.enabled = config.enabled;
     this.fraction = config.fraction;
@@ -289,14 +285,13 @@ export class KellySizer {
     const full = kellyFraction(stats.winRate, stats.winLossRatio);
     const frac = full * this.fraction;
     const capped = Math.min(frac, this.maxFraction);
-    const region: KellyStats["region"] =
-      !this.enabled
+    const region: KellyStats["region"] = !this.enabled
+      ? "cold-start"
+      : this.trades.length < this.minTrades
         ? "cold-start"
-        : this.trades.length < this.minTrades
-          ? "cold-start"
-          : full <= 0
-            ? "no-edge"
-            : "active";
+        : full <= 0
+          ? "no-edge"
+          : "active";
     return {
       trades: this.trades.length,
       wins: stats.wins,

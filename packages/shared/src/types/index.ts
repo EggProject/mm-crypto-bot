@@ -17,8 +17,7 @@ export type Brand<T, K extends string> = T & { readonly __brand: K };
  típus-szinten kifejezhető, kikerüli a `throw` használatát.
 */
 export type Result<T, E = Error> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: E };
+  { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: E };
 
 /**
  `Side` — a kereskedés iránya (long vagy short). A `@mm/core` stratégia-motor

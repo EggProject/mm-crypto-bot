@@ -89,9 +89,9 @@ export const PORTFOLIO_STOP_HARD_CAPS = {
   /** A `max_dd_pct` minimuma — 1% alatt a stop túl érzékeny. */
   maxDdPctMin: 0.01,
   /** A `max_dd_pct` maximuma — 30% felett már nem "stop" kategória. */
-  maxDdPctMax: 0.30,
+  maxDdPctMax: 0.3,
   /** A `max_dd_pct` default értéke — a Phase 31 audit alapján. */
-  maxDdPctDefault: 0.10,
+  maxDdPctDefault: 0.1,
 } as const;
 
 /**
@@ -348,17 +348,14 @@ export class PortfolioStop {
     }
     this.tripped = true;
     this.trippedAt = Date.now();
-    this.logger.error(
-      "[portfolio-stop] CRITICAL — circuit breaker TRIPPED",
-      {
-        currentEquityUsd: this.currentEquityUsd,
-        peakEquityUsd: this.peakEquityUsd,
-        drawdownPct: dd,
-        maxDdPct: this.maxDdPct,
-        perStrategyContrib: Object.fromEntries(this.perStrategyContrib),
-        timestamp: this.trippedAt,
-      },
-    );
+    this.logger.error("[portfolio-stop] CRITICAL — circuit breaker TRIPPED", {
+      currentEquityUsd: this.currentEquityUsd,
+      peakEquityUsd: this.peakEquityUsd,
+      drawdownPct: dd,
+      maxDdPct: this.maxDdPct,
+      perStrategyContrib: Object.fromEntries(this.perStrategyContrib),
+      timestamp: this.trippedAt,
+    });
     void this.fireTripAction();
   }
 

@@ -45,11 +45,11 @@ Phase 17 capped Pivot Grid envelope (+20.06-25.21%/mo).
 
 **Combined Phase 18 envelope verdict:**
 
-| Component | Configuration | BTC | ETH | SOL | Portfolio avg | Status |
-|-----------|--------------|----:|----:|----:|---------------:|--------|
-| Regime-Routed Ensemble (Track A, new default) | STRICT 2-of-2 | +4.11%/mo | +5.65%/mo | +9.41%/mo | **+6.39%/mo** | no kill-switch |
-| Donchian+Pivot 2-comp (Track B, new envelope) | STRICT 2-of-2 (default) | +16.66%/mo | +16.29%/mo | +23.57%/mo | **+18.84%/mo** | no kill-switch |
-| Phase 18 final envelope | Donchian+Pivot 2-of-2 (Track B) | +16.66% | +16.29% | +23.57% | **+18.84%/mo** | bounded by mean-reversion family |
+| Component                                     | Configuration                   |        BTC |        ETH |        SOL |  Portfolio avg | Status                           |
+| --------------------------------------------- | ------------------------------- | ---------: | ---------: | ---------: | -------------: | -------------------------------- |
+| Regime-Routed Ensemble (Track A, new default) | STRICT 2-of-2                   |  +4.11%/mo |  +5.65%/mo |  +9.41%/mo |  **+6.39%/mo** | no kill-switch                   |
+| Donchian+Pivot 2-comp (Track B, new envelope) | STRICT 2-of-2 (default)         | +16.66%/mo | +16.29%/mo | +23.57%/mo | **+18.84%/mo** | no kill-switch                   |
+| Phase 18 final envelope                       | Donchian+Pivot 2-of-2 (Track B) |    +16.66% |    +16.29% |    +23.57% | **+18.84%/mo** | bounded by mean-reversion family |
 
 **+50%/mo verdict:** still NOT achievable at safe parameters. Donchian+Pivot
 2-of-2 at +18.84%/mo portfolio avg is below +50%/mo by 2.65×. The 1-of-2
@@ -80,11 +80,11 @@ producer implemented this literally, ran the backtests, and discovered the
 kill-switched at 0.00%/mo, 50% DD). The diagnostic revealed the brief's
 "2-of-2 consensus" framing was based on a misread of the Phase 16/17 code:
 
-| Layer | Original Phase 16/17 code | Producer's literal 1-of-2 interpretation | Empirical finding |
-|-------|---------------------------|----------------------------------------|-------------------|
-| Reason-tag | `[RegimeEnsemble] consensus=2/2 winner=...` (literal string) | "2-of-2 means both must fire" | The string was a literal tag, not a gate |
-| Aggregation logic | 1 fire same-side → solo emit, OR 2 same-side → consensus emit | "1 fire = emit (relaxation)" | Solo branch was ALREADY emitting at 1 fire — relax was a no-op |
-| Outcome | BTC 0.00%/mo kill-switch (Phase 17) | BTC 0.00%/mo kill-switch (Phase 18 attempt-1) | Confirms: solo fires are the dilution source |
+| Layer             | Original Phase 16/17 code                                     | Producer's literal 1-of-2 interpretation      | Empirical finding                                              |
+| ----------------- | ------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------- |
+| Reason-tag        | `[RegimeEnsemble] consensus=2/2 winner=...` (literal string)  | "2-of-2 means both must fire"                 | The string was a literal tag, not a gate                       |
+| Aggregation logic | 1 fire same-side → solo emit, OR 2 same-side → consensus emit | "1 fire = emit (relaxation)"                  | Solo branch was ALREADY emitting at 1 fire — relax was a no-op |
+| Outcome           | BTC 0.00%/mo kill-switch (Phase 17)                           | BTC 0.00%/mo kill-switch (Phase 18 attempt-1) | Confirms: solo fires are the dilution source                   |
 
 The ACTUAL fix is the OPPOSITE direction: STRICT 2-of-2 (silence solo
 emissions) lifts BTC/ETH/SOL from the dilution cascade. Solo emissions had
@@ -102,19 +102,20 @@ mean-reversion sub-strategies; it is a research artifact.
 ### 2.2 Per-symbol table: 2-of-2 default vs 1-of-2 evidence
 
 JSON sources:
+
 - Default behavior (Track A, merged): `phase18-regime-ensemble-{btc,eth,sol}-15m-2of2-default.json`
 - Override evidence (Track A, `minConsensus=1` flag): `phase18-regime-ensemble-{btc,eth,sol}-15m-1of2.json`
 
-| Symbol | Mode | Monthly | Sharpe | Max DD | Trades | Win rate | PF | Kill-switch |
-|--------|------|--------:|-------:|-------:|-------:|---------:|---:|:-----------:|
-| **BTC** | STRICT 2-of-2 (default) | **+4.11%/mo** | 9.24 | 8.59% | 1,335 | 54.83% | 3.95 | NO |
-| BTC | 1-of-2 (override) | 0.00%/mo | -0.50 | 50.00% | 1,265 | 26.96% | 0.99 | YES |
-| **ETH** | STRICT 2-of-2 (default) | **+5.65%/mo** | 9.88 | 1.72% | 644 | 78.88% | 17.80 | NO |
-| ETH | 1-of-2 (override) | 0.00%/mo | -24.94 | 50.04% | 915 | 15.08% | 0.50 | YES |
-| **SOL** | STRICT 2-of-2 (default) | **+9.41%/mo** | 12.60 | 1.93% | 1,475 | 69.36% | 7.50 | NO |
-| SOL | 1-of-2 (override) | 0.00%/mo | -99.81 | 50.00% | 619 | 0.00% | 0.00 | YES |
-| **Portfolio avg (default)** | STRICT 2-of-2 | **+6.39%/mo** | 10.57 | 4.08% | — | 67.69% | 9.75 | NO |
-| Portfolio avg (override) | 1-of-2 | 0.00%/mo | -41.75 | 50.01% | — | 13.79% | 0.50 | YES |
+| Symbol                      | Mode                    |       Monthly | Sharpe | Max DD | Trades | Win rate |    PF | Kill-switch |
+| --------------------------- | ----------------------- | ------------: | -----: | -----: | -----: | -------: | ----: | :---------: |
+| **BTC**                     | STRICT 2-of-2 (default) | **+4.11%/mo** |   9.24 |  8.59% |  1,335 |   54.83% |  3.95 |     NO      |
+| BTC                         | 1-of-2 (override)       |      0.00%/mo |  -0.50 | 50.00% |  1,265 |   26.96% |  0.99 |     YES     |
+| **ETH**                     | STRICT 2-of-2 (default) | **+5.65%/mo** |   9.88 |  1.72% |    644 |   78.88% | 17.80 |     NO      |
+| ETH                         | 1-of-2 (override)       |      0.00%/mo | -24.94 | 50.04% |    915 |   15.08% |  0.50 |     YES     |
+| **SOL**                     | STRICT 2-of-2 (default) | **+9.41%/mo** |  12.60 |  1.93% |  1,475 |   69.36% |  7.50 |     NO      |
+| SOL                         | 1-of-2 (override)       |      0.00%/mo | -99.81 | 50.00% |    619 |    0.00% |  0.00 |     YES     |
+| **Portfolio avg (default)** | STRICT 2-of-2           | **+6.39%/mo** |  10.57 |  4.08% |      — |   67.69% |  9.75 |     NO      |
+| Portfolio avg (override)    | 1-of-2                  |      0.00%/mo | -41.75 | 50.01% |      — |   13.79% |  0.50 |     YES     |
 
 ### 2.3 Mechanism — why solo fires dilutes, STRICT 2-of-2 lifts
 
@@ -153,35 +154,37 @@ dominates. The 2-of-2 mode is the narrowest viable filter; relaxing it to
 ### 3.1 Per-symbol table — both consensus modes
 
 JSON sources:
+
 - 2-of-2 strict default (Track B, new envelope): `phase18-donchian-pivot-{btc,eth,sol}-15m-2of2.json`
 - 1-of-2 override (Track B, `minConsensus=1` flag): `phase18-donchian-pivot-{btc,eth,sol}-15m-1of2.json`
 
-| Symbol | Mode | Monthly | Sharpe | Max DD | Trades | Win rate | PF | Kill-switch |
-|--------|------|--------:|-------:|-------:|-------:|---------:|---:|:-----------:|
-| **BTC** | STRICT 2-of-2 (default) | **+16.66%/mo** | 20.52 | 4.64% | 2,660 | 73.16% | 10.44 | NO |
-| BTC | 1-of-2 (override) | +34.52%/mo | 29.33 | 7.18% | 11,043 | 64.77% | 3.79 | NO |
-| **ETH** | STRICT 2-of-2 (default) | **+16.29%/mo** | 19.49 | 1.95% | 1,790 | 84.47% | 25.32 | NO |
-| ETH | 1-of-2 (override) | +37.82%/mo | 29.83 | 5.51% | 9,977 | 68.62% | 3.58 | NO |
-| **SOL** | STRICT 2-of-2 (default) | **+23.57%/mo** | 21.85 | 3.33% | 3,099 | 74.38% | 10.05 | NO |
-| SOL | 1-of-2 (override) | +45.93%/mo | 30.20 | 7.70% | 10,576 | 68.21% | 3.65 | NO |
-| **Portfolio avg (default)** | STRICT 2-of-2 | **+18.84%/mo** | 20.62 | 3.31% | — | 77.34% | 15.27 | NO |
-| Portfolio avg (override) | 1-of-2 | +39.42%/mo | 29.79 | 6.80% | — | 67.20% | 3.67 | NO |
+| Symbol                      | Mode                    |        Monthly | Sharpe | Max DD | Trades | Win rate |    PF | Kill-switch |
+| --------------------------- | ----------------------- | -------------: | -----: | -----: | -----: | -------: | ----: | :---------: |
+| **BTC**                     | STRICT 2-of-2 (default) | **+16.66%/mo** |  20.52 |  4.64% |  2,660 |   73.16% | 10.44 |     NO      |
+| BTC                         | 1-of-2 (override)       |     +34.52%/mo |  29.33 |  7.18% | 11,043 |   64.77% |  3.79 |     NO      |
+| **ETH**                     | STRICT 2-of-2 (default) | **+16.29%/mo** |  19.49 |  1.95% |  1,790 |   84.47% | 25.32 |     NO      |
+| ETH                         | 1-of-2 (override)       |     +37.82%/mo |  29.83 |  5.51% |  9,977 |   68.62% |  3.58 |     NO      |
+| **SOL**                     | STRICT 2-of-2 (default) | **+23.57%/mo** |  21.85 |  3.33% |  3,099 |   74.38% | 10.05 |     NO      |
+| SOL                         | 1-of-2 (override)       |     +45.93%/mo |  30.20 |  7.70% | 10,576 |   68.21% |  3.65 |     NO      |
+| **Portfolio avg (default)** | STRICT 2-of-2           | **+18.84%/mo** |  20.62 |  3.31% |      — |   77.34% | 15.27 |     NO      |
+| Portfolio avg (override)    | 1-of-2                  |     +39.42%/mo |  29.79 |  6.80% |      — |   67.20% |  3.67 |     NO      |
 
 ### 3.2 Comparison vs Phase 15 single-strategy baseline
 
 JSON sources (from Phase 15, pre-cap):
+
 - Donchian solo: `phase15-donchian-range-{btc,eth,sol}-15m.json` (BTC
   +13.35%/mo, ETH +15.24%/mo, SOL +22.78%/mo)
 - Pivot Grid capped (Phase 17, fixed engine, 4% cap):
   `phase17-pivot-grid-{btc,eth,sol}-15m-fixed.json` (BTC +20.06%/mo, ETH
   +25.21%/mo, SOL +20.47%/mo)
 
-| Symbol | Phase 15 Donchian solo | Phase 17 capped Pivot | Phase 18 Donchian+Pivot 2-of-2 (default) | Δ 2-of-2 vs Phase 15 Donchian | Δ 2-of-2 vs Phase 17 capped Pivot |
-|--------|----------------------:|----------------------:|------------------------------------------:|--------------------------------:|------------------------------------:|
-| BTC | +13.35%/mo, 5.77% DD | +20.06%/mo, 6.76% DD | **+16.66%/mo, 4.64% DD** | **+3.31%/mo, -1.13% DD** | -3.40%/mo, -2.12% DD |
-| ETH | +15.24%/mo, 1.93% DD | +25.21%/mo, 4.59% DD | **+16.29%/mo, 1.95% DD** | **+1.05%/mo, +0.02% DD** | -8.92%/mo, -2.64% DD |
-| SOL | +22.78%/mo, 3.33% DD | +20.47%/mo, 7.70% DD | **+23.57%/mo, 3.33% DD** | **+0.79%/mo, 0.00% DD** | +3.10%/mo, -4.37% DD |
-| **Portfolio avg** | +17.12%/mo, 3.68% DD | +21.91%/mo, 6.35% DD | **+18.84%/mo, 3.31% DD** | **+1.72%/mo, -0.37% DD** | **-3.07%/mo, -3.04% DD** |
+| Symbol            | Phase 15 Donchian solo | Phase 17 capped Pivot | Phase 18 Donchian+Pivot 2-of-2 (default) | Δ 2-of-2 vs Phase 15 Donchian | Δ 2-of-2 vs Phase 17 capped Pivot |
+| ----------------- | ---------------------: | --------------------: | ---------------------------------------: | ----------------------------: | --------------------------------: |
+| BTC               |   +13.35%/mo, 5.77% DD |  +20.06%/mo, 6.76% DD |                 **+16.66%/mo, 4.64% DD** |      **+3.31%/mo, -1.13% DD** |              -3.40%/mo, -2.12% DD |
+| ETH               |   +15.24%/mo, 1.93% DD |  +25.21%/mo, 4.59% DD |                 **+16.29%/mo, 1.95% DD** |      **+1.05%/mo, +0.02% DD** |              -8.92%/mo, -2.64% DD |
+| SOL               |   +22.78%/mo, 3.33% DD |  +20.47%/mo, 7.70% DD |                 **+23.57%/mo, 3.33% DD** |       **+0.79%/mo, 0.00% DD** |              +3.10%/mo, -4.37% DD |
+| **Portfolio avg** |   +17.12%/mo, 3.68% DD |  +21.91%/mo, 6.35% DD |                 **+18.84%/mo, 3.31% DD** |      **+1.72%/mo, -0.37% DD** |          **-3.07%/mo, -3.04% DD** |
 
 **Key comparison observations:**
 
@@ -197,7 +200,7 @@ JSON sources (from Phase 15, pre-cap):
    wiring) is the in-house high-water mark for sized M15 mean-reversion.
    The 2-of-2 composition is a smoother-shapes-equivalent trade:
    slightly lower return for much smoother max-DD (3.31% portfolio avg
-   vs Phase 17's 6.35%). The composition's value is *diversification*
+   vs Phase 17's 6.35%). The composition's value is _diversification_
    (two independently productive strategies in series), not envelope
    elevation over the capped Pivot solo.
 
@@ -209,6 +212,7 @@ JSON sources (from Phase 15, pre-cap):
 ### 3.3 Why no M5 dilution (Phase 15 §10 lesson honored)
 
 Both sub-strategies are **M15-native**:
+
 - Donchian Range Channel reads `mtfState.htf.donchianUpper` from the
   engine-aggregated 1d candles (HTF dependency, LTF=15m).
 - Pivot Point Grid reads its own HTF accumulator from LTF candles.
@@ -241,6 +245,7 @@ on longs.
 
 JSON sources (Track C final composition = Track B 2-of-2 per brief
 "alternative simpler approach"):
+
 - `phase18-final-composition-btc-15m.json` (= `phase18-donchian-pivot-btc-15m-2of2.json`)
 - `phase18-final-composition-eth-15m.json` (= `phase18-donchian-pivot-eth-15m-2of2.json`)
 - `phase18-final-composition-sol-15m.json` (= `phase18-donchian-pivot-sol-15m-2of2.json`)
@@ -274,14 +279,15 @@ regime-1of-2 + Track B's donchian-pivot 2-of-2 via a hypothetical
 
 ### 4.2 Final composition per-symbol table
 
-| Symbol | Source JSON | Monthly | Sharpe | Max DD | Trades | Win rate | PF | KS |
-|--------|-------------|--------:|-------:|-------:|-------:|---------:|---:|:--:|
-| BTC | `phase18-final-composition-btc-15m.json` | **+16.66%/mo** | 20.52 | 4.64% | 2,660 | 73.16% | 10.44 | NO |
-| ETH | `phase18-final-composition-eth-15m.json` | **+16.29%/mo** | 19.49 | 1.95% | 1,790 | 84.47% | 25.32 | NO |
-| SOL | `phase18-final-composition-sol-15m.json` | **+23.57%/mo** | 21.85 | 3.33% | 3,099 | 74.38% | 10.05 | NO |
-| **Portfolio avg** | (mean of 3) | **+18.84%/mo** | 20.62 | 3.31% | 2,516 | 77.34% | 15.27 | NO |
+| Symbol            | Source JSON                              |        Monthly | Sharpe | Max DD | Trades | Win rate |    PF | KS  |
+| ----------------- | ---------------------------------------- | -------------: | -----: | -----: | -----: | -------: | ----: | :-: |
+| BTC               | `phase18-final-composition-btc-15m.json` | **+16.66%/mo** |  20.52 |  4.64% |  2,660 |   73.16% | 10.44 | NO  |
+| ETH               | `phase18-final-composition-eth-15m.json` | **+16.29%/mo** |  19.49 |  1.95% |  1,790 |   84.47% | 25.32 | NO  |
+| SOL               | `phase18-final-composition-sol-15m.json` | **+23.57%/mo** |  21.85 |  3.33% |  3,099 |   74.38% | 10.05 | NO  |
+| **Portfolio avg** | (mean of 3)                              | **+18.84%/mo** |  20.62 |  3.31% |  2,516 |   77.34% | 15.27 | NO  |
 
 The Phase 18 final composition envelope projects:
+
 - **+18.84%/mo portfolio geometric-average return** across
   BTC+ETH+SOL with all 3 symbols on the same risk-managed M15
   bybit.eu SPOT 1:10 framework.
@@ -297,11 +303,11 @@ The Phase 18 final composition envelope projects:
 
 The project has TWO independent Phase 18 envelopes now:
 
-| Envelope | Portfolio avg return | Portfolio avg DD | Sharpe | Use case |
-|----------|----------------------|------------------|--------|----------|
-| **A — Regime-Routed Ensemble** | +6.39%/mo | 4.08% | 10.57 | Diversifier (regime-aware but lower envelope) |
-| **B — Donchian+Pivot 2-of-2** | +18.84%/mo | 3.31% | 20.62 | Primary envelope (M15 mean-reversion family) |
-| **Combined (if both run)** | ~+25%/mo (rough) | ~5% | — | Diversification over two strategies (recommended path) |
+| Envelope                       | Portfolio avg return | Portfolio avg DD | Sharpe | Use case                                               |
+| ------------------------------ | -------------------- | ---------------- | ------ | ------------------------------------------------------ |
+| **A — Regime-Routed Ensemble** | +6.39%/mo            | 4.08%            | 10.57  | Diversifier (regime-aware but lower envelope)          |
+| **B — Donchian+Pivot 2-of-2**  | +18.84%/mo           | 3.31%            | 20.62  | Primary envelope (M15 mean-reversion family)           |
+| **Combined (if both run)**     | ~+25%/mo (rough)     | ~5%              | —      | Diversification over two strategies (recommended path) |
 
 A naive combination ("run both envelopes simultaneously, allocate risk
 1:1") would project ~+25%/mo portfolio avg at ~5% DD — adding the
@@ -321,17 +327,17 @@ achievable" with the 4 strategy enumeration). Phase 9-14 explored
 various sub-classes. Phases 15-18 are the M15 mean-reversion + sizing
 framework push.
 
-| Phase | Best envelope | Δ vs prior | Gap to +50%/mo | Source JSON |
-|-------|---------------|-----------:|----------------:|-------------|
-| 14A-D baseline | +2.06%/mo | (start) | 24.3× | (Phase 14 final REPORT) |
-| 15 (Pivot Grid, OLD engine, no cap) | +60-90%/mo (uncapped) | +58-88× prior | 0.6-0.8× | `phase15-pivot-grid-{btc,eth,sol}-15m.json` |
-| 15 (Donchian solo, OLD engine) | +13.35-22.78%/mo (BTC/ETH/SOL) | per-symbol | 2.2-3.7× | `phase15-donchian-range-{btc,eth,sol}-15m.json` |
-| 15 Simple Retail Ensemble (4-strat) | +4.73%/mo BTC, -48.80% ETH | dilution cascade | FAIL | `phase15-simple-retail-ensemble-{btc,eth,sol}-15m.json` |
-| 16 Regime-Routed Ensemble (OLD engine) | +0.12%/mo BTC | dilution starts | FAIL | `phase16-regime-ensemble-btc-15m.json` |
-| **17 (capped, fixed engine)** | **+20.06-25.21%/mo per symbol** | ~+20%/mo sustainable | 2.0-2.5× | `phase17-pivot-grid-{btc,eth,sol}-15m-fixed.json` |
-| **18 (Track A, regime ensemble, STRICT 2-of-2 default)** | **+4.11%/mo BTC, +5.65%/mo ETH, +9.41%/mo SOL** | recovers regime from KS | 5.3-12.2× | `phase18-regime-ensemble-{btc,eth,sol}-15m-2of2-default.json` |
-| **18 (Track B, Donchian+Pivot 2-of-2 default)** | **+16.66%/mo BTC, +16.29%/mo ETH, +23.57%/mo SOL** | beats Phase 15 Donchian baseline | 2.1-3.1× | `phase18-donchian-pivot-{btc,eth,sol}-15m-2of2.json` |
-| **18 (Phase 18 final composition envelope)** | **+18.84%/mo portfolio avg** | trade-off: smoother DD for slightly lower return than Phase 17 capped Pivot | 2.65× | `phase18-final-composition-{btc,eth,sol}-15m.json` |
+| Phase                                                    | Best envelope                                      |                                                                  Δ vs prior | Gap to +50%/mo | Source JSON                                                   |
+| -------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------: | -------------: | ------------------------------------------------------------- |
+| 14A-D baseline                                           | +2.06%/mo                                          |                                                                     (start) |          24.3× | (Phase 14 final REPORT)                                       |
+| 15 (Pivot Grid, OLD engine, no cap)                      | +60-90%/mo (uncapped)                              |                                                               +58-88× prior |       0.6-0.8× | `phase15-pivot-grid-{btc,eth,sol}-15m.json`                   |
+| 15 (Donchian solo, OLD engine)                           | +13.35-22.78%/mo (BTC/ETH/SOL)                     |                                                                  per-symbol |       2.2-3.7× | `phase15-donchian-range-{btc,eth,sol}-15m.json`               |
+| 15 Simple Retail Ensemble (4-strat)                      | +4.73%/mo BTC, -48.80% ETH                         |                                                            dilution cascade |           FAIL | `phase15-simple-retail-ensemble-{btc,eth,sol}-15m.json`       |
+| 16 Regime-Routed Ensemble (OLD engine)                   | +0.12%/mo BTC                                      |                                                             dilution starts |           FAIL | `phase16-regime-ensemble-btc-15m.json`                        |
+| **17 (capped, fixed engine)**                            | **+20.06-25.21%/mo per symbol**                    |                                                        ~+20%/mo sustainable |       2.0-2.5× | `phase17-pivot-grid-{btc,eth,sol}-15m-fixed.json`             |
+| **18 (Track A, regime ensemble, STRICT 2-of-2 default)** | **+4.11%/mo BTC, +5.65%/mo ETH, +9.41%/mo SOL**    |                                                     recovers regime from KS |      5.3-12.2× | `phase18-regime-ensemble-{btc,eth,sol}-15m-2of2-default.json` |
+| **18 (Track B, Donchian+Pivot 2-of-2 default)**          | **+16.66%/mo BTC, +16.29%/mo ETH, +23.57%/mo SOL** |                                            beats Phase 15 Donchian baseline |       2.1-3.1× | `phase18-donchian-pivot-{btc,eth,sol}-15m-2of2.json`          |
+| **18 (Phase 18 final composition envelope)**             | **+18.84%/mo portfolio avg**                       | trade-off: smoother DD for slightly lower return than Phase 17 capped Pivot |          2.65× | `phase18-final-composition-{btc,eth,sol}-15m.json`            |
 
 ### 5.2 Pattern observation — diminishing marginal returns on cap inflation
 
@@ -368,9 +374,10 @@ the composition envelope — essentially the same envelope at safer DD
 profile. Phase 19 must either (a) raise the cap on a STRICTLY-CONFIRMED
 edge OR (b) find a non-mean-reversion edge (latency-arb, cross-DEX arb,
 funding-rate carry) that does not regress under the same per-bar stop
-+ signal-quality framework. The structural ceiling at 1:10 leverage
-+ M15 mean-reversion per-bar stop appears to be +20-25%/mo portfolio
-avg; closing the +50%/mo gap requires a fundamentally different edge.
+
+- signal-quality framework. The structural ceiling at 1:10 leverage
+- M15 mean-reversion per-bar stop appears to be +20-25%/mo portfolio
+  avg; closing the +50%/mo gap requires a fundamentally different edge.
 
 ---
 
@@ -477,6 +484,7 @@ kill-switch. This is OPPOSITE the textbook "ensemble diversity" logic
 which says more component signals = better ensemble.
 
 **Memory: add to `mm-crypto-bot-context.md` (or topic file)**:
+
 - "Phase 18 Track A finding: M15 mean-reversion ensembles (range or
   trend regime) require STRICT consensus (default 2-of-2), not relaxed
   consensus (1-of-N). Solo fires dilute. The relaxation path is
@@ -500,6 +508,7 @@ Range + Pivot Point Grid (both M15-native mean-reversion, both
 high-Sharpe, both in Phase 15 top-2). SHARPEST filter = STRICT 2-of-2.
 
 **Memory: add to `mm-crypto-bot-context.md`**:
+
 - "Phase 18 Track B finding: ensemble composition discipline is isolate
   the BEST 2 sub-strategies at the same horizon. Avoid mixing M5-native
   and M15-native sub-strategies (Phase 15 BB Squeeze + Keltner dilution
@@ -519,6 +528,7 @@ differs from the tag's semantic, the empirical truth wins — the gate
 is what counts, the tag is documentation.
 
 **Memory: add to `mm-crypto-bot-context.md`**:
+
 - "Phase 18 epistemic lesson: trading-rule tag ≠ logic gate. When a
   brief asks for a logic change based on a tag in code, verify the
   actual gate (e.g. via backtest with no other variables changed)
@@ -562,6 +572,7 @@ would let us find the smallest cap that lifts envelope to ~+30-35%/mo
 while staying under the 8% DD safe-operating threshold.
 
 **Deliverables:**
+
 - 5 cap values tested × 3 symbols × 2 consensus modes (2-of-2 + 1-of-2) =
   30 backtest JSONs
 - Return-cap curve plot at `docs/research/phase19-cap-sweep.png`
@@ -579,6 +590,7 @@ regime). DVOL-gated sizing could recover BB Squeeze on BTC (where
 DVOL is most informative) without re-exposing SOL dilution.
 
 **Deliverables:**
+
 - Wire DvolRegimeSizingPlugin to BB Squeeze entry gate at
   `packages/core/src/strategy/bollinger-range-squeeze.ts:onCandle()`
 - New JSONs: `phase19-bb-squeeze-dvol-{btc,eth,sol}-15m.json`
@@ -598,6 +610,7 @@ becomes viable, the regime-ensemble trend-regime pair (BB Squeeze +
 Keltner Grid) becomes a real contributor.
 
 **Deliverables:**
+
 - ADX filter on Keltner + unit tests
 - 3 backtest JSONs: `phase19-keltner-adx-{btc,eth,sol}-15m.json`
 - Expected envelope: +3-8%/mo per symbol, possibly enabling regime
@@ -616,6 +629,7 @@ HybridKelly in would scale NOTIONAL to the rolling funding-Sharpe,
 potentially adding 1-3%/mo on top of any composition.
 
 **Deliverables:**
+
 - Wire HybridKellyPlugin to Donchian+Pivot composition runner
 - New JSONs: `phase19-donchian-pivot-hybrid-kelly-{btc,eth,sol}-15m.json`
 - Expected envelope: +18.84%/mo → +20-22%/mo portfolio avg
@@ -633,6 +647,7 @@ via PortfolioOrchestrator diversifies risk across the two strategies
 range regimes, Track B peaks during both range + mean-reversion).
 
 **Deliverables:**
+
 - Build PortfolioOrchestrator composition with both Track A + Track B
 - Wire SizingSignal aggregation (existing Phase 10G infrastructure)
 - New JSONs: `phase19-orchestrator-track-a-track-b-{btc,eth,sol}-15m.json`
@@ -659,34 +674,34 @@ range regimes, Track B peaks during both range + mean-reversion).
 
 ### 9.1 Track A — Regime-Ensemble backtests (6 JSONs)
 
-| File | Symbol | Engine | Mode | Monthly | Max DD | KS |
-|------|--------|--------|------|--------:|-------:|:--:|
-| `phase18-regime-ensemble-btc-15m-2of2-default.json` | BTC | Fixed | STRICT 2-of-2 (new default) | +4.11%/mo | 8.59% | NO |
-| `phase18-regime-ensemble-eth-15m-2of2-default.json` | ETH | Fixed | STRICT 2-of-2 (new default) | +5.65%/mo | 1.72% | NO |
-| `phase18-regime-ensemble-sol-15m-2of2-default.json` | SOL | Fixed | STRICT 2-of-2 (new default) | +9.41%/mo | 1.93% | NO |
-| `phase18-regime-ensemble-btc-15m-1of2.json` | BTC | Fixed | 1-of-2 (research override) | 0.00%/mo | 50.00% | YES |
-| `phase18-regime-ensemble-eth-15m-1of2.json` | ETH | Fixed | 1-of-2 (research override) | 0.00%/mo | 50.04% | YES |
-| `phase18-regime-ensemble-sol-15m-1of2.json` | SOL | Fixed | 1-of-2 (research override) | 0.00%/mo | 50.00% | YES |
+| File                                                | Symbol | Engine | Mode                        |   Monthly | Max DD | KS  |
+| --------------------------------------------------- | ------ | ------ | --------------------------- | --------: | -----: | :-: |
+| `phase18-regime-ensemble-btc-15m-2of2-default.json` | BTC    | Fixed  | STRICT 2-of-2 (new default) | +4.11%/mo |  8.59% | NO  |
+| `phase18-regime-ensemble-eth-15m-2of2-default.json` | ETH    | Fixed  | STRICT 2-of-2 (new default) | +5.65%/mo |  1.72% | NO  |
+| `phase18-regime-ensemble-sol-15m-2of2-default.json` | SOL    | Fixed  | STRICT 2-of-2 (new default) | +9.41%/mo |  1.93% | NO  |
+| `phase18-regime-ensemble-btc-15m-1of2.json`         | BTC    | Fixed  | 1-of-2 (research override)  |  0.00%/mo | 50.00% | YES |
+| `phase18-regime-ensemble-eth-15m-1of2.json`         | ETH    | Fixed  | 1-of-2 (research override)  |  0.00%/mo | 50.04% | YES |
+| `phase18-regime-ensemble-sol-15m-1of2.json`         | SOL    | Fixed  | 1-of-2 (research override)  |  0.00%/mo | 50.00% | YES |
 
 ### 9.2 Track B — Donchian+Pivot Composition backtests (6 JSONs)
 
-| File | Symbol | Engine | Mode | Monthly | Max DD | KS |
-|------|--------|--------|------|--------:|-------:|:--:|
-| `phase18-donchian-pivot-btc-15m-2of2.json` | BTC | Fixed | STRICT 2-of-2 (new default) | +16.66%/mo | 4.64% | NO |
-| `phase18-donchian-pivot-eth-15m-2of2.json` | ETH | Fixed | STRICT 2-of-2 (new default) | +16.29%/mo | 1.95% | NO |
-| `phase18-donchian-pivot-sol-15m-2of2.json` | SOL | Fixed | STRICT 2-of-2 (new default) | +23.57%/mo | 3.33% | NO |
-| `phase18-donchian-pivot-btc-15m-1of2.json` | BTC | Fixed | 1-of-2 (override; high envelope) | +34.52%/mo | 7.18% | NO |
-| `phase18-donchian-pivot-eth-15m-1of2.json` | ETH | Fixed | 1-of-2 (override; high envelope) | +37.82%/mo | 5.51% | NO |
-| `phase18-donchian-pivot-sol-15m-1of2.json` | SOL | Fixed | 1-of-2 (override; high envelope) | +45.93%/mo | 7.70% | NO |
+| File                                       | Symbol | Engine | Mode                             |    Monthly | Max DD | KS  |
+| ------------------------------------------ | ------ | ------ | -------------------------------- | ---------: | -----: | :-: |
+| `phase18-donchian-pivot-btc-15m-2of2.json` | BTC    | Fixed  | STRICT 2-of-2 (new default)      | +16.66%/mo |  4.64% | NO  |
+| `phase18-donchian-pivot-eth-15m-2of2.json` | ETH    | Fixed  | STRICT 2-of-2 (new default)      | +16.29%/mo |  1.95% | NO  |
+| `phase18-donchian-pivot-sol-15m-2of2.json` | SOL    | Fixed  | STRICT 2-of-2 (new default)      | +23.57%/mo |  3.33% | NO  |
+| `phase18-donchian-pivot-btc-15m-1of2.json` | BTC    | Fixed  | 1-of-2 (override; high envelope) | +34.52%/mo |  7.18% | NO  |
+| `phase18-donchian-pivot-eth-15m-1of2.json` | ETH    | Fixed  | 1-of-2 (override; high envelope) | +37.82%/mo |  5.51% | NO  |
+| `phase18-donchian-pivot-sol-15m-1of2.json` | SOL    | Fixed  | 1-of-2 (override; high envelope) | +45.93%/mo |  7.70% | NO  |
 
 ### 9.3 Track C — Final composition envelope (3 JSONs, byte-identical to Track B 2-of-2)
 
-| File | Symbol | Monthly | Max DD | Notes |
-|------|--------|--------:|-------:|-------|
-| `phase18-final-composition-btc-15m.json` | BTC | +16.66%/mo | 4.64% | = `phase18-donchian-pivot-btc-15m-2of2.json` |
-| `phase18-final-composition-eth-15m.json` | ETH | +16.29%/mo | 1.95% | = `phase18-donchian-pivot-eth-15m-2of2.json` |
-| `phase18-final-composition-sol-15m.json` | SOL | +23.57%/mo | 3.33% | = `phase18-donchian-pivot-sol-15m-2of2.json` |
-| **Portfolio avg** | (mean) | **+18.84%/mo** | **3.31%** | — |
+| File                                     | Symbol |        Monthly |    Max DD | Notes                                        |
+| ---------------------------------------- | ------ | -------------: | --------: | -------------------------------------------- |
+| `phase18-final-composition-btc-15m.json` | BTC    |     +16.66%/mo |     4.64% | = `phase18-donchian-pivot-btc-15m-2of2.json` |
+| `phase18-final-composition-eth-15m.json` | ETH    |     +16.29%/mo |     1.95% | = `phase18-donchian-pivot-eth-15m-2of2.json` |
+| `phase18-final-composition-sol-15m.json` | SOL    |     +23.57%/mo |     3.33% | = `phase18-donchian-pivot-sol-15m-2of2.json` |
+| **Portfolio avg**                        | (mean) | **+18.84%/mo** | **3.31%** | —                                            |
 
 **Total: 12 backtest JSONs** (6 Track A + 6 Track B; the 3 final composition
 files are byte-identical copies of Track B 2-of-2 per brief "alternative
@@ -694,20 +709,20 @@ simpler approach").
 
 ### 9.4 Code artifacts (already on main from Track A + Track B merges)
 
-| Commit | File | Lines | Description |
-|--------|------|------:|-------------|
-| `2a05cda` (PR #43, Track A) | `packages/core/src/strategy/regime-routed-ensemble.ts` | +20 (vs Phase 17) | `minConsensus` configurable; default = 2 |
-| `2a05cda` (PR #43, Track A) | `packages/core/src/strategy/regime-routed-ensemble.test.ts` | +60 | 5 spec'd tests + 1 default-2 kill-switch test |
-| `2ccf77b` (PR #42, Track B) | `packages/core/src/strategy/donchian-pivot-composition.ts` | +309 | NEW: 2-component composition |
-| `2ccf77b` (PR #42, Track B) | `packages/core/src/strategy/donchian-pivot-composition.test.ts` | +305 | NEW: 18 unit tests |
-| `2ccf77b` (PR #42, Track B) | `packages/core/src/index.ts` | +8 | export block addition |
-| `2ccf77b` (PR #42, Track B) | `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` | +183 | NEW: CLI runner with `--min-consensus` |
+| Commit                      | File                                                                |             Lines | Description                                   |
+| --------------------------- | ------------------------------------------------------------------- | ----------------: | --------------------------------------------- |
+| `2a05cda` (PR #43, Track A) | `packages/core/src/strategy/regime-routed-ensemble.ts`              | +20 (vs Phase 17) | `minConsensus` configurable; default = 2      |
+| `2a05cda` (PR #43, Track A) | `packages/core/src/strategy/regime-routed-ensemble.test.ts`         |               +60 | 5 spec'd tests + 1 default-2 kill-switch test |
+| `2ccf77b` (PR #42, Track B) | `packages/core/src/strategy/donchian-pivot-composition.ts`          |              +309 | NEW: 2-component composition                  |
+| `2ccf77b` (PR #42, Track B) | `packages/core/src/strategy/donchian-pivot-composition.test.ts`     |              +305 | NEW: 18 unit tests                            |
+| `2ccf77b` (PR #42, Track B) | `packages/core/src/index.ts`                                        |                +8 | export block addition                         |
+| `2ccf77b` (PR #42, Track B) | `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` |              +183 | NEW: CLI runner with `--min-consensus`        |
 
 ### 9.5 Phase 18 Track C integration artifacts (this PR)
 
-| File | Description |
-|------|-------------|
-| `docs/research/REPORT-phase18.md` | THIS REPORT — ≥8 sections, full citation |
+| File                                                                | Description                                                      |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `docs/research/REPORT-phase18.md`                                   | THIS REPORT — ≥8 sections, full citation                         |
 | `backtest-results/phase18-final-composition-{btc,eth,sol}-15m.json` | 3 final-composition backtests (byte-identical to Track B 2-of-2) |
 
 ### 9.6 Quality gates (all PASS post-merge)
@@ -732,6 +747,7 @@ $ bun run coverage (separate from above; net new code from PRs #42 #43)
 **End of Phase 18 Track C Report.**
 
 **Key references:**
+
 - Track A code review: PR #43 (commit `2a05cda` on main)
 - Track B code review: PR #42 (commit `2ccf77b` on main)
 - Track A deliverable: `wt-phase18-a-regime-1of2/deliverable.md` (merged into
@@ -742,4 +758,4 @@ $ bun run coverage (separate from above; net new code from PRs #42 #43)
 - Phase 16 REPORT: `docs/research/REPORT-phase16.md` (regime-routed ensemble
   origin context)
 - Phase 15 REPORT: `docs/research/REPORT-phase15.md` (single-strategy baselines
-  + ensemble dilution cascade lesson)
+  - ensemble dilution cascade lesson)

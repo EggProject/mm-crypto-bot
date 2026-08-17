@@ -100,7 +100,11 @@ class MockFundingSource implements DydxFundingSource {
     _onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
   ): { readonly close: () => void } {
     this.subscriptionCount += 1;
-    return { close: () => { this.closeCount += 1; } };
+    return {
+      close: () => {
+        this.closeCount += 1;
+      },
+    };
   }
 
   lastTickAgeMs(_market: CarryMarket, nowMs: number): number | null {
@@ -152,8 +156,12 @@ class MockFundingSource implements DydxFundingSource {
   }
 
   // test-only accessors
-  get subscriptionCountForTest(): number { return this.subscriptionCount; }
-  get closeCountForTest(): number { return this.closeCount; }
+  get subscriptionCountForTest(): number {
+    return this.subscriptionCount;
+  }
+  get closeCountForTest(): number {
+    return this.closeCount;
+  }
 }
 
 class MockFillSimulator implements BybitEuSpotFillSimulator {
@@ -161,12 +169,21 @@ class MockFillSimulator implements BybitEuSpotFillSimulator {
   slippageBpsOverride = 5;
   depthUsdAt1PctOverride = 200_000;
 
-  slippageBps(_notionalUsd: number, _nowMs: number): number { return this.slippageBpsOverride; }
-  depthUsdAt1Pct(_nowMs: number): number | null { return this.depthUsdAt1PctOverride; }
-  midPriceUsd(_nowMs: number): number | null { return this.midPriceUsdOverride; }
+  slippageBps(_notionalUsd: number, _nowMs: number): number {
+    return this.slippageBpsOverride;
+  }
+  depthUsdAt1Pct(_nowMs: number): number | null {
+    return this.depthUsdAt1PctOverride;
+  }
+  midPriceUsd(_nowMs: number): number | null {
+    return this.midPriceUsdOverride;
+  }
 }
 
-function mkStrategy(source: MockFundingSource, override: Partial<typeof DEFAULT_DYDX_CEX_CARRY_CONFIG> = {}): DydxCexCarryStrategy {
+function mkStrategy(
+  source: MockFundingSource,
+  override: Partial<typeof DEFAULT_DYDX_CEX_CARRY_CONFIG> = {},
+): DydxCexCarryStrategy {
   return new DydxCexCarryStrategy({
     fundingSource: source,
     ...override,
@@ -207,56 +224,76 @@ describe("DydxCexCarryStrategy — config invariants", () => {
 
   it("2. market = ETH-USD is rejected (deferred)", () => {
     const src = new MockFundingSource();
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      market: "ETH-USD" as unknown as CarryMarket,
-    })).toThrow(/ETH-USD/);
+    expect(
+      () =>
+        new DydxCexCarryStrategy({
+          fundingSource: src,
+          market: "ETH-USD" as unknown as CarryMarket,
+        }),
+    ).toThrow(/ETH-USD/);
   });
 
   it("3. market = SOL-USD is rejected (halted)", () => {
     const src = new MockFundingSource();
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      market: "SOL-USD" as unknown as CarryMarket,
-    })).toThrow(/SOL-USD/);
+    expect(
+      () =>
+        new DydxCexCarryStrategy({
+          fundingSource: src,
+          market: "SOL-USD" as unknown as CarryMarket,
+        }),
+    ).toThrow(/SOL-USD/);
   });
 
   it("4. leverage = 5 is rejected (1:10 mandate)", () => {
     const src = new MockFundingSource();
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      leverage: 5 as unknown as 1 | 10,
-    })).toThrow(/1:10 HARD GUARDRAIL/);
+    expect(
+      () =>
+        new DydxCexCarryStrategy({
+          fundingSource: src,
+          leverage: 5 as unknown as 1 | 10,
+        }),
+    ).toThrow(/1:10 HARD GUARDRAIL/);
   });
 
   it("5. notionalPerLegUsd ≤ 0 throws", () => {
     const src = new MockFundingSource();
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      notionalPerLegUsd: 0,
-    })).toThrow(/notionalPerLegUsd/);
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      notionalPerLegUsd: -1,
-    })).toThrow(/notionalPerLegUsd/);
+    expect(
+      () =>
+        new DydxCexCarryStrategy({
+          fundingSource: src,
+          notionalPerLegUsd: 0,
+        }),
+    ).toThrow(/notionalPerLegUsd/);
+    expect(
+      () =>
+        new DydxCexCarryStrategy({
+          fundingSource: src,
+          notionalPerLegUsd: -1,
+        }),
+    ).toThrow(/notionalPerLegUsd/);
   });
 
   it("6. capFraction > 0.5 throws", () => {
     const src = new MockFundingSource();
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      capFraction: 0.6,
-    })).toThrow(/capFraction/);
+    expect(
+      () =>
+        new DydxCexCarryStrategy({
+          fundingSource: src,
+          capFraction: 0.6,
+        }),
+    ).toThrow(/capFraction/);
   });
 
   it("7. capFraction ≤ 0 throws", () => {
     const src = new MockFundingSource();
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      capFraction: 0,
-    })).toThrow(/capFraction/);
+    expect(
+      () =>
+        new DydxCexCarryStrategy({
+          fundingSource: src,
+          capFraction: 0,
+        }),
+    ).toThrow(/capFraction/);
   });
-
 });
 
 // ============================================================================
@@ -268,7 +305,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("8. indexer-stale fires when stale > 5min", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 6 * 60 * 1000, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
+      {
+        indexerStaleMs: 6 * 60 * 1000,
+        chainNonFinalizedMs: 0,
+        compressedDivergenceDayStreak: 0,
+        tickDensityLast7d: 200,
+        bybitEuSpotDepthUsd: 200_000,
+      },
       cfg,
     );
     expect(v["indexer-stale"].engaged).toBe(true);
@@ -277,7 +320,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("9. indexer-stale fires when no tick ever", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: null, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
+      {
+        indexerStaleMs: null,
+        chainNonFinalizedMs: 0,
+        compressedDivergenceDayStreak: 0,
+        tickDensityLast7d: 200,
+        bybitEuSpotDepthUsd: 200_000,
+      },
       cfg,
     );
     expect(v["indexer-stale"].engaged).toBe(true);
@@ -286,7 +335,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("10. indexer-stale does NOT fire when fresh", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 60_000, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
+      {
+        indexerStaleMs: 60_000,
+        chainNonFinalizedMs: 0,
+        compressedDivergenceDayStreak: 0,
+        tickDensityLast7d: 200,
+        bybitEuSpotDepthUsd: 200_000,
+      },
       cfg,
     );
     expect(v["indexer-stale"].engaged).toBe(false);
@@ -294,7 +349,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("11. chain-non-finalized fires when > 10min", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 0, chainNonFinalizedMs: 11 * 60 * 1000, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
+      {
+        indexerStaleMs: 0,
+        chainNonFinalizedMs: 11 * 60 * 1000,
+        compressedDivergenceDayStreak: 0,
+        tickDensityLast7d: 200,
+        bybitEuSpotDepthUsd: 200_000,
+      },
       cfg,
     );
     expect(v["chain-non-finalized"].engaged).toBe(true);
@@ -302,7 +363,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("12. chain-non-finalized fires when no block ever", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 0, chainNonFinalizedMs: null, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
+      {
+        indexerStaleMs: 0,
+        chainNonFinalizedMs: null,
+        compressedDivergenceDayStreak: 0,
+        tickDensityLast7d: 200,
+        bybitEuSpotDepthUsd: 200_000,
+      },
       cfg,
     );
     expect(v["chain-non-finalized"].engaged).toBe(true);
@@ -311,7 +378,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("13. divergence-7d-compression fires when streak=7 AND density ≥ 168", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 7, tickDensityLast7d: 168, bybitEuSpotDepthUsd: 200_000 },
+      {
+        indexerStaleMs: 0,
+        chainNonFinalizedMs: 0,
+        compressedDivergenceDayStreak: 7,
+        tickDensityLast7d: 168,
+        bybitEuSpotDepthUsd: 200_000,
+      },
       cfg,
     );
     expect(v["divergence-7d-compression"].engaged).toBe(true);
@@ -320,7 +393,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("14. divergence-7d-compression does NOT fire when streak=7 but density < 168 (SPARSE-DATA GUARD)", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 7, tickDensityLast7d: 50, bybitEuSpotDepthUsd: 200_000 },
+      {
+        indexerStaleMs: 0,
+        chainNonFinalizedMs: 0,
+        compressedDivergenceDayStreak: 7,
+        tickDensityLast7d: 50,
+        bybitEuSpotDepthUsd: 200_000,
+      },
       cfg,
     );
     expect(v["divergence-7d-compression"].engaged).toBe(false);
@@ -329,7 +408,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("15. divergence-7d-compression does NOT fire when streak < 7", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 6, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
+      {
+        indexerStaleMs: 0,
+        chainNonFinalizedMs: 0,
+        compressedDivergenceDayStreak: 6,
+        tickDensityLast7d: 200,
+        bybitEuSpotDepthUsd: 200_000,
+      },
       cfg,
     );
     expect(v["divergence-7d-compression"].engaged).toBe(false);
@@ -337,7 +422,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("16. bybit-eu-spot-thin fires when depth < $100k", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 50_000 },
+      {
+        indexerStaleMs: 0,
+        chainNonFinalizedMs: 0,
+        compressedDivergenceDayStreak: 0,
+        tickDensityLast7d: 200,
+        bybitEuSpotDepthUsd: 50_000,
+      },
       cfg,
     );
     expect(v["bybit-eu-spot-thin"].engaged).toBe(true);
@@ -345,7 +436,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("17. bybit-eu-spot-thin does NOT fire when depth ≥ $100k", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: 200_000 },
+      {
+        indexerStaleMs: 0,
+        chainNonFinalizedMs: 0,
+        compressedDivergenceDayStreak: 0,
+        tickDensityLast7d: 200,
+        bybitEuSpotDepthUsd: 200_000,
+      },
       cfg,
     );
     expect(v["bybit-eu-spot-thin"].engaged).toBe(false);
@@ -353,7 +450,13 @@ describe("evaluateKillSwitches — pure functional", () => {
 
   it("18. bybit-eu-spot-thin does NOT fire when depth unknown", () => {
     const v = evaluateKillSwitches(
-      { indexerStaleMs: 0, chainNonFinalizedMs: 0, compressedDivergenceDayStreak: 0, tickDensityLast7d: 200, bybitEuSpotDepthUsd: null },
+      {
+        indexerStaleMs: 0,
+        chainNonFinalizedMs: 0,
+        compressedDivergenceDayStreak: 0,
+        tickDensityLast7d: 200,
+        bybitEuSpotDepthUsd: null,
+      },
       cfg,
     );
     expect(v["bybit-eu-spot-thin"].engaged).toBe(false);
@@ -435,14 +538,14 @@ describe("allPreconditionsSatisfied — duration gates", () => {
       FIXED_NOW - 8 * DAY,
       { kind: "live-divergence", satisfied: true },
     );
-    const failed = evaluatePrecondition(
-      "live-divergence", first, FIXED_NOW - DAY,
-      { kind: "live-divergence", satisfied: false },
-    );
-    const recovered = evaluatePrecondition(
-      "live-divergence", failed, FIXED_NOW,
-      { kind: "live-divergence", satisfied: true },
-    );
+    const failed = evaluatePrecondition("live-divergence", first, FIXED_NOW - DAY, {
+      kind: "live-divergence",
+      satisfied: false,
+    });
+    const recovered = evaluatePrecondition("live-divergence", failed, FIXED_NOW, {
+      kind: "live-divergence",
+      satisfied: true,
+    });
     expect(failed.firstSatisfiedMs).toBeNull();
     expect(recovered.firstSatisfiedMs).toBe(FIXED_NOW);
   });
@@ -458,8 +561,13 @@ describe("allPreconditionsSatisfied — duration gates", () => {
     expect(strategy.onCandle(ctx)?.side).toBe("buy");
     expect(strategy.state.hasEntered).toBe(false);
     strategy.onPositionOpened({
-      side: "buy", entryTime: FIXED_NOW, entryPrice: 100, quantity: 1,
-      stopLoss: 99, takeProfit: 10_000, holdingBars: 0,
+      side: "buy",
+      entryTime: FIXED_NOW,
+      entryPrice: 100,
+      quantity: 1,
+      stopLoss: 99,
+      takeProfit: 10_000,
+      holdingBars: 0,
     });
     expect(strategy.state.hasEntered).toBe(true);
     strategy.onPositionClosed("rejected-or-closed");
@@ -480,14 +588,29 @@ describe("DydxCexCarryStrategy — state persistence", () => {
     s1.state.rebalanceCount = 3;
     s1.state.fundingPeriods = 9;
     s1.state.lastMarkPrice = 60_500;
-    s1.state.tickDensity = { days: [{ day: "2026-07-01", dydxCount: 24, cexCount: 3 }], totalTicksLast7d: 27 };
+    s1.state.tickDensity = {
+      days: [{ day: "2026-07-01", dydxCount: 24, cexCount: 3 }],
+      totalTicksLast7d: 27,
+    };
     s1.state.compressedDayStreak = 2;
     s1.state.firstTickMs = FIXED_NOW;
     s1.state.firstChainBlockMs = FIXED_NOW;
     s1.state.preconditions = {
-      "live-divergence": { satisfied: true, firstSatisfiedMs: FIXED_NOW - 8 * DAY, lastVerifiedMs: FIXED_NOW },
-      "chain-incident-clear": { satisfied: true, firstSatisfiedMs: FIXED_NOW - 4 * DAY, lastVerifiedMs: FIXED_NOW },
-      "no-recent-governance": { satisfied: true, firstSatisfiedMs: FIXED_NOW - 15 * DAY, lastVerifiedMs: FIXED_NOW },
+      "live-divergence": {
+        satisfied: true,
+        firstSatisfiedMs: FIXED_NOW - 8 * DAY,
+        lastVerifiedMs: FIXED_NOW,
+      },
+      "chain-incident-clear": {
+        satisfied: true,
+        firstSatisfiedMs: FIXED_NOW - 4 * DAY,
+        lastVerifiedMs: FIXED_NOW,
+      },
+      "no-recent-governance": {
+        satisfied: true,
+        firstSatisfiedMs: FIXED_NOW - 15 * DAY,
+        lastVerifiedMs: FIXED_NOW,
+      },
     };
 
     const snap = s1.serializeState();
@@ -525,7 +648,11 @@ describe("DydxCexCarryStrategy — state persistence", () => {
     const src = new MockFundingSource();
     const s1 = mkStrategy(src);
     // Record 3 ticks → state.tickDensity should be populated
-    s1.recordFundingTick(mkSnapshot("BTC-USD", FIXED_NOW, 0.0001), mkSnapshot("BTC-USD", FIXED_NOW, 0.0001, undefined), FIXED_NOW);
+    s1.recordFundingTick(
+      mkSnapshot("BTC-USD", FIXED_NOW, 0.0001),
+      mkSnapshot("BTC-USD", FIXED_NOW, 0.0001, undefined),
+      FIXED_NOW,
+    );
     const td1 = s1.state.tickDensity.totalTicksLast7d;
     const s2 = DydxCexCarryStrategy.fromSnapshot(
       { ...DEFAULT_DYDX_CEX_CARRY_CONFIG, fundingSource: src },
@@ -543,7 +670,9 @@ describe("DydxCexCarryStrategy — wire-up integrity", () => {
   it("28. BTC-only market assertion (no ETH/SOL plumbing)", () => {
     expect(DEFAULT_DYDX_CEX_CARRY_CONFIG.market).toBe("BTC-USD");
     // Phase 14B 15% DD target sizing: cap=0.025, notional=$125k
-    expect(DEFAULT_DYDX_CEX_CARRY_CONFIG.capFraction * DEFAULT_DYDX_CEX_CARRY_CONFIG.notionalPerLegUsd).toBe(3125);
+    expect(DEFAULT_DYDX_CEX_CARRY_CONFIG.capFraction * DEFAULT_DYDX_CEX_CARRY_CONFIG.notionalPerLegUsd).toBe(
+      3125,
+    );
   });
 
   it("29. strategy name includes Phase 25 #2 T2 marker", () => {
@@ -652,14 +781,20 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
 
   it("35. constructor rejects non-positive latencyArbThresholdMs", () => {
     const src = new MockFundingSource();
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      latencyArbThresholdMs: 0,
-    })).toThrow(/latencyArbThresholdMs/);
-    expect(() => new DydxCexCarryStrategy({
-      fundingSource: src,
-      latencyArbThresholdMs: -1,
-    })).toThrow(/latencyArbThresholdMs/);
+    expect(
+      () =>
+        new DydxCexCarryStrategy({
+          fundingSource: src,
+          latencyArbThresholdMs: 0,
+        }),
+    ).toThrow(/latencyArbThresholdMs/);
+    expect(
+      () =>
+        new DydxCexCarryStrategy({
+          fundingSource: src,
+          latencyArbThresholdMs: -1,
+        }),
+    ).toThrow(/latencyArbThresholdMs/);
   });
 
   it("36. constructor accepts +Infinity to explicitly disable latency gating", () => {
@@ -719,10 +854,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
   it("41. recordLatencySnapshot with invalid (NaN) snapshot keeps existing gate", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
     // First, set a known state — paused (rtMs=1500 > 500).
-    s.recordLatencySnapshot(
-      { pair: "x", roundTripMsMax: 1500, sourceJsonPath: "live" },
-      FIXED_NOW,
-    );
+    s.recordLatencySnapshot({ pair: "x", roundTripMsMax: 1500, sourceJsonPath: "live" }, FIXED_NOW);
     expect(s.isLatencyPaused()).toBe(true);
     // Then send an invalid snapshot — should NOT change the gate.
     s.recordLatencySnapshot(
@@ -735,15 +867,9 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
 
   it("42. recordLatencySnapshot with negative rtMs keeps existing gate", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
-    s.recordLatencySnapshot(
-      { pair: "x", roundTripMsMax: 100, sourceJsonPath: "live" },
-      FIXED_NOW,
-    );
+    s.recordLatencySnapshot({ pair: "x", roundTripMsMax: 100, sourceJsonPath: "live" }, FIXED_NOW);
     expect(s.isLatencyPaused()).toBe(false);
-    s.recordLatencySnapshot(
-      { pair: "x", roundTripMsMax: -5, sourceJsonPath: "live" },
-      FIXED_NOW + 1000,
-    );
+    s.recordLatencySnapshot({ pair: "x", roundTripMsMax: -5, sourceJsonPath: "live" }, FIXED_NOW + 1000);
     expect(s.isLatencyPaused()).toBe(false);
     expect(s.state.lastLatencySnapshotMs).toBe(FIXED_NOW);
   });
@@ -775,10 +901,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
 
   it("46. recordFundingTick returns 0 when latency paused (no accrual)", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
-    s.recordLatencySnapshot(
-      { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
-      FIXED_NOW,
-    );
+    s.recordLatencySnapshot({ pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" }, FIXED_NOW);
     const payment = s.recordFundingTick(
       mkSnapshot("BTC-USD", FIXED_NOW, 0.001),
       mkSnapshot("BTC-USD", FIXED_NOW, 0.0002, undefined),
@@ -821,10 +944,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     // Reset and pause → should NOT enter.
     s.reset();
     satisfyPreconditions(s);
-    s.recordLatencySnapshot(
-      { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
-      FIXED_NOW,
-    );
+    s.recordLatencySnapshot({ pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" }, FIXED_NOW);
     const sigAfter = s.onCandle(ctx);
     expect(sigAfter).toBeNull();
     expect(s.isLatencyPaused()).toBe(true);
@@ -869,10 +989,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
 
   it("51. reset() returns latency state to default (disabled)", () => {
     const s = mkStrategy(new MockFundingSource(), { latencyArbThresholdMs: 500 });
-    s.recordLatencySnapshot(
-      { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
-      FIXED_NOW,
-    );
+    s.recordLatencySnapshot({ pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" }, FIXED_NOW);
     expect(s.isLatencyPaused()).toBe(true);
     s.reset();
     expect(s.isLatencyPaused()).toBe(false);
@@ -907,10 +1024,7 @@ describe("DydxCexCarryStrategy — LatencyGate (Phase 30 live wiring)", () => {
     });
     expect(s.state.hasEntered).toBe(true);
     // Then pause latency.
-    s.recordLatencySnapshot(
-      { pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" },
-      FIXED_NOW + HOUR,
-    );
+    s.recordLatencySnapshot({ pair: "x", roundTripMsMax: 1200, sourceJsonPath: "live" }, FIXED_NOW + HOUR);
     // Next candle: no sell signal — the held position stays.
     const ctx2 = {
       ...ctx,
@@ -960,8 +1074,12 @@ describe("DydxCexCarryStrategy — Phase 35 coverage gaps", () => {
     expect(s.totalFundingUsd()).toBe(0);
 
     // Manipulate state directly (test-only)
-    (s as unknown as { state: { fundingCollectedUsd: number; rebalanceCostUsd: number } }).state.fundingCollectedUsd = 1000;
-    (s as unknown as { state: { fundingCollectedUsd: number; rebalanceCostUsd: number } }).state.rebalanceCostUsd = 200;
+    (
+      s as unknown as { state: { fundingCollectedUsd: number; rebalanceCostUsd: number } }
+    ).state.fundingCollectedUsd = 1000;
+    (
+      s as unknown as { state: { fundingCollectedUsd: number; rebalanceCostUsd: number } }
+    ).state.rebalanceCostUsd = 200;
     expect(s.totalFundingUsd()).toBe(800);
   });
 
@@ -969,7 +1087,10 @@ describe("DydxCexCarryStrategy — Phase 35 coverage gaps", () => {
     const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     // Mark preconditions as satisfied
     const precondsBefore = s.state.preconditions;
-    const liveDivBefore = precondsBefore["live-divergence"] as unknown as { satisfied: boolean; lastVerifiedMs: number };
+    const liveDivBefore = precondsBefore["live-divergence"] as unknown as {
+      satisfied: boolean;
+      lastVerifiedMs: number;
+    };
     liveDivBefore.satisfied = true;
     liveDivBefore.lastVerifiedMs = 1_700_000_000_000;
     s.resetPreconditions();
@@ -993,23 +1114,29 @@ describe("DydxCexCarryStrategy — Phase 35 coverage gaps", () => {
     const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     s.state.killSwitchVerdicts = newKillSwitchVerdicts();
     (s.state.killSwitchVerdicts["indexer-stale"] as { engaged: boolean; reason: string }).engaged = true;
-    (s.state.killSwitchVerdicts["indexer-stale"] as { engaged: boolean; reason: string }).reason = "indexer is 600s stale";
+    (s.state.killSwitchVerdicts["indexer-stale"] as { engaged: boolean; reason: string }).reason =
+      "indexer is 600s stale";
     expect(s["_haltReason"]()).toBe("indexer is 600s stale");
   });
 
   it("private _haltReason returns the chain-non-finalized reason when that verdict is engaged", () => {
     const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     s.state.killSwitchVerdicts = newKillSwitchVerdicts();
-    (s.state.killSwitchVerdicts["chain-non-finalized"] as { engaged: boolean; reason: string }).engaged = true;
-    (s.state.killSwitchVerdicts["chain-non-finalized"] as { engaged: boolean; reason: string }).reason = "chain non-finalized 90s";
+    (s.state.killSwitchVerdicts["chain-non-finalized"] as { engaged: boolean; reason: string }).engaged =
+      true;
+    (s.state.killSwitchVerdicts["chain-non-finalized"] as { engaged: boolean; reason: string }).reason =
+      "chain non-finalized 90s";
     expect(s["_haltReason"]()).toBe("chain non-finalized 90s");
   });
 
   it("private _haltReason returns the divergence-7d-compression reason when that verdict is engaged", () => {
     const s = mkStrategy(new MockFundingSource(), { market: "BTC-USD" });
     s.state.killSwitchVerdicts = newKillSwitchVerdicts();
-    (s.state.killSwitchVerdicts["divergence-7d-compression"] as { engaged: boolean; reason: string }).engaged = true;
-    (s.state.killSwitchVerdicts["divergence-7d-compression"] as { engaged: boolean; reason: string }).reason = "7d divergence compressed";
+    (
+      s.state.killSwitchVerdicts["divergence-7d-compression"] as { engaged: boolean; reason: string }
+    ).engaged = true;
+    (s.state.killSwitchVerdicts["divergence-7d-compression"] as { engaged: boolean; reason: string }).reason =
+      "7d divergence compressed";
     expect(s["_haltReason"]()).toBe("7d divergence compressed");
   });
 
@@ -1043,7 +1170,11 @@ describe("Phase 35b — DydxCexCarryPaperTrader paper-trade arrow callback", () 
           cex: { fundingTime: 0, symbol: market, fundingRate: 0 },
         };
         onTick(snap);
-        return { close: (): void => { /* noop unsubscribe */ } };
+        return {
+          close: (): void => {
+            /* noop unsubscribe */
+          },
+        };
       }
     }
     const src = new CallbackFiringSource();

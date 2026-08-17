@@ -66,7 +66,10 @@
       "status": "SUPPORTED_REAL_DATA",
       "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
       "initialEquityUsd": 10000,
-      "emaPairs": [[20, 100], [50, 200]],
+      "emaPairs": [
+        [20, 100],
+        [50, 200]
+      ],
       "atrStopMultiplier": [1, 1.5, 2],
       "rewardToRisk": [2, 3],
       "crossLookback": [1, 5, 20],

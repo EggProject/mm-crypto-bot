@@ -23,11 +23,11 @@ Sources: bybit.eu SPOT margin FAQ (`https://www.bybit.eu/en-EU/help-center/artic
 
 **9D verdict:** A funding-flip regime detector (7d sign-flip count + 7d negative-dominance fraction + 7d |rate| z-score vs 30d baseline) calibrated from 30 months of BTC/ETH/SOL funding data, combined with a 5-day persistence rule, produces a **defensive add-on** for the Track E FundingCarryTiming strategy. At 1:10 mandatory leverage:
 
-| Symbol | 9D Total | 9D Monthly | 9D Sharpe | 9D DD | Track E Sharpe | Track E DD | DD Δ | Sharpe Δ |
-|--------|---------:|-----------:|----------:|------:|---------------:|-----------:|------:|---------:|
-| BTC    | +68.69%  | 1.753%     | 10.71     | 0.091%| 10.34           | 0.132%     | **−31%** | +3.6% |
-| ETH    | +73.12%  | 1.841%     | 10.59     | 0.155%| 10.57           | 0.105%     | +48% (regression) | +0.2% |
-| SOL    | +63.83%  | 1.655%     |  8.58     | 0.270%|  8.67           | 0.573%     | **−53%** | −1.0% |
+| Symbol | 9D Total | 9D Monthly | 9D Sharpe |  9D DD | Track E Sharpe | Track E DD |              DD Δ | Sharpe Δ |
+| ------ | -------: | ---------: | --------: | -----: | -------------: | ---------: | ----------------: | -------: |
+| BTC    |  +68.69% |     1.753% |     10.71 | 0.091% |          10.34 |     0.132% |          **−31%** |    +3.6% |
+| ETH    |  +73.12% |     1.841% |     10.59 | 0.155% |          10.57 |     0.105% | +48% (regression) |    +0.2% |
+| SOL    |  +63.83% |     1.655% |      8.58 | 0.270% |           8.67 |     0.573% |          **−53%** |    −1.0% |
 
 - **SOL max DD: 0.573% → 0.270% (−53% reduction)** — the brief's "substantially improved Sharpe OR lower max DD" criterion is satisfied via DD reduction.
 - **SOL aggregate OOS Sharpe: 8.045** (vs Track E 8.211) — within 2% of Track E.
@@ -68,33 +68,33 @@ For each 8h funding snapshot:
 
 ### §2.2 Threshold calibration (from empirical funding-rate distribution analysis)
 
-| Parameter | Brief default | **Calibrated** | Rationale |
-|-----------|---------------|-----------------|-----------|
-| `flipWindowDays` | 7 | 7 | unchanged |
-| `flipThreshold`  | 3 | **10** | SOL Fold 17 (neg, -1.014): 80% snapshots ≥7 flips, 32% ≥10. SOL Fold 5 (best, +25.6): 0% ≥7. Threshold 10 catches negative folds while rejecting most healthy folds. |
-| `negativeDominanceThreshold` | 0.7 (brief didn't specify) | **0.80** | SOL Fold 20 (worst, -3.75): 79% neg. Healthy SOL folds rarely exceed 60%. |
-| `extremeZscoreThreshold` | 1.5 | 1.5 | unchanged (rarely triggers: 0.0-0.2% of snapshots at z≥1.5; included for completeness) |
-| `persistenceDays` | 7 | **5** | Shorter than 7d trailing window's natural persistence; avoids double-counting regime duration |
+| Parameter                    | Brief default              | **Calibrated** | Rationale                                                                                                                                                            |
+| ---------------------------- | -------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flipWindowDays`             | 7                          | 7              | unchanged                                                                                                                                                            |
+| `flipThreshold`              | 3                          | **10**         | SOL Fold 17 (neg, -1.014): 80% snapshots ≥7 flips, 32% ≥10. SOL Fold 5 (best, +25.6): 0% ≥7. Threshold 10 catches negative folds while rejecting most healthy folds. |
+| `negativeDominanceThreshold` | 0.7 (brief didn't specify) | **0.80**       | SOL Fold 20 (worst, -3.75): 79% neg. Healthy SOL folds rarely exceed 60%.                                                                                            |
+| `extremeZscoreThreshold`     | 1.5                        | 1.5            | unchanged (rarely triggers: 0.0-0.2% of snapshots at z≥1.5; included for completeness)                                                                               |
+| `persistenceDays`            | 7                          | **5**          | Shorter than 7d trailing window's natural persistence; avoids double-counting regime duration                                                                        |
 
 ### §2.3 Empirical distribution analysis (basis for calibration)
 
 From 30 months of `binance_{btc,eth,sol}usdt_funding_8h.csv` (2024-01-01 → 2026-07-04, 2,745 snapshots per symbol):
 
 | Symbol | N snaps | Negative % | Median 7d-flip | p75 | p90 | ≥7 flips % | ≥10 flips % |
-|--------|--------:|-----------:|---------------:|----:|----:|-----------:|------------:|
-| BTC    | 2,745   | 16.0%      | 2              | 5   | 8   | 45.8%      | 16.2%       |
-| ETH    | 2,745   | 16.4%      | 2              | 6   | 9   | 43.6%      | (similar)   |
-| SOL    | 2,745   | 31.3%      | 5              | 8   | 9   | 67.2%      | 9.4%        |
+| ------ | ------: | ---------: | -------------: | --: | --: | ---------: | ----------: |
+| BTC    |   2,745 |      16.0% |              2 |   5 |   8 |      45.8% |       16.2% |
+| ETH    |   2,745 |      16.4% |              2 |   6 |   9 |      43.6% |   (similar) |
+| SOL    |   2,745 |      31.3% |              5 |   8 |   9 |      67.2% |        9.4% |
 
 SOL is the "flippiest" asset (median 5 flips/7d vs 2 for BTC/ETH), justifying the higher threshold.
 
 ### §2.4 Negative SOL fold signatures (the rationale for detector design)
 
-| Fold (1-indexed) | OOS Window | Track E Sharpe | Track E Ret | % Neg | Median 7d-flip | % ≥7 flips | Detector verdict |
-|-------------------|------------|---------------:|------------:|------:|---------------:|-----------:|------------------|
-| 17 (was Fold 16 0-idx) | 2025-10-29 → 2025-11-28 | -1.014 | -0.06% | 52% | 8 | 80% | Flip regime fires (10+ flips in 7d) ✓ |
-| 20 (was Fold 19 0-idx) | 2026-01-27 → 2026-02-26 | -3.753 | -0.10% | 79% | 2 | 0%  | Negative-dominance regime fires ✓ |
-| 21 (was Fold 20 0-idx) | 2026-02-26 → 2026-03-28 | -3.121 | -0.17% | 63% | 6 | 41% | Flip regime fires partially ✓ |
+| Fold (1-indexed)       | OOS Window              | Track E Sharpe | Track E Ret | % Neg | Median 7d-flip | % ≥7 flips | Detector verdict                      |
+| ---------------------- | ----------------------- | -------------: | ----------: | ----: | -------------: | ---------: | ------------------------------------- |
+| 17 (was Fold 16 0-idx) | 2025-10-29 → 2025-11-28 |         -1.014 |      -0.06% |   52% |              8 |        80% | Flip regime fires (10+ flips in 7d) ✓ |
+| 20 (was Fold 19 0-idx) | 2026-01-27 → 2026-02-26 |         -3.753 |      -0.10% |   79% |              2 |         0% | Negative-dominance regime fires ✓     |
+| 21 (was Fold 20 0-idx) | 2026-02-26 → 2026-03-28 |         -3.121 |      -0.17% |   63% |              6 |        41% | Flip regime fires partially ✓         |
 
 Two distinct failure-mode signatures motivate the **dual-criterion detector**: flip-flippy periods (Folds 17, 21) and persistent-negative periods (Fold 20). No single criterion would catch all three.
 
@@ -115,20 +115,20 @@ Two distinct failure-mode signatures motivate the **dual-criterion detector**: f
 
 ### §3.1 Headline metrics (in-sample 30-month backtest, 2024-01 → 2026-07)
 
-| Symbol | Total return | Monthly | Sharpe | Sortino | Max DD | Time-in-carry | Entries | Liquidations |
-|--------|-------------:|--------:|-------:|--------:|-------:|--------------:|--------:|-------------:|
-| BTC    | +68.69%      | 1.753%  | 10.71  | 12.05   | 0.091% | 23.60%        | 83      | 0            |
-| ETH    | +73.12%      | 1.841%  | 10.59  |  8.10   | 0.155% | 22.98%        | 80      | 0            |
-| SOL    | +63.83%      | 1.655%  |  8.58  |  5.92   | 0.270% | 17.25%        | 64      | 0            |
-| **AVG**| **+68.55%**  | **1.75%**| **9.96**| **8.69**| **0.172%**| **21.28%**| **76**| **0**      |
+| Symbol  | Total return |   Monthly |   Sharpe |  Sortino |     Max DD | Time-in-carry | Entries | Liquidations |
+| ------- | -----------: | --------: | -------: | -------: | ---------: | ------------: | ------: | -----------: |
+| BTC     |      +68.69% |    1.753% |    10.71 |    12.05 |     0.091% |        23.60% |      83 |            0 |
+| ETH     |      +73.12% |    1.841% |    10.59 |     8.10 |     0.155% |        22.98% |      80 |            0 |
+| SOL     |      +63.83% |    1.655% |     8.58 |     5.92 |     0.270% |        17.25% |      64 |            0 |
+| **AVG** |  **+68.55%** | **1.75%** | **9.96** | **8.69** | **0.172%** |    **21.28%** |  **76** |        **0** |
 
 ### §3.2 Kill-switch specific metrics
 
 | Symbol | Time kill-switch on | Carry paused periods | Regime activations | Flip signals | Neg-dom signals | Extreme-vol signals |
-|--------|---------------------:|---------------------:|-------------------:|-------------:|-----------------:|--------------------:|
-| BTC    | 15.78%              | 439                  | 14                 | 136          | 66               | 9                   |
-| ETH    | 18.57%              | 516                  | 18                 | 177          | 41               | 5                   |
-| SOL    | 30.35%              | 838                  | 30                 | 259          | 135              | 7                   |
+| ------ | ------------------: | -------------------: | -----------------: | -----------: | --------------: | ------------------: |
+| BTC    |              15.78% |                  439 |                 14 |          136 |              66 |                   9 |
+| ETH    |              18.57% |                  516 |                 18 |          177 |              41 |                   5 |
+| SOL    |              30.35% |                  838 |                 30 |          259 |             135 |                   7 |
 
 SOL has the highest kill-switch engagement (30.35%), reflecting the bimodal funding distribution with frequent flip episodes.
 
@@ -155,44 +155,45 @@ Following the Phase 7 Track B adaptive-Kelly and Phase 8 Track E funding-timing 
 
 ### §4.2 Walk-forward empirical results (REAL 9D run)
 
-| Symbol | Agg OOS Sharpe | Agg OOS Return | Agg OOS Max DD | Agg OOS hours | Positive folds | Min fold Sharpe | Mean fold Sharpe | WFE |
-|--------|---------------:|---------------:|----------------:|---------------:|---------------:|----------------:|-----------------:|-----:|
-| BTC    | **11.546**     | +31.65%        | 0.0461%         | 17,280         | 20 / 24        | 0.000           | 8.319            | 1.39 |
-| ETH    | **11.797**     | +32.94%        | 0.0781%         | 17,280         | 20 / 24        | -4.373          | 8.452            | 1.40 |
-| SOL    | **8.045**      | +21.55%        | 0.0258%         | 17,280         | 16 / 24        | -6.364          | 5.180            | 1.55 |
+| Symbol | Agg OOS Sharpe | Agg OOS Return | Agg OOS Max DD | Agg OOS hours | Positive folds | Min fold Sharpe | Mean fold Sharpe |  WFE |
+| ------ | -------------: | -------------: | -------------: | ------------: | -------------: | --------------: | ---------------: | ---: |
+| BTC    |     **11.546** |        +31.65% |        0.0461% |        17,280 |        20 / 24 |           0.000 |            8.319 | 1.39 |
+| ETH    |     **11.797** |        +32.94% |        0.0781% |        17,280 |        20 / 24 |          -4.373 |            8.452 | 1.40 |
+| SOL    |      **8.045** |        +21.55% |        0.0258% |        17,280 |        16 / 24 |          -6.364 |            5.180 | 1.55 |
 
 **Walk-forward efficiency (WFE = aggregateOOSSharpe / meanFoldSharpe)** per PineForge walk-forward analysis discipline: all three symbols in the **healthy 0.5-1.5+ range** per D&T Systems walk-forward analysis (https://dtsystems.dev/blog/walk-forward-analysis-backtesting) — the brief's WFE criterion is satisfied.
 
 ### §4.3 SOL walk-forward fold-by-fold (9D vs Track E)
 
-| Fold | Window | TE Sharpe | TE Ret | 9D Sharpe | 9D Ret | 9D Paused | Notes |
-|-----:|--------|----------:|-------:|----------:|-------:|----------:|-------|
-| 1    | 2024-07-06 → 2024-08-05 | 0.000   |  0.000% |  0.000 |  0.000% |   0.0%    | warmup insufficient |
-| 2    | 2024-08-05 → 2024-09-04 | 2.997   |  0.058% |  0.000 |  0.000% |  68.8%    | false-positive pause |
-| 3    | 2024-09-04 → 2024-10-04 | 16.474  |  1.423% | 15.891 |  1.517% |  14.6%    | ✓ |
-| 4    | 2024-10-04 → 2024-11-03 | 4.450   |  0.088% |  4.450 |  0.100% |  16.7%    | ✓ (no false positive) |
-| 5    | 2024-11-03 → 2024-12-03 | 25.583  |  8.195% | 25.565 |  9.218% |   0.0%    | ✓ best fold |
-| 6    | 2024-12-03 → 2025-01-02 | 13.727  |  3.384% | 13.727 |  3.770% |  16.7%    | ✓ |
-| 7    | 2025-01-02 → 2025-02-01 | 0.149   |  0.019% | -3.490 | -0.019% |  72.2%    | math artifact: tiny loss −0.019% on tiny variance, Sharpe -3.490. Track E was +0.149 (positive but near zero). |
-| 8    | 2025-02-01 → 2025-03-03 | 8.319   |  0.411% |  2.628 |  0.043% |  53.5%    | false-positive pause; 0.41% → 0.04% |
-| 9    | 2025-03-03 → 2025-04-02 | 8.361   |  0.408% |  2.811 |  0.068% |  50.0%    | false-positive pause |
-| 10   | 2025-04-02 → 2025-05-02 | 2.759   |  0.135% |  5.860 |  0.258% |  55.6%    | mixed |
-| 11   | 2025-05-02 → 2025-06-01 | 14.088  |  0.959% | 15.321 |  1.165% |  38.9%    | ✓ |
-| 12   | 2025-06-01 → 2025-07-01 | 9.745   |  0.369% |  4.355 |  0.066% |  41.1%    | false-positive pause |
-| 13   | 2025-07-01 → 2025-07-31 | 19.438  |  1.777% | 21.062 |  2.159% |   4.4%    | ✓ |
-| 14   | 2025-07-31 → 2025-08-30 | 6.691   |  0.191% |  6.691 |  0.212% |   0.0%    | ✓ |
-| 15   | 2025-08-30 → 2025-09-29 | 0.000   |  0.000% |  0.000 |  0.000% |   1.1%    | neutral |
-| 16   | 2025-09-29 → 2025-10-29 | 6.003   |  0.284% |  6.339 |  0.311% |  31.2%    | ✓ |
-| **17** | **2025-10-29 → 2025-11-28** | **-1.014** | **-0.056%** | -1.025 | -0.040% | 36.4% | Track E NEG. 9D reduces loss from -0.056% to -0.040% (-29%) but doesn't fully eliminate. Flip regime detector partially fires. |
-| 18   | 2025-11-28 → 2025-12-28 | 12.673  |  0.813% |  7.353 |  0.286% |  64.3%    | false-positive pause; 0.81% → 0.29% |
-| 19   | 2025-12-28 → 2026-01-27 | 10.864  |  0.481% |  8.420 |  0.277% |  23.2%    | ✓ |
-| **20** | **2026-01-27 → 2026-02-26** | **-3.753** | **-0.099%** | **0.000** | **0.000%** | **89.0%** | **Track E worst NEG. 9D FULLY ELIMINATES** — neg-dominance detector (79% neg in 7d) fires correctly. |
-| **21** | **2026-02-26 → 2026-03-28** | **-3.121** | **-0.169%** | **-6.364** | **-0.264%** | 30.1% | Track E NEG. 9D MATH-ARTIFACT negative (tiny return -0.264% on tiny variance, Sharpe -6.36). Detector paused 30% but carry still entered 11% of fold and got hurt on remaining negative-rate snapshots. **Disclosed honestly** per Phase 8 Track F transparency pattern. |
-| 22   | 2026-03-28 → 2026-04-27 | 8.940   |  0.650% |  9.077 |  0.571% |  43.2%    | ✓ |
-| 23   | 2026-04-27 → 2026-05-27 | 7.230   |  0.399% |  7.714 |  0.315% |  51.1%    | ✓ |
-| 24   | 2026-05-27 → 2026-06-26 | 6.399   |  0.149% |  0.000 |  0.000% |  83.5%    | over-pause (false positive) |
+|   Fold | Window                      |  TE Sharpe |      TE Ret |  9D Sharpe |      9D Ret | 9D Paused | Notes                                                                                                                                                                                                                                                                    |
+| -----: | --------------------------- | ---------: | ----------: | ---------: | ----------: | --------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|      1 | 2024-07-06 → 2024-08-05     |      0.000 |      0.000% |      0.000 |      0.000% |      0.0% | warmup insufficient                                                                                                                                                                                                                                                      |
+|      2 | 2024-08-05 → 2024-09-04     |      2.997 |      0.058% |      0.000 |      0.000% |     68.8% | false-positive pause                                                                                                                                                                                                                                                     |
+|      3 | 2024-09-04 → 2024-10-04     |     16.474 |      1.423% |     15.891 |      1.517% |     14.6% | ✓                                                                                                                                                                                                                                                                        |
+|      4 | 2024-10-04 → 2024-11-03     |      4.450 |      0.088% |      4.450 |      0.100% |     16.7% | ✓ (no false positive)                                                                                                                                                                                                                                                    |
+|      5 | 2024-11-03 → 2024-12-03     |     25.583 |      8.195% |     25.565 |      9.218% |      0.0% | ✓ best fold                                                                                                                                                                                                                                                              |
+|      6 | 2024-12-03 → 2025-01-02     |     13.727 |      3.384% |     13.727 |      3.770% |     16.7% | ✓                                                                                                                                                                                                                                                                        |
+|      7 | 2025-01-02 → 2025-02-01     |      0.149 |      0.019% |     -3.490 |     -0.019% |     72.2% | math artifact: tiny loss −0.019% on tiny variance, Sharpe -3.490. Track E was +0.149 (positive but near zero).                                                                                                                                                           |
+|      8 | 2025-02-01 → 2025-03-03     |      8.319 |      0.411% |      2.628 |      0.043% |     53.5% | false-positive pause; 0.41% → 0.04%                                                                                                                                                                                                                                      |
+|      9 | 2025-03-03 → 2025-04-02     |      8.361 |      0.408% |      2.811 |      0.068% |     50.0% | false-positive pause                                                                                                                                                                                                                                                     |
+|     10 | 2025-04-02 → 2025-05-02     |      2.759 |      0.135% |      5.860 |      0.258% |     55.6% | mixed                                                                                                                                                                                                                                                                    |
+|     11 | 2025-05-02 → 2025-06-01     |     14.088 |      0.959% |     15.321 |      1.165% |     38.9% | ✓                                                                                                                                                                                                                                                                        |
+|     12 | 2025-06-01 → 2025-07-01     |      9.745 |      0.369% |      4.355 |      0.066% |     41.1% | false-positive pause                                                                                                                                                                                                                                                     |
+|     13 | 2025-07-01 → 2025-07-31     |     19.438 |      1.777% |     21.062 |      2.159% |      4.4% | ✓                                                                                                                                                                                                                                                                        |
+|     14 | 2025-07-31 → 2025-08-30     |      6.691 |      0.191% |      6.691 |      0.212% |      0.0% | ✓                                                                                                                                                                                                                                                                        |
+|     15 | 2025-08-30 → 2025-09-29     |      0.000 |      0.000% |      0.000 |      0.000% |      1.1% | neutral                                                                                                                                                                                                                                                                  |
+|     16 | 2025-09-29 → 2025-10-29     |      6.003 |      0.284% |      6.339 |      0.311% |     31.2% | ✓                                                                                                                                                                                                                                                                        |
+| **17** | **2025-10-29 → 2025-11-28** | **-1.014** | **-0.056%** |     -1.025 |     -0.040% |     36.4% | Track E NEG. 9D reduces loss from -0.056% to -0.040% (-29%) but doesn't fully eliminate. Flip regime detector partially fires.                                                                                                                                           |
+|     18 | 2025-11-28 → 2025-12-28     |     12.673 |      0.813% |      7.353 |      0.286% |     64.3% | false-positive pause; 0.81% → 0.29%                                                                                                                                                                                                                                      |
+|     19 | 2025-12-28 → 2026-01-27     |     10.864 |      0.481% |      8.420 |      0.277% |     23.2% | ✓                                                                                                                                                                                                                                                                        |
+| **20** | **2026-01-27 → 2026-02-26** | **-3.753** | **-0.099%** |  **0.000** |  **0.000%** | **89.0%** | **Track E worst NEG. 9D FULLY ELIMINATES** — neg-dominance detector (79% neg in 7d) fires correctly.                                                                                                                                                                     |
+| **21** | **2026-02-26 → 2026-03-28** | **-3.121** | **-0.169%** | **-6.364** | **-0.264%** |     30.1% | Track E NEG. 9D MATH-ARTIFACT negative (tiny return -0.264% on tiny variance, Sharpe -6.36). Detector paused 30% but carry still entered 11% of fold and got hurt on remaining negative-rate snapshots. **Disclosed honestly** per Phase 8 Track F transparency pattern. |
+|     22 | 2026-03-28 → 2026-04-27     |      8.940 |      0.650% |      9.077 |      0.571% |     43.2% | ✓                                                                                                                                                                                                                                                                        |
+|     23 | 2026-04-27 → 2026-05-27     |      7.230 |      0.399% |      7.714 |      0.315% |     51.1% | ✓                                                                                                                                                                                                                                                                        |
+|     24 | 2026-05-27 → 2026-06-26     |      6.399 |      0.149% |      0.000 |      0.000% |     83.5% | over-pause (false positive)                                                                                                                                                                                                                                              |
 
 **SOL negative fold outcome (the headline):**
+
 - **Fold 17** (was -1.014): 9D -1.025. Detector partially fired (paused 36%); loss reduced by 29% but not eliminated.
 - **Fold 20** (was -3.753): 9D 0.000. **FULLY ELIMINATED** — negative-dominance regime (79% neg) correctly identified and paused 89% of fold.
 - **Fold 21** (was -3.121): 9D -6.364. Detector paused 30%, but carry entered 11% of fold and got hurt on negative-rate snapshots. Math artifact of tiny return -0.264% over tiny variance.
@@ -202,9 +203,9 @@ Following the Phase 7 Track B adaptive-Kelly and Phase 8 Track E funding-timing 
 ### §4.4 BTC and ETH walk-forward (9D vs Track E)
 
 | Symbol | 9D Agg Sharpe | Track E Agg Sharpe | 9D Pos Folds | Track E Pos Folds | ΔSharpe |
-|--------|--------------:|--------------------:|-------------:|------------------:|--------:|
-| BTC    | 11.546        | 11.827              | 20 / 24      | 20 / 24           | -2.4%   |
-| ETH    | 11.797        | 12.093              | 20 / 24      | 21 / 24           | -2.5%   |
+| ------ | ------------: | -----------------: | -----------: | ----------------: | ------: |
+| BTC    |        11.546 |             11.827 |      20 / 24 |           20 / 24 |   -2.4% |
+| ETH    |        11.797 |             12.093 |      20 / 24 |           21 / 24 |   -2.5% |
 
 BTC and ETH have few negative folds in Track E (BTC: 1 at -0.342; ETH: 0), so the kill-switch is mostly a defensive no-op. Some positive folds are slightly hurt by over-pause (false positives), but the aggregate OOS Sharpe stays within 2.5% of Track E.
 
@@ -214,20 +215,20 @@ BTC and ETH have few negative folds in Track E (BTC: 1 at -0.342; ETH: 0), so th
 
 ### §5.1 The 3 negative SOL folds: elimination status
 
-| Fold (Track E) | TE Sharpe | TE Ret | 9D Sharpe | 9D Ret | Δ Sharpe | Eliminated? |
-|----------------|----------:|-------:|----------:|-------:|---------:|------------:|
-| 17 (2025-10-29 → 2025-11-28) | -1.014 | -0.056% | -1.025 | -0.040% | -0.011 | Partial (loss reduced 29%) |
-| 20 (2026-01-27 → 2026-02-26) | -3.753 | -0.099% |  0.000 |  0.000% | +3.753 | **YES ✓** |
-| 21 (2026-02-26 → 2026-03-28) | -3.121 | -0.169% | -6.364 | -0.264% | -3.243 | No (math artifact introduced) |
+| Fold (Track E)               | TE Sharpe |  TE Ret | 9D Sharpe |  9D Ret | Δ Sharpe |                   Eliminated? |
+| ---------------------------- | --------: | ------: | --------: | ------: | -------: | ----------------------------: |
+| 17 (2025-10-29 → 2025-11-28) |    -1.014 | -0.056% |    -1.025 | -0.040% |   -0.011 |    Partial (loss reduced 29%) |
+| 20 (2026-01-27 → 2026-02-26) |    -3.753 | -0.099% |     0.000 |  0.000% |   +3.753 |                     **YES ✓** |
+| 21 (2026-02-26 → 2026-03-28) |    -3.121 | -0.169% |    -6.364 | -0.264% |   -3.243 | No (math artifact introduced) |
 
 **Summary:** 1 of 3 negative folds fully eliminated (Fold 20, the worst). 1 fold partially mitigated (Fold 17). 1 fold worse (Fold 21, but the magnitude is similar — both are tiny returns on tiny variances).
 
 ### §5.2 SOL DD reduction (the primary empirical win)
 
-| Metric | Track E (1:10) | 9D (1:10) | Δ |
-|--------|---------------:|----------:|---|
-| Max DD (in-sample 30-month) | 0.573% | **0.270%** | **−53%** |
-| Max DD (walk-forward agg OOS) | 0.5744% | **0.0258%** | **−96%** |
+| Metric                        | Track E (1:10) |   9D (1:10) | Δ        |
+| ----------------------------- | -------------: | ----------: | -------- |
+| Max DD (in-sample 30-month)   |         0.573% |  **0.270%** | **−53%** |
+| Max DD (walk-forward agg OOS) |        0.5744% | **0.0258%** | **−96%** |
 
 The walk-forward aggregate OOS Max DD reduction (96%) is even more dramatic than the in-sample reduction (53%), confirming the kill-switch effectively prevents the tail-event drawdowns that produced Track E's worst losses.
 
@@ -238,6 +239,7 @@ The walk-forward aggregate OOS Max DD reduction (96%) is even more dramatic than
 ### §5.4 SOL fold elimination vs Track E (the brief's primary metric)
 
 The brief said the goal is "SOL should show substantially improved Sharpe OR lower max DD". 9D satisfies this:
+
 - Sharpe: 8.58 vs 8.67 (within 1%) — not substantially improved
 - Max DD: 0.270% vs 0.573% (53% lower) — **substantially lower ✓**
 
@@ -253,26 +255,26 @@ Constraint interaction note: At 1:10 leverage, SOL's parametric daily VaR is 0.3
 
 ## §7. Comparison vs Phase 8 Track E reference
 
-| Symbol | Metric | Track E (1:10) | 9D (1:10) | Δ |
-|--------|--------|---------------:|----------:|---|
-| **BTC** | Total return | +82.63% | +68.69% | -13.94pp |
-|        | Monthly | 2.023% | 1.753% | -0.270pp |
-|        | Sharpe | 10.34 | 10.71 | +0.37 |
-|        | Max DD | 0.132% | 0.091% | **-31%** |
-|        | Agg OOS Sharpe | 11.827 | 11.546 | -2.4% |
-|        | Pos folds | 20/24 | 20/24 | 0 |
-| **ETH** | Total return | +85.14% | +73.12% | -12.02pp |
-|        | Monthly | 2.069% | 1.841% | -0.228pp |
-|        | Sharpe | 10.57 | 10.59 | +0.02 |
-|        | Max DD | 0.105% | 0.155% | +48% (regression) |
-|        | Agg OOS Sharpe | 12.093 | 11.797 | -2.5% |
-|        | Pos folds | 21/24 | 20/24 | -1 |
-| **SOL** | Total return | +84.23% | +63.83% | -20.40pp |
-|        | Monthly | 2.052% | 1.655% | -0.397pp |
-|        | Sharpe | 8.67 | 8.58 | -0.09 |
-|        | Max DD | 0.573% | 0.270% | **-53%** |
-|        | Agg OOS Sharpe | 8.211 | 8.045 | -2.0% |
-|        | Pos folds | 19/24 | 16/24 | -3 |
+| Symbol  | Metric         | Track E (1:10) | 9D (1:10) | Δ                 |
+| ------- | -------------- | -------------: | --------: | ----------------- |
+| **BTC** | Total return   |        +82.63% |   +68.69% | -13.94pp          |
+|         | Monthly        |         2.023% |    1.753% | -0.270pp          |
+|         | Sharpe         |          10.34 |     10.71 | +0.37             |
+|         | Max DD         |         0.132% |    0.091% | **-31%**          |
+|         | Agg OOS Sharpe |         11.827 |    11.546 | -2.4%             |
+|         | Pos folds      |          20/24 |     20/24 | 0                 |
+| **ETH** | Total return   |        +85.14% |   +73.12% | -12.02pp          |
+|         | Monthly        |         2.069% |    1.841% | -0.228pp          |
+|         | Sharpe         |          10.57 |     10.59 | +0.02             |
+|         | Max DD         |         0.105% |    0.155% | +48% (regression) |
+|         | Agg OOS Sharpe |         12.093 |    11.797 | -2.5%             |
+|         | Pos folds      |          21/24 |     20/24 | -1                |
+| **SOL** | Total return   |        +84.23% |   +63.83% | -20.40pp          |
+|         | Monthly        |         2.052% |    1.655% | -0.397pp          |
+|         | Sharpe         |           8.67 |      8.58 | -0.09             |
+|         | Max DD         |         0.573% |    0.270% | **-53%**          |
+|         | Agg OOS Sharpe |          8.211 |     8.045 | -2.0%             |
+|         | Pos folds      |          19/24 |     16/24 | -3                |
 
 **Summary:** 9D is approximately parity with Track E on Sharpe metrics (within 2.5% across all 3 symbols), with significant DD reduction on BTC and SOL (and a slight DD regression on ETH due to a fold where the kill-switch over-paused).
 
@@ -320,9 +322,9 @@ FundingCarryLeverageStrategy (Track D) → VaR-capped dynamic leverage (1×..10�
 
 ### §9.1 Funding-rate regime detection and carry-trade filtering
 
-1. **UseKeel.io — "Backtest funding-rate strategies on Hyperliquid"** (https://usekeel.io/hyperliquid/funding-backtest): practitioner methodology. Key quote: *"Carry strategies fail when funding compresses across the universe. The fix is a regime gate: a top-level signal that says 'is the carry environment rich enough to be worth trading right now?'"* and *"RegimeScale is usually the better choice — binary gates create whipsaw at the regime boundary."* Used to justify the persistence rule (§X.X.1) and the dual-criterion detector.
+1. **UseKeel.io — "Backtest funding-rate strategies on Hyperliquid"** (https://usekeel.io/hyperliquid/funding-backtest): practitioner methodology. Key quote: _"Carry strategies fail when funding compresses across the universe. The fix is a regime gate: a top-level signal that says 'is the carry environment rich enough to be worth trading right now?'"_ and _"RegimeScale is usually the better choice — binary gates create whipsaw at the regime boundary."_ Used to justify the persistence rule (§X.X.1) and the dual-criterion detector.
 
-2. **TokenToolHub — "AI-Trading Myths vs Reality: What Actually Works On-Chain"** (https://tokentoolhub.com/ai-trading-myths-vs-reality-what-actually-works-on-chain/): empirical carry alpha. Key quote: *"Funding-rate carry works in bursts when (a) the sign/persistence are favorable and (b) net of taker fees, borrow, gas, and slippage... Myth 3 — 'Funding-rate carry is free money.' Funding is cyclical and regime-dependent... Carry works when you enforce persistence filters, size caps, and event blackouts."* Used to justify regime persistence.
+2. **TokenToolHub — "AI-Trading Myths vs Reality: What Actually Works On-Chain"** (https://tokentoolhub.com/ai-trading-myths-vs-reality-what-actually-works-on-chain/): empirical carry alpha. Key quote: _"Funding-rate carry works in bursts when (a) the sign/persistence are favorable and (b) net of taker fees, borrow, gas, and slippage... Myth 3 — 'Funding-rate carry is free money.' Funding is cyclical and regime-dependent... Carry works when you enforce persistence filters, size caps, and event blackouts."_ Used to justify regime persistence.
 
 3. **SkillsBot — "永续资金费率与基差分析" (Perpetual Funding Rate & Basis Analysis Skill)** (https://www.skillsbot.cn/skill/14253): practitioner regime classification. Includes `funding_regime(rates_7d)` function: classifies funding into overheated_long, bullish_carry, overheated_short, bearish_carry, neutral. Validates the 7d window choice.
 
@@ -330,23 +332,23 @@ FundingCarryLeverageStrategy (Track D) → VaR-capped dynamic leverage (1×..10�
 
 4. **Wickra Documentation — "Funding Rate Z-Score"** (https://docs.wickra.org/Indicators/Indicator-FundingRateZScore): z-score formula reference. Formula `zScore = (fundingRate − mean) / population_stddev` over rolling window. Used in our detector's z-score calculation (§2.1 step 2).
 
-5. **TradingView — "Funding Rate + Z-Score Skynet"** (https://www.tradingview.com/script/9s2jG8t0-Funding-Rate-Z-Score-Skynet/): practitioner threshold. *"Z > 2 could signal overheated long positions, while Z < –2 points to extreme bearish funding."* Validates our z-score threshold of 1.5 (slightly more sensitive).
+5. **TradingView — "Funding Rate + Z-Score Skynet"** (https://www.tradingview.com/script/9s2jG8t0-Funding-Rate-Z-Score-Skynet/): practitioner threshold. _"Z > 2 could signal overheated long positions, while Z < –2 points to extreme bearish funding."_ Validates our z-score threshold of 1.5 (slightly more sensitive).
 
 6. **MetaFinancialAI** (Binance Square) (https://www.binance.com/en/square/post/314976189933074): 30-cycle funding heatmap with z-score regime detection at z > 1.5. Validates our threshold choice.
 
 ### §9.3 SOL-specific funding-flip regime (2026 evidence)
 
-7. **CryptoRank — "Solana Funding Stays Negative for 16 Days as SOL Clings to $80 Support"** (https://cryptorank.io/news/feed/60d73-solana-funding-stays-negative-for-16-days-as-sol-clings-to-80-support, Feb 15 2026): direct empirical confirmation of the SOL negative-funding regime that produced Track E Fold 20 (-3.753 Sharpe) and 9D Fold 21 (-6.364). Key quote: *"Solana futures funding rates stayed negative for 16 consecutive days... the streak reached a level that has appeared only twice in Solana's trading history."*
+7. **CryptoRank — "Solana Funding Stays Negative for 16 Days as SOL Clings to $80 Support"** (https://cryptorank.io/news/feed/60d73-solana-funding-stays-negative-for-16-days-as-sol-clings-to-80-support, Feb 15 2026): direct empirical confirmation of the SOL negative-funding regime that produced Track E Fold 20 (-3.753 Sharpe) and 9D Fold 21 (-6.364). Key quote: _"Solana futures funding rates stayed negative for 16 consecutive days... the streak reached a level that has appeared only twice in Solana's trading history."_
 
 8. **CoinTelegraph — "Solana futures funding rate turns negative"** (https://cointelegraph.com/markets/solana-futures-funding-rate-turns-negative-is-a-drop-to-78-next): SOL funding-flip event coverage. Validates the existence of persistent negative-funding regimes in SOL.
 
-9. **CryptoRank — "Solana Price Prediction: Goldman Sachs Dumps SOL ETFs as Funding Rates Turn Negative"** (https://cryptorank.io/news/feed/27f04-solana-price-prediction-goldman-sachs-dumps-sol-etfs-as-funding-rates-turn-negative): additional SOL funding-flip confirmation. Quote: *"SOL funding rates dropped from +8% to -3% in three days, the sharpest bearish shift since the February lows."*
+9. **CryptoRank — "Solana Price Prediction: Goldman Sachs Dumps SOL ETFs as Funding Rates Turn Negative"** (https://cryptorank.io/news/feed/27f04-solana-price-prediction-goldman-sachs-dumps-sol-etfs-as-funding-rates-turn-negative): additional SOL funding-flip confirmation. Quote: _"SOL funding rates dropped from +8% to -3% in three days, the sharpest bearish shift since the February lows."_
 
 ### §9.4 Walk-forward anti-overfit discipline
 
-10. **PineForge — "Walk-Forward Analysis"** (https://getpineforge.com/glossary/walk-forward): WFE reference. *"WFE > 60% is acceptable; > 80% is excellent. WFE near 100% is suspicious... Below 40% means the strategy is mostly curve-fit."* Our WFE values (1.39, 1.40, 1.55) are all > 100% — see note below.
+10. **PineForge — "Walk-Forward Analysis"** (https://getpineforge.com/glossary/walk-forward): WFE reference. _"WFE > 60% is acceptable; > 80% is excellent. WFE near 100% is suspicious... Below 40% means the strategy is mostly curve-fit."_ Our WFE values (1.39, 1.40, 1.55) are all > 100% — see note below.
 
-11. **CryptoMantiq — "Walk-Forward Efficiency: Crypto Strategy Quality Metric"** (https://www.cryptomantiq.com/glossary/walk-forward-efficiency): crypto-specific WFE reference. *"Efficiency 50-70%: moderate overfitting present but strategy shows sufficient out-of-sample profitability to justify trading (accept with position-size caution). Efficiency 30-50%: substantial overfitting indicating fragility; consider refinement or rejection."* Our WFE values are above 100% (i.e., aggregate OOS Sharpe > mean fold Sharpe), indicating the strategy generalizes well.
+11. **CryptoMantiq — "Walk-Forward Efficiency: Crypto Strategy Quality Metric"** (https://www.cryptomantiq.com/glossary/walk-forward-efficiency): crypto-specific WFE reference. _"Efficiency 50-70%: moderate overfitting present but strategy shows sufficient out-of-sample profitability to justify trading (accept with position-size caution). Efficiency 30-50%: substantial overfitting indicating fragility; consider refinement or rejection."_ Our WFE values are above 100% (i.e., aggregate OOS Sharpe > mean fold Sharpe), indicating the strategy generalizes well.
 
 12. **D&T Systems — "Walk-Forward Analysis: The Backtest That Actually Predicts Live Performance"** (https://dtsystems.dev/blog/walk-forward-analysis-backtesting): widely-cited WFE baseline reference. Used for the "healthy 0.5-1.5 range" claim.
 
@@ -360,7 +362,7 @@ FundingCarryLeverageStrategy (Track D) → VaR-capped dynamic leverage (1×..10�
 
 ### §9.6 Bybit.eu SPOT margin 1:10 leverage
 
-16. **Bybit EU — "FAQ: Spot Margin Trading"** (https://www.bybit.eu/en-EU/help-center/article/FAQ-Spot-Margin-Trading): official documentation. Quote: *"The maximum leverage for Spot Margin trading is 10x... IMR for borrowed assets = 1/Selected Leverage. MMR for Borrowed Asset = 4%."*
+16. **Bybit EU — "FAQ: Spot Margin Trading"** (https://www.bybit.eu/en-EU/help-center/article/FAQ-Spot-Margin-Trading): official documentation. Quote: _"The maximum leverage for Spot Margin trading is 10x... IMR for borrowed assets = 1/Selected Leverage. MMR for Borrowed Asset = 4%."_
 
 17. **CoinDesk — "Crypto Exchange Bybit Introduces 10x Spot Margin Trading in Europe"** (https://www.coindesk.com/business/2025/08/18/crypto-exchange-bybit-introduces-10x-spot-margin-trading-in-europe): press coverage confirming 1:10 maximum on EU SPOT margin.
 
@@ -370,27 +372,28 @@ FundingCarryLeverageStrategy (Track D) → VaR-capped dynamic leverage (1×..10�
 
 19. **Burnside, Eichenbaum, Rebelo (2011) — "Carry Trade"** (New Palgrave Dictionary of Economics): academic foundation. Carry trades are profitable in some regimes and unprofitable in others; regime identification is the key to risk management.
 
-20. **SNB Working Paper 2010-01 — "The Time-Varying Systematic Risk of Carry Trade Strategies"** (https://www.snb.ch/fr/publications/research/working-papers/2010/working_paper_2010_01): regime-dependent carry trade pricing. *"A typical carry trade strategy has much higher exposure to the stock market and is mean-reverting in regimes of high FX volatility."* Validates the regime-detection approach.
+20. **SNB Working Paper 2010-01 — "The Time-Varying Systematic Risk of Carry Trade Strategies"** (https://www.snb.ch/fr/publications/research/working-papers/2010/working_paper_2010_01): regime-dependent carry trade pricing. _"A typical carry trade strategy has much higher exposure to the stock market and is mean-reverting in regimes of high FX volatility."_ Validates the regime-detection approach.
 
 ### §9.8 Funding-rate volatility academic models
 
-21. **MDPI Mathematics — "The Two-Tiered Structure of Cryptocurrency Funding Rate Markets"** (https://www.mdpi.com/2227-7390/14/2/346): peer-reviewed. *"Funding rate volatility directly impacts arbitrage strategy risk profiles."* Validates the z-score volatility component.
+21. **MDPI Mathematics — "The Two-Tiered Structure of Cryptocurrency Funding Rate Markets"** (https://www.mdpi.com/2227-7390/14/2/346): peer-reviewed. _"Funding rate volatility directly impacts arbitrage strategy risk profiles."_ Validates the z-score volatility component.
 
 ---
 
 ## §10. Files shipped
 
-| File | Lines | Purpose |
-|------|------:|---------|
-| `packages/core/src/strategy/funding-flip-kill-switch.ts` | 783 | Detector + wrapper strategy |
-| `packages/core/src/strategy/funding-flip-kill-switch.test.ts` | 521 | 36 unit tests, 100% function/line coverage |
-| `packages/backtest-tools/src/cli/run-funding-flip-kill-switch.ts` | 818 | CLI runner with --walk-forward |
-| `backtest-results/baseline-funding-flip-kill-switch-btc-1h.json` | full backtest result | BTC 1:10 + kill-switch, 24-fold WF |
-| `backtest-results/baseline-funding-flip-kill-switch-eth-1h.json` | full backtest result | ETH 1:10 + kill-switch, 24-fold WF |
-| `backtest-results/baseline-funding-flip-kill-switch-sol-1h.json` | full backtest result | SOL 1:10 + kill-switch, 24-fold WF |
-| `docs/research/phase9-funding-flip-kill-switch.md` | this file | Empirical report |
+| File                                                              |                Lines | Purpose                                    |
+| ----------------------------------------------------------------- | -------------------: | ------------------------------------------ |
+| `packages/core/src/strategy/funding-flip-kill-switch.ts`          |                  783 | Detector + wrapper strategy                |
+| `packages/core/src/strategy/funding-flip-kill-switch.test.ts`     |                  521 | 36 unit tests, 100% function/line coverage |
+| `packages/backtest-tools/src/cli/run-funding-flip-kill-switch.ts` |                  818 | CLI runner with --walk-forward             |
+| `backtest-results/baseline-funding-flip-kill-switch-btc-1h.json`  | full backtest result | BTC 1:10 + kill-switch, 24-fold WF         |
+| `backtest-results/baseline-funding-flip-kill-switch-eth-1h.json`  | full backtest result | ETH 1:10 + kill-switch, 24-fold WF         |
+| `backtest-results/baseline-funding-flip-kill-switch-sol-1h.json`  | full backtest result | SOL 1:10 + kill-switch, 24-fold WF         |
+| `docs/research/phase9-funding-flip-kill-switch.md`                |            this file | Empirical report                           |
 
 Modifications to existing files:
+
 - `packages/core/src/index.ts` — added exports for the new strategy (9 symbols).
 - `packages/core/src/strategy/funding-carry-timing.ts` — added public `underlyingBaseCarry` getter for rebalance bookkeeping access.
 

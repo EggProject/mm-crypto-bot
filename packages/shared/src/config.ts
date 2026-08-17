@@ -159,9 +159,7 @@ export const AppConfigSchema = z.object({
   portfolio: PortfolioConfigSchema.default({}),
 
   /** Trading symbol-ok (CCXT unified formátumban) */
-  symbols: z
-    .array(z.string())
-    .default(["BTC/USDC", "ETH/USDC", "SOL/USDC"]),
+  symbols: z.array(z.string()).default(["BTC/USDC", "ETH/USDC", "SOL/USDC"]),
 
   /** Log szint */
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),

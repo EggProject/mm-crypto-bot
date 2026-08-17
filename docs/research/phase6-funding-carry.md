@@ -40,6 +40,7 @@ A bybit.eu SPOT-only MiCAR korlátja miatt a Phase 6 Track A szintetikus végreh
 ### 1.2 Miért NEM a backtest engine.runBacktest()?
 
 A `packages/backtest/src/engine.ts` a Phase 1-5 engine-fix óta **directional** stratégiákra van optimalizálva: egy pozíció / time, stop-loss, take-profit, time-exit, funding mint CONSTANT költség. A delta-semleges carry ezzel szemben:
+
 - két egyszerre nyitott pozíció (spot long + perp short) — az engine jelenlegi állapotában erre nincs natív támogatás
 - 8h funding snapshot-ok (nem konstans) — Phase 1-5 `fundingCost()` egyetlen rátával dolgozik
 - delta-semlegesség (nincs stop, nincs TP, nincs time-exit — csak funding accrual)
@@ -52,12 +53,12 @@ A Phase 6 Track A CLI runner ezért egy **külön delta-semleges carry szimulát
 
 ### 2.1 Eredmények összefoglaló táblázat
 
-| Symbol | Total return (30.1 hó) | Monthly avg | Annualized | Sharpe | Sortino | Max DD | Funding collected | Funding periods | Avg rate 8h | Pos / Neg periods |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **BTC/USDT** | **+17.70%** | **+0.54%/hó** | 6.72% | **19.11** | 18.99 | **0.35%** | $1,769.89 | 2,745 | 0.0064% | 2,305 / 440 |
-| **ETH/USDT** | **+18.19%** | **+0.56%/hó** | 6.90% | **18.95** | 14.56 | **0.50%** | $1,818.92 | 2,745 | 0.0066% | 2,295 / 450 |
-| **SOL/USDT** | **+12.34%** | **+0.39%/hó** | 4.76% | **9.09** | 3.05 | **2.28%** | $1,234.21 | 2,745 | 0.0045% | 1,885 / 860 |
-| **Átlag** | **+16.08%** | **+0.50%/hó** | 6.13% | 15.72 | 12.20 | 1.04% | $1,607.67 | 2,745 | 0.0058% | — |
+| Symbol       | Total return (30.1 hó) |   Monthly avg | Annualized |    Sharpe | Sortino |    Max DD | Funding collected | Funding periods | Avg rate 8h | Pos / Neg periods |
+| ------------ | ---------------------: | ------------: | ---------: | --------: | ------: | --------: | ----------------: | --------------: | ----------: | ----------------: |
+| **BTC/USDT** |            **+17.70%** | **+0.54%/hó** |      6.72% | **19.11** |   18.99 | **0.35%** |         $1,769.89 |           2,745 |     0.0064% |       2,305 / 440 |
+| **ETH/USDT** |            **+18.19%** | **+0.56%/hó** |      6.90% | **18.95** |   14.56 | **0.50%** |         $1,818.92 |           2,745 |     0.0066% |       2,295 / 450 |
+| **SOL/USDT** |            **+12.34%** | **+0.39%/hó** |      4.76% |  **9.09** |    3.05 | **2.28%** |         $1,234.21 |           2,745 |     0.0045% |       1,885 / 860 |
+| **Átlag**    |            **+16.08%** | **+0.50%/hó** |      6.13% |     15.72 |   12.20 |     1.04% |         $1,607.67 |           2,745 |     0.0058% |                 — |
 
 Az átlagos **+0.50%/hó** + a Phase 5 Donchian 1d **+0.04-0.10%/hó** trend-followinggal kombinálva a Phase 6 multi-class ensemble-t (Track C Kelly-opt) a **+0.5-1.0%/hó** tartományba viheti. Ez **5-10×-es javulás** a Phase 5 single-edge-hez képest, de továbbra is **50-100×-del a +50%/hó target alatt**.
 
@@ -79,6 +80,7 @@ A max DD 0.35-2.28% mind a három symbol esetén **a bybit.eu SPOT margin 1:10 V
 ### 2.4 Rebalance viselkedés
 
 A 30.1 hónapos backtest során a `rebalanceIfNeeded()` trigger **0 rebalance** volt mind a három symbol esetén. Ennek oka:
+
 - A konzervatív **delta-sensitivity modell** (cum-funding × 0.01) sosem érte el az 5%-os drift threshold-ot, mert a funding accrual lassan épül
 - A valódi delta-drift (spot price move vs perp price move) elméletileg nulla delta-semleges pozícióban — a funding accrual nem okoz delta-driftet, csak cash flow-t
 
@@ -86,13 +88,13 @@ Ez **konzervatív** eredmény: ha a Phase 7+ deployment magasabb delta-sensitivi
 
 ### 2.5 A Phase 5 Donchian 1d baseline-hoz képest
 
-| Metric | Phase 5 Donchian 1d (BTC) | Phase 6 Funding Carry (BTC) | Különbség |
-|---|---:|---:|---|
-| Total return (30.1 hó) | +1.15% | +17.70% | **+15.4×** |
-| Havi átlag | +0.04% | +0.54% | **+13.5×** |
-| Sharpe | 0.16 | 19.11 | **+119×** |
-| Max DD | 5.53% | 0.35% | **−15.8×** (kisebb DD) |
-| Trades | 28 | 1 (effectively) | — |
+| Metric                 | Phase 5 Donchian 1d (BTC) | Phase 6 Funding Carry (BTC) | Különbség              |
+| ---------------------- | ------------------------: | --------------------------: | ---------------------- |
+| Total return (30.1 hó) |                    +1.15% |                     +17.70% | **+15.4×**             |
+| Havi átlag             |                    +0.04% |                      +0.54% | **+13.5×**             |
+| Sharpe                 |                      0.16 |                       19.11 | **+119×**              |
+| Max DD                 |                     5.53% |                       0.35% | **−15.8×** (kisebb DD) |
+| Trades                 |                        28 |             1 (effectively) | —                      |
 
 A funding-rate carry **15×-del jobb total return-t** és **120×-del jobb Sharpe-t** ad, **15×-del alacsonyabb drawdown**-nal. Ez a delta-semlegesség fundamentális előnye: nincs directional risk, nincs stop-loss triggered, csak funding accrual linearitás.
 
@@ -105,6 +107,7 @@ A funding-rate carry **15×-del jobb total return-t** és **120×-del jobb Sharp
 **Claim 1:** A delta-neutral BTC funding-carry a 2024-2025 bull piacon **+12-25%/év** bruttó hozamot hozott, **Sharpe 3-6**-tal.
 
 **Források:**
+
 1. **arxiv.org/html/2510.14435v4** — "Cryptocurrency as an Investable Asset Class: Coming of Age" (2025). A szerzők BTC perpetual funding rate-ből konstruálnak carry stratégiát 2020-08 → 2025-05 periódusra. **Annualizált Sharpe 6.45** (teljes minta), **mean funding return ~8%**, low volatility 0.8%. Viszont kiemelik: "profitability has compressed sharply since 2024" — 2024-ben a Sharpe 4.06-ra esett, 2025-ben negatív lett. (https://arxiv.org/html/2510.14435v4)
 2. **SSRN 5292305** — "Leveraged BTC Funding Carry Algorithm: A Delta-Neutral Long-Spot/Short-Future Strategy" (2025). 3x leveraged carry 3 év tick-level adatból: **annualized return 16.0%, Sharpe 6.1, max DD <2%**. (https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5292305)
 3. **traderabyss.com** (2026) — "9 Smart Crypto Delta Neutral Strategy". BTC átlag funding 2024-2025 bull piacon **0.025%/8h = 27.4% APR**. Realista net **14.75% APR** (avg funding 0.018%/8h × 3 × 305 nap + negatív funding kompenzáció - fee - slippage). (https://traderabyss.com/artigos/crypto-delta-neutral-strategy-2026)
@@ -117,6 +120,7 @@ A funding-rate carry **15×-del jobb total return-t** és **120×-del jobb Sharp
 **Claim 2:** A bybit.eu SPOT-only retail termék a MiCAR (EU 2023/1114) alatt, **nincs perpetual/derivatives** a lakossági ügyfeleknek 2025-2026-ban.
 
 **Források:**
+
 1. **learn.bybit.com/en/regulations/bybit-europe-eu-and-micar** — Bybit EU GmbH 2025 májusában kapott MiCAR licencet az osztrák FMA-tól. 29 EEA országban passporting. A **platform 2025. július 1-én indult, kizárólag SPOT, spot margin, Earn, Card termékekkel**. A perpetual/options suite NEM elérhető. (https://learn.bybit.com/en/regulations/bybit-europe-eu-and-micar)
 2. **leodex.io/learn/country-restrictions/bybit-eu-mica-migration** — "Bybit EU is a different product: full re-KYC, Travel Rule verification on every deposit and withdrawal, proof of wallet ownership for self-hosted transfers over 1,000 EUR, and **no USDT** — MiCA-compliant USDQ and EURQ instead." Derivatives gap: "Bybit built its name on perpetuals, and those don't carry over until the MiFID II application lands." (https://leodex.io/learn/country-restrictions/bybit-eu-mica-migration)
 3. **prnewswire.com** (2025. szeptember 5.) — Bybit EU Group benyújtotta a **MiFID II license application-t** az osztrák Bybit X GmbH-n keresztül, ami lehetővé tenné a regulated derivatives (futures, options) kínálatát. Egyelőre **függőben, várható 2026 Q4+ döntés**. (https://www.prnewswire.com/news-releases/bybit-eu-group-sets-sights-on-mifid-ii-license-to-unlock-derivatives-market-across-europe-302547687.html)
@@ -129,6 +133,7 @@ A funding-rate carry **15×-del jobb total return-t** és **120×-del jobb Sharp
 **Claim 3:** A cross-exchange withdrawal latency **5-30 perc** baseline a legtöbb CEX-TRC20 transferre, de a batch processing és a manual review akár 1+ órára is nyújthatja.
 
 **Források:**
+
 1. **1088ex.com/en/articles/withdrawal-speed-real-test.html** — 3-exchange real test (Binance, OKX, Gate) TRC20 USDT transfer. **Median idők: Binance 2:40, OKX 3:05, Gate 4:18**. Exchange fee mind 1 USDT flat. Internal review queue + chain confirmation együtt. "All three are under 5 minutes during normal conditions." (https://1088ex.com/en/articles/withdrawal-speed-real-test.html)
 2. **bf-binance.com/en/learn/binance-withdrawal-time.html** — Binance withdrawal arrival times by method: **TRC20 typical 3 min (1-10 min range), BEP20 1-5 min, BTC 20-60 min (block time + 2 confirmation), ERC20 3-30 min, SEPA 1-2 business days**. "Receiving exchange crediting process adds a few minutes to 30 minutes." (https://bf-binance.com/en/learn/binance-withdrawal-time.html)
 3. **cryptogeniushub.com/top-crypto-exchanges-with-the-fastest-withdrawal-times/** — "Bybit processes withdrawal requests on a regular basis throughout the day. Most users report receiving their crypto withdrawals within **10 to 30 minutes**. Kraken 5-10 minutes, KuCoin 15-30 minutes." (https://cryptogeniushub.com/top-crypto-exchanges-with-the-fastest-withdrawal-times/)
@@ -140,6 +145,7 @@ A funding-rate carry **15×-del jobb total return-t** és **120×-del jobb Sharp
 **Claim 4:** A delta-neutral carry pozíciók **counterparty risk**-je a CEX-en nyitott short perp leg miatt FUNDAMENTÁLIS — az FTX összeomlás 2022 és a Bybit hack 2025 ezt demonstrálta.
 
 **Források:**
+
 1. **chainargos.com** (2025. október 20.) — "Risks for Synthetic Stablecoins Ethena Labs USDe Case Study": "the Bybit crypto-asset exchange hack in early 2025 illuminated critical weaknesses in Ethena's risk management architecture, revealing how **off-exchange settlement mechanisms protect custody but transfer counterparty risk to exchanges rather than eliminate it**." (https://www.chainargos.com/wp-content/uploads/2025/10/ChainArgos-Case-Study-The-Risks-with-Synthetic-Stablecoins-Ethena-Labs-20-October-2025.pdf)
 2. **eco.com/support/en/articles/15254002-ethena-usde-and-susde-2026-delta-neutral-yield** — "**Exchange counterparty risk.** The short hedge sits at centralized perpetual venues. If a venue fails (FTX precedent), Ethena's hedge there becomes a creditor claim, not a liquid position. Ethena mitigates this with Off-Exchange Settlement custody, so the bulk of assets stay off the exchange's balance sheet." (https://eco.com/support/en/articles/15254002-ethena-usde-and-susde-2026-delta-neutral-yield)
 3. **yellow.com/learn/ethena-usde-delta-neutral-peg-mechanism-explained** — Három fő kockázati kategória: "**Funding rate risk** (when rates go negative, short hedges cost money), **custodian and exchange risk** (FTX precedent — if major exchange collapses, protocol faces shortfall), **smart contract risk** (no audit guarantees absence of vulnerabilities)." (https://yellow.com/learn/ethena-usde-delta-neutral-peg-mechanism-explained)
@@ -151,6 +157,7 @@ A funding-rate carry **15×-del jobb total return-t** és **120×-del jobb Sharp
 **Claim 5:** A Binance perpetual funding rate **8h-onként** kerül felszámításra (00:00, 08:00, 16:00 UTC), ±0.05% damper-rel és a 2% cap-pal.
 
 **Források:**
+
 1. **binance.com/en/support/faq/detail/360033525031** — "The default funding interval is every 8 hours at 00:00 (UTC), 08:00 (UTC), and 16:00 (UTC). The funding rate is then calculated with this 8-Hour interest rate component and the 8-Hour premium component. **A +/- 0.05% damper is also added**." Cap ±2% az USDⓈ-M Perpetual Contracts-ra. (https://www.binance.com/en/support/faq/detail/360033525031)
 2. **developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Get-Funding-Rate-History** — `/fapi/v1/fundingRate` endpoint, max 1000 records/call, 500/5min/IP rate limit. Response: `fundingTime`, `symbol`, `fundingRate`, `markPrice`. A Phase 6 Track A ezt az endpoint-ot használja. (https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Get-Funding-Rate-History)
 
@@ -159,6 +166,7 @@ A funding-rate carry **15×-del jobb total return-t** és **120×-del jobb Sharp
 **Claim 6:** A funding rate compressálódott 2024-ről 2025-re, ami a carry edge csökkenéséhez vezetett.
 
 **Források:**
+
 1. **bitmex.com/blog/2025q3-derivatives-report** — "The 2024-2025 cycle established a new normal: the average funding rate now consistently hovers around a baseline of **0.01%/8-hour**. This occurs even as the volatility regime has compressed substantially." (https://www.bitmex.com/blog/2025q3-derivatives-report)
 2. **learnblockchain.cn/article/26367** — "使用币安的历史资金费率数据，趋势变得清晰。自 2024 年以来的每个主要市场周期都产生了逐渐降低的回报。... 2026 年，该交易的周度年化收益率对 BTC 平均仅为 0.37%." (https://learnblockchain.cn/article/26367)
 
@@ -168,16 +176,17 @@ A funding-rate carry **15×-del jobb total return-t** és **120×-del jobb Sharp
 
 ## 4. A Phase 6 Track A vs Phase 5 stratégiák empirikus összehasonlítása
 
-| Stratégia | Timeframe | Total return | Sharpe | Max DD | Monthly avg | Direction |
-|---|---:|---:|---:|---:|---:|---|
-| Phase 5 A: Always-in trend-following | 1h | -41.3% (BTC) | -2.49 | 41.9% | -1.37%/hó | Directional |
-| Phase 5 B: Composite ensemble | 1h | -47.0% (BTC) | -2.96 | 47.6% | -1.56%/hó | Mixed |
-| Phase 5 C: Donchian 1d | 1d | +1.15% (BTC) | +0.16 | 5.53% | +0.04%/hó | Directional |
-| **Phase 6 Track A: Funding carry** | **1h** | **+17.70% (BTC)** | **+19.11** | **0.35%** | **+0.54%/hó** | **Delta-neutral** |
-| **Phase 6 Track A: Funding carry** | **1h** | **+18.19% (ETH)** | **+18.95** | **0.50%** | **+0.56%/hó** | **Delta-neutral** |
-| **Phase 6 Track A: Funding carry** | **1h** | **+12.34% (SOL)** | **+9.09** | **2.28%** | **+0.39%/hó** | **Delta-neutral** |
+| Stratégia                            | Timeframe |      Total return |     Sharpe |    Max DD |   Monthly avg | Direction         |
+| ------------------------------------ | --------: | ----------------: | ---------: | --------: | ------------: | ----------------- |
+| Phase 5 A: Always-in trend-following |        1h |      -41.3% (BTC) |      -2.49 |     41.9% |     -1.37%/hó | Directional       |
+| Phase 5 B: Composite ensemble        |        1h |      -47.0% (BTC) |      -2.96 |     47.6% |     -1.56%/hó | Mixed             |
+| Phase 5 C: Donchian 1d               |        1d |      +1.15% (BTC) |      +0.16 |     5.53% |     +0.04%/hó | Directional       |
+| **Phase 6 Track A: Funding carry**   |    **1h** | **+17.70% (BTC)** | **+19.11** | **0.35%** | **+0.54%/hó** | **Delta-neutral** |
+| **Phase 6 Track A: Funding carry**   |    **1h** | **+18.19% (ETH)** | **+18.95** | **0.50%** | **+0.56%/hó** | **Delta-neutral** |
+| **Phase 6 Track A: Funding carry**   |    **1h** | **+12.34% (SOL)** |  **+9.09** | **2.28%** | **+0.39%/hó** | **Delta-neutral** |
 
 A Phase 6 Track A funding-carry **a legjobb risk-adjusted edge** az egész Phase 1-6 empirikus történetben:
+
 - Legmagasabb Sharpe (19.11 BTC) — szemben a Phase 5 max +0.46 (SOL 1d Donchian)
 - Legalacsonyabb max DD (0.35% BTC) — szemben a Phase 5 min 3.09% (ETH 1d Donchian)
 - Legjobb monthly avg (0.54%/hó BTC) — szemben a Phase 5 max 0.10%/hó (ETH 1d Donchian)
@@ -211,17 +220,20 @@ DE: a funding-carry **delta-semleges**, tehát a portfolio-ban DIVERZIFIKÁCIÓS
 A Phase 7+ Track A deployment 3 lépésben:
 
 **Lépés 1: Paper-trade follow-up (Phase 7, 1-2 hét)**
+
 - A Phase 6 Carry Strategy-t integrálni a Phase 5 `paper` package-be
 - Live binance.ws funding rate feed (sub-100ms RTT elég, nincs arb latency requirement)
 - Funding accrual valós időben, paper-trade equity tracking
 - Counterparty risk dashboard (binance perp position vs bybit.eu spot position drift)
 
 **Lépés 2: Testnet deployment (Phase 7-8, 1 hónap)**
+
 - Binance testnet perpetual + bybit.eu testnet SPOT
 - Végponttól végpontig integráció (order placement, fill confirmation, funding accrual)
 - Latency benchmark valós körülmények között
 
 **Lépés 3: Éles deployment (Phase 8+, MiCAR scope, 3-6 hónap)**
+
 - Limitált notional ($1k-10k kezdetben)
 - Multi-venue diversification (perp split binance + OKX)
 - OES custodian (Copper ClearLoop vagy hasonló)
@@ -269,25 +281,25 @@ bun run packages/backtest-tools/src/cli/run-funding-carry-baseline.ts \
 
 ### 6.3 Config paraméterek
 
-| Param | Default | Leírás |
-|---|---|---|
-| `--notional` | 10,000 | Position notional USD (spot + perp) |
-| `--rebalance` | 0.05 | Delta drift threshold (5%) |
-| `--latency` | 15 | Withdrawal latency minutes |
-| `--fee-bps` | 20 | Rebalance flat fee (20 bps = 0.2%) |
-| `--equity` | 10,000 | Initial equity USD |
+| Param         | Default | Leírás                              |
+| ------------- | ------- | ----------------------------------- |
+| `--notional`  | 10,000  | Position notional USD (spot + perp) |
+| `--rebalance` | 0.05    | Delta drift threshold (5%)          |
+| `--latency`   | 15      | Withdrawal latency minutes          |
+| `--fee-bps`   | 20      | Rebalance flat fee (20 bps = 0.2%)  |
+| `--equity`    | 10,000  | Initial equity USD                  |
 
 ### 6.4 Edge case-k és azok kezelése
 
-| Edge case | Kezelés |
-|---|---|
-| Funding rate = 0 | `accrueFunding(notional, 0)` → 0, state nem változik |
-| Funding rate > 0.1%/8h (extreme) | Nincs limit, accumulálódik (BTC max 2% cap per Binance) |
-| Funding rate < 0 (negatív) | `accrueFunding(notional, negRate)` → negatív payment (short perp fizet) |
-| Missing OHLCV | CLI error: "No OHLCV candles for SYMBOL TIMEFRAME" |
-| Missing funding CSV | CLI error: funding CSV not found → run `download-funding-rates.ts` |
-| Funding snapshot outside OHLCV window | `getFundingRange(startMs+1, candleMs)` filter, edge timestamps handled |
-| Funding rate NaN/invalid | `accrueFunding()` throws "fundingRate must be finite" |
+| Edge case                             | Kezelés                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------- |
+| Funding rate = 0                      | `accrueFunding(notional, 0)` → 0, state nem változik                    |
+| Funding rate > 0.1%/8h (extreme)      | Nincs limit, accumulálódik (BTC max 2% cap per Binance)                 |
+| Funding rate < 0 (negatív)            | `accrueFunding(notional, negRate)` → negatív payment (short perp fizet) |
+| Missing OHLCV                         | CLI error: "No OHLCV candles for SYMBOL TIMEFRAME"                      |
+| Missing funding CSV                   | CLI error: funding CSV not found → run `download-funding-rates.ts`      |
+| Funding snapshot outside OHLCV window | `getFundingRange(startMs+1, candleMs)` filter, edge timestamps handled  |
+| Funding rate NaN/invalid              | `accrueFunding()` throws "fundingRate must be finite"                   |
 
 ### 6.5 Unit teszt lefedettség
 
@@ -317,6 +329,7 @@ bun run coverage                  # core package coverage
 ```
 
 A Phase 6 brief kötelező feltételei (a `phase6-strategy-brief.md` §3.2):
+
 - ✅ `bun install --frozen-lockfile` sikeres
 - ✅ `bun run typecheck` zöld
 - ✅ `bun run lint` zöld
@@ -338,6 +351,7 @@ A Phase 6 Track A empirikus eredményei alapján:
 ### 8.2 A +50%/hó realitásvizsgálat 3. körének Track A válasza
 
 **RÉSZBEN** — a funding-rate carry:
+
 - ✅ Az egyetlen delta-semleges edge osztály, ami működik a bybit.eu SPOT 1:10 környezetben
 - ✅ Alacsony max DD (0.35-2.28%) — VaR < 2% (a Phase 6 brief sikerkritérium teljesül)
 - ✅ Konzervatív alsó sáv: +0.39%/hó (SOL, alacsonyabb funding aktivitás)
@@ -347,11 +361,11 @@ A Phase 6 Track A empirikus eredményei alapján:
 
 ### 8.3 Phase 7+ scope javaslat
 
-| Scope | Prioritás | Becsült idő | Output |
-|---|---|---|---|
-| Paper-trade follow-up | Phase 7 (1-2 hét) | Magas | Live funding accrual paper-trade, counterparty dashboard |
-| Testnet deployment | Phase 7-8 (1 hó) | Közepes | Binance testnet + bybit.eu testnet integráció |
-| Éles deployment | Phase 8+ (3-6 hó) | Alacsony (MiCAR) | Limitált notional ($1k-10k) multi-venue diversification |
+| Scope                 | Prioritás         | Becsült idő      | Output                                                   |
+| --------------------- | ----------------- | ---------------- | -------------------------------------------------------- |
+| Paper-trade follow-up | Phase 7 (1-2 hét) | Magas            | Live funding accrual paper-trade, counterparty dashboard |
+| Testnet deployment    | Phase 7-8 (1 hó)  | Közepes          | Binance testnet + bybit.eu testnet integráció            |
+| Éles deployment       | Phase 8+ (3-6 hó) | Alacsony (MiCAR) | Limitált notional ($1k-10k) multi-venue diversification  |
 
 A funding-rate carry **READY** paper-trade follow-up-ra, **NOT READY** éles deployment-re. A Phase 7+ scope javaslat konzervatív, a funding compressálódás + counterparty risk miatt.
 

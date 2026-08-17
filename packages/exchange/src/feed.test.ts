@@ -14,12 +14,7 @@
  */
 import { describe, expect, it } from "bun:test";
 
-import {
-  ExchangeFeedError,
-  type ExchangeFeed,
-  type FeedListener,
-  type SubscriptionId,
-} from "./feed.js";
+import { ExchangeFeedError, type ExchangeFeed, type FeedListener, type SubscriptionId } from "./feed.js";
 
 describe("feed", () => {
   describe("ExchangeFeedError", () => {
@@ -90,10 +85,9 @@ describe("feed", () => {
       const { asSymbol } = await import("./symbols.js");
       const feed = new MockExchangeFeed();
       await feed.open();
-      const subId: SubscriptionId = await feed.subscribeTicker(
-        asSymbol("BTC/USDC"),
-        () => { /* no-op */ },
-      );
+      const subId: SubscriptionId = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => {
+        /* no-op */
+      });
       expect(typeof subId).toBe("number");
       await feed.unsubscribe(subId);
       await feed.close();

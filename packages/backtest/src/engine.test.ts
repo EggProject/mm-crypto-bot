@@ -39,7 +39,11 @@ const POSITION_SIZE = {
 
 const HOUR_MS = 60 * 60 * 1000;
 
-function mkCandle(timestamp: number, price: number, opts?: { high?: number; low?: number; volume?: number }): Candle {
+function mkCandle(
+  timestamp: number,
+  price: number,
+  opts?: { high?: number; low?: number; volume?: number },
+): Candle {
   return {
     timestamp,
     open: price,
@@ -996,8 +1000,12 @@ describe("runBacktest — open-position state observation", () => {
           takeProfit: ctx.candle.close * 10,
         };
       }
-      onCandleObserved(): void { this.observedCalls += 1; }
-      warmup(): number { return 0; }
+      onCandleObserved(): void {
+        this.observedCalls += 1;
+      }
+      warmup(): number {
+        return 0;
+      }
     }
     const strategy = new ObservedStrategy();
     const candles = Array.from({ length: 4 }, (_, i) => mkCandle(i * HOUR_MS, 100, { high: 101, low: 99 }));

@@ -150,7 +150,9 @@ export interface PortfolioOrchestratorConfig {
   /** Per-symbol DecisionEngine sub-config (optional — defaults to `DEFAULT_DECISION_ENGINE_CONFIG`). */
   readonly decisionEngine?: Partial<DecisionEngineConfig>;
   /** Custom decision-engine factory (default: DecisionEngine). Used for testing or for plugging in Track A's class. */
-  readonly decisionEngineFactory?: (config: DecisionEngineConfig & { readonly symbol: string }) => DecisionEngineLike;
+  readonly decisionEngineFactory?: (
+    config: DecisionEngineConfig & { readonly symbol: string },
+  ) => DecisionEngineLike;
   /**
    * `pluginsBySymbol` — optional factory that lets callers inject the FULL
    * Phase 11+ plugin set per symbol (BTC: Carry + VolTarget + HybridKelly
@@ -211,14 +213,17 @@ export interface PortfolioOrchestratorConfig {
  * `DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG` — production defaults with
  * the user-mandated values.
  */
-export const DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG: Omit<PortfolioOrchestratorConfig, "dataDir" | "fundingDir"> = {
+export const DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG: Omit<
+  PortfolioOrchestratorConfig,
+  "dataDir" | "fundingDir"
+> = {
   symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
   initialEquityUsd: 10_000,
   maxPositions: 7, // USER SPEC — overrides project default 3
   // Phase 14C: 40% → 50%. Allows the strongest single-symbol signal
   // (typically BTC in a BTC-led carry regime) to take up to half the
   // portfolio. Still within 1:10 leverage cap risk budget.
-  perSymbolConcentrationPct: 0.50,
+  perSymbolConcentrationPct: 0.5,
   portfolioVaRPct: 0.15,
   maxLeverage: ONE_TO_TEN_LEVERAGE, // 1:10 MANDATORY
   // Phase 14C: bumped from 0.7 to 0.85 (typical crypto carry pair
@@ -251,7 +256,8 @@ export interface PortfolioPosition {
  * `CapReason` — why a position's notional was reduced by a cap.
  * `none` means no cap fired.
  */
-export type CapReason = "none" | "maxPositions" | "concentration" | "portfolioVaR" | "leverage" | "correlation";
+export type CapReason =
+  "none" | "maxPositions" | "concentration" | "portfolioVaR" | "leverage" | "correlation";
 
 /**
  * `PortfolioSnapshot` — per-bar orchestrator state. Serializable for
@@ -379,14 +385,10 @@ export class PortfolioOrchestrator {
   constructor(config: Partial<PortfolioOrchestratorConfig> = {}) {
     // Validate the `dataDir` + `fundingDir` are present (no defaults).
     if (config.dataDir === undefined || config.dataDir === "") {
-      throw new Error(
-        `[PortfolioOrchestrator] dataDir is required (path to OHLCV CSV directory).`,
-      );
+      throw new Error(`[PortfolioOrchestrator] dataDir is required (path to OHLCV CSV directory).`);
     }
     if (config.fundingDir === undefined || config.fundingDir === "") {
-      throw new Error(
-        `[PortfolioOrchestrator] fundingDir is required (path to funding CSV directory).`,
-      );
+      throw new Error(`[PortfolioOrchestrator] fundingDir is required (path to funding CSV directory).`);
     }
     // Merge with defaults (preserve user-specified values).
     const merged: PortfolioOrchestratorConfig = {
@@ -397,28 +399,18 @@ export class PortfolioOrchestrator {
       fundingDir: config.fundingDir,
     };
     // Layer 1 of 3-layer 1:10 defense: validate `maxLeverage ≤ 10`.
-    if (
-      !Number.isFinite(merged.maxLeverage) ||
-      merged.maxLeverage < 1 ||
-      merged.maxLeverage > 10
-    ) {
+    if (!Number.isFinite(merged.maxLeverage) || merged.maxLeverage < 1 || merged.maxLeverage > 10) {
       throw new Error(
         `[PortfolioOrchestrator] 1:10 MANDATE BREACH: maxLeverage must be in [1, 10]. ` +
           `Got ${merged.maxLeverage}. Refusing to construct.`,
       );
     }
-    if (
-      !Number.isFinite(merged.initialEquityUsd) ||
-      merged.initialEquityUsd <= 0
-    ) {
+    if (!Number.isFinite(merged.initialEquityUsd) || merged.initialEquityUsd <= 0) {
       throw new Error(
         `[PortfolioOrchestrator] initialEquityUsd must be positive finite, got ${merged.initialEquityUsd}`,
       );
     }
-    if (
-      !Number.isInteger(merged.maxPositions) ||
-      merged.maxPositions <= 0
-    ) {
+    if (!Number.isInteger(merged.maxPositions) || merged.maxPositions <= 0) {
       throw new Error(
         `[PortfolioOrchestrator] maxPositions must be a positive integer, got ${merged.maxPositions}`,
       );
@@ -442,9 +434,7 @@ export class PortfolioOrchestrator {
       );
     }
     if (merged.symbols.length === 0) {
-      throw new Error(
-        `[PortfolioOrchestrator] symbols must be a non-empty array.`,
-      );
+      throw new Error(`[PortfolioOrchestrator] symbols must be a non-empty array.`);
     }
     if (
       !Number.isFinite(merged.crossSymbolCorrelationThreshold) ||
@@ -455,10 +445,7 @@ export class PortfolioOrchestrator {
         `[PortfolioOrchestrator] crossSymbolCorrelationThreshold must be in [-1, 1], got ${merged.crossSymbolCorrelationThreshold}`,
       );
     }
-    if (
-      !Number.isInteger(merged.correlationWindowDays) ||
-      merged.correlationWindowDays <= 0
-    ) {
+    if (!Number.isInteger(merged.correlationWindowDays) || merged.correlationWindowDays <= 0) {
       throw new Error(
         `[PortfolioOrchestrator] correlationWindowDays must be a positive integer, got ${merged.correlationWindowDays}`,
       );
@@ -563,9 +550,7 @@ export class PortfolioOrchestrator {
         const sc = this.signalCenters.get(symbol);
         if (sc === undefined) continue;
         const lastFundingTime = lastFundingTimeBySymbol.get(symbol) ?? 0;
-        const inWindow = funding.filter(
-          (s) => s.fundingTime > lastFundingTime && s.fundingTime <= ts,
-        );
+        const inWindow = funding.filter((s) => s.fundingTime > lastFundingTime && s.fundingTime <= ts);
         for (const snap of inWindow) {
           // Apply funding snapshot to the SCv1's bus (via the bus's
           // emit()). We treat funding snapshots as `carry` signals
@@ -624,26 +609,22 @@ export class PortfolioOrchestrator {
         const de = this.decisionEngines.get(symbol);
         if (de !== undefined) {
           const deWithSynth = de as DecisionEngineWithSynthesize;
-          const decision = typeof deWithSynth.synthesize === 'function'
-            ? deWithSynth.synthesize(symbol, ts) ?? null
-            : (de.decisions().filter((d) => d.timestampMs === ts).slice(-1)[0] ?? null);
+          const decision =
+            typeof deWithSynth.synthesize === "function"
+              ? (deWithSynth.synthesize(symbol, ts) ?? null)
+              : (de
+                  .decisions()
+                  .filter((d) => d.timestampMs === ts)
+                  .slice(-1)[0] ?? null);
           decisionsBySymbol.set(symbol, decision);
           if (decision !== null) {
             this.decisionLog.push(decision);
-            this.perSymbolDecisionCount.set(
-              symbol,
-              (this.perSymbolDecisionCount.get(symbol) ?? 0) + 1,
-            );
+            this.perSymbolDecisionCount.set(symbol, (this.perSymbolDecisionCount.get(symbol) ?? 0) + 1);
           }
         }
       }
       // Step 3: aggregate decisions, apply cross-symbol caps, compute portfolio state.
-      const snapshot = this.aggregateBar(
-        ts,
-        decisionsBySymbol,
-        barBySymbol,
-        portfolioEquity,
-      );
+      const snapshot = this.aggregateBar(ts, decisionsBySymbol, barBySymbol, portfolioEquity);
       this.snapshots.push(snapshot);
       portfolioEquity = snapshot.equityUsd;
       // Per-symbol equity bookkeeping (delta-based PnL attribution).
@@ -657,9 +638,10 @@ export class PortfolioOrchestrator {
           // Per-symbol equity contribution = symbol's appliedNotional/equity * portfolio delta.
           // For simplicity: distribute equity proportional to applied notional.
           const totalApplied = this.sumAppliedNotionals(snapshot);
-          const share = totalApplied > 0
-            ? Math.abs(pos.appliedNotionalUsd) / totalApplied
-            : 1 / this.config.symbols.length;
+          const share =
+            totalApplied > 0
+              ? Math.abs(pos.appliedNotionalUsd) / totalApplied
+              : 1 / this.config.symbols.length;
           // void lastEquity — defensive anchor for the curve (used below
           // for daily returns, but tracked inline in the next loop).
           void (curve[curve.length - 1] ?? this.config.initialEquityUsd);
@@ -698,7 +680,7 @@ export class PortfolioOrchestrator {
       // Feed per-source returns (one per symbol) for correlation.
       for (const symbol of this.config.symbols) {
         const arr = this.perSymbolDailyReturns.get(symbol);
-        const lastRet = arr && arr.length > 0 ? arr[arr.length - 1] ?? 0 : 0;
+        const lastRet = arr && arr.length > 0 ? (arr[arr.length - 1] ?? 0) : 0;
         this.portfolioRisk.recordSourceReturn(symbol, ts, lastRet);
       }
     }
@@ -1020,9 +1002,7 @@ export class PortfolioOrchestrator {
 
     // Step 5: cap 3 — portfolioVaR. If the aggregate effective leverage
     // × daily σ exceeds the VaR cap, scale all positions down.
-    const aggregateLeverage = portfolioEquity > 0
-      ? totalAppliedNotional / portfolioEquity
-      : 0;
+    const aggregateLeverage = portfolioEquity > 0 ? totalAppliedNotional / portfolioEquity : 0;
     // Estimate daily σ from per-symbol returns (rough proxy).
     const dailyStd = this.estimateDailyStd();
     const estimatedVaR = aggregateLeverage * dailyStd * 1.645; // 95% confidence
@@ -1038,9 +1018,7 @@ export class PortfolioOrchestrator {
             ...pos,
             appliedNotionalUsd: scaled,
             capped: true,
-            capReason: pos.capReason === "none" || pos.capReason === null
-              ? "portfolioVaR"
-              : pos.capReason,
+            capReason: pos.capReason === "none" || pos.capReason === null ? "portfolioVaR" : pos.capReason,
           };
           totalAppliedNotional -= applied - scaled;
           initialNotionals[symbol] = scaled;
@@ -1052,9 +1030,7 @@ export class PortfolioOrchestrator {
     const concentrationBySymbol: Record<string, number> = {};
     for (const symbol of this.config.symbols) {
       const applied = initialNotionals[symbol] ?? 0;
-      const concentration = portfolioEquity > 0
-        ? applied / portfolioEquity
-        : 0;
+      const concentration = portfolioEquity > 0 ? applied / portfolioEquity : 0;
       concentrationBySymbol[symbol] = concentration;
       const pos = positionsBySymbol[symbol]!;
       positionsBySymbol[symbol] = {
@@ -1062,9 +1038,7 @@ export class PortfolioOrchestrator {
         concentrationPct: concentration,
       };
     }
-    const finalAggregateLeverage = portfolioEquity > 0
-      ? totalAppliedNotional / portfolioEquity
-      : 0;
+    const finalAggregateLeverage = portfolioEquity > 0 ? totalAppliedNotional / portfolioEquity : 0;
 
     // Step 7: 1:10 MANDATE enforcement (Layer 3 — runtime clamp).
     // The aggregate effective leverage must not exceed the cap.
@@ -1079,9 +1053,7 @@ export class PortfolioOrchestrator {
           ...pos,
           appliedNotionalUsd: scaled,
           capped: true,
-          capReason: pos.capReason === "none" || pos.capReason === null
-            ? "leverage"
-            : pos.capReason,
+          capReason: pos.capReason === "none" || pos.capReason === null ? "leverage" : pos.capReason,
         };
       }
       this.leverageBreaches += 1;
@@ -1095,14 +1067,10 @@ export class PortfolioOrchestrator {
         0,
       );
       try {
-        assertLeverageInvariant(
-          reAggregated,
-          portfolioEquity,
-          {
-            ...DEFAULT_LEVERAGE_INVARIANT_CONFIG,
-            maxLeverage: this.config.maxLeverage,
-          },
-        );
+        assertLeverageInvariant(reAggregated, portfolioEquity, {
+          ...DEFAULT_LEVERAGE_INVARIANT_CONFIG,
+          maxLeverage: this.config.maxLeverage,
+        });
       } catch (err) {
         // Defensive — if FP rounding pushes us past the cap, clamp.
         const clampedScale = (this.config.maxLeverage * portfolioEquity) / reAggregated;
@@ -1128,9 +1096,10 @@ export class PortfolioOrchestrator {
       timestampMs,
       equityUsd: equityAfter,
       positionsBySymbol,
-      aggregateLeverage: portfolioEquity > 0
-        ? this.sumAppliedNotionals({ positionsBySymbol } as PortfolioSnapshot) / portfolioEquity
-        : 0,
+      aggregateLeverage:
+        portfolioEquity > 0
+          ? this.sumAppliedNotionals({ positionsBySymbol } as PortfolioSnapshot) / portfolioEquity
+          : 0,
       portfolioVaRPct: estimatedVaR,
       concentrationBySymbol,
       decisionLog: this.decisionLog.filter((d) => d.timestampMs === timestampMs),
@@ -1207,7 +1176,9 @@ export class PortfolioOrchestrator {
    * `findCorrelatedPairs` — list of (a, b) pairs where |corr| > threshold.
    * Each pair is reported once (a < b).
    */
-  private findCorrelatedPairs(matrix: Readonly<Record<string, Readonly<Record<string, number>>>>): readonly (readonly [string, string])[] {
+  private findCorrelatedPairs(
+    matrix: Readonly<Record<string, Readonly<Record<string, number>>>>,
+  ): readonly (readonly [string, string])[] {
     const out: (readonly [string, string])[] = [];
     const seen = new Set<string>();
     for (const a of this.config.symbols) {
@@ -1318,9 +1289,14 @@ export class PortfolioOrchestrator {
       const c = Number(parts[4]);
       const v = Number(parts[5]);
       if (
-        !Number.isFinite(ts) || !Number.isFinite(o) || !Number.isFinite(h) ||
-        !Number.isFinite(l) || !Number.isFinite(c) || !Number.isFinite(v)
-      ) continue;
+        !Number.isFinite(ts) ||
+        !Number.isFinite(o) ||
+        !Number.isFinite(h) ||
+        !Number.isFinite(l) ||
+        !Number.isFinite(c) ||
+        !Number.isFinite(v)
+      )
+        continue;
       if (ts < startMs || ts > endMs) continue;
       bars.push({
         timestamp: ts,
@@ -1341,7 +1317,11 @@ export class PortfolioOrchestrator {
    *
    * Filename pattern: `binance_<base>usdt_funding_8h.csv`.
    */
-  private async loadFundingForSymbol(symbol: string, startMs: number, endMs: number): Promise<FundingSnapshotCsv[]> {
+  private async loadFundingForSymbol(
+    symbol: string,
+    startMs: number,
+    endMs: number,
+  ): Promise<FundingSnapshotCsv[]> {
     const base = symbol.split("/")[0]?.toLowerCase();
     if (base === undefined) {
       throw new Error(`[PortfolioOrchestrator] Invalid symbol: ${symbol}`);
@@ -1382,17 +1362,16 @@ export class PortfolioOrchestrator {
     for (const symbol of this.config.symbols) {
       const curve = this.perSymbolEquityCurves.get(symbol) ?? [];
       const finalEquity = curve[curve.length - 1] ?? this.config.initialEquityUsd;
-      const totalReturn = this.config.initialEquityUsd > 0
-        ? (finalEquity - this.config.initialEquityUsd) / this.config.initialEquityUsd
-        : 0;
+      const totalReturn =
+        this.config.initialEquityUsd > 0
+          ? (finalEquity - this.config.initialEquityUsd) / this.config.initialEquityUsd
+          : 0;
       const returns = this.perSymbolDailyReturns.get(symbol) ?? [];
       const sharpe = this.sharpeFromReturns(returns);
       const maxDD = this.maxDrawdownFromCurve(curve);
       const decisionCount = this.perSymbolDecisionCount.get(symbol) ?? 0;
       const openCount = this.perSymbolOpenCount.get(symbol) ?? 0;
-      const capacityUsedPct = this.config.maxPositions > 0
-        ? openCount / this.config.maxPositions
-        : 0;
+      const capacityUsedPct = this.config.maxPositions > 0 ? openCount / this.config.maxPositions : 0;
       perSymbolEnvelopes.push({
         symbol,
         finalEquityUsd: finalEquity,
@@ -1407,9 +1386,10 @@ export class PortfolioOrchestrator {
     // Portfolio-level envelope.
     const portfolioCurve = this.snapshots.map((s) => s.equityUsd);
     const finalEquity = portfolioCurve[portfolioCurve.length - 1] ?? this.config.initialEquityUsd;
-    const totalReturn = this.config.initialEquityUsd > 0
-      ? (finalEquity - this.config.initialEquityUsd) / this.config.initialEquityUsd
-      : 0;
+    const totalReturn =
+      this.config.initialEquityUsd > 0
+        ? (finalEquity - this.config.initialEquityUsd) / this.config.initialEquityUsd
+        : 0;
     const portfolioReturns = this.portfolioReturns();
     const sharpe = this.sharpeFromReturns(portfolioReturns);
     const maxDD = this.maxDrawdownFromCurve(portfolioCurve);

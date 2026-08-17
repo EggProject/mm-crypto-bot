@@ -18,32 +18,32 @@ V2 monthly series: synthetic, calibrated to IS/OOS split (IS mean ±20% noise, O
 
 ### 2.1 IS period (2024-01 to 2025-12, 24 months)
 
-| Strategy | Mean monthly | Std dev | Sharpe (ann.) |
-|---|---:|---:|---:|
-| DP-BTC | +21.04% | 17.6% | ~5.0 |
-| V2-BTC | +4.10% | ~0.8% (synthetic, low noise) | high (carry-stable) |
-| V2-ETH | +4.37% | ~0.9% | high |
+| Strategy | Mean monthly |                      Std dev |       Sharpe (ann.) |
+| -------- | -----------: | ---------------------------: | ------------------: |
+| DP-BTC   |      +21.04% |                        17.6% |                ~5.0 |
+| V2-BTC   |       +4.10% | ~0.8% (synthetic, low noise) | high (carry-stable) |
+| V2-ETH   |       +4.37% |                        ~0.9% |                high |
 
 **Pearson correlations (monthly returns):**
 
-| Pair | ρ | Interpretation |
-|---|---:|---|
+| Pair                |          ρ | Interpretation                                         |
+| ------------------- | ---------: | ------------------------------------------------------ |
 | **DP-BTC × V2-BTC** | **-0.351** | **Strong NEGATIVE — V2 hedges DP during DP drawdowns** |
-| DP-BTC × V2-ETH | +0.176 | Weak positive |
-| V2-BTC × V2-ETH | -0.059 | Uncorrelated |
+| DP-BTC × V2-ETH     |     +0.176 | Weak positive                                          |
+| V2-BTC × V2-ETH     |     -0.059 | Uncorrelated                                           |
 
 ### 2.2 OOS period (2026-01 to 2026-07, 6 months)
 
 | Strategy | Mean monthly |
-|---|---:|
-| DP-BTC | +9.39% |
-| V2-BTC | +1.14% |
-| V2-ETH | +0.30% |
+| -------- | -----------: |
+| DP-BTC   |       +9.39% |
+| V2-BTC   |       +1.14% |
+| V2-ETH   |       +0.30% |
 
 **Pearson correlations (OOS):**
 
-| Pair | ρ |
-|---|---:|
+| Pair            |      ρ |
+| --------------- | -----: |
 | DP-BTC × V2-BTC | +0.464 |
 | DP-BTC × V2-ETH | -0.103 |
 
@@ -53,20 +53,20 @@ V2 monthly series: synthetic, calibrated to IS/OOS split (IS mean ±20% noise, O
 
 ### 3.1 IS period (50/50 DP-BTC + V2-BTC)
 
-| Metric | DP alone | V2 alone | Combined |
-|---|---:|---:|---:|
-| Mean monthly | +21.04% | +4.10% | **+12.57%** |
-| Sharpe (ann.) | ~5.0 | high | **3.17** |
-| Std dev | 17.6% | ~0.8% | 13.75% |
-| Worst month | -1.82% | +3.42% | **+1.48%** |
+| Metric        | DP alone | V2 alone |    Combined |
+| ------------- | -------: | -------: | ----------: |
+| Mean monthly  |  +21.04% |   +4.10% | **+12.57%** |
+| Sharpe (ann.) |     ~5.0 |     high |    **3.17** |
+| Std dev       |    17.6% |    ~0.8% |      13.75% |
+| Worst month   |   -1.82% |   +3.42% |  **+1.48%** |
 
 **Diversification benefit at worst-month: V2 carry acts as hedge when DP has drawdown.** Worst combined month is +1.48% vs DP alone worst of -1.82%.
 
 ### 3.2 OOS period (50/50 DP-BTC + V2-BTC)
 
-| Metric | Value |
-|---|---:|
-| Mean monthly | +5.26% |
+| Metric            |                                                             Value |
+| ----------------- | ----------------------------------------------------------------: |
+| Mean monthly      |                                                            +5.26% |
 | Combined envelope | **HALVED vs IS** (because V2 alpha collapses in 2026 environment) |
 
 **The OOS combined envelope is essentially "DP/2"** — V2 contributes zero diversification benefit when funding environment is weak.
@@ -79,18 +79,20 @@ V2 monthly series: synthetic, calibrated to IS/OOS split (IS mean ±20% noise, O
 
 ## 4. Decision matrix
 
-| V2 environment scenario | Combined envelope (DP+V2, 50/50) | Verdict |
-|---|---:|---|
-| V2 carries as expected (IS-like, 2024-2025) | +12.57%/mo @ 3.17 Sharpe, worst +1.48% | DEPLOY |
-| V2 carries weak (current 2026-like) | +5.26%/mo @ low Sharpe | HALF of DP alone |
-| V2 carries zero | +9.39%/mo = exactly half of DP | WORST CASE |
+| V2 environment scenario                     |       Combined envelope (DP+V2, 50/50) | Verdict          |
+| ------------------------------------------- | -------------------------------------: | ---------------- |
+| V2 carries as expected (IS-like, 2024-2025) | +12.57%/mo @ 3.17 Sharpe, worst +1.48% | DEPLOY           |
+| V2 carries weak (current 2026-like)         |                 +5.26%/mo @ low Sharpe | HALF of DP alone |
+| V2 carries zero                             |         +9.39%/mo = exactly half of DP | WORST CASE       |
 
 **Key insight:** the diversification benefit IS real in favorable V2 environments, but **the cost of the bet is asymmetric**:
+
 - Best case: +12.57%/mo (DP+V2)
 - Worst case: +5.26%/mo (DP/2)
 - Median case (50/50 weighting): expected ~+9%/mo with high variance
 
 In contrast, **DP alone** has:
+
 - Mean: +16.62%/mo (2of2 mode) or +26.23%/mo (1of2 mode, cap=0.20)
 - Sharpe: 20.5 (2of2) or 28.99 (1of2)
 - DD: 4.64% (2of2) or 3.17% (1of2)
@@ -102,11 +104,13 @@ In contrast, **DP alone** has:
 **V2 STAYS UNPROMOTED.** Don't combine with DP in production.
 
 For carry exposure in production:
+
 - ✅ **Use Phase 25 #2 dydx-cex-carry** (BTC-USD perp-vs-spot) — snapshot-gated, structural alpha source, not environment-dependent.
 - ❌ Do NOT use V2 — funding is environmentally driven and unreliable in 2026 regime.
 - ✅ **DP alone** remains primary production strategy with proven Sharpe.
 
 **Phase 29 follow-up scope:**
+
 1. Cross-correlation of DP with dydx-cex-carry (next step) — should show better diversification since dydx is structural not environmental.
 2. Multi-symbol DP diversification (BTC + ETH + SOL) — already shown +18.82%/mo portfolio in Phase 24 #2.
 3. Re-evaluate V2 in 6-12 months if funding environment recovers (carry yield > 0.05% per 8h sustained).

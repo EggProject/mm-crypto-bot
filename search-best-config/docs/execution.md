@@ -55,12 +55,12 @@ A négy maszk mindhárom spliten szerepel. `dpc-solflip` és `dpc-solflip-regime
 
 A külön `--strategy=overlay` rács mind a három szimbólumot felsorolja, ezért az invalid BTC/ETH sorokat is megőrzi. A strategy flag nélküli, 31 production maskos manifest ezzel szemben a kombinációs mátrix explicit scope-ját követi:
 
-| Production mask | Végrehajtási út | Symbol scope |
-|---|---|---|
-| `10000` | közvetlen DPC runner | BTC/ETH/SOL |
-| `10001` | adapter, `--mask=dpc-regime` | BTC/ETH/SOL |
-| `10010` | adapter, `--mask=dpc-solflip` | csak SOL; BTC/ETH a mátrixban explicit invalid |
-| `10011` | adapter, `--mask=dpc-solflip-regime` | csak SOL; BTC/ETH a mátrixban explicit invalid |
+| Production mask | Végrehajtási út                      | Symbol scope                                   |
+| --------------- | ------------------------------------ | ---------------------------------------------- |
+| `10000`         | közvetlen DPC runner                 | BTC/ETH/SOL                                    |
+| `10001`         | adapter, `--mask=dpc-regime`         | BTC/ETH/SOL                                    |
+| `10010`         | adapter, `--mask=dpc-solflip`        | csak SOL; BTC/ETH a mátrixban explicit invalid |
+| `10011`         | adapter, `--mask=dpc-solflip-regime` | csak SOL; BTC/ETH a mátrixban explicit invalid |
 
 Így a default manifest nem készíthet DPC-only parancsot overlay kombinációhoz. Dry-runban ugyanez a routing auditálható, `--execute` mellett pedig ugyanaz a parancstömb indul el.
 

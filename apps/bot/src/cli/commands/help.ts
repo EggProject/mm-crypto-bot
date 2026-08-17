@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/help.ts
  *
- * Phase 33 Track D — `mm-bot help` subcommand.
+ * Phase 33 Track D — direct `help` subcommand.
  *
  * Prints the global help table. Equivalent to running with no subcommand
  * (which also prints help), but explicit.
@@ -12,7 +12,7 @@
 import type { CliContext, CliRouter, SubcommandHandler } from "../router.js";
 
 /**
- * `helpCommand` — the `mm-bot help` handler.
+ * `helpCommand` — the direct `help` handler.
  *
  * The router reference is reachable via the closure in `index.ts`, but
  * we don't need it here — the router has already set up `printHelp` for

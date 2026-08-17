@@ -14,12 +14,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import {
-  calculateMonthlyReturn,
-  handleFatal,
-  main,
-  parseSymbols,
-} from "./run-donchian-pivot-composition.js";
+import { calculateMonthlyReturn, handleFatal, main, parseSymbols } from "./run-donchian-pivot-composition.js";
 
 const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
@@ -109,24 +104,27 @@ async function withArgv<T>(args: readonly string[], fn: () => Promise<T>): Promi
 describe("run-donchian-pivot-composition — main() in-process", () => {
   it("a közvetlen bun run belépési pont meghívja a main()-t", async () => {
     const outFile = resolve(outputDir, "dp-direct-entry.json");
-    const process = Bun.spawn([
-      "bun",
-      "run",
-      "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
-      "--symbol=BTC/USDT",
-      "--timeframe=15m",
-      "--min-consensus=2",
-      "--max-position-pct-equity=0.04",
-      "--start=2024-01-01",
-      "--end=2024-01-04",
-      "--equity=10000",
-      `--data-dir=${dataDir}`,
-      `--output=${outFile}`,
-    ], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const process = Bun.spawn(
+      [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts",
+        "--symbol=BTC/USDT",
+        "--timeframe=15m",
+        "--min-consensus=2",
+        "--max-position-pct-equity=0.04",
+        "--start=2024-01-01",
+        "--end=2024-01-04",
+        "--equity=10000",
+        `--data-dir=${dataDir}`,
+        `--output=${outFile}`,
+      ],
+      {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
     const [stdout, stderr, exitCode] = await Promise.all([
       new Response(process.stdout).text(),
       new Response(process.stderr).text(),
@@ -174,23 +172,28 @@ describe("run-donchian-pivot-composition — main() in-process", () => {
       stdoutChunks.push(args.map(String).join(" "));
     };
     try {
-      await withArgv([
-        "--symbol=BTC/USDT",
-        "--timeframe=15m",
-        "--min-consensus=2",
-        "--max-position-pct-equity=0.04",
-        "--start=2024-01-01",
-        "--end=2024-01-04",
-        "--equity=10000",
-        `--data-dir=${dataDir}`,
-        `--output=${outFile}`,
-      ], () => main());
+      await withArgv(
+        [
+          "--symbol=BTC/USDT",
+          "--timeframe=15m",
+          "--min-consensus=2",
+          "--max-position-pct-equity=0.04",
+          "--start=2024-01-01",
+          "--end=2024-01-04",
+          "--equity=10000",
+          `--data-dir=${dataDir}`,
+          `--output=${outFile}`,
+        ],
+        () => main(),
+      );
     } finally {
       console.log = origLog;
     }
     const stdout = stdoutChunks.join("\n");
 
-    expect(stdout).toContain("[donchian-pivot] symbol=BTC/USDT ltf=15m minConsensus=2 maxPositionPctEquity=0.04");
+    expect(stdout).toContain(
+      "[donchian-pivot] symbol=BTC/USDT ltf=15m minConsensus=2 maxPositionPctEquity=0.04",
+    );
     expect(stdout).toContain("=== RESULTS donchian-pivot 2of2 BTC/USDT 15m ===");
     expect(stdout).toContain("[donchian-pivot] Saved:");
 
@@ -209,29 +212,20 @@ describe("run-donchian-pivot-composition — main() in-process", () => {
   });
 
   it("rossz timeframe flag → main() throw-ol", async () => {
-    await expect(
-      withArgv(
-        ["--timeframe=1h", `--data-dir=${dataDir}`],
-        () => main(),
-      ),
-    ).rejects.toThrow(/requires 15m/);
+    await expect(withArgv(["--timeframe=1h", `--data-dir=${dataDir}`], () => main())).rejects.toThrow(
+      /requires 15m/,
+    );
   });
 
   it("--min-consensus érvénytelen érték (0) → main() throw-ol", async () => {
-    await expect(
-      withArgv(
-        ["--min-consensus=0", `--data-dir=${dataDir}`],
-        () => main(),
-      ),
-    ).rejects.toThrow(/min-consensus/);
+    await expect(withArgv(["--min-consensus=0", `--data-dir=${dataDir}`], () => main())).rejects.toThrow(
+      /min-consensus/,
+    );
   });
 
   it("--max-position-pct-equity érvénytelen érték (>0.5) → main() throw-ol", async () => {
     await expect(
-      withArgv(
-        ["--max-position-pct-equity=0.6", `--data-dir=${dataDir}`],
-        () => main(),
-      ),
+      withArgv(["--max-position-pct-equity=0.6", `--data-dir=${dataDir}`], () => main()),
     ).rejects.toThrow(/must be in \(0, 0.5\]/);
   });
 
@@ -252,17 +246,20 @@ describe("run-donchian-pivot-composition — main() in-process", () => {
       stdoutChunks.push(args.map(String).join(" "));
     };
     try {
-      await withArgv([
-        "--symbols=BTC/USDT",
-        "--timeframe=15m",
-        "--min-consensus=2",
-        "--max-position-pct-equity=0.04",
-        "--start=2024-01-01",
-        "--end=2024-01-04",
-        "--equity=10000",
-        `--data-dir=${dataDir}`,
-        `--output-dir=${outDir}`,
-      ], () => main());
+      await withArgv(
+        [
+          "--symbols=BTC/USDT",
+          "--timeframe=15m",
+          "--min-consensus=2",
+          "--max-position-pct-equity=0.04",
+          "--start=2024-01-01",
+          "--end=2024-01-04",
+          "--equity=10000",
+          `--data-dir=${dataDir}`,
+          `--output-dir=${outDir}`,
+        ],
+        () => main(),
+      );
     } finally {
       console.log = origLog;
     }

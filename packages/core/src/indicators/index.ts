@@ -63,11 +63,7 @@ export function computeIndicators(
 ): { htf: IndicatorState; mtf: IndicatorState; ltf: IndicatorState } {
   // HTF indikátorok — a legutolsó definialt ertekre van szuksegunk.
   const htfDonchian = donchian(htfCandles, config.htfDonchianPeriod);
-  const htfSupertrend = supertrend(
-    htfCandles,
-    config.htfSupertrendPeriod,
-    config.htfSupertrendMultiplier,
-  );
+  const htfSupertrend = supertrend(htfCandles, config.htfSupertrendPeriod, config.htfSupertrendMultiplier);
   const htfEma50 = ema(htfCandles, config.htfEmaFast);
   const htfEma200 = ema(htfCandles, config.htfEmaSlow);
   const htfAdxSeries = adx(htfCandles, config.htfAdxPeriod);
@@ -93,22 +89,16 @@ export function computeIndicators(
   const lastBb = pickLast(mtfBb);
   // MTF Donchian (optional — Phase 5 DonchianBreakoutStrategy használja).
   const mtfDonchian =
-    config.mtfDonchianPeriod !== undefined
-      ? donchian(mtfCandles, config.mtfDonchianPeriod)
-      : [];
+    config.mtfDonchianPeriod !== undefined ? donchian(mtfCandles, config.mtfDonchianPeriod) : [];
   const lastMtfDon = pickLast(mtfDonchian);
   const lastMtf = mtfCandles[mtfCandles.length - 1];
   const mtf: IndicatorState = {
     ...(lastMtf ? { close: lastMtf.close } : {}),
     candleIndex: mtfCandles.length - 1,
-    ...(lastBb
-      ? { bbUpper: lastBb.upper, bbLower: lastBb.lower, bbMiddle: lastBb.middle }
-      : {}),
+    ...(lastBb ? { bbUpper: lastBb.upper, bbLower: lastBb.lower, bbMiddle: lastBb.middle } : {}),
     ...pickNumberField("adx", pickLastNumber(mtfAdxSeries)),
     ...pickNumberField("rsi", pickLastNumber(mtfRsi)),
-    ...(lastMtfDon
-      ? { donchianUpper: lastMtfDon.upper, donchianLower: lastMtfDon.lower }
-      : {}),
+    ...(lastMtfDon ? { donchianUpper: lastMtfDon.upper, donchianLower: lastMtfDon.lower } : {}),
   };
   // LTF indikátorok.
   const ltfRsi = rsi(ltfCandles, config.ltfRsiPeriod);
@@ -134,10 +124,7 @@ export function computeIndicators(
 // eslint-disable-next-line @typescript-eslint/consistent-indexed-object-style -- mapped type jobban fejezi ki az opcionális K kulcsot, mint a Record
 type OptionalNumberField<K extends string> = { readonly [P in K]?: number };
 
-function pickNumberField<K extends string>(
-  key: K,
-  value: number | undefined,
-): OptionalNumberField<K> {
+function pickNumberField<K extends string>(key: K, value: number | undefined): OptionalNumberField<K> {
   return value !== undefined ? ({ [key]: value } as OptionalNumberField<K>) : {};
 }
 

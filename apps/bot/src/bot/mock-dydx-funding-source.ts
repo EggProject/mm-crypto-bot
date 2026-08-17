@@ -144,10 +144,7 @@ export class MockDydxFundingSource implements DydxFundingSource {
    */
   public subscribe(
     market: CarryMarket,
-    onTick: (snap: {
-      readonly dydx: FundingSnapshot;
-      readonly cex: FundingSnapshot;
-    }) => void,
+    onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
   ): { readonly close: () => void } {
     const tickMs = TICK_INTERVAL_MS;
     // Fire the first tick immediately so subscribers don't wait 1s
@@ -215,10 +212,7 @@ export class MockDydxFundingSource implements DydxFundingSource {
    */
   private emitTick(
     _market: CarryMarket,
-    onTick: (snap: {
-      readonly dydx: FundingSnapshot;
-      readonly cex: FundingSnapshot;
-    }) => void,
+    onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
   ): void {
     const now = Date.now();
     this._lastTickMs = now;
@@ -227,15 +221,12 @@ export class MockDydxFundingSource implements DydxFundingSource {
 
     // dYdX v4: 0.0001 ± 0.00005 (band inside dYdX v4 historical range)
     const dydxRate =
-      SYNTHETIC_DYDX_FUNDING_RATE_BASE +
-      (this.rng() * 2 - 1) * SYNTHETIC_DYDX_FUNDING_RATE_AMPLITUDE;
+      SYNTHETIC_DYDX_FUNDING_RATE_BASE + (this.rng() * 2 - 1) * SYNTHETIC_DYDX_FUNDING_RATE_AMPLITUDE;
     // Bybit CEX: 0.0001 ± 0.0001 (wider band, 8h cadence)
     const cexRate =
-      SYNTHETIC_CEX_FUNDING_RATE_BASE +
-      (this.rng() * 2 - 1) * SYNTHETIC_CEX_FUNDING_RATE_AMPLITUDE;
+      SYNTHETIC_CEX_FUNDING_RATE_BASE + (this.rng() * 2 - 1) * SYNTHETIC_CEX_FUNDING_RATE_AMPLITUDE;
     // Mark price: 60_000 ± 1_000
-    const markPrice =
-      SYNTHETIC_BTC_MARK_PRICE + (this.rng() * 2 - 1) * 1_000;
+    const markPrice = SYNTHETIC_BTC_MARK_PRICE + (this.rng() * 2 - 1) * 1_000;
 
     const dydxSnap: FundingSnapshot = {
       fundingTime: now,

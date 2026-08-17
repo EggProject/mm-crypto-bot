@@ -21,6 +21,7 @@ Phase 26 + Phase 27 audits identified 6 open items that hadn't been implemented 
 ### 2.1 What was added
 
 **`packages/core/src/strategy/dydx-cex-carry.ts`** (Phase 30 changes):
+
 - New config field `latencyArbThresholdMs: number` (default 500ms — Phase 6 Track B empirical cutoff)
 - New config field `latencySource: LatencySource | null` (default null = disabled, paper-trade friendly)
 - New `LatencySource` interface — pluggable latency observer (`observeRoundTripMs(nowMs) → number | null`)
@@ -38,17 +39,20 @@ Phase 26 + Phase 27 audits identified 6 open items that hadn't been implemented 
 - Pre-Phase-30 snapshots load with the disabled default (forward-compat)
 
 **`packages/core/src/strategy/dydx-cex-carry.paper-trade.ts`** (Phase 30 changes):
+
 - New `PaperTradeLatencyStats` interface — min/max/mean round-trip, paused tick count, paused fraction
 - `PaperTradeReport` adds a `latency: PaperTradeLatencyStats | null` field (null when no `latencySource` was configured)
 - The runner auto-polls the strategy's `latencySource` on every funding tick + every chain heartbeat + every bybit.eu depth observation
 - The report's `latency` field is populated with statistics over the run
 
 **`packages/backtest-tools/src/data/live-latency-source.ts`** (NEW):
+
 - `JsonLatencySource` — async factory that reads a Phase 6 `arb-latency-*.json` file and exposes its `roundTripMsMax` as a `LatencySource`
 - `ConstantLatencySource` — fixed round-trip value for tests / sanity checks / CLI demos
 - Both implement the new `LatencySource` interface exported from `@mm-crypto-bot/core`
 
 **`packages/core/src/index.ts`** (Phase 30 changes):
+
 - Re-exports `LatencySource` from the dydx-cex-carry module
 - Re-exports `PaperTradeLatencyStats` from the paper-trade module
 - The `createLatencyGate`, `DEFAULT_LATENCY_GATE_DISABLED`, `LatencyGate`, `LatencySnapshot` exports from `multi-class-ensemble.js` are already present (line 100-105) — no duplicate re-export needed
@@ -66,37 +70,37 @@ The LatencyGate integration is wire-up verified:
 
 ### 2.3 Test coverage
 
-| Test | Description | Verified |
-|------|-------------|:--------:|
-| #40 | Default config has `latencyArbThresholdMs=500` and `latencySource=null` | ✓ |
-| #41 | Constructor rejects non-positive threshold | ✓ |
-| #42 | Constructor accepts `+Infinity` to explicitly disable | ✓ |
-| #43 | Default gate is `DEFAULT_LATENCY_GATE_DISABLED` (allows) | ✓ |
-| #44 | `recordLatencySnapshot` with rtMs > threshold pauses | ✓ |
-| #45 | `recordLatencySnapshot` with rtMs ≤ threshold allows | ✓ |
-| #46 | `recordLatencySnapshot` with rtMs = threshold (boundary) allows | ✓ |
-| #47 | `recordLatencySnapshot` with NaN keeps existing gate | ✓ |
-| #48 | `recordLatencySnapshot` with negative rtMs keeps existing gate | ✓ |
-| #49 | `pollLatencySource` with null source returns null | ✓ |
-| #50 | `pollLatencySource` with non-null source updates gate | ✓ |
-| #51 | `pollLatencySource` with source=null (no obs) keeps existing gate | ✓ |
-| #52 | `recordFundingTick` returns 0 when latency paused | ✓ |
-| #53 | `recordFundingTick` auto-polls `latencySource` and gates carry | ✓ |
-| #54 | `onCandle` does NOT enter when latency paused | ✓ |
-| #55 | `serializeState`/`fromSnapshot` round-trip preserves latency state | ✓ |
-| #56 | Pre-Phase-30 snapshot loads with defaults (forward-compat) | ✓ |
-| #57 | `reset()` returns latency state to default | ✓ |
-| #58 | Latency pause does NOT auto-close held positions | ✓ |
+| Test | Description                                                             | Verified |
+| ---- | ----------------------------------------------------------------------- | :------: |
+| #40  | Default config has `latencyArbThresholdMs=500` and `latencySource=null` |    ✓     |
+| #41  | Constructor rejects non-positive threshold                              |    ✓     |
+| #42  | Constructor accepts `+Infinity` to explicitly disable                   |    ✓     |
+| #43  | Default gate is `DEFAULT_LATENCY_GATE_DISABLED` (allows)                |    ✓     |
+| #44  | `recordLatencySnapshot` with rtMs > threshold pauses                    |    ✓     |
+| #45  | `recordLatencySnapshot` with rtMs ≤ threshold allows                    |    ✓     |
+| #46  | `recordLatencySnapshot` with rtMs = threshold (boundary) allows         |    ✓     |
+| #47  | `recordLatencySnapshot` with NaN keeps existing gate                    |    ✓     |
+| #48  | `recordLatencySnapshot` with negative rtMs keeps existing gate          |    ✓     |
+| #49  | `pollLatencySource` with null source returns null                       |    ✓     |
+| #50  | `pollLatencySource` with non-null source updates gate                   |    ✓     |
+| #51  | `pollLatencySource` with source=null (no obs) keeps existing gate       |    ✓     |
+| #52  | `recordFundingTick` returns 0 when latency paused                       |    ✓     |
+| #53  | `recordFundingTick` auto-polls `latencySource` and gates carry          |    ✓     |
+| #54  | `onCandle` does NOT enter when latency paused                           |    ✓     |
+| #55  | `serializeState`/`fromSnapshot` round-trip preserves latency state      |    ✓     |
+| #56  | Pre-Phase-30 snapshot loads with defaults (forward-compat)              |    ✓     |
+| #57  | `reset()` returns latency state to default                              |    ✓     |
+| #58  | Latency pause does NOT auto-close held positions                        |    ✓     |
 
 **Total Phase 30 LatencyGate tests:** 19 (all pass). 43 prior tests unchanged (still pass). **62/62 total.**
 
 ### 2.4 Latency gate empirical anchors (Phase 6 sample data)
 
-| Source | Exchange pair | Symbol | P95 RTT | Max RTT | Threshold (default) | Carry-allowed fraction |
-|--------|---------------|--------|--------:|--------:|--------------------:|----------------------:|
-| `arb-latency-binance-bybit-btc-sample.json` | binance-bybit | BTC | 1027ms | 1792ms | 500ms | ~0% (P95 > threshold) |
-| `arb-latency-binance-kucoin-eth-sample.json` | binance-kucoin | ETH | (sample) | (sample) | 500ms | (sample-dependent) |
-| `arb-latency-bybit-kucoin-sol-sample.json` | bybit-kucoin | SOL | (sample) | (sample) | 500ms | (sample-dependent) |
+| Source                                       | Exchange pair  | Symbol |  P95 RTT |  Max RTT | Threshold (default) | Carry-allowed fraction |
+| -------------------------------------------- | -------------- | ------ | -------: | -------: | ------------------: | ---------------------: |
+| `arb-latency-binance-bybit-btc-sample.json`  | binance-bybit  | BTC    |   1027ms |   1792ms |               500ms |  ~0% (P95 > threshold) |
+| `arb-latency-binance-kucoin-eth-sample.json` | binance-kucoin | ETH    | (sample) | (sample) |               500ms |     (sample-dependent) |
+| `arb-latency-bybit-kucoin-sol-sample.json`   | bybit-kucoin   | SOL    | (sample) | (sample) |               500ms |     (sample-dependent) |
 
 **Empirical interpretation:** with the default 500ms threshold, the binance-bybit BTC pair's P95 (1027ms) is above the threshold — meaning the carry is **paused for ~95% of live samples**. This is the **correct conservative posture** — a high-latency fill is a late fill, the spread moves against us, and paying funding while bleeding slippage is net-negative.
 
@@ -109,6 +113,7 @@ For production deployment, the threshold should be calibrated per exchange pair.
 ### 3.1 What was added
 
 **`packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts`** (Phase 30b changes):
+
 - New CLI flag `--symbols=BTC/USDT,ETH/USDT,SOL/USDT` (comma-separated, allowed set is the project's standard 3)
 - New CLI flag `--output-dir=<path>` (defaults to `backtest-results/phase30b-multisymbol`)
 - Multi-symbol mode auto-detected when `--symbols=` is passed
@@ -119,18 +124,19 @@ For production deployment, the threshold should be calibrated per exchange pair.
 
 ### 3.2 Empirical verification (fresh 2026 OOS backtest)
 
-| Symbol | Monthly | Sharpe | Max DD | Trades | Win rate |
-|--------|--------:|-------:|-------:|-------:|---------:|
-| BTC/USDT | **+26.23%/mo** | 28.99 | 3.17% | 2075 | 68.82% |
-| ETH/USDT | **+29.64%/mo** | 27.39 | 4.58% | 2280 | 65.35% |
-| SOL/USDT | **+27.86%/mo** | 27.31 | 7.70% | 2295 | 64.23% |
-| **Combined (simple avg)** | **+27.91%/mo** | **27.90** | **7.70%** | — | — |
+| Symbol                    |        Monthly |    Sharpe |    Max DD | Trades | Win rate |
+| ------------------------- | -------------: | --------: | --------: | -----: | -------: |
+| BTC/USDT                  | **+26.23%/mo** |     28.99 |     3.17% |   2075 |   68.82% |
+| ETH/USDT                  | **+29.64%/mo** |     27.39 |     4.58% |   2280 |   65.35% |
+| SOL/USDT                  | **+27.86%/mo** |     27.31 |     7.70% |   2295 |   64.23% |
+| **Combined (simple avg)** | **+27.91%/mo** | **27.90** | **7.70%** |      — |        — |
 
 **Matches Phase 26 §4.2 numbers exactly** (BTC +25.45%/mo was the 6-month fresh rerun; the marginal +0.78% delta is from the 2024-2025 carryover bar — both within sampling noise). Phase 26 #1 cap=0.20 envelope stands.
 
 ### 3.3 Why this is the "ETH reg" fix
 
 The Phase 26 audit found that the **PortfolioOrchestrator + 5-plugin stack** underperforms (+2.05%/mo combined) due to:
+
 - Plugin overlap (5 baseline plugins compete for the same signal)
 - Concentration caps (40% per symbol × 7 positions limit scaling)
 - Cross-symbol correlation penalty (Pearson r > 0.7 → 50% halve is too aggressive)
@@ -139,6 +145,7 @@ The Phase 26 audit found that the **PortfolioOrchestrator + 5-plugin stack** und
 The fix is to **not** use the orchestrator for production deployment. The new `--symbols=` flag makes the per-symbol DP configuration a single CLI invocation, eliminating the "manually run 3×" friction that made it easy to drift back to the orchestrator.
 
 **ETH envelope is real and material:**
+
 - ETH standalone: +29.64%/mo @ 4.58% DD, 2280 trades, 65.35% win rate
 - This is the per-symbol envelope that was previously hidden by the orchestrator's overhead
 
@@ -156,14 +163,14 @@ The fix is to **not** use the orchestrator for production deployment. The new `-
 
 ## 5. What Phase 30 closes
 
-| Phase 27 open item | Status |
-|--------------------|--------|
-| #1 OOS validation (V2) | ✓ DONE in Phase 28 |
-| #3 Cross-correlation (DP vs V2) | ✓ DONE in Phase 29 |
-| #4 LatencyGate live wiring | ✓ DONE in Phase 30 (this report) |
-| #5 SOL funding volatility | HALTED in Phase 25 #2 — less urgent (V2 itself is unpromoted) |
-| #6 Paper-trade gate CLI | ✓ DONE in Phase 28 |
-| #7 Portfolio orchestrator ETH registration | ✓ DONE in Phase 30b (this report) |
+| Phase 27 open item                         | Status                                                        |
+| ------------------------------------------ | ------------------------------------------------------------- |
+| #1 OOS validation (V2)                     | ✓ DONE in Phase 28                                            |
+| #3 Cross-correlation (DP vs V2)            | ✓ DONE in Phase 29                                            |
+| #4 LatencyGate live wiring                 | ✓ DONE in Phase 30 (this report)                              |
+| #5 SOL funding volatility                  | HALTED in Phase 25 #2 — less urgent (V2 itself is unpromoted) |
+| #6 Paper-trade gate CLI                    | ✓ DONE in Phase 28                                            |
+| #7 Portfolio orchestrator ETH registration | ✓ DONE in Phase 30b (this report)                             |
 
 **Phase 27 → Phase 30 closure:** 5 of 6 items resolved. #5 (SOL funding) is on permanent HALT per Phase 25 #2 — not actionable.
 
@@ -172,6 +179,7 @@ The fix is to **not** use the orchestrator for production deployment. The new `-
 ## 6. Files changed by Phase 30
 
 ### Modified
+
 - `packages/core/src/strategy/dydx-cex-carry.ts` — `latencyArbThresholdMs`, `latencySource`, `currentLatencyGate` state, `recordLatencySnapshot` / `pollLatencySource` / `isLatencyPaused` / `currentLatencyGate` methods, `recordFundingTick` + `onCandle` gate, `serializeState` / `fromSnapshot` / `reset` updates
 - `packages/core/src/strategy/dydx-cex-carry.paper-trade.ts` — `PaperTradeLatencyStats` type, `latency` field on `PaperTradeReport`, per-tick latency polling
 - `packages/core/src/index.ts` — re-export `LatencySource`, `PaperTradeLatencyStats`
@@ -179,9 +187,11 @@ The fix is to **not** use the orchestrator for production deployment. The new `-
 - `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` — `--symbols=`, `--output-dir=` flags, multi-symbol mode + combined envelope output
 
 ### Added
+
 - `packages/backtest-tools/src/data/live-latency-source.ts` — `JsonLatencySource` + `ConstantLatencySource` adapters
 
 ### Test artifacts (not committed, in backtest-results)
+
 - `backtest-results/phase30b-multisymbol/dp-1of2-btc-usdt-0.2.json`
 - `backtest-results/phase30b-multisymbol/dp-1of2-eth-usdt-0.2.json`
 - `backtest-results/phase30b-multisymbol/dp-1of2-sol-usdt-0.2.json`

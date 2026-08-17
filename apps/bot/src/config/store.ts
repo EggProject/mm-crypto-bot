@@ -68,11 +68,7 @@ export class ConfigReadError extends Error {
   public readonly path: string;
   public readonly originalCause: unknown;
 
-  public constructor(
-    message: string,
-    path: string,
-    cause: unknown,
-  ) {
+  public constructor(message: string, path: string, cause: unknown) {
     super(message);
     this.path = path;
     this.originalCause = cause;
@@ -164,8 +160,12 @@ const DEFAULT_CONFIG_STORE_DEPENDENCIES: ConfigStoreDependencies = {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- dirname of normalized ConfigStore path
     mkdirSync(path, { recursive: true });
   },
-  copy: (source, target) => { copyFileSync(source, target); },
-  atomicWrite: (path, contents) => { writeFileAtomic.sync(path, contents, "utf8"); },
+  copy: (source, target) => {
+    copyFileSync(source, target);
+  },
+  atomicWrite: (path, contents) => {
+    writeFileAtomic.sync(path, contents, "utf8");
+  },
   appendText: (path, contents) => {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- fixed audit suffix of normalized ConfigStore path
     writeFileSync(path, contents, { flag: "a" });
@@ -224,11 +224,7 @@ export class ConfigStore {
       text = this.dependencies.readText(this.path);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new ConfigReadError(
-        `Failed to read config file at "${this.path}": ${message}`,
-        this.path,
-        err,
-      );
+      throw new ConfigReadError(`Failed to read config file at "${this.path}": ${message}`, this.path, err);
     }
 
     let raw: unknown;
@@ -239,11 +235,7 @@ export class ConfigStore {
       // A natív `Bun.TOML.parse` szintaktikailag kompatibilis
       // eredményt ad, így a hibakezelés ugyanaz.
       const message = err instanceof TomlError ? err.message : String(err);
-      throw new ConfigReadError(
-        `Failed to parse TOML at "${this.path}": ${message}`,
-        this.path,
-        err,
-      );
+      throw new ConfigReadError(`Failed to parse TOML at "${this.path}": ${message}`, this.path, err);
     }
 
     // A TOML-tartalom Zod-validációja. A séma a `passthrough()` miatt
@@ -283,9 +275,7 @@ export class ConfigStore {
         fieldErrors.set(key, list);
       }
       throw new ConfigValidationError(
-        `Bot config validation failed:\n${issues
-          .map((i) => `  • ${i.path}: ${i.message}`)
-          .join("\n")}`,
+        `Bot config validation failed:\n${issues.map((i) => `  • ${i.path}: ${i.message}`).join("\n")}`,
         Object.fromEntries(fieldErrors),
         issues,
       );
@@ -340,10 +330,9 @@ export class ConfigStore {
       reparsed = this.dependencies.parse(serialized);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(
-        `ConfigStore.write: round-trip parse failed (smol-toml bug?): ${message}`,
-        { cause: err },
-      );
+      throw new Error(`ConfigStore.write: round-trip parse failed (smol-toml bug?): ${message}`, {
+        cause: err,
+      });
     }
     this.validate(reparsed);
 
@@ -445,10 +434,9 @@ export class ConfigStore {
       this.dependencies.appendText(auditPath, `${JSON.stringify(entry)}\n`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(
-        `ConfigStore.writeAfterTypedLive: failed to write audit log ${auditPath}: ${message}`,
-        { cause: err },
-      );
+      throw new Error(`ConfigStore.writeAfterTypedLive: failed to write audit log ${auditPath}: ${message}`, {
+        cause: err,
+      });
     }
 
     // Tényleges write — a `write` metódus a Zod re-validate + atomic
@@ -508,11 +496,7 @@ export class ConfigStore {
    * @throws {ConfigValidationError} ha a Zod séma elutasítja az
    *   új értéket (pl. `leverage = 15` → 1:10 MANDATE breach).
    */
-  public setStrategySetting(
-    strategyId: StrategyName,
-    key: string,
-    value: unknown,
-  ): void {
+  public setStrategySetting(strategyId: StrategyName, key: string, value: unknown): void {
     // Először a jelenlegi strategy-section-t olvassuk, és ellenőrizzük,
     // hogy az új `{ [key]: value }` shape érvényes-e a sémán.
     const candidate = { [key]: value };
@@ -570,9 +554,7 @@ export class ConfigStore {
    * @throws {ConfigValidationError} ha a Zod séma elutasítja az új
    *   konfigot.
    */
-  public setExchangeConfig(
-    partial: Partial<BotConfig["exchange"]>,
-  ): void {
+  public setExchangeConfig(partial: Partial<BotConfig["exchange"]>): void {
     const current = this.read();
     const next: BotConfig = {
       ...current,
@@ -618,9 +600,7 @@ export class ConfigStore {
    * @throws {ConfigValidationError} ha a Zod séma elutasítja az új
    *   konfigot.
    */
-  public setTelemetryConfig(
-    partial: Partial<BotConfig["telemetry"]>,
-  ): void {
+  public setTelemetryConfig(partial: Partial<BotConfig["telemetry"]>): void {
     const current = this.read();
     const next: BotConfig = {
       ...current,

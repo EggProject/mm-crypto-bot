@@ -31,7 +31,11 @@ const POSITION_SIZE = {
   minPositionPctEquity: 0.01,
 };
 
-function mkCandle(timestamp: number, price: number, opts?: { high?: number; low?: number; volume?: number }): Candle {
+function mkCandle(
+  timestamp: number,
+  price: number,
+  opts?: { high?: number; low?: number; volume?: number },
+): Candle {
   return {
     timestamp,
     open: price,

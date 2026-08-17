@@ -33,7 +33,13 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { asSymbol, type Ohlcv, type Symbol as ExchangeSymbol, type Ticker, type Timeframe } from "@mm-crypto-bot/exchange";
+import {
+  asSymbol,
+  type Ohlcv,
+  type Symbol as ExchangeSymbol,
+  type Ticker,
+  type Timeframe,
+} from "@mm-crypto-bot/exchange";
 // Phase 66: `MockExchangeFeed` is test-only — import from the
 // `@exchange-testing/*` path alias (see tsconfig.base.json).
 import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
@@ -62,7 +68,12 @@ function pushTickerTick(feed: MockExchangeFeed, symbol: ExchangeSymbol, last: nu
 /**
  * `pushOhlcvTick` — egyetlen OHLCV eventet küld a mock feed-en.
  */
-function pushOhlcvTick(feed: MockExchangeFeed, symbol: ExchangeSymbol, timeframe: Timeframe, candle: Ohlcv): void {
+function pushOhlcvTick(
+  feed: MockExchangeFeed,
+  symbol: ExchangeSymbol,
+  timeframe: Timeframe,
+  candle: Ohlcv,
+): void {
   feed.pushEvent({
     kind: "ohlcv",
     payload: { symbol, timeframe, candle },
@@ -142,14 +153,7 @@ describe("wire-up probe — bot runtime end-to-end", () => {
       const last = 60_000 + i * 10; // trending up
       pushTickerTick(feed, symbol, last);
       if (i % 5 === 0) {
-        const candle: Ohlcv = [
-          Date.now() - (100 - i) * 60_000,
-          last - 5,
-          last + 5,
-          last - 10,
-          last,
-          100,
-        ];
+        const candle: Ohlcv = [Date.now() - (100 - i) * 60_000, last - 5, last + 5, last - 10, last, 100];
         pushOhlcvTick(feed, symbol, "15m", candle);
       }
     }

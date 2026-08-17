@@ -12,10 +12,11 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "bun test src",
-    "coverage": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage",
+    "coverage": "vitest run --config vitest.config.ts --coverage",
     "clean": "rm -rf .turbo *.tsbuildinfo coverage",
-    "coverage:text": "bun test src --coverage --coverage-reporter=text",
-    "coverage:lcov": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage"
+    "coverage:unit": "vitest run --config vitest.config.ts --coverage",
+    "coverage:text": "vitest run --config vitest.config.ts --coverage",
+    "coverage:lcov": "vitest run --config vitest.config.ts --coverage"
   },
   "dependencies": {
     "@mm-crypto-bot/shared": "workspace:*"

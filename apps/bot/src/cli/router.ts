@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/router.ts
  *
- * Phase 33 Track D — `CliRouter` — a subcommand router for the `mm-bot` CLI.
+ * Phase 33 Track D — `CliRouter` — a subcommand router for the bot application.
  *
  * The router owns a registry of `(name, description, handler)` triples and
  * dispatches the first positional arg of argv to the matching handler.
@@ -12,7 +12,7 @@
  *     managing its own state.
  *   - **Async-first** — handlers return `Promise<number>` (the exit code).
  *     The `run()` method awaits the handler and returns the resolved code.
- *   - **Help-first** — `mm-bot help` (or no subcommand) prints the help
+ *   - **Help-first** — the `help` subcommand (or no subcommand) prints the help
  *     table and returns 1.
  *   - **Unknown subcommand** — prints an error + help and returns 1.
  *
@@ -34,6 +34,8 @@ import type { BotConfig } from "../config/index.js";
 
 import type { ParsedArgs } from "./argv.js";
 import { parseArgv } from "./argv.js";
+
+export const CLI_COMMAND = "bun run apps/bot/src/index.ts";
 
 // ============================================================================
 // Public types
@@ -95,7 +97,7 @@ interface SubcommandEntry {
  */
 export class CliRouter {
   private readonly entries = new Map<string, SubcommandEntry>();
-  private programDescription = "mm-bot — the mm-crypto-bot CLI";
+  private programDescription = "mm-crypto-bot command-line interface";
 
   // --------------------------------------------------------------------------
   // Registration
@@ -108,7 +110,7 @@ export class CliRouter {
    * @param description A short (1-line) help text describing the subcommand.
    * @param handler     The async function to invoke for this subcommand.
    *
-   * The `name` is the literal string the user types after `mm-bot`. It is
+   * The `name` is the literal string the user types after the supported command. It is
    * case-sensitive. Re-registering the same name overwrites the previous
    * entry (the typical pattern: tests build a fresh router per test).
    */
@@ -118,7 +120,7 @@ export class CliRouter {
 
   /**
    * `setProgramDescription` — set the header line printed by `printHelp`.
-   * Defaults to "mm-bot — the mm-crypto-bot CLI".
+   * Defaults to the bot command-line interface description.
    */
   public setProgramDescription(description: string): void {
     this.programDescription = description;
@@ -150,7 +152,7 @@ export class CliRouter {
     }
 
     // --help / -h on a KNOWN subcommand → dispatch to the handler, which
-    // owns its own subcommand-specific help (e.g. `mm-bot config --help`
+    // owns its own subcommand-specific help (for example, `config --help`
     // knows about validate/show/init, but the router doesn't).
     // --help on an UNKNOWN subcommand → print error + global help.
     if (parsed.flags.get("help") === true) {
@@ -166,7 +168,7 @@ export class CliRouter {
 
     // Sub-subcommand routing: if the first positional arg isn't a known
     // subcommand but matches a registered subcommand's "subcommand" prefix
-    // (e.g. `mm-bot config validate`), we delegate the sub-subcommand
+    // (for example, `config validate`), we delegate the sub-subcommand
     // to the handler. The handler is responsible for interpreting
     // `parsed.positional[0]` as its own sub-subcommand.
     //
@@ -213,7 +215,7 @@ export class CliRouter {
     if (subcommand !== "") {
       const entry = this.entries.get(subcommand);
       if (entry !== undefined) {
-        lines.push(`Usage: mm-bot ${entry.name} [--config=path] [--no-color] [--help]`);
+        lines.push(`Usage: ${CLI_COMMAND} ${entry.name} [--config=path] [--no-color] [--help]`);
         lines.push("");
         lines.push(`  ${entry.description}`);
         lines.push("");
@@ -228,7 +230,7 @@ export class CliRouter {
       lines.push(`Unknown subcommand: "${subcommand}"`);
       lines.push("");
     }
-    lines.push("Usage: mm-bot <subcommand> [options]");
+    lines.push(`Usage: ${CLI_COMMAND} <subcommand> [options]`);
     lines.push("");
     lines.push("Subcommands:");
     const sorted = [...this.entries.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -239,7 +241,7 @@ export class CliRouter {
       lines.push(`  ${padded}   ${e.description}`);
     }
     lines.push("");
-    lines.push("Run `mm-bot <subcommand> --help` for subcommand-specific options.");
+    lines.push(`Run \`${CLI_COMMAND} <subcommand> --help\` for subcommand-specific options.`);
     this.writeHelp(lines);
   }
 
@@ -250,7 +252,7 @@ export class CliRouter {
     const lines: string[] = [];
     lines.push(`Unknown subcommand: "${name}"`);
     lines.push("");
-    lines.push("Run `mm-bot --help` for a list of subcommands.");
+    lines.push(`Run \`${CLI_COMMAND} --help\` for a list of subcommands.`);
     this.writeHelp(lines);
   }
 

@@ -107,7 +107,7 @@ const funding = (tsMs: number, symbol = "BTC", rate = 0) => ({
 });
 
 /** Synthetic ELR sample. */
-const elr = (tsMs: number, symbol = "BTC", ratio = 0.30) => ({
+const elr = (tsMs: number, symbol = "BTC", ratio = 0.3) => ({
   timestampMs: tsMs,
   symbol,
   elr: ratio,
@@ -123,14 +123,9 @@ const elr = (tsMs: number, symbol = "BTC", ratio = 0.30) => ({
  *     space — we cycle through coinglass_v4 + perp venues.
  */
 const xconf = (startMs: number, symbol = "BTC", count = 2) => {
-  const providers: readonly (
-    | "coinglass_v4"
-    | "bitquery_hl"
-    | "binance_perp"
-    | "okx_perp"
-    | "bybit_perp"
-  )[] = ["coinglass_v4", "bitquery_hl", "binance_perp", "okx_perp", "bybit_perp"];
-  const sources: { provider: typeof providers[number]; symbol: string; windowStartMs: number }[] = [];
+  const providers: readonly ("coinglass_v4" | "bitquery_hl" | "binance_perp" | "okx_perp" | "bybit_perp")[] =
+    ["coinglass_v4", "bitquery_hl", "binance_perp", "okx_perp", "bybit_perp"];
+  const sources: { provider: (typeof providers)[number]; symbol: string; windowStartMs: number }[] = [];
   for (let i = 0; i < count; i++) {
     const provider = providers[i % providers.length];
     if (provider === undefined) throw new Error("xconf: provider array exhausted");
@@ -174,7 +169,7 @@ describe("CascadeFadeDetector — config invariants", () => {
     expect(DEFAULT_CASCADE_FADE_CONFIG.layer1OiDrop5minPct).toBe(0.01);
     expect(DEFAULT_CASCADE_FADE_CONFIG.layer1MinCrossConfirmations).toBe(2);
     expect(DEFAULT_CASCADE_FADE_CONFIG.layer2OiDrop48hPct).toBe(0.15);
-    expect(DEFAULT_CASCADE_FADE_CONFIG.layer2ElrFloor).toBe(0.40);
+    expect(DEFAULT_CASCADE_FADE_CONFIG.layer2ElrFloor).toBe(0.4);
     expect(DEFAULT_CASCADE_FADE_CONFIG.layer3MinDistanceFromMidBps).toBe(5);
     expect(DEFAULT_CASCADE_FADE_CONFIG.layer3MaxDistanceFromMidBps).toBe(15);
     expect(DEFAULT_CASCADE_FADE_CONFIG.riskPortfolioDdCap).toBe(0.12);
@@ -189,36 +184,40 @@ describe("CascadeFadeDetector — config invariants", () => {
   });
 
   it("invalid layer3 distance range throws", () => {
-    expect(() =>
-      new CascadeFadeDetector({
-        layer3MinDistanceFromMidBps: 30,
-        layer3MaxDistanceFromMidBps: 10,
-      }),
+    expect(
+      () =>
+        new CascadeFadeDetector({
+          layer3MinDistanceFromMidBps: 30,
+          layer3MaxDistanceFromMidBps: 10,
+        }),
     ).toThrow(/layer3 distance/);
   });
 
   it("layer3 exit max < min throws", () => {
-    expect(() =>
-      new CascadeFadeDetector({ layer3ExitMinMinutes: 10, layer3ExitMaxMinutes: 3 }),
-    ).toThrow(/layer3 exit/);
+    expect(() => new CascadeFadeDetector({ layer3ExitMinMinutes: 10, layer3ExitMaxMinutes: 3 })).toThrow(
+      /layer3 exit/,
+    );
   });
 
   it("per-symbol cap > per-event cap throws", () => {
-    expect(() =>
-      new CascadeFadeDetector({
-        capacityMaxPerSymbolEventUsd: 5_000_000,
-        capacityMaxPerEventUsd: 1_000_000,
-      }),
+    expect(
+      () =>
+        new CascadeFadeDetector({
+          capacityMaxPerSymbolEventUsd: 5_000_000,
+          capacityMaxPerEventUsd: 1_000_000,
+        }),
     ).toThrow(/per-symbol cap/);
   });
 
   it("rejects an invalid tradable mid instead of treating liquidation volume as price", () => {
     const det = new CascadeFadeDetector();
-    expect(() => det.observe({
-      nowMs: T0,
-      window: cascadeWindow(T0, "BTC", { midPriceUsd: Number.NaN }),
-      oi: oi(T0),
-    })).toThrow(/midPriceUsd/);
+    expect(() =>
+      det.observe({
+        nowMs: T0,
+        window: cascadeWindow(T0, "BTC", { midPriceUsd: Number.NaN }),
+        oi: oi(T0),
+      }),
+    ).toThrow(/midPriceUsd/);
   });
 });
 
@@ -478,7 +477,7 @@ describe("CascadeFadeDetector — Layer 2 (state machine)", () => {
       },
       oi: oi(T0 + 121 * 60_000, "BTC", 8_400_000_000),
       funding: funding(T0 + 121 * 60_000, "BTC", 0),
-      elr: elr(T0 + 121 * 60_000, "BTC", 0.50),
+      elr: elr(T0 + 121 * 60_000, "BTC", 0.5),
     });
     const newState = det.getAllEvents()[0]?.state;
     expect(newState === "STABILIZING" || newState === "IN_PROGRESS").toBe(true);
@@ -576,7 +575,7 @@ describe("CascadeFadeDetector — Layer 3 (execution)", () => {
 describe("CascadeFadeDetector — risk governor", () => {
   it("portfolio DD > 12% rejects new entries", () => {
     const det = new CascadeFadeDetector();
-    expect(det.validatePortfolioDd(0.10)).toBe(true); // OK
+    expect(det.validatePortfolioDd(0.1)).toBe(true); // OK
     expect(det.validatePortfolioDd(0.12)).toBe(true); // exactly at cap
     expect(det.validatePortfolioDd(0.15)).toBe(false); // over
   });
@@ -650,7 +649,12 @@ describe("CascadeFadeDetector — risk governor", () => {
     const det = new CascadeFadeDetector();
     expect(det.isHardStopped(T0)).toBe(false);
     // Force a cumulative 7d DD by pushing P&L ledger
-    const det2 = det as unknown as { pnlLedgerBps: { tsMs: number; pnlBps: number }[]; hardStopHaltUntilMs: number; riskHardStopHaltMs: number; riskHardStopRolling7dDd: number };
+    const det2 = det as unknown as {
+      pnlLedgerBps: { tsMs: number; pnlBps: number }[];
+      hardStopHaltUntilMs: number;
+      riskHardStopHaltMs: number;
+      riskHardStopRolling7dDd: number;
+    };
     det2.pnlLedgerBps.push({ tsMs: T0, pnlBps: -500 }); // -5%
     // forceExit triggers the check
     const fakeEventId = "cascade-BTC-T0";
@@ -664,7 +668,7 @@ describe("CascadeFadeDetector — risk governor", () => {
       crossConfirmations: 2,
       lastObservedOiUsd: 8_400_000_000,
       lastFunding8h: 0,
-      lastElr: 0.30,
+      lastElr: 0.3,
       entry: {
         eventId: fakeEventId,
         symbol: "BTC",
@@ -691,7 +695,11 @@ describe("CascadeFadeDetector — risk governor", () => {
 // ============================================================================
 
 describe("CascadeFadeDetector — capacity", () => {
-  function drivePostCascadeEntry(det: CascadeFadeDetector, symbol: string, startMs: number): CascadeEvent | undefined {
+  function drivePostCascadeEntry(
+    det: CascadeFadeDetector,
+    symbol: string,
+    startMs: number,
+  ): CascadeEvent | undefined {
     seedOiHistory(det, symbol, startMs - 48 * 60 * 60 * 1000, startMs, 60 * 60_000, () => 10_000_000_000);
     det.observe({
       nowMs: startMs,

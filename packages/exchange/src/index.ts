@@ -44,9 +44,27 @@ export type {
 export type { ExchangeFeed, FeedListener, SubscriptionId } from "./feed.js";
 export { ExchangeFeedError } from "./feed.js";
 
-export { SUPPORTED_SYMBOLS, isSupportedSymbol, asSymbol, symbolOf, baseCurrencyOf, quoteCurrencyOf, InvalidSymbolError } from "./symbols.js";
+export {
+  SUPPORTED_SYMBOLS,
+  isSupportedSymbol,
+  asSymbol,
+  symbolOf,
+  baseCurrencyOf,
+  quoteCurrencyOf,
+  InvalidSymbolError,
+} from "./symbols.js";
 
-export { BybitEuFeed, type BybitEuFeedOptions, normalizeTicker, normalizeOrderBook, normalizeTrade, normalizeMarketMeta, normalizeBalances, normalizeExecution, normalizeOrder } from "./bybitEuFeed.js";
+export {
+  BybitEuFeed,
+  type BybitEuFeedOptions,
+  normalizeTicker,
+  normalizeOrderBook,
+  normalizeTrade,
+  normalizeMarketMeta,
+  normalizeBalances,
+  normalizeExecution,
+  normalizeOrder,
+} from "./bybitEuFeed.js";
 
 // ⚠️  TEST-ONLY: `MockExchangeFeed` and the `createMockFeed` factory
 //    are NOT exported from this public surface. Tests must import the
@@ -94,9 +112,4 @@ export {
   OhlcStream,
   RingBuffer,
 } from "./ohlc-stream.js";
-export type {
-  OhlcBar,
-  OhlcStreamBarEvent,
-  OhlcStreamConfig,
-  OhlcStreamErrorEvent,
-} from "./ohlc-stream.js";
+export type { OhlcBar, OhlcStreamBarEvent, OhlcStreamConfig, OhlcStreamErrorEvent } from "./ohlc-stream.js";

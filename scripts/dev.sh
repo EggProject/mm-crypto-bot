@@ -5,14 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-export PATH="$REPO_ROOT/bin:$PATH"
 mkdir -p logs
-
-if ! command -v mm-bot >/dev/null 2>&1; then
-  echo "mm-bot not found in PATH" >&2
-  echo "Run: bash scripts/install-mm-bot.sh" >&2
-  exit 1
-fi
 
 cleanup() {
   local code=$?
@@ -27,7 +20,7 @@ cleanup() {
 trap cleanup INT TERM EXIT
 
 echo "Starting bot..."
-mm-bot start --config="$REPO_ROOT/run-bot/config/default.toml" >logs/start.log 2>&1 &
+bun run apps/bot/src/index.ts start --config="$REPO_ROOT/run-bot/config/default.toml" >logs/start.log 2>&1 &
 echo $! >logs/start.pid
 sleep 2
 

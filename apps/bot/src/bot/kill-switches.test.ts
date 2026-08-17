@@ -62,14 +62,7 @@ describe("MaxPositionsKillSwitch", () => {
       maxLeverage: 1,
     });
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 1);
-    pm.openPosition(
-      "strategy-b",
-      asSymbol("ETH/USDC") as unknown as ExchangeSymbol,
-      "long",
-      0.01,
-      3_000,
-      1,
-    );
+    pm.openPosition("strategy-b", asSymbol("ETH/USDC") as unknown as ExchangeSymbol, "long", 0.01, 3_000, 1);
     // 3rd position: túllépés a 2-es cap-en. restorePosition szándékosan
     // NEM ellenőrzi a cap-et (lásd Phase 68 a `position-manager.ts`-ben).
     pm.restorePosition({

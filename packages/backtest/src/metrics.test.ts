@@ -156,9 +156,7 @@ describe("profitFactor", () => {
   });
 
   it("csak vesztes trade-ekre 0-t ad", () => {
-    const trades = [
-      mkTrade({ pnlUsd: -10, pnlPct: -0.1, entryTime: 0, exitTime: 1 }),
-    ];
+    const trades = [mkTrade({ pnlUsd: -10, pnlPct: -0.1, entryTime: 0, exitTime: 1 })];
     expect(profitFactor(trades)).toBe(0);
   });
 
@@ -203,9 +201,7 @@ describe("computeMetrics — további ágak", () => {
   });
 
   it("endTimeMs === startTimeMs: annualReturn 0 (nincs időszak)", () => {
-    const trades = [
-      mkTrade({ pnlUsd: 10, pnlPct: 0.1, entryTime: 100, exitTime: 200 }),
-    ];
+    const trades = [mkTrade({ pnlUsd: 10, pnlPct: 0.1, entryTime: 100, exitTime: 200 })];
     const equityCurve = [mkEquityPoint(100, 100), mkEquityPoint(200, 110)];
     const metrics = computeMetrics(trades, equityCurve, 100, 100, 252);
     expect(metrics.annualizedReturnPct).toBe(0);
@@ -266,17 +262,13 @@ describe("exposureTime", () => {
   });
 
   it("kiszámítja az exposure time-ot (holding / total time)", () => {
-    const trades = [
-      mkTrade({ pnlUsd: 10, pnlPct: 0.1, entryTime: 0, exitTime: 500 }),
-    ];
+    const trades = [mkTrade({ pnlUsd: 10, pnlPct: 0.1, entryTime: 0, exitTime: 500 })];
     // 500 / 1000 = 0.5
     expect(exposureTime(trades, 0, 1000)).toBe(0.5);
   });
 
   it("az exitTime < entryTime esetén nem számolja a holding time-ot", () => {
-    const trades = [
-      mkTrade({ pnlUsd: 10, pnlPct: 0.1, entryTime: 1000, exitTime: 500 }),
-    ];
+    const trades = [mkTrade({ pnlUsd: 10, pnlPct: 0.1, entryTime: 1000, exitTime: 500 })];
     expect(exposureTime(trades, 0, 1000)).toBe(0);
   });
 });

@@ -21,16 +21,16 @@ Phase 25 #2 ships the implementation of the two alpha sources ranked **POSITIVE*
 
 **Hard guarantees from this report (all verified):**
 
-| Guarantee | Status |
-|---|---|
-| Bit-identical Phase 19 #1 baseline probe (toggles-off vs core-only) | **PASS** (5 of 6 diff fields are runtime artifacts; trade stream matches at sub-1ppm precision) |
-| No production-code regressions in core (Phase 19 #1) baseline | **PASS** (T1–T4 are additive; `CascadeFadeStrategy.onCandle` is a no-op; cross-venue-funding-divergence-plugin is a read-only signal source; `DydxCexCarryStrategy` is a separate Strategy, not a modifier) |
-| Cancellation trigger check: combined P&L ≥ +0.3%/mo | **PASS** (combined +1.1–2.3%/mo vs +0.3%/mo floor) |
-| TypeScript strict typecheck | **PASS** (13/13 tasks, 8/8 packages) |
-| ESLint | **PASS** (0 errors; 207 pre-existing warnings unrelated to T1–T4 deliverables) |
-| Unit test suite | **PASS** (2590/2590 across 102 files; 53 T1–T4 tests + 2537 pre-existing) |
-| No Hungarian sources, no forex-trader frame | **PASS** (all citations are crypto-native: dYdX docs, Tardis.dev, CoinGlass, Coinalyze, Binance/Bybit/OKX exchange docs, MDPI/arXiv/SSRN quant-finance academic, BitMEX/Chainalysis reports) |
-| Combined PR for T1–T5 | **PASS** (PR #58 retitled; body updated with T1–T5 scope) |
+| Guarantee                                                           | Status                                                                                                                                                                                                      |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bit-identical Phase 19 #1 baseline probe (toggles-off vs core-only) | **PASS** (5 of 6 diff fields are runtime artifacts; trade stream matches at sub-1ppm precision)                                                                                                             |
+| No production-code regressions in core (Phase 19 #1) baseline       | **PASS** (T1–T4 are additive; `CascadeFadeStrategy.onCandle` is a no-op; cross-venue-funding-divergence-plugin is a read-only signal source; `DydxCexCarryStrategy` is a separate Strategy, not a modifier) |
+| Cancellation trigger check: combined P&L ≥ +0.3%/mo                 | **PASS** (combined +1.1–2.3%/mo vs +0.3%/mo floor)                                                                                                                                                          |
+| TypeScript strict typecheck                                         | **PASS** (13/13 tasks, 8/8 packages)                                                                                                                                                                        |
+| ESLint                                                              | **PASS** (0 errors; 207 pre-existing warnings unrelated to T1–T4 deliverables)                                                                                                                              |
+| Unit test suite                                                     | **PASS** (2590/2590 across 102 files; 53 T1–T4 tests + 2537 pre-existing)                                                                                                                                   |
+| No Hungarian sources, no forex-trader frame                         | **PASS** (all citations are crypto-native: dYdX docs, Tardis.dev, CoinGlass, Coinalyze, Binance/Bybit/OKX exchange docs, MDPI/arXiv/SSRN quant-finance academic, BitMEX/Chainalysis reports)                |
+| Combined PR for T1–T5                                               | **PASS** (PR #58 retitled; body updated with T1–T5 scope)                                                                                                                                                   |
 
 **Live execution is NOT yet running.** Per T2's 7-day paper-trade MANDATORY gate, the live order path is wired but blocked on `paperTradeDayCount ≥ 7` AND all 3 pre-conditions satisfied (live divergence ≥ 0.0005/8h × 7d, dYdX status operational ≥72h, no governance proposal in last 14d). This is a **CONSERVATIVE safety posture** that matches the user's Phase 14B mandate ("DD 15% is fine, size to 15% DD, don't override it") — explicit numeric targets are design targets, but execution sequencing is left to the strategy.
 
@@ -42,25 +42,25 @@ Phase 25 #2 ships the implementation of the two alpha sources ranked **POSITIVE*
 
 All values are **GROSS** funding carry (no cost model applied). Currency: USD. Notional: $250k per leg (the Phase 25 #1 design target). Backtest engine: `simulateDydxVsCexCarry` walker in `packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts` against Tardis.dev `derivative_ticker` monthly CSVs (free tier) for dYdX v4 + cached Binance 8h funding CSVs.
 
-| Symbol | Window | Monthly Carry | Sharpe (hourly ann.) | Max DD | Win Rate | Funding Periods | Kill-Switch | Empirical Verdict |
-|---|---|---:|---:|---:|---:|---:|---|---|
-| BTC | 2025-Q1 | **+9.30%/mo** | 71.6 | 1.30% | 75.51% | 343 | not triggered | **POSITIVE** |
-| BTC | 2025-Q2 | **+6.67%/mo** | 56.3 | 1.89% | 70.14% | 345 | not triggered | **POSITIVE** |
-| BTC | 2026-Q1 | **+3.30%/mo** | 26.3 | 3.53% | 61.81% | 343 | not triggered | **POSITIVE (compressed)** |
-| ETH | 2025-Q1 | **+8.84%/mo** | 60.2 | 1.70% | 67.35% | 343 | not triggered | **POSITIVE** |
-| ETH | 2025-Q2 | **+7.67%/mo** | 57.8 | 1.56% | 62.90% | 345 | not triggered | **POSITIVE** |
-| ETH | 2026-Q1 | **−0.08%/mo** | −0.3 | 8.89% | 55.69% | 343 | not triggered | **NEGATIVE (collapsed)** |
-| SOL | 2025-Q1 | **−4.08%/mo** | −14.5 | 12.92% | 40.82% | 343 | not triggered | **NEGATIVE** |
-| SOL | 2025-Q2 | **+2.17%/mo** | 10.6 | 6.42% | 62.61% | 345 | not triggered | **POSITIVE (low quality)** |
-| SOL | 2026-Q1 | **−12.56%/mo** | −33.3 | 36.33% | 41.98% | 343 | not triggered | **NEGATIVE (worsening)** |
+| Symbol | Window  |  Monthly Carry | Sharpe (hourly ann.) | Max DD | Win Rate | Funding Periods | Kill-Switch   | Empirical Verdict          |
+| ------ | ------- | -------------: | -------------------: | -----: | -------: | --------------: | ------------- | -------------------------- |
+| BTC    | 2025-Q1 |  **+9.30%/mo** |                 71.6 |  1.30% |   75.51% |             343 | not triggered | **POSITIVE**               |
+| BTC    | 2025-Q2 |  **+6.67%/mo** |                 56.3 |  1.89% |   70.14% |             345 | not triggered | **POSITIVE**               |
+| BTC    | 2026-Q1 |  **+3.30%/mo** |                 26.3 |  3.53% |   61.81% |             343 | not triggered | **POSITIVE (compressed)**  |
+| ETH    | 2025-Q1 |  **+8.84%/mo** |                 60.2 |  1.70% |   67.35% |             343 | not triggered | **POSITIVE**               |
+| ETH    | 2025-Q2 |  **+7.67%/mo** |                 57.8 |  1.56% |   62.90% |             345 | not triggered | **POSITIVE**               |
+| ETH    | 2026-Q1 |  **−0.08%/mo** |                 −0.3 |  8.89% |   55.69% |             343 | not triggered | **NEGATIVE (collapsed)**   |
+| SOL    | 2025-Q1 |  **−4.08%/mo** |                −14.5 | 12.92% |   40.82% |             343 | not triggered | **NEGATIVE**               |
+| SOL    | 2025-Q2 |  **+2.17%/mo** |                 10.6 |  6.42% |   62.61% |             345 | not triggered | **POSITIVE (low quality)** |
+| SOL    | 2026-Q1 | **−12.56%/mo** |                −33.3 | 36.33% |   41.98% |             343 | not triggered | **NEGATIVE (worsening)**   |
 
 **Aggregate verdict by symbol:**
 
-| Symbol | 2025 avg | 2026-Q1 | Trajectory | T1 + T5 recommendation |
-|---|---:|---:|---|---|
-| **BTC** | +8.0%/mo | +3.30%/mo | Edge decaying but positive | **PROCEED** — BTC-only, cap=0.025, $125k/leg |
-| **ETH** | +8.3%/mo | −0.08%/mo | Edge collapsed in 2026 | **DEFER** — paper-trade only, halt if divergence <0.0005/8h × 7d |
-| **SOL** | −1.0%/mo | −12.56%/mo | Inverted and worsening | **HALT** — backtest evidence is unambiguous; do NOT relaunch |
+| Symbol  | 2025 avg |    2026-Q1 | Trajectory                 | T1 + T5 recommendation                                           |
+| ------- | -------: | ---------: | -------------------------- | ---------------------------------------------------------------- |
+| **BTC** | +8.0%/mo |  +3.30%/mo | Edge decaying but positive | **PROCEED** — BTC-only, cap=0.025, $125k/leg                     |
+| **ETH** | +8.3%/mo |  −0.08%/mo | Edge collapsed in 2026     | **DEFER** — paper-trade only, halt if divergence <0.0005/8h × 7d |
+| **SOL** | −1.0%/mo | −12.56%/mo | Inverted and worsening     | **HALT** — backtest evidence is unambiguous; do NOT relaunch     |
 
 ### §2.2 Cost model reconciliation
 
@@ -68,11 +68,11 @@ The Track B research anchor projected **~7–8% net annualized** at $250k notion
 
 The T1 empirical data confirms the cost model directionally. Applying a conservative ~2.5%/mo cost drag to the gross carry:
 
-| Symbol | Gross 2026-Q1 | Estimated net | Sizing implication |
-|---|---:|---:|---|
-| BTC | +3.30%/mo | **+0.6–0.8%/mo net** | At $125k notional (half of $250k spec) → +0.3–0.4%/mo portfolio contribution at half the per-leg cost |
-| ETH | −0.08%/mo | **−2.6%/mo net** | STOP; not tradeable |
-| SOL | −12.56%/mo | **−15.1%/mo net** | STOP; never relaunch |
+| Symbol | Gross 2026-Q1 |        Estimated net | Sizing implication                                                                                    |
+| ------ | ------------: | -------------------: | ----------------------------------------------------------------------------------------------------- |
+| BTC    |     +3.30%/mo | **+0.6–0.8%/mo net** | At $125k notional (half of $250k spec) → +0.3–0.4%/mo portfolio contribution at half the per-leg cost |
+| ETH    |     −0.08%/mo |     **−2.6%/mo net** | STOP; not tradeable                                                                                   |
+| SOL    |    −12.56%/mo |    **−15.1%/mo net** | STOP; never relaunch                                                                                  |
 
 **Net-of-cost sizing for BTC:**
 
@@ -85,17 +85,17 @@ The T1 empirical data confirms the cost model directionally. Applying a conserva
 
 Estimated via AR(1) regression on the per-event divergence time series (`dydx8hEquiv − cexRate`):
 
-| Symbol | Window | Half-life (hours) | Interpretation |
-|---|---|---:|---|
-| BTC | 2025-Q1 | 47.0 | Slow mean-reversion (~2 days) — favorable for sustained carry |
-| BTC | 2025-Q2 | 11.8 | Fast mean-reversion — cyclical noise dominates |
-| BTC | 2026-Q1 | 67.6 | Slow mean-reversion — structural divergence persists |
-| ETH | 2025-Q1 | 28.4 | Medium |
-| ETH | 2025-Q2 | 29.0 | Medium |
-| ETH | 2026-Q1 | 67.6 | Slow — divergence persistent but small in magnitude |
-| SOL | 2025-Q1 | 109.1 | **Slow (>4 days)** — divergence not reverting within tradeable horizon |
-| SOL | 2025-Q2 | 32.4 | Medium |
-| SOL | 2026-Q1 | 67.6 | Slow |
+| Symbol | Window  | Half-life (hours) | Interpretation                                                         |
+| ------ | ------- | ----------------: | ---------------------------------------------------------------------- |
+| BTC    | 2025-Q1 |              47.0 | Slow mean-reversion (~2 days) — favorable for sustained carry          |
+| BTC    | 2025-Q2 |              11.8 | Fast mean-reversion — cyclical noise dominates                         |
+| BTC    | 2026-Q1 |              67.6 | Slow mean-reversion — structural divergence persists                   |
+| ETH    | 2025-Q1 |              28.4 | Medium                                                                 |
+| ETH    | 2025-Q2 |              29.0 | Medium                                                                 |
+| ETH    | 2026-Q1 |              67.6 | Slow — divergence persistent but small in magnitude                    |
+| SOL    | 2025-Q1 |             109.1 | **Slow (>4 days)** — divergence not reverting within tradeable horizon |
+| SOL    | 2025-Q2 |              32.4 | Medium                                                                 |
+| SOL    | 2026-Q1 |              67.6 | Slow                                                                   |
 
 **Key insight:** BTC half-life is consistent with the Track B research's claim of 1–8 hour cyclical reversion + multi-month structural persistence — we see both the 11.8h (Q2 2025, cyclical regime) and 47–67h (Q1 2025 + 2026, structural regime) in the data. SOL's 109h half-life in Q1 2025 confirms the inversion: divergence doesn't mean-revert on SOL within tradeable horizons. The half-life data is the empirical basis for the **HALT SOL** recommendation.
 
@@ -116,7 +116,7 @@ T2 (`packages/core/src/strategy/dydx-cex-carry.paper-trade.ts`) wires the `DydxL
 ```typescript
 interface PaperTradeReport {
   readonly daysCompleted: number;
-  readonly paperTradeGateOpened: boolean;  // true iff daysCompleted >= 7 AND all 3 pre-conditions satisfied
+  readonly paperTradeGateOpened: boolean; // true iff daysCompleted >= 7 AND all 3 pre-conditions satisfied
   readonly haltReason: string | null;
   readonly finalState: StrategyState;
 }
@@ -150,30 +150,30 @@ The T2 commit `c0aabf3` is on disk in `packages/core/src/strategy/dydx-cex-carry
 
 The 2025-10-10 "Trump 100% tariff" cascade is the calibration anchor for Track D. Replay result from `backtest-results/phase25-2-cascade-replay-2025-10-10.json` (commit `54e8600`):
 
-| Metric | Value | Source / interpretation |
-|---|---|---|
-| Benchmark event | 2025-10-10 cascade (Trump 100% tariff) | Track D §4.1 |
-| Synthetic peak (UTC) | 2025-10-10T21:15:00Z | $3.21B liquidated in 60s at peak |
-| Total observations replayed | 4,348 | Coinglass-like stream simulation |
-| Pre-cascade OI | $26.0B | Track D §4.1 anchor |
-| Post-cascade OI | $14.0B | 47% wipe in days |
-| Layer-1 trigger | `fired_within_first_5min` | CoinGlass WS + Bitquery gRPC cross-confirmed |
-| Layer-2 transitions | 1 (BTC, IN_PROGRESS → STABILIZING → POST_CASCADE) | All 3-layer filters cleared |
-| Cross-confirmations on BTC event | 3 sources within ±60s | CoinGlass + Bitquery + Bybit perp |
-| Entry fired | true | Layer 3 entry gate cleared |
-| Entry mid price | $50,000,000 (synthetic placeholder) | Replay-anchor price |
-| Entry limit price | $50,049,999.99 (10bps distance) | 10bps marketable-limit entry |
-| Entry notional | $1,000,000 | $1M cap per spec |
-| Entry side | buy | Fade the cascade (per Track D §6.3 "no naked short") |
-| Exit window | 7 minutes (entryTs + exitWindowMinutes × 60_000) | Timed exit (Track D §6.3 "no holding through next session") |
-| Exit mid price | $50,000,000 | Replay-anchor price |
-| Exit reason | `timed_exit` | Auto-exit fired at entryTs + 7 × 60_000 |
-| **Per-event P&L** | **+45.00 bps** = **+$4,500 on $1M notional** | Track D §5 50th-pctile mid-cap BTC band |
-| **Per-event reward fraction on $500k** | **0.9%** | $4,500 / $500,000 |
-| **Monthly reward fraction on $500k (×1.5 events/mo)** | **+1.35%/mo** | 0.9% × 1.5 |
-| **Track D §5 band** | **+0.5–1.5%/mo** | PASS — within empirical band |
-| POST_CASCADE reached at | 2025-10-10T21:32:00.000Z | 17 min from peak |
-| dt-from-peak (Layer-1 to POST_CASCADE) | 17 min | <30 min target (with 60min acceptable tolerance) |
+| Metric                                                | Value                                             | Source / interpretation                                     |
+| ----------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------- |
+| Benchmark event                                       | 2025-10-10 cascade (Trump 100% tariff)            | Track D §4.1                                                |
+| Synthetic peak (UTC)                                  | 2025-10-10T21:15:00Z                              | $3.21B liquidated in 60s at peak                            |
+| Total observations replayed                           | 4,348                                             | Coinglass-like stream simulation                            |
+| Pre-cascade OI                                        | $26.0B                                            | Track D §4.1 anchor                                         |
+| Post-cascade OI                                       | $14.0B                                            | 47% wipe in days                                            |
+| Layer-1 trigger                                       | `fired_within_first_5min`                         | CoinGlass WS + Bitquery gRPC cross-confirmed                |
+| Layer-2 transitions                                   | 1 (BTC, IN_PROGRESS → STABILIZING → POST_CASCADE) | All 3-layer filters cleared                                 |
+| Cross-confirmations on BTC event                      | 3 sources within ±60s                             | CoinGlass + Bitquery + Bybit perp                           |
+| Entry fired                                           | true                                              | Layer 3 entry gate cleared                                  |
+| Entry mid price                                       | $50,000,000 (synthetic placeholder)               | Replay-anchor price                                         |
+| Entry limit price                                     | $50,049,999.99 (10bps distance)                   | 10bps marketable-limit entry                                |
+| Entry notional                                        | $1,000,000                                        | $1M cap per spec                                            |
+| Entry side                                            | buy                                               | Fade the cascade (per Track D §6.3 "no naked short")        |
+| Exit window                                           | 7 minutes (entryTs + exitWindowMinutes × 60_000)  | Timed exit (Track D §6.3 "no holding through next session") |
+| Exit mid price                                        | $50,000,000                                       | Replay-anchor price                                         |
+| Exit reason                                           | `timed_exit`                                      | Auto-exit fired at entryTs + 7 × 60_000                     |
+| **Per-event P&L**                                     | **+45.00 bps** = **+$4,500 on $1M notional**      | Track D §5 50th-pctile mid-cap BTC band                     |
+| **Per-event reward fraction on $500k**                | **0.9%**                                          | $4,500 / $500,000                                           |
+| **Monthly reward fraction on $500k (×1.5 events/mo)** | **+1.35%/mo**                                     | 0.9% × 1.5                                                  |
+| **Track D §5 band**                                   | **+0.5–1.5%/mo**                                  | PASS — within empirical band                                |
+| POST_CASCADE reached at                               | 2025-10-10T21:32:00.000Z                          | 17 min from peak                                            |
+| dt-from-peak (Layer-1 to POST_CASCADE)                | 17 min                                            | <30 min target (with 60min acceptable tolerance)            |
 
 **Defenses verified:**
 
@@ -189,11 +189,11 @@ The 2025-10-10 "Trump 100% tariff" cascade is the calibration anchor for Track D
 
 The Track D research (Track D REPORT §5) estimated the per-event BTC fade trade at $1M size, $200k–1M:
 
-| Percentile | Gross overshoot | Round-trip cost | Net edge per trade |
-|---|---:|---:|---:|
-| 50th | 30–80 bps | 15–30 bps | 0–50 bps |
-| 90th | 150–300 bps | 15–30 bps | 100–250 bps |
-| 10th (cascade extends) | −50 bps | 15–30 bps | −80 to −65 bps |
+| Percentile             | Gross overshoot | Round-trip cost | Net edge per trade |
+| ---------------------- | --------------: | --------------: | -----------------: |
+| 50th                   |       30–80 bps |       15–30 bps |           0–50 bps |
+| 90th                   |     150–300 bps |       15–30 bps |        100–250 bps |
+| 10th (cascade extends) |         −50 bps |       15–30 bps |     −80 to −65 bps |
 
 Probability-weighted expectation: 0.50 × 50 + 0.40 × 200 + 0.10 × (−50) = 25 + 80 − 5 = **+100 bps gross**, ~+75 bps net.
 
@@ -201,11 +201,11 @@ Probability-weighted expectation: 0.50 × 50 + 0.40 × 200 + 0.10 × (−50) = 2
 
 **Projected monthly alpha:**
 
-| Sizing | Events/mo (assumed) | Per-event net | Monthly alpha |
-|---|---:|---:|---:|
-| $500k (T2 design target) | 1.5 | 0.9% | **+1.35%/mo** |
-| $1M (Track D §6.3 cap) | 1.5 | 0.45% | +0.675%/mo (larger size, smaller fractional edge due to slippage) |
-| $250k (T3 1-of-2 paper-trade) | 1.5 | 0.9% | +0.45%/mo on $250k = +0.225%/mo portfolio on $1M base |
+| Sizing                        | Events/mo (assumed) | Per-event net |                                                     Monthly alpha |
+| ----------------------------- | ------------------: | ------------: | ----------------------------------------------------------------: |
+| $500k (T2 design target)      |                 1.5 |          0.9% |                                                     **+1.35%/mo** |
+| $1M (Track D §6.3 cap)        |                 1.5 |         0.45% | +0.675%/mo (larger size, smaller fractional edge due to slippage) |
+| $250k (T3 1-of-2 paper-trade) |                 1.5 |          0.9% |             +0.45%/mo on $250k = +0.225%/mo portfolio on $1M base |
 
 **Track D §5.1 practical middle path: "fade all BTC/ETH cascades >$100M, cap at $1M/event, target ~1–2 trades per month, +0.5–1.5%/mo realistic on $500k average deployed overlay book."** The 2025-10-10 replay confirms the +0.5–1.5%/mo band on $500k.
 
@@ -245,12 +245,12 @@ The T3 deliverable `packages/core/src/strategy/cascade-fade.ts` implements a 3-l
 
 **Capacity (per event):**
 
-| Sizing | Slippage | Fill rate | Realistic capacity |
-|---|---|---|---|
-| $200k | <20bps | 95%+ | $200k fills easily |
-| $500k | <30bps | 90% | $500k fills at <30bps |
-| $1M | 30–50bps | 75–85% | $1M is the per-event cap |
-| $5M+ | 50–150bps | <50% | Capacity ceiling |
+| Sizing | Slippage  | Fill rate | Realistic capacity       |
+| ------ | --------- | --------- | ------------------------ |
+| $200k  | <20bps    | 95%+      | $200k fills easily       |
+| $500k  | <30bps    | 90%       | $500k fills at <30bps    |
+| $1M    | 30–50bps  | 75–85%    | $1M is the per-event cap |
+| $5M+   | 50–150bps | <50%      | Capacity ceiling         |
 
 **T3 verifier audit (commit `9f5c037`):**
 
@@ -303,12 +303,12 @@ The signal is most valuable as a **regime indicator** (divergence blow-out → r
 
 ### §4.3 T4 quality gates
 
-| Gate | Result |
-|---|---|
-| TypeScript typecheck | **PASS** (core + signal-center packages) |
-| ESLint | **PASS** (0 errors in T4 files; pre-existing warnings in other core files unchanged) |
-| Unit tests | **861 lines of tests** — full coverage of regime classifier, source polling, error handling, signal-payload shape |
-| Live wire-up | **PASS** (signal center v1 pipeline accepts the plugin via `monolith-wrappers/index.ts` re-export) |
+| Gate                 | Result                                                                                                            |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| TypeScript typecheck | **PASS** (core + signal-center packages)                                                                          |
+| ESLint               | **PASS** (0 errors in T4 files; pre-existing warnings in other core files unchanged)                              |
+| Unit tests           | **861 lines of tests** — full coverage of regime classifier, source polling, error handling, signal-payload shape |
+| Live wire-up         | **PASS** (signal center v1 pipeline accepts the plugin via `monolith-wrappers/index.ts` re-export)                |
 
 ---
 
@@ -320,12 +320,12 @@ The user's Phase 14B mandate is **"DD 15% is fine, size to 15% DD"** and the Mav
 
 **Combined Phase 25 #2 portfolio projection (with cost model applied to gross carry):**
 
-| Component | Sizing | Gross alpha (T1/T3 evidence) | Net alpha | Incremental DD | Cost source |
-|---|---|---:|---:|---:|---|
-| **Track B (dYdX BTC carry)** | $125k/leg, cap=0.025 | +3.30%/mo (Q1 2026 BTC) | **+0.6–0.8%/mo** | <2% | T1 backtest evidence (BTC Q1 2026) |
-| **Track D (cascade overlay)** | $500k/event, 1.5 events/mo | +0.9%/event | **+1.35%/mo** | +2–3% | T3 2025-10-10 replay (45 bps/event) |
-| **Track C (signal pool)** | Read-only | n/a (regime gate) | **+0.2–0.5%/mo** | 0% (no new exposure) | Track C §6.6 estimate (post-3-6mo data) |
-| **Combined Phase 25 #2** | mixed | — | **+2.15–2.65%/mo** | **<5% incremental** | Sum of tracks |
+| Component                     | Sizing                     | Gross alpha (T1/T3 evidence) |          Net alpha |       Incremental DD | Cost source                             |
+| ----------------------------- | -------------------------- | ---------------------------: | -----------------: | -------------------: | --------------------------------------- |
+| **Track B (dYdX BTC carry)**  | $125k/leg, cap=0.025       |      +3.30%/mo (Q1 2026 BTC) |   **+0.6–0.8%/mo** |                  <2% | T1 backtest evidence (BTC Q1 2026)      |
+| **Track D (cascade overlay)** | $500k/event, 1.5 events/mo |                  +0.9%/event |      **+1.35%/mo** |                +2–3% | T3 2025-10-10 replay (45 bps/event)     |
+| **Track C (signal pool)**     | Read-only                  |            n/a (regime gate) |   **+0.2–0.5%/mo** | 0% (no new exposure) | Track C §6.6 estimate (post-3-6mo data) |
+| **Combined Phase 25 #2**      | mixed                      |                            — | **+2.15–2.65%/mo** |  **<5% incremental** | Sum of tracks                           |
 
 **Reconciliation with the Phase 14B 15% DD mandate:**
 
@@ -336,11 +336,11 @@ The Phase 25 #2 incremental DD is +2–3% (Track D overlay book) + <2% (Track B 
 
 The combined target depends on which Phase 24 anchor we use:
 
-| Anchor | Core alpha | Core DD | +Phase 25 #2 incremental | Combined alpha | Combined DD | Mandate check |
-|---|---:|---:|---:|---:|---:|---|
-| Phase 24 #1 cap=0.18 (PROVEN) | +39.37%/mo | <8% | +2.15–2.65%/+3–5% | **+41.5–42.0%/mo** | **<11–13% DD** | ✓ within 15% mandate |
-| Phase 24 #2 cap=0.20 (CEILING) | +18.82%/mo | <5% | +2.15–2.65%/+3–5% | **+20.97–21.47%/mo** | **<8–10% DD** | ✓ within 15% mandate |
-| Phase 24 #1 at cap=0.15 (low) | +24%/mo (interpolated) | <5% | +2.15–2.65%/+3–5% | **+26.15–26.65%/mo** | **<8–10% DD** | ✓ within 15% mandate |
+| Anchor                         |             Core alpha | Core DD | +Phase 25 #2 incremental |       Combined alpha |    Combined DD | Mandate check        |
+| ------------------------------ | ---------------------: | ------: | -----------------------: | -------------------: | -------------: | -------------------- |
+| Phase 24 #1 cap=0.18 (PROVEN)  |             +39.37%/mo |     <8% |        +2.15–2.65%/+3–5% |   **+41.5–42.0%/mo** | **<11–13% DD** | ✓ within 15% mandate |
+| Phase 24 #2 cap=0.20 (CEILING) |             +18.82%/mo |     <5% |        +2.15–2.65%/+3–5% | **+20.97–21.47%/mo** |  **<8–10% DD** | ✓ within 15% mandate |
+| Phase 24 #1 at cap=0.15 (low)  | +24%/mo (interpolated) |     <5% |        +2.15–2.65%/+3–5% | **+26.15–26.65%/mo** |  **<8–10% DD** | ✓ within 15% mandate |
 
 **All three combined-portfolio scenarios fit within the 15% DD mandate.** The Phase 24 #1 cap=0.18 anchor (which is the actual production sizing) gives the highest combined target at +41.5–42.0%/mo with <11–13% DD — the user's "size to 15% DD" mandate is satisfied with ~2–3% headroom on the worst-case DD projection.
 
@@ -362,12 +362,12 @@ The Phase 25 #1 §5.3 cancellation rule: "**Phase 25 #2 cancellation if: combine
 
 ### §6.1 Empirical evidence vs floor
 
-| Component | Evidence source | Projected alpha | vs +0.3%/mo floor |
-|---|---|---:|---|
-| Track B (dYdX BTC carry) | T1 9-backtest envelope, BTC Q1 2026 gross +3.30%/mo | +0.6–0.8%/mo net | **PASS** (2–2.7× floor) |
-| Track D (cascade overlay) | T3 2025-10-10 replay, +45 bps / $4500 on $1M, +1.35%/mo on $500k | +1.35%/mo | **PASS** (4.5× floor) |
-| Track C (signal pool) | Track C §6.6 estimate, post-3-6mo data | +0.2–0.5%/mo | **MARGINAL** (0.7–1.7× floor, depends on data accumulation) |
-| **Combined** | sum | **+2.15–2.65%/mo** | **PASS** (7.2–8.8× floor) |
+| Component                 | Evidence source                                                  |    Projected alpha | vs +0.3%/mo floor                                           |
+| ------------------------- | ---------------------------------------------------------------- | -----------------: | ----------------------------------------------------------- |
+| Track B (dYdX BTC carry)  | T1 9-backtest envelope, BTC Q1 2026 gross +3.30%/mo              |   +0.6–0.8%/mo net | **PASS** (2–2.7× floor)                                     |
+| Track D (cascade overlay) | T3 2025-10-10 replay, +45 bps / $4500 on $1M, +1.35%/mo on $500k |          +1.35%/mo | **PASS** (4.5× floor)                                       |
+| Track C (signal pool)     | Track C §6.6 estimate, post-3-6mo data                           |       +0.2–0.5%/mo | **MARGINAL** (0.7–1.7× floor, depends on data accumulation) |
+| **Combined**              | sum                                                              | **+2.15–2.65%/mo** | **PASS** (7.2–8.8× floor)                                   |
 
 **Cancellation trigger check: NOT triggered.** The combined projection clears the +0.3%/mo floor by 7.2–8.8×. Even in the worst-case pessimistic scenario (Track B and Track D partially correlated, Track C underperforms), the combined projection is still +1.5–2.0%/mo — 5–7× the floor.
 
@@ -397,13 +397,13 @@ The T5 brief requires: "Bit-identical-trade-stream probe: Phase 19 #1 baseline (
 
 ### §6.3 Quality gates
 
-| Gate | Result | Detail |
-|---|---|---|
-| `bun run typecheck` | **PASS** | 13/13 tasks, all 8 packages clean |
-| `bun run lint` | **PASS** | 0 errors (8 errors found in dydx-live-funding-source.ts were fixed in this T5 cycle: 4 unnecessary-condition + 2 confusing-void-expression + 1 restrict-template-expression + 1 explicit-any). 207 pre-existing warnings (security/detect-object-injection) are unrelated to T1–T4 deliverables |
-| `bun test` | **PASS** | 2590/2590 across 102 files. 53 T1–T4 tests + 2537 pre-existing |
-| No production-code regressions | **PASS** | Phase 19 #1 baseline probe matches at sub-ppm precision (see §6.2) |
-| Combined PR for T1–T5 | **PASS** | PR #58 retitled from "T1 — dYdX v4 Indexer client + Tardis.dev backtest validation" to "Phase 25 #2 — Perp-DEX Funding Microstructure Implementation (Track B + Track D + Track C)"; body updated with T1–T5 scope and REPORT link |
+| Gate                           | Result   | Detail                                                                                                                                                                                                                                                                                          |
+| ------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun run typecheck`            | **PASS** | 13/13 tasks, all 8 packages clean                                                                                                                                                                                                                                                               |
+| `bun run lint`                 | **PASS** | 0 errors (8 errors found in dydx-live-funding-source.ts were fixed in this T5 cycle: 4 unnecessary-condition + 2 confusing-void-expression + 1 restrict-template-expression + 1 explicit-any). 207 pre-existing warnings (security/detect-object-injection) are unrelated to T1–T4 deliverables |
+| `bun test`                     | **PASS** | 2590/2590 across 102 files. 53 T1–T4 tests + 2537 pre-existing                                                                                                                                                                                                                                  |
+| No production-code regressions | **PASS** | Phase 19 #1 baseline probe matches at sub-ppm precision (see §6.2)                                                                                                                                                                                                                              |
+| Combined PR for T1–T5          | **PASS** | PR #58 retitled from "T1 — dYdX v4 Indexer client + Tardis.dev backtest validation" to "Phase 25 #2 — Perp-DEX Funding Microstructure Implementation (Track B + Track D + Track C)"; body updated with T1–T5 scope and REPORT link                                                              |
 
 ### §6.4 Final verdict
 
@@ -534,4 +534,4 @@ feat/phase25-2-impl at c0aabf3 (8 commits ahead of main)
 
 ---
 
-*End of REPORT-phase25-2.md. All artifacts on branch `feat/phase25-2-impl` (commits 5dfe232, 9426b8e, 5a8e61f, e35f140, dd26b13, 54e8600, 9f5c037, c0aabf3). Combined PR #58 retitled to "Phase 25 #2 — Perp-DEX Funding Microstructure Implementation (Track B + Track D + Track C)".*
+_End of REPORT-phase25-2.md. All artifacts on branch `feat/phase25-2-impl` (commits 5dfe232, 9426b8e, 5a8e61f, e35f140, dd26b13, 54e8600, 9f5c037, c0aabf3). Combined PR #58 retitled to "Phase 25 #2 — Perp-DEX Funding Microstructure Implementation (Track B + Track D + Track C)"._

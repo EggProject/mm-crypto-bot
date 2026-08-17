@@ -8,6 +8,7 @@
 
 **Author:** coder (Phase 15 Track D).
 **Companion deliverables:**
+
 - `packages/core/src/strategy/simple-retail-ensemble.ts` (260 LOC, 13 tests, 100% line+function coverage)
 - `packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts` + 3 sibling CLI runners + `run-simple-retail-ensemble.ts`
 - 15 backtest envelope JSONs in `backtest-results/phase15-*.json` (4 strategies + ensemble × 3 symbols)
@@ -16,13 +17,13 @@
 
 ## §1. Executive summary
 
-| Strategy | Timeframe | Per-symbol monthly envelope (BTC / ETH / SOL) | Portfolio envelope |
-|----------|-----------|------------------------------------------------|--------------------|
-| **Pivot Point Grid** | M15 (HTF=1d) | **+60.07% / +90.34% / +78.87%** (Sharpe 27-32, MaxDD 5-8%) | +76.4%/mo portfolio (geometric mean) |
-| **Donchian Range Channel** | M15 (HTF=1d, ADX filter) | **+13.35% / +15.24% / +22.78%** (Sharpe 16-19, MaxDD 2-6%) | +17.1%/mo portfolio |
-| **Bollinger Range Squeeze** | M5 (MTF=1h) | **-50% / -50% / -50%** (kill-switch triggered, all 3 symbols) | kill-switch triggered |
-| **Keltner Volatility-Adaptive Grid** | M5 (MTF=1h) | **-50% / -50% / -50%** (kill-switch triggered, all 3 symbols) | kill-switch triggered |
-| **Simple Retail Ensemble** (all 4) | M15 (BTC/ETH/SOL) | **+4.73% / kill-switch / +4.28%** (BTC survived, ETH/SOL hit 50% DD) | portfolio down ~30% |
+| Strategy                             | Timeframe                | Per-symbol monthly envelope (BTC / ETH / SOL)                        | Portfolio envelope                   |
+| ------------------------------------ | ------------------------ | -------------------------------------------------------------------- | ------------------------------------ |
+| **Pivot Point Grid**                 | M15 (HTF=1d)             | **+60.07% / +90.34% / +78.87%** (Sharpe 27-32, MaxDD 5-8%)           | +76.4%/mo portfolio (geometric mean) |
+| **Donchian Range Channel**           | M15 (HTF=1d, ADX filter) | **+13.35% / +15.24% / +22.78%** (Sharpe 16-19, MaxDD 2-6%)           | +17.1%/mo portfolio                  |
+| **Bollinger Range Squeeze**          | M5 (MTF=1h)              | **-50% / -50% / -50%** (kill-switch triggered, all 3 symbols)        | kill-switch triggered                |
+| **Keltner Volatility-Adaptive Grid** | M5 (MTF=1h)              | **-50% / -50% / -50%** (kill-switch triggered, all 3 symbols)        | kill-switch triggered                |
+| **Simple Retail Ensemble** (all 4)   | M15 (BTC/ETH/SOL)        | **+4.73% / kill-switch / +4.28%** (BTC survived, ETH/SOL hit 50% DD) | portfolio down ~30%                  |
 
 **+50%/month verdict at THIS scope: STILL NOT ACHIEVABLE in a Phase-15-realistic envelope.**
 
@@ -58,11 +59,11 @@ The Phase 14A-D baseline is **the highest-confidence envelope in the project**: 
 
 **Backtest envelope (per JSON file):**
 
-| Symbol | Source JSON | Monthly return | Total return | Sharpe | Max DD | Trades | Kill-switch |
-|--------|-------------|---------------:|-------------:|-------:|-------:|-------:|:-----------:|
-| BTC    | `phase15-pivot-grid-btc-15m.json` | **+60.07%** | 1.45 × 10⁶ % | 29.294 | 6.77% | 9717 | no |
-| ETH    | `phase15-pivot-grid-eth-15m.json` | **+90.34%** | 2.68 × 10⁹ % | 32.057 | 5.39% | 9668 | no |
-| SOL    | `phase15-pivot-grid-sol-15m.json` | **+78.87%** | 4.11 × 10⁸ % | 27.461 | 7.57% | 8317 | no |
+| Symbol | Source JSON                       | Monthly return | Total return | Sharpe | Max DD | Trades | Kill-switch |
+| ------ | --------------------------------- | -------------: | -----------: | -----: | -----: | -----: | :---------: |
+| BTC    | `phase15-pivot-grid-btc-15m.json` |    **+60.07%** | 1.45 × 10⁶ % | 29.294 |  6.77% |   9717 |     no      |
+| ETH    | `phase15-pivot-grid-eth-15m.json` |    **+90.34%** | 2.68 × 10⁹ % | 32.057 |  5.39% |   9668 |     no      |
+| SOL    | `phase15-pivot-grid-sol-15m.json` |    **+78.87%** | 4.11 × 10⁸ % | 27.461 |  7.57% |   8317 |     no      |
 
 **Win rate (BTC):** 65.03% (Profit factor 5.73). Average win $2.77M, average loss -$898k (per BTC backtest output).
 **Win rate (ETH):** 68.40% (PF 5.78). Win rate (SOL): 65.87% (PF 7.33). All 3 symbols share similar robustness.
@@ -81,19 +82,21 @@ The Phase 14A-D baseline is **the highest-confidence envelope in the project**: 
 
 **Backtest envelope:**
 
-| Symbol | Source JSON | Monthly return | Total return | Sharpe | Max DD | Trades | Kill-switch |
-|--------|-------------|---------------:|-------------:|-------:|-------:|-------:|:-----------:|
-| BTC    | `phase15-bb-squeeze-btc-5m.json` | **-50.00%** | -50.00% | -24.318 | 50.00% | 888 | yes |
-| ETH    | `phase15-bb-squeeze-eth-5m.json` | **-50.00%** | -50.00% | (computed, see JSON) | 50.00% | (~900) | yes |
-| SOL    | `phase15-bb-squeeze-sol-5m.json` | **-50.00%** | -50.00% | (computed, see JSON) | 50.00% | (~700) | yes |
+| Symbol | Source JSON                      | Monthly return | Total return |               Sharpe | Max DD | Trades | Kill-switch |
+| ------ | -------------------------------- | -------------: | -----------: | -------------------: | -----: | -----: | :---------: |
+| BTC    | `phase15-bb-squeeze-btc-5m.json` |    **-50.00%** |      -50.00% |              -24.318 | 50.00% |    888 |     yes     |
+| ETH    | `phase15-bb-squeeze-eth-5m.json` |    **-50.00%** |      -50.00% | (computed, see JSON) | 50.00% | (~900) |     yes     |
+| SOL    | `phase15-bb-squeeze-sol-5m.json` |    **-50.00%** |      -50.00% | (computed, see JSON) | 50.00% | (~700) |     yes     |
 
 **Root cause analysis (all 3 symbols hit 50% kill-switch):**
+
 - The BB Squeeze strategy fires in BOTH directions after a squeeze is detected. In ranging markets (low ADX), the squeeze→breakout is a false breakout that reverses within 1-3 candles. The strategy's stop-loss at `bbMiddle` is tight enough that the false breakout stops out at the band midpoint, then reverses and triggers again on the opposite band.
 - Win rate on BTC: 9.12% (88/888 trades) — almost the inverse of a working strategy. The 9% that win probably ride single strong breakouts that move >2×ATR.
 - Profit factor 0.024 (BTC) — losses are ~40× wins. The strategy is net-destructive at M5 on the 30-month window.
 - The Phase 15 brief assumed BB Squeeze would fire selectively (squeeze → confirmed breakout → single trade). In practice, M5 breakouts in 2024-2026 are dominated by 1-2 candle fakeouts before continuing or reversing.
 
 **Recommendations (Phase 16 candidates):**
+
 - Apply ADX < 20 regime filter (only fire squeeze in clearly ranging markets).
 - Require 3+ consecutive squeeze candles (currently 2).
 - Trail stop using ATR (not fixed at bbMiddle).
@@ -111,11 +114,11 @@ The Phase 14A-D baseline is **the highest-confidence envelope in the project**: 
 
 **Backtest envelope:**
 
-| Symbol | Source JSON | Monthly return | Total return | Sharpe | Max DD | Trades | Kill-switch |
-|--------|-------------|---------------:|-------------:|-------:|-------:|-------:|:-----------:|
-| BTC    | `phase15-donchian-range-btc-15m.json` | **+13.35%** | 4268% | 16.281 | 5.77% | 2576 | no |
-| ETH    | `phase15-donchian-range-eth-15m.json` | **+15.24%** | 7108% | 16.361 | 1.93% | 1740 | no |
-| SOL    | `phase15-donchian-range-sol-15m.json` | **+22.78%** | 48,608% | 18.994 | 3.33% | 3085 | no |
+| Symbol | Source JSON                           | Monthly return | Total return | Sharpe | Max DD | Trades | Kill-switch |
+| ------ | ------------------------------------- | -------------: | -----------: | -----: | -----: | -----: | :---------: |
+| BTC    | `phase15-donchian-range-btc-15m.json` |    **+13.35%** |        4268% | 16.281 |  5.77% |   2576 |     no      |
+| ETH    | `phase15-donchian-range-eth-15m.json` |    **+15.24%** |        7108% | 16.361 |  1.93% |   1740 |     no      |
+| SOL    | `phase15-donchian-range-sol-15m.json` |    **+22.78%** |      48,608% | 18.994 |  3.33% |   3085 |     no      |
 
 **Win rate (BTC):** 64.71% (Profit factor 6.21). Win rate (ETH): 78.68% (PF 15.07). Win rate (SOL): 71.41% (PF 8.71).
 
@@ -135,11 +138,11 @@ The Donchian Range Channel is the Phase 15 strategy with the most-stable, lowest
 
 **Backtest envelope:**
 
-| Symbol | Source JSON | Total return | Sharpe | Max DD | Trades | Kill-switch |
-|--------|-------------|-------------:|-------:|-------:|-------:|:-----------:|
-| BTC    | `phase15-keltner-grid-btc-5m.json` | **-50.00%** | -342.212 | 50.02% | 779 | yes |
-| ETH    | `phase15-keltner-grid-eth-5m.json` | **-50.00%** | -346.233 | 50.04% | 784 | yes |
-| SOL    | `phase15-keltner-grid-sol-5m.json` | **-50.00%** | -308.924 | 50.00% | 550 | yes |
+| Symbol | Source JSON                        | Total return |   Sharpe | Max DD | Trades | Kill-switch |
+| ------ | ---------------------------------- | -----------: | -------: | -----: | -----: | :---------: |
+| BTC    | `phase15-keltner-grid-btc-5m.json` |  **-50.00%** | -342.212 | 50.02% |    779 |     yes     |
+| ETH    | `phase15-keltner-grid-eth-5m.json` |  **-50.00%** | -346.233 | 50.04% |    784 |     yes     |
+| SOL    | `phase15-keltner-grid-sol-5m.json` |  **-50.00%** | -308.924 | 50.00% |    550 |     yes     |
 
 The Keltner Grid triggers the 50% DD kill-switch on ALL 3 symbols in this Phase 15 configuration. Root cause analysis:
 
@@ -148,6 +151,7 @@ The Keltner Grid triggers the 50% DD kill-switch on ALL 3 symbols in this Phase 
 - **5m noise floor**: M5 Keltner bands oscillate ±0.3% per band half-width on BTC. The grid fires every 30-60 minutes, accumulating fees without directional edge.
 
 **Recommendations:**
+
 - Add ADX < 20 regime filter (similar to Donchian Range).
 - Reduce grid level count from 5 to 3 (only inner levels trigger signals, where target > stop).
 - Run on M15 instead of M5 so the channel is wider relative to fees.
@@ -163,20 +167,22 @@ The Keltner Grid triggers the 50% DD kill-switch on ALL 3 symbols in this Phase 
 
 **Backtest envelope:**
 
-| Symbol | Source JSON | Total return | Sharpe | Max DD | Trades | Kill-switch |
-|--------|-------------|-------------:|-------:|-------:|-------:|:-----------:|
-| BTC    | `phase15-ensemble-btc-15m.json` | **+302.84%** | 7.758 | 50.04% | 7442 | yes |
-| ETH    | `phase15-ensemble-eth-15m.json` | **-48.80%** | -6.540 | 50.02% | 4505 | yes |
-| SOL    | `phase15-ensemble-sol-15m.json` | **+254.13%** | 6.263 | 50.06% | 5732 | yes |
+| Symbol | Source JSON                     | Total return | Sharpe | Max DD | Trades | Kill-switch |
+| ------ | ------------------------------- | -----------: | -----: | -----: | -----: | :---------: |
+| BTC    | `phase15-ensemble-btc-15m.json` | **+302.84%** |  7.758 | 50.04% |   7442 |     yes     |
+| ETH    | `phase15-ensemble-eth-15m.json` |  **-48.80%** | -6.540 | 50.02% |   4505 |     yes     |
+| SOL    | `phase15-ensemble-sol-15m.json` | **+254.13%** |  6.263 | 50.06% |   5732 |     yes     |
 
 **BTC survived (eventually profitable), ETH and SOL hit kill-switch.**
 
 The Simple Retail Ensemble at M15 has mixed performance:
+
 - BTC reaches the kill-switch (50.04% DD) but RECOVERS to +302% total return — the ensemble fires 7442 trades (vs. Donchian's 2576), with a 26.11% win rate but enough winners to compound back.
 - ETH and SOL hit the kill-switch and don't recover — the M15-aggregated BB Squeeze and Keltner Grid components emit too many false signals that get selected by the consensus rule.
 - Trade count: 4505-7442 per symbol, vs. Donchian Range's 1740-3085 per symbol. The ensemble fires 2-3× more trades by combining 4 sub-strategies.
 
 **Why the ensemble fails ETH/SOL but works on BTC:**
+
 - BTC's lower volatility (vs. ETH/SOL in 2024-2026) means the M15-aggregated BB Squeeze and Keltner Grid fire less frequently, reducing the false-signal rate.
 - ETH and SOL have higher trending behavior that breaks the M15 mean-reversion hypothesis embedded in BB Squeeze / Keltner Grid (when aggregated from M5 to M15).
 - The ensemble does NOT include any trend-following logic; all 4 sub-strategies are mean-reversion family, so when the market trends hard, all 4 lose simultaneously.
@@ -190,6 +196,7 @@ The Simple Retail Ensemble at M15 has mixed performance:
 The Phase 15 strategies are all mean-reversion family — at first glance, they should have HIGH directional correlation. The empirical backtest shows partial orthogonality:
 
 **Trade count ratios (BTC):**
+
 - Pivot Grid: 9717 trades (high-frequency)
 - Donchian Range: 2576 trades (low-frequency, high-quality)
 - Keltner Grid (M5): 779 trades (kill-switch-triggered before full sample)
@@ -197,11 +204,13 @@ The Phase 15 strategies are all mean-reversion family — at first glance, they 
 - Ensemble: 7442 trades (4 sub-strategies combined)
 
 **Trade count ratios (ETH):**
+
 - Pivot Grid: 9668 trades
 - Donchian Range: 1740 trades
 - Ensemble: 4505 trades
 
 **Trade count ratios (SOL):**
+
 - Pivot Grid: 8317 trades
 - Donchian Range: 3085 trades
 - Ensemble: 5732 trades
@@ -211,6 +220,7 @@ Pivot Grid fires 3.77× more trades than Donchian Range (BTC). They DO NOT fire 
 **Keltner Grid and BB Squeeze** (both M5) both hit kill-switch with similar -50%/mo envelope. They are HIGHLY correlated — both are volatility-adaptive mean-reversion strategies that lose money when the M5 noise dominates.
 
 **Recommended composition rule (Phase 16 candidate):**
+
 - Allocate 50% notional to **Donchian Range** (low DD, high win-rate, slow).
 - Allocate 30% notional to **Pivot Grid** with `maxPositionPctEquity ≤ 0.04` (medium frequency, position-cap constrained).
 - **Disable** Keltner Grid and BB Squeeze at M5 (kill-switch triggered, not viable).
@@ -220,16 +230,17 @@ Pivot Grid fires 3.77× more trades than Donchian Range (BTC). They DO NOT fire 
 
 ## §9. Regime sensitivity
 
-| Regime | Pivot Grid | BB Squeeze (M5) | Donchian Range | Keltner Grid (M5) | Recommended |
-|--------|:----------:|:---------------:|:--------------:|:-----------------:|:-----------:|
-| **Low-vol (ADX < 15)** | weak (outer bands rarely touched) | medium (long squeeze windows) | **strong** (channels tight, mean-reversion clean) | weak (band rail = close → many false touches) | Donchian Range |
-| **High-vol (ADX 15-25)** | **strong** (S2/R2 fires often) | weak (no squeeze) | medium (ADX filter still OFF) | medium (band wider, stops scale with ATR) | Pivot Grid |
-| **Trending (ADX > 25)** | strong (one-sided) | strong (squeeze → breakout) | **disabled** (ADX ≥ 25) | strong (one-sided) | Pivot Grid / BB Squeeze |
-| **Ranging** | weak-medium | **strong** (clean breakouts from squeeze) | **strong** (range ideal) | weak | Donchian Range / BB Squeeze |
+| Regime                   |            Pivot Grid             |              BB Squeeze (M5)              |                  Donchian Range                   |               Keltner Grid (M5)               |         Recommended         |
+| ------------------------ | :-------------------------------: | :---------------------------------------: | :-----------------------------------------------: | :-------------------------------------------: | :-------------------------: |
+| **Low-vol (ADX < 15)**   | weak (outer bands rarely touched) |       medium (long squeeze windows)       | **strong** (channels tight, mean-reversion clean) | weak (band rail = close → many false touches) |       Donchian Range        |
+| **High-vol (ADX 15-25)** |  **strong** (S2/R2 fires often)   |             weak (no squeeze)             |           medium (ADX filter still OFF)           |   medium (band wider, stops scale with ATR)   |         Pivot Grid          |
+| **Trending (ADX > 25)**  |        strong (one-sided)         |        strong (squeeze → breakout)        |              **disabled** (ADX ≥ 25)              |              strong (one-sided)               |   Pivot Grid / BB Squeeze   |
+| **Ranging**              |            weak-medium            | **strong** (clean breakouts from squeeze) |             **strong** (range ideal)              |                     weak                      | Donchian Range / BB Squeeze |
 
 The 4 strategies have **complementary regime coverage in theory**, but in practice the M5 strategies (BB Squeeze + Keltner Grid) underperform and the M15 strategies (Pivot + Donchian) carry the Phase 15 envelope.
 
 **Regime observation from the 30-month sample:**
+
 - 2024 H1: ranging → Donchian Range strongest.
 - 2024 H2: trending → Pivot Grid dominant (Donchian disabled by ADX filter).
 - 2025 H1: ranging → Donchian Range + BB Squeeze (with ADX filter).
@@ -260,6 +271,7 @@ Upper bound (full aggression, no caps):     +25%/mo to +40%/mo (uncapped Pivot)
 vs. **Phase 14A-D baseline:** +2.06%/mo. Phase 15 = **7-15× the Phase 14A-D baseline**, but **still below +50%/mo**.
 
 **For +50%/mo** requires:
+
 1. Cross-strategy composition with Phase 14D DVOL sizing + Phase 14C correlation tuning (Phase 16 task).
 2. BTC + ETH + SOL simultaneous (Phase 13 portfolio architecture) on the top-2 Phase 15 strategies.
 3. Notional cap relaxation at the cost of higher DD — user 2026-07-06 approved up to 15% DD, but +50%/mo at 15% DD is a Sharpe of ~13, which requires either side income (Phase 11 funding carry) or higher turnover (Phase 13 cross-symbol arb layer).
@@ -292,18 +304,19 @@ The +50%/mo target is permanently structurally unreachable at this user's constr
 
 ## §12. Open decisions for user — Phase 16+ candidates
 
-| # | Candidate | Why | Estimated LOC / time |
-|---|-----------|-----|----------------------|
-| 1 | **Pivot Grid v2 with 4% notional cap** | Convert upper-bound 60-90%/mo envelope to a live-realistic +20-50%/mo. Replaces current `maxPositionPctEquity: 0.2` with `0.04`. | 50 LOC + re-run 3 backtests (15 min) |
-| 2 | **Donchian Range + Pivot Grid regime-routed ensemble** | Per §9 — route to Donchian in low-vol ranging, route to Pivot Grid in high-vol/trending. Avoid Keltner Grid at M15. | 200 LOC + ensemble backtest (30 min) |
-| 3 | **M1 Order-Flow Imbalance Scalp** | Per Phase 15 scope "optional 5th" — needs sub-50ms order-book latency probe to confirm viability. If viability check passes, add as a 5th sub-strategy in a 5-component ensemble. | 250 LOC + latency probe (45 min) |
-| 4 | **BB Squeeze + VolTarget composition with ADX < 20 filter** | If BB Squeeze M5 is filtered for low-ADX regimes only, it may show positive alpha. Compose with Phase 14D DVOL regime sizing. | 150 LOC + 3 backtests (30 min) |
-| 5 | **Trailing-stop overlay for Donchian Range** | Already exists in Phase 7 (`DonchianTrailingStrategy`). Plug into Phase 15 Donchian — adds ~5-10% improvement to DD on hold-to-trend trades. | 50 LOC plug-in (15 min) |
-| 6 | **Adaptive Kelly for retail ensemble** | Phase 9E `HybridKellyPlugin` is already Phase 11.1e-drop-in. Plug into Phase 15 ensemble sizing to scale notional to in-sample Sharpe. | 100 LOC + ensemble backtest (30 min) |
-| 7 | **Cross-symbol composition with Phase 13 portfolio orchestrator** | Run Phase 15 strategies through Phase 13's `PortfolioOrchestrator` for simultaneous BTC + ETH + SOL + notional division. Extends envelope. | 200 LOC + portfolio backtest (45 min) |
-| 8 | **Keltner Grid ADX < 20 filter** | Add Wilder ADX filter to Keltner Grid M5 — likely converts -50% envelope to positive. Cheapest fix (50 LOC + re-run 3 backtests). | 50 LOC + re-run (15 min) |
+| #   | Candidate                                                         | Why                                                                                                                                                                               | Estimated LOC / time                  |
+| --- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 1   | **Pivot Grid v2 with 4% notional cap**                            | Convert upper-bound 60-90%/mo envelope to a live-realistic +20-50%/mo. Replaces current `maxPositionPctEquity: 0.2` with `0.04`.                                                  | 50 LOC + re-run 3 backtests (15 min)  |
+| 2   | **Donchian Range + Pivot Grid regime-routed ensemble**            | Per §9 — route to Donchian in low-vol ranging, route to Pivot Grid in high-vol/trending. Avoid Keltner Grid at M15.                                                               | 200 LOC + ensemble backtest (30 min)  |
+| 3   | **M1 Order-Flow Imbalance Scalp**                                 | Per Phase 15 scope "optional 5th" — needs sub-50ms order-book latency probe to confirm viability. If viability check passes, add as a 5th sub-strategy in a 5-component ensemble. | 250 LOC + latency probe (45 min)      |
+| 4   | **BB Squeeze + VolTarget composition with ADX < 20 filter**       | If BB Squeeze M5 is filtered for low-ADX regimes only, it may show positive alpha. Compose with Phase 14D DVOL regime sizing.                                                     | 150 LOC + 3 backtests (30 min)        |
+| 5   | **Trailing-stop overlay for Donchian Range**                      | Already exists in Phase 7 (`DonchianTrailingStrategy`). Plug into Phase 15 Donchian — adds ~5-10% improvement to DD on hold-to-trend trades.                                      | 50 LOC plug-in (15 min)               |
+| 6   | **Adaptive Kelly for retail ensemble**                            | Phase 9E `HybridKellyPlugin` is already Phase 11.1e-drop-in. Plug into Phase 15 ensemble sizing to scale notional to in-sample Sharpe.                                            | 100 LOC + ensemble backtest (30 min)  |
+| 7   | **Cross-symbol composition with Phase 13 portfolio orchestrator** | Run Phase 15 strategies through Phase 13's `PortfolioOrchestrator` for simultaneous BTC + ETH + SOL + notional division. Extends envelope.                                        | 200 LOC + portfolio backtest (45 min) |
+| 8   | **Keltner Grid ADX < 20 filter**                                  | Add Wilder ADX filter to Keltner Grid M5 — likely converts -50% envelope to positive. Cheapest fix (50 LOC + re-run 3 backtests).                                                 | 50 LOC + re-run (15 min)              |
 
 **Highest-priority Phase 16 candidates:**
+
 - **#1 (Pivot Grid notional cap)** — directly addresses the #1 risk (compounding explosion).
 - **#8 (Keltner Grid ADX filter)** — cheapest fix, may convert -50% to positive envelope.
 - **#2 (regime-routed ensemble)** — directly addresses the ensemble under-performance gap.
@@ -340,6 +353,7 @@ The +50%/mo target is permanently structurally unreachable at this user's constr
 - `backtest-results/phase15-ensemble-{btc,eth,sol}-15m.json` (3)
 
 **Quality gates (all PASS):**
+
 - `bun run typecheck` — 13/13 packages PASS
 - `bun run lint` — 0 errors, 180 warnings (all pre-existing, no new warnings in Track D files)
 - `bun test` — 2057/2057 PASS (13 ensemble tests + 2046 existing)

@@ -360,9 +360,7 @@ export interface BucketDistribution {
   readonly totalDays: number;
 }
 
-export function bucketDistribution(
-  rollingSharpe: readonly RollingSharpePoint[],
-): BucketDistribution {
+export function bucketDistribution(rollingSharpe: readonly RollingSharpePoint[]): BucketDistribution {
   if (rollingSharpe.length === 0) {
     return {
       fullKellyFraction: 0,
@@ -437,10 +435,7 @@ export function averageKellyMultiplier(
  * computed as 0 (no variance), an all-loss streak should hard-floor
  * the Kelly multiplier at 0.25× to prevent oversizing after a drawdown.
  */
-export function hasAllLossStreak(
-  daily: readonly DailyPnlPoint[],
-  streakWindowDays: number,
-): boolean {
+export function hasAllLossStreak(daily: readonly DailyPnlPoint[], streakWindowDays: number): boolean {
   if (streakWindowDays <= 0 || daily.length === 0) {
     return false;
   }
@@ -568,7 +563,7 @@ export function computeAdaptiveKelly(
       effectiveKellyMultiplier: 0.5,
       effectiveCappedKellyFraction: cappedBaseKelly * 0.5,
       hadAllLossStreak: false,
-      recommendedRiskPerTrade: cappedBaseKelly * 0.5 / 0.1,
+      recommendedRiskPerTrade: (cappedBaseKelly * 0.5) / 0.1,
       recommendedMaxPositionPctEquity: cappedBaseKelly * 0.5,
     };
   }
@@ -738,9 +733,7 @@ export function runAdaptiveWalkForwardValidation(
     const trainRolling = rollingSharpeFromDailyPnl(trainDaily, rollingWindowDays);
     const trainStreak = hasAllLossStreak(trainDaily, rollingWindowDays);
     // Compute the average Sharpe from train (skip null days).
-    const validSharpes = trainRolling
-      .map((r) => r.sharpe)
-      .filter((s): s is number => s !== null);
+    const validSharpes = trainRolling.map((r) => r.sharpe).filter((s): s is number => s !== null);
     const avgTrainSharpe =
       validSharpes.length > 0 ? validSharpes.reduce((a, b) => a + b, 0) / validSharpes.length : 0;
     const trainBucket =
@@ -780,7 +773,7 @@ export function runAdaptiveWalkForwardValidation(
   // The earlier check `if (w.trainTrades.length === 0) continue;` above
   // is therefore unreachable in the for loop, so `records.length === 0`
   // is impossible. We do NOT need a defensive throw here.
-  const avgTrainSharpe = average(records.map((r) => (r.trainSharpe ?? 0)));
+  const avgTrainSharpe = average(records.map((r) => r.trainSharpe ?? 0));
   const avgTestSharpe = average(records.map((r) => r.testSharpe));
   const avgTestMultiplier = average(records.map((r) => r.testMultiplier));
   const avgTestReturn = average(records.map((r) => r.testReturn));
@@ -949,12 +942,7 @@ export function compareAdaptiveVsStaticKelly(
   config: KellyOptConfig = DEFAULT_KELLY_OPT_CONFIG,
 ): AdaptiveVsStaticComparison {
   const staticResult = optimizeKelly(trades, 180, 30, 30, config);
-  const adaptiveResult = computeAdaptiveKelly(
-    trades,
-    rollingWindowDays,
-    initialEquity,
-    config,
-  );
+  const adaptiveResult = computeAdaptiveKelly(trades, rollingWindowDays, initialEquity, config);
   const staticTotalFraction = staticResult.cappedKellyFraction;
   const adaptiveTotalFraction = adaptiveResult.effectiveCappedKellyFraction;
   const adaptiveAmplifies =

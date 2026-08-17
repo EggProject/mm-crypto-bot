@@ -157,7 +157,9 @@ function createCcxtExchange(id: SupportedExchangeId): CcxtExchange {
   // A `ccxt.pro[id]` a WS-támogatással rendelkező instance — a sima
   // `ccxt[id]` REST-only. Lásd: docs/research/stack-findings.md §1.1.
   const proCcxt = (ccxt as unknown as { pro: typeof ccxt }).pro;
-  const factory = (proCcxt as unknown as Record<string, new (opts: Record<string, unknown>) => CcxtExchange>)[id];
+  const factory = (proCcxt as unknown as Record<string, new (opts: Record<string, unknown>) => CcxtExchange>)[
+    id
+  ];
   if (factory === undefined) {
     throw new Error(`Ismeretlen exchange ID (pro): ${id}`);
   }
@@ -203,10 +205,7 @@ async function collectSpreadSamples(
   while (Date.now() < endTime) {
     const t0 = Date.now();
     try {
-      const [tickerA, tickerB] = await Promise.all([
-        a.fetchTicker(symbol),
-        b.fetchTicker(symbol),
-      ]);
+      const [tickerA, tickerB] = await Promise.all([a.fetchTicker(symbol), b.fetchTicker(symbol)]);
       const bidA = typeof tickerA.bid === "number" && tickerA.bid > 0 ? tickerA.bid : 0;
       const askA = typeof tickerA.ask === "number" && tickerA.ask > 0 ? tickerA.ask : 0;
       const bidB = typeof tickerB.bid === "number" && tickerB.bid > 0 ? tickerB.bid : 0;
@@ -232,11 +231,10 @@ async function collectSpreadSamples(
 
         if (bestSpreadBps >= minSpreadBps) {
           const profitableAfterLatency = bestSpreadBps >= 10; // egyszerűsített: ha >=10bps, akár az arb latency-val is nyerő
-          const theoreticalPnlUsd =
-            profitableAfterLatency
-              ? (bestSpreadBps / 10_000) * tradeNotionalUsd * 2 - // 2x a round-trip
-                (arbLatencyMs / 1000) * 0 // latency költség most 0 (becsülendő Phase 7+-ban)
-              : 0;
+          const theoreticalPnlUsd = profitableAfterLatency
+            ? (bestSpreadBps / 10_000) * tradeNotionalUsd * 2 - // 2x a round-trip
+              (arbLatencyMs / 1000) * 0 // latency költség most 0 (becsülendő Phase 7+-ban)
+            : 0;
           opportunities.push({
             timestamp: t0,
             exchangeA: { id: exchangeA, bid: bidA, ask: askA },
@@ -354,10 +352,7 @@ function assessDeploymentReadiness(
       : 0;
   // Becsült havi PnL: feltételezzük, hogy 24/7 fut a rendszer.
   const monthlyPnlEstimateUsd =
-    opportunitiesPerHour *
-    24 *
-    30 *
-    (avgPnlPerOpportunityUsd > 0 ? avgPnlPerOpportunityUsd : 0);
+    opportunitiesPerHour * 24 * 30 * (avgPnlPerOpportunityUsd > 0 ? avgPnlPerOpportunityUsd : 0);
 
   let verdict: "PASS" | "PARTIAL" | "FAIL";
   let reasoning: string;
@@ -480,17 +475,35 @@ async function main(): Promise<void> {
 
   console.log(`\n[arb-latency] === RESULTS ===`);
   console.log(`[arb-latency] Elapsed: ${elapsed}ms`);
-  console.log(`[arb-latency] Latency ${args.exchangeA}: median RTT=${round2(statsA.rttMedianMs)}ms, p95=${round2(statsA.rttP95Ms)}ms, p99=${round2(statsA.rttP99Ms)}ms`);
-  console.log(`[arb-latency] Latency ${args.exchangeB}: median RTT=${round2(statsB.rttMedianMs)}ms, p95=${round2(statsB.rttP95Ms)}ms, p99=${round2(statsB.rttP99Ms)}ms`);
-  console.log(`[arb-latency] Message gap ${args.exchangeA}: median=${round2(statsA.gapMedianMs)}ms, p95=${round2(statsA.gapP95Ms)}ms`);
-  console.log(`[arb-latency] Message gap ${args.exchangeB}: median=${round2(statsB.gapMedianMs)}ms, p95=${round2(statsB.gapP95Ms)}ms`);
+  console.log(
+    `[arb-latency] Latency ${args.exchangeA}: median RTT=${round2(statsA.rttMedianMs)}ms, p95=${round2(statsA.rttP95Ms)}ms, p99=${round2(statsA.rttP99Ms)}ms`,
+  );
+  console.log(
+    `[arb-latency] Latency ${args.exchangeB}: median RTT=${round2(statsB.rttMedianMs)}ms, p95=${round2(statsB.rttP95Ms)}ms, p99=${round2(statsB.rttP99Ms)}ms`,
+  );
+  console.log(
+    `[arb-latency] Message gap ${args.exchangeA}: median=${round2(statsA.gapMedianMs)}ms, p95=${round2(statsA.gapP95Ms)}ms`,
+  );
+  console.log(
+    `[arb-latency] Message gap ${args.exchangeB}: median=${round2(statsB.gapMedianMs)}ms, p95=${round2(statsB.gapP95Ms)}ms`,
+  );
   if (args.measureReconnect) {
-    console.log(`[arb-latency] Reconnect ${args.exchangeA}: ${statsA.reconnectCount} events, median=${round2(statsA.reconnectMedianMs)}ms`);
-    console.log(`[arb-latency] Reconnect ${args.exchangeB}: ${statsB.reconnectCount} events, median=${round2(statsB.reconnectMedianMs)}ms`);
+    console.log(
+      `[arb-latency] Reconnect ${args.exchangeA}: ${statsA.reconnectCount} events, median=${round2(statsA.reconnectMedianMs)}ms`,
+    );
+    console.log(
+      `[arb-latency] Reconnect ${args.exchangeB}: ${statsB.reconnectCount} events, median=${round2(statsB.reconnectMedianMs)}ms`,
+    );
   }
-  console.log(`[arb-latency] Spread opportunities: ${opportunitySummary.totalSamples} samples, ${opportunitySummary.profitableCount} profitable (${round2(opportunitySummary.profitableRate * 100)}%)`);
-  console.log(`[arb-latency] Spread stats: median=${opportunitySummary.medianSpreadBps}bps, max=${opportunitySummary.maxSpreadBps}bps`);
-  console.log(`[arb-latency] Theoretical PnL (measurement window): $${opportunitySummary.totalTheoreticalPnlUsd}`);
+  console.log(
+    `[arb-latency] Spread opportunities: ${opportunitySummary.totalSamples} samples, ${opportunitySummary.profitableCount} profitable (${round2(opportunitySummary.profitableRate * 100)}%)`,
+  );
+  console.log(
+    `[arb-latency] Spread stats: median=${opportunitySummary.medianSpreadBps}bps, max=${opportunitySummary.maxSpreadBps}bps`,
+  );
+  console.log(
+    `[arb-latency] Theoretical PnL (measurement window): $${opportunitySummary.totalTheoreticalPnlUsd}`,
+  );
   console.log(`[arb-latency] Estimated arb round-trip latency: ${round2(arbLatencyMs)}ms`);
   console.log(`[arb-latency] === DEPLOYMENT READINESS: ${readiness.verdict} ===`);
   console.log(`[arb-latency] ${readiness.reasoning}`);

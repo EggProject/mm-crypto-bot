@@ -49,15 +49,32 @@ export function parseArgs(argv: readonly string[] = process.argv.slice(2)): SolF
   for (const arg of argv) {
     const [flag, raw = ""] = arg.split("=", 2);
     switch (flag) {
-      case "--input": inputPath = resolve(raw); break;
-      case "--output": outputPath = raw; break;
-      case "--start": startTime = new Date(raw); break;
-      case "--end": endTime = new Date(raw); break;
-      case "--sign-flip-window-days": pluginConfig = { ...pluginConfig, signFlipWindowDays: positiveNumber(flag, raw) }; break;
-      case "--extreme-sigma-threshold": pluginConfig = { ...pluginConfig, extremeSigmaThreshold: positiveNumber(flag, raw, true) }; break;
-      case "--persistence-days": pluginConfig = { ...pluginConfig, persistenceDays: positiveNumber(flag, raw, true) }; break;
-      case "--vol-window-days": pluginConfig = { ...pluginConfig, volWindowDays: positiveNumber(flag, raw) }; break;
-      default: throw new Error(`Unknown argument: ${arg}`);
+      case "--input":
+        inputPath = resolve(raw);
+        break;
+      case "--output":
+        outputPath = raw;
+        break;
+      case "--start":
+        startTime = new Date(raw);
+        break;
+      case "--end":
+        endTime = new Date(raw);
+        break;
+      case "--sign-flip-window-days":
+        pluginConfig = { ...pluginConfig, signFlipWindowDays: positiveNumber(flag, raw) };
+        break;
+      case "--extreme-sigma-threshold":
+        pluginConfig = { ...pluginConfig, extremeSigmaThreshold: positiveNumber(flag, raw, true) };
+        break;
+      case "--persistence-days":
+        pluginConfig = { ...pluginConfig, persistenceDays: positiveNumber(flag, raw, true) };
+        break;
+      case "--vol-window-days":
+        pluginConfig = { ...pluginConfig, volWindowDays: positiveNumber(flag, raw) };
+        break;
+      default:
+        throw new Error(`Unknown argument: ${arg}`);
     }
   }
   if (!Number.isFinite(startTime.getTime()) || !Number.isFinite(endTime.getTime()) || startTime >= endTime) {
@@ -83,7 +100,8 @@ export function parseFundingCsv(raw: string): readonly FundingRow[] {
       fundingTime,
       symbol,
       fundingRate,
-      markPrice: markRaw !== undefined && markRaw !== "" && Number.isFinite(Number(markRaw)) ? Number(markRaw) : null,
+      markPrice:
+        markRaw !== undefined && markRaw !== "" && Number.isFinite(Number(markRaw)) ? Number(markRaw) : null,
     });
   }
   return rows.sort((a, b) => a.fundingTime - b.fundingTime);
@@ -118,7 +136,7 @@ export function replayFunding(
     else if (row.fundingRate < 0) negativeSamples += 1;
     else zeroSamples += 1;
     if (row.fundingRate !== 0) {
-      if (previousNonZeroRate !== null && (previousNonZeroRate > 0) !== (row.fundingRate > 0)) rawSignFlips += 1;
+      if (previousNonZeroRate !== null && previousNonZeroRate > 0 !== row.fundingRate > 0) rawSignFlips += 1;
       previousNonZeroRate = row.fundingRate;
     }
     const absRate = Math.abs(row.fundingRate);
@@ -173,8 +191,11 @@ export function replayFunding(
 export async function main(): Promise<void> {
   const args = parseArgs();
   const allRows = parseFundingCsv(await readFile(args.inputPath, "utf8"));
-  const rows = allRows.filter((row) => row.fundingTime >= args.startTime.getTime() && row.fundingTime < args.endTime.getTime());
-  if (rows.length === 0) throw new Error(`No real SOLUSDT funding rows in requested interval: ${args.inputPath}`);
+  const rows = allRows.filter(
+    (row) => row.fundingTime >= args.startTime.getTime() && row.fundingTime < args.endTime.getTime(),
+  );
+  if (rows.length === 0)
+    throw new Error(`No real SOLUSDT funding rows in requested interval: ${args.inputPath}`);
   const replay = replayFunding(rows, args.pluginConfig);
   const expectedSlots = Math.ceil((args.endTime.getTime() - args.startTime.getTime()) / FUNDING_INTERVAL_MS);
   const coverageRatio = rows.length / expectedSlots;
@@ -203,8 +224,12 @@ export async function main(): Promise<void> {
   const absOutput = resolve(process.cwd(), args.outputPath);
   await mkdir(resolve(absOutput, ".."), { recursive: true });
   await writeFile(absOutput, JSON.stringify(output, null, 2), "utf8");
-  console.log(`[sol-flip] real Binance funding rows=${rows.length} coverage=${(coverageRatio * 100).toFixed(2)}%`);
-  console.log(`[sol-flip] activations=${replay.metrics["regimeActivationCount"]} riskEvents=${replay.riskEvents.length}`);
+  console.log(
+    `[sol-flip] real Binance funding rows=${rows.length} coverage=${(coverageRatio * 100).toFixed(2)}%`,
+  );
+  console.log(
+    `[sol-flip] activations=${replay.metrics["regimeActivationCount"]} riskEvents=${replay.riskEvents.length}`,
+  );
   console.log(`[sol-flip] PnL/DD: N/A (defensive overlay, not standalone alpha)`);
   console.log(`[sol-flip] Saved: ${absOutput}`);
 }

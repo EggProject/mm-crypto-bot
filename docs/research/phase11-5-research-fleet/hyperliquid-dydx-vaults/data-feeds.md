@@ -123,9 +123,9 @@ Curated raw source links, grouped per evidence class. All links verified live du
 97. Gate Japan blog (Hyperliquid vs dYdX vs GMX): <https://www.gate.com/ja/blog/who-is-leading-the-on-chain-perpetuals-market-hype-dydx-and-gmx-analysis>
 98. ourcryptotalk 2026 comparison: <https://ourcryptotalk.com/blog/hyperliquid-vs-dydx-2026-fees-liquidity-performance>
 99. SolanaLink news dYdX-vs-HL MM-program comparison: <https://solanalink.jp/ja/news-and-blog-list/115391/>
-100. WhisperUI Hyperliquid perps guide: <https://whisperui.com/cryptocoins/hyperliquid-perps>
-101. PHP中文 comparison: <https://www.php.cn/faq/1694757.html>
-102. OneKey ecosystem compare: <https://onekey.so/blog/ecosystem/hyperliquid-vs-dydx-comparison/>
+100.  WhisperUI Hyperliquid perps guide: <https://whisperui.com/cryptocoins/hyperliquid-perps>
+101.  PHP中文 comparison: <https://www.php.cn/faq/1694757.html>
+102.  OneKey ecosystem compare: <https://onekey.so/blog/ecosystem/hyperliquid-vs-dydx-comparison/>
 
 ## H. Points farming / Airdrop mechanics (sub-q2)
 

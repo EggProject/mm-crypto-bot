@@ -37,7 +37,11 @@ export interface NormalizedResult {
   readonly symbol: string | null;
   readonly codeRevision: string | null;
   readonly parameters: JsonObject;
-  readonly split: { readonly name: string | null; readonly start: string | null; readonly end: string | null };
+  readonly split: {
+    readonly name: string | null;
+    readonly start: string | null;
+    readonly end: string | null;
+  };
   readonly dataInputs: readonly unknown[];
   readonly coverage: JsonObject;
   readonly metrics: NormalizedMetrics;
@@ -122,7 +126,8 @@ function inferSplit(value: JsonObject, args: JsonObject): NormalizedResult["spli
   let name: string | null = null;
   if (start?.startsWith("2024-01-01") === true && end?.startsWith("2025-07-01") === true) name = "is";
   else if (start?.startsWith("2024-01-01") === true && end?.startsWith("2026-07-09") === true) name = "full";
-  else if (start?.startsWith("2025-07-01") === true && end?.startsWith("2026-01-01") === true) name = "validation";
+  else if (start?.startsWith("2025-07-01") === true && end?.startsWith("2026-01-01") === true)
+    name = "validation";
   else if (start?.startsWith("2026-01-01") === true && end?.startsWith("2026-07-09") === true) name = "oos";
   else if (start !== null || end !== null) name = "custom";
   return { name, start, end };
@@ -149,23 +154,30 @@ function failedResult(rawOutput: string, runId: string, reason: string): Normali
   };
 }
 
-function normalizeObject(value: JsonObject, rawOutput: string, inheritedRevision: string | null = null): NormalizedResult {
+function normalizeObject(
+  value: JsonObject,
+  rawOutput: string,
+  inheritedRevision: string | null = null,
+): NormalizedResult {
   const args = isObject(value["args"]) ? value["args"] : {};
   const parameters = isObject(value["parameters"]) ? value["parameters"] : args;
   const rawMetrics = isObject(value["metrics"]) ? value["metrics"] : null;
   const result = isObject(value["result"]) ? value["result"] : {};
-  const strategyId = asString(value["strategyId"])
-    ?? asString(value["strategy"])
-    ?? (isObject(value["detectorResult"]) ? "cascade_fade" : null)
-    ?? ("dydxHourlyCount" in value ? "dydx_cex_carry" : "unknown");
+  const strategyId =
+    asString(value["strategyId"]) ??
+    asString(value["strategy"]) ??
+    (isObject(value["detectorResult"]) ? "cascade_fade" : null) ??
+    ("dydxHourlyCount" in value ? "dydx_cex_carry" : "unknown");
   const runId = asString(value["runId"]) ?? basename(rawOutput, ".json");
   const explicitStatus = asString(value["status"]);
   let status = explicitStatus ?? "LEGACY_UNVERIFIED_PROVENANCE";
-  let reason = asString(value["reason"])
-    ?? (explicitStatus === null ? "Az artifact nem rögzít code revisiont és input-adathash kapcsolatot." : null);
+  let reason =
+    asString(value["reason"]) ??
+    (explicitStatus === null ? "Az artifact nem rögzít code revisiont és input-adathash kapcsolatot." : null);
   const dataInputs = Array.isArray(value["dataInputs"]) ? value["dataInputs"] : [];
   let coverage: JsonObject = isObject(value["coverage"]) ? value["coverage"] : {};
-  if (Object.keys(coverage).length === 0 && isObject(value["inputProvenance"])) coverage = value["inputProvenance"];
+  if (Object.keys(coverage).length === 0 && isObject(value["inputProvenance"]))
+    coverage = value["inputProvenance"];
   if (Object.keys(coverage).length === 0 && isObject(value["data"])) coverage = value["data"];
   const derivedMetrics = isObject(value["derivedMetrics"]) ? value["derivedMetrics"] : {};
   const overlayMetrics = isObject(value["overlayMetrics"]) ? value["overlayMetrics"] : {};
@@ -183,29 +195,46 @@ function normalizeObject(value: JsonObject, rawOutput: string, inheritedRevision
     const expectedHourlyCount = windowDays * 24;
     const hourlyCoverageRatio = expectedHourlyCount > 0 ? dydxHourlyCount / expectedHourlyCount : 0;
     const dataSufficientDays = asNumber(result["dataSufficientDays"]);
-    const dailyCoverageRatio = dataSufficientDays === null || windowDays <= 0 ? null : dataSufficientDays / windowDays;
+    const dailyCoverageRatio =
+      dataSufficientDays === null || windowDays <= 0 ? null : dataSufficientDays / windowDays;
     const reportedSufficient = asBoolean(coverage["sufficient"]);
-    coverage = { ...coverage, windowDays, dydxHourlyCount, expectedHourlyCount, hourlyCoverageRatio, dataSufficientDays, dailyCoverageRatio };
-    if (reportedSufficient === false || hourlyCoverageRatio < 0.9 || dailyCoverageRatio === null || dailyCoverageRatio < 0.9) {
+    coverage = {
+      ...coverage,
+      windowDays,
+      dydxHourlyCount,
+      expectedHourlyCount,
+      hourlyCoverageRatio,
+      dataSufficientDays,
+      dailyCoverageRatio,
+    };
+    if (
+      reportedSufficient === false ||
+      hourlyCoverageRatio < 0.9 ||
+      dailyCoverageRatio === null ||
+      dailyCoverageRatio < 0.9
+    ) {
       status = "FAILED_DATA_COVERAGE";
       reason = `dYdX coverage elégtelen: órás ${(hourlyCoverageRatio * 100).toFixed(2)}%, napi ${dailyCoverageRatio === null ? "N/A" : `${(dailyCoverageRatio * 100).toFixed(2)}%`} (mindkettő minimum 90%)`;
     }
   }
 
-  const metrics: NormalizedMetrics = rawMetrics !== null && value["schemaVersion"] === 1
-    ? metricsFromNormalized(rawMetrics)
-    : {
-        totalReturnPct: percent(result["totalReturn"]),
-        monthlyReturnPct: percent(value["monthlyReturn"] ?? derivedMetrics["monthlyReturn"] ?? result["monthlyCarry"]),
-        annualizedReturnPct: percent(result["annualizedReturn"]),
-        maxDrawdownPct: percent(result["maxDrawdown"]),
-        sharpe: asNumber(result["sharpeRatio"]),
-        sortino: asNumber(result["sortinoRatio"]),
-        profitFactor: profitFactorFromResult(result),
-        winRatePct: percent(result["winRate"]),
-        totalTrades: asNumber(result["totalTrades"]),
-        killSwitchTriggered: asBoolean(result["killSwitchTriggered"]),
-      };
+  const metrics: NormalizedMetrics =
+    rawMetrics !== null && value["schemaVersion"] === 1
+      ? metricsFromNormalized(rawMetrics)
+      : {
+          totalReturnPct: percent(result["totalReturn"]),
+          monthlyReturnPct: percent(
+            value["monthlyReturn"] ?? derivedMetrics["monthlyReturn"] ?? result["monthlyCarry"],
+          ),
+          annualizedReturnPct: percent(result["annualizedReturn"]),
+          maxDrawdownPct: percent(result["maxDrawdown"]),
+          sharpe: asNumber(result["sharpeRatio"]),
+          sortino: asNumber(result["sortinoRatio"]),
+          profitFactor: profitFactorFromResult(result),
+          winRatePct: percent(result["winRate"]),
+          totalTrades: asNumber(result["totalTrades"]),
+          killSwitchTriggered: asBoolean(result["killSwitchTriggered"]),
+        };
   return {
     schemaVersion: 1,
     runId,
@@ -220,7 +249,12 @@ function normalizeObject(value: JsonObject, rawOutput: string, inheritedRevision
     dataInputs,
     coverage,
     metrics,
-    extendedMetrics: { ...explicitExtendedMetrics, ...(rawMetrics !== null && value["schemaVersion"] !== 1 ? { runnerMetrics: rawMetrics } : {}), ...(Object.keys(derivedMetrics).length > 0 ? { derivedMetrics } : {}), ...(Object.keys(overlayMetrics).length > 0 ? { overlayMetrics } : {}) },
+    extendedMetrics: {
+      ...explicitExtendedMetrics,
+      ...(rawMetrics !== null && value["schemaVersion"] !== 1 ? { runnerMetrics: rawMetrics } : {}),
+      ...(Object.keys(derivedMetrics).length > 0 ? { derivedMetrics } : {}),
+      ...(Object.keys(overlayMetrics).length > 0 ? { overlayMetrics } : {}),
+    },
     provenance: isObject(value["provenance"]) ? value["provenance"] : {},
     rawOutput: asString(value["rawOutput"]) ?? rawOutput,
   };
@@ -228,16 +262,25 @@ function normalizeObject(value: JsonObject, rawOutput: string, inheritedRevision
 
 export function normalizeDocument(value: unknown, rawOutput: string): readonly NormalizedResult[] {
   if (Array.isArray(value)) {
-    return value.map((entry, index) => isObject(entry)
-      ? normalizeObject(entry, `${rawOutput}#${index}`)
-      : failedResult(`${rawOutput}#${index}`, `${basename(rawOutput)}-${index}`, "A tömbelem nem objektum"));
+    return value.map((entry, index) =>
+      isObject(entry)
+        ? normalizeObject(entry, `${rawOutput}#${index}`)
+        : failedResult(`${rawOutput}#${index}`, `${basename(rawOutput)}-${index}`, "A tömbelem nem objektum"),
+    );
   }
-  if (!isObject(value)) return [failedResult(rawOutput, basename(rawOutput), "A JSON gyökér nem objektum vagy tömb")];
+  if (!isObject(value))
+    return [failedResult(rawOutput, basename(rawOutput), "A JSON gyökér nem objektum vagy tömb")];
   if (Array.isArray(value["jobs"])) {
     const revision = asString(value["codeRevision"]);
-    return value["jobs"].map((job, index) => isObject(job)
-      ? normalizeObject(job, `${rawOutput}#jobs[${index}]`, revision)
-      : failedResult(`${rawOutput}#jobs[${index}]`, `${basename(rawOutput)}-job-${index}`, "A job nem objektum"));
+    return value["jobs"].map((job, index) =>
+      isObject(job)
+        ? normalizeObject(job, `${rawOutput}#jobs[${index}]`, revision)
+        : failedResult(
+            `${rawOutput}#jobs[${index}]`,
+            `${basename(rawOutput)}-job-${index}`,
+            "A job nem objektum",
+          ),
+    );
   }
   return [normalizeObject(value, rawOutput)];
 }
@@ -249,14 +292,16 @@ export async function normalizeFiles(inputPath: string): Promise<readonly Normal
     if (file.endsWith(".provenance.json")) continue;
     try {
       const value = JSON.parse(await readFile(file, "utf8")) as unknown;
-      if (isObject(value) && value["dryRun"] === false && Array.isArray(value["jobs"])) executionManifests.push({ file, value });
+      if (isObject(value) && value["dryRun"] === false && Array.isArray(value["jobs"]))
+        executionManifests.push({ file, value });
     } catch {
       // A normál feldolgozás lent FAILED_PARSE sort készít.
     }
   }
   if (executionManifests.length > 0) {
     const rows: NormalizedResult[] = [];
-    for (const manifest of executionManifests) rows.push(...await normalizeExecutionManifest(manifest.value, manifest.file));
+    for (const manifest of executionManifests)
+      rows.push(...(await normalizeExecutionManifest(manifest.value, manifest.file)));
     return rows;
   }
   const rows: NormalizedResult[] = [];
@@ -267,15 +312,31 @@ export async function normalizeFiles(inputPath: string): Promise<readonly Normal
       const raw = await readFile(file, "utf8");
       rows.push(...normalizeDocument(JSON.parse(raw) as unknown, rawOutput));
     } catch (error) {
-      rows.push(failedResult(rawOutput, basename(file, ".json"), error instanceof Error ? error.message : String(error)));
+      rows.push(
+        failedResult(
+          rawOutput,
+          basename(file, ".json"),
+          error instanceof Error ? error.message : String(error),
+        ),
+      );
     }
   }
   return rows;
 }
 
-async function normalizeExecutionManifest(manifest: JsonObject, manifestPath: string): Promise<readonly NormalizedResult[]> {
+async function normalizeExecutionManifest(
+  manifest: JsonObject,
+  manifestPath: string,
+): Promise<readonly NormalizedResult[]> {
   const jobs = manifest["jobs"];
-  if (!Array.isArray(jobs)) return [failedResult(relative(REPO_ROOT, manifestPath), basename(manifestPath), "A végrehajtási manifest jobs mezője hibás")];
+  if (!Array.isArray(jobs))
+    return [
+      failedResult(
+        relative(REPO_ROOT, manifestPath),
+        basename(manifestPath),
+        "A végrehajtási manifest jobs mezője hibás",
+      ),
+    ];
   const inheritedRevision = asString(manifest["codeRevision"]);
   const rows: NormalizedResult[] = [];
   for (let index = 0; index < jobs.length; index++) {
@@ -301,26 +362,52 @@ async function normalizeExecutionManifest(manifest: JsonObject, manifestPath: st
       try {
         const raw = JSON.parse(await readFile(resolve(REPO_ROOT, rawOutput), "utf8")) as unknown;
         if (!isObject(raw)) throw new Error("A raw output gyökere nem objektum");
-        rows.push(normalizeObject({
-          ...raw,
-          runId: job["runId"],
-          strategyId: job["strategyId"],
-          componentMask: job["componentMask"],
-          status,
-          reason: job["reason"],
-          parameters: job["parameters"],
-          split: job["split"],
-          codeRevision: inheritedRevision,
-          dataInputs: Array.isArray(provenance["inputHashes"]) ? provenance["inputHashes"] : job["inputFiles"],
-          provenance,
-          rawOutput,
-        }, rawOutput, inheritedRevision));
+        rows.push(
+          normalizeObject(
+            {
+              ...raw,
+              runId: job["runId"],
+              strategyId: job["strategyId"],
+              componentMask: job["componentMask"],
+              status,
+              reason: job["reason"],
+              parameters: job["parameters"],
+              split: job["split"],
+              codeRevision: inheritedRevision,
+              dataInputs: Array.isArray(provenance["inputHashes"])
+                ? provenance["inputHashes"]
+                : job["inputFiles"],
+              provenance,
+              rawOutput,
+            },
+            rawOutput,
+            inheritedRevision,
+          ),
+        );
       } catch (error) {
-        rows.push(normalizeObject({ ...job, status: "FAILED_PARSE", reason: `A sikeres job raw outputja nem olvasható: ${error instanceof Error ? error.message : String(error)}`, codeRevision: inheritedRevision, provenance }, manifestRef, inheritedRevision));
+        rows.push(
+          normalizeObject(
+            {
+              ...job,
+              status: "FAILED_PARSE",
+              reason: `A sikeres job raw outputja nem olvasható: ${error instanceof Error ? error.message : String(error)}`,
+              codeRevision: inheritedRevision,
+              provenance,
+            },
+            manifestRef,
+            inheritedRevision,
+          ),
+        );
       }
       continue;
     }
-    rows.push(normalizeObject({ ...job, codeRevision: inheritedRevision, provenance }, manifestRef, inheritedRevision));
+    rows.push(
+      normalizeObject(
+        { ...job, codeRevision: inheritedRevision, provenance },
+        manifestRef,
+        inheritedRevision,
+      ),
+    );
   }
   return rows;
 }

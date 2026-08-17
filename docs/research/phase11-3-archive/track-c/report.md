@@ -14,38 +14,38 @@
 
 ## §2 — SOURCE INVENTORY
 
-| # | Source | URL | Language | 1-line relevance |
-|---|--------|-----|----------|------------------|
-| 1 | Hyperliquid Docs — Order Book | hyperliquid.gitbook.io/hypercore/order-book | en | Authoritative: price-time priority, block-level action sorting (cancels before GTC before IOC) |
-| 2 | Hyperliquid Docs — Oracle | hyperliquid.gitbook.io/hypercore/oracle | en | 3-second validator oracle, weighted-median of 8 exchanges (Binance 3 / OKX 2 / Bybit 2 / others 1) |
-| 3 | Hyperliquid Docs — HIP-1 | hyperliquid.gitbook.io/.../hip-1-native-token-standard | en | Fee schedule, deployer fee share 0–100%, on-chain spot order book |
-| 4 | Hyperliquid Docs — WebSocket API | hyperliquid.gitbook.io/.../api/websocket | en | Mainnet `wss://api.hyperliquid.xyz/ws`, subscription types l2Book / trades / userEvents |
-| 5 | dYdX v4 docs — Rewards / Fees | github.com/dydxprotocol/v4-documentation | en | 5.0/1.0 bps base fees, −1.1 bps maker rebate Tier 9, 90% trading-reward cap per fill |
-| 6 | dYdX Help — MegaVault FAQ | help.dydx.trade MegaVault | en | APR formula (30d PnL / TVL × 365/30); negative ex-incentives |
-| 7 | dYdX Forum — DRC Revenue Share | dydx.forum DRC thread | en | MegaVault −16.7% APY ex-incentives; 35%/yr incentive cost |
-| 8 | Vertex Docs — Hybrid Orderbook AMM | docs.vertexprotocol.com/.../hybrid-orderbook-amm-design | en | On-chain AMM + on-chain risk engine + off-chain sequencer; Slo-Mo fallback |
-| 9 | Vertex Edge (Coingecko Learn) | coingecko.com/learn/what-is-vertex-vertex-edge-crypto | en | Cross-chain synchronous orderbook across 8 chains |
-| 10 | gTrade Docs — Trading Interface | docs.gains.trade/.../overview | en | Single-vault DAI counterparty; DAI/USDC/GNS/WETH collateral |
-| 11 | Gains Network — gToken Vaults | medium.com/gains-network/introducing-gtoken-vaults | en | DAI vault 7% APY, 4-day withdrawal rate-cap; 91+ pairs |
-| 12 | Hyperliquid Wiki — 2025-26-03 Incident | hyperliquid-co.gitbook.io/.../2025-26-03_incident | en | Authoritative JELLY post-mortem timeline; ADL not triggered |
-| 13 | ChainCatcher — MT Capital Insight | chaincatcher.com/en/article/2106222 | en | dYdX annual revenue $105M; $39M USDC distributed to validators |
-| 14 | ChainUp — Hyperliquid funding engine | chainup.com/blog/hyperliquid-funding-rate-engine-explained | en | Hourly vs 8-hour cadence divergence; 4% per-hour cap; Ethena absorbs BTC/ETH spike |
-| 15 | BlockEden — funding divergence tracker | blockeden.xyz/forum/t/.../407 | en | 6-month empirical: BTC 0.002%/8h, ETH 0.003%/8h avg divergence, max 0.015% |
-| 16 | CoinMarketman — Funding Rate Arb on HL | coinmarketman.com/blog/funding-rate-arbitrage-on-hyperliquid | en | Settlement cadence structural difference; HL higher mean + stddev |
-| 17 | Tangerine Exchange — BTC funding May 2026 | tangerine.exchange/insights/btc-funding-rate-report-2026-05-12 | en | SAGA −58.7% APY, TST +57.9% APY long-tail extreme |
-| 18 | Halborn — Hyperliquid Hack explained | halborn.com/blog/post/explained-the-hyperliquid-hack-march-2025 | en | Attacker extracted $6.26M of $7.17M deposited; HLP $12M loss |
-| 19 | Glassnode Latency Monitor | hyperlatency.glassnode.com/hyperliquid/fill-latency | en | AWS Tokyo 884ms median end-to-end; co-located 0.2s Hyperliquid spec |
-| 20 | 腾讯新闻 — Perp DEX 资金费率 | news.qq.com/rain/a/20250903A01M8U00 | zh | Global funding scale 20–50亿美元/年 mid-case; HL alone 7–8 figs USD/yr |
-| 21 | Odaily — BitMEX Alpha HL美股永续 | odaily.news/zh-CN/post/5208009 | zh | BitMEX-HL 2025-H1 annualized 15.6%/15.7% (SOL/AVAX), 0 leverage |
-| 22 | panewslab — Hyperliquid 套利印钞机 | panewslab.com/zh/articles/ab6e508e-8411-40ef-9496-91a80bc4e713 | zh | Team staked 100k HYPE → 30% fee rebate; threshold 0.15%→0.05% |
-| 23 | 163.com — 深入解读 Perp DEX 格局 | 163.com/dy/article/KCPGR83I05568W0A.html | zh | "Speed Bump" mechanism: 3-block mempool buffer + Cancel Order First |
-| 24 | 腾讯新闻 — Aster vs HL microstructure | news.qq.com/rain/a/20251104A05GDB00 | zh | Cancel→Post-Only→GTC→IOC priority protects maker; 10.11 crash spread 0.01–0.05% |
-| 25 | learnblockchain — Hyperliquid的秘密调料 | learnblockchain.cn/article/13101 | zh | Dual-block architecture (fast 2s / slow 1min) for order separation |
-| 26 | BitMEX 中文 — Hyperliquid 收割资金费率 | x.com/Bitmex_zh/status/1943228524934148415 | zh | Step-by-step 8h cadence arb guide; HL funding "常年≈0" vs BitMEX high |
-| 27 | LiquidView — Smart Order Routing | liquidview.app/blog/smart-order-routing-dex | en | SOR compares taker fee + half-spread + price impact + funding cost |
-| 28 | Ranger Finance — Smart Order Router | docs.ranger.finance/ranger-perps | en | Cross-chain via DeBridge + Privy auto-wallet for Hyperliquid integration |
-| 29 | RyskyGeronimo — HLP Risk-Return Analysis | medium.com/@RyskyGeronimo/a-risk-return-analysis-of-hyperliquids-hlp-vault | en | HLP CAGR 42% lifetime, 22% 12-month, Sharpe 5.2 |
-| 30 | arx.trade — HLP Vault explained | arx.trade/blog/hyperliquid-vaults-explained/ | en | Historical ~1.75%/mo, $700M Feb 2026 liquidation = $15M HLP profit |
+| #   | Source                                    | URL                                                                        | Language | 1-line relevance                                                                                   |
+| --- | ----------------------------------------- | -------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------- |
+| 1   | Hyperliquid Docs — Order Book             | hyperliquid.gitbook.io/hypercore/order-book                                | en       | Authoritative: price-time priority, block-level action sorting (cancels before GTC before IOC)     |
+| 2   | Hyperliquid Docs — Oracle                 | hyperliquid.gitbook.io/hypercore/oracle                                    | en       | 3-second validator oracle, weighted-median of 8 exchanges (Binance 3 / OKX 2 / Bybit 2 / others 1) |
+| 3   | Hyperliquid Docs — HIP-1                  | hyperliquid.gitbook.io/.../hip-1-native-token-standard                     | en       | Fee schedule, deployer fee share 0–100%, on-chain spot order book                                  |
+| 4   | Hyperliquid Docs — WebSocket API          | hyperliquid.gitbook.io/.../api/websocket                                   | en       | Mainnet `wss://api.hyperliquid.xyz/ws`, subscription types l2Book / trades / userEvents            |
+| 5   | dYdX v4 docs — Rewards / Fees             | github.com/dydxprotocol/v4-documentation                                   | en       | 5.0/1.0 bps base fees, −1.1 bps maker rebate Tier 9, 90% trading-reward cap per fill               |
+| 6   | dYdX Help — MegaVault FAQ                 | help.dydx.trade MegaVault                                                  | en       | APR formula (30d PnL / TVL × 365/30); negative ex-incentives                                       |
+| 7   | dYdX Forum — DRC Revenue Share            | dydx.forum DRC thread                                                      | en       | MegaVault −16.7% APY ex-incentives; 35%/yr incentive cost                                          |
+| 8   | Vertex Docs — Hybrid Orderbook AMM        | docs.vertexprotocol.com/.../hybrid-orderbook-amm-design                    | en       | On-chain AMM + on-chain risk engine + off-chain sequencer; Slo-Mo fallback                         |
+| 9   | Vertex Edge (Coingecko Learn)             | coingecko.com/learn/what-is-vertex-vertex-edge-crypto                      | en       | Cross-chain synchronous orderbook across 8 chains                                                  |
+| 10  | gTrade Docs — Trading Interface           | docs.gains.trade/.../overview                                              | en       | Single-vault DAI counterparty; DAI/USDC/GNS/WETH collateral                                        |
+| 11  | Gains Network — gToken Vaults             | medium.com/gains-network/introducing-gtoken-vaults                         | en       | DAI vault 7% APY, 4-day withdrawal rate-cap; 91+ pairs                                             |
+| 12  | Hyperliquid Wiki — 2025-26-03 Incident    | hyperliquid-co.gitbook.io/.../2025-26-03_incident                          | en       | Authoritative JELLY post-mortem timeline; ADL not triggered                                        |
+| 13  | ChainCatcher — MT Capital Insight         | chaincatcher.com/en/article/2106222                                        | en       | dYdX annual revenue $105M; $39M USDC distributed to validators                                     |
+| 14  | ChainUp — Hyperliquid funding engine      | chainup.com/blog/hyperliquid-funding-rate-engine-explained                 | en       | Hourly vs 8-hour cadence divergence; 4% per-hour cap; Ethena absorbs BTC/ETH spike                 |
+| 15  | BlockEden — funding divergence tracker    | blockeden.xyz/forum/t/.../407                                              | en       | 6-month empirical: BTC 0.002%/8h, ETH 0.003%/8h avg divergence, max 0.015%                         |
+| 16  | CoinMarketman — Funding Rate Arb on HL    | coinmarketman.com/blog/funding-rate-arbitrage-on-hyperliquid               | en       | Settlement cadence structural difference; HL higher mean + stddev                                  |
+| 17  | Tangerine Exchange — BTC funding May 2026 | tangerine.exchange/insights/btc-funding-rate-report-2026-05-12             | en       | SAGA −58.7% APY, TST +57.9% APY long-tail extreme                                                  |
+| 18  | Halborn — Hyperliquid Hack explained      | halborn.com/blog/post/explained-the-hyperliquid-hack-march-2025            | en       | Attacker extracted $6.26M of $7.17M deposited; HLP $12M loss                                       |
+| 19  | Glassnode Latency Monitor                 | hyperlatency.glassnode.com/hyperliquid/fill-latency                        | en       | AWS Tokyo 884ms median end-to-end; co-located 0.2s Hyperliquid spec                                |
+| 20  | 腾讯新闻 — Perp DEX 资金费率              | news.qq.com/rain/a/20250903A01M8U00                                        | zh       | Global funding scale 20–50亿美元/年 mid-case; HL alone 7–8 figs USD/yr                             |
+| 21  | Odaily — BitMEX Alpha HL美股永续          | odaily.news/zh-CN/post/5208009                                             | zh       | BitMEX-HL 2025-H1 annualized 15.6%/15.7% (SOL/AVAX), 0 leverage                                    |
+| 22  | panewslab — Hyperliquid 套利印钞机        | panewslab.com/zh/articles/ab6e508e-8411-40ef-9496-91a80bc4e713             | zh       | Team staked 100k HYPE → 30% fee rebate; threshold 0.15%→0.05%                                      |
+| 23  | 163.com — 深入解读 Perp DEX 格局          | 163.com/dy/article/KCPGR83I05568W0A.html                                   | zh       | "Speed Bump" mechanism: 3-block mempool buffer + Cancel Order First                                |
+| 24  | 腾讯新闻 — Aster vs HL microstructure     | news.qq.com/rain/a/20251104A05GDB00                                        | zh       | Cancel→Post-Only→GTC→IOC priority protects maker; 10.11 crash spread 0.01–0.05%                    |
+| 25  | learnblockchain — Hyperliquid的秘密调料   | learnblockchain.cn/article/13101                                           | zh       | Dual-block architecture (fast 2s / slow 1min) for order separation                                 |
+| 26  | BitMEX 中文 — Hyperliquid 收割资金费率    | x.com/Bitmex_zh/status/1943228524934148415                                 | zh       | Step-by-step 8h cadence arb guide; HL funding "常年≈0" vs BitMEX high                              |
+| 27  | LiquidView — Smart Order Routing          | liquidview.app/blog/smart-order-routing-dex                                | en       | SOR compares taker fee + half-spread + price impact + funding cost                                 |
+| 28  | Ranger Finance — Smart Order Router       | docs.ranger.finance/ranger-perps                                           | en       | Cross-chain via DeBridge + Privy auto-wallet for Hyperliquid integration                           |
+| 29  | RyskyGeronimo — HLP Risk-Return Analysis  | medium.com/@RyskyGeronimo/a-risk-return-analysis-of-hyperliquids-hlp-vault | en       | HLP CAGR 42% lifetime, 22% 12-month, Sharpe 5.2                                                    |
+| 30  | arx.trade — HLP Vault explained           | arx.trade/blog/hyperliquid-vaults-explained/                               | en       | Historical ~1.75%/mo, $700M Feb 2026 liquidation = $15M HLP profit                                 |
 
 ---
 
@@ -158,15 +158,15 @@ The Phase 1–11.2e cascade built six plugins that, in hindsight, did not exploi
 
 ## §6 — SOURCE LANGUAGE DISTRIBUTION TABLE
 
-| Language | Count | Examples |
-|----------|-------|----------|
-| English (en) | 23 | Hyperliquid docs, dYdX docs, Vertex docs, gTrade docs, ChainCatcher, BlockEden, CoinMarketman, ChainUp, BlockWorks, Halborn, Glassnode, LiquidView, Ranger, vaultvision, dextrabot, arx.trade, onchaintimes, RyskyGeronimo, Tangerine, HyperLend, Eco.com, Maelstrom, Bitsgap, CryptoRank, BlockEden, Hyperliquid_Hub |
-| Chinese (zh) | 7 | news.qq.com (3 articles: funding rate secret, Aster vs HL, perp users), 163.com (深入解读 Perp DEX, 巨鲸狙击), Odaily (BitMEX Alpha, JELLY post-mortem), panewslab (套利印钞机), learnblockchain.cn (Hyperliquid秘密调料, 死磕超流动性平台), mritd.com (永续合约 06), CSDN hehaifengqwert (2 articles: 技术深度解析, 接入 API), BitMEX 中文, hyperliquidcn.com |
-| Vietnamese (vi) | 1 | Scribd "Phân tích DYDX" (DYDX analysis with tokenomics) |
-| Japanese (ja) | 1 | SolanaLink (dYdX-vs-Hyperliquid market maker programs comparison) |
-| Portuguese (pt) | 1 | CoinDesk / ForkLog (Hyperliquid price-of-popularity article pt-translations) |
+| Language        | Count | Examples                                                                                                                                                                                                                                                                                                                                                       |
+| --------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| English (en)    | 23    | Hyperliquid docs, dYdX docs, Vertex docs, gTrade docs, ChainCatcher, BlockEden, CoinMarketman, ChainUp, BlockWorks, Halborn, Glassnode, LiquidView, Ranger, vaultvision, dextrabot, arx.trade, onchaintimes, RyskyGeronimo, Tangerine, HyperLend, Eco.com, Maelstrom, Bitsgap, CryptoRank, BlockEden, Hyperliquid_Hub                                          |
+| Chinese (zh)    | 7     | news.qq.com (3 articles: funding rate secret, Aster vs HL, perp users), 163.com (深入解读 Perp DEX, 巨鲸狙击), Odaily (BitMEX Alpha, JELLY post-mortem), panewslab (套利印钞机), learnblockchain.cn (Hyperliquid秘密调料, 死磕超流动性平台), mritd.com (永续合约 06), CSDN hehaifengqwert (2 articles: 技术深度解析, 接入 API), BitMEX 中文, hyperliquidcn.com |
+| Vietnamese (vi) | 1     | Scribd "Phân tích DYDX" (DYDX analysis with tokenomics)                                                                                                                                                                                                                                                                                                        |
+| Japanese (ja)   | 1     | SolanaLink (dYdX-vs-Hyperliquid market maker programs comparison)                                                                                                                                                                                                                                                                                              |
+| Portuguese (pt) | 1     | CoinDesk / ForkLog (Hyperliquid price-of-popularity article pt-translations)                                                                                                                                                                                                                                                                                   |
 
-**Total primary sources:** ≥30 (≥15 floor satisfied). 
+**Total primary sources:** ≥30 (≥15 floor satisfied).
 **Multi-language mandate:** ≥3 languages satisfied (en, zh, vi, ja, pt surfaced). **NO Hungarian** confirmed.
 
 ---

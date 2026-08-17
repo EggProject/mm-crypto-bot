@@ -21,11 +21,7 @@ export type {
 export { CorrelationMatrix, CORRELATION_HARD_CAPS } from "./correlation.js";
 export type { CorrelationMatrixOptions, CorrelationSnapshot } from "./correlation.js";
 
-export {
-  PortfolioStop,
-  PortfolioStopError,
-  PORTFOLIO_STOP_HARD_CAPS,
-} from "./portfolio-stop.js";
+export { PortfolioStop, PortfolioStopError, PORTFOLIO_STOP_HARD_CAPS } from "./portfolio-stop.js";
 export type { PortfolioStopOptions, PortfolioStopState } from "./portfolio-stop.js";
 
 export { PortfolioManager } from "./portfolio-manager.js";

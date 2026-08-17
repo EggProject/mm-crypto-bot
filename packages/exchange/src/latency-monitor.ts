@@ -360,7 +360,9 @@ export class LatencyMonitor {
     // A `ccxt.pro[exchangeId]` a CCXT 4.5.x Pro (WS-támogatással rendelkező)
     // instance. A sima `ccxt[exchangeId]` REST-only, és a `watch*` metódusok
     // nem elérhetők rajta. Lásd: docs/research/stack-findings.md §1.1.
-    const factory = (ccxtPro as unknown as Record<string, new (opts: Record<string, unknown>) => CcxtExchange>)[exchangeId];
+    const factory = (
+      ccxtPro as unknown as Record<string, new (opts: Record<string, unknown>) => CcxtExchange>
+    )[exchangeId];
     if (factory === undefined) {
       throw new Error(`Ismeretlen exchange ID (pro): ${exchangeId}`);
     }
@@ -581,9 +583,7 @@ export class LatencyMonitor {
         // Reconnect sample, ha pont most jött az első message a reconnect után.
         if (reconnectStartAt !== undefined) {
           // Ellenőrizzük, hogy ez az első message a reconnect óta.
-          const reconnectSamples = samples.filter(
-            (s): s is ReconnectSample => "reconnectMs" in s,
-          );
+          const reconnectSamples = samples.filter((s): s is ReconnectSample => "reconnectMs" in s);
           if (reconnectSamples.length === 0) {
             samples.push({
               exchangeId,

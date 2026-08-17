@@ -40,12 +40,7 @@ const FUNDING_INTERVAL_MS = 8 * 60 * 60 * 1000;
 const LTF: Timeframe = "15m";
 const ALLOWED_SYMBOLS = new Set(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
 
-export const OVERLAY_MASKS = [
-  "dpc",
-  "dpc-solflip",
-  "dpc-regime",
-  "dpc-solflip-regime",
-] as const;
+export const OVERLAY_MASKS = ["dpc", "dpc-solflip", "dpc-regime", "dpc-solflip-regime"] as const;
 export type OverlayMask = (typeof OVERLAY_MASKS)[number];
 
 export interface OverlayCliArgs {
@@ -141,7 +136,16 @@ export function parseArgs(argv: readonly string[] = process.argv.slice(2)): Over
   const window = "IS" as const;
   let outputPath = "backtest-results/dpc-overlay-combination.json";
   let dataDir = resolve(import.meta.dir, "..", "..", "..", "..", "data", "ohlcv");
-  let fundingPath = resolve(import.meta.dir, "..", "..", "..", "..", "data", "funding", "binance_solusdt_funding_8h.csv");
+  let fundingPath = resolve(
+    import.meta.dir,
+    "..",
+    "..",
+    "..",
+    "..",
+    "data",
+    "funding",
+    "binance_solusdt_funding_8h.csv",
+  );
   let initialEquityUsd = 10_000;
   let minConsensus = 1;
   let riskPerTrade = 0.01;
@@ -156,25 +160,53 @@ export function parseArgs(argv: readonly string[] = process.argv.slice(2)): Over
   for (const arg of argv) {
     const [flag, raw = ""] = arg.split("=", 2);
     switch (flag) {
-      case "--mask": mask = parseOverlayMask(raw); break;
-      case "--smoke": smoke = true; break;
-      case "--symbol": symbol = raw; break;
+      case "--mask":
+        mask = parseOverlayMask(raw);
+        break;
+      case "--smoke":
+        smoke = true;
+        break;
+      case "--symbol":
+        symbol = raw;
+        break;
       case "--start":
-      case "--is-start": startTime = new Date(raw); break;
+      case "--is-start":
+        startTime = new Date(raw);
+        break;
       case "--end":
-      case "--is-end": endTime = new Date(raw); break;
+      case "--is-end":
+        endTime = new Date(raw);
+        break;
       case "--window":
         if (raw.toUpperCase() !== "IS") throw new Error(`--window supports IS only, got: ${raw}`);
         break;
-      case "--output": outputPath = raw; break;
-      case "--data-dir": dataDir = resolve(raw); break;
-      case "--funding-input": fundingPath = resolve(raw); break;
-      case "--equity": initialEquityUsd = finiteInRange(flag, raw, 1, Number.MAX_SAFE_INTEGER); break;
-      case "--min-consensus": minConsensus = integerInRange(flag, raw, 1, 2); break;
-      case "--risk-per-trade": riskPerTrade = finiteInRange(flag, raw, 0.000001, 0.1); break;
-      case "--max-position-pct-equity": maxPositionPctEquity = finiteInRange(flag, raw, 0.01, 0.5); break;
-      case "--regime-min-observations": regimeConfig = { ...regimeConfig, minObservations: integerInRange(flag, raw, 5, 365) }; break;
-      case "--regime-learning-days": regimeConfig = { ...regimeConfig, transitionLearningDays: integerInRange(flag, raw, 30, 730) }; break;
+      case "--output":
+        outputPath = raw;
+        break;
+      case "--data-dir":
+        dataDir = resolve(raw);
+        break;
+      case "--funding-input":
+        fundingPath = resolve(raw);
+        break;
+      case "--equity":
+        initialEquityUsd = finiteInRange(flag, raw, 1, Number.MAX_SAFE_INTEGER);
+        break;
+      case "--min-consensus":
+        minConsensus = integerInRange(flag, raw, 1, 2);
+        break;
+      case "--risk-per-trade":
+        riskPerTrade = finiteInRange(flag, raw, 0.000001, 0.1);
+        break;
+      case "--max-position-pct-equity":
+        maxPositionPctEquity = finiteInRange(flag, raw, 0.01, 0.5);
+        break;
+      case "--regime-min-observations":
+        regimeConfig = { ...regimeConfig, minObservations: integerInRange(flag, raw, 5, 365) };
+        break;
+      case "--regime-learning-days":
+        regimeConfig = { ...regimeConfig, transitionLearningDays: integerInRange(flag, raw, 30, 730) };
+        break;
       case "--regime-trending-multiplier": {
         const multiplier = finiteInRange(flag, raw, 0, 1);
         const current = regimeConfig.perRegimeSizeMultiplier ?? [1, 0.7, 0.4];
@@ -193,11 +225,20 @@ export function parseArgs(argv: readonly string[] = process.argv.slice(2)): Over
         regimeConfig = { ...regimeConfig, perRegimeSizeMultiplier: [current[0], current[1], multiplier] };
         break;
       }
-      case "--sol-sign-flip-window-days": solFlipConfig = { ...solFlipConfig, signFlipWindowDays: finiteInRange(flag, raw, 1, 365) }; break;
-      case "--sol-extreme-sigma": solFlipConfig = { ...solFlipConfig, extremeSigmaThreshold: finiteInRange(flag, raw, 0, 20) }; break;
-      case "--sol-persistence-days": solFlipConfig = { ...solFlipConfig, persistenceDays: finiteInRange(flag, raw, 0, 365) }; break;
-      case "--sol-vol-window-days": solFlipConfig = { ...solFlipConfig, volWindowDays: integerInRange(flag, raw, 1, 365) }; break;
-      default: throw new Error(`Unknown argument: ${arg}`);
+      case "--sol-sign-flip-window-days":
+        solFlipConfig = { ...solFlipConfig, signFlipWindowDays: finiteInRange(flag, raw, 1, 365) };
+        break;
+      case "--sol-extreme-sigma":
+        solFlipConfig = { ...solFlipConfig, extremeSigmaThreshold: finiteInRange(flag, raw, 0, 20) };
+        break;
+      case "--sol-persistence-days":
+        solFlipConfig = { ...solFlipConfig, persistenceDays: finiteInRange(flag, raw, 0, 365) };
+        break;
+      case "--sol-vol-window-days":
+        solFlipConfig = { ...solFlipConfig, volWindowDays: integerInRange(flag, raw, 1, 365) };
+        break;
+      default:
+        throw new Error(`Unknown argument: ${arg}`);
     }
   }
 
@@ -257,11 +298,13 @@ export function helpText(): string {
 export async function runSmoke(args: OverlayCliArgs): Promise<Record<string, unknown>> {
   const ohlcvPath = resolve(args.dataDir, `binance_${args.symbol.split("/")[0]!.toLowerCase()}_15m.csv`);
   const ohlcvStat = await stat(ohlcvPath);
-  if (!ohlcvStat.isFile() || ohlcvStat.size <= 0) throw new Error(`Smoke: missing/empty OHLCV input: ${ohlcvPath}`);
+  if (!ohlcvStat.isFile() || ohlcvStat.size <= 0)
+    throw new Error(`Smoke: missing/empty OHLCV input: ${ohlcvPath}`);
   let funding: Record<string, unknown> | null = null;
   if (maskUsesSolFlip(args.mask)) {
     const fundingStat = await stat(args.fundingPath);
-    if (!fundingStat.isFile() || fundingStat.size <= 0) throw new Error(`Smoke: missing/empty funding input: ${args.fundingPath}`);
+    if (!fundingStat.isFile() || fundingStat.size <= 0)
+      throw new Error(`Smoke: missing/empty funding input: ${args.fundingPath}`);
     funding = { path: args.fundingPath, bytes: fundingStat.size, synthetic: false };
   }
   return {
@@ -342,15 +385,22 @@ export class DpcOverlayStrategy implements Strategy {
       readonly regimeConfig: Partial<RegimeDetectorConfig>;
     },
   ) {
-    this.dpc = new DonchianPivotComposition({
-      ...DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG,
-      minConsensus: options.minConsensus,
-    }, LTF);
+    this.dpc = new DonchianPivotComposition(
+      {
+        ...DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG,
+        minConsensus: options.minConsensus,
+      },
+      LTF,
+    );
     this.solFlip = options.useSolFlip
       ? new SOLFlipKillSwitchPlugin({ ...options.solFlipConfig, enabledSymbols: ["SOL/USDT"] })
       : null;
     this.regime = options.useRegime
-      ? new RegimeDetectorMetaPlugin({ ...options.regimeConfig, enabledSymbols: [symbol], baseNotionalUsd: options.baseNotionalUsd })
+      ? new RegimeDetectorMetaPlugin({
+          ...options.regimeConfig,
+          enabledSymbols: [symbol],
+          baseNotionalUsd: options.baseNotionalUsd,
+        })
       : null;
     this.solFlip?.subscribe(this.bus);
     this.regime?.subscribe(this.bus);
@@ -442,7 +492,11 @@ export class DpcOverlayStrategy implements Strategy {
 
     if (this.solFlip?.isKillSwitchEngaged(decisionTime) === true) {
       this.metrics.solFlipEntryBlocks += 1;
-      this.audit.push({ decisionTime, action: "entry_blocked", lastFundingTimeConsumed: this.lastFundingTimeConsumed });
+      this.audit.push({
+        decisionTime,
+        action: "entry_blocked",
+        lastFundingTimeConsumed: this.lastFundingTimeConsumed,
+      });
       return null;
     }
 
@@ -464,7 +518,11 @@ export class DpcOverlayStrategy implements Strategy {
     const decisionTime = this.advanceOverlays(ctx);
     if (this.solFlip?.isKillSwitchEngaged(decisionTime) === true) {
       this.metrics.solFlipForcedCloses += 1;
-      this.audit.push({ decisionTime, action: "position_closed", lastFundingTimeConsumed: this.lastFundingTimeConsumed });
+      this.audit.push({
+        decisionTime,
+        action: "position_closed",
+        lastFundingTimeConsumed: this.lastFundingTimeConsumed,
+      });
       return { forceExit: true, exitPrice: ctx.candle.close, reason: "kill_switch" };
     }
     return null;
@@ -484,8 +542,12 @@ export class DpcOverlayStrategy implements Strategy {
   }
 
   snapshotSignals(): readonly (DirectionSignal | SizingSignal | RiskSignal)[] {
-    return this.bus.snapshot().filter((signal): signal is DirectionSignal | SizingSignal | RiskSignal =>
-      signal.kind === "direction" || signal.kind === "sizing" || signal.kind === "risk");
+    return this.bus
+      .snapshot()
+      .filter(
+        (signal): signal is DirectionSignal | SizingSignal | RiskSignal =>
+          signal.kind === "direction" || signal.kind === "sizing" || signal.kind === "risk",
+      );
   }
 
   currentRegime(): RegimeLabel | null {
@@ -508,11 +570,17 @@ export async function runCombination(args: OverlayCliArgs): Promise<Record<strin
   const useSolFlip = maskUsesSolFlip(args.mask);
   const useRegime = maskUsesRegime(args.mask);
   const feed = new CsvExchangeFeed(args.dataDir) as unknown as ExchangeFeed;
-  const allLtf = await feed.fetchOHLCV(args.symbol, LTF, { since: args.startTime.getTime(), limit: Number.MAX_SAFE_INTEGER });
+  const allLtf = await feed.fetchOHLCV(args.symbol, LTF, {
+    since: args.startTime.getTime(),
+    limit: Number.MAX_SAFE_INTEGER,
+  });
   const ltfMs = TIMEFRAME_MS[LTF];
-  const windowCandles = allLtf.filter((candle) =>
-    candle.timestamp >= args.startTime.getTime() && candle.timestamp + ltfMs <= args.endTime.getTime());
-  if (windowCandles.length === 0) throw new Error(`No real OHLCV rows in requested interval: ${args.dataDir}`);
+  const windowCandles = allLtf.filter(
+    (candle) =>
+      candle.timestamp >= args.startTime.getTime() && candle.timestamp + ltfMs <= args.endTime.getTime(),
+  );
+  if (windowCandles.length === 0)
+    throw new Error(`No real OHLCV rows in requested interval: ${args.dataDir}`);
 
   let fundingRows: readonly FundingRow[] = [];
   if (useSolFlip) {
@@ -564,15 +632,15 @@ export async function runCombination(args: OverlayCliArgs): Promise<Record<strin
   // An observation stamped exactly at the final candle's decisionTime is
   // already public and therefore usable. Funding coverage follows the same
   // closed-bar boundary instead of incorrectly treating endTime as unseen.
-  const decisionWindowFunding = fundingRows.filter((row) =>
-    row.fundingTime >= args.startTime.getTime() && row.fundingTime <= args.endTime.getTime());
+  const decisionWindowFunding = fundingRows.filter(
+    (row) => row.fundingTime >= args.startTime.getTime() && row.fundingTime <= args.endTime.getTime(),
+  );
   const expectedFundingSlots = useSolFlip ? Math.floor(durationMs / FUNDING_INTERVAL_MS) + 1 : null;
   const signals = strategy.snapshotSignals();
   const sizingSignals = signals.filter((signal): signal is SizingSignal => signal.kind === "sizing");
   const riskSignals = signals.filter((signal): signal is RiskSignal => signal.kind === "risk");
-  const multiplierSamples = strategy.regime === null
-    ? 0
-    : strategy.metrics.dpcSignals - strategy.metrics.solFlipEntryBlocks;
+  const multiplierSamples =
+    strategy.regime === null ? 0 : strategy.metrics.dpcSignals - strategy.metrics.solFlipEntryBlocks;
   const completeMetrics = computeMetrics(
     result.trades,
     result.equityCurve,
@@ -583,8 +651,10 @@ export async function runCombination(args: OverlayCliArgs): Promise<Record<strin
   const totalFeesUsd = result.trades.reduce((sum, trade) => sum + trade.feesUsd, 0);
   const grossProfitUsd = result.trades.reduce((sum, trade) => sum + Math.max(0, trade.pnlUsd), 0);
   const grossLossUsd = result.trades.reduce((sum, trade) => sum + Math.min(0, trade.pnlUsd), 0);
-  const totalHoldingHours = result.trades.reduce((sum, trade) =>
-    sum + (trade.exitTime - trade.entryTime) / (60 * 60 * 1000), 0);
+  const totalHoldingHours = result.trades.reduce(
+    (sum, trade) => sum + (trade.exitTime - trade.entryTime) / (60 * 60 * 1000),
+    0,
+  );
 
   return {
     status: "valid",
@@ -610,22 +680,29 @@ export async function runCombination(args: OverlayCliArgs): Promise<Record<strin
         expectedSlots: expectedCandleSlots,
         coverageRatio: expectedCandleSlots > 0 ? windowCandles.length / expectedCandleSlots : 0,
         firstCandleOpen: windowCandles[0]?.timestamp ?? null,
-        lastCandleClose: windowCandles.length > 0 ? windowCandles[windowCandles.length - 1]!.timestamp + ltfMs : null,
+        lastCandleClose:
+          windowCandles.length > 0 ? windowCandles[windowCandles.length - 1]!.timestamp + ltfMs : null,
       },
-      funding: useSolFlip ? {
-        sourceKind: "downloaded_binance_funding_csv",
-        synthetic: false,
-        path: args.fundingPath,
-        requestedDecisionWindowSampleCount: decisionWindowFunding.length,
-        expectedSlots: expectedFundingSlots,
-        coverageRatio: expectedFundingSlots !== null && expectedFundingSlots > 0 ? decisionWindowFunding.length / expectedFundingSlots : 0,
-        warmupSamplesBeforeWindow: fundingRows.filter((row) => row.fundingTime < args.startTime.getTime()).length,
-        firstFundingTime: decisionWindowFunding[0]?.fundingTime ?? null,
-        lastFundingTime: decisionWindowFunding[decisionWindowFunding.length - 1]?.fundingTime ?? null,
-      } : {
-        applicable: false,
-        reason: "SOLFlip overlay disabled by mask",
-      },
+      funding: useSolFlip
+        ? {
+            sourceKind: "downloaded_binance_funding_csv",
+            synthetic: false,
+            path: args.fundingPath,
+            requestedDecisionWindowSampleCount: decisionWindowFunding.length,
+            expectedSlots: expectedFundingSlots,
+            coverageRatio:
+              expectedFundingSlots !== null && expectedFundingSlots > 0
+                ? decisionWindowFunding.length / expectedFundingSlots
+                : 0,
+            warmupSamplesBeforeWindow: fundingRows.filter((row) => row.fundingTime < args.startTime.getTime())
+              .length,
+            firstFundingTime: decisionWindowFunding[0]?.fundingTime ?? null,
+            lastFundingTime: decisionWindowFunding[decisionWindowFunding.length - 1]?.fundingTime ?? null,
+          }
+        : {
+            applicable: false,
+            reason: "SOLFlip overlay disabled by mask",
+          },
     },
     causality: {
       candleDecisionBasis: "closed 15m candle; decisionTime=candleOpen+15m",
@@ -641,9 +718,12 @@ export async function runCombination(args: OverlayCliArgs): Promise<Record<strin
       finalRegime: strategy.currentRegime(),
       regimeDirectionSignalsReceived: useRegime ? strategy.metrics.regimeDirectionSignalsReceived : null,
       regimeSizingSignalsReceived: useRegime ? strategy.metrics.regimeSizingSignalsReceived : null,
-      averageAppliedRegimeMultiplier: multiplierSamples > 0 ? strategy.metrics.regimeMultiplierSum / multiplierSamples : null,
-      sizingNotionalMin: sizingSignals.length > 0 ? Math.min(...sizingSignals.map((signal) => signal.notional)) : null,
-      sizingNotionalMax: sizingSignals.length > 0 ? Math.max(...sizingSignals.map((signal) => signal.notional)) : null,
+      averageAppliedRegimeMultiplier:
+        multiplierSamples > 0 ? strategy.metrics.regimeMultiplierSum / multiplierSamples : null,
+      sizingNotionalMin:
+        sizingSignals.length > 0 ? Math.min(...sizingSignals.map((signal) => signal.notional)) : null,
+      sizingNotionalMax:
+        sizingSignals.length > 0 ? Math.max(...sizingSignals.map((signal) => signal.notional)) : null,
       riskSignalCount: riskSignals.length,
     },
     derivedMetrics: {
@@ -651,7 +731,9 @@ export async function runCombination(args: OverlayCliArgs): Promise<Record<strin
       totalMonths,
       monthlyReturn: monthlyGeometricReturn(result.totalReturn, totalMonths),
       endingEquityUsd: result.equityCurve[result.equityCurve.length - 1]?.equity ?? args.initialEquityUsd,
-      netPnlUsd: (result.equityCurve[result.equityCurve.length - 1]?.equity ?? args.initialEquityUsd) - args.initialEquityUsd,
+      netPnlUsd:
+        (result.equityCurve[result.equityCurve.length - 1]?.equity ?? args.initialEquityUsd) -
+        args.initialEquityUsd,
       grossProfitUsd,
       grossLossUsd,
       totalFeesUsd,
@@ -685,7 +767,9 @@ export async function main(): Promise<void> {
   await writeFile(absOutput, JSON.stringify(output, null, 2), "utf8");
   const result = output["result"] as BacktestResult;
   console.log(`[dpc-overlay] mask=${args.mask} symbol=${args.symbol} trades=${result.totalTrades}`);
-  console.log(`[dpc-overlay] return=${(result.totalReturn * 100).toFixed(2)}% maxDD=${(result.maxDrawdown * 100).toFixed(2)}%`);
+  console.log(
+    `[dpc-overlay] return=${(result.totalReturn * 100).toFixed(2)}% maxDD=${(result.maxDrawdown * 100).toFixed(2)}%`,
+  );
   console.log(`[dpc-overlay] Saved: ${absOutput}`);
 }
 

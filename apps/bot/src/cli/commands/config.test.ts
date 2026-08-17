@@ -23,10 +23,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import {
-  mkdtempSync,
-  rmSync,
-} from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -455,9 +452,11 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
     const source = join(dir, "source.toml");
     const boundary: ConfigFileBoundary = {
       exists: (path) => path === source || path === dir,
-      read: () => "[bot]\nmode = \"paper\"\n",
+      read: () => '[bot]\nmode = "paper"\n',
       ensureDirectory: () => undefined,
-      write: () => { throw "plain write failure"; },
+      write: () => {
+        throw "plain write failure";
+      },
     };
     try {
       expect(runConfigInit(out, source, boundary)).toBe(1);
@@ -518,11 +517,7 @@ describe("validateConfigForEdit (Phase 44 backward-compat helper)", () => {
     const { validateConfigForEdit } = await import("./config.js");
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-vcfe-valid-"));
     const cfgPath = join(dir, "mm-bot.toml");
-    fileSystem.writeFileSync(
-      cfgPath,
-      '[bot]\nmode = "paper"\n',
-      "utf8",
-    );
+    fileSystem.writeFileSync(cfgPath, '[bot]\nmode = "paper"\n', "utf8");
     try {
       expect(validateConfigForEdit(cfgPath)).toBe(0);
     } finally {
@@ -534,11 +529,7 @@ describe("validateConfigForEdit (Phase 44 backward-compat helper)", () => {
     const { validateConfigForEdit } = await import("./config.js");
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-vcfe-invalid-"));
     const cfgPath = join(dir, "bad.toml");
-    fileSystem.writeFileSync(
-      cfgPath,
-      "[risk]\nmax_leverage = 15\n",
-      "utf8",
-    );
+    fileSystem.writeFileSync(cfgPath, "[risk]\nmax_leverage = 15\n", "utf8");
     try {
       expect(validateConfigForEdit(cfgPath)).toBe(2);
     } finally {

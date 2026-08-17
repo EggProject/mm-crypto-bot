@@ -21,9 +21,18 @@ if (entryKind !== "canonical-cli" && entryKind !== "runtime-driver") {
   throw new Error("MM_BOT_E2E_ENTRY_KIND is invalid");
 }
 function isCaseId(value: string): boolean {
-  return value.length > 0 && value.split("-").every((part) =>
-    part.length > 0 && Array.from(part).every((character) =>
-      (character >= "a" && character <= "z") || (character >= "0" && character <= "9")));
+  return (
+    value.length > 0 &&
+    value
+      .split("-")
+      .every(
+        (part) =>
+          part.length > 0 &&
+          Array.from(part).every(
+            (character) => (character >= "a" && character <= "z") || (character >= "0" && character <= "9"),
+          ),
+      )
+  );
 }
 
 if (caseId === undefined || !isCaseId(caseId)) {
@@ -49,13 +58,17 @@ function flushCoverage(): void {
   if (coverage === undefined || coverage === null || typeof coverage !== "object") return;
   mkdirSync(EXPECTED_RAW_DIRECTORY, { recursive: true });
   const output = resolve(EXPECTED_RAW_DIRECTORY, `${String(process.pid)}.json`);
-  writeFileSync(output, `${JSON.stringify({
-    schemaVersion: 1,
-    pid: process.pid,
-    entryKind,
-    caseId,
-    coverage: coverage as Record<string, unknown>,
-  })}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
+  writeFileSync(
+    output,
+    `${JSON.stringify({
+      schemaVersion: 1,
+      pid: process.pid,
+      entryKind,
+      caseId,
+      coverage: coverage as Record<string, unknown>,
+    })}\n`,
+    { encoding: "utf8", flag: "wx", mode: 0o600 },
+  );
 }
 
 process.once("beforeExit", () => {

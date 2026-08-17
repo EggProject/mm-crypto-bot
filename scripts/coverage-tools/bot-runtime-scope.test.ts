@@ -5,11 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  isRuntimeSourcePath,
-  loadScopeManifest,
-  missingModifiedRuntimeFiles,
-} from "./bot-runtime-scope.ts";
+import { isRuntimeSourcePath, loadScopeManifest, missingModifiedRuntimeFiles } from "./bot-runtime-scope.ts";
 import { collectChangedBotSourceFiles } from "./verify-bot-runtime-scope.ts";
 
 function runGit(repository: string, arguments_: readonly string[]): string {
@@ -45,11 +41,13 @@ describe("bot runtime scope completeness", () => {
     const omitted = manifest.runtimeFiles[0];
     if (omitted === undefined) throw new Error("coverage manifest has no runtime file");
     const incomplete = manifest.runtimeFiles.filter((file) => file !== omitted);
-    expect(missingModifiedRuntimeFiles(incomplete, [
-      omitted,
-      "apps/bot/src/bot/bot.test.ts",
-      "apps/bot/src/global-types/write-file-atomic.d.ts",
-    ])).toEqual([omitted]);
+    expect(
+      missingModifiedRuntimeFiles(incomplete, [
+        omitted,
+        "apps/bot/src/bot/bot.test.ts",
+        "apps/bot/src/global-types/write-file-atomic.d.ts",
+      ]),
+    ).toEqual([omitted]);
   });
 
   it("accepts the complete owned runtime scope", () => {
@@ -86,10 +84,7 @@ describe("bot runtime scope completeness", () => {
       writeFileSync(join(repository.path, untrackedPath), "export const untracked = true;\n", "utf8");
 
       const changed = collectChangedBotSourceFiles({ repositoryRoot: repository.path });
-      expect(changed).toEqual([
-        trackedPath,
-        untrackedPath,
-      ]);
+      expect(changed).toEqual([trackedPath, untrackedPath]);
       expect(missingModifiedRuntimeFiles([], changed)).toEqual([trackedPath, untrackedPath]);
     } finally {
       rmSync(repository.path, { recursive: true, force: true });
@@ -99,15 +94,19 @@ describe("bot runtime scope completeness", () => {
   it("fails closed when CI has no usable base", () => {
     const repository = createRepository();
     try {
-      expect(() => collectChangedBotSourceFiles({
-        repositoryRoot: repository.path,
-        continuousIntegration: true,
-      })).toThrow("MM_BOT_COVERAGE_BASE is required in CI");
-      expect(() => collectChangedBotSourceFiles({
-        repositoryRoot: repository.path,
-        baseRevision: "refs/heads/missing",
-        continuousIntegration: true,
-      })).toThrow("git rev-parse --verify refs/heads/missing^{commit} failed");
+      expect(() =>
+        collectChangedBotSourceFiles({
+          repositoryRoot: repository.path,
+          continuousIntegration: true,
+        }),
+      ).toThrow("MM_BOT_COVERAGE_BASE is required in CI");
+      expect(() =>
+        collectChangedBotSourceFiles({
+          repositoryRoot: repository.path,
+          baseRevision: "refs/heads/missing",
+          continuousIntegration: true,
+        }),
+      ).toThrow("git rev-parse --verify refs/heads/missing^{commit} failed");
     } finally {
       rmSync(repository.path, { recursive: true, force: true });
     }

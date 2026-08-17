@@ -27,10 +27,7 @@ describe("donchian", () => {
   it("a bemelegedési periódusban undefined értékeket ad (previous-bar-exclusive)", () => {
     // period=3: az első 3 elemben nincs elég previous-N adat.
     // Csak out[3]-tol vannak definialt ertekek.
-    const out = donchian(
-      [mkCandle(1, 1), mkCandle(2, 2), mkCandle(3, 3), mkCandle(4, 4)],
-      3,
-    );
+    const out = donchian([mkCandle(1, 1), mkCandle(2, 2), mkCandle(3, 3), mkCandle(4, 4)], 3);
     expect(out[0]).toBeUndefined();
     expect(out[1]).toBeUndefined();
     expect(out[2]).toBeUndefined();
@@ -43,10 +40,7 @@ describe("donchian", () => {
     // out[3] a [10,12,14] (az előző 3 candle) ablakbol szamol: upper=14, lower=5.
     // A current candle (16) nincs benne, mert a close <= high <= 4-period-max mindig,
     // igy a breakout-comparison (close > upper) csak igy lehet ervenyes.
-    const out = donchian(
-      [mkCandle(10, 5), mkCandle(12, 6), mkCandle(14, 7), mkCandle(16, 8)],
-      3,
-    );
+    const out = donchian([mkCandle(10, 5), mkCandle(12, 6), mkCandle(14, 7), mkCandle(16, 8)], 3);
     expect(out[2]).toBeUndefined();
     expect(out[3]!.upper).toBe(14);
     expect(out[3]!.lower).toBe(5);
@@ -78,10 +72,7 @@ describe("donchian", () => {
     // candle 2: high=12, low=8
     // candle 3: high=14, low=9 (4. candle kell, mert period=3)
     // A period=3-mal az out[3] window [10,15,12] / [5,3,8]: upper=15, lower=3.
-    const out = donchian(
-      [mkCandle(10, 5), mkCandle(15, 3), mkCandle(12, 8), mkCandle(14, 9)],
-      3,
-    );
+    const out = donchian([mkCandle(10, 5), mkCandle(15, 3), mkCandle(12, 8), mkCandle(14, 9)], 3);
     expect(out[3]!.upper).toBe(15);
     expect(out[3]!.lower).toBe(3);
   });

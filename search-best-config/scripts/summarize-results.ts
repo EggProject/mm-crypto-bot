@@ -5,11 +5,32 @@ import { getArg, isObject, parseNamedArgs, REPO_ROOT, writeText } from "./common
 import { normalizeDocument, type NormalizedResult } from "./normalize-results.js";
 
 const COLUMNS = [
-  "runId", "status", "reason", "strategyId", "componentMask", "symbol",
-  "split", "start", "end", "parameters", "dataInputs", "coverage", "extendedMetrics", "provenance",
-  "totalReturnPct", "monthlyReturnPct", "annualizedReturnPct", "maxDrawdownPct",
-  "sharpe", "sortino", "profitFactor", "winRatePct", "totalTrades",
-  "killSwitchTriggered", "codeRevision", "rawOutput",
+  "runId",
+  "status",
+  "reason",
+  "strategyId",
+  "componentMask",
+  "symbol",
+  "split",
+  "start",
+  "end",
+  "parameters",
+  "dataInputs",
+  "coverage",
+  "extendedMetrics",
+  "provenance",
+  "totalReturnPct",
+  "monthlyReturnPct",
+  "annualizedReturnPct",
+  "maxDrawdownPct",
+  "sharpe",
+  "sortino",
+  "profitFactor",
+  "winRatePct",
+  "totalTrades",
+  "killSwitchTriggered",
+  "codeRevision",
+  "rawOutput",
 ] as const;
 
 type SummaryCell = string | number | boolean | null;
@@ -73,7 +94,16 @@ export function resultsToMarkdown(rows: readonly NormalizedResult[]): string {
     const flat = flatten(row);
     return `| ${COLUMNS.map((column) => markdownCell(flat[column])).join(" | ")} |`;
   });
-  return ["# Teljes backtest eredménytábla", "", `Sorok száma: ${rows.length}`, "", header, separator, ...body, ""].join("\n");
+  return [
+    "# Teljes backtest eredménytábla",
+    "",
+    `Sorok száma: ${rows.length}`,
+    "",
+    header,
+    separator,
+    ...body,
+    "",
+  ].join("\n");
 }
 
 export function parseNdjson(raw: string, inputName: string): readonly NormalizedResult[] {
@@ -90,14 +120,19 @@ export function parseNdjson(raw: string, inputName: string): readonly Normalized
         rows.push(...normalizeDocument(parsed, `${inputName}#line-${index + 1}`));
       }
     } catch (error) {
-      rows.push(...normalizeDocument({
-        schemaVersion: 1,
-        runId: `${inputName}-line-${index + 1}`,
-        status: "FAILED_PARSE",
-        reason: error instanceof Error ? error.message : String(error),
-        strategyId: "unknown",
-        metrics: {},
-      }, `${inputName}#line-${index + 1}`));
+      rows.push(
+        ...normalizeDocument(
+          {
+            schemaVersion: 1,
+            runId: `${inputName}-line-${index + 1}`,
+            status: "FAILED_PARSE",
+            reason: error instanceof Error ? error.message : String(error),
+            strategyId: "unknown",
+            metrics: {},
+          },
+          `${inputName}#line-${index + 1}`,
+        ),
+      );
     }
   }
   return rows;

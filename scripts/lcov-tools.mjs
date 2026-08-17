@@ -2,7 +2,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
-function fail(message) { throw new Error(`lcov-tools: ${message}`); }
+function fail(message) {
+  throw new Error(`lcov-tools: ${message}`);
+}
 function number(value, context) {
   if (!/^[0-9]+$/.test(value)) fail(`malformed ${context}: ${value}`);
   return Number(value);
@@ -14,11 +16,13 @@ function parse(path) {
     if (raw === "" || raw === "TN:") continue;
     if (raw.startsWith("SF:")) {
       if (current !== null) fail(`${path}: SF before end_of_record`);
-      const sf = raw.slice(3); if (!sf) fail(`${path}: empty SF`);
+      const sf = raw.slice(3);
+      if (!sf) fail(`${path}: empty SF`);
       current = { sf, da: new Map(), lf: null, lh: null, other: [] };
     } else if (raw === "end_of_record") {
       if (current === null) fail(`${path}: end_of_record without SF`);
-      records.push(current); current = null;
+      records.push(current);
+      current = null;
     } else if (current === null) fail(`${path}: record data before SF`);
     else if (raw.startsWith("DA:")) {
       const [line, hits] = raw.slice(3).split(",");
@@ -34,13 +38,21 @@ function parse(path) {
 function merge(output, inputs) {
   if (inputs.length === 0) fail("merge needs at least one input");
   const merged = new Map();
-  for (const input of inputs) for (const record of parse(input)) {
-    const existing = merged.get(record.sf) ?? { sf: record.sf, da: new Map(), lf: 0, lh: 0, other: new Set() };
-    for (const [line, hits] of record.da) existing.da.set(line, (existing.da.get(line) ?? 0) + hits);
-    existing.lf += record.lf ?? 0; existing.lh += record.lh ?? 0;
-    for (const value of record.other) existing.other.add(value);
-    merged.set(record.sf, existing);
-  }
+  for (const input of inputs)
+    for (const record of parse(input)) {
+      const existing = merged.get(record.sf) ?? {
+        sf: record.sf,
+        da: new Map(),
+        lf: 0,
+        lh: 0,
+        other: new Set(),
+      };
+      for (const [line, hits] of record.da) existing.da.set(line, (existing.da.get(line) ?? 0) + hits);
+      existing.lf += record.lf ?? 0;
+      existing.lh += record.lh ?? 0;
+      for (const value of record.other) existing.other.add(value);
+      merged.set(record.sf, existing);
+    }
   const lines = ["TN:"];
   for (const record of [...merged.values()].sort((a, b) => a.sf.localeCompare(b.sf))) {
     lines.push(`SF:${record.sf}`);
@@ -51,11 +63,16 @@ function merge(output, inputs) {
     } else lines.push(`LF:${record.lf}`, `LH:${record.lh}`);
     lines.push("end_of_record");
   }
-  mkdirSync(dirname(output), { recursive: true }); writeFileSync(output, `${lines.join("\n")}\n`);
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, `${lines.join("\n")}\n`);
 }
 function summary(path) {
-  let lf = 0, lh = 0;
-  for (const record of parse(path)) { lf += record.da.size > 0 ? record.da.size : record.lf ?? 0; lh += record.da.size > 0 ? [...record.da.values()].filter((hits) => hits > 0).length : record.lh ?? 0; }
+  let lf = 0,
+    lh = 0;
+  for (const record of parse(path)) {
+    lf += record.da.size > 0 ? record.da.size : (record.lf ?? 0);
+    lh += record.da.size > 0 ? [...record.da.values()].filter((hits) => hits > 0).length : (record.lh ?? 0);
+  }
   console.log(`lines.......: ${lf === 0 ? "0.0" : ((lh * 100) / lf).toFixed(1)}% (${lh} of ${lf} lines)`);
 }
 const [command, ...args] = process.argv.slice(2);

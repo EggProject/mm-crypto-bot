@@ -1,10 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-import {
-  REPOSITORY_ROOT,
-  loadScopeManifest,
-  missingModifiedRuntimeFiles,
-} from "./bot-runtime-scope.ts";
+import { REPOSITORY_ROOT, loadScopeManifest, missingModifiedRuntimeFiles } from "./bot-runtime-scope.ts";
 
 const BOT_SOURCE_PATH = "apps/bot/src";
 const MAX_GIT_OUTPUT_BYTES = 4 * 1024 * 1024;
@@ -49,14 +45,16 @@ function changedPaths(
   rightRevision?: string,
 ): readonly string[] {
   const revisions = rightRevision === undefined ? [leftRevision] : [leftRevision, rightRevision];
-  return parsePaths(runGit(repositoryRoot, [
-    "diff",
-    "--name-only",
-    "--diff-filter=ACMR",
-    ...revisions,
-    "--",
-    BOT_SOURCE_PATH,
-  ]));
+  return parsePaths(
+    runGit(repositoryRoot, [
+      "diff",
+      "--name-only",
+      "--diff-filter=ACMR",
+      ...revisions,
+      "--",
+      BOT_SOURCE_PATH,
+    ]),
+  );
 }
 
 export function collectChangedBotSourceFiles({
@@ -74,13 +72,10 @@ export function collectChangedBotSourceFiles({
     for (const path of changedPaths(repositoryRoot, mergeBase, "HEAD")) paths.add(path);
   }
   for (const path of changedPaths(repositoryRoot, "HEAD")) paths.add(path);
-  for (const path of parsePaths(runGit(repositoryRoot, [
-    "ls-files",
-    "--others",
-    "--exclude-standard",
-    "--",
-    BOT_SOURCE_PATH,
-  ]))) paths.add(path);
+  for (const path of parsePaths(
+    runGit(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "--", BOT_SOURCE_PATH]),
+  ))
+    paths.add(path);
   return [...paths].sort();
 }
 
@@ -97,7 +92,9 @@ export function verifyBotRuntimeScope(): void {
   });
   const missing = missingModifiedRuntimeFiles(manifest.runtimeFiles, changedFiles);
   if (missing.length > 0) {
-    throw new Error(`Coverage scope is missing changed bot runtime files:\n${missing.map((file) => `  - ${file}`).join("\n")}`);
+    throw new Error(
+      `Coverage scope is missing changed bot runtime files:\n${missing.map((file) => `  - ${file}`).join("\n")}`,
+    );
   }
   console.log(
     `Coverage scope verified: ${String(manifest.runtimeFiles.length)} owned runtime files; no changed runtime file is missing.`,
@@ -108,7 +105,9 @@ if (import.meta.main) {
   try {
     verifyBotRuntimeScope();
   } catch (error) {
-    console.error(`Coverage scope verification failed: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(
+      `Coverage scope verification failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exitCode = 2;
   }
 }

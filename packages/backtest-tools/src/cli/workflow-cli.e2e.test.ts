@@ -50,7 +50,9 @@ describe("documented root backtest workflows", () => {
     it(`${command} resolves its entry point and has a safe help path`, async () => {
       const result = await runRootWorkflow(command, ["--help"]);
       expect(result.code).toBe(0);
-      expect(result.output).toContain(`${command === "backtest" ? "baseline" : command} — historical Donchian/Pivot`);
+      expect(result.output).toContain(
+        `${command === "backtest" ? "baseline" : command} — historical Donchian/Pivot`,
+      );
       expect(result.output).toContain("Completed candle must open >= start");
       expect(result.output).toContain("Completed candle must close <= end");
       expect(result.output).not.toContain("Module not found");
@@ -73,7 +75,11 @@ describe("documented root backtest workflows", () => {
     const envelope = JSON.parse(await readFile(output, "utf8")) as {
       readonly workflow: string;
       readonly args: { readonly symbol: string };
-      readonly result: { readonly totalTrades: number; readonly equityCurve: readonly unknown[]; readonly trades: readonly unknown[] };
+      readonly result: {
+        readonly totalTrades: number;
+        readonly equityCurve: readonly unknown[];
+        readonly trades: readonly unknown[];
+      };
     };
     expect(envelope.workflow).toBe("baseline");
     expect(envelope.args.symbol).toBe("BTC/USDT");

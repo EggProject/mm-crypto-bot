@@ -15,18 +15,18 @@
 
 ## Summary
 
-| # | Library | Version | Category | Bundle | Used in |
-|---|---------|---------|----------|--------|---------|
-| 1 | [`@inkjs/ui`](https://github.com/vadimdemedes/ink-ui) | v2.0.0 | Ink components | ~40 KB | `packages/tui/src/components/*` (Badge / Spinner / StatusMessage / TextInput / Select / MultiSelect / ConfirmInput / Alert) |
-| 2 | [`@matthesketh/ink-table`](https://github.com/wrxck/ink-table) | v0.1.0 | Ink components | ~10 KB | `packages/tui/src/components/HistoryList.tsx` |
-| 3 | [`@matthesketh/ink-status-bar`](https://github.com/wrxck/ink-status-bar) | v0.1.0 | Ink components | ~5 KB | `packages/tui/src/components/StatusBar.tsx` |
-| 4 | [`sindresorhus/ink-link`](https://github.com/sindresorhus/ink-link) | v5.0.0 | Ink components | ~5 KB | reserved (Phase 37+ bybit/Grafana URLs) |
-| 5 | [`asciichart`](https://github.com/bstavroulakis/cli-spinners-asciichart) | v1.5.25 | ASCII charts | ~10 KB | `packages/tui/src/charts/equity-curve.ts` |
-| 6 | [`sparkly`](https://github.com/sindresorhus/sparkly) | v6.0.1 | ASCII charts | ~5 KB | `packages/tui/src/charts/sparkline.ts` |
-| 7 | [`@crafter/charts`](https://www.npmjs.com/package/@crafter/charts) | v0.2.4 | ASCII charts | ~40 KB | `packages/tui/src/charts/candlestick.ts` (with 60-LOC hand-roll fallback in `__fallback__/`) |
-| 8 | [`@pppp606/ink-chart`](https://github.com/pppp606/ink-chart) | v0.2.6 | ASCII charts | ~15 KB | `packages/tui/src/charts/bar-chart.tsx` |
-| 9 | [`smol-toml`](https://github.com/squirrelchat/smol-toml) | v1.7.0 | Persistence | ~15 KB | `apps/bot/src/config/store.ts` + `packages/tui/src/hooks/useConfigStore.ts` |
-| 10 | [`write-file-atomic`](https://github.com/npm/write-file-atomic) | v8.0.0 | Persistence | ~10 KB | `apps/bot/src/config/store.ts:write()` (atomic write + .bak) |
+| #   | Library                                                                  | Version | Category       | Bundle | Used in                                                                                                                     |
+| --- | ------------------------------------------------------------------------ | ------- | -------------- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| 1   | [`@inkjs/ui`](https://github.com/vadimdemedes/ink-ui)                    | v2.0.0  | Ink components | ~40 KB | `packages/tui/src/components/*` (Badge / Spinner / StatusMessage / TextInput / Select / MultiSelect / ConfirmInput / Alert) |
+| 2   | [`@matthesketh/ink-table`](https://github.com/wrxck/ink-table)           | v0.1.0  | Ink components | ~10 KB | `packages/tui/src/components/HistoryList.tsx`                                                                               |
+| 3   | [`@matthesketh/ink-status-bar`](https://github.com/wrxck/ink-status-bar) | v0.1.0  | Ink components | ~5 KB  | `packages/tui/src/components/StatusBar.tsx`                                                                                 |
+| 4   | [`sindresorhus/ink-link`](https://github.com/sindresorhus/ink-link)      | v5.0.0  | Ink components | ~5 KB  | reserved (Phase 37+ bybit/Grafana URLs)                                                                                     |
+| 5   | [`asciichart`](https://github.com/bstavroulakis/cli-spinners-asciichart) | v1.5.25 | ASCII charts   | ~10 KB | `packages/tui/src/charts/equity-curve.ts`                                                                                   |
+| 6   | [`sparkly`](https://github.com/sindresorhus/sparkly)                     | v6.0.1  | ASCII charts   | ~5 KB  | `packages/tui/src/charts/sparkline.ts`                                                                                      |
+| 7   | [`@crafter/charts`](https://www.npmjs.com/package/@crafter/charts)       | v0.2.4  | ASCII charts   | ~40 KB | `packages/tui/src/charts/candlestick.ts` (with 60-LOC hand-roll fallback in `__fallback__/`)                                |
+| 8   | [`@pppp606/ink-chart`](https://github.com/pppp606/ink-chart)             | v0.2.6  | ASCII charts   | ~15 KB | `packages/tui/src/charts/bar-chart.tsx`                                                                                     |
+| 9   | [`smol-toml`](https://github.com/squirrelchat/smol-toml)                 | v1.7.0  | Persistence    | ~15 KB | `apps/bot/src/config/store.ts` + `packages/tui/src/hooks/useConfigStore.ts`                                                 |
+| 10  | [`write-file-atomic`](https://github.com/npm/write-file-atomic)          | v8.0.0  | Persistence    | ~10 KB | `apps/bot/src/config/store.ts:write()` (atomic write + .bak)                                                                |
 
 **Total new dependencies:** ~155 KB to the TUI bundle (acceptable for a 12 MB binary).
 
@@ -34,15 +34,15 @@
 
 ## 1) `@inkjs/ui` v2.0.0
 
-| Field | Value |
-|-------|-------|
-| **npm** | [@inkjs/ui](https://www.npmjs.com/package/@inkjs/ui) |
-| **GitHub** | https://github.com/vadimdemedes/ink-ui |
-| **Version** | 2.0.0 |
-| **Weekly downloads** | ~85 400 (peak 2026-Q2) |
-| **Peer dep** | `ink >= 5` (covers 7.1.0) |
-| **License** | MIT |
-| **Phase 36 usage** | Badge, Spinner, StatusMessage, TextInput, Select, MultiSelect, ConfirmInput, Alert |
+| Field                | Value                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| **npm**              | [@inkjs/ui](https://www.npmjs.com/package/@inkjs/ui)                               |
+| **GitHub**           | https://github.com/vadimdemedes/ink-ui                                             |
+| **Version**          | 2.0.0                                                                              |
+| **Weekly downloads** | ~85 400 (peak 2026-Q2)                                                             |
+| **Peer dep**         | `ink >= 5` (covers 7.1.0)                                                          |
+| **License**          | MIT                                                                                |
+| **Phase 36 usage**   | Badge, Spinner, StatusMessage, TextInput, Select, MultiSelect, ConfirmInput, Alert |
 
 ### Why adopted
 
@@ -55,16 +55,16 @@ single peer-dep check and a single API surface to learn.
 
 ### What we used it for
 
-| Component | Where used |
-|-----------|------------|
-| `<Badge>` | `packages/tui/src/components/Header.tsx` (mode badge, paused badge, stopped badge) |
-| `<Spinner label="Connecting..." />` | `packages/tui/src/components/LiveTradingPanel.tsx` (empty-state placeholder) |
-| `<StatusMessage variant="info">` | `packages/tui/src/components/StatisticsPanel.tsx` (panel title) |
-| `<StatusMessage variant="warning">` | `packages/tui/src/components/LiveTradingPanel.tsx` (panel title) |
-| `<TextInput>` | `packages/tui/src/components/SettingsPanel.tsx` (risk fields), `packages/tui/src/components/LiveConfirm.tsx` (typed "LIVE" input), `packages/tui/src/components/LeverageCap.tsx` (leverage input) |
-| `<Select>` | `packages/tui/src/components/SettingsPanel.tsx` (bot.mode paper/live) |
-| `<MultiSelect>` | `packages/tui/src/components/SettingsPanel.tsx` (Symbols section, READ-ONLY reference) |
-| `<Alert>` | (reserved for Phase 37+ error reporting) |
+| Component                           | Where used                                                                                                                                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<Badge>`                           | `packages/tui/src/components/Header.tsx` (mode badge, paused badge, stopped badge)                                                                                                                |
+| `<Spinner label="Connecting..." />` | `packages/tui/src/components/LiveTradingPanel.tsx` (empty-state placeholder)                                                                                                                      |
+| `<StatusMessage variant="info">`    | `packages/tui/src/components/StatisticsPanel.tsx` (panel title)                                                                                                                                   |
+| `<StatusMessage variant="warning">` | `packages/tui/src/components/LiveTradingPanel.tsx` (panel title)                                                                                                                                  |
+| `<TextInput>`                       | `packages/tui/src/components/SettingsPanel.tsx` (risk fields), `packages/tui/src/components/LiveConfirm.tsx` (typed "LIVE" input), `packages/tui/src/components/LeverageCap.tsx` (leverage input) |
+| `<Select>`                          | `packages/tui/src/components/SettingsPanel.tsx` (bot.mode paper/live)                                                                                                                             |
+| `<MultiSelect>`                     | `packages/tui/src/components/SettingsPanel.tsx` (Symbols section, READ-ONLY reference)                                                                                                            |
+| `<Alert>`                           | (reserved for Phase 37+ error reporting)                                                                                                                                                          |
 
 ### Smoke test (Phase 36 Track B1)
 
@@ -104,13 +104,13 @@ last call. See `LiveConfirm.test.tsx` for the pattern.
 
 ## 2) `@matthesketh/ink-table` v0.1.0
 
-| Field | Value |
-|-------|-------|
-| **npm** | [@matthesketh/ink-table](https://www.npmjs.com/package/@matthesketh/ink-table) |
-| **GitHub** | https://github.com/wrxck/ink-table |
-| **Version** | 0.1.0 |
-| **License** | MIT |
-| **Phase 36 usage** | The HistoryList panel |
+| Field              | Value                                                                          |
+| ------------------ | ------------------------------------------------------------------------------ |
+| **npm**            | [@matthesketh/ink-table](https://www.npmjs.com/package/@matthesketh/ink-table) |
+| **GitHub**         | https://github.com/wrxck/ink-table                                             |
+| **Version**        | 0.1.0                                                                          |
+| **License**        | MIT                                                                            |
+| **Phase 36 usage** | The HistoryList panel                                                          |
 
 ### Why adopted
 
@@ -151,13 +151,13 @@ color itself.
 
 ## 3) `@matthesketh/ink-status-bar` v0.1.0
 
-| Field | Value |
-|-------|-------|
-| **npm** | [@matthesketh/ink-status-bar](https://www.npmjs.com/package/@matthesketh/ink-status-bar) |
-| **GitHub** | https://github.com/wrxck/ink-status-bar |
-| **Version** | 0.1.0 |
-| **License** | MIT |
-| **Phase 36 usage** | The status bar at the bottom of the TUI |
+| Field              | Value                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| **npm**            | [@matthesketh/ink-status-bar](https://www.npmjs.com/package/@matthesketh/ink-status-bar) |
+| **GitHub**         | https://github.com/wrxck/ink-status-bar                                                  |
+| **Version**        | 0.1.0                                                                                    |
+| **License**        | MIT                                                                                      |
+| **Phase 36 usage** | The status bar at the bottom of the TUI                                                  |
 
 ### Why adopted
 
@@ -189,13 +189,13 @@ bun test src/components/__smoke__/matthesketh.test.tsx
 
 ## 4) `sindresorhus/ink-link` v5.0.0
 
-| Field | Value |
-|-------|-------|
-| **npm** | [ink-link](https://www.npmjs.com/package/ink-link) |
-| **GitHub** | https://github.com/sindresorhus/ink-link |
-| **Version** | 5.0.0 (released 2025-09-13) |
-| **License** | MIT |
-| **Phase 36 usage** | reserved (no current consumer) |
+| Field              | Value                                              |
+| ------------------ | -------------------------------------------------- |
+| **npm**            | [ink-link](https://www.npmjs.com/package/ink-link) |
+| **GitHub**         | https://github.com/sindresorhus/ink-link           |
+| **Version**        | 5.0.0 (released 2025-09-13)                        |
+| **License**        | MIT                                                |
+| **Phase 36 usage** | reserved (no current consumer)                     |
 
 ### Why adopted (deferred to Phase 37+)
 
@@ -223,14 +223,14 @@ position card, for example), the consumer code will `import Link from
 
 ## 5) `asciichart` v1.5.25
 
-| Field | Value |
-|-------|-------|
-| **npm** | [asciichart](https://www.npmjs.com/package/asciichart) |
-| **GitHub** | https://github.com/bstavroulakis/cli-spinners-asciichart |
-| **Version** | 1.5.25 |
-| **Weekly downloads** | ~1 400 000 |
-| **License** | MIT |
-| **Phase 36 usage** | The equity curve in the Charts panel |
+| Field                | Value                                                    |
+| -------------------- | -------------------------------------------------------- |
+| **npm**              | [asciichart](https://www.npmjs.com/package/asciichart)   |
+| **GitHub**           | https://github.com/bstavroulakis/cli-spinners-asciichart |
+| **Version**          | 1.5.25                                                   |
+| **Weekly downloads** | ~1 400 000                                               |
+| **License**          | MIT                                                      |
+| **Phase 36 usage**   | The equity curve in the Charts panel                     |
 
 ### Why adopted
 
@@ -266,13 +266,13 @@ bun test packages/tui/src/charts/equity-curve.test.ts
 
 ## 6) `sparkly` v6.0.1
 
-| Field | Value |
-|-------|-------|
-| **npm** | [sparkly](https://www.npmjs.com/package/sparkly) |
-| **GitHub** | https://github.com/sindresorhus/sparkly |
-| **Version** | 6.0.1 |
-| **License** | MIT |
-| **Phase 36 usage** | The P&L sparkline in the Charts panel |
+| Field              | Value                                            |
+| ------------------ | ------------------------------------------------ |
+| **npm**            | [sparkly](https://www.npmjs.com/package/sparkly) |
+| **GitHub**         | https://github.com/sindresorhus/sparkly          |
+| **Version**        | 6.0.1                                            |
+| **License**        | MIT                                              |
+| **Phase 36 usage** | The P&L sparkline in the Charts panel            |
 
 ### Why adopted
 
@@ -304,15 +304,15 @@ bun test packages/tui/src/charts/sparkline.test.ts
 
 ## 7) `@crafter/charts` v0.2.4
 
-| Field | Value |
-|-------|-------|
-| **npm** | [@crafter/charts](https://www.npmjs.com/package/@crafter/charts) |
-| **GitHub** | (newer library, single maintainer) |
-| **Version** | 0.2.4 |
-| **License** | MIT |
-| **Age** | ~3 months at adoption time (2026-07-14) |
-| **Phase 36 usage** | The OHLC candlestick in the Charts panel |
-| **Risk** | Maintainer-bus-factor = 1 (mitigated by 60-LOC hand-roll fallback) |
+| Field              | Value                                                              |
+| ------------------ | ------------------------------------------------------------------ |
+| **npm**            | [@crafter/charts](https://www.npmjs.com/package/@crafter/charts)   |
+| **GitHub**         | (newer library, single maintainer)                                 |
+| **Version**        | 0.2.4                                                              |
+| **License**        | MIT                                                                |
+| **Age**            | ~3 months at adoption time (2026-07-14)                            |
+| **Phase 36 usage** | The OHLC candlestick in the Charts panel                           |
+| **Risk**           | Maintainer-bus-factor = 1 (mitigated by 60-LOC hand-roll fallback) |
 
 ### Why adopted (with caveat)
 
@@ -356,7 +356,7 @@ written (in `packages/tui/src/charts/__fallback__/candlestick.ts`).
 // pseudocode
 function renderCandlesticks(candles, width, height) {
   const buckets = bucketByX(candles, width);
-  return buckets.map(b => renderCandle(b)).join("\n");
+  return buckets.map((b) => renderCandle(b)).join("\n");
 }
 ```
 
@@ -369,13 +369,13 @@ function renderCandlesticks(candles, width, height) {
 
 ## 8) `@pppp606/ink-chart` v0.2.6
 
-| Field | Value |
-|-------|-------|
-| **npm** | [@pppp606/ink-chart](https://www.npmjs.com/package/@pppp606/ink-chart) |
-| **GitHub** | https://github.com/pppp606/ink-chart |
-| **Version** | 0.2.6 |
-| **License** | MIT |
-| **Phase 36 usage** | The strategy breakdown BarChart in the Charts panel |
+| Field              | Value                                                                  |
+| ------------------ | ---------------------------------------------------------------------- |
+| **npm**            | [@pppp606/ink-chart](https://www.npmjs.com/package/@pppp606/ink-chart) |
+| **GitHub**         | https://github.com/pppp606/ink-chart                                   |
+| **Version**        | 0.2.6                                                                  |
+| **License**        | MIT                                                                    |
+| **Phase 36 usage** | The strategy breakdown BarChart in the Charts panel                    |
 
 ### Why adopted
 
@@ -408,12 +408,12 @@ bun test packages/tui/src/charts/bar-chart.test.tsx
 
 ## 9) `smol-toml` v1.7.0
 
-| Field | Value |
-|-------|-------|
-| **npm** | [smol-toml](https://www.npmjs.com/package/smol-toml) |
-| **GitHub** | https://github.com/squirrelchat/smol-toml |
-| **Version** | 1.7.0 |
-| **License** | MIT |
+| Field              | Value                                                                  |
+| ------------------ | ---------------------------------------------------------------------- |
+| **npm**            | [smol-toml](https://www.npmjs.com/package/smol-toml)                   |
+| **GitHub**         | https://github.com/squirrelchat/smol-toml                              |
+| **Version**        | 1.7.0                                                                  |
+| **License**        | MIT                                                                    |
 | **Phase 36 usage** | TOML parse + stringify for the ConfigStore and the useConfigStore hook |
 
 ### Why adopted
@@ -449,13 +449,13 @@ bun test apps/bot/src/config/store.test.ts
 
 ## 10) `write-file-atomic` v8.0.0
 
-| Field | Value |
-|-------|-------|
-| **npm** | [write-file-atomic](https://www.npmjs.com/package/write-file-atomic) |
-| **GitHub** | https://github.com/npm/write-file-atomic |
-| **Version** | 8.0.0 |
-| **License** | ISC |
-| **Phase 36 usage** | The `ConfigStore.write()` atomic write + `.bak` backup |
+| Field              | Value                                                                |
+| ------------------ | -------------------------------------------------------------------- |
+| **npm**            | [write-file-atomic](https://www.npmjs.com/package/write-file-atomic) |
+| **GitHub**         | https://github.com/npm/write-file-atomic                             |
+| **Version**        | 8.0.0                                                                |
+| **License**        | ISC                                                                  |
+| **Phase 36 usage** | The `ConfigStore.write()` atomic write + `.bak` backup               |
 
 ### Why adopted
 
@@ -502,15 +502,15 @@ The 7 libraries the research considered but chose NOT to adopt
 (with explicit reason). Full reasoning in
 [`docs/audits/phase36-research-findings.md`](../../audits/phase36-research-findings.md) §1 + §2.
 
-| # | Library | Why skipped |
-|---|---------|-------------|
-| 1 | `ink-password-input` | **Deprecated upstream.** Use `ink-text-input` with `mask="*"` instead. |
-| 2 | `ink-image` (kevva) | Last commit 2019, iTerm3-only, dead 7+ years. |
-| 3 | `ink-gradient`, `ink-big-text` (sindresorhus) | Last updates 2023, decorative only, not worth peer-dep risk. |
-| 4 | `ink-task-list` (privatenumber) | Last release 2022, dead. Use `@matthesketh/ink-task-list` instead (also not adopted — no current need). |
-| 5 | `@ink-tools/ink-mouse` | Mouse interaction in a CLI is an anti-pattern for a "set-and-forget" trading bot. |
-| 6 | `OpenTUI` (sst/opentui) | Credible "next-gen" alternative (Zig core, React/Solid, no 30 FPS cap, powers OpenCode), but **rewrite cost is real**. Park in Phase 7+ alongside Tokyo co-loc, trailing-stop, adaptive Kelly. |
-| 7 | `giggles` | Too new (2025), unproven. Watch for 6 months. |
+| #   | Library                                       | Why skipped                                                                                                                                                                                    |
+| --- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `ink-password-input`                          | **Deprecated upstream.** Use `ink-text-input` with `mask="*"` instead.                                                                                                                         |
+| 2   | `ink-image` (kevva)                           | Last commit 2019, iTerm3-only, dead 7+ years.                                                                                                                                                  |
+| 3   | `ink-gradient`, `ink-big-text` (sindresorhus) | Last updates 2023, decorative only, not worth peer-dep risk.                                                                                                                                   |
+| 4   | `ink-task-list` (privatenumber)               | Last release 2022, dead. Use `@matthesketh/ink-task-list` instead (also not adopted — no current need).                                                                                        |
+| 5   | `@ink-tools/ink-mouse`                        | Mouse interaction in a CLI is an anti-pattern for a "set-and-forget" trading bot.                                                                                                              |
+| 6   | `OpenTUI` (sst/opentui)                       | Credible "next-gen" alternative (Zig core, React/Solid, no 30 FPS cap, powers OpenCode), but **rewrite cost is real**. Park in Phase 7+ alongside Tokyo co-loc, trailing-stop, adaptive Kelly. |
+| 7   | `giggles`                                     | Too new (2025), unproven. Watch for 6 months.                                                                                                                                                  |
 
 ---
 
@@ -545,7 +545,7 @@ Ink 7 is largely backwards-compatible. The `coverage:full` and
 > turned out to be a **no-op under bun** — bun 1.3+ only supports
 > the flat `pkg → version` form and silently ignores nested map
 > values, while still emitting a `warn: Bun currently does not
-> support nested "overrides"` line on every `bun install`. The
+support nested "overrides"` line on every `bun install`. The
 > block has been removed from the root `package.json`. The CI now
 > runs `bun run test:install-warnings` (`scripts/install-no-warnings.sh`)
 > to assert zero `warn:` lines on every install, so a regression

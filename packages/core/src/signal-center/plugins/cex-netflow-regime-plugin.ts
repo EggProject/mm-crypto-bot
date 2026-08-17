@@ -159,19 +159,13 @@
 //   - `toRiskEngineSignal` in `signal-center-v1.ts` maps FactorSignal to
 //     a zero-notional carry shape (read-only factor → no risk impact).
 
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 
 // Re-export for downstream consumers.
 export { ONE_TO_TEN_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type ConfigError,
@@ -508,11 +502,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   private static _assertConfigInvariants(c: CexNetFlowRegimeConfig): void {
-    if (
-      !Number.isInteger(c.windowDays) ||
-      c.windowDays < MIN_WINDOW_DAYS ||
-      c.windowDays > MAX_WINDOW_DAYS
-    ) {
+    if (!Number.isInteger(c.windowDays) || c.windowDays < MIN_WINDOW_DAYS || c.windowDays > MAX_WINDOW_DAYS) {
       throw new Error(
         `[CexNetFlowRegimePlugin] windowDays=${c.windowDays} must be an integer in [${MIN_WINDOW_DAYS}, ${MAX_WINDOW_DAYS}].`,
       );
@@ -577,9 +567,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
       );
     }
     if (!Array.isArray(c.enabledSymbols) || c.enabledSymbols.length === 0) {
-      throw new Error(
-        `[CexNetFlowRegimePlugin] enabledSymbols must be a non-empty array.`,
-      );
+      throw new Error(`[CexNetFlowRegimePlugin] enabledSymbols must be a non-empty array.`);
     }
     for (const sym of c.enabledSymbols) {
       if (typeof sym !== "string" || sym.length === 0) {
@@ -615,10 +603,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
       this.state.layer2SubscribeAssertions += 1;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(
-        `[CexNetFlowRegimePlugin] LAYER 2 BREACH on subscribe: ${msg}`,
-        { cause: e },
-      );
+      throw new Error(`[CexNetFlowRegimePlugin] LAYER 2 BREACH on subscribe: ${msg}`, { cause: e });
     }
 
     // Initialize per-symbol state if missing.
@@ -646,11 +631,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   validateConfig(config: unknown): Result<void, ConfigError> {
-    const makeErr = (
-      field: string,
-      message: string,
-      value?: unknown,
-    ): Result<void, ConfigError> => ({
+    const makeErr = (field: string, message: string, value?: unknown): Result<void, ConfigError> => ({
       ok: false,
       error: {
         pluginName: this.metadata.name,
@@ -666,32 +647,14 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     const c = config as Record<string, unknown>;
     if (c["windowDays"] !== undefined) {
       const v = c["windowDays"];
-      if (
-        typeof v !== "number" ||
-        !Number.isInteger(v) ||
-        v < MIN_WINDOW_DAYS ||
-        v > MAX_WINDOW_DAYS
-      ) {
-        return makeErr(
-          "windowDays",
-          `must be an integer in [${MIN_WINDOW_DAYS}, ${MAX_WINDOW_DAYS}]`,
-          v,
-        );
+      if (typeof v !== "number" || !Number.isInteger(v) || v < MIN_WINDOW_DAYS || v > MAX_WINDOW_DAYS) {
+        return makeErr("windowDays", `must be an integer in [${MIN_WINDOW_DAYS}, ${MAX_WINDOW_DAYS}]`, v);
       }
     }
     if (c["regimeUpperZ"] !== undefined) {
       const v = c["regimeUpperZ"];
-      if (
-        typeof v !== "number" ||
-        !Number.isFinite(v) ||
-        v < MIN_REGIME_UPPER_Z ||
-        v > MAX_REGIME_UPPER_Z
-      ) {
-        return makeErr(
-          "regimeUpperZ",
-          `must be finite in [${MIN_REGIME_UPPER_Z}, ${MAX_REGIME_UPPER_Z}]`,
-          v,
-        );
+      if (typeof v !== "number" || !Number.isFinite(v) || v < MIN_REGIME_UPPER_Z || v > MAX_REGIME_UPPER_Z) {
+        return makeErr("regimeUpperZ", `must be finite in [${MIN_REGIME_UPPER_Z}, ${MAX_REGIME_UPPER_Z}]`, v);
       }
     }
     if (c["regimeLowerZ"] !== undefined) {
@@ -741,17 +704,8 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     }
     if (c["maxStaleMs"] !== undefined) {
       const v = c["maxStaleMs"];
-      if (
-        typeof v !== "number" ||
-        !Number.isInteger(v) ||
-        v < MIN_MAX_STALE_MS ||
-        v > MAX_MAX_STALE_MS
-      ) {
-        return makeErr(
-          "maxStaleMs",
-          `must be an integer in [${MIN_MAX_STALE_MS}, ${MAX_MAX_STALE_MS}]`,
-          v,
-        );
+      if (typeof v !== "number" || !Number.isInteger(v) || v < MIN_MAX_STALE_MS || v > MAX_MAX_STALE_MS) {
+        return makeErr("maxStaleMs", `must be an integer in [${MIN_MAX_STALE_MS}, ${MAX_MAX_STALE_MS}]`, v);
       }
     }
     if (c["minObservations"] !== undefined) {
@@ -772,28 +726,16 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     if (c["baseNotionalUsd"] !== undefined) {
       const v = c["baseNotionalUsd"];
       if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) {
-        return makeErr(
-          "baseNotionalUsd",
-          "must be a positive finite number",
-          v,
-        );
+        return makeErr("baseNotionalUsd", "must be a positive finite number", v);
       }
     }
     if (c["enabledSymbols"] !== undefined) {
       if (!Array.isArray(c["enabledSymbols"])) {
-        return makeErr(
-          "enabledSymbols",
-          "must be a non-empty array of strings",
-          c["enabledSymbols"],
-        );
+        return makeErr("enabledSymbols", "must be a non-empty array of strings", c["enabledSymbols"]);
       }
       for (const sym of c["enabledSymbols"]) {
         if (typeof sym !== "string" || sym.length === 0) {
-          return makeErr(
-            "enabledSymbols",
-            "must contain non-empty strings",
-            sym as unknown,
-          );
+          return makeErr("enabledSymbols", "must contain non-empty strings", sym as unknown);
         }
       }
     }
@@ -909,11 +851,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     // Compute z-score from current rolling window.
     const { zScore, mean, stdDev } = computeZScore(ss.samples);
     ss.lastZScore = zScore;
-    const regime = classifyRegime(
-      zScore,
-      this.config.regimeUpperZ,
-      this.config.regimeLowerZ,
-    );
+    const regime = classifyRegime(zScore, this.config.regimeUpperZ, this.config.regimeLowerZ);
     ss.lastRegime = regime;
 
     // Compute tanh-mapped factor ∈ (-1, +1).
@@ -924,27 +862,14 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     // `min(1, observationsCount / (minObservations × 4))` so the first
     // emit (right at minObservations) has ~0.25 confidence, ramping to
     // 1.0 over the next ~3× minObservations samples.
-    const confidence = Math.min(
-      1,
-      ss.observationsCount / Math.max(1, this.config.minObservations * 4),
-    );
+    const confidence = Math.min(1, ss.observationsCount / Math.max(1, this.config.minObservations * 4));
 
     // Compute staleness (relative to current wall-clock): in test
     // mode this is 0 (we just injected). In live mode this is the
     // wall-clock-delta since the last adapter fetch.
     const staleMs = Math.max(0, now - timestampMs);
 
-    this._emitFactorSignal(
-      symbol,
-      factor,
-      regime,
-      zScore,
-      confidence,
-      staleMs,
-      timestampMs,
-      mean,
-      stdDev,
-    );
+    this._emitFactorSignal(symbol, factor, regime, zScore, confidence, staleMs, timestampMs, mean, stdDev);
     return true;
   }
 
@@ -971,12 +896,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
         if (sample.symbol !== sym) continue; // adapter must echo the symbol
         if (!Number.isFinite(sample.netflow)) continue;
         if (!Number.isFinite(sample.timestampMs)) continue;
-        const ok = this.recordNetflowSample(
-          sym,
-          sample.netflow,
-          sample.timestampMs,
-          nowMs,
-        );
+        const ok = this.recordNetflowSample(sym, sample.netflow, sample.timestampMs, nowMs);
         if (ok) {
           count += 1;
           const ss = this._getOrCreateSymbolState(sym);
@@ -1129,10 +1049,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
       this.state.layer3EmitAssertions += 1;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(
-        `[CexNetFlowRegimePlugin] LAYER 3 BREACH on emit: ${msg}`,
-        { cause: e },
-      );
+      throw new Error(`[CexNetFlowRegimePlugin] LAYER 3 BREACH on emit: ${msg}`, { cause: e });
     }
 
     const sig: FactorSignal = {
@@ -1282,11 +1199,7 @@ export function computeFactor(zScore: number, scalingZ: number): number {
  *   z < lowerZ  → distribution
  *   otherwise    → neutral
  */
-export function classifyRegime(
-  zScore: number,
-  upperZ: number,
-  lowerZ: number,
-): FactorRegime {
+export function classifyRegime(zScore: number, upperZ: number, lowerZ: number): FactorRegime {
   if (!Number.isFinite(zScore)) return "neutral";
   if (zScore > upperZ) return "accumulation";
   if (zScore < lowerZ) return "distribution";

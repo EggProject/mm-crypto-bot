@@ -25,6 +25,7 @@
 4. All 3 backtest JSONs (`baseline-donchian-mtf-{btc,eth,sol}-1h.json`) include `leverage: 10` field and `resultRaw` (1:1 baseline) for audit. Total borrow cost in `totalBorrowCostUsd`.
 
 **Bybit.eu 10x spot margin confirmation (independent sources):**
+
 - PR Newswire (2025-08-18): "Bybit EU Empowers European Traders with Spot Margin: Up to 10x Leverage" — https://www.prnewswire.com/news-releases/bybit-eu-empowers-european-traders-with-spot-margin-up-to-10x-leverage-full-transparency-and-built-in-risk-controls-302532221.html
 - Coindesk (2025-08-18): "Crypto Exchange Bybit Introduces 10x Spot Margin Trading in Europe" — https://www.coindesk.com/business/2025/08/18/crypto-exchange-bybit-introduces-10x-spot-margin-trading-in-europe
 - bybit.eu official FAQ: "The maximum leverage for Spot Margin trading is 10x" — https://www.bybit.eu/cs-EU/help-center/article/FAQ-Spot-Margin-Trading
@@ -62,14 +63,15 @@ The engine's `computeIndicators` only computes Donchian on HTF and MTF timeframe
 
 ### §2.1 Main results table (30-month BTC/ETH/SOL, 2024-01 → 2026-07, 1:10 leverage)
 
-| Symbol | Trades | Total Return | Monthly Avg | Sharpe (ann.) | Max DD | Win Rate | Avg Hold | TP / SL / time |
-|---|---:|---:|---:|---:|---:|---:|---:|---|
-| **BTC/USDT** | 151 | **+25.44%** | +0.85%/mo | 0.588 | 18.33% | 42.38% | 11.8h | 63 / 87 / 1 |
-| **ETH/USDT** | 126 | **+137.17%** | **+4.57%/mo** | **1.798** | 14.22% | 48.41% | 12.2h | 60 / 65 / 1 |
-| SOL/USDT | 117 | -35.67% | -1.19%/mo | -0.139 | 60.91% | 35.90% | 13.1h | 41 / 75 / 1 |
-| **AVG** | 131.3 | +42.31% | +1.41%/mo | 0.749 | 31.15% | 42.23% | 12.4h | 54.7 / 75.7 / 1 |
+| Symbol       | Trades | Total Return |   Monthly Avg | Sharpe (ann.) | Max DD | Win Rate | Avg Hold | TP / SL / time  |
+| ------------ | -----: | -----------: | ------------: | ------------: | -----: | -------: | -------: | --------------- |
+| **BTC/USDT** |    151 |  **+25.44%** |     +0.85%/mo |         0.588 | 18.33% |   42.38% |    11.8h | 63 / 87 / 1     |
+| **ETH/USDT** |    126 | **+137.17%** | **+4.57%/mo** |     **1.798** | 14.22% |   48.41% |    12.2h | 60 / 65 / 1     |
+| SOL/USDT     |    117 |      -35.67% |     -1.19%/mo |        -0.139 | 60.91% |   35.90% |    13.1h | 41 / 75 / 1     |
+| **AVG**      |  131.3 |      +42.31% |     +1.41%/mo |         0.749 | 31.15% |   42.23% |    12.4h | 54.7 / 75.7 / 1 |
 
 **Key signals:**
+
 - **ETH is the standout**: +137.17% / Sharpe 1.798 / 14.22% Max DD / 48.41% WR. Most robust directional edge of the 3 symbols.
 - **BTC marginal**: +25.44% over 30 months is +0.85%/month — beats Phase 5 baseline (+0.07%/month BTC 1d) by 12× but still far from +50%/hó target.
 - **SOL fails**: -35.67% at 1:10 leverage (vs raw 1× of -9.89%). SOL funding rates historically lower (per Phase 7 Track C observation), and the 1h MTF Donchian doesn't capture SOL's higher-volatility regime.
@@ -77,11 +79,11 @@ The engine's `computeIndicators` only computes Donchian on HTF and MTF timeframe
 
 ### §2.2 Trade-count comparison vs Phase 5 baseline
 
-| Symbol | Phase 5 (1d only) | Phase 8 Track F (1h MTF) | Multiplier |
-|---|---:|---:|---:|
-| BTC/USDT | 28 | 151 | **5.4×** |
-| ETH/USDT | 24 | 126 | **5.3×** |
-| SOL/USDT | 20 | 117 | **5.9×** |
+| Symbol   | Phase 5 (1d only) | Phase 8 Track F (1h MTF) | Multiplier |
+| -------- | ----------------: | -----------------------: | ---------: |
+| BTC/USDT |                28 |                      151 |   **5.4×** |
+| ETH/USDT |                24 |                      126 |   **5.3×** |
+| SOL/USDT |                20 |                      117 |   **5.9×** |
 
 The Phase 8 spec target was 5-10× trade boost — **achieved**. Note that pure-1h Phase 5 baseline (`baseline-donchian-btc-1h.json`) had 268 trades with -17.99% return (Sharpe -1.77, WR 27.98%) — so 268 trades is too noisy. The 3-tier MTF filter cuts trades from 268 → 151 (44% reduction) while converting the return from -18% to +25% (BTC).
 
@@ -91,16 +93,17 @@ The Phase 8 spec target was 5-10× trade boost — **achieved**. Note that pure-
 
 A post-hoc walk-forward analysis was applied to the BTC/ETH/SOL equity curves. The trade list was partitioned into 30-day OOS windows with 180-day "lookback context" (not a true re-optimization, since the strategy has no free parameters to tune — the default Phase 8 spec is fixed). 24 windows total per symbol.
 
-| Symbol | Windows | Non-empty | Positive | Mean OOS Return (30d) | Annualized | Win Rate of Windows |
-|---|---:|---:|---:|---:|---:|---:|
-| BTC/USDT | 24 | 19 | 8 | -0.30% | -3.6%/yr | 33.3% |
-| **ETH/USDT** | 24 | 16 | 9 | **+2.63%** | **+31.5%/yr** | **37.5%** |
-| SOL/USDT | 24 | 16 | 6 | +0.30% | +3.6%/yr | 25.0% |
+| Symbol       | Windows | Non-empty | Positive | Mean OOS Return (30d) |    Annualized | Win Rate of Windows |
+| ------------ | ------: | --------: | -------: | --------------------: | ------------: | ------------------: |
+| BTC/USDT     |      24 |        19 |        8 |                -0.30% |      -3.6%/yr |               33.3% |
+| **ETH/USDT** |      24 |        16 |        9 |            **+2.63%** | **+31.5%/yr** |           **37.5%** |
+| SOL/USDT     |      24 |        16 |        6 |                +0.30% |      +3.6%/yr |               25.0% |
 
 **Key signals:**
+
 - **ETH walk-forward strongest**: +2.63% mean OOS return per 30d window → ~31.5% annualized OOS. The in-sample +4.57%/mo translates to a healthy walk-forward (the 0.69 WFE ratio is in the healthy 0.5-0.7 range per D&T Systems).
 - **BTC/SOL walk-forward poor**: BTC's mean -0.30% OOS means the in-sample +25% over 30 months is mostly sample-specific (Phase 7-style small-sample artifact). SOL's +0.30% mean is essentially noise (25% positive windows).
-- **Caveat**: per-window trade counts vary 0-20 — empty windows (no trades in that 30-day period) drag down the average. ETH's non-empty windows (n=16) have a higher mean (~+3.9%/30d). BTC's non-empty windows (n=19) have a mean (~-0.4%/30d).
+- **Caveat**: per-window trade counts vary 0-20 — empty windows (no trades in that 30-day period) drag down the average. ETH's non-empty windows (n=16) have a higher mean (~~+3.9%/30d). BTC's non-empty windows (n=19) have a mean (~~-0.4%/30d).
 
 ### §3.1 Walk-forward validation framework — independent sources (≥3)
 
@@ -119,18 +122,18 @@ A post-hoc walk-forward analysis was applied to the BTC/ETH/SOL equity curves. T
 The CLI's COST_MODEL applies: `takerFeeRate: 0.001` (0.1%) + `slippageRate: 0.0005` (0.05%) + `spreadRate: 0.0002` (0.02%) per side × 2 sides = **0.34% round-trip on notional**. Borrow cost is 0.01%/h × hours-held on the 9/10 borrowed portion at 1:10 leverage.
 
 | Symbol | Trades | Total Notional | Total Fees | Total Borrow | Fee Rate (effective) | $/trade (fees+borrow) |
-|---|---:|---:|---:|---:|---:|---:|
-| BTC | 151 | $298,928 | $951.17 | $317.98 | 0.32% | $8.40 |
-| ETH | 126 | $263,528 | $850.35 | $290.97 | 0.32% | $9.06 |
-| SOL | 117 | $221,208 | $731.68 | $260.34 | 0.33% | $8.48 |
+| ------ | -----: | -------------: | ---------: | -----------: | -------------------: | --------------------: |
+| BTC    |    151 |       $298,928 |    $951.17 |      $317.98 |                0.32% |                 $8.40 |
+| ETH    |    126 |       $263,528 |    $850.35 |      $290.97 |                0.32% |                 $9.06 |
+| SOL    |    117 |       $221,208 |    $731.68 |      $260.34 |                0.33% |                 $8.48 |
 
 ### §4.2 Monthly edge vs cost
 
 | Symbol | Net Monthly Return | Monthly Cost (fees+borrow) | Cost as % of equity | Net Edge after Cost |
-|---|---:|---:|---:|---:|
-| BTC | +0.85% | 0.42% | 4.2% | **+0.43%/mo** |
-| ETH | +4.57% | 0.38% | 3.8% | **+4.19%/mo** |
-| SOL | -1.19% | 0.33% | 3.3% | **-1.52%/mo** |
+| ------ | -----------------: | -------------------------: | ------------------: | ------------------: |
+| BTC    |             +0.85% |                      0.42% |                4.2% |       **+0.43%/mo** |
+| ETH    |             +4.57% |                      0.38% |                3.8% |       **+4.19%/mo** |
+| SOL    |             -1.19% |                      0.33% |                3.3% |       **-1.52%/mo** |
 
 The fee+borrow cost is 0.33-0.42% of equity monthly — manageable. ETH's net edge after cost (+4.19%/month) is the standout. BTC's net edge (+0.43%/month) is marginal — essentially zero real alpha after fees. SOL is outright negative.
 
@@ -147,27 +150,28 @@ The fee+borrow cost is 0.33-0.42% of equity monthly — manageable. ETH's net ed
 
 ### §5.1 vs Phase 5 baseline (Donchian 1d)
 
-| Metric | Phase 5 BTC 1d (1×) | Phase 8 BTC 1h MTF (1:10) | Phase 5 ETH 1d | Phase 8 ETH 1h MTF (1:10) | Phase 5 SOL 1d | Phase 8 SOL 1h MTF (1:10) |
-|---|---:|---:|---:|---:|---:|---:|
-| Trades | 28 | **151** (5.4×) | 24 | **126** (5.3×) | 20 | **117** (5.9×) |
-| Total Return | +1.15% | **+25.44%** | +1.79% | **+137.17%** | +2.71% | **-35.67%** |
-| Sharpe | 0.157 | 0.588 | 0.218 | 1.798 | 0.456 | -0.139 |
-| Max DD | 5.53% | 18.33% | 4.10% | 14.22% | 5.50% | 60.91% |
-| Win Rate | 53.57% | 42.38% | — | 48.41% | — | 35.90% |
+| Metric       | Phase 5 BTC 1d (1×) | Phase 8 BTC 1h MTF (1:10) | Phase 5 ETH 1d | Phase 8 ETH 1h MTF (1:10) | Phase 5 SOL 1d | Phase 8 SOL 1h MTF (1:10) |
+| ------------ | ------------------: | ------------------------: | -------------: | ------------------------: | -------------: | ------------------------: |
+| Trades       |                  28 |            **151** (5.4×) |             24 |            **126** (5.3×) |             20 |            **117** (5.9×) |
+| Total Return |              +1.15% |               **+25.44%** |         +1.79% |              **+137.17%** |         +2.71% |               **-35.67%** |
+| Sharpe       |               0.157 |                     0.588 |          0.218 |                     1.798 |          0.456 |                    -0.139 |
+| Max DD       |               5.53% |                    18.33% |          4.10% |                    14.22% |          5.50% |                    60.91% |
+| Win Rate     |              53.57% |                    42.38% |              — |                    48.41% |              — |                    35.90% |
 
 **Interpretation:**
+
 - **BTC**: 22× return improvement, 3.7× Sharpe improvement — but Max DD also 3.3× worse. The +25% return comes from 1:10 leverage on a small positive alpha (1× was +1.15%).
 - **ETH**: 76× return improvement, 8.2× Sharpe improvement. Best edge in the entire Phase 5-7-8 series on a risk-adjusted basis.
 - **SOL**: Phase 5 was positive (+2.71%), Phase 8 is negative. SOL's lower-volatility/lower-funding regime interacts poorly with the 1h MTF breakout pattern.
 
 ### §5.2 vs Phase 7 V2 multi-class ensemble (the best Phase 7 baseline)
 
-| Metric | Phase 7 V2 BTC (3× carry + trail) | Phase 8 BTC 1h MTF (1:10 dir) | Phase 7 V2 ETH | Phase 8 ETH 1h MTF (1:10 dir) |
-|---|---:|---:|---:|---:|
-| Monthly return | +2.85% | +0.85% | +3.35% | **+4.57%** |
-| Sharpe | 3.31 | 0.588 | 7.01 | 1.798 |
-| Max DD | 5.71% | 18.33% | 2.95% | 14.22% |
-| Components | Donchian-Trail + Adaptive-Kelly + 3× Carry + Latency-Gate | Single 1h MTF Donchian | same | same |
+| Metric         |                         Phase 7 V2 BTC (3× carry + trail) | Phase 8 BTC 1h MTF (1:10 dir) | Phase 7 V2 ETH | Phase 8 ETH 1h MTF (1:10 dir) |
+| -------------- | --------------------------------------------------------: | ----------------------------: | -------------: | ----------------------------: |
+| Monthly return |                                                    +2.85% |                        +0.85% |         +3.35% |                    **+4.57%** |
+| Sharpe         |                                                      3.31 |                         0.588 |           7.01 |                         1.798 |
+| Max DD         |                                                     5.71% |                        18.33% |          2.95% |                        14.22% |
+| Components     | Donchian-Trail + Adaptive-Kelly + 3× Carry + Latency-Gate |        Single 1h MTF Donchian |           same |                          same |
 
 Phase 7 V2's carry-dominated returns (3× leverage on funding-rate arb = +99% of BTC return) outperform Phase 8 BTC 1h MTF (which is purely directional). However, **Phase 8 ETH 1h MTF (+4.57%/mo, Sharpe 1.798) is the strongest purely-directional edge we've measured** across all phases — Phase 7 V2 ETH's +3.35%/mo is carry-dominated, while Phase 8 ETH's is pure trend-following alpha at 1:10 leverage.
 
@@ -175,16 +179,16 @@ Phase 7 V2's carry-dominated returns (3× leverage on funding-rate arb = +99% of
 
 ## §6. Component contribution analysis (BTC 1h MTF detailed)
 
-| Component | PnL Contribution | Notes |
-|---|---:|---|
-| LTF entry trigger (1h close > 4h Donchian upper) | Required | Filters out 60-70% of "would-be" 1h breakouts |
-| MTF trend filter (4h close > 4h Donchian upper) | Required | Cuts "stale breakout" trades — the 4h candle is itself in uptrend |
-| HTF supertrend (1d close > 1d Supertrend) | Required | Cuts "1h breakout in 1d downtrend" trades |
-| Stop-loss (1.5× ATR) | Required | Risk-defined exit; 87/151 BTC trades hit SL |
-| Take-profit (3.0× ATR) | Required | Reward-defined exit; 63/151 BTC trades hit TP |
-| Max-hold (168h guard) | Safety net | Only 1/151 BTC trade hit (others closed via SL/TP/72h engine profit-time-exit) |
-| 1:10 leverage amplification | 10× gross PnL | Net: 25.44% on raw 1× of -5.70% (because gross PnL was positive after fees) |
-| Borrow cost (0.01%/h × 9/10 notional) | -0.32%/month drag | Modest at avg hold 12h |
+| Component                                        |  PnL Contribution | Notes                                                                          |
+| ------------------------------------------------ | ----------------: | ------------------------------------------------------------------------------ |
+| LTF entry trigger (1h close > 4h Donchian upper) |          Required | Filters out 60-70% of "would-be" 1h breakouts                                  |
+| MTF trend filter (4h close > 4h Donchian upper)  |          Required | Cuts "stale breakout" trades — the 4h candle is itself in uptrend              |
+| HTF supertrend (1d close > 1d Supertrend)        |          Required | Cuts "1h breakout in 1d downtrend" trades                                      |
+| Stop-loss (1.5× ATR)                             |          Required | Risk-defined exit; 87/151 BTC trades hit SL                                    |
+| Take-profit (3.0× ATR)                           |          Required | Reward-defined exit; 63/151 BTC trades hit TP                                  |
+| Max-hold (168h guard)                            |        Safety net | Only 1/151 BTC trade hit (others closed via SL/TP/72h engine profit-time-exit) |
+| 1:10 leverage amplification                      |     10× gross PnL | Net: 25.44% on raw 1× of -5.70% (because gross PnL was positive after fees)    |
+| Borrow cost (0.01%/h × 9/10 notional)            | -0.32%/month drag | Modest at avg hold 12h                                                         |
 
 **Critical observation**: At 1× leverage, BTC's raw net was -$569.87 (-5.70%) — a LOSING strategy. The leverage amplification turned it into a +$2543.91 (+25.44%) gain because gross PnL (PnL + fees) was +$381 (positive on price movement before fees and leverage). This is **fragile**: any drop in raw alpha erases the leveraged gain. ETH is more robust (raw 1× = +6.35%, gross = +14.85%, leveraged = +137%) — the underlying alpha is real, leverage just amplifies it.
 
@@ -247,12 +251,12 @@ The BTC/SOL walk-forward degradation (-0.30%/30d, +0.30%/30d mean OOS) is consis
 
 ### §9.3 +50%/hó target verdict
 
-| Configuration | Monthly Return | Verdict |
-|---|---:|---|
-| Track F BTC 1h MTF 1:10 | +0.85% | **NEM** (~59× short of +50%) |
-| Track F ETH 1h MTF 1:10 | +4.57% | **NEM** (~11× short of +50%) |
-| Track F SOL 1h MTF 1:10 | -1.19% | **NEM** (negative) |
-| Phase 7 V2 (best Phase 7) | +2.09% | NEM (~24× short) |
+| Configuration             | Monthly Return | Verdict                      |
+| ------------------------- | -------------: | ---------------------------- |
+| Track F BTC 1h MTF 1:10   |         +0.85% | **NEM** (~59× short of +50%) |
+| Track F ETH 1h MTF 1:10   |         +4.57% | **NEM** (~11× short of +50%) |
+| Track F SOL 1h MTF 1:10   |         -1.19% | **NEM** (negative)           |
+| Phase 7 V2 (best Phase 7) |         +2.09% | NEM (~24× short)             |
 
 The +50%/hó target remains unattainable with directional strategies at any tested leverage. Track F's ETH edge (+4.57%/mo) is the strongest directional contribution across all phases, but still ~11× short. The carry-arbitrage edge (Phase 7 V2's 99% contributor) remains the dominant return driver; directional MTF Donchian at 1:10 leverage provides a meaningful supplementary edge for ETH specifically.
 

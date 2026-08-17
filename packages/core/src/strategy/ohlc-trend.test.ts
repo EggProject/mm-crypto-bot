@@ -21,10 +21,7 @@
 
 import { describe, expect, it } from "bun:test";
 
-import {
-  DEFAULT_OHLC_TREND_CONFIG,
-  OhlcTrendStrategy,
-} from "./ohlc-trend.js";
+import { DEFAULT_OHLC_TREND_CONFIG, OhlcTrendStrategy } from "./ohlc-trend.js";
 import type { Candle } from "@mm-crypto-bot/shared/types";
 import { TIMEFRAME_MS } from "@mm-crypto-bot/shared/types";
 

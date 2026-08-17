@@ -20,10 +20,7 @@ export {
 
 export { DEFAULT_BOT_CONFIG } from "./defaults.js";
 
-export {
-  ConfigError,
-  loadBotConfig,
-} from "./loader.js";
+export { ConfigError, loadBotConfig } from "./loader.js";
 
 export {
   createStrategyInstances,

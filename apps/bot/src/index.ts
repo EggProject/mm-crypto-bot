@@ -2,7 +2,7 @@
 /**
  * apps/bot/src/index.ts
  *
- * Phase 33 Track D + Phase 34 Track C + Phase 44 — a `mm-bot` CLI entry pointja.
+ * Phase 33 Track D + Phase 34 Track C + Phase 44 — a direct bot CLI entry point.
  *
  * ===========================================================================
  * SUBCOMMANDS
@@ -18,10 +18,8 @@
  * ===========================================================================
  * HASZNÁLAT
  * ===========================================================================
- *   mm-bot                              → help
- *   mm-bot <subcommand> [--config=PATH] [--help] [--no-color] [--color]
- *
- * A `mm-bot` bináris ezt a fájlt futtatja (lásd `apps/bot/package.json` `bin`).
+ *   bun run apps/bot/src/index.ts                              → help
+ *   bun run apps/bot/src/index.ts <subcommand> [--config=PATH] [--help] [--no-color] [--color]
  *
  * ===========================================================================
  * EXIT CODES
@@ -89,7 +87,7 @@ if (earlyFlags.get("color") === true) {
 // Router setup
 // ---------------------------------------------------------------------------
 const router = new CliRouter();
-router.setProgramDescription("mm-bot — the mm-crypto-bot CLI");
+router.setProgramDescription("mm-crypto-bot command-line interface");
 
 router.register("start", "Start the bot (headless — runs until SIGINT/SIGTERM)", startCommand);
 router.register("status", "Show the persisted bot state", statusCommand);
@@ -97,14 +95,22 @@ router.register("config", "Validate / show / init the bot config", configCommand
 router.register("strategies", "List registered strategies + on/off state", strategiesCommand);
 router.register("trades", "Show recent closed trades", tradesCommand);
 router.register("kill-switches", "Show kill-switch state", killSwitchesCommand);
-router.register("kill-switch-dry-run", "Simulate the kill-switch path WITHOUT sending any orders (Phase 37 Track 5)", killSwitchDryRunCommand);
-router.register("backtest", "Run a quick backtest on a deterministic OHLC fixture (Phase 37 Track 3)", backtestCommand);
+router.register(
+  "kill-switch-dry-run",
+  "Simulate the kill-switch path WITHOUT sending any orders (Phase 37 Track 5)",
+  killSwitchDryRunCommand,
+);
+router.register(
+  "backtest",
+  "Run a quick backtest on a deterministic OHLC fixture (Phase 37 Track 3)",
+  backtestCommand,
+);
 router.register("help", "Show this help", makeHelpCommand(router));
 
 // ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------
-// We use `parseArgv` here only to peek at `--help` early (so `mm-bot --help`
+// We use `parseArgv` here only to peek at `--help` early (so the direct command with `--help`
 // works without going through the router's help path). The router calls
 // `parseArgv` again internally — that's fine, it's a pure function.
 //

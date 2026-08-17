@@ -147,7 +147,9 @@ export async function main(): Promise<void> {
   console.log(`[donchian-range] timeframes: htf=${tf.htf} mtf=${tf.mtf} ltf=${tf.ltf}`);
   console.log(`[donchian-range] period: ${startTime.toISOString()} → ${endTime.toISOString()}`);
   console.log(`[donchian-range] initial equity: $${args.initialEquity}`);
-  console.log(`[donchian-range] donchian-period=${args.donchianPeriod} adx-trend-threshold=${args.adxTrendThreshold}`);
+  console.log(
+    `[donchian-range] donchian-period=${args.donchianPeriod} adx-trend-threshold=${args.adxTrendThreshold}`,
+  );
 
   const result: BacktestResult = await runBacktest({
     symbol: makeSymbol(args.symbol),
@@ -184,7 +186,9 @@ export async function main(): Promise<void> {
 
   console.log(`\n=== RESULTS donchian-range ${args.symbol} ${args.timeframe} ===`);
   console.log(`Total return:     ${(result.totalReturn * 100).toFixed(2)}%`);
-  console.log(`Monthly avg:      ${(monthlyReturn * 100).toFixed(2)}%/mo (over ${totalMonths.toFixed(1)} months)`);
+  console.log(
+    `Monthly avg:      ${(monthlyReturn * 100).toFixed(2)}%/mo (over ${totalMonths.toFixed(1)} months)`,
+  );
   console.log(`Annualized:       ${(result.annualizedReturn * 100).toFixed(2)}%`);
   console.log(`Sharpe:           ${result.sharpeRatio.toFixed(3)}`);
   console.log(`Sortino:          ${result.sortinoRatio.toFixed(3)}`);

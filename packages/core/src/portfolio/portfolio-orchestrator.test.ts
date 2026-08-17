@@ -45,7 +45,6 @@ import {
   type PortfolioEnvelope,
 } from "./portfolio-orchestrator.js";
 
-
 // ---------------------------------------------------------------------------
 // Test fixtures
 // ---------------------------------------------------------------------------
@@ -64,12 +63,7 @@ afterEach(async () => {
  * `syntheticBar` — produce a deterministic OHLCV bar with a controlled
  * close price. Used for backtest fixtures.
  */
-function syntheticBar(
-  timestampMs: number,
-  close: number,
-  spread = 0.02,
-  volume = 1000,
-): Bar {
+function syntheticBar(timestampMs: number, close: number, spread = 0.02, volume = 1000): Bar {
   return {
     timestamp: timestampMs,
     open: close * (1 - spread / 2),
@@ -83,10 +77,7 @@ function syntheticBar(
 /**
  * `writeOhlcvCsv` — write a synthetic OHLCV CSV file.
  */
-async function writeOhlcvCsv(
-  base: string,
-  bars: readonly Bar[],
-): Promise<string> {
+async function writeOhlcvCsv(base: string, bars: readonly Bar[]): Promise<string> {
   const lines = ["timestamp,open,high,low,close,volume"];
   for (const b of bars) {
     lines.push(`${b.timestamp},${b.open},${b.high},${b.low},${b.close},${b.volume}`);
@@ -116,12 +107,7 @@ async function writeFundingCsv(
  * `makeBars` — generate N daily bars with deterministic close prices
  * (linear walk starting from `startPrice`).
  */
-function makeBars(
-  count: number,
-  startTs: number,
-  startPrice: number,
-  drift = 0,
-): Bar[] {
+function makeBars(count: number, startTs: number, startPrice: number, drift = 0): Bar[] {
   const out: Bar[] = [];
   for (let i = 0; i < count; i++) {
     out.push(syntheticBar(startTs + i * 86_400_000, startPrice + drift * i));
@@ -203,7 +189,13 @@ async function runOrchestrator(
     readonly driftBtc?: number;
     readonly driftEth?: number;
     readonly driftSol?: number;
-    readonly decisionEngineFactory?: (config: { symbol: string; defaultWeight: number; defensiveWeight: number; minConsensusStrength: number; maxNotionalPerSymbolUsd: number }) => unknown;
+    readonly decisionEngineFactory?: (config: {
+      symbol: string;
+      defaultWeight: number;
+      defensiveWeight: number;
+      minConsensusStrength: number;
+      maxNotionalPerSymbolUsd: number;
+    }) => unknown;
   } = {},
 ): Promise<{
   readonly envelope: PortfolioEnvelope;
@@ -223,7 +215,7 @@ async function runOrchestrator(
     symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
     initialEquityUsd: opts.initialEquityUsd ?? 10_000,
     maxPositions: opts.maxPositions ?? 7,
-    perSymbolConcentrationPct: opts.perSymbolConcentrationPct ?? 0.40,
+    perSymbolConcentrationPct: opts.perSymbolConcentrationPct ?? 0.4,
     portfolioVaRPct: opts.portfolioVaRPct ?? 0.15,
     maxLeverage: opts.maxLeverage ?? 10,
     crossSymbolCorrelationThreshold: opts.crossSymbolCorrelationThreshold ?? 0.7,
@@ -262,7 +254,7 @@ describe("PortfolioOrchestrator — construction + config validation", () => {
     expect(orch.config.symbols).toEqual(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
     expect(orch.config.initialEquityUsd).toBe(10_000);
     expect(orch.config.maxPositions).toBe(7); // USER SPEC
-    expect(orch.config.perSymbolConcentrationPct).toBe(0.50); // Phase 14C: 0.40 → 0.50
+    expect(orch.config.perSymbolConcentrationPct).toBe(0.5); // Phase 14C: 0.40 → 0.50
     expect(orch.config.portfolioVaRPct).toBe(0.15);
     expect(orch.config.maxLeverage).toBe(10); // 1:10 MANDATORY
     expect(orch.config.crossSymbolCorrelationThreshold).toBe(0.85); // Phase 14C: 0.7 → 0.85
@@ -283,11 +275,7 @@ describe("PortfolioOrchestrator — construction + config validation", () => {
   test("DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG has user-mandated values", () => {
     expect(DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG.maxPositions).toBe(7);
     expect(DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG.maxLeverage).toBe(10);
-    expect(DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG.symbols).toEqual([
-      "BTC/USDT",
-      "ETH/USDT",
-      "SOL/USDT",
-    ]);
+    expect(DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG.symbols).toEqual(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
   });
 
   test("rejects missing dataDir", () => {
@@ -380,10 +368,7 @@ describe("PortfolioOrchestrator — construction + config validation", () => {
     const startTs = 1_700_000_000_000;
     const barCount = 5;
     const { envelope: first, orchestrator } = await runOrchestrator({ barCount });
-    const second = await orchestrator.run(
-      startTs,
-      startTs + (barCount - 1) * 86_400_000,
-    );
+    const second = await orchestrator.run(startTs, startTs + (barCount - 1) * 86_400_000);
 
     expect(second).toEqual(first);
     expect(orchestrator.getSnapshots()).toHaveLength(first.snapshots.length);
@@ -656,16 +641,18 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
-        kellyCap: 0.5,
-        maxVolMultiplier: 1.0,
-        minVolMultiplier: 0.25,
-        targetDailyVol: 0.02,
-        volWindowDays: 30,
-        fundingSharpeWindowDays: 30,
-        baseNotionalUsd: 10_000,
-        enabledSymbols: [symbol],
-      })],
+      pluginsBySymbol: (symbol: string) => [
+        new HybridKellyPlugin({
+          kellyCap: 0.5,
+          maxVolMultiplier: 1.0,
+          minVolMultiplier: 0.25,
+          targetDailyVol: 0.02,
+          volWindowDays: 30,
+          fundingSharpeWindowDays: 30,
+          baseNotionalUsd: 10_000,
+          enabledSymbols: [symbol],
+        }),
+      ],
       maxPositions: 3,
       maxLeverage: 10,
     });
@@ -696,19 +683,21 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
-        kellyCap: 0.5,
-        maxVolMultiplier: 1.0,
-        minVolMultiplier: 0.25,
-        targetDailyVol: 0.02,
-        volWindowDays: 30,
-        fundingSharpeWindowDays: 30,
-        baseNotionalUsd: 10_000,
-        enabledSymbols: [symbol],
-      })],
+      pluginsBySymbol: (symbol: string) => [
+        new HybridKellyPlugin({
+          kellyCap: 0.5,
+          maxVolMultiplier: 1.0,
+          minVolMultiplier: 0.25,
+          targetDailyVol: 0.02,
+          volWindowDays: 30,
+          fundingSharpeWindowDays: 30,
+          baseNotionalUsd: 10_000,
+          enabledSymbols: [symbol],
+        }),
+      ],
       initialEquityUsd: 10_000,
       maxPositions: 7,
-      perSymbolConcentrationPct: 0.40,
+      perSymbolConcentrationPct: 0.4,
       maxLeverage: 10,
       decisionEngineFactory: (config) => {
         const de = new DecisionEngine(config);
@@ -745,7 +734,13 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       expect(btc.appliedNotionalUsd).toBeLessThanOrEqual(40_000);
       if (btc.capped) {
         const r = btc.capReason;
-        expect(r === "concentration" || r === "leverage" || r === "portfolioVaR" || r === "correlation" || r === "maxPositions").toBe(true);
+        expect(
+          r === "concentration" ||
+            r === "leverage" ||
+            r === "portfolioVaR" ||
+            r === "correlation" ||
+            r === "maxPositions",
+        ).toBe(true);
       }
     }
   });
@@ -765,16 +760,18 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
-        kellyCap: 0.5,
-        maxVolMultiplier: 1.0,
-        minVolMultiplier: 0.25,
-        targetDailyVol: 0.02,
-        volWindowDays: 30,
-        fundingSharpeWindowDays: 30,
-        baseNotionalUsd: 10_000,
-        enabledSymbols: [symbol],
-      })],
+      pluginsBySymbol: (symbol: string) => [
+        new HybridKellyPlugin({
+          kellyCap: 0.5,
+          maxVolMultiplier: 1.0,
+          minVolMultiplier: 0.25,
+          targetDailyVol: 0.02,
+          volWindowDays: 30,
+          fundingSharpeWindowDays: 30,
+          baseNotionalUsd: 10_000,
+          enabledSymbols: [symbol],
+        }),
+      ],
       initialEquityUsd: 10_000,
       maxPositions: 7,
       portfolioVaRPct: 0.0001, // extremely tight — will fire on day 2+
@@ -790,9 +787,7 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
     // specific capReason is "correlation" / "portfolioVaR" whichever
     // runs first).
     const anyCapped = envelope.snapshots.some((s) =>
-      Object.values(s.positionsBySymbol).some(
-        (p) => p.capped,
-      ),
+      Object.values(s.positionsBySymbol).some((p) => p.capped),
     );
     expect(anyCapped).toBe(true);
   });
@@ -811,16 +806,18 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
-        kellyCap: 0.5,
-        maxVolMultiplier: 1.0,
-        minVolMultiplier: 0.25,
-        targetDailyVol: 0.02,
-        volWindowDays: 30,
-        fundingSharpeWindowDays: 30,
-        baseNotionalUsd: 10_000,
-        enabledSymbols: [symbol],
-      })],
+      pluginsBySymbol: (symbol: string) => [
+        new HybridKellyPlugin({
+          kellyCap: 0.5,
+          maxVolMultiplier: 1.0,
+          minVolMultiplier: 0.25,
+          targetDailyVol: 0.02,
+          volWindowDays: 30,
+          fundingSharpeWindowDays: 30,
+          baseNotionalUsd: 10_000,
+          enabledSymbols: [symbol],
+        }),
+      ],
       initialEquityUsd: 10_000,
       maxPositions: 7,
       maxLeverage: 10,
@@ -849,16 +846,18 @@ describe("PortfolioOrchestrator — cross-symbol caps", () => {
       dataDir: tmpDir,
       fundingDir: tmpDir,
       symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [new HybridKellyPlugin({
-        kellyCap: 0.5,
-        maxVolMultiplier: 1.0,
-        minVolMultiplier: 0.25,
-        targetDailyVol: 0.02,
-        volWindowDays: 30,
-        fundingSharpeWindowDays: 30,
-        baseNotionalUsd: 10_000,
-        enabledSymbols: [symbol],
-      })],
+      pluginsBySymbol: (symbol: string) => [
+        new HybridKellyPlugin({
+          kellyCap: 0.5,
+          maxVolMultiplier: 1.0,
+          minVolMultiplier: 0.25,
+          targetDailyVol: 0.02,
+          volWindowDays: 30,
+          fundingSharpeWindowDays: 30,
+          baseNotionalUsd: 10_000,
+          enabledSymbols: [symbol],
+        }),
+      ],
       initialEquityUsd: 10_000,
       maxPositions: 7,
       maxLeverage: 10,

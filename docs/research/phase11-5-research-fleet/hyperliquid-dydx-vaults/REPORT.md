@@ -13,14 +13,14 @@ HLP (Hyperliquid) and dYdX v4 MegaVault are **protocol-side short-vol market-mak
 
 ## §2 Edge Hypotheses (ranked by plausibility)
 
-| Rank | Edge hypothesis | Edge IR (qualitative) | Direction |
-|---|---|---|---|
-| **1** | HLP vault flow (TVL δ) as a contrarian crowd signal for imminent Hyperliquid perp volatility / liquidation opportunity | medium-high | short-vol harvesting inside Hyperliquid perps |
-| **2** | HLP timing — deposit right before high-vol windows, withdraw in flat tape, cycle 4-day lockup | medium | capture HLP's lumpy PnL distribution |
-| **3** | HIP-3 commodity perp basis arb (HIP-3 growth-mode taker 0.0045–0.009% vs CEX perp 0.04%) on weekends/Asian hours | medium-high | cross-DEX/commodity spread |
-| **4** | dYdX v4 MegaVault yield timing — capital flow proxy for chain-revenue shifts | medium | informs dy/dx staking-tier allocation |
-| **5** | MegaVault revenue-share routing as forward indicator of protocol security spending | low-medium | DYDX valuation timing |
-| **6** | HIP-1 launch-auction timing + staker tier rerank as entry signal for HYPE | low | HYPE token position |
+| Rank  | Edge hypothesis                                                                                                        | Edge IR (qualitative) | Direction                                     |
+| ----- | ---------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------------- |
+| **1** | HLP vault flow (TVL δ) as a contrarian crowd signal for imminent Hyperliquid perp volatility / liquidation opportunity | medium-high           | short-vol harvesting inside Hyperliquid perps |
+| **2** | HLP timing — deposit right before high-vol windows, withdraw in flat tape, cycle 4-day lockup                          | medium                | capture HLP's lumpy PnL distribution          |
+| **3** | HIP-3 commodity perp basis arb (HIP-3 growth-mode taker 0.0045–0.009% vs CEX perp 0.04%) on weekends/Asian hours       | medium-high           | cross-DEX/commodity spread                    |
+| **4** | dYdX v4 MegaVault yield timing — capital flow proxy for chain-revenue shifts                                           | medium                | informs dy/dx staking-tier allocation         |
+| **5** | MegaVault revenue-share routing as forward indicator of protocol security spending                                     | low-medium            | DYDX valuation timing                         |
+| **6** | HIP-1 launch-auction timing + staker tier rerank as entry signal for HYPE                                              | low                   | HYPE token position                           |
 
 Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + DefiLlama + CoinGlass).
 
@@ -33,12 +33,14 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 **Hypothesis.** HLP TVL inflows typically lag rising perp volume by ~24–72h; large outflows cluster around recognized manipulation events (CoinGecko long-read; OnChainTimes weekly chart). Tracking HLP TVL Δ vs. open-interest Δ produces a tradable "smart money bearish on Hyperliquid" signal.
 
 **Mechanism.**
+
 - HLP depositors are passive LPs who react to narratives. Outflows ($110M over 30 days in Apr 2025 = 60% drawdown) cluster after events like JELLYJELLY (March 2025), POPCAT (Nov 2025), FARTCOIN (April 2026) — all **post hoc reactions**, not anticipations (LinkedIn / Phil M., 2025; CoinGecko long-read, 2026).
 - Each event had **a single enormous short-vol payoff** before the outflow: JELLY JELLY netted HLP ~$70K after force-delisting at attacker entry price (gate.com / Oct 2025 article); POPCAT drew a ~$4.9M HLP loss just before the May outflow (Tencent/SinaFinance article).
 - Counter-direction: HLP TVL **falling but OI rising** historically produced positive forward 30-day HLP returns (per onchaintimes.com "the recent outflow of >$200m from HLP could perhaps result higher returns going forward conditioned on the trading volumes staying at current levels").
 - Bidirectional test: HLP gross PnL is correlated with 30-day rolling realized vol across BTC/ETH (HLP-15.3%, 30d Vol adjusted Sharpe ~5.2 in last 12mo per Substack Geronimo risk/return analysis).
 
 **Evidence / citations.**
+
 - CoinGecko Learn — HLP cumulative PnL $136.9M since May 2023, two events (Oct-10-2025 + Jan-31-2026) account for ~41% of lifetime profit (`https://www.coingecko.com/learn/hyperliquid-hlp-vault-analysis`).
 - vaultvision.tech — JELLY (March 2025, ~$12M) and FARTCOIN (April 2026, ~$1.5M) dumps; HIP-3 risk surfaces (`https://vaultvision.tech/blog/how-hlp-works-hyperliquid-vault`).
 - Eco support — 60% peak-AUM drawdown narrative (`https://eco.com/support/en/articles/15197987-hyperliquid-vault-strategies-2026-hlp-and-user-vaults-explained`).
@@ -50,6 +52,7 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 **Hypothesis.** Because HLP's PnL is event-lumpy (staircase: flat weeks → 5–15% jumps at liquidation cascades), the optimal LP strategy is **deposit immediately AFTER a recognized "toxic" event** (post-3 days, just-in-time before another cascade) and **withdraw once flat-tape PnL decays under ~0.5%/week**.
 
 **Mechanism.**
+
 - 4-day lock-up on every new deposit (`Hyperliquid GitBook — protocol-vaults: "deposit lock-up period is 4 days"`); every deposit resets the cycle — withdraw only after 4 days (`https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/protocol-vaults`).
 - 0% performance fee (`CoinGecko long-read; Hyperliquid docs`); 100% of net PnL flows to depositors.
 - Historical APR ranges from -0% to ~30% within a single calendar quarter, median ~17–20% (`Substack Geronimo`; `arx.trade` 20% cited headline; `Eco support 15-30% APR range`).
@@ -57,6 +60,7 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 - Optimal entry signal = "market structure just shifted chaotic" → perp OI rapid increase + last manipulation event > 14 days ago + no current token-specific HV news → deposit Friday → withdraw on next flat week (4+ days later).
 
 **Evidence / citations.**
+
 - Hyperliquid docs (primary): lockup = 4 days, 0% fees, 100% community-owned (`https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/protocol-vaults`).
 - `arx.trade` — 1.75%/month ≈ 20%/yr headline (`https://arx.trade/blog/hyperliquid-vaults-explained/`).
 - `kh3443.substack.com (Kayna)` — cumulative return 143% from Feb 2024 → Feb 2025; Sharpe ~2.89 lifetime → 5.2 recent (`https://kh3443.substack.com/p/how-good-is-hlps-apy`).
@@ -68,6 +72,7 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 **Hypothesis.** HIP-3 builder-deployed perps (especially Trade.xyz equity/commodity basket) trade with **CEX-funding differentials every weekend**, when CME and Binance only open equity-hours. Hyperliquid's continuous funding (Hyperliquid settles 1/8 of 8h funding every hour — `Bitsgap funding-cost post`) plus the HIP-3 Growth Mode **0.0045–0.009% taker fee** (≈90% drop vs. standard 0.045%) creates a weekend-only spread window.
 
 **Mechanism.**
+
 - HIP-3 OI grew $260M → $790M (Jan 2026), $2.3B (Apr 2026), $3B+ (Jun 2026) within months of mainnet launch (`blockeden.xyz 2026 report`; `hyperliquidguide.com HIP-3 page`; `Odaily post 465991`).
 - Trade.xyz dominates HIP-3 (~90% OI, ~$22B daily volume) with **67%+ of contracts being tokenized crude oil, gold, silver, SPX/Nasdaq/individual equities** — `TencentNews 20260318` (Trade.xyz HIP-3 OI 14.3B on a single day).
 - Weekend volume on oil and precious-metal perpetuals jumped ~900% in Q1 2026; single-day oil perp volume hit $1.77B (`blockeden.xyz post`).
@@ -75,6 +80,7 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 - Validator posts on X confirmed `Bitsgap` `https://bitsgap.com/blog/same-position-four-different-bills-how-funding-rates-differ-across-perp-dexs-in-2026` — Hyperliquid settles 1/8 of 8h funding every hour.
 
 **Evidence / citations.**
+
 - Hyperliquid docs HIP-3 (`https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-3-builder-deployed-perpetuals`) — 500K HYPE stake, 50% deployer fee share.
 - blockeden.xyz report on HIP-3 (`https://blockeden.xyz/blog/2026/04/29/hyperliquid-hip3-builder-markets-1b-oi-commodities`) — 900% weekend commodity vol, $1.77B oil-perp day, $2.3B OI ATH.
 - Tencent News PANews WuShuo summary on HIP-3 OI 14.3B (`https://news.qq.com/rain/a/20260318A01YQ100`) — Trade.xyz near 90% HIP-3 share, 23 of top-30 pairs tokenized.
@@ -86,6 +92,7 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 **Hypothesis.** MegaVault yield is a **forward indicator of chain health**: when MegaVault APR compresses below ~5% (low funding, low volume), chain revenue is shrinking → DYDX staking yield drops next epoch (since 50% of revenue funds MegaVault, 40% funds validators + stakers). Conversely, MegaVault APR expansion precedes staker yield expansion.
 
 **Mechanism.**
+
 - Revenue split: 50% MegaVault, 10% Treasury SubDAO, rest to validators/stakers (`crypto.news community approval`; `crypto.news` and `Mintscan proposal 182`; `dydx.forum proposal 3093`).
 - No lockup (`docs.dydx.community MegaVault FAQ`) → entry/exit friction is near-zero (gas only).
 - MegaVault yield formula: `(30 day PnL/current TVL) * (365/30)`, with current TVL including position mark-to-market — APR is sensitive to both volume AND TVL (`dydx.community`).
@@ -93,6 +100,7 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 - Initial launch saw 46% APR; by Q1 2025 reports settled in low-double-digits (`luyouqi.com 中文 guide`; `Bitget wiki yield explainer`).
 
 **Evidence / citations.**
+
 - `docs.dydx.community MegaVault FAQ` (`https://docs.dydx.community/dydx/dydx-features/megavault`) — 50% from trading fees + funding + PnL.
 - dYdX forum analysis (`https://dydx.forum/t/analysis-and-proposals-on-dydx-chain-and-dydx-tokenomics/3093`) — "There is NO inflation on dYdX... staking rewards come from USDC commission of trading volume" ~12% staking yield as of late 2024.
 - `crypto.news` ("community approves revenue sharing proposal") — proposal passed Nov 15 2024 (`https://crypto.news/the-dydx-community-approves-revenue-sharing-proposal/`).
@@ -104,12 +112,14 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 **Hypothesis.** Since staking rewards come from real USDC trading fees, DYDX staking yield is a **secular indicator of chain activity**. ~12% staking yield (Dec 2024, forum) ↔ chain revenue ~$5M monthly (`dydx.forum 3093`). A 50% staking-yield drop historically marks a regime shift.
 
 **Mechanism.**
+
 - Direct USDC revenue → staker yield (`docs.dydx.xyz Staking Rewards`).
 - Validator commission 5–100%, average 6.08% currently (`dydx.foundation blog`).
 - Top-60 active validators only, ranked by stake (`stakingrewards.com dYdX page`).
 - ~70 active validators (`dydx.community/dydx/modules/staking`).
 
 **Evidence / citations.**
+
 - `https://docs.dydx.community/dydx/modules/staking` — top-60 active set.
 - `https://www.dydx.foundation/blog/understanding-rewards-and-fees-on-the-dydx-chain` — 5–100% commission range.
 - `https://dydx.forum/t/analysis-and-proposals-on-dydx-chain-and-dydx-tokenomics/3093` — revenue model + treasury SubDAO proposal.
@@ -120,12 +130,14 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 **Hypothesis.** HIP-1 ticker auctions settle in HYPE with **100% proceeds going to the Assistance Fund for HYPE buyback** — i.e., auction activity is a **HYPE demand proxy** (`Coinshares primer`). Staking tier reranks (Wood→Diamond) re-rank trader fee discounts every week → fee-discount arbitrageurs must rebalance.
 
 **Mechanism.**
+
 - HIP-1 auction revenue ~$7M annualized (`Coinshares 5-year valuation`).
 - Staking tiers: Wood(10 HYPE), Bronze(100, 5% off), Silver(1k, 10%), Gold(10k, 15%), Platinum(100k, 20%), Diamond(500k, 30%); crossed to 40% at top with combined volume (`Collective Shift distribution`).
 - ~42% of HYPE supply still staked (`Collective Shift`, "420M HYPE / 42% staked, ~2.17% APR").
 - Net effect: HYPE buybacks from AF + collector staker tier fee-discount demand form two adjacent demand reservoirs → tradable signal when auction pacing changes.
 
 **Evidence / citations.**
+
 - `https://coinshares.com/us/insights/research-data/hyperliquid-primer-and-5-year-valuation-framework/` — HIP-1 auction revenue, HYPE allocation mechanics.
 - `https://collectiveshift.io/hype/` — staking tier ladder.
 - `https://hyperliquid.gitbook.io/hyperliquid-docs/hyperliquid-improvement-proposals-hips/hip-1-native-token-standard` — HIP-1 official mechanics.
@@ -136,28 +148,33 @@ Top 3 are concrete, testable today on public APIs (Hyperliquid info-endpoint + D
 ## §4 Plugin Candidate Shapes (for `mm-crypto-bot` integration)
 
 ### 4.1 `VaultFlowSignalPlugin` (real-time)
+
 - **Inputs:** HLP TVL Δ (DefiLlama `/protocol/hyperliquid-hlp` history + CoinGlass live), MegaVault net deposit flow (queries the dYdX chain via gRPC), perp OI on Hyperliquid vs dYdX.
 - **Output:** discrete `vault_dislocation` events — e.g., `HLP_TVL_DROP_5PCT_IN_24H` triggers a regime change marker for downstream leverage plugins.
 - **Conflict model:** avoid reusing the existing regime-detector hooks (Phase 11.2a HMM). Use a side car.
 - **Refresh:** 1m tick, alert thresholds configurable.
 
 ### 4.2 `HLPTimingPlugin` (signal-only)
+
 - **Inputs:** historical HLP weekly PnL, OI Δ, BTC 30d realized vol, manipulation-event calendar (offline whitelist of known toxic listings by ticker).
 - **Output:** `entry_window_score` between 0–1 with reason codes `event_recency`, `flat_tape_decay`, `volume_breach`.
 - **Not auto-trading:** outputs `BUY_HLP_SHARE` flag + `expected_lockup_days`. Cash deployment is the user's job — HLP can't be 'perp traded'.
 - **Risk-off override:** any HLP PnL Δ ≤ −2% in last 24h → `entry_window_score = 0`.
 
 ### 4.3 `PerpDexBasisArbPlugin` (signal-only on HIP-3 commodities)
+
 - **Inputs:** HIP-3 deployment state (active markets per builder), CME/Binance funding snapshot if accessible via WebSocket, Hyperliquid perp mid + funding-hour mark.
 - **Output:** `basis_bps` between HIP-3 HIP-3 and CEX-venue per asset; only fire when HIP-3 has `Growth Mode` discount effective + weekend hour + bps > 30 (filters out tiny book inefficiencies).
 - **Execution:** user-executed. Plugin emits a structured trade ticket for review.
 
 ### 4.4 `MegaVaultAPRTrendPlugin`
+
 - **Inputs:** MegaVault live APR + TVL.
 - **Output:** 7-day rolling slope; alert if slope < −2%/day (rapid yield compression → chain slowdown signal).
 - **Use:** orthogonal to perp strategy but feeds DYDX staking reapportioning decisions.
 
 ### 4.5 `HLPToxicEventCalendar` (offline annotation set)
+
 - Maintains a curated JSON of known attack vectors: `{ "ticker": "...", "attack_type": "suicide_liquidation|short-squeeze|jit_dump", "hlp_pnl_impact_usd": N }`. Existing documented events: JELLY ($12M MTM, $0 net post-delist, Mar 2025), POPCAT ($4.9M realized, Nov 2025), FARTCOIN ($1.2–1.5M, Apr 2026), whale-slap March 2025 ($4M), Garrett Bullish Jan 2026 (+$15M/$110M APR for depositors in one event), Oct 10 2025 flash-crash (~$40–41.5M / 10% to depositors in 48h).
 - Pulls from `vaultvision.tech`, `coingecko.com/learn`, `odaily.news`, `finance.sina.com.cn` (WuShuo), and `news.qq.com`.
 
@@ -225,7 +242,7 @@ The full 140-item catalog lives in `data-feeds.md`. Below is a digest of the **>
 
 ## §7 Insight summary for downstream plugin author
 
-- **HLP** is not a yield product — it is a **public-market-making short-vol book** with manageable tail events. Optimal exposure: small slice of stablecoin sleeve, deposit *after* recognized toxic events, **never increase size during expiring-week-of-HIP-3-listings**.
+- **HLP** is not a yield product — it is a **public-market-making short-vol book** with manageable tail events. Optimal exposure: small slice of stablecoin sleeve, deposit _after_ recognized toxic events, **never increase size during expiring-week-of-HIP-3-listings**.
 - **dYdX v4 MegaVault** is closer to **delta-neutral LP**: low tail, low management burden, but yield compresses fast once TVL scales. Useful as a "neutral sleeve" but not an alpha source.
 - **HIP-3 commodity perps** are the most tradeable edge today — but the regulatory perimeter (commodity perp exposure on a non-CFTC-regulated venue) is a real risk that the Linux bot does not model.
 - **Dual-cross signal: when MegaVault APR compression precedes HLP APR expansion by 1–2 weeks**, that's a high-quality market regime snapshot — dYdX is slowing, Hyperliquid is heating up.
@@ -233,4 +250,4 @@ The full 140-item catalog lives in `data-feeds.md`. Below is a digest of the **>
 
 ---
 
-*End of REPORT.md (Phase 11.5 Track B, Hyperliquid / dYdX v4 vault + LP microstructure).*
+_End of REPORT.md (Phase 11.5 Track B, Hyperliquid / dYdX v4 vault + LP microstructure)._

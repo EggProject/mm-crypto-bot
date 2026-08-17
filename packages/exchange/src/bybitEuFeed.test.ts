@@ -57,24 +57,10 @@ interface FakeExchange {
     price?: number,
     params?: Record<string, unknown>,
   ) => Promise<unknown>;
-  cancelOrderWithClientOrderId: (
-    clientOrderId: string,
-    symbol: string,
-  ) => Promise<unknown>;
-  cancelOrder: (
-    id: string | undefined,
-    symbol: string,
-    params?: Record<string, unknown>,
-  ) => Promise<unknown>;
-  fetchOrderWithClientOrderId: (
-    clientOrderId: string,
-    symbol: string,
-  ) => Promise<unknown>;
-  fetchOrder: (
-    id: string | undefined,
-    symbol: string,
-    params?: Record<string, unknown>,
-  ) => Promise<unknown>;
+  cancelOrderWithClientOrderId: (clientOrderId: string, symbol: string) => Promise<unknown>;
+  cancelOrder: (id: string | undefined, symbol: string, params?: Record<string, unknown>) => Promise<unknown>;
+  fetchOrderWithClientOrderId: (clientOrderId: string, symbol: string) => Promise<unknown>;
+  fetchOrder: (id: string | undefined, symbol: string, params?: Record<string, unknown>) => Promise<unknown>;
   fetchOpenOrders: (symbol: string) => Promise<unknown[]>;
   close: () => Promise<void>;
 }
@@ -84,7 +70,9 @@ function makeFakeExchange(overrides: Partial<FakeExchange> = {}): FakeExchange {
   // a subscription-t, mielőtt bármi történne). Így a CCXT wrapper
   // run*Loop metódusai a subscription-ig futnak, és a cancelled flag
   // miatt kilépnek.
-  const neverResolvingPromise = new Promise<unknown>(() => { /* never */ });
+  const neverResolvingPromise = new Promise<unknown>(() => {
+    /* never */
+  });
   const base: FakeExchange = {
     id: "bybiteu",
     markets: {
@@ -99,7 +87,9 @@ function makeFakeExchange(overrides: Partial<FakeExchange> = {}): FakeExchange {
     },
     market: (_symbol: string) => ({ spot: true }),
     loadMarkets: async () => [],
-    setSandboxMode: (_v: boolean) => { /* no-op */ },
+    setSandboxMode: (_v: boolean) => {
+      /* no-op */
+    },
     watchTicker: (_symbol: string) => neverResolvingPromise,
     watchOrderBook: (_symbol: string, _limit: number) => neverResolvingPromise,
     watchTrades: (_symbol: string) => neverResolvingPromise,
@@ -146,46 +136,34 @@ function makeFakeExchange(overrides: Partial<FakeExchange> = {}): FakeExchange {
       filled: 0,
       timestamp: Date.now(),
     }),
-    cancelOrderWithClientOrderId: async (
-      _clientOrderId: string,
-      _symbol: string,
-    ) => ({
+    cancelOrderWithClientOrderId: async (_clientOrderId: string, _symbol: string) => ({
       id: "mock",
       clientOrderId: "test-order",
       symbol: "BTC/USDC",
       status: "canceled",
     }),
-    cancelOrder: async (
-      _id: string | undefined,
-      _symbol: string,
-      params?: Record<string, unknown>,
-    ) => ({
+    cancelOrder: async (_id: string | undefined, _symbol: string, params?: Record<string, unknown>) => ({
       id: "mock",
       clientOrderId: params?.orderLinkId,
       symbol: "BTC/USDC",
       status: "canceled",
     }),
-    fetchOrderWithClientOrderId: async (
-      clientOrderId: string,
-      _symbol: string,
-    ) => ({
+    fetchOrderWithClientOrderId: async (clientOrderId: string, _symbol: string) => ({
       id: "mock",
       clientOrderId,
       symbol: "BTC/USDC",
       status: "open",
     }),
-    fetchOrder: async (
-      _id: string | undefined,
-      _symbol: string,
-      params?: Record<string, unknown>,
-    ) => ({
+    fetchOrder: async (_id: string | undefined, _symbol: string, params?: Record<string, unknown>) => ({
       id: "mock",
       clientOrderId: params?.orderLinkId,
       symbol: "BTC/USDC",
       status: "open",
     }),
     fetchOpenOrders: async (_symbol: string) => [],
-    close: async () => { /* no-op — tracked via overrides for C3 test */ },
+    close: async () => {
+      /* no-op — tracked via overrides for C3 test */
+    },
   };
   return { ...base, ...overrides };
 }
@@ -311,7 +289,9 @@ describe("bybitEuFeed", () => {
         exchange: asCcxt(fake),
       });
       await feed.open();
-      const id = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
+      const id = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => {
+        /* no-op */
+      });
       expect(typeof id).toBe("number");
       await feed.close();
       // A close() után a subscription törölve van.
@@ -345,7 +325,9 @@ describe("bybitEuFeed", () => {
       const newFake = makeFakeExchange({
         watchTicker: async (_symbol: string) => {
           watchTickerCalled = true;
-          return new Promise<unknown>(() => { /* never */ });
+          return new Promise<unknown>(() => {
+            /* never */
+          });
         },
       });
       const f = new BybitEuFeed({
@@ -356,7 +338,9 @@ describe("bybitEuFeed", () => {
         exchange: asCcxt(newFake),
       });
       await f.open();
-      const id = await f.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
+      const id = await f.subscribeTicker(asSymbol("BTC/USDC"), () => {
+        /* no-op */
+      });
       expect(typeof id).toBe("number");
       // Kis várakozás, hogy a runTickerLoop elinduljon.
       await new Promise<void>((r) => setTimeout(r, 10));
@@ -478,7 +462,9 @@ describe("bybitEuFeed", () => {
               [open, 3, 4, 3, 4, 1],
             ];
           }
-          return new Promise<unknown>(() => { /* wait for unsubscribe */ });
+          return new Promise<unknown>(() => {
+            /* wait for unsubscribe */
+          });
         },
       });
       const f = new BybitEuFeed({
@@ -502,7 +488,9 @@ describe("bybitEuFeed", () => {
       });
       await Promise.race([
         receivedTwice,
-        new Promise<void>((_resolve, reject) => setTimeout(() => reject(new Error("OHLCV events did not arrive")), 100)),
+        new Promise<void>((_resolve, reject) =>
+          setTimeout(() => reject(new Error("OHLCV events did not arrive")), 100),
+        ),
       ]);
       expect(received).toEqual([firstClosed, secondClosed]);
       await f.unsubscribe(id);
@@ -519,24 +507,46 @@ describe("bybitEuFeed", () => {
           calls++;
           if (calls === 1) return [[first, 1, 2, 1, 1.5, 1]];
           if (calls === 2) return [[first, 1, 3, 1, 2.5, 2]]; // repeated open update
-          if (calls === 3) return [[first, 1, 3, 1, 2.75, 3], [second, 2.75, 4, 2, 3, 1]]; // later bucket proves first final
-          if (calls === 4) return [
-            [first, 1, 3, 1, 2.75, 3], [second, 2.75, 4, 2, 3.5, 2], [third, 3.5, 5, 3, 4, 1],
-          ]; // reconnect cache replay proves second final
-          return new Promise<unknown>(() => { /* wait for unsubscribe */ });
+          if (calls === 3)
+            return [
+              [first, 1, 3, 1, 2.75, 3],
+              [second, 2.75, 4, 2, 3, 1],
+            ]; // later bucket proves first final
+          if (calls === 4)
+            return [
+              [first, 1, 3, 1, 2.75, 3],
+              [second, 2.75, 4, 2, 3.5, 2],
+              [third, 3.5, 5, 3, 4, 1],
+            ]; // reconnect cache replay proves second final
+          return new Promise<unknown>(() => {
+            /* wait for unsubscribe */
+          });
         },
       });
-      const f = new BybitEuFeed({ apiKey: "k", secret: "s", rateLimitMs: 10, sandbox: false, exchange: asCcxt(newFake) });
+      const f = new BybitEuFeed({
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 10,
+        sandbox: false,
+        exchange: asCcxt(newFake),
+      });
       await f.open();
       const received: Ohlcv[] = [];
       let resolveDone!: () => void;
-      const done = new Promise<void>((resolve) => { resolveDone = resolve; });
+      const done = new Promise<void>((resolve) => {
+        resolveDone = resolve;
+      });
       const id = await f.subscribeOhlcv(asSymbol("BTC/USDC"), "1m", (event) => {
         if (event.kind !== "ohlcv") return;
         received.push(event.payload.candle);
         if (received.length === 2) resolveDone();
       });
-      await Promise.race([done, new Promise<void>((_resolve, reject) => setTimeout(() => reject(new Error("final candles missing")), 100))]);
+      await Promise.race([
+        done,
+        new Promise<void>((_resolve, reject) =>
+          setTimeout(() => reject(new Error("final candles missing")), 100),
+        ),
+      ]);
       expect(received.map((candle) => candle[0])).toEqual([first, second]);
       expect(received[0]?.[4]).toBe(2.75); // latest value, not first open snapshot
       await f.unsubscribe(id);
@@ -578,8 +588,12 @@ describe("bybitEuFeed", () => {
         secondReceived.push(event.payload.candle[0]);
         if (secondReceived.length === 2) resolveSecond();
       });
-      const firstRunner = (f as unknown as { subs: Map<number, { runner: Promise<void> }> }).subs.get(firstId)!.runner;
-      const secondRunner = (f as unknown as { subs: Map<number, { runner: Promise<void> }> }).subs.get(secondId)!.runner;
+      const firstRunner = (f as unknown as { subs: Map<number, { runner: Promise<void> }> }).subs.get(
+        firstId,
+      )!.runner;
+      const secondRunner = (f as unknown as { subs: Map<number, { runner: Promise<void> }> }).subs.get(
+        secondId,
+      )!.runner;
       const batch = [
         [firstClosed, 1, 2, 1, 2, 1],
         [secondClosed, 2, 3, 2, 3, 1],
@@ -617,9 +631,11 @@ describe("bybitEuFeed", () => {
             secret: "s",
             rateLimitMs: 10,
             sandbox: false,
-            exchange: asCcxt(makeFakeExchange({
-              watchOHLCV: async () => new Promise<unknown>((resolve) => releases.push(resolve)),
-            })),
+            exchange: asCcxt(
+              makeFakeExchange({
+                watchOHLCV: async () => new Promise<unknown>((resolve) => releases.push(resolve)),
+              }),
+            ),
           });
           await f.open();
           const received: number[] = [];
@@ -633,7 +649,9 @@ describe("bybitEuFeed", () => {
               resolveReceived();
             }
           });
-          const runner = (f as unknown as { subs: Map<number, { runner: Promise<void> }> }).subs.get(id)!.runner;
+          const runner = (f as unknown as { subs: Map<number, { runner: Promise<void> }> }).subs.get(
+            id,
+          )!.runner;
           const exactBoundary = fixedNow - duration;
           releases[0]!([
             [exactBoundary, 1, 2, 1, 2, 1],
@@ -853,7 +871,9 @@ describe("bybitEuFeed", () => {
       const newFake = makeFakeExchange({
         watchOrderBook: async (_symbol: string, limit: number) => {
           receivedLimit = limit;
-          return new Promise<unknown>(() => { /* never */ });
+          return new Promise<unknown>(() => {
+            /* never */
+          });
         },
       });
       const f = new BybitEuFeed({
@@ -864,7 +884,9 @@ describe("bybitEuFeed", () => {
         exchange: asCcxt(newFake),
       });
       await f.open();
-      await f.subscribeOrderBook(asSymbol("BTC/USDC"), 50, () => { /* no-op */ });
+      await f.subscribeOrderBook(asSymbol("BTC/USDC"), 50, () => {
+        /* no-op */
+      });
       await new Promise<void>((r) => setTimeout(r, 10));
       expect(receivedLimit).toBe(50);
       await f.close();
@@ -875,7 +897,9 @@ describe("bybitEuFeed", () => {
       const newFake = makeFakeExchange({
         watchTrades: async (_symbol: string) => {
           called = true;
-          return new Promise<unknown>(() => { /* never */ });
+          return new Promise<unknown>(() => {
+            /* never */
+          });
         },
       });
       const f = new BybitEuFeed({
@@ -886,7 +910,9 @@ describe("bybitEuFeed", () => {
         exchange: asCcxt(newFake),
       });
       await f.open();
-      await f.subscribeTrades(asSymbol("BTC/USDC"), () => { /* no-op */ });
+      await f.subscribeTrades(asSymbol("BTC/USDC"), () => {
+        /* no-op */
+      });
       await new Promise<void>((r) => setTimeout(r, 10));
       expect(called).toBe(true);
       await f.close();
@@ -897,7 +923,9 @@ describe("bybitEuFeed", () => {
       const newFake = makeFakeExchange({
         watchOHLCV: async (_symbol: string, tf: string) => {
           receivedTimeframe = tf;
-          return new Promise<unknown>(() => { /* never */ });
+          return new Promise<unknown>(() => {
+            /* never */
+          });
         },
       });
       const f = new BybitEuFeed({
@@ -908,7 +936,9 @@ describe("bybitEuFeed", () => {
         exchange: asCcxt(newFake),
       });
       await f.open();
-      await f.subscribeOhlcv(asSymbol("BTC/USDC"), "1m" as Timeframe, () => { /* no-op */ });
+      await f.subscribeOhlcv(asSymbol("BTC/USDC"), "1m" as Timeframe, () => {
+        /* no-op */
+      });
       await new Promise<void>((r) => setTimeout(r, 10));
       expect(receivedTimeframe).toBe("1m");
       await f.close();
@@ -923,7 +953,9 @@ describe("bybitEuFeed", () => {
         exchange: asCcxt(makeFakeExchange()),
       });
       await expect(
-        f.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ }),
+        f.subscribeTicker(asSymbol("BTC/USDC"), () => {
+          /* no-op */
+        }),
       ).rejects.toThrow(/open/);
     });
 
@@ -932,7 +964,9 @@ describe("bybitEuFeed", () => {
       const newFake = makeFakeExchange({
         watchTicker: async (_symbol: string) => {
           called = true;
-          return new Promise<unknown>(() => { /* never */ });
+          return new Promise<unknown>(() => {
+            /* never */
+          });
         },
       });
       const f = new BybitEuFeed({
@@ -943,7 +977,9 @@ describe("bybitEuFeed", () => {
         exchange: asCcxt(newFake),
       });
       await f.open();
-      const id = await f.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ });
+      const id = await f.subscribeTicker(asSymbol("BTC/USDC"), () => {
+        /* no-op */
+      });
       await new Promise<void>((r) => setTimeout(r, 10));
       await f.unsubscribe(id);
       // A cancel a watchTicker által visszaadott promise-t "feloldja",
@@ -992,9 +1028,7 @@ describe("bybitEuFeed", () => {
         ),
       });
       await f.open();
-      await expect(
-        f.fetchTickerSnapshot(asSymbol("BTC/USDC")),
-      ).rejects.toThrow(/network error/);
+      await expect(f.fetchTickerSnapshot(asSymbol("BTC/USDC"))).rejects.toThrow(/network error/);
       await f.close();
     });
 
@@ -1020,9 +1054,7 @@ describe("bybitEuFeed", () => {
         ),
       });
       await f.open();
-      await expect(
-        f.fetchOrderBookSnapshot(asSymbol("BTC/USDC"), 10),
-      ).rejects.toThrow(/book error/);
+      await expect(f.fetchOrderBookSnapshot(asSymbol("BTC/USDC"), 10)).rejects.toThrow(/book error/);
       await f.close();
     });
 
@@ -1042,21 +1074,47 @@ describe("bybitEuFeed", () => {
     });
 
     it("fetchPositions only treats an explicit CCXT capability as authoritative", async () => {
-      const unsupported = new BybitEuFeed({ apiKey: "x", secret: "y", rateLimitMs: 100, sandbox: false, exchange: makeFakeExchange() as unknown as CcxtExchange });
+      const unsupported = new BybitEuFeed({
+        apiKey: "x",
+        secret: "y",
+        rateLimitMs: 100,
+        sandbox: false,
+        exchange: makeFakeExchange() as unknown as CcxtExchange,
+      });
       await unsupported.open();
       await expect(unsupported.fetchPositions()).rejects.toThrow("does not support fetchPositions");
 
       const supported = new BybitEuFeed({
-        apiKey: "x", secret: "y", rateLimitMs: 100, sandbox: false,
+        apiKey: "x",
+        secret: "y",
+        rateLimitMs: 100,
+        sandbox: false,
         exchange: makeFakeExchange({
           has: { fetchPositions: true },
-          fetchPositions: async () => [{ symbol: "BTC/USDC", side: "long", contracts: 2, entryPrice: 100, markPrice: 101, lastUpdateTimestamp: 42 }],
+          fetchPositions: async () => [
+            {
+              symbol: "BTC/USDC",
+              side: "long",
+              contracts: 2,
+              entryPrice: 100,
+              markPrice: 101,
+              lastUpdateTimestamp: 42,
+            },
+          ],
         }) as unknown as CcxtExchange,
       });
       await supported.open();
-      await expect(supported.fetchPositions()).resolves.toEqual([{
-        symbol: "BTC/USDC", side: "long", quantity: 2, entryPrice: 100, markPrice: 101, unrealizedPnl: undefined, updateTimestamp: 42,
-      }]);
+      await expect(supported.fetchPositions()).resolves.toEqual([
+        {
+          symbol: "BTC/USDC",
+          side: "long",
+          quantity: 2,
+          entryPrice: 100,
+          markPrice: 101,
+          unrealizedPnl: undefined,
+          updateTimestamp: 42,
+        },
+      ]);
     });
 
     /**
@@ -1112,9 +1170,7 @@ describe("bybitEuFeed", () => {
         ),
       });
       await f.open();
-      await expect(
-        f.fetchOHLCV(asSymbol("BTC/USDC"), "1h", undefined, 50),
-      ).rejects.toThrow(/ohlcv error/);
+      await expect(f.fetchOHLCV(asSymbol("BTC/USDC"), "1h", undefined, 50)).rejects.toThrow(/ohlcv error/);
       await f.close();
     });
 
@@ -1282,46 +1338,81 @@ describe("bybitEuFeed", () => {
     it("creates a post-fill spot protective conditional with triggerPrice, StopOrder, and a client id", async () => {
       let received: Record<string, unknown> | undefined;
       const f = new BybitEuFeed({
-        apiKey: "k", secret: "s", rateLimitMs: 100, sandbox: false,
-        exchange: asCcxt(makeFakeExchange({
-          createOrder: async (_symbol, _type, _side, amount, _price, params) => {
-            received = params;
-            return { id: "protective", clientOrderId: params?.orderLinkId, symbol: "BTC/USDC", type: "market", side: "sell", amount, status: "open", filled: 0 };
-          },
-        })),
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 100,
+        sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            createOrder: async (_symbol, _type, _side, amount, _price, params) => {
+              received = params;
+              return {
+                id: "protective",
+                clientOrderId: params?.orderLinkId,
+                symbol: "BTC/USDC",
+                type: "market",
+                side: "sell",
+                amount,
+                status: "open",
+                filled: 0,
+              };
+            },
+          }),
+        ),
       });
       await f.open();
       await f.placeOrder({
-        clientOrderId: "sl-1" as never, symbol: asSymbol("BTC/USDC"), side: "sell", type: "market", amount: 0.1,
-        protectiveKind: "stop_loss", triggerPrice: 50_000, reduceOnly: true,
+        clientOrderId: "sl-1" as never,
+        symbol: asSymbol("BTC/USDC"),
+        side: "sell",
+        type: "market",
+        amount: 0.1,
+        protectiveKind: "stop_loss",
+        triggerPrice: 50_000,
+        reduceOnly: true,
       });
       expect(received).toEqual({ orderLinkId: "sl-1", triggerPrice: 50_000, orderFilter: "StopOrder" });
       await f.close();
     });
 
     it("uses Bybit V5 orderLinkId (never empty orderId/clientOrderId) for normal spot cancel and lookup", async () => {
-      let cancelCall: { id: string | undefined; symbol: string; params: Record<string, unknown> | undefined } | undefined;
-      let fetchCall: { id: string | undefined; symbol: string; params: Record<string, unknown> | undefined } | undefined;
+      let cancelCall:
+        { id: string | undefined; symbol: string; params: Record<string, unknown> | undefined } | undefined;
+      let fetchCall:
+        { id: string | undefined; symbol: string; params: Record<string, unknown> | undefined } | undefined;
       const f = new BybitEuFeed({
-        apiKey: "k", secret: "s", rateLimitMs: 100, sandbox: false,
-        exchange: asCcxt(makeFakeExchange({
-          cancelOrder: async (id, symbol, params) => {
-            cancelCall = { id, symbol, params };
-            return { id: "cancel", clientOrderId: params?.orderLinkId, symbol, status: "canceled" };
-          },
-          fetchOrder: async (id, symbol, params) => {
-            fetchCall = { id, symbol, params };
-            return { id: "get", clientOrderId: params?.orderLinkId, symbol, status: "open" };
-          },
-        })),
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 100,
+        sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            cancelOrder: async (id, symbol, params) => {
+              cancelCall = { id, symbol, params };
+              return { id: "cancel", clientOrderId: params?.orderLinkId, symbol, status: "canceled" };
+            },
+            fetchOrder: async (id, symbol, params) => {
+              fetchCall = { id, symbol, params };
+              return { id: "get", clientOrderId: params?.orderLinkId, symbol, status: "open" };
+            },
+          }),
+        ),
       });
       await f.open();
       const id = "spot-normal" as ClientOrderId;
       const o = await f.cancelOrder(id, asSymbol("BTC/USDC"));
       expect(o.status).toBe("canceled");
       await f.fetchOrder(id, asSymbol("BTC/USDC"));
-      expect(cancelCall).toEqual({ id: undefined, symbol: "BTC/USDC", params: { orderLinkId: "spot-normal", orderFilter: "Order" } });
-      expect(fetchCall).toEqual({ id: undefined, symbol: "BTC/USDC", params: { orderLinkId: "spot-normal", acknowledged: true } });
+      expect(cancelCall).toEqual({
+        id: undefined,
+        symbol: "BTC/USDC",
+        params: { orderLinkId: "spot-normal", orderFilter: "Order" },
+      });
+      expect(fetchCall).toEqual({
+        id: undefined,
+        symbol: "BTC/USDC",
+        params: { orderLinkId: "spot-normal", acknowledged: true },
+      });
       await f.close();
     });
 
@@ -1329,21 +1420,34 @@ describe("bybitEuFeed", () => {
       let cancelParams: Record<string, unknown> | undefined;
       let fetchParams: Record<string, unknown> | undefined;
       const f = new BybitEuFeed({
-        apiKey: "k", secret: "s", rateLimitMs: 100, sandbox: false,
-        exchange: asCcxt(makeFakeExchange({
-          cancelOrder: async (_id, symbol, params) => {
-            cancelParams = params;
-            return { id: "cancel", clientOrderId: params?.orderLinkId, symbol, status: "canceled" };
-          },
-          fetchOrder: async (_id, symbol, params) => {
-            fetchParams = params;
-            return { id: "get", clientOrderId: params?.orderLinkId, symbol, status: "open" };
-          },
-        })),
+        apiKey: "k",
+        secret: "s",
+        rateLimitMs: 100,
+        sandbox: false,
+        exchange: asCcxt(
+          makeFakeExchange({
+            cancelOrder: async (_id, symbol, params) => {
+              cancelParams = params;
+              return { id: "cancel", clientOrderId: params?.orderLinkId, symbol, status: "canceled" };
+            },
+            fetchOrder: async (_id, symbol, params) => {
+              fetchParams = params;
+              return { id: "get", clientOrderId: params?.orderLinkId, symbol, status: "open" };
+            },
+          }),
+        ),
       });
       await f.open();
       const id = "spot-stop" as ClientOrderId;
-      await f.placeOrder({ clientOrderId: id, symbol: asSymbol("BTC/USDC"), side: "sell", type: "market", amount: 0.1, protectiveKind: "stop_loss", triggerPrice: 50_000 });
+      await f.placeOrder({
+        clientOrderId: id,
+        symbol: asSymbol("BTC/USDC"),
+        side: "sell",
+        type: "market",
+        amount: 0.1,
+        protectiveKind: "stop_loss",
+        triggerPrice: 50_000,
+      });
       await f.cancelOrder(id, asSymbol("BTC/USDC"));
       await f.fetchOrder(id, asSymbol("BTC/USDC"));
       expect(cancelParams).toEqual({ orderLinkId: "spot-stop", orderFilter: "StopOrder" });
@@ -1359,18 +1463,33 @@ describe("bybitEuFeed", () => {
         let cancelParams: Record<string, unknown> | undefined;
         let fetchParams: Record<string, unknown> | undefined;
         const f = new BybitEuFeed({
-          apiKey: "k", secret: "s", rateLimitMs: 100, sandbox: false,
-          exchange: asCcxt(makeFakeExchange({
-            market: () => ({ spot: false }),
-            cancelOrder: async (_id, requestSymbol, params) => {
-              cancelParams = params;
-              return { id: "cancel", clientOrderId: params?.orderLinkId, symbol: requestSymbol, status: "canceled" };
-            },
-            fetchOrder: async (_id, requestSymbol, params) => {
-              fetchParams = params;
-              return { id: "get", clientOrderId: params?.orderLinkId, symbol: requestSymbol, status: "open" };
-            },
-          })),
+          apiKey: "k",
+          secret: "s",
+          rateLimitMs: 100,
+          sandbox: false,
+          exchange: asCcxt(
+            makeFakeExchange({
+              market: () => ({ spot: false }),
+              cancelOrder: async (_id, requestSymbol, params) => {
+                cancelParams = params;
+                return {
+                  id: "cancel",
+                  clientOrderId: params?.orderLinkId,
+                  symbol: requestSymbol,
+                  status: "canceled",
+                };
+              },
+              fetchOrder: async (_id, requestSymbol, params) => {
+                fetchParams = params;
+                return {
+                  id: "get",
+                  clientOrderId: params?.orderLinkId,
+                  symbol: requestSymbol,
+                  status: "open",
+                };
+              },
+            }),
+          ),
         });
         await f.open();
         await f.cancelOrder(`contract-close-${category}` as ClientOrderId, asSymbol(symbol));
@@ -1430,7 +1549,9 @@ describe("bybitEuFeed", () => {
         exchange: asCcxt(makeFakeExchange()),
       });
       await expect(
-        feed.subscribeTicker(asSymbol("BTC/USDC"), () => { /* no-op */ }),
+        feed.subscribeTicker(asSymbol("BTC/USDC"), () => {
+          /* no-op */
+        }),
       ).rejects.toThrow();
     });
 

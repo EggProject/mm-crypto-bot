@@ -29,10 +29,7 @@ import { resolve } from "node:path";
 
 import { CsvExchangeFeed } from "../data/csv-feed.js";
 import { runBacktest, type BacktestResult, type CostModel } from "@mm-crypto-bot/backtest";
-import {
-  DonchianPivotComposition,
-  DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG,
-} from "@mm-crypto-bot/core";
+import { DonchianPivotComposition, DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG } from "@mm-crypto-bot/core";
 import type { ExchangeFeed } from "@mm-crypto-bot/backtest";
 import { makeSymbol, type Timeframe } from "@mm-crypto-bot/shared/types";
 
@@ -55,7 +52,10 @@ const ALLOWED_SYMBOLS = new Set(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
 
 // A `parseSymbols` exportálva van a 100% line-coverage tesztekhez.
 export function parseSymbols(raw: string): readonly string[] {
-  const parts = raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  const parts = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
   if (parts.length === 0) {
     throw new Error(`--symbols is empty`);
   }
@@ -80,7 +80,7 @@ export function parseArgs(): CliArgs {
   // Phase 19 — cap sweep (cap=0.04, 0.08, 0.10, 0.12, 0.15). Default 0.20 (engine default,
   // matches Phase 18 final envelope which used the un-parametrized CLI). Override via
   // `--max-position-pct-equity=<pct>` where pct is in [0, 1] equity-notional terms.
-  let maxPositionPctEquity = 0.20;
+  let maxPositionPctEquity = 0.2;
   // 2024-01-01 → today (default). Override with --start=YYYY-MM-DD --end=YYYY-MM-DD
   // for OOS sub-period analysis (e.g. --start=2024-01-01 --end=2025-12-31 for IS,
   // --start=2026-01-01 --end=2026-07-06 for OOS).
@@ -237,7 +237,9 @@ async function runSingle(
 
   console.log(`\n=== RESULTS donchian-pivot ${consensusTag} ${symbol} ${args.timeframe} ===`);
   console.log(`Total return:     ${(result.totalReturn * 100).toFixed(2)}%`);
-  console.log(`Monthly avg:      ${(monthlyReturn * 100).toFixed(2)}%/mo (over ${totalMonths.toFixed(1)} months)`);
+  console.log(
+    `Monthly avg:      ${(monthlyReturn * 100).toFixed(2)}%/mo (over ${totalMonths.toFixed(1)} months)`,
+  );
   console.log(`Annualized:       ${(result.annualizedReturn * 100).toFixed(2)}%`);
   console.log(`Sharpe:           ${result.sharpeRatio.toFixed(3)}`);
   console.log(`Sortino:          ${result.sortinoRatio.toFixed(3)}`);
@@ -309,18 +311,14 @@ export async function main(): Promise<void> {
   }
   // Combined envelope (simple average of per-symbol monthly returns).
   const combinedMonthly =
+    perSymbol.length > 0 ? perSymbol.reduce((acc, r) => acc + r.monthlyReturn, 0) / perSymbol.length : 0;
+  const combinedAnnualized =
     perSymbol.length > 0
-      ? perSymbol.reduce((acc, r) => acc + r.monthlyReturn, 0) / perSymbol.length
+      ? perSymbol.reduce((acc, r) => acc + r.result.annualizedReturn, 0) / perSymbol.length
       : 0;
-  const combinedAnnualized = perSymbol.length > 0
-    ? perSymbol.reduce((acc, r) => acc + r.result.annualizedReturn, 0) / perSymbol.length
-    : 0;
-  const combinedMaxDd = perSymbol.length > 0
-    ? Math.max(...perSymbol.map((r) => r.result.maxDrawdown))
-    : 0;
-  const combinedSharpe = perSymbol.length > 0
-    ? perSymbol.reduce((acc, r) => acc + r.result.sharpeRatio, 0) / perSymbol.length
-    : 0;
+  const combinedMaxDd = perSymbol.length > 0 ? Math.max(...perSymbol.map((r) => r.result.maxDrawdown)) : 0;
+  const combinedSharpe =
+    perSymbol.length > 0 ? perSymbol.reduce((acc, r) => acc + r.result.sharpeRatio, 0) / perSymbol.length : 0;
   const combinedOutput = {
     strategy: "donchian-pivot-composition (multi-symbol, Phase 30b)",
     mode: "per-symbol-independent",

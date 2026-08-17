@@ -70,17 +70,20 @@
 //    for regime-adaptive sizing. Justifies our per-strategy Sharpe.
 //    https://tradescopeblog.info/article/position-sizing-2025-adaptive-kelly-for-multi-asset-volatility
 
-import type {
-  CorrelationMatrix,
-  Signal,
-} from "../risk/portfolio-risk-engine.js";
+import type { CorrelationMatrix, Signal } from "../risk/portfolio-risk-engine.js";
 
 // ----------------------------------------------------------------------
 // Signal types — re-export for convenience
 // ----------------------------------------------------------------------
 
 /** Re-export signal types so consumers don't need 2 imports. */
-export type { Signal, DirectionSignal, CarrySignal, SizingSignal, RiskSignal } from "../risk/portfolio-risk-engine.js";
+export type {
+  Signal,
+  DirectionSignal,
+  CarrySignal,
+  SizingSignal,
+  RiskSignal,
+} from "../risk/portfolio-risk-engine.js";
 
 // ----------------------------------------------------------------------
 // Configuration
@@ -334,8 +337,7 @@ export class StrategyTelemetry {
     // Per-trade Sharpe (mean / std of trade PnLs, not normalized by notional).
     const mean = avgPnl;
     const variance =
-      trades.reduce((a, b) => a + (b.pnlUsd - mean) * (b.pnlUsd - mean), 0) /
-      Math.max(1, trades.length - 1);
+      trades.reduce((a, b) => a + (b.pnlUsd - mean) * (b.pnlUsd - mean), 0) / Math.max(1, trades.length - 1);
     const std = Math.sqrt(variance);
     const sharpe = std > 0 ? mean / std : 0;
     // Max DD from cumulative PnL curve.
@@ -562,15 +564,7 @@ export class StrategyTelemetry {
     const delim = this.config.exportDelimiter;
     const lines: string[] = [];
     lines.push(
-      [
-        "source",
-        "tradeCount",
-        "totalPnlUsd",
-        "winRate",
-        "sharpe",
-        "maxDrawdownPct",
-        "disabled",
-      ].join(delim),
+      ["source", "tradeCount", "totalPnlUsd", "winRate", "sharpe", "maxDrawdownPct", "disabled"].join(delim),
     );
     for (const s of this.allPerStrategyStats()) {
       lines.push(

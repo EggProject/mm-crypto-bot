@@ -63,7 +63,12 @@
 import type { Logger } from "@mm-crypto-bot/shared";
 import { createLogger } from "@mm-crypto-bot/shared";
 import { asSymbol } from "@mm-crypto-bot/exchange";
-import type { ClientOrderId, ExchangePosition, MarketMeta, Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
+import type {
+  ClientOrderId,
+  ExchangePosition,
+  MarketMeta,
+  Symbol as ExchangeSymbol,
+} from "@mm-crypto-bot/exchange";
 
 import type { OrderLifecycleEvent, OrderManager } from "../bot/order-manager.js";
 import type { PositionManager, PositionSnapshot } from "../bot/position-manager.js";
@@ -198,11 +203,14 @@ export class PortfolioManager {
   private readonly pendingCloses = new Map<string, PendingCloseJournal>();
   private readonly pendingCloseByOrder = new Map<ClientOrderId, PendingCloseJournal>();
   /** Bounded terminal evidence survives journal removal and late duplicate WS updates. */
-  private readonly terminalCloseEvidence = new Map<ClientOrderId, {
-    readonly journal: PendingCloseJournal;
-    readonly status: "closed" | "canceled";
-    readonly filled: number;
-  }>();
+  private readonly terminalCloseEvidence = new Map<
+    ClientOrderId,
+    {
+      readonly journal: PendingCloseJournal;
+      readonly status: "closed" | "canceled";
+      readonly filled: number;
+    }
+  >();
   // A close-all ígérete — a `recordEquityAndSettle` hívás várja be.
   // `null` ha még nem indult close-all.
   private closeAllPromise: Promise<CloseAllReport> | null = null;
@@ -223,7 +231,9 @@ export class PortfolioManager {
     if (!Number.isInteger(this.terminalCloseEvidenceLimit) || this.terminalCloseEvidenceLimit < 1) {
       throw new RangeError("terminalCloseEvidenceLimit must be a positive integer");
     }
-    this.orderManager.onLifecycle((event) => { this.applyCloseLifecycle(event); });
+    this.orderManager.onLifecycle((event) => {
+      this.applyCloseLifecycle(event);
+    });
     // A close-all callback-et ráhúzzuk a `PortfolioStop` trip-jére.
     // Így a stop tüzelésekor AUTOMATIKUSAN zárunk minden pozíciót.
     // Az arrow function a `this`-t lexikálisan köti, így később is
@@ -470,14 +480,26 @@ export class PortfolioManager {
   private async runCloseAll(): Promise<CloseAllReport> {
     let positions: readonly PositionSnapshot[] = this.positionManager.getPositions();
     const localPositionById = new Map(positions.map((position) => [position.id, position]));
-    const cancelled = await this.orderManager.cancelTrackedOrders(new Set([...this.pendingCloses.values()].map((item) => item.clientOrderId)));
-    const cancelledOrders = cancelled.filter((item) => item.error === undefined).map((item) => String(item.clientOrderId));
-    const cancellationFailures = cancelled.filter((item) => item.error !== undefined).map((item) => `cancel ${String(item.clientOrderId)}: ${item.error}`);
+    const cancelled = await this.orderManager.cancelTrackedOrders(
+      new Set([...this.pendingCloses.values()].map((item) => item.clientOrderId)),
+    );
+    const cancelledOrders = cancelled
+      .filter((item) => item.error === undefined)
+      .map((item) => String(item.clientOrderId));
+    const cancellationFailures = cancelled
+      .filter((item) => item.error !== undefined)
+      .map((item) => `cancel ${String(item.clientOrderId)}: ${item.error}`);
     const venueOnlyResults: { readonly label: string; readonly closed: boolean }[] = [];
     const localJournalKeys = new Map<string, string>();
-    let authoritativeFlatConfirmed = !this.requireAuthoritativeEmergencyState || this.orderManager.isPaperMode();
+    let authoritativeFlatConfirmed =
+      !this.requireAuthoritativeEmergencyState || this.orderManager.isPaperMode();
     if (this.requireAuthoritativeEmergencyState && !this.orderManager.isPaperMode()) {
-      const symbols = [...new Set([...positions.map((position) => position.symbol), ...this.configuredSymbols.map((symbol) => asSymbol(symbol))])];
+      const symbols = [
+        ...new Set([
+          ...positions.map((position) => position.symbol),
+          ...this.configuredSymbols.map((symbol) => asSymbol(symbol)),
+        ]),
+      ];
       const marketMeta = new Map<ExchangeSymbol, MarketMeta>();
       for (const symbol of symbols) {
         try {
@@ -491,12 +513,19 @@ export class PortfolioManager {
       try {
         exchangePositions = await this.orderManager.getAuthoritativePositions(symbols);
       } catch (err) {
-        this.logger.warn("[portfolio-manager] derivative position reconciliation unavailable", { error: managedErrorMessage(err) });
+        this.logger.warn("[portfolio-manager] derivative position reconciliation unavailable", {
+          error: managedErrorMessage(err),
+        });
       }
 
       let balances: ReadonlyMap<string, number> | undefined;
       try {
-        balances = new Map((await this.orderManager.getAuthoritativeBalances()).map((balance) => [balance.currency, balance.total]));
+        balances = new Map(
+          (await this.orderManager.getAuthoritativeBalances()).map((balance) => [
+            balance.currency,
+            balance.total,
+          ]),
+        );
       } catch (err) {
         cancellationFailures.push(`authoritative balances: ${managedErrorMessage(err)}`);
       }
@@ -515,7 +544,10 @@ export class PortfolioManager {
             cancellationFailures.push(`spot inventory unavailable: ${String(local.symbol)}`);
           } else if ((balances.get(meta.base) ?? 0) <= 0) {
             this.positionManager.reconcileVenueAbsent(local.id);
-            this.logger.error("[portfolio-manager] stale local spot position removed", { strategy: local.strategy, symbol: String(local.symbol) });
+            this.logger.error("[portfolio-manager] stale local spot position removed", {
+              strategy: local.strategy,
+              symbol: String(local.symbol),
+            });
           } else {
             const ids = spotLocalIds.get(local.symbol) ?? [];
             ids.push(local.id);
@@ -528,11 +560,18 @@ export class PortfolioManager {
           cancellationFailures.push(`derivative position unavailable: ${String(local.symbol)}`);
           continue;
         }
-        const remote = exchangePositions.find((candidate) => candidate.symbol === local.symbol && candidate.side === local.side && candidate.quantity > 0);
+        const remote = exchangePositions.find(
+          (candidate) =>
+            candidate.symbol === local.symbol && candidate.side === local.side && candidate.quantity > 0,
+        );
         if (remote === undefined) {
           // Do not submit a local-only close: it could create fresh venue exposure.
           this.positionManager.reconcileVenueAbsent(local.id);
-          this.logger.error("[portfolio-manager] stale local derivative position removed", { strategy: local.strategy, symbol: String(local.symbol), side: local.side });
+          this.logger.error("[portfolio-manager] stale local derivative position removed", {
+            strategy: local.strategy,
+            symbol: String(local.symbol),
+            side: local.side,
+          });
           continue;
         }
         const key = this.derivativeCloseKey(remote.symbol, remote.side);
@@ -551,7 +590,13 @@ export class PortfolioManager {
           const localIds = derivativeLocalIds.get(key) ?? [];
           const closed = await this.placeVenueOnlyClose(remote, localIds);
           const attributed = localIds.length === 1 ? localPositionById.get(localIds[0]!) : undefined;
-          venueOnlyResults.push({ label: attributed === undefined ? `venue/${String(remote.symbol)}/${remote.side}` : `${attributed.strategy}/${String(remote.symbol)}/${remote.side}`, closed });
+          venueOnlyResults.push({
+            label:
+              attributed === undefined
+                ? `venue/${String(remote.symbol)}/${remote.side}`
+                : `${attributed.strategy}/${String(remote.symbol)}/${remote.side}`,
+            closed,
+          });
         }
       }
       if (balances !== undefined) {
@@ -562,7 +607,13 @@ export class PortfolioManager {
           const localIds = spotLocalIds.get(symbol) ?? [];
           const closed = await this.placeVenueOnlySpotClose(symbol, venueQuantity, meta, localIds);
           const attributed = localIds.length === 1 ? localPositionById.get(localIds[0]!) : undefined;
-          venueOnlyResults.push({ label: attributed === undefined ? `venue/${String(symbol)}/spot` : `${attributed.strategy}/${String(symbol)}/${attributed.side}`, closed });
+          venueOnlyResults.push({
+            label:
+              attributed === undefined
+                ? `venue/${String(symbol)}/spot`
+                : `${attributed.strategy}/${String(symbol)}/${attributed.side}`,
+            closed,
+          });
         }
       }
 
@@ -587,28 +638,60 @@ export class PortfolioManager {
         notionalUsd: p.notionalUsd,
       })),
     });
-    const results = await Promise.all(positions.map(async (pos) => ({
-      pos,
-      closed: await this.placeCloseOrder(pos, undefined, "portfolio-stop-close", localJournalKeys.get(pos.id)),
-    })));
+    const results = await Promise.all(
+      positions.map(async (pos) => ({
+        pos,
+        closed: await this.placeCloseOrder(
+          pos,
+          undefined,
+          "portfolio-stop-close",
+          localJournalKeys.get(pos.id),
+        ),
+      })),
+    );
     const unresolved = results.filter((result) => !result.closed);
     // A close acknowledgement is not completion.  Keep the latch clear when
     // any position remains, so a subsequent emergency evaluation may retry.
-    this.closeAllExecuted = cancellationFailures.length === 0 && unresolved.length === 0 && venueOnlyResults.every((result) => result.closed) && authoritativeFlatConfirmed && this.positionManager.getPositions().length === 0 && this.pendingCloses.size === 0;
+    this.closeAllExecuted =
+      cancellationFailures.length === 0 &&
+      unresolved.length === 0 &&
+      venueOnlyResults.every((result) => result.closed) &&
+      authoritativeFlatConfirmed &&
+      this.positionManager.getPositions().length === 0 &&
+      this.pendingCloses.size === 0;
     if (unresolved.length > 0 || !this.closeAllExecuted) {
       this.logger.error("[portfolio-manager] CLOSE-ALL incomplete — retry remains enabled", {
-        unresolved: unresolved.map(({ pos }) => ({ strategy: pos.strategy, symbol: String(pos.symbol), side: pos.side })),
+        unresolved: unresolved.map(({ pos }) => ({
+          strategy: pos.strategy,
+          symbol: String(pos.symbol),
+          side: pos.side,
+        })),
       });
       return {
-        closed: results.filter((result) => result.closed).map((result) => `${result.pos.strategy}/${String(result.pos.symbol)}`),
-        unresolved: [...cancellationFailures, ...unresolved.map((result) => `${result.pos.strategy}/${String(result.pos.symbol)}/${result.pos.side}`), ...venueOnlyResults.filter((result) => !result.closed).map((result) => result.label)],
+        closed: results
+          .filter((result) => result.closed)
+          .map((result) => `${result.pos.strategy}/${String(result.pos.symbol)}`),
+        unresolved: [
+          ...cancellationFailures,
+          ...unresolved.map(
+            (result) => `${result.pos.strategy}/${String(result.pos.symbol)}/${result.pos.side}`,
+          ),
+          ...venueOnlyResults.filter((result) => !result.closed).map((result) => result.label),
+        ],
         cancelledOrders,
       };
     }
     this.logger.error("[portfolio-manager] CLOSE-ALL complete", {
       closedPositions: positions.length,
     });
-    return { closed: [...results.map((result) => `${result.pos.strategy}/${String(result.pos.symbol)}`), ...venueOnlyResults.filter((result) => result.closed).map((result) => result.label)], unresolved: cancellationFailures, cancelledOrders };
+    return {
+      closed: [
+        ...results.map((result) => `${result.pos.strategy}/${String(result.pos.symbol)}`),
+        ...venueOnlyResults.filter((result) => result.closed).map((result) => result.label),
+      ],
+      unresolved: cancellationFailures,
+      cancelledOrders,
+    };
   }
 
   private async verifyAuthoritativeFlat(
@@ -626,7 +709,12 @@ export class PortfolioManager {
 
     let spotFlat = false;
     try {
-      const balances = new Map((await this.orderManager.getAuthoritativeBalances()).map((balance) => [balance.currency, balance.total]));
+      const balances = new Map(
+        (await this.orderManager.getAuthoritativeBalances()).map((balance) => [
+          balance.currency,
+          balance.total,
+        ]),
+      );
       spotFlat = [...marketMeta.values()].every((meta) => {
         if (meta.isSpot !== true) return true;
         const quantity = this.roundSpotQuantity(balances.get(meta.base) ?? 0, meta);
@@ -660,14 +748,22 @@ export class PortfolioManager {
    * meg (a feed-en a market order azonnal fill-elhet, vagy a
    * paper-mode feed-en a `setOrderStatus` hívás szimulálja).
    */
-  private async placeCloseOrder(pos: PositionSnapshot, authoritativeQuantity: number | undefined, reason: string, journalKey?: string): Promise<boolean> {
+  private async placeCloseOrder(
+    pos: PositionSnapshot,
+    authoritativeQuantity: number | undefined,
+    reason: string,
+    journalKey?: string,
+  ): Promise<boolean> {
     const closingSide = pos.side === "long" ? "sell" : "buy";
     const referencePrice = pos.currentPrice;
     const key = journalKey ?? `local:${pos.id}`;
     const journal = this.pendingCloses.get(key);
     if (journal !== undefined) {
       try {
-        const { order, deltaFilled } = await this.orderManager.reconcileOrder(journal.clientOrderId, pos.symbol);
+        const { order, deltaFilled } = await this.orderManager.reconcileOrder(
+          journal.clientOrderId,
+          pos.symbol,
+        );
         this.applyCloseDelta(journal.positionIds, order, deltaFilled);
         const remaining = this.positionManager.getPositions().find((item) => item.id === pos.id);
         if (remaining === undefined) {
@@ -680,7 +776,8 @@ export class PortfolioManager {
         pos = remaining;
       } catch (err) {
         this.logger.warn("[portfolio-manager] pending close reconciliation failed", {
-          positionId: pos.id, clientOrderId: journal.clientOrderId,
+          positionId: pos.id,
+          clientOrderId: journal.clientOrderId,
           error: managedErrorMessage(err),
         });
         return false;
@@ -706,13 +803,20 @@ export class PortfolioManager {
         clientOrderIdHint: `pf-stop-${pos.strategy}`,
       });
       this.orderManager.recordFill(order.clientOrderId, order);
-      if (order.status === "open") this.openCloseJournal({
-        key, clientOrderId: order.clientOrderId, symbol: pos.symbol, reason,
-        positionIds: [pos.id], requestedQuantity: amount,
-      });
+      if (order.status === "open")
+        this.openCloseJournal({
+          key,
+          clientOrderId: order.clientOrderId,
+          symbol: pos.symbol,
+          reason,
+          positionIds: [pos.id],
+          requestedQuantity: amount,
+        });
       if (order.filled <= 0) {
         this.logger.warn("[portfolio-manager] close acknowledged but unfilled — retaining retry", {
-          strategy: pos.strategy, symbol: String(pos.symbol), clientOrderId: order.clientOrderId,
+          strategy: pos.strategy,
+          symbol: String(pos.symbol),
+          clientOrderId: order.clientOrderId,
         });
         return false;
       }
@@ -751,11 +855,16 @@ export class PortfolioManager {
     if (this.requireAuthoritativeEmergencyState && !this.orderManager.isPaperMode()) {
       try {
         const meta = await this.orderManager.getMarketMeta(pos.symbol);
-        const key = meta.isSpot === true ? this.spotCloseKey(pos.symbol) : this.derivativeCloseKey(pos.symbol, pos.side);
+        const key =
+          meta.isSpot === true
+            ? this.spotCloseKey(pos.symbol)
+            : this.derivativeCloseKey(pos.symbol, pos.side);
         return await this.placeCloseOrder(pos, undefined, reason, key);
       } catch (err) {
         this.logger.error("[portfolio-manager] cannot establish authoritative close key", {
-          positionId: pos.id, symbol: String(pos.symbol), error: managedErrorMessage(err),
+          positionId: pos.id,
+          symbol: String(pos.symbol),
+          error: managedErrorMessage(err),
         });
         return false;
       }
@@ -771,23 +880,42 @@ export class PortfolioManager {
       // Bybit documents late Filled/cancel races. Keep terminal ownership so a
       // late execution is still booked, then cancel any replacement close for
       // the same authoritative exposure before it can over-close.
-      this.applyCloseDelta(terminal.journal.positionIds, event.order, event.deltaFilled, event.kind === "execution" ? event.execution.price : undefined);
+      this.applyCloseDelta(
+        terminal.journal.positionIds,
+        event.order,
+        event.deltaFilled,
+        event.kind === "execution" ? event.execution.price : undefined,
+      );
       const replacement = this.pendingCloses.get(terminal.journal.key);
       if (replacement !== undefined && replacement.clientOrderId !== event.order.clientOrderId) {
-        void this.orderManager.cancelOrder(replacement.clientOrderId, replacement.symbol).catch((err: unknown) => {
-          this.logger.error("[portfolio-manager] late terminal fill replacement cancel failed", {
-            key: terminal.journal.key, clientOrderId: replacement.clientOrderId,
-            error: managedErrorMessage(err),
+        void this.orderManager
+          .cancelOrder(replacement.clientOrderId, replacement.symbol)
+          .catch((err: unknown) => {
+            this.logger.error("[portfolio-manager] late terminal fill replacement cancel failed", {
+              key: terminal.journal.key,
+              clientOrderId: replacement.clientOrderId,
+              error: managedErrorMessage(err),
+            });
           });
-        });
       }
       return;
     }
-    this.applyCloseDelta(journal.positionIds, event.order, event.deltaFilled, event.kind === "execution" ? event.execution.price : undefined);
-    if (event.order.status !== "open") this.finishCloseJournal(journal, event.order.status, event.order.filled);
+    this.applyCloseDelta(
+      journal.positionIds,
+      event.order,
+      event.deltaFilled,
+      event.kind === "execution" ? event.execution.price : undefined,
+    );
+    if (event.order.status !== "open")
+      this.finishCloseJournal(journal, event.order.status, event.order.filled);
   }
 
-  private applyCloseDelta(positionIds: readonly string[], order: OrderLifecycleEvent["order"], deltaFilled: number, executionPrice?: number): void {
+  private applyCloseDelta(
+    positionIds: readonly string[],
+    order: OrderLifecycleEvent["order"],
+    deltaFilled: number,
+    executionPrice?: number,
+  ): void {
     if (deltaFilled <= 0) return;
     let unallocated = deltaFilled;
     for (const positionId of positionIds) {
@@ -797,10 +925,13 @@ export class PortfolioManager {
       const closingSide = position.side === "long" ? "sell" : "buy";
       const quantity = Math.min(unallocated, position.quantity);
       this.positionManager.recordFill({
-        strategy: position.strategy, symbol: position.symbol,
-        side: closingSide === "sell" ? "short" : "long", quantity,
+        strategy: position.strategy,
+        symbol: position.symbol,
+        side: closingSide === "sell" ? "short" : "long",
+        quantity,
         price: executionPrice ?? order.average ?? order.price ?? position.currentPrice,
-        leverage: position.leverage, timestamp: order.updateTimestamp ?? Date.now(),
+        leverage: position.leverage,
+        timestamp: order.updateTimestamp ?? Date.now(),
       });
       unallocated -= quantity;
     }
@@ -811,7 +942,11 @@ export class PortfolioManager {
     this.pendingCloseByOrder.set(journal.clientOrderId, journal);
   }
 
-  private finishCloseJournal(journal: PendingCloseJournal, status: "closed" | "canceled", filled: number): void {
+  private finishCloseJournal(
+    journal: PendingCloseJournal,
+    status: "closed" | "canceled",
+    filled: number,
+  ): void {
     this.pendingCloses.delete(journal.key);
     this.pendingCloseByOrder.delete(journal.clientOrderId);
     this.terminalCloseEvidence.set(journal.clientOrderId, { journal, status, filled });
@@ -824,7 +959,10 @@ export class PortfolioManager {
   }
 
   /** Flattens a derivative position the venue reports but the local book lacks. */
-  private async placeVenueOnlyClose(position: ExchangePosition, positionIds: readonly string[]): Promise<boolean> {
+  private async placeVenueOnlyClose(
+    position: ExchangePosition,
+    positionIds: readonly string[],
+  ): Promise<boolean> {
     const side = position.side === "long" ? "sell" : "buy";
     const price = position.markPrice ?? position.entryPrice;
     if (price === undefined || price <= 0) return false;
@@ -834,24 +972,41 @@ export class PortfolioManager {
     try {
       const order = await this.orderManager.placeOrder({
         signal: { side, confidence: 1, reason: "venue-only-emergency-close", stopLoss: 0, takeProfit: 0 },
-        symbol: position.symbol, amount: position.quantity, referencePrice: price, type: "market", reduceOnly: true,
+        symbol: position.symbol,
+        amount: position.quantity,
+        referencePrice: price,
+        type: "market",
+        reduceOnly: true,
         clientOrderIdHint: positionIds.length > 0 ? "pf-stop-authoritative" : "venue-emergency",
       });
       this.orderManager.recordFill(order.clientOrderId, order);
-      if (order.status === "open") this.openCloseJournal({
-        key, clientOrderId: order.clientOrderId, symbol: position.symbol, reason: "venue-only-emergency-close",
-        positionIds, requestedQuantity: position.quantity,
-      });
+      if (order.status === "open")
+        this.openCloseJournal({
+          key,
+          clientOrderId: order.clientOrderId,
+          symbol: position.symbol,
+          reason: "venue-only-emergency-close",
+          positionIds,
+          requestedQuantity: position.quantity,
+        });
       this.applyCloseDelta(positionIds, order, order.filled);
       return order.filled >= position.quantity;
     } catch (err) {
-      this.logger.error("[portfolio-manager] venue-only close failed", { symbol: String(position.symbol), error: managedErrorMessage(err) });
+      this.logger.error("[portfolio-manager] venue-only close failed", {
+        symbol: String(position.symbol),
+        error: managedErrorMessage(err),
+      });
       return false;
     }
   }
 
   /** Sells inventory which exists at the venue but has no local position. */
-  private async placeVenueOnlySpotClose(symbol: ExchangeSymbol, quantity: number, meta: MarketMeta, positionIds: readonly string[]): Promise<boolean> {
+  private async placeVenueOnlySpotClose(
+    symbol: ExchangeSymbol,
+    quantity: number,
+    meta: MarketMeta,
+    positionIds: readonly string[],
+  ): Promise<boolean> {
     const key = this.spotCloseKey(symbol);
     const pending = await this.reconcilePendingVenueClose(key, symbol);
     if (pending === "open" || pending === "unavailable") return false;
@@ -860,7 +1015,13 @@ export class PortfolioManager {
       const referencePrice = ticker.bid > 0 ? ticker.bid : ticker.last;
       if (!this.isTradableSpotQuantity(quantity, meta, referencePrice)) return false;
       const order = await this.orderManager.placeOrder({
-        signal: { side: "sell", confidence: 1, reason: "venue-only-spot-emergency-close", stopLoss: 0, takeProfit: 0 },
+        signal: {
+          side: "sell",
+          confidence: 1,
+          reason: "venue-only-spot-emergency-close",
+          stopLoss: 0,
+          takeProfit: 0,
+        },
         symbol,
         amount: quantity,
         referencePrice,
@@ -871,19 +1032,30 @@ export class PortfolioManager {
         clientOrderIdHint: positionIds.length > 0 ? "pf-stop-authoritative" : "venue-spot-emergency",
       });
       this.orderManager.recordFill(order.clientOrderId, order);
-      if (order.status === "open") this.openCloseJournal({
-        key, clientOrderId: order.clientOrderId, symbol, reason: "venue-only-spot-emergency-close",
-        positionIds, requestedQuantity: quantity,
-      });
+      if (order.status === "open")
+        this.openCloseJournal({
+          key,
+          clientOrderId: order.clientOrderId,
+          symbol,
+          reason: "venue-only-spot-emergency-close",
+          positionIds,
+          requestedQuantity: quantity,
+        });
       this.applyCloseDelta(positionIds, order, order.filled);
       return order.filled >= quantity;
     } catch (err) {
-      this.logger.error("[portfolio-manager] venue-only spot close failed", { symbol: String(symbol), error: managedErrorMessage(err) });
+      this.logger.error("[portfolio-manager] venue-only spot close failed", {
+        symbol: String(symbol),
+        error: managedErrorMessage(err),
+      });
       return false;
     }
   }
 
-  private async reconcilePendingVenueClose(key: string, symbol: ExchangeSymbol): Promise<"none" | "open" | "terminal" | "unavailable"> {
+  private async reconcilePendingVenueClose(
+    key: string,
+    symbol: ExchangeSymbol,
+  ): Promise<"none" | "open" | "terminal" | "unavailable"> {
     const journal = this.pendingCloses.get(key);
     if (journal === undefined) return "none";
     try {
@@ -894,7 +1066,9 @@ export class PortfolioManager {
       return "terminal";
     } catch (err) {
       this.logger.warn("[portfolio-manager] pending authoritative close reconciliation failed", {
-        key, clientOrderId: journal.clientOrderId, error: managedErrorMessage(err),
+        key,
+        clientOrderId: journal.clientOrderId,
+        error: managedErrorMessage(err),
       });
       return "unavailable";
     }

@@ -103,26 +103,17 @@
 // ===========================================================================
 
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  Bar,
-  PluginState,
-  Result,
-  ConfigError,
-  RiskSignal,
-} from "../types.js";
+import type { Bar, PluginState, Result, ConfigError, RiskSignal } from "../types.js";
 import { err, ok } from "../types.js";
 import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 
 // ---------------------------------------------------------------------------
 // Constants — defaults + bounds
 // ---------------------------------------------------------------------------
 
 /** Default OI-drop threshold (20% in 24h). Phase 11.5 Track D §E5. */
-export const DEFAULT_OI_DROP_THRESHOLD_PCT = 0.20;
+export const DEFAULT_OI_DROP_THRESHOLD_PCT = 0.2;
 /** Default LSR-deadlock lower bound. Phase 11.5 Track D §E5. */
 export const DEFAULT_LSR_DEADLOCK_LOWER = 0.4;
 /** Default LSR-deadlock upper bound. Phase 11.5 Track D §E5. */
@@ -416,18 +407,13 @@ export function evaluateCascadeHeuristic(
 ): CascadeHeuristicResult {
   const oiDropTriggered = snapshot.oiDrop24h > config.oiDropThresholdPct;
   const lsrDeadlockTriggered =
-    snapshot.lsrRatio >= config.lsrDeadlockLower &&
-    snapshot.lsrRatio <= config.lsrDeadlockUpper;
+    snapshot.lsrRatio >= config.lsrDeadlockLower && snapshot.lsrRatio <= config.lsrDeadlockUpper;
   const thinBookTriggered = snapshot.top5AskDepthPct < config.thinBookTop5DepthPct;
   const paperTigerTriggered =
     snapshot.paperTiger.detected &&
     snapshot.paperTiger.insertionMin <= config.paperTigerWallMinInsertionMin &&
     snapshot.paperTiger.clusterSize >= config.paperTigerClusterMinSize;
-  const cascadeImminent =
-    oiDropTriggered &&
-    lsrDeadlockTriggered &&
-    thinBookTriggered &&
-    paperTigerTriggered;
+  const cascadeImminent = oiDropTriggered && lsrDeadlockTriggered && thinBookTriggered && paperTigerTriggered;
   // Confidence: 4 conditions, each 0.25 weight when true (max 1.0).
   const confidence =
     (Number(oiDropTriggered) +
@@ -496,38 +482,27 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
 
   constructor(overrides: Partial<PerpDexLiquidationSignalsPluginConfig> = {}) {
     this.config = {
-      oiDropThresholdPct:
-        overrides.oiDropThresholdPct ?? DEFAULT_OI_DROP_THRESHOLD_PCT,
-      lsrDeadlockLower:
-        overrides.lsrDeadlockLower ?? DEFAULT_LSR_DEADLOCK_LOWER,
-      lsrDeadlockUpper:
-        overrides.lsrDeadlockUpper ?? DEFAULT_LSR_DEADLOCK_UPPER,
-      thinBookTop5DepthPct:
-        overrides.thinBookTop5DepthPct ?? DEFAULT_THIN_BOOK_TOP5_DEPTH_PCT,
+      oiDropThresholdPct: overrides.oiDropThresholdPct ?? DEFAULT_OI_DROP_THRESHOLD_PCT,
+      lsrDeadlockLower: overrides.lsrDeadlockLower ?? DEFAULT_LSR_DEADLOCK_LOWER,
+      lsrDeadlockUpper: overrides.lsrDeadlockUpper ?? DEFAULT_LSR_DEADLOCK_UPPER,
+      thinBookTop5DepthPct: overrides.thinBookTop5DepthPct ?? DEFAULT_THIN_BOOK_TOP5_DEPTH_PCT,
       paperTigerWallMinInsertionMin:
-        overrides.paperTigerWallMinInsertionMin ??
-        DEFAULT_PAPER_TIGER_WALL_INSERTION_MIN,
-      paperTigerClusterMinSize:
-        overrides.paperTigerClusterMinSize ??
-        DEFAULT_PAPER_TIGER_CLUSTER_MIN_SIZE,
+        overrides.paperTigerWallMinInsertionMin ?? DEFAULT_PAPER_TIGER_WALL_INSERTION_MIN,
+      paperTigerClusterMinSize: overrides.paperTigerClusterMinSize ?? DEFAULT_PAPER_TIGER_CLUSTER_MIN_SIZE,
       pollIntervalSec: overrides.pollIntervalSec ?? DEFAULT_POLL_INTERVAL_SEC,
-      throttleCooldownMs:
-        overrides.throttleCooldownMs ?? DEFAULT_THROTTLE_COOLDOWN_MS,
+      throttleCooldownMs: overrides.throttleCooldownMs ?? DEFAULT_THROTTLE_COOLDOWN_MS,
       baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
       sizeModifier: overrides.sizeModifier ?? DEFAULT_SIZE_MODIFIER,
-      enabledSymbols:
-        overrides.enabledSymbols ?? [...DEFAULT_ENABLED_SYMBOLS],
-      adapters:
-        overrides.adapters ??
-        DEFAULT_PERPDEX_LIQUIDATION_PLUGIN_CONFIG.adapters,
+      enabledSymbols: overrides.enabledSymbols ?? [...DEFAULT_ENABLED_SYMBOLS],
+      adapters: overrides.adapters ?? DEFAULT_PERPDEX_LIQUIDATION_PLUGIN_CONFIG.adapters,
     };
 
     // LAYER 1 — constructor assertion.
     if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] LAYER 1 BREACH: metadata.maxLeverage=" +
-        String(this.metadata.maxLeverage) +
-        " but the project-wide 1:10 mandate requires 10.",
+          String(this.metadata.maxLeverage) +
+          " but the project-wide 1:10 mandate requires 10.",
       );
     }
 
@@ -551,9 +526,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
   // Static config invariant checks
   // ---------------------------------------------------------------------
 
-  private static _assertConfigInvariants(
-    c: PerpDexLiquidationSignalsPluginConfig,
-  ): void {
+  private static _assertConfigInvariants(c: PerpDexLiquidationSignalsPluginConfig): void {
     if (
       !Number.isFinite(c.oiDropThresholdPct) ||
       c.oiDropThresholdPct < MIN_OI_DROP_THRESHOLD_PCT ||
@@ -561,12 +534,12 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     ) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] oiDropThresholdPct=" +
-        String(c.oiDropThresholdPct) +
-        " must be in [" +
-        String(MIN_OI_DROP_THRESHOLD_PCT) +
-        ", " +
-        String(MAX_OI_DROP_THRESHOLD_PCT) +
-        "].",
+          String(c.oiDropThresholdPct) +
+          " must be in [" +
+          String(MIN_OI_DROP_THRESHOLD_PCT) +
+          ", " +
+          String(MAX_OI_DROP_THRESHOLD_PCT) +
+          "].",
       );
     }
     if (
@@ -576,10 +549,10 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     ) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] lsrDeadlockLower=" +
-        String(c.lsrDeadlockLower) +
-        " must be finite in [" +
-        String(MIN_LSR_DEADLOCK_LOWER) +
-        ", lsrDeadlockUpper).",
+          String(c.lsrDeadlockLower) +
+          " must be finite in [" +
+          String(MIN_LSR_DEADLOCK_LOWER) +
+          ", lsrDeadlockUpper).",
       );
     }
     if (
@@ -589,10 +562,10 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     ) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] lsrDeadlockUpper=" +
-        String(c.lsrDeadlockUpper) +
-        " must be finite in (lsrDeadlockLower, " +
-        String(MAX_LSR_DEADLOCK_UPPER) +
-        "].",
+          String(c.lsrDeadlockUpper) +
+          " must be finite in (lsrDeadlockLower, " +
+          String(MAX_LSR_DEADLOCK_UPPER) +
+          "].",
       );
     }
     if (
@@ -602,8 +575,8 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     ) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] thinBookTop5DepthPct=" +
-        String(c.thinBookTop5DepthPct) +
-        " must be in [0, 100].",
+          String(c.thinBookTop5DepthPct) +
+          " must be in [0, 100].",
       );
     }
     if (
@@ -612,10 +585,10 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     ) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] paperTigerWallMinInsertionMin=" +
-        String(c.paperTigerWallMinInsertionMin) +
-        " must be an integer >= " +
-        String(MIN_PAPER_TIGER_WALL_INSERTION_MIN) +
-        ".",
+          String(c.paperTigerWallMinInsertionMin) +
+          " must be an integer >= " +
+          String(MIN_PAPER_TIGER_WALL_INSERTION_MIN) +
+          ".",
       );
     }
     if (
@@ -624,10 +597,10 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     ) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] paperTigerClusterMinSize=" +
-        String(c.paperTigerClusterMinSize) +
-        " must be an integer >= " +
-        String(MIN_PAPER_TIGER_CLUSTER_MIN_SIZE) +
-        ".",
+          String(c.paperTigerClusterMinSize) +
+          " must be an integer >= " +
+          String(MIN_PAPER_TIGER_CLUSTER_MIN_SIZE) +
+          ".",
       );
     }
     if (
@@ -637,42 +610,33 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     ) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] pollIntervalSec=" +
-        String(c.pollIntervalSec) +
-        " must be an integer in [" +
-        String(MIN_POLL_INTERVAL_SEC) +
-        ", " +
-        String(MAX_POLL_INTERVAL_SEC) +
-        "].",
+          String(c.pollIntervalSec) +
+          " must be an integer in [" +
+          String(MIN_POLL_INTERVAL_SEC) +
+          ", " +
+          String(MAX_POLL_INTERVAL_SEC) +
+          "].",
       );
     }
     if (!Number.isFinite(c.throttleCooldownMs) || c.throttleCooldownMs < 0) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] throttleCooldownMs=" +
-        String(c.throttleCooldownMs) +
-        " must be a finite non-negative number.",
+          String(c.throttleCooldownMs) +
+          " must be a finite non-negative number.",
       );
     }
-    if (
-      !Number.isFinite(c.baseNotionalUsd) ||
-      c.baseNotionalUsd < MIN_BASE_NOTIONAL_USD
-    ) {
+    if (!Number.isFinite(c.baseNotionalUsd) || c.baseNotionalUsd < MIN_BASE_NOTIONAL_USD) {
       throw new Error(
         "[PerpDexLiquidationSignalsPlugin] baseNotionalUsd=" +
-        String(c.baseNotionalUsd) +
-        " must be finite >= " +
-        String(MIN_BASE_NOTIONAL_USD) +
-        ".",
+          String(c.baseNotionalUsd) +
+          " must be finite >= " +
+          String(MIN_BASE_NOTIONAL_USD) +
+          ".",
       );
     }
-    if (
-      !Number.isFinite(c.sizeModifier) ||
-      c.sizeModifier < 0 ||
-      c.sizeModifier > 1
-    ) {
+    if (!Number.isFinite(c.sizeModifier) || c.sizeModifier < 0 || c.sizeModifier > 1) {
       throw new Error(
-        "[PerpDexLiquidationSignalsPlugin] sizeModifier=" +
-        String(c.sizeModifier) +
-        " must be in [0, 1].",
+        "[PerpDexLiquidationSignalsPlugin] sizeModifier=" + String(c.sizeModifier) + " must be in [0, 1].",
       );
     }
     if (!Array.isArray(c.enabledSymbols) || c.enabledSymbols.length === 0) {
@@ -685,24 +649,16 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
       const s: string = c.enabledSymbols[i] as string;
       if (typeof s !== "string" || s.length === 0) {
         throw new Error(
-          "[PerpDexLiquidationSignalsPlugin] enabledSymbols[" +
-          String(i) +
-          "] must be a non-empty string.",
+          "[PerpDexLiquidationSignalsPlugin] enabledSymbols[" + String(i) + "] must be a non-empty string.",
         );
       }
       if (seen.has(s)) {
-        throw new Error(
-          '[PerpDexLiquidationSignalsPlugin] enabledSymbols contains duplicate "' +
-          s +
-          '".',
-        );
+        throw new Error('[PerpDexLiquidationSignalsPlugin] enabledSymbols contains duplicate "' + s + '".');
       }
       seen.add(s);
     }
     if (!Array.isArray(c.adapters)) {
-      throw new Error(
-        "[PerpDexLiquidationSignalsPlugin] adapters must be an array (5 slots expected).",
-      );
+      throw new Error("[PerpDexLiquidationSignalsPlugin] adapters must be an array (5 slots expected).");
     }
   }
 
@@ -711,13 +667,14 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   public subscribe(bus: SignalBus): void {
-    const allAdaptersAreBuiltInStubs = this.config.adapters.every((adapter) =>
-      adapter instanceof NullLiquidationAdapter ||
-      adapter instanceof ZeroArchiveLiquidationAdapter ||
-      adapter instanceof HypurrScanLiquidationAdapter ||
-      adapter instanceof GoldRushLiquidationAdapter ||
-      adapter instanceof CoinGlassLiquidationAdapter ||
-      adapter instanceof HyperTrackerLiquidationAdapter
+    const allAdaptersAreBuiltInStubs = this.config.adapters.every(
+      (adapter) =>
+        adapter instanceof NullLiquidationAdapter ||
+        adapter instanceof ZeroArchiveLiquidationAdapter ||
+        adapter instanceof HypurrScanLiquidationAdapter ||
+        adapter instanceof GoldRushLiquidationAdapter ||
+        adapter instanceof CoinGlassLiquidationAdapter ||
+        adapter instanceof HyperTrackerLiquidationAdapter,
     );
     if (allAdaptersAreBuiltInStubs) {
       throw new Error(
@@ -752,9 +709,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     // Evaluate each enabled symbol. We poll all 5 adapters per symbol
     // and pick the FRESHEST non-stale snapshot (most-recent timestampMs).
     // In backtest mode the adapters return deterministic mock snapshots.
-    const symbols = this._boundSymbol === null
-      ? this.config.enabledSymbols
-      : [this._boundSymbol];
+    const symbols = this._boundSymbol === null ? this.config.enabledSymbols : [this._boundSymbol];
     for (const symbol of symbols) {
       if (this.config.enabledSymbols.includes(symbol)) await this._evaluateSymbol(symbol, bar.timestamp);
     }
@@ -764,13 +719,8 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
   // _evaluateSymbol — async helper (poll + aggregate + emit if imminent)
   // ---------------------------------------------------------------------
 
-  private async _evaluateSymbol(
-    symbol: string,
-    timestampMs: number,
-  ): Promise<void> {
-    const snapshots = await Promise.all(
-      this.config.adapters.map((a) => a.fetchSnapshot(symbol)),
-    );
+  private async _evaluateSymbol(symbol: string, timestampMs: number): Promise<void> {
+    const snapshots = await Promise.all(this.config.adapters.map((a) => a.fetchSnapshot(symbol)));
     // Pick the freshest non-stale snapshot.
     const fresh = snapshots
       .filter((s) => !s.stale && s.timestampMs <= timestampMs)
@@ -795,8 +745,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     this._throttle.set(symbol, timestampMs);
 
     // Compute implied close notional.
-    const closeNotionalUsd =
-      this.config.baseNotionalUsd * this.config.sizeModifier;
+    const closeNotionalUsd = this.config.baseNotionalUsd * this.config.sizeModifier;
 
     // LAYER 3 — per-emit assertion. closeNotionalUsd must respect the
     // 1:10 cap (closeNotionalUsd / baseNotionalUsd <= 10×).
@@ -870,9 +819,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
         pluginName: this.metadata.name,
         field: "edgeClass",
         message:
-          'metadata.edgeClass must be "risk" for defensive overlay, got "' +
-          this.metadata.edgeClass +
-          '"',
+          'metadata.edgeClass must be "risk" for defensive overlay, got "' + this.metadata.edgeClass + '"',
       });
     }
     return ok(undefined);

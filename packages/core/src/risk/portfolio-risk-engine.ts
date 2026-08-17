@@ -202,8 +202,8 @@ export interface PortfolioRiskEngineConfig {
 export const DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG: PortfolioRiskEngineConfig = {
   confidence: 0.95,
   correlationWindowDays: 30,
-  concentrationThresholdPct: 0.40,
-  maxAggregateDrawdownPct: 0.20,
+  concentrationThresholdPct: 0.4,
+  maxAggregateDrawdownPct: 0.2,
   leverageInvariant: DEFAULT_LEVERAGE_INVARIANT_CONFIG,
 };
 
@@ -288,7 +288,11 @@ export interface RiskSnapshot {
   readonly drawdown: AggregateDrawdownState;
   readonly positions: readonly Position[];
   readonly aggregateLeverage: number;
-  readonly leverageInvariantFires: readonly { readonly timestamp: number; readonly leverage: number; readonly message: string }[];
+  readonly leverageInvariantFires: readonly {
+    readonly timestamp: number;
+    readonly leverage: number;
+    readonly message: string;
+  }[];
 }
 
 // ----------------------------------------------------------------------
@@ -335,9 +339,7 @@ export class PortfolioRiskEngine {
 
   constructor(config: PortfolioRiskEngineConfig = DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG) {
     if (!Number.isFinite(config.confidence) || config.confidence <= 0 || config.confidence >= 1) {
-      throw new Error(
-        `confidence must be in (0, 1), got ${String(config.confidence)}`,
-      );
+      throw new Error(`confidence must be in (0, 1), got ${String(config.confidence)}`);
     }
     if (!Number.isInteger(config.correlationWindowDays) || config.correlationWindowDays <= 0) {
       throw new Error(
@@ -411,9 +413,7 @@ export class PortfolioRiskEngine {
    */
   recordSourceReturn(source: string, timestamp: number, returnPct: number): void {
     if (!Number.isFinite(returnPct)) {
-      throw new Error(
-        `returnPct must be a finite number for source=${source}, got ${String(returnPct)}`,
-      );
+      throw new Error(`returnPct must be a finite number for source=${source}, got ${String(returnPct)}`);
     }
     if (!Number.isFinite(timestamp) || timestamp <= 0) {
       throw new Error(`timestamp must be positive finite, got ${String(timestamp)}`);
@@ -488,8 +488,7 @@ export class PortfolioRiskEngine {
     // standard normal quantile for the (1 - confidence) tail.
     // The VaR is a POSITIVE number representing the loss magnitude.
     const mean = aggregate.reduce((a, b) => a + b, 0) / aggregate.length;
-    const variance =
-      aggregate.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (aggregate.length - 1);
+    const variance = aggregate.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (aggregate.length - 1);
     const std = Math.sqrt(variance);
     // z-value for the (1 - confidence) percentile (e.g. confidence=0.95 → z=1.645)
     const z = normalQuantile(this.config.confidence);
@@ -699,16 +698,9 @@ export class PortfolioRiskEngine {
     if (positions.length === 0) {
       return null; // No positions → no leverage to check.
     }
-    const totalNotional = positions.reduce(
-      (acc, p) => acc + Math.abs(p.effectiveNotionalUsd),
-      0,
-    );
+    const totalNotional = positions.reduce((acc, p) => acc + Math.abs(p.effectiveNotionalUsd), 0);
     try {
-      assertLeverageInvariant(
-        totalNotional,
-        capital,
-        this.config.leverageInvariant,
-      );
+      assertLeverageInvariant(totalNotional, capital, this.config.leverageInvariant);
       return null;
     } catch (err) {
       if (err instanceof LeverageBreachError) {
@@ -791,8 +783,7 @@ export class PortfolioRiskEngine {
         timestamp: 0,
       },
       positions,
-      aggregateLeverage:
-        positions.length === 0 ? 0 : computeEffectiveLeverage(positions, capital),
+      aggregateLeverage: positions.length === 0 ? 0 : computeEffectiveLeverage(positions, capital),
       leverageInvariantFires: [...this._leverageInvariantFires],
     };
   }
@@ -888,21 +879,18 @@ function normalQuantile(p: number): number {
   }
   // Beasley-Springer-Moro approximation.
   const a = [
-    -3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2,
-    1.38357751867269e2, -3.066479806614716e1, 2.506628277459239,
+    -3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2, 1.38357751867269e2, -3.066479806614716e1,
+    2.506628277459239,
   ];
   const b = [
-    -5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2,
-    6.680131188771972e1, -1.328068155288572e1,
+    -5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2, 6.680131188771972e1,
+    -1.328068155288572e1,
   ];
   const c = [
-    -7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838,
-    -2.549732539343734, 4.374664141464968, 2.938163982698783,
+    -7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838, -2.549732539343734, 4.374664141464968,
+    2.938163982698783,
   ];
-  const d = [
-    7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996,
-    3.754408661907416,
-  ];
+  const d = [7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996, 3.754408661907416];
   const pLow = 0.02425;
   const pHigh = 1 - pLow;
   let q: number;

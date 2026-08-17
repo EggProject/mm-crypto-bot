@@ -121,9 +121,7 @@ export class DrawdownScaler {
 
   public constructor(opts: DrawdownScalerOptions) {
     if (!Number.isFinite(opts.maxDdPct) || opts.maxDdPct <= 0 || opts.maxDdPct > 1) {
-      throw new Error(
-        `[drawdown-scaler] maxDdPct must be in (0, 1], got ${String(opts.maxDdPct)}`,
-      );
+      throw new Error(`[drawdown-scaler] maxDdPct must be in (0, 1], got ${String(opts.maxDdPct)}`);
     }
     if (!Number.isFinite(opts.initialEquity) || opts.initialEquity <= 0) {
       throw new Error(

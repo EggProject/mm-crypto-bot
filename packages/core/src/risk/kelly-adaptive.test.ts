@@ -51,12 +51,7 @@ import {
 
 const DAY_MS: number = 24 * 60 * 60 * 1000;
 
-function mkTrade(
-  entryOffsetDays: number,
-  exitOffsetDays: number,
-  pnlUsd: number,
-  notionalUsd = 2000,
-): Trade {
+function mkTrade(entryOffsetDays: number, exitOffsetDays: number, pnlUsd: number, notionalUsd = 2000): Trade {
   return {
     symbol: "BTC/USDT" as never,
     side: pnlUsd >= 0 ? "buy" : "sell",
@@ -81,7 +76,7 @@ function mkTrade(
 function mkStream(count: number, winPnl: number, lossPnl: number): Trade[] {
   const trades: Trade[] = [];
   for (let i = 0; i < count; i++) {
-    const pnl = (i % 10) < 6 ? winPnl : lossPnl;
+    const pnl = i % 10 < 6 ? winPnl : lossPnl;
     trades.push(mkTrade(i, i + 1, pnl));
   }
   return trades;
@@ -134,22 +129,22 @@ describe("sharpeToKellyBucket", () => {
 
 describe("nearestBucket", () => {
   it("rounds 0.20 / 0.30 to 0.25×", () => {
-    expect(nearestBucket(0.20)).toBe(0.25);
+    expect(nearestBucket(0.2)).toBe(0.25);
     expect(nearestBucket(0.374)).toBe(0.25);
   });
 
   it("rounds 0.40 / 0.50 to 0.5×", () => {
-    expect(nearestBucket(0.40)).toBe(0.5);
+    expect(nearestBucket(0.4)).toBe(0.5);
     expect(nearestBucket(0.624)).toBe(0.5);
   });
 
   it("rounds 0.70 / 0.80 to 0.7×", () => {
-    expect(nearestBucket(0.70)).toBe(0.7);
+    expect(nearestBucket(0.7)).toBe(0.7);
     expect(nearestBucket(0.849)).toBe(0.7);
   });
 
   it("rounds 0.90 / 1.00 / 1.20 to 1.0×", () => {
-    expect(nearestBucket(0.90)).toBe(1.0);
+    expect(nearestBucket(0.9)).toBe(1.0);
     expect(nearestBucket(1.0)).toBe(1.0);
     expect(nearestBucket(1.2)).toBe(1.0);
   });
@@ -263,7 +258,7 @@ describe("rollingSharpeFromDailyPnl", () => {
     // 30% win rate, W-L=0.5 → negative edge.
     const trades: Trade[] = [];
     for (let i = 0; i < 60; i++) {
-      const pnl = (i % 10) < 3 ? 50 : -100;
+      const pnl = i % 10 < 3 ? 50 : -100;
       trades.push(mkTrade(i, i + 1, pnl));
     }
     const daily = aggregateTradesToDailyPnl(trades, 10_000);
@@ -322,10 +317,7 @@ describe("averageKellyMultiplier", () => {
 
   it("treats null-bucket days as the fallback multiplier", () => {
     // Day 0 is null (insufficient history for window=5).
-    const series = rollingSharpeFromDailyPnl(
-      aggregateTradesToDailyPnl(mkStream(10, 150, -100), 10_000),
-      5,
-    );
+    const series = rollingSharpeFromDailyPnl(aggregateTradesToDailyPnl(mkStream(10, 150, -100), 10_000), 5);
     // Series[0..3] are null → counted as fallback (0.5).
     const avg = averageKellyMultiplier(series, 0.5);
     // Should be at most the fallback for the null prefix and equal to
@@ -436,7 +428,7 @@ describe("computeAdaptiveKelly", () => {
     // 30% wins, W-L=0.5 — negative edge.
     const trades: Trade[] = [];
     for (let i = 0; i < 60; i++) {
-      const pnl = (i % 10) < 3 ? 50 : -100;
+      const pnl = i % 10 < 3 ? 50 : -100;
       trades.push(mkTrade(i, i + 1, pnl));
     }
     const result = computeAdaptiveKelly(trades);
@@ -448,7 +440,7 @@ describe("computeAdaptiveKelly", () => {
     const trades: Trade[] = [];
     for (let i = 0; i < 90; i++) {
       // 80% wins × 5 W-L → full Kelly = 0.76 → cap at 0.20 × 0.5 = 0.10.
-      const pnl = (i % 10) < 8 ? 500 : -100;
+      const pnl = i % 10 < 8 ? 500 : -100;
       trades.push(mkTrade(i, i + 1, pnl));
     }
     const result = computeAdaptiveKelly(trades);
@@ -514,10 +506,7 @@ describe("computeAdaptiveKelly ↔ KellyPositionSizer integration", () => {
     const expectedFull = fullKellyFraction(stats.winRate, stats.winLossRatio);
     expect(adaptive.fullKellyFraction).toBeCloseTo(expectedFull, 9);
     // Capped base = fractional Kelly × max cap.
-    const expectedCappedBase = applyRiskCaps(
-      fractionalKelly(expectedFull, 0.5),
-      DEFAULT_KELLY_OPT_CONFIG,
-    );
+    const expectedCappedBase = applyRiskCaps(fractionalKelly(expectedFull, 0.5), DEFAULT_KELLY_OPT_CONFIG);
     expect(adaptive.cappedBaseKellyFraction).toBeCloseTo(expectedCappedBase, 9);
   });
 });
@@ -596,9 +585,7 @@ describe("compareAdaptiveVsStaticKelly", () => {
     const trades = mkStream(540, 150, -100);
     const a = compareAdaptiveVsStaticKelly(trades);
     const b = compareAdaptiveVsStaticKelly(trades);
-    expect(a.adaptiveKelly.effectiveCappedKellyFraction).toBe(
-      b.adaptiveKelly.effectiveCappedKellyFraction,
-    );
+    expect(a.adaptiveKelly.effectiveCappedKellyFraction).toBe(b.adaptiveKelly.effectiveCappedKellyFraction);
     expect(a.adaptiveAmplifies).toBe(b.adaptiveAmplifies);
   });
 });
@@ -634,7 +621,7 @@ describe("Phase 35 coverage — bucketDistribution 0.7× bucket", () => {
     // lesz (a 0.7× tartományban).
     const trades: Trade[] = [];
     for (let i = 0; i < 30; i++) {
-      const isWin = (i % 20) < 13; // 65% win rate
+      const isWin = i % 20 < 13; // 65% win rate
       const pnl = isWin ? 50 : -30;
       trades.push(mkTrade(i, i + 1, pnl));
     }
@@ -730,23 +717,17 @@ describe("Phase 35 coverage — hasAllLossStreak return false ágak", () => {
 describe("Phase 35 coverage — computeAdaptiveKelly invalid rollingWindowDays", () => {
   it("throws when rollingWindowDays is non-integer (540-es throw)", () => {
     const trades = mkStream(60, 150, -100);
-    expect(() => computeAdaptiveKelly(trades, 30.5)).toThrow(
-      /rollingWindowDays must be a positive integer/,
-    );
+    expect(() => computeAdaptiveKelly(trades, 30.5)).toThrow(/rollingWindowDays must be a positive integer/);
   });
 
   it("throws when rollingWindowDays is negative", () => {
     const trades = mkStream(60, 150, -100);
-    expect(() => computeAdaptiveKelly(trades, -10)).toThrow(
-      /rollingWindowDays must be a positive integer/,
-    );
+    expect(() => computeAdaptiveKelly(trades, -10)).toThrow(/rollingWindowDays must be a positive integer/);
   });
 
   it("throws when rollingWindowDays is zero", () => {
     const trades = mkStream(60, 150, -100);
-    expect(() => computeAdaptiveKelly(trades, 0)).toThrow(
-      /rollingWindowDays must be a positive integer/,
-    );
+    expect(() => computeAdaptiveKelly(trades, 0)).toThrow(/rollingWindowDays must be a positive integer/);
   });
 
   it("throws when rollingWindowDays is NaN", () => {

@@ -15,7 +15,13 @@
 // HTF/MTF indikátorokat az LTF candle timestamp-jéhez "ragasztja"
 // (az utolsó lezárt HTF/MTF candle értékeit használja).
 
-import { TIMEFRAME_MS, type Candle, type ExitReason, type Symbol, type Trade } from "@mm-crypto-bot/shared/types";
+import {
+  TIMEFRAME_MS,
+  type Candle,
+  type ExitReason,
+  type Symbol,
+  type Trade,
+} from "@mm-crypto-bot/shared/types";
 import {
   adx,
   atr,
@@ -50,12 +56,7 @@ import { computeMetrics } from "./metrics.js";
 import { positionNotionalUsd } from "./position-size.js";
 import { roundTo } from "@mm-crypto-bot/shared/utils";
 
-import type {
-  BacktestOptions,
-  BacktestResult,
-  CostModel,
-  EquityPoint,
-} from "./types.js";
+import type { BacktestOptions, BacktestResult, CostModel, EquityPoint } from "./types.js";
 
 /**
  `aggregateToTimeframe` — a candle-listát egy lassabb timeframe-re aggregálja.
@@ -64,10 +65,7 @@ import type {
  high = max(LTF high), low = min(LTF low), close = utolsó LTF close,
  volume = összeg).
 */
-export function aggregateToTimeframe(
-  ltfCandles: readonly Candle[],
-  targetMs: number,
-): readonly Candle[] {
+export function aggregateToTimeframe(ltfCandles: readonly Candle[], targetMs: number): readonly Candle[] {
   if (ltfCandles.length === 0 || targetMs <= 0) {
     return [];
   }
@@ -177,11 +175,7 @@ function aggregateCompleteToTimeframe(
   return completed;
 }
 
-function recordEquityPoint(
-  equityCurve: EquityPoint[],
-  timestamp: number,
-  equity: number,
-): void {
+function recordEquityPoint(equityCurve: EquityPoint[], timestamp: number, equity: number): void {
   const previous = equityCurve[equityCurve.length - 1];
   if (previous?.timestamp === timestamp) {
     equityCurve[equityCurve.length - 1] = { timestamp, equity };
@@ -208,10 +202,7 @@ function carryForward<T>(series: readonly (T | undefined)[]): readonly (T | unde
   return carried;
 }
 
-function legacyCompatibleRsi(
-  candles: readonly Candle[],
-  period: number,
-): readonly (number | undefined)[] {
+function legacyCompatibleRsi(candles: readonly Candle[], period: number): readonly (number | undefined)[] {
   const series = rsi(candles, period);
   // The existing RSI function deliberately returns before seeding when a
   // prefix has exactly period+1 candles. A full-series call does contain the
@@ -232,7 +223,9 @@ export function precomputeHistoricalIndicatorTimeline(
   config: IndicatorConfig,
 ): HistoricalIndicatorTimeline {
   const htfDon = carryForward<DonchianChannel>(donchian(htfCandles, config.htfDonchianPeriod));
-  const htfSt = carryForward<SupertrendPoint>(supertrend(htfCandles, config.htfSupertrendPeriod, config.htfSupertrendMultiplier));
+  const htfSt = carryForward<SupertrendPoint>(
+    supertrend(htfCandles, config.htfSupertrendPeriod, config.htfSupertrendMultiplier),
+  );
   const htfFast = carryForward<number>(ema(htfCandles, config.htfEmaFast));
   const htfSlow = carryForward<number>(ema(htfCandles, config.htfEmaSlow));
   const htfAdx = carryForward<number>(adx(htfCandles, config.htfAdxPeriod));
@@ -253,9 +246,10 @@ export function precomputeHistoricalIndicatorTimeline(
   const mtfBb = carryForward<BollingerBands>(bb(mtfCandles, config.mtfBbPeriod, config.mtfBbStddev));
   const mtfAdx = carryForward<number>(adx(mtfCandles, config.mtfAdxPeriod));
   const mtfRsi = legacyCompatibleRsi(mtfCandles, config.mtfRsiPeriod);
-  const mtfDon = config.mtfDonchianPeriod === undefined
-    ? []
-    : carryForward<DonchianChannel>(donchian(mtfCandles, config.mtfDonchianPeriod));
+  const mtfDon =
+    config.mtfDonchianPeriod === undefined
+      ? []
+      : carryForward<DonchianChannel>(donchian(mtfCandles, config.mtfDonchianPeriod));
   const mtf = mtfCandles.map((candle, i): IndicatorState => {
     const bands = mtfBb[i];
     const don = mtfDon[i];
@@ -366,10 +360,16 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
       const mtfSlice = mtfCandles.filter((c) => c.timestamp + mtfMs <= decisionTime);
       indicators = computeIndicators(htfSlice, mtfSlice, ltfCandles.slice(0, i + 1), indicatorConfig);
     } else {
-      while (htfCursor + 1 < htfCandles.length && htfCandles[htfCursor + 1]!.timestamp + htfMs <= decisionTime) {
+      while (
+        htfCursor + 1 < htfCandles.length &&
+        htfCandles[htfCursor + 1]!.timestamp + htfMs <= decisionTime
+      ) {
         htfCursor += 1;
       }
-      while (mtfCursor + 1 < mtfCandles.length && mtfCandles[mtfCursor + 1]!.timestamp + mtfMs <= decisionTime) {
+      while (
+        mtfCursor + 1 < mtfCandles.length &&
+        mtfCandles[mtfCursor + 1]!.timestamp + mtfMs <= decisionTime
+      ) {
         mtfCursor += 1;
       }
       indicators = {
@@ -407,15 +407,37 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
           // alapján módosítjuk a nyitott pozíció SL/TP szintjét, vagy `forceExit`
           // esetén azonnal zárjuk azt.
           const holdingBars = i - entryBarIndex;
-          const update = (strategy as {
-            onOpenPositionUpdate: (ctx: {
-              openPosition: { side: "buy" | "sell"; entryTime: number; entryPrice: number; quantity: number; stopLoss: number; takeProfit: number; holdingBars: number };
-              candle: typeof ltfCandle;
-              candleIndex: number;
-              mtfState: typeof indicators;
-              pricePrecision: number;
-            }) => { newStopLoss?: number; newTakeProfit?: number; forceExit?: boolean; exitPrice?: number; reason?: "trailing_stop" | "trend_reversal" | "stop_loss" | "take_profit" | "time_exit" | "kill_switch" } | null;
-          }).onOpenPositionUpdate({
+          const update = (
+            strategy as {
+              onOpenPositionUpdate: (ctx: {
+                openPosition: {
+                  side: "buy" | "sell";
+                  entryTime: number;
+                  entryPrice: number;
+                  quantity: number;
+                  stopLoss: number;
+                  takeProfit: number;
+                  holdingBars: number;
+                };
+                candle: typeof ltfCandle;
+                candleIndex: number;
+                mtfState: typeof indicators;
+                pricePrecision: number;
+              }) => {
+                newStopLoss?: number;
+                newTakeProfit?: number;
+                forceExit?: boolean;
+                exitPrice?: number;
+                reason?:
+                  | "trailing_stop"
+                  | "trend_reversal"
+                  | "stop_loss"
+                  | "take_profit"
+                  | "time_exit"
+                  | "kill_switch";
+              } | null;
+            }
+          ).onOpenPositionUpdate({
             openPosition: {
               side: openPosition.side,
               entryTime: openPosition.entryTime,
@@ -439,7 +461,14 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
               openPosition = { ...currentPos, takeProfit: update.newTakeProfit };
             }
             if (update.forceExit === true) {
-              const exitReason = (update.reason ?? "trailing_stop") as "stop_loss" | "take_profit" | "trailing_stop" | "trend_reversal" | "time_exit" | "kill_switch" | "end_of_data";
+              const exitReason = (update.reason ?? "trailing_stop") as
+                | "stop_loss"
+                | "take_profit"
+                | "trailing_stop"
+                | "trend_reversal"
+                | "time_exit"
+                | "kill_switch"
+                | "end_of_data";
               const trade = closePosition(
                 openPosition,
                 ltfCandle,
@@ -491,12 +520,10 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
           clampedConfidence = signal.confidence;
         }
         const confidenceScaledRisk = opts.positionSize.riskPerTrade * clampedConfidence;
-        const notional = positionNotionalUsd(
-          equity,
-          ltfCandle.close,
-          signal.stopLoss,
-          { ...opts.positionSize, riskPerTrade: confidenceScaledRisk },
-        );
+        const notional = positionNotionalUsd(equity, ltfCandle.close, signal.stopLoss, {
+          ...opts.positionSize,
+          riskPerTrade: confidenceScaledRisk,
+        });
         opts.onPositionSized?.({
           timestamp: decisionTime,
           signal,
@@ -534,7 +561,19 @@ export async function runBacktest(opts: BacktestOptions): Promise<BacktestResult
         // stb.) ezt NEM implementálják.
         entryBarIndex = i;
         if (typeof (strategy as { onPositionOpened?: unknown }).onPositionOpened === "function") {
-          (strategy as { onPositionOpened: (snapshot: { side: "buy" | "sell"; entryTime: number; entryPrice: number; quantity: number; stopLoss: number; takeProfit: number; holdingBars: number }) => void }).onPositionOpened({
+          (
+            strategy as {
+              onPositionOpened: (snapshot: {
+                side: "buy" | "sell";
+                entryTime: number;
+                entryPrice: number;
+                quantity: number;
+                stopLoss: number;
+                takeProfit: number;
+                holdingBars: number;
+              }) => void;
+            }
+          ).onPositionOpened({
             side: openPosition.side,
             entryTime: openPosition.entryTime,
             entryPrice: openPosition.entryPrice,
@@ -702,9 +741,10 @@ export function checkExit(
   if (holdingHours >= 72) {
     // Csak akkor lépünk ki, ha a pozíció nyereséges (legalább 1:1 R:R).
     // Egyébként várunk a stop-ra.
-    const profit = pos.side === "buy"
-      ? (candle.close - pos.entryPrice) * pos.quantity
-      : (pos.entryPrice - candle.close) * pos.quantity;
+    const profit =
+      pos.side === "buy"
+        ? (candle.close - pos.entryPrice) * pos.quantity
+        : (pos.entryPrice - candle.close) * pos.quantity;
     if (profit > 0) {
       return { reason: "time_exit", exitPrice: candle.close };
     }
@@ -730,9 +770,10 @@ export function closePosition(
     model.slippageRate,
   );
   // Brutto PnL.
-  const grossPnl = pos.side === "buy"
-    ? (filledExitPrice - pos.entryPrice) * pos.quantity
-    : (pos.entryPrice - filledExitPrice) * pos.quantity;
+  const grossPnl =
+    pos.side === "buy"
+      ? (filledExitPrice - pos.entryPrice) * pos.quantity
+      : (pos.entryPrice - filledExitPrice) * pos.quantity;
   // Margin-kamat és funding a holding időre.
   const holdingHours = (candle.timestamp - pos.entryTime) / (60 * 60 * 1000);
   const borrowCost = marginBorrowCost(pos.marginNotional, holdingHours, model);

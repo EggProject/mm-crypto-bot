@@ -68,11 +68,7 @@ export function exitCost(notionalUsd: number, model: CostModel): number {
  A `marginNotional` a bróker által zárolt összeg (position / leverage).
  A `borrowRatePerHour` a teljes margin %-a óránként.
 */
-export function marginBorrowCost(
-  marginNotional: number,
-  holdingHours: number,
-  model: CostModel,
-): number {
+export function marginBorrowCost(marginNotional: number, holdingHours: number, model: CostModel): number {
   if (holdingHours < 0) {
     throw new Error(`Holding hours cannot be negative: ${holdingHours}`);
   }
@@ -84,11 +80,7 @@ export function marginBorrowCost(
  kerül felszámításra. Ha nincs funding rate (spot-only backtest), a
  függvény 0-t ad vissza.
 */
-export function fundingCost(
-  notionalUsd: number,
-  holdingHours: number,
-  model: CostModel,
-): number {
+export function fundingCost(notionalUsd: number, holdingHours: number, model: CostModel): number {
   if (!model.fundingRatePer8h) {
     return 0;
   }

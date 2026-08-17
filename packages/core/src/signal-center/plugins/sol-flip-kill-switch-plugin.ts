@@ -78,10 +78,7 @@ import {
   type RegimeDecision,
 } from "../../strategy/funding-flip-kill-switch.js";
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type ConfigError,
@@ -301,8 +298,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     // 1:10 HARD GUARDRAIL — Layer 1 sanity check.
     if (!ALLOWED_KILL_SWITCH_LEVERAGE.includes(merged.timingLeverage)) {
       throw new Error(
-        `[1:10 HARD GUARDRAIL] timingLeverage must be 1 or 10. ` +
-          `Got ${merged.timingLeverage}.`,
+        `[1:10 HARD GUARDRAIL] timingLeverage must be 1 or 10. ` + `Got ${merged.timingLeverage}.`,
       );
     }
     // Constructor-time validation — defense in depth. validateConfig
@@ -350,7 +346,9 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
       // backtest determinism, the central runner is expected to
       // provide timestampMs on every signal.
       const suffix = s.source.includes(":") ? s.source.slice(s.source.indexOf(":") + 1) : undefined;
-      const symbol = s.symbol ?? suffix ??
+      const symbol =
+        s.symbol ??
+        suffix ??
         (this.config.enabledSymbols.length === 1 ? this.config.enabledSymbols[0] : undefined);
       if (symbol === undefined) {
         throw new Error("[SOLFlipKillSwitchPlugin] carry signal requires explicit symbol attribution");
@@ -453,10 +451,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
       }
     }
     if (c.maxCloseNotionalUsd !== undefined) {
-      if (
-        !Number.isFinite(c.maxCloseNotionalUsd) ||
-        c.maxCloseNotionalUsd <= 0
-      ) {
+      if (!Number.isFinite(c.maxCloseNotionalUsd) || c.maxCloseNotionalUsd <= 0) {
         return {
           field: "maxCloseNotionalUsd",
           message: `maxCloseNotionalUsd must be positive finite, got ${c.maxCloseNotionalUsd}`,
@@ -469,8 +464,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
         return {
           field: "timingLeverage",
           message:
-            `[1:10 HARD GUARDRAIL] timingLeverage must be 1 or 10. ` +
-            `Got ${String(c.timingLeverage)}.`,
+            `[1:10 HARD GUARDRAIL] timingLeverage must be 1 or 10. ` + `Got ${String(c.timingLeverage)}.`,
           value: c.timingLeverage,
         };
       }
@@ -500,15 +494,11 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
    * `assertConfigInvariants` — throws if the config fails any
    * invariant check. Used at construction time for defense in depth.
    */
-  private static assertConfigInvariants(
-    c: SOLFlipKillSwitchPluginConfig,
-  ): void {
+  private static assertConfigInvariants(c: SOLFlipKillSwitchPluginConfig): void {
     // For the full config, check every invariant (no undefined fields).
     const invalid = SOLFlipKillSwitchPlugin.checkConfigInvariants(c);
     if (invalid !== null) {
-      throw new Error(
-        `[SOLFlipKillSwitchPlugin] ${invalid.field}: ${invalid.message}`,
-      );
+      throw new Error(`[SOLFlipKillSwitchPlugin] ${invalid.field}: ${invalid.message}`);
     }
     // Additional check: maxCloseNotionalUsd must be ≤ baseNotionalUsd ×
     // maxLeverage (10x ceiling — the 1:10 mandate). The effective
@@ -653,8 +643,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     // signals, not on stale trailing-window data).
     const isFreshFlippy = this._isFreshFlippySignal(symbolHistory);
     const isFreshNegative = fundingRate < 0;
-    const isFreshExtreme =
-      metrics.zscore >= this.detectorConfig.extremeZscoreThreshold;
+    const isFreshExtreme = metrics.zscore >= this.detectorConfig.extremeZscoreThreshold;
     const isFreshRegimeSignal =
       (decision.flipRegime && isFreshFlippy) ||
       (decision.negativeDominanceRegime && isFreshNegative) ||
@@ -663,17 +652,11 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     if (isFreshRegimeSignal) {
       this.state.lastRegimeSignalMs = timestampMs;
       const newUntil = timestampMs + persistenceMs;
-      if (
-        this.state.killSwitchUntilMs === null ||
-        newUntil > this.state.killSwitchUntilMs
-      ) {
+      if (this.state.killSwitchUntilMs === null || newUntil > this.state.killSwitchUntilMs) {
         this.state.killSwitchUntilMs = newUntil;
       }
       this.state.killSwitchEngaged = true;
-    } else if (
-      this.state.killSwitchUntilMs !== null &&
-      timestampMs >= this.state.killSwitchUntilMs
-    ) {
+    } else if (this.state.killSwitchUntilMs !== null && timestampMs >= this.state.killSwitchUntilMs) {
       this.state.killSwitchEngaged = false;
     }
 
@@ -777,7 +760,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     const prev = history[history.length - 2]!;
     const cur = history[history.length - 1]!;
     if (prev === 0 || cur === 0) return false;
-    return (prev > 0) !== (cur > 0);
+    return prev > 0 !== cur > 0;
   }
 
   /**
@@ -815,9 +798,8 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     // Conditional closeNotionalUsd — must use object spread to satisfy
     // `exactOptionalPropertyTypes: true` (omit the field entirely
     // when emitCloseInstruction is false, never assign undefined).
-    const closeNotionalField = isEngaged && this.config.emitCloseInstruction
-      ? { closeNotionalUsd: impliedCloseNotional }
-      : {};
+    const closeNotionalField =
+      isEngaged && this.config.emitCloseInstruction ? { closeNotionalUsd: impliedCloseNotional } : {};
     const riskSig: RiskSignal = {
       kind: "risk",
       varDaily95: 0, // defensive plugin doesn't compute VaR

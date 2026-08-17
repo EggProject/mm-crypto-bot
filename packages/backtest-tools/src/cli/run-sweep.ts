@@ -1,7 +1,15 @@
 #!/usr/bin/env bun
-import { parseWorkflowArgs, runCompositionBacktest, workflowHelp, writeWorkflowOutput } from "./workflow-common.js";
+import {
+  parseWorkflowArgs,
+  runCompositionBacktest,
+  workflowHelp,
+  writeWorkflowOutput,
+} from "./workflow-common.js";
 
-function parseCaps(argv: readonly string[]): { readonly caps: readonly number[]; readonly rest: readonly string[] } {
+function parseCaps(argv: readonly string[]): {
+  readonly caps: readonly number[];
+  readonly rest: readonly string[];
+} {
   let caps: readonly number[] = [0.04, 0.08, 0.12, 0.2];
   const rest: string[] = [];
   for (const arg of argv) {

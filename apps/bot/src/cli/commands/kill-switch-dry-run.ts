@@ -1,13 +1,13 @@
 /**
  * apps/bot/src/cli/commands/kill-switch-dry-run.ts
  *
- * Phase 37 Track 5 — `mm-bot kill-switch-dry-run [--config=path]`.
+ * Phase 37 Track 5 — the direct `kill-switch-dry-run` command.
  *
  * ===========================================================================
  * PURPOSE — DRY-RUN A KILL-SWITCH FALLBACKRA
  * ===========================================================================
  * A parancs szimulálja, hogy mi történne, ha a kill-switch TÉNYLEGESEN
- * elsülne. A `mm-bot kill-switches` parancs csak a kill-switchek
+ * elsülne. The direct `kill-switches` command only reports the kill-switch
  * konfigurációját mutatja — ez a parancs a STATE-FÁJLON szimulálja a
  * `KillSwitchRegistry.evaluate()` kimenetét és a "minden pozíció
  * zárul" fallback-ágat, ANÉLKÜL, hogy bármit is elküldene az
@@ -24,8 +24,8 @@
  * ===========================================================================
  * HASZNÁLAT
  * ===========================================================================
- *   mm-bot kill-switch-dry-run                       # state-file a default configból
- *   mm-bot kill-switch-dry-run --config=live-tokyo.toml  # Tokyo co-loc config
+ *   bun run apps/bot/src/index.ts kill-switch-dry-run
+ *   bun run apps/bot/src/index.ts kill-switch-dry-run --config=live-tokyo.toml
  *
  * A parancs a Phase 37 Track 5 pre-launch checklist része — a LIVE
  * deploy előtt a user kiadja, és megvizsgálja, hogy tényleg csak azt
@@ -129,9 +129,7 @@ function getJsonFlag(flags: ReadonlyMap<string, string | boolean>): boolean {
  * Differentiates between "file not found" (callers can downgrade to a
  * friendly message + code 1) and other IO/parse errors.
  */
-export function loadState(
-  filePath: string,
-): { state: BotState | null; error: string | null } {
+export function loadState(filePath: string): { state: BotState | null; error: string | null } {
   if (!existsSync(filePath)) {
     return { state: null, error: `state file not found: ${filePath}` };
   }
@@ -213,12 +211,8 @@ export function formatTelegramAlert(
   const ts = new Date(generatedAt).toISOString();
   const lines: string[] = [];
   lines.push("🚨 KILL-SWITCH TRIGGERED (DRY-RUN)");
-  lines.push(
-    `${ts} | state=${stateFilePath} | positions=${String(closures.length)}`,
-  );
-  lines.push(
-    `total notional: $${totalNotionalUsd.toFixed(2)} | est. P&L: $${totalEstLossUsd.toFixed(2)}`,
-  );
+  lines.push(`${ts} | state=${stateFilePath} | positions=${String(closures.length)}`);
+  lines.push(`total notional: $${totalNotionalUsd.toFixed(2)} | est. P&L: $${totalEstLossUsd.toFixed(2)}`);
   for (const c of closures) {
     const sideUpper = c.side.toUpperCase();
     lines.push(
@@ -293,9 +287,8 @@ export function formatJsonLogLines(
  */
 export function computeWouldTrigger(state: BotState, maxDrawdownPct: number): boolean {
   if (state.positions.length === 0) return false;
-  const drawdown = state.initialEquityUsd > 0
-    ? (state.initialEquityUsd - state.equityUsd) / state.initialEquityUsd
-    : 0;
+  const drawdown =
+    state.initialEquityUsd > 0 ? (state.initialEquityUsd - state.equityUsd) / state.initialEquityUsd : 0;
   return drawdown >= maxDrawdownPct;
 }
 
@@ -365,9 +358,7 @@ export function buildReport(opts: {
 export function printHumanReadable(report: DryRunReport): void {
   const verdictColor = report.wouldTrigger ? "red" : "green";
   const verdictText = report.wouldTrigger ? "WOULD TRIGGER" : "NO AUTO-TRIGGER";
-  console.log(
-    `${colorize("[kill-switch-dry-run]", "bold")} ${colorize(verdictText, verdictColor)}`,
-  );
+  console.log(`${colorize("[kill-switch-dry-run]", "bold")} ${colorize(verdictText, verdictColor)}`);
   console.log("");
   console.log(`  Switch:         ${report.killSwitchId}`);
   console.log(`  Description:    ${report.killSwitchDescription}`);
@@ -411,9 +402,7 @@ export function printHumanReadable(report: DryRunReport): void {
   }
 
   console.log("");
-  console.log(
-    colorize("  (dry-run: NO orders were sent. No exchange state was modified.)", "yellow"),
-  );
+  console.log(colorize("  (dry-run: NO orders were sent. No exchange state was modified.)", "yellow"));
 }
 
 // ============================================================================
@@ -453,7 +442,7 @@ export function printJson(report: DryRunReport): void {
 // ============================================================================
 
 /**
- * `killSwitchDryRunCommand` — the `mm-bot kill-switch-dry-run` handler.
+ * `killSwitchDryRunCommand` — the direct `kill-switch-dry-run` handler.
  */
 export const killSwitchDryRunCommand: SubcommandHandler = async (args) => {
   await Promise.resolve();
@@ -462,7 +451,7 @@ export const killSwitchDryRunCommand: SubcommandHandler = async (args) => {
 
   // Help flag — print usage + return 0 (consistent with `backtest`).
   if (args.flags.get("help") === true) {
-    console.log("Usage: mm-bot kill-switch-dry-run [options]");
+    console.log("Usage: bun run apps/bot/src/index.ts kill-switch-dry-run [options]");
     console.log("");
     console.log("Simulates the kill-switch fallback without sending any orders.");
     console.log("Reads the bot state file (per `[bot].state_file`) and prints");

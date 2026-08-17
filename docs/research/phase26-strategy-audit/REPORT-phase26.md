@@ -11,13 +11,13 @@
 
 **Verdict:** Out of 21 strategy files, **3 are production-relevant, 4 are sub-components used by them, 8 are research baselines worth keeping, and 6 are dead weight** (multi-class-ensemble v1-v3 superseded by v4 + later architectures).
 
-| Tier | Count | Strategies |
-|------|-------|------------|
-| **PRODUCTION** | 3 | `donchian-pivot-composition`, `dydx-cex-carry` (+ `.paper-trade`), `cascade-fade` |
-| **SUB-COMPONENT** | 4 | `donchian-range-channel`, `pivot-point-grid`, `funding-flip-kill-switch`, `composite` (used by other strategies) |
-| **RESEARCH-KEEP** | 8 | `regime-routed-ensemble` (2-of-2 mode only), `simple-retail-ensemble`, `keltner-grid`, `bollinger-range-squeeze`, `funding-carry`, `funding-carry-leverage`, `funding-carry-timing`, `mtf-trend-confluence` |
-| **HALT** | 5 | `always-in-trend`, `donchian-breakout`, `donchian-mtf`, `donchian-trailing`, `mean-reversion-bb` |
-| **REMOVE** | 4 | `multi-class-ensemble`, `multi-class-ensemble-v2`, `multi-class-ensemble-v3` (v4 is the only one that survived; v1-v3 were superseded) |
+| Tier              | Count | Strategies                                                                                                                                                                                                  |
+| ----------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PRODUCTION**    | 3     | `donchian-pivot-composition`, `dydx-cex-carry` (+ `.paper-trade`), `cascade-fade`                                                                                                                           |
+| **SUB-COMPONENT** | 4     | `donchian-range-channel`, `pivot-point-grid`, `funding-flip-kill-switch`, `composite` (used by other strategies)                                                                                            |
+| **RESEARCH-KEEP** | 8     | `regime-routed-ensemble` (2-of-2 mode only), `simple-retail-ensemble`, `keltner-grid`, `bollinger-range-squeeze`, `funding-carry`, `funding-carry-leverage`, `funding-carry-timing`, `mtf-trend-confluence` |
+| **HALT**          | 5     | `always-in-trend`, `donchian-breakout`, `donchian-mtf`, `donchian-trailing`, `mean-reversion-bb`                                                                                                            |
+| **REMOVE**        | 4     | `multi-class-ensemble`, `multi-class-ensemble-v2`, `multi-class-ensemble-v3` (v4 is the only one that survived; v1-v3 were superseded)                                                                      |
 
 **OOS reality check (the new finding):** the headline +39.37%/mo peak from Phase 24 #1 was a 30-month in-sample result. On a clean 2026-Q1+Q2 out-of-sample window (6 months), the same configuration (BTC 1of2 cap=0.18) returned **+25.45%/mo @ 2.89% DD** — still excellent, but a **0.59 OOS/IS ratio** (right at the overfit threshold of 0.60). The strategy is moderately overfit to 2024-2025 conditions; in 2026 the alpha is real but compressed.
 
@@ -35,59 +35,59 @@
 
 ### §2.2 Decision rules
 
-| Tier | Rules |
-|------|-------|
-| **PRODUCTION** | Wired into a live path (paper-trade runner, current peak) + has multi-window backtest evidence + OOS decay within threshold |
-| **SUB-COMPONENT** | Imported by a PRODUCTION strategy as a building block (e.g. `DonchianRangeChannelStrategy` is inside `DonchianPivotComposition`) |
-| **RESEARCH-KEEP** | Has backtest evidence (>0 files) AND could be revived if a use case appears. Not currently wired. |
-| **HALT** | 0 backtests, <10 code refs. Sub-strategies that have been replaced by better alternatives. Kept as reference for now. |
-| **REMOVE** | Clearly superseded by a newer version in the same family (e.g. multi-class-ensemble v1 superseded by v2 by v3 by v4). The newest version is the canonical reference. |
+| Tier              | Rules                                                                                                                                                                |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PRODUCTION**    | Wired into a live path (paper-trade runner, current peak) + has multi-window backtest evidence + OOS decay within threshold                                          |
+| **SUB-COMPONENT** | Imported by a PRODUCTION strategy as a building block (e.g. `DonchianRangeChannelStrategy` is inside `DonchianPivotComposition`)                                     |
+| **RESEARCH-KEEP** | Has backtest evidence (>0 files) AND could be revived if a use case appears. Not currently wired.                                                                    |
+| **HALT**          | 0 backtests, <10 code refs. Sub-strategies that have been replaced by better alternatives. Kept as reference for now.                                                |
+| **REMOVE**        | Clearly superseded by a newer version in the same family (e.g. multi-class-ensemble v1 superseded by v2 by v3 by v4). The newest version is the canonical reference. |
 
 ### §2.3 Manual alias map (old strategy names in JSON → current files)
 
 The codebase renamed strategy files between Phase 15 and Phase 18. The existing backtest JSONs still use the old names, so I built a manual alias map:
 
-| Old JSON value | Current file |
-|----------------|--------------|
-| `pivot-grid` | `pivot-point-grid.ts` |
-| `bb-squeeze` | `bollinger-range-squeeze.ts` |
-| `donchian-range` | `donchian-range-channel.ts` |
+| Old JSON value               | Current file                    |
+| ---------------------------- | ------------------------------- |
+| `pivot-grid`                 | `pivot-point-grid.ts`           |
+| `bb-squeeze`                 | `bollinger-range-squeeze.ts`    |
+| `donchian-range`             | `donchian-range-channel.ts`     |
 | `donchian-pivot-composition` | `donchian-pivot-composition.ts` |
-| `regime-routed-ensemble` | `regime-routed-ensemble.ts` |
-| `keltner-grid` | `keltner-grid.ts` |
-| `simple-retail-ensemble` | `simple-retail-ensemble.ts` |
+| `regime-routed-ensemble`     | `regime-routed-ensemble.ts`     |
+| `keltner-grid`               | `keltner-grid.ts`               |
+| `simple-retail-ensemble`     | `simple-retail-ensemble.ts`     |
 
 ---
 
 ## §3 — Full strategy classification (21 files)
 
-| # | Strategy | Size | Code refs | BT files | Median monthly | Tier | Why |
-|---|----------|-----:|----------:|---------:|---------------:|------|-----|
-| 1 | `donchian-pivot-composition` | 14 KB | 4 | **53** | +20.1% | **PRODUCTION** | Portfolio peak; 53 BT, 7 cap × 2 mode × 3 sym sweep |
-| 2 | `dydx-cex-carry` | 43 KB | 2 | 9 | n/a (Phase 25 #2) | **PRODUCTION** | T2 of Phase 25 #2, BTC-only paper-trade wired |
-| 3 | `cascade-fade` | 57 KB | 4 | 1 (replay) | n/a | **PRODUCTION** | T3 of Phase 25 #2, 3-layer liquidation cascade detector |
-| 4 | `donchian-range-channel` | 6 KB | 4 | 3 | +15.2% | **SUB-COMP** | Sub-strategy of `DonchianPivotComposition` |
-| 5 | `pivot-point-grid` | 12 KB | 4 | 16 | +78.9% | **SUB-COMP** | Sub-strategy of `DonchianPivotComposition`; standalone tests show very high median (likely biased) |
-| 6 | `funding-flip-kill-switch` | 31 KB | 18 | 0 | n/a | **SUB-COMP** | Risk governor used by funding-carry variants; kill-switch logic |
-| 7 | `composite` | 4 KB | 4 | 0 | n/a | **SUB-COMP** | Composition wrapper used by other strategies |
-| 8 | `regime-routed-ensemble` | 13 KB | 2 | 10 | 0% (1of2) / +4-9% (2of2) | **RESEARCH-KEEP** | 2of2 mode was Phase 18 winner; superseded by `DonchianPivotComposition` 1of2 in Phase 19, but still empirically valid |
-| 9 | `simple-retail-ensemble` | 11 KB | 2 | 3 | +4.3% | **RESEARCH-KEEP** | Phase 15 ensemble; modest returns, kept as baseline reference |
-| 10 | `keltner-grid` | 12 KB | 4 | 3 | 0% | **RESEARCH-KEEP** | Phase 15, used as research reference |
-| 11 | `bollinger-range-squeeze` | 7 KB | 8 | 1 | 0% | **RESEARCH-KEEP** | Phase 15 baseline |
-| 12 | `funding-carry` | 12 KB | 12 | 0 | n/a | **RESEARCH-KEEP** | Funding-rate carry baseline; variants used by dYdX-CEX carry |
-| 13 | `funding-carry-leverage` | 34 KB | 10 | 0 | n/a | **RESEARCH-KEEP** | Funding carry with leverage; superset of `funding-carry` |
-| 14 | `funding-carry-timing` | 23 KB | 16 | 0 | n/a | **RESEARCH-KEEP** | Funding carry with timing optimization; not currently wired |
-| 15 | `mtf-trend-confluence` | 10 KB | 14 | 0 | n/a | **RESEARCH-KEEP** | MTF confluence baseline; component of `regime-routed-ensemble` |
-| 16 | `dydx-cex-carry.paper-trade` | 14 KB | 4 | 0 | n/a | **PRODUCTION** | T2 paper-trade runner (T2 of Phase 25 #2) |
-| 17 | `always-in-trend` | 4 KB | 10 | 0 | n/a | **HALT** | Always-in baseline; not profitable enough in any test |
-| 18 | `donchian-breakout` | 6 KB | 27 | 0 | n/a | **HALT** | Component of `donchian-pivot-composition` originally, now superseded by range channel version |
-| 19 | `donchian-mtf` | 13 KB | 14 | 0 | n/a | **HALT** | MTF donchian variant; superseded by `donchian-pivot-composition` |
-| 20 | `donchian-trailing` | 15 KB | 4 | 0 | n/a | **HALT** | Trailing-stop donchian; superseded |
-| 21 | `mean-reversion-bb` | 4 KB | 6 | 0 | n/a | **HALT** | Mean-reversion baseline; not profitable enough |
-| 22 | `multi-class-ensemble` (v1) | 17 KB | 2 | 0 | n/a | **REMOVE** | Superseded by v2, v3, v4 in same family |
-| 23 | `multi-class-ensemble-v2` | 18 KB | 4 | 0 | n/a | **REMOVE** | Superseded by v3, v4 |
-| 24 | `multi-class-ensemble-v3` | 26 KB | 2 | 0 | n/a | **REMOVE** | Superseded by v4 |
-| 25 | `multi-class-ensemble-v4` | 37 KB | 4 | 0 | n/a | **RESEARCH-KEEP** | Newest in the family; has 4 code refs and is the basis for some portfolio risk logic |
+| #   | Strategy                     |  Size | Code refs |   BT files |           Median monthly | Tier              | Why                                                                                                                   |
+| --- | ---------------------------- | ----: | --------: | ---------: | -----------------------: | ----------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 1   | `donchian-pivot-composition` | 14 KB |         4 |     **53** |                   +20.1% | **PRODUCTION**    | Portfolio peak; 53 BT, 7 cap × 2 mode × 3 sym sweep                                                                   |
+| 2   | `dydx-cex-carry`             | 43 KB |         2 |          9 |        n/a (Phase 25 #2) | **PRODUCTION**    | T2 of Phase 25 #2, BTC-only paper-trade wired                                                                         |
+| 3   | `cascade-fade`               | 57 KB |         4 | 1 (replay) |                      n/a | **PRODUCTION**    | T3 of Phase 25 #2, 3-layer liquidation cascade detector                                                               |
+| 4   | `donchian-range-channel`     |  6 KB |         4 |          3 |                   +15.2% | **SUB-COMP**      | Sub-strategy of `DonchianPivotComposition`                                                                            |
+| 5   | `pivot-point-grid`           | 12 KB |         4 |         16 |                   +78.9% | **SUB-COMP**      | Sub-strategy of `DonchianPivotComposition`; standalone tests show very high median (likely biased)                    |
+| 6   | `funding-flip-kill-switch`   | 31 KB |        18 |          0 |                      n/a | **SUB-COMP**      | Risk governor used by funding-carry variants; kill-switch logic                                                       |
+| 7   | `composite`                  |  4 KB |         4 |          0 |                      n/a | **SUB-COMP**      | Composition wrapper used by other strategies                                                                          |
+| 8   | `regime-routed-ensemble`     | 13 KB |         2 |         10 | 0% (1of2) / +4-9% (2of2) | **RESEARCH-KEEP** | 2of2 mode was Phase 18 winner; superseded by `DonchianPivotComposition` 1of2 in Phase 19, but still empirically valid |
+| 9   | `simple-retail-ensemble`     | 11 KB |         2 |          3 |                    +4.3% | **RESEARCH-KEEP** | Phase 15 ensemble; modest returns, kept as baseline reference                                                         |
+| 10  | `keltner-grid`               | 12 KB |         4 |          3 |                       0% | **RESEARCH-KEEP** | Phase 15, used as research reference                                                                                  |
+| 11  | `bollinger-range-squeeze`    |  7 KB |         8 |          1 |                       0% | **RESEARCH-KEEP** | Phase 15 baseline                                                                                                     |
+| 12  | `funding-carry`              | 12 KB |        12 |          0 |                      n/a | **RESEARCH-KEEP** | Funding-rate carry baseline; variants used by dYdX-CEX carry                                                          |
+| 13  | `funding-carry-leverage`     | 34 KB |        10 |          0 |                      n/a | **RESEARCH-KEEP** | Funding carry with leverage; superset of `funding-carry`                                                              |
+| 14  | `funding-carry-timing`       | 23 KB |        16 |          0 |                      n/a | **RESEARCH-KEEP** | Funding carry with timing optimization; not currently wired                                                           |
+| 15  | `mtf-trend-confluence`       | 10 KB |        14 |          0 |                      n/a | **RESEARCH-KEEP** | MTF confluence baseline; component of `regime-routed-ensemble`                                                        |
+| 16  | `dydx-cex-carry.paper-trade` | 14 KB |         4 |          0 |                      n/a | **PRODUCTION**    | T2 paper-trade runner (T2 of Phase 25 #2)                                                                             |
+| 17  | `always-in-trend`            |  4 KB |        10 |          0 |                      n/a | **HALT**          | Always-in baseline; not profitable enough in any test                                                                 |
+| 18  | `donchian-breakout`          |  6 KB |        27 |          0 |                      n/a | **HALT**          | Component of `donchian-pivot-composition` originally, now superseded by range channel version                         |
+| 19  | `donchian-mtf`               | 13 KB |        14 |          0 |                      n/a | **HALT**          | MTF donchian variant; superseded by `donchian-pivot-composition`                                                      |
+| 20  | `donchian-trailing`          | 15 KB |         4 |          0 |                      n/a | **HALT**          | Trailing-stop donchian; superseded                                                                                    |
+| 21  | `mean-reversion-bb`          |  4 KB |         6 |          0 |                      n/a | **HALT**          | Mean-reversion baseline; not profitable enough                                                                        |
+| 22  | `multi-class-ensemble` (v1)  | 17 KB |         2 |          0 |                      n/a | **REMOVE**        | Superseded by v2, v3, v4 in same family                                                                               |
+| 23  | `multi-class-ensemble-v2`    | 18 KB |         4 |          0 |                      n/a | **REMOVE**        | Superseded by v3, v4                                                                                                  |
+| 24  | `multi-class-ensemble-v3`    | 26 KB |         2 |          0 |                      n/a | **REMOVE**        | Superseded by v4                                                                                                      |
+| 25  | `multi-class-ensemble-v4`    | 37 KB |         4 |          0 |                      n/a | **RESEARCH-KEEP** | Newest in the family; has 4 code refs and is the basis for some portfolio risk logic                                  |
 
 (Note: file count = 25, not 21, because the multi-class-ensemble family is split across v1/v2/v3/v4.)
 
@@ -99,11 +99,11 @@ I added `--start=` and `--end=` CLI flags to `run-donchian-pivot-composition.ts`
 
 ### §4.1 In-sample vs OOS comparison (BTC 1of2 cap=0.18)
 
-| Period | Months | Monthly return | Max DD | Sharpe | Sortino | Trades | Win rate | Profit factor |
-|--------|-------:|---------------:|-------:|-------:|--------:|-------:|---------:|--------------:|
-| **Full (2024-01 → 2026-07-08)** | 30.2 | +33.00% | 6.49% | 29.87 | 46.46 | 11043 | 64.77% | 3.92 |
-| **IS (2024-01 → 2025-12-31)** | 24.0 | +43.23% | 6.49% | 29.87 | 46.46 | 11043 | 64.77% | 3.92 |
-| **OOS (2026-01-01 → 2026-07-08)** | 6.2 | **+25.45%** | **2.89%** | 29.80 | 37.65 | 2075 | 68.82% | 4.22 |
+| Period                            | Months | Monthly return |    Max DD | Sharpe | Sortino | Trades | Win rate | Profit factor |
+| --------------------------------- | -----: | -------------: | --------: | -----: | ------: | -----: | -------: | ------------: |
+| **Full (2024-01 → 2026-07-08)**   |   30.2 |        +33.00% |     6.49% |  29.87 |   46.46 |  11043 |   64.77% |          3.92 |
+| **IS (2024-01 → 2025-12-31)**     |   24.0 |        +43.23% |     6.49% |  29.87 |   46.46 |  11043 |   64.77% |          3.92 |
+| **OOS (2026-01-01 → 2026-07-08)** |    6.2 |    **+25.45%** | **2.89%** |  29.80 |   37.65 |   2075 |   68.82% |          4.22 |
 
 **OOS/IS ratio: 0.589** — right at the 0.60 overfit threshold (per `run-oos.ts`).
 
@@ -111,11 +111,11 @@ I added `--start=` and `--end=` CLI flags to `run-donchian-pivot-composition.ts`
 
 ### §4.2 Cross-symbol OOS (1of2 cap=0.18, 2026 window)
 
-| Symbol | Monthly | DD | Sharpe | Sortino | Trades | Win rate |
-|--------|--------:|----:|-------:|--------:|-------:|---------:|
-| BTC    | +25.45% | 2.89% | 29.80 | 37.65 | 2075 | 68.82% |
-| ETH    | **+29.21%** | 4.15% | 28.31 | 35.23 | 2280 | 65.35% |
-| SOL    | +27.37% | 7.00% | 28.23 | 32.92 | 2295 | 64.23% |
+| Symbol |     Monthly |    DD | Sharpe | Sortino | Trades | Win rate |
+| ------ | ----------: | ----: | -----: | ------: | -----: | -------: |
+| BTC    |     +25.45% | 2.89% |  29.80 |   37.65 |   2075 |   68.82% |
+| ETH    | **+29.21%** | 4.15% |  28.31 |   35.23 |   2280 |   65.35% |
+| SOL    |     +27.37% | 7.00% |  28.23 |   32.92 |   2295 |   64.23% |
 
 **In 2026, all three symbols perform similarly (25-29%/mo), a regime change from 2024-2025 when SOL was much weaker.** The Phase 25 #2 HALT verdict on SOL (Q1 2026 -12.56%/mo on dYdX-CEX carry) was based on a different strategy (funding-carry), not on `DonchianPivotComposition`. The pivot strategy is symbol-agnostic in 2026.
 
@@ -123,22 +123,22 @@ ETH actually has the highest return but also the highest DD; SOL has the lowest 
 
 ### §4.3 Mode comparison OOS (BTC, cap=0.18)
 
-| Mode | Monthly | DD | Sharpe | Trades | Win rate |
-|------|--------:|----:|-------:|-------:|---------:|
-| 1of2  | **+25.45%** | 2.89% | 29.80 | 2075 | 68.82% |
-| 2of2  | +3.37% | 0.95% | 14.39 | 246 | 82.52% |
+| Mode |     Monthly |    DD | Sharpe | Trades | Win rate |
+| ---- | ----------: | ----: | -----: | -----: | -------: |
+| 1of2 | **+25.45%** | 2.89% |  29.80 |   2075 |   68.82% |
+| 2of2 |      +3.37% | 0.95% |  14.39 |    246 |   82.52% |
 
 **1of2 mode crushes 2of2 in 2026.** The 2of2 consensus filter (both Donchian Range AND Pivot must fire) is too restrictive in current conditions. The 2of2 advantage seen in Phase 18 (more selective, better filtered signals) has reversed. This is a real regime shift, not a strategy flaw.
 
 ### §4.4 Cap sweep on OOS (BTC 1of2, 2026 window)
 
-| Cap | Monthly | DD | Sharpe | Sortino |
-|---:|--------:|----:|-------:|--------:|
-| 0.15 | +23.88% | 2.44% | **30.96** | **41.02** |
-| 0.18 | +25.45% | 2.89% | 29.80 | 37.65 |
-| 0.20 | +26.23% | 3.17% | 28.99 | 35.75 |
-| 0.25 | +27.54% | 3.88% | 26.97 | 31.71 |
-| 0.30 | **+28.12%** | 4.62% | 25.27 | 28.58 |
+|  Cap |     Monthly |    DD |    Sharpe |   Sortino |
+| ---: | ----------: | ----: | --------: | --------: |
+| 0.15 |     +23.88% | 2.44% | **30.96** | **41.02** |
+| 0.18 |     +25.45% | 2.89% |     29.80 |     37.65 |
+| 0.20 |     +26.23% | 3.17% |     28.99 |     35.75 |
+| 0.25 |     +27.54% | 3.88% |     26.97 |     31.71 |
+| 0.30 | **+28.12%** | 4.62% |     25.27 |     28.58 |
 
 **No knee in the 2026 OOS window** — return scales linearly with cap, DD scales linearly, Sharpe decreases monotonically. This is CLEANER than the 30-month sweep which found a knee at 0.18-0.20.
 
@@ -172,6 +172,7 @@ bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
 ```
 
 **Expected OOS (2026 regime):**
+
 - BTC: +26.23%/mo @ 3.17% DD
 - ETH: ~+30%/mo @ ~4% DD
 - SOL: ~+28%/mo @ ~7% DD
@@ -180,6 +181,7 @@ bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
 **Combined with Phase 25 #2 incremental (T2 dYdX-CEX carry + T3 cascade fade):** projected +1-2%/mo additional alpha → **+29-30%/mo @ 6-8% DD portfolio envelope**.
 
 **What I'm NOT recommending:**
+
 - `PortfolioOrchestrator` (Phase 13 architecture) — too much overhead, +2.05%/mo
 - `RegimeRoutedEnsemble` 2of2 — superseded by `DonchianPivotComposition` 1of2 in 2026
 - Multi-class-ensemble v1-v3 — superseded by v4 (which is itself superseded by the simpler compositions)
@@ -216,6 +218,7 @@ bun run packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts \
 ## §8 — Empirical sources
 
 Backtest infrastructure references (already established in prior phases):
+
 1. arXiv 2412.02654 — Portfolio construction with crypto assets (correlation-based diversification)
 2. bybit.eu SPOT margin FAQ — 1:10 leverage cap (project constraint)
 3. Donchian Range Channel — Wikipedia, futures trend-following literature (since 1940s)

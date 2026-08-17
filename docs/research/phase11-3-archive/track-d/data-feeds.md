@@ -11,6 +11,7 @@
 ## 1. REST endpoints — historical funding rates
 
 ### 1.1 Binance USDⓈ-M perp funding history
+
 - **Endpoint:** `GET https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&startTime=...&endTime=...&limit=1000`
 - **Auth:** none for read-only historical
 - **Schema:** `{fundingTime (ms), symbol, fundingRate (decimal), markPrice}`
@@ -20,6 +21,7 @@
 - **Use in Track D hypotheses:** 1, 2, 4, 5 — every hypothesis consumes Binance as the baseline anchor
 
 ### 1.2 Bybit v5 funding history
+
 - **Endpoint:** `GET https://api.bybit.com/v5/market/funding/history?category=linear&symbol=BTCUSDT&startTime=...&endTime=...&limit=200`
 - **Auth:** none for public market data
 - **Schema:** `{list: [{fundingRateTimestamp (ms), fundingRate, markPrice}], nextPageCursor}`
@@ -28,6 +30,7 @@
 - **Use:** Hypothesis 3 (cross-X basis Bybit ↔ Binance) requires 30 months of Bybit funding aligned with Binance timestamps.
 
 ### 1.3 OKX funding history
+
 - **Endpoint:** `GET https://www.okx.com/api/v5/public/funding-rate-history?instId=BTC-USDT-SWAP&before=...&after=...&limit=100`
 - **Auth:** none for public
 - **Schema:** `{data: [{fundingTime (ms), fundingRate (string), instId}], code, msg}`
@@ -36,6 +39,7 @@
 - **Use:** Hypothesis 3 (cross-X basis OKX ↔ Binance); also Hypothesis 4 (1h settlement cycle OKX = peg for arbitrage against 8h Binance).
 
 ### 1.4 Hyperliquid funding history
+
 - **Endpoint:** `POST https://api.hyperliquid.xyz/info` body `{"type": "fundingHistory", "coin": "BTC", "startTime": <ms>}`
 - **Auth:** none for public info endpoint
 - **Schema:** `{[coin]: [{time (ms), fundingRate (string, hourly), premium (string)}]}`
@@ -43,6 +47,7 @@
 - **Use:** Hypothesis 4 (Hyperliquid hourly cadence as arb source vs 8h Binance/OKX) + Hypothesis 1 (term-structure component).
 
 ### 1.5 dYdX v4 funding history
+
 - **Endpoint:** `GET https://indexer.dydx.trade/v4/funding?market=BTC-USD&resolution=1HOUR&fromISO=...&toISO=...` (or via `https://api.dydx.trade/v4/funding/...`)
 - **Auth:** none for public indexer
 - **Schema:** `{funding: [{time (ms), rate (string, hourly 8h-equivalent)}]}`
@@ -50,6 +55,7 @@
 - **Use:** Hypothesis 4 (dYdX v4 governance-tunable rates as arb target). Note dYdX v4 hourly cadence + default cross-market interest = 0% makes it the most aggressive funding-rate venue for cross-X basis.
 
 ### 1.6 CoinGlass historical funding (cross-exchange aggregated)
+
 - **Endpoint:** `GET https://open-api-v4.coinglass.com/api/futures/funding-rate/history?exchange=Binance&symbol=BTCUSDT&interval=8h&startTime=...&endTime=...` (requires CoinGlass API key — paid plan)
 - **Auth:** CoinGlass Pro API key (~$29-99/mo for retail)
 - **Schema:** OHLC funding rate history (open/high/low/close)
@@ -64,26 +70,31 @@
 ## 2. Websocket streams — real-time funding
 
 ### 2.1 Binance mark price + funding stream
+
 - **Endpoint:** `wss://fstream.binance.com/ws/btcusdt@markPrice@1s` (1s mark price updates) OR `wss://fstream.binance.com/ws/btcusdt@fundingRate` (funding rate updates only)
 - **Schema (mark):** `{e: "markPriceUpdate", E: ms, s: "BTCUSDT", p: "65000.00", r: "0.00010", T: nextFundingTime}`
 - **Rate:** ~1 msg/sec per symbol per stream
 - **Use:** Hypothesis 5 (real-time order-book imbalance around funding timestamp)
 
 ### 2.2 Bybit v5 linear ticker (mark + funding)
+
 - **Endpoint:** `wss://stream.bybit.com/v5/public/linear` subscribe `{"op":"subscribe", "args":["tickers.BTCUSDT"]}`
 - **Schema:** `{topic: "tickers.BTCUSDT", data: {fundingRate, markPrice, nextFundingTime, ...}}`
 - **Rate:** ~10 msg/sec per symbol
 
 ### 2.3 OKX funding rate channel
+
 - **Endpoint:** `wss://ws.okx.com:8443/ws/v5/public` subscribe `{"op":"subscribe", "args":[{"channel":"funding-rate","instId":"BTC-USDT-SWAP"}]}`
 - **Schema:** `{arg, data: [{fundingRate, fundingTime, instId, ...}]}`
 
 ### 2.4 Hyperliquid real-time (sub-second)
+
 - **Endpoint:** `wss://api.hyperliquid.xyz/ws` subscribe `{"method": "subscribe", "subscription": {"type": "activeAssetCtx", "coin": "BTC"}}`
 - **Schema:** per-asset mark price + funding rate updates every ~3s
 - **Significance:** sub-second resolution = best source for Hypothesis 5 (real-time cascade detection)
 
 ### 2.5 dYdX v4 websocket
+
 - **Endpoint:** `wss://indexer.dydx.trade/v4/ws` subscribe `{"type": "subscribe", "channel": "v4_funding_markets_updates", "id": "BTC-USD"}`
 - **Schema:** per-market funding rate updates
 
@@ -92,28 +103,34 @@
 ## 3. Open interest data feeds
 
 ### 3.1 Binance OI (historical + realtime)
+
 - **REST historical:** `GET https://fapi.binance.com/futures/data/openInterestHist?symbol=BTCUSDT&period=5m&startTime=...&endTime=...` → OHLC OI
 - **REST current:** `GET https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT`
 - **Websocket:** `wss://fstream.binance.com/ws/btcusdt@openInterest@1s`
 - **Project status:** NOT yet integrated. Phase 11.4 Track D plugin would need this.
 
 ### 3.2 Bybit v5 OI
+
 - **REST:** `GET https://api.bybit.com/v5/market/open-interest?category=linear&symbol=BTCUSDT&intervalTime=5min&startTime=...&endTime=...`
 - **Websocket:** subscribe `tickers.BTCUSDT` (OI embedded in ticker data)
 
 ### 3.3 OKX OI
+
 - **REST:** `GET https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-history?instId=BTC-USDT-SWAP&period=5m&begin=...&end=...`
 - **Websocket:** `public/trades` channel includes OI in ticker data
 
 ### 3.4 Hyperliquid OI
+
 - **REST:** `POST https://api.hyperliquid.xyz/info` body `{"type": "meta"}` → includes asset universe; per-asset OI via `{"type": "assetCtxs"}`
 - **Realtime:** `activeAssetCtx` websocket includes `openInterest`
 
 ### 3.5 dYdX v4 OI
+
 - **REST:** `GET https://indexer.dydx.trade/v4/perpetualMarkets?market=BTC-USD` → includes `openInterest`
 - **Realtime:** websocket `v4_perpetual_market_updates`
 
 ### 3.6 CoinGlass aggregated OI
+
 - **Endpoint:** `GET https://open-api-v4.coinglass.com/api/futures/open-interest/aggregated-history?symbol=BTC&interval=5m&startTime=...&endTime=...`
 - **Endpoint:** `GET https://open-api-v4.coinglass.com/api/futures/open-interest/exchange-history-chart?symbol=BTC&range=1d`
 - **Significance:** aggregated OI across all venues = project-critical for Hypothesis 2 (OI-weighted funding).
@@ -123,16 +140,20 @@
 ## 4. Order-book depth feeds (Hypothesis 5)
 
 ### 4.1 Binance L2 depth
+
 - **Websocket:** `wss://fstream.binance.com/ws/btcusdt@depth20@100ms` (20-level depth, 100ms update)
 - **REST snapshot:** `GET https://fapi.binance.com/fapi/v1/depth?symbol=BTCUSDT&limit=1000`
 
 ### 4.2 Bybit L2 depth
+
 - **Websocket:** `wss://stream.bybit.com/v5/public/linear` subscribe `orderbook.50.BTCUSDT`
 
 ### 4.3 OKX L2 depth
+
 - **Websocket:** `wss://ws.okx.com:8443/ws/v5/public` subscribe `books-l2-tbt.BTC-USDT-SWAP` (tick-by-tick)
 
 ### 4.4 Hyperliquid L2 depth
+
 - **Websocket:** `wss://api.hyperliquid.xyz/ws` subscribe `{"method":"subscribe", "subscription":{"type":"l2Book", "coin":"BTC"}}`
 - **Project status:** NOT yet integrated. Critical for Hypothesis 5 — funding-timestamp order-book imbalance requires sub-second order-book data.
 
@@ -140,19 +161,20 @@
 
 ## 5. Historical funding CSV sources (offline bulk)
 
-| Source | Coverage | Format | Access | Cost |
-|--------|----------|--------|--------|------|
-| Binance `download-funding-rates.ts` (project-internal) | 2024-01 → 2026-07 | CSV `fundingTime,symbol,fundingRate,markPrice` | bun run script | free |
-| Coinglass bulk CSV export | 2019+ (per-exchange, per-symbol) | CSV via Pro dashboard | Coinglass Pro ($29+/mo) | paid |
-| CryptoDataDownload (by retail aggregators) | varies | CSV | https://www.cryptodatadownload.com | free |
-| OKX historical market data page | 2022-03+ | CSV | https://www.okx.com/historical-data | free |
-| dYdX indexer historical | 2023-10+ | JSON via API | https://indexer.dydx.trade/v4 | free |
+| Source                                                 | Coverage                         | Format                                         | Access                              | Cost |
+| ------------------------------------------------------ | -------------------------------- | ---------------------------------------------- | ----------------------------------- | ---- |
+| Binance `download-funding-rates.ts` (project-internal) | 2024-01 → 2026-07                | CSV `fundingTime,symbol,fundingRate,markPrice` | bun run script                      | free |
+| Coinglass bulk CSV export                              | 2019+ (per-exchange, per-symbol) | CSV via Pro dashboard                          | Coinglass Pro ($29+/mo)             | paid |
+| CryptoDataDownload (by retail aggregators)             | varies                           | CSV                                            | https://www.cryptodatadownload.com  | free |
+| OKX historical market data page                        | 2022-03+                         | CSV                                            | https://www.okx.com/historical-data | free |
+| dYdX indexer historical                                | 2023-10+                         | JSON via API                                   | https://indexer.dydx.trade/v4       | free |
 
 ---
 
 ## 6. Hypothesis-to-feed mapping
 
 ### Hypothesis 1: Term structure (1-week vs 1-month funding differential)
+
 - **Required feeds:**
   - Binance historical funding (1.1) for the 8h settlement rate
   - **Pendle yield curve** OR **dYdX HIP-3 forward-funding curve** for the 30d forward expectation (NOT YET DIRECTLY AVAILABLE — fall-back: use dYdX v4 funding premium history as proxy for forward-funding skew)
@@ -160,6 +182,7 @@
 - **Verdict:** MATCHES mandate for the dYdX v4 funding-rate proxy version (data is free; backtest-able in our existing funding-carry-leverage plugin).
 
 ### Hypothesis 2: OI-weighted funding rate divergence signal
+
 - **Required feeds:**
   - Coinglass `oi-weight-history` endpoint (1.6) — the cleanest source
   - OR self-aggregated: Binance OI (3.1) + Bybit OI (3.2) + OKX OI (3.3) + Hyperliquid OI (3.4) + dYdX OI (3.5) feeding into a project-local weighted-average computation
@@ -167,6 +190,7 @@
 - **Verdict:** MATCHES mandate (self-aggregation version). REQUIRES TOKYO CO-LOC for the Coinglass Pro paid endpoint (low-latency API ingestion).
 
 ### Hypothesis 3: Cross-exchange basis arbitrage (Binance ↔ Bybit ↔ OKX ↔ Hyperliquid ↔ dYdX)
+
 - **Required feeds:**
   - Binance funding (1.1) + Bybit funding (1.2) + OKX funding (1.3) + Hyperliquid funding (1.4) + dYdX funding (1.5)
   - Binance spot price + mark price (1.1, 2.1) for spot-leg pricing
@@ -175,6 +199,7 @@
 - **Verdict:** MATCHES mandate at small scale (Binance ↔ Bybit, <$50k per leg). REQUIRES CAPITAL SCALE for the 5-way netting strategy (need margin in 3+ venues).
 
 ### Hypothesis 4: Funding rate regime shift detection (pre-event positioning)
+
 - **Required feeds:**
   - All historical funding feeds (1.1–1.6)
   - Liquidations heatmap from Coinglass or Glassnode `GET https://api.glassnode.com/v1/metrics/derivatives/futures_liquidated_volume_long`
@@ -182,6 +207,7 @@
 - **Verdict:** MATCHES mandate at the read-only level (regime detection runs locally on already-downloaded historical data). OUT OF SCOPE for live real-time liquidation feed (requires paid subscription).
 
 ### Hypothesis 5: Funding + order-book imbalance at funding timestamp
+
 - **Required feeds:**
   - Binance L2 depth @ 100ms (4.1)
   - Binance funding timestamp stream (2.1) for the trigger
@@ -193,13 +219,13 @@
 
 ## 7. 1:10 bybit.eu applicability summary
 
-| Hypothesis | Required data feeds | Available now? | Build effort | Mandate verdict |
-|-----------|---------------------|----------------|--------------|-----------------|
-| 1: Term structure | Binance + dYdX funding | Yes (free) | ~150 LOC | MATCHES |
-| 2: OI-weighted funding | Coinglass OR self-aggregated OI×funding | Partial (self-agg free) | ~250 LOC | MATCHES (self-agg) |
-| 3: Cross-X basis | 5 venues funding | Partial (Binance only) | ~500 LOC + 4 downloaders | MATCHES (Binance↔Bybit) |
-| 4: Regime shift detection | Historical funding + OI | Yes (already in dataset) | ~200 LOC | MATCHES |
-| 5: Funding + order-book | Binance L2 depth | No (not integrated) | ~400 LOC | MATCHES (Binance-only) |
+| Hypothesis                | Required data feeds                     | Available now?           | Build effort             | Mandate verdict         |
+| ------------------------- | --------------------------------------- | ------------------------ | ------------------------ | ----------------------- |
+| 1: Term structure         | Binance + dYdX funding                  | Yes (free)               | ~150 LOC                 | MATCHES                 |
+| 2: OI-weighted funding    | Coinglass OR self-aggregated OI×funding | Partial (self-agg free)  | ~250 LOC                 | MATCHES (self-agg)      |
+| 3: Cross-X basis          | 5 venues funding                        | Partial (Binance only)   | ~500 LOC + 4 downloaders | MATCHES (Binance↔Bybit) |
+| 4: Regime shift detection | Historical funding + OI                 | Yes (already in dataset) | ~200 LOC                 | MATCHES                 |
+| 5: Funding + order-book   | Binance L2 depth                        | No (not integrated)      | ~400 LOC                 | MATCHES (Binance-only)  |
 
 **Total Phase 11.4 Track D plugin build:** ~1500 LOC across 5 hypotheses, with selective reduction if any hypothesis proves non-actionable in backtest. Bybit.eu SPOT mandate preserved throughout — the synthetic perp leg runs on an offshore Binance sub-account under the Phase 11.2e BasisTradePlugin precedent.
 

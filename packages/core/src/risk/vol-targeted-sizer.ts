@@ -335,10 +335,7 @@ export function dailyLogReturns(ohlcv: readonly DailyOhlcv[]): readonly number[]
  *
  * Pure function, deterministic.
  */
-export function rollingRealizedDailyVol(
-  returns: readonly number[],
-  windowDays: number,
-): readonly number[] {
+export function rollingRealizedDailyVol(returns: readonly number[], windowDays: number): readonly number[] {
   if (!Number.isFinite(windowDays) || windowDays <= 0 || !Number.isInteger(windowDays)) {
     throw new Error(`windowDays must be a positive integer: ${String(windowDays)}`);
   }
@@ -485,7 +482,7 @@ export function computeVolTargetedSizer(
     // realized vol of the previous day (i-1 in the returns series).
     // returns[i-1] is the return from ohlcv[i-1] to ohlcv[i].
     // rollingRealizedDailyVols[i-1] is the vol of returns up through index i-1.
-    const realizedDailyVol = i > 0 ? realizedDailyVols[i - 1] ?? 0 : 0;
+    const realizedDailyVol = i > 0 ? (realizedDailyVols[i - 1] ?? 0) : 0;
     const { raw, clamped } = computeVolMultiplier(
       realizedDailyVol,
       config.targetDailyVol,
@@ -625,12 +622,8 @@ export function runVolTargetWalkForwardValidation(
     const trainEnd = cursor + trainMs;
     const testStart = trainEnd;
     const testEnd = testEndInclusive(trainEnd, testDays);
-    const trainCandles = sorted.filter(
-      (c) => c.timestamp >= trainStart && c.timestamp < trainEnd,
-    );
-    const testCandles = sorted.filter(
-      (c) => c.timestamp >= testStart && c.timestamp < testEnd,
-    );
+    const trainCandles = sorted.filter((c) => c.timestamp >= trainStart && c.timestamp < trainEnd);
+    const testCandles = sorted.filter((c) => c.timestamp >= testStart && c.timestamp < testEnd);
     if (trainCandles.length >= config.windowDays && testCandles.length >= 2) {
       // Compute the train-slice vol-target series.
       const trainSizer = computeVolTargetedSizer(trainCandles, 2000, config);
@@ -668,17 +661,13 @@ export function runVolTargetWalkForwardValidation(
   const avgTestMult = average(windows.map((w) => w.testAvgMultiplier));
   const aggregateTestReturn = sumReturns(
     windows.flatMap((w) => {
-      const sliceCandles = sorted.filter(
-        (c) => c.timestamp >= w.testStart && c.timestamp < w.testEnd,
-      );
+      const sliceCandles = sorted.filter((c) => c.timestamp >= w.testStart && c.timestamp < w.testEnd);
       return dailyLogReturns(sliceCandles);
     }),
   );
   const aggregateTestSharpe = perSeriesSharpe(
     windows.flatMap((w) => {
-      const sliceCandles = sorted.filter(
-        (c) => c.timestamp >= w.testStart && c.timestamp < w.testEnd,
-      );
+      const sliceCandles = sorted.filter((c) => c.timestamp >= w.testStart && c.timestamp < w.testEnd);
       return dailyLogReturns(sliceCandles);
     }),
   );
@@ -729,8 +718,7 @@ function sumReturns(returns: readonly number[]): number {
 function perSeriesSharpe(returns: readonly number[]): number {
   if (returns.length < 2) return 0;
   const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
-  const variance =
-    returns.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (returns.length - 1);
+  const variance = returns.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (returns.length - 1);
   const std = variance > 0 ? Math.sqrt(variance) : 0;
   if (std === 0) return 0;
   return mean / std;

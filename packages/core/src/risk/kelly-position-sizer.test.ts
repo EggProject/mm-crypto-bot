@@ -32,12 +32,7 @@ import {
 
 const DAY_MS: number = 24 * 60 * 60 * 1000;
 
-function mkTrade(
-  entryOffsetDays: number,
-  exitOffsetDays: number,
-  pnlUsd: number,
-  notionalUsd = 2000,
-): Trade {
+function mkTrade(entryOffsetDays: number, exitOffsetDays: number, pnlUsd: number, notionalUsd = 2000): Trade {
   return {
     symbol: "BTC/USDT" as never,
     side: pnlUsd >= 0 ? "buy" : "sell",
@@ -59,18 +54,13 @@ function mkTrade(
  * pattern: trade i wins iff i % divisor < wins, where divisor controls
  * the win-rate. The win/loss PAYOFFS are constant (winPnl, lossPnl).
  */
-function mkStream(
-  count: number,
-  _winRateDivisor: number,
-  winPnl: number,
-  lossPnl: number,
-): Trade[] {
+function mkStream(count: number, _winRateDivisor: number, winPnl: number, lossPnl: number): Trade[] {
   const trades: Trade[] = [];
   for (let i = 0; i < count; i++) {
     // (intentionally unused — see deterministic pattern below)
     // Use simpler deterministic pattern: i % N pattern with one win per K trades.
     // For winRateDivisor=5 and the pattern below, 60% of trades win.
-    const pnl = (i % 10) < 6 ? winPnl : lossPnl;
+    const pnl = i % 10 < 6 ? winPnl : lossPnl;
     trades.push(mkTrade(i, i + 1, pnl));
   }
   return trades;
@@ -215,15 +205,11 @@ describe("fractionalKelly", () => {
   });
 
   it("throws when fullFraction is negative (282-es sor)", () => {
-    expect(() => fractionalKelly(-0.1, 0.5 as KellyFraction)).toThrow(
-      /fullFraction must be non-negative/,
-    );
+    expect(() => fractionalKelly(-0.1, 0.5 as KellyFraction)).toThrow(/fullFraction must be non-negative/);
   });
 
   it("throws when fullFraction is not finite (285-es sor)", () => {
-    expect(() => fractionalKelly(Number.NaN, 0.5 as KellyFraction)).toThrow(
-      /fullFraction must be finite/,
-    );
+    expect(() => fractionalKelly(Number.NaN, 0.5 as KellyFraction)).toThrow(/fullFraction must be finite/);
     expect(() => fractionalKelly(Number.POSITIVE_INFINITY, 0.5 as KellyFraction)).toThrow(
       /fullFraction must be finite/,
     );
@@ -416,7 +402,7 @@ describe("optimizeKelly", () => {
     // Half Kelly = 1/6 ≈ 0.167 — and below the 20% cap so passes through.
     expect(result.fractionalKellyFraction).toBeCloseTo(1 / 6, 6);
     expect(result.cappedKellyFraction).toBeCloseTo(1 / 6, 6);
-    expect(result.recommendedRiskPerTrade).toBeCloseTo((1 / 6) / 0.1, 6);
+    expect(result.recommendedRiskPerTrade).toBeCloseTo(1 / 6 / 0.1, 6);
     expect(result.recommendedMaxPositionPctEquity).toBeCloseTo(1 / 6, 6);
     expect(result.walkForward.windows.length).toBeGreaterThan(0);
   });
@@ -455,7 +441,9 @@ describe("optimizeKelly", () => {
     const trades: Trade[] = mkStream(540, 10, 150, -100);
     const result = optimizeKelly(trades, 180, 30, 30);
     expect(result.walkForward.oosIsReturnRatio).toBeGreaterThan(0);
-    expect(result.walkForward.overfitRisk === "LOW" || result.walkForward.overfitRisk === "MEDIUM").toBe(true);
+    expect(result.walkForward.overfitRisk === "LOW" || result.walkForward.overfitRisk === "MEDIUM").toBe(
+      true,
+    );
   });
 
   it("default config matches the brief defaults (0.5× Kelly, 20% max pos, 15% max DD)", () => {
@@ -550,7 +538,7 @@ describe("Phase 35 coverage — overfitRisk = MEDIUM (533-as sor)", () => {
       const x = (i * 2654435761) >>> 0;
       const r = (x % 1000) / 1000;
       const isWin = r < 0.5;
-      const pnl = isWin ? 200 : (i < 1000 ? -200 : -100);
+      const pnl = isWin ? 200 : i < 1000 ? -200 : -100;
       trades.push(mkTrade(i, i + 1, pnl));
     }
     const wf = runWalkForwardValidation(trades, 30, 7, 7);

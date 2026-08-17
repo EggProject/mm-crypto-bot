@@ -27,10 +27,7 @@
 
 import { describe, expect, it } from "bun:test";
 
-import {
-  DEFAULT_PIVOT_GRID_CONFIG,
-  PivotPointGridStrategy,
-} from "./pivot-point-grid.js";
+import { DEFAULT_PIVOT_GRID_CONFIG, PivotPointGridStrategy } from "./pivot-point-grid.js";
 import type { StrategyContext, StrategySignal } from "../types.js";
 import type { Candle, Symbol, Timeframe } from "@mm-crypto-bot/shared/types";
 
@@ -373,22 +370,25 @@ describe("PivotPointGridStrategy — symbol isolation", () => {
     seedPivotData(strat);
     const timestamp = 1_700_000_000_000 + LTF_MS;
 
-    const ethSignal = strat.onCandle(makeCtx({
-      symbol: "ETH/USDT" as unknown as Symbol,
-      candleIndex: 200,
-      candle: makeCandle(10, { timestamp }),
-    }));
-    const btcSignal = strat.onCandle(makeCtx({
-      symbol: "BTC/USDT" as unknown as Symbol,
-      candleIndex: 201,
-      candle: makeCandle(80, { timestamp: timestamp + LTF_MS }),
-    }));
+    const ethSignal = strat.onCandle(
+      makeCtx({
+        symbol: "ETH/USDT" as unknown as Symbol,
+        candleIndex: 200,
+        candle: makeCandle(10, { timestamp }),
+      }),
+    );
+    const btcSignal = strat.onCandle(
+      makeCtx({
+        symbol: "BTC/USDT" as unknown as Symbol,
+        candleIndex: 201,
+        candle: makeCandle(80, { timestamp: timestamp + LTF_MS }),
+      }),
+    );
 
     expect(ethSignal).toBeNull();
     expect(btcSignal?.side).toBe("buy");
   });
 });
-
 
 describe("PivotPointGridStrategy — Phase 16 notional cap (maxPositionPctEquity)", () => {
   it("15. DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity === 0.04 (productionization envelope)", () => {

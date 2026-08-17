@@ -1,8 +1,22 @@
 // packages/exchange/tests/mockFeed.test.ts — a `__testing__/mockFeed.ts` tesztjei
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { MockExchangeFeed, defaultTicker, defaultOrderBook, defaultMarketMeta } from "../src/__testing__/mockFeed.js";
-import type { ClientOrderId, FeedEvent, Symbol, Timeframe, Ticker, OrderBook, MarketMeta, OrderRequest } from "../src/types.js";
+import {
+  MockExchangeFeed,
+  defaultTicker,
+  defaultOrderBook,
+  defaultMarketMeta,
+} from "../src/__testing__/mockFeed.js";
+import type {
+  ClientOrderId,
+  FeedEvent,
+  Symbol,
+  Timeframe,
+  Ticker,
+  OrderBook,
+  MarketMeta,
+  OrderRequest,
+} from "../src/types.js";
 
 const BTC_USDC: Symbol = "BTC/USDC" as Symbol;
 const ETH_USDC: Symbol = "ETH/USDC" as Symbol;
@@ -91,8 +105,14 @@ describe("MockExchangeFeed", () => {
       await feed.subscribeOhlcv(BTC_USDC, "4h", (e) => {
         if (e.kind === "ohlcv") received.push("4h");
       });
-      const event1h: FeedEvent = { kind: "ohlcv", payload: { symbol: BTC_USDC, timeframe: "1h", candle: [0, 100, 101, 99, 100, 0] } };
-      const event4h: FeedEvent = { kind: "ohlcv", payload: { symbol: BTC_USDC, timeframe: "4h", candle: [0, 100, 101, 99, 100, 0] } };
+      const event1h: FeedEvent = {
+        kind: "ohlcv",
+        payload: { symbol: BTC_USDC, timeframe: "1h", candle: [0, 100, 101, 99, 100, 0] },
+      };
+      const event4h: FeedEvent = {
+        kind: "ohlcv",
+        payload: { symbol: BTC_USDC, timeframe: "4h", candle: [0, 100, 101, 99, 100, 0] },
+      };
       feed.pushEvent(event1h);
       feed.pushEvent(event4h);
       expect(received).toEqual(["1h", "4h"]);
@@ -104,7 +124,10 @@ describe("MockExchangeFeed", () => {
       await feed.subscribeTicker(BTC_USDC, () => {
         called = true;
       });
-      const event: FeedEvent = { kind: "trade", payload: { id: "1", symbol: BTC_USDC, timestamp: 0, price: 100, amount: 1, takerSide: "buy" } };
+      const event: FeedEvent = {
+        kind: "trade",
+        payload: { id: "1", symbol: BTC_USDC, timestamp: 0, price: 100, amount: 1, takerSide: "buy" },
+      };
       feed.pushEvent(event);
       expect(called).toBe(false);
     });
@@ -216,9 +239,9 @@ describe("MockExchangeFeed", () => {
 
     it("placeOrder hibát dob, ha limit order price nélkül jön", async () => {
       await feed.open();
-      await expect(
-        feed.placeOrder({ ...sampleOrder, price: undefined }),
-      ).rejects.toThrow("limit order-hez kötelező a price");
+      await expect(feed.placeOrder({ ...sampleOrder, price: undefined })).rejects.toThrow(
+        "limit order-hez kötelező a price",
+      );
     });
 
     it("cancelOrder törli az order státuszát canceled-re", async () => {
@@ -230,9 +253,9 @@ describe("MockExchangeFeed", () => {
 
     it("cancelOrder hibát dob ismeretlen order-re", async () => {
       await feed.open();
-      await expect(
-        feed.cancelOrder("nonexistent" as ClientOrderId, BTC_USDC),
-      ).rejects.toThrow("ismeretlen order");
+      await expect(feed.cancelOrder("nonexistent" as ClientOrderId, BTC_USDC)).rejects.toThrow(
+        "ismeretlen order",
+      );
     });
 
     it("fetchOrder visszaadja az order-t", async () => {
@@ -244,9 +267,9 @@ describe("MockExchangeFeed", () => {
 
     it("fetchOrder hibát dob ismeretlen order-re", async () => {
       await feed.open();
-      await expect(
-        feed.fetchOrder("nonexistent" as ClientOrderId, BTC_USDC),
-      ).rejects.toThrow("ismeretlen order");
+      await expect(feed.fetchOrder("nonexistent" as ClientOrderId, BTC_USDC)).rejects.toThrow(
+        "ismeretlen order",
+      );
     });
 
     it("fetchOpenOrders csak az open státuszúakat adja", async () => {
@@ -322,15 +345,11 @@ describe("MockExchangeFeed", () => {
     });
 
     it("cancelOrder hibát dob", async () => {
-      await expect(
-        feed.cancelOrder("x" as ClientOrderId, BTC_USDC),
-      ).rejects.toThrow("nincs megnyitva");
+      await expect(feed.cancelOrder("x" as ClientOrderId, BTC_USDC)).rejects.toThrow("nincs megnyitva");
     });
 
     it("fetchOrder hibát dob", async () => {
-      await expect(
-        feed.fetchOrder("x" as ClientOrderId, BTC_USDC),
-      ).rejects.toThrow("nincs megnyitva");
+      await expect(feed.fetchOrder("x" as ClientOrderId, BTC_USDC)).rejects.toThrow("nincs megnyitva");
     });
 
     it("fetchOpenOrders hibát dob", async () => {

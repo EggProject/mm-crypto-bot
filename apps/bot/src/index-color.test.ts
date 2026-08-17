@@ -34,7 +34,9 @@ describe("mm-bot --color entry", () => {
     process.argv = [...originalArgv.slice(0, 2), "help", "--color"];
     const originalExit = process.exit;
     const originalConsoleError = console.error;
-    const exitSpy = spyOn(process, "exit").mockImplementation((code) => { throw new ExitIntercept(code); });
+    const exitSpy = spyOn(process, "exit").mockImplementation((code) => {
+      throw new ExitIntercept(code);
+    });
     const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
     try {
       await import("./index.js");

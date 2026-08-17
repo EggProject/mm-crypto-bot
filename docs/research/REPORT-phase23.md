@@ -16,11 +16,11 @@ Phase 23 #1 aimed to test whether a **calibration sweet spot** exists for the `b
 The 12-backtest empirical sweep (4 kelly-fractions × 3 symbols, 1d timeframe, 1:10 leverage) **collapses to 3 distinct cells — one per symbol — regardless of kelly-fraction**:
 
 | kelly-fraction | BTC monthly% | ETH monthly% | SOL monthly% | Portfolio avg monthly% | Δ(pp) vs Phase 19 #1 1d baseline |
-|---------------:|-------------:|-------------:|-------------:|-----------------------:|---------------------------------:|
-| 0.25 | +0.0458 | +0.0933 | +0.0821 | +0.0737 | **−0.0040** |
-| 0.50 | +0.0458 | +0.0933 | +0.0821 | +0.0737 | **−0.0040** |
-| 0.75 | +0.0458 | +0.0933 | +0.0821 | +0.0737 | **−0.0040** |
-| 1.00 | +0.0458 | +0.0933 | +0.0821 | +0.0737 | **−0.0040** |
+| -------------: | -----------: | -----------: | -----------: | ---------------------: | -------------------------------: |
+|           0.25 |      +0.0458 |      +0.0933 |      +0.0821 |                +0.0737 |                      **−0.0040** |
+|           0.50 |      +0.0458 |      +0.0933 |      +0.0821 |                +0.0737 |                      **−0.0040** |
+|           0.75 |      +0.0458 |      +0.0933 |      +0.0821 |                +0.0737 |                      **−0.0040** |
+|           1.00 |      +0.0458 |      +0.0933 |      +0.0821 |                +0.0737 |                      **−0.0040** |
 
 **Source:** `backtest-results/phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-{btc,eth,sol}-1d.json` (12 files) + `backtest-results/phase23-envelope-comparison.summary.json` `portfolioAvgPerKellyFraction` (lines 422-447). The `Δ(pp) vs Phase 19 #1 1d baseline` comes from `liftTable` (lines 324-421).
 
@@ -32,16 +32,17 @@ The 12-backtest empirical sweep (4 kelly-fractions × 3 symbols, 1d timeframe, 1
 
 ### Headline finding table
 
-| Metric | Phase 19 #1 1d baseline (avg) | Phase 23 #1 HybridKelly (avg across 4 kelly-fractions) | Δ(pp) |
-|---|---:|---:|---:|
-| Monthly return % | +0.0776 | +0.0737 | **−0.0040** (NEGATIVE) |
-| Max DD (worst-of-3) | 5.53% (BTC) | 5.10% (BTC) | **−0.43 pp** (DD falls slightly — pure artifact of the equity curve running 2 more days, see §9.1) |
-| Trade count (BTC/ETH/SOL sum) | 71 | 71 | **0** (byte-identical per symbol) |
-| Win-rate (BTC/ETH/SOL avg) | 58.36% | 58.36% | **0.00 pp** (byte-identical per symbol) |
-| Kill-switch triggered | false × 3 | false × 12 | (identical) |
-| 1:10 leverage audit (worst avg) | n/a | 8.32× (BTC) | **PASS** — well under 10× |
+| Metric                          | Phase 19 #1 1d baseline (avg) | Phase 23 #1 HybridKelly (avg across 4 kelly-fractions) |                                                                                              Δ(pp) |
+| ------------------------------- | ----------------------------: | -----------------------------------------------------: | -------------------------------------------------------------------------------------------------: |
+| Monthly return %                |                       +0.0776 |                                                +0.0737 |                                                                             **−0.0040** (NEGATIVE) |
+| Max DD (worst-of-3)             |                   5.53% (BTC) |                                            5.10% (BTC) | **−0.43 pp** (DD falls slightly — pure artifact of the equity curve running 2 more days, see §9.1) |
+| Trade count (BTC/ETH/SOL sum)   |                            71 |                                                     71 |                                                                  **0** (byte-identical per symbol) |
+| Win-rate (BTC/ETH/SOL avg)      |                        58.36% |                                                 58.36% |                                                            **0.00 pp** (byte-identical per symbol) |
+| Kill-switch triggered           |                     false × 3 |                                             false × 12 |                                                                                        (identical) |
+| 1:10 leverage audit (worst avg) |                           n/a |                                            8.32× (BTC) |                                                                          **PASS** — well under 10× |
 
 **Sources:**
+
 - Phase 19 #1 1d baseline: `backtest-results/baseline-donchian-{btc,eth,sol}-1d.json` (avg of `monthlyReturnPct` field per JSON: BTC 0.03796, ETH 0.10376, SOL 0.09137; avg 0.07770; see `phase23-envelope-comparison.summary.json` lines 283-323).
 - Phase 23 #1 HybridKelly: `backtest-results/phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-{btc,eth,sol}-1d.json` (12 files; values from `withHybridKelly.monthlyReturnPct` field per JSON).
 
@@ -49,12 +50,12 @@ The 12-backtest empirical sweep (4 kelly-fractions × 3 symbols, 1d timeframe, 1
 
 This is **Phase 23 #1's 4th NEGATIVE verdict in a row** in this project:
 
-| Phase | Hypothesis | Empirical verdict | Δ(pp) portfolio avg | Source |
-|---|---|---|---:|---|
-| Phase 20 #1 | Per-Trade Hybrid-Kelly drop-in | **NEGATIVE** | −0.0184 | `docs/research/REPORT-phase20.md` §3.3 |
-| Phase 21 #1 | Regime-conditioned cap (ATR-percentile classifier, 1.0/0.7/0.4 multipliers) | **NEGATIVE** (clean) | −9.83 | `docs/research/REPORT-phase21.md` §3.1 |
-| Phase 22 #1 | Funding-rate carry as 3rd DirectionSignal (2-of-3 STRICT) | **NEGATIVE** (mixed: BTC +0.54pp, ETH +0.11pp, SOL −2.21pp) | −0.52 | `docs/research/REPORT-phase22.md` §1 |
-| **Phase 23 #1** | **HybridKelly kelly-fraction calibration sweep** | **NEGATIVE (silent-no-op at the CLI)** | **−0.0040** (sub-noise) | this report |
+| Phase           | Hypothesis                                                                  | Empirical verdict                                           |     Δ(pp) portfolio avg | Source                                 |
+| --------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------- | ----------------------: | -------------------------------------- |
+| Phase 20 #1     | Per-Trade Hybrid-Kelly drop-in                                              | **NEGATIVE**                                                |                 −0.0184 | `docs/research/REPORT-phase20.md` §3.3 |
+| Phase 21 #1     | Regime-conditioned cap (ATR-percentile classifier, 1.0/0.7/0.4 multipliers) | **NEGATIVE** (clean)                                        |                   −9.83 | `docs/research/REPORT-phase21.md` §3.1 |
+| Phase 22 #1     | Funding-rate carry as 3rd DirectionSignal (2-of-3 STRICT)                   | **NEGATIVE** (mixed: BTC +0.54pp, ETH +0.11pp, SOL −2.21pp) |                   −0.52 | `docs/research/REPORT-phase22.md` §1   |
+| **Phase 23 #1** | **HybridKelly kelly-fraction calibration sweep**                            | **NEGATIVE (silent-no-op at the CLI)**                      | **−0.0040** (sub-noise) | this report                            |
 
 After 4 consecutive negative phases, the empirical envelope has not moved above the Phase 19 #1 1d baseline (0.0776%/mo) or the Phase 19 #1 15m cap-sweep (+32.24%/mo, cap=0.12 1-of-2). The recommendation in §10 is a strategic shift: accept the structural ceiling around +0.5-1.0%/mo for the 1d daily-HybridKelly envelope (Phase 6 verdict), or pivot to live trading with the existing SCv1 baseline (Phase 14E verdict).
 
@@ -68,12 +69,12 @@ After 4 consecutive negative phases, the empirical envelope has not moved above 
 
 ### Pick table
 
-| Pick | Verdict | Notes |
-|---|---|---|
-| Track A: 12 HybridKelly backtests (4 kelly × 3 symbols) | PASS (verifier-confirmed) | All cells use 1d timeframe, 1:10 leverage, $10k initial equity, real Binance OHLCV |
-| Track B: NOT-silent-no-op audit | PASS (within-sweep byte-identical = kelly-fraction has no effect) | Smoking gun: within-sweep diff returns 0 bytes after stripping 4 time-varying fields |
-| Track C: empirical envelope @ 4 kelly-fractions | **NEGATIVE — −0.0040 pp portfolio avg** | All 4 kelly-fractions produce identical output; no sweet spot exists |
-| Recommended action | Drop Phase 23 #1 from the +50%/mo roadmap | See §10 Phase 24 candidates |
+| Pick                                                    | Verdict                                                           | Notes                                                                                |
+| ------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Track A: 12 HybridKelly backtests (4 kelly × 3 symbols) | PASS (verifier-confirmed)                                         | All cells use 1d timeframe, 1:10 leverage, $10k initial equity, real Binance OHLCV   |
+| Track B: NOT-silent-no-op audit                         | PASS (within-sweep byte-identical = kelly-fraction has no effect) | Smoking gun: within-sweep diff returns 0 bytes after stripping 4 time-varying fields |
+| Track C: empirical envelope @ 4 kelly-fractions         | **NEGATIVE — −0.0040 pp portfolio avg**                           | All 4 kelly-fractions produce identical output; no sweet spot exists                 |
+| Recommended action                                      | Drop Phase 23 #1 from the +50%/mo roadmap                         | See §10 Phase 24 candidates                                                          |
 
 ---
 
@@ -105,11 +106,11 @@ The same probe was run for ETH and SOL — all 6 within-symbol comparisons retur
 
 **Only 4 fields differ across the 4 BTC runs** (verified by raw `diff <(jq -S '.' file1) <(jq -S '.' file2)` with no stripping):
 
-| Field | kelly=0.25 | kelly=0.5 | kelly=0.75 | kelly=1.0 |
-|---|---|---|---|---|
-| `metadata.generatedAt` | 20:02:39.978Z | 20:02:57.885Z | 20:03:14.964Z | 20:03:31.851Z |
-| `period.endTime` | 1783454559820 | 1783454577704 | 1783454594885 | 1783454611876 |
-| `period.totalMonths` | 30.185124... | 30.185131... | 30.185137... | 30.185143... |
+| Field                              | kelly=0.25       | kelly=0.5        | kelly=0.75       | kelly=1.0        |
+| ---------------------------------- | ---------------- | ---------------- | ---------------- | ---------------- |
+| `metadata.generatedAt`             | 20:02:39.978Z    | 20:02:57.885Z    | 20:03:14.964Z    | 20:03:31.851Z    |
+| `period.endTime`                   | 1783454559820    | 1783454577704    | 1783454594885    | 1783454611876    |
+| `period.totalMonths`               | 30.185124...     | 30.185131...     | 30.185137...     | 30.185143...     |
 | `withHybridKelly.monthlyReturnPct` | 0.04583273508... | 0.04583272475... | 0.04583271863... | 0.04583271862... |
 
 The first 3 differ because each run was ~18 seconds apart, and `endTime = new Date()` is captured at run time. The 4th differs by 1e-8 (sub-noise) because `monthlyReturn = Math.pow(1 + totalReturn, 1/totalMonths) - 1` amplifies the 1e-6 `totalMonths` drift into a 1e-8 monthly return drift.
@@ -120,19 +121,19 @@ The first 3 differ because each run was ~18 seconds apart, and `endTime = new Da
 
 ### §2.2 Why the phase23 runs differ from `baseline-hybrid-kelly-btc-1d.json` (and why that is NOT a kelly-fraction effect)
 
-Track A's `ENVELOPE-COMPARISON-phase23.md` §5.2 claimed: *"phase23-hybrid-kelly-0.5-btc-1d.json (with `--kelly-fraction=0.5`) is byte-identical to the existing `baseline-hybrid-kelly-btc-1d.json` (run with NO `--kelly-fraction` flag)."* This claim is **partially incorrect** — the diff is NOT empty. The differences are:
+Track A's `ENVELOPE-COMPARISON-phase23.md` §5.2 claimed: _"phase23-hybrid-kelly-0.5-btc-1d.json (with `--kelly-fraction=0.5`) is byte-identical to the existing `baseline-hybrid-kelly-btc-1d.json` (run with NO `--kelly-fraction` flag)."_ This claim is **partially incorrect** — the diff is NOT empty. The differences are:
 
-| Field | phase23-0.5-btc | baseline-hybrid-kelly-btc | Diff | Source |
-|---|---:|---:|---:|---|
-| `metadata.generatedAt` | 2026-07-07T20:02:57.885Z | 2026-07-05T08:20:30.294Z | 2 days, 11h apart | `metadata.generatedAt` field |
-| `totalReturnPct` | 1.3928 | 1.1474 | +0.2454 | `withHybridKelly.totalReturnPct` |
-| `monthlyReturnPct` | 0.04583 | 0.03791 | +0.00792 | `withHybridKelly.monthlyReturnPct` |
-| `sharpeRatio` | 0.1954 | 0.1568 | +0.0386 | `withHybridKelly.sharpeRatio` |
-| `maxDrawdownPct` | 5.0964% | 5.5252% | −0.4288 pp | `withHybridKelly.maxDrawdownPct` |
-| `avgKellyFraction` (sizer) | 0.4156 | 0.4393 | −0.0237 | `withHybridKelly.hybridSizer.avgKellyFraction` |
-| `halfKellyFraction` (bucket) | 0.5432 | 0.2612 | +0.2820 | `withHybridKelly.hybridSizer.kellyBucketDistribution.halfKellyFraction` |
-| `insufficientFraction` (bucket) | 0.1191 | 0.4962 | −0.3771 | `withHybridKelly.hybridSizer.kellyBucketDistribution.insufficientFraction` |
-| `equityCurveSampled[*].equity` | 10086.27 (index 0) | 10094.79 (index 0) | −8.52 per snapshot | `equityCurveSampled` array |
+| Field                           |          phase23-0.5-btc | baseline-hybrid-kelly-btc |               Diff | Source                                                                     |
+| ------------------------------- | -----------------------: | ------------------------: | -----------------: | -------------------------------------------------------------------------- |
+| `metadata.generatedAt`          | 2026-07-07T20:02:57.885Z |  2026-07-05T08:20:30.294Z |  2 days, 11h apart | `metadata.generatedAt` field                                               |
+| `totalReturnPct`                |                   1.3928 |                    1.1474 |            +0.2454 | `withHybridKelly.totalReturnPct`                                           |
+| `monthlyReturnPct`              |                  0.04583 |                   0.03791 |           +0.00792 | `withHybridKelly.monthlyReturnPct`                                         |
+| `sharpeRatio`                   |                   0.1954 |                    0.1568 |            +0.0386 | `withHybridKelly.sharpeRatio`                                              |
+| `maxDrawdownPct`                |                  5.0964% |                   5.5252% |         −0.4288 pp | `withHybridKelly.maxDrawdownPct`                                           |
+| `avgKellyFraction` (sizer)      |                   0.4156 |                    0.4393 |            −0.0237 | `withHybridKelly.hybridSizer.avgKellyFraction`                             |
+| `halfKellyFraction` (bucket)    |                   0.5432 |                    0.2612 |            +0.2820 | `withHybridKelly.hybridSizer.kellyBucketDistribution.halfKellyFraction`    |
+| `insufficientFraction` (bucket) |                   0.1191 |                    0.4962 |            −0.3771 | `withHybridKelly.hybridSizer.kellyBucketDistribution.insufficientFraction` |
+| `equityCurveSampled[*].equity`  |       10086.27 (index 0) |        10094.79 (index 0) | −8.52 per snapshot | `equityCurveSampled` array                                                 |
 
 **Why these differences are NOT a kelly-fraction effect:**
 
@@ -146,17 +147,17 @@ Track A's `ENVELOPE-COMPARISON-phase23.md` §5.2 claimed: *"phase23-hybrid-kelly
 
 **The correct interpretation:** `run-hybrid-kelly.ts` hardcodes `baseKellyFraction: 0.5` (line 225). Both the phase23 runs and the baseline-hybrid-kelly-btc run use the same hardcoded 0.5. The only difference between them is `endTime = Date.now()` at run time. The `kelly-fraction` flag passed via CLI is silently discarded by `parseArgs()`.
 
-**Source:** empirical diff of `backtest-results/phase23-hybrid-kelly-0.5-btc-1d.json` vs `backtest-results/baseline-hybrid-kelly-btc-1d.json` after stripping `metadata.generatedAt`, `period.endTime`, `period.totalMonths`. Result: ~30 lines of difference, all in `equityCurveSampled.equity` (~$8-12 per snapshot) and `withHybridKelly.hybridSizer.kellyBucketDistribution` (from warmer rolling window).
+**Source:** empirical diff of `backtest-results/phase23-hybrid-kelly-0.5-btc-1d.json` vs `backtest-results/baseline-hybrid-kelly-btc-1d.json` after stripping `metadata.generatedAt`, `period.endTime`, `period.totalMonths`. Result: ~~30 lines of difference, all in `equityCurveSampled.equity` (~~$8-12 per snapshot) and `withHybridKelly.hybridSizer.kellyBucketDistribution` (from warmer rolling window).
 
 ### §2.3 Win-rate byte-equal across all kelly-fractions
 
 Per Phase 21 #1 lesson, win-rate per symbol should be byte-equal across the kelly-fractions if the kelly-fraction flag is a no-op (it does not change trade selection, only sizing — but since the flag is ignored, even sizing doesn't change).
 
 | Symbol | kelly=0.25 | kelly=0.5 | kelly=0.75 | kelly=1.0 | Spread (pp) |
-|-------:|-----------:|----------:|-----------:|----------:|------------:|
-| BTC | 53.57% | 53.57% | 53.57% | 53.57% | **0.00** |
-| ETH | 58.33% | 58.33% | 58.33% | 58.33% | **0.00** |
-| SOL | 63.16% | 63.16% | 63.16% | 63.16% | **0.00** |
+| -----: | ---------: | --------: | ---------: | --------: | ----------: |
+|    BTC |     53.57% |    53.57% |     53.57% |    53.57% |    **0.00** |
+|    ETH |     58.33% |    58.33% |     58.33% |    58.33% |    **0.00** |
+|    SOL |     63.16% |    63.16% |     63.16% |    63.16% |    **0.00** |
 
 **Source:** `backtest-results/phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-{btc,eth,sol}-1d.json` `withHybridKelly.winRatePct` field. 0-pp spread is consistent with silent-no-op (per Phase 21 #1 §3.1 lesson: 0-pp spread = pre-validated the negative result).
 
@@ -166,19 +167,19 @@ The walk-forward validator runs 24 folds (180d IS / 30d OOS / 30d step / 0 purge
 
 **Example — fold index 0 (BTC):**
 
-| Field | kelly=0.25 | kelly=0.5 | kelly=0.75 | kelly=1.0 |
-|---|---|---|---|---|
-| `index` | 0 | 0 | 0 | 0 |
-| `trainStart` | 1704067200000 | 1704067200000 | 1704067200000 | 1704067200000 |
-| `trainEnd` | 1719619200000 | 1719619200000 | 1719619200000 | 1719619200000 |
-| `testStart` | 1719619200000 | 1719619200000 | 1719619200000 | 1719619200000 |
-| `testEnd` | 1722211200000 | 1722211200000 | 1722211200000 | 1722211200000 |
-| `trainTradeCount` | 7 | 7 | 7 | 7 |
-| `testTradeCount` | 1 | 1 | 1 | 1 |
-| `trainAvgKellyFraction` | 0.425 | 0.425 | 0.425 | 0.425 |
-| `trainAvgVolMultiplier` | 0.7258 | 0.7258 | 0.7258 | 0.7258 |
-| `testSharpe` | 0 | 0 | 0 | 0 |
-| `testReturn` | 0.0105 | 0.0105 | 0.0105 | 0.0105 |
+| Field                   | kelly=0.25    | kelly=0.5     | kelly=0.75    | kelly=1.0     |
+| ----------------------- | ------------- | ------------- | ------------- | ------------- |
+| `index`                 | 0             | 0             | 0             | 0             |
+| `trainStart`            | 1704067200000 | 1704067200000 | 1704067200000 | 1704067200000 |
+| `trainEnd`              | 1719619200000 | 1719619200000 | 1719619200000 | 1719619200000 |
+| `testStart`             | 1719619200000 | 1719619200000 | 1719619200000 | 1719619200000 |
+| `testEnd`               | 1722211200000 | 1722211200000 | 1722211200000 | 1722211200000 |
+| `trainTradeCount`       | 7             | 7             | 7             | 7             |
+| `testTradeCount`        | 1             | 1             | 1             | 1             |
+| `trainAvgKellyFraction` | 0.425         | 0.425         | 0.425         | 0.425         |
+| `trainAvgVolMultiplier` | 0.7258        | 0.7258        | 0.7258        | 0.7258        |
+| `testSharpe`            | 0             | 0             | 0             | 0             |
+| `testReturn`            | 0.0105        | 0.0105        | 0.0105        | 0.0105        |
 
 **Source:** `backtest-results/phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-btc-1d.json` `walkForward.folds[0]`. All 24 folds × 4 kelly-fractions are byte-identical per symbol.
 
@@ -200,8 +201,14 @@ Line 225 then hardcodes `baseKellyFraction: 0.5`:
 ```typescript
 const hybridConfig: HybridSizerConfig = {
   rollingWindowDays: 30,
-  baseKellyFraction: 0.5,  // hardcoded — CLI flag never reaches here
-  volTargetConfig: { ...DEFAULT_VOL_TARGET_CONFIG, windowDays: 30, targetDailyVol: 0.02, minVolMultiplier: 0.25, maxVolMultiplier: 1.0 },
+  baseKellyFraction: 0.5, // hardcoded — CLI flag never reaches here
+  volTargetConfig: {
+    ...DEFAULT_VOL_TARGET_CONFIG,
+    windowDays: 30,
+    targetDailyVol: 0.02,
+    minVolMultiplier: 0.25,
+    maxVolMultiplier: 1.0,
+  },
   initialEquity: args.initialEquity,
   minTradeCount: 30,
 };
@@ -213,15 +220,15 @@ This is exactly the **"CLI flags must either work or error, never silently no-op
 
 ### §2.6 Comparison with Phase 20 #1 (different angle, same root cause)
 
-| Aspect | Phase 20 #1 | Phase 23 #1 |
-|---|---|---|
-| Flag that was silent no-op | `--use-per-trade-kelly=true` | `--kelly-fraction=<X>` |
-| CLI source location | `run-donchian-pivot-composition.ts` | `run-hybrid-kelly.ts` |
-| `parseArgs()` accepts the flag? | No (unknown → ignored) | No (unknown → ignored) |
-| Hardcoded value | (per-trade Kelly was never engaged; engine calls `runBacktest()` directly without `SignalCenterV1`) | `baseKellyFraction: 0.5` (line 225) |
-| Evidence of no-op | 11043 BTC trades byte-equal between `--use-per-trade-kelly=true` and `--use-per-trade-kelly=false` | All 4 BTC kelly-fractions produce byte-identical output (modulo 4 time-varying fields) |
-| Smoke verification | `phase20-*-true.json` byte-equal to `phase20-*-false.json` | `phase23-0.25-btc-1d.json` byte-equal to `phase23-0.5-btc-1d.json` |
-| Source | `docs/research/REPORT-phase20.md` §3.3 + `docs/research/PHASE-20-21-ARCHIVE.md` §3.1 | this report §2 |
+| Aspect                          | Phase 20 #1                                                                                         | Phase 23 #1                                                                            |
+| ------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Flag that was silent no-op      | `--use-per-trade-kelly=true`                                                                        | `--kelly-fraction=<X>`                                                                 |
+| CLI source location             | `run-donchian-pivot-composition.ts`                                                                 | `run-hybrid-kelly.ts`                                                                  |
+| `parseArgs()` accepts the flag? | No (unknown → ignored)                                                                              | No (unknown → ignored)                                                                 |
+| Hardcoded value                 | (per-trade Kelly was never engaged; engine calls `runBacktest()` directly without `SignalCenterV1`) | `baseKellyFraction: 0.5` (line 225)                                                    |
+| Evidence of no-op               | 11043 BTC trades byte-equal between `--use-per-trade-kelly=true` and `--use-per-trade-kelly=false`  | All 4 BTC kelly-fractions produce byte-identical output (modulo 4 time-varying fields) |
+| Smoke verification              | `phase20-*-true.json` byte-equal to `phase20-*-false.json`                                          | `phase23-0.25-btc-1d.json` byte-equal to `phase23-0.5-btc-1d.json`                     |
+| Source                          | `docs/research/REPORT-phase20.md` §3.3 + `docs/research/PHASE-20-21-ARCHIVE.md` §3.1                | this report §2                                                                         |
 
 **Source:** `docs/research/PHASE-20-21-ARCHIVE.md` §3.1 + §7 (the "CLI flags must either work or error" pattern).
 
@@ -233,7 +240,7 @@ The Phase 20 #1 archive (`docs/research/PHASE-20-21-ARCHIVE.md`) lists 4 structu
 
 ### §3.1 Lesson 1: Regime-INVARIANCE test (skip — not applicable)
 
-This lesson says: "before adding any regime-conditioned sizing to a strategy, run the regime-INVARIANCE test; if win-rate spread < 5pp, the regime classifier is not a winning-trade filter." 
+This lesson says: "before adding any regime-conditioned sizing to a strategy, run the regime-INVARIANCE test; if win-rate spread < 5pp, the regime classifier is not a winning-trade filter."
 
 **Application to Phase 23 #1:** Not directly applicable — Phase 23 #1 is kelly-fraction calibration, not regime-conditioned sizing. However, the parallel lesson (kelly-INVARIANCE test) IS applicable: if win-rate spread is 0pp across kelly-fractions, the kelly-fraction is not a winning-trade filter. **Result: 0pp spread (see §2.3) → pre-validated the negative result.**
 
@@ -271,6 +278,7 @@ The structural lessons from Phase 20-21 did not prevent Phase 22 #1 or Phase 23 
 4. **Phase 23 #1 (HybridKelly kelly-fraction calibration):** NEGATIVE because the CLI is a no-op for `--kelly-fraction`. Module is correct (HybridSizer exists, has unit tests, is invoked from the runner); wire-up is broken (flag never reaches `hybridConfig.baseKellyFraction`).
 
 **Cross-phase insight:** in 3 of 4 negative phases (20, 21, 23), the failure is at the **CLI/wire-up layer**, not the strategy logic. Only Phase 22 #1's failure was at the strategy-composition layer (the carry as 3-source consensus is a trade suppressor). This suggests that future phases should:
+
 - Either add a **new CLI runner** (Phase 22 pattern: new runner with NOT-silent-no-op defense, no modification of existing runners) or
 - Add a **NOT-silent-no-op guard** to existing runners (Phase 22 Track A pattern: hard error if a flag is set but not supported) before attempting empirical measurements.
 
@@ -298,7 +306,7 @@ For the HybridKelly sizer, the per-trade kelly fraction is:
 kellyFraction = clamp(winRate − (1 − winRate) / payoffRatio, 0, 1.0)
 ```
 
-**Source:** Kelly, J. L. (1956). "A New Interpretation of Information Rate." *Bell System Technical Journal* 35(4): 917-926. Thorp, E. O. (2006). "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market." *Handbook of Asset Liability Management* (North-Holland).
+**Source:** Kelly, J. L. (1956). "A New Interpretation of Information Rate." _Bell System Technical Journal_ 35(4): 917-926. Thorp, E. O. (2006). "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market." _Handbook of Asset Liability Management_ (North-Holland).
 
 ### §4.2 HybridSizer's `baseKellyFraction` parameter
 
@@ -325,11 +333,11 @@ The expected pattern: monotonic increase in monthly return with kelly-fraction, 
 **The empirical data shows NO monotonic pattern** because the kelly-fraction flag is silently ignored. All 4 kelly-fractions produce the same notional, the same monthly return, the same DD.
 
 | kelly-fraction (CLI) | BTC monthly% | ETH monthly% | SOL monthly% | avgKellyFraction (HybridSizer) | avgVolMultiplier (HybridSizer) | avgEffectiveLeverage (HybridSizer) |
-|---------------------:|-------------:|-------------:|-------------:|--------------------------------:|--------------------------------:|------------------------------------:|
-| 0.25 | 0.0458 | 0.0933 | 0.0821 | 0.4156 | 0.8323 | 8.32× |
-| 0.50 | 0.0458 | 0.0933 | 0.0821 | 0.4156 | 0.8323 | 8.32× |
-| 0.75 | 0.0458 | 0.0933 | 0.0821 | 0.4156 | 0.8323 | 8.32× |
-| 1.00 | 0.0458 | 0.0933 | 0.0821 | 0.4156 | 0.8323 | 8.32× |
+| -------------------: | -----------: | -----------: | -----------: | -----------------------------: | -----------------------------: | ---------------------------------: |
+|                 0.25 |       0.0458 |       0.0933 |       0.0821 |                         0.4156 |                         0.8323 |                              8.32× |
+|                 0.50 |       0.0458 |       0.0933 |       0.0821 |                         0.4156 |                         0.8323 |                              8.32× |
+|                 0.75 |       0.0458 |       0.0933 |       0.0821 |                         0.4156 |                         0.8323 |                              8.32× |
+|                 1.00 |       0.0458 |       0.0933 |       0.0821 |                         0.4156 |                         0.8323 |                              8.32× |
 
 **Source:** `backtest-results/phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-{btc,eth,sol}-1d.json` `withHybridKelly.monthlyReturnPct` + `withHybridKelly.hybridSizer.{avgKellyFraction,avgVolMultiplier,avgEffectiveLeverage}` fields.
 
@@ -363,45 +371,46 @@ The full 12-cell envelope from `backtest-results/phase23-envelope-comparison.sum
 
 ### §5.1 12-cell raw envelope (HybridKelly @ 4 kelly-fractions × 3 symbols)
 
-| kelly-fraction | symbol | monthly% | maxDD% | trades | win-rate% | sharpe | sortino | avgEffLev | kill-switch | JSON path |
-|---------------:|-------:|---------:|-------:|-------:|----------:|-------:|--------:|----------:|:-----------:|-----------|
-| 0.25 | BTC | +0.0458 | 5.0965 | 28 | 53.57 | 0.1954 | 0.0935 | 8.32× | false | `phase23-hybrid-kelly-0.25-btc-1d.json` |
-| 0.25 | ETH | +0.0933 | 2.7824 | 24 | 58.33 | 0.4408 | 0.2043 | 6.09× | false | `phase23-hybrid-kelly-0.25-eth-1d.json` |
-| 0.25 | SOL | +0.0821 | 3.3868 | 19 | 63.16 | 0.4641 | 0.1627 | 5.21× | false | `phase23-hybrid-kelly-0.25-sol-1d.json` |
-| 0.50 | BTC | +0.0458 | 5.0965 | 28 | 53.57 | 0.1954 | 0.0935 | 8.32× | false | `phase23-hybrid-kelly-0.5-btc-1d.json` |
-| 0.50 | ETH | +0.0933 | 2.7824 | 24 | 58.33 | 0.4408 | 0.2043 | 6.09× | false | `phase23-hybrid-kelly-0.5-eth-1d.json` |
-| 0.50 | SOL | +0.0821 | 3.3868 | 19 | 63.16 | 0.4641 | 0.1627 | 5.21× | false | `phase23-hybrid-kelly-0.5-sol-1d.json` |
-| 0.75 | BTC | +0.0458 | 5.0965 | 28 | 53.57 | 0.1954 | 0.0935 | 8.32× | false | `phase23-hybrid-kelly-0.75-btc-1d.json` |
-| 0.75 | ETH | +0.0933 | 2.7824 | 24 | 58.33 | 0.4408 | 0.2043 | 6.09× | false | `phase23-hybrid-kelly-0.75-eth-1d.json` |
-| 0.75 | SOL | +0.0821 | 3.3868 | 19 | 63.16 | 0.4641 | 0.1627 | 5.21× | false | `phase23-hybrid-kelly-0.75-sol-1d.json` |
-| 1.00 | BTC | +0.0458 | 5.0965 | 28 | 53.57 | 0.1954 | 0.0935 | 8.32× | false | `phase23-hybrid-kelly-1.0-btc-1d.json` |
-| 1.00 | ETH | +0.0933 | 2.7824 | 24 | 58.33 | 0.4408 | 0.2043 | 6.09× | false | `phase23-hybrid-kelly-1.0-eth-1d.json` |
-| 1.00 | SOL | +0.0821 | 3.3868 | 19 | 63.16 | 0.4641 | 0.1627 | 5.21× | false | `phase23-hybrid-kelly-1.0-sol-1d.json` |
+| kelly-fraction | symbol | monthly% | maxDD% | trades | win-rate% | sharpe | sortino | avgEffLev | kill-switch | JSON path                               |
+| -------------: | -----: | -------: | -----: | -----: | --------: | -----: | ------: | --------: | :---------: | --------------------------------------- |
+|           0.25 |    BTC |  +0.0458 | 5.0965 |     28 |     53.57 | 0.1954 |  0.0935 |     8.32× |    false    | `phase23-hybrid-kelly-0.25-btc-1d.json` |
+|           0.25 |    ETH |  +0.0933 | 2.7824 |     24 |     58.33 | 0.4408 |  0.2043 |     6.09× |    false    | `phase23-hybrid-kelly-0.25-eth-1d.json` |
+|           0.25 |    SOL |  +0.0821 | 3.3868 |     19 |     63.16 | 0.4641 |  0.1627 |     5.21× |    false    | `phase23-hybrid-kelly-0.25-sol-1d.json` |
+|           0.50 |    BTC |  +0.0458 | 5.0965 |     28 |     53.57 | 0.1954 |  0.0935 |     8.32× |    false    | `phase23-hybrid-kelly-0.5-btc-1d.json`  |
+|           0.50 |    ETH |  +0.0933 | 2.7824 |     24 |     58.33 | 0.4408 |  0.2043 |     6.09× |    false    | `phase23-hybrid-kelly-0.5-eth-1d.json`  |
+|           0.50 |    SOL |  +0.0821 | 3.3868 |     19 |     63.16 | 0.4641 |  0.1627 |     5.21× |    false    | `phase23-hybrid-kelly-0.5-sol-1d.json`  |
+|           0.75 |    BTC |  +0.0458 | 5.0965 |     28 |     53.57 | 0.1954 |  0.0935 |     8.32× |    false    | `phase23-hybrid-kelly-0.75-btc-1d.json` |
+|           0.75 |    ETH |  +0.0933 | 2.7824 |     24 |     58.33 | 0.4408 |  0.2043 |     6.09× |    false    | `phase23-hybrid-kelly-0.75-eth-1d.json` |
+|           0.75 |    SOL |  +0.0821 | 3.3868 |     19 |     63.16 | 0.4641 |  0.1627 |     5.21× |    false    | `phase23-hybrid-kelly-0.75-sol-1d.json` |
+|           1.00 |    BTC |  +0.0458 | 5.0965 |     28 |     53.57 | 0.1954 |  0.0935 |     8.32× |    false    | `phase23-hybrid-kelly-1.0-btc-1d.json`  |
+|           1.00 |    ETH |  +0.0933 | 2.7824 |     24 |     58.33 | 0.4408 |  0.2043 |     6.09× |    false    | `phase23-hybrid-kelly-1.0-eth-1d.json`  |
+|           1.00 |    SOL |  +0.0821 | 3.3868 |     19 |     63.16 | 0.4641 |  0.1627 |     5.21× |    false    | `phase23-hybrid-kelly-1.0-sol-1d.json`  |
 
 **Critical observation:** the kelly-fraction column has zero effect on any other column. The 12 cells collapse to 3 distinct rows (one per symbol). The values are byte-identical across kelly-fractions (modulo 4 time-varying fields: `metadata.generatedAt`, `period.endTime`, `period.totalMonths`, `withHybridKelly.monthlyReturnPct`).
 
 ### §5.2 Reference baselines (Phase 19 #1 same-config 1d Donchian)
 
-| symbol | monthly% | maxDD% | trades | win-rate% | sharpe | JSON path |
-|-------:|---------:|-------:|-------:|----------:|-------:|-----------|
-| BTC | +0.0380 | 5.5252 | 28 | 53.57 | 0.1568 | `baseline-donchian-btc-1d.json` |
-| ETH | +0.1038 | 3.0880 | 24 | 58.33 | 0.4408 | `baseline-donchian-eth-1d.json` |
-| SOL | +0.0914 | 3.7585 | 19 | 63.16 | 0.4643 | `baseline-donchian-sol-1d.json` |
+| symbol | monthly% | maxDD% | trades | win-rate% | sharpe | JSON path                       |
+| -----: | -------: | -----: | -----: | --------: | -----: | ------------------------------- |
+|    BTC |  +0.0380 | 5.5252 |     28 |     53.57 | 0.1568 | `baseline-donchian-btc-1d.json` |
+|    ETH |  +0.1038 | 3.0880 |     24 |     58.33 | 0.4408 | `baseline-donchian-eth-1d.json` |
+|    SOL |  +0.0914 | 3.7585 |     19 |     63.16 | 0.4643 | `baseline-donchian-sol-1d.json` |
 
 **Source:** `backtest-results/baseline-donchian-{btc,eth,sol}-1d.json` (existing files, no new backtests in Phase 23 #1).
 
 ### §5.3 Lift table (HybridKelly monthly − Phase 19 #1 1d baseline monthly)
 
 | kelly-fraction | BTC lift pp | ETH lift pp | SOL lift pp | Portfolio avg lift pp |
-|---------------:|------------:|------------:|------------:|----------------------:|
-| 0.25 | **+0.0079** | −0.0104 | −0.0093 | −0.0040 |
-| 0.50 | **+0.0079** | −0.0104 | −0.0093 | −0.0040 |
-| 0.75 | **+0.0079** | −0.0104 | −0.0093 | −0.0040 |
-| 1.00 | **+0.0079** | −0.0104 | −0.0093 | −0.0040 |
+| -------------: | ----------: | ----------: | ----------: | --------------------: |
+|           0.25 | **+0.0079** |     −0.0104 |     −0.0093 |               −0.0040 |
+|           0.50 | **+0.0079** |     −0.0104 |     −0.0093 |               −0.0040 |
+|           0.75 | **+0.0079** |     −0.0104 |     −0.0093 |               −0.0040 |
+|           1.00 | **+0.0079** |     −0.0104 |     −0.0093 |               −0.0040 |
 
 **Source:** `backtest-results/phase23-envelope-comparison.summary.json` `liftTable` (lines 324-421). Every kelly-fraction gives the same lift (sub-noise drift of 1e-8). The lift column proves silent-no-op independently from §5.1's table.
 
 **Per-symbol breakdown:**
+
 - **BTC** HybridKelly: +0.0458%/mo vs baseline +0.0380%/mo = **+0.0079 pp lift** (POSITIVE). This lift comes from the warmer rolling window in the phase23 runs (see §2.2) — more `halfKelly` / `quarterKelly` trades, fewer `insufficient` trades.
 - **ETH** HybridKelly: +0.0933%/mo vs baseline +0.1038%/mo = **−0.0104 pp** (NEGATIVE). HybridKelly hurts ETH slightly.
 - **SOL** HybridKelly: +0.0821%/mo vs baseline +0.0914%/mo = **−0.0093 pp** (NEGATIVE). HybridKelly hurts SOL slightly.
@@ -411,10 +420,10 @@ The full 12-cell envelope from `backtest-results/phase23-envelope-comparison.sum
 ### §5.4 HybridSizer internals (byte-identical across kelly-fractions)
 
 | symbol | avgKellyFraction (sizer) | avgVolMultiplier | avgEffectivePositionFactor | avgEffectiveLeverage | halfKelly bucket | quarterKelly bucket | insufficient bucket |
-|-------:|-------------------------:|-----------------:|----------------------------:|---------------------:|-----------------:|--------------------:|--------------------:|
-| BTC | 0.4156 | 0.8323 | 0.3436 | 8.32× | 0.5432 | 0.3377 | 0.1191 |
-| ETH | 0.4331 | 0.6089 | 0.2637 | 6.09× | (per JSON) | (per JSON) | (per JSON) |
-| SOL | 0.4609 | 0.5210 | 0.2401 | 5.21× | (per JSON) | (per JSON) | (per JSON) |
+| -----: | -----------------------: | ---------------: | -------------------------: | -------------------: | ---------------: | ------------------: | ------------------: |
+|    BTC |                   0.4156 |           0.8323 |                     0.3436 |                8.32× |           0.5432 |              0.3377 |              0.1191 |
+|    ETH |                   0.4331 |           0.6089 |                     0.2637 |                6.09× |       (per JSON) |          (per JSON) |          (per JSON) |
+|    SOL |                   0.4609 |           0.5210 |                     0.2401 |                5.21× |       (per JSON) |          (per JSON) |          (per JSON) |
 
 **Source:** `backtest-results/phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-btc-1d.json` `withHybridKelly.hybridSizer` field. All values are byte-identical across the 4 kelly-fractions (within BTC; same pattern for ETH and SOL).
 
@@ -423,10 +432,10 @@ The HybridSizer is computing its own internal kelly-fraction from the rolling 30
 ### §5.5 Walk-forward 24-fold results (byte-identical across kelly-fractions)
 
 | Symbol | Total OOS trades | Aggregate test return | Aggregate test Sharpe | Overfit risk |
-|-------:|-----------------:|----------------------:|----------------------:|:------------:|
-| BTC | 21 | 0.0072 | 0.0551 | **HIGH** |
-| ETH | 16 | 0.0125 | 0.0070 | **HIGH** |
-| SOL | 14 | 0.0040 | 0.1039 | **HIGH** |
+| -----: | ---------------: | --------------------: | --------------------: | :----------: |
+|    BTC |               21 |                0.0072 |                0.0551 |   **HIGH**   |
+|    ETH |               16 |                0.0125 |                0.0070 |   **HIGH**   |
+|    SOL |               14 |                0.0040 |                0.1039 |   **HIGH**   |
 
 **Source:** `backtest-results/phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-{btc,eth,sol}-1d.json` `walkForward.aggregateTestReturn`, `walkForward.aggregateTestSharpe`, `walkForwardOverfitRisk` fields. All values are byte-identical across the 4 kelly-fractions per symbol.
 
@@ -440,12 +449,12 @@ The walk-forward overfit risk is HIGH for all 3 symbols. The 30-month backtest w
 
 ### §6.1 Portfolio avg per kelly-fraction
 
-| kelly-fraction | avg monthlyReturnPct (BTC/ETH/SOL) | max DD across symbols | avg lift pp vs Phase 19 #1 1d baseline | verdict |
-|---------------:|-----------------------------------:|----------------------:|---------------------------------------:|--------:|
-| 0.25 | +0.0737 | 5.10% (BTC) | **−0.0040** | NEGATIVE |
-| 0.50 | +0.0737 | 5.10% (BTC) | **−0.0040** | NEGATIVE |
-| 0.75 | +0.0737 | 5.10% (BTC) | **−0.0040** | NEGATIVE |
-| 1.00 | +0.0737 | 5.10% (BTC) | **−0.0040** | NEGATIVE |
+| kelly-fraction | avg monthlyReturnPct (BTC/ETH/SOL) | max DD across symbols | avg lift pp vs Phase 19 #1 1d baseline |  verdict |
+| -------------: | ---------------------------------: | --------------------: | -------------------------------------: | -------: |
+|           0.25 |                            +0.0737 |           5.10% (BTC) |                            **−0.0040** | NEGATIVE |
+|           0.50 |                            +0.0737 |           5.10% (BTC) |                            **−0.0040** | NEGATIVE |
+|           0.75 |                            +0.0737 |           5.10% (BTC) |                            **−0.0040** | NEGATIVE |
+|           1.00 |                            +0.0737 |           5.10% (BTC) |                            **−0.0040** | NEGATIVE |
 
 **Source:** `backtest-results/phase23-envelope-comparison.summary.json` `portfolioAvgPerKellyFraction` (lines 422-447). The avg monthly return is 0.0737% across all 4 kelly-fractions (sub-noise drift of 1e-8 from `monthlyReturnPct`).
 
@@ -454,11 +463,11 @@ The portfolio avg is **byte-identical across all 4 kelly-fractions** because the
 ### §6.2 Per-symbol portfolio lift (HybridKelly vs Phase 19 #1 1d baseline)
 
 | kelly-fraction | BTC lift pp | ETH lift pp | SOL lift pp | Portfolio avg lift pp |
-|---------------:|------------:|------------:|------------:|----------------------:|
-| 0.25 | **+0.0079** | −0.0104 | −0.0093 | −0.0040 |
-| 0.50 | **+0.0079** | −0.0104 | −0.0093 | −0.0040 |
-| 0.75 | **+0.0079** | −0.0104 | −0.0093 | −0.0040 |
-| 1.00 | **+0.0079** | −0.0104 | −0.0093 | −0.0040 |
+| -------------: | ----------: | ----------: | ----------: | --------------------: |
+|           0.25 | **+0.0079** |     −0.0104 |     −0.0093 |               −0.0040 |
+|           0.50 | **+0.0079** |     −0.0104 |     −0.0093 |               −0.0040 |
+|           0.75 | **+0.0079** |     −0.0104 |     −0.0093 |               −0.0040 |
+|           1.00 | **+0.0079** |     −0.0104 |     −0.0093 |               −0.0040 |
 
 **Per-symbol interpretation (same for all 4 kelly-fractions):**
 
@@ -478,7 +487,7 @@ The brief's hypothesis was: "the calibration sweet spot may lie between 0.25 and
 
 The Phase 19 #1 15m cap-sweep (1-of-2 cap=0.12, 11043 BTC trades per symbol) is the regime where per-trade kelly could matter. But that envelope is a Donchian+Pivot composition, not a single-Donchian HybridKelly baseline. Cross-comparing is not apples-to-apples.
 
-**Source:** `backtest-results/phase23-envelope-comparison.summary.json` `binaryVerdict` (lines 661-665): *"any_kelly_fraction_lifts_portfolio_avg: false; verdict: NEGATIVE — silent-no-op confirms kelly-fraction has no effect on engine. All 4 kelly-fractions produce byte-identical output."*
+**Source:** `backtest-results/phase23-envelope-comparison.summary.json` `binaryVerdict` (lines 661-665): _"any_kelly_fraction_lifts_portfolio_avg: false; verdict: NEGATIVE — silent-no-op confirms kelly-fraction has no effect on engine. All 4 kelly-fractions produce byte-identical output."_
 
 ---
 
@@ -488,38 +497,38 @@ The return-vs-DD curve is per-symbol envelope at each calibration (kelly-fractio
 
 ### §7.1 HybridKelly return-vs-DD curve (byte-identical across 4 kelly-fractions)
 
-| Symbol | monthly% | DD% | monthly%/DD% (risk-adjusted) | Source |
-|-------:|---------:|----:|----------------------------:|--------|
-| BTC | +0.0458 | 5.0965 | 0.0090 | `phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-btc-1d.json` |
-| ETH | +0.0933 | 2.7824 | 0.0335 | `phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-eth-1d.json` |
-| SOL | +0.0821 | 3.3868 | 0.0242 | `phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-sol-1d.json` |
-| **Portfolio avg** | **+0.0737** | **5.0965 (worst-of-3, BTC)** | **0.0145** | `phase23-envelope-comparison.summary.json` `portfolioAvgPerKellyFraction` |
+|            Symbol |    monthly% |                          DD% | monthly%/DD% (risk-adjusted) | Source                                                                    |
+| ----------------: | ----------: | ---------------------------: | ---------------------------: | ------------------------------------------------------------------------- |
+|               BTC |     +0.0458 |                       5.0965 |                       0.0090 | `phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-btc-1d.json`                    |
+|               ETH |     +0.0933 |                       2.7824 |                       0.0335 | `phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-eth-1d.json`                    |
+|               SOL |     +0.0821 |                       3.3868 |                       0.0242 | `phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-sol-1d.json`                    |
+| **Portfolio avg** | **+0.0737** | **5.0965 (worst-of-3, BTC)** |                   **0.0145** | `phase23-envelope-comparison.summary.json` `portfolioAvgPerKellyFraction` |
 
 ### §7.2 Phase 19 #1 1d baseline return-vs-DD curve
 
-| Symbol | monthly% | DD% | monthly%/DD% (risk-adjusted) | Source |
-|-------:|---------:|----:|----------------------------:|--------|
-| BTC | +0.0380 | 5.5252 | 0.0069 | `baseline-donchian-btc-1d.json` |
-| ETH | +0.1038 | 3.0880 | 0.0336 | `baseline-donchian-eth-1d.json` |
-| SOL | +0.0914 | 3.7585 | 0.0243 | `baseline-donchian-sol-1d.json` |
-| **Portfolio avg** | **+0.0776** | **5.5252 (worst-of-3, BTC)** | **0.0140** | `phase23-envelope-comparison.summary.json` `referenceBaselines` |
+|            Symbol |    monthly% |                          DD% | monthly%/DD% (risk-adjusted) | Source                                                          |
+| ----------------: | ----------: | ---------------------------: | ---------------------------: | --------------------------------------------------------------- |
+|               BTC |     +0.0380 |                       5.5252 |                       0.0069 | `baseline-donchian-btc-1d.json`                                 |
+|               ETH |     +0.1038 |                       3.0880 |                       0.0336 | `baseline-donchian-eth-1d.json`                                 |
+|               SOL |     +0.0914 |                       3.7585 |                       0.0243 | `baseline-donchian-sol-1d.json`                                 |
+| **Portfolio avg** | **+0.0776** | **5.5252 (worst-of-3, BTC)** |                   **0.0140** | `phase23-envelope-comparison.summary.json` `referenceBaselines` |
 
 ### §7.3 Return-vs-DD shape comparison
 
-| Metric | Phase 19 #1 1d baseline | Phase 23 #1 HybridKelly | Δ |
-|---|---:|---:|---:|
-| BTC monthly% | +0.0380 | +0.0458 | **+0.0079** |
-| BTC DD% | 5.5252 | 5.0965 | **−0.43 pp** |
-| BTC monthly%/DD% | 0.0069 | 0.0090 | **+0.0021** |
-| ETH monthly% | +0.1038 | +0.0933 | **−0.0104** |
-| ETH DD% | 3.0880 | 2.7824 | **−0.31 pp** |
-| ETH monthly%/DD% | 0.0336 | 0.0335 | **−0.0001** |
-| SOL monthly% | +0.0914 | +0.0821 | **−0.0093** |
-| SOL DD% | 3.7585 | 3.3868 | **−0.37 pp** |
-| SOL monthly%/DD% | 0.0243 | 0.0242 | **−0.0001** |
-| **Portfolio avg monthly%** | +0.0776 | +0.0737 | **−0.0040** |
-| **Worst-of-3 DD%** | 5.5252 (BTC) | 5.0965 (BTC) | **−0.43 pp** |
-| **Portfolio monthly%/DD%** | 0.0140 | 0.0145 | **+0.0005** |
+| Metric                     | Phase 19 #1 1d baseline | Phase 23 #1 HybridKelly |            Δ |
+| -------------------------- | ----------------------: | ----------------------: | -----------: |
+| BTC monthly%               |                 +0.0380 |                 +0.0458 |  **+0.0079** |
+| BTC DD%                    |                  5.5252 |                  5.0965 | **−0.43 pp** |
+| BTC monthly%/DD%           |                  0.0069 |                  0.0090 |  **+0.0021** |
+| ETH monthly%               |                 +0.1038 |                 +0.0933 |  **−0.0104** |
+| ETH DD%                    |                  3.0880 |                  2.7824 | **−0.31 pp** |
+| ETH monthly%/DD%           |                  0.0336 |                  0.0335 |  **−0.0001** |
+| SOL monthly%               |                 +0.0914 |                 +0.0821 |  **−0.0093** |
+| SOL DD%                    |                  3.7585 |                  3.3868 | **−0.37 pp** |
+| SOL monthly%/DD%           |                  0.0243 |                  0.0242 |  **−0.0001** |
+| **Portfolio avg monthly%** |                 +0.0776 |                 +0.0737 |  **−0.0040** |
+| **Worst-of-3 DD%**         |            5.5252 (BTC) |            5.0965 (BTC) | **−0.43 pp** |
+| **Portfolio monthly%/DD%** |                  0.0140 |                  0.0145 |  **+0.0005** |
 
 **Source:** comparison of `phase23-envelope-comparison.summary.json` `hybridKellyCells` and `referenceBaselines`.
 
@@ -537,13 +546,13 @@ The DD drop is from the HybridKelly's vol-target constraint (which reduces notio
 
 The +50%/mo goal needs to compound from the current envelope. The Phase 19 #1 cap-sweep (1-of-2 cap=0.12) gives +32.24%/mo portfolio avg at 4.70% DD — the closest this project has come to +50%/mo. The +50%/mo gap is **1.55× short** at the headline cap=0.12.
 
-| Phase | Portfolio avg monthly% | +50%/mo is X× short | DD% (worst) | Source |
-|---|---:|---:|---:|---|
-| Phase 19 #1 (cap=0.12 1-of-2) | **+32.24%** | **1.551×** | 4.70% (SOL) | `phase19-cap-sweep-1of2-sol-15m-0.12.json` |
-| Phase 19 #1 (cap=0.15 1-of-2) | **+35.71%** | **1.400×** | 5.84% (SOL) | `phase19-cap-sweep-1of2-sol-15m-0.15.json` |
-| Phase 22 #1 (cap=0.12 1-of-2 + carry 2of3) | +31.72% | 1.576× (REGRESSED) | 4.70% (SOL) | `phase22-funding-rate-carry-2of3-sol-15m-0.12.json` |
-| **Phase 23 #1 (1d HybridKelly @ 4 kelly-fractions)** | **+0.0737%** | **678×** | 5.10% (BTC) | `phase23-envelope-comparison.summary.json` `portfolioAvgPerKellyFraction` |
-| **Phase 19 #1 1d Donchian baseline (same-config)** | **+0.0776%** | **644×** | 5.53% (BTC) | `baseline-donchian-{btc,eth,sol}-1d.json` |
+| Phase                                                | Portfolio avg monthly% | +50%/mo is X× short | DD% (worst) | Source                                                                    |
+| ---------------------------------------------------- | ---------------------: | ------------------: | ----------: | ------------------------------------------------------------------------- |
+| Phase 19 #1 (cap=0.12 1-of-2)                        |            **+32.24%** |          **1.551×** | 4.70% (SOL) | `phase19-cap-sweep-1of2-sol-15m-0.12.json`                                |
+| Phase 19 #1 (cap=0.15 1-of-2)                        |            **+35.71%** |          **1.400×** | 5.84% (SOL) | `phase19-cap-sweep-1of2-sol-15m-0.15.json`                                |
+| Phase 22 #1 (cap=0.12 1-of-2 + carry 2of3)           |                +31.72% |  1.576× (REGRESSED) | 4.70% (SOL) | `phase22-funding-rate-carry-2of3-sol-15m-0.12.json`                       |
+| **Phase 23 #1 (1d HybridKelly @ 4 kelly-fractions)** |           **+0.0737%** |            **678×** | 5.10% (BTC) | `phase23-envelope-comparison.summary.json` `portfolioAvgPerKellyFraction` |
+| **Phase 19 #1 1d Donchian baseline (same-config)**   |           **+0.0776%** |            **644×** | 5.53% (BTC) | `baseline-donchian-{btc,eth,sol}-1d.json`                                 |
 
 **The 1d envelopes are NOT on the +50%/mo trajectory.** The 1d timeframe is 30× thinner than the 15m timeframe (28 BTC trades vs ~11000 BTC trades over the 30-month window). The monthly compounding is correspondingly smaller. The Phase 23 #1 portfolio avg of +0.0737%/mo is **678× short** of +50%/mo — the gap is not closeable by tweaking the 1d envelope.
 
@@ -570,12 +579,12 @@ The expected pattern: monotonic increase in monthly return with kelly-fraction, 
 
 The +50%/mo gap lives in the **15m cap-sweep regime** (Phase 19 #1). The 1d HybridKelly regime (Phase 23 #1) is structurally a different strategy, not a tweak on the +50%/mo path.
 
-| Strategy variant | Timeframe | Trades per symbol | Portfolio avg | DD | Source |
-|---|---|---:|---:|---:|---|
-| Donchian + Pivot (1-of-2 cap=0.12) | 15m | ~11000 | +32.24% | 4.70% | `phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.12.json` |
-| Donchian + Pivot (1-of-2 cap=0.15) | 15m | ~11000 | +35.71% | 5.84% | `phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.15.json` |
-| Single Donchian + HybridKelly (baseKelly=0.5) | 1d | 28/24/19 | +0.0737% | 5.10% | `phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-{btc,eth,sol}-1d.json` |
-| Single Donchian (no Kelly) | 1d | 28/24/19 | +0.0776% | 5.53% | `baseline-donchian-{btc,eth,sol}-1d.json` |
+| Strategy variant                              | Timeframe | Trades per symbol | Portfolio avg |    DD | Source                                                           |
+| --------------------------------------------- | --------- | ----------------: | ------------: | ----: | ---------------------------------------------------------------- |
+| Donchian + Pivot (1-of-2 cap=0.12)            | 15m       |            ~11000 |       +32.24% | 4.70% | `phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.12.json`             |
+| Donchian + Pivot (1-of-2 cap=0.15)            | 15m       |            ~11000 |       +35.71% | 5.84% | `phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.15.json`             |
+| Single Donchian + HybridKelly (baseKelly=0.5) | 1d        |          28/24/19 |      +0.0737% | 5.10% | `phase23-hybrid-kelly-{0.25,0.5,0.75,1.0}-{btc,eth,sol}-1d.json` |
+| Single Donchian (no Kelly)                    | 1d        |          28/24/19 |      +0.0776% | 5.53% | `baseline-donchian-{btc,eth,sol}-1d.json`                        |
 
 The 1d envelopes are 400× thinner than the 15m envelopes. Closing the +50%/mo gap requires a strategy that lives in the 15m regime (or faster), not a parameter tweak on the 1d regime.
 
@@ -594,7 +603,7 @@ The 12 phase23 runs were generated on 2026-07-07 20:02-20:04 UTC. The reference 
 
 This is a **cosmetic** difference, not a substantive one. The trade-stream itself (entryTime, side, notionalUsd) is byte-identical between the phase23 runs and the baseline-hybrid-kelly-btc-1d.json. The 2-day endTime drift does NOT affect the kelly-fraction finding.
 
-**Source:** empirical diff of `phase23-hybrid-kelly-0.5-btc-1d.json` vs `baseline-hybrid-kelly-btc-1d.json` (with stripping of `metadata.generatedAt`, `period.endTime`, `period.totalMonths`). Differences: ~30 lines in `equityCurveSampled.equity` (~$8-12 per snapshot) + 4 fields in `withHybridKelly.hybridSizer.kellyBucketDistribution`.
+**Source:** empirical diff of `phase23-hybrid-kelly-0.5-btc-1d.json` vs `baseline-hybrid-kelly-btc-1d.json` (with stripping of `metadata.generatedAt`, `period.endTime`, `period.totalMonths`). Differences: ~~30 lines in `equityCurveSampled.equity` (~~$8-12 per snapshot) + 4 fields in `withHybridKelly.hybridSizer.kellyBucketDistribution`.
 
 ### §9.2 Walk-forward overfit risk
 
@@ -667,6 +676,7 @@ The only sizing-up overlay that has been shown to work is **cap-vs-DD knee tunin
 **Pursue option 1 (pivot to live trading) as the primary Phase 24 candidate.** The empirical evidence from 4 consecutive NEGATIVE phases (20, 21, 22, 23) says signal-source overlays and per-trade sizing modifiers do not close the +50%/mo gap on this edge. The Phase 19 #1 15m cap-sweep at 1-of-2 cap=0.12 (+32.24%/mo at 4.70% DD) is the most realistic near-term envelope.
 
 Live trading requires:
+
 - Exchange selection (Binance or OKX; bybit.eu restricted per MiCAR EU 2023/1114).
 - Slippage modeling (the 15m cap-sweep assumes zero slippage; realistic slippage is 1-3 bps per side, which drags the monthly return by 0.5-1.5 pp).
 - Funding-rate modeling (perpetuals pay/receive funding every 8h; the carry is a real cost/income on open positions).
@@ -686,15 +696,17 @@ If both options fail, fall back to option 3 (cross-DEX funding arb) for incremen
 
 ### §10.5 The 4-NEGATIVE-streak observation (Phase 20, 21, 22, 23)
 
-Per the brief: *"3-negative-streak observation: this is Phase 23's 4th consecutive NEGATIVE phase. Document this honestly in NEGATIVE-RESULT.md and recommend a strategic shift in Phase 24."*
+Per the brief: _"3-negative-streak observation: this is Phase 23's 4th consecutive NEGATIVE phase. Document this honestly in NEGATIVE-RESULT.md and recommend a strategic shift in Phase 24."_
 
 The 4 consecutive NEGATIVE phases are:
+
 1. Phase 20 #1 (per-trade Hybrid-Kelly): NEGATIVE — CLI silent no-op
 2. Phase 21 #1 (regime-conditioned cap): NEGATIVE — regime-INVARIANT
 3. Phase 22 #1 (funding-rate carry): NEGATIVE — trade suppressor
 4. Phase 23 #1 (HybridKelly kelly-fraction): NEGATIVE — CLI silent no-op (Phase 20 #1 reproduced from a different angle)
 
 **Strategic shift recommendation:** move away from per-trade sizing modifiers and signal-source overlays. The empirical edge is regime-INVARIANT and sizing-INVARIANT at the per-bar level. The remaining levers are:
+
 - **Cap-vs-DD knee tuning** (Phase 19 #1 lever, not yet exhausted at cap > 0.15).
 - **Live trading execution** (Phase 14E lever, not yet attempted with the 15m cap-sweep).
 - **Cross-DEX funding arb** (Phase 22 #1 secondary pivot, not yet attempted).
@@ -738,7 +750,7 @@ Phase 24 should pursue one of these. The most realistic near-term is option 1 (l
 ### §11.7 NOT-silent-no-op audit (Phase 20 #1 lesson applied)
 
 - **Within-sweep diff (kelly=0.25 vs 0.5 vs 0.75 vs 1.0):** ZERO bytes after stripping 4 time-varying fields. **Verdict: PASS — kelly-fraction has no effect (silent no-op confirmed).**
-- **Cross-reference (phase23-0.5-btc vs baseline-hybrid-kelly-btc):** ~30 lines of difference, all from `equityCurveSampled.equity` (~$8-12 per snapshot) and `withHybridKelly.hybridSizer.kellyBucketDistribution` (warmer rolling window). **Verdict: differences are from endTime drift (2 days), NOT from kelly-fraction effect.**
+- **Cross-reference (phase23-0.5-btc vs baseline-hybrid-kelly-btc):** ~~30 lines of difference, all from `equityCurveSampled.equity` (~~$8-12 per snapshot) and `withHybridKelly.hybridSizer.kellyBucketDistribution` (warmer rolling window). **Verdict: differences are from endTime drift (2 days), NOT from kelly-fraction effect.**
 - **Source:** empirical diff in this report §2.1 + §2.2.
 
 ### §11.8 PR + CI
@@ -770,6 +782,7 @@ Phase 24 should pursue one of these. The most realistic near-term is option 1 (l
 **Root cause:** `packages/backtest-tools/src/cli/run-hybrid-kelly.ts` `parseArgs()` (lines 74-107) does NOT have a `--kelly-fraction` branch. Unknown flags are silently ignored. The CLI hardcodes `baseKellyFraction: 0.5` (line 225) — this is what runs every time, regardless of the user-supplied flag value.
 
 **Empirical evidence:**
+
 - 12 backtests collapse to 3 distinct cells (one per symbol). The kelly-fraction has zero measurable effect.
 - Within-sweep diff (kelly=0.25 vs 0.5 vs 0.75 vs 1.0): EMPTY after stripping 4 time-varying fields.
 - Per-symbol win-rate spread: 0 pp across all kelly-fractions.
@@ -783,6 +796,7 @@ Phase 24 should pursue one of these. The most realistic near-term is option 1 (l
 **4-NEGATIVE-streak observation:** this is Phase 23 #1's 4th consecutive NEGATIVE phase in this project. The structural pattern is that the Donchian edge is regime-INVARIANT and sizing-INVARIANT at the per-bar level. Sizing-down overlays drag geometric compounding without filtering out losers; sizing-up overlays (which we haven't tried) might lift the envelope but also lift DD proportionally. The lever that has been shown to work is cap-vs-DD knee tuning (Phase 19 #1).
 
 **Source code fix path (carry-forward to Phase 24+):** to make `--kelly-fraction` actually work, the CLI needs:
+
 1. Add `--kelly-fraction` to `run-hybrid-kelly.ts` `parseArgs()` with validation (rejects values outside [0, 1]).
 2. Pass the parsed value through to `hybridConfig.baseKellyFraction` on line 225.
 3. Add NOT-silent-no-op guard: at startup, if `--kelly-fraction !== parsed-value`, hard error.

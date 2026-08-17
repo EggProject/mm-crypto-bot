@@ -166,7 +166,7 @@ max_leverage = 15
   it("REJECTS bot.mode = 'invalid' (enum)", () => {
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
     const path = join(dir, "mode-violation.toml");
-    writeFileSync(path, "[bot]\nmode = \"invalid\"\n", "utf8");
+    writeFileSync(path, '[bot]\nmode = "invalid"\n', "utf8");
     try {
       expect(() => loadBotConfig(path)).toThrow(/bot\.mode/);
     } finally {
@@ -221,9 +221,7 @@ custom_field_v2 = "future use case"
       // `min_consensus` is typed/validated, while unrelated future fields
       // continue to pass through the shared strategy schema.
       expect(section.min_consensus).toBe(1);
-      expect((section as { custom_field_v2?: string }).custom_field_v2).toBe(
-        "future use case",
-      );
+      expect((section as { custom_field_v2?: string }).custom_field_v2).toBe("future use case");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -298,8 +296,7 @@ notional_per_leg_usd = 250000
       const config = loadBotConfig(path);
       // Overridden via TOML
       expect(
-        (config.strategies.dydx_cex_carry as { notional_per_leg_usd?: number })
-          .notional_per_leg_usd,
+        (config.strategies.dydx_cex_carry as { notional_per_leg_usd?: number }).notional_per_leg_usd,
       ).toBe(250_000);
       // Preserved default
       expect(config.strategies.dydx_cex_carry.cap).toBe(0.025);
@@ -352,7 +349,7 @@ notional_per_leg_usd = 250000
   it("Phase 37 Track 5: exchange.endpoint accepts a valid HTTPS URL", () => {
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
     const path = join(dir, "tokyo.toml");
-    writeFileSync(path, "[exchange]\nendpoint = \"https://api.bybit.jp\"\n", "utf8");
+    writeFileSync(path, '[exchange]\nendpoint = "https://api.bybit.jp"\n', "utf8");
     try {
       const config = loadBotConfig(path);
       expect(config.exchange.endpoint).toBe("https://api.bybit.jp");
@@ -367,7 +364,7 @@ notional_per_leg_usd = 250000
   it("Phase 37 Track 5: REJECTS exchange.endpoint = 'not-a-url'", () => {
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
     const path = join(dir, "bad-endpoint.toml");
-    writeFileSync(path, "[exchange]\nendpoint = \"not-a-url\"\n", "utf8");
+    writeFileSync(path, '[exchange]\nendpoint = "not-a-url"\n', "utf8");
     try {
       let caught: unknown;
       try {
@@ -428,7 +425,7 @@ notional_per_leg_usd = 250000
   it("Phase 37 Track 5: exchange.ws_endpoint accepts a valid wss URL", () => {
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
     const path = join(dir, "tokyo-ws.toml");
-    writeFileSync(path, "[exchange]\nws_endpoint = \"wss://stream.bybit.jp\"\n", "utf8");
+    writeFileSync(path, '[exchange]\nws_endpoint = "wss://stream.bybit.jp"\n', "utf8");
     try {
       const config = loadBotConfig(path);
       expect(config.exchange.ws_endpoint).toBe("wss://stream.bybit.jp");
@@ -450,10 +447,10 @@ notional_per_leg_usd = 250000
   // --------------------------------------------------------------------------
   // 19) Phase 37 Track 5 — compliance.jurisdiction accepts "JP"
   // --------------------------------------------------------------------------
-  it("Phase 37 Track 5: compliance.jurisdiction accepts \"JP\"", () => {
+  it('Phase 37 Track 5: compliance.jurisdiction accepts "JP"', () => {
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
     const path = join(dir, "jp-jur.toml");
-    writeFileSync(path, "[compliance]\njurisdiction = \"JP\"\n", "utf8");
+    writeFileSync(path, '[compliance]\njurisdiction = "JP"\n', "utf8");
     try {
       const config = loadBotConfig(path);
       expect(config.compliance.jurisdiction).toBe("JP");
@@ -468,7 +465,7 @@ notional_per_leg_usd = 250000
   it("Phase 37 Track 5: REJECTS compliance.jurisdiction = 'US' (unknown)", () => {
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
     const path = join(dir, "bad-jur.toml");
-    writeFileSync(path, "[compliance]\njurisdiction = \"US\"\n", "utf8");
+    writeFileSync(path, '[compliance]\njurisdiction = "US"\n', "utf8");
     try {
       let caught: unknown;
       try {
@@ -510,19 +507,19 @@ notional_per_leg_usd = 250000
       path,
       [
         "[bot]",
-        "mode = \"live\"",
+        'mode = "live"',
         "",
         "[exchange]",
-        "id = \"bybiteu\"",
-        "endpoint = \"https://api.bybit.jp\"",
-        "ws_endpoint = \"wss://stream.bybit.jp\"",
+        'id = "bybiteu"',
+        'endpoint = "https://api.bybit.jp"',
+        'ws_endpoint = "wss://stream.bybit.jp"',
         "timeout_ms = 5000",
         "rate_limit_ms = 80",
         "slippage_pct = 0.03",
-        "fee_tier = \"vip\"",
+        'fee_tier = "vip"',
         "",
         "[compliance]",
-        "jurisdiction = \"JP\"",
+        'jurisdiction = "JP"',
         "jp_msb_registered = false",
         "",
       ].join("\n"),
@@ -603,7 +600,7 @@ describe("env overrides", () => {
   it("env override applies AFTER TOML file content (later wins)", () => {
     const dir = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
     const path = join(dir, "env-wins.toml");
-    writeFileSync(path, "[bot]\nmode = \"paper\"\n", "utf8");
+    writeFileSync(path, '[bot]\nmode = "paper"\n', "utf8");
     process.env["BUN_ENV"] = "live";
     try {
       const config = loadBotConfig(path);

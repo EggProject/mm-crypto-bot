@@ -77,12 +77,13 @@ function parseTimeframesArg(): readonly string[] {
   const arg = process.argv.find((a) => a.startsWith("--timeframes="));
   if (arg === undefined) return DEFAULT_TIMEFRAMES;
   const value = arg.slice("--timeframes=".length);
-  const tfs = value.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  const tfs = value
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
   for (const tf of tfs) {
     if (!SUPPORTED_TIMEFRAMES.includes(tf)) {
-      throw new Error(
-        `Unsupported timeframe: ${tf}. Supported: ${SUPPORTED_TIMEFRAMES.join(", ")}`,
-      );
+      throw new Error(`Unsupported timeframe: ${tf}. Supported: ${SUPPORTED_TIMEFRAMES.join(", ")}`);
     }
   }
   return tfs;
@@ -211,12 +212,10 @@ async function main(): Promise<void> {
     totalRows: fileInfos.reduce((acc, f) => acc + f.rows, 0),
     sha256Algorithm: "sha256",
   };
-  await writeFile(
-    resolve(OUTPUT_DIR, "MANIFEST.json"),
-    JSON.stringify(manifest, null, 2),
-    "utf8",
+  await writeFile(resolve(OUTPUT_DIR, "MANIFEST.json"), JSON.stringify(manifest, null, 2), "utf8");
+  console.log(
+    `[download-ohlcv] MANIFEST.json written (${fileInfos.length} files, ${manifest.totalRows} total rows)`,
   );
-  console.log(`[download-ohlcv] MANIFEST.json written (${fileInfos.length} files, ${manifest.totalRows} total rows)`);
 }
 
 main().catch((err: unknown) => {

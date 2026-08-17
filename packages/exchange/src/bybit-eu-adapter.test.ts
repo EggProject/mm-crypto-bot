@@ -44,10 +44,7 @@ const state: MockModuleState = {
  */
 class MockBybitEu {
   setSandboxMode(value: boolean): void {
-    (state as { sandboxCalls: readonly boolean[] }).sandboxCalls = [
-      ...state.sandboxCalls,
-      value,
-    ];
+    (state as { sandboxCalls: readonly boolean[] }).sandboxCalls = [...state.sandboxCalls, value];
   }
   async loadMarkets(reload?: boolean): Promise<{ readonly __mock: true; readonly reload: boolean }> {
     return { __mock: true, reload: reload ?? false };
@@ -120,9 +117,7 @@ class MockBybitEu {
   ): Promise<{ readonly __mock: true; readonly symbol: string; readonly limit: number }> {
     return { __mock: true, symbol, limit };
   }
-  async watchTicker(
-    symbol: string,
-  ): Promise<{ readonly __mock: true; readonly symbol: string }> {
+  async watchTicker(symbol: string): Promise<{ readonly __mock: true; readonly symbol: string }> {
     return { __mock: true, symbol };
   }
   async watchTrades(
@@ -166,9 +161,7 @@ class MockBybitEu {
   async watchBalance(): Promise<{ readonly __mock: true }> {
     return { __mock: true };
   }
-  async watchPositions(
-    symbols?: string[],
-  ): Promise<{
+  async watchPositions(symbols?: string[]): Promise<{
     readonly __mock: true;
     readonly hasSymbols: boolean;
     readonly symbolCount: number;
@@ -492,17 +485,13 @@ describe("BybitEuAdapter — watchPositions branch coverage", () => {
   it("watchPositions(undefined) a CCXT watchPositions(undefined) ágat hívja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
     await adapter.watchPositions();
-    expect(state.watchPositionsCalls).toEqual([
-      { __mock: true, hasSymbols: false, symbolCount: 0 },
-    ]);
+    expect(state.watchPositionsCalls).toEqual([{ __mock: true, hasSymbols: false, symbolCount: 0 }]);
   });
 
   it("watchPositions(symbols) a CCXT watchPositions(symbols) ágat hívja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
     await adapter.watchPositions(["BTC/USDC"]);
-    expect(state.watchPositionsCalls).toEqual([
-      { __mock: true, hasSymbols: true, symbolCount: 1 },
-    ]);
+    expect(state.watchPositionsCalls).toEqual([{ __mock: true, hasSymbols: true, symbolCount: 1 }]);
   });
 });
 

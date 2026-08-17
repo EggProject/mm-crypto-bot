@@ -4,11 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 import { CsvExchangeFeed } from "../data/csv-feed.js";
-import {
-  calculateMonthlyReturn,
-  parseArgs,
-  runOhlcTrendReplay,
-} from "./run-ohlc-trend-baseline.js";
+import { calculateMonthlyReturn, parseArgs, runOhlcTrendReplay } from "./run-ohlc-trend-baseline.js";
 
 const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 const REAL_DATA_DIR = resolve(ROOT, "data", "ohlcv");
@@ -56,13 +52,16 @@ describe("run-ohlc-trend-baseline — real downloaded CSV", () => {
     const tempDir = mkdtempSync(resolve(tmpdir(), "ohlc-trend-real-cli-"));
     const output = resolve(tempDir, "result.json");
     try {
-      const child = Bun.spawn([
-        "bun",
-        "run",
-        "packages/backtest-tools/src/cli/run-ohlc-trend-baseline.ts",
-        ...REAL_ARGS,
-        `--output=${output}`,
-      ], { cwd: ROOT, stdout: "pipe", stderr: "pipe" });
+      const child = Bun.spawn(
+        [
+          "bun",
+          "run",
+          "packages/backtest-tools/src/cli/run-ohlc-trend-baseline.ts",
+          ...REAL_ARGS,
+          `--output=${output}`,
+        ],
+        { cwd: ROOT, stdout: "pipe", stderr: "pipe" },
+      );
       const [stdout, stderr, exitCode] = await Promise.all([
         new Response(child.stdout).text(),
         new Response(child.stderr).text(),
@@ -79,14 +78,22 @@ describe("run-ohlc-trend-baseline — real downloaded CSV", () => {
         monthlyReturn: number;
         totalMonths: number;
       };
-      expect(parsed.data).toMatchObject({ sourceKind: "downloaded_csv", synthetic: false, candleCount: 1440 });
+      expect(parsed.data).toMatchObject({
+        sourceKind: "downloaded_csv",
+        synthetic: false,
+        candleCount: 1440,
+      });
       expect(parsed.data.path).toBe(resolve(REAL_DATA_DIR, "binance_btc_1h.csv"));
       expect(parsed.result.totalTrades).toBeGreaterThan(0);
       expect(parsed.result.trades.length).toBe(parsed.result.totalTrades);
       expect(parsed.result.maxDrawdown).toBeGreaterThan(0);
       expect(parsed.monthlyReturn).toBeLessThan(0);
       expect(parsed.totalMonths).toBeGreaterThan(1);
-      expect(parsed.costModel).toMatchObject({ takerFeeRate: 0.001, slippageRate: 0.0005, spreadRate: 0.0002 });
+      expect(parsed.costModel).toMatchObject({
+        takerFeeRate: 0.001,
+        slippageRate: 0.0005,
+        spreadRate: 0.0002,
+      });
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }

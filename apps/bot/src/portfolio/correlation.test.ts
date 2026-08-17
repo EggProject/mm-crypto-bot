@@ -30,16 +30,24 @@ describe("CorrelationMatrix", () => {
     });
 
     it("rejects windowSize below minimum", () => {
-      expect(() => new CorrelationMatrix({ windowSize: CORRELATION_HARD_CAPS.windowSizeMin - 1 })).toThrow(RangeError);
+      expect(() => new CorrelationMatrix({ windowSize: CORRELATION_HARD_CAPS.windowSizeMin - 1 })).toThrow(
+        RangeError,
+      );
     });
 
     it("rejects windowSize above maximum", () => {
-      expect(() => new CorrelationMatrix({ windowSize: CORRELATION_HARD_CAPS.windowSizeMax + 1 })).toThrow(RangeError);
+      expect(() => new CorrelationMatrix({ windowSize: CORRELATION_HARD_CAPS.windowSizeMax + 1 })).toThrow(
+        RangeError,
+      );
     });
 
     it("accepts windowSize at boundaries", () => {
-      expect(new CorrelationMatrix({ windowSize: CORRELATION_HARD_CAPS.windowSizeMin }).getWindowSize()).toBe(2);
-      expect(new CorrelationMatrix({ windowSize: CORRELATION_HARD_CAPS.windowSizeMax }).getWindowSize()).toBe(1000);
+      expect(new CorrelationMatrix({ windowSize: CORRELATION_HARD_CAPS.windowSizeMin }).getWindowSize()).toBe(
+        2,
+      );
+      expect(new CorrelationMatrix({ windowSize: CORRELATION_HARD_CAPS.windowSizeMax }).getWindowSize()).toBe(
+        1000,
+      );
     });
   });
 

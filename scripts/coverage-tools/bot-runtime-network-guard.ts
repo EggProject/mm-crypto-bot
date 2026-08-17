@@ -65,25 +65,26 @@ function boundarySpecifications(): readonly BoundarySpecification[] {
 }
 
 function isOutboundNetworkGuard(value: unknown): value is OutboundNetworkGuard {
-  return value !== null
-    && typeof value === "object"
-    && Array.isArray(Reflect.get(value, "attempts"))
-    && Array.isArray(Reflect.get(value, "installedBoundaries"))
-    && typeof Reflect.get(value, "assertNoAttempts") === "function"
-    && typeof Reflect.get(value, "restore") === "function";
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    Array.isArray(Reflect.get(value, "attempts")) &&
+    Array.isArray(Reflect.get(value, "installedBoundaries")) &&
+    typeof Reflect.get(value, "assertNoAttempts") === "function" &&
+    typeof Reflect.get(value, "restore") === "function"
+  );
 }
 
 function installedGuardState(): InstalledGuardState | undefined {
   const value: unknown = Object.getOwnPropertyDescriptor(globalThis, GUARD_STATE_SYMBOL)?.value as unknown;
   if (value === undefined) return undefined;
-  const guard: unknown = value === null || typeof value !== "object"
-    ? undefined
-    : Reflect.get(value, "guard") as unknown;
+  const guard: unknown =
+    value === null || typeof value !== "object" ? undefined : (Reflect.get(value, "guard") as unknown);
   if (
-    value === null
-    || typeof value !== "object"
-    || Reflect.get(value, "schemaVersion") !== 1
-    || !isOutboundNetworkGuard(guard)
+    value === null ||
+    typeof value !== "object" ||
+    Reflect.get(value, "schemaVersion") !== 1 ||
+    !isOutboundNetworkGuard(guard)
   ) {
     throw new Error("outbound network guard global state is malformed");
   }
@@ -117,9 +118,7 @@ export function installOutboundNetworkGuard(): OutboundNetworkGuard {
       if (process.exitCode === undefined || process.exitCode === 0) {
         process.exitCode = NETWORK_ATTEMPT_EXIT_CODE;
       }
-      void process.stderr.write(
-        `[bot-e2e-network-guard] blocked outbound attempt: ${specification.label}\n`,
-      );
+      void process.stderr.write(`[bot-e2e-network-guard] blocked outbound attempt: ${specification.label}\n`);
       throw new OutboundNetworkAttemptError(specification.label);
     };
     Object.defineProperty(specification.target, specification.property, {

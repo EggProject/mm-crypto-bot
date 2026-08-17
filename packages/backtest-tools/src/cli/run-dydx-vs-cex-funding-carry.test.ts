@@ -134,20 +134,15 @@ describe("dYdX coverage gate", () => {
   });
 
   it("a közvetlen bun run belépési pont hibáját nem nulla exit kóddal jelzi", async () => {
-    const child = Bun.spawn([
-      "bun",
-      "run",
-      "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts",
-      "--symbol=doge",
-    ], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stderr, exitCode] = await Promise.all([
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
+    const child = Bun.spawn(
+      ["bun", "run", "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts", "--symbol=doge"],
+      {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [stderr, exitCode] = await Promise.all([new Response(child.stderr).text(), child.exited]);
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain("[dydx-vs-cex] FATAL:");
@@ -180,7 +175,12 @@ describe("simulateDydxVsCexCarry — pure carry math", () => {
 
   it("long dYdX + short CEX: pozitív carry ha mindkettő pozitív", () => {
     const dydx = [
-      { fundingTime: Date.UTC(2025, 3, 1, 0, 0, 0), symbol: "BTC-USD", fundingRate: 0.0001, markPrice: 80_000 },
+      {
+        fundingTime: Date.UTC(2025, 3, 1, 0, 0, 0),
+        symbol: "BTC-USD",
+        fundingRate: 0.0001,
+        markPrice: 80_000,
+      },
     ];
     const cex: FundingSnapshot[] = [
       {
@@ -208,7 +208,12 @@ describe("simulateDydxVsCexCarry — pure carry math", () => {
 
   it("long dYdX: negatív funding = earn (sign-flip a FundingCarry konvencióhoz)", () => {
     const dydx = [
-      { fundingTime: Date.UTC(2025, 3, 1, 0, 0, 0), symbol: "BTC-USD", fundingRate: -0.0001, markPrice: 80_000 },
+      {
+        fundingTime: Date.UTC(2025, 3, 1, 0, 0, 0),
+        symbol: "BTC-USD",
+        fundingRate: -0.0001,
+        markPrice: 80_000,
+      },
     ];
     const cex: FundingSnapshot[] = [];
     const r = simulateDydxVsCexCarry({
@@ -638,10 +643,7 @@ describe("loadCexFundingCsv — CEX funding CSV parser", () => {
   });
 
   it("markPrice nélküli sort is helyesen parsolja (a markPrice mező undefined)", async () => {
-    const csv = [
-      "fundingTime,symbol,fundingRate",
-      "1704067200000,BTCUSDT,0.0001",
-    ].join("\n");
+    const csv = ["fundingTime,symbol,fundingRate", "1704067200000,BTCUSDT,0.0001"].join("\n");
     const csvPath = resolve(tempDir, "no-markprice.csv");
     writeFileSync(csvPath, csv);
 
@@ -773,9 +775,9 @@ describe("printHelp — help szöveg", () => {
 describe("parseArgs — --help / -h", () => {
   it("--help meghívja a printHelp-et és process.exit(0)-át (exit spy-ölve)", () => {
     const logSpy = spyOn(console, "log").mockImplementation(() => undefined);
-    const exitSpy = spyOn(process, "exit").mockImplementation(((
-      _code?: number | string | null,
-    ) => undefined) as typeof process.exit);
+    const exitSpy = spyOn(process, "exit").mockImplementation(
+      ((_code?: number | string | null) => undefined) as typeof process.exit,
+    );
     try {
       // A process.exit le van cserélve → a parseArgs nem állítja le a tesztet.
       parseArgs(["--help"]);
@@ -792,9 +794,9 @@ describe("parseArgs — --help / -h", () => {
 
   it("-h ugyanazt csinálja, mint --help", () => {
     const logSpy = spyOn(console, "log").mockImplementation(() => undefined);
-    const exitSpy = spyOn(process, "exit").mockImplementation(((
-      _code?: number | string | null,
-    ) => undefined) as typeof process.exit);
+    const exitSpy = spyOn(process, "exit").mockImplementation(
+      ((_code?: number | string | null) => undefined) as typeof process.exit,
+    );
     try {
       parseArgs(["-h"]);
       const calls = logSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");
@@ -830,7 +832,9 @@ describe("main() — in-process integration", () => {
     }
   });
 
-  function buildCexCsv(rows: readonly { fundingTime: number; fundingRate: number; markPrice?: number }[]): string {
+  function buildCexCsv(
+    rows: readonly { fundingTime: number; fundingRate: number; markPrice?: number }[],
+  ): string {
     const lines: string[] = ["fundingTime,symbol,fundingRate,markPrice"];
     for (const r of rows) {
       lines.push(`${r.fundingTime},BTCUSDT,${r.fundingRate},${r.markPrice ?? ""}`);
@@ -889,14 +893,17 @@ describe("main() — in-process integration", () => {
     }
 
     expect(existsSync(outFile)).toBe(true);
-    const parsed = JSON.parse(
-      await Bun.file(outFile).text(),
-    ) as {
+    const parsed = JSON.parse(await Bun.file(outFile).text()) as {
       args: { symbol: string; window: string };
       dydxHourlyCount: number;
       cex8hCount: number;
       result: { monthlyCarry: number | null; annualizedReturn: number | null; sharpeRatio: number | null };
-      coverage: { status: string; sufficient: boolean; observedHourlySlots: number; expectedHourlySlots: number };
+      coverage: {
+        status: string;
+        sufficient: boolean;
+        observedHourlySlots: number;
+        expectedHourlySlots: number;
+      };
       verdict: { valid: boolean; classification: string | null; reason: string };
     };
     expect(parsed.args.symbol).toBe("btc");
@@ -933,24 +940,24 @@ describe("main() — in-process integration", () => {
     writeFileSync(cacheFile, gzipSync(csv));
     const outFile = resolve(outputDir, "direct-invalid.json");
 
-    const child = Bun.spawn([
-      "bun",
-      "run",
-      "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts",
-      "--window=2025-Q1",
-      `--funding-csv-dir=${fundingDir}`,
-      `--cache-dir=${cacheDir}`,
-      `--output=${outFile}`,
-      "--skip-tardis-fetch",
-    ], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stdout, exitCode] = await Promise.all([
-      new Response(child.stdout).text(),
-      child.exited,
-    ]);
+    const child = Bun.spawn(
+      [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts",
+        "--window=2025-Q1",
+        `--funding-csv-dir=${fundingDir}`,
+        `--cache-dir=${cacheDir}`,
+        `--output=${outFile}`,
+        "--skip-tardis-fetch",
+      ],
+      {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [stdout, exitCode] = await Promise.all([new Response(child.stdout).text(), child.exited]);
 
     expect(exitCode).toBe(2);
     expect(stdout).toContain("TRACK B EMPIRICAL VERDICT: INVALID");
@@ -1009,9 +1016,7 @@ describe("main() — in-process integration", () => {
     // in-process hívunk, és a promise rejection-t várjuk.
     writeFileSync(
       resolve(fundingDir, "binance_btcusdt_funding_8h.csv"),
-      buildCexCsv([
-        { fundingTime: Date.UTC(2030, 0, 1, 0, 0, 0), fundingRate: 0.0001, markPrice: 100_000 },
-      ]),
+      buildCexCsv([{ fundingTime: Date.UTC(2030, 0, 1, 0, 0, 0), fundingRate: 0.0001, markPrice: 100_000 }]),
     );
 
     const outFile = resolve(outputDir, "result.json");

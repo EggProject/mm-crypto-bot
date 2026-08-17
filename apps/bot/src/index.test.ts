@@ -53,5 +53,4 @@ describe("mm-bot public CLI entry", () => {
     }
     expect((await runCliEntry(["help"])).code).toBe(1);
   });
-
 });

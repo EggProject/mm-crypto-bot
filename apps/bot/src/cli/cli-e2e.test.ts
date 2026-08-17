@@ -45,9 +45,8 @@ async function runCli(
   const workspaceRoot = resolve(import.meta.dir, "../../../..");
   const entry = process.env["MM_BOT_E2E_ENTRY"] ?? resolve(workspaceRoot, "apps/bot/src/index.ts");
   const preload = process.env["MM_BOT_E2E_COVERAGE_PRELOAD"];
-  const cmd = preload === undefined
-    ? ["bun", "run", entry, ...args]
-    : ["bun", "--preload", preload, entry, ...args];
+  const cmd =
+    preload === undefined ? ["bun", "run", entry, ...args] : ["bun", "--preload", preload, entry, ...args];
   const proc = Bun.spawn({
     cmd,
     cwd: workspaceRoot,
@@ -96,11 +95,10 @@ describe("CLI end-to-end", () => {
   //    relocation finalized; 52D makes it the canonical default).
   // --------------------------------------------------------------------------
   it("mm-bot config validate --config=run-bot/config/default.toml exits 0 with OK", async () => {
-    const { code, stdout, stderr } = await runCli([
-      "config",
-      "validate",
-      "--config=run-bot/config/default.toml",
-    ], { caseId: "config-validate-default" });
+    const { code, stdout, stderr } = await runCli(
+      ["config", "validate", "--config=run-bot/config/default.toml"],
+      { caseId: "config-validate-default" },
+    );
     if (code !== 0) {
       // Surface stderr in the failure message for debuggability.
       throw new Error(`expected exit 0, got ${String(code)}\nstdout: ${stdout}\nstderr: ${stderr}`);
@@ -203,7 +201,7 @@ describe("CLI end-to-end", () => {
     });
     expect(code).toBe(1);
     expect(stderr).toContain("Unknown start option");
-    expect(stderr).toContain("mm-bot start --help");
+    expect(stderr).toContain("bun run apps/bot/src/index.ts start --help");
   });
 
   it("mm-bot start rejects an unknown bot setting before runtime startup", async () => {
@@ -247,20 +245,17 @@ describe("CLI end-to-end", () => {
       caseId: "start-help-no-color",
     });
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain("Usage: mm-bot start");
+    expect(result.stderr).toContain("Usage: bun run apps/bot/src/index.ts start");
   });
 
   it("mm-bot start fails closed for a mock config without an injected feed", async () => {
     const directory = mkdtempSync(join(tmpdir(), "mm-bot-start-mock-e2e-"));
     const configPath = join(directory, "mock.toml");
     const stateFile = join(directory, "state.json");
-    await Bun.write(configPath, [
-      "[bot]",
-      `state_file = ${JSON.stringify(stateFile)}`,
-      "",
-      "[exchange]",
-      'id = "mock"',
-    ].join("\n"));
+    await Bun.write(
+      configPath,
+      ["[bot]", `state_file = ${JSON.stringify(stateFile)}`, "", "[exchange]", 'id = "mock"'].join("\n"),
+    );
     try {
       const result = await runCli(["start", `--config=${configPath}`], {
         caseId: "start-mock-no-feed",
@@ -313,7 +308,7 @@ describe("CLI end-to-end", () => {
   it("mm-bot backtest exposes help and rejects each invalid numeric boundary", async () => {
     const help = await runCli(["backtest"], { caseId: "backtest-help" });
     expect(help.code).toBe(0);
-    expect(help.stdout).toContain("Usage: mm-bot backtest");
+    expect(help.stdout).toContain("Usage: bun run apps/bot/src/index.ts backtest");
 
     const bars = await runCli(["backtest", "ohlc-trend", "--bars=49"], {
       caseId: "backtest-invalid-bars",
@@ -347,15 +342,18 @@ describe("CLI end-to-end", () => {
     expect(noTrades.code).toBe(0);
     expect(noTrades.stdout).toContain("No trades were triggered");
 
-    const trades = await runCli([
-      "backtest",
-      "ignored",
-      "--strategy=ohlc-trend",
-      "--bars=600",
-      "--risk-pct=0.02",
-      "--initial-equity=12000",
-      "--timeframe=4h",
-    ], { caseId: "backtest-trades" });
+    const trades = await runCli(
+      [
+        "backtest",
+        "ignored",
+        "--strategy=ohlc-trend",
+        "--bars=600",
+        "--risk-pct=0.02",
+        "--initial-equity=12000",
+        "--timeframe=4h",
+      ],
+      { caseId: "backtest-trades" },
+    );
     expect(trades.code).toBe(0);
     expect(trades.stdout).toContain("Backtest complete");
     expect(trades.stdout).toContain("Timeframe: 4h");
@@ -367,8 +365,8 @@ describe("CLI end-to-end", () => {
     const readyFile = join(dir, "ready");
     const cleanupFile = join(dir, "cleanup");
     const workspaceRoot = resolve(import.meta.dir, "../../../..");
-    const startModule = process.env["MM_BOT_E2E_START_MODULE"]
-      ?? resolve(workspaceRoot, "apps/bot/src/cli/commands/start.ts");
+    const startModule =
+      process.env["MM_BOT_E2E_START_MODULE"] ?? resolve(workspaceRoot, "apps/bot/src/cli/commands/start.ts");
     const defaultsModule = resolve(workspaceRoot, "apps/bot/src/config/defaults.ts");
     const source = [
       `import { runHeadless } from ${JSON.stringify(startModule)};`,
@@ -384,7 +382,8 @@ describe("CLI end-to-end", () => {
     ].join("\n");
     const preload = process.env["MM_BOT_E2E_COVERAGE_PRELOAD"];
     const proc = Bun.spawn({
-      cmd: preload === undefined ? ["bun", "--eval", source] : ["bun", "--preload", preload, "--eval", source],
+      cmd:
+        preload === undefined ? ["bun", "--eval", source] : ["bun", "--preload", preload, "--eval", source],
       cwd: workspaceRoot,
       env: buildBotE2eChildEnvironment(process.env, {
         MM_BOT_E2E_ENTRY_KIND: "canonical-cli",
@@ -424,8 +423,8 @@ describe("CLI end-to-end", () => {
     const readyFile = join(dir, "ready");
     const cleanupFile = join(dir, "cleanup-attempted");
     const workspaceRoot = resolve(import.meta.dir, "../../../..");
-    const startModule = process.env["MM_BOT_E2E_START_MODULE"]
-      ?? resolve(workspaceRoot, "apps/bot/src/cli/commands/start.ts");
+    const startModule =
+      process.env["MM_BOT_E2E_START_MODULE"] ?? resolve(workspaceRoot, "apps/bot/src/cli/commands/start.ts");
     const defaultsModule = resolve(workspaceRoot, "apps/bot/src/config/defaults.ts");
     const source = [
       `import { runHeadless } from ${JSON.stringify(startModule)};`,
@@ -441,7 +440,8 @@ describe("CLI end-to-end", () => {
     ].join("\n");
     const preload = process.env["MM_BOT_E2E_COVERAGE_PRELOAD"];
     const proc = Bun.spawn({
-      cmd: preload === undefined ? ["bun", "--eval", source] : ["bun", "--preload", preload, "--eval", source],
+      cmd:
+        preload === undefined ? ["bun", "--eval", source] : ["bun", "--preload", preload, "--eval", source],
       cwd: workspaceRoot,
       env: buildBotE2eChildEnvironment(process.env, {
         MM_BOT_E2E_ENTRY_KIND: "canonical-cli",
@@ -465,9 +465,7 @@ describe("CLI end-to-end", () => {
       expect(stdout).toBe("");
       expect(stderr).toBe("");
       expect(await Bun.file(cleanupFile).text()).toBe("attempted");
-      expect(await Bun.file(`${stateFile}.log`).text()).toContain(
-        "graceful shutdown failed: stop rejected",
-      );
+      expect(await Bun.file(`${stateFile}.log`).text()).toContain("graceful shutdown failed: stop rejected");
     } finally {
       clearTimeout(timer);
       if (proc.exitCode === null) proc.kill("SIGKILL");
@@ -481,8 +479,8 @@ describe("CLI end-to-end", () => {
     const readyFile = join(dir, "ready");
     const cleanupFile = join(dir, "cleanup-attempted");
     const workspaceRoot = resolve(import.meta.dir, "../../../..");
-    const startModule = process.env["MM_BOT_E2E_START_MODULE"]
-      ?? resolve(workspaceRoot, "apps/bot/src/cli/commands/start.ts");
+    const startModule =
+      process.env["MM_BOT_E2E_START_MODULE"] ?? resolve(workspaceRoot, "apps/bot/src/cli/commands/start.ts");
     const defaultsModule = resolve(workspaceRoot, "apps/bot/src/config/defaults.ts");
     const source = [
       `import { runHeadless } from ${JSON.stringify(startModule)};`,
@@ -498,7 +496,8 @@ describe("CLI end-to-end", () => {
     ].join("\n");
     const preload = process.env["MM_BOT_E2E_COVERAGE_PRELOAD"];
     const proc = Bun.spawn({
-      cmd: preload === undefined ? ["bun", "--eval", source] : ["bun", "--preload", preload, "--eval", source],
+      cmd:
+        preload === undefined ? ["bun", "--eval", source] : ["bun", "--preload", preload, "--eval", source],
       cwd: workspaceRoot,
       env: buildBotE2eChildEnvironment(process.env, {
         MM_BOT_E2E_ENTRY_KIND: "canonical-cli",
@@ -507,7 +506,9 @@ describe("CLI end-to-end", () => {
       stdout: "pipe",
       stderr: "pipe",
     });
-    const timer = setTimeout(() => { proc.kill("SIGKILL"); }, 25_000);
+    const timer = setTimeout(() => {
+      proc.kill("SIGKILL");
+    }, 25_000);
     try {
       await waitForFile(readyFile, 15_000);
       proc.kill("SIGTERM");
@@ -520,7 +521,9 @@ describe("CLI end-to-end", () => {
       expect(stdout).toBe("");
       expect(stderr).toBe("");
       expect(await Bun.file(cleanupFile).text()).toBe("attempted");
-      expect(await Bun.file(`${stateFile}.log`).text()).toContain("graceful shutdown failed: plain stop rejection");
+      expect(await Bun.file(`${stateFile}.log`).text()).toContain(
+        "graceful shutdown failed: plain stop rejection",
+      );
     } finally {
       clearTimeout(timer);
       if (proc.exitCode === null) proc.kill("SIGKILL");

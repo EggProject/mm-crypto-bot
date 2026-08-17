@@ -35,10 +35,7 @@ import { PositionManager } from "../../apps/bot/src/bot/position-manager.js";
 import type { BotState } from "../../apps/bot/src/bot/state-store.js";
 import type { KillSwitch } from "../../apps/bot/src/bot/kill-switches.js";
 import { parseArgv } from "../../apps/bot/src/cli/argv.js";
-import {
-  applyClose,
-  checkSlTpHit,
-} from "../../apps/bot/src/cli/commands/backtest.js";
+import { applyClose, checkSlTpHit } from "../../apps/bot/src/cli/commands/backtest.js";
 import {
   createConfigCommand,
   runConfigInit,
@@ -55,15 +52,8 @@ import {
 import { ConfigError } from "../../apps/bot/src/config/loader.js";
 import { DEFAULT_BOT_CONFIG } from "../../apps/bot/src/config/defaults.js";
 import type { BotConfig } from "../../apps/bot/src/config/schema.js";
-import {
-  ConfigStore,
-  getConfigStore,
-  resetConfigStoreCache,
-} from "../../apps/bot/src/config/store.js";
-import {
-  PortfolioStop,
-  PortfolioStopError,
-} from "../../apps/bot/src/portfolio/portfolio-stop.js";
+import { ConfigStore, getConfigStore, resetConfigStoreCache } from "../../apps/bot/src/config/store.js";
+import { PortfolioStop, PortfolioStopError } from "../../apps/bot/src/portfolio/portfolio-stop.js";
 import { CorrelationMatrix } from "../../apps/bot/src/portfolio/correlation.js";
 import { PortfolioManager } from "../../apps/bot/src/portfolio/portfolio-manager.js";
 import {
@@ -138,16 +128,28 @@ async function expectAsyncFailure(action: () => Promise<unknown>, label: string)
 }
 
 class RecordingLogger implements Logger {
-  public readonly entries: { readonly level: string; readonly message: string; readonly meta?: Readonly<Record<string, unknown>> }[] = [];
+  public readonly entries: {
+    readonly level: string;
+    readonly message: string;
+    readonly meta?: Readonly<Record<string, unknown>>;
+  }[] = [];
 
   private record(level: string, message: string, meta?: Readonly<Record<string, unknown>>): void {
     this.entries.push(meta === undefined ? { level, message } : { level, message, meta });
   }
 
-  public debug(message: string, meta?: Readonly<Record<string, unknown>>): void { this.record("debug", message, meta); }
-  public info(message: string, meta?: Readonly<Record<string, unknown>>): void { this.record("info", message, meta); }
-  public warn(message: string, meta?: Readonly<Record<string, unknown>>): void { this.record("warn", message, meta); }
-  public error(message: string, meta?: Readonly<Record<string, unknown>>): void { this.record("error", message, meta); }
+  public debug(message: string, meta?: Readonly<Record<string, unknown>>): void {
+    this.record("debug", message, meta);
+  }
+  public info(message: string, meta?: Readonly<Record<string, unknown>>): void {
+    this.record("info", message, meta);
+  }
+  public warn(message: string, meta?: Readonly<Record<string, unknown>>): void {
+    this.record("warn", message, meta);
+  }
+  public error(message: string, meta?: Readonly<Record<string, unknown>>): void {
+    this.record("error", message, meta);
+  }
 }
 
 class FailingOhlcvFeed extends MockExchangeFeed {
@@ -166,9 +168,14 @@ class BlockingTickerFeed extends MockExchangeFeed {
   private release: (() => void) | null = null;
   public tickerSubscriptionStarted = false;
 
-  public override async subscribeTicker(symbol: ExchangeSymbol, listener: FeedListener): Promise<SubscriptionId> {
+  public override async subscribeTicker(
+    symbol: ExchangeSymbol,
+    listener: FeedListener,
+  ): Promise<SubscriptionId> {
     this.tickerSubscriptionStarted = true;
-    await new Promise<void>((resolve) => { this.release = resolve; });
+    await new Promise<void>((resolve) => {
+      this.release = resolve;
+    });
     void symbol;
     void listener;
     return 30_000;
@@ -189,8 +196,12 @@ class CleanupFailureFeed extends MockExchangeFeed {
     super({ balances: [{ currency: "USDC", free: 10_000, total: 10_000 }] });
   }
 
-  public async subscribeOrderUpdates(_listener: FeedListener): Promise<SubscriptionId> { return this.nextPrivateId++; }
-  public async subscribeExecutions(_listener: FeedListener): Promise<SubscriptionId> { return this.nextPrivateId++; }
+  public async subscribeOrderUpdates(_listener: FeedListener): Promise<SubscriptionId> {
+    return this.nextPrivateId++;
+  }
+  public async subscribeExecutions(_listener: FeedListener): Promise<SubscriptionId> {
+    return this.nextPrivateId++;
+  }
 
   public override async unsubscribe(id: SubscriptionId): Promise<void> {
     if (id >= 20_000) throw this.lifecycleFailure;
@@ -230,7 +241,9 @@ class ReconciliationFeed extends MockExchangeFeed {
     return this.reconciledBalances;
   }
 
-  public override async fetchPositions(symbols?: readonly ExchangeSymbol[]): Promise<readonly ExchangePosition[]> {
+  public override async fetchPositions(
+    symbols?: readonly ExchangeSymbol[],
+  ): Promise<readonly ExchangePosition[]> {
     this.positionCalls += 1;
     return super.fetchPositions(symbols);
   }
@@ -242,7 +255,10 @@ class ReconciliationFeed extends MockExchangeFeed {
 }
 
 class PositionFaultReconciliationFeed extends ReconciliationFeed {
-  public constructor(private readonly positionFailure: unknown, balances: readonly Balance[]) {
+  public constructor(
+    private readonly positionFailure: unknown,
+    balances: readonly Balance[],
+  ) {
     super(balances, balances);
   }
 
@@ -284,27 +300,76 @@ class SequencedBalanceFeed extends MockExchangeFeed {
 }
 
 class NoPositionsFeed implements ExchangeFeed {
-  private readonly delegate = new MockExchangeFeed({ balances: [{ currency: "USDC", free: 1_000, total: 1_000 }] });
+  private readonly delegate = new MockExchangeFeed({
+    balances: [{ currency: "USDC", free: 1_000, total: 1_000 }],
+  });
   public readonly exchangeId = "scripted-no-positions";
   public readonly statusOf = (status: string): OrderStatus => this.delegate.statusOf(status);
 
-  public open(): Promise<void> { return this.delegate.open(); }
-  public subscribeTicker(symbol: ExchangeSymbol, listener: FeedListener): Promise<SubscriptionId> { return this.delegate.subscribeTicker(symbol, listener); }
-  public subscribeOrderBook(symbol: ExchangeSymbol, limit: number, listener: FeedListener): Promise<SubscriptionId> { return this.delegate.subscribeOrderBook(symbol, limit, listener); }
-  public subscribeTrades(symbol: ExchangeSymbol, listener: FeedListener): Promise<SubscriptionId> { return this.delegate.subscribeTrades(symbol, listener); }
-  public subscribeOhlcv(symbol: ExchangeSymbol, timeframe: Timeframe, listener: FeedListener): Promise<SubscriptionId> { return this.delegate.subscribeOhlcv(symbol, timeframe, listener); }
-  public unsubscribe(id: SubscriptionId): Promise<void> { return this.delegate.unsubscribe(id); }
-  public fetchTickerSnapshot(symbol: ExchangeSymbol): Promise<Ticker> { return this.delegate.fetchTickerSnapshot(symbol); }
-  public fetchOrderBookSnapshot(symbol: ExchangeSymbol, limit: number): Promise<OrderBook> { return this.delegate.fetchOrderBookSnapshot(symbol, limit); }
-  public fetchOHLCV(symbol: ExchangeSymbol, timeframe: Timeframe, since: number | undefined, limit: number): Promise<readonly Ohlcv[]> { return this.delegate.fetchOHLCV(symbol, timeframe, since, limit); }
-  public fetchMarketMeta(symbol: ExchangeSymbol): Promise<MarketMeta> { return this.delegate.fetchMarketMeta(symbol); }
-  public fetchBalances(): Promise<readonly Balance[]> { return this.delegate.fetchBalances(); }
-  public placeOrder(request: OrderRequest): Promise<Order> { return this.delegate.placeOrder(request); }
-  public cancelOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> { return this.delegate.cancelOrder(clientOrderId, symbol); }
-  public fetchOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> { return this.delegate.fetchOrder(clientOrderId, symbol); }
-  public fetchOpenOrders(symbol: ExchangeSymbol): Promise<readonly Order[]> { return this.delegate.fetchOpenOrders(symbol); }
-  public close(): Promise<void> { return this.delegate.close(); }
-  public subscriptionCount(): number { return this.delegate.subscriptionCount(); }
+  public open(): Promise<void> {
+    return this.delegate.open();
+  }
+  public subscribeTicker(symbol: ExchangeSymbol, listener: FeedListener): Promise<SubscriptionId> {
+    return this.delegate.subscribeTicker(symbol, listener);
+  }
+  public subscribeOrderBook(
+    symbol: ExchangeSymbol,
+    limit: number,
+    listener: FeedListener,
+  ): Promise<SubscriptionId> {
+    return this.delegate.subscribeOrderBook(symbol, limit, listener);
+  }
+  public subscribeTrades(symbol: ExchangeSymbol, listener: FeedListener): Promise<SubscriptionId> {
+    return this.delegate.subscribeTrades(symbol, listener);
+  }
+  public subscribeOhlcv(
+    symbol: ExchangeSymbol,
+    timeframe: Timeframe,
+    listener: FeedListener,
+  ): Promise<SubscriptionId> {
+    return this.delegate.subscribeOhlcv(symbol, timeframe, listener);
+  }
+  public unsubscribe(id: SubscriptionId): Promise<void> {
+    return this.delegate.unsubscribe(id);
+  }
+  public fetchTickerSnapshot(symbol: ExchangeSymbol): Promise<Ticker> {
+    return this.delegate.fetchTickerSnapshot(symbol);
+  }
+  public fetchOrderBookSnapshot(symbol: ExchangeSymbol, limit: number): Promise<OrderBook> {
+    return this.delegate.fetchOrderBookSnapshot(symbol, limit);
+  }
+  public fetchOHLCV(
+    symbol: ExchangeSymbol,
+    timeframe: Timeframe,
+    since: number | undefined,
+    limit: number,
+  ): Promise<readonly Ohlcv[]> {
+    return this.delegate.fetchOHLCV(symbol, timeframe, since, limit);
+  }
+  public fetchMarketMeta(symbol: ExchangeSymbol): Promise<MarketMeta> {
+    return this.delegate.fetchMarketMeta(symbol);
+  }
+  public fetchBalances(): Promise<readonly Balance[]> {
+    return this.delegate.fetchBalances();
+  }
+  public placeOrder(request: OrderRequest): Promise<Order> {
+    return this.delegate.placeOrder(request);
+  }
+  public cancelOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> {
+    return this.delegate.cancelOrder(clientOrderId, symbol);
+  }
+  public fetchOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> {
+    return this.delegate.fetchOrder(clientOrderId, symbol);
+  }
+  public fetchOpenOrders(symbol: ExchangeSymbol): Promise<readonly Order[]> {
+    return this.delegate.fetchOpenOrders(symbol);
+  }
+  public close(): Promise<void> {
+    return this.delegate.close();
+  }
+  public subscriptionCount(): number {
+    return this.delegate.subscriptionCount();
+  }
 }
 
 function botConfigFor(stateFile: string): BotConfig {
@@ -429,7 +494,9 @@ class FaultFeed extends MockExchangeFeed {
     return super.fetchMarketMeta(symbol);
   }
 
-  public override async fetchPositions(symbols?: readonly ExchangeSymbol[]): Promise<readonly ExchangePosition[]> {
+  public override async fetchPositions(
+    symbols?: readonly ExchangeSymbol[],
+  ): Promise<readonly ExchangePosition[]> {
     this.positionCalls += 1;
     if (this.positionFailureOnCall?.call === this.positionCalls) throw this.positionFailureOnCall.failure;
     this.throwNext(this.positionFailures);
@@ -572,11 +639,13 @@ interface PortfolioStack {
 }
 
 async function makePortfolioStack(options: PortfolioStackOptions = {}): Promise<PortfolioStack> {
-  const feed = options.feed ?? new MockExchangeFeed({
-    balances: options.balances ?? [{ currency: "USDC", free: 1_000_000, total: 1_000_000 }],
-    ...(options.positions === undefined ? {} : { positions: options.positions }),
-    ...(options.marketMeta === undefined ? {} : { marketMeta: options.marketMeta }),
-  });
+  const feed =
+    options.feed ??
+    new MockExchangeFeed({
+      balances: options.balances ?? [{ currency: "USDC", free: 1_000_000, total: 1_000_000 }],
+      ...(options.positions === undefined ? {} : { positions: options.positions }),
+      ...(options.marketMeta === undefined ? {} : { marketMeta: options.marketMeta }),
+    });
   await feed.open();
   const positionManager = new PositionManager({
     initialEquityUsd: 100_000,
@@ -615,7 +684,10 @@ async function makePortfolioStack(options: PortfolioStackOptions = {}): Promise<
   return { feed, positionManager, orderManager, correlation, portfolioStop, portfolioManager };
 }
 
-function registerPortfolioStrategies(stack: PortfolioStack, configs: readonly (readonly [string, number])[]): void {
+function registerPortfolioStrategies(
+  stack: PortfolioStack,
+  configs: readonly (readonly [string, number])[],
+): void {
   for (const [strategyId, weight] of configs) {
     stack.portfolioManager.setStrategyConfig({ strategyId, weight, riskPerTrade: 0.01 });
   }
@@ -687,19 +759,40 @@ function runBacktestBoundaries(): void {
     close: 100,
     volume: 0,
   });
-  assertCondition(checkSlTpHit(candle(102, 94), { signal: longSignal, entryPrice: 100 }) === 95, "long SL mismatch");
-  assertCondition(checkSlTpHit(candle(116, 99), { signal: longSignal, entryPrice: 100 }) === 115, "long TP mismatch");
-  assertCondition(checkSlTpHit(candle(110, 96), { signal: longSignal, entryPrice: 100 }) === null, "long no-hit mismatch");
-  assertCondition(checkSlTpHit(candle(106, 100), { signal: shortSignal, entryPrice: 100 }) === 105, "short SL mismatch");
-  assertCondition(checkSlTpHit(candle(100, 84), { signal: shortSignal, entryPrice: 100 }) === 85, "short TP mismatch");
-  assertCondition(checkSlTpHit(candle(103, 90), { signal: shortSignal, entryPrice: 100 }) === null, "short no-hit mismatch");
+  assertCondition(
+    checkSlTpHit(candle(102, 94), { signal: longSignal, entryPrice: 100 }) === 95,
+    "long SL mismatch",
+  );
+  assertCondition(
+    checkSlTpHit(candle(116, 99), { signal: longSignal, entryPrice: 100 }) === 115,
+    "long TP mismatch",
+  );
+  assertCondition(
+    checkSlTpHit(candle(110, 96), { signal: longSignal, entryPrice: 100 }) === null,
+    "long no-hit mismatch",
+  );
+  assertCondition(
+    checkSlTpHit(candle(106, 100), { signal: shortSignal, entryPrice: 100 }) === 105,
+    "short SL mismatch",
+  );
+  assertCondition(
+    checkSlTpHit(candle(100, 84), { signal: shortSignal, entryPrice: 100 }) === 85,
+    "short TP mismatch",
+  );
+  assertCondition(
+    checkSlTpHit(candle(103, 90), { signal: shortSignal, entryPrice: 100 }) === null,
+    "short no-hit mismatch",
+  );
 
   const state = { equity: 10_000, peakEquity: 10_000, maxDD: 0, wins: 0, losses: 0, trades: 0 };
   applyClose({ signal: longSignal, entryPrice: 100 }, 110, 0.01, state);
   applyClose({ signal: shortSignal, entryPrice: 100 }, 110, 0.01, state);
   applyClose({ signal: longSignal, entryPrice: 100 }, 100, 0.01, state);
   applyClose({ signal: { ...longSignal, stopLoss: 100 }, entryPrice: 100 }, 120, 0.01, state);
-  assertCondition(state.wins === 1 && state.losses === 1 && state.trades === 4, "backtest close aggregation mismatch");
+  assertCondition(
+    state.wins === 1 && state.losses === 1 && state.trades === 4,
+    "backtest close aggregation mismatch",
+  );
 }
 
 async function runConfigCommandBoundaries(): Promise<void> {
@@ -725,23 +818,57 @@ async function runConfigCommandBoundaries(): Promise<void> {
     },
   };
   const richCommand = createConfigCommand({ loadConfig: () => richConfig });
-  assertCondition(await richCommand(parseArgv(["config", "validate", "--config=rich.toml"]), context) === 0, "injected validate failed");
-  assertCondition(await richCommand(parseArgv(["config", "validate"]), context) === 0, "injected default validate failed");
-  assertCondition(await richCommand(parseArgv(["config", "show"]), context) === 0, "injected rich show failed");
+  assertCondition(
+    (await richCommand(parseArgv(["config", "validate", "--config=rich.toml"]), context)) === 0,
+    "injected validate failed",
+  );
+  assertCondition(
+    (await richCommand(parseArgv(["config", "validate"]), context)) === 0,
+    "injected default validate failed",
+  );
+  assertCondition(
+    (await richCommand(parseArgv(["config", "show"]), context)) === 0,
+    "injected rich show failed",
+  );
 
   const configFailure = new ConfigError("invalid injected config", "bot.mode", []);
   for (const subcommand of ["validate", "show"] as const) {
-    const command = createConfigCommand({ loadConfig: () => { throw configFailure; } });
-    assertCondition(await command(parseArgv(["config", subcommand]), context) === 2, `${subcommand} ConfigError exit mismatch`);
+    const command = createConfigCommand({
+      loadConfig: () => {
+        throw configFailure;
+      },
+    });
+    assertCondition(
+      (await command(parseArgv(["config", subcommand]), context)) === 2,
+      `${subcommand} ConfigError exit mismatch`,
+    );
     for (const failure of [new Error("loader Error"), "loader string"] as const) {
-      const fault = createConfigCommand({ loadConfig: () => { throw failure; } });
-      assertCondition(await fault(parseArgv(["config", subcommand]), context) === 1, `${subcommand} runtime error exit mismatch`);
+      const fault = createConfigCommand({
+        loadConfig: () => {
+          throw failure;
+        },
+      });
+      assertCondition(
+        (await fault(parseArgv(["config", subcommand]), context)) === 1,
+        `${subcommand} runtime error exit mismatch`,
+      );
     }
   }
-  assertCondition(validateConfigForEdit("valid.toml", () => richConfig) === 0, "edit validation success mismatch");
-  assertCondition(validateConfigForEdit("run-bot/config/default.toml") === 0, "default edit validation success mismatch");
+  assertCondition(
+    validateConfigForEdit("valid.toml", () => richConfig) === 0,
+    "edit validation success mismatch",
+  );
+  assertCondition(
+    validateConfigForEdit("run-bot/config/default.toml") === 0,
+    "default edit validation success mismatch",
+  );
   for (const failure of [new Error("edit Error"), "edit string"] as const) {
-    assertCondition(validateConfigForEdit("invalid.toml", () => { throw failure; }) === 2, "edit validation failure mismatch");
+    assertCondition(
+      validateConfigForEdit("invalid.toml", () => {
+        throw failure;
+      }) === 2,
+      "edit validation failure mismatch",
+    );
   }
 
   const directory = mkdtempSync(join(tmpdir(), "mm-bot-config-boundary-"));
@@ -750,13 +877,23 @@ async function runConfigCommandBoundaries(): Promise<void> {
   const initState = { ensured: false, written: false };
   const successBoundary: ConfigFileBoundary = {
     exists: (path) => path === source || (initState.ensured && path === join(directory, "nested")),
-    read: () => "[bot]\nmode = \"paper\"\n",
-    ensureDirectory: () => { initState.ensured = true; },
-    write: () => { initState.written = true; },
+    read: () => '[bot]\nmode = "paper"\n',
+    ensureDirectory: () => {
+      initState.ensured = true;
+    },
+    write: () => {
+      initState.written = true;
+    },
   };
-  assertCondition(runConfigInit(target, source, successBoundary) === 0 && initState.ensured && initState.written, "config init boundary success mismatch");
+  assertCondition(
+    runConfigInit(target, source, successBoundary) === 0 && initState.ensured && initState.written,
+    "config init boundary success mismatch",
+  );
   initState.written = false;
-  assertCondition(runConfigInit(undefined, source, successBoundary) === 0 && initState.written, "config init default output mismatch");
+  assertCondition(
+    runConfigInit(undefined, source, successBoundary) === 0 && initState.written,
+    "config init default output mismatch",
+  );
   const existingBoundary: ConfigFileBoundary = {
     ...successBoundary,
     exists: (path) => path === target || path === source,
@@ -766,11 +903,16 @@ async function runConfigCommandBoundaries(): Promise<void> {
     ...successBoundary,
     exists: () => false,
   };
-  assertCondition(runConfigInit(target, source, missingBoundary) === 1, "config init missing template mismatch");
+  assertCondition(
+    runConfigInit(target, source, missingBoundary) === 1,
+    "config init missing template mismatch",
+  );
   for (const failure of [new Error("write Error"), "write string"] as const) {
     const failureBoundary: ConfigFileBoundary = {
       ...successBoundary,
-      write: () => { throw failure; },
+      write: () => {
+        throw failure;
+      },
     };
     assertCondition(runConfigInit(target, source, failureBoundary) === 1, "config init write fault mismatch");
   }
@@ -778,11 +920,23 @@ async function runConfigCommandBoundaries(): Promise<void> {
   const observedInitOutputs: (string | undefined)[] = [];
   const initCommand = createConfigCommand({
     loadConfig: () => richConfig,
-    initConfig: (outPath) => { observedInitOutputs.push(outPath); return 0; },
+    initConfig: (outPath) => {
+      observedInitOutputs.push(outPath);
+      return 0;
+    },
   });
-  assertCondition(await initCommand(parseArgv(["config", "init"]), context) === 0, "injected default init failed");
-  assertCondition(await initCommand(parseArgv(["config", "init", "--out=custom.toml"]), context) === 0, "injected explicit init failed");
-  assertCondition(observedInitOutputs[0] === undefined && observedInitOutputs[1] === "custom.toml", "config init output dispatch mismatch");
+  assertCondition(
+    (await initCommand(parseArgv(["config", "init"]), context)) === 0,
+    "injected default init failed",
+  );
+  assertCondition(
+    (await initCommand(parseArgv(["config", "init", "--out=custom.toml"]), context)) === 0,
+    "injected explicit init failed",
+  );
+  assertCondition(
+    observedInitOutputs[0] === undefined && observedInitOutputs[1] === "custom.toml",
+    "config init output dispatch mismatch",
+  );
   rmSync(directory, { recursive: true, force: true });
 }
 
@@ -800,33 +954,71 @@ async function runStartCommandBoundaries(): Promise<void> {
     ["start", "--color=always"],
     ["start", "extra"],
   ] as const) {
-    assertCondition(await baseCommand(parseArgv(argv), context) === 1, `start validation accepted ${argv.join(" ")}`);
+    assertCondition(
+      (await baseCommand(parseArgv(argv), context)) === 1,
+      `start validation accepted ${argv.join(" ")}`,
+    );
   }
 
   const originalNoColor = process.env["NO_COLOR"];
   delete process.env["NO_COLOR"];
-  assertCondition(await baseCommand(parseArgv(["start", "--no-color", "--help"]), context) === 1, "start help exit mismatch");
+  assertCondition(
+    (await baseCommand(parseArgv(["start", "--no-color", "--help"]), context)) === 1,
+    "start help exit mismatch",
+  );
   assertCondition(process.env["NO_COLOR"] === "1", "start no-color policy was not applied");
-  assertCondition(await baseCommand(parseArgv(["start", "--no-color", "--help"]), context) === 1, "start repeated help exit mismatch");
+  assertCondition(
+    (await baseCommand(parseArgv(["start", "--no-color", "--help"]), context)) === 1,
+    "start repeated help exit mismatch",
+  );
   if (originalNoColor === undefined) delete process.env["NO_COLOR"];
   else process.env["NO_COLOR"] = originalNoColor;
 
-  const configErrorCommand = createStartCommand({ loadConfig: () => { throw new ConfigError("bad config", "bot", []); } });
-  assertCondition(await configErrorCommand(parseArgv(["start"]), context) === 2, "start ConfigError exit mismatch");
+  const configErrorCommand = createStartCommand({
+    loadConfig: () => {
+      throw new ConfigError("bad config", "bot", []);
+    },
+  });
+  assertCondition(
+    (await configErrorCommand(parseArgv(["start"]), context)) === 2,
+    "start ConfigError exit mismatch",
+  );
   for (const failure of [new Error("loader Error"), "loader string"] as const) {
-    const command = createStartCommand({ loadConfig: () => { throw failure; } });
-    assertCondition(await command(parseArgv(["start"]), context) === 1, "start loader failure exit mismatch");
+    const command = createStartCommand({
+      loadConfig: () => {
+        throw failure;
+      },
+    });
+    assertCondition(
+      (await command(parseArgv(["start"]), context)) === 1,
+      "start loader failure exit mismatch",
+    );
   }
 
   const startState = { created: 0, observedPaths: [] as (string | undefined)[] };
   const normalCommand = createStartCommand({
-    loadConfig: (path) => { startState.observedPaths.push(path); return DEFAULT_BOT_CONFIG; },
-    createBot: () => { startState.created += 1; return noOpBot; },
+    loadConfig: (path) => {
+      startState.observedPaths.push(path);
+      return DEFAULT_BOT_CONFIG;
+    },
+    createBot: () => {
+      startState.created += 1;
+      return noOpBot;
+    },
     run: async () => 7,
   });
-  assertCondition(await normalCommand(parseArgv(["start"]), context) === 7, "start injected run exit mismatch");
-  assertCondition(startState.observedPaths.at(0) === undefined && startState.created === 1, "start default path/create mismatch");
-  assertCondition(await normalCommand(parseArgv(["start", "--config=config.toml"]), context) === 7, "start explicit config run mismatch");
+  assertCondition(
+    (await normalCommand(parseArgv(["start"]), context)) === 7,
+    "start injected run exit mismatch",
+  );
+  assertCondition(
+    startState.observedPaths.at(0) === undefined && startState.created === 1,
+    "start default path/create mismatch",
+  );
+  assertCondition(
+    (await normalCommand(parseArgv(["start", "--config=config.toml"]), context)) === 7,
+    "start explicit config run mismatch",
+  );
   assertCondition(startState.observedPaths.at(1) === "config.toml", "start explicit config path mismatch");
 
   const liveConfig: BotConfig = { ...DEFAULT_BOT_CONFIG, bot: { ...DEFAULT_BOT_CONFIG.bot, mode: "live" } };
@@ -837,11 +1029,17 @@ async function runStartCommandBoundaries(): Promise<void> {
   });
   const originalKey = process.env["BYBIT_API_KEY"];
   delete process.env["BYBIT_API_KEY"];
-  assertCondition(await liveCommand(parseArgv(["start"]), context) === 0, "live missing-key start mismatch");
+  assertCondition(
+    (await liveCommand(parseArgv(["start"]), context)) === 0,
+    "live missing-key start mismatch",
+  );
   process.env["BYBIT_API_KEY"] = "";
-  assertCondition(await liveCommand(parseArgv(["start"]), context) === 0, "live empty-key start mismatch");
+  assertCondition((await liveCommand(parseArgv(["start"]), context)) === 0, "live empty-key start mismatch");
   process.env["BYBIT_API_KEY"] = "present";
-  assertCondition(await liveCommand(parseArgv(["start"]), context) === 0, "live present-key start mismatch");
+  assertCondition(
+    (await liveCommand(parseArgv(["start"]), context)) === 0,
+    "live present-key start mismatch",
+  );
   if (originalKey === undefined) delete process.env["BYBIT_API_KEY"];
   else process.env["BYBIT_API_KEY"] = originalKey;
 
@@ -849,14 +1047,19 @@ async function runStartCommandBoundaries(): Promise<void> {
     ...DEFAULT_BOT_CONFIG,
     bot: { ...DEFAULT_BOT_CONFIG.bot, state_file: stateFile },
   });
-  assertCondition(resolveLogFilePath(withStateFile("data/state.json")) === "data/state.json.log", "relative log path mismatch");
+  assertCondition(
+    resolveLogFilePath(withStateFile("data/state.json")) === "data/state.json.log",
+    "relative log path mismatch",
+  );
   for (const invalid of ["", "data/../state.json", "data/\0state.json"]) {
     expectFailure(() => resolveLogFilePath(withStateFile(invalid)), "invalid log file path");
   }
 
   const writes: string[] = [];
   const backup = installConsoleRedirection({
-    write: async (data) => { writes.push(data); },
+    write: async (data) => {
+      writes.push(data);
+    },
     close: async () => undefined,
   });
   try {
@@ -881,15 +1084,26 @@ async function runStartCommandBoundaries(): Promise<void> {
   const directory = mkdtempSync(join(tmpdir(), "mm-bot-headless-driver-"));
   try {
     const normalState = join(directory, "normal.json");
-    assertCondition(await runHeadless(noOpBot, withStateFile(normalState)) === 0, "normal headless exit mismatch");
+    assertCondition(
+      (await runHeadless(noOpBot, withStateFile(normalState))) === 0,
+      "normal headless exit mismatch",
+    );
     for (const failure of [new Error("startup Error"), "startup string"] as const) {
       const failedState = join(directory, `${typeof failure}.json`);
-      const code = await runHeadless({
-        start: async () => Promise.reject(failure),
-        stop: async () => undefined,
-      }, withStateFile(failedState));
+      const code = await runHeadless(
+        {
+          start: async () => Promise.reject(failure),
+          stop: async () => undefined,
+        },
+        withStateFile(failedState),
+      );
       assertCondition(code === 1, "headless startup failure exit mismatch");
-      assertCondition(readFileSync(`${failedState}.log`, "utf8").includes(typeof failure === "string" ? failure : failure.message), "headless startup failure was not logged");
+      assertCondition(
+        readFileSync(`${failedState}.log`, "utf8").includes(
+          typeof failure === "string" ? failure : failure.message,
+        ),
+        "headless startup failure was not logged",
+      );
     }
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -968,7 +1182,10 @@ async function runBotLifecycleFactory(): Promise<void> {
   const originalKey = process.env["BYBIT_API_KEY"];
   const originalSecret = process.env["BYBIT_API_SECRET"];
   try {
-    const preStart = new Bot({ config: botConfigFor(join(directory, "pre.json")), feed: new MockExchangeFeed() });
+    const preStart = new Bot({
+      config: botConfigFor(join(directory, "pre.json")),
+      feed: new MockExchangeFeed(),
+    });
     expectFailure(() => preStart.getState(), "pre-start state");
     await preStart.stop();
     assertCondition(preStart.getConfig().bot.state_file.endsWith("pre.json"), "Bot config accessor mismatch");
@@ -986,13 +1203,28 @@ async function runBotLifecycleFactory(): Promise<void> {
         ws_endpoint: "wss://scripted.invalid/ws",
       },
     };
-    await startBotThenStop(new Bot({
-      config: unauthConfig,
-      exchangeFeedFactory: (options) => { unauthCalls.push(options); return unauthFeed; },
-    }), unauthFeed);
-    assertCondition(unauthCalls[0]?.override?.apiKey === "", "unauthenticated factory did not receive empty credentials");
-    assertCondition(unauthCalls[0].endpoint === "https://scripted.invalid/rest", "unauthenticated REST endpoint missing");
-    assertCondition(unauthCalls[0].wsEndpoint === "wss://scripted.invalid/ws", "unauthenticated WS endpoint missing");
+    await startBotThenStop(
+      new Bot({
+        config: unauthConfig,
+        exchangeFeedFactory: (options) => {
+          unauthCalls.push(options);
+          return unauthFeed;
+        },
+      }),
+      unauthFeed,
+    );
+    assertCondition(
+      unauthCalls[0]?.override?.apiKey === "",
+      "unauthenticated factory did not receive empty credentials",
+    );
+    assertCondition(
+      unauthCalls[0].endpoint === "https://scripted.invalid/rest",
+      "unauthenticated REST endpoint missing",
+    );
+    assertCondition(
+      unauthCalls[0].wsEndpoint === "wss://scripted.invalid/ws",
+      "unauthenticated WS endpoint missing",
+    );
 
     const noEndpointFeed = new MockExchangeFeed();
     const noEndpointCalls: Parameters<NonNullable<BotOptions["exchangeFeedFactory"]>>[0][] = [];
@@ -1000,12 +1232,21 @@ async function runBotLifecycleFactory(): Promise<void> {
       ...botConfigFor(join(directory, "unauth-no-endpoint.json")),
       exchange: { ...botConfigFor(join(directory, "unauth-no-endpoint.json")).exchange, id: "bybiteu" },
     };
-    await startBotThenStop(new Bot({
-      config: noEndpointConfig,
-      exchangeFeedFactory: (options) => { noEndpointCalls.push(options); return noEndpointFeed; },
-      logger: quietLogger,
-    }), noEndpointFeed);
-    assertCondition(noEndpointCalls[0]?.endpoint === undefined && noEndpointCalls[0]?.wsEndpoint === undefined, "unauthenticated absent endpoints were populated");
+    await startBotThenStop(
+      new Bot({
+        config: noEndpointConfig,
+        exchangeFeedFactory: (options) => {
+          noEndpointCalls.push(options);
+          return noEndpointFeed;
+        },
+        logger: quietLogger,
+      }),
+      noEndpointFeed,
+    );
+    assertCondition(
+      noEndpointCalls[0]?.endpoint === undefined && noEndpointCalls[0]?.wsEndpoint === undefined,
+      "unauthenticated absent endpoints were populated",
+    );
 
     process.env["BYBIT_API_KEY"] = "scripted-key";
     process.env["BYBIT_API_SECRET"] = "scripted-secret";
@@ -1017,7 +1258,10 @@ async function runBotLifecycleFactory(): Promise<void> {
     };
     const authBot = new Bot({
       config: authConfig,
-      exchangeFeedFactory: (options) => { authCalls.push(options); return authFeed; },
+      exchangeFeedFactory: (options) => {
+        authCalls.push(options);
+        return authFeed;
+      },
       fundingSource: null,
     });
     const authRunning = authBot.start();
@@ -1025,10 +1269,18 @@ async function runBotLifecycleFactory(): Promise<void> {
     assertCondition(authBot.getState().equityUsd === 10_000, "missing-USDC startup fallback changed");
     await authBot.stop();
     await authRunning;
-    assertCondition(authCalls[0]?.override === undefined, "authenticated factory received credential override");
-    assertCondition(authCalls[0]?.endpoint === undefined && authCalls[0]?.wsEndpoint === undefined, "absent factory endpoints were populated");
+    assertCondition(
+      authCalls[0]?.override === undefined,
+      "authenticated factory received credential override",
+    );
+    assertCondition(
+      authCalls[0]?.endpoint === undefined && authCalls[0]?.wsEndpoint === undefined,
+      "absent factory endpoints were populated",
+    );
 
-    const endpointFeed = new MockExchangeFeed({ balances: [{ currency: "USDC", free: 1_000, total: 1_000 }] });
+    const endpointFeed = new MockExchangeFeed({
+      balances: [{ currency: "USDC", free: 1_000, total: 1_000 }],
+    });
     const endpointCalls: Parameters<NonNullable<BotOptions["exchangeFeedFactory"]>>[0][] = [];
     const endpointConfig: BotConfig = {
       ...botConfigFor(join(directory, "endpoint.json")),
@@ -1039,12 +1291,21 @@ async function runBotLifecycleFactory(): Promise<void> {
         ws_endpoint: "wss://scripted.invalid/ws",
       },
     };
-    await startBotThenStop(new Bot({
-      config: endpointConfig,
-      exchangeFeedFactory: (options) => { endpointCalls.push(options); return endpointFeed; },
-    }), endpointFeed);
+    await startBotThenStop(
+      new Bot({
+        config: endpointConfig,
+        exchangeFeedFactory: (options) => {
+          endpointCalls.push(options);
+          return endpointFeed;
+        },
+      }),
+      endpointFeed,
+    );
     const endpointCall = endpointCalls.at(0);
-    assertCondition(endpointCall?.endpoint !== undefined && endpointCall.wsEndpoint !== undefined, "authenticated endpoints were dropped");
+    assertCondition(
+      endpointCall?.endpoint !== undefined && endpointCall.wsEndpoint !== undefined,
+      "authenticated endpoints were dropped",
+    );
 
     const doubleFeed = new MockExchangeFeed();
     const doubleBot = new Bot({ config: botConfigFor(join(directory, "double.json")), feed: doubleFeed });
@@ -1068,7 +1329,10 @@ async function runBotLifecycleFactory(): Promise<void> {
     await blockingBot.stop();
     blockingFeed.releaseTickerSubscription();
     await blockingRunning;
-    assertCondition(blockingLogger.entries.some((entry) => entry.message.includes("graceful shutdown timeout")), "force-stop fallback was not logged");
+    assertCondition(
+      blockingLogger.entries.some((entry) => entry.message.includes("graceful shutdown timeout")),
+      "force-stop fallback was not logged",
+    );
   } finally {
     if (originalKey === undefined) delete process.env["BYBIT_API_KEY"];
     else process.env["BYBIT_API_KEY"] = originalKey;
@@ -1123,7 +1387,10 @@ async function runBotSubscriptions(): Promise<void> {
         donchian_pivot_composition: { enabled: true },
       },
     };
-    await startBotThenStop(new Bot({ config: failureConfig, feed: failureFeed, logger: failureLogger }), failureFeed);
+    await startBotThenStop(
+      new Bot({ config: failureConfig, feed: failureFeed, logger: failureLogger }),
+      failureFeed,
+    );
     const errors = failureLogger.entries
       .filter((entry) => entry.message.startsWith("[bot] OHLCV subscribe failed"))
       .map((entry) => entry.meta?.["error"]);
@@ -1138,7 +1405,10 @@ async function runBotSubscriptions(): Promise<void> {
         regime_detector: { enabled: true },
       },
     };
-    await startBotThenStop(new Bot({ config: pluginConfig, feed: pluginFeed, logger: quietLogger }), pluginFeed);
+    await startBotThenStop(
+      new Bot({ config: pluginConfig, feed: pluginFeed, logger: quietLogger }),
+      pluginFeed,
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -1172,17 +1442,19 @@ async function runBotRestoreTelemetry(): Promise<void> {
       initialEquityUsd: 10_000,
       realizedPnlUsd: 100,
       positions: [makeSavedPosition("first", "BTC/USDC"), makeSavedPosition("second", "ETH/USDC")],
-      closedTrades: [{
-        strategy: "closed",
-        symbol: "BTC/USDC",
-        side: "long",
-        quantity: 0.01,
-        entryPrice: 100,
-        exitPrice: 110,
-        pnl: 0.1,
-        pnlPct: 0.1,
-        closedAt: 1,
-      }],
+      closedTrades: [
+        {
+          strategy: "closed",
+          symbol: "BTC/USDC",
+          side: "long",
+          quantity: 0.01,
+          entryPrice: 100,
+          exitPrice: 110,
+          pnl: 0.1,
+          pnlPct: 0.1,
+          closedAt: 1,
+        },
+      ],
       inFlightOrderIds: [],
       counters: { placed: 0, filled: 0, cancelled: 0, rejected: 0 },
     };
@@ -1226,7 +1498,10 @@ async function runBotRestoreTelemetry(): Promise<void> {
     };
     writeFileSync(emptyStateFile, JSON.stringify(emptySaved), "utf8");
     const emptyFeed = new MockExchangeFeed();
-    await startBotThenStop(new Bot({ config: botConfigFor(emptyStateFile), feed: emptyFeed, logger: quietLogger }), emptyFeed);
+    await startBotThenStop(
+      new Bot({ config: botConfigFor(emptyStateFile), feed: emptyFeed, logger: quietLogger }),
+      emptyFeed,
+    );
 
     const positiveTelemetryState = join(directory, "positive-telemetry.json");
     const positiveFeed = new MockExchangeFeed();
@@ -1240,7 +1515,10 @@ async function runBotRestoreTelemetry(): Promise<void> {
       heartbeatIntervalMs: 10_000,
     });
     const positiveRunning = positiveBot.start();
-    const positiveLog = join(`${positiveTelemetryState}.logs`, `bot-${new Date().toISOString().slice(0, 10)}.log`);
+    const positiveLog = join(
+      `${positiveTelemetryState}.logs`,
+      `bot-${new Date().toISOString().slice(0, 10)}.log`,
+    );
     await waitForCondition(() => {
       try {
         return readFileSync(positiveLog, "utf8").includes('"initialEquityUsd":10000');
@@ -1256,14 +1534,16 @@ async function runBotRestoreTelemetry(): Promise<void> {
       ...saved,
       equityUsd: 0,
       realizedPnlUsd: 0,
-      positions: [{
-        ...makeSavedPosition("telemetry", "BTC/USDC"),
-        quantity: 1,
-        entryPrice: 10_001,
-        currentPrice: 1,
-        unrealizedPnl: -10_000,
-        notionalUsd: 10_001,
-      }],
+      positions: [
+        {
+          ...makeSavedPosition("telemetry", "BTC/USDC"),
+          quantity: 1,
+          entryPrice: 10_001,
+          currentPrice: 1,
+          unrealizedPnl: -10_000,
+          notionalUsd: 10_001,
+        },
+      ],
       closedTrades: [],
     };
     writeFileSync(telemetryStateFile, JSON.stringify(telemetrySaved), "utf8");
@@ -1278,7 +1558,10 @@ async function runBotRestoreTelemetry(): Promise<void> {
       heartbeatIntervalMs: 10_000,
     });
     const telemetryRunning = telemetryBot.start();
-    const telemetryLog = join(`${telemetryStateFile}.logs`, `bot-${new Date().toISOString().slice(0, 10)}.log`);
+    const telemetryLog = join(
+      `${telemetryStateFile}.logs`,
+      `bot-${new Date().toISOString().slice(0, 10)}.log`,
+    );
     await waitForCondition(() => {
       try {
         return readFileSync(telemetryLog, "utf8").includes("unrealizedPnlUsd");
@@ -1318,15 +1601,17 @@ async function runBotLiveReconciliation(): Promise<void> {
         { currency: "BTC", free: 1, total: 1 },
       ],
       {
-        positions: [{
-          symbol: eth,
-          side: "short",
-          quantity: 1,
-          entryPrice: 10,
-          markPrice: 12,
-          unrealizedPnl: -5,
-          updateTimestamp: 1,
-        }],
+        positions: [
+          {
+            symbol: eth,
+            side: "short",
+            quantity: 1,
+            entryPrice: 10,
+            markPrice: 12,
+            unrealizedPnl: -5,
+            updateTimestamp: 1,
+          },
+        ],
         marketMeta: new Map([
           [btc, { ...makePortfolioMarketMeta(true), symbol: btc }],
           [eth, { ...makePortfolioMarketMeta(false), symbol: eth, base: "ETH" }],
@@ -1351,16 +1636,17 @@ async function runBotLiveReconciliation(): Promise<void> {
       killSwitchEvalIntervalMs: 10_000,
     });
     const mixedRunning = mixedBot.start();
-    await waitForCondition(() => mixedFeed.tickerCalls > 0 && mixedFeed.positionCalls > 0, "mixed live reconciliation");
+    await waitForCondition(
+      () => mixedFeed.tickerCalls > 0 && mixedFeed.positionCalls > 0,
+      "mixed live reconciliation",
+    );
     assertCondition(!mixedBot.isKillSwitchEngaged(), "mixed live reconciliation engaged kill switch");
     await mixedBot.stop();
     await mixedRunning;
 
-    const absentFeed = new ReconciliationFeed(
-      [{ currency: "USDC", free: 1_000, total: 1_000 }],
-      [],
-      { marketMeta: new Map([[btc, makePortfolioMarketMeta(true)]]) },
-    );
+    const absentFeed = new ReconciliationFeed([{ currency: "USDC", free: 1_000, total: 1_000 }], [], {
+      marketMeta: new Map([[btc, makePortfolioMarketMeta(true)]]),
+    });
     const absentBot = new Bot({
       config: liveConfig("absent"),
       feed: absentFeed,
@@ -1404,7 +1690,9 @@ async function runBotLiveReconciliation(): Promise<void> {
     await derivativeRunning;
 
     for (const failure of [new Error("position Error"), "position string"] as const) {
-      const positionFeed = new PositionFaultReconciliationFeed(failure, [{ currency: "USDC", free: 1_000, total: 1_000 }]);
+      const positionFeed = new PositionFaultReconciliationFeed(failure, [
+        { currency: "USDC", free: 1_000, total: 1_000 },
+      ]);
       const positionBot = new Bot({
         config: liveConfig(`position-${typeof failure}`),
         feed: positionFeed,
@@ -1420,10 +1708,7 @@ async function runBotLiveReconciliation(): Promise<void> {
 
     for (const failure of [new Error("balance Error"), "balance string"] as const) {
       const logger = new RecordingLogger();
-      const balanceFeed = new ReconciliationFeed(
-        [{ currency: "USDC", free: 1_000, total: 1_000 }],
-        failure,
-      );
+      const balanceFeed = new ReconciliationFeed([{ currency: "USDC", free: 1_000, total: 1_000 }], failure);
       const balanceBot = new Bot({
         config: liveConfig(`balance-${typeof failure}`),
         feed: balanceFeed,
@@ -1433,11 +1718,16 @@ async function runBotLiveReconciliation(): Promise<void> {
       });
       const balanceRunning = balanceBot.start();
       await waitForCondition(
-        () => logger.entries.some((entry) => entry.message === "[bot] authoritative equity reconciliation failed"),
+        () =>
+          logger.entries.some(
+            (entry) => entry.message === "[bot] authoritative equity reconciliation failed",
+          ),
         "balance reconciliation failure",
       );
       assertCondition(
-        logger.entries.some((entry) => entry.meta?.["error"] === (failure instanceof Error ? failure.message : failure)),
+        logger.entries.some(
+          (entry) => entry.meta?.["error"] === (failure instanceof Error ? failure.message : failure),
+        ),
         "balance reconciliation failure detail missing",
       );
       await balanceBot.stop();
@@ -1506,44 +1796,74 @@ async function runBotCleanupFaults(): Promise<void> {
   process.env["BYBIT_API_SECRET"] = "scripted-secret";
   try {
     for (const failure of [
-      { lifecycle: new Error("lifecycle Error"), close: new Error("close Error"), expectedLifecycle: "lifecycle Error", expectedClose: "close Error" },
-      { lifecycle: "lifecycle string", close: "close string", expectedLifecycle: "lifecycle string", expectedClose: "close string" },
+      {
+        lifecycle: new Error("lifecycle Error"),
+        close: new Error("close Error"),
+        expectedLifecycle: "lifecycle Error",
+        expectedClose: "close Error",
+      },
+      {
+        lifecycle: "lifecycle string",
+        close: "close string",
+        expectedLifecycle: "lifecycle string",
+        expectedClose: "close string",
+      },
     ] as const) {
       const logger = new RecordingLogger();
       const feed = new CleanupFailureFeed(failure.lifecycle, failure.close);
       const config: BotConfig = {
         ...botConfigFor(join(directory, `cleanup-${typeof failure.lifecycle}.json`)),
-        bot: { ...botConfigFor(join(directory, `cleanup-${typeof failure.lifecycle}.json`)).bot, mode: "live" },
+        bot: {
+          ...botConfigFor(join(directory, `cleanup-${typeof failure.lifecycle}.json`)).bot,
+          mode: "live",
+        },
       };
       await startBotThenStop(new Bot({ config, feed, logger }), feed);
       assertCondition(
-        logger.entries.some((entry) => entry.message === "[bot] private lifecycle cleanup failed" && entry.meta?.["error"] === failure.expectedLifecycle),
+        logger.entries.some(
+          (entry) =>
+            entry.message === "[bot] private lifecycle cleanup failed" &&
+            entry.meta?.["error"] === failure.expectedLifecycle,
+        ),
         "private lifecycle cleanup failure missing",
       );
       assertCondition(
-        logger.entries.some((entry) => entry.message === "[bot] feed close failed" && entry.meta?.["error"] === failure.expectedClose),
+        logger.entries.some(
+          (entry) =>
+            entry.message === "[bot] feed close failed" && entry.meta?.["error"] === failure.expectedClose,
+        ),
         "feed close failure missing",
       );
     }
 
     const unsubscribeFeed = new AllUnsubscribeFailureFeed();
-    await startBotThenStop(new Bot({
-      config: botConfigFor(join(directory, "unsubscribe.json")),
-      feed: unsubscribeFeed,
-      logger: quietLogger,
-    }), unsubscribeFeed);
+    await startBotThenStop(
+      new Bot({
+        config: botConfigFor(join(directory, "unsubscribe.json")),
+        feed: unsubscribeFeed,
+        logger: quietLogger,
+      }),
+      unsubscribeFeed,
+    );
 
     const blocker = join(directory, "state-parent-file");
     writeFileSync(blocker, "not a directory", "utf8");
     const invalidStateFile = join(blocker, "state.json");
     const flushLogger = new RecordingLogger();
     const flushFeed = new MockExchangeFeed();
-    const flushBot = new Bot({ config: botConfigFor(invalidStateFile), feed: flushFeed, logger: flushLogger });
+    const flushBot = new Bot({
+      config: botConfigFor(invalidStateFile),
+      feed: flushFeed,
+      logger: flushLogger,
+    });
     const flushRunning = flushBot.start();
     await waitForCondition(() => flushFeed.subscriptionCount() > 0, "flush-fault subscription");
     await flushBot.stop();
     await flushRunning;
-    assertCondition(flushLogger.entries.some((entry) => entry.message === "[bot] state flush failed"), "state flush failure was not logged");
+    assertCondition(
+      flushLogger.entries.some((entry) => entry.message === "[bot] state flush failed"),
+      "state flush failure was not logged",
+    );
   } finally {
     if (originalKey === undefined) delete process.env["BYBIT_API_KEY"];
     else process.env["BYBIT_API_KEY"] = originalKey;
@@ -1593,7 +1913,10 @@ async function runBotOrderRisk(): Promise<void> {
     const paperRunning = paperBot.start();
     await paperRunning;
     assertCondition(paperBot.isKillSwitchEngaged(), "paper emergency did not engage kill switch");
-    assertCondition(paperBot.getState().positions.length === 0, "paper emergency retained restored positions");
+    assertCondition(
+      paperBot.getState().positions.length === 0,
+      "paper emergency retained restored positions",
+    );
 
     process.env["BYBIT_API_KEY"] = "scripted-key";
     process.env["BYBIT_API_SECRET"] = "scripted-secret";
@@ -1678,7 +2001,10 @@ function exerciseTrailingStops(): void {
     side: "both" as const,
     logger: quietLogger,
   };
-  expectFailure(() => new TrailingStopManager({ ...config, atrMultiplier: Number.NaN }), "NaN ATR multiplier");
+  expectFailure(
+    () => new TrailingStopManager({ ...config, atrMultiplier: Number.NaN }),
+    "NaN ATR multiplier",
+  );
   expectFailure(() => new TrailingStopManager({ ...config, atrMultiplier: 0 }), "zero ATR multiplier");
   expectFailure(() => new TrailingStopManager({ ...config, atrPeriod: 1.5 }), "fractional ATR period");
   expectFailure(() => new TrailingStopManager({ ...config, atrPeriod: 0 }), "zero ATR period");
@@ -1781,7 +2107,10 @@ function exerciseKelly(): void {
   computeStats([{ pnlUsd: 0, closedAt: 1 }]);
   computeStats([{ pnlUsd: 10, closedAt: 1 }]);
   computeStats([{ pnlUsd: -5, closedAt: 1 }]);
-  computeStats([{ pnlUsd: 10, closedAt: 1 }, { pnlUsd: -5, closedAt: 2 }]);
+  computeStats([
+    { pnlUsd: 10, closedAt: 1 },
+    { pnlUsd: -5, closedAt: 2 },
+  ]);
 
   const base = {
     enabled: true,
@@ -1792,11 +2121,16 @@ function exerciseKelly(): void {
     maxFraction: 0.2,
     logger: quietLogger,
   };
-  for (const fraction of [Number.NaN, 0, 1.1]) expectFailure(() => new KellySizer({ ...base, fraction }), "invalid Kelly fraction");
-  for (const windowSize of [1.5, 0]) expectFailure(() => new KellySizer({ ...base, windowSize }), "invalid Kelly window");
-  for (const minTrades of [1.5, 0]) expectFailure(() => new KellySizer({ ...base, minTrades }), "invalid Kelly minimum");
-  for (const fallbackFraction of [Number.NaN, -0.1, 1.1]) expectFailure(() => new KellySizer({ ...base, fallbackFraction }), "invalid Kelly fallback");
-  for (const maxFraction of [Number.NaN, 0, 1.1]) expectFailure(() => new KellySizer({ ...base, maxFraction }), "invalid Kelly maximum");
+  for (const fraction of [Number.NaN, 0, 1.1])
+    expectFailure(() => new KellySizer({ ...base, fraction }), "invalid Kelly fraction");
+  for (const windowSize of [1.5, 0])
+    expectFailure(() => new KellySizer({ ...base, windowSize }), "invalid Kelly window");
+  for (const minTrades of [1.5, 0])
+    expectFailure(() => new KellySizer({ ...base, minTrades }), "invalid Kelly minimum");
+  for (const fallbackFraction of [Number.NaN, -0.1, 1.1])
+    expectFailure(() => new KellySizer({ ...base, fallbackFraction }), "invalid Kelly fallback");
+  for (const maxFraction of [Number.NaN, 0, 1.1])
+    expectFailure(() => new KellySizer({ ...base, maxFraction }), "invalid Kelly maximum");
 
   const disabled = makeKelly(false, undefined);
   assertCondition(disabled.recommendedSize() === 0, "disabled Kelly returned size");
@@ -1837,7 +2171,10 @@ function riskConfig(enabled: boolean) {
 function exerciseRiskManager(): void {
   const disabled = new RiskManager(withoutLogger(riskConfig(false)));
   disabled.armTrailingStop("disabled", "long", 100, 2);
-  assertCondition(disabled.evaluateNewPositionSize({ equityUsd: 1000, baseSizeFraction: 0.02 }) === 0.02, "disabled risk sizing changed base size");
+  assertCondition(
+    disabled.evaluateNewPositionSize({ equityUsd: 1000, baseSizeFraction: 0.02 }) === 0.02,
+    "disabled risk sizing changed base size",
+  );
   const longOnly = new RiskManager({
     ...riskConfig(true),
     trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 2, side: "long" },
@@ -1845,9 +2182,15 @@ function exerciseRiskManager(): void {
   longOnly.armTrailingStop("filtered", "short", 100, 2);
   const manager = new RiskManager(riskConfig(true));
   let callbacks = 0;
-  manager.onTrailingStopClose(() => { callbacks += 1; });
-  manager.onTrailingStopClose(() => { throw new Error("callback Error"); });
-  manager.onTrailingStopClose(() => { throw "callback rejection"; });
+  manager.onTrailingStopClose(() => {
+    callbacks += 1;
+  });
+  manager.onTrailingStopClose(() => {
+    throw new Error("callback Error");
+  });
+  manager.onTrailingStopClose(() => {
+    throw "callback rejection";
+  });
   manager.armTrailingStop("long", "long", 100, 2);
   manager.onTick({ positionId: "long", side: "long", currentPrice: 110, atr: 2, timestamp: 1 });
   manager.getSnapshot();
@@ -1856,12 +2199,21 @@ function exerciseRiskManager(): void {
   manager.disarmTrailingStop("long");
   manager.onTradeClosed(-10, 1);
   manager.onTradeClosed(-10, 2);
-  assertCondition(manager.evaluateNewPositionSize({ equityUsd: 1000, baseSizeFraction: 0.02 }) === 0, "no-edge Kelly returned risk size");
+  assertCondition(
+    manager.evaluateNewPositionSize({ equityUsd: 1000, baseSizeFraction: 0.02 }) === 0,
+    "no-edge Kelly returned risk size",
+  );
   manager.onTradeClosed(100, 3);
   manager.onTradeClosed(100, 4);
-  assertCondition(manager.evaluateNewPositionSize({ equityUsd: 1000, baseSizeFraction: 0.02 }) > 0, "active Kelly returned zero size");
+  assertCondition(
+    manager.evaluateNewPositionSize({ equityUsd: 1000, baseSizeFraction: 0.02 }) > 0,
+    "active Kelly returned zero size",
+  );
   manager.onEquityUpdate(800);
-  assertCondition(manager.evaluateNewPositionSize({ equityUsd: 800, baseSizeFraction: 0.02 }) === 0, "kill drawdown returned risk size");
+  assertCondition(
+    manager.evaluateNewPositionSize({ equityUsd: 800, baseSizeFraction: 0.02 }) === 0,
+    "kill drawdown returned risk size",
+  );
   manager.getSnapshot();
   manager.getDrawdownScaler();
   manager.getKellySizer();
@@ -1878,53 +2230,85 @@ function runRiskModules(): void {
 function exerciseConfigStoreFaults(directory: string): void {
   const path = join(directory, "fault.toml");
   expectFailure(
-    () => new ConfigStore(path, { readText: () => { throw new Error("read Error"); } }).read(),
+    () =>
+      new ConfigStore(path, {
+        readText: () => {
+          throw new Error("read Error");
+        },
+      }).read(),
     "ConfigStore Error read",
   );
   expectFailure(
-    () => new ConfigStore(path, { readText: () => { throw "read rejection"; } }).read(),
+    () =>
+      new ConfigStore(path, {
+        readText: () => {
+          throw "read rejection";
+        },
+      }).read(),
     "ConfigStore non-Error read",
   );
   expectFailure(
-    () => new ConfigStore(path, {
-      readText: () => "ignored",
-      parse: () => { throw "parse rejection"; },
-    }).read(),
+    () =>
+      new ConfigStore(path, {
+        readText: () => "ignored",
+        parse: () => {
+          throw "parse rejection";
+        },
+      }).read(),
     "ConfigStore non-Error parse",
   );
-  expectFailure(
-    () => { new ConfigStore(path, { parse: () => { throw new Error("round-trip Error"); } }).write(DEFAULT_BOT_CONFIG); },
-    "ConfigStore round-trip Error",
-  );
-  expectFailure(
-    () => { new ConfigStore(path, { parse: () => { throw "round-trip rejection"; } }).write(DEFAULT_BOT_CONFIG); },
-    "ConfigStore round-trip non-Error",
-  );
-  expectFailure(
-    () => { new ConfigStore(path, { parse: () => null }).write(DEFAULT_BOT_CONFIG); },
-    "ConfigStore round-trip validation",
-  );
-  expectFailure(
-    () => { new ConfigStore(path, { atomicWrite: () => { throw new Error("atomic Error"); } }).write(DEFAULT_BOT_CONFIG); },
-    "ConfigStore atomic Error",
-  );
-  expectFailure(
-    () => { new ConfigStore(path, { atomicWrite: () => { throw "atomic rejection"; } }).write(DEFAULT_BOT_CONFIG); },
-    "ConfigStore atomic non-Error",
-  );
+  expectFailure(() => {
+    new ConfigStore(path, {
+      parse: () => {
+        throw new Error("round-trip Error");
+      },
+    }).write(DEFAULT_BOT_CONFIG);
+  }, "ConfigStore round-trip Error");
+  expectFailure(() => {
+    new ConfigStore(path, {
+      parse: () => {
+        throw "round-trip rejection";
+      },
+    }).write(DEFAULT_BOT_CONFIG);
+  }, "ConfigStore round-trip non-Error");
+  expectFailure(() => {
+    new ConfigStore(path, { parse: () => null }).write(DEFAULT_BOT_CONFIG);
+  }, "ConfigStore round-trip validation");
+  expectFailure(() => {
+    new ConfigStore(path, {
+      atomicWrite: () => {
+        throw new Error("atomic Error");
+      },
+    }).write(DEFAULT_BOT_CONFIG);
+  }, "ConfigStore atomic Error");
+  expectFailure(() => {
+    new ConfigStore(path, {
+      atomicWrite: () => {
+        throw "atomic rejection";
+      },
+    }).write(DEFAULT_BOT_CONFIG);
+  }, "ConfigStore atomic non-Error");
 
   const liveConfig: BotConfig = {
     ...DEFAULT_BOT_CONFIG,
     bot: { ...DEFAULT_BOT_CONFIG.bot, mode: "live" },
   };
   expectFailure(
-    () => new ConfigStore(path, { appendText: () => { throw new Error("audit Error"); } })
-      .writeAfterTypedLive(liveConfig, "LIVE", "paper"),
+    () =>
+      new ConfigStore(path, {
+        appendText: () => {
+          throw new Error("audit Error");
+        },
+      }).writeAfterTypedLive(liveConfig, "LIVE", "paper"),
     "ConfigStore audit Error",
   );
   expectFailure(
-    () => new ConfigStore(path, { appendText: () => { throw "audit rejection"; } })
-      .writeAfterTypedLive(liveConfig, "LIVE", "paper"),
+    () =>
+      new ConfigStore(path, {
+        appendText: () => {
+          throw "audit rejection";
+        },
+      }).writeAfterTypedLive(liveConfig, "LIVE", "paper"),
     "ConfigStore audit non-Error",
   );
 }
@@ -1957,21 +2341,32 @@ function runConfigStore(): void {
       risk: { ...DEFAULT_BOT_CONFIG.risk, risk_per_trade: 0.02 },
     });
     assertCondition(existsSync(`${configPath}.bak`), "ConfigStore did not create a backup");
-    assertCondition(readFileSync(`${configPath}.bak`, "utf8").includes("risk_per_trade = 0.01"), "ConfigStore backup did not preserve the previous config");
+    assertCondition(
+      readFileSync(`${configPath}.bak`, "utf8").includes("risk_per_trade = 0.01"),
+      "ConfigStore backup did not preserve the previous config",
+    );
 
     const liveConfig: BotConfig = {
       ...DEFAULT_BOT_CONFIG,
       bot: { ...DEFAULT_BOT_CONFIG.bot, mode: "live" },
     };
-    expectFailure(() => store.writeAfterTypedLive(liveConfig, "live", "paper"), "lowercase LIVE confirmation");
+    expectFailure(
+      () => store.writeAfterTypedLive(liveConfig, "live", "paper"),
+      "lowercase LIVE confirmation",
+    );
     store.writeAfterTypedLive(liveConfig, "LIVE", "paper");
     store.writeAfterTypedLive(liveConfig, "LIVE", "live");
-    assertCondition(readFileSync(`${configPath}.audit.log`, "utf8").trim().split("\n").length === 2, "ConfigStore audit log entry count mismatch");
+    assertCondition(
+      readFileSync(`${configPath}.audit.log`, "utf8").trim().split("\n").length === 2,
+      "ConfigStore audit log entry count mismatch",
+    );
 
     store.setStrategyEnabled("regime_detector", true);
     store.setStrategySetting("donchian_pivot_composition", "cap", 0.4);
     store.setStrategySetting("dydx_cex_carry", "notional_per_leg_usd", 250_000);
-    expectFailure(() => { store.setStrategySetting("dydx_cex_carry", "leverage", "five"); }, "invalid strategy setting");
+    expectFailure(() => {
+      store.setStrategySetting("dydx_cex_carry", "leverage", "five");
+    }, "invalid strategy setting");
     store.setExchangeConfig({ slippage_pct: 0.1, fee_tier: "vip" });
     store.setSymbols(["BTC/USDC", "ETH/USDC"]);
     store.setSymbols([]);
@@ -2001,10 +2396,22 @@ function runConfigStore(): void {
 async function runFundingSource(): Promise<void> {
   const market = "BTC-USD" as const;
   const source = new MockDydxFundingSource();
-  assertCondition(source.lastTickAgeMs(market, Date.now()) === null, "funding source unexpectedly had a pre-subscription tick");
-  assertCondition(source.lastChainBlockHeight(market) === 1_000_000, "funding source initial height mismatch");
-  assertCondition(source.lastChainBlockTs(market) === null, "funding source unexpectedly had a pre-subscription block time");
-  assertCondition(source.bybitEuSpotDepthUsd(market, Date.now()) === 1_000_000, "funding source depth mismatch");
+  assertCondition(
+    source.lastTickAgeMs(market, Date.now()) === null,
+    "funding source unexpectedly had a pre-subscription tick",
+  );
+  assertCondition(
+    source.lastChainBlockHeight(market) === 1_000_000,
+    "funding source initial height mismatch",
+  );
+  assertCondition(
+    source.lastChainBlockTs(market) === null,
+    "funding source unexpectedly had a pre-subscription block time",
+  );
+  assertCondition(
+    source.bybitEuSpotDepthUsd(market, Date.now()) === 1_000_000,
+    "funding source depth mismatch",
+  );
   source.health();
   let ticks = 0;
   const handle = source.subscribe(market, (snapshot) => {
@@ -2023,19 +2430,30 @@ async function runFundingSource(): Promise<void> {
   const second = new MockDydxFundingSource(123);
   let firstRate: number | undefined;
   let secondRate: number | undefined;
-  const firstHandle = first.subscribe(market, (snapshot) => { firstRate = snapshot.dydx.fundingRate; });
-  const secondHandle = second.subscribe(market, (snapshot) => { secondRate = snapshot.dydx.fundingRate; });
+  const firstHandle = first.subscribe(market, (snapshot) => {
+    firstRate = snapshot.dydx.fundingRate;
+  });
+  const secondHandle = second.subscribe(market, (snapshot) => {
+    secondRate = snapshot.dydx.fundingRate;
+  });
   firstHandle.close();
   secondHandle.close();
   assertCondition(firstRate === secondRate, "seeded funding sources diverged");
 }
 
-function makeStrategyConfigs(entries: readonly (readonly [string, number])[]): Map<string, StrategyRiskConfig> {
-  return new Map(entries.map(([strategyId, weight]) => [strategyId, {
-    strategyId,
-    weight,
-    riskPerTrade: 0.01,
-  }]));
+function makeStrategyConfigs(
+  entries: readonly (readonly [string, number])[],
+): Map<string, StrategyRiskConfig> {
+  return new Map(
+    entries.map(([strategyId, weight]) => [
+      strategyId,
+      {
+        strategyId,
+        weight,
+        riskPerTrade: 0.01,
+      },
+    ]),
+  );
 }
 
 function exerciseRiskBudget(): void {
@@ -2051,7 +2469,10 @@ function exerciseRiskBudget(): void {
   }
   const defaultAllocator = new RiskBudgetAllocator({ totalRiskUsd: maximum });
   assertCondition(defaultAllocator.getTotalRiskUsd() === maximum, "risk budget maximum changed");
-  assertCondition(defaultAllocator.getCorrelationPenaltyThreshold() === 0.7, "risk budget default threshold changed");
+  assertCondition(
+    defaultAllocator.getCorrelationPenaltyThreshold() === 0.7,
+    "risk budget default threshold changed",
+  );
   assertCondition(defaultAllocator.computeBudgets(new Map()).size === 0, "empty risk budget was not empty");
 
   const allocator = new RiskBudgetAllocator({
@@ -2059,12 +2480,35 @@ function exerciseRiskBudget(): void {
     correlationPenaltyThreshold: 0.5,
     logger: quietLogger,
   });
-  const configs = makeStrategyConfigs([["a", 2], ["b", 1], ["c", -1]]);
+  const configs = makeStrategyConfigs([
+    ["a", 2],
+    ["b", 1],
+    ["c", -1],
+  ]);
   allocator.computeBudgets(configs);
-  allocator.computeBudgets(makeStrategyConfigs([["a", 0], ["b", -1]]));
+  allocator.computeBudgets(
+    makeStrategyConfigs([
+      ["a", 0],
+      ["b", -1],
+    ]),
+  );
   const matrix = new Map<string, ReadonlyMap<string, number>>([
-    ["a", new Map([["a", 1], ["b", -0.9], ["c", Number.NaN], ["d", 2]])],
-    ["b", new Map([["a", -0.9], ["b", 1]])],
+    [
+      "a",
+      new Map([
+        ["a", 1],
+        ["b", -0.9],
+        ["c", Number.NaN],
+        ["d", 2],
+      ]),
+    ],
+    [
+      "b",
+      new Map([
+        ["a", -0.9],
+        ["b", 1],
+      ]),
+    ],
   ]);
   const budgets = allocator.computeBudgets(configs, () => matrix);
   assertCondition((budgets.get("a")?.penalty ?? 0) > 0, "correlated strategy was not penalized");
@@ -2075,11 +2519,27 @@ function exerciseRiskBudget(): void {
     logger: quietLogger,
   });
   thresholdOne.computeBudgets(
-    makeStrategyConfigs([["a", 0.5], ["b", 0.5]]),
-    () => new Map([
-      ["a", new Map([["a", 1], ["b", 1]])],
-      ["b", new Map([["a", 1], ["b", 1]])],
+    makeStrategyConfigs([
+      ["a", 0.5],
+      ["b", 0.5],
     ]),
+    () =>
+      new Map([
+        [
+          "a",
+          new Map([
+            ["a", 1],
+            ["b", 1],
+          ]),
+        ],
+        [
+          "b",
+          new Map([
+            ["a", 1],
+            ["b", 1],
+          ]),
+        ],
+      ]),
   );
 }
 
@@ -2102,7 +2562,10 @@ async function exercisePortfolioStop(): Promise<void> {
   const stop = new PortfolioStop({
     maxDdPct: 0.1,
     logger: quietLogger,
-    tripAction: () => { trips += 1; return Promise.resolve(); },
+    tripAction: () => {
+      trips += 1;
+      return Promise.resolve();
+    },
   });
   stop.getMaxDdPct();
   stop.getTrippedAt();
@@ -2129,13 +2592,17 @@ async function exercisePortfolioStop(): Promise<void> {
   const errorAction = new PortfolioStop({
     maxDdPct: 0.1,
     logger: quietLogger,
-    tripAction: () => { throw new Error("trip Error"); },
+    tripAction: () => {
+      throw new Error("trip Error");
+    },
   });
   errorAction.forceTrip("error-action");
   const rejectionAction = new PortfolioStop({
     maxDdPct: 0.1,
     logger: quietLogger,
-    tripAction: () => { throw "trip rejection"; },
+    tripAction: () => {
+      throw "trip rejection";
+    },
   });
   rejectionAction.forceTrip("rejection-action");
   await Promise.resolve();
@@ -2158,30 +2625,54 @@ async function runPortfolioManagerPaper(): Promise<void> {
   try {
     assertCondition(!stack.portfolioManager.isTripped(), "fresh portfolio was tripped");
     assertCondition(stack.portfolioManager.getBudgetFor("missing") === 0, "unknown strategy received budget");
-    registerPortfolioStrategies(stack, [["a", 0.5], ["b", 0.5]]);
+    registerPortfolioStrategies(stack, [
+      ["a", 0.5],
+      ["b", 0.5],
+    ]);
     stack.portfolioManager.setStrategyConfig({ strategyId: "a", weight: 0.6, riskPerTrade: 0.01 });
-    assertCondition(stack.portfolioManager.getPerStrategyBudget().size === 2, "portfolio budget size mismatch");
-    assertCondition(stack.portfolioManager.getBudgetBreakdowns().size === 2, "portfolio breakdown size mismatch");
-    assertCondition(stack.portfolioManager.getStrategyConfigs().get("a")?.weight === 0.6, "portfolio config update failed");
+    assertCondition(
+      stack.portfolioManager.getPerStrategyBudget().size === 2,
+      "portfolio budget size mismatch",
+    );
+    assertCondition(
+      stack.portfolioManager.getBudgetBreakdowns().size === 2,
+      "portfolio breakdown size mismatch",
+    );
+    assertCondition(
+      stack.portfolioManager.getStrategyConfigs().get("a")?.weight === 0.6,
+      "portfolio config update failed",
+    );
     for (let index = 0; index < 20; index += 1) {
       stack.portfolioManager.recordFill({ strategyId: "a", returnPct: index * 0.001 });
       stack.portfolioManager.recordFill({ strategyId: "b", returnPct: index * 0.001 });
     }
-    assertCondition(stack.portfolioManager.getBudgetFor("a") < 600, "correlation did not reduce portfolio budget");
-    assertCondition(stack.portfolioManager.getCorrelationMatrix().sampleCounts.get("a") === 20, "portfolio correlation sample mismatch");
+    assertCondition(
+      stack.portfolioManager.getBudgetFor("a") < 600,
+      "correlation did not reduce portfolio budget",
+    );
+    assertCondition(
+      stack.portfolioManager.getCorrelationMatrix().sampleCounts.get("a") === 20,
+      "portfolio correlation sample mismatch",
+    );
     stack.portfolioManager.removeStrategyConfig("b");
     assertCondition(!stack.portfolioManager.getStrategyConfigs().has("b"), "portfolio config removal failed");
 
     stack.positionManager.openPosition("a", symbol, "long", 0.01, 60_000, 10, 1);
     stack.positionManager.openPosition("b", symbol, "short", 0.01, 60_000, 10, 1);
     stack.portfolioManager.recordEquity(100_000);
-    assertCondition(stack.portfolioManager.getStopState().peakEquityUsd === 100_000, "portfolio peak mismatch");
+    assertCondition(
+      stack.portfolioManager.getStopState().peakEquityUsd === 100_000,
+      "portfolio peak mismatch",
+    );
     const firstClose = stack.portfolioManager.executeCloseAll();
     const concurrentClose = stack.portfolioManager.executeCloseAll();
     const [firstReport, concurrentReport] = await Promise.all([firstClose, concurrentClose]);
     assertCondition(firstReport.unresolved.length === 0, "paper portfolio close was unresolved");
     assertCondition(concurrentReport.unresolved.length === 0, "concurrent portfolio close diverged");
-    assertCondition(stack.positionManager.getPositionCount() === 0, "paper portfolio close retained positions");
+    assertCondition(
+      stack.positionManager.getPositionCount() === 0,
+      "paper portfolio close retained positions",
+    );
     assertCondition(stack.portfolioManager.didExecuteCloseAll(), "paper portfolio close did not latch");
     const noOp = await stack.portfolioManager.executeCloseAll();
     assertCondition(noOp.closed.length === 0, "latched portfolio close was not a no-op");
@@ -2189,29 +2680,43 @@ async function runPortfolioManagerPaper(): Promise<void> {
     stack.portfolioManager.reset();
     assertCondition(!stack.portfolioManager.isTripped(), "portfolio reset retained stop latch");
     assertCondition(!stack.portfolioManager.didExecuteCloseAll(), "portfolio reset retained close latch");
-    assertCondition(stack.portfolioManager.getPortfolioState().perStrategyBudgetUsd.size === 1, "portfolio reset lost strategy config");
+    assertCondition(
+      stack.portfolioManager.getPortfolioState().perStrategyBudgetUsd.size === 1,
+      "portfolio reset lost strategy config",
+    );
     stack.portfolioManager.recordEquity(100_000);
     await stack.portfolioManager.recordEquityAndSettle(95_000);
     assertCondition(!stack.portfolioManager.isTripped(), "normal drawdown tripped portfolio");
     await stack.portfolioManager.recordEquityAndSettle(80_000);
-    assertCondition(stack.portfolioManager.getPortfolioState().isTripped, "portfolio trip state was not exposed");
+    assertCondition(
+      stack.portfolioManager.getPortfolioState().isTripped,
+      "portfolio trip state was not exposed",
+    );
 
-    expectFailure(() => new PortfolioManager({
-      riskBudget: new RiskBudgetAllocator({ totalRiskUsd: 100 }),
-      correlation: new CorrelationMatrix(),
-      portfolioStop: new PortfolioStop(),
-      positionManager: stack.positionManager,
-      orderManager: stack.orderManager,
-      terminalCloseEvidenceLimit: 0,
-    }), "zero terminal evidence bound");
-    expectFailure(() => new PortfolioManager({
-      riskBudget: new RiskBudgetAllocator({ totalRiskUsd: 100 }),
-      correlation: new CorrelationMatrix(),
-      portfolioStop: new PortfolioStop(),
-      positionManager: stack.positionManager,
-      orderManager: stack.orderManager,
-      terminalCloseEvidenceLimit: 1.5,
-    }), "fractional terminal evidence bound");
+    expectFailure(
+      () =>
+        new PortfolioManager({
+          riskBudget: new RiskBudgetAllocator({ totalRiskUsd: 100 }),
+          correlation: new CorrelationMatrix(),
+          portfolioStop: new PortfolioStop(),
+          positionManager: stack.positionManager,
+          orderManager: stack.orderManager,
+          terminalCloseEvidenceLimit: 0,
+        }),
+      "zero terminal evidence bound",
+    );
+    expectFailure(
+      () =>
+        new PortfolioManager({
+          riskBudget: new RiskBudgetAllocator({ totalRiskUsd: 100 }),
+          correlation: new CorrelationMatrix(),
+          portfolioStop: new PortfolioStop(),
+          positionManager: stack.positionManager,
+          orderManager: stack.orderManager,
+          terminalCloseEvidenceLimit: 1.5,
+        }),
+      "fractional terminal evidence bound",
+    );
   } finally {
     await stack.feed.close();
   }
@@ -2222,8 +2727,14 @@ async function runPortfolioManagerPaper(): Promise<void> {
     try {
       const side = pricing === "average" ? "short" : "long";
       const position = pricingStack.positionManager.openPosition(pricing, symbol, side, 0.01, 60_000, 10, 1);
-      assertCondition(await pricingStack.portfolioManager.requestPositionClose(position, pricing), `${pricing} close did not settle`);
-      assertCondition(pricingStack.positionManager.getPositionCount() === 0, `${pricing} close retained position`);
+      assertCondition(
+        await pricingStack.portfolioManager.requestPositionClose(position, pricing),
+        `${pricing} close did not settle`,
+      );
+      assertCondition(
+        pricingStack.positionManager.getPositionCount() === 0,
+        `${pricing} close retained position`,
+      );
     } finally {
       await feed.close();
     }
@@ -2236,7 +2747,10 @@ async function runPortfolioManagerPaper(): Promise<void> {
     sequencedStack.positionManager.openPosition("unresolved", symbol, "short", 0.01, 60_000, 10, 1);
     const report = await sequencedStack.portfolioManager.executeCloseAll();
     assertCondition(report.closed.includes("closed/BTC/USDC"), "mixed close report omitted closed position");
-    assertCondition(report.unresolved.includes("unresolved/BTC/USDC/short"), "mixed close report omitted unresolved position");
+    assertCondition(
+      report.unresolved.includes("unresolved/BTC/USDC/short"),
+      "mixed close report omitted unresolved position",
+    );
   } finally {
     await sequencedFeed.close();
   }
@@ -2271,10 +2785,19 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
     configuredSymbols: [String(symbol)],
   });
   const spotReport = await spot.portfolioManager.executeCloseAll();
-  assertCondition(firstOrder(spotFeed.placedOrders, "spot venue close").amount === 0.02, "spot venue quantity mismatch");
-  assertCondition(spotReport.unresolved.includes("venue/BTC/USDC/spot"), "spot venue exposure was not retryable");
+  assertCondition(
+    firstOrder(spotFeed.placedOrders, "spot venue close").amount === 0.02,
+    "spot venue quantity mismatch",
+  );
+  assertCondition(
+    spotReport.unresolved.includes("venue/BTC/USDC/spot"),
+    "spot venue exposure was not retryable",
+  );
   const spotPendingReport = await spot.portfolioManager.executeCloseAll();
-  assertCondition(spotPendingReport.unresolved.includes("venue/BTC/USDC/spot"), "open spot journal did not remain retryable");
+  assertCondition(
+    spotPendingReport.unresolved.includes("venue/BTC/USDC/spot"),
+    "open spot journal did not remain retryable",
+  );
 
   const derivativeFeed = new FaultFeed({
     positions: [makeRemotePosition("long", 0.03)],
@@ -2286,10 +2809,19 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
     configuredSymbols: [String(symbol)],
   });
   const derivativeReport = await derivative.portfolioManager.executeCloseAll();
-  assertCondition(firstOrder(derivativeFeed.placedOrders, "derivative venue close").amount === 0.03, "derivative venue quantity mismatch");
-  assertCondition(derivativeReport.unresolved.includes("venue/BTC/USDC/long"), "derivative venue exposure was not retryable");
+  assertCondition(
+    firstOrder(derivativeFeed.placedOrders, "derivative venue close").amount === 0.03,
+    "derivative venue quantity mismatch",
+  );
+  assertCondition(
+    derivativeReport.unresolved.includes("venue/BTC/USDC/long"),
+    "derivative venue exposure was not retryable",
+  );
   const derivativePendingReport = await derivative.portfolioManager.executeCloseAll();
-  assertCondition(derivativePendingReport.unresolved.includes("venue/BTC/USDC/long"), "open derivative journal did not remain retryable");
+  assertCondition(
+    derivativePendingReport.unresolved.includes("venue/BTC/USDC/long"),
+    "open derivative journal did not remain retryable",
+  );
 
   const autoFeed = new AutoFlattenFeed({
     positions: [makeRemotePosition()],
@@ -2328,7 +2860,9 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
       configuredSymbols: [String(symbol)],
     });
     assertCondition(
-      (await metaStack.portfolioManager.executeCloseAll()).unresolved.join(" ").includes(typeof failure === "string" ? failure : failure.message),
+      (await metaStack.portfolioManager.executeCloseAll()).unresolved
+        .join(" ")
+        .includes(typeof failure === "string" ? failure : failure.message),
       "metadata failure was not reported",
     );
 
@@ -2341,7 +2875,9 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
     });
     positionStack.positionManager.openPosition("unavailable", symbol, "long", 0.01, 60_000, 10, 1);
     assertCondition(
-      (await positionStack.portfolioManager.executeCloseAll()).unresolved.join(" ").includes("derivative position unavailable"),
+      (await positionStack.portfolioManager.executeCloseAll()).unresolved
+        .join(" ")
+        .includes("derivative position unavailable"),
       "position failure was not reported",
     );
 
@@ -2353,7 +2889,9 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
       configuredSymbols: [String(symbol)],
     });
     assertCondition(
-      (await balanceStack.portfolioManager.executeCloseAll()).unresolved.join(" ").includes(typeof failure === "string" ? failure : failure.message),
+      (await balanceStack.portfolioManager.executeCloseAll()).unresolved
+        .join(" ")
+        .includes(typeof failure === "string" ? failure : failure.message),
       "balance failure was not reported",
     );
 
@@ -2366,8 +2904,14 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
       configuredSymbols: [String(symbol)],
     });
     const verifyReport = await verifyStack.portfolioManager.executeCloseAll();
-    assertCondition(verifyReport.unresolved.join(" ").includes("authoritative position verification"), "position verification failure was not reported");
-    assertCondition(verifyReport.unresolved.join(" ").includes("authoritative balance verification"), "balance verification failure was not reported");
+    assertCondition(
+      verifyReport.unresolved.join(" ").includes("authoritative position verification"),
+      "position verification failure was not reported",
+    );
+    assertCondition(
+      verifyReport.unresolved.join(" ").includes("authoritative balance verification"),
+      "balance verification failure was not reported",
+    );
   }
 
   const invalidSpot = await makePortfolioStack({
@@ -2381,7 +2925,9 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
   });
   invalidSpot.positionManager.openPosition("spot", symbol, "short", 0.01, 60_000, 10, 1);
   assertCondition(
-    (await invalidSpot.portfolioManager.executeCloseAll()).unresolved.join(" ").includes("invalid local spot short removed"),
+    (await invalidSpot.portfolioManager.executeCloseAll()).unresolved
+      .join(" ")
+      .includes("invalid local spot short removed"),
     "invalid spot short was not quarantined",
   );
 
@@ -2394,7 +2940,9 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
   });
   unavailableSpot.positionManager.openPosition("spot", symbol, "long", 0.01, 60_000, 10, 1);
   assertCondition(
-    (await unavailableSpot.portfolioManager.executeCloseAll()).unresolved.join(" ").includes("spot inventory unavailable"),
+    (await unavailableSpot.portfolioManager.executeCloseAll()).unresolved
+      .join(" ")
+      .includes("spot inventory unavailable"),
     "unavailable spot inventory was not reported",
   );
 
@@ -2422,7 +2970,10 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
   });
   absentSpotBalance.positionManager.openPosition("absent-spot", symbol, "long", 0.01, 60_000, 10, 1);
   await absentSpotBalance.portfolioManager.executeCloseAll();
-  assertCondition(absentSpotBalance.positionManager.getPositionCount() === 0, "absent spot balance remained local");
+  assertCondition(
+    absentSpotBalance.positionManager.getPositionCount() === 0,
+    "absent spot balance remained local",
+  );
 
   const attributedSpotFeed = new FaultFeed({
     positions: [],
@@ -2436,7 +2987,10 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
   });
   attributedSpot.positionManager.openPosition("attributed-spot", symbol, "long", 0.01, 60_000, 10, 1);
   const attributedSpotReport = await attributedSpot.portfolioManager.executeCloseAll();
-  assertCondition(attributedSpotReport.unresolved.includes("attributed-spot/BTC/USDC/long"), "spot venue close lost local attribution");
+  assertCondition(
+    attributedSpotReport.unresolved.includes("attributed-spot/BTC/USDC/long"),
+    "spot venue close lost local attribution",
+  );
 
   const noPriceFeed = new FaultFeed({
     positions: [{ ...makeRemotePosition(), entryPrice: undefined, markPrice: undefined }],
@@ -2447,7 +3001,10 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
     requireAuthoritativeEmergencyState: true,
     configuredSymbols: [String(symbol)],
   });
-  assertCondition((await noPrice.portfolioManager.executeCloseAll()).unresolved.includes("venue/BTC/USDC/long"), "price-less derivative was not unresolved");
+  assertCondition(
+    (await noPrice.portfolioManager.executeCloseAll()).unresolved.includes("venue/BTC/USDC/long"),
+    "price-less derivative was not unresolved",
+  );
 
   const shortFeed = new FaultFeed({ positions: [makeRemotePosition("short")], marketMeta: derivativeMeta });
   const short = await makePortfolioStack({
@@ -2456,10 +3013,16 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
     configuredSymbols: [String(symbol)],
   });
   await short.portfolioManager.executeCloseAll();
-  assertCondition(firstOrder(shortFeed.placedOrders, "short venue close").side === "buy", "short venue close side mismatch");
+  assertCondition(
+    firstOrder(shortFeed.placedOrders, "short venue close").side === "buy",
+    "short venue close side mismatch",
+  );
 
   for (const failure of [new Error("venue Error"), "venue string"] as const) {
-    const failedDerivativeFeed = new FaultFeed({ positions: [makeRemotePosition()], marketMeta: derivativeMeta });
+    const failedDerivativeFeed = new FaultFeed({
+      positions: [makeRemotePosition()],
+      marketMeta: derivativeMeta,
+    });
     failedDerivativeFeed.placeFailures.push(failure);
     const failedDerivative = await makePortfolioStack({
       feed: failedDerivativeFeed,
@@ -2508,7 +3071,10 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
     configuredSymbols: [String(symbol)],
   });
   await fallbackTicker.portfolioManager.executeCloseAll();
-  assertCondition(fallbackTickerFeed.placedOrders.length === 1, "last-price spot fallback did not place scripted order");
+  assertCondition(
+    fallbackTickerFeed.placedOrders.length === 1,
+    "last-price spot fallback did not place scripted order",
+  );
 
   const tooSmallFeed = new FaultFeed({
     positions: [],
@@ -2533,8 +3099,19 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
       requireAuthoritativeEmergencyState: true,
       configuredSymbols: [String(symbol)],
     });
-    const position = requestStack.positionManager.openPosition(isSpot ? "spot" : "derivative", symbol, "long", 0.01, 60_000, 10, 1);
-    assertCondition(!(await requestStack.portfolioManager.requestPositionClose(position, "manual")), "open authoritative request unexpectedly settled");
+    const position = requestStack.positionManager.openPosition(
+      isSpot ? "spot" : "derivative",
+      symbol,
+      "long",
+      0.01,
+      60_000,
+      10,
+      1,
+    );
+    assertCondition(
+      !(await requestStack.portfolioManager.requestPositionClose(position, "manual")),
+      "open authoritative request unexpectedly settled",
+    );
   }
   for (const failure of [new Error("metadata Error"), "metadata string"] as const) {
     const requestFeed = new FaultFeed();
@@ -2543,8 +3120,19 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
       feed: requestFeed,
       requireAuthoritativeEmergencyState: true,
     });
-    const position = requestStack.positionManager.openPosition("metadata", symbol, "long", 0.01, 60_000, 10, 1);
-    assertCondition(!(await requestStack.portfolioManager.requestPositionClose(position, "manual")), "metadata failure settled close");
+    const position = requestStack.positionManager.openPosition(
+      "metadata",
+      symbol,
+      "long",
+      0.01,
+      60_000,
+      10,
+      1,
+    );
+    assertCondition(
+      !(await requestStack.portfolioManager.requestPositionClose(position, "manual")),
+      "metadata failure settled close",
+    );
   }
 
   for (const mode of ["terminal", "unavailable"] as const) {
@@ -2556,7 +3144,8 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
     });
     await pendingStack.portfolioManager.executeCloseAll();
     const pendingOrder = firstOrder(pendingFeed.placedOrders, `${mode} authoritative close`);
-    if (mode === "terminal") pendingFeed.setOrderStatus(pendingOrder.clientOrderId, { status: "canceled", filled: 0 });
+    if (mode === "terminal")
+      pendingFeed.setOrderStatus(pendingOrder.clientOrderId, { status: "canceled", filled: 0 });
     else pendingFeed.orderFailures.push("pending unavailable");
     await pendingStack.portfolioManager.executeCloseAll();
   }
@@ -2574,7 +3163,8 @@ async function runPortfolioManagerAuthoritative(): Promise<void> {
     });
     await pendingStack.portfolioManager.executeCloseAll();
     const pendingOrder = firstOrder(pendingFeed.placedOrders, `${mode} spot close`);
-    if (mode === "terminal") pendingFeed.setOrderStatus(pendingOrder.clientOrderId, { status: "canceled", filled: 0 });
+    if (mode === "terminal")
+      pendingFeed.setOrderStatus(pendingOrder.clientOrderId, { status: "canceled", filled: 0 });
     else pendingFeed.orderFailures.push("pending spot unavailable");
     await pendingStack.portfolioManager.executeCloseAll();
   }
@@ -2588,14 +3178,26 @@ async function runPortfolioManagerLifecycle(): Promise<void> {
   try {
     for (const side of ["long", "short"] as const) {
       const position = stack.positionManager.openPosition(side, symbol, side, 0.01, 60_000, 10, 1);
-      assertCondition(!(await stack.portfolioManager.requestPositionClose(position, `close-${side}`)), `${side} close settled before lifecycle fill`);
+      assertCondition(
+        !(await stack.portfolioManager.requestPositionClose(position, `close-${side}`)),
+        `${side} close settled before lifecycle fill`,
+      );
       const order = feed.placedOrders.at(-1);
       if (order === undefined) throw new Error(`missing ${side} lifecycle close order`);
       feed.emitLifecycle({ kind: "order", payload: { ...order, status: "open", filled: 0 } });
       feed.emitLifecycle({ kind: "execution", payload: makeExecution(order, `execution-${side}`, 0.01) });
-      assertCondition(!stack.positionManager.getPositions().some((item) => item.id === position.id), `${side} lifecycle fill retained position`);
-      feed.emitLifecycle({ kind: "execution", payload: makeExecution(order, `execution-${side}-late`, 0.01) });
-      feed.emitLifecycle({ kind: "execution", payload: makeExecution(order, `execution-${side}-late`, 0.01) });
+      assertCondition(
+        !stack.positionManager.getPositions().some((item) => item.id === position.id),
+        `${side} lifecycle fill retained position`,
+      );
+      feed.emitLifecycle({
+        kind: "execution",
+        payload: makeExecution(order, `execution-${side}-late`, 0.01),
+      });
+      feed.emitLifecycle({
+        kind: "execution",
+        payload: makeExecution(order, `execution-${side}-late`, 0.01),
+      });
     }
 
     const missing = stack.positionManager.openPosition("missing", symbol, "long", 0.01, 60_000, 10, 1);
@@ -2603,17 +3205,37 @@ async function runPortfolioManagerLifecycle(): Promise<void> {
     const missingOrder = feed.placedOrders.at(-1);
     if (missingOrder === undefined) throw new Error("missing-position order was not scripted");
     stack.positionManager.reconcileVenueAbsent(missing.id);
-    feed.emitLifecycle({ kind: "execution", payload: makeExecution(missingOrder, "execution-missing", 0.01) });
+    feed.emitLifecycle({
+      kind: "execution",
+      payload: makeExecution(missingOrder, "execution-missing", 0.01),
+    });
 
-    const orderPosition = stack.positionManager.openPosition("order-event", symbol, "long", 0.01, 60_000, 10, 1);
+    const orderPosition = stack.positionManager.openPosition(
+      "order-event",
+      symbol,
+      "long",
+      0.01,
+      60_000,
+      10,
+      1,
+    );
     await stack.portfolioManager.requestPositionClose(orderPosition, "order-event");
     const orderUpdate = feed.placedOrders.at(-1);
     if (orderUpdate === undefined) throw new Error("order-event close was not scripted");
     feed.emitLifecycle({
       kind: "order",
-      payload: { ...orderUpdate, status: "closed", filled: 0.01, average: 59_900, updateTimestamp: undefined },
+      payload: {
+        ...orderUpdate,
+        status: "closed",
+        filled: 0.01,
+        average: 59_900,
+        updateTimestamp: undefined,
+      },
     });
-    assertCondition(!stack.positionManager.getPositions().some((item) => item.id === orderPosition.id), "closed order event retained position");
+    assertCondition(
+      !stack.positionManager.getPositions().some((item) => item.id === orderPosition.id),
+      "closed order event retained position",
+    );
 
     const latePosition = stack.positionManager.openPosition("late", symbol, "long", 0.01, 60_000, 10, 1);
     await stack.portfolioManager.requestPositionClose(latePosition, "late-first");
@@ -2625,18 +3247,41 @@ async function runPortfolioManagerLifecycle(): Promise<void> {
     if (replacement === undefined) throw new Error("replacement close was not scripted");
     feed.emitLifecycle({
       kind: "order",
-      payload: { ...cancelledOrder, status: "closed", filled: 0.004, average: 59_850, updateTimestamp: undefined },
+      payload: {
+        ...cancelledOrder,
+        status: "closed",
+        filled: 0.004,
+        average: 59_850,
+        updateTimestamp: undefined,
+      },
     });
     await Promise.resolve();
-    assertCondition(stack.positionManager.getPositions().find((item) => item.id === latePosition.id)?.quantity === 0.006, "late fill remainder mismatch");
-    assertCondition(feed.getOrder(replacement.clientOrderId)?.status === "canceled", "late fill did not cancel replacement");
+    assertCondition(
+      stack.positionManager.getPositions().find((item) => item.id === latePosition.id)?.quantity === 0.006,
+      "late fill remainder mismatch",
+    );
+    assertCondition(
+      feed.getOrder(replacement.clientOrderId)?.status === "canceled",
+      "late fill did not cancel replacement",
+    );
 
-    const noReplacementPosition = stack.positionManager.openPosition("no-replacement", symbol, "long", 0.01, 60_000, 10, 1);
+    const noReplacementPosition = stack.positionManager.openPosition(
+      "no-replacement",
+      symbol,
+      "long",
+      0.01,
+      60_000,
+      10,
+      1,
+    );
     await stack.portfolioManager.requestPositionClose(noReplacementPosition, "no-replacement");
     const noReplacementOrder = feed.placedOrders.at(-1);
     if (noReplacementOrder === undefined) throw new Error("no-replacement close was not scripted");
     feed.emitLifecycle({ kind: "order", payload: { ...noReplacementOrder, status: "canceled", filled: 0 } });
-    feed.emitLifecycle({ kind: "execution", payload: makeExecution(noReplacementOrder, "late-without-replacement", 0.004) });
+    feed.emitLifecycle({
+      kind: "execution",
+      payload: makeExecution(noReplacementOrder, "late-without-replacement", 0.004),
+    });
   } finally {
     await stack.orderManager.stopLifecycle();
     await feed.close();
@@ -2647,21 +3292,37 @@ async function runPortfolioManagerLifecycle(): Promise<void> {
     debug: () => undefined,
     info: () => undefined,
     warn: () => undefined,
-    error: (message) => { errorLog.push(message); },
+    error: (message) => {
+      errorLog.push(message);
+    },
   };
   const failFeed = new FailOnceLifecycleFeed();
   const failStack = await makePortfolioStack({ feed: failFeed, logger: errorLogger });
   await failStack.orderManager.startLifecycle();
   try {
-    const position = failStack.positionManager.openPosition("cancel-fault", symbol, "long", 0.01, 60_000, 10, 1);
+    const position = failStack.positionManager.openPosition(
+      "cancel-fault",
+      symbol,
+      "long",
+      0.01,
+      60_000,
+      10,
+      1,
+    );
     await failStack.portfolioManager.requestPositionClose(position, "cancel-first");
     const cancelledOrder = failFeed.placedOrders.at(-1);
     if (cancelledOrder === undefined) throw new Error("cancel-fault order was not scripted");
     failFeed.emitLifecycle({ kind: "order", payload: { ...cancelledOrder, status: "canceled", filled: 0 } });
     await failStack.portfolioManager.requestPositionClose(position, "cancel-retry");
-    failFeed.emitLifecycle({ kind: "execution", payload: makeExecution(cancelledOrder, "late-cancel-fault", 0.004) });
+    failFeed.emitLifecycle({
+      kind: "execution",
+      payload: makeExecution(cancelledOrder, "late-cancel-fault", 0.004),
+    });
     await Bun.sleep(0);
-    assertCondition(errorLog.includes("[portfolio-manager] late terminal fill replacement cancel failed"), "late replacement cancel failure was not logged");
+    assertCondition(
+      errorLog.includes("[portfolio-manager] late terminal fill replacement cancel failed"),
+      "late replacement cancel failure was not logged",
+    );
   } finally {
     await failStack.orderManager.stopLifecycle();
     await failFeed.close();
@@ -2670,8 +3331,14 @@ async function runPortfolioManagerLifecycle(): Promise<void> {
   const reconcileFeed = new FaultFeed();
   const reconcile = await makePortfolioStack({ feed: reconcileFeed });
   const pending = reconcile.positionManager.openPosition("reconcile", symbol, "long", 0.01, 60_000, 10, 1);
-  assertCondition(!(await reconcile.portfolioManager.requestPositionClose(pending, "first")), "open close unexpectedly settled");
-  assertCondition(!(await reconcile.portfolioManager.requestPositionClose(pending, "still-open")), "open reconciliation unexpectedly settled");
+  assertCondition(
+    !(await reconcile.portfolioManager.requestPositionClose(pending, "first")),
+    "open close unexpectedly settled",
+  );
+  assertCondition(
+    !(await reconcile.portfolioManager.requestPositionClose(pending, "still-open")),
+    "open reconciliation unexpectedly settled",
+  );
   const pendingOrder = firstOrder(reconcileFeed.placedOrders, "reconcile close");
   reconcileFeed.setOrderStatus(pendingOrder.clientOrderId, {
     status: "canceled",
@@ -2680,7 +3347,10 @@ async function runPortfolioManagerLifecycle(): Promise<void> {
     price: undefined,
     updateTimestamp: undefined,
   });
-  assertCondition(!(await reconcile.portfolioManager.requestPositionClose(pending, "partial-retry")), "partial REST close unexpectedly settled");
+  assertCondition(
+    !(await reconcile.portfolioManager.requestPositionClose(pending, "partial-retry")),
+    "partial REST close unexpectedly settled",
+  );
   const replacementOrder = reconcileFeed.placedOrders.at(-1);
   if (replacementOrder === undefined) throw new Error("partial REST replacement was not scripted");
   reconcileFeed.setOrderStatus(replacementOrder.clientOrderId, {
@@ -2692,7 +3362,10 @@ async function runPortfolioManagerLifecycle(): Promise<void> {
   });
   const remaining = reconcile.positionManager.getPositions()[0];
   if (remaining === undefined) throw new Error("partial REST close lost remaining position");
-  assertCondition(await reconcile.portfolioManager.requestPositionClose(remaining, "final-reconcile"), "REST-reconciled close did not settle");
+  assertCondition(
+    await reconcile.portfolioManager.requestPositionClose(remaining, "final-reconcile"),
+    "REST-reconciled close did not settle",
+  );
   await reconcileFeed.close();
 
   const cancelFeed = new FailOnceCancelFeed();
@@ -2705,23 +3378,43 @@ async function runPortfolioManagerLifecycle(): Promise<void> {
     type: "market",
   });
   const failedCancel = await cancelStack.portfolioManager.executeCloseAll();
-  assertCondition(failedCancel.unresolved.some((entry) => entry.startsWith("cancel ")), "cancel failure was not reported");
+  assertCondition(
+    failedCancel.unresolved.some((entry) => entry.startsWith("cancel ")),
+    "cancel failure was not reported",
+  );
   const successfulCancel = await cancelStack.portfolioManager.executeCloseAll();
-  assertCondition(successfulCancel.cancelledOrders.length === 1, "successful retry cancellation was not reported");
+  assertCondition(
+    successfulCancel.cancelledOrders.length === 1,
+    "successful retry cancellation was not reported",
+  );
 
   for (const failure of [new Error("close Error"), "close string"] as const) {
     const pendingFeed = new FaultFeed();
     const pendingStack = await makePortfolioStack({ feed: pendingFeed });
-    const pendingPosition = pendingStack.positionManager.openPosition("pending", symbol, "long", 0.01, 60_000, 10, 1);
+    const pendingPosition = pendingStack.positionManager.openPosition(
+      "pending",
+      symbol,
+      "long",
+      0.01,
+      60_000,
+      10,
+      1,
+    );
     await pendingStack.portfolioManager.requestPositionClose(pendingPosition, "first");
     pendingFeed.orderFailures.push(failure);
-    assertCondition(!(await pendingStack.portfolioManager.requestPositionClose(pendingPosition, "retry")), "failed reconciliation settled close");
+    assertCondition(
+      !(await pendingStack.portfolioManager.requestPositionClose(pendingPosition, "retry")),
+      "failed reconciliation settled close",
+    );
 
     const placeFeed = new FaultFeed();
     placeFeed.placeFailures.push(failure);
     const placeStack = await makePortfolioStack({ feed: placeFeed });
     const fresh = placeStack.positionManager.openPosition("fresh", symbol, "long", 0.01, 60_000, 10, 1);
-    assertCondition(!(await placeStack.portfolioManager.requestPositionClose(fresh, "first")), "failed placement settled close");
+    assertCondition(
+      !(await placeStack.portfolioManager.requestPositionClose(fresh, "first")),
+      "failed placement settled close",
+    );
   }
 
   const attributionFeed = new LifecycleFeed({
@@ -2740,8 +3433,14 @@ async function runPortfolioManagerLifecycle(): Promise<void> {
     await attribution.portfolioManager.executeCloseAll();
     const venueOrder = attributionFeed.placedOrders.find((order) => order.side === "sell");
     if (venueOrder === undefined) throw new Error("authoritative attribution order was not scripted");
-    attributionFeed.emitLifecycle({ kind: "execution", payload: makeExecution(venueOrder, "attribution-exhaustion", 0.01) });
-    assertCondition(attribution.positionManager.getPositionCount() === 1, "attribution did not stop at venue quantity");
+    attributionFeed.emitLifecycle({
+      kind: "execution",
+      payload: makeExecution(venueOrder, "attribution-exhaustion", 0.01),
+    });
+    assertCondition(
+      attribution.positionManager.getPositionCount() === 1,
+      "attribution did not stop at venue quantity",
+    );
   } finally {
     await attribution.orderManager.stopLifecycle();
     await attributionFeed.close();

@@ -14,14 +14,17 @@ import { handleFatal, main } from "./generate-report.js";
 const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
 /** Helper: write a baseline JSON file. */
-function writeBaselineJson(path: string, opts: {
-  symbol: string;
-  timeframe: string;
-  totalTrades: number;
-  totalReturn: number;
-  sharpeRatio: number;
-  killSwitchTriggered: boolean;
-}): void {
+function writeBaselineJson(
+  path: string,
+  opts: {
+    symbol: string;
+    timeframe: string;
+    totalTrades: number;
+    totalReturn: number;
+    sharpeRatio: number;
+    killSwitchTriggered: boolean;
+  },
+): void {
   const payload = {
     args: {
       symbol: opts.symbol,
@@ -79,19 +82,22 @@ async function withArgv<T>(args: readonly string[], fn: () => Promise<T>): Promi
 describe("generate-report — main() in-process", () => {
   it("a közvetlen bun run belépési pont reportot generál", async () => {
     const reportFile = resolve(outputDir, "DIRECT-REPORT.md");
-    const process = Bun.spawn([
-      "bun",
-      "run",
-      "packages/backtest-tools/src/cli/generate-report.ts",
-      `--baselines=${resolve(outputDir, "missing-baseline.json")}`,
-      `--sweep=${resolve(outputDir, "missing-sweep.json")}`,
-      `--oos=${resolve(outputDir, "missing-oos.json")}`,
-      `--output=${reportFile}`,
-    ], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const process = Bun.spawn(
+      [
+        "bun",
+        "run",
+        "packages/backtest-tools/src/cli/generate-report.ts",
+        `--baselines=${resolve(outputDir, "missing-baseline.json")}`,
+        `--sweep=${resolve(outputDir, "missing-sweep.json")}`,
+        `--oos=${resolve(outputDir, "missing-oos.json")}`,
+        `--output=${reportFile}`,
+      ],
+      {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
     const [stdout, stderr, exitCode] = await Promise.all([
       new Response(process.stdout).text(),
       new Response(process.stderr).text(),
@@ -139,12 +145,15 @@ describe("generate-report — main() in-process", () => {
       stdoutChunks.push(args.map(String).join(" "));
     };
     try {
-      await withArgv([
-        `--baselines=${baselineFile}`,
-        `--sweep=does-not-exist.csv`,
-        `--oos=does-not-exist.json`,
-        `--output=${reportFile}`,
-      ], () => main());
+      await withArgv(
+        [
+          `--baselines=${baselineFile}`,
+          `--sweep=does-not-exist.csv`,
+          `--oos=does-not-exist.json`,
+          `--output=${reportFile}`,
+        ],
+        () => main(),
+      );
     } finally {
       console.log = origLog;
     }
@@ -162,16 +171,33 @@ describe("generate-report — main() in-process", () => {
   it("--baselines= vesszővel elválasztott lista feldolgozása", async () => {
     const baseline1 = resolve(outputDir, "baseline-1.json");
     const baseline2 = resolve(outputDir, "baseline-2.json");
-    writeBaselineJson(baseline1, { symbol: "BTC/USDT", timeframe: "1h", totalTrades: 5, totalReturn: 0.3, sharpeRatio: 1.2, killSwitchTriggered: false });
-    writeBaselineJson(baseline2, { symbol: "ETH/USDT", timeframe: "1h", totalTrades: 8, totalReturn: 0.4, sharpeRatio: 1.3, killSwitchTriggered: false });
+    writeBaselineJson(baseline1, {
+      symbol: "BTC/USDT",
+      timeframe: "1h",
+      totalTrades: 5,
+      totalReturn: 0.3,
+      sharpeRatio: 1.2,
+      killSwitchTriggered: false,
+    });
+    writeBaselineJson(baseline2, {
+      symbol: "ETH/USDT",
+      timeframe: "1h",
+      totalTrades: 8,
+      totalReturn: 0.4,
+      sharpeRatio: 1.3,
+      killSwitchTriggered: false,
+    });
     const reportFile = resolve(outputDir, "REPORT.md");
 
-    await withArgv([
-      `--baselines=${baseline1},${baseline2}`,
-      `--sweep=does-not-exist.csv`,
-      `--oos=does-not-exist.json`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baselines=${baseline1},${baseline2}`,
+        `--sweep=does-not-exist.csv`,
+        `--oos=does-not-exist.json`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     const report = readFileSync(reportFile, "utf8");
     expect(report).toContain("BTC/USDT");
@@ -180,15 +206,25 @@ describe("generate-report — main() in-process", () => {
 
   it("--baseline= (single, backward compat) egyelemű listát ad", async () => {
     const baseline = resolve(outputDir, "single.json");
-    writeBaselineJson(baseline, { symbol: "SOL/USDT", timeframe: "15m", totalTrades: 3, totalReturn: 0.2, sharpeRatio: 1.1, killSwitchTriggered: false });
+    writeBaselineJson(baseline, {
+      symbol: "SOL/USDT",
+      timeframe: "15m",
+      totalTrades: 3,
+      totalReturn: 0.2,
+      sharpeRatio: 1.1,
+      killSwitchTriggered: false,
+    });
     const reportFile = resolve(outputDir, "REPORT.md");
 
-    await withArgv([
-      `--baseline=${baseline}`,
-      `--sweep=does-not-exist.csv`,
-      `--oos=does-not-exist.json`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baseline=${baseline}`,
+        `--sweep=does-not-exist.csv`,
+        `--oos=does-not-exist.json`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     const report = readFileSync(reportFile, "utf8");
     expect(report).toContain("SOL/USDT");
@@ -196,7 +232,14 @@ describe("generate-report — main() in-process", () => {
 
   it("sweep.csv betöltése: a táblázat megjelenik a riportban", async () => {
     const baselineFile = resolve(outputDir, "baseline.json");
-    writeBaselineJson(baselineFile, { symbol: "BTC/USDT", timeframe: "1h", totalTrades: 1, totalReturn: 0.1, sharpeRatio: 1.0, killSwitchTriggered: false });
+    writeBaselineJson(baselineFile, {
+      symbol: "BTC/USDT",
+      timeframe: "1h",
+      totalTrades: 1,
+      totalReturn: 0.1,
+      sharpeRatio: 1.0,
+      killSwitchTriggered: false,
+    });
     const sweepFile = resolve(outputDir, "sweep.csv");
     // Format: header + 1 row
     writeFileSync(
@@ -208,12 +251,15 @@ describe("generate-report — main() in-process", () => {
     );
     const reportFile = resolve(outputDir, "REPORT.md");
 
-    await withArgv([
-      `--baselines=${baselineFile}`,
-      `--sweep=${sweepFile}`,
-      `--oos=does-not-exist.json`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baselines=${baselineFile}`,
+        `--sweep=${sweepFile}`,
+        `--oos=does-not-exist.json`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     const report = readFileSync(reportFile, "utf8");
     expect(report).toContain("## 2. Paraméter sweep");
@@ -224,30 +270,38 @@ describe("generate-report — main() in-process", () => {
 
   it("a jelenlegi sweep.json envelope betöltésekor cap eredményt ír a riportba", async () => {
     const sweepFile = resolve(outputDir, "sweep.json");
-    writeFileSync(sweepFile, JSON.stringify({
-      workflow: "sweep",
-      args: { symbol: "BTC/USDT" },
-      results: [{
-        maxPositionPctEquity: 0.04,
-        result: {
-          totalReturn: 0.2,
-          sharpeRatio: 1.25,
-          maxDrawdown: 0.08,
-          profitFactor: 1.7,
-          winRate: 0.55,
-          totalTrades: 9,
-          killSwitchTriggered: false,
-        },
-      }],
-    }));
+    writeFileSync(
+      sweepFile,
+      JSON.stringify({
+        workflow: "sweep",
+        args: { symbol: "BTC/USDT" },
+        results: [
+          {
+            maxPositionPctEquity: 0.04,
+            result: {
+              totalReturn: 0.2,
+              sharpeRatio: 1.25,
+              maxDrawdown: 0.08,
+              profitFactor: 1.7,
+              winRate: 0.55,
+              totalTrades: 9,
+              killSwitchTriggered: false,
+            },
+          },
+        ],
+      }),
+    );
     const reportFile = resolve(outputDir, "REPORT-JSON.md");
 
-    await withArgv([
-      `--baselines=${resolve(outputDir, "missing.json")}`,
-      `--sweep=${sweepFile}`,
-      `--oos=${resolve(outputDir, "missing-oos.json")}`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baselines=${resolve(outputDir, "missing.json")}`,
+        `--sweep=${sweepFile}`,
+        `--oos=${resolve(outputDir, "missing-oos.json")}`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     const report = readFileSync(reportFile, "utf8");
     expect(report).toContain("## 2. Paraméter sweep");
@@ -260,12 +314,15 @@ describe("generate-report — main() in-process", () => {
     writeFileSync(sweepFile, JSON.stringify({ workflow: "not-sweep", results: [] }));
     const reportFile = resolve(outputDir, "REPORT-INVALID-SWEEP.md");
 
-    await withArgv([
-      `--baselines=${resolve(outputDir, "missing.json")}`,
-      `--sweep=${sweepFile}`,
-      `--oos=${resolve(outputDir, "missing-oos.json")}`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baselines=${resolve(outputDir, "missing.json")}`,
+        `--sweep=${sweepFile}`,
+        `--oos=${resolve(outputDir, "missing-oos.json")}`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     const report = readFileSync(reportFile, "utf8");
     expect(report).toContain("## 2. Paraméter sweep — HIBA: Invalid sweep JSON envelope");
@@ -273,26 +330,39 @@ describe("generate-report — main() in-process", () => {
 
   it("oos.json betöltése: a walk-forward táblázat megjelenik a riportban", async () => {
     const baselineFile = resolve(outputDir, "baseline.json");
-    writeBaselineJson(baselineFile, { symbol: "BTC/USDT", timeframe: "1h", totalTrades: 1, totalReturn: 0.1, sharpeRatio: 1.0, killSwitchTriggered: false });
+    writeBaselineJson(baselineFile, {
+      symbol: "BTC/USDT",
+      timeframe: "1h",
+      totalTrades: 1,
+      totalReturn: 0.1,
+      sharpeRatio: 1.0,
+      killSwitchTriggered: false,
+    });
     const oosFile = resolve(outputDir, "oos.json");
-    writeFileSync(oosFile, JSON.stringify({
-      avgIsSharpe: 1.5,
-      avgOosSharpe: 1.0,
-      oosIsSharpeRatio: 0.7,
-      windowCount: 4,
-      args: { symbol: "BTC/USDT", timeframe: "1h", inSampleDays: 180, outOfSampleDays: 60, stepDays: 30 },
-      oosWindowSummaries: [
-        { totalReturn: 0.1, sharpeRatio: 1.2, winRate: 0.6, totalTrades: 5, profitFactor: 1.4 },
-      ],
-    }));
+    writeFileSync(
+      oosFile,
+      JSON.stringify({
+        avgIsSharpe: 1.5,
+        avgOosSharpe: 1.0,
+        oosIsSharpeRatio: 0.7,
+        windowCount: 4,
+        args: { symbol: "BTC/USDT", timeframe: "1h", inSampleDays: 180, outOfSampleDays: 60, stepDays: 30 },
+        oosWindowSummaries: [
+          { totalReturn: 0.1, sharpeRatio: 1.2, winRate: 0.6, totalTrades: 5, profitFactor: 1.4 },
+        ],
+      }),
+    );
     const reportFile = resolve(outputDir, "REPORT.md");
 
-    await withArgv([
-      `--baselines=${baselineFile}`,
-      `--sweep=does-not-exist.csv`,
-      `--oos=${oosFile}`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baselines=${baselineFile}`,
+        `--sweep=does-not-exist.csv`,
+        `--oos=${oosFile}`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     const report = readFileSync(reportFile, "utf8");
     expect(report).toContain("## 3. Walk-forward out-of-sample validáció");
@@ -304,12 +374,15 @@ describe("generate-report — main() in-process", () => {
     writeFileSync(baselineFile, "not valid json");
     const reportFile = resolve(outputDir, "REPORT.md");
 
-    await withArgv([
-      `--baselines=${baselineFile}`,
-      `--sweep=does-not-exist.csv`,
-      `--oos=does-not-exist.json`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baselines=${baselineFile}`,
+        `--sweep=does-not-exist.csv`,
+        `--oos=does-not-exist.json`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     expect(existsSync(reportFile)).toBe(true);
     const report = readFileSync(reportFile, "utf8");
@@ -318,12 +391,15 @@ describe("generate-report — main() in-process", () => {
 
   it("egy baseline sincs (minden file hiányzik) → 'NINCS FÁJL' sort ír", async () => {
     const reportFile = resolve(outputDir, "REPORT.md");
-    await withArgv([
-      `--baselines=does-not-exist-1.json,does-not-exist-2.json`,
-      `--sweep=does-not-exist.csv`,
-      `--oos=does-not-exist.json`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baselines=does-not-exist-1.json,does-not-exist-2.json`,
+        `--sweep=does-not-exist.csv`,
+        `--oos=does-not-exist.json`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     expect(existsSync(reportFile)).toBe(true);
     const report = readFileSync(reportFile, "utf8");
@@ -332,24 +408,37 @@ describe("generate-report — main() in-process", () => {
 
   it("oos.json oosIsSharpeRatio < 0.6 → ⚠️ warning sort ír", async () => {
     const baselineFile = resolve(outputDir, "baseline.json");
-    writeBaselineJson(baselineFile, { symbol: "BTC/USDT", timeframe: "1h", totalTrades: 1, totalReturn: 0.1, sharpeRatio: 1.0, killSwitchTriggered: false });
+    writeBaselineJson(baselineFile, {
+      symbol: "BTC/USDT",
+      timeframe: "1h",
+      totalTrades: 1,
+      totalReturn: 0.1,
+      sharpeRatio: 1.0,
+      killSwitchTriggered: false,
+    });
     const oosFile = resolve(outputDir, "oos.json");
-    writeFileSync(oosFile, JSON.stringify({
-      avgIsSharpe: 1.5,
-      avgOosSharpe: 0.5,
-      oosIsSharpeRatio: 0.4,  // < 0.6 → warning
-      windowCount: 4,
-      args: { symbol: "BTC/USDT", timeframe: "1h", inSampleDays: 180, outOfSampleDays: 60, stepDays: 30 },
-      oosWindowSummaries: [],
-    }));
+    writeFileSync(
+      oosFile,
+      JSON.stringify({
+        avgIsSharpe: 1.5,
+        avgOosSharpe: 0.5,
+        oosIsSharpeRatio: 0.4, // < 0.6 → warning
+        windowCount: 4,
+        args: { symbol: "BTC/USDT", timeframe: "1h", inSampleDays: 180, outOfSampleDays: 60, stepDays: 30 },
+        oosWindowSummaries: [],
+      }),
+    );
     const reportFile = resolve(outputDir, "REPORT.md");
 
-    await withArgv([
-      `--baselines=${baselineFile}`,
-      `--sweep=does-not-exist.csv`,
-      `--oos=${oosFile}`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baselines=${baselineFile}`,
+        `--sweep=does-not-exist.csv`,
+        `--oos=${oosFile}`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     const report = readFileSync(reportFile, "utf8");
     expect(report).toContain("⚠️");
@@ -358,17 +447,27 @@ describe("generate-report — main() in-process", () => {
 
   it("malformed oos.json → catch ág fut le, 'HIBA' sort ír", async () => {
     const baselineFile = resolve(outputDir, "baseline.json");
-    writeBaselineJson(baselineFile, { symbol: "BTC/USDT", timeframe: "1h", totalTrades: 1, totalReturn: 0.1, sharpeRatio: 1.0, killSwitchTriggered: false });
+    writeBaselineJson(baselineFile, {
+      symbol: "BTC/USDT",
+      timeframe: "1h",
+      totalTrades: 1,
+      totalReturn: 0.1,
+      sharpeRatio: 1.0,
+      killSwitchTriggered: false,
+    });
     const oosFile = resolve(outputDir, "broken-oos.json");
     writeFileSync(oosFile, "not valid json");
     const reportFile = resolve(outputDir, "REPORT.md");
 
-    await withArgv([
-      `--baselines=${baselineFile}`,
-      `--sweep=does-not-exist.csv`,
-      `--oos=${oosFile}`,
-      `--output=${reportFile}`,
-    ], () => main());
+    await withArgv(
+      [
+        `--baselines=${baselineFile}`,
+        `--sweep=does-not-exist.csv`,
+        `--oos=${oosFile}`,
+        `--output=${reportFile}`,
+      ],
+      () => main(),
+    );
 
     const report = readFileSync(reportFile, "utf8");
     expect(report).toContain("## 3. Walk-forward OOS — HIBA");

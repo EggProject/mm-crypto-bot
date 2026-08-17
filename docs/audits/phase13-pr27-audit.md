@@ -9,13 +9,13 @@
 
 ## 1. Quality Gates (with `--force` to bypass turbo cache)
 
-| Gate | Status | Evidence |
-|---|---|---|
-| `bun install --frozen-lockfile` | PASS | 229 installs, no changes |
-| `bun run typecheck --force` | PASS | 13/13 tasks successful, 0 errors, 11s |
-| `bun run lint --force` | PASS | 8/8 tasks, 0 errors, 259 warnings (all pre-existing `security/detect-object-injection`) |
-| `bun run test --force` | PASS | 13/13 tasks, **2184 pass / 0 fail / 15733 expect() across 84 files** |
-| `bun run coverage --force` | PASS (subset) | All tests run, but coverage scope limited — see §2 |
+| Gate                            | Status        | Evidence                                                                                |
+| ------------------------------- | ------------- | --------------------------------------------------------------------------------------- |
+| `bun install --frozen-lockfile` | PASS          | 229 installs, no changes                                                                |
+| `bun run typecheck --force`     | PASS          | 13/13 tasks successful, 0 errors, 11s                                                   |
+| `bun run lint --force`          | PASS          | 8/8 tasks, 0 errors, 259 warnings (all pre-existing `security/detect-object-injection`) |
+| `bun run test --force`          | PASS          | 13/13 tasks, **2184 pass / 0 fail / 15733 expect() across 84 files**                    |
+| `bun run coverage --force`      | PASS (subset) | All tests run, but coverage scope limited — see §2                                      |
 
 All quality gates pass with `--force`. Without `--force`, results came from turbo cache (deliverable acknowledged this in §"Acceptance gates"). Verified independently.
 
@@ -27,13 +27,13 @@ Parsed `packages/core/coverage/lcov.info` and `packages/backtest-tools/coverage/
 
 ### Phase 13 deliverables (claimed 100/100)
 
-| File | LF | LH | Line % | FNF | FNH | Func % |
-|---|---|---|---|---|---|---|
-| `signal-center/decision-engine.ts` | 390 | 390 | **100.0%** | 27 | 27 | **100.0%** |
-| `portfolio/portfolio-orchestrator.ts` | 798 | 798 | **100.0%** | 48 | 44 | **91.7%** |
-| `signal-center/plugins/cross-symbol-spread-reversion-plugin.ts` | 577 | 577 | **100.0%** | 23 | 23 | **100.0%** |
-| `signal-center/plugins/cross-symbol-momentum-overlay-plugin.ts` | 351 | 351 | **100.0%** | 19 | 19 | **100.0%** |
-| `signal-center/plugins/cross-symbol-funding-differential-plugin.ts` | 422 | 422 | **100.0%** | 21 | 21 | **100.0%** |
+| File                                                                | LF  | LH  | Line %     | FNF | FNH | Func %     |
+| ------------------------------------------------------------------- | --- | --- | ---------- | --- | --- | ---------- |
+| `signal-center/decision-engine.ts`                                  | 390 | 390 | **100.0%** | 27  | 27  | **100.0%** |
+| `portfolio/portfolio-orchestrator.ts`                               | 798 | 798 | **100.0%** | 48  | 44  | **91.7%**  |
+| `signal-center/plugins/cross-symbol-spread-reversion-plugin.ts`     | 577 | 577 | **100.0%** | 23  | 23  | **100.0%** |
+| `signal-center/plugins/cross-symbol-momentum-overlay-plugin.ts`     | 351 | 351 | **100.0%** | 19  | 19  | **100.0%** |
+| `signal-center/plugins/cross-symbol-funding-differential-plugin.ts` | 422 | 422 | **100.0%** | 21  | 21  | **100.0%** |
 
 **Branches (BRF/BRH) are all 0/0** — vitest v8 coverage does not record branches for these files. This is a tooling artifact, not a bug.
 
@@ -47,6 +47,7 @@ Parsed `packages/core/coverage/lcov.info` and `packages/backtest-tools/coverage/
 **REALITY:** `packages/backtest-tools/coverage/lcov.info` covers only **one file** (`src/data/csv-feed.ts`, 100% line). The runner CLI `src/cli/run-portfolio-orchestrator.ts` (982 LOC) has **ZERO coverage entries** in lcov.
 
 This is because:
+
 - The only test files in `backtest-tools` are `run-baseline.test.ts` (which tests the older baseline runner) and `csv-feed.test.ts`.
 - No `run-portfolio-orchestrator.test.ts` exists.
 - The runner is "verified" only via end-to-end reproduction runs (the integration smoke test I ran for §3).
@@ -61,27 +62,27 @@ I ran `bun run packages/backtest-tools/src/cli/run-portfolio-orchestrator.ts` wi
 
 **Result: BIT-FOR-BIT IDENTICAL.** Every numeric field matches to the last digit.
 
-| Symbol | Metric | Claimed | Reproduced | Delta | Status |
-|---|---|---|---|---|---|
-| BTC/USDT | monthlyReturnPct | 0.7064138224159411 | 0.7064138224159411 | 0.000000 | **MATCH** |
-| BTC/USDT | sharpeRatio | 1.441759767551383 | 1.441759767551383 | 0.000000 | **MATCH** |
-| BTC/USDT | maxDrawdownPct | 0 | 0 | — | **MATCH** |
-| BTC/USDT | finalEquityUsd | 10880.715384570894 | 10880.715384570894 | 0.000000 | **MATCH** |
-| BTC/USDT | decisionCount | 365 | 365 | — | **MATCH** |
-| BTC/USDT | openPositionCount | 7 | 7 | — | **MATCH** |
-| ETH/USDT | monthlyReturnPct | 0 | 0 | — | **MATCH** |
-| ETH/USDT | sharpeRatio | 0 | 0 | — | **MATCH** |
-| ETH/USDT | decisionCount | 366 | 366 | — | **MATCH** |
-| ETH/USDT | openPositionCount | 0 | 0 | — | **MATCH** |
-| SOL/USDT | monthlyReturnPct | 0 | 0 | — | **MATCH** |
-| SOL/USDT | sharpeRatio | 0 | 0 | — | **MATCH** |
-| SOL/USDT | decisionCount | 365 | 365 | — | **MATCH** |
-| PORTFOLIO | monthlyReturnPct | 0.2415972616492068 | 0.2415972616492068 | 0.000000 | **MATCH** |
-| PORTFOLIO | sharpeRatio | 1.4417685233268382 | 1.4417685233268382 | 0.000000 | **MATCH** |
-| PORTFOLIO | finalEquityUsd | 30880.715384570896 | 30880.715384570896 | 0.000000 | **MATCH** |
-| PORTFOLIO | decisionCount | 1096 | 1096 | — | **MATCH** |
-| PORTFOLIO | leverageBreaches | 0 | 0 | — | **MATCH** |
-| PORTFOLIO | liquidations | 0 | 0 | — | **MATCH** |
+| Symbol    | Metric            | Claimed            | Reproduced         | Delta    | Status    |
+| --------- | ----------------- | ------------------ | ------------------ | -------- | --------- |
+| BTC/USDT  | monthlyReturnPct  | 0.7064138224159411 | 0.7064138224159411 | 0.000000 | **MATCH** |
+| BTC/USDT  | sharpeRatio       | 1.441759767551383  | 1.441759767551383  | 0.000000 | **MATCH** |
+| BTC/USDT  | maxDrawdownPct    | 0                  | 0                  | —        | **MATCH** |
+| BTC/USDT  | finalEquityUsd    | 10880.715384570894 | 10880.715384570894 | 0.000000 | **MATCH** |
+| BTC/USDT  | decisionCount     | 365                | 365                | —        | **MATCH** |
+| BTC/USDT  | openPositionCount | 7                  | 7                  | —        | **MATCH** |
+| ETH/USDT  | monthlyReturnPct  | 0                  | 0                  | —        | **MATCH** |
+| ETH/USDT  | sharpeRatio       | 0                  | 0                  | —        | **MATCH** |
+| ETH/USDT  | decisionCount     | 366                | 366                | —        | **MATCH** |
+| ETH/USDT  | openPositionCount | 0                  | 0                  | —        | **MATCH** |
+| SOL/USDT  | monthlyReturnPct  | 0                  | 0                  | —        | **MATCH** |
+| SOL/USDT  | sharpeRatio       | 0                  | 0                  | —        | **MATCH** |
+| SOL/USDT  | decisionCount     | 365                | 365                | —        | **MATCH** |
+| PORTFOLIO | monthlyReturnPct  | 0.2415972616492068 | 0.2415972616492068 | 0.000000 | **MATCH** |
+| PORTFOLIO | sharpeRatio       | 1.4417685233268382 | 1.4417685233268382 | 0.000000 | **MATCH** |
+| PORTFOLIO | finalEquityUsd    | 30880.715384570896 | 30880.715384570896 | 0.000000 | **MATCH** |
+| PORTFOLIO | decisionCount     | 1096               | 1096               | —        | **MATCH** |
+| PORTFOLIO | leverageBreaches  | 0                  | 0                  | —        | **MATCH** |
+| PORTFOLIO | liquidations      | 0                  | 0                  | —        | **MATCH** |
 
 **Conclusion:** The envelope is fully reproducible from the source artifacts. The numbers are real, not fabricated. The runner is deterministic.
 
@@ -100,10 +101,13 @@ The 5 non-zero decisions all show `sourceWeights` containing `cross-symbol-momen
 ### Defensive 2× weight actually implemented — YES
 
 `packages/core/src/signal-center/decision-engine.ts:191`:
+
 ```ts
 defensiveWeight: 2.0,
 ```
+
 `packages/core/src/signal-center/decision-engine.ts:204-208`:
+
 ```ts
 export const DEFENSIVE_PLUGIN_NAMES: readonly string[] = Object.freeze([
   "regime-detector-v1",
@@ -111,7 +115,9 @@ export const DEFENSIVE_PLUGIN_NAMES: readonly string[] = Object.freeze([
   "sol-flip-kill-switch",
 ]);
 ```
+
 `packages/core/src/signal-center/decision-engine.ts:857-864`:
+
 ```ts
 private _weightForSource(source: string): number {
   const idx = source.indexOf(":");
@@ -122,11 +128,13 @@ private _weightForSource(source: string): number {
   return this.config.defaultWeight;
 }
 ```
+
 ✓ Defensive 2× weight is real, not a docstring lie.
 
 ### Min consensus 0.3 enforced — YES
 
 `decision-engine.ts:189-194`:
+
 ```ts
 export const DEFAULT_DECISION_ENGINE_CONFIG: DecisionEngineConfig = {
   defaultWeight: 1.0,
@@ -135,16 +143,19 @@ export const DEFAULT_DECISION_ENGINE_CONFIG: DecisionEngineConfig = {
   ...
 };
 ```
+
 `decision-engine.ts:658`:
+
 ```ts
-const side: PositionDecision["side"] =
-  confidence < this.config.minConsensusStrength ? "flat" : winner;
+const side: PositionDecision["side"] = confidence < this.config.minConsensusStrength ? "flat" : winner;
 ```
+
 ✓ Threshold is enforced.
 
 ### Carry regime multiplier — **WORKS AS DESIGNED BUT DOCSTRING OVERSTATES**
 
 `decision-engine.ts:551-572`:
+
 ```ts
 private _onCarrySignal(s: CarrySignal): void {
   ...
@@ -158,16 +169,20 @@ private _onCarrySignal(s: CarrySignal): void {
   if (mult < acc.carryMultiplier) acc.carryMultiplier = mult;
 }
 ```
+
 ✓ Per-regime multipliers are computed correctly.
 
 BUT `decision-engine.ts:942-944`:
+
 ```ts
 private _computeSizeMultiplier(acc: SymbolAccumulator): number {
   const raw = acc.carryMultiplier * acc.sizeModifier;
   return Math.max(0, Math.min(1, raw));
 }
 ```
+
 The output is clamped to `[0, 1]`. This means **carry `regime: "high"` (1.2) is effectively capped to 1.0** in the final sizeMultiplier. The DOCSTRING at line 56 claimed:
+
 > "high → sizeMultiplier × 1.2 (carry is profitable, scale up)"
 
 But the implementation clamps to ≤1.0, so the "scale up" never actually happens — it just becomes "scale up to 1.0, no change vs neutral". The REPORT-phase13.md line 113 made the same claim.
@@ -185,6 +200,7 @@ But the implementation clamps to ≤1.0, so the "scale up" never actually happen
 ### `maxPositions = 7` hard cap — YES
 
 `portfolio-orchestrator.ts:191-200`:
+
 ```ts
 export const DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG: Omit<...> = {
   ...
@@ -192,12 +208,17 @@ export const DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG: Omit<...> = {
   ...
 };
 ```
+
 `portfolio-orchestrator.ts:389-396` (constructor):
+
 ```ts
 if (!Number.isInteger(merged.maxPositions) || merged.maxPositions <= 0) {
-  throw new Error(`[PortfolioOrchestrator] maxPositions must be a positive integer, got ${merged.maxPositions}`);
+  throw new Error(
+    `[PortfolioOrchestrator] maxPositions must be a positive integer, got ${merged.maxPositions}`,
+  );
 }
 ```
+
 `portfolio-orchestrator.ts:867-890` (Step 2 cap): greedy drop smallest-notional symbol when totalOpenCount > maxPositions. ✓
 
 ### `perSymbolConcentrationPct = 0.40` — YES
@@ -223,6 +244,7 @@ if (!Number.isInteger(merged.maxPositions) || merged.maxPositions <= 0) {
 ### Bypass paths — NONE FOUND
 
 Searched `portfolio-orchestrator.ts`, `decision-engine.ts`, `signal-center-v1.ts`, and all cross-symbol plugins for: `bypass`, `override`, `skip`, `disable`. Only matches are:
+
 - `portfolio-orchestrator.ts:151`: "the orchestrator skips the default CarryBaselinePlugin" — this is intentional `pluginsBySymbol` factory design, not a cap-bypass.
 - `cross-symbol-spread-reversion-plugin.ts:289`: "skips non-finite entries" — defensive input sanitization, not a cap-bypass.
 
@@ -234,12 +256,12 @@ No `--override-cap` flags, no env vars, no soft caps. All caps are hard. ✓
 
 ### Tests counts — ALL CLAIMED COUNTS MATCH
 
-| Plugin | Claimed | Actual (count of `it(` / `test(`) |
-|---|---|---|
-| cross-symbol-spread-reversion | 52 | **52** ✓ |
-| cross-symbol-momentum-overlay | 42 | **42** ✓ |
-| cross-symbol-funding-differential | 45 | **45** ✓ |
-| **Total** | **139** | **139** ✓ |
+| Plugin                            | Claimed | Actual (count of `it(` / `test(`) |
+| --------------------------------- | ------- | --------------------------------- |
+| cross-symbol-spread-reversion     | 52      | **52** ✓                          |
+| cross-symbol-momentum-overlay     | 42      | **42** ✓                          |
+| cross-symbol-funding-differential | 45      | **45** ✓                          |
+| **Total**                         | **139** | **139** ✓                         |
 
 ### Real cross-symbol coupling — PARTIALLY REAL
 
@@ -262,19 +284,18 @@ This is the documented "Phase 14+ shared-bus refactor" gap (deliverable §"Cross
 ### `assertLeverageInvariant` in `start()` — YES
 
 `signal-center-v1.ts:392-407`:
+
 ```ts
 // Layer 2 of 3-layer defense: assert that the risk engine's initial
 // notional state at boot does not breach the 1:10 leverage cap. ...
-const totalNotionalUsd = positions.reduce(
-  (sum, p) => sum + Math.abs(p.effectiveNotionalUsd),
-  0,
-);
+const totalNotionalUsd = positions.reduce((sum, p) => sum + Math.abs(p.effectiveNotionalUsd), 0);
 assertLeverageInvariant(
   totalNotionalUsd,
   this.config.initialEquity,
   this.config.leverageInvariant ?? DEFAULT_LEVERAGE_INVARIANT_CONFIG,
 );
 ```
+
 ✓ Real assertion, not just documented in JSDoc.
 
 ### `assertLeverageInvariant` per emit / onBar — YES
@@ -299,6 +320,7 @@ The carry regime "high → ×1.2" claim is documented in JSDoc (decision-engine.
 ## 8. Commit History Red Flags
 
 ### Commit list (8 commits ahead of main):
+
 ```
 bac91a8 feat(backtest): Phase 13 Track D — attempt 2 fresh REPORT + deliverable + reproducible envelope
 2bdbfd8 docs: add Track D deliverable.md (envelope verification + PR-creation instructions)
@@ -326,15 +348,15 @@ a569d70 feat(signal-center): Phase 13 Track A — Decision Engine + 15 monolith 
 
 ## 9. Critical Findings Summary
 
-| # | Finding | Severity | Resolution |
-|---|---|---|---|
-| 1 | **Runner CLI (`run-portfolio-orchestrator.ts`, 982 LOC) has 0 unit test coverage.** Deliverable claim of "100% coverage on the runner" is misleading. | MEDIUM | Disclosed in REPORT §6.1 (commit `3e4f2ae`) |
-| 2 | **Docstring lie: "carry high → sizeMultiplier × 1.2"** — implementation clamps to [0, 1] so high becomes 1.0. Phase 10G pattern repeat (minor). | LOW | Fixed in commit `3e4f2ae` (decision-engine.ts:56-60, 225-227, 939-949 + REPORT §3) |
-| 3 | **ETH and SOL have ZERO non-zero notional decisions** in the entire 1-year window. The portfolio's +0.24%/mo comes from only 5 BTC longs. | INFO | Deliverable honestly discloses |
-| 4 | **Funding-differential plugin never fires** in the final backtest (registered but no signals make it to DecisionEngine). | INFO | Phase 14+ scope, documented |
-| 5 | **Cross-symbol momentum-overlay is BTC-driven** (not true cross-symbol). | INFO | Documented in REPORT §8.1 |
-| 6 | **`sourceWeights` value of 3 for `funding-feed-BTC/USDT`** in long-decision sourceWeights is unexplained — funding-feed is emitted as `kind: "carry"`, but `sourceWeights` is only set by `_onDirectionSignal`. Cosmetic, doesn't affect envelope numbers. | LOW (cosmetic) | Noted, not fixed |
-| 7 | **Branch NOT merged to main** at audit time — confirms user's suspicion about false-positive prior report. | INFO | Resolved: merged to main as `0cb3434` (squash) on 2026-07-06 02:25 Budapest |
+| #   | Finding                                                                                                                                                                                                                                                    | Severity       | Resolution                                                                         |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------- |
+| 1   | **Runner CLI (`run-portfolio-orchestrator.ts`, 982 LOC) has 0 unit test coverage.** Deliverable claim of "100% coverage on the runner" is misleading.                                                                                                      | MEDIUM         | Disclosed in REPORT §6.1 (commit `3e4f2ae`)                                        |
+| 2   | **Docstring lie: "carry high → sizeMultiplier × 1.2"** — implementation clamps to [0, 1] so high becomes 1.0. Phase 10G pattern repeat (minor).                                                                                                            | LOW            | Fixed in commit `3e4f2ae` (decision-engine.ts:56-60, 225-227, 939-949 + REPORT §3) |
+| 3   | **ETH and SOL have ZERO non-zero notional decisions** in the entire 1-year window. The portfolio's +0.24%/mo comes from only 5 BTC longs.                                                                                                                  | INFO           | Deliverable honestly discloses                                                     |
+| 4   | **Funding-differential plugin never fires** in the final backtest (registered but no signals make it to DecisionEngine).                                                                                                                                   | INFO           | Phase 14+ scope, documented                                                        |
+| 5   | **Cross-symbol momentum-overlay is BTC-driven** (not true cross-symbol).                                                                                                                                                                                   | INFO           | Documented in REPORT §8.1                                                          |
+| 6   | **`sourceWeights` value of 3 for `funding-feed-BTC/USDT`** in long-decision sourceWeights is unexplained — funding-feed is emitted as `kind: "carry"`, but `sourceWeights` is only set by `_onDirectionSignal`. Cosmetic, doesn't affect envelope numbers. | LOW (cosmetic) | Noted, not fixed                                                                   |
+| 7   | **Branch NOT merged to main** at audit time — confirms user's suspicion about false-positive prior report.                                                                                                                                                 | INFO           | Resolved: merged to main as `0cb3434` (squash) on 2026-07-06 02:25 Budapest        |
 
 ---
 
@@ -355,6 +377,7 @@ The Phase 13 PR is functionally correct and the deliverable claims are largely s
 Caveats (all addressed in commit `3e4f2ae`):
 ✓ Runner CLI has 0 unit test coverage (disclosed in REPORT §6.1)
 ✓ Minor docstring lie on carry-high multiplier (clarified in code + report)
+
 - ETH/SOL produce 0%/mo — deliverable honestly discloses
 - Funding-differential plugin never fires in final backtest — Phase 14+ scope
 - Cross-symbol naming is misleading — only momentum-overlay gets exercised, only on BTC bus
@@ -373,6 +396,7 @@ The runner itself is functionally validated (envelope reproduces). The PR repres
 - Code audit: read `decision-engine.ts` (972 LOC), `portfolio-orchestrator.ts` (1358 LOC), `cross-symbol-spread-reversion-plugin.ts` (1084 LOC), `cross-symbol-momentum-overlay-plugin.ts` (549 LOC), `cross-symbol-funding-differential-plugin.ts` (100 LOC of 619), `signal-center-v1.ts` (key sections), `run-portfolio-orchestrator.ts` (982 LOC), `deliverable.md`, `docs/research/REPORT-phase13.md` (553 lines).
 - Decision log: parsed `backtest-results/portfolio-orchestrator/decision-log.jsonl` (1096 lines) with Python — counted side/notional distribution.
 - Git: `git log`, `git show --stat`, `git stash` of uncommitted dirty files.
+
 ---
 
 ## UPDATE — 2026-07-06 10:35 Budapest — Phase 14A fix applied (BTC-only → multi-symbol)
@@ -382,6 +406,7 @@ The runner itself is functionally validated (envelope reproduces). The PR repres
 ### Root cause
 
 In the original Phase 13 architecture:
+
 - CrossSymbolMomentumOverlayPlugin (the ONLY DirectionSignal source for the directional vote) was wired to BTC's bus only.
 - ETH had DirectionalMTFPlugin, which emitted `side="flat", strength=0` for every bar in the 1y OHLCV (Donchian breakout never triggered).
 - SOL had SOLFlipKillSwitchPlugin, which emits **only RiskSignals** (defensive), not DirectionSignals.
@@ -400,11 +425,11 @@ The 1096 "decisions" reflected per-bar arbitration calls, not trades. Only BTC h
 
 ### Updated envelope (1:10 leverage, 365d, binance)
 
-| Symbol  | Before  | After   | Δ        |
-|---------|--------:|--------:|---------:|
-| BTC     | +0.71%  | +0.71%  | 0        |
-| ETH     |  0.00%  | +0.23%  | +0.23%   |
-| SOL     |  0.00%  | +0.48%  | +0.48%   |
+| Symbol        |     Before |      After |                  Δ |
+| ------------- | ---------: | ---------: | -----------------: |
+| BTC           |     +0.71% |     +0.71% |                  0 |
+| ETH           |      0.00% |     +0.23% |             +0.23% |
+| SOL           |      0.00% |     +0.48% |             +0.48% |
 | **PORTFOLIO** | **+0.24%** | **+0.48%** | **+0.24% (+100%)** |
 
 - Sharpe: 1.44 → 1.85 (+28%)

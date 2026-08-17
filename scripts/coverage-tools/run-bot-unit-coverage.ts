@@ -43,18 +43,17 @@ function run(command: string, arguments_: readonly string[]): Promise<number> {
   });
 }
 
-const scopeStatus = await run(nativeNode, [resolve(REPOSITORY_ROOT, "scripts/coverage-tools/verify-bot-runtime-scope.ts")]);
+const scopeStatus = await run(nativeNode, [
+  resolve(REPOSITORY_ROOT, "scripts/coverage-tools/verify-bot-runtime-scope.ts"),
+]);
 if (scopeStatus !== 0) process.exit(scopeStatus);
 
-const status = await run(
-  nativeNode,
-  [
-    resolve(REPOSITORY_ROOT, "node_modules/vitest/vitest.mjs"),
-    "run",
-    "--config",
-    resolve(REPOSITORY_ROOT, "apps/bot/vitest.config.ts"),
-    "--coverage",
-    `--coverage.reportsDirectory=${UNIT_DIRECTORY}`,
-  ],
-);
+const status = await run(nativeNode, [
+  resolve(REPOSITORY_ROOT, "node_modules/vitest/vitest.mjs"),
+  "run",
+  "--config",
+  resolve(REPOSITORY_ROOT, "apps/bot/vitest.config.ts"),
+  "--coverage",
+  `--coverage.reportsDirectory=${UNIT_DIRECTORY}`,
+]);
 process.exit(status);

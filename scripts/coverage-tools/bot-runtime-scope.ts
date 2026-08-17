@@ -96,9 +96,18 @@ function validateE2eCases(value: unknown): Readonly<Record<E2eEntryKind, readonl
 }
 
 function isCaseId(value: string): boolean {
-  return value.length > 0 && value.split("-").every((part) =>
-    part.length > 0 && Array.from(part).every((character) =>
-      (character >= "a" && character <= "z") || (character >= "0" && character <= "9")));
+  return (
+    value.length > 0 &&
+    value
+      .split("-")
+      .every(
+        (part) =>
+          part.length > 0 &&
+          Array.from(part).every(
+            (character) => (character >= "a" && character <= "z") || (character >= "0" && character <= "9"),
+          ),
+      )
+  );
 }
 
 export function parseScopeManifest(
@@ -107,8 +116,12 @@ export function parseScopeManifest(
 ): BotRuntimeScopeManifest {
   assertPlainObject(value, "coverage manifest");
   if (value["schemaVersion"] !== 1) throw new Error("coverage manifest schemaVersion must equal 1");
-  const runtimeFiles = validateUniqueFiles(value["runtimeFiles"], "runtimeFiles", { requireExists: requireFiles });
-  const unitTestFiles = validateUniqueFiles(value["unitTestFiles"], "unitTestFiles", { requireExists: requireFiles });
+  const runtimeFiles = validateUniqueFiles(value["runtimeFiles"], "runtimeFiles", {
+    requireExists: requireFiles,
+  });
+  const unitTestFiles = validateUniqueFiles(value["unitTestFiles"], "unitTestFiles", {
+    requireExists: requireFiles,
+  });
   for (const file of runtimeFiles) {
     if (!file.startsWith(SOURCE_PREFIX) || !isRuntimeSourcePath(file)) {
       throw new Error(`runtimeFiles contains a non-runtime bot source: ${file}`);
@@ -127,16 +140,21 @@ export function loadScopeManifest(path = MANIFEST_PATH): BotRuntimeScopeManifest
   try {
     parsed = JSON.parse(readFileSync(path, "utf8"));
   } catch (error) {
-    throw new Error(`cannot read coverage manifest ${path}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    throw new Error(
+      `cannot read coverage manifest ${path}: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
   }
   return parseScopeManifest(parsed);
 }
 
 export function isRuntimeSourcePath(file: string): boolean {
-  return file.startsWith(SOURCE_PREFIX)
-    && RUNTIME_PATTERN.test(file)
-    && !DECLARATION_PATTERN.test(file)
-    && !TEST_FILE_PATTERN.test(file);
+  return (
+    file.startsWith(SOURCE_PREFIX) &&
+    RUNTIME_PATTERN.test(file) &&
+    !DECLARATION_PATTERN.test(file) &&
+    !TEST_FILE_PATTERN.test(file)
+  );
 }
 
 export function missingModifiedRuntimeFiles(
@@ -144,9 +162,7 @@ export function missingModifiedRuntimeFiles(
   modifiedFiles: readonly string[],
 ): readonly string[] {
   const owned = new Set(manifestFiles);
-  return [...new Set(modifiedFiles.filter(isRuntimeSourcePath))]
-    .filter((file) => !owned.has(file))
-    .sort();
+  return [...new Set(modifiedFiles.filter(isRuntimeSourcePath))].filter((file) => !owned.has(file)).sort();
 }
 
 export function absoluteRuntimeFiles(manifest: BotRuntimeScopeManifest): readonly string[] {

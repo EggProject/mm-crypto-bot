@@ -11,22 +11,13 @@
  * korai feldolgozásához), a `colorize` / `isColorEnabled` / `ok` / `fail` /
  * `warn` / `dim` helper-eket pedig a subcommand-ok használják a kimenet
  * színezéséhez.
- * A `mm-bot start` parancs headless folyamatként indul.
+ * The direct `start` command runs as a headless process.
  */
 
 export { parseArgv, type ParsedArgs } from "./argv.js";
 export { CliRouter, type CliContext, type SubcommandHandler } from "./router.js";
 
-export {
-  colorize,
-  isColorEnabled,
-  setColorForced,
-  ok,
-  fail,
-  warn,
-  dim,
-  type ColorName,
-} from "./color.js";
+export { colorize, isColorEnabled, setColorForced, ok, fail, warn, dim, type ColorName } from "./color.js";
 
 export { startCommand } from "./commands/start.js";
 export { statusCommand } from "./commands/status.js";

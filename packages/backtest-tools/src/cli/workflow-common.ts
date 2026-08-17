@@ -87,24 +87,28 @@ export async function runCompositionWalkForward(
   stepDays: number,
 ) {
   const feed = new CsvExchangeFeed(args.dataDir);
-  return runWalkForward({
-    symbol: makeSymbol(args.symbol),
-    htfTimeframe: "1d",
-    mtfTimeframe: "4h",
-    ltfTimeframe: "15m",
-    startTime: args.startTime,
-    endTime: args.endTime,
-    initialEquityUsd: args.initialEquityUsd,
-    feed,
-    costModel: COST_MODEL,
-    positionSize: {
-      riskPerTrade: 0.01,
-      kellyFraction: 0.25,
-      maxDrawdown: 0.15,
-      maxPositionPctEquity: 0.2,
-      minPositionPctEquity: 0.01,
+  return runWalkForward(
+    {
+      symbol: makeSymbol(args.symbol),
+      htfTimeframe: "1d",
+      mtfTimeframe: "4h",
+      ltfTimeframe: "15m",
+      startTime: args.startTime,
+      endTime: args.endTime,
+      initialEquityUsd: args.initialEquityUsd,
+      feed,
+      costModel: COST_MODEL,
+      positionSize: {
+        riskPerTrade: 0.01,
+        kellyFraction: 0.25,
+        maxDrawdown: 0.15,
+        maxPositionPctEquity: 0.2,
+        minPositionPctEquity: 0.01,
+      },
     },
-  }, { inSampleDays, outOfSampleDays, stepDays }, createDonchianPivotComposition);
+    { inSampleDays, outOfSampleDays, stepDays },
+    createDonchianPivotComposition,
+  );
 }
 
 export async function writeWorkflowOutput(output: string, value: unknown): Promise<void> {

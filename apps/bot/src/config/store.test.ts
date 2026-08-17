@@ -26,18 +26,8 @@
  *  16.  `resetConfigStoreCache()` clears the cache.
  */
 
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from "bun:test";
-import {
-  copyFileSync,
-  mkdtempSync,
-  rmSync,
-} from "node:fs";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -364,8 +354,8 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     expect(fileSystem.existsSync(auditPath)).toBe(true);
     const auditContents = fileSystem.readFileSync(auditPath, "utf8");
     expect(auditContents).toContain("live-mode-confirm");
-    expect(auditContents).toContain("\"prevMode\":\"paper\"");
-    expect(auditContents).toContain("\"newMode\":\"live\"");
+    expect(auditContents).toContain('"prevMode":"paper"');
+    expect(auditContents).toContain('"newMode":"live"');
 
     // The config must now be live.
     const reloaded = store.read();
@@ -505,13 +495,17 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
 
   it("wraps non-Error read failures and generic parser failures", () => {
     const readFailure = new ConfigStore(join(tmpDir, "read-failure.toml"), {
-      readText: () => { throw "plain read failure"; },
+      readText: () => {
+        throw "plain read failure";
+      },
     });
     expect(() => readFailure.read()).toThrow("plain read failure");
 
     const parseFailure = new ConfigStore(join(tmpDir, "parse-failure.toml"), {
       readText: () => "",
-      parse: () => { throw new Error("generic parse failure"); },
+      parse: () => {
+        throw new Error("generic parse failure");
+      },
     });
     expect(() => parseFailure.read()).toThrow("generic parse failure");
   });
@@ -519,7 +513,9 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
   it("wraps Error and non-Error round-trip parser failures", () => {
     for (const failure of [new Error("round-trip Error"), "round-trip string"] as const) {
       const store = new ConfigStore(join(tmpDir, `roundtrip-${typeof failure}.toml`), {
-        parse: () => { throw failure; },
+        parse: () => {
+          throw failure;
+        },
       });
       expect(() => store.write(store.validate({}))).toThrow(
         typeof failure === "string" ? failure : failure.message,
@@ -530,7 +526,9 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
   it("wraps Error and non-Error atomic write failures", () => {
     for (const failure of [new Error("atomic Error"), "atomic string"] as const) {
       const dependencies: Partial<ConfigStoreDependencies> = {
-        atomicWrite: () => { throw failure; },
+        atomicWrite: () => {
+          throw failure;
+        },
       };
       const store = new ConfigStore(join(tmpDir, `atomic-${typeof failure}.toml`), dependencies);
       expect(() => store.write(store.validate({}))).toThrow(
@@ -542,7 +540,9 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
   it("wraps Error and non-Error audit append failures before writing live config", () => {
     for (const failure of [new Error("audit Error"), "audit string"] as const) {
       const store = new ConfigStore(join(tmpDir, `audit-${typeof failure}.toml`), {
-        appendText: () => { throw failure; },
+        appendText: () => {
+          throw failure;
+        },
       });
       const live = store.validate({ bot: { mode: "live" } });
       expect(() => store.writeAfterTypedLive(live, "LIVE", "paper")).toThrow(

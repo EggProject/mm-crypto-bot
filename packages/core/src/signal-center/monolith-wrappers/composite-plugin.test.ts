@@ -26,7 +26,9 @@ const makeComponent = (name: string): Strategy & { reset(): void } => ({
   timeframes: ["1h"],
   warmup: () => 0,
   onCandle: () => null,
-  reset: () => { void 0; },
+  reset: () => {
+    void 0;
+  },
 });
 
 const validConfig = () => ({
@@ -38,9 +40,8 @@ const validConfig = () => ({
   },
 });
 
-const mkPlugin = (
-  overrides: ConstructorParameters<typeof CompositePlugin>[0] = {},
-): CompositePlugin => new CompositePlugin({ ...validConfig(), ...overrides });
+const mkPlugin = (overrides: ConstructorParameters<typeof CompositePlugin>[0] = {}): CompositePlugin =>
+  new CompositePlugin({ ...validConfig(), ...overrides });
 
 const mkBus = (): SignalBus => new SignalBus({ mode: "backtest" });
 
@@ -72,9 +73,11 @@ describe("CompositePlugin", () => {
       warmup: () => 0,
       onCandle: () => null,
     };
-    expect(() => mkPlugin({
-      strategy: { component1: noReset, component2: makeComponent("entry") },
-    })).toThrow(/lacks reset.*fresh-run lifecycle/);
+    expect(() =>
+      mkPlugin({
+        strategy: { component1: noReset, component2: makeComponent("entry") },
+      }),
+    ).toThrow(/lacks reset.*fresh-run lifecycle/);
   });
 
   it("construction with default config succeeds", () => {

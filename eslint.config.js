@@ -1,23 +1,36 @@
-// Flat ESLint config with strict, type-aware TypeScript and security rules.
-
 import js from "@eslint/js";
-import tseslint from "typescript-eslint";
+import prettier from "eslint-config-prettier";
 import security from "eslint-plugin-security";
-import globals from "globals";
+import unicorn from "eslint-plugin-unicorn";
+import tseslint from "typescript-eslint";
 
-export default tseslint.config(
-  // Base JavaScript rules.
-  js.configs.recommended,
+const typescriptFiles = ["**/*.{ts,tsx,mts,cts}"];
+const ignoredPaths = [
+  "**/node_modules/**",
+  "**/dist/**",
+  "**/build/**",
+  "**/coverage/**",
+  "**/.turbo/**",
+  "data/**",
+];
 
-  // Strictest TypeScript presets.
+const typedConfigurations = [
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
+].map((flatConfig) => ({
+  ...flatConfig,
+  files: typescriptFiles,
+}));
 
-  // Security preset.
+export default tseslint.config(
+  { ignores: ignoredPaths },
+  js.configs.recommended,
+  ...typedConfigurations,
   security.configs.recommended,
-
-  // Project-wide settings.
+  unicorn.configs.recommended,
+  prettier,
   {
+    files: typescriptFiles,
     languageOptions: {
       parserOptions: {
         projectService: true,
@@ -25,69 +38,14 @@ export default tseslint.config(
       },
     },
     rules: {
-      // Strict TypeScript additions.
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": "error",
       "@typescript-eslint/no-unnecessary-condition": "error",
       "@typescript-eslint/no-unused-vars": [
         "error",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_",
-        },
+        { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/restrict-template-expressions": [
-        "error",
-        { allowNumber: true, allowBoolean: true },
-      ],
-
-      // Existing strategy code relies on bounded index access. Migrating that
-      // repository-wide pattern is outside the current tooling change.
-      "@typescript-eslint/no-non-null-assertion": "off",
-
-      // One existing strategy fixture documents its readonly mutation setup.
-      "@typescript-eslint/ban-ts-comment": [
-        "error",
-        { "ts-nocheck": "allow-with-description" },
-      ],
-
-      // Security rules with known repository-wide false-positive backlogs.
-      "security/detect-object-injection": "warn",
-      "security/detect-non-literal-regexp": "error",
-      "security/detect-unsafe-regex": "error",
-      "security/detect-eval-with-expression": "error",
-      "security/detect-non-literal-require": "error",
-      "security/detect-non-literal-fs-filename": "warn",
-      "security/detect-child-process": "warn",
-      "security/detect-possible-timing-attacks": "warn",
-      "security/detect-bidi-characters": "error",
     },
-  },
-
-  // Existing test fixtures remain a separate strict-type migration. Coverage
-  // infrastructure tests are excluded here and remain type-aware.
-  {
-    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/*.bench.ts"],
-    ignores: [
-      "apps/bot/src/cli/cli-e2e.test.ts",
-      "scripts/coverage-tools/**/*.test.ts",
-    ],
-    ...tseslint.configs.disableTypeChecked,
-  },
-
-  {
-    files: ["eslint.config.js"],
-    ...tseslint.configs.disableTypeChecked,
-    languageOptions: {
-      ...tseslint.configs.disableTypeChecked.languageOptions,
-      globals: globals.node,
-    },
-  },
-
-  // Generated output exclusions.
-  {
-    ignores: ["**/dist/**", "**/.turbo/**", "**/node_modules/**", "**/coverage/**"],
   },
 );

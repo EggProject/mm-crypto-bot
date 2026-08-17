@@ -55,19 +55,13 @@
 //   - Phase 1-9 partial validation: Phase 7 Track C used BTC 20d momentum
 //     as a cross-strategy filter.
 
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 
 // Re-export for downstream consumers.
 export { ONE_TO_TEN_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type ConfigError,
@@ -92,17 +86,14 @@ export interface CrossSymbolMomentumOverlayConfig {
 export const DEFAULT_LOOKBACK_DAYS = 20 as const;
 export const DEFAULT_MOMENTUM_THRESHOLD = 0.05 as const;
 export const DEFAULT_BASE_NOTIONAL_USD = 10_000 as const;
-export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = [
-  "BTC/USDT",
-  "ETH/USDT",
-];
+export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = ["BTC/USDT", "ETH/USDT"];
 
 export const MIN_LOOKBACK_DAYS = 2 as const;
 export const MAX_LOOKBACK_DAYS = 365 as const;
 export const MIN_MOMENTUM_THRESHOLD = 0.001 as const;
 export const MAX_MOMENTUM_THRESHOLD = 1.0 as const;
 export const MAX_BASE_NOTIONAL_USD = 100_000_000 as const;
-export const MOMENTUM_NORMALIZER = 0.10 as const;
+export const MOMENTUM_NORMALIZER = 0.1 as const;
 
 interface SymbolPriceState {
   closes: number[];
@@ -178,13 +169,10 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
   private readonly _busesBySymbol: Map<string, SignalBus> = new Map<string, SignalBus>();
   private _wired = false;
 
-  constructor(
-    overrides: Partial<CrossSymbolMomentumOverlayConfig> = {},
-  ) {
+  constructor(overrides: Partial<CrossSymbolMomentumOverlayConfig> = {}) {
     this.config = {
       lookbackDays: overrides.lookbackDays ?? DEFAULT_LOOKBACK_DAYS,
-      momentumThreshold:
-        overrides.momentumThreshold ?? DEFAULT_MOMENTUM_THRESHOLD,
+      momentumThreshold: overrides.momentumThreshold ?? DEFAULT_MOMENTUM_THRESHOLD,
       baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
       enabledSymbols: overrides.enabledSymbols ?? DEFAULT_ENABLED_SYMBOLS,
     };
@@ -223,10 +211,7 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
         `[CrossSymbolMomentumOverlayPlugin] baseNotionalUsd=${this.config.baseNotionalUsd} must be a finite number in (0, ${MAX_BASE_NOTIONAL_USD}].`,
       );
     }
-    if (
-      !Array.isArray(this.config.enabledSymbols) ||
-      this.config.enabledSymbols.length === 0
-    ) {
+    if (!Array.isArray(this.config.enabledSymbols) || this.config.enabledSymbols.length === 0) {
       throw new Error(
         `[CrossSymbolMomentumOverlayPlugin] enabledSymbols must be a non-empty array of non-empty strings.`,
       );
@@ -241,9 +226,7 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
         );
       }
       if (seen.has(s)) {
-        throw new Error(
-          `[CrossSymbolMomentumOverlayPlugin] enabledSymbols contains duplicate "${s}".`,
-        );
+        throw new Error(`[CrossSymbolMomentumOverlayPlugin] enabledSymbols contains duplicate "${s}".`);
       }
       seen.add(s);
     }
@@ -312,11 +295,7 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
   }
 
   validateConfig(config: unknown): Result<void, ConfigError> {
-    const makeErr = (
-      field: string,
-      message: string,
-      value?: unknown,
-    ): Result<void, ConfigError> => ({
+    const makeErr = (field: string, message: string, value?: unknown): Result<void, ConfigError> => ({
       ok: false,
       error: {
         pluginName: this.metadata.name,
@@ -362,17 +341,8 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
     }
     if (c["baseNotionalUsd"] !== undefined) {
       const bn = c["baseNotionalUsd"];
-      if (
-        typeof bn !== "number" ||
-        !Number.isFinite(bn) ||
-        bn <= 0 ||
-        bn > MAX_BASE_NOTIONAL_USD
-      ) {
-        return makeErr(
-          "baseNotionalUsd",
-          `must be a finite number in (0, ${MAX_BASE_NOTIONAL_USD}]`,
-          bn,
-        );
+      if (typeof bn !== "number" || !Number.isFinite(bn) || bn <= 0 || bn > MAX_BASE_NOTIONAL_USD) {
+        return makeErr("baseNotionalUsd", `must be a finite number in (0, ${MAX_BASE_NOTIONAL_USD}]`, bn);
       }
     }
     if (c["enabledSymbols"] !== undefined) {
@@ -388,18 +358,10 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
       for (let i = 0; i < arr.length; i++) {
         const s = arr[i];
         if (typeof s !== "string" || s.length === 0) {
-          return makeErr(
-            "enabledSymbols",
-            `entry ${i} must be a non-empty string`,
-            s,
-          );
+          return makeErr("enabledSymbols", `entry ${i} must be a non-empty string`, s);
         }
         if (seen.has(s)) {
-          return makeErr(
-            "enabledSymbols",
-            `duplicate symbol "${s}"`,
-            s,
-          );
+          return makeErr("enabledSymbols", `duplicate symbol "${s}"`, s);
         }
         seen.add(s);
       }
@@ -437,11 +399,7 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
     return new Map(this._busesBySymbol);
   }
 
-  recordClose(
-    symbol: string,
-    close: number,
-    timestampMs?: number,
-  ): readonly DirectionSignal[] {
+  recordClose(symbol: string, close: number, timestampMs?: number): readonly DirectionSignal[] {
     const emitted: DirectionSignal[] = [];
     if (!Number.isFinite(close) || close <= 0) {
       this.state.malformedCloseDrops += 1;
@@ -451,7 +409,7 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
 
     const leadSymbol = this.config.enabledSymbols[0]!;
     const ss = this._getOrCreateSymbolState(symbol);
-    const effectiveTs = timestampMs ?? ((ss.lastTimestampMs ?? -1) + 1);
+    const effectiveTs = timestampMs ?? (ss.lastTimestampMs ?? -1) + 1;
     if (ss.lastTimestampMs !== null && effectiveTs <= ss.lastTimestampMs) return emitted;
     ss.lastTimestampMs = effectiveTs;
     ss.closes.push(close);
@@ -551,8 +509,7 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
       source: this.metadata.name,
       symbol,
     };
-    const tsField =
-      timestampMs !== undefined ? { timestampMs } : {};
+    const tsField = timestampMs !== undefined ? { timestampMs } : {};
     const signal: DirectionSignal = {
       ...baseFields,
       ...tsField,
@@ -568,14 +525,9 @@ export class CrossSymbolMomentumOverlayPlugin implements StrategyPlugin {
   private _assertInitialState(): void {
     void this.state.symbolState;
     if (this.config.enabledSymbols.length === 0) {
-      throw new Error(
-        `[CrossSymbolMomentumOverlayPlugin] LAYER 2 BREACH: enabledSymbols is empty.`,
-      );
+      throw new Error(`[CrossSymbolMomentumOverlayPlugin] LAYER 2 BREACH: enabledSymbols is empty.`);
     }
-    if (
-      !Number.isFinite(this.config.baseNotionalUsd) ||
-      this.config.baseNotionalUsd <= 0
-    ) {
+    if (!Number.isFinite(this.config.baseNotionalUsd) || this.config.baseNotionalUsd <= 0) {
       throw new Error(
         `[CrossSymbolMomentumOverlayPlugin] LAYER 2 BREACH: baseNotionalUsd=${this.config.baseNotionalUsd} invalid.`,
       );

@@ -18,7 +18,9 @@ console.error("[bot-e2e-network-negative] credential environment absent before f
 const attempts: readonly { readonly boundary: string; readonly invoke: () => unknown }[] = [
   {
     boundary: "global.fetch",
-    invoke: () => { void globalThis.fetch("https://network-attempt.invalid"); },
+    invoke: () => {
+      void globalThis.fetch("https://network-attempt.invalid");
+    },
   },
   {
     boundary: "node:http.request",
@@ -26,11 +28,12 @@ const attempts: readonly { readonly boundary: string; readonly invoke: () => unk
   },
   {
     boundary: "Bun.connect",
-    invoke: () => Bun.connect({
-      hostname: "network-attempt.invalid",
-      port: 443,
-      socket: { data: () => undefined },
-    }),
+    invoke: () =>
+      Bun.connect({
+        hostname: "network-attempt.invalid",
+        port: 443,
+        socket: { data: () => undefined },
+      }),
   },
 ];
 

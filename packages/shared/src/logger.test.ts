@@ -264,7 +264,12 @@ describe("createLogger — fájl-írás (noFile=false)", () => {
     const stdoutSpy = spyOn(process.stdout, "write").mockImplementation((() => true) as never);
     const stderrSpy = spyOn(process.stderr, "write").mockImplementation((() => true) as never);
     try {
-      const log = createLogger({ level: "info", noFile: false, logDir: tmpDir, logFileBase: "stdout-routing" });
+      const log = createLogger({
+        level: "info",
+        noFile: false,
+        logDir: tmpDir,
+        logFileBase: "stdout-routing",
+      });
       log.info("this should NOT appear in stdout");
       log.error("this should appear in stderr");
 

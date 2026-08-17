@@ -3,7 +3,10 @@ import { access, readFile, writeFile } from "node:fs/promises";
 
 import { parse } from "smol-toml";
 
-function bunFile(path: string): { readonly exists: () => Promise<boolean>; readonly text: () => Promise<string> } {
+function bunFile(path: string): {
+  readonly exists: () => Promise<boolean>;
+  readonly text: () => Promise<string>;
+} {
   return {
     exists: async (): Promise<boolean> => {
       try {

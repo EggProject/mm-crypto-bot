@@ -10,9 +10,9 @@
 
 ## §1. Executive Summary
 
-**Alpha mechanism identified:** Funding-rate divergence between dYdX v4 (Cosmos-chain perp-DEX) and Binance/Bybit/Hyperliquid, on a **1-hour settlement cadence** rather than the 8-hour cadence dominant on CEX perps. Because dYdX v4 prices against its own order book with a market-by-market isolated margin structure (introduced v5.0.0, post the November-2024 release), the premium index samples a *narrower* liquidity footprint than the cross-venue aggregators on Binance/Bybit, which empirically produces short-lived funding divergences that mean-revert within 1–8 hours. Those divergences are now large enough that the cumulative structural-negative bias on dYdX BTC-USD funding documented in Q1–Q2 2026 (`-0.0022%/8h` average vs Binance's `+0.0080%/8h`) implies **~11% annualized carry** for an inter-exchange arb position ([bitcointalk.org, May 2026](https://bitcointalk.org/index.php?topic=5584224.0)).
+**Alpha mechanism identified:** Funding-rate divergence between dYdX v4 (Cosmos-chain perp-DEX) and Binance/Bybit/Hyperliquid, on a **1-hour settlement cadence** rather than the 8-hour cadence dominant on CEX perps. Because dYdX v4 prices against its own order book with a market-by-market isolated margin structure (introduced v5.0.0, post the November-2024 release), the premium index samples a _narrower_ liquidity footprint than the cross-venue aggregators on Binance/Bybit, which empirically produces short-lived funding divergences that mean-revert within 1–8 hours. Those divergences are now large enough that the cumulative structural-negative bias on dYdX BTC-USD funding documented in Q1–Q2 2026 (`-0.0022%/8h` average vs Binance's `+0.0080%/8h`) implies **~11% annualized carry** for an inter-exchange arb position ([bitcointalk.org, May 2026](https://bitcointalk.org/index.php?topic=5584224.0)).
 
-**Persistence estimate:** Mid-frequency. Funding-rate divergence on dYdX v4 reverts within hours, but the *structural* direction (negative funding on dYdX vs positive on CEX perps) has persisted over the entire 30-day window measured in late-April/late-May 2026. The structural component is durable (months); the cyclical component is high-frequency (minutes-to-hours).
+**Persistence estimate:** Mid-frequency. Funding-rate divergence on dYdX v4 reverts within hours, but the _structural_ direction (negative funding on dYdX vs positive on CEX perps) has persisted over the entire 30-day window measured in late-April/late-May 2026. The structural component is durable (months); the cyclical component is high-frequency (minutes-to-hours).
 
 **Integration cost:** Low. The dYdX v4 Indexer is fully **read-only and unauthenticated** at `https://indexer.dydx.trade/v4` ([Jentic OpenAPI spec](https://jentic.com/apis/dydx.exchange/dydx)); the `GET /historical-funding` endpoint serves funding payment history per market without rate limits specified. Cost is essentially the engineering effort to wire it into the existing mm-crypto-bot funding-feed plugin — same plumbing class as our existing Coinglass/Coinalyze feeds.
 
@@ -24,14 +24,14 @@
 
 A total of **16 distinct web queries** were executed (4 batches × 4 queries, plus targeted fetches). Languages: **English (12 queries)** + **Japanese (4 queries)**. Sources used in this report are listed in `sources.md`; the landscape breakdown is:
 
-| Source category | Count | Examples |
-|--|--|--|
-| dYdX official docs / governance forum | 7 | docs.dydx.xyz, docs.dydx.exchange, dydx.forum, dydx.foundation, dydx.xyz/blog |
-| Crypto-native data aggregators | 6 | CoinGlass, Coinalyze, Coinperps, Sharpe Terminal, Loris Tools, Token Terminal |
-| Japan-language DeFi/crypto media | 6 | diamond.jp, defire.jp, note.com (むじネコ), kucoin.com/ja, myforex.com/ja, dexcexhub.com/jp |
-| Academic / quant-finance | 1 | SSRN "Funding Timing and No-Arbitrage Bounds in Decentralized Perpetuals" |
-| Treasury SubDAO community updates | 2 | dydx.forum (October 2025, Year 2025) |
-| Industry news (cn/jp/ko) | 4 | PANews, Tencent News, cointelegraph.cn, ODaily |
+| Source category                       | Count | Examples                                                                                    |
+| ------------------------------------- | ----- | ------------------------------------------------------------------------------------------- |
+| dYdX official docs / governance forum | 7     | docs.dydx.xyz, docs.dydx.exchange, dydx.forum, dydx.foundation, dydx.xyz/blog               |
+| Crypto-native data aggregators        | 6     | CoinGlass, Coinalyze, Coinperps, Sharpe Terminal, Loris Tools, Token Terminal               |
+| Japan-language DeFi/crypto media      | 6     | diamond.jp, defire.jp, note.com (むじネコ), kucoin.com/ja, myforex.com/ja, dexcexhub.com/jp |
+| Academic / quant-finance              | 1     | SSRN "Funding Timing and No-Arbitrage Bounds in Decentralized Perpetuals"                   |
+| Treasury SubDAO community updates     | 2     | dydx.forum (October 2025, Year 2025)                                                        |
+| Industry news (cn/jp/ko)              | 4     | PANews, Tencent News, cointelegraph.cn, ODaily                                              |
 
 The two independent-source rule is met for every empirical claim in §3–§5. The 2025-10-10 chain-incident analysis alone is sourced from three independent venues (dYdX Foundation blog, dYdX Treasury SubDAO update, and the Year-2025 SubDAO update), satisfying the doctrine.
 
@@ -65,16 +65,16 @@ dYdX v4 settles funding **hourly**, like Hyperliquid, and unlike Binance/Bybit/O
 
 Cross-venue table from [bitcointalk funding-rate arbitrage thread, May 2026](https://bitcointalk.org/index.php?topic=5584224.0), live API-sourced:
 
-| Platform | Asset | 30D Avg funding (8h-canonical) | 30D Max | 30D Min | Settlement |
-|--|--|--|--|--|--|
-| Binance | BTC | +0.0080% | +0.0300% | −0.0200% | 8h |
-| Binance | ETH | +0.0085% | +0.0350% | −0.0150% | 8h |
-| Bybit | BTC | +0.0080% | +0.0300% | −0.0200% | 8h |
-| Bybit | ETH | +0.0082% | +0.0320% | −0.0180% | 8h |
-| **dYdX v4** | **BTC** | **−0.0022%** | **+0.0017%** | **−0.0047%** | **8h-equiv** |
-| **dYdX v4** | **ETH** | **−0.0017%** | **+0.0015%** | **−0.0044%** | **8h-equiv** |
-| Hyperliquid | BTC | +0.0017% | +0.0184% | −0.0063% | 8h |
-| Hyperliquid | ETH | +0.0015% | +0.0132% | −0.0025% | 8h |
+| Platform    | Asset   | 30D Avg funding (8h-canonical) | 30D Max      | 30D Min      | Settlement   |
+| ----------- | ------- | ------------------------------ | ------------ | ------------ | ------------ |
+| Binance     | BTC     | +0.0080%                       | +0.0300%     | −0.0200%     | 8h           |
+| Binance     | ETH     | +0.0085%                       | +0.0350%     | −0.0150%     | 8h           |
+| Bybit       | BTC     | +0.0080%                       | +0.0300%     | −0.0200%     | 8h           |
+| Bybit       | ETH     | +0.0082%                       | +0.0320%     | −0.0180%     | 8h           |
+| **dYdX v4** | **BTC** | **−0.0022%**                   | **+0.0017%** | **−0.0047%** | **8h-equiv** |
+| **dYdX v4** | **ETH** | **−0.0017%**                   | **+0.0015%** | **−0.0044%** | **8h-equiv** |
+| Hyperliquid | BTC     | +0.0017%                       | +0.0184%     | −0.0063%     | 8h           |
+| Hyperliquid | ETH     | +0.0015%                       | +0.0132%     | −0.0025%     | 8h           |
 
 Independent corroboration: [CoinGlass DYDX Funding Rate page](https://www.coinglass.com/FundingRate/DYDX) shows dYdX rates normalized to 8-hour-equivalent by multiplying the hourly rate by 8, and [Coinperps DYDX tracker](https://www.coinperps.com/perpetuals/dydx) shows Bybit DYDX/USDT funding at −0.0116% (8h), Binance DYDX/USDT at +0.0092% (8h), and OKX DYDX/USDT at +0.0100% (8h) — confirming that dYdX-v4-listed DYDX perps themselves exhibit the same structural-negative pattern on dYdX.
 
@@ -85,6 +85,7 @@ The Q1-2026 [Coin Metrics dYdX deep-dive](https://www.lianpr.com/en/news/detail/
 Empirically, when funding divergences open, they close within **1–8 hours**. Sharpe Terminal's [DYDX Funding Rate page](https://www.sharpe.ai/funding-rates/dydx-chain) notes that "DYDX funding rate extremes — either deeply positive or deeply negative sustained prints — often precede mean-reversion in DYDX price, making the funding curve a leading indicator." For BTC specifically, the bitcointalk data shows 30-day max/min spread of 6 bps/8h on dYdX, consistent with a slow AR(1) process with half-life of roughly 4–12 hours.
 
 The Japanese-language technical blog [むじネコ on note.com](https://note.com/muzineco/n/n2e27c4b8c5fd) provides an independent Japanese-source confirmation of the same premium-index formula:
+
 > "dYdXなんかも似たような概念が存在しますが、こちらは500ドルというベース量を、Initial Margin Fractionで割った数量で決まります。… 通貨ペアにより0.05~1程度の値をとります。例えばBTC-USDは0.05（レバ20倍）、MATIC-USDは0.1（レバ10倍）、YFI-USDは0.5（レバ2倍）。"
 
 (Japanese: "dYdX has a similar concept, but the 500-dollar base is divided by the Initial Margin Fraction. … The value ranges from 0.05 to 1 depending on the currency pair. For example, BTC-USD is 0.05 (20× leverage), MATIC-USD is 0.1 (10× leverage), YFI-USD is 0.5 (2× leverage).")
@@ -118,11 +119,11 @@ This is the structural-negative divergence. If executed on Bybit/eu SPOT side (u
 - Slippage on dYdX v4 BTC-USD at ~$30M daily volume ([CoinMarketCap](https://coinmarketcap.com/exchanges/dydx-v4/)): 5–10 bps for $50k notional, ≈ 1% drag annualized at 1 turnover/month
 - Net edge estimate: **~7–8% annualized, delta-neutral, market-neutral**
 
-This is comparable to the Phase 24 portfolio baseline (which captured cross-venue basis at ~5–8% net) and meaningfully *below* the +39.37%/mo @ <8% DD portfolio peak from Phase 24 #1 ([track-a/REPORT.md cross-reference]). However, it is **uncorrelated** with the existing bybit.eu SPOT-driven strategy, which is where the diversification value lies.
+This is comparable to the Phase 24 portfolio baseline (which captured cross-venue basis at ~5–8% net) and meaningfully _below_ the +39.37%/mo @ <8% DD portfolio peak from Phase 24 #1 ([track-a/REPORT.md cross-reference]). However, it is **uncorrelated** with the existing bybit.eu SPOT-driven strategy, which is where the diversification value lies.
 
 ### §4.3 Capacity
 
-dYdX v4 BTC-USD 24h volume ~$33.4M ([CoinGecko dYdX Chain stats](https://www.coingecko.com/en/exchanges/dydx-chain)); open interest ~$20.7M. A $50k–$250k notional position can enter and exit in a single block at ≤ 10 bps slippage, giving an estimated capacity of **~$250k–$1M per leg** before market-impact becomes a dominant cost.
+dYdX v4 BTC-USD 24h volume ~~$33.4M ([CoinGecko dYdX Chain stats](https://www.coingecko.com/en/exchanges/dydx-chain)); open interest ~$20.7M. A $50k–$250k notional position can enter and exit in a single block at ≤ 10 bps slippage, giving an estimated capacity of **~~$250k–$1M per leg** before market-impact becomes a dominant cost.
 
 ### §4.4 Expected portfolio lift
 
@@ -146,7 +147,7 @@ Both endpoints are confirmed in the [dYdX integration docs](https://docs.dydx.xy
 
 ### §5.3 Data feed cost
 
-$0 — the Indexer is unauthenticated and free. Historical data via [Tardis.dev](https://docs.tardis.dev/historical-data-details/dydx-v4) is paid (CSV monthly downloads are free; full API access requires a subscription), but it is only needed for *backtesting*. For live trading, the public Indexer is sufficient.
+$0 — the Indexer is unauthenticated and free. Historical data via [Tardis.dev](https://docs.tardis.dev/historical-data-details/dydx-v4) is paid (CSV monthly downloads are free; full API access requires a subscription), but it is only needed for _backtesting_. For live trading, the public Indexer is sufficient.
 
 ### §5.4 Storage / data shape
 
@@ -178,7 +179,7 @@ Each funding event: `{market: "BTC-USD", rate: 0.000013, oraclePrice: 62350.0, h
 ### §6.2 Regulatory concerns
 
 - dYdX v4 is a non-custodial Cosmos-chain DEX; US/EU regulators have not formally classified DYDX token as a security (as of mid-2026).
-- EU MiCAR: dYdX v4 does not hold EU client funds; the bot executes via non-custodial wallet signatures. No MiCAR CASP authorization required for the bot itself, though the bot's *user* (operator) may need to declare virtual-asset activity depending on jurisdiction.
+- EU MiCAR: dYdX v4 does not hold EU client funds; the bot executes via non-custodial wallet signatures. No MiCAR CASP authorization required for the bot itself, though the bot's _user_ (operator) may need to declare virtual-asset activity depending on jurisdiction.
 - US: dYdX Trading Inc. does not serve US persons on the v3 StarkEx frontend (geo-blocked); v4 chain is open-access. As of 2026, no enforcement action against dYdX Foundation or v4 validators.
 
 ### §6.3 Data feed reliability
@@ -189,7 +190,7 @@ Each funding event: `{market: "BTC-USD", rate: 0.000013, oraclePrice: 62350.0, h
 
 ### §6.4 Edge decay
 
-The structural-negative dYdX funding on BTC/ETH is *not* guaranteed to persist. If dYdX v4 retail flow flips net-long (driven by HYPE-style airdrop hunting or new incentive programs like the November 2025 [75% buyback governance proposal #313](https://www.gate.com/news/detail/15883369)), funding could flip to neutral or positive. Mitigation: monitor 7-day rolling mean and halt the strategy if the dYdX-vs-CEX spread compresses below 0.0005/8h for 7 consecutive days.
+The structural-negative dYdX funding on BTC/ETH is _not_ guaranteed to persist. If dYdX v4 retail flow flips net-long (driven by HYPE-style airdrop hunting or new incentive programs like the November 2025 [75% buyback governance proposal #313](https://www.gate.com/news/detail/15883369)), funding could flip to neutral or positive. Mitigation: monitor 7-day rolling mean and halt the strategy if the dYdX-vs-CEX spread compresses below 0.0005/8h for 7 consecutive days.
 
 ### §6.5 Validator concentration
 

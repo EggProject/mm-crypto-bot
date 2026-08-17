@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/config.ts
  *
- * `mm-bot config <validate|show|init>` subcommand.
+ * Direct `config <validate|show|init>` subcommand.
  *
  * Three sub-subcommands:
  *   - `validate` — load + validate config; print "OK" or errors; exit 0/2.
@@ -17,7 +17,7 @@
  *   - The "Refusing to overwrite" / file-write errors are red.
  *   - "Wrote <path>" success message is green.
  *   - The `show` output is plain TOML — no color (it must be parseable
- *     as TOML downstream, e.g. piped into `mm-bot config init --out=...`).
+ *     as TOML downstream, for example piped into the direct `config init` command).
  *
  * Exit codes:
  *   0 — success
@@ -94,8 +94,8 @@ function getConfigPath(args: { readonly flags: ReadonlyMap<string, string | bool
  * `formatToml` — serialize a `BotConfig` to a TOML-ish string.
  *
  * This is a hand-rolled serializer — we don't pull in a TOML emitter dep
- * just for `mm-bot config show`. The output is human-readable and
- * round-trip-safe enough for `mm-bot config show | mm-bot config init` to
+ * just for the direct `config show` command. The output is human-readable and
+ * round-trip-safe enough for direct `config show | config init` use to
  * produce a working TOML.
  *
  * NOT a general-purpose TOML serializer:
@@ -109,8 +109,8 @@ function getConfigPath(args: { readonly flags: ReadonlyMap<string, string | bool
 function formatToml(config: BotConfig): string {
   const lines: string[] = [];
   // Header
-  lines.push("# mm-bot config — emitted by `mm-bot config show`");
-  lines.push("# Edit and re-run `mm-bot config validate` to check.");
+  lines.push("# mm-crypto-bot config — emitted by the direct config show command");
+  lines.push("# Edit and re-run the direct config validate command to check.");
   lines.push("");
 
   // Section 1: bot
@@ -187,7 +187,7 @@ function formatToml(config: BotConfig): string {
 // ============================================================================
 
 /**
- * `runValidate` — `mm-bot config validate`.
+ * `runValidate` — direct `config validate`.
  *
  * Returns 0 on success, 2 on validation failure, 1 on unexpected error.
  * Prints a one-line "OK" on success and the full error list on failure.
@@ -231,10 +231,10 @@ function runValidate(
 // ============================================================================
 
 /**
- * `runShow` — `mm-bot config show`.
+ * `runShow` — direct `config show`.
  *
  * Loads the effective config (defaults + file + env merged) and prints it
- * as TOML to stdout. Pipeable to `mm-bot config init --out=...` to clone
+ * as TOML to stdout. Pipeable to the direct `config init --out=...` command to clone
  * a config (with manual edits if desired).
  */
 function runShow(
@@ -298,7 +298,7 @@ export function validateConfigForEdit(
 // ============================================================================
 
 /**
- * `runConfigInit` — `mm-bot config init [--out=path]`.
+ * `runConfigInit` — direct `config init [--out=path]`.
  *
  * Writes a starter TOML config to the given path (default: `./mm-bot.toml`).
  * We do NOT have a separate "template" file — we reuse the canonical
@@ -350,7 +350,7 @@ export function runConfigInit(
   }
   // Green "Wrote" — success badge.
   console.log(colorize(`Wrote ${resolvedTarget}`, "green"));
-  console.log("Edit the file, then run `mm-bot start --config=<path>` to launch.");
+  console.log("Edit the file, then run `bun run apps/bot/src/index.ts start --config=<path>` to launch.");
   return 0;
 }
 
@@ -359,7 +359,7 @@ export function runConfigInit(
 // ============================================================================
 
 /**
- * `configCommand` — the `mm-bot config` handler.
+ * `configCommand` — the direct `config` handler.
  *
  * Sub-subcommand dispatch is done by reading `parsed.positional[0]`:
  *   - "validate" → `runValidate`
@@ -368,7 +368,7 @@ export function runConfigInit(
  *   - anything else (including empty) → print help, return 1.
  *
  * The `init` sub-subcommand reads `--out=<path>` from the same flags
- * map (not a separate parser), so `mm-bot config init --out=foo.toml`
+ * map (not a separate parser), so the direct `config init --out=foo.toml`
  * works as expected.
  *
  * The `--help` / `-h` flag is intercepted here so the sub-subcommand
@@ -385,57 +385,57 @@ const DEFAULT_CONFIG_COMMAND_DEPENDENCIES: ConfigCommandDependencies = {
   initConfig: (outPath) => runConfigInit(outPath),
 };
 
-export function createConfigCommand(
-  overrides: Partial<ConfigCommandDependencies> = {},
-): SubcommandHandler {
+export function createConfigCommand(overrides: Partial<ConfigCommandDependencies> = {}): SubcommandHandler {
   const dependencies = { ...DEFAULT_CONFIG_COMMAND_DEPENDENCIES, ...overrides };
   return async (args, _ctx: CliContext) => {
-  // Intercept --help / -h so we can print sub-subcommand help.
-  if (args.flags.get("help") === true) {
-    printConfigHelp();
+    // Intercept --help / -h so we can print sub-subcommand help.
+    if (args.flags.get("help") === true) {
+      printConfigHelp();
+      return 1;
+    }
+    // Marker await so the function is genuinely async (satisfies the
+    // `require-await` rule). The Promise resolves immediately.
+    await Promise.resolve();
+
+    const sub = args.positional[0];
+    const configPath = getConfigPath(args);
+
+    if (sub === "validate") {
+      return runValidate(configPath, dependencies.loadConfig);
+    }
+    if (sub === "show") {
+      return runShow(configPath, dependencies.loadConfig);
+    }
+    if (sub === "init") {
+      const outRaw = args.flags.get("out");
+      const out = typeof outRaw === "string" && outRaw.length > 0 ? outRaw : undefined;
+      return dependencies.initConfig(out);
+    }
+
+    // Unknown / missing sub-subcommand. Print usage.
+    console.error(
+      "Usage: bun run apps/bot/src/index.ts config <validate|show|init> [--config=path] [--out=path]",
+    );
+    console.error("");
+    console.error("Subcommands:");
+    console.error("  validate   Load + validate config; print OK or errors");
+    console.error("  show       Print the effective config as TOML");
+    console.error("  init       Write the default config to --out=<path> (default ./mm-bot.toml)");
     return 1;
-  }
-  // Marker await so the function is genuinely async (satisfies the
-  // `require-await` rule). The Promise resolves immediately.
-  await Promise.resolve();
-
-  const sub = args.positional[0];
-  const configPath = getConfigPath(args);
-
-  if (sub === "validate") {
-    return runValidate(configPath, dependencies.loadConfig);
-  }
-  if (sub === "show") {
-    return runShow(configPath, dependencies.loadConfig);
-  }
-  if (sub === "init") {
-    const outRaw = args.flags.get("out");
-    const out = typeof outRaw === "string" && outRaw.length > 0 ? outRaw : undefined;
-    return dependencies.initConfig(out);
-  }
-
-  // Unknown / missing sub-subcommand. Print usage.
-  console.error("Usage: mm-bot config <validate|show|init> [--config=path] [--out=path]");
-  console.error("");
-  console.error("Subcommands:");
-  console.error("  validate   Load + validate config; print OK or errors");
-  console.error("  show       Print the effective config as TOML");
-  console.error("  init       Write the default config to --out=<path> (default ./mm-bot.toml)");
-  return 1;
   };
 }
 
 export const configCommand: SubcommandHandler = createConfigCommand();
 
 /**
- * `printConfigHelp` — the `mm-bot config --help` output.
+ * `printConfigHelp` — direct `config --help` output.
  *
  * The router's generic help only shows the subcommand description, not
- * the sub-subcommands. We override here so `mm-bot config --help` is
+ * the sub-subcommands. We override here so direct `config --help` is
  * actually useful.
  */
 function printConfigHelp(): void {
-  console.error("Usage: mm-bot config <subcommand> [options]");
+  console.error("Usage: bun run apps/bot/src/index.ts config <subcommand> [options]");
   console.error("");
   console.error("Validate, show, or initialize the bot config.");
   console.error("");

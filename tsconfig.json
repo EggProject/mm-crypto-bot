@@ -11,6 +11,7 @@
     "apps/bot/src/cli/cli-e2e.test.ts",
     "apps/bot/test/**/*.ts",
     "apps/bot/vitest.config.ts",
-    "scripts/coverage-tools/**/*.ts"
+    "scripts/coverage-tools/**/*.ts",
+    "scripts/tooling/**/*.ts"
   ]
 }

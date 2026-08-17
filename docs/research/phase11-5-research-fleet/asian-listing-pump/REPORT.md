@@ -15,16 +15,16 @@ Asian listing pumps are a **fragile, decomposing** alpha class. The canonical "U
 
 ## §2. Edge hypotheses (ranked HIGH/MEDIUM/LOW confidence)
 
-| # | Edge | Confidence | Rationale |
-|---|---|---|---|
-| E1 | **Cross-venue first-mover capture** — long on Binance/OKX seconds after Korean listing announcement leaks | **HIGH** | 10/15 cases in @ai_9684xtpa data: first announcement = bigger move. Move on Coinone showed 98,468% premium to Upbit/Binance (mk.co.kr). |
-| E2 | **Airdrop Sybil farming with wallet-graph isolation** — multi-wallet with no on-chain relations + organic volume profile | **HIGH** | HYPE creator explicitly designed anti-Sybil (94k wallets, median 64 HYPE; jb51.net). Jupiter excluded 750k wallets as bots (bitrue.com). Mechanics documented. |
-| E3 | **Maker-rebate delta-neutral perp farming** for Hyperliquid points | **HIGH** | Documented strategy: long+short same pair, 1x leverage, USD$10k+ daily volume > pure staking (airdropalert.com). |
-| E4 | **Kimchi-premium arbitrage via Bithumb/Coinone → Upbit withdrawal-lock window** | MEDIUM | Worked in MOVE case (+98,468%) but Korean regulator has tightened since; documented failure modes (USDT/USDC pair shutdowns by OKX during Move episode). |
-| E5 | **Pre-listing detection via @ai_9684xtpa / on-chain wallet flow** | MEDIUM | Public KOL activity (SKY, KAITO) is free. But edge may dilute as crowd follows. |
-| E6 | **Japanese bitFlyer listing catalyst** (Lisk +65%, Mona +12x historic) | MEDIUM | Real but diminishing — bitFlyer listings slowed after 2019; recent SOL listing June 2024 didn't replicate the 2018 effect. |
-| E7 | **Meme-coin KOL pump coordination** ("him" STARTUP 40x case) | LOW | High variance, regulatory risk, and often post-hoc identification only. |
-| E8 | **Korean kimchi-premium persistence on altcoin vs BTC** | LOW | Direction has flipped negative; reversal-rate signal is contaminated. |
+| #   | Edge                                                                                                                     | Confidence | Rationale                                                                                                                                                      |
+| --- | ------------------------------------------------------------------------------------------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1  | **Cross-venue first-mover capture** — long on Binance/OKX seconds after Korean listing announcement leaks                | **HIGH**   | 10/15 cases in @ai_9684xtpa data: first announcement = bigger move. Move on Coinone showed 98,468% premium to Upbit/Binance (mk.co.kr).                        |
+| E2  | **Airdrop Sybil farming with wallet-graph isolation** — multi-wallet with no on-chain relations + organic volume profile | **HIGH**   | HYPE creator explicitly designed anti-Sybil (94k wallets, median 64 HYPE; jb51.net). Jupiter excluded 750k wallets as bots (bitrue.com). Mechanics documented. |
+| E3  | **Maker-rebate delta-neutral perp farming** for Hyperliquid points                                                       | **HIGH**   | Documented strategy: long+short same pair, 1x leverage, USD$10k+ daily volume > pure staking (airdropalert.com).                                               |
+| E4  | **Kimchi-premium arbitrage via Bithumb/Coinone → Upbit withdrawal-lock window**                                          | MEDIUM     | Worked in MOVE case (+98,468%) but Korean regulator has tightened since; documented failure modes (USDT/USDC pair shutdowns by OKX during Move episode).       |
+| E5  | **Pre-listing detection via @ai_9684xtpa / on-chain wallet flow**                                                        | MEDIUM     | Public KOL activity (SKY, KAITO) is free. But edge may dilute as crowd follows.                                                                                |
+| E6  | **Japanese bitFlyer listing catalyst** (Lisk +65%, Mona +12x historic)                                                   | MEDIUM     | Real but diminishing — bitFlyer listings slowed after 2019; recent SOL listing June 2024 didn't replicate the 2018 effect.                                     |
+| E7  | **Meme-coin KOL pump coordination** ("him" STARTUP 40x case)                                                             | LOW        | High variance, regulatory risk, and often post-hoc identification only.                                                                                        |
+| E8  | **Korean kimchi-premium persistence on altcoin vs BTC**                                                                  | LOW        | Direction has flipped negative; reversal-rate signal is contaminated.                                                                                          |
 
 ---
 
@@ -35,11 +35,13 @@ Asian listing pumps are a **fragile, decomposing** alpha class. The canonical "U
 **Mechanism:** When Bithumb announces a KRW listing first (typically 10–60 min before Upbit), the price move concentrates on the first announcer. 66% of 15 sampled dual-listings showed the first announcement capturing the larger move (https://www.binance.com/en-IN/square/post/293745442617042, Binance Square / @ai_9684xtpa). The "Upbit pumps before announcement" illusion is largely because people miss the Bithumb beat.
 
 **Tactical frame:**
+
 - Source: Bithumb announcement board → Bithumb KRW book price reaction
 - Secondary source: Upbit KRW book 0–90s after Upbit announcement
 - Capturable spread: 5-30% (Bithumb moves first 5-10%; Upbit re-prices after 90-min deposit window opens; by then arbitrage closes it)
 
 **Empirical anchors (independent sources):**
+
 - MOVE (Movement) listed on Coinone first at KRW 215 → KRW 998,500 in 41 minutes = +464,318% on the listed price; meanwhile OKX had it at $1.013 (https://www.mk.co.kr/en/stock/11190568 / https://new.qq.com/rain/a/20241210A0833D00 — same event, two independent outlets).
 - CRV on Bithumb vs OKX: 610% premium documented on a single day (https://czxurui.com/kx/36667.html).
 - Average Upbit H1 spike 2025-2026: +34.2% / median +28.7% per (https://blockeden.xyz/forum/t/bittensor-tao-hits-on-upbit-listing-then-crashes-back-korean-premium-play-exposed/956).
@@ -50,6 +52,7 @@ Asian listing pumps are a **fragile, decomposing** alpha class. The canonical "U
 **Mechanism:** Modern airdrops (Hyperliquid S1+S2, Jupiter Jupuary, Jito, ether.fi S1-4) explicitly blacklist wallet clusters identified by shared funding sources, common proxies, and timing patterns. The valid pattern is: **fund each wallet from a different CEX withdrawal address (not from a common hot wallet), use distinct RPC endpoints, separate user-agents, and execute organic-feeling behavior over 90+ days.** HYPE airdrop itself paid out 31% of supply to 94k wallets; Sybils were excluded via cluster analysis (https://www.jb51.net/blockchain/963355.html; https://www.qklw.com/baike/20251028/840911.html — two independent reports).
 
 **Distribution stats (HYPE):**
+
 - Total recipients: 94,000 wallets
 - Mean: 2,915.66 HYPE
 - Median: 64.42 HYPE
@@ -57,6 +60,7 @@ Asian listing pumps are a **fragile, decomposing** alpha class. The canonical "U
 - Largest non-team holder: 8.5M HYPE
 
 **Anti-Sybil heuristics documented across airdrops:**
+
 - **Jupiter:** swaps >$5 only, excludes circular trades, requires 3+ weeks of pre-snapshot activity, excluded 750k wallets as Sybils (https://www.bitrue.com/blog/jupuary-2025-airdrop-explained; https://www.binance.com/en/square/post/18568932141010 — both quote same exclusion).
 - **Jito:** 100 Jito Points floor (1 point per JitoSOL per day), lending ×1.5, LP ×3.5, validators + MEV searchers eligible (https://www.jito.network/blog/jto-airdrop-eligibility-and-allocation-specifications/; https://coinacademy.fr/airdrops/airdrop-jito/ — both agree).
 - **ether.fi Season 4:** 95% withdrawal disqualifies; less than 150,000 loyalty points = no airdrop; withdrawal within 5 days of end-of-season = disqualified (https://etherfi.gitbook.io/gov/seasons/airdrop-season-3; https://www.bankless.com/getting-started-restaking-on-ether-fi).
@@ -67,6 +71,7 @@ Asian listing pumps are a **fragile, decomposing** alpha class. The canonical "U
 **Mechanism:** Open equal long+short on Hyperliquid perps (e.g., BTC, ETH), 1x–2x leverage. Funding rates frequently positive (longs pay shorts), so sizing the SHORT side bigger captures funding. Volume counts toward points without directional risk. Maker rebates earned by limit orders resting ≥60 seconds.
 
 **Documented playbook:**
+
 - Source 1: https://airdropalert.com/blogs/full-hyperliquid-airdrop-strategy-exposed/ — "delta-neutral strategy: market goes up or down, your net PnL stays close to zero, but your volume counts toward the airdrop."
 - Source 2: https://medium.com/@miwezuti/hyperliquid-airdrop-strategy-how-to-qualify-2308c219b13b — "Use the Hyperliquid Points page to track your score in real time. On-chain trading volume: Every $1 counts 1 point."
 - Source 3 (counter-risk): https://zirkels.com/a/hyperliquid-airdrop-2-step-by-step-eligibility-guide-secret-strategies-2025 — "avoid on-chain relations between wallets. Fund them from different wallets, never transact between them."
@@ -84,6 +89,7 @@ Asian listing pumps are a **fragile, decomposing** alpha class. The canonical "U
 ### E5. Pre-listing detection via KOL / wallet flow (MEDIUM)
 
 **Mechanism:** @ai_9684xtpa (X account "Ai 姨") is the dominant pre-listing signal source for Korean listings. Publicly documented cases:
+
 - **KAITO Upbit listing Mar 5 2025:** Team wallet (0x8D0...4afA9) sold 2M tokens ($4.1M) two hours before official announcement, with 5M transferred from multisig 22 hours prior (https://blockchain.news/flashnews/upbit-lists-kaito-amid-suspicious-token-sale-by-kaito-team).
 - **SKY Upbit KRW launch Mar 31 2026:** Wallet 0x6c240128E56782A389E5F6D5D958865a02cf3f14 withdrew 31.45M SKY ($2.46M) from staking, deposited into Binance pre-announcement (https://blockchain.news/flashnews/sky-token-launches-on-upbit-krw-pair-with-binance-activity-highlights).
 - **XPL on Hyperliquid Aug 27 2025:** Whale (rumored Sun Yuchen-linked, address 0xb9c...6801e) cleared order book, +200% in 2 min, $16M profit (https://finance.sina.com.cn/blockchain/roll/2025-08-27/doc-infnkprp6069834.shtml; https://news.qq.com/rain/a/20250827A022YZ00).
@@ -95,6 +101,7 @@ Asian listing pumps are a **fragile, decomposing** alpha class. The canonical "U
 ### E6. Japanese bitFlyer listing catalyst (MEDIUM)
 
 **Mechanism:** bitFlyer is Japan's largest BTC exchange by volume (80% of Japan BTC volume in 2018 per https://en.wikipedia.org/wiki/BitFlyer). Historic listing pumps are well documented:
+
 - **Lisk (LSK) bitFlyer listing 2018-01-31:** +65% in 25 minutes from $21.50 → $36.27 on Bittrex, then retraced to $30 (https://cloud.tencent.com/developer/news/79557). JPY quoted: ¥2,400 → ¥3,600 (https://coinpost.jp/?p=17394).
 - **Monacoin (MONA) bitFlyer listing 2017:** ¥50 → ¥620 in 11 days (same Coinpost source).
 
@@ -109,6 +116,7 @@ Asian listing pumps are a **fragile, decomposing** alpha class. The canonical "U
 ### E8. Korean kimchi-premium persistence (LOW)
 
 **Mechanism:** Long Korean-listed altcoin basket vs short global basket, capturing premium spread. **Dead since late 2024** — premium has been negative, meaning Korean altcoins trade at a DISCOUNT to global prices. Reasons per Upbit Investor Protection Center (https://m.upbitcare.com/academy/education/coin/1011):
+
 - Travel Rule compliance since 2022
 - 实名制 real-name verification limits
 - Institutional capital outflow post-Travel Rule
@@ -119,8 +127,10 @@ Asian listing pumps are a **fragile, decomposing** alpha class. The canonical "U
 ## §4. Plugin candidates (interface sketch only)
 
 ### 4.1 `korean-listing-announcement-listener` plugin
+
 **Purpose:** Sub-second detection of Upbit/Bithumb announcements → cross-venue execution.
 **Interface:**
+
 ```
 interface ListingListener {
   onAnnouncement(event: { venue: 'Upbit' | 'Bithumb' | 'Coinone',
@@ -130,14 +140,17 @@ interface ListingListener {
                           depositWindowMins: number }): void
 }
 ```
+
 - Input source: `cryptolisting.ws` WebSocket, Upbit notice-board poller, @ai_9684xtpa X-firehose
 - Action: pre-position limit bids on Binance/OKX/Bybit for the same ticker with TTL = tradingStartAt - 90min (the deposit delay window)
 - Order type: limit post-only at global mid, kill-switch if not filled within 60s
 - Required compliance: KYC-free execution venue (non-Korean) for global leg
 
 ### 4.2 `airdrop-farmer-orchestrator` plugin
+
 **Purpose:** Multi-wallet Sybil-safe airdrop farming with cluster-isolation checks.
 **Interface:**
+
 ```
 interface AirdropFarmerConfig {
   protocol: 'hyperliquid' | 'jupiter' | 'etherfi' | 'eigenlayer' | 'jito';
@@ -159,24 +172,30 @@ interface AirdropFarmerConfig {
   };
 }
 ```
+
 - Hooks into chain RPC + ARKM cluster API to verify isolation before each farming cycle
 - Output: per-wallet points score estimate + projected airdrop allocation
 - Hard guard: refuse to execute if cluster check shows >0.7 sibling similarity
 
 ### 4.3 `kimchi-premium-spotter` plugin (defensive only)
+
 **Purpose:** Real-time KRW↔USDT cross premium tracking; NOT to be used for entry, only to throttle existing Upbit/Bithumb positions when premium collapses.
 **Interface:**
+
 ```
 interface PremiumSpotter {
   premiumIndex(): { btcPremium: number, ethPremium: number, altPremium: number }
   alert(when: premiumIndex < -2.0, action: 'reduce_Korean_position')
 }
 ```
+
 - Today: signal is "reduce Korean position when premium goes more negative than -2%" because the premium no longer mean-reverts up.
 
 ### 4.4 `asian-listing-pump-microstructure` datafeed
+
 **Purpose:** Replay-grade historical microstructure for backtest.
 **Interface:**
+
 ```
 interface MicrostructureReplay {
   listings: [{ venue, ticker, announceAt, tradeAt, depositWindowMins,
@@ -190,6 +209,7 @@ interface MicrostructureReplay {
 ## §5. Sources (URLs)
 
 ### Korean Upbit / Bithumb microstructure
+
 1. https://www.chaincatcher.com/ja/article/2171643 — ChainCatcher on 석우빔 (Seokwoo Beam), Upbit H1 spike table 2025
 2. https://blockeden.xyz/forum/t/bittensor-tao-hits-on-upbit-listing-then-crashes-back-korean-premium-play-exposed/956 — Avg +34.2% / median +28.7%, TAO case
 3. https://www.binance.com/en-IN/square/post/293745442617042 — "Upbit Pump Explained" 10/15 first-mover data
@@ -211,6 +231,7 @@ interface MicrostructureReplay {
 19. https://datalab.upbit.com/ — Upbit Datalab dashboard
 
 ### Japanese venues
+
 20. https://coinpost.jp/?p=17394 — CoinPost JP listing-pump factor article (Lisk, Monacoin)
 21. https://cloud.tencent.com/developer/news/79557 — Lisk +65% on bitFlyer 2018-01-31
 22. https://en.wikipedia.org/wiki/BitFlyer — BitFlyer corporate / market share
@@ -219,6 +240,7 @@ interface MicrostructureReplay {
 25. https://pluang.com/en/news-feed/solana-masuk-bursa-jepang-bitflyer-listing-sol — bitFlyer SOL listing June 2024
 
 ### Airdrop mechanisms
+
 26. https://www.jb51.net/blockchain/963355.html — HYPE distribution percentile stats
 27. https://www.qklw.com/baike/20251028/840911.html — HYPE 31% community + Sybil detection
 28. https://airdropalert.com/blogs/full-hyperliquid-airdrop-strategy-exposed/ — Delta-neutral farming
@@ -235,6 +257,7 @@ interface MicrostructureReplay {
 39. https://www.cryptonewsnavigator.com/academy/article/eigenlayer-airdrop-recipients-did-something-unexpected-with-their-tokens — 68% of EIGEN recipients held/staked, not sold
 
 ### On-chain / cross-venue / arbitrage
+
 40. https://new.qq.com/rain/a/20241210A0833D00 — MOVE $1.013 OKX vs Upbit $1.36B vol, arbitrage throttle
 41. https://finance.sina.com.cn/blockchain/roll/2025-08-27/doc-infnkprp6069834.shtml — Hyperliquid XPL whale +200% in 2 min
 42. https://news.qq.com/rain/a/20250827A022YZ00 — XPL whale detail (rumored Sun Yuchen-linked)

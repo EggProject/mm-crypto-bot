@@ -276,9 +276,7 @@ export class PositionManager {
       );
     }
     if (quantity <= 0) {
-      throw new PositionManagerError(
-        `[position-manager] quantity must be positive, got ${String(quantity)}`,
-      );
+      throw new PositionManagerError(`[position-manager] quantity must be positive, got ${String(quantity)}`);
     }
     if (entryPrice <= 0) {
       throw new PositionManagerError(
@@ -366,9 +364,7 @@ export class PositionManager {
     // when a new position is opened. The trailing-stop is fed from
     // updateMarketPrice on every subsequent tick.
     if (this.riskManager !== null) {
-      const atrProxy = quantity > 0
-        ? (notionalUsd / quantity) * 0.01
-        : entryPrice * 0.01;
+      const atrProxy = quantity > 0 ? (notionalUsd / quantity) * 0.01 : entryPrice * 0.01;
       this.riskManager.armTrailingStop(id, side, entryPrice, atrProxy);
     }
     this.logger.info("[position-manager] position opened", {
@@ -453,8 +449,7 @@ export class PositionManager {
     if (existing !== undefined) {
       // Same-side fill — average entry price update.
       const totalQty = existing.quantity + fill.quantity;
-      const newEntry =
-        (existing.quantity * existing.entryPrice + fill.quantity * fill.price) / totalQty;
+      const newEntry = (existing.quantity * existing.entryPrice + fill.quantity * fill.price) / totalQty;
       existing.entryPrice = newEntry;
       existing.quantity = totalQty;
       existing.currentPrice = fill.price;
@@ -483,7 +478,12 @@ export class PositionManager {
    *
    * @returns A zárás P&L-je (USD).
    */
-  public closePosition(strategy: string, symbol: Symbol, exitPrice: number, timestamp: number = Date.now()): number {
+  public closePosition(
+    strategy: string,
+    symbol: Symbol,
+    exitPrice: number,
+    timestamp: number = Date.now(),
+  ): number {
     // Próbáljuk mindkét oldalt (long + short) — bármelyik nyitva van, zárjuk.
     for (const side of ["long", "short"] as const) {
       const id = this.positionId(strategy, symbol, side);
@@ -630,13 +630,10 @@ export class PositionManager {
    */
   public restoreRealizedPnl(realizedPnlUsd: number): void {
     if (this.realizedPnlTotal !== 0) {
-      this.logger.warn(
-        "[position-manager] restoreRealizedPnl: overwriting non-zero realizedPnlTotal",
-        {
-          existing: this.realizedPnlTotal,
-          new: realizedPnlUsd,
-        },
-      );
+      this.logger.warn("[position-manager] restoreRealizedPnl: overwriting non-zero realizedPnlTotal", {
+        existing: this.realizedPnlTotal,
+        new: realizedPnlUsd,
+      });
     }
     this.realizedPnlTotal = realizedPnlUsd;
   }
@@ -693,9 +690,8 @@ export class PositionManager {
           // ATR proxy: a position notionaljából / quantity / 10
           // (≈ 10% assumed volatility). Az upstream ATR pipeline
           // (M15) ezt felülírja egy későbbi fázisban.
-          const atrProxy = record.quantity > 0
-            ? (record.notionalUsd / record.quantity) * 0.01
-            : record.entryPrice * 0.01;
+          const atrProxy =
+            record.quantity > 0 ? (record.notionalUsd / record.quantity) * 0.01 : record.entryPrice * 0.01;
           this.riskManager.onTick({
             positionId: record.id,
             side: record.side,
@@ -746,7 +742,10 @@ export class PositionManager {
     if (position === undefined) return false;
     this.positions.delete(id);
     this.logger.error("[position-manager] local position quarantined — absent on venue", {
-      strategy: position.strategy, symbol: String(position.symbol), side: position.side, quantity: position.quantity,
+      strategy: position.strategy,
+      symbol: String(position.symbol),
+      side: position.side,
+      quantity: position.quantity,
     });
     return true;
   }
@@ -855,8 +854,7 @@ export class PositionManager {
       source: r.strategy,
       // Effective notional: signed (long = +, short = -), so that
       // a perfectly hedged long+short at the same notional cancels.
-      effectiveNotionalUsd:
-        r.side === "long" ? r.notionalUsd * r.leverage : -(r.notionalUsd * r.leverage),
+      effectiveNotionalUsd: r.side === "long" ? r.notionalUsd * r.leverage : -(r.notionalUsd * r.leverage),
     }));
   }
 

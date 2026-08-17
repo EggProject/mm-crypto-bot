@@ -3,7 +3,7 @@ import { dirname, normalize } from "node:path";
 import { Bot } from "../../bot/bot.js";
 import { ConfigError, loadBotConfig } from "../../config/index.js";
 import type { BotConfig } from "../../config/schema.js";
-import type { SubcommandHandler } from "../router.js";
+import { CLI_COMMAND, type SubcommandHandler } from "../router.js";
 
 function getConfigPath(flags: ReadonlyMap<string, string | boolean>): string | undefined {
   const value = flags.get("config");
@@ -27,7 +27,7 @@ const DEFAULT_START_COMMAND_DEPENDENCIES: StartCommandDependencies = {
 function validateStartArguments(args: Parameters<SubcommandHandler>[0]): string | undefined {
   for (const [name, value] of args.flags) {
     if (!START_FLAG_NAMES.has(name)) {
-      return `Unknown start option: --${name}. Run \`mm-bot start --help\` for supported options.`;
+      return `Unknown start option: --${name}. Run \`${CLI_COMMAND} start --help\` for supported options.`;
     }
     if (name === "config" && (typeof value !== "string" || value.length === 0)) {
       return "The --config option requires a non-empty path.";
@@ -39,54 +39,52 @@ function validateStartArguments(args: Parameters<SubcommandHandler>[0]): string 
   const positional = args.positional[0];
   return positional === undefined
     ? undefined
-    : `Unexpected start argument: ${positional}. Run \`mm-bot start --help\` for usage.`;
+    : `Unexpected start argument: ${positional}. Run \`${CLI_COMMAND} start --help\` for usage.`;
 }
 
 function isNoColor(flags: ReadonlyMap<string, string | boolean>): boolean {
   return flags.get("no-color") === true || flags.get("color") === false;
 }
 
-export function createStartCommand(
-  overrides: Partial<StartCommandDependencies> = {},
-): SubcommandHandler {
+export function createStartCommand(overrides: Partial<StartCommandDependencies> = {}): SubcommandHandler {
   const dependencies = { ...DEFAULT_START_COMMAND_DEPENDENCIES, ...overrides };
   return async (args) => {
-  const argumentError = validateStartArguments(args);
-  if (argumentError !== undefined) {
-    console.error(`[start] ${argumentError}`);
-    return 1;
-  }
-
-  if (isNoColor(args.flags) && process.env["NO_COLOR"] === undefined) {
-    process.env["NO_COLOR"] = "1";
-  }
-
-  if (args.flags.get("help") === true) {
-    printStartHelp();
-    return 1;
-  }
-
-  let config: BotConfig;
-  try {
-    config = dependencies.loadConfig(getConfigPath(args.flags));
-  } catch (error: unknown) {
-    if (error instanceof ConfigError) {
-      console.error("Config validation FAILED:");
-      console.error(error.message);
-      return 2;
+    const argumentError = validateStartArguments(args);
+    if (argumentError !== undefined) {
+      console.error(`[start] ${argumentError}`);
+      return 1;
     }
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Failed to load config: ${message}`);
-    return 1;
-  }
 
-  if (config.bot.mode === "live") {
-    const apiKey = process.env["BYBIT_API_KEY"];
-    if (typeof apiKey !== "string" || apiKey.length === 0) {
-      console.warn("[start] WARNING: bot.mode = 'live' but BYBIT_API_KEY is not set");
-      console.warn("[start]          the exchange client will fail to authenticate at first request");
+    if (isNoColor(args.flags) && process.env["NO_COLOR"] === undefined) {
+      process.env["NO_COLOR"] = "1";
     }
-  }
+
+    if (args.flags.get("help") === true) {
+      printStartHelp();
+      return 1;
+    }
+
+    let config: BotConfig;
+    try {
+      config = dependencies.loadConfig(getConfigPath(args.flags));
+    } catch (error: unknown) {
+      if (error instanceof ConfigError) {
+        console.error("Config validation FAILED:");
+        console.error(error.message);
+        return 2;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Failed to load config: ${message}`);
+      return 1;
+    }
+
+    if (config.bot.mode === "live") {
+      const apiKey = process.env["BYBIT_API_KEY"];
+      if (typeof apiKey !== "string" || apiKey.length === 0) {
+        console.warn("[start] WARNING: bot.mode = 'live' but BYBIT_API_KEY is not set");
+        console.warn("[start]          the exchange client will fail to authenticate at first request");
+      }
+    }
 
     return dependencies.run(dependencies.createBot(config), config);
   };
@@ -94,10 +92,7 @@ export function createStartCommand(
 
 export const startCommand = createStartCommand();
 
-export async function runHeadless(
-  bot: Pick<Bot, "start" | "stop">,
-  config: BotConfig,
-): Promise<number> {
+export async function runHeadless(bot: Pick<Bot, "start" | "stop">, config: BotConfig): Promise<number> {
   const logFileStream = await openLogFile(resolveLogFilePath(config));
   const consoleBackup = installConsoleRedirection(logFileStream);
   const shutdown: { promise?: Promise<boolean> } = {};
@@ -143,7 +138,7 @@ export async function runHeadless(
 
 function printStartHelp(): void {
   const lines: readonly string[] = [
-    "Usage: mm-bot start [--config=path] [--no-color] [--help]",
+    `Usage: ${CLI_COMMAND} start [--config=path] [--no-color] [--help]`,
     "",
     "Launch the bot and run until SIGINT/SIGTERM or a runtime failure.",
     "Console output is redirected to <state_file>.log.",
@@ -154,9 +149,9 @@ function printStartHelp(): void {
     "  --help, -h            Show this help",
     "",
     "Examples:",
-    "  mm-bot start",
-    "  mm-bot start --no-color",
-    "  mm-bot start --config=./prod.toml",
+    `  ${CLI_COMMAND} start`,
+    `  ${CLI_COMMAND} start --no-color`,
+    `  ${CLI_COMMAND} start --config=./prod.toml`,
   ];
   for (const line of lines) {
     console.error(line);
@@ -188,9 +183,7 @@ async function openLogFile(path: string): Promise<LogFile> {
   return fileSystem.open(path, "a");
 }
 
-export function installConsoleRedirection(
-  stream: LogFile,
-): {
+export function installConsoleRedirection(stream: LogFile): {
   readonly log: typeof console.log;
   readonly error: typeof console.error;
   readonly drain: () => Promise<void>;

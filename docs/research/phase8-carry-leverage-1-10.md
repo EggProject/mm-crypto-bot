@@ -54,27 +54,27 @@ on the 2024-2026 funding-rate history (max daily VaR 0.35%, max DD 10.5%, 0 liqu
 **Track D verdict:** **1:10 (10×) leveraged funding-carry FULL PASS** on BTC and ETH, and **CONDITIONAL PASS**
 on SOL. All 6 NEW baselines (3 sym × 2 leverage {1×, 10×}) deliver:
 
-| Symbol | Lev | Total Carry PnL | VaR 95% (daily, max observed) | Liquidations | Sharpe (carry only) | Efficiency vs 1× |
-|---|---:|---:|---:|---:|---:|---:|
-| BTC | 1× | +$1,769.89 | 0.028% | 0 | 19.11 | baseline |
-| **BTC** | **10× (1:10)** | **+$17,698.93** | **0.241%** | **0** | **16.75** | **9.999× (99.99% linear)** |
-| ETH | 1× | +$1,818.92 | 0.025% | 0 | 18.95 | baseline |
-| **ETH** | **10× (1:10)** | **+$18,189.22** | **0.224%** | **0** | **16.72** | **10.000× (100.00% linear)** |
-| SOL | 1× | +$1,234.21 | 0.055% | 0 | 9.09 | baseline |
-| **SOL** | **10× (1:10)** | **+$12,342.06** | **0.352%** | **0** | **9.91** | **10.000× (100.00% linear)** |
+| Symbol  |            Lev | Total Carry PnL | VaR 95% (daily, max observed) | Liquidations | Sharpe (carry only) |             Efficiency vs 1× |
+| ------- | -------------: | --------------: | ----------------------------: | -----------: | ------------------: | ---------------------------: |
+| BTC     |             1× |      +$1,769.89 |                        0.028% |            0 |               19.11 |                     baseline |
+| **BTC** | **10× (1:10)** | **+$17,698.93** |                    **0.241%** |        **0** |           **16.75** |   **9.999× (99.99% linear)** |
+| ETH     |             1× |      +$1,818.92 |                        0.025% |            0 |               18.95 |                     baseline |
+| **ETH** | **10× (1:10)** | **+$18,189.22** |                    **0.224%** |        **0** |           **16.72** | **10.000× (100.00% linear)** |
+| SOL     |             1× |      +$1,234.21 |                        0.055% |            0 |                9.09 |                     baseline |
+| **SOL** | **10× (1:10)** | **+$12,342.06** |                    **0.352%** |        **0** |            **9.91** | **10.000× (100.00% linear)** |
 
 **Key empirical findings vs. Phase 7 Track C (3× reference):**
 
-| Sym | Phase 7 3× PnL | Phase 8 10× PnL | Carry scaling from 3× → 10× | Phase 7 3× VaR | Phase 8 10× VaR |
-|---|---:|---:|---:|---:|---:|
-| BTC | $5,310 | $17,699 | +233% (3.33× of 3× carry) | 0.18% | 0.24% |
-| ETH | $5,570 | $18,189 | +226% (3.26× of 3× carry) | 0.24% | 0.22% |
-| SOL | $129 | $12,342 | +9470% (95.7× of 3× carry — see footnote*) | 0.83% | 0.35% |
+| Sym | Phase 7 3× PnL | Phase 8 10× PnL |                Carry scaling from 3× → 10× | Phase 7 3× VaR | Phase 8 10× VaR |
+| --- | -------------: | --------------: | -----------------------------------------: | -------------: | --------------: |
+| BTC |         $5,310 |         $17,699 |                  +233% (3.33× of 3× carry) |          0.18% |           0.24% |
+| ETH |         $5,570 |         $18,189 |                  +226% (3.26× of 3× carry) |          0.24% |           0.22% |
+| SOL |           $129 |         $12,342 | +9470% (95.7× of 3× carry — see footnote*) |          0.83% |           0.35% |
 
-*SOL Phase 7 3× carry PnL ($645 → approx $129 at this run's 30-month funding rate) was anomalously low
+_SOL Phase 7 3× carry PnL ($645 → approx $129 at this run's 30-month funding rate) was anomalously low
 because the Phase 7 3× baseline gave a baseNotional of $10k + 3× notional = $30k, while the Phase 8 10× baseline uses
 10× notional = $100k. The 10× funding collection is therefore 10/3 = 3.33× of the 1× SOL funding stream,
-matching the BTC/ETH scaling.*
+matching the BTC/ETH scaling._
 
 **Quality gates — ALL GREEN:**
 
@@ -161,28 +161,28 @@ The 3× row is the **Phase 7 Track C reference** (carried over for the 3× → 1
 documented in §1). Both 1× and 10× were re-run under the new `assert1to10Leverage` guardrail
 to confirm no regression from the Phase 7 code path.
 
-| Sym | Lev | Carry PnL (USD) | Monthly avg | Sharpe (ann.) | Sortino | Max DD | VaR 95% (max obs) | Liq |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| BTC | 1× | +$1,769.89 | 0.54%/mo | 19.11 | 18.99 | 0.35% | 0.028% | 0 |
-| BTC | 3× (Phase 7 ref) | +$5,309.68 | 1.43%/mo | 18.39 | 20.72 | 0.81% | 0.180% | 0 |
-| **BTC** | **10× (1:10)** | **+$17,698.93** | **3.45%/mo** | **16.75** | **24.96** | **1.50%** | **0.241%** | **0** |
-| ETH | 1× | +$1,818.92 | 0.56%/mo | 18.95 | 14.56 | 0.50% | 0.025% | 0 |
-| ETH | 3× (Phase 7 ref) | +$5,459.27 | 1.43%/mo | 18.40 | 18.90 | 1.16% | 0.240% | 0 |
-| **ETH** | **10× (1:10)** | **+$18,189.22** | **3.51%/mo** | **16.72** | **20.67** | **2.11%** | **0.224%** | **0** |
-| SOL | 1× | +$1,234.21 | 0.39%/mo | 9.09 | 3.05 | 2.28% | 0.055% | 0 |
-| SOL | 3× (Phase 7 ref) | +$3,684.07 | 1.13%/mo | 9.40 | 5.10 | 5.44% | 0.830% | 0 |
-| **SOL** | **10× (1:10)** | **+$12,342.06** | **2.71%/mo** | **9.91** | **4.46** | **10.54%** | **0.352%** | **0** |
+| Sym     |              Lev | Carry PnL (USD) |  Monthly avg | Sharpe (ann.) |   Sortino |     Max DD | VaR 95% (max obs) |   Liq |
+| ------- | ---------------: | --------------: | -----------: | ------------: | --------: | ---------: | ----------------: | ----: |
+| BTC     |               1× |      +$1,769.89 |     0.54%/mo |         19.11 |     18.99 |      0.35% |            0.028% |     0 |
+| BTC     | 3× (Phase 7 ref) |      +$5,309.68 |     1.43%/mo |         18.39 |     20.72 |      0.81% |            0.180% |     0 |
+| **BTC** |   **10× (1:10)** | **+$17,698.93** | **3.45%/mo** |     **16.75** | **24.96** |  **1.50%** |        **0.241%** | **0** |
+| ETH     |               1× |      +$1,818.92 |     0.56%/mo |         18.95 |     14.56 |      0.50% |            0.025% |     0 |
+| ETH     | 3× (Phase 7 ref) |      +$5,459.27 |     1.43%/mo |         18.40 |     18.90 |      1.16% |            0.240% |     0 |
+| **ETH** |   **10× (1:10)** | **+$18,189.22** | **3.51%/mo** |     **16.72** | **20.67** |  **2.11%** |        **0.224%** | **0** |
+| SOL     |               1× |      +$1,234.21 |     0.39%/mo |          9.09 |      3.05 |      2.28% |            0.055% |     0 |
+| SOL     | 3× (Phase 7 ref) |      +$3,684.07 |     1.13%/mo |          9.40 |      5.10 |      5.44% |            0.830% |     0 |
+| **SOL** |   **10× (1:10)** | **+$12,342.06** | **2.71%/mo** |      **9.91** |  **4.46** | **10.54%** |        **0.352%** | **0** |
 
 ### 3.2 Scaling efficiency — 1× → 10× (the "carry scaling curve")
 
 The Phase 7 Track C §3.2 promise was "linear scaling with zero fee-drag if the model triggers no
 rebalances". Phase 8 confirms this is preserved up to 10×:
 
-| Sym | 1× PnL | 10× PnL | Ratio | Linear efficiency (vs 10× baseline) |
-|---|---:|---:|---:|---:|
-| BTC | $1,769.89 | $17,698.93 | 9.999× | **99.99%** |
-| ETH | $1,818.92 | $18,189.22 | 10.000× | **100.00%** |
-| SOL | $1,234.21 | $12,342.06 | 10.000× | **100.00%** |
+| Sym |    1× PnL |    10× PnL |   Ratio | Linear efficiency (vs 10× baseline) |
+| --- | --------: | ---------: | ------: | ----------------------------------: |
+| BTC | $1,769.89 | $17,698.93 |  9.999× |                          **99.99%** |
+| ETH | $1,818.92 | $18,189.22 | 10.000× |                         **100.00%** |
+| SOL | $1,234.21 | $12,342.06 | 10.000× |                         **100.00%** |
 
 The model triggers **zero rebalances** across the 30-month backtest on all 9 baselines (because
 funding rates are persistently positive and the synthetic delta-sensitivity of 0.01 keeps drift
@@ -198,11 +198,11 @@ threshold by a factor of 2.
 
 **All 6 NEW baselines pass the VaR cap with significant headroom:**
 
-| Sym | 10× VaR max observed | VaR cap | Used |
-|---|---:|---:|---:|
-| BTC | 0.241% | 2.000% | 12.0% |
-| ETH | 0.224% | 2.000% | 11.2% |
-| SOL | 0.352% | 2.000% | 17.6% |
+| Sym | 10× VaR max observed | VaR cap |  Used |
+| --- | -------------------: | ------: | ----: |
+| BTC |               0.241% |  2.000% | 12.0% |
+| ETH |               0.224% |  2.000% | 11.2% |
+| SOL |               0.352% |  2.000% | 17.6% |
 
 **Verdict:** the 10× leverage does NOT push any symbol past the 2% VaR cap. The conservative
 posture of the synthetic delta-sensitivity (0.01) reduces mark-price moves to ~10% of their
@@ -258,10 +258,10 @@ The full per-fold metrics are in
 `backtest-results/wf-funding-carry-leverage-1-10-{btc,eth,sol}-1h-10x.json`. Summary:
 
 | Sym | Folds | Mean OOS return | Mean OOS Sharpe (ann.) | WF Efficiency | Total Liq | Max OOS VaR | VaR cap |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| BTC | 24 | +4.06%/OOS | 17.34 | 0.120 | 0 | 0.842% | 2.000% |
-| ETH | 24 | +4.16%/OOS | 18.79 | 0.117 | 0 | 1.161% | 2.000% |
-| SOL | 24 | +1.15%/OOS | 1.74 | 0.053 | 0 | 0.588% | 2.000% |
+| --- | ----: | --------------: | ---------------------: | ------------: | --------: | ----------: | ------: |
+| BTC |    24 |      +4.06%/OOS |                  17.34 |         0.120 |         0 |      0.842% |  2.000% |
+| ETH |    24 |      +4.16%/OOS |                  18.79 |         0.117 |         0 |      1.161% |  2.000% |
+| SOL |    24 |      +1.15%/OOS |                   1.74 |         0.053 |         0 |      0.588% |  2.000% |
 
 **Walk-forward efficiency (WFE) interpretation:** WFE = `mean(OOS_return) / mean(IS_return)`. A WFE
 in `[0.5, 1.0]` indicates the strategy generalizes; `<0.5` indicates partial decay (regime shift
@@ -270,7 +270,7 @@ window gives:
 
 - BTC/ETH WFE = 0.12 — looks low, but is dominated by the 2024-bull-market IS windows (which
   captured the Q4-2024 funding-rate peaks that the 2025-2026 OOS windows did not). The
-  *absolute* mean OOS return is +4.06-4.16% per 30d OOS — that's +50%/year annualized OOS,
+  _absolute_ mean OOS return is +4.06-4.16% per 30d OOS — that's +50%/year annualized OOS,
   which is consistent with the static 30-month backtest. The decay vs IS is "structural regime
   shift", not "overfit" (no in-sample parameter fitting happened; the carry formula is
   parameter-free apart from the funding-rate CSV which is by definition live data).
@@ -290,20 +290,20 @@ reflect the 2025 funding-regime compression vs the 2024 Q4 peak, NOT model overf
 ### 4.1 Claim: 10× leverage on delta-neutral carry is operationally feasible in normal market conditions
 
 **Source 1 — Cryptohopper "A systematic crypto trading strategy using perpetual futures" (quantitative insight).**
-Direct quote: *"the strategy has minimum risk to the underlying price fluctuation, we can leverage up our
-positions by 10x and the leverage ratio stays stable through the period with negligible auto-deleverage/liquidation risk."*
-The author further qualifies: *"In order to have a sizable return, the strategy has to be levered up. Given
+Direct quote: _"the strategy has minimum risk to the underlying price fluctuation, we can leverage up our
+positions by 10x and the leverage ratio stays stable through the period with negligible auto-deleverage/liquidation risk."_
+The author further qualifies: _"In order to have a sizable return, the strategy has to be levered up. Given
 the strategy is delta neutral, it's safe to run 10x leverage under normal market conditions. However, in a
 stressed market when spot price and perpetual futures price diverge for a prolonged period of time, the strategy
-bears risk of auto-delverage or even liquidation, which could result in significant capital losses."*
+bears risk of auto-delverage or even liquidation, which could result in significant capital losses."_
 This matches our empirical result: 0 liquidations across 72 walk-forward folds including the
 Oct-2025 +19B liquidation cascade period.
 
 https://www.cryptohopper.com/news/quantitative-crypto-insight-a-systematic-crypto-trading-strategy-using-perpetual-futures-7152
 
 **Source 2 — Sei blog "Perpetual Futures vs. Traditional Futures: Crypto Trader Guide" (crypto-native source).**
-Direct quote: *"With just 10x leverage, the futures leg would face liquidation in over half the months
-during volatile periods."* This contradicts a too-simple "10× is always safe" reading — the 1:10 leverage
+Direct quote: _"With just 10x leverage, the futures leg would face liquidation in over half the months
+during volatile periods."_ This contradicts a too-simple "10× is always safe" reading — the 1:10 leverage
 sustains clean carry in calm regimes but is **stress-tested** under Oct-2025-style events. The Sei
 analysis aligns with our walk-forward finding that the BTC OOS max VaR briefly reaches 0.842% in
 late 2024 early-2025 (a "half the volatile months" condition that still passes the 2% cap).
@@ -311,9 +311,9 @@ late 2024 early-2025 (a "half the volatile months" condition that still passes t
 https://blog.sei.io/trading/perps/perpetual-futures-vs-traditional-futures/
 
 **Source 3 — Bybit Help Center "Spot Margin Trading FAQ" (Bybit official docs).**
-Direct quote: *"Spot Margin Trading supports up to 10x leverage… The system calculates the AB based on your
+Direct quote: _"Spot Margin Trading supports up to 10x leverage… The system calculates the AB based on your
 Initial Margin Rate (IMR) limit, which depends on your selected leverage. The formula is (Selected Leverage − 1)
-÷ Selected Leverage. For example, if you select 10x leverage, the IMR limit would be (10 − 1) ÷ 10 = 90%."*
+÷ Selected Leverage. For example, if you select 10x leverage, the IMR limit would be (10 − 1) ÷ 10 = 90%."_
 This is the bybit.eu SPOT-margin default behavior — exactly the 1:10 the user is mandating project-wide.
 bybit.eu is the venue the project intends to deploy on (Phase 8 §5 deployment readiness).
 
@@ -322,21 +322,21 @@ https://www.bybit.com/en/help-center/article/FAQ-Spot-Margin-Trading
 ### 4.2 Claim: VaR cap ≤ 2% daily @ 95% confidence at 10× leverage is sustainable
 
 **Source 1 — Pomegra.io / Binance — VaR-based position sizing.**
-Direct quote: *"VaR = Portfolio × σ × z-score (z=1.65 at 95%); daily VaR ≤ 2% of equity."*
+Direct quote: _"VaR = Portfolio × σ × z-score (z=1.65 at 95%); daily VaR ≤ 2% of equity."_
 This is the Phase 7 brief's hard requirement, preserved in Phase 8. Our empirical 10× VaR observed:
 BTC 0.241%, ETH 0.224%, SOL 0.352% — all well under 2%.
 
 **Source 2 — SSRN 5292305 "Leveraged BTC Funding Carry Algorithm" (2025).**
-Direct quote on 3× carried carry: *"annualized return of 16.0%, a Sharpe ratio of 6.1, and a maximum
+Direct quote on 3× carried carry: _"annualized return of 16.0%, a Sharpe ratio of 6.1, and a maximum
 drawdown below 2%, driven by systematic reinvestment of eight-hour funding inflows and dynamic hedge-resizing
-mechanisms."* At 10× leverage the scaling is linear (~3.33×) and the VaR scales ~10/3 = 3.33× vs the 3×
+mechanisms."_ At 10× leverage the scaling is linear (~3.33×) and the VaR scales ~10/3 = 3.33× vs the 3×
 benchmark (BTC 0.18% → 0.60% predicted), tracking our empirical 0.241% (within the same order).
 
 https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5292305
 
 **Source 3 — AInvest "Strategic Trade Size Management in Crypto Markets for Risk-Adjusted Returns" (2025).**
-Direct quote: *"GARCH models (α 9-37%, β >0.7) outperform static assumptions by capturing volatility
-clustering and asymmetric price shocks, critical for VaR estimation and position sizing in crypto markets."*
+Direct quote: _"GARCH models (α 9-37%, β >0.7) outperform static assumptions by capturing volatility
+clustering and asymmetric price shocks, critical for VaR estimation and position sizing in crypto markets."_
 This validates the dynamic-VaR helper approach (Phase 8 §2.3) — regime-aware position sizing that
 downshifts leverage when funding-rate volatility exceeds the reference baseline.
 
@@ -348,13 +348,14 @@ https://www.ainvest.com/news/strategic-trade-size-management-crypto-markets-risk
 Cited extensively across the AI-finance community. The probability of backtest overfitting (PBO) framework
 recommends walk-forward with multiple OOS folds, exactly the protocol Phase 8 §3.6 uses (180d IS / 30d OOS /
 30d step × 24 folds). The replicated citations:
+
 - https://aifinhub.io/learn/overfitting/
 - https://www.signaltrace.wiki/markov-model/Concepts/Out-of-Sample-Backtesting
 
 **Source 2 — arXiv 2512.12924 "A Rigorous Walk-Forward Validation Framework for Market Strategies" (2025).**
-Direct quote: *"The framework enforces strict information set discipline, employs walk-forward validation with
+Direct quote: _"The framework enforces strict information set discipline, employs walk-forward validation with
 rolling windows, where the system must prove itself repeatedly across 34 independent out-of-sample test
-periods spanning multiple market regimes rather than succeeding in one fortunate backtest."* Phase 8 uses
+periods spanning multiple market regimes rather than succeeding in one fortunate backtest."_ Phase 8 uses
 24 folds per symbol — consistent with the methodology, applied to a deterministic funding-rate signal
 (no ML parameter fitting, so the walk-forward is a regime-shift detection rather than an overfit test).
 
@@ -370,8 +371,8 @@ overfit detection. See §3.6 for the regime-shift interpretation.
 
 **Source 1 — Werapun et al. (2025) "Exploring Risk and Return Profiles of Funding Rate Arbitrage on CEX and DEX."
 Blockchain: Research and Applications, vol. 100354.** Direct quote (from abstract page):
-*"This study presents evidence that funding rate arbitrage can generate substantial returns—up to 115.9% over
-six months—while keeping possible losses to a [small amount]."* The Sharpe 15.85 result is for the
+_"This study presents evidence that funding rate arbitrage can generate substantial returns—up to 115.9% over
+six months—while keeping possible losses to a [small amount]."_ The Sharpe 15.85 result is for the
 drift-XRP 7× funding-rate arbitrage variant. This is the peer-reviewed justification for high-leverage
 funding-rate carry strategies; 7× is now disallowed by the 1:10 mandate, but the academic evidence base
 supports the structural viability of 5-10× funding-rate carry.
@@ -380,24 +381,24 @@ https://www.sciencedirect.com/science/article/pii/S2096720925000818
 https://www.researchgate.net/publication/394323707_Exploring_Risk_and_Return_Profiles_of_Funding_Rate_Arbitrage_on_CEX_and_DEX
 
 **Source 2 — Same paper (SSRN funded-rate mechanism in perpetual futures, 2025).** Cited by SSRN 6185958:
-*"Werapun, W., T. Karode, J. Suaboot, T. Arpornthip, and E. Sangiamkul (2025). Exploring risk and return profiles
-of funding rate arbitrage on cex and dex."* — the academic peer-review reference for high-leverage funding arb.
+_"Werapun, W., T. Karode, J. Suaboot, T. Arpornthip, and E. Sangiamkul (2025). Exploring risk and return profiles
+of funding rate arbitrage on cex and dex."_ — the academic peer-review reference for high-leverage funding arb.
 
 https://papers.ssrn.com/sol3/Delivery.cfm/6185958.pdf?abstractid=6185958&mirid=1
 
 **Source 3 — arXiv 2212.06888 "Fundamentals of Perpetual Futures" (Angeris, Chitra, Evans).**
-Direct quote: *"Empirically, the random maturity arbitrage strategy generates a sizable Sharpe ratio even under
+Direct quote: _"Empirically, the random maturity arbitrage strategy generates a sizable Sharpe ratio even under
 high trading costs. For example, for Bitcoin perpetual futures, the strategy generates a Sharpe ratio of 1.8
 under high trading costs typical of retail investors, and up to 3.5 for highly-active market makers who pay no
-such fees."* This is the foundational paper establishing the funding-rate carry Sharpe benchmark (1.8-3.5
+such fees."_ This is the foundational paper establishing the funding-rate carry Sharpe benchmark (1.8-3.5
 range), on which the Werapun 7× improvement (Sharpe 15.85) and our 10× Phase 8 result (Sharpe 16-19) sit.
 
 https://arxiv.org/html/2212.06888v5
 
 ### 4.5 Claim: 1:10 leverage is the bybit.eu SPOT-margin default (deployment-ready)
 
-**Source 1 — Bybit Help Center "Isolated Margin / Cross Margin" official.** *"For new users who have
-registered since Aug. 9, the system will use 10x leverage to calculate the initial margin by default."*
+**Source 1 — Bybit Help Center "Isolated Margin / Cross Margin" official.** _"For new users who have
+registered since Aug. 9, the system will use 10x leverage to calculate the initial margin by default."_
 This is the regulatory + technical basis for the 1:10 mandate.
 
 https://www.bybit.com/en/help-center/article?language=en_US&id=000001053
@@ -409,9 +410,9 @@ MMR = 0.4%; for ≤$1M notional, MMR = 0.5%. Phase 8 model uses 0.5% (conservati
 https://www.bybit.com/en/help-center/article/Maintenance-Margin-Calculation-USDC-Contract
 
 **Source 3 — Bybit Institutional "2025 Crypto Quant Strategy Index Report" (1Token + Bybit joint, 2025).**
-Direct quote: *"Delta Neutral strategies maintained positive returns in all 12 months of the year, with monthly
+Direct quote: _"Delta Neutral strategies maintained positive returns in all 12 months of the year, with monthly
 gains ranging from 0.43% to 1.42% and a maximum drawdown of just 0.80%. Bybit's Delta Neutral execution
-delivered 9.48% returns alongside the lowest observed drawdown and volatility among major venues."*
+delivered 9.48% returns alongside the lowest observed drawdown and volatility among major venues."_
 This is the institutional-scale live-trading validation of delta-neutral carry on Bybit — supports the
 1:10 deployment-readiness posture.
 
@@ -420,24 +421,25 @@ https://blog.1token.tech/1token-and-bybit-institutional-jointly-release-2025-cry
 ### 4.6 Claim: MiCAR EU 2023/1114 governs crypto-asset service providers and excludes perpetual futures from the CASP scope (regulatory note)
 
 **Source 1 — Banca d'Italia "Regulation (EU) 2023/1114 on Markets in Crypto-assets (MiCAR)" (2024 official
-publication).** Direct quote: *"On 29 June 2023, Regulation (EU) 2023/1114 on markets in crypto-assets ('MiCAR')
-entered into force… This Regulation shall be fully applicable from 30 December 2024."* Note that MiCAR
+publication).** Direct quote: _"On 29 June 2023, Regulation (EU) 2023/1114 on markets in crypto-assets ('MiCAR')
+entered into force… This Regulation shall be fully applicable from 30 December 2024."_ Note that MiCAR
 governs CASPs (crypto-asset service providers); perpetual futures are classified as financial instruments
 under MiFID II (CAFI Guidelines) and therefore fall outside the MiCAR retail scope.
 
 https://www.bancaditalia.it/media/approfondimenti/2024/micar/Comunicazione-MiCAR-22-luglio-ENG.pdf
 
-**Source 2 — ESMA Joint ESA Final Report on Art. 97 Guidelines MiCAR (2024).** *"MiCAR entered into force on
-29 June 2023 and will apply from 30 December 2024, except for Titles III and IV… which apply from 30 June 2024."*
-+ *"…Classification as derivative contracts and thus as a financial instrument: the CAFI Guidelines provide
-criteria for classifying crypto-assets as derivative contracts… The unique characteristics of certain
-crypto-native derivatives, such as perpetual futures, are also considered."*
+**Source 2 — ESMA Joint ESA Final Report on Art. 97 Guidelines MiCAR (2024).** _"MiCAR entered into force on
+29 June 2023 and will apply from 30 December 2024, except for Titles III and IV… which apply from 30 June 2024."_
+
+- _"…Classification as derivative contracts and thus as a financial instrument: the CAFI Guidelines provide
+  criteria for classifying crypto-assets as derivative contracts… The unique characteristics of certain
+  crypto-native derivatives, such as perpetual futures, are also considered."_
 
 https://www.esma.europa.eu/sites/default/files/2024-12/Joint_ESA_Final_Report_on_Art_97_Guidelines_MiCAR.pdf
 
 **Source 3 — PwC Legal "MiCAR – Final guidelines on qualification of crypto-assets as financial instruments"
-(2024).** *"Tokenised financial instruments should continue to be considered as financial instruments for
-all regulatory purposes."* — confirms that perp products remain in the MiFID II perimeter, NOT the MiCAR
+(2024).** _"Tokenised financial instruments should continue to be considered as financial instruments for
+all regulatory purposes."_ — confirms that perp products remain in the MiFID II perimeter, NOT the MiCAR
 retail scope. bybit.eu SPOT-ONLY is therefore the EU-compliant execution venue for the delta-neutral carry
 component (the perp leg is executed on a pro-only venue like deribit or okx.com).
 
@@ -445,27 +447,27 @@ https://legal.pwc.de/en/news/articles/micar-final-guidelines-on-qualification-of
 
 ### 4.7 Claim: 10× leverage on delta-neutral carry can have liquidation cascades in market stress
 
-**Source 1 — Metamask "Perpetual futures liquidation explained" (2025).** Direct quote: *"Higher leverage
+**Source 1 — Metamask "Perpetual futures liquidation explained" (2025).** Direct quote: _"Higher leverage
 reduces the dollar buffer to liquidation, bringing the liquidation price closer to the entry. For shorts, the
 logic inverts (liquidation risk rises as price increases). A liquidation cascade is a blockchain reaction
 where forced closures push prices to levels that trigger further liquidations, amplifying volatility and
-challenging market stability across platforms."*
+challenging market stability across platforms."_
 
 https://metamask.io/news/perpetual-futures-liquidation-mechanics
 
 **Source 2 — FTI Consulting "Crypto Crash Oct 2025: Leverage Meets Liquidity" (Nov 2025).** Direct quote:
-*"On October 10, 2025, more than $19 billion of crypto leverage was liquidated in roughly a day, sending
-crypto prices through levels…"* This is the empirical stress test for our 1:10 walk-forward window —
+_"On October 10, 2025, more than $19 billion of crypto leverage was liquidated in roughly a day, sending
+crypto prices through levels…"_ This is the empirical stress test for our 1:10 walk-forward window —
 if the carry had been live in Oct 2025 it would have survived the cascade (we observed 0 liquidations
 across all 24 BTC/ETH/SOL walk-forward folds covering this period).
 
 https://www.fticonsulting.com/insights/articles/crypto-crash-october-2025-leverage-met-liquidity
 
-**Source 3 — arXiv 2602.15182 "Autodeleveraging as Online Learning" (2026).** Direct quote: *"Perpetual futures
+**Source 3 — arXiv 2602.15182 "Autodeleveraging as Online Learning" (2026).** Direct quote: _"Perpetual futures
 are expiryless derivatives that provide linear, delta-one exposure to an underlying asset with margin instead
 of full notional outlay. Perpetuals are popular because traders can scale exposure linearly with leverage while
 avoiding duration risk (e.g. contract roll schedules). But the absence of expiry does not remove risk; it
-changes how risk must be managed."*
+changes how risk must be managed."_
 
 https://www.arxiv.org/pdf/2602.15182.pdf
 
@@ -525,10 +527,10 @@ https://www.arxiv.org/pdf/2602.15182.pdf
 
 ### 6.1 Final Track D verdict — PASS with SOL caveat
 
-| Symbol | Phase 8 10× verdict | Reason |
-|---|---|---|
-| **BTC** | **PASS** | 0 liquidations, VaR 0.241% (12% of cap), max DD 1.50%, 100% linear scaling from 1×. |
-| **ETH** | **PASS** | 0 liquidations, VaR 0.224% (11% of cap), max DD 2.11%, 100% linear scaling. |
+| Symbol  | Phase 8 10× verdict  | Reason                                                                                                                                                                                                                                                                     |
+| ------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **BTC** | **PASS**             | 0 liquidations, VaR 0.241% (12% of cap), max DD 1.50%, 100% linear scaling from 1×.                                                                                                                                                                                        |
+| **ETH** | **PASS**             | 0 liquidations, VaR 0.224% (11% of cap), max DD 2.11%, 100% linear scaling.                                                                                                                                                                                                |
 | **SOL** | **CONDITIONAL PASS** | 0 liquidations, VaR 0.352% (18% of cap), BUT walk-forward folds 20-22 show negative OOS returns (Q1-Q2 2026 funding regime flip). SOL is structurally a smaller carry component in Phase 7 V2 ($645 of $17,427 = 3.7%) so the SOL component is small in the combined edge. |
 
 **Combined BTC + ETH 10× average: ~3.5%/mo, Sharpe 16.7, max DD <2%, 0 liquidations across 48 walk-forward folds.**
@@ -561,7 +563,7 @@ The original Phase 8 Track D brief asked for 5× and 7× leverage variants (reje
 
 Both would have been well under the 2% VaR cap (so PASS), with 7× closer to the SOL 10×
 conditioning threshold (0.42% vs 0.352% SOL). The user's 1:10 mandate is therefore the
-*most aggressive* of the {1, 3, 5, 7, 10} options in Phase 8.
+_most aggressive_ of the {1, 3, 5, 7, 10} options in Phase 8.
 
 ### 6.4 Phase 8 backlog (not part of this track)
 

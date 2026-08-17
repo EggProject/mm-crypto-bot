@@ -8,16 +8,7 @@
 
 import { describe, expect, it } from "bun:test";
 import { makeSymbol, asExchangeFeed } from "./types.js";
-import type {
-  Brand,
-  Result,
-  Side,
-  Timeframe,
-  Candle,
-  Trade,
-  ExitReason,
-  ExchangeFeed,
-} from "./types.js";
+import type { Brand, Result, Side, Timeframe, Candle, Trade, ExitReason, ExchangeFeed } from "./types.js";
 import type { Exchange } from "ccxt";
 
 describe("makeSymbol — Symbol brand konstruktor", () => {

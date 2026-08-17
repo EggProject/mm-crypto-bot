@@ -56,7 +56,7 @@ describe("DrawdownScaler", () => {
   // normal region → 1.0
   // -------------------------------------------------------------------------
   it("normal region: 1.0 scale (0% to 50% of maxDd)", () => {
-    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.20, initialEquity: 10_000 });
+    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(10_500); // +5% — new high
     s.updateEquity(9_500); // -9.5% from peak (47.5% of 20%) → normal
     expect(s.scaleFactor()).toBe(1.0);
@@ -67,7 +67,7 @@ describe("DrawdownScaler", () => {
   // caution region → 0.5
   // -------------------------------------------------------------------------
   it("caution region: 0.5 scale (50% to 80% of maxDd)", () => {
-    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.20, initialEquity: 10_000 });
+    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(10_000); // peak = 10_000
     s.updateEquity(9_100); // -9% from peak = 45% of 20% → normal (just below 50%)
     expect(s.scaleFactor()).toBe(1.0);
@@ -80,7 +80,7 @@ describe("DrawdownScaler", () => {
   // kill region → 0.0
   // -------------------------------------------------------------------------
   it("kill region: 0.0 scale (80%+ of maxDd)", () => {
-    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.20, initialEquity: 10_000 });
+    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(10_000);
     s.updateEquity(8_300); // -17% from peak = 85% of 20% → kill
     expect(s.scaleFactor()).toBe(0.0);
@@ -100,7 +100,7 @@ describe("DrawdownScaler", () => {
   // Peak updates on new high
   // -------------------------------------------------------------------------
   it("peak updates when equity exceeds the high-water mark", () => {
-    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.20, initialEquity: 10_000 });
+    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(12_000);
     const state: DrawdownState = s.getState();
     expect(state.peakEquity).toBe(12_000);
@@ -112,7 +112,7 @@ describe("DrawdownScaler", () => {
   // getState returns expected snapshot
   // -------------------------------------------------------------------------
   it("getState returns the expected snapshot", () => {
-    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.20, initialEquity: 10_000 });
+    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(9_200); // -8% from 10k = 40% of 20% → normal
     const state: DrawdownState = s.getState();
     expect(state.enabled).toBe(true);
@@ -128,7 +128,7 @@ describe("DrawdownScaler", () => {
   // assertion is in the orchestrator test).
   // -------------------------------------------------------------------------
   it("region transitions correctly normal → caution → kill → normal", () => {
-    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.20, initialEquity: 10_000 });
+    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(9_500); // 25% of 20% → normal
     expect(s.getState().region).toBe("normal");
     s.updateEquity(8_900); // 55% → caution
@@ -143,7 +143,7 @@ describe("DrawdownScaler", () => {
   // reset() — re-seeds the peak
   // -------------------------------------------------------------------------
   it("reset re-seeds the peak to a new value", () => {
-    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.20, initialEquity: 10_000 });
+    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(8_000); // kill region
     expect(s.scaleFactor()).toBe(0.0);
     s.reset(11_000);
@@ -154,7 +154,7 @@ describe("DrawdownScaler", () => {
   });
 
   it("reset ignores non-positive new equity", () => {
-    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.20, initialEquity: 10_000 });
+    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.reset(0);
     expect(s.getState().peakEquity).toBe(10_000);
   });
@@ -163,7 +163,7 @@ describe("DrawdownScaler", () => {
   // Defensive updateEquity: ignores non-finite / non-positive samples
   // -------------------------------------------------------------------------
   it("updateEquity ignores non-finite samples", () => {
-    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.20, initialEquity: 10_000 });
+    const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(NaN);
     s.updateEquity(-1);
     s.updateEquity(0);

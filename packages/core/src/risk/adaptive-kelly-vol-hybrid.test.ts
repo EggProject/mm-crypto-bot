@@ -14,10 +14,7 @@
 
 import { describe, expect, it } from "bun:test";
 
-import {
-  ONE_TO_TEN_BASE_LEVERAGE,
-  type DailyOhlcv,
-} from "./vol-targeted-sizer.js";
+import { ONE_TO_TEN_BASE_LEVERAGE, type DailyOhlcv } from "./vol-targeted-sizer.js";
 
 import { makeSymbol, type Trade } from "@mm-crypto-bot/shared/types";
 
@@ -124,7 +121,7 @@ describe("buildHybridDay", () => {
       day: 1_700_000_000_000,
       rollingSharpe: -0.5,
       kellyBucket: 0.25,
-      realizedDailyVol: 0.10, // 10% > 2% target → multiplier would be 0.2, clamped to 0.25
+      realizedDailyVol: 0.1, // 10% > 2% target → multiplier would be 0.2, clamped to 0.25
       targetDailyVol: 0.02,
       minVolMultiplier: 0.25,
       maxVolMultiplier: 1.0,
@@ -296,11 +293,11 @@ describe("computeHybridSizer", () => {
   });
 
   it("high-vol series → avgVolMultiplier close to lower clamp (0.25)", () => {
-    const candles = mkVolSeries(120, 0.10); // 10% daily vol
+    const candles = mkVolSeries(120, 0.1); // 10% daily vol
     const trades = mkTrades(30, candles);
     const result = computeHybridSizer(trades, candles, 2000);
     expect(result.lowerClampFraction).toBeGreaterThan(0.7);
-    expect(result.avgVolMultiplier).toBeLessThan(0.30);
+    expect(result.avgVolMultiplier).toBeLessThan(0.3);
   });
 
   it("low-vol series → avgVolMultiplier close to upper clamp (1.0)", () => {
@@ -333,11 +330,12 @@ describe("computeHybridSizer", () => {
     // window has zero variance / insufficient observations).
     expect(result.kellyBucketDistribution.insufficientFraction).toBeGreaterThan(0);
     // Sum of buckets + insufficient = 1 (full distribution coverage)
-    const sum = result.kellyBucketDistribution.fullKellyFraction +
-                result.kellyBucketDistribution.threeQuarterFraction +
-                result.kellyBucketDistribution.halfKellyFraction +
-                result.kellyBucketDistribution.quarterKellyFraction +
-                result.kellyBucketDistribution.insufficientFraction;
+    const sum =
+      result.kellyBucketDistribution.fullKellyFraction +
+      result.kellyBucketDistribution.threeQuarterFraction +
+      result.kellyBucketDistribution.halfKellyFraction +
+      result.kellyBucketDistribution.quarterKellyFraction +
+      result.kellyBucketDistribution.insufficientFraction;
     expect(sum).toBeCloseTo(1.0, 6);
   });
 
@@ -615,35 +613,47 @@ describe("runHybridWalkForwardValidation — error guards", () => {
   it("throws on negative purgeDays", () => {
     const candles = mkConstReturnSeries(730, 0.003);
     const trades = mkTrades(60, candles);
-    expect(() => runHybridWalkForwardValidation(trades, candles, 180, 30, 30, -1, DEFAULT_HYBRID_SIZER_CONFIG)).toThrow(/purgeDays must be non-negative/);
+    expect(() =>
+      runHybridWalkForwardValidation(trades, candles, 180, 30, 30, -1, DEFAULT_HYBRID_SIZER_CONFIG),
+    ).toThrow(/purgeDays must be non-negative/);
   });
 
   it("throws on non-positive trainDays / testDays / stepDays", () => {
     const candles = mkConstReturnSeries(730, 0.003);
     const trades = mkTrades(60, candles);
-    expect(() => runHybridWalkForwardValidation(trades, candles, 0, 30, 30, 7)).toThrow(/positive day values/);
-    expect(() => runHybridWalkForwardValidation(trades, candles, 180, 0, 30, 7)).toThrow(/positive day values/);
-    expect(() => runHybridWalkForwardValidation(trades, candles, 180, 30, 0, 7)).toThrow(/positive day values/);
+    expect(() => runHybridWalkForwardValidation(trades, candles, 0, 30, 30, 7)).toThrow(
+      /positive day values/,
+    );
+    expect(() => runHybridWalkForwardValidation(trades, candles, 180, 0, 30, 7)).toThrow(
+      /positive day values/,
+    );
+    expect(() => runHybridWalkForwardValidation(trades, candles, 180, 30, 0, 7)).toThrow(
+      /positive day values/,
+    );
   });
 
   it("throws on ohlcv.length < 2", () => {
     const candles: DailyOhlcv[] = [mkCandle(0, 100)];
     // Use synthetic trades with enough entries to pass the trades.length===0 check
-    const trades: Trade[] = [{
-      symbol: makeSymbol("BTC/USDT"),
-      side: "buy",
-      entryTime: 1_700_000_000_000,
-      entryPrice: 100,
-      exitTime: 1_700_000_000_000 + DAY_MS,
-      exitPrice: 110,
-      quantity: 1,
-      notionalUsd: 100,
-      pnlUsd: 10,
-      pnlPct: 0.1,
-      feesUsd: 1,
-      exitReason: "take_profit",
-    }];
-    expect(() => runHybridWalkForwardValidation(trades, candles, 30, 7, 7, 7)).toThrow(/Cannot validate empty OHLCV series/);
+    const trades: Trade[] = [
+      {
+        symbol: makeSymbol("BTC/USDT"),
+        side: "buy",
+        entryTime: 1_700_000_000_000,
+        entryPrice: 100,
+        exitTime: 1_700_000_000_000 + DAY_MS,
+        exitPrice: 110,
+        quantity: 1,
+        notionalUsd: 100,
+        pnlUsd: 10,
+        pnlPct: 0.1,
+        feesUsd: 1,
+        exitReason: "take_profit",
+      },
+    ];
+    expect(() => runHybridWalkForwardValidation(trades, candles, 30, 7, 7, 7)).toThrow(
+      /Cannot validate empty OHLCV series/,
+    );
   });
 
   it("throws when purge=0 leaves no room for windows", () => {
@@ -728,9 +738,12 @@ describe("computeHybridSizer — bucket distribution coverage", () => {
     const result = computeHybridSizer(trades, candles, 2000);
     // Bucket distribution should cover all 5 categories (full + 3q + half + quarter + insufficient)
     const dist = result.kellyBucketDistribution;
-    const total = dist.fullKellyFraction + dist.threeQuarterFraction +
-                  dist.halfKellyFraction + dist.quarterKellyFraction +
-                  dist.insufficientFraction;
+    const total =
+      dist.fullKellyFraction +
+      dist.threeQuarterFraction +
+      dist.halfKellyFraction +
+      dist.quarterKellyFraction +
+      dist.insufficientFraction;
     expect(total).toBeCloseTo(1.0, 6);
   });
 });

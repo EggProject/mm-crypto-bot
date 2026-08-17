@@ -31,12 +31,7 @@ describe("factory", () => {
 
   beforeEach(() => {
     // Mentjük az eredeti env-et, hogy a teszt után vissza tudjuk állítani.
-    const envKeys = [
-      "BYBIT_API_KEY",
-      "BYBIT_API_SECRET",
-      "BUN_ENV",
-      "CCXT_RATE_LIMIT_MS",
-    ] as const;
+    const envKeys = ["BYBIT_API_KEY", "BYBIT_API_SECRET", "BUN_ENV", "CCXT_RATE_LIMIT_MS"] as const;
     for (const k of envKeys) {
       originalEnv[k] = process.env[k];
       // A `delete process.env[k]` lint hibát ad dynamic key-re —
@@ -200,18 +195,22 @@ describe("factory", () => {
     });
 
     it("nem ignorálja a nem támogatott sandbox + endpoint kombinációt", () => {
-      expect(() => createExchangeClient({
-        override: { apiKey: "k", secret: "s" },
-        sandbox: true,
-        endpoint: "https://rest.example.test",
-      })).toThrow(/sandbox cannot be combined/);
+      expect(() =>
+        createExchangeClient({
+          override: { apiKey: "k", secret: "s" },
+          sandbox: true,
+          endpoint: "https://rest.example.test",
+        }),
+      ).toThrow(/sandbox cannot be combined/);
     });
 
     it("elutasítja a CCXT URL-térképet félrevezető path-os endpointot", () => {
-      expect(() => createExchangeClient({
-        override: { apiKey: "k", secret: "s" },
-        endpoint: "https://rest.example.test/v5",
-      })).toThrow(/must be an origin/);
+      expect(() =>
+        createExchangeClient({
+          override: { apiKey: "k", secret: "s" },
+          endpoint: "https://rest.example.test/v5",
+        }),
+      ).toThrow(/must be an origin/);
     });
 
     it("alapértelmezetten sandbox=false", () => {

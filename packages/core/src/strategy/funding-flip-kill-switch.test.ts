@@ -118,7 +118,7 @@ describe("computeFlipDetectorMetrics — basic windowing", () => {
     // A periodic pattern garantálja, hogy a baseline mean 0.001 és a stddev > 0.
     const baseline: number[] = [];
     for (let i = 0; i < 90; i++) {
-      baseline.push(0.001 + (((i % 3) - 1) * 0.0002)); // -0.0001, +0.0001, +0.0003 cycling
+      baseline.push(0.001 + ((i % 3) - 1) * 0.0002); // -0.0001, +0.0001, +0.0003 cycling
     }
     // 90 elem, az átlag: 30*-0.0001 + 30*0.0001 + 30*0.0003 = 0.009
     // (bázis érték 0.001 az origó, így 90 elem 0.001-gyel kiegészítve az átlag = 0.001 + 0.009/90 = 0.0011)

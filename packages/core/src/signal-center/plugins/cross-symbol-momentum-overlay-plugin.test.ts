@@ -84,12 +84,12 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
   it("construction with custom config accepted", () => {
     const p = new CrossSymbolMomentumOverlayPlugin({
       lookbackDays: 30,
-      momentumThreshold: 0.10,
+      momentumThreshold: 0.1,
       baseNotionalUsd: 25_000,
       enabledSymbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
     });
     expect(p.config.lookbackDays).toBe(30);
-    expect(p.config.momentumThreshold).toBe(0.10);
+    expect(p.config.momentumThreshold).toBe(0.1);
     expect(p.config.baseNotionalUsd).toBe(25_000);
     expect(p.config.enabledSymbols.length).toBe(3);
   });
@@ -116,9 +116,15 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
   });
 
   it("construction with bad momentumThreshold REJECTED", () => {
-    expect(() => new CrossSymbolMomentumOverlayPlugin({ momentumThreshold: -1 })).toThrow(/momentumThreshold=-1/);
-    expect(() => new CrossSymbolMomentumOverlayPlugin({ momentumThreshold: 2 })).toThrow(/momentumThreshold=2/);
-    expect(() => new CrossSymbolMomentumOverlayPlugin({ momentumThreshold: Number.NaN })).toThrow(/momentumThreshold=NaN/);
+    expect(() => new CrossSymbolMomentumOverlayPlugin({ momentumThreshold: -1 })).toThrow(
+      /momentumThreshold=-1/,
+    );
+    expect(() => new CrossSymbolMomentumOverlayPlugin({ momentumThreshold: 2 })).toThrow(
+      /momentumThreshold=2/,
+    );
+    expect(() => new CrossSymbolMomentumOverlayPlugin({ momentumThreshold: Number.NaN })).toThrow(
+      /momentumThreshold=NaN/,
+    );
   });
 
   it("construction with bad baseNotionalUsd REJECTED", () => {
@@ -128,20 +134,26 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
   });
 
   it("construction with empty enabledSymbols REJECTED", () => {
-    expect(() => new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: [] })).toThrow(/enabledSymbols must be a non-empty/);
+    expect(() => new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: [] })).toThrow(
+      /enabledSymbols must be a non-empty/,
+    );
   });
 
   it("construction with non-string enabledSymbols REJECTED", () => {
-    expect(() => new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: ["BTC/USDT", 42 as unknown as string] })).toThrow(/enabledSymbols\[1\]/);
+    expect(
+      () => new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: ["BTC/USDT", 42 as unknown as string] }),
+    ).toThrow(/enabledSymbols\[1\]/);
   });
 
   it("construction with duplicate enabledSymbols REJECTED", () => {
-    expect(() => new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: ["BTC/USDT", "BTC/USDT"] })).toThrow(/duplicate/);
+    expect(() => new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: ["BTC/USDT", "BTC/USDT"] })).toThrow(
+      /duplicate/,
+    );
   });
 
   it("computeMomentum = (latest / lookback) - 1", () => {
-    expect(computeMomentum(110, 100)).toBeCloseTo(0.10, 10);
-    expect(computeMomentum(90, 100)).toBeCloseTo(-0.10, 10);
+    expect(computeMomentum(110, 100)).toBeCloseTo(0.1, 10);
+    expect(computeMomentum(90, 100)).toBeCloseTo(-0.1, 10);
     expect(computeMomentum(100, 100)).toBe(0);
     expect(computeMomentum(Number.NaN, 100)).toBeNull();
     expect(computeMomentum(100, Number.NaN)).toBeNull();
@@ -153,7 +165,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
 
   it("clampStrengthFromMomentum = min(|m|/0.10, 1.0)", () => {
     expect(clampStrengthFromMomentum(0)).toBe(0);
-    expect(clampStrengthFromMomentum(0.10)).toBeCloseTo(1.0, 10);
+    expect(clampStrengthFromMomentum(0.1)).toBeCloseTo(1.0, 10);
     expect(clampStrengthFromMomentum(0.05)).toBeCloseTo(0.5, 10);
     expect(clampStrengthFromMomentum(0.5)).toBe(1.0);
     expect(clampStrengthFromMomentum(-0.05)).toBe(0);
@@ -369,7 +381,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     for (let i = 0; i < 5; i++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 110);
     expect(p.currentPosition()).toBe("long");
-    expect(p.lastMomentumValue()).toBeCloseTo(0.10, 10);
+    expect(p.lastMomentumValue()).toBeCloseTo(0.1, 10);
   });
 
   it("ADVERSARIAL: momentum = 0.5 (very large) emits strength = 1.0 (capped)", () => {
@@ -429,7 +441,9 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
   });
 
   it("ADVERSARIAL: empty enabledSymbols throws at construction", () => {
-    expect(() => new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: [] })).toThrow(/enabledSymbols must be a non-empty/);
+    expect(() => new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: [] })).toThrow(
+      /enabledSymbols must be a non-empty/,
+    );
   });
 
   it("Layer 2 1:10 defense: per-emit assertion runs", () => {
@@ -476,13 +490,13 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
   });
 
   it("MOMENTUM_NORMALIZER = 0.10 constant", () => {
-    expect(MOMENTUM_NORMALIZER).toBe(0.10);
+    expect(MOMENTUM_NORMALIZER).toBe(0.1);
   });
 
   it("recordClose at threshold boundary: just below -> no emission", () => {
     const p = new CrossSymbolMomentumOverlayPlugin({
       lookbackDays: 10,
-      momentumThreshold: 0.10,
+      momentumThreshold: 0.1,
     });
     p.subscribe(new SignalBus());
     for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
@@ -508,10 +522,12 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     ethBus.subscribe("direction", (s) => {
       ethDir.push({ side: (s as { side: string }).side, strength: (s as { strength: number }).strength });
     });
-    p.subscribeBuses(new Map([
-      ["BTC/USDT", btcBus],
-      ["ETH/USDT", ethBus],
-    ]));
+    p.subscribeBuses(
+      new Map([
+        ["BTC/USDT", btcBus],
+        ["ETH/USDT", ethBus],
+      ]),
+    );
     // Generate +20% BTC momentum to cross threshold.
     for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 120);

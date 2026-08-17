@@ -18,24 +18,12 @@
  * Coverage: 100% line coverage a 4 új metódusra.
  */
 
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from "bun:test";
-import {
-  mkdtempSync,
-  rmSync,
-} from "node:fs";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  ConfigStore,
-  ConfigValidationError,
-} from "./store.js";
+import { ConfigStore, ConfigValidationError } from "./store.js";
 
 const fileSystem = await import("node:fs");
 
@@ -552,12 +540,7 @@ describe("ConfigStore per-section setters (Phase 37 Track 2)", () => {
     expect(reloaded.strategies.donchian_pivot_composition.cap).toBe(0.5);
     expect(reloaded.exchange.slippage_pct).toBe(0.2);
     expect(reloaded.exchange.fee_tier).toBe("vip");
-    expect(reloaded.symbols.enabled).toEqual([
-      "BTC/USDC",
-      "ETH/USDC",
-      "SOL/USDC",
-      "XRP/USDC",
-    ]);
+    expect(reloaded.symbols.enabled).toEqual(["BTC/USDC", "ETH/USDC", "SOL/USDC", "XRP/USDC"]);
     expect(reloaded.telemetry.heartbeat_interval_sec).toBe(15);
     expect(reloaded.telemetry.log_level).toBe("debug");
   });

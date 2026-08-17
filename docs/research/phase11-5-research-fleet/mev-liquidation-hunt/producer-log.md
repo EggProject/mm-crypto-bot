@@ -10,6 +10,7 @@
 ## Web query log (18 queries, in order)
 
 ### Q1 — Hyperliquid liquidation cascade tick-level dynamics
+
 - **Query:** `Hyperliquid liquidation cascade tick-level price action documentation 2025`
 - **Language:** en
 - **Top hits read:**
@@ -32,6 +33,7 @@
 - **Independently confirmed:** 4+ sources confirm liquidation mechanism
 
 ### Q2 — Pre-liquidation wallet sniffing (gas top-ups, oracle-refresh pings, Korean/Chinese/Japanese tracker dashboards)
+
 - **Query:** `Hyperliquid pre-liquidation sniffing wallet gas top-up oracle refresh tracker dashboard`
 - **Language:** en
 - **Top hits read:**
@@ -52,6 +54,7 @@
 - **Independently confirmed:** tracker dashboards in EN + zh (Hyperbot) + ja (gate.com liquidation workspace) + ko (herdvibe.com, tradermap.io)
 
 ### Q3 — MEV / sandwich / oracle front-running on Hyperliquid + HyperEVM
+
 - **Query:** `"Hyperliquid" liquidation MEV searcher frontrun atomic arbitrage wallet`
 - **Language:** en
 - **Top hits read:**
@@ -72,6 +75,7 @@
 - **Independently confirmed:** ≥4 sources confirm HyperEVM MEV specifics
 
 ### Q4 — 永续合约 爆仓 狙击 MEV 链上 监控 中文 (Chinese perp liquidation + MEV monitoring angle)
+
 - **Query:** `永续合约 爆仓 狙击 MEV 链上 监控 中文`
 - **Language:** zh
 - **Top hits read:**
@@ -93,6 +97,7 @@
 - **Independently confirmed:** ≥6 Chinese-language sources confirm perp MEV/liquidation specifics
 
 ### Q5 — Searcher atomic cross-pair arbitrage on perp DEX
+
 - **Query:** `"Hyperliquid" Jupiter dYdX GMX cross-pair atomic arbitrage searcher wallet PnL`
 - **Language:** en
 - **Top hits read:**
@@ -112,6 +117,7 @@
 - **Independently confirmed:** ≥4 sources on cross-pair arb
 
 ### Q6 — Funding-rate snap-back / forced deleveraging on perp DEX
+
 - **Query:** `funding rate snap back forced deleveraging perp DEX ETH BTC 2025 2026`
 - **Language:** en
 - **Top hits read:**
@@ -133,6 +139,7 @@
 - **Independently confirmed:** ≥5 sources confirm funding rate snap-back dynamics
 
 ### Q7 — Hyperliquid OI drop event + paper-tiger walls
+
 - **Query:** `Hyperliquid open interest drop event liquidation spiral whale position paper tiger wall`
 - **Language:** en
 - **Top hits read:**
@@ -153,6 +160,7 @@
 - **Independently confirmed:** ≥4 sources on OI / paper-tiger dynamics
 
 ### Q8 — Position-builder wallet cluster detection (Nansen, Arkham, Bubblemaps)
+
 - **Query:** `perp DEX wallet cluster detection funded account coordinated position builder Nansen Arkham`
 - **Language:** en
 - **Top hits read:**
@@ -172,6 +180,7 @@
 - **Independently confirmed:** ≥4 sources on cluster detection
 
 ### Q9 — Hyperliquid liquidation Japanese angle
+
 - **Query:** `Hyperliquid liquidation Japanese 清算 Hyperliquid 日本語 調査`
 - **Language:** ja
 - **Top hits read:**
@@ -193,6 +202,7 @@
 - **Independently confirmed:** ≥5 Japanese-language sources
 
 ### Q10 — Hyperliquid liquidation Korean tracker dashboards
+
 - **Query:** `Hyperliquid liquidation Korean tracker 대시보드 청산 한국어`
 - **Language:** ko
 - **Top hits read:**
@@ -211,6 +221,7 @@
 - **Independently confirmed:** ≥4 Korean-language sources
 
 ### Q11 — Two-Regime Liquidity Recovery SSRN paper (academic Oct 10 2025)
+
 - **Query:** `"two-regime liquidity recovery" perpetual futures Hyperliquid SSRN October 2025`
 - **Language:** en
 - **Top hits read:**
@@ -232,6 +243,7 @@
 - **Independently confirmed:** ≥4 academic sources on Oct 10 ADL
 
 ### Q12 — Hyperliquid searcher bot wallets profit history
+
 - **Query:** `Hyperliquid searcher bot arbitrage wallet profit historical address trading`
 - **Language:** en
 - **Top hits read:**
@@ -252,6 +264,7 @@
 - **Independently confirmed:** ≥3 sources
 
 ### Q13 — Popcat / Fartcoin / HLP loss + spoofing attacks (Q4 2025)
+
 - **Query:** `"Hyperliquid" POPCAT FARTCOIN HLP loss spoofing adversarial liquidation Q4 2025`
 - **Language:** en
 - **Top hits read:**
@@ -273,6 +286,7 @@
 - **Independently confirmed:** ≥5 sources on POPCAT/TST/FARTCOIN
 
 ### Q14 — Hyperliquid validator MEV threshold signature proposer mempool
+
 - **Query:** `Hyperliquid validator MEV threshold signature proposer mempool arXiv`
 - **Language:** en
 - **Top hits read:**
@@ -292,6 +306,7 @@
 - **Independently confirmed:** ≥3 academic sources on validator MEV / mempool
 
 ### Q15 — Swing failure pattern (SFP) — perp crypto
+
 - **Query:** `"swing failure pattern" SFP liquidation perp crypto BTC swing failure top bottom`
 - **Language:** en
 - **Top hits read:**
@@ -307,6 +322,7 @@
 - **Independently confirmed:** 3+ English sources
 
 ### Q16 — Hyperliquid insider wallet trading pattern (Lookonchain)
+
 - **Query:** `Hyperliquid pre-launch market manipulation insider wallet trading pattern Lookonchain on-chain`
 - **Language:** en
 - **Top hits read:**
@@ -324,6 +340,7 @@
 - **Independently confirmed:** ≥4 sources on insider wallet patterns
 
 ### Q17 — DJP / shark attack on perp DEX with HTX (delisting manipulation)
+
 - **Query:** `Hyperliquid XPL Justin Sun manipulation attack perp DEX August 2025`
 - **Language:** en
 - **Top hits read:**
@@ -338,6 +355,7 @@
 - **Independently confirmed:** ≥3 sources
 
 ### Q18 — 22 AI agents trading on Hyperliquid (Senpi case study)
+
 - **Query:** `Hyperliquid 22 AI agents Senpi trading system experiment arbitrage`
 - **Language:** en
 - **Top hits read:**
@@ -354,26 +372,26 @@
 
 ## Query tally
 
-| # | Angle | Language | Independent sources ≥2 |
-|---|-------|----------|------------------------|
-| Q1 | Tick-level Hyperliquid liquidation cascade | en | ✓ (Hyperliquid Docs, CoinMarketman, 0xArchive, GoldRush, MEXC News) |
-| Q2 | Pre-liquidation wallet sniffing + tracker dashboards | en | ✓ (HyperTracker, Dwellir, Moondev, Otomato, CoinMarketman tracker, apify) |
-| Q3 | Hyperliquid + HyperEVM MEV / searcher / atomic arbitrage | en | ✓ (Hito_Fi, Dwellir, Ramses, Stacy Muur, HyperTWAP Shield, dextools, gate.com) |
-| Q4 | 永续合约 爆仓 狙击 MEV 链上 监控 (Chinese perp liquidation MEV) | zh | ✓ (mritd, 163.com, cnyes, learnblockchain, php.cn, cfanco, BitMEX中文) |
-| Q5 | Cross-pair atomic searcher strategies across HL/Jupiter/GMX/dYdX | en | ✓ (Thrive, crypto.techguide, indexing.co, ArXiv 2502.06028, Bitget中文) |
-| Q6 | Funding-rate snap-back / forced deleveraging | en | ✓ (BitMEX, CoinGecko, Galaxy, Block Scholes, XT, JPM via cryptonews) |
-| Q7 | OI drop events + paper-tiger walls | en | ✓ (markets.financialcontent, CryptoRank, AInvest, mexc, cryptonews, coinstats, wisdomtreeprime) |
-| Q8 | Position-builder wallet cluster detection | en | ✓ (Nansen Academy, Nansen API, Bubblemaps × Arkham, MEXC, php.cn) |
-| Q9 | 日本語 Hyperliquid liquidation | ja | ✓ (Yahoo Japan, chaincatcher.com/ja, gate.com/ja, panewslab.com/ja, bitget.com/ja) |
-| Q10 | 한국어 Hyperliquid liquidation tracker dashboards | ko | ✓ (tradermap, herdvibe, coinglass/ko, bbx, coinank, dexly/ko) |
-| Q11 | "Two-Regime Liquidity Recovery" SSRN paper Oct 10 2025 | en | ✓ (SSRN 6636998, ArXiv 2602.15182, ArXiv 2603.09164, Blockworks, LinkedIn Trujillo) |
-| Q12 | Hyperliquid searcher bot wallet profit history | en | ✓ (cryptoapis LinkedIn, Apify, Jackhuang166 GitHub, knnlrts GitHub, hyperbot Telegram) |
-| Q13 | POPCAT / TST / FARTCOIN HLP loss spoofing adversarial attacks | en | ✓ (Tekedia, Yahoo, CoinStats, CryptoRank, NFTEvening, 腾讯新闻, Sina Finance) |
-| Q14 | Hyperliquid validator MEV threshold signature mempool | en | ✓ (ArXiv 2511.13080, 2604.07568, 2407.19572, 2307.10878) |
-| Q15 | Swing failure pattern (SFP) backtested | en | ✓ (CoinMarketCap, thrive.fi, tradingview, LuxAlgo) |
-| Q16 | Hyperliquid insider wallet trading pattern (Lookonchain cases) | en | ✓ (followin.io, Lookonchain, 腾讯, Odaily, mexc, AInvest) |
-| Q17 | XPL Justin Sun manipulation attack August 2025 | en | ✓ (mexc.com, binance.com/en/square, 腾讯新闻) |
-| Q18 | 22 AI agents Senpi trading experiment Oct 2025 | zh | ✓ (odaily, gwrx2005 paper) |
+| #   | Angle                                                            | Language | Independent sources ≥2                                                                          |
+| --- | ---------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------- |
+| Q1  | Tick-level Hyperliquid liquidation cascade                       | en       | ✓ (Hyperliquid Docs, CoinMarketman, 0xArchive, GoldRush, MEXC News)                             |
+| Q2  | Pre-liquidation wallet sniffing + tracker dashboards             | en       | ✓ (HyperTracker, Dwellir, Moondev, Otomato, CoinMarketman tracker, apify)                       |
+| Q3  | Hyperliquid + HyperEVM MEV / searcher / atomic arbitrage         | en       | ✓ (Hito_Fi, Dwellir, Ramses, Stacy Muur, HyperTWAP Shield, dextools, gate.com)                  |
+| Q4  | 永续合约 爆仓 狙击 MEV 链上 监控 (Chinese perp liquidation MEV)  | zh       | ✓ (mritd, 163.com, cnyes, learnblockchain, php.cn, cfanco, BitMEX中文)                          |
+| Q5  | Cross-pair atomic searcher strategies across HL/Jupiter/GMX/dYdX | en       | ✓ (Thrive, crypto.techguide, indexing.co, ArXiv 2502.06028, Bitget中文)                         |
+| Q6  | Funding-rate snap-back / forced deleveraging                     | en       | ✓ (BitMEX, CoinGecko, Galaxy, Block Scholes, XT, JPM via cryptonews)                            |
+| Q7  | OI drop events + paper-tiger walls                               | en       | ✓ (markets.financialcontent, CryptoRank, AInvest, mexc, cryptonews, coinstats, wisdomtreeprime) |
+| Q8  | Position-builder wallet cluster detection                        | en       | ✓ (Nansen Academy, Nansen API, Bubblemaps × Arkham, MEXC, php.cn)                               |
+| Q9  | 日本語 Hyperliquid liquidation                                   | ja       | ✓ (Yahoo Japan, chaincatcher.com/ja, gate.com/ja, panewslab.com/ja, bitget.com/ja)              |
+| Q10 | 한국어 Hyperliquid liquidation tracker dashboards                | ko       | ✓ (tradermap, herdvibe, coinglass/ko, bbx, coinank, dexly/ko)                                   |
+| Q11 | "Two-Regime Liquidity Recovery" SSRN paper Oct 10 2025           | en       | ✓ (SSRN 6636998, ArXiv 2602.15182, ArXiv 2603.09164, Blockworks, LinkedIn Trujillo)             |
+| Q12 | Hyperliquid searcher bot wallet profit history                   | en       | ✓ (cryptoapis LinkedIn, Apify, Jackhuang166 GitHub, knnlrts GitHub, hyperbot Telegram)          |
+| Q13 | POPCAT / TST / FARTCOIN HLP loss spoofing adversarial attacks    | en       | ✓ (Tekedia, Yahoo, CoinStats, CryptoRank, NFTEvening, 腾讯新闻, Sina Finance)                   |
+| Q14 | Hyperliquid validator MEV threshold signature mempool            | en       | ✓ (ArXiv 2511.13080, 2604.07568, 2407.19572, 2307.10878)                                        |
+| Q15 | Swing failure pattern (SFP) backtested                           | en       | ✓ (CoinMarketCap, thrive.fi, tradingview, LuxAlgo)                                              |
+| Q16 | Hyperliquid insider wallet trading pattern (Lookonchain cases)   | en       | ✓ (followin.io, Lookonchain, 腾讯, Odaily, mexc, AInvest)                                       |
+| Q17 | XPL Justin Sun manipulation attack August 2025                   | en       | ✓ (mexc.com, binance.com/en/square, 腾讯新闻)                                                   |
+| Q18 | 22 AI agents Senpi trading experiment Oct 2025                   | zh       | ✓ (odaily, gwrx2005 paper)                                                                      |
 
 **Total: 18 queries (≥15 floor satisfied by 18 logged; deeply exceeds floor).**
 
@@ -381,19 +399,20 @@
 
 ## Language distribution
 
-| Language | Queries using | Total distinct sources (incl. cross-language citations) |
-|----------|---------------|------------------------------------------------------|
-| English (en) | Q1, Q2, Q3, Q5, Q6, Q7, Q8, Q11, Q12, Q13, Q14, Q15, Q16, Q17 (14 queries) | ≥90 (Hyperliquid Docs, CoinMarketman, 0xArchive, GoldRush, Mexc News, AInvest, CryptoRank, Block Scholes, Galaxy, CoinGecko, BitMEX, JPMorgan via cryptonews, indexing.co, ArXiv 2511.13080 + 2602.15182 + 2603.09164 + 2604.07568 + 2407.19572 + 2307.10878 + 2506.01462 + 2309.13648, SSRN 6636998 + 5036933, Stacy Muur, Hito_Fi, Dwellir, Ramses, HyperTWAP Shield, dextools, gate.com, Nansen Academy, Apify, Wisdomtree Prime, CoinStats, Cryptonews, Tekedia, Yahoo Finance, AInvest, Mexc News, CoinMarketCal, tradingview, LuxAlgo, primexbt, followin, wisdomtree, supa, hyperliquid-guide, crypto.techguide, thrive, Nansen docs) |
-| Chinese (zh) | Q4, Q18 (2 queries) + scattered citations in Q3, Q6, Q9, Q10, Q13, Q16, Q17 = total 8 queries | ≥17 (mritd.com [永续合约 06/07 series], 163.com, cnyes.com, learnblockchain.cn, cfanco.github.io, php.cn [中文教程], 链圈子 wwsww.cn, CSDN [cross-domain MEV, Hyperliquid 去中心化交易的黑马, Hyperliquid项目 v0.20.0], 网易 [巨鲸 CEX联手狙击], 币界网 / 搜狐 [tariff], 币圈子 [MEV Gas贿赂], cryptonews [HYPE whale $22M], 银河系 [from系列], Bitget 中文, sina finance, Bi123) |
-| Japanese (ja) | Q9 (1 dedicated + scattered in Q10/Q13) | ≥5 (Yahoo Finance Japan, chaincatcher.com/ja, gate.com/ja, panewslab.com/ja, bitget.com/ja, coincheck.com/ja, Zenn komlock_lab, note.com decentier, CoinGlass/ja, news.qq.com ja locale if any) |
-| Korean (ko) | Q10 (1 dedicated + scattered in Q13) | ≥5 (TraderMap, Herdvibe, CoinGlass/ko, BBX, CoinAnk, CoinAnk 한국어, ko.coinalyze.net, Dexly/ko, CoinMarketCap/ko) |
-| French (fr) | Q5 (1 spot) | 1 (CleanSky) |
-| German (de) | Q13 (1 spot) | 1 (CoinGlass/de) |
-| Spanish (es) | Q7 (1 spot) | 1 (CryptoRank/es, CoinMarketCal/es) |
+| Language      | Queries using                                                                                 | Total distinct sources (incl. cross-language citations)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| English (en)  | Q1, Q2, Q3, Q5, Q6, Q7, Q8, Q11, Q12, Q13, Q14, Q15, Q16, Q17 (14 queries)                    | ≥90 (Hyperliquid Docs, CoinMarketman, 0xArchive, GoldRush, Mexc News, AInvest, CryptoRank, Block Scholes, Galaxy, CoinGecko, BitMEX, JPMorgan via cryptonews, indexing.co, ArXiv 2511.13080 + 2602.15182 + 2603.09164 + 2604.07568 + 2407.19572 + 2307.10878 + 2506.01462 + 2309.13648, SSRN 6636998 + 5036933, Stacy Muur, Hito_Fi, Dwellir, Ramses, HyperTWAP Shield, dextools, gate.com, Nansen Academy, Apify, Wisdomtree Prime, CoinStats, Cryptonews, Tekedia, Yahoo Finance, AInvest, Mexc News, CoinMarketCal, tradingview, LuxAlgo, primexbt, followin, wisdomtree, supa, hyperliquid-guide, crypto.techguide, thrive, Nansen docs) |
+| Chinese (zh)  | Q4, Q18 (2 queries) + scattered citations in Q3, Q6, Q9, Q10, Q13, Q16, Q17 = total 8 queries | ≥17 (mritd.com [永续合约 06/07 series], 163.com, cnyes.com, learnblockchain.cn, cfanco.github.io, php.cn [中文教程], 链圈子 wwsww.cn, CSDN [cross-domain MEV, Hyperliquid 去中心化交易的黑马, Hyperliquid项目 v0.20.0], 网易 [巨鲸 CEX联手狙击], 币界网 / 搜狐 [tariff], 币圈子 [MEV Gas贿赂], cryptonews [HYPE whale $22M], 银河系 [from系列], Bitget 中文, sina finance, Bi123)                                                                                                                                                                                                                                                            |
+| Japanese (ja) | Q9 (1 dedicated + scattered in Q10/Q13)                                                       | ≥5 (Yahoo Finance Japan, chaincatcher.com/ja, gate.com/ja, panewslab.com/ja, bitget.com/ja, coincheck.com/ja, Zenn komlock_lab, note.com decentier, CoinGlass/ja, news.qq.com ja locale if any)                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Korean (ko)   | Q10 (1 dedicated + scattered in Q13)                                                          | ≥5 (TraderMap, Herdvibe, CoinGlass/ko, BBX, CoinAnk, CoinAnk 한국어, ko.coinalyze.net, Dexly/ko, CoinMarketCap/ko)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| French (fr)   | Q5 (1 spot)                                                                                   | 1 (CleanSky)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| German (de)   | Q13 (1 spot)                                                                                  | 1 (CoinGlass/de)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Spanish (es)  | Q7 (1 spot)                                                                                   | 1 (CryptoRank/es, CoinMarketCal/es)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 **PRIMARY languages: English + Chinese + Japanese + Korean.** ≥3 language floor satisfied (4+ lang primary, 7 total). ZERO Hungarian confirmed.
 
 **Doctrine compliance checklist:**
+
 - [x] Crypto-native ONLY: 100% perp-DEX / exchange / blockchain-native; zero TradFi microstructure
 - [x] Multi-language: en + zh + ja + ko primary + fr + de + es secondary (7 langs)
 - [x] ≥15 web_queries/angle: 18 logged (Q1-Q18)

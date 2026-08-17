@@ -191,7 +191,9 @@ describe("SignalCenterV1 — construction & config validation", () => {
 
   it("rejects NaN/Infinity maxLeverage (Layer 1 defense)", () => {
     expect(() => new SignalCenterV1({ maxLeverage: Number.NaN })).toThrow(/maxLeverage must be in \[1, 10\]/);
-    expect(() => new SignalCenterV1({ maxLeverage: Number.POSITIVE_INFINITY })).toThrow(/maxLeverage must be in \[1, 10\]/);
+    expect(() => new SignalCenterV1({ maxLeverage: Number.POSITIVE_INFINITY })).toThrow(
+      /maxLeverage must be in \[1, 10\]/,
+    );
   });
 
   it("rejects non-positive initialEquity", () => {
@@ -200,10 +202,11 @@ describe("SignalCenterV1 — construction & config validation", () => {
   });
 
   it("rejects invalid leverageInvariant.maxLeverage", () => {
-    expect(() =>
-      new SignalCenterV1({
-        leverageInvariant: { maxLeverage: 15, tolerance: 1e-6, warnOnApproach: 0.95 },
-      }),
+    expect(
+      () =>
+        new SignalCenterV1({
+          leverageInvariant: { maxLeverage: 15, tolerance: 1e-6, warnOnApproach: 0.95 },
+        }),
     ).toThrow(/leverageInvariant.maxLeverage must be in \[1, 10\]/);
   });
 
@@ -426,9 +429,9 @@ describe("SignalCenterV1 — 3-layer 1:10 leverage invariant", () => {
     // The risk engine should have recorded a breach.
     const risk = sc.getPortfolioRisk();
     expect(risk.numLeverageBreaches).toBeGreaterThanOrEqual(1);
-    const emittedBreach = sc.bus.snapshot().find(
-      (signal): signal is RiskSignal => signal.kind === "risk" && signal.breach === true,
-    );
+    const emittedBreach = sc.bus
+      .snapshot()
+      .find((signal): signal is RiskSignal => signal.kind === "risk" && signal.breach === true);
     expect(emittedBreach).toBeDefined();
     expect(emittedBreach?.symbol).toBe("BTC/USDT");
   });
@@ -753,7 +756,9 @@ describe("SignalCenterV1 — isPluginKilled / helpers", () => {
   });
 
   it("recordTrade is recorded by telemetry", () => {
-    const sc = new SignalCenterV1({ telemetry: { sharpeWindowDays: 30, minTradeCount: 0, exportDelimiter: "," } });
+    const sc = new SignalCenterV1({
+      telemetry: { sharpeWindowDays: 30, minTradeCount: 0, exportDelimiter: "," },
+    });
     sc.registerPlugin(noopTestPlugin);
     sc.start();
     sc.recordTrade({

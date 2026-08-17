@@ -8,7 +8,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { Exchange as CcxtExchange } from "ccxt";
 
-import { BybitEuFeed, normalizeTicker, normalizeOrderBook, normalizeTrade, normalizeMarketMeta, normalizeBalances, normalizeOrder } from "../src/bybitEuFeed.js";
+import {
+  BybitEuFeed,
+  normalizeTicker,
+  normalizeOrderBook,
+  normalizeTrade,
+  normalizeMarketMeta,
+  normalizeBalances,
+  normalizeOrder,
+} from "../src/bybitEuFeed.js";
 import { ExchangeFeedError } from "../src/feed.js";
 import type { Symbol, ClientOrderId } from "../src/types.js";
 
@@ -112,7 +120,12 @@ describe("bybitEuFeed.normalizers", () => {
     });
 
     it("undefined precision esetén default értékeket ad", () => {
-      const raw = { base: "X", quote: "Y", precision: { amount: 0, price: 0 }, limits: { amount: {}, cost: {} } };
+      const raw = {
+        base: "X",
+        quote: "Y",
+        precision: { amount: 0, price: 0 },
+        limits: { amount: {}, cost: {} },
+      };
       // A `0` nem szám a typeof === "number" ellenőrzésünk miatt...
       // Javítva: a typeof "number" true, tehát a default ágra kerülünk.
       const m = normalizeMarketMeta(raw as never, BTC_USDC);
@@ -153,56 +166,151 @@ describe("bybitEuFeed.normalizers", () => {
 
   describe("normalizeOrder", () => {
     it("az 'open' státuszt megtartja", () => {
-      const raw = { id: "1", clientOrderId: "c1", status: "open", side: "buy", type: "limit", amount: 1, price: 100, filled: 0, timestamp: 1 };
+      const raw = {
+        id: "1",
+        clientOrderId: "c1",
+        status: "open",
+        side: "buy",
+        type: "limit",
+        amount: 1,
+        price: 100,
+        filled: 0,
+        timestamp: 1,
+      };
       const o = normalizeOrder(raw as never, undefined);
       expect(o.status).toBe("open");
     });
 
     it("a 'filled' státuszt 'closed'-ra normalizálja", () => {
-      const raw = { id: "1", clientOrderId: "c1", status: "filled", side: "buy", type: "limit", amount: 1, price: 100, filled: 1, timestamp: 1 };
+      const raw = {
+        id: "1",
+        clientOrderId: "c1",
+        status: "filled",
+        side: "buy",
+        type: "limit",
+        amount: 1,
+        price: 100,
+        filled: 1,
+        timestamp: 1,
+      };
       const o = normalizeOrder(raw as never, undefined);
       expect(o.status).toBe("closed");
     });
 
     it("a 'canceled' státuszt 'canceled'-re normalizálja", () => {
-      const raw = { id: "1", clientOrderId: "c1", status: "canceled", side: "buy", type: "limit", amount: 1, price: 100, filled: 0, timestamp: 1 };
+      const raw = {
+        id: "1",
+        clientOrderId: "c1",
+        status: "canceled",
+        side: "buy",
+        type: "limit",
+        amount: 1,
+        price: 100,
+        filled: 0,
+        timestamp: 1,
+      };
       const o = normalizeOrder(raw as never, undefined);
       expect(o.status).toBe("canceled");
     });
 
     it("a 'cancelled' (UK) státuszt 'canceled'-re (US) normalizálja", () => {
-      const raw = { id: "1", clientOrderId: "c1", status: "cancelled", side: "buy", type: "limit", amount: 1, price: 100, filled: 0, timestamp: 1 };
+      const raw = {
+        id: "1",
+        clientOrderId: "c1",
+        status: "cancelled",
+        side: "buy",
+        type: "limit",
+        amount: 1,
+        price: 100,
+        filled: 0,
+        timestamp: 1,
+      };
       const o = normalizeOrder(raw as never, undefined);
       expect(o.status).toBe("canceled");
     });
 
     it("ismeretlen státuszra 'open'-t ad", () => {
-      const raw = { id: "1", clientOrderId: "c1", status: "weird", side: "buy", type: "limit", amount: 1, price: 100, filled: 0, timestamp: 1 };
+      const raw = {
+        id: "1",
+        clientOrderId: "c1",
+        status: "weird",
+        side: "buy",
+        type: "limit",
+        amount: 1,
+        price: 100,
+        filled: 0,
+        timestamp: 1,
+      };
       const o = normalizeOrder(raw as never, undefined);
       expect(o.status).toBe("open");
     });
 
     it("a 'sell' side-ot 'sell'-re normalizálja", () => {
-      const raw = { id: "1", clientOrderId: "c1", status: "open", side: "sell", type: "limit", amount: 1, price: 100, filled: 0, timestamp: 1 };
+      const raw = {
+        id: "1",
+        clientOrderId: "c1",
+        status: "open",
+        side: "sell",
+        type: "limit",
+        amount: 1,
+        price: 100,
+        filled: 0,
+        timestamp: 1,
+      };
       const o = normalizeOrder(raw as never, undefined);
       expect(o.side).toBe("sell");
     });
 
     it("a 'market' típust 'market'-re hagyja", () => {
-      const raw = { id: "1", clientOrderId: "c1", status: "open", side: "buy", type: "market", amount: 1, filled: 0, timestamp: 1 };
+      const raw = {
+        id: "1",
+        clientOrderId: "c1",
+        status: "open",
+        side: "buy",
+        type: "market",
+        amount: 1,
+        filled: 0,
+        timestamp: 1,
+      };
       const o = normalizeOrder(raw as never, undefined);
       expect(o.type).toBe("market");
     });
 
     it("az exchangeId-t undefined-ra állítja, ha a raw id üres string", () => {
-      const raw = { id: "", clientOrderId: "c1", status: "open", side: "buy", type: "limit", amount: 1, price: 100, filled: 0, timestamp: 1 };
+      const raw = {
+        id: "",
+        clientOrderId: "c1",
+        status: "open",
+        side: "buy",
+        type: "limit",
+        amount: 1,
+        price: 100,
+        filled: 0,
+        timestamp: 1,
+      };
       const o = normalizeOrder(raw as never, undefined);
       expect(o.exchangeId).toBeUndefined();
     });
 
     it("a req-ből veszi a hiányzó clientOrderId-t", () => {
-      const raw = { id: "1", status: "open", side: "buy", type: "limit", amount: 1, price: 100, filled: 0, timestamp: 1 };
-      const req = { clientOrderId: "from-req" as ClientOrderId, symbol: BTC_USDC, side: "buy" as const, type: "limit" as const, amount: 1, price: 100 };
+      const raw = {
+        id: "1",
+        status: "open",
+        side: "buy",
+        type: "limit",
+        amount: 1,
+        price: 100,
+        filled: 0,
+        timestamp: 1,
+      };
+      const req = {
+        clientOrderId: "from-req" as ClientOrderId,
+        symbol: BTC_USDC,
+        side: "buy" as const,
+        type: "limit" as const,
+        amount: 1,
+        price: 100,
+      };
       const o = normalizeOrder(raw as never, req);
       expect(o.clientOrderId).toBe("from-req");
     });
@@ -263,13 +371,11 @@ describe("BybitEuFeed instance", () => {
     it("fetchTickerSnapshot hibát dob nem támogatott symbol-ra", async () => {
       // Az open() nélkül a fetch nem hívható, ezért a feed.open() kell előbb.
       // Mock-oljuk a CCXT belső loadMarkets hívását.
-      await (feed as unknown as { opened: boolean }).opened !== undefined;
+      (await (feed as unknown as { opened: boolean }).opened) !== undefined;
       // Az open() mock: a CCXT loadMarkets sikeresen fut le (valójában hálózati hívás, de mock-olható)
       // Helyette: a feed-et nyitottnak jelöljük a privát flag-en keresztül.
       Object.defineProperty(feed, "opened", { value: true, writable: true });
-      await expect(
-        feed.fetchTickerSnapshot("DOGE/USDC" as Symbol),
-      ).rejects.toThrow(ExchangeFeedError);
+      await expect(feed.fetchTickerSnapshot("DOGE/USDC" as Symbol)).rejects.toThrow(ExchangeFeedError);
     });
 
     it("placeOrder limit order price nélkül hibát dob", async () => {
@@ -301,7 +407,9 @@ describe("BybitEuFeed instance", () => {
       // Privát flag beállítása (a CCXT loadMarkets-et kikerüljük).
       Object.defineProperty(feed, "opened", { value: true, writable: true });
       // Kézzel felveszünk egy subscriptiont.
-      const subs = (feed as unknown as { subs: Map<number, { cancelled: boolean; abortController: AbortController }> }).subs;
+      const subs = (
+        feed as unknown as { subs: Map<number, { cancelled: boolean; abortController: AbortController }> }
+      ).subs;
       subs.set(1, { cancelled: false, abortController: new AbortController() });
       await feed.close();
       expect(subs.size).toBe(0);

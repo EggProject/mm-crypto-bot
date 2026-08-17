@@ -20,7 +20,9 @@ export function formatReport(
   const lines: string[] = [];
   lines.push(`# Backtest riport — ${symbol}`);
   lines.push("");
-  lines.push(`Időszak: ${new Date(result.startTime).toISOString()} → ${new Date(result.endTime).toISOString()}`);
+  lines.push(
+    `Időszak: ${new Date(result.startTime).toISOString()} → ${new Date(result.endTime).toISOString()}`,
+  );
   lines.push(`Kezdő equity: $${(result.equityCurve[0]?.equity ?? 0).toFixed(2)}`);
   lines.push(`Végső equity: $${(result.equityCurve[result.equityCurve.length - 1]?.equity ?? 0).toFixed(2)}`);
   lines.push("");
@@ -57,7 +59,7 @@ export function formatReport(
     lines.push(
       `  ${new Date(t.entryTime).toISOString()} ${t.side} @ $${t.entryPrice.toFixed(2)} → ` +
         `$${t.exitPrice.toFixed(2)} (${t.exitReason}): PnL=$${t.pnlUsd.toFixed(2)} ` +
-        `(${((t.pnlPct) * 100).toFixed(2)}%), fees=$${t.feesUsd.toFixed(2)}`,
+        `(${(t.pnlPct * 100).toFixed(2)}%), fees=$${t.feesUsd.toFixed(2)}`,
     );
   }
   return {
@@ -78,9 +80,11 @@ export function formatJsonReport(report: BacktestReport): string {
  `formatTradeListCsv` — a trade-lista CSV formátumban.
 */
 export function formatTradeListCsv(result: BacktestResult): string {
-  const header = "entryTime,exitTime,side,symbol,entryPrice,exitPrice,quantity,notionalUsd,pnlUsd,pnlPct,feesUsd,exitReason";
-  const rows = result.trades.map((t) =>
-    `${new Date(t.entryTime).toISOString()},${new Date(t.exitTime).toISOString()},${t.side},${t.symbol},` +
+  const header =
+    "entryTime,exitTime,side,symbol,entryPrice,exitPrice,quantity,notionalUsd,pnlUsd,pnlPct,feesUsd,exitReason";
+  const rows = result.trades.map(
+    (t) =>
+      `${new Date(t.entryTime).toISOString()},${new Date(t.exitTime).toISOString()},${t.side},${t.symbol},` +
       `${t.entryPrice},${t.exitPrice},${t.quantity},${t.notionalUsd},${t.pnlUsd},${t.pnlPct},${t.feesUsd},${t.exitReason}`,
   );
   return [header, ...rows].join("\n");

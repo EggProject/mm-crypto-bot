@@ -22,6 +22,17 @@ export interface MockFeedOptions {
   readonly tickerError?: (symbol: string) => Error;
   readonly tickerSeq?: number;
   readonly networkErrorMessage?: string;
+  readonly queuedWatchTickerErrors?: readonly Error[];
+}
+
+interface ResolvedMockFeedOptions {
+  readonly ticker: Ticker;
+  readonly tickerResolver: (symbol: string) => Ticker;
+  readonly watchTickerImpl: (symbol: string) => Promise<Ticker>;
+  readonly tickerSeq: number;
+  readonly tickerError: ((symbol: string) => Error) | undefined;
+  readonly networkErrorMessage: string | undefined;
+  readonly queuedWatchTickerErrors: Error[];
 }
 
 /**
@@ -64,130 +75,117 @@ export function defaultMockTicker(symbol: string, overrides: Partial<Ticker> = {
  * `throw new Error("not implemented")` — de ezeket a tesztek NEM hívják.
  */
 export class MockExchangeFeed implements ExchangeFeed {
+  private static unsupported<T>(method: string): Promise<T> {
+    return Promise.reject(new Error(`MockExchangeFeed.${method} not implemented`));
+  }
+
+  private readonly options: ResolvedMockFeedOptions;
   readonly id: string;
   readonly name: string;
-  private readonly opts: Required<Omit<MockFeedOptions, "tickerError" | "networkErrorMessage">> & {
-    readonly tickerError: ((symbol: string) => Error) | null;
-    readonly networkErrorMessage: string | null;
-  };
-  /** A belső ticker-állapot (test-only, debuggoláshoz). */
-  public lastFetchedSymbol: string | null = null;
+  /**
+  A belső ticker-állapot (test-only, debuggoláshoz).
+  */
+  public lastFetchedSymbol: string | undefined;
+  public readonly watchTickerCalls: string[] = [];
 
   constructor(options: MockFeedOptions = {}) {
     this.id = options.id ?? "mock";
     this.name = options.name ?? "Mock Exchange";
-    this.opts = {
-      id: options.id ?? "mock",
-      name: options.name ?? "Mock Exchange",
+    this.options = {
       ticker: options.ticker ?? defaultMockTicker("BTC/USDT"),
       tickerResolver: options.tickerResolver ?? ((sym: string) => defaultMockTicker(sym)),
       watchTickerImpl:
         options.watchTickerImpl ??
-        ((): Promise<Ticker> =>
+        ((): Promise<Ticker> => {
           // A default watchTicker soha nem resolve-ol — a queue-based mock
           // implementációk ezt a default-ot írják felül, ha a teszt ticker-t vár.
-          // eslint-disable-next-line @typescript-eslint/no-empty-function
-          new Promise<Ticker>(() => {})),
+          return new Promise<Ticker>((resolve) => {
+            void resolve;
+          });
+        }),
       tickerSeq: options.tickerSeq ?? Date.now(),
-      tickerError: options.tickerError ?? null,
-      networkErrorMessage: options.networkErrorMessage ?? null,
+      tickerError: options.tickerError,
+      networkErrorMessage: options.networkErrorMessage,
+      queuedWatchTickerErrors: [...(options.queuedWatchTickerErrors ?? [])],
     };
   }
 
-  // A mock metódusok `async` kulcsszóval vannak jelölve, de a törzsük
-  // egyszerűen `throw`-ol — az `async` szükséges, hogy a return type
-  // Promise legyen, és a throw Promise.reject-re konvertálódjon.
-  // Az ESLint `require-await` szabálya alól kivételt kap az osztály.
-  /* eslint-disable @typescript-eslint/require-await */
-  async loadMarkets(_reload?: boolean): Promise<Record<string, Market>> {
-    throw new Error("MockExchangeFeed.loadMarkets not implemented");
+  loadMarkets(_isReload?: boolean): Promise<Record<string, Market>> {
+    return MockExchangeFeed.unsupported("loadMarkets");
   }
 
-  async fetchTicker(symbol: string): Promise<Ticker> {
+  fetchTicker(symbol: string): Promise<Ticker> {
     this.lastFetchedSymbol = symbol;
-    if (this.opts.tickerError !== null) {
-      throw this.opts.tickerError(symbol);
+    if (this.options.tickerError !== undefined) {
+      return Promise.reject(this.options.tickerError(symbol));
     }
-    if (symbol === "NETWORK_ERROR" && this.opts.networkErrorMessage !== null) {
-      throw new Error(this.opts.networkErrorMessage);
+    if (symbol === "NETWORK_ERROR" && this.options.networkErrorMessage !== undefined) {
+      return Promise.reject(new Error(this.options.networkErrorMessage));
     }
-    const t = this.opts.tickerResolver(symbol);
-    return t;
+    return Promise.resolve(this.options.tickerResolver(symbol));
   }
 
-  async fetchOrderBook(_symbol: string, _limit?: number): Promise<OrderBook> {
-    throw new Error("MockExchangeFeed.fetchOrderBook not implemented");
+  fetchOrderBook(_symbol: string, _limit?: number): Promise<OrderBook> {
+    return MockExchangeFeed.unsupported("fetchOrderBook");
   }
 
-  async fetchTrades(_symbol: string, _since?: number, _limit?: number): Promise<CcxtTrade[]> {
-    throw new Error("MockExchangeFeed.fetchTrades not implemented");
+  fetchTrades(_symbol: string, _since?: number, _limit?: number): Promise<CcxtTrade[]> {
+    return MockExchangeFeed.unsupported("fetchTrades");
   }
 
-  async fetchOHLCV(
-    _symbol: string,
-    _timeframe: string,
-    _since?: number,
-    _limit?: number,
-  ): Promise<OHLCV[]> {
-    throw new Error("MockExchangeFeed.fetchOHLCV not implemented");
+  fetchOHLCV(_symbol: string, _timeframe: string, _since?: number, _limit?: number): Promise<OHLCV[]> {
+    return MockExchangeFeed.unsupported("fetchOHLCV");
   }
 
-  async watchOrderBook(
-    _symbol: string,
-    _limit: number,
-    _opts?: WatchOptions,
-  ): Promise<OrderBook> {
-    throw new Error("MockExchangeFeed.watchOrderBook not implemented");
+  watchOrderBook(_symbol: string, _limit: number, _options?: WatchOptions): Promise<OrderBook> {
+    return MockExchangeFeed.unsupported("watchOrderBook");
   }
 
-  async watchTicker(symbol: string, _opts?: WatchOptions): Promise<Ticker> {
-    return this.opts.watchTickerImpl(symbol);
+  watchTrades(_symbol: string, _options?: WatchOptions): Promise<CcxtTrade[]> {
+    return MockExchangeFeed.unsupported("watchTrades");
   }
 
-  async watchTrades(_symbol: string, _opts?: WatchOptions): Promise<CcxtTrade[]> {
-    throw new Error("MockExchangeFeed.watchTrades not implemented");
+  watchOHLCV(_symbol: string, _timeframe: string, _options?: WatchOptions): Promise<OHLCV[]> {
+    return MockExchangeFeed.unsupported("watchOHLCV");
   }
 
-  async watchOHLCV(
-    _symbol: string,
-    _timeframe: string,
-    _opts?: WatchOptions,
-  ): Promise<OHLCV[]> {
-    throw new Error("MockExchangeFeed.watchOHLCV not implemented");
+  watchOrders(_symbol: string, _options?: WatchOptions): Promise<Order[]> {
+    return MockExchangeFeed.unsupported("watchOrders");
   }
 
-  async watchOrders(_symbol: string, _opts?: WatchOptions): Promise<Order[]> {
-    throw new Error("MockExchangeFeed.watchOrders not implemented");
+  watchBalance(_options?: WatchOptions): Promise<Balances> {
+    return MockExchangeFeed.unsupported("watchBalance");
   }
 
-  async watchBalance(_opts?: WatchOptions): Promise<Balances> {
-    throw new Error("MockExchangeFeed.watchBalance not implemented");
+  watchPositions(_symbols?: readonly string[], _options?: WatchOptions): Promise<unknown[]> {
+    return MockExchangeFeed.unsupported("watchPositions");
   }
 
-  async watchPositions(
-    _symbols?: readonly string[],
-    _opts?: WatchOptions,
-  ): Promise<unknown[]> {
-    throw new Error("MockExchangeFeed.watchPositions not implemented");
+  fetchBalance(): Promise<Balances> {
+    return MockExchangeFeed.unsupported("fetchBalance");
   }
 
-  async fetchBalance(): Promise<Balances> {
-    throw new Error("MockExchangeFeed.fetchBalance not implemented");
-  }
-
-  async createOrder(
+  createOrder(
     _symbol: string,
     _type: "market" | "limit",
     _side: "buy" | "sell",
     _amount: number,
     _price?: number,
-    _params?: Record<string, unknown>,
+    _parameters?: Record<string, unknown>,
   ): Promise<Order> {
-    throw new Error("MockExchangeFeed.createOrder not implemented");
+    return MockExchangeFeed.unsupported("createOrder");
   }
 
-  async cancelOrder(_id: string, _symbol?: string): Promise<Order> {
-    throw new Error("MockExchangeFeed.cancelOrder not implemented");
+  cancelOrder(_id: string, _symbol?: string): Promise<Order> {
+    return MockExchangeFeed.unsupported("cancelOrder");
   }
-  /* eslint-enable @typescript-eslint/require-await */
+
+  watchTicker(symbol: string, _options?: WatchOptions): Promise<Ticker> {
+    this.watchTickerCalls.push(symbol);
+    const queuedError = this.options.queuedWatchTickerErrors.shift();
+    if (queuedError !== undefined) {
+      return Promise.reject(queuedError);
+    }
+    return this.options.watchTickerImpl(symbol);
+  }
 }

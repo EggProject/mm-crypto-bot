@@ -17,6 +17,7 @@
 **Persistence estimate.** Empirical half-life of Hyperliquid funding rates is short and OU-style mean-reverting: the 2026 arXiv HJB paper `Funding-Aware Optimal Market Making for Perpetual DEXs` (Tarun Chitra et al., May 2026) reports half-lives of 2–6 hours for ETH/BTC/SOL funding and 7.96 hours for a Binance ETH cross-check, with funding-price correlations that are "small" — i.e. funding is best modeled as a mean-reverting state variable independent of price innovations [https://arxiv.org/pdf/2605.06405.pdf]. UXD Protocol's earlier cross-venue study (Binance/BitMEX/FTX/Mango/dYdX) found funding rates "quite autocorrelated, as well as mean reverting (generally towards zero)" with DEX rates "more volatile than those on centralized exchanges and contain substantially more outliers" [https://uxdprotocol.medium.com/a-comparison-of-perp-funding-rates-1f32f9a7065f]. So alpha is real but small-window and noisy.
 
 **Integration cost.** Modest engineering cost (~1–2 weeks) but **prohibitive regulatory and operational cost**:
+
 - Data feed is free and public: `https://api.hyperliquid.xyz/info` with three request types (`metaAndAssetCtxs`, `predictedFundings`, `fundingHistory`), plus `historical_data` dump on GitHub [https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals, https://github.com/hyperliquid-dex/historical_data].
 - Trading integration is the blocker. Hyperliquid trades non-custodially on Arbitrum/Hyperliquid L1, but no KYC and no MiFID/MiCAR CASP license — FinTelegram's compliance tests from Italy and Austria "confirmed that Hyperliquid accepts deposits and allows trading of perpetual futures — MiFID II financial instruments — without identification, geo-blocking or EU perimeter controls" [https://fintelegram.com/defi-is-not-a-legal-black-hole-why-mica-already-reaches-axiom-hyperliquid-co-and-why-eu-regulators-are-still-looking-away/]. As of 2026-07-01 the MiCAR transitional period expires; perps are technically out of MiCA scope but ESMA has signalled they fall under MiFID II product-intervention [https://www.ainewscrypto.com/news/micas-july-1-wind-down-targets-eu-spot-crypto-leaving-offshore-perps-in-a-gray-zone, https://legal.pwc.de/content/services/regcore-client-alert/pwc-legal-client-alert-after-the-micar-cliff-edge-june-2026.pdf]. The UK FCA has formally warned against Hyperliquid [https://www.linkedin.com/posts/blazetrends_uk-financial-conduct-authority-warns-against-activity-7468677866457829376-k7WJ]. The CFTC in the US has signalled an intent to regulate [https://cleansky.io/blog/hyperliquid-cftc-regulation-nymex-2026/].
 - The bot currently runs on `bybit.eu` (a MiCAR-compliant venue); bridging funds to Hyperliquid means operating as an unlicensed CASP for EU clients or routing via a non-EU entity. This is a hard NO for the existing bot's compliance posture.
@@ -32,6 +33,7 @@
 11 distinct queries executed (English only; no Hungarian sources; no "konzervatív régi forex kereskedők" sources; post-2020 crypto-native preferred). Each empirical claim is cited with ≥2 independent sources — at least one Hyperliquid-protocol-native and one independent secondary.
 
 Query list (all executed via MCP `matrix web_search`):
+
 1. `Hyperliquid funding rate BTC statistics mean reversion oracle lag`
 2. `Hyperliquid HYPE token staking tier fee discount maker rebate`
 3. `perp DEX funding rate arbitrage lead lag Binance Bybit Hyperliquid`
@@ -64,14 +66,14 @@ The `premium = impact_price_difference / oracle_price`, where `impact_bid_px` an
 
 Direct empirical numbers from multiple independent sources:
 
-| Metric | BTC | ETH | SOL | Source |
-|---|---|---|---|---|
-| Typical hourly funding band | 0.0010% – 0.0050% | 0.0010% – 0.0080% | 0.0015% – 0.0120% | [https://eco.com/support/en/articles/15082536-hyperliquid-funding-rate-how-it-works-track-profit] |
-| Annualized equivalent | ~9% – 44% APR | ~9% – 70% APR | ~13% – 105% APR | [same source] |
-| Maximum observed hourly funding (2026) | 0.067% | 0.075% | n/a | [https://www.chainup.com/blog/hyperliquid-funding-rate-engine-explained/] |
-| Mean-reversion half-life | 2–6 hours (HL ETH/BTC/SOL OU fit) | same | same | [https://arxiv.org/pdf/2605.06405.pdf] |
-| 24h funding stddev (lower = better for carry) | ~0.004–0.01% (varies) | ~0.0038% (Gate lead) | varies | [https://openchainbench.com/api/stat/perp-funding-stability] |
-| 2026-05-13 snapshot funding / 8h | n/a | HL −0.001%, Binance +0.005%, Bybit +0.003% | n/a | [https://www.tangerine.exchange/insights/eth-funding-rate-report-2026-05-13] |
+| Metric                                        | BTC                               | ETH                                        | SOL               | Source                                                                                            |
+| --------------------------------------------- | --------------------------------- | ------------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------- |
+| Typical hourly funding band                   | 0.0010% – 0.0050%                 | 0.0010% – 0.0080%                          | 0.0015% – 0.0120% | [https://eco.com/support/en/articles/15082536-hyperliquid-funding-rate-how-it-works-track-profit] |
+| Annualized equivalent                         | ~9% – 44% APR                     | ~9% – 70% APR                              | ~13% – 105% APR   | [same source]                                                                                     |
+| Maximum observed hourly funding (2026)        | 0.067%                            | 0.075%                                     | n/a               | [https://www.chainup.com/blog/hyperliquid-funding-rate-engine-explained/]                         |
+| Mean-reversion half-life                      | 2–6 hours (HL ETH/BTC/SOL OU fit) | same                                       | same              | [https://arxiv.org/pdf/2605.06405.pdf]                                                            |
+| 24h funding stddev (lower = better for carry) | ~0.004–0.01% (varies)             | ~0.0038% (Gate lead)                       | varies            | [https://openchainbench.com/api/stat/perp-funding-stability]                                      |
+| 2026-05-13 snapshot funding / 8h              | n/a                               | HL −0.001%, Binance +0.005%, Bybit +0.003% | n/a               | [https://www.tangerine.exchange/insights/eth-funding-rate-report-2026-05-13]                      |
 
 ChainUp's analysis concludes that Hyperliquid "consistently posted the highest mean funding rates and standard deviation among major venues" — a direct consequence of the 1-hour settlement window producing more frequent funding recalibration [https://www.chainup.com/blog/hyperliquid-funding-rate-engine-explained/]. Eco's article confirms Hyperliquid's "0.01% hourly rate is roughly the same economic cost as a 0.08% Binance 8-hour rate" — i.e. you must multiply hourly rates by 24 to compare against 8h CEX rates, but the **direction** is what matters for the carry trade [https://eco.com/support/en/articles/15082536-hyperliquid-funding-rate-how-it-works-track-profit].
 
@@ -97,6 +99,7 @@ Arrakis's "Why Hyperliquid Lags Binance" study [https://arrakis.finance/blog/cry
 ### 4.1 Signal architecture (delta-neutral basis trade)
 
 The canonical funding-rate arbitrage trade is:
+
 1. **Long leg:** spot BTC/ETH/SOL on a deep-liquidity CEX (Bybit SPOT in our case).
 2. **Short leg:** equivalent notional perp on Hyperliquid where funding is positive.
 3. **Net delta:** zero. PnL = funding receipts − spot borrow cost − execution slippage − on-chain bridge cost.
@@ -106,6 +109,7 @@ Tangerine [https://www.tangerine.exchange/insights/btc-funding-rate-report-2026-
 ### 4.2 Edge per trade in $/bps
 
 Using the conservative end of the Eco/Tangerine band:
+
 - HL ETH funding: −0.001% / 8h (you collect funding by going long)
 - Binance ETH funding: +0.005% / 8h (you collect funding by going short)
 - Spread: 6 bps / 8h = 18 bps / 24h = ~66% gross APR (compounded)
@@ -120,7 +124,7 @@ Bybit SPOT is the venue the bot currently uses for the long leg. Fill rate for t
 
 ### 4.4 Capacity
 
-Capacity is bounded by the smaller of (a) HL short-leg impact cost and (b) the funding-payment drift from position size × impact on funding premium. The arXiv paper shows the HL funding premium depends on impact-notional at 20,000 USDC — i.e. it is calibrated for a ~$20k position, and a $200k position will be substantially off the calibrated regime [https://hyperliquid.gitbook.io/hyperliquid-docs/trading/contract-specifications, https://arxiv.org/pdf/2605.06405.pdf]. Realistic capacity for an HJB-style carry trade at acceptable edge: **~$30–80k notional per side**. Scaling beyond this compresses the alpha to zero as the bot's own footprint widens the premium.
+Capacity is bounded by the smaller of (a) HL short-leg impact cost and (b) the funding-payment drift from position size × impact on funding premium. The arXiv paper shows the HL funding premium depends on impact-notional at 20,000 USDC — i.e. it is calibrated for a ~~$20k position, and a $200k position will be substantially off the calibrated regime [https://hyperliquid.gitbook.io/hyperliquid-docs/trading/contract-specifications, https://arxiv.org/pdf/2605.06405.pdf]. Realistic capacity for an HJB-style carry trade at acceptable edge: **~~$30–80k notional per side**. Scaling beyond this compresses the alpha to zero as the bot's own footprint widens the premium.
 
 ### 4.5 Expected portfolio lift
 

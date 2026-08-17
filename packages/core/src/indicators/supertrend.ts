@@ -102,7 +102,9 @@ export function supertrend(
 /**
  `lastSupertrend` — a Supertrend-sor legutolso definialt erteke.
 */
-export function lastSupertrend(series: readonly (SupertrendPoint | undefined)[]): SupertrendPoint | undefined {
+export function lastSupertrend(
+  series: readonly (SupertrendPoint | undefined)[],
+): SupertrendPoint | undefined {
   for (let i = series.length - 1; i >= 0; i--) {
     const v = series[i];
     if (v !== undefined) {

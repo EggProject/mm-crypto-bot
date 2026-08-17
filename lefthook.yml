@@ -1,0 +1,5 @@
+pre-commit:
+  parallel: false
+  commands:
+    phase-one-pipeline:
+      run: bun run hook:pre-commit

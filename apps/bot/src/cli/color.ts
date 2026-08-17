@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/color.ts
  *
- * Phase 34 Track C — terminal-color helper for the `mm-bot` CLI.
+ * Phase 34 Track C — terminal-color helper for the direct bot CLI.
  *
  * ===========================================================================
  * USER MANDATE (2026-07-12 02:00 BUDAPEST)
@@ -135,16 +135,7 @@ export function isColorEnabled(): boolean {
  *   - The wrapper signature `colorize(text, name)` is stable even if
  *     picocolors' internals change.
  */
-export type ColorName =
-  | "red"
-  | "green"
-  | "yellow"
-  | "blue"
-  | "magenta"
-  | "cyan"
-  | "gray"
-  | "bold"
-  | "dim";
+export type ColorName = "red" | "green" | "yellow" | "blue" | "magenta" | "cyan" | "gray" | "bold" | "dim";
 
 /**
  * `colorize` — wrap `text` in ANSI codes for `color`, or return `text`
@@ -163,7 +154,7 @@ export type ColorName =
  * The default `pc.red(...)` calls honor `pc.isColorSupported`, which
  * picocolors snapshots ONCE at module-load time (based on `NO_COLOR`
  * and TTY at that moment). If the process started with a piped stdout
- * (e.g. `mm-bot ... | less`), picocolors' snapshot says "no color"
+ * (for example, `bun run apps/bot/src/index.ts ... | less`), picocolors' snapshot says "no color"
  * and stays that way for the rest of the process — even if the user
  * later sets `--color` to force enable.
  *

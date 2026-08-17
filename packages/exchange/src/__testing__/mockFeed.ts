@@ -143,7 +143,11 @@ export class MockExchangeFeed implements ExchangeFeed {
     return this.addSub("trade", symbol, undefined, listener);
   }
 
-  async subscribeOhlcv(symbol: Symbol, timeframe: Timeframe, listener: FeedListener): Promise<SubscriptionId> {
+  async subscribeOhlcv(
+    symbol: Symbol,
+    timeframe: Timeframe,
+    listener: FeedListener,
+  ): Promise<SubscriptionId> {
     this.assertOpen();
     return this.addSub("ohlcv", symbol, timeframe, listener);
   }
@@ -167,7 +171,12 @@ export class MockExchangeFeed implements ExchangeFeed {
     return defaultOrderBook(symbol);
   }
 
-  async fetchOHLCV(symbol: Symbol, timeframe: Timeframe, since: number | undefined, limit: number): Promise<readonly Ohlcv[]> {
+  async fetchOHLCV(
+    symbol: Symbol,
+    timeframe: Timeframe,
+    since: number | undefined,
+    limit: number,
+  ): Promise<readonly Ohlcv[]> {
     this.assertOpen();
     const key = `${symbol}::${timeframe}`;
     const existing = this.ohlcvSnapshots.get(key);
@@ -312,7 +321,12 @@ export class MockExchangeFeed implements ExchangeFeed {
     return this.subs.size;
   }
 
-  private addSub(kind: MockSubscription["kind"], symbol: Symbol, timeframe: Timeframe | undefined, listener: FeedListener): SubscriptionId {
+  private addSub(
+    kind: MockSubscription["kind"],
+    symbol: Symbol,
+    timeframe: Timeframe | undefined,
+    listener: FeedListener,
+  ): SubscriptionId {
     const id = this.nextId++;
     this.subs.set(id, { id, kind, symbol, timeframe, listener });
     return id;
@@ -402,8 +416,8 @@ export function defaultOhlcvHistory(symbol: Symbol, timeframe: Timeframe, count 
     // Egyszerű determinisztikus random walk az index alapján — így a
     // tesztek reprodukálhatók.
     const seed = (ts / ms) | 0;
-    const open = base + ((seed * 31) % 100 - 50) * (base * 0.001);
-    const close = open + ((seed * 17) % 100 - 50) * (base * 0.001);
+    const open = base + (((seed * 31) % 100) - 50) * (base * 0.001);
+    const close = open + (((seed * 17) % 100) - 50) * (base * 0.001);
     const high = Math.max(open, close) + ((seed * 7) % 50) * (base * 0.0005);
     const low = Math.min(open, close) - ((seed * 11) % 50) * (base * 0.0005);
     const volume = 10 + (seed % 100);

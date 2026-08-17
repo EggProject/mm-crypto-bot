@@ -324,8 +324,7 @@ locally to this standard. A broad migration MUST be a separately scoped change.
 - There MUST be no blanket test disablement. Every narrow disable MUST state a
   reason. ESLint MUST run with `--max-warnings=0`.
 - Prettier and `eslint-config-prettier` MUST be exact-pinned. `format` and
-  `format:check` MUST run in CI. Husky and lint-staged MUST run ESLint before
-  Prettier at pre-commit.
+  `format:check` MUST run in CI. Lefthook MUST run ESLint before Prettier at pre-commit, then run only the allowlisted clean:artifacts command and worktree inspection.
 - The required root target is `bun run verify`. Once implemented, it MUST
   reproduce CI format, lint, typecheck, build, unit-coverage, and
   end-to-end-coverage gates. Until it exists, delivery evidence MUST say so.

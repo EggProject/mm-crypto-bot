@@ -28,11 +28,11 @@ Track E's CLI runner accepts ONLY `--leverage=1` (baseline) or `--leverage=10` (
 
 **VaR / liquidation impact at 1:10 leverage:**
 
-| Symbol | 1× daily VaR 95% | 1:10 daily VaR 95% | 2% VaR cap | Liquidation risk |
-|---|---:|---:|---|---|
-| BTC | 0.024% | **0.241%** | OK (12% of cap) | 0 events (Phase 7 Track C validated) |
-| ETH | 0.022% | **0.224%** | OK (11% of cap) | 0 events |
-| SOL | 0.035% | **0.352%** | OK (18% of cap) | 0 events |
+| Symbol | 1× daily VaR 95% | 1:10 daily VaR 95% | 2% VaR cap      | Liquidation risk                     |
+| ------ | ---------------: | -----------------: | --------------- | ------------------------------------ |
+| BTC    |           0.024% |         **0.241%** | OK (12% of cap) | 0 events (Phase 7 Track C validated) |
+| ETH    |           0.022% |         **0.224%** | OK (11% of cap) | 0 events                             |
+| SOL    |           0.035% |         **0.352%** | OK (18% of cap) | 0 events                             |
 
 All three symbols at 1:10 leverage keep daily VaR under 0.4%, far below the 2% hard cap, and zero liquidation events across the 30-month backtest (validated by the Phase 7 Track C `FundingCarryLeverageStrategy` walk-forward). See [Section 8 — Source literature](#8--source-literature) for the bybit.eu SPOT margin defaults that justify the 1:10 selection (https://www.bybit.eu/en-EU/help-center/article/FAQ-Spot-Margin-Trading: "the maximum leverage for Spot Margin trading is 10x"; IMR formula `(Selected Leverage − 1) ÷ Selected Leverage = 90% IMR at 10×`).
 
@@ -42,15 +42,16 @@ All three symbols at 1:10 leverage keep daily VaR under 0.4%, far below the 2% h
 
 **Track E verdict:** A regime-aware timing filter on the Phase 6 Track A funding-carry, run at the user-mandated **1:10 leverage**, reduces **max drawdown by ~95-98%** versus an always-on 1:10 carry, at the cost of **~50-55% of the carry yield**. With 1:10 as the new baseline, the timing filter is best characterised as a **defensive regime-switching half of an alpha sandwich**, not as a stand-alone alpha-enhancer.
 
-| Symbol | Phase 6 1× always-on (baseline) | 1:10 always-on (projected) | **Track E 1:10 + timing** | Δ vs 1:10 always-on (return) | Δ vs 1:10 always-on (DD) |
-|---|---:|---:|---:|---:|---:|
-| BTC/USDT | +17.70% / 0.544%/mo / Sharpe 19.11 / DD 0.351% | +177.0% / 3.447%/mo / Sharpe 19.11 / DD 3.509% | **+82.63% / 2.023%/mo / Sharpe 10.34 / DD 0.132%** | **-53% return** | **-96% DD** |
-| ETH/USDT | +18.19% / 0.558%/mo / Sharpe 18.95 / DD 0.505% | +181.9% / 3.508%/mo / Sharpe 18.95 / DD 5.049% | **+85.14% / 2.069%/mo / Sharpe 10.57 / DD 0.106%** | **-53% return** | **-98% DD** |
-| SOL/USDT | +12.34% / 0.388%/mo / Sharpe 9.09 / DD 2.281% | +123.4% / 2.710%/mo / Sharpe 9.09 / DD 22.811% | **+84.23% / 2.052%/mo / Sharpe 8.67 / DD 0.573%** | **-32% return** | **-97% DD** |
+| Symbol   |                Phase 6 1× always-on (baseline) |                     1:10 always-on (projected) |                          **Track E 1:10 + timing** | Δ vs 1:10 always-on (return) | Δ vs 1:10 always-on (DD) |
+| -------- | ---------------------------------------------: | ---------------------------------------------: | -------------------------------------------------: | ---------------------------: | -----------------------: |
+| BTC/USDT | +17.70% / 0.544%/mo / Sharpe 19.11 / DD 0.351% | +177.0% / 3.447%/mo / Sharpe 19.11 / DD 3.509% | **+82.63% / 2.023%/mo / Sharpe 10.34 / DD 0.132%** |              **-53% return** |              **-96% DD** |
+| ETH/USDT | +18.19% / 0.558%/mo / Sharpe 18.95 / DD 0.505% | +181.9% / 3.508%/mo / Sharpe 18.95 / DD 5.049% | **+85.14% / 2.069%/mo / Sharpe 10.57 / DD 0.106%** |              **-53% return** |              **-98% DD** |
+| SOL/USDT |  +12.34% / 0.388%/mo / Sharpe 9.09 / DD 2.281% | +123.4% / 2.710%/mo / Sharpe 9.09 / DD 22.811% |  **+84.23% / 2.052%/mo / Sharpe 8.67 / DD 0.573%** |              **-32% return** |              **-97% DD** |
 
 The Track E **strategy is correct under the 1:10 mandate**: by being in carry only 23-27% of the time (the high-yield regime), we skip ~73-77% of the funding snapshots, including almost all of the negative-rate periods that produce the always-on 1:10's worst drawdowns. The avg funding rate captured while in carry (0.0118-0.0153%/8h) is **2-3× the unconditional average** (0.0045-0.0066%/8h), confirming the regime filter is sharp.
 
 **Interpretation under the new 1:10 baseline:**
+
 - The timing filter is **NOT an alpha-enhancer** at 1:10. It captures less carry because it sits out 73% of the funding snapshots, but the yield per in-carry period is 2-3× higher.
 - The timing filter **IS a DD-reducer** at 1:10. This is its primary economic value at the new leverage baseline.
 - Sharpe drops from 19 to 10-11 because the carry is no longer "deterministic" (we have entry/exit events that create variance), but the **per-period yield is 2-3× higher**.
@@ -95,6 +96,7 @@ For each 8h funding snapshot:
 - All tests pass.
 
 Test categories:
+
 1. 1:10 HARD CONSTRAINT validator (8 tests) — accept 1, 10; reject 2, 3, 4, 5, 7, 100, 0, -1, 1.5; constructor rejects invalid via `ts-expect-error`.
 2. Rolling-window statistics (10 tests) — percentile correctness, edge cases, empty input, window-trim, non-finite throws.
 3. Entry/exit decision logic (12 tests) — out-of-carry + >p75 → enter; strict `>` vs `>=`; cooldown enforcement; insufficient history → hold; negative-rate exit; non-finite throws.
@@ -118,28 +120,28 @@ Test categories:
 
 ### 3.1 Total return / monthly / Sharpe / max DD
 
-| Symbol | Total return | Monthly | Sharpe (annualised) | Sortino | Max DD | Time-in-carry |
-|---|---:|---:|---:|---:|---:|---:|
-| BTC/USDT | +82.63% | +2.023%/mo | 10.343 | 10.895 | **0.132%** | 26.90% |
-| ETH/USDT | +85.14% | +2.069%/mo | 10.571 | 11.372 | **0.106%** | 27.03% |
-| SOL/USDT | +84.23% | +2.052%/mo | 8.666 | 4.542 | **0.573%** | 23.51% |
-| **AVG** | **+84.00%** | **+2.048%/mo** | **9.86** | **8.94** | **0.270%** | **25.81%** |
+| Symbol   | Total return |        Monthly | Sharpe (annualised) |  Sortino |     Max DD | Time-in-carry |
+| -------- | -----------: | -------------: | ------------------: | -------: | ---------: | ------------: |
+| BTC/USDT |      +82.63% |     +2.023%/mo |              10.343 |   10.895 | **0.132%** |        26.90% |
+| ETH/USDT |      +85.14% |     +2.069%/mo |              10.571 |   11.372 | **0.106%** |        27.03% |
+| SOL/USDT |      +84.23% |     +2.052%/mo |               8.666 |    4.542 | **0.573%** |        23.51% |
+| **AVG**  |  **+84.00%** | **+2.048%/mo** |            **9.86** | **8.94** | **0.270%** |    **25.81%** |
 
 ### 3.2 Entry/exit statistics
 
 | Symbol | Entries | Exits | Avg hold duration | In-carry funding snapshots | Out-of-carry funding snapshots |
-|---|---:|---:|---:|---:|---:|
-| BTC | 98 | 97 | 60.5h | 738 (26.9%) | 2007 (73.1%) |
-| ETH | 109 | 108 | 54.6h | 742 (27.0%) | 2003 (73.0%) |
-| SOL | 105 | 105 | 49.2h | 646 (23.5%) | 2099 (76.5%) |
+| ------ | ------: | ----: | ----------------: | -------------------------: | -----------------------------: |
+| BTC    |      98 |    97 |             60.5h |                738 (26.9%) |                   2007 (73.1%) |
+| ETH    |     109 |   108 |             54.6h |                742 (27.0%) |                   2003 (73.0%) |
+| SOL    |     105 |   105 |             49.2h |                646 (23.5%) |                   2099 (76.5%) |
 
 ### 3.3 Funding captured per snapshot
 
 | Symbol | Avg funding rate (all 2745 snaps) | Avg funding rate (in-carry only) | Ratio (in-carry / all) |
-|---|---:|---:|---:|
-| BTC | 0.00645%/8h | **0.01182%/8h** | **1.83×** |
-| ETH | 0.00663%/8h | **0.01222%/8h** | **1.84×** |
-| SOL | 0.00450%/8h | **0.01534%/8h** | **3.41×** |
+| ------ | --------------------------------: | -------------------------------: | ---------------------: |
+| BTC    |                       0.00645%/8h |                  **0.01182%/8h** |              **1.83×** |
+| ETH    |                       0.00663%/8h |                  **0.01222%/8h** |              **1.84×** |
+| SOL    |                       0.00450%/8h |                  **0.01534%/8h** |              **3.41×** |
 
 The **in-carry avg funding rate is 1.8-3.4× the unconditional average** — empirical confirmation that the regime filter is sharp. SOL in particular shows 3.41× capture efficiency because SOL's funding is bimodal: long stretches of negative funding interspersed with bursts of positive funding, and the filter isolates the bursts.
 
@@ -168,17 +170,18 @@ All three symbols are well below the 2% daily VaR cap and have zero liquidation 
 
 ### 4.1 Empirical distribution of funding rates (BTC/ETH/SOL, 2024-01 → 2026-07)
 
-| Symbol | N snaps | Negative % | Zero % | Median | p75 | p90 | p99 | Max | Min |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| BTC | 2745 | 16.0% | 0% | 0.0075% | 0.0118% | 0.0180% | 0.0308% | 0.100% | -0.0290% |
-| ETH | 2745 | 16.4% | 0% | 0.0077% | 0.0122% | 0.0178% | 0.0310% | 0.090% | -0.0261% |
-| SOL | 2745 | 31.3% | 0% | 0.0028% | 0.0153% | 0.0305% | 0.0633% | 0.100% | -0.1000% |
+| Symbol | N snaps | Negative % | Zero % |  Median |     p75 |     p90 |     p99 |    Max |      Min |
+| ------ | ------: | ---------: | -----: | ------: | ------: | ------: | ------: | -----: | -------: |
+| BTC    |    2745 |      16.0% |     0% | 0.0075% | 0.0118% | 0.0180% | 0.0308% | 0.100% | -0.0290% |
+| ETH    |    2745 |      16.4% |     0% | 0.0077% | 0.0122% | 0.0178% | 0.0310% | 0.090% | -0.0261% |
+| SOL    |    2745 |      31.3% |     0% | 0.0028% | 0.0153% | 0.0305% | 0.0633% | 0.100% | -0.1000% |
 
 (Snapshots: 30 months × 3/day = ~2,700-2,800. Per-snapshot values computed from `binance_{btc,eth,sol}usdt_funding_8h.csv` filtered to 2024-01-01..2026-07-04.)
 
 ### 4.2 Threshold selection rationale
 
 **Entry threshold (p75 = 75th percentile):**
+
 - BTC p75 = 0.0118%/8h, in absolute terms ~10.3% APR gross (3 × 365 × 0.0118%).
 - ETH p75 = 0.0122%/8h, ~10.7% APR gross.
 - SOL p75 = 0.0153%/8h, ~13.4% APR gross.
@@ -186,16 +189,19 @@ All three symbols are well below the 2% daily VaR cap and have zero liquidation 
 The 75th-percentile threshold is the standard practitioner signal for "funding is above average and worth carrying into" — used by CryptoQuant chief analyst Axel Adler Jr's research showing the **30-day funding rate percentile dropping to 50% is a leading indicator of market bottoms** (validated 4 times in 2023-2025; https://www.binance.com/en/square/post/26618536669521). The symmetric upper-tail p75 is the natural entry analogue: "funding is in the top quartile, ride it".
 
 **Exit threshold (50th percentile = median):**
+
 - BTC median = 0.0075%/8h, ETH median = 0.0077%/8h, SOL median = 0.0028%/8h.
 - All three are positive (longs-pay-shorts regime dominates), so the exit is NOT triggered by a sign flip but by **funding compressing toward the long-run median** — i.e., a regime transition from "hot carry" back to "normal carry". This is the regime-switching rule studied in currency carry-trade literature (Burnside, Eichenbaum & Rebelo 2011; Bacchetta & van Wincoop 2010).
 
 **Cooldown (72h = 3 days):**
+
 - The minimum gap between entries. Empirically, funding-rate regime shifts occur over 3-7 day windows in crypto (Coincryptorank funding-rate-calendar analysis: https://coincryptorank.com/blog/funding-rate-calendar — "Funding rate changes during high volatility as exchanges may adjust calculations dynamically").
 - 72h avoids whipsaw on noisy 8h snapshots while preserving responsiveness to genuine regime transitions.
 
 ### 4.3 Strict `>` and strict `<` (per brief)
 
 The brief explicitly requires **strict `>` for entry and strict `<` for exit** (not `>=` / `<=`). This is implemented in `evaluateTiming()`:
+
 - Entry: `currentFundingRate > p75` (not `>=`).
 - Exit: `currentFundingRate < median` (not `<=`).
 
@@ -222,20 +228,20 @@ We ran a real Track E walk-forward at the production 1:10 leverage using `run-fu
 
 **Aggregate OOS results across 24 folds (720 days of OOS coverage, 2024-07-06 → 2026-06-26):**
 
-| Symbol | Aggregate OOS Sharpe | Aggregate OOS Return | Aggregate OOS Max DD | Aggregate OOS hours | Positive folds |
-|---|---:|---:|---:|---:|---:|
-| BTC/USDT | **11.827** | **+29.69%** | 0.1323% | 17,280 | 20 / 24 |
-| ETH/USDT | **12.093** | **+31.44%** | 0.1058% | 17,280 | 21 / 24 |
-| SOL/USDT | **8.211** | **+21.51%** | 0.5744% | 17,280 | 19 / 24 |
-| **AVG** | **10.71** | **+27.55%** | **0.2708%** | 17,280 | **60 / 72 (83.3%)** |
+| Symbol   | Aggregate OOS Sharpe | Aggregate OOS Return | Aggregate OOS Max DD | Aggregate OOS hours |      Positive folds |
+| -------- | -------------------: | -------------------: | -------------------: | ------------------: | ------------------: |
+| BTC/USDT |           **11.827** |          **+29.69%** |              0.1323% |              17,280 |             20 / 24 |
+| ETH/USDT |           **12.093** |          **+31.44%** |              0.1058% |              17,280 |             21 / 24 |
+| SOL/USDT |            **8.211** |          **+21.51%** |              0.5744% |              17,280 |             19 / 24 |
+| **AVG**  |            **10.71** |          **+27.55%** |          **0.2708%** |              17,280 | **60 / 72 (83.3%)** |
 
 **Per-fold Sharpe statistics:**
 
-| Symbol | Mean | Std-dev | Min | Max | Negative folds (Sharpe<0) |
-|---|---:|---:|---:|---:|---|
-| BTC | 11.118 | 8.975 | **-0.342** (Fold 21) | 27.592 | 1 / 24 |
-| ETH | 11.365 | 8.814 | 0.000 (flat folds, no Sharpe) | 29.805 | **0 / 24** |
-| SOL | 7.375 | 7.263 | **-3.753** (Fold 19) | 25.583 | **3 / 24** |
+| Symbol |   Mean | Std-dev |                           Min |    Max | Negative folds (Sharpe<0) |
+| ------ | -----: | ------: | ----------------------------: | -----: | ------------------------- |
+| BTC    | 11.118 |   8.975 |          **-0.342** (Fold 21) | 27.592 | 1 / 24                    |
+| ETH    | 11.365 |   8.814 | 0.000 (flat folds, no Sharpe) | 29.805 | **0 / 24**                |
+| SOL    |  7.375 |   7.263 |          **-3.753** (Fold 19) | 25.583 | **3 / 24**                |
 
 **Honest disclosure of negative folds (per verifier request):**
 
@@ -271,26 +277,27 @@ The strategy has only **3 tunable parameters** (entry percentile 0.75, exit perc
 ### 6.1 Head-to-head vs Phase 6 Track A 1× always-on
 
 | Symbol | Phase 6 1× always-on monthly | Phase 6 1× Sharpe | Phase 6 1× DD | Track E 1:10 monthly | Track E Sharpe | Track E DD | Monthly boost | Sharpe change | DD change |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| BTC | +0.544% | 19.11 | 0.351% | +2.023% | 10.34 | 0.132% | **3.7×** | -46% | -62% |
-| ETH | +0.558% | 18.95 | 0.505% | +2.069% | 10.57 | 0.106% | **3.7×** | -44% | -79% |
-| SOL | +0.388% | 9.09 | 2.281% | +2.052% | 8.67 | 0.573% | **5.3×** | -5% | -75% |
+| ------ | ---------------------------: | ----------------: | ------------: | -------------------: | -------------: | ---------: | ------------: | ------------: | --------: |
+| BTC    |                      +0.544% |             19.11 |        0.351% |              +2.023% |          10.34 |     0.132% |      **3.7×** |          -46% |      -62% |
+| ETH    |                      +0.558% |             18.95 |        0.505% |              +2.069% |          10.57 |     0.106% |      **3.7×** |          -44% |      -79% |
+| SOL    |                      +0.388% |              9.09 |        2.281% |              +2.052% |           8.67 |     0.573% |      **5.3×** |           -5% |      -75% |
 
 **Track E beats Phase 6 on monthly return by 3.7-5.3×** (the 1:10 leverage + timing combination is a multiplicative amplifier on the carry edge). **Track E beats Phase 6 on max DD by 62-79%** (the timing filter avoids the worst negative-funding days).
 
 ### 6.2 vs 1:10 always-on projection (the apples-to-apples comparison)
 
-| Symbol | 1:10 always-on total return | 1:10 always-on DD | Track E total | Track E DD | Δ return | Δ DD |
-|---|---:|---:|---:|---:|---:|---:|
-| BTC | +177.0% | 3.509% | +82.63% | 0.132% | **-94.4pp (-53%)** | **-3.377pp (-96%)** |
-| ETH | +181.9% | 5.049% | +85.14% | 0.106% | **-96.7pp (-53%)** | **-4.943pp (-98%)** |
-| SOL | +123.4% | 22.811% | +84.23% | 0.573% | **-39.2pp (-32%)** | **-22.238pp (-97%)** |
+| Symbol | 1:10 always-on total return | 1:10 always-on DD | Track E total | Track E DD |           Δ return |                 Δ DD |
+| ------ | --------------------------: | ----------------: | ------------: | ---------: | -----------------: | -------------------: |
+| BTC    |                     +177.0% |            3.509% |       +82.63% |     0.132% | **-94.4pp (-53%)** |  **-3.377pp (-96%)** |
+| ETH    |                     +181.9% |            5.049% |       +85.14% |     0.106% | **-96.7pp (-53%)** |  **-4.943pp (-98%)** |
+| SOL    |                     +123.4% |           22.811% |       +84.23% |     0.573% | **-39.2pp (-32%)** | **-22.238pp (-97%)** |
 
 **Track E trades ~half the return for ~96% reduction in max DD** versus the 1:10 always-on baseline. This is a clear risk-reduction choice. SOL is the most lopsided: 1:10 always-on would have experienced 22.8% DD (the worst negative-funding streaks in 2025-2026), while Track E keeps DD under 0.6%.
 
 ### 6.3 Why does Sharpe drop?
 
 Track E Sharpe (10-11) is lower than 1:10 always-on Sharpe (~19) because:
+
 - The timing filter creates **entry/exit events** that introduce variance into the equity curve.
 - The carry is no longer "deterministic" — funding is collected only 27% of the time, and the entry/exit transitions create small losses (slippage assumption 0.05% per entry/exit, 20 bps rebalance).
 - However, the **per-period yield is 2-3× higher** (in-carry avg 0.0118-0.0153% vs unconditional 0.0045-0.0066%).
@@ -376,11 +383,11 @@ Track E provides a **defensive carry component** to the V3 ensemble. Combined wi
 
 **Walk-forward validation (REAL Track E run, 24 folds × 3 symbols):**
 
-| Symbol | Aggregate OOS Sharpe | Aggregate OOS Return | Aggregate OOS Max DD | Positive folds |
-|---|---:|---:|---:|---:|
-| BTC | **11.83** | +29.69% | 0.13% | 20 / 24 |
-| ETH | **12.09** | +31.44% | 0.11% | 21 / 24 |
-| SOL | **8.21** | +21.51% | 0.57% | 19 / 24 (3 negative folds in Q1-Q2 2026 funding-flip regime) |
+| Symbol | Aggregate OOS Sharpe | Aggregate OOS Return | Aggregate OOS Max DD |                                               Positive folds |
+| ------ | -------------------: | -------------------: | -------------------: | -----------------------------------------------------------: |
+| BTC    |            **11.83** |              +29.69% |                0.13% |                                                      20 / 24 |
+| ETH    |            **12.09** |              +31.44% |                0.11% |                                                      21 / 24 |
+| SOL    |             **8.21** |              +21.51% |                0.57% | 19 / 24 (3 negative folds in Q1-Q2 2026 funding-flip regime) |
 
 Walk-forward efficiency (OOS Sharpe / in-sample Sharpe): BTC 114%, ETH 114%, SOL 95% — all in the healthy 0.5-1.5 range per D&T Systems walk-forward analysis. The 3 negative SOL folds are honestly disclosed in §5.2; they cluster in a known SOL funding-flip regime (Phase 8 Track D memory entry: "Q1-Q2 2026 funding flip → keep at 1× in V3 ensemble").
 
@@ -392,16 +399,16 @@ Walk-forward efficiency (OOS Sharpe / in-sample Sharpe): BTC 114%, ETH 114%, SOL
 
 ## 10. Files shipped
 
-| File | Lines | Purpose |
-|---|---:|---|
-| `packages/core/src/strategy/funding-carry-timing.ts` | ~600 | Strategy implementation with HARD 1:10 guardrail |
-| `packages/core/src/strategy/funding-carry-timing.test.ts` | 466 | 40 unit tests, 95.45% function coverage |
-| `packages/core/src/index.ts` | +14 lines | Exports added |
-| `packages/backtest-tools/src/cli/run-funding-carry-timing.ts` | 605 | CLI runner with 1:10 HARD guardrail |
-| `backtest-results/baseline-funding-carry-timing-btc-1h.json` | 9.2KB | BTC 1:10 + timing baseline (includes walkForward block: 24 folds, aggOOSSharpe 11.83, 20/24 positive folds) |
-| `backtest-results/baseline-funding-carry-timing-eth-1h.json` | 9.2KB | ETH 1:10 + timing baseline (includes walkForward block: 24 folds, aggOOSSharpe 12.09, 21/24 positive folds) |
-| `backtest-results/baseline-funding-carry-timing-sol-1h.json` | 9.2KB | SOL 1:10 + timing baseline (includes walkForward block: 24 folds, aggOOSSharpe 8.21, 19/24 positive folds; 3 negative folds honestly disclosed in §5.2) |
-| `docs/research/phase8-funding-timing.md` | (this file) | Empirical report (this document) |
+| File                                                          |       Lines | Purpose                                                                                                                                                 |
+| ------------------------------------------------------------- | ----------: | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/strategy/funding-carry-timing.ts`          |        ~600 | Strategy implementation with HARD 1:10 guardrail                                                                                                        |
+| `packages/core/src/strategy/funding-carry-timing.test.ts`     |         466 | 40 unit tests, 95.45% function coverage                                                                                                                 |
+| `packages/core/src/index.ts`                                  |   +14 lines | Exports added                                                                                                                                           |
+| `packages/backtest-tools/src/cli/run-funding-carry-timing.ts` |         605 | CLI runner with 1:10 HARD guardrail                                                                                                                     |
+| `backtest-results/baseline-funding-carry-timing-btc-1h.json`  |       9.2KB | BTC 1:10 + timing baseline (includes walkForward block: 24 folds, aggOOSSharpe 11.83, 20/24 positive folds)                                             |
+| `backtest-results/baseline-funding-carry-timing-eth-1h.json`  |       9.2KB | ETH 1:10 + timing baseline (includes walkForward block: 24 folds, aggOOSSharpe 12.09, 21/24 positive folds)                                             |
+| `backtest-results/baseline-funding-carry-timing-sol-1h.json`  |       9.2KB | SOL 1:10 + timing baseline (includes walkForward block: 24 folds, aggOOSSharpe 8.21, 19/24 positive folds; 3 negative folds honestly disclosed in §5.2) |
+| `docs/research/phase8-funding-timing.md`                      | (this file) | Empirical report (this document)                                                                                                                        |
 
 **Quality gates:** typecheck 13/13, lint 0 errors, test 13/13 (40 new tests pass), coverage 95.45% functions on `funding-carry-timing.ts`. All green.
 

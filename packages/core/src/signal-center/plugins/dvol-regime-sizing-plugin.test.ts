@@ -299,9 +299,7 @@ describe("DvolRegimeSizingPlugin", () => {
 
     it("constructor rejects empty enabledSymbols", () => {
       expect(() => new DvolRegimeSizingPlugin({ enabledSymbols: [] })).toThrow();
-      expect(
-        () => new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT", "BTC/USDT"] }),
-      ).toThrow(); // duplicates
+      expect(() => new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT", "BTC/USDT"] })).toThrow(); // duplicates
     });
   });
 
@@ -448,9 +446,11 @@ describe("Phase 35b — DvolRegimeSizingPlugin private method coverage via cast"
     });
     const { sizing } = wirePlugin(p);
     // Direct call to private method
-    (p as unknown as {
-      _processSymbol: (symbol: string, timestampMs: number) => void;
-    })._processSymbol("BTC/USDT", BASE_TS);
+    (
+      p as unknown as {
+        _processSymbol: (symbol: string, timestampMs: number) => void;
+      }
+    )._processSymbol("BTC/USDT", BASE_TS);
     // Should have emitted a sizing signal
     expect(sizing.length).toBe(1);
     expect(sizing[0]!.volMultiplier).toBe(0.75); // elevated multiplier

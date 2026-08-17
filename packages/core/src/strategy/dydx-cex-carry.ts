@@ -365,10 +365,7 @@ export const ALL_KILL_SWITCHES: readonly KillSwitchId[] = Object.freeze([
  * — the strategy falls back to a smaller notional until depth
  * recovers.  The 3 other switches HALT the strategy entirely.
  */
-export function evaluateKillSwitches(
-  inputs: KillSwitchInputs,
-  cfg: KillSwitchConfig,
-): KillSwitchVerdicts {
+export function evaluateKillSwitches(inputs: KillSwitchInputs, cfg: KillSwitchConfig): KillSwitchVerdicts {
   const indexerStale: KillSwitchVerdict = (() => {
     if (inputs.indexerStaleMs === null) {
       return { engaged: true, reason: "indexer-never-tick" };
@@ -461,9 +458,7 @@ export function evaluatePrecondition(
     throw new Error(`Precondition id mismatch: ${id} vs ${input.kind}`);
   }
   const nextSatisfied = input.satisfied;
-  const firstSatisfiedMs = nextSatisfied
-    ? (prev.satisfied ? (prev.firstSatisfiedMs ?? nowMs) : nowMs)
-    : null;
+  const firstSatisfiedMs = nextSatisfied ? (prev.satisfied ? (prev.firstSatisfiedMs ?? nowMs) : nowMs) : null;
   return {
     satisfied: nextSatisfied,
     firstSatisfiedMs,
@@ -599,10 +594,7 @@ export interface LatencySource {
   readonly pair: string;
 }
 
-export const DEFAULT_DYDX_CEX_CARRY_CONFIG: Omit<
-  DydxCexCarryConfig,
-  "fundingSource"
-> = {
+export const DEFAULT_DYDX_CEX_CARRY_CONFIG: Omit<DydxCexCarryConfig, "fundingSource"> = {
   market: DEFAULT_CARRY_MARKET,
   direction: DEFAULT_CARRY_DIRECTION,
   notionalPerLegUsd: 125_000,
@@ -626,60 +618,60 @@ export const DEFAULT_DYDX_CEX_CARRY_CONFIG: Omit<
 // STRATEGY STATE (durable across restarts)
 // ============================================================================
 
+/**
+ * `DydxCexCarryState` — mutable state held by the strategy instance.
+ * Exposed for the CLI runner to read after `runBacktest` / live session.
+ * All 4 sub-trackers are durable: snapshot via `serializeState()` and
+ * restore via `DydxCexCarryStrategy.fromSnapshot()`.
+ */
+export interface DydxCexCarryState {
+  /** Total funding payments collected (positive = earned, negative = paid). */
+  fundingCollectedUsd: number;
+  /** Number of rebalance operations executed. */
+  rebalanceCount: number;
+  /** Total cost of rebalance operations. */
+  rebalanceCostUsd: number;
+  /** Number of funding snapshots accrued. */
+  fundingPeriods: number;
+  /** Last observed mark price. */
+  lastMarkPrice: number;
+  /** Has the entry signal already been emitted? */
+  hasEntered: boolean;
+  /** Per-kill-switch current verdict.  null = never evaluated. */
+  killSwitchVerdicts: KillSwitchVerdicts | null;
+  /** Per-precondition durable state. */
+  preconditions: PreconditionsState;
+  /** Tick density tracker (sparse-data guard). */
+  tickDensity: TickDensityState;
+  /** Compressed-divergence day streak (rolling, day-granular). */
+  compressedDayStreak: number;
+  /** First observed indexer tick (ms).  null = never. */
+  firstTickMs: number | null;
+  /** First observed chain-finalized block (ms).  null = never. */
+  firstChainBlockMs: number | null;
+  /** Last day (YYYY-MM-DD) we updated the divergence streak for.  null = never. */
+  lastDivergenceDay: string | null;
+  /** Running compressed flag for the current day bucket. */
+  currentDayCompressed: boolean;
   /**
-   * `DydxCexCarryState` — mutable state held by the strategy instance.
-   * Exposed for the CLI runner to read after `runBacktest` / live session.
-   * All 4 sub-trackers are durable: snapshot via `serializeState()` and
-   * restore via `DydxCexCarryStrategy.fromSnapshot()`.
+   * `currentLatencyGate` — Phase 30 LatencyGate live wiring.  The
+   * strategy's internal gate, rebuilt whenever a new `LatencySnapshot`
+   * is recorded.  When `null`, the gate is the
+   * `DEFAULT_LATENCY_GATE_DISABLED` sentinel (always allows carry).
+   * The constructor seeds this with a disabled gate.  Latency gating
+   * stays disabled until `recordLatencySnapshot()` is called.
+   *
+   * NOTE: This field is NOT serialized by `serializeState()` — it
+   * contains a function (`isCarryAllowed`) that JSON can't represent.
+   * On `fromSnapshot`, the gate is reconstructed from
+   * `lastLatencyRoundTripMs` + the configured threshold.
    */
-  export interface DydxCexCarryState {
-    /** Total funding payments collected (positive = earned, negative = paid). */
-    fundingCollectedUsd: number;
-    /** Number of rebalance operations executed. */
-    rebalanceCount: number;
-    /** Total cost of rebalance operations. */
-    rebalanceCostUsd: number;
-    /** Number of funding snapshots accrued. */
-    fundingPeriods: number;
-    /** Last observed mark price. */
-    lastMarkPrice: number;
-    /** Has the entry signal already been emitted? */
-    hasEntered: boolean;
-    /** Per-kill-switch current verdict.  null = never evaluated. */
-    killSwitchVerdicts: KillSwitchVerdicts | null;
-    /** Per-precondition durable state. */
-    preconditions: PreconditionsState;
-    /** Tick density tracker (sparse-data guard). */
-    tickDensity: TickDensityState;
-    /** Compressed-divergence day streak (rolling, day-granular). */
-    compressedDayStreak: number;
-    /** First observed indexer tick (ms).  null = never. */
-    firstTickMs: number | null;
-    /** First observed chain-finalized block (ms).  null = never. */
-    firstChainBlockMs: number | null;
-    /** Last day (YYYY-MM-DD) we updated the divergence streak for.  null = never. */
-    lastDivergenceDay: string | null;
-    /** Running compressed flag for the current day bucket. */
-    currentDayCompressed: boolean;
-    /**
-     * `currentLatencyGate` — Phase 30 LatencyGate live wiring.  The
-     * strategy's internal gate, rebuilt whenever a new `LatencySnapshot`
-     * is recorded.  When `null`, the gate is the
-     * `DEFAULT_LATENCY_GATE_DISABLED` sentinel (always allows carry).
-     * The constructor seeds this with a disabled gate.  Latency gating
-     * stays disabled until `recordLatencySnapshot()` is called.
-     *
-     * NOTE: This field is NOT serialized by `serializeState()` — it
-     * contains a function (`isCarryAllowed`) that JSON can't represent.
-     * On `fromSnapshot`, the gate is reconstructed from
-     * `lastLatencyRoundTripMs` + the configured threshold.
-     */
-    currentLatencyGate: LatencyGate;
-    /** Last observed round-trip ms (from the most recent latency snapshot).  null = never. */
-    lastLatencyRoundTripMs: number | null;
-    /** Timestamp of the most recent latency observation.  null = never. */
-    lastLatencySnapshotMs: number | null;
-  }
+  currentLatencyGate: LatencyGate;
+  /** Last observed round-trip ms (from the most recent latency snapshot).  null = never. */
+  lastLatencyRoundTripMs: number | null;
+  /** Timestamp of the most recent latency observation.  null = never. */
+  lastLatencySnapshotMs: number | null;
+}
 
 export function newPreconditionsState(): PreconditionsState {
   return {
@@ -812,10 +804,7 @@ export class DydxCexCarryStrategy implements Strategy {
    * `fromSnapshot` — restore a strategy instance from a serialized
    * state snapshot.  Used to roll state forward across restarts.
    */
-  static fromSnapshot(
-    config: DydxCexCarryConfig,
-    snapshot: DydxCexCarryState,
-  ): DydxCexCarryStrategy {
+  static fromSnapshot(config: DydxCexCarryConfig, snapshot: DydxCexCarryState): DydxCexCarryStrategy {
     const s = new DydxCexCarryStrategy(config);
     s.state.fundingCollectedUsd = snapshot.fundingCollectedUsd;
     s.state.rebalanceCount = snapshot.rebalanceCount;
@@ -907,9 +896,10 @@ export class DydxCexCarryStrategy implements Strategy {
     // Kill-switches are handled by `onOpenPositionUpdate` while a position
     // exists. Never emit a naked sell from the flat-entry hook.
     if (this.state.killSwitchVerdicts !== null) {
-      const anyHalt = this.state.killSwitchVerdicts["indexer-stale"].engaged
-        || this.state.killSwitchVerdicts["chain-non-finalized"].engaged
-        || this.state.killSwitchVerdicts["divergence-7d-compression"].engaged;
+      const anyHalt =
+        this.state.killSwitchVerdicts["indexer-stale"].engaged ||
+        this.state.killSwitchVerdicts["chain-non-finalized"].engaged ||
+        this.state.killSwitchVerdicts["divergence-7d-compression"].engaged;
       if (anyHalt && this.state.hasEntered) {
         return null;
       }
@@ -987,11 +977,7 @@ export class DydxCexCarryStrategy implements Strategy {
    * Returns 0 when the strategy is halted (kill-switch engaged) — same
    * pattern as the Phase 6 FundingCarryStrategy.
    */
-  recordFundingTick(
-    dydxSnap: FundingSnapshot,
-    cexSnap: FundingSnapshot,
-    nowMs: number,
-  ): number {
+  recordFundingTick(dydxSnap: FundingSnapshot, cexSnap: FundingSnapshot, nowMs: number): number {
     this.state.firstTickMs = this.state.firstTickMs ?? nowMs;
     this.state.lastMarkPrice = dydxSnap.markPrice ?? cexSnap.markPrice ?? this.state.lastMarkPrice;
 
@@ -1048,10 +1034,11 @@ export class DydxCexCarryStrategy implements Strategy {
     this._reEvaluateKillSwitches(nowMs);
 
     // Skip funding accrual if any HALT-switch is engaged.
-    const anyHalt = this.state.killSwitchVerdicts !== null
-      && (this.state.killSwitchVerdicts["indexer-stale"].engaged
-        || this.state.killSwitchVerdicts["chain-non-finalized"].engaged
-        || this.state.killSwitchVerdicts["divergence-7d-compression"].engaged);
+    const anyHalt =
+      this.state.killSwitchVerdicts !== null &&
+      (this.state.killSwitchVerdicts["indexer-stale"].engaged ||
+        this.state.killSwitchVerdicts["chain-non-finalized"].engaged ||
+        this.state.killSwitchVerdicts["divergence-7d-compression"].engaged);
     if (anyHalt) {
       return 0;
     }
@@ -1111,14 +1098,14 @@ export class DydxCexCarryStrategy implements Strategy {
    * as "unknown" and does NOT activate the gate.  NaN propagates
    * the existing gate (no change).
    */
-  recordLatencySnapshot(snapshot: LatencySnapshot, nowMs: number): {
+  recordLatencySnapshot(
+    snapshot: LatencySnapshot,
+    nowMs: number,
+  ): {
     readonly carryAllowed: boolean;
     readonly reason: string;
   } {
-    if (
-      !Number.isFinite(snapshot.roundTripMsMax) ||
-      snapshot.roundTripMsMax < 0
-    ) {
+    if (!Number.isFinite(snapshot.roundTripMsMax) || snapshot.roundTripMsMax < 0) {
       // Unknown / invalid observation — keep the existing gate.
       const reason = this.state.currentLatencyGate.isCarryAllowed()
         ? "carry-allowed (existing gate kept, invalid snapshot)"
@@ -1215,9 +1202,11 @@ export class DydxCexCarryStrategy implements Strategy {
    */
   isHalted(): boolean {
     if (this.state.killSwitchVerdicts === null) return false;
-    return this.state.killSwitchVerdicts["indexer-stale"].engaged
-      || this.state.killSwitchVerdicts["chain-non-finalized"].engaged
-      || this.state.killSwitchVerdicts["divergence-7d-compression"].engaged;
+    return (
+      this.state.killSwitchVerdicts["indexer-stale"].engaged ||
+      this.state.killSwitchVerdicts["chain-non-finalized"].engaged ||
+      this.state.killSwitchVerdicts["divergence-7d-compression"].engaged
+    );
   }
 
   /**

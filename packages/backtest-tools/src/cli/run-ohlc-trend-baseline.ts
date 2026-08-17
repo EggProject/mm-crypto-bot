@@ -18,12 +18,14 @@ import {
   type OpenPosition,
   type PositionSizeConfig,
 } from "@mm-crypto-bot/backtest";
+import { DEFAULT_OHLC_TREND_CONFIG, OhlcTrendStrategy, type OhlcTrendConfig } from "@mm-crypto-bot/core";
 import {
-  DEFAULT_OHLC_TREND_CONFIG,
-  OhlcTrendStrategy,
-  type OhlcTrendConfig,
-} from "@mm-crypto-bot/core";
-import { makeSymbol, TIMEFRAME_MS, type Candle, type Timeframe, type Trade } from "@mm-crypto-bot/shared/types";
+  makeSymbol,
+  TIMEFRAME_MS,
+  type Candle,
+  type Timeframe,
+  type Trade,
+} from "@mm-crypto-bot/shared/types";
 
 import { CsvExchangeFeed } from "../data/csv-feed.js";
 
@@ -85,34 +87,77 @@ export function parseArgs(argv: readonly string[] = process.argv.slice(2)): Ohlc
   for (const arg of argv) {
     const [flag, raw = ""] = arg.split("=", 2);
     switch (flag) {
-      case "--symbol": symbol = raw; break;
+      case "--symbol":
+        symbol = raw;
+        break;
       case "--timeframe": {
         if (!(raw in TIMEFRAME_MS)) throw new Error(`Unsupported --timeframe: ${raw}`);
         timeframe = raw as Timeframe;
         strategyConfig = { ...strategyConfig, timeframe };
         break;
       }
-      case "--start": startTime = new Date(raw); break;
-      case "--end": endTime = new Date(raw); break;
-      case "--equity": initialEquity = positiveNumber(flag, raw); break;
-      case "--output": outputPath = raw; break;
-      case "--data-dir": dataDir = resolve(raw); break;
-      case "--fast-ema": strategyConfig = { ...strategyConfig, fastEma: positiveInteger(flag, raw) }; break;
-      case "--slow-ema": strategyConfig = { ...strategyConfig, slowEma: positiveInteger(flag, raw) }; break;
-      case "--rsi-period": strategyConfig = { ...strategyConfig, rsiPeriod: positiveInteger(flag, raw) }; break;
-      case "--atr-period": strategyConfig = { ...strategyConfig, atrPeriod: positiveInteger(flag, raw) }; break;
-      case "--atr-stop-multiplier": strategyConfig = { ...strategyConfig, atrStopMultiplier: positiveNumber(flag, raw) }; break;
-      case "--reward-to-risk": strategyConfig = { ...strategyConfig, rewardToRisk: positiveNumber(flag, raw) }; break;
-      case "--cross-lookback": strategyConfig = { ...strategyConfig, crossLookback: positiveInteger(flag, raw) }; break;
-      case "--taker-fee": costModel = { ...costModel, takerFeeRate: positiveNumber(flag, raw, true) }; break;
-      case "--slippage": costModel = { ...costModel, slippageRate: positiveNumber(flag, raw, true) }; break;
-      case "--spread": costModel = { ...costModel, spreadRate: positiveNumber(flag, raw, true) }; break;
-      case "--borrow-per-hour": costModel = { ...costModel, borrowRatePerHour: positiveNumber(flag, raw, true) }; break;
-      case "--risk-per-trade": positionSize = { ...positionSize, riskPerTrade: positiveNumber(flag, raw) }; break;
-      case "--max-position-pct-equity": positionSize = { ...positionSize, maxPositionPctEquity: positiveNumber(flag, raw) }; break;
-      case "--min-position-pct-equity": positionSize = { ...positionSize, minPositionPctEquity: positiveNumber(flag, raw, true) }; break;
-      case "--max-drawdown": positionSize = { ...positionSize, maxDrawdown: positiveNumber(flag, raw) }; break;
-      default: throw new Error(`Unknown argument: ${arg}`);
+      case "--start":
+        startTime = new Date(raw);
+        break;
+      case "--end":
+        endTime = new Date(raw);
+        break;
+      case "--equity":
+        initialEquity = positiveNumber(flag, raw);
+        break;
+      case "--output":
+        outputPath = raw;
+        break;
+      case "--data-dir":
+        dataDir = resolve(raw);
+        break;
+      case "--fast-ema":
+        strategyConfig = { ...strategyConfig, fastEma: positiveInteger(flag, raw) };
+        break;
+      case "--slow-ema":
+        strategyConfig = { ...strategyConfig, slowEma: positiveInteger(flag, raw) };
+        break;
+      case "--rsi-period":
+        strategyConfig = { ...strategyConfig, rsiPeriod: positiveInteger(flag, raw) };
+        break;
+      case "--atr-period":
+        strategyConfig = { ...strategyConfig, atrPeriod: positiveInteger(flag, raw) };
+        break;
+      case "--atr-stop-multiplier":
+        strategyConfig = { ...strategyConfig, atrStopMultiplier: positiveNumber(flag, raw) };
+        break;
+      case "--reward-to-risk":
+        strategyConfig = { ...strategyConfig, rewardToRisk: positiveNumber(flag, raw) };
+        break;
+      case "--cross-lookback":
+        strategyConfig = { ...strategyConfig, crossLookback: positiveInteger(flag, raw) };
+        break;
+      case "--taker-fee":
+        costModel = { ...costModel, takerFeeRate: positiveNumber(flag, raw, true) };
+        break;
+      case "--slippage":
+        costModel = { ...costModel, slippageRate: positiveNumber(flag, raw, true) };
+        break;
+      case "--spread":
+        costModel = { ...costModel, spreadRate: positiveNumber(flag, raw, true) };
+        break;
+      case "--borrow-per-hour":
+        costModel = { ...costModel, borrowRatePerHour: positiveNumber(flag, raw, true) };
+        break;
+      case "--risk-per-trade":
+        positionSize = { ...positionSize, riskPerTrade: positiveNumber(flag, raw) };
+        break;
+      case "--max-position-pct-equity":
+        positionSize = { ...positionSize, maxPositionPctEquity: positiveNumber(flag, raw) };
+        break;
+      case "--min-position-pct-equity":
+        positionSize = { ...positionSize, minPositionPctEquity: positiveNumber(flag, raw, true) };
+        break;
+      case "--max-drawdown":
+        positionSize = { ...positionSize, maxDrawdown: positiveNumber(flag, raw) };
+        break;
+      default:
+        throw new Error(`Unknown argument: ${arg}`);
     }
   }
 
@@ -122,7 +167,10 @@ export function parseArgs(argv: readonly string[] = process.argv.slice(2)): Ohlc
   if (strategyConfig.fastEma >= strategyConfig.slowEma) {
     throw new Error("--fast-ema must be smaller than --slow-ema");
   }
-  if (positionSize.maxPositionPctEquity > 1 || positionSize.minPositionPctEquity > positionSize.maxPositionPctEquity) {
+  if (
+    positionSize.maxPositionPctEquity > 1 ||
+    positionSize.minPositionPctEquity > positionSize.maxPositionPctEquity
+  ) {
     throw new Error("position-size fractions must satisfy 0 <= min <= max <= 1");
   }
   if (positionSize.riskPerTrade > 1 || positionSize.maxDrawdown > 1) {
@@ -160,7 +208,9 @@ export function runOhlcTrendReplay(
   args: OhlcTrendCliArgs,
 ): { readonly result: BacktestResult; readonly metrics: BacktestMetrics } {
   if (candles.length <= args.strategyConfig.slowEma) {
-    throw new Error(`Not enough real OHLCV candles: need > ${args.strategyConfig.slowEma}, got ${candles.length}`);
+    throw new Error(
+      `Not enough real OHLCV candles: need > ${args.strategyConfig.slowEma}, got ${candles.length}`,
+    );
   }
 
   const strategy = new OhlcTrendStrategy(args.strategyConfig);
@@ -197,12 +247,7 @@ export function runOhlcTrendReplay(
           signal.side,
           args.costModel.slippageRate,
         );
-        const notionalUsd = positionNotionalUsd(
-          cashEquity,
-          entryPrice,
-          signal.stopLoss,
-          args.positionSize,
-        );
+        const notionalUsd = positionNotionalUsd(cashEquity, entryPrice, signal.stopLoss, args.positionSize);
         position = {
           symbol: makeSymbol(args.symbol),
           side: signal.side,
@@ -251,7 +296,12 @@ export function runOhlcTrendReplay(
 
   if (position !== null) {
     const last = ordered[ordered.length - 1]!;
-    const trade = closePosition(position, last, { reason: "end_of_data", exitPrice: last.close }, args.costModel);
+    const trade = closePosition(
+      position,
+      last,
+      { reason: "end_of_data", exitPrice: last.close },
+      args.costModel,
+    );
     trades.push(trade);
     cashEquity += trade.pnlUsd;
     recordEquity(equityCurve, last.timestamp + timeframeMs, cashEquity);
@@ -287,10 +337,14 @@ export async function main(): Promise<void> {
   const args = parseArgs();
   const feed = new CsvExchangeFeed(args.dataDir);
   const timeframeMs = TIMEFRAME_MS[args.timeframe];
-  const candles = (await feed.fetchOHLCV(args.symbol, args.timeframe, {
-    since: args.startTime.getTime(),
-    limit: Number.MAX_SAFE_INTEGER,
-  })).filter((c) => c.timestamp >= args.startTime.getTime() && c.timestamp + timeframeMs <= args.endTime.getTime());
+  const candles = (
+    await feed.fetchOHLCV(args.symbol, args.timeframe, {
+      since: args.startTime.getTime(),
+      limit: Number.MAX_SAFE_INTEGER,
+    })
+  ).filter(
+    (c) => c.timestamp >= args.startTime.getTime() && c.timestamp + timeframeMs <= args.endTime.getTime(),
+  );
   const { result, metrics } = runOhlcTrendReplay(candles, args);
   const totalMonths = (args.endTime.getTime() - args.startTime.getTime()) / (30.44 * 24 * 60 * 60 * 1000);
   const monthlyReturn = calculateMonthlyReturn(result.totalReturn, totalMonths);
@@ -321,7 +375,9 @@ export async function main(): Promise<void> {
   await mkdir(resolve(absOutput, ".."), { recursive: true });
   await writeFile(absOutput, JSON.stringify(output, null, 2), "utf8");
   console.log(`[ohlc-trend] real CSV candles=${candles.length} trades=${result.totalTrades}`);
-  console.log(`[ohlc-trend] return=${(result.totalReturn * 100).toFixed(2)}% maxDD=${(result.maxDrawdown * 100).toFixed(2)}% Sharpe=${result.sharpeRatio.toFixed(3)}`);
+  console.log(
+    `[ohlc-trend] return=${(result.totalReturn * 100).toFixed(2)}% maxDD=${(result.maxDrawdown * 100).toFixed(2)}% Sharpe=${result.sharpeRatio.toFixed(3)}`,
+  );
   console.log(`[ohlc-trend] Saved: ${absOutput}`);
 }
 

@@ -25,11 +25,11 @@ const BASE_CONFIG = {
     windowSize: 50,
     minTrades: 10,
     fallbackFraction: 0.01,
-    maxFraction: 0.10,
+    maxFraction: 0.1,
   },
   drawdownScaler: {
     enabled: true,
-    maxDdPct: 0.20,
+    maxDdPct: 0.2,
     initialEquity: 10_000,
   },
 };
@@ -182,7 +182,7 @@ describe("RiskManager", () => {
       kelly: { ...BASE_CONFIG.kelly, enabled: false },
     });
     rm.onEquityUpdate(8_900); // -11% from 10_000 = 55% of 20% → caution (scale 0.5)
-    const size = rm.evaluateNewPositionSize({ equityUsd: 8_900, baseSizeFraction: 0.10 });
+    const size = rm.evaluateNewPositionSize({ equityUsd: 8_900, baseSizeFraction: 0.1 });
     expect(size).toBeCloseTo(0.05, 6);
   });
 

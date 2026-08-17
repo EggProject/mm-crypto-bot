@@ -107,35 +107,36 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
   });
 
   it("construction with bad minDifferentialPer8h REJECTED", () => {
-    expect(() =>
-      new CrossSymbolFundingDifferentialPlugin({ minDifferentialPer8h: -0.001 }),
-    ).toThrow(/minDifferentialPer8h=/);
-    expect(() =>
-      new CrossSymbolFundingDifferentialPlugin({ minDifferentialPer8h: 0.1 }),
-    ).toThrow(/minDifferentialPer8h=/);
-    expect(() =>
-      new CrossSymbolFundingDifferentialPlugin({
-        minDifferentialPer8h: Number.NaN,
-      }),
+    expect(() => new CrossSymbolFundingDifferentialPlugin({ minDifferentialPer8h: -0.001 })).toThrow(
+      /minDifferentialPer8h=/,
+    );
+    expect(() => new CrossSymbolFundingDifferentialPlugin({ minDifferentialPer8h: 0.1 })).toThrow(
+      /minDifferentialPer8h=/,
+    );
+    expect(
+      () =>
+        new CrossSymbolFundingDifferentialPlugin({
+          minDifferentialPer8h: Number.NaN,
+        }),
     ).toThrow(/minDifferentialPer8h=NaN/);
   });
 
   it("construction with bad baseNotionalUsd REJECTED", () => {
-    expect(() =>
-      new CrossSymbolFundingDifferentialPlugin({ baseNotionalUsd: 0 }),
-    ).toThrow(/baseNotionalUsd=0/);
-    expect(() =>
-      new CrossSymbolFundingDifferentialPlugin({ baseNotionalUsd: -100 }),
-    ).toThrow(/baseNotionalUsd=-100/);
-    expect(() =>
-      new CrossSymbolFundingDifferentialPlugin({ baseNotionalUsd: 1e15 }),
-    ).toThrow(/baseNotionalUsd=/);
+    expect(() => new CrossSymbolFundingDifferentialPlugin({ baseNotionalUsd: 0 })).toThrow(
+      /baseNotionalUsd=0/,
+    );
+    expect(() => new CrossSymbolFundingDifferentialPlugin({ baseNotionalUsd: -100 })).toThrow(
+      /baseNotionalUsd=-100/,
+    );
+    expect(() => new CrossSymbolFundingDifferentialPlugin({ baseNotionalUsd: 1e15 })).toThrow(
+      /baseNotionalUsd=/,
+    );
   });
 
   it("construction with empty enabledPairs REJECTED", () => {
-    expect(
-      () => new CrossSymbolFundingDifferentialPlugin({ enabledPairs: [] }),
-    ).toThrow(/enabledPairs must be a non-empty/);
+    expect(() => new CrossSymbolFundingDifferentialPlugin({ enabledPairs: [] })).toThrow(
+      /enabledPairs must be a non-empty/,
+    );
   });
 
   it("construction with enabledPairs[i] not a tuple REJECTED", () => {
@@ -396,10 +397,12 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
     ethBus.subscribe("carry", (s) => {
       ethCarry.push({ regime: (s as { regime: string }).regime });
     });
-    p.subscribeBuses(new Map([
-      ["BTC/USDT", btcBus],
-      ["ETH/USDT", ethBus],
-    ]));
+    p.subscribeBuses(
+      new Map([
+        ["BTC/USDT", btcBus],
+        ["ETH/USDT", ethBus],
+      ]),
+    );
     p.recordFundingRate("BTC/USDT", 0.0003);
     p.recordFundingRate("ETH/USDT", 0.0001);
     // legA (BTC) signal goes to BTC bus; legB (ETH) signal goes to ETH bus.
@@ -485,12 +488,8 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
     expect(p.validateConfig({ minDifferentialPer8h: -1 }).ok).toBe(false);
     expect(p.validateConfig({ baseNotionalUsd: -1 }).ok).toBe(false);
     expect(p.validateConfig({ enabledPairs: [] }).ok).toBe(false);
-    expect(
-      p.validateConfig({ enabledPairs: [["BTC/USDT", "ETH/USDT"]] }).ok,
-    ).toBe(true);
-    expect(
-      p.validateConfig({ enabledPairs: [["BTC/USDT", "BTC/USDT"]] }).ok,
-    ).toBe(false);
+    expect(p.validateConfig({ enabledPairs: [["BTC/USDT", "ETH/USDT"]] }).ok).toBe(true);
+    expect(p.validateConfig({ enabledPairs: [["BTC/USDT", "BTC/USDT"]] }).ok).toBe(false);
   });
 
   it("effectiveMaxNotionalUsd = baseNotionalUsd * 10", () => {
@@ -557,9 +556,9 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
   });
 
   it("ADVERSARIAL: empty enabledPairs throws at construction", () => {
-    expect(
-      () => new CrossSymbolFundingDifferentialPlugin({ enabledPairs: [] }),
-    ).toThrow(/enabledPairs must be a non-empty/);
+    expect(() => new CrossSymbolFundingDifferentialPlugin({ enabledPairs: [] })).toThrow(
+      /enabledPairs must be a non-empty/,
+    );
   });
 
   it("ADVERSARIAL: multiple enabled pairs processed independently", () => {

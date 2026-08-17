@@ -1,4 +1,5 @@
 # Data Feeds Reference — Track E (Order-Flow / Liquidation Cascade)
+
 ## Phase 11.3 Crypto-Native Microstructure Research
 
 **Purpose**: Inventory of all data feeds required to build Phase 11.4+ plugins derived from this track's research. Each feed annotated with: provider, cost, latency, historical depth, schema, and which alpha hypothesis (H1-H5) it supports.
@@ -8,6 +9,7 @@
 ## §A. Liquidation Data (PRIMARY feed for cascades)
 
 ### A1. Coinglass Aggregated Liquidation History
+
 - **Provider**: Coinglass (coinglass.com)
 - **Endpoint**: `GET /api/futures/liquidation/aggregated-history`
 - **Schema**: `{ time, aggregated_long_liquidation_usd, aggregated_short_liquidation_usd }` per candle
@@ -20,6 +22,7 @@
 - **Notes**: Free Coinglass UI provides liquidation heatmap visualization (cluster proximity ±1-5%) which is the empirical 82% touch-rate signal source. The heatmap is **model output, not raw data** — it's inferred from public OI + leverage tiers + recent liquidation stream.
 
 ### A2. Binance `!forceOrder@arr` WebSocket (per-trade liquidation stream)
+
 - **Provider**: Binance Futures
 - **Endpoint**: `wss://fstream.binance.com/ws/!forceOrder@arr`
 - **Schema**: `{ "e":"forceOrder", "E":..., "o":{ "s":"BTCUSDT", "S":"BUY"/"SELL", "o":"LIMIT", ... "ap": avg price, "q": qty, ... } }`
@@ -31,6 +34,7 @@
 - **Notes**: The `!` prefix means "all symbols in one stream" — very efficient for detecting cross-symbol contagion patterns.
 
 ### A3. Bybit Liquidation Stream
+
 - **Provider**: Bybit
 - **Endpoint**: `wss://stream.bybit.com/v5/public/linear` topic `liquidation`
 - **Schema**: `{ topic:"liquidation.BTCUSDT", data: { size, price, side, updatedTime, ... } }`
@@ -40,6 +44,7 @@
 - **Use cases**: H4 (cross-venue detection — when Binance fires and Bybit doesn't = isolated event)
 
 ### A4. OKX Liquidation Stream
+
 - **Provider**: OKX
 - **Endpoint**: `wss://ws.okx.com:8443/ws/v5/public` channel `liquidations` under `public-channel`
 - **Schema**: `{ arg:{ channel:"liquidations", instType:"SWAP" }, data:[[ instId, details, fillTime, ... ]] }`
@@ -49,6 +54,7 @@
 - **Use cases**: H4 (third leg of cross-venue divergence detection)
 
 ### A5. MarketTrace Cross-Exchange Liquidation Tape (visualization + paid API)
+
 - **Provider**: markettrace.ai
 - **Endpoint**: Web UI live tape + REST API
 - **Coverage**: Binance + Bybit + OKX unified, Hyperliquid reconstructed from on-chain
@@ -61,6 +67,7 @@
 ## §B. Open Interest Data
 
 ### B1. CoinGlass OI History
+
 - **Provider**: Coinglass
 - **Endpoint**: `GET /api/futures/openInterest/ohlc-history`
 - **Schema**: `{ time, open, high, low, close, volume }` OI candlesticks
@@ -69,6 +76,7 @@
 - **Use cases**: H3 (cascade-defensive composite: OI > 90-day SMA), H5 (post-cascade -25% decline)
 
 ### B2. Binance OI WebSocket
+
 - **Provider**: Binance Futures
 - **Endpoint**: `wss://fstream.binance.com/ws/<symbol>@openInterest` per symbol, or REST `GET /fapi/v1/openInterest`
 - **Latency**: real-time push
@@ -77,6 +85,7 @@
 - **Use cases**: real-time H3 composite, intraday OI delta detection
 
 ### B3. Coinalyze OI Aggregator
+
 - **Provider**: coinalyze.net
 - **Coverage**: aggregated OI across multiple exchanges, longer history than per-exchange
 - **Cost**: free tier with limits, Pro tier for full history
@@ -87,18 +96,21 @@
 ## §C. Funding Rate Data
 
 ### C1. CoinGlass Funding Rate History
+
 - **Endpoint**: `GET /api/futures/fundingRate/ohlc-history` (for OHLC) and `GET /api/futures/fundingRate/history`
 - **Coverage**: aggregated + per-exchange
 - **Cost**: $29/mo Hobbyist
 - **Use cases**: H3 (cascade composite: funding APR > 15% sustained 3+ days), H5 (post-cascade funding reversal)
 
 ### C2. Binance Funding Rate
+
 - **Endpoint**: `wss://fstream.binance.com/ws/<symbol>@markPrice` (includes next funding rate estimate) + REST `GET /fapi/v1/fundingRate` for history
 - **Schema**: `{ symbol, fundingTime, fundingRate, markPrice }`
 - **Latency**: real-time via markPrice stream (predicted next funding rate), 8h settlement via history
 - **Cost**: FREE
 
 ### C3. Cross-Exchange Funding Rate Aggregation (Bybit/OKX/Bitget)
+
 - **Bybit**: `GET /v5/market/tickers` returns `fundingRate` field
 - **OKX**: `GET /api/v5/public/funding-rate` returns current + historical
 - **Bitget**: `GET /api/v2/mix/market/ticker` returns `fundingRate`
@@ -110,6 +122,7 @@
 ## §D. Order Book / L2 Depth Data
 
 ### D1. Binance Depth Stream (real-time L2)
+
 - **Endpoint**: `wss://fstream.binance.com/ws/<symbol>@depth20@100ms` (top 20 levels, 100ms refresh) or `<symbol>@depth` (full diff stream)
 - **Schema**: `{ bids:[[price, qty],...], asks:[[price, qty],...] }`
 - **Latency**: 100ms-1000ms push
@@ -117,18 +130,21 @@
 - **Cost**: real-time FREE; historical via Tardis $$$
 
 ### D2. OKX L2 Historical (since March 2023)
+
 - **Provider**: OKX
 - **Endpoint**: `GET /api/v5/market/books-history` for snapshot history
 - **Cost**: FREE for retail (5 req/2s)
 - **Coverage**: since March 2023 — sufficient for Phase 11.4+ backtest
 
 ### D3. Tardis.dev Historical L2 (paid but best)
+
 - **Provider**: tardis.dev
 - **Coverage**: Binance/Bybit/OKX/BitMEX historical incremental L2 since 2019
 - **Cost**: ~$50-200/mo depending on data volume
 - **Use cases**: H4 backtest (need historical L2 to compute OFI across venues), H1 historical validation
 
 ### D4. Coinglass Order Book Snapshots (V4 API)
+
 - **Endpoint**: `GET /api/spot/orderbook/snapshot`, `GET /api/futures/orderbook/snapshot`
 - **Coverage**: L2 + L3 depth
 - **Cost**: $79/mo Startup and above
@@ -138,6 +154,7 @@
 ## §E. Trade Tape (L1 — AggTrades)
 
 ### E1. Binance aggTrades (public WebSocket + Vision historical)
+
 - **Real-time**: `wss://fstream.binance.com/ws/<symbol>@aggTrade`
 - **Schema**: `{ "e":"aggTrade", "E":..., "s":"BTCUSDT", "a": tradeId, "p": price, "q": qty, "f": firstTradeId, "l": lastTradeId, "T": timestamp, "m": isBuyerMaker }`
 - **`m` field is critical**: `isBuyerMaker=true` means taker sold (aggressor is seller). `isBuyerMaker=false` means taker bought.
@@ -146,10 +163,12 @@
 - **Use cases**: H2 (VPIN computation requires `isBuyerMaker` field to split taker buy vs sell volume per volume bucket), H5 (CVD calculation), H1 (footprint chart per candle)
 
 ### E2. Bybit + OKX + Bitget Trade Streams
+
 - Similar structure; for cross-venue OFI in H4 we need all three
 - **Cost**: FREE for real-time; historical free but limited to recent
 
 ### E3. Coinglass AggTrades History
+
 - 300+ billion raw tick-by-tick records
 - 1,500+ TB historical high-frequency
 - Available via V4 API Professional and above ($699/mo)
@@ -159,17 +178,20 @@
 ## §F. On-Chain Leverage Metrics (for ELR + cross-validation)
 
 ### F1. CryptoQuant Estimated Leverage Ratio (ELR)
+
 - **Definition**: `ELR = OI_usd / exchange_reserve_usd`
 - **Endpoint**: CryptoQuant API `GET /api/v1/btc/market/estimated-leverage-ratio`
 - **Cost**: free for current snapshot; Pro ($49/mo) for historical
 - **Use cases**: H3 (cascade-defensive composite threshold: ELR > 0.55)
 
 ### F2. CryptoVault / Glassnode Cross-Validation
+
 - **Glassnode**: ELR is computed in "Week On-Chain" reports as part of derivatives section
 - **Glassnode Studio**: free tier shows current ELR + limited history
 - **Cost**: free for current, Professional $800/mo for full history
 
 ### F3. CryptoQuant Exchange Reserves
+
 - Endpoint: `/api/v1/btc/exchange-flows/netflow` (free, current)
 - Used in ELR denominator
 
@@ -178,12 +200,14 @@
 ## §G. CVD (Cumulative Volume Delta) — Computable, no separate feed
 
 ### G1. CVD from aggTrades (computed locally)
+
 - **Algorithm**: `CVD(t) = CVD(t-1) + Σ(volume × sign)` where sign = +1 if `isBuyerMaker=false` (taker buy), -1 if `isBuyerMaker=true`
 - **Per-symbol**: compute 4h or 1h or 5min trailing CVD
 - **Storage**: ~10MB/day per symbol for full aggTrade stream
 - **Use cases**: H5 (post-cascade exhaustion via CVD divergence from price), H2 (VPIN volume decomposition)
 
 ### G2. CVD from Sharpe.ai or MarketTrace
+
 - Vendor-computed pre-built CVD time-series
 - Sharpe.ai: paid; MarketTrace: aggregated
 
@@ -192,11 +216,13 @@
 ## §H. Cross-Asset Contagion Data
 
 ### H1. Cross-margin Position Data (largely unavailable)
+
 - **Problem**: cross-margin is venue-specific; exchanges don't expose position-by-account cross-margin status
 - **Workaround**: derive contagion lag empirically from minute-resolution liquidation stream cross-correlation (Anatomy of Oct 10-11 paper approach)
 - **Cost**: compute-only
 
 ### H2. DCC-GARCH / Multivariate Realized Volatility
+
 - Computable from minute-resolution close prices across BTC/ETH/SOL
 - Data source: Binance/OKX kline_1m (free)
 - **Use cases**: H4 (cross-asset contagion modeling), H3 (regime detection enhancement)
@@ -206,23 +232,27 @@
 ## §I. Academic / Practitioner Source Repository
 
 ### I1. Brunnermeier-Pedersen Liquidity Spiral Models
+
 - Source: Princeton Markus Brunnermeier research page
 - URL: https://www.princeton.edu/~markus/research/papers/liquidity.pdf
 - Cost: FREE academic access
 - Use: theoretical justification for cascade overlay design
 
 ### I2. Alperen-Unal 2024 Thesis
+
 - Source: Politecnico Milano master's thesis on VeloData
 - GitHub: https://github.com/Alperen-Unal/Early-Detection-and-Prediction-of-Liquidation-Cascades-in-Cryptocurrency-Markets
 - Cost: FREE (GitHub repo with code + thesis PDF)
 - Use: reference architecture for Plugin E1 cascade-defensive overlay (GARCH+LSTM hybrid)
 
 ### I3. MEXC Research Substack / Blog
+
 - https://www.mexc.com/news/1002105
 - Free; provides VPIN alpha decay empirical data + Python implementation
 - Use: reference for Plugin E4 VPIN flow direction implementation
 
 ### I4. Glassnode Insights Archive (2020-2025)
+
 - https://insights.glassnode.com + https://research.glassnode.com
 - Free summaries; Pro for full PDF reports
 - Use: cascade chronology validation, cross-validation of pre-cascade OI/ELR/funding readings
@@ -231,19 +261,20 @@
 
 ## §J. Vendor Comparison Summary (Build vs Buy)
 
-| Capability | Free path | Paid path | Plugin recommendation |
-|------------|-----------|-----------|----------------------|
-| Liquidation stream (real-time) | Binance/Bybit/OKX free WS | MarketTrace $ | E1, E4: build (free) |
-| Liquidation history | Binance REST 7-day | Coinglass $29+/mo | E1, E5: build (free) |
-| Liquidation heatmap model | Manual scrape Coinglass UI | Coinglass API $29+/mo | E1: Coinglass $29/mo |
-| OI history | Per-exchange 30-day | Coinglass $29+/mo | E1, E5: Coinglass $29/mo |
-| Funding rate history | Per-exchange free | Coinglass $29+/mo | E1, E5: Coinglass $29/mo |
-| L2 order book history | OKX since 2023 (free) | Tardis $50+/mo | E4: build on OKX free |
-| Cross-venue funding arb | Per-exchange free | Coinalyze $ | E2: build (free) |
-| ELR | CryptoQuant current free | CryptoQuant Pro $49+/mo | E1: Pro for historical |
-| CVD computation | aggTrades free | Sharpe.ai $ | E5: build on aggTrades |
+| Capability                     | Free path                  | Paid path               | Plugin recommendation    |
+| ------------------------------ | -------------------------- | ----------------------- | ------------------------ |
+| Liquidation stream (real-time) | Binance/Bybit/OKX free WS  | MarketTrace $           | E1, E4: build (free)     |
+| Liquidation history            | Binance REST 7-day         | Coinglass $29+/mo       | E1, E5: build (free)     |
+| Liquidation heatmap model      | Manual scrape Coinglass UI | Coinglass API $29+/mo   | E1: Coinglass $29/mo     |
+| OI history                     | Per-exchange 30-day        | Coinglass $29+/mo       | E1, E5: Coinglass $29/mo |
+| Funding rate history           | Per-exchange free          | Coinglass $29+/mo       | E1, E5: Coinglass $29/mo |
+| L2 order book history          | OKX since 2023 (free)      | Tardis $50+/mo          | E4: build on OKX free    |
+| Cross-venue funding arb        | Per-exchange free          | Coinalyze $             | E2: build (free)         |
+| ELR                            | CryptoQuant current free   | CryptoQuant Pro $49+/mo | E1: Pro for historical   |
+| CVD computation                | aggTrades free             | Sharpe.ai $             | E5: build on aggTrades   |
 
 **Total minimum spend for Phase 11.4+ Track E implementation**:
+
 - Hobbyist: Coinglass $29/mo + CryptoQuant Pro $49/mo = **$78/mo**
 - Sufficient for: Plugin E1 (CascadeDefensiveOverlay), Plugin E4 (VpinFlowDirection), Plugin E5 (CascadeExhaustionReversal)
 - For Plugin E2 (CrossExchangeFundingArb): free path only, but cross-venue aggregation needs building
@@ -254,13 +285,13 @@
 
 For each plugin, what data latency is required?
 
-| Plugin | Min acceptable latency | Why |
-|--------|------------------------|-----|
-| E1 CascadeDefensiveOverlay | 1-5 min | Composite of OI + ELR + funding + cluster proximity — slow-moving signals; 1-min refresh sufficient |
-| E2 CrossExchangeFundingArb | 1 sec | Funding-rate arb is competitive; settlement is 8h but entry/exit must catch ephemeral divergence |
-| E3 FootprintChartVisualizer | 100 ms | Real-time trader UI requirement |
-| E4 VpinFlowDirection | 1 min | VPIN bucket size = daily volume / 50 → ~30 min per bucket on BTC; 1-min refresh overkill but needed for flow_sign |
-| E5 CascadeExhaustionReversal | 1 min | Post-event contrarian; OI delta + CVD divergence computed at 1-min granularity |
+| Plugin                       | Min acceptable latency | Why                                                                                                               |
+| ---------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| E1 CascadeDefensiveOverlay   | 1-5 min                | Composite of OI + ELR + funding + cluster proximity — slow-moving signals; 1-min refresh sufficient               |
+| E2 CrossExchangeFundingArb   | 1 sec                  | Funding-rate arb is competitive; settlement is 8h but entry/exit must catch ephemeral divergence                  |
+| E3 FootprintChartVisualizer  | 100 ms                 | Real-time trader UI requirement                                                                                   |
+| E4 VpinFlowDirection         | 1 min                  | VPIN bucket size = daily volume / 50 → ~30 min per bucket on BTC; 1-min refresh overkill but needed for flow_sign |
+| E5 CascadeExhaustionReversal | 1 min                  | Post-event contrarian; OI delta + CVD divergence computed at 1-min granularity                                    |
 
 **Latency infrastructure**: Phase 11.4+ should run a single Node.js / Bun process polling Binance/OKX/Bybit WebSockets + REST Coinglass 1-min cadence. Total budget: <$5/mo for cloud VPS (Hetzner / OVH) at this load.
 
@@ -271,25 +302,25 @@ For each plugin, what data latency is required?
 ```typescript
 // Plugin E1 cascade-defensive-overlay — minimum data interface
 type CascadeDefensiveState = {
-  timestamp: number;            // ms epoch
-  symbol: 'BTCUSDT' | 'ETHUSDT' | 'SOLUSDT';
-  compositeRiskScore: number;   // 0-100
+  timestamp: number; // ms epoch
+  symbol: "BTCUSDT" | "ETHUSDT" | "SOLUSDT";
+  compositeRiskScore: number; // 0-100
   components: {
-    oiVsSmaRatio: number;       // OI / OI-90d-SMA, threshold > 1.0 = elevated
-    elrCurrent: number;         // CryptoQuant snapshot, threshold > 0.55 = elevated
+    oiVsSmaRatio: number; // OI / OI-90d-SMA, threshold > 1.0 = elevated
+    elrCurrent: number; // CryptoQuant snapshot, threshold > 0.55 = elevated
     fundingAprSustained: number; // 3-day rolling APR, threshold > 15% = elevated
     liquidationClusterProximity1pct: number; // Coinglass cluster density within ±1%
     liquidationIntensity24h: number; // daily liq / OI, threshold > 5% = extreme
   };
   recommendedLeverage: 1 | 3 | 5 | 10; // discrete scaling
-  triggeredAt: number;          // ms epoch when last scale-down occurred
+  triggeredAt: number; // ms epoch when last scale-down occurred
 };
 
 // Composite calculation (suggested weights from Amberdata + Axel Adler empirical):
-// riskScore = w1*oiVsSmaRatio_normalized 
-//           + w2*elr_normalized 
-//           + w3*fundingApr_normalized 
-//           + w4*clusterProximity_normalized 
+// riskScore = w1*oiVsSmaRatio_normalized
+//           + w2*elr_normalized
+//           + w3*fundingApr_normalized
+//           + w4*clusterProximity_normalized
 //           + w5*liqIntensity_normalized
 // where wi = 0.20 each, normalization = z-score over 90-day history
 

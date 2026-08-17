@@ -129,42 +129,32 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
   });
 
   it("construction with windowDays < 2 REJECTED", () => {
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ windowDays: 1 }),
-    ).toThrow(/windowDays=1/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ windowDays: 1 })).toThrow(/windowDays=1/);
   });
 
   it("construction with windowDays > 365 REJECTED", () => {
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ windowDays: 366 }),
-    ).toThrow(/windowDays=366/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ windowDays: 366 })).toThrow(/windowDays=366/);
   });
 
   it("construction with non-integer windowDays REJECTED", () => {
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ windowDays: 2.5 }),
-    ).toThrow(/windowDays=2\.5/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ windowDays: 2.5 })).toThrow(/windowDays=2\.5/);
   });
 
   it("construction with bad zEntryThreshold REJECTED", () => {
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ zEntryThreshold: -1 }),
-    ).toThrow(/zEntryThreshold=-1/);
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ zEntryThreshold: 100 }),
-    ).toThrow(/zEntryThreshold=100/);
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ zEntryThreshold: Number.NaN }),
-    ).toThrow(/zEntryThreshold=NaN/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ zEntryThreshold: -1 })).toThrow(/zEntryThreshold=-1/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ zEntryThreshold: 100 })).toThrow(
+      /zEntryThreshold=100/,
+    );
+    expect(() => new CrossSymbolSpreadReversionPlugin({ zEntryThreshold: Number.NaN })).toThrow(
+      /zEntryThreshold=NaN/,
+    );
   });
 
   it("construction with bad zExitThreshold REJECTED", () => {
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ zExitThreshold: -0.1 }),
-    ).toThrow(/zExitThreshold=-0\.1/);
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ zExitThreshold: 100 }),
-    ).toThrow(/zExitThreshold=100/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ zExitThreshold: -0.1 })).toThrow(
+      /zExitThreshold=-0\.1/,
+    );
+    expect(() => new CrossSymbolSpreadReversionPlugin({ zExitThreshold: 100 })).toThrow(/zExitThreshold=100/);
   });
 
   it("construction with zExitThreshold >= zEntryThreshold REJECTED", () => {
@@ -185,24 +175,16 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
   });
 
   it("construction with bad minHoldBars REJECTED", () => {
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ minHoldBars: 0 }),
-    ).toThrow(/minHoldBars=0/);
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ minHoldBars: 101 }),
-    ).toThrow(/minHoldBars=101/);
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ minHoldBars: 1.5 }),
-    ).toThrow(/minHoldBars=1\.5/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ minHoldBars: 0 })).toThrow(/minHoldBars=0/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ minHoldBars: 101 })).toThrow(/minHoldBars=101/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ minHoldBars: 1.5 })).toThrow(/minHoldBars=1\.5/);
   });
 
   it("construction with bad baseNotionalUsd REJECTED", () => {
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ baseNotionalUsd: 0 }),
-    ).toThrow(/baseNotionalUsd=0/);
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ baseNotionalUsd: -1000 }),
-    ).toThrow(/baseNotionalUsd=-1000/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ baseNotionalUsd: 0 })).toThrow(/baseNotionalUsd=0/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ baseNotionalUsd: -1000 })).toThrow(
+      /baseNotionalUsd=-1000/,
+    );
     expect(
       () =>
         new CrossSymbolSpreadReversionPlugin({
@@ -212,9 +194,9 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
   });
 
   it("construction with empty enabledPairs REJECTED", () => {
-    expect(
-      () => new CrossSymbolSpreadReversionPlugin({ enabledPairs: [] }),
-    ).toThrow(/enabledPairs must be a non-empty array/);
+    expect(() => new CrossSymbolSpreadReversionPlugin({ enabledPairs: [] })).toThrow(
+      /enabledPairs must be a non-empty array/,
+    );
   });
 
   it("construction with enabledPairs[i] not a tuple REJECTED", () => {
@@ -555,10 +537,12 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     ethBus.subscribe("direction", (s) => {
       ethReceived.push({ side: (s as { side: string }).side, source: (s as { source: string }).source });
     });
-    p.subscribeBuses(new Map([
-      ["BTC/USDT", btcBus],
-      ["ETH/USDT", ethBus],
-    ]));
+    p.subscribeBuses(
+      new Map([
+        ["BTC/USDT", btcBus],
+        ["ETH/USDT", ethBus],
+      ]),
+    );
     for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
     for (let i = 0; i < 10; i++) p.recordClose("ETH/USDT", i === 9 ? 50 : 100);
     // Both legs receive their respective signal — legA on BTC bus,
@@ -657,15 +641,9 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
 
   it("validateConfig: cross-validates zExit < zEntry", () => {
     const p = new CrossSymbolSpreadReversionPlugin();
-    expect(
-      p.validateConfig({ zEntryThreshold: 1.0, zExitThreshold: 2.0 }).ok,
-    ).toBe(false);
-    expect(
-      p.validateConfig({ zEntryThreshold: 2.0, zExitThreshold: 2.0 }).ok,
-    ).toBe(false);
-    expect(
-      p.validateConfig({ zEntryThreshold: 3.0, zExitThreshold: 0.5 }).ok,
-    ).toBe(true);
+    expect(p.validateConfig({ zEntryThreshold: 1.0, zExitThreshold: 2.0 }).ok).toBe(false);
+    expect(p.validateConfig({ zEntryThreshold: 2.0, zExitThreshold: 2.0 }).ok).toBe(false);
+    expect(p.validateConfig({ zEntryThreshold: 3.0, zExitThreshold: 0.5 }).ok).toBe(true);
   });
 
   it("ADVERSARIAL: malformed payloads (NaN, Infinity, 0, negative) all dropped", () => {
@@ -726,8 +704,7 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     p.subscribe(new SignalBus());
     const before = p.state.layer2AssertionCount;
     for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
-    for (let i = 0; i < 10; i++)
-      p.recordClose("ETH/USDT", i === 9 ? 50 : 100);
+    for (let i = 0; i < 10; i++) p.recordClose("ETH/USDT", i === 9 ? 50 : 100);
     expect(p.state.layer2AssertionCount).toBeGreaterThan(before);
   });
 

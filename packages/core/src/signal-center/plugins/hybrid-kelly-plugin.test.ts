@@ -55,9 +55,7 @@ import { VolTargetSizingPlugin } from "./vol-target-sizing-plugin.js";
 
 const mkBus = (): SignalBus => new SignalBus({ mode: "backtest" });
 
-const wirePlugin = (
-  plugin: HybridKellyPlugin,
-): { bus: SignalBus; captured: SizingSignal[] } => {
+const wirePlugin = (plugin: HybridKellyPlugin): { bus: SignalBus; captured: SizingSignal[] } => {
   const bus = mkBus();
   const captured: SizingSignal[] = [];
   plugin.subscribe(bus);
@@ -151,11 +149,13 @@ describe("HybridKellyPlugin — sizing-transform composition", () => {
     hybrid.subscribe(bus);
     volTarget.subscribe(bus);
 
-    bus.emit(mkSizing({
-      symbol: "BTC/USDT",
-      source: "alpha",
-      timestampMs: 1_700_000_000_000,
-    }));
+    bus.emit(
+      mkSizing({
+        symbol: "BTC/USDT",
+        source: "alpha",
+        timestampMs: 1_700_000_000_000,
+      }),
+    );
 
     const sizingSignals = bus.snapshot().filter(isSizing);
     expect(sizingSignals).toHaveLength(5);
@@ -171,9 +171,7 @@ describe("HybridKellyPlugin — sizing-transform composition", () => {
 
 describe("HybridKellyPlugin — kellyCap + maxVolMultiplier HARD CAP validation", () => {
   it("construction with kellyCap > 1.0 REJECTED (1:10 hard cap)", () => {
-    expect(() => new HybridKellyPlugin({ kellyCap: 1.5 })).toThrow(
-      /kellyCap=1\.5 exceeds 1\.0/,
-    );
+    expect(() => new HybridKellyPlugin({ kellyCap: 1.5 })).toThrow(/kellyCap=1\.5 exceeds 1\.0/);
   });
 
   it("construction with maxVolMultiplier > 1.0 REJECTED (1:10 hard cap)", () => {
@@ -258,7 +256,7 @@ describe("HybridKellyPlugin — Moreira-Muir vol multiplier", () => {
     const p = new HybridKellyPlugin();
     let px = 50_000;
     for (let i = 0; i < 30; i++) {
-      px = px * (i % 2 === 0 ? 1.10 : 0.90);
+      px = px * (i % 2 === 0 ? 1.1 : 0.9);
       p.recordClose("BTC/USDT", px);
     }
     const m = p.currentVolMultiplierForSymbol("BTC/USDT");
@@ -403,9 +401,9 @@ describe("HybridKellyPlugin — synthetic 12× breach test", () => {
     const p = new HybridKellyPlugin({ baseNotionalUsd: 10_000 });
     const { bus } = wirePlugin(p);
     seedRealisticHistory(p, "BTC/USDT", 30);
-    expect(() =>
-      bus.emit(mkSizing({ notional: 120_000, kellyFraction: 1.0, volMultiplier: 1.0 })),
-    ).toThrow(/LAYER 2 BREACH/);
+    expect(() => bus.emit(mkSizing({ notional: 120_000, kellyFraction: 1.0, volMultiplier: 1.0 }))).toThrow(
+      /LAYER 2 BREACH/,
+    );
     expect(p.state.leverageBreachDrops).toBe(1);
     expect(p.state.sizingSignalsReceived).toBe(1);
     expect(p.state.sizingSignalsEmitted).toBe(0);
@@ -443,7 +441,7 @@ describe("HybridKellyPlugin — Volmageddon edge case", () => {
     // Oscillating ±20% → very high realized vol → multiplier clamped at 0.25.
     let px = 50_000;
     for (let i = 0; i < 30; i++) {
-      px = px * (i % 2 === 0 ? 1.20 : 0.80);
+      px = px * (i % 2 === 0 ? 1.2 : 0.8);
       p.recordClose("BTC/USDT", px);
     }
     expect(p.currentVolMultiplierForSymbol("BTC/USDT")).toBe(0.25);
@@ -671,7 +669,7 @@ describe("HybridKellyPlugin — 0 liquidations + VaR 95% daily < 0.10%", () => {
     const multiplier = 0.25;
     const sigmaPost = target * multiplier;
     const var95 = 1.65 * sigmaPost;
-    expect(var95).toBeLessThan(0.10);
+    expect(var95).toBeLessThan(0.1);
   });
 });
 
@@ -681,12 +679,8 @@ describe("HybridKellyPlugin — 0 liquidations + VaR 95% daily < 0.10%", () => {
 
 describe("HybridKellyPlugin — inferSymbol + extractSizingSignal", () => {
   it("inferSymbol extracts symbol from source 'plugin:symbol'", () => {
-    expect(inferSymbol(mkSizing({ source: "carry-baseline-v1:BTC/USDT" }))).toBe(
-      "BTC/USDT",
-    );
-    expect(inferSymbol(mkSizing({ source: "vol-target-sizing-v1:ETH/USDT" }))).toBe(
-      "ETH/USDT",
-    );
+    expect(inferSymbol(mkSizing({ source: "carry-baseline-v1:BTC/USDT" }))).toBe("BTC/USDT");
+    expect(inferSymbol(mkSizing({ source: "vol-target-sizing-v1:ETH/USDT" }))).toBe("ETH/USDT");
   });
 
   it("inferSymbol returns null for source without ':' separator", () => {
@@ -742,10 +736,7 @@ describe("HybridKellyPlugin — onBar tick counter", () => {
     const p = new HybridKellyPlugin();
     const state = {} as unknown;
     for (let i = 0; i < 5; i++) {
-      p.onBar(
-        { timestamp: i, open: 100, high: 101, low: 99, close: 100, volume: 1000 },
-        state as never,
-      );
+      p.onBar({ timestamp: i, open: 100, high: 101, low: 99, close: 100, volume: 1000 }, state as never);
     }
     expect(p.state.barsProcessed).toBe(5);
   });

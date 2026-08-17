@@ -125,27 +125,14 @@
 //     backtest-results/REPORT-phase{6,7-c,8-f}.md for the empirical
 //     prior.
 
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 
 // Re-export for downstream consumers.
 export { ONE_TO_TEN_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
-import {
-  type Bar,
-  type ConfigError,
-  type PluginState,
-  type Result,
-  type RiskSignal,
-  ok,
-} from "../types.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
+import { type Bar, type ConfigError, type PluginState, type Result, type RiskSignal, ok } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // Public types — regime definitions
@@ -194,7 +181,11 @@ export interface RegimeDetectorConfig {
    * while keeping the classifier robust against single-observation
    * outliers.
    */
-  readonly transitionMatrix: readonly [readonly [number, number, number], readonly [number, number, number], readonly [number, number, number]];
+  readonly transitionMatrix: readonly [
+    readonly [number, number, number],
+    readonly [number, number, number],
+    readonly [number, number, number],
+  ];
   /**
    * Initial state distribution. `π[i]` = P(state=i at time 1).
    * Default: uniform (0.33 each) — uninformative prior. The forward
@@ -248,16 +239,12 @@ export const DEFAULT_REGIME_SIZE_MULTIPLIER_VOLATILE = 0.4 as const;
 export const DEFAULT_MIN_OBSERVATIONS = 5 as const;
 export const DEFAULT_TRANSITION_LEARNING_DAYS = 30 as const;
 export const DEFAULT_BASE_NOTIONAL_USD = 10_000 as const;
-export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = [
-  "BTC/USDT",
-  "ETH/USDT",
-  "SOL/USDT",
-];
+export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
 
 export const DEFAULT_STATE_EMISSION_STDDEV: readonly [number, number, number] = [
   0.015, // trending — moderate vol
   0.005, // ranging — low vol (mean-reverting)
-  0.040, // volatile — high vol
+  0.04, // volatile — high vol
 ];
 
 /**
@@ -285,8 +272,7 @@ export const DEFAULT_TRANSITION_MATRIX: readonly [
  * the forward algorithm converges to empirical regimes within ~5
  * observations (enough to disambiguate trending vs ranging vs volatile).
  */
-export const DEFAULT_INITIAL_STATE_PROBS: readonly [number, number, number] =
-  [1 / 3, 1 / 3, 1 / 3];
+export const DEFAULT_INITIAL_STATE_PROBS: readonly [number, number, number] = [1 / 3, 1 / 3, 1 / 3];
 
 export const MIN_NUM_STATES = 2 as const;
 export const MAX_NUM_STATES = 5 as const;
@@ -429,23 +415,17 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
   constructor(overrides: Partial<RegimeDetectorConfig> = {}) {
     this.config = {
       numStates: overrides.numStates ?? DEFAULT_NUM_STATES,
-      stateEmissionStdDev:
-        overrides.stateEmissionStdDev ?? DEFAULT_STATE_EMISSION_STDDEV,
-      transitionMatrix:
-        overrides.transitionMatrix ?? DEFAULT_TRANSITION_MATRIX,
-      initialStateProbs:
-        overrides.initialStateProbs ?? DEFAULT_INITIAL_STATE_PROBS,
-      perRegimeSizeMultiplier:
-        overrides.perRegimeSizeMultiplier ?? [
-          DEFAULT_REGIME_SIZE_MULTIPLIER_TRENDING,
-          DEFAULT_REGIME_SIZE_MULTIPLIER_RANGING,
-          DEFAULT_REGIME_SIZE_MULTIPLIER_VOLATILE,
-        ],
+      stateEmissionStdDev: overrides.stateEmissionStdDev ?? DEFAULT_STATE_EMISSION_STDDEV,
+      transitionMatrix: overrides.transitionMatrix ?? DEFAULT_TRANSITION_MATRIX,
+      initialStateProbs: overrides.initialStateProbs ?? DEFAULT_INITIAL_STATE_PROBS,
+      perRegimeSizeMultiplier: overrides.perRegimeSizeMultiplier ?? [
+        DEFAULT_REGIME_SIZE_MULTIPLIER_TRENDING,
+        DEFAULT_REGIME_SIZE_MULTIPLIER_RANGING,
+        DEFAULT_REGIME_SIZE_MULTIPLIER_VOLATILE,
+      ],
       minObservations: overrides.minObservations ?? DEFAULT_MIN_OBSERVATIONS,
-      transitionLearningDays:
-        overrides.transitionLearningDays ?? DEFAULT_TRANSITION_LEARNING_DAYS,
-      baseNotionalUsd:
-        overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
+      transitionLearningDays: overrides.transitionLearningDays ?? DEFAULT_TRANSITION_LEARNING_DAYS,
+      baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
       enabledSymbols: overrides.enabledSymbols ?? DEFAULT_ENABLED_SYMBOLS,
     };
 
@@ -461,10 +441,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     }
 
     // Hard config validation — defense in depth.
-    if (
-      this.config.numStates < MIN_NUM_STATES ||
-      this.config.numStates > MAX_NUM_STATES
-    ) {
+    if (this.config.numStates < MIN_NUM_STATES || this.config.numStates > MAX_NUM_STATES) {
       throw new Error(
         `[RegimeDetectorMetaPlugin] numStates=${this.config.numStates} must be in [${MIN_NUM_STATES}, ${MAX_NUM_STATES}].`,
       );
@@ -476,11 +453,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     }
     for (let i = 0; i < this.config.stateEmissionStdDev.length; i++) {
       const sd = this.config.stateEmissionStdDev[i]!;
-      if (
-        !Number.isFinite(sd) ||
-        sd < MIN_STATE_STDDEV ||
-        sd > MAX_STATE_STDDEV
-      ) {
+      if (!Number.isFinite(sd) || sd < MIN_STATE_STDDEV || sd > MAX_STATE_STDDEV) {
         throw new Error(
           `[RegimeDetectorMetaPlugin] stateEmissionStdDev[${i}]=${sd} outside allowed range [${MIN_STATE_STDDEV}, ${MAX_STATE_STDDEV}].`,
         );
@@ -519,25 +492,19 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     for (let i = 0; i < this.config.initialStateProbs.length; i++) {
       const p = this.config.initialStateProbs[i]!;
       if (!Number.isFinite(p) || p < 0 || p > 1) {
-        throw new Error(
-          `[RegimeDetectorMetaPlugin] initialStateProbs[${i}]=${p} must be finite in [0, 1].`,
-        );
+        throw new Error(`[RegimeDetectorMetaPlugin] initialStateProbs[${i}]=${p} must be finite in [0, 1].`);
       }
       initialSum += p;
     }
     if (Math.abs(initialSum - 1.0) > 1e-6) {
-      throw new Error(
-        `[RegimeDetectorMetaPlugin] initialStateProbs must sum to 1.0, got ${initialSum}.`,
-      );
+      throw new Error(`[RegimeDetectorMetaPlugin] initialStateProbs must sum to 1.0, got ${initialSum}.`);
     }
     // perRegimeSizeMultiplier is statically typed as `[number, number, number]`
     // so length-checks are tautological — we just iterate and validate each.
     for (let i = 0; i < this.config.perRegimeSizeMultiplier.length; i++) {
       const m = this.config.perRegimeSizeMultiplier[i]!;
       if (!Number.isFinite(m)) {
-        throw new Error(
-          `[RegimeDetectorMetaPlugin] perRegimeSizeMultiplier[${i}]=${m} must be finite.`,
-        );
+        throw new Error(`[RegimeDetectorMetaPlugin] perRegimeSizeMultiplier[${i}]=${m} must be finite.`);
       }
       if (m < MIN_REGIME_SIZE_MULTIPLIER || m > MAX_REGIME_SIZE_MULTIPLIER) {
         throw new Error(
@@ -608,11 +575,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   validateConfig(config: unknown): Result<void, ConfigError> {
-    const makeErr = (
-      field: string,
-      message: string,
-      value?: unknown,
-    ): Result<void, ConfigError> => ({
+    const makeErr = (field: string, message: string, value?: unknown): Result<void, ConfigError> => ({
       ok: false,
       error: {
         pluginName: this.metadata.name,
@@ -628,16 +591,8 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     const c = config as Record<string, unknown>;
     if (c["numStates"] !== undefined) {
       const ns = c["numStates"];
-      if (
-        typeof ns !== "number" ||
-        !Number.isInteger(ns) ||
-        ns !== 3
-      ) {
-        return makeErr(
-          "numStates",
-          "must be the integer 3 (only 3-state HMM is supported)",
-          ns,
-        );
+      if (typeof ns !== "number" || !Number.isInteger(ns) || ns !== 3) {
+        return makeErr("numStates", "must be the integer 3 (only 3-state HMM is supported)", ns);
       }
     }
     if (c["minObservations"] !== undefined) {
@@ -672,16 +627,8 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     }
     if (c["baseNotionalUsd"] !== undefined) {
       const bn = c["baseNotionalUsd"];
-      if (
-        typeof bn !== "number" ||
-        !Number.isFinite(bn) ||
-        bn <= 0
-      ) {
-        return makeErr(
-          "baseNotionalUsd",
-          "must be a finite number > 0",
-          bn,
-        );
+      if (typeof bn !== "number" || !Number.isFinite(bn) || bn <= 0) {
+        return makeErr("baseNotionalUsd", "must be a finite number > 0", bn);
       }
     }
     if (c["perRegimeSizeMultiplier"] !== undefined) {
@@ -703,16 +650,9 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
       for (let i = 0; i < arr.length; i++) {
         const v = arr[i];
         if (typeof v !== "number" || !Number.isFinite(v)) {
-          return makeErr(
-            "perRegimeSizeMultiplier",
-            `entry ${i} must be finite`,
-            v,
-          );
+          return makeErr("perRegimeSizeMultiplier", `entry ${i} must be finite`, v);
         }
-        if (
-          v < MIN_REGIME_SIZE_MULTIPLIER ||
-          v > MAX_REGIME_SIZE_MULTIPLIER
-        ) {
+        if (v < MIN_REGIME_SIZE_MULTIPLIER || v > MAX_REGIME_SIZE_MULTIPLIER) {
           return makeErr(
             "perRegimeSizeMultiplier",
             `entry ${i}=${String(v)} must be in [${MIN_REGIME_SIZE_MULTIPLIER}, ${MAX_REGIME_SIZE_MULTIPLIER}]. The 1:10 mandate forbids scaling UP beyond 1.0.`,
@@ -723,19 +663,11 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     }
     if (c["enabledSymbols"] !== undefined) {
       if (!Array.isArray(c["enabledSymbols"])) {
-        return makeErr(
-          "enabledSymbols",
-          "must be an array of strings",
-          c["enabledSymbols"],
-        );
+        return makeErr("enabledSymbols", "must be an array of strings", c["enabledSymbols"]);
       }
       for (const sym of c["enabledSymbols"]) {
         if (typeof sym !== "string" || sym.length === 0) {
-          return makeErr(
-            "enabledSymbols",
-            "each entry must be a non-empty string",
-            sym as unknown,
-          );
+          return makeErr("enabledSymbols", "each entry must be a non-empty string", sym as unknown);
         }
       }
     }
@@ -780,11 +712,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
    * Per-symbol enable filter is applied here: closes for non-enabled
    * symbols are silently dropped.
    */
-  recordClose(
-    symbol: string,
-    close: number,
-    timestampMs?: number,
-  ): void {
+  recordClose(symbol: string, close: number, timestampMs?: number): void {
     if (!Number.isFinite(close) || close <= 0) return;
     if (!this.config.enabledSymbols.includes(symbol)) return;
     const ts = timestampMs ?? 0;
@@ -797,8 +725,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     // Trim to transitionLearningDays + a small buffer. Since HMM is
     // observation-by-observation (no explicit window dependency), we
     // retain all closes in the window but cap memory at 2x for safety.
-    const maxObservations =
-      this.config.transitionLearningDays + this.config.minObservations;
+    const maxObservations = this.config.transitionLearningDays + this.config.minObservations;
     if (ss.closes.length > maxObservations) {
       ss.closes.splice(0, ss.closes.length - maxObservations);
     }
@@ -845,9 +772,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
    * posterior (length-3 tuple, sums to 1.0) for `symbol`, or null if
    * insufficient history.
    */
-  currentPosteriorForSymbol(
-    symbol: string,
-  ): readonly [number, number, number] | null {
+  currentPosteriorForSymbol(symbol: string): readonly [number, number, number] | null {
     const ss = this.state.symbolState.get(symbol);
     if (!ss?.forwardProbs) return null;
     return [ss.forwardProbs[0], ss.forwardProbs[1], ss.forwardProbs[2]];
@@ -906,11 +831,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
    * underflow to 0 within ~50 observations (Gaussians multiply to
    * zero in float64 for small stddev).
    */
-  private _advanceForwardAlgorithm(
-    symbol: string,
-    observation: number,
-    timestampMs: number,
-  ): void {
+  private _advanceForwardAlgorithm(symbol: string, observation: number, timestampMs: number): void {
     void timestampMs;
     const ss = this._getOrCreateSymbolState(symbol);
     const sigma = this.config.stateEmissionStdDev;
@@ -994,10 +915,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     const ss = this.state.symbolState.get(symbol);
     if (!ss?.forwardProbs) return;
     const regime = argmaxRegime(ss.forwardProbs);
-    const sizeModifier = regimeToSizeMultiplier(
-      regime,
-      this.config.perRegimeSizeMultiplier,
-    );
+    const sizeModifier = regimeToSizeMultiplier(regime, this.config.perRegimeSizeMultiplier);
     ss.lastSizeModifier = sizeModifier;
 
     // Layer 2 — assert sizeModifier ≤ 1.0 (strict — never scale up).
@@ -1014,17 +932,12 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     // For volatile (0.4), close = baseNotional × leverage × 0.6.
     const impliedCloseNotional = Math.max(
       0,
-      this.config.baseNotionalUsd *
-        ONE_TO_TEN_LEVERAGE *
-        (1 - sizeModifier),
+      this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE * (1 - sizeModifier),
     );
 
     // Layer 2 — assert the implied close respects the 1:10 cap.
     try {
-      assertLeverageInvariant(
-        impliedCloseNotional,
-        this.config.baseNotionalUsd,
-      );
+      assertLeverageInvariant(impliedCloseNotional, this.config.baseNotionalUsd);
       this.state.layer2AssertionCount += 1;
     } catch (e: unknown) {
       // Re-throw with `cause` chained — fail closed. The plugin refuses
@@ -1044,22 +957,14 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
       this.state.regimeTransitionEmissions += 1;
     }
     if (prevRegime !== null) {
-      ss.transitionHistory.push([
-        regimeLabelToIndex(prevRegime),
-        regimeLabelToIndex(regime),
-      ]);
+      ss.transitionHistory.push([regimeLabelToIndex(prevRegime), regimeLabelToIndex(regime)]);
       if (ss.transitionHistory.length > this.config.transitionLearningDays) {
-        ss.transitionHistory.splice(
-          0,
-          ss.transitionHistory.length - this.config.transitionLearningDays,
-        );
+        ss.transitionHistory.splice(0, ss.transitionHistory.length - this.config.transitionLearningDays);
       }
     }
     ss.lastRegime = regime;
 
-    const reason = isTransition
-      ? `regime-change:${prevRegime}->${regime}`
-      : `regime-${regime}`;
+    const reason = isTransition ? `regime-change:${prevRegime}->${regime}` : `regime-${regime}`;
 
     // Composite RiskSignal — conditional fields use object spread to
     // satisfy `exactOptionalPropertyTypes: true`. The `sizeModifier`
@@ -1078,10 +983,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
       reason,
       sizeModifier,
     };
-    const sizeSourceField =
-      sizeModifier < 1.0
-        ? { closeNotionalUsd: impliedCloseNotional }
-        : {};
+    const sizeSourceField = sizeModifier < 1.0 ? { closeNotionalUsd: impliedCloseNotional } : {};
     const riskSig: RiskSignal = {
       ...baseFields,
       ...sizeSourceField,
@@ -1121,14 +1023,22 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
 
   private _learnedTransitionMatrix(
     ss: SymbolRegimeState,
-  ): readonly [readonly [number, number, number], readonly [number, number, number], readonly [number, number, number]] {
+  ): readonly [
+    readonly [number, number, number],
+    readonly [number, number, number],
+    readonly [number, number, number],
+  ] {
     if (ss.transitionHistory.length === 0) return this.config.transitionMatrix;
     const counts = this.config.transitionMatrix.map((row) => [...row]);
     for (const [from, to] of ss.transitionHistory) counts[from]![to]! += 1;
     return counts.map((row) => {
       const total = row.reduce((sum, value) => sum + value, 0);
       return row.map((value) => value / total) as [number, number, number];
-    }) as unknown as readonly [readonly [number, number, number], readonly [number, number, number], readonly [number, number, number]];
+    }) as unknown as readonly [
+      readonly [number, number, number],
+      readonly [number, number, number],
+      readonly [number, number, number],
+    ];
   }
 }
 
@@ -1141,11 +1051,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
  * `mean` and stddev `stddev`. Returns a negative number; adds
  * `-0.5 × ((x - mean) / stddev)^2 - log(stddev) - 0.5 × log(2π)`.
  */
-export function gaussianLogPdf(
-  x: number,
-  mean: number,
-  stddev: number,
-): number {
+export function gaussianLogPdf(x: number, mean: number, stddev: number): number {
   if (!Number.isFinite(x) || !Number.isFinite(mean) || !Number.isFinite(stddev)) {
     return Number.NEGATIVE_INFINITY;
   }
@@ -1176,9 +1082,7 @@ export function logSumExp(values: readonly number[]): number {
  * `argmaxRegime` — pick the regime label corresponding to the highest
  * posterior probability.
  */
-export function argmaxRegime(
-  probs: readonly [number, number, number],
-): RegimeLabel {
+export function argmaxRegime(probs: readonly [number, number, number]): RegimeLabel {
   // Tie-breaking: trending > ranging > volatile (deterministic).
   if (probs[0] >= probs[1] && probs[0] >= probs[2]) return "trending";
   if (probs[1] >= probs[2]) return "ranging";

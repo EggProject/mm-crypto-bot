@@ -7,11 +7,7 @@
 
 import { describe, expect, it } from "bun:test";
 
-import {
-  PortfolioStop,
-  PortfolioStopError,
-  PORTFOLIO_STOP_HARD_CAPS,
-} from "./portfolio-stop.js";
+import { PortfolioStop, PortfolioStopError, PORTFOLIO_STOP_HARD_CAPS } from "./portfolio-stop.js";
 
 describe("PortfolioStop", () => {
   // ---------------------------------------------------------------------------
@@ -30,7 +26,7 @@ describe("PortfolioStop", () => {
 
     it("accepts maxDdPct at boundaries", () => {
       expect(new PortfolioStop({ maxDdPct: 0.01 }).getMaxDdPct()).toBe(0.01);
-      expect(new PortfolioStop({ maxDdPct: 0.30 }).getMaxDdPct()).toBe(0.30);
+      expect(new PortfolioStop({ maxDdPct: 0.3 }).getMaxDdPct()).toBe(0.3);
     });
 
     it("rejects maxDdPct below 0.01", () => {
@@ -111,14 +107,14 @@ describe("PortfolioStop", () => {
   // ---------------------------------------------------------------------------
   describe("trip on DD", () => {
     it("does NOT trip below threshold", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
       ps.recordEquity(9_500); // DD = 5%
       expect(ps.isTripped()).toBe(false);
     });
 
     it("trips at threshold", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
       ps.recordEquity(9_000); // DD = 10%
       expect(ps.isTripped()).toBe(true);
@@ -132,7 +128,7 @@ describe("PortfolioStop", () => {
     });
 
     it("trippedAt is set when tripped", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
       expect(ps.getTrippedAt()).toBeNull();
       const before = Date.now();
@@ -145,7 +141,7 @@ describe("PortfolioStop", () => {
     });
 
     it("is LATCHED — does NOT un-trip on equity recovery", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
       ps.recordEquity(9_000);
       expect(ps.isTripped()).toBe(true);
@@ -154,13 +150,13 @@ describe("PortfolioStop", () => {
     });
 
     it("does NOT trip when no peak has been set (peak=0)", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(0);
       expect(ps.isTripped()).toBe(false);
     });
 
     it("does NOT trip on negative equity (peak=0 case)", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
       ps.recordEquity(-1_000); // peak stays 10k, current -1k, DD > 1
       // Actually peak=10k, current=-1k, DD = 11000/10000 = 1.1 > 0.10 → trips
@@ -177,7 +173,7 @@ describe("PortfolioStop", () => {
     it("fires the trip action callback when tripped", () => {
       let called = false;
       const ps = new PortfolioStop({
-        maxDdPct: 0.10,
+        maxDdPct: 0.1,
         tripAction: () => {
           called = true;
         },
@@ -188,7 +184,7 @@ describe("PortfolioStop", () => {
     });
 
     it("does NOT fire trip action if no callback provided", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       // No error, just no callback
       ps.recordEquity(10_000);
       ps.recordEquity(9_000);
@@ -197,7 +193,7 @@ describe("PortfolioStop", () => {
 
     it("setTripAction replaces the action (used by PortfolioManager)", () => {
       let called = false;
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.setTripAction(() => {
         called = true;
       });
@@ -209,7 +205,7 @@ describe("PortfolioStop", () => {
     it("setTripAction(null) removes the action", () => {
       let called = 0;
       const ps = new PortfolioStop({
-        maxDdPct: 0.10,
+        maxDdPct: 0.1,
         tripAction: () => {
           called++;
         },
@@ -222,7 +218,7 @@ describe("PortfolioStop", () => {
 
     it("trip action that throws does NOT crash the bot", () => {
       const ps = new PortfolioStop({
-        maxDdPct: 0.10,
+        maxDdPct: 0.1,
         tripAction: () => {
           throw new Error("test");
         },
@@ -234,7 +230,7 @@ describe("PortfolioStop", () => {
 
     it("trip action that throws a non-Error does not crash the bot", async () => {
       const ps = new PortfolioStop({
-        maxDdPct: 0.10,
+        maxDdPct: 0.1,
         tripAction: () => {
           throw "plain trip failure";
         },
@@ -247,7 +243,7 @@ describe("PortfolioStop", () => {
     it("trip action is async-aware (Promise return value is awaited)", async () => {
       let resolved = false;
       const ps = new PortfolioStop({
-        maxDdPct: 0.10,
+        maxDdPct: 0.1,
         tripAction: () =>
           new Promise<void>((resolve) => {
             setTimeout(() => {
@@ -268,7 +264,7 @@ describe("PortfolioStop", () => {
     it("fireTripAction is idempotent — fires only once", () => {
       let called = 0;
       const ps = new PortfolioStop({
-        maxDdPct: 0.10,
+        maxDdPct: 0.1,
         tripAction: () => {
           called++;
         },
@@ -286,7 +282,7 @@ describe("PortfolioStop", () => {
   // ---------------------------------------------------------------------------
   describe("reset", () => {
     it("clears the latch and the trippedAt timestamp", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
       ps.recordEquity(9_000);
       expect(ps.isTripped()).toBe(true);
@@ -296,7 +292,7 @@ describe("PortfolioStop", () => {
     });
 
     it("keeps the peak by default (clearPeak: false)", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
       ps.recordEquity(9_000);
       ps.reset();
@@ -304,7 +300,7 @@ describe("PortfolioStop", () => {
     });
 
     it("clears the peak with { clearPeak: true }", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
       ps.recordEquity(9_000);
       ps.reset({ clearPeak: true });
@@ -319,7 +315,7 @@ describe("PortfolioStop", () => {
   // ---------------------------------------------------------------------------
   describe("forceTrip", () => {
     it("trips immediately regardless of DD", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.forceTrip("manual");
       expect(ps.isTripped()).toBe(true);
       expect(ps.getTrippedAt()).not.toBeNull();
@@ -328,7 +324,7 @@ describe("PortfolioStop", () => {
     it("force trip fires the action", () => {
       let called = false;
       const ps = new PortfolioStop({
-        maxDdPct: 0.10,
+        maxDdPct: 0.1,
         tripAction: () => {
           called = true;
         },
@@ -340,7 +336,7 @@ describe("PortfolioStop", () => {
     it("force trip is idempotent", () => {
       let called = 0;
       const ps = new PortfolioStop({
-        maxDdPct: 0.10,
+        maxDdPct: 0.1,
         tripAction: () => {
           called++;
         },
@@ -356,7 +352,7 @@ describe("PortfolioStop", () => {
   // ---------------------------------------------------------------------------
   describe("per-strategy contribution", () => {
     it("records the contribution map", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       const contrib = new Map<string, number>([
         ["carry", -200],
         ["ohlc", -50],
@@ -368,7 +364,7 @@ describe("PortfolioStop", () => {
     });
 
     it("replaces the contribution map on each call (does not merge)", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000, new Map([["a", -100]]));
       ps.recordEquity(10_000, new Map([["b", -200]]));
       const state = ps.getState();
@@ -382,14 +378,14 @@ describe("PortfolioStop", () => {
   // ---------------------------------------------------------------------------
   describe("getState", () => {
     it("returns the full state snapshot", () => {
-      const ps = new PortfolioStop({ maxDdPct: 0.10 });
+      const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
       ps.recordEquity(9_000);
       const state = ps.getState();
       expect(state.currentEquityUsd).toBe(9_000);
       expect(state.peakEquityUsd).toBe(10_000);
       expect(state.drawdownPct).toBeCloseTo(0.1, 5);
-      expect(state.maxDdPct).toBe(0.10);
+      expect(state.maxDdPct).toBe(0.1);
       expect(state.tripped).toBe(true);
       expect(state.trippedAt).not.toBeNull();
     });

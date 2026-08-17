@@ -17,7 +17,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 
-import { CliRouter, type SubcommandHandler } from "./router.js";
+import { CLI_COMMAND, CliRouter, type SubcommandHandler } from "./router.js";
 
 describe("CliRouter", () => {
   // We capture console.error output so we can assert on the help text
@@ -63,7 +63,7 @@ describe("CliRouter", () => {
     expect(code).toBe(1);
     // Help text is printed to stderr.
     const helpText = captured.join("\n");
-    expect(helpText).toContain("mm-bot");
+    expect(helpText).toContain(CLI_COMMAND);
     expect(helpText).toContain("fake");
   });
 
@@ -211,7 +211,7 @@ describe("CliRouter", () => {
     router.register("start", "Start the bot", async () => 0);
     router.printHelp("start");
     const helpText = captured.join("\n");
-    expect(helpText).toContain("Usage: mm-bot start");
+    expect(helpText).toContain(`Usage: ${CLI_COMMAND} start`);
     expect(helpText).toContain("Start the bot");
     expect(helpText).toContain("--config=<path>");
   });

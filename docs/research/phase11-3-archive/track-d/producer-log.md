@@ -10,6 +10,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 ---
 
 ## Query 01 — Binance funding methodology (en)
+
 - **Tool:** `web_search`
 - **Query:** `Binance perpetual futures funding rate methodology formula premium index clamp`
 - **Date/time:** 2026-07-05 14:30 Budapest
@@ -27,6 +28,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Cross-language verification target:** Korean edgen.tech confirms the same Sept 18 update (Query 04).
 
 ## Query 02 — Bybit funding methodology (en)
+
 - **Tool:** `web_search`
 - **Query:** `Bybit funding rate calculation premium index formula documentation`
 - **Date/time:** 2026-07-05 14:30 Budapest
@@ -37,12 +39,13 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Verbatim findings:**
   - `F = clamp[Average Premium Index (P) + clamp(Interest Rate (I) − Average Premium Index (P), 0.05%, −0.05%), upper_limit, lower_limit]`.
   - `I = 0.03% / (24 / funding_interval)` → 0.01% per 8h.
-  - Average Premium Index uses *linear* weighted average (1·P₁ + 2·P₂ + … + n·Pₙ)/(1+2+…+n), where n=480 for 8h (one sample per minute).
+  - Average Premium Index uses _linear_ weighted average (1·P₁ + 2·P₂ + … + n·Pₙ)/(1+2+…+n), where n=480 for 8h (one sample per minute).
   - Settlement timestamps: 00:00, 08:00, 16:00 UTC.
   - Upper/Lower limit: `min((IMR − MMR) × 0.75, MMR)` symmetric.
 - **Cross-language verification:** Chinese 528btc.com confirms same formula (Query 10 in subsequent batch).
 
 ## Query 03 — Hyperliquid funding methodology (en)
+
 - **Tool:** `web_search`
 - **Query:** `Hyperliquid funding rate formula HIP-2 oracle 8h interval`
 - **Date/time:** 2026-07-05 14:30 Budapest
@@ -61,6 +64,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Significance for Track D:** Hyperliquid is the ONLY major venue with sub-8h cadence; cross-exchange arb from 8h → 1h offers non-trivial retail-latency windows.
 
 ## Query 04 — Binance funding in Korean (ko)
+
 - **Tool:** `web_search`
 - **Query:** `바이낸스 펀딩비 계산 방식 프리미엄 지수 클램프` (Binance funding fee calculation method premium index clamp)
 - **Date/time:** 2026-07-05 14:30 Budapest
@@ -77,7 +81,9 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 ---
 
 (More queries appended below as research continues.)
+
 ## Query 05 — OKX funding methodology (en)
+
 - **Tool:** `web_search`
 - **Query:** `OKX perpetual swap funding rate formula premium index 8h calculation`
 - **Date/time:** 2026-07-05 14:50 Budapest
@@ -92,6 +98,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Cross-language verification:** Chinese OKX help page confirms the same 8/N formula and supports `N ∈ {1, 2, 4, 8}`.
 
 ## Query 06 — dYdX v4 funding methodology (en)
+
 - **Tool:** `web_search`
 - **Query:** `dYdX perpetual funding rate formula v4 dYDX token staking`
 - **Date/time:** 2026-07-05 14:50 Budapest
@@ -108,6 +115,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
   - **Significance:** dYdX v4 is the first **on-chain order-book** perpetual with hourly funding + governance-tunable parameters — opens the most arbitrage pairs vs CEX 8h-cycle contracts.
 
 ## Query 07 — Coinglass historical funding-rate data (en)
+
 - **Tool:** `web_search`
 - **Query:** `coinglass historical funding rate data Binance Bybit OKX cross exchange`
 - **Date/time:** 2026-07-05 14:55 Budapest
@@ -129,6 +137,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Significance for Track D:** the **OI-weighted funding** endpoint is the project-critical new data source. It directly answers the "does funding normalize when OI surges" hypothesis.
 
 ## Query 08 — Funding rate methodology Chinese (zh)
+
 - **Tool:** `web_search`
 - **Query:** `资金费率 永续合约 计算方法 OKX 币安 区别`
 - **Date/time:** 2026-07-05 14:55 Budapest
@@ -143,6 +152,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Cross-language verification:** Query 01 (en) and Query 08 (zh) both confirm the same formula structure → independent sources, two languages.
 
 ## Query 09 — Term structure / Pendle yield curve (en)
+
 - **Tool:** `web_search`
 - **Query:** `term structure funding rate 1-week 1-month perpetual futures regime signal`
 - **Date/time:** 2026-07-05 15:05 Budapest
@@ -159,6 +169,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Significance for Track D:** Pendle yield curve / futures-implied funding forwards is a **forward-looking term structure** signal not yet in the project's existing carry plugin. Treat as hypothesis source, not direct data feed (mm-crypto-bot has no Pendle integration today).
 
 ## Query 10 — OI-weighted funding (en)
+
 - **Tool:** `web_search`
 - **Query:** `OI-weighted funding rate open interest surge signal crypto perpetual`
 - **Date/time:** 2026-07-05 15:10 Budapest
@@ -175,6 +186,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Cross-language verification:** sohu.com (zh) confirms same metric with translated coverage (Query 16 in supplementary).
 
 ## Query 11 — Cross-exchange funding rate arbitrage (en)
+
 - **Tool:** `web_search`
 - **Query:** `cross exchange funding rate divergence arbitrage Binance Bybit OKX 15 bps`
 - **Date/time:** 2026-07-05 15:15 Budapest
@@ -194,6 +206,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Significance:** academic proof that cross-X funding arb is REAL but has high forced-exit risk → for 1:10 bybit.eu scope, the relevant signal is **threshold-gated entry** (only when divergence >15 bps and duration exceeds persistence half-life).
 
 ## Query 12 — 2021-05 cascade (en + zh)
+
 - **Tool:** `web_search`
 - **Query:** `2021 May crypto crash funding rate cascade liquidation Bitcoin long squeeze`
 - **Date/time:** 2026-07-05 15:20 Budapest
@@ -212,6 +225,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Cross-language verification:** Glassnode's Chinese coverage (Tencent news) confirms the "黑五月" framing + same statistics.
 
 ## Query 13 — 2022-11 FTX cascade (en + zh)
+
 - **Tool:** `web_search`
 - **Query:** `2022 November FTX collapse crypto funding rate cascade liquidation BTC`
 - **Date/time:** 2026-07-05 15:25 Budapest
@@ -228,6 +242,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Significance for Track D:** This is the project's most valuable historical regime-shift template. Extreme negative funding **precedes bottoms**; extreme positive funding **precedes cascades**. Both can be detected 7-14 days in advance with funding + OI data.
 
 ## Query 14 — 2023-08 cascade (en + zh)
+
 - **Tool:** `web_search`
 - **Query:** `2023 August crypto crash funding rate cascade Ethereum news`
 - **Date/time:** 2026-07-05 15:30 Budapest
@@ -244,6 +259,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Significance for Track D:** when OI exceeds historical 90th percentile AND funding > 0.1%/8h AND price near resistance → risk of cascade doubles within 7 days. This is a **backtest-able** hypothesis.
 
 ## Query 15 — Perpetual futures academic literature (en + ko)
+
 - **Tool:** `web_search`
 - **Query:** `"funding rate" arbitrage academic paper perpetual futures crypto Shiller Christin`
 - **Date/time:** 2026-07-05 15:35 Budapest
@@ -266,6 +282,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
 - **Cross-language verification:** the Kim & Park paper is from Seoul National University (Korean math department) — confirms ko-language academic quant presence. Combined with ko practitioner community (queries 04, 16) and Korean Upbit/Bithumb dealer desk, language mandate honored.
 
 ## Query 16 — Korean-language quant community + Kimchi premium (ko)
+
 - **Tool:** `web_search`
 - **Query:** `크립토 펀딩비 차익 거래 바이낸스 바이빗 업비트 김치프리미엄`
 - **Date/time:** 2026-07-05 15:40 Budapest
@@ -278,7 +295,7 @@ Doctrine reminder: crypto-native only · ko + zh + en ≥3 langs · ≥15 web_qu
   6. https://scolkg.com/ — kimpga.com (live kimchi premium tracker).
 - **Verbatim findings:**
   - Korean **"보따리 매매"** (bottari / bundle trading) is the colloquial term for spot arbitrage between Korean and offshore exchanges.
-  - Korean practitioners explicitly cite **funding fee collection while waiting for kimchi premium** as part of the trade — "김치프리미엄이 +가 되는 상황은 한 달에 2번 정도 오는데 그전까지는 펀딩비를 받고 있다가 김프가 4~5% 정도 차면 옮겨서 4~5%의 차익을 얻고" → a Korean-specific strategy combining carry + spot-arb.
+  - Korean practitioners explicitly cite **funding fee collection while waiting for kimchi premium** as part of the trade — "김치프리미엄이 +가 되는 상황은 한 달에 2번 정도 오는데 그전까지는 펀딩비를 받고 있다가 김프가 4~~5% 정도 차면 옮겨서 4~~5%의 차익을 얻고" → a Korean-specific strategy combining carry + spot-arb.
   - Live kimchi premium trackers: kimpga.com, scolkg.com (Cryprice), theddari.com, coinsect.io, miningcalc.kr.
   - Typical kimchi premium range 1-5%, occasional spikes 10-15% during onshore/offshore regulatory shocks.
 - **Cross-language verification:** Korean sources confirm the same Upbit/Binance pattern that Chinese sources confirm (queries 04, 08) — independent validation of the cross-X basis hypothesis from two non-English perspectives.

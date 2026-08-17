@@ -125,7 +125,7 @@ export class Telemetry {
 
   /**
    * `stop` — leállítja a metrika-emitáló interval-t. A `Bot.stop()`
- * hívja a graceful shutdown során.
+   * hívja a graceful shutdown során.
    */
   public stop(): void {
     if (this.metricsTimer !== null) {

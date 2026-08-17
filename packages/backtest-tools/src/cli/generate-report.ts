@@ -221,14 +221,20 @@ export async function main(): Promise<void> {
     `Generálva: ${new Date().toISOString()}. A bybit.eu SPOT 1:10 margin-en elérhető havi hozam empirikus felmérése a kiválasztott MTF-Trend-Konfluencia Kompozit v1.0 stratégiával.`,
   );
   lines.push("");
-  lines.push("> **⚠️ Kritikus megállapítás:** a baseline MIND az 5 symbol/timeframe-en 0-2 trade-et generált 30 hónap alatt, és minden trade veszteséges volt. A teljes hozam **−0.71% és 0% között** mozog. A +100%/hó targettel ez ÉVESÍTÉSRE vetítve is −3% tartományban van. A stratégia a jelenlegi formájában **NEM termel elegendő jelet** a kitűzött célhoz.");
-  lines.push("> A Phase 4-re más stratégia-típus szükséges — lásd a „Következtetések és Phase 4 input” szakaszt.");
+  lines.push(
+    "> **⚠️ Kritikus megállapítás:** a baseline MIND az 5 symbol/timeframe-en 0-2 trade-et generált 30 hónap alatt, és minden trade veszteséges volt. A teljes hozam **−0.71% és 0% között** mozog. A +100%/hó targettel ez ÉVESÍTÉSRE vetítve is −3% tartományban van. A stratégia a jelenlegi formájában **NEM termel elegendő jelet** a kitűzött célhoz.",
+  );
+  lines.push(
+    "> A Phase 4-re más stratégia-típus szükséges — lásd a „Következtetések és Phase 4 input” szakaszt.",
+  );
   lines.push("");
 
   if (baselineTexts.length > 0) {
     lines.push("## 1. Baseline MTF-Trend-Konfluencia (5 symbol/timeframe)");
     lines.push("");
-    lines.push("| Symbol | Timeframe | Hónapok | Trades | Total Return | Havi átlag | Sharpe | Max DD | Win Rate |");
+    lines.push(
+      "| Symbol | Timeframe | Hónapok | Trades | Total Return | Havi átlag | Sharpe | Max DD | Win Rate |",
+    );
     lines.push("|---|---|---:|---:|---:|---:|---:|---:|---:|");
     for (const { text } of baselineTexts) {
       try {
@@ -254,7 +260,9 @@ export async function main(): Promise<void> {
         const b: BaselinePayload = JSON.parse(firstBaseline.text) as BaselinePayload;
         lines.push(`- **Symbol:** \`${b.args.symbol}\``);
         lines.push(`- **LTF Timeframe:** \`${b.args.timeframe}\``);
-        lines.push(`- **Időszak:** ${new Date(b.result.startTime).toISOString()} → ${new Date(b.result.endTime).toISOString()} (${b.totalMonths.toFixed(1)} hónap)`);
+        lines.push(
+          `- **Időszak:** ${new Date(b.result.startTime).toISOString()} → ${new Date(b.result.endTime).toISOString()} (${b.totalMonths.toFixed(1)} hónap)`,
+        );
         lines.push(`- **Initial equity:** $${b.args.initialEquity.toFixed(0)}`);
         lines.push("");
         lines.push("| Metrika | Érték | Min/Max cél |");
@@ -267,10 +275,15 @@ export async function main(): Promise<void> {
         lines.push(`| Profit factor | ${b.result.profitFactor.toFixed(3)} | Min 1.3 |`);
         lines.push(`| Trade-ek száma | ${b.result.totalTrades} | — |`);
         lines.push(`| Win rate | ${(b.result.winRate * 100).toFixed(1)}% | Min 30% |`);
-        lines.push(`| Kill-switch | ${b.result.killSwitchTriggered ? "**igen** ⚠️" : "nem"} | 50% DD (diagnosztikus) |`);
+        lines.push(
+          `| Kill-switch | ${b.result.killSwitchTriggered ? "**igen** ⚠️" : "nem"} | 50% DD (diagnosztikus) |`,
+        );
         lines.push("");
-        const finalEq = b.result.equityCurve.length > 0 ? b.result.equityCurve[b.result.equityCurve.length - 1]!.equity : 0;
-        lines.push(`Záró equity: **$${finalEq.toFixed(2)}** (a $${b.args.initialEquity.toFixed(0)} kezdőtőkéből).`);
+        const finalEq =
+          b.result.equityCurve.length > 0 ? b.result.equityCurve[b.result.equityCurve.length - 1]!.equity : 0;
+        lines.push(
+          `Záró equity: **$${finalEq.toFixed(2)}** (a $${b.args.initialEquity.toFixed(0)} kezdőtőkéből).`,
+        );
         lines.push("");
       } catch (e) {
         lines.push(`(Részletek betöltése sikertelen: ${(e as Error).message})`);
@@ -289,17 +302,19 @@ export async function main(): Promise<void> {
       lines.push("");
       lines.push(`A sweep ${rows.length} kombinációjának eredményei (teljes hozam szerint rendezve).`);
       lines.push("");
-      lines.push("| Cap | Risk/Trade | Kelly | DD limit | Total Return | Havi hozam | Sharpe | Max DD | Profit factor | Win | Trades | Kill |");
+      lines.push(
+        "| Cap | Risk/Trade | Kelly | DD limit | Total Return | Havi hozam | Sharpe | Max DD | Profit factor | Win | Trades | Kill |",
+      );
       lines.push("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---:|");
       for (const row of rows.slice(0, 8)) {
         lines.push(
           `| ${row.maxPositionPctEquity === undefined ? "—" : formatPct(row.maxPositionPctEquity)} | ` +
-          `${row.riskPerTrade === undefined ? "—" : formatPct(row.riskPerTrade)} | ` +
-          `${row.kellyFraction === undefined ? "—" : row.kellyFraction.toFixed(2)} | ` +
-          `${row.maxDrawdownLimit === undefined ? "—" : formatPct(row.maxDrawdownLimit)} | ` +
-          `${formatPct(row.totalReturn)} | ${row.monthlyReturn === undefined ? "—" : formatPct(row.monthlyReturn)} | ` +
-          `${row.sharpeRatio.toFixed(3)} | ${formatPct(row.maxDrawdown)} | ${row.profitFactor.toFixed(3)} | ` +
-          `${formatPct(row.winRate)} | ${row.totalTrades} | ${row.killSwitchTriggered ? "⚠️" : ""} |`,
+            `${row.riskPerTrade === undefined ? "—" : formatPct(row.riskPerTrade)} | ` +
+            `${row.kellyFraction === undefined ? "—" : row.kellyFraction.toFixed(2)} | ` +
+            `${row.maxDrawdownLimit === undefined ? "—" : formatPct(row.maxDrawdownLimit)} | ` +
+            `${formatPct(row.totalReturn)} | ${row.monthlyReturn === undefined ? "—" : formatPct(row.monthlyReturn)} | ` +
+            `${row.sharpeRatio.toFixed(3)} | ${formatPct(row.maxDrawdown)} | ${row.profitFactor.toFixed(3)} | ` +
+            `${formatPct(row.winRate)} | ${row.totalTrades} | ${row.killSwitchTriggered ? "⚠️" : ""} |`,
         );
       }
       lines.push("");
@@ -364,9 +379,7 @@ export async function main(): Promise<void> {
   // Összefoglaló
   lines.push("## 4. Összefoglaló és Phase 4 input");
   lines.push("");
-  lines.push(
-    "### 4.1 Mit mutatnak az adatok (a user szellemében, nem a kutatási előfeltevésekéiben)",
-    );
+  lines.push("### 4.1 Mit mutatnak az adatok (a user szellemében, nem a kutatási előfeltevésekéiben)");
   lines.push("");
   lines.push(
     "A Phase 1-3 mérés **nem cáfolta a +100%/hó konzervatív olvasatát — annál többet mond: megmutatta, HOL van a terv valódi szűk keresztmetszete.**",
@@ -376,7 +389,8 @@ export async function main(): Promise<void> {
     "A `MtfTrendConfluenceStrategy` (Phase 1-3 baseline) a 2024-01 → 2026-07 időszakban 0 trade-et generált default configgal — a 3 rétegű confluence (HTF trend + MTF pullback + LTF trigger) túl szigorú volt a 2024-2026-os trend-időszakokra. A stratégia Phase 27-ben törölve (HALT verdict, 0 trades / 0% return).",
   );
   lines.push("");
-  lines.push("**A szűk keresztmetszet:** a stratégia 3 rétegű confluence-t (HTF trend + MTF pullback + LTF trigger) követel meg egyszerre. A 2024-2026-os BTC/ETH/SOL piac jellemzően erős trend-időszakokból állt, ahol a MTF pullback-setup szinte sosem teljesült (a `MTF long setup = 0%` a BTC 1h-n 21919 gyertyán át).",
+  lines.push(
+    "**A szűk keresztmetszet:** a stratégia 3 rétegű confluence-t (HTF trend + MTF pullback + LTF trigger) követel meg egyszerre. A 2024-2026-os BTC/ETH/SOL piac jellemzően erős trend-időszakokból állt, ahol a MTF pullback-setup szinte sosem teljesült (a `MTF long setup = 0%` a BTC 1h-n 21919 gyertyán át).",
   );
   lines.push("");
   lines.push("### 4.2 Amit a user kérésére a Phase 4-hez figyelembe kell venni");
@@ -387,14 +401,30 @@ export async function main(): Promise<void> {
   lines.push(
     "- A Phase 4 kutatásnak a következő típusú stratégiákat kell megvizsgálnia (a kutatás konzervatív default-jainak megkérdőjelezésével):",
   );
-  lines.push("  1. **Always-in trend-following** — mindig benntartott pozíció az EMA50/200 crossover alapján (nincs kivárás) — nagyjából 1 trade / 1-2 hónap, de közel 100% win-rate emelkedő trendben");
-  lines.push("  2. **Volatility breakout / ATR-szerű stratégiák** — Donchian-channel vagy ATR-trajektória break-out és gyors re-entry; volatilis piacon sok signal");
-  lines.push("  3. **Funding rate carry** — perpetual-short fedezésére spot long pozíció (delta-semleges), a funding rate-ből profitálva; SPOT-only bybit.eu-n nem elérhető, DE alternatíva: cross-exchange arbitrage binance ↔ bybit.eu funding rate-ek között");
-  lines.push("  4. **Basket of small high-probability signals** — sok kis edge (50-100 trade / hó, 60-70% win rate, 0.3-0.5% risk/trade → 6-15% / hó)");
-  lines.push("  5. **Mean reversion agresszív (5m, 15m)** — gyors Z-score visszatérés; sok trade, kis profit/trade, de akár 50-200 trade / hóval");
-  lines.push("  6. **News / social velocity signal** — Twitter/social media gyorshajtás news-ra, hír-driven momentum");
-  lines.push("  7. **Grid trading / scalping 1:10 margin-en** — tight ranges, sok kis trade; alkalmas bybit.eu SPOT margin 1:10-re");
-  lines.push("  8. **Multi-strategy ensemble** — a fentiek kombinációja, kockázat allokálva, hogy bármelyik környezetben legyen aktív stratégia");
+  lines.push(
+    "  1. **Always-in trend-following** — mindig benntartott pozíció az EMA50/200 crossover alapján (nincs kivárás) — nagyjából 1 trade / 1-2 hónap, de közel 100% win-rate emelkedő trendben",
+  );
+  lines.push(
+    "  2. **Volatility breakout / ATR-szerű stratégiák** — Donchian-channel vagy ATR-trajektória break-out és gyors re-entry; volatilis piacon sok signal",
+  );
+  lines.push(
+    "  3. **Funding rate carry** — perpetual-short fedezésére spot long pozíció (delta-semleges), a funding rate-ből profitálva; SPOT-only bybit.eu-n nem elérhető, DE alternatíva: cross-exchange arbitrage binance ↔ bybit.eu funding rate-ek között",
+  );
+  lines.push(
+    "  4. **Basket of small high-probability signals** — sok kis edge (50-100 trade / hó, 60-70% win rate, 0.3-0.5% risk/trade → 6-15% / hó)",
+  );
+  lines.push(
+    "  5. **Mean reversion agresszív (5m, 15m)** — gyors Z-score visszatérés; sok trade, kis profit/trade, de akár 50-200 trade / hóval",
+  );
+  lines.push(
+    "  6. **News / social velocity signal** — Twitter/social media gyorshajtás news-ra, hír-driven momentum",
+  );
+  lines.push(
+    "  7. **Grid trading / scalping 1:10 margin-en** — tight ranges, sok kis trade; alkalmas bybit.eu SPOT margin 1:10-re",
+  );
+  lines.push(
+    "  8. **Multi-strategy ensemble** — a fentiek kombinációja, kockázat allokálva, hogy bármelyik környezetben legyen aktív stratégia",
+  );
   lines.push("");
   lines.push(
     "**A Phase 4 kutatás tervét a user kérésére a fenti listával ÉS a strategy-decision.md §10 alternatíváival KÖZÖSEN kell megcsinálni — nem csak az utóbbival.**",

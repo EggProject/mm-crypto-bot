@@ -144,7 +144,12 @@ export interface PositionSizeQuery {
 
 export type OrderLifecycleEvent =
   | { readonly kind: "order"; readonly order: Order; readonly deltaFilled: number }
-  | { readonly kind: "execution"; readonly order: Order; readonly execution: Execution; readonly deltaFilled: number };
+  | {
+      readonly kind: "execution";
+      readonly order: Order;
+      readonly execution: Execution;
+      readonly deltaFilled: number;
+    };
 
 export type OrderLifecycleListener = (event: OrderLifecycleEvent) => void;
 
@@ -166,7 +171,10 @@ export interface OrderManagerOptions {
   readonly feed: ExchangeFeed;
   readonly getPositionContext: () => PositionSizeQuery;
   /** Exact local quantity/side for reduce-only validation when a position book is available. */
-  readonly getReduciblePosition?: (symbol: Symbol, strategy: string | undefined) => { readonly side: "long" | "short"; readonly quantity: number } | undefined;
+  readonly getReduciblePosition?: (
+    symbol: Symbol,
+    strategy: string | undefined,
+  ) => { readonly side: "long" | "short"; readonly quantity: number } | undefined;
   readonly leverage?: LeverageInvariantConfig;
   readonly logger?: Logger;
   /**
@@ -203,7 +211,12 @@ export interface OrderManagerOptions {
 export class OrderManager {
   private readonly feed: ExchangeFeed;
   private readonly getPositionContext: () => PositionSizeQuery;
-  private readonly getReduciblePosition: ((symbol: Symbol, strategy: string | undefined) => { readonly side: "long" | "short"; readonly quantity: number } | undefined) | undefined;
+  private readonly getReduciblePosition:
+    | ((
+        symbol: Symbol,
+        strategy: string | undefined,
+      ) => { readonly side: "long" | "short"; readonly quantity: number } | undefined)
+    | undefined;
   private readonly leverage: LeverageInvariantConfig;
   private readonly logger: Logger;
   private readonly inFlight = new Map<ClientOrderId, Order>();
@@ -274,11 +287,21 @@ export class OrderManager {
         new Error("missing limit price"),
       );
     }
-    if (intent.protectiveKind !== undefined && (!Number.isFinite(intent.triggerPrice) || (intent.triggerPrice ?? 0) <= 0)) {
-      throw new OrderManagerError(`[order-manager] ${intent.protectiveKind} requires a positive triggerPrice`, new Error("invalid trigger price"));
+    if (
+      intent.protectiveKind !== undefined &&
+      (!Number.isFinite(intent.triggerPrice) || (intent.triggerPrice ?? 0) <= 0)
+    ) {
+      throw new OrderManagerError(
+        `[order-manager] ${intent.protectiveKind} requires a positive triggerPrice`,
+        new Error("invalid trigger price"),
+      );
     }
     const effectiveLeverage = intent.leverage ?? 1;
-    if (!Number.isFinite(effectiveLeverage) || effectiveLeverage <= 0 || effectiveLeverage > this.leverage.maxLeverage) {
+    if (
+      !Number.isFinite(effectiveLeverage) ||
+      effectiveLeverage <= 0 ||
+      effectiveLeverage > this.leverage.maxLeverage
+    ) {
       throw new OrderManagerError(
         `[order-manager] invalid effective leverage=${String(effectiveLeverage)} (global max=${String(this.leverage.maxLeverage)})`,
         new Error("invalid effective leverage"),
@@ -309,15 +332,20 @@ export class OrderManager {
       const expectedSell = matchingExposure > 0;
       const sideMatches = expectedSell ? intent.signal.side === "sell" : intent.signal.side === "buy";
       const local = this.getReduciblePosition?.(intent.symbol, intent.strategy);
-      const exactSideMatches = local === undefined || (local.side === "long" ? intent.signal.side === "sell" : intent.signal.side === "buy");
-      const exactQuantityMatches = local === undefined || intent.amount <= local.quantity + this.leverage.tolerance;
+      const exactSideMatches =
+        local === undefined ||
+        (local.side === "long" ? intent.signal.side === "sell" : intent.signal.side === "buy");
+      const exactQuantityMatches =
+        local === undefined || intent.amount <= local.quantity + this.leverage.tolerance;
       // The production Bot supplies exact local position metadata.  A generic
       // caller without it may still submit an emergency close; rejecting a
       // hedged/net-zero symbol would be less safe than allowing the exchange
       // reduce-only invariant to reject it.  Such callers cannot claim a
       // confirmed local close until reconciliation succeeds.
-      if ((local !== undefined && (!exactSideMatches || !exactQuantityMatches)) ||
-        (local === undefined && matchingExposure !== 0 && !sideMatches)) {
+      if (
+        (local !== undefined && (!exactSideMatches || !exactQuantityMatches)) ||
+        (local === undefined && matchingExposure !== 0 && !sideMatches)
+      ) {
         this.counters.rejected++;
         throw new OrderManagerError(
           `[order-manager] invalid reduce-only close for ${intent.symbol}: side/quantity does not match open exposure`,
@@ -373,7 +401,9 @@ export class OrderManager {
       amount: intent.amount,
       ...(intent.type === "limit" ? { price: intent.limitPrice ?? intent.referencePrice } : {}),
       ...(reducing ? { reduceOnly: true } : {}),
-      ...(intent.protectiveKind !== undefined ? { protectiveKind: intent.protectiveKind, triggerPrice: intent.triggerPrice } : {}),
+      ...(intent.protectiveKind !== undefined
+        ? { protectiveKind: intent.protectiveKind, triggerPrice: intent.triggerPrice }
+        : {}),
     };
 
     let order: Order;
@@ -397,7 +427,8 @@ export class OrderManager {
       // in `position-manager.ts`).
       order = {
         clientOrderId,
-        exchangeId: `paper-${String(Date.now())}-${String(this.counters.placed)}` as unknown as ExchangeOrderId,
+        exchangeId:
+          `paper-${String(Date.now())}-${String(this.counters.placed)}` as unknown as ExchangeOrderId,
         symbol: intent.symbol,
         side: intent.signal.side,
         type: intent.type,
@@ -520,7 +551,10 @@ export class OrderManager {
     const cumulative = Math.max(prior, updated.filled);
     this.bookedCumulative.set(clientOrderId, cumulative);
     if (cumulative > prior) {
-      this.snapshotRecoveryCoverage.set(clientOrderId, (this.snapshotRecoveryCoverage.get(clientOrderId) ?? 0) + cumulative - prior);
+      this.snapshotRecoveryCoverage.set(
+        clientOrderId,
+        (this.snapshotRecoveryCoverage.get(clientOrderId) ?? 0) + cumulative - prior,
+      );
     }
     this.rememberOrder(updated);
     if (this.inFlight.has(clientOrderId)) {
@@ -541,13 +575,19 @@ export class OrderManager {
    * fill twice.  Without execution IDs the delta is valued at the latest
    * exchange cumulative average; this limitation is explicit at this boundary.
    */
-  public async reconcileOrder(clientOrderId: ClientOrderId, symbol: Symbol): Promise<{ readonly order: Order; readonly deltaFilled: number }> {
+  public async reconcileOrder(
+    clientOrderId: ClientOrderId,
+    symbol: Symbol,
+  ): Promise<{ readonly order: Order; readonly deltaFilled: number }> {
     const previous = this.findKnownOrder(clientOrderId);
     let updated: Order;
     try {
       updated = await this.feed.fetchOrder(clientOrderId, symbol);
     } catch (err) {
-      throw new OrderManagerError(`[order-manager] reconcile fetchOrder failed for ${clientOrderId}: ${err instanceof Error ? err.message : String(err)}`, err);
+      throw new OrderManagerError(
+        `[order-manager] reconcile fetchOrder failed for ${clientOrderId}: ${err instanceof Error ? err.message : String(err)}`,
+        err,
+      );
     }
     const { merged, deltaFilled } = this.applyOrderSnapshot(updated, previous);
     updated = merged;
@@ -572,10 +612,18 @@ export class OrderManager {
   public async startLifecycle(): Promise<void> {
     if (this.paperMode || this.lifecycleSubscriptions.length > 0) return;
     if (this.feed.subscribeOrderUpdates !== undefined) {
-      this.lifecycleSubscriptions.push(await this.feed.subscribeOrderUpdates((event) => { this.handleLifecycleFeedEvent(event); }));
+      this.lifecycleSubscriptions.push(
+        await this.feed.subscribeOrderUpdates((event) => {
+          this.handleLifecycleFeedEvent(event);
+        }),
+      );
     }
     if (this.feed.subscribeExecutions !== undefined) {
-      this.lifecycleSubscriptions.push(await this.feed.subscribeExecutions((event) => { this.handleLifecycleFeedEvent(event); }));
+      this.lifecycleSubscriptions.push(
+        await this.feed.subscribeExecutions((event) => {
+          this.handleLifecycleFeedEvent(event);
+        }),
+      );
     }
   }
 
@@ -599,8 +647,10 @@ export class OrderManager {
     const execution = event.payload;
     if (this.seenExecutionIds.has(execution.executionId)) return;
     this.seenExecutionIds.add(execution.executionId);
-    const clientOrderId = execution.clientOrderId ?? [...this.knownOrders.values()]
-      .find((order) => order.exchangeId === execution.exchangeOrderId)?.clientOrderId;
+    const clientOrderId =
+      execution.clientOrderId ??
+      [...this.knownOrders.values()].find((order) => order.exchangeId === execution.exchangeOrderId)
+        ?.clientOrderId;
     if (clientOrderId === undefined) return;
     const previous = this.findKnownOrder(clientOrderId);
     if (previous === undefined) return;
@@ -608,11 +658,18 @@ export class OrderManager {
     const recoveryCoverage = this.snapshotRecoveryCoverage.get(clientOrderId) ?? 0;
     const absorbedByRecovery = Math.min(recoveryCoverage, execution.quantity);
     this.snapshotRecoveryCoverage.set(clientOrderId, recoveryCoverage - absorbedByRecovery);
-    this.executionCumulative.set(clientOrderId, (this.executionCumulative.get(clientOrderId) ?? 0) + execution.quantity);
-    const deltaFilled = Math.max(0, Math.min(execution.quantity - absorbedByRecovery, previous.amount - prior));
+    this.executionCumulative.set(
+      clientOrderId,
+      (this.executionCumulative.get(clientOrderId) ?? 0) + execution.quantity,
+    );
+    const deltaFilled = Math.max(
+      0,
+      Math.min(execution.quantity - absorbedByRecovery, previous.amount - prior),
+    );
     const cumulative = prior + deltaFilled;
     const previousValue = prior * (previous.average ?? execution.price);
-    const average = cumulative > 0 ? (previousValue + deltaFilled * execution.price) / cumulative : previous.average;
+    const average =
+      cumulative > 0 ? (previousValue + deltaFilled * execution.price) / cumulative : previous.average;
     const merged: Order = {
       ...previous,
       filled: cumulative,
@@ -628,7 +685,8 @@ export class OrderManager {
   private updateTrackedOrder(order: Order): void {
     this.rememberOrder(order);
     if (order.status === "open") {
-      if (this.cancelRaceOrders.has(order.clientOrderId)) this.cancelRaceOrders.set(order.clientOrderId, order);
+      if (this.cancelRaceOrders.has(order.clientOrderId))
+        this.cancelRaceOrders.set(order.clientOrderId, order);
       else this.inFlight.set(order.clientOrderId, order);
     } else if (order.status === "canceled" && this.cancelRaceOrders.has(order.clientOrderId)) {
       this.cancelRaceOrders.set(order.clientOrderId, order);
@@ -644,7 +702,10 @@ export class OrderManager {
    * If the matching execution arrives later, `snapshotRecoveryCoverage`
    * absorbs it so order->execution and execution->order converge identically.
    */
-  private applyOrderSnapshot(updated: Order, previous?: Order): { readonly merged: Order; readonly deltaFilled: number } {
+  private applyOrderSnapshot(
+    updated: Order,
+    previous?: Order,
+  ): { readonly merged: Order; readonly deltaFilled: number } {
     const clientOrderId = updated.clientOrderId;
     const prior = this.bookedCumulative.get(clientOrderId) ?? 0;
     const deltaFilled = Math.max(0, Math.min(updated.filled - prior, updated.amount - prior));
@@ -656,18 +717,23 @@ export class OrderManager {
       );
     }
     this.bookedCumulative.set(clientOrderId, cumulative);
-    const status = previous?.status === "closed" || updated.status === "closed" || cumulative >= updated.amount
-      ? "closed"
-      : previous?.status === "canceled" && updated.status === "open"
-        ? "canceled"
-        : updated.status;
+    const status =
+      previous?.status === "closed" || updated.status === "closed" || cumulative >= updated.amount
+        ? "closed"
+        : previous?.status === "canceled" && updated.status === "open"
+          ? "canceled"
+          : updated.status;
     const merged: Order = { ...updated, status, filled: cumulative };
     this.rememberOrder(merged);
     return { merged, deltaFilled };
   }
 
   private findKnownOrder(clientOrderId: ClientOrderId): Order | undefined {
-    return this.inFlight.get(clientOrderId) ?? this.cancelRaceOrders.get(clientOrderId) ?? this.knownOrders.get(clientOrderId);
+    return (
+      this.inFlight.get(clientOrderId) ??
+      this.cancelRaceOrders.get(clientOrderId) ??
+      this.knownOrders.get(clientOrderId)
+    );
   }
 
   private rememberOrder(order: Order): void {
@@ -685,8 +751,12 @@ export class OrderManager {
 
   private emitLifecycle(event: OrderLifecycleEvent): void {
     for (const listener of this.lifecycleListeners) {
-      try { listener(event); } catch (err) {
-        this.logger.error("[order-manager] lifecycle listener failed", { error: err instanceof Error ? err.message : String(err) });
+      try {
+        listener(event);
+      } catch (err) {
+        this.logger.error("[order-manager] lifecycle listener failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
@@ -694,7 +764,12 @@ export class OrderManager {
   /**
    * `getCounters` — a counters snapshot-ja a Telemetry számára.
    */
-  public getCounters(): { readonly placed: number; readonly filled: number; readonly cancelled: number; readonly rejected: number } {
+  public getCounters(): {
+    readonly placed: number;
+    readonly filled: number;
+    readonly cancelled: number;
+    readonly rejected: number;
+  } {
     return { ...this.counters };
   }
 
@@ -723,7 +798,10 @@ export class OrderManager {
   public async getAuthoritativePositions(symbols?: readonly Symbol[]): Promise<readonly ExchangePosition[]> {
     if (this.paperMode) return [];
     if (this.feed.fetchPositions === undefined) {
-      throw new OrderManagerError("[order-manager] exchange does not expose authoritative positions", new Error("fetchPositions unavailable"));
+      throw new OrderManagerError(
+        "[order-manager] exchange does not expose authoritative positions",
+        new Error("fetchPositions unavailable"),
+      );
     }
     try {
       return await this.feed.fetchPositions(symbols);
@@ -740,7 +818,10 @@ export class OrderManager {
     try {
       return await this.feed.fetchBalances();
     } catch (err) {
-      throw new OrderManagerError(`[order-manager] authoritative balance query failed: ${err instanceof Error ? err.message : String(err)}`, err);
+      throw new OrderManagerError(
+        `[order-manager] authoritative balance query failed: ${err instanceof Error ? err.message : String(err)}`,
+        err,
+      );
     }
   }
 
@@ -749,7 +830,10 @@ export class OrderManager {
     try {
       return await this.feed.fetchMarketMeta(symbol);
     } catch (err) {
-      throw new OrderManagerError(`[order-manager] market metadata query failed for ${symbol}: ${err instanceof Error ? err.message : String(err)}`, err);
+      throw new OrderManagerError(
+        `[order-manager] market metadata query failed for ${symbol}: ${err instanceof Error ? err.message : String(err)}`,
+        err,
+      );
     }
   }
 
@@ -758,22 +842,35 @@ export class OrderManager {
     try {
       return await this.feed.fetchTickerSnapshot(symbol);
     } catch (err) {
-      throw new OrderManagerError(`[order-manager] ticker query failed for ${symbol}: ${err instanceof Error ? err.message : String(err)}`, err);
+      throw new OrderManagerError(
+        `[order-manager] ticker query failed for ${symbol}: ${err instanceof Error ? err.message : String(err)}`,
+        err,
+      );
     }
   }
 
   /** Cancel every locally tracked unfilled order before an emergency flatten. */
-  public async cancelTrackedOrders(preserve: ReadonlySet<ClientOrderId> = new Set()): Promise<readonly { readonly clientOrderId: ClientOrderId; readonly symbol: Symbol; readonly error?: string }[]> {
+  public async cancelTrackedOrders(
+    preserve: ReadonlySet<ClientOrderId> = new Set(),
+  ): Promise<
+    readonly { readonly clientOrderId: ClientOrderId; readonly symbol: Symbol; readonly error?: string }[]
+  > {
     const tracked = [...this.inFlight.values()].filter((order) => !preserve.has(order.clientOrderId));
-    return Promise.all(tracked.map(async (order) => {
-      if (order.status !== "open") return { clientOrderId: order.clientOrderId, symbol: order.symbol };
-      try {
-        await this.cancelOrder(order.clientOrderId, order.symbol);
-        return { clientOrderId: order.clientOrderId, symbol: order.symbol };
-      } catch (err) {
-        return { clientOrderId: order.clientOrderId, symbol: order.symbol, error: err instanceof Error ? err.message : String(err) };
-      }
-    }));
+    return Promise.all(
+      tracked.map(async (order) => {
+        if (order.status !== "open") return { clientOrderId: order.clientOrderId, symbol: order.symbol };
+        try {
+          await this.cancelOrder(order.clientOrderId, order.symbol);
+          return { clientOrderId: order.clientOrderId, symbol: order.symbol };
+        } catch (err) {
+          return {
+            clientOrderId: order.clientOrderId,
+            symbol: order.symbol,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }),
+    );
   }
 
   /**

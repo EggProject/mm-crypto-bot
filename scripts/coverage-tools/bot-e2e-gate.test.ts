@@ -26,10 +26,12 @@ function fileCoverage(path: string, count = 1) {
 }
 
 function fullCoverage(missedFile?: string) {
-  return Object.fromEntries(manifest.runtimeFiles.map((file) => {
-    const absolute = resolve(file);
-    return [absolute, fileCoverage(absolute, file === missedFile ? 0 : 1)];
-  }));
+  return Object.fromEntries(
+    manifest.runtimeFiles.map((file) => {
+      const absolute = resolve(file);
+      return [absolute, fileCoverage(absolute, file === missedFile ? 0 : 1)];
+    }),
+  );
 }
 
 function writeEnvelope(
@@ -39,13 +41,16 @@ function writeEnvelope(
   caseId: string,
   coverage = fullCoverage(),
 ) {
-  writeFileSync(join(directory, `${String(pid)}.json`), JSON.stringify({
-    schemaVersion: 1,
-    pid,
-    entryKind,
-    caseId,
-    coverage,
-  }));
+  writeFileSync(
+    join(directory, `${String(pid)}.json`),
+    JSON.stringify({
+      schemaVersion: 1,
+      pid,
+      entryKind,
+      caseId,
+      coverage,
+    }),
+  );
 }
 
 function writeAllRequiredCases(directory: string, coverage = fullCoverage()) {
@@ -101,12 +106,15 @@ describe("bot subprocess E2E coverage gate", () => {
     withRawDirectory((directory) => {
       writeEnvelope(directory, 1000, "canonical-cli", "help");
       const original = join(directory, "1000.json");
-      writeFileSync(original, JSON.stringify({
-        schemaVersion: 1,
-        entryKind: "canonical-cli",
-        caseId: "help",
-        coverage: fullCoverage(),
-      }));
+      writeFileSync(
+        original,
+        JSON.stringify({
+          schemaVersion: 1,
+          entryKind: "canonical-cli",
+          caseId: "help",
+          coverage: fullCoverage(),
+        }),
+      );
       expect(() => collectBotE2eCoverage({ rawDirectory: directory })).toThrow("PID does not match filename");
     });
   });
@@ -139,9 +147,14 @@ describe("bot subprocess E2E coverage gate", () => {
   });
 
   it("hard-fails a duplicate manifest scope path", () => {
-    expect(() => parseScopeManifest({
-      ...manifest,
-      runtimeFiles: [manifest.runtimeFiles[0], manifest.runtimeFiles[0]],
-    }, { requireFiles: false })).toThrow("duplicate path");
+    expect(() =>
+      parseScopeManifest(
+        {
+          ...manifest,
+          runtimeFiles: [manifest.runtimeFiles[0], manifest.runtimeFiles[0]],
+        },
+        { requireFiles: false },
+      ),
+    ).toThrow("duplicate path");
   });
 });

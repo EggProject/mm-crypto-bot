@@ -17,58 +17,58 @@ A konfigurációkeresés segédanyagai a `search-best-config/` mappában vannak.
 
 Az autoritatív lista a `packages/core/src/index.ts` által exportált stratégiaosztályokból áll.
 
-| Stratégia | Típus | Valós adatkövetelmény | Jelenlegi reprodukciós állapot |
-|---|---|---|---|
-| `CompositeStrategy` | generikus wrapper | a konkrét komponensek összes adata | Nincs önálló konfiguráció vagy runner; konkrét compositionként kell mérni. |
-| `PivotPointGridStrategy` | önálló price strategy, DPC komponens | Binance 15m + lezárt 4h/1d OHLCV | Valós OHLCV baseline runner elérhető. |
-| `DonchianRangeChannelStrategy` | önálló price strategy, DPC komponens | Binance 15m + lezárt 4h/1d OHLCV | Valós OHLCV runner elérhető; a Donchian-periodus és ADX-küszöb CLI-ről állítható. |
-| `OhlcTrendStrategy` | önálló OHLC trendstratégia | 1h vagy 4h OHLCV | Valós Binance CSV-runnere van, explicit költség-, pozíció-, SL/TP- és teljes metrikamodellel. |
-| `DonchianPivotComposition` | konkrét kétkomponensű wrapper | Binance 15m/4h/1d OHLCV | Valós OHLCV, multi-symbol, IS/validation/OOS runner elérhető. |
-| `CascadeFadeStrategy` | eseményvezérelt satellite stratégia | liquidation 1m, OI, funding, ELR és cross-venue confirmation | Valódi historikus eseménytape nincs; a meglévő artifact szintetikus helyettesítő, nem valós backtest. |
-| `DydxCexCarryStrategy` | cross-venue funding carry | Binance 8h funding + teljes dYdX 1h funding + venue/latency feltételek | Runner van, de eredmény csak legalább 90% órás és 90% napi dYdX coverage mellett empirikus. A szükséges teljes cache nincs a repóban. |
+| Stratégia                      | Típus                                | Valós adatkövetelmény                                                  | Jelenlegi reprodukciós állapot                                                                                                        |
+| ------------------------------ | ------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `CompositeStrategy`            | generikus wrapper                    | a konkrét komponensek összes adata                                     | Nincs önálló konfiguráció vagy runner; konkrét compositionként kell mérni.                                                            |
+| `PivotPointGridStrategy`       | önálló price strategy, DPC komponens | Binance 15m + lezárt 4h/1d OHLCV                                       | Valós OHLCV baseline runner elérhető.                                                                                                 |
+| `DonchianRangeChannelStrategy` | önálló price strategy, DPC komponens | Binance 15m + lezárt 4h/1d OHLCV                                       | Valós OHLCV runner elérhető; a Donchian-periodus és ADX-küszöb CLI-ről állítható.                                                     |
+| `OhlcTrendStrategy`            | önálló OHLC trendstratégia           | 1h vagy 4h OHLCV                                                       | Valós Binance CSV-runnere van, explicit költség-, pozíció-, SL/TP- és teljes metrikamodellel.                                         |
+| `DonchianPivotComposition`     | konkrét kétkomponensű wrapper        | Binance 15m/4h/1d OHLCV                                                | Valós OHLCV, multi-symbol, IS/validation/OOS runner elérhető.                                                                         |
+| `CascadeFadeStrategy`          | eseményvezérelt satellite stratégia  | liquidation 1m, OI, funding, ELR és cross-venue confirmation           | Valódi historikus eseménytape nincs; a meglévő artifact szintetikus helyettesítő, nem valós backtest.                                 |
+| `DydxCexCarryStrategy`         | cross-venue funding carry            | Binance 8h funding + teljes dYdX 1h funding + venue/latency feltételek | Runner van, de eredmény csak legalább 90% órás és 90% napi dYdX coverage mellett empirikus. A szükséges teljes cache nincs a repóban. |
 
 ### A tizenegy Signal Center plugin
 
 Az autoritatív lista a `packages/core/src/signal-center/plugins/` könyvtár 11 exportált `StrategyPlugin` osztálya. A monolith wrapper adapterek nem külön pluginok ebben a számban.
 
-| Plugin | Szerep | Valós bemenet | Önálló PnL/DD? | Production registry |
-|---|---|---|---|---|
-| `CexNetFlowRegimePlugin` | read-only factor/regime | CEX balance és net-transfer-flow idősor | Nem | Nem |
-| `CrossDexFundingWatcherPlugin` | cross-venue funding source | Hyperliquid, Binance, Bybit és OKX funding | Nem | Nem |
-| `CrossSymbolFundingDifferentialPlugin` | kétlábas funding hedge | szinkron BTC/ETH vagy más párok fundingja | Csak közös kétlábas runnerrel | Nem |
-| `CrossSymbolMomentumOverlayPlugin` | BTC-vezérelt risk-on/off overlay | szinkron napi close több szimbólumra | Csak upstream stratégiával | Nem |
-| `CrossSymbolSpreadReversionPlugin` | pairs mean reversion | szinkron close mindkét lábra | Csak kétlábas portfólió-runnerrel | Nem |
-| `DvolRegimeSizingPlugin` | forward-looking sizing | Deribit BTC DVOL napi idősor | Nem; sizing modifier | Nem |
-| `HybridKellyPlugin` | carry-side adaptív sizing | CarrySignal, SizingSignal, funding-Sharpe és realized vol | Nem; sizing modifier | Nem |
-| `PerpDexLiquidationSignalsPlugin` | defenzív liquidation overlay | több perp-DEX liquidation/OI feed | Nem | Nem |
-| `RegimeDetectorMetaPlugin` | HMM defenzív meta-plugin | Direction/Carry/Sizing SignalBus stream és hozamok | Nem | Igen: `regime_detector` |
-| `SOLFlipKillSwitchPlugin` | SOL funding-flip risk gate | SOL 8h funding history/CarrySignal | Önállóan nem; funding replayben PnL/DD explicit `null` | Igen: `funding_flip_kill_switch` |
-| `VolTargetSizingPlugin` | inverse-realized-vol sizing | upstream SizingSignal és realized-vol idősor | Nem; sizing modifier | Nem |
+| Plugin                                 | Szerep                           | Valós bemenet                                             | Önálló PnL/DD?                                         | Production registry              |
+| -------------------------------------- | -------------------------------- | --------------------------------------------------------- | ------------------------------------------------------ | -------------------------------- |
+| `CexNetFlowRegimePlugin`               | read-only factor/regime          | CEX balance és net-transfer-flow idősor                   | Nem                                                    | Nem                              |
+| `CrossDexFundingWatcherPlugin`         | cross-venue funding source       | Hyperliquid, Binance, Bybit és OKX funding                | Nem                                                    | Nem                              |
+| `CrossSymbolFundingDifferentialPlugin` | kétlábas funding hedge           | szinkron BTC/ETH vagy más párok fundingja                 | Csak közös kétlábas runnerrel                          | Nem                              |
+| `CrossSymbolMomentumOverlayPlugin`     | BTC-vezérelt risk-on/off overlay | szinkron napi close több szimbólumra                      | Csak upstream stratégiával                             | Nem                              |
+| `CrossSymbolSpreadReversionPlugin`     | pairs mean reversion             | szinkron close mindkét lábra                              | Csak kétlábas portfólió-runnerrel                      | Nem                              |
+| `DvolRegimeSizingPlugin`               | forward-looking sizing           | Deribit BTC DVOL napi idősor                              | Nem; sizing modifier                                   | Nem                              |
+| `HybridKellyPlugin`                    | carry-side adaptív sizing        | CarrySignal, SizingSignal, funding-Sharpe és realized vol | Nem; sizing modifier                                   | Nem                              |
+| `PerpDexLiquidationSignalsPlugin`      | defenzív liquidation overlay     | több perp-DEX liquidation/OI feed                         | Nem                                                    | Nem                              |
+| `RegimeDetectorMetaPlugin`             | HMM defenzív meta-plugin         | Direction/Carry/Sizing SignalBus stream és hozamok        | Nem                                                    | Igen: `regime_detector`          |
+| `SOLFlipKillSwitchPlugin`              | SOL funding-flip risk gate       | SOL 8h funding history/CarrySignal                        | Önállóan nem; funding replayben PnL/DD explicit `null` | Igen: `funding_flip_kill_switch` |
+| `VolTargetSizingPlugin`                | inverse-realized-vol sizing      | upstream SizingSignal és realized-vol idősor              | Nem; sizing modifier                                   | Nem                              |
 
 ### Az öt production registry elem
 
 Az éles kapcsolható felület autoritatív forrása az `apps/bot/src/config/schema.ts`. Nem mind azonos a hét stratégia vagy a 11 plugin teljes könyvtári listájával.
 
-| Production kulcs | Runtime típus | Alapadat | Pontosan mit tudunk jelenleg állítani? |
-|---|---|---|---|
-| `donchian_pivot_composition` | strategy/composition | OHLCV | Egyedileg valós adaton támogatott. |
-| `dydx_cex_carry` | strategy | CEX + dYdX funding | Coverage-gated runner; teljes lokális dYdX adat hiányzik. |
-| `cascade_fade` | strategy | liquidation/OI/funding/ELR event tape | Valós adat hiányában `UNSUPPORTED_DATA`. |
-| `funding_flip_kill_switch` | plugin | SOL funding | Valós Binance funding replay elérhető; önálló PnL/DD nem értelmezhető. DPC-vel együtt SOL-on overlayként is mérhető. |
-| `regime_detector` | plugin | Direction/Sizing SignalBus stream és close-ok | Önálló replay nincs; DPC-vel együtt az overlay runner valós close- és DPC-jelekkel futtatja, a `sizeModifier` ténylegesen módosítja a pozícióméretet. |
+| Production kulcs             | Runtime típus        | Alapadat                                      | Pontosan mit tudunk jelenleg állítani?                                                                                                                |
+| ---------------------------- | -------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `donchian_pivot_composition` | strategy/composition | OHLCV                                         | Egyedileg valós adaton támogatott.                                                                                                                    |
+| `dydx_cex_carry`             | strategy             | CEX + dYdX funding                            | Coverage-gated runner; teljes lokális dYdX adat hiányzik.                                                                                             |
+| `cascade_fade`               | strategy             | liquidation/OI/funding/ELR event tape         | Valós adat hiányában `UNSUPPORTED_DATA`.                                                                                                              |
+| `funding_flip_kill_switch`   | plugin               | SOL funding                                   | Valós Binance funding replay elérhető; önálló PnL/DD nem értelmezhető. DPC-vel együtt SOL-on overlayként is mérhető.                                  |
+| `regime_detector`            | plugin               | Direction/Sizing SignalBus stream és close-ok | Önálló replay nincs; DPC-vel együtt az overlay runner valós close- és DPC-jelekkel futtatja, a `sizeModifier` ténylegesen módosítja a pozícióméretet. |
 
 Öt bináris kapcsoló 32 állapotot ad. Az all-off állapot nem stratégiai konfiguráció, ezért a helper mind a 31 nem üres production maskot kiírja. A teljesítményrunnerek a DPC singletont és a DPC + opcionális SOLFlip + opcionális Regime négy overlay-maskját támogatják; a dYdX/Cascade vagy önálló Regime adatot igénylő többi production mask explicit indokot kap. A 31 sor nem 31 sikeres backtestet jelent.
 
 ## Adatsnapshot és valós adatkövetelmények
 
-| Dataset | Coverage | Méret | Mire használható? | Korlát |
-|---|---:|---:|---|---|
-| Binance BTC/ETH/SOL OHLCV, 5m/15m/1h/4h/1d | 2024-01-01 – 2026-07-09 | 15 fájl, 1 146 429 sor | DPC, Donchian Range, Pivot Grid, OHLC Trend és overlay | Binance USDT, nem Bybit EU USDC. |
-| Binance BTC/ETH/SOL funding, közel 8h | 2024-01-01 – 2026-07-09 | 2 761 sor/szimbólum | funding plugin funkcionális replay, carry CEX láb | Önállóan nem tartalmaz dYdX lábat. |
-| Deribit BTC DVOL daily | 2024-10-04 – 2026-07-06 | 641 sor | DVOL sizing plugin | A snapshot valós, de a letöltő nincs commitolva. |
-| dYdX hourly funding | — | hiányzik | dYdX-vs-CEX carry | Teljes ablakra legalább 90% órás és napi coverage kell. |
-| Cascade event tape | — | hiányzik | Cascade Fade | OHLCV nem helyettesíti a liquidation/OI/ELR adatot. |
-| SignalBus replay | — | hiányzik | Regime Detector és joint portfolio | A trade JSON nem teljes SignalBus eseményfolyam. |
+| Dataset                                    |                Coverage |                  Méret | Mire használható?                                      | Korlát                                                  |
+| ------------------------------------------ | ----------------------: | ---------------------: | ------------------------------------------------------ | ------------------------------------------------------- |
+| Binance BTC/ETH/SOL OHLCV, 5m/15m/1h/4h/1d | 2024-01-01 – 2026-07-09 | 15 fájl, 1 146 429 sor | DPC, Donchian Range, Pivot Grid, OHLC Trend és overlay | Binance USDT, nem Bybit EU USDC.                        |
+| Binance BTC/ETH/SOL funding, közel 8h      | 2024-01-01 – 2026-07-09 |    2 761 sor/szimbólum | funding plugin funkcionális replay, carry CEX láb      | Önállóan nem tartalmaz dYdX lábat.                      |
+| Deribit BTC DVOL daily                     | 2024-10-04 – 2026-07-06 |                641 sor | DVOL sizing plugin                                     | A snapshot valós, de a letöltő nincs commitolva.        |
+| dYdX hourly funding                        |                       — |               hiányzik | dYdX-vs-CEX carry                                      | Teljes ablakra legalább 90% órás és napi coverage kell. |
+| Cascade event tape                         |                       — |               hiányzik | Cascade Fade                                           | OHLCV nem helyettesíti a liquidation/OI/ELR adatot.     |
+| SignalBus replay                           |                       — |               hiányzik | Regime Detector és joint portfolio                     | A trade JSON nem teljes SignalBus eseményfolyam.        |
 
 A fagyasztott hash-ek és coverage elvárások a `search-best-config/data-snapshot.json` fájlban vannak. Az OHLCV downloader forráskódjában régi USDC-komment maradt, de a tényleges `SYMBOLS` lista USDT-párokat tölt le. A CSV feed base asset alapján keres fájlt, ezért `BTC/USDC` kérésre is ugyanazt a BTC/USDT CSV-t adhatja. Ezt venue/quote driftként kell feltüntetni, nem szabad Bybit EU reprodukciónak nevezni.
 
@@ -141,15 +141,15 @@ jq '{dryRun, strategies, rows: (.jobs | length), ready: ([.jobs[] | select(.stat
 
 Az elvárt all-runnable manifest 1467 job/status sort tartalmaz: 1347 `READY_DRY_RUN` és 120 `INVALID_MASK`. Az invalid sorok a SOLFlipet BTC/ETH-n kérő overlay-k; ezeket a rendszer nem csendes no-opként kezeli.
 
-| Runner/grid | Manifest sor | Futtatható sor |
-|---|---:|---:|
-| DPC | 90 | 90 |
-| Donchian Range (DRC) | 81 | 81 |
-| Pivot Grid | 45 | 45 |
-| OHLC Trend | 648 | 648 |
-| SOLFlip funding replay | 243 | 243 |
-| DPC overlay | 360 | 240 |
-| **Összesen** | **1467** | **1347** |
+| Runner/grid            | Manifest sor | Futtatható sor |
+| ---------------------- | -----------: | -------------: |
+| DPC                    |           90 |             90 |
+| Donchian Range (DRC)   |           81 |             81 |
+| Pivot Grid             |           45 |             45 |
+| OHLC Trend             |          648 |            648 |
+| SOLFlip funding replay |          243 |            243 |
+| DPC overlay            |          360 |            240 |
+| **Összesen**           |     **1467** |       **1347** |
 
 ### 4. Execute és resume
 
@@ -342,42 +342,42 @@ A közös DPC/DRC/Pivot/overlay backtest engine a historikus indikátor-idősoro
 
 Az ugyanazon 2024-01-01 – 2025-07-01 valós IS mintán mért common-engine idők:
 
-| Runner | Korábbi idő | Causal precompute | Gyorsulás |
-|---|---:|---:|---:|
-| DPC | 110,35 s | 0,18 s | 613× |
-| DRC | 158,46 s | 0,15 s | 1056× |
-| Pivot | 95,56 s | 0,17 s | 562× |
-| DPC + SOLFlip + Regime overlay | 84,69 s | 0,29 s | 292× |
+| Runner                         | Korábbi idő | Causal precompute | Gyorsulás |
+| ------------------------------ | ----------: | ----------------: | --------: |
+| DPC                            |    110,35 s |            0,18 s |      613× |
+| DRC                            |    158,46 s |            0,15 s |     1056× |
+| Pivot                          |     95,56 s |            0,17 s |      562× |
+| DPC + SOLFlip + Regime overlay |     84,69 s |            0,29 s |      292× |
 
 Az OHLC Trend külön runnerének mért IS ideje 2,57 s volt; ezért annak 648 jobos gridje önmagában körülbelül 7 perc concurrency=4 mellett, és nem igényelt eltérő optimalizált végrehajtási utat. A teljes all-runnable gridre concurrency=4 mellett 10–15 perc walltime-keret ajánlott. Ez benchmark-alapú becslés: gépterhelés, lemez-cache és hardver függvényében változhat.
 
 ## IS, validation és OOS szabály
 
-| Szakasz | Időszak | Használat |
-|---|---|---|
-| IS | 2024-01-01 – 2025-07-01 | véges grid keresése |
-| Validation | 2025-07-01 – 2026-01-01 | IS-jelöltek szűrése |
-| OOS | 2026-01-01 – 2026-07-09 | előre lezárt jelöltek egyszeri végső ellenőrzése |
+| Szakasz    | Időszak                 | Használat                                        |
+| ---------- | ----------------------- | ------------------------------------------------ |
+| IS         | 2024-01-01 – 2025-07-01 | véges grid keresése                              |
+| Validation | 2025-07-01 – 2026-01-01 | IS-jelöltek szűrése                              |
+| OOS        | 2026-01-01 – 2026-07-09 | előre lezárt jelöltek egyszeri végső ellenőrzése |
 
 Az OOS eredmény láttán ugyanazon az OOS mintán tilos új paramétert választani. Minden ablak elején indikátor-warmup van. A DPC legalább 20 lezárt napos gyertyát igényel; rövid ablakok jelhiánya nem feltétlen stratégiahiba.
 
 ## A teljes eredménytábla metrikái
 
-| Mező | Jelentés |
-|---|---|
-| `totalReturnPct` | teljes kumulatív hozam százalékpontban |
-| `monthlyReturnPct` | geometriai havi átlag százalékpontban |
-| `annualizedReturnPct` | évesített hozam százalékpontban |
-| `maxDrawdownPct` | legnagyobb csúcs–völgy visszaesés; minden teljesítménysornál kötelező DD |
-| `sharpe` | kockázat-adjustált átlaghozam |
-| `sortino` | lefelé irányuló volatilitással korrigált hozam |
-| `profitFactor` | bruttó nyereség / bruttó veszteség |
-| `winRatePct` | nyertes lezárt trade-ek aránya |
-| `totalTrades` | lezárt trade-ek száma |
-| `killSwitchTriggered` | aktiválta-e a kockázati leállítást |
-| `coverage` | adatfedettségi bizonyíték; különösen fontos carrynél |
-| `status`, `reason` | futtathatóság és minden skip/unsupported indoka |
-| `parameters`, `dataInputs`, `codeRevision`, `rawOutput` | reprodukciós provenance |
+| Mező                                                    | Jelentés                                                                 |
+| ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `totalReturnPct`                                        | teljes kumulatív hozam százalékpontban                                   |
+| `monthlyReturnPct`                                      | geometriai havi átlag százalékpontban                                    |
+| `annualizedReturnPct`                                   | évesített hozam százalékpontban                                          |
+| `maxDrawdownPct`                                        | legnagyobb csúcs–völgy visszaesés; minden teljesítménysornál kötelező DD |
+| `sharpe`                                                | kockázat-adjustált átlaghozam                                            |
+| `sortino`                                               | lefelé irányuló volatilitással korrigált hozam                           |
+| `profitFactor`                                          | bruttó nyereség / bruttó veszteség                                       |
+| `winRatePct`                                            | nyertes lezárt trade-ek aránya                                           |
+| `totalTrades`                                           | lezárt trade-ek száma                                                    |
+| `killSwitchTriggered`                                   | aktiválta-e a kockázati leállítást                                       |
+| `coverage`                                              | adatfedettségi bizonyíték; különösen fontos carrynél                     |
+| `status`, `reason`                                      | futtathatóság és minden skip/unsupported indoka                          |
+| `parameters`, `dataInputs`, `codeRevision`, `rawOutput` | reprodukciós provenance                                                  |
 
 Nem szabad csak havi hozam alapján rangsorolni. A teljes táblából érdemes Pareto-jelölteket választani: magasabb validation/OOS hozam, alacsonyabb DD, stabil Sharpe/Sortino és profit factor, elegendő tradeszám, több szimbólumon fennmaradó eredmény, kill-switch nélkül. A végső kockázati profilt a felhasználó választja.
 

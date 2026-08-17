@@ -182,9 +182,11 @@ describe("StrategyRegistry", () => {
     const reg = new StrategyRegistry();
     const p1 = mkPlugin(mkMetadata({ name: "alpha" }));
     const p2 = mkPlugin(mkMetadata({ name: "beta" }));
-    (p2 as unknown as {
-      setValidateResult(r: Result<void, ConfigError>): void;
-    }).setValidateResult({
+    (
+      p2 as unknown as {
+        setValidateResult(r: Result<void, ConfigError>): void;
+      }
+    ).setValidateResult({
       ok: false,
       error: { pluginName: "beta", field: "leverage", message: "must be 10" },
     });
@@ -238,9 +240,7 @@ describe("StrategyRegistry", () => {
   });
 
   it("plugin metadata validation: invalid edgeClass rejected", () => {
-    const r1 = validatePluginMetadata(
-      mkMetadata({ edgeClass: "invalid" as unknown as EdgeClass }),
-    );
+    const r1 = validatePluginMetadata(mkMetadata({ edgeClass: "invalid" as unknown as EdgeClass }));
     expect(r1.ok).toBe(false);
     if (!r1.ok) {
       expect(r1.error.field).toBe("edgeClass");
@@ -322,15 +322,12 @@ describe("StrategyRegistry", () => {
   it("async plugins fail loud on sync dispatch and are awaited in order", async () => {
     const reg = new StrategyRegistry();
     const order: string[] = [];
-    const plugin = mkPlugin(
-      mkMetadata({ name: "async-alpha", onBarMode: "async" }),
-      {
-        onBar: async () => {
-          await Promise.resolve();
-          order.push("async-alpha");
-        },
+    const plugin = mkPlugin(mkMetadata({ name: "async-alpha", onBarMode: "async" }), {
+      onBar: async () => {
+        await Promise.resolve();
+        order.push("async-alpha");
       },
-    );
+    });
     reg.register(plugin);
     expect(() => reg.onBarAll(mkBar(), {})).toThrow(/onBarAllAsync/);
     expect(order).toEqual([]);
@@ -439,7 +436,9 @@ describe("Phase 35b — StrategyRegistry private method coverage via cast", () =
     // Direct call to findIndexByName
     const idx = (reg as unknown as { findIndexByName: (n: string) => number }).findIndexByName("alpha");
     expect(idx).toBe(0);
-    expect((reg as unknown as { findIndexByName: (n: string) => number }).findIndexByName("nonexistent")).toBe(-1);
+    expect(
+      (reg as unknown as { findIndexByName: (n: string) => number }).findIndexByName("nonexistent"),
+    ).toBe(-1);
   });
 });
 
@@ -462,9 +461,11 @@ describe("Phase 35b — StrategyRegistry inline arrow coverage", () => {
     const reg = new StrategyRegistry();
     const p1 = mkPlugin(mkMetadata({ name: "alpha" }));
     const p2 = mkPlugin(mkMetadata({ name: "beta" }));
-    (p2 as unknown as {
-      setValidateResult(r: Result<void, ConfigError>): void;
-    }).setValidateResult({
+    (
+      p2 as unknown as {
+        setValidateResult(r: Result<void, ConfigError>): void;
+      }
+    ).setValidateResult({
       ok: false,
       error: { pluginName: "beta", field: "leverage", message: "must be 10" },
     });
@@ -501,15 +502,19 @@ describe("Phase 35b — StrategyRegistry extra function coverage", () => {
     const reg = new StrategyRegistry();
     const p1 = mkPlugin(mkMetadata({ name: "alpha" }));
     const p2 = mkPlugin(mkMetadata({ name: "beta" }));
-    (p1 as unknown as {
-      setValidateResult(r: Result<void, ConfigError>): void;
-    }).setValidateResult({
+    (
+      p1 as unknown as {
+        setValidateResult(r: Result<void, ConfigError>): void;
+      }
+    ).setValidateResult({
       ok: false,
       error: { pluginName: "alpha", field: "leverage", message: "must be 10" },
     });
-    (p2 as unknown as {
-      setValidateResult(r: Result<void, ConfigError>): void;
-    }).setValidateResult({
+    (
+      p2 as unknown as {
+        setValidateResult(r: Result<void, ConfigError>): void;
+      }
+    ).setValidateResult({
       ok: false,
       error: { pluginName: "beta", field: "capital", message: "must be positive" },
     });

@@ -154,10 +154,7 @@ export class MaxPositionsKillSwitch implements KillSwitch {
   private readonly positionManager: PositionManager;
   private readonly softCapFraction: number;
 
-  public constructor(opts: {
-    readonly positionManager: PositionManager;
-    readonly softCapFraction?: number;
-  }) {
+  public constructor(opts: { readonly positionManager: PositionManager; readonly softCapFraction?: number }) {
     this.positionManager = opts.positionManager;
     this.softCapFraction = opts.softCapFraction ?? 0.9;
     this.description = `Max positions ${this.positionManager.getMaxPositions()}`;

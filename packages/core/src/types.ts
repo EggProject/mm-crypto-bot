@@ -166,7 +166,8 @@ export interface PositionUpdate {
   readonly newTakeProfit?: number;
   readonly forceExit?: boolean;
   readonly exitPrice?: number;
-  readonly reason?: "trailing_stop" | "trend_reversal" | "stop_loss" | "take_profit" | "time_exit" | "kill_switch";
+  readonly reason?:
+    "trailing_stop" | "trend_reversal" | "stop_loss" | "take_profit" | "time_exit" | "kill_switch";
 }
 
 /**

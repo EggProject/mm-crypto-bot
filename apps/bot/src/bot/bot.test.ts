@@ -85,23 +85,62 @@ describe("Bot", () => {
     it("values configured spot inventory from venue balances", async () => {
       const symbol = asSymbol("BTC/USDC") as ExchangeSymbol;
       const spotFeed = new MockExchangeFeed({
-        balances: [{ currency: "USDC", free: 1_000, total: 1_000 }, { currency: "BTC", free: 2, total: 2 }],
+        balances: [
+          { currency: "USDC", free: 1_000, total: 1_000 },
+          { currency: "BTC", free: 2, total: 2 },
+        ],
       });
-      const ticker: Ticker = { symbol, timestamp: Date.now(), bid: 99, ask: 101, last: 100, baseVolume: 0, quoteVolume: 0 };
+      const ticker: Ticker = {
+        symbol,
+        timestamp: Date.now(),
+        bid: 99,
+        ask: 101,
+        last: 100,
+        baseVolume: 0,
+        quoteVolume: 0,
+      };
       spotFeed.setTicker(symbol, ticker);
-      const config = { ...buildTestConfig(stateFile), bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const } };
+      const config = {
+        ...buildTestConfig(stateFile),
+        bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const },
+      };
       expect(await reconcileLiveEquity(new Bot({ config, feed: spotFeed }))).toBe(1_200);
     });
 
     it("adds derivative UPL but never derivative notional or base balance", async () => {
       const symbol = asSymbol("BTC/USDC") as ExchangeSymbol;
-      const derivativeMeta: MarketMeta = { symbol, base: "BTC", quote: "USDC", amountPrecision: 4, pricePrecision: 2, minAmount: 0.0001, minCost: 1, isSpot: false };
+      const derivativeMeta: MarketMeta = {
+        symbol,
+        base: "BTC",
+        quote: "USDC",
+        amountPrecision: 4,
+        pricePrecision: 2,
+        minAmount: 0.0001,
+        minCost: 1,
+        isSpot: false,
+      };
       const derivativeFeed = new MockExchangeFeed({
-        balances: [{ currency: "USDC", free: 1_000, total: 1_000 }, { currency: "BTC", free: 2, total: 2 }],
+        balances: [
+          { currency: "USDC", free: 1_000, total: 1_000 },
+          { currency: "BTC", free: 2, total: 2 },
+        ],
         marketMeta: new Map([[symbol, derivativeMeta]]),
-        positions: [{ symbol, side: "long", quantity: 2, entryPrice: 100, markPrice: 105, unrealizedPnl: 10, updateTimestamp: Date.now() }],
+        positions: [
+          {
+            symbol,
+            side: "long",
+            quantity: 2,
+            entryPrice: 100,
+            markPrice: 105,
+            unrealizedPnl: 10,
+            updateTimestamp: Date.now(),
+          },
+        ],
       });
-      const config = { ...buildTestConfig(stateFile), bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const } };
+      const config = {
+        ...buildTestConfig(stateFile),
+        bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const },
+      };
       expect(await reconcileLiveEquity(new Bot({ config, feed: derivativeFeed }))).toBe(1_010);
     });
 
@@ -109,14 +148,59 @@ describe("Bot", () => {
       const btc = asSymbol("BTC/USDC") as ExchangeSymbol;
       const eth = asSymbol("ETH/USDC") as ExchangeSymbol;
       const mixedFeed = new MockExchangeFeed({
-        balances: [{ currency: "USDC", free: 1_000, total: 1_000 }, { currency: "BTC", free: 1, total: 1 }],
+        balances: [
+          { currency: "USDC", free: 1_000, total: 1_000 },
+          { currency: "BTC", free: 1, total: 1 },
+        ],
         marketMeta: new Map([
-          [btc, { symbol: btc, base: "BTC", quote: "USDC", amountPrecision: 4, pricePrecision: 2, minAmount: 0.0001, minCost: 1, isSpot: true }],
-          [eth, { symbol: eth, base: "ETH", quote: "USDC", amountPrecision: 4, pricePrecision: 2, minAmount: 0.0001, minCost: 1, isSpot: false }],
+          [
+            btc,
+            {
+              symbol: btc,
+              base: "BTC",
+              quote: "USDC",
+              amountPrecision: 4,
+              pricePrecision: 2,
+              minAmount: 0.0001,
+              minCost: 1,
+              isSpot: true,
+            },
+          ],
+          [
+            eth,
+            {
+              symbol: eth,
+              base: "ETH",
+              quote: "USDC",
+              amountPrecision: 4,
+              pricePrecision: 2,
+              minAmount: 0.0001,
+              minCost: 1,
+              isSpot: false,
+            },
+          ],
         ]),
-        positions: [{ symbol: eth, side: "short", quantity: 1, entryPrice: 10, markPrice: 12, unrealizedPnl: -5, updateTimestamp: Date.now() }],
+        positions: [
+          {
+            symbol: eth,
+            side: "short",
+            quantity: 1,
+            entryPrice: 10,
+            markPrice: 12,
+            unrealizedPnl: -5,
+            updateTimestamp: Date.now(),
+          },
+        ],
       });
-      mixedFeed.setTicker(btc, { symbol: btc, timestamp: Date.now(), bid: 99, ask: 101, last: 100, baseVolume: 0, quoteVolume: 0 });
+      mixedFeed.setTicker(btc, {
+        symbol: btc,
+        timestamp: Date.now(),
+        bid: 99,
+        ask: 101,
+        last: 100,
+        baseVolume: 0,
+        quoteVolume: 0,
+      });
       const config = {
         ...buildTestConfig(stateFile),
         bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const },
@@ -129,9 +213,26 @@ describe("Bot", () => {
       const symbol = asSymbol("BTC/USDC") as ExchangeSymbol;
       const derivativeFeed = new MockExchangeFeed({
         balances: [{ currency: "USDC", free: 1_000, total: 1_000 }],
-        marketMeta: new Map([[symbol, { symbol, base: "BTC", quote: "USDC", amountPrecision: 4, pricePrecision: 2, minAmount: 0.0001, minCost: 1, isSpot: false }]]),
+        marketMeta: new Map([
+          [
+            symbol,
+            {
+              symbol,
+              base: "BTC",
+              quote: "USDC",
+              amountPrecision: 4,
+              pricePrecision: 2,
+              minAmount: 0.0001,
+              minCost: 1,
+              isSpot: false,
+            },
+          ],
+        ]),
       });
-      const config = { ...buildTestConfig(stateFile), bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const } };
+      const config = {
+        ...buildTestConfig(stateFile),
+        bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const },
+      };
       const bot = new Bot({ config, feed: derivativeFeed });
       const internal = bot as unknown as {
         init(): Promise<{ readonly portfolioManager: { isTripped(): boolean } }>;
@@ -140,7 +241,17 @@ describe("Bot", () => {
       };
       const context = await internal.init();
       await internal.runHeartbeat(context); // establishes the 1,000 USD high-water mark
-      derivativeFeed.setPositions([{ symbol, side: "long", quantity: 1, entryPrice: 100, markPrice: 89, unrealizedPnl: -110, updateTimestamp: Date.now() }]);
+      derivativeFeed.setPositions([
+        {
+          symbol,
+          side: "long",
+          quantity: 1,
+          entryPrice: 100,
+          markPrice: 89,
+          unrealizedPnl: -110,
+          updateTimestamp: Date.now(),
+        },
+      ]);
       await internal.runHeartbeat(context);
       expect(context.portfolioManager.isTripped()).toBe(true);
       // The trip action is deliberately fire-and-forget from the stop
@@ -645,7 +756,14 @@ describe("Bot", () => {
     // a strategy signal → order → fill flow.
     const botAny = bot as unknown as {
       positionManager: {
-        openPosition: (s: string, sym: ExchangeSymbol, side: "long" | "short", qty: number, price: number, lev: number) => unknown;
+        openPosition: (
+          s: string,
+          sym: ExchangeSymbol,
+          side: "long" | "short",
+          qty: number,
+          price: number,
+          lev: number,
+        ) => unknown;
       };
     };
     botAny.positionManager.openPosition(
@@ -679,7 +797,14 @@ describe("Bot", () => {
 
     const botAny = bot as unknown as {
       positionManager: {
-        openPosition: (s: string, sym: ExchangeSymbol, side: "long" | "short", qty: number, price: number, lev: number) => unknown;
+        openPosition: (
+          s: string,
+          sym: ExchangeSymbol,
+          side: "long" | "short",
+          qty: number,
+          price: number,
+          lev: number,
+        ) => unknown;
         closePosition: (s: string, sym: ExchangeSymbol, exitPrice: number) => number;
       };
     };
@@ -709,9 +834,9 @@ describe("Bot", () => {
     const bot = new Bot({
       config,
       feed,
-      stateSaveIntervalMs: 10,  // 10ms in test
-      killSwitchEvalIntervalMs: 10_000,  // disable kill-switch eval
-      heartbeatIntervalMs: 10_000,  // disable heartbeat
+      stateSaveIntervalMs: 10, // 10ms in test
+      killSwitchEvalIntervalMs: 10_000, // disable kill-switch eval
+      heartbeatIntervalMs: 10_000, // disable heartbeat
     });
     const p = bot.start();
     // Wait long enough for the state-save interval to fire + the 50ms
@@ -751,9 +876,9 @@ describe("Bot", () => {
     const bot = new Bot({
       config,
       feed,
-      stateSaveIntervalMs: 10_000,  // disable state-save
-      killSwitchEvalIntervalMs: 10,  // 10ms
-      heartbeatIntervalMs: 10_000,   // disable heartbeat
+      stateSaveIntervalMs: 10_000, // disable state-save
+      killSwitchEvalIntervalMs: 10, // 10ms
+      heartbeatIntervalMs: 10_000, // disable heartbeat
     });
     const p = bot.start();
     await new Promise<void>((r) => setTimeout(r, 50));
@@ -780,8 +905,8 @@ describe("Bot", () => {
       config,
       feed,
       stateSaveIntervalMs: 10_000,
-      killSwitchEvalIntervalMs: 10_000,  // disable init's interval
-      heartbeatIntervalMs: 10,  // 10ms heartbeat
+      killSwitchEvalIntervalMs: 10_000, // disable init's interval
+      heartbeatIntervalMs: 10, // 10ms heartbeat
     });
     const p = bot.start();
     // Wait long enough for the heartbeat to fire at least once.
@@ -813,7 +938,7 @@ describe("Bot", () => {
       config,
       feed,
       stateSaveIntervalMs: 10_000,
-      killSwitchEvalIntervalMs: 10,  // 10ms — quick eval
+      killSwitchEvalIntervalMs: 10, // 10ms — quick eval
       heartbeatIntervalMs: 10_000,
       perStrategyKillSwitches: [engagedSwitch],
     });
@@ -838,7 +963,7 @@ describe("Bot", () => {
       feed,
       stateSaveIntervalMs: 10_000,
       killSwitchEvalIntervalMs: 10_000,
-      heartbeatIntervalMs: 10,  // 10ms — frequent heartbeats
+      heartbeatIntervalMs: 10, // 10ms — frequent heartbeats
     });
     const p = bot.start();
     // Let the run loop run for a few cycles.
@@ -847,7 +972,11 @@ describe("Bot", () => {
     await p;
 
     // After stop, running is false and the loop has exited.
-    const botState = bot as unknown as { running: boolean; stateSaveInterval: ReturnType<typeof setInterval> | null; killSwitchInterval: ReturnType<typeof setInterval> | null };
+    const botState = bot as unknown as {
+      running: boolean;
+      stateSaveInterval: ReturnType<typeof setInterval> | null;
+      killSwitchInterval: ReturnType<typeof setInterval> | null;
+    };
     expect(botState.running).toBe(false);
     expect(botState.stateSaveInterval).toBeNull();
     expect(botState.killSwitchInterval).toBeNull();
@@ -864,7 +993,7 @@ describe("Bot", () => {
       stateSaveIntervalMs: 10_000,
       killSwitchEvalIntervalMs: 10_000,
       heartbeatIntervalMs: 10_000,
-      telemetryMetricsIntervalSec: 0.05,  // 50ms — quick fire
+      telemetryMetricsIntervalSec: 0.05, // 50ms — quick fire
     });
     const p = bot.start();
     // Wait long enough for the metrics interval to fire 2+ times.

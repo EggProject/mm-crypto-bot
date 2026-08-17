@@ -1,5 +1,10 @@
 #!/usr/bin/env bun
-import { parseWorkflowArgs, runCompositionBacktest, workflowHelp, writeWorkflowOutput } from "./workflow-common.js";
+import {
+  parseWorkflowArgs,
+  runCompositionBacktest,
+  workflowHelp,
+  writeWorkflowOutput,
+} from "./workflow-common.js";
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (argv.includes("--help") || argv.includes("-h")) {

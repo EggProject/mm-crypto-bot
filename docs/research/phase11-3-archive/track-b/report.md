@@ -12,33 +12,33 @@ This track asks: **what crypto-native alpha lives in on-chain flow analysis that
 
 ## §2 — Source Inventory (≥10 primary sources, mixed-language)
 
-| # | Source | Lang | URL | Relevance |
-|---|--------|------|-----|-----------|
-| 1 | Nansen — "Smart Money Indicators" methodology | en | https://nansen.ai/post/smart-money-indicators-key-metrics-for-cryptocurrency-accumulation-investor-behavior-analysis | Defines "Smart Money" wallet labels (rolling-window PnL + behavior thresholds) |
-| 2 | Nansen — How to Track Crypto Smart Money | en | https://nansen.ai/post/how-to-track-crypto-smart-money-your-guide-to-onchain-investment-moves | Wallet identification + exchange inflow/outflow as accumulation/distribution proxy |
-| 3 | Nansen API docs — Netflows / Flows | en | https://docs.nansen.ai/api/smart-money/netflows | Programmatic access to label-level flows |
-| 4 | Arkham — Tagging System Guide | en | https://info.arkm.com/research/a-guide-to-arkham-intels-industry-leading-tagging-system | Entity-resolution methodology (3B+ tags, 800k+ entities) |
-| 5 | CryptoQuant — Exchange Inflow/Outflow & Netflow | en | https://userguide.cryptoquant.com/cryptoquant-metrics/exchange/exchange-in-outflow-and-netflow | Netflow = Inflow − Outflow; bullish/bearish interpretation; 30-day MA uses |
-| 6 | Glassnode Docs — SOPR (Spent Output Profit Ratio) | en | https://docs.glassnode.com/further-information/metric-guides/sopr/sopr-spent-output-profit-ratio | SOPR definition + aSOPR / LTH-SOPR / STH-SOPR variants + 155-day cohort boundary |
-| 7 | Coinglass — How to Use Liquidation Heatmap | en | https://www.coinglass.com/learn/how-to-use-liqmap-to-assist-trading-en | Heatmap methodology; cascade dynamics |
-| 8 | EigenPhi — Sandwich MEV Methodology | en | https://medium.com/@eigenphi/introducing-sandwich-arbitrages-discovering-on-eigenphi-8db6ee644533 | Strongly-connected-component + cross-transaction pair-trade sandwich detection |
-| 9 | EigenPhi / Cointelegraph Research — sandwich activity Nov 2024-Oct 2025 | en | https://www.tradingview.com/news/cointelegraph:fa12ba092094b:0-exclusive-data-from-eigenphi-reveals-that-sandwich-attacks-on-ethereum-have-waned/ | 95k attacks / ~$40M extracted 2025; jaredfromsubway.eth = 70% volume |
-| 10 | BIS Working Paper No 1270 — Stablecoins and Safe Asset Prices | en | https://www.bis.org/publ/work1270.pdf | Institutional-grade: $3.5B stablecoin inflow → -0.71bps 3-month T-bill yield (impact), -4bps within 10d |
-| 11 | Presto Research — "Whale Alerts: Empirical test" (cited via Odaily) | en | https://www.zgtjyw.com/news/12357 (Odaily Chinese translation of Presto Research) | Whale deposits to Binance vs BTC/ETH/SOL subsequent move: R² = 0.0017 to 0.0537. **Naive whale-alert signals are noise.** |
-| 12 | BtcQA / 币大大 — Glassnode whale accumulation mid-2024 | zh | https://czxurui.com/zx/33957.html | Chinese translation of Glassnode whale report; >1k BTC cohort = 41% of exchange inflows, 82% flow to Binance |
-| 13 | Wu Shuo / 吴说 — BTC whale-to-Binance Nov 2025 inflow | zh | https://finance.sina.com.cn/blockchain/roll/2025-11-28/doc-infyxfim0113647.shtml | 30-day BTC whale → Binance inflow $7.5B = highest in 1 year; pattern matches Mar 2025 |
-| 14 | Odaily — Presto Research whale-deposit backtest Chinese translation | zh | https://www.zgtjyw.com/news/12357 | Same finding as #11 in zh, cross-language confirmation |
-| 15 | 区块律动 BlockBeats — Nansen Smart Money tracking | zh | http://www.coinvoice.cn/articles/15808 | Smart Money concept in Chinese; "著名营业部" / "期货公司游资" framing |
-| 16 | 币界网 / CoinGlossary — CryptoQuant stablecoin exchange netflow analysis | zh | https://www.binance.com/zh-CN/square/post/25111636427657 | Backtest: USDC ERC-20 Netflow ≥$100M for 3 consecutive days → +22.78% avg BTC move over 14 triggers Jan 2023-May 2025 |
-| 17 | mritd.com — Perp-DEX MEV taxonomy (zh, technical deep-dive) | zh | https://mritd.com/2025/10/05/perp-mev/ | Six perp-DEX MEV types; GMX v2 two-step execution; dYdX v4 validator-internalized liquidation + Slinky sidecar oracle |
-| 18 | Odaily — Hyperliquid "黑色星期三" deep-dive (JELLY attack) | zh | https://www.odaily.news/zh-CN/author/2147526636 | Public-position exposure exploitation; perp-DEX liquidation-hunt mechanism |
-| 19 | Columbia Law / Cahill Gordon — DeFi dark pools essay | en | https://clsbluesky.law.columbia.edu/2025/09/23/cahill-gordon-discusses-the-case-for-crypto-dark-pools-or-not/ | James Wynn 949 BTC ($99M) liquidation; March 2025 whale-hunt; JELLY self-dealing; MEV-first-construction theory |
-| 20 | Glassnode Studio — BTC LTH/STH SOPR live | en | https://studio.glassnode.com/charts/breakdowns.SoprByLthSth?a=BTC | Latest values: STH 0.981, LTH 0.933, Aggregated 0.977 (May 2026) — Mutual Loss regime |
-| 21 | BtcOAK — STH/LTH SOPR mutual-loss cycle bottom pairing | en | https://btcoak.com/sopr | "When both lines sit below 1.0 the network is capitulating; that pairing has appeared at every cycle bottom on record." |
-| 22 | Spot On Chain — USDT mint $5B → BTC ATH pattern | en | https://platform.spotonchain.ai/en/signal-details/tether-treasury-minted-2b-usdt-more-on-ethereum-207449 | Nov 2024: $1B mint → BTC ATH $76,200; $2B mint Nov 9-10 → BTC ATH $89,500 |
-| 23 | Finam (RU) — BTC whale accumulation Feb 2026 | ru | https://www.finam.ru/publications/item/on-cheyn-obzor-kriptorynka-podtverzhdaetsya-li-prognoz-rannego-nakopleniya-20260323-0946/ | 1000+ BTC wallets added 270,000 BTC ($23B) in 30 days; supply shock framing |
-| 24 | Hotcoin Research (via Binance Square RU) — April BTC flow analysis | ru | https://www.binance.com/ru/square/post/23179646408018 | Whale cohort (1k-10k BTC) balance +100,000 BTC; ATH total holdings >3.35M BTC |
-| 25 | Crypto.ru — USDT TRC-20 inflow predictive analysis (ru) | ru | https://crypto.ru/news/rost-perevodov-usdt-v-seti-tron/ | Russian-language confirmation of stablecoin flow → price lead-lag |
+| #   | Source                                                                   | Lang | URL                                                                                                                                               | Relevance                                                                                                                 |
+| --- | ------------------------------------------------------------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Nansen — "Smart Money Indicators" methodology                            | en   | https://nansen.ai/post/smart-money-indicators-key-metrics-for-cryptocurrency-accumulation-investor-behavior-analysis                              | Defines "Smart Money" wallet labels (rolling-window PnL + behavior thresholds)                                            |
+| 2   | Nansen — How to Track Crypto Smart Money                                 | en   | https://nansen.ai/post/how-to-track-crypto-smart-money-your-guide-to-onchain-investment-moves                                                     | Wallet identification + exchange inflow/outflow as accumulation/distribution proxy                                        |
+| 3   | Nansen API docs — Netflows / Flows                                       | en   | https://docs.nansen.ai/api/smart-money/netflows                                                                                                   | Programmatic access to label-level flows                                                                                  |
+| 4   | Arkham — Tagging System Guide                                            | en   | https://info.arkm.com/research/a-guide-to-arkham-intels-industry-leading-tagging-system                                                           | Entity-resolution methodology (3B+ tags, 800k+ entities)                                                                  |
+| 5   | CryptoQuant — Exchange Inflow/Outflow & Netflow                          | en   | https://userguide.cryptoquant.com/cryptoquant-metrics/exchange/exchange-in-outflow-and-netflow                                                    | Netflow = Inflow − Outflow; bullish/bearish interpretation; 30-day MA uses                                                |
+| 6   | Glassnode Docs — SOPR (Spent Output Profit Ratio)                        | en   | https://docs.glassnode.com/further-information/metric-guides/sopr/sopr-spent-output-profit-ratio                                                  | SOPR definition + aSOPR / LTH-SOPR / STH-SOPR variants + 155-day cohort boundary                                          |
+| 7   | Coinglass — How to Use Liquidation Heatmap                               | en   | https://www.coinglass.com/learn/how-to-use-liqmap-to-assist-trading-en                                                                            | Heatmap methodology; cascade dynamics                                                                                     |
+| 8   | EigenPhi — Sandwich MEV Methodology                                      | en   | https://medium.com/@eigenphi/introducing-sandwich-arbitrages-discovering-on-eigenphi-8db6ee644533                                                 | Strongly-connected-component + cross-transaction pair-trade sandwich detection                                            |
+| 9   | EigenPhi / Cointelegraph Research — sandwich activity Nov 2024-Oct 2025  | en   | https://www.tradingview.com/news/cointelegraph:fa12ba092094b:0-exclusive-data-from-eigenphi-reveals-that-sandwich-attacks-on-ethereum-have-waned/ | 95k attacks / ~$40M extracted 2025; jaredfromsubway.eth = 70% volume                                                      |
+| 10  | BIS Working Paper No 1270 — Stablecoins and Safe Asset Prices            | en   | https://www.bis.org/publ/work1270.pdf                                                                                                             | Institutional-grade: $3.5B stablecoin inflow → -0.71bps 3-month T-bill yield (impact), -4bps within 10d                   |
+| 11  | Presto Research — "Whale Alerts: Empirical test" (cited via Odaily)      | en   | https://www.zgtjyw.com/news/12357 (Odaily Chinese translation of Presto Research)                                                                 | Whale deposits to Binance vs BTC/ETH/SOL subsequent move: R² = 0.0017 to 0.0537. **Naive whale-alert signals are noise.** |
+| 12  | BtcQA / 币大大 — Glassnode whale accumulation mid-2024                   | zh   | https://czxurui.com/zx/33957.html                                                                                                                 | Chinese translation of Glassnode whale report; >1k BTC cohort = 41% of exchange inflows, 82% flow to Binance              |
+| 13  | Wu Shuo / 吴说 — BTC whale-to-Binance Nov 2025 inflow                    | zh   | https://finance.sina.com.cn/blockchain/roll/2025-11-28/doc-infyxfim0113647.shtml                                                                  | 30-day BTC whale → Binance inflow $7.5B = highest in 1 year; pattern matches Mar 2025                                     |
+| 14  | Odaily — Presto Research whale-deposit backtest Chinese translation      | zh   | https://www.zgtjyw.com/news/12357                                                                                                                 | Same finding as #11 in zh, cross-language confirmation                                                                    |
+| 15  | 区块律动 BlockBeats — Nansen Smart Money tracking                        | zh   | http://www.coinvoice.cn/articles/15808                                                                                                            | Smart Money concept in Chinese; "著名营业部" / "期货公司游资" framing                                                     |
+| 16  | 币界网 / CoinGlossary — CryptoQuant stablecoin exchange netflow analysis | zh   | https://www.binance.com/zh-CN/square/post/25111636427657                                                                                          | Backtest: USDC ERC-20 Netflow ≥$100M for 3 consecutive days → +22.78% avg BTC move over 14 triggers Jan 2023-May 2025     |
+| 17  | mritd.com — Perp-DEX MEV taxonomy (zh, technical deep-dive)              | zh   | https://mritd.com/2025/10/05/perp-mev/                                                                                                            | Six perp-DEX MEV types; GMX v2 two-step execution; dYdX v4 validator-internalized liquidation + Slinky sidecar oracle     |
+| 18  | Odaily — Hyperliquid "黑色星期三" deep-dive (JELLY attack)               | zh   | https://www.odaily.news/zh-CN/author/2147526636                                                                                                   | Public-position exposure exploitation; perp-DEX liquidation-hunt mechanism                                                |
+| 19  | Columbia Law / Cahill Gordon — DeFi dark pools essay                     | en   | https://clsbluesky.law.columbia.edu/2025/09/23/cahill-gordon-discusses-the-case-for-crypto-dark-pools-or-not/                                     | James Wynn 949 BTC ($99M) liquidation; March 2025 whale-hunt; JELLY self-dealing; MEV-first-construction theory           |
+| 20  | Glassnode Studio — BTC LTH/STH SOPR live                                 | en   | https://studio.glassnode.com/charts/breakdowns.SoprByLthSth?a=BTC                                                                                 | Latest values: STH 0.981, LTH 0.933, Aggregated 0.977 (May 2026) — Mutual Loss regime                                     |
+| 21  | BtcOAK — STH/LTH SOPR mutual-loss cycle bottom pairing                   | en   | https://btcoak.com/sopr                                                                                                                           | "When both lines sit below 1.0 the network is capitulating; that pairing has appeared at every cycle bottom on record."   |
+| 22  | Spot On Chain — USDT mint $5B → BTC ATH pattern                          | en   | https://platform.spotonchain.ai/en/signal-details/tether-treasury-minted-2b-usdt-more-on-ethereum-207449                                          | Nov 2024: $1B mint → BTC ATH $76,200; $2B mint Nov 9-10 → BTC ATH $89,500                                                 |
+| 23  | Finam (RU) — BTC whale accumulation Feb 2026                             | ru   | https://www.finam.ru/publications/item/on-cheyn-obzor-kriptorynka-podtverzhdaetsya-li-prognoz-rannego-nakopleniya-20260323-0946/                  | 1000+ BTC wallets added 270,000 BTC ($23B) in 30 days; supply shock framing                                               |
+| 24  | Hotcoin Research (via Binance Square RU) — April BTC flow analysis       | ru   | https://www.binance.com/ru/square/post/23179646408018                                                                                             | Whale cohort (1k-10k BTC) balance +100,000 BTC; ATH total holdings >3.35M BTC                                             |
+| 25  | Crypto.ru — USDT TRC-20 inflow predictive analysis (ru)                  | ru   | https://crypto.ru/news/rost-perevodov-usdt-v-seti-tron/                                                                                           | Russian-language confirmation of stablecoin flow → price lead-lag                                                         |
 
 ---
 
@@ -46,7 +46,7 @@ This track asks: **what crypto-native alpha lives in on-chain flow analysis that
 
 ### H1 (RANK #1, MATCHES mandate) — Stablecoin netflow → BTC price lead signal
 
-- **Mechanism.** When large stablecoin (USDT/USDC) net-inflow into CEX hotspots (especially Binance/Bybit) crosses a threshold AND ETH/BTC simultaneously net-outflows from those CEXes, fresh buy-side liquidity is concentrating on the spot books. The CryptoQuant USDC ERC-20 backtest (zh source #16) shows 14 simultaneous triggers of condition "single-day net-in ≥$100M AND 3 consecutive days of same" between Jan 2023 and May 2025 — BTC then rose on average +22.78% with only 1 failure. BIS WP1270 (en source #10) provides the institutional macro confirmation: $3.5B stablecoin inflow compresses 3-month T-bill yields by 0.71bps on impact and 4bps within 10 days — proving the *size* of the effect is real and globally measurable.
+- **Mechanism.** When large stablecoin (USDT/USDC) net-inflow into CEX hotspots (especially Binance/Bybit) crosses a threshold AND ETH/BTC simultaneously net-outflows from those CEXes, fresh buy-side liquidity is concentrating on the spot books. The CryptoQuant USDC ERC-20 backtest (zh source #16) shows 14 simultaneous triggers of condition "single-day net-in ≥$100M AND 3 consecutive days of same" between Jan 2023 and May 2025 — BTC then rose on average +22.78% with only 1 failure. BIS WP1270 (en source #10) provides the institutional macro confirmation: $3.5B stablecoin inflow compresses 3-month T-bill yields by 0.71bps on impact and 4bps within 10 days — proving the _size_ of the effect is real and globally measurable.
 - **Backtestable signal.** Compute daily USDC ERC-20 net-inflow into top-3 CEX (Binance + Bybit + OKX) from Etherscan logs OR CryptoQuant paid feed. Trigger condition: net-in ≥ $100M/day AND ≥3 consecutive days AND BTC exchange netflow < 0 over the same window. Position size: 1:10 long BTC spot (matches mandate).
 - **Data feed required.** CryptoQuant Professional ($49-449/mo tier) for cross-asset netflow; or Dune query joining Etherscan `Transfer` events into CEX-labeled addresses (free but slower; ~2-4 hours lag). Glassnode Studio free tier for BTC exchange netflow.
 - **Applicability 1:10 bybit.eu.** **MATCHES mandate.** bybit.eu has historical netflow + price data + spot-only 1:10. Implementation as signal-center plugin feasible within Phase 11.4+ scope.
@@ -112,13 +112,13 @@ A fourth anti-pattern the research surfaces: **liquidation heatmap as direct sig
 
 ## §5 — Recommended Phase 11.4+ Plugin Proposals (ranked, 1:10 bybit.eu applicability)
 
-| Rank | Plugin | Hypothesis | Data feed | Mandate verdict | Build cost |
-|------|--------|-----------|-----------|----------------|-----------|
-| 1 | **StablecoinNetflowPlugin** (H1) | USDC/USDT netflow trigger | CryptoQuant Pro OR Dune + Etherscan CEX labels | **MATCHES** | M (~150 LOC: trigger calc + backtest + signal-center wiring) |
-| 2 | **SOPRCapitulationPlugin** (H2) | LTH/STH mutual-loss regime entry | Glassnode Pro ($29/mo) | **MATCHES** | M (~120 LOC: SOPR fetch + regime detection + 1:10 entry sizing) |
-| 3 | **WhaleClusterSmartMoneyPlugin** (H5, conditional) | Nansen Smart Money cluster inflow → short signal | Nansen Standard ($150/mo) + CryptoQuant Pro | **MATCHES but LOW edge** | M (~200 LOC: Nansen API + cluster detection + cross-validation with Presto signal-quality filters) |
-| — | **LiquidationHuntPlugin** (H3) | perp-DEX public-position liquidation cascade fade | Hyperliquid + dYdX + GMX state APIs | **OUTSIDE SCOPE** (perp required) | — parked to Phase 12 |
-| — | **PerpDexMEVSandwichPlugin** (H4) | perp-DEX mempool sandwich | Dwellir gRPC Tokyo + co-loc | **OUTSIDE SCOPE** (co-loc required) | — parked to Phase 12 |
+| Rank | Plugin                                             | Hypothesis                                        | Data feed                                      | Mandate verdict                     | Build cost                                                                                         |
+| ---- | -------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1    | **StablecoinNetflowPlugin** (H1)                   | USDC/USDT netflow trigger                         | CryptoQuant Pro OR Dune + Etherscan CEX labels | **MATCHES**                         | M (~150 LOC: trigger calc + backtest + signal-center wiring)                                       |
+| 2    | **SOPRCapitulationPlugin** (H2)                    | LTH/STH mutual-loss regime entry                  | Glassnode Pro ($29/mo)                         | **MATCHES**                         | M (~120 LOC: SOPR fetch + regime detection + 1:10 entry sizing)                                    |
+| 3    | **WhaleClusterSmartMoneyPlugin** (H5, conditional) | Nansen Smart Money cluster inflow → short signal  | Nansen Standard ($150/mo) + CryptoQuant Pro    | **MATCHES but LOW edge**            | M (~200 LOC: Nansen API + cluster detection + cross-validation with Presto signal-quality filters) |
+| —    | **LiquidationHuntPlugin** (H3)                     | perp-DEX public-position liquidation cascade fade | Hyperliquid + dYdX + GMX state APIs            | **OUTSIDE SCOPE** (perp required)   | — parked to Phase 12                                                                               |
+| —    | **PerpDexMEVSandwichPlugin** (H4)                  | perp-DEX mempool sandwich                         | Dwellir gRPC Tokyo + co-loc                    | **OUTSIDE SCOPE** (co-loc required) | — parked to Phase 12                                                                               |
 
 **Build priority for Phase 11.4+:** Plugin #1 (StablecoinNetflowPlugin) first — strongest backtested edge (14-trigger 22.78% avg BTC rise, 1 failure), cheapest data (Dune + Etherscan free tier possible), spot-only, 1:10 mandate. Plugin #2 (SOPRCapitulationPlugin) second — Glassnode API cheap, contrarian-edge signal but low-frequency (3-5 trades/cycle). Plugin #3 (WhaleClusterSmartMoneyPlugin) only if Phase 11.4+ budget allows and the Presto R² issue can be addressed via Nansen's Smart Money filter (this would require Nansen's own backtest data — they don't publish it publicly; would need to negotiate data-access tier or build empirically).
 
@@ -126,13 +126,13 @@ A fourth anti-pattern the research surfaces: **liquidation heatmap as direct sig
 
 ## §6 — Source Language Distribution
 
-| Language | Source count | % of inventory |
-|----------|-------------:|---------------:|
-| English (en) | 14 | 56% |
-| Chinese (zh) | 8 | 32% |
-| Russian (ru) | 3 | 12% |
-| Hungarian | **0** | **0%** (explicitly banned, confirmed absent) |
-| **TOTAL** | **25** | **100%** |
+| Language     | Source count |                               % of inventory |
+| ------------ | -----------: | -------------------------------------------: |
+| English (en) |           14 |                                          56% |
+| Chinese (zh) |            8 |                                          32% |
+| Russian (ru) |            3 |                                          12% |
+| Hungarian    |        **0** | **0%** (explicitly banned, confirmed absent) |
+| **TOTAL**    |       **25** |                                     **100%** |
 
 Languages covered: **en, zh, ru** (≥3 languages as required by doctrine mandate). Zero Hungarian sources (explicit user ban). Crypto-native only — every source is exchange/analytics platform, academic working paper, or practitioner research published 2022-2026 on crypto-native data; no pre-2020 equities/FX/commodities sources included.
 
@@ -143,6 +143,7 @@ Languages covered: **en, zh, ru** (≥3 languages as required by doctrine mandat
 The 25 sources in §2 (Source Inventory) double as the §7 reference list, ordered by language for convenience:
 
 **English (14):**
+
 1. Nansen — https://nansen.ai/post/smart-money-indicators-key-metrics-for-cryptocurrency-accumulation-investor-behavior-analysis
 2. Nansen — https://nansen.ai/post/how-to-track-crypto-smart-money-your-guide-to-onchain-investment-moves
 3. Nansen API — https://docs.nansen.ai/api/smart-money/netflows
@@ -159,20 +160,9 @@ The 25 sources in §2 (Source Inventory) double as the §7 reference list, order
 14. Spot On Chain — https://platform.spotonchain.ai/en/signal-details/tether-treasury-minted-2b-usdt-more-on-ethereum-207449
 15. Columbia/Cahill — https://clsbluesky.law.columbia.edu/2025/09/23/cahill-gordon-discusses-the-case-for-crypto-dark-pools-or-not/
 
-**Chinese (8):**
-16. 币大大 (BtcQA) — https://czxurui.com/zx/33957.html
-17. 吴说 (Wu Shuo) via Sina — https://finance.sina.com.cn/blockchain/roll/2025-11-28/doc-infyxfim0113647.shtml
-18. Odaily Presto translation — https://www.zgtjyw.com/news/12357
-19. 区块律动 BlockBeats (via CoinVoice) — http://www.coinvoice.cn/articles/15808
-20. Binance Square (zh) CryptoQuant USDC Netflow backtest — https://www.binance.com/zh-CN/square/post/25111636427657
-21. mritd.com — https://mritd.com/2025/10/05/perp-mev/
-22. Odaily — https://www.odaily.news/zh-CN/author/2147526636
-23. Yellow.com (zh-Hans) — https://yellow.com/zh/research/寂静的累积者：在市场冷漠中，哪些代币正在受到巨鲸流入？
+**Chinese (8):** 16. 币大大 (BtcQA) — https://czxurui.com/zx/33957.html 17. 吴说 (Wu Shuo) via Sina — https://finance.sina.com.cn/blockchain/roll/2025-11-28/doc-infyxfim0113647.shtml 18. Odaily Presto translation — https://www.zgtjyw.com/news/12357 19. 区块律动 BlockBeats (via CoinVoice) — http://www.coinvoice.cn/articles/15808 20. Binance Square (zh) CryptoQuant USDC Netflow backtest — https://www.binance.com/zh-CN/square/post/25111636427657 21. mritd.com — https://mritd.com/2025/10/05/perp-mev/ 22. Odaily — https://www.odaily.news/zh-CN/author/2147526636 23. Yellow.com (zh-Hans) — https://yellow.com/zh/research/寂静的累积者：在市场冷漠中，哪些代币正在受到巨鲸流入？
 
-**Russian (3):**
-24. Finam — https://www.finam.ru/publications/item/on-cheyn-obzor-kriptorynka-podtverzhdaetsya-li-prognoz-rannego-nakopleniya-20260323-0946/
-25. Binance Square (ru) Hotcoin Research — https://www.binance.com/ru/square/post/23179646408018
-26. Crypto.ru — https://crypto.ru/news/rost-perevodov-usdt-v-seti-tron/
+**Russian (3):** 24. Finam — https://www.finam.ru/publications/item/on-cheyn-obzor-kriptorynka-podtverzhdaetsya-li-prognoz-rannego-nakopleniya-20260323-0946/ 25. Binance Square (ru) Hotcoin Research — https://www.binance.com/ru/square/post/23179646408018 26. Crypto.ru — https://crypto.ru/news/rost-perevodov-usdt-v-seti-tron/
 
 (26 unique sources total; exceeds ≥15 reference floor.)
 

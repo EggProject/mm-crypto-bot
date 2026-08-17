@@ -74,9 +74,7 @@ import { ONE_TO_TEN_LEVERAGE } from "../../risk/leverage-invariant.js";
 
 const mkBus = (): SignalBus => new SignalBus({ mode: "backtest" });
 
-const wirePlugin = (
-  plugin: RegimeDetectorMetaPlugin,
-): SignalBus => {
+const wirePlugin = (plugin: RegimeDetectorMetaPlugin): SignalBus => {
   const bus = mkBus();
   plugin.subscribe(bus);
   return bus;
@@ -101,10 +99,7 @@ const DAY_MS = 24 * HOUR_MS;
  *  - ranging:  zero-mean oscillating returns (smaller stddev)
  *  - volatile: large alternating returns (~5% daily)
  */
-const mkReturnsSequence = (
-  regime: RegimeLabel,
-  days: number,
-): number[] => {
+const mkReturnsSequence = (regime: RegimeLabel, days: number): number[] => {
   const out: number[] = [];
   for (let i = 0; i < days; i++) {
     if (regime === "trending") {
@@ -123,10 +118,7 @@ const mkReturnsSequence = (
 /**
  * Convert a returns sequence to close prices starting at 100.
  */
-const closesFromReturns = (
-  returns: readonly number[],
-  startPrice = 100,
-): number[] => {
+const closesFromReturns = (returns: readonly number[], startPrice = 100): number[] => {
   const closes: number[] = [startPrice];
   for (const r of returns) {
     closes.push(closes[closes.length - 1]! * Math.exp(r));
@@ -161,9 +153,7 @@ describe("RegimeDetectorMetaPlugin", () => {
     const p = new RegimeDetectorMetaPlugin();
     expect(p.config.numStates).toBe(3);
     expect(p.config.minObservations).toBe(DEFAULT_MIN_OBSERVATIONS);
-    expect(p.config.transitionLearningDays).toBe(
-      DEFAULT_TRANSITION_LEARNING_DAYS,
-    );
+    expect(p.config.transitionLearningDays).toBe(DEFAULT_TRANSITION_LEARNING_DAYS);
     expect(p.config.baseNotionalUsd).toBe(DEFAULT_BASE_NOTIONAL_USD);
     expect(p.config.enabledSymbols).toEqual(DEFAULT_ENABLED_SYMBOLS);
     expect(p.config.perRegimeSizeMultiplier).toEqual([1.0, 0.7, 0.4]);
@@ -244,12 +234,8 @@ describe("RegimeDetectorMetaPlugin", () => {
   });
 
   it("construction with bad baseNotionalUsd REJECTED", () => {
-    expect(() => new RegimeDetectorMetaPlugin({ baseNotionalUsd: 0 })).toThrow(
-      /baseNotionalUsd/,
-    );
-    expect(
-      () => new RegimeDetectorMetaPlugin({ baseNotionalUsd: -1000 }),
-    ).toThrow(/baseNotionalUsd/);
+    expect(() => new RegimeDetectorMetaPlugin({ baseNotionalUsd: 0 })).toThrow(/baseNotionalUsd/);
+    expect(() => new RegimeDetectorMetaPlugin({ baseNotionalUsd: -1000 })).toThrow(/baseNotionalUsd/);
   });
 
   it("construction with bad stateEmissionStdDev REJECTED", () => {
@@ -262,9 +248,7 @@ describe("RegimeDetectorMetaPlugin", () => {
   });
 
   it("construction with numStates != 3 REJECTED", () => {
-    expect(() => new RegimeDetectorMetaPlugin({ numStates: 4 })).toThrow(
-      /numStates/,
-    );
+    expect(() => new RegimeDetectorMetaPlugin({ numStates: 4 })).toThrow(/numStates/);
   });
 
   // -----------------------------------------------------------------------
@@ -413,9 +397,7 @@ describe("RegimeDetectorMetaPlugin", () => {
     const p = new RegimeDetectorMetaPlugin();
     expect(regimeToSizeMultiplier("trending", p.config.perRegimeSizeMultiplier)).toBe(1.0);
     expect(regimeToSizeMultiplier("ranging", p.config.perRegimeSizeMultiplier)).toBe(0.7);
-    expect(regimeToSizeMultiplier("volatile", p.config.perRegimeSizeMultiplier)).toBe(
-      0.4,
-    );
+    expect(regimeToSizeMultiplier("volatile", p.config.perRegimeSizeMultiplier)).toBe(0.4);
     expect(DEFAULT_REGIME_SIZE_MULTIPLIER_TRENDING).toBe(1.0);
     expect(DEFAULT_REGIME_SIZE_MULTIPLIER_RANGING).toBe(0.7);
     expect(DEFAULT_REGIME_SIZE_MULTIPLIER_VOLATILE).toBe(0.4);
@@ -437,9 +419,7 @@ describe("RegimeDetectorMetaPlugin", () => {
     driveCloses(p, "BTC/USDT", volatileCloses, ts1);
     // Look for a transition risk with reason="regime-change:trending->volatile"
     // (if not, then ranging->volatile or similar transition).
-    const transitionRisks = risks.filter(
-      (r) => r.breach === true && r.reason?.startsWith("regime-change:"),
-    );
+    const transitionRisks = risks.filter((r) => r.breach === true && r.reason?.startsWith("regime-change:"));
     expect(transitionRisks.length).toBeGreaterThan(0);
     const lastTransition = transitionRisks[transitionRisks.length - 1]!;
     expect(lastTransition.sizeModifier).toBeLessThan(1.0);
@@ -875,16 +855,9 @@ describe("RegimeDetectorMetaPlugin", () => {
     const rangingCloses = closesFromReturns(mkReturnsSequence("ranging", 8));
     driveCloses(p, "BTC/USDT", rangingCloses, ts0);
     const volatileCloses = closesFromReturns(mkReturnsSequence("volatile", 8));
-    driveCloses(
-      p,
-      "BTC/USDT",
-      volatileCloses,
-      ts0 + rangingCloses.length * DAY_MS,
-    );
+    driveCloses(p, "BTC/USDT", volatileCloses, ts0 + rangingCloses.length * DAY_MS);
     const risks = bus.snapshot().filter(isRisk);
-    const transitionToVolatile = risks.find(
-      (r) => r.reason?.includes("volatile") && r.breach === true,
-    );
+    const transitionToVolatile = risks.find((r) => r.reason?.includes("volatile") && r.breach === true);
     if (transitionToVolatile) {
       expect(transitionToVolatile.sizeModifier).toBeLessThan(1.0);
       expect(transitionToVolatile.sizeModifier).toBe(0.4);

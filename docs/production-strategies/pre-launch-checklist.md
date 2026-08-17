@@ -43,7 +43,7 @@ Pick **ONE**:
       **BLOCKING ISSUE** — stop and switch to Profile A or revert to
       `mode = "paper"`.
 
-Profile A is checked?  → continue to §2.
+Profile A is checked? → continue to §2.
 Profile B is checked? → skip to §9 (paper-only path).
 
 ---
@@ -78,10 +78,9 @@ Profile B is checked? → skip to §9 (paper-only path).
       JP FSA registration status. **DEFAULT IS `false`** — this is
       an explicit OFF-flag, not a default-on.
 
-      ⛔ If the user does NOT have a JP FSA MSB registration and
-      is still running `mode = "live"` in JP, they are operating
-      OUTSIDE the regulatory framework. The bot does NOT enforce
-      this — the user accepts ALL regulatory risk.
+> ⛔ If the user does NOT have a JP FSA MSB registration and is still running
+> `mode = "live"` in JP, they are operating OUTSIDE the regulatory framework.
+> The bot does NOT enforce this — the user accepts ALL regulatory risk.
 
 Validate: `mm-bot config validate --config=~/.mm-bot/live-tokyo.toml`
 should print `OK`. If it prints `FAILED`, the config has a
@@ -199,7 +198,7 @@ Reference: `docs/production-strategies/latency-budget.md` §3.
 - [ ] **TLS session resumption** works:
       `openssl s_client -reconnect -connect api.bybit.jp:443` →
       second connection's "Reused" line is `TLS session tick:
-      ...` (i.e. NOT a fresh handshake).
+...` (i.e. NOT a fresh handshake).
 
 - [ ] **WebSocket RTT** is sub-millisecond:
       `wscat -c wss://stream.bybit.jp -x 'ping'` should print
@@ -247,7 +246,7 @@ Reference: `docs/production-strategies/latency-budget.md` §3.
 
 - [ ] **The state file is writable** at the path in
       `[bot].state_file`. Run `touch $(mm-bot status | grep
-      "State file" | awk '{print $3}')` and verify no permission
+"State file" | awk '{print $3}')` and verify no permission
       error.
 
 ---
@@ -415,5 +414,5 @@ If you need to revert from `live` to `paper`:
 
 ---
 
-*Phase 37 Track 5 — last updated 2026-07-15. Pin a copy of
-this checklist in your runbook before the first live flip.*
+_Phase 37 Track 5 — last updated 2026-07-15. Pin a copy of
+this checklist in your runbook before the first live flip._

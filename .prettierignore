@@ -3,5 +3,8 @@ dist
 build
 .turbo
 coverage
+data
+temp
+search-best-config/results
 *.lockb
 bun.lock

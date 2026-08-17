@@ -251,15 +251,11 @@ describe("ExchangeFeeConfigSchema — Zod validáció", () => {
   });
 
   it("a maintenanceMarginRatio < 0.01 hibát dob", () => {
-    expect(() =>
-      ExchangeFeeConfigSchema.parse({ maintenanceMarginRatio: 0.001 }),
-    ).toThrow();
+    expect(() => ExchangeFeeConfigSchema.parse({ maintenanceMarginRatio: 0.001 })).toThrow();
   });
 
   it("a maintenanceMarginRatio > 1 hibát dob", () => {
-    expect(() =>
-      ExchangeFeeConfigSchema.parse({ maintenanceMarginRatio: 1.5 }),
-    ).toThrow();
+    expect(() => ExchangeFeeConfigSchema.parse({ maintenanceMarginRatio: 1.5 })).toThrow();
   });
 });
 
@@ -309,15 +305,11 @@ describe("PortfolioConfigSchema — Zod validáció", () => {
   });
 
   it("BTC allokáció > 1 hibát dob", () => {
-    expect(() =>
-      PortfolioConfigSchema.parse({ allocations: { BTC: 1.5 } }),
-    ).toThrow();
+    expect(() => PortfolioConfigSchema.parse({ allocations: { BTC: 1.5 } })).toThrow();
   });
 
   it("BTC allokáció < 0 hibát dob", () => {
-    expect(() =>
-      PortfolioConfigSchema.parse({ allocations: { BTC: -0.1 } }),
-    ).toThrow();
+    expect(() => PortfolioConfigSchema.parse({ allocations: { BTC: -0.1 } })).toThrow();
   });
 });
 

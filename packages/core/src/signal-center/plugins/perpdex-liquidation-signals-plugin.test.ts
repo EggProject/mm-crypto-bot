@@ -50,8 +50,8 @@ function mkSnapshot(overrides: Partial<LiquidationSnapshot> = {}) {
 function mkCascadeImminentSnapshot(symbol = "BTC") {
   return mkSnapshot({
     symbol,
-    oiDrop24h: 0.30, // > 0.20 threshold
-    lsrRatio: 0.50, // inside [0.4, 0.6] deadlock
+    oiDrop24h: 0.3, // > 0.20 threshold
+    lsrRatio: 0.5, // inside [0.4, 0.6] deadlock
     top5AskDepthPct: 15, // < 25 thin book
     paperTiger: {
       detected: true,
@@ -111,7 +111,7 @@ describe("PerpDexLiquidationSignalsPlugin — metadata + construction", () => {
 
   it("default config uses Phase 11.5 Track D §E5 thresholds", () => {
     const p = new PerpDexLiquidationSignalsPlugin();
-    expect(p.config.oiDropThresholdPct).toBe(0.20);
+    expect(p.config.oiDropThresholdPct).toBe(0.2);
     expect(p.config.lsrDeadlockLower).toBe(0.4);
     expect(p.config.lsrDeadlockUpper).toBe(0.6);
     expect(p.config.thinBookTop5DepthPct).toBe(25);
@@ -239,7 +239,7 @@ describe("evaluateCascadeHeuristic — pure function unit tests", () => {
   });
 
   it("does NOT fire when OI drop alone is met (3 of 4 missing)", () => {
-    const snap = mkSnapshot({ oiDrop24h: 0.30 });
+    const snap = mkSnapshot({ oiDrop24h: 0.3 });
     const r = evaluateCascadeHeuristic(snap, baseConfig);
     expect(r.oiDropTriggered).toBe(true);
     expect(r.cascadeImminent).toBe(false);
@@ -263,7 +263,7 @@ describe("evaluateCascadeHeuristic — pure function unit tests", () => {
 
   it("does NOT fire when paper-tiger detected but cluster too small", () => {
     const snap = mkSnapshot({
-      oiDrop24h: 0.30,
+      oiDrop24h: 0.3,
       lsrRatio: 0.5,
       top5AskDepthPct: 15,
       paperTiger: { detected: true, wallUsd: 1e6, insertionMin: 3, clusterSize: 3 },
@@ -276,7 +276,7 @@ describe("evaluateCascadeHeuristic — pure function unit tests", () => {
 
   it("does NOT fire when paper-tiger detected but wall too old (>5min)", () => {
     const snap = mkSnapshot({
-      oiDrop24h: 0.30,
+      oiDrop24h: 0.3,
       lsrRatio: 0.5,
       top5AskDepthPct: 15,
       paperTiger: { detected: true, wallUsd: 1e6, insertionMin: 10, clusterSize: 7 },
@@ -288,7 +288,7 @@ describe("evaluateCascadeHeuristic — pure function unit tests", () => {
 
   it("boundary: OI drop exactly AT threshold does NOT trigger (strictly greater)", () => {
     const snap = mkSnapshot({
-      oiDrop24h: 0.20,
+      oiDrop24h: 0.2,
       lsrRatio: 0.5,
       top5AskDepthPct: 15,
       paperTiger: { detected: true, wallUsd: 1e6, insertionMin: 3, clusterSize: 7 },
@@ -299,7 +299,7 @@ describe("evaluateCascadeHeuristic — pure function unit tests", () => {
 
   it("boundary: thin book percentile AT threshold does NOT trigger (strictly less)", () => {
     const snap = mkSnapshot({
-      oiDrop24h: 0.30,
+      oiDrop24h: 0.3,
       lsrRatio: 0.5,
       top5AskDepthPct: 25,
       paperTiger: { detected: true, wallUsd: 1e6, insertionMin: 3, clusterSize: 7 },
@@ -310,7 +310,7 @@ describe("evaluateCascadeHeuristic — pure function unit tests", () => {
 
   it("boundary: LSR AT deadlock lower bound (0.4) DOES trigger (inclusive)", () => {
     const snap = mkSnapshot({
-      oiDrop24h: 0.30,
+      oiDrop24h: 0.3,
       lsrRatio: 0.4,
       top5AskDepthPct: 15,
       paperTiger: { detected: true, wallUsd: 1e6, insertionMin: 3, clusterSize: 7 },
@@ -429,9 +429,7 @@ describe("PerpDexLiquidationSignalsPlugin — feed adapters", () => {
   });
 
   it("MockLiquidationAdapter returns the configured snapshot fn result", async () => {
-    const a = new MockLiquidationAdapter("test", (s) =>
-      mkSnapshot({ symbol: s, oiDrop24h: 0.99 }),
-    );
+    const a = new MockLiquidationAdapter("test", (s) => mkSnapshot({ symbol: s, oiDrop24h: 0.99 }));
     const snap = await a.fetchSnapshot("ETH");
     expect(snap.symbol).toBe("ETH");
     expect(snap.oiDrop24h).toBe(0.99);
@@ -544,7 +542,7 @@ describe("PerpDexLiquidationSignalsPlugin — reset / dispose", () => {
     p.reset();
     expect(p.state.totalSignalsEmitted).toBe(0);
     expect(p.state.barsProcessed).toBe(0);
-    expect(p.config.oiDropThresholdPct).toBe(0.20);
+    expect(p.config.oiDropThresholdPct).toBe(0.2);
   });
 
   it("dispose() clears bus + throttle + wired flag", () => {
@@ -573,7 +571,7 @@ describe("PerpDexLiquidationSignalsPlugin — adversarial probes", () => {
 
   it("ADVERSARIAL: paper-tiger with detected=false (even if cluster/wall present)", () => {
     const snap = mkSnapshot({
-      oiDrop24h: 0.30,
+      oiDrop24h: 0.3,
       lsrRatio: 0.5,
       top5AskDepthPct: 15,
       paperTiger: { detected: false, wallUsd: 5e6, insertionMin: 3, clusterSize: 99 },
@@ -602,7 +600,7 @@ describe("PerpDexLiquidationSignalsPlugin — adversarial probes", () => {
 
   it("ADVERSARIAL: paper-tiger insertionMin=0 (just inserted) with clusterSize at exact minimum triggers", () => {
     const snap = mkSnapshot({
-      oiDrop24h: 0.30,
+      oiDrop24h: 0.3,
       lsrRatio: 0.5,
       top5AskDepthPct: 15,
       paperTiger: { detected: true, wallUsd: 1e6, insertionMin: 0, clusterSize: 5 },
@@ -614,7 +612,7 @@ describe("PerpDexLiquidationSignalsPlugin — adversarial probes", () => {
 
   it("ADVERSARIAL: LSR ratio at upper deadlock boundary (0.6) triggers", () => {
     const snap = mkSnapshot({
-      oiDrop24h: 0.30,
+      oiDrop24h: 0.3,
       lsrRatio: 0.6,
       top5AskDepthPct: 15,
       paperTiger: { detected: true, wallUsd: 1e6, insertionMin: 3, clusterSize: 7 },
@@ -626,7 +624,7 @@ describe("PerpDexLiquidationSignalsPlugin — adversarial probes", () => {
 
   it("ADVERSARIAL: LSR ratio just outside deadlock (0.399) does NOT trigger", () => {
     const snap = mkSnapshot({
-      oiDrop24h: 0.30,
+      oiDrop24h: 0.3,
       lsrRatio: 0.399,
       top5AskDepthPct: 15,
       paperTiger: { detected: true, wallUsd: 1e6, insertionMin: 3, clusterSize: 7 },
@@ -662,9 +660,11 @@ describe("Phase 35b — PerpDexLiquidationSignalsPlugin private method coverage 
     const bus = createSignalBus();
     p.subscribe(bus);
     // Direct call to private method (it's async, so await it)
-    await (p as unknown as {
-      _evaluateSymbol: (symbol: string, timestampMs: number) => Promise<void>;
-    })._evaluateSymbol("BTC", TEST_BAR.timestamp);
+    await (
+      p as unknown as {
+        _evaluateSymbol: (symbol: string, timestampMs: number) => Promise<void>;
+      }
+    )._evaluateSymbol("BTC", TEST_BAR.timestamp);
     // Should have emitted a RiskSignal
     expect(p.state.totalSignalsEmitted).toBe(1);
   });
@@ -673,7 +673,7 @@ describe("Phase 35b — PerpDexLiquidationSignalsPlugin private method coverage 
     // Same pattern: directly call the static method to register it
     // as "hit" in bun's coverage.
     const validConfig = {
-      oiDropThresholdPct: 0.20,
+      oiDropThresholdPct: 0.2,
       lsrDeadlockLower: 0.4,
       lsrDeadlockUpper: 0.6,
       thinBookTop5DepthPct: 0.5,
@@ -687,9 +687,11 @@ describe("Phase 35b — PerpDexLiquidationSignalsPlugin private method coverage 
       adapters: [new NullLiquidationAdapter()],
     };
     expect(() =>
-      (PerpDexLiquidationSignalsPlugin as unknown as {
-        _assertConfigInvariants: (c: typeof validConfig) => void;
-      })._assertConfigInvariants(validConfig),
+      (
+        PerpDexLiquidationSignalsPlugin as unknown as {
+          _assertConfigInvariants: (c: typeof validConfig) => void;
+        }
+      )._assertConfigInvariants(validConfig),
     ).not.toThrow();
   });
 });

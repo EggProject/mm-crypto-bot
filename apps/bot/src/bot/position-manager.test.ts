@@ -46,23 +46,9 @@ describe("PositionManager", () => {
     });
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10);
     pm.openPosition("strategy-b", makeSymbol(), "long", 0.1, 60_000, 10);
-    pm.openPosition(
-      "strategy-c",
-      asSymbol("ETH/USDC") as unknown as ExchangeSymbol,
-      "long",
-      1.0,
-      3_000,
-      10,
-    );
+    pm.openPosition("strategy-c", asSymbol("ETH/USDC") as unknown as ExchangeSymbol, "long", 1.0, 3_000, 10);
     // Aggregate so far: 6_000 + 60_000 + 30_000 = 96_000 / 10_000 = 9.6×.
-    pm.openPosition(
-      "strategy-d",
-      asSymbol("SOL/USDC") as unknown as ExchangeSymbol,
-      "long",
-      0.1,
-      150,
-      10,
-    );
+    pm.openPosition("strategy-d", asSymbol("SOL/USDC") as unknown as ExchangeSymbol, "long", 0.1, 150, 10);
     // Now try to add 1 BTC at 60_000: 60_000 effective.
     // Total: 96_150 + 60_000 = 156_150 / 10_000 = 15.6× → BREACH.
     expect(() => {
@@ -80,23 +66,9 @@ describe("PositionManager", () => {
       maxLeverage: 10,
     });
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 1);
-    pm.openPosition(
-      "strategy-b",
-      asSymbol("ETH/USDC") as unknown as ExchangeSymbol,
-      "long",
-      0.01,
-      3_000,
-      1,
-    );
+    pm.openPosition("strategy-b", asSymbol("ETH/USDC") as unknown as ExchangeSymbol, "long", 0.01, 3_000, 1);
     expect(() => {
-      pm.openPosition(
-        "strategy-c",
-        asSymbol("SOL/USDC") as unknown as ExchangeSymbol,
-        "long",
-        0.1,
-        150,
-        1,
-      );
+      pm.openPosition("strategy-c", asSymbol("SOL/USDC") as unknown as ExchangeSymbol, "long", 0.1, 150, 1);
     }).toThrow(/maxPositions cap/);
   });
 
@@ -297,12 +269,21 @@ describe("PositionManager", () => {
     });
     const rm = new RiskManager({
       trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: false, fraction: 0.25, windowSize: 50, minTrades: 10, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: true, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: false,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 10,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: true, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     pm.setRiskManager(rm);
     let closeIntents = 0;
-    rm.onTrailingStopClose(() => { closeIntents++; });
+    rm.onTrailingStopClose(() => {
+      closeIntents++;
+    });
     pm.setRiskManager(null);
     pm.setRiskManager(rm);
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);
@@ -338,8 +319,15 @@ describe("PositionManager", () => {
     });
     const rm = new RiskManager({
       trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
-      kelly: { enabled: true, fraction: 0.25, windowSize: 50, minTrades: 5, fallbackFraction: 0.01, maxFraction: 0.1 },
-      drawdownScaler: { enabled: false, maxDdPct: 0.20, initialEquity: 10_000 },
+      kelly: {
+        enabled: true,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 5,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: false, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     pm.setRiskManager(rm);
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);

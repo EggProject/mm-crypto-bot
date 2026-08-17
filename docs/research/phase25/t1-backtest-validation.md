@@ -28,21 +28,23 @@ The Track B research anchor (Q1-Q2 2026 30-day rolling, dYdX structural-negative
 
 ### §2.1 Data sources
 
-| Source | Type | Coverage | Auth |
-|---|---|---|---|
-| dYdX v4 Indexer (REST + WS) | Live funding-tick | Real-time | Public, unauthenticated |
+| Source                         | Type                  | Coverage             | Auth                                        |
+| ------------------------------ | --------------------- | -------------------- | ------------------------------------------- |
+| dYdX v4 Indexer (REST + WS)    | Live funding-tick     | Real-time            | Public, unauthenticated                     |
 | Tardis.dev `derivative_ticker` | Historical tick-level | 2024-08-23 → present | Free monthly CSVs (first day of each month) |
-| Binance `/fapi/v1/fundingRate` | CEX 8h funding | 2019-09 → present | Public, unauthenticated |
+| Binance `/fapi/v1/fundingRate` | CEX 8h funding        | 2019-09 → present    | Public, unauthenticated                     |
 
 **Critical correction to Track B §5.1:** the dYdX v4 Indexer REST endpoint uses **camelCase** (`/v4/historicalFunding/{market}`), NOT kebab-case. Verified live at `https://indexer.dydx.trade/v4/historicalFunding/BTC-USD` on 2026-07-08 (kebab-case variant returns 404). The first iteration of `dydx-indexer-feed.ts` had this wrong; fixed before any backtest runs.
 
 ### §2.2 Carry simulation
 
 `simulateDydxVsCexCarry` walks a merged timeline of:
+
 - dYdX v4 hourly funding ticks (from Tardis CSV)
 - Binance 8h funding ticks (from `data/funding/binance_<sym>usdt_funding_8h.csv`)
 
 Per-event carry:
+
 - **LONG dYdX perp** — earn when dYdX funding < 0 (longs receive); pay when dYdX funding > 0. Payment = `−notional × dydxRate`.
 - **SHORT CEX perp** — earn when CEX funding > 0 (longs pay shorts). Payment = `+notional × cexRate`.
 
@@ -53,6 +55,7 @@ Net per event: `notional × (cexRate − dydxRate)`. The strategy earns when **C
 ### §2.3 Cost model
 
 Per Phase 25 #1 Track B §4.2:
+
 - bybit.eu taker fee: 0.10% per side × 2 sides × ~1 turnover/month ≈ 2.4% drag annualized
 - dYdX v4 slippage at ~$30M daily volume: 5-10 bps for $50k notional ≈ 1% drag annualized
 - Rebalance flat fee: 20 bps
@@ -66,25 +69,25 @@ These costs are NOT yet modeled in the backtest above — the carry numbers are 
 
 All values are **GROSS** funding carry (no cost model applied). Currency: USD. Notional: $250k per leg (per Phase 25 #1 design target).
 
-| Symbol | Window | Monthly Carry | Sharpe (hourly ann.) | Max DD | Win Rate | Funding Periods | Rebalance | Verdict (POSITIVE > 0.5%, NEGATIVE < 0.3%) |
-|---|---|---|---|---|---|---|---|---|
-| BTC | 2025-Q1 | **+9.30%/mo** | 71.56 | 1.30% | 75.5% | 343 | 0 | **POSITIVE** |
-| BTC | 2025-Q2 | **+6.67%/mo** | 56.31 | 1.89% | 70.1% | 345 | 0 | **POSITIVE** |
-| BTC | 2026-Q1 | **+3.30%/mo** | 26.28 | 3.53% | 61.8% | 343 | 0 | **POSITIVE** |
-| ETH | 2025-Q1 | **+8.84%/mo** | 60.23 | 1.70% | 67.4% | 343 | 0 | **POSITIVE** |
-| ETH | 2025-Q2 | **+7.67%/mo** | 57.84 | 1.56% | 62.9% | 345 | 0 | **POSITIVE** |
-| ETH | 2026-Q1 | **−0.08%/mo** | −0.35 | 8.89% | 55.7% | 343 | 0 | **NEGATIVE** (MARGINAL — just below the 0.3% NEGATIVE floor) |
-| SOL | 2025-Q1 | **−4.08%/mo** | −14.49 | 12.92% | 40.8% | 343 | 0 | **NEGATIVE** |
-| SOL | 2025-Q2 | **+2.17%/mo** | 10.58 | 6.42% | 62.6% | 345 | 0 | **POSITIVE** |
-| SOL | 2026-Q1 | **−12.56%/mo** | −33.34 | 36.33% | 42.0% | 343 | 0 | **NEGATIVE** |
+| Symbol | Window  | Monthly Carry  | Sharpe (hourly ann.) | Max DD | Win Rate | Funding Periods | Rebalance | Verdict (POSITIVE > 0.5%, NEGATIVE < 0.3%)                   |
+| ------ | ------- | -------------- | -------------------- | ------ | -------- | --------------- | --------- | ------------------------------------------------------------ |
+| BTC    | 2025-Q1 | **+9.30%/mo**  | 71.56                | 1.30%  | 75.5%    | 343             | 0         | **POSITIVE**                                                 |
+| BTC    | 2025-Q2 | **+6.67%/mo**  | 56.31                | 1.89%  | 70.1%    | 345             | 0         | **POSITIVE**                                                 |
+| BTC    | 2026-Q1 | **+3.30%/mo**  | 26.28                | 3.53%  | 61.8%    | 343             | 0         | **POSITIVE**                                                 |
+| ETH    | 2025-Q1 | **+8.84%/mo**  | 60.23                | 1.70%  | 67.4%    | 343             | 0         | **POSITIVE**                                                 |
+| ETH    | 2025-Q2 | **+7.67%/mo**  | 57.84                | 1.56%  | 62.9%    | 345             | 0         | **POSITIVE**                                                 |
+| ETH    | 2026-Q1 | **−0.08%/mo**  | −0.35                | 8.89%  | 55.7%    | 343             | 0         | **NEGATIVE** (MARGINAL — just below the 0.3% NEGATIVE floor) |
+| SOL    | 2025-Q1 | **−4.08%/mo**  | −14.49               | 12.92% | 40.8%    | 343             | 0         | **NEGATIVE**                                                 |
+| SOL    | 2025-Q2 | **+2.17%/mo**  | 10.58                | 6.42%  | 62.6%    | 345             | 0         | **POSITIVE**                                                 |
+| SOL    | 2026-Q1 | **−12.56%/mo** | −33.34               | 36.33% | 42.0%    | 343             | 0         | **NEGATIVE**                                                 |
 
 **Aggregate verdict by symbol:**
 
-| Symbol | 2025 avg | 2026-Q1 | Trajectory | T1 recommendation |
-|---|---|---|---|---|
-| BTC | +8.0%/mo | +3.30%/mo | **Edge decaying but positive** | **PROCEED** — BTC-only carry, $125k notional, cap=0.025 |
-| ETH | +8.3%/mo | −0.08%/mo | **Edge collapsed in 2026** | **DEFER** — paper-trade only, halt if divergence <0.0005/8h for 7d |
-| SOL | −1.0%/mo | −12.56%/mo | **Edge inverted and worsening** | **HALT** — backtest evidence is unambiguous |
+| Symbol | 2025 avg | 2026-Q1    | Trajectory                      | T1 recommendation                                                  |
+| ------ | -------- | ---------- | ------------------------------- | ------------------------------------------------------------------ |
+| BTC    | +8.0%/mo | +3.30%/mo  | **Edge decaying but positive**  | **PROCEED** — BTC-only carry, $125k notional, cap=0.025            |
+| ETH    | +8.3%/mo | −0.08%/mo  | **Edge collapsed in 2026**      | **DEFER** — paper-trade only, halt if divergence <0.0005/8h for 7d |
+| SOL    | −1.0%/mo | −12.56%/mo | **Edge inverted and worsening** | **HALT** — backtest evidence is unambiguous                        |
 
 ### §3.1 Why BTC holds but SOL inverts
 
@@ -104,17 +107,17 @@ By Q1 2026, SOL funding on dYdX had flipped to NEGATIVE (-0.0063%/8h 8h-eq, medi
 
 Estimated via AR(1) regression on the divergence time series (per-event divergence = `dydx8hEquiv − cexRate`):
 
-| Symbol | Window | Half-life (hours) | Interpretation |
-|---|---|---|---|
-| BTC | 2025-Q1 | 47.0 | Slow mean-reversion (~2 days) — favorable for sustained carry |
-| BTC | 2025-Q2 | 11.8 | Fast mean-reversion — cyclical noise dominates |
-| BTC | 2026-Q1 | 67.6 | Slow mean-reversion — structural divergence persists |
-| ETH | 2025-Q1 | 28.4 | Medium |
-| ETH | 2025-Q2 | 29.0 | Medium |
-| ETH | 2026-Q1 | 67.6 | Slow — divergence persistent but small in magnitude |
-| SOL | 2025-Q1 | 109.1 | **Slow (>4 days)** — divergence not reverting within tradeable horizon |
-| SOL | 2025-Q2 | 32.4 | Medium |
-| SOL | 2026-Q1 | 67.6 | Slow |
+| Symbol | Window  | Half-life (hours) | Interpretation                                                         |
+| ------ | ------- | ----------------- | ---------------------------------------------------------------------- |
+| BTC    | 2025-Q1 | 47.0              | Slow mean-reversion (~2 days) — favorable for sustained carry          |
+| BTC    | 2025-Q2 | 11.8              | Fast mean-reversion — cyclical noise dominates                         |
+| BTC    | 2026-Q1 | 67.6              | Slow mean-reversion — structural divergence persists                   |
+| ETH    | 2025-Q1 | 28.4              | Medium                                                                 |
+| ETH    | 2025-Q2 | 29.0              | Medium                                                                 |
+| ETH    | 2026-Q1 | 67.6              | Slow — divergence persistent but small in magnitude                    |
+| SOL    | 2025-Q1 | 109.1             | **Slow (>4 days)** — divergence not reverting within tradeable horizon |
+| SOL    | 2025-Q2 | 32.4              | Medium                                                                 |
+| SOL    | 2026-Q1 | 67.6              | Slow                                                                   |
 
 **Key insight:** BTC half-life is **consistent with the Track B research's claim of 1-8 hour cyclical reversion + multi-month structural persistence** — we see both the 11.8h (Q2 2025, cyclical regime) and 47-67h (Q1 2025 + 2026, structural regime) in the data. SOL's 109h half-life in Q1 2025 confirms the inversion: divergence **doesn't** mean-revert on SOL within tradeable horizons.
 
@@ -126,21 +129,22 @@ The Track B §7.5 kill-switch rule: "divergence compresses <0.0005/8h for 7 cons
 
 Tested via `killSwitch7DayCompressionTriggered` boolean + `compressedDivergenceDays` counter on every backtest:
 
-| Symbol | Window | Compressed days | Total window days | Triggered? |
-|---|---|---|---|---|
-| BTC | 2025-Q1 | 91 | 89 | TRIGGERED (entire window) |
-| BTC | 2025-Q2 | 91 | 90 | TRIGGERED |
-| BTC | 2026-Q1 | 60 | 89 | TRIGGERED |
-| ETH | 2025-Q1 | 91 | 89 | TRIGGERED |
-| ETH | 2025-Q2 | 91 | 90 | TRIGGERED |
-| ETH | 2026-Q1 | 60 | 89 | TRIGGERED |
-| SOL | 2025-Q1 | 91 | 89 | TRIGGERED |
-| SOL | 2025-Q2 | 91 | 90 | TRIGGERED |
-| SOL | 2026-Q1 | 60 | 89 | TRIGGERED |
+| Symbol | Window  | Compressed days | Total window days | Triggered?                |
+| ------ | ------- | --------------- | ----------------- | ------------------------- |
+| BTC    | 2025-Q1 | 91              | 89                | TRIGGERED (entire window) |
+| BTC    | 2025-Q2 | 91              | 90                | TRIGGERED                 |
+| BTC    | 2026-Q1 | 60              | 89                | TRIGGERED                 |
+| ETH    | 2025-Q1 | 91              | 89                | TRIGGERED                 |
+| ETH    | 2025-Q2 | 91              | 90                | TRIGGERED                 |
+| ETH    | 2026-Q1 | 60              | 89                | TRIGGERED                 |
+| SOL    | 2025-Q1 | 91              | 89                | TRIGGERED                 |
+| SOL    | 2025-Q2 | 91              | 90                | TRIGGERED                 |
+| SOL    | 2026-Q1 | 60              | 89                | TRIGGERED                 |
 
 **Critical finding: the kill-switch fires in EVERY window.** This is because the divergence series only includes points where both dYdX and CEX have data at the same timestamp — for windows where dYdX data is sparse (only 1 day per month for the free Tardis tier), most of the "between-event" days have `lastDivergence` carried forward, and a single small-divergence day keeps the 7-day counter running.
 
 This is a **false-positive kill-switch problem** in the current implementation, NOT a real divergence compression. The compressed_days counter is measuring **time between sparse Tardis samples** (≥1 day gaps), not real intraday convergence. We need to either:
+
 1. Subscribe to the Tardis paid API for full daily coverage, OR
 2. Restrict the kill-switch to a sliding window that requires ≥N data points per day
 
@@ -174,30 +178,31 @@ dYdX v4 is a Cosmos-chain DEX; execution requires the v4-client-js library + a n
 
 ## §7. Quality gates
 
-| Gate | Result |
-|---|---|
-| TypeScript typecheck | **PASS** (backtest-tools package, my files) |
-| ESLint | **PASS** (backtest-tools package, my files; pre-existing warnings in T3 sibling files are not in scope) |
-| Unit tests | **63/63 PASS** (37 mine + 26 pre-existing) |
-| 9 backtests on Tardis.dev | **9/9 RAN**, JSON output files written to `backtest-results/phase25-2-*.json` |
-| Bit-identical `--symbol=btc` vs `--symbol=BTC` probe | **PASS** (unit test asserts both lowercase to `btc`) |
+| Gate                                                 | Result                                                                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| TypeScript typecheck                                 | **PASS** (backtest-tools package, my files)                                                             |
+| ESLint                                               | **PASS** (backtest-tools package, my files; pre-existing warnings in T3 sibling files are not in scope) |
+| Unit tests                                           | **63/63 PASS** (37 mine + 26 pre-existing)                                                              |
+| 9 backtests on Tardis.dev                            | **9/9 RAN**, JSON output files written to `backtest-results/phase25-2-*.json`                           |
+| Bit-identical `--symbol=btc` vs `--symbol=BTC` probe | **PASS** (unit test asserts both lowercase to `btc`)                                                    |
 
 ---
 
 ## §8. Track B empirical claim — validation summary
 
 The Track B §7.2 pre-conditions called for:
+
 1. Live divergence ≥ 0.0005/8h between dYdX v4 and bybit perp, sustained over a rolling 7-day window.
 2. No active chain incident.
 3. No new governance proposal in the last 14 days.
 
 **Pre-condition 1 validation (T1 backtest evidence):**
 
-| Window | BTC avg divergence | ETH avg divergence | SOL avg divergence | All 3 sustained? |
-|---|---|---|---|---|
-| 2025-Q1 | +0.0160%/8h ✓ | +0.0119%/8h ✓ | +0.0196%/8h ✓ | YES (all 3 symbols) |
-| 2025-Q2 | +0.0092%/8h ✓ | +0.0083%/8h ✓ | −0.0035%/8h ✗ | NO (SOL drops) |
-| 2026-Q1 | −0.0018%/8h ✗ | −0.0016%/8h ✗ | −0.0062%/8h ✗ | NO (all 3 invert) |
+| Window  | BTC avg divergence | ETH avg divergence | SOL avg divergence | All 3 sustained?    |
+| ------- | ------------------ | ------------------ | ------------------ | ------------------- |
+| 2025-Q1 | +0.0160%/8h ✓      | +0.0119%/8h ✓      | +0.0196%/8h ✓      | YES (all 3 symbols) |
+| 2025-Q2 | +0.0092%/8h ✓      | +0.0083%/8h ✓      | −0.0035%/8h ✗      | NO (SOL drops)      |
+| 2026-Q1 | −0.0018%/8h ✗      | −0.0016%/8h ✗      | −0.0062%/8h ✗      | NO (all 3 invert)   |
 
 **Pre-condition 1 fails in Q1 2026** for all 3 symbols. This is the most-relevant window (matches the research anchor timing) and the divergence is **inverted** vs the Track B hypothesis. The dYdX funding became MORE negative than CEX in Q1 2026, which is good for LONG-dYdX carry when measured by `cexRate − dydxRate`, but the absolute magnitude is small (median dYdX = -0.0001%/8h, median CEX = +0.0011%/8h on ETH 2026-Q1) — the carry opportunity has compressed.
 
@@ -234,17 +239,17 @@ This is consistent with the **user's mandate** ("DD 15% is fine, size to 15% DD;
 
 ## §11. File artifacts
 
-| File | Purpose |
-|---|---|
-| `packages/backtest-tools/src/data/dydx-indexer-feed.ts` | dYdX v4 Indexer REST+WS feed (live) |
-| `packages/backtest-tools/src/data/dydx-indexer-feed.test.ts` | Unit tests (15 cases) |
-| `packages/backtest-tools/src/data/tardis-dydx-funding.ts` | Tardis.dev historical CSV fetcher |
-| `packages/backtest-tools/src/data/tardis-dydx-funding.test.ts` | Unit tests (11 cases) |
-| `packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts` | Backtest CLI runner |
-| `packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.test.ts` | Unit tests (11 cases) |
-| `backtest-results/phase25-2-dydx-vs-cex-funding-carry-{btc,eth,sol}-{2025-Q1,2025-Q2,2026-Q1}.json` | 9 backtest outputs |
-| `.cache/tardis-dydx-v4/` | 27 Tardis CSV files (9 days × 3 symbols), SHA-256 content-addressed |
+| File                                                                                                | Purpose                                                             |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `packages/backtest-tools/src/data/dydx-indexer-feed.ts`                                             | dYdX v4 Indexer REST+WS feed (live)                                 |
+| `packages/backtest-tools/src/data/dydx-indexer-feed.test.ts`                                        | Unit tests (15 cases)                                               |
+| `packages/backtest-tools/src/data/tardis-dydx-funding.ts`                                           | Tardis.dev historical CSV fetcher                                   |
+| `packages/backtest-tools/src/data/tardis-dydx-funding.test.ts`                                      | Unit tests (11 cases)                                               |
+| `packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts`                                  | Backtest CLI runner                                                 |
+| `packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.test.ts`                             | Unit tests (11 cases)                                               |
+| `backtest-results/phase25-2-dydx-vs-cex-funding-carry-{btc,eth,sol}-{2025-Q1,2025-Q2,2026-Q1}.json` | 9 backtest outputs                                                  |
+| `.cache/tardis-dydx-v4/`                                                                            | 27 Tardis CSV files (9 days × 3 symbols), SHA-256 content-addressed |
 
 ---
 
-*End of T1 validation report. Branch `feat/phase25-2-impl` ready for commit + PR.*
+_End of T1 validation report. Branch `feat/phase25-2-impl` ready for commit + PR._

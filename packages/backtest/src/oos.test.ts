@@ -190,12 +190,10 @@ describe("runWalkForward", () => {
     });
 
     expect(result.windowCount).toBe(1);
-    const isCandleOpens = result.isResults[0]!.equityCurve
-      .slice(1)
-      .map((point) => point.timestamp - hourMs);
-    const oosCandleOpens = result.oosResults[0]!.equityCurve
-      .slice(1)
-      .map((point) => point.timestamp - hourMs);
+    const isCandleOpens = result.isResults[0]!.equityCurve.slice(1).map((point) => point.timestamp - hourMs);
+    const oosCandleOpens = result.oosResults[0]!.equityCurve.slice(1).map(
+      (point) => point.timestamp - hourMs,
+    );
     expect(isCandleOpens).toEqual(Array.from({ length: 24 }, (_, hour) => hour * hourMs));
     expect(oosCandleOpens).toEqual(Array.from({ length: 24 }, (_, hour) => (24 + hour) * hourMs));
     expect(isCandleOpens.filter((timestamp) => oosCandleOpens.includes(timestamp))).toEqual([]);
@@ -227,11 +225,15 @@ describe("runWalkForward", () => {
       strategy: new NullStrategy(),
     };
 
-    const result = await runWalkForward(opts, {
-      inSampleDays: 1,
-      outOfSampleDays: 1,
-      stepDays: 1,
-    }, createStrategy);
+    const result = await runWalkForward(
+      opts,
+      {
+        inSampleDays: 1,
+        outOfSampleDays: 1,
+        stepDays: 1,
+      },
+      createStrategy,
+    );
 
     expect(result.windowCount).toBe(2);
     expect(instances).toHaveLength(4);

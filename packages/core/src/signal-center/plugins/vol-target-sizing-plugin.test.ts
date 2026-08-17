@@ -36,9 +36,7 @@ import {
 
 const mkBus = (): SignalBus => new SignalBus({ mode: "backtest" });
 
-const wirePlugin = (
-  plugin: VolTargetSizingPlugin,
-): { bus: SignalBus; captured: SizingSignal[] } => {
+const wirePlugin = (plugin: VolTargetSizingPlugin): { bus: SignalBus; captured: SizingSignal[] } => {
   const bus = mkBus();
   const captured: SizingSignal[] = [];
   plugin.subscribe(bus);
@@ -74,21 +72,21 @@ describe("VolTargetSizingPlugin — construction and metadata", () => {
   });
 
   it("construction with maxVolMultiplier > 1.0 REJECTED (1:10 hard cap)", () => {
-    expect(
-      () => new VolTargetSizingPlugin({ maxVolMultiplier: 1.5 }),
-    ).toThrow(/maxVolMultiplier=1\.5 exceeds 1\.0/);
+    expect(() => new VolTargetSizingPlugin({ maxVolMultiplier: 1.5 })).toThrow(
+      /maxVolMultiplier=1\.5 exceeds 1\.0/,
+    );
   });
 
   it("construction with targetDailyVol below 0.5% REJECTED", () => {
-    expect(
-      () => new VolTargetSizingPlugin({ targetDailyVol: 0.001 }),
-    ).toThrow(/targetDailyVol=0\.001 outside allowed range/);
+    expect(() => new VolTargetSizingPlugin({ targetDailyVol: 0.001 })).toThrow(
+      /targetDailyVol=0\.001 outside allowed range/,
+    );
   });
 
   it("construction with targetDailyVol above 5% REJECTED", () => {
-    expect(
-      () => new VolTargetSizingPlugin({ targetDailyVol: 0.10 }),
-    ).toThrow(/targetDailyVol=0\.1 outside allowed range/);
+    expect(() => new VolTargetSizingPlugin({ targetDailyVol: 0.1 })).toThrow(
+      /targetDailyVol=0\.1 outside allowed range/,
+    );
   });
 
   it("construction with volWindowDays = 0 REJECTED (validateConfig or constructor)", () => {
@@ -96,9 +94,7 @@ describe("VolTargetSizingPlugin — construction and metadata", () => {
   });
 
   it("construction with baseNotionalUsd = 0 REJECTED", () => {
-    expect(
-      () => new VolTargetSizingPlugin({ baseNotionalUsd: 0 }),
-    ).toThrow();
+    expect(() => new VolTargetSizingPlugin({ baseNotionalUsd: 0 })).toThrow();
   });
 
   it("metadata declares correct fields", () => {
@@ -125,7 +121,7 @@ describe("VolTargetSizingPlugin — construction and metadata", () => {
     const result = p.validateConfig({
       targetDailyVol: 0.015,
       volWindowDays: 14,
-      minVolMultiplier: 0.30,
+      minVolMultiplier: 0.3,
       maxVolMultiplier: 1.0,
     });
     expect(result.ok).toBe(true);
@@ -218,9 +214,7 @@ describe("VolTargetSizingPlugin — 3-layer 1:10 leverage defense", () => {
       p.recordClose("BTC/USDT", 50_000 * (1 + 0.02 * ((i % 2) * 2 - 1)));
     }
     for (let i = 0; i < 100; i++) {
-      bus.emit(
-        mkSizing({ notional: 50_000 + (i % 5) * 10_000, volMultiplier: 0.5 + 0.1 * (i % 5) }),
-      );
+      bus.emit(mkSizing({ notional: 50_000 + (i % 5) * 10_000, volMultiplier: 0.5 + 0.1 * (i % 5) }));
     }
     expect(captured.length).toBe(100);
     for (const s of captured) {
@@ -250,7 +244,7 @@ describe("VolTargetSizingPlugin — multiplier and rescaling", () => {
     // target 0.02 / 0.10 = 0.2 → clamp to 0.25 floor.
     let px = 50_000;
     for (let i = 0; i < 30; i++) {
-      px = px * (i % 2 === 0 ? 1.10 : 0.90);
+      px = px * (i % 2 === 0 ? 1.1 : 0.9);
       p.recordClose("BTC/USDT", px);
     }
     const m = p.currentMultiplierForSymbol("BTC/USDT");
@@ -275,7 +269,7 @@ describe("VolTargetSizingPlugin — multiplier and rescaling", () => {
     // Oscillating ±10% → stddev ≈ 0.10 → floor clamp.
     let px = 50_000;
     for (let i = 0; i < 30; i++) {
-      px = px * (i % 2 === 0 ? 1.10 : 0.90);
+      px = px * (i % 2 === 0 ? 1.1 : 0.9);
       p.recordClose("BTC/USDT", px);
     }
     bus.emit(mkSizing({ notional: 10_000, volMultiplier: 1.0 }));
@@ -310,7 +304,7 @@ describe("VolTargetSizingPlugin — multiplier and rescaling", () => {
     // = 0.02 / 0.10 = 0.2 → clamp to 0.25 floor.
     let px2 = 50_001;
     for (let i = 0; i < 30; i++) {
-      px2 = px2 * (i % 2 === 0 ? 1.10 : 0.90);
+      px2 = px2 * (i % 2 === 0 ? 1.1 : 0.9);
       p.recordClose("BTC/USDT", px2);
     }
     expect(p.currentMultiplierForSymbol("BTC/USDT")).toBe(0.25);

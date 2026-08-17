@@ -170,11 +170,7 @@ export function maxConsecutive(trades: readonly Trade[]): {
  `exposureTime` — a trade-ek holding idejenek osszege / a backtest
  teljes idotartama.
 */
-export function exposureTime(
-  trades: readonly Trade[],
-  startTimeMs: number,
-  endTimeMs: number,
-): number {
+export function exposureTime(trades: readonly Trade[], startTimeMs: number, endTimeMs: number): number {
   if (endTimeMs <= startTimeMs) {
     return 0;
   }

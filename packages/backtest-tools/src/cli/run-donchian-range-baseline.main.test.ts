@@ -15,12 +15,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import {
-  calculateMonthlyReturn,
-  handleFatal,
-  main,
-  parseArgs,
-} from "./run-donchian-range-baseline.js";
+import { calculateMonthlyReturn, handleFatal, main, parseArgs } from "./run-donchian-range-baseline.js";
 
 const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
 
@@ -150,20 +145,15 @@ async function withArgv<T>(args: readonly string[], fn: () => Promise<T>): Promi
 
 describe("run-donchian-range-baseline — main() in-process", () => {
   it("a közvetlen bun run belépési pont meghívja a main()-t és hibánál nem nulla kóddal lép ki", async () => {
-    const child = Bun.spawn([
-      "bun",
-      "run",
-      "packages/backtest-tools/src/cli/run-donchian-range-baseline.ts",
-      "--timeframe=1h",
-    ], {
-      cwd: ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stderr, exitCode] = await Promise.all([
-      new Response(child.stderr).text(),
-      child.exited,
-    ]);
+    const child = Bun.spawn(
+      ["bun", "run", "packages/backtest-tools/src/cli/run-donchian-range-baseline.ts", "--timeframe=1h"],
+      {
+        cwd: ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [stderr, exitCode] = await Promise.all([new Response(child.stderr).text(), child.exited]);
 
     expect(exitCode).toBe(1);
     expect(stderr).toContain("[donchian-range] FATAL:");
@@ -206,17 +196,20 @@ describe("run-donchian-range-baseline — main() in-process", () => {
       stdoutChunks.push(args.map(String).join(" "));
     };
     try {
-      await withArgv([
-        "--symbol=BTC/USDT",
-        "--timeframe=15m",
-        "--start=2024-01-01",
-        "--end=2024-01-30",
-        "--equity=10000",
-        "--donchian-period=12",
-        "--adx-trend-threshold=31.5",
-        `--data-dir=${dataDir}`,
-        `--output=${outFile}`,
-      ], () => main());
+      await withArgv(
+        [
+          "--symbol=BTC/USDT",
+          "--timeframe=15m",
+          "--start=2024-01-01",
+          "--end=2024-01-30",
+          "--equity=10000",
+          "--donchian-period=12",
+          "--adx-trend-threshold=31.5",
+          `--data-dir=${dataDir}`,
+          `--output=${outFile}`,
+        ],
+        () => main(),
+      );
     } finally {
       console.log = origLog;
     }
@@ -250,14 +243,17 @@ describe("run-donchian-range-baseline — main() in-process", () => {
       stdoutChunks.push(args.map(String).join(" "));
     };
     try {
-      await withArgv([
-        "--symbol=BTC/USDT",
-        "--timeframe=15m",
-        "--start=2024-01-01",
-        "--end=2024-01-02",
-        `--data-dir=${flatDataDir}`,
-        `--output=${outFile}`,
-      ], () => main());
+      await withArgv(
+        [
+          "--symbol=BTC/USDT",
+          "--timeframe=15m",
+          "--start=2024-01-01",
+          "--end=2024-01-02",
+          `--data-dir=${flatDataDir}`,
+          `--output=${outFile}`,
+        ],
+        () => main(),
+      );
     } finally {
       console.log = origLog;
     }
@@ -271,12 +267,9 @@ describe("run-donchian-range-baseline — main() in-process", () => {
   });
 
   it("rossz timeframe flag → main() throw-ol", async () => {
-    await expect(
-      withArgv(
-        ["--timeframe=1h", `--data-dir=${dataDir}`],
-        () => main(),
-      ),
-    ).rejects.toThrow(/requires 15m|Donchian Range baseline/);
+    await expect(withArgv(["--timeframe=1h", `--data-dir=${dataDir}`], () => main())).rejects.toThrow(
+      /requires 15m|Donchian Range baseline/,
+    );
   });
 
   it("printTradeStats (inlined): a placeholder teszt (Phase 35b — eltávolítva)", () => {

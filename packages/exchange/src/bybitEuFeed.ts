@@ -297,7 +297,10 @@ export class BybitEuFeed implements ExchangeFeed {
     };
     const ws = urls.api.ws;
     if (ws?.public === undefined || ws.private === undefined) {
-      throw new ExchangeFeedError("[bybiteu] CCXT bybiteu adapter does not expose configurable V5 WebSocket URLs", undefined);
+      throw new ExchangeFeedError(
+        "[bybiteu] CCXT bybiteu adapter does not expose configurable V5 WebSocket URLs",
+        undefined,
+      );
     }
     ws.public["spot"] = `${origin}/v5/public/spot`;
     if (ws.private.spot !== undefined) {
@@ -395,7 +398,11 @@ export class BybitEuFeed implements ExchangeFeed {
     return id;
   }
 
-  async subscribeOhlcv(symbol: Symbol, timeframe: Timeframe, listener: FeedListener): Promise<SubscriptionId> {
+  async subscribeOhlcv(
+    symbol: Symbol,
+    timeframe: Timeframe,
+    listener: FeedListener,
+  ): Promise<SubscriptionId> {
     this.assertOpen();
     const id = this.nextId++;
     const sub: Subscription = {
@@ -417,8 +424,14 @@ export class BybitEuFeed implements ExchangeFeed {
     this.assertOpen();
     const id = this.nextId++;
     const sub: Subscription = {
-      id, listener, kind: "orders", symbol: undefined, timeframe: undefined,
-      cancelled: false, abortController: new AbortController(), runner: undefined as unknown as Promise<void>,
+      id,
+      listener,
+      kind: "orders",
+      symbol: undefined,
+      timeframe: undefined,
+      cancelled: false,
+      abortController: new AbortController(),
+      runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
     sub.runner = this.runPrivateOrdersLoop(id, listener);
@@ -429,8 +442,14 @@ export class BybitEuFeed implements ExchangeFeed {
     this.assertOpen();
     const id = this.nextId++;
     const sub: Subscription = {
-      id, listener, kind: "executions", symbol: undefined, timeframe: undefined,
-      cancelled: false, abortController: new AbortController(), runner: undefined as unknown as Promise<void>,
+      id,
+      listener,
+      kind: "executions",
+      symbol: undefined,
+      timeframe: undefined,
+      cancelled: false,
+      abortController: new AbortController(),
+      runner: undefined as unknown as Promise<void>,
     };
     this.subs.set(id, sub);
     sub.runner = this.runPrivateExecutionsLoop(id, listener);
@@ -482,7 +501,12 @@ export class BybitEuFeed implements ExchangeFeed {
    * bar-ral. A bybit V5 default limit 1000 — ezt a CCXt saját
    * default-jára bízzuk (a hívó felelőssége a `limit` megadása).
    */
-  async fetchOHLCV(symbol: Symbol, timeframe: Timeframe, since: number | undefined, limit: number): Promise<readonly Ohlcv[]> {
+  async fetchOHLCV(
+    symbol: Symbol,
+    timeframe: Timeframe,
+    since: number | undefined,
+    limit: number,
+  ): Promise<readonly Ohlcv[]> {
     this.assertOpen();
     this.assertSupported(symbol);
     const raw = await this.client.fetchOHLCV(symbol, timeframe, since, limit);
@@ -541,7 +565,8 @@ export class BybitEuFeed implements ExchangeFeed {
     // generic client-id path and makes the intended wire identifier clear.
     const params: Record<string, unknown> = { orderLinkId: req.clientOrderId };
     if (req.protectiveKind !== undefined) {
-      if (req.triggerPrice === undefined) throw new ExchangeFeedError("Protective order requires triggerPrice", undefined);
+      if (req.triggerPrice === undefined)
+        throw new ExchangeFeedError("Protective order requires triggerPrice", undefined);
       if (market.spot) {
         // V5 spot conditional: triggerPrice + StopOrder.  CCXT 4.5.64 also
         // derives this filter, but pass it explicitly to keep the wire shape
@@ -566,9 +591,12 @@ export class BybitEuFeed implements ExchangeFeed {
     }
     const raw = await this.client.createOrder(req.symbol, req.type, req.side, req.amount, req.price, params);
     const order = normalizeOrder(raw, req);
-    this.rememberClientOrder(req.clientOrderId, req.symbol, market.spot
-      ? (req.protectiveKind === undefined ? "Order" : "StopOrder")
-      : undefined, order.status);
+    this.rememberClientOrder(
+      req.clientOrderId,
+      req.symbol,
+      market.spot ? (req.protectiveKind === undefined ? "Order" : "StopOrder") : undefined,
+      order.status,
+    );
     return order;
   }
 
@@ -584,7 +612,12 @@ export class BybitEuFeed implements ExchangeFeed {
     // Bybit V5's documented `orderLinkId` request field.
     const raw = await this.client.cancelOrder(undefined as unknown as string, symbol, params);
     const order = normalizeOrder(raw, undefined);
-    this.rememberClientOrder(clientOrderId, symbol, isSpot ? (params["orderFilter"] as "Order" | "StopOrder") : undefined, order.status);
+    this.rememberClientOrder(
+      clientOrderId,
+      symbol,
+      isSpot ? (params["orderFilter"] as "Order" | "StopOrder") : undefined,
+      order.status,
+    );
     return order;
   }
 
@@ -604,7 +637,12 @@ export class BybitEuFeed implements ExchangeFeed {
     // CCXT's Bybit fetchOrder guard for its limited realtime-order endpoint.
     const raw = await this.client.fetchOrder(undefined as unknown as string, symbol, params);
     const order = normalizeOrder(raw, undefined);
-    this.rememberClientOrder(clientOrderId, symbol, isSpot ? metadata?.spotOrderFilter : undefined, order.status);
+    this.rememberClientOrder(
+      clientOrderId,
+      symbol,
+      isSpot ? metadata?.spotOrderFilter : undefined,
+      order.status,
+    );
     return order;
   }
 
@@ -698,7 +736,12 @@ export class BybitEuFeed implements ExchangeFeed {
     }
   }
 
-  private async runOrderBookLoop(id: SubscriptionId, symbol: Symbol, limit: number, listener: FeedListener): Promise<void> {
+  private async runOrderBookLoop(
+    id: SubscriptionId,
+    symbol: Symbol,
+    limit: number,
+    listener: FeedListener,
+  ): Promise<void> {
     const sub = this.subs.get(id);
     if (sub === undefined) return;
     let cancelled = sub.cancelled;
@@ -784,7 +827,12 @@ export class BybitEuFeed implements ExchangeFeed {
     }
   }
 
-  private async runOhlcvLoop(id: SubscriptionId, symbol: Symbol, timeframe: Timeframe, listener: FeedListener): Promise<void> {
+  private async runOhlcvLoop(
+    id: SubscriptionId,
+    symbol: Symbol,
+    timeframe: Timeframe,
+    listener: FeedListener,
+  ): Promise<void> {
     const sub = this.subs.get(id);
     if (sub === undefined) return;
     let cancelled = sub.cancelled;
@@ -795,9 +843,7 @@ export class BybitEuFeed implements ExchangeFeed {
     let lastEmittedTimestamp: number | undefined;
     let pendingWatchCandle: Ohlcv | undefined;
     const emitClosedCandles = (raw: readonly unknown[], source: "watch" | "rest"): void => {
-      const candles = raw
-        .map((candle) => candle as Ohlcv)
-        .sort((a, b) => a[0] - b[0]);
+      const candles = raw.map((candle) => candle as Ohlcv).sort((a, b) => a[0] - b[0]);
       // CCXT's unified OHLCV tuple deliberately drops Bybit's raw
       // `confirm` flag.  For the websocket path we therefore never infer
       // finality merely from wall-clock time: the newest bucket is retained
@@ -807,16 +853,17 @@ export class BybitEuFeed implements ExchangeFeed {
       // REST history has no confirm flag either, but its older buckets can be
       // closed with the explicit end-time rule while the current bucket stays
       // excluded.
-      const candidates = source === "watch"
-        ? (() => {
-            const merged = pendingWatchCandle === undefined ? candles : [pendingWatchCandle, ...candles];
-            const byTimestamp = new Map<number, Ohlcv>();
-            for (const candle of merged) byTimestamp.set(candle[0], candle);
-            const ordered = [...byTimestamp.values()].sort((a, b) => a[0] - b[0]);
-            pendingWatchCandle = ordered.at(-1);
-            return ordered.slice(0, -1);
-          })()
-        : candles.filter((candle) => isClosedOhlcv(candle, timeframe));
+      const candidates =
+        source === "watch"
+          ? (() => {
+              const merged = pendingWatchCandle === undefined ? candles : [pendingWatchCandle, ...candles];
+              const byTimestamp = new Map<number, Ohlcv>();
+              for (const candle of merged) byTimestamp.set(candle[0], candle);
+              const ordered = [...byTimestamp.values()].sort((a, b) => a[0] - b[0]);
+              pendingWatchCandle = ordered.at(-1);
+              return ordered.slice(0, -1);
+            })()
+          : candles.filter((candle) => isClosedOhlcv(candle, timeframe));
       for (const candle of candidates) {
         if (lastEmittedTimestamp !== undefined && candle[0] <= lastEmittedTimestamp) continue;
         const event: FeedEvent = {
@@ -1037,7 +1084,13 @@ export function normalizePosition(raw: CcxtPosition): ExchangePosition | undefin
 
 /** CCXT authenticated trade -> execution. `id` is Bybit's execId. */
 export function normalizeExecution(raw: CcxtTrade): Execution | undefined {
-  if (raw.id === undefined || raw.id === "" || raw.symbol === undefined || raw.price === undefined || raw.amount === undefined) {
+  if (
+    raw.id === undefined ||
+    raw.id === "" ||
+    raw.symbol === undefined ||
+    raw.price === undefined ||
+    raw.amount === undefined
+  ) {
     return undefined;
   }
   const info = raw.info as Record<string, unknown> | undefined;
@@ -1045,8 +1098,14 @@ export function normalizeExecution(raw: CcxtTrade): Execution | undefined {
   const exchangeOrderIdRaw = raw.order ?? info?.["orderId"] ?? info?.["o"];
   return {
     executionId: raw.id,
-    clientOrderId: typeof clientOrderIdRaw === "string" && clientOrderIdRaw !== "" ? clientOrderIdRaw as ClientOrderId : undefined,
-    exchangeOrderId: typeof exchangeOrderIdRaw === "string" && exchangeOrderIdRaw !== "" ? exchangeOrderIdRaw as ExchangeOrderId : undefined,
+    clientOrderId:
+      typeof clientOrderIdRaw === "string" && clientOrderIdRaw !== ""
+        ? (clientOrderIdRaw as ClientOrderId)
+        : undefined,
+    exchangeOrderId:
+      typeof exchangeOrderIdRaw === "string" && exchangeOrderIdRaw !== ""
+        ? (exchangeOrderIdRaw as ExchangeOrderId)
+        : undefined,
     symbol: raw.symbol as Symbol,
     side: raw.side === "sell" ? "sell" : "buy",
     quantity: raw.amount,
@@ -1060,7 +1119,12 @@ export function normalizeExecution(raw: CcxtTrade): Execution | undefined {
 /** CCXT `Order` → a mi `Order` típusunk. */
 export function normalizeOrder(raw: CcxtOrder, req: OrderRequest | undefined): Order {
   const side: "buy" | "sell" = raw.side === "sell" ? "sell" : "buy";
-  const status: OrderStatus = raw.status === "closed" || raw.status === "filled" ? "closed" : raw.status === "canceled" || raw.status === "cancelled" ? "canceled" : "open";
+  const status: OrderStatus =
+    raw.status === "closed" || raw.status === "filled"
+      ? "closed"
+      : raw.status === "canceled" || raw.status === "cancelled"
+        ? "canceled"
+        : "open";
   return {
     clientOrderId: (raw.clientOrderId ?? req?.clientOrderId ?? "") as ClientOrderId,
     exchangeId: raw.id !== undefined && raw.id !== "" ? (raw.id as unknown as ExchangeOrderId) : undefined,

@@ -235,18 +235,10 @@ export class DecisionEngine implements DecisionEngineLike {
       ...config,
     };
     // Validate config — fail fast.
-    if (
-      !Number.isFinite(merged.defaultWeight) ||
-      merged.defaultWeight <= 0
-    ) {
-      throw new Error(
-        `[DecisionEngine] defaultWeight must be positive finite, got ${merged.defaultWeight}`,
-      );
+    if (!Number.isFinite(merged.defaultWeight) || merged.defaultWeight <= 0) {
+      throw new Error(`[DecisionEngine] defaultWeight must be positive finite, got ${merged.defaultWeight}`);
     }
-    if (
-      !Number.isFinite(merged.defensiveWeight) ||
-      merged.defensiveWeight <= 0
-    ) {
+    if (!Number.isFinite(merged.defensiveWeight) || merged.defensiveWeight <= 0) {
       throw new Error(
         `[DecisionEngine] defensiveWeight must be positive finite, got ${merged.defensiveWeight}`,
       );
@@ -260,10 +252,7 @@ export class DecisionEngine implements DecisionEngineLike {
         `[DecisionEngine] minConsensusStrength must be in [0, 1], got ${merged.minConsensusStrength}`,
       );
     }
-    if (
-      !Number.isFinite(merged.maxNotionalPerSymbolUsd) ||
-      merged.maxNotionalPerSymbolUsd <= 0
-    ) {
+    if (!Number.isFinite(merged.maxNotionalPerSymbolUsd) || merged.maxNotionalPerSymbolUsd <= 0) {
       throw new Error(
         `[DecisionEngine] maxNotionalPerSymbolUsd must be positive finite, got ${merged.maxNotionalPerSymbolUsd}`,
       );
@@ -286,14 +275,7 @@ export class DecisionEngine implements DecisionEngineLike {
    * Returns an unsubscribe function (idempotent).
    */
   subscribe(bus: SignalBus): UnsubscribeFn {
-    const kinds = [
-      "direction",
-      "carry",
-      "sizing",
-      "risk",
-      "factor",
-      "funding-snapshot",
-    ] as const;
+    const kinds = ["direction", "carry", "sizing", "risk", "factor", "funding-snapshot"] as const;
     for (const kind of kinds) {
       const unsub = bus.subscribe(kind, (s: Signal) => {
         this.ingest(s);
@@ -376,8 +358,8 @@ export class DecisionEngine implements DecisionEngineLike {
     // We accept all signals — defensively skip malformed ones.
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (typeof signal !== "object" || signal === null) return;
-    const attributedSymbol = signal.symbol ??
-      (signal.kind === "funding-snapshot" ? signal.asset : this.symbol);
+    const attributedSymbol =
+      signal.symbol ?? (signal.kind === "funding-snapshot" ? signal.asset : this.symbol);
     if (attributedSymbol !== this.symbol) return;
     const arr = this.pendingBySymbol.get(attributedSymbol);
     if (arr === undefined) {
@@ -404,11 +386,7 @@ export class DecisionEngine implements DecisionEngineLike {
    * Step 6: if total consensus strength < minConsensusStrength →
    *   side = 'flat'.
    */
-  private arbitrate(
-    symbol: string,
-    timestampMs: number,
-    signals: readonly Signal[],
-  ): PositionDecision {
+  private arbitrate(symbol: string, timestampMs: number, signals: readonly Signal[]): PositionDecision {
     let longWeight = 0;
     let shortWeight = 0;
     let flatWeight = 0;
@@ -444,9 +422,7 @@ export class DecisionEngine implements DecisionEngineLike {
         // `notional` is the final sizing-plugin output. Pick the most
         // defensive proposal and never apply volMultiplier a second time.
         const candidate = Math.abs(s.notional);
-        sizingNotional = sizingNotional === null
-          ? candidate
-          : Math.min(sizingNotional, candidate);
+        sizingNotional = sizingNotional === null ? candidate : Math.min(sizingNotional, candidate);
         sourceWeights[s.source] = sourceWeights[s.source] ?? 0;
       } else if (isRisk(s)) {
         // Defensive RiskSignals with sizeModifier override.
@@ -496,10 +472,7 @@ export class DecisionEngine implements DecisionEngineLike {
 
     // Sizing plugins already applied their own Kelly/vol transforms to
     // `notional`; only cross-cutting carry and risk modifiers apply here.
-    const sizeMultiplier = Math.max(
-      0,
-      Math.min(1, carrySizeMultiplier * this._defensiveSizeModifier),
-    );
+    const sizeMultiplier = Math.max(0, Math.min(1, carrySizeMultiplier * this._defensiveSizeModifier));
 
     // Notional: prefer SizingSignals' average notional, scaled by side
     // sign. If no sizing signals, derive from baseNotional × sizeMult × confidence.
@@ -566,9 +539,7 @@ export class DecisionEngine implements DecisionEngineLike {
  * compile. Mirrors Track A's `assertNever` but is signal-union-typed.
  */
 export function assertExhaustiveSignal(x: never): never {
-  throw new Error(
-    `[DecisionEngine] Non-exhaustive Signal switch — unhandled kind: ${JSON.stringify(x)}`,
-  );
+  throw new Error(`[DecisionEngine] Non-exhaustive Signal switch — unhandled kind: ${JSON.stringify(x)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -576,11 +547,4 @@ export function assertExhaustiveSignal(x: never): never {
 // ---------------------------------------------------------------------------
 
 /** Re-export Signal types so consumers don't need 2 imports. */
-export type {
-  DirectionSignal,
-  CarrySignal,
-  SizingSignal,
-  RiskSignal,
-  FactorSignal,
-  FundingSnapshotSignal,
-};
+export type { DirectionSignal, CarrySignal, SizingSignal, RiskSignal, FactorSignal, FundingSnapshotSignal };

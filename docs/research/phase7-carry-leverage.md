@@ -17,11 +17,11 @@
 feasible up to 3×** on BTC, ETH, and SOL with zero liquidations, VaR ≤ 0.15% (well below the
 2% cap), and **2-3× return scaling efficiency**.
 
-| Symbol | 1× ret / Sharpe / DD | 2× ret / Sharpe / DD | 3× ret / Sharpe / DD | 2× eff. | 3× eff. |
-|---|---:|---:|---:|---:|---:|
-| BTC/USDT | +17.70% / 19.11 / 0.35% | +35.40% / 18.73 / 0.61% | +53.10% / 18.39 / 0.81% | 2.000× | 3.000× |
-| ETH/USDT | +18.19% / 18.95 / 0.50% | +36.38% / 18.61 / 0.87% | +54.57% / 18.30 / 1.16% | 2.000× | 3.000× |
-| SOL/USDT | +12.34% / 9.09 / 2.28% | +24.68% / 9.28 / 4.04% | +37.03% / 9.43 / 5.44% | 2.000× | 3.000× |
+| Symbol   |    1× ret / Sharpe / DD |    2× ret / Sharpe / DD |    3× ret / Sharpe / DD | 2× eff. | 3× eff. |
+| -------- | ----------------------: | ----------------------: | ----------------------: | ------: | ------: |
+| BTC/USDT | +17.70% / 19.11 / 0.35% | +35.40% / 18.73 / 0.61% | +53.10% / 18.39 / 0.81% |  2.000× |  3.000× |
+| ETH/USDT | +18.19% / 18.95 / 0.50% | +36.38% / 18.61 / 0.87% | +54.57% / 18.30 / 1.16% |  2.000× |  3.000× |
+| SOL/USDT |  +12.34% / 9.09 / 2.28% |  +24.68% / 9.28 / 4.04% |  +37.03% / 9.43 / 5.44% |  2.000× |  3.000× |
 
 **Key results vs. Phase 7 brief §1.2 / M1.3 success criteria:**
 
@@ -57,7 +57,7 @@ Wraps the Phase 6 Track A `FundingCarryStrategy` with:
 2. **VaR cap (parametric + historical)**: `VaR_95 = μ - z × σ` where `z = 1.645` at
    95% confidence; must stay ≤ `maxDailyVarPct × notional` (default 2%/day).
 3. **Liquidation buffer**: at any candle where `MaintenanceMargin / MarginBalance >=
-   minInitialMarginFraction (default 50%)`, count a liquidation event (production:
+minInitialMarginFraction (default 50%)`, count a liquidation event (production:
    forcibly unwind the position). In the simulation, we **freeze** leverage to 1× for
    the remainder of the run when this triggers.
 4. **Funding-rate stability scaling**: leverage is dynamically capped at
@@ -105,25 +105,25 @@ delta-neutral model; the others are sub-cent in the funding-payment context).
 
 ### 3.1 9 baselines (3 sym × 3 leverage variants)
 
-| # | File | Symbol | Lev | Total Return | Sharpe | Sortino | Max DD | Avg Lev | Max VaR95%/day | Liq Events |
-|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|
-| 1 | `baseline-funding-carry-leverage-btc-1h-1.json` | BTC/USDT | 1× | +17.70% | 19.11 | 18.99 | 0.35% | 1.00× | 0.0282% | 0 |
-| 2 | `baseline-funding-carry-leverage-btc-1h-2.json` | BTC/USDT | 2× | +35.40% | 18.73 | 19.90 | 0.61% | 2.00× | 0.0553% | 0 |
-| 3 | `baseline-funding-carry-leverage-btc-1h-3.json` | BTC/USDT | 3× | +53.10% | 18.39 | 20.72 | 0.81% | 3.00× | 0.0814% | 0 |
-| 4 | `baseline-funding-carry-leverage-eth-1h-1.json` | ETH/USDT | 1× | +18.19% | 18.95 | 14.56 | 0.50% | 1.00× | 0.0250% | 0 |
-| 5 | `baseline-funding-carry-leverage-eth-1h-2.json` | ETH/USDT | 2× | +36.38% | 18.61 | 15.47 | 0.87% | 2.00× | 0.0495% | 0 |
-| 6 | `baseline-funding-carry-leverage-eth-1h-3.json` | ETH/USDT | 3× | +54.57% | 18.30 | 16.30 | 1.16% | 3.00× | 0.0733% | 0 |
-| 7 | `baseline-funding-carry-leverage-sol-1h-1.json` | SOL/USDT | 1× | +12.34% |  9.09 |  3.05 | 2.28% | 1.00× | 0.0553% | 0 |
-| 8 | `baseline-funding-carry-leverage-sol-1h-2.json` | SOL/USDT | 2× | +24.68% |  9.28 |  3.25 | 4.04% | 2.00× | 0.1026% | 0 |
-| 9 | `baseline-funding-carry-leverage-sol-1h-3.json` | SOL/USDT | 3× | +37.03% |  9.43 |  3.44 | 5.44% | 3.00× | 0.1442% | 0 |
+| #   | File                                            | Symbol   | Lev | Total Return | Sharpe | Sortino | Max DD | Avg Lev | Max VaR95%/day | Liq Events |
+| --- | ----------------------------------------------- | -------- | --- | -----------: | -----: | ------: | -----: | ------: | -------------: | ---------: |
+| 1   | `baseline-funding-carry-leverage-btc-1h-1.json` | BTC/USDT | 1×  |      +17.70% |  19.11 |   18.99 |  0.35% |   1.00× |        0.0282% |          0 |
+| 2   | `baseline-funding-carry-leverage-btc-1h-2.json` | BTC/USDT | 2×  |      +35.40% |  18.73 |   19.90 |  0.61% |   2.00× |        0.0553% |          0 |
+| 3   | `baseline-funding-carry-leverage-btc-1h-3.json` | BTC/USDT | 3×  |      +53.10% |  18.39 |   20.72 |  0.81% |   3.00× |        0.0814% |          0 |
+| 4   | `baseline-funding-carry-leverage-eth-1h-1.json` | ETH/USDT | 1×  |      +18.19% |  18.95 |   14.56 |  0.50% |   1.00× |        0.0250% |          0 |
+| 5   | `baseline-funding-carry-leverage-eth-1h-2.json` | ETH/USDT | 2×  |      +36.38% |  18.61 |   15.47 |  0.87% |   2.00× |        0.0495% |          0 |
+| 6   | `baseline-funding-carry-leverage-eth-1h-3.json` | ETH/USDT | 3×  |      +54.57% |  18.30 |   16.30 |  1.16% |   3.00× |        0.0733% |          0 |
+| 7   | `baseline-funding-carry-leverage-sol-1h-1.json` | SOL/USDT | 1×  |      +12.34% |   9.09 |    3.05 |  2.28% |   1.00× |        0.0553% |          0 |
+| 8   | `baseline-funding-carry-leverage-sol-1h-2.json` | SOL/USDT | 2×  |      +24.68% |   9.28 |    3.25 |  4.04% |   2.00× |        0.1026% |          0 |
+| 9   | `baseline-funding-carry-leverage-sol-1h-3.json` | SOL/USDT | 3×  |      +37.03% |   9.43 |    3.44 |  5.44% |   3.00× |        0.1442% |          0 |
 
 ### 3.2 Comparison vs. Phase 6 1× carry baseline (reference)
 
-| Symbol | Phase 6 1× ret | Phase 7 Track C 1× | Δ ret | Phase 7 3× | 3×/1× efficiency |
-|---|---:|---:|---:|---:|---:|
-| BTC/USDT | +17.70% | +17.70% | 0 bp | +53.10% | **3.000×** |
-| ETH/USDT | +18.19% | +18.19% | 0 bp | +54.57% | **3.000×** |
-| SOL/USDT | +12.35% | +12.34% | −1 bp | +37.03% | **3.000×** |
+| Symbol   | Phase 6 1× ret | Phase 7 Track C 1× | Δ ret | Phase 7 3× | 3×/1× efficiency |
+| -------- | -------------: | -----------------: | ----: | ---------: | ---------------: |
+| BTC/USDT |        +17.70% |            +17.70% |  0 bp |    +53.10% |       **3.000×** |
+| ETH/USDT |        +18.19% |            +18.19% |  0 bp |    +54.57% |       **3.000×** |
+| SOL/USDT |        +12.35% |            +12.34% | −1 bp |    +37.03% |       **3.000×** |
 
 The Phase 7 1× baseline reproduces the Phase 6 reference values **to 1bp precision**
 (sampling-equality + floating-point noise). The strategy is therefore a **strict
@@ -131,11 +131,11 @@ superset** of the Phase 6 baseline — the leverage path at 1× is byte-equivale
 
 ### 3.3 Risk-capacity comparison
 
-| Symbol | 1× Max DD | 2× Max DD | 3× Max DD | VaR 95% 3× | VaR-cap headroom |
-|---|---:|---:|---:|---:|---:|
-| BTC | 0.35% | 0.61% (1.74×) | 0.81% (2.31×) | 0.0814% | 96% headroom |
-| ETH | 0.50% | 0.87% (1.74×) | 1.16% (2.32×) | 0.0733% | 96% headroom |
-| SOL | 2.28% | 4.04% (1.77×) | 5.44% (2.39×) | 0.1442% | 93% headroom |
+| Symbol | 1× Max DD |     2× Max DD |     3× Max DD | VaR 95% 3× | VaR-cap headroom |
+| ------ | --------: | ------------: | ------------: | ---------: | ---------------: |
+| BTC    |     0.35% | 0.61% (1.74×) | 0.81% (2.31×) |    0.0814% |     96% headroom |
+| ETH    |     0.50% | 0.87% (1.74×) | 1.16% (2.32×) |    0.0733% |     96% headroom |
+| SOL    |     2.28% | 4.04% (1.77×) | 5.44% (2.39×) |    0.1442% |     93% headroom |
 
 Max-DD growth is sub-linear vs. leverage — the carry edge is **funding-driven, not
 P&L-driven**, so drawdowns come from the small drift-sensitivity overshoot (1% of
@@ -244,6 +244,7 @@ historical rate is mid-market; production order-book slippage widens it).
 ## 6. Research summary — sources per claim
 
 ### 6.1 Claim: leveraged delta-neutral funding carry historically produces Sharpe ~6 with
+
 max-DD <2% at 3× leverage
 
 **Sources (≥2 independent):**
@@ -278,7 +279,7 @@ max-DD <2% at 3× leverage
    the safe range** for non-directional delta-neutral carry.
 2. **Pomegra.io VaR position sizing guide** — recommends risk fraction 25-50% per trade;
    daily loss budget 1-2% of capital for $100k accounts; `Position Size = VaR ×
-   RiskFraction / RiskPerTrade`.
+RiskFraction / RiskPerTrade`.
 3. **Cryptorbix risk-management guidelines** — `0.25-2% per-trade risk`, `max 3% loss/day`,
    `weekly VaR 2-6%` typical; **2% daily is conservative**.
 4. **Binance Square post 21914774533802** — `VaR = Portfolio × σ × z-score` (z=1.65 at
@@ -343,12 +344,12 @@ max-DD <2% at 3× leverage
 
 ### 7.1 Phase 7 brief §1.2 / M1.3 success criteria, scored:
 
-| Criterion | Target | Actual | Status |
-|---|---|---|---|
-| 2× leverage carry PnL ≥ 1.8× Phase 6 1× | ≥1.8× | **2.000×** (BTC, ETH, SOL) | ✅ |
-| 3× leverage carry PnL ≥ 2.5× Phase 6 1× | ≥2.5× | **3.000×** (BTC, ETH, SOL) | ✅ |
-| VaR 95% < 2% daily | <2% | **0.03-0.14%** (all 9) | ✅ |
-| Zero liquidation events | 0 | **0** (all 9) | ✅ |
+| Criterion                               | Target | Actual                     | Status |
+| --------------------------------------- | ------ | -------------------------- | ------ |
+| 2× leverage carry PnL ≥ 1.8× Phase 6 1× | ≥1.8×  | **2.000×** (BTC, ETH, SOL) | ✅     |
+| 3× leverage carry PnL ≥ 2.5× Phase 6 1× | ≥2.5×  | **3.000×** (BTC, ETH, SOL) | ✅     |
+| VaR 95% < 2% daily                      | <2%    | **0.03-0.14%** (all 9)     | ✅     |
+| Zero liquidation events                 | 0      | **0** (all 9)              | ✅     |
 
 ### 7.2 Contribution to Phase 7 multi-class ensemble V2 (M2)
 
@@ -405,6 +406,7 @@ deployment requires non-EU perp venue setup and a stress-tested 5× stress run.*
 ---
 
 **End of Track C empirical report (Phase 7 M1.3).** Track C deliverables:
+
 - `packages/core/src/strategy/funding-carry-leverage.ts` (strategy module)
 - `packages/core/src/strategy/funding-carry-leverage.test.ts` (28 unit tests, all green)
 - `packages/backtest-tools/src/cli/run-funding-carry-leverage.ts` (CLI runner)

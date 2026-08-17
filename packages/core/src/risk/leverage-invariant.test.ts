@@ -37,9 +37,7 @@ describe("assertLeverageInvariant — boundary tests", () => {
   test("10.001× → throws LeverageBreachError", () => {
     const baseCapital = 10_000;
     const totalNotional = 100_010; // 10.001×
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital)).toThrow(
-      LeverageBreachError,
-    );
+    expect(() => assertLeverageInvariant(totalNotional, baseCapital)).toThrow(LeverageBreachError);
   });
 
   test("11× → throws with details", () => {
@@ -120,9 +118,7 @@ describe("assertLeverageInvariant — custom config", () => {
     const baseCapital = 10_000;
     const totalNotional = 35_000; // 3.5×
     const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: 3 };
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital, config)).toThrow(
-      LeverageBreachError,
-    );
+    expect(() => assertLeverageInvariant(totalNotional, baseCapital, config)).toThrow(LeverageBreachError);
   });
 
   test("custom tolerance absorbs 10.0000001×", () => {
@@ -135,9 +131,7 @@ describe("assertLeverageInvariant — custom config", () => {
     const baseCapital = 10_000;
     const totalNotional = 100_000.001;
     const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, tolerance: 0 };
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital, config)).toThrow(
-      LeverageBreachError,
-    );
+    expect(() => assertLeverageInvariant(totalNotional, baseCapital, config)).toThrow(LeverageBreachError);
   });
 });
 
@@ -208,9 +202,7 @@ describe("computeEffectiveLeverage — pure function", () => {
   });
 
   test("non-finite notional in positions array → throws", () => {
-    const positions: Position[] = [
-      { symbol: "BTC/USDT", source: "directional", effectiveNotionalUsd: NaN },
-    ];
+    const positions: Position[] = [{ symbol: "BTC/USDT", source: "directional", effectiveNotionalUsd: NaN }];
     expect(() => computeEffectiveLeverage(positions, 10_000)).toThrow(/finite/);
   });
 
@@ -241,9 +233,7 @@ describe("assertPositionsInvariant — convenience wrapper", () => {
       { symbol: "BTC/USDT", source: "directional", effectiveNotionalUsd: 60_000 },
       { symbol: "ETH/USDT", source: "directional", effectiveNotionalUsd: 60_000 },
     ];
-    expect(() => assertPositionsInvariant(positions, 10_000)).toThrow(
-      LeverageBreachError,
-    );
+    expect(() => assertPositionsInvariant(positions, 10_000)).toThrow(LeverageBreachError);
   });
 
   test("empty positions → 0 (no throw)", () => {
@@ -345,9 +335,7 @@ describe("historical breach replay — synthetic signal stream", () => {
     const baseCapital = 10_000;
     const computed = computeEffectiveLeverage(positions, baseCapital);
     expect(computed).toBe(12);
-    expect(() => assertPositionsInvariant(positions, baseCapital)).toThrow(
-      LeverageBreachError,
-    );
+    expect(() => assertPositionsInvariant(positions, baseCapital)).toThrow(LeverageBreachError);
   });
 
   test("reducing one signal from $60k to $40k → 10× aggregate (AT cap, no breach)", () => {

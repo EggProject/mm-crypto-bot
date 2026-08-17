@@ -32,10 +32,7 @@
  * a kettőt (`kind === "strategy"` vs `kind === "plugin"`).
  */
 
-import {
-  CascadeFadeStrategy,
-  type CascadeFadeConfig,
-} from "@mm-crypto-bot/core";
+import { CascadeFadeStrategy, type CascadeFadeConfig } from "@mm-crypto-bot/core";
 import {
   DEFAULT_CASCADE_FADE_CONFIG,
   DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG,
@@ -117,19 +114,22 @@ export interface BotDependencies {
  * sub-configokban lehet felülírni — lásd
  * `DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG`).
  */
-function buildDonchianPivotConfig(
-  section: BotConfig["strategies"]["donchian_pivot_composition"],
-): {
+function buildDonchianPivotConfig(section: BotConfig["strategies"]["donchian_pivot_composition"]): {
   readonly minConsensus: number;
   readonly ltf: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 } {
   const ltfOverride = section.timeframes?.ltf;
   // A DonchianPivotComposition M15-native (Phase 18 §3). Ha a user
   // más LTF-et ad, elfogadjuk, de alapértelmezetten M15 marad.
-  const ltf = (ltfOverride === "1m" || ltfOverride === "5m" || ltfOverride === "15m" ||
-    ltfOverride === "1h" || ltfOverride === "4h" || ltfOverride === "1d")
-    ? ltfOverride
-    : "15m";
+  const ltf =
+    ltfOverride === "1m" ||
+    ltfOverride === "5m" ||
+    ltfOverride === "15m" ||
+    ltfOverride === "1h" ||
+    ltfOverride === "4h" ||
+    ltfOverride === "1d"
+      ? ltfOverride
+      : "15m";
   // A BotConfigSchema garantálja, hogy az override egész 1 vagy 2; itt már
   // nincs csendes helyreállítás egy hibás felhasználói értékről.
   const minConsensus = section.min_consensus ?? DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG.minConsensus;
@@ -170,13 +170,15 @@ export function buildDydxCexCarryConfig(
   const cap = typeof section.cap === "number" ? section.cap : DEFAULT_DYDX_CEX_CARRY_CONFIG.capFraction;
   const capFraction = cap > 0 && cap <= 0.5 ? cap : DEFAULT_DYDX_CEX_CARRY_CONFIG.capFraction;
   // leverage → 1 vagy 10 (1:10 MANDATE)
-  const lev = typeof section.leverage === "number" ? section.leverage : DEFAULT_DYDX_CEX_CARRY_CONFIG.leverage;
+  const lev =
+    typeof section.leverage === "number" ? section.leverage : DEFAULT_DYDX_CEX_CARRY_CONFIG.leverage;
   const leverage: 1 | 10 = lev === 1 ? 1 : 10;
   // notional_per_leg_usd → notionalPerLegUsd (USD, pozitív)
   const notionalRaw = (section as { notional_per_leg_usd?: unknown }).notional_per_leg_usd;
-  const notionalPerLegUsd = typeof notionalRaw === "number" && notionalRaw > 0
-    ? notionalRaw
-    : DEFAULT_DYDX_CEX_CARRY_CONFIG.notionalPerLegUsd;
+  const notionalPerLegUsd =
+    typeof notionalRaw === "number" && notionalRaw > 0
+      ? notionalRaw
+      : DEFAULT_DYDX_CEX_CARRY_CONFIG.notionalPerLegUsd;
   return {
     market: DEFAULT_DYDX_CEX_CARRY_CONFIG.market,
     direction: DEFAULT_DYDX_CEX_CARRY_CONFIG.direction,
@@ -205,13 +207,15 @@ export function buildDydxCexCarryConfig(
  */
 function buildCascadeFadeConfig(section: StrategySection): CascadeFadeConfig {
   const notionalRaw = (section as { max_notional_per_event_usd?: unknown }).max_notional_per_event_usd;
-  const maxNotionalPerEventUsd = typeof notionalRaw === "number" && notionalRaw > 0
-    ? notionalRaw
-    : DEFAULT_CASCADE_FADE_CONFIG.capacityMaxPerSymbolEventUsd;
+  const maxNotionalPerEventUsd =
+    typeof notionalRaw === "number" && notionalRaw > 0
+      ? notionalRaw
+      : DEFAULT_CASCADE_FADE_CONFIG.capacityMaxPerSymbolEventUsd;
   const cooldownHoursRaw = (section as { cooldown_hours?: unknown }).cooldown_hours;
-  const cooldownHours = typeof cooldownHoursRaw === "number" && cooldownHoursRaw > 0
-    ? cooldownHoursRaw
-    : DEFAULT_CASCADE_FADE_CONFIG.riskBtCooldownMs / (60 * 60 * 1000);
+  const cooldownHours =
+    typeof cooldownHoursRaw === "number" && cooldownHoursRaw > 0
+      ? cooldownHoursRaw
+      : DEFAULT_CASCADE_FADE_CONFIG.riskBtCooldownMs / (60 * 60 * 1000);
   return {
     ...DEFAULT_CASCADE_FADE_CONFIG,
     capacityMaxPerSymbolEventUsd: maxNotionalPerEventUsd,
@@ -282,9 +286,10 @@ function buildRegimeDetectorConfig(enabledSymbols: readonly string[]): {
  * jelenlegi Strategy API-ban NEM átvehetők (ezek a Bot runtime-ban
  * érvényesülnek a position-sizing szintjén).
  */
-function makeDonchianPivotComposition(
-  section: StrategySection,
-): { readonly kind: "strategy"; readonly instance: Strategy } {
+function makeDonchianPivotComposition(section: StrategySection): {
+  readonly kind: "strategy";
+  readonly instance: Strategy;
+} {
   const { minConsensus, ltf } = buildDonchianPivotConfig(section);
   const strategy = new DonchianPivotComposition({ minConsensus }, ltf);
   return { kind: "strategy", instance: strategy };
@@ -326,9 +331,10 @@ function makeDydxCexCarry(
 /**
  * `makeCascadeFade` — a `CascadeFadeStrategy` factory.
  */
-function makeCascadeFade(
-  section: StrategySection,
-): { readonly kind: "strategy"; readonly instance: Strategy } {
+function makeCascadeFade(section: StrategySection): {
+  readonly kind: "strategy";
+  readonly instance: Strategy;
+} {
   const config = buildCascadeFadeConfig(section);
   void new CascadeFadeStrategy(config);
   throw new ConfigError(
@@ -354,7 +360,10 @@ function makeFundingFlipKillSwitch(): { readonly kind: "plugin"; readonly instan
 /**
  * `makeRegimeDetector` — a `RegimeDetectorMetaPlugin` factory.
  */
-function makeRegimeDetector(enabledSymbols: readonly string[]): { readonly kind: "plugin"; readonly instance: StrategyPlugin } {
+function makeRegimeDetector(enabledSymbols: readonly string[]): {
+  readonly kind: "plugin";
+  readonly instance: StrategyPlugin;
+} {
   const config = buildRegimeDetectorConfig(enabledSymbols);
   const plugin = new RegimeDetectorMetaPlugin(config);
   return { kind: "plugin", instance: plugin };
@@ -393,46 +402,40 @@ export function createStrategyInstances(
 
   // 1) Donchian + Pivot composition (default ON, M15-native).
   if (strategies.donchian_pivot_composition.enabled) {
-    instances.set(
-      "donchian_pivot_composition",
-      { name: "donchian_pivot_composition", ...makeDonchianPivotComposition(strategies.donchian_pivot_composition) },
-    );
+    instances.set("donchian_pivot_composition", {
+      name: "donchian_pivot_composition",
+      ...makeDonchianPivotComposition(strategies.donchian_pivot_composition),
+    });
   }
 
   // 2) dYdX-vs-CEX cross-venue funding carry (default OFF; explicit opt-in
   //    fails until both funding and precondition producers are wired).
   if (strategies.dydx_cex_carry.enabled) {
-    instances.set(
-      "dydx_cex_carry",
-      { name: "dydx_cex_carry", ...makeDydxCexCarry(strategies.dydx_cex_carry, deps) },
-    );
+    instances.set("dydx_cex_carry", {
+      name: "dydx_cex_carry",
+      ...makeDydxCexCarry(strategies.dydx_cex_carry, deps),
+    });
   }
 
   // 3) Liquidation cascade fade (default OFF; event bridge required).
   if (strategies.cascade_fade.enabled) {
-    instances.set(
-      "cascade_fade",
-      { name: "cascade_fade", ...makeCascadeFade(strategies.cascade_fade) },
-    );
+    instances.set("cascade_fade", { name: "cascade_fade", ...makeCascadeFade(strategies.cascade_fade) });
   }
 
   // 4) SOL funding-flip kill-switch plugin (default OFF, opt-in).
   if (strategies.funding_flip_kill_switch.enabled) {
-    instances.set(
-      "funding_flip_kill_switch",
-      { name: "funding_flip_kill_switch", ...makeFundingFlipKillSwitch() },
-    );
+    instances.set("funding_flip_kill_switch", {
+      name: "funding_flip_kill_switch",
+      ...makeFundingFlipKillSwitch(),
+    });
   }
 
   // 5) HMM 3-state regime-detector meta-plugin (default OFF, opt-in).
   if (strategies.regime_detector.enabled) {
-    instances.set(
-      "regime_detector",
-      {
-        name: "regime_detector",
-        ...makeRegimeDetector(strategies.regime_detector.symbols ?? config.symbols.enabled),
-      },
-    );
+    instances.set("regime_detector", {
+      name: "regime_detector",
+      ...makeRegimeDetector(strategies.regime_detector.symbols ?? config.symbols.enabled),
+    });
   }
 
   return instances;

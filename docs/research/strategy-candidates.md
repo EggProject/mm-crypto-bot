@@ -17,6 +17,7 @@ alacsonyát (Donchian alsó sáv). Eredeti Turtle: N=20 (entry), M=10 (exit).
 A 20/55 trend-szűrővel kiegészítve javul a találati arány.
 
 **Források:**
+
 - Boring Edge — Donchian Breakout backtest (BTC, 2017-2026, 8,5 év): **CAGR 48,2%**,
   max DD -53,7%, Buy&Hold -83,2%; 41 trade, 46,3% win rate, 5,3× W/L arány.
 - TrendSpider — Donchian stratégiák (20-period breakout, +55 trend filter).
@@ -44,6 +45,7 @@ ATR-szorzós szint fölé zár; short alá. Belépés az ATR-szint átlépésén
 az ellenkező jelzésnél. Tipikus paraméterek: ATR period 10, multiplier 3,0.
 
 **Források:**
+
 - Boring Edge — Supertrend backtest (BTC 2017-2026): **CAGR 33,0%**, max DD -61,5%,
   38 trade, 42,1% win rate, 4,1× W/L. Jobb DD, mint a Buy & Hold.
 - Quantified Strategies — Trend Following & Momentum cikk.
@@ -67,6 +69,7 @@ backtestekben robosztus; alkalmas a mi kompozitunk trend-szűrőjeként.
 Az RSI „cross-back" triggerként használata csökkenti a false-signal számot.
 
 **Források:**
+
 - Voiceofchain — Mean Reversion Strategy (BB+RSI 4H beállításokkal).
 - Changelly — Mean Reversion Crypto útmutató.
 - Stratbase — Mean Reversion backtest táblázat (BB touch + RSI < 35: 68% win, 1,71 PF).
@@ -94,6 +97,7 @@ felfelé (long) vagy lefelé (short). Kilépés az ellenkező jelzésnél vagy t
 stoppal.
 
 **Források:**
+
 - Dev.to — „I Backtested 49 Crypto Trading Strategies" (multi_timeframe 1,50 Sharpe,
   ema_crossover 1,30 Sharpe, triple_ma 1,25).
 - CoinQuant — EMA 21/55 trendkövetés (4H: +9%, 12H: -4,9%).
@@ -117,6 +121,7 @@ nem önálló stratégiaként.
 magas találati arány (65-75%).
 
 **Források:**
+
 - HaasOnline — Scalper bot: „120% monthly return" elméletben, de „actual results are
   typically lower due to losses and fees".
 - EchoZero — Scalping Strategy Performance: **medián retail scalper 2-4% / hó díjak
@@ -144,6 +149,7 @@ A pozitív funding rate idején a short perp funding-ot kap a long spot tartása
 Reális hozam: 5-15% / év stabil (átlagos funding 0,01-0,05% / 8h).
 
 **Források:**
+
 - Kraken — Funding Rate Arbitrage Guide (3 lépéses módszer, kockázat-limit-definíciók).
 - Hyperdash — Basis Trading and Funding Rate Arbitrage: „~$3/day $10k pozíción = ~11% / év".
 - CoinCryptoRank — Perpetual Basis Arbitrage Guide (8h funding ciklusok, USDQ 1-2% / nap
@@ -174,6 +180,7 @@ stratégia (multi_timeframe) a Dev.to 49-stratégia backtestjében a **legjobb S
 (1,50) és **100% win rate-tel** rendelkezett.
 
 **Források:**
+
 - Dev.to — I Backtested 49 Strategies (multi_timeframe: Sharpe 1,50, return 546%, -32% DD, 100% WR).
 - CoinXSight — Multi-Timeframe Confluence („three timeframes standard").
 - BingX — MTF Analysis for crypto entries.
@@ -195,15 +202,15 @@ MTF struktúra a kompozit gerince.
 
 ## 7 stratégia összehasonlító táblázata
 
-| # | Stratégia | Backtest CAGR / hozam | DD | Trade-szám | bybit.eu SPOT 1:10? | MTF-be beépíthető? |
-|---|---|---|---|---|---|---|
-| 1 | Donchian Breakout (Turtle) | 48% / év (~4% / hó) | -54% | 41/8,5 év | Igen | Igen (HTF) |
-| 2 | Supertrend (ATR) | 33% / év (~2,8% / hó) | -62% | 38/8,5 év | Igen | Igen (HTF) |
-| 3 | BB+RSI Mean-reversion | változó, trend-szűrő nélkül gyenge | -32–45% | sok | Részben | Igen (MTF) |
-| 4 | EMA Crossover | 9% (4H) / -5% (12H) | -7–12% | 3–84 | Igen | Igen (kieg.) |
-| 5 | Scalping | 2-8% / hó (reális) | 22-30% | napi 50+ | NEM (fee-költség) | Nem |
-| 6 | Funding/Basis Arb | 5-15% / év | alacsony | tartott pozíció | Nem (EU only) | Nem |
-| 7 | MTF Ensemble | Sharpe 1,50 | -32% | ritka | Igen | Igen (alap) |
+| #   | Stratégia                  | Backtest CAGR / hozam              | DD       | Trade-szám      | bybit.eu SPOT 1:10? | MTF-be beépíthető? |
+| --- | -------------------------- | ---------------------------------- | -------- | --------------- | ------------------- | ------------------ |
+| 1   | Donchian Breakout (Turtle) | 48% / év (~4% / hó)                | -54%     | 41/8,5 év       | Igen                | Igen (HTF)         |
+| 2   | Supertrend (ATR)           | 33% / év (~2,8% / hó)              | -62%     | 38/8,5 év       | Igen                | Igen (HTF)         |
+| 3   | BB+RSI Mean-reversion      | változó, trend-szűrő nélkül gyenge | -32–45%  | sok             | Részben             | Igen (MTF)         |
+| 4   | EMA Crossover              | 9% (4H) / -5% (12H)                | -7–12%   | 3–84            | Igen                | Igen (kieg.)       |
+| 5   | Scalping                   | 2-8% / hó (reális)                 | 22-30%   | napi 50+        | NEM (fee-költség)   | Nem                |
+| 6   | Funding/Basis Arb          | 5-15% / év                         | alacsony | tartott pozíció | Nem (EU only)       | Nem                |
+| 7   | MTF Ensemble               | Sharpe 1,50                        | -32%     | ritka           | Igen                | Igen (alap)        |
 
 ---
 

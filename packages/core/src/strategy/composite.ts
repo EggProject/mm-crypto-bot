@@ -52,10 +52,7 @@ export class CompositeStrategy implements Strategy {
 
   warmup(): number {
     // Both components must be warm before ensemble can produce signals
-    return Math.max(
-      this.config.component1.warmup(),
-      this.config.component2.warmup(),
-    );
+    return Math.max(this.config.component1.warmup(), this.config.component2.warmup());
   }
 
   /**

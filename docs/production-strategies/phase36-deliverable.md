@@ -33,11 +33,11 @@ branches and on the pending PR #105.
 
 ## Issue → fix mapping
 
-| # | User issue (verbatim, Hungarian → English) | Track / PR | Fix summary | Key file:line |
-|---|--------------------------------------------|-----------|-------------|---------------|
-| 2 | "az `s` billentyűre logok jelentek meg a TUI tetején" (raw log lines appeared at the top of the TUI on `[s]`) | **A2** / PR #101 | A `createLogger` (`packages/shared/src/logger.ts`) át lett írva: Node `Console` osztály `process.stderr` + opcionális napi file logra ír, SOHA nem a `process.stdout`-ra. Az Ink 7 `alternateScreen: true` opció aktiválva a `renderTui`-ban — a TUI saját scrollback-puffert kap, kilépéskor visszaáll a terminál eredeti állapota. A `patchConsole: false` kikapcsolja az Ink `console.log`/`console.error` felülírását, mert a logger immár direkt a `process.stderr.write`-ot hívja. | `packages/shared/src/logger.ts` (új `createLogger` factory); `packages/tui/src/render.tsx:55-69` (`alternateScreen: true` + `patchConsole: false`); `packages/tui/src/components/__tests__/log-routing-probe.test.tsx` (új regression-test: a `createLogger` SOHA nem ír a `process.stdout`-ra) |
-| 3 | "nagyon egyszerű lett a TUI, ennél jobban turbózd fel" (the TUI is too plain, beef it up) | **B1** + **B2** / PRs #102, #103 | A 3 hand-rolled `Box` panel cseréje: `<Header>` (Badge), `<StatisticsPanel>` (StatusMessage title), `<LiveTradingPanel>` (Spinner empty-state + StatusMessage), `<HistoryList>` (Table), `<StatusBar>` (key-hint lista). + egy 4. panel `<ChartsPanel>` equity görbe (`asciichart`) + P&L sparkline (`sparkly`) + OHLC candlestick (`@crafter/charts`) + strategy breakdown (`@pppp606/ink-chart`) egyetlen képernyőn. | `packages/tui/src/components/Header.tsx` (Badge); `packages/tui/src/components/StatusBar.tsx` (MatStatusBar key-hint lista); `packages/tui/src/components/ChartsPanel.tsx` (4-in-1 layout); `packages/tui/src/charts/equity-curve.ts` (asciichart wrapper); `packages/tui/src/charts/sparkline.ts` (sparkly wrapper); `packages/tui/src/charts/candlestick.ts` (`@crafter/charts` wrapper, 60-LOC hand-roll fallback); `packages/tui/src/charts/bar-chart.tsx` (`@pppp606/ink-chart` BarChart) |
-| 4 | "a bot összes beállítását be tudjam a TUI felületen állítani" (let me set all bot settings from the TUI) | **C1** + **C2** / PRs #104, #105 | A 6 szekció (Strategies / Risk / Bot / Exchange / Symbols / Telemetry) btop-style multi-section panel, bármelyik szerkeszthető. A megnyitás `[o]` billentyűvel; a navigáció `Tab` / `Shift+Tab`; a save `Ctrl+S`; az abandon `Esc` (confirm ha dirty). A persist `smol-toml` + `write-file-atomic` + `.bak` + Zod re-validate. A `bot.mode = "live"` váltás `<LiveConfirm>` modal-t nyit (case-sensitive "LIVE" begépelése + Enter). A `max_leverage` `<LeverageCap>` wrapperben van (1..10 hard-cap, out-of-range warning). A `[v]` billentyű a nyers TOML-t nézi meg `$PAGER` / `$EDITOR` / `less` / `cat` fallback segítségével (Ink 7 `suspendTerminal` API-n). | `packages/tui/src/components/SettingsPanel.tsx` (a btop panel); `packages/tui/src/hooks/useConfigStore.ts` (mount read + save callback + dirty tracking); `apps/bot/src/config/store.ts` (Zod re-validate + atomic write + audit log); `apps/bot/src/config/store.ts:339-372` (`writeAfterTypedLive` typed-"LIVE" guard); `packages/tui/src/components/LiveConfirm.tsx` (type-LIVE modal); `packages/tui/src/components/LeverageCap.tsx` (1:10 hard-cap); `packages/tui/src/components/RawTomlViewer.tsx` (`suspendTerminal` shell-out) |
+| #   | User issue (verbatim, Hungarian → English)                                                                    | Track / PR                       | Fix summary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Key file:line                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2   | "az `s` billentyűre logok jelentek meg a TUI tetején" (raw log lines appeared at the top of the TUI on `[s]`) | **A2** / PR #101                 | A `createLogger` (`packages/shared/src/logger.ts`) át lett írva: Node `Console` osztály `process.stderr` + opcionális napi file logra ír, SOHA nem a `process.stdout`-ra. Az Ink 7 `alternateScreen: true` opció aktiválva a `renderTui`-ban — a TUI saját scrollback-puffert kap, kilépéskor visszaáll a terminál eredeti állapota. A `patchConsole: false` kikapcsolja az Ink `console.log`/`console.error` felülírását, mert a logger immár direkt a `process.stderr.write`-ot hívja.                                                                                                                                                                            | `packages/shared/src/logger.ts` (új `createLogger` factory); `packages/tui/src/render.tsx:55-69` (`alternateScreen: true` + `patchConsole: false`); `packages/tui/src/components/__tests__/log-routing-probe.test.tsx` (új regression-test: a `createLogger` SOHA nem ír a `process.stdout`-ra)                                                                                                                                                                                                                                         |
+| 3   | "nagyon egyszerű lett a TUI, ennél jobban turbózd fel" (the TUI is too plain, beef it up)                     | **B1** + **B2** / PRs #102, #103 | A 3 hand-rolled `Box` panel cseréje: `<Header>` (Badge), `<StatisticsPanel>` (StatusMessage title), `<LiveTradingPanel>` (Spinner empty-state + StatusMessage), `<HistoryList>` (Table), `<StatusBar>` (key-hint lista). + egy 4. panel `<ChartsPanel>` equity görbe (`asciichart`) + P&L sparkline (`sparkly`) + OHLC candlestick (`@crafter/charts`) + strategy breakdown (`@pppp606/ink-chart`) egyetlen képernyőn.                                                                                                                                                                                                                                              | `packages/tui/src/components/Header.tsx` (Badge); `packages/tui/src/components/StatusBar.tsx` (MatStatusBar key-hint lista); `packages/tui/src/components/ChartsPanel.tsx` (4-in-1 layout); `packages/tui/src/charts/equity-curve.ts` (asciichart wrapper); `packages/tui/src/charts/sparkline.ts` (sparkly wrapper); `packages/tui/src/charts/candlestick.ts` (`@crafter/charts` wrapper, 60-LOC hand-roll fallback); `packages/tui/src/charts/bar-chart.tsx` (`@pppp606/ink-chart` BarChart)                                          |
+| 4   | "a bot összes beállítását be tudjam a TUI felületen állítani" (let me set all bot settings from the TUI)      | **C1** + **C2** / PRs #104, #105 | A 6 szekció (Strategies / Risk / Bot / Exchange / Symbols / Telemetry) btop-style multi-section panel, bármelyik szerkeszthető. A megnyitás `[o]` billentyűvel; a navigáció `Tab` / `Shift+Tab`; a save `Ctrl+S`; az abandon `Esc` (confirm ha dirty). A persist `smol-toml` + `write-file-atomic` + `.bak` + Zod re-validate. A `bot.mode = "live"` váltás `<LiveConfirm>` modal-t nyit (case-sensitive "LIVE" begépelése + Enter). A `max_leverage` `<LeverageCap>` wrapperben van (1..10 hard-cap, out-of-range warning). A `[v]` billentyű a nyers TOML-t nézi meg `$PAGER` / `$EDITOR` / `less` / `cat` fallback segítségével (Ink 7 `suspendTerminal` API-n). | `packages/tui/src/components/SettingsPanel.tsx` (a btop panel); `packages/tui/src/hooks/useConfigStore.ts` (mount read + save callback + dirty tracking); `apps/bot/src/config/store.ts` (Zod re-validate + atomic write + audit log); `apps/bot/src/config/store.ts:339-372` (`writeAfterTypedLive` typed-"LIVE" guard); `packages/tui/src/components/LiveConfirm.tsx` (type-LIVE modal); `packages/tui/src/components/LeverageCap.tsx` (1:10 hard-cap); `packages/tui/src/components/RawTomlViewer.tsx` (`suspendTerminal` shell-out) |
 
 ---
 
@@ -49,6 +49,7 @@ branches and on the pending PR #105.
 **LOC delta:** +134 / -67 across `packages/shared/src/logger.ts`, `packages/tui/src/render.tsx`
 
 **What shipped:**
+
 - `createLogger` rewrite Node `Console` osztályra: `{ stdout: <daily file or stderr>, stderr: process.stderr }`. A `debug`/`info`/`warn`/`error` szintek a megfelelő destination-re mennek (info/debug → file/stderr, warn/error → stderr).
 - Az `mm-bot start` parancs a `--headless` módban a `noFile: true` opciót adja át a `createLogger`-nek — így a CI / `nohup` / pipe környezetekben nincs file-IO, csak stderr.
 - Ink 7 `render(<App />, { alternateScreen: true, patchConsole: false, exitOnCtrlC: true })` — a TUI az alternate screen buffer-be rajzol (kilépéskor a terminál scrollbackje VISSZAÁLL a TUI előtti állapotra).
@@ -66,6 +67,7 @@ branches and on the pending PR #105.
 **LOC delta:** +221 / -163 across 5 components
 
 **What shipped:**
+
 - `<Header>`: a hand-rolled `<Text bold color="...">` badge-ek lecserélése a `@inkjs/ui` `<Badge>` komponensére (színvak-biztos, mindig tartalmaz állapot-indikátort).
 - `<StatisticsPanel>`: a title cseréje `<StatusMessage variant="info">`-ra (a metrika-labelek maradtak a render-probe test-compat miatt — a `<Badge>` upper-cases content, ami eltörné a teszteket).
 - `<LiveTradingPanel>`: a "Connecting..." empty-state placeholder cseréje `<Spinner label="Connecting..." />`-ra; a title `<StatusMessage variant="warning">`.
@@ -73,10 +75,12 @@ branches and on the pending PR #105.
 - `<StatusBar>`: a key-hint hand-rolled sor cseréje `<StatusBar items={[KeyHint, ...]} />`-ra (automatikus terminál-szélesség-igazítás, `left` + `right` slot).
 
 **Smoke tests first (10 tests, 2 files):**
+
 - `__smoke__/inkjs-ui.test.tsx` — 6 tests: Badge / Spinner / StatusMessage / TextInput against ink 7.1.0 + React 19.2 (peer-dep warnings overridden via root `package.json` `"overrides"`).
 - `__smoke__/matthesketh.test.tsx` — 3 tests: Table / StatusBar.
 
 **Per-component tests added (32 tests, 4 files):**
+
 - `__tests__/header-badge.test.tsx` — 8 tests
 - `__tests__/statistics-panel-status-message.test.tsx` — 9 tests
 - `__tests__/status-bar-keys.test.tsx` — 10 tests
@@ -84,6 +88,7 @@ branches and on the pending PR #105.
 - `__tests__/live-trading-spinner.test.tsx` — 5 tests
 
 **Libraries adopted (3):**
+
 - `@inkjs/ui` v2.0.0 — official Vadim-Demedes Ink component library (Badge, Spinner, StatusMessage, TextInput, Select, MultiSelect, ConfirmInput, Alert).
 - `@matthesketh/ink-table` v0.1.0 — keyboard-navigable, sortable Table component.
 - `@matthesketh/ink-status-bar` v0.1.0 — key-hint list with left/right slots.
@@ -98,6 +103,7 @@ branches and on the pending PR #105.
 **LOC delta:** +412 / -8 across 5 new files + `App.tsx` + `ChartsPanel.tsx`
 
 **What shipped:**
+
 - A 4. panel `<ChartsPanel>` (a Tab-bal ciklikusan elérhető, mint a Statistics / Live / History) — 2 oszlopos layout:
   - Bal oszlop: equity görbe (`asciichart`, 60 széles × 6 magas) + OHLC candlestick (`@crafter/charts`, 40 széles × 8 magas).
   - Jobb oszlop: P&L sparkline (`sparkly`, 16 unicode-bar) + strategy breakdown BarChart (`@pppp606/ink-chart`).
@@ -109,6 +115,7 @@ branches and on the pending PR #105.
   - `bar-chart.tsx` — `@pppp606/ink-chart` wrapper, strategy cap%-okból.
 
 **Tests added (28 tests, 5 files):**
+
 - `charts/equity-curve.test.ts` — 6 tests (empty / single point / 100 points / negative values / width=0 / height=0)
 - `charts/candlestick.test.ts` — 8 tests (empty / 1 candle / 50 candles / fallback path)
 - `charts/sparkline.test.ts` — 5 tests (empty / uniform / spike / down-spike / width)
@@ -116,6 +123,7 @@ branches and on the pending PR #105.
 - `components/charts-panel.test.tsx` — 5 tests (renders 4 sections / empty state / focused border / re-render on history change / re-render on candles)
 
 **Libraries adopted (4):**
+
 - `asciichart` v1.5.25 — multi-line ASCII chart, 1.4M weekly downloads, used in Hyper, N8N.
 - `sparkly` v6.0.1 — unicode-bar sparkline, used in `npms` / `npkill` (sindresorhus).
 - `@crafter/charts` v0.2.4 — candlestick ASCII chart (3 months old, 1 contributor; a 60-LOC hand-roll fallback biztosítja a jövőbeli cserét, ha a maintainer eltűnik).
@@ -131,6 +139,7 @@ branches and on the pending PR #105.
 **LOC delta:** +1 248 / -76 across 7 new files + edits in 4 files
 
 **What shipped:**
+
 - New `apps/bot/src/config/store.ts` (380 LOC) — a `ConfigStore` osztály: `read()` / `validate()` / `write()` / `writeAfterTypedLive()` (Track C2) metódusokkal.
   - `read()`: TOML parse + Zod re-validate → `BotConfig` (throws `ConfigReadError` / `ConfigValidationError`).
   - `validate()`: Zod `safeParse` → `BotConfig` (throws `ConfigValidationError` with `fieldErrors` map).
@@ -144,6 +153,7 @@ branches and on the pending PR #105.
 - New `mm-bot config edit` subcommand (apps/bot/src/cli/commands/config.ts:351-403) — megnyitja a TUI settings panel-t a `--config` által megadott fájlon (vagy a default `./mm-bot.toml`-on).
 
 **Tests added (~30 tests, 5 files):**
+
 - `apps/bot/src/config/store.test.ts` — 18 tests (read / validate / write / writeAfterTypedLive happy path + 8 error paths + .bak + audit log + singleton cache).
 - `apps/bot/src/config/store.atomic.test.ts` — 4 tests (tmp-rename ordering, crash-safety sim, partial-write detection, parent-dir auto-mkdir).
 - `apps/bot/src/config/store.audit.test.ts` — 3 tests (audit-log append, JSON-line formátum, prev/new mode).
@@ -151,6 +161,7 @@ branches and on the pending PR #105.
 - `packages/tui/src/components/SettingsPanel.test.tsx` — 14 tests (renders 6 sections / Tab navigation / Ctrl+S save / Esc abandon / dirty-flag display / abandon-confirm / error display / focused border / strategy enable rendering).
 
 **Libraries adopted (2):**
+
 - `smol-toml` v1.7.0 — a `@squirrelchat/smol-toml` parser/stringifier (a Node `Bun.TOML.parse`-cel kompatibilis output, zero-config).
 - `write-file-atomic` v8.0.0 — battle-tested write-tmp + rename + backup utility (npm official).
 
@@ -164,6 +175,7 @@ branches and on the pending PR #105.
 **LOC delta:** +1 547 / -38 across 5 new files + edits in 3 files
 
 **What shipped:**
+
 - `<LiveConfirm>` modal (packages/tui/src/components/LiveConfirm.tsx) — a `bot.mode = "live"` váltás megerősítő párbeszédablaka. A usernek PONTOSAN a "LIVE" stringet (4 karakter, uppercase) kell begépelnie a `<TextInput>`-ba + Enter-t nyomnia. Bármely más input (lowercase, typo, space) az Enter-re az `onCancel`-t hívja. Az Esc a `TextInput` saját hook-ján kívül esik (a külső `useInput` kezeli).
 - `<LeverageCap>` component (packages/tui/src/components/LeverageCap.tsx) — a `risk.max_leverage` mező `TextInput` wrapper-e. A `MAX_LEVERAGE = 10` konstans a Phase 14B user mandate-je. A wrapper CSAK 1..10 közé eső értéket fogad el — a 10-nél nagyobb vagy 1-nél kisebb inputra inline warning-ot mutat (`⚠ value out of range [1..10] — not applied`) ÉS a `defaultValue` nem frissül (a TextInput mount-kor felvett értéke megmarad).
 - `<RawTomlViewer>` component (packages/tui/src/components/RawTomlViewer.tsx) — a `[v]` billentyűre megnyíló nyers TOML viewer. A `useApp().suspendTerminal` API-t használja: a TUI terminál állapotát elmenti, a child process-t (a `$PAGER` || `$EDITOR` || `less` || `cat` fallback láncolat) elindítja, a child kilépésekor visszaállítja a TUI-t. A `runRawTomlViewer` helper kiemelve a React komponensből a tesztelhetőség kedvéért (a `suspendFn` injektálható).
@@ -171,6 +183,7 @@ branches and on the pending PR #105.
 - Coverage gap close-up: 76 → 0 missing lines (a Track C producer restart-ját követő fresh producer session lezárta a `packages/tui` 96.0% → 100.0%-os lefedettségi rést).
 
 **Tests added (38 tests, 4 files):**
+
 - `components/LiveConfirm.test.tsx` — 8 tests (renders warning / placeholder / "▶ Submit" disabled state / case-sensitive "LIVE" / lowercase rejection / wrong-string rejection / Esc cancel / pending spinner).
 - `components/LeverageCap.test.tsx` — 9 tests (renders defaultValue / 1..10 accepted / 11 rejected with warning / 0 rejected / negative rejected / empty accepted / NaN rejected / disabled mode / "HARD-CAPPED at 10" label).
 - `components/RawTomlViewer.test.tsx` — 11 tests (runRawTomlViewer happy path / tmp file written / spawnViewer PAGER / spawnViewer EDITOR / spawnViewer less / spawnViewer cat fallback / spawnViewer error → cat / onClose always called / tmp cleanup on success / tmp cleanup on error / suspendFn error handling).
@@ -186,6 +199,7 @@ branches and on the pending PR #105.
 
 **Branch:** `docs/phase36-closure` (off `feat/phase36-track-c2-live-confirm`)
 **Files (5):**
+
 1. `docs/production-strategies/phase36-deliverable.md` — ez a fájl (a main closure report)
 2. `docs/production-strategies/tui.md` — a TUI operator guide (a Phase 34-es tui.md felülírása a Phase 36-os flow-val)
 3. `docs/production-strategies/library-catalog.md` — a 10 adoptált library katalógusa (verzió, npm link, forrás-link, hol használt)
@@ -200,18 +214,18 @@ branches and on the pending PR #105.
 
 For the full entry (npm link + version + source URLs), see [`library-catalog.md`](./library-catalog.md). The summary:
 
-| # | Library | Version | Category | Used for | Where |
-|---|---------|---------|----------|----------|-------|
-| 1 | `@inkjs/ui` | v2.0.0 | Ink components | TextInput / Select / MultiSelect / ConfirmInput / Badge / Spinner / StatusMessage / Alert | `packages/tui/src/components/{SettingsPanel,LiveConfirm,LeverageCap,Header,StatisticsPanel,LiveTradingPanel}.tsx` |
-| 2 | `@matthesketh/ink-table` | v0.1.0 | Ink components | Sortable, keyboard-navigable Table | `packages/tui/src/components/HistoryList.tsx` |
-| 3 | `@matthesketh/ink-status-bar` | v0.1.0 | Ink components | KeyHint list with left/right slots | `packages/tui/src/components/StatusBar.tsx` |
-| 4 | `sindresorhus/ink-link` | v5.0.0 | Ink components | Hyperlink rendering (reserved for future bybit/Grafana URLs) | not yet wired in Phase 36 (deferred to Phase 37+) |
-| 5 | `asciichart` | v1.5.25 | ASCII charts | Equity curve | `packages/tui/src/charts/equity-curve.ts` |
-| 6 | `sparkly` | v6.0.1 | ASCII charts | P&L sparkline | `packages/tui/src/charts/sparkline.ts` |
-| 7 | `@crafter/charts` | v0.2.4 | ASCII charts | OHLC candlestick | `packages/tui/src/charts/candlestick.ts` |
-| 8 | `@pppp606/ink-chart` | v0.2.6 | ASCII charts | Strategy breakdown BarChart | `packages/tui/src/charts/bar-chart.tsx` |
-| 9 | `smol-toml` | v1.7.0 | Persistence | TOML parse + stringify | `apps/bot/src/config/store.ts` + `packages/tui/src/hooks/useConfigStore.ts` |
-| 10 | `write-file-atomic` | v8.0.0 | Persistence | Write-tmp + rename + backup | `apps/bot/src/config/store.ts` (the `write()` method) |
+| #   | Library                       | Version | Category       | Used for                                                                                  | Where                                                                                                             |
+| --- | ----------------------------- | ------- | -------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | `@inkjs/ui`                   | v2.0.0  | Ink components | TextInput / Select / MultiSelect / ConfirmInput / Badge / Spinner / StatusMessage / Alert | `packages/tui/src/components/{SettingsPanel,LiveConfirm,LeverageCap,Header,StatisticsPanel,LiveTradingPanel}.tsx` |
+| 2   | `@matthesketh/ink-table`      | v0.1.0  | Ink components | Sortable, keyboard-navigable Table                                                        | `packages/tui/src/components/HistoryList.tsx`                                                                     |
+| 3   | `@matthesketh/ink-status-bar` | v0.1.0  | Ink components | KeyHint list with left/right slots                                                        | `packages/tui/src/components/StatusBar.tsx`                                                                       |
+| 4   | `sindresorhus/ink-link`       | v5.0.0  | Ink components | Hyperlink rendering (reserved for future bybit/Grafana URLs)                              | not yet wired in Phase 36 (deferred to Phase 37+)                                                                 |
+| 5   | `asciichart`                  | v1.5.25 | ASCII charts   | Equity curve                                                                              | `packages/tui/src/charts/equity-curve.ts`                                                                         |
+| 6   | `sparkly`                     | v6.0.1  | ASCII charts   | P&L sparkline                                                                             | `packages/tui/src/charts/sparkline.ts`                                                                            |
+| 7   | `@crafter/charts`             | v0.2.4  | ASCII charts   | OHLC candlestick                                                                          | `packages/tui/src/charts/candlestick.ts`                                                                          |
+| 8   | `@pppp606/ink-chart`          | v0.2.6  | ASCII charts   | Strategy breakdown BarChart                                                               | `packages/tui/src/charts/bar-chart.tsx`                                                                           |
+| 9   | `smol-toml`                   | v1.7.0  | Persistence    | TOML parse + stringify                                                                    | `apps/bot/src/config/store.ts` + `packages/tui/src/hooks/useConfigStore.ts`                                       |
+| 10  | `write-file-atomic`           | v8.0.0  | Persistence    | Write-tmp + rename + backup                                                               | `apps/bot/src/config/store.ts` (the `write()` method)                                                             |
 
 **SKIP (7, with explicit reason):** `ink-password-input` (deprecated), `ink-image` (dead since 2019), `ink-gradient` / `ink-big-text` (decorative, stale), `ink-task-list` (dead, replaced by `@matthesketh/ink-task-list`), `@ink-tools/ink-mouse` (mouse is anti-pattern for set-and-forget bot), `OpenTUI` (rewrite cost too high — parked for Phase 7+), `giggles` (too new, unproven). See `docs/audits/phase36-research-findings.md` §1 SKIP-list for the full reasoning with source URLs.
 
@@ -223,26 +237,26 @@ For the full entry (npm link + version + source URLs), see [`library-catalog.md`
 
 ### 8/8 packages at 100% line coverage on OWN `src/` (post-Phase-36)
 
-| Package | Pre-Phase-36 LOC | Post-Phase-36 LOC | Δ LOC | Post-Phase-36 % (own src/) | Tests (post) |
-|---------|------------------|-------------------|-------|----------------------------|--------------|
-| `apps/bot` | 2 271 | 2 590 | +319 (+14.0%) | 100.0% (2589 of 2590) | 365 |
-| `packages/tui` | 1 043 | 1 921 | +878 (+84.2%) | 100.0% (1921 of 1921) | 260 |
-| `packages/paper` | 251 | 251 | 0 | 100.0% (251 of 251) | 65 |
-| `packages/exchange` | 868 | 868 | 0 | 100.0% (868 of 868) | 318 |
-| `packages/core` | 12 124 | 12 124 | 0 | 100.0% (12124 of 12124) | 1 502 |
-| `packages/shared` | 189 | 189 | 0 | 100.0% (189 of 189) | 122 |
-| `packages/backtest` | 754 | 754 | 0 | 100.0% (754 of 754) | 140 |
-| `packages/backtest-tools` | 2 289 | 2 289 | 0 | 100.0% (2289 of 2289) | 204 |
-| **TOTAL** | **19 789** | **20 986** | **+1 197 (+6.0%)** | **8/8 PASS** | **2 976 tests across 145 files** |
+| Package                   | Pre-Phase-36 LOC | Post-Phase-36 LOC | Δ LOC              | Post-Phase-36 % (own src/) | Tests (post)                     |
+| ------------------------- | ---------------- | ----------------- | ------------------ | -------------------------- | -------------------------------- |
+| `apps/bot`                | 2 271            | 2 590             | +319 (+14.0%)      | 100.0% (2589 of 2590)      | 365                              |
+| `packages/tui`            | 1 043            | 1 921             | +878 (+84.2%)      | 100.0% (1921 of 1921)      | 260                              |
+| `packages/paper`          | 251              | 251               | 0                  | 100.0% (251 of 251)        | 65                               |
+| `packages/exchange`       | 868              | 868               | 0                  | 100.0% (868 of 868)        | 318                              |
+| `packages/core`           | 12 124           | 12 124            | 0                  | 100.0% (12124 of 12124)    | 1 502                            |
+| `packages/shared`         | 189              | 189               | 0                  | 100.0% (189 of 189)        | 122                              |
+| `packages/backtest`       | 754              | 754               | 0                  | 100.0% (754 of 754)        | 140                              |
+| `packages/backtest-tools` | 2 289            | 2 289             | 0                  | 100.0% (2289 of 2289)      | 204                              |
+| **TOTAL**                 | **19 789**       | **20 986**        | **+1 197 (+6.0%)** | **8/8 PASS**               | **2 976 tests across 145 files** |
 
 ### TUI package growth (the headline)
 
-| Metric | Pre-Phase-36 (Phase 34 baseline) | Post-Phase-36 | Δ |
-|--------|----------------------------------|----------------|---|
-| `src/` LOC | 1 043 | 1 921 | +878 (+84.2%) |
-| TUI tests | 0 (Phase 34 was 0-tdd) | 260 across 26 files (5 322 LOC of test code) | +260 |
-| Coverage | 100% on Phase 34 (3 hand-rolled panels) | 100% on Phase 36 (5 panels + 3 sub-components + 4 chart libs + 3 form components) | maintained |
-| External dependencies (TUI package) | 0 (only `ink` + `react`) | 10 (3 ink-ui + 4 charts + 2 persistence + 1 link reserved) | +10 |
+| Metric                              | Pre-Phase-36 (Phase 34 baseline)        | Post-Phase-36                                                                     | Δ             |
+| ----------------------------------- | --------------------------------------- | --------------------------------------------------------------------------------- | ------------- |
+| `src/` LOC                          | 1 043                                   | 1 921                                                                             | +878 (+84.2%) |
+| TUI tests                           | 0 (Phase 34 was 0-tdd)                  | 260 across 26 files (5 322 LOC of test code)                                      | +260          |
+| Coverage                            | 100% on Phase 34 (3 hand-rolled panels) | 100% on Phase 36 (5 panels + 3 sub-components + 4 chart libs + 3 form components) | maintained    |
+| External dependencies (TUI package) | 0 (only `ink` + `react`)                | 10 (3 ink-ui + 4 charts + 2 persistence + 1 link reserved)                        | +10           |
 
 ### CI gates green at 100% (the one big table)
 

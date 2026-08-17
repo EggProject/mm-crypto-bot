@@ -11,6 +11,7 @@
 ## Web query log (16 queries, in order)
 
 ### Q1 — Hyperliquid HIP-1 / HyperCore order book mechanics
+
 - **Query:** `Hyperliquid HIP-1 order book on-chain mechanics documentation`
 - **Language:** en
 - **Top hits read:** hyperliquid.gitbook.io (HyperCore order-book page), Chainstack Blog HIPs Explained, hyperliquid-co.gitbook.io/wiki (Spot Deployments HIP-1/HIP-2), Chainlink Integration Guide, Medium @gwrx2005 "Hyperliquid On-Chain Order Book"
@@ -22,6 +23,7 @@
 - **Independently confirmed:** Order book mechanics + block-level action sorting confirmed across 3 sources (Hyperliquid docs, Chainstack, Chainlink).
 
 ### Q2 — dYdX v4 MemVault + validator market-maker economics
+
 - **Query:** `dYdX v4 MemVault validator market maker economics`
 - **Language:** en
 - **Top hits:** dydxprotocol/v4-documentation (rewards_fees_and_parameters.md), ChainCatcher "MT Capital Insight", Binance Square Deep Dive, SolanaLink Japan "dYdX-vs-Hyperliquid", Datawallet
@@ -35,6 +37,7 @@
 - **Independently confirmed:** Fee tier table, MegaVault fee share, validator economics — confirmed across v4 docs, ChainCatcher, Binance Square, Datawallet (≥4 sources).
 
 ### Q3 — HLP vault historical returns
+
 - **Query:** `Hyperliquid HLP liquidity provider vault returns historical performance`
 - **Language:** en
 - **Top hits:** vaultvision.tech, hyperlend docs (wHLP), TradingStrategy.ai, dextrabot Hyperliquid vaults dashboard, @Hyperliquid_Hub quarterly X posts, arx.trade, onchaintimes.com, Medium @RyskyGeronimo
@@ -48,6 +51,7 @@
 - **Independently confirmed:** HLP CAGR/APY/Sharpe confirmed across ≥5 independent sources (RyskyGeronimo Medium, vaultvision, hyperlend docs, onchaintimes, dextrabot, X posts).
 
 ### Q4 — Hyperliquid ↔ CEX funding rate divergence
+
 - **Query:** `Hyperliquid vs Binance funding rate arbitrage divergence`
 - **Language:** en
 - **Top hits:** Reddit r/binance funding divergence tool, Buildix trade blog, BlockEden forum, Arbitrage Scanner, CoinMarketman, Decentralised News "Funding Rate Arbitrage Playbook", BitcoinTalk "Funding rate arbitrage in 2026", YouTube AlgoVault MCP, Tangerine.exchange BTC funding deep dive, ChainUp blog
@@ -63,6 +67,7 @@
 - **Independently confirmed:** Funding-rate divergence magnitudes + cadence difference confirmed across ≥6 sources (BlockEden, ChainUp, CoinMarketman, Arbitrage Scanner, Tangerine, Buildix).
 
 ### Q5 — Vertex Protocol hybrid AMM architecture
+
 - **Query:** `Vertex Protocol perp DEX hybrid AMM order book Edge architecture`
 - **Language:** en
 - **Top hits:** docs.vertexprotocol.com Hybrid Orderbook AMM Design, Blockworks Research "Cross-Chain Liquidity", Coingecko learn Vertex Edge, MaelstromFund X, harmony-one/h review notes, OnChainTimes "Vertex's Edge in the Market", Messari "Understanding Vertex"
@@ -78,6 +83,7 @@
 - **Independently confirmed:** Hybrid architecture, off-chain sequencer + on-chain AMM + Edge cross-chain — confirmed across ≥4 sources (Vertex docs, Blockworks, Messari, Coingecko).
 
 ### Q6 — gTrade / Gains Network LP economics
+
 - **Query:** `gTrade Gains Network LP vault returns DAI single side liquidity`
 - **Language:** en
 - **Top hits:** docs.gains.trade (Trading Interface Overview), Gains Medium (gToken Vaults), Binance Square Gains vs GMX, New Order Network Gains Underdog, Hackernoon, Frogsanon, 知乎-style 腾讯网 全面解读Gains Network
@@ -93,6 +99,7 @@
 - **Independently confirmed:** DAI single-vault design, APY ranges, fee distribution — confirmed across ≥4 sources (Gains docs, Binance Square, Frogsanon, 腾讯网).
 
 ### Q7 — Hyperliquid oracle architecture + latency
+
 - **Query:** `Hyperliquid oracle architecture front running window latency Pyth Chainlink`
 - **Language:** en
 - **Top hits:** hyperliquid.gitbook.io/hypercore/oracle, Chainlink CCIP integration guide, Redstone blog "RedStone vs Chainlink vs Pyth", Glassnode Latency Monitor, Chainlink "Low-Latency Oracle Solution", Block Schor Blog "Cross-Chain Stablecoin Oracle War", Moltbook "Oracle latency window", ChainCatcher "Pyth 30天交易量超过Chainlink"
@@ -105,6 +112,7 @@
 - **Independently confirmed:** 3s validator oracle cadence, exchange-weighting formula, end-to-end latency claims — confirmed across ≥3 sources (Hyperliquid docs, Glassnode, Chainlink blog).
 
 ### Q8 — Hyperliquid 资金费率 / 套利 (Chinese-language angle)
+
 - **Query:** `Hyperliquid 永续合约 资金费率 套利 知乎 中文`
 - **Language:** zh
 - **Top hits:** feixiaohao "解密资金费率套利", hyperliquidcn.com 中文教程, news.qq.com "永续合约资金费率揭秘" Sep 2025, Odaily BitMEX Alpha "Hyperliquid 美股永续", Scribd "Hyperliquid永续合约费率模型详解", panewslab "从零到500万美元"套利印钞机, Zhihu "深度解析Hyperliquid" zhuanlan, learnblockchain.cn "Hyperliquid的秘密调料", Zhihu "一种效率更高的资金费套利策略", Zhihu "合约市场满足什么条件可以开展资金费率套利", OneKey blog (zh-CN), PHP中文网
@@ -119,6 +127,7 @@
 - **Independently confirmed:** Funding settlement cadence, BitMEX↔Hyperliquid yield, arb practice mechanics — confirmed across ≥5 Chinese sources.
 
 ### Q9 — MEV sandwich attacks / perp-DEX oracle front-running
+
 - **Query:** `Hyperliquid MEV sandwich attack validator transaction ordering exploit`
 - **Language:** en
 - **Top hits:** Blockhead "Exploiter Front Runs $25M", bloXroute "New Era of MEV on Solana", Marinade LinkedIn, Emergent Mind "Marginal Effects of Ethereum MEV Strategies", ArXiv 2511.15245 "Cross-Chain Sandwich Attacks", ArXiv 2512.17602 "Sandwiched and Silent", YouTube "What is MEV?", ArXiv 2601.19570 "Private L2 Mempools", Astralane Medium "Solana MEV Wars", Tencent Cloud "比推消息Beosin", sina.com.cn "以太坊1500万美元MEV机器人"
@@ -131,6 +140,7 @@
 - **Independently confirmed:** Hyperliquid cancel-first priority as MEV defense, JELLY exploit magnitude and settlement mechanism — confirmed across ≥4 sources.
 
 ### Q10 — Hyperliquid JELLY delisting / ADL incident March 2025
+
 - **Query:** `Hyperliquid JELLY delisting March 2025 ADL incident liquidation`
 - **Language:** en (with parallel zh verification)
 - **Top hits:** Yahoo Finance delisting article, OAK Research, Hyperliquid Wiki incident page (2025-26-03), Defiant, CoinDesk, Coin360, ChainCatcher eventTracking, TheDefiant, ForkLog, Halborn, Odaily "拔网线式"强行结算, 网易 巨鲸 CEX联手狙击, m.ylfx.com
@@ -145,6 +155,7 @@
 - **Independently confirmed:** JELLY incident sequence, magnitudes, and post-incident risk controls confirmed across ≥6 independent sources (English + Chinese).
 
 ### Q11 — Perp-DEX cross-venue execution / smart order routing
+
 - **Query:** `perp DEX cross-venue execution smart order router BTC ETH SOL`
 - **Language:** en
 - **Top hits:** docs.ranger.finance "Ranger Perps", LiquidView Blog "Smart Order Routing: How to Get the Best Price Across DEXs", docs.oneliquid.io FAQ, Medium @dexcexhub Reya Network review, Eco.com "Jupiter Aggregator", Flpp.io "Best Perp DEX Aggregators", hyperliquidnow.com "Ranger and 1perp", Medium RockawayX Ranger Finance Q&A
@@ -158,6 +169,7 @@
 - **Independently confirmed:** SOR architecture (fee+spread+impact+funding), Ranger↔Hyperliquid integration via DeBridge — confirmed across ≥3 sources.
 
 ### Q12 — Cancel/replace / queue position dynamics
+
 - **Query:** `Hyperliquid cancel replace queue position order book dynamics`
 - **Language:** en
 - **Top hits:** news.chainspot.io "Hyperliquid 101", Chainstack Docs "Modify order", hyperliquid-python-sdk basic_adding.py example, Moallemi et al. "Queue Position Valuation" (CIAMAC 2016 paper), stackedmarkets.com "Hyperliquid Order Book CLOB Mechanics", hiperwire.io "Order Types on Hyperliquid Complete Guide"
@@ -170,6 +182,7 @@
 - **Independently confirmed:** Order-type priority order in block confirmed across ≥3 sources (Hyperliquid docs GitBook, hiperwire.io, stackedmarkets). Modify-order behavior confirmed across ≥2 sources (Chainstack, Hyperliquid docs).
 
 ### Q13 — Hyperliquid 队列 / 撤销 / 优先级 (Chinese-language angle on queue priority)
+
 - **Query:** `Hyperliquid 队列 撤销 挂单 优先级 中文 链上 做市`
 - **Language:** zh
 - **Top hits:** 163.com 深入解读Perp DEX, CSDN hehaifengqwert "技术深度解析", mritd.com "永续合约 06 - Hyperliquid 深度解析", yellow.com zh-hk, news.qq.com "Aster们来势汹汹但Hyperliquid很难被取代", learnblockchain.cn 死磕超流动性平台, CSDN hehaifengqwert "接入 Hyperliquid API"
@@ -183,6 +196,7 @@
 - **Independently confirmed:** Cancel-first / Speed Bump mechanism, dual-block architecture, end-to-end latency — confirmed across ≥4 Chinese sources.
 
 ### Q14 — dYdX v4 MegaVault returns
+
 - **Query:** `dYdX v4 validator MegaVault return performance historical APY`
 - **Language:** en
 - **Top hits:** help.dydx.trade MegaVault FAQ, dydx.community MegaVault doc, dydx forum Gauntlet 1-month insights Sept 2025, dydx forum "DRC: Revenue Share", dydx forum "Analysis and Proposals on dYdX Chain and DYDX Tokenomics"
@@ -196,6 +210,7 @@
 - **Independently confirmed:** MegaVault negative returns, incentive dependence, drawdown attribution — confirmed across ≥3 dYdX-official sources + Gauntlet report.
 
 ### Q15 — Hyperliquid vs dYdX volume / market share 2026
+
 - **Query:** `Hyperliquid vs dYdX volume market share 2026 share chart perp DEX`
 - **Language:** en
 - **Top hits:** Eco.com support comparison, BlockEden "$180B Month", hyperliquidguide.com "Updated April 2026", ourcryptotalk.com "Fees Liquidity Performance", perp.wiki stats, gate.com blog, Bitsgap, cryptorank May 2026
@@ -210,6 +225,7 @@
 - **Independently confirmed:** Volume-share decline of dYdX and dominance of Hyperliquid — confirmed across ≥5 independent trackers (DeFiLlama, CryptoRank, perp.wiki, BlockEden, Bitsgap, gate.com).
 
 ### Q16 — Hyperliquid Python SDK / WebSocket endpoints
+
 - **Query:** `"Hyperliquid" Python SDK WebSocket API SDK endpoint order book`
 - **Language:** en
 - **Top hits:** providers.apis.io Hyperliquid provider, hyperliquid.gitbook.io WebSocket docs, chainstack.com Hyperliquid API guide, github.com/hyperliquid-dex/hyperliquid-python-sdk, github.com/ccxt/hyperliquid-python, thedocumentation.org, pypi.org/project/hyperliquid-sdk, github.com/nomeida/hyperliquid
@@ -227,24 +243,24 @@
 
 ## Query tally
 
-| # | Angle | Language | Independent sources ≥2 |
-|---|-------|----------|------------------------|
-| Q1 | Hyperliquid order book / HIP-1 | en | ✓ |
-| Q2 | dYdX v4 validator economics | en | ✓ |
-| Q3 | HLP historical returns | en | ✓ |
-| Q4 | Funding-rate divergence HL↔CEX | en | ✓ |
-| Q5 | Vertex hybrid AMM | en | ✓ |
-| Q6 | gTrade LP / vault | en | ✓ |
-| Q7 | Oracle architecture / latency | en | ✓ |
-| Q8 | Hyperliquid 资金费率套利 | zh | ✓ |
-| Q9 | MEV / sandwich / oracle front-run | en | ✓ |
-| Q10 | JELLY incident | en + zh | ✓ |
-| Q11 | Smart Order Routing perp DEX | en | ✓ |
-| Q12 | Cancel/replace queue priority | en | ✓ |
-| Q13 | HL queue / cancel / 优先级 | zh | ✓ |
-| Q14 | dYdX MegaVault returns | en | ✓ |
-| Q15 | HL vs dYdX market share 2026 | en | ✓ |
-| Q16 | HL Python SDK / WebSocket | en | ✓ |
+| #   | Angle                             | Language | Independent sources ≥2 |
+| --- | --------------------------------- | -------- | ---------------------- |
+| Q1  | Hyperliquid order book / HIP-1    | en       | ✓                      |
+| Q2  | dYdX v4 validator economics       | en       | ✓                      |
+| Q3  | HLP historical returns            | en       | ✓                      |
+| Q4  | Funding-rate divergence HL↔CEX    | en       | ✓                      |
+| Q5  | Vertex hybrid AMM                 | en       | ✓                      |
+| Q6  | gTrade LP / vault                 | en       | ✓                      |
+| Q7  | Oracle architecture / latency     | en       | ✓                      |
+| Q8  | Hyperliquid 资金费率套利          | zh       | ✓                      |
+| Q9  | MEV / sandwich / oracle front-run | en       | ✓                      |
+| Q10 | JELLY incident                    | en + zh  | ✓                      |
+| Q11 | Smart Order Routing perp DEX      | en       | ✓                      |
+| Q12 | Cancel/replace queue priority     | en       | ✓                      |
+| Q13 | HL queue / cancel / 优先级        | zh       | ✓                      |
+| Q14 | dYdX MegaVault returns            | en       | ✓                      |
+| Q15 | HL vs dYdX market share 2026      | en       | ✓                      |
+| Q16 | HL Python SDK / WebSocket         | en       | ✓                      |
 
 **Total:** 16 queries (≥15 floor satisfied).
 **Languages:** English (12 queries), Chinese (4 queries: Q8, Q10 partial, Q13, + scattered citations in other queries), with Vietnamese and Japanese surfaced incidentally.
@@ -261,21 +277,23 @@
 - [x] NO Hungarian: confirmed; only English, Chinese, Vietnamese, Japanese surfaced
 - [x] ≥2 independent sources per empirical claim: enforced per-query
 - [x] Depth: sources cited at document level (Hyperliquid docs, dYdX docs, ChainCatcher, etc.) not just blog summaries
+
 ---
 
 ## Cross-language verification count (added on retry 2026-07-05 14:56)
 
-| Language | Queries using this language | Total independent source citations |
-|----------|----------------------------|-------------------------------------|
-| English (en) | Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q9, Q10, Q11, Q12, Q14, Q15, Q16 (14 queries) | ≥40 distinct sources (Hyperliquid docs, dYdX docs, Vertex docs, gTrade docs, ChainCatcher, ChainUp, BlockEden, CoinMarketman, Tangerine, LiquidView, Ranger, RyskyGeronimo, arx.trade, vaultvision, dextrabot, Bitsgap, CryptoRank, CoinDesk, Halborn, Glassnode, Eco.com, perp.wiki, gate.com, hyperliquidguide, ourcryptotalk, providers.apis.io, Chainstack, thedocumentation, github.com/hyperliquid-dex, github.com/ccxt, pypi.org, Moltbook, Chainlink blog, Redstone blog, ArXiv papers, Astralane Medium) |
-| Chinese (zh) | Q8, Q13 (2 queries) + scattered citations in Q10, Q15 (2 partial) = 4 queries | ≥10 distinct sources (news.qq.com [3 articles], 163.com [2 articles], Odaily [2 articles], panewslab, learnblockchain.cn [2 articles], mritd.com, CSDN [2 articles], hyperliquidcn.com, BitMEX 中文) |
-| Vietnamese (vi) | incidental in Q2 (Scribd Phân tích DYDX note) | 1 |
-| Japanese (ja) | incidental in Q2 (SolanaLink) | 1 |
-| Portuguese (pt) | incidental (CoinDesk / ForkLog translations) | 1 |
+| Language        | Queries using this language                                                   | Total independent source citations                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| English (en)    | Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q9, Q10, Q11, Q12, Q14, Q15, Q16 (14 queries)     | ≥40 distinct sources (Hyperliquid docs, dYdX docs, Vertex docs, gTrade docs, ChainCatcher, ChainUp, BlockEden, CoinMarketman, Tangerine, LiquidView, Ranger, RyskyGeronimo, arx.trade, vaultvision, dextrabot, Bitsgap, CryptoRank, CoinDesk, Halborn, Glassnode, Eco.com, perp.wiki, gate.com, hyperliquidguide, ourcryptotalk, providers.apis.io, Chainstack, thedocumentation, github.com/hyperliquid-dex, github.com/ccxt, pypi.org, Moltbook, Chainlink blog, Redstone blog, ArXiv papers, Astralane Medium) |
+| Chinese (zh)    | Q8, Q13 (2 queries) + scattered citations in Q10, Q15 (2 partial) = 4 queries | ≥10 distinct sources (news.qq.com [3 articles], 163.com [2 articles], Odaily [2 articles], panewslab, learnblockchain.cn [2 articles], mritd.com, CSDN [2 articles], hyperliquidcn.com, BitMEX 中文)                                                                                                                                                                                                                                                                                                              |
+| Vietnamese (vi) | incidental in Q2 (Scribd Phân tích DYDX note)                                 | 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Japanese (ja)   | incidental in Q2 (SolanaLink)                                                 | 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Portuguese (pt) | incidental (CoinDesk / ForkLog translations)                                  | 1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 **Total: ≥53 distinct source citations across ≥5 languages.**
 
 **Doctrine compliance verification:**
+
 - [x] Crypto-native ONLY: 100% of sources are perp-DEX / exchange / blockchain-native; zero general-purpose equity/FX quant literature cited
 - [x] Multi-language: en + zh + vi + ja + pt covered. PRIMARY: en + zh
 - [x] NO Hungarian: confirmed, zero Hungarian sources surfaced

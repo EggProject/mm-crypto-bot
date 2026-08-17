@@ -120,12 +120,7 @@ function applyEnvOverrides(config: BotConfig, env: NodeJS.ProcessEnv): BotConfig
   // LOG_LEVEL → bot.log_level.  Csak a séma által elfogadott értékeket
   // fogadjuk el — minden más a default "info" marad.
   const logLevel = env["LOG_LEVEL"];
-  if (
-    logLevel === "debug" ||
-    logLevel === "info" ||
-    logLevel === "warn" ||
-    logLevel === "error"
-  ) {
+  if (logLevel === "debug" || logLevel === "info" || logLevel === "warn" || logLevel === "error") {
     config.bot.log_level = logLevel;
   }
   // A BYBIT_API_KEY/SECRET környezeti változók jelenleg nem részei a
@@ -154,10 +149,7 @@ function applyEnvOverrides(config: BotConfig, env: NodeJS.ProcessEnv): BotConfig
  * @throws {ConfigError} ha a TOML-fájl nem olvasható, a TOML parse
  *   szintaxisa hibás, vagy a Zod séma bármely mezőt elutasít.
  */
-export function loadBotConfig(
-  configPath?: string,
-  env: NodeJS.ProcessEnv = process.env,
-): BotConfig {
+export function loadBotConfig(configPath?: string, env: NodeJS.ProcessEnv = process.env): BotConfig {
   // ------------------------------------------------------------------------
   // 1) Alapértékek betöltése — a `BotConfigSchema` defaultjaiból.
   // ------------------------------------------------------------------------
@@ -178,11 +170,7 @@ export function loadBotConfig(
       text = _readFileSync(configPath, "utf8");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new ConfigError(
-        `Failed to read config file at "${configPath}": ${message}`,
-        "<file>",
-        [],
-      );
+      throw new ConfigError(`Failed to read config file at "${configPath}": ${message}`, "<file>", []);
     }
 
     let raw: unknown;
@@ -190,11 +178,7 @@ export function loadBotConfig(
       raw = parseTomlString(text);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new ConfigError(
-        `Failed to parse TOML at "${configPath}": ${message}`,
-        "<toml-parse>",
-        [],
-      );
+      throw new ConfigError(`Failed to parse TOML at "${configPath}": ${message}`, "<toml-parse>", []);
     }
 
     // ------------------------------------------------------------------------

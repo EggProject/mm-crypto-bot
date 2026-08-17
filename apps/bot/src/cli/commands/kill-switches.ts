@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/kill-switches.ts
  *
- * Phase 33 Track D + Phase 34 Track C — `mm-bot kill-switches [--config=path]`.
+ * Phase 33 Track D + Phase 34 Track C — the direct `kill-switches` command.
  *
  * Lists the bot's kill-switches with their state and last trigger reason.
  *
@@ -9,7 +9,7 @@
  * configuration. It does NOT contact a live Bot — the registry is
  * constructed from the config. If the bot is running, the live
  * `Bot.killSwitches` instance has additional runtime state; the live
- * state is observable via `mm-bot status`.
+ * state is observable through the direct `status` command.
  *
  * For now, this command prints the kill-switch *descriptions* (ids +
  * thresholds) so the user knows which switches are armed. The "live"
@@ -39,7 +39,7 @@ function getConfigPath(flags: ReadonlyMap<string, string | boolean>): string | u
 }
 
 /**
- * `killSwitchesCommand` — the `mm-bot kill-switches` handler.
+ * `killSwitchesCommand` — the direct `kill-switches` handler.
  *
  * We synthesize the kill-switch list from the config (without instantiating
  * the Bot) so this command works without a running bot. The "engaged"
@@ -108,9 +108,7 @@ export const killSwitchesCommand: SubcommandHandler = async (args) => {
     // The bracket + padding keep column alignment when color is on:
     // ANSI codes are zero-width in the terminal.
     const state = sw.armed ? "ARMED  " : "DISARMED";
-    const stateColored = sw.armed
-      ? colorize(state, "red")
-      : colorize(state, "dim");
+    const stateColored = sw.armed ? colorize(state, "red") : colorize(state, "dim");
     console.log(`  [${stateColored}]  ${sw.id.padEnd(16, " ")}  ${sw.description}`);
   }
   console.log("");

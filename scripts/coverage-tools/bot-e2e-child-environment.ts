@@ -24,9 +24,9 @@ const CREDENTIAL_MARKERS = new Set([
 export function isExchangeCredentialEnvironmentKey(key: string): boolean {
   const normalized = key.toUpperCase();
   if (
-    !normalized.startsWith("BYBIT_")
-    && !normalized.startsWith("CCXT_")
-    && !normalized.startsWith("EXCHANGE_")
+    !normalized.startsWith("BYBIT_") &&
+    !normalized.startsWith("CCXT_") &&
+    !normalized.startsWith("EXCHANGE_")
   ) {
     return false;
   }

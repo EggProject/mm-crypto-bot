@@ -100,20 +100,14 @@
 //   - Button — Hyperliquid Funding Rates Guide — BTC annualized 4-8%
 //     on HL vs 2-4% on Binance; alts 10-30% vs 5-15%.
 
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 
 // Re-export the leverage constant for downstream consumers (mirrors the
 // pattern used by RegimeDetectorMetaPlugin and HybridKellyPlugin).
 export { ONE_TO_TEN_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type ConfigError,
@@ -140,13 +134,7 @@ import {
  *   - `okx` — OKX USDT-SWAP — 8h native.
  *   - `bitget` — Bitget USDT-M — 8h native.
  */
-export type VenueId =
-  | "hl"
-  | "dydx"
-  | "binance"
-  | "bybit"
-  | "okx"
-  | "bitget";
+export type VenueId = "hl" | "dydx" | "binance" | "bybit" | "okx" | "bitget";
 
 /**
  * `CrossVenueFundingDivergenceConfig` — public, overridable configuration.
@@ -221,14 +209,7 @@ export const DEFAULT_DIVERGENCE_THRESHOLD_BPS = 10 as const;
 export const MIN_DIVERGENCE_THRESHOLD_BPS = 0 as const;
 export const MAX_DIVERGENCE_THRESHOLD_BPS = 1000 as const;
 export const DEFAULT_BASE_NOTIONAL_USD = 10_000 as const;
-export const DEFAULT_VENUES: readonly VenueId[] = [
-  "hl",
-  "dydx",
-  "binance",
-  "bybit",
-  "okx",
-  "bitget",
-];
+export const DEFAULT_VENUES: readonly VenueId[] = ["hl", "dydx", "binance", "bybit", "okx", "bitget"];
 
 /**
  * `DEFAULT_ASSETS` — default per-asset enable list. Matches the
@@ -237,14 +218,7 @@ export const DEFAULT_VENUES: readonly VenueId[] = [
  * funding divergence) + DOGE + JUP (mid-cap alts with funding
  * volatility).
  */
-export const DEFAULT_ASSETS: readonly string[] = [
-  "BTC",
-  "ETH",
-  "SOL",
-  "HYPE",
-  "DOGE",
-  "JUP",
-];
+export const DEFAULT_ASSETS: readonly string[] = ["BTC", "ETH", "SOL", "HYPE", "DOGE", "JUP"];
 
 // ---------------------------------------------------------------------------
 // Per-(symbol × venue) bucket state
@@ -334,24 +308,14 @@ export const ALL_VENUES: readonly VenueId[] = DEFAULT_VENUES;
  * inputs.
  */
 export function isVenueId(s: string): s is VenueId {
-  return (
-    s === "hl" ||
-    s === "dydx" ||
-    s === "binance" ||
-    s === "bybit" ||
-    s === "okx" ||
-    s === "bitget"
-  );
+  return s === "hl" || s === "dydx" || s === "binance" || s === "bybit" || s === "okx" || s === "bitget";
 }
 
 /**
  * `isVenueEnabled` — true iff `venue` is in the configured enable
  * list. Centralized so per-feed methods share the same gate.
  */
-function isVenueEnabled(
-  venues: readonly VenueId[],
-  venue: VenueId,
-): boolean {
+function isVenueEnabled(venues: readonly VenueId[], venue: VenueId): boolean {
   for (const v of venues) {
     if (v === venue) return true;
   }
@@ -376,10 +340,7 @@ export function floorToBucketMs(tsMs: number, bucketSizeMs: number): number {
  *   - `binance` / `bybit` / `okx` / `bitget` — input is 8h-native rate
  *     as decimal; output is 8h-equivalent bps = 8h × 10_000.
  */
-export function rateDecimalToBps8h(
-  rateDecimal: number,
-  venue: VenueId,
-): number {
+export function rateDecimalToBps8h(rateDecimal: number, venue: VenueId): number {
   if (venue === "hl" || venue === "dydx") {
     return rateDecimal * 8 * 10_000;
   }
@@ -459,16 +420,12 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
   // Construction
   // ---------------------------------------------------------------------
 
-  constructor(
-    overrides: Partial<CrossVenueFundingDivergenceConfig> = {},
-  ) {
+  constructor(overrides: Partial<CrossVenueFundingDivergenceConfig> = {}) {
     this.config = {
       assets: overrides.assets ?? DEFAULT_ASSETS,
       bucketSizeMs: overrides.bucketSizeMs ?? DEFAULT_BUCKET_SIZE_MS,
-      divergenceThresholdBps:
-        overrides.divergenceThresholdBps ?? DEFAULT_DIVERGENCE_THRESHOLD_BPS,
-      maxDivergenceBps:
-        overrides.maxDivergenceBps ?? MAX_DIVERGENCE_THRESHOLD_BPS,
+      divergenceThresholdBps: overrides.divergenceThresholdBps ?? DEFAULT_DIVERGENCE_THRESHOLD_BPS,
+      maxDivergenceBps: overrides.maxDivergenceBps ?? MAX_DIVERGENCE_THRESHOLD_BPS,
       baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
       venues: overrides.venues ?? DEFAULT_VENUES,
     };
@@ -503,10 +460,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
         `[CrossVenueFundingDivergencePlugin] divergenceThresholdBps=${this.config.divergenceThresholdBps} must be in [${MIN_DIVERGENCE_THRESHOLD_BPS}, ${MAX_DIVERGENCE_THRESHOLD_BPS}].`,
       );
     }
-    if (
-      !Number.isFinite(this.config.maxDivergenceBps) ||
-      this.config.maxDivergenceBps <= 0
-    ) {
+    if (!Number.isFinite(this.config.maxDivergenceBps) || this.config.maxDivergenceBps <= 0) {
       throw new Error(
         `[CrossVenueFundingDivergencePlugin] maxDivergenceBps=${this.config.maxDivergenceBps} must be a finite number > 0.`,
       );
@@ -516,10 +470,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
         `[CrossVenueFundingDivergencePlugin] divergenceThresholdBps=${this.config.divergenceThresholdBps} must be <= maxDivergenceBps=${this.config.maxDivergenceBps}.`,
       );
     }
-    if (
-      !Number.isFinite(this.config.baseNotionalUsd) ||
-      this.config.baseNotionalUsd <= 0
-    ) {
+    if (!Number.isFinite(this.config.baseNotionalUsd) || this.config.baseNotionalUsd <= 0) {
       throw new Error(
         `[CrossVenueFundingDivergencePlugin] baseNotionalUsd=${this.config.baseNotionalUsd} must be a finite number > 0.`,
       );
@@ -534,21 +485,14 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
     for (let i = 0; i < assetsArr.length; i++) {
       const a = assetsArr[i]!;
       if (typeof a !== "string" || a.length === 0) {
-        throw new Error(
-          `[CrossVenueFundingDivergencePlugin] assets[${i}] must be a non-empty string.`,
-        );
+        throw new Error(`[CrossVenueFundingDivergencePlugin] assets[${i}] must be a non-empty string.`);
       }
       if (seenAssets.has(a)) {
-        throw new Error(
-          `[CrossVenueFundingDivergencePlugin] assets contains duplicate "${a}".`,
-        );
+        throw new Error(`[CrossVenueFundingDivergencePlugin] assets contains duplicate "${a}".`);
       }
       seenAssets.add(a);
     }
-    if (
-      !Array.isArray(this.config.venues) ||
-      this.config.venues.length === 0
-    ) {
+    if (!Array.isArray(this.config.venues) || this.config.venues.length === 0) {
       throw new Error(
         `[CrossVenueFundingDivergencePlugin] venues must be a non-empty array of valid VenueId literals.`,
       );
@@ -563,9 +507,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
         );
       }
       if (seenVenues.has(v)) {
-        throw new Error(
-          `[CrossVenueFundingDivergencePlugin] venues contains duplicate "${v}".`,
-        );
+        throw new Error(`[CrossVenueFundingDivergencePlugin] venues contains duplicate "${v}".`);
       }
       seenVenues.add(v);
     }
@@ -736,11 +678,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
    * (decimal). Internally multiplied by 8 × 10_000 to produce
    * 8h-equivalent bps.
    */
-  recordDydxFunding(
-    asset: string,
-    fundingHourly: number,
-    timestampMs?: number,
-  ): void {
+  recordDydxFunding(asset: string, fundingHourly: number, timestampMs?: number): void {
     if (!isVenueEnabled(this.config.venues, "dydx")) return;
     if (!this.config.assets.includes(asset)) return;
     if (!Number.isFinite(fundingHourly)) {
@@ -760,11 +698,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
    * `recordBzFunding` — feed a Binance 8h-native funding rate
    * (decimal). No cadence normalization needed — Binance is already 8h.
    */
-  recordBzFunding(
-    asset: string,
-    funding8h: number,
-    timestampMs?: number,
-  ): void {
+  recordBzFunding(asset: string, funding8h: number, timestampMs?: number): void {
     if (!isVenueEnabled(this.config.venues, "binance")) return;
     if (!this.config.assets.includes(asset)) return;
     if (!Number.isFinite(funding8h)) {
@@ -783,11 +717,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
   /**
    * `recordByFunding` — feed a Bybit 8h-native funding rate (decimal).
    */
-  recordByFunding(
-    asset: string,
-    funding8h: number,
-    timestampMs?: number,
-  ): void {
+  recordByFunding(asset: string, funding8h: number, timestampMs?: number): void {
     if (!isVenueEnabled(this.config.venues, "bybit")) return;
     if (!this.config.assets.includes(asset)) return;
     if (!Number.isFinite(funding8h)) {
@@ -806,11 +736,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
   /**
    * `recordOkFunding` — feed an OKX 8h-native funding rate (decimal).
    */
-  recordOkFunding(
-    asset: string,
-    funding8h: number,
-    timestampMs?: number,
-  ): void {
+  recordOkFunding(asset: string, funding8h: number, timestampMs?: number): void {
     if (!isVenueEnabled(this.config.venues, "okx")) return;
     if (!this.config.assets.includes(asset)) return;
     if (!Number.isFinite(funding8h)) {
@@ -830,11 +756,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
    * `recordBitgetFunding` — feed a Bitget 8h-native funding rate
    * (decimal).
    */
-  recordBitgetFunding(
-    asset: string,
-    funding8h: number,
-    timestampMs?: number,
-  ): void {
+  recordBitgetFunding(asset: string, funding8h: number, timestampMs?: number): void {
     if (!isVenueEnabled(this.config.venues, "bitget")) return;
     if (!this.config.assets.includes(asset)) return;
     if (!Number.isFinite(funding8h)) {
@@ -896,54 +818,33 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       let ok8h = Number.NaN;
       let bitget8h = Number.NaN;
 
-      if (
-        isVenueEnabled(this.config.venues, "hl") &&
-        ss.slots.hl.rateDecimal !== null
-      ) {
+      if (isVenueEnabled(this.config.venues, "hl") && ss.slots.hl.rateDecimal !== null) {
         const v = rateDecimalToBps8h(ss.slots.hl.rateDecimal, "hl");
         hl8h = v;
         presentBps.push(v);
       }
-      if (
-        isVenueEnabled(this.config.venues, "dydx") &&
-        ss.slots.dydx.rateDecimal !== null
-      ) {
+      if (isVenueEnabled(this.config.venues, "dydx") && ss.slots.dydx.rateDecimal !== null) {
         const v = rateDecimalToBps8h(ss.slots.dydx.rateDecimal, "dydx");
         dydx8h = v;
         presentBps.push(v);
       }
-      if (
-        isVenueEnabled(this.config.venues, "binance") &&
-        ss.slots.binance.rateDecimal !== null
-      ) {
+      if (isVenueEnabled(this.config.venues, "binance") && ss.slots.binance.rateDecimal !== null) {
         const v = rateDecimalToBps8h(ss.slots.binance.rateDecimal, "binance");
         bz8h = v;
         presentBps.push(v);
       }
-      if (
-        isVenueEnabled(this.config.venues, "bybit") &&
-        ss.slots.bybit.rateDecimal !== null
-      ) {
+      if (isVenueEnabled(this.config.venues, "bybit") && ss.slots.bybit.rateDecimal !== null) {
         const v = rateDecimalToBps8h(ss.slots.bybit.rateDecimal, "bybit");
         by8h = v;
         presentBps.push(v);
       }
-      if (
-        isVenueEnabled(this.config.venues, "okx") &&
-        ss.slots.okx.rateDecimal !== null
-      ) {
+      if (isVenueEnabled(this.config.venues, "okx") && ss.slots.okx.rateDecimal !== null) {
         const v = rateDecimalToBps8h(ss.slots.okx.rateDecimal, "okx");
         ok8h = v;
         presentBps.push(v);
       }
-      if (
-        isVenueEnabled(this.config.venues, "bitget") &&
-        ss.slots.bitget.rateDecimal !== null
-      ) {
-        const v = rateDecimalToBps8h(
-          ss.slots.bitget.rateDecimal,
-          "bitget",
-        );
+      if (isVenueEnabled(this.config.venues, "bitget") && ss.slots.bitget.rateDecimal !== null) {
+        const v = rateDecimalToBps8h(ss.slots.bitget.rateDecimal, "bitget");
         bitget8h = v;
         presentBps.push(v);
       }
@@ -971,8 +872,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       // predicted. Mirrors the convention of CrossDexFundingWatcherPlugin.
       let predictedGap = 0;
       if (ss.slots.hl.rateDecimal !== null && ss.hlPredictedHourly !== null) {
-        predictedGap =
-          (ss.hlPredictedHourly - ss.slots.hl.rateDecimal) * 8 * 10_000;
+        predictedGap = (ss.hlPredictedHourly - ss.slots.hl.rateDecimal) * 8 * 10_000;
       }
 
       // Spreadmax across the legacy 4 fields (HL + BZ + BY + OK) is
@@ -984,9 +884,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       if (Number.isFinite(by8h)) legacyFour.push(by8h);
       if (Number.isFinite(ok8h)) legacyFour.push(ok8h);
       const spreadMax =
-        legacyFour.length >= 2
-          ? Math.max(...legacyFour) - Math.min(...legacyFour)
-          : divergenceBps;
+        legacyFour.length >= 2 ? Math.max(...legacyFour) - Math.min(...legacyFour) : divergenceBps;
 
       // LAYER 2 — defensive hook: assert 1:10 invariant with 0 notional
       // (matches the convention of every other read-only Phase 11+
@@ -997,10 +895,9 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
         this.state.layer2AssertionCount += 1;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        throw new Error(
-          `[CrossVenueFundingDivergencePlugin] LAYER 2 BREACH (defensive hook): ${msg}`,
-          { cause: e },
-        );
+        throw new Error(`[CrossVenueFundingDivergencePlugin] LAYER 2 BREACH (defensive hook): ${msg}`, {
+          cause: e,
+        });
       }
 
       // Build the snapshot. With exactOptionalPropertyTypes, we
@@ -1119,10 +1016,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
   // Internal helpers
   // ---------------------------------------------------------------------
 
-  private _prepareAssetForFeed(
-    asset: string,
-    timestampMs: number,
-  ): PerAssetBucketState | null {
+  private _prepareAssetForFeed(asset: string, timestampMs: number): PerAssetBucketState | null {
     let ss = this.state.perAsset.get(asset);
     if (ss === undefined) return this._getOrCreatePerAsset(asset, timestampMs);
     if (timestampMs < ss.bucketStartMs) return null;
@@ -1133,10 +1027,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
     return ss ?? null;
   }
 
-  private _getOrCreatePerAsset(
-    asset: string,
-    timestampMs?: number,
-  ): PerAssetBucketState {
+  private _getOrCreatePerAsset(asset: string, timestampMs?: number): PerAssetBucketState {
     let ss = this.state.perAsset.get(asset);
     if (ss !== undefined) return ss;
     const ts = timestampMs ?? Date.now();

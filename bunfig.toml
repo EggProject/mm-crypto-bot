@@ -8,7 +8,7 @@
 # A `bun.lock` szöveges formátumban legyen (Bun 1.1+) — könnyebb
 # review-zni a PR-eken, és jobb együttműködés a Turborepo cache-ével.
 [install]
-exact = false  # caret/tilde engedélyezett — verzió-pin a package.json-ban van
+exact = true
 # A BUN 1.x default "isolated" linker módját használjuk — a
 # `node_modules/.bun/node_modules/<csomag>` mappában tárolja a
 # csomagokat. A BUN a forráskód futtatásakor (`bun run src/...`)

@@ -98,13 +98,9 @@ function riskSig(
   };
   const merged: RiskSignal = {
     ...base,
-    ...(opts.sizeModifier !== undefined
-      ? { sizeModifier: opts.sizeModifier }
-      : {}),
+    ...(opts.sizeModifier !== undefined ? { sizeModifier: opts.sizeModifier } : {}),
     ...(opts.breach !== undefined ? { breach: opts.breach } : {}),
-    ...(opts.timestampMs !== undefined
-      ? { timestampMs: opts.timestampMs }
-      : {}),
+    ...(opts.timestampMs !== undefined ? { timestampMs: opts.timestampMs } : {}),
   };
   return merged;
 }
@@ -165,18 +161,12 @@ describe("DecisionEngine — construction & config validation", () => {
   });
 
   it("construction rejects minConsensusStrength outside [0, 1]", () => {
-    expect(() => new DecisionEngine({ minConsensusStrength: 1.5 })).toThrow(
-      /minConsensusStrength/,
-    );
-    expect(() => new DecisionEngine({ minConsensusStrength: -0.1 })).toThrow(
-      /minConsensusStrength/,
-    );
+    expect(() => new DecisionEngine({ minConsensusStrength: 1.5 })).toThrow(/minConsensusStrength/);
+    expect(() => new DecisionEngine({ minConsensusStrength: -0.1 })).toThrow(/minConsensusStrength/);
   });
 
   it("construction rejects non-positive maxNotionalPerSymbolUsd", () => {
-    expect(() => new DecisionEngine({ maxNotionalPerSymbolUsd: 0 })).toThrow(
-      /maxNotionalPerSymbolUsd/,
-    );
+    expect(() => new DecisionEngine({ maxNotionalPerSymbolUsd: 0 })).toThrow(/maxNotionalPerSymbolUsd/);
   });
 
   it("validateConfig returns ok for valid partial", () => {

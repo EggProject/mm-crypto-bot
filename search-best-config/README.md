@@ -17,27 +17,27 @@ Részletes execute/provenance leírás: [`docs/execution.md`](docs/execution.md)
 
 A production maskok explicit runner- és szimbólum-scope-ja:
 
-| Bináris mask | Kombináció | Státusz | Runner | Érvényes symbol | Explicit invalid symbol |
-|---|---|---|---|---|---|
-| `10000` | DPC | `SUPPORTED_REAL_DATA` | DPC runner | BTC, ETH, SOL | – |
-| `10001` | DPC + Regime | `SUPPORTED_REAL_DATA` | overlay `dpc-regime` | BTC, ETH, SOL | – |
-| `10010` | DPC + SOLFlip | `SUPPORTED_REAL_DATA` | overlay `dpc-solflip` | SOL | BTC, ETH |
-| `10011` | DPC + SOLFlip + Regime | `SUPPORTED_REAL_DATA` | overlay `dpc-solflip-regime` | SOL | BTC, ETH |
-| `00011` | SOLFlip + Regime DPC nélkül | `UNSUPPORTED_JOINT_RUNNER` | nincs | – | – |
+| Bináris mask | Kombináció                  | Státusz                    | Runner                       | Érvényes symbol | Explicit invalid symbol |
+| ------------ | --------------------------- | -------------------------- | ---------------------------- | --------------- | ----------------------- |
+| `10000`      | DPC                         | `SUPPORTED_REAL_DATA`      | DPC runner                   | BTC, ETH, SOL   | –                       |
+| `10001`      | DPC + Regime                | `SUPPORTED_REAL_DATA`      | overlay `dpc-regime`         | BTC, ETH, SOL   | –                       |
+| `10010`      | DPC + SOLFlip               | `SUPPORTED_REAL_DATA`      | overlay `dpc-solflip`        | SOL             | BTC, ETH                |
+| `10011`      | DPC + SOLFlip + Regime      | `SUPPORTED_REAL_DATA`      | overlay `dpc-solflip-regime` | SOL             | BTC, ETH                |
+| `00011`      | SOLFlip + Regime DPC nélkül | `UNSUPPORTED_JOINT_RUNNER` | nincs                        | –               | –                       |
 
 A további 26 mask státuszát a generált mátrix őrzi; a Carry és minden Cascade-t tartalmazó kombináció korábbi adatblokkolása változatlan. Az elvárt összesítés: 4 `SUPPORTED_REAL_DATA`, 1 `BLOCKED_MISSING_DATA`, 16 `UNSUPPORTED_DATA`, 1 `FUNCTIONAL_REPLAY_ONLY`, 1 `UNSUPPORTED_SIGNAL_REPLAY`, 8 `UNSUPPORTED_JOINT_RUNNER`.
 
 ## Véges gridméretek
 
-| Kiválasztás | IS | IS + validation + OOS | Megjegyzés |
-|---|---:|---:|---|
-| `dpc` | 30 | 90 | 3 symbol × 2 consensus × 5 cap |
-| `drc` | 27 | 81 | 3 symbol × 3 Donchian × 3 ADX |
-| `pivot` | 15 | 45 | 3 symbol × 5 cap |
-| `ohlc-trend` | 216 | 648 | 3 symbol × 2 TF × 2 EMA × 3 ATR × 2 RR × 3 lookback |
-| `solflip` | 81 | 243 | 3⁴ plugin-konfiguráció; PnL/DD N/A |
-| `overlay` | 120 | 360 | splitenként 80 runnable + 40 `INVALID_MASK` |
-| `all-runnable` | 489 | 1467 | teljes rács; ebből 120 megőrzött overlay `INVALID_MASK` |
+| Kiválasztás    |  IS | IS + validation + OOS | Megjegyzés                                              |
+| -------------- | --: | --------------------: | ------------------------------------------------------- |
+| `dpc`          |  30 |                    90 | 3 symbol × 2 consensus × 5 cap                          |
+| `drc`          |  27 |                    81 | 3 symbol × 3 Donchian × 3 ADX                           |
+| `pivot`        |  15 |                    45 | 3 symbol × 5 cap                                        |
+| `ohlc-trend`   | 216 |                   648 | 3 symbol × 2 TF × 2 EMA × 3 ATR × 2 RR × 3 lookback     |
+| `solflip`      |  81 |                   243 | 3⁴ plugin-konfiguráció; PnL/DD N/A                      |
+| `overlay`      | 120 |                   360 | splitenként 80 runnable + 40 `INVALID_MASK`             |
+| `all-runnable` | 489 |                  1467 | teljes rács; ebből 120 megőrzött overlay `INVALID_MASK` |
 
 A teljes grid hosszú. Először mindig egyetlen stratégiát és `--phase=is` szakaszt használj; a tesztek nem futtatják le a teljes rácsot.
 
@@ -138,10 +138,10 @@ A táblák megtartják a standard metrikákat — total/havi/évesített hozam, 
 
 ## IS, validation és OOS
 
-| Szakasz | Időszak | Szerep |
-|---|---|---|
-| IS | 2024-01-01 – 2025-07-01 | grid keresése |
-| Validation | 2025-07-01 – 2026-01-01 | jelöltek szűrése |
-| OOS | 2026-01-01 – 2026-07-09 | lezárt jelöltek végső ellenőrzése |
+| Szakasz    | Időszak                 | Szerep                            |
+| ---------- | ----------------------- | --------------------------------- |
+| IS         | 2024-01-01 – 2025-07-01 | grid keresése                     |
+| Validation | 2025-07-01 – 2026-01-01 | jelöltek szűrése                  |
+| OOS        | 2026-01-01 – 2026-07-09 | lezárt jelöltek végső ellenőrzése |
 
 Az OOS alapján ugyanazon az OOS mintán nem szabad újrahangolni. A TOML `cap` runtime portfóliósúly, a runner `--max-position-pct-equity` engine pozíciólimit; nem másolhatók át automatikusan. A historikus CSV Binance USDT, a cél runtime Bybit EU USDC lehet.

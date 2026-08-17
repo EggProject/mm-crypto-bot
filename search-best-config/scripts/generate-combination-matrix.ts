@@ -36,7 +36,9 @@ export interface CombinationRow {
 
 const ALL_PRODUCTION_SYMBOLS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"] as const;
 
-function classify(enabled: readonly ProductionComponent[]): Pick<CombinationRow, "status" | "reason" | "validSymbols" | "invalidSymbols"> {
+function classify(
+  enabled: readonly ProductionComponent[],
+): Pick<CombinationRow, "status" | "reason" | "validSymbols" | "invalidSymbols"> {
   if (enabled.includes("cascade_fade")) {
     return {
       status: "UNSUPPORTED_DATA",
@@ -54,10 +56,14 @@ function classify(enabled: readonly ProductionComponent[]): Pick<CombinationRow,
       invalidSymbols: [],
     };
   }
-  if (exact === "donchian_pivot_composition+funding_flip_kill_switch" || exact === "donchian_pivot_composition+funding_flip_kill_switch+regime_detector") {
+  if (
+    exact === "donchian_pivot_composition+funding_flip_kill_switch" ||
+    exact === "donchian_pivot_composition+funding_flip_kill_switch+regime_detector"
+  ) {
     return {
       status: "SUPPORTED_REAL_DATA",
-      reason: "A validált DPC overlay runner valós OHLCV+funding adaton SOL/USDT-re elérhető; BTC/ETH explicit INVALID_MASK, nem no-op.",
+      reason:
+        "A validált DPC overlay runner valós OHLCV+funding adaton SOL/USDT-re elérhető; BTC/ETH explicit INVALID_MASK, nem no-op.",
       validSymbols: ["SOL/USDT"],
       invalidSymbols: ["BTC/USDT", "ETH/USDT"],
     };
@@ -72,13 +78,33 @@ function classify(enabled: readonly ProductionComponent[]): Pick<CombinationRow,
   }
   switch (enabled[0]) {
     case "donchian_pivot_composition":
-      return { status: "SUPPORTED_REAL_DATA", reason: "Valós, hash-ellenőrzött Binance OHLCV runner elérhető.", validSymbols: ALL_PRODUCTION_SYMBOLS, invalidSymbols: [] };
+      return {
+        status: "SUPPORTED_REAL_DATA",
+        reason: "Valós, hash-ellenőrzött Binance OHLCV runner elérhető.",
+        validSymbols: ALL_PRODUCTION_SYMBOLS,
+        invalidSymbols: [],
+      };
     case "dydx_cex_carry":
-      return { status: "BLOCKED_MISSING_DATA", reason: "A teljes dYdX órás funding dataset/cache hiányzik.", validSymbols: [], invalidSymbols: [] };
+      return {
+        status: "BLOCKED_MISSING_DATA",
+        reason: "A teljes dYdX órás funding dataset/cache hiányzik.",
+        validSymbols: [],
+        invalidSymbols: [],
+      };
     case "funding_flip_kill_switch":
-      return { status: "FUNCTIONAL_REPLAY_ONLY", reason: "A SOL plugin döntése replayelhető, de önálló PnL és DD nem értelmezhető.", validSymbols: ["SOL/USDT"], invalidSymbols: ["BTC/USDT", "ETH/USDT"] };
+      return {
+        status: "FUNCTIONAL_REPLAY_ONLY",
+        reason: "A SOL plugin döntése replayelhető, de önálló PnL és DD nem értelmezhető.",
+        validSymbols: ["SOL/USDT"],
+        invalidSymbols: ["BTC/USDT", "ETH/USDT"],
+      };
     case "regime_detector":
-      return { status: "UNSUPPORTED_SIGNAL_REPLAY", reason: "Nincs archivált Direction/Carry/Sizing SignalBus stream.", validSymbols: [], invalidSymbols: [] };
+      return {
+        status: "UNSUPPORTED_SIGNAL_REPLAY",
+        reason: "Nincs archivált Direction/Carry/Sizing SignalBus stream.",
+        validSymbols: [],
+        invalidSymbols: [],
+      };
     case "cascade_fade":
       throw new Error("A Cascade státuszát a korábbi ág kezeli");
     case undefined:
@@ -113,26 +139,42 @@ function csvCell(value: string | boolean): string {
 }
 
 export function matrixToCsv(rows: readonly CombinationRow[]): string {
-  const headers = ["mask", ...PRODUCTION_COMPONENTS, "enabled", "status", "valid_symbols", "invalid_symbols", "reason"];
-  const body = rows.map((row) => [
-    row.mask,
-    ...PRODUCTION_COMPONENTS.map((component) => row[component]),
-    row.enabled.join("+"),
-    row.status,
-    row.validSymbols.join("+"),
-    row.invalidSymbols.join("+"),
-    row.reason,
-  ].map(csvCell).join(","));
+  const headers = [
+    "mask",
+    ...PRODUCTION_COMPONENTS,
+    "enabled",
+    "status",
+    "valid_symbols",
+    "invalid_symbols",
+    "reason",
+  ];
+  const body = rows.map((row) =>
+    [
+      row.mask,
+      ...PRODUCTION_COMPONENTS.map((component) => row[component]),
+      row.enabled.join("+"),
+      row.status,
+      row.validSymbols.join("+"),
+      row.invalidSymbols.join("+"),
+      row.reason,
+    ]
+      .map(csvCell)
+      .join(","),
+  );
   return `${headers.join(",")}\n${body.join("\n")}\n`;
 }
 
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<void> {
   const args = parseNamedArgs(argv);
-  const output = resolve(REPO_ROOT, getArg(args, "output", "search-best-config/results/combination-matrix.csv"));
+  const output = resolve(
+    REPO_ROOT,
+    getArg(args, "output", "search-best-config/results/combination-matrix.csv"),
+  );
   const rows = generateCombinationMatrix();
-  const content = extname(output).toLowerCase() === ".json"
-    ? `${JSON.stringify({ schemaVersion: 1, components: PRODUCTION_COMPONENTS, rows }, null, 2)}\n`
-    : matrixToCsv(rows);
+  const content =
+    extname(output).toLowerCase() === ".json"
+      ? `${JSON.stringify({ schemaVersion: 1, components: PRODUCTION_COMPONENTS, rows }, null, 2)}\n`
+      : matrixToCsv(rows);
   await writeText(output, content);
   console.log(`PASS: ${rows.length} nem üres production kombináció → ${output}`);
 }

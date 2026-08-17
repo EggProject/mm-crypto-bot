@@ -9,18 +9,18 @@
 
 ## Summary table — feed availability matrix
 
-| Hypothesis | Required feed | Public API? | Historical depth | Feasibility at 1:10 bybit.eu mandate | Notes |
-|------------|---------------|-------------|------------------|----------------------------------------|-------|
-| A — Kimchi regime-shift | Upbit BTC/KRW real-time ticker | YES | 30+ months via DataLab export | ✅ MATCHES (signal-only, no trade leg) | Layer 3 leverage cap preserved |
-| A — Kimchi regime-shift | Binance BTC/USDT kline | YES (existing) | 30+ months | ✅ MATCHES | Already integrated |
-| A — Kimchi regime-shift | USD/KRW FX feed | YES (BOK API free) | 30+ months | ✅ MATCHES | Korean central bank free |
-| B — Yen carry tripwire | USD/JPY real-time | YES (Reuters/OANDA) | 30+ months | ✅ MATCHES (defensive overlay only) | Reduces gross exposure, never increases |
-| B — Yen carry tripwire | BoJ press release RSS | YES (free) | n/a | ✅ MATCHES | NLP keyword classifier |
-| C — Listing pump front-run | Upbit announcement endpoint | YES (public) | 24-month archive | ✅ MATCHES (BTC/ETH/SOL only) | MiCAR restricts altcoins |
-| C — Listing pump front-run | Bithumb Korean announcement | YES (RSS) | 24-month | ✅ MATCHES | Korean-language parsing required |
-| C — Listing pump front-run | Binance BTC/ETH/SOL ticker | YES (existing) | 30+ months | ✅ MATCHES | Already integrated |
-| D — Itayose arbitrage | bitFlyer WebSocket board diff | YES (public) | Limited | ❌ OUTSIDE SCOPE | Requires Tokyo co-location |
-| D — Itayose arbitrage | bitFlyer status channel | YES (public) | n/a | ❌ OUTSIDE SCOPE | Latency-critical |
+| Hypothesis                 | Required feed                  | Public API?         | Historical depth              | Feasibility at 1:10 bybit.eu mandate   | Notes                                   |
+| -------------------------- | ------------------------------ | ------------------- | ----------------------------- | -------------------------------------- | --------------------------------------- |
+| A — Kimchi regime-shift    | Upbit BTC/KRW real-time ticker | YES                 | 30+ months via DataLab export | ✅ MATCHES (signal-only, no trade leg) | Layer 3 leverage cap preserved          |
+| A — Kimchi regime-shift    | Binance BTC/USDT kline         | YES (existing)      | 30+ months                    | ✅ MATCHES                             | Already integrated                      |
+| A — Kimchi regime-shift    | USD/KRW FX feed                | YES (BOK API free)  | 30+ months                    | ✅ MATCHES                             | Korean central bank free                |
+| B — Yen carry tripwire     | USD/JPY real-time              | YES (Reuters/OANDA) | 30+ months                    | ✅ MATCHES (defensive overlay only)    | Reduces gross exposure, never increases |
+| B — Yen carry tripwire     | BoJ press release RSS          | YES (free)          | n/a                           | ✅ MATCHES                             | NLP keyword classifier                  |
+| C — Listing pump front-run | Upbit announcement endpoint    | YES (public)        | 24-month archive              | ✅ MATCHES (BTC/ETH/SOL only)          | MiCAR restricts altcoins                |
+| C — Listing pump front-run | Bithumb Korean announcement    | YES (RSS)           | 24-month                      | ✅ MATCHES                             | Korean-language parsing required        |
+| C — Listing pump front-run | Binance BTC/ETH/SOL ticker     | YES (existing)      | 30+ months                    | ✅ MATCHES                             | Already integrated                      |
+| D — Itayose arbitrage      | bitFlyer WebSocket board diff  | YES (public)        | Limited                       | ❌ OUTSIDE SCOPE                       | Requires Tokyo co-location              |
+| D — Itayose arbitrage      | bitFlyer status channel        | YES (public)        | n/a                           | ❌ OUTSIDE SCOPE                       | Latency-critical                        |
 
 ---
 
@@ -53,13 +53,13 @@
 
 ### A.4 — Composite signal freshness budget
 
-| Component | Update cadence | Cumulative latency | Slippage budget |
-|-----------|----------------|---------------------|-----------------|
-| Upbit ticker WS | <100ms | 100ms | n/a |
-| Binance kline WS | <100ms | 200ms | n/a |
-| USDKRW (BOK daily) | daily EOD | 24h | Premium calc ~10bp error |
-| USDKRW (exchangerate.host) | 1h | ~1h | ~5bp error |
-| Decision compute | <50ms | <300ms total | n/a |
+| Component                  | Update cadence | Cumulative latency | Slippage budget          |
+| -------------------------- | -------------- | ------------------ | ------------------------ |
+| Upbit ticker WS            | <100ms         | 100ms              | n/a                      |
+| Binance kline WS           | <100ms         | 200ms              | n/a                      |
+| USDKRW (BOK daily)         | daily EOD      | 24h                | Premium calc ~10bp error |
+| USDKRW (exchangerate.host) | 1h             | ~1h                | ~5bp error               |
+| Decision compute           | <50ms          | <300ms total       | n/a                      |
 
 ---
 
@@ -131,7 +131,7 @@
 
 ### D.1 — bitFlyer WebSocket board diff
 
-- **Endpoint:** `wss://ws.lightstream.bitflyer.com/json-rpc` with `{"method":"subscribe","params":{"channel":"lightning_board_BTC_JPY"}}` 
+- **Endpoint:** `wss://ws.lightstream.bitflyer.com/json-rpc` with `{"method":"subscribe","params":{"channel":"lightning_board_BTC_JPY"}}`
 - **Public:** YES, no auth required for ticker/board
 - **Bybit.eu fit:** ❌ OUTSIDE SCOPE — latency requires Tokyo co-location
 - **Round-trip latency from EU host:** ~250-350ms (vs <20ms from Tokyo AWS region)
@@ -154,17 +154,17 @@
 
 ## Cost summary for Phase 11.4 build
 
-| Component | Monthly cost | One-time setup | Notes |
-|-----------|--------------|----------------|-------|
-| Upbit WS + REST | $0 | 0.5 day | Free public |
-| Binance kline (existing) | $0 | 0 day | Already integrated |
-| USDKRW feed (BOK daily) | $0 | 0.5 day | Free |
-| USDKRW feed (realtime, optional) | $24k/year | 1 day | Reuters; optional |
-| USDJPY feed (Yahoo free) | $0 | 0.5 day | Free |
-| BoJ press RSS | $0 | 1 day NLP | Free |
-| Upbit announcement REST | $0 | 1 day Korean NLP | Free |
-| Bithumb announcement RSS | $0 | 0.5 day | Free |
-| **Total incremental cost** | **$0/mo (with Reuters: ~$2k/mo)** | **~5 days dev** | All public except Reuters |
+| Component                        | Monthly cost                      | One-time setup   | Notes                     |
+| -------------------------------- | --------------------------------- | ---------------- | ------------------------- |
+| Upbit WS + REST                  | $0                                | 0.5 day          | Free public               |
+| Binance kline (existing)         | $0                                | 0 day            | Already integrated        |
+| USDKRW feed (BOK daily)          | $0                                | 0.5 day          | Free                      |
+| USDKRW feed (realtime, optional) | $24k/year                         | 1 day            | Reuters; optional         |
+| USDJPY feed (Yahoo free)         | $0                                | 0.5 day          | Free                      |
+| BoJ press RSS                    | $0                                | 1 day NLP        | Free                      |
+| Upbit announcement REST          | $0                                | 1 day Korean NLP | Free                      |
+| Bithumb announcement RSS         | $0                                | 0.5 day          | Free                      |
+| **Total incremental cost**       | **$0/mo (with Reuters: ~$2k/mo)** | **~5 days dev**  | All public except Reuters |
 
 ---
 

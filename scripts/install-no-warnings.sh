@@ -41,8 +41,7 @@
 # Why a shell script (not a vitest test)?
 #   `bun install` is a process-level concern: it must run before any test
 #   runner, and the warning comes from bun's own installer. A shell script
-#   matches the existing pattern (`scripts/coverage-full.sh`,
-#   `scripts/coverage-per-package.sh`, `scripts/install-mm-bot.sh`).
+#   matches the existing process-level coverage scripts.
 #
 # Usage:
 #   bash scripts/install-no-warnings.sh

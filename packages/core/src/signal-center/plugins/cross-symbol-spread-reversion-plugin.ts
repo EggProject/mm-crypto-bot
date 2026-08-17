@@ -86,19 +86,13 @@
 //   - Phase 1-9 partial validation: Phase 8 Track F used log-spread
 //     z-score for a single pair (BTC/ETH) in MTF regime context.
 
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 
 // Re-export for downstream consumers (mirrors RegimeDetector pattern).
 export { ONE_TO_TEN_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type ConfigError,
@@ -167,9 +161,7 @@ export const DEFAULT_Z_ENTRY_THRESHOLD = 2.0 as const;
 export const DEFAULT_Z_EXIT_THRESHOLD = 0.5 as const;
 export const DEFAULT_MIN_HOLD_BARS = 5 as const;
 export const DEFAULT_BASE_NOTIONAL_USD = 10_000 as const;
-export const DEFAULT_ENABLED_PAIRS: readonly SymbolPair[] = [
-  ["BTC/USDT", "ETH/USDT"],
-];
+export const DEFAULT_ENABLED_PAIRS: readonly SymbolPair[] = [["BTC/USDT", "ETH/USDT"]];
 
 export const MIN_WINDOW_DAYS = 2 as const;
 export const MAX_WINDOW_DAYS = 365 as const;
@@ -279,11 +271,7 @@ export function computeSpread(priceA: number, priceB: number): number | null {
  * `computeZScore` — `(value - mean) / stddev`. Returns `null` if stddev
  * is non-finite, zero, or negative (degenerate window).
  */
-export function computeZScore(
-  value: number,
-  mean: number,
-  stddev: number,
-): number | null {
+export function computeZScore(value: number, mean: number, stddev: number): number | null {
   if (!Number.isFinite(value) || !Number.isFinite(mean) || !Number.isFinite(stddev)) {
     return null;
   }
@@ -413,13 +401,10 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
   // Construction
   // ---------------------------------------------------------------------
 
-  constructor(
-    overrides: Partial<CrossSymbolSpreadReversionConfig> = {},
-  ) {
+  constructor(overrides: Partial<CrossSymbolSpreadReversionConfig> = {}) {
     this.config = {
       windowDays: overrides.windowDays ?? DEFAULT_WINDOW_DAYS,
-      zEntryThreshold:
-        overrides.zEntryThreshold ?? DEFAULT_Z_ENTRY_THRESHOLD,
+      zEntryThreshold: overrides.zEntryThreshold ?? DEFAULT_Z_ENTRY_THRESHOLD,
       zExitThreshold: overrides.zExitThreshold ?? DEFAULT_Z_EXIT_THRESHOLD,
       minHoldBars: overrides.minHoldBars ?? DEFAULT_MIN_HOLD_BARS,
       baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
@@ -487,10 +472,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
         `[CrossSymbolSpreadReversionPlugin] baseNotionalUsd=${this.config.baseNotionalUsd} must be a finite number in (0, ${MAX_BASE_NOTIONAL_USD}].`,
       );
     }
-    if (
-      !Array.isArray(this.config.enabledPairs) ||
-      this.config.enabledPairs.length === 0
-    ) {
+    if (!Array.isArray(this.config.enabledPairs) || this.config.enabledPairs.length === 0) {
       throw new Error(
         `[CrossSymbolSpreadReversionPlugin] enabledPairs must be a non-empty array of [a,b] tuples.`,
       );
@@ -630,11 +612,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
   // ---------------------------------------------------------------------
 
   validateConfig(config: unknown): Result<void, ConfigError> {
-    const makeErr = (
-      field: string,
-      message: string,
-      value?: unknown,
-    ): Result<void, ConfigError> => ({
+    const makeErr = (field: string, message: string, value?: unknown): Result<void, ConfigError> => ({
       ok: false,
       error: {
         pluginName: this.metadata.name,
@@ -650,17 +628,8 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
     const c = config as Record<string, unknown>;
     if (c["windowDays"] !== undefined) {
       const wd = c["windowDays"];
-      if (
-        typeof wd !== "number" ||
-        !Number.isInteger(wd) ||
-        wd < MIN_WINDOW_DAYS ||
-        wd > MAX_WINDOW_DAYS
-      ) {
-        return makeErr(
-          "windowDays",
-          `must be an integer in [${MIN_WINDOW_DAYS}, ${MAX_WINDOW_DAYS}]`,
-          wd,
-        );
+      if (typeof wd !== "number" || !Number.isInteger(wd) || wd < MIN_WINDOW_DAYS || wd > MAX_WINDOW_DAYS) {
+        return makeErr("windowDays", `must be an integer in [${MIN_WINDOW_DAYS}, ${MAX_WINDOW_DAYS}]`, wd);
       }
     }
     if (c["zEntryThreshold"] !== undefined) {
@@ -694,11 +663,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       }
       // Cross-validate against zEntryThreshold if both provided.
       const ze = c["zEntryThreshold"];
-      if (
-        typeof ze === "number" &&
-        Number.isFinite(ze) &&
-        zx >= ze
-      ) {
+      if (typeof ze === "number" && Number.isFinite(ze) && zx >= ze) {
         return makeErr(
           "zExitThreshold",
           `must be strictly less than zEntryThreshold (got zExit=${zx}, zEntry=${ze})`,
@@ -723,68 +688,35 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
     }
     if (c["baseNotionalUsd"] !== undefined) {
       const bn = c["baseNotionalUsd"];
-      if (
-        typeof bn !== "number" ||
-        !Number.isFinite(bn) ||
-        bn <= 0 ||
-        bn > MAX_BASE_NOTIONAL_USD
-      ) {
-        return makeErr(
-          "baseNotionalUsd",
-          `must be a finite number in (0, ${MAX_BASE_NOTIONAL_USD}]`,
-          bn,
-        );
+      if (typeof bn !== "number" || !Number.isFinite(bn) || bn <= 0 || bn > MAX_BASE_NOTIONAL_USD) {
+        return makeErr("baseNotionalUsd", `must be a finite number in (0, ${MAX_BASE_NOTIONAL_USD}]`, bn);
       }
     }
     if (c["enabledPairs"] !== undefined) {
       if (!Array.isArray(c["enabledPairs"]) || c["enabledPairs"].length === 0) {
-        return makeErr(
-          "enabledPairs",
-          "must be a non-empty array of [a, b] tuples",
-          c["enabledPairs"],
-        );
+        return makeErr("enabledPairs", "must be a non-empty array of [a, b] tuples", c["enabledPairs"]);
       }
       const seen = new Set<string>();
       const arr = c["enabledPairs"] as readonly unknown[];
       for (let i = 0; i < arr.length; i++) {
         const p = arr[i];
         if (!Array.isArray(p) || p.length !== 2) {
-          return makeErr(
-            "enabledPairs",
-            `entry ${i} must be a [a, b] tuple of length 2`,
-            p,
-          );
+          return makeErr("enabledPairs", `entry ${i} must be a [a, b] tuple of length 2`, p);
         }
         const a = (p as readonly unknown[])[0];
         const b = (p as readonly unknown[])[1];
         if (typeof a !== "string" || a.length === 0) {
-          return makeErr(
-            "enabledPairs",
-            `entry ${i}[0] must be a non-empty string`,
-            a,
-          );
+          return makeErr("enabledPairs", `entry ${i}[0] must be a non-empty string`, a);
         }
         if (typeof b !== "string" || b.length === 0) {
-          return makeErr(
-            "enabledPairs",
-            `entry ${i}[1] must be a non-empty string`,
-            b,
-          );
+          return makeErr("enabledPairs", `entry ${i}[1] must be a non-empty string`, b);
         }
         if (a === b) {
-          return makeErr(
-            "enabledPairs",
-            `entry ${i} = [${a}, ${b}] — legs must differ`,
-            p,
-          );
+          return makeErr("enabledPairs", `entry ${i} = [${a}, ${b}] — legs must differ`, p);
         }
         const k = `${a}|${b}`;
         if (seen.has(k)) {
-          return makeErr(
-            "enabledPairs",
-            `duplicate pair [${a}, ${b}]`,
-            p,
-          );
+          return makeErr("enabledPairs", `duplicate pair [${a}, ${b}]`, p);
         }
         seen.add(k);
       }
@@ -850,11 +782,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
    * timestamp order (close_A at t, close_B at t+1 is OK; out-of-order
    * would distort the spread).
    */
-  recordClose(
-    symbol: string,
-    close: number,
-    timestampMs?: number,
-  ): readonly DirectionSignal[] {
+  recordClose(symbol: string, close: number, timestampMs?: number): readonly DirectionSignal[] {
     const emitted: DirectionSignal[] = [];
     if (!Number.isFinite(close) || close <= 0) {
       this.state.malformedCloseDrops += 1;
@@ -864,7 +792,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
 
     // 1. Update per-symbol price state.
     const ss = this._getOrCreateSymbolState(symbol);
-    const effectiveTs = timestampMs ?? ((ss.lastTimestampMs ?? -1) + 1);
+    const effectiveTs = timestampMs ?? (ss.lastTimestampMs ?? -1) + 1;
     if (ss.lastTimestampMs !== null && effectiveTs <= ss.lastTimestampMs) return emitted;
     ss.lastTimestampMs = effectiveTs;
     ss.closesByTimestamp.set(effectiveTs, close);
@@ -925,23 +853,12 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
         if (absZ > this.config.zEntryThreshold) {
           const sideA: "long" | "short" = z > 0 ? "short" : "long";
           const sideB: "long" | "short" = z > 0 ? "long" : "short";
-          ps.position =
-            z > 0 ? "short-a-long-b" : "long-a-short-b";
+          ps.position = z > 0 ? "short-a-long-b" : "long-a-short-b";
           ps.holdBars = 0;
           ps.entryCount += 1;
           this.state.entriesEmitted += 1;
-          const dirA = this._buildDirectionSignal(
-            aLeg,
-            sideA,
-            strength,
-            timestampMs,
-          );
-          const dirB = this._buildDirectionSignal(
-            bLeg,
-            sideB,
-            strength,
-            timestampMs,
-          );
+          const dirA = this._buildDirectionSignal(aLeg, sideA, strength, timestampMs);
+          const dirB = this._buildDirectionSignal(bLeg, sideB, strength, timestampMs);
           ps.lastDirectionA = dirA;
           ps.lastDirectionB = dirB;
           emitted.push(dirA, dirB);
@@ -949,26 +866,13 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       } else {
         // In a position. Exit condition: |z| < exit threshold AND
         // holdBars >= minHoldBars.
-        if (
-          absZ < this.config.zExitThreshold &&
-          ps.holdBars >= this.config.minHoldBars
-        ) {
+        if (absZ < this.config.zExitThreshold && ps.holdBars >= this.config.minHoldBars) {
           ps.position = "flat";
           ps.holdBars = 0;
           ps.exitCount += 1;
           this.state.exitsEmitted += 1;
-          const dirA = this._buildDirectionSignal(
-            aLeg,
-            "flat",
-            strength,
-            timestampMs,
-          );
-          const dirB = this._buildDirectionSignal(
-            bLeg,
-            "flat",
-            strength,
-            timestampMs,
-          );
+          const dirA = this._buildDirectionSignal(aLeg, "flat", strength, timestampMs);
+          const dirB = this._buildDirectionSignal(bLeg, "flat", strength, timestampMs);
           ps.lastDirectionA = dirA;
           ps.lastDirectionB = dirB;
           emitted.push(dirA, dirB);
@@ -983,9 +887,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
    * configured enabledPairs list.
    */
   isPairEnabled(a: string, b: string): boolean {
-    return this.config.enabledPairs.some(
-      (p) => p[0] === a && p[1] === b,
-    );
+    return this.config.enabledPairs.some((p) => p[0] === a && p[1] === b);
   }
 
   /**
@@ -1077,8 +979,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       source: `${this.metadata.name}:${symbol}`,
       symbol,
     };
-    const tsField =
-      timestampMs !== undefined ? { timestampMs } : {};
+    const tsField = timestampMs !== undefined ? { timestampMs } : {};
     const signal: DirectionSignal = {
       ...baseFields,
       ...tsField,
@@ -1120,10 +1021,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
       }
     }
     // Base notional must be sane.
-    if (
-      !Number.isFinite(this.config.baseNotionalUsd) ||
-      this.config.baseNotionalUsd <= 0
-    ) {
+    if (!Number.isFinite(this.config.baseNotionalUsd) || this.config.baseNotionalUsd <= 0) {
       throw new Error(
         `[CrossSymbolSpreadReversionPlugin] LAYER 2 BREACH: baseNotionalUsd=${this.config.baseNotionalUsd} invalid.`,
       );

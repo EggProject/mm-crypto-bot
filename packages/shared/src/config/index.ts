@@ -15,7 +15,7 @@ export function loadConfig(): AppConfig {
   // A későbbi fázisban: tényleges .env betöltés és zod-séma validáció.
   // Egyelőre biztonságos default-okat adunk vissza.
   return {
-    env: (process.env["BUN_ENV"] === "live" ? "live" : "paper"),
+    env: process.env["BUN_ENV"] === "live" ? "live" : "paper",
     logLevel: (process.env["LOG_LEVEL"] ?? "info") as AppConfig["logLevel"],
     ccxtRateLimitMs: Number.parseInt(process.env["CCXT_RATE_LIMIT_MS"] ?? "100", 10),
   };

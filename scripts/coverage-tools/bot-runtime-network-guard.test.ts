@@ -23,11 +23,19 @@ describe("runtime driver outbound network guard", () => {
     const originalExitCode = process.exitCode;
     const guard = installOutboundNetworkGuard();
     try {
-      expect(() => { void globalThis.fetch("https://network-attempt.invalid"); }).toThrow(OutboundNetworkAttemptError);
-      expect(() => { invokeBoundary(http, "request"); }).toThrow(OutboundNetworkAttemptError);
-      expect(() => { invokeBoundary(Bun, "connect"); }).toThrow(OutboundNetworkAttemptError);
+      expect(() => {
+        void globalThis.fetch("https://network-attempt.invalid");
+      }).toThrow(OutboundNetworkAttemptError);
+      expect(() => {
+        invokeBoundary(http, "request");
+      }).toThrow(OutboundNetworkAttemptError);
+      expect(() => {
+        invokeBoundary(Bun, "connect");
+      }).toThrow(OutboundNetworkAttemptError);
       expect(guard.attempts).toEqual(["global.fetch", "node:http.request", "Bun.connect"]);
-      expect(() => { guard.assertNoAttempts(); }).toThrow("bot E2E child attempted outbound network access");
+      expect(() => {
+        guard.assertNoAttempts();
+      }).toThrow("bot E2E child attempted outbound network access");
     } finally {
       guard.restore();
       process.exitCode = originalExitCode ?? 0;
@@ -51,24 +59,30 @@ describe("runtime driver outbound network guard", () => {
 
   it("blocks three real spawned-child attempt paths before network I/O", () => {
     const preload = resolve(REPOSITORY_ROOT, "scripts/coverage-tools/bot-e2e-preload.ts");
-    const fixture = resolve(REPOSITORY_ROOT, "scripts/coverage-tools/bot-runtime-network-negative-fixture.ts");
+    const fixture = resolve(
+      REPOSITORY_ROOT,
+      "scripts/coverage-tools/bot-runtime-network-negative-fixture.ts",
+    );
     const rawDirectory = resolve(REPOSITORY_ROOT, "apps/bot/coverage/e2e/raw");
     mkdirSync(rawDirectory, { recursive: true });
     const result = Bun.spawnSync({
       cmd: ["bun", "--preload", preload, fixture],
       cwd: REPOSITORY_ROOT,
-      env: buildBotE2eChildEnvironment({
-        ...process.env,
-        BYBIT_API_KEY: "must-not-reach-child",
-        BYBIT_API_SECRET: "must-not-reach-child",
-        BYBIT_EU_ACCESS_TOKEN: "must-not-reach-child",
-        CCXT_PASSWORD: "must-not-reach-child",
-        EXCHANGE_PASSPHRASE: "must-not-reach-child",
-      }, {
-        MM_BOT_E2E_COVERAGE_RAW_DIR: rawDirectory,
-        MM_BOT_E2E_ENTRY_KIND: "canonical-cli",
-        MM_BOT_E2E_CASE_ID: "network-negative",
-      }),
+      env: buildBotE2eChildEnvironment(
+        {
+          ...process.env,
+          BYBIT_API_KEY: "must-not-reach-child",
+          BYBIT_API_SECRET: "must-not-reach-child",
+          BYBIT_EU_ACCESS_TOKEN: "must-not-reach-child",
+          CCXT_PASSWORD: "must-not-reach-child",
+          EXCHANGE_PASSPHRASE: "must-not-reach-child",
+        },
+        {
+          MM_BOT_E2E_COVERAGE_RAW_DIR: rawDirectory,
+          MM_BOT_E2E_ENTRY_KIND: "canonical-cli",
+          MM_BOT_E2E_CASE_ID: "network-negative",
+        },
+      ),
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -79,8 +93,6 @@ describe("runtime driver outbound network guard", () => {
     expect(stderr).toContain("blocked outbound attempt: global.fetch");
     expect(stderr).toContain("blocked outbound attempt: node:http.request");
     expect(stderr).toContain("blocked outbound attempt: Bun.connect");
-    expect(stderr).toContain(
-      "blocked attempt ledger: global.fetch, node:http.request, Bun.connect",
-    );
+    expect(stderr).toContain("blocked attempt ledger: global.fetch, node:http.request, Bun.connect");
   });
 });

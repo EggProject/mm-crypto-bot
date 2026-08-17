@@ -192,9 +192,7 @@ class MockCcxtExchange {
  * Visszatérési érték: `{ monitor, mocks }`, ahol `mocks` egy Map a
  * `SupportedExchangeId` → `MockCcxtExchange` leképezéssel.
  */
-function makeMonitorWithMocks(
-  ids: readonly SupportedExchangeId[],
-): {
+function makeMonitorWithMocks(ids: readonly SupportedExchangeId[]): {
   monitor: LatencyMonitor;
   mocks: Map<SupportedExchangeId, MockCcxtExchange>;
 } {
@@ -207,9 +205,11 @@ function makeMonitorWithMocks(
   // a megfelelő mock-ot, ha van, különben a CCXT factory-t hívjuk (de a
   // unit tesztek mindig átadják az összes ID-t a `mocks` map-ben).
   const original = monitor.createExchange.bind(monitor);
-  (monitor as unknown as {
-    createExchange: (id: SupportedExchangeId) => MockCcxtExchange;
-  }).createExchange = (id: SupportedExchangeId): MockCcxtExchange => {
+  (
+    monitor as unknown as {
+      createExchange: (id: SupportedExchangeId) => MockCcxtExchange;
+    }
+  ).createExchange = (id: SupportedExchangeId): MockCcxtExchange => {
     const m = mocks.get(id);
     if (m !== undefined) return m;
     // Fallback: valódi CCXT exchange. Csak a type-check teljesítéséhez kell.
@@ -559,9 +559,11 @@ describe("LatencyMonitor.abort", () => {
     const { mocks } = makeMonitorWithMocks(["binance"]);
     // Lecseréljük a monitor createExchange-ét, hogy a frissen készített
     // mock-ot használja.
-    (monitor as unknown as {
-      createExchange: (id: SupportedExchangeId) => MockCcxtExchange;
-    }).createExchange = (id: SupportedExchangeId): MockCcxtExchange => {
+    (
+      monitor as unknown as {
+        createExchange: (id: SupportedExchangeId) => MockCcxtExchange;
+      }
+    ).createExchange = (id: SupportedExchangeId): MockCcxtExchange => {
       const m = mocks.get(id);
       if (m === undefined) throw new Error(`mock for ${id} not found`);
       return m;

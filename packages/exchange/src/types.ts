@@ -82,7 +82,14 @@ export interface Trade {
  * CCXT formátum: `[timestamp, open, high, low, close, volume]`.
  * Mi tuple-öt használunk (könnyű illeszkedés a CCXT watchOHLCV-vel).
  */
-export type Ohlcv = readonly [timestamp: number, open: number, high: number, low: number, close: number, volume: number];
+export type Ohlcv = readonly [
+  timestamp: number,
+  open: number,
+  high: number,
+  low: number,
+  close: number,
+  volume: number,
+];
 
 /**
  * `Timeframe` — a CCXT timeframe string, de csak az általunk támogatott
@@ -229,6 +236,9 @@ export type FeedEvent =
   | { readonly kind: "ticker"; readonly payload: Ticker }
   | { readonly kind: "orderbook"; readonly payload: OrderBook }
   | { readonly kind: "trade"; readonly payload: Trade }
-  | { readonly kind: "ohlcv"; readonly payload: { readonly symbol: Symbol; readonly timeframe: Timeframe; readonly candle: Ohlcv } }
+  | {
+      readonly kind: "ohlcv";
+      readonly payload: { readonly symbol: Symbol; readonly timeframe: Timeframe; readonly candle: Ohlcv };
+    }
   | { readonly kind: "order"; readonly payload: Order }
   | { readonly kind: "execution"; readonly payload: Execution };

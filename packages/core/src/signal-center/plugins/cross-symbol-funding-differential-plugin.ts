@@ -49,18 +49,12 @@
 //   - BitMEX Q3 2025 Derivatives Report "Anchors and Ceilings".
 //   - Phase 1-9 partial validation: Phase 6 Track A (FundingCarryStrategy).
 
-import {
-  ONE_TO_TEN_LEVERAGE,
-  assertLeverageInvariant,
-} from "../../risk/leverage-invariant.js";
+import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
 
 export { ONE_TO_TEN_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type CarrySignal,
@@ -86,9 +80,7 @@ export interface CrossSymbolFundingDifferentialConfig {
 
 export const DEFAULT_MIN_DIFFERENTIAL_PER_8H = 0.0001 as const;
 export const DEFAULT_BASE_NOTIONAL_USD = 10_000 as const;
-export const DEFAULT_ENABLED_PAIRS: readonly SymbolPair[] = [
-  ["BTC/USDT", "ETH/USDT"],
-];
+export const DEFAULT_ENABLED_PAIRS: readonly SymbolPair[] = [["BTC/USDT", "ETH/USDT"]];
 
 export const MIN_MIN_DIFFERENTIAL = 0.0 as const;
 export const MAX_MIN_DIFFERENTIAL = 0.01 as const;
@@ -136,10 +128,7 @@ export function pairKey(pair: SymbolPair): string {
   return `${pair[0]}|${pair[1]}`;
 }
 
-export function computeFundingDifferential(
-  rateA: number,
-  rateB: number,
-): number | null {
+export function computeFundingDifferential(rateA: number, rateB: number): number | null {
   // Defensive: NaN rejected (only). Infinity propagates via abs().
   if (Number.isNaN(rateA) || Number.isNaN(rateB)) return null;
   return Math.abs(rateA - rateB);
@@ -184,12 +173,9 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
   private readonly _busesBySymbol: Map<string, SignalBus> = new Map<string, SignalBus>();
   private _wired = false;
 
-  constructor(
-    overrides: Partial<CrossSymbolFundingDifferentialConfig> = {},
-  ) {
+  constructor(overrides: Partial<CrossSymbolFundingDifferentialConfig> = {}) {
     this.config = {
-      minDifferentialPer8h:
-        overrides.minDifferentialPer8h ?? DEFAULT_MIN_DIFFERENTIAL_PER_8H,
+      minDifferentialPer8h: overrides.minDifferentialPer8h ?? DEFAULT_MIN_DIFFERENTIAL_PER_8H,
       baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
       enabledPairs: overrides.enabledPairs ?? DEFAULT_ENABLED_PAIRS,
     };
@@ -218,10 +204,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
         `[CrossSymbolFundingDifferentialPlugin] baseNotionalUsd=${this.config.baseNotionalUsd} must be a finite number in (0, ${MAX_BASE_NOTIONAL_USD}].`,
       );
     }
-    if (
-      !Array.isArray(this.config.enabledPairs) ||
-      this.config.enabledPairs.length === 0
-    ) {
+    if (!Array.isArray(this.config.enabledPairs) || this.config.enabledPairs.length === 0) {
       throw new Error(
         `[CrossSymbolFundingDifferentialPlugin] enabledPairs must be a non-empty array of [a,b] tuples.`,
       );
@@ -339,11 +322,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
   }
 
   validateConfig(config: unknown): Result<void, ConfigError> {
-    const makeErr = (
-      field: string,
-      message: string,
-      value?: unknown,
-    ): Result<void, ConfigError> => ({
+    const makeErr = (field: string, message: string, value?: unknown): Result<void, ConfigError> => ({
       ok: false,
       error: {
         pluginName: this.metadata.name,
@@ -374,69 +353,36 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
     }
     if (c["baseNotionalUsd"] !== undefined) {
       const bn = c["baseNotionalUsd"];
-      if (
-        typeof bn !== "number" ||
-        !Number.isFinite(bn) ||
-        bn <= 0 ||
-        bn > MAX_BASE_NOTIONAL_USD
-      ) {
-        return makeErr(
-          "baseNotionalUsd",
-          `must be a finite number in (0, ${MAX_BASE_NOTIONAL_USD}]`,
-          bn,
-        );
+      if (typeof bn !== "number" || !Number.isFinite(bn) || bn <= 0 || bn > MAX_BASE_NOTIONAL_USD) {
+        return makeErr("baseNotionalUsd", `must be a finite number in (0, ${MAX_BASE_NOTIONAL_USD}]`, bn);
       }
     }
     if (c["enabledPairs"] !== undefined) {
       if (!Array.isArray(c["enabledPairs"]) || c["enabledPairs"].length === 0) {
-        return makeErr(
-          "enabledPairs",
-          "must be a non-empty array of [a, b] tuples",
-          c["enabledPairs"],
-        );
+        return makeErr("enabledPairs", "must be a non-empty array of [a, b] tuples", c["enabledPairs"]);
       }
       const seen = new Set<string>();
       const arr = c["enabledPairs"] as readonly unknown[];
       for (let i = 0; i < arr.length; i++) {
         const p = arr[i];
         if (!Array.isArray(p) || p.length !== 2) {
-          return makeErr(
-            "enabledPairs",
-            `entry ${i} must be a [a, b] tuple of length 2`,
-            p,
-          );
+          return makeErr("enabledPairs", `entry ${i} must be a [a, b] tuple of length 2`, p);
         }
         const pTuple = p as readonly unknown[];
         const a = pTuple[0];
         const b = pTuple[1];
         if (typeof a !== "string" || a.length === 0) {
-          return makeErr(
-            "enabledPairs",
-            `entry ${i}[0] must be a non-empty string`,
-            a,
-          );
+          return makeErr("enabledPairs", `entry ${i}[0] must be a non-empty string`, a);
         }
         if (typeof b !== "string" || b.length === 0) {
-          return makeErr(
-            "enabledPairs",
-            `entry ${i}[1] must be a non-empty string`,
-            b,
-          );
+          return makeErr("enabledPairs", `entry ${i}[1] must be a non-empty string`, b);
         }
         if (a === b) {
-          return makeErr(
-            "enabledPairs",
-            `entry ${i} = [${a}, ${b}] -- legs must differ`,
-            p,
-          );
+          return makeErr("enabledPairs", `entry ${i} = [${a}, ${b}] -- legs must differ`, p);
         }
         const k = `${a}|${b}`;
         if (seen.has(k)) {
-          return makeErr(
-            "enabledPairs",
-            `duplicate pair [${a}, ${b}]`,
-            p,
-          );
+          return makeErr("enabledPairs", `duplicate pair [${a}, ${b}]`, p);
         }
         seen.add(k);
       }
@@ -508,11 +454,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
         ps.tsBMs = timestampMs ?? null;
       }
       if (ps.fundingA === null || ps.fundingB === null) continue;
-      if (
-        ps.tsAMs !== null &&
-        ps.tsBMs !== null &&
-        Math.abs(ps.tsAMs - ps.tsBMs) > 5_000
-      ) continue;
+      if (ps.tsAMs !== null && ps.tsBMs !== null && Math.abs(ps.tsAMs - ps.tsBMs) > 5_000) continue;
 
       const differential = computeFundingDifferential(ps.fundingA, ps.fundingB);
       if (differential === null) continue;
@@ -532,13 +474,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
           ps.lastDirectionB = lowLeg === legA ? dirLow : dirHigh;
           directionSignals.push(dirHigh, dirLow);
 
-          const carry = this._buildCarrySignal(
-            differential,
-            "high",
-            highLeg,
-            lowLeg,
-            timestampMs,
-          );
+          const carry = this._buildCarrySignal(differential, "high", highLeg, lowLeg, timestampMs);
           ps.lastCarrySignal = carry;
           carrySignals.push(carry);
         }
@@ -562,9 +498,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
   }
 
   isPairEnabled(a: string, b: string): boolean {
-    return this.config.enabledPairs.some(
-      (p) => p[0] === a && p[1] === b,
-    );
+    return this.config.enabledPairs.some((p) => p[0] === a && p[1] === b);
   }
 
   carryActiveForPair(a: string, b: string): boolean {
@@ -616,8 +550,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       source: `${this.metadata.name}:${symbol}`,
       symbol,
     };
-    const tsField =
-      timestampMs !== undefined ? { timestampMs } : {};
+    const tsField = timestampMs !== undefined ? { timestampMs } : {};
     const signal: DirectionSignal = {
       ...baseFields,
       ...tsField,
@@ -651,8 +584,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       source: `${this.metadata.name}:${highLeg}->${lowLeg}`,
       symbol: highLeg,
     };
-    const tsField =
-      timestampMs !== undefined ? { timestampMs } : {};
+    const tsField = timestampMs !== undefined ? { timestampMs } : {};
     const signal: CarrySignal = {
       ...baseFields,
       ...tsField,
@@ -662,8 +594,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       // Phase 14A: route the CarrySignal to the HIGH leg's bus (the
       // symbol paying funding). If neither leg has a wired bus, drop
       // and increment unroutedEmissions.
-      const bus = this._busesBySymbol.get(highLeg)
-        ?? this._busesBySymbol.get(lowLeg);
+      const bus = this._busesBySymbol.get(highLeg) ?? this._busesBySymbol.get(lowLeg);
       if (bus !== undefined) {
         bus.emit(signal);
       } else {
@@ -682,10 +613,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
         );
       }
     }
-    if (
-      !Number.isFinite(this.config.baseNotionalUsd) ||
-      this.config.baseNotionalUsd <= 0
-    ) {
+    if (!Number.isFinite(this.config.baseNotionalUsd) || this.config.baseNotionalUsd <= 0) {
       throw new Error(
         `[CrossSymbolFundingDifferentialPlugin] LAYER 2 BREACH: baseNotionalUsd=${this.config.baseNotionalUsd} invalid.`,
       );

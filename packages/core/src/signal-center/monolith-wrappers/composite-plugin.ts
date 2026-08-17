@@ -36,10 +36,7 @@ import {
   type LeverageInvariantConfig,
 } from "../../risk/leverage-invariant.js";
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type ConfigError,
@@ -50,10 +47,7 @@ import {
   err,
   ok,
 } from "../types.js";
-import type {
-  StrategyContext,
-  StrategySignal,
-} from "../../types.js";
+import type { StrategyContext, StrategySignal } from "../../types.js";
 import type { Timeframe } from "@mm-crypto-bot/shared/types";
 
 /**
@@ -75,10 +69,7 @@ export interface CompositePluginConfig {
   readonly leverageInvariant: LeverageInvariantConfig;
 }
 
-export const DEFAULT_COMPOSITE_PLUGIN_CONFIG: Omit<
-  CompositePluginConfig,
-  "strategy"
-> = {
+export const DEFAULT_COMPOSITE_PLUGIN_CONFIG: Omit<CompositePluginConfig, "strategy"> = {
   baseNotionalUsd: 10_000,
   leverage: 10, // 1:10 HARD GUARDRAIL
   leverageInvariant: DEFAULT_LEVERAGE_INVARIANT_CONFIG,
@@ -149,10 +140,7 @@ export class CompositePlugin implements StrategyPlugin {
         `[CompositePlugin] 1:10 HARD GUARDRAIL VIOLATION: leverage=${String(merged.leverage)} is NOT ALLOWED. Only 1 (baseline) or 10 (1:10 mandatory) are accepted.`,
       );
     }
-    if (
-      !Number.isFinite(merged.baseNotionalUsd) ||
-      merged.baseNotionalUsd <= 0
-    ) {
+    if (!Number.isFinite(merged.baseNotionalUsd) || merged.baseNotionalUsd <= 0) {
       throw new Error(
         `[CompositePlugin] baseNotionalUsd must be positive finite, got ${String(merged.baseNotionalUsd)}`,
       );
@@ -166,10 +154,7 @@ export class CompositePlugin implements StrategyPlugin {
     if (merged.timeframe === undefined) {
       throw new Error("[CompositePlugin] timeframe is required; implicit 1h context is forbidden");
     }
-    for (const component of [
-      merged.strategy.component1,
-      merged.strategy.component2,
-    ]) {
+    for (const component of [merged.strategy.component1, merged.strategy.component2]) {
       if (typeof (component as { reset?: unknown }).reset !== "function") {
         throw new Error(
           `[CompositePlugin] component "${component.name}" lacks reset(); fresh-run lifecycle cannot be guaranteed`,
@@ -178,7 +163,10 @@ export class CompositePlugin implements StrategyPlugin {
     }
     this.config = merged;
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    this.underlying = new CompositeStrategy({ ...DEFAULT_COMPOSITE_CONFIG, ...merged.strategy } as CompositeStrategyConfig);
+    this.underlying = new CompositeStrategy({
+      ...DEFAULT_COMPOSITE_CONFIG,
+      ...merged.strategy,
+    } as CompositeStrategyConfig);
     this.state = this._mkState();
   }
 
@@ -198,10 +186,7 @@ export class CompositePlugin implements StrategyPlugin {
       this.layer2AssertionCount += 1;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(
-        `[CompositePlugin] LAYER 2 BREACH on subscribe: ${msg}`,
-        { cause: e },
-      );
+      throw new Error(`[CompositePlugin] LAYER 2 BREACH on subscribe: ${msg}`, { cause: e });
     }
   }
 
@@ -224,23 +209,15 @@ export class CompositePlugin implements StrategyPlugin {
       });
     }
     const c = config as Partial<CompositePluginConfig>;
-    if (
-      c.leverage !== undefined &&
-      c.leverage !== 1 &&
-      c.leverage !== (10 as 1 | 10)
-    ) {
+    if (c.leverage !== undefined && c.leverage !== 1 && c.leverage !== (10 as 1 | 10)) {
       return err({
         pluginName: this.metadata.name,
         field: "leverage",
-        message:
-          `[1:10 HARD GUARDRAIL] leverage must be 1 or 10. Got ${String(c.leverage)}.`,
+        message: `[1:10 HARD GUARDRAIL] leverage must be 1 or 10. Got ${String(c.leverage)}.`,
         value: c.leverage,
       });
     }
-    if (
-      c.baseNotionalUsd !== undefined &&
-      (!Number.isFinite(c.baseNotionalUsd) || c.baseNotionalUsd <= 0)
-    ) {
+    if (c.baseNotionalUsd !== undefined && (!Number.isFinite(c.baseNotionalUsd) || c.baseNotionalUsd <= 0)) {
       return err({
         pluginName: this.metadata.name,
         field: "baseNotionalUsd",
@@ -252,13 +229,12 @@ export class CompositePlugin implements StrategyPlugin {
   }
 
   reset(): void {
-    for (const component of [
-      this.underlying.config.component1,
-      this.underlying.config.component2,
-    ]) {
+    for (const component of [this.underlying.config.component1, this.underlying.config.component2]) {
       const reset = (component as { reset?: () => void }).reset;
       if (reset === undefined) {
-        throw new Error(`[CompositePlugin] component "${component.name}" lacks reset(); fresh-run lifecycle cannot be guaranteed`);
+        throw new Error(
+          `[CompositePlugin] component "${component.name}" lacks reset(); fresh-run lifecycle cannot be guaranteed`,
+        );
       }
       reset.call(component);
     }
@@ -351,10 +327,7 @@ export class CompositePlugin implements StrategyPlugin {
     };
   }
 
-  private _emitFromSignal(
-    signal: StrategySignal | null,
-    timestampMs: number,
-  ): void {
+  private _emitFromSignal(signal: StrategySignal | null, timestampMs: number): void {
     if (!this.bus) return;
     if (signal === null) {
       this._emitDirection("flat", 0, timestampMs);
@@ -368,11 +341,7 @@ export class CompositePlugin implements StrategyPlugin {
     }
   }
 
-  private _emitDirection(
-    side: "long" | "short" | "flat",
-    strength: number,
-    timestampMs: number,
-  ): void {
+  private _emitDirection(side: "long" | "short" | "flat", strength: number, timestampMs: number): void {
     if (!this.bus) return;
     const signal: DirectionSignal = {
       kind: "direction",
@@ -391,24 +360,13 @@ export class CompositePlugin implements StrategyPlugin {
     if (!this.bus) return;
     const kellyFraction = Math.max(0, Math.min(1, strength));
     const volMultiplier = 1.0;
-    let notional =
-      this.config.baseNotionalUsd *
-      this.config.leverage *
-      kellyFraction *
-      volMultiplier;
+    let notional = this.config.baseNotionalUsd * this.config.leverage * kellyFraction * volMultiplier;
     try {
-      assertLeverageInvariant(
-        notional,
-        this.config.baseNotionalUsd,
-        this.config.leverageInvariant,
-      );
+      assertLeverageInvariant(notional, this.config.baseNotionalUsd, this.config.leverageInvariant);
       this.layer3AssertionCount += 1;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(
-        `[CompositePlugin] LAYER 3 BREACH on sizing emit: ${msg}`,
-        { cause: e },
-      );
+      throw new Error(`[CompositePlugin] LAYER 3 BREACH on sizing emit: ${msg}`, { cause: e });
     }
     const maxNotional = this.effectiveMaxNotionalUsd();
     if (notional > maxNotional) {
@@ -416,17 +374,10 @@ export class CompositePlugin implements StrategyPlugin {
       this.state.leverageClampCount += 1;
     }
     try {
-      assertLeverageInvariant(
-        notional,
-        this.config.baseNotionalUsd,
-        this.config.leverageInvariant,
-      );
+      assertLeverageInvariant(notional, this.config.baseNotionalUsd, this.config.leverageInvariant);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(
-        `[CompositePlugin] LAYER 3 BREACH post-clamp: ${msg}`,
-        { cause: e },
-      );
+      throw new Error(`[CompositePlugin] LAYER 3 BREACH post-clamp: ${msg}`, { cause: e });
     }
     const signal: SizingSignal = {
       kind: "sizing",
@@ -446,8 +397,6 @@ export class CompositePlugin implements StrategyPlugin {
 /**
  * `createCompositePlugin` — convenience factory.
  */
-export function createCompositePlugin(
-  config?: Partial<CompositePluginConfig>,
-): CompositePlugin {
+export function createCompositePlugin(config?: Partial<CompositePluginConfig>): CompositePlugin {
   return new CompositePlugin(config);
 }

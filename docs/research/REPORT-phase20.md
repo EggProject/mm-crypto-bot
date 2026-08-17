@@ -13,27 +13,27 @@ Phase 20 #1 aimed to lift the Phase 19 cap-sweep envelope (+32.24%/mo portfolio-
 
 ### Headline finding
 
-| Metric | Phase 19 baseline (1-of-2 cap=0.12 portfolio avg) | Phase 20 HybridKelly (1-of-2 cap=0.12 portfolio avg) | Δ |
-|---|---:|---:|---:|
-| Monthly return % | +32.2416% | +32.2232% | **−0.0184 pp** (sub-noise) |
-| maxDrawdown (worst-of-3, BTC 0.12) | 4.393492% | 4.393492% | **byte-identical** |
-| Trade count (BTC/ETH/SOL) | 11043 / 9977 / 10576 | 11043 / 9977 / 10576 | **byte-identical** |
-| Sharpe (BTC cap=0.12) | 31.3164307 | 31.3164307 | **byte-identical** |
-| Kill-switch triggered | false / all 9 cells | false / all 9 cells | **identical** |
+| Metric                             | Phase 19 baseline (1-of-2 cap=0.12 portfolio avg) | Phase 20 HybridKelly (1-of-2 cap=0.12 portfolio avg) |                          Δ |
+| ---------------------------------- | ------------------------------------------------: | ---------------------------------------------------: | -------------------------: |
+| Monthly return %                   |                                         +32.2416% |                                            +32.2232% | **−0.0184 pp** (sub-noise) |
+| maxDrawdown (worst-of-3, BTC 0.12) |                                         4.393492% |                                            4.393492% |         **byte-identical** |
+| Trade count (BTC/ETH/SOL)          |                              11043 / 9977 / 10576 |                                 11043 / 9977 / 10576 |         **byte-identical** |
+| Sharpe (BTC cap=0.12)              |                                        31.3164307 |                                           31.3164307 |         **byte-identical** |
+| Kill-switch triggered              |                               false / all 9 cells |                                  false / all 9 cells |              **identical** |
 
 The CLI flag `--use-per-trade-kelly=true` is a **forward-compatibility surface** for the Donchian+Pivot backtest runner: parsing and validation work, but the runner invokes `runBacktest` directly (bypassing `signal-center-v1`), so the Track B wire-up is never engaged. This is documented in Track B's `board.md` entry (commit `2280790`) and in its verifier feedback — the brief flag is no-op for this CLI runner, by deliberate scoping choice (a SCv1-throughout refactor was ruled out of scope for Phase 20).
 
 ### Why this is a NEGATIVE result, not a clean PASS
 
-The 12 backtests do not measure what the brief asked for. The brief asked: *"will per-trade Hybrid-Kelly scaling lift the envelope?"* The empirical setup measures: *"does setting `--use-per-trade-kelly=true` lift the envelope when fed through this CLI?"* — and the latter is a no-op test. The Phase 20 #1 module and signal-center-v1 wire-up **are** verified by Track A's 40 unit tests (100% line coverage, all 5 quality gates PASS) and Track B's 8 new SCv1 integration tests (verifier PASS, all 4 brief test cases plus 4 defensive assertions). Production-side correctness is fine; **empirical envelope impact on the existing CLI runner cannot be measured** without a separate Track that threads SCv1 through the runner.
+The 12 backtests do not measure what the brief asked for. The brief asked: _"will per-trade Hybrid-Kelly scaling lift the envelope?"_ The empirical setup measures: _"does setting `--use-per-trade-kelly=true` lift the envelope when fed through this CLI?"_ — and the latter is a no-op test. The Phase 20 #1 module and signal-center-v1 wire-up **are** verified by Track A's 40 unit tests (100% line coverage, all 5 quality gates PASS) and Track B's 8 new SCv1 integration tests (verifier PASS, all 4 brief test cases plus 4 defensive assertions). Production-side correctness is fine; **empirical envelope impact on the existing CLI runner cannot be measured** without a separate Track that threads SCv1 through the runner.
 
 **Verdict path triggered:** "Negative or inconclusive → escalate with empirical evidence + Phase 21/22 pivots (see §5)."
 
-| Pick | Verdict | Notes |
-|---|---|---|
-| Module + SCv1 wire-up | **PASS** (Track A + Track B verifier) | Code-correct, tested |
-| Envelope impact via this CLI | **INCONCLUSIVE — test invalidated** | This report's finding |
-| Recommended action | Drop Phase 20 #1 from the +50%/mo roadmap | See §5 alternative-lever plan |
+| Pick                         | Verdict                                   | Notes                         |
+| ---------------------------- | ----------------------------------------- | ----------------------------- |
+| Module + SCv1 wire-up        | **PASS** (Track A + Track B verifier)     | Code-correct, tested          |
+| Envelope impact via this CLI | **INCONCLUSIVE — test invalidated**       | This report's finding         |
+| Recommended action           | Drop Phase 20 #1 from the +50%/mo roadmap | See §5 alternative-lever plan |
 
 ---
 
@@ -75,57 +75,57 @@ with configurable `historyWindowDays` (default 30, Phase 9 9E precedent), `minTr
 
 Each cell is `monthly% / maxDD% / trades / Sharpe / kill-switch`, sourced from `backtest-results/phase20-hybrid-kelly-1of2-{btc,eth,sol}-15m-{0.08,0.12,0.15}.json`.
 
-| Cap | BTC | ETH | SOL | Portfolio Avg monthly% / Max DD% |
-|----:|------|------|------|----------------------------------|
-| **0.08** | +20.35% / 2.95% / 11043 / 31.83 / KS=N | +25.84% / 2.37% / 9977 / 32.73 / KS=N | +30.51% / 3.15% / 10576 / 32.76 / KS=N | +25.56% / 3.15% |
-| **0.12** | +26.66% / 4.39% / 11043 / 31.32 / KS=N | +32.13% / 3.33% / 9977 / 31.83 / KS=N | +37.89% / 4.70% / 10576 / 32.25 / KS=N | +32.22% / 4.70% |
-| **0.15** | +30.27% / 5.46% / 11043 / 30.65 / KS=N | +35.08% / 4.06% / 9977 / 31.09 / KS=N | +41.73% / 5.84% / 10576 / 31.53 / KS=N | +35.69% / 5.84% |
+|      Cap | BTC                                    | ETH                                   | SOL                                    | Portfolio Avg monthly% / Max DD% |
+| -------: | -------------------------------------- | ------------------------------------- | -------------------------------------- | -------------------------------- |
+| **0.08** | +20.35% / 2.95% / 11043 / 31.83 / KS=N | +25.84% / 2.37% / 9977 / 32.73 / KS=N | +30.51% / 3.15% / 10576 / 32.76 / KS=N | +25.56% / 3.15%                  |
+| **0.12** | +26.66% / 4.39% / 11043 / 31.32 / KS=N | +32.13% / 3.33% / 9977 / 31.83 / KS=N | +37.89% / 4.70% / 10576 / 32.25 / KS=N | +32.22% / 4.70%                  |
+| **0.15** | +30.27% / 5.46% / 11043 / 30.65 / KS=N | +35.08% / 4.06% / 9977 / 31.09 / KS=N | +41.73% / 5.84% / 10576 / 31.53 / KS=N | +35.69% / 5.84%                  |
 
 ### §3.2 Reference baseline (no-Kelly, 1-of-2, cap=0.12 only)
 
 3 backtests at cap=0.12 with `--use-per-trade-kelly=false` (the control arm). Each cell is the same engine determinism proof:
 
-| Symbol | Baseline monthly% / maxDD% / trades | Phase 19 reference monthly% / maxDD% / trades | Δ monthly | Δ maxDD |
-|--------|---------------------------------------|-------------------------------------------------|-----------|---------|
-| BTC    | +26.6556% / 4.3935% / 11043          | +26.6710% / 4.3935% / 11043                       | **−0.015 pp** (sub-noise) | byte-identical |
-| ETH    | +32.1257% / 3.3298% / 9977           | +32.1406% / 3.3298% / 9977                        | **−0.015 pp** (sub-noise) | byte-identical |
-| SOL    | +37.8872% / 4.6959% / 10576          | +37.9096% / 4.6959% / 10576                       | **−0.022 pp** (sub-noise) | byte-identical |
+| Symbol | Baseline monthly% / maxDD% / trades | Phase 19 reference monthly% / maxDD% / trades | Δ monthly                 | Δ maxDD        |
+| ------ | ----------------------------------- | --------------------------------------------- | ------------------------- | -------------- |
+| BTC    | +26.6556% / 4.3935% / 11043         | +26.6710% / 4.3935% / 11043                   | **−0.015 pp** (sub-noise) | byte-identical |
+| ETH    | +32.1257% / 3.3298% / 9977          | +32.1406% / 3.3298% / 9977                    | **−0.015 pp** (sub-noise) | byte-identical |
+| SOL    | +37.8872% / 4.6959% / 10576         | +37.9096% / 4.6959% / 10576                   | **−0.022 pp** (sub-noise) | byte-identical |
 
 Phase 20 baseline portfolio avg = **+32.2228%**. Phase 19 baseline portfolio avg = **+32.2416%**. Δ = **−0.019 pp**, well within the engine determinism tolerance (≈ 0.02 pp is the typical data-reload rounding drift at this granularity — the 30.17-month period, 11043-trade BTC scale).
 
 ### §3.3 HybridKelly-on vs baseline (same cap/symbol, by pair)
 
-| Cell (cap × symbol) | Baseline monthly% | HK monthly% | Δ (HK − baseline) |
-|---------------------|-------------------|-------------|-------------------|
-| 0.08 × BTC | (Phase 19) +20.3572% | +20.3481% | **−0.0091 pp** |
-| 0.08 × ETH | (Phase 19) +25.8465% | +25.8365% | **−0.0100 pp** |
-| 0.08 × SOL | (Phase 19) +30.5106% | +30.5101% | **−0.0005 pp** |
-| 0.12 × BTC | (this PR baseline) +26.6556% | +26.6560% | **+0.0004 pp** |
-| 0.12 × ETH | (this PR baseline) +32.1257% | +32.1260% | **+0.0003 pp** |
-| 0.12 × SOL | (this PR baseline) +37.8872% | +37.8875% | **+0.0003 pp** |
-| 0.15 × BTC | (Phase 19) +30.2766% | +30.2660% | **−0.0106 pp** |
-| 0.15 × ETH | (Phase 19) +35.0950% | +35.0832% | **−0.0118 pp** |
-| 0.15 × SOL | (Phase 19) +41.7279% | +41.7279% | **0.0000 pp** |
+| Cell (cap × symbol) | Baseline monthly%            | HK monthly% | Δ (HK − baseline) |
+| ------------------- | ---------------------------- | ----------- | ----------------- |
+| 0.08 × BTC          | (Phase 19) +20.3572%         | +20.3481%   | **−0.0091 pp**    |
+| 0.08 × ETH          | (Phase 19) +25.8465%         | +25.8365%   | **−0.0100 pp**    |
+| 0.08 × SOL          | (Phase 19) +30.5106%         | +30.5101%   | **−0.0005 pp**    |
+| 0.12 × BTC          | (this PR baseline) +26.6556% | +26.6560%   | **+0.0004 pp**    |
+| 0.12 × ETH          | (this PR baseline) +32.1257% | +32.1260%   | **+0.0003 pp**    |
+| 0.12 × SOL          | (this PR baseline) +37.8872% | +37.8875%   | **+0.0003 pp**    |
+| 0.15 × BTC          | (Phase 19) +30.2766%         | +30.2660%   | **−0.0106 pp**    |
+| 0.15 × ETH          | (Phase 19) +35.0950%         | +35.0832%   | **−0.0118 pp**    |
+| 0.15 × SOL          | (Phase 19) +41.7279%         | +41.7279%   | **0.0000 pp**     |
 
 All 9 cells drift **< 0.015 pp** on monthly return, and all 9 cells are **byte-identical to their no-Kelly counterpart on maxDrawdown, totalTrades, sharpeRatio, winRate, and killSwitchTriggered**. The drift direction has no consistent sign (5 negative, 3 positive, 1 zero), consistent with numerical noise rather than a systematic kelly-engagement effect.
 
 ### §3.4 DD budget check
 
-| Metric | Value | Spec | Verdict |
-|--------|------:|-----:|---------|
-| maxDrawdown across all 9 HybridKelly cells (worst = SOL cap=0.15) | 5.845% | ≤ 6.5% safe | **PASS** (10.1% safety margin) |
-| Total trades (BTC/ETH/SOL) | 11043 / 9977 / 10576 | ≤ 12500 per symbol | **PASS** |
+| Metric                                                            |                Value |               Spec | Verdict                        |
+| ----------------------------------------------------------------- | -------------------: | -----------------: | ------------------------------ |
+| maxDrawdown across all 9 HybridKelly cells (worst = SOL cap=0.15) |               5.845% |        ≤ 6.5% safe | **PASS** (10.1% safety margin) |
+| Total trades (BTC/ETH/SOL)                                        | 11043 / 9977 / 10576 | ≤ 12500 per symbol | **PASS**                       |
 
 ### §3.5 1:10 leverage audit
 
 For each HybridKelly cell, `kellyFraction × maxPositionPctEquity × leverage / equity ≤ 0.10`:
 
-| Cell | Compute | Effective notional / equity | Verdict |
-|------|---------|------------------------------|---------|
-| BTC cap=0.08 | 0.5 × 0.08 × 10 = 0.40 | 0.40 × $10k = $4000 | < 1:10 cap ($100k) ✓ |
-| BTC cap=0.12 | 0.5 × 0.12 × 10 = 0.60 | 0.60 × $10k = $6000 | < 1:10 cap ✓ |
-| BTC cap=0.15 | 0.5 × 0.15 × 10 = 0.75 | 0.75 × $10k = $7500 | < 1:10 cap ✓ |
-| (per-cap same for ETH/SOL) | | | ✓ |
+| Cell                       | Compute                | Effective notional / equity | Verdict              |
+| -------------------------- | ---------------------- | --------------------------- | -------------------- |
+| BTC cap=0.08               | 0.5 × 0.08 × 10 = 0.40 | 0.40 × $10k = $4000         | < 1:10 cap ($100k) ✓ |
+| BTC cap=0.12               | 0.5 × 0.12 × 10 = 0.60 | 0.60 × $10k = $6000         | < 1:10 cap ✓         |
+| BTC cap=0.15               | 0.5 × 0.15 × 10 = 0.75 | 0.75 × $10k = $7500         | < 1:10 cap ✓         |
+| (per-cap same for ETH/SOL) |                        |                             | ✓                    |
 
 Even at hybridKellyCap=1.0 worst case, effective notional = `1.0 × 0.15 × 10 = 1.5` × $10k = $15000 < $100k 1:10 cap. **All 9 PASS.**
 
@@ -150,9 +150,9 @@ Either approach is non-trivial (each requires threading `historyProvider` and `h
 
 ## §5 What this means for the +50%/mo roadmap
 
-| Phase 19 #1 envelope | Δ from +50%/mo target | Sources |
-|----------------------|-----------------------:|---------|
-| +32.24%/mo portfolio avg (1-of-2 cap=0.12) | **1.55× short** | `docs/research/REPORT-phase19.md` §3.2 |
+| Phase 19 #1 envelope                       | Δ from +50%/mo target | Sources                                |
+| ------------------------------------------ | --------------------: | -------------------------------------- |
+| +32.24%/mo portfolio avg (1-of-2 cap=0.12) |       **1.55× short** | `docs/research/REPORT-phase19.md` §3.2 |
 
 ### §5.1 Phase 20 #1 outcome
 
@@ -166,11 +166,11 @@ Either approach is non-trivial (each requires threading `historyProvider` and `h
 
 The Phase 19 §7 priority list still holds minus Phase 20 #1 (deferred until runner refactor ships):
 
-| # | Candidate | Expected envelope lift | Risk | Effort |
-|---|-----------|-----------------------:|------|--------|
-| **20 #1 (carry forward)** | SCv1-throughout runner for CLI | unblocks empirical measurement of per-trade Kelly | low (Track B wire-up already exists) | small (~1 day refactor) |
-| **21 #1** ★ | **Regime-conditioned cap** | **+3-5%/mo** via per-regime cap (2-of-2 @ 0.08 in kill-switch, 1-of-2 @ 0.12 normal) | low (regime router already in Phase 18A) | small |
-| **21 #2** | Funding-rate carry leg | **+2%/mo** at low DD (Asian session microstructure already validated by Phase 14E Agent 03) | medium (WS feed + carry plugin + perp-Funding methodology) | medium |
+| #                         | Candidate                      |                                                                      Expected envelope lift | Risk                                                       | Effort                  |
+| ------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------: | ---------------------------------------------------------- | ----------------------- |
+| **20 #1 (carry forward)** | SCv1-throughout runner for CLI |                                           unblocks empirical measurement of per-trade Kelly | low (Track B wire-up already exists)                       | small (~1 day refactor) |
+| **21 #1** ★               | **Regime-conditioned cap**     |        **+3-5%/mo** via per-regime cap (2-of-2 @ 0.08 in kill-switch, 1-of-2 @ 0.12 normal) | low (regime router already in Phase 18A)                   | small                   |
+| **21 #2**                 | Funding-rate carry leg         | **+2%/mo** at low DD (Asian session microstructure already validated by Phase 14E Agent 03) | medium (WS feed + carry plugin + perp-Funding methodology) | medium                  |
 
 Realistic next-quartile envelope: +32.24% → +37–40%/mo portfolio avg (Phase 21 #1 + Phase 21 #2 combined). The +50%/mo target (1.04–1.16× short at +43–48%/mo) **moves into range but does not close the gap** with the current lever set.
 
@@ -229,15 +229,16 @@ All 12 backtests share `totalMonths ≈ 30.17` (consistent with Phase 19's 30-mo
 
 ## Appendix B — Quality gates (verified pre-commit)
 
-| Gate | Result | Detail |
-|------|--------|--------|
-| `bun run typecheck` | **13/13 PASS** | Turbo cache hit (no new TypeScript source files in this PR; Track A + Track B source is already merged to main) |
-| `bun run lint` | **0 errors** | 265 pre-existing warnings (none new in this PR; 180 baseline + 85 from Track A module already on main) |
-| `bun test` (cached) | **PASS** | 2429 core / 139 backtest / 131 exchange / 10 backtest-tools (24 force re-run hangs at ~3min, use the cached read) |
-| Module 1:10 audit | **PASS** | `effectiveNotionalUsd ≤ 100k` for `hybridKellyCap=1.0` worst-case (Track A unit test) |
-| Module 100% line coverage | **PASS** | lcov.info direct read LF:123 == LH:123 (Track A verifier) |
+| Gate                      | Result         | Detail                                                                                                            |
+| ------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `bun run typecheck`       | **13/13 PASS** | Turbo cache hit (no new TypeScript source files in this PR; Track A + Track B source is already merged to main)   |
+| `bun run lint`            | **0 errors**   | 265 pre-existing warnings (none new in this PR; 180 baseline + 85 from Track A module already on main)            |
+| `bun test` (cached)       | **PASS**       | 2429 core / 139 backtest / 131 exchange / 10 backtest-tools (24 force re-run hangs at ~3min, use the cached read) |
+| Module 1:10 audit         | **PASS**       | `effectiveNotionalUsd ≤ 100k` for `hybridKellyCap=1.0` worst-case (Track A unit test)                             |
+| Module 100% line coverage | **PASS**       | lcov.info direct read LF:123 == LH:123 (Track A verifier)                                                         |
 
 Memory invariants verified:
+
 - 1:10 leverage — PASS (see §3.5)
 - No `eslint-disable` lines — confirmed by `grep -r "eslint-disable" backtest-results/` returning zero matches in PR-added files
 - No docstring lies — `applyHybridKelly()` docstring matches behavior (Track A verifier direct read)
@@ -247,14 +248,14 @@ Memory invariants verified:
 
 Every claim in §3 cites a specific JSON file:
 
-| Section | Claim | Source |
-|---------|-------|--------|
-| §3.1 row BTC cap=0.08 | +20.35% / 2.95% / 11043 / 31.83 / KS=N | `backtest-results/phase20-hybrid-kelly-1of2-btc-15m-0.08.json` (`result.monthlyReturn`, `result.maxDrawdown`, `result.totalTrades`, `result.sharpeRatio`, `result.killSwitchTriggered`) |
-| (9 cells, 27 numeric citations, 3 caps × 3 symbols) | | analogous path per cell |
-| §3.2 BTC baseline | +26.6556% / 4.3935% / 11043 | `backtest-results/phase20-baseline-1of2-btc-15m-0.12.json` |
-| §3.3 drift table | +0.0004 pp (BTC 0.12 HK − baseline) | arithmetic, both cells from §3.1 + §3.2 |
-| §3.4 DD check | 5.845% max | computed across 9 cells in §3.1 (max = SOL cap=0.15) |
-| §3.5 1:10 audit | $4000 effective at cap=0.08 | `effectiveNotionalUsd = kellyFraction × cap × 10 × equity` per Track A unit test (LINE-NUM 87-104 of `signal-center-v1.test.ts`) |
+| Section                                             | Claim                                  | Source                                                                                                                                                                                  |
+| --------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §3.1 row BTC cap=0.08                               | +20.35% / 2.95% / 11043 / 31.83 / KS=N | `backtest-results/phase20-hybrid-kelly-1of2-btc-15m-0.08.json` (`result.monthlyReturn`, `result.maxDrawdown`, `result.totalTrades`, `result.sharpeRatio`, `result.killSwitchTriggered`) |
+| (9 cells, 27 numeric citations, 3 caps × 3 symbols) |                                        | analogous path per cell                                                                                                                                                                 |
+| §3.2 BTC baseline                                   | +26.6556% / 4.3935% / 11043            | `backtest-results/phase20-baseline-1of2-btc-15m-0.12.json`                                                                                                                              |
+| §3.3 drift table                                    | +0.0004 pp (BTC 0.12 HK − baseline)    | arithmetic, both cells from §3.1 + §3.2                                                                                                                                                 |
+| §3.4 DD check                                       | 5.845% max                             | computed across 9 cells in §3.1 (max = SOL cap=0.15)                                                                                                                                    |
+| §3.5 1:10 audit                                     | $4000 effective at cap=0.08            | `effectiveNotionalUsd = kellyFraction × cap × 10 × equity` per Track A unit test (LINE-NUM 87-104 of `signal-center-v1.test.ts`)                                                        |
 
 ## Appendix D — Module + SCv1 wire-up details
 
@@ -265,6 +266,7 @@ Every claim in §3 cites a specific JSON file:
 **Commit:** `b4e835c` on `feat/phase20-a-hybrid-kelly-module` (after the eslint-disable removal fix; attempt 1 had 2 preemptive eslint-disable comments that violated the brief; producer caught this on attempt 2).
 
 **Files:**
+
 - `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.ts` (488 LOC, 178 code lines)
 - `packages/core/src/signal-center/sizing/per-trade-hybrid-kelly.test.ts` (614 LOC, 40 tests)
 - `packages/core/src/signal-center/sizing/index.ts` (re-exports `PerTradeHybridKelly*` aliases to avoid TS2300 collision with the Phase 11.1e `HybridKellyConfig`)
@@ -276,6 +278,7 @@ Every claim in §3 cites a specific JSON file:
 **Commit:** `2280790` on `feat/phase20-b-wire-and-flag` (verifier PASS at attempt 1).
 
 **Files modified:**
+
 - `packages/core/src/signal-center/signal-center-v1.ts` (+135/-7) — 3 config fields, `ingestSignal()` gating call, constructor warn, docstrings
 - `packages/core/src/signal-center/signal-center-v1.test.ts` (+320) — 8 new tests
 - `packages/backtest-tools/src/cli/run-donchian-pivot-composition.ts` (+97) — 3 new CLI flags + parsing + validation + one-shot runtime notice

@@ -1,6 +1,7 @@
 # Producer Log — Track D (onchain-bridge-flow)
 
 ## Run Metadata
+
 - **Producer:** onchain-bridge-flow
 - **Branch:** `phase11-5-research-fleet`
 - **Started:** 2026-07-05
@@ -9,6 +10,7 @@
 - **CWD ephemerality note:** The env-stated working directory `/Users/kiscsicska/projects/mm-crypto-bot/.worktrees/wt-9d6d823b` did not exist on the filesystem; the actual repo root is `/Users/kiscsicska/projects/mm-crypto-bot` and the task was executed against it.
 
 ## Workflow
+
 1. Verified the workspace layout (`docs/research/`, branch state — main, branch-out into `phase11-5-research-fleet`).
 2. Created target directory `docs/research/phase11-5-research-fleet/onchain-bridge-flow/`.
 3. Issued **20 web_search queries** in parallel batches (≥15 mandated). All in English — searched Russian-language crypto material as well via `Russian crypto Telegram channel whale analysis on-chain signal Bitkogan TradingFlow` (most results were Telegram channel catalogs; Russian-language trading Telegram alpha dissemination is fragmented and low-signal compared to Chinese KOL equivalents covered via @lookonchain, Wu Blockchain, 吴说, 币界网, etc.).
@@ -19,6 +21,7 @@
 8. Companion `producer-log.md` (this file).
 
 ## Coverage Notes
+
 - **≥2 sources per empirical claim:** Achieved for all major claims:
   - Justin Sun TRX price impact (Cointelegraph + 528btc + 帮企客)
   - CZ Binance 127K BTC transfer (Cointelegraph + Reddit thread + Cryptonomist)
@@ -63,11 +66,13 @@
 20. `smart money copy trading wallet leaderboard Lookonchain profitable track record profitability`
 
 ## Open Items for Follow-up
+
 - The Russian Telegram angle is the weakest seam; if Track E or another track wants to specialize in Russian-language Telegram mining, treat that as a separate producer.
 - No Solidity/Vyper contract-level pre-empt evidence beyond what Hyperliquid/ether.fi narratives show — to harden P5 plugin decision, would want a systematic study of friend.tech / ether.fi / Hyperliquid wallet-cohort distributions before/after TGE with Nansen or Arkham backtest.
 - Plugin backtests for P1/P2/P4 not run — that's Phase 12 work, not Phase 11.5 research fleet.
 
 ## Output Files
+
 - `REPORT.md` (this directory)
 - `producer-log.md` (this file)
 - `data-feeds.md` (this directory)

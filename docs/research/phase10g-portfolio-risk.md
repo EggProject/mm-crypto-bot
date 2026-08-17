@@ -22,15 +22,16 @@ Track B builds the platform's observability + cross-strategy risk layer. The 1:1
 
 Effective 2026-07-04 14:17 (user directive), all mm-crypto-bot trades use EXACTLY 1:10 leverage (10× notional on 1× capital, 9× borrowed from bybit.eu SPOT margin). Phase 10G Track B adds the **3rd defense-in-depth layer**:
 
-| Layer | Where | What it rejects |
-|------:|-------|-----------------|
-| 1 | CLI parser (`parseAndValidateLeverage` in `run-portfolio-risk.ts`, `run-multi-class-baseline-v4.ts`) | Refuses `--leverage=N` for N ≠ 1 or 10 before any work runs |
-| 2 | Strategy constructor (`assert1to10Leverage` in `funding-carry-leverage.ts`, `validateTimingLeverage` in `funding-carry-timing.ts`) | Refuses to construct an invalid strategy instance |
-| 3 | **`PortfolioRiskEngine.leverageInvariantGuard` (Track B)** | Re-verifies that the **aggregate** of all in-flight SizingSignals stays within 10× of base capital — catches the case where N strategies each report a sub-mandate leverage that SUMMED exceeds the mandate |
+| Layer | Where                                                                                                                              | What it rejects                                                                                                                                                                                             |
+| ----: | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|     1 | CLI parser (`parseAndValidateLeverage` in `run-portfolio-risk.ts`, `run-multi-class-baseline-v4.ts`)                               | Refuses `--leverage=N` for N ≠ 1 or 10 before any work runs                                                                                                                                                 |
+|     2 | Strategy constructor (`assert1to10Leverage` in `funding-carry-leverage.ts`, `validateTimingLeverage` in `funding-carry-timing.ts`) | Refuses to construct an invalid strategy instance                                                                                                                                                           |
+|     3 | **`PortfolioRiskEngine.leverageInvariantGuard` (Track B)**                                                                         | Re-verifies that the **aggregate** of all in-flight SizingSignals stays within 10× of base capital — catches the case where N strategies each report a sub-mandate leverage that SUMMED exceeds the mandate |
 
 This 3-layer pattern is documented in the agent's memory ("Engineering discipline — 3-layer HARD GUARDRAIL pattern"). The empirical verification that the 3rd layer fires on a synthetic 11× aggregate signal is in §4 below.
 
 Sources:
+
 1. bybit.eu SPOT margin FAQ — "Spot Margin Trading supports up to 10x leverage". https://www.bybit.com/en/help-center/article/FAQ-Spot-Margin-Trading
 2. bybit.eu PRNewswire Aug 2025 launch — "borrow additional funds to execute a €1,000 trade using 10× leverage". IMR formula `IMR for borrowed assets = 1 ÷ Selected Leverage` = 90% IMR at 10×. https://www.prnewswire.com/news-releases/bybit-eu-empowers-european-traders-with-spot-margin-up-to-10x-leverage-full-transparency-and-built-in-risk-controls-302532221.html
 3. HKMA (Hong Kong Monetary Authority) "Sound risk management practices for algorithmic trading" (Mar 2020) — pre-trade risk controls must include "limits on maximum order value or volume to prevent uncommonly large orders from entering the order book". https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20200306-4-EN/20200306-4-EN.pdf
@@ -92,14 +93,15 @@ In the V4 architecture, the directional side and the carry side share the SAME 1
 
 ### §3.1 — Headline numbers
 
-| Symbol | Monthly return | Max DD | Portfolio VaR 95% daily | Aggregate leverage | Num breaches (1:10) | Correlation matrix |
-|--------|---------------:|-------:|------------------------:|-------------------:|--------------------:|:------------------:|
-| BTC/USDT | **+5.32%** | 5.51% | 0.24% ($24/day on $10k) | **9×** | **0** | null (1 return source) |
-| ETH/USDT | **+5.61%** | 2.45% | 0.26% ($26/day on $10k) | **5×** | **0** | null (1 return source) |
-| SOL/USDT | **+3.92%** | 2.49% | 0.17% ($17/day on $10k) | **5×** | **0** | null (1 return source) |
-| **AVG** | **+4.95%** | 3.48% | 0.22% | — | **0** | — |
+| Symbol   | Monthly return | Max DD | Portfolio VaR 95% daily | Aggregate leverage | Num breaches (1:10) |   Correlation matrix   |
+| -------- | -------------: | -----: | ----------------------: | -----------------: | ------------------: | :--------------------: |
+| BTC/USDT |     **+5.32%** |  5.51% | 0.24% ($24/day on $10k) |             **9×** |               **0** | null (1 return source) |
+| ETH/USDT |     **+5.61%** |  2.45% | 0.26% ($26/day on $10k) |             **5×** |               **0** | null (1 return source) |
+| SOL/USDT |     **+3.92%** |  2.49% | 0.17% ($17/day on $10k) |             **5×** |               **0** | null (1 return source) |
+| **AVG**  |     **+4.95%** |  3.48% |                   0.22% |                  — |               **0** |           —            |
 
 Baseline files:
+
 - `backtest-results/baseline-portfolio-risk-btc-1d.json`
 - `backtest-results/baseline-portfolio-risk-eth-1d.json`
 - `backtest-results/baseline-portfolio-risk-sol-1d.json`
@@ -108,11 +110,11 @@ CLI: `bun run packages/backtest-tools/src/cli/run-portfolio-risk.ts --symbol=BTC
 
 ### §3.2 — Cross-strategy risk vs per-strategy risk (V4 reference)
 
-| Symbol | V4 monthly | V4 DD | **Track B monthly** | **Track B DD** | **Track B portfolio VaR** |
-|--------|-----------:|------:|--------------------:|---------------:|--------------------------:|
-| BTC/USDT | +5.32% | 5.51% | +5.32% | 5.51% | 0.24% |
-| ETH/USDT | +5.61% | 2.45% | +5.61% | 2.45% | 0.26% |
-| SOL/USDT | +3.92% | 2.49% | +3.92% | 2.49% | 0.17% |
+| Symbol   | V4 monthly | V4 DD | **Track B monthly** | **Track B DD** | **Track B portfolio VaR** |
+| -------- | ---------: | ----: | ------------------: | -------------: | ------------------------: |
+| BTC/USDT |     +5.32% | 5.51% |              +5.32% |          5.51% |                     0.24% |
+| ETH/USDT |     +5.61% | 2.45% |              +5.61% |          2.45% |                     0.26% |
+| SOL/USDT |     +3.92% | 2.49% |              +3.92% |          2.49% |                     0.17% |
 
 V4 reference: `backtest-results/baseline-multi-class-v4-{btc,eth,sol}-1d.json`
 
@@ -126,24 +128,25 @@ The Track B backtest reproduces V4 numbers EXACTLY because the wrapper strategy 
 
 For BTC:
 
-| Strategy | Trade count | Total PnL | Win rate | Sharpe | Max DD | Disabled |
-|----------|------------:|----------:|---------:|-------:|-------:|:--------:|
-| donchian-mtf | 151 | -$346.90 | 41.7% | -0.111 | 267.9% | false |
-| funding-carry | 1 (cumulative) | $16,292.79 | 100% | n/a | 0% | false |
+| Strategy      |    Trade count |  Total PnL | Win rate | Sharpe | Max DD | Disabled |
+| ------------- | -------------: | ---------: | -------: | -----: | -----: | :------: |
+| donchian-mtf  |            151 |   -$346.90 |    41.7% | -0.111 | 267.9% |  false   |
+| funding-carry | 1 (cumulative) | $16,292.79 |     100% |    n/a |     0% |  false   |
 
 The attribution table confirms Phase 9 V4's empirical finding: **directional Donchian-MTF is approximately flat-to-negative on BTC over 30 months**, while funding carry is the dominant alpha. This is exactly the structural ceiling Phase 9 V4 identified — carry income is bounded by 8h funding-rate × notional, not by signal alpha. The Track B attribution makes this VISIBLE per-strategy, enabling Phase 10G.2+ drop-in plugins (DonchianMTF with regime filter, FundingTiming with better entry signals) to compete for the directional slot.
 
 ### §3.4 — Exposure concentration
 
-| Symbol | Notional (USD) | % of total | Over 40% threshold? |
-|--------|---------------:|-----------:|:-------------------:|
-| BTC/USDT | $90,000 | 100% | **YES** |
-| ETH/USDT | $50,000 | 100% | **YES** |
-| SOL/USDT | $50,000 | 100% | **YES** |
+| Symbol   | Notional (USD) | % of total | Over 40% threshold? |
+| -------- | -------------: | ---------: | :-----------------: |
+| BTC/USDT |        $90,000 |       100% |       **YES**       |
+| ETH/USDT |        $50,000 |       100% |       **YES**       |
+| SOL/USDT |        $50,000 |       100% |       **YES**       |
 
 The 40% per-symbol threshold is the practitioner-conservative end (Cursa recommends 10-25% for "core" assets in a multi-asset portfolio). The Track B backtests trigger the threshold for each single-symbol backtest, which is expected — these are SINGLE-ASSET runs. When Phase 10G composes multiple symbols (BTC + ETH + SOL in one portfolio), the 40% cap becomes meaningful.
 
 Sources:
+
 1. Cursa "Risk management for crypto investing" — "Core asset cap: 10%–25% maximum in any single asset". https://cursa.app/en/page/risk-management-for-crypto-investing-position-sizing-diversification-and-exit-rules
 2. Bitcompare diversification guide — "Maximum Correlation Rules: High correlation pairs (>0.7): Limit combined exposure to 25%". https://community.bitcompare.net/dean/diversification-strategies-in-crypto-a-comprehensive-guide-3dif
 
@@ -160,6 +163,7 @@ Per the brief, the empirical report MUST include a synthetic test that proves th
 ```
 
 The synthetic test:
+
 1. Creates a fresh `PortfolioRiskEngine`
 2. Submits `SizingSignal { source: 'synthetic-A', effectiveNotionalUsd: 60_000, leverage: 6 }`
 3. Submits `SizingSignal { source: 'synthetic-B', effectiveNotionalUsd: 60_000, leverage: 6 }`
@@ -170,6 +174,7 @@ The synthetic test:
 This is the canonical 3rd-defense-in-depth scenario: **per-strategy validators pass, but the composition breaches the mandate**. All 3 baseline runs confirm `syntheticBreachTestFired: true`.
 
 Sources:
+
 1. OpenAlgo "Kill Switches, Risk Controls and Algo Surveillance" — "the gate is deliberately dumb, independent of the signal, and easy to reason about, because it is the thing standing between a bug and a blown account". https://openalgo.in/quant/kill-switches-risk-controls
 2. Memory rule "Engineering discipline — 3-layer HARD GUARDRAIL pattern" — the canonical 3-layer enforcement pattern.
 
@@ -177,15 +182,16 @@ Sources:
 
 The `StrategyTelemetry` module implements per-plugin kill-switches following the FIA / HKMA / OpenAlgo practitioner consensus:
 
-| Property | Implementation |
-|----------|----------------|
+| Property                  | Implementation                                                                                                 |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | **Independent of signal** | `submitSignal()` checks `disabledPlugins.has(source)` BEFORE recording — disabled plugins' signals are dropped |
-| **Latching** | Once disabled, the plugin stays disabled until `enablePlugin(source)` is called manually. No auto-reset. |
-| **Observable** | Every disable/enable is logged in `killSwitchHistory` with timestamp + reason |
-| **Granular** | Per-plugin (not all-or-nothing). Each strategy can be disabled independently. |
-| **Approach warning** | `checkLeverageApproach` returns true when aggregate reaches 95% of cap → early warning before hard breach |
+| **Latching**              | Once disabled, the plugin stays disabled until `enablePlugin(source)` is called manually. No auto-reset.       |
+| **Observable**            | Every disable/enable is logged in `killSwitchHistory` with timestamp + reason                                  |
+| **Granular**              | Per-plugin (not all-or-nothing). Each strategy can be disabled independently.                                  |
+| **Approach warning**      | `checkLeverageApproach` returns true when aggregate reaches 95% of cap → early warning before hard breach      |
 
 For the baseline runs, `killSwitchInvocations: []` (zero) — the V4 ensemble never breached enough to trigger a kill-switch. The architecture is verified by 6 dedicated tests in `strategy-telemetry.test.ts`:
+
 - `disablePlugin → subsequent submitSignal drops the signal`
 - `kill-switch latches — disable persists until enablePlugin`
 - `enablePlugin on already-enabled plugin is a no-op`
@@ -194,6 +200,7 @@ For the baseline runs, `killSwitchInvocations: []` (zero) — the V4 ensemble ne
 - `disabled plugins list reflects current state`
 
 Sources:
+
 1. FIA "Best Practices For Automated Trading Risk Controls And System Safeguards" (Jul 2024) — "Market participants are encouraged to build their own kill switch functionality into their trading applications, and where possible to implement it on a sufficiently granular level to identify individual trading systems". https://www.fia.org/sites/default/files/2024-07/FIA_WP_AUTOMATED%20TRADING%20RISK%20CONTROLS_FINAL_0.pdf
 2. HKMA "Sound risk management practices for algorithmic trading" (Mar 2020) — "AIs should put in place a proper kill functionality as an emergency measure to suspend the use of an algorithm and cancel part or all of the unexecuted orders immediately in case of need". https://brdr.hkma.gov.hk/eng/doc-ldg/docId/getPdf/20200306-4-EN/20200306-4-EN.pdf
 3. OpenAlgo "Kill Switches, Risk Controls and Algo Surveillance" — "the single most important property of a real kill switch is that it latches. Once tripped, it stays tripped until a human deliberately resets it". https://openalgo.in/quant/kill-switches-risk-controls
@@ -224,6 +231,7 @@ expect(computeEffectiveLeverage(hedged, 10_000)).toBe(10); // gross exposure, no
 For VaR diversification (different from leverage): with two uncorrelated return series each at σ=0.02 daily, the portfolio VaR (at confidence 95%) is `σ_portfolio × z = √(0.5² + 0.5²) × 0.02 × 1.645 ≈ 0.0233` per day, vs the sum-of-strategies VaR of `2 × 0.02 × 1.645 = 0.0658`. That's a **65% reduction** in VaR from diversification alone.
 
 Sources:
+
 1. IOSR Journal of Economics and Finance — "Diversified VaR of the portfolio will be lesser than the sum of the Individual VaR". Subadditivity is a foundational property. https://www.iosrjournals.org/iosr-jef/papers/icsc/volume-2/16.pdf
 2. Vine copula portfolio VaR (PDFs.semanticscholar) — "the aggregate VaR forecast has not only lower value but also higher accuracy than the simple sum of individual VaR forecasts". https://pdfs.semanticscholar.org/75e7/c9a9e3b241159306977963d606838139f752.pdf
 3. arXiv 2412.02654 "Simple and Effective Portfolio Construction with Crypto Assets" — iterated EWMA correlation matrix for time-varying crypto correlation. https://arxiv.org/html/2412.02654v1
@@ -233,16 +241,17 @@ The Track B backtests cannot empirically demonstrate the VaR diversification ben
 
 ## §7 — Code structure & coverage
 
-| File | LOC | Tests | Function cov | Line cov |
-|------|----:|------:|-------------:|---------:|
-| `risk/leverage-invariant.ts` | 344 | 42 | **100.00%** | **100.00%** |
-| `risk/portfolio-risk-engine.ts` | 935 | 47 | **96.00%** | **99.74%** |
-| `telemetry/strategy-telemetry.ts` | 663 | 28 | **96.88%** | **98.95%** |
-| `backtest-tools/cli/run-portfolio-risk.ts` | 760 | (CLI) | n/a | n/a |
+| File                                       | LOC | Tests | Function cov |    Line cov |
+| ------------------------------------------ | --: | ----: | -----------: | ----------: |
+| `risk/leverage-invariant.ts`               | 344 |    42 |  **100.00%** | **100.00%** |
+| `risk/portfolio-risk-engine.ts`            | 935 |    47 |   **96.00%** |  **99.74%** |
+| `telemetry/strategy-telemetry.ts`          | 663 |    28 |   **96.88%** |  **98.95%** |
+| `backtest-tools/cli/run-portfolio-risk.ts` | 760 | (CLI) |          n/a |         n/a |
 
 All 117 new unit tests pass. Total package `bun test` after Track B: **801/801 passing** (was 684 before, +117 new).
 
 Quality gates (all green):
+
 - `bun install --frozen-lockfile` ✓
 - `bun run typecheck` ✓ (core + backtest + backtest-tools all pass)
 - `bun run lint` ✓ (0 errors; 138 pre-existing security warnings on Map/Set ops are project-wide patterns, not introduced by Track B)
@@ -253,14 +262,14 @@ Quality gates (all green):
 
 Per the user's research preferences (memory: "Decision autonomy: agent ranks candidates, user does NOT pick"), Track B made the following parameter choices independently, grounded in literature:
 
-| Knob | Track B choice | Rationale | Sources |
-|------|---------------|-----------|---------|
-| VaR confidence | **0.95** | Phase 7 Track C + Phase 8 Track D hard requirement; standard practitioner convention | Phase 7/8 backtest reports |
-| Correlation window | **30d** | Moreira-Muir monthly; usekeel.io "20-day crypto"; arXiv 2412.02654 EWMA λ=0.94 ≈ 30d effective | Multiple academic + practitioner |
-| Concentration threshold | **40% per symbol** | Conservative end of Cursa 10-25% core-asset cap for single-symbol backtests; meaningful for multi-symbol composition | Cursa, Bitcompare |
-| Max aggregate DD | **20%** | Standard practitioner "circuit-breaker" threshold | HKMA, FIA practitioner consensus |
-| Sharpe window (telemetry) | **30d** | Matches Phase 7 Track B Adaptive Kelly + PortfolioRiskEngine convention | Phase 7 Track B |
-| minTradeCount (telemetry) | **5** | Below this, per-strategy stats are too noisy; matches Phase 7 Track B `minTradeCount: 30` for full Kelly but lower for diagnostics | Phase 7 Track B |
+| Knob                      | Track B choice     | Rationale                                                                                                                          | Sources                          |
+| ------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| VaR confidence            | **0.95**           | Phase 7 Track C + Phase 8 Track D hard requirement; standard practitioner convention                                               | Phase 7/8 backtest reports       |
+| Correlation window        | **30d**            | Moreira-Muir monthly; usekeel.io "20-day crypto"; arXiv 2412.02654 EWMA λ=0.94 ≈ 30d effective                                     | Multiple academic + practitioner |
+| Concentration threshold   | **40% per symbol** | Conservative end of Cursa 10-25% core-asset cap for single-symbol backtests; meaningful for multi-symbol composition               | Cursa, Bitcompare                |
+| Max aggregate DD          | **20%**            | Standard practitioner "circuit-breaker" threshold                                                                                  | HKMA, FIA practitioner consensus |
+| Sharpe window (telemetry) | **30d**            | Matches Phase 7 Track B Adaptive Kelly + PortfolioRiskEngine convention                                                            | Phase 7 Track B                  |
+| minTradeCount (telemetry) | **5**              | Below this, per-strategy stats are too noisy; matches Phase 7 Track B `minTradeCount: 30` for full Kelly but lower for diagnostics | Phase 7 Track B                  |
 
 ## §9 — Deployment readiness
 
@@ -277,6 +286,7 @@ Track B is **ready for Phase 10G.2+ drop-in plugin composition**. The infrastruc
 5. **Position-size conflict resolver** — When 2+ signals claim the same symbol, the conservative (min-notional) wins. Tested explicitly.
 
 What's NOT ready:
+
 - **SignalBus integration** — Track A's bus isn't shipped yet. Track B's `submitSignal()` is the drop-in replacement. When Track A ships, the wiring is `bus.on('signal:*', (s) => riskEngine.submitSignal(s))`.
 - **Cross-strategy correlation matrix populated** — Requires aligning directional + carry return streams to the same time grid (currently they're at irregular timestamps vs 8h snapshots). Trivial refactor in Phase 10G.2+.
 - **Live-mode performance** — Current implementation is synchronous and designed for backtest mode. Live-mode would need async batching and rate-limit handling (out of scope for Phase 10G.1).
@@ -315,8 +325,8 @@ const fundingTiming = new FundingTimingPlugin(config);
 const volTargeted = new VolTargetedPlugin(config);
 
 // Bus routes signals to risk + telemetry.
-bus.on('signal:sizing', (s) => riskEngine.submitSignal(s));
-bus.on('signal:sizing', (s) => telemetry.submitSignal(s));
+bus.on("signal:sizing", (s) => riskEngine.submitSignal(s));
+bus.on("signal:sizing", (s) => telemetry.submitSignal(s));
 
 // Real-time monitoring
 setInterval(() => {

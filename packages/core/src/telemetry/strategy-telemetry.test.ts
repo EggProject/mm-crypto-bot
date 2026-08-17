@@ -400,9 +400,9 @@ describe("StrategyTelemetry — edge cases", () => {
   });
 
   test("invalid config: non-integer minTradeCount → throws", () => {
-    expect(
-      () => new StrategyTelemetry({ ...DEFAULT_STRATEGY_TELEMETRY_CONFIG, minTradeCount: 1.5 }),
-    ).toThrow(/minTradeCount/);
+    expect(() => new StrategyTelemetry({ ...DEFAULT_STRATEGY_TELEMETRY_CONFIG, minTradeCount: 1.5 })).toThrow(
+      /minTradeCount/,
+    );
   });
 });
 

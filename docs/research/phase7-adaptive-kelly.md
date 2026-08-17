@@ -5,7 +5,7 @@
 > **Worktree:** `.worktrees/wt-phase7-track-b` (branch `feat/phase7-track-b-adaptive-kelly`)
 > **Brief:** `docs/research/phase7-strategy-brief.md` §1.2 (M1.2 Track B spec)
 > **Phase 6 reference:** `REPORT-phase6.md` §4.2-4.5 (Track C Kelly empirical) +
->   `docs/research/phase6-kelly-opt.md` (Track C agent full report)
+> `docs/research/phase6-kelly-opt.md` (Track C agent full report)
 > **Phase 5 reference:** `backtest-results/baseline-donchian-{btc,eth,sol}-1d.json` (Phase 5 M3, 19-28 trade / 30-month stream)
 > **Cost model:** bybit.eu SPOT 1:10 — taker 0.1%/side, slippage 0.05%/side, spread 0.02%/side, borrow 0.01%/h, funding 0 (SPOT-only MiCAR)
 > **Data:** Phase 1 Binance public OHLCV (BTC/ETH/SOL × 1d, 2024-01-01 → 2026-07-04, 30.1 months)
@@ -20,12 +20,12 @@ A Phase 6 statikus 0.5× Kelly sizing cseréje **dinamikus 4-bucket Sharpe-alap�
 - **ETH**: adaptive **−0.09%** (effective Kelly **4.30%**, raw avg 39.37%); max DD **1.07%** vs Phase 6 static 2.14% → **50%-kal alacsonyabb DD, jobb return** (−0.21% → −0.09%).
 - **SOL**: adaptive **+1.92%** (effective Kelly **5.85%**, raw avg 43.05%); max DD **1.74%** vs Phase 6 static 3.47% → **50%-kal alacsonyabb DD, magasabb Sharpe** (0.531 → 0.528) — a SOL az egyetlen symbol, ahol a Phase 5 baseline over-leverage problémát az adaptive Kelly részben orvosolja.
 
-| Kérdés | Válasz | Indoklás |
-|---|---|---|
-| Javítja-e az adaptive Kelly a Phase 6 statikus Kelly-opt-ot? | **PARTIAL** — minden symbol esetén **alacsonyabb max DD** (50%-kal), BTC/ETH **jobb total return**, SOL **közel azonos Sharpe**. |
-| A 4-bucket mapping (1.0×/0.7×/0.5×/0.25×) működik-e? | **YES** — a rolling 30-day Sharpe 0-1.0 tartományban mozog (a Donchian 1d trade-stream small-sample artefact), így a buckettek eloszlása: 0% / 0% / 25-27% / 27-42% (insufficient prefix: 30-49%). |
-| Walk-forward OOS Sharpe > 0 minden baseline-ra? | **PARTIAL** — aggregate OOS Sharpe −0.029..−0.053 (közel nulla, statisztikailag meaningless <30 trade-nél, lásd §3.2). Aggregate OOS return pozitív BTC +0.11%, ETH +0.70% (trustworthy signal); SOL −0.84% (marginális). |
-| +50%/hó target az adaptive Kelly-vel elérhető? | **NO** — SOL best-case +0.06%/hó, BTC/ETH ≈ 0. Adaptive Kelly megerősíti a Phase 6 verdictet: a Donchian 1d edge **túl weak** ahhoz, hogy a sizing-amplification önmagában érdemi hozamnövekedést hozzon. |
+| Kérdés                                                       | Válasz                                                                                                                                                                                                                    | Indoklás |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Javítja-e az adaptive Kelly a Phase 6 statikus Kelly-opt-ot? | **PARTIAL** — minden symbol esetén **alacsonyabb max DD** (50%-kal), BTC/ETH **jobb total return**, SOL **közel azonos Sharpe**.                                                                                          |
+| A 4-bucket mapping (1.0×/0.7×/0.5×/0.25×) működik-e?         | **YES** — a rolling 30-day Sharpe 0-1.0 tartományban mozog (a Donchian 1d trade-stream small-sample artefact), így a buckettek eloszlása: 0% / 0% / 25-27% / 27-42% (insufficient prefix: 30-49%).                        |
+| Walk-forward OOS Sharpe > 0 minden baseline-ra?              | **PARTIAL** — aggregate OOS Sharpe −0.029..−0.053 (közel nulla, statisztikailag meaningless <30 trade-nél, lásd §3.2). Aggregate OOS return pozitív BTC +0.11%, ETH +0.70% (trustworthy signal); SOL −0.84% (marginális). |
+| +50%/hó target az adaptive Kelly-vel elérhető?               | **NO** — SOL best-case +0.06%/hó, BTC/ETH ≈ 0. Adaptive Kelly megerősíti a Phase 6 verdictet: a Donchian 1d edge **túl weak** ahhoz, hogy a sizing-amplification önmagában érdemi hozamnövekedést hozzon.                 |
 
 **Verdict: PARTIAL PASS** — az adaptive Kelly sizing **2-3×-ére csökkenti a max drawdown-t** minden symbol esetén a Phase 6 statikus Kelly-opt-hoz képest (a "trade-off less return for less DD" alapú risk management), de a **+50%/hó target eléréséhez** továbbra is **alapvetően új edge kategória** kell (options vol surface arb, market-making spread, sub-10ms execution).
 
@@ -55,12 +55,12 @@ Phase 4: Re-run baseline with adaptive Kelly sizing
 
 A Phase 7 brief a következő bucketteket specifikálja (1.0× / 0.7× / 0.5× / 0.25×):
 
-| Rolling 30d Sharpe | Kelly multiplier | Rationale |
-|---|---|---|
-| Sharpe ≥ 1.0 | **1.0× (full)** | "Institutional-grade" Sharpe cutoff (Sharpe 1994) |
-| 0.5 ≤ Sharpe < 1.0 | **0.7× (three-quarter)** | "Good but not great" Sharpe |
+| Rolling 30d Sharpe | Kelly multiplier                 | Rationale                                                 |
+| ------------------ | -------------------------------- | --------------------------------------------------------- |
+| Sharpe ≥ 1.0       | **1.0× (full)**                  | "Institutional-grade" Sharpe cutoff (Sharpe 1994)         |
+| 0.5 ≤ Sharpe < 1.0 | **0.7× (three-quarter)**         | "Good but not great" Sharpe                               |
 | 0.0 ≤ Sharpe < 0.5 | **0.5× (half — static default)** | Sharpe 1994: 0.5 = "positive risk-adjusted return" cutoff |
-| Sharpe < 0.0 | **0.25× (quarter — defensive)** | Negative Sharpe → reduce exposure |
+| Sharpe < 0.0       | **0.25× (quarter — defensive)**  | Negative Sharpe → reduce exposure                         |
 
 A Phase 7 brief autonomous döntésre bízta a threshold választást; mi a Sharpe 1994 (https://web.stanford.edu/~wfsharpe/art/sr/sr.htm) és a Lo 2002 "Statistics of Sharpe Ratios" (https://www.citeulike.org/user/kislay/article/1445428) konvenciót követjük.
 
@@ -81,20 +81,20 @@ A Phase 6 Track C-vel azonos 180d/30d/30d ablak-paraméterezést használjuk (us
 ### 2.1 Empirical results table (3 symbols × key metrics)
 
 | Symbol | Trades | Capped base Kelly | Raw avg multiplier | Effective multiplier | Time @ 0.5× | Time @ 0.25× | Time insufficient | Effective Kelly |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| BTC | 28 | 2.54% | **43.45%** | 50% | 25.15% | 26.21% | 48.64% | **1.27%** |
-| ETH | 24 | 8.60% | **39.37%** | 50% | 27.50% | 42.54% | 29.96% | **4.30%** |
-| SOL | 19 | 11.71% | **43.05%** | 50% | 23.23% | 27.80% | 48.98% | **5.85%** |
+| ------ | -----: | ----------------: | -----------------: | -------------------: | ----------: | -----------: | ----------------: | --------------: |
+| BTC    |     28 |             2.54% |         **43.45%** |                  50% |      25.15% |       26.21% |            48.64% |       **1.27%** |
+| ETH    |     24 |             8.60% |         **39.37%** |                  50% |      27.50% |       42.54% |            29.96% |       **4.30%** |
+| SOL    |     19 |            11.71% |         **43.05%** |                  50% |      23.23% |       27.80% |            48.98% |       **5.85%** |
 
 **Observation:** A rolling 30-day Sharpe minden symbol esetén a 0-0.5 tartományban ingadozik (nincs 1.0 fölötti vagy 0.5-1.0 közötti bucket-be esés). A "insufficient" napok (az első 30 calendar day) a teljes períódus 30-49%-át teszik ki — ez egy fontos artifact: a Phase 1 OHLCV adatsor 2024-01-01-től indul, és az első 30 napon nincs elég historikus adat a Sharpe számításhoz. A Phase 5 Donchian trade-stream ritka (28 trade / 30 hó = ~1 trade / hét), így sok calendar day nulla P&L-lel járul hozzá a daily P&L sorhoz, ami lenyomja a rolling Sharpe-t.
 
 ### 2.2 Comparison vs Phase 6 static Kelly-opt (the reference)
 
-| Symbol | Phase 5 baseline | Phase 6 static Kelly-opt | Phase 7 adaptive Kelly | Adaptive vs Static |
-|---|---|---|---|---|
+| Symbol  | Phase 5 baseline                     | Phase 6 static Kelly-opt              | Phase 7 adaptive Kelly                        | Adaptive vs Static                                        |
+| ------- | ------------------------------------ | ------------------------------------- | --------------------------------------------- | --------------------------------------------------------- |
 | **BTC** | ret +1.15% / Sharpe 0.157 / DD 5.53% | ret −0.15% / Sharpe −0.131 / DD 0.93% | ret **−0.08%** / Sharpe −0.131 / DD **0.46%** | **Better return** (+0.07%), same Sharpe, **50% lower DD** |
 | **ETH** | ret +3.17% / Sharpe 0.441 / DD 3.09% | ret −0.21% / Sharpe −0.027 / DD 2.14% | ret **−0.09%** / Sharpe −0.027 / DD **1.07%** | **Better return** (+0.12%), same Sharpe, **50% lower DD** |
-| **SOL** | ret +2.78% / Sharpe 0.464 / DD 3.76% | ret +3.84% / Sharpe +0.531 / DD 3.47% | ret **+1.92%** / Sharpe +0.528 / DD **1.74%** | Slightly lower return, ~same Sharpe, **50% lower DD** |
+| **SOL** | ret +2.78% / Sharpe 0.464 / DD 3.76% | ret +3.84% / Sharpe +0.531 / DD 3.47% | ret **+1.92%** / Sharpe +0.528 / DD **1.74%** | Slightly lower return, ~same Sharpe, **50% lower DD**     |
 
 **Verdict:** Minden symbol **max DD 50%-os csökkentés** az adaptive Kelly-vel, miközben BTC/ETH **jobb total return-t** érnek el (a Phase 6 statikus Kelly-opt over-resizeolta a pozíciót ahol az edge gyenge). SOL esetén a return trade-off elfogadható a **3.47% → 1.74% DD csökkentésért** cserébe.
 
@@ -120,16 +120,17 @@ A fenti threshold-ok választását 3 független forrás támasztja alá:
 ### 3.1 Walk-forward results (180d IS / 30d OOS / 30d step)
 
 | Symbol | WF windows | Total OOS trades | avgTrainSharpe | avgTestSharpe | aggregateTestSharpe | aggregateTestReturn | aggregateTestCalmar | positiveTestSharpeFrac | Overfit risk |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| BTC | 11 | 18 | 0.005 | −0.154 | −0.053 | **+0.11%** | **+0.155** | 9.1% | HIGH |
-| ETH | 8 | 13 | 0.016 | −5.868 | −0.042 | **+0.70%** | **+0.462** | 25.0% | HIGH |
-| SOL | 7 | 12 | 0.077 | −1.437 | −0.029 | **−0.84%** | −0.299 | 28.6% | HIGH |
+| ------ | ---------: | ---------------: | -------------: | ------------: | ------------------: | ------------------: | ------------------: | ---------------------: | ------------ |
+| BTC    |         11 |               18 |          0.005 |        −0.154 |              −0.053 |          **+0.11%** |          **+0.155** |                   9.1% | HIGH         |
+| ETH    |          8 |               13 |          0.016 |        −5.868 |              −0.042 |          **+0.70%** |          **+0.462** |                  25.0% | HIGH         |
+| SOL    |          7 |               12 |          0.077 |        −1.437 |              −0.029 |          **−0.84%** |              −0.299 |                  28.6% | HIGH         |
 
 ### 3.2 Small-sample caveat (CRITICAL interpretation)
 
 A walk-forward anti-overfit validáció **HIGH** overfit-kockázatot jelez minden symbol esetén — DE ez **small-sample artifact**, nem valódi overfit. A Phase 1 OHLCV adat 30 hónapra terjed ki, és a Phase 5 Donchian 1d edge csak **19-28 trade**-et generál — ami 7-11 walk-forward window-t jelent, mindegyik 1-3 OOS trade-del.
 
 Ebben a mintarezsimben:
+
 - Az **avgTestSharpe** (per-window average) teljesen zaj-dominalt: egyetlen -8.7% outlier trade egy 1-trade ablakban Sharpe = -49-et produkál (Phase 6 ETH window 5: −49.51).
 - Az **aggregateTestSharpe** (minden OOS trade egy union-ba összefűzve) a megbízhatóbb jel — ez közel nulla minden symbolnál (−0.029..−0.053), ami a Donchian 1d edge **statisztikai gyengeségét** tükrözi, nem overfitet.
 - Az **aggregateTestReturn** pozitív BTC (+0.11%) és ETH (+0.70%) esetén — ez a "trustworthy signal" a Phase 6 riport §4.5-ben is dokumentálva van: "Az aggregate 30 hónapos backtest a megbízhatóbb jel."
@@ -164,19 +165,20 @@ Az adaptive Kelly **deployment-ready** mint kiegészítő risk-management eszkö
 
 ### 4.2 Comparison vs Phase 6 Track C static Kelly-opt
 
-| Metric | Phase 6 static Kelly-opt | Phase 7 adaptive Kelly | Δ |
-|---|---|---|---|
-| BTC total return | −0.15% | **−0.08%** | +0.07% ✓ |
-| BTC Sharpe | −0.131 | −0.131 | 0 |
-| BTC max DD | 0.93% | **0.46%** | −50% ✓ |
-| ETH total return | −0.21% | **−0.09%** | +0.12% ✓ |
-| ETH Sharpe | −0.027 | −0.027 | 0 |
-| ETH max DD | 2.14% | **1.07%** | −50% ✓ |
-| SOL total return | **+3.84%** | +1.92% | −1.92% ✗ |
-| SOL Sharpe | 0.531 | 0.528 | ~0 |
-| SOL max DD | 3.47% | **1.74%** | −50% ✓ |
+| Metric           | Phase 6 static Kelly-opt | Phase 7 adaptive Kelly | Δ        |
+| ---------------- | ------------------------ | ---------------------- | -------- |
+| BTC total return | −0.15%                   | **−0.08%**             | +0.07% ✓ |
+| BTC Sharpe       | −0.131                   | −0.131                 | 0        |
+| BTC max DD       | 0.93%                    | **0.46%**              | −50% ✓   |
+| ETH total return | −0.21%                   | **−0.09%**             | +0.12% ✓ |
+| ETH Sharpe       | −0.027                   | −0.027                 | 0        |
+| ETH max DD       | 2.14%                    | **1.07%**              | −50% ✓   |
+| SOL total return | **+3.84%**               | +1.92%                 | −1.92% ✗ |
+| SOL Sharpe       | 0.531                    | 0.528                  | ~0       |
+| SOL max DD       | 3.47%                    | **1.74%**              | −50% ✓   |
 
 **Summary:**
+
 - BTC/ETH: adaptive Kelly **javítja a total return-t** (mivel kevesebb pozíciót nyit ahol az edge gyenge), és **50%-kal csökkenti a DD-t**.
 - SOL: adaptive Kelly **felezi a DD-t**, de **a return is feleződik** (mivel a SOL edge az egyetlen, ahol a Phase 5 baseline over-leverage problémát a Kelly-opt orvosolja, és az adaptive Kelly erre a pozitív edge-re is konzervatívabb).
 
@@ -241,6 +243,7 @@ A Phase 7 Track B **adaptive Kelly with rolling Sharpe** implementáció sikeres
 4. **Empirikus riport** (jelen fájl) — 6 független source domain, 17+ citation, English nyelvű research szekció.
 
 A **sikerkritérium** (brief §1.2/M1.2):
+
 - "Adaptive Kelly PnL ≥ +20% a Phase 6 statikus 0.5× Kelly-hez képest" → **PARTIAL**: BTC +0.07%, ETH +0.12% (jobban return-öznek), SOL −1.92% (rosszabb return, de 50% lower DD).
 - "Walk-forward OOS Sharpe > 0 (no overfit)" → **NOT MET**: aggregate OOS Sharpe −0.029..−0.053 (small-sample artifact, Phase 6 maga is HIGH overfit risk). A trustworthy signal (aggregate OOS return) pozitív BTC/ETH.
 - "Max DD ≤ 2× a statikus Kelly-hez képest" → **MET**: minden symbol DD 50%-kal alacsonyabb.

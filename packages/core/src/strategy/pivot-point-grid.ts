@@ -85,7 +85,7 @@ export interface PivotPointGridConfig {
 export const DEFAULT_PIVOT_GRID_CONFIG: PivotPointGridConfig = {
   multiplierFib1: 0.382,
   multiplierFib2: 0.618,
-  multiplierFib3: 1.000,
+  multiplierFib3: 1.0,
   maxPositionPctEquity: 0.04,
 };
 
@@ -210,10 +210,7 @@ export class PivotPointGridStrategy implements Strategy {
     // (the cap is config-level, not signal-level), then apply it to the
     // raw confidence that each branch emits.
     // -----------------------------------------------------------------------
-    const capScale = Math.min(
-      1.0,
-      this.config.maxPositionPctEquity / ENGINE_MAX_POSITION_PCT_EQUITY,
-    );
+    const capScale = Math.min(1.0, this.config.maxPositionPctEquity / ENGINE_MAX_POSITION_PCT_EQUITY);
 
     /**
      * `applyCap` — scale a candidate signal's confidence by `capScale`.

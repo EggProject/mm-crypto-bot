@@ -126,10 +126,7 @@ import {
   sharpeToKellyBucket,
   nearestBucket,
 } from "./kelly-adaptive.js";
-import type {
-  AdaptiveKellyBucket,
-  AdaptiveKellyResult,
-} from "./kelly-adaptive.js";
+import type { AdaptiveKellyBucket, AdaptiveKellyResult } from "./kelly-adaptive.js";
 
 import {
   computeVolTargetedSizer,
@@ -140,11 +137,7 @@ import {
   ONE_TO_TEN_BASE_LEVERAGE,
   validateOneToTenLeverage,
 } from "./vol-targeted-sizer.js";
-import type {
-  VolTargetConfig,
-  DailyOhlcv,
-  VolTargetPoint,
-} from "./vol-targeted-sizer.js";
+import type { VolTargetConfig, DailyOhlcv, VolTargetPoint } from "./vol-targeted-sizer.js";
 
 // ----------------------------------------------------------------------
 // Hybrid configuration
@@ -349,12 +342,8 @@ export function buildHybridDay(args: {
   const effectiveLeverage = ONE_TO_TEN_BASE_LEVERAGE * volMultiplier;
 
   // Reasoning string for diagnostics
-  const bucketLabel = kellyBucket === null
-    ? "cold-start 0.5×"
-    : `${kellyBucket}×`;
-  const sharpeLabel = rollingSharpe === null
-    ? "Sharpe=null"
-    : `Sharpe=${rollingSharpe.toFixed(3)}`;
+  const bucketLabel = kellyBucket === null ? "cold-start 0.5×" : `${kellyBucket}×`;
+  const sharpeLabel = rollingSharpe === null ? "Sharpe=null" : `Sharpe=${rollingSharpe.toFixed(3)}`;
   const reasoning =
     `bucket=${bucketLabel} (${sharpeLabel}) × volMult=${volMultiplier.toFixed(4)} ` +
     `(realized=${(realizedDailyVol * 100).toFixed(3)}%, target=${(targetDailyVol * 100).toFixed(2)}%) ` +
@@ -420,12 +409,8 @@ export function computeHybridSizer(
   }
 
   // ----- Compute rolling Sharpe + Kelly buckets from the trade list -----
-  const daily = trades.length > 0
-    ? aggregateTradesToDailyPnl(trades, config.initialEquity)
-    : [];
-  const rollingSharpe = daily.length > 0
-    ? rollingSharpeFromDailyPnl(daily, config.rollingWindowDays)
-    : [];
+  const daily = trades.length > 0 ? aggregateTradesToDailyPnl(trades, config.initialEquity) : [];
+  const rollingSharpe = daily.length > 0 ? rollingSharpeFromDailyPnl(daily, config.rollingWindowDays) : [];
 
   // Map each rolling-Sharpe point → kelly bucket.
   // rollingSharpe uses calendar-day timestamps starting from the first trade's exit day.
@@ -462,7 +447,7 @@ export function computeHybridSizer(
   for (let i = 0; i < ohlcv.length; i++) {
     const candle = ohlcv[i]!;
     const day = candle.timestamp;
-    const realizedDailyVol = i > 0 ? realizedDailyVols[i - 1] ?? 0 : 0;
+    const realizedDailyVol = i > 0 ? (realizedDailyVols[i - 1] ?? 0) : 0;
 
     // Look up rolling Sharpe at this day.
     // The rollingSharpe series starts at the first trade's exit day, not the first OHLCV day.
@@ -473,7 +458,7 @@ export function computeHybridSizer(
     if (rollingSharpe.length > 0 && day >= rollingSharpe[0]!.day) {
       // Find the rollingSharpe entry with the largest day <= this OHLCV day.
       // Linear scan is fine — the rollingSharpe series has ~30 entries per month.
-      let chosen: typeof rollingSharpe[number] | null = null;
+      let chosen: (typeof rollingSharpe)[number] | null = null;
       for (const r of rollingSharpe) {
         if (r.day <= day) chosen = r;
         else break;
@@ -502,11 +487,15 @@ export function computeHybridSizer(
     sumFactor += hd.effectivePositionFactor;
     sumLeverage += hd.effectiveLeverage;
 
-    if (hd.volMultiplier <= config.volTargetConfig.minVolMultiplier + 1e-9 &&
-        hd.rawVolMultiplier < hd.volMultiplier - 1e-9) {
+    if (
+      hd.volMultiplier <= config.volTargetConfig.minVolMultiplier + 1e-9 &&
+      hd.rawVolMultiplier < hd.volMultiplier - 1e-9
+    ) {
       lowerClampCount++;
-    } else if (hd.volMultiplier >= config.volTargetConfig.maxVolMultiplier - 1e-9 &&
-               hd.rawVolMultiplier > hd.volMultiplier + 1e-9) {
+    } else if (
+      hd.volMultiplier >= config.volTargetConfig.maxVolMultiplier - 1e-9 &&
+      hd.rawVolMultiplier > hd.volMultiplier + 1e-9
+    ) {
       upperClampCount++;
     } else {
       middleCount++;
@@ -532,21 +521,22 @@ export function computeHybridSizer(
   const avgLeverage = n > 0 ? sumLeverage / n : ONE_TO_TEN_BASE_LEVERAGE;
 
   // Bucket distribution as fractions
-  const kellyBucketDistribution = n > 0
-    ? {
-        fullKellyFraction: fullCount / n,
-        threeQuarterFraction: threeQuarterCount / n,
-        halfKellyFraction: halfCount / n,
-        quarterKellyFraction: quarterCount / n,
-        insufficientFraction: insufficientCount / n,
-      }
-    : {
-        fullKellyFraction: 0,
-        threeQuarterFraction: 0,
-        halfKellyFraction: 0,
-        quarterKellyFraction: 0,
-        insufficientFraction: 1,
-      };
+  const kellyBucketDistribution =
+    n > 0
+      ? {
+          fullKellyFraction: fullCount / n,
+          threeQuarterFraction: threeQuarterCount / n,
+          halfKellyFraction: halfCount / n,
+          quarterKellyFraction: quarterCount / n,
+          insufficientFraction: insufficientCount / n,
+        }
+      : {
+          fullKellyFraction: 0,
+          threeQuarterFraction: 0,
+          halfKellyFraction: 0,
+          quarterKellyFraction: 0,
+          insufficientFraction: 1,
+        };
 
   // Position-size recommendations — Phase 6 Track C formula:
   //   effectiveKelly = baseKellyFraction × effectivePositionFactor
@@ -557,17 +547,18 @@ export function computeHybridSizer(
   const recommendedMaxPositionPctEquity = Math.min(0.99, effectiveKelly);
 
   // All-loss streak check (delegated to AdaptiveKelly logic)
-  const adaptiveKellyResult: AdaptiveKellyResult | null = trades.length > 0
-    ? computeAdaptiveKelly(
-        trades,
-        config.rollingWindowDays,
-        config.initialEquity,
-        // AdaptiveKelly has its own DEFAULT_KELLY_OPT_CONFIG; we only need the
-        // hadAllLossStreak flag from the result.
-        undefined,
-        config.minTradeCount,
-      )
-    : null;
+  const adaptiveKellyResult: AdaptiveKellyResult | null =
+    trades.length > 0
+      ? computeAdaptiveKelly(
+          trades,
+          config.rollingWindowDays,
+          config.initialEquity,
+          // AdaptiveKelly has its own DEFAULT_KELLY_OPT_CONFIG; we only need the
+          // hadAllLossStreak flag from the result.
+          undefined,
+          config.minTradeCount,
+        )
+      : null;
 
   void baseNotional; // baseNotional is used at the CLI layer (passed to engine.positionSize)
 
@@ -600,9 +591,7 @@ export function computeHybridSizer(
  * The integration owner can wire this into the backtest engine's
  * `positionSize` field directly.
  */
-export function toPositionSizerConfig(
-  hybrid: HybridSizerResult,
-): HybridSizerPositionSizerConfig {
+export function toPositionSizerConfig(hybrid: HybridSizerResult): HybridSizerPositionSizerConfig {
   return {
     riskPerTrade: hybrid.recommendedRiskPerTrade,
     kellyFraction: 1.0, // multiplier baked into recommendedRiskPerTrade
@@ -732,23 +721,12 @@ export function runHybridWalkForwardValidation(
     const testEnd = testStart + testMs;
 
     // Select train/test candles and trades
-    const trainCandles = sortedOhlcv.filter(
-      (c) => c.timestamp >= trainStart && c.timestamp < trainEnd,
-    );
-    const testCandles = sortedOhlcv.filter(
-      (c) => c.timestamp >= testStart && c.timestamp < testEnd,
-    );
-    const trainTrades = sortedTrades.filter(
-      (t) => t.entryTime >= trainStart && t.entryTime < trainEnd,
-    );
-    const testTrades = sortedTrades.filter(
-      (t) => t.entryTime >= testStart && t.entryTime < testEnd,
-    );
+    const trainCandles = sortedOhlcv.filter((c) => c.timestamp >= trainStart && c.timestamp < trainEnd);
+    const testCandles = sortedOhlcv.filter((c) => c.timestamp >= testStart && c.timestamp < testEnd);
+    const trainTrades = sortedTrades.filter((t) => t.entryTime >= trainStart && t.entryTime < trainEnd);
+    const testTrades = sortedTrades.filter((t) => t.entryTime >= testStart && t.entryTime < testEnd);
 
-    if (
-      trainCandles.length >= config.volTargetConfig.windowDays &&
-      testCandles.length >= 2
-    ) {
+    if (trainCandles.length >= config.volTargetConfig.windowDays && testCandles.length >= 2) {
       // Compute the hybrid sizer on the train slice.
       const trainHybrid = computeHybridSizer(trainTrades, trainCandles, 2000, config);
       const trainAvgFactor = trainHybrid.avgEffectivePositionFactor;
@@ -792,16 +770,13 @@ export function runHybridWalkForwardValidation(
 
   // Aggregate test Sharpe — concat all test trades into one series.
   const allTestTrades = windows.flatMap((w) =>
-    sortedTrades.filter(
-      (t) => t.entryTime >= w.testStart && t.entryTime < w.testEnd,
-    ),
+    sortedTrades.filter((t) => t.entryTime >= w.testStart && t.entryTime < w.testEnd),
   );
   const aggregateTestSharpe = perWindowTradeSharpe(allTestTrades);
   const aggregateTestReturn = perWindowReturn(allTestTrades);
   const totalTestTrades = allTestTrades.length;
 
-  const positiveSharpeFrac =
-    windows.filter((w) => w.testSharpe > 0).length / windows.length;
+  const positiveSharpeFrac = windows.filter((w) => w.testSharpe > 0).length / windows.length;
 
   // Overfit risk: LOW if positive test Sharpe ≥ 0.7 AND aggregate > 0;
   // MED if positive test Sharpe ≥ 0.5 AND aggregate > 0; else HIGH.
@@ -844,10 +819,7 @@ function average(values: readonly number[]): number {
 
 function perWindowReturn(trades: readonly Trade[]): number {
   const grossWins = trades.reduce((acc, t) => acc + (t.pnlUsd > 0 ? t.pnlUsd : 0), 0);
-  const grossLosses = trades.reduce(
-    (acc, t) => acc + (t.pnlUsd < 0 ? Math.abs(t.pnlUsd) : 0),
-    0,
-  );
+  const grossLosses = trades.reduce((acc, t) => acc + (t.pnlUsd < 0 ? Math.abs(t.pnlUsd) : 0), 0);
   const totalNotional = trades.reduce((acc, t) => acc + t.notionalUsd, 0);
   if (totalNotional === 0) return 0;
   return (grossWins - grossLosses) / totalNotional;
@@ -857,8 +829,7 @@ function perWindowTradeSharpe(trades: readonly Trade[]): number {
   if (trades.length < 2) return 0;
   const returns = trades.map((t) => (t.notionalUsd > 0 ? t.pnlUsd / t.notionalUsd : 0));
   const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
-  const variance =
-    returns.reduce((a, b) => a + (b - mean) ** 2, 0) / returns.length;
+  const variance = returns.reduce((a, b) => a + (b - mean) ** 2, 0) / returns.length;
   const std = Math.sqrt(variance);
   if (std === 0) return 0;
   return mean / std;
@@ -877,10 +848,4 @@ export {
   DEFAULT_VOL_TARGET_CONFIG,
 };
 
-export type {
-  AdaptiveKellyBucket,
-  AdaptiveKellyResult,
-  DailyOhlcv,
-  VolTargetConfig,
-  VolTargetPoint,
-};
+export type { AdaptiveKellyBucket, AdaptiveKellyResult, DailyOhlcv, VolTargetConfig, VolTargetPoint };

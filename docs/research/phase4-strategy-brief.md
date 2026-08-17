@@ -29,6 +29,7 @@ Az alábbi 8 irányból VÁLASZTUNK 2-3-at, amelyeket érdemes implementálni é
 - **A bybit.eu SPOT 1:10-re való alkalmazhatóság** (a margin-kamat, fee-drag, borrowing-limit korlátait hogyan kezeli)
 
 A 8 jelölt:
+
 1. **Always-in trend-following** — EMA50/200 crossover, mindig benntartott pozíció, nincs kivárás
 2. **Volatility breakout** — Donchian-channel / ATR-szerű gyors break-out + re-entry
 3. **Funding rate carry / cross-exchange arb** — perpetual-spot szintetikus, vagy binance↔bybit.eu eltérés kihasználása
@@ -45,6 +46,7 @@ A kiválasztott 2-3 stratégia közül a legígéretesebb(ek) teljes implementá
 ### 3.3 M3 — Mérés és riport (1-2 nap)
 
 A kiválasztott stratégia(k) teljesítése a Phase 1-es OHLCV adatokon (BTC/ETH/SOL × 1h/4h/1d, 2024-01 → 2026-07), riport a `backtest-results/REPORT.md` fájlba. A riportnak tartalmaznia kell:
+
 - A Phase 4 stratégia havi hozamát az MTF-TKC baseline-hoz hasonlítva
 - A 100%/hó realitásvizsgálat egyértelmű IGEN/NEM választ
 - Amennyiben IGEN: a szükséges position-sizing-ot, a várható drawdown-t, és a backtest korlátait (look-ahead, overfitting, stb.)
@@ -68,6 +70,7 @@ A kiválasztott stratégia(k) teljesítése a Phase 1-es OHLCV adatokon (BTC/ETH
 ## 6. Kilépési kritérium
 
 A Phase 4 akkor zárható le, ha:
+
 1. A kiválasztott stratégia(k) implementálva vannak
 2. A backtest futásprodukál ≥ 30 trade / 30 hónap / symbol szintű jelet (elegendő statisztikai értelmezhetőséghez)
 3. A riport világos IGEN/NEM választ ad a +100%/hó realitására

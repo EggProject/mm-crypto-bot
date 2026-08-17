@@ -36,11 +36,13 @@ export async function listJsonFiles(inputPath: string): Promise<readonly string[
   if (inputStat.isFile()) return extname(inputPath).toLowerCase() === ".json" ? [inputPath] : [];
   if (!inputStat.isDirectory()) return [];
   const entries = await readdir(inputPath, { withFileTypes: true });
-  const nested = await Promise.all(entries.map(async (entry): Promise<readonly string[]> => {
-    const path = resolve(inputPath, entry.name);
-    if (entry.isDirectory()) return listJsonFiles(path);
-    return entry.isFile() && extname(entry.name).toLowerCase() === ".json" ? [path] : [];
-  }));
+  const nested = await Promise.all(
+    entries.map(async (entry): Promise<readonly string[]> => {
+      const path = resolve(inputPath, entry.name);
+      if (entry.isDirectory()) return listJsonFiles(path);
+      return entry.isFile() && extname(entry.name).toLowerCase() === ".json" ? [path] : [];
+    }),
+  );
   return nested.flat().sort();
 }
 

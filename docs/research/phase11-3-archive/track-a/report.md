@@ -16,30 +16,30 @@ This track asks: **what crypto-native alpha is hidden in the Asian session that 
 
 ## §2 — Source inventory (15+ primary sources, multi-language)
 
-| # | Source | URL | Language | 1-line relevance |
-|---|--------|-----|----------|------------------|
-| 1 | Choi/Lehar/Stauffer (SSRN 2018, revised 2022) | https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3189051 | en | Foundational academic paper on Kimchi Premium microstructure |
-| 2 | Monash University "Nonlinear dynamics of Kimchi premium" | https://researchmgt.monash.edu/ws/portalfiles/portal/590976616/586624035_oa.pdf | en | Empirical confirmation of **1.24% long-run equilibrium** via threshold regression |
-| 3 | Kaiko — State of the Korean Crypto Market | https://www.kaiko.com/resources/the-state-of-the-korean-crypto-market | en | 2-3% average premium + regulatory-arbitrage frictions documented |
-| 4 | CryptoQuant Korea Premium Index | https://cryptorank.io/news/feed/61807-reverse-kimchi-premium-btc-usdt | en | Live BTC KRW vs USDT index — +10.88% March 2024 peak |
-| 5 | AInvest — "Understanding the Kimchi Premium" | https://www.ainvest.com/news/understanding-kimchi-premium-strategic-indicator-bitcoin-market-dynamics-2025-2512/ | en | 2024 Virtual Asset User Protection Act compressed premium 5% → 1-2% |
-| 6 | bitFlyer Lightning — Circuit Breaker docs | https://lightning.bitflyer.com/docs/circuitbreaker?region=JP&lang=ja | ja | **20% / 10-min trigger → 5-min halt → itayose reopening** (CRYPTO-NATIVE) |
-| 7 | bitFlyer 2025 Annual Report (PDF) | https://bitflyer.com/pub/business-report-12th.pdf | ja | Lightning FX → Crypto CFD rebrand; +16 listings added |
-| 8 | bitFlyer 10-year consecutive No.1 release (2026-04-03) | https://bitflyer.com/pub/20260403-bitFlyer-ranked-no1-in-domestic-btc-trading-volume-for-10-consecutive-years-ja.pdf | ja | 38% Japan market share + BTC/JPY dominance confirmed |
-| 9 | Binance Japan — Liquidity Provider program (2024-11-26) | https://www.binance.com/ja/support/announcement/detail/384f39499e5f4305a0ba2c9254844d35 | ja | -1.5bp maker rebate, 1.0% maker share requirement |
-| 10 | Binance Japan JPY board launch PR | https://prtimes.jp/main/html/rd/p/000000005.000126862.html | ja | 2024-03-12 launch BNB/JPY, BTC/JPY, ETH/JPY — global Binance users |
-| 11 | HTX 资金费率结算调整公告 | https://www.htx.com/zh-cn/support/44958157384677 | zh | 2024-01-08 real-time funding rate change for USDT-margined perps |
-| 12 | OKX 永续资金费规则 | https://www.okx.com/zh-hans-sg/help/perps-funding-fee-mechanism | zh | 8/16/00 HKT settlement, ±0.05% premium clamp, 200× max leverage deep-weighted |
-| 13 | KuCoin News — "The Upbit Effect" | https://www.kucoin.com/news/insight/BTC/6a0c3e03c8707a00078b77c1 | en | KRW pair listings → 5,000%+ vol spike, +20-50% intraday |
-| 14 | CryptoSlate — Yen Carry Trade Unwind | https://cryptoslate.com/yen-carry-trade-unwind-margin-call-bitcoin-btc/ | en | Tripwire framework: 2-3% USD/JPY move in 24-48h |
-| 15 | BIS Quarterly Review — "Carry off, carry on" | https://www.bis.org/publ/qtrpdf/r_qt2409a.htm | en | $500B yen carry scope, Aug 2024 unwind mechanics |
-| 16 | BizChosun — Korean martial law Kimchi Premium crash | https://biz.chosun.com/stock/finance/2024/12/04/H6DVXRDVPRC45MXLTHVR6ZAGCU/ | ko | **2024-12-03 戒严令 BTC KRW -30% vs USD -2%; USDT depegged $0.75** |
-| 17 | AInvest — Upbit ICP listing 2026-03-11 | https://www.ainvest.com/news/icp-upbit-listing-korean-retail-pump-2603/ | en | ICP +20% +443% volume within 24h of KRW pair launch |
-| 18 | Upbit DataLab (datalab.upbit.com) | https://datalab.upbit.com/insight/upbit-premium | ko | Live premium feed since 2024-06-19, free public REST |
-| 19 | Kaiko Research — Kimchi Premium 2024-10 collapse | https://forkast.news/bitcoin-kimchi-premium-upbit/ | en | 21% peak → 12.77% post-Upbit withdrawal suspension |
-| 20 | new.qq.com — bitFlyer 24h +241% volume during BoJ hike | https://new.qq.com/portal/qq/19.html | zh | 2024-08-05 BoJ +0.25% → bitFlyer BTC/JPY -15%, vol $220M |
-| 21 | algolab.co.kr — 김치프리미엄 자동매매 4-stage structure | https://algolab.co.kr/blog/kimchi-premium-arbitrage | ko | Practitioner confirmation: alert bot > full automation |
-| 22 | CoinGlass — Funding Rate Aggregator | https://www.coinglass.com/pro/futures/TimeZoneDistributionHeatmap | en | Cross-exchange BTC funding rates: OKX 0.0037%, Bybit 0.0061%, HTX 0.0048% |
+| #   | Source                                                   | URL                                                                                                                  | Language | 1-line relevance                                                                  |
+| --- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------- |
+| 1   | Choi/Lehar/Stauffer (SSRN 2018, revised 2022)            | https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3189051                                                          | en       | Foundational academic paper on Kimchi Premium microstructure                      |
+| 2   | Monash University "Nonlinear dynamics of Kimchi premium" | https://researchmgt.monash.edu/ws/portalfiles/portal/590976616/586624035_oa.pdf                                      | en       | Empirical confirmation of **1.24% long-run equilibrium** via threshold regression |
+| 3   | Kaiko — State of the Korean Crypto Market                | https://www.kaiko.com/resources/the-state-of-the-korean-crypto-market                                                | en       | 2-3% average premium + regulatory-arbitrage frictions documented                  |
+| 4   | CryptoQuant Korea Premium Index                          | https://cryptorank.io/news/feed/61807-reverse-kimchi-premium-btc-usdt                                                | en       | Live BTC KRW vs USDT index — +10.88% March 2024 peak                              |
+| 5   | AInvest — "Understanding the Kimchi Premium"             | https://www.ainvest.com/news/understanding-kimchi-premium-strategic-indicator-bitcoin-market-dynamics-2025-2512/     | en       | 2024 Virtual Asset User Protection Act compressed premium 5% → 1-2%               |
+| 6   | bitFlyer Lightning — Circuit Breaker docs                | https://lightning.bitflyer.com/docs/circuitbreaker?region=JP&lang=ja                                                 | ja       | **20% / 10-min trigger → 5-min halt → itayose reopening** (CRYPTO-NATIVE)         |
+| 7   | bitFlyer 2025 Annual Report (PDF)                        | https://bitflyer.com/pub/business-report-12th.pdf                                                                    | ja       | Lightning FX → Crypto CFD rebrand; +16 listings added                             |
+| 8   | bitFlyer 10-year consecutive No.1 release (2026-04-03)   | https://bitflyer.com/pub/20260403-bitFlyer-ranked-no1-in-domestic-btc-trading-volume-for-10-consecutive-years-ja.pdf | ja       | 38% Japan market share + BTC/JPY dominance confirmed                              |
+| 9   | Binance Japan — Liquidity Provider program (2024-11-26)  | https://www.binance.com/ja/support/announcement/detail/384f39499e5f4305a0ba2c9254844d35                              | ja       | -1.5bp maker rebate, 1.0% maker share requirement                                 |
+| 10  | Binance Japan JPY board launch PR                        | https://prtimes.jp/main/html/rd/p/000000005.000126862.html                                                           | ja       | 2024-03-12 launch BNB/JPY, BTC/JPY, ETH/JPY — global Binance users                |
+| 11  | HTX 资金费率结算调整公告                                 | https://www.htx.com/zh-cn/support/44958157384677                                                                     | zh       | 2024-01-08 real-time funding rate change for USDT-margined perps                  |
+| 12  | OKX 永续资金费规则                                       | https://www.okx.com/zh-hans-sg/help/perps-funding-fee-mechanism                                                      | zh       | 8/16/00 HKT settlement, ±0.05% premium clamp, 200× max leverage deep-weighted     |
+| 13  | KuCoin News — "The Upbit Effect"                         | https://www.kucoin.com/news/insight/BTC/6a0c3e03c8707a00078b77c1                                                     | en       | KRW pair listings → 5,000%+ vol spike, +20-50% intraday                           |
+| 14  | CryptoSlate — Yen Carry Trade Unwind                     | https://cryptoslate.com/yen-carry-trade-unwind-margin-call-bitcoin-btc/                                              | en       | Tripwire framework: 2-3% USD/JPY move in 24-48h                                   |
+| 15  | BIS Quarterly Review — "Carry off, carry on"             | https://www.bis.org/publ/qtrpdf/r_qt2409a.htm                                                                        | en       | $500B yen carry scope, Aug 2024 unwind mechanics                                  |
+| 16  | BizChosun — Korean martial law Kimchi Premium crash      | https://biz.chosun.com/stock/finance/2024/12/04/H6DVXRDVPRC45MXLTHVR6ZAGCU/                                          | ko       | **2024-12-03 戒严令 BTC KRW -30% vs USD -2%; USDT depegged $0.75**                |
+| 17  | AInvest — Upbit ICP listing 2026-03-11                   | https://www.ainvest.com/news/icp-upbit-listing-korean-retail-pump-2603/                                              | en       | ICP +20% +443% volume within 24h of KRW pair launch                               |
+| 18  | Upbit DataLab (datalab.upbit.com)                        | https://datalab.upbit.com/insight/upbit-premium                                                                      | ko       | Live premium feed since 2024-06-19, free public REST                              |
+| 19  | Kaiko Research — Kimchi Premium 2024-10 collapse         | https://forkast.news/bitcoin-kimchi-premium-upbit/                                                                   | en       | 21% peak → 12.77% post-Upbit withdrawal suspension                                |
+| 20  | new.qq.com — bitFlyer 24h +241% volume during BoJ hike   | https://new.qq.com/portal/qq/19.html                                                                                 | zh       | 2024-08-05 BoJ +0.25% → bitFlyer BTC/JPY -15%, vol $220M                          |
+| 21  | algolab.co.kr — 김치프리미엄 자동매매 4-stage structure  | https://algolab.co.kr/blog/kimchi-premium-arbitrage                                                                  | ko       | Practitioner confirmation: alert bot > full automation                            |
+| 22  | CoinGlass — Funding Rate Aggregator                      | https://www.coinglass.com/pro/futures/TimeZoneDistributionHeatmap                                                    | en       | Cross-exchange BTC funding rates: OKX 0.0037%, Bybit 0.0061%, HTX 0.0048%         |
 
 ---
 
@@ -50,12 +50,14 @@ This track asks: **what crypto-native alpha is hidden in the Asian session that 
 **Mechanism:** Upbit USDT-pair premium vs Binance USD has a 1.24% long-run steady-state floor (Monash academic + Kaiko + CryptoQuant + Upbit DataLab — 5 sources), but the band is 0-12% intraday. The regime-shift edge: **when the premium goes NEGATIVE (Kimchi Discount), it historically marks a capitulation/bottom signal for Korean retail; when premium spikes > +5%, it signals euphoria but typically mean-reverts within 48h**. The +1.24% mean-reversion + asymmetric tail behavior is the alpha — not the spot-vs-perp basis which Phase 11.2e already captured.
 
 **Backtest-able signal:**
+
 1. Compute `premium_t = (Upbit_BTC_KRW / USDKRW) / Binance_BTC_USDT - 1` every 5min on historical Upbit + Binance candles
 2. **Entry long:** premium_t < -1% (Korean Discount) for 2 consecutive windows (4-hour persistence filter), AND BTC RSI(14) on 4h < 40
 3. **Exit:** premium_t crosses +0.5% OR 96h elapsed (whichever first)
 4. **Stop:** premium_t < -3% with BTC RSI < 25 (capitulation deeper than expected — exit)
 
 **Data feed required:**
+
 - Upbit WebSocket `ticker.UPBIT_BTC_KRW` + REST historical candles (30 months back via Upbit DataLab public export)
 - Binance `BTCUSDT@kline_5m` (already in mm-crypto-bot)
 - USDKRW FX feed — Reuters/BoJ daily, Korea KOSPI API for high-frequency fallback
@@ -64,7 +66,7 @@ This track asks: **what crypto-native alpha is hidden in the Asian session that 
 
 **Expected return character:** Mean-reverting, +1.5-2.0% per round trip, 2-3 trades/month. Annualized ~ +5%/mo on paper (before fees), but realistic +2-3%/mo after Upbit fee + FX costs.
 
-**Risk character:** Korean retail exits cause *both* BTC drop AND premium compression (correlated downside); stop-loss on the BTC leg already covered by RegimeDetector (Phase 11.2a). The premium-time signal adds timing edge, not directional exposure.
+**Risk character:** Korean retail exits cause _both_ BTC drop AND premium compression (correlated downside); stop-loss on the BTC leg already covered by RegimeDetector (Phase 11.2a). The premium-time signal adds timing edge, not directional exposure.
 
 **Decay susceptibility:** **MEDIUM-LOW**. Monash regression confirms long-run non-zero equilibrium driven by capital controls, which have not been deregulated. Kaiko data shows 2024-2025 compression (Virtual Asset User Protection Act) but floor persists. Expected alpha halving over 24 months.
 
@@ -75,12 +77,14 @@ This track asks: **what crypto-native alpha is hidden in the Asian session that 
 **Mechanism:** ~$500B of global yen-funded carry trades exist (BIS Quarterly Review). When USD/JPY makes a fast 2-3% move in 24-48h (CryptoSlate tripwire framework), Japanese institutional desks cut gross exposure across liquid markets, hitting BTC futures/perps simultaneously (BIS + CoinDesk + AInvest + BecauseBitcoin — 4 sources). The August 2024 BoJ +0.25% event produced a real-time confirmed case: bitFlyer BTC/JPY -15%, bitFlyer 24h vol +241% to $220M, total crypto futures liquidations > $1B in 24h (3 sources).
 
 **Backtest-able signal:**
+
 1. Monitor USD/JPY 5-min candle (Reuters or open-source FX feed)
 2. **Tripwire:** |USDJPY_t / USDJPY_t-1day - 1| > 0.02 (2% move in 24h)
 3. **Confirmation layer:** BoJ/MoF "vigilance" or "intervention readiness" language detection (NLP on BoJ press releases)
 4. **Action:** If tripwire + confirmation both fire within 4h → reduce SCv1 gross exposure by 30% for next 48h, restore on mean-reversion
 
 **Data feed required:**
+
 - USD/JPY real-time feed (Reuters Eikon, OANDA, or open-source exchangerate.host)
 - BoJ press release RSS + NLP classifier (simple keyword match: "vigilance", "intervention", "speculative", "rapid move")
 - Existing bybit.eu position feed (already in SCv1)
@@ -100,12 +104,14 @@ This track asks: **what crypto-native alpha is hidden in the Asian session that 
 **Mechanism:** When Upbit announces a new KRW pair listing, the announcement creates immediate retail-buying pressure (KuCoin News + AInvest + Wikibit + CryptoRank — 5 sources). First-announcement exchange (Bithumb or Upbit) captures 66% of upside; second announcement gets smaller continuation or dump. KRW pairs are systematically more powerful than BTC pairs: 6-of-6 KRW listings positive in 2025+, vs 4-of-5 BTC pairs declining. Effect is weakening in 2025 (Blockchain.news Sep 11) but not dead — ICP +20% / +443% volume on 2026-03-11.
 
 **Backtest-able signal:**
+
 1. Subscribe to Upbit announcements via Upbit public API (announcements endpoint) + Bithumb announcements (Korean RSS)
 2. **Detect listing announcement:** token + KRW pair + deposit open time
 3. **Optional cross-check:** token already listed on Binance/Bybit in BTC/USDT pair (avoid microcaps)
 4. **Entry:** Buy on Binance within 90 seconds of Upbit announcement tweet (Upbit Korea tweets 30-60s ahead of REST), target exit at +8% or 4h elapsed
 
 **Data feed required:**
+
 - Upbit public REST `https://api.upbit.com/v1/notices` + WebSocket announcements
 - Binance ticker feed (already in mm-crypto-bot)
 - Korean-language NLP for Bithumb announcements OR simple regex on announcement JSON
@@ -125,12 +131,14 @@ This track asks: **what crypto-native alpha is hidden in the Asian session that 
 **Mechanism:** bitFlyer Lightning uses a Japanese-stock-exchange-style **itayose call auction** (板寄せ) at three specific events: (a) circuit breaker trigger (20% move in 10min → 5-min halt → itayose reopening), (b) daily SQ at 12:00 JST for Lightning Futures, (c) maintenance restart. The opening price is determined by walking down sell orders and up buy orders until volumes match — a single price discovery event visible to all participants. This is a CRYPTO-NATIVE microstructure feature unique to Japanese regulated exchanges (Western CEXs use continuous double auction). The itayose reference price sets a 10-min anchor post-event — predicted to have alpha on the spread between itayose reference and subsequent Binance price.
 
 **Backtest-able signal:**
+
 1. Subscribe to bitFlyer WebSocket board diff (`lightning_board_BTC_JPY`)
 2. Detect status change to `PREOPEN` (itayose in progress)
 3. Capture final itayose price + subsequent Binance BTC/USDT price
 4. **Trade signal:** if itayose - Binance > +0.5%, expect mean-reversion in 10 minutes; trade on Binance
 
 **Data feed required:**
+
 - bitFlyer WebSocket (real-time board diff + status)
 - Binance BTC/USDT real-time (already in mm-crypto-bot)
 - **CRITICAL: Tokyo or Seoul co-location** — round-trip latency must be < 50ms to bitFlyer AWS Tokyo region
@@ -208,10 +216,11 @@ This track asks: **what crypto-native alpha is hidden in the Asian session that 
 ### Compositional envelope projection (Phase 11.4 + 11.5)
 
 If Plugins 1-3 ship and survive validation:
+
 - Phase 11.2e baseline (carry + basis + defensive + sizing) = +1.42%/mo
-- + Plugin 1 (Kimchi timing) = +2-3%/mo → total +3.5-4.5%/mo
-- + Plugin 2 (Yen tripwire, defensive) = +0.5-1.0%/mo → total +4.0-5.5%/mo
-- + Plugin 3 (Listing pump) = +1-2%/mo → total +5.0-7.5%/mo
+- - Plugin 1 (Kimchi timing) = +2-3%/mo → total +3.5-4.5%/mo
+- - Plugin 2 (Yen tripwire, defensive) = +0.5-1.0%/mo → total +4.0-5.5%/mo
+- - Plugin 3 (Listing pump) = +1-2%/mo → total +5.0-7.5%/mo
 
 This is **+3.5-6%/mo above Phase 11.2e envelope** — 2.5-4× the conservative Phase 11.2e ceiling. Still 6.7-10× short of +50%/mo, but this is the most credible crypto-native ceiling available without co-loc infrastructure or Phase 12 capital scale.
 
@@ -219,15 +228,16 @@ This is **+3.5-6%/mo above Phase 11.2e envelope** — 2.5-4× the conservative P
 
 ## §6 — Source language distribution table
 
-| Language | Source count | % of total | Examples |
-|----------|-------------|------------|----------|
-| **ja (Japanese)** | 5 | 22.7% | bitFlyer Lightning docs, bitFlyer annual reports (x2), Binance Japan LP program, Binance Japan PR |
-| **ko (Korean)** | 5 | 22.7% | BizChosun (martial law 김프), Upbit DataLab, algolab.co.kr (김프 자동매매), Upbit announcement (via Wikibit), theguru.co.kr |
-| **zh (Chinese)** | 7 | 31.8% | HTX funding docs, OKX funding rules, MyTokenCap, CoinPerps, new.qq.com (bitFlyer 241%), bxon.org, 4399btc.com |
-| **en (English)** | 5 | 22.7% | Choi/Lehar SSRN, Monash academic, Kaiko, KuCoin News, CryptoSlate, AInvest, CoinDesk, BIS Quarterly |
-| **TOTAL** | 22 | 100.0% | ≥3 language mandate satisfied (4 languages) ✓ |
+| Language          | Source count | % of total | Examples                                                                                                                    |
+| ----------------- | ------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **ja (Japanese)** | 5            | 22.7%      | bitFlyer Lightning docs, bitFlyer annual reports (x2), Binance Japan LP program, Binance Japan PR                           |
+| **ko (Korean)**   | 5            | 22.7%      | BizChosun (martial law 김프), Upbit DataLab, algolab.co.kr (김프 자동매매), Upbit announcement (via Wikibit), theguru.co.kr |
+| **zh (Chinese)**  | 7            | 31.8%      | HTX funding docs, OKX funding rules, MyTokenCap, CoinPerps, new.qq.com (bitFlyer 241%), bxon.org, 4399btc.com               |
+| **en (English)**  | 5            | 22.7%      | Choi/Lehar SSRN, Monash academic, Kaiko, KuCoin News, CryptoSlate, AInvest, CoinDesk, BIS Quarterly                         |
+| **TOTAL**         | 22           | 100.0%     | ≥3 language mandate satisfied (4 languages) ✓                                                                               |
 
 **Cross-language verification instances: 4**
+
 1. **1.24% Kimchi Premium long-run equilibrium** — verified across Monash (en) + AInvest (en) + Yahoo (en) + Bitget (zh) + KuCoin (ja) = 5 sources, 3 languages
 2. **Upbit listing +20% KRW pair pump** — verified across KuCoin (en) + AInvest (en) + Wikibit (en) + CryptoRank (en) + CCN (en) + theguru (ko) + Upbit DataLab (ko) = 7 sources, 2 languages
 3. **BTC peak hour UTC 13:00-16:00** — verified across bxon (zh) + 4399btc (zh) + php.cn (zh) + Santainfo (ko) = 4 sources, 2 languages
@@ -239,11 +249,11 @@ This is **+3.5-6%/mo above Phase 11.2e envelope** — 2.5-4× the conservative P
 
 ## §7 — References (22 sources, mixed-language)
 
-1. Choi, K., Lehar, A., Stauffer, R. (2018, revised 2022). *Bitcoin Microstructure and the Kimchi Premium*. SSRN 3189051. https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3189051 — **en**
-2. Monash University research team. *Nonlinear dynamics of Kimchi premium*. https://researchmgt.monash.edu/ws/portalfiles/portal/590976616/586624035_oa.pdf — **en**
-3. Kaiko Research. *The State of the Korean Crypto Market*. https://www.kaiko.com/resources/the-state-of-the-korean-crypto-market — **en**
-4. CryptoRank. *BTC and USDT Trade Below Official Rates in South Korea* (2024). https://cryptorank.io/news/feed/61807-reverse-kimchi-premium-btc-usdt — **en**
-5. AInvest. *Understanding the Kimchi Premium as a Strategic Indicator* (2025-12). https://www.ainvest.com/news/understanding-kimchi-premium-strategic-indicator-bitcoin-market-dynamics-2025-2512/ — **en**
+1. Choi, K., Lehar, A., Stauffer, R. (2018, revised 2022). _Bitcoin Microstructure and the Kimchi Premium_. SSRN 3189051. https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3189051 — **en**
+2. Monash University research team. _Nonlinear dynamics of Kimchi premium_. https://researchmgt.monash.edu/ws/portalfiles/portal/590976616/586624035_oa.pdf — **en**
+3. Kaiko Research. _The State of the Korean Crypto Market_. https://www.kaiko.com/resources/the-state-of-the-korean-crypto-market — **en**
+4. CryptoRank. _BTC and USDT Trade Below Official Rates in South Korea_ (2024). https://cryptorank.io/news/feed/61807-reverse-kimchi-premium-btc-usdt — **en**
+5. AInvest. _Understanding the Kimchi Premium as a Strategic Indicator_ (2025-12). https://www.ainvest.com/news/understanding-kimchi-premium-strategic-indicator-bitcoin-market-dynamics-2025-2512/ — **en**
 6. bitFlyer Lightning — Circuit Breaker mechanism docs. https://lightning.bitflyer.com/docs/circuitbreaker?region=JP&lang=ja — **ja**
 7. bitFlyer Holdings — 2025 Annual Report (12期). https://bitflyer.com/pub/business-report-12th.pdf — **ja**
 8. bitFlyer press release — 2026-04-03 10-year No.1 announcement. https://bitflyer.com/pub/20260403-bitFlyer-ranked-no1-in-domestic-btc-trading-volume-for-10-consecutive-years-ja.pdf — **ja**
@@ -251,13 +261,13 @@ This is **+3.5-6%/mo above Phase 11.2e envelope** — 2.5-4× the conservative P
 10. Binance Japan PR — JPY board launch (2024-03-12). https://prtimes.jp/main/html/rd/p/000000005.000126862.html — **ja**
 11. HTX (火币) — 资金费率结算调整公告 (2024-01-08). https://www.htx.com/zh-cn/support/44958157384677 — **zh**
 12. OKX (欧易) — 永续资金费规则. https://www.okx.com/zh-hans-sg/help/perps-funding-fee-mechanism — **zh**
-13. KuCoin News — *The Upbit Effect: Why KRW Listings Trigger Altcoin Surges*. https://www.kucoin.com/news/insight/BTC/6a0c3e03c8707a00078b77c1 — **en**
-14. CryptoSlate — *Yen Carry Trade Unwind Could Margin-Call Bitcoin*. https://cryptoslate.com/yen-carry-trade-unwind-margin-call-bitcoin-btc/ — **en**
-15. Bank for International Settlements Quarterly Review — *Carry off, carry on* (2024-09). https://www.bis.org/publ/qtrpdf/r_qt2409a.htm — **en**
+13. KuCoin News — _The Upbit Effect: Why KRW Listings Trigger Altcoin Surges_. https://www.kucoin.com/news/insight/BTC/6a0c3e03c8707a00078b77c1 — **en**
+14. CryptoSlate — _Yen Carry Trade Unwind Could Margin-Call Bitcoin_. https://cryptoslate.com/yen-carry-trade-unwind-margin-call-bitcoin-btc/ — **en**
+15. Bank for International Settlements Quarterly Review — _Carry off, carry on_ (2024-09). https://www.bis.org/publ/qtrpdf/r_qt2409a.htm — **en**
 16. BizChosun — 한밤 계엄령에 한국만 코인 급락… '역김치프리미엄' 왜 발생 (2024-12-04). https://biz.chosun.com/stock/finance/2024/12/04/H6DVXRDVPRC45MXLTHVR6ZAGCU/ — **ko**
-17. AInvest — *ICP's Upbit Listing: A Korean Retail Pump and What Comes Next* (2026-03-11). https://www.ainvest.com/news/icp-upbit-listing-korean-retail-pump-2603/ — **en**
+17. AInvest — _ICP's Upbit Listing: A Korean Retail Pump and What Comes Next_ (2026-03-11). https://www.ainvest.com/news/icp-upbit-listing-korean-retail-pump-2603/ — **en**
 18. Upbit DataLab — 업비트 프리미엄 (USDT) live feed. https://datalab.upbit.com/insight/upbit-premium — **ko**
-19. Forkast News — *Bitcoin's 'kimchi premium' falls, Upbit exchange suspends services* (2021). https://forkast.news/bitcoin-kimchi-premium-upbit/ — **en**
+19. Forkast News — _Bitcoin's 'kimchi premium' falls, Upbit exchange suspends services_ (2021). https://forkast.news/bitcoin-kimchi-premium-upbit/ — **en**
 20. new.qq.com (Tencent News) — 日本加密交易所bitFlyer交易量24小时飙升241%至2.2亿美元 (2024-08-05). https://new.qq.com/rain/a/20240805A05VWB00 — **zh**
 21. algolab.co.kr — 김치프리미엄 차익거래 자동화 4-stage 구조. https://algolab.co.kr/blog/kimchi-premium-arbitrage — **ko**
 22. CoinGlass — Funding Rate Aggregator. https://www.coinglass.com/pro/futures/TimeZoneDistributionHeatmap — **en**

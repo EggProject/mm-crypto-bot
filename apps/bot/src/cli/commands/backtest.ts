@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/backtest.ts
  *
- * Phase 37 Track 3 — `mm-bot backtest <strategy>`.
+ * Phase 37 Track 3 — the direct `backtest <strategy>` command.
  *
  * Runs a quick backtest on a deterministic OHLC fixture and prints a
  * single-row summary table.  The supported strategies are the OHLC
@@ -148,9 +148,23 @@ export function simulateStrategy(
   bars: readonly Candle[],
   initialEquity: number,
   riskPct: number,
-): { readonly trades: number; readonly wins: number; readonly losses: number; readonly finalEquity: number; readonly maxDD: number; readonly winRate: number } {
+): {
+  readonly trades: number;
+  readonly wins: number;
+  readonly losses: number;
+  readonly finalEquity: number;
+  readonly maxDD: number;
+  readonly winRate: number;
+} {
   // The aggregate state (mutable, updated in-place by `applyClose`).
-  const state: TradeState = { equity: initialEquity, peakEquity: initialEquity, maxDD: 0, wins: 0, losses: 0, trades: 0 };
+  const state: TradeState = {
+    equity: initialEquity,
+    peakEquity: initialEquity,
+    maxDD: 0,
+    wins: 0,
+    losses: 0,
+    trades: 0,
+  };
   // The currently-open position.
   let openPosition: { readonly signal: OhlcTrendSignal; readonly entryPrice: number } | null = null;
   // The signal waiting to be opened on the NEXT bar.
@@ -247,7 +261,8 @@ export function applyClose(
   riskPct: number,
   state: TradeState,
 ): void {
-  const pnlPerUnit = position.signal.side === "buy" ? exitPrice - position.entryPrice : position.entryPrice - exitPrice;
+  const pnlPerUnit =
+    position.signal.side === "buy" ? exitPrice - position.entryPrice : position.entryPrice - exitPrice;
   const riskPerUnit = Math.abs(position.entryPrice - position.signal.stopLoss);
   const riskAmount = state.equity * riskPct;
   const quantity = riskPerUnit > 0 ? riskAmount / riskPerUnit : 0;
@@ -267,7 +282,14 @@ export function applyClose(
  */
 function formatSummaryTable(
   strategyName: string,
-  result: { readonly trades: number; readonly wins: number; readonly losses: number; readonly finalEquity: number; readonly maxDD: number; readonly winRate: number },
+  result: {
+    readonly trades: number;
+    readonly wins: number;
+    readonly losses: number;
+    readonly finalEquity: number;
+    readonly maxDD: number;
+    readonly winRate: number;
+  },
   initialEquity: number,
   numBars: number,
 ): string {
@@ -290,8 +312,11 @@ function formatSummaryTable(
   }));
   const sep = "+" + sizedColumns.map(({ width }) => "-".repeat(width + 2)).join("+") + "+";
   const fmtRow = (field: "header" | "cell"): string =>
-    "|" + sizedColumns.map((column) =>
-      " " + (field === "header" ? column.header : column.cell).padEnd(column.width) + " ").join("|") + "|";
+    "|" +
+    sizedColumns
+      .map((column) => " " + (field === "header" ? column.header : column.cell).padEnd(column.width) + " ")
+      .join("|") +
+    "|";
   const lines: string[] = [];
   lines.push(sep);
   lines.push(fmtRow("header"));
@@ -302,7 +327,7 @@ function formatSummaryTable(
 }
 
 /**
- * `backtestCommand` — the `mm-bot backtest` handler.
+ * `backtestCommand` — the direct `backtest` handler.
  */
 export const backtestCommand: SubcommandHandler = async (args) => {
   await Promise.resolve();
@@ -310,7 +335,7 @@ export const backtestCommand: SubcommandHandler = async (args) => {
   const flags = args.flags;
 
   if (sub === undefined || sub === "--help" || sub === "-h") {
-    console.log("Usage: mm-bot backtest <strategy> [options]");
+    console.log("Usage: bun run apps/bot/src/index.ts backtest <strategy> [options]");
     console.log("");
     console.log("Strategies:");
     const reg = buildStrategyRegistry();
@@ -359,14 +384,24 @@ export const backtestCommand: SubcommandHandler = async (args) => {
   const result = simulateStrategy(strategy, fixture, initialEquity, riskPct);
 
   console.log(colorize(`Strategy: ${desc.displayName}`, "bold"));
-  console.log(dim(`Timeframe: ${timeframe} | Bars: ${String(bars)} | Initial equity: $${initialEquity.toFixed(2)} | Risk/trade: ${(riskPct * 100).toFixed(1)}%`));
+  console.log(
+    dim(
+      `Timeframe: ${timeframe} | Bars: ${String(bars)} | Initial equity: $${initialEquity.toFixed(2)} | Risk/trade: ${(riskPct * 100).toFixed(1)}%`,
+    ),
+  );
   console.log("");
   console.log(formatSummaryTable(strategyName, result, initialEquity, bars));
   console.log("");
   if (result.trades === 0) {
-    console.log(warn("No trades were triggered on the fixture. Try a longer fixture or a different strategy."));
+    console.log(
+      warn("No trades were triggered on the fixture. Try a longer fixture or a different strategy."),
+    );
   } else {
-    console.log(ok(`Backtest complete. ${result.wins} wins, ${result.losses} losses, ${(result.winRate * 100).toFixed(1)}% win rate.`));
+    console.log(
+      ok(
+        `Backtest complete. ${result.wins} wins, ${result.losses} losses, ${(result.winRate * 100).toFixed(1)}% win rate.`,
+      ),
+    );
   }
   // Acknowledge unused imports (silent, just for tree-shake clarity).
   void makeSymbol;

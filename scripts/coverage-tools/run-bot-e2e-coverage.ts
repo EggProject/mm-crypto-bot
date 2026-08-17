@@ -62,6 +62,8 @@ try {
   printBotE2eSummary(summary);
   if (!summary.passed) process.exitCode = 1;
 } catch (error) {
-  console.error(`Bot subprocess E2E coverage infrastructure failed: ${error instanceof Error ? error.message : String(error)}`);
+  console.error(
+    `Bot subprocess E2E coverage infrastructure failed: ${error instanceof Error ? error.message : String(error)}`,
+  );
   process.exitCode = 2;
 }

@@ -70,14 +70,14 @@ nem alkalmas production stack-be `[4.5]`.
 
 A projekt teljes stack-e:
 
-| Réteg | Technológia |
-|---|---|
-| Runtime | **Bun 1.3.14** |
-| Csomagkezelő | Bun + Turborepo 2.10.2 |
-| Nyelv | **TypeScript 6.0.3** ultra-strict |
-| Exchange integráció | CCXT Pro 4.5.64 (TS bindings) |
-| Backend (order, strategy) | TS |
-| **Frontend (TUI)** | **Döntés kérdése** |
+| Réteg                     | Technológia                       |
+| ------------------------- | --------------------------------- |
+| Runtime                   | **Bun 1.3.14**                    |
+| Csomagkezelő              | Bun + Turborepo 2.10.2            |
+| Nyelv                     | **TypeScript 6.0.3** ultra-strict |
+| Exchange integráció       | CCXT Pro 4.5.64 (TS bindings)     |
+| Backend (order, strategy) | TS                                |
+| **Frontend (TUI)**        | **Döntés kérdése**                |
 
 #### Ink — természetes illeszkedés
 
@@ -98,10 +98,10 @@ A `bun.lock` egységes marad, a Turborepo task-ek egyszerűek:
 {
   "tasks": {
     "build": { "outputs": ["dist/**"] },
-    "dev":   { "cache": false, "persistent": true },
-    "lint":  {},
-    "test":  { "dependsOn": ["build"] }
-  }
+    "dev": { "cache": false, "persistent": true },
+    "lint": {},
+    "test": { "dependsOn": ["build"] },
+  },
 }
 ```
 
@@ -132,13 +132,13 @@ teljesítménye valódi előnyt jelent — ami a mi esetünkben nem áll fenn
 
 #### Értékelés
 
-| Szempont | Ink | Ratatui |
-|---|---|---|
-| Toolchain-ek száma | 1 (Bun) | 2 (Bun + Rust) |
-| Build pipeline | 1 lépés | 2 lépés (Bun + Rust) |
-| Platform-függőség | Node ABI kompatibilis | Natív bináris per platform |
-| `bun.lock` egységesség | ✅ | ❌ külön `Cargo.lock` |
-| Hibakeresés | VS Code TS | VS Code TS + VS Code Rust |
+| Szempont               | Ink                   | Ratatui                    |
+| ---------------------- | --------------------- | -------------------------- |
+| Toolchain-ek száma     | 1 (Bun)               | 2 (Bun + Rust)             |
+| Build pipeline         | 1 lépés               | 2 lépés (Bun + Rust)       |
+| Platform-függőség      | Node ABI kompatibilis | Natív bináris per platform |
+| `bun.lock` egységesség | ✅                    | ❌ külön `Cargo.lock`      |
+| Hibakeresés            | VS Code TS            | VS Code TS + VS Code Rust  |
 
 **Pontszám**: Ink 5/5, Ratatui 2/5.
 
@@ -167,11 +167,11 @@ plusz ismereteket igényel az adott keretrendszer?
 
 #### Értékelés
 
-| Szempont | Ink | Ratatui |
-|---|---|---|
-| Ismeretlen tanulási görbe | Minimális (React) | Jelentős (Rust + Ratatui) |
-| Magyar TS fejlesztők elérhetősége | Magas | Alacsony |
-| HMR / gyors iteráció | ✅ | ⚠️ lassabb (Rust rebuild) |
+| Szempont                          | Ink               | Ratatui                   |
+| --------------------------------- | ----------------- | ------------------------- |
+| Ismeretlen tanulási görbe         | Minimális (React) | Jelentős (Rust + Ratatui) |
+| Magyar TS fejlesztők elérhetősége | Magas             | Alacsony                  |
+| HMR / gyors iteráció              | ✅                | ⚠️ lassabb (Rust rebuild) |
 
 **Pontszám**: Ink 5/5, Ratatui 2/5.
 
@@ -190,12 +190,12 @@ A spec-ben megfogalmazott TUI-funkciók:
 
 A fenti funkciók **mindkét könyvtárral megvalósíthatók**:
 
-| Funkció | Ink | Ratatui |
-|---|---|---|
-| Realtime update | `useEffect` + WS subscription + re-render | `tokio::spawn` + WS subscription + draw loop |
-| Indítás / leállítás | `useInput('q')` + `process.kill()` | `event::read()` + `crossterm::event::KeyCode` |
-| Statisztikai menü | `useState` aggregált számok, `<Box>` layout | `app.draw()` + `Layout::split()` |
-| History (scrollable) | `<ScrollView>` vagy `<Box flexDirection>` + `slice` | `List` widget + scroll state |
+| Funkció              | Ink                                                 | Ratatui                                       |
+| -------------------- | --------------------------------------------------- | --------------------------------------------- |
+| Realtime update      | `useEffect` + WS subscription + re-render           | `tokio::spawn` + WS subscription + draw loop  |
+| Indítás / leállítás  | `useInput('q')` + `process.kill()`                  | `event::read()` + `crossterm::event::KeyCode` |
+| Statisztikai menü    | `useState` aggregált számok, `<Box>` layout         | `app.draw()` + `Layout::split()`              |
+| History (scrollable) | `<ScrollView>` vagy `<Box flexDirection>` + `slice` | `List` widget + scroll state                  |
 
 A Ratatui natívan ad `Table`, `Chart`, `Sparkline`, `Gauge`,
 `Tabs`, `List`, `Paragraph` widget-eket `[4.1]`. Az Ink-ből ezeket
@@ -205,13 +205,13 @@ külső widget-könyvtár**.
 
 #### Értékelés
 
-| Szempont | Ink | Ratatui |
-|---|---|---|
-| Realtime update | ✅ natívan | ✅ natívan |
-| Billentyűzet input | ✅ `useInput` | ✅ `event::read` |
-| Layout | ✅ Flexbox (Yoga) | ✅ Constraint |
-| Scrollable history | ✅ | ✅ natívan (`List` widget) |
-| Szükséges saját widget-kód | Minimális | Minimális |
+| Szempont                   | Ink               | Ratatui                    |
+| -------------------------- | ----------------- | -------------------------- |
+| Realtime update            | ✅ natívan        | ✅ natívan                 |
+| Billentyűzet input         | ✅ `useInput`     | ✅ `event::read`           |
+| Layout                     | ✅ Flexbox (Yoga) | ✅ Constraint              |
+| Scrollable history         | ✅                | ✅ natívan (`List` widget) |
+| Szükséges saját widget-kód | Minimális         | Minimális                  |
 
 **Pontszám**: Ink 4/5, Ratatui 5/5 (natív widget-készlete miatt).
 
@@ -230,11 +230,11 @@ külső widget-könyvtár**.
 
 #### Értékelés
 
-| Szempont | Ink | Ratatui |
-|---|---|---|
-| Alkalmas 1-10 Hz update-re | ✅ | ✅ |
-| Extrém 60+ FPS render | ⚠️ lehet lassabb | ✅ |
-| Szükséges a mi scope-unkhoz | Igen | Túlzás |
+| Szempont                    | Ink              | Ratatui |
+| --------------------------- | ---------------- | ------- |
+| Alkalmas 1-10 Hz update-re  | ✅               | ✅      |
+| Extrém 60+ FPS render       | ⚠️ lehet lassabb | ✅      |
+| Szükséges a mi scope-unkhoz | Igen             | Túlzás  |
 
 **Pontszám**: Ink 5/5, Ratatui 5/5 (de a Ratatui előnye itt nem
 érvényesül).
@@ -243,13 +243,13 @@ külső widget-könyvtár**.
 
 ## 4. Végső pontszám és döntés
 
-| Szempont | Ink | Ratatui |
-|---|---|---|
-| Stack-koherencia | **5/5** | 2/5 |
-| Karbantarthatóság (magyar fejlesztők) | **5/5** | 2/5 |
-| Funkciók teljessége | 4/5 | **5/5** |
-| Teljesítmény (scope-hoz illeszkedés) | **5/5** | 5/5 (előny nem érvényesül) |
-| **Összesen** | **19/20** | **14/20** |
+| Szempont                              | Ink       | Ratatui                    |
+| ------------------------------------- | --------- | -------------------------- |
+| Stack-koherencia                      | **5/5**   | 2/5                        |
+| Karbantarthatóság (magyar fejlesztők) | **5/5**   | 2/5                        |
+| Funkciók teljessége                   | 4/5       | **5/5**                    |
+| Teljesítmény (scope-hoz illeszkedés)  | **5/5**   | 5/5 (előny nem érvényesül) |
+| **Összesen**                          | **19/20** | **14/20**                  |
 
 ### Döntés
 

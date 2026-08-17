@@ -9,6 +9,7 @@
 **Author:** coder (Phase 16 Track C M2).
 
 **Companion deliverables:**
+
 - `packages/core/src/strategy/pivot-point-grid.ts` (Phase 16 Track A; `maxPositionPctEquity` config + `applyCap()` helper)
 - `packages/core/src/strategy/regime-routed-ensemble.ts` (Phase 16 Track B; ADX-routed 4-sub-strategy composition)
 - `packages/backtest-tools/src/cli/run-pivot-grid-baseline.ts` (Phase 16 Track C; updated with `--max-position-pct-equity` flag)
@@ -19,14 +20,15 @@
 
 ## §1. Executive summary
 
-| Strategy | BTC envelope | ETH envelope | SOL envelope | Portfolio (geometric mean) |
-|----------|--------------|--------------|--------------|----------------------------|
-| **Pivot Point Grid (capped @ 4%)** | +60.07%/mo, Sharpe 29.29, MaxDD 6.77%, 9717 trades, no kill-switch | +90.33%/mo, Sharpe 32.06, MaxDD 5.39%, 9668 trades, no kill-switch | +78.86%/mo, Sharpe 27.46, MaxDD 7.57%, 8317 trades, no kill-switch | **+76.4%/mo** (killed by compounding-explosion caveat, see §2) |
-| **Regime-Routed Ensemble** | +0.12%/mo, Sharpe 1.486, MaxDD 50.01%, 1265 trades, **kill-switch** | 0.00%/mo (kill-switch at -11.86% total), Sharpe -4.328, MaxDD 50.06%, 915 trades | -50.00% total / 0.00%/mo (kill-switch immediately), Sharpe -99.81, MaxDD 50.00%, 619 trades | portfolio -50%, **all 3 symbols killed** |
-| **Phase 14A-D baseline (reference)** | +2.06%/mo portfolio avg, Sharpe 1.31, MaxDD 10.58% | (portfolio) | (portfolio) | **+2.06%/mo** (carry + directional + vol + DVOL) |
-| **Phase 15 Simple Retail Ensemble (BTC, reference)** | +4.73%/mo BTC, kill-switch triggered | ETH -48.80% (kill-switch) | SOL +4.28% (kill-switch) | portfolio ~-30% |
+| Strategy                                             | BTC envelope                                                        | ETH envelope                                                                     | SOL envelope                                                                                | Portfolio (geometric mean)                                     |
+| ---------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Pivot Point Grid (capped @ 4%)**                   | +60.07%/mo, Sharpe 29.29, MaxDD 6.77%, 9717 trades, no kill-switch  | +90.33%/mo, Sharpe 32.06, MaxDD 5.39%, 9668 trades, no kill-switch               | +78.86%/mo, Sharpe 27.46, MaxDD 7.57%, 8317 trades, no kill-switch                          | **+76.4%/mo** (killed by compounding-explosion caveat, see §2) |
+| **Regime-Routed Ensemble**                           | +0.12%/mo, Sharpe 1.486, MaxDD 50.01%, 1265 trades, **kill-switch** | 0.00%/mo (kill-switch at -11.86% total), Sharpe -4.328, MaxDD 50.06%, 915 trades | -50.00% total / 0.00%/mo (kill-switch immediately), Sharpe -99.81, MaxDD 50.00%, 619 trades | portfolio -50%, **all 3 symbols killed**                       |
+| **Phase 14A-D baseline (reference)**                 | +2.06%/mo portfolio avg, Sharpe 1.31, MaxDD 10.58%                  | (portfolio)                                                                      | (portfolio)                                                                                 | **+2.06%/mo** (carry + directional + vol + DVOL)               |
+| **Phase 15 Simple Retail Ensemble (BTC, reference)** | +4.73%/mo BTC, kill-switch triggered                                | ETH -48.80% (kill-switch)                                                        | SOL +4.28% (kill-switch)                                                                    | portfolio ~-30%                                                |
 
 JSON sources:
+
 - `backtest-results/phase16-pivot-grid-btc-15m-capped.json`
 - `backtest-results/phase16-pivot-grid-eth-15m-capped.json`
 - `backtest-results/phase16-pivot-grid-sol-15m-capped.json`
@@ -56,19 +58,19 @@ Three findings block the realistic envelope from being ship-ready:
 
 **Backtest envelope (from `backtest-results/phase16-pivot-grid-*-15m-capped.json`):**
 
-| Symbol | Source JSON | Monthly return | Total return | Sharpe | Sortino | Max DD | PF | Win rate | Trades | Kill-switch |
-|--------|-------------|---------------:|-------------:|-------:|--------:|-------:|---:|---------:|-------:|:-----------:|
-| BTC    | `phase16-pivot-grid-btc-15m-capped.json` | **+60.07%/mo** | 1.45 × 10⁶ % | 29.294 | 58.505 | 6.77% | 5.732 | 65.03% | 9717 | no |
-| ETH    | `phase16-pivot-grid-eth-15m-capped.json` | **+90.33%/mo** | 2.68 × 10⁹ % | 32.057 | 60.090 | 5.39% | 5.781 | 68.40% | 9668 | no |
-| SOL    | `phase16-pivot-grid-sol-15m-capped.json` | **+78.86%/mo** | 4.11 × 10⁸ % | 27.461 | 44.097 | 7.57% | 7.330 | 65.87% | 8317 | no |
+| Symbol | Source JSON                              | Monthly return | Total return | Sharpe | Sortino | Max DD |    PF | Win rate | Trades | Kill-switch |
+| ------ | ---------------------------------------- | -------------: | -----------: | -----: | ------: | -----: | ----: | -------: | -----: | :---------: |
+| BTC    | `phase16-pivot-grid-btc-15m-capped.json` | **+60.07%/mo** | 1.45 × 10⁶ % | 29.294 |  58.505 |  6.77% | 5.732 |   65.03% |   9717 |     no      |
+| ETH    | `phase16-pivot-grid-eth-15m-capped.json` | **+90.33%/mo** | 2.68 × 10⁹ % | 32.057 |  60.090 |  5.39% | 5.781 |   68.40% |   9668 |     no      |
+| SOL    | `phase16-pivot-grid-sol-15m-capped.json` | **+78.86%/mo** | 4.11 × 10⁸ % | 27.461 |  44.097 |  7.57% | 7.330 |   65.87% |   8317 |     no      |
 
 **Phase 15 uncapped envelope (from `backtest-results/phase15-pivot-grid-*-15m.json`, for comparison):**
 
-| Symbol | Source JSON | Monthly return | Total return | Sharpe | Max DD | Trades | Kill-switch |
-|--------|-------------|---------------:|-------------:|-------:|-------:|-------:|:-----------:|
-| BTC    | `phase15-pivot-grid-btc-15m.json` | +60.07%/mo | 1.45 × 10⁶ % | 29.294 | 6.77% | 9717 | no |
-| ETH    | `phase15-pivot-grid-eth-15m.json` | +90.34%/mo | 2.68 × 10⁹ % | 32.057 | 5.39% | 9668 | no |
-| SOL    | `phase15-pivot-grid-sol-15m.json` | +78.87%/mo | 4.11 × 10⁸ % | 27.461 | 7.57% | 8317 | no |
+| Symbol | Source JSON                       | Monthly return | Total return | Sharpe | Max DD | Trades | Kill-switch |
+| ------ | --------------------------------- | -------------: | -----------: | -----: | -----: | -----: | :---------: |
+| BTC    | `phase15-pivot-grid-btc-15m.json` |     +60.07%/mo | 1.45 × 10⁶ % | 29.294 |  6.77% |   9717 |     no      |
+| ETH    | `phase15-pivot-grid-eth-15m.json` |     +90.34%/mo | 2.68 × 10⁹ % | 32.057 |  5.39% |   9668 |     no      |
+| SOL    | `phase15-pivot-grid-sol-15m.json` |     +78.87%/mo | 4.11 × 10⁸ % | 27.461 |  7.57% |   8317 |     no      |
 
 **Phase 16 numbers match Phase 15 numbers to ±0.01%/mo across all 3 symbols.** Win rate, profit factor, total trade count, Sharpe ratio, Max DD are byte-identical. The only literal difference between Phase 15 and Phase 16 envelopes is the `strategyConfig.maxPositionPctEquity` field in the JSON output (Phase 16: 0.04; Phase 15: 0.2 — both pre-Track-A default values).
 
@@ -85,29 +87,30 @@ Three findings block the realistic envelope from being ship-ready:
 **Class:** `RegimeRoutedEnsemble` (`packages/core/src/strategy/regime-routed-ensemble.ts`, Phase 16 Track B merged).
 **Timeframe:** M15 LTF (default `REGIME_ROUTED_ENSEMBLE_DEFAULT_LTF = "15m"`).
 **Composition:** 4 sub-strategies routed by HTF (1d) ADX(14):
+
 - Range regime (ADX < 20) → Pivot Grid + Donchian Range (mean-reversion family)
 - Trend regime (ADX >= 20) → BB Squeeze + Keltner Grid (breakout family)
 - Aggregation: 0 → null; 1 → emit solo; 2 same-side → emit highest-confidence consensus; 2 conflict → defer.
-**Sizing (1:10) is engine-side** — strategy only emits signals.
+  **Sizing (1:10) is engine-side** — strategy only emits signals.
 
 **Backtest envelope (from `backtest-results/phase16-regime-ensemble-*-15m.json`):**
 
-| Symbol | Source JSON | Monthly return | Total return | Sharpe | Sortino | Max DD | PF | Win rate | Trades | Kill-switch |
-|--------|-------------|---------------:|-------------:|-------:|--------:|-------:|---:|---------:|-------:|:-----------:|
-| BTC    | `phase16-regime-ensemble-btc-15m.json` | **+0.12%/mo** | 3.69% | 1.486 | 1.852 | 50.01% | 1.032 | 26.96% | 1265 | **YES** |
-| ETH    | `phase16-regime-ensemble-eth-15m.json` | 0.00%/mo (kill-switch at -11.86% total) | -11.86% | -4.328 | -6.201 | 50.06% | 0.875 | 15.08% | 915 | **YES** |
-| SOL    | `phase16-regime-ensemble-sol-15m.json` | 0.00%/mo (kill-switch immediately) | -50.00% | -99.808 | -46.291 | 50.00% | 0.000 | **0.00%** | 619 | **YES** |
+| Symbol | Source JSON                            |                          Monthly return | Total return |  Sharpe | Sortino | Max DD |    PF |  Win rate | Trades | Kill-switch |
+| ------ | -------------------------------------- | --------------------------------------: | -----------: | ------: | ------: | -----: | ----: | --------: | -----: | :---------: |
+| BTC    | `phase16-regime-ensemble-btc-15m.json` |                           **+0.12%/mo** |        3.69% |   1.486 |   1.852 | 50.01% | 1.032 |    26.96% |   1265 |   **YES**   |
+| ETH    | `phase16-regime-ensemble-eth-15m.json` | 0.00%/mo (kill-switch at -11.86% total) |      -11.86% |  -4.328 |  -6.201 | 50.06% | 0.875 |    15.08% |    915 |   **YES**   |
+| SOL    | `phase16-regime-ensemble-sol-15m.json` |      0.00%/mo (kill-switch immediately) |      -50.00% | -99.808 | -46.291 | 50.00% | 0.000 | **0.00%** |    619 |   **YES**   |
 
 **Comparison vs Phase 15 Simple Retail Ensemble (`backtest-results/phase15-ensemble-*-15m.json`):**
 
-| Symbol | Phase 15 Ensemble | Phase 16 Regime Ensemble | Verdict |
-|--------|-------------------|---------------------------|---------|
-| BTC    | +4.73%/mo (kill-switch, recovers) | +0.12%/mo (kill-switch) | Phase 16 worse (lower return, both killed) |
-| ETH    | -48.80% (kill-switch, no recovery) | -11.86% (kill-switch) | Phase 16 better (smaller drawdown before kill) |
-| SOL    | +4.28% (kill-switch, recovers) | -50.00% (immediate kill) | Phase 16 dramatically worse (0% win rate) |
-| Trades (BTC) | 7442 | 1265 | Phase 16 fires 5.9× fewer signals |
-| Trades (ETH) | 4505 | 915 | Phase 16 fires 4.9× fewer signals |
-| Trades (SOL) | 5732 | 619 | Phase 16 fires 9.3× fewer signals |
+| Symbol       | Phase 15 Ensemble                  | Phase 16 Regime Ensemble | Verdict                                        |
+| ------------ | ---------------------------------- | ------------------------ | ---------------------------------------------- |
+| BTC          | +4.73%/mo (kill-switch, recovers)  | +0.12%/mo (kill-switch)  | Phase 16 worse (lower return, both killed)     |
+| ETH          | -48.80% (kill-switch, no recovery) | -11.86% (kill-switch)    | Phase 16 better (smaller drawdown before kill) |
+| SOL          | +4.28% (kill-switch, recovers)     | -50.00% (immediate kill) | Phase 16 dramatically worse (0% win rate)      |
+| Trades (BTC) | 7442                               | 1265                     | Phase 16 fires 5.9× fewer signals              |
+| Trades (ETH) | 4505                               | 915                      | Phase 16 fires 4.9× fewer signals              |
+| Trades (SOL) | 5732                               | 619                      | Phase 16 fires 9.3× fewer signals              |
 
 **Trade count reduction:** regime routing fires 5-9× fewer trades than unconditional 4-strategy ensemble. The ADX(14) threshold filter is too aggressive — it suppresses many high-quality mean-reversion entries (low-vol regimes don't always have ADX<20, and the ADX-20 boundary is a discretization that doesn't capture the gradual regime transitions).
 
@@ -124,17 +127,20 @@ Three findings block the realistic envelope from being ship-ready:
 The Phase 15 report documented trade-count ratios showing 3.77× more Pivot Grid trades than Donchian Range (BTC). Phase 16 regime ensemble partitions these into regimes, but the regime classification itself introduces new correlations:
 
 **Within range regime (ADX < 20):**
+
 - Pivot Grid (M15, ~9700 trades/symbol) + Donchian Range (M15, ~1700-3100 trades/symbol) fire together.
 - Both are mean-reversion strategies but with different price-level definitions: Pivot Grid uses Fib(0.382/0.618/1.000) bands of the prior day's range; Donchian Range uses 20-day Donchian(20) rails.
 - Empirical trade-level correlation: not measured in this envelope (would require cross-trade timestamp analysis; out of scope for Phase 16). The regime ensemble's high consensus frequency on BTC (PF 1.032, win rate 26.96%) suggests **moderate positive correlation**: both sub-strategies tend to agree in low-vol regimes, but the agreement doesn't translate to high win rate because both fire on different price levels and the SL/TP distances differ.
 
 **Within trend regime (ADX >= 20):**
+
 - BB Squeeze (M5 → M15-aggregated) + Keltner Grid (M5 → M15-aggregated) fire together.
 - BB Squeeze fires on 1h BB(20,2σ) squeeze→breakout; Keltner Grid fires on inline EMA20 ± 1.5×ATR grids.
 - Both strategies on M15 aggregation = M5 noise floor amplified by 3× — Phase 15 §4/§6 showed both strategies kill-switch on M5 + M15 aggregation.
 - Empirical trade-level correlation: SOL 0% win rate (619 trades, all losses) suggests **strong positive correlation of losses**: both sub-strategies lose in the same direction on the same candles under M15 aggregation.
 
 **Across regimes:**
+
 - Range regime strategies (Pivot + Donchian) and trend regime strategies (BB + Keltner) are anti-correlated by construction — they fire in mutually exclusive regimes. The regime ensemble guarantees no cross-regime signal can fire simultaneously.
 - This is the intended Phase 16 design but the empirical outcome (SOL kill-switch, ETH kill-switch, BTC near-kill) shows the regime boundary itself is the failure point.
 
@@ -148,14 +154,14 @@ The Phase 15 report documented trade-count ratios showing 3.77× more Pivot Grid
 
 The HTF (1d) ADX(14) threshold of 20 (Wilder 1978) partitions the 30-month backtest period into range/trend regimes per candle. Empirical distribution from the regime-routed-ensemble backtests:
 
-| Symbol | Regime | ADX condition | Sub-strategies eligible | Observed trades | Trade-share |
-|--------|--------|--------------|--------------------------|----------------:|-------------|
-| BTC    | Range  | ADX < 20    | Pivot Grid + Donchian | (subset of 1265) | ~70% (estimate from win-rate pattern) |
-| BTC    | Trend  | ADX >= 20   | BB Squeeze + Keltner   | (subset of 1265) | ~30% |
-| ETH    | Range  | ADX < 20    | Pivot Grid + Donchian | (subset of 915)  | ~50% (estimate, ETH has higher trend frequency than BTC) |
-| ETH    | Trend  | ADX >= 20   | BB Squeeze + Keltner   | (subset of 915)  | ~50% |
-| SOL    | Range  | ADX < 20    | Pivot Grid + Donchian | (subset of 619)  | ~25% (estimate, SOL trends the most) |
-| SOL    | Trend  | ADX >= 20   | BB Squeeze + Keltner   | (subset of 619)  | ~75% |
+| Symbol | Regime | ADX condition | Sub-strategies eligible |  Observed trades | Trade-share                                              |
+| ------ | ------ | ------------- | ----------------------- | ---------------: | -------------------------------------------------------- |
+| BTC    | Range  | ADX < 20      | Pivot Grid + Donchian   | (subset of 1265) | ~70% (estimate from win-rate pattern)                    |
+| BTC    | Trend  | ADX >= 20     | BB Squeeze + Keltner    | (subset of 1265) | ~30%                                                     |
+| ETH    | Range  | ADX < 20      | Pivot Grid + Donchian   |  (subset of 915) | ~50% (estimate, ETH has higher trend frequency than BTC) |
+| ETH    | Trend  | ADX >= 20     | BB Squeeze + Keltner    |  (subset of 915) | ~50%                                                     |
+| SOL    | Range  | ADX < 20      | Pivot Grid + Donchian   |  (subset of 619) | ~25% (estimate, SOL trends the most)                     |
+| SOL    | Trend  | ADX >= 20     | BB Squeeze + Keltner    |  (subset of 619) | ~75%                                                     |
 
 Sources: trade counts from `backtest-results/phase16-regime-ensemble-{btc,eth,sol}-15m.json`. Trade-share estimates are inferred from the win-rate distribution (range regime fires had higher win-rate ~30-40%; trend regime fires had 0-15% win-rate, particularly SOL with 0% overall = the trend sub-strategies were dominant).
 
@@ -218,18 +224,19 @@ vs. **Phase 14A-D baseline:** +2.06%/mo. The realistic Phase 16 envelope (with P
 
 ## §8. Open decisions for Phase 17+
 
-| # | Candidate | Estimated LOC / time | Why |
-|---|-----------|---------------------|-----|
-| 1 | **Engine-side cap wiring for `signal.confidence`** | 50 LOC + re-run 3 backtests (15 min) | **CRITICAL**: without this, the Phase 16 "4% cap" is a no-op. Required to validate the +20-50%/mo Pivot envelope claimed by Phase 16 scope §2. Either rewrite `positionNotionalUsd` to consume `signal.confidence` (treat as a maxPositionPctEquity multiplier) or modify the engine to multiply `riskPerTrade` by `cap / ENGINE_MAX_POSITION_PCT_EQUITY`. |
-| 2 | **Regime-Ensemble 1-of-2 consensus relaxation** | 30 LOC + re-run 3 backtests (15 min) | Phase 16 fails because 2-of-2 consensus requires both sub-strategies to agree. Relax to "either one fires → emit" (drop consensus threshold). Likely lifts BTC envelope from +0.12%/mo to +5-15%/mo. |
-| 3 | **Donchian + Pivot composition** | 100 LOC + 3 backtests (30 min) | Phase 15 had SimpleRetailEnsemble with 4 components at consensus 2/4 — diluted. Phase 16's regime routing was too aggressive. Phase 17 candidate: 2-component range regime ensemble (Pivot + Donchian only, both M15-native, no M5 aggregation issue). Likely +15-25%/mo on BTC. |
-| 4 | **BB Squeeze + DVOL sizing** (Phase 14D composition) | 150 LOC + 3 backtests (30 min) | Phase 15 §4 noted BB Squeeze might show positive alpha under DVOL regime filtering. With Phase 16 confirmed M5 noise floor fail, the DVOL gate may filter out M5 noise without the regime-ensemble's anti-correlated dilution. |
-| 5 | **Keltner ADX filter** (Phase 15 §6 Track D) | 50 LOC + re-run 3 backtests (15 min) | Phase 15 §6 noted Keltner Grid M5 likely converts from -50% to positive if the same ADX < 20 filter as Donchian is applied. Cheap 1-file edit + re-run. |
-| 6 | **Adaptive Kelly for retail ensemble** | 100 LOC + ensemble backtest (30 min) | Phase 11.1e HybridKellyPlugin is already drop-in. Scales notional to in-sample Sharpe. Likely +0.5-2%/mo on top of any composition. |
-| 7 | **Phase 13 PortfolioOrchestrator wrap** | 200 LOC + portfolio backtest (45 min) | Run Phase 16 ensemble + capped pivot through Phase 13's PortfolioOrchestrator for simultaneous BTC + ETH + SOL + notional division. Extends the single-symbol envelope to portfolio. Highest-ROI Phase 17 candidate IF single-symbol Phase 16 envelope is genuine. |
-| 8 | **Regime-aware trailing stop** (Phase 7 plug-in) | 50 LOC + 3 backtests (15 min) | Phase 7's DonchianTrailingStrategy can be plugged into Phase 16 ensemble. Trailing stop only fires in trend regime; pivots to mean-reversion exit in range regime. Likely reduces Max DD by 20-40% on surviving trades. |
+| #   | Candidate                                            | Estimated LOC / time                  | Why                                                                                                                                                                                                                                                                                                                                                        |
+| --- | ---------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Engine-side cap wiring for `signal.confidence`**   | 50 LOC + re-run 3 backtests (15 min)  | **CRITICAL**: without this, the Phase 16 "4% cap" is a no-op. Required to validate the +20-50%/mo Pivot envelope claimed by Phase 16 scope §2. Either rewrite `positionNotionalUsd` to consume `signal.confidence` (treat as a maxPositionPctEquity multiplier) or modify the engine to multiply `riskPerTrade` by `cap / ENGINE_MAX_POSITION_PCT_EQUITY`. |
+| 2   | **Regime-Ensemble 1-of-2 consensus relaxation**      | 30 LOC + re-run 3 backtests (15 min)  | Phase 16 fails because 2-of-2 consensus requires both sub-strategies to agree. Relax to "either one fires → emit" (drop consensus threshold). Likely lifts BTC envelope from +0.12%/mo to +5-15%/mo.                                                                                                                                                       |
+| 3   | **Donchian + Pivot composition**                     | 100 LOC + 3 backtests (30 min)        | Phase 15 had SimpleRetailEnsemble with 4 components at consensus 2/4 — diluted. Phase 16's regime routing was too aggressive. Phase 17 candidate: 2-component range regime ensemble (Pivot + Donchian only, both M15-native, no M5 aggregation issue). Likely +15-25%/mo on BTC.                                                                           |
+| 4   | **BB Squeeze + DVOL sizing** (Phase 14D composition) | 150 LOC + 3 backtests (30 min)        | Phase 15 §4 noted BB Squeeze might show positive alpha under DVOL regime filtering. With Phase 16 confirmed M5 noise floor fail, the DVOL gate may filter out M5 noise without the regime-ensemble's anti-correlated dilution.                                                                                                                             |
+| 5   | **Keltner ADX filter** (Phase 15 §6 Track D)         | 50 LOC + re-run 3 backtests (15 min)  | Phase 15 §6 noted Keltner Grid M5 likely converts from -50% to positive if the same ADX < 20 filter as Donchian is applied. Cheap 1-file edit + re-run.                                                                                                                                                                                                    |
+| 6   | **Adaptive Kelly for retail ensemble**               | 100 LOC + ensemble backtest (30 min)  | Phase 11.1e HybridKellyPlugin is already drop-in. Scales notional to in-sample Sharpe. Likely +0.5-2%/mo on top of any composition.                                                                                                                                                                                                                        |
+| 7   | **Phase 13 PortfolioOrchestrator wrap**              | 200 LOC + portfolio backtest (45 min) | Run Phase 16 ensemble + capped pivot through Phase 13's PortfolioOrchestrator for simultaneous BTC + ETH + SOL + notional division. Extends the single-symbol envelope to portfolio. Highest-ROI Phase 17 candidate IF single-symbol Phase 16 envelope is genuine.                                                                                         |
+| 8   | **Regime-aware trailing stop** (Phase 7 plug-in)     | 50 LOC + 3 backtests (15 min)         | Phase 7's DonchianTrailingStrategy can be plugged into Phase 16 ensemble. Trailing stop only fires in trend regime; pivots to mean-reversion exit in range regime. Likely reduces Max DD by 20-40% on surviving trades.                                                                                                                                    |
 
 **Highest-priority Phase 17 candidates:**
+
 - **#1 (engine-side cap wiring) — MANDATORY to validate Phase 16 envelope**. Without this, "+20-50%/mo capped Pivot" is unverified.
 - **#3 (Donchian + Pivot 2-component composition)** — addresses the regime-routing dilution specifically.
 - **#7 (PortfolioOrchestrator wrap)** — highest-ROI IF single-symbol envelope is realistic. But Phase 16 SOL kill-switch means the realistic portfolio envelope is 1-symbol positive (BTC) + 1-symbol kill (SOL) + 1-symbol kill (ETH), which is still better than 0/3 but far below the Phase 14 +2.06%/mo portfolio baseline.
@@ -239,6 +246,7 @@ vs. **Phase 14A-D baseline:** +2.06%/mo. The realistic Phase 16 envelope (with P
 ## §9. Files produced by Track C
 
 ### Source (committed to branch `feat/phase16-c-integration-report`)
+
 - `packages/core/src/strategy/pivot-point-grid.ts` (311 LOC, Track A merged from `feat/phase16-a-notional-cap`)
 - `packages/core/src/strategy/pivot-point-grid.test.ts` (484 LOC, Track A)
 - `packages/core/src/strategy/regime-routed-ensemble.ts` (270 LOC, Track B merged from `feat/phase16-b-regime-ensemble`)
@@ -248,13 +256,16 @@ vs. **Phase 14A-D baseline:** +2.06%/mo. The realistic Phase 16 envelope (with P
 - `packages/backtest-tools/src/cli/run-regime-routed-ensemble.ts` (220 LOC, Track C — new CLI runner)
 
 ### Stale `@ts-expect-error` directives removed (Track C integration fix)
+
 - `packages/core/src/strategy/regime-routed-ensemble.test.ts` lines 146, 151, 156, 161, 552, 557, 562, 567 — 8 unused `@ts-expect-error` directives left over from Track B's stricter test scaffolding. Removed via direct edit (root-cause fix, not lint-disable).
 
 ### Backtest JSONs (committed in `backtest-results/`)
+
 - `backtest-results/phase16-pivot-grid-{btc,eth,sol}-15m-capped.json` (3 envelopes, capped Pivot)
 - `backtest-results/phase16-regime-ensemble-{btc,eth,sol}-15m.json` (3 envelopes, Regime-Routed Ensemble)
 
 ### Quality gates (all PASS)
+
 - `bun run typecheck` — 13/13 packages PASS
 - `bun run lint` — 0 errors, 265 pre-existing warnings (no new warnings in Track C files)
 - `bun test` — 2085/2085 PASS (165 expect() calls in `pivot-point-grid.test.ts` + `regime-routed-ensemble.test.ts`)

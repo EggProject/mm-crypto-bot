@@ -114,7 +114,7 @@ describe("KellySizer", () => {
         windowSize: 50,
         minTrades: 10,
         fallbackFraction: 0.01,
-        maxFraction: 0.10,
+        maxFraction: 0.1,
       });
     }).toThrow(/fraction/);
     expect(() => {
@@ -124,7 +124,7 @@ describe("KellySizer", () => {
         windowSize: 50,
         minTrades: 10,
         fallbackFraction: 0.01,
-        maxFraction: 0.10,
+        maxFraction: 0.1,
       });
     }).toThrow(/fraction/);
   });
@@ -137,7 +137,7 @@ describe("KellySizer", () => {
         windowSize: 0,
         minTrades: 10,
         fallbackFraction: 0.01,
-        maxFraction: 0.10,
+        maxFraction: 0.1,
       });
     }).toThrow(/windowSize/);
   });
@@ -150,7 +150,7 @@ describe("KellySizer", () => {
         windowSize: 50,
         minTrades: 0,
         fallbackFraction: 0.01,
-        maxFraction: 0.10,
+        maxFraction: 0.1,
       });
     }).toThrow(/minTrades/);
   });
@@ -163,7 +163,7 @@ describe("KellySizer", () => {
         windowSize: 50,
         minTrades: 10,
         fallbackFraction: -0.01,
-        maxFraction: 0.10,
+        maxFraction: 0.1,
       });
     }).toThrow(/fallbackFraction/);
   });
@@ -191,7 +191,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 10,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     s.recordClosedTrade({ pnlUsd: 100, closedAt: 1 });
     s.recordClosedTrade({ pnlUsd: 100, closedAt: 2 });
@@ -208,7 +208,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 10,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     for (let i = 0; i < 9; i++) {
       s.recordClosedTrade({ pnlUsd: 100, closedAt: i });
@@ -226,7 +226,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 10,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     // 12 wins of +100, 2 losses of -50 → p=0.857, b=2.0
     // fullKelly = (2*0.857 - 0.143)/2 ≈ 0.7857
@@ -234,7 +234,7 @@ describe("KellySizer", () => {
     for (let i = 0; i < 12; i++) s.recordClosedTrade({ pnlUsd: 100, closedAt: i });
     for (let i = 0; i < 2; i++) s.recordClosedTrade({ pnlUsd: -50, closedAt: 100 + i });
     const size = s.recommendedSize();
-    expect(size).toBeCloseTo(0.10, 6);
+    expect(size).toBeCloseTo(0.1, 6);
   });
 
   it("hot path returns fractional Kelly when below maxFraction", () => {
@@ -244,7 +244,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 10,
       fallbackFraction: 0.01,
-      maxFraction: 0.50, // high cap → fractional Kelly passes through
+      maxFraction: 0.5, // high cap → fractional Kelly passes through
     });
     // 6 wins of +100, 4 losses of -100 → p=0.6, b=1.0
     // fullKelly = (1*0.6 - 0.4)/1 = 0.2
@@ -264,7 +264,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 10,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     // 3 wins, 7 losses → p=0.3, b=1 → f* = (1*0.3 - 0.7)/1 = -0.4 → 0
     for (let i = 0; i < 3; i++) s.recordClosedTrade({ pnlUsd: 100, closedAt: i });
@@ -282,7 +282,7 @@ describe("KellySizer", () => {
       windowSize: 5,
       minTrades: 5,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     // 4 losses first, then 1 win. Then 4 wins. With window=5, after the
     // 4 wins the 4 losses are evicted → only the original win remains.
@@ -308,7 +308,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 10,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     expect(s.getStats().region).toBe("cold-start");
   });
@@ -320,7 +320,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 5,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     for (let i = 0; i < 3; i++) s.recordClosedTrade({ pnlUsd: 100, closedAt: i });
     for (let i = 0; i < 7; i++) s.recordClosedTrade({ pnlUsd: -100, closedAt: 100 + i });
@@ -334,7 +334,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 5,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     for (let i = 0; i < 7; i++) s.recordClosedTrade({ pnlUsd: 100, closedAt: i });
     for (let i = 0; i < 3; i++) s.recordClosedTrade({ pnlUsd: -100, closedAt: 100 + i });
@@ -348,7 +348,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 5,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     expect(s.getStats().region).toBe("cold-start");
   });
@@ -363,7 +363,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 5,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     s.recordClosedTrade({ pnlUsd: NaN, closedAt: 1 });
     s.recordClosedTrade({ pnlUsd: 100, closedAt: 2 });
@@ -380,7 +380,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 5,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     for (let i = 0; i < 7; i++) s.recordClosedTrade({ pnlUsd: 100, closedAt: i });
     expect(s.getStats().trades).toBe(7);
@@ -395,7 +395,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 5,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     expect(s1.isEnabled()).toBe(true);
     const s2 = new KellySizer({
@@ -404,7 +404,7 @@ describe("KellySizer", () => {
       windowSize: 50,
       minTrades: 5,
       fallbackFraction: 0.01,
-      maxFraction: 0.10,
+      maxFraction: 0.1,
     });
     expect(s2.isEnabled()).toBe(false);
   });

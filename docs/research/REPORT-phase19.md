@@ -13,12 +13,12 @@
 
 The Phase 19 cap sweep confirms a clean return-vs-DD curve across both consensus modes. With the production-default 2-of-2 consensus, even the highest cap tested (0.20 BTC-only / 18.84%/mo Phase 18 portfolio envelope) falls short of the +20%/mo floor specified by the verifier, because the 2-of-2 strict consensus filters out the marginal trades that drive the highest envelope. Switching to the 1-of-2 research mode **unlocks +25-35%/mo portfolio-average at 3.2-5.8% DD** without any kill-switch events, and **without breaching the user's `maxPositionPctEquity ≤ 0.50` invariant** (engine CLI cap).
 
-| Pick             | Mode  | Cap | Monthly % (portfolio-avg) | Max DD % | Sharpe (avg) | vs. spec |
-|------------------|-------|-----|--------------------------:|---------:|-------------:|----------|
-| **PRIMARY** ★    | 1-of-2 | **0.12** | **+32.24%** | **4.70%** | **31.80** | ≥+30%/mo ✅, DD ≤ 8% ✅ |
-| Stretch           | 1-of-2 | 0.15 | +35.71%                | 5.84%     | 31.09      | ≥+35%/mo ✅, DD ≤ 8% ✅ |
-| Conservative      | 1-of-2 | 0.08 | +25.58%                | 3.15%     | 32.44      | ≥+20%/mo ✅, DD ≤ 8% ✅ |
-| Production-strict (2-of-2 fallback) | 2-of-2 | 0.15 | +15.86% | 3.50% | 20.11 | DD ≤ 8% ✅, but < +20%/mo ⚠ |
+| Pick                                | Mode   | Cap      | Monthly % (portfolio-avg) |  Max DD % | Sharpe (avg) | vs. spec                    |
+| ----------------------------------- | ------ | -------- | ------------------------: | --------: | -----------: | --------------------------- |
+| **PRIMARY** ★                       | 1-of-2 | **0.12** |               **+32.24%** | **4.70%** |    **31.80** | ≥+30%/mo ✅, DD ≤ 8% ✅     |
+| Stretch                             | 1-of-2 | 0.15     |                   +35.71% |     5.84% |        31.09 | ≥+35%/mo ✅, DD ≤ 8% ✅     |
+| Conservative                        | 1-of-2 | 0.08     |                   +25.58% |     3.15% |        32.44 | ≥+20%/mo ✅, DD ≤ 8% ✅     |
+| Production-strict (2-of-2 fallback) | 2-of-2 | 0.15     |                   +15.86% |     3.50% |        20.11 | DD ≤ 8% ✅, but < +20%/mo ⚠ |
 
 ★ The PRIMARY pick passes **every** criterion in the Phase 19 spec §1 verdict. The 1-of-2 portfolio at cap=0.12 yields +32.24%/mo (above the +30%/mo "near target" floor) at max-DD 4.70% (well below the 8% safe-operating threshold). It uses 41.2% of the available DD budget (4.70 / 8 = 0.59, but the budget utilization ratio is 4.70/8 = 0.588 which I'll restate: 4.70pp of 8pp budget consumed = 58.7% used).
 
@@ -34,16 +34,17 @@ The 2-of-2 strict consensus (Phase 18A) returns the safest envelope but caps agg
 
 ### §2.1 Per-symbol table — 2-of-2
 
-| Cap | BTC monthly%/DD%/trades/KS | ETH monthly%/DD%/trades/KS | SOL monthly%/DD%/trades/KS | Portfolio Avg monthly% / Max DD% |
-|-----|---------------------------|---------------------------|---------------------------|----------------------------------|
-| 0.04 | +3.72% / 0.95% / 2660 / KS=N | +4.61% / 0.39% / 1790 / KS=N | +6.42% / 0.68% / 3099 / KS=N | +4.92% / 0.95% |
-| 0.08 | +7.42% / 1.88% / 2660 / KS=N | +8.80% / 0.79% / 1790 / KS=N | +12.57% / 1.35% / 3099 / KS=N | +9.60% / 1.88% |
-| 0.10 | +9.21% / 2.35% / 2660 / KS=N | +10.70% / 0.98% / 1790 / KS=N | +15.13% / 1.68% / 3099 / KS=N | +11.68% / 2.35% |
-| 0.12 | +10.95% / 2.81% / 2660 / KS=N | +12.32% / 1.18% / 1790 / KS=N | +17.30% / 2.01% / 3099 / KS=N | +13.53% / 2.81% |
-| 0.15 | +13.37% / 3.50% / 2660 / KS=N | +14.17% / 1.47% / 1790 / KS=N | +20.06% / 2.51% / 3099 / KS=N | +15.86% / 3.50% |
-| 0.20 | +16.66% / 4.64% / 2660 / KS=N | n/a | n/a | +16.66% / 4.64% (BTC-only; Phase 18 full = +18.84%) |
+| Cap  | BTC monthly%/DD%/trades/KS    | ETH monthly%/DD%/trades/KS    | SOL monthly%/DD%/trades/KS    | Portfolio Avg monthly% / Max DD%                    |
+| ---- | ----------------------------- | ----------------------------- | ----------------------------- | --------------------------------------------------- |
+| 0.04 | +3.72% / 0.95% / 2660 / KS=N  | +4.61% / 0.39% / 1790 / KS=N  | +6.42% / 0.68% / 3099 / KS=N  | +4.92% / 0.95%                                      |
+| 0.08 | +7.42% / 1.88% / 2660 / KS=N  | +8.80% / 0.79% / 1790 / KS=N  | +12.57% / 1.35% / 3099 / KS=N | +9.60% / 1.88%                                      |
+| 0.10 | +9.21% / 2.35% / 2660 / KS=N  | +10.70% / 0.98% / 1790 / KS=N | +15.13% / 1.68% / 3099 / KS=N | +11.68% / 2.35%                                     |
+| 0.12 | +10.95% / 2.81% / 2660 / KS=N | +12.32% / 1.18% / 1790 / KS=N | +17.30% / 2.01% / 3099 / KS=N | +13.53% / 2.81%                                     |
+| 0.15 | +13.37% / 3.50% / 2660 / KS=N | +14.17% / 1.47% / 1790 / KS=N | +20.06% / 2.51% / 3099 / KS=N | +15.86% / 3.50%                                     |
+| 0.20 | +16.66% / 4.64% / 2660 / KS=N | n/a                           | n/a                           | +16.66% / 4.64% (BTC-only; Phase 18 full = +18.84%) |
 
 **Data sources** (every claim above is a direct read):
+
 - `backtest-results/phase19-cap-sweep-2of2-btc-15m-0.04.json` (and `…-0.08.json`, `…-0.10.json`, `…-0.12.json`, `…-0.15.json`, `…-0.20.json`)
 - `backtest-results/phase19-cap-sweep-2of2-eth-15m-{0.04,0.08,0.10,0.12,0.15}.json`
 - `backtest-results/phase19-cap-sweep-2of2-sol-15m-{0.04,0.08,0.10,0.12,0.15}.json`
@@ -51,15 +52,15 @@ The 2-of-2 strict consensus (Phase 18A) returns the safest envelope but caps agg
 
 ### §2.2 2-of-2 portfolio-aggregate envelope (max-DD = worst-of-3 symbols)
 
-| Cap | Avg monthly % | Max DD % | Avg Sharpe | Avg profit factor |
-|-----|--------------:|---------:|-----------:|------------------:|
-| 0.04 | 4.92% | 0.95% | 17.93 | 23.04 |
-| 0.08 | 9.60% | 1.88% | 18.86 | 21.33 |
-| 0.10 | 11.68% | 2.35% | 19.29 | 20.38 |
-| 0.12 | 13.53% | 2.81% | 19.66 | 19.27 |
-| 0.15 | 15.86% | 3.50% | 20.11 | 17.54 |
-| 0.20 (BTC-only) | 16.66% | 4.64% | n/a | n/a |
-| 0.20 (Phase 18 full-portfolio, ref) | 18.84% | 4.64% | n/a | n/a |
+| Cap                                 | Avg monthly % | Max DD % | Avg Sharpe | Avg profit factor |
+| ----------------------------------- | ------------: | -------: | ---------: | ----------------: |
+| 0.04                                |         4.92% |    0.95% |      17.93 |             23.04 |
+| 0.08                                |         9.60% |    1.88% |      18.86 |             21.33 |
+| 0.10                                |        11.68% |    2.35% |      19.29 |             20.38 |
+| 0.12                                |        13.53% |    2.81% |      19.66 |             19.27 |
+| 0.15                                |        15.86% |    3.50% |      20.11 |             17.54 |
+| 0.20 (BTC-only)                     |        16.66% |    4.64% |        n/a |               n/a |
+| 0.20 (Phase 18 full-portfolio, ref) |        18.84% |    4.64% |        n/a |               n/a |
 
 The 2-of-2 sweep is **monotonic** — lifting cap strictly raises both monthly return and DD. The ratio of marginal-return to marginal-DD is highest at cap=0.04 → 0.08 (each 0.04 cap unit adds ~+4.7%/mo at ~+0.93% DD = 5.0%/mo per 1pp DD). At cap=0.15 → 0.20 the same 0.05 cap unit adds only ~+1.8%/mo at +0.93% DD (1.94%/mo per 1pp DD) — diminishing returns. Below the +20%/mo target across the tested range.
 
@@ -73,30 +74,31 @@ The 1-of-2 lenient consensus (Phase 18B reference) yields a strictly higher enve
 
 ### §3.1 Per-symbol table — 1-of-2
 
-| Cap | BTC monthly%/DD%/trades/KS | ETH monthly%/DD%/trades/KS | SOL monthly%/DD%/trades/KS | Portfolio Avg monthly% / Max DD% |
-|-----|---------------------------|---------------------------|---------------------------|----------------------------------|
-| 0.04 | +11.63% / 1.49% / 11043 / KS=N | +15.30% / 1.31% / 9977 / KS=N | +18.12% / 1.56% / 10576 / KS=N | +15.01% / 1.56% |
-| 0.08 | +20.36% / 2.95% / 11043 / KS=N | +25.85% / 2.37% / 9977 / KS=N | +30.53% / 3.15% / 10576 / KS=N | +25.58% / 3.15% |
-| 0.10 | +23.74% / 3.67% / 11043 / KS=N | +29.35% / 2.87% / 9977 / KS=N | +34.71% / 3.93% / 10576 / KS=N | +29.27% / 3.93% |
-| 0.12 | +26.67% / 4.39% / 11043 / KS=N | +32.14% / 3.33% / 9977 / KS=N | +37.91% / 4.70% / 10576 / KS=N | +32.24% / 4.70% |
-| 0.15 | +30.28% / 5.46% / 11043 / KS=N | +35.10% / 4.06% / 9977 / KS=N | +41.75% / 5.84% / 10576 / KS=N | +35.71% / 5.84% |
-| 0.20 | +34.52% / 7.18% / 11043 / KS=N | n/a | n/a | +34.52% / 7.18% (BTC-only; per-symbol not re-run) |
+| Cap  | BTC monthly%/DD%/trades/KS     | ETH monthly%/DD%/trades/KS    | SOL monthly%/DD%/trades/KS     | Portfolio Avg monthly% / Max DD%                  |
+| ---- | ------------------------------ | ----------------------------- | ------------------------------ | ------------------------------------------------- |
+| 0.04 | +11.63% / 1.49% / 11043 / KS=N | +15.30% / 1.31% / 9977 / KS=N | +18.12% / 1.56% / 10576 / KS=N | +15.01% / 1.56%                                   |
+| 0.08 | +20.36% / 2.95% / 11043 / KS=N | +25.85% / 2.37% / 9977 / KS=N | +30.53% / 3.15% / 10576 / KS=N | +25.58% / 3.15%                                   |
+| 0.10 | +23.74% / 3.67% / 11043 / KS=N | +29.35% / 2.87% / 9977 / KS=N | +34.71% / 3.93% / 10576 / KS=N | +29.27% / 3.93%                                   |
+| 0.12 | +26.67% / 4.39% / 11043 / KS=N | +32.14% / 3.33% / 9977 / KS=N | +37.91% / 4.70% / 10576 / KS=N | +32.24% / 4.70%                                   |
+| 0.15 | +30.28% / 5.46% / 11043 / KS=N | +35.10% / 4.06% / 9977 / KS=N | +41.75% / 5.84% / 10576 / KS=N | +35.71% / 5.84%                                   |
+| 0.20 | +34.52% / 7.18% / 11043 / KS=N | n/a                           | n/a                            | +34.52% / 7.18% (BTC-only; per-symbol not re-run) |
 
 **Data sources:**
+
 - `backtest-results/phase19-cap-sweep-1of2-btc-15m-{0.04,0.08,0.10,0.12,0.15}.json` and `…-btc-15m-0.20-ref.json`
 - `backtest-results/phase19-cap-sweep-1of2-eth-15m-{0.04,0.08,0.10,0.12,0.15}.json`
 - `backtest-results/phase19-cap-sweep-1of2-sol-15m-{0.04,0.08,0.10,0.12,0.15}.json`
 
 ### §3.2 1-of-2 portfolio-aggregate envelope
 
-| Cap | Avg monthly % | Max DD % | Avg Sharpe | Avg profit factor |
-|-----|--------------:|---------:|-----------:|------------------:|
-| 0.04 | 15.01% | 1.56% | 31.92 | 6.03 |
-| 0.08 | 25.58% | 3.15% | 32.44 | 5.12 |
-| 0.10 | 29.27% | 3.93% | 32.19 | 4.77 |
-| 0.12 | 32.24% | 4.70% | 31.80 | 4.48 |
-| 0.15 | 35.71% | 5.84% | 31.09 | 4.12 |
-| 0.20 (BTC-only) | 34.52% | 7.18% | 29.33 | 3.79 |
+| Cap             | Avg monthly % | Max DD % | Avg Sharpe | Avg profit factor |
+| --------------- | ------------: | -------: | ---------: | ----------------: |
+| 0.04            |        15.01% |    1.56% |      31.92 |              6.03 |
+| 0.08            |        25.58% |    3.15% |      32.44 |              5.12 |
+| 0.10            |        29.27% |    3.93% |      32.19 |              4.77 |
+| 0.12            |        32.24% |    4.70% |      31.80 |              4.48 |
+| 0.15            |        35.71% |    5.84% |      31.09 |              4.12 |
+| 0.20 (BTC-only) |        34.52% |    7.18% |      29.33 |              3.79 |
 
 The 1-of-2 portfolio-average **surpasses the +30%/mo target first at cap=0.12** (+32.24%) and reaches +35.71%/mo portfolio at cap=0.15 — the closest the cap curve comes to the +35%/mo floor within the safe DD envelope (5.84%). Cap=0.20 (BTC-only) shows the expected DD creep (7.18% DD, 89.7% of safe threshold) and a portfolio dip vs cap=0.15 (34.52% < 35.71%) because the BTC-only single-symbol read understates portfolio aggregate (Phase 18 cap=0.20 1-of-2 portfolio envelope was +39.42%/mo @ 6.80% DD per `REPORT-phase18.md` §3).
 
@@ -136,12 +138,12 @@ The 2-of-2 default-mode curve shows **the cap-vs-no-cap tradeoff Phase 17 §5 wa
 
 ## §5 +50%/mo progress
 
-| Phase | Best envelope achieved              | Source                                | Gap to +50%/mo                |
-|-------|-------------------------------------|---------------------------------------|-------------------------------|
-| 17    | +20-25%/mo (capped, cap=0.04)       | `REPORT-phase17.md` §5                | 2.0-2.5×                      |
-| 18    | +18.84%/mo portfolio avg (cap=0.20)  | `REPORT-phase18.md` §4 (2-of-2 mode)  | 2.65×                         |
-| 19    | **+35.71%/mo portfolio avg** (1-of-2, cap=0.15) | **THIS REPORT** §3.2 — `backtest-results/phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.15.json` averaged | **1.40×** |
-| 19 (recommended config) | +32.24%/mo (1-of-2 cap=0.12) | `backtest-results/phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.12.json` averaged | 1.55× |
+| Phase                   | Best envelope achieved                          | Source                                                                                                | Gap to +50%/mo |
+| ----------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------- |
+| 17                      | +20-25%/mo (capped, cap=0.04)                   | `REPORT-phase17.md` §5                                                                                | 2.0-2.5×       |
+| 18                      | +18.84%/mo portfolio avg (cap=0.20)             | `REPORT-phase18.md` §4 (2-of-2 mode)                                                                  | 2.65×          |
+| 19                      | **+35.71%/mo portfolio avg** (1-of-2, cap=0.15) | **THIS REPORT** §3.2 — `backtest-results/phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.15.json` averaged | **1.40×**      |
+| 19 (recommended config) | +32.24%/mo (1-of-2 cap=0.12)                    | `backtest-results/phase19-cap-sweep-1of2-{btc,eth,sol}-15m-0.12.json` averaged                        | 1.55×          |
 
 **Headline:** the Phase 19 cap sweep **closed ~30% of the +50%/mo gap** relative to Phase 18. The Phase 18 envelope was 2.65× short of +50%/mo; the recommended Phase 19 envelope is only **1.55× short** — a 1.7× improvement in the gap.
 
@@ -207,6 +209,7 @@ Per Phase 14E Agent 03: funding-rate carry on Binance / Bybit / OKX perp-funding
 3. **Phase 20 #1c**: Funding-rate carry leg — implementation deferred to Phase 21 unless Kelly + regime cap prove insufficient.
 
 The path to +50%/mo target, ranked by phase:
+
 - **Phase 20 (HybridKelly)**: +35.71% → ~+40-45%/mo (gap closes from 1.40× to ~1.15×)
 - **Phase 21 (regime-conditioned cap)**: ~+40-45% → ~+43-48%/mo (gap ~1.04-1.16×)
 - **Phase 22 (funding-rate carry)**: ~+43-48% → ~+45-50%/mo (potentially reaches target)
@@ -228,13 +231,14 @@ The Track C plot was generated locally in the `feat/phase19-c-plot-report` workt
 
 ## Appendix B — Quality gates (verified pre-commit)
 
-| Gate | Result | Detail |
-|------|--------|--------|
-| `bun run typecheck` | **13 / 13 PASS** | Turbo FULL cache hit, 30ms total |
-| `bun run lint` | **0 errors** | 265 pre-existing `security/detect-object-injection` warnings — none new, none from this PR (no `.ts` source files touched) |
-| `bun test` | **2393 pass / 0 fail** | 16901 `expect()` calls across 93 test files, 5.93s wall time |
+| Gate                | Result                 | Detail                                                                                                                     |
+| ------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `bun run typecheck` | **13 / 13 PASS**       | Turbo FULL cache hit, 30ms total                                                                                           |
+| `bun run lint`      | **0 errors**           | 265 pre-existing `security/detect-object-injection` warnings — none new, none from this PR (no `.ts` source files touched) |
+| `bun test`          | **2393 pass / 0 fail** | 16901 `expect()` calls across 93 test files, 5.93s wall time                                                               |
 
 Memory invariants verified:
+
 - 1:10 leverage — N/A (no `.ts` source changes)
 - No `eslint-disable` — N/A (no lint-disable lines added)
 - No docstring lies — N/A (no source comments added)

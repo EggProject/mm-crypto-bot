@@ -76,10 +76,7 @@
 
 import { ONE_TO_TEN_LEVERAGE } from "../../risk/leverage-invariant.js";
 import type { SignalBus } from "../signal-bus.js";
-import type {
-  StrategyPlugin,
-  StrategyPluginMetadata,
-} from "../strategy-registry.js";
+import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
 import {
   type Bar,
   type ConfigError,
@@ -149,11 +146,7 @@ export const DEFAULT_NORMAL_MULTIPLIER = 1.0 as const;
 export const DEFAULT_COMPRESSED_MULTIPLIER = 1.0 as const; // don't fight compression
 export const DEFAULT_NO_DATA_MULTIPLIER = 1.0 as const; // fail-open
 export const DEFAULT_BASE_NOTIONAL_USD = 10_000 as const;
-export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = [
-  "BTC/USDT",
-  "ETH/USDT",
-  "SOL/USDT",
-];
+export const DEFAULT_ENABLED_SYMBOLS: readonly string[] = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
 
 // ---------------------------------------------------------------------------
 // Public state shape
@@ -239,19 +232,13 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
       baseNotionalUsd: overrides.baseNotionalUsd ?? DEFAULT_BASE_NOTIONAL_USD,
       getDvolForTimestamp: overrides.getDvolForTimestamp ?? (() => null),
       ...(overrides.dvolBySymbol !== undefined ? { dvolBySymbol: overrides.dvolBySymbol } : {}),
-      acuteStressThreshold:
-        overrides.acuteStressThreshold ?? DEFAULT_ACUTE_STRESS_THRESHOLD,
-      elevatedThreshold:
-        overrides.elevatedThreshold ?? DEFAULT_ELEVATED_THRESHOLD,
+      acuteStressThreshold: overrides.acuteStressThreshold ?? DEFAULT_ACUTE_STRESS_THRESHOLD,
+      elevatedThreshold: overrides.elevatedThreshold ?? DEFAULT_ELEVATED_THRESHOLD,
       normalThreshold: overrides.normalThreshold ?? DEFAULT_NORMAL_THRESHOLD,
-      acuteStressMultiplier:
-        overrides.acuteStressMultiplier ?? DEFAULT_ACUTE_STRESS_MULTIPLIER,
-      elevatedMultiplier:
-        overrides.elevatedMultiplier ?? DEFAULT_ELEVATED_MULTIPLIER,
-      normalMultiplier:
-        overrides.normalMultiplier ?? DEFAULT_NORMAL_MULTIPLIER,
-      compressedMultiplier:
-        overrides.compressedMultiplier ?? DEFAULT_COMPRESSED_MULTIPLIER,
+      acuteStressMultiplier: overrides.acuteStressMultiplier ?? DEFAULT_ACUTE_STRESS_MULTIPLIER,
+      elevatedMultiplier: overrides.elevatedMultiplier ?? DEFAULT_ELEVATED_MULTIPLIER,
+      normalMultiplier: overrides.normalMultiplier ?? DEFAULT_NORMAL_MULTIPLIER,
+      compressedMultiplier: overrides.compressedMultiplier ?? DEFAULT_COMPRESSED_MULTIPLIER,
       noDataMultiplier: overrides.noDataMultiplier ?? DEFAULT_NO_DATA_MULTIPLIER,
     };
 
@@ -265,10 +252,7 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
     }
 
     // Validate config invariants.
-    if (
-      !Number.isFinite(this.config.baseNotionalUsd) ||
-      this.config.baseNotionalUsd <= 0
-    ) {
+    if (!Number.isFinite(this.config.baseNotionalUsd) || this.config.baseNotionalUsd <= 0) {
       throw new Error(
         `[DvolRegimeSizingPlugin] baseNotionalUsd must be positive finite, got ${this.config.baseNotionalUsd}`,
       );
@@ -283,62 +267,41 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
         `[DvolRegimeSizingPlugin] elevatedThreshold=${this.config.elevatedThreshold} must be > normalThreshold=${this.config.normalThreshold}`,
       );
     }
-    if (
-      this.config.acuteStressMultiplier < 0 ||
-      this.config.acuteStressMultiplier > 1.0
-    ) {
+    if (this.config.acuteStressMultiplier < 0 || this.config.acuteStressMultiplier > 1.0) {
       throw new Error(
         `[DvolRegimeSizingPlugin] acuteStressMultiplier=${this.config.acuteStressMultiplier} must be in [0, 1.0] (1:10 mandate: no scale-up)`,
       );
     }
-    if (
-      this.config.elevatedMultiplier < 0 ||
-      this.config.elevatedMultiplier > 1.0
-    ) {
+    if (this.config.elevatedMultiplier < 0 || this.config.elevatedMultiplier > 1.0) {
       throw new Error(
         `[DvolRegimeSizingPlugin] elevatedMultiplier=${this.config.elevatedMultiplier} must be in [0, 1.0]`,
       );
     }
-    if (
-      this.config.normalMultiplier < 0 ||
-      this.config.normalMultiplier > 1.0
-    ) {
+    if (this.config.normalMultiplier < 0 || this.config.normalMultiplier > 1.0) {
       throw new Error(
         `[DvolRegimeSizingPlugin] normalMultiplier=${this.config.normalMultiplier} must be in [0, 1.0]`,
       );
     }
-    if (
-      this.config.compressedMultiplier < 0 ||
-      this.config.compressedMultiplier > 1.0
-    ) {
+    if (this.config.compressedMultiplier < 0 || this.config.compressedMultiplier > 1.0) {
       throw new Error(
         `[DvolRegimeSizingPlugin] compressedMultiplier=${this.config.compressedMultiplier} must be in [0, 1.0]`,
       );
     }
-    if (
-      this.config.noDataMultiplier < 0 ||
-      this.config.noDataMultiplier > 1.0
-    ) {
+    if (this.config.noDataMultiplier < 0 || this.config.noDataMultiplier > 1.0) {
       throw new Error(
         `[DvolRegimeSizingPlugin] noDataMultiplier=${this.config.noDataMultiplier} must be in [0, 1.0]`,
       );
     }
     if (!Array.isArray(this.config.enabledSymbols) || this.config.enabledSymbols.length === 0) {
-      throw new Error(
-        `[DvolRegimeSizingPlugin] enabledSymbols must be a non-empty array`,
-      );
+      throw new Error(`[DvolRegimeSizingPlugin] enabledSymbols must be a non-empty array`);
     }
     const seen = new Set<string>();
     for (const s of this.config.enabledSymbols) {
       if (typeof s !== "string" || s.length === 0) {
-        throw new Error(
-          `[DvolRegimeSizingPlugin] enabledSymbols contains invalid entry: ${String(s)}`,
-        );
+        throw new Error(`[DvolRegimeSizingPlugin] enabledSymbols contains invalid entry: ${String(s)}`);
       }
       if (seen.has(s)) {
-        throw new Error(
-          `[DvolRegimeSizingPlugin] enabledSymbols contains duplicate "${s}"`,
-        );
+        throw new Error(`[DvolRegimeSizingPlugin] enabledSymbols contains duplicate "${s}"`);
       }
       seen.add(s);
     }
@@ -378,20 +341,14 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
     // (The bar argument is the BTC bar; all symbols share the same
     // date in 1d bars, so we use bar.timestamp for the DVOL lookup
     // regardless of which symbol's bar is being processed.)
-    const symbols = this._boundSymbol === null
-      ? this.config.enabledSymbols
-      : [this._boundSymbol];
+    const symbols = this._boundSymbol === null ? this.config.enabledSymbols : [this._boundSymbol];
     for (const symbol of symbols) {
       if (this.config.enabledSymbols.includes(symbol)) this._processSymbol(symbol, bar.timestamp);
     }
   }
 
   validateConfig(config: unknown): Result<void, ConfigError> {
-    const makeErr = (
-      field: string,
-      message: string,
-      value?: unknown,
-    ): Result<void, ConfigError> => ({
+    const makeErr = (field: string, message: string, value?: unknown): Result<void, ConfigError> => ({
       ok: false,
       error: {
         pluginName: this.metadata.name,
@@ -509,9 +466,7 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
         return this.config.noDataMultiplier;
       default: {
         const exhaustive: never = regime;
-        throw new Error(
-          `[DvolRegimeSizingPlugin] Non-exhaustive switch: ${String(exhaustive)}`,
-        );
+        throw new Error(`[DvolRegimeSizingPlugin] Non-exhaustive switch: ${String(exhaustive)}`);
       }
     }
   }
@@ -521,11 +476,7 @@ export class DvolRegimeSizingPlugin implements StrategyPlugin {
    * computed volMultiplier. Respects 1:10 leverage via the notional
    * clamp (Layer 2 of 3-layer defense).
    */
-  private _emitSizingSignal(
-    symbol: string,
-    timestampMs: number,
-    volMultiplier: number,
-  ): void {
+  private _emitSizingSignal(symbol: string, timestampMs: number, volMultiplier: number): void {
     if (!this._wired || this._bus === null) return;
     const impliedNotional = this.config.baseNotionalUsd * volMultiplier;
     let clampedNotional = impliedNotional;
