@@ -351,8 +351,7 @@ sha256sum plans/full-refactor/evidence/c3a-engine-test-names.before.txt plans/fu
 cmp -s plans/full-refactor/evidence/c3a-engine-test-names.before.txt plans/full-refactor/evidence/c3a-engine-test-names.after.txt
 ```
 
-Both replay pipelines exited 0; `wc -l` is **62 / 62**; the final `cmp` exited
-0. Both evidence files have SHA-256
+Both replay pipelines exited 0; `wc -l` is **62 / 62**; the final `cmp` exited 0. Both evidence files have SHA-256
 `fb966418a57ba105d6e13bb9edacb56a5d475c67c90e5d8558e6653a93a3227e` and are
 [`before`](evidence/c3a-engine-test-names.before.txt) and
 [`after`](evidence/c3a-engine-test-names.after.txt). This establishes only the
@@ -391,3 +390,84 @@ rerun under zsh with explicit expected-exit handling for untracked files and
 exited **0**. A local Markdown file-link check also found **0 broken links**,
 and `git diff --check` exited **0**. These are plan/evidence consistency checks
 only and do not create an implementation PASS.
+
+## DRAFT: Slice C3b fail-closed production and evidence validation
+
+At `2026-08-18T01:10:30+02:00`, C3b used the repository CWD
+`/home/eggp/projects/mm-crypto-bot`. The public engine export comparison is
+implemented by the checked TypeScript-AST helper
+[`evidence/c3b-verify-engine-exports.mjs`](evidence/c3b-verify-engine-exports.mjs),
+not a regex. It accepts only the documented selector and arity, parses the
+baseline engine through `git show`, resolves named local façade re-exports,
+compares value/type kind, name, and generic arity, and fails closed for
+unsupported exports, paths, or syntax. Its durable snapshots are
+[`before`](evidence/c3b-engine-exports.before.tsv) and
+[`after`](evidence/c3b-engine-exports.after.tsv).
+
+```sh
+bun plans/full-refactor/evidence/c3b-verify-engine-exports.mjs \
+  --baseline fc2d602c1aef0798e29fd7df46861855ba7a0205 \
+  > plans/full-refactor/evidence/c3b-engine-exports.before.tsv
+bun plans/full-refactor/evidence/c3b-verify-engine-exports.mjs \
+  --current packages/backtest/src/engine.ts \
+  > plans/full-refactor/evidence/c3b-engine-exports.after.tsv
+cmp -s plans/full-refactor/evidence/c3b-engine-exports.before.tsv \
+  plans/full-refactor/evidence/c3b-engine-exports.after.tsv
+bun plans/full-refactor/evidence/c3b-verify-engine-exports.mjs \
+  --compare fc2d602c1aef0798e29fd7df46861855ba7a0205 \
+  packages/backtest/src/engine.ts
+```
+
+Each command exited **0**; both snapshots have SHA-256
+`3f1039d86a13c2c8c0de704ba8924fe28cfa16abeb443fc3698b140a548d5720`.
+Negative controls exited nonzero without artifact mutation: no selector **64**,
+extra argument **65**, unavailable baseline **67**, unavailable current path
+**68**, and the intentional invalid parser fixture
+[`c3b-invalid-engine-export.fixture.ts`](evidence/c3b-invalid-engine-export.fixture.ts)
+**69**.
+
+The checked manifest scanner
+[`evidence/c3b-integrity-scan.mjs`](evidence/c3b-integrity-scan.mjs) consumes
+the explicit regular-file-only manifest
+[`evidence/c3b-integrity-paths.txt`](evidence/c3b-integrity-paths.txt). It
+rejects missing, duplicate, outside-root, symlink, and non-file entries;
+performs `git diff --no-index --check /dev/null <path>` for each tracked or
+untracked entry, then `git diff --check -- <manifest paths>`; and records only
+category/path/count if a bounded secret signature matches. It never emits a
+matched secret value. Its scope is exactly the 17 current C3b production/test,
+ledger, and evidence files in that manifest; it is not a repository-wide
+secret audit.
+
+```sh
+bun plans/full-refactor/evidence/c3b-integrity-scan.mjs \
+  --manifest plans/full-refactor/evidence/c3b-integrity-paths.txt \
+  > /tmp/c3b-integrity-17.tsv
+cmp -s /tmp/c3b-integrity-17.tsv \
+  plans/full-refactor/evidence/c3b-integrity-scan.tsv
+```
+
+The positive replay exited **0** and the temporary output compared equal to the
+durable output [`c3b-integrity-scan.tsv`](evidence/c3b-integrity-scan.tsv): 17 manifest files
+and zero skip/only, forbidden-source-pattern, generated/binary, bounded-secret,
+and tracked/untracked-whitespace findings. Negative selector/missing-manifest
+controls exited **64/64/65/67/66/66** for no arguments, extra arguments, an absent
+manifest, an invalid manifest, an in-repository directory manifest, and an
+in-repository temporary symbolic-link manifest respectively. The scanner performs
+an `lstat` regular-file/non-symbolic-link guard before every manifest or listed-file
+read, mapping unavailable reads to deterministic nonzero exits instead of its
+unexpected-failure exit. Because the manifest includes the scanner, manifest, and
+durable output themselves, replay writes to a temporary file and compares it rather
+than truncating the output artifact during its own validation. The scanner originally rejected
+a false positive in test prose; its final forbidden-pattern scope is exactly
+non-test `packages/backtest/src/**` manifest entries, while skip/only and the
+bounded secret/generated checks retain the full manifest scope.
+
+Owned validation then exited **0** for Prettier, strict ESLint, package
+TypeScript check, and package build. The C3a declared suite remained **62/62**
+with **1083** expectations; the explicit C3b contract suite passed **4/4** with
+**9** expectations; and `bun test packages/backtest/src` passed **159/159**
+with **1227** expectations. A C3b file-length scan found no
+`packages/backtest/**/*.ts` file above 500 lines. This is **PENDING TECHNICAL
+AND PROCESS RE-REVIEW**: full package lint and four-metric coverage remain
+**NOT PASS** and no repository, release, full-verify, or live-safety PASS is
+claimed.

@@ -1,0 +1,7 @@
+value	aggregateToTimeframe	0
+value	checkExit	0
+value	closePosition	0
+type	HistoricalIndicatorTimeline	0
+type	OpenPosition	0
+value	precomputeHistoricalIndicatorTimeline	0
+value	runBacktest	0

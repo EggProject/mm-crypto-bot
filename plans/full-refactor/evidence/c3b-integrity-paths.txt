@@ -1,0 +1,17 @@
+packages/backtest/src/engine.ts
+packages/backtest/src/engine-contracts.test.ts
+packages/backtest/src/engine-indicators.ts
+packages/backtest/src/engine-position.ts
+packages/backtest/src/engine-runner.ts
+packages/backtest/src/engine-timeframes.ts
+plans/full-refactor/EXECUTION-RECORD.md
+plans/full-refactor/REVIEW-EVIDENCE.md
+plans/full-refactor/VALIDATION.md
+plans/full-refactor/evidence/c3b-invalid-engine-export.fixture.ts
+plans/full-refactor/evidence/c3b-verify-engine-exports.mjs
+plans/full-refactor/evidence/c3b-engine-exports.before.tsv
+plans/full-refactor/evidence/c3b-engine-exports.after.tsv
+plans/full-refactor/evidence/c3b-integrity-scan.mjs
+plans/full-refactor/evidence/c3b-integrity-paths.txt
+plans/full-refactor/evidence/c3b-integrity-scan.tsv
+plans/full-refactor/evidence/c3b-added-engine-test-names.txt

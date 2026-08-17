@@ -1,0 +1,4 @@
+fails closed when a strategy returns undefined instead of null or a signal
+fails closed when a strategy signal contains an invalid side
+fails closed when a strategy signal omits side
+uses the take-profit price level as the authoritative same-update position snapshot
