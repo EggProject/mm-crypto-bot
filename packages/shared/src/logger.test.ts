@@ -1,24 +1,9 @@
 /**
  * packages/shared/src/logger.test.ts
  *
- * A `createLogger` 100% line + branch tesztjei (Phase 36 Track A2).
- *
- * A korábbi implementáció `console.log(JSON.stringify(entry))` hívással
- * a `process.stdout`-ra írt — ez a TUI-bug oka. A Phase 36 Track A2
- * refaktor óta a logger:
- *   - FÁJLBA ír (alapértelmezetten `logs/bot/bot-YYYY-MM-DD.log`)
- *   - STDERR-re ír (warn + error szintekhez, operátori azonnali láthatóság)
- *   - STDOUT-ot SOHA nem ír (a TUI-bug fix pin-tesztje)
- *
- * A tesztek a `noFile: true` opciót használják, hogy a fájl-írást
- * kikapcsolják (a tesztkörnyezetben a `logs/` könyvtár nem biztos, hogy
- * írható). Ilyenkor a logger a `Console` osztály `process.stderr`
- * stdout-ját használja, és minden log oda megy.
- *
- * A `process.stderr.write` spy-on ellenőrzi a kiírást — a régi
- * `console.log` spy-os megközelítés NEM használható, mert a `Console`
- * osztály a `process.stderr.write`-ot hívja a háttérben, nem a
- * `console.log`-ot.
+ * Regression tests for the structured logger routing contract. File mode
+ * persists accepted entries and mirrors them to stderr; `noFile` mode writes
+ * accepted entries only to stderr. Stdout never receives log entries.
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
@@ -28,16 +13,23 @@ import { join } from "node:path";
 import { createLogger } from "./logger.js";
 import type { Logger } from "./logger.js";
 
+function readTestLog(path: string): string {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- every path is derived from a test-owned mkdtemp directory
+  return readFileSync(path, "utf8");
+}
+
+function isTestDirectory(path: string): boolean {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- every path is derived from a test-owned mkdtemp directory
+  return statSync(path).isDirectory();
+}
+
 /**
- * `spyOnStderr` — a `process.stderr.write` metódust spy-on-ra cseréli.
+ * `spyOnStderr` replaces `process.stderr.write` with a spy.
  *
- * A `Console` osztály a háttérben a `process.stderr.write`-ot hívja,
- * NEM a `console.error`-t. Ezért a `console.error` spy NEM látja a
- * logger kimenetét — a `process.stderr.write` spy az egyetlen megbízható
- * megfigyelési pont.
+ * The logger writes directly to `process.stderr`, so this is the reliable
+ * observation point for the routing contract.
  *
- * Visszatérési értéke egy `restore` függvény, amit az `afterEach`-ben
- * hívni kell a spy eltávolításához.
+ * The returned `restore` function removes the spy during `afterEach`.
  */
 function spyOnStderr(): { spy: ReturnType<typeof spyOn>; restore: () => void } {
   // A `process.stderr.write` alapértelmezetten true-t ad vissza (a
@@ -258,33 +250,32 @@ describe("createLogger — fájl-írás (noFile=false)", () => {
     // opció itt `"test"`, hogy a teszt ne ütközzön más logger-ekkel).
     const date = new Date().toISOString().slice(0, 10);
     const filePath = join(tmpDir, `test-${date}.log`);
-    const content = readFileSync(filePath, "utf8");
+    const content = readTestLog(filePath);
     expect(content).toContain("from-test");
     // A JSON entry strukturált (időbélyeg, szint, msg).
     expect(content).toContain('"level":"info"');
     expect(content).toContain('"msg":"from-test"');
   });
 
-  it("a fájl-írás NEM megy a process.stdout-ra (TUI-bug fix pin-tesztje)", () => {
-    // A `stdout.write` spy-on ellenőrzi, hogy a logger SOHA nem
-    // ír a process.stdout-ra — ez a TUI-bug fix-ének a pin-tesztje.
-    // A `process.stderr.write`-ot viszont használja (a warn+error
-    // szintek azonnali láthatósága), ÉS a fájlba ír.
+  it("does not route file-backed log entries to process.stdout", () => {
+    // The `stdout.write` spy verifies that the logger never writes to
+    // process.stdout. Warn and error entries are mirrored to stderr while all
+    // accepted entries are persisted to the file.
     const stdoutSpy = spyOn(process.stdout, "write").mockImplementation((() => true) as never);
     const stderrSpy = spyOn(process.stderr, "write").mockImplementation((() => true) as never);
     try {
-      const log = createLogger({ level: "info", noFile: false, logDir: tmpDir, logFileBase: "tui-bug" });
+      const log = createLogger({ level: "info", noFile: false, logDir: tmpDir, logFileBase: "stdout-routing" });
       log.info("this should NOT appear in stdout");
       log.error("this should appear in stderr");
 
-      // A `process.stdout.write` NEM hívódott meg.
+      // No log entry is routed through `process.stdout.write`.
       expect(stdoutSpy).not.toHaveBeenCalled();
-      // A `process.stderr.write` az error-hoz hívódott.
+      // The error entry is mirrored through `process.stderr.write`.
       expect(stderrSpy).toHaveBeenCalled();
-      // A fájl tartalmazza az info-t ÉS az error-t.
+      // The file contains both the info and error entries.
       const date = new Date().toISOString().slice(0, 10);
-      const filePath = join(tmpDir, `tui-bug-${date}.log`);
-      const content = readFileSync(filePath, "utf8");
+      const filePath = join(tmpDir, `stdout-routing-${date}.log`);
+      const content = readTestLog(filePath);
       expect(content).toContain("this should NOT appear in stdout");
       expect(content).toContain("this should appear in stderr");
     } finally {
@@ -302,7 +293,7 @@ describe("createLogger — fájl-írás (noFile=false)", () => {
       log.info("mkdir-test");
     }).not.toThrow();
     // A `mkdir` tényleg megtörtént — a `nested` könyvtár most létezik.
-    expect(statSync(nested).isDirectory()).toBe(true);
+    expect(isTestDirectory(nested)).toBe(true);
   });
 });
 
@@ -345,7 +336,7 @@ describe("createLogger — default opciók (no opció → info + noFile=false)",
       log.info("default-opts");
       const date = new Date().toISOString().slice(0, 10);
       const filePath = join(tmpDir, `default-test-${date}.log`);
-      const content = readFileSync(filePath, "utf8");
+      const content = readTestLog(filePath);
       expect(content).toContain("default-opts");
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });

@@ -220,16 +220,16 @@ export class PortfolioStop {
   }
 
   /**
-   * `recordEquity` — frissíti a current equity-t és a high-water
-   * markot, illetve a per-stratégia hozzájárulást.
+   * `recordEquity` updates current equity, the high-water mark, and the
+   * per-strategy contributions.
    *
-   * Ha a `currentEquityUsd` meghaladja a peak-et, a peak követi.
-   * A `perStrategyContrib` a teljes Map-et lecseréli (a TUI / log
-   * az aktuális állapotot mutatja).
+   * The peak follows `currentEquityUsd` whenever current equity exceeds it.
+   * Replacing the complete `perStrategyContrib` map keeps monitoring and log
+   * consumers synchronized with the latest state.
    *
-   * A metódus a trip-checket IS elvégzi — ha a drawdown átlépi a
-   * küszöböt, a `tripped` flag `true`-ra vált és a `tripAction`
-   * callback async hívódik.
+   * The method also performs the trip check. When drawdown crosses the
+   * threshold, the `tripped` flag becomes `true` and `tripAction` is invoked
+   * asynchronously.
    */
   public recordEquity(equityUsd: number, perStrategyContrib?: ReadonlyMap<string, number>): void {
     if (!Number.isFinite(equityUsd)) {
@@ -251,11 +251,10 @@ export class PortfolioStop {
   }
 
   /**
-   * `evaluate` — kiszámítja a stop állapotát. Nem trips-el, csak
-   * visszaadja, hogy a `recordEquity` után mi lenne a helyzet.
+   * `evaluate` calculates and returns the stop state without triggering it.
    *
-   * A metódus a `Bot` heartbeat-ciklusában hívódik, hogy a TUI /
-   * Telemetry mindig friss állapotot lásson.
+   * The `Bot` heartbeat invokes this method so telemetry and operator
+   * monitoring always observe the latest state.
    */
   public evaluate(): PortfolioStopState {
     return {

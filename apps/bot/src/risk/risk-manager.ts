@@ -112,7 +112,7 @@ export type TrailingStopCloseCallback = (event: TrailingStopCloseEvent) => void;
 
 /**
  * `RiskManagerSnapshot` — a read-only view of all three sub-modules.
- * Used by the Telemetry and the TUI.
+ * Used by telemetry and operator monitoring.
  */
 export interface RiskManagerSnapshot {
   readonly drawdown: DrawdownState;

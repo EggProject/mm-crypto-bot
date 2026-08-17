@@ -101,17 +101,16 @@ export interface RiskBudgetOptions {
 export type CorrelationProvider = () => ReadonlyMap<string, ReadonlyMap<string, number>>;
 
 /**
- * `BudgetBreakdown` — az allokáció részletes magyarázata. A TUI /
- * `mm-bot status` / `mm-bot strategies` parancsok ezt használják
- * debuggolásra.
+ * `BudgetBreakdown` explains the allocation details. Runtime status, monitoring,
+ * and the `mm-bot strategies` command use it for diagnostics.
  *
- * - `strategyId`     — a stratégia azonosítója.
- * - `weight`         — a normalizált súly (0..1).
- * - `maxCorrelation` — a többi aktív stratégiával vett max abszolút
- *                       korreláció. 0 ha a stratégia egyedül van.
- * - `penalty`        — a kiszámított penalty (0..1).
- * - `rawBudgetUsd`   — a súly alapján járó büdzsé (USD).
- * - `finalBudgetUsd` — a penalty utáni tényleges büdzsé (USD).
+ * - `strategyId` identifies the strategy.
+ * - `weight` is the normalized weight in the 0..1 range.
+ * - `maxCorrelation` is the maximum absolute correlation with another active
+ *   strategy, or 0 when this is the only active strategy.
+ * - `penalty` is the calculated penalty in the 0..1 range.
+ * - `rawBudgetUsd` is the weight-based budget in USD.
+ * - `finalBudgetUsd` is the budget in USD after applying the penalty.
  */
 export interface BudgetBreakdown {
   readonly strategyId: string;

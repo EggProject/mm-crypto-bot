@@ -36,14 +36,13 @@ import { TIMEFRAME_MS } from "@mm-crypto-bot/shared/types";
  */
 function mkSeries(closes: readonly number[], startTime = 1_700_000_400_000): Candle[] {
   const out: Candle[] = [];
-  for (let i = 0; i < closes.length; i++) {
-    const c = closes[i]!;
+  for (const [index, close] of closes.entries()) {
     out.push({
-      timestamp: startTime + i * TIMEFRAME_MS["1h"],
-      open: c,
-      high: c * 1.005,
-      low: c * 0.995,
-      close: c,
+      timestamp: startTime + index * TIMEFRAME_MS["1h"],
+      open: close,
+      high: close * 1.005,
+      low: close * 0.995,
+      close,
       volume: 1000,
     });
   }
@@ -378,6 +377,19 @@ describe("OhlcTrendStrategy — onBars (jel-zés logika)", () => {
 });
 
 describe("OhlcTrendStrategy — indicator boundary cases", () => {
+  it("fails closed when a detected cross bar cannot be read", () => {
+    const strategy = new OhlcTrendStrategy({ crossLookback: 30 });
+    const bars = mkOscillationSeries(100, 100.5, 0.5, 200);
+    expect(strategy.onBars(bars)).not.toBeNull();
+
+    Object.defineProperty(bars, "at", {
+      configurable: true,
+      value: () => undefined,
+    });
+
+    expect(strategy.onBars(bars)).toBeNull();
+  });
+
   it("a bar-szám < warmup → null (defensive branch)", () => {
     const s = new OhlcTrendStrategy();
     // 199 bars (slowEma - 1).
@@ -406,4 +418,3 @@ describe("OhlcTrendStrategy — indicator boundary cases", () => {
     expect(sig).toBeNull();
   });
 });
-

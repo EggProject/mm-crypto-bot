@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/backtest.ts
  *
- * Phase 37 Track 3 — `mm-bot backtest <strategy> [--visualize]`.
+ * Phase 37 Track 3 — `mm-bot backtest <strategy>`.
  *
  * Runs a quick backtest on a deterministic OHLC fixture and prints a
  * single-row summary table.  The supported strategies are the OHLC
@@ -25,9 +25,6 @@
  *
  * Flags:
  *   --strategy=<name>    strategy to test (default: "ohlc-trend")
- *   --visualize          (Phase 44-gyel: a flag elfogadva, de nincs
- *                        hatása — a TUI Charts panel törölve. A flag
- *                        megmarad a backward-compat kedvéért.)
  *   --bars=<N>           number of bars in the fixture (default: 250)
  *   --risk-pct=<pct>     risk per trade as % of equity (default: 0.01)
  *   --initial-equity=$N  starting equity in USDT (default: 10000)
@@ -35,7 +32,6 @@
  * Exit codes:
  *   0 — success
  *   1 — runtime error (unknown strategy, etc.)
- *   2 — config validation failure (when --visualize)
  */
 
 import {
@@ -92,16 +88,6 @@ function getFlag(flags: ReadonlyMap<string, string | boolean>, name: string): st
   const v = flags.get(name);
   if (typeof v === "string" && v.length > 0) return v;
   return undefined;
-}
-
-/**
- * `getFlagBool` — pull a boolean flag, defaulting to `def`.
- */
-function getFlagBool(flags: ReadonlyMap<string, string | boolean>, name: string, def: boolean): boolean {
-  const v = flags.get(name);
-  if (typeof v === "boolean") return v;
-  if (typeof v === "string" && v.length > 0) return v !== "false" && v !== "0";
-  return def;
 }
 
 /**
@@ -169,8 +155,9 @@ export function simulateStrategy(
   let openPosition: { readonly signal: OhlcTrendSignal; readonly entryPrice: number } | null = null;
   // The signal waiting to be opened on the NEXT bar.
   let pendingSignal: OhlcTrendSignal | null = null;
-  for (let i = strategy.warmup(); i < bars.length; i++) {
-    const c = bars[i]!;
+  const warmup = strategy.warmup();
+  for (const [offset, c] of bars.slice(warmup).entries()) {
+    const i = warmup + offset;
     // Step 1: if a pending signal exists, open it at this bar's open.
     if (pendingSignal !== null) {
       openPosition = { signal: pendingSignal, entryPrice: c.open };
@@ -284,29 +271,32 @@ function formatSummaryTable(
   initialEquity: number,
   numBars: number,
 ): string {
-  const headers = ["Strategy", "Trades", "WinRate", "MaxDD", "FinalEquity", "Bars"];
   const winRateStr = (result.winRate * 100).toFixed(1) + "%";
   const maxDDStr = (result.maxDD * 100).toFixed(1) + "%";
   const finalEquityStr = "$" + result.finalEquity.toFixed(2);
   const returnStr = (((result.finalEquity - initialEquity) / initialEquity) * 100).toFixed(1) + "%";
-  const row = [
-    strategyName,
-    String(result.trades),
-    winRateStr,
-    maxDDStr,
-    finalEquityStr + " (" + returnStr + ")",
-    String(numBars),
+  const columns = [
+    { header: "Strategy", cell: strategyName },
+    { header: "Trades", cell: String(result.trades) },
+    { header: "WinRate", cell: winRateStr },
+    { header: "MaxDD", cell: maxDDStr },
+    { header: "FinalEquity", cell: finalEquityStr + " (" + returnStr + ")" },
+    { header: "Bars", cell: String(numBars) },
   ];
-  // Compute column widths.
-  const widths = headers.map((h, i) => Math.max(h.length, row[i]!.length));
-  const sep = "+" + widths.map((w) => "-".repeat(w + 2)).join("+") + "+";
-  const fmtRow = (cells: readonly string[]): string =>
-    "|" + cells.map((c, i) => " " + c.padEnd(widths[i]!) + " ").join("|") + "|";
+  const sizedColumns = columns.map(({ header, cell }) => ({
+    header,
+    cell,
+    width: Math.max(header.length, cell.length),
+  }));
+  const sep = "+" + sizedColumns.map(({ width }) => "-".repeat(width + 2)).join("+") + "+";
+  const fmtRow = (field: "header" | "cell"): string =>
+    "|" + sizedColumns.map((column) =>
+      " " + (field === "header" ? column.header : column.cell).padEnd(column.width) + " ").join("|") + "|";
   const lines: string[] = [];
   lines.push(sep);
-  lines.push(fmtRow(headers));
+  lines.push(fmtRow("header"));
   lines.push(sep);
-  lines.push(fmtRow(row));
+  lines.push(fmtRow("cell"));
   lines.push(sep);
   return lines.join("\n");
 }
@@ -333,7 +323,6 @@ export const backtestCommand: SubcommandHandler = async (args) => {
     console.log("  --bars=<N>           number of bars in the fixture (default: 250)");
     console.log("  --risk-pct=<pct>     risk per trade as % of equity (default: 0.01 = 1%)");
     console.log("  --initial-equity=$N  starting equity in USDT (default: 10000)");
-    console.log("  --visualize          launch the TUI Charts panel after the backtest (not yet wired)");
     console.log("  --timeframe=<tf>     timeframe (default: 1h)");
     return 0;
   }
@@ -342,7 +331,6 @@ export const backtestCommand: SubcommandHandler = async (args) => {
   const bars = Number(getFlag(flags, "bars") ?? "250");
   const riskPct = Number(getFlag(flags, "risk-pct") ?? "0.01");
   const initialEquity = Number(getFlag(flags, "initial-equity") ?? "10000");
-  const visualize = getFlagBool(flags, "visualize", false);
   const timeframe = (getFlag(flags, "timeframe") ?? "1h") as Timeframe;
 
   if (!Number.isFinite(bars) || bars < 50) {
@@ -379,14 +367,6 @@ export const backtestCommand: SubcommandHandler = async (args) => {
     console.log(warn("No trades were triggered on the fixture. Try a longer fixture or a different strategy."));
   } else {
     console.log(ok(`Backtest complete. ${result.wins} wins, ${result.losses} losses, ${(result.winRate * 100).toFixed(1)}% win rate.`));
-  }
-  if (visualize) {
-    // Phase 44: a `--visualize` flag megmarad a backward-compat kedvéért,
-    // de a TUI Charts panel törölve lett. A flag jelenleg csak egy
-    // notice-t ír ki — a vizualizáció a Phase 46+ web client-be költözik.
-    console.log("");
-    console.log(warn("--visualize is recognized but not yet wired (TUI removed in Phase 44)."));
-    console.log(dim("Visualization will land in the Phase 46 web client (mm-bot web)."));
   }
   // Acknowledge unused imports (silent, just for tree-shake clarity).
   void makeSymbol;

@@ -21,16 +21,15 @@ import {
   it,
 } from "bun:test";
 import {
-  existsSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ConfigLiveConfirmError, ConfigStore } from "./store.js";
+
+const fileSystem = await import("node:fs");
 
 /**
  * `makeValidConfig` — egy valid BotConfig shape, amit a tesztek
@@ -41,7 +40,6 @@ function makeValidConfig(mode: "paper" | "live" = "paper"): string {
 mode = "${mode}"
 log_level = "info"
 state_file = "data/bot-state.json"
-auto_start = false
 
 [exchange]
 id = "bybiteu"
@@ -89,7 +87,7 @@ describe("ConfigStore.writeAfterTypedLive (Phase 36 Track C2)", () => {
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), "mm-bot-live-"));
     configPath = join(tmpDir, "mm-bot.toml");
-    writeFileSync(configPath, makeValidConfig("paper"), "utf8");
+    fileSystem.writeFileSync(configPath, makeValidConfig("paper"), "utf8");
     store = new ConfigStore(configPath);
   });
 
@@ -112,7 +110,7 @@ describe("ConfigStore.writeAfterTypedLive (Phase 36 Track C2)", () => {
 
     // Az audit-log fájl létezik.
     const auditPath = `${configPath}.audit.log`;
-    expect(existsSync(auditPath)).toBe(true);
+    expect(fileSystem.existsSync(auditPath)).toBe(true);
 
     // A TOML most live.
     const reloaded = store.read();
@@ -197,7 +195,7 @@ describe("ConfigStore.writeAfterTypedLive (Phase 36 Track C2)", () => {
     store.writeAfterTypedLive(current2, "LIVE", "live");
 
     const auditPath = `${configPath}.audit.log`;
-    const contents = readFileSync(auditPath, "utf8");
+    const contents = fileSystem.readFileSync(auditPath, "utf8");
     const lines = contents.split("\n").filter((l) => l.length > 0);
     expect(lines.length).toBe(2);
     // Minden sor egy érvényes JSON.

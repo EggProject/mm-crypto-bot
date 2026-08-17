@@ -7,7 +7,7 @@
  * class, and the `quoteCurrencyOf` / `baseCurrencyOf` extractors.
  *
  * Phase 35b gap closer — the file is exported from the package and
- * used by paper/tui/apps-bot code, but no exchange-package test was
+ * used by paper and bot runtime code, but no exchange-package test was
  * covering the helpers directly. The 100% per-package mandate
  * requires the OWN test suite of packages/exchange to exercise the
  * file.

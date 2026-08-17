@@ -1,64 +1,11 @@
-// packages/shared/src/logger.ts — közös log-oló
+// Shared structured logger.
 //
-// ===========================================================================
-// PHASE 36 TRACK A2 — log routing fix (2026-07-14 21:30 Budapest)
-// ===========================================================================
-//
-// A korábbi implementáció `console.log(JSON.stringify(entry))` hívással
-// a `process.stdout`-ra írt. Ez a user TUI-ján megjelent (mert az Ink a
-// `stdout`-ot használja a render surface-ként), a felhasználó pedig
-// panaszkodott: "az `s` billentyűre logok jelentek meg a TUI tetején".
-//
-// A Phase 36 Track A2 javítás:
-//   1) A `createLogger` a fájlba + `stderr`-re ír (Node `fs.appendFileSync` +
-//      `process.stderr.write` — stdlib, zero deps).
-//   2) A log sorok a `logs/bot/bot-YYYY-MM-DD.log` fájlba kerülnek
-//      (append módban) — a `bot.start()`-tól a `bot.stop()`-ig minden
-//      entry megmarad.
-//   3) A `stderr` MINDIG megkapja a `warn` + `error` szintű sorokat
-//      (az "operátornak azonnal tudnia kell" elv). Az `info` + `debug`
-//      szintek is a `stderr`-re mennek, ha a `noFile: true` opció aktív
-//      (tesztek / CI / explicit konzol-mód).
-//   4) Az `stdout` SOHA NEM kap log sort — ez a TUI render surface-e.
-//   5) A tesztek a `noFile: true` opcióval kapcsolhatják ki a fájl-írást,
-//      ÉS a `process.stderr.write` spy-on ellenőrzik a stderr-kimenetet.
-//
-// ===========================================================================
-// FELHASZNÁLÓI MANDATE (2026-07-14 20:58 BUDAPEST)
-// ===========================================================================
-// User issue #2: "az [s] billentyűre logok jelentek meg a TUI tetején".
-// A kiváltó ok az volt, hogy a `bot.stop()` során a `logger.info()`
-// a `process.stdout`-ra írt — ez az Ink render surface-e, és a log
-// sor a TUI frame TETEJÉN jelent meg.
-//
-// A javítás: a logger soha nem ír a `process.stdout`-ra. Minden log
-// sor a fájlba ÉS a `stderr`-re megy. A TUI-nak így ESÉLYE sincs
-// "látni" a log sorokat, mert az Ink csak a `stdout`-ból olvas.
-//
-// ===========================================================================
-// BACKWARD COMPATIBILITY
-// ===========================================================================
-// A `createLogger(level: LogLevel)` hívásforma továbbra is működik
-// (a `level` az első paraméter, a többi opcionális). A meglévő
-// híváshelyek a `bot/`, `order-manager.ts`, `position-manager.ts`,
-// `state-store.ts`, `telemetry.ts`, `strategy-runner.ts`,
-// `kill-switches.ts` fájlokban:
-//     createLogger("info")          // régi forma — továbbra is működik
-//     createLogger({ level: "info" }) // új, opcionális objektum forma
-//
-// A régi forma a `level` paramétert a Zod default-okkal egyezően
-// "info"-ra állítja; minden más opció a default.
-//
-// ===========================================================================
-// TESZT FELELŐSSÉG
-// ===========================================================================
-//   - A `process.stderr.write` spy-on ellenőrzi a stderr-kimenetet.
-//   - A `logDir` + `noFile: false` kombináció a fájlt írja.
-//   - A `process.stdout.write` spy-on ellenőrzi, hogy az stdout
-//     SOHA nem kap log sort (ez a TUI-bug fix-ének a pin-tesztje).
-//
-// A 100%-os line coverage fenntartásához minden ágat (noFile true/false,
-// level threshold, level=debug, level=warn, level=error) le kell fedni.
+// Routing invariants:
+//   - accepted entries are serialized as one JSON object per line;
+//   - file-enabled mode persists entries and mirrors them to stderr;
+//   - `noFile` mode sends accepted entries only to stderr;
+//   - stdout never receives log entries;
+//   - the configured threshold is applied before any write.
 
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -122,7 +69,7 @@ function writeToStderr(text: string): void {
 
 /**
  * `createLogger` — visszaad egy `Logger` interfészt, amely
- *   - fájlba ír (NO stdout-ra, a TUI-bug fix!)
+ *   - writes accepted entries to the configured destinations, never stdout,
  *   - a `stderr`-re ír (operator-facing: warn/error azonnal látszik)
  *   - threshold-ot alkalmaz (a `level` opciónál alacsonyabb szintű
  *     sorok eldobva)
@@ -153,9 +100,10 @@ export function createLogger(
   // `createLogger` hívásakor fut le — a tesztek a `logDir` opcióval
   // egyedi tmp-könyvtárba írhatnak.
   const logFilePath: string | null = noFile
-    ? null
-    : (() => {
+      ? null
+      : (() => {
         // A `mkdirSync({ recursive: true })` idempotens.
+        // eslint-disable-next-line security/detect-non-literal-fs-filename -- logDir is the explicit caller-selected logger destination
         mkdirSync(logDir, { recursive: true });
         const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
         return join(logDir, `${logFileBase}-${date}.log`);
@@ -190,17 +138,11 @@ export function createLogger(
       // (grep-elhető history); a `stderr` az azonnali láthatóságot
       // biztosítja a headless módban futó bot operátorának.
       //
-      // A TUI módban (`mm-bot start`) a `stderr` kimenet az Ink
-      // `alternateScreen` pufferébe NEM kerül — a user a TUI-ból
-      // kilépve LÁTHATJA a log sorokat a terminál scrollback-jében.
-      // A TUI futása alatt a log sorok a `stderr` pufferben gyűlnek,
-      // a TUI alternate screen ELFEDI őket — ez a kívánt viselkedés
-      // (a user a TUI-ban tiszta felületet lát).
-      //
       // Az `if (!noFile) ... else` ágak garantálják, hogy
       // `logFilePath` itt nem lehet `null` — a `!` assertion csak
       // a TS típus-szűkítést segíti.
       writeToStderr(serialized);
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- logFilePath is derived from the explicit caller-selected logger destination
       appendFileSync(logFilePath!, `${serialized}\n`, "utf8");
     }
   };

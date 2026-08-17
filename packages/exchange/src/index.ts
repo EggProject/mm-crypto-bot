@@ -2,7 +2,7 @@
 //
 // FELADAT: Aggregálja a `feed`, `factory`, `bybitEuFeed`, `symbols`
 // és `types` modulok összes publikus API-ját, hogy a fogyasztók
-// (paper engine, backtest, TUI) egyetlen `import { ... } from "@mm/exchange"`
+// (bot runtime, paper engine, backtest) egyetlen `import { ... } from "@mm/exchange"`
 // sorral hozzáférjenek mindenhez.
 //
 // A factory (`createExchangeClient`) a `factory.ts`-ből jön — ez a fő
@@ -51,8 +51,7 @@ export { BybitEuFeed, type BybitEuFeedOptions, normalizeTicker, normalizeOrderBo
 // ⚠️  TEST-ONLY: `MockExchangeFeed` and the `createMockFeed` factory
 //    are NOT exported from this public surface. Tests must import the
 //    class directly from `"./__testing__/mockFeed.js"`. Production
-//    code (bot, web, TUI) cannot reach the mock feed via
-//    `@mm-crypto-bot/exchange`.
+//    code cannot reach the mock feed via `@mm-crypto-bot/exchange`.
 
 export {
   readExchangeCredentials,

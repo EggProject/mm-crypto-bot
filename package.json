@@ -36,9 +36,14 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:install-warnings": "bash scripts/install-no-warnings.sh",
-    "coverage": "turbo run coverage",
+    "coverage": "bun run coverage:full",
+    "coverage:bot:unit": "bun scripts/coverage-tools/run-bot-unit-coverage.ts",
+    "coverage:bot:e2e": "bun scripts/coverage-tools/run-bot-e2e-coverage.ts",
+    "coverage:scope": "bun scripts/coverage-tools/verify-bot-runtime-scope.ts",
+    "typecheck:coverage-tools": "tsc --project tsconfig.json --noEmit",
+    "test:coverage-infra": "bun test scripts/coverage-tools/*.test.ts",
     "coverage:per-package": "bash scripts/coverage-per-package.sh",
-    "coverage:merge": "bun scripts/lcov-tools.mjs merge coverage/merged/lcov.info apps/bot/coverage/lcov.info packages/paper/coverage/lcov.info packages/exchange/coverage/lcov.info packages/core/coverage/lcov.info packages/shared/coverage/lcov.info packages/backtest/coverage/lcov.info packages/backtest-tools/coverage/lcov.info",
+    "coverage:merge": "bun scripts/lcov-tools.mjs merge coverage/merged/lcov.info apps/bot/coverage/unit/lcov.info packages/paper/coverage/lcov.info packages/exchange/coverage/lcov.info packages/core/coverage/lcov.info packages/shared/coverage/lcov.info packages/backtest/coverage/lcov.info packages/backtest-tools/coverage/lcov.info",
     "coverage:report": "bun scripts/lcov-tools.mjs summary coverage/merged/lcov.info",
     "coverage:html": "genhtml coverage/merged/lcov.info -o coverage/merged/html --ignore-errors empty,inconsistent,source --legend",
     "coverage:enforce": "bun run coverage:per-package",
@@ -51,20 +56,22 @@
     "@types/node": "^22.13.0",
     "@typescript-eslint/eslint-plugin": "8.62.1",
     "@typescript-eslint/parser": "8.62.1",
+    "@vitest/coverage-v8": "4.1.10",
+    "bun-types": "1.3.14",
     "eslint": "10.6.0",
     "eslint-plugin-security": "4.0.1",
-    "globals": "^17.7.0",
+    "globals": "17.7.0",
+    "istanbul-lib-coverage": "3.2.2",
+    "istanbul-lib-instrument": "6.0.3",
     "turbo": "2.10.2",
     "typescript": "6.0.3",
     "typescript-eslint": "8.62.1",
-    "vitest": "^4.1.9",
-    "@vitest/coverage-v8": "^4.1.9",
-    "bun-types": "1.3.14"
+    "vitest": "4.1.10"
   },
   "dependencies": {
     "ccxt": "4.5.64",
-    "protobufjs": "^8.7.1",
-    "smol-toml": "^1.7.0",
+    "protobufjs": "8.7.1",
+    "smol-toml": "1.7.0",
     "write-file-atomic": "^8.0.0"
   },
   "trustedDependencies": [
@@ -72,8 +79,7 @@
   ],
   "overrides": {
     "uuid": "11.1.1",
-    "js-yaml": "3.15.1",
-    "nanoid": "3.3.17",
+    "nanoid": "3.3.18",
     "postcss": "8.5.26"
   }
 }

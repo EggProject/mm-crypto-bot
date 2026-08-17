@@ -1,7 +1,7 @@
 // packages/exchange/src/symbols.ts — a `Symbol` brand konverziós segédletek
 //
 // FELADAT: A `Symbol` egy branded type (`Brand<string, "ExchangeSymbol">`).
-// A fogyasztó kódok (paper engine, TUI) "BTC/USDT" néven írják be a
+// A fogyasztó kódok (bot runtime, paper engine) "BTC/USDT" néven írják be a
 // konfig fájlokba, de a feldolgozó kód erősen típusú `Symbol`-t vár.
 // Ez a modul ad két konverziós függvényt: `asSymbol` (string → Symbol,
 // CSAK megbízható inputra) és `symbolOf` (string → Symbol, futásidejű

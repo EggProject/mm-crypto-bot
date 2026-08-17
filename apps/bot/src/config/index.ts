@@ -31,8 +31,7 @@ export {
   type BotStrategyInstance,
 } from "./strategy-registry.js";
 
-// Phase 36 Track C1 — ConfigStore: a TUI settings panel és a
-// `mm-bot config edit` parancs atomic, auditált read/write API-ja.
+// Atomic, validated and audited configuration read/write API.
 export {
   ConfigLiveConfirmError,
   ConfigReadError,

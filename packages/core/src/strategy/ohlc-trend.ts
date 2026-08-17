@@ -119,8 +119,8 @@ export type GetOhlcBars = (since?: number) => readonly Candle[];
  *   }
  *
  * The strategy is **stateless across calls** (every `onBars` invocation
- * is independent). This makes it trivially testable AND safe to use in
- * the TUI Charts panel (which calls it on every bar close).
+ * is independent). This makes it deterministic for every runtime consumer
+ * that evaluates it on finalized bars.
  */
 export class OhlcTrendStrategy {
   readonly config: OhlcTrendConfig;
@@ -190,10 +190,10 @@ export class OhlcTrendStrategy {
     for (let off = 0; off < lookback; off++) {
       const i = n - 1 - off;
       if (i < 1) break;
-      const fastI = fastEmaSeries[i];
-      const slowI = slowEmaSeries[i];
-      const fastPrev = fastEmaSeries[i - 1];
-      const slowPrev = slowEmaSeries[i - 1];
+      const fastI = fastEmaSeries.at(i);
+      const slowI = slowEmaSeries.at(i);
+      const fastPrev = fastEmaSeries.at(i - 1);
+      const slowPrev = slowEmaSeries.at(i - 1);
       if (fastI === undefined || slowI === undefined || fastPrev === undefined || slowPrev === undefined) {
         continue;
       }
@@ -212,12 +212,18 @@ export class OhlcTrendStrategy {
       return null;
     }
     // 3) Read the cross-bar's indicators and candle.
-    const crossBar = bars[crossIdx]!;
-    const crossFast = fastEmaSeries[crossIdx]!;
-    const crossSlow = slowEmaSeries[crossIdx]!;
-    const crossRsi = rsiSeries[crossIdx];
-    const crossAtr = atrSeries[crossIdx];
-    if (crossRsi === undefined || crossAtr === undefined) {
+    const crossBar = bars.at(crossIdx);
+    const crossFast = fastEmaSeries.at(crossIdx);
+    const crossSlow = slowEmaSeries.at(crossIdx);
+    const crossRsi = rsiSeries.at(crossIdx);
+    const crossAtr = atrSeries.at(crossIdx);
+    if (
+      crossBar === undefined ||
+      crossFast === undefined ||
+      crossSlow === undefined ||
+      crossRsi === undefined ||
+      crossAtr === undefined
+    ) {
       return null;
     }
     // 4) RSI filter — at the cross bar.

@@ -1,35 +1,22 @@
-// eslint.config.js — flat config, TypeScript ultra-strict + security
-// Lásd: docs/research/stack-findings.md §6
-//
-// A konfiguracio a typescript-eslint v8 `strict-type-checked` es
-// `stylistic-type-checked` preset-jeit hasznalja, plusz az
-// eslint-plugin-security recommended preset-jet.
-//
-// Jellemzo:
-//   - `parserOptions.projectService: true` — a v8+ ajanlas, nem kell
-//     manuálisan karbantartani a tsconfig listát
-//   - A tesztekre `disableTypeChecked` preset (fixture-okben az `any` OK)
-//   - A `detect-object-injection` default `warn` a sok FP miatt
-//   - A `detect-non-literal-fs-filename` `warn` a config-file-ok miatt
-//
-// Magyar nyelvu kommentek — a projekt karbantartói magyar anyanyelviek.
+// Flat ESLint config with strict, type-aware TypeScript and security rules.
 
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import security from "eslint-plugin-security";
+import globals from "globals";
 
 export default tseslint.config(
-  // 1. Alap JS szabalyok (ESLint recommended)
+  // Base JavaScript rules.
   js.configs.recommended,
 
-  // 2. TypeScript legszigorubb preset
+  // Strictest TypeScript presets.
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
 
-  // 3. Security preset
+  // Security preset.
   security.configs.recommended,
 
-  // 4. Projekt-szintu beallitasok
+  // Project-wide settings.
   {
     languageOptions: {
       parserOptions: {
@@ -38,7 +25,7 @@ export default tseslint.config(
       },
     },
     rules: {
-      // TypeScript strict-type-checked kiegeszitesei
+      // Strict TypeScript additions.
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": "error",
@@ -56,26 +43,18 @@ export default tseslint.config(
         { allowNumber: true, allowBoolean: true },
       ],
 
-      // Phase 3 (strategy + backtest implementacio) relaxation:
-      // A `noUncheckedIndexedAccess: true` (a `@tsconfig/bases/strictest`
-      // preset-ből jön) miatt minden index-hozzáférés `T | undefined`
-      // típusú. A strategy-backtest kódja a ciklus-határokon belül
-      // definiált értékeknél `candles[i]!.close` mintát használ — ez a
-      // TS strict típusellenőrzéssel már védett, a `!` assertion csak
-      // a type narrowing-ot segíti. A 100%-os coverage fenntartásához
-      // szükséges (a `noUncheckedIndexedAccess` megtartása mellett).
+      // Existing strategy code relies on bounded index access. Migrating that
+      // repository-wide pattern is outside the current tooling change.
       "@typescript-eslint/no-non-null-assertion": "off",
 
-      // A strategy-backtest branch-ben használt `@ts-nocheck` direktíva
-      // engedélyezése a `mtf-trend-confluence.test.ts`-ben (a teszt a
-      // IndicatorState readonly mezőit írja — lásd a fájl kommentjét).
+      // One existing strategy fixture documents its readonly mutation setup.
       "@typescript-eslint/ban-ts-comment": [
         "error",
         { "ts-nocheck": "allow-with-description" },
       ],
 
-      // Security — egyedi finomhangolas
-      "security/detect-object-injection": "warn", // FP-veszelyes
+      // Security rules with known repository-wide false-positive backlogs.
+      "security/detect-object-injection": "warn",
       "security/detect-non-literal-regexp": "error",
       "security/detect-unsafe-regex": "error",
       "security/detect-eval-with-expression": "error",
@@ -87,13 +66,27 @@ export default tseslint.config(
     },
   },
 
-  // 5. Tesztek — type-check kikapcsolasa (a fixture-okben az any OK)
+  // Existing test fixtures remain a separate strict-type migration. Coverage
+  // infrastructure tests are excluded here and remain type-aware.
   {
     files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx", "**/*.bench.ts"],
+    ignores: [
+      "apps/bot/src/cli/cli-e2e.test.ts",
+      "scripts/coverage-tools/**/*.test.ts",
+    ],
     ...tseslint.configs.disableTypeChecked,
   },
 
-  // 6. Build output-ok kihagyasa
+  {
+    files: ["eslint.config.js"],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      ...tseslint.configs.disableTypeChecked.languageOptions,
+      globals: globals.node,
+    },
+  },
+
+  // Generated output exclusions.
   {
     ignores: ["**/dist/**", "**/.turbo/**", "**/node_modules/**", "**/coverage/**"],
   },

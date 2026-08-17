@@ -172,7 +172,6 @@
 # |   registered        |                 |                 |              |
 # +---------------------+-----------------+-----------------+--------------+
 #
-# Minden más mező (bot.mode-t kivéve) a `default.toml`-ból másolva —
-# a Phase 14B risk paraméterek, a Phase 18-25 stratégiák, a Phase 34
-# TUI, a Phase 37 Track 4 portfolio koordináció MIND VÁLTOZATLANOK.
+# Minden más mező (bot.mode-t kivéve) a `default.toml`-ból másolva;
+# a risk-, strategy- és portfolio-beállítások megegyeznek az alapértékekkel.
 # ======================================================================

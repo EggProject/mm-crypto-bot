@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { asSymbol, type Balance, type ClientOrderId, type ExchangePosition, type Execution, type FeedEvent, type MarketMeta, type Order, type OrderRequest, type Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
+import { asSymbol, type Balance, type ClientOrderId, type ExchangePosition, type Execution, type FeedEvent, type FeedListener, type MarketMeta, type Order, type OrderRequest, type SubscriptionId, type Symbol as ExchangeSymbol, type Ticker } from "@mm-crypto-bot/exchange";
 import type { Logger } from "@mm-crypto-bot/shared";
 // Phase 66: `MockExchangeFeed` is test-only — import from the
 // `@exchange-testing/*` path alias (see tsconfig.base.json).
@@ -29,6 +29,21 @@ import type { StrategyRiskConfig } from "./risk-budget.js";
 
 function makeSymbol(): ExchangeSymbol {
   return asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
+}
+
+function makeMarketMeta(isSpot: boolean, minCost = 1): MarketMeta {
+  const symbol = makeSymbol();
+  return { symbol, base: "BTC", quote: "USDC", amountPrecision: 4, pricePrecision: 2, minAmount: 0.0001, minCost, isSpot };
+}
+
+function makeRemotePosition(side: "long" | "short" = "long", quantity = 0.01): ExchangePosition {
+  return { symbol: makeSymbol(), side, quantity, entryPrice: 60_000, markPrice: 59_900, unrealizedPnl: -1, updateTimestamp: Date.now() };
+}
+
+function requirePlacedOrder(orders: readonly Order[]): Order {
+  const order = orders[0];
+  if (order === undefined) throw new Error("expected a placed order");
+  return order;
 }
 
 class SequencedFillFeed extends MockExchangeFeed {
@@ -57,6 +72,130 @@ class FailOnceCancelFeed extends MockExchangeFeed {
   }
 }
 
+class FaultFeed extends MockExchangeFeed {
+  public marketMetaFailures: unknown[] = [];
+  public positionFailures: unknown[] = [];
+  public balanceFailures: unknown[] = [];
+  public placeFailures: unknown[] = [];
+  public orderFailures: unknown[] = [];
+  public tickerFailures: unknown[] = [];
+  public positionFailureOnCall: { readonly call: number; readonly failure: unknown } | undefined;
+  public balanceFailureOnCall: { readonly call: number; readonly failure: unknown } | undefined;
+  public readonly placedOrders: Order[] = [];
+  private positionCalls = 0;
+  private balanceCalls = 0;
+
+  private throwNext(failures: unknown[]): void {
+    if (failures.length > 0) throw failures.shift();
+  }
+
+  public override async fetchMarketMeta(symbol: ExchangeSymbol): Promise<MarketMeta> {
+    this.throwNext(this.marketMetaFailures);
+    return super.fetchMarketMeta(symbol);
+  }
+
+  public override async fetchPositions(symbols?: readonly ExchangeSymbol[]): Promise<readonly ExchangePosition[]> {
+    this.positionCalls += 1;
+    if (this.positionFailureOnCall?.call === this.positionCalls) throw this.positionFailureOnCall.failure;
+    this.throwNext(this.positionFailures);
+    return super.fetchPositions(symbols);
+  }
+
+  public override async fetchBalances(): Promise<readonly Balance[]> {
+    this.balanceCalls += 1;
+    if (this.balanceFailureOnCall?.call === this.balanceCalls) throw this.balanceFailureOnCall.failure;
+    this.throwNext(this.balanceFailures);
+    return super.fetchBalances();
+  }
+
+  public override async placeOrder(request: OrderRequest): Promise<Order> {
+    this.throwNext(this.placeFailures);
+    const order = await super.placeOrder(request);
+    this.placedOrders.push(order);
+    return order;
+  }
+
+  public override async fetchOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> {
+    this.throwNext(this.orderFailures);
+    return super.fetchOrder(clientOrderId, symbol);
+  }
+
+  public override async fetchTickerSnapshot(symbol: ExchangeSymbol): Promise<Ticker> {
+    this.throwNext(this.tickerFailures);
+    return super.fetchTickerSnapshot(symbol);
+  }
+}
+
+class LifecycleFeed extends MockExchangeFeed {
+  private readonly lifecycleListeners = new Map<SubscriptionId, FeedListener>();
+  private nextLifecycleId = 10_000;
+  public readonly placedOrders: Order[] = [];
+
+  public override async placeOrder(request: OrderRequest): Promise<Order> {
+    const order = await super.placeOrder(request);
+    this.placedOrders.push(order);
+    return order;
+  }
+
+  public async subscribeOrderUpdates(listener: FeedListener): Promise<SubscriptionId> {
+    return this.addLifecycleListener(listener);
+  }
+
+  public async subscribeExecutions(listener: FeedListener): Promise<SubscriptionId> {
+    return this.addLifecycleListener(listener);
+  }
+
+  public override async unsubscribe(id: SubscriptionId): Promise<void> {
+    if (!this.lifecycleListeners.delete(id)) await super.unsubscribe(id);
+  }
+
+  public emitLifecycle(event: FeedEvent): void {
+    for (const listener of this.lifecycleListeners.values()) listener(event);
+  }
+
+  private addLifecycleListener(listener: FeedListener): SubscriptionId {
+    const id = this.nextLifecycleId as unknown as SubscriptionId;
+    this.nextLifecycleId += 1;
+    this.lifecycleListeners.set(id, listener);
+    return id;
+  }
+}
+
+class AutoFlattenFeed extends MockExchangeFeed {
+  public readonly placedOrders: Order[] = [];
+
+  public override async placeOrder(request: OrderRequest): Promise<Order> {
+    const order = await super.placeOrder(request);
+    const closed = { ...order, status: "closed" as const, filled: request.amount, average: request.price };
+    this.setOrderStatus(order.clientOrderId, closed);
+    this.placedOrders.push(closed);
+    if (request.side === "sell") {
+      this.setPositions([]);
+      this.setBalance("BTC", 0, 0);
+    }
+    return this.getOrder(order.clientOrderId) ?? closed;
+  }
+}
+
+class ImmediateFillFeed extends MockExchangeFeed {
+  public constructor(private readonly pricing: "average" | "price" | "position") {
+    super();
+  }
+
+  public override async placeOrder(request: OrderRequest): Promise<Order> {
+    const order = await super.placeOrder(request);
+    const closed: Order = {
+      ...order,
+      status: "closed",
+      filled: request.amount,
+      average: this.pricing === "average" ? request.price : undefined,
+      price: this.pricing === "price" ? request.price : undefined,
+      updateTimestamp: undefined,
+    };
+    return closed;
+  }
+}
+
 interface StackOptions {
   readonly totalRiskUsd?: number;
   readonly maxDdPct?: number;
@@ -68,6 +207,7 @@ interface StackOptions {
   readonly marketMeta?: ReadonlyMap<ExchangeSymbol, MarketMeta>;
   readonly feed?: MockExchangeFeed;
   readonly logger?: Logger;
+  readonly terminalCloseEvidenceLimit?: number;
 }
 
 interface Stack {
@@ -112,6 +252,7 @@ function makeStack(opts: StackOptions = {}): Stack {
     requireAuthoritativeEmergencyState: opts.requireAuthoritativeEmergencyState,
     configuredSymbols: opts.configuredSymbols,
     logger: opts.logger,
+    terminalCloseEvidenceLimit: opts.terminalCloseEvidenceLimit,
   });
   // Open the feed synchronously (Bun's microtask handling).
   void feed.open();
@@ -567,6 +708,321 @@ describe("PortfolioManager", () => {
       const closeOrders = placedOrders.filter((o) => o.clientOrderId.startsWith("pf-stop-"));
       expect(closeOrders.length).toBe(1);
       expect(stack.portfolioManager.didExecuteCloseAll()).toBe(false);
+    });
+
+    it("validates the terminal evidence bound", () => {
+      expect(() => makeStack({ terminalCloseEvidenceLimit: 0 })).toThrow(RangeError);
+      expect(() => makeStack({ terminalCloseEvidenceLimit: 1.5 })).toThrow(RangeError);
+    });
+
+    it("reports Error and non-Error authoritative metadata, position, and balance failures", async () => {
+      for (const failure of [new Error("authority Error"), "authority string"] as const) {
+        const metaFeed = new FaultFeed({ positions: [] });
+        metaFeed.marketMetaFailures.push(failure);
+        const metaStack = makeStack({ feed: metaFeed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(makeSymbol())] });
+        expect((await metaStack.portfolioManager.executeCloseAll()).unresolved.join(" ")).toContain(
+          typeof failure === "string" ? failure : failure.message,
+        );
+
+        const positionFeed = new FaultFeed({ positions: [], marketMeta: new Map([[makeSymbol(), makeMarketMeta(false)]]) });
+        positionFeed.positionFailures.push(failure);
+        const positionStack = makeStack({ feed: positionFeed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(makeSymbol())] });
+        positionStack.positionManager.openPosition("unavailable", makeSymbol(), "long", 0.01, 60_000, 10);
+        expect((await positionStack.portfolioManager.executeCloseAll()).unresolved.join(" ")).toContain("derivative position unavailable");
+
+        const balanceFeed = new FaultFeed({ positions: [] });
+        balanceFeed.balanceFailures.push(failure);
+        const balanceStack = makeStack({ feed: balanceFeed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(makeSymbol())] });
+        expect((await balanceStack.portfolioManager.executeCloseAll()).unresolved.join(" ")).toContain(
+          typeof failure === "string" ? failure : failure.message,
+        );
+      }
+    });
+
+    it("reports Error and non-Error failures from authoritative flat verification", async () => {
+      for (const failure of [new Error("verification Error"), "verification string"] as const) {
+        const feed = new FaultFeed({ positions: [] });
+        feed.positionFailureOnCall = { call: 2, failure };
+        feed.balanceFailureOnCall = { call: 2, failure };
+        const stack = makeStack({ feed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(makeSymbol())] });
+        const report = await stack.portfolioManager.executeCloseAll();
+        expect(report.unresolved.join(" ")).toContain("authoritative position verification");
+        expect(report.unresolved.join(" ")).toContain("authoritative balance verification");
+      }
+    });
+
+    it("reconciles invalid, unavailable, and stale local authoritative positions", async () => {
+      const symbol = makeSymbol();
+      const spotMeta = new Map([[symbol, makeMarketMeta(true)]]);
+
+      const invalidSpot = makeStack({
+        feed: new FaultFeed({ positions: [], balances: [{ currency: "BTC", free: 0.01, total: 0.01 }], marketMeta: spotMeta }),
+        requireAuthoritativeEmergencyState: true,
+        configuredSymbols: [String(symbol)],
+      });
+      invalidSpot.positionManager.openPosition("spot", symbol, "short", 0.01, 60_000, 10);
+      expect((await invalidSpot.portfolioManager.executeCloseAll()).unresolved.join(" ")).toContain("invalid local spot short removed");
+
+      const unavailableSpotFeed = new FaultFeed({ positions: [], marketMeta: spotMeta });
+      unavailableSpotFeed.balanceFailures.push("balances unavailable");
+      const unavailableSpot = makeStack({ feed: unavailableSpotFeed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol)] });
+      unavailableSpot.positionManager.openPosition("spot", symbol, "long", 0.01, 60_000, 10);
+      expect((await unavailableSpot.portfolioManager.executeCloseAll()).unresolved.join(" ")).toContain("spot inventory unavailable");
+
+      const staleDerivative = makeStack({
+        feed: new FaultFeed({ positions: [], marketMeta: new Map([[symbol, makeMarketMeta(false)]]) }),
+        requireAuthoritativeEmergencyState: true,
+        configuredSymbols: [String(symbol)],
+      });
+      staleDerivative.positionManager.openPosition("derivative", symbol, "long", 0.01, 60_000, 10);
+      await staleDerivative.portfolioManager.executeCloseAll();
+      expect(staleDerivative.positionManager.getPositionCount()).toBe(0);
+    });
+
+    it("completes an immediately filled authoritative derivative close", async () => {
+      const symbol = makeSymbol();
+      const feed = new AutoFlattenFeed({ positions: [makeRemotePosition()], marketMeta: new Map([[symbol, makeMarketMeta(false)]]) });
+      const stack = makeStack({ feed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol)] });
+      stack.positionManager.openPosition("carry", symbol, "long", 0.01, 60_000, 10);
+      const report = await stack.portfolioManager.executeCloseAll();
+      expect(report.unresolved).toHaveLength(0);
+      expect(report.closed).toContain("carry/BTC/USDC/long");
+      expect(stack.portfolioManager.didExecuteCloseAll()).toBe(true);
+    });
+
+    it("settles a local close through REST reconciliation and current-price fallback", async () => {
+      const feed = new FaultFeed();
+      const stack = makeStack({ feed });
+      const position = stack.positionManager.openPosition("carry", makeSymbol(), "long", 0.01, 60_000, 10);
+      expect(await stack.portfolioManager.requestPositionClose(position, "manual")).toBe(false);
+      const order = requirePlacedOrder(feed.placedOrders);
+      feed.setOrderStatus(order.clientOrderId, { status: "closed", filled: 0.01, average: undefined, price: undefined, updateTimestamp: undefined });
+      expect(await stack.portfolioManager.requestPositionClose(position, "manual-reconcile")).toBe(true);
+      expect(stack.positionManager.getPositionCount()).toBe(0);
+    });
+
+    it("settles immediately filled local closes across public price fallbacks", async () => {
+      for (const pricing of ["average", "price", "position"] as const) {
+        const feed = new ImmediateFillFeed(pricing);
+        const stack = makeStack({ feed });
+        const side = pricing === "average" ? "short" : "long";
+        const position = stack.positionManager.openPosition(pricing, makeSymbol(), side, 0.01, 60_000, 10);
+        expect(await stack.portfolioManager.requestPositionClose(position, pricing)).toBe(true);
+        expect(stack.positionManager.getPositionCount()).toBe(0);
+      }
+    });
+
+    it("reports both closed and unresolved local results in one retryable close-all", async () => {
+      const feed = new SequencedFillFeed([1, 0], {});
+      const stack = makeStack({ feed });
+      stack.positionManager.openPosition("closed", makeSymbol(), "long", 0.01, 60_000, 10);
+      stack.positionManager.openPosition("unresolved", makeSymbol(), "short", 0.01, 60_000, 10);
+      const report = await stack.portfolioManager.executeCloseAll();
+      expect(report.closed).toContain("closed/BTC/USDC");
+      expect(report.unresolved).toContain("unresolved/BTC/USDC/short");
+    });
+
+    it("keeps pending and new local closes retryable after Error and non-Error feed failures", async () => {
+      for (const failure of [new Error("close Error"), "close string"] as const) {
+        const reconcileFeed = new FaultFeed();
+        const reconcileStack = makeStack({ feed: reconcileFeed });
+        const pending = reconcileStack.positionManager.openPosition("carry", makeSymbol(), "long", 0.01, 60_000, 10);
+        expect(await reconcileStack.portfolioManager.requestPositionClose(pending, "first")).toBe(false);
+        reconcileFeed.orderFailures.push(failure);
+        expect(await reconcileStack.portfolioManager.requestPositionClose(pending, "retry")).toBe(false);
+
+        const placeFeed = new FaultFeed();
+        placeFeed.placeFailures.push(failure);
+        const placeStack = makeStack({ feed: placeFeed });
+        const fresh = placeStack.positionManager.openPosition("carry", makeSymbol(), "long", 0.01, 60_000, 10);
+        expect(await placeStack.portfolioManager.requestPositionClose(fresh, "first")).toBe(false);
+      }
+    });
+
+    it("derives authoritative spot and derivative close keys and reports metadata failures", async () => {
+      const symbol = makeSymbol();
+      for (const isSpot of [true, false]) {
+        const stack = makeStack({
+          feed: new FaultFeed({ positions: [], marketMeta: new Map([[symbol, makeMarketMeta(isSpot)]]) }),
+          requireAuthoritativeEmergencyState: true,
+          configuredSymbols: [String(symbol)],
+        });
+        const position = stack.positionManager.openPosition(isSpot ? "spot" : "derivative", symbol, "long", 0.01, 60_000, 10);
+        expect(await stack.portfolioManager.requestPositionClose(position, "manual")).toBe(false);
+      }
+      for (const failure of [new Error("metadata Error"), "metadata string"] as const) {
+        const feed = new FaultFeed();
+        feed.marketMetaFailures.push(failure);
+        const stack = makeStack({ feed, requireAuthoritativeEmergencyState: true });
+        const position = stack.positionManager.openPosition("carry", symbol, "long", 0.01, 60_000, 10);
+        expect(await stack.portfolioManager.requestPositionClose(position, "manual")).toBe(false);
+      }
+    });
+
+    it("books public private-lifecycle executions for long, short, missing, and exhausted attribution", async () => {
+      const symbol = makeSymbol();
+      const feed = new LifecycleFeed();
+      const stack = makeStack({ feed, terminalCloseEvidenceLimit: 1 });
+      await stack.orderManager.startLifecycle();
+
+      for (const side of ["long", "short"] as const) {
+        const position = stack.positionManager.openPosition(side, symbol, side, 0.01, 60_000, 10);
+        expect(await stack.portfolioManager.requestPositionClose(position, `close-${side}`)).toBe(false);
+        const order = feed.placedOrders.at(-1);
+        if (order === undefined) throw new Error("expected lifecycle close order");
+        feed.emitLifecycle({
+          kind: "execution",
+          payload: {
+            executionId: `execution-${side}`,
+            clientOrderId: order.clientOrderId,
+            exchangeOrderId: order.exchangeId,
+            symbol,
+            side: order.side,
+            quantity: 0.01,
+            price: 59_900,
+            fee: 0,
+            feeCurrency: "USDC",
+            timestamp: Date.now(),
+          },
+        });
+        expect(stack.positionManager.getPositions().some((item) => item.id === position.id)).toBe(false);
+        feed.emitLifecycle({
+          kind: "execution",
+          payload: {
+            executionId: `execution-${side}-duplicate-terminal`, clientOrderId: order.clientOrderId, exchangeOrderId: order.exchangeId,
+            symbol, side: order.side, quantity: 0.01, price: 59_900, fee: 0, feeCurrency: "USDC", timestamp: Date.now(),
+          },
+        });
+      }
+
+      const missing = stack.positionManager.openPosition("missing", symbol, "long", 0.01, 60_000, 10);
+      await stack.portfolioManager.requestPositionClose(missing, "missing");
+      const missingOrder = feed.placedOrders.at(-1);
+      if (missingOrder === undefined) throw new Error("expected missing-position close order");
+      stack.positionManager.reconcileVenueAbsent(missing.id);
+      feed.emitLifecycle({
+        kind: "execution",
+        payload: {
+          executionId: "execution-missing", clientOrderId: missingOrder.clientOrderId, exchangeOrderId: missingOrder.exchangeId,
+          symbol, side: "sell", quantity: 0.01, price: 59_900, fee: 0, feeCurrency: "USDC", timestamp: Date.now(),
+        },
+      });
+
+      const orderPosition = stack.positionManager.openPosition("order-event", symbol, "long", 0.01, 60_000, 10);
+      await stack.portfolioManager.requestPositionClose(orderPosition, "order-event");
+      const orderUpdate = feed.placedOrders.at(-1);
+      if (orderUpdate === undefined) throw new Error("expected order-update close order");
+      feed.emitLifecycle({ kind: "order", payload: { ...orderUpdate, status: "closed", filled: 0.01, average: 59_900, updateTimestamp: undefined } });
+      expect(stack.positionManager.getPositions().some((item) => item.id === orderPosition.id)).toBe(false);
+
+      const lateOrderPosition = stack.positionManager.openPosition("late-order-event", symbol, "long", 0.01, 60_000, 10);
+      await stack.portfolioManager.requestPositionClose(lateOrderPosition, "late-order-event");
+      const canceledOrder = feed.placedOrders.at(-1);
+      if (canceledOrder === undefined) throw new Error("expected canceled lifecycle close order");
+      feed.emitLifecycle({ kind: "order", payload: { ...canceledOrder, status: "canceled", filled: 0 } });
+      await stack.portfolioManager.requestPositionClose(lateOrderPosition, "late-order-event-retry");
+      const replacementOrder = feed.placedOrders.at(-1);
+      if (replacementOrder === undefined) throw new Error("expected replacement lifecycle close order");
+      feed.emitLifecycle({
+        kind: "order",
+        payload: { ...canceledOrder, status: "closed", filled: 0.004, average: 59_850, updateTimestamp: undefined },
+      });
+      await Promise.resolve();
+      expect(stack.positionManager.getPositions().find((item) => item.id === lateOrderPosition.id)?.quantity).toBeCloseTo(0.006);
+      expect(feed.getOrder(replacementOrder.clientOrderId)?.status).toBe("canceled");
+      await stack.orderManager.stopLifecycle();
+    });
+
+    it("matches all authoritative derivative predicates and stops attribution after quantity exhaustion", async () => {
+      const symbol = makeSymbol();
+      const other = asSymbol("ETH/USDC") as unknown as ExchangeSymbol;
+      const feed = new LifecycleFeed({
+        positions: [
+          { ...makeRemotePosition(), symbol: other },
+          makeRemotePosition("short"),
+          makeRemotePosition("long", 0),
+          makeRemotePosition("long", 0.01),
+        ],
+        marketMeta: new Map([[symbol, makeMarketMeta(false)], [other, { ...makeMarketMeta(false), symbol: other, base: "ETH" }]]),
+      });
+      const stack = makeStack({ feed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol), String(other)] });
+      await stack.orderManager.startLifecycle();
+      stack.positionManager.openPosition("first", symbol, "long", 0.01, 60_000, 10);
+      stack.positionManager.openPosition("second", symbol, "long", 0.01, 60_000, 10);
+      await stack.portfolioManager.executeCloseAll();
+      const btcClose = feed.placedOrders.find((order) => order.symbol === symbol && order.side === "sell");
+      if (btcClose === undefined) throw new Error("expected authoritative BTC close");
+      feed.emitLifecycle({
+        kind: "execution",
+        payload: {
+          executionId: "authoritative-exhaustion", clientOrderId: btcClose.clientOrderId, exchangeOrderId: btcClose.exchangeId,
+          symbol, side: "sell", quantity: 0.01, price: 59_900, fee: 0, feeCurrency: "USDC", timestamp: Date.now(),
+        },
+      });
+      expect(stack.positionManager.getPositionCount()).toBe(1);
+      await stack.orderManager.stopLifecycle();
+    });
+
+    it("handles derivative and spot venue-close edge outcomes without changing policy", async () => {
+      const symbol = makeSymbol();
+      const noPrice = new FaultFeed({
+        positions: [{ ...makeRemotePosition(), entryPrice: undefined, markPrice: undefined }],
+        marketMeta: new Map([[symbol, makeMarketMeta(false)]]),
+      });
+      const noPriceStack = makeStack({ feed: noPrice, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol)] });
+      expect((await noPriceStack.portfolioManager.executeCloseAll()).unresolved).toContain("venue/BTC/USDC/long");
+
+      const shortFeed = new FaultFeed({ positions: [makeRemotePosition("short")], marketMeta: new Map([[symbol, makeMarketMeta(false)]]) });
+      const shortStack = makeStack({ feed: shortFeed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol)] });
+      await shortStack.portfolioManager.executeCloseAll();
+      expect(requirePlacedOrder(shortFeed.placedOrders).side).toBe("buy");
+
+      for (const failure of [new Error("venue Error"), "venue string"] as const) {
+        const derivativeFeed = new FaultFeed({ positions: [makeRemotePosition()], marketMeta: new Map([[symbol, makeMarketMeta(false)]]) });
+        derivativeFeed.placeFailures.push(failure);
+        const derivative = makeStack({ feed: derivativeFeed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol)] });
+        expect((await derivative.portfolioManager.executeCloseAll()).unresolved).toContain("venue/BTC/USDC/long");
+
+        const spotFeed = new FaultFeed({
+          positions: [],
+          balances: [{ currency: "BTC", free: 0.01, total: 0.01 }],
+          marketMeta: new Map([[symbol, makeMarketMeta(true)]]),
+        });
+        spotFeed.placeFailures.push(failure);
+        const spot = makeStack({ feed: spotFeed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol)] });
+        expect((await spot.portfolioManager.executeCloseAll()).unresolved).toContain("venue/BTC/USDC/spot");
+      }
+
+      const fallbackTickerFeed = new FaultFeed({
+        positions: [], balances: [{ currency: "BTC", free: 0.01, total: 0.01 }],
+        marketMeta: new Map([[symbol, makeMarketMeta(true)]]),
+      });
+      fallbackTickerFeed.setTicker(symbol, { symbol, timestamp: 1, bid: 0, ask: 60_001, last: 60_000 });
+      const fallbackTicker = makeStack({ feed: fallbackTickerFeed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol)] });
+      await fallbackTicker.portfolioManager.executeCloseAll();
+      expect(fallbackTickerFeed.placedOrders).toHaveLength(1);
+
+      const tooSmallFeed = new FaultFeed({
+        positions: [], balances: [{ currency: "BTC", free: 0.0001, total: 0.0001 }],
+        marketMeta: new Map([[symbol, makeMarketMeta(true, 1_000_000)]]),
+      });
+      const tooSmall = makeStack({ feed: tooSmallFeed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol)] });
+      await tooSmall.portfolioManager.executeCloseAll();
+      expect(tooSmallFeed.placedOrders).toHaveLength(0);
+    });
+
+    it("handles terminal and unavailable pending authoritative closes", async () => {
+      const symbol = makeSymbol();
+      const meta = new Map([[symbol, makeMarketMeta(false)]]);
+      for (const mode of ["terminal", "unavailable"] as const) {
+        const feed = new FaultFeed({ positions: [makeRemotePosition()], marketMeta: meta });
+        const stack = makeStack({ feed, requireAuthoritativeEmergencyState: true, configuredSymbols: [String(symbol)] });
+        await stack.portfolioManager.executeCloseAll();
+        const order = requirePlacedOrder(feed.placedOrders);
+        if (mode === "terminal") feed.setOrderStatus(order.clientOrderId, { status: "canceled" });
+        else feed.orderFailures.push("pending unavailable");
+        await expect(stack.portfolioManager.executeCloseAll()).resolves.toBeDefined();
+      }
     });
   });
 

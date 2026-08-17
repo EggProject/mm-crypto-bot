@@ -3,8 +3,8 @@
 // Phase 37 Track 3: real OHLC stream that aggregates live trades into
 // OHLC bars for configurable timeframes, stores the last N bars in a
 // per-(symbol, timeframe) ring buffer, and emits a "bar" event whenever
-// a bar closes (so the TUI Charts panel can re-render and the
-// `ohlc-trend` strategy can read bars from history).
+// a bar closes so runtime consumers can react and the `ohlc-trend`
+// strategy can read bars from history.
 //
 // Design choices:
 //   1. The class subscribes to a `ExchangeFeed` instance — we use
@@ -16,9 +16,7 @@
 //      tracks the currently-forming bar, and a `RingBuffer` keeps the
 //      last N completed bars per (symbol, tf).
 //   3. We emit a `bar` event on the supplied `EventEmitter` whenever
-//      a bar closes. The TUI Charts panel debounces its re-render to
-//      1Hz max so the bar flood (potentially every 1m) doesn't cause
-//      flicker.
+//      a bar closes so downstream consumers can process finalized data.
 //   4. The `getBars(symbol, timeframe, since?)` query method is what
 //      the `ohlc-trend` strategy and the backtest fixture test use to
 //      pull the buffered bars for indicator computation.
@@ -102,6 +100,15 @@ export interface OhlcStreamErrorEvent {
  */
 type BarKey = string;
 
+const TIMEFRAME_DURATIONS = new Map<Timeframe, number>([
+  ["1m", TIMEFRAME_MS["1m"]],
+  ["5m", TIMEFRAME_MS["5m"]],
+  ["15m", TIMEFRAME_MS["15m"]],
+  ["1h", TIMEFRAME_MS["1h"]],
+  ["4h", TIMEFRAME_MS["4h"]],
+  ["1d", TIMEFRAME_MS["1d"]],
+]);
+
 function barKey(symbol: Symbol, timeframe: Timeframe): BarKey {
   return `${symbol}::${timeframe}`;
 }
@@ -112,7 +119,8 @@ function barKey(symbol: Symbol, timeframe: Timeframe): BarKey {
  * containing minute; for 1h, the start of the containing hour; etc.
  */
 export function alignToTimeframe(timestamp: number, timeframe: Timeframe): number {
-  const ms = TIMEFRAME_MS[timeframe];
+  const ms = TIMEFRAME_DURATIONS.get(timeframe);
+  if (ms === undefined) throw new Error(`Unsupported timeframe: ${timeframe}`);
   return timestamp - (timestamp % ms);
 }
 
@@ -138,6 +146,9 @@ export class RingBuffer<T> {
 
   /** Push one element; if full, overwrite the oldest one. */
   push(item: T): void {
+    if (this.cursor < 0 || this.cursor >= this.buf.length) {
+      throw new Error(`RingBuffer cursor out of bounds: ${this.cursor}`);
+    }
     this.buf[this.cursor] = item;
     this.cursor = (this.cursor + 1) % this.capacity;
     if (this.filled < this.capacity) this.filled++;
@@ -153,7 +164,7 @@ export class RingBuffer<T> {
     if (this.filled < this.capacity) {
       // Buffer not yet full: yield the contiguous [0..filled).
       for (let i = 0; i < this.filled; i++) {
-        const v = this.buf[i];
+        const v = this.buf.at(i);
         if (v !== undefined) yield v;
       }
       return;
@@ -161,7 +172,7 @@ export class RingBuffer<T> {
     // Buffer full: yield from cursor (oldest) → end, then 0 → cursor-1 (newest).
     for (let i = 0; i < this.capacity; i++) {
       const idx = (this.cursor + i) % this.capacity;
-      const v = this.buf[idx];
+      const v = this.buf.at(idx);
       if (v !== undefined) yield v;
     }
   }
@@ -188,8 +199,8 @@ export class RingBuffer<T> {
  *   - `error` — `{ error: Error }` on a non-fatal aggregation error
  *
  * The class is intentionally not a singleton — multiple instances can
- * exist (e.g. one for the TUI, one for the strategy), and the tests
- * instantiate a fresh stream per `it()` block.
+ * serve independent consumers, and the tests instantiate a fresh stream per
+ * `it()` block.
  */
 export class OhlcStream {
   readonly config: OhlcStreamConfig;
@@ -483,8 +494,7 @@ export function barsToCandles(bars: readonly OhlcBar[]): Candle[] {
 
 /**
  * `barsToOhlcv` — convert a `OhlcBar[]` to the `Ohlcv` tuple shape
- * used by the exchange `FeedEvent`. Convenience for the TUI
- * (so the panel can compare against a `MockFeed.subscribeOhlcv`).
+ * used by the exchange `FeedEvent`.
  */
 export function barsToOhlcv(bars: readonly OhlcBar[]): Ohlcv[] {
   return bars.map((b) => [b.timestamp, b.open, b.high, b.low, b.close, b.volume] as Ohlcv);

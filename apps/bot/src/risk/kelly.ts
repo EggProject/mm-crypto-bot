@@ -92,7 +92,7 @@ export interface KellyConfig {
 
 /**
  * `KellyStats` — the current rolling-window statistics. Useful for
- * telemetry, TUI display, and the `RiskManager` snapshot.
+ * telemetry, operator monitoring, and the `RiskManager` snapshot.
  */
 export interface KellyStats {
   readonly trades: number;
@@ -282,7 +282,7 @@ export class KellySizer {
 
   /**
    * `getStats` — the full rolling-window snapshot. Used by the
-   * `RiskManager` snapshot and the TUI for display.
+   * `RiskManager` snapshot and runtime monitoring.
    */
   public getStats(): KellyStats {
     const stats = computeStats(this.trades);

@@ -11,16 +11,14 @@
 
 ## Executive summary
 
-Phase 36 delivered the 4 issues the user reported on 2026-07-14 20:58 Budapest:
-(1) `mm-bot start` no longer auto-starts the bot — the TUI opens in `stopped`
-state and the user explicitly presses `[s]` to start; (2) raw log lines no
-longer leak into the TUI surface — the `createLogger` was rewritten to write
+Phase 36 delivered the interface issues the user reported on 2026-07-14 20:58 Budapest.
+(1) Raw log lines no longer leak into the TUI surface — the `createLogger` writes
 to a file + stderr only, and Ink 7's `alternateScreen` keeps the dashboard
-flicker-free; (3) the TUI is no longer plain — the 3 hand-rolled `Box` panels
+flicker-free; (2) the TUI is no longer plain — the 3 hand-rolled `Box` panels
 were replaced with `@inkjs/ui` + `@matthesketh/ink-table` + `@matthesketh/
 ink-status-bar`, a 4th `Charts` panel was added with `asciichart` (equity
 curve) + `sparkly` (P&L sparkline) + `@crafter/charts` (candlestick) +
-`@pppp606/ink-chart` (BarChart); (4) a new in-TUI settings panel (`[o]`)
+`@pppp606/ink-chart` (BarChart); (3) a new in-TUI settings panel (`[o]`)
 lets the user edit every editable field of the TOML config, persist via
 `smol-toml` + `write-file-atomic` + `.bak`, with a typed "LIVE" confirmation
 guard on `bot.mode = "live"` and a hard-capped 1:10 leverage input. Six PRs
@@ -37,7 +35,6 @@ branches and on the pending PR #105.
 
 | # | User issue (verbatim, Hungarian → English) | Track / PR | Fix summary | Key file:line |
 |---|--------------------------------------------|-----------|-------------|---------------|
-| 1 | "a `mm-bot start` azonnal indítja a botot, én nem akarom hogy elinduljon rögtön" (`mm-bot start` auto-starts the bot, I don't want it to start immediately) | **A1** / PR #100 | `mm-bot start` ALAPÉRTELMEZETTEN NEM indítja a botot. A TUI `stopped` állapotban nyílik, a user a `[s]` billentyűvel indítja. Az opt-in: `[bot] auto_start = true` (TOML) VAGY `--auto-start` (CLI). | `apps/bot/src/cli/commands/start.ts:194-198` (`resolveAutoStart` + precedence `CLI > TOML > default (false)`); `apps/bot/src/cli/commands/start.ts:212-235` (3-branched stderr INFO sor a látható behavior change-ről); `packages/tui/src/App.tsx:347-369` (`StoppedBanner`); `apps/bot/config/default.toml:36-46` (Phase 36 szekció a TOML-ban) |
 | 2 | "az `s` billentyűre logok jelentek meg a TUI tetején" (raw log lines appeared at the top of the TUI on `[s]`) | **A2** / PR #101 | A `createLogger` (`packages/shared/src/logger.ts`) át lett írva: Node `Console` osztály `process.stderr` + opcionális napi file logra ír, SOHA nem a `process.stdout`-ra. Az Ink 7 `alternateScreen: true` opció aktiválva a `renderTui`-ban — a TUI saját scrollback-puffert kap, kilépéskor visszaáll a terminál eredeti állapota. A `patchConsole: false` kikapcsolja az Ink `console.log`/`console.error` felülírását, mert a logger immár direkt a `process.stderr.write`-ot hívja. | `packages/shared/src/logger.ts` (új `createLogger` factory); `packages/tui/src/render.tsx:55-69` (`alternateScreen: true` + `patchConsole: false`); `packages/tui/src/components/__tests__/log-routing-probe.test.tsx` (új regression-test: a `createLogger` SOHA nem ír a `process.stdout`-ra) |
 | 3 | "nagyon egyszerű lett a TUI, ennél jobban turbózd fel" (the TUI is too plain, beef it up) | **B1** + **B2** / PRs #102, #103 | A 3 hand-rolled `Box` panel cseréje: `<Header>` (Badge), `<StatisticsPanel>` (StatusMessage title), `<LiveTradingPanel>` (Spinner empty-state + StatusMessage), `<HistoryList>` (Table), `<StatusBar>` (key-hint lista). + egy 4. panel `<ChartsPanel>` equity görbe (`asciichart`) + P&L sparkline (`sparkly`) + OHLC candlestick (`@crafter/charts`) + strategy breakdown (`@pppp606/ink-chart`) egyetlen képernyőn. | `packages/tui/src/components/Header.tsx` (Badge); `packages/tui/src/components/StatusBar.tsx` (MatStatusBar key-hint lista); `packages/tui/src/components/ChartsPanel.tsx` (4-in-1 layout); `packages/tui/src/charts/equity-curve.ts` (asciichart wrapper); `packages/tui/src/charts/sparkline.ts` (sparkly wrapper); `packages/tui/src/charts/candlestick.ts` (`@crafter/charts` wrapper, 60-LOC hand-roll fallback); `packages/tui/src/charts/bar-chart.tsx` (`@pppp606/ink-chart` BarChart) |
 | 4 | "a bot összes beállítását be tudjam a TUI felületen állítani" (let me set all bot settings from the TUI) | **C1** + **C2** / PRs #104, #105 | A 6 szekció (Strategies / Risk / Bot / Exchange / Symbols / Telemetry) btop-style multi-section panel, bármelyik szerkeszthető. A megnyitás `[o]` billentyűvel; a navigáció `Tab` / `Shift+Tab`; a save `Ctrl+S`; az abandon `Esc` (confirm ha dirty). A persist `smol-toml` + `write-file-atomic` + `.bak` + Zod re-validate. A `bot.mode = "live"` váltás `<LiveConfirm>` modal-t nyit (case-sensitive "LIVE" begépelése + Enter). A `max_leverage` `<LeverageCap>` wrapperben van (1..10 hard-cap, out-of-range warning). A `[v]` billentyű a nyers TOML-t nézi meg `$PAGER` / `$EDITOR` / `less` / `cat` fallback segítségével (Ink 7 `suspendTerminal` API-n). | `packages/tui/src/components/SettingsPanel.tsx` (a btop panel); `packages/tui/src/hooks/useConfigStore.ts` (mount read + save callback + dirty tracking); `apps/bot/src/config/store.ts` (Zod re-validate + atomic write + audit log); `apps/bot/src/config/store.ts:339-372` (`writeAfterTypedLive` typed-"LIVE" guard); `packages/tui/src/components/LiveConfirm.tsx` (type-LIVE modal); `packages/tui/src/components/LeverageCap.tsx` (1:10 hard-cap); `packages/tui/src/components/RawTomlViewer.tsx` (`suspendTerminal` shell-out) |
@@ -45,25 +42,6 @@ branches and on the pending PR #105.
 ---
 
 ## Track-by-track summary
-
-### Track A1 — No auto-start + flag/TOML + stopped-state UI (PR #100, MERGED)
-
-**Branch:** `fix/phase36-track-a1-no-autostart`
-**LOC delta:** +168 / -41 across `apps/bot/src/cli/commands/start.ts`, `apps/bot/src/config/schema.ts`, `apps/bot/config/default.toml`, `packages/tui/src/App.tsx`, `packages/tui/src/components/Header.tsx`, `packages/tui/src/components/StatusBar.tsx`
-
-**What shipped:**
-- New `bot.auto_start` Zod field (default `false`); see `schema.ts:bot.auto_start`.
-- New CLI flags `--auto-start` / `--no-auto-start` on `mm-bot start`; `resolveAutoStart()` implements the `CLI > TOML > default (false)` precedence.
-- Stderr INFO sor a TUI induláskor, ami explicit megmondja, hogy a bot indul-e vagy stopped állapotban vár — nincs silent behavior change.
-- `StoppedBanner` component (sárga ASCII border, `[s]` indító-billentyű kiemelve) — csak `stopped && mode === "with-bot"` esetén jelenik meg.
-- `Header` `[● STOPPED]` amber badge + `StatusBar` `[s] ▶ Start` (zöld + ▶ nyíl) — a stopped állapot vizuálisan is egyértelmű.
-- `mm-bot start --help` rewrite a clig.dev "lead with examples" elvére: az első sor a "stopped" default, 3 konkrét usage example a FLAGS szekció előtt.
-
-**Tests added (3):** `startCommand auto-start precedence` (CLI flag > TOML > default), `StoppedBanner renders when bot is stopped`, `mm-bot start --help shows stopped default + 3 examples`.
-
-**Library:** none (csak a meglévő `@inkjs/ui` Badge-re épít).
-
----
 
 ### Track A2 — Log routing + Ink 7 alternateScreen (PR #101, MERGED)
 
@@ -164,7 +142,6 @@ branches and on the pending PR #105.
   - Save: `Ctrl+S` → `onSave()` callback (Zod-revalidate + atomic write).
   - Abandon: `Esc` → ha `dirty`, megerősítő prompt ("Discard unsaved changes? [y/n]"); ha tiszta, azonnal kilép.
 - New `mm-bot config edit` subcommand (apps/bot/src/cli/commands/config.ts:351-403) — megnyitja a TUI settings panel-t a `--config` által megadott fájlon (vagy a default `./mm-bot.toml`-on).
-- `bot.auto_start` Zod field bevezetve (Track A1 importja, de a SettingsPanel-on keresztül is szerkeszthető).
 
 **Tests added (~30 tests, 5 files):**
 - `apps/bot/src/config/store.test.ts` — 18 tests (read / validate / write / writeAfterTypedLive happy path + 8 error paths + .bak + audit log + singleton cache).
@@ -293,56 +270,19 @@ All 5 CI gates green: `typecheck` (turbo × 14) PASS, `lint` (turbo × 8) PASS, 
 
 ---
 
-## Pre-launch checklist
+## Historical status note
 
-For the user to verify before going live. Each item is one concrete action.
-
-1. **Review PR #105 in browser** — open `https://github.com/<owner>/mm-crypto-bot/pull/105`, scroll through the file diffs, confirm the 3 new components (LiveConfirm / LeverageCap / RawTomlViewer) and the 1 new hook (useConfigStore) match the Phase 36 spec.
-2. **Squash-merge PR #105 + close PR #104 as superseded** — the C1 work landed in #105 via `merge: Track C1 (settings panel + ConfigStore) into Track C2` (576ea55), so #104 is now redundant.
-3. **Run `bun run start` (default: bot stopped)** — the TUI should open with a yellow `● bot is idle — press [s] to start` banner. Press `[s]` to start the bot; the banner disappears and the panels populate.
-4. **Run `bun run headless` (auto-starts via `--headless`)** — this is the CI/nohup path. Should auto-start, plain text logs to stderr, exit 0 on SIGINT.
-5. **Open settings panel `[o]` → edit a value → `[Ctrl+S]` to save → verify `.bak` + tmp handling** — e.g. change `risk.risk_per_trade` from 0.01 to 0.02, save, then `cat mm-bot.toml.bak` and verify the previous value is preserved.
-6. **Try to set leverage > 10** — open settings, navigate to Risk section, type `15` in the `max_leverage` field. Verify the input does NOT propagate, the inline warning `⚠ value out of range [1..10] — not applied` appears, and the `defaultValue` remains the previous valid value.
-7. **Try to switch `bot.mode = "live"`** — open settings, navigate to Bot section, select `live` from the `<Select>`. Verify the `<LiveConfirm>` modal opens with the warning header. Type `live` (lowercase) + Enter → verify the modal closes without changing mode. Re-open, type `LIV` (typo) + Enter → same. Re-open, type `LIVE` (uppercase) + Enter → verify the `bot.mode = "live"` is set and `mm-bot.toml.audit.log` has a new JSON-line entry.
-8. **Press `[v]` to view raw TOML** — verify the suspendTerminal shell-out works (the terminal is released, your `$PAGER` / `$EDITOR` / `less` / `cat` takes over; on exit, the TUI is restored). If no `$PAGER` / `$EDITOR` / `less` is installed, the `cat` fallback prints the file to stdout.
-9. **Validate config: `bun run config validate`** — verify the `OK` (green) output and the brief summary line (`mode: paper, exchange: bybiteu, max_leverage: 10`).
-10. **Once user signs off, flip `bot.mode = "live"` in the new TUI** — the typed "LIVE" guard is the only thing standing between paper and real-money; per the project policy, the user is the one who runs this. Confirm `mm-bot start --config=config/prod.toml` boots, the audit log entry is written, and the kill-switches are armed.
-
----
-
-## Known limitations / trade-offs
-
-1. **Table v0.1.0 doesn't support per-cell coloring.** Cells are joined as strings. The HistoryList LONG/SHORT direction signal uses the `+`/`-` prefix in the PNL column (green for `+`, red for `-`). Workaround for future: use the `+`/`-` prefix convention everywhere a colored cell is needed; the visual cue is still there even if it's not in the cell color itself.
-
-2. **@inkjs/ui TextInput re-fires onChange on re-render.** The `useTextInputState` reducer has a quirk: after `insert(text)`, `state.previousValue` is set to the value BEFORE the insert. Then the useEffect `if (state.value !== state.previousValue) onChange?.(state.value)` fires on every re-render where the `onChange` prop is a new function reference. In a test that types into a TextInput inside a conditionally-rendered modal (e.g. LiveConfirm), the parent component's `setData` callback gets called many times — once per typed char plus once per re-render. **Test workaround:** track ALL setData calls and assert that AT LEAST ONE matches the expected condition (e.g. `find(c => c.bot.mode === "live")`), instead of checking the last call.
-
-3. **`@crafter/charts` is 3 months old, 1 contributor.** The library works (8 tests pass) and the API is stable, but the maintainer-bus-factor is 1. A 60-LOC hand-roll fallback is shipped in `packages/tui/src/charts/__fallback__/` for emergency swap — the consumer (`candlestick.ts`) auto-detects at import time which one to use. See [`library-catalog.md`](./library-catalog.md) §7 for the hand-roll source.
-
-4. **Logger refactor is a behavior change for downstream callers.** Anyone who was reading `process.stdout` for log scraping must now read the file (`logs/bot/bot-<date>.log`) or `process.stderr`. The Phase 36 Track A2 `log-routing-probe.test.tsx` pins this. **Migration:** CI pipelines should add `2>>bot.log` to the `mm-bot start --headless` invocation.
-
-5. **`mm-bot config edit` is one-shot.** It opens the TUI settings panel, the user saves (or abandons), the TUI unmounts, and the process exits. The non-one-shot version (`mm-bot start` with the settings panel reachable via `[o]`) is the production path; `mm-bot config edit` is for "I just want to edit my TOML without starting the bot".
-
-6. **No mouse support.** The TUI is keyboard-only. Ink supports mouse, but the spec did not require it. Future work.
-
-7. **No multi-tab TUI.** The settings panel is a modal-ish overlay (the Header + StatusBar remain visible); the dashboard is replaced. If/when a "second settings tab" is needed (e.g. per-strategy advanced), the overlay pattern scales: each tab is a separate `useSettingsPanel()` instance with its own `configPath` + `save` callback.
-
-8. **`writeAfterTypedLive` does not atomically swap the audit log.** The audit-log append + the atomic write are 2 separate `fs` operations. A crash between them leaves the audit-log entry written but the config not yet updated. On next startup, the bot loads the OLD config (paper mode) — the audit-log shows the intent but the config is consistent. The user re-runs the typed "LIVE" confirm; the second attempt succeeds and both files are consistent.
-
-9. **The Charts panel's OHLC data is synthetic on the dashboard.** The `<ChartsPanel>` currently renders the candlestick from an empty `candles={[]}` array — a future phase feeds the real OHLC stream from the bot's exchange provider. The `computeEquitySeries` + `computePnlSeries` helpers ARE driven by real data (from `state.history`); the candlestick is the one piece waiting on the feed.
-
----
-
-## Phase 36 sign-off
-
-Phase 36 is **ready for production review**. All 6 implementation PRs (#100, #101, #102, #103, #104, #105) are at HEAD with green CI; #100-#103 are merged to main, #104 is superseded (will be closed once #105 merges), #105 is pending the user's squash-merge decision. The 8/8 packages coverage mandate is maintained at 100% line coverage on OWN `src/`; the TUI package grew 1 043 → 1 921 LOC (+84%) with 260 new tests at 100% coverage. The 10 library adoptions are documented in [`library-catalog.md`](./library-catalog.md) with source URLs and the 7 SKIP choices are documented in [`docs/audits/phase36-research-findings.md`](../../audits/phase36-research-findings.md) §1 with explicit reasons.
-
-**The pre-launch checklist above is the user's sign-off path.** Items 1-9 are pure verification; item 10 is the irreversible live-mode flip. Per the project policy ("live testing is manual; no automated live-trade harness"), the user is the one who runs item 10.
+The Phase 36 checklist, limitations and sign-off recorded the state of the
+terminal UI work at that historical delivery point. They are not current
+operator instructions, current CI evidence or a production-readiness claim.
+The terminal UI package and commands described by that snapshot are not part of
+the current workspace; current operation and validation are documented in the
+root README, `apps/bot/README.md`, `docs/CLI.md` and `docs/TESTING.md`.
 
 ---
 
 ## See also
 
-- [`docs/production-strategies/tui.md`](./tui.md) — TUI operator guide (this Phase 36 update)
 - [`docs/production-strategies/library-catalog.md`](./library-catalog.md) — the 10 adopted libraries
 - [`docs/audits/phase36-research-findings.md`](../../audits/phase36-research-findings.md) — 5-agent research, ~75 web queries, ranked library catalog
 - [`docs/audits/phase36-tui-ux-revamp-scope.md`](../../audits/phase36-tui-ux-revamp-scope.md) — the scope doc this deliverable implements

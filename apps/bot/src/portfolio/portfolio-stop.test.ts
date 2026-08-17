@@ -232,6 +232,18 @@ describe("PortfolioStop", () => {
       expect(() => ps.recordEquity(9_000)).not.toThrow();
     });
 
+    it("trip action that throws a non-Error does not crash the bot", async () => {
+      const ps = new PortfolioStop({
+        maxDdPct: 0.10,
+        tripAction: () => {
+          throw "plain trip failure";
+        },
+      });
+      ps.recordEquity(10_000);
+      expect(() => ps.recordEquity(9_000)).not.toThrow();
+      await Promise.resolve();
+    });
+
     it("trip action is async-aware (Promise return value is awaited)", async () => {
       let resolved = false;
       const ps = new PortfolioStop({

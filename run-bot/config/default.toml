@@ -44,8 +44,7 @@
 #
 # A paper módban a bot a bybit.eu edge endpoint-hoz csatlakozik market
 # data-ért, de NEM tesz valódi order-eket — a tradek szimulálva
-# vannak. A web dashboard (`mm-bot web`) külön processzben csatlakozik
-# a bot state-feed-jére.
+# vannak.
 #
 # ===========================================================================
 # SÉMA VALIDÁCIÓ

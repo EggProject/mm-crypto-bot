@@ -12,7 +12,7 @@ canonical schema reference (every section + every field + Zod constraints).
 > **Phase 52D:** the canonical config was relocated from `apps/bot/config/`
 > to `run-bot/config/` (Phase 52B relocation; 52D finalized). The
 > `mm-bot start` default is now the Phase 37 Track 5 production-template
-> with `mode = "paper"` failsafe. See `run-bot/config/live-tokyo.toml`
+> with `mode = "paper"` failsafe. See `run-bot/config/live-eu.example.toml`
 > for the live deployment template.
 
 > **Phase 37 status (2026-07-15):** ✅ Portfolio coordination layer landed
@@ -20,28 +20,10 @@ canonical schema reference (every section + every field + Zod constraints).
 > `CorrelationMatrix` + `PortfolioStop` + `PortfolioManager`). The
 > `Bot` constructs the `PortfolioManager` in `init()` and passes it to
 > the `StrategyRunner`; the runner consults the budget cap before every
-> signal and skips when the circuit breaker is tripped. **105 new tests
-> (4 test files) at 100% line coverage.** See
-> [§12 Portfolio coordination](#12-portfolio-coordination-phase-37-track-4)
+> signal and skips when the circuit breaker is tripped. Dedicated tests cover
+> the portfolio coordination behavior. See
+> [§11 Portfolio coordination](#11-portfolio-coordination-phase-37-track-4)
 > for the operator guide.
->
-> **Phase 36 status (2026-07-15):** ✅ TUI UX revamp landed via 6 PRs
-> (#100, #101, #102, #103, #104, #105). The Ink-based **TUI is the
-> default UI** for `mm-bot start` (Phase 34 baseline, 2026-07-12) +
-> Phase 36 additions: **bot in `stopped` state on launch** (user
-> presses `[s]` to start), **no log lines in the TUI surface**
-> (logger rewired to file+stderr, Ink 7 `alternateScreen`),
-> **richer visuals** (`@inkjs/ui` + `@matthesketh/ink-table` +
-> `@matthesketh/ink-status-bar` + 4 ASCII chart libraries + 4th
-> `Charts` panel), **interactive settings panel** (`[o]` opens
-> btop-style multi-section config editor, `[Ctrl+S]` saves with
-> Zod re-validate + atomic write + `.bak`, `[Esc]` abandons,
-> `[v]` opens raw TOML viewer via `suspendTerminal` shell-out).
-> See [`docs/production-strategies/phase36-deliverable.md`](../../docs/production-strategies/phase36-deliverable.md)
-> for the full Track D closure report, and
-> [`docs/production-strategies/tui.md`](../../docs/production-strategies/tui.md)
-> for the post-Phase-36 TUI operator guide. **Live trading is still
-> gated on the user manually running the workflow in §7.**
 
 ---
 
@@ -57,8 +39,7 @@ canonical schema reference (every section + every field + Zod constraints).
 8. [Architecture](#8-architecture)
 9. [Coverage](#9-coverage)
 10. [Limitations](#10-limitations)
-11. [Phase 36 pre-launch checklist](#11-phase-36-pre-launch-checklist)
-12. [Portfolio coordination (Phase 37 Track 4)](#12-portfolio-coordination-phase-37-track-4)
+11. [Portfolio coordination (Phase 37 Track 4)](#11-portfolio-coordination-phase-37-track-4)
 
 ---
 
@@ -76,32 +57,21 @@ mm-bot config validate
 mm-bot config show
 
 # Run the bot in PAPER mode (no real money, uses internal paper-trade sim).
-# **Default mode is the Ink TUI** (per Phase 34 user mandate 2026-07-12).
-# **Default state: bot STOPPED** (per Phase 36 user mandate 2026-07-14,
-# issue #1) — the TUI opens with a yellow "● bot is idle" banner, and
-# the user presses [s] to start the bot. Press [q] or Ctrl-C inside
-# the TUI for graceful shutdown.
 mm-bot start
 
-# Or, opt into the pre-Phase 36 behavior (bot auto-starts with the TUI):
-mm-bot start --auto-start
-
-# Or, for non-interactive environments (CI, scripts, piped logs).
-# NOTE: --headless IMPLIES --auto-start (no TUI to keep the bot paused).
-mm-bot start --headless
-
-# Open the TUI settings panel directly (one-shot, no bot startup):
-mm-bot config edit --config=./mm-bot.toml
+# Run with an explicit config and plain output.
+mm-bot start --config=run-bot/config/default.toml --no-color
 ```
 
-That's it. With the default config the bot runs in **paper mode** on the mock
-feed (no network calls). The TUI is the default operator experience; see
-§3.3 for TUI-specific quick start, `docs/production-strategies/tui.md` for
-the full TUI reference, and §7 for real bybit.eu paper/live testing.
+`mm-bot start` is always headless and starts the engine immediately after
+configuration and runtime safety checks. The built-in defaults use paper mode
+with public bybit.eu market data; order execution remains simulated. See §7
+for the controlled paper/live workflow.
 
 ### What `mm-bot start` does
 
-1. Loads + Zod-validates the config (`run-bot/config/default.toml` by default).
+1. Loads + strictly Zod-validates the config (built-in defaults unless
+   `--config=<path>` is supplied).
 2. Instantiates the enabled strategies (via `createStrategyInstances`).
 3. Constructs `OrderManager`, `PositionManager`, `StateStore`,
    `Telemetry`, and `KillSwitchRegistry`.
@@ -171,14 +141,13 @@ fields verbatim and applies them at construction time.
 
 ## 3. CLI reference
 
-The `mm-bot` binary has 8 subcommands (hand-rolled argv parser — no external
-CLI deps). All subcommands accept `--config=<path>` (default: built-in
-defaults) and `--help` / `-h`.
+The `mm-bot` binary has 9 subcommands (hand-rolled argv parser — no external
+CLI dependency). Each command validates its own supported options; run
+`mm-bot <subcommand> --help` for its exact contract.
 
 | Subcommand | Purpose | Example |
 |------------|---------|---------|
-| `start` | Start the bot + render the **Ink TUI** (default; see §3.3) | `mm-bot start --config=run-bot/config/prod.toml` |
-| `tui` | Render the TUI **without** starting the bot (UI/UX demo, TUI-only dev) | `mm-bot tui --data-source=simulated` |
+| `start` | Start the headless bot until signal or runtime failure | `mm-bot start --config=run-bot/config/prod.toml` |
 | `status` | Show persisted state (positions, P&L, counters) | `mm-bot status` |
 | `config validate` | Load + validate config; print OK or errors | `mm-bot config validate --config=run-bot/config/prod.toml` |
 | `config show` | Print effective config (defaults + file + env) | `mm-bot config show` |
@@ -186,6 +155,8 @@ defaults) and `--help` / `-h`.
 | `strategies` | List configured strategies + on/off state | `mm-bot strategies` |
 | `trades` | Show recent closed trades (filterable by symbol) | `mm-bot trades --limit=20 --symbol=BTC/USDC` |
 | `kill-switches` | Show kill-switch registry state | `mm-bot kill-switches` |
+| `kill-switch-dry-run` | Simulate the kill-switch report without sending orders | `mm-bot kill-switch-dry-run` |
+| `backtest` | Run the deterministic OHLC fixture backtest | `mm-bot backtest ohlc-trend` |
 | `help` | Show help | `mm-bot help` |
 
 ### 3.1 Exit codes
@@ -198,7 +169,7 @@ All subcommands return POSIX-style exit codes:
 | `1` | Runtime error (unknown subcommand, state file not found, etc.) |
 | `2` | Config validation failure |
 
-CI-friendly: no prompts, no TUI, deterministic output.
+CI-friendly commands have no prompts and deterministic output.
 
 ### 3.2 Example invocations
 
@@ -227,79 +198,17 @@ mm-bot status
 mm-bot trades --limit=50
 ```
 
-### 3.3 The TUI (Phase 34 + Phase 36) — `mm-bot start` default UI
+### 3.3 Headless lifecycle
 
-`mm-bot start` runs the **Ink TUI** by default (per user mandate
-2026-07-12 02:00 Budapest — original spec §4.3 "Modern TUI felület,
-kötelező"). **Per Phase 36 (2026-07-14)**, the bot is in `stopped`
-state when the TUI opens — the user presses `[s]` to start it.
-The TUI is the operator dashboard: it shows positions, P&L,
-kill-switch state, live ticker feed, closed-trade history, AND
-(Phase 36 Track B2) a 4th `Charts` panel with equity curve,
-P&L sparkline, OHLC candlestick, and strategy breakdown BarChart.
-See [`docs/production-strategies/tui.md`](../../docs/production-strategies/tui.md)
-for the full post-Phase-36 keybinding + panel reference.
+`mm-bot start` validates its option allowlist and the complete config before
+constructing the runtime. Unknown options and unknown `[bot]` fields fail
+closed. After the normal runtime safety checks, the engine starts immediately
+and remains active until shutdown or a runtime failure.
 
-**Quick reference:**
-
-| Invocation | Mode | Use when |
-|------------|------|----------|
-| `mm-bot start` | **TUI + bot STOPPED** (default) | Interactive operator session; press `[s]` to start |
-| `mm-bot start --auto-start` | **TUI + bot running** | Opt-in to pre-Phase 36 behavior; bot auto-starts |
-| `mm-bot start --no-auto-start` | **TUI + bot STOPPED** (forced) | Force stopped state even if `[bot] auto_start = true` |
-| `mm-bot start --headless` | **Plain text logs + bot running** | CI, scripts, non-interactive shells (implies `--auto-start`) |
-| `mm-bot start --no-color` | **TUI + bot, no ANSI** | Piped / logged TUI; `NO_COLOR=1` also works |
-| `mm-bot start --headless --no-color` | **Clean text logs** | `nohup`-style background, log aggregation |
-| `mm-bot tui` | **TUI, no bot** | UI/UX demo, TUI-only dev, no real trading |
-| `mm-bot tui --data-source=paper` | **TUI + paper engine, no bot** | Paper-trading UI demo |
-| `mm-bot config edit` | **TUI settings panel, no bot** | Edit `mm-bot.toml` in-TUI without starting the bot |
-
-**Keybindings (TUI mode, post-Phase 36):**
-
-| Key | Action |
-|-----|--------|
-| `[q]` / `Ctrl-C` | Quit the TUI (graceful: stops the bot if running) |
-| `[s]` | Start / stop the bot (TUI-only mode: N/A; shows `▶ Start` hint in stopped state) |
-| `[p]` | Pause / resume the bot (TUI-only mode: N/A) |
-| `[k]` | Kill-switch (confirm with `[i]` / `[n]`) |
-| `[o]` | **Open settings panel** (Phase 36 Track C1; replaces the dashboard; `[Tab]` sections, `[Ctrl+S]` save, `[Esc]` abandon) |
-| `[v]` | **Open raw TOML viewer** (Phase 36 Track C2; only in settings panel; uses Ink 7 `suspendTerminal` to shell out to `$PAGER` / `$EDITOR` / `less` / `cat`) |
-| `[Tab]` / `[←]` / `[→]` | Cycle focused panel (Statistics ↔ Live ↔ History ↔ Charts) |
-| `[c]` | Jump to Charts panel (direct shortcut) |
-| `[t]` | Cycle history sort key (time / pnl / symbol) |
-| `[r]` | Manual refresh (re-render now) |
-| `[?]` | Toggle help overlay |
-
-**Settings panel (Phase 36 Track C1 + C2):**
-
-The `[o]` key opens a btop-style multi-section config editor
-(replaces the dashboard; Header + StatusBar remain visible). The
-6 sections are: Strategies (READ-ONLY), Risk (EDITABLE), Bot
-(EDITABLE — `mode` requires typed "LIVE" confirm), Exchange
-(READ-ONLY), Symbols (READ-ONLY), Telemetry (READ-ONLY). Save
-with `Ctrl+S` (Zod re-validate + atomic write + `.bak`); abandon
-with `Esc` (confirm if dirty). The `risk.max_leverage` field has
-a hard cap at 10 (1:10 leverage mandate, 4-layer defense in depth).
-The `bot.mode = "live"` switch opens a `<LiveConfirm>` modal that
-requires typing the exact string "LIVE" (case-sensitive, 4 chars)
-+ Enter to confirm; the audit log entry is written to
-`<mm-bot.toml path>.audit.log`. See
-[`docs/production-strategies/tui.md` §5-8](../../docs/production-strategies/tui.md)
-for the full settings panel walkthrough.
-
-**Bundle guarantee:** in `--headless` mode the `@mm-crypto-bot/tui`
-package (and its `ink` / `react` dependencies) is **not loaded** —
-verified by `apps/bot/src/cli/headless-no-ink.test.ts` (3 tests:
-static source check, `bun build --external`, subprocess runtime
-check). The TUI is only required for the TUI and the TUI-with-bot
-modes.
-
-**Color policy:** ANSI codes are emitted by default in both TUI
-and headless modes. Disable via `--no-color` (CLI flag) or
-`NO_COLOR=1` (env var, Ink-native). TTY auto-detect: when stdout
-is not a TTY (e.g. `Bun.spawn({ stdout: "pipe" })`, redirected
-to a file, piped to `less` / `grep`), color is automatically
-disabled by `picocolors` + the `colorize()` helper.
+SIGINT and SIGTERM share one idempotent shutdown operation. Repeated signals
+cannot duplicate `Bot.stop()`, and the command waits for shutdown, pending log
+writes, and log-file closure before returning. Console logs are appended to
+`<state_file>.log`. `--no-color` or `NO_COLOR=1` disables ANSI output.
 
 ---
 
@@ -615,53 +524,28 @@ apps/bot/
 
 ## 9. Coverage
 
-This package participates in the monorepo-wide merged coverage report.
-
-**Per-package coverage** (run from the repo root):
-
-```bash
-bun test --coverage --coverage-reporter=text
-```
-
-**Merged monorepo coverage** (all packages, one report):
+The owned, selected bot runtime scope is listed explicitly in
+`scripts/coverage-tools/bot-runtime-scope.json`. Run the two independent strict
+four-metric gates from the repository root:
 
 ```bash
-bun run coverage:merge
+bun run coverage:bot:unit
+bun run coverage:bot:e2e
+bun run test:coverage-infra
 ```
 
-This runs `turbo run coverage` across all 8 packages (apps/bot + 7 packages/*),
-then invokes `scripts/merge-coverage.mjs` to merge the per-package lcov files
-into:
+Unit coverage uses Vitest's V8 provider under native Node; the compatibility
+layer exists only for the selected Bun-authored tests. Subprocess coverage is
+collected by source-instrumented Bun children: 29 canonical CLI cases plus 16
+separately spawned runtime-driver cases. Outputs are respectively
+`coverage/unit/coverage-summary.json` + `lcov.info` and
+`coverage/e2e/summary.json` + PID raw envelopes. They are never merged.
 
-- `coverage/merged/lcov.info` — standard LCOV format (Sonar, Codecov, Coveralls
-  all consume this)
-- `coverage/merged/coverage-summary.json` — istanbul-style machine-readable
-  summary (total + per-file lines/funcs/branches)
-- `coverage/merged/html/index.html` — basic HTML report (per-file table +
-  line-by-line source view, color-coded)
-- A text summary printed to stdout (line %, funcs %, file count)
-
-**Tool choice** (full reasoning in
-[`docs/merge-coverage-decision.md`](../../docs/merge-coverage-decision.md)):
-custom Node.js merge script (Option D). Bun 1.3.14's test coverage only
-emits `text` and `lcov` reporters — no JSON, no v8 raw. Vitest migration
-was out of scope; `nyc`/`c8` need a JSON reporter that bun does not
-provide. The script is pure Node ESM, zero runtime dependencies, parses
-LCOV directly and merges by absolute file path.
-
-**Known bun limitation**: bun's `--coverage-reporter=lcov` does NOT emit
-`BRDA` / `BRF` / `BRH` records (verified empirically 2026-07-12 — see
-[agent memory](../../.mavis/notes/) and the bun docs). The merged report
-shows 100% lines + 100% functions from LCOV; branch % is reported by bun's
-text reporter per-package but not propagated into the merged JSON/HTML.
-Branch coverage in the monorepo is verified via the per-package
-`bun test --coverage --coverage-reporter=text` output.
-
-**`bot.ts` invariants** (Phase 33-35 mandate): `bot.ts`,
-`position-manager.ts`, `router.ts`, and `tui/live-bot-state-provider.ts`
-are all held at 100% line + 100% branch — see
-[`docs/merge-coverage-decision.md`](../../docs/merge-coverage-decision.md)
-and the Phase 34 fixup PR for the test additions.
+The current unit artifact covers 1599/1599 statements, 866/866 branches,
+278/278 functions and 1495/1495 lines. The current subprocess E2E artifact
+covers 1597/1597 statements, 866/866 branches, 279/279 functions and 1492/1492
+lines. Both independent gates pass only when every owned runtime counter is
+exactly 100%.
 
 ---
 
@@ -675,8 +559,8 @@ and the Phase 34 fixup PR for the test additions.
 - **Live testing is manual.** No automated live-trade harness, no shadow
   live-runs, no paper-trade gate auto-promotion. The user runs
   `mm-bot start --config=prod.toml` themselves, observes, and decides when
-  to flip `mode = "live"` (via the typed "LIVE" guard in the
-  Phase 36 settings panel). This is by user mandate, not a TODO.
+  to change `mode = "live"` in the TOML file, validate it, and launch the
+  bot. This is by user mandate, not a TODO.
 
 - **Plugin data dependencies remain explicit.** Enabled plugins subscribe to
   the shared `SignalBus`, and the regime detector receives closed `1d` prices.
@@ -700,66 +584,19 @@ and the Phase 34 fixup PR for the test additions.
   per-strategy-instance config, no hot-reload. Restart the bot to pick
   up a config change.
 
-- **Phase 36 settings panel scope.** The interactive settings panel
-  (`[o]` in the TUI, or `mm-bot config edit`) is EDITABLE for the
-  `Risk` and `Bot` sections only. The `Strategies` (enable/disable +
-  per-strategy overrides), `Exchange`, `Symbols`, and `Telemetry`
-  sections are READ-ONLY in this build — editing them requires
-  opening `mm-bot.toml` in an external editor. Per-strategy
-  enable/disable + exchange sandbox toggle are reserved for Phase 37+.
-
-- **Table v0.1.0 doesn't support per-cell coloring.** The history-table
-  LONG/SHORT direction signal uses the `+`/`-` prefix in the PNL
-  column (Phase 36 Track B1 trade-off — see
-  [`docs/production-strategies/phase36-deliverable.md` §"Known limitations"](../../docs/production-strategies/phase36-deliverable.md)
-  for the full list).
-
-- **Charts panel OHLC data is currently empty.** The candlestick chart
-  is wired and tested, but the OHLC feed from the bot's exchange
-  provider is a Phase 37+ deliverable. The equity curve + P&L
-  sparkline + strategy breakdown BarChart ARE driven by real data
-  (from `state.history`).
-
 ---
 
 ## See also
 
 - [`config/default.toml`](../../run-bot/config/default.toml) — canonical config (every field documented)
 - [`docs/production-strategies/bot.md`](../../docs/production-strategies/bot.md) — how the production strategies wire into the bot
-- [`docs/production-strategies/tui.md`](../../docs/production-strategies/tui.md) — TUI keybindings + panel reference (**Phase 36 update**: 4 panels, settings panel, leverage cap, typed "LIVE" guard, raw TOML viewer)
-- [`docs/production-strategies/phase36-deliverable.md`](../../docs/production-strategies/phase36-deliverable.md) — **Phase 36 closure report** (Track D — this phase's deliverable)
-- [`docs/production-strategies/library-catalog.md`](../../docs/production-strategies/library-catalog.md) — the 10 libraries adopted in Phase 36 (4 ink components + 4 ASCII charts + 2 persistence)
-- [`docs/audits/phase36-research-findings.md`](../../docs/audits/phase36-research-findings.md) — 5-agent research, ~75 web queries, ranked library catalog
-- [`docs/audits/phase36-tui-ux-revamp-scope.md`](../../docs/audits/phase36-tui-ux-revamp-scope.md) — the scope doc Phase 36 implements
 - [`.mavis/notes/phase33-scope-plan.md`](../../.mavis/notes/phase33-scope-plan.md) — Phase 33 design + scope
-- [`.mavis/notes/phase34-tui-scope-plan.md`](../../.mavis/notes/phase34-tui-scope-plan.md) — Phase 34 TUI scope plan
-- [`.mavis/notes/board.md`](../../.mavis/notes/board.md) — project board (Phase 36 EXECUTING + CLOSED sections)
 - [Project `README.md`](../../README.md) — top-level project docs
 - [`.env.example`](../../.env.example) — environment variable reference
 
 ---
 
-## 11. Phase 36 pre-launch checklist
-
-The Phase 36 TUI UX revamp shipped in 6 PRs (#100, #101, #102, #103, #104, #105).
-Before going live with the new TUI, the user should verify each item below.
-Each item is one concrete action. The full per-track walkthrough is in
-[`docs/production-strategies/phase36-deliverable.md` §"Pre-launch checklist"](../../docs/production-strategies/phase36-deliverable.md).
-
-1. **Review PR #105 in browser** — confirm the 3 new components (LiveConfirm / LeverageCap / RawTomlViewer) + the 1 new hook (useConfigStore) match the Phase 36 spec.
-2. **Squash-merge PR #105 + close PR #104 as superseded** — the C1 work landed in #105 via `merge: Track C1 into Track C2` (576ea55).
-3. **Run `mm-bot start` (default: bot stopped)** — TUI should open with a yellow `● bot is idle — press [s] to start` banner. Press `[s]` to start; banner disappears, panels populate.
-4. **Run `mm-bot start --headless`** — CI/nohup path. Should auto-start (implied by `--headless`), plain text logs to stderr, exit 0 on SIGINT.
-5. **Open settings panel `[o]` → edit a value → `[Ctrl+S]` to save** — verify `.bak` is the pre-save state and the in-place write is atomic.
-6. **Try to set leverage > 10** — UI rejects, inline warning appears, `defaultValue` unchanged.
-7. **Try to switch `bot.mode = "live"`** — `<LiveConfirm>` modal opens, lowercase / typo rejected, exact "LIVE" confirm writes audit log entry.
-8. **Press `[v]` to view raw TOML** — Ink 7 `suspendTerminal` shell-out works; on child exit, TUI is restored.
-9. **Validate config: `mm-bot config validate`** — verify `OK` (green) + brief summary line.
-10. **Once user signs off, flip `bot.mode = "live"` in the new TUI** — the typed "LIVE" guard is the only thing standing between paper and real-money; per the project policy, the user is the one who runs this final step.
-
----
-
-## 12. Portfolio coordination (Phase 37 Track 4)
+## 11. Portfolio coordination (Phase 37 Track 4)
 
 The multi-strategy runtime needs a **portfolio-level coordination layer**
 on top of the per-strategy risk management (1:10 leverage + max positions +
@@ -771,7 +608,7 @@ position — the combined drawdown can then exceed the per-strategy
 The portfolio layer sits between the `StrategyRunner` and the
 `PositionManager` / `OrderManager`, and has three components:
 
-### 12.1 Risk budget allocation
+### 11.1 Risk budget allocation
 
 ```toml
 [portfolio]
@@ -795,7 +632,7 @@ The `StrategyRunner` consults this budget BEFORE sizing every order. If
 the requested notional exceeds the budget, the order is scaled down to
 fit (or skipped if the budget is 0).
 
-### 12.2 Correlation matrix
+### 11.2 Correlation matrix
 
 `CorrelationMatrix` computes the rolling Pearson correlation between every
 pair of strategies from the last N (default 30) trade returns. Returns
@@ -813,7 +650,7 @@ carry is typically 0.1–0.3 (different signal source). At the default
 `correlation_penalty_threshold = 0.7`, a 0.9 carry pair gets
 `penalty = 0.667` and the shared budget drops to one third.
 
-### 12.3 Circuit breaker (portfolio-level stop)
+### 11.3 Circuit breaker (portfolio-level stop)
 
 `PortfolioStop` tracks the portfolio equity (sum of open positions' P&L +
 cash) and the high-water mark. If the drawdown ≥ `max_dd_pct`, the
@@ -834,7 +671,7 @@ The circuit breaker is **LATCHED** — once tripped, it stays tripped until
 peak equity is preserved across the trip (it only resets on
 `reset({ clearPeak: true })`).
 
-### 12.4 Files and tests
+### 11.4 Files and tests
 
 | File | Lines | Coverage |
 |------|-------|----------|
@@ -859,7 +696,7 @@ opposite sides) were placed on the feed. The test cannot pass without
 the close-all action actually placing real orders — it proves the
 behavior, not just the docstring.
 
-### 12.5 When the circuit breaker fires
+### 11.5 When the circuit breaker fires
 
 The `PortfolioStop` is checked every Bot heartbeat (default 60s in
 production, configurable via `BotOptions.heartbeatIntervalMs`). For
@@ -874,7 +711,7 @@ testing, set it to 10ms. The sequence:
 6. The Bot's heartbeat detects the trip and calls `bot.stop()`
 7. User sees a CRITICAL log line and must run `mm-bot start` to resume
 
-### 12.6 What the portfolio layer does NOT do
+### 11.6 What the portfolio layer does NOT do
 
 - **It does NOT replace the per-strategy risk section.** Per-strategy
   `risk_per_trade`, `max_leverage`, `max_positions`, and `max_drawdown_pct`

@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/index.ts
  *
- * Phase 33 Track D + Phase 34 Track C + Phase 44 — barrel a CLI komponensekhez.
+ * Barrel a CLI komponensekhez.
  *
  * Az `apps/bot/src/index.ts` a CliRouter-t + az egyes subcommand
  * handler-eket ezen a barrel-en keresztül éri el.
@@ -11,10 +11,7 @@
  * korai feldolgozásához), a `colorize` / `isColorEnabled` / `ok` / `fail` /
  * `warn` / `dim` helper-eket pedig a subcommand-ok használják a kimenet
  * színezéséhez.
- *
- * A Phase 44 eltávolította a `tui` subcommand-ot — a TUI teljes
- * törlésre került, és a bot mostantól kizárólag headless módban fut.
- * A `mm-bot start` parancs a `runHeadless` kódrészben indul el.
+ * A `mm-bot start` parancs headless folyamatként indul.
  */
 
 export { parseArgv, type ParsedArgs } from "./argv.js";
@@ -39,5 +36,4 @@ export { tradesCommand } from "./commands/trades.js";
 export { killSwitchesCommand } from "./commands/kill-switches.js";
 export { backtestCommand } from "./commands/backtest.js";
 export { killSwitchDryRunCommand } from "./commands/kill-switch-dry-run.js";
-export { webCommand } from "./commands/web.js";
 export { makeHelpCommand } from "./commands/help.js";

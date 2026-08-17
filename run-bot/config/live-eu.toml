@@ -57,11 +57,6 @@
 mode = "paper"        # TODO: pre-launch checklist előtt állítsd "live"-ra
 log_level = "info"    # "debug" | "info" | "warn" | "error"
 state_file = "data/bot-state.json"
-# Phase 81: a live bot MINDIG indul a `mm-bot start` parancsra —
-# a live deploy nem engedhet meg "stopped" állapotot (nincs UI a
-# kézi indításhoz, a bot a rendszerrel együtt ébred). A flag
-# explicit `true` (= a default viselkedés, backward compat).
-auto_start = true
 
 # ======================================================================
 # 2) EXCHANGE — bybit.eu edge endpoint, latency-tuned timeouts

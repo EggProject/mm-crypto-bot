@@ -83,6 +83,16 @@ describe("RiskManager", () => {
     rm.onTick({ positionId: "a", side: "long", currentPrice: 60_100, atr: 100 });
   });
 
+  it("onTick also swallows non-Error callback failures", () => {
+    const rm = new RiskManager(BASE_CONFIG);
+    rm.armTrailingStop("a", "long", 60_000, 100);
+    rm.onTrailingStopClose(() => {
+      throw "plain callback failure";
+    });
+    rm.onTick({ positionId: "a", side: "long", currentPrice: 60_500, atr: 100 });
+    expect(() => rm.onTick({ positionId: "a", side: "long", currentPrice: 60_100, atr: 100 })).not.toThrow();
+  });
+
   // -------------------------------------------------------------------------
   // armTrailingStop — respects enabled and side filter
   // -------------------------------------------------------------------------

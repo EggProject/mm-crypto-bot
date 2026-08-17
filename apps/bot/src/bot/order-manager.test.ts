@@ -43,6 +43,48 @@ function makePosition(symbol: string, source: string, notional: number): Leverag
 
 describe("OrderManager", () => {
 
+  it("stops lifecycle notifications after the returned unsubscribe function runs", async () => {
+    const feed = new MockExchangeFeed();
+    await feed.open();
+    let orderListener: FeedListener | undefined;
+    Object.assign(feed, {
+      subscribeOrderUpdates: async (listener: FeedListener) => {
+        orderListener = listener;
+        return 701;
+      },
+    });
+    const manager = new OrderManager({
+      feed,
+      getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
+    });
+    let notifications = 0;
+    const unsubscribe = manager.onLifecycle(() => {
+      notifications += 1;
+    });
+    await manager.startLifecycle();
+    const first = await manager.placeOrder({
+      signal: makeSignal(), symbol: makeSymbol(), amount: 1, referencePrice: 100,
+      type: "market",
+    });
+    orderListener?.({
+      kind: "order",
+      payload: { ...first, status: "closed", filled: 1, average: 100 },
+    });
+    expect(notifications).toBeGreaterThan(0);
+    unsubscribe();
+    const notificationsAtUnsubscribe = notifications;
+    const second = await manager.placeOrder({
+      signal: makeSignal(), symbol: makeSymbol(), amount: 1, referencePrice: 100,
+      type: "market",
+    });
+    orderListener?.({
+      kind: "order",
+      payload: { ...second, status: "closed", filled: 1, average: 100 },
+    });
+    expect(notifications).toBe(notificationsAtUnsubscribe);
+    await manager.stopLifecycle();
+  });
+
   it("enforces effective leveraged exposure before the feed boundary", async () => {
     const feed = new MockExchangeFeed();
     await feed.open();

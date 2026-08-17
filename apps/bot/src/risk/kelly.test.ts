@@ -51,6 +51,19 @@ describe("kellyFraction (pure)", () => {
   });
 });
 
+describe("computeStats zero-PnL observations", () => {
+  it("keeps win rate at zero when trades contain neither wins nor losses", () => {
+    expect(computeStats([{ pnlUsd: 0, closedAt: 1 }])).toEqual({
+      wins: 0,
+      losses: 0,
+      winRate: 0,
+      avgWin: 0,
+      avgLoss: 0,
+      winLossRatio: 0,
+    });
+  });
+});
+
 describe("computeStats (pure)", () => {
   it("returns zeros on empty input", () => {
     const s = computeStats([]);

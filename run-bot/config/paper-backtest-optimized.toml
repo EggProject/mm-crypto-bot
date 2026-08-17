@@ -24,15 +24,13 @@
 #
 # A user a teljes eredménytábla alapján még másik jelöltet választhat;
 # ebben az esetben ezt a fájlt a választás után frissíteni kell.
-# Ez nem hozamígéret. Paper módban, auto-start nélkül indul.
+# Ez nem hozamígéret.
 # ======================================================================
 
 [bot]
 mode = "paper"
 log_level = "info"
 state_file = "data/bot-state.json"
-auto_start = false
-
 [exchange]
 id = "bybiteu"
 endpoint = "https://api.bybit.eu"

@@ -254,7 +254,7 @@ export class TrailingStopManager {
 
   /**
    * `getAllStates` — snapshot of all armed positions. Used by the
-   * `RiskManager` snapshot and the TUI.
+   * `RiskManager` snapshot and runtime monitoring.
    */
   public getAllStates(): readonly TrailState[] {
     return [...this.states.values()].map((s) => ({ ...s }));

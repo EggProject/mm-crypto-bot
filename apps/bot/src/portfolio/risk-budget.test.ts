@@ -213,8 +213,8 @@ describe("RiskBudgetAllocator", () => {
         ["b", 0.5, 0.01],
       ]);
       const matrix = makeMatrix([
-        ["a", [["a", 1], ["b", 0.99]]],
-        ["b", [["a", 0.99], ["b", 1]]],
+        ["a", [["a", 1], ["b", 1]]],
+        ["b", [["a", 1], ["b", 1]]],
       ]);
       const result = alloc.computeBudgets(configs, () => matrix);
       // threshold=1 → (1-1) is 0, span guard returns penalty=0
@@ -248,6 +248,14 @@ describe("RiskBudgetAllocator", () => {
   // 4) Edge cases
   // ---------------------------------------------------------------------------
   describe("edge cases", () => {
+    it("splits weight evenly when every configured weight is non-positive", () => {
+      const alloc = new RiskBudgetAllocator({ totalRiskUsd: 100 });
+      const configs = makeConfigs([["a", 0, 0.01], ["b", -1, 0.01]]);
+      const result = alloc.computeBudgets(configs);
+      expect(result.get("a")?.weight).toBe(0);
+      expect(result.get("b")?.weight).toBe(0);
+    });
+
     it("single strategy gets full budget (no correlation)", () => {
       const alloc = new RiskBudgetAllocator({ totalRiskUsd: 100 });
       const configs = makeConfigs([["only", 1, 0.01]]);

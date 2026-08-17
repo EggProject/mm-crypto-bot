@@ -2,7 +2,7 @@
 //
 // FELADAT: A CCXT Pro adatszerkezeteit (Ticker, OrderBook, Trade, OHLCV)
 // szűkítjük és normalizáljuk, hogy a felsőbb rétegek (paper engine,
-// backtest, TUI) NE a CCXT típusait használják közvetlenül.
+// backtest, bot runtime) NE a CCXT típusait használják közvetlenül.
 //
 // MIÉRT fontos ez:
 //   1. A CCXT típusai instabilak (minden minor verzióban változhatnak).

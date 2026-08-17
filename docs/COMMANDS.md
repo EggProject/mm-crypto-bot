@@ -8,14 +8,13 @@ bun run dev                  # watch-mód (minden csomag párhuzamosan)
 bun run build                # build (minden csomag, topológiai sorrendben, turbo cache: false)
 bun run lint                 # eslint flat config, ultra-strict
 bun run typecheck            # tsc --noEmit, minden strict flaggel
-bun run test                 # vitest, minden csomag
+bun run test                 # Bun test runner, minden csomag
 ```
 
-## Bot + web vezérlés
+## Bot vezérlés
 
 ```bash
 bun run start                # mm-bot start (headless, default config)
-bun run web                  # mm-bot web (web client, külön process)
 bun run bot:status           # state kiírása
 bun run bot:config           # config validate / show / init
 bun run bot:strategies       # stratégiák listája

@@ -10,12 +10,11 @@
  *   4. invalid --bars (< 50) → returns 1
  *   5. invalid --risk-pct (> 1) → returns 1
  *   6. invalid --initial-equity (<= 0) → returns 1
- *   7. --visualize flag is accepted (warning printed)
- *   8. summary table contains all 6 columns
- *   9. ohlc-trend with very small fixture (< warmup) → 0 trades
- *  10. the strategy name appears in the table
- *  11. winRate is a number in [0, 1]
- *  12. the help text lists the registered strategies
+ *   7. summary table contains all 6 columns
+ *   8. ohlc-trend with very small fixture (< warmup) → 0 trades
+ *   9. the strategy name appears in the table
+ *  10. winRate is a number in [0, 1]
+ *  11. the help text lists the registered strategies
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
@@ -120,13 +119,6 @@ describe("backtestCommand (Phase 37 Track 3)", () => {
     expect(errored.join("\n")).toContain("Invalid --initial-equity");
   });
 
-  it("--visualize flag is accepted, prints a notice", async () => {
-    const code = await runBacktest(["backtest", "ohlc-trend", "--visualize"]);
-    expect(code).toBe(0);
-    const out = logged.join("\n");
-    expect(out).toContain("--visualize is recognized");
-  });
-
   it("ohlc-trend with small fixture (< warmup of 200) → 0 trades", async () => {
     // The default warmup is 200 (slow EMA). A 100-bar fixture can't
     // generate any signals, so the trade count must be 0.
@@ -188,7 +180,7 @@ describe("backtestCommand (Phase 37 Track 3)", () => {
     expect(trades).toBeGreaterThan(0);
   });
 
-  it("--visualize kapcsoló long fixture-tel: az SL/TP ág is lefut", async () => {
+  it("a long fixture az SL/TP ágat is lefedi", async () => {
     // A 1000-bar fixture elég hosszú ahhoz, hogy legalább 1 trade
     // a take-profit-en (vagy a stop-loss-on) záródjon.  A
     // reversal-ok mellett az SL/TP ágnak is le kell futnia.
@@ -386,13 +378,25 @@ describe("applyClose (Phase 37 Track 3 close helper)", () => {
     expect(state.wins).toBe(0);
     expect(state.losses).toBe(0);
   });
-});
 
-describe("simulateStrategy (Phase 37 Track 3 simulator)", () => {
-  // A simulator teljes kódrészét közvetlenül a `mm-bot backtest`
-  // integrációs tesztek fedik le (lásd a `backtestCommand` describe
-  // blokk fentebb).  A közvetlen unit-tesztek a `checkSlTpHit` és
-  // `applyClose` helper-ekre korlátozódnak, amelyek a smoke-test
-  // fixture-ben nem mindig érik el az SL/TP hit ágat (az
-  // `ohlc-trend` strategy reversal-on-signal path-t preferálja).
+  it("zero stop distance records a zero-PnL trade without changing equity", () => {
+    const state = { equity: 10000, peakEquity: 10000, maxDD: 0, wins: 0, losses: 0, trades: 0 };
+    const position = {
+      signal: {
+        side: "buy" as const,
+        confidence: 1,
+        reason: "zero-risk-distance",
+        entryPrice: 100,
+        stopLoss: 100,
+        takeProfit: 115,
+        timestamp: 1,
+        fastEma: 0, slowEma: 0, rsi: 0, atr: 0,
+      },
+      entryPrice: 100,
+    };
+
+    applyClose(position, 120, 0.01, state);
+
+    expect(state).toEqual({ equity: 10000, peakEquity: 10000, maxDD: 0, wins: 0, losses: 0, trades: 1 });
+  });
 });

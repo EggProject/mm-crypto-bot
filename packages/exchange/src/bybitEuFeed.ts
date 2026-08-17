@@ -131,14 +131,14 @@ interface ClientOrderMetadata {
 const CLIENT_ORDER_METADATA_LIMIT = 5_000;
 const CLIENT_ORDER_TERMINAL_TTL_MS = 60 * 60 * 1_000;
 
-const TIMEFRAME_MS: Readonly<Record<Timeframe, number>> = {
-  "1m": 60_000,
-  "5m": 5 * 60_000,
-  "15m": 15 * 60_000,
-  "1h": 60 * 60_000,
-  "4h": 4 * 60 * 60_000,
-  "1d": 24 * 60 * 60_000,
-};
+const TIMEFRAME_MS = new Map<Timeframe, number>([
+  ["1m", 60_000],
+  ["5m", 5 * 60_000],
+  ["15m", 15 * 60_000],
+  ["1h", 60 * 60_000],
+  ["4h", 4 * 60 * 60_000],
+  ["1d", 24 * 60 * 60_000],
+]);
 
 function isNotSupportedError(err: unknown): boolean {
   return (
@@ -174,7 +174,11 @@ function waitForNextPoll(signal: AbortSignal, delayMs = 1_000): Promise<void> {
 }
 
 function isClosedOhlcv(candle: Ohlcv, timeframe: Timeframe, now = Date.now()): boolean {
-  return candle[0] + TIMEFRAME_MS[timeframe] <= now;
+  const durationMs = TIMEFRAME_MS.get(timeframe);
+  if (durationMs === undefined) {
+    throw new ExchangeFeedError(`[bybiteu] unsupported timeframe: ${timeframe}`, undefined);
+  }
+  return candle[0] + durationMs <= now;
 }
 
 /**
@@ -267,9 +271,13 @@ export class BybitEuFeed implements ExchangeFeed {
     const urls = this.client.urls as unknown as {
       api: Record<string, unknown>;
     };
-    for (const key of ["spot", "futures", "v2", "public", "private"] as const) {
-      urls.api[key] = origin;
-    }
+    Object.assign(urls.api, {
+      spot: origin,
+      futures: origin,
+      v2: origin,
+      public: origin,
+      private: origin,
+    });
   }
 
   /** Apply a WebSocket origin using the V5 stream paths documented by Bybit. */
@@ -301,10 +309,9 @@ export class BybitEuFeed implements ExchangeFeed {
   }
 
   /**
-   * A CCXT nyers exchange objektum elérése — csak a felsőbb rétegek
-   * (paper engine, TUI) számára, akik a CCXT Pro watch* metódusait
-   * közvetlenül szeretnék hívni. A legtöbb felhasználó számára a
-   * `subscribe*` metódusok elegendőek.
+   * Exposes the raw CCXT exchange object to higher-level runtime consumers
+   * that need direct access to CCXT Pro watch methods. Most consumers should
+   * use the typed `subscribe*` methods instead.
    */
   get raw(): CcxtExchange {
     return this.client;

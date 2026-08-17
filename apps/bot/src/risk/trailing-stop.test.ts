@@ -212,6 +212,15 @@ describe("TrailingStopManager", () => {
     expect(s?.atr).toBe(200);
   });
 
+  it("updateAtr recomputes a short trail without loosening it", () => {
+    const m = new TrailingStopManager(BASE_CONFIG);
+    m.arm("short", "short", 60_000, 100);
+    m.evaluate({ positionId: "short", side: "short", currentPrice: 59_500, atr: 100 });
+    m.updateAtr("short", 200);
+    expect(m.getState("short")?.trail).toBe(59_800);
+    expect(m.getState("short")?.atr).toBe(200);
+  });
+
   it("updateAtr ignores unknown positionId", () => {
     const m = new TrailingStopManager(BASE_CONFIG);
     m.updateAtr("nope", 100);

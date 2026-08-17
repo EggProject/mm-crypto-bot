@@ -31,18 +31,6 @@
  *   2 — config validációs hiba
  *
  * ===========================================================================
- * PHASE 44 — TUI REMOVAL
- * ===========================================================================
- * A `start` parancs mostantól PURE HEADLESS módban fut — nincs TUI,
- * nincs Ink, nincs React, nincs WebSocket. A bot a `runHeadless`
- * útvonalon indul el (lásd `apps/bot/src/cli/commands/start.ts`).
- *
- * A TUI törlésének oka: a user mandate (2026-07-16 16:53 Budapest) szerint
- * a bot mindig headless legyen, és egy KÜLÖN parancs indítsa a webes
- * klienst (Phase 46: `mm-bot web`). Így a bot NEM pazarol erőforrást,
- * ha csak headless akarjuk futtatni, de bármikor rá tudunk csatlakozni
- * egy másik terminálban indított `mm-bot web` paranccsal.
- *
  * A `--no-color` / `--color` flag-eket EZ a fájl dolgozza fel, a
  * subcommand handler-ek futása ELŐTT. A `NO_COLOR=1` env var-t
  * globálisan beállítjuk, hogy a subcommand-ok első `colorize()` hívása
@@ -62,7 +50,6 @@ import {
   statusCommand,
   strategiesCommand,
   tradesCommand,
-  webCommand,
 } from "./cli/index.js";
 
 // ---------------------------------------------------------------------------
@@ -86,7 +73,7 @@ const earlyFlags = parseArgv(process.argv.slice(2)).flags;
 // We always overwrite, not just set-if-undefined: a user that explicitly
 // types `--no-color` is overriding any inherited env. Per the no-color
 // spec, ANY non-empty value disables color, so "1" is the canonical signal.
-if (earlyFlags.get("no-color") === true || earlyFlags.get("color") === false) {
+if (earlyFlags.get("color") === false) {
   process.env["NO_COLOR"] = "1";
   setColorForced(false);
 }
@@ -112,7 +99,6 @@ router.register("trades", "Show recent closed trades", tradesCommand);
 router.register("kill-switches", "Show kill-switch state", killSwitchesCommand);
 router.register("kill-switch-dry-run", "Simulate the kill-switch path WITHOUT sending any orders (Phase 37 Track 5)", killSwitchDryRunCommand);
 router.register("backtest", "Run a quick backtest on a deterministic OHLC fixture (Phase 37 Track 3)", backtestCommand);
-router.register("web", "Start the web client in a SEPARATE terminal (Phase 46 — connects to state-feed on 127.0.0.1:7914)", webCommand);
 router.register("help", "Show this help", makeHelpCommand(router));
 
 // ---------------------------------------------------------------------------

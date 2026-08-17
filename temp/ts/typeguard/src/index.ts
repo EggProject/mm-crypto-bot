@@ -1,0 +1,15 @@
+export { isString } from './lib/is-string/is-string';
+export { isFunction } from './lib/is-function/is-function';
+export { isFunctionReturnAny } from './lib/is-function/is-function-return-any';
+export { isInstanceof } from './lib/is-instanceof/is-instanceof';
+export { isBoolean } from './lib/is-boolean/is-boolean';
+export { isNil } from './lib/is-nil/is-nil';
+export { isNumeric } from './lib/is-numeric/is-numeric';
+export { isFloat } from './lib/is-float/is-float';
+export { isInt } from './lib/is-int/is-int';
+export { isObject } from './lib/is-object/is-object';
+export { isNumber } from './lib/is-number/is-number';
+export { isDateArray } from './lib/is-date-array/is-date-array';
+export { isValidDate } from './lib/is-valid-date/is-valid-date';
+export { isConstructor } from './lib/is-constructor/is-constructor';
+export { isStringResolver } from './lib/is-string-resolver/is-string-resolver';

@@ -8,7 +8,7 @@
  * ===========================================================================
  * The default `BotConfig` enables `dydx_cex_carry` (a strategy that
  * needs a `DydxFundingSource` to read live funding rates from the dYdX
- * v4 Indexer).  When the user runs `bun run start --auto-start` in
+ * v4 Indexer). When the user runs `bun run start` in
  * paper mode, the bot crashes with:
  *
  *   "Strategy 'dydx_cex_carry' is enabled but no DydxFundingSource

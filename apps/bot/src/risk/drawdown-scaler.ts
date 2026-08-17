@@ -73,7 +73,7 @@ export interface DrawdownScalerOptions {
 
 /**
  * `DrawdownState` — read-only snapshot of the scaler state. Useful for
- * the `RiskManager` snapshot, the Telemetry, and the TUI.
+ * the `RiskManager` snapshot, telemetry, and operator monitoring.
  *
  * - `enabled`        — module on/off.
  * - `peakEquity`     — current high-water mark.
@@ -221,15 +221,11 @@ export class DrawdownScaler {
 
   /**
    * `computeDrawdownPct` — current drawdown as fraction (0..1).
-   * Returns 0 if peak is non-positive (defensive — should not happen
-   * after constructor validation).
+   * The constructor and reset boundary keep the peak strictly positive.
    */
   private computeDrawdownPct(): number {
-    if (this.peakEquity <= 0) {
-      return 0;
-    }
     const dd = (this.peakEquity - this.currentEquity) / this.peakEquity;
-    return dd < 0 ? 0 : dd;
+    return dd;
   }
 
   /**
@@ -240,9 +236,6 @@ export class DrawdownScaler {
    *   dd/maxDdPct ∈ [0.8, ∞)   → kill
    */
   private classify(drawdownPct: number): DrawdownRegion {
-    if (this.peakEquity <= 0) {
-      return "normal";
-    }
     const ratio = drawdownPct / this.maxDdPct;
     if (ratio < 0.5) return "normal";
     if (ratio < 0.8) return "caution";

@@ -26,9 +26,7 @@ import {
   it,
 } from "bun:test";
 import {
-  existsSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -38,6 +36,8 @@ import {
   ConfigStore,
   ConfigValidationError,
 } from "./store.js";
+
+const fileSystem = await import("node:fs");
 
 /**
  * `makeTmpDir` — egyedi tmp könyvtár minden teszthez.
@@ -56,7 +56,6 @@ function makeBaseConfig(): Parameters<ConfigStore["write"]>[0] {
       mode: "paper",
       log_level: "info",
       state_file: "data/bot-state.json",
-      auto_start: false,
     },
     exchange: {
       id: "bybiteu",
@@ -135,7 +134,7 @@ describe("ConfigStore per-section setters (Phase 37 Track 2)", () => {
     // A setStrategyEnabled a write metódust hívja, ami a második
     // write-tól kezdve .bak-ot készít.
     store.setStrategyEnabled("regime_detector", true);
-    expect(existsSync(`${path}.bak`)).toBe(true);
+    expect(fileSystem.existsSync(`${path}.bak`)).toBe(true);
   });
 
   it("setStrategyEnabled: preserves other strategy fields (cap etc.)", () => {
@@ -367,7 +366,7 @@ describe("ConfigStore per-section setters (Phase 37 Track 2)", () => {
     const store = new ConfigStore(path);
     store.write(makeBaseConfig());
     store.setExchangeConfig({ slippage_pct: 0.2 });
-    expect(existsSync(`${path}.bak`)).toBe(true);
+    expect(fileSystem.existsSync(`${path}.bak`)).toBe(true);
   });
 
   // ==========================================================================
@@ -399,7 +398,7 @@ describe("ConfigStore per-section setters (Phase 37 Track 2)", () => {
     const store = new ConfigStore(path);
     store.write(makeBaseConfig());
     store.setSymbols(["SOL/USDC"]);
-    expect(existsSync(`${path}.bak`)).toBe(true);
+    expect(fileSystem.existsSync(`${path}.bak`)).toBe(true);
   });
 
   // ==========================================================================
@@ -527,8 +526,8 @@ describe("ConfigStore per-section setters (Phase 37 Track 2)", () => {
     // suffix-ot használ, de a `.tmp` kiterjesztés mindig megmarad).
     // A legegyszerűbb check: a `path` és a `path.bak` létezik, és
     // nincs más `.tmp` fájl a tmpDir-ben.
-    expect(existsSync(path)).toBe(true);
-    expect(existsSync(`${path}.bak`)).toBe(true);
+    expect(fileSystem.existsSync(path)).toBe(true);
+    expect(fileSystem.existsSync(`${path}.bak`)).toBe(true);
     // A tmpDir-ben ne legyen egyéb `.tmp` fájl (a write-file-atomic
     // mindig cleanup-olja a tmp fájlt a sikeres rename után).
     // (Megjegyzés: a write-file-atomic nem .tmp suffixot hagy, hanem
@@ -645,10 +644,10 @@ describe("ConfigStore per-section setters (Phase 37 Track 2)", () => {
     // készíti. Ellenőrizzük, hogy a copyFileSync sikeres (a
     // második write-ra a .bak létezik).
     store.setStrategyEnabled("regime_detector", true);
-    expect(existsSync(`${path}.bak`)).toBe(true);
+    expect(fileSystem.existsSync(`${path}.bak`)).toBe(true);
     // A copyFileSync forrása a `this.path` — ellenőrizzük, hogy a
     // .bak tartalma megegyezik az első write tartalmával.
-    const bakContents = readFileSync(`${path}.bak`, "utf8");
+    const bakContents = fileSystem.readFileSync(`${path}.bak`, "utf8");
     expect(bakContents).toContain("regime_detector");
   });
 });

@@ -12,9 +12,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "bun test src",
-    "coverage": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage",
-    "coverage:text": "bun test src --coverage --coverage-reporter=text",
-    "coverage:lcov": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage",
+    "coverage": "bun ../../scripts/coverage-tools/run-bot-unit-coverage.ts",
+    "coverage:unit": "bun ../../scripts/coverage-tools/run-bot-unit-coverage.ts",
+    "coverage:e2e": "bun ../../scripts/coverage-tools/run-bot-e2e-coverage.ts",
     "clean": "rm -rf .turbo *.tsbuildinfo dist coverage"
   },
   "dependencies": {

@@ -1,10 +1,9 @@
 /**
  * apps/bot/src/cli/commands/config.ts
  *
- * Phase 33 Track D + Phase 34 Track C + Phase 36 Track C1 + Phase 44 —
  * `mm-bot config <validate|show|init>` subcommand.
  *
- * Three sub-subcommands (Phase 44-gyel a `edit` TUI sub-subcommand törölve):
+ * Three sub-subcommands:
  *   - `validate` — load + validate config; print "OK" or errors; exit 0/2.
  *   - `show`     — print the effective config (defaults + file + env merged)
  *                  as TOML. Useful for debugging "what did the bot actually
@@ -12,10 +11,6 @@
  *   - `init`     — write `run-bot/config/default.toml` to a target path.
  *                  Default target is `./mm-bot.toml`. Useful for first-time
  *                  setup.
- *
- * A `Phase 36 Track C1`-ben bevezetett `edit` sub-subcommand a TUI
- * settings paneljét nyitotta volna meg — a Phase 44 a TUI-t törölte,
- * így az `edit` sub-subcommand is kikerült.
  *
  * Color usage (Phase 34 Track C):
  *   - `validate` prints "OK" in green on success, "FAILED" in red on failure.
@@ -28,16 +23,53 @@
  *   0 — success
  *   2 — config validation failure (POSIX convention)
  *
- * No interactive prompts (except `edit`, which uses the TUI). CI-friendly.
+ * No interactive prompts. CI-friendly.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ConfigError, DEFAULT_BOT_CONFIG, loadBotConfig, type BotConfig } from "../../config/index.js";
 import { colorize } from "../color.js";
 import type { CliContext, SubcommandHandler } from "../router.js";
+
+const fileSystem = await import("node:fs");
+
+const DEFAULT_CONFIG_TEMPLATE = fileURLToPath(
+  new URL("../../../../../run-bot/config/default.toml", import.meta.url),
+);
+
+function assertResolvedFilePath(path: string): void {
+  if (path.length === 0 || path.includes("\0") || resolve(path) !== path) {
+    throw new Error(`Config file boundary requires a normalized absolute path: ${JSON.stringify(path)}`);
+  }
+}
+
+export interface ConfigFileBoundary {
+  readonly exists: (path: string) => boolean;
+  readonly read: (path: string) => string;
+  readonly ensureDirectory: (path: string) => void;
+  readonly write: (path: string, contents: string) => void;
+}
+
+const configFileBoundary: ConfigFileBoundary = {
+  exists(path: string): boolean {
+    assertResolvedFilePath(path);
+    return fileSystem.existsSync(path);
+  },
+  read(path: string): string {
+    assertResolvedFilePath(path);
+    return fileSystem.readFileSync(path, "utf8");
+  },
+  ensureDirectory(path: string): void {
+    assertResolvedFilePath(path);
+    fileSystem.mkdirSync(path, { recursive: true });
+  },
+  write(path: string, contents: string): void {
+    assertResolvedFilePath(path);
+    fileSystem.writeFileSync(path, contents, "utf8");
+  },
+};
 
 // ============================================================================
 // Helpers
@@ -114,42 +146,28 @@ function formatToml(config: BotConfig): string {
   for (const [name, section] of Object.entries(config.strategies)) {
     lines.push(`[strategies.${name}]`);
     lines.push(`enabled = ${String(section.enabled)}`);
-    // Print only the schema-known top-level fields. The .passthrough()
-    // fields are also iterated to be exhaustive.
+    if (section.cap !== undefined) lines.push(`cap = ${String(section.cap)}`);
+    if (section.leverage !== undefined) lines.push(`leverage = ${String(section.leverage)}`);
+    if (section.symbols !== undefined) {
+      const items = section.symbols.map((symbol) => `"${symbol}"`).join(", ");
+      lines.push(`symbols = [${items}]`);
+    }
+    if (section.timeframes !== undefined) {
+      lines.push(`[strategies.${name}.timeframes]`);
+      lines.push(`htf = "${section.timeframes.htf}"`);
+      lines.push(`mtf = "${section.timeframes.mtf}"`);
+      lines.push(`ltf = "${section.timeframes.ltf}"`);
+    }
+
+    // Print schema passthrough fields without re-validating known typed fields.
     const knownKeys = new Set(["enabled", "cap", "leverage", "symbols", "timeframes"]);
     for (const [k, v] of Object.entries(section)) {
-      if (k === "enabled") continue;
-      if (v === undefined) continue;
-      if (!knownKeys.has(k)) {
-        // passthrough field — render as a simple key = "value" or key = number
-        if (typeof v === "string") {
-          lines.push(`${k} = "${v}"`);
-        } else if (typeof v === "number" || typeof v === "boolean") {
-          lines.push(`${k} = ${String(v)}`);
-        } else if (Array.isArray(v)) {
-          const items = v.map((x) => (typeof x === "string" ? `"${x}"` : String(x))).join(", ");
-          lines.push(`${k} = [${items}]`);
-        }
-        // Skip objects we don't know how to render.
-      } else if (k === "cap" || k === "leverage") {
-        if (typeof v === "number") {
-          lines.push(`${k} = ${String(v)}`);
-        }
-      } else if (k === "symbols") {
-        if (Array.isArray(v)) {
-          const items = v.map((s) => `"${String(s)}"`).join(", ");
-          lines.push(`symbols = [${items}]`);
-        }
-      } else if (k === "timeframes") {
-        if (typeof v === "object" && v !== null && !Array.isArray(v)) {
-          const tf = v as { htf?: string; mtf?: string; ltf?: string };
-          if (tf.htf !== undefined && tf.mtf !== undefined && tf.ltf !== undefined) {
-            lines.push(`[strategies.${name}.timeframes]`);
-            lines.push(`htf = "${tf.htf}"`);
-            lines.push(`mtf = "${tf.mtf}"`);
-            lines.push(`ltf = "${tf.ltf}"`);
-          }
-        }
+      if (knownKeys.has(k)) continue;
+      if (typeof v === "string") lines.push(`${k} = "${v}"`);
+      else if (typeof v === "number" || typeof v === "boolean") lines.push(`${k} = ${String(v)}`);
+      else if (Array.isArray(v)) {
+        const items = v.map((item) => (typeof item === "string" ? `"${item}"` : String(item))).join(", ");
+        lines.push(`${k} = [${items}]`);
       }
     }
     lines.push("");
@@ -174,9 +192,12 @@ function formatToml(config: BotConfig): string {
  * Returns 0 on success, 2 on validation failure, 1 on unexpected error.
  * Prints a one-line "OK" on success and the full error list on failure.
  */
-function runValidate(configPath: string | undefined): number {
+function runValidate(
+  configPath: string | undefined,
+  loadConfig: (path: string | undefined) => BotConfig,
+): number {
   try {
-    const config = loadBotConfig(configPath);
+    const config = loadConfig(configPath);
     // Green "OK" — the success badge is the headline of `validate`.
     console.log(colorize("OK", "green"));
     // Optional: also print the source.
@@ -216,9 +237,12 @@ function runValidate(configPath: string | undefined): number {
  * as TOML to stdout. Pipeable to `mm-bot config init --out=...` to clone
  * a config (with manual edits if desired).
  */
-function runShow(configPath: string | undefined): number {
+function runShow(
+  configPath: string | undefined,
+  loadConfig: (path: string | undefined) => BotConfig,
+): number {
   try {
-    const config = loadBotConfig(configPath);
+    const config = loadConfig(configPath);
     console.log(formatToml(config));
     return 0;
   } catch (err: unknown) {
@@ -249,9 +273,12 @@ function runShow(configPath: string | undefined): number {
  *
  * EXPORTÁLVA a backward-compat / tesztelhetőség kedvéért.
  */
-export function validateConfigForEdit(target: string): number {
+export function validateConfigForEdit(
+  target: string,
+  loadConfig: (path: string | undefined) => BotConfig = loadBotConfig,
+): number {
   try {
-    loadBotConfig(target);
+    loadConfig(target);
     return 0;
   } catch (err: unknown) {
     // A `loadBotConfig` minden hibát `ConfigError`-ként csomagol —
@@ -271,7 +298,7 @@ export function validateConfigForEdit(target: string): number {
 // ============================================================================
 
 /**
- * `runInit` — `mm-bot config init [--out=path]`.
+ * `runConfigInit` — `mm-bot config init [--out=path]`.
  *
  * Writes a starter TOML config to the given path (default: `./mm-bot.toml`).
  * We do NOT have a separate "template" file — we reuse the canonical
@@ -283,45 +310,22 @@ export function validateConfigForEdit(target: string): number {
  * If the user passes `--out` to a path that already exists, we refuse to
  * overwrite (no `--force` to avoid silent data loss).
  */
-function runInit(outPath: string | undefined): number {
+export function runConfigInit(
+  outPath: string | undefined,
+  sourcePath: string = DEFAULT_CONFIG_TEMPLATE,
+  boundary: ConfigFileBoundary = configFileBoundary,
+): number {
   const target = outPath ?? "./mm-bot.toml";
   const resolvedTarget = resolve(target);
+  const resolvedSourcePath = resolve(sourcePath);
 
-  if (existsSync(resolvedTarget)) {
+  if (boundary.exists(resolvedTarget)) {
     console.error(colorize(`Refusing to overwrite existing file: ${resolvedTarget}`, "red"));
     console.error("Pass --out=<different-path> or remove the existing file first.");
     return 1;
   }
 
-  // Locate the canonical default.toml. We try a few common relative
-  // paths so this works whether the user runs from the repo root,
-  // from `apps/bot/`, or from a build dir.
-  //
-  // Phase 52D: the canonical default.toml was relocated to
-  // `run-bot/config/default.toml` (Phase 52B relocation). The
-  // `apps/bot/config/default.toml` path is checked LAST as a
-  // legacy fallback (52D removes it; this lookup chain is here
-  // for in-flight 52B/52A branches that haven't yet picked up
-  // the relocation).
-  const moduleRelativeDefault = fileURLToPath(
-    new URL("../../../../../run-bot/config/default.toml", import.meta.url),
-  );
-  const candidates = [
-    moduleRelativeDefault,
-    "run-bot/config/default.toml",
-    "config/default.toml",
-    "../config/default.toml",
-    "../../config/default.toml",
-    "apps/bot/config/default.toml",
-  ];
-  let sourcePath: string | null = null;
-  for (const c of candidates) {
-    if (existsSync(c)) {
-      sourcePath = c;
-      break;
-    }
-  }
-  if (sourcePath === null) {
+  if (!boundary.exists(resolvedSourcePath)) {
     console.error(
       colorize(
         "Could not locate run-bot/config/default.toml. " +
@@ -332,13 +336,13 @@ function runInit(outPath: string | undefined): number {
     return 1;
   }
 
-  const contents = readFileSync(sourcePath, "utf8");
+  const contents = boundary.read(resolvedSourcePath);
   try {
     const dir = dirname(resolvedTarget);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+    if (!boundary.exists(dir)) {
+      boundary.ensureDirectory(dir);
     }
-    writeFileSync(resolvedTarget, contents, "utf8");
+    boundary.write(resolvedTarget, contents);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(colorize(`Failed to write ${resolvedTarget}: ${message}`, "red"));
@@ -351,15 +355,6 @@ function runInit(outPath: string | undefined): number {
 }
 
 // ============================================================================
-// edit
-// ============================================================================
-// (Phase 44: a `runEdit` TUI-settings-panel függvény törölve — a TUI
-//  teljes törlésre került. A `validateConfigForEdit` helper a backward-
-//  compat kedvéért megmaradt, de a `config edit` sub-subcommand
-//  dispatch is kikerült a `configCommand`-ból.)
-// ============================================================================
-
-// ============================================================================
 // Main handler
 // ============================================================================
 
@@ -369,7 +364,7 @@ function runInit(outPath: string | undefined): number {
  * Sub-subcommand dispatch is done by reading `parsed.positional[0]`:
  *   - "validate" → `runValidate`
  *   - "show"     → `runShow`
- *   - "init"     → `runInit`
+ *   - "init"     → `runConfigInit`
  *   - anything else (including empty) → print help, return 1.
  *
  * The `init` sub-subcommand reads `--out=<path>` from the same flags
@@ -380,7 +375,21 @@ function runInit(outPath: string | undefined): number {
  * list is included in the help output (the router's generic help
  * doesn't know about sub-subcommands).
  */
-export const configCommand: SubcommandHandler = async (args, _ctx: CliContext) => {
+export interface ConfigCommandDependencies {
+  readonly loadConfig: (path: string | undefined) => BotConfig;
+  readonly initConfig: (outPath: string | undefined) => number;
+}
+
+const DEFAULT_CONFIG_COMMAND_DEPENDENCIES: ConfigCommandDependencies = {
+  loadConfig: (path) => loadBotConfig(path),
+  initConfig: (outPath) => runConfigInit(outPath),
+};
+
+export function createConfigCommand(
+  overrides: Partial<ConfigCommandDependencies> = {},
+): SubcommandHandler {
+  const dependencies = { ...DEFAULT_CONFIG_COMMAND_DEPENDENCIES, ...overrides };
+  return async (args, _ctx: CliContext) => {
   // Intercept --help / -h so we can print sub-subcommand help.
   if (args.flags.get("help") === true) {
     printConfigHelp();
@@ -394,15 +403,15 @@ export const configCommand: SubcommandHandler = async (args, _ctx: CliContext) =
   const configPath = getConfigPath(args);
 
   if (sub === "validate") {
-    return runValidate(configPath);
+    return runValidate(configPath, dependencies.loadConfig);
   }
   if (sub === "show") {
-    return runShow(configPath);
+    return runShow(configPath, dependencies.loadConfig);
   }
   if (sub === "init") {
     const outRaw = args.flags.get("out");
     const out = typeof outRaw === "string" && outRaw.length > 0 ? outRaw : undefined;
-    return runInit(out);
+    return dependencies.initConfig(out);
   }
 
   // Unknown / missing sub-subcommand. Print usage.
@@ -413,7 +422,10 @@ export const configCommand: SubcommandHandler = async (args, _ctx: CliContext) =
   console.error("  show       Print the effective config as TOML");
   console.error("  init       Write the default config to --out=<path> (default ./mm-bot.toml)");
   return 1;
-};
+  };
+}
+
+export const configCommand: SubcommandHandler = createConfigCommand();
 
 /**
  * `printConfigHelp` — the `mm-bot config --help` output.

@@ -1,44 +1,26 @@
 #!/usr/bin/env bash
 # scripts/coverage-per-package.sh
 #
-# Phase 35c: per-package OWN coverage threshold check using the
-# STANDARD `lcov` C tool — no custom code, no AST analysis, no
-# "uninterpretable interfaces".
-#
-# For each workspace package, we:
-#   1. Use `lcov --remove "*../*"` to strip the cross-package import
-#      files (which are listed in the per-package lcov because
-#      `bun test --coverage` records every imported file), keeping
-#      only the OWN src/ files.
-#   2. Read the line coverage % from `lcov --summary`, compare to 100
-#      in shell, and tally PASS/FAIL.
-#
-# Result: 8 packages × 100% line coverage on OWN src/ files, verified
-# by the canonical lcov tool that every CI service uses.
-#
-# Why no `set -euo pipefail`:
-#   The CI runner's lcov (apt-installed on Ubuntu) exits non-zero
-#   when it sees a "no data found" warning for function coverage
-#   (bun's lcov doesn't emit FN:/FNDA: lines). Under `set -e` that
-#   aborts the script before any output appears, hiding the real
-#   failure. We instead check each lcov exit code explicitly below.
+# Per-package OWN line counter check. The bot input is Vitest's unit LCOV;
+# package inputs are Bun LCOV. This auxiliary line gate does not replace the
+# bot's independent four-metric unit and subprocess E2E gates.
 #
 # Usage: bash scripts/coverage-per-package.sh
-# Exit 0: all 8 packages at 100% line coverage on OWN src/ files
+# Exit 0: all 7 packages at 100% line coverage on OWN src/ files
 # Exit 1: at least one package below 100%
-set -u  # only -u (unbound variable check); no -e / pipefail — see comment above
+set -u
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 PACKAGES=(
-  "apps/bot"
-  "packages/paper"
-  "packages/exchange"
-  "packages/core"
-  "packages/shared"
-  "packages/backtest"
-  "packages/backtest-tools"
+  "apps/bot/coverage/unit/lcov.info|apps/bot"
+  "packages/paper/coverage/lcov.info|packages/paper"
+  "packages/exchange/coverage/lcov.info|packages/exchange"
+  "packages/core/coverage/lcov.info|packages/core"
+  "packages/shared/coverage/lcov.info|packages/shared"
+  "packages/backtest/coverage/lcov.info|packages/backtest"
+  "packages/backtest-tools/coverage/lcov.info|packages/backtest-tools"
 )
 
 PASS=0
@@ -46,13 +28,14 @@ TOTAL=0
 FAILED_PACKAGES=()
 
 echo "======================================================================"
-echo "  Per-package OWN coverage (standard lcov --remove + 100% line check)"
+echo "  Per-package OWN coverage (exact LCOV line counters)"
 echo "======================================================================"
 echo
 
-for pkg in "${PACKAGES[@]}"; do
+for entry in "${PACKAGES[@]}"; do
+  lcov_path="${entry%%|*}"
+  pkg="${entry#*|}"
   TOTAL=$((TOTAL + 1))
-  lcov_path="${pkg}/coverage/lcov.info"
   if [ ! -f "$lcov_path" ]; then
     echo "  ✗ ${pkg}  no lcov.info found (run 'bun run coverage' first)"
     FAILED_PACKAGES+=("${pkg}")

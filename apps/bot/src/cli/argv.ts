@@ -90,23 +90,16 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
   // Phase 1: walk the argv, classifying each token.
   // We split the iteration into "before-subcommand" and "after-subcommand":
   // the first non-flag token becomes the subcommand and we record the rest.
-  let i = 0;
   let foundSubcommand = false;
   let stopFlags = false;
+  let skippedValueIndex: number | undefined;
 
-  while (i < argv.length) {
-    const arg = argv[i];
-    if (arg === undefined) {
-      // Defensive: argv[i] is typed `string | undefined` because of
-      // `noUncheckedIndexedAccess`. The loop guard ensures this branch
-      // is dead, but TS requires the check.
-      break;
-    }
+  for (const [i, arg] of argv.entries()) {
+    if (i === skippedValueIndex) continue;
 
     // The `--` sentinel terminates flag parsing.
     if (arg === "--") {
       stopFlags = true;
-      i += 1;
       continue;
     }
 
@@ -118,7 +111,6 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
       } else {
         positional.push(arg);
       }
-      i += 1;
       continue;
     }
 
@@ -131,21 +123,7 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
       // non-empty.
       const body = arg.slice(2);
 
-      // Negation: --no-<name>  →  flags.set(name, false) AND flags.set("no-<name>", true)
-      //
-      // Phase 36 Track A1 enhancement: a `--no-<name>` flag most egy
-      // második kulcsot is beállít a `flags` map-ben: a `no-<name>` nevet
-      // `true` értékkel. Ezáltal a fogyasztó (pl. a `start` parancs)
-      // KÉT információhoz jut:
-      //   1) `flags.get(name) === false`        → a felhasználó tagadta a flag-et
-      //   2) `flags.get("no-" + name) === true` → a felhasználó explicit kiírta a `--no-X`-et
-      // A kettő együtt teszi lehetővé a "last wins" kölcsönhatás
-      // felismerését: ha mindkét flag (pozitív + negatív) megjelenik,
-      // az utolsó érvényesül, és a felhasználó egy WARN-t kap stderr-re.
-      //
-      // Visszafelé kompatibilis: a meglévő `flags.get(name) === false`
-      // tesztek továbbra is átmennek. Az új `flags.get("no-" + name) === true`
-      // csak egy "you said --no-X" jelet ad, nem változtatja meg a flag-értéket.
+      // Negation: --no-<name>  →  flags.set(name, false)
       //
       // If the negation regex fails (e.g. `--no-foo!` with an invalid char),
       // we FALL THROUGH to the subsequent checks instead of silently dropping
@@ -158,11 +136,6 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
         const name = body.slice(3);
         if (name.length > 0 && /^[a-zA-Z0-9_-]+$/.test(name)) {
           flags.set(name, false);
-          // Második kulcs: a "no-<name>" önálló flag, `true` értékkel.
-          // A fogyasztó ezzel ellenőrizheti, hogy a user kiírta-e a
-          // `--no-X`-et (vs. csak a default-ot hagyta).
-          flags.set(`no-${name}`, true);
-          i += 1;
           continue;
         }
         // fall through (do not consume the arg here)
@@ -176,7 +149,6 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
         if (name.length > 0 && /^[a-zA-Z0-9_-]+$/.test(name)) {
           // Empty value is allowed (--name= → "")
           flags.set(name, value);
-          i += 1;
           continue;
         }
         // fall through (name is empty or invalid — do not drop silently)
@@ -189,10 +161,9 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
         // This handles both `--flag value` and `--flag` (boolean).
         if (next !== undefined && !next.startsWith("-")) {
           flags.set(body, next);
-          i += 2;
+          skippedValueIndex = i + 1;
         } else {
           flags.set(body, true);
-          i += 1;
         }
         continue;
       }
@@ -208,7 +179,6 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
       } else {
         positional.push(arg);
       }
-      i += 1;
       continue;
     }
 
@@ -217,14 +187,12 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
     // can decide what to do with them).
     if (arg === "-h") {
       flags.set("help", true);
-      i += 1;
       continue;
     }
     if (/^-[a-zA-Z]$/.test(arg)) {
       // Single-char short flag (not -h). Record as the bare letter, no value.
       const letter = arg.slice(1);
       flags.set(letter, true);
-      i += 1;
       continue;
     }
 
@@ -238,7 +206,6 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
     } else {
       positional.push(arg);
     }
-    i += 1;
   }
 
   return { subcommand, flags, positional };

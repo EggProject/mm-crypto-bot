@@ -89,7 +89,7 @@ locally to this standard. A broad migration MUST be a separately scoped change.
   MUST NOT appear in source code, TOML, fixtures, logs, errors, snapshots, or
   distributable artifacts. They MUST be supplied through environment injection
   or an approved secret store and redacted at every diagnostic boundary.
-- HTTP, WebSocket, state-feed, configuration, and persistence boundaries MUST
+- HTTP, WebSocket, configuration, and persistence boundaries MUST
   use versioned DTOs guarded at the boundary. Domain objects MUST NOT be
   serialized directly. Breaking DTO changes require migrations and contract
   tests.
@@ -141,9 +141,9 @@ locally to this standard. A broad migration MUST be a separately scoped change.
 - All external or generated data MUST reside below root `data/` in exactly the
   appropriate category: `ohlcv`, `runtime`, `backtests`, `fixtures`, `logs`,
   `cache`, `tmp`, `reports`, or `catalog`.
-- Datasets MUST NOT reside in `src`, packages, or apps. Web source assets,
-  configuration, and migrations are narrowly scoped exceptions where they are
-  source-controlled application inputs.
+- Datasets MUST NOT reside in `src`, packages, or apps. Configuration and
+  migrations are narrowly scoped exceptions where they are source-controlled
+  application inputs.
 - The data root MUST be injected, never hard-coded. Data handling MUST keep
   configuration, secrets, and mounted data outside distributable artifacts.
 
@@ -318,9 +318,9 @@ locally to this standard. A broad migration MUST be a separately scoped change.
 ### Static Quality and Verification
 
 - Root ESLint configuration MUST be flat and strict across all JavaScript,
-  TypeScript, TSX, and test files. It MUST include `@eslint/js` recommended,
+  TypeScript, and test files. It MUST include `@eslint/js` recommended,
   `typescript-eslint` `strictTypeChecked` and `stylisticTypeChecked`, security,
-  React Hooks, and the exact-pinned `eslint-plugin-unicorn` recommended rules.
+  and the exact-pinned `eslint-plugin-unicorn` recommended rules.
 - There MUST be no blanket test disablement. Every narrow disable MUST state a
   reason. ESLint MUST run with `--max-warnings=0`.
 - Prettier and `eslint-config-prettier` MUST be exact-pinned. `format` and
@@ -329,14 +329,6 @@ locally to this standard. A broad migration MUST be a separately scoped change.
 - The required root target is `bun run verify`. Once implemented, it MUST
   reproduce CI format, lint, typecheck, build, unit-coverage, and
   end-to-end-coverage gates. Until it exists, delivery evidence MUST say so.
-
-## Frontend
-
-- React components MUST contain presentation and interaction concerns only.
-  Domain logic MUST be pure and framework-free. Rendering side effects are
-  forbidden.
-- Interfaces MUST be accessible, keyboard operable, and tested for loading,
-  empty, error, disconnected, and stale states in end-to-end tests.
 
 ## Build, Deployment, Dependencies, and Cleanup
 
@@ -357,8 +349,8 @@ locally to this standard. A broad migration MUST be a separately scoped change.
 
 ### Release Artifacts
 
-- Each deployable app MUST produce a target-specific, self-contained release:
-  the bot as a Bun executable or full bundle, and the web app as a static bundle.
+- Each deployable app MUST produce a target-specific, self-contained release;
+  the bot MUST be a Bun executable or full bundle.
 - Releases MUST NOT contain `node_modules`, a package manager, or source code.
   A manifest MUST record commit, version, OS/architecture, configuration, and
   hashes.

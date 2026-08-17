@@ -8,7 +8,7 @@ This contributor index points to binding requirements in [`.codex/ENGINEERING-ST
 
 ## Repository map
 
-Areas: `apps/bot`, `apps/web`, `packages`, `data`, `scripts`; preserve boundaries; never commit secrets.
+Areas: `apps/bot`, `packages`, `data`, `scripts`; preserve boundaries; never commit secrets.
 
 ## Local commands and quality gate
 

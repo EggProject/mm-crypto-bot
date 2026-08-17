@@ -100,6 +100,8 @@ export interface PortfolioManagerOptions {
   readonly requireAuthoritativeEmergencyState?: boolean;
   /** Symbols in scope for venue-only spot/derivative exposure discovery. */
   readonly configuredSymbols?: readonly string[];
+  /** Bounded terminal lifecycle evidence retained for late venue fills. */
+  readonly terminalCloseEvidenceLimit?: number;
   readonly logger?: Logger;
 }
 
@@ -132,11 +134,16 @@ interface PendingCloseJournal {
 }
 
 /**
- * `PerStrategyBudget` — a `Map<strategyId, USD>` nézet a TUI / CLI
- * számára. A részletes `BudgetBreakdown` a `getBudgetBreakdowns()`-on
- * keresztül érhető el.
+ * `PerStrategyBudget` — a `Map<strategyId, USD>` diagnostic view for
+ * runtime status consumers. Detailed values are available through
+ * `getBudgetBreakdowns()`.
  */
 export type PerStrategyBudget = ReadonlyMap<string, number>;
+
+/** Concrete OrderManager/PositionManager boundaries normalize all failures to Error. */
+function managedErrorMessage(error: unknown): string {
+  return String(Reflect.get(Object(error), "message"));
+}
 
 /**
  * `PortfolioState` — a teljes portfolió-szintű pillanatkép. A
@@ -172,12 +179,12 @@ export class PortfolioManager {
   private readonly requireAuthoritativeEmergencyState: boolean;
   private readonly configuredSymbols: readonly string[];
   private readonly logger: Logger;
+  private readonly terminalCloseEvidenceLimit: number;
 
   // Az aktív stratégiák konfigurációja (a `Bot` tölti fel induláskor,
   // és a `recordFill` / `recordEquity` közben frissül).
   private readonly strategyConfigs = new Map<string, StrategyRiskConfig>();
-  // Az utolsó büdzsé-számítás eredménye (a TUI / getPerStrategyBudget
-  // ezt olvassa, nem számol újra minden híváskor).
+  // The last budget calculation is cached for read-only status consumers.
   private lastBudgets: ReadonlyMap<string, BudgetBreakdown> = new Map();
   // Latch: a close-all akció már fut-e? (a párhuzamos hívások
   // kiszűrésére — a trip callback akár többször is tüzelhet a
@@ -189,7 +196,7 @@ export class PortfolioManager {
   private closeAllExecuted = false;
   /** Pending close journal: acknowledgements survive retries and triggers. */
   private readonly pendingCloses = new Map<string, PendingCloseJournal>();
-  private readonly pendingCloseByOrder = new Map<ClientOrderId, string>();
+  private readonly pendingCloseByOrder = new Map<ClientOrderId, PendingCloseJournal>();
   /** Bounded terminal evidence survives journal removal and late duplicate WS updates. */
   private readonly terminalCloseEvidence = new Map<ClientOrderId, {
     readonly journal: PendingCloseJournal;
@@ -212,6 +219,10 @@ export class PortfolioManager {
     this.requireAuthoritativeEmergencyState = opts.requireAuthoritativeEmergencyState ?? false;
     this.configuredSymbols = opts.configuredSymbols ?? [];
     this.logger = opts.logger ?? createLogger("info");
+    this.terminalCloseEvidenceLimit = opts.terminalCloseEvidenceLimit ?? 5_000;
+    if (!Number.isInteger(this.terminalCloseEvidenceLimit) || this.terminalCloseEvidenceLimit < 1) {
+      throw new RangeError("terminalCloseEvidenceLimit must be a positive integer");
+    }
     this.orderManager.onLifecycle((event) => { this.applyCloseLifecycle(event); });
     // A close-all callback-et ráhúzzuk a `PortfolioStop` trip-jére.
     // Így a stop tüzelésekor AUTOMATIKUSAN zárunk minden pozíciót.
@@ -260,7 +271,7 @@ export class PortfolioManager {
   }
 
   // --------------------------------------------------------------------------
-  // Read-only API (StrategyRunner, TUI, CLI)
+  // Read-only API for StrategyRunner and runtime diagnostics
   // --------------------------------------------------------------------------
 
   /**
@@ -282,8 +293,8 @@ export class PortfolioManager {
   }
 
   /**
-   * `getPerStrategyBudget` — az összes stratégia büdzséje USD-ben.
-   * A TUI / `mm-bot status` használja.
+   * `getPerStrategyBudget` returns every strategy's current budget in USD.
+   * Runtime status and monitoring consumers use this snapshot.
    */
   public getPerStrategyBudget(): PerStrategyBudget {
     const out = new Map<string, number>();
@@ -294,9 +305,9 @@ export class PortfolioManager {
   }
 
   /**
-   * `getBudgetBreakdowns` — az egyes stratégiák RÉSZLETES büdzsé-
-   * bontása (súly, max korreláció, penalty, raw/final USD). A TUI
-   * debug-panel és a `mm-bot strategies` parancs használja.
+   * `getBudgetBreakdowns` exposes each strategy's detailed allocation:
+   * weight, maximum correlation, penalty, and raw/final USD values. Diagnostic
+   * tooling and the `mm-bot strategies` command use this view.
    */
   public getBudgetBreakdowns(): ReadonlyMap<string, BudgetBreakdown> {
     return this.lastBudgets;
@@ -461,7 +472,7 @@ export class PortfolioManager {
     const localPositionById = new Map(positions.map((position) => [position.id, position]));
     const cancelled = await this.orderManager.cancelTrackedOrders(new Set([...this.pendingCloses.values()].map((item) => item.clientOrderId)));
     const cancelledOrders = cancelled.filter((item) => item.error === undefined).map((item) => String(item.clientOrderId));
-    const cancellationFailures = cancelled.filter((item) => item.error !== undefined).map((item) => `cancel ${String(item.clientOrderId)}: ${item.error ?? "unknown error"}`);
+    const cancellationFailures = cancelled.filter((item) => item.error !== undefined).map((item) => `cancel ${String(item.clientOrderId)}: ${item.error}`);
     const venueOnlyResults: { readonly label: string; readonly closed: boolean }[] = [];
     const localJournalKeys = new Map<string, string>();
     let authoritativeFlatConfirmed = !this.requireAuthoritativeEmergencyState || this.orderManager.isPaperMode();
@@ -472,7 +483,7 @@ export class PortfolioManager {
         try {
           marketMeta.set(symbol, await this.orderManager.getMarketMeta(symbol));
         } catch (err) {
-          cancellationFailures.push(`market metadata ${String(symbol)}: ${err instanceof Error ? err.message : String(err)}`);
+          cancellationFailures.push(`market metadata ${String(symbol)}: ${managedErrorMessage(err)}`);
         }
       }
 
@@ -480,14 +491,14 @@ export class PortfolioManager {
       try {
         exchangePositions = await this.orderManager.getAuthoritativePositions(symbols);
       } catch (err) {
-        this.logger.warn("[portfolio-manager] derivative position reconciliation unavailable", { error: err instanceof Error ? err.message : String(err) });
+        this.logger.warn("[portfolio-manager] derivative position reconciliation unavailable", { error: managedErrorMessage(err) });
       }
 
       let balances: ReadonlyMap<string, number> | undefined;
       try {
         balances = new Map((await this.orderManager.getAuthoritativeBalances()).map((balance) => [balance.currency, balance.total]));
       } catch (err) {
-        cancellationFailures.push(`authoritative balances: ${err instanceof Error ? err.message : String(err)}`);
+        cancellationFailures.push(`authoritative balances: ${managedErrorMessage(err)}`);
       }
 
       const derivativeLocalIds = new Map<string, string[]>();
@@ -610,7 +621,7 @@ export class PortfolioManager {
       const positions = await this.orderManager.getAuthoritativePositions(symbols);
       derivativeFlat = positions.every((position) => !(position.quantity > 0));
     } catch (err) {
-      failures.push(`authoritative position verification: ${err instanceof Error ? err.message : String(err)}`);
+      failures.push(`authoritative position verification: ${managedErrorMessage(err)}`);
     }
 
     let spotFlat = false;
@@ -622,7 +633,7 @@ export class PortfolioManager {
         return !this.isTradableSpotQuantity(quantity, meta, undefined);
       });
     } catch (err) {
-      failures.push(`authoritative balance verification: ${err instanceof Error ? err.message : String(err)}`);
+      failures.push(`authoritative balance verification: ${managedErrorMessage(err)}`);
     }
 
     return { flat: derivativeFlat && spotFlat && failures.length === 0, failures };
@@ -649,9 +660,9 @@ export class PortfolioManager {
    * meg (a feed-en a market order azonnal fill-elhet, vagy a
    * paper-mode feed-en a `setOrderStatus` hívás szimulálja).
    */
-  private async placeCloseOrder(pos: PositionSnapshot, authoritativeQuantity?: number, reason = "portfolio-stop-close", journalKey?: string): Promise<boolean> {
+  private async placeCloseOrder(pos: PositionSnapshot, authoritativeQuantity: number | undefined, reason: string, journalKey?: string): Promise<boolean> {
     const closingSide = pos.side === "long" ? "sell" : "buy";
-    const referencePrice = pos.currentPrice > 0 ? pos.currentPrice : pos.entryPrice;
+    const referencePrice = pos.currentPrice;
     const key = journalKey ?? `local:${pos.id}`;
     const journal = this.pendingCloses.get(key);
     if (journal !== undefined) {
@@ -660,7 +671,7 @@ export class PortfolioManager {
         this.applyCloseDelta(journal.positionIds, order, deltaFilled);
         const remaining = this.positionManager.getPositions().find((item) => item.id === pos.id);
         if (remaining === undefined) {
-          if (order.status !== "open") this.finishCloseJournal(journal, order.status, order.filled);
+          this.finishCloseJournal(journal, "closed", order.filled);
           return true;
         }
         if (order.status === "open") return false;
@@ -670,7 +681,7 @@ export class PortfolioManager {
       } catch (err) {
         this.logger.warn("[portfolio-manager] pending close reconciliation failed", {
           positionId: pos.id, clientOrderId: journal.clientOrderId,
-          error: err instanceof Error ? err.message : String(err),
+          error: managedErrorMessage(err),
         });
         return false;
       }
@@ -729,7 +740,7 @@ export class PortfolioManager {
         symbol: String(pos.symbol),
         side: pos.side,
         quantity: pos.quantity,
-        error: err instanceof Error ? err.message : String(err),
+        error: managedErrorMessage(err),
       });
       return false;
     }
@@ -744,7 +755,7 @@ export class PortfolioManager {
         return await this.placeCloseOrder(pos, undefined, reason, key);
       } catch (err) {
         this.logger.error("[portfolio-manager] cannot establish authoritative close key", {
-          positionId: pos.id, symbol: String(pos.symbol), error: err instanceof Error ? err.message : String(err),
+          positionId: pos.id, symbol: String(pos.symbol), error: managedErrorMessage(err),
         });
         return false;
       }
@@ -753,8 +764,8 @@ export class PortfolioManager {
   }
 
   private applyCloseLifecycle(event: OrderLifecycleEvent): void {
-    const key = this.pendingCloseByOrder.get(event.order.clientOrderId);
-    if (key === undefined) {
+    const journal = this.pendingCloseByOrder.get(event.order.clientOrderId);
+    if (journal === undefined) {
       const terminal = this.terminalCloseEvidence.get(event.order.clientOrderId);
       if (terminal === undefined || event.deltaFilled <= 0) return;
       // Bybit documents late Filled/cancel races. Keep terminal ownership so a
@@ -766,14 +777,12 @@ export class PortfolioManager {
         void this.orderManager.cancelOrder(replacement.clientOrderId, replacement.symbol).catch((err: unknown) => {
           this.logger.error("[portfolio-manager] late terminal fill replacement cancel failed", {
             key: terminal.journal.key, clientOrderId: replacement.clientOrderId,
-            error: err instanceof Error ? err.message : String(err),
+            error: managedErrorMessage(err),
           });
         });
       }
       return;
     }
-    const journal = this.pendingCloses.get(key);
-    if (journal === undefined) return;
     this.applyCloseDelta(journal.positionIds, event.order, event.deltaFilled, event.kind === "execution" ? event.execution.price : undefined);
     if (event.order.status !== "open") this.finishCloseJournal(journal, event.order.status, event.order.filled);
   }
@@ -799,17 +808,18 @@ export class PortfolioManager {
 
   private openCloseJournal(journal: PendingCloseJournal): void {
     this.pendingCloses.set(journal.key, journal);
-    this.pendingCloseByOrder.set(journal.clientOrderId, journal.key);
+    this.pendingCloseByOrder.set(journal.clientOrderId, journal);
   }
 
   private finishCloseJournal(journal: PendingCloseJournal, status: "closed" | "canceled", filled: number): void {
     this.pendingCloses.delete(journal.key);
     this.pendingCloseByOrder.delete(journal.clientOrderId);
     this.terminalCloseEvidence.set(journal.clientOrderId, { journal, status, filled });
-    while (this.terminalCloseEvidence.size > 5_000) {
-      const oldest = this.terminalCloseEvidence.keys().next().value;
-      if (oldest === undefined) break;
-      this.terminalCloseEvidence.delete(oldest);
+    if (this.terminalCloseEvidence.size > this.terminalCloseEvidenceLimit) {
+      for (const oldest of this.terminalCloseEvidence.keys()) {
+        this.terminalCloseEvidence.delete(oldest);
+        break;
+      }
     }
   }
 
@@ -835,7 +845,7 @@ export class PortfolioManager {
       this.applyCloseDelta(positionIds, order, order.filled);
       return order.filled >= position.quantity;
     } catch (err) {
-      this.logger.error("[portfolio-manager] venue-only close failed", { symbol: String(position.symbol), error: err instanceof Error ? err.message : String(err) });
+      this.logger.error("[portfolio-manager] venue-only close failed", { symbol: String(position.symbol), error: managedErrorMessage(err) });
       return false;
     }
   }
@@ -868,7 +878,7 @@ export class PortfolioManager {
       this.applyCloseDelta(positionIds, order, order.filled);
       return order.filled >= quantity;
     } catch (err) {
-      this.logger.error("[portfolio-manager] venue-only spot close failed", { symbol: String(symbol), error: err instanceof Error ? err.message : String(err) });
+      this.logger.error("[portfolio-manager] venue-only spot close failed", { symbol: String(symbol), error: managedErrorMessage(err) });
       return false;
     }
   }
@@ -884,7 +894,7 @@ export class PortfolioManager {
       return "terminal";
     } catch (err) {
       this.logger.warn("[portfolio-manager] pending authoritative close reconciliation failed", {
-        key, clientOrderId: journal.clientOrderId, error: err instanceof Error ? err.message : String(err),
+        key, clientOrderId: journal.clientOrderId, error: managedErrorMessage(err),
       });
       return "unavailable";
     }

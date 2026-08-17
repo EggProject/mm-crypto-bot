@@ -13,7 +13,7 @@
  * egységesíteni kell:
  *
  *   1. Round-trip safe: a write-ot megelőzi egy re-validate (a Zod séma
- *      a single source of truth, nem az adott UI mező).
+ *      a single source of truth, nem az adott hívó mezőmodellje).
  *   2. Atomic: `write-file-atomic` (write-tmp → rename → backup) —
  *      a write közbeni crash nem ronthatja el a meglévő TOML-t.
  *   3. Backed up: minden write előtt a korábbi fájl `mm-bot.toml.bak`-ba
@@ -90,7 +90,7 @@ export class ConfigReadError extends Error {
  *     "bot.mode": ["expected 'paper' | 'live'"]
  *   }
  *
- * A UI a `fieldErrors`-t 1:1-ben meg tudja jeleníteni.
+ * A `fieldErrors` struktúrát a hívók közvetlenül feldolgozhatják.
  */
 export class ConfigValidationError extends Error {
   public override readonly name = "ConfigValidationError";
@@ -140,6 +140,38 @@ export interface LiveModeAuditEntry {
   readonly newMode: "paper" | "live";
 }
 
+/** Production filesystem/codec boundary used by the synchronous store. */
+export interface ConfigStoreDependencies {
+  readonly readText: (path: string) => string;
+  readonly parse: (text: string) => unknown;
+  readonly stringify: (config: BotConfig) => string;
+  readonly exists: (path: string) => boolean;
+  readonly ensureDirectory: (path: string) => void;
+  readonly copy: (source: string, target: string) => void;
+  readonly atomicWrite: (path: string, contents: string) => void;
+  readonly appendText: (path: string, contents: string) => void;
+}
+
+const DEFAULT_CONFIG_STORE_DEPENDENCIES: ConfigStoreDependencies = {
+  // ConfigStore normalizes the user-selected path before this boundary.
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  readText: (path) => readFileSync(path, "utf8"),
+  parse: (text) => parseToml(text),
+  stringify: (config) => stringifyToml(config),
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- normalized ConfigStore path
+  exists: (path) => existsSync(path),
+  ensureDirectory: (path) => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- dirname of normalized ConfigStore path
+    mkdirSync(path, { recursive: true });
+  },
+  copy: (source, target) => { copyFileSync(source, target); },
+  atomicWrite: (path, contents) => { writeFileAtomic.sync(path, contents, "utf8"); },
+  appendText: (path, contents) => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- fixed audit suffix of normalized ConfigStore path
+    writeFileSync(path, contents, { flag: "a" });
+  },
+};
+
 // ============================================================================
 // ConfigStore class
 // ============================================================================
@@ -147,12 +179,12 @@ export interface LiveModeAuditEntry {
 /**
  * `ConfigStore` — a `mm-bot.toml` típusos, auditált olvasó/író.
  *
- * Minden metódus promise- vagy sync- (a `read` és `write` a `node:fs`
- * async verzióját használja a UI responsiveness megőrzéséért; a
- * `validate` és `writeAfterTypedLive` a `safeParse` miatt sync).
+ * The read, validation, and write operations are synchronous so every caller
+ * observes a complete parse or atomic replacement before the method returns.
  */
 export class ConfigStore {
   public readonly path: string;
+  private readonly dependencies: ConfigStoreDependencies;
 
   /**
    * `ConfigStore` konstruktor.
@@ -163,8 +195,9 @@ export class ConfigStore {
    *   új példányt ad vissza. A `getCachedConfigStore()` az a
    *   singleton getter, ami per-path memoizál.
    */
-  public constructor(path: string) {
+  public constructor(path: string, dependencies: Partial<ConfigStoreDependencies> = {}) {
     this.path = resolve(path);
+    this.dependencies = { ...DEFAULT_CONFIG_STORE_DEPENDENCIES, ...dependencies };
   }
 
   // --------------------------------------------------------------------------
@@ -174,7 +207,7 @@ export class ConfigStore {
   /**
    * `read` — beolvassa a TOML-fájlt, és visszaadja a `BotConfig`
    * Zod-validált formáját. A környezeti változók NEM kerülnek
-   * alkalmazásra (ez a settings-panel feladata, nem a store-é).
+   * alkalmazásra; ez a tároló kizárólag a fájl tartalmát dolgozza fel.
    *
    * Ha a fájl nem létezik, `ConfigReadError`-t dob (a "missing file"
    * hibaüzenettel) — a hívónak kell döntenie, hogy defaults-szal
@@ -188,7 +221,7 @@ export class ConfigStore {
   public read(): BotConfig {
     let text: string;
     try {
-      text = readFileSync(this.path, "utf8");
+      text = this.dependencies.readText(this.path);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       throw new ConfigReadError(
@@ -200,7 +233,7 @@ export class ConfigStore {
 
     let raw: unknown;
     try {
-      raw = parseToml(text);
+      raw = this.dependencies.parse(text);
     } catch (err: unknown) {
       // A smol-toml `TomlError`-t dob érvénytelen TOML-ra.
       // A natív `Bun.TOML.parse` szintaktikailag kompatibilis
@@ -241,20 +274,19 @@ export class ConfigStore {
         message: issue.message,
       }));
       // A `fieldErrors` a Zod `flatten()` formátumot követi:
-      // { "field.path": ["msg1", "msg2"] } — az UI ezt 1:1-ben
-      // meg tudja jeleníteni.
-      const fieldErrors: Record<string, string[]> = {};
+      // { "field.path": ["msg1", "msg2"] }.
+      const fieldErrors = new Map<string, string[]>();
       for (const issue of parsed.error.issues) {
         const key = issue.path.length === 0 ? "<root>" : issue.path.join(".");
-        const list = fieldErrors[key] ?? [];
+        const list = fieldErrors.get(key) ?? [];
         list.push(issue.message);
-        fieldErrors[key] = list;
+        fieldErrors.set(key, list);
       }
       throw new ConfigValidationError(
         `Bot config validation failed:\n${issues
           .map((i) => `  • ${i.path}: ${i.message}`)
           .join("\n")}`,
-        fieldErrors,
+        Object.fromEntries(fieldErrors),
         issues,
       );
     }
@@ -283,8 +315,8 @@ export class ConfigStore {
    *      a végleges névre renameli, így a `.bak` lépés NEM az új,
    *      hanem a régi tartalmat őrzi meg).
    *
-   * A függvény szinkron — a CLI és a TUI boot-fázisban hívja, ahol
-   * a sync IO nem blokkol érezhetően.
+   * This method is synchronous so validation, backup, and atomic replacement
+   * complete before control returns to the caller.
    *
    * @param next A kiírandó `BotConfig`.
    * @throws {ConfigValidationError} ha a Zod séma elutasítja a `next`-et.
@@ -298,14 +330,14 @@ export class ConfigStore {
 
     // 2) Serialize. A `stringifyToml` a `validated`-ot `Record<string, unknown>`
     // -ként fogadja — a `BotConfig` típus kompatibilis ezzel a típussal.
-    const serialized = stringifyToml(validated);
+    const serialized = this.dependencies.stringify(validated);
 
     // 3) Round-trip check. A TOML-stringify bug (adatvesztés) az
     // esetek 99%-ában itt jönne ki. A `parse` költsége elhanyagolható
     // (a TOML-fájl kicsi).
     let reparsed: unknown;
     try {
-      reparsed = parseToml(serialized);
+      reparsed = this.dependencies.parse(serialized);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(
@@ -318,22 +350,22 @@ export class ConfigStore {
     // 4) Biztosítsuk, hogy a cél-könyvtár létezik (a user adhatott
     // meg olyan path-ot, ami még nem létezik).
     const dir = dirname(this.path);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
+    if (!this.dependencies.exists(dir)) {
+      this.dependencies.ensureDirectory(dir);
     }
 
     // 5) Backup a korábbi fájlról — a `bak` MINDIG az előző write
     // előtti állapotot őrzi, így a user bármikor vissza tudja
     // állítani a write előtti konfigot.
-    if (existsSync(this.path)) {
-      copyFileSync(this.path, `${this.path}.bak`);
+    if (this.dependencies.exists(this.path)) {
+      this.dependencies.copy(this.path, `${this.path}.bak`);
     }
 
     // 6) Atomic write. A `write-file-atomic.sync` a write-tmp + rename
     // pattern-t használja, és a `chmod` / `chown` hibákat is kezeli.
     // A string átadáshoz a default `utf8` encoding-ot használja.
     try {
-      writeFileAtomic.sync(this.path, serialized, "utf8");
+      this.dependencies.atomicWrite(this.path, serialized);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(`ConfigStore.write: failed to write ${this.path}: ${message}`, {
@@ -410,7 +442,7 @@ export class ConfigStore {
     // korábbi megerősítéseket.
     const auditPath = `${this.path}.audit.log`;
     try {
-      writeFileSync(auditPath, `${JSON.stringify(entry)}\n`, { flag: "a" });
+      this.dependencies.appendText(auditPath, `${JSON.stringify(entry)}\n`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(
@@ -446,14 +478,13 @@ export class ConfigStore {
    */
   public setStrategyEnabled(strategyId: StrategyName, enabled: boolean): void {
     const current = this.read();
-    const strategiesSection: Record<string, Record<string, unknown>> = {
-      ...current.strategies,
-    };
-    const existingStrategy = strategiesSection[strategyId] ?? {};
-    strategiesSection[strategyId] = { ...existingStrategy, enabled };
     const next: BotConfig = {
       ...current,
-      strategies: strategiesSection as unknown as BotConfig["strategies"],
+      strategies: {
+        ...current.strategies,
+        // eslint-disable-next-line security/detect-object-injection -- strategyId is the validated StrategyName union
+        [strategyId]: { ...current.strategies[strategyId], enabled },
+      },
     };
     this.write(next);
   }
@@ -497,31 +528,30 @@ export class ConfigStore {
         path: `strategies.${strategyId}.${key}`,
         message: issue.message,
       }));
-      const fieldErrors: Record<string, string[]> = {};
+      const fieldErrors = new Map<string, string[]>();
       for (const issue of parsed.error.issues) {
         const fkey = `strategies.${strategyId}.${key}`;
-        const list = fieldErrors[fkey] ?? [];
+        const list = fieldErrors.get(fkey) ?? [];
         list.push(issue.message);
-        fieldErrors[fkey] = list;
+        fieldErrors.set(fkey, list);
       }
       throw new ConfigValidationError(
         `Strategy setting validation failed for strategies.${strategyId}.${key}:\n${issues
           .map((i) => `  • ${i.path}: ${i.message}`)
           .join("\n")}`,
-        fieldErrors,
+        Object.fromEntries(fieldErrors),
         issues,
       );
     }
 
     const current = this.read();
-    const strategiesSection: Record<string, Record<string, unknown>> = {
-      ...current.strategies,
-    };
-    const existingStrategy = strategiesSection[strategyId] ?? {};
-    strategiesSection[strategyId] = { ...existingStrategy, [key]: value };
     const next: BotConfig = {
       ...current,
-      strategies: strategiesSection as unknown as BotConfig["strategies"],
+      strategies: {
+        ...current.strategies,
+        // eslint-disable-next-line security/detect-object-injection -- strategyId/key are schema-validated config keys
+        [strategyId]: { ...current.strategies[strategyId], [key]: value },
+      },
     };
     this.write(next);
   }

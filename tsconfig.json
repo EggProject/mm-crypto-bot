@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "allowImportingTsExtensions": true,
+    "checkJs": true,
+    "noEmit": true
+  },
+  "include": [
+    "apps/bot/src/global-types/**/*.d.ts",
+    "apps/bot/src/cli/cli-e2e.test.ts",
+    "apps/bot/test/**/*.ts",
+    "apps/bot/vitest.config.ts",
+    "scripts/coverage-tools/**/*.ts"
+  ]
+}

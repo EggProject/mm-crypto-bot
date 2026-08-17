@@ -35,11 +35,8 @@ import {
 } from "bun:test";
 import {
   copyFileSync,
-  existsSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -51,7 +48,10 @@ import {
   ConfigValidationError,
   getConfigStore,
   resetConfigStoreCache,
+  type ConfigStoreDependencies,
 } from "./store.js";
+
+const fileSystem = await import("node:fs");
 
 /**
  * `makeTmpDir` — egyedi tmp könyvtár minden teszthez (a cleanup
@@ -80,7 +80,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
   // --------------------------------------------------------------------------
   it("read() returns Zod defaults for a valid empty file", () => {
     const path = join(tmpDir, "mm-bot.toml");
-    writeFileSync(path, "", "utf8");
+    fileSystem.writeFileSync(path, "", "utf8");
     const store = new ConfigStore(path);
     const config = store.read();
     expect(config.bot.mode).toBe("paper");
@@ -109,7 +109,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
   // --------------------------------------------------------------------------
   it("read() throws ConfigReadError on invalid TOML syntax", () => {
     const path = join(tmpDir, "bad.toml");
-    writeFileSync(path, "this is not [ valid TOML", "utf8");
+    fileSystem.writeFileSync(path, "this is not [ valid TOML", "utf8");
     const store = new ConfigStore(path);
     let caught: unknown = null;
     try {
@@ -126,7 +126,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
   // --------------------------------------------------------------------------
   it("read() throws ConfigValidationError on Zod-rejected file", () => {
     const path = join(tmpDir, "bad-zod.toml");
-    writeFileSync(
+    fileSystem.writeFileSync(
       path,
       "[risk]\nmax_leverage = 15\n", // 1:10 MANDATE violation
       "utf8",
@@ -197,7 +197,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
 
     // First write.
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.01,
@@ -216,12 +216,12 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
       },
       telemetry: { log_dir: "logs/bot", metrics_interval_sec: 60 },
     });
-    expect(existsSync(path)).toBe(true);
-    expect(existsSync(`${path}.bak`)).toBe(false); // first write — no .bak yet
+    expect(fileSystem.existsSync(path)).toBe(true);
+    expect(fileSystem.existsSync(`${path}.bak`)).toBe(false); // first write — no .bak yet
 
     // Second write.
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.02, // CHANGED
@@ -240,13 +240,13 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
       },
       telemetry: { log_dir: "logs/bot", metrics_interval_sec: 60 },
     });
-    expect(existsSync(`${path}.bak`)).toBe(true);
+    expect(fileSystem.existsSync(`${path}.bak`)).toBe(true);
     // The .bak must contain the FIRST write (risk_per_trade = 0.01),
     // not the second (risk_per_trade = 0.02). The "previous version"
     // guarantee. We assert on the specific TOML line, not a substring
     // (the `dydx_cex_carry.cap = 0.025` would otherwise contain
     // "0.02" as a substring).
-    const bakContents = readFileSync(`${path}.bak`, "utf8");
+    const bakContents = fileSystem.readFileSync(`${path}.bak`, "utf8");
     expect(bakContents).toContain("risk_per_trade = 0.01");
     expect(bakContents).not.toContain("risk_per_trade = 0.02");
   });
@@ -258,7 +258,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     const path = join(tmpDir, "mm-bot.toml");
     const store = new ConfigStore(path);
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.03,
@@ -292,7 +292,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     let caught: unknown = null;
     try {
       store.write({
-        bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+        bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
         exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
         risk: {
           risk_per_trade: 0.01,
@@ -317,7 +317,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     expect(caught).toBeInstanceOf(ConfigValidationError);
     // The file must NOT have been written (the Zod check happens
     // before the write).
-    expect(existsSync(path)).toBe(false);
+    expect(fileSystem.existsSync(path)).toBe(false);
   });
 
   // --------------------------------------------------------------------------
@@ -328,7 +328,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     const store = new ConfigStore(path);
     // Seed with a paper config.
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.01,
@@ -361,8 +361,8 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
 
     // The audit log must be present.
     const auditPath = `${path}.audit.log`;
-    expect(existsSync(auditPath)).toBe(true);
-    const auditContents = readFileSync(auditPath, "utf8");
+    expect(fileSystem.existsSync(auditPath)).toBe(true);
+    const auditContents = fileSystem.readFileSync(auditPath, "utf8");
     expect(auditContents).toContain("live-mode-confirm");
     expect(auditContents).toContain("\"prevMode\":\"paper\"");
     expect(auditContents).toContain("\"newMode\":\"live\"");
@@ -379,7 +379,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     const path = join(tmpDir, "mm-bot.toml");
     const store = new ConfigStore(path);
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.01,
@@ -421,7 +421,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     try {
       store.writeAfterTypedLive(
         {
-          bot: { mode: "live", log_level: "info", state_file: "data/state.json", auto_start: false },
+          bot: { mode: "live", log_level: "info", state_file: "data/state.json" },
           exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
           risk: {
             risk_per_trade: 0.01,
@@ -485,6 +485,72 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     expect(b.path).toBe(path);
   });
 
+  it("getConfigStore() resolves and caches the default path", () => {
+    const first = getConfigStore();
+    const second = getConfigStore();
+    expect(first).toBe(second);
+    expect(first.path.endsWith("/mm-bot.toml")).toBe(true);
+  });
+
+  it("validate reports a root-level issue for a non-object candidate", () => {
+    const store = new ConfigStore(join(tmpDir, "root-invalid.toml"));
+    expect(() => store.validate(null)).toThrow(ConfigValidationError);
+    try {
+      store.validate(null);
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(ConfigValidationError);
+      expect((error as ConfigValidationError).fieldErrors["<root>"]).toBeDefined();
+    }
+  });
+
+  it("wraps non-Error read failures and generic parser failures", () => {
+    const readFailure = new ConfigStore(join(tmpDir, "read-failure.toml"), {
+      readText: () => { throw "plain read failure"; },
+    });
+    expect(() => readFailure.read()).toThrow("plain read failure");
+
+    const parseFailure = new ConfigStore(join(tmpDir, "parse-failure.toml"), {
+      readText: () => "",
+      parse: () => { throw new Error("generic parse failure"); },
+    });
+    expect(() => parseFailure.read()).toThrow("generic parse failure");
+  });
+
+  it("wraps Error and non-Error round-trip parser failures", () => {
+    for (const failure of [new Error("round-trip Error"), "round-trip string"] as const) {
+      const store = new ConfigStore(join(tmpDir, `roundtrip-${typeof failure}.toml`), {
+        parse: () => { throw failure; },
+      });
+      expect(() => store.write(store.validate({}))).toThrow(
+        typeof failure === "string" ? failure : failure.message,
+      );
+    }
+  });
+
+  it("wraps Error and non-Error atomic write failures", () => {
+    for (const failure of [new Error("atomic Error"), "atomic string"] as const) {
+      const dependencies: Partial<ConfigStoreDependencies> = {
+        atomicWrite: () => { throw failure; },
+      };
+      const store = new ConfigStore(join(tmpDir, `atomic-${typeof failure}.toml`), dependencies);
+      expect(() => store.write(store.validate({}))).toThrow(
+        typeof failure === "string" ? failure : failure.message,
+      );
+    }
+  });
+
+  it("wraps Error and non-Error audit append failures before writing live config", () => {
+    for (const failure of [new Error("audit Error"), "audit string"] as const) {
+      const store = new ConfigStore(join(tmpDir, `audit-${typeof failure}.toml`), {
+        appendText: () => { throw failure; },
+      });
+      const live = store.validate({ bot: { mode: "live" } });
+      expect(() => store.writeAfterTypedLive(live, "LIVE", "paper")).toThrow(
+        typeof failure === "string" ? failure : failure.message,
+      );
+    }
+  });
+
   // --------------------------------------------------------------------------
   // 17. write() creates parent directory if it doesn't exist
   // --------------------------------------------------------------------------
@@ -492,7 +558,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     const path = join(tmpDir, "deep/nested/mm-bot.toml");
     const store = new ConfigStore(path);
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.01,
@@ -511,7 +577,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
       },
       telemetry: { log_dir: "logs/bot", metrics_interval_sec: 60 },
     });
-    expect(existsSync(path)).toBe(true);
+    expect(fileSystem.existsSync(path)).toBe(true);
   });
 
   // --------------------------------------------------------------------------
@@ -521,7 +587,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     const path = join(tmpDir, "mm-bot.toml");
     const store = new ConfigStore(path);
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.01,
@@ -541,10 +607,10 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
       telemetry: { log_dir: "logs/bot", metrics_interval_sec: 60 },
     });
     // Manually copy to a known state.
-    const beforeContents = readFileSync(path, "utf8");
+    const beforeContents = fileSystem.readFileSync(path, "utf8");
     // Second write.
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.05,
@@ -563,11 +629,11 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
       },
       telemetry: { log_dir: "logs/bot", metrics_interval_sec: 60 },
     });
-    const bakContents = readFileSync(`${path}.bak`, "utf8");
+    const bakContents = fileSystem.readFileSync(`${path}.bak`, "utf8");
     // The .bak must be byte-identical to the first write.
     expect(bakContents).toBe(beforeContents);
     // The new file must differ from .bak.
-    const afterContents = readFileSync(path, "utf8");
+    const afterContents = fileSystem.readFileSync(path, "utf8");
     expect(afterContents).not.toBe(bakContents);
   });
 
@@ -579,7 +645,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     const path = join(tmpDir, "mm-bot.toml");
     const store = new ConfigStore(path);
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.01,
@@ -598,7 +664,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
       },
       telemetry: { log_dir: "logs/bot", metrics_interval_sec: 60 },
     });
-    expect(existsSync(`${path}.bak`)).toBe(false);
+    expect(fileSystem.existsSync(`${path}.bak`)).toBe(false);
   });
 
   // --------------------------------------------------------------------------
@@ -608,10 +674,10 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     const path = join(tmpDir, "mm-bot.toml");
     // Pre-seed: write a file that's NOT a valid config (just to test
     // the .bak mechanism in isolation).
-    writeFileSync(path, "placeholder\n", "utf8");
+    fileSystem.writeFileSync(path, "placeholder\n", "utf8");
     const store = new ConfigStore(path);
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.01,
@@ -630,8 +696,8 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
       },
       telemetry: { log_dir: "logs/bot", metrics_interval_sec: 60 },
     });
-    expect(existsSync(`${path}.bak`)).toBe(true);
-    const bak = readFileSync(`${path}.bak`, "utf8");
+    expect(fileSystem.existsSync(`${path}.bak`)).toBe(true);
+    const bak = fileSystem.readFileSync(`${path}.bak`, "utf8");
     expect(bak).toBe("placeholder\n");
   });
 
@@ -645,7 +711,7 @@ describe("ConfigStore (Phase 36 Track C1)", () => {
     const path = join(tmpDir, "mm-bot.toml");
     const store = new ConfigStore(path);
     store.write({
-      bot: { mode: "paper", log_level: "info", state_file: "data/state.json", auto_start: false },
+      bot: { mode: "paper", log_level: "info", state_file: "data/state.json" },
       exchange: { id: "bybiteu", rate_limit_ms: 100, sandbox: false },
       risk: {
         risk_per_trade: 0.01,

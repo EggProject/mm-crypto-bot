@@ -1,65 +1,60 @@
 # Testing
 
-The monorepo has three test layers.
+The monorepo has unit/integration tests and fail-closed coverage gates.
 
-## 1. Server unit / integration tests (Vitest)
+## 1. Server unit / integration tests (Bun test runner)
 
 Every server package (`apps/bot`, `packages/*`) has its own `*.test.ts` files co-located with the source. Run individually per package or all at once:
 
 ```bash
-bun run test                # minden csomag, Vitest
+bun run test                # minden csomag, Bun test runner
 ```
 
-## 2. Server coverage (100% per-package OWN gate)
+## 2. Coverage gates
 
-The user mandate is **7/7 server packages at 100% line coverage on their OWN `src/` files**. The CI gate is enforced by `scripts/coverage-per-package.sh`:
+The owned, selected bot runtime scope is explicit in
+`scripts/coverage-tools/bot-runtime-scope.json`. A verifier hard-fails if a
+changed, non-test `apps/bot/src` runtime file is missing from that manifest. In
+CI the comparison base is explicit and resolved through `git merge-base`; local
+runs include tracked worktree changes and untracked runtime files.
+
+The bot has two independent 100% statement/branch/function/line gates:
+
+- Unit: Vitest V8 coverage runs the selected `bun:test` suites under native
+  Node through a compatibility shim. Output is
+  `apps/bot/coverage/unit/coverage-summary.json` and `lcov.info`.
+- E2E: Istanbul instruments the owned sources before Bun bundles them. The
+  canonical CLI and a separately spawned lifecycle driver run as real Bun
+  child processes. PID envelopes are merged into
+  `apps/bot/coverage/e2e/summary.json`. This report is never merged with unit.
+
+The remaining workspace packages keep their Bun LCOV line gate. Bun LCOV is
+not used as proof of bot branch/function/statement completeness.
 
 ```bash
-bun run coverage             # lcov-ot generál minden csomagra
-bun run coverage:per-package # 7/7 OWN 100% threshold check (CI gate)
+bun run test:coverage-infra  # manifest/raw/gate regression tests
+bun run coverage:scope       # modified runtime completeness
+bun run coverage:bot:unit    # strict independent Vitest unit gate
+bun run coverage:bot:e2e     # strict independent Bun subprocess gate
+bun run coverage             # full fresh pipeline; same as coverage:full
+bun run coverage:per-package # workspace OWN line gate
 bun run coverage:merge       # egyesített lcov (informational)
 bun run coverage:report      # egyesített summary
 bun run coverage:html        # HTML riport (coverage/merged/html/)
 bun run coverage:enforce     # = coverage:per-package
-bun run coverage:full        # MINDEN: tesztek (no cache) + lcov + EGY nagy táblázat
+bun run coverage:full        # tests + infra + both bot gates + package LCOV
 ```
 
-The `apps/web` package is **intentionally exempt** from the 100% per-package gate — its test surface is the Playwright e2e suite (see below), not Vitest.
+### Current bot coverage artifacts
 
-### Coverage garancia
+Both strict gates currently pass:
 
-A user mandátuma: **7/7 server packages 100% line coverage a saját `src/` fájljaira** (per-package OWN). A CI ezt gate-ként futtatja:
+| Gate | Statements | Branches | Functions | Lines |
+|---|---:|---:|---:|---:|
+| Unit (23 files, 482 tests) | 1599/1599 (100%) | 866/866 (100%) | 278/278 (100%) | 1495/1495 (100%) |
+| Bun subprocess E2E (45/45 required cases) | 1597/1597 (100%) | 866/866 (100%) | 279/279 (100%) | 1492/1492 (100%) |
 
-```
-$ bun run coverage:per-package
-======================================================================
-  Per-package OWN coverage (standard lcov --remove + 100% line check)
-======================================================================
-
-  ✓ apps/bot                       100.0%  (own src/)
-  ✓ packages/paper                 100.0%  (own src/)
-  ✓ packages/exchange              100.0%  (own src/)
-  ✓ packages/core                  100.0%  (own src/)
-  ✓ packages/shared                100.0%  (own src/)
-  ✓ packages/backtest              100.0%  (own src/)
-  ✓ packages/backtest-tools        100.0%  (own src/)
-
-Result: 7/7 PASS
-```
-
-Az egyesített (cross-package importokat is tartalmazó) lefedettség jelenleg **51.2%** — ez a 100%-hoz 50+ új tesztfájlt igényelne (multi-week scope, nem része ennek a mandátumnak).
-
-A `apps/web` package saját lefedettsége a **Playwright e2e suite-ből** jön (`apps/web/coverage/playwright/`), nem a Vitest-ből. A 80% gate (lines/branches/functions) a CI `e2e:playwright` job-ban fut, és a `nyc check-coverage` enforce-eli. A coverage tábla a run summary-ban is megjelenik (`$GITHUB_STEP_SUMMARY` az `apps/web/scripts/coverage-summary-md.mjs` segítségével).
-
-## 3. Web e2e tests (Playwright + MSW)
-
-`apps/web/e2e/dashboard.spec.ts` runs against a coverage-instrumented production build served via `vite preview` on `127.0.0.1:7913` (the same loopback port the production web-client uses). MSW intercepts fetch and WebSocket in the browser so the test exercises the real app code with deterministic mock data.
-
-```bash
-cd apps/web
-bun run e2e                 # Playwright + MSW (fast path)
-bun run e2e:full            # Playwright + MSW + nyc coverage report (30-min cap)
-bun run e2e:headed          # headed mode (debug)
-```
-
-The e2e suite enforces **80% lines / 80% branches / 80% functions** on `apps/web/src/**` via `nyc check-coverage` (lowered from the original 95/90/95 baseline after the 80% design target was met). The CI uploads the coverage report and the Playwright HTML report as artifacts, and prints the coverage table to the run summary (`$GITHUB_STEP_SUMMARY`).
+The unit and subprocess reports remain separate. Neither gate ignores owned
+files, branches or counters. The full repository pipeline still fails closed on
+the separate workspace OWN-line gate because only 4/7 packages currently reach
+100%.

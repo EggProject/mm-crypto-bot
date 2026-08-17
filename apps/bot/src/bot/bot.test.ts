@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -20,13 +20,13 @@ import {
 // exports it from `@mm-crypto-bot/exchange`. Tests reach it via the
 // `@exchange-testing/*` path alias (see tsconfig.base.json).
 import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
-import { LiveStatePublisher } from "../state-feed/publisher.js";
-import type { StateFeedHandle } from "../state-feed/index.js";
 
 import { Bot } from "./bot.js";
 import { BotStateSchema, type BotState } from "./state-store.js";
 import { DEFAULT_BOT_CONFIG } from "../config/defaults.js";
 import type { BotConfig } from "../config/schema.js";
+
+const fileSystem = await import("node:fs");
 
 function buildTestConfig(stateFile: string): BotConfig {
   return {
@@ -50,13 +50,13 @@ function buildTestConfig(stateFile: string): BotConfig {
 
 async function reconcileLiveEquity(bot: Bot): Promise<number | null> {
   const internal = bot as unknown as {
-    init(): Promise<void>;
-    reconcileAuthoritativeEquity(): Promise<void>;
+    init(): Promise<unknown>;
+    reconcileAuthoritativeEquity(context: unknown): Promise<void>;
     cleanup(): Promise<void>;
     authoritativeEquityUsd: number | null;
   };
-  await internal.init();
-  await internal.reconcileAuthoritativeEquity();
+  const context = await internal.init();
+  await internal.reconcileAuthoritativeEquity(context);
   const equity = internal.authoritativeEquityUsd;
   await internal.cleanup();
   return equity;
@@ -76,7 +76,7 @@ describe("Bot", () => {
   });
 
   afterEach(() => {
-    if (existsSync(tmpDir)) {
+    if (fileSystem.existsSync(tmpDir)) {
       rmSync(tmpDir, { recursive: true, force: true });
     }
   });
@@ -134,16 +134,15 @@ describe("Bot", () => {
       const config = { ...buildTestConfig(stateFile), bot: { ...buildTestConfig(stateFile).bot, mode: "live" as const } };
       const bot = new Bot({ config, feed: derivativeFeed });
       const internal = bot as unknown as {
-        init(): Promise<void>;
-        runHeartbeat(): Promise<void>;
+        init(): Promise<{ readonly portfolioManager: { isTripped(): boolean } }>;
+        runHeartbeat(context: unknown): Promise<void>;
         cleanup(): Promise<void>;
-        portfolioManager: { isTripped(): boolean };
       };
-      await internal.init();
-      await internal.runHeartbeat(); // establishes the 1,000 USD high-water mark
+      const context = await internal.init();
+      await internal.runHeartbeat(context); // establishes the 1,000 USD high-water mark
       derivativeFeed.setPositions([{ symbol, side: "long", quantity: 1, entryPrice: 100, markPrice: 89, unrealizedPnl: -110, updateTimestamp: Date.now() }]);
-      await internal.runHeartbeat();
-      expect(internal.portfolioManager.isTripped()).toBe(true);
+      await internal.runHeartbeat(context);
+      expect(context.portfolioManager.isTripped()).toBe(true);
       // The trip action is deliberately fire-and-forget from the stop
       // callback; let its authoritative close attempt settle before teardown.
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -163,15 +162,14 @@ describe("Bot", () => {
     await p;
   });
 
-  it("subscribes once to the configured 15m LTF in addition to dashboard timeframes", async () => {
+  it("subscribes once to every configured strategy timeframe and forwards OHLCV events", async () => {
     const config: BotConfig = {
       ...buildTestConfig(stateFile),
       strategies: {
         donchian_pivot_composition: {
           enabled: true,
-          // All three config values deliberately overlap with native/chart
-          // timeframes except LTF. The resulting subscription set must be
-          // ticker + 1h/4h/1d/15m, not duplicate subscriptions.
+          // Native 4h/15m overlap configured values; native 1d remains unique.
+          // The result is ticker + 1h/4h/15m/1d without duplicates.
           timeframes: { htf: "1h", mtf: "4h", ltf: "15m" },
         },
         dydx_cex_carry: { enabled: false },
@@ -184,6 +182,97 @@ describe("Bot", () => {
     const running = bot.start();
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
     expect(feed.subscriptionCount()).toBe(5);
+    feed.pushEvent({
+      kind: "ohlcv",
+      payload: {
+        symbol: asSymbol("BTC/USDC"),
+        timeframe: "15m",
+        candle: [Date.now(), 60_000, 60_100, 59_900, 60_050, 10],
+      },
+    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(bot.getState().version).toBe(1);
+    await bot.stop();
+    await running;
+  });
+
+  it("turns a live feed signal into a paper position through the Bot order boundary", async () => {
+    const config: BotConfig = {
+      ...buildTestConfig(stateFile),
+      risk: { ...DEFAULT_BOT_CONFIG.risk, risk_per_trade: 0.1 },
+      portfolio: {
+        ...DEFAULT_BOT_CONFIG.portfolio,
+        total_risk_per_cycle_usd: 1_000,
+        max_dd_pct: 0.01,
+      },
+      strategies: {
+        donchian_pivot_composition: { enabled: true, min_consensus: 1 },
+        dydx_cex_carry: { enabled: false },
+        cascade_fade: { enabled: false },
+        funding_flip_kill_switch: { enabled: false },
+        regime_detector: { enabled: false },
+      },
+    };
+    const bot = new Bot({
+      config,
+      feed,
+      stateSaveIntervalMs: 10_000,
+      killSwitchEvalIntervalMs: 10,
+      heartbeatIntervalMs: 10,
+    });
+    const running = bot.start();
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    const symbol = asSymbol("BTC/USDC");
+    const baseTimestamp = Date.now() - 200 * 86_400_000;
+    for (let index = 0; index < 30; index += 1) {
+      feed.pushEvent({
+        kind: "ohlcv",
+        payload: {
+          symbol,
+          timeframe: "1d",
+          candle: [baseTimestamp + index * 86_400_000, 100, 110, 90, 100, 100],
+        },
+      });
+    }
+    for (let index = 0; index < 100; index += 1) {
+      feed.pushEvent({
+        kind: "ohlcv",
+        payload: {
+          symbol,
+          timeframe: "15m",
+          candle: [baseTimestamp + 30 * 86_400_000 + index * 900_000, 100, 105, 95, 100, 100],
+        },
+      });
+    }
+    feed.pushEvent({
+      kind: "ohlcv",
+      payload: {
+        symbol,
+        timeframe: "15m",
+        candle: [baseTimestamp + 30 * 86_400_000 + 100 * 900_000, 100, 101, 88, 89, 100],
+      },
+    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+
+    const state = bot.getState();
+    expect(state.counters.placed).toBeGreaterThan(0);
+    expect(state.positions).toHaveLength(1);
+    feed.pushEvent({
+      kind: "ticker",
+      payload: {
+        symbol,
+        timestamp: Date.now(),
+        bid: 0.99,
+        ask: 1.01,
+        last: 1,
+        baseVolume: 100,
+        quoteVolume: 100,
+      },
+    });
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    expect(bot.isKillSwitchEngaged()).toBe(true);
+    expect(bot.getState().positions).toHaveLength(0);
     await bot.stop();
     await running;
   });
@@ -202,28 +291,15 @@ describe("Bot", () => {
     const running = bot.start();
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
     const internals = bot as unknown as {
-      riskManager: unknown;
-      runner: { riskManager: unknown };
-      positionManager: { riskManager: unknown };
+      runtime: {
+        riskManager: unknown;
+        runner: { riskManager: unknown };
+        positionManager: { riskManager: unknown };
+      };
     };
-    expect(internals.riskManager).not.toBeNull();
-    expect(internals.runner.riskManager).toBe(internals.riskManager);
-    expect(internals.positionManager.riskManager).toBe(internals.riskManager);
-    await bot.stop();
-    await running;
-  });
-
-  it("pauses and resumes the engine gate independently of feed subscriptions", async () => {
-    const bot = new Bot({ config: buildTestConfig(stateFile), feed });
-    const running = bot.start();
-    await new Promise<void>((resolve) => setTimeout(resolve, 50));
-    bot.pause();
-    expect(bot.isPaused()).toBe(true);
-    const internals = bot as unknown as { runner: { isPaused(): boolean } };
-    expect(internals.runner.isPaused()).toBe(true);
-    bot.resume();
-    expect(bot.isPaused()).toBe(false);
-    expect(internals.runner.isPaused()).toBe(false);
+    expect(internals.runtime.riskManager).not.toBeNull();
+    expect(internals.runtime.runner.riskManager).toBe(internals.runtime.riskManager);
+    expect(internals.runtime.positionManager.riskManager).toBe(internals.runtime.riskManager);
     await bot.stop();
     await running;
   });
@@ -507,7 +583,7 @@ describe("Bot", () => {
     await new Promise<void>((r) => setTimeout(r, 100));
     await bot.stop();
     await p;
-    expect(existsSync(stateFile)).toBe(true);
+    expect(fileSystem.existsSync(stateFile)).toBe(true);
   });
 
   // ---------------------------------------------------------------------------
@@ -623,43 +699,6 @@ describe("Bot", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 11) snapshotForTelemetry is callable (covers the private function)
-  // ---------------------------------------------------------------------------
-  it("snapshotForTelemetry returns telemetry-shaped snapshot", async () => {
-    const config = buildTestConfig(stateFile);
-    const bot = new Bot({ config, feed });
-    const p = bot.start();
-    await new Promise<void>((r) => setTimeout(r, 100));
-
-    const botAny = bot as unknown as {
-      snapshotForTelemetry: () => {
-        equityUsd: number;
-        initialEquityUsd: number;
-        realizedPnlUsd: number;
-        unrealizedPnlUsd: number;
-        drawdownPct: number;
-        openPositions: number;
-        maxPositions: number;
-        counters: unknown;
-        killSwitchEngaged: boolean;
-        killSwitchReasons: string[];
-        uptime: number;
-        uptimeHuman: string;
-        activeStrategies: string[];
-      };
-    };
-    const snap = botAny.snapshotForTelemetry();
-    expect(snap.equityUsd).toBe(10_000);
-    expect(snap.initialEquityUsd).toBe(10_000);
-    expect(snap.openPositions).toBe(0);
-    expect(snap.maxPositions).toBe(config.risk.max_positions);
-    expect(snap.activeStrategies).toEqual([]);
-
-    await bot.stop();
-    await p;
-  });
-
-  // ---------------------------------------------------------------------------
   // 12) stateSaveInterval callback fires (covers lines 373-375)
   // ---------------------------------------------------------------------------
   it("periodic state-save fires when stateSaveIntervalMs is short", async () => {
@@ -693,8 +732,8 @@ describe("Bot", () => {
     await new Promise<void>((r) => setTimeout(r, 50));
 
     // The state file should have been written by the periodic save.
-    expect(existsSync(stateFile)).toBe(true);
-    const raw = existsSync(stateFile)
+    expect(fileSystem.existsSync(stateFile)).toBe(true);
+    const raw = fileSystem.existsSync(stateFile)
       ? (await import("node:fs")).readFileSync(stateFile, "utf8")
       : "";
     const parsed = JSON.parse(raw) as { version: number };
@@ -722,10 +761,9 @@ describe("Bot", () => {
     // The kill-switch eval ran at least once. The telemetry snapshot
     // should reflect the latest state.
     const botAny = bot as unknown as {
-      telemetry: { setEngaged: (engaged: boolean, reasons: readonly string[]) => void };
-      killSwitches: { getSnapshot: () => { engaged: boolean; reasons: string[] } };
+      runtime: { killSwitches: { getSnapshot: () => { engaged: boolean; reasons: string[] } } };
     };
-    const snap = botAny.killSwitches.getSnapshot();
+    const snap = botAny.runtime.killSwitches.getSnapshot();
     expect(snap).toBeDefined();
     expect(typeof snap.engaged).toBe("boolean");
 
@@ -834,7 +872,7 @@ describe("Bot", () => {
 
     // The metrics log file should exist (emitMetrics writes to it).
     const logFile = join(stateFile + ".logs", `bot-${new Date().toISOString().slice(0, 10)}.log`);
-    expect(existsSync(logFile)).toBe(true);
+    expect(fileSystem.existsSync(logFile)).toBe(true);
 
     await bot.stop();
     await p;
@@ -875,126 +913,6 @@ describe("Bot", () => {
     // No assertion on specific behavior (all strategies disabled);
     // this test exists to cover the subscription callback code path.
     expect(bot.getState().equityUsd).toBeGreaterThan(0);
-
-    await bot.stop();
-    await p;
-  });
-
-  // ---------------------------------------------------------------------------
-  // 18b) Phase 66: OHLCV events with a stateFeed attached trigger
-  //      `stateFeed.publisher.publishBar(...)` so the web client chart
-  //      grid receives the bars. Covers bot.ts:646-670.
-  // ---------------------------------------------------------------------------
-  it("OHLCV events propagate to the attached stateFeed.publisher.publishBar", async () => {
-    const config = buildTestConfig(stateFile);
-    const bot = new Bot({
-      config,
-      feed,
-      stateSaveIntervalMs: 10_000,
-      killSwitchEvalIntervalMs: 10_000,
-      heartbeatIntervalMs: 10_000,
-    });
-
-    // A Phase 66 stateFeed-attach path-ot fedjük le: a Bot.attachStateFeed
-    // public method egy `StateFeedHandle`-t vár, aminek van `publisher` mezője.
-    // Egy valódi `LiveStatePublisher` példányt használunk, és az
-    // `addEventListener` callback-jében rögzítjük a publishBar hívásokat.
-    const publisher = new LiveStatePublisher({
-      bot,
-      enabledSymbols: ["BTC/USDC"],
-      initialEquityUsdt: 10_000,
-      strategies: [],
-    });
-    await publisher.start();
-    const stateFeed: StateFeedHandle = {
-      close: async () => {
-        await publisher.dispose();
-      },
-      get port(): number {
-        return 0;
-      },
-      get clientCount(): number {
-        return 0;
-      },
-      publisher,
-    };
-    bot.attachStateFeed(stateFeed);
-
-    const barEvents: { symbol: string; timeframe: string; close: number }[] = [];
-    publisher.addEventListener((event) => {
-      if (event.type === "bar") {
-        barEvents.push({
-          symbol: event.symbol,
-          timeframe: event.timeframe,
-          close: event.ohlc.close,
-        });
-      }
-    });
-
-    const p = bot.start();
-    await new Promise<void>((r) => setTimeout(r, 50));
-
-    // Push an OHLCV event into the mock feed (CCXT-format tuple).
-    const now = Date.now();
-    feed.pushEvent({
-      kind: "ohlcv",
-      payload: {
-        symbol: asSymbol("BTC/USDC") as unknown as ExchangeSymbol,
-        timeframe: "1h",
-        candle: [now, 60_000, 60_100, 59_900, 60_050, 12.345],
-      },
-    });
-    await new Promise<void>((r) => setTimeout(r, 50));
-
-    // The bar event MUST reach the publisher.
-    expect(barEvents.length).toBe(1);
-    expect(barEvents[0]?.symbol).toBe("BTC/USDC");
-    expect(barEvents[0]?.timeframe).toBe("1h");
-    expect(barEvents[0]?.close).toBe(60_050);
-
-    await bot.stop();
-    await p;
-    await stateFeed.close();
-  });
-
-  // ---------------------------------------------------------------------------
-  // 19) notifyStateListeners — throwing listener does NOT stop the other
-  //     listeners (covers the catch block at line 326).
-  // ---------------------------------------------------------------------------
-  it("notifyStateListeners continues when a listener throws", async () => {
-    const config = buildTestConfig(stateFile);
-    const bot = new Bot({ config, feed });
-
-    // A throw-ot dobó listener, és egy "jó" listener, ami bizonyítja,
-    // hogy a másik listener kivétele nem állítja le a notify-t.
-    let goodListenerCalls = 0;
-    let badListenerCalls = 0;
-    const unsubGood = bot.subscribe(() => {
-      goodListenerCalls++;
-    });
-    bot.subscribe(() => {
-      badListenerCalls++;
-      throw new Error("intentional listener failure");
-    });
-
-    const p = bot.start();
-    await new Promise<void>((r) => setTimeout(r, 50));
-
-    // A getState() hívja a notifyStateListeners-t.
-    bot.getState();
-
-    // Mindkét listener meg lett hívva — a throw-ot dobó listener
-    // kivételét a notifyStateListeners catch-e elnyeli.
-    expect(goodListenerCalls).toBeGreaterThan(0);
-    expect(badListenerCalls).toBeGreaterThan(0);
-
-    // Exercise the unsubscribe closure returned by subscribe() — bun's
-    // lcov FNF count treats the inner () => {...} as a separate function.
-    // Calling it once should make the "active = false" branch execute.
-    // Idempotency: calling unsubscribe twice should be a no-op (the
-    // inner `if (!active) return;` early-return branch).
-    unsubGood();
-    unsubGood();
 
     await bot.stop();
     await p;
