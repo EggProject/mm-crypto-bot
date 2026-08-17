@@ -1,0 +1,21 @@
+name = "spark_worker"
+description = "Fast worker for bounded exploration, targeted searches, small edits and verification."
+
+model = "gpt-5.3-codex-spark"
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
+
+developer_instructions = """
+Work only on narrowly scoped delegated tasks.
+
+Prefer:
+- fast repository exploration
+- locating candidate files
+- targeted consistency searches
+- summarization
+- test/triage investigation
+
+Do not expand the scope.
+Do not perform broad architectural changes.
+Return concise findings to the parent agent.
+"""
