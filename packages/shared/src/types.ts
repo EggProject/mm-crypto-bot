@@ -139,7 +139,7 @@ export interface ExchangeFeed {
   readonly id: string;
   readonly name: string;
 
-  // Publikus piaci adatok
+  // eslint-disable-next-line unicorn/consistent-boolean-name -- `reload` is the established public ExchangeFeed parameter name.
   loadMarkets(reload?: boolean): Promise<Record<string, Market>>;
   fetchTicker(symbol: string): Promise<Ticker>;
   fetchOrderBook(symbol: string, limit?: number): Promise<OrderBook>;
@@ -149,13 +149,13 @@ export interface ExchangeFeed {
   // CCXT Pro WebSocket stream-ek (a watch* metodusok opcionalisak —
   // egy paper-emulator visszaadhat egy soha-nem-resolve Promise-t is,
   // mert a feed nem valos ideju).
-  watchOrderBook?(symbol: string, limit: number, opts?: WatchOptions): Promise<OrderBook>;
-  watchTicker?(symbol: string, opts?: WatchOptions): Promise<Ticker>;
-  watchTrades?(symbol: string, opts?: WatchOptions): Promise<CcxtTrade[]>;
-  watchOHLCV?(symbol: string, timeframe: string, opts?: WatchOptions): Promise<OHLCV[]>;
-  watchOrders?(symbol: string, opts?: WatchOptions): Promise<Order[]>;
-  watchBalance?(opts?: WatchOptions): Promise<Balances>;
-  watchPositions?(symbols?: readonly string[], opts?: WatchOptions): Promise<unknown[]>;
+  watchOrderBook?(symbol: string, limit: number, options?: WatchOptions): Promise<OrderBook>;
+  watchTicker?(symbol: string, options?: WatchOptions): Promise<Ticker>;
+  watchTrades?(symbol: string, options?: WatchOptions): Promise<CcxtTrade[]>;
+  watchOHLCV?(symbol: string, timeframe: string, options?: WatchOptions): Promise<OHLCV[]>;
+  watchOrders?(symbol: string, options?: WatchOptions): Promise<Order[]>;
+  watchBalance?(options?: WatchOptions): Promise<Balances>;
+  watchPositions?(symbols?: readonly string[], options?: WatchOptions): Promise<unknown[]>;
 
   // Privat (auth szukseges)
   fetchBalance(): Promise<Balances>;
@@ -165,7 +165,7 @@ export interface ExchangeFeed {
     side: "buy" | "sell",
     amount: number,
     price?: number,
-    params?: Record<string, unknown>,
+    parameters?: Record<string, unknown>,
   ): Promise<Order>;
   cancelOrder(id: string, symbol?: string): Promise<Order>;
 }

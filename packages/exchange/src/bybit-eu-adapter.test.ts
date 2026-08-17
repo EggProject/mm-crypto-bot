@@ -251,7 +251,7 @@ describe("BybitEuAdapter — load* / fetch* delegation", () => {
     expect(r).toEqual({ __mock: true, reload: false });
   });
 
-  it("loadMarkets(true) a reload flag-et továbbítja", async () => {
+  it("forwards the reload flag", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
     const r = await adapter.loadMarkets(true);
     expect(r).toEqual({ __mock: true, reload: true });

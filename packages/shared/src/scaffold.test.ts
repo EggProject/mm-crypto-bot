@@ -5,10 +5,12 @@
  * ez a placeholder azért maradt, hogy a `bun run test` a Phase 3 PR előtt
  * is zöld legyen minden package-ben.
  */
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import "./index.js";
 
-describe(`${process.cwd().split("/").pop()} scaffold`, () => {
+const packageDirectoryName = process.cwd().split("/").at(-1) ?? "shared";
+
+describe(`${packageDirectoryName} scaffold`, () => {
   it("loads", () => {
     expect(1 + 1).toBe(2);
   });

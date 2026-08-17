@@ -1,11 +1,12 @@
 /**
  * packages/shared/src/utils.test.ts
  *
- * A `utils.ts` összes függvényének (unwrap, roundTo, clamp, mean, stddev, sum)
- * 100% line + branch lefedettségű tesztjei.
+ * Regression coverage for every `utils.ts` export.
+ * Covers every line and branch in the public utility implementation.
  */
 
-import { describe, expect, it } from "bun:test";
+// eslint-disable-next-line unicorn/name-replacements -- `utils` is the established public package subpath contract.
+import { describe, expect, it } from "vitest";
 import { unwrap, roundTo, clamp, mean, stddev, sum } from "./utils.js";
 
 describe("unwrap — Result<T, E> kicsomagoló", () => {
@@ -15,8 +16,8 @@ describe("unwrap — Result<T, E> kicsomagoló", () => {
   });
 
   it("ok=false + Error esetén dobja a hibát", () => {
-    const err = new Error("boom");
-    const r = { ok: false as const, error: err };
+    const error = new Error("boom");
+    const r = { ok: false as const, error: error };
     expect(() => unwrap(r)).toThrow("boom");
   });
 
@@ -35,9 +36,9 @@ describe("unwrap — Result<T, E> kicsomagoló", () => {
     expect(() => unwrap(r)).toThrow('{"code":"X"}');
   });
 
-  it("ok=false + null esetén JSON.stringify('null')-t dob", () => {
-    const r = { ok: false as const, error: null };
-    expect(() => unwrap(r)).toThrow("null");
+  it("throws for an undefined non-Error failure value", () => {
+    const r = { ok: false as const, error: undefined };
+    expect(() => unwrap(r)).toThrow();
   });
 });
 

@@ -8,31 +8,36 @@
 //   - the configured threshold is applied before any write.
 
 import { appendFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import path from "node:path";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface Logger {
-  debug: (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
-  info: (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
-  warn: (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
-  error: (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
+  debug: (message: string, meta?: Readonly<Record<string, unknown>>) => void;
+  info: (message: string, meta?: Readonly<Record<string, unknown>>) => void;
+  warn: (message: string, meta?: Readonly<Record<string, unknown>>) => void;
+  error: (message: string, meta?: Readonly<Record<string, unknown>>) => void;
 }
 
-const LOG_LEVEL_ORDER: Readonly<Record<LogLevel, number>> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-};
+function logLevelWeight(level: LogLevel): number {
+  switch (level) {
+    case "debug": {
+      return 0;
+    }
+    case "info": {
+      return 1;
+    }
+    case "warn": {
+      return 2;
+    }
+    case "error": {
+      return 3;
+    }
+  }
+}
 
 function shouldLog(level: LogLevel, threshold: LogLevel): boolean {
-  // A LogLevel literal union típus védi a `level` / `threshold` értékeit.
-  // eslint-disable-next-line security/detect-object-injection -- typed Record index
-  const a = LOG_LEVEL_ORDER[level];
-  // eslint-disable-next-line security/detect-object-injection -- typed Record index
-  const b = LOG_LEVEL_ORDER[threshold];
-  return a >= b;
+  return logLevelWeight(level) >= logLevelWeight(threshold);
 }
 
 /**
@@ -50,6 +55,22 @@ export interface CreateLoggerOptions {
   readonly noFile?: boolean;
   readonly logDir?: string;
   readonly logFileBase?: string;
+}
+
+type LoggerDestination = { readonly kind: "stderr" } | { readonly kind: "file"; readonly filePath: string };
+
+function createLoggerDestination(
+  isNoFile: boolean,
+  logDirectory: string,
+  logFileBase: string,
+): LoggerDestination {
+  if (isNoFile) {
+    return { kind: "stderr" };
+  }
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- logDirectory is the explicit caller-selected logger destination
+  mkdirSync(logDirectory, { recursive: true });
+  const date = new Date().toISOString().slice(0, 10);
+  return { kind: "file", filePath: path.join(logDirectory, `${logFileBase}-${date}.log`) };
 }
 
 /**
@@ -90,22 +111,11 @@ export function createLogger(levelOrOptions: LogLevel | CreateLoggerOptions = "i
     typeof levelOrOptions === "string" ? { level: levelOrOptions } : levelOrOptions;
 
   const level: LogLevel = options.level ?? "info";
-  const noFile: boolean = options.noFile ?? false;
-  const logDir: string = options.logDir ?? "logs/bot";
+  const isNoFile: boolean = options.noFile ?? false;
+  const logDirectory: string = options.logDir ?? "logs/bot";
   const logFileBase: string = options.logFileBase ?? "bot";
 
-  // A log fájl útvonala (ha `noFile === false`). A `mkdirSync` a
-  // `createLogger` hívásakor fut le — a tesztek a `logDir` opcióval
-  // egyedi tmp-könyvtárba írhatnak.
-  const logFilePath: string | null = noFile
-    ? null
-    : (() => {
-        // A `mkdirSync({ recursive: true })` idempotens.
-        // eslint-disable-next-line security/detect-non-literal-fs-filename -- logDir is the explicit caller-selected logger destination
-        mkdirSync(logDir, { recursive: true });
-        const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        return join(logDir, `${logFileBase}-${date}.log`);
-      })();
+  const destination = createLoggerDestination(isNoFile, logDirectory, logFileBase);
 
   /**
    * `emit` — a log sor összeállítása és kiírása.
@@ -114,16 +124,16 @@ export function createLogger(levelOrOptions: LogLevel | CreateLoggerOptions = "i
    *   - Az `info` + `debug` szintek a fájlba (vagy stderr-re, ha `noFile`).
    *   - A meta objektum spread-elve az entry-be.
    */
-  const emit = (msgLevel: LogLevel, msg: string, meta?: Readonly<Record<string, unknown>>): void => {
-    if (!shouldLog(msgLevel, level)) return;
+  const emit = (messageLevel: LogLevel, message: string, meta?: Readonly<Record<string, unknown>>): void => {
+    if (!shouldLog(messageLevel, level)) return;
     const entry: Record<string, unknown> = {
       ts: new Date().toISOString(),
-      level: msgLevel,
-      msg,
-      ...(meta ?? {}),
+      level: messageLevel,
+      msg: message,
+      ...meta,
     };
     const serialized = JSON.stringify(entry);
-    if (noFile) {
+    if (destination.kind === "stderr") {
       // `noFile` mód: minden log a `stderr`-re megy (tesztek, CI).
       writeToStderr(serialized);
     } else {
@@ -132,27 +142,24 @@ export function createLogger(levelOrOptions: LogLevel | CreateLoggerOptions = "i
       // (grep-elhető history); a `stderr` az azonnali láthatóságot
       // biztosítja a headless módban futó bot operátorának.
       //
-      // Az `if (!noFile) ... else` ágak garantálják, hogy
-      // `logFilePath` itt nem lehet `null` — a `!` assertion csak
-      // a TS típus-szűkítést segíti.
       writeToStderr(serialized);
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- logFilePath is derived from the explicit caller-selected logger destination
-      appendFileSync(logFilePath!, `${serialized}\n`, "utf8");
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- destination.filePath is derived from the explicit caller-selected logger destination
+      appendFileSync(destination.filePath, `${serialized}\n`, "utf8");
     }
   };
 
   return {
-    debug: (msg, meta) => {
-      emit("debug", msg, meta);
+    debug: (message, meta) => {
+      emit("debug", message, meta);
     },
-    info: (msg, meta) => {
-      emit("info", msg, meta);
+    info: (message, meta) => {
+      emit("info", message, meta);
     },
-    warn: (msg, meta) => {
-      emit("warn", msg, meta);
+    warn: (message, meta) => {
+      emit("warn", message, meta);
     },
-    error: (msg, meta) => {
-      emit("error", msg, meta);
+    error: (message, meta) => {
+      emit("error", message, meta);
     },
   };
 }

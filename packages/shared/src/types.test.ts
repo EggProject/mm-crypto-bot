@@ -6,7 +6,7 @@
  * függvények futtatható kódot tartalmaznak — ezeket kell lefedni.
  */
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { makeSymbol, asExchangeFeed } from "./types.js";
 import type { Brand, Result, Side, Timeframe, Candle, Trade, ExitReason, ExchangeFeed } from "./types.js";
 import type { Exchange } from "ccxt";
@@ -15,19 +15,19 @@ describe("makeSymbol — Symbol brand konstruktor", () => {
   it("a string-et Symbol branded típussá alakítja", () => {
     const sym = makeSymbol("BTC/USDC");
     // Type-szinten Symbol, runtime-on string.
-    expect(sym as string).toBe("BTC/USDC");
+    expect(sym).toBe("BTC/USDC");
     expect(typeof sym).toBe("string");
   });
 
   it("különböző string-ek különböző Symbol-okká alakulnak", () => {
     const a = makeSymbol("BTC/USDC");
     const b = makeSymbol("ETH/USDC");
-    expect(a as string).not.toBe(b as string);
+    expect(a).not.toBe(b);
   });
 
   it("üres string is valid Symbol (a brand csak type-szinten)", () => {
     const sym = makeSymbol("");
-    expect(sym as string).toBe("");
+    expect(sym).toBe("");
   });
 });
 
@@ -65,16 +65,12 @@ describe("Brand típus — type-szintű ellenőrzés (compile-time)", () => {
 describe("Result típus — discriminated union típusellenőrzés (compile-time)", () => {
   it("egy ok=true Result értéke kiolvasható", () => {
     const r: Result<number> = { ok: true, value: 42 };
-    if (r.ok) {
-      expect(r.value).toBe(42);
-    }
+    expect(r.value).toBe(42);
   });
 
   it("egy ok=false Result hibája kiolvasható", () => {
     const r: Result<number, string> = { ok: false, error: "boom" };
-    if (!r.ok) {
-      expect(r.error).toBe("boom");
-    }
+    expect(r.error).toBe("boom");
   });
 });
 
@@ -119,7 +115,7 @@ describe("Candle és Trade típusok — type-szintű ellenőrzés", () => {
       pnlUsd: 10,
       pnlPct: 10,
       feesUsd: 0.1,
-      exitReason: "take_profit" as ExitReason,
+      exitReason: "take_profit",
     };
     expect(t.pnlUsd).toBe(10);
   });

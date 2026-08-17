@@ -44,21 +44,43 @@ export interface BacktestAppConfig {
 }
 
 export interface StrategyConfig {
-  /** HTF (Higher Time Frame) — a trend-szűrő időkerete. */
+  /**
+  HTF (Higher Time Frame) — a trend-szűrő időkerete.
+  */
   readonly htfTimeframe: Timeframe;
-  /** MTF (Medium Time Frame) — a setup-kereső időkerete. */
+  /**
+  MTF (Medium Time Frame) — a setup-kereső időkerete.
+  */
   readonly mtfTimeframe: Timeframe;
-  /** LTF (Lower Time Frame) — a trigger-időkeret. */
+  /**
+  LTF (Lower Time Frame) — a trigger-időkeret.
+  */
   readonly ltfTimeframe: Timeframe;
 }
 
 export interface BacktestRiskConfig {
-  /** Kockázat / trade az equity %-ában (alap: 0.01 = 1%). */
+  /**
+  Kockázat / trade az equity %-ában (alap: 0.01 = 1%).
+  */
   readonly riskPerTrade: number;
-  /** Kelly-frakció (alap: 0.25 = 1/4-Kelly). */
+  /**
+  Kelly-frakció (alap: 0.25 = 1/4-Kelly).
+  */
   readonly kellyFraction: number;
-  /** Maximális drawdown, ami felett a kill-switch leáll (alap: 0.15). */
+  /**
+  Maximális drawdown, ami felett a kill-switch leáll (alap: 0.15).
+  */
   readonly maxDrawdown: number;
+}
+
+function parseDecimalPrefixInteger(environmentValue: string): number {
+  // eslint-disable-next-line unicorn/prefer-number-coercion -- The decimal-prefix compatibility contract accepts values such as "250ms".
+  return Number.parseInt(environmentValue, 10);
+}
+
+function parseDecimalPrefixDecimal(environmentValue: string): number {
+  // eslint-disable-next-line unicorn/prefer-number-coercion -- The decimal-prefix compatibility contract accepts values such as "0.02risk".
+  return Number.parseFloat(environmentValue);
 }
 
 export function loadConfig(): BacktestAppConfig {
@@ -67,16 +89,16 @@ export function loadConfig(): BacktestAppConfig {
   return {
     env: process.env["BUN_ENV"] === "live" ? "live" : "paper",
     logLevel: (process.env["LOG_LEVEL"] ?? "info") as BacktestAppConfig["logLevel"],
-    ccxtRateLimitMs: Number.parseInt(process.env["CCXT_RATE_LIMIT_MS"] ?? "100", 10),
+    ccxtRateLimitMs: parseDecimalPrefixInteger(process.env["CCXT_RATE_LIMIT_MS"] ?? "100"),
     strategy: {
       htfTimeframe: (process.env["STRATEGY_HTF_TIMEFRAME"] ?? "1d") as Timeframe,
       mtfTimeframe: (process.env["STRATEGY_MTF_TIMEFRAME"] ?? "4h") as Timeframe,
       ltfTimeframe: (process.env["STRATEGY_LTF_TIMEFRAME"] ?? "1h") as Timeframe,
     },
     risk: {
-      riskPerTrade: Number.parseFloat(process.env["STRATEGY_RISK_PER_TRADE"] ?? "0.01"),
-      kellyFraction: Number.parseFloat(process.env["STRATEGY_KELLY_FRACTION"] ?? "0.25"),
-      maxDrawdown: Number.parseFloat(process.env["STRATEGY_MAX_DRAWDOWN"] ?? "0.15"),
+      riskPerTrade: parseDecimalPrefixDecimal(process.env["STRATEGY_RISK_PER_TRADE"] ?? "0.01"),
+      kellyFraction: parseDecimalPrefixDecimal(process.env["STRATEGY_KELLY_FRACTION"] ?? "0.25"),
+      maxDrawdown: parseDecimalPrefixDecimal(process.env["STRATEGY_MAX_DRAWDOWN"] ?? "0.15"),
     },
   };
 }
@@ -93,16 +115,26 @@ import { z } from "zod";
  * 0.02%/nap borrow rate), de bármelyik exchange-re felülírható.
  */
 export const ExchangeFeeConfigSchema = z.object({
-  /** Spot taker fee, decimals (pl. 0.001 = 0.1%) */
+  /**
+  Spot taker fee, decimals (pl. 0.001 = 0.1%)
+  */
   spotTakerFee: z.number().min(0).max(0.1).default(0.001),
-  /** Spot maker fee */
+  /**
+  Spot maker fee
+  */
   spotMakerFee: z.number().min(0).max(0.1).default(0.001),
-  /** Margin borrow rate, per-day decimal (pl. 0.0002 = 0.02%/nap) */
+  /**
+  Margin borrow rate, per-day decimal (pl. 0.0002 = 0.02%/nap)
+  */
   borrowRatePerDay: z.number().min(0).max(0.1).default(0.0002),
-  /** Liquidation fee (fee pool), decimal */
+  /**
+  Liquidation fee (fee pool), decimal
+  */
   liquidationFee: z.number().min(0).max(0.1).default(0.02),
-  /** Maintenance margin ratio (%), liquidation trigger */
-  maintenanceMarginRatio: z.number().min(0.01).max(1).default(1.0),
+  /**
+  Maintenance margin ratio (%), liquidation trigger
+  */
+  maintenanceMarginRatio: z.number().min(0.01).max(1).default(1),
 });
 export type ExchangeFeeConfig = z.infer<typeof ExchangeFeeConfigSchema>;
 
@@ -115,15 +147,25 @@ export type ExchangeFeeConfig = z.infer<typeof ExchangeFeeConfigSchema>;
  *   - max 10× spot margin (bybit.eu constraint)
  */
 export const RiskConfigSchema = z.object({
-  /** Risk per trade (% of equity) */
+  /**
+  Risk per trade (% of equity)
+  */
   riskPerTrade: z.number().min(0.001).max(0.05).default(0.01),
-  /** Kelly fraction (1/4 = quarter-Kelly) */
+  /**
+  Kelly fraction (1/4 = quarter-Kelly)
+  */
   kellyFraction: z.number().min(0.05).max(1).default(0.25),
-  /** Max drawdown % — kill-switch trigger */
+  /**
+  Max drawdown % — kill-switch trigger
+  */
   maxDrawdownPct: z.number().min(0.01).max(0.5).default(0.15),
-  /** Max concurrent positions */
+  /**
+  Max concurrent positions
+  */
   maxPositions: z.number().int().min(1).max(20).default(3),
-  /** Max leverage — bybit.eu constraint: max 10× */
+  /**
+  Max leverage — bybit.eu constraint: max 10×
+  */
   maxLeverage: z.number().int().min(1).max(10).default(3),
 });
 export type RiskConfig = z.infer<typeof RiskConfigSchema>;
@@ -158,10 +200,14 @@ export const AppConfigSchema = z.object({
   risk: RiskConfigSchema.default({}),
   portfolio: PortfolioConfigSchema.default({}),
 
-  /** Trading symbol-ok (CCXT unified formátumban) */
+  /**
+  Trading symbol-ok (CCXT unified formátumban)
+  */
   symbols: z.array(z.string()).default(["BTC/USDC", "ETH/USDC", "SOL/USDC"]),
 
-  /** Log szint */
+  /**
+  Log szint
+  */
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
 });
 export type AppConfig = z.infer<typeof AppConfigSchema>;
@@ -171,15 +217,17 @@ export type AppConfig = z.infer<typeof AppConfigSchema>;
  * A teljes validáció a Zod-on fut — így a konfigurációs hibák
  * fordítási idő helyett induláskor jönnek elő, de erősen típusosak.
  */
-export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+export function loadAppConfig(environment: NodeJS.ProcessEnv = process.env): AppConfig {
   return AppConfigSchema.parse({
-    mode: env["MODE"] ?? "paper",
-    exchange: env["EXCHANGE"] ?? "bybiteu",
+    mode: environment["MODE"] ?? "paper",
+    exchange: environment["EXCHANGE"] ?? "bybiteu",
     fee: {
-      spotTakerFee: env["SPOT_TAKER_FEE"] ? Number(env["SPOT_TAKER_FEE"]) : undefined,
-      spotMakerFee: env["SPOT_MAKER_FEE"] ? Number(env["SPOT_MAKER_FEE"]) : undefined,
-      borrowRatePerDay: env["BORROW_RATE_PER_DAY"] ? Number(env["BORROW_RATE_PER_DAY"]) : undefined,
+      spotTakerFee: environment["SPOT_TAKER_FEE"] ? Number(environment["SPOT_TAKER_FEE"]) : undefined,
+      spotMakerFee: environment["SPOT_MAKER_FEE"] ? Number(environment["SPOT_MAKER_FEE"]) : undefined,
+      borrowRatePerDay: environment["BORROW_RATE_PER_DAY"]
+        ? Number(environment["BORROW_RATE_PER_DAY"])
+        : undefined,
     },
-    logLevel: env["LOG_LEVEL"] ?? "info",
+    logLevel: environment["LOG_LEVEL"] ?? "info",
   });
 }

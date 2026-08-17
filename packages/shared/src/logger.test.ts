@@ -6,10 +6,10 @@
  * accepted entries only to stderr. Stdout never receives log entries.
  */
 
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import path from "node:path";
 import { createLogger } from "./logger.js";
 import type { Logger } from "./logger.js";
 
@@ -31,41 +31,55 @@ function isTestDirectory(path: string): boolean {
  *
  * The returned `restore` function removes the spy during `afterEach`.
  */
-function spyOnStderr(): { spy: ReturnType<typeof spyOn>; restore: () => void } {
-  // A `process.stderr.write` alapértelmezetten true-t ad vissza (a
-  // sikeres írás jele). A spy-nak ezt a signatúrát kell tartania.
-  const orig = process.stderr.write.bind(process.stderr);
-  const spy = spyOn(process.stderr, "write").mockImplementation((() => true) as never);
+interface StderrCapture {
+  readonly entries: readonly string[];
+  restore: () => void;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function firstStructuredEntry(capture: StderrCapture): Readonly<Record<string, unknown>> {
+  const serialized = capture.entries.at(0);
+  if (serialized === undefined) {
+    throw new Error("Expected the logger to write one stderr entry.");
+  }
+  const parsed: unknown = JSON.parse(serialized.trim());
+  if (!isRecord(parsed)) {
+    throw new Error("Expected a JSON object logger entry.");
+  }
+  return parsed;
+}
+
+function captureStderr(): StderrCapture {
+  const entries: string[] = [];
+  const spy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    entries.push(String(chunk));
+    return true;
+  });
   return {
-    spy,
+    entries,
     restore: () => {
       spy.mockRestore();
-      // A spy eltávolítása után visszaállítjuk az eredeti write-ot,
-      // hogy a többi teszt (és a teardown) a normál `process.stderr`
-      // viselkedést lássa.
-      process.stderr.write = orig;
     },
   };
 }
 
 describe("createLogger — default level='info', noFile=true (test mode)", () => {
-  let stderrSpy: ReturnType<typeof spyOnStderr>["spy"];
-  let restoreStderr: () => void;
+  let stderrCapture: StderrCapture;
   beforeEach(() => {
-    const s = spyOnStderr();
-    stderrSpy = s.spy;
-    restoreStderr = s.restore;
+    stderrCapture = captureStderr();
   });
   afterEach(() => {
-    restoreStderr();
+    stderrCapture.restore();
   });
 
   it("az info() logol a stderr-re", () => {
     const log = createLogger({ level: "info", noFile: true });
     log.info("hello");
-    expect(stderrSpy).toHaveBeenCalledTimes(1);
-    const call = stderrSpy.mock.calls[0]!;
-    const entry = JSON.parse((call[0] as string).trim()) as Record<string, unknown>;
+    expect(stderrCapture.entries).toHaveLength(1);
+    const entry = firstStructuredEntry(stderrCapture);
     expect(entry["msg"]).toBe("hello");
     expect(entry["level"]).toBe("info");
     expect(typeof entry["ts"]).toBe("string");
@@ -74,57 +88,57 @@ describe("createLogger — default level='info', noFile=true (test mode)", () =>
   it("a debug() NEM logol info threshold-nál", () => {
     const log = createLogger({ level: "info", noFile: true });
     log.debug("debug-msg");
-    expect(stderrSpy).not.toHaveBeenCalled();
+    expect(stderrCapture.entries).toHaveLength(0);
   });
 
   it("a warn() logol info threshold-nál", () => {
     const log = createLogger({ level: "info", noFile: true });
     log.warn("warn-msg");
-    expect(stderrSpy).toHaveBeenCalledTimes(1);
-    const call = stderrSpy.mock.calls[0]!;
-    const entry = JSON.parse((call[0] as string).trim()) as Record<string, unknown>;
+    expect(stderrCapture.entries).toHaveLength(1);
+    const entry = firstStructuredEntry(stderrCapture);
     expect(entry["level"]).toBe("warn");
   });
 
   it("az error() logol info threshold-nál", () => {
     const log = createLogger({ level: "info", noFile: true });
     log.error("error-msg");
-    expect(stderrSpy).toHaveBeenCalledTimes(1);
-    const call = stderrSpy.mock.calls[0]!;
-    const entry = JSON.parse((call[0] as string).trim()) as Record<string, unknown>;
+    expect(stderrCapture.entries).toHaveLength(1);
+    const entry = firstStructuredEntry(stderrCapture);
     expect(entry["level"]).toBe("error");
+  });
+
+  it("applies the default level to an options object", () => {
+    const log = createLogger({ noFile: true });
+    log.info("default-level");
+    expect(stderrCapture.entries).toHaveLength(1);
   });
 });
 
 describe("createLogger — level='debug' (mindent logol), noFile=true", () => {
-  let stderrSpy: ReturnType<typeof spyOnStderr>["spy"];
-  let restoreStderr: () => void;
+  let stderrCapture: StderrCapture;
   beforeEach(() => {
-    const s = spyOnStderr();
-    stderrSpy = s.spy;
-    restoreStderr = s.restore;
+    stderrCapture = captureStderr();
   });
   afterEach(() => {
-    restoreStderr();
+    stderrCapture.restore();
   });
 
   it("a debug() logol", () => {
     const log = createLogger({ level: "debug", noFile: true });
     log.debug("d");
-    expect(stderrSpy).toHaveBeenCalled();
+    expect(stderrCapture.entries).not.toHaveLength(0);
   });
 
   it("az info() logol", () => {
     const log = createLogger({ level: "debug", noFile: true });
     log.info("i");
-    expect(stderrSpy).toHaveBeenCalled();
+    expect(stderrCapture.entries).not.toHaveLength(0);
   });
 
   it("a meta objektum belekerül az entry-be", () => {
     const log = createLogger({ level: "debug", noFile: true });
     log.info("i", { foo: "bar", n: 42 });
-    const call = stderrSpy.mock.calls[0]!;
-    const entry = JSON.parse((call[0] as string).trim()) as Record<string, unknown>;
+    const entry = firstStructuredEntry(stderrCapture);
     expect(entry["foo"]).toBe("bar");
     expect(entry["n"]).toBe(42);
   });
@@ -132,59 +146,52 @@ describe("createLogger — level='debug' (mindent logol), noFile=true", () => {
   it("a meta nélküli hívás is működik (undefined meta)", () => {
     const log = createLogger({ level: "debug", noFile: true });
     log.info("i");
-    const call = stderrSpy.mock.calls[0]!;
-    const entry = JSON.parse((call[0] as string).trim()) as Record<string, unknown>;
+    const entry = firstStructuredEntry(stderrCapture);
     expect(entry["msg"]).toBe("i");
   });
 });
 
 describe("createLogger — level='warn' (csak warn+), noFile=true", () => {
-  let stderrSpy: ReturnType<typeof spyOnStderr>["spy"];
-  let restoreStderr: () => void;
+  let stderrCapture: StderrCapture;
   beforeEach(() => {
-    const s = spyOnStderr();
-    stderrSpy = s.spy;
-    restoreStderr = s.restore;
+    stderrCapture = captureStderr();
   });
   afterEach(() => {
-    restoreStderr();
+    stderrCapture.restore();
   });
 
   it("a debug() NEM logol", () => {
     const log = createLogger({ level: "warn", noFile: true });
     log.debug("d");
-    expect(stderrSpy).not.toHaveBeenCalled();
+    expect(stderrCapture.entries).toHaveLength(0);
   });
 
   it("az info() NEM logol", () => {
     const log = createLogger({ level: "warn", noFile: true });
     log.info("i");
-    expect(stderrSpy).not.toHaveBeenCalled();
+    expect(stderrCapture.entries).toHaveLength(0);
   });
 
   it("a warn() logol", () => {
     const log = createLogger({ level: "warn", noFile: true });
     log.warn("w");
-    expect(stderrSpy).toHaveBeenCalled();
+    expect(stderrCapture.entries).not.toHaveLength(0);
   });
 
   it("az error() logol", () => {
     const log = createLogger({ level: "warn", noFile: true });
     log.error("e");
-    expect(stderrSpy).toHaveBeenCalled();
+    expect(stderrCapture.entries).not.toHaveLength(0);
   });
 });
 
 describe("createLogger — level='error' (csak error), noFile=true", () => {
-  let stderrSpy: ReturnType<typeof spyOnStderr>["spy"];
-  let restoreStderr: () => void;
+  let stderrCapture: StderrCapture;
   beforeEach(() => {
-    const s = spyOnStderr();
-    stderrSpy = s.spy;
-    restoreStderr = s.restore;
+    stderrCapture = captureStderr();
   });
   afterEach(() => {
-    restoreStderr();
+    stderrCapture.restore();
   });
 
   it("a debug/info/warn NEM logol", () => {
@@ -192,13 +199,13 @@ describe("createLogger — level='error' (csak error), noFile=true", () => {
     log.debug("d");
     log.info("i");
     log.warn("w");
-    expect(stderrSpy).not.toHaveBeenCalled();
+    expect(stderrCapture.entries).toHaveLength(0);
   });
 
   it("az error() logol", () => {
     const log = createLogger({ level: "error", noFile: true });
     log.error("e");
-    expect(stderrSpy).toHaveBeenCalled();
+    expect(stderrCapture.entries).not.toHaveLength(0);
   });
 });
 
@@ -232,24 +239,29 @@ describe("createLogger — backward-compat: régi string paraméter forma", () =
 });
 
 describe("createLogger — fájl-írás (noFile=false)", () => {
-  let tmpDir: string;
+  let temporaryDirectory: string;
   beforeEach(() => {
     // A `logs/bot/` mintát követjük — a `logDir` opció egyedi
     // teszt-könyvtárba mutat, hogy a tesztek ne szennyezzék a
     // workspace `logs/` könyvtárát.
-    tmpDir = mkdtempSync(join(tmpdir(), "mm-logger-"));
+    temporaryDirectory = mkdtempSync(path.join(tmpdir(), "mm-logger-"));
   });
   afterEach(() => {
-    rmSync(tmpDir, { recursive: true, force: true });
+    rmSync(temporaryDirectory, { recursive: true, force: true });
   });
 
-  it("a log sor a megadott logDir alá kerül, a YYYY-MM-DD dátummal", () => {
-    const log = createLogger({ level: "info", noFile: false, logDir: tmpDir, logFileBase: "test" });
+  it("writes the log entry under the configured log directory", () => {
+    const log = createLogger({
+      level: "info",
+      noFile: false,
+      logDir: temporaryDirectory,
+      logFileBase: "test",
+    });
     log.info("from-test");
     // A fájl a `bot-YYYY-MM-DD.log` mintát követi (a `logFileBase`
     // opció itt `"test"`, hogy a teszt ne ütközzön más logger-ekkel).
     const date = new Date().toISOString().slice(0, 10);
-    const filePath = join(tmpDir, `test-${date}.log`);
+    const filePath = path.join(temporaryDirectory, `test-${date}.log`);
     const content = readTestLog(filePath);
     expect(content).toContain("from-test");
     // A JSON entry strukturált (időbélyeg, szint, msg).
@@ -261,13 +273,13 @@ describe("createLogger — fájl-írás (noFile=false)", () => {
     // The `stdout.write` spy verifies that the logger never writes to
     // process.stdout. Warn and error entries are mirrored to stderr while all
     // accepted entries are persisted to the file.
-    const stdoutSpy = spyOn(process.stdout, "write").mockImplementation((() => true) as never);
-    const stderrSpy = spyOn(process.stderr, "write").mockImplementation((() => true) as never);
+    const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
       const log = createLogger({
         level: "info",
         noFile: false,
-        logDir: tmpDir,
+        logDir: temporaryDirectory,
         logFileBase: "stdout-routing",
       });
       log.info("this should NOT appear in stdout");
@@ -279,7 +291,7 @@ describe("createLogger — fájl-írás (noFile=false)", () => {
       expect(stderrSpy).toHaveBeenCalled();
       // The file contains both the info and error entries.
       const date = new Date().toISOString().slice(0, 10);
-      const filePath = join(tmpDir, `stdout-routing-${date}.log`);
+      const filePath = path.join(temporaryDirectory, `stdout-routing-${date}.log`);
       const content = readTestLog(filePath);
       expect(content).toContain("this should NOT appear in stdout");
       expect(content).toContain("this should appear in stderr");
@@ -292,7 +304,7 @@ describe("createLogger — fájl-írás (noFile=false)", () => {
   it("a könyvtár automatikusan létrejön (mkdirSync recursive)", () => {
     // A `logDir` opció egy nem-létező almappára mutat — a logger
     // a `mkdirSync({ recursive: true })` hívással létrehozza.
-    const nested = join(tmpDir, "nested", "logs");
+    const nested = path.join(temporaryDirectory, "nested", "logs");
     expect(() => {
       const log = createLogger({ level: "info", noFile: false, logDir: nested, logFileBase: "auto" });
       log.info("mkdir-test");
@@ -303,27 +315,24 @@ describe("createLogger — fájl-írás (noFile=false)", () => {
 });
 
 describe("createLogger — threshold filter (noFile=true)", () => {
-  let stderrSpy: ReturnType<typeof spyOnStderr>["spy"];
-  let restoreStderr: () => void;
+  let stderrCapture: StderrCapture;
   beforeEach(() => {
-    const s = spyOnStderr();
-    stderrSpy = s.spy;
-    restoreStderr = s.restore;
+    stderrCapture = captureStderr();
   });
   afterEach(() => {
-    restoreStderr();
+    stderrCapture.restore();
   });
 
   it("a level='warn' threshold: info szintű hívás NEM jut el a stderr-re", () => {
     const log = createLogger({ level: "warn", noFile: true });
     log.info("filtered");
-    expect(stderrSpy).not.toHaveBeenCalled();
+    expect(stderrCapture.entries).toHaveLength(0);
   });
 
   it("a level='warn' threshold: warn szintű hívás ELJUT a stderr-re", () => {
     const log = createLogger({ level: "warn", noFile: true });
     log.warn("not-filtered");
-    expect(stderrSpy).toHaveBeenCalledTimes(1);
+    expect(stderrCapture.entries).toHaveLength(1);
   });
 });
 
@@ -333,23 +342,22 @@ describe("createLogger — default opciók (no opció → info + noFile=false)",
   // létrehozni a `logs/bot/` könyvtárat. A CI runner-en ez lehet, hogy
   // nem írható, ezért a `logDir` opciót felülírjuk egy tmp-dir-re.
   it("az alapértelmezett hívás a `logDir` opciót használja (default 'logs/bot')", () => {
-    const tmpDir = mkdtempSync(join(tmpdir(), "mm-logger-default-"));
+    const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "mm-logger-default-"));
     try {
       // A `logDir` opció felülírásával a teszt a tmpDir-be ír, nem
       // a workspace `logs/` könyvtárába.
-      const log = createLogger({ level: "info", logDir: tmpDir, logFileBase: "default-test" });
+      const log = createLogger({
+        level: "info",
+        logDir: temporaryDirectory,
+        logFileBase: "default-test",
+      });
       log.info("default-opts");
       const date = new Date().toISOString().slice(0, 10);
-      const filePath = join(tmpDir, `default-test-${date}.log`);
+      const filePath = path.join(temporaryDirectory, `default-test-${date}.log`);
       const content = readTestLog(filePath);
       expect(content).toContain("default-opts");
     } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
+      rmSync(temporaryDirectory, { recursive: true, force: true });
     }
   });
 });
-
-// Az `mkdirSync` import a fenti `könyvtár automatikusan létrejön`
-// teszthez kell (a `require` fallback biztosítja, hogy a TypeScript
-// `verbatimModuleSyntax: true` beállítása esetén is lefusson).
-void mkdirSync;

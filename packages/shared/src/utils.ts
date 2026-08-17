@@ -1,9 +1,8 @@
-// packages/shared/src/utils/index.ts — közös util függvények
+// Shared deterministic utility functions.
 //
-// A monorepo minden csomagja által használt pénzkezelési, statisztikai
-// és típus-konverziós segédletek. Az indikátor-számítás és a backtest
-// motor (Sharpe, Sortino, Kelly) is innen fogyaszt.
+// The `utils` file name is an established public package subpath contract.
 
+// eslint-disable-next-line unicorn/name-replacements -- `utils` is the established public package subpath contract.
 import type { Result } from "./types.js";
 
 /**
