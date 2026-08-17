@@ -1,3 +1,0 @@
-# REMOVED in Phase 52D — config relocation to run-bot/config/
-# See: run-bot/config/live-tokyo.toml
-# This file is intentionally empty and will be `git rm`-ed in the 52D commit.

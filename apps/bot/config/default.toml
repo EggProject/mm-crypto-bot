@@ -1,4 +1,0 @@
-# REMOVED in Phase 52D — config relocation to run-bot/config/
-# See: run-bot/config/default.toml (default, paper mode)
-#      run-bot/config/live-tokyo.toml (production-template, live mode)
-# This file is intentionally empty and will be `git rm`-ed in the 52D commit.
