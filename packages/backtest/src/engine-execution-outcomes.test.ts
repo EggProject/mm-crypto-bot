@@ -59,6 +59,36 @@ describe("runBacktest — mock stratégiával", () => {
     expect(result.killSwitchTriggered).toBe(false);
   });
 
+  it("the kill switch terminates a flat run when its configured threshold is zero", async () => {
+    const result = await runBacktest(
+      makeBacktestOptions(
+        makeCandles(3, () => 100),
+        new NullStrategy(),
+        {
+          positionSize: { ...POSITION_SIZE, maxDrawdown: 0 },
+        },
+      ),
+    );
+
+    expect(result.killSwitchTriggered).toBe(true);
+    expect(result.totalTrades).toBe(0);
+  });
+
+  it("evaluates the baseline-compatible indicator path when explicitly selected", async () => {
+    const result = await runBacktest(
+      makeBacktestOptions(
+        makeCandles(25, () => 100),
+        new NullStrategy(),
+        {
+          historicalIndicatorMode: "baseline-compatible",
+        },
+      ),
+    );
+
+    expect(result.totalTrades).toBe(0);
+    expect(result.killSwitchTriggered).toBe(false);
+  });
+
   it("a kill-switch triggerelődik a drawdown elérésekor", async () => {
     const rising = Array.from({ length: 10 }, (_, index) =>
       makeCandle(index * HOUR_MS, 100 + index * 2, { high: 105 + index * 2, low: 95 + index * 2 }),
@@ -84,6 +114,16 @@ describe("runBacktest — mock stratégiával", () => {
     const result = await runBacktest(makeBacktestOptions(candles, new SingleSignalStrategy("buy", 1)));
     expect(result.totalTrades).toBe(1);
     expect(requireFirst(result.trades, "trade").exitReason).toBe("end_of_data");
+  });
+
+  it("settles a position opened on the only eligible candle at the terminal boundary", async () => {
+    const result = await runBacktest(
+      makeBacktestOptions([makeCandle(0, 100)], new SingleSignalStrategy("buy", 1), {
+        endTime: new Date(HOUR_MS),
+      }),
+    );
+
+    expect(requireFirst(result.trades, "terminal trade").exitReason).toBe("end_of_data");
   });
 
   it("a short pozíció take-profit triggerelődik", async () => {

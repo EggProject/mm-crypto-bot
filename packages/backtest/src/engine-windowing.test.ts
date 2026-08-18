@@ -140,6 +140,15 @@ describe("runBacktest window and closed-candle invariants", () => {
     expect(strategy.seen.map((item) => item.timestamp)).toEqual([2 * HOUR]);
   });
 
+  it("sorts eligible feed candles by timestamp before evaluating the strategy", async () => {
+    const feed = new Feed([candle(3, 103), candle(1, 101), candle(2, 102)]);
+    const strategy = new RecordingStrategy();
+
+    await runBacktest(options(feed, strategy, 1, 4));
+
+    expect(strategy.seen.map((item) => item.timestamp)).toEqual([HOUR, 2 * HOUR, 3 * HOUR]);
+  });
+
   it("does not expose a 4h candle before its fourth 1h constituent has closed", async () => {
     const feed = new Feed([0, 1, 2, 3, 4, 5, 6, 7].map((hour) => candle(hour, 100 + hour)));
     const strategy = new RecordingStrategy();

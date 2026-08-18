@@ -30,15 +30,15 @@ export function equityReturns(equityCurve: readonly EquityPoint[]): readonly num
   if (equityCurve.length < 2) {
     return [];
   }
-  const out: number[] = [];
-  for (let i = 1; i < equityCurve.length; i++) {
-    const prev = equityCurve[i - 1]!.equity;
-    const cur = equityCurve[i]!.equity;
-    if (prev > 0) {
-      out.push((cur - prev) / prev);
+  const returns: number[] = [];
+  let previousEquity: number | undefined;
+  for (const currentPoint of equityCurve) {
+    if (previousEquity !== undefined && previousEquity > 0) {
+      returns.push((currentPoint.equity - previousEquity) / previousEquity);
     }
+    previousEquity = currentPoint.equity;
   }
-  return out;
+  return returns;
 }
 
 /**
@@ -67,14 +67,14 @@ export function sortinoRatio(returns: readonly number[], periodsPerYear: number)
   const m = mean(returns);
   const negatives = returns.filter((r) => r < 0);
   if (negatives.length === 0) {
-    return Number.POSITIVE_INFINITY;
+    return Infinity;
   }
   let sumSq = 0;
   for (const r of negatives) {
     sumSq += r * r;
   }
-  const downsideDev = Math.sqrt(sumSq / negatives.length);
-  return (m / downsideDev) * Math.sqrt(periodsPerYear);
+  const downsideDevelopment = Math.sqrt(sumSq / negatives.length);
+  return (m / downsideDevelopment) * Math.sqrt(periodsPerYear);
 }
 
 /**
@@ -85,10 +85,10 @@ export function maxDrawdown(equityCurve: readonly EquityPoint[]): number {
   if (equityCurve.length === 0) {
     return 0;
   }
-  let peak = equityCurve[0]!.equity;
+  let peak: number | undefined;
   let maxDd = 0;
   for (const point of equityCurve) {
-    if (point.equity > peak) {
+    if (peak === undefined || point.equity > peak) {
       peak = point.equity;
     }
     if (peak > 0) {
@@ -118,7 +118,7 @@ export function profitFactor(trades: readonly Trade[]): number {
     if (wins === 0) {
       return 0;
     }
-    return Number.POSITIVE_INFINITY;
+    return Infinity;
   }
   return wins / losses;
 }
@@ -143,24 +143,24 @@ export function maxConsecutive(trades: readonly Trade[]): {
 } {
   let maxWins = 0;
   let maxLosses = 0;
-  let curWins = 0;
-  let curLosses = 0;
+  let currentWins = 0;
+  let currentLosses = 0;
   for (const t of trades) {
     if (t.pnlUsd > 0) {
-      curWins += 1;
-      curLosses = 0;
-      if (curWins > maxWins) {
-        maxWins = curWins;
+      currentWins += 1;
+      currentLosses = 0;
+      if (currentWins > maxWins) {
+        maxWins = currentWins;
       }
     } else if (t.pnlUsd < 0) {
-      curLosses += 1;
-      curWins = 0;
-      if (curLosses > maxLosses) {
-        maxLosses = curLosses;
+      currentLosses += 1;
+      currentWins = 0;
+      if (currentLosses > maxLosses) {
+        maxLosses = currentLosses;
       }
     } else {
-      curWins = 0;
-      curLosses = 0;
+      currentWins = 0;
+      currentLosses = 0;
     }
   }
   return { maxConsecutiveWins: maxWins, maxConsecutiveLosses: maxLosses };
@@ -197,8 +197,8 @@ export function computeMetrics(
   periodsPerYear: number,
 ): BacktestMetrics {
   const eqReturns = equityReturns(equityCurve);
-  const initialEquity = equityCurve.length > 0 ? equityCurve[0]!.equity : 0;
-  const finalEquity = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1]!.equity : initialEquity;
+  const initialEquity = equityCurve.at(0)?.equity ?? 0;
+  const finalEquity = equityCurve.at(-1)?.equity ?? initialEquity;
   const totalReturnPct = initialEquity > 0 ? (finalEquity - initialEquity) / initialEquity : 0;
   const years = (endTimeMs - startTimeMs) / (365 * 24 * 60 * 60 * 1000);
   const annualizedReturnPct = years > 0 ? Math.pow(1 + totalReturnPct, 1 / years) - 1 : 0;

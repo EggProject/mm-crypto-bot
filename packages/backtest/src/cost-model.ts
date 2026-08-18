@@ -24,10 +24,10 @@ import type { CostModel } from "./types.js";
 */
 export function applySlippage(price: number, side: "buy" | "sell", rate: number): number {
   if (rate < 0) {
-    throw new Error(`Slippage rate cannot be negative: ${rate}`);
+    throw new Error(`Slippage rate cannot be negative: ${String(rate)}`);
   }
   // Long: az entry ár magasabb (rosszabb); short: az entry ár alacsonyabb.
-  return side === "buy" ? price * (1 + rate) : price * (1 - rate);
+  return price * (side === "buy" ? 1 + rate : 1 - rate);
 }
 
 /**
@@ -37,10 +37,10 @@ export function applySlippage(price: number, side: "buy" | "sell", rate: number)
 */
 export function applySpread(price: number, side: "buy" | "sell", rate: number): number {
   if (rate < 0) {
-    throw new Error(`Spread rate cannot be negative: ${rate}`);
+    throw new Error(`Spread rate cannot be negative: ${String(rate)}`);
   }
   // Ugyanaz, mint a slippage: a spread fele kerül alkalmazásra.
-  return side === "buy" ? price * (1 + rate / 2) : price * (1 - rate / 2);
+  return price * (side === "buy" ? 1 + rate / 2 : 1 - rate / 2);
 }
 
 /**
@@ -70,7 +70,7 @@ export function exitCost(notionalUsd: number, model: CostModel): number {
 */
 export function marginBorrowCost(marginNotional: number, holdingHours: number, model: CostModel): number {
   if (holdingHours < 0) {
-    throw new Error(`Holding hours cannot be negative: ${holdingHours}`);
+    throw new Error(`Holding hours cannot be negative: ${String(holdingHours)}`);
   }
   return marginNotional * model.borrowRatePerHour * holdingHours;
 }
@@ -85,7 +85,7 @@ export function fundingCost(notionalUsd: number, holdingHours: number, model: Co
     return 0;
   }
   if (holdingHours < 0) {
-    throw new Error(`Holding hours cannot be negative: ${holdingHours}`);
+    throw new Error(`Holding hours cannot be negative: ${String(holdingHours)}`);
   }
   // A funding 8h-onként szamitodik fel.
   return notionalUsd * model.fundingRatePer8h * (holdingHours / 8);

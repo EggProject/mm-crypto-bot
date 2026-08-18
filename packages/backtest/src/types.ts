@@ -18,7 +18,9 @@ import type { Candle, Timeframe, Trade } from "@mm-crypto-bot/shared/types";
  pedig a Timeframe típus egyik eleme.
 */
 export interface ExchangeFeed {
-  /** Adott szimbólum és timeframe OHLCV adatainak letöltése. */
+  /**
+  Adott szimbólum és timeframe OHLCV adatainak letöltése.
+  */
   fetchOHLCV(
     symbol: string,
     timeframe: Timeframe,
@@ -32,15 +34,25 @@ export interface ExchangeFeed {
  és slippage eszköz-függő.
 */
 export interface CostModel {
-  /** Taker fee oldalanként (pl. 0.001 = 0.1%). */
+  /**
+  Taker fee oldalanként (pl. 0.001 = 0.1%).
+  */
   readonly takerFeeRate: number;
-  /** Slippage oldalanként (pl. 0.0005 = 0.05%). */
+  /**
+  Slippage oldalanként (pl. 0.0005 = 0.05%).
+  */
   readonly slippageRate: number;
-  /** Spread oldalanként (pl. 0.0002 = 2 bps BTC/USDC-hez). */
+  /**
+  Spread oldalanként (pl. 0.0002 = 2 bps BTC/USDC-hez).
+  */
   readonly spreadRate: number;
-  /** Margin-kamat (pl. 0.0001 = 0.01%/óra, USDT/USDC-re). */
+  /**
+  Margin-kamat (pl. 0.0001 = 0.01%/óra, USDT/USDC-re).
+  */
   readonly borrowRatePerHour: number;
-  /** Funding rate (8h periódus, perpetual kontraktusokhoz, opcionális). */
+  /**
+  Funding rate (8h periódus, perpetual kontraktusokhoz, opcionális).
+  */
   readonly fundingRatePer8h?: number;
 }
 
@@ -50,15 +62,25 @@ export interface CostModel {
  alkalmazunk, 1% risk / trade és 15% DD kill-switch.
 */
 export interface PositionSizeConfig {
-  /** Kockázat / trade az equity százalékában (alap: 0.01 = 1%). */
+  /**
+  Kockázat / trade az equity százalékában (alap: 0.01 = 1%).
+  */
   readonly riskPerTrade: number;
-  /** Kelly-frakció (alap: 0.25 = 1/4-Kelly). */
+  /**
+  Kelly-frakció (alap: 0.25 = 1/4-Kelly).
+  */
   readonly kellyFraction: number;
-  /** Maximális drawdown, ami felett a kill-switch leáll (alap: 0.15). */
+  /**
+  Maximális drawdown, ami felett a kill-switch leáll (alap: 0.15).
+  */
   readonly maxDrawdown: number;
-  /** Position notional max az equity %-ában (alap: 0.20). */
+  /**
+  Position notional max az equity %-ában (alap: 0.20).
+  */
   readonly maxPositionPctEquity: number;
-  /** Position notional min az equity %-ában (alap: 0.01). */
+  /**
+  Position notional min az equity %-ában (alap: 0.01).
+  */
   readonly minPositionPctEquity: number;
 }
 
@@ -81,7 +103,9 @@ export interface BacktestOptions {
   readonly htfTimeframe: Timeframe;
   readonly mtfTimeframe: Timeframe;
   readonly ltfTimeframe: Timeframe;
-  /** Inclusive LTF candle-open boundary. */
+  /**
+  Inclusive LTF candle-open boundary.
+  */
   readonly startTime: Date;
   /**
    * Exclusive window boundary: a candle is eligible only when its close is
@@ -92,13 +116,21 @@ export interface BacktestOptions {
   readonly feed: ExchangeFeed;
   readonly costModel: CostModel;
   readonly positionSize: PositionSizeConfig;
-  /** Determinisztikus seed (az opcionális Kelly frakció szamolasahoz). */
+  /**
+  Determinisztikus seed (az opcionális Kelly frakció szamolasahoz).
+  */
   readonly seed?: number;
-  /** Walk-forward OOS konfiguráció (opcionális). */
+  /**
+  Walk-forward OOS konfiguráció (opcionális).
+  */
   readonly walkForward?: WalkForwardConfig;
-  /** Egyedi stratégia (alapértelmezetten a kiválasztott MTF-TKC). */
+  /**
+  Egyedi stratégia (alapértelmezetten a kiválasztott MTF-TKC).
+  */
   readonly strategy?: Strategy;
-  /** Historical indicator override used by Donchian grid/ablation runners. */
+  /**
+  Historical indicator override used by Donchian grid/ablation runners.
+  */
   readonly htfDonchianPeriod?: number;
   /**
    * Read-only historical execution observer. It receives the exact notional
@@ -109,10 +141,10 @@ export interface BacktestOptions {
   readonly onPositionSized?: (event: HistoricalPositionSizingEvent) => void;
   /**
    * Diagnostic regression switch. Production uses the causal precomputed
-   * indicator timeline; `legacy` retains the prefix-recompute path solely for
-   * result-equivalence tests and benchmark comparisons.
+   * indicator timeline; `baseline-compatible` retains the prefix-recompute path
+   * solely for result-equivalence tests and benchmark comparisons.
    */
-  readonly historicalIndicatorMode?: "precomputed" | "legacy";
+  readonly historicalIndicatorMode?: "precomputed" | "baseline-compatible";
 }
 
 export interface HistoricalPositionSizingEvent {
@@ -132,11 +164,17 @@ export interface HistoricalPositionSizingEvent {
 export type StrategyFactory = () => Strategy;
 
 export interface WalkForwardConfig {
-  /** In-sample ablak hossza (napokban). */
+  /**
+  In-sample ablak hossza (napokban).
+  */
   readonly inSampleDays: number;
-  /** Out-of-sample ablak hossza (napokban). */
+  /**
+  Out-of-sample ablak hossza (napokban).
+  */
   readonly outOfSampleDays: number;
-  /** Görgetés lépésköze (napokban). */
+  /**
+  Görgetés lépésköze (napokban).
+  */
   readonly stepDays: number;
 }
 

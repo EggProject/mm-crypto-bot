@@ -104,6 +104,17 @@ describe("runBacktest — strategy callbacks (coverage)", () => {
     expect(requireFirst(result.trades, "trade").exitReason).toBe("trailing_stop");
     expect(strategy.lastExitReason).toBe("trailing_stop");
   });
+
+  it("uses the documented force-exit defaults when the strategy supplies no levels", async () => {
+    const strategy = new CallbackStrategy();
+    strategy.updateReturn = { forceExit: true };
+    const result = await runBacktest(
+      makeBacktestOptions(makeFlatCandles(), strategy, { endTime: new Date(10 * HOUR_MS) }),
+    );
+    const trade = requireFirst(result.trades, "force-exit trade");
+    expect(trade.exitReason).toBe("trailing_stop");
+    expect(trade.exitPrice).toBeCloseTo(99.940005, 8);
+  });
 });
 
 class ObservedStrategy implements Strategy {

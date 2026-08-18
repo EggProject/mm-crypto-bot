@@ -41,7 +41,7 @@ class BacktestRunner {
     this.equityCurve = [{ timestamp: options.startTime.getTime(), equity: options.initialEquityUsd }];
   }
 
-  private async loadLtfCandles(ltfMs: number): Promise<readonly Candle[]> {
+  private async loadLtfCandles(ltfMs: number): Promise<readonly [Candle, ...Candle[]]> {
     const requestedCandles = await this.options.feed.fetchOHLCV(
       this.options.symbol,
       this.options.ltfTimeframe,
@@ -55,11 +55,7 @@ class BacktestRunner {
         candle.timestamp >= this.options.startTime.getTime() &&
         candle.timestamp + ltfMs <= this.options.endTime.getTime(),
     );
-    const sortedCandles = sortCandlesByTimestamp(eligibleCandles);
-    if (sortedCandles.length === 0) {
-      throw new Error("No candles in the requested period");
-    }
-    return sortedCandles;
+    return toNonEmptyCandleSequence(sortCandlesByTimestamp(eligibleCandles));
   }
 
   private createIndicatorCursor(
@@ -70,7 +66,7 @@ class BacktestRunner {
     htfMs: number,
     mtfMs: number,
   ): HistoricalIndicatorCursor | undefined {
-    if (this.options.historicalIndicatorMode === "legacy") {
+    if (this.options.historicalIndicatorMode === "baseline-compatible") {
       return undefined;
     }
     return new HistoricalIndicatorCursor(
@@ -132,30 +128,23 @@ class BacktestRunner {
       mtfState: indicators,
       pricePrecision: PRICE_PRECISION,
     });
-    this.applyPositionUpdate(candle, update);
+    this.applyPositionUpdate(position, candle, update);
   }
 
   private applyPositionUpdate(
+    position: OpenPosition,
     candle: Candle,
     update: ReturnType<NonNullable<Strategy["onOpenPositionUpdate"]>> | undefined,
   ): void {
-    const currentPosition = this.openPosition;
-    if (currentPosition === undefined) {
-      return;
-    }
     if (update?.newStopLoss !== undefined) {
-      this.openPosition = { ...currentPosition, stopLoss: update.newStopLoss };
+      this.openPosition = { ...position, stopLoss: update.newStopLoss };
     }
     if (update?.newTakeProfit !== undefined) {
-      this.openPosition = { ...currentPosition, takeProfit: update.newTakeProfit };
+      this.openPosition = { ...position, takeProfit: update.newTakeProfit };
     }
     if (update?.forceExit === true) {
-      const positionToClose = this.openPosition;
-      if (positionToClose === undefined) {
-        throw new Error("A forced exit requires an open position.");
-      }
       const reason: ExitReason = update.reason ?? "trailing_stop";
-      this.settlePosition(positionToClose, candle, { reason, exitPrice: update.exitPrice ?? candle.close });
+      this.settlePosition(position, candle, { reason, exitPrice: update.exitPrice ?? candle.close });
     }
   }
 
@@ -233,7 +222,7 @@ class BacktestRunner {
     this.strategy.onPositionClosed?.(exit.reason);
   }
 
-  private markEquity(candle: Candle, decisionTime: number): void {
+  private markEquity(candle: Candle, decisionTime: number): number {
     const unrealizedPnl =
       this.openPosition === undefined
         ? 0
@@ -241,13 +230,10 @@ class BacktestRunner {
     const currentEquity = this.equity + unrealizedPnl;
     recordEquityPoint(this.equityCurve, decisionTime, currentEquity);
     this.peakEquity = Math.max(this.peakEquity, currentEquity);
+    return currentEquity;
   }
 
-  private triggerKillSwitch(candle: Candle, decisionTime: number): boolean {
-    const currentEquity = this.equityCurve.at(-1)?.equity;
-    if (currentEquity === undefined) {
-      throw new Error("The equity curve must contain the current candle mark.");
-    }
+  private triggerKillSwitch(candle: Candle, decisionTime: number, currentEquity: number): boolean {
     const drawdown = (this.peakEquity - currentEquity) / this.peakEquity;
     if (drawdown < this.options.positionSize.maxDrawdown) {
       return false;
@@ -262,15 +248,13 @@ class BacktestRunner {
     return true;
   }
 
-  private closeTerminalPosition(ltfCandles: readonly Candle[], ltfMs: number): void {
+  private closeTerminalPosition(ltfCandles: readonly [Candle, ...Candle[]], ltfMs: number): void {
     const position = this.openPosition;
     if (position === undefined) {
       return;
     }
-    const lastCandle = ltfCandles.at(-1);
-    if (lastCandle === undefined) {
-      throw new Error("A non-empty backtest requires a terminal candle.");
-    }
+    const [firstCandle, ...remainingCandles] = ltfCandles;
+    const lastCandle = remainingCandles.at(-1) ?? firstCandle;
     this.settlePosition(position, lastCandle, { reason: "end_of_data", exitPrice: lastCandle.close });
     recordEquityPoint(this.equityCurve, lastCandle.timestamp + ltfMs, this.equity);
   }
@@ -344,8 +328,8 @@ class BacktestRunner {
       );
       this.processOpenPosition(candle, indicators, index);
       this.openPositionFromSignal(candle, indicators, index, decisionTime);
-      this.markEquity(candle, decisionTime);
-      if (this.triggerKillSwitch(candle, decisionTime)) {
+      const currentEquity = this.markEquity(candle, decisionTime);
+      if (this.triggerKillSwitch(candle, decisionTime, currentEquity)) {
         break;
       }
     }
@@ -415,36 +399,14 @@ function recordEquityPoint(equityCurve: EquityPoint[], timestamp: number, equity
 }
 
 function sortCandlesByTimestamp(candles: readonly Candle[]): readonly Candle[] {
-  if (candles.length < 2) {
-    return [...candles];
-  }
-  const midpoint = Math.floor(candles.length / 2);
-  return mergeCandlesByTimestamp(
-    sortCandlesByTimestamp(candles.slice(0, midpoint)),
-    sortCandlesByTimestamp(candles.slice(midpoint)),
-  );
+  // eslint-disable-next-line unicorn/no-array-sort -- The TS target lacks typed Array#toSorted; sorting a copy keeps input immutable.
+  return [...candles].sort((left, right) => left.timestamp - right.timestamp);
 }
 
-function mergeCandlesByTimestamp(
-  leftCandles: readonly Candle[],
-  rightCandles: readonly Candle[],
-): readonly Candle[] {
-  const sortedCandles: Candle[] = [];
-  let leftIndex = 0;
-  let rightIndex = 0;
-  while (leftIndex < leftCandles.length && rightIndex < rightCandles.length) {
-    const leftCandle = leftCandles.at(leftIndex);
-    const rightCandle = rightCandles.at(rightIndex);
-    if (leftCandle === undefined || rightCandle === undefined) {
-      throw new Error("Merge indices must refer to existing candles.");
-    }
-    if (leftCandle.timestamp <= rightCandle.timestamp) {
-      sortedCandles.push(leftCandle);
-      leftIndex += 1;
-    } else {
-      sortedCandles.push(rightCandle);
-      rightIndex += 1;
-    }
+function toNonEmptyCandleSequence(candles: readonly Candle[]): readonly [Candle, ...Candle[]] {
+  const firstCandle = candles.at(0);
+  if (firstCandle === undefined) {
+    throw new Error("No candles in the requested period");
   }
-  return [...sortedCandles, ...leftCandles.slice(leftIndex), ...rightCandles.slice(rightIndex)];
+  return [firstCandle, ...candles.slice(1)];
 }

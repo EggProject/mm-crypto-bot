@@ -7,26 +7,21 @@ export function aggregateToTimeframe(ltfCandles: readonly Candle[], targetMs: nu
   }
 
   const aggregatedCandles: Candle[] = [];
-  let bucket: Candle | undefined;
   let bucketStart = firstCandle.timestamp - (firstCandle.timestamp % targetMs);
+  let bucket = createBucket(firstCandle, bucketStart);
 
-  for (const candle of ltfCandles) {
+  for (const candle of ltfCandles.slice(1)) {
     const bucketEnd = bucketStart + targetMs;
     if (candle.timestamp >= bucketEnd) {
-      if (bucket !== undefined) {
-        aggregatedCandles.push(bucket);
-      }
+      aggregatedCandles.push(bucket);
       bucketStart = candle.timestamp - (candle.timestamp % targetMs);
       bucket = createBucket(candle, bucketStart);
       continue;
     }
 
-    bucket = bucket === undefined ? createBucket(candle, bucketStart) : extendBucket(bucket, candle);
+    bucket = extendBucket(bucket, candle);
   }
 
-  if (bucket === undefined) {
-    throw new Error("A non-empty candle sequence must produce a timeframe bucket.");
-  }
   aggregatedCandles.push(bucket);
   return aggregatedCandles;
 }
@@ -41,37 +36,42 @@ export function aggregateCompleteToTimeframe(
   }
 
   const expectedCandleCount = targetMs / ltfMs;
-  const buckets = new Map<number, Candle[]>();
+  const buckets = new Map<number, CandleBucket>();
   for (const candle of ltfCandles) {
     const bucketStart = candle.timestamp - (candle.timestamp % targetMs);
     const bucket = buckets.get(bucketStart);
     if (bucket === undefined) {
-      buckets.set(bucketStart, [candle]);
+      buckets.set(bucketStart, { candles: [candle], first: candle, last: candle });
     } else {
-      bucket.push(candle);
+      bucket.candles.push(candle);
+      bucket.last = candle;
     }
   }
 
   const completedCandles: Candle[] = [];
   for (const [bucketStart, bucket] of buckets) {
-    if (bucket.length !== expectedCandleCount || !isGapFreeBucket(bucket, bucketStart, ltfMs)) {
+    if (
+      bucket.candles.length !== expectedCandleCount ||
+      !isGapFreeBucket(bucket.candles, bucketStart, ltfMs)
+    ) {
       continue;
-    }
-    const firstCandle = bucket[0];
-    const lastCandle = bucket.at(-1);
-    if (firstCandle === undefined || lastCandle === undefined) {
-      throw new Error("A complete timeframe bucket must contain boundary candles.");
     }
     completedCandles.push({
       timestamp: bucketStart,
-      open: firstCandle.open,
-      high: Math.max(...bucket.map((candle) => candle.high)),
-      low: Math.min(...bucket.map((candle) => candle.low)),
-      close: lastCandle.close,
-      volume: bucket.reduce((totalVolume, candle) => totalVolume + candle.volume, 0),
+      open: bucket.first.open,
+      high: Math.max(...bucket.candles.map((candle) => candle.high)),
+      low: Math.min(...bucket.candles.map((candle) => candle.low)),
+      close: bucket.last.close,
+      volume: bucket.candles.reduce((totalVolume, candle) => totalVolume + candle.volume, 0),
     });
   }
   return completedCandles;
+}
+
+interface CandleBucket {
+  readonly candles: Candle[];
+  readonly first: Candle;
+  last: Candle;
 }
 
 function createBucket(candle: Candle, timestamp: number): Candle {

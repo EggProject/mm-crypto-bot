@@ -35,46 +35,46 @@ export async function runWalkForward(
   const stepMs = wf.stepDays * 24 * 60 * 60 * 1000;
   const start = baseOptions.startTime.getTime();
   const end = baseOptions.endTime.getTime();
-  const isResults: BacktestResult[] = [];
+  const inSampleResults: BacktestResult[] = [];
   const oosResults: BacktestResult[] = [];
   let windowStart = start;
   while (windowStart + inMs + outMs <= end) {
-    const isStart = new Date(windowStart);
-    const isEnd = new Date(windowStart + inMs);
-    const oosStart = isEnd;
+    const inSampleStart = new Date(windowStart);
+    const inSampleEnd = new Date(windowStart + inMs);
+    const oosStart = inSampleEnd;
     const oosEnd = new Date(windowStart + inMs + outMs);
     // In-sample futtatás.
-    const isResult = await runBacktest({
+    const inSampleResult = await runBacktest({
       ...baseOptions,
-      startTime: isStart,
-      endTime: isEnd,
-      ...(strategyFactory === undefined ? {} : { strategy: strategyFactory() }),
+      startTime: inSampleStart,
+      endTime: inSampleEnd,
+      ...(strategyFactory !== undefined && { strategy: strategyFactory() }),
     });
-    isResults.push(isResult);
+    inSampleResults.push(inSampleResult);
     // Out-of-sample futtatás.
     const oosResult = await runBacktest({
       ...baseOptions,
       startTime: oosStart,
       endTime: oosEnd,
-      ...(strategyFactory === undefined ? {} : { strategy: strategyFactory() }),
+      ...(strategyFactory !== undefined && { strategy: strategyFactory() }),
     });
     oosResults.push(oosResult);
     windowStart += stepMs;
   }
-  if (isResults.length === 0) {
+  if (inSampleResults.length === 0) {
     throw new Error("No walk-forward windows in the requested period");
   }
   // Aggregált Sharpe: az OOS Sharpe-ok átlaga.
   const avgOosSharpe = average(oosResults.map((r) => r.sharpeRatio));
-  const avgIsSharpe = average(isResults.map((r) => r.sharpeRatio));
+  const avgIsSharpe = average(inSampleResults.map((r) => r.sharpeRatio));
   const oosIsSharpeRatio = computeOosIsRatio(avgOosSharpe, avgIsSharpe);
   return {
-    isResults,
+    isResults: inSampleResults,
     oosResults,
     avgIsSharpe,
     avgOosSharpe,
     oosIsSharpeRatio,
-    windowCount: isResults.length,
+    windowCount: inSampleResults.length,
   };
 }
 

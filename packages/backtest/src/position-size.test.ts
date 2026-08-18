@@ -35,21 +35,21 @@ describe("positionNotionalUsd", () => {
   it("a klasszikus Kelly-formula szerinti notional-t adja", () => {
     // equity=10000, riskPerTrade=0.01, stop=5%
     // notional = 10000 * 0.01 / 0.05 = 2000
-    const notional = positionNotionalUsd(10000, 100, 95, DEFAULT_POSITION_SIZE);
+    const notional = positionNotionalUsd(10_000, 100, 95, DEFAULT_POSITION_SIZE);
     expect(notional).toBe(2000);
   });
 
   it("a max position clamp érvényesül, ha a notional túl nagy", () => {
     // equity=10000, stop=0.1% (kis stop) → notional = 10000 * 0.01 / 0.001 = 100000
     // max = 10000 * 0.2 = 2000
-    const notional = positionNotionalUsd(10000, 100, 99.9, DEFAULT_POSITION_SIZE);
+    const notional = positionNotionalUsd(10_000, 100, 99.9, DEFAULT_POSITION_SIZE);
     expect(notional).toBe(2000);
   });
 
   it("a min position clamp érvényesül, ha a notional túl kicsi", () => {
     // equity=10000, stop=99% → notional = 10000 * 0.01 / 0.99 = 101.01
     // min = 10000 * 0.01 = 100
-    const notional = positionNotionalUsd(10000, 100, 1, DEFAULT_POSITION_SIZE);
+    const notional = positionNotionalUsd(10_000, 100, 1, DEFAULT_POSITION_SIZE);
     expect(notional).toBe(101.01010101010101);
   });
 
@@ -59,7 +59,7 @@ describe("positionNotionalUsd", () => {
     // notional = 10000 * 0.01 / 2 = 50
     // min = 100
     // A min clamp érvényesül.
-    const notional = positionNotionalUsd(10000, 100, 300, DEFAULT_POSITION_SIZE);
+    const notional = positionNotionalUsd(10_000, 100, 300, DEFAULT_POSITION_SIZE);
     expect(notional).toBe(100);
   });
 
@@ -67,7 +67,7 @@ describe("positionNotionalUsd", () => {
     // stop=100 (megegyezik az entry-vel) → 0.1% minimum stop-távolság
     // notional = 10000 * 0.01 / 0.001 = 100000
     // max = 2000
-    const notional = positionNotionalUsd(10000, 100, 100, DEFAULT_POSITION_SIZE);
+    const notional = positionNotionalUsd(10_000, 100, 100, DEFAULT_POSITION_SIZE);
     expect(notional).toBe(2000);
   });
 

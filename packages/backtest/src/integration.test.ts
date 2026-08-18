@@ -34,26 +34,26 @@ const POSITION_SIZE = {
 function mkCandle(
   timestamp: number,
   price: number,
-  opts?: { high?: number; low?: number; volume?: number },
+  options?: { high?: number; low?: number; volume?: number },
 ): Candle {
   return {
     timestamp,
     open: price,
-    high: opts?.high ?? price * 1.01,
-    low: opts?.low ?? price * 0.99,
+    high: options?.high ?? price * 1.01,
+    low: options?.low ?? price * 0.99,
     close: price,
-    volume: opts?.volume ?? 1000,
+    volume: options?.volume ?? 1000,
   };
 }
 
 class MockFeed implements ExchangeFeed {
   constructor(private readonly candles: readonly Candle[]) {}
-  async fetchOHLCV(
+  fetchOHLCV(
     _symbol: string,
     _timeframe: Timeframe,
     _options: { readonly since?: number; readonly limit?: number },
   ): Promise<readonly Candle[]> {
-    return this.candles;
+    return Promise.resolve(this.candles);
   }
 }
 
@@ -87,29 +87,39 @@ function mkFlatCandles(days: number, basePrice: number): Candle[] {
   return out;
 }
 
+async function expectBacktestFailure(operation: () => Promise<unknown>): Promise<void> {
+  let receivedError: unknown;
+  try {
+    await operation();
+  } catch (error: unknown) {
+    receivedError = error;
+  }
+  expect(receivedError).toBeInstanceOf(Error);
+}
+
 describe("runBacktest — alap integráció", () => {
   it("startTime >= endTime esetén hibát dob", async () => {
     const candles = mkUptrendCandles(10, 100, 1);
     const feed = new MockFeed(candles);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
       ltfTimeframe: "1h",
       startTime: new Date(10 * DAY_MS),
       endTime: new Date(0),
-      initialEquityUsd: 10000,
+      initialEquityUsd: 10_000,
       feed,
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
     };
-    await expect(runBacktest(opts)).rejects.toThrow();
+    await expectBacktestFailure(() => runBacktest(options));
   });
 
   it("negatív/zero equity esetén hibát dob", async () => {
     const candles = mkUptrendCandles(10, 100, 1);
     const feed = new MockFeed(candles);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
@@ -121,24 +131,24 @@ describe("runBacktest — alap integráció", () => {
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
     };
-    await expect(runBacktest(opts)).rejects.toThrow();
+    await expectBacktestFailure(() => runBacktest(options));
   });
 
   it("üres candle-listával hibát dob", async () => {
     const feed = new MockFeed([]);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
       ltfTimeframe: "1h",
       startTime: new Date(0),
       endTime: new Date(10 * DAY_MS),
-      initialEquityUsd: 10000,
+      initialEquityUsd: 10_000,
       feed,
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
     };
-    await expect(runBacktest(opts)).rejects.toThrow();
+    await expectBacktestFailure(() => runBacktest(options));
   });
 });
 
@@ -146,25 +156,24 @@ describe("runBacktest — stratégia szignálok nélkül", () => {
   it("flat piacon nincs trade, az equity változatlan", async () => {
     const candles = mkFlatCandles(30, 100);
     const feed = new MockFeed(candles);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
       ltfTimeframe: "1h",
       startTime: new Date(0),
       endTime: new Date(30 * DAY_MS),
-      initialEquityUsd: 10000,
+      initialEquityUsd: 10_000,
       feed,
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
     };
-    const result = await runBacktest(opts);
+    const result = await runBacktest(options);
     expect(result.totalTrades).toBe(0);
     expect(result.equityCurve.length).toBeGreaterThan(0);
     // A final equity kicsit csokkenhet a margin-kamat miatt (ha van nyitott
     // pozíció), de mivel nincs trade, a final equity = initial equity.
-    const lastEquity = result.equityCurve[result.equityCurve.length - 1]!.equity;
-    expect(lastEquity).toBe(10000);
+    expect(result.equityCurve.at(-1)?.equity).toBe(10_000);
   });
 });
 
@@ -172,39 +181,39 @@ describe("runBacktest — equity-görbe és metrikák", () => {
   it("az equity-görbe kezdőcash-pontot és minden LTF candle-re egy pontot tartalmaz", async () => {
     const candles = mkUptrendCandles(10, 100, 1);
     const feed = new MockFeed(candles);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
       ltfTimeframe: "1h",
       startTime: new Date(0),
       endTime: new Date(10 * DAY_MS),
-      initialEquityUsd: 10000,
+      initialEquityUsd: 10_000,
       feed,
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
     };
-    const result = await runBacktest(opts);
+    const result = await runBacktest(options);
     expect(result.equityCurve.length).toBe(candles.length + 1);
-    expect(result.equityCurve[0]).toEqual({ timestamp: 0, equity: 10000 });
+    expect(result.equityCurve[0]).toEqual({ timestamp: 0, equity: 10_000 });
   });
 
   it("a metrikák konzisztensek a trade-listával", async () => {
     const candles = mkUptrendCandles(10, 100, 1);
     const feed = new MockFeed(candles);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
       ltfTimeframe: "1h",
       startTime: new Date(0),
       endTime: new Date(10 * DAY_MS),
-      initialEquityUsd: 10000,
+      initialEquityUsd: 10_000,
       feed,
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
     };
-    const result = await runBacktest(opts);
+    const result = await runBacktest(options);
     const metrics = computeMetrics(
       result.trades,
       result.equityCurve,
@@ -222,19 +231,19 @@ describe("runBacktest — riport", () => {
   it("a riport emberi olvasható szöveget generál", async () => {
     const candles = mkUptrendCandles(10, 100, 1);
     const feed = new MockFeed(candles);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
       ltfTimeframe: "1h",
       startTime: new Date(0),
       endTime: new Date(10 * DAY_MS),
-      initialEquityUsd: 10000,
+      initialEquityUsd: 10_000,
       feed,
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
     };
-    const result = await runBacktest(opts);
+    const result = await runBacktest(options);
     const metrics = computeMetrics(
       result.trades,
       result.equityCurve,

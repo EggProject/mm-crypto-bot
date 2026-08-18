@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { computeIndicators } from "@mm-crypto-bot/core";
 import type { Candle } from "@mm-crypto-bot/shared/types";
 
-import { precomputeHistoricalIndicatorTimeline } from "./engine.js";
+import { HistoricalIndicatorCursor, precomputeHistoricalIndicatorTimeline } from "./engine-indicators.js";
 
 const CONFIG = {
   htfDonchianPeriod: 20,
@@ -37,7 +37,7 @@ function candles(count: number, stepMs: number, phase: number): readonly Candle[
 }
 
 describe("precomputeHistoricalIndicatorTimeline", () => {
-  it("is bit-identical to legacy prefix recomputation at every HTF/MTF/LTF step", () => {
+  it("is bit-identical to baseline-compatible prefix recomputation at every HTF/MTF/LTF step", () => {
     const htf = candles(260, 86_400_000, 0);
     const mtf = candles(320, 14_400_000, 7);
     const ltf = candles(360, 900_000, 13);
@@ -52,5 +52,20 @@ describe("precomputeHistoricalIndicatorTimeline", () => {
     for (let index = 0; index < ltf.length; index++) {
       expect(timeline.ltf.at(index)).toEqual(computeIndicators([], [], ltf.slice(0, index + 1), CONFIG).ltf);
     }
+  });
+
+  it("omits the MTF Donchian channel when an adversarial runtime config lacks that field", () => {
+    const config = { ...CONFIG };
+    // A boundary guard must handle an absent runtime field even though the static config contract requires it.
+    Object.defineProperty(config, "mtfDonchianPeriod", { configurable: true, value: undefined });
+    const timeline = precomputeHistoricalIndicatorTimeline([], candles(1, 14_400_000, 0), [], config);
+
+    expect(timeline.mtf).toEqual([{ candleIndex: 0, close: 101 }]);
+  });
+
+  it("fails closed when the cursor receives no LTF state for a requested index", () => {
+    const cursor = new HistoricalIndicatorCursor({ htf: [], mtf: [], ltf: [] }, [], [], 1, 1);
+
+    expect(() => cursor.stateAt(0, 0)).toThrow("Missing LTF indicator state at index 0.");
   });
 });

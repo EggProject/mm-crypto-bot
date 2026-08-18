@@ -102,7 +102,7 @@ function buildHtfTimeline(candles: readonly Candle[], config: IndicatorConfig): 
 function buildMtfTimeline(candles: readonly Candle[], config: IndicatorConfig): readonly IndicatorState[] {
   const bandsSeries = carryForward<BollingerBands>(bb(candles, config.mtfBbPeriod, config.mtfBbStddev));
   const adxSeries = carryForward<number>(adx(candles, config.mtfAdxPeriod));
-  const rsiSeries = legacyCompatibleRsi(candles, config.mtfRsiPeriod);
+  const rsiSeries = baselineCompatibleRsi(candles, config.mtfRsiPeriod);
   const donchianSeries =
     config.mtfDonchianPeriod === undefined
       ? []
@@ -128,7 +128,7 @@ function buildMtfTimeline(candles: readonly Candle[], config: IndicatorConfig): 
 }
 
 function buildLtfTimeline(candles: readonly Candle[], config: IndicatorConfig): readonly IndicatorState[] {
-  const rsiSeries = legacyCompatibleRsi(candles, config.ltfRsiPeriod);
+  const rsiSeries = baselineCompatibleRsi(candles, config.ltfRsiPeriod);
   const volumeSeries = carryForward<number>(volumeMa(candles, config.ltfVolumeMaPeriod));
   const atrSeries = carryForward<number>(atr(candles, config.ltfAtrPeriod));
 
@@ -174,7 +174,7 @@ function carryForward<T>(series: readonly (T | undefined)[]): readonly (T | unde
   return carried;
 }
 
-function legacyCompatibleRsi(candles: readonly Candle[], period: number): readonly (number | undefined)[] {
+function baselineCompatibleRsi(candles: readonly Candle[], period: number): readonly (number | undefined)[] {
   const values = [...rsi(candles, period)];
   if (values.length <= period) {
     return carryForward<number>(values);

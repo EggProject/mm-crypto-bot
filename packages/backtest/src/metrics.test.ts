@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "bun:test";
 
-import type { ExitReason, Side, Symbol, Trade } from "@mm-crypto-bot/shared/types";
+import type { Symbol, Trade } from "@mm-crypto-bot/shared/types";
 
 import type { EquityPoint } from "./types.js";
 
@@ -19,7 +19,7 @@ import {
   winRate,
 } from "./metrics.js";
 
-function mkTrade(opts: {
+function mkTrade(options: {
   readonly pnlUsd: number;
   readonly pnlPct: number;
   readonly entryTime: number;
@@ -27,17 +27,17 @@ function mkTrade(opts: {
 }): Trade {
   return {
     symbol: "BTC/USDC" as Symbol,
-    side: "buy" as Side,
-    entryTime: opts.entryTime,
+    side: "buy",
+    entryTime: options.entryTime,
     entryPrice: 100,
-    exitTime: opts.exitTime,
-    exitPrice: 100 * (1 + opts.pnlPct),
+    exitTime: options.exitTime,
+    exitPrice: 100 * (1 + options.pnlPct),
     quantity: 1,
     notionalUsd: 100,
-    pnlUsd: opts.pnlUsd,
-    pnlPct: opts.pnlPct,
+    pnlUsd: options.pnlUsd,
+    pnlPct: options.pnlPct,
     feesUsd: 0,
-    exitReason: "take_profit" as ExitReason,
+    exitReason: "take_profit",
   };
 }
 
@@ -85,7 +85,7 @@ describe("sharpeRatio", () => {
 
   it("kiszámítja az évesített Sharpe-ot", () => {
     // mean=0.01, stddev=0.01, periods=252 → Sharpe = (0.01/0.01) * sqrt(252) = 15.87
-    const returns = [0.02, 0.01, 0.0, 0.01, 0.01, 0.01];
+    const returns = [0.02, 0.01, 0, 0.01, 0.01, 0.01];
     const result = sharpeRatio(returns, 252);
     expect(result).toBeGreaterThan(0);
   });
@@ -97,11 +97,11 @@ describe("sortinoRatio", () => {
   });
 
   it("nincs negatív hozam esetén +∞-t ad", () => {
-    expect(sortinoRatio([0.01, 0.02, 0.03], 252)).toBe(Number.POSITIVE_INFINITY);
+    expect(sortinoRatio([0.01, 0.02, 0.03], 252)).toBe(Infinity);
   });
 
   it("kiszámítja az évesített Sortino-ót", () => {
-    const returns = [0.02, -0.01, 0.0, 0.01, 0.01, -0.02];
+    const returns = [0.02, -0.01, 0, 0.01, 0.01, -0.02];
     const result = sortinoRatio(returns, 252);
     expect(result).toBeGreaterThan(0);
   });
@@ -109,7 +109,7 @@ describe("sortinoRatio", () => {
   it("0 downside deviation esetén 0-t ad", () => {
     // A -0 nem szamit negativnak a filter szamara (a -0 < 0 hamis).
     // Helyette egy olyan esetet tesztelunk, ahol minden return >= 0.
-    expect(sortinoRatio([0.01, 0.01, 0.005], 252)).toBe(Number.POSITIVE_INFINITY);
+    expect(sortinoRatio([0.01, 0.01, 0.005], 252)).toBe(Infinity);
   });
 });
 
@@ -152,7 +152,7 @@ describe("profitFactor", () => {
       mkTrade({ pnlUsd: 10, pnlPct: 0.1, entryTime: 0, exitTime: 1 }),
       mkTrade({ pnlUsd: 20, pnlPct: 0.1, entryTime: 2, exitTime: 3 }),
     ];
-    expect(profitFactor(trades)).toBe(Number.POSITIVE_INFINITY);
+    expect(profitFactor(trades)).toBe(Infinity);
   });
 
   it("csak vesztes trade-ekre 0-t ad", () => {

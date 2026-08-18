@@ -12,10 +12,11 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "bun test src",
-    "coverage": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage",
+    "coverage": "echo 'Running @mm-crypto-bot/backtest V8 coverage' && bunx vitest run --config vitest.config.ts --coverage",
     "clean": "rm -rf .turbo *.tsbuildinfo coverage",
-    "coverage:text": "bun test src --coverage --coverage-reporter=text",
-    "coverage:lcov": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage"
+    "coverage:unit": "echo 'Running @mm-crypto-bot/backtest V8 coverage' && bunx vitest run --config vitest.config.ts --coverage",
+    "coverage:text": "echo 'Running @mm-crypto-bot/backtest V8 coverage' && bunx vitest run --config vitest.config.ts --coverage",
+    "coverage:lcov": "echo 'Running @mm-crypto-bot/backtest V8 coverage' && bunx vitest run --config vitest.config.ts --coverage"
   },
   "dependencies": {
     "@mm-crypto-bot/core": "workspace:*",

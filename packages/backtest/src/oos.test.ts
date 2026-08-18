@@ -35,19 +35,20 @@ function mkCandle(timestamp: number, price: number): Candle {
 
 class MockFeed implements ExchangeFeed {
   constructor(private readonly candles: readonly Candle[]) {}
-  async fetchOHLCV(
+  fetchOHLCV(
     _symbol: string,
     _timeframe: Timeframe,
     _options: { readonly since?: number; readonly limit?: number },
   ): Promise<readonly Candle[]> {
-    return this.candles;
+    return Promise.resolve(this.candles);
   }
 }
 
 class NullStrategy implements Strategy {
   readonly name = "null";
   readonly timeframes = ["1h"] as const;
-  onCandle(_ctx: StrategyContext): StrategySignal | null {
+  onCandle(_context: StrategyContext): StrategySignal | null {
+    // eslint-disable-next-line unicorn/no-null -- Strategy's public no-signal contract requires null.
     return null;
   }
   warmup(): number {
@@ -60,8 +61,9 @@ class StatefulProbeStrategy implements Strategy {
   readonly timeframes = ["1h"] as const;
   calls = 0;
 
-  onCandle(_ctx: StrategyContext): StrategySignal | null {
+  onCandle(_context: StrategyContext): StrategySignal | null {
     this.calls += 1;
+    // eslint-disable-next-line unicorn/no-null -- Strategy's public no-signal contract requires null.
     return null;
   }
 
@@ -78,21 +80,39 @@ const POSITION_SIZE = {
   minPositionPctEquity: 0.01,
 };
 
+async function expectWalkForwardFailure(operation: () => Promise<unknown>): Promise<void> {
+  let receivedError: unknown;
+  try {
+    await operation();
+  } catch (error: unknown) {
+    receivedError = error;
+  }
+  expect(receivedError).toBeInstanceOf(Error);
+}
+
+function requireFirst<T>(items: readonly T[], label: string): T {
+  const item = items.at(0);
+  if (item === undefined) {
+    throw new Error(`Expected ${label} to contain an item.`);
+  }
+  return item;
+}
+
 describe("runWalkForward", () => {
   it("pozitív day-értékeket vár", async () => {
     const candles: Candle[] = [];
-    for (let i = 0; i < 1000; i++) {
-      candles.push(mkCandle(i * 60 * 60 * 1000, 100 + i));
+    for (let index = 0; index < 1000; index++) {
+      candles.push(mkCandle(index * 60 * 60 * 1000, 100 + index));
     }
     const feed = new MockFeed(candles);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
       ltfTimeframe: "1h",
       startTime: new Date(0),
       endTime: new Date(1000 * 60 * 60 * 1000),
-      initialEquityUsd: 10000,
+      initialEquityUsd: 10_000,
       feed,
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
@@ -103,23 +123,23 @@ describe("runWalkForward", () => {
       outOfSampleDays: 1,
       stepDays: 1,
     };
-    await expect(runWalkForward(opts, wf)).rejects.toThrow();
+    await expectWalkForwardFailure(() => runWalkForward(options, wf));
   });
 
   it("kis periódusra: nincs elég window", async () => {
     const candles: Candle[] = [];
-    for (let i = 0; i < 100; i++) {
-      candles.push(mkCandle(i * 60 * 60 * 1000, 100 + i));
+    for (let index = 0; index < 100; index++) {
+      candles.push(mkCandle(index * 60 * 60 * 1000, 100 + index));
     }
     const feed = new MockFeed(candles);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
       ltfTimeframe: "1h",
       startTime: new Date(0),
       endTime: new Date(100 * 60 * 60 * 1000),
-      initialEquityUsd: 10000,
+      initialEquityUsd: 10_000,
       feed,
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
@@ -130,24 +150,24 @@ describe("runWalkForward", () => {
       outOfSampleDays: 7,
       stepDays: 1,
     };
-    await expect(runWalkForward(opts, wf)).rejects.toThrow();
+    await expectWalkForwardFailure(() => runWalkForward(options, wf));
   });
 
   it("sikeresen futtatja a walk-forward ablakokat", async () => {
     // 30 nap candle, 24 candle/nap, összesen 720 candle.
     const candles: Candle[] = [];
-    for (let i = 0; i < 30 * 24; i++) {
-      candles.push(mkCandle(i * 60 * 60 * 1000, 100 + i));
+    for (let index = 0; index < 30 * 24; index++) {
+      candles.push(mkCandle(index * 60 * 60 * 1000, 100 + index));
     }
     const feed = new MockFeed(candles);
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
       ltfTimeframe: "1h",
       startTime: new Date(0),
       endTime: new Date(30 * 24 * 60 * 60 * 1000),
-      initialEquityUsd: 10000,
+      initialEquityUsd: 10_000,
       feed,
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
@@ -158,7 +178,7 @@ describe("runWalkForward", () => {
       outOfSampleDays: 5,
       stepDays: 5,
     };
-    const result = await runWalkForward(opts, wf);
+    const result = await runWalkForward(options, wf);
     // A 30 napos tartományba 10+5+5+5+5 = 30 nap fér bele (3 ablak, 5 lépésenként).
     expect(result.windowCount).toBeGreaterThan(0);
     expect(result.avgIsSharpe).toBe(0);
@@ -169,7 +189,7 @@ describe("runWalkForward", () => {
   it("az egymás melletti IS/OOS ablakok határgyertyái diszjunktak és együtt lefedik a teljes tartományt", async () => {
     const hourMs = 60 * 60 * 1000;
     const candles = Array.from({ length: 48 }, (_, hour) => mkCandle(hour * hourMs, 100));
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
@@ -183,21 +203,27 @@ describe("runWalkForward", () => {
       strategy: new NullStrategy(),
     };
 
-    const result = await runWalkForward(opts, {
+    const result = await runWalkForward(options, {
       inSampleDays: 1,
       outOfSampleDays: 1,
       stepDays: 1,
     });
 
     expect(result.windowCount).toBe(1);
-    const isCandleOpens = result.isResults[0]!.equityCurve.slice(1).map((point) => point.timestamp - hourMs);
-    const oosCandleOpens = result.oosResults[0]!.equityCurve.slice(1).map(
-      (point) => point.timestamp - hourMs,
+    const inSampleCandleOpenTimestamps = requireFirst(result.isResults, "in-sample results")
+      .equityCurve.slice(1)
+      .map((point) => point.timestamp - hourMs);
+    const oosCandleOpenTimestamps = requireFirst(result.oosResults, "out-of-sample results")
+      .equityCurve.slice(1)
+      .map((point) => point.timestamp - hourMs);
+    expect(inSampleCandleOpenTimestamps).toEqual(Array.from({ length: 24 }, (_, hour) => hour * hourMs));
+    expect(oosCandleOpenTimestamps).toEqual(Array.from({ length: 24 }, (_, hour) => (24 + hour) * hourMs));
+    expect(
+      inSampleCandleOpenTimestamps.filter((timestamp) => oosCandleOpenTimestamps.includes(timestamp)),
+    ).toEqual([]);
+    expect([...inSampleCandleOpenTimestamps, ...oosCandleOpenTimestamps]).toEqual(
+      candles.map((item) => item.timestamp),
     );
-    expect(isCandleOpens).toEqual(Array.from({ length: 24 }, (_, hour) => hour * hourMs));
-    expect(oosCandleOpens).toEqual(Array.from({ length: 24 }, (_, hour) => (24 + hour) * hourMs));
-    expect(isCandleOpens.filter((timestamp) => oosCandleOpens.includes(timestamp))).toEqual([]);
-    expect([...isCandleOpens, ...oosCandleOpens]).toEqual(candles.map((item) => item.timestamp));
   });
 
   it("strategy factoryval minden IS és OOS futás friss stratégiapéldányt kap", async () => {
@@ -209,7 +235,7 @@ describe("runWalkForward", () => {
       instances.push(strategy);
       return strategy;
     };
-    const opts: BacktestOptions = {
+    const options: BacktestOptions = {
       symbol: "BTC/USDC",
       htfTimeframe: "1d",
       mtfTimeframe: "4h",
@@ -220,13 +246,13 @@ describe("runWalkForward", () => {
       feed: new MockFeed(candles),
       costModel: COST_MODEL,
       positionSize: POSITION_SIZE,
-      // A legacy instance intentionally differs from the factory output. The
+      // The base strategy instance intentionally differs from the factory output. The
       // factory must override it without mutating the caller's base options.
       strategy: new NullStrategy(),
     };
 
     const result = await runWalkForward(
-      opts,
+      options,
       {
         inSampleDays: 1,
         outOfSampleDays: 1,

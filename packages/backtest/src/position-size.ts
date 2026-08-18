@@ -20,10 +20,10 @@ import type { PositionSizeConfig } from "./types.js";
 */
 export function stopDistancePct(entryPrice: number, stopPrice: number): number {
   if (entryPrice <= 0) {
-    throw new Error(`Entry price must be positive: ${entryPrice}`);
+    throw new Error(`Entry price must be positive: ${String(entryPrice)}`);
   }
   if (stopPrice <= 0) {
-    throw new Error(`Stop price must be positive: ${stopPrice}`);
+    throw new Error(`Stop price must be positive: ${String(stopPrice)}`);
   }
   return Math.abs(entryPrice - stopPrice) / entryPrice;
 }
@@ -51,7 +51,7 @@ export function positionNotionalUsd(
   config: PositionSizeConfig,
 ): number {
   if (equityUsd <= 0) {
-    throw new Error(`Equity must be positive: ${equityUsd}`);
+    throw new Error(`Equity must be positive: ${String(equityUsd)}`);
   }
   const stopPct = stopDistancePct(entryPrice, stopPrice);
   // Ha a stop az entry-vel megegyezik (vagy nagyon közel van), a position
@@ -82,10 +82,10 @@ export function positionNotionalUsd(
 */
 export function kellyFraction(winRate: number, avgWinLossRatio: number): number {
   if (winRate < 0 || winRate > 1) {
-    throw new Error(`Win rate must be in [0, 1]: ${winRate}`);
+    throw new Error(`Win rate must be in [0, 1]: ${String(winRate)}`);
   }
   if (avgWinLossRatio <= 0) {
-    throw new Error(`Avg win/loss ratio must be positive: ${avgWinLossRatio}`);
+    throw new Error(`Avg win/loss ratio must be positive: ${String(avgWinLossRatio)}`);
   }
   // Kelly% = W - (1-W)/R
   const kellyPct = winRate - (1 - winRate) / avgWinLossRatio;
@@ -107,7 +107,7 @@ export function kellyPositionFraction(
   kellySizeMultiplier: number,
 ): number {
   if (kellySizeMultiplier < 0 || kellySizeMultiplier > 1) {
-    throw new Error(`Kelly multiplier must be in [0, 1]: ${kellySizeMultiplier}`);
+    throw new Error(`Kelly multiplier must be in [0, 1]: ${String(kellySizeMultiplier)}`);
   }
   return kellyFraction(winRate, avgWinLossRatio) * kellySizeMultiplier;
 }

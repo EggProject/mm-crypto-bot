@@ -8,15 +8,15 @@ import { formatJsonReport, formatReport, formatTradeListCsv } from "./report.js"
 
 function mkResult(): BacktestResult {
   const equityCurve: EquityPoint[] = [
-    { timestamp: 0, equity: 10000 },
-    { timestamp: 1000, equity: 11000 },
-    { timestamp: 2000, equity: 10500 },
+    { timestamp: 0, equity: 10_000 },
+    { timestamp: 1000, equity: 11_000 },
+    { timestamp: 2000, equity: 10_500 },
   ];
   return {
     totalReturn: 0.05,
     annualizedReturn: 0.1,
     sharpeRatio: 1.5,
-    sortinoRatio: 2.0,
+    sortinoRatio: 2,
     maxDrawdown: 0.1,
     profitFactor: 1.5,
     winRate: 0.6,
@@ -49,7 +49,7 @@ function mkMetrics() {
     totalReturnPct: 0.05,
     annualizedReturnPct: 0.1,
     sharpeRatio: 1.5,
-    sortinoRatio: 2.0,
+    sortinoRatio: 2,
     maxDrawdownPct: 0.1,
     profitFactor: 1.5,
     winRatePct: 0.6,
@@ -64,6 +64,41 @@ function mkMetrics() {
     maxConsecutiveLosses: 1,
     exposureTime: 0.5,
   };
+}
+
+function requireRecord(value: unknown, label: string): Readonly<Record<string, unknown>> {
+  if (!isRecord(value)) {
+    throw new TypeError(`Expected ${label} to be a JSON object.`);
+  }
+  return value;
+}
+
+function requireSummary(record: Readonly<Record<string, unknown>>): string {
+  const value = ownField(record, "summary");
+  if (typeof value !== "string") {
+    throw new TypeError("Expected report.summary to be a string.");
+  }
+  return value;
+}
+
+function requireResult(record: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+  return requireRecord(ownField(record, "result"), "report.result");
+}
+
+function requireTotalReturn(record: Readonly<Record<string, unknown>>): number {
+  const value = ownField(record, "totalReturn");
+  if (typeof value !== "number") {
+    throw new TypeError("Expected result.totalReturn to be a number.");
+  }
+  return value;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function ownField(record: Readonly<Record<string, unknown>>, field: string): unknown {
+  return Object.entries(record).find(([key]) => key === field)?.[1];
 }
 
 describe("formatReport", () => {
@@ -136,7 +171,7 @@ describe("formatReport", () => {
         },
       ],
       equityCurve: [
-        { timestamp: 0, equity: 10000 },
+        { timestamp: 0, equity: 10_000 },
         { timestamp: 1000, equity: 9000 },
       ],
       killSwitchTriggered: true,
@@ -151,9 +186,12 @@ describe("formatReport", () => {
 describe("formatJsonReport", () => {
   it("JSON formátumban adja vissza a riportot", () => {
     const json = formatJsonReport(formatReport(mkResult(), mkMetrics(), "BTC/USDC"));
-    const parsed = JSON.parse(json);
-    expect(parsed.summary).toContain("Backtest riport");
-    expect(parsed.result.totalReturn).toBe(0.05);
+    const parsed: unknown = JSON.parse(json);
+    const report = requireRecord(parsed, "report");
+    const result = requireResult(report);
+
+    expect(requireSummary(report)).toContain("Backtest riport");
+    expect(requireTotalReturn(result)).toBe(0.05);
   });
 });
 

@@ -471,3 +471,116 @@ with **1227** expectations. A C3b file-length scan found no
 AND PROCESS RE-REVIEW**: full package lint and four-metric coverage remain
 **NOT PASS** and no repository, release, full-verify, or live-safety PASS is
 claimed.
+
+## DRAFT: Slice C3c full backtest-package quality validation
+
+At `2026-08-18T01:42:59+02:00`, the C3c scope was only
+`packages/backtest/**` plus its pending evidence rows. The exact full-package
+lint baseline was `169 errors / 1 warning`; the current command
+`bunx eslint packages/backtest --max-warnings=0` exited **0**. No broad rule
+disable or package-level exclusion was added.
+
+The package-owned `vitest.config.ts` uses the exact root-pinned Vitest V8
+toolchain, package-root resolution, `src/**/*.ts` coverage inclusion, and only
+test/test-support exclusions. Its thresholds are 100 for statements, branches,
+functions, and lines. The following commands exited **0**:
+
+```sh
+bun run --filter @mm-crypto-bot/backtest coverage
+(cd packages/backtest && bun run coverage)
+bun run --filter @mm-crypto-bot/backtest test
+bun run --filter @mm-crypto-bot/backtest build
+bunx prettier --check packages/backtest
+bunx eslint packages/backtest --max-warnings=0
+bunx tsc -p packages/backtest/tsconfig.json --noEmit
+```
+
+Both Bun and Vitest executed **166/166** tests. The direct package-CWD Vitest
+V8 report was statements **473/473**, branches **266/266**, functions
+**101/101**, and lines **456/456**. The root-filter command emitted the stable
+`Running @mm-crypto-bot/backtest V8 coverage` banner and exited 0; its child
+reporter does not forward the full table through Bun's filter wrapper, so the
+package-CWD command is the detailed metric evidence.
+
+The C3b façade SHA-256 remained
+`8805833ec40e350168a4f75775603d59d2a7b5b86e65d5066228e6baee9a143b` against
+`ce0fac61223904c4b7dc1b740a8363aeedb8eb07`, and the checked TypeScript-AST
+export comparison exited 0. A complete package `.ts` line scan found a maximum
+of **412** lines (`src/engine-runner.ts`), with 0 files above 500. Bounded
+`packages/backtest` scans found 0 skip/only calls, 0 forbidden historical-term
+matches, and 0 filename-only secret-signature matches. `git diff --check`
+exited 0. Ignored generated coverage, `.turbo`, and package-local dependency
+paths were observed but are not part of the diff.
+
+This implementation evidence is **PENDING TECHNICAL AND PROCESS RE-REVIEW**.
+It is not a repository-wide lint/test/verify/release/live-safety PASS and does
+not authorize a commit until the required independent reviews close it.
+
+### C3c review-remediation replay details
+
+After the final report-test change, `bun test packages/backtest/src/report.test.ts`
+exited 0 with **7/7** tests. The contract parses the JSON string as `unknown`,
+uses a record/field guard, and checks deserialized `summary` plus
+`result.totalReturn`; a substring is not the only proof.
+
+The final `bun run coverage` package-CWD replay created these ignored generated
+files, neither staged nor tracked:
+
+| Path                                               | SHA-256                                                            | Ignore/status evidence                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `packages/backtest/coverage/coverage-summary.json` | `af63eb656f2052163e6d2aa832b2d9e4c4d3e96939972255014c35a017a8200e` | `.gitignore:19:coverage/`; `git status --short --ignored` reports `!! packages/backtest/coverage/`. |
+| `packages/backtest/coverage/lcov.info`             | `c45dcde8cd1993762b278d9aa0ab9a0387d3d9f7eff1968bee78c2da7c720ce1` | `.gitignore:19:coverage/`; `git status --short --ignored` reports `!! packages/backtest/coverage/`. |
+
+The replay still reports **166/166** tests and statements **473/473**,
+branches **266/266**, functions **101/101**, and lines **456/456**. The
+root-filter invocation exits 0 with the deterministic coverage banner; the
+package-CWD command is the evidence that emits the metrics and artifacts.
+
+The D-07-approved public API migration changes
+`historicalIndicatorMode` from the old literal `legacy` to
+`baseline-compatible`; no compatibility alias is permitted. Exact repository
+scans found 0 old-literal consumers and three new-literal occurrences, all
+inside `packages/backtest`. The two internal manifest dependents are
+`apps/bot` and `packages/backtest-tools`: bot typecheck/test and backtest-tools
+typecheck exited 0. Backtest-tools full test exited 1 with **235 pass / 12
+fail**, therefore it remains **NOT PASS** with no C3c causal assertion. The
+backtest package is version `0.1.0` and lacks `private: true`, so unknown
+external consumers are not enumerable; a release migration note is required.
+
+This evidence remains **PENDING TECHNICAL AND PROCESS RE-REVIEW** and does not
+authorize a commit or a broader implementation PASS.
+
+### C3c exact bot-dependent replay
+
+At `2026-08-18T01:57:40+02:00`, from
+`/home/eggp/projects/mm-crypto-bot`, the direct command `bun test apps/bot/src`
+exited **0** with **737 passed / 0 failed / 1778 expectations** across 36 files.
+This is bounded dependent validation of the D-07-approved public option
+migration only; it is not an `apps/bot` scope PASS, global PASS, or a substitute
+for the two required independent C3c reviews. No production, test,
+configuration, dependency, or generated-artifact diff changed in this
+evidence-only turn.
+
+### C3c closure audit
+
+The current C3c diff contains exactly 25 paths: 22 under `packages/backtest/**`,
+three C3c evidence ledgers, and no other path. Fresh package checks passed:
+Prettier, strict ESLint, TypeScript check, and build; Bun test passed **166/166**
+with 1237 expectations. Package-CWD V8 coverage passed every enforced metric:
+473/473 statements, 266/266 branches, 101/101 functions, and 456/456 lines.
+The generated ignored/not-staged coverage artifacts retain SHA-256
+`af63eb656f2052163e6d2aa832b2d9e4c4d3e96939972255014c35a017a8200e`
+(`coverage-summary.json`) and
+`c45dcde8cd1993762b278d9aa0ab9a0387d3d9f7eff1968bee78c2da7c720ce1`
+(`lcov.info`). The removed public option value has zero active
+`packages/backtest` matches; `baseline-compatible` has three, with no alias.
+
+The closure audit found no skip/only or coverage-ignore pattern, no non-text
+changed file, no tracked/untracked whitespace diagnostic, and no diff-check
+diagnostic. The bounded secret-signature scan matched only the three C3c
+ledgers, not a package path; it records filenames/categories only and is not a
+comprehensive secret audit. The maximum TypeScript length is 412 lines in
+`packages/backtest/src/engine-runner.ts`. The known `backtest-tools` test result
+remains **NOT PASS** (235 pass / 12 fail), unclassified and not attributed to
+this diff. Independent TECH and PROCESS closure results are recorded in
+RE-059 and RE-060; their PASS scope is C3c only.

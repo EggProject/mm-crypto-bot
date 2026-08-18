@@ -1,23 +1,25 @@
-// vitest.config.ts — @mm-crypto-bot/backtest teszt konfiguráció
-//
-// Phase 35b — mandatory 100% line + function + branch + statement coverage
-// on every OWN src/ file. The threshold check is enforced by
-// `scripts/enforce-coverage-threshold.mjs` (run via `bun run coverage:full`).
-// This vitest config documents the same intent and is wired so any future
-// migration to `vitest run --coverage` would surface the threshold
-// violation immediately (vitest's own `coverage.thresholds` check).
-//
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
 
+const packageRoot = fileURLToPath(new URL(".", import.meta.url));
+
 export default defineConfig({
+  root: packageRoot,
+  resolve: {
+    alias: {
+      "bun:test": "vitest",
+    },
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
-      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/index.ts"],
-      reporter: ["text", "html", "lcov"],
+      exclude: ["src/**/*.test.ts", "src/**/*.test-support.ts"],
+      reporter: ["text", "json-summary", "lcov"],
+      reportsDirectory: "coverage",
       thresholds: {
         lines: 100,
         functions: 100,
