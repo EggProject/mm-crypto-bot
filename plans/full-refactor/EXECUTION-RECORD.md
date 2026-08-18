@@ -4,6 +4,142 @@
 All D-01 through D-09 decisions are approved; action remains gated by scope,
 validation, safety, and review evidence.
 
+## Current C4b remediation record
+
+### ER-058 C4b independent-review closure and commit authorization
+
+Recorded `2026-08-18T04:18:31+0200` Europe/Budapest. Non-review closure/write
+for the reviewed C4b scope only: `packages/numeric/**`, its exact `bun.lock`
+resolution, and C4b plan/evidence files. Requested/effective route:
+`terra_worker` / `gpt-5.6-terra` / high; workspace-write plus user-authorized
+Git stage/commit authority. No provider, trading, consumer wiring, hook
+installation, network, fallback, or push action is authorized by this record.
+
+Independent technical review by `terra_reviewer` / `gpt-5.6-terra` / high /
+read-only and independent process review by `luna_process_reviewer` /
+`gpt-5.6-luna` / medium / read-only both returned PASS with zero open valid C4b
+findings. Reviewer completion timestamps and exact reviewer command text are
+**NOT OBSERVED** in the supplied closure result. The reviews cover ER-056 as
+the sole current C4b implementation/evidence record, including the fixed
+BigInt magnitude bound, typed proxy and snapshot failures, 100% four-metric
+coverage, dependency provenance, and fail-closed evidence chain.
+
+The approved next action is a separate audited commit with subject
+`feat(numeric): add exact rational foundation`. Rollback after commit is a
+reviewed revert of that single commit; no global quality, release, data, or
+live-safety PASS is implied.
+
+### ER-057 C4b evidence-lineage correction
+
+Recorded `2026-08-18T04:14:16+0200` Europe/Budapest. Evidence-only, non-review
+write; ownership limited to C4b plan ledgers and validation text; requested/
+effective `terra_worker` / `gpt-5.6-terra` / high; workspace-write. No numeric
+source, tests, config, lock, generated artifact, external resource, provider,
+trading, hook, fallback, or Git action occurred.
+
+This record makes ER-056 the sole current C4b implementation/evidence record.
+ER-052 through ER-055 remain preserved historical evidence only. It changes no
+numeric behavior, test, metric, coverage hash, scoped-spy limitation, or
+dependency evidence. Both independent C4b re-reviews remain **PENDING** because
+ER-056 changed source after the preceding process result. Rollback is an
+inspected reverse patch of this evidence-only text. This is not package,
+repository, full-verify, release, data, or live-safety PASS.
+
+### ER-056 C4b fixed-BigInt precheck remediation
+
+Recorded `2026-08-18T04:11:45+0200` Europe/Budapest. This is a non-review,
+high-risk exact-numeric/resource-boundary correction for `packages/numeric/**`
+and C4b evidence only. Requested/effective route: `terra_worker` /
+`gpt-5.6-terra` / high; workspace-write. No network, lock mutation, provider,
+trading, consumer, hook, fallback, or commit action occurred.
+
+ER-056 supersedes ER-055 for magnitude precheck behavior and current C4b gate
+metrics/hashes. The module-level exclusive bound is exactly `10n ** 1024n`.
+`assertExactIntegerMagnitude` compares BigInts before any `toString` or
+Fraction normalization, rejecting `value >= bound` and `value <= -bound` as
+`MAGNITUDE_LIMIT`. Direct 1025-digit input, substantially larger direct input,
+and `max.multiply(max)`, `max.add(max)`, and `max.divide(1/max)` overflow
+contracts all produce that typed error; exact positive/negative 1024-digit and
+zero values remain valid. The scoped `BigInt.prototype.toString` spy observes
+zero calls on the oversized direct path and is restored in `finally`.
+
+Repository-CWD format/lint 0/0/typecheck/build, 34-pass Bun test (569
+expectations), direct/root-filter V8 coverage (157/157 statements, 114/114
+branches, 38/38 functions, 156/156 lines), and the prior unchanged-lock
+frozen-install evidence all remain valid. Current hashes: summary
+`5979190b9a0720f289b8f81b7234c87ea8ae013ac350fb1dcd296a3d2e2351e1`; LCOV
+`e84ff69980beca4a1e64f10b3190618bbd7c096b1b296d6c7dc4a9da5df7334c`.
+The command ledger records the safe limitation that no mock-based Fraction-call
+claim is made under the Bun runner.
+
+Rollback remains an inspected atomic reverse patch for only the numeric package
+and exact lock delta. **PENDING TECHNICAL AND PROCESS RE-REVIEW.** The process
+PASS predating this source change is historical only; this is not package,
+repository, full-verify, release, data, or live-safety PASS.
+
+### ER-055 C4b receiver and magnitude remediation
+
+Recorded `2026-08-18T04:05:47+0200` Europe/Budapest. This is a non-review,
+high-risk exact-numeric boundary and evidence correction for `packages/numeric/**`
+and C4b plans only. Requested/effective route: `terra_worker` /
+`gpt-5.6-terra` / high; workspace-write. No network, lock mutation, provider,
+trading, consumer, hook, fallback, or commit action occurred.
+
+At its recording time, ER-055 superseded ER-054 for numeric behavior, package
+metrics, and coverage hashes. Every public instance method first validates `this` through
+the single private-state-proving `requireInstance`; proxy receivers uniformly
+produce `INVALID_RATIONAL`, while implicit primitive conversion remains
+`IMPLICIT_COERCION`. The central
+`MAXIMUM_EXACT_INTEGER_DIGITS = 1024` bound is checked before Fraction
+normalization, after normalization, and through every arithmetic path returning
+via `fromParts`. Direct 1025-digit numerator/denominator inputs and a 1024 by
+1024 digit multiplication fail with `MAGNITUDE_LIMIT`; normalized 1024-digit,
+negative-sign-excluded, and zero cases pass.
+
+Repository-CWD package format/lint 0/0/typecheck/build, 33-pass Bun test,
+direct/root-filter V8 coverage (157/157 statements, 114/114 branches, 38/38
+functions, 156/156 lines), and Turbo discovery all exited 0. The final coverage
+hashes are summary `5979190b9a0720f289b8f81b7234c87ea8ae013ac350fb1dcd296a3d2e2351e1`
+and LCOV `131d0ac861ad17106e8f01bbc6fb3100bb9dd283bf276337c35f60749fe7488f`.
+The fail-closed raw-`rg` wrapper recorded five raw exit-1/no-match outcomes and
+five wrapper exit-0 results. Exact commands, scope, and exit semantics are in
+[`c4b-command-ledger.md`](evidence/c4b-command-ledger.md).
+
+Rollback remains an inspected atomic reverse patch for only the numeric package
+and exact lock delta; no number arithmetic, rounding, substitute dependency, or
+alias may be introduced. **PENDING TECHNICAL AND PROCESS RE-REVIEW.** This is
+not package, repository, full-verify, release, data, or live-safety PASS.
+
+### ER-054 C4b portable plain-record remediation
+
+Recorded `2026-08-18T03:52:32+0200` Europe/Budapest. This is a non-review,
+high-risk numeric-boundary correction for `packages/numeric/**` and C4b
+evidence only. Requested/effective route: `terra_worker` / `gpt-5.6-terra` /
+high; workspace-write. No external resource, lock mutation, provider, trading,
+consumer, hook, fallback, or commit action occurred.
+
+ER-054 supersedes ER-053 for the plain-record implementation and final LCOV
+hash. The guard compares a candidate constructor's
+`Function.prototype.toString.call(...)` to the current realm's `Object` result
+inside its fail-closed `try`/`catch`; it hardcodes no engine-specific native
+function text. A fake-constructor custom null-parent prototype is rejected and
+a cross-realm ordinary snapshot remains accepted. From repository CWD, package
+Prettier, strict ESLint 0/0, typecheck/build, `bun test packages/numeric/src`
+(18 pass, 0 fail, 520 expectations), direct/root-filter V8 coverage
+(138/138 statements, 110/110 branches, 37/37 functions, 137/137 lines), Turbo
+discovery, package/import/boundary scans, and `git diff --check` exited 0.
+Current ignored coverage hashes are summary
+`ed05d6452e18a207a8ea68e6999a39f54947590f357a6b973aea1150d8061096` and
+LCOV `a80a2ad5bba68842db28754a838875ba8aaf25f2f054d463aa89e251af516f5d`.
+Exact commands/results are in
+[`c4b-command-ledger.md`](evidence/c4b-command-ledger.md).
+
+Rollback is an inspected atomic reverse patch for the numeric package and exact
+lock delta only; it must not introduce number arithmetic, rounding, a
+substitute dependency, or an alias. **PENDING TECHNICAL AND PROCESS
+RE-REVIEW.** This is not package, repository, full-verify, release, data, or
+live-safety PASS.
+
 ## Required record schema
 
 Each future planning, implementation, validation, or review record must contain
@@ -73,6 +209,8 @@ value must never be inferred from the requested route alone.
 | ER-050 C4a evidence-helper hardening | Recorded `2026-08-18T03:10:03+0200` Europe/Budapest. Non-review evidence tooling/plan write only; C4a helpers, ledgers, durable manifests, and exact temporary fixtures; package count 0 code; high evidence-integrity/supply-chain risk. Requested/effective `terra_worker` / `gpt-5.6-terra` / high; workspace-write; no network, fallback, production/test/configuration/manifest change, or commit. | The inventory helper parses NUL-delimited `git ls-tree -r -z` records before `git show`: only blob modes `100644`/`100755` pass; symbolic-link/gitlink/non-blob/unexpected-mode entries exit 71/72/73/74. Current positive replays remain byte-identical at 47/41/33 lines; a committed exact `/tmp/c4a-git-tree-symlink.HSJ1OC` fixture invoked through canonical `--repo` / `--ref HEAD` exited 71 and was removed. The whitespace helper canonicalizes repo, manifest, allowed roots, and targets; its 31-path replay exits 0. Traversal `packages/typing/../../AGENTS.md` and a temporary parent-symlink probe exit 71/74 and were removed. At CWD `/home/eggp/projects/mm-crypto-bot`, exact `bun install --ignore-scripts` exited 0, checked 262 installs/287 packages without changes, resulting lock SHA-256 `e90148f0f1dd804f5a1c3d0ecbc7bb87a3db31e941acc33a116c701ad86b8f38`. Isolated frozen-install hook hashes are fixture-before `8d21ef45c5f51fd4784cd3ca14ca5f2e90b39ed2985abf88a46cd4fc7f3ff6c8`, fixture-after `8d21ef45c5f51fd4784cd3ca14ca5f2e90b39ed2985abf88a46cd4fc7f3ff6c8`, main-before `2cbf26be4cfe5e6c621a2b2759cf5913880abcbb018617a5f4e4a7e27ccf62d9`, main-after `2cbf26be4cfe5e6c621a2b2759cf5913880abcbb018617a5f4e4a7e27ccf62d9`. Trust remains exactly `["ccxt"]`; `bun pm untrusted` exit 0 reports only blocked Lefthook 2.1.10 postinstall. | ER-049 remains historical; ER-050 is current helper evidence. Plan self-check, link check, tracked diff check, and the 31-path untracked-safe replay remain required. **PENDING TECHNICAL AND PROCESS RE-REVIEW**; no package/repository/release/live PASS or commit is authorized. |
 
 | ER-051 C4a review closure transcription | Recorded `2026-08-18T03:14:07+0200` Europe/Budapest. Non-review administrative evidence write plus user-authorized Git commit preparation; C4a reviewed scope only: `packages/{typing,typeguard,assert}/**`, deleted `temp/ts/{typing,typeguard,assert}/**`, `bun.lock`, and C4a plan/evidence. Three packages; architecture/type-boundary/supply-chain/history risk. Requested/effective `terra_worker` / `gpt-5.6-terra` / high; workspace-write plus Git index/commit authority; no external resource, fallback, push, or amend. | Coordinator provided independent read-only closure results: `terra_reviewer` / `gpt-5.6-terra` / high **TECH PASS** and `luna_process_reviewer` / `gpt-5.6-luna` / medium **PROCESS PASS**, both with zero open valid C4a findings. Reviewer completion timestamps and full command text are **NOT OBSERVED**. The closure covers the atomic source removals, public type contracts, plain-record/Date guards, dependency graph, package gates/coverage, parsed Git inventory, canonical path/whitespace checks, lock/trust/untrusted state, isolated hooks, and rollback/evidence lineage. | Closure PASS is strictly limited to C4a and permits the separately audited commit. It does not make root lint, broad tests, full verify, release, target architecture, or live trading PASS. `temp/ts/rxjs` is explicitly out of scope and must remain unchanged. |
+| ER-052 C4b exact numeric foundation implementation | Recorded `2026-08-18T03:36:22+0200` Europe/Budapest. Non-review financial numeric/public API/dependency write; one new package `packages/numeric/**`, `bun.lock`, and C4b plan evidence only; high exactness/serialization/supply-chain risk. Requested/effective `terra_worker` / `gpt-5.6-terra` / high; workspace-write; registry access only for the approved exact dependency; no provider, live-trading, consumer wiring, fallback, or commit. | `@mm-crypto-bot/numeric` is private, exports only `.`, and declares only exact `fraction.js` `5.3.4` at runtime. The raw Fraction is retained solely inside the immutable BigInt-backed `ExactRational` normalizer; no raw export escapes. Canonical decimal/bigint inputs, normalized snapshot schema `exact-rational@1`, no implicit primitive conversion, fail-closed exact tick/lot functions, deterministic seeded algebraic/adversarial tests, public/deep-import contract, and no consumer scan are current. Final package commands from repository CWD exited 0: Prettier, strict ESLint 0/0, package typecheck/build, root-filter coverage, and Turbo discovery. Tests: 13 passed. V8: statements 132/132, branches 102/102, functions 36/36, lines 131/131; ignored generated hashes are summary `2f51e7ef8008ccee32ed3f7d57350b3a24b6673b865ec5ba64c7d5850f7ce260` and LCOV `b1cc46845273a8ee58d051a5c76619e1c68b98731a8c93df65648c33f2d2d447`. Lifecycle-disabled install changed lock SHA-256 `e90148f0f1dd804f5a1c3d0ecbc7bb87a3db31e941acc33a116c701ad86b8f38` to `98d327ba77248ed8e514f27991a4f43582380742ac3dc2fd87ffea8d04636c1e`; `bun pm ls fraction.js` exited 0 and exposes the new workspace package; lock resolves `fraction.js@5.3.4` with `sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==`. Metadata observed MIT, built-in TypeScript, and zero dependencies. Escalated `bun audit` exited 0 with no vulnerabilities. Isolated frozen lifecycle-disabled install exited 0; fixture hooks stayed `5fd262233ae9fcaf7bf4f17de411a823067458d84ba62eb4db085a767740af48`, main hooks stayed `2cbf26be4cfe5e6c621a2b2759cf5913880abcbb018617a5f4e4a7e27ccf62d9`, fixture was removed. `trustedDependencies` remains exactly `ccxt`; untrusted output lists blocked Lefthook only. | Roll back this atomic dependency/package delta together to the preceding commit; do not replace it with rounding, number conversion, a substitute numeric dependency, or a compatibility alias. **PENDING TECHNICAL AND PROCESS RE-REVIEW.** This is not a repository, full-verify, release, data, or live-safety PASS. |
+| ER-053 C4b exact-boundary and audit remediation | Recorded `2026-08-18T03:49:26+0200` Europe/Budapest. Non-review high-risk financial boundary/dependency evidence write; one package (`packages/numeric/**`), unchanged exact lock, and C4b plan evidence. Requested/effective `terra_worker` / `gpt-5.6-terra` / high; workspace-write. Network authority was limited to the approved registry audit; no provider, trading, consumer wiring, hook installation, or commit. | This record supersedes ER-052's current package-gate metrics and audit detail, while retaining its atomic lock/install provenance. `requireInstance` now proves private rational fields after `instanceof` and maps proxy private-field failures to `INVALID_RATIONAL`; snapshot required properties must each be own, enumerable data properties; and the plain-record guard accepts null or a realm-native Object prototype only. Targeted tests cover a proxy operand, all three non-enumerable required fields, cross-realm plain snapshot, Date/Map/class/custom prototypes, Symbol tag, and throwing prototype traps. CWD commands exited 0: `bunx prettier --check packages/numeric`; `bunx eslint packages/numeric --max-warnings=0`; `bun run --filter @mm-crypto-bot/numeric typecheck`; `bun run --filter @mm-crypto-bot/numeric build`; `bun test packages/numeric/src`; direct and root-filter V8 coverage; Turbo dry discovery; and public/deep-import test. Final result: 18 tests, 518 expectations, V8 138/138 statements, 110/110 branches, 37/37 functions, 137/137 lines; hashes and every bounded scan command/result are in `plans/full-refactor/evidence/c4b-command-ledger.md`. At CWD above, an initial sandbox `bun audit` output `ConnectionRefused`; it is NOT EVIDENCED despite a pipeline status and is not a PASS. Controlled escalation, justified solely for the user-approved registry audit, then ran exact `bun audit` with Bun 1.3.14, exit 0, zero vulnerabilities, lock SHA-256 `98d327ba77248ed8e514f27991a4f43582380742ac3dc2fd87ffea8d04636c1e`, and normalized output SHA-256 `632baba77d06bc1d76bc81a2e40e7fdaaf504af73f5197b382aa21583890a6a9`. | Roll back the numeric package and its exact lock resolution atomically to the preceding commit; never replace it with number arithmetic, rounding, or a substitute dependency. **PENDING TECHNICAL AND PROCESS RE-REVIEW.** This corrects evidence and boundary guards only; it is not repository, full-verify, release, data, or live-safety PASS. |
 
 ## Route failure rule
 

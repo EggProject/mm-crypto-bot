@@ -109,6 +109,18 @@
         "typescript": "6.0.3",
       },
     },
+    "packages/numeric": {
+      "name": "@mm-crypto-bot/numeric",
+      "version": "0.1.0",
+      "dependencies": {
+        "fraction.js": "5.3.4",
+      },
+      "devDependencies": {
+        "@vitest/coverage-v8": "4.1.10",
+        "typescript": "6.0.3",
+        "vitest": "4.1.10",
+      },
+    },
     "packages/paper": {
       "name": "@mm-crypto-bot/paper",
       "version": "0.1.0",
@@ -246,6 +258,8 @@
     "@mm-crypto-bot/core": ["@mm-crypto-bot/core@workspace:packages/core"],
 
     "@mm-crypto-bot/exchange": ["@mm-crypto-bot/exchange@workspace:packages/exchange"],
+
+    "@mm-crypto-bot/numeric": ["@mm-crypto-bot/numeric@workspace:packages/numeric"],
 
     "@mm-crypto-bot/paper": ["@mm-crypto-bot/paper@workspace:packages/paper"],
 
@@ -468,6 +482,8 @@
     "flat-cache": ["flat-cache@4.0.1", "", { "dependencies": { "flatted": "^3.2.9", "keyv": "^4.5.4" } }, "sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw=="],
 
     "flatted": ["flatted@3.4.4", "", {}, "sha512-5+ybhBZANEJxaH3X5evAFatUxLfEHSr7n6kYJ+1Qd0mUqr4eu9gIf6GDbWHf8RJijHrjjO8G+la14SlL2SeS1Q=="],
+
+    "fraction.js": ["fraction.js@5.3.4", "", {}, "sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ=="],
 
     "fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
 

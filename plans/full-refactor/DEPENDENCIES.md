@@ -238,7 +238,45 @@ never created or changed a main-worktree Git-hook path.
 | Husky + lint-staged                                                                                            | Remove/replace under D-01.                                                                                | Rejected policy.                                                    | Validate no obsolete hook path remains.                                                                                                                                                                                                                                                                           |
 | Existing `zod`                                                                                                 | Keep `3.25.76` pending guarded Phase 3 update/removal at `4.4.3`.                                         | Target requires named guards, not necessarily a validation library. | DTO/guard consumer, boundary, and negative guard tests.                                                                                                                                                                                                                                                           |
 | Existing CCXT                                                                                                  | Retain exact-pinned `4.5.64`; consider `4.5.70` only in the separate post-P4/pre-P5 atomic change.        | Sole live adapter plus D-04 public research adapter.                | P3 `PublicHistoricalClient` plus P4 Bybit EU fail-closed/no-network/safety evidence.                                                                                                                                                                                                                              |
-| `protobufjs`, `smol-toml`, `write-file-atomic`, `picocolors`                                                   | Isolate pure minor updates (`8.7.2`, `1.8.0`) from exact-only retains (`8.0.0`, `1.1.1`).                 | Avoid a blanket update and preserve a consumer-level rollback.      | `rg` consumer evidence, frozen install, audit/license tests.                                                                                                                                                                                                                                                      |
+
+## C4b exact numeric dependency evidence — 2026-08-18T03:49:26+0200
+
+**DRAFT implementation evidence; PENDING RE-REVIEW.** `@mm-crypto-bot/numeric`
+is now the sole declared owner of exact-pinned `fraction.js` `5.3.4`. Its
+package metadata reports MIT, bundled TypeScript declarations, zero dependency
+entries, and only upstream build/test scripts; no lifecycle script is declared.
+The resolved lock record is `fraction.js@5.3.4` with integrity
+`sha512-1X1NTtiJphryn/uLQz3whtY6jK3fTqoE3ohKs0tT+Ujr1W59oopxmoEh7Lu5p6vBaPbgoM0bzveAW4Qi5RyWDQ==`.
+
+The lifecycle-disabled exact install changed `bun.lock` from
+`e90148f0f1dd804f5a1c3d0ecbc7bb87a3db31e941acc33a116c701ad86b8f38` to
+`98d327ba77248ed8e514f27991a4f43582380742ac3dc2fd87ffea8d04636c1e`.
+Escalated `bun audit` at `2026-08-18T03:34:40+0200` exited 0 with “No
+vulnerabilities found”. `bun pm untrusted` reports only blocked Lefthook
+postinstall; `trustedDependencies` remains exactly `ccxt`. The isolated
+frozen, lifecycle-disabled install and hook invariants are in ER-052. This is
+package/dependency evidence only, not release or repository verification.
+
+The version-specific authoritative registry reference is
+[fraction.js 5.3.4](https://www.npmjs.com/package/fraction.js/v/5.3.4); the
+upstream project is [Fraction.js](https://github.com/rawify/Fraction.js).
+Coordinator-supplied official metadata was verified as the latest stable target
+on `2026-08-18`: version `5.3.4`, MIT license, built-in TypeScript declaration
+entry, and zero dependency entries. The exact observed lock record above is the
+resolution basis, not a version-range inference.
+
+At repository CWD `/home/eggp/projects/mm-crypto-bot`, the sandbox audit
+attempt encountered `ConnectionRefused`; its completion timestamp is **NOT
+OBSERVED** and it is **NOT EVIDENCED**. A controlled escalation was then authorized solely because
+registry network access is necessary for the user-approved dependency audit;
+it made no repository, hook, provider, or other external-state change. The
+exact command `bun audit` ran with Bun `1.3.14`, exited `0`, and found zero
+vulnerabilities against lock SHA-256
+`98d327ba77248ed8e514f27991a4f43582380742ac3dc2fd87ffea8d04636c1e`. Its
+normalized non-sensitive output is
+[recorded evidence](evidence/c4b-bun-audit-2026-08-18.txt), SHA-256
+`632baba77d06bc1d76bc81a2e40e7fdaaf504af73f5197b382aa21583890a6a9`.
+| `protobufjs`, `smol-toml`, `write-file-atomic`, `picocolors` | Isolate pure minor updates (`8.7.2`, `1.8.0`) from exact-only retains (`8.0.0`, `1.1.1`). | Avoid a blanket update and preserve a consumer-level rollback. | `rg` consumer evidence, frozen install, audit/license tests. |
 
 ## Compatibility evidence protocol
 

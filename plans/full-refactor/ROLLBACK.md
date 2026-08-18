@@ -9,6 +9,10 @@ this plan.
 - Each phase is committed only after its entry/exit evidence; no mixed broad
   migration commit. Retain commit SHA, lockfile hash, validation output, and
   artifact manifest for every phase.
+- C4b numeric rollback is atomic: remove `@mm-crypto-bot/numeric` and its exact
+  `fraction.js` lock resolution together, restoring the preceding audited lock
+  state. Do not substitute numeric libraries, introduce a compatibility alias,
+  or add number conversion, truncation, or rounding during rollback.
 - Do not reintroduce a legacy production implementation or compatibility shim
   as a rollback. Roll back to the previously approved atomic state instead.
 - Do not restore a documentation archive or `docs/legacy` as a rollback. The

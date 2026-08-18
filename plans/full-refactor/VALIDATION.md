@@ -712,3 +712,31 @@ The isolated frozen-install hashes are fixture-before/after
 main-before/after `2cbf26be4cfe5e6c621a2b2759cf5913880abcbb018617a5f4e4a7e27ccf62d9`.
 Root trust remains only `ccxt`; Lefthook postinstall is blocked by Bun. This
 evidence is **PENDING TECHNICAL AND PROCESS RE-REVIEW**.
+
+### C4b exact numeric foundation
+
+ER-056 is the sole current C4b implementation/evidence record. ER-052 through
+ER-055 are historical only; ER-056 supersedes their implementation, magnitude
+precheck, test, metric, coverage-hash, and scoped-spy limitation statements. The private
+`@mm-crypto-bot/numeric` package exposes only its package barrel and retains
+the audited Fraction implementation only behind immutable BigInt-backed exact
+values. The bounded canonical decimal grammar rejects numbers, whitespace,
+plus signs, exponent notation, noncanonical zeros, slash notation, and invalid
+snapshot content. Snapshot parsing also rejects over-bound integers, accessors,
+symbol/non-enumerable/extra keys, and adversarial proxy traps with typed errors.
+
+Final package evidence is: Prettier and strict ESLint 0/0; typecheck and build
+exit 0; 34 deterministic unit/contract/property tests pass; and V8 thresholds
+are statements **157/157**, branches **114/114**, functions **38/38**, and
+lines **156/156**. Generated coverage is ignored and unstaged; its summary
+SHA-256 is `5979190b9a0720f289b8f81b7234c87ea8ae013ac350fb1dcd296a3d2e2351e1`
+and LCOV SHA-256 is
+`e84ff69980beca4a1e64f10b3190618bbd7c096b1b296d6c7dc4a9da5df7334c`.
+The root-filter Turbo typecheck discovery exits 0. No current repository
+consumer imports the package, so no consumer migration is claimed.
+
+The exact package-command, dependency, audit, and isolated frozen-install
+evidence is recorded in [the C4b command ledger](evidence/c4b-command-ledger.md),
+ER-056, and `DEPENDENCIES.md`. This C4b scope remains **PENDING TECHNICAL AND
+PROCESS RE-REVIEW**; it is not a repository/full-verify/release/live-safety
+PASS.

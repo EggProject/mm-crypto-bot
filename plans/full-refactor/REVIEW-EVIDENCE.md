@@ -5,6 +5,89 @@ part of the evidence chain; later PASS rows apply only to this DRAFT planning
 package and do not claim repository implementation completion. Decision approval
 does not replace implementation evidence.
 
+## Current C4b remediation state
+
+### RE-073 C4b independent-review closure
+
+Ledger recording timestamp `2026-08-18T04:18:31+0200` Europe/Budapest. Scope:
+the current C4b exact-numeric foundation diff only (`packages/numeric/**`, the
+exact lock resolution, and C4b plan/evidence). Review completion timestamps,
+worktree identity, and exact commands are **NOT OBSERVED** in the supplied
+reviewer results.
+
+`terra_reviewer` / `gpt-5.6-terra` / high / read-only returned **TECH PASS**
+with zero open valid findings. `luna_process_reviewer` / `gpt-5.6-luna` /
+medium / read-only returned **PROCESS PASS** with zero open valid findings.
+The closure covers the ER-056 fixed-BigInt precheck, exact-rational public
+boundary, package gates and coverage, dependency evidence, and the corrected
+evidence lineage. ER-056 remains the sole current C4b implementation/evidence
+record; ER-052 through ER-055 and RE-067 through RE-072 are historical.
+
+This PASS authorizes only the separate C4b commit. It does not establish a
+repository-wide lint/test/verify, release, data, or live-trading PASS.
+
+### RE-072 C4b evidence-lineage correction
+
+Ledger recording timestamp `2026-08-18T04:14:16+0200` Europe/Budapest.
+Evidence-only, non-review writer: `terra_worker` / `gpt-5.6-terra` / high /
+workspace-write. Scope is C4b plan evidence only; no numeric source/test,
+config, lock, generated artifact, external resource, provider, trading, hook,
+consumer, or Git action. Independent reviewer identity, completion timestamp,
+commands, findings, and adjudication are **NOT OBSERVED**.
+
+ER-057 makes ER-056 the sole current C4b implementation/evidence record;
+ER-052 through ER-055 and RE-067 through RE-071 are historical evidence only. It makes no
+implementation claim and does not change the current fixed-BigInt behavior or
+gate evidence. **PENDING TECHNICAL AND PROCESS RE-REVIEW** remains the only
+current C4b review state.
+
+### RE-071 C4b fixed-BigInt precheck correction
+
+Ledger recording timestamp `2026-08-18T04:11:45+0200` Europe/Budapest.
+Non-review writer: `terra_worker` / `gpt-5.6-terra` / high / workspace-write.
+Scope is C4b numeric source/tests and evidence only; no network, lock mutation,
+provider, trading, hook, consumer, or Git action. Independent reviewer identity,
+completion timestamp, commands, findings, and adjudication are **NOT OBSERVED**.
+
+Historical record at its recording time. ER-056 replaces the string-length magnitude precheck with the fixed exclusive
+BigInt bound, adds direct and arithmetic overflow contracts, and records the
+scoped/restored `BigInt.prototype.toString` proof plus its Bun-runner mock
+limitation. The source change invalidates prior process PASS coverage; both
+independent re-reviews are **PENDING**. No implementation, package, repository,
+full-verify, release, data, or live-trading PASS is created.
+
+### RE-070 C4b receiver and resource-bound correction
+
+Ledger recording timestamp `2026-08-18T04:05:47+0200` Europe/Budapest.
+Non-review writer: `terra_worker` / `gpt-5.6-terra` / high / workspace-write.
+Scope is C4b numeric source/tests and evidence only; no network, lock mutation,
+provider, trading, hook, consumer, or Git action. Independent reviewer identity,
+completion timestamp, commands, findings, and adjudication are **NOT OBSERVED**.
+
+ER-055 adds uniform proxy-receiver typed errors, the central 1024-digit exact
+integer resource limit, direct/adversarial bound contracts, current 33-pass V8
+100% evidence, and corrected raw-`rg` versus wrapper exit semantics. **PENDING
+TECHNICAL AND PROCESS RE-REVIEW.** It invalidates any C4b current-diff
+conclusion predating ER-055 and creates no implementation, package, repository,
+full-verify, release, data, or live-trading PASS.
+
+### RE-069 C4b portability correction
+
+Ledger recording timestamp `2026-08-18T03:52:32+0200` Europe/Budapest.
+Non-review writer: `terra_worker` / `gpt-5.6-terra` / high / workspace-write.
+Scope is C4b numeric guard/tests and evidence only; no external resource, lock
+mutation, provider, trading, hook, consumer, or Git action. Independent
+reviewer identity, completion timestamp, commands, findings, and adjudication
+are **NOT OBSERVED**.
+
+ER-054 replaces the engine-format-specific native Object comparison with a
+current-realm reference comparison, adds the fake-constructor custom
+null-parent-prototype negative, and binds the current 18-pass/520-expectation
+run plus final V8 LCOV hash. **PENDING TECHNICAL AND PROCESS RE-REVIEW.** This
+invalidates any current-diff conclusion predating ER-054 and creates no
+implementation, package, repository, full-verify, release, data, or
+live-trading PASS.
+
 ## Required review schema
 
 | Field                          | Requirement                                                                           |
@@ -74,6 +157,7 @@ does not replace implementation evidence.
 
 | RE-065 | Independent final technical review of C4a foundation migration and all remediations. Ledger recording timestamp `2026-08-18T03:14:07+0200` Europe/Budapest. Route `terra_reviewer`; model `gpt-5.6-terra`; effort high; read-only authority. Reviewer completion timestamp, full command text, and diff identity are **NOT OBSERVED**. | Coordinator supplied **TECH PASS** with zero open valid C4a findings. Scope includes atomic source removal, type contracts, fail-closed record/Date guards, package graph/export contracts, strict quality gates and coverage, Git-tree inventory parsing, canonical path controls, lifecycle/trust and isolated hook evidence. | **TECH PASS** is limited to C4a and permits its separate audited commit. Root lint, broad tests, full verify, release, and live trading are not made PASS. |
 | RE-066 | Independent process review of C4a closure and commit eligibility. Ledger recording timestamp `2026-08-18T03:14:07+0200` Europe/Budapest. Route `luna_process_reviewer`; model `gpt-5.6-luna`; effort medium; read-only authority. Reviewer completion timestamp, full command text, and diff identity are **NOT OBSERVED**. | Coordinator supplied **PROCESS PASS** with zero open valid C4a findings. Scope includes recorded route/authority, bounded ownership, exact commands/exits/hashes, fixture cleanup, generated-artifact exclusion, rollback, independent review chain, and continuous separate-commit authority. | **PROCESS PASS** is limited to C4a and permits its separate audited commit. Root lint, broad tests, full verify, release, and live trading are not made PASS. |
+| RE-067 | C4b exact numeric foundation implementation evidence. Ledger recording timestamp `2026-08-18T03:36:22+0200` Europe/Budapest; non-review writer `terra_worker` / `gpt-5.6-terra` / high / workspace-write. One package plus exact lock/evidence scope; high financial exactness, serialization, and supply-chain risk. External authority was limited to approved `fraction.js@5.3.4` registry resolution and audit; no provider or trading action. Independent reviewer identity, completion timestamp, commands, findings, and adjudication are **NOT OBSERVED**. | ER-052 records canonical input/snapshot, BigInt normalization, no coercion, exact step contracts, deterministic property/adversarial tests, public export/deep-import contract, strict lint/typecheck/build/V8 100%, source/consumer scans, exact lock integrity, license/zero-dependency metadata, clean audit, trust state, and isolated frozen-install hook evidence. | **PENDING TECHNICAL AND PROCESS RE-REVIEW.** This does not make C4b, the repository, full verify, release, data ingestion, or live trading PASS; no commit is authorized until both independent reviews close the current diff. |
 
 ## Finding closure rule
 
@@ -118,3 +202,4 @@ Europe/Budapest. This timestamp records RE-010/RE-011, not reviewer completion.
 | RE-058 | C3c direct dependent-validation evidence. Ledger recording timestamp `2026-08-18T01:57:40+0200` Europe/Budapest; non-review writer `terra_worker` / `gpt-5.6-terra` / high / workspace-write; plan-only authority; no external resource, fallback, commit, or reviewer action. Reviewer completion timestamp, commands, findings, and adjudication are **NOT OBSERVED**. | ER-045 adds exact direct bot evidence: repository-CWD `bun test apps/bot/src` exited 0 with 737 passed, 0 failed, and 1778 expectations. No production/test/configuration diff changed during this evidence-only turn. | **PENDING PROCESS RE-REVIEW.** The existing technical review state is unchanged. This validates one bounded internal dependent of the D-07 public option migration, not `apps/bot`, C3c, repository, full-verify, release, or live-trading PASS. |
 | RE-059 | Independent final technical review of current C3c strict-quality and public-option migration. Ledger recording timestamp `2026-08-18T02:03:28+0200` Europe/Budapest. Route `terra_reviewer`; model `gpt-5.6-terra`; effort high; read-only authority. Reviewer completion timestamp, full command text, and diff identity are **NOT OBSERVED**. | Coordinator supplied **TECH PASS** with zero open valid C3c findings. Scope included the parsed-and-narrowed JSON report contract, threshold-enforced V8 100% evidence and artifact hashes, the exact direct bot dependent test, public option consumer scans, no compatibility alias, and bounded integrity proofs. | **TECH PASS** is limited to the current C3c diff. It does not make root lint, broad tests, full verify, release, or live trading PASS; the backtest-tools 12 failures remain unclassified and **NOT PASS**. |
 | RE-060 | Independent process review of current C3c closure and separate commit eligibility. Ledger recording timestamp `2026-08-18T02:03:28+0200` Europe/Budapest. Route `luna_process_reviewer`; model `gpt-5.6-luna`; effort medium; read-only authority. Reviewer completion timestamp, full command text, and diff identity are **NOT OBSERVED**. | Coordinator supplied **PROCESS PASS** with zero open valid C3c findings. It reviewed ownership, route/authority, scope-bound validation, audit evidence, ignored coverage artifacts, rollback, and the user-authorized continuous commit rule. | **PROCESS PASS** is limited to C3c and authorizes this separate commit. It does not make root lint, broad tests, full verify, release, or live trading PASS; the backtest-tools 12 failures remain unclassified and **NOT PASS**. |
+| RE-068 | C4b technical/process remediation evidence. Ledger recording timestamp `2026-08-18T03:49:26+0200` Europe/Budapest; non-review writer `terra_worker` / `gpt-5.6-terra` / high / workspace-write. Scope: `packages/numeric/**`, unchanged C4b exact lock entry, and C4b evidence only; high exactness, serialization, dependency-audit, and boundary risk. The only external authority was a controlled, read-only registry audit after a sandbox `ConnectionRefused`; no provider, trading, hook, consumer, or Git action. Independent reviewer identity, completion timestamp, commands, findings, and adjudication are **NOT OBSERVED**. | ER-053 records the private-field proxy guard, own/enumerable-data snapshot field requirement, realm-aware Object guard, 18 tests, strict lint/typecheck/build, threshold-enforced V8 100%, package/public/deep-import scans, exact coverage/audit/lock hashes, and the current command ledger. The earlier C4b gate metrics/audit wording is superseded only where ER-053 explicitly says so. | **PENDING TECHNICAL AND PROCESS RE-REVIEW.** No current-diff PASS, commit authorization, repository verification, release, data, or live-trading claim is created. |
