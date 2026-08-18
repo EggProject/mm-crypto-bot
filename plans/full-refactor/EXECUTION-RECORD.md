@@ -4,7 +4,64 @@
 All D-01 through D-09 decisions are approved; action remains gated by scope,
 validation, safety, and review evidence.
 
-## Current C4b remediation record
+## Current Phase 2 evidence
+
+### ER-063 C4a RxJS prototype removal (non-review)
+
+Recorded `2026-08-18T06:12:00+0200` Europe/Budapest. Scope:
+`temp/ts/rxjs/**`, root lint scripts, and C4a evidence command ledger
+append. Requested/effective route: `spark_worker` / `gpt-5.3-codex-spark` / medium; workspace-write/sandbox authority only.
+No network/provider call, dependency/lock mutation, consumer runtime change, or
+commit action occurred.
+
+Scope ownership:
+
+- `package.json`: `lint` / `lint:hook` script removal of `temp`.
+  - `scripts/tooling/toolchain-contract.test.ts`: added fail-closed guard against
+    `temp` reintroduction in lint scripts and explicit fail-closed filesystem
+    absence assertions for `temp/ts` and `temp/ts/rxjs`, with the present-path
+    branch now validated via an injected successful stat function (no fixture
+    creation/removal).
+- Deleted all `temp/ts/rxjs` files.
+- Added evidence: [c4a-rxjs-removal-command-ledger.md](evidence/c4a-rxjs-removal-command-ledger.md).
+
+`test ! -e temp/ts/rxjs` and `test ! -e temp/ts` checks exited `0` after clean
+execution. `bun run lint` exited `1` (pre-existing global lint debt), while
+`bun test scripts/tooling/toolchain-contract.test.ts` exited `0` (9 pass) with
+an injected stat-probe assertion for present path and `bun run typecheck` plus
+`bun run build` exited `0`.
+
+### ER-064 C4a RxJS prototype removal closure (commit-ready)
+
+Recorded `2026-08-18T05:15:30+0200` Europe/Budapest. Scope:
+`temp/ts/rxjs/**` deletion, root lint scripts, tooling contract test, and
+C4a command ledger/evidence. Requested/effective route:
+`spark_worker` / `gpt-5.3-codex-spark` / medium; workspace-write/sandbox
+authority only, plus user-authorized staging/commit for scoped paths only. No
+dependency/lock mutation, external mutable resource, or consumer runtime change
+occurred.
+
+Scope ownership:
+
+- `package.json`, `scripts/tooling/toolchain-contract.test.ts`
+- `temp/ts/rxjs/**`
+- `plans/full-refactor/EXECUTION-RECORD.md`
+- `plans/full-refactor/REVIEW-EVIDENCE.md`
+- `plans/full-refactor/evidence/c4a-rxjs-removal-command-ledger.md`
+
+Validation is scoped and passed (`0` exit):
+
+- `bunx eslint scripts/tooling/toolchain-contract.test.ts`
+- `bunx prettier --check package.json scripts/tooling/toolchain-contract.test.ts plans/full-refactor/EXECUTION-RECORD.md plans/full-refactor/evidence/c4a-rxjs-removal-command-ledger.md`
+- `bun test scripts/tooling/toolchain-contract.test.ts` (`9` pass)
+- `bun run typecheck`
+- `bun run build`
+- `git diff --check`
+- `test ! -e temp/ts`
+- `test ! -e temp/ts/rxjs`
+
+Global gates remain **NOT PASS** as reported: `bun run lint` (`1`) and
+repository-wide format/full-verify remain pending.
 
 ### ER-058 C4b independent-review closure and commit authorization
 

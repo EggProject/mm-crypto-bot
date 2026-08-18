@@ -5,7 +5,7 @@ part of the evidence chain; later PASS rows apply only to this DRAFT planning
 package and do not claim repository implementation completion. Decision approval
 does not replace implementation evidence.
 
-## Current C4b remediation state
+## Current C4a/C4b remediation state
 
 ### RE-073 C4b independent-review closure
 
@@ -25,6 +25,28 @@ record; ER-052 through ER-055 and RE-067 through RE-072 are historical.
 
 This PASS authorizes only the separate C4b commit. It does not establish a
 repository-wide lint/test/verify, release, data, or live-trading PASS.
+
+### RE-074 C4a independent technical review closure
+
+Ledger recording timestamp `2026-08-18T05:15:30+0200` Europe/Budapest. Review scope:
+current C4a RxJS prototype-removal scope (`temp/ts/rxjs/**`, root lint scripts,
+tooling contract test, and C4a evidence). Independent reviewer identity,
+completion timestamp, and exact command text are **NOT OBSERVED** in this record.
+
+`terra_reviewer` / `gpt-5.6-terra` / high / read-only returned **TECH PASS**
+with zero open valid findings for this scoped diff. This PASS is limited to the
+scoped C4a evidence only.
+
+### RE-075 C4a process review closure
+
+Ledger recording timestamp `2026-08-18T05:15:30+0200` Europe/Budapest. Review scope:
+current C4a scope-owned closure and commit readiness. Independent reviewer identity,
+completion timestamp, and exact command text are **NOT OBSERVED** in this record.
+
+`luna_process_reviewer` / `gpt-5.6-luna` / medium / read-only returned
+**PROCESS PASS** with zero open valid findings for this scoped C4a diff. This
+pass does not make repository-wide lint, broad tests, full verify, release, or
+live-trading PASS.
 
 ### RE-072 C4b evidence-lineage correction
 

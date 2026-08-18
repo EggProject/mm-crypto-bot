@@ -1,9 +1,41 @@
 import { expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { lstat, readFile } from "node:fs/promises";
 
 const readRepoFile = (relativePath: string): Promise<string> =>
   // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test inputs are fixed repository-relative paths declared in this file.
   readFile(new URL(`../../${relativePath}`, import.meta.url), "utf8");
+
+type Lstat = (path: string | URL) => Promise<unknown>;
+
+const isMissingPathError = (error: unknown): error is { code: string } => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  if (!("code" in error) || typeof Reflect.get(error, "code") !== "string") {
+    return false;
+  }
+
+  const code = Reflect.get(error, "code");
+  return code === "ENOENT" || code === "ENOTDIR";
+};
+
+const assertPathMissing = async (relativePath: string, stat: Lstat = lstat): Promise<void> => {
+  const target = fileURLToPath(new URL(`../../${relativePath}`, import.meta.url));
+
+  try {
+    await stat(target);
+  } catch (error: unknown) {
+    if (isMissingPathError(error)) {
+      return;
+    }
+
+    throw error;
+  }
+
+  throw new Error(`Expected path to be absent but found: ${relativePath}`);
+};
 
 test("Slice A pins the approved runtime and tooling metadata", async () => {
   const [manifest, bunfig] = await Promise.all([readRepoFile("package.json"), readRepoFile("bunfig.toml")]);
@@ -73,6 +105,52 @@ test("Slice A maps the approved hook order and governing sentence", async () => 
     pipeline.indexOf('"bun", "run", "worktree:inspect"'),
   );
   expect(prettier).toContain('"printWidth": 110');
+});
+
+test("lint scripts must stay fail-closed against temp reintroduction", async () => {
+  interface PackageManifest {
+    readonly scripts: Record<string, string>;
+  }
+
+  const manifest = (JSON.parse(await readRepoFile("package.json")) as PackageManifest).scripts;
+  const expectedScript =
+    "eslint --config eslint.config.js apps packages scripts search-best-config eslint.config.js --max-warnings=0";
+
+  expect(manifest.lint).toBe(expectedScript);
+  expect(manifest["lint:hook"]).toBe(expectedScript);
+  expect(manifest.lint).not.toContain(" temp");
+  expect(manifest["lint:hook"]).not.toContain(" temp");
+  expect(manifest.lint).not.toContain("temp/");
+  expect(manifest["lint:hook"]).not.toContain("temp/");
+  await assertPathMissing("temp/ts");
+  await assertPathMissing("temp/ts/rxjs");
+});
+
+test("lint-script temp absence guard reports present when stat indicates path exists", async () => {
+  let actualError: unknown;
+  try {
+    await assertPathMissing("temp/ts", () => Promise.resolve(undefined));
+  } catch (error: unknown) {
+    actualError = error;
+  }
+  expect(actualError).toBeInstanceOf(Error);
+  if (!(actualError instanceof Error)) {
+    throw new Error("Expected assertPathMissing to throw Error");
+  }
+  expect(actualError.message).toContain("Expected path to be absent but found: temp/ts");
+});
+
+test("lint-script temp absence guard rethrows non-path-missing errors", async () => {
+  const eaccesError = Object.assign(new Error("permission denied"), { code: "EACCES" });
+  let actualError: unknown;
+
+  try {
+    await assertPathMissing("temp/ts/rxjs", () => Promise.reject(eaccesError));
+  } catch (error: unknown) {
+    actualError = error;
+  }
+
+  expect(actualError).toBe(eaccesError);
 });
 
 test("workspace manifests use exact external pins and have no install-time alias mutation", async () => {
