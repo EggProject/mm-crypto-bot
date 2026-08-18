@@ -584,3 +584,131 @@ comprehensive secret audit. The maximum TypeScript length is 412 lines in
 remains **NOT PASS** (235 pass / 12 fail), unclassified and not attributed to
 this diff. Independent TECH and PROCESS closure results are recorded in
 RE-059 and RE-060; their PASS scope is C3c only.
+
+### C4a typing foundation migration
+
+The C4a source tree is absent (`test ! -e temp/ts/typing` exited 0). Its
+baseline at `9add1e445841b67b8f36cf035590026ff2198000` had 46 files, 23 test
+files, and 235 literal test names; durable evidence is linked from [the C4a
+inventory](evidence/c4a-typing-source-inventory.md). The private workspace
+package exports only `.`. Its public-barrel positive import and physical
+internal-subpath negative import tests both passed.
+
+Package Prettier, strict ESLint, typecheck, deterministic build, four Bun tests,
+root-filter typecheck discovery, and V8 coverage passed. V8 counts are 1/1
+statements, 0/0 branches, 1/1 functions, and 1/1 lines. Coverage JSON-summary
+and LCOV SHA-256 values are recorded in ER-047 and remain ignored/generated/not
+staged. Lifecycle-disabled lock generation and frozen install passed without
+package changes; Bun reported untrusted Lefthook lifecycle metadata as blocked.
+Turbo build discovery found the root generic output declaration
+`[".turbo/build/**","dist/**"]` while this package intentionally emits no
+build artifact; direct package build is a real `tsc --noEmit` check. The root
+Turbo output contract is outside C4a ownership and is not claimed as validated.
+
+Active source/config/manifests have zero old-path and `@streamnet` matches. The
+full-repository brand scan has 19 matches: 16 in out-of-scope
+`temp/ts/{typeguard,assert,rxjs}` source and three necessary C4a evidence rows.
+The full old-path scan has 287 evidence/plan matches, including the durable
+baseline manifests. These are **NOT PASS** global-absence results; C4a cannot
+edit the out-of-scope source, and the evidence must remain for review. Their
+closure awaits separately owned migrations.
+
+### C4a expanded foundation migration
+
+ER-048 expands the pending C4a implementation evidence to the private internal
+`@mm-crypto-bot/typing`, `@mm-crypto-bot/typeguard`, and
+`@mm-crypto-bot/assert` packages. The directed package graph is
+`typing <- typeguard <- assert`; each package exposes only `.` and has a
+public-barrel positive and physical deep-subpath negative import contract.
+The source inventories and keep/drop manifests are [typing](evidence/c4a-typing-source-inventory.md),
+[typeguard](evidence/c4a-typeguard-source-inventory.md), and
+[assert](evidence/c4a-assert-source-inventory.md).
+
+All three source trees are absent and `temp/ts/rxjs` remains outside this
+slice. Each package passed Prettier, ESLint with zero warnings, `tsc --noEmit`
+typecheck/build, its Vitest suite (typing 4/4, typeguard 3/3, assert 4/4), and
+threshold-enforced V8 coverage:
+
+| Package     | Statements | Branches | Functions | Lines |
+| ----------- | ---------- | -------- | --------- | ----- |
+| `typing`    | 1/1        | 0/0      | 1/1       | 1/1   |
+| `typeguard` | 16/16      | 15/15    | 11/11     | 15/15 |
+| `assert`    | 14/14      | 10/10    | 7/7       | 9/9   |
+
+The lifecycle-disabled `bun install --ignore-scripts` lock update and the
+repository-CWD `bun install --frozen-lockfile --ignore-scripts` both completed
+without lifecycle execution. The frozen command checked 262 installs across
+287 packages and preserved the main `.git/hooks` inventory hash
+`2cbf26be4cfe5e6c621a2b2759cf5913880abcbb018617a5f4e4a7e27ccf62d9`.
+Generated coverage remains ignored/not staged. The bounded active
+source/configuration/manifest scan found zero removed-path or removed-brand
+references after excluding plan evidence and out-of-scope `temp/ts/rxjs`; the
+full removed-path evidence scan has 364 matches and is not a global-absence
+claim. This evidence is **PENDING TECHNICAL AND PROCESS RE-REVIEW**.
+
+### C4a runtime-boundary and evidence remediation
+
+ER-049 supersedes the current runtime-boundary and provenance portions of the
+earlier C4a evidence. `isRecord` now admits only plain or null-prototype
+objects, reads the prototype once, and catches an adversarial prototype trap.
+`isDate` proves Date identity from the internal `getTime` slot instead of a
+realm-dependent prototype check; valid cross-realm Date values pass, while an
+invalid Date, a Date-prototype-only object, ordinary object, nil/primitive, and
+proxy inputs fail closed without escaping an exception.
+
+The exact package gate sequence from repository CWD exited 0:
+
+```sh
+bunx prettier --check packages/typing packages/typeguard packages/assert
+bunx eslint packages/typing packages/typeguard packages/assert --max-warnings=0
+bun run --filter @mm-crypto-bot/typing typecheck
+bun run --filter @mm-crypto-bot/typeguard typecheck
+bun run --filter @mm-crypto-bot/assert typecheck
+bun run --filter @mm-crypto-bot/typing build
+bun run --filter @mm-crypto-bot/typeguard build
+bun run --filter @mm-crypto-bot/assert build
+bunx vitest run --config packages/typing/vitest.config.ts --coverage
+bunx vitest run --config packages/typeguard/vitest.config.ts --coverage
+bunx vitest run --config packages/assert/vitest.config.ts --coverage
+```
+
+The final V8 numerator/denominator evidence is typing **1/1, 0/0, 1/1, 1/1**;
+typeguard **26/26, 23/23, 11/11, 23/23**; assert **14/14, 10/10, 7/7, 9/9**.
+The exact coverage hashes are in ER-049; coverage remains generated, ignored,
+and unstaged.
+
+The checked [baseline inventory helper](evidence/c4a-source-inventory.mjs)
+uses the fixed baseline ref, accepts exactly one selector, and only writes its
+result to stdout. Positive replays for all three durable hash manifests exited
+0 and matched byte-for-byte; zero/extra/invalid selectors exited 64/65/66, and
+temporary missing-ref/missing-path controls exited 67/68. The exact temporary
+fixtures were removed after each replay.
+
+The manifest [c4a-untracked-first-party-paths.txt](evidence/c4a-untracked-first-party-paths.txt)
+has 31 current first-party untracked paths, excluding ignored generated coverage
+and dependency directories. Its [whitespace checker](evidence/c4a-check-untracked-whitespace.mjs)
+requires one `--manifest` argument, validates regular non-symbolic-link files,
+limits every path to the C4a roots, requires the expected no-index exit 1 with
+no diagnostics, and then requires tracked `git diff --check` exit 0. The
+positive replay exited 0; an exact temporary manifest containing one nonexistent
+allowed path exited 71 and was removed. This is **PENDING TECHNICAL AND PROCESS
+RE-REVIEW**, not a broader implementation PASS.
+
+### C4a evidence-helper hardening
+
+ER-050 is the current helper-evidence record. The inventory helper parses
+NUL-delimited Git tree records and permits only `100644`/`100755` blobs before
+reading content. Current baseline replays remain byte-identical at 47/41/33
+lines; a committed exact symbolic-link fixture exited 71 and was removed.
+The whitespace helper canonicalizes the repository, manifest, allowed roots,
+and targets, rejects traversal at 71 and an exact temporary parent-symlink
+probe at 74, and retains the current 31-path positive exit 0.
+
+At CWD `/home/eggp/projects/mm-crypto-bot`, `bun install --ignore-scripts`
+exited 0, checked 262 installs across 287 packages, and produced lock SHA-256
+`e90148f0f1dd804f5a1c3d0ecbc7bb87a3db31e941acc33a116c701ad86b8f38`.
+The isolated frozen-install hashes are fixture-before/after
+`8d21ef45c5f51fd4784cd3ca14ca5f2e90b39ed2985abf88a46cd4fc7f3ff6c8` and
+main-before/after `2cbf26be4cfe5e6c621a2b2759cf5913880abcbb018617a5f4e4a7e27ccf62d9`.
+Root trust remains only `ccxt`; Lefthook postinstall is blocked by Bun. This
+evidence is **PENDING TECHNICAL AND PROCESS RE-REVIEW**.

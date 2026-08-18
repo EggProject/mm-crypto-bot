@@ -1,0 +1,236 @@
+source_file	call	name
+temp/ts/typing/src/lib/constructor.spec.ts	describe	Constructor - polymorphism and edge cases
+temp/ts/typing/src/lib/constructor.spec.ts	describe	Constructor - type validation and patterns
+temp/ts/typing/src/lib/constructor.spec.ts	describe	dependency injection
+temp/ts/typing/src/lib/constructor.spec.ts	describe	edge cases
+temp/ts/typing/src/lib/constructor.spec.ts	describe	factory pattern
+temp/ts/typing/src/lib/constructor.spec.ts	describe	polymorphism
+temp/ts/typing/src/lib/constructor.spec.ts	describe	type validation
+temp/ts/typing/src/lib/constructor.spec.ts	it	should accept class constructors
+temp/ts/typing/src/lib/constructor.spec.ts	it	should infer correct instance type
+temp/ts/typing/src/lib/constructor.spec.ts	it	should support generic factory with type inference
+temp/ts/typing/src/lib/constructor.spec.ts	it	should support multiple service registrations
+temp/ts/typing/src/lib/constructor.spec.ts	it	should work in DI container pattern
+temp/ts/typing/src/lib/constructor.spec.ts	it	should work in factory functions
+temp/ts/typing/src/lib/constructor.spec.ts	it	should work with abstract patterns
+temp/ts/typing/src/lib/constructor.spec.ts	it	should work with classes that have complex initialization
+temp/ts/typing/src/lib/constructor.spec.ts	it	should work with constructors that have no parameters
+temp/ts/typing/src/lib/constructor.spec.ts	it	should work with constructors that have optional parameters
+temp/ts/typing/src/lib/constructor.spec.ts	it	should work with inheritance
+temp/ts/typing/src/lib/constructor.spec.ts	it	should work with private/protected members
+temp/ts/typing/src/lib/constructor.spec.ts	it	should work with static methods
+temp/ts/typing/src/lib/deep-keys.spec.ts	describe	DeepKeys
+temp/ts/typing/src/lib/deep-keys.spec.ts	it	assignability check — invalid paths should not compile
+temp/ts/typing/src/lib/deep-keys.spec.ts	it	generates nested dot-notation paths
+temp/ts/typing/src/lib/deep-keys.spec.ts	it	generates top-level keys for flat objects
+temp/ts/typing/src/lib/deep-keys.spec.ts	it	stops at arrays — no index paths
+temp/ts/typing/src/lib/deep-keys.spec.ts	it	stops at Date — no internal paths
+temp/ts/typing/src/lib/deep-value.spec.ts	describe	DeepValue type
+temp/ts/typing/src/lib/deep-value.spec.ts	describe	getDeepValue
+temp/ts/typing/src/lib/deep-value.spec.ts	it	resolves intermediate object type
+temp/ts/typing/src/lib/deep-value.spec.ts	it	resolves nested value type
+temp/ts/typing/src/lib/deep-value.spec.ts	it	resolves top-level value type
+temp/ts/typing/src/lib/deep-value.spec.ts	it	returns intermediate object
+temp/ts/typing/src/lib/deep-value.spec.ts	it	returns nested value at depth 2
+temp/ts/typing/src/lib/deep-value.spec.ts	it	returns nested value at depth 3
+temp/ts/typing/src/lib/deep-value.spec.ts	it	returns number nested value
+temp/ts/typing/src/lib/deep-value.spec.ts	it	returns top-level value
+temp/ts/typing/src/lib/deep-value.spec.ts	it	returns undefined for missing intermediate path
+temp/ts/typing/src/lib/deep-value.spec.ts	it	returns undefined when intermediate is null
+temp/ts/typing/src/lib/helper/deep-partial-arrays-functions.spec.ts	describe	DeepPartial - arrays and functions
+temp/ts/typing/src/lib/helper/deep-partial-arrays-functions.spec.ts	it	should handle both arrays and functions together
+temp/ts/typing/src/lib/helper/deep-partial-arrays-functions.spec.ts	it	should preserve array types
+temp/ts/typing/src/lib/helper/deep-partial-arrays-functions.spec.ts	it	should preserve function types
+temp/ts/typing/src/lib/helper/deep-partial-edge-cases.spec.ts	describe	DeepPartial - edge cases
+temp/ts/typing/src/lib/helper/deep-partial-edge-cases.spec.ts	it	should handle empty objects
+temp/ts/typing/src/lib/helper/deep-partial-edge-cases.spec.ts	it	should handle mixed primitive and object types
+temp/ts/typing/src/lib/helper/deep-partial-edge-cases.spec.ts	it	should handle union types
+temp/ts/typing/src/lib/helper/deep-partial-edge-cases.spec.ts	it	should handle very deeply nested structures
+temp/ts/typing/src/lib/helper/deep-partial-edge-cases.spec.ts	it	should preserve readonly properties
+temp/ts/typing/src/lib/helper/deep-partial-edge-cases.spec.ts	it	should work with Date objects
+temp/ts/typing/src/lib/helper/deep-partial-edge-cases.spec.ts	it	should work with generic types
+temp/ts/typing/src/lib/helper/deep-partial-edge-cases.spec.ts	it	should work with single property interfaces
+temp/ts/typing/src/lib/helper/deep-partial-flat-objects.spec.ts	describe	DeepPartial - flat objects
+temp/ts/typing/src/lib/helper/deep-partial-flat-objects.spec.ts	it	should allow all properties to be present
+temp/ts/typing/src/lib/helper/deep-partial-flat-objects.spec.ts	it	should make all properties optional
+temp/ts/typing/src/lib/helper/deep-partial-form-drafts.spec.ts	describe	DeepPartial - form drafts
+temp/ts/typing/src/lib/helper/deep-partial-form-drafts.spec.ts	it	should allow partial form sections
+temp/ts/typing/src/lib/helper/deep-partial-form-drafts.spec.ts	it	should support incremental form filling
+temp/ts/typing/src/lib/helper/deep-partial-nested-objects.spec.ts	describe	DeepPartial - nested objects
+temp/ts/typing/src/lib/helper/deep-partial-nested-objects.spec.ts	it	should allow deeply nested empty objects
+temp/ts/typing/src/lib/helper/deep-partial-nested-objects.spec.ts	it	should handle three levels of nesting
+temp/ts/typing/src/lib/helper/deep-partial-nested-objects.spec.ts	it	should make nested properties optional
+temp/ts/typing/src/lib/helper/deep-partial-update-functions.spec.ts	describe	DeepPartial - update functions
+temp/ts/typing/src/lib/helper/deep-partial-update-functions.spec.ts	it	should work in update functions
+temp/ts/typing/src/lib/helper/required-property.spec.ts	describe	complex types
+temp/ts/typing/src/lib/helper/required-property.spec.ts	describe	function parameters
+temp/ts/typing/src/lib/helper/required-property.spec.ts	describe	gradual type strengthening
+temp/ts/typing/src/lib/helper/required-property.spec.ts	describe	multiple properties
+temp/ts/typing/src/lib/helper/required-property.spec.ts	describe	RequiredProperty - edge cases
+temp/ts/typing/src/lib/helper/required-property.spec.ts	describe	RequiredProperty - single and multiple properties
+temp/ts/typing/src/lib/helper/required-property.spec.ts	describe	RequiredProperty - type strengthening and complex types
+temp/ts/typing/src/lib/helper/required-property.spec.ts	describe	single property
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should allow optional properties in function parameters
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should handle empty objects
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should keep other properties optional
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should keep unspecified properties optional
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should make a single property required
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should make multiple properties required
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should preserve already required properties
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should preserve readonly modifiers
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should support chained type transformations
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should support progressive type strengthening
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should work in function parameter types
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should work with all properties required
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should work with array properties
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should work with generic types
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should work with nested object properties
+temp/ts/typing/src/lib/helper/required-property.spec.ts	it	should work with union type properties
+temp/ts/typing/src/lib/maybe-array.spec.ts	describe	edge cases
+temp/ts/typing/src/lib/maybe-array.spec.ts	describe	MaybeArray
+temp/ts/typing/src/lib/maybe-array.spec.ts	describe	type validation
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should accept arrays
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should accept single values
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should handle empty arrays
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should handle null and undefined correctly
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should handle readonly arrays
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should work with complex object types
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should work with different types
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should work with filter operations
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should work with generic functions
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should work with nested arrays
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should work with reduce operations
+temp/ts/typing/src/lib/maybe-array.spec.ts	it	should work with union types
+temp/ts/typing/src/lib/non-empty-array.spec.ts	describe	edge cases
+temp/ts/typing/src/lib/non-empty-array.spec.ts	describe	function usage
+temp/ts/typing/src/lib/non-empty-array.spec.ts	describe	NonEmptyArray
+temp/ts/typing/src/lib/non-empty-array.spec.ts	describe	type validation
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should accept arrays with at least one element
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should be compatible with array methods
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should guarantee first element access is safe
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should handle complex object types
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should handle single element array
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should infer correct element type
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should support readonly arrays
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should work as function parameter type
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should work as return type
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should work with nested arrays
+temp/ts/typing/src/lib/non-empty-array.spec.ts	it	should work with reduce without initial value
+temp/ts/typing/src/lib/numeric-string.spec.ts	describe	NumericString
+temp/ts/typing/src/lib/numeric-string.spec.ts	describe	type validation
+temp/ts/typing/src/lib/numeric-string.spec.ts	it	should accept decimal strings
+temp/ts/typing/src/lib/numeric-string.spec.ts	it	should accept integer strings
+temp/ts/typing/src/lib/numeric-string.spec.ts	it	should accept scientific notation strings
+temp/ts/typing/src/lib/numeric-string.spec.ts	it	should be assignable to string type
+temp/ts/typing/src/lib/optional-to-nullable-edge-cases-pt1.spec.ts	describe	OptionalToNullable - edge cases part 1
+temp/ts/typing/src/lib/optional-to-nullable-edge-cases-pt1.spec.ts	it	should handle all required properties
+temp/ts/typing/src/lib/optional-to-nullable-edge-cases-pt1.spec.ts	it	should handle complex nested types
+temp/ts/typing/src/lib/optional-to-nullable-edge-cases-pt1.spec.ts	it	should handle empty interfaces
+temp/ts/typing/src/lib/optional-to-nullable-edge-cases-pt1.spec.ts	it	should handle mixed required and optional
+temp/ts/typing/src/lib/optional-to-nullable-edge-cases-pt1.spec.ts	it	should work with generic types
+temp/ts/typing/src/lib/optional-to-nullable-edge-cases-pt2.spec.ts	describe	OptionalToNullable - edge cases part 2
+temp/ts/typing/src/lib/optional-to-nullable-edge-cases-pt2.spec.ts	it	should handle boolean optional fields
+temp/ts/typing/src/lib/optional-to-nullable-edge-cases-pt2.spec.ts	it	should handle union types
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	describe	API request/response
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	describe	basic conversion
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	describe	database models
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	describe	form data normalization
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	describe	OptionalToNullable
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should convert input to database record
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should convert optional properties to nullable
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should handle all optional fields as undefined
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should handle array properties
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should handle Date properties
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should normalize form data
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should not allow undefined
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should preserve required properties
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should require all properties to be present
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should serialize to JSON correctly
+temp/ts/typing/src/lib/optional-to-nullable.spec.ts	it	should work with API request types
+temp/ts/typing/src/lib/property-keys-edge-cases-pt1.spec.ts	describe	PropertyKeys - edge cases part 1
+temp/ts/typing/src/lib/property-keys-edge-cases-pt1.spec.ts	it	should handle interfaces with only methods
+temp/ts/typing/src/lib/property-keys-edge-cases-pt1.spec.ts	it	should handle interfaces with only properties
+temp/ts/typing/src/lib/property-keys-edge-cases-pt1.spec.ts	it	should handle mixed data types
+temp/ts/typing/src/lib/property-keys-edge-cases-pt1.spec.ts	it	should handle optional properties
+temp/ts/typing/src/lib/property-keys-edge-cases-pt1.spec.ts	it	should handle readonly properties
+temp/ts/typing/src/lib/property-keys-edge-cases-pt2.spec.ts	describe	PropertyKeys - edge cases part 2
+temp/ts/typing/src/lib/property-keys-edge-cases-pt2.spec.ts	it	should exclude arrow function properties
+temp/ts/typing/src/lib/property-keys-edge-cases-pt2.spec.ts	it	should handle Date and complex types
+temp/ts/typing/src/lib/property-keys-edge-cases-pt2.spec.ts	it	should handle generic types
+temp/ts/typing/src/lib/property-keys-edge-cases-pt2.spec.ts	it	should handle union types in properties
+temp/ts/typing/src/lib/property-keys-edge-cases-pt2.spec.ts	it	should work with class instances
+temp/ts/typing/src/lib/property-keys.spec.ts	describe	basic usage
+temp/ts/typing/src/lib/property-keys.spec.ts	describe	form handling
+temp/ts/typing/src/lib/property-keys.spec.ts	describe	PropertyKeys
+temp/ts/typing/src/lib/property-keys.spec.ts	describe	serialization
+temp/ts/typing/src/lib/property-keys.spec.ts	describe	state management
+temp/ts/typing/src/lib/property-keys.spec.ts	it	should exclude function properties
+temp/ts/typing/src/lib/property-keys.spec.ts	it	should extract data properties for cloning
+temp/ts/typing/src/lib/property-keys.spec.ts	it	should extract field names
+temp/ts/typing/src/lib/property-keys.spec.ts	it	should extract only data for JSON serialization
+temp/ts/typing/src/lib/property-keys.spec.ts	it	should extract only property keys
+temp/ts/typing/src/lib/property-keys.spec.ts	it	should help clone state data only
+temp/ts/typing/src/lib/property-keys.spec.ts	it	should help with object serialization
+temp/ts/typing/src/lib/property-keys.spec.ts	it	should iterate over data fields only
+temp/ts/typing/src/lib/property-keys.spec.ts	it	should work with Pick utility
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt1.spec.ts	describe	RemoveIndexSignature - edge cases part 1
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt1.spec.ts	it	should handle empty interfaces with index signature
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt1.spec.ts	it	should handle mixed string and number index signatures
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt1.spec.ts	it	should handle types without index signatures
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt1.spec.ts	it	should preserve optional properties
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt1.spec.ts	it	should preserve readonly properties
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt1.spec.ts	it	should work with Record types
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt2.spec.ts	describe	RemoveIndexSignature - edge cases part 2
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt2.spec.ts	it	should handle complex nested types
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt2.spec.ts	it	should handle union types
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt2.spec.ts	it	should work with generic types
+temp/ts/typing/src/lib/remove-index-signature-edge-cases-pt2.spec.ts	it	should work with key remapping
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	describe	API response handling
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	describe	dynamic object properties
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	describe	numeric index signature removal
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	describe	RemoveIndexSignature
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	describe	strict property selection
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	describe	string index signature removal
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	it	should enable strict Pick operations
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	it	should extract known fields from API response
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	it	should extract only named properties
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	it	should extract static properties
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	it	should remove numeric index signature
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	it	should remove string index signature
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	it	should work in property extraction functions
+temp/ts/typing/src/lib/remove-index-signature.spec.ts	it	should work in validation functions
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	describe	BooleanResolver
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	describe	combined usage
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	describe	edge cases
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	describe	FloatResolver
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	describe	IntResolver
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	describe	NumberResolver
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	describe	Primitive Resolvers
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	describe	Primitive Resolvers - combined and edge cases
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	describe	StringResolver
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept resolver functions
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept resolver functions
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept resolver functions
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept resolver functions returning floats
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept resolver functions returning integers
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept static boolean values
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept static float values
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept static integer values
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept static number values
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should accept static string values
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should handle boolean resolver with nullish coalescing
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should handle number resolver with NaN handling
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should handle resolver functions with complex logic
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work in price formatting
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work in table column configurations
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work in utility functions
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work in utility functions
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work in utility functions
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work with arrow functions and type inference
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work with calculations
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work with conditional logic
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work with counters
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work with decimal calculations
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work with Math.floor operations
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work with multiple resolvers in a configuration object
+temp/ts/typing/src/lib/type-resolver/primitive.resolver.spec.ts	it	should work with template strings in functions

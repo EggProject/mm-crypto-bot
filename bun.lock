@@ -50,6 +50,19 @@
         "typescript": "6.0.3",
       },
     },
+    "packages/assert": {
+      "name": "@mm-crypto-bot/assert",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mm-crypto-bot/typeguard": "workspace:*",
+        "@mm-crypto-bot/typing": "workspace:*",
+      },
+      "devDependencies": {
+        "@vitest/coverage-v8": "4.1.10",
+        "typescript": "6.0.3",
+        "vitest": "4.1.10",
+      },
+    },
     "packages/backtest": {
       "name": "@mm-crypto-bot/backtest",
       "version": "0.1.0",
@@ -115,6 +128,27 @@
       },
       "devDependencies": {
         "typescript": "6.0.3",
+      },
+    },
+    "packages/typeguard": {
+      "name": "@mm-crypto-bot/typeguard",
+      "version": "0.1.0",
+      "dependencies": {
+        "@mm-crypto-bot/typing": "workspace:*",
+      },
+      "devDependencies": {
+        "@vitest/coverage-v8": "4.1.10",
+        "typescript": "6.0.3",
+        "vitest": "4.1.10",
+      },
+    },
+    "packages/typing": {
+      "name": "@mm-crypto-bot/typing",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@vitest/coverage-v8": "4.1.10",
+        "typescript": "6.0.3",
+        "vitest": "4.1.10",
       },
     },
   },
@@ -201,6 +235,8 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
+    "@mm-crypto-bot/assert": ["@mm-crypto-bot/assert@workspace:packages/assert"],
+
     "@mm-crypto-bot/backtest": ["@mm-crypto-bot/backtest@workspace:packages/backtest"],
 
     "@mm-crypto-bot/backtest-tools": ["@mm-crypto-bot/backtest-tools@workspace:packages/backtest-tools"],
@@ -214,6 +250,10 @@
     "@mm-crypto-bot/paper": ["@mm-crypto-bot/paper@workspace:packages/paper"],
 
     "@mm-crypto-bot/shared": ["@mm-crypto-bot/shared@workspace:packages/shared"],
+
+    "@mm-crypto-bot/typeguard": ["@mm-crypto-bot/typeguard@workspace:packages/typeguard"],
+
+    "@mm-crypto-bot/typing": ["@mm-crypto-bot/typing@workspace:packages/typing"],
 
     "@noble/curves": ["@noble/curves@2.2.0", "", { "dependencies": { "@noble/hashes": "2.2.0" } }, "sha512-T/BoHgFXirb0ENSPBquzX0rcjXeM6Lo892a2jlYJkqk83LqZx0l1Of7DzlKJ6jkpvMrkHSnAcgb5JegL8SeIkQ=="],
 
