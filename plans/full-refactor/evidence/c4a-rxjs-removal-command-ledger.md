@@ -1,6 +1,6 @@
 # C4a RxJS prototype removal command ledger
 
-**Recorded:** `2026-08-18` (Spark worker scope)
+**Recorded:** `2026-08-18` (bounded isolated worker scope)
 **CWD:** `/home/eggp/projects/mm-crypto-bot`
 **Scope:** `temp/ts/rxjs/**` tree delete, lint-script cleanup, fail-closed lint-contract
 guard, no dependency/lock mutation.

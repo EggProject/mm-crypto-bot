@@ -52,10 +52,31 @@ Apply the first matching route:
    one Terra trigger or an explicit user request for a stronger Terra route.
    `terra_reviewer`, `terra_reader`, and `terra_worker` use `gpt-5.6-terra`
    with `high` reasoning effort.
-5. `luna_reader` MUST perform every remaining eligible read-only task without a
-   Terra trigger. `luna_worker` MUST perform routine documentation-only or
-   mechanical non-code write tasks without a Terra trigger. Their model and
-   reasoning effort MUST match their custom-agent profiles.
+5. Every remaining non-review task MUST receive an Antigravity (`agy`)
+   eligibility assessment before dispatch. A bootstrap Agy task is
+   evaluation-only: it MUST be bounded, isolated, low-risk, single-owner work,
+   pin matching exact model-slug and `--effort` suffixes, use an isolated
+   workspace or worktree, and receive independent review. The first at least
+   five representative tasks for a model/task class MAY use this route only to
+   establish its local evaluation record; it is not a routine default. A
+   bootstrap failure MUST record its failure and rework, then reclassify or
+   block under the existing Luna/Terra routes; it MUST NOT automatically select
+   a stronger model. After that evaluation passes, an eligible Agy task MUST
+   use the lowest-cost model that passed the repository-local task-class
+   evaluation: `gemini-3.7-flash-low` only for sufficiently large batched
+   read-only inventory or extraction; `gemini-3.7-flash-medium` for bounded,
+   isolated, low-risk, single-owner implementation, tests, or documentation;
+   and `gemini-3.7-flash-high` for difficult coding, research, or medium-
+   complexity multi-file work. A Terra-triggered task MAY use Agy only as an
+   auxiliary, never as its sole authority. `gemini-3.1-pro-high` is permitted
+   only as an evaluated secondary high-complexity research or implementation
+   route beside the required Terra owner or reviewer. `gemini-3.1-pro-low` is
+   not a routine route. `gemini-3.6-*` requires documented `gemini-3.7-*`
+   unavailability or regression evidence; `gemini-3.5-*` is not selectable.
+6. If no eligible evaluated Agy route applies, `luna_reader` MUST perform the
+   remaining read-only task and `luna_worker` MUST perform routine
+   documentation-only or mechanical non-code work. Their model and reasoning
+   effort MUST match their custom-agent profiles.
 
 If no route matches, the task MUST block before dispatch and the coordinator
 MUST reclassify it; an automatically stronger model MUST NOT be selected.
@@ -84,11 +105,84 @@ Concrete evidence of scope growth, failed validation, inadequate capability, or
 a newly discovered risk boundary requires coordinator reclassification.
 Subagents MUST NOT change their own model, scope, or ownership.
 
-If `spark_worker` lacks required write authority, `luna_worker` MAY replace it
-only for an eligible low-risk task and only after verified effective write
-authority; otherwise the task MUST block. An unavailable route or missing
-permission MUST NOT justify escalation to Terra. If a required Terra route is
-unavailable, the task MUST block.
+An Agy delegation MUST use one bounded XML brief with explicit ownership,
+acceptance gates, validation, and report contract. It MUST pin the exact model
+slug and matching CLI `--effort` suffix (`*-high` with `high`, `*-medium` with
+`medium`, and `*-low` with `low`) without treating effort as a separate cost or
+pricing dimension. The coordinator MUST verify that the relay command and
+result record the requested/dispatched pair and exit/status. Repository write
+work MUST use a dedicated isolated
+worktree/workspace containing only brief-owned files or packages, or effective
+allow/deny permissions that prove the same boundary; direct write access to a
+shared dirty worktree is forbidden. Before dispatch, the coordinator MUST
+record `git status`, a secret/sensitive-data scan, actual allowed paths, and
+effective sandbox/permission configuration; inability to prove the boundary
+blocks dispatch. Read-only research MUST use `--read-only --sandbox`; repository
+data requires explicit scope/approval and a redaction scan, otherwise it MUST
+use an empty workspace. `--dangerously-skip-permissions` requires explicit
+human approval. Agy MUST NOT self-review or commit. The coordinator MUST
+inspect the supported relay `result.json` contract: `status`,
+`readOnlyViolation`, `touchedFiles`, requested/dispatched model and effort,
+sandbox, read-only, dangerous, identifiers, and timing when available. Effective
+model and effort MUST be recorded only when the selected supported tool attests
+them; otherwise they are `not observable`. A mismatch in observable attested
+data MUST fail and block; absence of attestation is not a mismatch. An
+unattested model/effort result may remain provisional evidence but MUST NOT
+prove a model/task class for the routine evaluation gate. The coordinator MUST
+inspect the actual diff including staged and untracked files, rerun the required
+gates, obtain independent reviews, and perform any commit.
+
+Agy MUST NOT make business-logic, financial, trading, code-organization,
+architecture, or module-boundary decisions. It MAY only execute a pre-decided,
+fully specified plan. Every brief MUST explicitly state the required behavior,
+output, file/module structure, owner, invariants, prohibitions, acceptance
+gates, and exact boundaries. A missing requirement, ambiguity, new design
+trade-off, or required organizational decision MUST stop and block the Agy task
+with a report to the coordinator; Agy MUST NOT infer, expand scope, or select
+an architecture.
+
+For test implementation, Agy is mechanical only. The coordinator or Terra
+MUST pre-decide and specify every business scenario, event/state sequence,
+inputs, expected outputs, errors, logs, state transitions, financial invariant
+(including exact 10x for live paths), public test boundary, allowed fake/mock,
+prohibited fabricated/private state, owned test/support files, production-file
+prohibition, and validation/coverage gate. Agy MUST NOT choose scenarios,
+expected business behaviour, acceptance semantics, coverage scope or threshold,
+architecture, module boundaries, or production changes. Ambiguity, conflicting
+behaviour, a missing public seam, suspected product defect, dead/unreachable
+branch, or a required production/test-architecture change MUST block and be
+reported. Private casts, `any`, disables, impossible-state mocks, assertion
+padding, weakened thresholds/scopes, and production edits are forbidden. Risk
+and trading scenario design and acceptance remain Terra authority; resulting
+tests require independent `terra_reviewer` technical and
+`luna_process_reviewer` process review. Agy never self-reviews or commits.
+Sufficiently large coherent test batches are permitted to reduce coordinator
+tokens only under one bounded brief and ownership; unrelated scenarios MUST NOT
+be bundled. Tests use evaluated `gemini-3.7-flash-medium` when bounded and
+simple; `gemini-3.7-flash-high` is auxiliary-only for complex multi-file tests
+with pre-decided scenarios; low is never a code-write route. Repository
+read/write access also requires explicit risk-informed user approval plus
+preflight redaction/secret scan and isolation; a general Agy request is not
+such approval, and sanitized or empty workspaces remain preferred.
+
+An unproven Agy task class or model is bootstrap-only until at least five
+representative repository-local tasks pass with zero critical error,
+regression, security violation, or trading violation. Each evaluation MUST
+prove brief acceptance, exact scope, required gates, no weakened checks, and an
+independent review, plus observable independently attested model and effort; a
+`not observable` record remains provisional and MUST NOT count toward the five.
+Each evaluation MUST record rework turns, wall time, available
+input/output/thinking/cache tokens or `not available` when the supported relay
+contract does not report them, and an Antigravity quota/cost proxy.
+`gemini-3.7-flash-medium` becomes the default only after that gate. Escalation
+to `gemini-3.7-flash-high` requires concrete scope-growth, validation-failure,
+or capability evidence. `gemini-3.1-pro-high` requires evidence of better
+quality or lower rework sufficient to justify its relative quota cost.
+
+Antigravity shared-quota consumption is a relative API-pricing-ratio proxy, not
+an assertion that Gemini API dollar prices equal Agy billing. The detailed
+evidence, operating contract, and source links are in
+`plans/full-refactor/ANTIGRAVITY-ROUTING.md`.
 
 Run agents in parallel only for independent bounded workstreams, with one writer
 per file or package. Every delegation MUST explicitly request its custom-agent

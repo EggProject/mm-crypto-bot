@@ -315,6 +315,50 @@ locally to this standard. A broad migration MUST be a separately scoped change.
   and risk. They MUST have a deterministic seed and persist minimized
   counterexamples.
 
+### Antigravity Delegation
+
+- Antigravity (`agy`) is an auxiliary researcher or mechanical implementer. It
+  does not replace a mandatory Terra final technical reviewer or Luna process
+  reviewer, and it MUST NOT self-review or commit.
+- Agy MUST NOT make business-logic, financial, trading, code-organization,
+  architecture, or module-boundary decisions. It may execute only a
+  pre-decided, fully specified plan. Each bounded XML brief MUST state the
+  required behaviour and output, owned files/modules, invariants,
+  prohibitions, allowed public seams/mocks, acceptance gates, validation, and
+  exact in-scope and out-of-scope boundaries.
+- A missing requirement, ambiguity, new design trade-off, required
+  organizational decision, suspected defect, dead or unreachable branch, or
+  required production change MUST stop, block, and report the task to the
+  coordinator. Agy MUST NOT infer requirements, expand scope, or choose an
+  architecture.
+- Agy MAY mechanically implement tests, including tests around trading or risk
+  code, only after the coordinator or Terra has fully pre-decided and specified
+  every business scenario; event/state sequence; inputs; expected outputs,
+  errors, logs, and state transitions; financial invariants (including exact
+  10x on live paths); public test boundary; allowed mocks/fakes; prohibited
+  fabricated or private state; exact owned test/support files; forbidden
+  production files; and validation and coverage gates.
+- Agy MUST NOT decide test scenarios, expected business behaviour, acceptance
+  semantics, coverage scope or thresholds, architecture, module boundaries, or
+  production changes. Private casts, `any`, disable directives,
+  impossible-state mocks, assertion padding, weakened thresholds/scopes, and
+  production edits are forbidden. Risk and trading scenario design and
+  acceptance remain Terra authority. Tests implemented by Agy require
+  independent `terra_reviewer` technical and `luna_process_reviewer` process
+  reviews.
+- A brief MAY batch sufficiently large, coherent test work only under one
+  bounded ownership set; unrelated scenarios MUST NOT be bundled. Subject to
+  the repository-local evaluation gate, `gemini-3.7-flash-medium` may implement
+  bounded simple tests; `gemini-3.7-flash-high` is auxiliary-only for complex
+  multi-file tests with pre-decided scenarios; low is never a code-write route.
+- Repository read/write exposure requires explicit risk-informed user approval,
+  a preflight redaction/secret scan, and an isolated worktree/workspace or
+  effective allow/deny permissions proving the same boundary. A general request
+  to use Agy is not such approval; sanitized or empty workspaces remain
+  preferred. Read-only repository research MUST use `--read-only --sandbox`.
+  `--dangerously-skip-permissions` requires explicit human approval and MUST
+  NOT be represented as a read-only or sandbox-enforced execution mode.
+
 ### Static Quality and Verification
 
 - Root ESLint configuration MUST be flat and strict across all JavaScript,
@@ -419,14 +463,39 @@ locally to this standard. A broad migration MUST be a separately scoped change.
   authority, acceptance criteria, validation, and expected output. Independent
   tasks SHOULD run in parallel; dependent tasks MUST run sequentially. The root
   MUST NOT silently take over a delegated task because capacity is unavailable.
-- Model routing MUST be documented and applied: Terra for complex, high-risk,
-  multi-package, deep, security, risk, and final technical review work; Luna for
-  read-only inventory, routine documentation, mechanical work, and quick checks;
-  GPT-5.3-Codex-Spark for fast isolated coding, UI work, targeted tests, and
-  small fixes.
-- The coordinator MUST verify model callability. Low-risk Spark work MAY route
-  to Luna; complex work MUST route to Terra. High-risk work without a suitable
-  model is blocked.
+- Model routing MUST use the first-match contract in `AGENTS.md`: mandatory
+  `terra_reviewer` final technical and `luna_process_reviewer` process reviews
+  take precedence; Terra owns every triggered complex, high-risk, trading,
+  security, architecture, data-integrity, permission, or governing-semantics
+  task; remaining work receives an Agy eligibility assessment; and ineligible
+  remaining read-only or mechanical non-code work routes to Luna. An unavailable
+  required route or unproven permission boundary blocks work; it does not
+  authorize an automatic stronger route.
+- Every Agy dispatch MUST pin an exact model slug and matching `--effort`
+  suffix, record requested/dispatched pair, status, exit, sandbox, read-only,
+  dangerous flag, touched files, identifiers, and timing when available, and
+  inspect the supported relay `result.json`. Provider-effective model and effort
+  are `not observable` unless independently attested by the supported tool; an
+  observable mismatch blocks, and an unattested run is provisional only.
+- A new Agy model/task class remains bootstrap-only until at least five
+  representative repository-local tasks prove exact scope, brief acceptance,
+  all gates, independent review, observable effective model/effort, and zero
+  critical error, regression, security violation, or trading violation. Each
+  record MUST include rework, wall time, available token/cache/thinking metrics
+  or `not available`, and a relative quota/cost proxy. A bootstrap failure
+  records the failure and rework, then reclassifies or blocks; it MUST NOT
+  automatically choose a stronger model.
+- After that gate passes, `gemini-3.7-flash-low` is only for sufficiently large
+  batched read-only inventory or extraction; `gemini-3.7-flash-medium` is for
+  bounded, isolated, low-risk, single-owner implementation, tests, or
+  documentation; and `gemini-3.7-flash-high` is for difficult coding, research,
+  or medium-complexity multi-file work. A Terra-triggered task may use Agy only
+  as an auxiliary. `gemini-3.1-pro-high` is a secondary evaluated route beside
+  required Terra authority; `gemini-3.1-pro-low` is not routine; `gemini-3.6-*`
+  is a fallback only for the same task class after documented `gemini-3.7-*`
+  unavailability or regression evidence; and `gemini-3.5-*` is not selectable.
+  Antigravity shared-quota consumption is a
+  relative API-pricing-ratio proxy, never an assertion of Agy dollar billing.
 
 ### Session Retrospective
 

@@ -10,7 +10,9 @@ validation, safety, and review evidence.
 
 Recorded `2026-08-18T06:12:00+0200` Europe/Budapest. Scope:
 `temp/ts/rxjs/**`, root lint scripts, and C4a evidence command ledger
-append. Requested/effective route: `spark_worker` / `gpt-5.3-codex-spark` / medium; workspace-write/sandbox authority only.
+append. Requested/effective route: retired bounded isolated worker route /
+medium; workspace-write/sandbox authority only. It is not a selectable current
+route or fallback.
 No network/provider call, dependency/lock mutation, consumer runtime change, or
 commit action occurred.
 
@@ -35,9 +37,10 @@ an injected stat-probe assertion for present path and `bun run typecheck` plus
 
 Recorded `2026-08-18T05:15:30+0200` Europe/Budapest. Scope:
 `temp/ts/rxjs/**` deletion, root lint scripts, tooling contract test, and
-C4a command ledger/evidence. Requested/effective route:
-`spark_worker` / `gpt-5.3-codex-spark` / medium; workspace-write/sandbox
-authority only, plus user-authorized staging/commit for scoped paths only. No
+C4a command ledger/evidence. Requested/effective route: retired bounded
+isolated worker route / medium; workspace-write/sandbox authority only. It is
+not a selectable current route or fallback. User-authorized staging/commit was
+for scoped paths only. No
 dependency/lock mutation, external mutable resource, or consumer runtime change
 occurred.
 
