@@ -56,10 +56,6 @@ Apply the first matching route:
    Terra trigger. `luna_worker` MUST perform routine documentation-only or
    mechanical non-code write tasks without a Terra trigger. Their model and
    reasoning effort MUST match their custom-agent profiles.
-6. `spark_worker`, MUST perform
-   every remaining bounded, isolated, non-high-risk, single-owner implementation
-   task: code, UI, targeted tests, and small fixes. Read-only triage is permitted
-   only as a phase of that agent's own implementation task.
 
 If no route matches, the task MUST block before dispatch and the coordinator
 MUST reclassify it; an automatically stronger model MUST NOT be selected.
