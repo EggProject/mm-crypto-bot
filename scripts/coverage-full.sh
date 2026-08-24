@@ -22,6 +22,29 @@ run_gate() {
   fi
 }
 
+run_node_vitest_gate() {
+  local remaining_path="${PATH}:"
+  local path_segment
+  local sanitized_path
+  local -a sanitized_segments=()
+
+  while [[ "$remaining_path" == *:* ]]; do
+    path_segment="${remaining_path%%:*}"
+    remaining_path="${remaining_path#*:}"
+    [[ "$path_segment" == /tmp/bun-node-* ]] && continue
+    sanitized_segments+=("$path_segment")
+  done
+
+  if [[ "${#sanitized_segments[@]}" -gt 0 ]]; then
+    printf -v sanitized_path '%s:' "${sanitized_segments[@]}"
+    sanitized_path="${sanitized_path%:}"
+  else
+    sanitized_path=""
+  fi
+
+  PATH="$sanitized_path" env -u NODE -u npm_node_execpath -u npm_execpath "$@"
+}
+
 # Delete only known generated outputs so stale data can never turn a failed
 # producer green. Source/config directories are not descendants of these paths.
 rm -rf \
@@ -32,6 +55,7 @@ rm -rf \
   packages/shared/coverage \
   packages/backtest/coverage \
   packages/backtest-tools/coverage \
+  packages/logging/coverage \
   coverage/merged
 
 run_gate "all Bun tests" bunx turbo run test --force
@@ -39,19 +63,17 @@ run_gate "coverage infrastructure regression tests" bun run test:coverage-infra
 run_gate "coverage tooling typecheck" bun run typecheck:coverage-tools
 run_gate "bot runtime scope completeness" bun scripts/coverage-tools/verify-bot-runtime-scope.ts
 
-for package in \
-  @mm-crypto-bot/paper \
-  @mm-crypto-bot/exchange \
-  @mm-crypto-bot/core \
-  @mm-crypto-bot/shared \
-  @mm-crypto-bot/backtest \
-  @mm-crypto-bot/backtest-tools
-do
-  run_gate "${package} Bun LCOV" bun run --filter "$package" coverage
-done
+run_gate "@mm-crypto-bot/paper Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/paper coverage
+run_gate "@mm-crypto-bot/exchange Bun LCOV" bun run --filter @mm-crypto-bot/exchange coverage
+run_gate "@mm-crypto-bot/core Bun LCOV" bun run --filter @mm-crypto-bot/core coverage
+run_gate "@mm-crypto-bot/shared Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/shared coverage
+run_gate "@mm-crypto-bot/backtest Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/backtest coverage
+run_gate "@mm-crypto-bot/backtest-tools Bun LCOV" bun run --filter @mm-crypto-bot/backtest-tools coverage
 
-run_gate "bot unit 100% statements/branches/functions/lines" bun run coverage:bot:unit
+run_gate "bot Node Vitest unit 100% statements/branches/functions/lines" run_node_vitest_gate bun run coverage:bot:unit
 run_gate "bot subprocess E2E 100% statements/branches/functions/lines" bun run coverage:bot:e2e
+run_gate "logging Node Vitest unit 100% statements/branches/functions/lines" run_node_vitest_gate bun run --filter @mm-crypto-bot/logging coverage:unit
+run_gate "logging subprocess E2E 100% statements/branches/functions/lines" bun run --filter @mm-crypto-bot/logging coverage:e2e
 run_gate "per-package Bun line gate" bash scripts/coverage-per-package.sh
 run_gate "merged unit/package LCOV" bun run coverage:merge
 run_gate "merged unit/package LCOV summary" bun run coverage:report
@@ -65,4 +87,4 @@ if [ "${#FAILURES[@]}" -ne 0 ]; then
   exit 1
 fi
 
-echo "Coverage pipeline passed. Bot unit and subprocess E2E are independently 100% on all four metrics."
+echo "Coverage pipeline passed. Bot and logging independent unit and subprocess E2E coverage are each 100% on all four metrics."

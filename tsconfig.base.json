@@ -50,7 +50,8 @@
        kell mindenhol karbantartani. */
     "baseUrl": ".",
     "paths": {
-      "@exchange-testing/*": ["packages/exchange/src/__testing__/*"]
+      "@exchange-testing/*": ["packages/exchange/src/__testing__/*"],
+      "@logging-testing": ["packages/logging/test-support/index.ts"]
     }
   }
 }

@@ -5,6 +5,10 @@ import unicorn from "eslint-plugin-unicorn";
 import tseslint from "typescript-eslint";
 
 const typescriptFiles = ["**/*.{ts,tsx,mts,cts}"];
+const loggingTestSupportBoundaryFiles = [
+  "**/*.{test,test-support}.{ts,tsx,mts,cts}",
+  "{apps,packages}/**/{test,tests,test-support}/**/*.{ts,tsx,mts,cts}",
+];
 const ignoredPaths = [
   "**/node_modules/**",
   "**/dist/**",
@@ -46,6 +50,53 @@ export default tseslint.config(
         "error",
         { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+    },
+  },
+  {
+    files: typescriptFiles,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@logging-testing",
+              message: "@logging-testing is test-only and must not be imported by production source files.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@logging-testing/*"],
+              message: "@logging-testing is test-only and must not be imported by production source files.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: loggingTestSupportBoundaryFiles,
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
+  {
+    files: ["packages/logging/test/e2e/**/*.ts", "packages/logging/vitest.e2e-path-boundary.config.ts"],
+    languageOptions: {
+      parserOptions: {
+        project: "./packages/logging/tsconfig.e2e.json",
+        projectService: false,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    files: [
+      "packages/logging/test/e2e/logging-e2e-preload.ts",
+      "packages/logging/test/e2e/run-logging-e2e-coverage-cli.ts",
+    ],
+    rules: {
+      "unicorn/no-top-level-side-effects": "off",
     },
   },
 );

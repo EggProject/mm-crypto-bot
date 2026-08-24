@@ -1,0 +1,58 @@
+<task>
+In the isolated repository, perform one purely mechanical TypeScript module-specifier migration in apps/bot only. There are exactly 36 occurrences across exactly 35 files of the literal string `@mm-crypto-bot/logging/testing`. Replace every one with the exact literal `@logging-testing`.
+
+Do not add, remove, reorder, or rename imported identifiers. Do not change surrounding code, formatting, tests, assertions, filenames, configuration, package manifests, or architecture. This task makes no business, trading, test-scenario, or code-organization decision: the `@logging-testing` alias and private test-support boundary already exist outside your ownership. Touch only files under `apps/bot/` that contain the old literal at dispatch time.
+</task>
+
+<ownership_and_prohibitions>
+Mode: repository write, sandboxed, non-review. Ownership is exactly these 35 existing files and no others:
+  apps/bot/src/bot/bot-runtime-controller.test.ts
+  apps/bot/src/bot/bot.runtime.test.ts
+  apps/bot/src/bot/bot.test-support.ts
+  apps/bot/src/bot/kill-switches.coverage.test.ts
+  apps/bot/src/bot/kill-switches.test.ts
+  apps/bot/src/bot/order-lifecycle-controller.test.ts
+  apps/bot/src/bot/order-manager.test-support.ts
+  apps/bot/src/bot/position-manager.test-support.ts
+  apps/bot/src/bot/state-store.test.ts
+  apps/bot/src/bot/strategy-market-event-controller.boundary.test.ts
+  apps/bot/src/bot/strategy-market-event-controller.scenarios.test.ts
+  apps/bot/src/bot/strategy-plugin-risk-controller.boundary.test.ts
+  apps/bot/src/bot/strategy-plugin-risk-controller.trailing-boundary.test.ts
+  apps/bot/src/bot/strategy-runner-order-lifecycle-controller.boundary.test.ts
+  apps/bot/src/bot/strategy-runner.controller.test-support.ts
+  apps/bot/src/bot/strategy-runner.native-paper-coverage.test.ts
+  apps/bot/src/bot/strategy-runner.order-admission-reconciliation.test.ts
+  apps/bot/src/bot/strategy-runner.plugin-funding-lifecycle.test.ts
+  apps/bot/src/bot/strategy-runner.test-support.ts
+  apps/bot/src/bot/telemetry.test.ts
+  apps/bot/src/bot/wire-up-probe.test.ts
+  apps/bot/src/cli/cli-e2e-signal-string-failure.test.ts
+  apps/bot/src/cli/cli-e2e.test.ts
+  apps/bot/src/cli/commands/start-log-routing.test.ts
+  apps/bot/src/portfolio/correlation.test.ts
+  apps/bot/src/portfolio/portfolio-manager.test-support.ts
+  apps/bot/src/portfolio/portfolio-stop.test.ts
+  apps/bot/src/portfolio/risk-budget.test.ts
+  apps/bot/src/risk/drawdown-scaler.test.ts
+  apps/bot/src/risk/kelly.test.ts
+  apps/bot/src/risk/risk-integration.test.ts
+  apps/bot/src/risk/risk-manager.test.ts
+  apps/bot/src/risk/trailing-stop.test.ts
+  apps/bot/test/e2e/runtime-driver/position-manager-boundaries.ts
+  apps/bot/test/e2e/runtime-driver/state-store-boundaries.ts
+
+Package count: one (`apps/bot`). Domain risk: low, mechanical test-import migration. No external resources or network/browser tools. Never edit production logic, configs, manifests, lockfiles, test names, expectations, aliases, generated files, evidence, or Git metadata. Do not run git add or git commit. Do not use the terminal or RunCommand tool in this task; use repository file search/read/edit tools only. If any owned file does not contain the old literal or any unlisted file appears necessary, stop without edits and report the mismatch.
+</ownership_and_prohibitions>
+
+<verification_loop>
+Without the terminal, inspect all 35 owned files before editing and confirm they contain 36 total old literals (the CLI E2E file contains two; every other file contains one). After editing, re-read the changed lines and confirm there are zero old literals and exactly 36 new literals. Confirm every edit is the exact old-to-new string substitution. The isolated repository intentionally has no dependency installation; do not invent or run build/test commands there. The coordinator will independently run exact repository searches, diff checks, TypeScript, lint, unit, E2E, and coverage gates after applying the reviewed patch to the main workspace.
+</verification_loop>
+
+<structured_output_contract>
+End with exactly:
+1. Baseline counts.
+2. Post-change counts.
+3. Files touched count and whether every diff hunk is an exact literal replacement.
+4. Gate outcomes and any deviation or blocker.
+</structured_output_contract>

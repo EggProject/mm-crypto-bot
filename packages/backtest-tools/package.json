@@ -25,6 +25,7 @@
     "@mm-crypto-bot/backtest": "workspace:*",
     "@mm-crypto-bot/core": "workspace:*",
     "@mm-crypto-bot/exchange": "workspace:*",
+    "@mm-crypto-bot/logging": "workspace:*",
     "@mm-crypto-bot/shared": "workspace:*",
     "ccxt": "4.5.64"
   },

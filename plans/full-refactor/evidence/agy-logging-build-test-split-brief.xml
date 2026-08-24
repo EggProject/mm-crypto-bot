@@ -1,0 +1,69 @@
+<task>
+Mechanically split one oversized logging E2E test file without changing any test behavior.
+
+Current source: packages/logging/test/e2e/build-instrumented-logging-e2e.test.ts (577 lines).
+Delete that original file after moving all of its content into exactly these three files:
+
+1. packages/logging/test/e2e/build-instrumented-logging-e2e.test-support.ts
+   - Move only shared imports, helper functions, and TestPluginBuilder here.
+   - Export only the helpers/types/class required by the two test files.
+   - This is test-only support and must not contain describe/it blocks.
+
+2. packages/logging/test/e2e/build-instrumented-logging-e2e.source-integrity.test.ts
+   - Keep the existing describe title.
+   - Move the first eleven tests, from "uses the default Bun build executor" through
+     "rejects an unowned logging runtime path before attempting a source read", in the exact
+     original order and with byte-identical test titles/assertions/bodies except import-path and
+     exported-helper wiring required by the split.
+
+3. packages/logging/test/e2e/build-instrumented-logging-e2e.output-failures.test.ts
+   - Keep the existing describe title.
+   - Move the final five tests, from "rejects a non-direct reported build output" through
+     "preserves build failure first when rejected-build partial adoption also fails", in the exact
+     original order and with byte-identical test titles/assertions/bodies except import-path and
+     exported-helper wiring required by the split.
+
+Every resulting file must be at most 500 lines. Preserve exactly all 16 literal it() test names and
+all assertions. Do not add, remove, rename, skip, merge, weaken, or rewrite scenarios. Do not change
+production files, coverage config, package config, other tests, documentation, generated coverage,
+or git state. This is a pre-decided mechanical split: you may not choose a different module boundary.
+</task>
+
+<invariants>
+- No business, architecture, production, coverage-scope, or acceptance decision.
+- No any, unsafe casts, private access, disable directives, TODO, compatibility aliases, or empty suites.
+- Do not run git add or git commit.
+- Repository is shared and dirty. Preserve every unrelated existing change and never revert others.
+</invariants>
+
+<verification_loop>
+Before changing, record the ordered 16 literal it() names and static expect( count from the source.
+After changing, prove the same ordered name list and exact static expect( count across the two new
+test files.
+
+Run and make green:
+  bunx prettier --check packages/logging/test/e2e/build-instrumented-logging-e2e.test-support.ts packages/logging/test/e2e/build-instrumented-logging-e2e.source-integrity.test.ts packages/logging/test/e2e/build-instrumented-logging-e2e.output-failures.test.ts
+  bunx eslint packages/logging/test/e2e/build-instrumented-logging-e2e.test-support.ts packages/logging/test/e2e/build-instrumented-logging-e2e.source-integrity.test.ts packages/logging/test/e2e/build-instrumented-logging-e2e.output-failures.test.ts --max-warnings=0
+  bun run --filter @mm-crypto-bot/logging typecheck:e2e
+  bunx vitest run --config packages/logging/vitest.e2e-path-boundary.config.ts
+  git diff --check
+
+Do not modify the Vitest config even if its explicit include still names the deleted original file;
+the coordinator will update that one config line separately after reviewing this split. If the
+configured Vitest run finds no split build tests because of that explicit include, report that exact
+expected integration dependency rather than changing config.
+</verification_loop>
+
+<action_safety>
+Touch only the deleted original and the three exact target files. No unrelated cleanup or refactor.
+Leave all work uncommitted and unstaged.
+</action_safety>
+
+<structured_output_contract>
+End with exactly:
+1. What moved
+2. Exact files touched
+3. Before/after ordered test-name count and static expect count
+4. Gate outcomes with counts
+5. Deviations or blockers (write "none" if none)
+</structured_output_contract>

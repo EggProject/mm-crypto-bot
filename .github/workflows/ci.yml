@@ -149,6 +149,9 @@ jobs:
             apps/bot/coverage/unit/lcov.info
             apps/bot/coverage/e2e/summary.json
             apps/bot/coverage/e2e/raw/*.json
+            packages/logging/coverage/unit/lcov.info
+            packages/logging/coverage/e2e/summary.json
+            packages/logging/coverage/e2e/raw/*.json
             packages/*/coverage/lcov.info
             coverage/merged/lcov.info
           if-no-files-found: warn

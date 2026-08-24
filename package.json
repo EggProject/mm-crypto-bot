@@ -43,7 +43,7 @@
     "typecheck:coverage-tools": "tsc --project tsconfig.json --noEmit",
     "test:coverage-infra": "bun test scripts/coverage-tools/*.test.ts",
     "coverage:per-package": "bash scripts/coverage-per-package.sh",
-    "coverage:merge": "bun scripts/lcov-tools.mjs merge coverage/merged/lcov.info apps/bot/coverage/unit/lcov.info packages/paper/coverage/lcov.info packages/exchange/coverage/lcov.info packages/core/coverage/lcov.info packages/shared/coverage/lcov.info packages/backtest/coverage/lcov.info packages/backtest-tools/coverage/lcov.info",
+    "coverage:merge": "bun scripts/lcov-tools.mjs merge coverage/merged/lcov.info apps/bot/coverage/unit/lcov.info packages/paper/coverage/lcov.info packages/exchange/coverage/lcov.info packages/core/coverage/lcov.info packages/shared/coverage/lcov.info packages/backtest/coverage/lcov.info packages/backtest-tools/coverage/lcov.info packages/logging/coverage/unit/lcov.info",
     "coverage:report": "bun scripts/lcov-tools.mjs summary coverage/merged/lcov.info",
     "coverage:html": "genhtml coverage/merged/lcov.info -o coverage/merged/html --ignore-errors empty,inconsistent,source --legend",
     "coverage:enforce": "bun run coverage:per-package",
@@ -73,6 +73,7 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
+    "@mm-crypto-bot/logging": "workspace:*",
     "ccxt": "4.5.64",
     "protobufjs": "8.7.2",
     "smol-toml": "1.8.0",

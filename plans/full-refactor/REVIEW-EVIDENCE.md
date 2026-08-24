@@ -1,5 +1,50 @@
 # Review Evidence Ledger — DRAFT
 
+## RE-087 Current logging technical review and process-remediation record
+
+Recorded `2026-08-24` Europe/Budapest. This record supersedes stale current
+logging claims in RE-076; RE-076 remains historical evidence only. The exact
+temporary-index review snapshot before this self-recording evidence addendum
+has 98 allow-listed paths (79 package paths plus
+approved root integration/evidence paths), sorted-list SHA-256
+`2e8ad511ca16eb29b21ef1db88114cf1a0751e41b49d098a52b43a848818faf5`, binary
+patch SHA-256 `ae7d456df677f3a5b2d4d81c5b5bd53c49e592e46de0696fd55780c9b32d782a`,
+and tree `2009143100d9df5f7983731dfc4e3c49999f262e`. It has 16,661 insertions,
+21 deletions, zero unmerged entries, zero unexpected allow-list paths, and a
+passing cached diff check. It retains HEAD CCXT 4.5.64 and excludes staged CCXT
+4.5.75 and all unrelated bot/exchange/shared/ledger work, apart from two
+additive consumer logging-dependency lines. The shared real index is preserved
+and explicitly excluded as a commit source.
+
+The final snapshot `/tmp/mmcb-logging-stage.jrsjNQ` passed frozen install (496
+packages), lint, typecheck, typecheck:e2e, build, 57/57 unit
+(S452/B371/F85/L411 exact 100%), 19/19 genuine subprocess E2E
+(S450/B371/F85/L409 exact 100%), 318/318 infrastructure Vitest
+(S1220/B642/F234/L1120 exact 100%), and tooling boundaries 6/6. A first
+candidate scan found a hard-coded repository-root literal in a publisher
+`fstat` test; the narrow `REPOSITORY_ROOT` repair yields zero such literals in
+the exact review snapshot. Root `coverage:full` remains unclaimed because known
+unrelated package failures remain.
+
+The repaired implementation snapshot received a fresh independent
+`terra_reviewer` **TECH PASS** with zero valid findings. The final independent
+`luna_process_reviewer` returned **PROCESS PASS** with zero open valid findings
+for the isolated temporary logging-only index candidate tree
+`84f4d781dff662ed8cfa245cb68c7d67162e56cf`, after Agy quarantine. The review
+tree predates this status addendum; the eventual commit tree differs only by
+this final evidence status, not by reviewed implementation, test, config,
+package, or lock content.
+
+Commit is authorized **only** from that reviewed temporary logging-only index.
+The shared real combined index and every unrelated staged path are forbidden as
+a commit source and must be preserved. The failed Agy build/test-split relay
+remains **PROCESS NONCOMPLIANT / REJECTED**: it has zero bootstrap credit and
+no review, implementation, routing-quality, predecessor, or commit-authority
+role. Logging acceptance rests solely on the independently reviewed candidate
+and exact gates above. Root `coverage:full` remains unclaimed because known
+unrelated package failures remain. See [logging validation](evidence/logging-package-validation.md), [Agy evaluation](evidence/agy-logging-dispatch-evaluation.md),
+and [ER-087](EXECUTION-RECORD.md).
+
 **Status:** DRAFT. Reviews have no approval authority. Earlier FAIL rows remain
 part of the evidence chain; later PASS rows apply only to this DRAFT planning
 package and do not claim repository implementation completion. Decision approval

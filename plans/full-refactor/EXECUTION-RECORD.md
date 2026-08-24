@@ -1,5 +1,59 @@
 # Execution Record — DRAFT
 
+## ER-087 Logging closure evidence remediation
+
+Recorded `2026-08-24` Europe/Budapest by non-review `terra_worker` /
+`gpt-5.6-terra` / high / workspace-write. This review-snapshot evidence update
+owns only the logging evidence records and ledgers. It does not change source,
+test, config, dependency, shared real index, staging, or commit state.
+
+The exact temporary-index review snapshot before this self-recording evidence
+addendum is 98 paths (79 package paths plus approved
+root integration and evidence paths), with sorted-list SHA-256
+`2e8ad511ca16eb29b21ef1db88114cf1a0751e41b49d098a52b43a848818faf5`, binary
+patch SHA-256 `ae7d456df677f3a5b2d4d81c5b5bd53c49e592e46de0696fd55780c9b32d782a`,
+and tree `2009143100d9df5f7983731dfc4e3c49999f262e`. It has 16,661 insertions,
+21 deletions, zero unmerged entries, zero allow-list exceptions, and passing
+`git diff --cached --check`. It retains HEAD CCXT 4.5.64 and excludes staged
+CCXT 4.5.75 and unrelated bot/exchange/shared/ledger changes, except the two
+additive consumer logging-dependency lines. The combined real index is preserved
+and excluded from commit use (backup index SHA-256
+`910231928ad33247d30fd18474342c9083cbdb3db57e37918160be42c03150a0`; patch
+SHA-256 `54a45b647024ed005a399d1fe2238d470be709457442e7e17b4c6aaad6f6c0df`).
+
+The first candidate revealed one hard-coded repository-root literal in the
+publisher `fstat` test. A narrow portability repair changed it to
+`REPOSITORY_ROOT`; the exact review-snapshot scan has zero such literals. The
+isolated review snapshot `/tmp/mmcb-logging-stage.jrsjNQ` passed
+`bun install --frozen-lockfile --ignore-scripts` (496 packages), lint,
+typecheck, typecheck:e2e, build, 57/57 unit with exact S452/B371/F85/L411,
+19/19 genuine subprocess E2E with exact S450/B371/F85/L409, 318/318
+infrastructure with exact S1220/B642/F234/L1120, and tooling 6/6.
+
+The Agy initial/delta lineage and later failed build/test-split relay remain in
+[Agy evaluation](evidence/agy-logging-dispatch-evaluation.md). For the latter,
+mandatory current-status, secret/sensitive-data-scan, and effective
+allowed-path preflight evidence was not retained and is unrecoverable; brief
+ownership is not proof of an effective boundary, and post-result `touchedFiles`
+is not a substitute. It is consequently **PROCESS NONCOMPLIANT / REJECTED**,
+quarantined, made no accepted edit or artifact, earns zero bootstrap credit, and
+cannot establish Agy routing quality, implementation evidence, a compliant
+predecessor, or commit authority. Terra reclassification independently produced
+the candidate and its gates.
+
+After the portability repair, a fresh independent `terra_reviewer` returned
+**TECH PASS** with zero valid findings. The final independent
+`luna_process_reviewer` returned **PROCESS PASS** with zero open valid findings
+for the temporary logging-only index candidate tree
+`84f4d781dff662ed8cfa245cb68c7d67162e56cf`, after Agy quarantine.
+
+Commit is authorized only from that reviewed temporary logging-only index. The
+shared real combined index and all unrelated staged paths are forbidden as a
+commit source and must be preserved. The review tree predates this status
+addendum; the eventual commit tree differs only by this final evidence status,
+not by implementation, test, config, package, or lock content. No root
+`coverage:full` PASS is claimed.
+
 **Status:** DRAFT. This is an evidence ledger, not implementation authority.
 All D-01 through D-09 decisions are approved; action remains gated by scope,
 validation, safety, and review evidence.

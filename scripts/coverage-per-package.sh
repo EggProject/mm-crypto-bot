@@ -6,7 +6,7 @@
 # bot's independent four-metric unit and subprocess E2E gates.
 #
 # Usage: bash scripts/coverage-per-package.sh
-# Exit 0: all 7 packages at 100% line coverage on OWN src/ files
+# Exit 0: all 8 packages at 100% line coverage on OWN src/ files
 # Exit 1: at least one package below 100%
 set -u
 
@@ -21,6 +21,7 @@ PACKAGES=(
   "packages/shared/coverage/lcov.info|packages/shared"
   "packages/backtest/coverage/lcov.info|packages/backtest"
   "packages/backtest-tools/coverage/lcov.info|packages/backtest-tools"
+  "packages/logging/coverage/unit/lcov.info|packages/logging"
 )
 
 PASS=0
