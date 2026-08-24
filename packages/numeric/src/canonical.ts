@@ -23,6 +23,10 @@ function isAsciiDigit(character: string): boolean {
   return character >= "0" && character <= "9";
 }
 
+function isString(input: unknown): input is string {
+  return typeof input === "string";
+}
+
 function hasOnlyAsciiDigits(input: string): boolean {
   for (let index = 0; index < input.length; index += 1) {
     if (!isAsciiDigit(input.charAt(index))) {
@@ -65,6 +69,92 @@ function isCanonicalInteger(input: string): boolean {
 
   const unsignedInput = input.startsWith("-") ? input.slice(1) : input;
   return isCanonicalUnsignedInteger(unsignedInput);
+}
+
+function externalDecimalGrammarError(): ExactNumericError {
+  return new ExactNumericError(
+    "DECIMAL_GRAMMAR",
+    "External decimal input is not a supported decimal string.",
+  );
+}
+
+/**
+ * Validates a decimal transport value and removes insignificant fractional zero padding.
+ */
+export function canonicalizeExternalDecimal(input: unknown): string {
+  if (!isString(input)) {
+    throw new ExactNumericError("INVALID_INPUT", "External decimal input must be a string.");
+  }
+
+  if (input.length === 0 || input.length > MAXIMUM_CANONICAL_DECIMAL_LENGTH) {
+    throw new ExactNumericError("DECIMAL_LENGTH", "External decimal length is outside the allowed bound.");
+  }
+
+  let index = 0;
+  const isNegative = input.startsWith("-");
+  if (isNegative) {
+    index = 1;
+  }
+
+  if (index === input.length || !isAsciiDigit(input.charAt(index))) {
+    throw externalDecimalGrammarError();
+  }
+
+  const integerStart = index;
+  if (input.charAt(index) === "0") {
+    index += 1;
+    if (index < input.length && input.charAt(index) !== ".") {
+      throw externalDecimalGrammarError();
+    }
+  } else {
+    while (index < input.length && input.charAt(index) !== ".") {
+      if (!isAsciiDigit(input.charAt(index))) {
+        throw externalDecimalGrammarError();
+      }
+
+      index += 1;
+    }
+  }
+
+  const integerPart = input.slice(integerStart, index);
+  if (index === input.length) {
+    if (isNegative && integerPart === "0") {
+      throw externalDecimalGrammarError();
+    }
+
+    return input;
+  }
+
+  index += 1;
+  const fractionStart = index;
+  let fractionEnd = fractionStart;
+  while (index < input.length) {
+    const character = input.charAt(index);
+    if (!isAsciiDigit(character)) {
+      throw externalDecimalGrammarError();
+    }
+
+    if (character !== "0") {
+      fractionEnd = index + 1;
+    }
+
+    index += 1;
+  }
+
+  if (fractionStart === index) {
+    throw externalDecimalGrammarError();
+  }
+
+  if (fractionEnd === fractionStart) {
+    if (isNegative && integerPart === "0") {
+      throw externalDecimalGrammarError();
+    }
+
+    return isNegative ? `-${integerPart}` : integerPart;
+  }
+
+  const unsignedCanonicalDecimal = `${integerPart}.${input.slice(fractionStart, fractionEnd)}`;
+  return isNegative ? `-${unsignedCanonicalDecimal}` : unsignedCanonicalDecimal;
 }
 
 export function parseCanonicalDecimal(input: string): readonly [bigint, bigint] {

@@ -1,4 +1,4 @@
-export { MAXIMUM_CANONICAL_DECIMAL_LENGTH } from "./canonical.js";
+export { canonicalizeExternalDecimal, MAXIMUM_CANONICAL_DECIMAL_LENGTH } from "./canonical.js";
 export { ExactNumericError } from "./errors.js";
 export type { ExactNumericErrorCode } from "./errors.js";
 export { assertExactMultiple, assertNonNegativeExactMultiple, isExactMultiple } from "./exact-step.js";
