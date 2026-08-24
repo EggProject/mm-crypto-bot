@@ -8,3 +8,4 @@ temp
 search-best-config/results
 *.lockb
 bun.lock
+plans/full-refactor/evidence/c3b-invalid-engine-export.fixture.ts

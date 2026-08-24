@@ -252,7 +252,9 @@ describe("logging E2E preload lifecycle", () => {
     ];
     for (const [name, value] of invalidIdentities) {
       const environment =
-        name === "rawDevice" ? { ...baseEnvironment(), rawDevice: value } : { ...baseEnvironment(), rawInode: value };
+        name === "rawDevice"
+          ? { ...baseEnvironment(), rawDevice: value }
+          : { ...baseEnvironment(), rawInode: value };
       const harness = createHarness(environment);
       expect(() => {
         requireInstaller()(harness.port);
