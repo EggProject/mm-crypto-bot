@@ -740,3 +740,32 @@ evidence is recorded in [the C4b command ledger](evidence/c4b-command-ledger.md)
 ER-056, and `DEPENDENCIES.md`. This C4b scope remains **PENDING TECHNICAL AND
 PROCESS RE-REVIEW**; it is not a repository/full-verify/release/live-safety
 PASS.
+
+## D-07 semantic scanner implementation slice — current non-terminal evidence
+
+The current scanner implementation evidence is
+[D-07 scanner slice](evidence/d07-zero-legacy-scanner-slice.md). At
+`2026-08-24T14:13:00+02:00` Europe/Budapest, the scoped 9-file Vitest run
+passed `64/64` with V8 statements `783/783`, branches `650/650`, functions
+`165/165`, and lines `771/771`, across one explicit 10-source include. The
+Bun-compatible subset passed `63` tests and `239` expectations. Scoped strict
+TypeScript over the exact ten sources, ESLint with zero warnings,
+Prettier, and no-index diff checks passed. `--skipLibCheck` in that TypeScript
+command is limited to host declaration checking.
+
+The actual CLI negative control exited `2`: its result is `fail`, its catalog
+is incomplete for two explicit catalog reasons, and it has 90 findings. The
+terminal probes are intentionally mixed: `docs/legacy` and `bin` are absent,
+but `run-bot` and `search-best-config` are present. Therefore this is
+**D-07 semantic scanner implementation slice — NOT TERMINAL / NOT PASS**.
+No D-07 overall, repository-wide, package, CI, release, or scanner-integration
+PASS is claimed. The initial TECH FAIL has five categories, its first re-review
+has two additional fail-open categories, and its second re-review has the
+command-substitution-tail and authoritative-coverage findings. The second
+PROCESS re-review has one ownership-matrix finding. Fresh independent
+technical/process re-reviews are now narrowly TECH PASS / PROCESS PASS with
+zero open valid findings for this implementation/evidence/process scope only.
+They do not alter the scanner's NOT TERMINAL / NOT PASS result. No candidate
+tree/index construction or commit eligibility is created: a coordinator-built
+exact scanner-only candidate and final-tree TECH/PROCESS verification remain
+required, with the real 24-path index excluded and preserved.

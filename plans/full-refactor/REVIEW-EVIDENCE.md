@@ -270,3 +270,43 @@ Europe/Budapest. This timestamp records RE-010/RE-011, not reviewer completion.
 | RE-059 | Independent final technical review of current C3c strict-quality and public-option migration. Ledger recording timestamp `2026-08-18T02:03:28+0200` Europe/Budapest. Route `terra_reviewer`; model `gpt-5.6-terra`; effort high; read-only authority. Reviewer completion timestamp, full command text, and diff identity are **NOT OBSERVED**. | Coordinator supplied **TECH PASS** with zero open valid C3c findings. Scope included the parsed-and-narrowed JSON report contract, threshold-enforced V8 100% evidence and artifact hashes, the exact direct bot dependent test, public option consumer scans, no compatibility alias, and bounded integrity proofs. | **TECH PASS** is limited to the current C3c diff. It does not make root lint, broad tests, full verify, release, or live trading PASS; the backtest-tools 12 failures remain unclassified and **NOT PASS**. |
 | RE-060 | Independent process review of current C3c closure and separate commit eligibility. Ledger recording timestamp `2026-08-18T02:03:28+0200` Europe/Budapest. Route `luna_process_reviewer`; model `gpt-5.6-luna`; effort medium; read-only authority. Reviewer completion timestamp, full command text, and diff identity are **NOT OBSERVED**. | Coordinator supplied **PROCESS PASS** with zero open valid C3c findings. It reviewed ownership, route/authority, scope-bound validation, audit evidence, ignored coverage artifacts, rollback, and the user-authorized continuous commit rule. | **PROCESS PASS** is limited to C3c and authorizes this separate commit. It does not make root lint, broad tests, full verify, release, or live trading PASS; the backtest-tools 12 failures remain unclassified and **NOT PASS**. |
 | RE-068 | C4b technical/process remediation evidence. Ledger recording timestamp `2026-08-18T03:49:26+0200` Europe/Budapest; non-review writer `terra_worker` / `gpt-5.6-terra` / high / workspace-write. Scope: `packages/numeric/**`, unchanged C4b exact lock entry, and C4b evidence only; high exactness, serialization, dependency-audit, and boundary risk. The only external authority was a controlled, read-only registry audit after a sandbox `ConnectionRefused`; no provider, trading, hook, consumer, or Git action. Independent reviewer identity, completion timestamp, commands, findings, and adjudication are **NOT OBSERVED**. | ER-053 records the private-field proxy guard, own/enumerable-data snapshot field requirement, realm-aware Object guard, 18 tests, strict lint/typecheck/build, threshold-enforced V8 100%, package/public/deep-import scans, exact coverage/audit/lock hashes, and the current command ledger. The earlier C4b gate metrics/audit wording is superseded only where ER-053 explicitly says so. | **PENDING TECHNICAL AND PROCESS RE-REVIEW.** No current-diff PASS, commit authorization, repository verification, release, data, or live-trading claim is created. |
+
+## RE-082 D-07 semantic scanner implementation review queue
+
+Refreshed `2026-08-24T14:13:00+02:00` Europe/Budapest. This is a non-review
+evidence entry by `terra_worker` / `gpt-5.6-terra` / high with workspace-write
+authority confined to D-07 scanner evidence and ledgers. It records no reviewer
+result, does not alter the index, and cannot establish commit eligibility. The
+implementation/evidence snapshot is [D-07 scanner slice](evidence/d07-zero-legacy-scanner-slice.md).
+
+The initial independent TECH review is **FAIL** for shell/YAML omission, command
+forms, evidence re-export, TOCTOU, and unbounded reads. Its first re-review is
+also **TECH FAIL** for evidence command execution and dynamic assignment/control
+shell handling; its second is **TECH FAIL** for command-substitution tail bypass
+and omitted authoritative syntax-target coverage. The first PROCESS re-review's
+three findings are remediated; its second is **PROCESS FAIL** for the ownership
+matrix. **Fresh independent technical re-review is PENDING. Fresh independent
+process re-review is PENDING.** No TECH or PROCESS PASS is asserted here.
+
+The historical official-v2 scoped Agy TECH PASS/process-fail lineage and the
+dangerous/network correction TECH FAIL / PROCESS FAIL zero-credit quarantine are
+unchanged. This Terra implementation is separate and cannot redeem Agy bootstrap
+credit. The older D-07 config-CLI evidence remains a separate pending process
+re-review item.
+
+### RE-082 fresh independent closure addendum
+
+Recorded `2026-08-24T14:19:57+02:00` Europe/Budapest. Independent
+`terra_reviewer` / `gpt-5.6-terra` / high / read-only returned **TECH PASS**
+with zero open valid findings. Independent `luna_process_reviewer` pinned
+profile / read-only returned **PROCESS PASS** with zero open valid findings.
+The exact scope is limited to the current D-07 scanner implementation and
+coverage contracts plus its sequential ownership/evidence-process remediation.
+
+This closes neither D-07 terminal scanning nor any repository-wide, package,
+CI, release, live-trading, or Agy-credit question: the scanner slice remains
+**NOT TERMINAL / NOT PASS**. The recorded worktree/file hashes are reviewed
+pre-PASS-addendum snapshot facts only. The real 24-path index stays excluded
+and preserved. A coordinator must construct an exact scanner-only temporary
+candidate and obtain fresh final-tree TECH/PROCESS verification before commit
+eligibility exists.
