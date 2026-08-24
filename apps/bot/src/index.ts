@@ -1,38 +1,16 @@
 #!/usr/bin/env bun
 /**
- * apps/bot/src/index.ts
+ * Direct bot CLI entry point.
  *
- * Phase 33 Track D + Phase 34 Track C + Phase 44 — a direct bot CLI entry point.
+ * Subcommands: start, status, config, strategies, trades, kill-switches,
+ * kill-switch-dry-run, backtest, and help.
  *
- * ===========================================================================
- * SUBCOMMANDS
- * ===========================================================================
- *   - `start`           — indítja a botot (PURE HEADLESS, Phase 44 óta)
- *   - `status`          — a perzisztens state kiírása
- *   - `config`          — validate / show / init
- *   - `strategies`      — regisztrált stratégiák listája
- *   - `trades`          — utolsó N trade kiírása
- *   - `kill-switches`   — kill-switch állapot
- *   - `help`            — help
+ * Usage: bun run apps/bot/src/index.ts <subcommand> [--config=PATH] [--help]
+ * [--no-color] [--color]. Exit codes are 0 for success, 1 for command or
+ * runtime errors, and 2 for configuration validation errors.
  *
- * ===========================================================================
- * HASZNÁLAT
- * ===========================================================================
- *   bun run apps/bot/src/index.ts                              → help
- *   bun run apps/bot/src/index.ts <subcommand> [--config=PATH] [--help] [--no-color] [--color]
- *
- * ===========================================================================
- * EXIT CODES
- * ===========================================================================
- *   0 — siker
- *   1 — hiba (ismeretlen subcommand, runtime hiba, state file nem található)
- *   2 — config validációs hiba
- *
- * ===========================================================================
- * A `--no-color` / `--color` flag-eket EZ a fájl dolgozza fel, a
- * subcommand handler-ek futása ELŐTT. A `NO_COLOR=1` env var-t
- * globálisan beállítjuk, hogy a subcommand-ok első `colorize()` hívása
- * már a helyes policy-t lássa.
+ * Color flags are processed before subcommand dispatch so every handler sees
+ * the intended color policy at its first colorization call.
  */
 
 import {
@@ -53,14 +31,11 @@ import {
 // ---------------------------------------------------------------------------
 // Global CLI flag handling — must run BEFORE any subcommand dispatches.
 // ---------------------------------------------------------------------------
-// We do an early `parseArgv` to honor `--no-color` and `--color` globally.
-// This matters because:
+// Parse flags early to honor `--no-color` and `--color` globally. This matters because:
 //   1. picocolors + the CLI color helper read `NO_COLOR` + TTY state at
 //      module-load time; we must set the env var before any subcommand
 //      handler imports the picocolors-using code.
-//   2. The user mandate: "default color output legyen, de headless módban
-//      ki lehessen kapcsolni" — default IS color (TTY=ON, no env var),
-//      `--no-color` flips OFF.
+//   2. Default TTY output uses color unless an explicit color flag changes it.
 //
 // This is a pure peek; the router will call `parseArgv` again to do
 // real dispatch. The dual call is intentional and cheap (parseArgv
@@ -97,14 +72,10 @@ router.register("trades", "Show recent closed trades", tradesCommand);
 router.register("kill-switches", "Show kill-switch state", killSwitchesCommand);
 router.register(
   "kill-switch-dry-run",
-  "Simulate the kill-switch path WITHOUT sending any orders (Phase 37 Track 5)",
+  "Simulate the kill-switch path without sending any orders",
   killSwitchDryRunCommand,
 );
-router.register(
-  "backtest",
-  "Run a quick backtest on a deterministic OHLC fixture (Phase 37 Track 3)",
-  backtestCommand,
-);
+router.register("backtest", "Run a quick backtest on a deterministic OHLC fixture", backtestCommand);
 router.register("help", "Show this help", makeHelpCommand(router));
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,105 @@
+<delegation_brief version="1">
+  <classification>
+    <task_class>large bounded read-only active-reference inventory</task_class>
+    <mode>read-only</mode>
+    <ownership>no repository writes; inspect only the declared paths</ownership>
+    <packages>repository-wide declared D-07 terminal roots</packages>
+    <package_count>multiple</package_count>
+    <domain_risk>low; textual inventory only, no product or trading decision</domain_risk>
+    <reasoning_shape>mechanical extraction and deterministic counting</reasoning_shape>
+    <external_resources>none; network use is forbidden</external_resources>
+    <review_role>non-review</review_role>
+    <independence>fresh bootstrap run; independent Terra verification required</independence>
+    <route>gemini-3.7-flash-low with low effort</route>
+  </classification>
+
+  <task>
+    Produce a deterministic read-only inventory of active D-07 historical and
+    alias references. Inspect only apps, packages, scripts, docs, run-bot,
+    search-best-config, .github, package.json, turbo.json, and lefthook.yml.
+    Do not inspect .git, data, temp, coverage, dist, node_modules, plans, or the
+    sensitive-marker exclusions below. Do not modify any file.
+  </task>
+
+  <predecided_patterns>
+    <pattern id="numbered-history-marker"><![CDATA[\b[Pp]hase[ _-]*[0-9][A-Za-z0-9._-]*]]></pattern>
+    <pattern id="legacy-word"><![CDATA[(?i)\blegacy\b]]></pattern>
+    <pattern id="compatibility-phrase"><![CDATA[(?i)\bbackwards? compat(?:ibility|ible)\b]]></pattern>
+    <pattern id="old-alias"><![CDATA[(?<!crypto-)mm-bot]]></pattern>
+    <pattern id="old-runtime-directory"><![CDATA[run-bot]]></pattern>
+    <pattern id="old-search-directory"><![CDATA[search-best-config]]></pattern>
+  </predecided_patterns>
+
+  <sensitive_marker_exclusions>
+    <reason>
+      The coordinator content-marker preflight found 24 files whose text
+      mentions credential-shaped concepts. Do not open or search their content;
+      list them only as excluded and report the exclusion count as 24.
+    </reason>
+    <path>apps/bot/src/bot/bot-exchange-initializer.ts</path>
+    <path>apps/bot/src/bot/bot-public-boundaries.live-equity-persistence.test.ts</path>
+    <path>apps/bot/src/bot/bot-public-boundaries.test-support.ts</path>
+    <path>apps/bot/src/bot/bot-public-boundaries.test.ts</path>
+    <path>apps/bot/src/bot/bot.lifecycle.test.ts</path>
+    <path>apps/bot/src/bot/bot.ts</path>
+    <path>apps/bot/src/config/loader.ts</path>
+    <path>apps/bot/test/e2e/runtime-driver/bot-cleanup-and-order-risk.ts</path>
+    <path>apps/bot/test/e2e/runtime-driver/bot-lifecycle-factory.ts</path>
+    <path>apps/bot/test/e2e/runtime-driver/bot-state-and-telemetry.ts</path>
+    <path>docs/LIVE-TRADING.md</path>
+    <path>docs/production-strategies/pre-launch-checklist.md</path>
+    <path>docs/research/stack-findings.md</path>
+    <path>packages/exchange/src/factory.test.ts</path>
+    <path>packages/exchange/src/factory.ts</path>
+    <path>packages/exchange/tests/factory.test.ts</path>
+    <path>packages/logging/src/serialization.test.ts</path>
+    <path>packages/logging/src/serialization.ts</path>
+    <path>run-bot/config/live-eu.example.toml</path>
+    <path>run-bot/config/live-eu.toml</path>
+    <path>scripts/coverage-tools/bot-e2e-child-environment.test.ts</path>
+    <path>scripts/coverage-tools/bot-e2e-child-environment.ts</path>
+    <path>scripts/coverage-tools/bot-runtime-network-guard.test.ts</path>
+    <path>scripts/coverage-tools/bot-runtime-network-negative-fixture.ts</path>
+  </sensitive_marker_exclusions>
+
+  <preflight_facts>
+    <worktree_status_rows>250</worktree_status_rows>
+    <worktree_status_sha256>88fb1eff1a5eb2078848d2148cdaab8278b437ae05b313629e2eae1601cca258</worktree_status_sha256>
+    <sensitive_filename_matches>0</sensitive_filename_matches>
+    <sensitive_content_marker_files>24</sensitive_content_marker_files>
+    <permission_mode>agy plan mode via relay --read-only with --sandbox</permission_mode>
+    <dangerous_permission_bypass>false</dangerous_permission_bypass>
+  </preflight_facts>
+
+  <required_output>
+    For every pattern, report the exact total match count, exact file count, and
+    a sorted path:line:text list. Separately report whether the bin, run-bot,
+    search-best-config, and docs/legacy paths exist. Classify each match only by
+    its path-derived area: production source, test, script/tooling, active docs,
+    configuration, manifest/CI, or excluded. Do not recommend replacements,
+    deletions, names, package moves, architecture, business behaviour, or
+    trading behaviour. Do not claim completeness across the 24 excluded files.
+  </required_output>
+
+  <prohibitions>
+    <item>No file writes, edits, generated files, staging, commits, or Git mutation.</item>
+    <item>No network, browser, plugin, MCP, credential, exchange, or external-provider access.</item>
+    <item>No business, financial, trading, code-organization, architecture, or module-boundary decision.</item>
+    <item>No opening or searching the 24 sensitive-marker exclusion files.</item>
+    <item>No private data, secret-shaped value, environment value, or file content outside matched lines in the final report.</item>
+  </prohibitions>
+
+  <verification_loop>
+    Confirm the working tree status row count and SHA-256 are unchanged after
+    the inventory. Confirm no file was touched. If a required command is denied,
+    ambiguous, or unsupported, stop and report the exact blocker; do not seek a
+    workaround and do not broaden permissions.
+  </verification_loop>
+
+  <structured_output_contract>
+    End with: (1) status completed or blocked, (2) requested model/effort and
+    observable execution facts, (3) exact commands used, (4) per-pattern counts
+    and sorted matches, (5) path existence results, (6) excluded-file count,
+    (7) pre/post status count and SHA, (8) deviations or missing evidence.
+  </structured_output_contract>
+</delegation_brief>

@@ -1,0 +1,23 @@
+<delta_brief version="1">
+  <failure_correction>
+    The first read-only run was auto-denied because it attempted a command not
+    covered by the current central allow rules. Do not retry that command and do
+    not request or infer broader permissions.
+  </failure_correction>
+
+  <allowed_commands>
+    Use only commands whose executable is exactly one of: rg, find, wc, sort,
+    grep. Do not run git, pwd, cd, test, sha256sum, shell built-ins, scripts,
+    interpreters, package managers, or any other executable. Do not use a
+    command merely to verify the worktree; the relay performs the read-only
+    fingerprint independently.
+  </allowed_commands>
+
+  <simplified_verification>
+    Complete the original inventory using only the allowed commands. Report
+    the exact commands actually run. The final report must omit any pre/post Git
+    status SHA claim and instead state that worktree mutation verification is
+    relay-owned. Keep every original path, exclusion, no-network, no-write,
+    no-decision, counting, and output constraint unchanged.
+  </simplified_verification>
+</delta_brief>

@@ -10,14 +10,14 @@ class ExitIntercept extends Error {
 const originalArgv = [...process.argv];
 const originalNoColor = process.env["NO_COLOR"];
 
-async function runCliEntry(args: readonly string[]): Promise<ExitIntercept> {
-  process.argv = [...originalArgv.slice(0, 2), ...args];
-  const originalExit = process.exit;
-  const originalConsoleError = console.error;
+async function runCliEntry(arguments_: readonly string[]): Promise<ExitIntercept> {
+  process.argv = [...originalArgv.slice(0, 2), ...arguments_];
   const exitSpy = spyOn(process, "exit").mockImplementation((code) => {
     throw new ExitIntercept(code);
   });
-  const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
+  const errorSpy = spyOn(console, "error").mockImplementation(() => {
+    // Suppress expected CLI diagnostics while asserting the exit path.
+  });
   try {
     await import("./index.js");
     throw new Error("CLI entry returned without terminating the process");
@@ -27,8 +27,6 @@ async function runCliEntry(args: readonly string[]): Promise<ExitIntercept> {
   } finally {
     errorSpy.mockRestore();
     exitSpy.mockRestore();
-    console.error = originalConsoleError;
-    process.exit = originalExit;
   }
 }
 
@@ -38,11 +36,11 @@ afterEach(() => {
   else process.env["NO_COLOR"] = originalNoColor;
 });
 
-describe("mm-bot public CLI entry", () => {
+describe("bot CLI public entry", () => {
   it("dispatches help with default color policy", async () => {
     if (typeof Bun.version === "string") {
       const child = Bun.spawn({
-        cmd: [process.execPath, fileURLToPath(new URL("./index.ts", import.meta.url)), "help"],
+        cmd: [process.execPath, fileURLToPath(new URL("index.ts", import.meta.url)), "help"],
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -51,6 +49,7 @@ describe("mm-bot public CLI entry", () => {
       expect(stderr).toContain("Usage:");
       return;
     }
-    expect((await runCliEntry(["help"])).code).toBe(1);
+    const exitIntercept = await runCliEntry(["help"]);
+    expect(exitIntercept.code).toBe(1);
   });
 });
