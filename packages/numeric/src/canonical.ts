@@ -27,6 +27,10 @@ function isString(input: unknown): input is string {
   return typeof input === "string";
 }
 
+function canonicalTransportLength(input: string): number {
+  return input.startsWith("-") ? input.length - 1 : input.length;
+}
+
 function hasOnlyAsciiDigits(input: string): boolean {
   for (let index = 0; index < input.length; index += 1) {
     if (!isAsciiDigit(input.charAt(index))) {
@@ -86,7 +90,7 @@ export function canonicalizeExternalDecimal(input: unknown): string {
     throw new ExactNumericError("INVALID_INPUT", "External decimal input must be a string.");
   }
 
-  if (input.length === 0 || input.length > MAXIMUM_CANONICAL_DECIMAL_LENGTH) {
+  if (input.length === 0 || canonicalTransportLength(input) > MAXIMUM_CANONICAL_DECIMAL_LENGTH) {
     throw new ExactNumericError("DECIMAL_LENGTH", "External decimal length is outside the allowed bound.");
   }
 
@@ -162,7 +166,7 @@ export function parseCanonicalDecimal(input: string): readonly [bigint, bigint] 
     throw new ExactNumericError("DECIMAL_LENGTH", "Canonical decimal length is outside the allowed bound.");
   }
 
-  if (input.length > MAXIMUM_CANONICAL_DECIMAL_LENGTH) {
+  if (canonicalTransportLength(input) > MAXIMUM_CANONICAL_DECIMAL_LENGTH) {
     throw new ExactNumericError("DECIMAL_LENGTH", "Canonical decimal length is outside the allowed bound.");
   }
 
@@ -187,7 +191,7 @@ export function parseCanonicalInteger(input: unknown): bigint {
     throw new ExactNumericError("SNAPSHOT_CONTENT", "Snapshot integer is not canonical.");
   }
 
-  if (input.length === 0 || input.length > MAXIMUM_CANONICAL_DECIMAL_LENGTH) {
+  if (input.length === 0 || canonicalTransportLength(input) > MAXIMUM_CANONICAL_DECIMAL_LENGTH) {
     throw new ExactNumericError("SNAPSHOT_CONTENT", "Snapshot integer is outside the allowed bound.");
   }
 

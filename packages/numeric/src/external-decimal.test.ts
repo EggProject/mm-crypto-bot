@@ -74,11 +74,26 @@ describe("canonicalizeExternalDecimal", () => {
   it("accepts the exact input-length boundary without reducing its numeric value", () => {
     const maximumInteger = "1".repeat(MAXIMUM_CANONICAL_DECIMAL_LENGTH);
     const maximumPaddedInteger = `1.${"0".repeat(MAXIMUM_CANONICAL_DECIMAL_LENGTH - 2)}`;
+    const maximumNegativeInteger = `-${"1".repeat(MAXIMUM_CANONICAL_DECIMAL_LENGTH)}`;
+    const maximumNegativeDecimal = `-1.${"1".repeat(MAXIMUM_CANONICAL_DECIMAL_LENGTH - 2)}`;
+    const excessiveNegativeDecimal = `-1.${"1".repeat(MAXIMUM_CANONICAL_DECIMAL_LENGTH - 1)}`;
 
     expect(canonicalizeExternalDecimal(maximumInteger)).toBe(maximumInteger);
     expect(canonicalizeExternalDecimal(maximumPaddedInteger)).toBe("1");
+    expect(canonicalizeExternalDecimal(maximumNegativeInteger)).toBe(maximumNegativeInteger);
+    expect(ExactRational.from(maximumNegativeInteger).toSnapshot()).toEqual({
+      denominator: "1",
+      numerator: maximumNegativeInteger,
+      schema: "exact-rational@1",
+    });
+    expect(canonicalizeExternalDecimal(maximumNegativeDecimal)).toBe(maximumNegativeDecimal);
+    expectExactNumericError(() => canonicalizeExternalDecimal(excessiveNegativeDecimal), "DECIMAL_LENGTH");
     expectExactNumericError(
       () => canonicalizeExternalDecimal("1".repeat(MAXIMUM_CANONICAL_DECIMAL_LENGTH + 1)),
+      "DECIMAL_LENGTH",
+    );
+    expectExactNumericError(
+      () => canonicalizeExternalDecimal(`-${"1".repeat(MAXIMUM_CANONICAL_DECIMAL_LENGTH + 1)}`),
       "DECIMAL_LENGTH",
     );
   });

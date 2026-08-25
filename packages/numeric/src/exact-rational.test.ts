@@ -187,6 +187,22 @@ describe("ExactRational canonical input and snapshots", () => {
     );
   });
 
+  it("round-trips the largest negative snapshot numerator within the transport budget", () => {
+    const maximumMagnitude = 10n ** BigInt(MAXIMUM_EXACT_INTEGER_DIGITS) - 1n;
+    const negativeMaximum = ExactRational.fromParts(-maximumMagnitude, 1n);
+
+    expect(ExactRational.fromSnapshot(negativeMaximum.toSnapshot()).equals(negativeMaximum)).toBe(true);
+    expectExactNumericError(
+      () =>
+        ExactRational.fromSnapshot({
+          denominator: "1",
+          numerator: `-${"1".repeat(MAXIMUM_CANONICAL_DECIMAL_LENGTH + 1)}`,
+          schema: "exact-rational@1",
+        }),
+      "SNAPSHOT_CONTENT",
+    );
+  });
+
   it("fails closed for adversarial prototype, own-key, descriptor, and getter traps", () => {
     const prototypeTrap = new Proxy(
       {},
