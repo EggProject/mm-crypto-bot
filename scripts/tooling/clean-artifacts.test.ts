@@ -111,3 +111,36 @@ test("cleaner removes only allowlisted fixtures and is idempotent", async () => 
   expect(await Bun.file(path.join(rootDirectory, "coverage")).exists()).toBe(false);
   expect(await Bun.file(path.join(rootDirectory, "unknown.txt")).exists()).toBe(true);
 });
+
+test("cleaner handles every foundation coverage directory without removing unknown content", async () => {
+  const rootDirectory = await createGitRepo("mm-cleaner-foundation-");
+  const coverageDirectories = [
+    "packages/typing/coverage",
+    "packages/typeguard/coverage",
+    "packages/assert/coverage",
+    "packages/numeric/coverage",
+    "packages/logging/coverage",
+  ] as const;
+  for (const coverageDirectory of coverageDirectories) {
+    await Bun.write(path.join(rootDirectory, coverageDirectory, "result.txt"), coverageDirectory);
+  }
+  await Bun.write(path.join(rootDirectory, "unknown.txt"), "keep");
+
+  const dryRunLogs: string[] = [];
+  await cleanFixture(rootDirectory, true, dryRunLogs);
+  for (const coverageDirectory of coverageDirectories) {
+    expect(dryRunLogs).toContain(`would-remove ${coverageDirectory}`);
+    expect(await Bun.file(path.join(rootDirectory, coverageDirectory, "result.txt")).exists()).toBe(true);
+  }
+
+  const removalLogs: string[] = [];
+  await cleanFixture(rootDirectory, false, removalLogs);
+  const absenceLogs: string[] = [];
+  await cleanFixture(rootDirectory, false, absenceLogs);
+  for (const coverageDirectory of coverageDirectories) {
+    expect(removalLogs).toContain(`remove ${coverageDirectory}`);
+    expect(absenceLogs).toContain(`absent ${coverageDirectory}`);
+    expect(await Bun.file(path.join(rootDirectory, coverageDirectory)).exists()).toBe(false);
+  }
+  expect(await Bun.file(path.join(rootDirectory, "unknown.txt")).exists()).toBe(true);
+});

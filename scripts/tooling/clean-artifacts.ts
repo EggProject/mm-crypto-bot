@@ -18,6 +18,11 @@ const artifactPaths = [
   "packages/paper/coverage",
   "packages/shared/dist",
   "packages/shared/coverage",
+  "packages/typing/coverage",
+  "packages/typeguard/coverage",
+  "packages/assert/coverage",
+  "packages/numeric/coverage",
+  "packages/logging/coverage",
 ] as const;
 
 export type CleanerLog = (message: string) => void;

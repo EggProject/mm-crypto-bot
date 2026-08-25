@@ -9,6 +9,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUN_BIN="$(command -v bun)"
+COVERAGE_FULL_SCRIPT="${COVERAGE_FULL_SCRIPT:-$REPO_ROOT/scripts/coverage-full.sh}"
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/mm-coverage-gates.XXXXXX")"
 
 cleanup() {
@@ -25,6 +26,10 @@ PACKAGES=(
   "packages/backtest"
   "packages/backtest-tools"
   "packages/logging"
+  "packages/typing"
+  "packages/typeguard"
+  "packages/assert"
+  "packages/numeric"
 )
 
 fail() {
@@ -117,7 +122,7 @@ write_full_pipeline_stubs() {
     'root="$1"' \
     'mode="$2"' \
     'shift 2' \
-    'case "$mode" in exact|rounded-miss|missing-bot-unit|missing-logging-unit) ;; *) echo "unknown synthetic mode: $mode" >&2; exit 2 ;; esac' \
+    'case "$mode" in exact|rounded-miss|missing-bot-unit|missing-logging-unit|missing-typing|missing-typeguard|missing-assert|missing-numeric) ;; *) echo "unknown synthetic mode: $mode" >&2; exit 2 ;; esac' \
     'if [[ -n "${COVERAGE_COMMAND_LOG:-}" ]]; then' \
     '  case ":${PATH}:" in *:/tmp/bun-node-synthetic:*) bun_node_path=present ;; *) bun_node_path=absent ;; esac' \
     '  printf "%s|NODE=%s|npm_node_execpath=%s|npm_execpath=%s|bun_node_path=%s\\n" "$*" "${NODE-<unset>}" "${npm_node_execpath-<unset>}" "${npm_execpath-<unset>}" "$bun_node_path" >> "$COVERAGE_COMMAND_LOG"' \
@@ -131,6 +136,10 @@ write_full_pipeline_stubs() {
     '    @mm-crypto-bot/backtest) pkg=packages/backtest ;;' \
     '    @mm-crypto-bot/backtest-tools) pkg=packages/backtest-tools ;;' \
     '    @mm-crypto-bot/logging) pkg=packages/logging ;;' \
+    '    @mm-crypto-bot/typing) pkg=packages/typing ;;' \
+    '    @mm-crypto-bot/typeguard) pkg=packages/typeguard ;;' \
+    '    @mm-crypto-bot/assert) pkg=packages/assert ;;' \
+    '    @mm-crypto-bot/numeric) pkg=packages/numeric ;;' \
     '    *) echo "unexpected package coverage invocation: $*" >&2; exit 2 ;;' \
     '  esac' \
     '  coverage_directory="$root/$pkg/coverage"' \
@@ -144,8 +153,10 @@ write_full_pipeline_stubs() {
     '    printf "{}\\n" > "$root/$pkg/coverage/e2e/summary.json"' \
     '    printf "{}\\n" > "$root/$pkg/coverage/e2e/raw/example.json"' \
     '  else' \
-    '    mkdir -p "$coverage_directory"' \
-    '    printf "SF:src/example.ts\\nLF:1\\nLH:1\\nend_of_record\\n" > "$coverage_directory/lcov.info"' \
+    '    if [[ "$mode" != "missing-${pkg##*/}" ]]; then' \
+    '      mkdir -p "$coverage_directory"' \
+    '      printf "SF:src/example.ts\\nLF:1\\nLH:1\\nend_of_record\\n" > "$coverage_directory/lcov.info"' \
+    '    fi' \
     '  fi' \
     'elif [[ "$#" -eq 3 && "$1" == "--filter" && "$2" == "@mm-crypto-bot/logging" && "$3" == "coverage:unit" ]]; then' \
     '  if [[ "$mode" != "missing-logging-unit" ]]; then' \
@@ -167,15 +178,48 @@ write_full_pipeline_stubs() {
   chmod +x "$root/bin/bunx" "$root/bin/bun" "$root/write-lcov-fixtures.sh"
 }
 
+foundation_package_for_missing_mode() {
+  case "$1" in
+    missing-typing) printf '%s\n' "typing" ;;
+    missing-typeguard) printf '%s\n' "typeguard" ;;
+    missing-assert) printf '%s\n' "assert" ;;
+    missing-numeric) printf '%s\n' "numeric" ;;
+    *) return 1 ;;
+  esac
+}
+
+preseed_stale_foundation_tracefile() {
+  local root="$1"
+  local mode="$2"
+  local foundation_package
+  if ! foundation_package="$(foundation_package_for_missing_mode "$mode")"; then
+    return
+  fi
+  local tracefile="$root/packages/$foundation_package/coverage/lcov.info"
+  mkdir -p "${tracefile%/*}"
+  printf 'SF:src/stale.ts\nLF:1\nLH:1\nend_of_record\n' > "$tracefile"
+}
+
+assert_stale_foundation_tracefile_removed() {
+  local root="$1"
+  local mode="$2"
+  local foundation_package
+  if ! foundation_package="$(foundation_package_for_missing_mode "$mode")"; then
+    return
+  fi
+  [[ ! -e "$root/packages/$foundation_package/coverage/lcov.info" ]] || fail "stale $foundation_package LCOV survived cleanup"
+}
+
 run_full_case() {
   local mode="$1"
   local expected_exit="$2"
   local expected_text="$3"
   local root="$TEMP_ROOT/full-$mode"
   mkdir -p "$root/scripts"
-  cp "$REPO_ROOT/scripts/coverage-full.sh" "$root/scripts/coverage-full.sh"
+  cp "$COVERAGE_FULL_SCRIPT" "$root/scripts/coverage-full.sh"
   cp "$REPO_ROOT/scripts/coverage-per-package.sh" "$root/scripts/coverage-per-package.sh"
   write_full_pipeline_stubs "$root"
+  preseed_stale_foundation_tracefile "$root" "$mode"
 
   local output exit_code
   set +e
@@ -190,12 +234,17 @@ run_full_case() {
   set -e
   [[ "$exit_code" -eq "$expected_exit" ]] || fail "coverage-full $mode exit=$exit_code, expected $expected_exit"
   assert_contains "$output" "$expected_text"
+  assert_stale_foundation_tracefile_removed "$root" "$mode"
   if [[ "$mode" == "exact" ]]; then
     local command_log
     command_log="$(< "$root/coverage-command.log")"
     assert_contains "$command_log" "--filter @mm-crypto-bot/paper coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
     assert_contains "$command_log" "--filter @mm-crypto-bot/shared coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
     assert_contains "$command_log" "--filter @mm-crypto-bot/backtest coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
+    assert_contains "$command_log" "--filter @mm-crypto-bot/typing coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
+    assert_contains "$command_log" "--filter @mm-crypto-bot/typeguard coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
+    assert_contains "$command_log" "--filter @mm-crypto-bot/assert coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
+    assert_contains "$command_log" "--filter @mm-crypto-bot/numeric coverage|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
     assert_contains "$command_log" "coverage:bot:unit|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
     assert_contains "$command_log" "coverage:bot:e2e|NODE=/tmp/bun-node-synthetic|npm_node_execpath=/tmp/bun-node-exec-synthetic|npm_execpath=/tmp/bun-exec-synthetic|bun_node_path=present"
     assert_contains "$command_log" "--filter @mm-crypto-bot/logging coverage:unit|NODE=<unset>|npm_node_execpath=<unset>|npm_execpath=<unset>|bun_node_path=absent"
@@ -206,13 +255,34 @@ run_full_case() {
   fi
 }
 
-assert_logging_merge_contract() {
-  local coverage_merge per_package_script
+assert_merge_inputs_exclude_e2e() {
+  local coverage_merge="$1"
+  local -a coverage_merge_tokens
+  read -r -a coverage_merge_tokens <<< "$coverage_merge"
+  local token_index
+  for ((token_index = 4; token_index < ${#coverage_merge_tokens[@]}; token_index++)); do
+    [[ "${coverage_merge_tokens[$token_index]}" != */coverage/e2e* ]] || return 1
+  done
+}
+
+assert_root_coverage_contract() {
+  local coverage_merge coverage_infra per_package_script foundation_package
   coverage_merge="$(cd "$REPO_ROOT" && "$BUN_BIN" --eval 'const packageJson = await Bun.file("package.json").json(); process.stdout.write(packageJson.scripts["coverage:merge"]);')"
+  coverage_infra="$(cd "$REPO_ROOT" && "$BUN_BIN" --eval 'const packageJson = await Bun.file("package.json").json(); process.stdout.write(packageJson.scripts["test:coverage-infra"]);')"
+  assert_contains "$coverage_infra" "bash scripts/coverage-gates.test.sh"
+  assert_merge_inputs_exclude_e2e "$coverage_merge" || fail "coverage:merge includes an E2E LCOV input"
+  if assert_merge_inputs_exclude_e2e "$coverage_merge apps/bot/coverage/e2e/lcov.info"; then
+    fail "coverage:merge E2E rejection fixture accepted bot E2E input"
+  fi
   assert_contains "$coverage_merge" "packages/logging/coverage/unit/lcov.info"
   [[ "$coverage_merge" != *"packages/logging/coverage/e2e"* ]] || fail "logging E2E artifacts must not be merged into LCOV"
   per_package_script="$(< "$REPO_ROOT/scripts/coverage-per-package.sh")"
   assert_contains "$per_package_script" "packages/logging/coverage/unit/lcov.info|packages/logging"
+  for foundation_package in typing typeguard assert numeric; do
+    assert_contains "$coverage_merge" "packages/$foundation_package/coverage/lcov.info"
+    [[ "$coverage_merge" != *"packages/$foundation_package/coverage/e2e"* ]] || fail "$foundation_package E2E artifacts must not be merged into LCOV"
+    assert_contains "$per_package_script" "packages/$foundation_package/coverage/lcov.info|packages/$foundation_package"
+  done
 }
 
 run_lcov_tool_cases() {
@@ -316,7 +386,7 @@ run_per_package_case "rounded-miss" 1 "✗ apps/bot  lines.......: 100.0% (1999 
 run_full_case "rounded-miss" 1 "per-package Bun line gate (exit 1)"
 
 # Exact equality is the only successful 100% result.
-run_per_package_case "exact" 0 "Total: 8/8 packages at 100% line coverage on OWN src/ files"
+run_per_package_case "exact" 0 "Total: 12/12 packages at 100% line coverage on OWN src/ files"
 NODE="/tmp/bun-node-synthetic" \
   npm_node_execpath="/tmp/bun-node-exec-synthetic" \
   npm_execpath="/tmp/bun-exec-synthetic" \
@@ -327,7 +397,13 @@ run_full_case "missing-bot-unit" 1 "✗ apps/bot  no lcov.info found"
 
 # The logging unit trace must be produced by its independent combined gate.
 run_full_case "missing-logging-unit" 1 "✗ packages/logging  no lcov.info found"
-assert_logging_merge_contract
+
+# Each foundation unit trace must be produced by its own Node-hosted gate.
+run_full_case "missing-typing" 1 "✗ packages/typing  no lcov.info found"
+run_full_case "missing-typeguard" 1 "✗ packages/typeguard  no lcov.info found"
+run_full_case "missing-assert" 1 "✗ packages/assert  no lcov.info found"
+run_full_case "missing-numeric" 1 "✗ packages/numeric  no lcov.info found"
+assert_root_coverage_contract
 
 # Missing/zero OWN data remains a hard failure, never a vacuous pass.
 run_per_package_case "zero" 1 "✗ apps/bot  no OWN files matched"

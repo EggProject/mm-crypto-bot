@@ -56,6 +56,10 @@ rm -rf \
   packages/backtest/coverage \
   packages/backtest-tools/coverage \
   packages/logging/coverage \
+  packages/typing/coverage \
+  packages/typeguard/coverage \
+  packages/assert/coverage \
+  packages/numeric/coverage \
   coverage/merged
 
 run_gate "all Bun tests" bunx turbo run test --force
@@ -68,6 +72,10 @@ run_gate "@mm-crypto-bot/exchange Bun LCOV" bun run --filter @mm-crypto-bot/exch
 run_gate "@mm-crypto-bot/core Bun LCOV" bun run --filter @mm-crypto-bot/core coverage
 run_gate "@mm-crypto-bot/shared Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/shared coverage
 run_gate "@mm-crypto-bot/backtest Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/backtest coverage
+run_gate "@mm-crypto-bot/typing Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/typing coverage
+run_gate "@mm-crypto-bot/typeguard Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/typeguard coverage
+run_gate "@mm-crypto-bot/assert Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/assert coverage
+run_gate "@mm-crypto-bot/numeric Node Vitest LCOV" run_node_vitest_gate bun run --filter @mm-crypto-bot/numeric coverage
 run_gate "@mm-crypto-bot/backtest-tools Bun LCOV" bun run --filter @mm-crypto-bot/backtest-tools coverage
 
 run_gate "bot Node Vitest unit 100% statements/branches/functions/lines" run_node_vitest_gate bun run coverage:bot:unit
