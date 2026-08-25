@@ -1,6 +1,7 @@
 # D-07 unparseable-source diagnostic
 
-Current evidence recorded `2026-08-25` from the isolated candidate worktree
+Historical validation evidence was recorded `2026-08-25` from the isolated
+pre-commit candidate worktree
 `/tmp/mm-d07-unparseable-commit.jpVHXx/worktree` at HEAD
 `5ab6c030c1f57795e77239de9d532ad9a2777f93`. This narrowly scoped record
 documents the distinction between a source that cannot be read and a source
@@ -41,10 +42,19 @@ workspace-write; there were no external or mutable resources, no fallback or
 escalation, and provider-attested effective model/effort were not observable.
 No implementation task staged, committed, or performed external I/O.
 
+For delegation accounting, `scripts/tooling` and
+`plans/full-refactor/evidence` are one root tooling/evidence package scope;
+each brief therefore has package count `1` under that convention.
+
 | Sequence | Task ID                          | Exclusive ownership                                                                                                                                             | Historical implementation validation                                                                                                     | Result                                                 |
 | -------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | First    | `/root/d07_unparseable_contract` | `scripts/tooling/zero-legacy-contract.ts`, `scripts/tooling/zero-legacy-contract.test.ts`                                                                       | Contract tests `14/14`; then scoped suite `68/68`, V8 `785/785` statements, `652/652` branches, `165/165` functions, `773/773` lines     | Completed; ownership released before the scanner task. |
 | Second   | `/root/d07_unparseable_scanner`  | `scripts/tooling/zero-legacy-scanner.ts`, `scripts/tooling/zero-legacy-scanner.test.ts`, plus `zero-legacy-coverage-delta.test.ts` only if coverage required it | Scanner tests `11/11`; historical final suite `70/70`, V8 `790/790` statements, `650/650` branches, `165/165` functions, `777/777` lines | Completed. The coverage-delta file was not modified.   |
+
+| Task ID                          | Package count | Concrete reasoning shape                                                                                                                       |
+| -------------------------------- | ------------: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/root/d07_unparseable_contract` |             1 | Preserve a typed fail-closed finding envelope while removing raw parser-detail leakage from the public finding contract and its focused tests. |
+| `/root/d07_unparseable_scanner`  |             1 | Propagate successful-read extractor failure as `unparseable-source`, distinct from secure-I/O failure, through scanner behavior and coverage.  |
 
 ### Independent review outcomes and remediation
 
@@ -163,15 +173,23 @@ only content-derived snapshots, not raw `.git/index` identity:
 | NUL-delimited staged name-status list | `111e68ee18decc0e09c65d34f0f49050184d948d847a18945ac617c2dd648a48` |
 | Full-index binary diff                | `625916c3f042505c769297fd7065ee725dd103ba4013bfaffd1843e335871380` |
 
-## Current status
+## Committed-status addendum
 
-The current status is candidate-specific **TECH PASS / PROCESS PASS** with zero
-open findings. The coordinator has authorization under the user's ongoing
-continuous scoped-commit instruction to commit only this five-path D-07 slice.
-This is not an overall D-07, repository-wide, CI, release, package, or
-live-trading PASS.
+The five-path unparseable-source remediation is committed as
+`bf7f6f23516795eb4f8a9694791d36477ce1d973`
+(`fix(tooling): distinguish unparseable scanner inputs`). That commit is an
+ancestor of the currently inspected HEAD
+`d5cf6acca8b839d7222a0373a894cdf723c5ae9b`.
 
-The eventual commit candidate differs from the reviewed tree only by this
-review-status evidence addendum. Scoped evidence-status rechecks are pending
-for that difference; their result is not claimed here. No final commit tree or
-evidence-file self-hash is asserted.
+The source/test SHA-256 values above remain valid historical content evidence
+for that committed remediation. The validation counts, negative-control result,
+and catalog-incomplete finding count in this document are historical isolated
+snapshots; they do not assert the status of the current dirty tree.
+
+The addendum-only formatting validation was
+`bunx prettier --check plans/full-refactor/evidence/d07-unparseable-source-diagnostic-2026-08-24.md`:
+exit `0` / **PASS**.
+
+D-07 remains incomplete: the scanner's recorded isolated result is fail closed
+with an incomplete catalog. This committed remediation is not an overall D-07,
+repository-wide, CI, release, package, or live-trading PASS.
