@@ -358,26 +358,49 @@ async function runStartCommandBoundaries(): Promise<void> {
   assertCondition(startState.observedPaths.at(1) === "config.toml", "start explicit config path mismatch");
 
   const liveConfig: BotConfig = { ...DEFAULT_BOT_CONFIG, bot: { ...DEFAULT_BOT_CONFIG.bot, mode: "live" } };
+  const liveStartState = { botCreations: 0, runs: 0, starts: 0 };
+  const liveBot = {
+    start: async (): Promise<void> => {
+      liveStartState.starts += 1;
+      await Promise.resolve();
+    },
+    stop: noOpAsync,
+  };
   const liveCommand = createStartCommand({
     loadConfig: () => liveConfig,
-    createBot: () => noOpBot,
-    run: () => returnExitCode(0),
+    createBot: () => {
+      liveStartState.botCreations += 1;
+      return liveBot;
+    },
+    run: async (): Promise<number> => {
+      liveStartState.runs += 1;
+      return returnExitCode(0);
+    },
   });
-  const originalKey = process.env["BYBIT_API_KEY"];
-  delete process.env["BYBIT_API_KEY"];
+  const liveStartErrors: string[] = [];
+  const originalError = console.error;
+  console.error = (...values: unknown[]): void => {
+    liveStartErrors.push(values.map(String).join(" "));
+  };
+  try {
+    for (const liveStartAttempt of ["first", "second", "third"] as const) {
+      assertCondition(
+        (await liveCommand(parseArgv(["start"]), context)) === 3,
+        `live ${liveStartAttempt} activation block exit mismatch`,
+      );
+    }
+  } finally {
+    console.error = originalError;
+  }
   assertCondition(
-    (await liveCommand(parseArgv(["start"]), context)) === 0,
-    "live missing-key start mismatch",
+    liveStartErrors.length === 3 &&
+      liveStartErrors.every((message) => message === "[start] START_LIVE_ACTIVATION_UNAVAILABLE"),
+    "live activation block output mismatch",
   );
-  process.env["BYBIT_API_KEY"] = "";
-  assertCondition((await liveCommand(parseArgv(["start"]), context)) === 0, "live empty-key start mismatch");
-  process.env["BYBIT_API_KEY"] = "present";
   assertCondition(
-    (await liveCommand(parseArgv(["start"]), context)) === 0,
-    "live present-key start mismatch",
+    liveStartState.botCreations === 0 && liveStartState.runs === 0 && liveStartState.starts === 0,
+    "live activation block had runtime side effects",
   );
-  if (originalKey === undefined) delete process.env["BYBIT_API_KEY"];
-  else process.env["BYBIT_API_KEY"] = originalKey;
 
   const withStateFile = (stateFile: string): BotConfig => ({
     ...DEFAULT_BOT_CONFIG,

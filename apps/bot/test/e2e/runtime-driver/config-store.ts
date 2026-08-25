@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { DEFAULT_BOT_CONFIG } from "../../../src/config/defaults.js";
+import { ConfigError, loadBotConfig } from "../../../src/config/index.js";
 import type { BotConfig } from "../../../src/config/schema.js";
 import { ConfigStore, getConfigStore, resetConfigStoreCache } from "../../../src/config/store.js";
 
@@ -10,8 +11,121 @@ import { assertCondition, expectFailure } from "./runtime-driver-core.js";
 
 const join = (...pathSegments: string[]): string => path.join(...pathSegments);
 
+interface EnvironmentVariableOverride {
+  readonly key: "BUN_ENV" | "LOG_LEVEL";
+  readonly value: string | undefined;
+}
+
+interface EnvironmentVariableDescriptor {
+  readonly key: "BUN_ENV" | "LOG_LEVEL";
+  readonly descriptor: PropertyDescriptor | undefined;
+}
+
 function throwBoundaryFailure(failure: unknown): never {
   throw failure;
+}
+
+function withEnvironmentVariables<Result>(
+  overrides: readonly EnvironmentVariableOverride[],
+  action: () => Result,
+): Result {
+  const originalDescriptors: EnvironmentVariableDescriptor[] = overrides.map((override) => ({
+    key: override.key,
+    descriptor: Object.getOwnPropertyDescriptor(process.env, override.key),
+  }));
+  try {
+    for (const override of overrides) {
+      if (override.value === undefined) {
+        Reflect.deleteProperty(process.env, override.key);
+      } else {
+        Reflect.set(process.env, override.key, override.value);
+      }
+    }
+    return action();
+  } finally {
+    for (const original of originalDescriptors) {
+      if (original.descriptor === undefined) {
+        Reflect.deleteProperty(process.env, original.key);
+      } else {
+        Object.defineProperty(process.env, original.key, original.descriptor);
+      }
+    }
+  }
+}
+
+function expectLoaderConfigError(action: () => unknown, expectedPath: string, failureMessage: string): void {
+  try {
+    action();
+  } catch (error: unknown) {
+    if (!(error instanceof ConfigError)) {
+      throw error;
+    }
+    assertCondition(error.path === expectedPath, `${failureMessage}: received ${error.path}`);
+    return;
+  }
+  throw new Error(`${failureMessage}: loadBotConfig did not throw ConfigError`);
+}
+
+function exerciseLoaderBoundaries(directory: string): void {
+  const clearedEnvironment: readonly EnvironmentVariableOverride[] = [
+    { key: "BUN_ENV", value: undefined },
+    { key: "LOG_LEVEL", value: undefined },
+  ];
+
+  withEnvironmentVariables([...clearedEnvironment, { key: "BUN_ENV", value: "live" }], () => {
+    expectLoaderConfigError(() => loadBotConfig(), "BUN_ENV", "BUN_ENV=live loader rejection");
+  });
+
+  const liveTomlPath = join(directory, "loader-live.toml");
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- The path is derived from this case's fresh mkdtemp directory.
+  writeFileSync(liveTomlPath, '[bot]\nmode = "live"\n', "utf8");
+  withEnvironmentVariables([...clearedEnvironment, { key: "BUN_ENV", value: "paper" }], () => {
+    assertCondition(
+      loadBotConfig(liveTomlPath).bot.mode === "paper",
+      "BUN_ENV=paper did not override live TOML",
+    );
+  });
+
+  const supportedLogLevels: readonly BotConfig["bot"]["log_level"][] = ["debug", "info", "warn", "error"];
+  for (const expectedLogLevel of supportedLogLevels) {
+    withEnvironmentVariables([...clearedEnvironment, { key: "LOG_LEVEL", value: expectedLogLevel }], () => {
+      assertCondition(
+        loadBotConfig().bot.log_level === expectedLogLevel,
+        `LOG_LEVEL=${expectedLogLevel} did not select the effective log level`,
+      );
+    });
+  }
+  withEnvironmentVariables([...clearedEnvironment, { key: "LOG_LEVEL", value: "invalid" }], () => {
+    assertCondition(loadBotConfig().bot.log_level === "info", "invalid LOG_LEVEL did not retain info");
+  });
+
+  withEnvironmentVariables(clearedEnvironment, () => {
+    expectLoaderConfigError(
+      () => loadBotConfig(join(directory, "loader-missing.toml")),
+      "<file>",
+      "missing loader config",
+    );
+  });
+
+  const malformedTomlPath = join(directory, "loader-malformed.toml");
+  const scalarTomlPath = join(directory, "loader-scalar.toml");
+  const arrayTomlPath = join(directory, "loader-array.toml");
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- The paths are derived from this case's fresh mkdtemp directory.
+  writeFileSync(malformedTomlPath, "value = [", "utf8");
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- The paths are derived from this case's fresh mkdtemp directory.
+  writeFileSync(scalarTomlPath, "42", "utf8");
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- The paths are derived from this case's fresh mkdtemp directory.
+  writeFileSync(arrayTomlPath, "[]", "utf8");
+  const parseCases: readonly (readonly [string, string])[] = [
+    [malformedTomlPath, "malformed loader TOML"],
+    [scalarTomlPath, "scalar loader TOML"],
+    [arrayTomlPath, "array loader TOML"],
+  ];
+  withEnvironmentVariables(clearedEnvironment, () => {
+    for (const [path, description] of parseCases) {
+      expectLoaderConfigError(() => loadBotConfig(path), "<toml-parse>", description);
+    }
+  });
 }
 
 function exerciseConfigStoreFaults(directory: string): void {
@@ -175,6 +289,7 @@ export function runConfigStore(): void {
     resetConfigStoreCache();
     assertCondition(cachedExplicit !== getConfigStore(configPath), "ConfigStore cache did not reset");
     exerciseConfigStoreFaults(directory);
+    exerciseLoaderBoundaries(directory);
   } finally {
     resetConfigStoreCache();
     rmSync(directory, { recursive: true, force: true });

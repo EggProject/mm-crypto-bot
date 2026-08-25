@@ -1,43 +1,19 @@
-# ======================================================================
-# mm-crypto-bot — AUDITÁLT PAPER KONFIGURÁCIÓ
-# ======================================================================
-#
-# Friss újramérés: 2026-08-11
-# Adatsnapshot: data/ohlcv/MANIFEST.json, 2024-01-01 → 2026-07-09
-# Stratégia: DonchianPivotComposition, 1d / 4h / 15m
-#
-# A paraméterkeresés jelenlegi, kiegyensúlyozott JELÖLTJE:
-#   - min_consensus = 1
-#   - backtest engine max-position cap = 0.12
-#
-# FONTOS SZEMANTIKAI KORLÁT:
-# A TOML strategy `cap` mezője a paper runtime-ban portfóliósúly, nem
-# ugyanaz, mint a backtest `--max-position-pct-equity` kapcsolója. Mivel
-# ebben a fájlban csak egy stratégia aktív, a runtime ezt a súlyt 100%-ra
-# normalizálja. A 0.12 itt az auditált kísérlet nyomkövethetőségét őrzi,
-# nem állítja, hogy a két motor pozícióméretezése bitazonos.
-#
-# A historikus adat Binance USDT proxy, a paper piac Bybit EU USDC.
-# A backtest 1:1 margint és fix költségmodellt használ; ezért ez a fájl
-# konzervatívan max_leverage = 1 értékkel fut. A részletes reprodukció:
-# docs/how-to-backtest.md
-#
-# A user a teljes eredménytábla alapján még másik jelöltet választhat;
-# ebben az esetben ezt a fájlt a választás után frissíteni kell.
-# Ez nem hozamígéret.
-# ======================================================================
+# Audited candidate paper/emulated profile.
+# This profile records a backtest candidate; it is not a return promise and
+# does not authorize live trading. Public market data is WebSocket-first where
+# CCXT Pro supports it, with REST fallback permitted. Future live operation
+# requires separately authorized, independently verified exactly selected 10x
+# leverage before every Bybit EU Spot Margin order.
 
 [bot]
 mode = "paper"
 log_level = "info"
 state_file = "data/bot-state.json"
+
 [exchange]
 id = "bybiteu"
-endpoint = "https://api.bybit.eu"
-ws_endpoint = "wss://stream.bybit.eu"
 timeout_ms = 5000
 rate_limit_ms = 80
-sandbox = false
 slippage_pct = 0.03
 fee_tier = "vip"
 rate_limit_per_min = 200
@@ -51,7 +27,6 @@ risk_per_trade = 0.01
 kelly_fraction = 0.25
 max_drawdown_pct = 0.15
 max_positions = 3
-# A historikus runner 1:1 marginfeltételezéséhez igazítva.
 max_leverage = 1
 
 [symbols]
@@ -59,9 +34,7 @@ enabled = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 
 [strategies.donchian_pivot_composition]
 enabled = true
-# Runtime portfóliósúly; lásd a fájl eleji korlátozást.
 cap = 0.12
-# Ideiglenes kiegyensúlyozott jelölt a user végső választásáig.
 min_consensus = 1
 symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 

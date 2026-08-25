@@ -1,4 +1,4 @@
-import { dirname, normalize } from "node:path";
+import path from "node:path";
 
 import { Bot } from "../../bot/bot.js";
 import { ConfigError, loadBotConfig } from "../../config/index.js";
@@ -24,19 +24,19 @@ const DEFAULT_START_COMMAND_DEPENDENCIES: StartCommandDependencies = {
   run: (bot, config) => runHeadless(bot, config),
 };
 
-function validateStartArguments(args: Parameters<SubcommandHandler>[0]): string | undefined {
-  for (const [name, value] of args.flags) {
+function validateStartArguments(arguments_: Parameters<SubcommandHandler>[0]): string | undefined {
+  for (const [name, value] of arguments_.flags) {
     if (!START_FLAG_NAMES.has(name)) {
       return `Unknown start option: --${name}. Run \`${CLI_COMMAND} start --help\` for supported options.`;
     }
     if (name === "config" && (typeof value !== "string" || value.length === 0)) {
       return "The --config option requires a non-empty path.";
     }
-    if ((name === "color" || name === "help") && typeof value !== "boolean") {
+    if (typeof value !== "boolean" && (name === "color" || name === "help")) {
       return `The --${name} option does not accept a value.`;
     }
   }
-  const positional = args.positional[0];
+  const positional = arguments_.positional[0];
   return positional === undefined
     ? undefined
     : `Unexpected start argument: ${positional}. Run \`${CLI_COMMAND} start --help\` for usage.`;
@@ -48,25 +48,25 @@ function isNoColor(flags: ReadonlyMap<string, string | boolean>): boolean {
 
 export function createStartCommand(overrides: Partial<StartCommandDependencies> = {}): SubcommandHandler {
   const dependencies = { ...DEFAULT_START_COMMAND_DEPENDENCIES, ...overrides };
-  return async (args) => {
-    const argumentError = validateStartArguments(args);
+  return async (arguments_) => {
+    const argumentError = validateStartArguments(arguments_);
     if (argumentError !== undefined) {
       console.error(`[start] ${argumentError}`);
       return 1;
     }
 
-    if (isNoColor(args.flags) && process.env["NO_COLOR"] === undefined) {
+    if (isNoColor(arguments_.flags) && process.env["NO_COLOR"] === undefined) {
       process.env["NO_COLOR"] = "1";
     }
 
-    if (args.flags.get("help") === true) {
+    if (arguments_.flags.get("help") === true) {
       printStartHelp();
       return 1;
     }
 
     let config: BotConfig;
     try {
-      config = dependencies.loadConfig(getConfigPath(args.flags));
+      config = dependencies.loadConfig(getConfigPath(arguments_.flags));
     } catch (error: unknown) {
       if (error instanceof ConfigError) {
         console.error("Config validation FAILED:");
@@ -79,11 +79,8 @@ export function createStartCommand(overrides: Partial<StartCommandDependencies> 
     }
 
     if (config.bot.mode === "live") {
-      const apiKey = process.env["BYBIT_API_KEY"];
-      if (typeof apiKey !== "string" || apiKey.length === 0) {
-        console.warn("[start] WARNING: bot.mode = 'live' but BYBIT_API_KEY is not set");
-        console.warn("[start]          the exchange client will fail to authenticate at first request");
-      }
+      console.error("[start] START_LIVE_ACTIVATION_UNAVAILABLE");
+      return 3;
     }
 
     return dependencies.run(dependencies.createBot(config), config);
@@ -100,16 +97,7 @@ export async function runHeadless(bot: Pick<Bot, "start" | "stop">, config: BotC
   const onSignal = (signal: NodeJS.Signals): void => {
     if (shutdown.promise !== undefined) return;
     console.log(`[start] received ${signal} — initiating graceful shutdown`);
-    shutdown.promise = Promise.resolve()
-      .then(async (): Promise<boolean> => {
-        await bot.stop();
-        return true;
-      })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error(`[start] graceful shutdown failed: ${message}`);
-        return false;
-      });
+    shutdown.promise = isGracefulStopSuccessfulAfterSignal(bot);
   };
 
   process.on("SIGINT", onSignal);
@@ -124,8 +112,8 @@ export async function runHeadless(bot: Pick<Bot, "start" | "stop">, config: BotC
     exitCode = 1;
   } finally {
     if (shutdown.promise !== undefined) {
-      const stoppedCleanly = await shutdown.promise;
-      if (!stoppedCleanly) exitCode = 1;
+      const isStoppedCleanly = await shutdown.promise;
+      if (!isStoppedCleanly) exitCode = 1;
     }
     process.off("SIGINT", onSignal);
     process.off("SIGTERM", onSignal);
@@ -134,6 +122,18 @@ export async function runHeadless(bot: Pick<Bot, "start" | "stop">, config: BotC
     await closeLogFile(logFileStream);
   }
   return exitCode;
+}
+
+async function isGracefulStopSuccessfulAfterSignal(bot: Pick<Bot, "stop">): Promise<boolean> {
+  try {
+    await Promise.resolve();
+    await Promise.try(() => bot.stop());
+    return true;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[start] graceful shutdown failed: ${message}`);
+    return false;
+  }
 }
 
 function printStartHelp(): void {
@@ -163,7 +163,7 @@ export function resolveLogFilePath(config: BotConfig): string {
   if (
     stateFilePath.length === 0 ||
     stateFilePath.includes("\0") ||
-    normalize(stateFilePath) !== stateFilePath
+    path.normalize(stateFilePath) !== stateFilePath
   ) {
     throw new Error("[start] bot.state_file must be a non-empty normalized file path");
   }
@@ -175,12 +175,12 @@ interface LogFile {
   close(): Promise<void>;
 }
 
-async function openLogFile(path: string): Promise<LogFile> {
+async function openLogFile(filePath: string): Promise<LogFile> {
   // `resolveLogFilePath` is the path-validation boundary. Importing the
   // filesystem implementation here keeps every dynamic write behind it.
   const fileSystem = await import("node:fs/promises");
-  await fileSystem.mkdir(dirname(path), { recursive: true });
-  return fileSystem.open(path, "a");
+  await fileSystem.mkdir(path.dirname(filePath), { recursive: true });
+  return fileSystem.open(filePath, "a");
 }
 
 export function installConsoleRedirection(stream: LogFile): {
@@ -191,18 +191,18 @@ export function installConsoleRedirection(stream: LogFile): {
   const originalLog = console.log;
   const originalError = console.error;
   const pendingWrites: Promise<unknown>[] = [];
-  const writeLine = (level: "log" | "error", args: readonly unknown[]): void => {
-    const message = args
+  const writeLine = (level: "log" | "error", arguments_: readonly unknown[]): void => {
+    const message = arguments_
       .map((argument) => (typeof argument === "string" ? argument : JSON.stringify(argument)))
       .join(" ");
     const timestamp = new Date().toISOString();
     pendingWrites.push(stream.write(`${timestamp} [${level}] ${message}\n`));
   };
-  console.log = (...args: unknown[]): void => {
-    writeLine("log", args);
+  console.log = (...arguments_: unknown[]): void => {
+    writeLine("log", arguments_);
   };
-  console.error = (...args: unknown[]): void => {
-    writeLine("error", args);
+  console.error = (...arguments_: unknown[]): void => {
+    writeLine("error", arguments_);
   };
   return {
     log: originalLog,

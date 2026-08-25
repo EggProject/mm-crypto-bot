@@ -325,27 +325,59 @@ describe("start command boundary", () => {
     expect(await Bun.file(`${stateFile}.log`).exists()).toBe(true);
   });
 
-  it("warns before starting a live configuration without credentials", async () => {
-    const configPath = join(tmpDir, "live.toml");
+  it("blocks live activation before reading credentials or starting the runtime", async () => {
     const stateFile = join(tmpDir, "live-state.json");
+    const configPath = join(tmpDir, "live.toml");
     await Bun.write(configPath, `[bot]\nmode = "live"\nstate_file = "${stateFile}"\n`);
-    const originalKey = process.env["BYBIT_API_KEY"];
-    const originalWarn = console.warn;
-    const warnings: string[] = [];
-    delete process.env["BYBIT_API_KEY"];
-    console.warn = (...values: unknown[]): void => {
-      warnings.push(values.join(" "));
+    const stderrLines: string[] = [];
+    const originalError = console.error;
+    const environmentDescriptor = Object.getOwnPropertyDescriptor(process, "env");
+    if (environmentDescriptor === undefined) throw new Error("process.env descriptor is unavailable");
+    let createBotCalls = 0;
+    let runCalls = 0;
+    let apiKeyReads = 0;
+    let apiSecretReads = 0;
+    const command = createStartCommand({
+      createBot: () => {
+        createBotCalls += 1;
+        return { start: async (): Promise<void> => undefined, stop: async (): Promise<void> => undefined };
+      },
+      run: async (): Promise<number> => {
+        runCalls += 1;
+        return 0;
+      },
+    });
+    console.error = (...values: unknown[]): void => {
+      stderrLines.push(values.join(" "));
     };
-    Bot.prototype.start = async (): Promise<void> => undefined;
-    Bot.prototype.stop = async (): Promise<void> => undefined;
+    const guardedEnvironment = new Proxy(process.env, {
+      get: (target, property, receiver): unknown => {
+        if (property === "BUN_ENV") return undefined;
+        if (property === "BYBIT_API_KEY") {
+          apiKeyReads += 1;
+          throw new Error("credential read is forbidden");
+        }
+        if (property === "BYBIT_API_SECRET") {
+          apiSecretReads += 1;
+          throw new Error("credential read is forbidden");
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    Object.defineProperty(process, "env", { ...environmentDescriptor, value: guardedEnvironment });
     try {
-      expect(await startCommand(parsedArgs(new Map([["config", configPath]])), CLI_CONTEXT)).toBe(0);
+      expect(await command(parsedArgs(new Map([["config", configPath]])), CLI_CONTEXT)).toBe(3);
     } finally {
-      console.warn = originalWarn;
-      if (originalKey === undefined) delete process.env["BYBIT_API_KEY"];
-      else process.env["BYBIT_API_KEY"] = originalKey;
+      Object.defineProperty(process, "env", environmentDescriptor);
+      console.error = originalError;
     }
-    expect(warnings.join("\n")).toContain("BYBIT_API_KEY is not set");
+
+    expect(stderrLines).toEqual(["[start] START_LIVE_ACTIVATION_UNAVAILABLE"]);
+    expect(apiKeyReads).toBe(0);
+    expect(apiSecretReads).toBe(0);
+    expect(createBotCalls).toBe(0);
+    expect(runCalls).toBe(0);
+    expect(await Bun.file(`${stateFile}.log`).exists()).toBe(false);
   });
 
   it("uses the default config path when --config is absent", async () => {
@@ -379,33 +411,5 @@ describe("start command boundary", () => {
       console.error = originalError;
     }
     expect(messages.join("\n")).toContain("loader Error");
-  });
-
-  it("warns only for an empty live API key", async () => {
-    const originalKey = process.env["BYBIT_API_KEY"];
-    const originalWarn = console.warn;
-    const warnings: string[] = [];
-    console.warn = (...values: unknown[]): void => {
-      warnings.push(values.join(" "));
-    };
-    const liveConfig: BotConfig = { ...DEFAULT_BOT_CONFIG, bot: { ...DEFAULT_BOT_CONFIG.bot, mode: "live" } };
-    const command = createStartCommand({
-      loadConfig: () => liveConfig,
-      createBot: () => ({ start: async () => undefined, stop: async () => undefined }),
-      run: async () => 0,
-    });
-    try {
-      process.env["BYBIT_API_KEY"] = "";
-      expect(await command(parsedArgs(), CLI_CONTEXT)).toBe(0);
-      expect(warnings.join("\n")).toContain("BYBIT_API_KEY is not set");
-      warnings.length = 0;
-      process.env["BYBIT_API_KEY"] = "present";
-      expect(await command(parsedArgs(), CLI_CONTEXT)).toBe(0);
-      expect(warnings).toHaveLength(0);
-    } finally {
-      console.warn = originalWarn;
-      if (originalKey === undefined) delete process.env["BYBIT_API_KEY"];
-      else process.env["BYBIT_API_KEY"] = originalKey;
-    }
   });
 });
