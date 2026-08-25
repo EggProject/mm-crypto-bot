@@ -14,7 +14,7 @@ test("foundation verification runs available gates in order", async () => {
     return Promise.resolve(0);
   });
 
-  expect(calls).toEqual(foundationVerificationGates);
+  expect(calls).toEqual([...foundationVerificationGates]);
 });
 
 test("foundation verification fails fast and preserves the failing gate", async () => {

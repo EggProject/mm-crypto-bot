@@ -11,6 +11,9 @@ const eslint = new ESLint({
 
 async function restrictedImportMessages(sourceText: string, filePath: string): Promise<readonly string[]> {
   const [result] = await eslint.lintText(sourceText, { filePath });
+  if (result === undefined) {
+    throw new Error(`Expected ESLint result for ${filePath}`);
+  }
 
   return result.messages
     .filter((message) => message.ruleId === "no-restricted-imports")
@@ -24,7 +27,7 @@ describe("logging test-support import boundary", () => {
       ["packages/logging/src/structured-logger.ts", source],
       ["apps/bot/src/bot/bot.ts", subpathSource],
       ["packages/logging/src/structured-logger.ts", subpathSource],
-    ]) {
+    ] as const) {
       const messages = await restrictedImportMessages(sourceText, filePath);
 
       expect(messages).toHaveLength(1);

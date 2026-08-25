@@ -116,11 +116,11 @@ test("lint scripts must stay fail-closed against temp reintroduction", async () 
   const expectedScript =
     "eslint --config eslint.config.js apps packages scripts search-best-config eslint.config.js --max-warnings=0";
 
-  expect(manifest.lint).toBe(expectedScript);
+  expect(manifest["lint"]).toBe(expectedScript);
   expect(manifest["lint:hook"]).toBe(expectedScript);
-  expect(manifest.lint).not.toContain(" temp");
+  expect(manifest["lint"]).not.toContain(" temp");
   expect(manifest["lint:hook"]).not.toContain(" temp");
-  expect(manifest.lint).not.toContain("temp/");
+  expect(manifest["lint"]).not.toContain("temp/");
   expect(manifest["lint:hook"]).not.toContain("temp/");
   await assertPathMissing("temp/ts");
   await assertPathMissing("temp/ts/rxjs");

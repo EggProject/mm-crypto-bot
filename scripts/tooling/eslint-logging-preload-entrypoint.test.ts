@@ -22,6 +22,9 @@ const eslint = new ESLint({
 
 async function topLevelSideEffectRuleIds(filePath: string): Promise<readonly string[]> {
   const [result] = await eslint.lintText(topLevelInvocation, { filePath });
+  if (result === undefined) {
+    throw new Error(`Expected ESLint result for ${filePath}`);
+  }
 
   return result.messages
     .filter((message) => message.ruleId === "unicorn/no-top-level-side-effects")
