@@ -1,190 +1,27 @@
-/**
- * apps/bot/src/config/store.ts
- *
- * Phase 36 Track C1 — `ConfigStore` — a typed, atomic, audited
- * read/write API for the `mm-bot.toml` config file.
- *
- * ===========================================================================
- * WHY THIS CLASS
- * ===========================================================================
- * A `mm-bot.toml` config file a 4 szekcióból áll (bot / exchange / risk /
- * strategies + symbols + telemetry), és a 1:10 leverage MANDATE + a
- * `bot.mode = "live"` typed-confirm guard miatt a save-útvonalat
- * egységesíteni kell:
- *
- *   1. Round-trip safe: a write-ot megelőzi egy re-validate (a Zod séma
- *      a single source of truth, nem az adott hívó mezőmodellje).
- *   2. Atomic: `write-file-atomic` (write-tmp → rename → backup) —
- *      a write közbeni crash nem ronthatja el a meglévő TOML-t.
- *   3. Backed up: minden write előtt a korábbi fájl `mm-bot.toml.bak`-ba
- *      kerül, így a user mindig vissza tudja állítani a korábbi verziót.
- *   4. Audit-friendly: a `bot.mode = "live"` megerősítés külön
- *      `writeAfterTypedLive` metóduson megy keresztül (Track C2) — ez
- *      a metódus NEM fogadja el a "live" lowercase változatot, és
- *      audit-logot ír a `bot-audit.log` fájlba.
- *
- * ===========================================================================
- * USAGE
- * ===========================================================================
- *   import { getConfigStore } from "./config/store.js";
- *
- *   const store = getConfigStore("./mm-bot.toml");
- *   const raw = await store.read();
- *   const next = { ...raw, risk: { ...raw.risk, risk_per_trade: 0.02 } };
- *   const validated = store.validate(next);   // throws on Zod failure
- *   await store.write(validated);
- *
- * ===========================================================================
- */
-
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { parse as parseToml, stringify as stringifyToml, TomlError } from "smol-toml";
-// `write-file-atomic` CJS — a default export egy `writeFile` függvény,
-// amihez `.sync` property-ként csatlakozik a szinkron write. Bun alatt
-// a CJS import TS-ből a default néven érhető el.
-import writeFileAtomic from "write-file-atomic";
+import nodePath from "node:path";
 
 import type { BotConfig, StrategyName } from "./schema.js";
 import { BotConfigSchema, StrategySectionSchema } from "./schema.js";
+import {
+  ConfigLiveConfirmError,
+  ConfigReadError,
+  ConfigValidationError,
+  type ConfigStoreDependencies,
+  type LiveModeAuditEntry,
+} from "./store-contracts.js";
+import { DEFAULT_CONFIG_STORE_DEPENDENCIES, getTomlParseErrorMessage } from "./store-node-adapter.js";
 
-// ============================================================================
-// Public error types
-// ============================================================================
+export {
+  ConfigLiveConfirmError,
+  ConfigReadError,
+  ConfigValidationError,
+  type ConfigStoreDependencies,
+  type LiveModeAuditEntry,
+} from "./store-contracts.js";
 
-/**
- * `ConfigReadError` — a TOML-fájl olvasásakor fellépő hiba.
- *
- * A `ConfigStore.read()` metódus ezt dobja, ha:
- *   - a fájl nem olvasható (nincs rá jogosultság, hiányzik)
- *   - a TOML parse szintaxisa hibás
- *
- * A `cause` mező tartalmazza az eredeti hibát (a `node:fs` hibát vagy
- * a `TomlError`-t).
- */
-export class ConfigReadError extends Error {
-  public override readonly name = "ConfigReadError";
-
-  public readonly path: string;
-  public readonly originalCause: unknown;
-
-  public constructor(message: string, path: string, cause: unknown) {
-    super(message);
-    this.path = path;
-    this.originalCause = cause;
-  }
-}
-
-/**
- * `ConfigValidationError` — a Zod séma szerinti validáció elutasított
- * egy config-jelöltet.
- *
- * A `ConfigStore.validate()` metódus ezt dobja, ha a `safeParse`
- * sikertelen. A `fieldErrors` a Zod `flatten()`-ből jön:
- *   {
- *     "risk.max_leverage": ["expected number ≤ 10"],
- *     "bot.mode": ["expected 'paper' | 'live'"]
- *   }
- *
- * A `fieldErrors` struktúrát a hívók közvetlenül feldolgozhatják.
- */
-export class ConfigValidationError extends Error {
-  public override readonly name = "ConfigValidationError";
-
-  public constructor(
-    message: string,
-    public readonly fieldErrors: Readonly<Record<string, readonly string[]>>,
-    public readonly issues: readonly {
-      readonly path: string;
-      readonly message: string;
-    }[],
-  ) {
-    super(message);
-  }
-}
-
-/**
- * `ConfigLiveConfirmError` — a Track C2 typed "LIVE" megerősítés
- * elutasítása (rossz input, pl. "live" lowercase).
- *
- * A `writeAfterTypedLive()` metódus ezt dobja, ha a beírt szöveg
- * nem egyezik a case-sensitive "LIVE" string-gel.
- */
-export class ConfigLiveConfirmError extends Error {
-  public override readonly name = "ConfigLiveConfirmError";
-
-  public constructor(
-    message: string,
-    public readonly typedValue: string,
-  ) {
-    super(message);
-  }
-}
-
-/**
- * `LiveModeAuditEntry` — a `bot.mode = "live"` audit-log bejegyzés.
- *
- * A `writeAfterTypedLive()` metódus ezt írja a `<path>.audit.log`
- * fájlba (append-only). A bejegyzés típus-szinten is megőrzi a
- * kontextust (timestamp + előző/új mód + user-typed input).
- */
-export interface LiveModeAuditEntry {
-  readonly ts: string;
-  readonly event: "live-mode-confirm";
-  readonly value: true;
-  readonly prevMode: "paper" | "live";
-  readonly newMode: "paper" | "live";
-}
-
-/** Production filesystem/codec boundary used by the synchronous store. */
-export interface ConfigStoreDependencies {
-  readonly readText: (path: string) => string;
-  readonly parse: (text: string) => unknown;
-  readonly stringify: (config: BotConfig) => string;
-  readonly exists: (path: string) => boolean;
-  readonly ensureDirectory: (path: string) => void;
-  readonly copy: (source: string, target: string) => void;
-  readonly atomicWrite: (path: string, contents: string) => void;
-  readonly appendText: (path: string, contents: string) => void;
-}
-
-const DEFAULT_CONFIG_STORE_DEPENDENCIES: ConfigStoreDependencies = {
-  // ConfigStore normalizes the user-selected path before this boundary.
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  readText: (path) => readFileSync(path, "utf8"),
-  parse: (text) => parseToml(text),
-  stringify: (config) => stringifyToml(config),
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- normalized ConfigStore path
-  exists: (path) => existsSync(path),
-  ensureDirectory: (path) => {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- dirname of normalized ConfigStore path
-    mkdirSync(path, { recursive: true });
-  },
-  copy: (source, target) => {
-    copyFileSync(source, target);
-  },
-  atomicWrite: (path, contents) => {
-    writeFileAtomic.sync(path, contents, "utf8");
-  },
-  appendText: (path, contents) => {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- fixed audit suffix of normalized ConfigStore path
-    writeFileSync(path, contents, { flag: "a" });
-  },
-};
-
-// ============================================================================
-// ConfigStore class
-// ============================================================================
-
-/**
- * `ConfigStore` — a `mm-bot.toml` típusos, auditált olvasó/író.
- *
- * The read, validation, and write operations are synchronous so every caller
- * observes a complete parse or atomic replacement before the method returns.
- */
 export class ConfigStore {
-  public readonly path: string;
   private readonly dependencies: ConfigStoreDependencies;
+  public readonly path: string;
 
   /**
    * `ConfigStore` konstruktor.
@@ -196,7 +33,7 @@ export class ConfigStore {
    *   singleton getter, ami per-path memoizál.
    */
   public constructor(path: string, dependencies: Partial<ConfigStoreDependencies> = {}) {
-    this.path = resolve(path);
+    this.path = nodePath.resolve(path);
     this.dependencies = { ...DEFAULT_CONFIG_STORE_DEPENDENCIES, ...dependencies };
   }
 
@@ -222,20 +59,20 @@ export class ConfigStore {
     let text: string;
     try {
       text = this.dependencies.readText(this.path);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      throw new ConfigReadError(`Failed to read config file at "${this.path}": ${message}`, this.path, err);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new ConfigReadError(`Failed to read config file at "${this.path}": ${message}`, this.path, error);
     }
 
     let raw: unknown;
     try {
       raw = this.dependencies.parse(text);
-    } catch (err: unknown) {
+    } catch (error: unknown) {
       // A smol-toml `TomlError`-t dob érvénytelen TOML-ra.
       // A natív `Bun.TOML.parse` szintaktikailag kompatibilis
       // eredményt ad, így a hibakezelés ugyanaz.
-      const message = err instanceof TomlError ? err.message : String(err);
-      throw new ConfigReadError(`Failed to parse TOML at "${this.path}": ${message}`, this.path, err);
+      const message = getTomlParseErrorMessage(error);
+      throw new ConfigReadError(`Failed to parse TOML at "${this.path}": ${message}`, this.path, error);
     }
 
     // A TOML-tartalom Zod-validációja. A séma a `passthrough()` miatt
@@ -275,7 +112,7 @@ export class ConfigStore {
         fieldErrors.set(key, list);
       }
       throw new ConfigValidationError(
-        `Bot config validation failed:\n${issues.map((i) => `  • ${i.path}: ${i.message}`).join("\n")}`,
+        `Bot config validation failed:\n${issues.map((issue) => `  • ${issue.path}: ${issue.message}`).join("\n")}`,
         Object.fromEntries(fieldErrors),
         issues,
       );
@@ -328,19 +165,19 @@ export class ConfigStore {
     let reparsed: unknown;
     try {
       reparsed = this.dependencies.parse(serialized);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       throw new Error(`ConfigStore.write: round-trip parse failed (smol-toml bug?): ${message}`, {
-        cause: err,
+        cause: error,
       });
     }
     this.validate(reparsed);
 
     // 4) Biztosítsuk, hogy a cél-könyvtár létezik (a user adhatott
     // meg olyan path-ot, ami még nem létezik).
-    const dir = dirname(this.path);
-    if (!this.dependencies.exists(dir)) {
-      this.dependencies.ensureDirectory(dir);
+    const directory = nodePath.dirname(this.path);
+    if (!this.dependencies.exists(directory)) {
+      this.dependencies.ensureDirectory(directory);
     }
 
     // 5) Backup a korábbi fájlról — a `bak` MINDIG az előző write
@@ -355,10 +192,10 @@ export class ConfigStore {
     // A string átadáshoz a default `utf8` encoding-ot használja.
     try {
       this.dependencies.atomicWrite(this.path, serialized);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       throw new Error(`ConfigStore.write: failed to write ${this.path}: ${message}`, {
-        cause: err,
+        cause: error,
       });
     }
   }
@@ -408,7 +245,7 @@ export class ConfigStore {
   public writeAfterTypedLive(
     next: BotConfig,
     typedValue: string,
-    prevMode: "paper" | "live",
+    previousMode: "paper" | "live",
   ): LiveModeAuditEntry {
     if (typedValue !== "LIVE") {
       throw new ConfigLiveConfirmError(
@@ -421,7 +258,7 @@ export class ConfigStore {
       ts: new Date().toISOString(),
       event: "live-mode-confirm",
       value: true,
-      prevMode,
+      prevMode: previousMode,
       newMode: next.bot.mode,
     };
 
@@ -432,10 +269,10 @@ export class ConfigStore {
     const auditPath = `${this.path}.audit.log`;
     try {
       this.dependencies.appendText(auditPath, `${JSON.stringify(entry)}\n`);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       throw new Error(`ConfigStore.writeAfterTypedLive: failed to write audit log ${auditPath}: ${message}`, {
-        cause: err,
+        cause: error,
       });
     }
 
@@ -464,14 +301,14 @@ export class ConfigStore {
    *   elutasítja az új konfigot (ritka — csak akkor, ha a
    *   meglévő config már eleve inkonzisztens).
    */
-  public setStrategyEnabled(strategyId: StrategyName, enabled: boolean): void {
+  public setStrategyEnabled(strategyId: StrategyName, isEnabled: boolean): void {
     const current = this.read();
     const next: BotConfig = {
       ...current,
       strategies: {
         ...current.strategies,
         // eslint-disable-next-line security/detect-object-injection -- strategyId is the validated StrategyName union
-        [strategyId]: { ...current.strategies[strategyId], enabled },
+        [strategyId]: { ...current.strategies[strategyId], enabled: isEnabled },
       },
     };
     this.write(next);
@@ -521,7 +358,7 @@ export class ConfigStore {
       }
       throw new ConfigValidationError(
         `Strategy setting validation failed for strategies.${strategyId}.${key}:\n${issues
-          .map((i) => `  • ${i.path}: ${i.message}`)
+          .map((issue) => `  • ${issue.path}: ${issue.message}`)
           .join("\n")}`,
         Object.fromEntries(fieldErrors),
         issues,
@@ -634,7 +471,7 @@ const storeCache = new Map<string, ConfigStore>();
  *   default `./mm-bot.toml`-ot használja.
  */
 export function getConfigStore(path?: string): ConfigStore {
-  const resolved = resolve(path ?? "./mm-bot.toml");
+  const resolved = nodePath.resolve(path ?? "./mm-bot.toml");
   const cached = storeCache.get(resolved);
   if (cached !== undefined) {
     return cached;
