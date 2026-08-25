@@ -227,7 +227,7 @@ test("excluded dependency, build, and configured result paths are skipped before
   expect(result.status).toBe("incomplete");
 });
 
-test("symlinks, special files, secure inspection, read failures, readdir failures, and extractor failures fail closed", async () => {
+test("symlinks, special files, secure inspection, read failures, and readdir failures fail closed", async () => {
   const failureCases: readonly [string, ReadonlyMap<string, FixtureNode>, FixtureOptions][] = [
     ["symlink", rootNodes(["apps", Object.freeze({ kind: "symlink" })]), {}],
     ["special", rootNodes(["apps", Object.freeze({ kind: "other" })]), {}],
@@ -246,12 +246,41 @@ test("symlinks, special files, secure inspection, read failures, readdir failure
       rootNodes(["apps", directory("a.ts")], ["apps/a.ts", regularFile("ok")]),
       { inspectFailurePaths: [fixturePath("apps")] },
     ],
-    ["extractor", rootNodes(["package.json", regularFile("{")]), {}],
   ];
   for (const [_label, nodes, options] of failureCases) {
     const result = await scanZeroLegacyRepo(repoRoot, createPort(nodes, options).port, scannerConfig);
     expect(result.findings.some((finding) => finding.category === "unreadable-target")).toBeTrue();
   }
+});
+
+test("scanner distinguishes read and parse failures without exposing parser details", async () => {
+  const readNodes = rootNodes(
+    ["apps", directory("main.ts")],
+    ["apps/main.ts", regularFile("import legacy from 'mm-bot';")],
+  );
+  const readResult = await scanZeroLegacyRepo(
+    repoRoot,
+    createPort(readNodes, { readFailurePaths: [fixturePath("apps/main.ts")] }).port,
+    scannerConfig,
+  );
+  expect(readResult.findings).toContainEqual({
+    category: "unreadable-target",
+    path: "package.json",
+    location: "apps/main.ts:read",
+  });
+
+  const parseNodes = rootNodes(
+    ["apps", directory("broken.json", "dynamic.ts")],
+    ["apps/broken.json", regularFile("{")],
+    ["apps/dynamic.ts", regularFile("const command = 'mm-bot'; Bun.spawn(command);")],
+  );
+  const parseResult = await scanZeroLegacyRepo(repoRoot, createPort(parseNodes).port, scannerConfig);
+  expect(parseResult.findings).toEqual([
+    { category: "unparseable-source", path: "package.json", location: "apps/broken.json:parse" },
+    { category: "unparseable-source", path: "package.json", location: "apps/dynamic.ts:parse" },
+  ]);
+  expect(parseResult.findings.every((finding) => finding.target === undefined)).toBeTrue();
+  expect(parseResult.status).toBe("fail");
 });
 
 test("unsafe inventory and child paths plus a non-directory ancestor fail closed", async () => {
@@ -320,6 +349,20 @@ test("result DTO is deterministic and deeply frozen", async () => {
   expect(Object.isFrozen(first.findings[0])).toBeTrue();
   expect(Object.isFrozen(first.incompleteReasons)).toBeTrue();
   expect(first.schemaVersion).toBe("zero-legacy-scan-result@1");
+});
+
+test("parse-only scanner CLI failure uses the stable fail-closed exit and stderr", async () => {
+  const fixture = createPort(
+    rootNodes(["apps", directory("main.ts")], ["apps/main.ts", regularFile("Bun.spawn(command);")]),
+  );
+  const result = await runZeroLegacyScannerCli(["--repository-root", repoRoot], fixture.port);
+
+  expect(result.result.findings).toEqual([
+    { category: "unparseable-source", path: "package.json", location: "apps/main.ts:parse" },
+  ]);
+  expect(result.exitCode).toBe(2);
+  expect(fixture.stderr).toEqual(["zero-legacy scanner could not safely complete\n"]);
+  expect(fixture.stdout).toHaveLength(1);
 });
 
 test("CLI emits exactly one DTO and never returns zero", async () => {

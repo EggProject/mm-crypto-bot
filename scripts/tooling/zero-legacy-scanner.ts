@@ -5,6 +5,7 @@ import { zeroLegacyScannerConfig, type ZeroLegacyScannerConfig } from "./zero-le
 import {
   evaluateZeroLegacyContract,
   type ZeroLegacyEvaluation,
+  type ZeroLegacyFindingCategory,
   type ZeroLegacySemanticEntry,
 } from "./zero-legacy-contract.ts";
 import { extractZeroLegacySemanticEntries } from "./zero-legacy-extractors.ts";
@@ -130,7 +131,7 @@ function sortedStrings(values: readonly string[]): readonly string[] {
 }
 
 const diagnosticEntry = (
-  signal: "unreadable-target" | "legacy-file",
+  signal: "legacy-file" | "unparseable-source" | "unreadable-target",
   location: string,
 ): ZeroLegacySemanticEntry => Object.freeze({ signal, path: scanDiagnosticPath, location });
 
@@ -179,16 +180,17 @@ async function scanRegularFile(
   if (isEvidencePath(relativePath, config) || !hasSupportedSemanticExtension(relativePath)) {
     return;
   }
+  let sourceText: string;
   try {
-    entries.push(
-      ...extractZeroLegacySemanticEntries(
-        relativePath,
-        await port.readUtf8(repoRoot, absolutePath, metadata.identity),
-        config,
-      ),
-    );
+    sourceText = await port.readUtf8(repoRoot, absolutePath, metadata.identity);
   } catch {
     entries.push(diagnosticEntry("unreadable-target", `${relativePath}:read`));
+    return;
+  }
+  try {
+    entries.push(...extractZeroLegacySemanticEntries(relativePath, sourceText, config));
+  } catch {
+    entries.push(diagnosticEntry("unparseable-source", `${relativePath}:parse`));
   }
 }
 
@@ -252,10 +254,14 @@ async function traverseTarget(
   }
 }
 
-function hasUnsafeFinding(result: ZeroLegacyScanResult): boolean {
-  return result.findings.some(
-    (finding) => finding.category === "unsafe-path" || finding.category === "unreadable-target",
-  );
+const failClosedFindingCategories: readonly ZeroLegacyFindingCategory[] = Object.freeze([
+  "unsafe-path",
+  "unreadable-target",
+  "unparseable-source",
+]);
+
+function hasFailClosedFinding(result: ZeroLegacyScanResult): boolean {
+  return result.findings.some((finding) => failClosedFindingCategories.includes(finding.category));
 }
 
 export async function scanRepoForLegacyReferences(
@@ -300,7 +306,7 @@ export async function runZeroLegacyScannerCli(
   const repoRoot =
     cliArguments.length === 2 && cliArguments[0] === "--repository-root" ? cliArguments[1] : undefined;
   const result = await scanRepoForLegacyReferences(repoRoot ?? "", port);
-  const exitCode: 1 | 2 = hasUnsafeFinding(result) || result.status === "incomplete" ? 2 : 1;
+  const exitCode: 1 | 2 = hasFailClosedFinding(result) || result.status === "incomplete" ? 2 : 1;
   port.writeStdout(`${JSON.stringify(result)}\n`);
   if (exitCode === 2 && result.findings.length > 0) {
     port.writeStderr("zero-legacy scanner could not safely complete\n");

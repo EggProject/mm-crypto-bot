@@ -18,7 +18,8 @@ export type ZeroLegacyFindingCategory =
   | "evidence-path-routed"
   | "evidence-path-served"
   | "unsafe-path"
-  | "unreadable-target";
+  | "unreadable-target"
+  | "unparseable-source";
 
 export type ZeroLegacySignal =
   | "legacy-file"
@@ -32,7 +33,8 @@ export type ZeroLegacySignal =
   | "current-doc-reference"
   | "served-asset"
   | "compatibility-shim"
-  | "unreadable-target";
+  | "unreadable-target"
+  | "unparseable-source";
 
 export interface ZeroLegacySemanticEntry {
   readonly signal: ZeroLegacySignal;
@@ -154,6 +156,16 @@ function evaluateEntry(
 
   if (isEvidenceOnlyPath(entry.path, config)) {
     return Object.freeze([]);
+  }
+
+  if (entry.signal === "unparseable-source") {
+    return Object.freeze([
+      freezeFinding({
+        category: "unparseable-source",
+        path: entry.path,
+        location: entry.location,
+      }),
+    ]);
   }
 
   const target = entry.target ?? entry.path;

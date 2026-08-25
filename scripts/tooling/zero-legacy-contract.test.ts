@@ -77,6 +77,74 @@ test("evidence-only command paths are executed while evidence source contents st
   expect(evaluation.status).toBe("fail");
 });
 
+test("unparseable sources fail closed with a frozen diagnostic-only finding", () => {
+  const evaluation = evaluateZeroLegacyContract([
+    entry("unparseable-source", "apps/bot/src/main.ts", "parser-detail-unexpected-token"),
+  ]);
+
+  expect(evaluation.status).toBe("fail");
+  expect(evaluation.findings).toHaveLength(1);
+  expect(
+    evaluation.findings.map((finding) => ({
+      finding,
+      frozen: Object.isFrozen(finding),
+      keys: Object.keys(finding),
+      hasCause: "cause" in finding,
+      hasPayload: "payload" in finding,
+    })),
+  ).toEqual([
+    {
+      finding: {
+        category: "unparseable-source",
+        path: "apps/bot/src/main.ts",
+        location: "apps/bot/src/main.ts:1",
+      },
+      frozen: true,
+      keys: ["category", "path", "location"],
+      hasCause: false,
+      hasPayload: false,
+    },
+  ]);
+});
+
+test("unparseable evidence-only sources stay inert", () => {
+  const evaluation = evaluateZeroLegacyContract([
+    entry("unparseable-source", "plans/full-refactor/evidence/record.md", "apps/bot/src/main.ts"),
+  ]);
+
+  expect(evaluation.findings).toEqual([]);
+  expect(evaluation.status).toBe("incomplete");
+});
+
+test("unsafe paths take precedence over unparseable source diagnostics", () => {
+  const evaluation = evaluateZeroLegacyContract([
+    entry("unparseable-source", "apps/bot/src/main.ts", "../outside.ts"),
+  ]);
+
+  expect(evaluation.findings).toEqual([
+    {
+      category: "unsafe-path",
+      path: "apps/bot/src/main.ts",
+      location: "apps/bot/src/main.ts:1",
+      target: "../outside.ts",
+    },
+  ]);
+});
+
+test("unparseable, unreadable, and unsafe findings retain deterministic ordering", () => {
+  const evaluation = evaluateZeroLegacyContract([
+    entry("unreadable-target", "apps/z.ts", "packages/missing"),
+    entry("unparseable-source", "apps/a.ts"),
+    entry("unparseable-source", "../outside.ts"),
+  ]);
+
+  expect(evaluation.findings.map((finding) => `${finding.category}:${finding.path}`)).toEqual([
+    "unparseable-source:apps/a.ts",
+    "unreadable-target:apps/z.ts",
+    "unsafe-path:../outside.ts",
+  ]);
+});
+
 test("semantic signal categories require an exact legacy target", () => {
   const evaluation = evaluateZeroLegacyContract([
     entry("import", "apps/a.ts", "mm-bot"),
