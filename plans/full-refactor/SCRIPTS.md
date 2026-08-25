@@ -27,25 +27,25 @@ scripts.
 
 ## `scripts/coverage-tools/` — exhaustive current inventory
 
-| Current path                              | Candidate disposition                                    | Required evidence                                      |
-| ----------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------ |
-| `build-bot-e2e.ts`                        | **MOVE/REPLACE** under test infrastructure.              | Bot artifact build characterization.                   |
-| `bot-e2e-preload.ts`                      | **MOVE/REPLACE** under E2E harness.                      | E2E preload contract.                                  |
-| `bot-e2e-gate.ts`                         | **MOVE/REPLACE** as E2E coverage validator.              | Negative/positive LCOV fixtures.                       |
-| `bot-e2e-gate.test.ts`                    | **MOVE** with its implementation.                        | Test stays behavior-named.                             |
-| `bot-e2e-child-environment.ts`            | **MOVE/REPLACE** under E2E harness.                      | Environment isolation test.                            |
-| `bot-e2e-child-environment.test.ts`       | **MOVE** with its implementation.                        | Test stays behavior-named.                             |
-| `bot-runtime-driver.ts`                   | **SPLIT/MOVE**; observed >500 lines.                     | Cohesive harness decomposition and output equivalence. |
-| `bot-runtime-network-guard.ts`            | **MOVE/KEEP** as deterministic no-network E2E guard.     | Positive/negative subprocess proof.                    |
-| `bot-runtime-network-guard.test.ts`       | **MOVE** with implementation.                            | Existing/migrated contract passes.                     |
-| `bot-runtime-network-negative-fixture.ts` | **MOVE** to deterministic test fixtures.                 | No production import.                                  |
-| `bot-runtime-scope.ts`                    | **MOVE/REPLACE** under coverage architecture tooling.    | Scope definition review.                               |
-| `bot-runtime-scope.test.ts`               | **MOVE** with implementation.                            | Scope negative fixture.                                |
-| `bot-runtime-scope.json`                  | **MOVE** to declared coverage-scope data.                | Schema validation and ownership.                       |
-| `verify-bot-runtime-scope.ts`             | **MOVE/REPLACE** as generic app runtime-scope validator. | Handles all deployable apps.                           |
-| `run-bot-unit-coverage.ts`                | **REPLACE** with normalized unit coverage task.          | Separateness and 100% report.                          |
-| `run-bot-e2e-coverage.ts`                 | **REPLACE** with normalized E2E coverage task.           | Separateness and 100% report.                          |
-| `istanbul-libraries.d.ts`                 | **KEEP/MOVE** only if instrumentation API needs it.      | Typecheck after tool selection.                        |
+| Current path                              | Candidate disposition                                                                           | Required evidence                                      |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `build-bot-e2e.ts`                        | **MOVE/REPLACE** under test infrastructure.                                                     | Bot artifact build characterization.                   |
+| `bot-e2e-preload.ts`                      | **MOVE/REPLACE** under E2E harness.                                                             | E2E preload contract.                                  |
+| `bot-e2e-gate.ts`                         | **MOVE/REPLACE** as E2E coverage validator.                                                     | Negative/positive LCOV fixtures.                       |
+| `bot-e2e-gate.test.ts`                    | **MOVE** with its implementation.                                                               | Test stays behavior-named.                             |
+| `bot-e2e-child-environment.ts`            | **MOVE/REPLACE** under E2E harness.                                                             | Environment isolation test.                            |
+| `bot-e2e-child-environment.test.ts`       | **MOVE** with its implementation.                                                               | Test stays behavior-named.                             |
+| `bot-runtime-driver.ts`                   | **SPLIT/MOVE** completed under `apps/bot/test/e2e/runtime-driver/`; the legacy file is deleted. | Cohesive harness decomposition and output equivalence. |
+| `bot-runtime-network-guard.ts`            | **MOVE/KEEP** as deterministic no-network E2E guard.                                            | Positive/negative subprocess proof.                    |
+| `bot-runtime-network-guard.test.ts`       | **MOVE** with implementation.                                                                   | Existing/migrated contract passes.                     |
+| `bot-runtime-network-negative-fixture.ts` | **MOVE** to deterministic test fixtures.                                                        | No production import.                                  |
+| `bot-runtime-scope.ts`                    | **MOVE/REPLACE** under coverage architecture tooling.                                           | Scope definition review.                               |
+| `bot-runtime-scope.test.ts`               | **MOVE** with implementation.                                                                   | Scope negative fixture.                                |
+| `bot-runtime-scope.json`                  | **MOVE** to declared coverage-scope data.                                                       | Schema validation and ownership.                       |
+| `verify-bot-runtime-scope.ts`             | **MOVE/REPLACE** as generic app runtime-scope validator.                                        | Handles all deployable apps.                           |
+| `run-bot-unit-coverage.ts`                | **REPLACE** with normalized unit coverage task.                                                 | Separateness and 100% report.                          |
+| `run-bot-e2e-coverage.ts`                 | **REPLACE** with normalized E2E coverage task.                                                  | Separateness and 100% report.                          |
+| `istanbul-libraries.d.ts`                 | **KEEP/MOVE** only if instrumentation API needs it.                                             | Typecheck after tool selection.                        |
 
 ## Package/root command candidates
 
