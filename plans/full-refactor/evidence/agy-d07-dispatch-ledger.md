@@ -2,13 +2,23 @@
 
 **Recorded:** 2026-08-23
 
-## Current disposition
+## Recorded disposition
 
-**COMPLETED TOOL RUN / REJECTED EVALUATION.** The official v2 tool run completed
-without a relay read-only violation, but independent technical and process
-reviews found its inventory invalid. It is not accepted, does not count toward
-the at-least-five Agy bootstrap gate, and requires no further D-07 retry for
-routing-governance closure.
+**COMPLETED TOOL RUN / REJECTED EVALUATION / ZERO CREDIT.** This five-file
+bundle is a historical record, not implementation authority. The official v2
+tool run completed without a relay read-only violation, but its inventory is
+invalid for the concrete defects recorded below. It is not accepted, does not
+count toward the at-least-five Agy bootstrap gate, and no further retry is
+authorized or required in this historical D-07 lineage.
+
+The candidate worktree state atop base HEAD
+`ad64be3a1f8824e6d6c83f4787c2ed28d109043a` records this five-file bundle; it
+does not assert a tree or commit identity. It does not rely on any external
+execution record or review ledger to establish its rejected disposition. The
+historical result facts, defects, permission limits, and correction-run **TECH
+FAIL / PROCESS FAIL** disposition are recorded here and in the four co-located
+historical brief/evaluation files. No **TECH PASS**, **PROCESS PASS**,
+routing-quality PASS, or retry recommendation is claimed by this bundle.
 
 This is not a provider-model failure. The run's requested/dispatched CLI route
 was `gemini-3.7-flash-low` / `low`; provider-effective model and effort are
@@ -18,17 +28,18 @@ metrics are **not available**.
 
 ## Task classification and authority
 
-| Field                | Recorded value                                                                                                                |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Task class           | Read-only lexical repository inventory                                                                                        |
-| Product/trading risk | Low; repository confidentiality and permission-boundary risk remains                                                          |
-| Reasoning shape      | Bounded mechanical extraction; no design decisions                                                                            |
-| Review role          | Non-review; independent technical and process review required before any use                                                  |
-| Fallback             | None; no stronger model was selected                                                                                          |
-| Scope                | `AGENTS.md`, root `package.json`, `turbo.json`, `apps/**`, `packages/**`, `scripts/**`, and `docs/**`                         |
-| Exclusions           | `.git/**`, `node_modules/**`, coverage, `data/**`, `temp/**`, `results/**`, `raw/**`, logs, generated bundles, and `plans/**` |
-| Package manifests    | 12 workspace package manifests; root `package.json` was separate                                                              |
-| External authority   | No extra directories or network authority; only lexical command use in scope                                                  |
+| Field                | Recorded value                                                                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Task class           | Read-only lexical repository inventory                                                                                              |
+| Product/trading risk | Low; repository confidentiality and permission-boundary risk remains                                                                |
+| Reasoning shape      | Bounded mechanical extraction; no design decisions                                                                                  |
+| Review role          | Non-review; independent technical and process review required before any use                                                        |
+| Fallback             | None; no stronger model was selected                                                                                                |
+| Inventory scope      | `apps/**`, `packages/**`, `scripts/**`, `docs/**`, `.github/**`, `README.md`, root `package.json`, `turbo.json`, and `lefthook.yml` |
+| Governing evidence   | `AGENTS.md` was an input for requirements only; it was not an inventory root                                                        |
+| Exclusions           | `.git/**`, `node_modules/**`, coverage, `data/**`, `temp/**`, `results/**`, `raw/**`, logs, generated bundles, and `plans/**`       |
+| Package manifests    | 12 workspace package manifests; root `package.json` was separate                                                                    |
+| External authority   | No extra directories or network authority; only lexical command use in scope                                                        |
 
 The v1 canonical brief SHA-256 is
 `b68a3464db287612c64810cf7deaaab9ee22a67081853f26ace1fc30b184e0ea`.
@@ -37,22 +48,27 @@ The successful v2 brief SHA-256 is
 Both briefs forbid business, financial, trading, code-organization,
 architecture, module-boundary, migration, deletion, and fix decisions.
 
-The user explicitly approved repository exposure and separately approved
-`--dangerously-skip-permissions` for D-07 under a read-only/sandbox intent. The
-relay rejects combining it with `--read-only`; no dangerous-only dispatch was
-used or inferred.
+The historical record asserts repository-exposure and separate
+`--dangerously-skip-permissions` approval for D-07 under a read-only/sandbox
+intent, but no durable independent human-approval artifact was supplied to
+this bundle: that provenance is **NOT INDEPENDENTLY EVIDENCED**. The relay
+rejects combining it with `--read-only`. In the historical official-v2 lineage
+only, no dangerous-only dispatch was used or inferred. The distinct 20260823-03
+correction dispatch did use dangerous mode, was not read-only, and is rejected
+below under
+[20260823-03 correction dispatch and disposition](#20260823-03-correction-dispatch-and-disposition).
 
 ## Permission configuration and official-doc boundary
 
-At the user's explicit request, central user configuration was set outside the
-repository in `~/.gemini/antigravity-cli/settings.json` with
+The retained historical account states that central user configuration outside
+the repository set
 `enableTerminalSandbox=true`, and these `permissions.allow` command prefixes:
 `rg`, `find`, `wc`, `sort`, `grep`, and the exact `git status --porcelain`
 command. No repository configuration was changed. Before I8,
 `allowNonWorkspaceAccess=false` was set and verified. After the run, the
-settings file omits that default-valued key because Agy normalized sparse
-settings; the current configuration must not be represented as retaining an
-explicit key. The effective non-workspace boundary relies on the documented
+recorded configuration omitted that default-valued key because Agy normalized
+sparse settings; the current configuration must not be represented as retaining
+an explicit key. The effective non-workspace boundary relies on the documented
 default-off behavior together with `--sandbox` and the workspace roots.
 
 The official [settings documentation](https://antigravity.google/docs/cli/settings/)
@@ -169,3 +185,55 @@ The relay record is `/tmp/agy-model-routing.Hhv64w/result.json`:
 `readOnlyViolation=false`, and `touchedFiles=[]`. Its provider-effective model
 and effort are still `not observable`, so it is provisional research evidence,
 not a routine evaluation-gate record.
+
+## 20260823-03 correction dispatch and disposition
+
+This is a separate, correction-only evaluation lineage. Its first relay usage
+attempt supplied both `--project 2b9bd576-a4b6-44f0-87ea-fa6a4ab7c42a` and
+`--conversation d52e3003-1e8c-460c-b13d-d7b577d0ebad`; argument validation
+exited `2` and created no result artifact. The corrected dispatch used only
+`--conversation d52e3003-1e8c-460c-b13d-d7b577d0ebad` for resumption.
+
+The exact shell-command transcript for neither correction invocation was
+preserved. Exact flag ordering, complete snapshot/brief/output-path spelling,
+and the first invocation's complete stdout/stderr are therefore **NOT
+EVIDENCED** and cannot be reconstructed. The retained artifacts establish only
+the arguments and result fields stated here; no reproducible command is
+inferred. This provenance gap independently preserves the rejected, zero-credit
+disposition.
+
+The actual result is `completed` / exit `0`; Agy `1.1.19`; project
+`2b9bd576-a4b6-44f0-87ea-fa6a4ab7c42a`; requested/dispatched
+`gemini-3.7-flash-low` / `low`; provider-effective model/effort **not
+observable**; and token, cache, thinking, quota, and cost proxy **not
+available**. It ran `2026-08-23T21:17:41.291Z`–`2026-08-23T21:18:02.534Z` with
+`sandbox=true`, `readOnly=false`, `dangerouslySkipPermissions=true`,
+`resumed=true`, `touchedFiles=[]`, and `readOnlyViolation=null`.
+
+The historical record's claimed human dangerous-mode approval is **NOT
+INDEPENDENTLY EVIDENCED** and did not make this run read-only or establish an
+effective path boundary. Snapshot isolation was limited to commit
+`6fc07f723b86650330ce7a16bd6ac16cd4a46473`, 621 tracked files, and the clean
+status hash `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+The preflight content scan matched 11 files but classification found only test
+sentinel/placeholder literals and logger redaction-key strings. No matched
+values, secret material, or raw log content was retained in the repository.
+
+The correction brief, verifier, result, final, and raw-log SHA-256 values are
+`2c88094f8a2e207d1f7a26ce2a81b4c860a13873b9e3caf76ebd2a57f2a1c170`,
+`636a4434622c4bf9612b820523bc9f213e279add16d18e21a20b861ac154aded`,
+`f250fa38ab2c6fdd1fa3a05ff1d45b97d2306d703842fb326e65e27dc8c7629b`,
+`a0809d77aa05eb8d90b95e209c1fc8925a6cacb6ce8ad976b66648b717d2c763`, and
+`2f7a487a091c94926c7cd12bccbb2798b92d1c6551f5f7999e0a8d15f2b29154`.
+Independent verifier runs were byte-identical (SHA-256
+`dd860e190f3a8b392c0094f66420fef462dd07d0915c3997607810ac525aaf77`; `cmp`
+exit `0`) and establish inventory-data correctness: aggregate
+3285/244, 35/17, 24/19, 184/45, 31/12 and production 916/152, 26/9, 14/11,
+128/34, 13/5 for phase, legacy, compat, mm-bot, and run-bot respectively.
+
+The raw log shows automatic Playwright-driver download attempts, a **HIGH
+network-scope violation**. It also includes a personal email address; neither
+the address nor raw log content may be copied or committed. This correction
+run is consequently **TECH FAIL / PROCESS FAIL** despite correct inventory
+data. It has zero bootstrap credit, establishes no routing-quality PASS, has no
+usable recommendation, and requires no retry.

@@ -1,0 +1,18 @@
+<retry>
+  <record_status>
+    Historical permission-retry brief transcription for rejected, zero-credit D-07 evidence only.
+    It is not an active dispatch authorization and does not authorize a further retry.
+  </record_status>
+  <cause>The first run stopped before inventory because Antigravity denied `git status`.</cause>
+  <task>Execute the complete original inventory brief without changing its scope or output contract.</task>
+  <authority>
+    The historical record reports automatic tool permission only inside the supplied sanitized
+    temporary Git snapshot. Its human-approval provenance is NOT INDEPENDENTLY EVIDENCED. Treat
+    the run as full-access, not as read-only or sandbox-enforced.
+  </authority>
+  <prohibitions>
+    Do not edit or create files, run network calls, inspect outside the workspace, mutate Git, install
+    packages, run tests/builds, or make recommendations or decisions. If any requested inventory
+    cannot be completed with existing read commands, report blocked instead of changing the workspace.
+  </prohibitions>
+</retry>

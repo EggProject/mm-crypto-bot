@@ -1,0 +1,64 @@
+<delegation>
+  <record_status>
+    Historical brief transcription for rejected, zero-credit D-07 evidence only. It is not an
+    active dispatch authorization and does not establish a routing-quality PASS or retry.
+  </record_status>
+  <classification>
+    <task_class>large batched read-only lexical inventory</task_class>
+    <mode>read-only</mode>
+    <risk>low; no product, trading, financial, architecture, or code-organization decisions</risk>
+    <review_role>non-review</review_role>
+    <model>gemini-3.7-flash-low</model>
+    <effort>low</effort>
+  </classification>
+
+  <task>
+    Inventory historical D-07 history and retired-name references in the supplied sanitized
+    repository snapshot. Do not edit any file. Do not recommend fixes, choose ownership, infer
+    product meaning, or make business, trading, architecture, module-boundary, or code-organization
+    decisions.
+  </task>
+
+  <scope>
+    Search only existing files below apps, packages, scripts, docs, and .github, plus README.md,
+    package.json, turbo.json, and lefthook.yml. The snapshot intentionally excludes data, plans,
+    coverage, dist, node_modules, caches, temporary output, Git history, and secrets.
+  </scope>
+
+  <patterns>
+    <pattern id="phase"><![CDATA[\bPhase[ _-]*[0-9][A-Za-z0-9._-]*]]></pattern>
+    <pattern id="legacy"><![CDATA[\blegacy\b]]></pattern>
+    <pattern id="compat"><![CDATA[\b(?:backward|backwards?)[ -]?compat(?:ibility|ible)?\b]]></pattern>
+    <pattern id="mm-bot"><![CDATA[(?<!crypto-)mm-bot]]></pattern>
+    <pattern id="run-bot"><![CDATA[run-bot]]></pattern>
+  </patterns>
+
+  <required_method>
+    Use ripgrep with PCRE2, line numbers, and no heading. For each exact pattern independently,
+    report: matching-line count, distinct-file count, and the sorted list of matching production
+    or tooling files under apps, packages, scripts, and .github with their per-file matching-line
+    counts. Also report the top 25 files across the full allowed scope ranked by total matching-line
+    count, then lexical path. Count matching lines, not raw substring matches. Run every aggregate
+    query twice and report whether the two results agree. A zero-match query is valid and must be
+    reported as zero, not as a command failure.
+  </required_method>
+
+  <prohibitions>
+    Do not write or edit files. Do not run tests, builds, package installation, network calls, Git
+    mutation, or destructive commands. Do not inspect excluded paths. Do not display file contents
+    beyond the matched token, path, line number, and aggregate counts. Do not label a match safe,
+    removable, active, obsolete, or compatible; this task is inventory only.
+  </prohibitions>
+
+  <verification_loop>
+    Confirm the workspace remains byte-for-byte unchanged according to Git status. Confirm every
+    reported count is reproduced by the second run. If either condition cannot be proven, return a
+    blocked result and explain only the missing evidence.
+  </verification_loop>
+
+  <structured_output_contract>
+    End with exactly these sections: (1) Status; (2) Model and effort requested; (3) Aggregate table;
+    (4) Production/tooling file table; (5) Top 25 full-scope files; (6) Repeatability; (7) Workspace
+    mutation check; (8) Limitations. Do not include recommendations.
+  </structured_output_contract>
+</delegation>

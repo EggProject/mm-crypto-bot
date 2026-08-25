@@ -1,0 +1,71 @@
+<rework>
+  <record_status>
+    Historical correction-brief transcription for rejected, zero-credit D-07 evidence only. It is
+    not an active dispatch authorization and no retry is authorized by this record.
+  </record_status>
+  <classification>
+    <task_class>bounded repository-wide read-only lexical inventory bootstrap re-evaluation</task_class>
+    <mode>no repository writes; the historical record reports dangerous permission approval only for this D-07 inventory, but that approval is NOT INDEPENDENTLY EVIDENCED</mode>
+    <package_count>12 workspace packages plus one root manifest in a 621-file sanitized snapshot</package_count>
+    <ownership>read the supplied snapshot only; create or edit no repository file</ownership>
+    <domain_risk>low inventory risk; permission and evidence-integrity risk</domain_risk>
+    <reasoning_shape>mechanical command execution and exact transcription only</reasoning_shape>
+    <external_resources>none; no network calls</external_resources>
+    <review_role>non-review; independent Terra technical and Luna process review remain mandatory</review_role>
+    <fallback>none; block on any command failure, ambiguity, mutation, or result mismatch</fallback>
+    <model>gemini-3.7-flash-low</model>
+    <effort>low</effort>
+  </classification>
+
+  <cause>
+    The preceding completed run reported the production/tooling phase subtotal as 574 matching lines
+    in 104 files. The independently replayed exact method proves 916 lines in 152 files. That run was
+    rejected and earned zero bootstrap credit. This re-evaluation must correct the count without
+    changing scope, patterns, semantics, or ownership.
+  </cause>
+
+  <workspace>
+    Work only in `/tmp/mm-crypto-bot-agy-d07-inventory-20260823-01`. The only supplied verifier is
+    `/tmp/verify-agy-d07-inventory.mjs`, whose expected SHA-256 is
+    `636a4434622c4bf9612b820523bc9f213e279add16d18e21a20b861ac154aded`.
+    Do not inspect outside these two supplied paths. Do not create, edit, delete, rename, stage, or
+    commit anything. The automatic-permission flag means access confinement is not independently
+    attested; obey these boundaries exactly.
+  </workspace>
+
+  <required_commands>
+    First run `sha256sum /tmp/verify-agy-d07-inventory.mjs` and stop as BLOCKED if it differs from the
+    expected hash. Record `git rev-parse HEAD`, the exact row count from `git status --porcelain=v1`,
+    and the SHA-256 of that status stream before the inventory. Run exactly:
+
+    `bun /tmp/verify-agy-d07-inventory.mjs /tmp/mm-crypto-bot-agy-d07-inventory-20260823-01`
+
+    Run it a second time. Compare the two complete outputs byte-for-byte. Do not manually recompute,
+    reinterpret, merge, rename, or repair any field. Afterward repeat the Git status row count and
+    status-stream SHA-256. Any command failure, output difference, nonzero status row count, or changed
+    status hash makes the result BLOCKED.
+  </required_commands>
+
+  <expected_verification_targets>
+    These values are verification targets, not permission to fabricate output. Both verifier runs
+    must independently produce them: aggregate 3285 lines / 244 files; production phase 916/152;
+    legacy 26/9; compat 14/11; mm-bot 128/34; run-bot 13/5. If actual output differs, report the actual
+    result and BLOCKED status. The complete verifier JSON, including the exact top-25 list, is the
+    authority; do not derive a separate table.
+  </expected_verification_targets>
+
+  <prohibitions>
+    No recommendations, classifications of matches, fixes, business or trading decisions,
+    architecture or code-organization choices, test/build/install commands, network access, Git
+    mutation, file writes, private data inspection, or alternate patterns. Do not summarize away
+    mismatches. Do not claim effective provider model or effort because the relay does not attest it.
+  </prohibitions>
+
+  <output_contract>
+    Return exactly: Status; requested/dispatched model and effort; verifier hash; snapshot HEAD;
+    before/after status row counts and hashes; first verifier JSON; second verifier JSON;
+    byte-comparison result; limitations. State provider-effective model/effort `not observable`,
+    token/cache/thinking/cost metrics `not available`, and recommendations `none`. Do not include any
+    other analysis.
+  </output_contract>
+</rework>
