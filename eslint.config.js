@@ -5,6 +5,12 @@ import unicorn from "eslint-plugin-unicorn";
 import tseslint from "typescript-eslint";
 
 const typescriptFiles = ["**/*.{ts,tsx,mts,cts}"];
+const botTestFiles = [
+  "apps/bot/**/*.{test,spec}.ts",
+  "apps/bot/**/*.{test,spec}.tsx",
+  "apps/bot/**/*.{test,spec}.mts",
+  "apps/bot/**/*.{test,spec}.cts",
+];
 const loggingTestSupportBoundaryFiles = [
   "**/*.{test,test-support}.{ts,tsx,mts,cts}",
   "{apps,packages}/**/{test,tests,test-support}/**/*.{ts,tsx,mts,cts}",
@@ -97,6 +103,16 @@ export default tseslint.config(
     ],
     rules: {
       "unicorn/no-top-level-side-effects": "off",
+    },
+  },
+  {
+    files: botTestFiles,
+    languageOptions: {
+      parserOptions: {
+        project: "./apps/bot/tsconfig.eslint.json",
+        projectService: false,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
   },
 );
