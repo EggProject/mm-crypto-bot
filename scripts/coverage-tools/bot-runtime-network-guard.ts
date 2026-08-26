@@ -1,3 +1,5 @@
+/// <reference lib="es2023.array" />
+
 import dgram from "node:dgram";
 import http from "node:http";
 import http2 from "node:http2";
@@ -91,6 +93,12 @@ function installedGuardState(): InstalledGuardState | undefined {
   return { schemaVersion: 1, guard };
 }
 
+function restoreInstalledBoundaries(installed: readonly InstalledBoundary[]): void {
+  for (const boundary of installed.toReversed()) {
+    Object.defineProperty(boundary.target, boundary.property, boundary.descriptor);
+  }
+}
+
 export function getInstalledOutboundNetworkGuard(): OutboundNetworkGuard {
   const state = installedGuardState();
   if (state === undefined) {
@@ -105,27 +113,35 @@ export function installOutboundNetworkGuard(): OutboundNetworkGuard {
 
   const attempts: string[] = [];
   const installed: InstalledBoundary[] = [];
-  let restored = false;
+  let isRestored = false;
 
-  for (const specification of boundarySpecifications()) {
-    const descriptor = Object.getOwnPropertyDescriptor(specification.target, specification.property);
-    if (descriptor === undefined || typeof descriptor.value !== "function") {
-      if (specification.required) throw new Error(`network boundary is unavailable: ${specification.label}`);
-      continue;
-    }
-    const blocker = (): never => {
-      attempts.push(specification.label);
-      if (process.exitCode === undefined || process.exitCode === 0) {
-        process.exitCode = NETWORK_ATTEMPT_EXIT_CODE;
+  try {
+    for (const specification of boundarySpecifications()) {
+      const descriptor = Object.getOwnPropertyDescriptor(specification.target, specification.property);
+      if (descriptor === undefined || typeof descriptor.value !== "function") {
+        if (specification.required)
+          throw new Error(`network boundary is unavailable: ${specification.label}`);
+        continue;
       }
-      void process.stderr.write(`[bot-e2e-network-guard] blocked outbound attempt: ${specification.label}\n`);
-      throw new OutboundNetworkAttemptError(specification.label);
-    };
-    Object.defineProperty(specification.target, specification.property, {
-      ...descriptor,
-      value: blocker,
-    });
-    installed.push({ ...specification, descriptor });
+      const blocker = function outboundNetworkBoundaryBlocker(): never {
+        attempts.push(specification.label);
+        if (process.exitCode === undefined || process.exitCode === 0) {
+          process.exitCode = NETWORK_ATTEMPT_EXIT_CODE;
+        }
+        void process.stderr.write(
+          `[bot-e2e-network-guard] blocked outbound attempt: ${specification.label}\n`,
+        );
+        throw new OutboundNetworkAttemptError(specification.label);
+      };
+      Object.defineProperty(specification.target, specification.property, {
+        ...descriptor,
+        value: blocker,
+      });
+      installed.push({ ...specification, descriptor });
+    }
+  } catch (error: unknown) {
+    restoreInstalledBoundaries(installed);
+    throw error;
   }
 
   const guard: OutboundNetworkGuard = {
@@ -141,11 +157,9 @@ export function installOutboundNetworkGuard(): OutboundNetworkGuard {
       }
     },
     restore(): void {
-      if (restored) return;
-      restored = true;
-      for (const boundary of [...installed].reverse()) {
-        Object.defineProperty(boundary.target, boundary.property, boundary.descriptor);
-      }
+      if (isRestored) return;
+      isRestored = true;
+      restoreInstalledBoundaries(installed);
       const state = installedGuardState();
       if (state?.guard === guard) Reflect.deleteProperty(globalThis, GUARD_STATE_SYMBOL);
     },
