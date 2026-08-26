@@ -23,6 +23,7 @@
     "coverage:lcov": "vitest run --config vitest.config.ts --coverage"
   },
   "dependencies": {
+    "@mm-crypto-bot/numeric": "workspace:*",
     "ccxt": "4.5.64",
     "zod": "3.25.76"
   },

@@ -151,6 +151,7 @@
       "name": "@mm-crypto-bot/shared",
       "version": "0.1.0",
       "dependencies": {
+        "@mm-crypto-bot/numeric": "workspace:*",
         "ccxt": "4.5.64",
         "zod": "3.25.76",
       },
