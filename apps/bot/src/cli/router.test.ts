@@ -1,78 +1,62 @@
 /**
- * apps/bot/src/cli/router.test.ts
- *
- * Phase 33 Track D — `CliRouter` unit tests.
- *
- * Coverage (bun:test):
- *   1.  Register a fake subcommand + run with `["fake"]` → handler called, returns 0
- *   2.  Run with no subcommand → returns 1 + prints help
- *   3.  Run with unknown subcommand → returns 1 + prints error
- *   4.  Run with `--help` → returns 1 + prints help
- *   5.  Run with `-h` → returns 1 + prints help
- *   6.  Subcommand-specific help is printed when a known subcommand has --help
- *   7.  setProgramDescription works
- *   8.  Re-registering a name overwrites the previous handler
- *   9.  Handlers receive the parsed flags and positional args
+ * `CliRouter` unit tests.
  */
 
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
-import { CLI_COMMAND, CliRouter, type SubcommandHandler } from "./router.js";
+import { CLI_COMMAND, CliRouter, type CliContext, type SubcommandHandler } from "./router.js";
+
+const handlerReturningZero: SubcommandHandler = () => Promise.resolve(0);
+const handlerReturningSeven: SubcommandHandler = () => Promise.resolve(7);
 
 describe("CliRouter", () => {
-  // We capture console.error output so we can assert on the help text
-  // without polluting the test runner's output.
-  let errorSpy: ReturnType<typeof spyOn>;
   let captured: string[] = [];
+  let previousConsoleError = console.error;
 
   beforeEach(() => {
     captured = [];
-    errorSpy = spyOn(console, "error").mockImplementation((...args: unknown[]) => {
-      // Convert each arg to a string for stable comparison.
-      captured.push(args.map((a) => (typeof a === "string" ? a : String(a))).join(" "));
-    });
+    previousConsoleError = console.error;
+    console.error = (...values: unknown[]) => {
+      captured.push(values.map((value) => (typeof value === "string" ? value : String(value))).join(" "));
+    };
   });
 
   afterEach(() => {
-    errorSpy.mockRestore();
+    console.error = previousConsoleError;
   });
 
-  // --------------------------------------------------------------------------
-  // 1) Register + run a fake subcommand
-  // --------------------------------------------------------------------------
   it("routes a registered subcommand to its handler", async () => {
     const router = new CliRouter();
-    let called = false;
-    const handler: SubcommandHandler = async (_args, _ctx) => {
-      called = true;
-      return 0;
+    let wasCalled = false;
+    let receivedContext: CliContext | undefined;
+    const handler: SubcommandHandler = (_arguments, context) => {
+      wasCalled = true;
+      receivedContext = context;
+      return Promise.resolve(0);
     };
     router.register("fake", "Fake subcommand for tests", handler);
     const code = await router.run(["fake"]);
     expect(code).toBe(0);
-    expect(called).toBe(true);
+    expect(wasCalled).toBe(true);
+    const configFreeContext: CliContext = {};
+    expect(configFreeContext.config).toBeUndefined();
+    expect(receivedContext).toEqual(configFreeContext);
+    expect(Object.hasOwn(receivedContext ?? {}, "config")).toBe(false);
   });
 
-  // --------------------------------------------------------------------------
-  // 2) No subcommand → returns 1 + prints help
-  // --------------------------------------------------------------------------
   it("returns 1 and prints help when no subcommand is given", async () => {
     const router = new CliRouter();
-    router.register("fake", "Fake subcommand for tests", async () => 0);
+    router.register("fake", "Fake subcommand for tests", handlerReturningZero);
     const code = await router.run([]);
     expect(code).toBe(1);
-    // Help text is printed to stderr.
     const helpText = captured.join("\n");
     expect(helpText).toContain(CLI_COMMAND);
     expect(helpText).toContain("fake");
   });
 
-  // --------------------------------------------------------------------------
-  // 3) Unknown subcommand → returns 1 + prints error
-  // --------------------------------------------------------------------------
   it("returns 1 and prints an error for unknown subcommands", async () => {
     const router = new CliRouter();
-    router.register("fake", "Fake subcommand for tests", async () => 0);
+    router.register("fake", "Fake subcommand for tests", handlerReturningZero);
     const code = await router.run(["nonexistent"]);
     expect(code).toBe(1);
     const helpText = captured.join("\n");
@@ -80,102 +64,76 @@ describe("CliRouter", () => {
     expect(helpText).toContain("nonexistent");
   });
 
-  // --------------------------------------------------------------------------
-  // 4) --help at the top level → prints global help + returns 1
-  // --------------------------------------------------------------------------
   it("returns 1 and prints global help when --help is set with no subcommand", async () => {
     const router = new CliRouter();
-    let called = false;
-    router.register("fake", "Fake subcommand for tests", async () => {
-      called = true;
-      return 0;
-    });
+    let wasCalled = false;
+    const handler: SubcommandHandler = () => {
+      wasCalled = true;
+      return Promise.resolve(0);
+    };
+    router.register("fake", "Fake subcommand for tests", handler);
     const code = await router.run(["--help"]);
     expect(code).toBe(1);
-    expect(called).toBe(false);
-    const helpText = captured.join("\n");
-    expect(helpText).toContain("Usage");
+    expect(wasCalled).toBe(false);
+    expect(captured.join("\n")).toContain("Usage");
   });
 
-  // --------------------------------------------------------------------------
-  // 5) -h at the top level → prints global help + returns 1
-  // --------------------------------------------------------------------------
   it("returns 1 and prints global help when -h is set with no subcommand", async () => {
     const router = new CliRouter();
-    router.register("fake", "Fake subcommand for tests", async () => 0);
+    router.register("fake", "Fake subcommand for tests", handlerReturningZero);
     const code = await router.run(["-h"]);
     expect(code).toBe(1);
-    const helpText = captured.join("\n");
-    expect(helpText).toContain("Usage");
+    expect(captured.join("\n")).toContain("Usage");
   });
 
-  // --------------------------------------------------------------------------
-  // 6) --help on a known subcommand → dispatch to handler (which owns its help)
-  // --------------------------------------------------------------------------
   it("dispatches --help to the handler for a known subcommand", async () => {
     const router = new CliRouter();
-    let receivedHelpFlag = false;
-    router.register("start", "Start the bot", async (args) => {
-      receivedHelpFlag = args.flags.get("help") === true;
-      // The handler returns 0 to signal "I handled --help" (printed its own help).
-      return 0;
-    });
+    let hasReceivedHelpFlag = false;
+    const handler: SubcommandHandler = (arguments_) => {
+      hasReceivedHelpFlag = arguments_.flags.get("help") === true;
+      return Promise.resolve(0);
+    };
+    router.register("start", "Start the bot", handler);
     const code = await router.run(["start", "--help"]);
     expect(code).toBe(0);
-    expect(receivedHelpFlag).toBe(true);
+    expect(hasReceivedHelpFlag).toBe(true);
   });
 
-  // --------------------------------------------------------------------------
-  // 6b) --help on an unknown subcommand → router prints global help + returns 1
-  // --------------------------------------------------------------------------
   it("returns 1 and prints global help when --help is on an unknown subcommand", async () => {
     const router = new CliRouter();
-    router.register("fake", "Fake subcommand for tests", async () => 0);
+    router.register("fake", "Fake subcommand for tests", handlerReturningZero);
     const code = await router.run(["nonexistent", "--help"]);
     expect(code).toBe(1);
-    const helpText = captured.join("\n");
-    expect(helpText).toContain("Usage");
+    expect(captured.join("\n")).toContain("Usage");
   });
 
-  // --------------------------------------------------------------------------
-  // 7) setProgramDescription works
-  // --------------------------------------------------------------------------
   it("honors setProgramDescription", async () => {
     const router = new CliRouter();
     router.setProgramDescription("custom description");
-    router.register("fake", "fake", async () => 0);
+    router.register("fake", "fake", handlerReturningZero);
     const code = await router.run([]);
     expect(code).toBe(1);
-    const helpText = captured.join("\n");
-    expect(helpText).toContain("custom description");
+    expect(captured.join("\n")).toContain("custom description");
   });
 
-  // --------------------------------------------------------------------------
-  // 8) Re-registering a name overwrites the previous handler
-  // --------------------------------------------------------------------------
   it("overwrites a previously registered handler when re-registered", async () => {
     const router = new CliRouter();
-    const handler1: SubcommandHandler = async () => 0;
-    const handler2: SubcommandHandler = async () => 7;
-    router.register("fake", "first", handler1);
-    router.register("fake", "second", handler2);
+    router.register("fake", "first", handlerReturningZero);
+    router.register("fake", "second", handlerReturningSeven);
     const code = await router.run(["fake"]);
     expect(code).toBe(7);
   });
 
-  // --------------------------------------------------------------------------
-  // 9) Handlers receive the parsed flags and positional args
-  // --------------------------------------------------------------------------
   it("passes parsed args to the handler", async () => {
     const router = new CliRouter();
     let receivedSubcommand = "";
-    let receivedFlagValue: string | boolean | undefined = undefined;
+    let receivedFlagValue: string | boolean | undefined;
     let receivedPositionalLength = 0;
-    const handler: SubcommandHandler = async (args) => {
-      receivedSubcommand = args.subcommand;
-      receivedFlagValue = args.flags.get("limit");
-      receivedPositionalLength = args.positional.length;
-      return 0;
+    const handler: SubcommandHandler = (arguments_) => {
+      receivedSubcommand = arguments_.subcommand;
+      receivedFlagValue = arguments_.flags.get("limit");
+      receivedPositionalLength = arguments_.positional.length;
+      return Promise.resolve(0);
     };
     router.register("trades", "Show trades", handler);
     const code = await router.run(["trades", "--limit=20", "BTC/USDC"]);
@@ -185,78 +143,53 @@ describe("CliRouter", () => {
     expect(receivedPositionalLength).toBe(1);
   });
 
-  // --------------------------------------------------------------------------
-  // 10) Subcommand list is sorted alphabetically in help
-  // --------------------------------------------------------------------------
   it("lists subcommands alphabetically in help", async () => {
     const router = new CliRouter();
-    router.register("zebra", "Z subcommand", async () => 0);
-    router.register("alpha", "A subcommand", async () => 0);
-    router.register("middle", "M subcommand", async () => 0);
+    router.register("zebra", "Z subcommand", handlerReturningZero);
+    router.register("alpha", "A subcommand", handlerReturningZero);
+    router.register("middle", "M subcommand", handlerReturningZero);
     await router.run([]);
     const helpText = captured.join("\n");
-    const alphaIdx = helpText.indexOf("alpha");
-    const middleIdx = helpText.indexOf("middle");
-    const zebraIdx = helpText.indexOf("zebra");
-    expect(alphaIdx).toBeGreaterThan(-1);
-    expect(middleIdx).toBeGreaterThan(alphaIdx);
-    expect(zebraIdx).toBeGreaterThan(middleIdx);
+    const alphaIndex = helpText.indexOf("alpha");
+    const middleIndex = helpText.indexOf("middle");
+    const zebraIndex = helpText.indexOf("zebra");
+    expect(alphaIndex).toBeGreaterThan(-1);
+    expect(middleIndex).toBeGreaterThan(alphaIndex);
+    expect(zebraIndex).toBeGreaterThan(middleIndex);
   });
 
-  // --------------------------------------------------------------------------
-  // 11) printHelp with a known subcommand shows the subcommand-specific help
-  // --------------------------------------------------------------------------
   it("printHelp with a known subcommand prints subcommand-specific help", () => {
     const router = new CliRouter();
-    router.register("start", "Start the bot", async () => 0);
+    router.register("start", "Start the bot", handlerReturningZero);
     router.printHelp("start");
     const helpText = captured.join("\n");
     expect(helpText).toContain(`Usage: ${CLI_COMMAND} start`);
     expect(helpText).toContain("Start the bot");
     expect(helpText).toContain("--config=<path>");
+    expect(helpText).toContain("requires an external runtime root if omitted");
+    expect(helpText).not.toContain("uses defaults if absent");
   });
 
-  // --------------------------------------------------------------------------
-  // 12) printHelp with an unknown subcommand falls through to global help
-  // --------------------------------------------------------------------------
-  it("printHelp with an unknown subcommand prints 'Unknown subcommand' + global", () => {
+  it("printHelp with an unknown subcommand prints an error and global help", () => {
     const router = new CliRouter();
-    router.register("fake", "Fake subcommand for tests", async () => 0);
+    router.register("fake", "Fake subcommand for tests", handlerReturningZero);
     router.printHelp("nonexistent");
     const helpText = captured.join("\n");
     expect(helpText).toContain("Unknown subcommand");
     expect(helpText).toContain("nonexistent");
-    // Falls through to global help with the registered subcommands.
     expect(helpText).toContain("fake");
   });
 
-  // --------------------------------------------------------------------------
-  // 13) SubcommandHandler is exported and instantiable as a function value
-  //     (catches bun's "type alias counted as a function" edge case)
-  // --------------------------------------------------------------------------
   it("SubcommandHandler is an exported function type alias", () => {
-    // Explicitly import the type and use it. The lcov reporter may count
-    // the type alias as a "function" — exercising it as a value
-    // ensures bun tracks it as "hit".
-    const handler: SubcommandHandler = async (_args, _ctx) => 0;
-    expect(typeof handler).toBe("function");
-    // The handler must be invokable.
-    const result = handler({} as never, { config: undefined as never });
-    expect(result).toBeInstanceOf(Promise);
+    expect(typeof handlerReturningZero).toBe("function");
   });
 
-  // --------------------------------------------------------------------------
-  // 14) printHelp's sort callback (FNF=9 includes the (a,b) => ... arrow)
-  //     Run with many entries to ensure both the sort and map callbacks
-  //     are exercised and that the "fall back to global help" path is hit.
-  // --------------------------------------------------------------------------
-  it("printHelp sort callback runs even with many entries", () => {
+  it("prints ordered global help for many subcommands", () => {
     const router = new CliRouter();
-    for (let i = 0; i < 20; i++) {
-      const name = `cmd-${String(i).padStart(2, "0")}`;
-      router.register(name, `Description ${i}`, async () => 0);
+    for (let index = 0; index < 20; index++) {
+      const name = `cmd-${String(index).padStart(2, "0")}`;
+      router.register(name, `Description ${String(index)}`, handlerReturningZero);
     }
-    // printHelp with no subcommand triggers the global help + sort + map
     router.printHelp("");
     expect(captured.length).toBeGreaterThan(0);
   });

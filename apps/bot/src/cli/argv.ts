@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/argv.ts
  *
- * Phase 33 Track D — hand-rolled argv parser for the direct bot CLI.
+ * Hand-rolled argv parser for the direct bot CLI.
  *
  * Design goals (user mandate 2026-07-11 23:42 Budapest):
  *   - **Zero external dependencies** — no `commander`, no `yargs`, no `minimist`.
@@ -51,7 +51,7 @@
 // ============================================================================
 
 /**
- * `ParsedArgs` — the result of `parseArgv`.
+ * `ParsedArguments` — the result of `parseArgv`.
  *
  * - `subcommand` — the first non-flag positional argument. Empty string if
  *   no subcommand was given (the router prints help + returns 1 in that case).
@@ -62,11 +62,13 @@
  * - `positional` — non-flag arguments that appear AFTER the subcommand.
  *   Useful for `config <validate|show|init>` sub-subcommands.
  */
-export interface ParsedArgs {
+export interface ParsedArguments {
   readonly subcommand: string;
   readonly flags: ReadonlyMap<string, string | boolean>;
   readonly positional: readonly string[];
 }
+
+export { type ParsedArguments as ParsedArgs };
 
 // ============================================================================
 // Parser
@@ -77,12 +79,12 @@ export interface ParsedArgs {
  *
  * @param argv The argv slice to parse. Typically `process.argv.slice(2)`.
  *   MUST NOT include the node/bun binary path or the script path.
- * @returns A `ParsedArgs` value. Never throws; an empty argv yields
+ * @returns A `ParsedArguments` value. Never throws; an empty argv yields
  *   `{ subcommand: "", flags: new Map(), positional: [] }`.
  *
  * The function is pure (no side effects) and synchronous.
  */
-export function parseArgv(argv: readonly string[]): ParsedArgs {
+export function parseArgv(argv: readonly string[]): ParsedArguments {
   const flags = new Map<string, string | boolean>();
   const positional: string[] = [];
   let subcommand = "";
@@ -90,26 +92,27 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
   // Phase 1: walk the argv, classifying each token.
   // We split the iteration into "before-subcommand" and "after-subcommand":
   // the first non-flag token becomes the subcommand and we record the rest.
-  let foundSubcommand = false;
-  let stopFlags = false;
+  let hasSubcommand = false;
+  let isFlagParsingStopped = false;
   let skippedValueIndex: number | undefined;
 
-  for (const [i, arg] of argv.entries()) {
-    if (i === skippedValueIndex) continue;
+  for (const [index, argument] of argv.entries()) {
+    if (index === skippedValueIndex) continue;
 
     // The `--` sentinel terminates flag parsing.
-    if (arg === "--") {
-      stopFlags = true;
+    if (argument === "--") {
+      isFlagParsingStopped = true;
       continue;
     }
 
-    if (stopFlags || !arg.startsWith("-")) {
+    const isPositionalArgument = isFlagParsingStopped || !argument.startsWith("-");
+    if (isPositionalArgument) {
       // Positional argument.
-      if (!foundSubcommand) {
-        subcommand = arg;
-        foundSubcommand = true;
+      if (hasSubcommand) {
+        positional.push(argument);
       } else {
-        positional.push(arg);
+        subcommand = argument;
+        hasSubcommand = true;
       }
       continue;
     }
@@ -117,11 +120,11 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
     // We have a flag. Two forms:
     //   - long:   --name, --name=value, --no-name
     //   - short:  -x
-    if (arg.startsWith("--")) {
+    if (argument.startsWith("--")) {
       // A bare `--` is caught by the `arg === "--"` check at the top of
       // the loop and never reaches here, so `arg.slice(2)` is always
       // non-empty.
-      const body = arg.slice(2);
+      const body = argument.slice(2);
 
       // Negation: --no-<name>  →  flags.set(name, false)
       //
@@ -134,7 +137,7 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
       // data-loss fix: previously `--no-foo!` was silently discarded.
       if (body.startsWith("no-") && body.length > 3) {
         const name = body.slice(3);
-        if (name.length > 0 && /^[a-zA-Z0-9_-]+$/.test(name)) {
+        if (/^[a-zA-Z0-9_-]+$/.test(name)) {
           flags.set(name, false);
           continue;
         }
@@ -142,10 +145,10 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
       }
 
       // --name=value
-      const eqIdx = body.indexOf("=");
-      if (eqIdx >= 0) {
-        const name = body.slice(0, eqIdx);
-        const value = body.slice(eqIdx + 1);
+      const eqIndex = body.indexOf("=");
+      if (eqIndex !== -1) {
+        const name = body.slice(0, eqIndex);
+        const value = body.slice(eqIndex + 1);
         if (name.length > 0 && /^[a-zA-Z0-9_-]+$/.test(name)) {
           // Empty value is allowed (--name= → "")
           flags.set(name, value);
@@ -156,12 +159,12 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
 
       // --name (with possible value as the next token)
       if (/^[a-zA-Z0-9_-]+$/.test(body)) {
-        const next = argv[i + 1];
+        const next = argv[index + 1];
         // A value is "the next token" if it exists AND does not start with `-`.
         // This handles both `--flag value` and `--flag` (boolean).
         if (next !== undefined && !next.startsWith("-")) {
           flags.set(body, next);
-          skippedValueIndex = i + 1;
+          skippedValueIndex = index + 1;
         } else {
           flags.set(body, true);
         }
@@ -173,11 +176,11 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
       // (the router can then emit "unknown subcommand"); otherwise it's
       // recorded as positional. This is a data-loss fix: previously
       // malformed flags with no subcommand were silently discarded.
-      if (!foundSubcommand) {
-        subcommand = arg;
-        foundSubcommand = true;
+      if (hasSubcommand) {
+        positional.push(argument);
       } else {
-        positional.push(arg);
+        subcommand = argument;
+        hasSubcommand = true;
       }
       continue;
     }
@@ -185,13 +188,13 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
     // Short flag: -x or -h. We only special-case -h → help. Other short
     // flags become positional so they aren't silently dropped (the router
     // can decide what to do with them).
-    if (arg === "-h") {
+    if (argument === "-h") {
       flags.set("help", true);
       continue;
     }
-    if (/^-[a-zA-Z]$/.test(arg)) {
+    if (/^-[a-zA-Z]$/.test(argument)) {
       // Single-char short flag (not -h). Record as the bare letter, no value.
-      const letter = arg.slice(1);
+      const letter = argument.slice(1);
       flags.set(letter, true);
       continue;
     }
@@ -200,11 +203,11 @@ export function parseArgv(argv: readonly string[]): ParsedArgs {
     // we never silently drop the arg: if we don't have a subcommand yet,
     // the bundled token BECOMES the subcommand; otherwise it's recorded
     // as positional.
-    if (!foundSubcommand) {
-      subcommand = arg;
-      foundSubcommand = true;
+    if (hasSubcommand) {
+      positional.push(argument);
     } else {
-      positional.push(arg);
+      subcommand = argument;
+      hasSubcommand = true;
     }
   }
 

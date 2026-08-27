@@ -2,8 +2,11 @@ import path from "node:path";
 
 import { Bot } from "../../bot/bot.js";
 import { ConfigError, loadBotConfig } from "../../config/index.js";
+import type { RuntimeRootResolution } from "../../config/runtime-root.js";
 import type { BotConfig } from "../../config/schema.js";
 import { CLI_COMMAND, type SubcommandHandler } from "../router.js";
+
+import { reportConfigPathFailure, resolveConfigPath, resolveDefaultRuntimeRoot } from "./config-path.js";
 
 function getConfigPath(flags: ReadonlyMap<string, string | boolean>): string | undefined {
   const value = flags.get("config");
@@ -15,12 +18,14 @@ const START_FLAG_NAMES = new Set(["color", "config", "help"]);
 export interface StartCommandDependencies {
   readonly loadConfig: (path: string | undefined) => BotConfig;
   readonly createBot: (config: BotConfig) => Pick<Bot, "start" | "stop">;
+  readonly resolveRuntimeRoot: () => RuntimeRootResolution;
   readonly run: (bot: Pick<Bot, "start" | "stop">, config: BotConfig) => Promise<number>;
 }
 
 const DEFAULT_START_COMMAND_DEPENDENCIES: StartCommandDependencies = {
   loadConfig: (path) => loadBotConfig(path),
   createBot: (config) => new Bot({ config }),
+  resolveRuntimeRoot: resolveDefaultRuntimeRoot,
   run: (bot, config) => runHeadless(bot, config),
 };
 
@@ -64,9 +69,22 @@ export function createStartCommand(overrides: Partial<StartCommandDependencies> 
       return 1;
     }
 
+    let explicitConfigPath: string | undefined;
+    try {
+      explicitConfigPath = getConfigPath(arguments_.flags);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Failed to load config: ${message}`);
+      return 1;
+    }
+    const configPathResolution = resolveConfigPath(explicitConfigPath, dependencies.resolveRuntimeRoot);
+    if (!configPathResolution.ok) {
+      reportConfigPathFailure(configPathResolution);
+      return 2;
+    }
     let config: BotConfig;
     try {
-      config = dependencies.loadConfig(getConfigPath(arguments_.flags));
+      config = dependencies.loadConfig(configPathResolution.configPath);
     } catch (error: unknown) {
       if (error instanceof ConfigError) {
         console.error("Config validation FAILED:");
@@ -144,7 +162,7 @@ function printStartHelp(): void {
     "Console output is redirected to <state_file>.log.",
     "",
     "Options:",
-    "  --config=<path>       TOML config file (optional; uses defaults if absent)",
+    "  --config=<path>       TOML config file (optional; otherwise MM_CRYPTO_BOT_RUNTIME_ROOT is required)",
     "  --no-color            Disable ANSI color codes",
     "  --help, -h            Show this help",
     "",

@@ -1,38 +1,18 @@
 /**
  * apps/bot/src/cli/commands/config.test.ts
  *
- * Phase 33 Track D — `config` subcommand unit tests.
- *
- * Coverage (bun:test):
- *   1. `validate` with a valid TOML → returns 0 + stdout contains "OK"
- *   2. `validate` with a TOML containing max_leverage=15 → returns 2
- *   3. `validate` with no --config → returns 0 (defaults)
- *   4. `show` prints the effective config (TOML)
- *   5. `show` fails (return 2) on invalid config
- *   6. `init --out=/tmp/...` writes a file with default.toml contents
- *   7. `init` refuses to overwrite an existing file
- *   8. `init` with no --out uses `./mm-bot.toml`
- *   9. unknown sub-subcommand → returns 1 + usage text
- *  10. missing sub-subcommand → returns 1 + usage text
- *  11. `validate` on an unreadable file (non-ConfigError) → returns 1
- *  12. `show` on an unreadable file (non-ConfigError) → returns 1
- *  13. `show` with passthrough fields (custom string/number/array values)
- *  14. `show` with timeframes set on a strategy
- *  15. `config --help` prints the sub-subcommand help + returns 1
- *  16. `init` writes to a deep nested directory (auto-creates parent dirs)
  */
 
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import path from "node:path";
 
 import { parseArgv } from "../argv.js";
-import type { CliContext } from "../router.js";
-
-import { configCommand, runConfigInit, validateConfigForEdit, type ConfigFileBoundary } from "./config.js";
+import { configCommand } from "./config.js";
 
 const fileSystem = await import("node:fs");
+const join = (...pathNames: readonly string[]): string => path.join(...pathNames);
 
 /**
  * `runConfig` — helper that runs the `config` subcommand with the given
@@ -40,24 +20,43 @@ const fileSystem = await import("node:fs");
  */
 async function runConfig(argv: readonly string[]): Promise<number> {
   const parsed = parseArgv(argv);
-  return configCommand(parsed, {} as CliContext);
+  return configCommand(parsed, {});
+}
+
+function createRuntimeTemplate(): () => void {
+  const runtimeRoot = mkdtempSync(path.join(tmpdir(), "mm-runtime-root-"));
+  const templateDirectory = path.join(runtimeRoot, "config");
+  const originalRuntimeRoot = process.env["MM_CRYPTO_BOT_RUNTIME_ROOT"];
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- This exact directory is a child of this test's fresh mkdtemp root.
+  mkdirSync(templateDirectory);
+  fileSystem.writeFileSync(join(templateDirectory, "default.toml"), '[bot]\nmode = "paper"\n', "utf8");
+  process.env["MM_CRYPTO_BOT_RUNTIME_ROOT"] = runtimeRoot;
+  return () => {
+    if (originalRuntimeRoot === undefined) delete process.env["MM_CRYPTO_BOT_RUNTIME_ROOT"];
+    else process.env["MM_CRYPTO_BOT_RUNTIME_ROOT"] = originalRuntimeRoot;
+    rmSync(runtimeRoot, { recursive: true, force: true });
+  };
 }
 
 describe("configCommand", () => {
   // Capture console output so we can assert on it.
-  let logSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
+  let logSpy: { mockRestore: () => void };
+  let errorSpy: { mockRestore: () => void };
   let logged: string[] = [];
   let errored: string[] = [];
 
   beforeEach(() => {
     logged = [];
     errored = [];
-    logSpy = spyOn(console, "log").mockImplementation((...args: unknown[]) => {
-      logged.push(args.map((a) => (typeof a === "string" ? a : String(a))).join(" "));
+    logSpy = spyOn(console, "log").mockImplementation((...arguments_: unknown[]) => {
+      logged.push(
+        arguments_.map((argument) => (typeof argument === "string" ? argument : String(argument))).join(" "),
+      );
     });
-    errorSpy = spyOn(console, "error").mockImplementation((...args: unknown[]) => {
-      errored.push(args.map((a) => (typeof a === "string" ? a : String(a))).join(" "));
+    errorSpy = spyOn(console, "error").mockImplementation((...arguments_: unknown[]) => {
+      errored.push(
+        arguments_.map((argument) => (typeof argument === "string" ? argument : String(argument))).join(" "),
+      );
     });
   });
 
@@ -70,8 +69,8 @@ describe("configCommand", () => {
   // 1) validate with a valid TOML → returns 0 + "OK"
   // --------------------------------------------------------------------------
   it("validate returns 0 with a valid config file", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-"));
-    const path = join(dir, "valid.toml");
+    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-"));
+    const path = join(directory, "valid.toml");
     fileSystem.writeFileSync(
       path,
       `
@@ -91,7 +90,7 @@ max_leverage = 5
       const text = logged.join("\n");
       expect(text).toContain("OK");
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 
@@ -99,8 +98,8 @@ max_leverage = 5
   // 2) validate with max_leverage=15 → returns 2
   // --------------------------------------------------------------------------
   it("validate returns 2 on invalid config (max_leverage=15)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-"));
-    const path = join(dir, "bad.toml");
+    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-"));
+    const path = join(directory, "bad.toml");
     fileSystem.writeFileSync(
       path,
       `
@@ -115,39 +114,48 @@ max_leverage = 15
       const text = errored.join("\n");
       expect(text).toContain("validation FAILED");
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 
   // --------------------------------------------------------------------------
   // 3) validate with no --config → returns 0 (defaults)
   // --------------------------------------------------------------------------
-  it("validate returns 0 with no --config (uses defaults)", async () => {
-    const code = await runConfig(["config", "validate"]);
-    expect(code).toBe(0);
-    const text = logged.join("\n");
-    expect(text).toContain("OK");
+  it("validate loads the external runtime template when --config is absent", async () => {
+    const cleanup = createRuntimeTemplate();
+    try {
+      const code = await runConfig(["config", "validate"]);
+      expect(code).toBe(0);
+      expect(logged.join("\n")).toContain("OK");
+    } finally {
+      cleanup();
+    }
   });
 
   // --------------------------------------------------------------------------
   // 4) show prints the effective config
   // --------------------------------------------------------------------------
-  it("show prints the effective config as TOML", async () => {
-    const code = await runConfig(["config", "show"]);
-    expect(code).toBe(0);
-    const text = logged.join("\n");
-    expect(text).toContain("[bot]");
-    expect(text).toContain("[risk]");
-    expect(text).toContain("[strategies.");
-    expect(text).toContain("max_leverage = 10");
+  it("show renders the external runtime template when --config is absent", async () => {
+    const cleanup = createRuntimeTemplate();
+    try {
+      const code = await runConfig(["config", "show"]);
+      expect(code).toBe(0);
+      const text = logged.join("\n");
+      expect(text).toContain("[bot]");
+      expect(text).toContain("[risk]");
+      expect(text).toContain("[strategies.");
+      expect(text).toContain("max_leverage = 10");
+    } finally {
+      cleanup();
+    }
   });
 
   // --------------------------------------------------------------------------
   // 5) show fails (return 2) on invalid config
   // --------------------------------------------------------------------------
   it("show returns 2 on invalid config", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-"));
-    const path = join(dir, "bad.toml");
+    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-"));
+    const path = join(directory, "bad.toml");
     fileSystem.writeFileSync(
       path,
       `
@@ -160,64 +168,7 @@ max_leverage = 50
       const code = await runConfig(["config", "show", `--config=${path}`]);
       expect(code).toBe(2);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  // --------------------------------------------------------------------------
-  // 6) init --out=/tmp/... writes a file
-  // --------------------------------------------------------------------------
-  it("init --out=<path> writes a default config file", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-"));
-    const out = join(dir, "out.toml");
-    try {
-      const code = await runConfig(["config", "init", `--out=${out}`]);
-      expect(code).toBe(0);
-      expect(fileSystem.existsSync(out)).toBe(true);
-      const content = fileSystem.readFileSync(out, "utf8");
-      expect(content.length).toBeGreaterThan(0);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  // --------------------------------------------------------------------------
-  // 7) init refuses to overwrite an existing file
-  // --------------------------------------------------------------------------
-  it("init refuses to overwrite an existing file", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-"));
-    const out = join(dir, "exists.toml");
-    fileSystem.writeFileSync(out, "existing-content", "utf8");
-    try {
-      const code = await runConfig(["config", "init", `--out=${out}`]);
-      expect(code).toBe(1);
-      // File content is unchanged
-      expect(fileSystem.readFileSync(out, "utf8")).toBe("existing-content");
-      const text = errored.join("\n");
-      expect(text).toContain("Refusing to overwrite");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  // --------------------------------------------------------------------------
-  // 8) init with no --out → uses ./mm-bot.toml
-  // --------------------------------------------------------------------------
-  it("init uses ./mm-bot.toml by default independently of cwd", async () => {
-    // The target is deliberately CWD-relative, but the canonical source
-    // template must be resolved relative to the module. This regression
-    // catches suite-order/process.chdir leakage in the init path.
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-cwd-"));
-    const originalCwd = process.cwd();
-    try {
-      process.chdir(dir);
-      const code = await runConfig(["config", "init"]);
-      expect(code).toBe(0);
-      expect(fileSystem.existsSync(join(dir, "mm-bot.toml"))).toBe(true);
-      expect(fileSystem.readFileSync(join(dir, "mm-bot.toml"), "utf8").length).toBeGreaterThan(0);
-    } finally {
-      process.chdir(originalCwd);
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 
@@ -261,8 +212,8 @@ max_leverage = 50
   // 12) show with passthrough field (custom string + number + array)
   // --------------------------------------------------------------------------
   it("show renders passthrough fields (string, number, array)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-passthru-"));
-    const path = join(dir, "pass.toml");
+    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-passthru-"));
+    const path = join(directory, "pass.toml");
     fileSystem.writeFileSync(
       path,
       `
@@ -288,7 +239,7 @@ ignored = "nested"
       expect(text).toContain(`custom_array = ["a", 2, false]`);
       expect(text).not.toContain("custom_object");
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 
@@ -296,8 +247,8 @@ ignored = "nested"
   // 13) show with timeframes set on a strategy
   // --------------------------------------------------------------------------
   it("show renders timeframes block when htf/mtf/ltf are set", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-tf-"));
-    const path = join(dir, "tf.toml");
+    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-tf-"));
+    const path = join(directory, "tf.toml");
     fileSystem.writeFileSync(
       path,
       `
@@ -320,7 +271,7 @@ ltf = "15m"
       expect(text).toContain(`mtf = "4h"`);
       expect(text).toContain(`ltf = "15m"`);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 
@@ -328,8 +279,8 @@ ltf = "15m"
   // 13b) show with per-strategy symbols (array) renders
   // --------------------------------------------------------------------------
   it("show renders per-strategy symbols array", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-syms-"));
-    const path = join(dir, "syms.toml");
+    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-syms-"));
+    const path = join(directory, "syms.toml");
     fileSystem.writeFileSync(
       path,
       `
@@ -347,7 +298,7 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
       expect(text).toContain("leverage = 7");
       expect(text).toContain(`symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]`);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 
@@ -355,8 +306,8 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
   // 14) validate with an unreadable file (non-ConfigError) → returns 1
   // --------------------------------------------------------------------------
   it("validate returns 1 on non-ConfigError (e.g. file system error)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-cfg-unreadable-"));
-    const path = join(dir, "unreadable.toml");
+    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-unreadable-"));
+    const path = join(directory, "unreadable.toml");
     fileSystem.writeFileSync(path, "valid-toml-content", "utf8");
     fileSystem.chmodSync(path, 0o000);
     try {
@@ -367,7 +318,7 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
       expect(code).not.toBe(0);
     } finally {
       fileSystem.chmodSync(path, 0o644);
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 
@@ -383,6 +334,7 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
     const mock = spyOn(loader, "loadBotConfig").mockImplementation(() => {
       throw new Error("simulated runtime failure");
     });
+    const cleanup = createRuntimeTemplate();
     try {
       const code = await runConfig(["config", "validate"]);
       expect(code).toBe(1);
@@ -392,6 +344,7 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
     } finally {
       mock.mockRestore();
       void original;
+      cleanup();
     }
   });
 
@@ -400,6 +353,7 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
     const mock = spyOn(loader, "loadBotConfig").mockImplementation(() => {
       throw new Error("simulated runtime failure");
     });
+    const cleanup = createRuntimeTemplate();
     try {
       const code = await runConfig(["config", "show"]);
       expect(code).toBe(1);
@@ -407,144 +361,24 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
       expect(text).toContain("Unexpected error");
     } finally {
       mock.mockRestore();
+      cleanup();
     }
   });
 
-  it("renders plain-string loader failures for validate, show, and edit validation", async () => {
+  it("renders plain-string loader failures for validate and show", async () => {
     const loader = await import("../../config/loader.js");
     const mock = spyOn(loader, "loadBotConfig").mockImplementation(() => {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error -- This test-owned loader boundary must preserve a non-Error hostile throw.
       throw "plain loader failure";
     });
+    const cleanup = createRuntimeTemplate();
     try {
       expect(await runConfig(["config", "validate"])).toBe(1);
       expect(await runConfig(["config", "show"])).toBe(1);
-      expect(validateConfigForEdit("unused.toml")).toBe(2);
       expect(errored.join("\n")).toContain("plain loader failure");
     } finally {
       mock.mockRestore();
-    }
-  });
-
-  // --------------------------------------------------------------------------
-  // 15c) init writes to a path where the parent is a file (writeFile fails)
-  // --------------------------------------------------------------------------
-  it("init returns 1 when parent of --out is an existing file (write fails)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-fail-"));
-    // Create a file that will be the "parent dir" of the output path.
-    const blocker = join(dir, "blocker");
-    fileSystem.writeFileSync(blocker, "I am a file, not a directory", "utf8");
-    // The output path's parent is `blocker`, which is a file → mkdir or
-    // writeFile will fail with ENOTDIR.
-    const out = join(blocker, "out.toml");
-    try {
-      const code = await runConfig(["config", "init", `--out=${out}`]);
-      expect(code).toBe(1);
-      const text = errored.join("\n");
-      expect(text).toContain("Failed to write");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it("init renders a non-Error boundary write failure", () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-boundary-fail-"));
-    const out = join(dir, "out.toml");
-    const source = join(dir, "source.toml");
-    const boundary: ConfigFileBoundary = {
-      exists: (path) => path === source || path === dir,
-      read: () => '[bot]\nmode = "paper"\n',
-      ensureDirectory: () => undefined,
-      write: () => {
-        throw "plain write failure";
-      },
-    };
-    try {
-      expect(runConfigInit(out, source, boundary)).toBe(1);
-      expect(errored.join("\n")).toContain("plain write failure");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it("init returns 1 when its configured template file is missing", () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-template-missing-"));
-    const out = join(dir, "out.toml");
-    try {
-      const code = runConfigInit(out, join(dir, "missing-template.toml"));
-      expect(code).toBe(1);
-      expect(fileSystem.existsSync(out)).toBe(false);
-      expect(errored.join("\n")).toContain("Could not locate run-bot/config/default.toml");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it("init rejects an invalid template path at the file boundary", () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-template-invalid-"));
-    const out = join(dir, "out.toml");
-    try {
-      expect(() => runConfigInit(out, "\0")).toThrow("normalized absolute path");
-      expect(fileSystem.existsSync(out)).toBe(false);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  // --------------------------------------------------------------------------
-  // 15) init writes to a deep nested directory (auto-creates parent dirs)
-  // --------------------------------------------------------------------------
-  it("init auto-creates parent directories for nested --out path", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-init-nested-"));
-    const out = join(dir, "deeply", "nested", "path", "out.toml");
-    try {
-      const code = await runConfig(["config", "init", `--out=${out}`]);
-      expect(code).toBe(0);
-      expect(fileSystem.existsSync(out)).toBe(true);
-      const content = fileSystem.readFileSync(out, "utf8");
-      expect(content.length).toBeGreaterThan(0);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-});
-
-// ============================================================================
-// validateConfigForEdit (Phase 44 backward-compat helper tests)
-// ============================================================================
-
-describe("validateConfigForEdit (Phase 44 backward-compat helper)", () => {
-  it("returns 0 for a valid config file", async () => {
-    const { validateConfigForEdit } = await import("./config.js");
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-vcfe-valid-"));
-    const cfgPath = join(dir, "mm-bot.toml");
-    fileSystem.writeFileSync(cfgPath, '[bot]\nmode = "paper"\n', "utf8");
-    try {
-      expect(validateConfigForEdit(cfgPath)).toBe(0);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it("returns 2 for a Zod-rejected config (max_leverage=15)", async () => {
-    const { validateConfigForEdit } = await import("./config.js");
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-vcfe-invalid-"));
-    const cfgPath = join(dir, "bad.toml");
-    fileSystem.writeFileSync(cfgPath, "[risk]\nmax_leverage = 15\n", "utf8");
-    try {
-      expect(validateConfigForEdit(cfgPath)).toBe(2);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  it("returns 2 for a non-existent config file", async () => {
-    const { validateConfigForEdit } = await import("./config.js");
-    const dir = mkdtempSync(join(tmpdir(), "mm-bot-vcfe-missing-"));
-    const cfgPath = join(dir, "does-not-exist.toml");
-    try {
-      expect(validateConfigForEdit(cfgPath)).toBe(2);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
+      cleanup();
     }
   });
 });

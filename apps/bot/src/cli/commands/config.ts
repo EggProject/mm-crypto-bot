@@ -8,11 +8,11 @@
  *   - `show`     — print the effective config (defaults + file + env merged)
  *                  as TOML. Useful for debugging "what did the bot actually
  *                  load?".
- *   - `init`     — write `run-bot/config/default.toml` to a target path.
+ *   - `init`     — write the runtime config template to a target path.
  *                  Default target is `./mm-bot.toml`. Useful for first-time
  *                  setup.
  *
- * Color usage (Phase 34 Track C):
+ * Color usage:
  *   - `validate` prints "OK" in green on success, "FAILED" in red on failure.
  *   - The "Refusing to overwrite" / file-write errors are red.
  *   - "Wrote <path>" success message is green.
@@ -26,22 +26,22 @@
  * No interactive prompts. CI-friendly.
  */
 
-import { dirname, resolve } from "node:path";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ConfigError, DEFAULT_BOT_CONFIG, loadBotConfig, type BotConfig } from "../../config/index.js";
+import { resolveRuntimeRootConfig, type RuntimeRootResolution } from "../../config/runtime-root.js";
 import { colorize } from "../color.js";
 import type { CliContext, SubcommandHandler } from "../router.js";
 
+import { reportConfigPathFailure, resolveConfigPath } from "./config-path.js";
+
 const fileSystem = await import("node:fs");
+const REPOSITORY_ROOT = fileURLToPath(new URL("../../../../../", import.meta.url));
 
-const DEFAULT_CONFIG_TEMPLATE = fileURLToPath(
-  new URL("../../../../../run-bot/config/default.toml", import.meta.url),
-);
-
-function assertResolvedFilePath(path: string): void {
-  if (path.length === 0 || path.includes("\0") || resolve(path) !== path) {
-    throw new Error(`Config file boundary requires a normalized absolute path: ${JSON.stringify(path)}`);
+function assertResolvedFilePath(filePath: string): void {
+  if (filePath.includes("\0") || path.resolve(filePath) !== filePath) {
+    throw new Error(`Config file boundary requires a normalized absolute path: ${JSON.stringify(filePath)}`);
   }
 }
 
@@ -53,21 +53,21 @@ export interface ConfigFileBoundary {
 }
 
 const configFileBoundary: ConfigFileBoundary = {
-  exists(path: string): boolean {
-    assertResolvedFilePath(path);
-    return fileSystem.existsSync(path);
+  exists(filePath: string): boolean {
+    assertResolvedFilePath(filePath);
+    return fileSystem.existsSync(filePath);
   },
-  read(path: string): string {
-    assertResolvedFilePath(path);
-    return fileSystem.readFileSync(path, "utf8");
+  read(filePath: string): string {
+    assertResolvedFilePath(filePath);
+    return fileSystem.readFileSync(filePath, "utf8");
   },
-  ensureDirectory(path: string): void {
-    assertResolvedFilePath(path);
-    fileSystem.mkdirSync(path, { recursive: true });
+  ensureDirectory(filePath: string): void {
+    assertResolvedFilePath(filePath);
+    fileSystem.mkdirSync(filePath, { recursive: true });
   },
-  write(path: string, contents: string): void {
-    assertResolvedFilePath(path);
-    fileSystem.writeFileSync(path, contents, "utf8");
+  write(filePath: string, contents: string): void {
+    assertResolvedFilePath(filePath);
+    fileSystem.writeFileSync(filePath, contents, "utf8");
   },
 };
 
@@ -82,8 +82,10 @@ const configFileBoundary: ConfigFileBoundary = {
  * wrote `--config` without a value). The latter is a user error, but we
  * fall back to the default rather than failing the whole command.
  */
-function getConfigPath(args: { readonly flags: ReadonlyMap<string, string | boolean> }): string | undefined {
-  const v = args.flags.get("config");
+function getConfigPath(arguments_: {
+  readonly flags: ReadonlyMap<string, string | boolean>;
+}): string | undefined {
+  const v = arguments_.flags.get("config");
   if (typeof v === "string" && v.length > 0) {
     return v;
   }
@@ -107,45 +109,33 @@ function getConfigPath(args: { readonly flags: ReadonlyMap<string, string | bool
  * so this is sufficient.
  */
 function formatToml(config: BotConfig): string {
-  const lines: string[] = [];
-  // Header
-  lines.push("# mm-crypto-bot config — emitted by the direct config show command");
-  lines.push("# Edit and re-run the direct config validate command to check.");
-  lines.push("");
-
-  // Section 1: bot
-  lines.push("[bot]");
-  lines.push(`mode = "${config.bot.mode}"`);
-  lines.push(`log_level = "${config.bot.log_level}"`);
-  lines.push(`state_file = "${config.bot.state_file}"`);
-  lines.push("");
-
-  // Section 2: exchange
-  lines.push("[exchange]");
-  lines.push(`id = "${config.exchange.id}"`);
-  lines.push(`rate_limit_ms = ${String(config.exchange.rate_limit_ms)}`);
-  lines.push(`sandbox = ${String(config.exchange.sandbox)}`);
-  lines.push("");
-
-  // Section 3: risk
-  lines.push("[risk]");
-  lines.push(`risk_per_trade = ${String(config.risk.risk_per_trade)}`);
-  lines.push(`kelly_fraction = ${String(config.risk.kelly_fraction)}`);
-  lines.push(`max_drawdown_pct = ${String(config.risk.max_drawdown_pct)}`);
-  lines.push(`max_positions = ${String(config.risk.max_positions)}`);
-  lines.push(`max_leverage = ${String(config.risk.max_leverage)}`);
-  lines.push("");
-
-  // Section 4: symbols
-  lines.push("[symbols]");
-  const symList = config.symbols.enabled.map((s) => `"${s}"`).join(", ");
-  lines.push(`enabled = [${symList}]`);
-  lines.push("");
-
-  // Section 5: strategies
+  const lines = [
+    "# mm-crypto-bot config — emitted by the direct config show command",
+    "# Edit and re-run the direct config validate command to check.",
+    "",
+    "[bot]",
+    `mode = "${config.bot.mode}"`,
+    `log_level = "${config.bot.log_level}"`,
+    `state_file = "${config.bot.state_file}"`,
+    "",
+    "[exchange]",
+    `id = "${config.exchange.id}"`,
+    `rate_limit_ms = ${String(config.exchange.rate_limit_ms)}`,
+    `sandbox = ${String(config.exchange.sandbox)}`,
+    "",
+    "[risk]",
+    `risk_per_trade = ${String(config.risk.risk_per_trade)}`,
+    `kelly_fraction = ${String(config.risk.kelly_fraction)}`,
+    `max_drawdown_pct = ${String(config.risk.max_drawdown_pct)}`,
+    `max_positions = ${String(config.risk.max_positions)}`,
+    `max_leverage = ${String(config.risk.max_leverage)}`,
+    "",
+    "[symbols]",
+    `enabled = [${config.symbols.enabled.map((symbol) => `"${symbol}"`).join(", ")}]`,
+    "",
+  ];
   for (const [name, section] of Object.entries(config.strategies)) {
-    lines.push(`[strategies.${name}]`);
-    lines.push(`enabled = ${String(section.enabled)}`);
+    lines.push(`[strategies.${name}]`, `enabled = ${String(section.enabled)}`);
     if (section.cap !== undefined) lines.push(`cap = ${String(section.cap)}`);
     if (section.leverage !== undefined) lines.push(`leverage = ${String(section.leverage)}`);
     if (section.symbols !== undefined) {
@@ -153,31 +143,35 @@ function formatToml(config: BotConfig): string {
       lines.push(`symbols = [${items}]`);
     }
     if (section.timeframes !== undefined) {
-      lines.push(`[strategies.${name}.timeframes]`);
-      lines.push(`htf = "${section.timeframes.htf}"`);
-      lines.push(`mtf = "${section.timeframes.mtf}"`);
-      lines.push(`ltf = "${section.timeframes.ltf}"`);
+      lines.push(
+        `[strategies.${name}.timeframes]`,
+        `htf = "${section.timeframes.htf}"`,
+        `mtf = "${section.timeframes.mtf}"`,
+        `ltf = "${section.timeframes.ltf}"`,
+      );
     }
 
     // Print schema passthrough fields without re-validating known typed fields.
     const knownKeys = new Set(["enabled", "cap", "leverage", "symbols", "timeframes"]);
     for (const [k, v] of Object.entries(section)) {
-      if (knownKeys.has(k)) continue;
-      if (typeof v === "string") lines.push(`${k} = "${v}"`);
-      else if (typeof v === "number" || typeof v === "boolean") lines.push(`${k} = ${String(v)}`);
-      else if (Array.isArray(v)) {
-        const items = v.map((item) => (typeof item === "string" ? `"${item}"` : String(item))).join(", ");
-        lines.push(`${k} = [${items}]`);
+      if (!knownKeys.has(k)) {
+        if (typeof v === "string") lines.push(`${k} = "${v}"`);
+        else if (typeof v === "number" || typeof v === "boolean") lines.push(`${k} = ${String(v)}`);
+        else if (Array.isArray(v)) {
+          const items = v.map((item) => (typeof item === "string" ? `"${item}"` : String(item))).join(", ");
+          lines.push(`${k} = [${items}]`);
+        }
       }
     }
     lines.push("");
   }
 
-  // Section 6: telemetry
-  lines.push("[telemetry]");
-  lines.push(`log_dir = "${config.telemetry.log_dir}"`);
-  lines.push(`metrics_interval_sec = ${String(config.telemetry.metrics_interval_sec)}`);
-  lines.push("");
+  lines.push(
+    "[telemetry]",
+    `log_dir = "${config.telemetry.log_dir}"`,
+    `metrics_interval_sec = ${String(config.telemetry.metrics_interval_sec)}`,
+    "",
+  );
 
   return lines.join("\n");
 }
@@ -192,35 +186,28 @@ function formatToml(config: BotConfig): string {
  * Returns 0 on success, 2 on validation failure, 1 on unexpected error.
  * Prints a one-line "OK" on success and the full error list on failure.
  */
-function runValidate(
-  configPath: string | undefined,
-  loadConfig: (path: string | undefined) => BotConfig,
-): number {
+function runValidate(configPath: string, loadConfig: (path: string | undefined) => BotConfig): number {
   try {
     const config = loadConfig(configPath);
     // Green "OK" — the success badge is the headline of `validate`.
     console.log(colorize("OK", "green"));
     // Optional: also print the source.
-    if (configPath !== undefined) {
-      console.log(`  config: ${configPath}`);
-    } else {
-      console.log("  config: <defaults>");
-    }
+    console.log(`  config: ${configPath}`);
     // Print a brief summary line so the user can see what loaded.
     console.log(
       `  mode: ${config.bot.mode}, exchange: ${config.exchange.id}, max_leverage: ${String(config.risk.max_leverage)}`,
     );
     void DEFAULT_BOT_CONFIG; // referenced for typecheck only
     return 0;
-  } catch (err: unknown) {
-    if (err instanceof ConfigError) {
+  } catch (error: unknown) {
+    if (error instanceof ConfigError) {
       // Red "FAILED" — the user wants the failure to stand out (CI logs,
       // piped output, etc). The detailed error follows on the next lines.
       console.error(colorize("Config validation FAILED:", "red"));
-      console.error(err.message);
+      console.error(error.message);
       return 2;
     }
-    const message = err instanceof Error ? err.message : String(err);
+    const message = error instanceof Error ? error.message : String(error);
     console.error(colorize(`Unexpected error during config validation: ${message}`, "red"));
     return 1;
   }
@@ -245,51 +232,15 @@ function runShow(
     const config = loadConfig(configPath);
     console.log(formatToml(config));
     return 0;
-  } catch (err: unknown) {
-    if (err instanceof ConfigError) {
+  } catch (error: unknown) {
+    if (error instanceof ConfigError) {
       console.error("Config validation FAILED:");
-      console.error(err.message);
+      console.error(error.message);
       return 2;
     }
-    const message = err instanceof Error ? err.message : String(err);
+    const message = error instanceof Error ? error.message : String(error);
     console.error(`Unexpected error: ${message}`);
     return 1;
-  }
-}
-
-// ============================================================================
-// Config validation helper
-// ============================================================================
-
-/**
- * `validateConfigForEdit` — a korábbi `runEdit` által használt validációs
- * helper. Phase 44-gyel a `runEdit` törlődött, de a helper EXPPORTÁLVA
- * maradt a backward-compat kedvéért (a külső scriptek / tesztek
- * hívhatják).
- *
- * Betölti a configot a `loadBotConfig` segítségével, és:
- *   - Sikeres validáció → 0
- *   - `ConfigError` (Zod-rejected / IO hiba) → 2 + hibaüzenet a stderr-re
- *
- * EXPORTÁLVA a backward-compat / tesztelhetőség kedvéért.
- */
-export function validateConfigForEdit(
-  target: string,
-  loadConfig: (path: string | undefined) => BotConfig = loadBotConfig,
-): number {
-  try {
-    loadConfig(target);
-    return 0;
-  } catch (err: unknown) {
-    // A `loadBotConfig` minden hibát `ConfigError`-ként csomagol —
-    // a catch blokk egyszerűsített (nincs if/else, csak az Error.message).
-    console.error(colorize("Config validation FAILED:", "red"));
-    // Az `err` típusa itt `unknown` — a `String(err)` az Error.message-t
-    // VAGY az objektum string-reprezentációját adja. A `try/catch` ág
-    // típus-szinten csak Error-t vár, de a TS `unknown` típusát a
-    // `String()` függvény elfogadja.
-    console.error(err instanceof Error ? err.message : String(err));
-    return 2;
   }
 }
 
@@ -300,24 +251,19 @@ export function validateConfigForEdit(
 /**
  * `runConfigInit` — direct `config init [--out=path]`.
  *
- * Writes a starter TOML config to the given path (default: `./mm-bot.toml`).
- * We do NOT have a separate "template" file — we reuse the canonical
- * `run-bot/config/default.toml` shipped in the repo. The primary path is
- * resolved relative to this module, so an unrelated `process.chdir()` cannot
- * make config generation fail. This way the user gets the production-default
- * starting point, with all the helpful comments.
+ * Writes a starter TOML config from the validated external runtime root to the
+ * given path (default: `./mm-bot.toml`).
  *
  * If the user passes `--out` to a path that already exists, we refuse to
  * overwrite (no `--force` to avoid silent data loss).
  */
 export function runConfigInit(
   outPath: string | undefined,
-  sourcePath: string = DEFAULT_CONFIG_TEMPLATE,
+  sourcePath: string,
   boundary: ConfigFileBoundary = configFileBoundary,
 ): number {
   const target = outPath ?? "./mm-bot.toml";
-  const resolvedTarget = resolve(target);
-  const resolvedSourcePath = resolve(sourcePath);
+  const resolvedTarget = path.resolve(target);
 
   if (boundary.exists(resolvedTarget)) {
     console.error(colorize(`Refusing to overwrite existing file: ${resolvedTarget}`, "red"));
@@ -325,26 +271,22 @@ export function runConfigInit(
     return 1;
   }
 
+  const resolvedSourcePath = path.resolve(sourcePath);
+
   if (!boundary.exists(resolvedSourcePath)) {
-    console.error(
-      colorize(
-        "Could not locate run-bot/config/default.toml. " +
-          "Run from the repo root (or pass --out and a TOML you have on hand).",
-        "red",
-      ),
-    );
+    console.error(colorize("Could not locate the runtime config template.", "red"));
     return 1;
   }
 
   const contents = boundary.read(resolvedSourcePath);
   try {
-    const dir = dirname(resolvedTarget);
-    if (!boundary.exists(dir)) {
-      boundary.ensureDirectory(dir);
+    const directory = path.dirname(resolvedTarget);
+    if (!boundary.exists(directory)) {
+      boundary.ensureDirectory(directory);
     }
     boundary.write(resolvedTarget, contents);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error(colorize(`Failed to write ${resolvedTarget}: ${message}`, "red"));
     return 1;
   }
@@ -377,19 +319,22 @@ export function runConfigInit(
  */
 export interface ConfigCommandDependencies {
   readonly loadConfig: (path: string | undefined) => BotConfig;
-  readonly initConfig: (outPath: string | undefined) => number;
+  readonly initConfig: (outPath: string | undefined, sourcePath: string) => number;
+  readonly resolveRuntimeRoot: () => RuntimeRootResolution;
 }
 
 const DEFAULT_CONFIG_COMMAND_DEPENDENCIES: ConfigCommandDependencies = {
   loadConfig: (path) => loadBotConfig(path),
-  initConfig: (outPath) => runConfigInit(outPath),
+  initConfig: (outPath, sourcePath) => runConfigInit(outPath, sourcePath),
+  resolveRuntimeRoot: () =>
+    resolveRuntimeRootConfig({ environment: process.env, repositoryRoot: REPOSITORY_ROOT }),
 };
 
 export function createConfigCommand(overrides: Partial<ConfigCommandDependencies> = {}): SubcommandHandler {
   const dependencies = { ...DEFAULT_CONFIG_COMMAND_DEPENDENCIES, ...overrides };
-  return async (args, _ctx: CliContext) => {
+  return async (arguments_, _context: CliContext) => {
     // Intercept --help / -h so we can print sub-subcommand help.
-    if (args.flags.get("help") === true) {
+    if (arguments_.flags.get("help") === true) {
       printConfigHelp();
       return 1;
     }
@@ -397,19 +342,31 @@ export function createConfigCommand(overrides: Partial<ConfigCommandDependencies
     // `require-await` rule). The Promise resolves immediately.
     await Promise.resolve();
 
-    const sub = args.positional[0];
-    const configPath = getConfigPath(args);
+    const sub = arguments_.positional[0];
+    const resolvedConfigPath = resolveConfigPath(getConfigPath(arguments_), dependencies.resolveRuntimeRoot);
 
     if (sub === "validate") {
-      return runValidate(configPath, dependencies.loadConfig);
+      if (!resolvedConfigPath.ok) {
+        reportConfigPathFailure(resolvedConfigPath);
+        return 2;
+      }
+      return runValidate(resolvedConfigPath.configPath, dependencies.loadConfig);
     }
     if (sub === "show") {
-      return runShow(configPath, dependencies.loadConfig);
+      if (!resolvedConfigPath.ok) {
+        reportConfigPathFailure(resolvedConfigPath);
+        return 2;
+      }
+      return runShow(resolvedConfigPath.configPath, dependencies.loadConfig);
     }
     if (sub === "init") {
-      const outRaw = args.flags.get("out");
+      if (!resolvedConfigPath.ok) {
+        reportConfigPathFailure(resolvedConfigPath);
+        return 2;
+      }
+      const outRaw = arguments_.flags.get("out");
       const out = typeof outRaw === "string" && outRaw.length > 0 ? outRaw : undefined;
-      return dependencies.initConfig(out);
+      return dependencies.initConfig(out, resolvedConfigPath.configPath);
     }
 
     // Unknown / missing sub-subcommand. Print usage.
@@ -445,7 +402,7 @@ function printConfigHelp(): void {
   console.error("  init       Write the default config to --out=<path> (default ./mm-bot.toml)");
   console.error("");
   console.error("Options:");
-  console.error("  --config=<path>   TOML config file (default: built-in defaults)");
+  console.error("  --config=<path>   TOML config file (default: external runtime template)");
   console.error("  --out=<path>      Output path for `init` (default: ./mm-bot.toml)");
   console.error("  --help, -h        Show this help");
 }

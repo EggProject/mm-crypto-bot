@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/router.ts
  *
- * Phase 33 Track D — `CliRouter` — a subcommand router for the bot application.
+ * `CliRouter` — a subcommand router for the bot application.
  *
  * The router owns a registry of `(name, description, handler)` triples and
  * dispatches the first positional arg of argv to the matching handler.
@@ -32,7 +32,7 @@
 
 import type { BotConfig } from "../config/index.js";
 
-import type { ParsedArgs } from "./argv.js";
+import type { ParsedArgs as ParsedArguments } from "./argv.js";
 import { parseArgv } from "./argv.js";
 
 export const CLI_COMMAND = "bun run apps/bot/src/index.ts";
@@ -44,23 +44,23 @@ export const CLI_COMMAND = "bun run apps/bot/src/index.ts";
 /**
  * `CliContext` — the context passed to every subcommand handler.
  *
- * Currently this is just the loaded `BotConfig` (resolved by the entry
- * point so handlers don't each repeat the `loadBotConfig(...)` boilerplate).
+ * Configuration is optional because the router does not load it. Handlers
+ * resolve configuration from their own parsed invocation when needed.
  *
  * Future fields: a shared logger, the StateStore (for handlers that
  * pre-load state), a feed instance, etc.
  */
 export interface CliContext {
-  readonly config: BotConfig;
+  readonly config?: BotConfig;
 }
 
 /**
  * `SubcommandHandler` — a subcommand's `async` entry point.
  *
- * Receives the parsed argv and a context with the loaded config. Returns
+ * Receives parsed argv and the shared values available at dispatch. Returns
  * the desired process exit code (0 = success).
  */
-export type SubcommandHandler = (args: ParsedArgs, ctx: CliContext) => Promise<number>;
+export type SubcommandHandler = (arguments_: ParsedArguments, context: CliContext) => Promise<number>;
 
 // ============================================================================
 // SubcommandEntry
@@ -75,6 +75,18 @@ interface SubcommandEntry {
   readonly name: string;
   readonly description: string;
   readonly handler: SubcommandHandler;
+}
+
+function orderEntries(entries: Iterable<SubcommandEntry>): readonly SubcommandEntry[] {
+  let ordered: readonly SubcommandEntry[] = [];
+  for (const entry of entries) {
+    const insertionIndex = ordered.findIndex((current) => current.name.localeCompare(entry.name) > 0);
+    ordered =
+      insertionIndex === -1
+        ? [...ordered, entry]
+        : [...ordered.slice(0, insertionIndex), entry, ...ordered.slice(insertionIndex)];
+  }
+  return ordered;
 }
 
 // ============================================================================
@@ -98,6 +110,18 @@ interface SubcommandEntry {
 export class CliRouter {
   private readonly entries = new Map<string, SubcommandEntry>();
   private programDescription = "mm-crypto-bot command-line interface";
+
+  /**
+   * `writeHelp` — write the help lines to stderr.
+   *
+   * Splitting the writer out makes it testable: tests can spy on
+   * `console.error` instead of capturing stdout.
+   */
+  private writeHelp(lines: readonly string[]): void {
+    for (const line of lines) {
+      console.error(line);
+    }
+  }
 
   // --------------------------------------------------------------------------
   // Registration
@@ -142,8 +166,8 @@ export class CliRouter {
    * network calls, etc). The function does NOT call `process.exit` — the
    * caller decides how to translate the return value to a process exit.
    */
-  public async run(argv: readonly string[]): Promise<number> {
-    const parsed = parseArgv(argv);
+  public async run(arguments_: readonly string[]): Promise<number> {
+    const parsed = parseArgv(arguments_);
 
     // No subcommand → print help + return 1.
     if (parsed.subcommand === "") {
@@ -181,17 +205,9 @@ export class CliRouter {
       return 1;
     }
 
-    // Build the context. We deliberately keep this minimal: each handler
-    // loads what it needs. Currently we don't have a config in the
-    // context because each handler calls `loadBotConfig` itself (to
-    // support different `--config` paths per invocation).
-    const ctx: CliContext = {
-      // The BotConfig shape is per-handler; we provide a minimal stub
-      // so the type system is happy. Handlers that need config will
-      // load it themselves via `loadBotConfig(args.flags.get("config"))`.
-      config: undefined as unknown as BotConfig,
-    };
-    return entry.handler(parsed, ctx);
+    // Each handler resolves configuration for its own invocation.
+    const context: CliContext = {};
+    return entry.handler(parsed, context);
   }
 
   // --------------------------------------------------------------------------
@@ -209,39 +225,35 @@ export class CliRouter {
    * stdout is piped to another command).
    */
   public printHelp(subcommand: string): void {
-    const lines: string[] = [];
-    lines.push(this.programDescription);
-    lines.push("");
+    const lines = [this.programDescription, ""];
     if (subcommand !== "") {
       const entry = this.entries.get(subcommand);
       if (entry !== undefined) {
-        lines.push(`Usage: ${CLI_COMMAND} ${entry.name} [--config=path] [--no-color] [--help]`);
-        lines.push("");
-        lines.push(`  ${entry.description}`);
-        lines.push("");
-        lines.push("Options:");
-        lines.push("  --config=<path>   TOML config file (optional; uses defaults if absent)");
-        lines.push("  --no-color        Disable ANSI color codes");
-        lines.push("  --help, -h        Show this help");
+        lines.push(
+          `Usage: ${CLI_COMMAND} ${entry.name} [--config=path] [--no-color] [--help]`,
+          "",
+          `  ${entry.description}`,
+          "",
+          "Options:",
+          "  --config=<path>   TOML config file (optional; requires an external runtime root if omitted)",
+          "  --no-color        Disable ANSI color codes",
+          "  --help, -h        Show this help",
+        );
         this.writeHelp(lines);
         return;
       }
       // Unknown subcommand while --help is set: fall through to global.
-      lines.push(`Unknown subcommand: "${subcommand}"`);
-      lines.push("");
+      lines.push(`Unknown subcommand: "${subcommand}"`, "");
     }
-    lines.push(`Usage: ${CLI_COMMAND} <subcommand> [options]`);
-    lines.push("");
-    lines.push("Subcommands:");
-    const sorted = [...this.entries.values()].sort((a, b) => a.name.localeCompare(b.name));
+    lines.push(`Usage: ${CLI_COMMAND} <subcommand> [options]`, "", "Subcommands:");
+    const sorted = orderEntries(this.entries.values());
     // Compute the max name length for alignment.
-    const nameWidth = Math.max(0, ...sorted.map((e) => e.name.length));
-    for (const e of sorted) {
-      const padded = e.name.padEnd(nameWidth, " ");
-      lines.push(`  ${padded}   ${e.description}`);
+    const nameWidth = Math.max(0, ...sorted.map((entry) => entry.name.length));
+    for (const entry of sorted) {
+      const padded = entry.name.padEnd(nameWidth, " ");
+      lines.push(`  ${padded}   ${entry.description}`);
     }
-    lines.push("");
-    lines.push(`Run \`${CLI_COMMAND} <subcommand> --help\` for subcommand-specific options.`);
+    lines.push("", `Run \`${CLI_COMMAND} <subcommand> --help\` for subcommand-specific options.`);
     this.writeHelp(lines);
   }
 
@@ -249,26 +261,11 @@ export class CliRouter {
    * `printUnknownSubcommand` — print an error + global help.
    */
   public printUnknownSubcommand(name: string): void {
-    const lines: string[] = [];
-    lines.push(`Unknown subcommand: "${name}"`);
-    lines.push("");
-    lines.push(`Run \`${CLI_COMMAND} --help\` for a list of subcommands.`);
+    const lines = [
+      `Unknown subcommand: "${name}"`,
+      "",
+      `Run \`${CLI_COMMAND} --help\` for a list of subcommands.`,
+    ];
     this.writeHelp(lines);
-  }
-
-  // --------------------------------------------------------------------------
-  // Internals
-  // --------------------------------------------------------------------------
-
-  /**
-   * `writeHelp` — write the help lines to stderr.
-   *
-   * Splitting the writer out makes it testable: tests can spy on
-   * `console.error` instead of capturing stdout.
-   */
-  private writeHelp(lines: readonly string[]): void {
-    for (const line of lines) {
-      console.error(line);
-    }
   }
 }

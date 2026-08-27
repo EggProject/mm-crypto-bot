@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/commands/strategies.ts
  *
- * Phase 33 Track D + Phase 34 Track C — the direct `strategies` command.
+ * Direct `strategies` command.
  *
  * Lists the strategies configured in the bot config, with their on/off
  * state and per-strategy overrides. Useful for "what is this bot actually
@@ -12,7 +12,7 @@
  * startup. A separate direct `kill-switches` command shows the runtime state of
  * the kill-switches.
  *
- * Color usage (Phase 34 Track C):
+ * Color usage:
  *   - `ON`  → green (the strategy is contributing to the bot's behavior)
  *   - `OFF` → dim  (the strategy is loaded but disabled; no risk surface)
  *
@@ -20,8 +20,12 @@
  */
 
 import { ConfigError, loadBotConfig } from "../../config/index.js";
+import type { BotConfig } from "../../config/schema.js";
+import type { RuntimeRootResolution } from "../../config/runtime-root.js";
 import { colorize } from "../color.js";
 import type { SubcommandHandler } from "../router.js";
+
+import { reportConfigPathFailure, resolveConfigPath, resolveDefaultRuntimeRoot } from "./config-path.js";
 
 /**
  * `getConfigPath` — pull the `--config=path` flag, or `undefined`.
@@ -37,19 +41,17 @@ function getConfigPath(flags: ReadonlyMap<string, string | boolean>): string | u
 /**
  * `formatStrategySection` — pretty-print a per-strategy section.
  *
- * Phase 34 Track C: the `ON` / `OFF` badge is colorized. The `[` / `]`
+ * The `ON` / `OFF` badge is colorized. The `[` / `]`
  * brackets stay plain so the column starts at a known position even
  * when color is on (ANSI codes are zero-width in the terminal).
  */
-function formatStrategySection(name: string, section: Record<string, unknown>, enabled: boolean): string {
-  const stateLabel = enabled ? "ON " : "OFF";
-  const stateColored = enabled ? colorize(stateLabel, "green") : colorize(stateLabel, "dim");
-  const lines: string[] = [];
-  lines.push(`  [${stateColored}] ${name}`);
-  for (const [k, v] of Object.entries(section)) {
+function formatStrategySection(name: string, section: Record<string, unknown>, isEnabled: boolean): string {
+  const stateLabel = isEnabled ? "ON " : "OFF";
+  const stateColor = isEnabled ? "green" : "dim";
+  const lines = [`  [${colorize(stateLabel, stateColor)}] ${name}`];
+  for (const [k, value] of Object.entries(section)) {
     if (k === "enabled") continue;
-    if (v === undefined) continue;
-    lines.push(`    ${k} = ${formatValue(v)}`);
+    lines.push(`    ${k} = ${formatValue(value)}`);
   }
   return lines.join("\n");
 }
@@ -57,53 +59,79 @@ function formatStrategySection(name: string, section: Record<string, unknown>, e
 /**
  * `formatValue` — best-effort TOML-ish value rendering for the section table.
  */
-function formatValue(v: unknown): string {
-  if (typeof v === "string") return `"${v}"`;
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  if (Array.isArray(v)) {
-    return "[" + v.map((x) => (typeof x === "string" ? `"${x}"` : String(x))).join(", ") + "]";
+function formatValue(value: unknown): string {
+  if (typeof value === "string") return `"${value}"`;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return (
+      "[" + value.map((item) => (typeof item === "string" ? `"${item}"` : String(item))).join(", ") + "]"
+    );
   }
-  if (typeof v === "object" && v !== null) {
+  if (typeof value === "object" && value !== null) {
     // Inline nested object (e.g. timeframes).
-    const entries = Object.entries(v as Record<string, unknown>)
-      .filter(([, val]) => val !== undefined)
-      .map(([k2, val]) => `${k2} = ${formatValue(val)}`)
+    const entries = Object.entries(value)
+      .filter(([, nestedValue]) => nestedValue !== undefined)
+      .map(([nestedKey, nestedValue]) => `${nestedKey} = ${formatValue(nestedValue)}`)
       .join(", ");
     return `{ ${entries} }`;
   }
-  return String(v);
+  return String(value);
 }
 
 /**
  * `strategiesCommand` — the direct `strategies` handler.
  */
-export const strategiesCommand: SubcommandHandler = async (args) => {
-  await Promise.resolve();
-  const configPath = getConfigPath(args.flags);
+export interface StrategiesCommandDependencies {
+  readonly loadConfig: (path: string | undefined) => BotConfig;
+  readonly resolveRuntimeRoot: () => RuntimeRootResolution;
+}
 
-  let config;
-  try {
-    config = loadBotConfig(configPath);
-  } catch (err: unknown) {
-    if (err instanceof ConfigError) {
-      console.error("Config validation FAILED:");
-      console.error(err.message);
+const DEFAULT_STRATEGIES_COMMAND_DEPENDENCIES: StrategiesCommandDependencies = {
+  loadConfig: (configPath) => loadBotConfig(configPath),
+  resolveRuntimeRoot: resolveDefaultRuntimeRoot,
+};
+
+export function createStrategiesCommand(
+  overrides: Partial<StrategiesCommandDependencies> = {},
+): SubcommandHandler {
+  const dependencies = { ...DEFAULT_STRATEGIES_COMMAND_DEPENDENCIES, ...overrides };
+  return async (arguments_) => {
+    await Promise.resolve();
+    const configPathResolution = resolveConfigPath(
+      getConfigPath(arguments_.flags),
+      dependencies.resolveRuntimeRoot,
+    );
+    if (!configPathResolution.ok) {
+      reportConfigPathFailure(configPathResolution);
       return 2;
     }
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`Failed to load config: ${message}`);
-    return 1;
-  }
 
-  const enabledCount = Object.values(config.strategies).filter((s) => s.enabled).length;
-  const totalCount = Object.keys(config.strategies).length;
+    let config;
+    try {
+      config = dependencies.loadConfig(configPathResolution.configPath);
+    } catch (error: unknown) {
+      if (error instanceof ConfigError) {
+        console.error("Config validation FAILED:");
+        console.error(error.message);
+        return 2;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Failed to load config: ${message}`);
+      return 1;
+    }
 
-  console.log(`Strategies: ${String(enabledCount)} of ${String(totalCount)} enabled`);
-  console.log("");
+    const enabledCount = Object.values(config.strategies).filter((s) => s.enabled).length;
+    const totalCount = Object.keys(config.strategies).length;
 
-  for (const [name, section] of Object.entries(config.strategies)) {
-    console.log(formatStrategySection(name, section, section.enabled));
-  }
+    console.log(`Strategies: ${String(enabledCount)} of ${String(totalCount)} enabled`);
+    console.log("");
 
-  return 0;
-};
+    for (const [name, section] of Object.entries(config.strategies)) {
+      console.log(formatStrategySection(name, section, section.enabled));
+    }
+
+    return 0;
+  };
+}
+
+export const strategiesCommand = createStrategiesCommand();
