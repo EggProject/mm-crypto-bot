@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { ESLint } from "eslint";
 import path from "node:path";
 import { getParsedCommandLineOfConfigFile, sys } from "typescript";
-import type { ParseConfigHost } from "typescript";
+import type { ParseConfigFileHost } from "typescript";
 
 const botLintProject = "./apps/bot/tsconfig.eslint.json";
 const representativeBotTest = "apps/bot/src/cli/commands/config.test.ts";
@@ -39,8 +39,11 @@ const eslint = new ESLint({
   overrideConfigFile: "eslint.config.js",
 });
 
+const isRecord = (candidate: unknown): candidate is Readonly<Record<string, unknown>> =>
+  typeof candidate === "object" && candidate !== null && !Array.isArray(candidate);
+
 const asRecord = (candidate: unknown, label: string): Readonly<Record<string, unknown>> => {
-  if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
+  if (!isRecord(candidate)) {
     throw new Error(`Expected ${label} to be an object`);
   }
 
@@ -65,7 +68,7 @@ const asStringArray = (candidate: unknown, label: string): readonly string[] => 
 };
 
 const parseProject = (projectPath: string) => {
-  const host: ParseConfigHost = {
+  const host: ParseConfigFileHost = {
     ...sys,
     onUnRecoverableConfigFileDiagnostic: () => {
       throw new Error(`TypeScript project is unreadable: ${projectPath}`);
@@ -86,14 +89,14 @@ const parseProject = (projectPath: string) => {
 const expectDedicatedTestProject = async (testPath: string): Promise<void> => {
   const effectiveConfig: unknown = await eslint.calculateConfigForFile(testPath);
   const languageOptions = asRecord(
-    asRecord(effectiveConfig, "effective ESLint config").languageOptions,
+    asRecord(effectiveConfig, "effective ESLint config")["languageOptions"],
     "language options",
   );
-  const parserOptions = asRecord(languageOptions.parserOptions, "parser options");
+  const parserOptions = asRecord(languageOptions["parserOptions"], "parser options");
 
-  expect(parserOptions.project).toBe(botLintProject);
-  expect(parserOptions.projectService).toBe(false);
-  expect(parserOptions.allowDefaultProject).toBeUndefined();
+  expect(parserOptions["project"]).toBe(botLintProject);
+  expect(parserOptions["projectService"]).toBe(false);
+  expect(parserOptions["allowDefaultProject"]).toBeUndefined();
 };
 
 const expectBotBuildTestBoundary = (
@@ -127,7 +130,7 @@ test("the bot test lint project includes every test without joining an emitting 
   const buildProject = parseProject(botBuildProject);
   const buildConfig: unknown = JSON.parse(await Bun.file(path.resolve(repoRoot, botBuildProject)).text());
   const buildExcludes = asStringArray(
-    asRecord(buildConfig, "bot build config").exclude,
+    asRecord(buildConfig, "bot build config")["exclude"],
     "bot build excludes",
   );
   const testPaths = botTestPatterns
@@ -159,5 +162,5 @@ test("a representative bot test has no fatal typed-lint parsing failure", async 
     throw new Error(`Expected ESLint result for ${representativeBotTest}`);
   }
 
-  expect(asRecord(result, "ESLint result").fatalErrorCount).toBe(0);
+  expect(asRecord(result, "ESLint result")["fatalErrorCount"]).toBe(0);
 });
