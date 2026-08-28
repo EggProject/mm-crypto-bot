@@ -13,4 +13,9 @@ describe("numeric public API", () => {
     await expect(import("@mm-crypto-bot/numeric")).resolves.toHaveProperty("canonicalizeExternalDecimal");
     await expect(import(internalSubpath)).rejects.toThrow();
   });
+
+  it("exports selected leverage only from the package root", async () => {
+    expect(numeric.SelectedLeverage.parse("2.5").canonical).toBe("2.5");
+    await expect(import("@mm-crypto-bot/numeric")).resolves.toHaveProperty("SelectedLeverage");
+  });
 });

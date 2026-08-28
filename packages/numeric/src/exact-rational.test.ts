@@ -32,6 +32,10 @@ function fakeObjectConstructor(): string {
   return "not native";
 }
 
+function forgedExactRationalConstructor(_parts: unknown): object {
+  return Object.freeze({});
+}
+
 function createNullPrototypeObject(): object {
   const nullPrototype = Reflect.getPrototypeOf(Object.prototype);
   if (nullPrototype !== null) {
@@ -439,5 +443,49 @@ describe("ExactRational arithmetic and conversion boundary", () => {
     } finally {
       toStringSpy.mockRestore();
     }
+  });
+
+  it("constructs authentic values through static methods even with forged receivers", () => {
+    const forgedFromReceiver = { fromParts: () => Object.freeze({}) };
+
+    const fromResult = ExactRational.from.apply(forgedFromReceiver, ["1"]);
+    const fromPartsResult = ExactRational.fromParts.apply(forgedExactRationalConstructor, [1n, 1n]);
+
+    expect(fromResult).toBeInstanceOf(ExactRational);
+    expect(fromResult.toSnapshot()).toMatchObject({ denominator: "1", numerator: "1" });
+    expect(fromPartsResult).toBeInstanceOf(ExactRational);
+    expect(fromPartsResult.toSnapshot()).toMatchObject({ denominator: "1", numerator: "1" });
+    expectExactNumericError(
+      () => Reflect.construct(ExactRational, [{ denominator: 0n, numerator: 0n }]),
+      "INVALID_RATIONAL",
+    );
+  });
+
+  it("freezes the exact rational constructor and prototype runtime surface", () => {
+    const rational = ExactRational.from("2");
+
+    expect(Reflect.set(ExactRational, "from", () => Object.freeze({}))).toBe(false);
+    expect(Reflect.set(ExactRational, "fromParts", () => Object.freeze({}))).toBe(false);
+    expect(Reflect.set(ExactRational, "prototype", {})).toBe(false);
+    expect(Reflect.defineProperty(ExactRational, "from", { value: () => Object.freeze({}) })).toBe(false);
+    expect(Reflect.defineProperty(ExactRational, "fromParts", { value: () => Object.freeze({}) })).toBe(
+      false,
+    );
+    expect(Reflect.defineProperty(ExactRational, "prototype", { value: {} })).toBe(false);
+    expect(Reflect.set(ExactRational.prototype, "constructor", () => Object.freeze({}))).toBe(false);
+    expect(
+      Reflect.defineProperty(ExactRational.prototype, "constructor", { value: () => Object.freeze({}) }),
+    ).toBe(false);
+
+    for (const operation of ["add", "subtract", "multiply", "divide", "compare"] as const) {
+      expect(Reflect.set(ExactRational.prototype, operation, () => "blocked")).toBe(false);
+      expect(Reflect.defineProperty(ExactRational.prototype, operation, { value: () => "blocked" })).toBe(
+        false,
+      );
+    }
+
+    expect(Object.isFrozen(ExactRational)).toBe(true);
+    expect(Object.isFrozen(ExactRational.prototype)).toBe(true);
+    expect(rational.compare(ExactRational.from("1"))).toBe(1);
   });
 });

@@ -4,3 +4,4 @@ export type { ExactNumericErrorCode } from "./errors.js";
 export { assertExactMultiple, assertNonNegativeExactMultiple, isExactMultiple } from "./exact-step.js";
 export { ExactRational } from "./exact-rational.js";
 export type { ExactRationalSnapshot } from "./exact-rational.js";
+export { SelectedLeverage } from "./selected-leverage.js";
