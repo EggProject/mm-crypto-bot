@@ -42,12 +42,8 @@
     "types": ["bun-types"],
     "ignoreDeprecations": "6.0",
 
-    /* === Phase 66: TEST-ONLY path alias ===
-       A `MockExchangeFeed` osztály a `packages/exchange/src/__testing__/mockFeed.ts`-
-       be került (production surface-ről leválasztva, lásd PHASE 66 ENFORCEMENT
-       blokk). A tesztek ezen az alias-on keresztül érik el — így a relative
-       path (`../../../../packages/exchange/src/__testing__/mockFeed`) NEM
-       kell mindenhol karbantartani. */
+    /* === Test-only path aliases ===
+       Keep test support imports stable without repeating long relative paths. */
     "baseUrl": ".",
     "paths": {
       "@exchange-testing/*": ["packages/exchange/src/__testing__/*"],
