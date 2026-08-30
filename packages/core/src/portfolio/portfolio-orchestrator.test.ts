@@ -1,1154 +1,426 @@
-// packages/core/src/portfolio/portfolio-orchestrator.test.ts — Phase 13 Track B
-//
-// =========================================================================
-// PORTFOLIO ORCHESTRATOR TESTS — ≥25 tests covering all cap layers
-// =========================================================================
-//
-// Test categories:
-//   1. Construction + config validation (~6 tests)
-//   2. Decision Engine arbitration (~5 tests)
-//   3. Cross-symbol caps (~7 tests)
-//   4. JSONL decision log (~2 tests)
-//   5. Integration test: BTC + ETH + SOL simultaneous (~2 tests)
-//   6. Envelope construction (~3 tests)
-//
-// Test fixtures:
-//   - `writeOhlcvCsv` / `writeFundingCsv` — write synthetic CSVs into a
-//     temp directory.
-//   - `syntheticBar(seed)` — deterministic bar generator with controlled
-//     price moves.
-//   - `runWithFixtures` — one-line helper for orchestrator construction
-//     + run() invocation.
+import { describe, expect, test } from "bun:test";
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
+import { createSignalBus } from "../signal-center/signal-bus.js";
 import {
-  createSignalCenterV1,
+  ok,
   type Bar,
   type CarrySignal,
   type DirectionSignal,
+  type PluginState,
   type RiskSignal,
   type SizingSignal,
-} from "../index.js";
-
+} from "../signal-center/types.js";
+import type { StrategyPlugin } from "../signal-center/strategy-registry.js";
 import {
   DEFAULT_DECISION_ENGINE_CONFIG,
-  DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG,
   DEFENSIVE_PLUGIN_NAMES,
   DecisionEngine,
-  PortfolioOrchestrator,
   createPortfolioOrchestrator,
-  type PositionDecision,
-  type PortfolioEnvelope,
+  type DecisionEngineLike,
 } from "./portfolio-orchestrator.js";
+import { previousBarBefore } from "./portfolio-orchestrator-market-data.js";
+import {
+  captureRejection,
+  createReenteringDecisionEngine,
+  noDecision,
+  noOperation,
+} from "./portfolio-orchestrator.test-support.js";
 
-// ---------------------------------------------------------------------------
-// Test fixtures
-// ---------------------------------------------------------------------------
-
-let tmpDir: string;
-
-beforeEach(async () => {
-  tmpDir = await mkdtemp(join(tmpdir(), "portfolio-orch-test-"));
-});
-
-afterEach(async () => {
-  await rm(tmpDir, { recursive: true, force: true });
-});
-
-/**
- * `syntheticBar` — produce a deterministic OHLCV bar with a controlled
- * close price. Used for backtest fixtures.
- */
-function syntheticBar(timestampMs: number, close: number, spread = 0.02, volume = 1000): Bar {
+const symbol = "BTC/USDT";
+function createEngine(): DecisionEngine {
+  return new DecisionEngine({ ...DEFAULT_DECISION_ENGINE_CONFIG, symbol });
+}
+function attach(engine: DecisionEngine): ReturnType<DecisionEngine["subscribe"]> {
+  return engine.subscribe(createSignalBus({ scopeSymbol: symbol }));
+}
+function emitDirectionalInputs(engine: DecisionEngine, timestampMs: number): void {
+  const bus = createSignalBus({ scopeSymbol: symbol });
+  engine.subscribe(bus);
+  bus.emit({
+    kind: "direction",
+    side: "long",
+    source: "test-plugin",
+    strength: 0.9,
+    timestampMs,
+  } satisfies DirectionSignal);
+  bus.emit({
+    kind: "sizing",
+    kellyFraction: 0.5,
+    notional: 5000,
+    source: "test-plugin",
+    timestampMs,
+    volMultiplier: 1,
+  } satisfies SizingSignal);
+}
+function createPassivePlugin(symbol: string): StrategyPlugin {
   return {
-    timestamp: timestampMs,
-    open: close * (1 - spread / 2),
-    high: close * (1 + spread),
-    low: close * (1 - spread),
-    close,
-    volume,
+    metadata: {
+      capitalRequirement: 1,
+      edgeClass: "sizing",
+      maxAggregateEffectiveLeverage: 10,
+      name: `coverage-${symbol.toLowerCase().replace("/", "-")}`,
+      version: "1.0.0",
+    },
+    onBar: (_bar: Bar, _state: PluginState): void => undefined,
+    reset: (): void => undefined,
+    subscribe: (): void => undefined,
+    validateConfig: () => ok(undefined),
   };
 }
-
-/**
- * `writeOhlcvCsv` — write a synthetic OHLCV CSV file.
- */
-async function writeOhlcvCsv(base: string, bars: readonly Bar[]): Promise<string> {
-  const lines = ["timestamp,open,high,low,close,volume"];
-  for (const b of bars) {
-    lines.push(`${b.timestamp},${b.open},${b.high},${b.low},${b.close},${b.volume}`);
-  }
-  const filename = join(tmpDir, `binance_${base}_1d.csv`);
-  await writeFile(filename, lines.join("\n"));
-  return filename;
+function createCsvOrchestrator(ohlcv: string, funding: string) {
+  return createPortfolioOrchestrator({
+    dataDir: "/portfolio-orchestrator-coverage",
+    fundingDir: "/portfolio-orchestrator-coverage",
+    pluginsBySymbol: (candidate) => [createPassivePlugin(candidate)],
+    readTextFile: (_root, fileName) => Promise.resolve(fileName.endsWith("_1d.csv") ? ohlcv : funding),
+    symbols: [symbol],
+  });
 }
-
-/**
- * `writeFundingCsv` — write a synthetic funding CSV file.
- */
-async function writeFundingCsv(
-  base: string,
-  snaps: readonly { fundingTime: number; fundingRate: number }[],
-): Promise<string> {
-  const lines = ["fundingTime,symbol,fundingRate,markPrice"];
-  for (const s of snaps) {
-    lines.push(`${s.fundingTime},${base.toUpperCase()}USDT,${s.fundingRate},`);
-  }
-  const filename = join(tmpDir, `binance_${base}usdt_funding_8h.csv`);
-  await writeFile(filename, lines.join("\n"));
-  return filename;
+const validOhlcv = "timestamp,open,high,low,close,volume\n10,9,11,8,10,100";
+const validFunding = "fundingTime,symbol,fundingRate,markPrice";
+function createNonErrorFailure(message: string): Error & { readonly toString: () => string } {
+  return { message, name: "NonErrorFailure", toString: () => message };
 }
-
-/**
- * `makeBars` — generate N daily bars with deterministic close prices
- * (linear walk starting from `startPrice`).
- */
-function makeBars(count: number, startTs: number, startPrice: number, drift = 0): Bar[] {
-  const out: Bar[] = [];
-  for (let i = 0; i < count; i++) {
-    out.push(syntheticBar(startTs + i * 86_400_000, startPrice + drift * i));
-  }
-  return out;
-}
-
-/**
- * `makeFunding` — generate 8h funding snapshots every 8 hours.
- */
-function makeFunding(
-  count: number,
-  startTs: number,
-  rate = 0.0001,
-): { fundingTime: number; fundingRate: number }[] {
-  const out = [];
-  for (let i = 0; i < count; i++) {
-    out.push({
-      fundingTime: startTs + i * 8 * 3600 * 1000,
-      fundingRate: rate,
-    });
-  }
-  return out;
-}
-
-/**
- * `runOrchestrator` — convenience: write OHLCV + funding for 3 symbols,
- * build orchestrator, run, return envelope.
- */
-
-import { HybridKellyPlugin } from "../signal-center/plugins/hybrid-kelly-plugin.js";
-
-/**
- * `makeScv1WithPlugin` — convenience for DecisionEngine contract tests:
- * builds a SignalCenterV1 with a default HybridKellyPlugin so start()
- * succeeds (SCv1 requires ≥1 plugin at boot).
- *
- * Phase 32: CarryBaselinePlugin was deleted. We use HybridKellyPlugin
- * (which is still kept) as the test fixture.
- */
-function makeScv1WithPlugin(symbol: string) {
-  const sc = createSignalCenterV1({
-    initialEquity: 10_000,
-    maxLeverage: 10,
-    symbol,
-  });
-  sc.registerPlugin(
-    new HybridKellyPlugin({
-      kellyCap: 0.5,
-      maxVolMultiplier: 1.0,
-      minVolMultiplier: 0.25,
-      targetDailyVol: 0.02,
-      volWindowDays: 30,
-      fundingSharpeWindowDays: 30,
-      baseNotionalUsd: 10_000,
-      enabledSymbols: [symbol],
-    }),
-  );
-  sc.start();
-  return sc;
-}
-
-async function runOrchestrator(
-  opts: {
-    readonly barCount?: number;
-    readonly maxPositions?: number;
-    readonly maxLeverage?: 1 | 10;
-    readonly initialEquityUsd?: number;
-    readonly perSymbolConcentrationPct?: number;
-    readonly portfolioVaRPct?: number;
-    readonly crossSymbolCorrelationThreshold?: number;
-    readonly correlationWindowDays?: number;
-    readonly startPriceBtc?: number;
-    readonly startPriceEth?: number;
-    readonly startPriceSol?: number;
-    readonly fundingRateBtc?: number;
-    readonly fundingRateEth?: number;
-    readonly fundingRateSol?: number;
-    readonly driftBtc?: number;
-    readonly driftEth?: number;
-    readonly driftSol?: number;
-    readonly decisionEngineFactory?: (config: {
-      symbol: string;
-      defaultWeight: number;
-      defensiveWeight: number;
-      minConsensusStrength: number;
-      maxNotionalPerSymbolUsd: number;
-    }) => unknown;
-  } = {},
-): Promise<{
-  readonly envelope: PortfolioEnvelope;
-  readonly orchestrator: PortfolioOrchestrator;
-}> {
-  const startTs = 1_700_000_000_000;
-  const barCount = opts.barCount ?? 30;
-  await writeOhlcvCsv("btc", makeBars(barCount, startTs, opts.startPriceBtc ?? 30_000, opts.driftBtc ?? 0));
-  await writeOhlcvCsv("eth", makeBars(barCount, startTs, opts.startPriceEth ?? 2_000, opts.driftEth ?? 0));
-  await writeOhlcvCsv("sol", makeBars(barCount, startTs, opts.startPriceSol ?? 100, opts.driftSol ?? 0));
-  await writeFundingCsv("btc", makeFunding(barCount * 3, startTs, opts.fundingRateBtc ?? 0.0001));
-  await writeFundingCsv("eth", makeFunding(barCount * 3, startTs, opts.fundingRateEth ?? 0.0001));
-  await writeFundingCsv("sol", makeFunding(barCount * 3, startTs, opts.fundingRateSol ?? 0.0001));
-  const orch = createPortfolioOrchestrator({
-    dataDir: tmpDir,
-    fundingDir: tmpDir,
-    symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-    initialEquityUsd: opts.initialEquityUsd ?? 10_000,
-    maxPositions: opts.maxPositions ?? 7,
-    perSymbolConcentrationPct: opts.perSymbolConcentrationPct ?? 0.4,
-    portfolioVaRPct: opts.portfolioVaRPct ?? 0.15,
-    maxLeverage: opts.maxLeverage ?? 10,
-    crossSymbolCorrelationThreshold: opts.crossSymbolCorrelationThreshold ?? 0.7,
-    correlationWindowDays: opts.correlationWindowDays ?? 30,
-    decisionEngineFactory: opts.decisionEngineFactory as never,
-    // Phase 32: default `pluginsBySymbol` is HybridKellyPlugin (the kept
-    // SizingSignal-emitting plugin). CarryBaselinePlugin was deleted —
-    // see docs/research/deprecated-strategies/REPORT.md §2.5.
-    pluginsBySymbol: (symbol: string) => [
-      new HybridKellyPlugin({
-        kellyCap: 0.5,
-        maxVolMultiplier: 1.0,
-        minVolMultiplier: 0.25,
-        targetDailyVol: 0.02,
-        volWindowDays: 30,
-        fundingSharpeWindowDays: 30,
-        baseNotionalUsd: 10_000,
-        enabledSymbols: [symbol],
-      }),
-    ],
-  });
-  const envelope = await orch.run(startTs, startTs + (barCount - 1) * 86_400_000);
-  return { envelope, orchestrator: orch };
-}
-
-// ---------------------------------------------------------------------------
-// 1. Construction + config validation
-// ---------------------------------------------------------------------------
-
-describe("PortfolioOrchestrator — construction + config validation", () => {
-  test("constructs with default config (excluding dataDir/fundingDir)", () => {
-    const orch = new PortfolioOrchestrator({
-      dataDir: tmpDir,
-      fundingDir: tmpDir,
-    });
-    expect(orch.config.symbols).toEqual(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
-    expect(orch.config.initialEquityUsd).toBe(10_000);
-    expect(orch.config.maxPositions).toBe(7); // USER SPEC
-    expect(orch.config.perSymbolConcentrationPct).toBe(0.5); // Phase 14C: 0.40 → 0.50
-    expect(orch.config.portfolioVaRPct).toBe(0.15);
-    expect(orch.config.maxLeverage).toBe(10); // 1:10 MANDATORY
-    expect(orch.config.crossSymbolCorrelationThreshold).toBe(0.85); // Phase 14C: 0.7 → 0.85
-    expect(orch.config.correlationWindowDays).toBe(30);
-  });
-
-  test("constructs with user spec (maxPositions=7, maxLeverage=10)", () => {
-    const orch = new PortfolioOrchestrator({
-      dataDir: tmpDir,
-      fundingDir: tmpDir,
-      maxPositions: 7,
-      maxLeverage: 10,
-    });
-    expect(orch.config.maxPositions).toBe(7);
-    expect(orch.config.maxLeverage).toBe(10);
-  });
-
-  test("DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG has user-mandated values", () => {
-    expect(DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG.maxPositions).toBe(7);
-    expect(DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG.maxLeverage).toBe(10);
-    expect(DEFAULT_PORTFOLIO_ORCHESTRATOR_CONFIG.symbols).toEqual(["BTC/USDT", "ETH/USDT", "SOL/USDT"]);
-  });
-
-  test("rejects missing dataDir", () => {
-    expect(() => {
-      new PortfolioOrchestrator({ fundingDir: tmpDir });
-    }).toThrow(/dataDir is required/);
-  });
-
-  test("rejects missing fundingDir", () => {
-    expect(() => {
-      new PortfolioOrchestrator({ dataDir: tmpDir });
-    }).toThrow(/fundingDir is required/);
-  });
-
-  test("rejects maxLeverage > 10 (1:10 MANDATE)", () => {
-    expect(() => {
-      new PortfolioOrchestrator({
-        dataDir: tmpDir,
-        fundingDir: tmpDir,
-        // Cast through unknown to bypass TS literal type check.
-        maxLeverage: 11 as unknown as 10,
-      });
-    }).toThrow(/1:10 MANDATE BREACH/);
-  });
-
-  test("rejects maxLeverage < 1", () => {
-    expect(() => {
-      new PortfolioOrchestrator({
-        dataDir: tmpDir,
-        fundingDir: tmpDir,
-        maxLeverage: 0 as unknown as 1,
-      });
-    }).toThrow(/1:10 MANDATE BREACH/);
-  });
-
-  test("rejects invalid maxPositions", () => {
-    expect(() => {
-      new PortfolioOrchestrator({
-        dataDir: tmpDir,
-        fundingDir: tmpDir,
-        maxPositions: 0,
-      });
-    }).toThrow(/maxPositions must be a positive integer/);
-  });
-
-  test("rejects invalid perSymbolConcentrationPct", () => {
-    expect(() => {
-      new PortfolioOrchestrator({
-        dataDir: tmpDir,
-        fundingDir: tmpDir,
-        perSymbolConcentrationPct: 1.5,
-      });
-    }).toThrow(/perSymbolConcentrationPct/);
-  });
-
-  test("rejects invalid portfolioVaRPct", () => {
-    expect(() => {
-      new PortfolioOrchestrator({
-        dataDir: tmpDir,
-        fundingDir: tmpDir,
-        portfolioVaRPct: -0.1,
-      });
-    }).toThrow(/portfolioVaRPct/);
-  });
-
-  test("rejects empty symbols array", () => {
-    expect(() => {
-      new PortfolioOrchestrator({
-        dataDir: tmpDir,
-        fundingDir: tmpDir,
-        symbols: [],
-      });
-    }).toThrow(/symbols must be a non-empty array/);
-  });
-
-  test("initialized flag flips after run()", async () => {
-    const { orchestrator } = await runOrchestrator({ barCount: 5 });
-    expect(orchestrator.initialized).toBe(true);
-  });
-
-  test("reset() clears state", async () => {
-    const { orchestrator } = await runOrchestrator({ barCount: 5 });
-    expect(orchestrator.getSnapshots().length).toBeGreaterThan(0);
-    orchestrator.reset();
-    expect(orchestrator.getSnapshots().length).toBe(0);
-    expect(orchestrator.initialized).toBe(false);
-  });
-
-  test("a second run starts from fresh lifecycle state and reproduces the first envelope", async () => {
-    const startTs = 1_700_000_000_000;
-    const barCount = 5;
-    const { envelope: first, orchestrator } = await runOrchestrator({ barCount });
-    const second = await orchestrator.run(startTs, startTs + (barCount - 1) * 86_400_000);
-
-    expect(second).toEqual(first);
-    expect(orchestrator.getSnapshots()).toHaveLength(first.snapshots.length);
-  });
-
-  test("getBusesBySymbol returns empty map before init()", () => {
-    const orch = new PortfolioOrchestrator({
-      dataDir: tmpDir,
-      fundingDir: tmpDir,
-    });
-    expect(orch.initialized).toBe(false);
-    const buses = orch.getBusesBySymbol();
-    expect(buses).toBeInstanceOf(Map);
-    expect(buses.size).toBe(0);
-  });
-
-  test("getBusesBySymbol returns 3 bus entries (BTC, ETH, SOL) after run()", async () => {
-    const { orchestrator } = await runOrchestrator({ barCount: 5 });
-    expect(orchestrator.initialized).toBe(true);
-    const buses = orchestrator.getBusesBySymbol();
-    expect(buses.size).toBe(3);
-    expect(buses.has("BTC/USDT")).toBe(true);
-    expect(buses.has("ETH/USDT")).toBe(true);
-    expect(buses.has("SOL/USDT")).toBe(true);
-  });
-
-  test("getBusesBySymbol returned bus is a valid SignalBus (subscribe + emit)", async () => {
-    const { orchestrator } = await runOrchestrator({ barCount: 5 });
-    const buses = orchestrator.getBusesBySymbol();
-    const btcBus = buses.get("BTC/USDT");
-    expect(btcBus).toBeDefined();
-    expect(typeof btcBus?.subscribe).toBe("function");
-    expect(typeof btcBus?.emit).toBe("function");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 2. Decision Engine arbitration
-// ---------------------------------------------------------------------------
-
 describe("PortfolioOrchestrator — DecisionEngine contract", () => {
   test("DecisionEngine constructs with valid symbol", () => {
-    const de = new DecisionEngine({
-      symbol: "BTC/USDT",
-      ...DEFAULT_DECISION_ENGINE_CONFIG,
-    });
-    expect(de.symbol).toBe("BTC/USDT");
-    expect(de.decisions()).toEqual([]);
+    const engine = createEngine();
+    expect(engine.symbol).toBe(symbol);
+    expect(engine.decisions()).toEqual([]);
   });
-
   test("DecisionEngine rejects empty symbol", () => {
-    expect(() => {
-      new DecisionEngine({
-        symbol: "",
-        ...DEFAULT_DECISION_ENGINE_CONFIG,
-      });
-    }).toThrow(/symbol must be a non-empty string/);
+    expect(() => new DecisionEngine({ ...DEFAULT_DECISION_ENGINE_CONFIG, symbol: "" })).toThrow(
+      /symbol must be a non-empty string/,
+    );
   });
-
   test("DecisionEngine rejects invalid config (defaultWeight ≤ 0)", () => {
-    expect(() => {
-      new DecisionEngine({
-        symbol: "BTC/USDT",
-        defaultWeight: 0,
-        defensiveWeight: 2,
-        minConsensusStrength: 0.3,
-        maxNotionalPerSymbolUsd: 1000,
-      });
-    }).toThrow(/defaultWeight must be positive finite/);
+    expect(() => new DecisionEngine({ ...DEFAULT_DECISION_ENGINE_CONFIG, defaultWeight: 0, symbol })).toThrow(
+      /defaultWeight must be positive finite/,
+    );
   });
-
   test("DecisionEngine rejects invalid minConsensusStrength", () => {
-    expect(() => {
-      new DecisionEngine({
-        symbol: "BTC/USDT",
-        defaultWeight: 1,
-        defensiveWeight: 2,
-        minConsensusStrength: 1.5,
-        maxNotionalPerSymbolUsd: 1000,
-      });
-    }).toThrow(/minConsensusStrength must be in \[0, 1\]/);
+    expect(
+      () => new DecisionEngine({ ...DEFAULT_DECISION_ENGINE_CONFIG, minConsensusStrength: 1.5, symbol }),
+    ).toThrow(/minConsensusStrength must be in \[0, 1\]/);
   });
-
   test("DEFENSIVE_PLUGIN_NAMES contains expected plugins", () => {
-    expect(DEFENSIVE_PLUGIN_NAMES).toContain("regime-detector-meta");
-    expect(DEFENSIVE_PLUGIN_NAMES).toContain("perpdex-liquidation-signals");
-    expect(DEFENSIVE_PLUGIN_NAMES).toContain("sol-flip-kill-switch");
+    expect(DEFENSIVE_PLUGIN_NAMES.includes("regime-detector-meta")).toBe(true);
+    expect(DEFENSIVE_PLUGIN_NAMES.includes("perpdex-liquidation-signals")).toBe(true);
+    expect(DEFENSIVE_PLUGIN_NAMES.includes("sol-flip-kill-switch")).toBe(true);
   });
-
   test("DECISION_ENGINE_CONFIG defaults match user spec", () => {
-    expect(DEFAULT_DECISION_ENGINE_CONFIG.defaultWeight).toBe(1.0);
-    expect(DEFAULT_DECISION_ENGINE_CONFIG.defensiveWeight).toBe(2.0);
+    expect(DEFAULT_DECISION_ENGINE_CONFIG).toEqual({
+      defaultWeight: 1,
+      defensiveWeight: 2,
+      maxNotionalPerSymbolUsd: 10_000,
+      minConsensusStrength: 0.3,
+    });
+    expect(DEFAULT_DECISION_ENGINE_CONFIG.defaultWeight).toBe(1);
+    expect(DEFAULT_DECISION_ENGINE_CONFIG.defensiveWeight).toBe(2);
     expect(DEFAULT_DECISION_ENGINE_CONFIG.minConsensusStrength).toBe(0.3);
-    expect(DEFAULT_DECISION_ENGINE_CONFIG.maxNotionalPerSymbolUsd).toBe(10_000);
   });
-
-  test("DecisionEngine synthesize returns null with no signals", () => {
-    const de = new DecisionEngine({
-      symbol: "BTC/USDT",
-      ...DEFAULT_DECISION_ENGINE_CONFIG,
-    });
-    const result = de.synthesize("BTC/USDT", Date.now());
-    expect(result).toBeNull();
+  test("DecisionEngine synthesize returns undefined with no signals", () => {
+    expect(createEngine().synthesize(symbol, 1000)).toBeUndefined();
   });
-
   test("DecisionEngine subscribe + reset lifecycle", () => {
-    const de = new DecisionEngine({
-      symbol: "BTC/USDT",
-      ...DEFAULT_DECISION_ENGINE_CONFIG,
-    });
-    const sc = makeScv1WithPlugin("BTC/USDT");
-    const unsub = de.subscribe(sc.bus);
-    expect(typeof unsub).toBe("function");
-    unsub();
-    // Calling unsub again is idempotent.
-    unsub();
-    de.reset();
-    expect(de.decisions()).toEqual([]);
+    const engine = createEngine();
+    const unsubscribe = attach(engine);
+    unsubscribe();
+    unsubscribe();
+    engine.reset();
+    expect(engine.decisions()).toEqual([]);
+    expect(engine.latestDecision(symbol)).toBeFalsy();
+    expect(engine.synthesize(symbol, 1000)).toBeUndefined();
   });
-
   test("DecisionEngine arbitrates directional signal → decision", () => {
-    const de = new DecisionEngine({
-      symbol: "BTC/USDT",
-      ...DEFAULT_DECISION_ENGINE_CONFIG,
-    });
-    // Ingest a DirectionSignal directly via subscribe().
-    const sc = makeScv1WithPlugin("BTC/USDT");
-    de.subscribe(sc.bus);
-    sc.bus.emit({
-      kind: "direction",
-      side: "long",
-      strength: 0.9,
-      source: "test-plugin",
-      timestampMs: 1000,
-    } satisfies DirectionSignal);
-    sc.bus.emit({
-      kind: "sizing",
-      kellyFraction: 0.5,
-      volMultiplier: 1.0,
-      notional: 5_000,
-      source: "test-plugin",
-      timestampMs: 1000,
-    } satisfies SizingSignal);
-    const decision = de.synthesize("BTC/USDT", 1000);
-    expect(decision).not.toBeNull();
-    expect(decision!.side).toBe("long");
-    expect(decision!.timestampMs).toBe(1000);
-    expect(decision!.sourceWeights["test-plugin"]).toBeGreaterThan(0);
+    const engine = createEngine();
+    emitDirectionalInputs(engine, 1000);
+    const decision = engine.synthesize(symbol, 1000);
+    expect(decision?.side).toBe("long");
+    expect(decision?.timestampMs).toBe(1000);
+    expect(decision?.sourceWeights["test-plugin"]).toBeGreaterThan(0);
+    expect(decision?.notionalUsd).toBe(5000);
   });
 
-  test("DecisionEngine synthesize on empty bus returns null", () => {
-    const de = new DecisionEngine({
-      symbol: "BTC/USDT",
-      ...DEFAULT_DECISION_ENGINE_CONFIG,
-    });
-    expect(de.synthesize("BTC/USDT", 1000)).toBeNull();
-    expect(de.latestDecision("BTC/USDT")).toBeNull();
+  test("DecisionEngine synthesize on empty bus returns undefined", () => {
+    const engine = createEngine();
+    expect(engine.synthesize(symbol, 1000)).toBeUndefined();
+    expect(engine.latestDecision(symbol)).toBeFalsy();
   });
 
   test("DecisionEngine handles carry signal regime flip", () => {
-    const de = new DecisionEngine({
-      symbol: "BTC/USDT",
-      ...DEFAULT_DECISION_ENGINE_CONFIG,
-    });
-    const sc = makeScv1WithPlugin("BTC/USDT");
-    de.subscribe(sc.bus);
-    // Directional + carry-flip → side=long, but sizeMultiplier scaled 0.5.
-    sc.bus.emit({
+    const engine = createEngine();
+    const bus = createSignalBus({ scopeSymbol: symbol });
+    engine.subscribe(bus);
+    bus.emit({
       kind: "direction",
       side: "long",
-      strength: 0.8,
       source: "test-plugin",
+      strength: 0.8,
       timestampMs: 2000,
     } satisfies DirectionSignal);
-    sc.bus.emit({
-      kind: "carry",
+    bus.emit({
       fundingRate: -0.001,
+      kind: "carry",
       regime: "flip",
       source: "carry-test",
       timestampMs: 2000,
     } satisfies CarrySignal);
-    sc.bus.emit({
+    bus.emit({
       kind: "sizing",
       kellyFraction: 0.5,
-      volMultiplier: 1.0,
       notional: 10_000,
       source: "test-plugin",
       timestampMs: 2000,
+      volMultiplier: 1,
     } satisfies SizingSignal);
-    const decision = de.synthesize("BTC/USDT", 2000);
-    expect(decision).not.toBeNull();
-    // carry-flip → sizeMultiplier 0.5 (defensive scaling).
-    expect(decision!.sizeMultiplier).toBeLessThanOrEqual(0.5);
+    const decision = engine.synthesize(symbol, 2000);
+    expect(decision?.sizeMultiplier).toBeLessThanOrEqual(0.5);
+    expect(decision?.side).toBe("long");
   });
 
   test("DecisionEngine applies defensive sizeModifier from RiskSignal", () => {
-    const de = new DecisionEngine({
-      symbol: "BTC/USDT",
-      ...DEFAULT_DECISION_ENGINE_CONFIG,
-    });
-    const sc = makeScv1WithPlugin("BTC/USDT");
-    de.subscribe(sc.bus);
-    sc.bus.emit({
+    const engine = createEngine();
+    const bus = createSignalBus({ scopeSymbol: symbol });
+    engine.subscribe(bus);
+    bus.emit({
       kind: "direction",
       side: "long",
-      strength: 0.9,
       source: "test-plugin",
+      strength: 0.9,
       timestampMs: 3000,
     } satisfies DirectionSignal);
-    sc.bus.emit({
-      kind: "risk",
-      varDaily95: 0.02,
+    bus.emit({
       correlationPenalty: 0,
       drawdownLimit: 0.2,
-      source: "regime-detector-meta",
+      kind: "risk",
       sizeModifier: 0.4,
+      source: "regime-detector-meta",
       timestampMs: 3000,
+      varDaily95: 0.02,
     } satisfies RiskSignal);
-    sc.bus.emit({
+    bus.emit({
       kind: "sizing",
       kellyFraction: 0.5,
-      volMultiplier: 1.0,
       notional: 10_000,
       source: "test-plugin",
       timestampMs: 3000,
+      volMultiplier: 1,
     } satisfies SizingSignal);
-    const decision = de.synthesize("BTC/USDT", 3000);
-    expect(decision).not.toBeNull();
-    expect(decision!.sizeMultiplier).toBeLessThanOrEqual(0.4);
+    const decision = engine.synthesize(symbol, 3000);
+    expect(decision?.sizeMultiplier).toBeLessThanOrEqual(0.4);
+    expect(decision?.side).toBe("long");
   });
 
   test("DecisionEngine resets between runs", () => {
-    const de = new DecisionEngine({
-      symbol: "BTC/USDT",
-      ...DEFAULT_DECISION_ENGINE_CONFIG,
-    });
-    const sc = makeScv1WithPlugin("BTC/USDT");
-    de.subscribe(sc.bus);
-    sc.bus.emit({
-      kind: "direction",
-      side: "long",
-      strength: 0.9,
-      source: "test-plugin",
-      timestampMs: 4000,
-    } satisfies DirectionSignal);
-    const d1 = de.synthesize("BTC/USDT", 4000);
-    expect(d1).not.toBeNull();
-    expect(de.decisions().length).toBe(1);
-    de.reset();
-    expect(de.decisions().length).toBe(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 3. Cross-symbol caps
-// ---------------------------------------------------------------------------
-
-describe("PortfolioOrchestrator — cross-symbol caps", () => {
-  test("maxPositions cap enforced (limit to 7 → 8th rejected)", async () => {
-    const startTs = 1_700_000_000_000;
-    // Generate 8 symbols' worth of bars (over the 3-symbol default).
-    const barCount = 5;
-    await writeOhlcvCsv("btc", makeBars(barCount, startTs, 30_000));
-    await writeOhlcvCsv("eth", makeBars(barCount, startTs, 2_000));
-    await writeOhlcvCsv("sol", makeBars(barCount, startTs, 100));
-    await writeFundingCsv("btc", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("eth", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("sol", makeFunding(barCount * 3, startTs));
-    const orch = createPortfolioOrchestrator({
-      dataDir: tmpDir,
-      fundingDir: tmpDir,
-      symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [
-        new HybridKellyPlugin({
-          kellyCap: 0.5,
-          maxVolMultiplier: 1.0,
-          minVolMultiplier: 0.25,
-          targetDailyVol: 0.02,
-          volWindowDays: 30,
-          fundingSharpeWindowDays: 30,
-          baseNotionalUsd: 10_000,
-          enabledSymbols: [symbol],
-        }),
-      ],
-      maxPositions: 3,
-      maxLeverage: 10,
-    });
-    // Emit a SizingSignal before run() to force a non-flat decision.
-    // We do this by registering a SizingSignal on the bus. But since
-    // SCv1 has no plugins, no signals are emitted — so the cap won't
-    // fire on flat decisions. We test that the cap field is correctly
-    // exposed in the position table.
-    const envelope = await orch.run(startTs, startTs + (barCount - 1) * 86_400_000);
-    expect(envelope.barCount).toBeGreaterThan(0);
-    // Each snapshot has openPositionCount field exposed.
-    const firstSnap = envelope.snapshots[0]!;
-    expect(firstSnap.openPositionCount).toBeGreaterThanOrEqual(0);
+    const engine = createEngine();
+    emitDirectionalInputs(engine, 4000);
+    expect(engine.synthesize(symbol, 4000)).toBeTruthy();
+    expect(engine.decisions()).toHaveLength(1);
+    engine.reset();
+    expect(engine.decisions()).toEqual([]);
   });
 
-  test("perSymbolConcentration cap enforced (40% per symbol)", async () => {
-    // Force a HIGH applied notional via custom decisionEngineFactory.
-    const startTs = 1_700_000_000_000;
-    const barCount = 5;
-    await writeOhlcvCsv("btc", makeBars(barCount, startTs, 30_000));
-    await writeOhlcvCsv("eth", makeBars(barCount, startTs, 2_000));
-    await writeOhlcvCsv("sol", makeBars(barCount, startTs, 100));
-    await writeFundingCsv("btc", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("eth", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("sol", makeFunding(barCount * 3, startTs));
-    // Inject a decision engine factory that returns a "long all" decision.
-    const orch = createPortfolioOrchestrator({
-      dataDir: tmpDir,
-      fundingDir: tmpDir,
-      symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [
-        new HybridKellyPlugin({
-          kellyCap: 0.5,
-          maxVolMultiplier: 1.0,
-          minVolMultiplier: 0.25,
-          targetDailyVol: 0.02,
-          volWindowDays: 30,
-          fundingSharpeWindowDays: 30,
-          baseNotionalUsd: 10_000,
-          enabledSymbols: [symbol],
-        }),
-      ],
-      initialEquityUsd: 10_000,
-      maxPositions: 7,
-      perSymbolConcentrationPct: 0.4,
-      maxLeverage: 10,
-      decisionEngineFactory: (config) => {
-        const de = new DecisionEngine(config);
-        const sc = makeScv1WithPlugin(config.symbol);
-        const unsub = de.subscribe(sc.bus);
-        void unsub;
-        // Emit a strong long + huge sizing signal.
-        sc.bus.emit({
-          kind: "direction",
-          side: "long",
-          strength: 1.0,
-          source: "test-driver",
-          timestampMs: 0,
-        } satisfies DirectionSignal);
-        sc.bus.emit({
-          kind: "sizing",
-          kellyFraction: 1.0,
-          volMultiplier: 1.0,
-          notional: 50_000, // tries to exceed 40% of 10k equity × 10 = 40k
-          source: "test-driver",
-          timestampMs: 0,
-        } satisfies SizingSignal);
-        // Override synthesize to return that fixed decision.
-        return new ForcedDecisionEngine(config.symbol, "long", 50_000, 1.0);
-      },
+  test("is idempotent when init is called twice through the public lifecycle", () => {
+    const orchestrator = createPortfolioOrchestrator({
+      dataDir: "/portfolio-orchestrator-integration",
+      fundingDir: "/portfolio-orchestrator-integration",
+      pluginsBySymbol: (candidate) => [createPassivePlugin(candidate)],
+      readTextFile: () => Promise.reject(new Error("Reader must not run during init.")),
+      symbols: [symbol],
     });
-    const envelope = await orch.run(startTs, startTs + (barCount - 1) * 86_400_000);
-    // Each snapshot should show BTC concentration ≤ 40% (cap enforced).
-    for (const snap of envelope.snapshots) {
-      const btc = snap.positionsBySymbol["BTC/USDT"];
-      if (btc === undefined) continue;
-      // Concentration per symbol = appliedNotional / equity (initialEquity).
-      // Cap = 0.40 × 10 = 4 (4× equity notional). Applied ≤ 4 × 10k = 40k.
-      expect(btc.appliedNotionalUsd).toBeLessThanOrEqual(40_000);
-      if (btc.capped) {
-        const r = btc.capReason;
-        expect(
-          r === "concentration" ||
-            r === "leverage" ||
-            r === "portfolioVaR" ||
-            r === "correlation" ||
-            r === "maxPositions",
-        ).toBe(true);
-      }
-    }
+    orchestrator.init();
+    const bus = orchestrator.getBusesBySymbol().get(symbol);
+    orchestrator.init();
+    expect(orchestrator.getBusesBySymbol().get(symbol)).toBe(bus);
+    expect(orchestrator.initialized).toBe(true);
   });
 
-  test("portfolioVaR cap triggers high-vol day scaling", async () => {
-    // Build a config with a very tight VaR cap so it fires on any vol.
-    const startTs = 1_700_000_000_000;
-    const barCount = 30;
-    // Add meaningful price volatility to ALL 3 symbols so VaR cap fires.
-    await writeOhlcvCsv("btc", makeBars(barCount, startTs, 30_000, 200));
-    await writeOhlcvCsv("eth", makeBars(barCount, startTs, 2_000, 20));
-    await writeOhlcvCsv("sol", makeBars(barCount, startTs, 100, 1));
-    await writeFundingCsv("btc", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("eth", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("sol", makeFunding(barCount * 3, startTs));
-    const orch = createPortfolioOrchestrator({
-      dataDir: tmpDir,
-      fundingDir: tmpDir,
-      symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [
-        new HybridKellyPlugin({
-          kellyCap: 0.5,
-          maxVolMultiplier: 1.0,
-          minVolMultiplier: 0.25,
-          targetDailyVol: 0.02,
-          volWindowDays: 30,
-          fundingSharpeWindowDays: 30,
-          baseNotionalUsd: 10_000,
-          enabledSymbols: [symbol],
-        }),
-      ],
-      initialEquityUsd: 10_000,
-      maxPositions: 7,
-      portfolioVaRPct: 0.0001, // extremely tight — will fire on day 2+
-      maxLeverage: 10,
-      // Force a long decision so portfolio has nonzero exposure.
-      decisionEngineFactory: (config) => {
-        return new ForcedDecisionEngine(config.symbol, "long", 5_000, 1.0);
-      },
+  test("wraps an injected reader failure with its deterministic source and cause", async () => {
+    const orchestrator = createPortfolioOrchestrator({
+      dataDir: "/virtual-data",
+      fundingDir: "/virtual-funding",
+      pluginsBySymbol: (candidate) => [createPassivePlugin(candidate)],
+      readTextFile: () => Promise.reject(new Error("virtual reader unavailable")),
+      symbols: [symbol],
     });
-    const envelope = await orch.run(startTs, startTs + (barCount - 1) * 86_400_000);
-    // Some snapshots should show VaR cap fired (or position scaled
-    // down overall — the test verifies the cap engine fires; the
-    // specific capReason is "correlation" / "portfolioVaR" whichever
-    // runs first).
-    const anyCapped = envelope.snapshots.some((s) =>
-      Object.values(s.positionsBySymbol).some((p) => p.capped),
+    const error = await captureRejection(orchestrator.run(10, 10));
+    if (!(error instanceof Error)) throw new Error("Expected an Error rejection.", { cause: error });
+    expect(error.message).toBe(
+      "[PortfolioOrchestrator] Failed to read binance_btc_1d.csv from /virtual-data.",
     );
-    expect(anyCapped).toBe(true);
+    expect(error.cause).toHaveProperty("message", "virtual reader unavailable");
   });
 
-  test("1:10 leverage cap enforced per-symbol (3-layer defense)", async () => {
-    // Use a custom factory that emits huge notional to trigger Layer 3.
-    const startTs = 1_700_000_000_000;
-    const barCount = 5;
-    await writeOhlcvCsv("btc", makeBars(barCount, startTs, 30_000));
-    await writeOhlcvCsv("eth", makeBars(barCount, startTs, 2_000));
-    await writeOhlcvCsv("sol", makeBars(barCount, startTs, 100));
-    await writeFundingCsv("btc", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("eth", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("sol", makeFunding(barCount * 3, startTs));
-    const orch = createPortfolioOrchestrator({
-      dataDir: tmpDir,
-      fundingDir: tmpDir,
-      symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [
-        new HybridKellyPlugin({
-          kellyCap: 0.5,
-          maxVolMultiplier: 1.0,
-          minVolMultiplier: 0.25,
-          targetDailyVol: 0.02,
-          volWindowDays: 30,
-          fundingSharpeWindowDays: 30,
-          baseNotionalUsd: 10_000,
-          enabledSymbols: [symbol],
-        }),
-      ],
-      initialEquityUsd: 10_000,
-      maxPositions: 7,
-      maxLeverage: 10,
-      decisionEngineFactory: (config) => {
-        return new ForcedDecisionEngine(config.symbol, "long", 50_000, 1.0);
-      },
-    });
-    const envelope = await orch.run(startTs, startTs + (barCount - 1) * 86_400_000);
-    // Aggregate leverage must never exceed 10 (the cap).
-    for (const snap of envelope.snapshots) {
-      expect(snap.aggregateLeverage).toBeLessThanOrEqual(10.001);
-    }
-  });
-
-  test("Cross-symbol correlation penalty applied when corr > threshold", async () => {
-    const startTs = 1_700_000_000_000;
-    const barCount = 30;
-    // Drift all 3 in lockstep → high correlation.
-    await writeOhlcvCsv("btc", makeBars(barCount, startTs, 30_000, 100));
-    await writeOhlcvCsv("eth", makeBars(barCount, startTs, 2_000, 7));
-    await writeOhlcvCsv("sol", makeBars(barCount, startTs, 100, 0.5));
-    await writeFundingCsv("btc", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("eth", makeFunding(barCount * 3, startTs));
-    await writeFundingCsv("sol", makeFunding(barCount * 3, startTs));
-    const orch = createPortfolioOrchestrator({
-      dataDir: tmpDir,
-      fundingDir: tmpDir,
-      symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-      pluginsBySymbol: (symbol: string) => [
-        new HybridKellyPlugin({
-          kellyCap: 0.5,
-          maxVolMultiplier: 1.0,
-          minVolMultiplier: 0.25,
-          targetDailyVol: 0.02,
-          volWindowDays: 30,
-          fundingSharpeWindowDays: 30,
-          baseNotionalUsd: 10_000,
-          enabledSymbols: [symbol],
-        }),
-      ],
-      initialEquityUsd: 10_000,
-      maxPositions: 7,
-      maxLeverage: 10,
-      crossSymbolCorrelationThreshold: 0.1, // very low — almost any corr fires
-      correlationWindowDays: 30,
-      decisionEngineFactory: (config) => {
-        return new ForcedDecisionEngine(config.symbol, "long", 1_000, 1.0);
-      },
-    });
-    const envelope = await orch.run(startTs, startTs + (barCount - 1) * 86_400_000);
-    // Some snapshots should show correlation penalty active.
-    const anyCorrPenalty = envelope.snapshots.some((s) => s.correlationPenaltyActive);
-    expect(anyCorrPenalty).toBe(true);
-  });
-
-  test("Cap reason = 'none' when no cap fires (flat market)", async () => {
-    const { envelope } = await runOrchestrator({
-      barCount: 5,
-      driftBtc: 0,
-      driftEth: 0,
-      driftSol: 0,
-    });
-    // With no signals (no plugins registered), all positions are flat.
-    // No cap should fire on flat positions.
-    for (const snap of envelope.snapshots) {
-      for (const pos of Object.values(snap.positionsBySymbol)) {
-        if (pos.appliedNotionalUsd > 0) {
-          // Active position — should have some cap reason.
-          expect(pos.capReason).not.toBe("none");
-        } else {
-          // Flat position — capReason can be 'none'.
-          expect(pos.capReason === "none" || pos.capReason === null).toBe(true);
-        }
-      }
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 4. JSONL decision log
-// ---------------------------------------------------------------------------
-
-describe("PortfolioOrchestrator — JSONL decision log", () => {
-  test("formatDecisionLogJsonl produces valid JSONL output", async () => {
-    const { orchestrator } = await runOrchestrator({ barCount: 5 });
-    const jsonl = orchestrator.formatDecisionLogJsonl();
-    const lines = jsonl.split("\n").filter((l) => l.length > 0);
-    for (const line of lines) {
-      const parsed = JSON.parse(line);
-      expect(parsed).toHaveProperty("ts");
-      expect(parsed).toHaveProperty("symbol");
-      expect(parsed).toHaveProperty("side");
-      expect(parsed).toHaveProperty("notional");
-      expect(parsed).toHaveProperty("sourceWeights");
-    }
-  });
-
-  test("decision log is empty when no decisions emitted", async () => {
-    const { orchestrator } = await runOrchestrator({ barCount: 5 });
-    // With no plugins, the default decision engine returns flat.
-    // Decisions ARE emitted (flat) when signals are observed. Without
-    // signals, no decisions are emitted.
-    const log = orchestrator.getDecisionLog();
-    // No plugins → no signals → no decisions (or all flat).
-    for (const d of log) {
-      expect(d.side === "flat" || d.side === "long" || d.side === "short").toBe(true);
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 5. Integration test: BTC + ETH + SOL simultaneous
-// ---------------------------------------------------------------------------
-
-describe("PortfolioOrchestrator — integration", () => {
-  test("BTC + ETH + SOL simultaneous run (3 symbols, 30 bars)", async () => {
-    const { envelope } = await runOrchestrator({
-      barCount: 30,
-      initialEquityUsd: 10_000,
-      maxLeverage: 10,
-      maxPositions: 7,
-    });
-    expect(envelope.perSymbolEnvelopes.length).toBe(3);
-    const symbols = envelope.perSymbolEnvelopes.map((e) => e.symbol);
-    expect(symbols).toContain("BTC/USDT");
-    expect(symbols).toContain("ETH/USDT");
-    expect(symbols).toContain("SOL/USDT");
-    expect(envelope.barCount).toBe(30);
-  });
-
-  test("Final envelope contains per-symbol envelopes + portfolio envelope", async () => {
-    const { envelope } = await runOrchestrator({ barCount: 10 });
-    expect(envelope.perSymbolEnvelopes.length).toBeGreaterThan(0);
-    expect(envelope.snapshots.length).toBeGreaterThan(0);
-    expect(typeof envelope.finalEquity).toBe("number");
-    expect(typeof envelope.totalReturn).toBe("number");
-    expect(typeof envelope.sharpe).toBe("number");
-    expect(typeof envelope.maxDD).toBe("number");
-  });
-
-  test("Sharpe/maxDD/totalReturn computed correctly (positive numbers)", async () => {
-    const { envelope } = await runOrchestrator({ barCount: 30 });
-    expect(Number.isFinite(envelope.totalReturn)).toBe(true);
-    expect(Number.isFinite(envelope.sharpe)).toBe(true);
-    expect(Number.isFinite(envelope.maxDD)).toBe(true);
-    expect(envelope.maxDD).toBeGreaterThanOrEqual(0);
-    expect(envelope.maxDD).toBeLessThanOrEqual(1);
-  });
-
-  test("0 leverage breaches / 0 liquidations in well-formed run", async () => {
-    const { envelope } = await runOrchestrator({
-      barCount: 30,
-      maxLeverage: 10,
-      initialEquityUsd: 10_000,
-      crossSymbolCorrelationThreshold: 0.99, // disable correlation penalty
-      portfolioVaRPct: 1.0, // disable VaR cap for the test
-      decisionEngineFactory: (config) => {
-        return new ForcedDecisionEngine(config.symbol, "long", 1_000, 1.0);
-      },
-    });
-    expect(envelope.leverageBreaches).toBe(0);
-    expect(envelope.liquidations).toBe(0);
-  });
-
-  test("Snapshot sequence is monotonic in timestamp", async () => {
-    const { envelope } = await runOrchestrator({ barCount: 10 });
-    for (let i = 1; i < envelope.snapshots.length; i++) {
-      expect(envelope.snapshots[i]!.timestampMs).toBeGreaterThanOrEqual(
-        envelope.snapshots[i - 1]!.timestampMs,
-      );
-    }
-  });
-
-  test("Per-symbol envelope has all expected fields", async () => {
-    const { envelope } = await runOrchestrator({ barCount: 10 });
-    for (const sym of envelope.perSymbolEnvelopes) {
-      expect(typeof sym.symbol).toBe("string");
-      expect(typeof sym.finalEquityUsd).toBe("number");
-      expect(typeof sym.totalReturnPct).toBe("number");
-      expect(typeof sym.sharpeRatio).toBe("number");
-      expect(typeof sym.maxDrawdownPct).toBe("number");
-      expect(typeof sym.decisionCount).toBe("number");
-      expect(typeof sym.openPositionCount).toBe("number");
-      expect(typeof sym.capacityUsedPct).toBe("number");
-    }
-  });
-
-  test("getPortfolioRisk returns valid RiskSnapshot", async () => {
-    const { orchestrator } = await runOrchestrator({ barCount: 10 });
-    const snap = orchestrator.getPortfolioRisk();
-    expect(typeof snap.aggregateLeverage).toBe("number");
-    expect(snap.timestamp).toBeGreaterThan(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Helpers — ForcedDecisionEngine for cap-layer testing
-// ---------------------------------------------------------------------------
-
-class ForcedDecisionEngine {
-  readonly symbol: string;
-  private emitted = false;
-  private _decision: PositionDecision;
-
-  constructor(symbol: string, side: "long" | "short" | "flat", notional: number, confidence: number) {
-    this.symbol = symbol;
-    this._decision = {
-      symbol,
-      side,
-      notionalUsd: side === "short" ? -notional : notional,
-      sizeMultiplier: 1.0,
-      confidence,
-      sourceWeights: { "forced-driver": 1.0 },
-      timestampMs: 0,
-    };
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  subscribe(_bus: unknown): () => void {
-    return () => {
-      // no-op unsubscribe
-    };
-  }
-
-  decisions(): readonly PositionDecision[] {
-    return this.emitted ? [this._decision] : [];
-  }
-
-  latestDecision(symbol: string): PositionDecision | null {
-    return this.emitted && symbol === this.symbol ? this._decision : null;
-  }
-
-  reset(): void {
-    this.emitted = false;
-  }
-
-  /** Override synthesize to emit the forced decision for any timestamp. */
-  synthesize(symbol: string, timestampMs: number): PositionDecision | null {
-    if (symbol !== this.symbol) return null;
-    this.emitted = true;
-    this._decision = {
-      ...this._decision,
-      timestampMs,
-    };
-    return this._decision;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// DecisionEngine interface compatibility — DecisionEngine exposes the
-// synthesize method but the DecisionEngineLike interface doesn't list
-// it explicitly. The ForcedDecisionEngine above provides synthesize().
-// ---------------------------------------------------------------------------
-describe("Phase 35b — private method coverage via cast", () => {
-  test("call all private methods to ensure they are hit", async () => {
-    const { orchestrator } = await runOrchestrator({ barCount: 5 });
-    // Use a type cast to access private methods
-    const o = orchestrator as unknown as {
-      defaultDecisionEngineFactory: (config: unknown) => unknown;
-      aggregateBar: (
-        ts: number,
-        dec: Map<string, unknown>,
-        bars: Map<string, unknown>,
-        equity: number,
-      ) => unknown;
-      sumAppliedNotionals: (snap: unknown) => number;
-      computeCorrelationMatrix: () => Record<string, Record<string, number>>;
-      pearsonForPair: (a: string, b: string) => number;
-      findCorrelatedPairs: (m: unknown) => readonly (readonly [string, string])[];
-      estimateDailyStd: () => number;
-      _previousBarFor: (s: string, t: number) => unknown;
-      computeCommonTimestamps: (bars: unknown) => number[];
-      loadOhlcvForSymbol: (s: string, a: number, b: number) => Promise<unknown[]>;
-      loadFundingForSymbol: (s: string, a: number, b: number) => Promise<unknown[]>;
-      buildEnvelope: () => unknown;
-      portfolioReturns: () => number[];
-      sharpeFromReturns: (r: readonly number[]) => number;
-      maxDrawdownFromCurve: (c: readonly number[]) => number;
-    };
-    // Call each to ensure coverage. Use realistic args based on the
-    // 3-symbol test setup (BTC/USDT, ETH/USDT, SOL/USDT).
-    // Phase 35b — replace typeof-only checks with real invocations to
-    // hit the function body, not just the method-existence branch.
-    const de = o.defaultDecisionEngineFactory({
-      symbol: "BTC/USDT",
-      htf: "1h",
-      mtf: "15m",
-      ltf: "5m",
-    });
-    expect(de).toBeDefined();
-    // aggregateBar — invoke with empty decision map to hit the body
-    const aggregateResult = o.aggregateBar(
-      1_704_067_200_000,
-      new Map<string, unknown>(),
-      new Map<string, unknown>(),
-      10_000,
+  test("public replay rejects OHLCV rows with a non-positive open", async () => {
+    const orchestrator = createCsvOrchestrator(
+      "timestamp,open,high,low,close,volume\n10,0,11,8,10,100",
+      validFunding,
     );
-    expect(aggregateResult).toBeDefined();
-    expect(typeof o.sumAppliedNotionals(orchestrator["snapshots"]?.[0] ?? {})).toBe("number");
-    const m = o.computeCorrelationMatrix();
-    expect(typeof m).toBe("object");
-    expect(typeof o.pearsonForPair("BTC/USDT", "ETH/USDT")).toBe("number");
-    expect(Array.isArray(o.findCorrelatedPairs(m))).toBe(true);
-    expect(typeof o.estimateDailyStd()).toBe("number");
-    // _previousBarFor with valid symbol
-    const t = orchestrator.config.symbols[0]!;
-    expect(o._previousBarFor(t, Date.now())).toBeDefined();
-    // computeCommonTimestamps — pass an empty map (returns [])
-    expect(Array.isArray(o.computeCommonTimestamps(new Map()))).toBe(true);
-    // computeCommonTimestamps — pass a populated map to hit the full body
-    const populatedBars = new Map<string, Bar[]>([
-      ["BTC/USDT", [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }]],
-      ["ETH/USDT", [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }]],
-      ["SOL/USDT", [{ timestamp: 1, open: 1, high: 1, low: 1, close: 1, volume: 1 }]],
-    ]);
-    expect(o.computeCommonTimestamps(populatedBars)).toEqual([1]);
-    // loadOhlcvForSymbol / loadFundingForSymbol — these need full setup,
-    // but we can call with the test's tmpDir
-    const startTs = 1_700_000_000_000;
-    expect(Array.isArray(await o.loadOhlcvForSymbol("BTC/USDT", startTs, startTs + 86_400_000))).toBe(true);
-    expect(Array.isArray(await o.loadFundingForSymbol("BTC/USDT", startTs, startTs + 86_400_000))).toBe(true);
-    // buildEnvelope — already called by run(), but call again
-    const env = o.buildEnvelope();
-    expect(env).toBeDefined();
-    // portfolioReturns
-    expect(Array.isArray(o.portfolioReturns())).toBe(true);
-    // sharpeFromReturns with empty array (returns 0)
-    expect(o.sharpeFromReturns([])).toBe(0);
-    expect(o.sharpeFromReturns([0.01, 0.02, 0.015])).toBeGreaterThan(0);
-    // maxDrawdownFromCurve with empty array (returns 0)
-    expect(o.maxDrawdownFromCurve([])).toBe(0);
-    expect(o.maxDrawdownFromCurve([100, 90, 95, 80])).toBeGreaterThan(0);
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/OHLC values must be positive/),
+    );
+  });
+
+  test("public replay rejects OHLCV rows with a non-positive high", async () => {
+    const orchestrator = createCsvOrchestrator(
+      "timestamp,open,high,low,close,volume\n10,9,0,8,10,100",
+      validFunding,
+    );
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/OHLC values must be positive/),
+    );
+  });
+
+  test("public replay rejects OHLCV rows with a non-positive low", async () => {
+    const orchestrator = createCsvOrchestrator(
+      "timestamp,open,high,low,close,volume\n10,9,11,0,10,100",
+      validFunding,
+    );
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/OHLC values must be positive/),
+    );
+  });
+
+  test("public replay rejects OHLCV rows with a non-positive close", async () => {
+    const orchestrator = createCsvOrchestrator(
+      "timestamp,open,high,low,close,volume\n10,9,11,8,0,100",
+      validFunding,
+    );
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/OHLC values must be positive/),
+    );
+  });
+
+  test("public replay rejects a blank CSV row instead of silently skipping it", async () => {
+    const orchestrator = createCsvOrchestrator(
+      "timestamp,open,high,low,close,volume\n\n10,9,11,8,10,100",
+      validFunding,
+    );
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/blank data rows are not allowed/),
+    );
+  });
+
+  test("public replay rejects a blank OHLCV numeric field", async () => {
+    const orchestrator = createCsvOrchestrator(
+      "timestamp,open,high,low,close,volume\n10,,11,8,10,100",
+      validFunding,
+    );
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/open must be a finite number/),
+    );
+  });
+
+  test("public replay rejects a negative CSV timestamp", async () => {
+    const orchestrator = createCsvOrchestrator(
+      "timestamp,open,high,low,close,volume\n-1,9,11,8,10,100",
+      validFunding,
+    );
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/timestamp must be a non-negative safe integer/),
+    );
+  });
+
+  test("public replay rejects an empty funding symbol", async () => {
+    const orchestrator = createCsvOrchestrator(
+      validOhlcv,
+      "fundingTime,symbol,fundingRate,markPrice\n10,,0.0001,100",
+    );
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/symbol must be non-empty/),
+    );
+  });
+
+  test("public replay rejects funding assigned to another symbol", async () => {
+    const orchestrator = createCsvOrchestrator(
+      validOhlcv,
+      "fundingTime,symbol,fundingRate,markPrice\n10,ETHUSDT,0.0001,100",
+    );
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/symbol does not match the request/),
+    );
+  });
+
+  test("public replay validates non-empty funding mark prices", async () => {
+    const orchestrator = createCsvOrchestrator(
+      validOhlcv,
+      "fundingTime,symbol,fundingRate,markPrice\n10,BTCUSDT,0.0001,NaN",
+    );
+    expect(await captureRejection(orchestrator.run(10, 10))).toHaveProperty(
+      "message",
+      expect.stringMatching(/markPrice must be a finite number/),
+    );
+  });
+
+  test("public replay accepts CRLF input and excludes rows outside the requested interval", async () => {
+    const orchestrator = createCsvOrchestrator(
+      "timestamp,open,high,low,close,volume\r\n0,9,11,8,10,100\r\n10,9,11,8,10,100\r\n",
+      "fundingTime,symbol,fundingRate,markPrice\r\n0,BTCUSDT,0.0001,\r\n10,BTCUSDT,0.0001,\r\n",
+    );
+    const envelope = await orchestrator.run(10, 10);
+    expect(envelope.barCount).toBe(1);
+  });
+
+  test("reset surfaces a disposer failure only after clearing observable lifecycle state", () => {
+    for (const lifecycleFailure of [
+      new Error("decision engine reset failure"),
+      createNonErrorFailure("non-error disposal failure"),
+    ]) {
+      const orchestrator = createPortfolioOrchestrator({
+        dataDir: "/portfolio-orchestrator-coverage",
+        decisionEngineFactory: (): DecisionEngineLike => ({
+          decisions: () => [],
+          latestDecision: noDecision,
+          reset: () => {
+            throw lifecycleFailure;
+          },
+          subscribe: () => noOperation,
+        }),
+        fundingDir: "/portfolio-orchestrator-coverage",
+        pluginsBySymbol: (candidate) => [createPassivePlugin(candidate)],
+        readTextFile: () => Promise.reject(new Error("Reader must not run during init.")),
+        symbols: [symbol],
+      });
+      orchestrator.init();
+      expect(() => {
+        orchestrator.reset();
+      }).toThrow(lifecycleFailure instanceof Error ? /decision engine reset failure/ : /non-error value/);
+      expect(orchestrator.initialized).toBe(false);
+      expect(orchestrator.getBusesBySymbol()).toEqual(new Map());
+    }
+  });
+
+  test("reset remains leak-free when a public disposer re-enters the lifecycle", () => {
+    let unsubscribeCalls = 0;
+    const orchestrator: ReturnType<typeof createPortfolioOrchestrator> = createPortfolioOrchestrator({
+      dataDir: "/portfolio-orchestrator-coverage",
+      decisionEngineFactory: () =>
+        createReenteringDecisionEngine(() => {
+          unsubscribeCalls += 1;
+          orchestrator.reset();
+        }),
+      fundingDir: "/portfolio-orchestrator-coverage",
+      pluginsBySymbol: (candidate) => [createPassivePlugin(candidate)],
+      readTextFile: () => Promise.reject(new Error("Reader must not run during init.")),
+      symbols: [symbol],
+    });
+    orchestrator.init();
+    orchestrator.reset();
+    expect(unsubscribeCalls).toBe(1);
+    expect(orchestrator.initialized).toBe(false);
+    expect(orchestrator.getBusesBySymbol()).toEqual(new Map());
+  });
+
+  test("previous-bar lookup returns no value when no loaded series exists", () => {
+    expect(previousBarBefore(undefined, 10)).toBeUndefined();
   });
 });

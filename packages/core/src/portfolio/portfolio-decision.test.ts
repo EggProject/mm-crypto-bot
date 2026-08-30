@@ -1,34 +1,13 @@
-// packages/core/src/portfolio/portfolio-decision.test.ts — Phase 35 Track I
-//
-// =========================================================================
-// DECISION ENGINE + PORTFOLIO DECISION TESTS — 100% line+branch+function
-// =========================================================================
-//
-// Ez a fájl kiegészíti a meglévő portfolio-orchestrator.test.ts tesztjeit
-// azzal, hogy lefedi a portfolio-decision.ts önállóan exportált
-// függvényeit és típusait — minden `assertExhaustiveSignal` hívást,
-// minden konstruktor-validációt, minden config-defaultot, és a
-// DecisionEngine arbitrációs lépéseit a portfolio-orchestrator
-// integrációjától függetlenül.
-//
-// Lefedettségi cél:
-//   - portfolio-decision.ts: 100% sor + 100% függvény
-//   - Ez a fájl önmagában ~30 tesztet ad hozzá.
-//
-// =========================================================================
-
 import { describe, expect, test } from "bun:test";
-
-import type { CarrySignal, DirectionSignal, RiskSignal, SizingSignal } from "../index.js";
-
-import {
-  assertExhaustiveSignal,
-  DEFAULT_DECISION_ENGINE_CONFIG,
-  DEFENSIVE_PLUGIN_NAMES,
-  DecisionEngine,
-  type DecisionEngineConfig,
-} from "./portfolio-decision.js";
-
+import type {
+  CarrySignal,
+  DirectionSignal,
+  FactorSignal,
+  FundingSnapshotSignal,
+  RiskSignal,
+  SizingSignal,
+} from "../index.js";
+import { DecisionEngine, type DecisionEngineConfig } from "./portfolio-decision.js";
 // ---------------------------------------------------------------------------
 // Segédfüggvények — szintetikus signal építők
 // ---------------------------------------------------------------------------
@@ -74,7 +53,7 @@ function mkCarrySignal(
 function mkSizingSignal(
   source: string,
   notional: number,
-  volMultiplier = 1.0,
+  volMultiplier = 1,
   timestampMs = 1_700_000_000_000,
 ): SizingSignal {
   return {
@@ -88,81 +67,6 @@ function mkSizingSignal(
 }
 
 // ---------------------------------------------------------------------------
-// 1. `assertExhaustiveSignal` — compile-time guard, runtime hívás
-// ---------------------------------------------------------------------------
-
-describe("assertExhaustiveSignal", () => {
-  test("dob egy Error-t, ha bármilyen értéket kap (never fallback)", () => {
-    // A `never` típust kikerülve, 'as never' cast-tal hívjuk, hogy
-    // a runtime throw ágat triggereljük.
-    expect(() => assertExhaustiveSignal(undefined as never)).toThrow(/Non-exhaustive Signal switch/);
-  });
-
-  test("a hibaüzenet tartalmazza az értéket (JSON.stringify)", () => {
-    // A string értéket JSON.stringify formázza — ellenőrizzük, hogy
-    // a hibaüzenet a kapott értéket tükrözi.
-    const weird = { kind: "future-imaginary" } as never;
-    let caught: Error | null = null;
-    try {
-      assertExhaustiveSignal(weird);
-    } catch (e) {
-      caught = e as Error;
-    }
-    expect(caught).not.toBeNull();
-    expect(caught?.message).toContain("Non-exhaustive Signal switch");
-    expect(caught?.message).toContain("future-imaginary");
-  });
-
-  test("szám típusú értéket is elfogad és JSON.stringify-vel formáz", () => {
-    expect(() => assertExhaustiveSignal(42 as never)).toThrow(/42/);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 2. `DEFAULT_DECISION_ENGINE_CONFIG` — alapértelmezett értékek
-// ---------------------------------------------------------------------------
-
-describe("DEFAULT_DECISION_ENGINE_CONFIG", () => {
-  test("defaultWeight = 1.0", () => {
-    expect(DEFAULT_DECISION_ENGINE_CONFIG.defaultWeight).toBe(1.0);
-  });
-
-  test("defensiveWeight = 2.0", () => {
-    expect(DEFAULT_DECISION_ENGINE_CONFIG.defensiveWeight).toBe(2.0);
-  });
-
-  test("minConsensusStrength = 0.3", () => {
-    expect(DEFAULT_DECISION_ENGINE_CONFIG.minConsensusStrength).toBe(0.3);
-  });
-
-  test("maxNotionalPerSymbolUsd = 10_000", () => {
-    expect(DEFAULT_DECISION_ENGINE_CONFIG.maxNotionalPerSymbolUsd).toBe(10_000);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 3. `DEFENSIVE_PLUGIN_NAMES` — readonly tömb a defensive plugin prefixekkel
-// ---------------------------------------------------------------------------
-
-describe("DEFENSIVE_PLUGIN_NAMES", () => {
-  test("tartalmazza a regime-detector-meta prefixet", () => {
-    expect(DEFENSIVE_PLUGIN_NAMES).toContain("regime-detector-meta");
-  });
-
-  test("tartalmazza a perpdex-liquidation-signals prefixet", () => {
-    expect(DEFENSIVE_PLUGIN_NAMES).toContain("perpdex-liquidation-signals");
-  });
-
-  test("tartalmazza a sol-flip-kill-switch prefixet", () => {
-    expect(DEFENSIVE_PLUGIN_NAMES).toContain("sol-flip-kill-switch");
-  });
-
-  test("tartalmazza a funding-flip-kill-switch prefixet", () => {
-    expect(DEFENSIVE_PLUGIN_NAMES).toContain("funding-flip-kill-switch");
-  });
-});
-
-// ---------------------------------------------------------------------------
 // 4. `DecisionEngine` konstruktor — config validáció
 // ---------------------------------------------------------------------------
 
@@ -170,20 +74,20 @@ describe("DecisionEngine konstruktor", () => {
   test("happy path: symbol + default config", () => {
     const engine = new DecisionEngine({ symbol: "BTCUSDT" });
     expect(engine.symbol).toBe("BTCUSDT");
-    expect(engine.config.defaultWeight).toBe(1.0);
-    expect(engine.config.defensiveWeight).toBe(2.0);
+    expect(engine.config.defaultWeight).toBe(1);
+    expect(engine.config.defensiveWeight).toBe(2);
   });
 
   test("egyedi config felülírja a defaultot", () => {
-    const cfg: Partial<DecisionEngineConfig> = {
+    const config: Partial<DecisionEngineConfig> = {
       defaultWeight: 2.5,
-      defensiveWeight: 5.0,
+      defensiveWeight: 5,
       minConsensusStrength: 0.5,
       maxNotionalPerSymbolUsd: 50_000,
     };
-    const engine = new DecisionEngine({ symbol: "ETHUSDT", ...cfg });
+    const engine = new DecisionEngine({ symbol: "ETHUSDT", ...config });
     expect(engine.config.defaultWeight).toBe(2.5);
-    expect(engine.config.defensiveWeight).toBe(5.0);
+    expect(engine.config.defensiveWeight).toBe(5);
     expect(engine.config.minConsensusStrength).toBe(0.5);
     expect(engine.config.maxNotionalPerSymbolUsd).toBe(50_000);
   });
@@ -195,13 +99,13 @@ describe("DecisionEngine konstruktor", () => {
   });
 
   test("defaultWeight = NaN → throw", () => {
-    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: Number.NaN })).toThrow(
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: NaN })).toThrow(
       /defaultWeight must be positive finite/,
     );
   });
 
   test("defaultWeight = Infinity → throw", () => {
-    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: Number.POSITIVE_INFINITY })).toThrow(
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defaultWeight: Infinity })).toThrow(
       /defaultWeight must be positive finite/,
     );
   });
@@ -219,7 +123,7 @@ describe("DecisionEngine konstruktor", () => {
   });
 
   test("defensiveWeight = NaN → throw", () => {
-    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defensiveWeight: Number.NaN })).toThrow(
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", defensiveWeight: NaN })).toThrow(
       /defensiveWeight must be positive finite/,
     );
   });
@@ -237,7 +141,7 @@ describe("DecisionEngine konstruktor", () => {
   });
 
   test("minConsensusStrength = NaN → throw", () => {
-    expect(() => new DecisionEngine({ symbol: "BTCUSDT", minConsensusStrength: Number.NaN })).toThrow(
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", minConsensusStrength: NaN })).toThrow(
       /minConsensusStrength must be in/,
     );
   });
@@ -255,7 +159,7 @@ describe("DecisionEngine konstruktor", () => {
   });
 
   test("maxNotionalPerSymbolUsd = NaN → throw", () => {
-    expect(() => new DecisionEngine({ symbol: "BTCUSDT", maxNotionalPerSymbolUsd: Number.NaN })).toThrow(
+    expect(() => new DecisionEngine({ symbol: "BTCUSDT", maxNotionalPerSymbolUsd: NaN })).toThrow(
       /maxNotionalPerSymbolUsd must be positive finite/,
     );
   });
@@ -266,40 +170,7 @@ describe("DecisionEngine konstruktor", () => {
 
   test("symbol hossza ellenőrizve van (length === 0 fail)", () => {
     // Típuskényszerítéssel kikerüljük a típusrendszert.
-    expect(() => new DecisionEngine({ symbol: "" as string })).toThrow(/symbol must be a non-empty string/);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 5. `DecisionEngine.decisions()` / `latestDecision()` / `reset()`
-// ---------------------------------------------------------------------------
-
-describe("DecisionEngine state accessors", () => {
-  test("kezdeti decisions() üres tömb", () => {
-    const engine = new DecisionEngine({ symbol: "BTCUSDT" });
-    expect(engine.decisions()).toEqual([]);
-  });
-
-  test("latestDecision() null ha nincs döntés", () => {
-    const engine = new DecisionEngine({ symbol: "BTCUSDT" });
-    expect(engine.latestDecision("BTCUSDT")).toBeNull();
-  });
-
-  test("reset() törli a decisions listát", async () => {
-    const engine = new DecisionEngine({ symbol: "BTCUSDT" });
-
-    // Bus nélkül is tudunk jelet ingest-elni a privát metóduson
-    // keresztül: subscribe + bus.dispatchSequence.
-    const bus = (await import("../index.js")).createSignalBus();
-    engine.subscribe(bus);
-    bus.emit(mkDirectionSignal("test", "long", 0.8));
-    const decision = engine.synthesize("BTCUSDT", 1_700_000_000_000);
-    expect(decision).not.toBeNull();
-    expect(engine.decisions().length).toBe(1);
-
-    engine.reset();
-    expect(engine.decisions().length).toBe(0);
-    expect(engine.latestDecision("BTCUSDT")).toBeNull();
+    expect(() => new DecisionEngine({ symbol: "" })).toThrow(/symbol must be a non-empty string/);
   });
 });
 
@@ -367,7 +238,7 @@ describe("DecisionEngine.subscribe", () => {
     unsub();
     // Az unsubscribe után publish → nincs ingest
     bus.emit(mkDirectionSignal("plugin-B", "short", 0.9));
-    expect(engine.synthesize("BTCUSDT", 1_700_000_000_001)).toBeNull();
+    expect(engine.synthesize("BTCUSDT", 1_700_000_000_001)).toBeUndefined();
   });
 
   test("többszöri unsubscribe hívás nem dob hibát (best-effort cleanup)", async () => {
@@ -377,7 +248,9 @@ describe("DecisionEngine.subscribe", () => {
     const unsub = engine.subscribe(bus);
     unsub();
     // Második hívás: a belső tömb már üres, de nem szabad, hogy dobjon.
-    expect(() => unsub()).not.toThrow();
+    expect(() => {
+      unsub();
+    }).not.toThrow();
   });
 });
 
@@ -386,9 +259,9 @@ describe("DecisionEngine.subscribe", () => {
 // ---------------------------------------------------------------------------
 
 describe("DecisionEngine.synthesize", () => {
-  test("nincs pending signal → null", () => {
+  test("nincs pending signal → undefined", () => {
     const engine = new DecisionEngine({ symbol: "BTCUSDT" });
-    expect(engine.synthesize("BTCUSDT", 1_700_000_000_000)).toBeNull();
+    expect(engine.synthesize("BTCUSDT", 1_700_000_000_000)).toBeUndefined();
   });
 
   test("egyetlen long direction signal → side = long", async () => {
@@ -437,9 +310,9 @@ describe("DecisionEngine.synthesize", () => {
     expect(d1).not.toBeNull();
     expect(engine.decisions().length).toBe(1);
 
-    // Második synthesize, nincs új signal → null
+    // Második synthesize, nincs új signal → undefined
     const d2 = engine.synthesize("BTCUSDT", 1_700_000_001_000);
-    expect(d2).toBeNull();
+    expect(d2).toBeUndefined();
     expect(engine.decisions().length).toBe(1);
   });
 
@@ -457,22 +330,59 @@ describe("DecisionEngine.synthesize", () => {
     const latest = engine.latestDecision("BTCUSDT");
     expect(latest).not.toBeNull();
     expect(latest?.timestampMs).toBe(1_700_000_001_000);
+    expect(engine.latestDecision("ETHUSDT")).toBeUndefined();
   });
 
-  test("a sizing notional a kanonikus érték, volMultiplier nincs kétszer alkalmazva", async () => {
+  test("selects the most defensive sizing proposal and caps carry amplification", async () => {
     const engine = new DecisionEngine({ symbol: "BTCUSDT" });
     const { createSignalBus } = await import("../index.js");
     const bus = createSignalBus();
     engine.subscribe(bus);
     bus.emit(mkDirectionSignal("alpha", "long", 1));
-    bus.emit(mkSizingSignal("sizer", 4_000, 0.25));
+    bus.emit(mkCarrySignal("carry-a", "high"));
+    bus.emit(mkCarrySignal("carry-b", "high"));
+    bus.emit(mkCarrySignal("carry-c", "high"));
+    bus.emit(mkSizingSignal("sizer", 4000, 0.25));
+    bus.emit(mkSizingSignal("defensive-sizer", 2500));
 
     const decision = engine.synthesize("BTCUSDT", 1_700_000_000_000);
-    expect(decision?.notionalUsd).toBe(4_000);
+    expect(decision?.notionalUsd).toBe(2500);
+  });
+
+  test("keeps informational attribution while capping a short sizing proposal", async () => {
+    const engine = new DecisionEngine({ maxNotionalPerSymbolUsd: 1000, symbol: "BTCUSDT" });
+    const { createSignalBus } = await import("../index.js");
+    const bus = createSignalBus();
+    engine.subscribe(bus);
+    bus.emit(mkDirectionSignal("alpha", "short", 1));
+    bus.emit(mkSizingSignal("sizer", 5000));
+    bus.emit({
+      factor: 0,
+      kind: "factor",
+      regime: "neutral",
+      source: "factor-observer",
+      symbol: "BTCUSDT",
+      zScore: 0,
+    } satisfies FactorSignal);
+    bus.emit({
+      asset: "BTCUSDT",
+      by: 0,
+      bz: 0,
+      hl8h: 0,
+      kind: "funding-snapshot",
+      ok: 0,
+      predictedGap: 0,
+      source: "funding-observer",
+      spreadMax: 0,
+      timestamp: 1_700_000_000_000,
+    } satisfies FundingSnapshotSignal);
+    const decision = engine.synthesize("BTCUSDT", 1_700_000_000_000);
+    expect(decision?.notionalUsd).toBe(-1000);
+    expect(decision?.sourceWeights).toMatchObject({ "factor-observer": 0, "funding-observer": 0 });
   });
 
   test("risk breach vagy close utasítás végrehajthatatlan irány helyett flat/0 döntést ad", async () => {
-    for (const risk of [{ breach: true }, { breach: false, closeNotionalUsd: 1_000 }] satisfies (Pick<
+    for (const risk of [{ breach: true }, { breach: false, closeNotionalUsd: 1000 }] satisfies (Pick<
       RiskSignal,
       "breach"
     > &
@@ -482,7 +392,7 @@ describe("DecisionEngine.synthesize", () => {
       const bus = createSignalBus();
       engine.subscribe(bus);
       bus.emit(mkDirectionSignal("alpha", "long", 1));
-      bus.emit(mkSizingSignal("sizer", 4_000));
+      bus.emit(mkSizingSignal("sizer", 4000));
       bus.emit({
         kind: "risk",
         source: "risk-guard",
@@ -505,13 +415,22 @@ describe("DecisionEngine.synthesize", () => {
     const bus = createSignalBus();
     engine.subscribe(bus);
     bus.emit({ ...mkDirectionSignal("alpha", "long", 1), symbol: "ETHUSDT" });
-    expect(engine.synthesize("BTCUSDT", 1_700_000_000_000)).toBeNull();
+    expect(engine.synthesize("BTCUSDT", 1_700_000_000_000)).toBeUndefined();
+  });
+
+  test("fails closed when an accepted signal discriminator changes before arbitration", async () => {
+    let kind: "direction" | "unknown" = "direction";
+    const signal = mkDirectionSignal("untrusted-source", "long", 1);
+    Object.defineProperty(signal, "kind", { get: () => kind });
+    const engine = new DecisionEngine({ symbol: "BTCUSDT" });
+    const { createSignalBus } = await import("../index.js");
+    const bus = createSignalBus();
+    engine.subscribe(bus);
+    bus.emit(signal);
+    kind = "unknown";
+    expect(() => engine.synthesize("BTCUSDT", 1_700_000_000_000)).toThrow(/Non-exhaustive Signal switch/);
   });
 });
-
-// ---------------------------------------------------------------------------
-// 8. PositionDecision shape — típusellenőrzés
-// ---------------------------------------------------------------------------
 
 describe("PositionDecision shape", () => {
   test("a position decision minden szükséges mezőt tartalmaz", async () => {
@@ -545,6 +464,6 @@ describe("PositionDecision shape", () => {
     bus.emit(mkDirectionSignal("regime-detector-meta.A", "long", 0.5));
     const d = engine.synthesize("BTCUSDT", 1_700_000_000_000);
 
-    expect(d?.sourceWeights["regime-detector-meta.A"]).toBeCloseTo(1.0, 5); // 2.0 × 0.5
+    expect(d?.sourceWeights["regime-detector-meta.A"]).toBeCloseTo(1, 5); // 2.0 × 0.5
   });
 });
