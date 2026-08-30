@@ -163,7 +163,7 @@ describe("runBacktest — kill-switch", () => {
     }
   });
 
-  it("a kill-switch nem dob TypeError-t, ha nincs nyitott pozíció (Phase 27 regression test)", async () => {
+  it("a kill-switch nem dob TypeError-t, ha nincs nyitott pozíció", async () => {
     const rising = Array.from({ length: 50 }, (_, index) => makeCandle(index * HOUR_MS, 1000 + index));
     const falling = Array.from({ length: 50 }, (_, index) =>
       makeCandle((50 + index) * HOUR_MS, 1050 - index * 3),
