@@ -1,6 +1,5 @@
 /**
  * Scaffold-stage placeholder test.
- * Todel: a Phase 3 implementacioban ezt csereljuk ki tenyleges unit tesztekre.
  */
 import { describe, expect, it } from "bun:test";
 import "./index.js";
