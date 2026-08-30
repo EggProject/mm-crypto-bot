@@ -44,13 +44,16 @@ their implementation and validation gates remain unperformed.
 
 ## Current observed baseline
 
-- `apps/bot` is the only workspace application. Six workspace packages exist:
-  `backtest`, `backtest-tools`, `core`, `exchange`, `paper`, and `shared`.
+- `apps/bot` is the only workspace application. Eleven workspace packages
+  exist: `assert`, `backtest`, `backtest-tools`, `core`, `exchange`, `logging`,
+  `numeric`, `paper`, `shared`, `typeguard`, and `typing`.
 - `search-best-config/` exists outside the workspace and has no package
-  manifest. `run-bot/config/` is versioned inside the repository.
-- `bin/mm-bot`, a root `postinstall`, root `mm-bot` scripts, and the bot
-  package `bin` field implement the alias chain requested for removal.
-- The root has TypeScript `6.0.3`, Bun `1.3.14`, and Turbo `2.10.2`; not all
+  manifest. `run-bot/config/` remains versioned inside the repository, and
+  the external runtime migration remains pending/deferred.
+- `bin/mm-bot`, `scripts/install-mm-bot.sh`, root `postinstall`/`mm-bot`
+  scripts, and the bot package `bin` field are absent. `apps/web/` is absent,
+  and the root has no `verify` script.
+- The root has TypeScript `6.0.3`, Bun `1.3.14`, and Turbo `2.10.10`; not all
   dependency ranges are exact pins.
 - Current source and test inventories contain files over 500 lines. The plan
   requires decomposition before the migrated file becomes authoritative.
