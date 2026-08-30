@@ -172,7 +172,7 @@ describe("aggregateToTimeframe", () => {
     expect(requireFirst(result.slice(1), "second aggregated candle").close).toBe(107);
   });
 
-  it("Phase 1 OHLCV aggregáció: 21958 1h candle → ~5490 4h candle", () => {
+  it("OHLCV aggregáció: 21958 1h candle → ~5490 4h candle", () => {
     // A Phase 1-ből származó ETH 1h adat 21958 candle-t tartalmaz, és
     // a 4h aggregációnak ~5490 candle-t kell adnia (30 hónap × 30 nap ×
     // 6.1 candle/nap ≈ 5490). Az eredeti bug miatt 21958 db 4h candle
