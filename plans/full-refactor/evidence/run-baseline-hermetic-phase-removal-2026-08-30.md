@@ -70,7 +70,7 @@ The exact validation commands and receipts were:
 
 Package command: `tmpdir=$(mktemp -d /tmp/mm-run-baseline-coverage.XXXXXX) && (cd packages/backtest-tools && bun test src --coverage --coverage-reporter=lcov --coverage-dir "$tmpdir")`. Receipt: 345 tests total, 336 pass, 9 external failures, 886 expectations. This is not a package-wide PASS. Typecheck command `bun run --filter @mm-crypto-bot/backtest-tools typecheck` remains externally blocked at `packages/backtest-tools/src/data/live-latency-source.ts:68` (`number | null` versus `number | undefined`).
 
-After final formatting, the evidence file is 77 LOC. Candidate `sha256sum` remains
+The committed evidence blob in `72c6101` is 82 LOC. Candidate `sha256sum` remains
 `3541f620344f86fc5fd63c4bee0a75d335b69cf7501a26bdaf1ad05fe2260022`.
 
 ## Boundaries and rollback
@@ -80,3 +80,11 @@ compatibility. No production, schema, data, configuration, `openat`,
 descriptor, or config-reload change occurred; nothing was staged or committed.
 Rollback is restoring the candidate test to its HEAD object and removing this
 evidence/index addition; no external state is involved.
+
+## Retrospective Agy eligibility assessment
+
+This evidence-writer dispatch is corrected retrospectively: the current rules did not make an Agy write route eligible because the authoritative worktree was shared and dirty, direct Agy writes were forbidden, and no dedicated isolated workspace or effective allow/deny boundary was used or authorized for this slice. The Luna mechanical documentation-only route therefore remained the current disposition. This is separate from the Terra-triggered route used for the run-baseline implementation itself; it does not assert an evaluated Agy route or observable attestation.
+
+## Commit provenance correction
+
+The historical pre-commit/preflight statements above apply to the review-before-commit snapshot only. The implementation was subsequently committed as `72c6101`. `git show --stat --oneline 72c6101` identifies the run-baseline implementation slice, and after that commit the exact implementation path `packages/backtest-tools/src/cli/run-baseline.test.ts` was clean.
