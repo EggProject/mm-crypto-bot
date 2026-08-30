@@ -8,57 +8,59 @@
  * The interface itself has no logic (TypeScript-only), but the
  * `ExchangeFeedError` class wraps a `cause` and must be tested.
  * We also test the type re-exports compile correctly.
- *
- * Phase 35b gap closer — no exchange-package test was covering this
- * file's `ExchangeFeedError` class.
  */
 import { describe, expect, it } from "bun:test";
 
-import { ExchangeFeedError, type ExchangeFeed, type FeedListener, type SubscriptionId } from "./feed.js";
+import {
+  ExchangeFeedError,
+  type ExchangeFeed,
+  type FeedEvent,
+  type FeedListener,
+  type SubscriptionId,
+} from "./feed.js";
+
+const unexpectedSubscriptionInvocation: FeedListener = () => {
+  throw new Error("subscribeTicker must not invoke its listener");
+};
 
 describe("feed", () => {
   describe("ExchangeFeedError", () => {
     it("konstruktor eltárolja az üzenetet és a cause-t", () => {
       const cause = new Error("original error");
-      const err = new ExchangeFeedError("wrapper message", cause);
-      expect(err).toBeInstanceOf(Error);
-      expect(err).toBeInstanceOf(ExchangeFeedError);
-      expect(err.message).toBe("wrapper message");
-      expect(err.cause).toBe(cause);
-      expect(err.name).toBe("ExchangeFeedError");
+      const error = new ExchangeFeedError("wrapper message", cause);
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toBeInstanceOf(ExchangeFeedError);
+      expect(error.message).toBe("wrapper message");
+      expect(error.cause).toBe(cause);
+      expect(error.name).toBe("ExchangeFeedError");
     });
 
     it("cause lehet nem-Error típusú is (string, object, undefined)", () => {
       // A `cause` típusa `unknown`, tehát bármi lehet.
-      const err1 = new ExchangeFeedError("with string", "string cause");
-      expect(err1.cause).toBe("string cause");
+      const error1 = new ExchangeFeedError("with string", "string cause");
+      expect(error1.cause).toBe("string cause");
 
-      const err2 = new ExchangeFeedError("with object", { code: 500 });
-      expect(err2.cause).toEqual({ code: 500 });
+      const error2 = new ExchangeFeedError("with object", { code: 500 });
+      expect(error2.cause).toEqual({ code: 500 });
 
-      const err3 = new ExchangeFeedError("with null", null);
-      expect(err3.cause).toBeNull();
+      const error3 = new ExchangeFeedError("with undefined", undefined);
+      expect(error3.cause).toBeUndefined();
     });
 
     it("a stack trace az ExchangeFeedError konstruktorából származik", () => {
-      const err = new ExchangeFeedError("test", new Error("inner"));
-      expect(err.stack).toBeDefined();
-      expect(err.stack).toContain("ExchangeFeedError");
+      const error = new ExchangeFeedError("test", new Error("inner"));
+      expect(error.stack).toBeDefined();
+      expect(error.stack).toContain("ExchangeFeedError");
     });
   });
 
   describe("ExchangeFeed interface contract", () => {
     it("MockExchangeFeed implementálja az ExchangeFeed interfészt", async () => {
-      // Fordítási idejű típusellenőrzés: a MockExchangeFeed
-      // megfelel az ExchangeFeed interface-nek.
-      // Futtatáskor is ellenőrizzük, hogy minden metódus létezik.
-      // Phase 66: a `MockExchangeFeed` a `__testing__/` almappába
-      // került (test-only).
+      // The assignment verifies the compile-time interface contract.
       const { MockExchangeFeed } = await import("./__testing__/mockFeed.js");
       const feed: ExchangeFeed = new MockExchangeFeed();
 
-      // A típusellenőrzés a `feed: ExchangeFeed` cast-ból adódik.
-      // Az instanceof + metódusellenőrzés futásidejű bizonyíték.
+      // The remaining assertions verify the runtime method surface.
       expect(typeof feed.open).toBe("function");
       expect(typeof feed.subscribeTicker).toBe("function");
       expect(typeof feed.subscribeOrderBook).toBe("function");
@@ -85,9 +87,10 @@ describe("feed", () => {
       const { asSymbol } = await import("./symbols.js");
       const feed = new MockExchangeFeed();
       await feed.open();
-      const subId: SubscriptionId = await feed.subscribeTicker(asSymbol("BTC/USDC"), () => {
-        /* no-op */
-      });
+      const subId: SubscriptionId = await feed.subscribeTicker(
+        asSymbol("BTC/USDC"),
+        unexpectedSubscriptionInvocation,
+      );
       expect(typeof subId).toBe("number");
       await feed.unsubscribe(subId);
       await feed.close();
@@ -105,21 +108,21 @@ describe("feed", () => {
         called++;
       };
       const subId = await feed.subscribeTicker(asSymbol("BTC/USDC"), listener);
-      // A mock feed push-jával triggereljük a listenert.
       const symbol = asSymbol("BTC/USDC");
-      feed.pushEvent({
+      const event: FeedEvent = {
         kind: "ticker",
         payload: {
-          symbol: symbol as unknown as never,
-          timestamp: Date.now(),
+          symbol,
+          timestamp: 0,
           bid: 100,
           ask: 101,
           last: 100.5,
           baseVolume: 0,
           quoteVolume: 0,
-        } as never,
-      });
-      expect(called).toBeGreaterThanOrEqual(0);
+        },
+      };
+      feed.pushEvent(event);
+      expect(called).toBe(1);
       await feed.unsubscribe(subId);
       await feed.close();
     });
