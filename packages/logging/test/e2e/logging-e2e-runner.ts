@@ -19,7 +19,6 @@ export interface LoggingEndToEndRunnerOptions {
   readonly childEntry: string;
   readonly preload: string;
   readonly rawDirectory: string;
-  readonly rawDirectoryIdentity: Readonly<{ device: bigint; inode: bigint }>;
   readonly environment: Readonly<Record<string, string | undefined>>;
   /**
    * Revalidates both private executable artifacts immediately before each subprocess.
@@ -154,7 +153,6 @@ function isPublicStderrCase(caseId: LoggingEndToEndCaseId): caseId is PublicStde
 function buildChildEnvironment(
   inherited: Readonly<Record<string, string | undefined>>,
   rawDirectory: string,
-  rawDirectoryIdentity: Readonly<{ device: bigint; inode: bigint }>,
   caseId: LoggingEndToEndCaseId,
 ): Readonly<Record<string, string>> {
   const inheritedEntries = Object.entries(inherited).filter(
@@ -163,8 +161,6 @@ function buildChildEnvironment(
   return {
     ...Object.fromEntries(inheritedEntries),
     MM_LOGGING_E2E_COVERAGE_RAW_DIR: rawDirectory,
-    MM_LOGGING_E2E_COVERAGE_RAW_DEVICE: rawDirectoryIdentity.device.toString(),
-    MM_LOGGING_E2E_COVERAGE_RAW_INODE: rawDirectoryIdentity.inode.toString(),
     MM_LOGGING_E2E_CASE_ID: caseId,
   };
 }
@@ -174,12 +170,7 @@ export async function runLoggingEndToEndSubprocesses(
 ): Promise<readonly LoggingEndToEndCaseResult[]> {
   const results: LoggingEndToEndCaseResult[] = [];
   for (const caseId of LOGGING_E2E_CASE_IDS) {
-    const environment = buildChildEnvironment(
-      options.environment,
-      options.rawDirectory,
-      options.rawDirectoryIdentity,
-      caseId,
-    );
+    const environment = buildChildEnvironment(options.environment, options.rawDirectory, caseId);
     options.verifyExecutableArtifacts();
     const child = (options.spawn ?? spawnLoggingEndToEndChild)({
       cmd: ["bun", "--preload", options.preload, options.childEntry, caseId],

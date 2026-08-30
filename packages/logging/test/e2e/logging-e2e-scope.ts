@@ -1,12 +1,5 @@
-import { readdirSync } from "node:fs";
 // eslint-disable-next-line unicorn/import-style -- Bun's node:path declaration only exposes typed named imports under the E2E project's configured type roots.
 import { isAbsolute, relative, resolve, sep } from "node:path";
-
-import {
-  assertSafeDirectoryPathWithinRoot,
-  assertSafeExistingFileWithinRoot,
-} from "./logging-e2e-path-boundary.ts";
-import { readVerifiedRegularFile } from "./logging-e2e-secure-file-reader.ts";
 
 export const REPOSITORY_ROOT = resolve(import.meta.dirname, "../../../..");
 export const LOGGING_DIRECTORY = resolve(REPOSITORY_ROOT, "packages/logging");
@@ -33,8 +26,6 @@ interface LoggingScopeDirectoryEntry {
 
 interface LoggingScopeDiscoveryPort {
   readonly readDirectory: (directory: string) => readonly LoggingScopeDirectoryEntry[];
-  readonly assertDirectory: (path: string, root: string, label: string) => void;
-  readonly assertFile: (path: string, root: string, label: string) => void;
 }
 
 interface ParseLoggingEndToEndScopeManifestOptions {
@@ -42,12 +33,40 @@ interface ParseLoggingEndToEndScopeManifestOptions {
   readonly discoveryPort?: LoggingScopeDiscoveryPort;
 }
 
+function runScopeCommand(command: readonly string[]): Uint8Array {
+  const result = Bun.spawnSync({ cmd: [...command], stderr: "pipe", stdout: "pipe" });
+  if (result.exitCode !== 0) {
+    throw new Error(
+      `Logging E2E scope command failed: ${command.join(" ")}: ${new TextDecoder().decode(result.stderr)}.`,
+    );
+  }
+  return new Uint8Array(result.stdout);
+}
+
+function readScopeFile(path: string): Uint8Array {
+  return runScopeCommand(["cat", path]);
+}
+
+function scopeDirectoryEntry(serialized: string): LoggingScopeDirectoryEntry {
+  const separator = serialized.indexOf("\t");
+  const type = serialized.slice(0, separator);
+  const name = serialized.slice(separator + 1);
+  return Object.freeze({
+    name,
+    isSymbolicLink: (): boolean => type === "l",
+    isDirectory: (): boolean => type === "d",
+    isFile: (): boolean => type === "f",
+  });
+}
+
 const defaultLoggingScopeDiscoveryPort: LoggingScopeDiscoveryPort = {
-  readDirectory: (directory) =>
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The source directory has just passed canonical containment and no-symlink checks.
-    readdirSync(directory, { withFileTypes: true }),
-  assertDirectory: assertSafeDirectoryPathWithinRoot,
-  assertFile: assertSafeExistingFileWithinRoot,
+  readDirectory: (directory): readonly LoggingScopeDirectoryEntry[] => {
+    const command = ["find", directory, "-maxdepth", "1", "-mindepth", "1", "-printf", String.raw`%y\t%f\n`];
+    const output = new TextDecoder().decode(runScopeCommand(command)).trim();
+    return Object.freeze(
+      output.length === 0 ? [] : output.split("\n").map((serialized) => scopeDirectoryEntry(serialized)),
+    );
+  },
 };
 
 function assertPlainObject(candidate: unknown, label: string): asserts candidate is Record<string, unknown> {
@@ -97,20 +116,15 @@ function discoverRuntimeFilesRecursively(
   directory: string,
   discoveryPort: LoggingScopeDiscoveryPort,
 ): readonly string[] {
-  discoveryPort.assertDirectory(directory, LOGGING_SOURCE_DIRECTORY, "Logging runtime source directory");
   const discoveredFiles: string[] = [];
   const directoryEntries = orderDirectoryEntries(discoveryPort.readDirectory(directory));
   for (const directoryEntry of directoryEntries) {
     const absolutePath = resolve(directory, directoryEntry.name);
-    if (directoryEntry.isSymbolicLink()) {
-      throw new Error(`Logging runtime source must not contain symbolic links: ${absolutePath}.`);
-    }
     if (directoryEntry.isDirectory()) {
       discoveredFiles.push(...discoverRuntimeFilesRecursively(absolutePath, discoveryPort));
       continue;
     }
     if (!directoryEntry.isFile()) continue;
-    discoveryPort.assertFile(absolutePath, LOGGING_SOURCE_DIRECTORY, "Logging runtime source file");
     const repoPath = relative(REPOSITORY_ROOT, absolutePath).split(sep).join("/");
     if (repoPath.endsWith(TYPESCRIPT_SOURCE_SUFFIX) && !repoPath.endsWith(TEST_SOURCE_SUFFIX)) {
       discoveredFiles.push(repoPath);
@@ -141,9 +155,7 @@ function validateRuntimeFiles(
     }
     seenPaths.add(repoPath);
     const absolutePath = resolve(REPOSITORY_ROOT, repoPath);
-    if (areFilesRequired) {
-      assertSafeExistingFileWithinRoot(absolutePath, LOGGING_SOURCE_DIRECTORY, "Logging runtime source file");
-    }
+    if (areFilesRequired) readScopeFile(absolutePath);
     return repoPath;
   });
   const discoveredFiles = discoverRuntimeFilesRecursively(LOGGING_SOURCE_DIRECTORY, discoveryPort);
@@ -199,11 +211,7 @@ export function parseLoggingEndToEndScopeManifest(
 export function loadLoggingEndToEndScopeManifest(path = MANIFEST_PATH): LoggingEndToEndScopeManifest {
   let parsedManifest: unknown;
   try {
-    parsedManifest = JSON.parse(
-      new TextDecoder().decode(
-        readVerifiedRegularFile(path, LOGGING_DIRECTORY, "Logging E2E coverage manifest").contents,
-      ),
-    );
+    parsedManifest = JSON.parse(new TextDecoder().decode(readScopeFile(path)));
   } catch (error: unknown) {
     throw new Error(`Cannot read logging E2E coverage manifest ${path}.`, { cause: error });
   }

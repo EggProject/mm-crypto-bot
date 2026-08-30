@@ -1,9 +1,8 @@
-import { existsSync, unlinkSync, writeFileSync } from "node:fs";
 // eslint-disable-next-line unicorn/import-style -- Bun's node:path declaration only exposes typed named imports under the E2E project's configured type roots.
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-import { createLoggingE2eArtifactRun as createArtifactRun } from "./logging-e2e-artifact-run.ts";
+import { createLoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
 import { buildInstrumentedLoggingEndToEnd } from "./build-instrumented-logging-e2e.ts";
 import { loadLoggingEndToEndScopeManifest } from "./logging-e2e-scope.ts";
 import {
@@ -42,7 +41,7 @@ describe("instrumented logging E2E build", () => {
             manifest,
             build: () => {
               const reportedNames = selectNames(expectedNames);
-              if (writesOutputs) writeBundleFiles(artifactRun.paths.bundle, reportedNames);
+              if (writesOutputs) writeBundleFiles(artifactRun, reportedNames);
               return Promise.resolve({
                 logs: [],
                 outputs: outputRecords(artifactRun.paths.bundle, reportedNames),
@@ -88,7 +87,7 @@ describe("instrumented logging E2E build", () => {
           artifactRun,
           manifest,
           build: () => {
-            writeBundleFiles(artifactRun.paths.bundle, expectedNames.slice(1));
+            writeBundleFiles(artifactRun, expectedNames.slice(1));
             return Promise.resolve({
               logs: [],
               outputs: outputRecords(artifactRun.paths.bundle, expectedNames),
@@ -114,7 +113,7 @@ describe("instrumented logging E2E build", () => {
             artifactRun,
             manifest,
             build: () => {
-              writeBundleFiles(artifactRun.paths.bundle, partialNames);
+              writeBundleFiles(artifactRun, partialNames);
               return Promise.resolve({
                 logs: [{ message: diagnostic }],
                 outputs: outputRecords(artifactRun.paths.bundle, partialNames),
@@ -124,7 +123,7 @@ describe("instrumented logging E2E build", () => {
           }),
         ).rejects.toThrow("Instrumented logging E2E Bun build failed");
         expect(errorSpy).toHaveBeenCalledWith(diagnostic);
-        expect(artifactRun.adoptExternalFiles("bundle")).toEqual(partialNames);
+        expect(artifactRun.listFiles("bundle")).toEqual(partialNames);
       } finally {
         errorSpy.mockRestore();
       }
@@ -133,8 +132,7 @@ describe("instrumented logging E2E build", () => {
 
   it("adopts partial files after a rejected build so cleanup removes them", async () => {
     const manifest = loadLoggingEndToEndScopeManifest();
-    const artifactRun = createArtifactRun();
-    const partialPath = join(artifactRun.paths.bundle, "partial.js");
+    const artifactRun = createLoggingEndToEndFixture();
     const buildFailure = new Error("simulated rejected build");
     try {
       await expect(
@@ -142,16 +140,14 @@ describe("instrumented logging E2E build", () => {
           artifactRun,
           manifest,
           build: () => {
-            // eslint-disable-next-line security/detect-non-literal-fs-filename -- The artifact run owns this direct bundle child path.
-            writeFileSync(partialPath, new Uint8Array([1]));
+            artifactRun.writeFile("bundle", "partial.js", new Uint8Array([1]));
             return Promise.reject(buildFailure);
           },
         }),
       ).rejects.toBe(buildFailure);
-      expect(artifactRun.adoptExternalFiles("bundle")).toEqual(["partial.js"]);
+      expect(artifactRun.listFiles("bundle")).toEqual(["partial.js"]);
       artifactRun.cleanup();
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- The artifact run owns this freshly allocated root path.
-      expect(existsSync(artifactRun.paths.root)).toBe(false);
+      await expect(Bun.file(artifactRun.paths.root).exists()).resolves.toBe(false);
     } finally {
       artifactRun.cleanup();
     }
@@ -159,8 +155,7 @@ describe("instrumented logging E2E build", () => {
 
   it("preserves build failure first when rejected-build partial adoption also fails", async () => {
     const manifest = loadLoggingEndToEndScopeManifest();
-    const artifactRun = createArtifactRun();
-    const invalidPartialPath = join(artifactRun.paths.bundle, "invalid partial.js");
+    const artifactRun = createLoggingEndToEndFixture();
     const buildFailure = new Error("simulated rejected build");
     try {
       let thrown: unknown;
@@ -169,8 +164,7 @@ describe("instrumented logging E2E build", () => {
           artifactRun,
           manifest,
           build: () => {
-            // eslint-disable-next-line security/detect-non-literal-fs-filename -- The artifact run owns this direct bundle child path.
-            writeFileSync(invalidPartialPath, new Uint8Array([1]));
+            artifactRun.writeFile("bundle", "invalid partial.js", new Uint8Array([1]));
             return Promise.reject(buildFailure);
           },
         });
@@ -183,8 +177,6 @@ describe("instrumented logging E2E build", () => {
       expect(thrown.errors[0]).toBe(buildFailure);
       expect(thrown.errors[1]).toBeInstanceOf(Error);
     } finally {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- This is the test's intentionally invalid, direct artifact child.
-      if (existsSync(invalidPartialPath)) unlinkSync(invalidPartialPath);
       artifactRun.cleanup();
     }
   });

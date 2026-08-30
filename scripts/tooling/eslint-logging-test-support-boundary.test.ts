@@ -4,6 +4,7 @@ import { ESLint } from "eslint";
 const source = 'import { RecordingLogger } from "@logging-testing";';
 const subpathSource = 'import { RecordingLogger } from "@logging-testing/recording";';
 const unrestrictedSource = 'import { Logger } from "@mm-crypto-bot/logging";';
+const loggingEndToEndFixturePath = "packages/logging/test/e2e/logging-e2e-fixture.ts";
 
 const eslint = new ESLint({
   overrideConfigFile: "eslint.config.js",
@@ -18,6 +19,12 @@ async function restrictedImportMessages(sourceText: string, filePath: string): P
   return result.messages
     .filter((message) => message.ruleId === "no-restricted-imports")
     .map((message) => message.message);
+}
+
+async function existingSourceText(filePath: string): Promise<string> {
+  const file = Bun.file(filePath);
+  expect(await file.exists()).toBe(true);
+  return file.text();
 }
 
 describe("logging test-support import boundary", () => {
@@ -35,15 +42,19 @@ describe("logging test-support import boundary", () => {
   }, 60_000);
 
   it("allows the alias only from actual test, test-support, and E2E boundaries", async () => {
+    const loggingEndToEndFixtureSource = await existingSourceText(loggingEndToEndFixturePath);
+
     for (const filePath of [
       "apps/bot/src/bot/bot.runtime.test.ts",
       "apps/bot/src/bot/bot.test-support.ts",
       "apps/bot/test/e2e/runtime-driver/position-manager-boundaries.ts",
       "packages/logging/src/serialization.test.ts",
       "packages/logging/test-support/index.ts",
-      "packages/logging/test/e2e/logging-e2e-artifact-run.test.ts",
+      loggingEndToEndFixturePath,
     ]) {
-      const messages = await restrictedImportMessages(source, filePath);
+      const sourceText =
+        filePath === loggingEndToEndFixturePath ? `${loggingEndToEndFixtureSource}\n${source}` : source;
+      const messages = await restrictedImportMessages(sourceText, filePath);
 
       expect(messages).toHaveLength(0);
     }

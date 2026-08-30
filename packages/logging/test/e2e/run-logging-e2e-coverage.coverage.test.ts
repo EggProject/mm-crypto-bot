@@ -1,8 +1,7 @@
 import coveragePackage from "istanbul-lib-coverage";
 import { describe, expect, it, vi } from "vitest";
 
-// eslint-disable-next-line unicorn/name-replacements -- Established public E2E artifact contract.
-import type { LoggingE2eArtifactRun } from "./logging-e2e-artifact-run.ts";
+import type { LoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
 import type { LoggingEndToEndCoverageSummary } from "./logging-e2e-gate.ts";
 import { LOGGING_E2E_CASE_IDS, type LoggingEndToEndCaseResult } from "./logging-e2e-runner.ts";
 import type { LoggingEndToEndScopeManifest } from "./logging-e2e-scope.ts";
@@ -16,11 +15,6 @@ import {
 } from "./run-logging-e2e-coverage.ts";
 
 const ARTIFACT_PATHS = Object.freeze({ bundle: "/private/bundle", raw: "/private/raw", root: "/private" });
-const ARTIFACT_IDENTITIES = Object.freeze({
-  bundle: Object.freeze({ device: 1n, inode: 3n }),
-  raw: Object.freeze({ device: 1n, inode: 2n }),
-  root: Object.freeze({ device: 1n, inode: 1n }),
-});
 const RUNTIME_FILES = Object.freeze(["packages/logging/src/logger.ts"]);
 const EMPTY_COVERAGE = coveragePackage.createCoverageMap({}).getCoverageSummary().toJSON();
 
@@ -59,28 +53,24 @@ function createMismatchedCaseIds(): readonly LoggingEndToEndCaseResult["caseId"]
   return Object.freeze([second, first, ...remaining]);
 }
 
-function createArtifactRun(
+function createFixture(
   events: string[],
   adoptedFiles: readonly string[] = LOGGING_E2E_CASE_IDS,
-): LoggingE2eArtifactRun {
+): LoggingEndToEndFixture {
   return Object.freeze({
-    adoptExternalFiles: (directory: "raw" | "bundle") => {
-      events.push(`adopt:${directory}`);
+    listFiles: (directory: "raw" | "bundle") => {
+      events.push(`list:${directory}`);
       return Object.freeze([...adoptedFiles]);
     },
     cleanup: () => {
       events.push("cleanup");
     },
-    identities: ARTIFACT_IDENTITIES,
     paths: ARTIFACT_PATHS,
     readFile: (directory: "raw" | "bundle", name: string) => {
       events.push(`read:${directory}:${name}`);
       return new Uint8Array();
     },
-    revalidateDirectories: () => {
-      events.push("revalidate");
-    },
-    writeExclusiveFile: () => {
+    writeFile: () => {
       events.push("write");
     },
   });
@@ -90,7 +80,7 @@ function createPort(
   events: string[],
   overrides: Readonly<Partial<LoggingEndToEndCoveragePort>> = Object.freeze({}),
 ): LoggingEndToEndCoveragePort {
-  const artifactRun = createArtifactRun(events);
+  const artifactRun = createFixture(events);
   const port: LoggingEndToEndCoveragePort = {
     build: () => {
       events.push("build");
@@ -292,7 +282,7 @@ describe("logging E2E coverage orchestration", () => {
 
   it("fails when the adopted raw artifact count differs from completed subprocesses", async () => {
     const events: string[] = [];
-    const artifactRun = createArtifactRun(events, ["one.json"]);
+    const artifactRun = createFixture(events, ["one.json"]);
     const port = createPort(events, { createArtifactRun: () => artifactRun });
 
     await expect(runLoggingEndToEndCoverage(port)).rejects.toThrow("adopted logging E2E raw coverage files");
@@ -345,7 +335,7 @@ describe("logging E2E coverage orchestration", () => {
     const events: string[] = [];
     const cleanup = new Error("cleanup only");
     const artifactRun = Object.freeze({
-      ...createArtifactRun(events),
+      ...createFixture(events),
       cleanup: () => {
         throw cleanup;
       },
@@ -360,7 +350,7 @@ describe("logging E2E coverage orchestration", () => {
     const primary = new Error("primary");
     const cleanup = new Error("cleanup");
     const artifactRun = Object.freeze({
-      ...createArtifactRun(events),
+      ...createFixture(events),
       cleanup: () => {
         throw cleanup;
       },

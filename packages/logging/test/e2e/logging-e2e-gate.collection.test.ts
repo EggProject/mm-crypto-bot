@@ -1,7 +1,7 @@
 import type { FileCoverageData } from "istanbul-lib-coverage";
 import { describe, expect, it, vi } from "vitest";
 
-import { createLoggingE2eArtifactRun as createArtifactRun } from "./logging-e2e-artifact-run.ts";
+import { createLoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
 import {
   collectLoggingEndToEndCoverage,
   printLoggingEndToEndSummary,
@@ -52,14 +52,14 @@ function bytes(value: unknown): Uint8Array {
 }
 
 function writeCase(
-  run: ReturnType<typeof createArtifactRun>,
+  run: ReturnType<typeof createLoggingEndToEndFixture>,
   caseId: string,
   pid: number,
   files: readonly string[] = runtimeFiles,
   counts: readonly [number, number, readonly [number, number]] = [1, 1, [1, 1]],
 ): void {
   const payload = Object.fromEntries(files.map((file) => [file, coverage(file, counts)]));
-  run.writeExclusiveFile(
+  run.writeFile(
     "raw",
     `${caseId}-${String(pid)}.json`,
     bytes({ schemaVersion: 1, pid, caseId, coverage: payload }),
@@ -67,9 +67,9 @@ function writeCase(
 }
 
 function withRun(
-  test: (run: ReturnType<typeof createArtifactRun>, scope: LoggingEndToEndScopeManifest) => void,
+  test: (run: ReturnType<typeof createLoggingEndToEndFixture>, scope: LoggingEndToEndScopeManifest) => void,
 ): void {
-  const run = createArtifactRun();
+  const run = createLoggingEndToEndFixture();
   try {
     test(run, manifest());
   } finally {
@@ -78,7 +78,7 @@ function withRun(
 }
 
 function collectFullCoverage(): LoggingEndToEndCoverageSummary {
-  const run = createArtifactRun();
+  const run = createLoggingEndToEndFixture();
   const scope = manifest();
   try {
     writeCase(run, caseIds[0], 101);

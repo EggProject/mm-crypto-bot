@@ -1,6 +1,6 @@
 import { type FileCoverageData } from "istanbul-lib-coverage";
 
-import { createLoggingE2eArtifactRun as createArtifactRun } from "./logging-e2e-artifact-run.ts";
+import { createLoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
 import { collectLoggingEndToEndCoverage } from "./logging-e2e-gate.ts";
 import {
   absoluteRuntimeFiles,
@@ -73,7 +73,7 @@ export function jsonBytes(value: unknown): Uint8Array {
 }
 
 export function createGateTestRun(): GateTestRun {
-  const artifactRun = createArtifactRun();
+  const artifactRun = createLoggingEndToEndFixture();
   const manifest = loadLoggingEndToEndScopeManifest();
   const caseId = firstManifestCase(manifest);
   const pid = 123;
@@ -83,7 +83,7 @@ export function createGateTestRun(): GateTestRun {
     pid,
     collect: () => collectLoggingEndToEndCoverage({ artifactRun, manifest }),
     write: (filename, contents) => {
-      artifactRun.writeExclusiveFile("raw", filename, contents);
+      artifactRun.writeFile("raw", filename, contents);
     },
     cleanup: () => {
       artifactRun.cleanup();

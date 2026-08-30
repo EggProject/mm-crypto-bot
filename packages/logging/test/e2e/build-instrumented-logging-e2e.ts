@@ -3,8 +3,7 @@ import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path
 
 import instrumentPackage from "istanbul-lib-instrument";
 
-// eslint-disable-next-line unicorn/name-replacements -- Established public E2E artifact contract.
-import type { LoggingE2eArtifactRun } from "./logging-e2e-artifact-run.ts";
+import type { LoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
 import {
   LOGGING_DIRECTORY,
   LOGGING_SOURCE_DIRECTORY,
@@ -13,7 +12,6 @@ import {
   parseLoggingEndToEndScopeManifest,
   type LoggingEndToEndScopeManifest,
 } from "./logging-e2e-scope.ts";
-import { readVerifiedRegularFile, type SecureRegularFileRead } from "./logging-e2e-secure-file-reader.ts";
 
 const createInstrumenter = instrumentPackage.createInstrumenter.bind(instrumentPackage);
 const CHILD_ENTRY = resolve(REPOSITORY_ROOT, "packages/logging/test/e2e/logging-e2e-child.ts");
@@ -45,9 +43,17 @@ interface InstrumentedBuildResponse {
 
 type InstrumentedBuildExecutor = (config: Bun.BuildConfig) => Promise<InstrumentedBuildResponse>;
 type LoggingEndToEndScopeValidator = (manifest: unknown) => LoggingEndToEndScopeManifest;
-type LoggingBuildSourceReader = (path: string, root: string, label: string) => SecureRegularFileRead;
+type LoggingBuildSourceReader = (path: string, root: string, label: string) => Uint8Array;
 
 const executeBunBuild: InstrumentedBuildExecutor = async (config) => Bun.build(config);
+
+function readBuildSource(path: string): Uint8Array {
+  const result = Bun.spawnSync({ cmd: ["cat", path], stderr: "pipe", stdout: "pipe" });
+  if (result.exitCode !== 0) {
+    throw new Error(`Cannot read logging E2E build source: ${new TextDecoder().decode(result.stderr)}.`);
+  }
+  return new Uint8Array(result.stdout);
+}
 
 function isWithinLoggingDirectory(absolutePath: string): boolean {
   const pathFromLoggingDirectory = relative(LOGGING_DIRECTORY, absolutePath);
@@ -97,8 +103,8 @@ function requiredBundleOutputNames(manifest: LoggingEndToEndScopeManifest): read
   return sortedRequiredOutputNames;
 }
 
-function assertEmptyBundle(artifactRun: LoggingE2eArtifactRun): void {
-  const adoptedBundleFiles = artifactRun.adoptExternalFiles("bundle");
+function assertEmptyBundle(fixture: LoggingEndToEndFixture): void {
+  const adoptedBundleFiles = fixture.listFiles("bundle");
   if (adoptedBundleFiles.length > 0) {
     throw new Error(
       `Logging E2E artifact bundle must be empty before build: ${adoptedBundleFiles.join(", ")}.`,
@@ -107,13 +113,13 @@ function assertEmptyBundle(artifactRun: LoggingE2eArtifactRun): void {
 }
 
 function observedBuildOutputNames(
-  artifactRun: LoggingE2eArtifactRun,
+  fixture: LoggingEndToEndFixture,
   buildResult: InstrumentedBuildResponse,
 ): readonly string[] {
   const outputNames: string[] = [];
   for (const output of buildResult.outputs) {
     const outputName = basename(output.path);
-    if (dirname(output.path) !== artifactRun.paths.bundle) {
+    if (dirname(output.path) !== fixture.paths.bundle) {
       throw new Error(`Logging E2E Bun build output is not a direct bundle child: ${output.path}.`);
     }
     if (outputNames.includes(outputName)) {
@@ -125,10 +131,10 @@ function observedBuildOutputNames(
 }
 
 function assertAdoptedBundleMatchesReportedOutputs(
-  artifactRun: LoggingE2eArtifactRun,
+  fixture: LoggingEndToEndFixture,
   reportedOutputNames: readonly string[],
 ): readonly string[] {
-  const adoptedBundleFiles = artifactRun.adoptExternalFiles("bundle");
+  const adoptedBundleFiles = fixture.listFiles("bundle");
   if (JSON.stringify(adoptedBundleFiles) !== JSON.stringify(reportedOutputNames)) {
     throw new Error(
       `Logging E2E adopted bundle files must exactly equal reported Bun build outputs. Adopted: ${adoptedBundleFiles.join(", ")}. Reported: ${reportedOutputNames.join(", ")}.`,
@@ -155,7 +161,7 @@ function snapshotRuntimeSources(
 ): ReadonlyMap<string, Uint8Array> {
   const snapshots = new Map<string, Uint8Array>();
   for (const runtimeFile of scopedRuntimeFiles) {
-    const contents = readSource(runtimeFile, LOGGING_SOURCE_DIRECTORY, "Logging build source").contents;
+    const contents = readSource(runtimeFile, LOGGING_SOURCE_DIRECTORY, "Logging build source");
     snapshots.set(runtimeFile, new Uint8Array(contents));
   }
   return snapshots;
@@ -169,7 +175,7 @@ function snapshotBuildSource(
 ): Uint8Array {
   const existingSnapshot = sourceSnapshots.get(path);
   if (existingSnapshot !== undefined) return existingSnapshot;
-  const snapshot = new Uint8Array(readSource(path, root, "Logging build source").contents);
+  const snapshot = new Uint8Array(readSource(path, root, "Logging build source"));
   sourceSnapshots.set(path, snapshot);
   return snapshot;
 }
@@ -185,7 +191,7 @@ function assertBuildSourcesUnchanged(
   readSource: LoggingBuildSourceReader,
 ): void {
   for (const [sourceFile, snapshot] of snapshots) {
-    const current = readSource(sourceFile, LOGGING_DIRECTORY, "Logging build source").contents;
+    const current = readSource(sourceFile, LOGGING_DIRECTORY, "Logging build source");
     if (!areEqualBytes(snapshot, current)) {
       throw new Error(`Logging E2E build source changed during build: ${sourceFile}.`);
     }
@@ -193,13 +199,13 @@ function assertBuildSourcesUnchanged(
 }
 
 export async function buildInstrumentedLoggingEndToEnd({
-  artifactRun,
+  artifactRun: fixture,
   build = executeBunBuild,
   manifest,
-  readSource = readVerifiedRegularFile,
+  readSource = readBuildSource,
   validateScope = parseLoggingEndToEndScopeManifest,
 }: {
-  readonly artifactRun: LoggingE2eArtifactRun;
+  readonly artifactRun: LoggingEndToEndFixture;
   readonly build?: InstrumentedBuildExecutor;
   readonly manifest: LoggingEndToEndScopeManifest;
   readonly readSource?: LoggingBuildSourceReader;
@@ -209,7 +215,7 @@ export async function buildInstrumentedLoggingEndToEnd({
   readonly instrumentedCount: number;
   readonly preloadEntry: string;
 }> {
-  assertEmptyBundle(artifactRun);
+  assertEmptyBundle(fixture);
   const requiredOutputNames = requiredBundleOutputNames(manifest);
   const scopedManifest = validateScope(manifest);
   const scopedRuntimeFiles = absoluteRuntimeFiles(scopedManifest);
@@ -223,7 +229,7 @@ export async function buildInstrumentedLoggingEndToEnd({
       entrypoints: [CHILD_ENTRY, PRELOAD_ENTRY, ...scopedRuntimeFiles],
       target: "bun",
       format: "esm",
-      outdir: artifactRun.paths.bundle,
+      outdir: fixture.paths.bundle,
       naming: "[name].js",
       plugins: [
         {
@@ -268,7 +274,7 @@ export async function buildInstrumentedLoggingEndToEnd({
     });
   } catch (buildError: unknown) {
     try {
-      artifactRun.adoptExternalFiles("bundle");
+      fixture.listFiles("bundle");
     } catch (adoptionError: unknown) {
       throw new AggregateError(
         [buildError, adoptionError],
@@ -279,13 +285,13 @@ export async function buildInstrumentedLoggingEndToEnd({
     throw buildError;
   }
 
-  const reportedOutputNames = observedBuildOutputNames(artifactRun, buildResult);
+  const reportedOutputNames = observedBuildOutputNames(fixture, buildResult);
   if (!buildResult.success) {
-    assertAdoptedBundleMatchesReportedOutputs(artifactRun, reportedOutputNames);
+    assertAdoptedBundleMatchesReportedOutputs(fixture, reportedOutputNames);
     for (const log of buildResult.logs) console.error(log.message);
     throw new Error("Instrumented logging E2E Bun build failed.");
   }
-  assertAdoptedBundleMatchesReportedOutputs(artifactRun, reportedOutputNames);
+  assertAdoptedBundleMatchesReportedOutputs(fixture, reportedOutputNames);
   assertRequiredBundleOutputs(reportedOutputNames, requiredOutputNames);
   validateScope(manifest);
   assertBuildSourcesUnchanged(buildSourceSnapshots, readSource);
@@ -297,8 +303,8 @@ export async function buildInstrumentedLoggingEndToEnd({
   }
 
   return {
-    childEntry: resolve(artifactRun.paths.bundle, "logging-e2e-child.js"),
+    childEntry: resolve(fixture.paths.bundle, "logging-e2e-child.js"),
     instrumentedCount: instrumentedRuntimeFiles.size,
-    preloadEntry: resolve(artifactRun.paths.bundle, "logging-e2e-preload.js"),
+    preloadEntry: resolve(fixture.paths.bundle, "logging-e2e-preload.js"),
   };
 }

@@ -4,5 +4,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "test/e2e/**/*.ts", "vitest.e2e-path-boundary.config.ts"]
+  "include": ["src/**/*.ts", "test/e2e/**/*.ts", "vitest.e2e.config.ts"]
 }

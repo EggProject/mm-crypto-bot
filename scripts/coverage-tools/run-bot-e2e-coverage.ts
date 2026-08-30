@@ -1,19 +1,27 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- cleanup is guarded by the exact repository-owned coverage parent */
 import { mkdirSync, rmSync } from "node:fs";
-import { resolve } from "node:path";
+import path from "node:path";
 
-import { buildBotE2eChildEnvironment } from "./bot-e2e-child-environment.ts";
-import { collectBotE2eCoverage, printBotE2eSummary, writeBotE2eSummary } from "./bot-e2e-gate.ts";
+import { buildBotE2eChildEnvironment as buildChildEnvironment } from "./bot-e2e-child-environment.ts";
+import {
+  collectBotE2eCoverage as collectCoverage,
+  printBotE2eSummary as printSummary,
+  writeBotE2eSummary as writeSummary,
+} from "./bot-e2e-gate.ts";
 import { REPOSITORY_ROOT, loadScopeManifest } from "./bot-runtime-scope.ts";
-import { buildInstrumentedBotE2e } from "./build-bot-e2e.ts";
+import { buildInstrumentedBotE2e as buildInstrumentedBot } from "./build-bot-e2e.ts";
 
-const E2E_DIRECTORY = resolve(REPOSITORY_ROOT, "apps/bot/coverage/e2e");
-const RAW_DIRECTORY = resolve(E2E_DIRECTORY, "raw");
-const PRELOAD = resolve(REPOSITORY_ROOT, "scripts/coverage-tools/bot-e2e-preload.ts");
-const SUMMARY = resolve(E2E_DIRECTORY, "summary.json");
+const E2E_DIRECTORY = path.resolve(REPOSITORY_ROOT, "apps/bot/coverage/e2e");
+const RAW_DIRECTORY = path.resolve(E2E_DIRECTORY, "raw");
+const PRELOAD = path.resolve(REPOSITORY_ROOT, "scripts/coverage-tools/bot-e2e-preload.ts");
+const SUMMARY = path.resolve(E2E_DIRECTORY, "summary.json");
+const CANONICAL_CLI_E2E_TESTS = [
+  "apps/bot/src/cli/cli-e2e.test.ts",
+  "apps/bot/src/cli/cli-e2e-signal-string-failure.test.ts",
+] as const;
 
-function recreateE2eDirectory(): void {
-  if (resolve(E2E_DIRECTORY, "..") !== resolve(REPOSITORY_ROOT, "apps/bot/coverage")) {
+function recreateE2EDirectory(): void {
+  if (path.resolve(E2E_DIRECTORY, "..") !== path.resolve(REPOSITORY_ROOT, "apps/bot/coverage")) {
     throw new Error(`refusing to clean unexpected E2E directory: ${E2E_DIRECTORY}`);
   }
   rmSync(E2E_DIRECTORY, { recursive: true, force: true });
@@ -28,7 +36,7 @@ function run(
   const result = Bun.spawnSync({
     cmd: [command, ...arguments_],
     cwd: REPOSITORY_ROOT,
-    env: buildBotE2eChildEnvironment(process.env, environmentOverrides),
+    env: buildChildEnvironment(process.env, environmentOverrides),
     stdout: "inherit",
     stderr: "inherit",
   });
@@ -38,28 +46,31 @@ function run(
 }
 
 try {
-  recreateE2eDirectory();
-  run("bun", [resolve(REPOSITORY_ROOT, "scripts/coverage-tools/verify-bot-runtime-scope.ts")]);
-  const build = await buildInstrumentedBotE2e();
+  recreateE2EDirectory();
+  run("bun", [path.resolve(REPOSITORY_ROOT, "scripts/coverage-tools/verify-bot-runtime-scope.ts")]);
+  const build = await buildInstrumentedBot();
   const coverageEnvironment = {
     MM_BOT_E2E_COVERAGE_PRELOAD: PRELOAD,
     MM_BOT_E2E_COVERAGE_RAW_DIR: RAW_DIRECTORY,
   };
-  run("bun", ["test", "apps/bot/src/cli/cli-e2e.test.ts"], {
-    ...coverageEnvironment,
-    MM_BOT_E2E_ENTRY: build.cliEntry,
-    MM_BOT_E2E_START_MODULE: build.startModule,
-  });
-  for (const caseId of loadScopeManifest().e2eCases["runtime-driver"]) {
+  for (const testPath of CANONICAL_CLI_E2E_TESTS) {
+    run("bun", ["test", testPath], {
+      ...coverageEnvironment,
+      MM_BOT_E2E_ENTRY: build.cliEntry,
+      MM_BOT_E2E_START_MODULE: build.startModule,
+    });
+  }
+  const runtimeDriverCases = loadScopeManifest().e2eCases["runtime-driver"];
+  for (const caseId of runtimeDriverCases) {
     run("bun", ["--preload", PRELOAD, build.runtimeDriverEntry, caseId], {
       ...coverageEnvironment,
       MM_BOT_E2E_ENTRY_KIND: "runtime-driver",
       MM_BOT_E2E_CASE_ID: caseId,
     });
   }
-  const summary = collectBotE2eCoverage({ rawDirectory: RAW_DIRECTORY });
-  writeBotE2eSummary(summary, SUMMARY);
-  printBotE2eSummary(summary);
+  const summary = collectCoverage({ rawDirectory: RAW_DIRECTORY });
+  writeSummary(summary, SUMMARY);
+  printSummary(summary);
   if (!summary.passed) process.exitCode = 1;
 } catch (error) {
   console.error(

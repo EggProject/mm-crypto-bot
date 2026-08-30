@@ -87,7 +87,17 @@ export default tseslint.config(
     },
   },
   {
-    files: ["packages/logging/test/e2e/**/*.ts", "packages/logging/vitest.e2e-path-boundary.config.ts"],
+    files: ["packages/exchange/{src,tests}/**/*.{test,test-support}.ts"],
+    languageOptions: {
+      parserOptions: {
+        project: "./packages/exchange/tsconfig.tests.json",
+        projectService: false,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    files: ["packages/logging/test/e2e/**/*.ts", "packages/logging/vitest.e2e.config.ts"],
     languageOptions: {
       parserOptions: {
         project: "./packages/logging/tsconfig.e2e.json",

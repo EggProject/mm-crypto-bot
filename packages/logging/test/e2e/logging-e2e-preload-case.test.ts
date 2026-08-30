@@ -1,39 +1,32 @@
 import { spawnSync } from "node:child_process";
-import { lstatSync, mkdtempSync, rmdirSync } from "node:fs";
-import { tmpdir } from "node:os";
-// eslint-disable-next-line unicorn/import-style -- Bun's node:path declaration only exposes typed named imports under the E2E project's configured type roots.
-import { join, resolve } from "node:path";
+import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LOGGING_E2E_CASE_IDS } from "./logging-e2e-case-contract.ts";
+import { createLoggingEndToEndFixture, type LoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
 
-const temporaryDirectories: string[] = [];
-const preloadPath = resolve(import.meta.dirname, "logging-e2e-preload.ts");
+const fixtures: LoggingEndToEndFixture[] = [];
+const preloadPath = path.resolve(import.meta.dirname, "logging-e2e-preload.ts");
 
 afterEach(() => {
-  const directories = [...temporaryDirectories];
-  temporaryDirectories.length = 0;
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Test-owned directories are created by this test and removed after each case.
-  for (const directory of directories) rmdirSync(directory);
+  const allocatedFixtures = [...fixtures];
+  fixtures.length = 0;
+  for (const fixture of allocatedFixtures) fixture.cleanup();
 });
 
 function runWithCaseId(caseId: string | undefined): { readonly exitCode: number; readonly stderr: string } {
-  const rawDirectory = mkdtempSync(join(tmpdir(), "logging-e2e-preload-case-"));
-  temporaryDirectories.push(rawDirectory);
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- The test just created this private temporary directory.
-  const identity = lstatSync(rawDirectory, { bigint: true });
+  const fixture = createLoggingEndToEndFixture();
+  fixtures.push(fixture);
   const coverageEnvironment = {
     ...process.env,
-    MM_LOGGING_E2E_COVERAGE_RAW_DEVICE: identity.dev.toString(),
-    MM_LOGGING_E2E_COVERAGE_RAW_DIR: rawDirectory,
-    MM_LOGGING_E2E_COVERAGE_RAW_INODE: identity.ino.toString(),
+    MM_LOGGING_E2E_COVERAGE_RAW_DIR: fixture.paths.raw,
   };
   const environment =
     caseId === undefined ? coverageEnvironment : { ...coverageEnvironment, MM_LOGGING_E2E_CASE_ID: caseId };
 
   const result = spawnSync("bun", ["--preload", preloadPath, "-e", "void 0"], {
-    cwd: resolve(import.meta.dirname, "../../../.."),
+    cwd: path.resolve(import.meta.dirname, "../../../.."),
     env: environment,
     stdio: "pipe",
   });

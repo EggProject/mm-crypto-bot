@@ -1,13 +1,10 @@
 import { buildInstrumentedLoggingEndToEnd } from "./build-instrumented-logging-e2e.ts";
-// eslint-disable-next-line unicorn/name-replacements -- Established public E2E artifact contract.
-import { createLoggingE2eArtifactRun } from "./logging-e2e-artifact-run.ts";
+import { createLoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
 import { collectLoggingEndToEndCoverage, printLoggingEndToEndSummary } from "./logging-e2e-gate.ts";
-import { publishLoggingEndToEndSummary } from "./logging-e2e-summary-publisher.ts";
 import { LOGGING_E2E_CASE_IDS, runLoggingEndToEndSubprocesses } from "./logging-e2e-runner.ts";
 import { loadLoggingEndToEndScopeManifest } from "./logging-e2e-scope.ts";
 
-// eslint-disable-next-line unicorn/name-replacements -- Established public E2E artifact contract.
-import type { LoggingE2eArtifactRun } from "./logging-e2e-artifact-run.ts";
+import type { LoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
 import type { LoggingEndToEndCoverageSummary } from "./logging-e2e-gate.ts";
 import type { LoggingEndToEndCaseResult } from "./logging-e2e-runner.ts";
 import type { LoggingEndToEndScopeManifest } from "./logging-e2e-scope.ts";
@@ -20,28 +17,24 @@ type InstrumentedLoggingEndToEndBuild = Awaited<ReturnType<typeof buildInstrumen
  */
 export interface LoggingEndToEndCoveragePort {
   readonly loadManifest: () => LoggingEndToEndScopeManifest;
-  readonly createArtifactRun: () => LoggingE2eArtifactRun;
+  readonly createArtifactRun: () => LoggingEndToEndFixture;
   readonly build: (request: {
-    readonly artifactRun: LoggingE2eArtifactRun;
+    readonly artifactRun: LoggingEndToEndFixture;
     readonly manifest: LoggingEndToEndScopeManifest;
   }) => Promise<InstrumentedLoggingEndToEndBuild>;
   readonly runSubprocesses: (options: {
     readonly childEntry: string;
     readonly preload: string;
     readonly rawDirectory: string;
-    readonly rawDirectoryIdentity: Readonly<{ readonly device: bigint; readonly inode: bigint }>;
     readonly environment: Readonly<Record<string, string | undefined>>;
     readonly verifyExecutableArtifacts: () => void;
   }) => Promise<readonly LoggingEndToEndCaseResult[]>;
   readonly collect: (request: {
-    readonly artifactRun: LoggingE2eArtifactRun;
+    readonly artifactRun: LoggingEndToEndFixture;
     readonly manifest: LoggingEndToEndScopeManifest;
   }) => LoggingEndToEndCoverageSummary;
-  readonly publish: (request: {
-    readonly artifactRun: LoggingE2eArtifactRun;
-    readonly summary: LoggingEndToEndCoverageSummary;
-  }) => void;
   readonly print: (summary: LoggingEndToEndCoverageSummary) => void;
+  readonly publish: (summary: LoggingEndToEndCoverageSummary) => void;
   readonly environment: Readonly<Record<string, string | undefined>>;
   readonly setExitCode: (exitCode: number) => void;
 }
@@ -66,12 +59,14 @@ export function writeLoggingEndToEndCoverageMainError(message: string): void {
 
 const defaultCoveragePort: LoggingEndToEndCoveragePort = Object.freeze({
   loadManifest: loadLoggingEndToEndScopeManifest,
-  createArtifactRun: createLoggingE2eArtifactRun,
+  createArtifactRun: createLoggingEndToEndFixture,
   build: buildInstrumentedLoggingEndToEnd,
   runSubprocesses: runLoggingEndToEndSubprocesses,
   collect: collectLoggingEndToEndCoverage,
-  publish: publishLoggingEndToEndSummary,
   print: printLoggingEndToEndSummary,
+  publish: (): void => {
+    // Logging E2E coverage is reported to stdout and has no persistent publication target.
+  },
   environment: process.env,
   setExitCode: setLoggingEndToEndCoverageProcessExitCode,
 });
@@ -105,36 +100,35 @@ function assertPrivateExecutableArtifact(
 
 export async function runLoggingEndToEndCoverage(port = defaultCoveragePort): Promise<void> {
   const manifest = port.loadManifest();
-  const artifactRun = port.createArtifactRun();
+  const fixture = port.createArtifactRun();
   let hasPrimaryError = false;
   let primaryError: unknown;
 
   try {
-    const build = await port.build({ artifactRun, manifest });
+    const build = await port.build({ artifactRun: fixture, manifest });
     const results = await port.runSubprocesses({
       childEntry: build.childEntry,
       preload: build.preloadEntry,
-      rawDirectory: artifactRun.paths.raw,
-      rawDirectoryIdentity: artifactRun.identities.raw,
+      rawDirectory: fixture.paths.raw,
       environment: port.environment,
       verifyExecutableArtifacts: () => {
         assertPrivateExecutableArtifact(
           build.childEntry,
-          artifactRun.paths.bundle,
+          fixture.paths.bundle,
           "logging-e2e-child.js",
           "Logging E2E child entry",
         );
         assertPrivateExecutableArtifact(
           build.preloadEntry,
-          artifactRun.paths.bundle,
+          fixture.paths.bundle,
           "logging-e2e-preload.js",
           "Logging E2E preload entry",
         );
-        artifactRun.readFile("bundle", "logging-e2e-child.js");
-        artifactRun.readFile("bundle", "logging-e2e-preload.js");
+        fixture.readFile("bundle", "logging-e2e-child.js");
+        fixture.readFile("bundle", "logging-e2e-preload.js");
       },
     });
-    const adoptedRawFiles = artifactRun.adoptExternalFiles("raw");
+    const adoptedRawFiles = fixture.listFiles("raw");
     if (adoptedRawFiles.length !== results.length) {
       throw new Error(
         `Expected exactly ${String(results.length)} adopted logging E2E raw coverage files, received ${String(adoptedRawFiles.length)}.`,
@@ -145,11 +139,11 @@ export async function runLoggingEndToEndCoverage(port = defaultCoveragePort): Pr
     assertExactOrderedCaseIds(completedCaseIds, manifest.e2eCases, "Completed logging E2E manifest case IDs");
 
     const summary = port.collect({
-      artifactRun,
+      artifactRun: fixture,
       manifest,
     });
-    port.publish({ artifactRun, summary });
     port.print(summary);
+    port.publish(summary);
     if (!summary.passed) port.setExitCode(1);
   } catch (error: unknown) {
     hasPrimaryError = true;
@@ -159,7 +153,7 @@ export async function runLoggingEndToEndCoverage(port = defaultCoveragePort): Pr
   let hasCleanupError = false;
   let cleanupError: unknown;
   try {
-    artifactRun.cleanup();
+    fixture.cleanup();
   } catch (error: unknown) {
     hasCleanupError = true;
     cleanupError = error;

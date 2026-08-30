@@ -1,5 +1,4 @@
-// eslint-disable-next-line unicorn/import-style -- Bun's node:path declaration only exposes typed named imports under the E2E project's configured type roots.
-import { relative, resolve } from "node:path";
+import path from "node:path";
 
 import coveragePackage from "istanbul-lib-coverage";
 import type {
@@ -18,10 +17,8 @@ import {
   absoluteRuntimeFiles,
   type LoggingEndToEndScopeManifest,
 } from "./logging-e2e-scope.ts";
-// eslint-disable-next-line unicorn/name-replacements -- Established public E2E artifact contract.
-import { type LoggingE2eArtifactRun } from "./logging-e2e-artifact-run.ts";
-// eslint-disable-next-line unicorn/name-replacements -- Established public E2E artifact contract.
-import { readAdoptedRawLoggingE2eArtifacts } from "./logging-e2e-raw-artifact-ingestion.ts";
+import type { LoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
+import { readRawLoggingEndToEndFiles } from "./logging-e2e-raw-artifact-ingestion.ts";
 
 const createCoverageMap = coveragePackage.createCoverageMap.bind(coveragePackage);
 type CoverageMetric = "statements" | "branches" | "functions" | "lines";
@@ -200,8 +197,8 @@ function parseBranchCounterMap(candidate: unknown, label: string): Record<string
 
 function parseFileCoverageData(candidate: unknown, expectedPath: string, label: string): FileCoverageData {
   assertPlainObject(candidate, label);
-  const path = candidate["path"];
-  if (typeof path !== "string" || resolve(path) !== expectedPath) {
+  const coveragePath = candidate["path"];
+  if (typeof coveragePath !== "string" || path.resolve(coveragePath) !== expectedPath) {
     throw new Error(`${label}.path must equal its scoped coverage filename.`);
   }
   return {
@@ -222,7 +219,7 @@ function parseCoverageMapData(
 ): CoverageMapData {
   const parsedFiles = new Map<string, FileCoverageData>();
   for (const [coveredFile, rawFileCoverage] of Object.entries(candidate)) {
-    const absoluteCoveredFile = resolve(coveredFile);
+    const absoluteCoveredFile = path.resolve(coveredFile);
     if (!scopedFiles.has(absoluteCoveredFile)) {
       throw new Error(`Raw logging E2E coverage contains an out-of-scope file: ${coveredFile}.`);
     }
@@ -315,13 +312,13 @@ function isExactlyCovered(summary: CoverageSummaryData, metric: CoverageMetric):
 }
 
 export function collectLoggingEndToEndCoverage({
-  artifactRun,
+  artifactRun: fixture,
   manifest,
 }: {
-  readonly artifactRun: LoggingE2eArtifactRun;
+  readonly artifactRun: LoggingEndToEndFixture;
   readonly manifest: LoggingEndToEndScopeManifest;
 }): LoggingEndToEndCoverageSummary {
-  const rawArtifacts = readAdoptedRawLoggingE2eArtifacts(artifactRun);
+  const rawArtifacts = readRawLoggingEndToEndFiles(fixture);
   const coverageMap = createCoverageMap({});
   const scopedFiles = new Set(absoluteRuntimeFiles(manifest));
   const observedCaseIds = new Set<string>();
@@ -339,7 +336,7 @@ export function collectLoggingEndToEndCoverage({
     coverageMap.merge(coverageData);
   }
 
-  const coveredFiles = new Set(coverageMap.files().map((coveredFile) => resolve(coveredFile)));
+  const coveredFiles = new Set(coverageMap.files().map((coveredFile) => path.resolve(coveredFile)));
   const missingSourceFiles = new Set<string>();
   for (const scopedFile of scopedFiles) {
     if (!coveredFiles.has(scopedFile)) missingSourceFiles.add(scopedFile);
@@ -359,7 +356,7 @@ export function collectLoggingEndToEndCoverage({
   const coverageSummaries = new Map<string, CoverageSummaryData>();
   for (const scopedFile of absoluteRuntimeFiles(manifest)) {
     coverageSummaries.set(
-      relative(REPOSITORY_ROOT, scopedFile),
+      path.relative(REPOSITORY_ROOT, scopedFile),
       coverageMap.fileCoverageFor(scopedFile).toSummary().toJSON(),
     );
   }

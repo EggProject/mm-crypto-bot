@@ -64,7 +64,6 @@ function options(
     childEntry: CHILD_ENTRY,
     preload: PRELOAD_ENTRY,
     rawDirectory: "/tmp/private-artifact/raw",
-    rawDirectoryIdentity: { device: 1n, inode: 2n },
     environment: {},
     verifyExecutableArtifacts,
     spawn: (request: { readonly cmd: readonly string[] }) => {

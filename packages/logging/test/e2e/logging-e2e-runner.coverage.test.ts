@@ -13,14 +13,11 @@ type SpawnedChild = ReturnType<Spawn>;
 
 const encoder = new TextEncoder();
 const FIRST_CASE = LOGGING_E2E_CASE_IDS[0];
-const IDENTITY = { device: 17n, inode: 23n };
 const BASE_ENVIRONMENT = {
   INHERITED: "kept",
   OMITTED: undefined,
   MM_LOGGING_E2E_CASE_ID: "overridden",
-  MM_LOGGING_E2E_COVERAGE_RAW_DEVICE: "overridden",
   MM_LOGGING_E2E_COVERAGE_RAW_DIR: "overridden",
-  MM_LOGGING_E2E_COVERAGE_RAW_INODE: "overridden",
 } as const;
 
 function stream(contents: string): ReadableStream<Uint8Array> {
@@ -69,7 +66,6 @@ function runnerOptions(
     childEntry: "/private/bundle/child.js",
     preload: "/private/bundle/preload.js",
     rawDirectory: "/private/raw",
-    rawDirectoryIdentity: IDENTITY,
     environment,
     verifyExecutableArtifacts: (): void => undefined,
     ...(spawn !== undefined && { spawn }),

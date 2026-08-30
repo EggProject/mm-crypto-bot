@@ -1,8 +1,7 @@
-import { writeFileSync } from "node:fs";
 // eslint-disable-next-line unicorn/import-style -- Bun's node:path declaration only exposes typed named imports under the E2E project's configured type roots.
 import { basename, join } from "node:path";
 
-import { createLoggingE2eArtifactRun as createArtifactRun } from "./logging-e2e-artifact-run.ts";
+import { createLoggingEndToEndFixture, type LoggingEndToEndFixture } from "./logging-e2e-fixture.ts";
 import { absoluteRuntimeFiles, type LoggingEndToEndScopeManifest } from "./logging-e2e-scope.ts";
 
 export function sortedNames(names: readonly string[]): readonly string[] {
@@ -26,10 +25,9 @@ export function outputRecords(bundleDirectory: string, names: readonly string[])
   return names.map((name) => ({ path: join(bundleDirectory, name) }));
 }
 
-export function writeBundleFiles(bundleDirectory: string, names: readonly string[]): void {
+export function writeBundleFiles(fixture: LoggingEndToEndFixture, names: readonly string[]): void {
   for (const name of names) {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The artifact run owns this direct bundle child path.
-    writeFileSync(join(bundleDirectory, name), new Uint8Array([name.length]));
+    fixture.writeFile("bundle", name, new Uint8Array([name.length]));
   }
 }
 
@@ -40,9 +38,9 @@ export function requiredFirstName(names: readonly string[]): string {
 }
 
 export async function withArtifactRun(
-  action: (artifactRun: ReturnType<typeof createArtifactRun>) => Promise<void>,
+  action: (artifactRun: ReturnType<typeof createLoggingEndToEndFixture>) => Promise<void>,
 ): Promise<void> {
-  const artifactRun = createArtifactRun();
+  const artifactRun = createLoggingEndToEndFixture();
   try {
     await action(artifactRun);
   } finally {
@@ -98,7 +96,7 @@ export class TestPluginBuilder implements Bun.PluginBuilder {
 }
 
 export function successfulBuild(
-  artifactRun: ReturnType<typeof createArtifactRun>,
+  artifactRun: ReturnType<typeof createLoggingEndToEndFixture>,
   manifest: LoggingEndToEndScopeManifest,
   loadedPaths: readonly string[] = absoluteRuntimeFiles(manifest),
   observeBuilder?: (builder: TestPluginBuilder) => Promise<void>,
@@ -111,7 +109,7 @@ export function successfulBuild(
     for (const path of loadedPaths) await builder.load(path);
     if (observeBuilder !== undefined) await observeBuilder(builder);
     const expectedNames = requiredOutputNames(manifest);
-    writeBundleFiles(artifactRun.paths.bundle, expectedNames);
+    writeBundleFiles(artifactRun, expectedNames);
     return { logs: [], outputs: outputRecords(artifactRun.paths.bundle, expectedNames), success: true };
   };
 }
