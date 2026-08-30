@@ -395,14 +395,14 @@ Ezért a historikus eredmény konfiguráció-összehasonlítás, nem hozamígér
 ## Paper config ellenőrzése
 
 ```bash
-bun run mm-bot config validate \
+bun run apps/bot/src/index.ts config validate \
   --config=run-bot/config/paper-backtest-optimized.toml
 ```
 
 Paper indítás csak a teljes táblából választott beállítással és a config fejlécében dokumentált drift elfogadása után:
 
 ```bash
-bun run mm-bot start \
+bun run apps/bot/src/index.ts start \
   --config=run-bot/config/paper-backtest-optimized.toml
 ```
 

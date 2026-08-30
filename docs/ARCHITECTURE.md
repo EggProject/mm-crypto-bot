@@ -1,6 +1,6 @@
 # Architecture
 
-`mm-bot start` validates configuration, constructs the trading components,
+`bun run apps/bot/src/index.ts start` validates configuration, constructs the trading components,
 subscribes to the market-data timeframes required by active strategies, and
 runs until graceful shutdown or a fail-closed runtime error.
 
