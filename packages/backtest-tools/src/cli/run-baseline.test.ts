@@ -1,67 +1,179 @@
-// packages/backtest-tools/src/cli/run-baseline.test.ts — a Phase 1 OHLCV
-// integrációs smoke tesztje.
-//
-// A Phase 1 (`packages/backtest-tools/src/cli/download-ohlcv.ts`) outputja
-// a `data/ohlcv/` mappa. Phase 15-től 15 CSV van (BTC/ETH/SOL × 1h/4h/1d/5m/15m,
-// 2024-01 → 2026-07-06). Ezek a tesztek biztosítják, hogy a feed integráció
-// helyes, és az OHLCV adatok elérhetők a backtest motor számára minden
-// támogatott timeframe-en.
+// CsvExchangeFeed hermetic mapping and fixture compatibility tests.
 
 import { describe, expect, it } from "bun:test";
-import { resolve } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { CsvExchangeFeed } from "../data/csv-feed.js";
 
-const PROJECT_ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
-const OHLCV_DIR = resolve(PROJECT_ROOT, "data", "ohlcv");
+type SupportedSymbol = "BTC/USDT" | "ETH/USDT" | "SOL/USDT";
+type SupportedTimeframe = "1h" | "4h" | "1d" | "5m" | "15m";
 
-describe("CsvExchangeFeed — Phase 1+15 OHLCV integráció", () => {
-  const feed = new CsvExchangeFeed(OHLCV_DIR);
+interface FixtureInput {
+  readonly fileName: string;
+  readonly symbol: SupportedSymbol;
+  readonly timeframe: SupportedTimeframe;
+}
 
-  it("BTC/USDT 1h candle-eket tölt be (sample)", async () => {
-    const candles = await feed.fetchOHLCV("BTC/USDT", "1h", { since: 0, limit: 5 });
-    expect(candles.length).toBeGreaterThan(0);
-    expect(candles[0]?.timestamp).toBeGreaterThan(0);
-    expect(typeof candles[0]?.close).toBe("number");
-    expect(Number.isFinite(candles[0]?.close ?? NaN)).toBe(true);
-  });
+interface FixtureManifestEntry {
+  readonly symbol: string;
+  readonly timeframe: string;
+}
 
-  it("Phase 1 timeframes (1h/4h/1d) minden symbol-on elérhetők", async () => {
-    const symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"] as const;
-    const timeframes = ["1h", "4h", "1d"] as const;
-    for (const symbol of symbols) {
-      for (const tf of timeframes) {
-        const candles = await feed.fetchOHLCV(symbol, tf, { since: 0, limit: 5 });
-        expect(candles.length).toBeGreaterThan(0);
-      }
+interface BaselineFixture {
+  readonly dataDirectory: string;
+  readonly feed: CsvExchangeFeed;
+}
+
+type FixtureOutcome<T> =
+  { readonly succeeded: true; readonly value: T } | { readonly succeeded: false; readonly error: unknown };
+
+const SUPPORTED_SYMBOLS: readonly SupportedSymbol[] = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
+const SUPPORTED_TIMEFRAMES: readonly SupportedTimeframe[] = ["1h", "4h", "1d", "5m", "15m"];
+const FIXTURE_CSV = "timestamp,open,high,low,close,volume\n1704067200000,1,1,1,1,1\n";
+
+function fixtureFileName(symbol: SupportedSymbol, timeframe: SupportedTimeframe): string {
+  switch (symbol) {
+    case "BTC/USDT": {
+      return `binance_btc_${timeframe}.csv`;
     }
-  });
-
-  it("Phase 15 timeframes (5m/15m) minden symbol-on elérhetők", async () => {
-    // A 3 symbol × 2 timeframe = 6 fetchOHLCV hívás egyenként
-    // ~1s-vel a CSV feed I/O miatt → 6s összesen, ami túllépi a
-    // default 5s timeoutot. Explicit 30s timeout kell.
-    const symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"] as const;
-    const timeframes = ["5m", "15m"] as const;
-    for (const symbol of symbols) {
-      for (const tf of timeframes) {
-        const candles = await feed.fetchOHLCV(symbol, tf, { since: 0, limit: 5 });
-        expect(candles.length).toBeGreaterThan(0);
-      }
+    case "ETH/USDT": {
+      return `binance_eth_${timeframe}.csv`;
     }
-  }, 30_000);
+    case "SOL/USDT": {
+      return `binance_sol_${timeframe}.csv`;
+    }
+  }
+}
 
-  it("a MANIFEST.json minden fájlra hivatkozik (Phase 1: 9 + Phase 15: 6 = 15)", async () => {
-    const fs = await import("node:fs/promises");
-    const raw = await fs.readFile(resolve(OHLCV_DIR, "MANIFEST.json"), "utf8");
-    const manifest = JSON.parse(raw) as {
-      readonly files: readonly { readonly symbol: string; readonly timeframe: string }[];
+function fixturePair(symbol: string, timeframe: string): string {
+  return `${symbol}:${timeframe}`;
+}
+
+const FIXTURE_INPUTS: readonly FixtureInput[] = SUPPORTED_SYMBOLS.flatMap((symbol) =>
+  SUPPORTED_TIMEFRAMES.map((timeframe) => ({
+    fileName: fixtureFileName(symbol, timeframe),
+    symbol,
+    timeframe,
+  })),
+);
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isFixtureManifestEntry(value: unknown): value is FixtureManifestEntry {
+  return isRecord(value) && typeof value["symbol"] === "string" && typeof value["timeframe"] === "string";
+}
+
+function parseFixtureManifest(raw: string): readonly FixtureManifestEntry[] {
+  const parsed: unknown = JSON.parse(raw);
+  if (
+    !isRecord(parsed) ||
+    !Array.isArray(parsed["files"]) ||
+    !parsed["files"].every(isFixtureManifestEntry)
+  ) {
+    throw new Error("Fixture manifest must contain a files array of symbol/timeframe entries");
+  }
+  return parsed["files"];
+}
+
+async function withBaselineFixture<T>(body: (fixture: BaselineFixture) => Promise<T>): Promise<T> {
+  const root = await mkdtemp(path.join(tmpdir(), "mm-crypto-bot-run-baseline-"));
+  let outcome: FixtureOutcome<T>;
+  try {
+    const manifestFiles = FIXTURE_INPUTS.map(({ symbol, timeframe }) => ({ symbol, timeframe }));
+    const manifestContents = JSON.stringify({ files: manifestFiles });
+    await Promise.all([
+      ...FIXTURE_INPUTS.map(({ fileName }) => Bun.write(path.join(root, fileName), FIXTURE_CSV)),
+      Bun.write(path.join(root, "MANIFEST.json"), manifestContents),
+    ]);
+    outcome = {
+      succeeded: true,
+      value: await body({ dataDirectory: root, feed: new CsvExchangeFeed(root) }),
     };
-    // Phase 1: BTC/ETH/SOL × 1h/4h/1d = 9 fájl
-    // Phase 15: BTC/ETH/SOL × 5m/15m = 6 új fájl
-    // Összesen: 15
-    expect(manifest.files.length).toBe(15);
-    const phase15Tfs = manifest.files.filter((f) => f.timeframe === "5m" || f.timeframe === "15m");
-    expect(phase15Tfs.length).toBe(6);
+  } catch (error: unknown) {
+    outcome = { succeeded: false, error };
+  }
+
+  try {
+    await rm(root, { recursive: true, force: true });
+  } catch (cleanupError: unknown) {
+    if (!outcome.succeeded) {
+      throw new AggregateError([outcome.error, cleanupError], "Fixture operation and cleanup both failed", {
+        cause: cleanupError,
+      });
+    }
+    throw cleanupError;
+  }
+
+  if (!outcome.succeeded) {
+    throw outcome.error;
+  }
+  return outcome.value;
+}
+
+describe("CsvExchangeFeed hermetic timeframe mapping", () => {
+  it("loads a BTC/USDT 1h candle from the fixture", async () => {
+    await withBaselineFixture(async ({ feed }) => {
+      const candles = await feed.fetchOHLCV("BTC/USDT", "1h", { since: 0, limit: 5 });
+      expect(candles.length).toBeGreaterThan(0);
+      expect(candles[0]?.timestamp).toBeGreaterThan(0);
+      expect(typeof candles[0]?.close).toBe("number");
+      expect(Number.isFinite(candles[0]?.close ?? NaN)).toBe(true);
+    });
+  });
+
+  it("maps core timeframes for every supported symbol", async () => {
+    await withBaselineFixture(async ({ feed }) => {
+      const symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
+      const timeframes: readonly FixtureInput["timeframe"][] = ["1h", "4h", "1d"];
+      for (const symbol of symbols) {
+        for (const timeframe of timeframes) {
+          const candles = await feed.fetchOHLCV(symbol, timeframe, { since: 0, limit: 5 });
+          expect(candles.length).toBeGreaterThan(0);
+        }
+      }
+    });
+  });
+
+  it("maps intraday timeframes for every supported symbol", async () => {
+    await withBaselineFixture(async ({ feed }) => {
+      const symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
+      const timeframes: readonly FixtureInput["timeframe"][] = ["5m", "15m"];
+      for (const symbol of symbols) {
+        for (const timeframe of timeframes) {
+          const candles = await feed.fetchOHLCV(symbol, timeframe, { since: 0, limit: 5 });
+          expect(candles.length).toBeGreaterThan(0);
+        }
+      }
+    });
+  });
+
+  it("lists every supported symbol/timeframe fixture input in its manifest", async () => {
+    await withBaselineFixture(async ({ dataDirectory }) => {
+      const raw = await Bun.file(path.join(dataDirectory, "MANIFEST.json")).text();
+      const manifestFiles = parseFixtureManifest(raw);
+      const expectedPairs = SUPPORTED_SYMBOLS.flatMap((symbol) =>
+        SUPPORTED_TIMEFRAMES.map((timeframe) => fixturePair(symbol, timeframe)),
+      );
+      const fixturePairs = FIXTURE_INPUTS.map(({ symbol, timeframe }) => fixturePair(symbol, timeframe));
+      const expectedFileNames = FIXTURE_INPUTS.map(({ symbol, timeframe }) =>
+        fixtureFileName(symbol, timeframe),
+      );
+      const fixtureFileNames = FIXTURE_INPUTS.map(({ fileName }) => fileName);
+      const manifestPairs = manifestFiles.map(({ symbol, timeframe }) => fixturePair(symbol, timeframe));
+      expect(fixturePairs).toEqual(expectedPairs);
+      expect(new Set(fixturePairs).size).toBe(15);
+      expect(fixtureFileNames).toEqual(expectedFileNames);
+      expect(new Set(fixtureFileNames).size).toBe(15);
+      expect(manifestPairs).toEqual(expectedPairs);
+      expect(manifestFiles.length).toBe(15);
+      const intradayTimeframes = manifestFiles.filter(
+        (file) => file.timeframe === "5m" || file.timeframe === "15m",
+      );
+      expect(intradayTimeframes.length).toBe(6);
+    });
   });
 });
