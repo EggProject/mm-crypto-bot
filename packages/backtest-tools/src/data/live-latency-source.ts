@@ -6,8 +6,7 @@
 // `backtest-results/arb-latency-binance-bybit-btc-sample.json`)
 // and the strategy's `LatencySource` interface.
 
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import path from "node:path";
 
 import type { LatencySource } from "@mm-crypto-bot/core";
 
@@ -26,21 +25,9 @@ interface ArbLatencyJson {
 }
 
 export class JsonLatencySource implements LatencySource {
-  readonly pair: string;
-  readonly sourceJsonPath: string;
-  readonly maxRoundTripMs: number | null;
-  readonly p95RoundTripMs: number | null;
-
-  constructor(sourceJsonPath: string) {
-    this.sourceJsonPath = sourceJsonPath;
-    this.maxRoundTripMs = null;
-    this.p95RoundTripMs = null;
-    this.pair = "unknown";
-  }
-
   static async load(sourceJsonPath: string): Promise<JsonLatencySource> {
-    const absPath = resolve(sourceJsonPath);
-    const raw = await readFile(absPath, "utf8");
+    const absPath = path.resolve(sourceJsonPath);
+    const raw = await Bun.file(absPath).text();
     const parsed = JSON.parse(raw) as ArbLatencyJson;
     const source = new JsonLatencySource(sourceJsonPath);
     const exchangeA = parsed.metadata?.cliArgs?.exchangeA;
@@ -56,16 +43,28 @@ export class JsonLatencySource implements LatencySource {
     const candidates: number[] = [];
     if (typeof aMax === "number") candidates.push(aMax);
     if (typeof bMax === "number") candidates.push(bMax);
-    (source as { maxRoundTripMs: number | null }).maxRoundTripMs =
-      candidates.length > 0 ? Math.max(...candidates) : null;
-    (source as { p95RoundTripMs: number | null }).p95RoundTripMs =
+    (source as { maxRoundTripMs: number | undefined }).maxRoundTripMs =
+      candidates.length > 0 ? Math.max(...candidates) : undefined;
+    (source as { p95RoundTripMs: number | undefined }).p95RoundTripMs =
       typeof parsed.arbLatency?.roundTripP95Ms === "number"
         ? parsed.arbLatency.roundTripP95Ms
-        : null;
+        : undefined;
     return source;
   }
 
-  observeRoundTripMs(_nowMs: number): number | null {
+  readonly pair: string;
+  readonly sourceJsonPath: string;
+  readonly maxRoundTripMs: number | undefined;
+  readonly p95RoundTripMs: number | undefined;
+
+  constructor(sourceJsonPath: string) {
+    this.sourceJsonPath = sourceJsonPath;
+    this.maxRoundTripMs = undefined;
+    this.p95RoundTripMs = undefined;
+    this.pair = "unknown";
+  }
+
+  observeRoundTripMs(_nowMs: number): number | undefined {
     return this.maxRoundTripMs;
   }
 }
