@@ -3,6 +3,24 @@ import path from "node:path";
 
 import { createNodeZeroLegacyScannerPort } from "./zero-legacy-scanner.ts";
 
+interface BigIntPathStats {
+  readonly dev: bigint;
+  readonly ino: bigint;
+  isDirectory(): boolean;
+  isFile(): boolean;
+  isSymbolicLink(): boolean;
+}
+
+function bigIntFileStats(device: bigint, inode: bigint): BigIntPathStats {
+  return Object.freeze({
+    dev: device,
+    ino: inode,
+    isDirectory: () => false,
+    isFile: () => true,
+    isSymbolicLink: () => false,
+  });
+}
+
 test("node port factory uses ordinary read-only filesystem operations", async () => {
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -40,6 +58,28 @@ test("node port factory uses ordinary read-only filesystem operations", async ()
   port.writeStderr("err");
   expect(stdout).toEqual(["out"]);
   expect(stderr).toEqual(["err"]);
+});
+
+test("node port preserves distinct BigInt device identities above 2^53", async () => {
+  const firstDevice = 9_007_199_254_740_992n;
+  const secondDevice = 9_007_199_254_740_993n;
+  const receivedOptions: Readonly<{ bigint: true }>[] = [];
+  const port = createNodeZeroLegacyScannerPort({
+    lstat: (absolutePath, options) => {
+      receivedOptions.push(options);
+      return Promise.resolve(
+        bigIntFileStats(absolutePath.endsWith("first") ? firstDevice : secondDevice, 7n),
+      );
+    },
+  });
+
+  const first = await port.inspectPath("/fixture/first");
+  const second = await port.inspectPath("/fixture/second");
+
+  expect(receivedOptions).toEqual([{ bigint: true }, { bigint: true }]);
+  expect(first?.identity).toBe("9007199254740992:7");
+  expect(second?.identity).toBe("9007199254740993:7");
+  expect(first?.identity).not.toBe(second?.identity);
 });
 
 test("default node port exposes only ordinary read operations", async () => {

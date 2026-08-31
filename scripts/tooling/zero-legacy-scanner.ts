@@ -20,6 +20,14 @@ export interface ZeroLegacyPathMetadata {
   readonly kind: ZeroLegacyPathKind;
 }
 
+export interface ZeroLegacyBigIntPathStats {
+  readonly dev: bigint;
+  readonly ino: bigint;
+  isDirectory(): boolean;
+  isFile(): boolean;
+  isSymbolicLink(): boolean;
+}
+
 export interface ZeroLegacyNodeDependencies {
   readonly execFile: (
     file: string,
@@ -27,6 +35,10 @@ export interface ZeroLegacyNodeDependencies {
     options: Readonly<{ encoding: "utf8" }>,
     callback: (error: Error | undefined, stdout: string) => void,
   ) => void;
+  readonly lstat: (
+    absolutePath: string,
+    options: Readonly<{ bigint: true }>,
+  ) => Promise<ZeroLegacyBigIntPathStats>;
   readonly writeStderr: (message: string) => void;
   readonly writeStdout: (message: string) => void;
 }
@@ -56,7 +68,7 @@ const scanDiagnosticPath = "package.json";
 const isMissingPathError = (error: unknown): boolean =>
   typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
 
-function toPathKind(stats: Awaited<ReturnType<typeof lstat>>): ZeroLegacyPathKind {
+function toPathKind(stats: ZeroLegacyBigIntPathStats): ZeroLegacyPathKind {
   if (stats.isDirectory()) {
     return "directory";
   }
@@ -69,14 +81,16 @@ function toPathKind(stats: Awaited<ReturnType<typeof lstat>>): ZeroLegacyPathKin
   return "other";
 }
 
-function toPathIdentity(stats: Awaited<ReturnType<typeof lstat>>): string {
+function toPathIdentity(stats: ZeroLegacyBigIntPathStats): string {
   return `${stats.dev.toString()}:${stats.ino.toString()}`;
 }
 
-async function inspectNodePath(absolutePath: string): Promise<ZeroLegacyPathMetadata | undefined> {
+async function inspectNodePath(
+  absolutePath: string,
+  inspect: ZeroLegacyNodeDependencies["lstat"],
+): Promise<ZeroLegacyPathMetadata | undefined> {
   try {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The scanner port enforces canonical containment and pre/post identity validation.
-    const stats = await lstat(absolutePath);
+    const stats = await inspect(absolutePath, Object.freeze({ bigint: true }));
     return Object.freeze({ identity: toPathIdentity(stats), kind: toPathKind(stats) });
   } catch (error: unknown) {
     if (isMissingPathError(error)) {
@@ -112,6 +126,10 @@ const unsealedDefaultNodeDependencies: ZeroLegacyNodeDependencies = {
       callback(error ?? undefined, stdout);
     });
   },
+  lstat: (absolutePath) => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The scanner port enforces canonical containment and pre/post identity validation.
+    return lstat(absolutePath, { bigint: true });
+  },
   writeStderr: (message) => process.stderr.write(message),
   writeStdout: (message) => process.stdout.write(message),
 };
@@ -125,7 +143,7 @@ export function createNodeZeroLegacyScannerPort(
   return Object.freeze({
     canonicalize: realpath,
     getGitTopLevel: (absolutePath: string) => getGitTopLevel(absolutePath, resolvedDependencies.execFile),
-    inspectPath: inspectNodePath,
+    inspectPath: (absolutePath: string) => inspectNodePath(absolutePath, resolvedDependencies.lstat),
     readDirectory: async (absolutePath: string) => {
       // eslint-disable-next-line security/detect-non-literal-fs-filename -- The scanner port enforces canonical containment and pre/post identity validation.
       return Object.freeze(await readdir(absolutePath));
