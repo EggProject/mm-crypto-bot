@@ -336,5 +336,12 @@ git show --format= --no-ext-diff ad856ef | rg -n -i '(api[_-]?key|client[_-]?sec
 # no output, exit 1 expected
 ```
 
-The PROCESS rereview remains pending after this evidence update. No full
+At that point, the PROCESS rereview remained pending. No full
 range PASS or live readiness is claimed.
+
+Final status: the actual `6dbe487..078a946` TECH rereview passed, and the
+actual `6dbe487..7c1c918` PROCESS rereview passed after `7c1c918`. Scanner
+scope has zero remaining findings: no unresolved correctness, coverage,
+staging, secret, path, or mechanism findings remain. The index was empty at
+review; 395 unrelated dirty records remained outside the reviewed range. This
+does not constitute a repository-wide or live-readiness PASS.
