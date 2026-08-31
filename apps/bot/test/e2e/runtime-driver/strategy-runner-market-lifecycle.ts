@@ -10,6 +10,11 @@ function hasObservationsForSymbol(
 ): value is { readonly observationsForSymbol: (symbol: string) => number } {
   return "observationsForSymbol" in value && typeof value.observationsForSymbol === "function";
 }
+class StaleFundingSource extends support.ManualFundingSource {
+  public override lastTickAgeMs(): number {
+    return 6 * 60 * 1000;
+  }
+}
 function makePositionManager(): support.PositionManager {
   return new support.PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
 }
@@ -392,7 +397,7 @@ async function verifyRegimeDailyInputAndFundingExit(): Promise<void> {
   assertCondition(regime.instance.observationsForSymbol("BTC/USDC") === 1, "regime consumed non-daily input");
   runner.dispose();
 
-  const fundingSource = new support.ManualFundingSource();
+  const fundingSource = new StaleFundingSource();
   const carry = new support.DydxCexCarryStrategy({ fundingSource });
   const carryPositionManager = makePositionManager();
   const carryOrderManager = makePaperOrderManager(feed, carryPositionManager);
@@ -416,10 +421,6 @@ async function verifyRegimeDailyInputAndFundingExit(): Promise<void> {
     takeProfit: 10_000,
     holdingBars: 0,
   });
-  carry.state.killSwitchVerdicts = {
-    ...support.newKillSwitchVerdicts(),
-    "indexer-stale": { engaged: true, reason: "e2e stale funding" },
-  };
   await carryRunner.onFeedEvent({
     kind: "ohlcv",
     payload: { symbol, timeframe: "1d", candle: [2000, 100, 101, 99, 100, 1] },
