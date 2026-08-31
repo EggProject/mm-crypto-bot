@@ -169,13 +169,12 @@ review ID or heading. The postcommit commands `git show --stat --oneline
   files/117 tests, S283/B188/F57/L282 all 100%; numeric typecheck, scoped
   ESLint, Prettier, diff, forbidden rounding/coercion/openat/secret scans
   passed; maximum LOC was 324. Process review failed only because this
-  hash-specific record was absent. Technical review is pending and is not
-  claimed here.
+  hash-specific record was absent. The subsequent technical rereview passed.
 - `1bc1f6c` (parent `4395065`): coordinator staged exactly two documentation
   paths and committed them; stat was 50 insertions and 49 deletions. Main
   report is 490 LOC and appendix 48 LOC. Prettier, diff, link, and content
-  preservation checks passed. Independent technical and process reviews are
-  pending.
+  preservation checks passed. Independent technical rereview passed; process
+  review is pending.
 
 Strategy remediation was delegated; final six-path stale cleanup and report
 split used `luna_worker`; numeric implementation used the existing
@@ -185,9 +184,23 @@ committed. Actual technical review is `terra_reviewer`; process review is
 profile settings are the routing evidence. No fallback was used. The
 surrounding dirty union was never staged.
 
-Required next actions: create the exact-name test follow-up, resolve semantic
-type corridors, and obtain fresh technical/process rereviews. No full-range
-PASS or live readiness is claimed.
+`85dd602` passed technical rereview. `c5e8d40` (parent `85dd602`) staged
+exactly three test paths, stat 18 insertions and 1 deletion, and passed the
+exact-name technical review. The focused Bun run was 41/41 with 101 expects;
+exact V8 coverage was 10 files/112 tests with S507/B353/F74/L461 all 100%.
+Current-union core typecheck, scoped ESLint/Prettier/diff, and maximum LOC 478
+passed; cached scope and check passed. Its commit command was
+`git commit -m "test(core): lock canonical strategy names"`. Technical review
+passed and closed the exact-name finding.
+
+The actual technical status is PASS for `4395065`, `1bc1f6c`, `85dd602`, and
+`c5e8d40`. The full `f50fae9..c5e8d40` range still has two open technical
+findings: the candidate dYdX and CompositePlugin null-vs-undefined corridor,
+and the unapproved public `CascadeEvent` null-to-undefined migration.
+Portfolio/lastVaR findings are inherited at the parent and are not newly
+attributed to these commits. Next actions are to resolve those semantic
+corridors, obtain fresh full-range TECH/PROCESS rereviews, and retain the
+no-full-range-PASS/no-live-readiness status.
 
 ### Replayable command ledger
 
@@ -230,4 +243,17 @@ git diff --cached --stat
 git diff --cached --check
 git add docs/research/phase25/REPORT-phase25-2.md docs/research/phase25/REPORT-phase25-2-appendix.md
 git commit -m "docs(research): correct strategy absence evidence"
+
+c5e8d40:
+bun test <41 focused tests>
+bun x vitest run --config packages/core/vitest.strategy-absence-s1.config.mjs --coverage
+bun run --filter @mm-crypto-bot/core typecheck
+bun x eslint --max-warnings=0 <3 test paths>
+bun x prettier --check <3 test paths>
+git diff --check -- <3 test paths>
+git diff --cached --name-status
+git diff --cached --stat
+git diff --cached --check
+git add <3 exact test paths>
+git commit -m "test(core): lock canonical strategy names"
 ```
