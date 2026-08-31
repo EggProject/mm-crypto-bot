@@ -3,6 +3,7 @@ import Fraction from "fraction.js";
 import {
   assertExactIntegerMagnitude,
   canonicalInteger,
+  canonicalizeExternalDecimal,
   isPlainRecord,
   parseCanonicalDecimal,
   parseCanonicalInteger,
@@ -18,6 +19,26 @@ export interface ExactRationalSnapshot {
 interface FractionParts {
   readonly numerator: bigint;
   readonly denominator: bigint;
+}
+
+function divideExactFactors(value: bigint, factor: bigint): readonly [bigint, bigint] {
+  let remaining = value;
+  let count = 0n;
+  while (remaining % factor === 0n) {
+    remaining /= factor;
+    count += 1n;
+  }
+
+  return [remaining, count];
+}
+
+function decimalDigitCount(value: string): bigint {
+  let count = 0n;
+  for (const _character of value) {
+    count += 1n;
+  }
+
+  return count;
 }
 
 const CONSTRUCTION_CAPABILITY = Symbol("exact-rational-construction-capability");
@@ -244,6 +265,48 @@ export class ExactRational {
 
   public isInteger(): boolean {
     return ExactRational.#requireInstance(this).#denominator === 1n;
+  }
+
+  public toCanonicalDecimal(): string {
+    const self = ExactRational.#requireInstance(this);
+    if (self.#numerator === 0n) {
+      return "0";
+    }
+
+    const [denominatorWithoutTwos, twos] = divideExactFactors(self.#denominator, 2n);
+    const [remainingDenominator, fives] = divideExactFactors(denominatorWithoutTwos, 5n);
+    if (remainingDenominator !== 1n) {
+      throw new ExactNumericError(
+        "NON_TERMINATING_DECIMAL",
+        "Exact rational value cannot be represented as a finite decimal.",
+      );
+    }
+
+    let fractionalDigits = twos;
+    if (fives > fractionalDigits) {
+      fractionalDigits = fives;
+    }
+    const scale = 10n ** fractionalDigits;
+    const numeratorMagnitude = self.#numerator < 0n ? -self.#numerator : self.#numerator;
+    const scaleMultiplier = twos > fives ? 5n ** (twos - fives) : 2n ** (fives - twos);
+    const scaledNumerator = numeratorMagnitude * scaleMultiplier;
+    const integerPart = scaledNumerator / scale;
+    const fractionalPart = scaledNumerator % scale;
+    if (fractionalPart === 0n) {
+      const integer = integerPart.toString();
+      return canonicalizeExternalDecimal(self.#numerator < 0n ? `-${integer}` : integer);
+    }
+
+    const fraction = fractionalPart.toString();
+    let leadingZeros = fractionalDigits - decimalDigitCount(fraction);
+    let fractionPadding = "";
+    while (leadingZeros > 0n) {
+      fractionPadding += "0";
+      leadingZeros -= 1n;
+    }
+
+    const unsignedDecimal = `${integerPart.toString()}.${fractionPadding}${fraction}`;
+    return canonicalizeExternalDecimal(self.#numerator < 0n ? `-${unsignedDecimal}` : unsignedDecimal);
   }
 
   public toSnapshot(): ExactRationalSnapshot {
