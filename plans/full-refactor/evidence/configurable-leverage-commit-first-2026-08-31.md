@@ -151,3 +151,83 @@ review ID or heading. The postcommit commands `git show --stat --oneline
 --decorate --no-renames HEAD`, `git diff --cached --name-only`, `git diff
 --check HEAD^..HEAD`, `git status --short -- <11 owned paths>`, and `git log
 --oneline -5` produced the results recorded above.
+
+## Hash-specific execution records
+
+- `ede8dbb` (parent `f50fae9`): coordinator staged exactly 18 paths and
+  committed them. Commit stat was 73 insertions and 167 deletions. Precommit
+  evidence: strategy V8 10 files/110 tests, S507/B353/F74/L461 all 100%; core
+  typecheck on the current dirty union exit 0; scoped ESLint, Prettier, diff,
+  and secret scan passed; maximum runtime/test file length 470 LOC. Actual
+  technical review by `terra_reviewer` failed on inherited dYdX/composite
+  undefined-callback mismatch, portfolio aggregate/type/lastVaR blockers, and
+  a candidate exact-name contract-test gap. Actual process review by
+  `luna_process_reviewer` failed only because hash-specific evidence was
+  absent; scope and mechanics passed.
+- `4395065` (parent `ede8dbb`): coordinator staged exactly four numeric paths
+  and committed them; stat was 136 insertions. Numeric validation covered 7
+  files/117 tests, S283/B188/F57/L282 all 100%; numeric typecheck, scoped
+  ESLint, Prettier, diff, forbidden rounding/coercion/openat/secret scans
+  passed; maximum LOC was 324. Process review failed only because this
+  hash-specific record was absent. Technical review is pending and is not
+  claimed here.
+- `1bc1f6c` (parent `4395065`): coordinator staged exactly two documentation
+  paths and committed them; stat was 50 insertions and 49 deletions. Main
+  report is 490 LOC and appendix 48 LOC. Prettier, diff, link, and content
+  preservation checks passed. Independent technical and process reviews are
+  pending.
+
+Strategy remediation was delegated; final six-path stale cleanup and report
+split used `luna_worker`; numeric implementation used the existing
+`terra_worker` artifact. The coordinator integrated, staged exact paths, and
+committed. Actual technical review is `terra_reviewer`; process review is
+`luna_process_reviewer`. Provider telemetry was not independently observable;
+profile settings are the routing evidence. No fallback was used. The
+surrounding dirty union was never staged.
+
+Required next actions: create the exact-name test follow-up, resolve semantic
+type corridors, and obtain fresh technical/process rereviews. No full-range
+PASS or live readiness is claimed.
+
+### Replayable command ledger
+
+The `<... paths>` placeholders are deterministic: use
+`git show --format= --name-only <hash>` and omit non-applicable Markdown paths
+for ESLint. They are not unknown or omitted scopes.
+
+```text
+ede8dbb:
+bun x vitest run --config packages/core/vitest.strategy-absence-s1.config.mjs --coverage
+bun run --filter @mm-crypto-bot/core typecheck
+bun x eslint --max-warnings=0 <18 commit code paths>
+bun x prettier --check <18 commit paths>
+git diff --check -- <18 commit paths>
+git diff --cached --name-status
+git diff --cached --stat
+git diff --cached --check
+git add <18 exact paths>
+git commit -m "refactor(core): remove strategy delivery labels"
+
+4395065:
+bun run --filter @mm-crypto-bot/numeric coverage
+bun run --filter @mm-crypto-bot/numeric typecheck
+bun x eslint --max-warnings=0 <4 numeric paths>
+bun x prettier --check <4 numeric paths>
+git diff --check -- <4 numeric paths>
+git diff --cached --name-status
+git diff --cached --stat
+git diff --cached --check
+git add <4 exact paths>
+git commit -m "feat(numeric): serialize exact terminating decimals"
+
+1bc1f6c:
+bun x prettier --check <2 documentation paths>
+git diff --check -- <2 documentation paths>
+wc -l <2 documentation paths>
+test -f docs/research/phase25/REPORT-phase25-2-appendix.md
+git diff --cached --name-status
+git diff --cached --stat
+git diff --cached --check
+git add docs/research/phase25/REPORT-phase25-2.md docs/research/phase25/REPORT-phase25-2-appendix.md
+git commit -m "docs(research): correct strategy absence evidence"
+```
