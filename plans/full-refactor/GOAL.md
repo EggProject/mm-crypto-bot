@@ -1,6 +1,6 @@
 # Goal and Scope — DRAFT
 
-**Status:** DRAFT. D-01 through D-09 are **APPROVED** within their exact
+**Status:** DRAFT. D-01 through D-12 are **APPROVED** within their exact
 records in `APPROVALS.md`. Approval unblocks sequencing only; no phase, runtime,
 provider, dependency, governing patch, release, or live safety gate is complete.
 
@@ -59,9 +59,13 @@ failure blocks ingestion/backtest; no fallback is permitted.
   fail-closed contract. Every other data download requires new explicit approval.
 - Altering the permitted live venue/product: Bybit EU Spot Margin via CCXT
   `bybiteu` against `https://api.bybit.eu`.
-- Changing the immutable live selected-leverage invariant from exactly 10x, the
-  exact USD-equivalent starting-equity target `"1000"`, or the initial
-  gross-exposure target `"10000"`.
+- Changing D-11's configurable global/session selected-leverage contract: one
+  exact canonical value that defaults exactly to 10x, is immutable for the
+  active session, and must equal the current authenticated venue-supported
+  actual value at live activation and every order; no rounding, fallback,
+  dynamic, per-strategy, per-symbol, or per-order value is permitted. The exact
+  USD-equivalent starting-equity target `"1000"` and initial gross-exposure
+  target `"10000"` remain unchanged.
 - Implementing the already-approved release runtime/platform, external runtime
   root, simulation-margin model, Lefthook governing-rule replacement, or
   internal workspace-pin semantics without their phase-specific evidence and
@@ -80,12 +84,14 @@ intent or a plausible repository structure. At minimum it must prove:
 
 1. Every package and app meets the architecture boundary checks and declared
    public API contract tests.
-2. Live safety tests reject every invalid/non-10x, stale, ambiguous, ineligible,
-   unsupported, failed-borrow, and failed-authentication case before submission.
-   They also prove canonical "1000" starting equity and "10000" initial
-   gross exposure are bound to authoritative valuation UTC timestamp/source;
-   gross exposure equals absolute position notionals plus worst-case executable
-   active-order notionals; and each account/leverage value remains distinct.
+2. Live safety tests reject every invalid or venue-unsupported configured value,
+   missing, stale, ambiguous, unsupported, or unequal authenticated actual
+   selected-leverage value, and missing, stale, ambiguous, or ineligible account
+   eligibility evidence before submission. They also prove canonical "1000"
+   starting equity and "10000" initial gross exposure are bound to authoritative
+   valuation UTC timestamp/source; gross exposure equals absolute position
+   notionals plus worst-case executable active-order notionals; and each
+   account/leverage value remains distinct.
 3. One consumer-owned typed/audited RiskGate is proven unbypassable before every
    exchange action in live, paper, and backtest paths, including zero adapter
    calls from architecture-negative and E2E invalid cases.
@@ -96,9 +102,11 @@ intent or a plausible repository structure. At minimum it must prove:
 6. Each app's release artifact passes an offline smoke test with no source,
    `node_modules`, package manager, secret, config, state, or mounted data
    embedded.
-7. A Terra final technical reviewer and Luna process reviewer independently
-   inspect the final evidence. All valid findings are fixed and independently
-   re-reviewed to PASS, with ledger entries in `REVIEW-EVIDENCE.md`.
+7. After scoped precommit gates and an exactly staged commit, a Terra final
+   technical reviewer and Luna process reviewer independently inspect the actual
+   final candidate commit range. All valid findings are fixed in follow-up
+   commits and the full range is independently re-reviewed to PASS before
+   completion, push, or PR, with ledger entries in `REVIEW-EVIDENCE.md`.
 8. The final repository has zero legacy code, documentation, assets, markers,
    compatibility shims, or references; `docs/legacy` is absent. This does not
    authorize deletion of protected formal reports under `data/reports/`.
