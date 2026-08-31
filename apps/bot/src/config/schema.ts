@@ -44,11 +44,11 @@ import { EnabledSymbolsSchema, RiskSectionSchema } from "./schema-builders.js";
 export const StrategySectionSchema = z
   .object({
     /**
-     * A stratégia engedélyezve van-e. `false` → nincs példányosítva.
+     * Whether the strategy is enabled. `false` prevents instantiation.
      */
     enabled: z.boolean().default(false),
     /**
-     * Max position size, equity-frakció (0..1).
+     * Maximum position size as an equity fraction (0..1).
      */
     cap: z.number().min(0).max(1).optional(),
     /**
@@ -56,11 +56,11 @@ export const StrategySectionSchema = z
      */
     leverage: z.number().int().min(1).max(10).optional(),
     /**
-     * Override symbol-lista. CCXT unified formátumban.
+     * Symbol-list override in CCXT unified format.
      */
     symbols: z.array(z.string()).optional(),
     /**
-     * Override timeframe-ek (htf/mtf/ltf).
+     * Timeframe overrides (htf/mtf/ltf).
      */
     timeframes: z
       .object({
@@ -83,7 +83,7 @@ export const StrategySectionSchema = z
   .passthrough();
 
 /**
- * `StrategySection` — a Zod-inferred type.
+ * `StrategySection` — the Zod-inferred type.
  */
 export type StrategySection = z.infer<typeof StrategySectionSchema>;
 
@@ -218,7 +218,7 @@ export const BotConfigSchema = z.object({
   compliance: z
     .object({
       /**
-       * Deployment joghatósága. Default: "EU".
+       * Deployment jurisdiction. Default: "EU".
        */
       jurisdiction: z.enum(["EU", "JP", "OTHER"]).default("EU"),
       /**
@@ -318,7 +318,7 @@ export const BotConfigSchema = z.object({
       log_dir: z.string().default("logs/bot"),
       metrics_interval_sec: z.number().int().min(1).max(3600).default(60),
       /**
-       * Log-szint (debug/info/warn/error). Default: info.
+       * Log level (debug/info/warn/error). Default: info.
        */
       log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
       /**
@@ -326,7 +326,7 @@ export const BotConfigSchema = z.object({
        */
       log_destination: z.enum(["file", "stderr", "both"]).default("both"),
       /**
-       * Metrics-emitálás engedélyezve van-e. Default: true.
+       * Whether metrics emission is enabled. Default: true.
        */
       metrics_enabled: z.boolean().default(true),
       /**
@@ -363,7 +363,7 @@ export const BotConfigSchema = z.object({
 });
 
 /**
- * `BotConfig` — a teljes bot-config Zod-inferred típusa.
+ * `BotConfig` — the complete Zod-inferred bot configuration type.
  */
 export type BotConfig = z.infer<typeof BotConfigSchema>;
 

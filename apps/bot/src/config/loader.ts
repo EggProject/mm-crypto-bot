@@ -159,8 +159,8 @@ export function loadBotConfig(configPath?: string, environment: NodeJS.ProcessEn
   if (configPath !== undefined) {
     let text: string;
     try {
-      // A `Bun.file().text()` async; a ConfigStore injektált, szinkron
-      // olvasó portja a szinkron alternatíva. A loadBotConfig CLI indítása
+      // `Bun.file().text()` is asynchronous; use the injected synchronous
+      // ConfigStore reader port instead. The loadBotConfig CLI starts during
       // boot-fázisban van, és a TOML-fájl kicsi, a sync olvasás
       // nem blokkolja érezhetően a folyamatot.
       text = DEFAULT_CONFIG_STORE_DEPENDENCIES.readText(configPath);
