@@ -18,6 +18,8 @@ claim that it was run or passed.
 Existing code is not precedent. Code that is created or touched MUST conform
 locally to this standard. A broad migration MUST be a separately scoped change.
 
+Prior explicit user decisions MUST be recalled and consulted, never re-asked or silently overwritten. A newer direct user decision supersedes an earlier decision and MUST be recorded.
+
 ## Repository and Architecture
 
 ### Module Boundaries
@@ -207,63 +209,19 @@ locally to this standard. A broad migration MUST be a separately scoped change.
 
 ## Safety and Trading Lifecycle
 
-### Production Mission and Fixed-Leverage Invariant
+### Production Mission and Selected-Leverage Invariant
 
-- The production product MUST operate multiple strategies across multiple
-  tickers. Its only permitted live venue and product are Bybit EU Spot Margin,
-  through CCXT `bybiteu` against `https://api.bybit.eu`; every other live
-  venue, endpoint, account region, market, or product MUST be rejected before
-  it can submit an order.
-- This section defines Required Target State only. Current code MAY be
-  nonconforming and MUST NOT be represented as implementing, validating, or
-  passing these requirements until evidence proves that it does.
-- The live starting-equity baseline MUST be the exact USD-equivalent string
-  `"1000"`, accompanied by an explicitly recorded UTC valuation timestamp and
-  authoritative valuation source. The initial gross-exposure target MUST be the
-  exact USD-equivalent string `"10000"` and MUST use that same recorded UTC
-  valuation timestamp and authoritative valuation source. A different
-  timestamp/source pair is permitted only when it is independently and
-  explicitly recorded for the `"10000"` target as its authoritative valuation
-  timestamp and source. Financial values MUST remain exact canonical strings;
-  rounding, binary floating point, and implicit conversion are forbidden.
-- Gross exposure MUST equal the sum of the absolute notionals of all strategy
-  and symbol positions plus the worst-case executable notionals of all active
-  orders. Equity, available balance, wallet balance, gross exposure, net
-  exposure, selected leverage, venue maximum leverage, actual borrowed amount,
-  and effective leverage are distinct values and MUST be represented,
-  calculated, audited, and reconciled separately. Net exposure MUST retain its
-  signed directional value; effective leverage MUST NOT be substituted for the
-  immutable selected-leverage setting.
-- Each live operation and each live order MUST retain an immutable selected
-  leverage of exactly 10x and independently verify it immediately before any
-  exchange submission. A leverage range, cap, default, fallback,
-  per-strategy/per-symbol override, or dynamic leverage selection is forbidden.
-  Any selected leverage other than exactly 10x is a hard error, and no related
-  order MAY reach the exchange.
-- Live activation and every live order MUST verify, using current authenticated
-  Bybit EU responses, account eligibility, Unified Trading Account Spot Margin
-  availability, supported symbol and assets, permitted margin mode, successful
-  10x selection, borrowing capacity, and account state. Missing, stale,
-  ambiguous, unsupported, or ineligible evidence MUST fail closed. CCXT
-  capabilities, local configuration, cached state, and prior orders are never
-  sufficient proof; the authoritative Bybit EU response is required.
-- The selected 10x setting, actual borrow, and effective leverage MUST be
-  separately recorded in immutable audit events and independently reconciled
-  with authenticated Bybit EU account and order responses.
-- Reduce-only and emergency-exit operations MUST NOT be blocked solely because
-  they reduce exposure. They MUST preserve the exactly 10x selected-leverage
-  setting and use a fail-safe, risk-reducing execution path; they MUST NOT
-  bypass validation unrelated to the exposure reduction.
-- Unit, property, integration, and end-to-end tests MUST cover every invalid or
-  non-10x condition and prove that no exchange order is submitted. Tests MUST
-  also cover stale or ambiguous eligibility, unavailable Spot Margin,
-  unsupported assets or symbols, invalid margin mode, unsuccessful leverage
-  selection, inadequate borrowing capacity, and the reduce-only/emergency-exit
-  path.
-- Authoritative references: [Bybit EU Spot Margin FAQ](https://www.bybit.eu/en-EU/help-center/article/FAQ-Spot-Margin-Trading),
-  [Bybit EU Spot Margin getting started](https://www.bybit.eu/en-EU/help-center/article/How-to-Get-Started-With-Margin-Trading-on-Bybit),
-  [Bybit EU Margin Trading Service Agreement](https://www.bybit.eu/en-EU/help-center/article/Margin-Trading-Service-Agreement),
-  and the [CCXT source repository](https://github.com/ccxt/ccxt).
+- The production product MUST operate multiple strategies across multiple tickers. Its only permitted live venue and product are Bybit EU Spot Margin, through CCXT `bybiteu` against `https://api.bybit.eu`; every other live venue, endpoint, account region, market, or product MUST be rejected before it can submit an order.
+- This section defines Required Target State only. Current code MAY be nonconforming and MUST NOT be represented as implementing, validating, or passing these requirements until evidence proves that it does.
+- The live starting-equity baseline MUST be the exact USD-equivalent string `"1000"`, accompanied by an explicitly recorded UTC valuation timestamp and authoritative valuation source. The initial gross-exposure target MUST be the exact USD-equivalent string `"10000"` and MUST use that same recorded UTC valuation timestamp and authoritative valuation source. A different timestamp/source pair is permitted only when it is independently and explicitly recorded for the `"10000"` target as its authoritative valuation timestamp and source. Financial values MUST remain exact canonical strings; rounding, binary floating point, and implicit conversion are forbidden.
+- Gross exposure MUST equal the sum of the absolute notionals of all strategy and symbol positions plus the worst-case executable notionals of all active orders. Equity, available balance, wallet balance, gross exposure, net exposure, selected leverage, venue maximum leverage, actual borrowed amount, and effective leverage are distinct values and MUST be represented, calculated, audited, and reconciled separately. Net exposure MUST retain its signed directional value; effective leverage MUST NOT be substituted for the immutable selected-leverage setting.
+- Selected leverage MUST be configured globally for a session and default exactly to 10x. The configuration MUST use an exact canonical value without binary floating point, rounding, truncation, approximation, implicit coercion, or lossy serialization. Invalid or venue-unsupported values MUST fail closed. The active-session setting is immutable; configuration reload and changes to that setting are out of scope.
+- Each live operation and each live order MUST retain the immutable configured selected leverage and independently verify immediately before exchange submission, using a current authenticated Bybit EU response, that the actual selected leverage equals that configured value. A silent fallback, leverage range, cap, per-strategy, per-symbol, or per-order override, and automatic or dynamic leverage selection are forbidden. A mismatch, missing, stale, ambiguous, invalid, or unsupported configured or actual value is a hard error, and no related order MAY reach the exchange.
+- Live activation and every live order MUST verify, using current authenticated Bybit EU responses, account eligibility, Unified Trading Account Spot Margin availability, supported symbol and assets, permitted margin mode, venue support for the configured selected leverage, actual selected leverage equal to that configuration, borrowing capacity, and account state. Missing, stale, ambiguous, unsupported, or ineligible evidence MUST fail closed. CCXT capabilities, local configuration, cached state, and prior orders are never sufficient proof; the authoritative Bybit EU response is required.
+- The configured selected-leverage setting, authenticated actual selected leverage, actual borrow, and effective leverage MUST be separately recorded in immutable audit events and independently reconciled with authenticated Bybit EU account and order responses.
+- Reduce-only and emergency-exit operations MUST NOT be blocked solely because they reduce exposure. They MUST preserve the immutable configured selected-leverage setting, verify its authenticated actual value, and use a fail-safe, risk-reducing execution path; they MUST NOT bypass validation unrelated to exposure reduction.
+- Unit, property, integration, and end-to-end tests MUST cover every invalid or venue-unsupported configuration and every mismatch, missing, stale, or ambiguous actual selected-leverage value, and prove that no exchange order is submitted. Tests MUST also cover unavailable Spot Margin, unsupported assets or symbols, invalid margin mode, unsuccessful leverage selection, inadequate borrowing capacity, and the reduce-only/emergency-exit path.
+- Authoritative references: [Bybit EU Spot Margin FAQ](https://www.bybit.eu/en-EU/help-center/article/FAQ-Spot-Margin-Trading), [Bybit EU Spot Margin getting started](https://www.bybit.eu/en-EU/help-center/article/How-to-Get-Started-With-Margin-Trading-on-Bybit), [Bybit EU Margin Trading Service Agreement](https://www.bybit.eu/en-EU/help-center/article/Margin-Trading-Service-Agreement), and the [CCXT source repository](https://github.com/ccxt/ccxt).
 
 ### Live Safety and Resilience
 
@@ -331,13 +289,7 @@ locally to this standard. A broad migration MUST be a separately scoped change.
   required production change MUST stop, block, and report the task to the
   coordinator. Agy MUST NOT infer requirements, expand scope, or choose an
   architecture.
-- Agy MAY mechanically implement tests, including tests around trading or risk
-  code, only after the coordinator or Terra has fully pre-decided and specified
-  every business scenario; event/state sequence; inputs; expected outputs,
-  errors, logs, and state transitions; financial invariants (including exact
-  10x on live paths); public test boundary; allowed mocks/fakes; prohibited
-  fabricated or private state; exact owned test/support files; forbidden
-  production files; and validation and coverage gates.
+- Agy MAY mechanically implement tests, including tests around trading or risk code, only after the coordinator or Terra has fully pre-decided and specified every business scenario; event/state sequence; inputs; expected outputs, errors, logs, and state transitions; financial invariants (including the immutable configured selected leverage on live paths); public test boundary; allowed mocks/fakes; prohibited fabricated or private state; exact owned test/support files; forbidden production files; and validation and coverage gates.
 - Agy MUST NOT decide test scenarios, expected business behaviour, acceptance
   semantics, coverage scope or thresholds, architecture, module boundaries, or
   production changes. Private casts, `any`, disable directives,
@@ -425,9 +377,7 @@ locally to this standard. A broad migration MUST be a separately scoped change.
 - Documentation and examples MUST change with their implementation in the same
   pull request. Each fact MUST have one source of truth; stale references are
   forbidden.
-- Commits MUST be small, atomic Conventional Commits in the form
-  `type(scope): imperative summary`. Refactoring, formatting, and behaviour
-  changes MUST be separate. A commit MUST NOT leave shared branches broken.
+- After scoped implementation and pre-commit gates, the coordinator MUST create a small, atomic Conventional Commit in the form `type(scope): imperative summary` using exact staging; unrelated dirty files MUST NOT enter it. Refactoring, formatting, and behaviour changes MUST be separate. A commit MUST NOT leave shared branches broken. Independent `terra_reviewer` technical and `luna_process_reviewer` process reviewers MUST inspect the actual commit diff or explicit candidate commit range. No completion, closure, push, or PR is allowed until both pass. Each valid finding MUST be fixed in a follow-up commit, then the full candidate range independently re-reviewed to pass; no known finding may remain open. Only the coordinator commits; subagents do not.
 - Pull requests MUST describe the problem, solution, alternatives, trade-offs,
   risk, rollback, validation evidence, screenshots where relevant, migration or
   compatibility impact, and linked issue.
@@ -499,26 +449,9 @@ locally to this standard. A broad migration MUST be a separately scoped change.
 
 ### Session Retrospective
 
-- Before normal closure of every substantive repository session, at least two
-  independent non-implementing subagents MUST review the work directly. A
-  technical reviewer MUST inspect objective, diff, architecture, tests,
-  coverage, security, and evidence. A process reviewer MUST inspect task
-  decomposition, brief accuracy, model selection, scope control, failures,
-  retries, and compliance.
-- Reviewers MUST inspect relevant files and test results rather than relying
-  only on an implementer's summary. Every valid reviewer finding and every
-  known open error MUST be fixed, then independently re-reviewed to PASS before
-  completion or commit; neither MAY be waived or communicated as an open risk.
-  A disputed finding MUST be decided by an independent adjudicator: a valid
-  finding MUST be fixed and independently re-reviewed to PASS, while an invalid
-  finding MUST have its rationale documented in delivery evidence.
-- The required session evaluation MUST record completed checks even when there
-  are no findings. Its HTML report file is optional and MUST be created only
-  under the Formal Reports trigger policy; when triggered, it MUST use
-  `data/reports/<YYYY>/<MM>/<YYYY-MM-DD-HHmm>-session-retrospective.html` and
-  comply with every Formal Reports requirement. A session interrupted before
-  the required reviews and evaluation is incomplete; the next continuation MUST
-  complete them.
+- Before normal closure of every substantive repository session, at least two independent non-implementing subagents MUST review the actual candidate commit range directly. A technical reviewer MUST inspect objective, diff, architecture, tests, coverage, security, and evidence. A process reviewer MUST inspect task decomposition, brief accuracy, model selection, scope control, failures, retries, and compliance.
+- Reviewers MUST inspect relevant files and test results rather than relying only on an implementer's summary. Every valid reviewer finding and every known open error MUST be fixed in a follow-up commit, then the full candidate range independently re-reviewed to PASS; neither MAY be waived or communicated as an open risk. A disputed finding MUST be decided by an independent adjudicator: a valid finding MUST be fixed and independently re-reviewed to PASS, while an invalid finding MUST have its rationale documented in delivery evidence.
+- The required session evaluation MUST record completed checks even when there are no findings. Its HTML report file is optional and MUST be created only under the Formal Reports trigger policy; when triggered, it MUST use `data/reports/<YYYY>/<MM>/<YYYY-MM-DD-HHmm>-session-retrospective.html` and comply with every Formal Reports requirement. A session interrupted before the required reviews and evaluation is incomplete; the next continuation MUST complete them.
 
 ### Controlled Evolution of Standards and Skills
 

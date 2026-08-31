@@ -4,7 +4,7 @@ This contributor index points to binding requirements in [`.codex/ENGINEERING-ST
 
 ## Product Mission
 
-`mm-crypto-bot` is a multi-strategy, multi-ticker crypto trading bot. Its only live venue/product is Bybit EU Spot Margin via `bybiteu`. Every live order MUST use and verify fixed exactly 10x selected leverage; maximum, range, dynamic, and default leverage are forbidden. Launch baseline: exact USD 1000 account equivalent and exact USD 10000 initial gross exposure. These are targets, not current compliance. Live execution MUST fail closed if account/pair eligibility, borrow eligibility, or exact 10x cannot be verified.
+`mm-crypto-bot` is a multi-strategy, multi-ticker crypto trading bot. Its only live venue/product is Bybit EU Spot Margin via `bybiteu`. Selected leverage is a global, session-level configuration that defaults exactly to 10x. It MUST be an exact canonical value without binary floating point, rounding, or coercion; invalid or venue-unsupported values fail closed. Active-session selection is immutable, and configuration reload is out of scope. Every live order and live activation MUST verify that the authenticated Bybit EU actual selected leverage equals the configured value before submission; no silent fallback is permitted. Per-strategy, per-symbol, per-order, automatic, and dynamic leverage selection are forbidden. Launch baseline: exact USD 1000 account equivalent and exact USD 10000 initial gross exposure. These are targets, not current compliance. Live execution MUST fail closed if account/pair eligibility, borrow eligibility, or configured selected leverage cannot be verified.
 
 ## Repository map
 
@@ -22,7 +22,7 @@ Redact secrets, credentials, keys, personal data, sensitive payloads. Live paths
 
 ## Workflow and review
 
-Coordinator-led, subagent-only: coordinator assigns briefs/integrates evidence; subagents change scope/report commands, findings, blockers. Use Conventional Commits; PRs state risk, migration, rollback. Two independent technical/process reviews precede closure. Fix every valid finding and independently re-review before completion or commit; no known finding may remain open. Create standalone Hungarian HTML report at `data/reports/<YYYY>/<MM>/<YYYY-MM-DD-HHmm>-session-retrospective.html` only on user request or when coordinator records that HTML materially improves representation or comprehension of substantial results; ordinary completion/status and routine retrospectives need none. Results requiring user decision or materially affecting product goal, trading/risk, security, data, cost, scope, external effects, or governing semantics MUST be discussed with user before change. Low-risk internal findings without user-visible impact MUST be auto-fixed in appropriate repo-local workflow, then independently re-reviewed; mention in final summary. Auto changes MUST NOT lower gates, broaden authority, override higher instructions, or perform external/destructive actions. Governing-file changes normally require separate approval and independent validation, except retrospectively-classified low-risk internal-maintenance findings without user-visible/product-semantic changes; these MUST be auto-fixed under controlled-evolution safeguards in standards and independently validated.
+Coordinator-led, subagent-only: the coordinator assigns briefs and integrates evidence; subagents change scope and report commands, findings, and blockers. After scoped implementation and pre-commit gates, the coordinator MUST create a small atomic Conventional Commit using exact staging; unrelated dirty files MUST NOT enter it. Independent `terra_reviewer` technical and `luna_process_reviewer` process reviews MUST inspect the actual commit diff, or an explicit candidate commit range. No completion, closure, push, or PR is allowed until both pass. Each valid finding MUST be fixed in a follow-up commit, and the full candidate range independently re-reviewed to pass; no known finding may remain open. Only the coordinator commits; subagents do not. PRs state risk, migration, and rollback. Prior explicit user decisions MUST be recalled and consulted, never re-asked or silently overwritten; a newer direct decision supersedes an earlier one and MUST be recorded. Create standalone Hungarian HTML report at `data/reports/<YYYY>/<MM>/<YYYY-MM-DD-HHmm>-session-retrospective.html` only on user request or when coordinator records that HTML materially improves representation or comprehension of substantial results; ordinary completion/status and routine retrospectives need none. Results requiring user decision or materially affecting product goal, trading/risk, security, data, cost, scope, external effects, or governing semantics MUST be discussed with user before change. Low-risk internal findings without user-visible impact MUST be auto-fixed in appropriate repo-local workflow, then independently re-reviewed; mention in final summary. Auto changes MUST NOT lower gates, broaden authority, override higher instructions, or perform external/destructive actions. Governing-file changes normally require separate approval and independent validation, except retrospectively-classified low-risk internal-maintenance findings without user-visible/product-semantic changes; these MUST be auto-fixed under controlled-evolution safeguards in standards and independently validated.
 
 ### Brief decomposition and progress management
 
@@ -148,9 +148,7 @@ model and effort MUST be recorded only when the selected supported tool attests
 them; otherwise they are `not observable`. A mismatch in observable attested
 data MUST fail and block; absence of attestation is not a mismatch. An
 unattested model/effort result may remain provisional evidence but MUST NOT
-prove a model/task class for the routine evaluation gate. The coordinator MUST
-inspect the actual diff including staged and untracked files, rerun the required
-gates, obtain independent reviews, and perform any commit.
+prove a model/task class for the routine evaluation gate. The coordinator MUST inspect the actual diff including staged and untracked files, rerun the required gates, create an exactly staged atomic commit, and obtain independent reviews of that commit or its explicit candidate range.
 
 Agy MUST NOT make business-logic, financial, trading, code-organization,
 architecture, or module-boundary decisions. It MAY only execute a pre-decided,
@@ -164,7 +162,7 @@ an architecture.
 For test implementation, Agy is mechanical only. The coordinator or Terra
 MUST pre-decide and specify every business scenario, event/state sequence,
 inputs, expected outputs, errors, logs, state transitions, financial invariant
-(including exact 10x for live paths), public test boundary, allowed fake/mock,
+(including the immutable configured selected leverage for live paths), public test boundary, allowed fake/mock,
 prohibited fabricated/private state, owned test/support files, production-file
 prohibition, and validation/coverage gate. Agy MUST NOT choose scenarios,
 expected business behaviour, acceptance semantics, coverage scope or threshold,
