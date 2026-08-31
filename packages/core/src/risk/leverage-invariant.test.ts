@@ -1,13 +1,4 @@
-// packages/core/src/risk/leverage-invariant.test.ts — 1:10 MANDATORY leverage invariant tests
-//
-// Phase 10G Track B — unit tests for the 3rd defense-in-depth layer.
-// These tests enforce the contract documented in leverage-invariant.ts:
-//   - 10× exactly → no throw
-//   - 10.001× → throw LeverageBreachError
-//   - 1×, 0× → no throw
-//   - Negative / NaN / Infinity / zero base capital → throw
-//
-// ≥10 unit tests as required by the task brief.
+// Public aggregate leverage invariant behavior.
 
 import { describe, expect, test } from "bun:test";
 
@@ -28,26 +19,30 @@ import {
 // ----------------------------------------------------------------------
 
 describe("assertLeverageInvariant — boundary tests", () => {
-  test("10× exactly → no throw (within tolerance)", () => {
+  test("10× exactly → no throw", () => {
     const baseCapital = 10_000;
     const totalNotional = 10 * baseCapital; // 100_000
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital)).not.toThrow();
+    expect(() => {
+      assertLeverageInvariant(totalNotional, baseCapital);
+    }).not.toThrow();
   });
 
   test("10.001× → throws LeverageBreachError", () => {
     const baseCapital = 10_000;
     const totalNotional = 100_010; // 10.001×
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital)).toThrow(LeverageBreachError);
+    expect(() => {
+      assertLeverageInvariant(totalNotional, baseCapital);
+    }).toThrow(LeverageBreachError);
   });
 
   test("11× → throws with details", () => {
     const baseCapital = 10_000;
     const totalNotional = 110_000; // 11×
-    let caught: unknown = null;
+    let caught: unknown;
     try {
       assertLeverageInvariant(totalNotional, baseCapital);
-    } catch (e) {
-      caught = e;
+    } catch (error) {
+      caught = error;
     }
     expect(caught).toBeInstanceOf(LeverageBreachError);
     if (caught instanceof LeverageBreachError) {
@@ -61,13 +56,17 @@ describe("assertLeverageInvariant — boundary tests", () => {
   test("1× → no throw (baseline reference)", () => {
     const baseCapital = 10_000;
     const totalNotional = 10_000; // 1×
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital)).not.toThrow();
+    expect(() => {
+      assertLeverageInvariant(totalNotional, baseCapital);
+    }).not.toThrow();
   });
 
   test("0× (zero notional) → no throw", () => {
     const baseCapital = 10_000;
     const totalNotional = 0;
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital)).not.toThrow();
+    expect(() => {
+      assertLeverageInvariant(totalNotional, baseCapital);
+    }).not.toThrow();
   });
 
   test("5× → no throw (under cap, not a permitted production state but the guard does not refuse it)", () => {
@@ -75,7 +74,9 @@ describe("assertLeverageInvariant — boundary tests", () => {
     // not the guard's concern — they're the per-strategy layer's concern.
     const baseCapital = 10_000;
     const totalNotional = 50_000; // 5×
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital)).not.toThrow();
+    expect(() => {
+      assertLeverageInvariant(totalNotional, baseCapital);
+    }).not.toThrow();
   });
 });
 
@@ -85,59 +86,172 @@ describe("assertLeverageInvariant — boundary tests", () => {
 
 describe("assertLeverageInvariant — defensive guards", () => {
   test("NaN notional → throws (does NOT silently allow)", () => {
-    expect(() => assertLeverageInvariant(NaN, 10_000)).toThrow(/finite/);
+    expect(() => {
+      assertLeverageInvariant(NaN, 10_000);
+    }).toThrow(/finite/);
   });
 
   test("Infinity notional → throws", () => {
-    expect(() => assertLeverageInvariant(Infinity, 10_000)).toThrow(/finite/);
+    expect(() => {
+      assertLeverageInvariant(Infinity, 10_000);
+    }).toThrow(/finite/);
   });
 
   test("NaN base capital → throws", () => {
-    expect(() => assertLeverageInvariant(10_000, NaN)).toThrow(/finite/);
+    expect(() => {
+      assertLeverageInvariant(10_000, NaN);
+    }).toThrow(/finite/);
   });
 
   test("Zero base capital → throws (division by zero)", () => {
-    expect(() => assertLeverageInvariant(10_000, 0)).toThrow(/positive/);
+    expect(() => {
+      assertLeverageInvariant(10_000, 0);
+    }).toThrow(/positive/);
   });
 
   test("Negative base capital → throws", () => {
-    expect(() => assertLeverageInvariant(10_000, -1)).toThrow(/positive/);
+    expect(() => {
+      assertLeverageInvariant(10_000, -1);
+    }).toThrow(/positive/);
   });
 
   test("Negative notional → throws (defensive — caller bug, not silently abs())", () => {
-    expect(() => assertLeverageInvariant(-50_000, 10_000)).toThrow(/non-negative/);
+    expect(() => {
+      assertLeverageInvariant(-50_000, 10_000);
+    }).toThrow(/non-negative/);
   });
 });
-
-// ----------------------------------------------------------------------
-// assertLeverageInvariant — custom config (smaller cap for stress-test)
-// ----------------------------------------------------------------------
 
 describe("assertLeverageInvariant — custom config", () => {
   test("custom cap 3× — 3.5× throws", () => {
     const baseCapital = 10_000;
     const totalNotional = 35_000; // 3.5×
     const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: 3 };
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital, config)).toThrow(LeverageBreachError);
+    expect(() => {
+      assertLeverageInvariant(totalNotional, baseCapital, config);
+    }).toThrow(LeverageBreachError);
   });
 
-  test("custom tolerance absorbs 10.0000001×", () => {
-    const baseCapital = 10_000;
-    const totalNotional = 100_000.001; // 10.0000001× — within tolerance
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital)).not.toThrow();
-  });
-
-  test("Zero tolerance — 10.0000001× throws", () => {
+  test("default configuration rejects 10.0000001×", () => {
     const baseCapital = 10_000;
     const totalNotional = 100_000.001;
-    const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, tolerance: 0 };
-    expect(() => assertLeverageInvariant(totalNotional, baseCapital, config)).toThrow(LeverageBreachError);
+    expect(() => {
+      assertLeverageInvariant(totalNotional, baseCapital);
+    }).toThrow(LeverageBreachError);
+  });
+
+  test("positive tolerance is rejected instead of absorbing 10.0000001×", () => {
+    const baseCapital = 10_000;
+    const totalNotional = 100_000.001;
+    const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, tolerance: 0.000001 };
+    expect(() => {
+      assertLeverageInvariant(totalNotional, baseCapital, config);
+    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+  });
+
+  test("negative zero tolerance is rejected", () => {
+    const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, tolerance: -0 };
+    expect(() => {
+      assertLeverageInvariant(100_000, 10_000, config);
+    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+  });
+
+  test("hard and soft guards reject every noncanonical tolerance before evaluating measurements", () => {
+    const noncanonicalTolerances = [0.000001, -0.000001, NaN, Infinity, -Infinity, -0];
+
+    for (const tolerance of noncanonicalTolerances) {
+      const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, tolerance };
+      expect(() => {
+        assertLeverageInvariant(100_000, 10_000, config);
+      }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+      expect(() => checkLeverageApproach(NaN, 10_000, config)).toThrow(
+        "[leverage-invariant] Leverage configuration is invalid.",
+      );
+    }
+  });
+
+  test("hard and soft guards reject invalid maximum and warning configuration", () => {
+    const invalidConfigurations = [
+      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: NaN },
+      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: Infinity },
+      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: 0 },
+      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: -1 },
+      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, warnOnApproach: NaN },
+      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, warnOnApproach: Infinity },
+      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, warnOnApproach: -0.01 },
+      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, warnOnApproach: 1.01 },
+    ];
+
+    for (const config of invalidConfigurations) {
+      expect(() => {
+        assertLeverageInvariant(50_000, 10_000, config);
+      }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+      expect(() => checkLeverageApproach(NaN, 10_000, config)).toThrow(
+        "[leverage-invariant] Leverage configuration is invalid.",
+      );
+    }
+  });
+
+  test("snapshots every public config field once for each guard", () => {
+    const readCounts = { maximum: 0, tolerance: 0, warning: 0 };
+    const config = {
+      get maxLeverage(): number {
+        readCounts.maximum += 1;
+        return 10;
+      },
+      get tolerance(): number {
+        readCounts.tolerance += 1;
+        return 0;
+      },
+      get warnOnApproach(): number {
+        readCounts.warning += 1;
+        return 0.95;
+      },
+    };
+
+    expect(() => {
+      assertLeverageInvariant(100_000, 10_000, config);
+    }).not.toThrow();
+    expect(readCounts).toEqual({ maximum: 1, tolerance: 1, warning: 1 });
+    readCounts.maximum = 0;
+    readCounts.tolerance = 0;
+    readCounts.warning = 0;
+    expect(checkLeverageApproach(95_000, 10_000, config)).toBe(true);
+    expect(readCounts).toEqual({ maximum: 1, tolerance: 1, warning: 1 });
+  });
+
+  test("hard and soft guards fail closed for hostile and revoked configurations", () => {
+    const hostile = {
+      get maxLeverage(): number {
+        throw new Error("hostile getter");
+      },
+      tolerance: 0,
+      warnOnApproach: 0.95,
+    };
+    const revoked = Proxy.revocable(DEFAULT_LEVERAGE_INVARIANT_CONFIG, {});
+    revoked.revoke();
+    const malformed = { maxLeverage: "10", tolerance: 0, warnOnApproach: 0.95 };
+
+    expect(() => {
+      assertLeverageInvariant(100_000, 10_000, hostile);
+    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+    expect(() => checkLeverageApproach(NaN, 10_000, hostile)).toThrow(
+      "[leverage-invariant] Leverage configuration is invalid.",
+    );
+    expect(() => {
+      assertLeverageInvariant(100_000, 10_000, revoked.proxy);
+    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+    expect(() => checkLeverageApproach(NaN, 10_000, revoked.proxy)).toThrow(
+      "[leverage-invariant] Leverage configuration is invalid.",
+    );
+    expect(() => {
+      Reflect.apply(assertLeverageInvariant, undefined, [100_000, 10_000, false]);
+    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+    expect(() => {
+      Reflect.apply(checkLeverageApproach, undefined, [NaN, 10_000, malformed]);
+    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
   });
 });
-
-// ----------------------------------------------------------------------
-// computeEffectiveLeverage — pure function correctness
-// ----------------------------------------------------------------------
 
 describe("computeEffectiveLeverage — pure function", () => {
   test("empty positions → 0", () => {
@@ -193,10 +307,10 @@ describe("computeEffectiveLeverage — pure function", () => {
       { symbol: "BTC/USDT", source: "directional", effectiveNotionalUsd: 50_000 },
       { symbol: "BTC/USDT", source: "funding-carry", effectiveNotionalUsd: -50_000 },
     ];
-    const signedSum = positions.reduce((acc, p) => acc + p.effectiveNotionalUsd, 0);
+    const signedSum = positions.reduce((accumulator, p) => accumulator + p.effectiveNotionalUsd, 0);
     expect(signedSum).toBe(0); // perfectly hedged at signed level
     // But the mandate guard sums absolute values (gross exposure).
-    const grossSum = positions.reduce((acc, p) => acc + Math.abs(p.effectiveNotionalUsd), 0);
+    const grossSum = positions.reduce((accumulator, p) => accumulator + Math.abs(p.effectiveNotionalUsd), 0);
     expect(grossSum).toBe(100_000);
     expect(computeEffectiveLeverage(positions, 10_000)).toBe(10);
   });
@@ -208,6 +322,10 @@ describe("computeEffectiveLeverage — pure function", () => {
 
   test("negative base capital → throws", () => {
     expect(() => computeEffectiveLeverage([], -1)).toThrow(/positive/);
+  });
+
+  test("non-finite base capital → throws", () => {
+    expect(() => computeEffectiveLeverage([], Infinity)).toThrow(/finite/);
   });
 
   test("zero base capital → throws", () => {
@@ -273,6 +391,11 @@ describe("checkLeverageApproach — soft warning", () => {
   test("NaN base capital → false", () => {
     expect(checkLeverageApproach(50_000, NaN)).toBe(false);
   });
+
+  test("non-positive base capital and negative notional → false", () => {
+    expect(checkLeverageApproach(50_000, 0)).toBe(false);
+    expect(checkLeverageApproach(-50_000, 10_000)).toBe(false);
+  });
 });
 
 // ----------------------------------------------------------------------
@@ -301,8 +424,10 @@ describe("determinism", () => {
   test("assertLeverageInvariant deterministic on multiple invocations", () => {
     const baseCapital = 10_000;
     const totalNotional = 80_000; // 8× — under cap
-    for (let i = 0; i < 100; i++) {
-      expect(() => assertLeverageInvariant(totalNotional, baseCapital)).not.toThrow();
+    for (let index = 0; index < 100; index++) {
+      expect(() => {
+        assertLeverageInvariant(totalNotional, baseCapital);
+      }).not.toThrow();
     }
   });
 
@@ -320,10 +445,10 @@ describe("determinism", () => {
 });
 
 // ----------------------------------------------------------------------
-// Historical breach replay — load a synthetic past signal stream
+// Aggregate breach examples
 // ----------------------------------------------------------------------
 
-describe("historical breach replay — synthetic signal stream", () => {
+describe("aggregate breach examples", () => {
   test("two $60k notionals summing to 12× on $10k capital → BREACH", () => {
     // Simulates the past scenario: Strategy A emits $60k notional,
     // Strategy B emits $60k notional. Each individually is at 6× (under
