@@ -26,8 +26,12 @@ test("node port factory uses ordinary read-only filesystem operations", async ()
   expect(await port.canonicalize(currentWorkingDirectory)).toBe(currentWorkingDirectory);
   expect(await port.getGitTopLevel(currentWorkingDirectory)).toBe("/fixture/repository");
   expect(receivedGitInvocation).toEqual(["-C", currentWorkingDirectory, "rev-parse", "--show-toplevel"]);
-  expect(await port.inspectPath(currentWorkingDirectory)).toEqual({ kind: "directory" });
-  expect(await port.inspectPath(packagePath)).toEqual({ kind: "file" });
+  const workingDirectoryMetadata = await port.inspectPath(currentWorkingDirectory);
+  const packageMetadata = await port.inspectPath(packagePath);
+  expect(workingDirectoryMetadata?.kind).toBe("directory");
+  expect(packageMetadata?.kind).toBe("file");
+  expect(workingDirectoryMetadata?.identity).toMatch(/^\d+:\d+$/u);
+  expect(packageMetadata?.identity).toMatch(/^\d+:\d+$/u);
   expect(await port.inspectPath(path.join(currentWorkingDirectory, "missing"))).toBeUndefined();
   const directoryEntries = await port.readDirectory(currentWorkingDirectory);
   expect(directoryEntries.length).toBeGreaterThan(0);
@@ -70,10 +74,14 @@ test("node port propagates ordinary filesystem read failures", async () => {
 
 test("node port classifies ordinary filesystem paths and propagates inspection errors", async () => {
   const port = createNodeZeroLegacyScannerPort();
+  const executableLinkPath = path.join(process.cwd(), "node_modules", ".bin", "prettier");
+  const executableLinkMetadata = await port.inspectPath(executableLinkPath);
+  const nullMetadata = await port.inspectPath("/dev/null");
+  expect(executableLinkMetadata?.kind).toBe("symlink");
+  expect(nullMetadata?.kind).toBe("other");
+
   let thrown: unknown;
   try {
-    expect(await port.inspectPath("/dev/fd")).toEqual({ kind: "symlink" });
-    expect(await port.inspectPath("/dev/null")).toEqual({ kind: "other" });
     await port.inspectPath(path.join(process.cwd(), "package.json", "child"));
   } catch (error: unknown) {
     thrown = error;

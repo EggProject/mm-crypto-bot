@@ -65,7 +65,9 @@ function createPort(nodes: ReadonlyMap<string, FixtureNode>): {
       getGitTopLevel: () => Promise.resolve(fixtureRoot),
       inspectPath: (absolutePath: string) => {
         const node = nodes.get(absolutePath);
-        return Promise.resolve(node === undefined ? undefined : Object.freeze({ kind: node.kind }));
+        return Promise.resolve(
+          node === undefined ? undefined : Object.freeze({ identity: absolutePath, kind: node.kind }),
+        );
       },
       readDirectory: (absolutePath: string) => {
         const node = nodes.get(absolutePath);
@@ -223,7 +225,7 @@ test("scanner rejects a non-directory root before inventory traversal", async ()
   const port: ZeroLegacyScannerPort = Object.freeze({
     canonicalize: (absolutePath: string) => Promise.resolve(absolutePath),
     getGitTopLevel: () => Promise.resolve(fixtureRoot),
-    inspectPath: () => Promise.resolve(Object.freeze({ kind: "file" })),
+    inspectPath: () => Promise.resolve(Object.freeze({ identity: fixtureRoot, kind: "file" })),
     readDirectory: () => Promise.resolve(Object.freeze([])),
     readUtf8: () => Promise.resolve(""),
     writeStderr: (message: string) => {

@@ -16,6 +16,7 @@ export const zeroLegacyScanResultSchemaVersion = "zero-legacy-scan-result@1" as 
 export type ZeroLegacyPathKind = "directory" | "file" | "other" | "symlink";
 
 export interface ZeroLegacyPathMetadata {
+  readonly identity: string;
   readonly kind: ZeroLegacyPathKind;
 }
 
@@ -68,10 +69,15 @@ function toPathKind(stats: Awaited<ReturnType<typeof lstat>>): ZeroLegacyPathKin
   return "other";
 }
 
+function toPathIdentity(stats: Awaited<ReturnType<typeof lstat>>): string {
+  return `${stats.dev.toString()}:${stats.ino.toString()}`;
+}
+
 async function inspectNodePath(absolutePath: string): Promise<ZeroLegacyPathMetadata | undefined> {
   try {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Scanner traversal validates every path.
-    return Object.freeze({ kind: toPathKind(await lstat(absolutePath)) });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The scanner port enforces canonical containment and pre/post identity validation.
+    const stats = await lstat(absolutePath);
+    return Object.freeze({ identity: toPathIdentity(stats), kind: toPathKind(stats) });
   } catch (error: unknown) {
     if (isMissingPathError(error)) {
       return undefined;
@@ -121,11 +127,11 @@ export function createNodeZeroLegacyScannerPort(
     getGitTopLevel: (absolutePath: string) => getGitTopLevel(absolutePath, resolvedDependencies.execFile),
     inspectPath: inspectNodePath,
     readDirectory: async (absolutePath: string) => {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Scanner traversal validates every path.
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- The scanner port enforces canonical containment and pre/post identity validation.
       return Object.freeze(await readdir(absolutePath));
     },
     readUtf8: (absolutePath: string) => {
-      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Scanner traversal validates every path.
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- The scanner port enforces canonical containment and pre/post identity validation.
       return readFile(absolutePath, "utf8");
     },
     writeStderr: resolvedDependencies.writeStderr,
@@ -188,14 +194,62 @@ const isExcludedPath = (relativePath: string, config: ZeroLegacyScannerConfig): 
 const toSafeTarget = (repoRoot: string, relativePath: string): string | undefined =>
   isSafeRelativePath(relativePath) ? path.resolve(repoRoot, relativePath) : undefined;
 
+interface ObservedPath {
+  readonly canonicalPath: string;
+  readonly metadata: ZeroLegacyPathMetadata;
+}
+
+const isCanonicalPathWithinRoot = (canonicalRoot: string, canonicalPath: string): boolean => {
+  const relativePath = path.relative(canonicalRoot, canonicalPath);
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith(`..${path.sep}`) && relativePath !== ".." && !path.isAbsolute(relativePath))
+  );
+};
+
+async function observeContainedPath(
+  canonicalRoot: string,
+  absolutePath: string,
+  port: ZeroLegacyScannerPort,
+): Promise<ObservedPath | undefined> {
+  const metadata = await port.inspectPath(absolutePath);
+  if (metadata === undefined) {
+    return undefined;
+  }
+  const canonicalPath = await port.canonicalize(absolutePath);
+  if (!isCanonicalPathWithinRoot(canonicalRoot, canonicalPath)) {
+    throw new Error("Path resolved outside the repository root");
+  }
+  return Object.freeze({ canonicalPath, metadata });
+}
+
+async function verifyObservedPath(
+  canonicalRoot: string,
+  absolutePath: string,
+  expected: ObservedPath,
+  port: ZeroLegacyScannerPort,
+): Promise<void> {
+  const observed = await observeContainedPath(canonicalRoot, absolutePath, port);
+  if (observed === undefined) {
+    throw new Error("Path changed during scanner I/O");
+  }
+  if (
+    observed.canonicalPath !== expected.canonicalPath ||
+    observed.metadata.kind !== expected.metadata.kind ||
+    observed.metadata.identity !== expected.metadata.identity
+  ) {
+    throw new Error("Path changed during scanner I/O");
+  }
+}
+
 const hasSupportedSemanticExtension = (relativePath: string): boolean =>
   /\.(?:[cm]?[jt]sx?|json|toml|mdx?|html?|bash|sh|ya?ml)$/iu.test(relativePath);
 
 async function scanRegularFile(
-  repoRoot: string,
+  canonicalRoot: string,
   absolutePath: string,
   relativePath: string,
-  metadata: ZeroLegacyPathMetadata,
+  observedPath: ObservedPath,
   entries: ZeroLegacySemanticEntry[],
   port: ZeroLegacyScannerPort,
   config: ZeroLegacyScannerConfig,
@@ -206,6 +260,7 @@ async function scanRegularFile(
   let sourceText: string;
   try {
     sourceText = await port.readUtf8(absolutePath);
+    await verifyObservedPath(canonicalRoot, absolutePath, observedPath, port);
   } catch {
     entries.push(diagnosticEntry("unreadable-target", `${relativePath}:read`));
     return;
@@ -237,22 +292,22 @@ async function traverseTarget(
     entries.push(diagnosticEntry("unreadable-target", `${relativePath}:unsafe-path`));
     return;
   }
-  let metadata: ZeroLegacyPathMetadata | undefined;
+  let observedPath: ObservedPath | undefined;
   try {
-    metadata = await port.inspectPath(absolutePath);
+    observedPath = await observeContainedPath(repoRoot, absolutePath, port);
   } catch {
     entries.push(diagnosticEntry("unreadable-target", `${relativePath}:path`));
     return;
   }
-  if (metadata === undefined) {
+  if (observedPath === undefined) {
     return;
   }
-  if (metadata.kind === "file") {
+  if (observedPath.metadata.kind === "file") {
     entries.push(Object.freeze({ signal: "legacy-file", path: relativePath, location: `${relativePath}:0` }));
-    await scanRegularFile(repoRoot, absolutePath, relativePath, metadata, entries, port, config);
+    await scanRegularFile(repoRoot, absolutePath, relativePath, observedPath, entries, port, config);
     return;
   }
-  if (metadata.kind !== "directory") {
+  if (observedPath.metadata.kind !== "directory") {
     entries.push(diagnosticEntry("unreadable-target", `${relativePath}:path`));
     return;
   }
@@ -264,6 +319,7 @@ async function traverseTarget(
   let names: readonly string[];
   try {
     names = await port.readDirectory(absolutePath);
+    await verifyObservedPath(repoRoot, absolutePath, observedPath, port);
   } catch {
     entries.push(diagnosticEntry("unreadable-target", `${relativePath}:readdir`));
     return;
@@ -298,16 +354,18 @@ export async function scanRepoForLegacyReferences(
     return freezeResult(evaluateZeroLegacyContract(entries, config));
   }
   let canonicalRoot: string;
+  let rootObservation: ObservedPath;
   try {
     canonicalRoot = await port.canonicalize(repoRoot);
     const canonicalGitRoot = await port.canonicalize(await port.getGitTopLevel(canonicalRoot));
     if (canonicalRoot !== canonicalGitRoot) {
       throw new Error("Repository root is not the Git top-level");
     }
-    const rootMetadata = await port.inspectPath(canonicalRoot);
-    if (rootMetadata?.kind !== "directory") {
+    const observedRoot = await observeContainedPath(canonicalRoot, canonicalRoot, port);
+    if (observedRoot?.metadata.kind !== "directory") {
       throw new Error("Repository root is not a directory");
     }
+    rootObservation = observedRoot;
   } catch {
     entries.push(diagnosticEntry("unreadable-target", "repository-root:verification"));
     return freezeResult(evaluateZeroLegacyContract(entries, config));
@@ -318,6 +376,11 @@ export async function scanRepoForLegacyReferences(
   const visitedPaths = new Set<string>();
   for (const inventoryRoot of inventory) {
     await traverseTarget(canonicalRoot, inventoryRoot, entries, visitedPaths, port, config);
+  }
+  try {
+    await verifyObservedPath(canonicalRoot, canonicalRoot, rootObservation, port);
+  } catch {
+    entries.push(diagnosticEntry("unreadable-target", "repository-root:verification"));
   }
   return freezeResult(evaluateZeroLegacyContract(entries, config));
 }

@@ -18,6 +18,7 @@ interface FixtureNode {
 
 interface FixtureOptions {
   readonly canonicalFailurePaths?: readonly string[];
+  readonly canonicalizeOverride?: (absolutePath: string) => string;
   readonly canonicalPaths?: ReadonlyMap<string, string>;
   readonly gitTopLevel?: string;
   readonly inspectFailurePaths?: readonly string[];
@@ -75,7 +76,11 @@ function createPort(
       if (canonicalFailures.has(absolutePath)) {
         return Promise.reject(new Error("canonicalization failure"));
       }
-      return Promise.resolve(options.canonicalPaths?.get(absolutePath) ?? absolutePath);
+      return Promise.resolve(
+        options.canonicalizeOverride?.(absolutePath) ??
+          options.canonicalPaths?.get(absolutePath) ??
+          absolutePath,
+      );
     },
     getGitTopLevel: () => Promise.resolve(options.gitTopLevel ?? repoRoot),
     inspectPath: (absolutePath) => {
@@ -86,7 +91,9 @@ function createPort(
         return Promise.resolve(options.inspectOverride(absolutePath));
       }
       const node = nodes.get(absolutePath);
-      return Promise.resolve(node === undefined ? undefined : Object.freeze({ kind: node.kind }));
+      return Promise.resolve(
+        node === undefined ? undefined : Object.freeze({ kind: node.kind, identity: absolutePath }),
+      );
     },
     readDirectory: (absolutePath) => {
       if (readdirFailures.has(absolutePath)) {
@@ -136,6 +143,13 @@ function rootNodes(...nodes: readonly [string, FixtureNode][]): ReadonlyMap<stri
   }
   return new Map(entries);
 }
+
+const appsOnlyConfig = (): ZeroLegacyScannerConfig =>
+  Object.freeze({
+    ...scannerConfig,
+    declaredInventoryRoots: Object.freeze(["apps"]),
+    terminalAbsentPaths: Object.freeze([]),
+  });
 
 test("scanner requires an absolute Git-top-level repository root", async () => {
   const fixture = createPort(rootNodes());
@@ -281,6 +295,90 @@ test("scanner distinguishes read and parse failures without exposing parser deta
   ]);
   expect(parseResult.findings.every((finding) => finding.target === undefined)).toBeTrue();
   expect(parseResult.status).toBe("fail");
+});
+
+test("scanner rejects an observed file identity change after an ordinary read", async () => {
+  const nodes = rootNodes(
+    ["apps", directory("main.ts")],
+    ["apps/main.ts", regularFile("export const current = true;")],
+  );
+  const filePath = fixturePath("apps/main.ts");
+  let fileInspectionCount = 0;
+  const fixture = createPort(nodes, {
+    inspectOverride: (absolutePath) => {
+      const node = nodes.get(absolutePath);
+      if (node === undefined) return;
+      if (absolutePath === filePath) {
+        fileInspectionCount += 1;
+        if (fileInspectionCount === 4) return;
+        return Object.freeze({ kind: node.kind, identity: `file-${String(fileInspectionCount)}` });
+      }
+      return Object.freeze({ kind: node.kind, identity: absolutePath });
+    },
+  });
+
+  const result = await scanZeroLegacyRepo(repoRoot, fixture.port, appsOnlyConfig());
+
+  expect(result.findings).toContainEqual({
+    category: "unreadable-target",
+    path: "package.json",
+    location: "apps/main.ts:read",
+  });
+
+  const missingAfterReadResult = await scanZeroLegacyRepo(repoRoot, fixture.port, appsOnlyConfig());
+  expect(missingAfterReadResult.findings).toContainEqual({
+    category: "unreadable-target",
+    path: "package.json",
+    location: "apps/main.ts:read",
+  });
+});
+
+test("scanner rejects an observed directory target that leaves the repository after readdir", async () => {
+  const nodes = rootNodes(
+    ["apps", directory("main.ts")],
+    ["apps/main.ts", regularFile("export const current = true;")],
+  );
+  const appsPath = fixturePath("apps");
+  let appsCanonicalizationCount = 0;
+  const fixture = createPort(nodes, {
+    canonicalizeOverride: (absolutePath) => {
+      if (absolutePath !== appsPath) return absolutePath;
+      appsCanonicalizationCount += 1;
+      return appsCanonicalizationCount === 1 ? appsPath : "/outside/repository/apps";
+    },
+  });
+
+  const result = await scanZeroLegacyRepo(repoRoot, fixture.port, appsOnlyConfig());
+
+  expect(result.findings).toContainEqual({
+    category: "unreadable-target",
+    path: "package.json",
+    location: "apps:readdir",
+  });
+});
+
+test("scanner rejects an observed repository-root identity change after traversal", async () => {
+  const nodes = rootNodes(["apps", directory()]);
+  let rootInspectionCount = 0;
+  const fixture = createPort(nodes, {
+    inspectOverride: (absolutePath) => {
+      const node = nodes.get(absolutePath);
+      if (node === undefined) return;
+      if (absolutePath === repoRoot) {
+        rootInspectionCount += 1;
+        return Object.freeze({ kind: node.kind, identity: `root-${String(rootInspectionCount)}` });
+      }
+      return Object.freeze({ kind: node.kind, identity: absolutePath });
+    },
+  });
+
+  const result = await scanZeroLegacyRepo(repoRoot, fixture.port, appsOnlyConfig());
+
+  expect(result.findings).toContainEqual({
+    category: "unreadable-target",
+    path: "package.json",
+    location: "repository-root:verification",
+  });
 });
 
 test("unsafe inventory and child paths plus a non-directory ancestor fail closed", async () => {
