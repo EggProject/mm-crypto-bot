@@ -21,6 +21,8 @@ export * from "./indicators/index.js";
 export { CompositeStrategy } from "./strategy/composite.js";
 export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
 export type { CompositeStrategyConfig } from "./strategy/composite.js";
+export { assertSelectedLeverageUnchanged, freezeSelectedLeverage } from "./risk/session-selected-leverage.js";
+export type { FrozenSelectedLeverage } from "./risk/session-selected-leverage.js";
 // Phase 32: FundingSnapshot type (extracted from funding-carry.ts in Phase 32).
 // Used by dydx-cex-carry.ts and its paper-trade runner.
 export type { FundingSnapshot } from "./strategy/funding-snapshot.js";

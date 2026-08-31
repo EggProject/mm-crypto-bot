@@ -18,6 +18,7 @@
     "coverage:lcov": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage"
   },
   "dependencies": {
+    "@mm-crypto-bot/numeric": "workspace:*",
     "@mm-crypto-bot/shared": "workspace:*"
   },
   "devDependencies": {

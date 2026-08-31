@@ -96,6 +96,7 @@
       "name": "@mm-crypto-bot/core",
       "version": "0.1.0",
       "dependencies": {
+        "@mm-crypto-bot/numeric": "workspace:*",
         "@mm-crypto-bot/shared": "workspace:*",
       },
       "devDependencies": {
