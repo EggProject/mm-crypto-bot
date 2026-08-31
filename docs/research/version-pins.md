@@ -6,6 +6,11 @@
 > `dist-tags.latest` mezőjében. A források és indoklások a
 > [`stack-findings.md`](./stack-findings.md) és a [`sources-stack.md`](./sources-stack.md)
 > fájlokban találhatók.
+>
+> **CCXT supersession (2026-08-23):** the research snapshot's `4.5.64`
+> observation is historical. The active exact pin is `4.5.75`; its published
+> ESM artifact self-reports `4.5.74`, so live dependency readiness is blocked
+> pending an upstream correction or official clarification.
 
 ---
 
@@ -61,9 +66,9 @@ keresztül fut (`bunx turbo run build`).
 
 ## 3. Exchange integráció
 
-| Csomag   | Verzió   | Forrás                                               | Indoklás                                                                                    |
-| -------- | -------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| **ccxt** | `4.5.64` | https://registry.npmjs.org/ccxt → `dist-tags.latest` | `bybiteu` első osztályú exchange ID; CCXT Pro WS streaming ugyanebben a csomagban. `[1.12]` |
+| Csomag   | Verzió   | Forrás                                               | Indoklás                                                                                                                                                     |
+| -------- | -------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **ccxt** | `4.5.75` | https://registry.npmjs.org/ccxt → `dist-tags.latest` | `bybiteu` első osztályú exchange ID; CCXT Pro WS streaming ugyanebben a csomagban. The ESM artifact's `4.5.74` self-report blocks live dependency readiness. |
 
 A CCXT telepítése:
 
@@ -154,7 +159,7 @@ Az ESLint flat config formátumban (`eslint.config.js`), `strict-type-checked`
     "eslint-plugin-security": "4.0.1",
   },
   "dependencies": {
-    "ccxt": "4.5.64",
+    "ccxt": "4.5.75",
   },
 }
 ```
@@ -197,14 +202,14 @@ A frissítési ciklus célja: **patch azonnal** (biztonsági fix),
 
 ## 8. Verzió-mátrix kompatibilitási ellenőrzés
 
-| Verzió A               | Verzió B                  | Kompatibilis? | Forrás          |
-| ---------------------- | ------------------------- | ------------- | --------------- |
-| Bun 1.3.14 ≥           | Turborepo `bun 1.2+`      | ✅            | `[3.2]`         |
-| TypeScript 6.0.3       | Bun 1.3.14                | ✅            | `[3.9]`         |
-| ESLint 10.6.0          | @typescript-eslint 8.62.1 | ✅            | `[6.1]` `[6.2]` |
-| CCXT 4.5.64            | Bun 1.3.14 (Node kompat.) | ✅            | `[1.12]`        |
-| Ink 7.1.0              | React 18+                 | ✅            | `[4.9]`         |
-| @tsconfig/bases 1.0.25 | TypeScript 6.0.3          | ✅            | `[5.7]`         |
+| Verzió A               | Verzió B                  | Kompatibilis? | Forrás                                                                                                                                     |
+| ---------------------- | ------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Bun 1.3.14 ≥           | Turborepo `bun 1.2+`      | ✅            | `[3.2]`                                                                                                                                    |
+| TypeScript 6.0.3       | Bun 1.3.14                | ✅            | `[3.9]`                                                                                                                                    |
+| ESLint 10.6.0          | @typescript-eslint 8.62.1 | ✅            | `[6.1]` `[6.2]`                                                                                                                            |
+| CCXT 4.5.75            | Bun 1.3.14 (Node kompat.) | **BLOCKED**   | Exact package metadata resolves to `4.5.75`, but the ESM artifact self-reports `4.5.74`; upstream correction or clarification is required. |
+| Ink 7.1.0              | React 18+                 | ✅            | `[4.9]`                                                                                                                                    |
+| @tsconfig/bases 1.0.25 | TypeScript 6.0.3          | ✅            | `[5.7]`                                                                                                                                    |
 
 Minden verzió-kombináció ellenőrizve a kutatás során. A fenti
 verzió-pin-ek a `package.json` `engines` és `packageManager` mezőivel

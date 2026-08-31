@@ -6,7 +6,7 @@
 //   Construction & metadata
 //     1.  construction with default config succeeds
 //     2.  construction with custom config accepted
-//     3.  metadata: name='cex-netflow-regime-v1', version, edgeClass='factor', capitalRequirement=0, maxLeverage=10
+//     3.  metadata: name='cex-netflow-regime-v1', version, edgeClass='factor', capitalRequirement=0, maxAggregateEffectiveLeverage=10
 //     4.  enabledSymbolsList returns configured list
 //     5.  effectiveMaxNotionalUsd = baseNotionalUsd × 10
 //
@@ -40,7 +40,7 @@
 //    26.  rolling window trim at windowDays × 24 × 12 samples
 //
 //   3-layer 1:10 leverage defense
-//    27.  L1 — metadata.maxLeverage = ONE_TO_TEN_LEVERAGE
+//    27.  L1 — metadata.maxAggregateEffectiveLeverage = DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE
 //    28.  L2 — subscribe() increments layer2SubscribeAssertions
 //    29.  L3 — each recordNetflowSample emit increments layer3EmitAssertions
 //
@@ -91,7 +91,7 @@ import {
 } from "./cex-netflow-regime-plugin.js";
 import { type FactorSignal, isFactor, type Signal } from "../types.js";
 import type { Bar } from "../types.js";
-import { ONE_TO_TEN_LEVERAGE } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE } from "../../risk/leverage-invariant.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -222,13 +222,13 @@ describe("CexNetFlowRegimePlugin", () => {
     expect(p.config.enabledSymbols).toEqual(["BTC"]);
   });
 
-  it("metadata declares name='cex-netflow-regime-v1', edgeClass='factor', capitalRequirement=0, maxLeverage=10", () => {
+  it("metadata declares name='cex-netflow-regime-v1', edgeClass='factor', capitalRequirement=0, maxAggregateEffectiveLeverage=10", () => {
     const p = new CexNetFlowRegimePlugin();
     expect(p.metadata.name).toBe("cex-netflow-regime-v1");
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("factor");
     expect(p.metadata.capitalRequirement).toBe(0);
-    expect(p.metadata.maxLeverage).toBe(ONE_TO_TEN_LEVERAGE);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE);
   });
 
   it("enabledSymbolsList returns the configured list", () => {
@@ -578,9 +578,9 @@ describe("CexNetFlowRegimePlugin", () => {
   // 3-layer 1:10 leverage defense
   // -----------------------------------------------------------------------
 
-  it("Layer 1 — metadata.maxLeverage === ONE_TO_TEN_LEVERAGE", () => {
+  it("Layer 1 — metadata.maxAggregateEffectiveLeverage === DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE", () => {
     const p = new CexNetFlowRegimePlugin();
-    expect(p.metadata.maxLeverage).toBe(ONE_TO_TEN_LEVERAGE);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE);
   });
 
   it("Layer 2 — subscribe() increments layer2SubscribeAssertions", () => {

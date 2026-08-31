@@ -19,7 +19,7 @@ class FrozenSelectedLeverageState implements FrozenSelectedLeverage {
         return input;
       }
     } catch {
-      throw new TypeError("Frozen selected leverage must be an authentic session value.");
+      // Invalid receivers are rejected below.
     }
 
     throw new TypeError("Frozen selected leverage must be an authentic session value.");
@@ -37,6 +37,10 @@ class FrozenSelectedLeverageState implements FrozenSelectedLeverage {
     this.selected = this.#selected;
     Object.freeze(this);
   }
+}
+
+function requireAuthenticFrozenSelectedLeverage(input: unknown): FrozenSelectedLeverageState {
+  return FrozenSelectedLeverageState.requireAuthentic(input);
 }
 
 function requireAuthenticSelectedLeverage(input: unknown): SelectedLeverage {
@@ -60,7 +64,7 @@ export function assertSelectedLeverageUnchanged(
   frozen: FrozenSelectedLeverage,
   candidate: SelectedLeverage,
 ): void {
-  const selected = FrozenSelectedLeverageState.requireAuthentic(frozen).selected;
+  const selected = requireAuthenticFrozenSelectedLeverage(frozen).selected;
   const authenticCandidate = requireAuthenticSelectedLeverage(candidate);
 
   if (!SelectedLeverage.prototype.equals.call(selected, authenticCandidate)) {

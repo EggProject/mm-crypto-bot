@@ -6,14 +6,13 @@ import { resolve } from "node:path";
 import type { BacktestResult } from "@mm-crypto-bot/backtest";
 import type { SizingSignal } from "@mm-crypto-bot/core";
 
+import { OVERLAY_MASKS, parseArgs } from "./dpc-overlay-command.js";
 import {
-  OVERLAY_MASKS,
-  parseArgs,
   runCombination,
   takeDueFundingRows,
   type OverlayAuditEvent,
   type OverlayStrategyMetrics,
-} from "./run-dpc-overlay-combination.js";
+} from "./dpc-overlay-strategy.js";
 import { parseFundingCsv } from "./run-sol-flip-funding-replay.js";
 
 const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");

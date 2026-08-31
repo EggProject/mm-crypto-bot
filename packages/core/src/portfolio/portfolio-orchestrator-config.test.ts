@@ -239,7 +239,7 @@ describe("PortfolioOrchestrator — construction + config validation", () => {
       concentrationThresholdPct: 0.5,
       confidence: 0.95,
       correlationWindowDays: 30,
-      leverageInvariant: { maxAggregateEffectiveLeverage: 10, tolerance: 0.000001, warnOnApproach: 0.95 },
+      leverageInvariant: { maxAggregateEffectiveLeverage: 10, tolerance: 0, warnOnApproach: 0.95 },
       maxAggregateDrawdownPct: 0.2,
     };
     const orchestrator = new PortfolioOrchestrator(config({ riskEngine, symbols }));
@@ -277,7 +277,7 @@ describe("PortfolioOrchestrator — construction + config validation", () => {
       concentrationThresholdPct: 0.5,
       confidence: 0.95,
       correlationWindowDays: 30,
-      leverageInvariant: { maxAggregateEffectiveLeverage: 10, tolerance: 0.000001, warnOnApproach: 0.95 },
+      leverageInvariant: { maxAggregateEffectiveLeverage: 10, tolerance: 0, warnOnApproach: 0.95 },
       maxAggregateDrawdownPct: 0.2,
     };
     const storedDecisionEngine = immutableDecisionEngineConfig(decisionEngine);
@@ -288,7 +288,7 @@ describe("PortfolioOrchestrator — construction + config validation", () => {
     decisionEngine.defaultWeight = 3;
     riskEngine.leverageInvariant.tolerance = 0.1;
     expect(storedDecisionEngine.defaultWeight).toBe(2);
-    expect(storedRiskEngine.leverageInvariant.tolerance).toBe(0.000001);
+    expect(storedRiskEngine.leverageInvariant.tolerance).toBe(0);
     expect(Reflect.set(storedDecisionEngine, "defaultWeight", 3)).toBe(false);
     expect(Reflect.set(storedRiskEngine.leverageInvariant, "tolerance", 0.1)).toBe(false);
   });

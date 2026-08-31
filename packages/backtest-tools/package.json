@@ -19,15 +19,17 @@
     "report": "bun run src/cli/generate-report.ts",
     "clean": "rm -rf .turbo *.tsbuildinfo coverage",
     "coverage:text": "bun test src --coverage --coverage-reporter=text",
-    "coverage:lcov": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage"
+    "coverage:lcov": "bun test src --coverage --coverage-reporter=lcov --coverage-dir=coverage",
+    "coverage:dydx-r3": "bun x vitest run --config vitest.dydx-r3.config.mjs"
   },
   "dependencies": {
     "@mm-crypto-bot/backtest": "workspace:*",
     "@mm-crypto-bot/core": "workspace:*",
     "@mm-crypto-bot/exchange": "workspace:*",
     "@mm-crypto-bot/logging": "workspace:*",
+    "@mm-crypto-bot/numeric": "workspace:*",
     "@mm-crypto-bot/shared": "workspace:*",
-    "ccxt": "4.5.64"
+    "ccxt": "4.5.75"
   },
   "devDependencies": {
     "typescript": "6.0.3"

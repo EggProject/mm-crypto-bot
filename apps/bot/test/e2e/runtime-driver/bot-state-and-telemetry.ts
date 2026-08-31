@@ -1,51 +1,82 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
-import { asSymbol, type ExchangePosition } from "@mm-crypto-bot/exchange";
-
+import { asSymbol } from "@mm-crypto-bot/exchange";
 import { Bot } from "../../../src/bot/bot.js";
 import type { BotState } from "../../../src/bot/state-store.js";
+import { computeDrawdownPct, formatUptime, Telemetry } from "../../../src/bot/telemetry.js";
 import type { BotConfig } from "../../../src/config/schema.js";
 
 import {
-  assertCondition,
-  botConfigFor,
   MockExchangeFeed,
-  NoPositionsFeed,
-  PositionFaultReconciliationFeed,
   quietLogger,
-  ReconciliationFeed,
-  RecordingLogger,
-  SlowReconciliationFeed,
-  startBotThenStop,
+  assertCondition,
+  expectAsyncFailure,
   waitForCondition,
+  RecordingLogger,
+  ReconciliationFeed,
+  SlowReconciliationFeed,
+  NoPositionsFeed,
 } from "./runtime-driver-core.js";
-import { makePortfolioMarketMeta } from "./runtime-driver-portfolio-fixtures.js";
+import {
+  botConfigFor,
+  startBotThenStop,
+  makePortfolioMarketMeta,
+} from "./runtime-driver-portfolio-fixtures.js";
+import {
+  createLiveRuntimeFixture,
+  emptyTelemetrySnapshot,
+  makeSavedPosition,
+} from "./bot-cleanup-and-order-risk.js";
 
-const join = (...pathSegments: string[]): string => path.join(...pathSegments);
-
-function makeSavedPosition(strategy: string, symbol: string): BotState["positions"][number] {
-  return {
-    id: `${strategy}:${symbol}:long`,
-    strategy,
-    symbol,
-    side: "long",
-    quantity: 0.01,
-    entryPrice: 100,
-    currentPrice: 100,
-    leverage: 10,
-    unrealizedPnl: 0,
-    realizedPnl: 0,
-    openedAt: 1,
-    notionalUsd: 1,
-  };
+function runTelemetryFacadeLifecycle(): void {
+  const logger = new RecordingLogger();
+  const telemetry = new Telemetry({
+    metricsIntervalSec: 60,
+    logger,
+    snapshotProvider: emptyTelemetrySnapshot,
+  });
+  telemetry.stop();
+  telemetry.setEngaged(true, ["e2e-kill-switch"]);
+  telemetry.start();
+  telemetry.start();
+  telemetry.emitMetrics();
+  telemetry.stop();
+  telemetry.stop();
+  assertCondition(telemetry.getLogger() === logger, "telemetry did not preserve its public logger");
+  assertCondition(
+    logger.entries.filter((entry) => entry.message === "telemetry.metrics.started").length === 1,
+    "telemetry start was not idempotent",
+  );
+  assertCondition(
+    logger.entries.filter((entry) => entry.message === "telemetry.metrics.stopped").length === 1,
+    "telemetry stop was not idempotent",
+  );
+  const snapshot = logger.entries.find((entry) => entry.message === "telemetry.metrics.observed");
+  assertCondition(
+    snapshot?.meta?.["killSwitchEngaged"] === true &&
+      Array.isArray(snapshot.meta["killSwitchReasons"]) &&
+      snapshot.meta["killSwitchReasons"].includes("e2e-kill-switch"),
+    "telemetry did not enrich the public snapshot with kill-switch state",
+  );
+  assertCondition(
+    formatUptime(-1) === "0s" &&
+      formatUptime(59_000) === "59s" &&
+      formatUptime(61_000) === "1m 1s" &&
+      formatUptime(3_661_000) === "1h 1m",
+    "telemetry uptime formatting changed",
+  );
+  assertCondition(
+    computeDrawdownPct(90, 100, 100) === 0.1 && computeDrawdownPct(90, 100, 0) === 0,
+    "telemetry drawdown calculation did not fail closed for a missing peak",
+  );
 }
 
-export async function runBotRestoreTelemetry(): Promise<void> {
-  const directory = mkdtempSync(join(tmpdir(), "mm-bot-restore-driver-"));
+async function runBotRestoreTelemetry(): Promise<void> {
+  runTelemetryFacadeLifecycle();
+  const directory = mkdtempSync(path.join(tmpdir(), "mm-bot-restore-driver-"));
   try {
-    const stateFile = join(directory, "restore.json");
+    const stateFile = path.join(directory, "restore.json");
     const saved: BotState = {
       version: 1,
       savedAt: 1,
@@ -69,11 +100,13 @@ export async function runBotRestoreTelemetry(): Promise<void> {
       inFlightOrderIds: [],
       counters: { placed: 0, filled: 0, cancelled: 0, rejected: 0 },
     };
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The path is derived from this case's fresh mkdtemp directory.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The E2E path is created beneath this process fresh temporary directory.
     writeFileSync(stateFile, JSON.stringify(saved), "utf8");
     const feed = new MockExchangeFeed();
-    const baseConfig = botConfigFor(stateFile);
-    const config: BotConfig = { ...baseConfig, risk: { ...baseConfig.risk, max_positions: 1 } };
+    const config: BotConfig = {
+      ...botConfigFor(stateFile),
+      risk: { ...botConfigFor(stateFile).risk, max_positions: 1 },
+    };
     const bot = new Bot({
       config,
       feed,
@@ -92,10 +125,10 @@ export async function runBotRestoreTelemetry(): Promise<void> {
     await Bun.sleep(30);
     await bot.stop();
     await running;
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The path is derived from this case's fresh mkdtemp directory.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The E2E path is created beneath this process fresh temporary directory.
     assertCondition(existsSync(stateFile), "periodic/final state save was missing");
 
-    const emptyStateFile = join(directory, "empty-state.json");
+    const emptyStateFile = path.join(directory, "empty-state.json");
     const emptySaved: BotState = {
       version: 1,
       savedAt: 1,
@@ -107,7 +140,7 @@ export async function runBotRestoreTelemetry(): Promise<void> {
       inFlightOrderIds: [],
       counters: { placed: 0, filled: 0, cancelled: 0, rejected: 0 },
     };
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The path is derived from this case's fresh mkdtemp directory.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The E2E path is created beneath this process fresh temporary directory.
     writeFileSync(emptyStateFile, JSON.stringify(emptySaved), "utf8");
     const emptyFeed = new MockExchangeFeed();
     await startBotThenStop(
@@ -115,34 +148,29 @@ export async function runBotRestoreTelemetry(): Promise<void> {
       emptyFeed,
     );
 
-    const positiveTelemetryState = join(directory, "positive-telemetry.json");
+    const positiveTelemetryState = path.join(directory, "positive-telemetry.json");
     const positiveFeed = new MockExchangeFeed();
+    const positiveLogger = new RecordingLogger();
     const positiveBot = new Bot({
       config: botConfigFor(positiveTelemetryState),
       feed: positiveFeed,
-      logger: quietLogger,
+      logger: positiveLogger,
       telemetryMetricsIntervalSec: 0.01,
       stateSaveIntervalMs: 10_000,
       killSwitchEvalIntervalMs: 10_000,
       heartbeatIntervalMs: 10_000,
     });
     const positiveRunning = positiveBot.start();
-    const positiveLog = join(
-      `${positiveTelemetryState}.logs`,
-      `bot-${new Date().toISOString().slice(0, 10)}.log`,
-    );
     await waitForCondition(() => {
-      try {
-        // eslint-disable-next-line security/detect-non-literal-fs-filename -- The path is derived from this case's fresh mkdtemp directory.
-        return readFileSync(positiveLog, "utf8").includes('"initialEquityUsd":10000');
-      } catch {
-        return false;
-      }
+      return positiveLogger.entries.some(
+        (entry) =>
+          entry.message === "telemetry.metrics.observed" && entry.meta?.["initialEquityUsd"] === 10_000,
+      );
     }, "positive telemetry snapshot");
     await positiveBot.stop();
     await positiveRunning;
 
-    const telemetryStateFile = join(directory, "telemetry.json");
+    const telemetryStateFile = path.join(directory, "telemetry.json");
     const telemetrySaved: BotState = {
       ...saved,
       equityUsd: 0,
@@ -159,35 +187,34 @@ export async function runBotRestoreTelemetry(): Promise<void> {
       ],
       closedTrades: [],
     };
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The path is derived from this case's fresh mkdtemp directory.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The E2E path is created beneath this process fresh temporary directory.
     writeFileSync(telemetryStateFile, JSON.stringify(telemetrySaved), "utf8");
     const telemetryFeed = new MockExchangeFeed();
+    const telemetryLogger = new RecordingLogger();
     const telemetryBot = new Bot({
       config: botConfigFor(telemetryStateFile),
       feed: telemetryFeed,
-      logger: quietLogger,
+      logger: telemetryLogger,
       telemetryMetricsIntervalSec: 0.01,
       stateSaveIntervalMs: 10_000,
       killSwitchEvalIntervalMs: 10_000,
       heartbeatIntervalMs: 10_000,
     });
     const telemetryRunning = telemetryBot.start();
-    const telemetryLog = join(
-      `${telemetryStateFile}.logs`,
-      `bot-${new Date().toISOString().slice(0, 10)}.log`,
-    );
     await waitForCondition(() => {
-      try {
-        // eslint-disable-next-line security/detect-non-literal-fs-filename -- The path is derived from this case's fresh mkdtemp directory.
-        return readFileSync(telemetryLog, "utf8").includes("unrealizedPnlUsd");
-      } catch {
-        return false;
-      }
+      return telemetryLogger.entries.some((entry) => entry.message === "telemetry.metrics.observed");
     }, "telemetry snapshot");
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The path is derived from this case's fresh mkdtemp directory.
-    const contents = readFileSync(telemetryLog, "utf8");
-    assertCondition(contents.includes('"initialEquityUsd":0'), "telemetry initial equity was not clamped");
-    assertCondition(contents.includes('"unrealizedPnlUsd":-10000'), "telemetry unrealized PnL mismatch");
+    const telemetrySnapshot = telemetryLogger.entries.find(
+      (entry) => entry.message === "telemetry.metrics.observed",
+    );
+    assertCondition(
+      telemetrySnapshot?.meta?.["initialEquityUsd"] === 0,
+      "telemetry initial equity was not clamped",
+    );
+    assertCondition(
+      telemetrySnapshot.meta["unrealizedPnlUsd"] === -10_000,
+      "telemetry unrealized PnL mismatch",
+    );
     await telemetryBot.stop();
     await telemetryRunning;
   } finally {
@@ -195,157 +222,110 @@ export async function runBotRestoreTelemetry(): Promise<void> {
   }
 }
 
-export async function runBotLiveReconciliation(): Promise<void> {
-  const directory = mkdtempSync(join(tmpdir(), "mm-bot-live-driver-"));
-  const originalKey = process.env["BYBIT_API_KEY"];
-  const originalSecret = process.env["BYBIT_API_SECRET"];
-  process.env["BYBIT_API_KEY"] = "scripted-key";
-  process.env["BYBIT_API_SECRET"] = "scripted-secret";
-  const liveConfig = (name: string, symbols: readonly string[] = ["BTC/USDC"]): BotConfig => {
-    const baseConfig = botConfigFor(join(directory, `${name}.json`));
-    return { ...baseConfig, bot: { ...baseConfig.bot, mode: "live" }, symbols: { enabled: [...symbols] } };
-  };
+async function runBotLiveReconciliation(): Promise<void> {
+  const directory = mkdtempSync(path.join(tmpdir(), "mm-bot-live-driver-"));
+  const liveConfig = (name: string, symbols: readonly string[] = ["BTC/USDC"]): BotConfig => ({
+    ...botConfigFor(path.join(directory, `${name}.json`)),
+    bot: { ...botConfigFor(path.join(directory, `${name}.json`)).bot, mode: "live" },
+    symbols: { enabled: [...symbols] },
+  });
   try {
     const btc = asSymbol("BTC/USDC");
-    const eth = asSymbol("ETH/USDC");
-    const usdc = asSymbol("USDC/USDT");
-    const mixedFeed = new ReconciliationFeed(
+    const sol = asSymbol("SOL/USDC");
+    const spotInventoryFeed = new ReconciliationFeed(
       [{ currency: "USDC", free: 1000, total: 1000 }],
       [
         { currency: "USDC", free: 1000, total: 1000 },
         { currency: "BTC", free: 1, total: 1 },
       ],
       {
-        positions: [
-          {
-            symbol: eth,
-            side: "short",
-            quantity: 1,
-            entryPrice: 10,
-            markPrice: 12,
-            unrealizedPnl: -5,
-            updateTimestamp: 1,
-          },
-        ],
         marketMeta: new Map([
           [btc, { ...makePortfolioMarketMeta(true), symbol: btc }],
-          [eth, { ...makePortfolioMarketMeta(false), symbol: eth, base: "ETH" }],
-          [usdc, { ...makePortfolioMarketMeta(true), symbol: usdc, base: "USDC", quote: "USDT" }],
+          [sol, { ...makePortfolioMarketMeta(true), symbol: sol, base: "SOL" }],
         ]),
       },
     );
-    mixedFeed.setTicker(btc, {
+    spotInventoryFeed.setTicker(btc, {
       symbol: btc,
-      timestamp: 1,
+      timestamp: Date.now(),
       bid: 99,
       ask: 101,
       last: 100,
       baseVolume: 0,
       quoteVolume: 0,
     });
-    const mixedBot = new Bot({
-      config: liveConfig("mixed", [btc, eth, usdc]),
-      feed: mixedFeed,
-      logger: quietLogger,
-      heartbeatIntervalMs: 5,
-      killSwitchEvalIntervalMs: 10_000,
-    });
-    const mixedRunning = mixedBot.start();
-    await waitForCondition(
-      () => mixedFeed.tickerCalls > 0 && mixedFeed.positionCalls > 0,
-      "mixed live reconciliation",
+    const spotInventoryRuntime = await createLiveRuntimeFixture(
+      liveConfig("spot-inventory", [btc, sol]),
+      spotInventoryFeed,
+      quietLogger,
     );
-    assertCondition(!mixedBot.isKillSwitchEngaged(), "mixed live reconciliation engaged kill switch");
-    await mixedBot.stop();
-    await mixedRunning;
+    try {
+      await spotInventoryRuntime.controller.reconcileAuthoritativeEquity();
+      await spotInventoryRuntime.controller.reconcileAuthoritativeEquity();
+      assertCondition(
+        spotInventoryFeed.tickerCalls > 0 && spotInventoryFeed.positionCalls === 0,
+        "spot inventory reconciliation did not use the exact live authority boundary",
+      );
+      assertCondition(
+        spotInventoryRuntime.controller.getLiveEquityAuthoritySnapshot()?.state === "fresh" &&
+          spotInventoryRuntime.emergencyReasons.length === 0,
+        "valid spot inventory reconciliation did not preserve fresh live authority",
+      );
+    } finally {
+      await spotInventoryRuntime.dispose();
+    }
 
     const absentFeed = new ReconciliationFeed([{ currency: "USDC", free: 1000, total: 1000 }], [], {
       marketMeta: new Map([[btc, makePortfolioMarketMeta(true)]]),
     });
-    const absentBot = new Bot({
-      config: liveConfig("absent"),
-      feed: absentFeed,
-      logger: quietLogger,
-      heartbeatIntervalMs: 5,
-      killSwitchEvalIntervalMs: 10_000,
-    });
-    const absentRunning = absentBot.start();
-    await waitForCondition(() => absentFeed.balanceCalls >= 2, "absent spot reconciliation");
-    assertCondition(absentFeed.tickerCalls === 0, "absent spot inventory fetched a ticker");
-    await absentBot.stop();
-    await absentRunning;
+    const absentRuntime = await createLiveRuntimeFixture(liveConfig("absent"), absentFeed, quietLogger);
+    try {
+      await expectAsyncFailure(
+        () => absentRuntime.controller.reconcileAuthoritativeEquity(),
+        "missing USDC live reconciliation",
+      );
+      assertCondition(absentFeed.balanceCalls >= 2, "absent spot reconciliation did not query balances");
+      assertCondition(
+        absentFeed.tickerCalls === 0 &&
+          absentRuntime.controller.getLiveEquityAuthoritySnapshot()?.state === "unavailable",
+        "missing USDC did not fail closed without a ticker fallback",
+      );
+    } finally {
+      await absentRuntime.dispose();
+    }
 
-    const undefinedUpl: ExchangePosition = {
-      symbol: btc,
-      side: "long",
-      quantity: 1,
-      entryPrice: 100,
-      markPrice: 100,
-      unrealizedPnl: undefined,
-      updateTimestamp: 1,
-    };
     const derivativeFeed = new ReconciliationFeed(
       [{ currency: "USDC", free: 1000, total: 1000 }],
       [{ currency: "USDC", free: 1000, total: 1000 }],
-      { positions: [undefinedUpl], marketMeta: new Map([[btc, makePortfolioMarketMeta(false)]]) },
+      {
+        marketMeta: new Map([[btc, makePortfolioMarketMeta(false)]]),
+      },
     );
-    const derivativeBot = new Bot({
-      config: liveConfig("derivative"),
-      feed: derivativeFeed,
-      logger: quietLogger,
-      heartbeatIntervalMs: 5,
-      killSwitchEvalIntervalMs: 10_000,
-    });
-    const derivativeRunning = derivativeBot.start();
-    await waitForCondition(() => derivativeFeed.positionCalls > 0, "derivative reconciliation");
-    await derivativeBot.stop();
-    await derivativeRunning;
+    await expectAsyncFailure(
+      () => createLiveRuntimeFixture(liveConfig("derivative"), derivativeFeed, quietLogger),
+      "derivative market live preparation",
+    );
+    assertCondition(derivativeFeed.positionCalls === 0, "derivative market queried unsupported positions");
 
-    const positionFailures: readonly (Error | string)[] = [new Error("position Error"), "position string"];
-    for (const failure of positionFailures) {
-      const positionFeed = new PositionFaultReconciliationFeed(failure, [
-        { currency: "USDC", free: 1000, total: 1000 },
-      ]);
-      const positionBot = new Bot({
-        config: liveConfig(`position-${typeof failure}`),
-        feed: positionFeed,
-        logger: quietLogger,
-        heartbeatIntervalMs: 5,
-        killSwitchEvalIntervalMs: 10_000,
-      });
-      const positionRunning = positionBot.start();
-      await waitForCondition(() => positionFeed.positionCalls > 0, "position-query rejection");
-      await positionBot.stop();
-      await positionRunning;
-    }
-
-    const balanceFailures: readonly (Error | string)[] = [new Error("balance Error"), "balance string"];
-    for (const failure of balanceFailures) {
-      const logger = new RecordingLogger();
+    for (const failure of [new Error("balance Error"), "balance string"] as const) {
       const balanceFeed = new ReconciliationFeed([{ currency: "USDC", free: 1000, total: 1000 }], failure);
-      const balanceBot = new Bot({
-        config: liveConfig(`balance-${typeof failure}`),
-        feed: balanceFeed,
-        logger,
-        heartbeatIntervalMs: 5,
-        killSwitchEvalIntervalMs: 10_000,
-      });
-      const balanceRunning = balanceBot.start();
-      await waitForCondition(
-        () =>
-          logger.entries.some(
-            (entry) => entry.message === "[bot] authoritative equity reconciliation failed",
-          ),
-        "balance reconciliation failure",
+      const balanceRuntime = await createLiveRuntimeFixture(
+        liveConfig(`balance-${typeof failure}`),
+        balanceFeed,
+        quietLogger,
       );
-      assertCondition(
-        logger.entries.some(
-          (entry) => entry.meta?.["error"] === (failure instanceof Error ? failure.message : failure),
-        ),
-        "balance reconciliation failure detail missing",
-      );
-      await balanceBot.stop();
-      await balanceRunning;
+      try {
+        await expectAsyncFailure(
+          () => balanceRuntime.controller.reconcileAuthoritativeEquity(),
+          "balance failure live reconciliation",
+        );
+        assertCondition(
+          balanceRuntime.controller.getLiveEquityAuthoritySnapshot()?.state === "unavailable",
+          "balance reconciliation failure did not leave live authority unavailable",
+        );
+      } finally {
+        await balanceRuntime.dispose();
+      }
     }
 
     for (const invalidEquity of [0, NaN]) {
@@ -353,51 +333,56 @@ export async function runBotLiveReconciliation(): Promise<void> {
         [{ currency: "USDC", free: 1000, total: 1000 }],
         [{ currency: "USDC", free: invalidEquity, total: invalidEquity }],
       );
-      const invalidBot = new Bot({
-        config: liveConfig(`invalid-${String(invalidEquity)}`),
-        feed: invalidFeed,
-        logger: quietLogger,
-        heartbeatIntervalMs: 5,
-        killSwitchEvalIntervalMs: 10_000,
-      });
-      const invalidRunning = invalidBot.start();
-      await waitForCondition(() => invalidFeed.balanceCalls >= 2, "invalid-equity reconciliation");
-      await invalidBot.stop();
-      await invalidRunning;
+      const invalidRuntime = await createLiveRuntimeFixture(
+        liveConfig(`invalid-${String(invalidEquity)}`),
+        invalidFeed,
+        quietLogger,
+      );
+      try {
+        await expectAsyncFailure(
+          () => invalidRuntime.controller.reconcileAuthoritativeEquity(),
+          "invalid equity live reconciliation",
+        );
+        assertCondition(
+          invalidFeed.balanceCalls >= 2 &&
+            invalidRuntime.controller.getLiveEquityAuthoritySnapshot()?.state === "unavailable",
+          "invalid equity did not fail closed after an authoritative query",
+        );
+      } finally {
+        await invalidRuntime.dispose();
+      }
     }
 
     const slowFeed = new SlowReconciliationFeed();
-    const slowBot = new Bot({
-      config: liveConfig("slow"),
-      feed: slowFeed,
-      logger: quietLogger,
-      heartbeatIntervalMs: 1,
-      killSwitchEvalIntervalMs: 10_000,
-    });
-    const slowRunning = slowBot.start();
-    await waitForCondition(() => slowFeed.balanceCalls >= 2, "overlapping reconciliation");
-    await Bun.sleep(10);
-    await slowBot.stop();
-    await slowRunning;
+    const slowRuntime = await createLiveRuntimeFixture(liveConfig("slow"), slowFeed, quietLogger);
+    try {
+      const firstReconciliation = slowRuntime.controller.reconcileAuthoritativeEquity();
+      await waitForCondition(() => slowFeed.balanceCalls >= 2, "overlapping reconciliation");
+      await slowRuntime.controller.reconcileAuthoritativeEquity();
+      await firstReconciliation;
+      assertCondition(slowFeed.balanceCalls === 2, "overlapping reconciliation was not skipped");
+    } finally {
+      await slowRuntime.dispose();
+    }
 
     const noPositionsFeed = new NoPositionsFeed();
-    const noPositionsBot = new Bot({
-      config: liveConfig("no-positions"),
-      feed: noPositionsFeed,
-      logger: quietLogger,
-      heartbeatIntervalMs: 5,
-      killSwitchEvalIntervalMs: 10_000,
-    });
-    const noPositionsRunning = noPositionsBot.start();
-    await waitForCondition(() => noPositionsFeed.subscriptionCount() > 0, "no-positions subscription");
-    await Bun.sleep(15);
-    await noPositionsBot.stop();
-    await noPositionsRunning;
+    const noPositionsRuntime = await createLiveRuntimeFixture(
+      liveConfig("no-positions"),
+      noPositionsFeed,
+      quietLogger,
+    );
+    try {
+      await noPositionsRuntime.controller.reconcileAuthoritativeEquity();
+      assertCondition(
+        noPositionsRuntime.controller.getLiveEquityAuthoritySnapshot()?.current?.numerator === "1000",
+        "spot-only feed did not reconcile exact USDC equity",
+      );
+    } finally {
+      await noPositionsRuntime.dispose();
+    }
   } finally {
-    if (originalKey === undefined) delete process.env["BYBIT_API_KEY"];
-    else process.env["BYBIT_API_KEY"] = originalKey;
-    if (originalSecret === undefined) delete process.env["BYBIT_API_SECRET"];
-    else process.env["BYBIT_API_SECRET"] = originalSecret;
     rmSync(directory, { recursive: true, force: true });
   }
 }
+
+export { runBotRestoreTelemetry, runBotLiveReconciliation };

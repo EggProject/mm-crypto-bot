@@ -15,7 +15,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".turbo/build/**"],
-      "inputs": ["src/**", "tsconfig.json", "package.json"]
+      "inputs": ["src/**", "tsconfig.json", "tsconfig.build.json", "package.json"]
     },
     "dev": {
       "cache": false,
@@ -26,7 +26,7 @@
       "cache": false,
       "dependsOn": ["^build"],
       "outputs": [],
-      "inputs": ["src/**", "tsconfig.json", "package.json"]
+      "inputs": ["src/**", "tsconfig.json", "tsconfig.build.json", "package.json"]
     },
     "lint": {
       "cache": false,

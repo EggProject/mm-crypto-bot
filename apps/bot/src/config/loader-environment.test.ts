@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import path from "node:path";
 
 import { ConfigError, loadBotConfig } from "./loader.js";
 
@@ -17,8 +17,9 @@ function expectConfigError(action: () => unknown): ConfigError {
 
 describe("loader environment overrides", () => {
   it("rejects BUN_ENV=live before it can activate a paper TOML configuration", () => {
-    const directory = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
-    const configPath = join(directory, "paper.toml");
+    const directory = mkdtempSync(path.join(tmpdir(), "mm-bot-config-"));
+    const configPath = path.join(directory, "paper.toml");
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The file is created in this test's fresh temporary directory.
     writeFileSync(configPath, '[bot]\nmode = "paper"\n', "utf8");
     try {
       const configuredPaperMode = loadBotConfig(configPath, {}).bot.mode;
@@ -48,8 +49,9 @@ describe("loader environment overrides", () => {
   });
 
   it("applies LOG_LEVEL after TOML content", () => {
-    const directory = mkdtempSync(join(tmpdir(), "mm-bot-config-"));
-    const configPath = join(directory, "log-level.toml");
+    const directory = mkdtempSync(path.join(tmpdir(), "mm-bot-config-"));
+    const configPath = path.join(directory, "log-level.toml");
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The file is created in this test's fresh temporary directory.
     writeFileSync(configPath, '[bot]\nlog_level = "warn"\n', "utf8");
     try {
       expect(loadBotConfig(configPath, { LOG_LEVEL: "debug" }).bot.log_level).toBe("debug");

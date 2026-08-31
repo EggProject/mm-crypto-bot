@@ -1,28 +1,65 @@
 import {
   asSymbol,
   type Balance,
+  type ClientOrderId,
   type ExchangePosition,
   type Execution,
+  type FeedEvent,
+  type FeedListener,
   type MarketMeta,
   type Order,
+  type OrderRequest,
+  type SubscriptionId,
   type Symbol as ExchangeSymbol,
+  type Ticker,
 } from "@mm-crypto-bot/exchange";
-import type { Logger } from "@mm-crypto-bot/shared";
+import type { Logger } from "@mm-crypto-bot/logging";
+import type { Bot } from "../../../src/bot/bot.js";
 
 import { OrderManager } from "../../../src/bot/order-manager.js";
 import { PositionManager } from "../../../src/bot/position-manager.js";
+import { DEFAULT_BOT_CONFIG } from "../../../src/config/defaults.js";
+import type { BotConfig } from "../../../src/config/schema.js";
+import { PortfolioStop } from "../../../src/portfolio/portfolio-stop.js";
 import { CorrelationMatrix } from "../../../src/portfolio/correlation.js";
 import { PortfolioManager } from "../../../src/portfolio/portfolio-manager.js";
-import { PortfolioStop } from "../../../src/portfolio/portfolio-stop.js";
 import { RiskBudgetAllocator } from "../../../src/portfolio/risk-budget.js";
 
-import { MockExchangeFeed, quietLogger } from "./runtime-driver-core.js";
+import { MockExchangeFeed, quietLogger, waitForCondition } from "./runtime-driver-core.js";
 
-export function makePortfolioSymbol(): ExchangeSymbol {
+function botConfigFor(stateFile: string): BotConfig {
+  return {
+    ...DEFAULT_BOT_CONFIG,
+    bot: { ...DEFAULT_BOT_CONFIG.bot, state_file: stateFile },
+    exchange: { ...DEFAULT_BOT_CONFIG.exchange, id: "mock" },
+    symbols: { enabled: ["BTC/USDC"] },
+    strategies: {
+      donchian_pivot_composition: { enabled: false },
+      dydx_cex_carry: { enabled: false },
+      cascade_fade: { enabled: false },
+      funding_flip_kill_switch: { enabled: false },
+      regime_detector: { enabled: false },
+    },
+    telemetry: {
+      ...DEFAULT_BOT_CONFIG.telemetry,
+      log_dir: `${stateFile}.logs`,
+      metrics_interval_sec: 60,
+    },
+  };
+}
+
+async function startBotThenStop(bot: Bot, feed: MockExchangeFeed): Promise<void> {
+  const running = bot.start();
+  await waitForCondition(() => feed.subscriptionCount() > 0, "bot subscription");
+  await bot.stop();
+  await running;
+}
+
+function makePortfolioSymbol(): ExchangeSymbol {
   return asSymbol("BTC/USDC");
 }
 
-export function makePortfolioMarketMeta(isSpot: boolean, minCost = 1): MarketMeta {
+function makePortfolioMarketMeta(isSpot: boolean, minCost = 1): MarketMeta {
   const symbol = makePortfolioSymbol();
   return {
     symbol,
@@ -36,7 +73,7 @@ export function makePortfolioMarketMeta(isSpot: boolean, minCost = 1): MarketMet
   };
 }
 
-export function makeRemotePosition(side: "long" | "short" = "long", quantity = 0.01): ExchangePosition {
+function makeRemotePosition(side: "long" | "short" = "long", quantity = 0.01): ExchangePosition {
   return {
     symbol: makePortfolioSymbol(),
     side,
@@ -48,13 +85,13 @@ export function makeRemotePosition(side: "long" | "short" = "long", quantity = 0
   };
 }
 
-export function firstOrder(orders: readonly Order[], label: string): Order {
+function firstOrder(orders: readonly Order[], label: string): Order {
   const order = orders[0];
   if (order === undefined) throw new Error(`${label}: expected an order`);
   return order;
 }
 
-export class SequencedFillFeed extends MockExchangeFeed {
+class SequencedFillFeed extends MockExchangeFeed {
   public readonly placedOrders: Order[] = [];
 
   public constructor(
@@ -64,7 +101,7 @@ export class SequencedFillFeed extends MockExchangeFeed {
     super(options);
   }
 
-  public override async placeOrder(request: Parameters<MockExchangeFeed["placeOrder"]>[0]): Promise<Order> {
+  public override async placeOrder(request: OrderRequest): Promise<Order> {
     const order = await super.placeOrder(request);
     const filled = request.amount * (this.fillFractions.shift() ?? 1);
     this.setOrderStatus(order.clientOrderId, {
@@ -78,13 +115,10 @@ export class SequencedFillFeed extends MockExchangeFeed {
   }
 }
 
-export class FailOnceCancelFeed extends MockExchangeFeed {
+class FailOnceCancelFeed extends MockExchangeFeed {
   private failNextCancel = true;
 
-  public override async cancelOrder(
-    clientOrderId: Parameters<MockExchangeFeed["cancelOrder"]>[0],
-    symbol: Parameters<MockExchangeFeed["cancelOrder"]>[1],
-  ): Promise<Order> {
+  public override async cancelOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> {
     if (this.failNextCancel) {
       this.failNextCancel = false;
       throw new Error("injected cancel failure");
@@ -93,10 +127,117 @@ export class FailOnceCancelFeed extends MockExchangeFeed {
   }
 }
 
-export class AutoFlattenFeed extends MockExchangeFeed {
+class FaultFeed extends MockExchangeFeed {
+  public readonly marketMetaFailures: unknown[] = [];
+  public readonly positionFailures: unknown[] = [];
+  public readonly balanceFailures: unknown[] = [];
+  public readonly placeFailures: unknown[] = [];
+  public readonly orderFailures: unknown[] = [];
+  public readonly tickerFailures: unknown[] = [];
+  public positionFailureOnCall: { readonly call: number; readonly failure: unknown } | undefined;
+  public balanceFailureOnCall: { readonly call: number; readonly failure: unknown } | undefined;
+  public readonly placedOrders: Order[] = [];
+  // eslint-disable-next-line unicorn/consistent-class-member-order -- The E2E fixture preserves the asserted protocol behavior.
+  private positionCalls = 0;
+  private balanceCalls = 0;
+
+  private throwNext(failures: unknown[]): void {
+    if (failures.length > 0) throw failures.shift();
+  }
+
+  public override async fetchMarketMeta(symbol: ExchangeSymbol): Promise<MarketMeta> {
+    this.throwNext(this.marketMetaFailures);
+    return super.fetchMarketMeta(symbol);
+  }
+
+  public override async fetchPositions(
+    symbols?: readonly ExchangeSymbol[],
+  ): Promise<readonly ExchangePosition[]> {
+    this.positionCalls += 1;
+    if (this.positionFailureOnCall?.call === this.positionCalls) throw this.positionFailureOnCall.failure;
+    this.throwNext(this.positionFailures);
+    return super.fetchPositions(symbols);
+  }
+
+  public override async fetchBalances(): Promise<readonly Balance[]> {
+    this.balanceCalls += 1;
+    if (this.balanceFailureOnCall?.call === this.balanceCalls) throw this.balanceFailureOnCall.failure;
+    this.throwNext(this.balanceFailures);
+    return super.fetchBalances();
+  }
+
+  public override async placeOrder(request: OrderRequest): Promise<Order> {
+    this.throwNext(this.placeFailures);
+    const order = await super.placeOrder(request);
+    this.placedOrders.push(order);
+    return order;
+  }
+
+  public override async fetchOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> {
+    this.throwNext(this.orderFailures);
+    return super.fetchOrder(clientOrderId, symbol);
+  }
+
+  public override async fetchTickerSnapshot(symbol: ExchangeSymbol): Promise<Ticker> {
+    this.throwNext(this.tickerFailures);
+    return super.fetchTickerSnapshot(symbol);
+  }
+}
+
+class LifecycleFeed extends MockExchangeFeed {
+  private readonly lifecycleListeners = new Map<SubscriptionId, FeedListener>();
+  private nextLifecycleId = 10_000;
   public readonly placedOrders: Order[] = [];
 
-  public override async placeOrder(request: Parameters<MockExchangeFeed["placeOrder"]>[0]): Promise<Order> {
+  public override async placeOrder(request: OrderRequest): Promise<Order> {
+    const order = await super.placeOrder(request);
+    this.placedOrders.push(order);
+    return order;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await -- This test double implements an asynchronous production port synchronously.
+  public async subscribeOrderUpdates(listener: FeedListener): Promise<SubscriptionId> {
+    return this.addLifecycleListener(listener);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await -- This test double implements an asynchronous production port synchronously.
+  public async subscribeExecutions(listener: FeedListener): Promise<SubscriptionId> {
+    return this.addLifecycleListener(listener);
+  }
+
+  public override async unsubscribe(id: SubscriptionId): Promise<void> {
+    if (!this.lifecycleListeners.delete(id)) await super.unsubscribe(id);
+  }
+
+  public emitLifecycle(event: FeedEvent): void {
+    for (const listener of this.lifecycleListeners.values()) listener(event);
+  }
+
+  // eslint-disable-next-line unicorn/consistent-class-member-order -- The E2E fixture preserves the asserted protocol behavior.
+  private addLifecycleListener(listener: FeedListener): SubscriptionId {
+    const id = this.nextLifecycleId;
+    this.nextLifecycleId += 1;
+    this.lifecycleListeners.set(id, listener);
+    return id;
+  }
+}
+
+class FailOnceLifecycleFeed extends LifecycleFeed {
+  private failNextCancel = true;
+
+  public override async cancelOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> {
+    if (this.failNextCancel) {
+      this.failNextCancel = false;
+      throw new Error("injected lifecycle cancel failure");
+    }
+    return super.cancelOrder(clientOrderId, symbol);
+  }
+}
+
+class AutoFlattenFeed extends MockExchangeFeed {
+  public readonly placedOrders: Order[] = [];
+
+  public override async placeOrder(request: OrderRequest): Promise<Order> {
     const order = await super.placeOrder(request);
     const closed: Order = {
       ...order,
@@ -114,12 +255,12 @@ export class AutoFlattenFeed extends MockExchangeFeed {
   }
 }
 
-export class ImmediateFillFeed extends MockExchangeFeed {
+class ImmediateFillFeed extends MockExchangeFeed {
   public constructor(private readonly pricing: "average" | "price" | "position") {
     super();
   }
 
-  public override async placeOrder(request: Parameters<MockExchangeFeed["placeOrder"]>[0]): Promise<Order> {
+  public override async placeOrder(request: OrderRequest): Promise<Order> {
     const order = await super.placeOrder(request);
     return {
       ...order,
@@ -132,7 +273,7 @@ export class ImmediateFillFeed extends MockExchangeFeed {
   }
 }
 
-export interface PortfolioStackOptions {
+interface PortfolioStackOptions {
   readonly totalRiskUsd?: number;
   readonly maxDdPct?: number;
   readonly threshold?: number;
@@ -147,7 +288,7 @@ export interface PortfolioStackOptions {
   readonly paperMode?: boolean;
 }
 
-export interface PortfolioStack {
+interface PortfolioStack {
   readonly feed: MockExchangeFeed;
   readonly positionManager: PositionManager;
   readonly orderManager: OrderManager;
@@ -156,7 +297,7 @@ export interface PortfolioStack {
   readonly portfolioManager: PortfolioManager;
 }
 
-export async function makePortfolioStack(options: PortfolioStackOptions = {}): Promise<PortfolioStack> {
+async function makePortfolioStack(options: PortfolioStackOptions = {}): Promise<PortfolioStack> {
   const feed =
     options.feed ??
     new MockExchangeFeed({
@@ -202,7 +343,7 @@ export async function makePortfolioStack(options: PortfolioStackOptions = {}): P
   return { feed, positionManager, orderManager, correlation, portfolioStop, portfolioManager };
 }
 
-export function registerPortfolioStrategies(
+function registerPortfolioStrategies(
   stack: PortfolioStack,
   configs: readonly (readonly [string, number])[],
 ): void {
@@ -211,7 +352,7 @@ export function registerPortfolioStrategies(
   }
 }
 
-export function makeExecution(order: Order, id: string, quantity: number, price = 59_900): Execution {
+function makeExecution(order: Order, id: string, quantity: number, price = 59_900): Execution {
   return {
     executionId: id,
     clientOrderId: order.clientOrderId,
@@ -225,3 +366,22 @@ export function makeExecution(order: Order, id: string, quantity: number, price 
     timestamp: 1,
   };
 }
+
+export {
+  botConfigFor,
+  startBotThenStop,
+  makePortfolioSymbol,
+  makePortfolioMarketMeta,
+  makeRemotePosition,
+  firstOrder,
+  SequencedFillFeed,
+  FailOnceCancelFeed,
+  FaultFeed,
+  LifecycleFeed,
+  FailOnceLifecycleFeed,
+  AutoFlattenFeed,
+  ImmediateFillFeed,
+  makePortfolioStack,
+  registerPortfolioStrategies,
+  makeExecution,
+};

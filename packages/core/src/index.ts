@@ -1,60 +1,26 @@
-// packages/core/src/index.ts — `@mm-crypto-bot/core` belépési pont
-//
-// A `@mm-crypto-bot/core` csomag a stratégia-motor. A production stratégia
-// (Donchian-Pivot Composition, Phase 18+25) és az indikátor-számítási
-// modul itt van implementálva.
-//
-// Phase 27 cleanup: removed re-exports for HALT/REMOVE strategies
-// (always-in-trend, donchian-breakout, donchian-trailing, mean-reversion-bb,
-// mtf-trend-confluence, multi-class-ensemble v1, v3, v4). See
-// docs/research/phase26-strategy-audit/REFRESH-phase26.md §4.
-//
-// Specifikáció: docs/research/selected-strategy.md
-
-// Indikátorok — az `index.ts` újra-exportja az összes indikátort,
-// hogy a fogyasztók egyetlen `import { ... } from "@mm-crypto-bot/core"` sorral
-// hozzáférjenek mindegyikhez.
 export * from "./indicators/index.js";
-
-// Phase 5 — Donchian volatility breakout (Strategy C).
-// Phase 5 — Composite multi-strategy ensemble (Strategy B).
+export { assertSelectedLeverageUnchanged, freezeSelectedLeverage } from "./risk/session-selected-leverage.js";
+export type { FrozenSelectedLeverage } from "./risk/session-selected-leverage.js";
 export { CompositeStrategy } from "./strategy/composite.js";
 export { DEFAULT_COMPOSITE_CONFIG } from "./strategy/composite.js";
 export type { CompositeStrategyConfig } from "./strategy/composite.js";
-export { assertSelectedLeverageUnchanged, freezeSelectedLeverage } from "./risk/session-selected-leverage.js";
-export type { FrozenSelectedLeverage } from "./risk/session-selected-leverage.js";
-// Phase 32: FundingSnapshot type (extracted from funding-carry.ts in Phase 32).
-// Used by dydx-cex-carry.ts and its paper-trade runner.
 export type { FundingSnapshot } from "./strategy/funding-snapshot.js";
-// Phase 9 9D — SOL funding-flip kill-switch (Track E extension).
-// Phase 32: `assert1to10Leverage` is now re-exported from this file
-// (was previously re-exported from funding-carry-leverage.ts, which was
-// deleted in Phase 32 — see docs/research/deprecated-strategies/REPORT.md §2.6).
 export {
   ALLOWED_KILL_SWITCH_LEVERAGE,
   assert1to10Leverage,
   computeFlipDetectorMetrics,
   DEFAULT_FLIP_DETECTOR_CONFIG,
   evaluateRegime,
+  type FlipDetectorConfig,
+  type FlipDetectorMetrics,
+  type RegimeDecision,
 } from "./strategy/funding-flip-kill-switch.js";
-export type {
-  FlipDetectorConfig,
-  FlipDetectorMetrics,
-  RegimeDecision,
-} from "./strategy/funding-flip-kill-switch.js";
-// Phase 6 Track B — Latency-gate infrastructure (kept after Phase 32 cleanup).
-// NOTE: MultiClassEnsemble class was removed (Phase 27 dead code, 0 trades
-// fresh run). MultiClassEnsembleV2 was deleted in Phase 32 (Phase 27 OOS
-// FAILED — see docs/research/deprecated-strategies/REPORT.md §2.1).
-// Only the LatencyGate + KellyOpt utilities remain — they're imported by
-// dydx-cex-carry.ts (production).
 export {
   createLatencyGate,
   DEFAULT_KELLY_OPT_AGGREGATE,
   DEFAULT_LATENCY_GATE_DISABLED,
 } from "./strategy/multi-class-ensemble.js";
 export type { KellyOptAggregate, LatencyGate, LatencySnapshot } from "./strategy/multi-class-ensemble.js";
-// Phase 6 Track C — Kelly-opt position sizing (risk module).
 export {
   applyRiskCaps,
   DEFAULT_KELLY_OPT_CONFIG,
@@ -64,17 +30,14 @@ export {
   optimizeKelly,
   splitIntoWindows,
   runWalkForwardValidation,
+  type KellyFraction,
+  type KellyOptConfig,
+  type KellyOptResult,
+  type TradeStats,
+  type WalkForwardValidation,
+  type WalkForwardWindow,
+  type WalkForwardSplit,
 } from "./risk/kelly-position-sizer.js";
-export type {
-  KellyFraction,
-  KellyOptConfig,
-  KellyOptResult,
-  TradeStats,
-  WalkForwardValidation,
-  WalkForwardWindow,
-  WalkForwardSplit,
-} from "./risk/kelly-position-sizer.js";
-// Phase 7 Track B — Adaptive Kelly with rolling Sharpe (risk module).
 export {
   aggregateTradesToDailyPnl,
   averageKellyMultiplier,
@@ -89,18 +52,15 @@ export {
   SHARPE_BUCKET_HIGH_BOUNDARY,
   SHARPE_BUCKET_LOW_BOUNDARY,
   SHARPE_BUCKET_MID_BOUNDARY,
+  type AdaptiveKellyBucket,
+  type AdaptiveKellyResult,
+  type AdaptiveVsStaticComparison,
+  type AdaptiveWalkForwardValidation,
+  type AdaptiveWalkForwardWindow,
+  type BucketDistribution,
+  type DailyPnlPoint,
+  type RollingSharpePoint,
 } from "./risk/kelly-adaptive.js";
-export type {
-  AdaptiveKellyBucket,
-  AdaptiveKellyResult,
-  AdaptiveVsStaticComparison,
-  AdaptiveWalkForwardValidation,
-  AdaptiveWalkForwardWindow,
-  BucketDistribution,
-  DailyPnlPoint,
-  RollingSharpePoint,
-} from "./risk/kelly-adaptive.js";
-// Phase 8 Track G — Volatility-targeted position sizing (Moreira-Muir 2017 effect, 1:10 mandate).
 export {
   computeVolMultiplier,
   computeVolTargetedSizer,
@@ -110,38 +70,26 @@ export {
   rollingRealizedDailyVol,
   runVolTargetWalkForwardValidation,
   validateOneToTenLeverage,
+  type DailyOhlcv,
+  type VolTargetConfig,
+  type VolTargetedSizerResult,
+  type VolTargetPoint,
+  type VolTargetWalkForwardValidation,
+  type VolTargetWalkForwardWindow,
 } from "./risk/vol-targeted-sizer.js";
-export type {
-  DailyOhlcv,
-  VolTargetConfig,
-  VolTargetedSizerResult,
-  VolTargetPoint,
-  VolTargetWalkForwardValidation,
-  VolTargetWalkForwardWindow,
-} from "./risk/vol-targeted-sizer.js";
-// Phase 9 9E — Adaptive Kelly × VolTargeting hybrid position sizer (combines Track B + Track G).
 export {
   buildHybridDay,
   computeHybridSizer,
   DEFAULT_HYBRID_SIZER_CONFIG,
   runHybridWalkForwardValidation,
   toPositionSizerConfig,
+  type HybridSizerConfig,
+  type HybridSizerDay,
+  type HybridSizerPositionSizerConfig,
+  type HybridSizerResult,
+  type HybridWalkForwardValidation,
+  type HybridWalkForwardWindow,
 } from "./risk/adaptive-kelly-vol-hybrid.js";
-export type {
-  HybridSizerConfig,
-  HybridSizerDay,
-  HybridSizerPositionSizerConfig,
-  HybridSizerResult,
-  HybridWalkForwardValidation,
-  HybridWalkForwardWindow,
-} from "./risk/adaptive-kelly-vol-hybrid.js";
-// Phase 7 M2 — Multi-class ensemble V2 (Donchian-Trailing + Adaptive-Kelly + Leveraged-Carry + Latency-Gate).
-// PRODUCTION CANDIDATE per Phase 27 REFRESH (fresh data: +9.46%/mo @ 3.43 Sharpe BTC).
-// Phase 32: MultiClassEnsembleV2 was deleted (Phase 27 OOS FAILED — see
-// docs/research/deprecated-strategies/REPORT.md §2.1). The V2 exports
-// are removed from the public API.
-// Phase 10G Track A — Signal Center (typed pub/sub + plugin registry + reference plugin).
-// Type discriminated unions for Signal events.
 export {
   assertExhaustiveSignal,
   err,
@@ -173,7 +121,6 @@ export type {
   SignalKind,
   SizingSignal,
 } from "./signal-center/types.js";
-// Typed pub/sub for Signal events (backtest/live modes).
 export { createSignalBus, SignalBus } from "./signal-center/signal-bus.js";
 export type {
   SignalBusMode,
@@ -181,38 +128,19 @@ export type {
   SignalHandler,
   UnsubscribeFn,
 } from "./signal-center/signal-bus.js";
-// Multi-strategy plugin registry.
 export {
   createStrategyRegistry,
-  MAX_ALLOWED_PLUGIN_LEVERAGE,
+  MAX_ALLOWED_PLUGIN_AGGREGATE_EFFECTIVE_LEVERAGE,
   StrategyRegistry,
   validatePluginMetadata,
 } from "./signal-center/strategy-registry.js";
 export type { EdgeClass, StrategyPlugin, StrategyPluginMetadata } from "./signal-center/strategy-registry.js";
-// Phase 32: CarryBaselinePlugin was deleted. Replaced by HybridKelly
-// (the kept SizingSignal-emitting plugin). The reference carry plugin
-// exports are removed from the public API.
-// Phase 11.1b — DirectionalMTFPlugin (Phase 8 F MTF drop-in, ETH default-on,
-// BTC opt-in, SOL not registered). Phase 32: DirectionalMTFPlugin was
-// deleted (see docs/research/deprecated-strategies/REPORT.md §2.3).
-// The DmCandle type alias is also removed (was a plugin-internal type
-// that no longer has a public surface).
-// Phase 11.1d Track A — defensive drop-in plugin (SOL funding-flip kill-switch, Phase 9 9D port).
-// RiskSignals only (no SizingSignals); SOL enabled, BTC/ETH not registered.
 export {
   DEFAULT_SOL_FLIP_KILL_SWITCH_PLUGIN_CONFIG,
   SOLFlipKillSwitchPlugin,
+  type SOLFlipKillSwitchPluginConfig,
+  type SOLFlipKillSwitchPluginState,
 } from "./signal-center/plugins/sol-flip-kill-switch-plugin.js";
-export type {
-  SOLFlipKillSwitchPluginConfig,
-  SOLFlipKillSwitchPluginState,
-} from "./signal-center/plugins/sol-flip-kill-switch-plugin.js";
-// Phase 14D — forward-looking volatility sizing (DVOL regime plugin).
-// Reads Deribit BTC options implied volatility (DVOL) per bar and emits
-// a SizingSignal with volMultiplier bucketed by regime (acute-stress 0.5,
-// elevated 0.75, normal/compressed 1.0, no-data 1.0 fail-open). Track B
-// DecisionEngine composes SizingSignals with min() — the more defensive
-// volMultiplier wins.
 export {
   DEFAULT_ACUTE_STRESS_MULTIPLIER,
   DEFAULT_ACUTE_STRESS_THRESHOLD,
@@ -226,23 +154,10 @@ export {
   DEFAULT_NO_DATA_MULTIPLIER,
   DvolRegimeSizingPlugin,
   createDvolRegimeSizingPlugin,
+  type DvolRegime,
+  type DvolRegimeSizingConfig,
+  type DvolRegimeSizingPluginState,
 } from "./signal-center/plugins/dvol-regime-sizing-plugin.js";
-export type {
-  DvolRegime,
-  DvolRegimeSizingConfig,
-  DvolRegimeSizingPluginState,
-} from "./signal-center/plugins/dvol-regime-sizing-plugin.js";
-// Phase 11.1c Track A — defensive drop-in plugin (vol-targeting sizer, Phase 8 G port).
-// SizingSignal modifier — intercepts upstream SizingSignals on the bus and rescales them
-// by the inverse of realized volatility vs. target daily vol. BTC/ETH/SOL all enabled.
-// NOTE: `DEFAULT_ENABLED_SYMBOLS` is intentionally NOT re-exported here — `DirectionalMTFPlugin`
-// already exports it (as `readonly DirectionalMTFSymbol[]`), and re-exporting both with the
-// same identifier would cause TS2300 (Duplicate identifier) in any package that consumes
-// `@mm-crypto-bot/core` (e.g., `@mm-crypto-bot/backtest`, `@mm-crypto-bot/backtest-tools`).
-// Consumers that need the plugin's own default list can import from
-// `@mm-crypto-bot/core/signal-center/plugins/vol-target-sizing-plugin.js` directly.
-// Brought forward from feat/phase11-1c-vol-target-sizing for Phase 11.1e Track C
-// (SCv1-full composition with all 5 plugins).
 export {
   DEFAULT_BASE_NOTIONAL_USD as DEFAULT_VOL_TARGET_BASE_NOTIONAL_USD,
   DEFAULT_MAX_VOL_MULTIPLIER as DEFAULT_VOL_TARGET_MAX_VOL_MULTIPLIER,
@@ -258,15 +173,9 @@ export {
   VolTargetSizingPlugin,
   createVolTargetSizingPlugin,
   extractSizingSignal as extractVolTargetSizingSignal,
+  type VolTargetSizingConfig,
+  type VolTargetSizingPluginState,
 } from "./signal-center/plugins/vol-target-sizing-plugin.js";
-export type {
-  VolTargetSizingConfig,
-  VolTargetSizingPluginState,
-} from "./signal-center/plugins/vol-target-sizing-plugin.js";
-// Phase 11.1e Track A — carry-side adaptive sizing (Phase 9 9E port: Adaptive Kelly × VolTarget hybrid).
-// FOURTH and FINAL Phase 11+ drop-in. Wraps funding-Sharpe-based Kelly bucket
-// (0.25 / 0.5 / 0.7 / 1.0) × Moreira-Muir vol multiplier (clamped to [0.25, 1.0]).
-// Per-symbol: BTC/USDT, ETH/USDT, SOL/USDT all default-on.
 export {
   DEFAULT_BASE_NOTIONAL_USD as DEFAULT_HYBRID_KELLY_BASE_NOTIONAL_USD,
   DEFAULT_ENABLED_SYMBOLS as DEFAULT_HYBRID_KELLY_ENABLED_SYMBOLS,
@@ -283,7 +192,6 @@ export {
   MIN_FUNDING_SHARPE_WINDOW_DAYS,
   MIN_TARGET_DAILY_VOL as MIN_HYBRID_KELLY_TARGET_DAILY_VOL,
   MIN_VOL_WINDOW_DAYS as MIN_HYBRID_KELLY_VOL_WINDOW_DAYS,
-  ONE_TO_TEN_LEVERAGE as HYBRID_KELLY_ONE_TO_TEN_LEVERAGE,
   createHybridKellyPlugin,
   extractSizingSignal as extractHybridKellySizingSignal,
   inferSymbol as inferHybridKellySymbol,
@@ -292,15 +200,6 @@ export type {
   HybridKellyConfig,
   HybridKellyPluginState,
 } from "./signal-center/plugins/hybrid-kelly-plugin.js";
-// Phase 11.2a Track A — defensive meta-plugin (HMM 3-state regime detection).
-// FIFTH Phase 11+ drop-in — reads DirectionSignals + CarrySignals + SizingSignals
-// from the bus + OHLCV closes via `recordClose`. Emits RiskSignals with per-regime
-// `sizeModifier` and implied `closeNotionalUsd` (trending=1.0, ranging=0.7, volatile=0.4).
-// BTC/ETH/SOL default-on. `RiskSignal.sizeModifier` field added in types.ts (Phase 11.2a+).
-// NOTE: `DEFAULT_BASE_NOTIONAL_USD` and `DEFAULT_ENABLED_SYMBOLS` are aliased
-// (REGIME_DETECTOR_-prefixed) to avoid TS2300 (Duplicate identifier) collisions
-// with the vol-target, hybrid-kelly, and directional-mtf re-exports above.
-// Follows the same aliasing pattern as `DEFAULT_HYBRID_KELLY_*`.
 export {
   DEFAULT_BASE_NOTIONAL_USD as DEFAULT_REGIME_DETECTOR_BASE_NOTIONAL_USD,
   DEFAULT_ENABLED_SYMBOLS as DEFAULT_REGIME_DETECTOR_ENABLED_SYMBOLS,
@@ -337,23 +236,6 @@ export type {
   RegimeLabel,
   HMMStateIndex,
 } from "./signal-center/plugins/regime-detector-meta-plugin.js";
-// Phase 12 Track A — factor-layer read-only drop-in (Phase 11.5 Track D §H1 + §P1).
-// SEVENTH Phase 11+ drop-in (read-only FACTOR signal — continuous tanh-mapped
-// z-score in [-1, +1]). Pearson r = 0.47 with BTC daily volatility empirically
-// (arXiv 2501.05232 + Glassnode + CryptoQuant + CoinGlass). Per-symbol
-// accumulation / neutral / distribution regime classification at z = ±1.5
-// (Phase 11.5 §P1 thresholds). FREE-tier data adapters (Coinglass /
-// CryptoQuant / CoinGlass) with graceful degradation — skip emit, log warn,
-// do NOT crash the bus on outage. ZERO notional impact by construction;
-// 1:10 leverage cap is structurally unviolated (3-layer defense: L1 metadata,
-// L2 subscribe-bus, L3 per-emit zero-notional assertion).
-// `FactorSignal` interface + `FactorRegime` type + `isFactor` type guard +
-// `"factor"` SignalKind variant added to `types.ts` (Phase 12+).
-// New `EdgeClass = "factor"` variant added to `strategy-registry.ts`.
-// NOTE: `DEFAULT_ENABLED_SYMBOLS` is intentionally NOT re-exported here —
-// aliased to `CEX_NET_FLOW_ENABLED_SYMBOLS` to avoid TS2300 (Duplicate
-// identifier) collisions with hybrid-kelly/directional-mtf re-exports above.
-// Follows the same aliasing pattern as `DEFAULT_HYBRID_KELLY_*`.
 export {
   CexNetFlowRegimePlugin,
   CoinglassNetflowAdapter,
@@ -394,17 +276,6 @@ export type {
   IExchangeNetflowAdapter,
   NetflowSample,
 } from "./signal-center/plugins/cex-netflow-regime-plugin.js";
-// Phase 12 Track B / Phase 11.5 Track E §H1 — read-only signal plugin.
-// EIGHTH Phase 11+ drop-in. Polls HL + Binance + Bybit + OKX funding,
-// normalizes to 8h-equivalent basis points, emits per-asset
-// `FundingSnapshotSignal` (new 6th SignalKind variant added in types.ts).
-// Foundation for downstream execution plugins (Phase 12 E2
-// CrossDexDeltaNeutralArb). 6 default assets: BTC/ETH/SOL/HYPE/DOGE/JUP.
-// `FundingSnapshotSignal` is the new Signal union member — also re-exported
-// from `./signal-center/types.js` below. `isFundingSnapshot` type guard
-// added to types.ts.
-// `DEFAULT_ASSETS` / `DEFAULT_POLL_INTERVAL_SEC` / etc. are unique to
-// cross-dex-funding-watcher so no aliasing needed.
 export {
   CrossDexFundingWatcherPlugin,
   DEFAULT_ASSETS,
@@ -434,13 +305,6 @@ export type {
   OkxFundingRate,
   VenueId,
 } from "./signal-center/plugins/cross-dex-funding-watcher-plugin.js";
-// Phase 12 Track C — defensive read-only RiskSignal plugin (Phase 11.5 Track D §E1+§E5).
-// NINTH Phase 11+ drop-in. Tick-level liquidation cascade detector (0xArchive +
-// HypurrScan + GoldRush + CoinGlass + HyperTracker feeds) → emits RiskSignal
-// with `closeNotionalUsd` when OI drop + LSR deadlock + thin book + paper-tiger
-// all trigger. Throttled 24h cooldown per symbol. Layer 3 per-emit assertion
-// fires `closeNotionalUsd ≤ baseNotionalUsd × 10` (1:10 cap). Defensive
-// overlay: orthogonally complements Phase 11.2a RegimeDetector.
 export {
   CoinGlassLiquidationAdapter,
   DEFAULT_OI_DROP_THRESHOLD_PCT,
@@ -478,7 +342,6 @@ export type {
   PerpDexLiquidationSignalsPluginState,
   SymbolCascadeState,
 } from "./signal-center/plugins/perpdex-liquidation-signals-plugin.js";
-// Phase 13 Track C — Cross-symbol hedge plugins (3 NEW plugins: BTC-ETH spread reversion, BTC-driven momentum overlay, cross-symbol funding-rate arb).
 export { CrossSymbolSpreadReversionPlugin } from "./signal-center/plugins/cross-symbol-spread-reversion-plugin.js";
 export type {
   CrossSymbolSpreadReversionConfig,
@@ -495,7 +358,6 @@ export type {
   CrossSymbolFundingDifferentialConfig,
   CrossSymbolFundingDifferentialPluginState,
 } from "./signal-center/plugins/cross-symbol-funding-differential-plugin.js";
-// Phase 10G Track C — Signal Center V1 composition root (bus + registry + risk + telemetry).
 export {
   createSignalCenterV1,
   DEFAULT_SIGNAL_CENTER_V1_CONFIG,
@@ -503,21 +365,18 @@ export {
   toRiskEngineSignal,
 } from "./signal-center/signal-center-v1.js";
 export type { SignalCenterV1Config } from "./signal-center/signal-center-v1.js";
-// Phase 10G Track B — Leverage invariant hard guardrail (1:10 MANDATORY leverage 3rd defense-in-depth layer).
 export {
-  assertLeverageInvariant,
-  assertPositionsInvariant,
-  checkLeverageApproach,
+  assertAggregateEffectiveExposureLimit,
+  assertAggregatePositionsEffectiveExposureLimit,
+  isAggregateEffectiveExposureApproachingLimit,
   computeEffectiveLeverage,
-  DEFAULT_LEVERAGE_INVARIANT_CONFIG,
-  LeverageBreachError,
+  DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT,
+  AggregateEffectiveExposureLimitBreachError,
+  DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE,
+  MINIMUM_MAX_AGGREGATE_EFFECTIVE_LEVERAGE,
   ONE_TO_TEN_LEVERAGE,
-  ONE_X_LEVERAGE,
 } from "./risk/leverage-invariant.js";
-export type { LeverageInvariantConfig, Position } from "./risk/leverage-invariant.js";
-// Phase 10G Track B — Cross-strategy portfolio risk engine (VaR + correlation + drawdown + leverage guard).
-// NOTE: This engine accepts Track B's internal signal shapes (see risk/portfolio-risk-engine.ts).
-// Track A's SignalBus signal shapes are translated by SignalCenterV1 (Track C integration layer).
+export type { AggregateEffectiveExposureLimit, Position } from "./risk/leverage-invariant.js";
 export { DEFAULT_PORTFOLIO_RISK_ENGINE_CONFIG, PortfolioRiskEngine } from "./risk/portfolio-risk-engine.js";
 export type {
   AggregateDrawdownState,
@@ -526,14 +385,12 @@ export type {
   PortfolioRiskEngineConfig,
   RiskSnapshot,
   VaRPoint,
-  // Aliases for Track B's internal signal types (Track A's types in ./signal-center/types.ts are canonical).
   CarrySignal as RiskEngineCarrySignal,
   DirectionSignal as RiskEngineDirectionSignal,
   SizingSignal as RiskEngineSizingSignal,
   RiskSignal as RiskEngineRiskSignal,
   Signal as RiskEngineSignal,
 } from "./risk/portfolio-risk-engine.js";
-// Phase 10G Track B — Per-strategy telemetry (PnL attribution + Sharpe + kill-switch + export).
 export { DEFAULT_STRATEGY_TELEMETRY_CONFIG, StrategyTelemetry } from "./telemetry/strategy-telemetry.js";
 export type {
   KillSwitchEvent,
@@ -542,9 +399,6 @@ export type {
   TelemetrySnapshot,
   TradeRecord,
 } from "./telemetry/strategy-telemetry.js";
-
-// Típusok — a `Strategy`, `StrategyContext`, `StrategySignal`,
-// `MtfState`, `IndicatorState`.
 export type {
   Strategy,
   StrategyContext,
@@ -555,60 +409,22 @@ export type {
   MtfState,
   IndicatorState,
 } from "./types.js";
-
-// Phase 13 Track B — Portfolio Orchestrator (multi-symbol BTC+ETH+SOL simultaneous).
-// Re-exports the portfolio module's public surface: PortfolioOrchestrator + PositionDecision +
-// related types. Backed by per-symbol SignalCenterV1 + DecisionEngine + shared PortfolioRiskEngine.
 export * from "./portfolio/index.js";
-
-// Phase 15 Track B — Pivot Point Grid (M15 mean-reversion, pivot-anchored range).
 export { PivotPointGridStrategy, DEFAULT_PIVOT_GRID_CONFIG } from "./strategy/pivot-point-grid.js";
 export type { PivotPointGridConfig } from "./strategy/pivot-point-grid.js";
-
-// Phase 15 Track B — Bollinger Range Squeeze (M5 breakout after bbWidth squeeze).
-// Phase 32: BollingerRangeSqueezeStrategy was deleted (1 trade in 30-month
-// window — statistically insignificant; see
-// docs/research/deprecated-strategies/REPORT.md §2.9).
-
-// Phase 15 Track C — Donchian Range Channel (M15 range-mean-reversion).
 export {
   DonchianRangeChannelStrategy,
   DEFAULT_DONCHIAN_RANGE_CONFIG,
 } from "./strategy/donchian-range-channel.js";
 export type { DonchianRangeChannelConfig } from "./strategy/donchian-range-channel.js";
-
-// Phase 37 Track 3 — OHLC-Trend (EMA 50/200 golden/death cross + RSI(14) + ATR(14)*1.5 stops).
-// The strategy consumes a single OHLC bar stream (1h by default) and emits
-// signals on golden cross (long) or death cross (short), with RSI overbought/
-// oversold filters. Designed to be driven by the `OhlcStream` class from
-// `@mm/exchange` (live) or a historical fixture replay (backtest).
 export { OhlcTrendStrategy, DEFAULT_OHLC_TREND_CONFIG } from "./strategy/ohlc-trend.js";
 export type { OhlcTrendConfig, OhlcTrendSignal } from "./strategy/ohlc-trend.js";
-
-// Phase 15 Track C — Keltner Volatility-Adaptive Grid (M5 grid in Keltner channel).
-// Phase 32: KeltnerGridStrategy was deleted (0 trades in 30-month window
-// — see docs/research/deprecated-strategies/REPORT.md §2.10).
-
-// Phase 16 Track B — Regime-Routed Ensemble (ADX-routed composition: Pivot+Donchian in range, BB+Keltner in trend).
-// Phase 32: RegimeRoutedEnsemble was deleted (superseded by
-// DonchianPivotComposition in Phase 19 — see
-// docs/research/deprecated-strategies/REPORT.md §2.8).
-
-// Phase 18 Track B — Donchian + Pivot 2-component composition (configurable consensus).
 export {
   DonchianPivotComposition,
   DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG,
   DONCHIAN_PIVOT_COMPOSITION_DEFAULT_LTF,
 } from "./strategy/donchian-pivot-composition.js";
 export type { DonchianPivotCompositionConfig } from "./strategy/donchian-pivot-composition.js";
-
-// Phase 25 #2 Track D — Liquidation cascade detector (3-layer filter, paper-trade mode).
-// Event-driven SATELLITE overlay that fades perp-DEX liquidation cascades via
-// bybit.eu SPOT marketable-limit entries. Implements the 3-layer filter
-// (CoinGlass + Bitquery + Axel Adler OI/ELR), Layer 4 risk governor, capacity
-// caps, and paper-trade replay. Mandatory invariant: ONLY `POST_CASCADE` state
-// allows entry. See `packages/core/src/strategy/cascade-fade.ts` for the
-// full design rationale and references to Track D REPORT §6-§8.
 export {
   CascadeFadeDetector,
   CascadeFadeStrategy,
@@ -631,20 +447,6 @@ export type {
   FundingRateInput,
   OpenInterestInput,
 } from "./strategy/cascade-fade.js";
-
-// Phase 25 #2 T2 — dYdX-vs-CEX cross-venue funding carry (live integration).
-// BTC-USD ONLY per orchestrator scope lock (2026-07-08 04:09 Budapest).
-// ETH deferred (Tardis Q2'26 paid-tier missing), SOL halted permanently.
-// Implements the 4 Track-B kill-switches (indexer-stale, chain-non-finalized,
-// divergence-7d-compression, bybit-eu-spot-thin) WITH the sparse-data guard
-// on the 7-day compression kill-switch, the 3 Track-B §7.2 pre-conditions
-// (live-divergence, chain-incident-clear, no-recent-governance), and the
-// Phase 30 LatencyGate (cross-venue round-trip latency).
-// Phase 33 cleanup (2026-07-11): the auto-promote 7-day paper-trade gate
-// has been removed per user mandate.  The strategy emits entry signals
-// whenever kill-switches + latency allow; live-vs-paper is a bot-runtime
-// concern (Track C in Phase 33 plan).
-// See `packages/core/src/strategy/dydx-cex-carry.ts` for the full design.
 export {
   DydxCexCarryStrategy,
   DEFAULT_DYDX_CEX_CARRY_CONFIG,
@@ -680,9 +482,6 @@ export type {
   TickDensityState,
   CarryMarket,
   CarryDirection,
-  // Phase 30 — LatencyGate live wiring.  `LatencySource` is the
-  // pluggable live latency observer interface; `LatencySnapshot` is
-  // the static JSON snapshot input (Phase 6 Track B format).
   LatencySource,
 } from "./strategy/dydx-cex-carry.js";
 export type {
@@ -692,23 +491,8 @@ export type {
   PaperTradeLatencyStats,
   PaperTradeRunnerConfig,
 } from "./strategy/dydx-cex-carry.paper-trade.js";
-// NOTE: `createLatencyGate`, `DEFAULT_LATENCY_GATE_DISABLED`,
-// `LatencyGate`, `LatencySnapshot` are already exported above
-// (lines 100-105) from `multi-class-ensemble.js` for the V2
-// ensemble — they don't need a second re-export here.
-
 import type { Strategy } from "./types.js";
 import { DonchianPivotComposition } from "./strategy/donchian-pivot-composition.js";
-
-/**
- `createStrategy` — factory függvény a kiválasztott stratégia
- példányosításához. A backtest motor ezen keresztül kapja meg a
- stratégiát, hogy ne kelljen az implementációs részleteket ismernie.
-
- Phase 27 default: Donchian-Pivot Composition (Phase 18 PRODUCTION,
- confirmed by Phase 26 REFRESH: +16.62%/mo @ 20.5 Sharpe BTC 2of2 mode).
- Previous default was MtfTrendConfluenceStrategy (removed in Phase 27 cleanup).
-*/
 export function createStrategy(): Strategy {
   return new DonchianPivotComposition();
 }

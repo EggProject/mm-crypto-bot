@@ -1,5 +1,12 @@
 # D-07 semantic scanner implementation slice
 
+> **Historical-snapshot notice (2026-08-24).** The `64` tests,
+> `783/783` statements, `650/650` branches, `165/165` functions,
+> `771/771` lines, and `31` `unreadable-target` findings recorded below
+> describe the earlier pre-unparseable-source snapshot only. They are not
+> current implementation or review evidence. The superseding, scoped record is
+> [D-07 unparseable-source diagnostic](d07-unparseable-source-diagnostic-2026-08-24.md).
+
 Refreshed `2026-08-24T14:13:00+02:00` Europe/Budapest from
 `/home/eggp/projects/mm-crypto-bot` at `HEAD`
 `54be8ab1b7ac95d6ed1f129f4f0c1ec496acaf43`, with Bun `1.3.14`.
@@ -52,14 +59,10 @@ static runtime commands, configuration keys/values, shell/YAML command and path
 syntax, and document destinations/attributes; prose and opaque package names do
 not become findings.
 
-All target enumeration and content reads use secure descriptor I/O. The reader
-rejects symlinks, special files, non-directory ancestors, path escape, changed
-device/inode identity, descriptor escape, post-open replacement, disappearing
-paths, source growth, and reads outside the repository root. It requires an
-inspected identity for enumeration/reading, uses `O_NOFOLLOW`, limits a source
-to exactly at most `1,048,576` bytes (one MiB), and decodes UTF-8 with
-`TextDecoder` fatal mode. Any such uncertainty produces a fail-closed
-`unreadable-target` or `unsafe-path` result.
+Hostile concurrent filesystem mutation hardening is out of scope by user
+decision. The scanner uses ordinary read-only filesystem operations; read or
+traversal errors deterministically produce a fail-closed `unreadable-target`
+or `unsafe-path` result.
 
 ## Fresh negative-control result
 
@@ -110,8 +113,7 @@ They validate only this scanner slice; they do not override the negative control
 bunx --no-install vitest --config scripts/tooling/vitest.zero-legacy.config.mjs run --coverage
 bun test scripts/tooling/zero-legacy-contract.test.ts scripts/tooling/zero-legacy-coverage-delta.test.ts \
   scripts/tooling/zero-legacy-extractors.test.ts scripts/tooling/zero-legacy-node-port.test.ts \
-  scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-secure-io-race.test.ts \
-  scripts/tooling/zero-legacy-secure-io.test.ts scripts/tooling/zero-legacy-syntax-extractors.test.ts
+  scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-syntax-extractors.test.ts
 bunx --no-install tsc --ignoreConfig --noEmit --target ES2022 --lib ES2022 --module ESNext \
   --moduleResolution bundler --moduleDetection force --resolveJsonModule --esModuleInterop \
   --isolatedModules --verbatimModuleSyntax --allowImportingTsExtensions --strict --noImplicitAny \
@@ -123,29 +125,27 @@ bunx --no-install tsc --ignoreConfig --noEmit --target ES2022 --lib ES2022 --mod
   --ignoreDeprecations 6.0 scripts/tooling/zero-legacy-cli.ts scripts/tooling/zero-legacy-command-parser.ts \
   scripts/tooling/zero-legacy-config.ts scripts/tooling/zero-legacy-contract.ts \
   scripts/tooling/zero-legacy-document-extractors.ts scripts/tooling/zero-legacy-extractors.ts \
-  scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-secure-io.ts \
-  scripts/tooling/zero-legacy-shell-yaml-extractors.ts scripts/tooling/zero-legacy-syntax-targets.ts
+  scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-shell-yaml-extractors.ts \
+  scripts/tooling/zero-legacy-syntax-targets.ts
 bunx --no-install eslint --config eslint.config.js scripts/tooling/zero-legacy-cli.ts \
   scripts/tooling/zero-legacy-command-parser.ts scripts/tooling/zero-legacy-config.ts \
   scripts/tooling/zero-legacy-contract.ts scripts/tooling/zero-legacy-document-extractors.ts \
   scripts/tooling/zero-legacy-extractors.ts scripts/tooling/zero-legacy-scanner.ts \
-  scripts/tooling/zero-legacy-secure-io.ts scripts/tooling/zero-legacy-shell-yaml-extractors.ts \
+  scripts/tooling/zero-legacy-shell-yaml-extractors.ts \
   scripts/tooling/zero-legacy-syntax-targets.ts scripts/tooling/zero-legacy-cli.vitest.ts \
   scripts/tooling/zero-legacy-contract.test.ts scripts/tooling/zero-legacy-coverage-delta.test.ts \
   scripts/tooling/zero-legacy-extractors.test.ts scripts/tooling/zero-legacy-node-port.test.ts \
-  scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-secure-io-race.test.ts \
-  scripts/tooling/zero-legacy-secure-io.test.ts scripts/tooling/zero-legacy-syntax-extractors.test.ts \
+  scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-syntax-extractors.test.ts \
   scripts/tooling/vitest.zero-legacy.config.mjs --max-warnings=0
 bunx --no-install prettier --check scripts/tooling/zero-legacy-cli.ts \
   scripts/tooling/zero-legacy-command-parser.ts scripts/tooling/zero-legacy-config.ts \
   scripts/tooling/zero-legacy-contract.ts scripts/tooling/zero-legacy-document-extractors.ts \
   scripts/tooling/zero-legacy-extractors.ts scripts/tooling/zero-legacy-scanner.ts \
-  scripts/tooling/zero-legacy-secure-io.ts scripts/tooling/zero-legacy-shell-yaml-extractors.ts \
+  scripts/tooling/zero-legacy-shell-yaml-extractors.ts \
   scripts/tooling/zero-legacy-syntax-targets.ts scripts/tooling/zero-legacy-cli.vitest.ts \
   scripts/tooling/zero-legacy-contract.test.ts scripts/tooling/zero-legacy-coverage-delta.test.ts \
   scripts/tooling/zero-legacy-extractors.test.ts scripts/tooling/zero-legacy-node-port.test.ts \
-  scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-secure-io-race.test.ts \
-  scripts/tooling/zero-legacy-secure-io.test.ts scripts/tooling/zero-legacy-syntax-extractors.test.ts \
+  scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-syntax-extractors.test.ts \
   scripts/tooling/vitest.zero-legacy.config.mjs \
   plans/full-refactor/evidence/d07-zero-legacy-scanner-slice.md plans/full-refactor/VALIDATION.md \
   plans/full-refactor/EXECUTION-RECORD.md plans/full-refactor/REVIEW-EVIDENCE.md
@@ -154,12 +154,11 @@ git diff --check -- plans/full-refactor/VALIDATION.md plans/full-refactor/EXECUT
 for scanner_file in scripts/tooling/zero-legacy-cli.ts scripts/tooling/zero-legacy-command-parser.ts \
   scripts/tooling/zero-legacy-config.ts scripts/tooling/zero-legacy-contract.ts \
   scripts/tooling/zero-legacy-document-extractors.ts scripts/tooling/zero-legacy-extractors.ts \
-  scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-secure-io.ts \
-  scripts/tooling/zero-legacy-shell-yaml-extractors.ts scripts/tooling/zero-legacy-syntax-targets.ts \
+  scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-shell-yaml-extractors.ts \
+  scripts/tooling/zero-legacy-syntax-targets.ts \
   scripts/tooling/zero-legacy-cli.vitest.ts scripts/tooling/zero-legacy-contract.test.ts \
   scripts/tooling/zero-legacy-coverage-delta.test.ts scripts/tooling/zero-legacy-extractors.test.ts \
   scripts/tooling/zero-legacy-node-port.test.ts scripts/tooling/zero-legacy-scanner.test.ts \
-  scripts/tooling/zero-legacy-secure-io-race.test.ts scripts/tooling/zero-legacy-secure-io.test.ts \
   scripts/tooling/zero-legacy-syntax-extractors.test.ts scripts/tooling/vitest.zero-legacy.config.mjs \
   plans/full-refactor/evidence/d07-zero-legacy-scanner-slice.md; do
   set +e; diff_output="$(git diff --no-index --check /dev/null "$scanner_file")"; diff_exit=$?; set -e
@@ -192,7 +191,6 @@ The fresh global V8 artifacts are
 | Source | `scripts/tooling/zero-legacy-document-extractors.ts`    |    40 | `fa433fd1157bd93dcd6c26faf58066c456f8918ab9160f1567acf06215a7cc95` |
 | Source | `scripts/tooling/zero-legacy-extractors.ts`             |   495 | `349d13e94d2b1a77bf8f99d87395ac3d18be7ad818af97addbc861b286fb98ab` |
 | Source | `scripts/tooling/zero-legacy-scanner.ts`                |   309 | `b0bd661e6cc5af21456f80106603456e8aadf1d3e3f50afc9a82619b1aa66d8d` |
-| Source | `scripts/tooling/zero-legacy-secure-io.ts`              |   458 | `c98f0396a4b628a0eec7adf19d9c800fafac0e2ecb1150ca366cb25ab19bd764` |
 | Source | `scripts/tooling/zero-legacy-shell-yaml-extractors.ts`  |   395 | `833a8548403bba99e5d7de6c9e71a0f901bf7080e461f6d35e4c641e929a5eaf` |
 | Source | `scripts/tooling/zero-legacy-syntax-targets.ts`         |    27 | `fb54c7cecb3d58a98d593e656990baad1a56c02eaca017060abba5c9c0fe163c` |
 | Test   | `scripts/tooling/zero-legacy-cli.vitest.ts`             |    35 | `70035907f0e00d04976149c05ba2d15bee773e28c09548e7ec0aaad17d9b161b` |
@@ -201,8 +199,6 @@ The fresh global V8 artifacts are
 | Test   | `scripts/tooling/zero-legacy-extractors.test.ts`        |   379 | `26d735c3560e06c404bd55693cad2ac7da7c43024b4bb1534b005d4a87035ae9` |
 | Test   | `scripts/tooling/zero-legacy-node-port.test.ts`         |   123 | `71fc891900c049504136ce747b8118f4efa21a96da5ce0e75bd0fd7c7c8a40b7` |
 | Test   | `scripts/tooling/zero-legacy-scanner.test.ts`           |   343 | `1a094ee6b7fadbf68f03a6edecc5b9b94b106775cc535e85b2d5b82f5a2f49f0` |
-| Test   | `scripts/tooling/zero-legacy-secure-io-race.test.ts`    |   159 | `6d90a97736754b81237bdf7d28328ff3620d0029e9935bce88c4ffc72bab1c75` |
-| Test   | `scripts/tooling/zero-legacy-secure-io.test.ts`         |   174 | `a0eae59e340cd2c1c63197d0c4d3d51c62868bd10d154e5b38cb7fa62b14a8bf` |
 | Test   | `scripts/tooling/zero-legacy-syntax-extractors.test.ts` |   198 | `b0ca97c109aae8e3b22f8971ce2703bea60126546b226db2f89c73665bb11602` |
 | Config | `scripts/tooling/vitest.zero-legacy.config.mjs`         |    57 | `3756b28854e90a82f4b360c6e47e151fe8552c6f9d1d23b0a92639136ebc430d` |
 
@@ -247,18 +243,17 @@ requested/dispatch route was `terra_worker` / `gpt-5.6-terra` / high; successful
 dispatch verified route callability and the matching workspace-write sandbox.
 Provider-effective model/effort are not independently attested.
 
-| Sequential epoch                                                 | Class and reasoning                                                                                  | Actual changed files or read-only ownership                                                                                                                                                                                                                                                                      |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `d07_semantic_formats_fix`                                       | write implementation; governing semantic formats, CI/runtime command integrity, fail-closed parser   | `zero-legacy-extractors.ts`, `zero-legacy-extractors.test.ts`, `zero-legacy-contract.ts`, `zero-legacy-contract.test.ts`, `zero-legacy-command-parser.ts`, `zero-legacy-document-extractors.ts`, `zero-legacy-shell-yaml-extractors.ts`                                                                          |
-| `d07_secure_scanner_io_fix`                                      | write implementation; security/TOCTOU/filesystem evidence integrity; descriptor security/DI          | `zero-legacy-scanner.ts`, `zero-legacy-scanner.test.ts`, `zero-legacy-node-port.test.ts`, `zero-legacy-coverage-delta.test.ts`, `zero-legacy-secure-io.ts`, `zero-legacy-secure-io.test.ts`                                                                                                                      |
-| `d07_scanner_coverage_integration`                               | write test/coverage integration after both earlier writers completed; deterministic coverage closure | config plus all zero-legacy tests were exclusively owned; changed `vitest.zero-legacy.config.mjs`, created `zero-legacy-syntax-extractors.test.ts` and `zero-legacy-secure-io-race.test.ts`, modified `zero-legacy-secure-io.test.ts`, `zero-legacy-coverage-delta.test.ts`, and `zero-legacy-node-port.test.ts` |
-| `d07_secure_io_dead_branch_fix`; `d07_secure_io_dependency_port` | separate narrow sequential write follow-ups; exact-security coverage, then TOCTOU/deterministic DI   | `zero-legacy-secure-io.ts` only in each respective epoch                                                                                                                                                                                                                                                         |
-| `d07_yaml_dead_branch_fix`                                       | narrow sequential write microfix; exact-governing coverage                                           | `zero-legacy-shell-yaml-extractors.ts` only                                                                                                                                                                                                                                                                      |
-| `d07_shell_control_semantics_fix`                                | later write handoff after coverage completed; governing/fail-open shell parsing                      | `zero-legacy-shell-yaml-extractors.ts`, `zero-legacy-syntax-extractors.test.ts`                                                                                                                                                                                                                                  |
-| `d07_evidence_command_contract_fix`                              | later write handoff after coverage completed; evidence execution/config fail-open classification     | `zero-legacy-contract.ts`, `zero-legacy-contract.test.ts`, `zero-legacy-extractors.ts`, `zero-legacy-extractors.test.ts`, `zero-legacy-syntax-targets.ts`                                                                                                                                                        |
-| final `d07_scanner_coverage_integration` follow-up               | final coverage-only handoff after the syntax-target helper existed; authoritative include closure    | `vitest.zero-legacy.config.mjs` only; revalidated tests without editing them                                                                                                                                                                                                                                     |
-| `d07_scanner_evidence_contract`                                  | read-only discovery/contract; governing/security/multi-document integrity                            | no changed files; `terra_reader` / `gpt-5.6-terra` / high / read-only                                                                                                                                                                                                                                            |
-| `d07_scanner_evidence_writer`                                    | write documentation evidence; provenance and review-finding remediation                              | only this evidence file, `VALIDATION.md`, `EXECUTION-RECORD.md`, and `REVIEW-EVIDENCE.md`                                                                                                                                                                                                                        |
+| Sequential epoch                                   | Class and reasoning                                                                                  | Actual changed files or read-only ownership                                                                                                                                                                                             |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `d07_semantic_formats_fix`                         | write implementation; governing semantic formats, CI/runtime command integrity, fail-closed parser   | `zero-legacy-extractors.ts`, `zero-legacy-extractors.test.ts`, `zero-legacy-contract.ts`, `zero-legacy-contract.test.ts`, `zero-legacy-command-parser.ts`, `zero-legacy-document-extractors.ts`, `zero-legacy-shell-yaml-extractors.ts` |
+| `d07_scanner_reader_history`                       | historical scanner-reader hardening work; current hostile-mutation hardening is out of scope         | historical reader files removed; scanner, tests, and configuration remain                                                                                                                                                               |
+| `d07_scanner_coverage_integration`                 | write test/coverage integration after both earlier writers completed; deterministic coverage closure | configuration plus all retained zero-legacy tests were exclusively owned                                                                                                                                                                |
+| `d07_yaml_dead_branch_fix`                         | narrow sequential write microfix; exact-governing coverage                                           | `zero-legacy-shell-yaml-extractors.ts` only                                                                                                                                                                                             |
+| `d07_shell_control_semantics_fix`                  | later write handoff after coverage completed; governing/fail-open shell parsing                      | `zero-legacy-shell-yaml-extractors.ts`, `zero-legacy-syntax-extractors.test.ts`                                                                                                                                                         |
+| `d07_evidence_command_contract_fix`                | later write handoff after coverage completed; evidence execution/config fail-open classification     | `zero-legacy-contract.ts`, `zero-legacy-contract.test.ts`, `zero-legacy-extractors.ts`, `zero-legacy-extractors.test.ts`, `zero-legacy-syntax-targets.ts`                                                                               |
+| final `d07_scanner_coverage_integration` follow-up | final coverage-only handoff after the syntax-target helper existed; authoritative include closure    | `vitest.zero-legacy.config.mjs` only; revalidated tests without editing them                                                                                                                                                            |
+| `d07_scanner_evidence_contract`                    | read-only discovery/contract; governing/security/multi-document integrity                            | no changed files; `terra_reader` / `gpt-5.6-terra` / high / read-only                                                                                                                                                                   |
+| `d07_scanner_evidence_writer`                      | write documentation evidence; provenance and review-finding remediation                              | only this evidence file, `VALIDATION.md`, `EXECUTION-RECORD.md`, and `REVIEW-EVIDENCE.md`                                                                                                                                               |
 
 The independent review briefs are `d07_scanner_tech_review` (`terra_reviewer` /
 `gpt-5.6-terra` / high / read-only) and `d07_scanner_process_review`

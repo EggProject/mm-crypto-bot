@@ -15,23 +15,29 @@
 //   10. close handle from open() cleanly closes all subscriptions
 
 import { describe, expect, it, beforeEach } from "bun:test";
+import { ExactRational } from "@mm-crypto-bot/numeric";
 
 import {
   DydxLiveFundingSource,
+  type DydxLiveFeed,
   type BybitEuSpotDepthSource,
   type CexFundingProvider,
   type DydxLiveFundingSourceLogger,
 } from "./dydx-live-funding-source.js";
-import type { DydxIndexerFeed, DydxMarket, DydxMarketState, DydxWsChannelData } from "./dydx-indexer-feed.js";
-import type { CarryMarket } from "@mm-crypto-bot/core";
+import type { DydxMarket, DydxMarketState, DydxWsChannelData } from "./dydx-indexer-feed.js";
+import type { CarryMarket, FundingSnapshot } from "@mm-crypto-bot/core";
+
+function noOpTick(): void {
+  void 0;
+}
 
 // ============================================================================
 // TEST FIXTURES
 // ============================================================================
 
-class MockDydxIndexerFeed {
+class MockDydxIndexerFeed implements DydxLiveFeed {
   private readonly stateMap = new Map<DydxMarket, DydxMarketState>([
-    ["BTC-USD", { lastTickMs: null, lastRate: null, wsConnected: false, restRequestCount: 0, rateLimitHits: 0 }],
+    ["BTC-USD", { lastTickMs: undefined, lastRate: undefined, wsConnected: false, restRequestCount: 0, rateLimitHits: 0 }],
   ]);
   subscribeCalls: DydxMarket[] = [];
   closedConnections: DydxMarket[] = [];
@@ -42,7 +48,7 @@ class MockDydxIndexerFeed {
     return s;
   }
 
-  subscribe(market: DydxMarket, onTick: (msg: DydxWsChannelData) => void): WebSocket {
+  subscribe(market: DydxMarket, onTick: (message: DydxWsChannelData) => void): { readonly close: () => void } {
     this.subscribeCalls.push(market);
     const s = this.getState(market);
     s.wsConnected = true;
@@ -62,21 +68,25 @@ class MockDydxIndexerFeed {
         this.closedConnections.push(market);
         s.wsConnected = false;
       },
-    } as unknown as WebSocket;
+    };
   }
 
   // For test: pre-set lastTickMs to a known time.
-  setLastTick(market: DydxMarket, ms: number | null): void {
+  setLastTick(market: DydxMarket, ms: number | undefined): void {
     this.getState(market).lastTickMs = ms;
   }
 }
 
 class MockCexFundingProvider implements CexFundingProvider {
-  getMostRecent(_cexSymbol: string, _nowMs: number) { return null; }
+  private snapshot?: FundingSnapshot;
+
+  getMostRecent(_cexSymbol: string, _nowMs: number): FundingSnapshot | undefined {
+    return this.snapshot;
+  }
 }
 
 class MockBybitEuDepthSource implements BybitEuSpotDepthSource {
-  depthUsd: number | null = 250_000;
+  depthUsd: number | undefined = 250_000;
   getDepthUsdAt1Pct(_market: CarryMarket, _nowMs: number) { return this.depthUsd; }
 }
 
@@ -88,13 +98,13 @@ describe("DydxLiveFundingSource — wire-up", () => {
   let feed: MockDydxIndexerFeed;
   let cex: MockCexFundingProvider;
   let depth: MockBybitEuDepthSource;
-  let src: DydxLiveFundingSource;
+  let source: DydxLiveFundingSource;
 
   beforeEach(() => {
     feed = new MockDydxIndexerFeed();
     cex = new MockCexFundingProvider();
     depth = new MockBybitEuDepthSource();
-    src = new DydxLiveFundingSource(feed as unknown as DydxIndexerFeed, {
+    source = new DydxLiveFundingSource(feed, {
       cexSymbol: "BTCUSDT",
       cexFundingProvider: cex,
       bybitEuDepthSource: depth,
@@ -102,134 +112,143 @@ describe("DydxLiveFundingSource — wire-up", () => {
   });
 
   it("1. rejects ETH-USD markets (orchestrator scope lock)", () => {
-    expect(() => new DydxLiveFundingSource(feed as unknown as DydxIndexerFeed, {
-      markets: ["ETH-USD" as DydxMarket],
+    expect(() => new DydxLiveFundingSource(feed, {
+      markets: ["ETH-USD"],
     })).toThrow(/ETH-USD/);
   });
 
   it("2. rejects SOL-USD markets (orchestrator scope lock)", () => {
-    expect(() => new DydxLiveFundingSource(feed as unknown as DydxIndexerFeed, {
-      markets: ["SOL-USD" as DydxMarket],
+    expect(() => new DydxLiveFundingSource(feed, {
+      markets: ["SOL-USD"],
     })).toThrow(/SOL-USD/);
   });
 
   it("3. default markets = [BTC-USD] (orchestrator scope lock)", () => {
-    expect(src.markets).toEqual(["BTC-USD"]);
-    expect(src.cexSymbol).toBe("BTCUSDT");
+    expect(source.markets).toEqual(["BTC-USD"]);
+    expect(source.cexSymbol).toBe("BTCUSDT");
   });
 
-  it("4. lastTickAgeMs returns null when no tick", () => {
-    expect(src.lastTickAgeMs("BTC-USD", Date.now())).toBeNull();
+  it("4. lastTickAgeMs is unobserved when no tick", () => {
+    expect(source.lastTickAgeMs("BTC-USD", Date.now())).toBeUndefined();
   });
 
   it("5. lastTickAgeMs returns positive when last tick known", () => {
     feed.setLastTick("BTC-USD", Date.now() - 60_000);
-    const age = src.lastTickAgeMs("BTC-USD", Date.now());
-    expect(age).not.toBeNull();
-    expect(age!).toBeGreaterThanOrEqual(60_000);
+    const age = source.lastTickAgeMs("BTC-USD", Date.now());
+    expect(age).toBeDefined();
+    if (age === undefined) throw new Error("expected a tick age");
+    expect(age).toBeGreaterThanOrEqual(60_000);
   });
 
-  it("6. lastChainBlockTs returns null until first WS message", () => {
-    expect(src.lastChainBlockTs("BTC-USD")).toBeNull();
-    expect(src.lastChainBlockHeight("BTC-USD")).toBeNull();
+  it("6. chain state is unobserved until first WS message", () => {
+    expect(source.lastChainBlockTs("BTC-USD")).toBeUndefined();
+    expect(source.lastChainBlockHeight("BTC-USD")).toBeUndefined();
   });
 
   it("7. bybitEuSpotDepthUsd delegates to pluggable provider", () => {
-    expect(src.bybitEuSpotDepthUsd("BTC-USD", Date.now())).toBe(250_000);
+    expect(source.bybitEuSpotDepthUsd("BTC-USD", Date.now())).toBe(250_000);
     depth.depthUsd = 50_000;
-    expect(src.bybitEuSpotDepthUsd("BTC-USD", Date.now())).toBe(50_000);
+    expect(source.bybitEuSpotDepthUsd("BTC-USD", Date.now())).toBe(50_000);
   });
 
-  it("8. bybitEuSpotDepthUsd returns null when provider returns null", () => {
-    const nullSrc = new MockBybitEuDepthSource();
-    nullSrc.getDepthUsdAt1Pct = () => null;
-    const s2 = new DydxLiveFundingSource(feed as unknown as DydxIndexerFeed, {
+  it("8. bybitEuSpotDepthUsd normalizes unknown depth to undefined", () => {
+    const unknownSource = new MockBybitEuDepthSource();
+    unknownSource.getDepthUsdAt1Pct = () => {
+      return;
+    };
+    const s2 = new DydxLiveFundingSource(feed, {
       cexSymbol: "BTCUSDT",
       cexFundingProvider: cex,
-      bybitEuDepthSource: nullSrc,
+      bybitEuDepthSource: unknownSource,
     });
-    expect(s2.bybitEuSpotDepthUsd("BTC-USD", Date.now())).toBeNull();
+    expect(s2.bybitEuSpotDepthUsd("BTC-USD", Date.now())).toBeUndefined();
   });
 
-  it("9. health() returns a snapshot with lastTickMs:null when no ticks", () => {
-    const h = src.health();
-    expect(h.lastTickMs).toBeNull();
-    expect(h.chainBlockHeight).toBeNull();
+  it("9. health() returns an unobserved snapshot when no ticks", () => {
+    const h = source.health();
+    expect(h.lastTickMs).toBeUndefined();
+    expect(h.chainBlockHeight).toBeUndefined();
   });
 
   it("10. open() opens WebSocket subscriptions and close handle works", () => {
-    const handle = src.open();
+    const handle = source.open();
     expect(feed.subscribeCalls).toContain("BTC-USD");
     handle.close();
     expect(feed.closedConnections).toContain("BTC-USD");
   });
 
-  it("11. subscribe() with non-BTC-USD market throws", () => {
-    // CarryMarket type narrows to "BTC-USD" at compile time, but at runtime
-    // the guard rejects other markets.
-    expect(() => src.subscribe("ETH-USD" as CarryMarket, () => undefined)).toThrow(/ETH-USD/);
-  });
-
-  it("12. subscribe() with BTC-USD returns a no-op handle", () => {
-    const h = src.subscribe("BTC-USD", () => undefined);
-    expect(h.close).toBeDefined();
-    h.close();
-    // No-op: no error, no side effect.
-  });
-
-  it("13. lastChainBlockHeight returns null until first WS message", () => {
-    expect(src.lastChainBlockHeight("BTC-USD")).toBeNull();
-  });
-
-  it("14. lastChainBlockTs updates on first WS message via open()", async () => {
-    const handle = src.open();
-    // Wait for the setTimeout(0) inside MockDydxIndexerFeed.subscribe to fire.
-    await new Promise((r) => setTimeout(r, 10));
-    const ts = src.lastChainBlockTs("BTC-USD");
-    expect(ts).not.toBeNull();
-    const h = src.lastChainBlockHeight("BTC-USD");
-    expect(h).not.toBeNull();
-    expect(h).toBe(1);
+  it("11. subscribe() delivers only an injected authenticated snapshot pair", async () => {
+    const callbackSource = new DydxLiveFundingSource(feed, {
+      snapshotSource: {
+        getLatest: () => ({
+          dydx: { fundingTime: 1, symbol: "BTC-USD", fundingRate: ExactRational.from("0.1") },
+          cex: { fundingTime: 1, symbol: "BTCUSDT", fundingRate: ExactRational.from("0.2") },
+        }),
+      },
+    });
+    const received: FundingSnapshot[] = [];
+    const handle = callbackSource.subscribe("BTC-USD", (snapshots) => { received.push(snapshots.dydx); });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(received[0]?.fundingRate.equals(ExactRational.from("0.1"))).toBe(true);
     handle.close();
   });
 
-  it("15. health() reflects state after first WS message", async () => {
-    const handle = src.open();
+  it("13. lastChainBlockHeight is unobserved until first WS message", () => {
+    expect(source.lastChainBlockHeight("BTC-USD")).toBeUndefined();
+  });
+
+  it("14. lastChainBlockTs reads injected finalized block evidence after open()", async () => {
+    const evidencedSource = new DydxLiveFundingSource(feed, {
+      finalizedBlockEvidenceSource: { getLatest: () => ({ height: 42, timestampMs: 1_700_000_000_000 }) },
+    });
+    const handle = evidencedSource.open();
+    // Wait for the setTimeout(0) inside MockDydxIndexerFeed.subscribe to fire.
     await new Promise((r) => setTimeout(r, 10));
-    const h = src.health();
-    expect(h.lastTickMs).not.toBeNull();
-    expect(h.chainBlockHeight).toBe(1);
+    const ts = evidencedSource.lastChainBlockTs("BTC-USD");
+    expect(ts).toBe(1_700_000_000_000);
+    expect(evidencedSource.lastChainBlockHeight("BTC-USD")).toBe(42);
+    handle.close();
+  });
+
+  it("15. health() reflects authenticated finalized block evidence", async () => {
+    const evidencedSource = new DydxLiveFundingSource(feed, {
+      finalizedBlockEvidenceSource: { getLatest: () => ({ height: 42, timestampMs: 1_700_000_000_000 }) },
+    });
+    const handle = evidencedSource.open();
+    await new Promise((r) => setTimeout(r, 10));
+    const h = evidencedSource.health();
+    expect(h.lastTickMs).toBeDefined();
+    expect(h.chainBlockHeight).toBe(42);
     handle.close();
   });
 
   it("16. default CEX/depth providers (noop) — default constructor uses noop", () => {
-    const defaultSrc = new DydxLiveFundingSource(feed as unknown as DydxIndexerFeed);
-    // NoopCexFundingProvider returns null; NoopBybitEuDepthSource returns null.
+    const defaultSource = new DydxLiveFundingSource(feed);
+    // NoopCexFundingProvider and NoopBybitEuDepthSource return undefined.
     // We can't directly call the private noop classes, but the public
-    // surface must work: bybitEuSpotDepthUsd should return null.
-    expect(defaultSrc.bybitEuSpotDepthUsd("BTC-USD", Date.now())).toBeNull();
+    // surface must work: bybitEuSpotDepthUsd should return undefined.
+    expect(defaultSource.bybitEuSpotDepthUsd("BTC-USD", Date.now())).toBeUndefined();
     // The default CEX funding provider is also a noop — its public
-    // getMostRecent() always returns null. Calling it here exercises
+    // getMostRecent() always returns undefined. Calling it here exercises
     // both the NoopCexFundingProvider constructor (line 101-105) AND
     // its getMostRecent body (line 102-104).
-    expect(defaultSrc.cexFundingProvider.getMostRecent("BTCUSDT", Date.now())).toBeNull();
+    expect(defaultSource.cexFundingProvider.getMostRecent("BTCUSDT", Date.now())).toBeUndefined();
     // The default bybit depth provider is also a noop.
-    expect(defaultSrc.bybitEuDepthSource.getDepthUsdAt1Pct("BTC-USD", Date.now())).toBeNull();
+    expect(defaultSource.bybitEuDepthSource.getDepthUsdAt1Pct("BTC-USD", Date.now())).toBeUndefined();
   });
 
-  it("17. custom logger: each of debug/info/warn/error is called at least once", () => {
+  it("17. custom logger receives constructor, lifecycle, and rejection diagnostics", () => {
     // Phase 35b — verify that a custom logger receives each of the
-    // four log methods via the documented code paths. This is a
+    // documented log methods via the public code paths. This is a
     // public-API contract test: production wiring uses a real logger.
     const calls: { level: string; msg: string }[] = [];
     const customLogger: DydxLiveFundingSourceLogger = {
-      debug: (msg) => { calls.push({ level: "debug", msg }); },
-      info: (msg) => { calls.push({ level: "info", msg }); },
-      warn: (msg) => { calls.push({ level: "warn", msg }); },
-      error: (msg) => { calls.push({ level: "error", msg }); },
+      debug: (message) => { calls.push({ level: "debug", msg: message }); },
+      info: (message) => { calls.push({ level: "info", msg: message }); },
+      warn: (message) => { calls.push({ level: "warn", msg: message }); },
     };
-    const customSrc = new DydxLiveFundingSource(
-      feed as unknown as DydxIndexerFeed,
+    const customSource = new DydxLiveFundingSource(
+      feed,
       { logger: customLogger },
     );
     // Constructor calls debug.
@@ -237,18 +256,16 @@ describe("DydxLiveFundingSource — wire-up", () => {
     // open() calls info, also creates the inline arrows for the
     // close handle. The handle.close() invocation exercises the
     // subscriptions.set value arrow and the return-object close arrow.
-    const handle = customSrc.open();
+    const handle = customSource.open();
     expect(calls.some((c) => c.level === "info")).toBe(true);
-    // _onWsMessage via the mock setTimeout(0) calls error.
-    // Wait for the setTimeout to fire.
+    // The adapter deliberately does not synthesize a block event from a WS tick.
     return new Promise<void>((resolve) => {
       setTimeout(() => {
-        expect(calls.some((c) => c.level === "error")).toBe(true);
         // warn: trigger via a separate instance with bad market.
         calls.length = 0;
         expect(
-          () => new DydxLiveFundingSource(feed as unknown as DydxIndexerFeed, {
-            markets: ["ETH-USD" as DydxMarket],
+          () => new DydxLiveFundingSource(feed, {
+            markets: ["ETH-USD"],
             logger: customLogger,
           }),
         ).toThrow(/ETH-USD/);
@@ -261,40 +278,45 @@ describe("DydxLiveFundingSource — wire-up", () => {
     });
   });
 
-  it("18. lastTickAgeMs/lastChainBlockHeight/lastChainBlockTs non-BTC-USD path returns null", () => {
-    // A CarryMarket típusnál a "BTC-USD" az egyetlen érvényes érték,
-    // de a runtime guard minden más market-et elutasít. Ez a teszt
-    // a `if (market !== "BTC-USD") return null;` ágat explicit
-    // módon triggereli.
-    const nonBtc = "ETH-USD" as CarryMarket;
-    expect(src.lastTickAgeMs(nonBtc, Date.now())).toBeNull();
-    expect(src.lastChainBlockHeight(nonBtc)).toBeNull();
-    expect(src.lastChainBlockTs(nonBtc)).toBeNull();
-  });
-
   it("19. default constructor: explicit health() call (Phase 35b — exercise the `feed.getState('BTC-USD')` path)", () => {
     // A `health()` metódus a `feed.getState("BTC-USD")` hívást csinálja.
     // A fennmaradó lefedetlen function-coverage ágak feltérképezéséhez
     // explicit módon meghívjuk az összes public method-ot.
-    const h = src.health();
-    expect(h).toEqual({ lastTickMs: null, chainBlockHeight: null });
+    const h = source.health();
+    expect(h).toEqual({ lastTickMs: undefined, chainBlockHeight: undefined });
   });
 
   it("20. exhaustive method coverage: hívj meg MINDEN public method-ot", () => {
     // Phase 35b — function-coverage mandate. Ez a teszt az összes
     // public method-ot explicit módon meghívja, hogy minden function
     // tracked legyen a coverage tool-ban.
-    const h = src.health();
-    const h2 = src.bybitEuSpotDepthUsd("BTC-USD", Date.now());
-    const h3 = src.lastTickAgeMs("BTC-USD", Date.now());
-    const h4 = src.lastChainBlockHeight("BTC-USD");
-    const h5 = src.lastChainBlockTs("BTC-USD");
-    const h6 = src.subscribe("BTC-USD", () => undefined);
+    const h = source.health();
+    const h2 = source.bybitEuSpotDepthUsd("BTC-USD", Date.now());
+    const h3 = source.lastTickAgeMs("BTC-USD", Date.now());
+    const h4 = source.lastChainBlockHeight("BTC-USD");
+    const h5 = source.lastChainBlockTs("BTC-USD");
+    const h6 = source.subscribe("BTC-USD", noOpTick);
     h6.close();
     expect(h).toBeDefined();
     expect(h2).toBe(250_000);
-    expect(h3).toBeNull();
-    expect(h4).toBeNull();
-    expect(h5).toBeNull();
+    expect(h3).toBeUndefined();
+    expect(h4).toBeUndefined();
+    expect(h5).toBeUndefined();
+  });
+
+  it("opens once without listeners and reuses its subscription", async () => {
+    const snapshotSource = new DydxLiveFundingSource(feed, {
+      snapshotSource: {
+        getLatest: () => ({
+          dydx: { fundingTime: 1, symbol: "BTC-USD", fundingRate: ExactRational.from("0.1") },
+          cex: { fundingTime: 1, symbol: "BTCUSDT", fundingRate: ExactRational.from("0.2") },
+        }),
+      },
+    });
+    const first = snapshotSource.open();
+    snapshotSource.open();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(feed.subscribeCalls.filter((market) => market === "BTC-USD")).toHaveLength(1);
+    first.close();
   });
 });

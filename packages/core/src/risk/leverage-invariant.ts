@@ -1,42 +1,50 @@
-// Enforces the aggregate effective-leverage limit for a position set.
+// Aggregate effective-exposure risk guard.
+//
+// Independently applies a numeric aggregate exposure cap. It does not select,
+// validate, or compare immutable session-selected leverage. Its numeric inputs
+// are not exact valuation.
 
 // ----------------------------------------------------------------------
 // Type definitions
 // ----------------------------------------------------------------------
 
 /**
- * `ONE_TO_TEN_LEVERAGE` — the single source of truth for the user's
- * 1:10 leverage mandate. Every component that needs to know the cap
- * MUST import this constant (NOT hard-code 10).
+ * `DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE` is the default numeric
+ * aggregate effective-exposure cap. Its value is independent of session
+ * selected leverage.
  *
  * `as const` narrows to the literal type so downstream comparisons
  * are type-safe.
  */
-export const ONE_TO_TEN_LEVERAGE = 10 as const;
+export const DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE = 10 as const;
 
 /**
- * `ONE_X_LEVERAGE` — the backtest baseline reference (1× = unlevered).
- * The portfolio risk engine treats 1× as the "no leverage applied"
- * reference for diagnostic comparisons (per-strategy VaR at 1× vs at
- * 10×), NOT as a permitted production state.
+ * Compatibility alias for consumers of the fixed selected-leverage constant.
+ * It reuses the aggregate effective-exposure value without changing selected
+ * leverage validation or configuration semantics.
  */
-export const ONE_X_LEVERAGE = 1 as const;
+export const ONE_TO_TEN_LEVERAGE = DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE;
 
 /**
- * `LeverageInvariantConfig` — knobs for the leverage invariant guard.
+ * `MINIMUM_MAX_AGGREGATE_EFFECTIVE_LEVERAGE` is a numeric reference for aggregate-exposure diagnostics.
+ */
+export const MINIMUM_MAX_AGGREGATE_EFFECTIVE_LEVERAGE = 1 as const;
+
+/**
+ * `AggregateEffectiveExposureLimit` — aggregate effective-exposure limit settings.
  *
- * Defaults enforce the aggregate leverage limit:
- *   - `maxLeverage = 10` (the 1:10 cap, single source of truth)
- *   - `tolerance = 0` — aggregate exposure has no slack
+ * Defaults retain the numeric aggregate exposure cap:
+ *   - `maxAggregateEffectiveLeverage = 10`
+ *   - `tolerance = 0` — the aggregate exposure boundary has no slack
  *   - `warnOnApproach = 0.95` — when aggregate reaches 95% of cap,
  *     emit a warning signal (informational, not a breach). This gives
  *     the operator early visibility before the cap is hit.
  */
-export interface LeverageInvariantConfig {
+export interface AggregateEffectiveExposureLimit {
   /**
-  Maximum permitted effective leverage (1:10 = 10).
+  Maximum aggregate effective exposure ratio.
   */
-  readonly maxLeverage: number;
+  readonly maxAggregateEffectiveLeverage: number;
   /**
   Must be canonical positive zero. Aggregate exposure has no tolerance.
   */
@@ -48,16 +56,16 @@ export interface LeverageInvariantConfig {
 }
 
 /**
- * `DEFAULT_LEVERAGE_INVARIANT_CONFIG` — the production defaults.
+ * `DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT` — aggregate guard defaults.
  *
- * `maxLeverage: 10` is the 1:10 mandate cap. `tolerance: 0` and `warnOnApproach: 0.95`
- * fires a warning at 9.5× effective leverage.
+ * `maxAggregateEffectiveLeverage: 10` is the default numeric cap. `warnOnApproach: 0.95`
+ * fires a warning at 95% of that cap.
  */
-export const DEFAULT_LEVERAGE_INVARIANT_CONFIG: LeverageInvariantConfig = {
-  maxLeverage: ONE_TO_TEN_LEVERAGE,
+export const DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT: AggregateEffectiveExposureLimit = Object.freeze({
+  maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE,
   tolerance: 0,
   warnOnApproach: 0.95,
-};
+});
 
 /**
  * `Position` — minimal position representation needed by the invariant
@@ -78,23 +86,23 @@ export interface Position {
 }
 
 /**
- * `LeverageBreachError` — custom error class for invariant violations.
+ * `AggregateEffectiveExposureLimitBreachError` — custom error class for invariant violations.
  *
- * Carries the offending numbers (computed leverage, base capital, max)
+ * Carries the offending numbers (computed effective leverage, base capital, max)
  * so the caller can log structured diagnostics. The `name` property
  * differentiates it from generic `Error` for runtime discrimination.
  */
-export class LeverageBreachError extends Error {
-  override readonly name = "LeverageBreachError";
+export class AggregateEffectiveExposureLimitBreachError extends Error {
+  override readonly name = "AggregateEffectiveExposureLimitBreachError";
   constructor(
     message: string,
-    readonly computedLeverage: number,
+    readonly computedEffectiveLeverage: number,
     readonly baseCapital: number,
-    readonly maxLeverage: number,
+    readonly maxAggregateEffectiveLeverage: number,
   ) {
     super(message);
     // Restore prototype chain (required when extending Error in TS + ESM).
-    Object.setPrototypeOf(this, LeverageBreachError.prototype);
+    Object.setPrototypeOf(this, AggregateEffectiveExposureLimitBreachError.prototype);
   }
 }
 
@@ -103,11 +111,10 @@ export class LeverageBreachError extends Error {
 // ----------------------------------------------------------------------
 
 /**
- * `computeEffectiveLeverage` — sum signed effective notionals and divide
- * by base capital. Returns the AGGREGATE effective leverage across all
- * positions (matches what the user actually experiences as leverage on
- * capital). Absolute-value aware: a +$50k long + a $50k short = 0
- * (perfectly hedged), not $100k.
+ * `computeEffectiveLeverage` — sum absolute effective notionals and divide
+ * by base capital. Returns the gross aggregate effective leverage across all
+ * positions. A +$50k long and a -$50k short therefore count as $100k of
+ * gross exposure; they do not cancel.
  *
  * Defensive guards:
  *   - Non-finite inputs → throw (suggests upstream bug)
@@ -123,9 +130,6 @@ export function computeEffectiveLeverage(positions: readonly Position[], baseCap
   if (baseCapital <= 0) {
     throw new Error(`baseCapital must be positive, got ${String(baseCapital)}`);
   }
-  if (positions.length === 0) {
-    return 0;
-  }
   let sumNotional = 0;
   for (const p of positions) {
     if (!Number.isFinite(p.effectiveNotionalUsd)) {
@@ -138,13 +142,60 @@ export function computeEffectiveLeverage(positions: readonly Position[], baseCap
   return sumNotional / baseCapital;
 }
 
+interface AggregateEffectiveExposureLimitSnapshot {
+  readonly maxAggregateEffectiveLeverage: number;
+  readonly tolerance: number;
+  readonly warnOnApproach: number;
+}
+
+const INVALID_AGGREGATE_EFFECTIVE_EXPOSURE_CONFIGURATION =
+  "[leverage-invariant] Aggregate exposure configuration is invalid.";
+
+function snapshotAggregateEffectiveExposureLimit(config: unknown): AggregateEffectiveExposureLimitSnapshot {
+  try {
+    if (typeof config !== "object" || config === null) {
+      throw new TypeError(INVALID_AGGREGATE_EFFECTIVE_EXPOSURE_CONFIGURATION);
+    }
+
+    const maxAggregateEffectiveLeverage: unknown = Reflect.get(config, "maxAggregateEffectiveLeverage");
+    const tolerance: unknown = Reflect.get(config, "tolerance");
+    const warnOnApproach: unknown = Reflect.get(config, "warnOnApproach");
+
+    if (
+      typeof maxAggregateEffectiveLeverage !== "number" ||
+      typeof tolerance !== "number" ||
+      typeof warnOnApproach !== "number"
+    ) {
+      throw new TypeError(INVALID_AGGREGATE_EFFECTIVE_EXPOSURE_CONFIGURATION);
+    }
+    if (
+      !Number.isFinite(maxAggregateEffectiveLeverage) ||
+      !Number.isFinite(tolerance) ||
+      !Number.isFinite(warnOnApproach)
+    ) {
+      throw new TypeError(INVALID_AGGREGATE_EFFECTIVE_EXPOSURE_CONFIGURATION);
+    }
+    if (
+      maxAggregateEffectiveLeverage <= 0 ||
+      !Object.is(tolerance, 0) ||
+      warnOnApproach < 0 ||
+      warnOnApproach > 1
+    ) {
+      throw new TypeError(INVALID_AGGREGATE_EFFECTIVE_EXPOSURE_CONFIGURATION);
+    }
+
+    return Object.freeze({ maxAggregateEffectiveLeverage, tolerance, warnOnApproach });
+  } catch (error) {
+    throw new TypeError(INVALID_AGGREGATE_EFFECTIVE_EXPOSURE_CONFIGURATION, { cause: error });
+  }
+}
+
 /**
- * `assertLeverageInvariant` — HARD GUARDRAIL. Throws
- * `LeverageBreachError` if the AGGREGATE effective leverage exceeds
- * `config.maxLeverage`.
+ * `assertAggregateEffectiveExposureLimit` — HARD GUARDRAIL. Throws
+ * `AggregateEffectiveExposureLimitBreachError` if the AGGREGATE effective leverage exceeds
+ * `config.maxAggregateEffectiveLeverage`.
  *
- * This is the 3rd defense-in-depth layer for the 1:10 mandate.
- * It is intentionally simple and dumb: it does NOT reason about
+ * This guard is independent of selected leverage. It does not reason about
  * strategy logic, hedge ratios, or correlation — it just sums
  * notionals and asserts. Per OpenAlgo guidance, "the gate is
  * deliberately dumb, independent of the signal, and easy to reason
@@ -156,63 +207,12 @@ export function computeEffectiveLeverage(positions: readonly Position[], baseCap
  * @param totalEffectiveNotional Aggregate effective notional in USD
  *                               (can be pre-summed by caller).
  * @param baseCapital             Base capital in USD.
- * @param config                  Invariant config (defaults to 1:10).
+ * @param config                  Aggregate exposure guard configuration.
  */
-interface LeverageInvariantConfigSnapshot {
-  readonly maxLeverage: number;
-  readonly tolerance: number;
-  readonly warnOnApproach: number;
-}
-
-const INVALID_LEVERAGE_INVARIANT_CONFIGURATION = "[leverage-invariant] Leverage configuration is invalid.";
-
-function snapshotLeverageInvariantConfig(config: unknown): LeverageInvariantConfigSnapshot {
-  try {
-    if (typeof config !== "object" || config === null) {
-      throw new TypeError(INVALID_LEVERAGE_INVARIANT_CONFIGURATION);
-    }
-
-    const maxLeverage: unknown = Reflect.get(config, "maxLeverage");
-    const tolerance: unknown = Reflect.get(config, "tolerance");
-    const warnOnApproach: unknown = Reflect.get(config, "warnOnApproach");
-
-    if (
-      typeof maxLeverage !== "number" ||
-      typeof tolerance !== "number" ||
-      typeof warnOnApproach !== "number" ||
-      !Number.isFinite(maxLeverage) ||
-      !Number.isFinite(tolerance) ||
-      !Number.isFinite(warnOnApproach) ||
-      maxLeverage <= 0 ||
-      !Object.is(tolerance, 0) ||
-      warnOnApproach < 0 ||
-      warnOnApproach > 1
-    ) {
-      throw new TypeError(INVALID_LEVERAGE_INVARIANT_CONFIGURATION);
-    }
-
-    return Object.freeze({ maxLeverage, tolerance, warnOnApproach });
-  } catch (error) {
-    throw new TypeError(INVALID_LEVERAGE_INVARIANT_CONFIGURATION, { cause: error });
-  }
-}
-
-export function assertLeverageInvariant(
+export function assertAggregateEffectiveExposureLimit(
   totalEffectiveNotional: number,
   baseCapital: number,
-  config: LeverageInvariantConfig = DEFAULT_LEVERAGE_INVARIANT_CONFIG,
-): void {
-  assertLeverageInvariantWithinLimit(
-    totalEffectiveNotional,
-    baseCapital,
-    snapshotLeverageInvariantConfig(config),
-  );
-}
-
-function assertLeverageInvariantWithinLimit(
-  totalEffectiveNotional: number,
-  baseCapital: number,
-  limit: LeverageInvariantConfigSnapshot,
+  config: AggregateEffectiveExposureLimit = DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT,
 ): void {
   // Defensive input validation — refuse non-finite / NaN / Infinity
   if (!Number.isFinite(totalEffectiveNotional)) {
@@ -235,22 +235,23 @@ function assertLeverageInvariantWithinLimit(
       `[leverage-invariant] totalEffectiveNotional must be non-negative, got ${String(totalEffectiveNotional)}`,
     );
   }
+  const limit = snapshotAggregateEffectiveExposureLimit(config);
   const computedLeverage = totalEffectiveNotional / baseCapital;
-  if (computedLeverage > limit.maxLeverage) {
-    throw new LeverageBreachError(
-      `[leverage-invariant] 1:10 MANDATE BREACH: aggregate effective leverage ` +
-        `${String(computedLeverage)}× exceeds max ${String(limit.maxLeverage)}× ` +
+  if (computedLeverage > limit.maxAggregateEffectiveLeverage) {
+    throw new AggregateEffectiveExposureLimitBreachError(
+      `[leverage-invariant] AGGREGATE EFFECTIVE-EXPOSURE BREACH: aggregate effective leverage ` +
+        `${String(computedLeverage)}× exceeds max ${String(limit.maxAggregateEffectiveLeverage)}× ` +
         `(totalEffectiveNotional=${String(totalEffectiveNotional)}, baseCapital=${String(baseCapital)}). ` +
         `Refusing to proceed. Reduce position sizes or add base capital.`,
       computedLeverage,
       baseCapital,
-      limit.maxLeverage,
+      limit.maxAggregateEffectiveLeverage,
     );
   }
 }
 
 /**
- * `checkLeverageApproach` — soft check: returns true when aggregate
+ * `isAggregateEffectiveExposureApproachingLimit` — soft check: returns true when aggregate
  * leverage has reached `warnOnApproach` fraction of the cap. This is
  * the early-warning signal for monitoring dashboards (NOT a breach).
  *
@@ -259,54 +260,44 @@ function assertLeverageInvariantWithinLimit(
  *
  * Pure function.
  */
-export function isLeverageApproach(
+export function isAggregateEffectiveExposureApproachingLimit(
   totalEffectiveNotional: number,
   baseCapital: number,
-  config: LeverageInvariantConfig = DEFAULT_LEVERAGE_INVARIANT_CONFIG,
-): boolean {
-  return isLeverageApproachWithinLimit(
-    totalEffectiveNotional,
-    baseCapital,
-    snapshotLeverageInvariantConfig(config),
-  );
-}
-
-function isLeverageApproachWithinLimit(
-  totalEffectiveNotional: number,
-  baseCapital: number,
-  limit: LeverageInvariantConfigSnapshot,
+  config: AggregateEffectiveExposureLimit = DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT,
 ): boolean {
   if (!Number.isFinite(totalEffectiveNotional) || !Number.isFinite(baseCapital)) {
+    snapshotAggregateEffectiveExposureLimit(config);
     return false;
   }
   if (baseCapital <= 0 || totalEffectiveNotional < 0) {
+    snapshotAggregateEffectiveExposureLimit(config);
     return false;
   }
+  const limit = snapshotAggregateEffectiveExposureLimit(config);
   const computedLeverage = totalEffectiveNotional / baseCapital;
   return (
-    computedLeverage >= limit.maxLeverage * limit.warnOnApproach && computedLeverage <= limit.maxLeverage
+    computedLeverage >= limit.maxAggregateEffectiveLeverage * limit.warnOnApproach &&
+    computedLeverage <= limit.maxAggregateEffectiveLeverage
   );
 }
 
-export { isLeverageApproach as checkLeverageApproach };
-
 /**
- * `assertPositionsInvariant` — convenience wrapper that calls
- * `computeEffectiveLeverage` then `assertLeverageInvariant`. Useful
+ * `assertAggregatePositionsEffectiveExposureLimit` — convenience wrapper that calls
+ * `computeEffectiveLeverage` then `assertAggregateEffectiveExposureLimit`. Useful
  * when the caller has a list of `Position` objects and wants a single
  * call to validate the aggregate.
  *
  * Pure function (throws on violation).
  */
-export function assertPositionsInvariant(
+export function assertAggregatePositionsEffectiveExposureLimit(
   positions: readonly Position[],
   baseCapital: number,
-  config: LeverageInvariantConfig = DEFAULT_LEVERAGE_INVARIANT_CONFIG,
+  config: AggregateEffectiveExposureLimit = DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT,
 ): number {
   const totalEffectiveNotional = positions.reduce(
     (accumulator, p) => accumulator + Math.abs(p.effectiveNotionalUsd),
     0,
   );
-  assertLeverageInvariant(totalEffectiveNotional, baseCapital, config);
+  assertAggregateEffectiveExposureLimit(totalEffectiveNotional, baseCapital, config);
   return totalEffectiveNotional / baseCapital;
 }

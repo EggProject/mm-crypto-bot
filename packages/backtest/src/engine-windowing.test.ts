@@ -4,7 +4,7 @@ import type { Strategy, StrategyContext, StrategySignal } from "@mm-crypto-bot/c
 import type { Candle, Timeframe } from "@mm-crypto-bot/shared/types";
 
 import { runBacktest } from "./engine.js";
-import { noSignal, requireFirst } from "./engine-scenarios.test-support.js";
+import { requireFirst } from "./engine-scenarios.test-support.js";
 import type { BacktestOptions, CostModel, ExchangeFeed } from "./types.js";
 
 const HOUR = 60 * 60 * 1000;
@@ -58,13 +58,13 @@ class RecordingStrategy implements Strategy {
   readonly timeframes = ["1h"] as const;
   readonly seen: { timestamp: number; htfClose: number | undefined; mtfClose: number | undefined }[] = [];
 
-  onCandle(context: StrategyContext): StrategySignal | null {
+  onCandle(context: StrategyContext): StrategySignal | undefined {
     this.seen.push({
       timestamp: context.candle.timestamp,
       htfClose: context.mtfState.htf.close,
       mtfClose: context.mtfState.mtf.close,
     });
-    return noSignal();
+    return undefined;
   }
 
   warmup(): number {
@@ -82,8 +82,8 @@ class OpenOnceStrategy implements Strategy {
     private readonly takeProfit: number,
   ) {}
 
-  onCandle(_context: StrategyContext): StrategySignal | null {
-    if (this.opened) return noSignal();
+  onCandle(_context: StrategyContext): StrategySignal | undefined {
+    if (this.opened) return undefined;
     this.opened = true;
     return {
       side: "buy",

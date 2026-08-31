@@ -1,18 +1,15 @@
-/**
- * apps/bot/src/cli/commands/config.test.ts
- *
- */
-
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import path from "node:path";
+import nodePath from "node:path";
 
+import { DEFAULT_BOT_CONFIG } from "../../config/defaults.js";
 import { parseArgv } from "../argv.js";
-import { configCommand } from "./config.js";
+
+import { configCommand, createConfigCommand, runConfigInit, type ConfigFileBoundary } from "./config.js";
 
 const fileSystem = await import("node:fs");
-const join = (...pathNames: readonly string[]): string => path.join(...pathNames);
+const defaultTemplatePath = nodePath.resolve("run-bot/config/default.toml");
 
 /**
  * `runConfig` — helper that runs the `config` subcommand with the given
@@ -23,56 +20,47 @@ async function runConfig(argv: readonly string[]): Promise<number> {
   return configCommand(parsed, {});
 }
 
-function createRuntimeTemplate(): () => void {
-  const runtimeRoot = mkdtempSync(path.join(tmpdir(), "mm-runtime-root-"));
-  const templateDirectory = path.join(runtimeRoot, "config");
-  const originalRuntimeRoot = process.env["MM_CRYPTO_BOT_RUNTIME_ROOT"];
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- This exact directory is a child of this test's fresh mkdtemp root.
-  mkdirSync(templateDirectory);
-  fileSystem.writeFileSync(join(templateDirectory, "default.toml"), '[bot]\nmode = "paper"\n', "utf8");
-  process.env["MM_CRYPTO_BOT_RUNTIME_ROOT"] = runtimeRoot;
-  return () => {
-    if (originalRuntimeRoot === undefined) delete process.env["MM_CRYPTO_BOT_RUNTIME_ROOT"];
-    else process.env["MM_CRYPTO_BOT_RUNTIME_ROOT"] = originalRuntimeRoot;
-    rmSync(runtimeRoot, { recursive: true, force: true });
+function createNonErrorFailure(message: string): Error & { readonly toString: () => string } {
+  return {
+    name: "NonErrorFailure",
+    message,
+    toString: () => message,
   };
 }
 
 describe("configCommand", () => {
   // Capture console output so we can assert on it.
-  let logSpy: { mockRestore: () => void };
-  let errorSpy: { mockRestore: () => void };
+  let restoreOutputSpies: (() => void) | undefined;
   let logged: string[] = [];
   let errored: string[] = [];
 
   beforeEach(() => {
     logged = [];
     errored = [];
-    logSpy = spyOn(console, "log").mockImplementation((...arguments_: unknown[]) => {
-      logged.push(
-        arguments_.map((argument) => (typeof argument === "string" ? argument : String(argument))).join(" "),
-      );
+    const logSpy = spyOn(console, "log").mockImplementation((...values: unknown[]) => {
+      logged.push(values.map((value) => (typeof value === "string" ? value : String(value))).join(" "));
     });
-    errorSpy = spyOn(console, "error").mockImplementation((...arguments_: unknown[]) => {
-      errored.push(
-        arguments_.map((argument) => (typeof argument === "string" ? argument : String(argument))).join(" "),
-      );
+    const errorSpy = spyOn(console, "error").mockImplementation((...values: unknown[]) => {
+      errored.push(values.map((value) => (typeof value === "string" ? value : String(value))).join(" "));
     });
+    restoreOutputSpies = () => {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    };
   });
 
   afterEach(() => {
-    logSpy.mockRestore();
-    errorSpy.mockRestore();
+    restoreOutputSpies?.();
   });
 
   // --------------------------------------------------------------------------
   // 1) validate with a valid TOML → returns 0 + "OK"
   // --------------------------------------------------------------------------
   it("validate returns 0 with a valid config file", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-"));
-    const path = join(directory, "valid.toml");
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-"));
+    const configPath = nodePath.join(directory, "valid.toml");
     fileSystem.writeFileSync(
-      path,
+      configPath,
       `
 [bot]
 mode = "paper"
@@ -80,15 +68,17 @@ log_level = "info"
 
 [risk]
 risk_per_trade = 0.01
-max_leverage = 5
+max_leverage = 10
 `,
       "utf8",
     );
     try {
-      const code = await runConfig(["config", "validate", `--config=${path}`]);
+      const code = await runConfig(["config", "validate", `--config=${configPath}`]);
       expect(code).toBe(0);
       const text = logged.join("\n");
       expect(text).toContain("OK");
+      expect(text).toContain(`config: ${configPath}`);
+      expect(text).not.toContain("config: <defaults>");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
@@ -98,10 +88,10 @@ max_leverage = 5
   // 2) validate with max_leverage=15 → returns 2
   // --------------------------------------------------------------------------
   it("validate returns 2 on invalid config (max_leverage=15)", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-"));
-    const path = join(directory, "bad.toml");
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-"));
+    const configPath = nodePath.join(directory, "bad.toml");
     fileSystem.writeFileSync(
-      path,
+      configPath,
       `
 [risk]
 max_leverage = 15
@@ -109,7 +99,7 @@ max_leverage = 15
       "utf8",
     );
     try {
-      const code = await runConfig(["config", "validate", `--config=${path}`]);
+      const code = await runConfig(["config", "validate", `--config=${configPath}`]);
       expect(code).toBe(2);
       const text = errored.join("\n");
       expect(text).toContain("validation FAILED");
@@ -119,45 +109,62 @@ max_leverage = 15
   });
 
   // --------------------------------------------------------------------------
-  // 3) validate with no --config → returns 0 (defaults)
+  // 3) validate with no --config → fails closed when no runtime root resolves
   // --------------------------------------------------------------------------
-  it("validate loads the external runtime template when --config is absent", async () => {
-    const cleanup = createRuntimeTemplate();
-    try {
-      const code = await runConfig(["config", "validate"]);
-      expect(code).toBe(0);
-      expect(logged.join("\n")).toContain("OK");
-    } finally {
-      cleanup();
-    }
+  it("validate fails before loading when no default runtime root is available", async () => {
+    let loadCalls = 0;
+    const command = createConfigCommand({
+      loadConfig: () => {
+        loadCalls += 1;
+        return DEFAULT_BOT_CONFIG;
+      },
+      resolveRuntimeRoot: () => ({
+        ok: false,
+        error: { code: "runtime-root-missing", message: "Runtime configuration root is unavailable." },
+      }),
+    });
+
+    expect(await command(parseArgv(["config", "validate"]), {})).toBe(2);
+    expect(loadCalls).toBe(0);
   });
 
-  // --------------------------------------------------------------------------
-  // 4) show prints the effective config
-  // --------------------------------------------------------------------------
-  it("show renders the external runtime template when --config is absent", async () => {
-    const cleanup = createRuntimeTemplate();
-    try {
-      const code = await runConfig(["config", "show"]);
-      expect(code).toBe(0);
-      const text = logged.join("\n");
-      expect(text).toContain("[bot]");
-      expect(text).toContain("[risk]");
-      expect(text).toContain("[strategies.");
-      expect(text).toContain("max_leverage = 10");
-    } finally {
-      cleanup();
-    }
+  it("validate loads and reports the resolved external runtime-root path", async () => {
+    const runtimeConfigPath = "/var/lib/mm-bot/config/default.toml";
+    const command = createConfigCommand({
+      loadConfig: (configPath) => {
+        expect(configPath).toBe(runtimeConfigPath);
+        return DEFAULT_BOT_CONFIG;
+      },
+      resolveRuntimeRoot: () => ({ ok: true, runtimeRoot: "/var/lib/mm-bot", configPath: runtimeConfigPath }),
+    });
+
+    expect(await command(parseArgv(["config", "validate"]), {})).toBe(0);
+    expect(logged.join("\n")).toContain(`config: ${runtimeConfigPath}`);
+    expect(logged.join("\n")).not.toContain("config: <defaults>");
+  });
+
+  it("show prints the effective config as TOML", async () => {
+    const code = await runConfig(["config", "show", `--config=${defaultTemplatePath}`]);
+    expect(code).toBe(0);
+    const text = logged.join("\n");
+    expect(text).toContain("[bot]");
+    expect(text).toContain("[risk]");
+    expect(text).toContain("[strategies.");
+    expect(text).toContain("max_leverage = 10");
+    expect(text).not.toContain("sandbox =");
+    expect(text).toContain("notional_per_leg_usd = 125000");
+    expect(text).toContain("max_notional_per_event_usd = 1000000");
+    expect(text).toContain("cooldown_hours = 24");
   });
 
   // --------------------------------------------------------------------------
   // 5) show fails (return 2) on invalid config
   // --------------------------------------------------------------------------
   it("show returns 2 on invalid config", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-"));
-    const path = join(directory, "bad.toml");
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-"));
+    const configPath = nodePath.join(directory, "bad.toml");
     fileSystem.writeFileSync(
-      path,
+      configPath,
       `
 [risk]
 max_leverage = 50
@@ -165,9 +172,65 @@ max_leverage = 50
       "utf8",
     );
     try {
-      const code = await runConfig(["config", "show", `--config=${path}`]);
+      const code = await runConfig(["config", "show", `--config=${configPath}`]);
       expect(code).toBe(2);
     } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 6) init --out=/tmp/... writes a file
+  // --------------------------------------------------------------------------
+  it("init --out=<path> writes a default config file", async () => {
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-init-"));
+    const out = nodePath.join(directory, "out.toml");
+    try {
+      const code = await runConfig(["config", "init", `--config=${defaultTemplatePath}`, `--out=${out}`]);
+      expect(code).toBe(0);
+      expect(fileSystem.existsSync(out)).toBe(true);
+      const content = fileSystem.readFileSync(out, "utf8");
+      expect(content.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 7) init refuses to overwrite an existing file
+  // --------------------------------------------------------------------------
+  it("init refuses to overwrite an existing file", async () => {
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-init-"));
+    const out = nodePath.join(directory, "exists.toml");
+    fileSystem.writeFileSync(out, "existing-content", "utf8");
+    try {
+      const code = await runConfig(["config", "init", `--config=${defaultTemplatePath}`, `--out=${out}`]);
+      expect(code).toBe(1);
+      // File content is unchanged
+      expect(fileSystem.readFileSync(out, "utf8")).toBe("existing-content");
+      const text = errored.join("\n");
+      expect(text).toContain("Refusing to overwrite");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("init uses its default output path independently of cwd", async () => {
+    // The target is deliberately CWD-relative, but the canonical source
+    // template must be resolved relative to the module. This regression
+    // catches suite-order/process.chdir leakage in the init path.
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-init-cwd-"));
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(directory);
+      const code = await runConfig(["config", "init", `--config=${defaultTemplatePath}`]);
+      expect(code).toBe(0);
+      expect(fileSystem.existsSync(nodePath.join(directory, "mm-bot.toml"))).toBe(true);
+      expect(fileSystem.readFileSync(nodePath.join(directory, "mm-bot.toml"), "utf8").length).toBeGreaterThan(
+        0,
+      );
+    } finally {
+      process.chdir(originalCwd);
       rmSync(directory, { recursive: true, force: true });
     }
   });
@@ -209,35 +272,27 @@ max_leverage = 50
   });
 
   // --------------------------------------------------------------------------
-  // 12) show with passthrough field (custom string + number + array)
+  // 12) show rejects an unknown strategy field
   // --------------------------------------------------------------------------
-  it("show renders passthrough fields (string, number, array)", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-passthru-"));
-    const path = join(directory, "pass.toml");
+  it("show returns 2 and reports an unknown strategy field", async () => {
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-unknown-strategy-field-"));
+    const configPath = nodePath.join(directory, "invalid.toml");
     fileSystem.writeFileSync(
-      path,
+      configPath,
       `
 [strategies.donchian_pivot_composition]
 enabled = true
 custom_string = "hello-world"
-custom_number = 42
-custom_boolean = true
-custom_array = ["a", 2, false]
-
-[strategies.donchian_pivot_composition.custom_object]
-ignored = "nested"
 `,
       "utf8",
     );
     try {
-      const code = await runConfig(["config", "show", `--config=${path}`]);
-      expect(code).toBe(0);
-      const text = logged.join("\n");
-      expect(text).toContain(`custom_string = "hello-world"`);
-      expect(text).toContain(`custom_number = 42`);
-      expect(text).toContain(`custom_boolean = true`);
-      expect(text).toContain(`custom_array = ["a", 2, false]`);
-      expect(text).not.toContain("custom_object");
+      const code = await runConfig(["config", "show", `--config=${configPath}`]);
+      expect(code).toBe(2);
+      const text = errored.join("\n");
+      expect(text).toContain("Config validation FAILED:");
+      expect(text).toContain("strategies.donchian_pivot_composition");
+      expect(text).toContain("Unrecognized key(s) in object: 'custom_string'");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
@@ -247,10 +302,10 @@ ignored = "nested"
   // 13) show with timeframes set on a strategy
   // --------------------------------------------------------------------------
   it("show renders timeframes block when htf/mtf/ltf are set", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-tf-"));
-    const path = join(directory, "tf.toml");
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-timeframes-"));
+    const configPath = nodePath.join(directory, "tf.toml");
     fileSystem.writeFileSync(
-      path,
+      configPath,
       `
 [strategies.donchian_pivot_composition]
 enabled = true
@@ -263,7 +318,7 @@ ltf = "15m"
       "utf8",
     );
     try {
-      const code = await runConfig(["config", "show", `--config=${path}`]);
+      const code = await runConfig(["config", "show", `--config=${configPath}`]);
       expect(code).toBe(0);
       const text = logged.join("\n");
       expect(text).toContain(`[strategies.donchian_pivot_composition.timeframes]`);
@@ -276,48 +331,21 @@ ltf = "15m"
   });
 
   // --------------------------------------------------------------------------
-  // 13b) show with per-strategy symbols (array) renders
-  // --------------------------------------------------------------------------
-  it("show renders per-strategy symbols array", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-syms-"));
-    const path = join(directory, "syms.toml");
-    fileSystem.writeFileSync(
-      path,
-      `
-[strategies.donchian_pivot_composition]
-enabled = true
-leverage = 7
-symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
-`,
-      "utf8",
-    );
-    try {
-      const code = await runConfig(["config", "show", `--config=${path}`]);
-      expect(code).toBe(0);
-      const text = logged.join("\n");
-      expect(text).toContain("leverage = 7");
-      expect(text).toContain(`symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]`);
-    } finally {
-      rmSync(directory, { recursive: true, force: true });
-    }
-  });
-
-  // --------------------------------------------------------------------------
   // 14) validate with an unreadable file (non-ConfigError) → returns 1
   // --------------------------------------------------------------------------
   it("validate returns 1 on non-ConfigError (e.g. file system error)", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "mm-bot-cfg-unreadable-"));
-    const path = join(directory, "unreadable.toml");
-    fileSystem.writeFileSync(path, "valid-toml-content", "utf8");
-    fileSystem.chmodSync(path, 0o000);
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-unreadable-"));
+    const configPath = nodePath.join(directory, "unreadable.toml");
+    fileSystem.writeFileSync(configPath, "valid-toml-content", "utf8");
+    fileSystem.chmodSync(configPath, 0o000);
     try {
-      const code = await runConfig(["config", "validate", `--config=${path}`]);
+      const code = await runConfig(["config", "validate", `--config=${configPath}`]);
       // On macOS root can read 0o000, but most CI runners cannot. Accept
       // either 1 (non-ConfigError path) or 2 (ConfigError path) — both
       // are non-zero, which is what matters for a failed validate.
       expect(code).not.toBe(0);
     } finally {
-      fileSystem.chmodSync(path, 0o644);
+      fileSystem.chmodSync(configPath, 0o644);
       rmSync(directory, { recursive: true, force: true });
     }
   });
@@ -330,21 +358,17 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
     // in runValidate must fall through to the `else` branch (returns 1,
     // prints "Unexpected error...").
     const loader = await import("../../config/loader.js");
-    const original = loader.loadBotConfig;
     const mock = spyOn(loader, "loadBotConfig").mockImplementation(() => {
       throw new Error("simulated runtime failure");
     });
-    const cleanup = createRuntimeTemplate();
     try {
-      const code = await runConfig(["config", "validate"]);
+      const code = await runConfig(["config", "validate", `--config=${defaultTemplatePath}`]);
       expect(code).toBe(1);
       const text = errored.join("\n");
       expect(text).toContain("Unexpected error");
       expect(text).toContain("simulated runtime failure");
     } finally {
       mock.mockRestore();
-      void original;
-      cleanup();
     }
   });
 
@@ -353,32 +377,108 @@ symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
     const mock = spyOn(loader, "loadBotConfig").mockImplementation(() => {
       throw new Error("simulated runtime failure");
     });
-    const cleanup = createRuntimeTemplate();
     try {
-      const code = await runConfig(["config", "show"]);
+      const code = await runConfig(["config", "show", `--config=${defaultTemplatePath}`]);
       expect(code).toBe(1);
       const text = errored.join("\n");
       expect(text).toContain("Unexpected error");
     } finally {
       mock.mockRestore();
-      cleanup();
     }
   });
 
-  it("renders plain-string loader failures for validate and show", async () => {
+  it("renders non-Error loader failures for validate and show", async () => {
     const loader = await import("../../config/loader.js");
     const mock = spyOn(loader, "loadBotConfig").mockImplementation(() => {
-      // eslint-disable-next-line @typescript-eslint/only-throw-error -- This test-owned loader boundary must preserve a non-Error hostile throw.
-      throw "plain loader failure";
+      throw createNonErrorFailure("plain loader failure");
     });
-    const cleanup = createRuntimeTemplate();
     try {
-      expect(await runConfig(["config", "validate"])).toBe(1);
-      expect(await runConfig(["config", "show"])).toBe(1);
+      expect(await runConfig(["config", "validate", `--config=${defaultTemplatePath}`])).toBe(1);
+      expect(await runConfig(["config", "show", `--config=${defaultTemplatePath}`])).toBe(1);
       expect(errored.join("\n")).toContain("plain loader failure");
     } finally {
       mock.mockRestore();
-      cleanup();
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // 15c) init writes to a path where the parent is a file (writeFile fails)
+  // --------------------------------------------------------------------------
+  it("init returns 1 when parent of --out is an existing file (write fails)", async () => {
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-init-fail-"));
+    // Create a file that will be the "parent dir" of the output path.
+    const blocker = nodePath.join(directory, "blocker");
+    fileSystem.writeFileSync(blocker, "I am a file, not a directory", "utf8");
+    // The output path's parent is `blocker`, which is a file → mkdir or
+    // writeFile will fail with ENOTDIR.
+    const out = nodePath.join(blocker, "out.toml");
+    try {
+      const code = await runConfig(["config", "init", `--config=${defaultTemplatePath}`, `--out=${out}`]);
+      expect(code).toBe(1);
+      const text = errored.join("\n");
+      expect(text).toContain("Failed to write");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("init renders a non-Error boundary write failure", () => {
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-init-boundary-fail-"));
+    const out = nodePath.join(directory, "out.toml");
+    const source = nodePath.join(directory, "source.toml");
+    const boundary: ConfigFileBoundary = {
+      exists: (candidatePath) => candidatePath === source || candidatePath === directory,
+      read: () => '[bot]\nmode = "paper"\n',
+      ensureDirectory: () => {
+        // The in-memory boundary records no directory state for this failure test.
+      },
+      write: () => {
+        throw createNonErrorFailure("plain write failure");
+      },
+    };
+    try {
+      expect(runConfigInit(out, source, boundary)).toBe(1);
+      expect(errored.join("\n")).toContain("plain write failure");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("init returns 1 when its configured template file is missing", () => {
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-init-template-missing-"));
+    const out = nodePath.join(directory, "out.toml");
+    try {
+      const code = runConfigInit(out, nodePath.join(directory, "missing-template.toml"));
+      expect(code).toBe(1);
+      expect(fileSystem.existsSync(out)).toBe(false);
+      expect(errored.join("\n")).toContain("Could not locate the runtime config template.");
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("init rejects an invalid template path at the file boundary", () => {
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-init-template-invalid-"));
+    const out = nodePath.join(directory, "out.toml");
+    try {
+      expect(() => runConfigInit(out, "\0")).toThrow("normalized absolute path");
+      expect(fileSystem.existsSync(out)).toBe(false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("init auto-creates parent directories for nested --out path", async () => {
+    const directory = mkdtempSync(nodePath.join(tmpdir(), "bot-config-init-nested-"));
+    const out = nodePath.join(directory, "deeply", "nested", "path", "out.toml");
+    try {
+      const code = await runConfig(["config", "init", `--config=${defaultTemplatePath}`, `--out=${out}`]);
+      expect(code).toBe(0);
+      expect(fileSystem.existsSync(out)).toBe(true);
+      const content = fileSystem.readFileSync(out, "utf8");
+      expect(content.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 });

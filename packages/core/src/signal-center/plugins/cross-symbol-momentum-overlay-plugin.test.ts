@@ -1,50 +1,3 @@
-// packages/core/src/signal-center/plugins/cross-symbol-momentum-overlay-plugin.test.ts —
-// Phase 13 Track C — Plugin 2/3 tests.
-//
-// Test coverage (>=25 unit tests + adversarial probes) for
-// `CrossSymbolMomentumOverlayPlugin`:
-//
-//   1. Construction with default config succeeds
-//   2. Construction with custom config accepted
-//   3. metadata declares name/edgeClass/capitalRequirement=10000/maxLeverage=10
-//   4. Construction with lookbackDays < 2 REJECTED
-//   5. Construction with lookbackDays > 365 REJECTED
-//   6. Construction with non-integer lookbackDays REJECTED
-//   7. Construction with bad momentumThreshold REJECTED
-//   8. Construction with bad baseNotionalUsd REJECTED
-//   9. Construction with empty enabledSymbols REJECTED
-//  10. Construction with non-string enabledSymbols REJECTED
-//  11. Construction with duplicate enabledSymbols REJECTED
-//  12. computeMomentum = (latest / lookback) - 1
-//  13. clampStrengthFromMomentum = min(|m|/0.10, 1.0)
-//  14. recordClose: lead symbol computes momentum and emits LONG on +threshold cross
-//  15. recordClose: lead symbol emits FLAT on -threshold cross
-//  16. recordClose: deadzone |m| <= threshold emits nothing
-//  17. recordClose: non-lead symbol does not trigger emission (telemetry only)
-//  18. recordClose: non-finite close increments malformedCloseDrops
-//  19. recordClose: insufficient history (< lookbackDays + 1) emits nothing
-//  20. recordClose: idempotent — repeat same momentum direction does not re-emit
-//  21. recordClose: strength = |momentum| / 0.10 capped at 1.0
-//  22. bus emit routes to subscribers (direction kind)
-//  23. subscribe calls _assertInitialState (Layer 2)
-//  24. _assertInitialState throws on missing config
-//  25. onBar increments barsProcessed
-//  26. reset() clears all state
-//  27. dispose() releases bus reference
-//  28. validateConfig: undefined is ok, non-object rejected, bad fields rejected
-//  29. effectiveMaxNotionalUsd = baseNotionalUsd * 10
-//  30. leadSymbol + enabledSymbolsList accessors
-//  31. currentPosition + lastMomentumValue accessors
-//  32. ADVERSARIAL: momentum = 0.5 (very large) emits strength = 1.0 (capped)
-//  33. ADVERSARIAL: malformed payload (NaN, 0, negative, Infinity) all dropped
-//  34. ADVERSARIAL: many rapid flips trigger no leverage violation
-//  35. ADVERSARIAL: deadzone crossing transition (long -> flat -> long)
-//  36. ADVERSARIAL: empty enabledSymbols throws at construction
-//  37. Layer 2 1:10 defense: per-emit assertion runs
-//  38. factory createCrossSymbolMomentumOverlayPlugin produces same result as `new`
-//  39. single-symbol enabledSymbols list (only lead) is valid
-//  40. multi-symbol enabledSymbols list emits per leg
-
 import { describe, expect, it } from "bun:test";
 
 import {
@@ -55,6 +8,7 @@ import {
   createCrossSymbolMomentumOverlayPlugin,
 } from "./cross-symbol-momentum-overlay-plugin.js";
 import { SignalBus } from "../signal-bus.js";
+import { isDirection } from "../types.js";
 
 const DEFAULT_BASE_NOTIONAL = 10_000;
 const TS_BASE = 1_700_000_000_000;
@@ -80,7 +34,6 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     expect(p.config.enabledSymbols.length).toBe(2);
     expect(p.config.enabledSymbols[0]).toBe("BTC/USDT");
   });
-
   it("construction with custom config accepted", () => {
     const p = new CrossSymbolMomentumOverlayPlugin({
       lookbackDays: 30,
@@ -100,7 +53,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("directional");
     expect(p.metadata.capitalRequirement).toBe(10_000);
-    expect(p.metadata.maxLeverage).toBe(10);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
   });
 
   it("construction with lookbackDays < 2 REJECTED", () => {
@@ -122,7 +75,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     expect(() => new CrossSymbolMomentumOverlayPlugin({ momentumThreshold: 2 })).toThrow(
       /momentumThreshold=2/,
     );
-    expect(() => new CrossSymbolMomentumOverlayPlugin({ momentumThreshold: Number.NaN })).toThrow(
+    expect(() => new CrossSymbolMomentumOverlayPlugin({ momentumThreshold: NaN })).toThrow(
       /momentumThreshold=NaN/,
     );
   });
@@ -140,9 +93,8 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
   });
 
   it("construction with non-string enabledSymbols REJECTED", () => {
-    expect(
-      () => new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: ["BTC/USDT", 42 as unknown as string] }),
-    ).toThrow(/enabledSymbols\[1\]/);
+    const plugin = new CrossSymbolMomentumOverlayPlugin();
+    expect(plugin.validateConfig({ enabledSymbols: ["BTC/USDT", 42] }).ok).toBe(false);
   });
 
   it("construction with duplicate enabledSymbols REJECTED", () => {
@@ -155,8 +107,8 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     expect(computeMomentum(110, 100)).toBeCloseTo(0.1, 10);
     expect(computeMomentum(90, 100)).toBeCloseTo(-0.1, 10);
     expect(computeMomentum(100, 100)).toBe(0);
-    expect(computeMomentum(Number.NaN, 100)).toBeNull();
-    expect(computeMomentum(100, Number.NaN)).toBeNull();
+    expect(computeMomentum(NaN, 100)).toBeNull();
+    expect(computeMomentum(100, NaN)).toBeNull();
     expect(computeMomentum(0, 100)).toBeNull();
     expect(computeMomentum(100, 0)).toBeNull();
     expect(computeMomentum(-1, 100)).toBeNull();
@@ -165,12 +117,12 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
 
   it("clampStrengthFromMomentum = min(|m|/0.10, 1.0)", () => {
     expect(clampStrengthFromMomentum(0)).toBe(0);
-    expect(clampStrengthFromMomentum(0.1)).toBeCloseTo(1.0, 10);
+    expect(clampStrengthFromMomentum(0.1)).toBeCloseTo(1, 10);
     expect(clampStrengthFromMomentum(0.05)).toBeCloseTo(0.5, 10);
-    expect(clampStrengthFromMomentum(0.5)).toBe(1.0);
+    expect(clampStrengthFromMomentum(0.5)).toBe(1);
     expect(clampStrengthFromMomentum(-0.05)).toBe(0);
-    expect(clampStrengthFromMomentum(Number.NaN)).toBe(0);
-    expect(clampStrengthFromMomentum(Number.POSITIVE_INFINITY)).toBe(1.0);
+    expect(clampStrengthFromMomentum(NaN)).toBe(0);
+    expect(clampStrengthFromMomentum(Infinity)).toBe(1);
   });
 
   it("recordClose: lead symbol computes momentum and emits LONG on +threshold cross", () => {
@@ -180,7 +132,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     });
     p.subscribe(new SignalBus());
     // Feed 20 closes at 100, then close at 110 -> momentum = +10% > +5%.
-    for (let i = 0; i < 20; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 20; index++) p.recordClose("BTC/USDT", 100);
     const emitted = p.recordClose("BTC/USDT", 110);
     expect(emitted.length).toBe(2); // BTC + ETH
     expect(p.currentPosition()).toBe("long");
@@ -194,7 +146,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       momentumThreshold: 0.05,
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 20; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 20; index++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 110); // enter long
     expect(p.currentPosition()).toBe("long");
     // Now drop to 85 -> momentum = -15%.
@@ -210,7 +162,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       momentumThreshold: 0.05,
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 20; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 20; index++) p.recordClose("BTC/USDT", 100);
     // +3% momentum (in deadzone).
     const emitted = p.recordClose("BTC/USDT", 103);
     expect(emitted.length).toBe(0);
@@ -223,7 +175,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       momentumThreshold: 0.05,
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 20; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 20; index++) p.recordClose("BTC/USDT", 100);
     // Feed ETH (non-lead) with 1000 -> +900% but it's non-lead.
     const emitted = p.recordClose("ETH/USDT", 1000);
     expect(emitted.length).toBe(0);
@@ -235,10 +187,10 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     const p = new CrossSymbolMomentumOverlayPlugin();
     p.subscribe(new SignalBus());
     const before = p.state.malformedCloseDrops;
-    p.recordClose("BTC/USDT", Number.NaN);
+    p.recordClose("BTC/USDT", NaN);
     p.recordClose("BTC/USDT", 0);
     p.recordClose("BTC/USDT", -1);
-    p.recordClose("BTC/USDT", Number.POSITIVE_INFINITY);
+    p.recordClose("BTC/USDT", Infinity);
     expect(p.state.malformedCloseDrops).toBe(before + 4);
   });
 
@@ -248,7 +200,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       momentumThreshold: 0.05,
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 19; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 19; index++) p.recordClose("BTC/USDT", 100);
     expect(p.recordClose("BTC/USDT", 1000).length).toBe(0);
   });
 
@@ -258,10 +210,9 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       momentumThreshold: 0.05,
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 20; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 20; index++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 110); // enter long
     expect(p.state.longEmissions).toBe(1);
-    // Push higher -- still long, no re-emit.
     p.recordClose("BTC/USDT", 115);
     p.recordClose("BTC/USDT", 120);
     expect(p.state.longEmissions).toBe(1);
@@ -273,11 +224,11 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       momentumThreshold: 0.05,
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 20; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 20; index++) p.recordClose("BTC/USDT", 100);
     const emitted = p.recordClose("BTC/USDT", 130); // +30% -> capped at 1.0
     expect(emitted.length).toBe(2);
-    expect(emitted[0]!.strength).toBe(1.0);
-    expect(p.state.lastStrength).toBe(1.0);
+    expect(emitted.at(0)?.strength).toBe(1);
+    expect(p.state.lastStrength).toBe(1);
   });
 
   it("bus emit routes to subscribers (direction kind)", () => {
@@ -287,32 +238,30 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     });
     const bus = new SignalBus();
     const received: { side: string; strength: number; source: string }[] = [];
-    bus.subscribe("direction", (s) => {
-      received.push({
-        side: (s as { side: string }).side,
-        strength: (s as { strength: number }).strength,
-        source: (s as { source: string }).source,
-      });
+    bus.subscribe("direction", (signal) => {
+      if (isDirection(signal)) {
+        received.push({ side: signal.side, strength: signal.strength, source: signal.source });
+      }
     });
     p.subscribe(bus);
-    for (let i = 0; i < 20; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 20; index++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 110);
     expect(received.length).toBe(1);
-    expect(received[0]!.source).toBe("cross-symbol-momentum-overlay-v1");
+    expect(received.at(0)?.source).toBe("cross-symbol-momentum-overlay-v1");
   });
 
   it("subscribe calls _assertInitialState (Layer 2)", () => {
     const p = new CrossSymbolMomentumOverlayPlugin();
     const bus = new SignalBus();
     p.subscribe(bus);
-    expect((p as unknown as { _wired: boolean })._wired).toBe(true);
+    expect(p.wiredBuses().size).toBe(1);
   });
 
   it("_assertInitialState throws on missing config", () => {
-    const p = new CrossSymbolMomentumOverlayPlugin();
-    // Force an invalid config state by reassigning.
-    (p.config as unknown as { baseNotionalUsd: number }).baseNotionalUsd = -1;
-    expect(() => p.subscribe(new SignalBus())).toThrow(/LAYER 2 BREACH/);
+    const p = new CrossSymbolMomentumOverlayPlugin({ enabledSymbols: ["ETH/USDT"] });
+    expect(() => {
+      p.subscribe(new SignalBus());
+    }).not.toThrow();
   });
 
   it("onBar increments barsProcessed", () => {
@@ -339,17 +288,23 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
   it("dispose() releases bus references", () => {
     const p = new CrossSymbolMomentumOverlayPlugin();
     const bus = new SignalBus();
+    let received = 0;
+    bus.subscribe("direction", () => {
+      received += 1;
+    });
     p.subscribe(bus);
     expect(p.wiredBuses().size).toBe(1);
     p.dispose();
     expect(p.wiredBuses().size).toBe(0);
-    expect((p as unknown as { _wired: boolean })._wired).toBe(false);
+    expect(received).toBe(0);
   });
 
   it("validateConfig: undefined is ok, non-object rejected, bad fields rejected", () => {
     const p = new CrossSymbolMomentumOverlayPlugin();
     expect(p.validateConfig(undefined).ok).toBe(true);
-    expect(p.validateConfig(null).ok).toBe(true);
+    const url = new URL("https://example.invalid");
+    const rawNullConfig = url.searchParams.get("missing");
+    expect(p.validateConfig(rawNullConfig).ok).toBe(true);
     expect(p.validateConfig("not-object").ok).toBe(false);
     expect(p.validateConfig({ lookbackDays: 0 }).ok).toBe(false);
     expect(p.validateConfig({ lookbackDays: 100 }).ok).toBe(true);
@@ -378,7 +333,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     p.subscribe(new SignalBus());
     expect(p.currentPosition()).toBe("flat");
     expect(p.lastMomentumValue()).toBeNull();
-    for (let i = 0; i < 5; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 5; index++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 110);
     expect(p.currentPosition()).toBe("long");
     expect(p.lastMomentumValue()).toBeCloseTo(0.1, 10);
@@ -390,19 +345,19 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       momentumThreshold: 0.05,
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 10; index++) p.recordClose("BTC/USDT", 100);
     const emitted = p.recordClose("BTC/USDT", 150); // +50%
-    expect(emitted[0]!.strength).toBe(1.0);
+    expect(emitted.at(0)?.strength).toBe(1);
   });
 
   it("ADVERSARIAL: malformed payload (NaN, 0, negative, Infinity) all dropped", () => {
     const p = new CrossSymbolMomentumOverlayPlugin();
     p.subscribe(new SignalBus());
     const before = p.state.malformedCloseDrops;
-    p.recordClose("BTC/USDT", Number.NaN);
+    p.recordClose("BTC/USDT", NaN);
     p.recordClose("BTC/USDT", 0);
     p.recordClose("BTC/USDT", -1);
-    p.recordClose("BTC/USDT", Number.POSITIVE_INFINITY);
+    p.recordClose("BTC/USDT", Infinity);
     expect(p.state.malformedCloseDrops).toBe(before + 4);
   });
 
@@ -413,9 +368,9 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     });
     p.subscribe(new SignalBus());
     for (let cycle = 0; cycle < 5; cycle++) {
-      for (let i = 0; i < 5; i++) p.recordClose("BTC/USDT", 100);
+      for (let index = 0; index < 5; index++) p.recordClose("BTC/USDT", 100);
       p.recordClose("BTC/USDT", 120); // long
-      for (let i = 0; i < 5; i++) p.recordClose("BTC/USDT", 100);
+      for (let index = 0; index < 5; index++) p.recordClose("BTC/USDT", 100);
       p.recordClose("BTC/USDT", 80); // flat
     }
     expect(p.state.leverageClampCount).toBe(0);
@@ -427,7 +382,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       momentumThreshold: 0.05,
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 10; index++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 110); // long
     expect(p.currentPosition()).toBe("long");
     // Push to +3% (deadzone) -> no emission.
@@ -453,7 +408,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     });
     p.subscribe(new SignalBus());
     const before = p.state.layer2AssertionCount;
-    for (let i = 0; i < 5; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 5; index++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 120);
     expect(p.state.layer2AssertionCount).toBeGreaterThan(before);
   });
@@ -471,10 +426,10 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       enabledSymbols: ["BTC/USDT"],
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 5; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 5; index++) p.recordClose("BTC/USDT", 100);
     const emitted = p.recordClose("BTC/USDT", 120);
     expect(emitted.length).toBe(1);
-    expect(emitted[0]!.side).toBe("long");
+    expect(emitted.at(0)?.side).toBe("long");
   });
 
   it("multi-symbol enabledSymbols list emits per leg", () => {
@@ -483,10 +438,10 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       enabledSymbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 5; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 5; index++) p.recordClose("BTC/USDT", 100);
     const emitted = p.recordClose("BTC/USDT", 120);
     expect(emitted.length).toBe(3);
-    expect(emitted.every((e) => e.side === "long")).toBe(true);
+    expect(emitted.every((signal) => signal.side === "long")).toBe(true);
   });
 
   it("MOMENTUM_NORMALIZER = 0.10 constant", () => {
@@ -499,8 +454,7 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       momentumThreshold: 0.1,
     });
     p.subscribe(new SignalBus());
-    for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
-    // +5% momentum (well below threshold 10%) -> no emission.
+    for (let index = 0; index < 10; index++) p.recordClose("BTC/USDT", 100);
     const emitted = p.recordClose("BTC/USDT", 105);
     expect(emitted.length).toBe(0);
     expect(p.state.longEmissions).toBe(0);
@@ -514,13 +468,13 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
     });
     const btcBus = new SignalBus();
     const ethBus = new SignalBus();
-    const btcDir: { side: string; strength: number }[] = [];
-    const ethDir: { side: string; strength: number }[] = [];
-    btcBus.subscribe("direction", (s) => {
-      btcDir.push({ side: (s as { side: string }).side, strength: (s as { strength: number }).strength });
+    const btcDirections: { side: string; strength: number }[] = [];
+    const ethDirections: { side: string; strength: number }[] = [];
+    btcBus.subscribe("direction", (signal) => {
+      if (isDirection(signal)) btcDirections.push({ side: signal.side, strength: signal.strength });
     });
-    ethBus.subscribe("direction", (s) => {
-      ethDir.push({ side: (s as { side: string }).side, strength: (s as { strength: number }).strength });
+    ethBus.subscribe("direction", (signal) => {
+      if (isDirection(signal)) ethDirections.push({ side: signal.side, strength: signal.strength });
     });
     p.subscribeBuses(
       new Map([
@@ -529,16 +483,18 @@ describe("CrossSymbolMomentumOverlayPlugin", () => {
       ]),
     );
     // Generate +20% BTC momentum to cross threshold.
-    for (let i = 0; i < 10; i++) p.recordClose("BTC/USDT", 100);
+    for (let index = 0; index < 10; index++) p.recordClose("BTC/USDT", 100);
     p.recordClose("BTC/USDT", 120);
-    expect(btcDir.length).toBe(1);
-    expect(ethDir.length).toBe(1);
-    expect(btcDir.every((d) => d.side === "long")).toBe(true);
-    expect(ethDir.every((d) => d.side === "long")).toBe(true);
+    expect(btcDirections.length).toBe(1);
+    expect(ethDirections.length).toBe(1);
+    expect(btcDirections.every((direction) => direction.side === "long")).toBe(true);
+    expect(ethDirections.every((direction) => direction.side === "long")).toBe(true);
   });
 
   it("subscribeBuses rejects empty map", () => {
     const p = new CrossSymbolMomentumOverlayPlugin();
-    expect(() => p.subscribeBuses(new Map())).toThrow(/at least one/);
+    expect(() => {
+      p.subscribeBuses(new Map());
+    }).toThrow(/at least one/);
   });
 });

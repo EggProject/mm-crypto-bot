@@ -1,79 +1,58 @@
-/**
- * packages/exchange/src/bybit-eu-adapter.ts
- *
- * Bybit.eu specifikus CCXT Pro adapter.
- *
- * A CCXT Pro beepitett bybit implementaciojat wrap-eli:
- *   - rate-limit konfiguracio (100 ms / 10 req/sec)
- *   - tipusos facade a packages/shared ExchangeFeed interface-re
- *   - sandbox/demo helper (bybit.eu-n jelenleg nincs sandbox)
- *
- * A CCXT Pro automatikusan kezeli a reconnect-et es az exponential
- * backoff-ot - ezt a wrapper nem irja felul.
- * Lasd: stack-findings.md 7. fejezet es https://docs.ccxt.com/docs/pro-manual
- */
+import ccxt, { type Exchange as CcxtExchange } from "ccxt";
 
-import ccxt, { type Exchange } from "ccxt";
 import type { ExchangeFeed, WatchOptions } from "@mm-crypto-bot/shared";
+
+/**
+ * Minimal CCXT surface used by the generic Bybit EU adapter.
+ */
+export interface BybitEuAdapterClient {
+  cancelOrder: CcxtExchange["cancelOrder"];
+  createOrder: CcxtExchange["createOrder"];
+  fetchBalance: CcxtExchange["fetchBalance"];
+  fetchOHLCV: CcxtExchange["fetchOHLCV"];
+  fetchOrderBook: CcxtExchange["fetchOrderBook"];
+  fetchTicker: CcxtExchange["fetchTicker"];
+  fetchTrades: CcxtExchange["fetchTrades"];
+  loadMarkets: CcxtExchange["loadMarkets"];
+  watchBalance: CcxtExchange["watchBalance"];
+  watchOHLCV: CcxtExchange["watchOHLCV"];
+  watchOrderBook: CcxtExchange["watchOrderBook"];
+  watchOrders: CcxtExchange["watchOrders"];
+  watchPositions: CcxtExchange["watchPositions"];
+  watchTicker: CcxtExchange["watchTicker"];
+  watchTrades: CcxtExchange["watchTrades"];
+}
 
 export interface BybitEuAdapterOptions {
   readonly apiKey?: string;
-  readonly secret?: string;
+  readonly exchange?: BybitEuAdapterClient;
   readonly rateLimitMs?: number;
-  readonly sandbox?: boolean;
-  /**
-   * `exchange` — opcionális, dependency injection célokra.
-   * Ha meg van adva, az adapter ezt használja a CCXT bybiteu
-   * factory meghívása helyett. Tesztekben mock factory-t adnak át,
-   * hogy ne kelljen a teljes `ccxt` modult mockolni (ami izolációs
-   * bug-okhoz vezetne a többi exchange teszttel).
-   */
-  readonly exchange?: Exchange;
+  readonly secret?: string;
 }
 
 /**
- * A bybit.eu exchange ID a CCXT-ben: bybiteu.
- * Lasd: docs/research/stack-findings.md 1.1
+ * Delegates generic exchange feed operations to a configured Bybit EU client.
  */
 export class BybitEuAdapter implements ExchangeFeed {
+  private readonly exchange: BybitEuAdapterClient;
   readonly id = "bybiteu";
   readonly name = "Bybit EU";
-  private readonly exchange: Exchange;
-  private readonly options: BybitEuAdapterOptions;
 
   constructor(options: BybitEuAdapterOptions = {}) {
-    this.options = options;
-    // Az `options` tárolása a későbbi bővítésekhez (pl. demo
-    // trading kapcsoló) — jelenleg a CCXT factory a konstruktor
-    // során kapja meg az opciókat, és a `this.options` a debug
-    // célokra marad.
-    void this.options;
     if (options.exchange !== undefined) {
-      // Dependency injection: a teszt (vagy más consumer) egy már
-      // konfigurált Exchange példányt ad át. A sandbox flag ebben
-      // az esetben a caller felelőssége.
       this.exchange = options.exchange;
-    } else {
-      const exchangeOptions: Record<string, unknown> = {
-        enableRateLimit: true,
-        rateLimit: options.rateLimitMs ?? 100,
-      };
-      if (options.apiKey !== undefined) exchangeOptions["apiKey"] = options.apiKey;
-      if (options.secret !== undefined) exchangeOptions["secret"] = options.secret;
-      this.exchange = new ccxt.bybiteu(exchangeOptions);
-
-      if (options.sandbox === true) {
-        this.exchange.setSandboxMode(true);
-      }
+      return;
     }
+    this.exchange = new ccxt.pro.bybiteu({
+      enableRateLimit: true,
+      rateLimit: options.rateLimitMs ?? 100,
+      ...(options.apiKey !== undefined && { apiKey: options.apiKey }),
+      ...(options.secret !== undefined && { secret: options.secret }),
+    });
   }
 
-  get ccxtExchange(): Exchange {
-    return this.exchange;
-  }
-
-  async loadMarkets(reload?: boolean) {
-    return this.exchange.loadMarkets(reload);
+  async loadMarkets(isReload?: boolean) {
+    return this.exchange.loadMarkets(isReload);
   }
 
   async fetchTicker(symbol: string) {
@@ -102,47 +81,46 @@ export class BybitEuAdapter implements ExchangeFeed {
     side: "buy" | "sell",
     amount: number,
     price?: number,
-    params?: Record<string, unknown>,
+    parameters?: Record<string, unknown>,
   ) {
-    return this.exchange.createOrder(symbol, type, side, amount, price, params);
+    return this.exchange.createOrder(symbol, type, side, amount, price, parameters);
   }
 
   async cancelOrder(id: string, symbol?: string) {
     return this.exchange.cancelOrder(id, symbol);
   }
 
-  async watchOrderBook(symbol: string, limit: number, _opts: WatchOptions = {}) {
+  async watchOrderBook(symbol: string, limit: number, _options: WatchOptions = {}) {
     return this.exchange.watchOrderBook(symbol, limit);
   }
 
-  async watchTicker(symbol: string, _opts: WatchOptions = {}) {
+  async watchTicker(symbol: string, _options: WatchOptions = {}) {
     return this.exchange.watchTicker(symbol);
   }
 
-  async watchTrades(symbol: string, opts: WatchOptions = {}) {
-    return this.exchange.watchTrades(symbol, opts.since, opts.limit);
+  async watchTrades(symbol: string, options: WatchOptions = {}) {
+    return this.exchange.watchTrades(symbol, options.since, options.limit);
   }
 
-  async watchOHLCV(symbol: string, timeframe: string, opts: WatchOptions = {}) {
-    return this.exchange.watchOHLCV(symbol, timeframe, opts.since, opts.limit);
+  async watchOHLCV(symbol: string, timeframe: string, options: WatchOptions = {}) {
+    return this.exchange.watchOHLCV(symbol, timeframe, options.since, options.limit);
   }
 
-  async watchOrders(symbol: string, opts: WatchOptions = {}) {
-    return this.exchange.watchOrders(symbol, opts.since, opts.limit);
+  async watchOrders(symbol: string, options: WatchOptions = {}) {
+    return this.exchange.watchOrders(symbol, options.since, options.limit);
   }
 
-  async watchBalance(_opts: WatchOptions = {}) {
+  async watchBalance(_options: WatchOptions = {}) {
     return this.exchange.watchBalance();
   }
 
-  async watchPositions(symbols?: string[], _opts: WatchOptions = {}) {
-    if (symbols === undefined) {
-      return this.exchange.watchPositions(undefined);
-    }
+  async watchPositions(symbols?: string[], _options: WatchOptions = {}) {
     return this.exchange.watchPositions(symbols);
   }
 
   close(): void {
-    // A CCXT Pro watch ciklusok a consumer kilepesevel leallnak.
+    /*
+     * This adapter owns no independent transport lifecycle.
+     */
   }
 }

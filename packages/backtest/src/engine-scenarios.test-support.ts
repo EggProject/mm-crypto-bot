@@ -58,11 +58,6 @@ export function requireFirst<T>(values: readonly T[], description: string): T {
   return value;
 }
 
-export function noSignal(): null {
-  // eslint-disable-next-line unicorn/no-null -- The Strategy contract represents an intentionally absent signal with null.
-  return null;
-}
-
 export class ScenarioFeed implements ExchangeFeed {
   public constructor(private readonly candles: readonly Candle[]) {}
 
@@ -79,8 +74,8 @@ export class NullStrategy implements Strategy {
   public readonly name = "null";
   public readonly timeframes = ["1h"] as const;
 
-  onCandle(_context: StrategyContext): StrategySignal | null {
-    return noSignal();
+  onCandle(_context: StrategyContext): StrategySignal | undefined {
+    return undefined;
   }
 
   warmup(): number {
@@ -101,9 +96,9 @@ export class SingleSignalStrategy implements Strategy {
     private readonly takeProfitOffset = 30,
   ) {}
 
-  onCandle(context: StrategyContext): StrategySignal | null {
+  onCandle(context: StrategyContext): StrategySignal | undefined {
     if (this.tradeCounter >= this.maxTrades) {
-      return noSignal();
+      return undefined;
     }
     this.tradeCounter += 1;
     const price = context.candle.close;
@@ -126,7 +121,7 @@ export class CallbackStrategy implements Strategy {
 
   public readonly name = "callback-mock";
   public readonly timeframes = ["1h"] as const;
-  public updateReturn: PositionUpdate | null = noSignal();
+  public updateReturn: PositionUpdate | undefined;
   public openedCount = 0;
   public closedCount = 0;
   public updateCount = 0;
@@ -137,9 +132,9 @@ export class CallbackStrategy implements Strategy {
     public takeProfitFraction = 1.3,
   ) {}
 
-  onCandle(context: StrategyContext): StrategySignal | null {
+  onCandle(context: StrategyContext): StrategySignal | undefined {
     if (this.fired) {
-      return noSignal();
+      return undefined;
     }
     this.fired = true;
     const price = context.candle.close;
@@ -165,7 +160,7 @@ export class CallbackStrategy implements Strategy {
     this.lastExitReason = reason;
   }
 
-  onOpenPositionUpdate(_context: PositionManagementContext): PositionUpdate | null {
+  onOpenPositionUpdate(_context: PositionManagementContext): PositionUpdate | undefined {
     this.updateCount += 1;
     return this.updateReturn;
   }

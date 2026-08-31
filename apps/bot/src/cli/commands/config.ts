@@ -8,7 +8,7 @@
  *   - `show`     — print the effective config (defaults + file + env merged)
  *                  as TOML. Useful for debugging "what did the bot actually
  *                  load?".
- *   - `init`     — write the runtime config template to a target path.
+ *   - `init`     — write `run-bot/config/default.toml` to a target path.
  *                  Default target is `./mm-bot.toml`. Useful for first-time
  *                  setup.
  *
@@ -17,7 +17,7 @@
  *   - The "Refusing to overwrite" / file-write errors are red.
  *   - "Wrote <path>" success message is green.
  *   - The `show` output is plain TOML — no color (it must be parseable
- *     as TOML downstream, for example piped into the direct `config init` command).
+ *     as TOML by the direct `config validate` command).
  *
  * Exit codes:
  *   0 — success
@@ -29,7 +29,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ConfigError, DEFAULT_BOT_CONFIG, loadBotConfig, type BotConfig } from "../../config/index.js";
+import { ConfigError, loadBotConfig, type BotConfig } from "../../config/index.js";
 import { resolveRuntimeRootConfig, type RuntimeRootResolution } from "../../config/runtime-root.js";
 import { colorize } from "../color.js";
 import type { CliContext, SubcommandHandler } from "../router.js";
@@ -40,7 +40,7 @@ const fileSystem = await import("node:fs");
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../../../../", import.meta.url));
 
 function assertResolvedFilePath(filePath: string): void {
-  if (filePath.includes("\0") || path.resolve(filePath) !== filePath) {
+  if (filePath.length === 0 || filePath.includes("\0") || path.resolve(filePath) !== filePath) {
     throw new Error(`Config file boundary requires a normalized absolute path: ${JSON.stringify(filePath)}`);
   }
 }
@@ -53,21 +53,21 @@ export interface ConfigFileBoundary {
 }
 
 const configFileBoundary: ConfigFileBoundary = {
-  exists(filePath: string): boolean {
-    assertResolvedFilePath(filePath);
-    return fileSystem.existsSync(filePath);
+  exists(path: string): boolean {
+    assertResolvedFilePath(path);
+    return fileSystem.existsSync(path);
   },
-  read(filePath: string): string {
-    assertResolvedFilePath(filePath);
-    return fileSystem.readFileSync(filePath, "utf8");
+  read(path: string): string {
+    assertResolvedFilePath(path);
+    return fileSystem.readFileSync(path, "utf8");
   },
-  ensureDirectory(filePath: string): void {
-    assertResolvedFilePath(filePath);
-    fileSystem.mkdirSync(filePath, { recursive: true });
+  ensureDirectory(path: string): void {
+    assertResolvedFilePath(path);
+    fileSystem.mkdirSync(path, { recursive: true });
   },
-  write(filePath: string, contents: string): void {
-    assertResolvedFilePath(filePath);
-    fileSystem.writeFileSync(filePath, contents, "utf8");
+  write(path: string, contents: string): void {
+    assertResolvedFilePath(path);
+    fileSystem.writeFileSync(path, contents, "utf8");
   },
 };
 
@@ -85,44 +85,116 @@ const configFileBoundary: ConfigFileBoundary = {
 function getConfigPath(arguments_: {
   readonly flags: ReadonlyMap<string, string | boolean>;
 }): string | undefined {
-  const v = arguments_.flags.get("config");
-  if (typeof v === "string" && v.length > 0) {
-    return v;
+  const configFlag = arguments_.flags.get("config");
+  if (typeof configFlag === "string" && configFlag.length > 0) {
+    return configFlag;
   }
   return undefined;
 }
 
 /**
- * `formatToml` — serialize a `BotConfig` to a TOML-ish string.
+ * `formatToml` — serialize a `BotConfig` to TOML.
  *
- * This is a hand-rolled serializer — we don't pull in a TOML emitter dep
- * just for the direct `config show` command. The output is human-readable and
- * round-trip-safe enough for direct `config show | config init` use to
- * produce a working TOML.
- *
- * NOT a general-purpose TOML serializer:
- *   - No multi-line strings / arrays-of-tables-of-arrays.
- *   - No escaping for strings containing newlines, tabs, or `"`.
- *   - Numbers, booleans, and enums are printed as their natural form.
- *
- * The BotConfig shape is flat (6 sections, all with primitive leaves),
- * so this is sufficient.
+ * This is deliberately schema-specific: every approved configuration field is
+ * emitted explicitly, and string values use TOML basic-string escaping.
  */
+type ConfiguredStrategySection = BotConfig["strategies"][keyof BotConfig["strategies"]];
+
+const bunTomlSupportedControlCodePoints = new Set<number>([0x08, 0x09, 0x0a, 0x0c, 0x0d, 0x7f]);
+const tomlBackslashEscape = String.raw`\\`;
+const tomlDoubleQuoteEscape = String.raw`\"`;
+const tomlUnicodeEscapePrefix = String.raw`\u`;
+
+function formatTomlString(value: string): string {
+  const parts = ['"'];
+  for (const character of value) {
+    if (character === '"') {
+      parts.push(tomlDoubleQuoteEscape);
+    } else if (character === "\\") {
+      parts.push(tomlBackslashEscape);
+    } else {
+      const codePoint = Number(character.codePointAt(0));
+      if (codePoint === 0x7f || codePoint <= 0x1f) {
+        if (!bunTomlSupportedControlCodePoints.has(codePoint)) {
+          throw new Error(
+            `Bun TOML cannot represent control character U+${codePoint.toString(16).padStart(4, "0")}`,
+          );
+        }
+        parts.push(`${tomlUnicodeEscapePrefix}${codePoint.toString(16).padStart(4, "0")}`);
+      } else {
+        parts.push(character);
+      }
+    }
+  }
+  parts.push('"');
+  return parts.join("");
+}
+
+function formatTomlStringArray(values: readonly string[]): string {
+  return `[${values.map((value) => formatTomlString(value)).join(", ")}]`;
+}
+
+function formatOptionalNumber(name: string, value: number | undefined): readonly string[] {
+  return value === undefined ? [] : [`${name} = ${String(value)}`];
+}
+
+function formatOptionalStringArray(name: string, value: readonly string[] | undefined): readonly string[] {
+  return value === undefined ? [] : [`${name} = ${formatTomlStringArray(value)}`];
+}
+
+function formatStrategySection(
+  name: keyof BotConfig["strategies"],
+  section: ConfiguredStrategySection,
+): readonly string[] {
+  const isDonchian = name === "donchian_pivot_composition";
+  return [
+    `[strategies.${name}]`,
+    `enabled = ${String(section.enabled)}`,
+    ...formatOptionalNumber("cap", section.cap),
+    ...formatOptionalStringArray("symbols", section.symbols),
+    ...formatOptionalNumber("risk_per_trade", section.risk_per_trade),
+    ...formatOptionalNumber("max_positions", section.max_positions),
+    ...formatOptionalNumber("notional_per_leg_usd", section.notional_per_leg_usd),
+    ...formatOptionalNumber("max_notional_per_event_usd", section.max_notional_per_event_usd),
+    ...formatOptionalNumber("cooldown_hours", section.cooldown_hours),
+    ...(isDonchian && "min_consensus" in section
+      ? formatOptionalNumber("min_consensus", section.min_consensus)
+      : []),
+    ...(section.timeframes === undefined
+      ? []
+      : [
+          `[strategies.${name}.timeframes]`,
+          `htf = ${formatTomlString(section.timeframes.htf)}`,
+          `mtf = ${formatTomlString(section.timeframes.mtf)}`,
+          `ltf = ${formatTomlString(section.timeframes.ltf)}`,
+        ]),
+    "",
+  ];
+}
+
 function formatToml(config: BotConfig): string {
-  const lines = [
+  return [
     "# mm-crypto-bot config — emitted by the direct config show command",
     "# Edit and re-run the direct config validate command to check.",
     "",
     "[bot]",
-    `mode = "${config.bot.mode}"`,
-    `log_level = "${config.bot.log_level}"`,
-    `state_file = "${config.bot.state_file}"`,
-    `selected_leverage = "${config.bot.selected_leverage.canonical}"`,
+    `mode = ${formatTomlString(config.bot.mode)}`,
+    `log_level = ${formatTomlString(config.bot.log_level)}`,
+    `state_file = ${formatTomlString(config.bot.state_file)}`,
+    `selected_leverage = ${formatTomlString(config.bot.selected_leverage.canonical)}`,
     "",
     "[exchange]",
-    `id = "${config.exchange.id}"`,
+    `id = ${formatTomlString(config.exchange.id)}`,
     `rate_limit_ms = ${String(config.exchange.rate_limit_ms)}`,
-    `sandbox = ${String(config.exchange.sandbox)}`,
+    `slippage_pct = ${String(config.exchange.slippage_pct)}`,
+    `fee_tier = ${formatTomlString(config.exchange.fee_tier)}`,
+    `rate_limit_per_min = ${String(config.exchange.rate_limit_per_min)}`,
+    `ws_reconnect_delay_ms = ${String(config.exchange.ws_reconnect_delay_ms)}`,
+    `timeout_ms = ${String(config.exchange.timeout_ms)}`,
+    "",
+    "[compliance]",
+    `jurisdiction = ${formatTomlString(config.compliance.jurisdiction)}`,
+    `jp_msb_registered = ${String(config.compliance.jp_msb_registered)}`,
     "",
     "[risk]",
     `risk_per_trade = ${String(config.risk.risk_per_trade)}`,
@@ -130,51 +202,49 @@ function formatToml(config: BotConfig): string {
     `max_drawdown_pct = ${String(config.risk.max_drawdown_pct)}`,
     `max_positions = ${String(config.risk.max_positions)}`,
     `max_leverage = ${String(config.risk.max_leverage)}`,
+    `max_position_fraction = ${String(config.risk.max_position_fraction)}`,
+    `fallback_size_fraction = ${String(config.risk.fallback_size_fraction)}`,
+    "",
+    "[risk.trailing_stop]",
+    `enabled = ${String(config.risk.trailing_stop.enabled)}`,
+    `atr_period = ${String(config.risk.trailing_stop.atr_period)}`,
+    `atr_multiplier = ${String(config.risk.trailing_stop.atr_multiplier)}`,
+    `side = ${formatTomlString(config.risk.trailing_stop.side)}`,
+    "",
+    "[risk.kelly]",
+    `enabled = ${String(config.risk.kelly.enabled)}`,
+    `fraction = ${String(config.risk.kelly.fraction)}`,
+    `window_size = ${String(config.risk.kelly.window_size)}`,
+    `min_trades = ${String(config.risk.kelly.min_trades)}`,
+    `fallback_fraction = ${String(config.risk.kelly.fallback_fraction)}`,
+    "",
+    "[risk.drawdown_scaler]",
+    `enabled = ${String(config.risk.drawdown_scaler.enabled)}`,
+    `max_dd_pct = ${String(config.risk.drawdown_scaler.max_dd_pct)}`,
     "",
     "[symbols]",
-    `enabled = [${config.symbols.enabled.map((symbol) => `"${symbol}"`).join(", ")}]`,
+    `enabled = ${formatTomlStringArray(config.symbols.enabled)}`,
     "",
-  ];
-  for (const [name, section] of Object.entries(config.strategies)) {
-    lines.push(`[strategies.${name}]`, `enabled = ${String(section.enabled)}`);
-    if (section.cap !== undefined) lines.push(`cap = ${String(section.cap)}`);
-    if (section.leverage !== undefined) lines.push(`leverage = ${String(section.leverage)}`);
-    if (section.symbols !== undefined) {
-      const items = section.symbols.map((symbol) => `"${symbol}"`).join(", ");
-      lines.push(`symbols = [${items}]`);
-    }
-    if (section.timeframes !== undefined) {
-      lines.push(
-        `[strategies.${name}.timeframes]`,
-        `htf = "${section.timeframes.htf}"`,
-        `mtf = "${section.timeframes.mtf}"`,
-        `ltf = "${section.timeframes.ltf}"`,
-      );
-    }
-
-    // Print schema passthrough fields without re-validating known typed fields.
-    const knownKeys = new Set(["enabled", "cap", "leverage", "symbols", "timeframes"]);
-    for (const [k, v] of Object.entries(section)) {
-      if (!knownKeys.has(k)) {
-        if (typeof v === "string") lines.push(`${k} = "${v}"`);
-        else if (typeof v === "number" || typeof v === "boolean") lines.push(`${k} = ${String(v)}`);
-        else if (Array.isArray(v)) {
-          const items = v.map((item) => (typeof item === "string" ? `"${item}"` : String(item))).join(", ");
-          lines.push(`${k} = [${items}]`);
-        }
-      }
-    }
-    lines.push("");
-  }
-
-  lines.push(
+    ...formatStrategySection("donchian_pivot_composition", config.strategies.donchian_pivot_composition),
+    ...formatStrategySection("dydx_cex_carry", config.strategies.dydx_cex_carry),
+    ...formatStrategySection("cascade_fade", config.strategies.cascade_fade),
+    ...formatStrategySection("funding_flip_kill_switch", config.strategies.funding_flip_kill_switch),
+    ...formatStrategySection("regime_detector", config.strategies.regime_detector),
     "[telemetry]",
-    `log_dir = "${config.telemetry.log_dir}"`,
+    `log_dir = ${formatTomlString(config.telemetry.log_dir)}`,
     `metrics_interval_sec = ${String(config.telemetry.metrics_interval_sec)}`,
+    `log_level = ${formatTomlString(config.telemetry.log_level)}`,
+    `log_destination = ${formatTomlString(config.telemetry.log_destination)}`,
+    `metrics_enabled = ${String(config.telemetry.metrics_enabled)}`,
+    `heartbeat_interval_sec = ${String(config.telemetry.heartbeat_interval_sec)}`,
     "",
-  );
-
-  return lines.join("\n");
+    "[portfolio]",
+    `total_risk_per_cycle_usd = ${String(config.portfolio.total_risk_per_cycle_usd)}`,
+    `correlation_penalty_threshold = ${String(config.portfolio.correlation_penalty_threshold)}`,
+    `correlation_window_size = ${String(config.portfolio.correlation_window_size)}`,
+    `max_dd_pct = ${String(config.portfolio.max_dd_pct)}`,
+    "",
+  ].join("\n");
 }
 
 // ============================================================================
@@ -192,13 +262,11 @@ function runValidate(configPath: string, loadConfig: (path: string | undefined) 
     const config = loadConfig(configPath);
     // Green "OK" — the success badge is the headline of `validate`.
     console.log(colorize("OK", "green"));
-    // Optional: also print the source.
     console.log(`  config: ${configPath}`);
     // Print a brief summary line so the user can see what loaded.
     console.log(
-      `  mode: ${config.bot.mode}, exchange: ${config.exchange.id}, max_leverage: ${String(config.risk.max_leverage)}`,
+      `  mode: ${config.bot.mode}, exchange: ${config.exchange.id}, selected_leverage: ${config.bot.selected_leverage.canonical}, max_leverage: ${String(config.risk.max_leverage)}`,
     );
-    void DEFAULT_BOT_CONFIG; // referenced for typecheck only
     return 0;
   } catch (error: unknown) {
     if (error instanceof ConfigError) {
@@ -222,8 +290,8 @@ function runValidate(configPath: string, loadConfig: (path: string | undefined) 
  * `runShow` — direct `config show`.
  *
  * Loads the effective config (defaults + file + env merged) and prints it
- * as TOML to stdout. Pipeable to the direct `config init --out=...` command to clone
- * a config (with manual edits if desired).
+ * as TOML to stdout. The output can be saved and validated as a complete
+ * configuration, while `config init` always writes the canonical template.
  */
 function runShow(
   configPath: string | undefined,
@@ -252,8 +320,8 @@ function runShow(
 /**
  * `runConfigInit` — direct `config init [--out=path]`.
  *
- * Writes a starter TOML config from the validated external runtime root to the
- * given path (default: `./mm-bot.toml`).
+ * Writes the resolved external runtime template to the given path (default:
+ * `./mm-bot.toml`).
  *
  * If the user passes `--out` to a path that already exists, we refuse to
  * overwrite (no `--force` to avoid silent data loss).
@@ -273,7 +341,6 @@ export function runConfigInit(
   }
 
   const resolvedSourcePath = path.resolve(sourcePath);
-
   if (!boundary.exists(resolvedSourcePath)) {
     console.error(colorize("Could not locate the runtime config template.", "red"));
     return 1;
@@ -344,30 +411,33 @@ export function createConfigCommand(overrides: Partial<ConfigCommandDependencies
     await Promise.resolve();
 
     const sub = arguments_.positional[0];
-    const resolvedConfigPath = resolveConfigPath(getConfigPath(arguments_), dependencies.resolveRuntimeRoot);
+    const configPathResolution = resolveConfigPath(
+      getConfigPath(arguments_),
+      dependencies.resolveRuntimeRoot,
+    );
 
     if (sub === "validate") {
-      if (!resolvedConfigPath.ok) {
-        reportConfigPathFailure(resolvedConfigPath);
+      if (!configPathResolution.ok) {
+        reportConfigPathFailure(configPathResolution);
         return 2;
       }
-      return runValidate(resolvedConfigPath.configPath, dependencies.loadConfig);
+      return runValidate(configPathResolution.configPath, dependencies.loadConfig);
     }
     if (sub === "show") {
-      if (!resolvedConfigPath.ok) {
-        reportConfigPathFailure(resolvedConfigPath);
+      if (!configPathResolution.ok) {
+        reportConfigPathFailure(configPathResolution);
         return 2;
       }
-      return runShow(resolvedConfigPath.configPath, dependencies.loadConfig);
+      return runShow(configPathResolution.configPath, dependencies.loadConfig);
     }
     if (sub === "init") {
-      if (!resolvedConfigPath.ok) {
-        reportConfigPathFailure(resolvedConfigPath);
+      if (!configPathResolution.ok) {
+        reportConfigPathFailure(configPathResolution);
         return 2;
       }
       const outRaw = arguments_.flags.get("out");
       const out = typeof outRaw === "string" && outRaw.length > 0 ? outRaw : undefined;
-      return dependencies.initConfig(out, resolvedConfigPath.configPath);
+      return dependencies.initConfig(out, configPathResolution.configPath);
     }
 
     // Unknown / missing sub-subcommand. Print usage.

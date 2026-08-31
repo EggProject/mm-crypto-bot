@@ -1,32 +1,21 @@
-# Live trading status
+# Live trading is currently unavailable
 
-## Magyar
+The current repository does not authorize live activation, capital deployment,
+credential configuration, or real exchange orders. The supported runtime mode
+is the built-in paper/emulated mode, which may use public Bybit EU market data
+through the WebSocket-first adapter feed.
 
-Az éles kereskedési aktiválás jelenleg nem elérhető. Az aktív dokumentáció és
-az összes kiadott konfiguráció kizárólag papír/emulált üzemre vonatkozik.
+Live capability remains hard-blocked before credentials, client construction,
+or network activity. This file is a safety boundary, not an operator workflow.
 
-Ez a repository szándékosan nem tartalmaz külső megbízásadási,
-környezetváltási vagy privát hozzáférési értékhez tartozó folyamatot. A
-nyilvános piaci adatok CCXT Pro támogatás esetén WebSocket-elsők,
-REST-visszaesés engedett; ettől a rendszer nem kap éles kereskedési
-jogosultságot.
+Any future reconsideration must first have fresh evidence for all of the
+following blockers:
 
-Egy külön engedélyezett jövőbeli megvalósításnak kizárólag Bybit EU Spot Margin
-úton, minden megbízás előtt pontosan kiválasztott és függetlenül ellenőrzött
-10× tőkeáttétellel, hiba esetén zárt módon kell működnie. Ez jövőbeli
-követelmény, nem jelenlegi funkció vagy engedély.
+- independent technical and process reviews;
+- complete relevant coverage and validation evidence;
+- CCXT dependency-integrity evidence;
+- verified Bybit EU account, pair, and borrow eligibility; and
+- exact fixed 10x selected-leverage and launch-baseline safeguards.
 
-## English
-
-Live trading activation is currently unavailable. Active documentation and all
-provided configuration profiles apply only to paper/emulated operation.
-
-This repository intentionally contains no external-order,
-environment-transition, or private-access workflow. Public market data is
-WebSocket-first where CCXT Pro supports it, with REST fallback permitted; this
-does not authorize live trading.
-
-A separately authorized future implementation must operate only through Bybit
-EU Spot Margin, verify exactly selected 10× leverage independently before every
-order, and fail closed on any error. This is a future requirement, not a
-current feature or permission.
+Passing some of these blockers is not permission to activate live trading. A
+separate reviewed decision and implementation would be required.

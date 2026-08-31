@@ -1,43 +1,35 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
 import { asSymbol } from "@mm-crypto-bot/exchange";
-
 import { Bot } from "../../../src/bot/bot.js";
 import type { BotConfig } from "../../../src/config/schema.js";
 
 import {
-  assertCondition,
-  clearRecordedOrders,
-  FailingOhlcvFeed,
   MockExchangeFeed,
   quietLogger,
-  recordedOrders,
-  RecordingLogger,
-  botConfigFor,
-  startBotThenStop,
+  assertCondition,
   waitForCondition,
+  RecordingLogger,
+  FailingOhlcvFeed,
+  placeOrderLedger,
 } from "./runtime-driver-core.js";
+import { botConfigFor, startBotThenStop } from "./runtime-driver-portfolio-fixtures.js";
 
-const join = (...pathSegments: string[]): string => path.join(...pathSegments);
-
-export async function runBotSubscriptions(): Promise<void> {
-  const directory = mkdtempSync(join(tmpdir(), "mm-bot-subscriptions-driver-"));
+async function runBotSubscriptions(): Promise<void> {
+  const directory = mkdtempSync(path.join(tmpdir(), "mm-bot-subscriptions-driver-"));
   try {
-    clearRecordedOrders();
     const feed = new MockExchangeFeed();
     const config: BotConfig = {
-      ...botConfigFor(join(directory, "subscriptions.json")),
+      ...botConfigFor(path.join(directory, "subscriptions.json")),
       symbols: { enabled: ["BTC/USDC", "ETH/USDC"] },
       strategies: {
-        ...botConfigFor(join(directory, "subscriptions.json")).strategies,
+        ...botConfigFor(path.join(directory, "subscriptions.json")).strategies,
         donchian_pivot_composition: {
           enabled: true,
           symbols: ["BTC/USDC", "XRP/USDC"],
           risk_per_trade: 0.01,
           max_positions: 1,
-          leverage: 10,
           timeframes: { htf: "2h", mtf: "4h", ltf: "15m" },
         },
       },
@@ -55,16 +47,16 @@ export async function runBotSubscriptions(): Promise<void> {
       payload: { symbol, timeframe: "15m", candle: [1, 100, 101, 99, 100, 1] },
     });
     await Bun.sleep(20);
-    assertCondition(recordedOrders().length === 0, "subscription callback reached order placement");
+    assertCondition(placeOrderLedger.length === 0, "subscription callback reached order placement");
     await bot.stop();
     await running;
 
     const failureFeed = new FailingOhlcvFeed();
     const failureLogger = new RecordingLogger();
     const failureConfig: BotConfig = {
-      ...botConfigFor(join(directory, "subscription-faults.json")),
+      ...botConfigFor(path.join(directory, "subscription-faults.json")),
       strategies: {
-        ...botConfigFor(join(directory, "subscription-faults.json")).strategies,
+        ...botConfigFor(path.join(directory, "subscription-faults.json")).strategies,
         donchian_pivot_composition: { enabled: true },
       },
     };
@@ -74,7 +66,7 @@ export async function runBotSubscriptions(): Promise<void> {
     );
     const errors = new Set(
       failureLogger.entries
-        .filter((entry) => entry.message.startsWith("[bot] OHLCV subscribe failed"))
+        .filter((entry) => entry.message === "bot.ohlcv.subscribe.failed")
         .map((entry) => entry.meta?.["error"]),
     );
     assertCondition(errors.has("4h subscription failed"), "Error OHLCV failure was not logged");
@@ -82,9 +74,9 @@ export async function runBotSubscriptions(): Promise<void> {
 
     const pluginFeed = new MockExchangeFeed();
     const pluginConfig: BotConfig = {
-      ...botConfigFor(join(directory, "plugin-instance.json")),
+      ...botConfigFor(path.join(directory, "plugin-instance.json")),
       strategies: {
-        ...botConfigFor(join(directory, "plugin-instance.json")).strategies,
+        ...botConfigFor(path.join(directory, "plugin-instance.json")).strategies,
         regime_detector: { enabled: true },
       },
     };
@@ -96,3 +88,5 @@ export async function runBotSubscriptions(): Promise<void> {
     rmSync(directory, { recursive: true, force: true });
   }
 }
+
+export { runBotSubscriptions };

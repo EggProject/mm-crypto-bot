@@ -26,23 +26,23 @@
 // The plugin ports 9E into the SignalBus as a drop-in: no central-runner
 // surgery, just `plugin = new HybridKellyPlugin(); registry.register(plugin)`.
 //
-// The 1:10 leverage mandate is enforced via the multiplicative
+// The aggregate effective-exposure limit is enforced via the multiplicative
 // composition: `my_factor = my_kelly × my_vol ∈ [0.0625, 1.0]`. We NEVER
 // scale UP (factor > 1.0) — the upstream's recommendation is the ceiling.
 // All four Phase 11.1 plugins (11.1b DirectionalMTF + 11.1d SOLFlipKill
 // + 11.1c VolTargetSizing + 11.1e HybridKelly) compose into the SCv1
-// portfolio without breaching the 1:10 mandate.
+// portfolio without breaching the aggregate effective-exposure limit.
 //
 // 1:10 leverage invariant — 3-LAYER DEFENSE
 // -----------------------------------------
 // This plugin's outgoing SizingSignals MUST respect the 1:10 cap:
-//   Layer 1 (constructor): `metadata.maxLeverage = 10`. The registry
+//   Layer 1 (constructor): `metadata.maxAggregateEffectiveLeverage = 10`. The registry
 //     rejects any plugin whose metadata declares leverage > 10.
-//   Layer 2 (per-receive): `assertLeverageInvariant(original)` BEFORE
+//   Layer 2 (per-receive): `assertAggregateEffectiveExposureLimit(original)` BEFORE
 //     rescaling. If the upstream signal already breached the cap,
 //     throw — we MUST NOT touch it (defense-in-depth catches bugs
 //     in upstream plugins).
-//   Layer 3 (per-emit): `assertLeverageInvariant(rescaled)` AFTER
+//   Layer 3 (per-emit): `assertAggregateEffectiveExposureLimit(rescaled)` AFTER
 //     rescaling, BEFORE re-emit. If our rescale accidentally pushed
 //     notional over the cap, throw — fail-closed rather than emit
 //     a leverage-breaching signal.
@@ -76,12 +76,12 @@
 //     `packages/core/src/risk/adaptive-kelly-vol-hybrid.ts` for the
 //     full per-symbol walk-forward validation at 1:10 leverage.
 
-import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, assertAggregateEffectiveExposureLimit } from "../../risk/leverage-invariant.js";
 import { computeVolMultiplier } from "../../risk/vol-targeted-sizer.js";
 import { sharpeToKellyBucket, type AdaptiveKellyBucket } from "../../risk/kelly-adaptive.js";
 
 // Re-export so test suite + downstream consumers can import from one place.
-export { ONE_TO_TEN_LEVERAGE };
+export { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
 import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
@@ -102,7 +102,7 @@ import {
 
 /**
  * `HybridKellyConfig` — public, overridable configuration for
- * `HybridKellyPlugin`. Defaults match Phase 9 9E + the 1:10 mandate.
+ * `HybridKellyPlugin`. Defaults match Phase 9 9E + the aggregate effective-exposure limit.
  */
 export interface HybridKellyConfig {
   /**
@@ -112,7 +112,7 @@ export interface HybridKellyConfig {
    */
   readonly kellyCap: number;
   /**
-   * HARD CAP on the vol multiplier. Default 1.0 (the 1:10 mandate
+   * HARD CAP on the vol multiplier. Default 1.0 (the aggregate effective-exposure limit
    * caps Moreira-Muir's "scale up" half at 1.0). MUST be ≤ 1.0.
    */
   readonly maxVolMultiplier: number;
@@ -155,8 +155,8 @@ export interface HybridKellyConfig {
 // Defaults + bounds
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_KELLY_CAP = 1.0 as const; // HARD CAP — 1:10 mandate
-export const DEFAULT_MAX_VOL_MULTIPLIER = 1.0 as const; // HARD CAP — 1:10 mandate
+export const DEFAULT_KELLY_CAP = 1.0 as const; // HARD CAP — aggregate effective-exposure limit
+export const DEFAULT_MAX_VOL_MULTIPLIER = 1.0 as const; // HARD CAP — aggregate effective-exposure limit
 export const DEFAULT_MIN_VOL_MULTIPLIER = 0.25 as const;
 export const DEFAULT_TARGET_DAILY_VOL = 0.02 as const;
 export const DEFAULT_VOL_WINDOW_DAYS = 30 as const;
@@ -253,7 +253,7 @@ export interface HybridKellyPluginState {
  *
  *   2. **Moreira-Muir vol multiplier** — inverse-vol scaling based on
  *      rolling 30d realized vol (Moreira-Muir 2017). Clamped to
- *      [minVolMultiplier, maxVolMultiplier=1.0] under the 1:10 mandate.
+ *      [minVolMultiplier, maxVolMultiplier=1.0] under the aggregate effective-exposure limit.
  *
  * Combined factor: `my_factor = kelly_bucket × vol_multiplier` ∈
  * [0.0625, 1.0] under default bounds. The final notional is
@@ -262,7 +262,7 @@ export interface HybridKellyPluginState {
  *
  * The plugin NEVER scales UP beyond the upstream's notional — both the
  * Kelly bucket (≤ 1.0) and the vol multiplier (≤ 1.0) are ≤ 1.0, so the
- * product is ≤ 1.0. This guarantees the 1:10 mandate is maintained by
+ * product is ≤ 1.0. This guarantees the aggregate effective-exposure limit is maintained by
  * construction (assuming the upstream respects it; Layer 2 + Layer 3
  * assertions catch any upstream breach).
  *
@@ -285,12 +285,12 @@ export class HybridKellyPlugin implements StrategyPlugin {
     version: "1.0.0",
     edgeClass: "sizing",
     capitalRequirement: 0,
-    maxLeverage: ONE_TO_TEN_LEVERAGE, // Layer 1 of 3-layer 1:10 defense
+    maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, // Layer 1 of 3-layer aggregate effective-exposure defense
     description:
       "Phase 11.1e FOURTH/FINAL drop-in plugin — carry-side adaptive sizing. " +
       "Wraps Phase 9 9E Adaptive Kelly × VolTarget hybrid. Funding-Sharpe-based " +
       "Kelly bucket (0.25/0.5/0.7/1.0) × Moreira-Muir vol multiplier " +
-      "(clamped to [0.25, 1.0] under 1:10 mandate). BTC/ETH/SOL default-on.",
+      "(clamped to [0.25, 1.0] under aggregate effective-exposure limit). BTC/ETH/SOL default-on.",
     dependencies: [],
   };
 
@@ -327,13 +327,13 @@ export class HybridKellyPlugin implements StrategyPlugin {
     };
 
     // LAYER 1 — constructor assertion. Defense in depth — the
-    // metadata is statically typed as `maxLeverage: 10`, so this
+    // metadata is statically typed as `maxAggregateEffectiveLeverage: 10`, so this
     // comparison is always true at runtime. We keep it as a runtime
     // safety check (the registry also enforces this).
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
+    if (this.metadata.maxAggregateEffectiveLeverage !== DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
       throw new Error(
-        `[HybridKellyPlugin] LAYER 1 BREACH: metadata.maxLeverage=${String(this.metadata.maxLeverage)} but the project-wide 1:10 mandate requires 10.`,
+        `[HybridKellyPlugin] LAYER 1 BREACH: metadata.maxAggregateEffectiveLeverage=${String(this.metadata.maxAggregateEffectiveLeverage)} but the project-wide aggregate effective-exposure limit requires 10.`,
       );
     }
 
@@ -342,12 +342,12 @@ export class HybridKellyPlugin implements StrategyPlugin {
     // failures so bad configs fail fast.
     if (this.config.kellyCap > 1.0) {
       throw new Error(
-        `[HybridKellyPlugin] kellyCap=${this.config.kellyCap} exceeds 1.0 (the 1:10 mandate hard cap).`,
+        `[HybridKellyPlugin] kellyCap=${this.config.kellyCap} exceeds 1.0 (the aggregate effective-exposure limit hard cap).`,
       );
     }
     if (this.config.maxVolMultiplier > 1.0) {
       throw new Error(
-        `[HybridKellyPlugin] maxVolMultiplier=${this.config.maxVolMultiplier} exceeds 1.0 (the 1:10 mandate hard cap).`,
+        `[HybridKellyPlugin] maxVolMultiplier=${this.config.maxVolMultiplier} exceeds 1.0 (the aggregate effective-exposure limit hard cap).`,
       );
     }
     if (
@@ -470,7 +470,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
       if (c["kellyCap"] > 1.0) {
         return makeErr(
           "kellyCap",
-          `HARD CAP at 1.0 (1:10 mandate); got ${String(c["kellyCap"])}`,
+          `HARD CAP at 1.0 (aggregate effective-exposure limit); got ${String(c["kellyCap"])}`,
           c["kellyCap"],
         );
       }
@@ -486,7 +486,7 @@ export class HybridKellyPlugin implements StrategyPlugin {
       if (c["maxVolMultiplier"] > 1.0) {
         return makeErr(
           "maxVolMultiplier",
-          `HARD CAP at 1.0 (1:10 mandate); got ${String(c["maxVolMultiplier"])}`,
+          `HARD CAP at 1.0 (aggregate effective-exposure limit); got ${String(c["maxVolMultiplier"])}`,
           c["maxVolMultiplier"],
         );
       }
@@ -770,19 +770,19 @@ export class HybridKellyPlugin implements StrategyPlugin {
   }
 
   /**
-   * `effectiveMaxNotionalUsd` — the 1:10 leverage cap expressed as
+   * `effectiveMaxNotionalUsd` — the aggregate effective-exposure cap expressed as
    * `baseNotionalUsd × 10`. Used by tests + downstream consumers.
    */
   effectiveMaxNotionalUsd(): number {
-    return this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE;
+    return this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE;
   }
 
   /**
-   * `assertLeverageInvariantForTesting` — public hook so the test
+   * `assertAggregateEffectiveExposureLimitForTesting` — public hook so the test
    * suite can validate Layer 2/3 throws on synthetic breaches.
    */
-  assertLeverageInvariantForTesting(notional: number): void {
-    assertLeverageInvariant(notional, this.config.baseNotionalUsd);
+  assertAggregateEffectiveExposureLimitForTesting(notional: number): void {
+    assertAggregateEffectiveExposureLimit(notional, this.config.baseNotionalUsd);
   }
 
   // ---------------------------------------------------------------------
@@ -828,12 +828,12 @@ export class HybridKellyPlugin implements StrategyPlugin {
 
     // LAYER 2 — assert the upstream signal respects 1:10 BEFORE rescaling.
     try {
-      this.assertLeverageInvariantForTesting(original.notional);
+      this.assertAggregateEffectiveExposureLimitForTesting(original.notional);
       this.state.layer2AssertionCount += 1;
     } catch {
       this.state.leverageBreachDrops += 1;
       throw new Error(
-        `[HybridKellyPlugin] LAYER 2 BREACH: incoming SizingSignal from ${original.source} has notional=${original.notional} > baseNotionalUsd × ${ONE_TO_TEN_LEVERAGE}.`,
+        `[HybridKellyPlugin] LAYER 2 BREACH: incoming SizingSignal from ${original.source} has notional=${original.notional} > baseNotionalUsd × ${DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE}.`,
       );
     }
 
@@ -895,12 +895,12 @@ export class HybridKellyPlugin implements StrategyPlugin {
 
     // LAYER 3 — assert the rescaled signal still respects 1:10 BEFORE emit.
     try {
-      this.assertLeverageInvariantForTesting(Math.abs(rescaled.notional));
+      this.assertAggregateEffectiveExposureLimitForTesting(Math.abs(rescaled.notional));
       this.state.layer3AssertionCount += 1;
     } catch {
       this.state.leverageBreachDrops += 1;
       throw new Error(
-        `[HybridKellyPlugin] LAYER 3 BREACH: rescaled notional=${rescaled.notional} > baseNotionalUsd × ${ONE_TO_TEN_LEVERAGE}.`,
+        `[HybridKellyPlugin] LAYER 3 BREACH: rescaled notional=${rescaled.notional} > baseNotionalUsd × ${DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE}.`,
       );
     }
 

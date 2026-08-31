@@ -41,16 +41,16 @@
 //
 // 1:10 leverage invariant (2-layer defense — defensive plugin emits
 // RiskSignals ONLY, NOT SizingSignals):
-//   1. **Constructor** (Layer 1) — `metadata.maxLeverage = 10`. The
+//   1. **Constructor** (Layer 1) — `metadata.maxAggregateEffectiveLeverage = 10`. The
 //      registry's `validatePluginMetadata` rejects a higher value at
 //      boot. Defense in depth: even though a defensive plugin doesn't
-//      size, declaring maxLeverage keeps the invariant uniformly
+//      size, declaring maxAggregateEffectiveLeverage keeps the invariant uniformly
 //      enforced across all plugins.
 //   2. **Per-emit** (Layer 2) — when the plugin emits a RiskSignal
 //      with a `closeNotionalUsd` instruction, the implied close
-//      notional is asserted via `assertLeverageInvariant(closeNotionalUsd,
+//      notional is asserted via `assertAggregateEffectiveExposureLimit(closeNotionalUsd,
 //      baseNotionalUsd)` BEFORE emit. Any violation throws
-//      `LeverageBreachError`. This is the "defensive per-emit guard":
+//      `AggregateEffectiveExposureLimitBreachError`. This is the "defensive per-emit guard":
 //      even if metadata is bypassed, the per-emit assertion catches
 //      it.
 //   3. **Per-bar guard** (Layer 3) — N/A for defensive plugins. Layer
@@ -89,7 +89,7 @@ import {
   isCarry,
   ok,
 } from "../types.js";
-import { assertLeverageInvariant } from "../../risk/leverage-invariant.js";
+import { assertAggregateEffectiveExposureLimit } from "../../risk/leverage-invariant.js";
 
 // ---------------------------------------------------------------------------
 // SOLFlipKillSwitchPluginConfig — plugin configuration
@@ -146,7 +146,7 @@ export interface SOLFlipKillSwitchPluginConfig {
    * Base notional in USD. Used for the Layer 2 leverage invariant
    * guard: when the plugin emits a `closeNotionalUsd` instruction, it
    * asserts the implied close notional respects
-   * `baseNotionalUsd × maxLeverage`. Default: 10_000.
+   * `baseNotionalUsd × maxAggregateEffectiveLeverage`. Default: 10_000.
    */
   readonly baseNotionalUsd: number;
   /**
@@ -157,7 +157,7 @@ export interface SOLFlipKillSwitchPluginConfig {
   readonly maxCloseNotionalUsd: number;
   /**
    * `timingLeverage` — 1 or 10. Used by the Layer 2 guard to compute
-   * the implied close notional. Default: 10 (1:10 mandate).
+   * the implied close notional. Default: 10 (aggregate effective-exposure limit).
    */
   readonly timingLeverage: 1 | 10;
   /**
@@ -175,9 +175,9 @@ export const DEFAULT_SOL_FLIP_KILL_SWITCH_PLUGIN_CONFIG: SOLFlipKillSwitchPlugin
   extremeSigmaThreshold: 1.5, // Phase 9 9D default
   persistenceDays: 5, // Phase 9 9D default
   volWindowDays: 30, // Phase 9 9D default
-  baseNotionalUsd: 10_000, // 1:10 mandate default
+  baseNotionalUsd: 10_000, // aggregate effective-exposure limit default
   maxCloseNotionalUsd: 100_000, // baseNotional × 10 ceiling
-  timingLeverage: 10, // 1:10 mandate default
+  timingLeverage: 10, // aggregate effective-exposure limit default
   emitCloseInstruction: true,
 };
 
@@ -249,10 +249,10 @@ export interface SOLFlipKillSwitchPluginState {
  *      injection (used by central runner AND tests).
  *   6. `plugin.reset()` / `plugin.dispose()` — backtest lifecycle.
  *
- * Plugin invariant (1:10 HARD GUARDRAIL — defensive plugin, 2-layer):
- *   - `metadata.maxLeverage === 10` (Layer 1, declared).
+ * Plugin invariant (aggregate effective-exposure hard guardrail — defensive plugin, 2-layer):
+ *   - `metadata.maxAggregateEffectiveLeverage === 10` (Layer 1, declared).
  *   - Every RiskSignal with `closeNotionalUsd` is asserted via
- *     `assertLeverageInvariant(closeNotionalUsd, baseNotionalUsd)`
+ *     `assertAggregateEffectiveExposureLimit(closeNotionalUsd, baseNotionalUsd)`
  *     BEFORE emit (Layer 2, per-emit).
  *   - Defensive plugin does NOT emit SizingSignals, so Layer 3 (per-bar
  *     portfolio guard) is N/A at this layer.
@@ -267,7 +267,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     version: "1.0.0",
     edgeClass: "risk", // emits RiskSignals only
     capitalRequirement: 0, // defensive plugin, no capital needed
-    maxLeverage: 10, // 1:10 HARD GUARDRAIL — Layer 1 defense
+    maxAggregateEffectiveLeverage: 10, // aggregate effective-exposure hard guardrail — Layer 1 defense
     description:
       "Phase 11.1d defensive drop-in plugin — wraps Phase 9 9D SOL " +
       "funding-flip kill-switch detector (7d sign-flip + 1.5σ extreme + " +
@@ -295,10 +295,10 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
       ...DEFAULT_SOL_FLIP_KILL_SWITCH_PLUGIN_CONFIG,
       ...config,
     };
-    // 1:10 HARD GUARDRAIL — Layer 1 sanity check.
+    // aggregate effective-exposure hard guardrail — Layer 1 sanity check.
     if (!ALLOWED_KILL_SWITCH_LEVERAGE.includes(merged.timingLeverage)) {
       throw new Error(
-        `[1:10 HARD GUARDRAIL] timingLeverage must be 1 or 10. ` + `Got ${merged.timingLeverage}.`,
+        `[aggregate effective-exposure hard guardrail] timingLeverage must be 1 or 10. ` + `Got ${merged.timingLeverage}.`,
       );
     }
     // Constructor-time validation — defense in depth. validateConfig
@@ -464,7 +464,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
         return {
           field: "timingLeverage",
           message:
-            `[1:10 HARD GUARDRAIL] timingLeverage must be 1 or 10. ` + `Got ${String(c.timingLeverage)}.`,
+            `[aggregate effective-exposure hard guardrail] timingLeverage must be 1 or 10. ` + `Got ${String(c.timingLeverage)}.`,
           value: c.timingLeverage,
         };
       }
@@ -501,15 +501,15 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
       throw new Error(`[SOLFlipKillSwitchPlugin] ${invalid.field}: ${invalid.message}`);
     }
     // Additional check: maxCloseNotionalUsd must be ≤ baseNotionalUsd ×
-    // maxLeverage (10x ceiling — the 1:10 mandate). The effective
+    // maxAggregateEffectiveLeverage (10x ceiling — the aggregate effective-exposure limit). The effective
     // close notional is min(baseNotional × timingLeverage, maxCloseNotionalUsd),
     // and we must ensure the maxCloseNotionalUsd ceiling itself
-    // respects the project-wide 1:10 mandate.
-    const maxAllowedClose = c.baseNotionalUsd * 10; // 1:10 mandate ceiling
+    // respects the project-wide aggregate effective-exposure limit.
+    const maxAllowedClose = c.baseNotionalUsd * 10; // aggregate effective-exposure limit ceiling
     if (c.maxCloseNotionalUsd > maxAllowedClose * 1.0001) {
       throw new Error(
-        `[1:10 HARD GUARDRAIL] maxCloseNotionalUsd (${c.maxCloseNotionalUsd}) ` +
-          `must be ≤ baseNotionalUsd × 10 (${maxAllowedClose}, the 1:10 mandate ceiling).`,
+        `[aggregate effective-exposure hard guardrail] maxCloseNotionalUsd (${c.maxCloseNotionalUsd}) ` +
+          `must be ≤ baseNotionalUsd × 10 (${maxAllowedClose}, the aggregate effective-exposure limit ceiling).`,
       );
     }
   }
@@ -790,7 +790,7 @@ export class SOLFlipKillSwitchPlugin implements StrategyPlugin {
     );
     // Always assert (defensive — even if emitCloseInstruction is
     // false, we sanity-check the configured cap).
-    assertLeverageInvariant(impliedCloseNotional, this.config.baseNotionalUsd);
+    assertAggregateEffectiveExposureLimit(impliedCloseNotional, this.config.baseNotionalUsd);
     this.state.leverageAssertionCount += 1;
 
     const reason = this._reasonFromDecision(decision, isEngaged);

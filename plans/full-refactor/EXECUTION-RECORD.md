@@ -54,11 +54,159 @@ addendum; the eventual commit tree differs only by this final evidence status,
 not by implementation, test, config, package, or lock content. No root
 `coverage:full` PASS is claimed.
 
-**Status:** DRAFT. This is an evidence ledger, not implementation authority.
+**Status:** FINAL LOGGING REVIEW PASS. This is an evidence ledger, not
+implementation authority.
 All D-01 through D-09 decisions are approved; action remains gated by scope,
 validation, safety, and review evidence.
 
 ## Current Phase 2 evidence
+
+**ER-070 P-03/P-04 correction:** Full relay hashes are brief
+`a6e021adcc276ba92e82e64689324d82a821d0f24ad61446cf53197e388056d6`, retry
+`2889be936039a8f2a8279b23297efa850ede23cd255e553e4146eeac987f7b21`, Attempt
+A `8e46a875621ae4b29b144595ac0c25cff0c4e11dfa02ba287152b01b287f4a26`, Attempt
+B `4207cc73fdb47e8a419c61836d8528decc2ec822e226d43c086362f55f3f5ebe`, B final
+`a907cb52ad6c9f3f4b5b1c06c63c1b92979a22bca83d8f79e68f65a993cc71a5`, and
+verifier `636a4434622c4bf9612b820523bc9f213e279add16d18e21a20b861ac154aded`.
+RE-080 records TECH PASS only for the historical official-v2 lineage. The
+later 20260823-03 correction remains TECH FAIL / PROCESS FAIL pending
+re-review; the historical rejected result remains preserved.
+
+**ER-070 P-05/P-06 command detail:** Reviewer evidence records `sha256sum`
+exit 0, `jq` validation exit 0, the snapshot `cd` plus four-Git-command
+transaction, verifier `jq`/direct-`rg` transaction exit 0, scoped Git diff exit
+0, and scoped `git diff --check` exit 0. The audit used `set -o pipefail` and
+exited 0 overall; individual `rg` `$pipestatus` values are NOT RECORDED.
+Prettier, lint, and tests were NOT RUN. The historical official-v2 lineage is
+TECH PASS via RE-080; its PROCESS FAIL remediation remains pending re-review.
+The later 20260823-03 correction remains TECH FAIL / PROCESS FAIL pending
+re-review. Historical rejected and zero-credit state is unchanged.
+
+**ER-069 correction (process re-review):** The tracked D-07 diff is only
+`apps/bot/src/cli/commands/config.ts` and `config.test.ts`. The E2E driver is
+wholly untracked and has no `HEAD` version; its present 37-callsite count and
+zero helper-symbol matches are not proof that an E2E consumer was removed.
+Any earlier wording that described a tracked E2E consumer removal is
+superseded by this correction.
+
+**ER-070 TECH remediation correction:** Attempt B raw fields are
+`sandbox=true`, `readOnly=false`, and `dangerouslySkipPermissions=true`. It was
+not read-only and used automatic tool-permission approval; the sandbox flag is
+not relied on as the access/permission boundary. The dedicated sanitized
+snapshot and unchanged clean-status hash provide isolation evidence. This
+correction supersedes only the earlier shorthand wording; the rejected result
+and zero bootstrap credit remain unchanged.
+
+**ER-070 PROCESS remediation:** Full dispatch classification is recorded in
+the evaluation evidence: bounded repository-wide read-only inventory/extraction
+bootstrap evaluation; non-review; 12 workspace packages plus one root manifest;
+read scope is the 621-file sanitized snapshot and relay outputs only; low
+source-inventory risk with evidence/permission integrity risk; mechanical
+lexical counting; no intended external/mutable resources; independent Terra
+technical and Luna process review; no fallback/escalation. Rework is exactly 1
+(A initial plus B resume), excluding nine historical attempts from another
+lineage. Supplied path:
+`/tmp/mm-crypto-bot-agy-d07-inventory-20260823-01`. Full hashes are recorded
+in the linked evaluation evidence. Historical rejected result and zero credit
+remain. **PROCESS FAIL remediation pending re-review.**
+
+| ER-070 | D-07 Agy active-reference inventory evaluation. Recorded 2026-08-23 Europe/Budapest. Evidence-only Luna route; no source/test/config write, staging, commit, or external mutation. Original preflight: 216 status rows, SHA-256 `57ba429e111cd36c6daeedf549868059bf1464cce39a1a2dc30821b9b5836828`; filename-only and active double-quoted secret scans both zero. Sanitized snapshot: 621 files, commit `6fc07f723b86650330ce7a16bd6ac16cd4a46473`, clean hash `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`. | Full/retry brief hashes: `a6e021adcc276ba92e82e64689324d82a821d0f24ad61446cf53197e388056d6` / `2889be936039a8f2a8279b23297efa850ede23cd255e553e4146eeac987f7b21`. Attempt A result `8e46a875621ae4b29b144595ac0c25cff0c4e11dfa02ba287152b01b287f4a26`; Attempt B result `4207cc73fdb47e8a419c61836d8528decc2ec822e226d43c086362f55f3f5ebe`; final `a907cb52ad6c9f3f4b5b1c06c63c1b92979a22bca83d8f79e68f65a993cc71a5`; verifier `636a4434622c4bf9612b820523bc9f213e279add16d18e21a20b861ac154aded`. | **COMPLETED TOOL RUN / REJECTED EVALUATION.** Zero bootstrap credit, no routing-quality PASS, no recommendations used. Historical official-v2 lineage **TECH PASS via RE-080**; its **PROCESS FAIL remediation remains pending re-review**. The later 20260823-03 correction is **TECH FAIL / PROCESS FAIL pending re-review**. Counts are snapshot-time only and no zero-legacy claim is made. |
+
+## ER-081 D-07 Agy correction-run evidence remediation
+
+Recorded 2026-08-23 Europe/Budapest. Non-review evidence-only remediation;
+Terra trigger: evidence integrity, permission/security semantics, and routing
+governance. Route `terra_worker` / `gpt-5.6-terra` / high; workspace-write;
+owned files are the D-07 evaluation/dispatch ledgers and this execution/review
+ledger only. No code, test, config, raw `/tmp` artifact, Git index, commit, or
+external mutation was performed by the evidence writer.
+
+The first correction relay invocation incorrectly combined
+`--project 2b9bd576-a4b6-44f0-87ea-fa6a4ab7c42a` with
+`--conversation d52e3003-1e8c-460c-b13d-d7b577d0ebad`; it exited `2` at
+argument validation with no result artifact. The corrected invocation resumed
+with only the conversation identifier. Its result is `completed` / exit `0`,
+Agy `1.1.19`, from `2026-08-23T21:17:41.291Z` to
+`2026-08-23T21:18:02.534Z`, requested/dispatched
+`gemini-3.7-flash-low` / `low`, provider-effective model/effort not observable,
+and token/cache/thinking/quota/cost data not available. The raw fields are
+`sandbox=true`, `readOnly=false`, `dangerouslySkipPermissions=true`,
+`resumed=true`, `touchedFiles=[]`, and `readOnlyViolation=null`.
+
+No durable exact shell-command transcript exists for either correction
+invocation. Exact flag ordering, full snapshot/brief/output-path spelling, and
+the first invocation's complete stdout/stderr are **NOT EVIDENCED** and cannot
+be reconstructed; no reproducible relay command is inferred from the retained
+result fields. This process-provenance gap is part of the rejected, zero-credit
+disposition.
+
+Snapshot proof is commit `6fc07f723b86650330ce7a16bd6ac16cd4a46473`, 621
+tracked files, zero status rows, and SHA-256
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+The correction brief/verifier/result/final/raw-log hashes are
+`2c88094f8a2e207d1f7a26ce2a81b4c860a13873b9e3caf76ebd2a57f2a1c170`,
+`636a4434622c4bf9612b820523bc9f213e279add16d18e21a20b861ac154aded`,
+`f250fa38ab2c6fdd1fa3a05ff1d45b97d2306d703842fb326e65e27dc8c7629b`,
+`a0809d77aa05eb8d90b95e209c1fc8925a6cacb6ce8ad976b66648b717d2c763`, and
+`2f7a487a091c94926c7cd12bccbb2798b92d1c6551f5f7999e0a8d15f2b29154`.
+Two independent verifier JSON runs have SHA-256
+`dd860e190f3a8b392c0094f66420fef462dd07d0915c3997607810ac525aaf77` and
+`cmp` exit `0`; aggregate counts are phase 3285/244, legacy 35/17, compat
+24/19, mm-bot 184/45, run-bot 31/12, and production counts are 916/152, 26/9,
+14/11, 128/34, 13/5 in the same order.
+
+The 11 assignment-pattern preflight matches were classified as test
+sentinel/placeholder literals or logger redaction-key strings; no matched value
+was retained. Inventory correctness is **PASS**. Nevertheless, dangerous mode
+was not read-only and did not attest an effective path boundary; the raw log
+records automatic Playwright-driver download attempts, a **HIGH network-scope
+violation**, and contains a personal email address that is not reproduced.
+Missing provider-effective attestation and absent quota/cost proxy additionally
+bar this run from the local routing gate. Overall disposition: **TECH FAIL /
+PROCESS FAIL**, zero bootstrap credit, no routing-quality PASS, no usable
+recommendation, and no retry. Roll back only this ER-081 appended record with
+an inspected patch; it does not change historical D-07 lineage.
+
+| ER-071 | C4c market-event-controller Terra reclassification and implementation provenance. Recorded 2026-08-23 Europe/Budapest. Non-review implementation; one app package; trading-adjacent controller/test-boundary risk. Requested/effective route `terra_worker` / `gpt-5.6-terra` / high; workspace-write authority limited to exactly `apps/bot/src/bot/strategy-runner-market-event-controller.ts`, `apps/bot/src/bot/strategy-market-event-controller.scenarios.test.ts`, and `apps/bot/src/bot/strategy-market-event-controller.boundary.test.ts`; no external resource, fallback, staging, or commit. The failed Agy run is separate evidence and receives zero credit. | Terra applied the coordinator-pre-decided remediation: validation precedes state mutation; canonical enabled events alone increment `ticksProcessed`; invalid symbol, paused, and disabled events fail closed; ATR uses 14 adjacent true-range pairs with heterogeneous oracle 8.5; symbol conversion uses the public guard/factory. Current sizes are 268/466/114 lines. Terra scope is ten approved scenario tests plus two approved boundary tests, 12 total/45 assertions, versus Agy's unimplemented eight-scenario brief; the delta and rationale are in [the evaluation](evidence/c4c-agy-market-controller-evaluation.md). Independent technical review is TECH PASS with zero open valid findings; process findings are limited to missing provenance/scope-delta documentation. | **PENDING PROCESS RE-REVIEW.** No repository/full-verify/release/live-safety PASS or commit authorization. |
+
+| ER-069 D-07 config CLI evidence remediation | Recorded `2026-08-23` Europe/Budapest. Evidence-only `luna_worker` fallback; no source/test/config/package write, staging, commit, external resource, or live action. The implementation classification was public API removal with multi-file/E2E consumer: `terra_worker` / `gpt-5.6-terra` / high / non-review / one app package / workspace-write, exact three owned paths. Agy was ineligible because its repository write/test bootstrap is failed and unattested and shared dirty-worktree isolation was unavailable. | [D-07 evidence](evidence/d07-config-cli-removal.md) records exact HEAD/current unit-name and expectation accounting (27/23, 72/68), the three removed helper tests/four assertions, the current E2E 37 `assertCondition` callsites, and the unreproducible 40/39 E2E reports without inventing a baseline. It records scoped lint/format/direct-driver PASS, focused 23/23 PASS, exchange-blocked typecheck/E2E-typecheck/build, diff-check, file sizes, and zero current helper-symbol matches. | **PENDING PROCESS RE-REVIEW.** Active `run-bot`/`mm-bot` deployment-config migration remains a separate Terra dependency; no D-07 overall, zero-legacy, repository, release, or live-trading PASS is claimed. No staging or commit occurred. |
+
+### ER-065 C4c central logging implementation (non-review)
+
+Recorded `2026-08-18T06:25:15+0200` Europe/Budapest. High-risk, multi-package
+logging/observability, redaction, lifecycle, and public-API implementation;
+non-review. Requested/effective route `terra_worker` / `gpt-5.6-terra` / high;
+workspace-write authority. Ownership is `packages/logging/**`, the atomic
+shared-logger deletion/export removal, direct bot consumers/tests/composition,
+the coverage driver import contract, `bun.lock`, `tsconfig.json`, and C4c plan
+evidence. No provider/network trading action, hook installation, staging, or
+commit occurred. Fallback: none.
+
+`@mm-crypto-bot/logging` is a private workspace package. `StructuredLogger`
+uses injected clock/sink/context, validates bounded context/event/threshold
+values, emits structured JSON only to stderr, and has bounded redaction and
+serialization. The sink treats an initial `stderr.write()` backpressure signal
+as accepted bytes and waits for drain before later writes. Noncritical records
+may be dropped only within the configured bound; critical audit events fail
+closed without exceeding the queue. Flush retains undelivered records after a
+partial sink failure. The testing-only subpath rejects critical events when a
+null logger is requested. The optional file sink is omitted.
+
+All direct runtime consumers in `apps/bot/src/bot`, `portfolio`, and `risk`
+receive the injected interface and use explicit event names; the start command
+creates one logger with a UUID run/correlation context and passes it into the
+bot. The shared logger implementation, test, public export, and shared
+subpath were removed atomically. The telemetry runtime no longer writes files.
+Test-only recording loggers are imported only by test files. Exact commands,
+exit codes, metrics, hashes, lint/format debt, audit limitation, ignored output
+status, and rollback preconditions are in
+[the C4c command ledger](evidence/c4c-command-ledger.md).
+
+Rollback is one inspected reverse patch restoring the previous shared logger
+only if the full atomic C4c diff is rejected; it must not create a concurrent
+logger path, re-export, alias, or hidden fallback. **PENDING TECHNICAL AND
+PROCESS RE-REVIEW.** This is not a repository/full-verify/release/live-safety
+PASS.
 
 ### ER-063 C4a RxJS prototype removal (non-review)
 
@@ -254,6 +402,161 @@ substitute dependency, or an alias. **PENDING TECHNICAL AND PROCESS
 RE-REVIEW.** This is not package, repository, full-verify, release, data, or
 live-safety PASS.
 
+## ER-082 CCXT 4.5.75 process-review remediation
+
+Recorded `2026-08-23T21:45:02.006Z` UTC. Non-review write/evidence remediation;
+route requested/effective `terra_worker` / `gpt-5.6-terra` / high;
+workspace-write observed. Ownership is limited to
+`plans/full-refactor/evidence/ccxt-4.5.75-upgrade-validation.md`, this record,
+and `REVIEW-EVIDENCE.md`. No manifest, lockfile, source, test, staging, commit,
+or external call changed in this remediation.
+
+The task is a four-declaration plus root/lock live-exchange public-API and
+supply-chain update. Mutable resources used by the earlier implementation were
+the npm registry, CCXT GitHub releases/tags, and Bun resolution; no authenticated
+exchange resource was used. Required independent roles remain `terra_reviewer`
+technical and `luna_process_reviewer` process; no fallback or escalation exists.
+
+The current diff includes shared logging/export hunks alongside the intended
+four exact `4.5.64` to `4.5.75` substitutions and Bun-generated CCXT resolution.
+The complete contamination inventory and current-only hashes are in
+[`ccxt-4.5.75-upgrade-validation.md`](evidence/ccxt-4.5.75-upgrade-validation.md).
+No pre-dispatch per-file snapshot exists, so exclusive task-time ownership is
+**NOT EVIDENCED** and a CCXT-only commit is blocked pending reviewed staging.
+
+The first endpoint probe had incorrect `privatePost...` names; its durable
+timestamp/hash/status is **NOT EVIDENCED** and it is superseded. Fresh ESM/CJS
+probes exited 0 and confirmed all required generated V5 method names, but do
+not prove authenticated eligibility, margin/borrow state, exact leverage, or
+live readiness. The installed ESM artifact reports `4.5.74` while package
+metadata/CommonJS report `4.5.75`: **HIGH upstream release-integrity blocker**.
+The user-required exact `4.5.75` pin remains; no downgrade, range, local patch,
+or alternative venue is authorized. This record is **PENDING TECHNICAL AND
+PROCESS RE-REVIEW**, and is not a dependency, commit, release, or live PASS.
+
+## ER-083 CCXT 4.5.75 technical-review remediation
+
+Recorded 2026-08-24 Europe/Budapest. Non-review write/implementation;
+requested/effective route `terra_worker` / `gpt-5.6-terra` / high,
+workspace-write observed. Owned files are the four active manifest declarations
+plus root, `bun.lock`, CCXT compatibility fixtures/tests, the bounded
+backtest-tools provenance and latency calculation files/tests, current CCXT
+documentation, and the CCXT evidence records. This is a four-package plus
+root/lock live-exchange public-API and supply-chain task. Reasoning required
+release-artifact integrity, generated API compatibility, lock/lifecycle, and
+typed test-boundary analysis. Mutable external inputs were npm, GitHub release
+metadata, and Bun resolution; no authenticated exchange call occurred.
+
+Terra trigger: live exchange dependency + public API + multi-package
+lockfile/supply-chain change => terra_worker.
+
+Exact remediation ownership is limited to:
+
+- `package.json`
+- `bun.lock`
+- `packages/exchange/package.json`
+- `packages/shared/package.json`
+- `packages/backtest-tools/package.json`
+- `scripts/tooling/toolchain-contract.test.ts`
+- `packages/exchange/src/bybit-eu-adapter.test-support.ts`
+- `packages/exchange/tests/bybit-eu-feed-normalizers.test.ts`
+- `packages/exchange/src/bybitEuFeed.test.ts`
+- `packages/backtest-tools/src/cli/run-arb-latency.ts`
+- `packages/backtest-tools/src/cli/arb-latency-calculations.ts`
+- `packages/backtest-tools/src/cli/arb-latency-calculations.test.ts`
+- `packages/backtest-tools/src/cli/ccxt-package-provenance.ts`
+- `packages/backtest-tools/src/cli/ccxt-package-provenance.test.ts`
+- `packages/backtest-tools/vitest.ccxt-provenance.config.mjs`
+- `docs/STACK.md`
+- `docs/research/version-pins.md`
+- `docs/research/stack-findings.md`
+- `docs/research/sources-stack.md`
+- `docs/research/tui-decision.md`
+- `plans/full-refactor/ARCHITECTURE.md`
+- `plans/full-refactor/DEPENDENCIES.md`
+- `plans/full-refactor/evidence/ccxt-4.5.75-upgrade-validation.md`
+- `plans/full-refactor/EXECUTION-RECORD.md`
+- `plans/full-refactor/REVIEW-EVIDENCE.md`
+
+Explicitly excluded concurrent/out-of-scope hunks are root
+`@mm-crypto-bot/logging: workspace:*`; `packages/exchange/package.json`'s
+`./testing` export; `packages/shared/package.json`'s `./logger` export removal;
+and root/app logging plus `packages/logging` workspace entries in `bun.lock`.
+The root `trustedDependencies` removal is not excluded: it is retained as
+intentional CCXT security/lifecycle remediation. Every other dirty path is out
+of scope unless explicitly listed above; no task-time baseline exists, so this
+is an exclusion contract, not proof of temporal ownership.
+
+The remediation adds exact CCXT `OrderBook.copy` fixture semantics, public-seam
+feed test repair, resolved-package metadata provenance that compares installed
+metadata to the active exact manifest pin with malformed/missing/range/mismatch
+negative tests plus read/resolver and semantic-version boundary negatives,
+intentional CCXT `trustedDependencies` security/lifecycle removal, and a
+behavior-preserving latency-calculation extraction with parity tests. The
+repo-owned focused Vitest V8 configuration retains 100% fail-closed thresholds
+and reports 122/122 statements, 110/110 branches, 30/30 functions, and 112/112 lines
+for the two in-scope helpers; command/config/artifact hashes are in the
+validation ledger. Required independent closure
+roles are `terra_reviewer` technical and `luna_process_reviewer` process; no
+fallback/escalation was used. The requested/effective model and effort are
+observable from the coordinator dispatch record; no additional provider
+attestation exists.
+
+Focused exchange and backtest gates, frozen no-script install, lock resolution,
+and toolchain contract pass as detailed in
+[`ccxt-4.5.75-upgrade-validation.md`](evidence/ccxt-4.5.75-upgrade-validation.md).
+Test-inclusive exchange TypeScript and the full backtest-tools suite retain
+separately attributed existing test/fixed-data debt. Current scope separation
+remains **NOT EVIDENCED** because no task-time baseline exists. The ESM
+`4.5.74` self-report in the exact `4.5.75` artifact remains a HIGH upstream
+release-integrity blocker. Status: **PENDING TECHNICAL AND PROCESS RE-REVIEW**;
+not dependency, live-readiness, release, commit, or final validation PASS.
+
+## ER-084 CCXT 4.5.75 review closure and scoped commit preparation
+
+Recorded `2026-08-24T00:32:22+0200` Europe/Budapest. Non-review
+commit-preparation record; no source, manifest, lock, index, or Git history
+mutation in this record. The completed independent read-only closure roles are
+technical `terra_reviewer` / `gpt-5.6-terra` / high and process
+`luna_process_reviewer` / `gpt-5.6-luna` / medium, both with **PASS** and zero
+closable-slice findings. Exact reviewer command text, sandbox telemetry, and
+completion identifiers are not retained here; effective read-only authority and
+the PASS results are coordinator-supplied review evidence.
+
+The reviewed CCXT slice is exactly `package.json`, `bun.lock`,
+`packages/{exchange,shared,backtest-tools}/package.json`,
+`scripts/tooling/toolchain-contract.test.ts`,
+`packages/exchange/src/bybit-eu-adapter.test-support.ts`,
+`packages/exchange/src/bybitEuFeed.test.ts` and
+`packages/exchange/tests/bybit-eu-feed-normalizers.test.ts`,
+`packages/backtest-tools/src/cli/{run-arb-latency,arb-latency-calculations,arb-latency-calculations.test,ccxt-package-provenance,ccxt-package-provenance.test}.ts`,
+`packages/backtest-tools/vitest.ccxt-provenance.config.mjs`, `docs/STACK.md`,
+`docs/research/{version-pins,stack-findings,sources-stack,tui-decision}.md`,
+`plans/full-refactor/{ARCHITECTURE,DEPENDENCIES,EXECUTION-RECORD,REVIEW-EVIDENCE}.md`,
+and `plans/full-refactor/evidence/ccxt-4.5.75-upgrade-validation.md`.
+
+Reviewed validation evidence records all four exact `4.5.75` pins and the
+Bun-generated lock resolution; frozen/no-script install, untrusted/trust
+checks, package listing, and coordinator-supplied current `bun audit` PASS;
+exchange full test **395/395**, exact-10/spot-margin tests **16/16**; focused
+backtest Bun **19 tests/54 expectations**; V8 **122/122 statements, 110/110
+branches, 30/30 functions, 112/112 lines**; backtest-tools, shared, and bot
+consumer typecheck/build/test gates as recorded; and `git diff --check` PASS.
+The exchange test-inclusive TypeScript check remains a separately attributed
+**NOT PASS** test-modernization debt; the full backtest-tools fixture-data debt
+also remains **NOT PASS**.
+
+The exact latest `4.5.75` pin is retained, but the artifact's ESM
+`ccxt.version` self-report of `4.5.74` remains a **HIGH upstream
+release-integrity blocker**. Therefore this closure is not live readiness or a
+final dependency PASS. A future scoped commit must use the Conventional Commit
+proposal `build(deps): update ccxt to 4.5.75`, after reviewed staging proves
+only the slice above. It must exclude concurrent root/logging hunks, the
+exchange `./testing` export hunk, the shared `./logger` export-removal hunk,
+related lock logging entries, and all unrelated C4c paths. No staging or commit
+occurred; safe rollback is an inspected revert of only that later scoped
+commit.
+
 ## Required record schema
 
 Each future planning, implementation, validation, or review record must contain
@@ -356,6 +659,69 @@ scope/risk/validation evidence and a new record.
 | ER-045 C3c direct bot-dependent validation evidence                                 | Recorded `2026-08-18T01:57:40+0200` Europe/Budapest. Documentation/evidence write; package count 0; high-risk public-API migration evidence; non-review. Requested/effective `terra_worker` / `gpt-5.6-terra` / high; direct runtime telemetry is **NOT OBSERVED**.                                                                                                                                                                                                                                                           | Workspace-write ownership only `plans/full-refactor/{VALIDATION,EXECUTION-RECORD,REVIEW-EVIDENCE}.md`; no code, test, configuration, dependency, generated-artifact, Git, external-resource, fallback, or escalation action.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | From CWD `/home/eggp/projects/mm-crypto-bot`, exact command `bun test apps/bot/src` exited **0**: **737 passed / 0 failed / 1778 expectations**, 36 files. This is dependent validation for the D-07-approved public option migration only. It is not an `apps/bot` scope PASS, global PASS, or a replacement for independent C3c reviews.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | No production/test diff was changed in this evidence-only turn. Roll back only the appended evidence rows with an inspected reverse patch. **PENDING PROCESS RE-REVIEW**; no commit or wider PASS is authorized.                                                                                                                                                                           |
 | ER-046 C3c independent review closure and commit authorization                      | Recorded `2026-08-18T02:03:28+0200` Europe/Budapest. Non-review ledger write plus user-authorized Git stage/commit; one package (`packages/backtest`) and its three C3c ledgers; high financial, public-API, and history-mutation risk. Requested/effective `terra_worker` / `gpt-5.6-terra` / high; workspace-write plus granted Git index/commit authority; no external resource, fallback, push, or amend.                                                                                                                 | Coordinator-supplied independent outcomes: `terra_reviewer` / `gpt-5.6-terra` / high / read-only **TECH PASS**, and `luna_process_reviewer` / `gpt-5.6-luna` / medium / read-only **PROCESS PASS**, each with zero open valid C3c findings. Reviewer completion timestamps and full command text are **NOT OBSERVED**. These findings closed the parsed JSON report contract, final V8 artifact hashes, direct bot dependent evidence, and public-option consumer proof.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Current C3c diff is exactly **25 paths**: 22 under `packages/backtest/**`, three C3c ledgers, and zero other paths. Current gates: Prettier, strict package ESLint, TypeScript check, and build all exited 0; Bun tests passed **166/166** with 1237 expectations; package-CWD V8 coverage passed **473/473 statements, 266/266 branches, 101/101 functions, 456/456 lines**. Hashes are `af63eb656f2052163e6d2aa832b2d9e4c4d3e96939972255014c35a017a8200e` for `coverage-summary.json` and `c45dcde8cd1993762b278d9aa0ab9a0387d3d9f7eff1968bee78c2da7c720ce1` for `lcov.info`; both are ignored/generated/not staged. The removed option value has **0** active package matches; `baseline-compatible` has **3**. `apps/bot/src` test evidence is **737/0/1778**. `backtest-tools` remains **NOT PASS**, with 235 pass / 12 fail unclassified.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Stage only these audited paths and commit `refactor(backtest)!: enforce strict quality gates`; use an inspected revert commit for rollback. Slice closure does not make root lint, broad tests, full verify, release, or live trading PASS.                                                                                                                                                |
 
+## ER-085 CCXT 4.5.75 staged-scope commit-preparation addendum
+
+Recorded `2026-08-24T00:40:44+02:00` Europe/Budapest. Non-review
+write/evidence addendum; requested/effective `terra_worker` /
+`gpt-5.6-terra` / high; workspace-write observed. It changes only this record,
+`REVIEW-EVIDENCE.md`, and
+`evidence/ccxt-4.5.75-upgrade-validation.md`; it does not change the Git
+index, source, manifests, lockfile, or Git history. Terra trigger: supply-chain
+and evidence-integrity risk of precisely attributing a shared-worktree staged
+commit. Package count: zero. External or mutable resources: none. Required
+independent roles are still `terra_reviewer` technical and
+`luna_process_reviewer` process; no fallback or escalation is authorized.
+
+At record time, `git diff --cached --name-status` reports exactly these 24
+paths: `bun.lock`; `docs/STACK.md`; `docs/research/{sources-stack,stack-findings,tui-decision,version-pins}.md`;
+`package.json`; `packages/backtest-tools/package.json`;
+`packages/backtest-tools/src/cli/{arb-latency-calculations.test,arb-latency-calculations,ccxt-package-provenance.test,ccxt-package-provenance,run-arb-latency}.ts`;
+`packages/backtest-tools/vitest.ccxt-provenance.config.mjs`;
+`packages/exchange/{package.json,src/bybitEuFeed.ts}` and
+`packages/exchange/tests/bybit-eu-feed-normalizers.test.ts`;
+`packages/shared/package.json`;
+`plans/full-refactor/{ARCHITECTURE,DEPENDENCIES,EXECUTION-RECORD,REVIEW-EVIDENCE}.md`;
+`plans/full-refactor/evidence/ccxt-4.5.75-upgrade-validation.md`; and
+`scripts/tooling/toolchain-contract.test.ts`.
+
+This staged subset intentionally excludes
+`packages/exchange/src/bybit-eu-adapter.test-support.ts`,
+and `packages/exchange/src/bybitEuFeed.test.ts`, plus every other exact-10 /
+`BybitEuClient` port-refactor hunk. They are not independently reproducible
+from `HEAD`. The single staged hunk in
+`packages/exchange/tests/bybit-eu-feed-normalizers.test.ts` is deliberately different: it is
+an index-only assertion that a raw market without `spot` yields
+`expect(m.isSpot).toBe(false)`. The observed exchange **395/395** and
+exact-10/spot margin **16/16** results are shared-worktree evidence only, not
+clean-tree proof for this staged subset.
+
+The staged content is limited to the four exact `4.5.75` pins; CCXT-only
+`bun.lock` resolution/transitives plus root trust removal; backtest provenance,
+latency-calculation extraction/refactor, tests, and focused V8 configuration;
+the toolchain trust contract; the one-line staged `BybitEuFeed` compatibility
+remediation `isSpot: raw.spot ?? false`; and CCXT docs, evidence, ER, and RE
+records. Its paired index-only regression assertion requires missing `spot` to
+produce `false`. The default `false` is fail-closed for an unknown CCXT `spot`
+flag.
+Concurrent logging and export hunks remain excluded. This addendum does not
+alter historical records. `git diff --cached --check` passed when recorded.
+
+The clean staged snapshot used `bun install --frozen-lockfile --ignore-scripts`
+successfully for 486 packages. Its first exchange typecheck failed TS2375
+because CCXT 4.5.75 makes `raw.spot` optional; the listed one-line fallback is
+the minimal remediation. Before the later assertion hunk, clean staged-snapshot
+exchange tests passed **379/379** with **756 expectations**. The new targeted
+clean-snapshot regression test passes **32/32** with **65 expectations**. The
+full current clean staged snapshot command `bun run --filter
+@mm-crypto-bot/exchange test` then exited 0 with **379 pass, 0 fail, 757
+expectations**. Whole-file legacy ESLint remains **NOT PASS** with 58
+pre-existing errors; the corrected line introduces no new ESLint error and no
+scoped whole-file lint PASS is claimed. The commit is **PENDING** a new staged
+technical and process
+re-review. It is not live readiness or full dependency acceptance; the upstream
+ESM `4.5.74` self-report blocker remains open. Safe rollback remains an
+inspected revert of only a later scoped commit.
+
 ## ER-082 D-07 semantic scanner implementation slice
 
 Refreshed `2026-08-24T14:13:00+02:00` Europe/Budapest. Non-review implementation
@@ -368,9 +734,9 @@ tree, temporary index, package integration, or CI integration. The complete
 snapshot is [D-07 scanner slice](evidence/d07-zero-legacy-scanner-slice.md).
 
 The implementation uses the versioned `zero-legacy-scan-result@1` DTO, semantic
-format extractors, declared inventory/evidence/terminal paths, and descriptor-
-anchored fail-closed reads with a one-MiB maximum and fatal UTF-8. It does not
-perform a global word scan. Scoped Vitest passed 9 files/64 tests with V8
+format extractors, and declared inventory/evidence/terminal paths. Hostile
+concurrent filesystem mutation hardening is out of scope by user decision. It
+does not perform a global word scan. Scoped Vitest passed 9 files/64 tests with V8
 `783/783` statements, `650/650` branches, `165/165` functions, and `771/771`
 lines across one explicit 10-source include; the Bun subset passed 63
 tests/239 expectations. Scoped strict TypeScript over those ten sources
@@ -412,3 +778,94 @@ snapshot, not self-referential evidence for this append. The real 24-path index
 is excluded and preserved. Commit eligibility still requires a coordinator-built
 exact scanner-only temporary index/candidate tree plus fresh final-tree TECH and
 PROCESS verification; this record neither creates nor authorizes either.
+
+## ER-088 D-10 connection/configuration process-evidence remediation
+
+Recorded 2026-08-24 Europe/Budapest. Non-review documentation/evidence write;
+Terra trigger: governing execution evidence and process-integrity semantics.
+Requested route `terra_worker` / `gpt-5.6-terra` / high; workspace-write;
+exclusive ownership is this append-only record and
+`evidence/d10-bybiteu-connection-config-execution-2026-08-24.md`. No source,
+test, configuration, decision/approval ledger, shared index, staging, commit,
+or external mutation was performed by this evidence workstream.
+
+D-10 preserves paper/emulated trading, removes/rejects Bybit testnet/sandbox
+and manual REST/WebSocket origins, and selects fixed-origin `ccxt.pro.bybiteu`
+with WebSocket-first use where supported. The candidate was proactively split
+into exclusive config, initializer/test, template/CLI/docs, decision, and guard
+workstreams without arbitrary time limits. An initial config-surface worker
+temporarily rewrote/deleted whole documents/templates. The coordinator caught
+the scope breach before acceptance; the worker restored baseline content with
+`apply_patch`, then applied minimal edits. The transient bad tree was not
+snapshotted, so it cannot be retroactively hashed. The replayable baseline and
+current per-path hash table, commands, validation, index preservation, and
+explicit limitation are in
+[the D-10 execution evidence](evidence/d10-bybiteu-connection-config-execution-2026-08-24.md).
+
+Focused 72/72, config 121/121, guard 9/9 with exact S61/B40/F13/L56,
+typecheck/typecheck:e2e/build PASS, and functional E2E 62/62 are recorded.
+Global unit/E2E coverage remains non-PASS; CCXT npm/CJS 4.5.75 versus ESM/d.ts
+4.5.74 remains a release-integrity blocker. Initial TECH FAIL (four findings)
+and PROCESS FAIL (two findings) remain **PENDING FOLLOW-UP REVIEW**, not PASS,
+live-ready, release-ready, or commit-ready. No staging or commit occurred.
+
+### ER-088 current candidate remediation addendum
+
+Recorded 2026-08-24 Europe/Budapest. This append-only historical ledger exceeds
+the normal file-size target; it is not split or refactored as part of this
+evidence-only recovery. The preceding ER-088 counts are historical, superseded
+snapshot data. The current authoritative candidate record is
+[the recovered D-10 execution evidence](evidence/d10-bybiteu-connection-config-execution-2026-08-24.md).
+
+The initial independent TECH FAIL (four findings) and PROCESS FAIL (two
+findings) were remediated in the candidate. In addition to live DI/config/adapter
+and documentation fixes, native-client bypasses `setSandboxMode`, `raw`, and
+`ccxtExchange` were removed and constructor-capture proofs added. Current gates:
+full bot `814/814`, full exchange `408/408`, exact isolated config/adapter/guard
+coverage, and integrated E2E `62/62`. Global bot unit/E2E coverage and exchange
+line coverage (`91.1%`) remain **NON-PASS**; npm/CJS CCXT `4.5.75` versus
+ESM/declarations `4.5.74` remains a blocker.
+
+The linked evidence contains the verified 43-path pre-evidence SHA-256 snapshot,
+current `.git/index` SHA-256
+`b800e2bbe3397034f720c7fcf61842eafd4b8af45445ecd3870f0a9cce11c259`,
+and staged NUL-path hash
+`37e1c8643f28f3418782c42987dedb904d5eadffd9e6b3039edc15ff7b57289d`.
+No D-10 path was staged or committed. Status remains
+**PENDING FRESH TECH AND PROCESS RE-REVIEW**, not implementation, live, release,
+or commit PASS.
+
+### ER-088 current final-review evidence addendum
+
+Recorded 2026-08-24 Europe/Budapest. This append-only ledger is a historical
+file-size exception; no unrelated split/refactor is made. This addendum
+supersedes the preceding ER-088 candidate counts and raw-index observation.
+Current evidence is
+[the D-10 execution record](evidence/d10-bybiteu-connection-config-execution-2026-08-24.md).
+
+The candidate now closes native-origin reflection/sandbox drift, complete
+control-safe config serialization, and live/release checklist wording. It records
+full bot `816/816`, exchange `410/410`, exact config/adapter/guard gates, and
+functional E2E `62/62`; global bot coverage and exchange `91.1%` line coverage
+remain NON-PASS. CCXT npm/CJS `4.5.75` versus ESM/declarations `4.5.74` remains
+a blocker. The final-review cycle's initial TECH FAIL `3` and PROCESS FAIL `3`
+are remediated but require fresh independent re-review.
+
+The linked record owns the current 44-path source SHA-256 snapshot and stable
+24-path cached-content hash baseline. The old raw index SHA-256 is superseded:
+read-only index stat/cache refresh caused raw-byte drift, which is not proof of
+content change; byte-exact equality to the older raw snapshot is not
+reconstructable. No D-10 stage/commit occurred. Status remains
+**PENDING FRESH TECH AND PROCESS RE-REVIEW**, not PASS/live/release/commit.
+
+### ER-088 replay-ledger remediation addendum
+
+Recorded 2026-08-24 Europe/Budapest. The D-10 evidence now supersedes its stale
+44-path candidate snapshot with a 63-path SHA-256 inventory, unique `D10-D01`
+through `D10-D20` provenance/ownership rows, sequential-overlap disclosure, and
+an exact replay/failed-command ledger. It records the current user-approved
+live-start block, bot `817/817` / `2033` expects and exchange `415/415` / `867`
+expects with timestamped `/tmp` `script` logs and hashes. Global coverage,
+package lint, and CCXT version integrity remain NON-PASS. The evidence records
+unavailable historical timing/artifact facts explicitly; no stage or commit
+occurred. Status remains **PENDING FRESH TECH AND PROCESS RE-REVIEW**.

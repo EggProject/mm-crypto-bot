@@ -80,22 +80,22 @@
 // 1:10 leverage invariant — 3-layer defense (signal-only, structurally safe)
 // ---------------------------------------------------------------------------
 //
-//   Layer 1 (CONSTRUCTOR / metadata) — `metadata.maxLeverage = 10`. The
+//   Layer 1 (CONSTRUCTOR / metadata) — `metadata.maxAggregateEffectiveLeverage = 10`. The
 //     registry's `validatePluginMetadata` rejects a higher value at
 //     boot. Note: a factor plugin's "leverage" is structurally zero
-//     because FactorSignal has no notional field — `maxLeverage` is
+//     because FactorSignal has no notional field — `maxAggregateEffectiveLeverage` is
 //     declared defensively for registry uniformity.
 //
 //   Layer 2 (SUBSCRIBE) — when `subscribe(bus)` is called, the plugin
 //     asserts that NO strategy-side position exists yet (initial state
 //     is zero-notional). For a factor-only plugin this is trivially
-//     satisfied (no notional ever emitted). We run `assertLeverageInvariant(0,
+//     satisfied (no notional ever emitted). We run `assertAggregateEffectiveExposureLimit(0,
 //     baseNotionalUsd)` at subscribe-time as a structural sanity check.
 //
 //   Layer 3 (PER-EMIT) — before each FactorSignal emit, the plugin
 //     asserts that the SIGNAL CARRIES ZERO NOTIONAL. FactorSignal has
 //     no notional field by construction; we run
-//     `assertLeverageInvariant(0, baseNotionalUsd)` before `bus.emit()`
+//     `assertAggregateEffectiveExposureLimit(0, baseNotionalUsd)` before `bus.emit()`
 //     so any future schema drift that accidentally adds a notional field
 //     would still throw Layer 3 BREACH at runtime. Documented inline in
 //     `_emitFactorSignal()`.
@@ -159,10 +159,10 @@
 //   - `toRiskEngineSignal` in `signal-center-v1.ts` maps FactorSignal to
 //     a zero-notional carry shape (read-only factor → no risk impact).
 
-import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, assertAggregateEffectiveExposureLimit } from "../../risk/leverage-invariant.js";
 
 // Re-export for downstream consumers.
-export { ONE_TO_TEN_LEVERAGE };
+export { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
 import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
@@ -262,7 +262,7 @@ export interface IExchangeNetflowAdapter {
  *     accumulate ≥5 samples before the plugin starts emitting
  *     FactorSignals).
  *   - `enabledSymbols` = ["BTC", "ETH", "SOL"] — brief default.
- *   - `baseNotionalUsd` = 10_000 — 1:10 mandate reference (used for
+ *   - `baseNotionalUsd` = 10_000 — aggregate effective-exposure limit reference (used for
  *     Layer 2/3 zero-notional assertions; structurally notional=0).
  */
 export interface CexNetFlowRegimeConfig {
@@ -419,7 +419,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     version: "1.0.0",
     edgeClass: "factor", // NEW SignalKind variant (Phase 12+)
     capitalRequirement: 0, // read-only signal plugin, no capital needed
-    maxLeverage: ONE_TO_TEN_LEVERAGE, // LAYER 1 defense — structurally unviolated (factor = 0 notional)
+    maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, // LAYER 1 defense — structurally unviolated (factor = 0 notional)
     description:
       "Phase 12 Track A SEVENTH drop-in (READ-ONLY factor signal) — CEX netflow " +
       "regime z-score from Phase 11.5 Track D §H1. Pearson r = 0.47 with BTC daily " +
@@ -428,7 +428,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
       `${String(DEFAULT_WINDOW_DAYS)}d window, maps to factor ∈ [-1, +1] via tanh(z/2), ` +
       `and emits FactorSignals on regime transitions (z > 1.5 accumulation, ` +
       `z ∈ [-1.5, 1.5] neutral, z < -1.5 distribution). BTC/ETH/SOL all ` +
-      `default-on. ZERO notional impact by construction — 1:10 leverage cap is ` +
+      `default-on. ZERO notional impact by construction — aggregate effective-exposure cap is ` +
       `structurally unviolated. Free-tier data (Coinglass/CryptoQuant/CoinGlass); ` +
       `graceful degradation on source outage (skip emit, log warn, do NOT crash bus).`,
     dependencies: [],
@@ -471,13 +471,13 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     }
 
     // LAYER 1 — constructor assertion. The metadata declares
-    // `maxLeverage: ONE_TO_TEN_LEVERAGE` (= 10) but the metadata field
+    // `maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE` (= 10) but the metadata field
     // is typed `number` per `StrategyPluginMetadata`. We keep this
     // runtime check as defense-in-depth (the registry also enforces
     // the 1:10 cap at register() time).
-    if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
+    if (this.metadata.maxAggregateEffectiveLeverage !== DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
       throw new Error(
-        `[CexNetFlowRegimePlugin] LAYER 1 BREACH: metadata.maxLeverage=${String(this.metadata.maxLeverage)} but the project-wide 1:10 mandate requires 10.`,
+        `[CexNetFlowRegimePlugin] LAYER 1 BREACH: metadata.maxAggregateEffectiveLeverage=${String(this.metadata.maxAggregateEffectiveLeverage)} but the project-wide aggregate effective-exposure limit requires 10.`,
       );
     }
 
@@ -599,7 +599,7 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     // We run the assertion explicitly so any future schema drift that
     // adds a notional field would surface here.
     try {
-      assertLeverageInvariant(0, this.config.baseNotionalUsd);
+      assertAggregateEffectiveExposureLimit(0, this.config.baseNotionalUsd);
       this.state.layer2SubscribeAssertions += 1;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -996,11 +996,11 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
   }
 
   /**
-   * `effectiveMaxNotionalUsd` — 1:10 leverage cap as
+   * `effectiveMaxNotionalUsd` — aggregate effective-exposure cap as
    * `baseNotionalUsd × 10`. Documented for tests / runtime introspection.
    */
   effectiveMaxNotionalUsd(): number {
-    return this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE;
+    return this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE;
   }
 
   /**
@@ -1041,11 +1041,11 @@ export class CexNetFlowRegimePlugin implements StrategyPlugin {
     stdDev: number,
   ): void {
     // LAYER 3 — assert zero notional impact. FactorSignal has no
-    // notional field by construction; we run `assertLeverageInvariant(0,
+    // notional field by construction; we run `assertAggregateEffectiveExposureLimit(0,
     // baseNotionalUsd)` defensively so any future schema drift that
     // accidentally introduces a notional field would surface here.
     try {
-      assertLeverageInvariant(0, this.config.baseNotionalUsd);
+      assertAggregateEffectiveExposureLimit(0, this.config.baseNotionalUsd);
       this.state.layer3EmitAssertions += 1;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);

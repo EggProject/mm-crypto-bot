@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { MockExchangeFeed, defaultMarketMeta, defaultOrderBook, defaultTicker } from "./mockFeed.js";
 import { type Balance, type ExchangePosition, type Symbol, type Timeframe } from "../types.js";
-import { asSymbol } from "../symbols.js";
+import { makeClientOrderId, asSymbol } from "../index.js";
 
 describe("mockFeed", () => {
   let feed: MockExchangeFeed;
@@ -287,7 +287,7 @@ describe("mockFeed", () => {
 
     it("fetchTickerSnapshot default tickert ad, ha nincs explicit snapshot", async () => {
       const t = await feed.fetchTickerSnapshot(asSymbol("BTC/USDC"));
-      expect(t.symbol).toBe("BTC/USDC");
+      expect(String(t.symbol)).toBe("BTC/USDC");
       expect(t.last).toBe(60_000);
     });
 
@@ -308,14 +308,14 @@ describe("mockFeed", () => {
 
     it("fetchOrderBookSnapshot default orderbook-ot ad, ha nincs explicit", async () => {
       const ob = await feed.fetchOrderBookSnapshot(asSymbol("BTC/USDC"), 10);
-      expect(ob.symbol).toBe("BTC/USDC");
+      expect(String(ob.symbol)).toBe("BTC/USDC");
       expect(ob.bids.length).toBe(1);
       expect(ob.asks.length).toBe(1);
     });
 
     it("fetchMarketMeta default meta-t ad, ha nincs explicit", async () => {
       const mm = await feed.fetchMarketMeta(asSymbol("BTC/USDC"));
-      expect(mm.symbol).toBe("BTC/USDC");
+      expect(String(mm.symbol)).toBe("BTC/USDC");
       expect(mm.base).toBe("BTC");
       expect(mm.quote).toBe("USDC");
     });
@@ -375,24 +375,22 @@ describe("mockFeed", () => {
     it("placeOrder limit price nélkül dob", async () => {
       await expect(
         feed.placeOrder({
-          clientOrderId: "test-1" as never,
+          clientOrderId: makeClientOrderId("test-1"),
           symbol: asSymbol("BTC/USDC"),
           side: "buy",
           type: "limit",
           amount: 0.01,
-          price: undefined,
         }),
       ).rejects.toThrow(/limit.*price/);
     });
 
     it("placeOrder market típusnál NEM dob, ha nincs price", async () => {
       const order = await feed.placeOrder({
-        clientOrderId: "test-1" as never,
+        clientOrderId: makeClientOrderId("test-1"),
         symbol: asSymbol("BTC/USDC"),
         side: "buy",
         type: "market",
         amount: 0.01,
-        price: undefined,
       });
       expect(order.status).toBe("open");
       expect(order.type).toBe("market");
@@ -400,7 +398,7 @@ describe("mockFeed", () => {
 
     it("placeOrder limit price-szal sikeres, open státusszal", async () => {
       const order = await feed.placeOrder({
-        clientOrderId: "test-1" as never,
+        clientOrderId: makeClientOrderId("test-1"),
         symbol: asSymbol("BTC/USDC"),
         side: "buy",
         type: "limit",
@@ -409,50 +407,50 @@ describe("mockFeed", () => {
       });
       expect(order.status).toBe("open");
       expect(order.price).toBe(60_000);
-      expect(feed.getOrder("test-1" as never)).toBeDefined();
+      expect(feed.getOrder(makeClientOrderId("test-1"))).toBeDefined();
     });
 
     it("cancelOrder ismeretlen order-re dob", async () => {
-      await expect(feed.cancelOrder("unknown" as never, asSymbol("BTC/USDC"))).rejects.toThrow(
+      await expect(feed.cancelOrder(makeClientOrderId("unknown"), asSymbol("BTC/USDC"))).rejects.toThrow(
         /ismeretlen order/,
       );
     });
 
     it("cancelOrder létező order-t canceled-re állít", async () => {
       await feed.placeOrder({
-        clientOrderId: "test-1" as never,
+        clientOrderId: makeClientOrderId("test-1"),
         symbol: asSymbol("BTC/USDC"),
         side: "buy",
         type: "limit",
         amount: 0.01,
         price: 60_000,
       });
-      const canceled = await feed.cancelOrder("test-1" as never, asSymbol("BTC/USDC"));
+      const canceled = await feed.cancelOrder(makeClientOrderId("test-1"), asSymbol("BTC/USDC"));
       expect(canceled.status).toBe("canceled");
     });
 
     it("fetchOrder ismeretlen order-re dob", async () => {
-      await expect(feed.fetchOrder("unknown" as never, asSymbol("BTC/USDC"))).rejects.toThrow(
+      await expect(feed.fetchOrder(makeClientOrderId("unknown"), asSymbol("BTC/USDC"))).rejects.toThrow(
         /ismeretlen order/,
       );
     });
 
     it("fetchOrder létező order-t ad vissza", async () => {
       await feed.placeOrder({
-        clientOrderId: "test-1" as never,
+        clientOrderId: makeClientOrderId("test-1"),
         symbol: asSymbol("BTC/USDC"),
         side: "buy",
         type: "limit",
         amount: 0.01,
         price: 60_000,
       });
-      const order = await feed.fetchOrder("test-1" as never, asSymbol("BTC/USDC"));
-      expect(order.clientOrderId).toBe("test-1");
+      const order = await feed.fetchOrder(makeClientOrderId("test-1"), asSymbol("BTC/USDC"));
+      expect(String(order.clientOrderId)).toBe("test-1");
     });
 
     it("fetchOpenOrders csak az 'open' státuszú order-eket adja", async () => {
       await feed.placeOrder({
-        clientOrderId: "test-1" as never,
+        clientOrderId: makeClientOrderId("test-1"),
         symbol: asSymbol("BTC/USDC"),
         side: "buy",
         type: "limit",
@@ -460,17 +458,17 @@ describe("mockFeed", () => {
         price: 60_000,
       });
       await feed.placeOrder({
-        clientOrderId: "test-2" as never,
+        clientOrderId: makeClientOrderId("test-2"),
         symbol: asSymbol("BTC/USDC"),
         side: "buy",
         type: "limit",
         amount: 0.01,
         price: 60_001,
       });
-      await feed.cancelOrder("test-1" as never, asSymbol("BTC/USDC"));
+      await feed.cancelOrder(makeClientOrderId("test-1"), asSymbol("BTC/USDC"));
       const open = await feed.fetchOpenOrders(asSymbol("BTC/USDC"));
       expect(open.length).toBe(1);
-      expect(open[0]?.clientOrderId).toBe("test-2");
+      expect(String(open[0]?.clientOrderId)).toBe("test-2");
     });
   });
 
@@ -524,21 +522,21 @@ describe("mockFeed", () => {
 
     it("ismeretlen order-re nem csinál semmit (no-op)", () => {
       // Nem dob, csak no-op.
-      feed.setOrderStatus("unknown" as never, { status: "closed" });
+      feed.setOrderStatus(makeClientOrderId("unknown"), { status: "closed" });
       // Nincs assert — csak hogy ne dobjon.
     });
 
     it("létező order-t patch-eli", async () => {
       await feed.placeOrder({
-        clientOrderId: "test-1" as never,
+        clientOrderId: makeClientOrderId("test-1"),
         symbol: asSymbol("BTC/USDC"),
         side: "buy",
         type: "limit",
         amount: 0.01,
         price: 60_000,
       });
-      feed.setOrderStatus("test-1" as never, { status: "closed", filled: 0.01 });
-      const order = feed.getOrder("test-1" as never);
+      feed.setOrderStatus(makeClientOrderId("test-1"), { status: "closed", filled: 0.01 });
+      const order = feed.getOrder(makeClientOrderId("test-1"));
       expect(order?.status).toBe("closed");
       expect(order?.filled).toBe(0.01);
     });
@@ -550,20 +548,20 @@ describe("mockFeed", () => {
     });
 
     it("undefined-ot ad ismeretlen order-re", () => {
-      expect(feed.getOrder("unknown" as never)).toBeUndefined();
+      expect(feed.getOrder(makeClientOrderId("unknown"))).toBeUndefined();
     });
 
     it("a order-t adja vissza, ha létezik", async () => {
       await feed.placeOrder({
-        clientOrderId: "test-1" as never,
+        clientOrderId: makeClientOrderId("test-1"),
         symbol: asSymbol("BTC/USDC"),
         side: "buy",
         type: "limit",
         amount: 0.01,
         price: 60_000,
       });
-      const order = feed.getOrder("test-1" as never);
-      expect(order?.clientOrderId).toBe("test-1");
+      const order = feed.getOrder(makeClientOrderId("test-1"));
+      expect(String(order?.clientOrderId)).toBe("test-1");
     });
   });
 });

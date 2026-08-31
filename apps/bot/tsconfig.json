@@ -1,26 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "noEmit": false,
-    "declaration": true,
-    "declarationMap": true,
-    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "noEmit": true,
     "jsx": "preserve"
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "dist",
-    "node_modules",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "**/*.test.tsx",
-    "**/*.spec.tsx",
-    "**/*.test.mts",
-    "**/*.spec.mts",
-    "**/*.test.cts",
-    "**/*.spec.cts"
-  ]
+  "exclude": ["dist", "node_modules"]
 }

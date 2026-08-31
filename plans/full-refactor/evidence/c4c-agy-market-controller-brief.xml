@@ -1,0 +1,151 @@
+<agy_task>
+  <classification>
+    <task_class>Evaluation-only bootstrap for bounded isolated unit-test implementation.</task_class>
+    <read_write>Write.</read_write>
+    <owned_files>
+      <allow>apps/bot/src/bot/strategy-market-event-controller.scenarios.test.ts</allow>
+    </owned_files>
+    <package_count>1</package_count>
+    <domain_risk>
+      Trading-adjacent but non-live tests. Terra pre-decided every scenario. Agy is a mechanical
+      auxiliary and has no product, trading, risk, architecture, or code-organization authority.
+    </domain_risk>
+    <reasoning_shape>Translate the exact scenarios below into typed tests without making decisions.</reasoning_shape>
+    <external_resources>
+      The Agy provider and its quota are mutable external resources. The workspace is a sanitized,
+      isolated snapshot with exactly 20 context files and no secrets detected by the recorded preflight.
+    </external_resources>
+    <review_role>Non-review implementer. Independent Terra technical and Luna process reviews follow.</review_role>
+    <route>
+      Terra owns the trading scenario design. Agy is auxiliary only. Request
+      gemini-3.7-flash-medium with effort medium as a provisional bootstrap evaluation.
+    </route>
+    <sandbox>Enabled.</sandbox>
+    <dangerous_permissions>false</dangerous_permissions>
+    <fallback>None inside this run. Stop on ambiguity, missing context, or required scope growth.</fallback>
+  </classification>
+
+  <task>
+    Create exactly one new Vitest file:
+    apps/bot/src/bot/strategy-market-event-controller.scenarios.test.ts.
+    Test only StrategyMarketEventController through its public constructor and public methods.
+    The existing boundary test and source files in this snapshot are read-only context.
+  </task>
+
+  <write_scope>
+    <allow>apps/bot/src/bot/strategy-market-event-controller.scenarios.test.ts</allow>
+    <deny>Every other file, including all production, support, configuration, manifest, and existing test files.</deny>
+  </write_scope>
+
+  <required_structure>
+    <item>One behavior-named Vitest describe block.</item>
+    <item>Typed local recorders and minimal Strategy implementations may live in the owned test file.</item>
+    <item>The file must stay at or below 500 lines.</item>
+    <item>Use only public types and constructor-injected callback ports.</item>
+  </required_structure>
+
+  <allowed_fakes>
+    <item>Constructor-injected async callbacks that record their public arguments.</item>
+    <item>The existing PositionManager test support and RecordingLogger.</item>
+    <item>Minimal Strategy implementations satisfying the public Strategy interface.</item>
+  </allowed_fakes>
+
+  <prohibitions>
+    <item>No production, support, configuration, package, manifest, scope, or threshold change.</item>
+    <item>
+      No private access, reflection, casts to unknown/private types, any, skips, todos, or
+      impossible-state mocks. The only permitted lint exception is an exact-line
+      unicorn/no-null rationale where Strategy.onCandle returns the public contract's literal null
+      no-signal value.
+    </item>
+    <item>No assertion padding, weakened expectations, new dependencies, staging, or commits.</item>
+    <item>No business, financial, trading, architecture, module-boundary, naming, or file-organization decision.</item>
+    <item>Do not test native protection, paper execution, leverage variants, portfolio close semantics, or any live path.</item>
+    <item>If the supplied public seam cannot express a scenario exactly, stop and report the blocker without editing another file.</item>
+  </prohibitions>
+
+  <required_scenarios>
+    <scenario id="open-position-no-update">
+      <given>An open long position and a Strategy whose onOpenPositionUpdate returns null.</given>
+      <when>An enabled LTF OHLCV event arrives.</when>
+      <then>No close callback and no handleSignal call occur; onCandleObserved runs exactly once.</then>
+    </scenario>
+    <scenario id="force-exit-defaults">
+      <given>
+        An open short position; onOpenPositionUpdate returns forceExit true without reason or exitPrice;
+        getPortfolioManager returns undefined.
+      </given>
+      <when>An enabled LTF OHLCV event whose close is exactly 103 arrives.</when>
+      <then>
+        requestTrailingStopClose receives the exact position id, close price 103, and reason force_exit;
+        handleSignal is not called. Assert the Strategy receives side sell in its open-position snapshot.
+      </then>
+    </scenario>
+    <scenario id="pause-after-plugin">
+      <given>The processPlugins callback changes the injected order-block predicate from false to true.</given>
+      <when>An enabled LTF OHLCV event arrives.</when>
+      <then>The plugin callback runs once; Strategy.onCandle and handleSignal are not called.</then>
+    </scenario>
+    <scenario id="policy-symbol-filter">
+      <given>The StrategyRuntimePolicy symbols list excludes the enabled BTC/USDC symbol.</given>
+      <when>A BTC/USDC LTF OHLCV event arrives.</when>
+      <then>Strategy.onCandle and handleSignal are not called.</then>
+    </scenario>
+    <scenario id="two-timeframe-fallback">
+      <given>A Strategy whose timeframes are exactly 1h and 15m.</given>
+      <when>A 15m OHLCV event arrives.</when>
+      <then>The received context timeframe is 15m and mtfState.mtf reflects the 15m fallback state.</then>
+    </scenario>
+    <scenario id="closed-bar-deduplication">
+      <given>The same enabled symbol, timeframe, and OHLCV timestamp is delivered twice.</given>
+      <when>The second event is processed.</when>
+      <then>The second received context ltf candleIndex remains exactly 1, proving history de-duplication.</then>
+    </scenario>
+    <scenario id="non-price-events">
+      <given>Valid orderbook and trade FeedEvents.</given>
+      <when>Both are processed.</when>
+      <then>
+        ticksProcessed is exactly 2, while latest price stays undefined and reconciliation callbacks,
+        plugin callback, and signal callback each remain at zero calls.
+      </then>
+    </scenario>
+    <scenario id="strategy-error-isolation">
+      <given>One Strategy throws an Error from onCandle and a later Strategy returns null.</given>
+      <when>An enabled LTF OHLCV event arrives.</when>
+      <then>
+        RecordingLogger contains strategy.candle.handler.failed for the throwing Strategy; the later
+        Strategy still receives its candle; no order is emitted.
+      </then>
+    </scenario>
+  </required_scenarios>
+
+  <acceptance>
+    <item>All eight scenarios exist with exact assertions for the stated events and state transitions.</item>
+    <item>Only the owned new file changes.</item>
+    <item>No resource-owning fixture is left undisposed; use finally when a fixture acquires a resource.</item>
+    <item>No test asserts an internal field or fabricated impossible state.</item>
+  </acceptance>
+
+  <isolated_validation>
+    This sanitized snapshot intentionally has no dependency installation. Do not install dependencies.
+    Run git diff --check and wc -l on the owned file. Report full project gates as coordinator-owned and not run here.
+  </isolated_validation>
+
+  <canonical_validation_after_integration>
+    <command>bun test apps/bot/src/bot/strategy-market-event-controller.scenarios.test.ts</command>
+    <command>bunx eslint --max-warnings=0 apps/bot/src/bot/strategy-market-event-controller.scenarios.test.ts</command>
+    <command>bunx prettier --check apps/bot/src/bot/strategy-market-event-controller.scenarios.test.ts</command>
+    <command>bunx tsc -p apps/bot/tsconfig.json --noEmit</command>
+    <command>bun run coverage:bot:unit</command>
+  </canonical_validation_after_integration>
+
+  <action_safety>
+    Keep the task strictly scoped. Do not run git add or git commit. Do not infer any missing behavior.
+    Stop and report if any requirement conflicts with the supplied public contracts.
+  </action_safety>
+
+  <structured_output_contract>
+    End with: (1) what changed, (2) exact files touched, (3) scenario/test count,
+    (4) isolated command outcomes, (5) every unrun canonical gate, blocker, deviation, or ambiguity.
+  </structured_output_contract>
+</agy_task>

@@ -6,7 +6,11 @@ import { parseArgv } from "../cli/argv.js";
 import type { CliContext } from "../cli/router.js";
 import { createConfigCommand } from "../cli/commands/config.js";
 import { DEFAULT_BOT_CONFIG } from "./defaults.js";
-import { resolveRuntimeRootConfig, type RuntimeRootPathOperations } from "./runtime-root.js";
+import {
+  resolveRuntimeRootConfig,
+  type RuntimeRootFailureCode,
+  type RuntimeRootPathOperations,
+} from "./runtime-root.js";
 
 const REPOSITORY_ROOT = "/workspace/mm-crypto-bot";
 const RUNTIME_ROOT = "/var/lib/mm-crypto-bot";
@@ -127,7 +131,7 @@ describe("resolveRuntimeRootConfig", () => {
     });
   });
 
-  it.each([
+  const rejectedRuntimeRoots = [
     ["missing", {}, "runtime-root-missing"],
     ["empty", { MM_CRYPTO_BOT_RUNTIME_ROOT: "" }, "runtime-root-invalid"],
     ["relative", { MM_CRYPTO_BOT_RUNTIME_ROOT: "runtime" }, "runtime-root-invalid"],
@@ -137,18 +141,23 @@ describe("resolveRuntimeRootConfig", () => {
       { MM_CRYPTO_BOT_RUNTIME_ROOT: `${REPOSITORY_ROOT}/runtime` },
       "runtime-root-repository-boundary",
     ],
-  ])("rejects a %s runtime root with a stable sanitized failure", (_name, environment, code) => {
-    const result = resolveRuntimeRootConfig({
-      environment,
-      repositoryRoot: REPOSITORY_ROOT,
-      pathOperations: lexicalPathOperations,
-    });
+  ] satisfies readonly (readonly [string, Readonly<Record<string, string>>, RuntimeRootFailureCode])[];
 
-    expect(result).toEqual({
-      ok: false,
-      error: { code, message: "Runtime configuration root is unavailable." },
-    });
-  });
+  it.each(rejectedRuntimeRoots)(
+    "rejects a %s runtime root with a stable sanitized failure",
+    (_name, environment, code) => {
+      const result = resolveRuntimeRootConfig({
+        environment,
+        repositoryRoot: REPOSITORY_ROOT,
+        pathOperations: lexicalPathOperations,
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        error: { code, message: "Runtime configuration root is unavailable." },
+      });
+    },
+  );
 
   it("rejects an accessor environment value without evaluating it", () => {
     const environment: Record<string, unknown> = {};

@@ -28,8 +28,11 @@
 
 import { describe, expect, it } from "bun:test";
 
-import { BotConfigSchema } from "./schema.js";
-import type { BotConfig } from "./schema.js";
+import { DonchianPivotComposition } from "@mm-crypto-bot/core";
+import { ExactRational } from "@mm-crypto-bot/numeric";
+
+import { createTestBotConfig, type BotConfigOverrides } from "./config-test-fixtures.test-support.js";
+import { BotConfigSchema, type BotConfig } from "./schema.js";
 import {
   buildDydxCexCarryConfig,
   createStrategyInstances,
@@ -58,36 +61,42 @@ class MockFundingSource implements DydxFundingSource {
   ): { readonly close: () => void } {
     return {
       close: () => {
-        /* no-op */
+        /*
+        no-op
+        */
       },
     };
   }
-  lastTickAgeMs(_market: CarryMarket, nowMs: number): number | null {
+  lastTickAgeMs(_market: CarryMarket, nowMs: number): number | undefined {
     // Return a fresh age — strategy's `lastTickMs` is set on the first
     // recordFundingTick call, but the constructor doesn't query this.
     return nowMs - FIXED_NOW;
   }
-  lastChainBlockHeight(_market: CarryMarket): number | null {
+  lastChainBlockHeight(_market: CarryMarket): number | undefined {
     return 1_000_000;
   }
-  lastChainBlockTs(_market: CarryMarket): number | null {
+  lastChainBlockTs(_market: CarryMarket): number | undefined {
     return FIXED_NOW;
   }
-  bybitEuSpotDepthUsd(_market: CarryMarket, _nowMs: number): number | null {
+  bybitEuSpotDepthUsd(_market: CarryMarket, _nowMs: number): number | undefined {
     return 200_000;
   }
-  health(): { readonly lastTickMs: number | null; readonly chainBlockHeight: number | null } {
+  health(): { readonly lastTickMs: number | undefined; readonly chainBlockHeight: number | undefined } {
     return { lastTickMs: FIXED_NOW, chainBlockHeight: 1_000_000 };
   }
 }
 
-/** Helper — build a `BotConfig` from a partial override. */
-function buildConfig(overrides: Partial<BotConfig> = {}): BotConfig {
-  return BotConfigSchema.parse(overrides);
+/**
+Helper — build a `BotConfig` from a partial override.
+*/
+function buildConfig(overrides: BotConfigOverrides = {}): BotConfig {
+  return createTestBotConfig(overrides);
 }
 
-/** Helper — build `BotDependencies` with a mock funding source. */
-function buildDeps(): BotDependencies {
+/**
+Helper — build `BotDependencies` with a mock funding source.
+*/
+function buildDependencies(): BotDependencies {
   return { dydxFundingSource: new MockFundingSource() };
 }
 
@@ -157,7 +166,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
+    const instances = createStrategyInstances(config, buildDependencies());
     expect(instances.size).toBe(0);
   });
 
@@ -174,7 +183,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/precondition re-verifier/);
+    expect(() => createStrategyInstances(config, buildDependencies())).toThrow(/precondition re-verifier/);
   });
 
   // --------------------------------------------------------------------------
@@ -194,6 +203,24 @@ describe("createStrategyInstances", () => {
     expect(carryConfig.capFraction).toBe(0.04);
   });
 
+  it("uses carry defaults without allowing a per-strategy leverage selector", () => {
+    const defaulted = BotConfigSchema.parse({
+      strategies: { dydx_cex_carry: { enabled: true } },
+    });
+    const defaultedCarry = buildDydxCexCarryConfig(
+      defaulted.strategies.dydx_cex_carry,
+      new MockFundingSource(),
+    );
+    expect(defaultedCarry.capFraction).toBe(0.025);
+    expect(defaultedCarry.notionalPerLegUsd.equals(ExactRational.from("10000"))).toBe(true);
+
+    expect(
+      BotConfigSchema.safeParse({
+        strategies: { dydx_cex_carry: { enabled: true, leverage: 10 } },
+      }).success,
+    ).toBe(false);
+  });
+
   // --------------------------------------------------------------------------
   // 7) Per-strategy notional_per_leg_usd override flows to DydxCexCarryConfig.
   // --------------------------------------------------------------------------
@@ -208,7 +235,7 @@ describe("createStrategyInstances", () => {
       },
     });
     const carryConfig = buildDydxCexCarryConfig(config.strategies.dydx_cex_carry, new MockFundingSource());
-    expect(carryConfig.notionalPerLegUsd).toBe(250_000);
+    expect(carryConfig.notionalPerLegUsd.equals(ExactRational.from("250000"))).toBe(true);
   });
 
   // --------------------------------------------------------------------------
@@ -225,33 +252,37 @@ describe("createStrategyInstances", () => {
           regime_detector: { enabled: false },
         },
       });
-      const instances = createStrategyInstances(config, buildDeps());
+      const instances = createStrategyInstances(config, buildDependencies());
       const entry = instances.get("donchian_pivot_composition");
       expect(entry?.kind).toBe("strategy");
-      if (entry?.kind !== "strategy") continue;
-      const dpc = entry.instance as unknown as {
-        config: { minConsensus: number };
-      };
-      expect(dpc.config.minConsensus).toBe(minConsensus);
+      if (entry?.kind !== "strategy" || !(entry.instance instanceof DonchianPivotComposition)) {
+        throw new Error("Expected a DonchianPivotComposition strategy instance");
+      }
+      expect(entry.instance.config.minConsensus).toBe(minConsensus);
     }
   });
 
   // --------------------------------------------------------------------------
   // 9) Per-strategy max_notional_per_event_usd override flows to CascadeFade.
   // --------------------------------------------------------------------------
-  it("fails loudly when cascade_fade is enabled without its event bridge", () => {
-    const config = buildConfig({
-      strategies: {
-        cascade_fade: { enabled: true, max_notional_per_event_usd: 500_000 },
-        donchian_pivot_composition: { enabled: false },
-        dydx_cex_carry: { enabled: false },
-        funding_flip_kill_switch: { enabled: false },
-        regime_detector: { enabled: false },
-      },
-    });
-    expect(() => createStrategyInstances(config, buildDeps())).toThrow(
-      /liquidation \+ OI \+ ELR event bridge/,
-    );
+  it("uses default and positive cascade overrides before failing closed without its event bridge", () => {
+    for (const cascadeFade of [
+      { enabled: true },
+      { enabled: true, max_notional_per_event_usd: 500_000, cooldown_hours: 12 },
+    ]) {
+      const config = buildConfig({
+        strategies: {
+          cascade_fade: cascadeFade,
+          donchian_pivot_composition: { enabled: false },
+          dydx_cex_carry: { enabled: false },
+          funding_flip_kill_switch: { enabled: false },
+          regime_detector: { enabled: false },
+        },
+      });
+      expect(() => createStrategyInstances(config, buildDependencies())).toThrow(
+        /liquidation \+ OI \+ ELR event bridge/,
+      );
+    }
   });
 
   // --------------------------------------------------------------------------
@@ -267,7 +298,9 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/OHLCV-only runtime would be inert/);
+    expect(() => createStrategyInstances(config, buildDependencies())).toThrow(
+      /OHLCV-only runtime would be inert/,
+    );
   });
 
   // --------------------------------------------------------------------------
@@ -283,7 +316,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/SOL funding-rate producer/);
+    expect(() => createStrategyInstances(config, buildDependencies())).toThrow(/SOL funding-rate producer/);
   });
 
   // --------------------------------------------------------------------------
@@ -299,7 +332,7 @@ describe("createStrategyInstances", () => {
         funding_flip_kill_switch: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
+    const instances = createStrategyInstances(config, buildDependencies());
     expect(instances.size).toBe(1);
     const entry = instances.get("regime_detector");
     expect(entry?.kind).toBe("plugin");
@@ -320,24 +353,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: true },
       },
     });
-    expect(() => createStrategyInstances(config, buildDeps())).toThrow(/precondition re-verifier/);
-  });
-
-  // --------------------------------------------------------------------------
-  // 14) Per-strategy leverage override is honored (1 or 10).
-  // --------------------------------------------------------------------------
-  it("per-strategy leverage override flows to DydxCexCarryConfig.leverage", () => {
-    const config = buildConfig({
-      strategies: {
-        dydx_cex_carry: { enabled: true, leverage: 1 },
-        donchian_pivot_composition: { enabled: false },
-        cascade_fade: { enabled: false },
-        funding_flip_kill_switch: { enabled: false },
-        regime_detector: { enabled: false },
-      },
-    });
-    const carryConfig = buildDydxCexCarryConfig(config.strategies.dydx_cex_carry, new MockFundingSource());
-    expect(carryConfig.leverage).toBe(1);
+    expect(() => createStrategyInstances(config, buildDependencies())).toThrow(/precondition re-verifier/);
   });
 
   // --------------------------------------------------------------------------
@@ -353,7 +369,7 @@ describe("createStrategyInstances", () => {
         regime_detector: { enabled: false },
       },
     });
-    const instances = createStrategyInstances(config, buildDeps());
+    const instances = createStrategyInstances(config, buildDependencies());
     // Empty Map, all 5 names absent.
     for (const name of [
       "donchian_pivot_composition",

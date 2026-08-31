@@ -7,7 +7,7 @@ import {
   formatTelegramAlert,
   printHumanReadable,
   printJson,
-} from "./kill-switch-dry-run.js";
+} from "./kill-switch-dry-run-report.js";
 
 describe("kill-switch dry-run report", () => {
   it("formats alert and telemetry for empty and positioned reports", () => {
@@ -65,6 +65,16 @@ describe("kill-switch dry-run report", () => {
       expect(lines.join("\n")).toContain("BTC/USDC");
       printJson(report);
       expect(JSON.parse(lines.at(-1) ?? "{}")).toMatchObject({ positions: 1, wouldTrigger: false });
+      printHumanReadable(
+        buildReport({
+          state: makeDryRunState({ positions: [] }),
+          stateFilePath: "/empty.json",
+          configPath: undefined,
+          maxDrawdownPct: 0.15,
+          generatedAt: 1_700_000_000_000,
+        }),
+      );
+      expect(lines.join("\n")).toContain("no open positions");
     } finally {
       logSpy.mockRestore();
     }

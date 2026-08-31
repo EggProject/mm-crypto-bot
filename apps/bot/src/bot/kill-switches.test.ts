@@ -7,9 +7,17 @@
 import { describe, expect, it } from "bun:test";
 import { asSymbol, type Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
 
-import { PositionManager } from "./position-manager.js";
+import { RecordingLogger } from "@logging-testing";
+import { PositionManager as RuntimePositionManager } from "./position-manager.js";
+
+class PositionManager extends RuntimePositionManager {
+  public constructor(...arguments_: ConstructorParameters<typeof RuntimePositionManager>) {
+    const [options] = arguments_;
+    super({ ...options, logger: new RecordingLogger() });
+  }
+}
 import {
-  KillSwitchRegistry,
+  KillSwitchRegistry as RuntimeKillSwitchRegistry,
   LatencyGateKillSwitch,
   MaxDrawdownKillSwitch,
   MaxPositionsKillSwitch,
@@ -18,15 +26,21 @@ import {
   createDefaultRegistry,
 } from "./kill-switches.js";
 
+class KillSwitchRegistry extends RuntimeKillSwitchRegistry {
+  public constructor(options: Omit<ConstructorParameters<typeof RuntimeKillSwitchRegistry>[0], "logger">) {
+    super({ ...options, logger: new RecordingLogger() });
+  }
+}
+
 function makeSymbol(): ExchangeSymbol {
-  return asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
+  return asSymbol("BTC/USDC");
 }
 
 describe("MaxDrawdownKillSwitch", () => {
   it("engages when drawdown >= max", () => {
     const sw = new MaxDrawdownKillSwitch({ maxDrawdownPct: 0.15, initialEquity: 10_000 });
     sw.updateEquity(10_000); // peak = 10_000
-    sw.updateEquity(8_000); // drawdown 20% > 15%
+    sw.updateEquity(8000); // drawdown 20% > 15%
     const v = sw.evaluate();
     expect(v.engaged).toBe(true);
     expect(v.switchId).toBe("max-drawdown");
@@ -35,7 +49,7 @@ describe("MaxDrawdownKillSwitch", () => {
   it("does not engage when drawdown < max", () => {
     const sw = new MaxDrawdownKillSwitch({ maxDrawdownPct: 0.15, initialEquity: 10_000 });
     sw.updateEquity(10_000);
-    sw.updateEquity(9_000); // 10% drawdown
+    sw.updateEquity(9000); // 10% drawdown
     const v = sw.evaluate();
     expect(v.engaged).toBe(false);
   });
@@ -62,12 +76,12 @@ describe("MaxPositionsKillSwitch", () => {
       maxLeverage: 1,
     });
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 1);
-    pm.openPosition("strategy-b", asSymbol("ETH/USDC") as unknown as ExchangeSymbol, "long", 0.01, 3_000, 1);
+    pm.openPosition("strategy-b", asSymbol("ETH/USDC"), "long", 0.01, 3000, 1);
     // 3rd position: túllépés a 2-es cap-en. restorePosition szándékosan
     // NEM ellenőrzi a cap-et (lásd Phase 68 a `position-manager.ts`-ben).
     pm.restorePosition({
       strategy: "strategy-c",
-      symbol: asSymbol("SOL/USDC") as unknown as ExchangeSymbol,
+      symbol: asSymbol("SOL/USDC"),
       side: "long",
       quantity: 0.01,
       entryPrice: 100,
@@ -182,11 +196,11 @@ describe("MaxPositionsKillSwitch", () => {
     });
     pm.restorePosition({
       strategy: "donchian_pivot_composition",
-      symbol: asSymbol("ETH/USDC") as unknown as ExchangeSymbol,
+      symbol: asSymbol("ETH/USDC"),
       side: "long",
       quantity: 0.01,
-      entryPrice: 3_000,
-      currentPrice: 3_000,
+      entryPrice: 3000,
+      currentPrice: 3000,
       leverage: 10,
       unrealizedPnl: 0,
       realizedPnl: 0,
@@ -195,7 +209,7 @@ describe("MaxPositionsKillSwitch", () => {
     });
     pm.restorePosition({
       strategy: "donchian_pivot_composition",
-      symbol: asSymbol("SOL/USDC") as unknown as ExchangeSymbol,
+      symbol: asSymbol("SOL/USDC"),
       side: "long",
       quantity: 0.1,
       entryPrice: 150,
@@ -228,12 +242,7 @@ describe("MaxPositionsKillSwitch", () => {
       maxPositions: 3,
       maxLeverage: 10,
     });
-    const syms = [
-      makeSymbol(),
-      asSymbol("ETH/USDC") as unknown as ExchangeSymbol,
-      asSymbol("SOL/USDC") as unknown as ExchangeSymbol,
-      asSymbol("AVAX/USDC") as unknown as ExchangeSymbol,
-    ];
+    const syms = [makeSymbol(), asSymbol("ETH/USDC"), asSymbol("SOL/USDC"), asSymbol("AVAX/USDC")];
     for (const s of syms) {
       pm.restorePosition({
         strategy: "donchian_pivot_composition",
@@ -281,7 +290,7 @@ describe("LatencyGateKillSwitch", () => {
   it("does not engage when disabled (sentinel)", () => {
     const gate = {
       isCarryAllowed: (): boolean => true,
-      arbThresholdMs: Number.POSITIVE_INFINITY,
+      arbThresholdMs: Infinity,
     };
     const sw = new LatencyGateKillSwitch({ gate });
     const v = sw.evaluate();
@@ -292,14 +301,14 @@ describe("LatencyGateKillSwitch", () => {
 
 describe("PerStrategyKillSwitch", () => {
   it("engages when predicate returns true", () => {
-    let engaged = false;
+    let isEngaged = false;
     const sw = new PerStrategyKillSwitch({
       id: "test",
       description: "test switch",
-      engaged: () => engaged,
+      engaged: () => isEngaged,
     });
     expect(sw.evaluate().engaged).toBe(false);
-    engaged = true;
+    isEngaged = true;
     expect(sw.evaluate().engaged).toBe(true);
   });
 
@@ -405,6 +414,7 @@ describe("createDefaultRegistry", () => {
       maxLeverage: 10,
     });
     const reg = createDefaultRegistry({
+      logger: new RecordingLogger(),
       positionManager: pm,
       maxDrawdownPct: 0.15,
       maxPositions: 3,
@@ -422,6 +432,7 @@ describe("createDefaultRegistry", () => {
       maxLeverage: 10,
     });
     const reg = createDefaultRegistry({
+      logger: new RecordingLogger(),
       positionManager: pm,
       maxDrawdownPct: 0.15,
       maxPositions: 3,
@@ -437,6 +448,7 @@ describe("createDefaultRegistry", () => {
       maxLeverage: 10,
     });
     const reg = createDefaultRegistry({
+      logger: new RecordingLogger(),
       positionManager: pm,
       maxDrawdownPct: 0.15,
       maxPositions: 3,
@@ -456,6 +468,7 @@ describe("kill-switches — helper utilities", () => {
       maxLeverage: 10,
     });
     const reg = createDefaultRegistry({
+      logger: new RecordingLogger(),
       positionManager: pm,
       maxDrawdownPct: 0.15,
       maxPositions: 3,
@@ -469,7 +482,7 @@ describe("kill-switches — helper utilities", () => {
   it("_rebrandSymbolString is a type-witness helper that returns the input unchanged", () => {
     // The function is a type-system witness, not a real transformation.
     // It returns the same string cast to the branded `Symbol` type.
-    const input = "BTC/USDC";
+    const input = asSymbol("BTC/USDC");
     const result = _rebrandSymbolString(input);
     expect(result).toBe(input);
   });

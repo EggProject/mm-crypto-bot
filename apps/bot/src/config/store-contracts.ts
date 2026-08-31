@@ -1,4 +1,16 @@
-import type { TomlSerializableBotConfig } from "./selected-leverage-config.js";
+import type { BotConfig } from "./schema.js";
+
+/**
+ * The closed TOML representation of a validated configuration.
+ *
+ * Domain values stay typed in memory; only their canonical external form
+ * crosses the persistence boundary.
+ */
+export type TomlSerializableBotConfig = Omit<BotConfig, "bot"> & {
+  readonly bot: Omit<BotConfig["bot"], "selected_leverage"> & {
+    readonly selected_leverage: string;
+  };
+};
 
 /**
  * Error raised when a configuration file cannot be read or parsed.
@@ -10,7 +22,7 @@ export class ConfigReadError extends Error {
   public readonly originalCause: unknown;
 
   public constructor(message: string, path: string, cause: unknown) {
-    super(message);
+    super(message, { cause });
     this.path = path;
     this.originalCause = cause;
   }
@@ -49,15 +61,32 @@ export class ConfigLiveConfirmError extends Error {
 }
 
 /**
- * Append-only audit entry created for an accepted live-mode confirmation.
+ * Audit record written before a live config write begins.
  */
-export interface LiveModeAuditEntry {
+export interface PendingLiveModeAuditEntry {
   readonly ts: string;
   readonly event: "live-mode-confirm";
-  readonly value: true;
-  readonly prevMode: "paper" | "live";
-  readonly newMode: "paper" | "live";
+  readonly transactionId: string;
+  readonly status: "pending";
+  readonly success: false;
+  readonly previousMode: "paper" | "live";
+  readonly newMode: "live";
 }
+
+/**
+ * Audit record written only after an atomic live config write succeeds.
+ */
+export interface CommittedLiveModeAuditEntry {
+  readonly ts: string;
+  readonly event: "live-mode-confirm";
+  readonly transactionId: string;
+  readonly status: "committed";
+  readonly success: true;
+  readonly previousMode: "paper" | "live";
+  readonly newMode: "live";
+}
+
+export type LiveModeAuditEntry = PendingLiveModeAuditEntry | CommittedLiveModeAuditEntry;
 
 /**
  * Synchronous filesystem and codec port consumed by ConfigStore.

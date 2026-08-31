@@ -1,0 +1,15 @@
+<agy_delta>
+  <correction>
+    The previous attempt changed zero files because it passed an absolute workspace path to an
+    artifact-only write_to_file tool. Continue the same task and conversation. Create the owned file
+    through the normal workspace editing capability, using this relative repository path exactly:
+    apps/bot/src/bot/strategy-market-event-controller.scenarios.test.ts.
+    Do not write to the Antigravity brain/artifacts directory. Do not change any other premise,
+    scenario, boundary, file, or validation requirement from the original brief.
+  </correction>
+  <stop_condition>
+    If normal workspace editing is unavailable or denied, stop with no changes and report that exact
+    blocker. Do not use terminal file-write commands, permission bypasses, absolute paths, artifacts,
+    staging, or commits as alternatives.
+  </stop_condition>
+</agy_delta>

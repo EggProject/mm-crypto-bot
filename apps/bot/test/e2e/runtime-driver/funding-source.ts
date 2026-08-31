@@ -1,12 +1,13 @@
 import { MockDydxFundingSource } from "../../../src/bot/mock-dydx-funding-source.js";
+import { ExactRational } from "@mm-crypto-bot/numeric";
 
 import { assertCondition } from "./runtime-driver-core.js";
 
-export async function runFundingSource(): Promise<void> {
-  const market = "BTC-USD";
+async function runFundingSource(): Promise<void> {
+  const market = "BTC-USD" as const;
   const source = new MockDydxFundingSource();
   assertCondition(
-    source.lastTickAgeMs(market, Date.now()) === null,
+    source.lastTickAgeMs(market, Date.now()) === undefined,
     "funding source unexpectedly had a pre-subscription tick",
   );
   assertCondition(
@@ -14,7 +15,7 @@ export async function runFundingSource(): Promise<void> {
     "funding source initial height mismatch",
   );
   assertCondition(
-    source.lastChainBlockTs(market) === null,
+    source.lastChainBlockTs(market) === undefined,
     "funding source unexpectedly had a pre-subscription block time",
   );
   assertCondition(
@@ -31,14 +32,17 @@ export async function runFundingSource(): Promise<void> {
   await Bun.sleep(1050);
   handle.close();
   assertCondition(ticks >= 2, "funding interval did not emit a second tick");
-  assertCondition(source.lastTickAgeMs(market, Date.now()) !== null, "funding source lost its last tick");
-  assertCondition(source.lastChainBlockTs(market) !== null, "funding source lost its block time");
+  assertCondition(
+    source.lastTickAgeMs(market, Date.now()) !== undefined,
+    "funding source lost its last tick",
+  );
+  assertCondition(source.lastChainBlockTs(market) !== undefined, "funding source lost its block time");
   source.health();
 
   const first = new MockDydxFundingSource(123);
   const second = new MockDydxFundingSource(123);
-  let firstRate: number | undefined;
-  let secondRate: number | undefined;
+  let firstRate: ExactRational | undefined;
+  let secondRate: ExactRational | undefined;
   const firstHandle = first.subscribe(market, (snapshot) => {
     firstRate = snapshot.dydx.fundingRate;
   });
@@ -47,5 +51,10 @@ export async function runFundingSource(): Promise<void> {
   });
   firstHandle.close();
   secondHandle.close();
-  assertCondition(firstRate === secondRate, "seeded funding sources diverged");
+  assertCondition(
+    firstRate?.equals(secondRate ?? ExactRational.from("0")) === true,
+    "seeded funding sources diverged",
+  );
 }
+
+export { runFundingSource };

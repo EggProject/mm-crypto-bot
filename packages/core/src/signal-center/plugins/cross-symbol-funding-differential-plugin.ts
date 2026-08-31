@@ -32,7 +32,7 @@
 //
 // 3-LAYER 1:10 DEFENSE (MANDATORY)
 // ---------------------------------
-// Per the project-wide 1:10 leverage mandate.
+// Per the project-wide aggregate effective-exposure limit.
 //
 // Per-symbol disclosure (Phase 13 scope plan section 1):
 //   - BTC/USDT: REGISTERED (default).
@@ -49,9 +49,9 @@
 //   - BitMEX Q3 2025 Derivatives Report "Anchors and Ceilings".
 //   - Phase 1-9 partial validation: Phase 6 Track A (FundingCarryStrategy).
 
-import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, assertAggregateEffectiveExposureLimit } from "../../risk/leverage-invariant.js";
 
-export { ONE_TO_TEN_LEVERAGE };
+export { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
 import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
@@ -150,7 +150,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
     version: "1.0.0",
     edgeClass: "carry",
     capitalRequirement: 10_000,
-    maxLeverage: ONE_TO_TEN_LEVERAGE,
+    maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE,
     description:
       "Phase 13 Track C Plugin 3/3 (cross-symbol hedge) -- cross-symbol " +
       "funding-rate carry arbitrage. Short the HIGH funding leg, long the " +
@@ -180,9 +180,9 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
       enabledPairs: overrides.enabledPairs ?? DEFAULT_ENABLED_PAIRS,
     };
 
-    if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
+    if (this.metadata.maxAggregateEffectiveLeverage !== DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
       throw new Error(
-        `[CrossSymbolFundingDifferentialPlugin] LAYER 1 BREACH: metadata.maxLeverage=${String(this.metadata.maxLeverage)} but the project-wide 1:10 mandate requires 10.`,
+        `[CrossSymbolFundingDifferentialPlugin] LAYER 1 BREACH: metadata.maxAggregateEffectiveLeverage=${String(this.metadata.maxAggregateEffectiveLeverage)} but the project-wide aggregate effective-exposure limit requires 10.`,
       );
     }
 
@@ -516,7 +516,7 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
   }
 
   effectiveMaxNotionalUsd(): number {
-    return this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE;
+    return this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE;
   }
 
   private _buildDirectionSignal(
@@ -527,12 +527,12 @@ export class CrossSymbolFundingDifferentialPlugin implements StrategyPlugin {
   ): DirectionSignal {
     const impliedNotional = this.config.baseNotionalUsd * strength;
     let clampedNotional = impliedNotional;
-    if (clampedNotional > this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE) {
-      clampedNotional = this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE;
+    if (clampedNotional > this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
+      clampedNotional = this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE;
       this.state.leverageClampCount += 1;
     }
     try {
-      assertLeverageInvariant(clampedNotional, this.config.baseNotionalUsd);
+      assertAggregateEffectiveExposureLimit(clampedNotional, this.config.baseNotionalUsd);
       this.state.layer2AssertionCount += 1;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);

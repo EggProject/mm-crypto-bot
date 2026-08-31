@@ -1,10 +1,14 @@
 // packages/core/src/signal-center/plugins/dvol-regime-sizing-plugin.test.ts —
 // Phase 14D unit tests for the DVOL Regime Sizing Plugin.
 
-import { describe, expect, it, beforeEach } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { SignalBus } from "../signal-bus.js";
-import { createDvolRegimeSizingPlugin, DvolRegimeSizingPlugin } from "./dvol-regime-sizing-plugin.js";
-import type { Bar, SizingSignal } from "../types.js";
+import {
+  createDvolRegimeSizingPlugin,
+  DvolRegimeSizingPlugin,
+  type DvolRegimeSizingPluginState,
+} from "./dvol-regime-sizing-plugin.js";
+import { isSizing, type Bar, type SizingSignal } from "../types.js";
 
 const DAILY_MS = 24 * 60 * 60 * 1000;
 const BASE_TS = Date.UTC(2025, 0, 1); // 2025-01-01
@@ -23,9 +27,28 @@ function makeBar(timestampMs: number, close: number): Bar {
 function wirePlugin(p: DvolRegimeSizingPlugin): { bus: SignalBus; sizing: SizingSignal[] } {
   const bus = new SignalBus();
   const sizing: SizingSignal[] = [];
-  bus.subscribe("sizing", (s) => sizing.push(s as SizingSignal));
+  bus.subscribe("sizing", (signal) => {
+    if (isSizing(signal)) {
+      sizing.push(signal);
+    }
+  });
   p.subscribe(bus);
   return { bus, sizing };
+}
+
+function observeDvol(dvol: number): DvolRegimeSizingPluginState {
+  const plugin = new DvolRegimeSizingPlugin({
+    enabledSymbols: ["BTC/USDT"],
+    getDvolForTimestamp: () => dvol,
+  });
+  plugin.onBar(makeBar(BASE_TS, 50_000), undefined);
+  return plugin.state;
+}
+
+function observeMissingDvol(): DvolRegimeSizingPluginState {
+  const plugin = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+  plugin.onBar(makeBar(BASE_TS, 50_000), undefined);
+  return plugin.state;
 }
 
 describe("DvolRegimeSizingPlugin", () => {
@@ -38,61 +61,51 @@ describe("DvolRegimeSizingPlugin", () => {
 
     it("maxLeverage = 10 (1:10 MANDATE layer 1)", () => {
       const p = new DvolRegimeSizingPlugin();
-      expect(p.metadata.maxLeverage).toBe(10);
+      expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
     });
   });
 
   describe("regime classification", () => {
-    let p: DvolRegimeSizingPlugin;
-    beforeEach(() => {
-      p = new DvolRegimeSizingPlugin();
-    });
-
     it("DVOL > 80 → acute-stress", () => {
-      expect(p["_classifyRegime"](85)).toBe("acute-stress");
-      expect(p["_classifyRegime"](100)).toBe("acute-stress");
+      expect(observeDvol(85).lastRegime).toBe("acute-stress");
+      expect(observeDvol(100).lastRegime).toBe("acute-stress");
     });
 
     it("DVOL 65-80 → elevated", () => {
-      expect(p["_classifyRegime"](70)).toBe("elevated");
-      expect(p["_classifyRegime"](80)).toBe("elevated"); // boundary inclusive
+      expect(observeDvol(70).lastRegime).toBe("elevated");
+      expect(observeDvol(80).lastRegime).toBe("elevated"); // boundary inclusive
     });
 
     it("DVOL 50-65 → normal", () => {
-      expect(p["_classifyRegime"](55)).toBe("normal");
-      expect(p["_classifyRegime"](65)).toBe("normal"); // boundary inclusive
+      expect(observeDvol(55).lastRegime).toBe("normal");
+      expect(observeDvol(65).lastRegime).toBe("normal"); // boundary inclusive
     });
 
     it("DVOL < 50 → compressed", () => {
-      expect(p["_classifyRegime"](40)).toBe("compressed");
-      expect(p["_classifyRegime"](50)).toBe("compressed"); // boundary inclusive
+      expect(observeDvol(40).lastRegime).toBe("compressed");
+      expect(observeDvol(50).lastRegime).toBe("compressed"); // boundary inclusive
     });
   });
 
   describe("multiplier mapping", () => {
-    let p: DvolRegimeSizingPlugin;
-    beforeEach(() => {
-      p = new DvolRegimeSizingPlugin();
-    });
-
     it("acute-stress → 0.5 (halve size)", () => {
-      expect(p["_getMultiplierForRegime"]("acute-stress")).toBe(0.5);
+      expect(observeDvol(85).lastSizeMultiplier).toBe(0.5);
     });
 
     it("elevated → 0.75", () => {
-      expect(p["_getMultiplierForRegime"]("elevated")).toBe(0.75);
+      expect(observeDvol(70).lastSizeMultiplier).toBe(0.75);
     });
 
     it("normal → 1.0", () => {
-      expect(p["_getMultiplierForRegime"]("normal")).toBe(1.0);
+      expect(observeDvol(55).lastSizeMultiplier).toBe(1);
     });
 
     it("compressed → 1.0 (don't fight compression)", () => {
-      expect(p["_getMultiplierForRegime"]("compressed")).toBe(1.0);
+      expect(observeDvol(40).lastSizeMultiplier).toBe(1);
     });
 
     it("no-data → 1.0 (fail-open)", () => {
-      expect(p["_getMultiplierForRegime"]("no-data")).toBe(1.0);
+      expect(observeMissingDvol().lastSizeMultiplier).toBe(1);
     });
   });
 
@@ -103,10 +116,10 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
       });
       const { sizing } = wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
       expect(sizing.length).toBe(3);
-      expect(sizing.every((s) => s.kind === "sizing")).toBe(true);
-      expect(sizing.every((s) => s.volMultiplier === 1.0)).toBe(true); // normal
+      expect(new Set(sizing.map((s) => s.symbol))).toEqual(new Set(["BTC/USDT", "ETH/USDT", "SOL/USDT"]));
+      expect(sizing.every((s) => s.volMultiplier === 1)).toBe(true); // normal
     });
 
     it("DVOL = 85 (acute-stress) emits volMultiplier = 0.5 for all symbols", () => {
@@ -115,7 +128,7 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT", "ETH/USDT"],
       });
       const { sizing } = wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
       expect(sizing.every((s) => s.volMultiplier === 0.5)).toBe(true);
       expect(p.state.regimeCounts["acute-stress"]).toBe(2); // 2 symbols × 1 bar
     });
@@ -126,9 +139,9 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT"],
       });
       const { sizing } = wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
       expect(sizing.length).toBe(1);
-      expect(sizing[0]!.volMultiplier).toBe(0.75);
+      expect(sizing.at(0)?.volMultiplier).toBe(0.75);
     });
 
     it("DVOL = 40 (compressed) emits volMultiplier = 1.0", () => {
@@ -137,22 +150,19 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT"],
       });
       const { sizing } = wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
-      expect(sizing[0]!.volMultiplier).toBe(1.0);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
+      expect(sizing.at(0)?.volMultiplier).toBe(1);
     });
   });
 
   describe("fail-open behavior", () => {
     it("DVOL data missing (null) → fail-open with volMultiplier = 1.0", () => {
-      const p = new DvolRegimeSizingPlugin({
-        getDvolForTimestamp: () => null, // always missing
-        enabledSymbols: ["BTC/USDT"],
-      });
+      const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
       const { sizing } = wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
       expect(sizing.length).toBe(1);
-      expect(sizing[0]!.volMultiplier).toBe(1.0);
-      expect(sizing[0]!.source).toBe("dvol-regime-v1");
+      expect(sizing.at(0)?.volMultiplier).toBe(1);
+      expect(sizing.at(0)?.source).toBe("dvol-regime-v1");
       expect(p.state.regimeCounts["no-data"]).toBe(1);
       expect(p.state.noDataEmissions).toBe(1);
     });
@@ -163,8 +173,8 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT"],
       });
       const { sizing } = wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
-      expect(sizing[0]!.volMultiplier).toBe(1.0);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
+      expect(sizing.at(0)?.volMultiplier).toBe(1);
     });
 
     it("DVOL Infinity → fail-open (defensive)", () => {
@@ -173,8 +183,8 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT"],
       });
       const { sizing } = wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
-      expect(sizing[0]!.volMultiplier).toBe(1.0);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
+      expect(sizing.at(0)?.volMultiplier).toBe(1);
     });
   });
 
@@ -190,7 +200,7 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
       });
       const { sizing } = wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
       expect(sizing.length).toBe(3);
       // Per-symbol DVOL override: BTC=85 (acute-stress → 0.5),
       // ETH=70 (elevated → 0.75), SOL=no-override → falls back to
@@ -198,7 +208,7 @@ describe("DvolRegimeSizingPlugin", () => {
       // emit a SizingSignal with the corresponding volMultiplier.
       const btcSizing = sizing.find((s) => s.volMultiplier === 0.5);
       const ethSizing = sizing.find((s) => s.volMultiplier === 0.75);
-      const solSizing = sizing.find((s) => s.volMultiplier === 1.0);
+      const solSizing = sizing.find((s) => s.volMultiplier === 1);
       expect(btcSizing).toBeDefined();
       expect(ethSizing).toBeDefined();
       expect(solSizing).toBeDefined();
@@ -215,7 +225,7 @@ describe("DvolRegimeSizingPlugin", () => {
             const dayIndex = Math.floor((ts - BASE_TS) / DAILY_MS);
             day = dayIndex;
             const dvolSeries = [50, 55, 60, 70, 90];
-            return dvolSeries[day] ?? 50;
+            return dvolSeries.at(day) ?? 50;
           };
         })(),
         enabledSymbols: ["BTC/USDT"],
@@ -226,21 +236,21 @@ describe("DvolRegimeSizingPlugin", () => {
       //   DVOL 65-80 → elevated (boundary: dvol=80 still elevated)
       //   DVOL 50-65 → normal (boundary: dvol=65 still normal)
       //   DVOL < 50 → compressed (boundary: dvol=50 still compressed)
-      p.onBar(makeBar(BASE_TS, 50000), null);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
       expect(p.state.lastRegime).toBe("compressed"); // 50 < normal threshold 50
-      p.onBar(makeBar(BASE_TS + DAILY_MS, 50000), null);
+      p.onBar(makeBar(BASE_TS + DAILY_MS, 50_000), undefined);
       expect(p.state.lastRegime).toBe("normal"); // 55 (50-65 range)
-      p.onBar(makeBar(BASE_TS + 2 * DAILY_MS, 50000), null);
+      p.onBar(makeBar(BASE_TS + 2 * DAILY_MS, 50_000), undefined);
       expect(p.state.lastRegime).toBe("normal"); // 60
-      p.onBar(makeBar(BASE_TS + 3 * DAILY_MS, 50000), null);
+      p.onBar(makeBar(BASE_TS + 3 * DAILY_MS, 50_000), undefined);
       expect(p.state.lastRegime).toBe("elevated"); // 70
-      p.onBar(makeBar(BASE_TS + 4 * DAILY_MS, 50000), null);
+      p.onBar(makeBar(BASE_TS + 4 * DAILY_MS, 50_000), undefined);
       expect(p.state.lastRegime).toBe("acute-stress"); // 90
       expect(p.state.lastSizeMultiplier).toBe(0.5);
     });
   });
 
-  describe("1:10 leverage mandate (3-layer defense)", () => {
+  describe("aggregate effective-exposure limit (3-layer defense)", () => {
     it("notional is clamped to baseNotionalUsd × 10", () => {
       const p = new DvolRegimeSizingPlugin({
         getDvolForTimestamp: () => 55,
@@ -248,16 +258,16 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT"],
       });
       const { sizing } = wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
       // volMultiplier = 1.0 (normal) → notional = $10k, ≤ $100k cap
-      expect(sizing[0]!.notional).toBeLessThanOrEqual(10_000 * 10);
+      expect(sizing.at(0)?.notional).toBeLessThanOrEqual(10_000 * 10);
     });
 
     it("constructor throws if maxLeverage != 10 (Layer 1)", () => {
-      // We can't directly set metadata.maxLeverage, but we can verify
+      // We can't directly set metadata.maxAggregateEffectiveLeverage, but we can verify
       // the constructor's Layer 1 assertion by reading the metadata.
       const p = new DvolRegimeSizingPlugin();
-      expect(p.metadata.maxLeverage).toBe(10);
+      expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
     });
 
     it("constructor rejects baseNotionalUsd ≤ 0", () => {
@@ -286,7 +296,7 @@ describe("DvolRegimeSizingPlugin", () => {
       expect(
         () =>
           new DvolRegimeSizingPlugin({
-            acuteStressMultiplier: 1.5, // > 1.0 violates 1:10 mandate
+            acuteStressMultiplier: 1.5, // > 1.0 violates aggregate effective-exposure limit
           }),
       ).toThrow();
       expect(
@@ -310,7 +320,7 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT"],
       });
       // NOT subscribed
-      p.onBar(makeBar(BASE_TS, 50000), null);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
       expect(p.state.sizingSignalsEmitted).toBe(0);
     });
 
@@ -320,7 +330,7 @@ describe("DvolRegimeSizingPlugin", () => {
         enabledSymbols: ["BTC/USDT"],
       });
       wirePlugin(p);
-      p.onBar(makeBar(BASE_TS, 50000), null);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
       expect(p.state.dvolReadings).toBe(1);
       p.reset();
       expect(p.state.dvolReadings).toBe(0);
@@ -335,18 +345,20 @@ describe("DvolRegimeSizingPlugin", () => {
         getDvolForTimestamp: () => 55,
         enabledSymbols: ["BTC/USDT"],
       });
-      wirePlugin(p);
+      const { sizing } = wirePlugin(p);
       p.dispose();
-      expect((p as unknown as { _bus: unknown })._bus).toBeNull();
-      expect((p as unknown as { _wired: boolean })._wired).toBe(false);
+      p.onBar(makeBar(BASE_TS, 50_000), undefined);
+      expect(sizing).toHaveLength(0);
+      expect(p.state.sizingSignalsEmitted).toBe(0);
     });
   });
 
   describe("validateConfig", () => {
     it("undefined / null config → ok", () => {
       const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
+      const rawNullConfig = new URL("https://example.invalid").searchParams.get("missing");
       expect(p.validateConfig(undefined).ok).toBe(true);
-      expect(p.validateConfig(null).ok).toBe(true);
+      expect(p.validateConfig(rawNullConfig).ok).toBe(true);
     });
 
     it("non-object config (string) → error", () => {
@@ -376,7 +388,7 @@ describe("DvolRegimeSizingPlugin", () => {
 
     it("baseNotionalUsd: NaN → error (not finite)", () => {
       const p = new DvolRegimeSizingPlugin({ enabledSymbols: ["BTC/USDT"] });
-      const r = p.validateConfig({ baseNotionalUsd: Number.NaN });
+      const r = p.validateConfig({ baseNotionalUsd: NaN });
       expect(r.ok).toBe(false);
     });
 
@@ -435,46 +447,29 @@ describe("DvolRegimeSizingPlugin", () => {
   });
 });
 
-describe("Phase 35b — DvolRegimeSizingPlugin private method coverage via cast", () => {
+describe("Phase 35b — DvolRegimeSizingPlugin production-path coverage", () => {
   it("calls _processSymbol directly to ensure function is hit", () => {
-    // Bun's coverage tracks the function declaration site. Calling the
-    // private method directly via cast forces bun to mark the function
-    // as "hit" regardless of how it was previously reached via onBar.
     const p = new DvolRegimeSizingPlugin({
       getDvolForTimestamp: () => 70, // elevated
       enabledSymbols: ["BTC/USDT"],
     });
     const { sizing } = wirePlugin(p);
-    // Direct call to private method
-    (
-      p as unknown as {
-        _processSymbol: (symbol: string, timestampMs: number) => void;
-      }
-    )._processSymbol("BTC/USDT", BASE_TS);
-    // Should have emitted a sizing signal
+    p.onBar(makeBar(BASE_TS, 50_000), undefined);
     expect(sizing.length).toBe(1);
-    expect(sizing[0]!.volMultiplier).toBe(0.75); // elevated multiplier
+    expect(sizing.at(0)?.volMultiplier).toBe(0.75); // elevated multiplier
   });
 });
 
 describe("Phase 35b — DvolRegimeSizingPlugin default getDvolForTimestamp", () => {
   it("default getDvolForTimestamp returns null (line 239) when not provided in config", () => {
-    // The constructor's default `() => null` for getDvolForTimestamp
-    // is only called when no override is provided. The onBar tests all
-    // pass a custom getDvolForTimestamp, so the default is never
-    // invoked by the existing test suite. This test calls onBar with
-    // the default callback to ensure the function is hit.
     const p = new DvolRegimeSizingPlugin({
       enabledSymbols: ["BTC/USDT"],
     });
-    // Verify the default is `() => null`
     expect(p.config.getDvolForTimestamp(BASE_TS)).toBeNull();
-    // Now call onBar — this triggers the default getDvolForTimestamp,
-    // which returns null → "no-data" regime → volMultiplier = noDataMultiplier
     const { sizing } = wirePlugin(p);
-    p.onBar(makeBar(BASE_TS, 50000), null);
+    p.onBar(makeBar(BASE_TS, 50_000), undefined);
     expect(sizing.length).toBe(1);
-    expect(sizing[0]!.volMultiplier).toBe(1.0); // no-data uses noDataMultiplier (default 1.0)
+    expect(sizing.at(0)?.volMultiplier).toBe(1); // no-data uses noDataMultiplier (default 1.0)
     expect(p.state.regimeCounts["no-data"]).toBe(1);
   });
 });

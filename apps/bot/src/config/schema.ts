@@ -1,381 +1,228 @@
 /**
- * apps/bot/src/config/schema.ts
- *
- * Phase 33 Track B — Bot config Zod schema.
- *
- * A bot config 6 szekcióból áll:
- *   1. `bot`        — indítási mód (paper/live), log-szint, state-fájl.
- *   2. `exchange`   — melyik exchange-re csatlakozunk, rate-limit, sandbox.
- *   3. `risk`       — risk/trade, Kelly-frakció, max DD, max position, max leverage.
- *   4. `symbols`    — mely symbol-okon kereskedünk (CCXT unified formátumban).
- *   5. `strategies` — per-strategy enable/disable + per-strategy beállítások.
- *   6. `telemetry`  — log-könyvtár, metrika-intervallum.
- *
- * A 1:10 leverage mandate a `risk.max_leverage` és a per-strategy
- * `leverage` mezőkön is érvényesítve van (Zod `.max(10)`).
- *
- * A `StrategySectionSchema.passthrough()` miatt forward-compatible
- * bármilyen új strategy-specifikus mezőt be tudunk vezetni a meglévő
- * config-ok kompatibilis törése nélkül.
+ * Bot configuration schemas and inferred public types.
  */
 
 import { z } from "zod";
 
-import { EnabledSymbolsSchema, RiskSectionSchema } from "./schema-builders.js";
 import { SelectedLeverageConfigSchema } from "./selected-leverage-config.js";
 
-// ============================================================================
-// 1) Per-strategy section schema
-// ============================================================================
+const TimeframesSchema = z
+  .object({
+    htf: z.string(),
+    mtf: z.string(),
+    ltf: z.string(),
+  })
+  .strict();
 
 /**
- * `StrategySectionSchema` — egy adott stratégia konfigurációs szekciója.
- *
- * Minden stratégia section-jében kötelező az `enabled: boolean` flag.
- * A `true` azt jelenti: a bot runtime példányosítja a stratégiát és
- * beregisztrálja a futási ciklusba. A `false` azt jelenti: a stratégia
- * NEM lesz példányosítva és NEM jelenik meg a futási ciklusban
- * (Phase 21 #1 wire-up integrity lecke).
- *
- * A `.passthrough()` lehetővé teszi, hogy az egyes stratégiák
- * saját specifikus mezőket (cap, leverage, symbols, timeframes, ...)
- * is felvegyenek anélkül, hogy a sémát újra kelljen írni — a
- * Zod ezeket a mezőket változatlanul átengedi.
+ * A closed strategy section with every field consumed by the current runtime.
  */
 export const StrategySectionSchema = z
   .object({
-    /**
-     * Whether the strategy is enabled. `false` prevents instantiation.
-     */
     enabled: z.boolean().default(false),
-    /**
-     * Maximum position size as an equity fraction (0..1).
-     */
     cap: z.number().min(0).max(1).optional(),
-    /**
-     * Per-strategy override leverage. 1:10 MANDATE.
-     */
-    leverage: z.number().int().min(1).max(10).optional(),
-    /**
-     * Symbol-list override in CCXT unified format.
-     */
     symbols: z.array(z.string()).optional(),
-    /**
-     * Timeframe overrides (htf/mtf/ltf).
-     */
-    timeframes: z
-      .object({
-        htf: z.string(),
-        mtf: z.string(),
-        ltf: z.string(),
-      })
-      .optional(),
-    /**
-     * Phase 37 Track 2 — per-strategy override-ok.
-     *
-     * A globális `[risk] risk_per_trade` / `[risk] max_positions` a
-     * default, de a per-strategy override felülírja azt (a runtime
-     * a `strategy-registry.ts`-ben olvassa a per-strategy értéket
-     * először, és csak fallback-ként használja a globálisat).
-     */
+    timeframes: TimeframesSchema.optional(),
     risk_per_trade: z.number().min(0.001).max(0.05).optional(),
     max_positions: z.number().int().min(1).max(12).optional(),
+    notional_per_leg_usd: z.number().positive().optional(),
+    max_notional_per_event_usd: z.number().positive().optional(),
+    cooldown_hours: z.number().positive().optional(),
   })
-  .passthrough();
+  .strict();
 
 /**
- * `StrategySection` — the Zod-inferred type.
+ * The inferred strategy section type.
  */
 export type StrategySection = z.infer<typeof StrategySectionSchema>;
 
 /**
- * A Donchian/Pivot kompozit stratégia szekciója. A közös séma továbbra is
- * forward-compatible marad, de a runtime által értelmezett `min_consensus`
- * mező itt már nem csúszhat át validálatlan passthrough értékként.
+ * The dYdX carry section permits only values the carry strategy can execute.
+ */
+export const DydxCexCarryStrategySectionSchema = StrategySectionSchema.extend({
+  cap: z.number().positive().max(0.5).optional(),
+}).strict();
+
+/**
+ * The inferred closed dYdX carry section type.
+ */
+export type DydxCexCarryStrategySection = z.infer<typeof DydxCexCarryStrategySectionSchema>;
+
+/**
+ * The Donchian/Pivot strategy section adds its validated consensus setting.
  */
 export const DonchianPivotStrategySectionSchema = StrategySectionSchema.extend({
   min_consensus: z.number().int().min(1).max(2).optional(),
-});
+}).strict();
 
-// ============================================================================
-// 2) Top-level config schema
-// ============================================================================
+const IntegerSchema = z.number().int();
+
+function defaultIntegerInRange(minimum: number, maximum: number, defaultValue: number) {
+  return IntegerSchema.min(minimum).max(maximum).default(defaultValue);
+}
+
+function defaultNumberInRange(minimum: number, maximum: number, defaultValue: number) {
+  return z.number().min(minimum).max(maximum).default(defaultValue);
+}
+
+const BotSectionSchema = z
+  .object({
+    mode: z.enum(["paper", "live"]).default("paper"),
+    log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
+    state_file: z.string().default("data/bot-state.json"),
+    selected_leverage: SelectedLeverageConfigSchema,
+  })
+  .strict()
+  .default({});
+
+const ExchangeSectionSchema = z
+  .object({
+    id: z.enum(["bybiteu", "mock"]).default("bybiteu"),
+    rate_limit_ms: defaultIntegerInRange(10, 10_000, 100),
+    slippage_pct: defaultNumberInRange(0, 1, 0.05),
+    fee_tier: z.enum(["vip", "standard", "maker_rebate"]).default("standard"),
+    rate_limit_per_min: defaultIntegerInRange(1, 600, 120),
+    ws_reconnect_delay_ms: defaultIntegerInRange(100, 10_000, 1000),
+    timeout_ms: defaultIntegerInRange(100, 120_000, 10_000),
+  })
+  .strict()
+  .default({});
+
+const ComplianceSectionSchema = z
+  .object({
+    jurisdiction: z.enum(["EU", "JP", "OTHER"]).default("EU"),
+    jp_msb_registered: z.boolean().default(false),
+  })
+  .strict()
+  .default({});
+
+const TrailingStopSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    atr_period: defaultIntegerInRange(2, 200, 14),
+    atr_multiplier: defaultNumberInRange(0.5, 20, 3),
+    side: z.enum(["long", "short", "both"]).default("both"),
+  })
+  .strict()
+  .default({});
+
+const KellySchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    fraction: defaultNumberInRange(0.05, 1, 0.25),
+    window_size: defaultIntegerInRange(5, 500, 50),
+    min_trades: defaultIntegerInRange(1, 100, 10),
+    fallback_fraction: defaultNumberInRange(0.0001, 0.5, 0.01),
+  })
+  .strict()
+  .default({});
+
+const DrawdownScalerSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    max_dd_pct: defaultNumberInRange(0.01, 0.5, 0.15),
+  })
+  .strict()
+  .default({});
+
+const RiskSectionSchema = z
+  .object({
+    risk_per_trade: defaultNumberInRange(0.001, 0.05, 0.01),
+    kelly_fraction: defaultNumberInRange(0.05, 1, 0.25),
+    max_drawdown_pct: defaultNumberInRange(0.01, 0.5, 0.15),
+    max_positions: defaultIntegerInRange(1, 12, 3),
+    max_leverage: z.literal(10).default(10),
+    max_position_fraction: defaultNumberInRange(0.001, 1, 0.1),
+    fallback_size_fraction: defaultNumberInRange(0.0001, 0.5, 0.01),
+    trailing_stop: TrailingStopSchema,
+    kelly: KellySchema,
+    drawdown_scaler: DrawdownScalerSchema,
+  })
+  .strict()
+  .default({});
+
+const SymbolsSectionSchema = z
+  .object({
+    enabled: z.array(z.string()).default(["BTC/USDC", "ETH/USDC", "SOL/USDC"]),
+  })
+  .strict()
+  .default({});
+
+const StrategiesSectionSchema = z
+  .object({
+    donchian_pivot_composition: DonchianPivotStrategySectionSchema.default({
+      enabled: true,
+      cap: 0.2,
+    }),
+    dydx_cex_carry: DydxCexCarryStrategySectionSchema.default({
+      enabled: false,
+      cap: 0.025,
+      notional_per_leg_usd: 125_000,
+    }),
+    cascade_fade: StrategySectionSchema.default({
+      enabled: false,
+      max_notional_per_event_usd: 1_000_000,
+      cooldown_hours: 24,
+    }),
+    funding_flip_kill_switch: StrategySectionSchema.default({
+      enabled: false,
+    }),
+    regime_detector: StrategySectionSchema.default({
+      enabled: false,
+    }),
+  })
+  .strict()
+  .default({});
+
+const TelemetrySectionSchema = z
+  .object({
+    log_dir: z.string().default("logs/bot"),
+    metrics_interval_sec: defaultIntegerInRange(1, 3600, 60),
+    log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
+    log_destination: z.enum(["file", "stderr", "both"]).default("both"),
+    metrics_enabled: z.boolean().default(true),
+    heartbeat_interval_sec: defaultIntegerInRange(1, 300, 30),
+  })
+  .strict()
+  .default({});
+
+const PortfolioSectionSchema = z
+  .object({
+    total_risk_per_cycle_usd: defaultNumberInRange(1, 10_000, 100),
+    correlation_penalty_threshold: defaultNumberInRange(0, 1, 0.7),
+    correlation_window_size: defaultIntegerInRange(2, 1000, 30),
+    max_dd_pct: defaultNumberInRange(0.01, 0.3, 0.1),
+  })
+  .strict()
+  .default({});
 
 /**
- * `BotConfigSchema` — a teljes bot-konfiguráció Zod sémája.
- *
- * Minden szekció `.default({})` — így a felhasználó bármelyiket
- * elhagyhatja, és a Zod behelyettesíti a sémában definiált defaultokat.
- *
- * A `strategies` szekció default-jai a Phase 33 scope plan §"Track B"
- * táblázatából jönnek:
- *   - donchian_pivot_composition: enabled (default production)
- *   - dydx_cex_carry:            disabled (requires precondition verifier)
- *   - cascade_fade:              disabled (requires liquidation/OI/ELR bridge)
- *   - funding_flip_kill_switch:  disabled (defensive opt-in)
- *   - regime_detector:           disabled (meta-plugin opt-in)
+ * The complete bot configuration schema.
  */
-export const BotConfigSchema = z.object({
-  // --------------------------------------------------------------------------
-  // 1) Bot process mode, log level, and persistent-state path.
-  bot: z
-    .object({
-      mode: z.enum(["paper", "live"]).default("paper"),
-      log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
-      state_file: z.string().default("data/bot-state.json"),
-      selected_leverage: SelectedLeverageConfigSchema,
-    })
-    .strict()
-    .default({}),
-
-  // --------------------------------------------------------------------------
-  // 2) Exchange section — melyik exchange-re csatlakozunk.
-  //
-  // Connection and execution-policy fields are validated at the configuration
-  // boundary before an exchange client is constructed.
-  //
-  // A Phase 37 Track 5 új mezők:
-  //   - `endpoint`         — a CCXT/REST API base URL. Alapértelmezetten
-  //                          üres (= CCXT default bybiteu endpoint). A
-  //                          Tokyo co-location template felülírja
-  //                          `https://api.bybit.jp` -re.
-  //   - `timeout_ms`       — a REST kérések timeout-ja ms-ban. Tokyo
-  //                          co-loc default: 5000ms (5s), mert a belső
-  //                          RTT < 1ms, így a teljes round-trip a CCXT
-  //                          request→response overhead-re korlátozódik.
-  //   - `ws_endpoint`      — opcionális WebSocket végpont URL. Tokyo
-  //                          co-loc default: `wss://stream.bybit.jp` (ha
-  //                          meg van adva, a CCXT Pro ezt preferálja).
-  // --------------------------------------------------------------------------
-  exchange: z
-    .object({
-      id: z.enum(["bybiteu", "mock"]).default("bybiteu"),
-      rate_limit_ms: z.number().int().min(10).max(10_000).default(100),
-      sandbox: z.boolean().default(false),
-      /**
-       * Max accepted slippage percent (0..1). Default: 0.05 (5%).
-       */
-      slippage_pct: z.number().min(0).max(1).default(0.05),
-      /**
-       * Fee tier — vip / standard / maker_rebate.
-       */
-      fee_tier: z.enum(["vip", "standard", "maker_rebate"]).default("standard"),
-      /**
-       * Rate limit per minute (orders + REST calls). Default: 120.
-       */
-      rate_limit_per_min: z.number().int().min(1).max(600).default(120),
-      /**
-       * WebSocket reconnect delay in ms. Default: 1000.
-       */
-      ws_reconnect_delay_ms: z.number().int().min(100).max(10_000).default(1000),
-      /**
-       * Phase 37 Track 5 — REST API base URL.
-       *
-       * Alapértelmezetten üres (= a CCXT default bybiteu endpointja:
-       * `https://api.bybiteu.com`).  A Tokyo co-location template
-       * felülírja `https://api.bybit.jp`-re.  Bármilyen érvényes
-       * HTTPS URL megadható (a `z.string().url()` validál).
-       */
-      endpoint: z.string().url().optional(),
-      /**
-       * Phase 37 Track 5 — REST request timeout in milliseconds.
-       * Alapértelmezetten 10 000 ms (10s), a CCXT default. Tokyo
-       * co-loc a `live-tokyo.toml`-ban 5000 ms-ra csökkenti.
-       */
-      timeout_ms: z.number().int().min(100).max(120_000).default(10_000),
-      /**
-       * Phase 37 Track 5 — opcionális WebSocket endpoint URL.
-       * Ha meg van adva, a CCXT Pro ezt preferálja a default
-       * `wss://stream.bybit.com` helyett.
-       */
-      ws_endpoint: z.string().url().optional(),
-    })
-    .default({}),
-
-  // --------------------------------------------------------------------------
-  // 2.5) Compliance section (Phase 37 Track 5) — jurisdictional flags.
-  //
-  // A Phase 37 Track 5 bevezeti a `compliance` szekciót, ami a
-  // deployment joghatóság-specifikus szabályozási flag-jeit gyűjti
-  // össze. A jelenlegi 2 mező a JP (Japán) co-location use-case-hez
-  // készült:
-  //
-  //   - `jurisdiction`    — a deployment joghatósága. A jelenlegi
-  //                          enum: "EU" | "JP" | "OTHER". Az
-  //                          alapértelmezett "EU" (a bybit.eu default
-  //                          miatt). A Tokyo template "JP"-re állítja.
-  //   - `jp_msb_registered` — a JP FSA (Pénzügyi Szolgáltatások
-  //                          Ügynöksége) Crypto-Asset Exchange
-  //                          Service Provider (暗号資産交換業) regisztráció
-  //                          megléte. Alapértelmezetten `false` —
-  //                          a bot kizárólag a user felelősségére
-  //                          használható JP joghatóságban. A user
-  //                          felelőssége a saját regisztrációs státusz
-  //                          beállítása.
-  //
-  // További JP-specifikus flag-ek (pl. `jp_travel_rule`, `jp_kyc_level`)
-  // a Phase 38+ scope-ba tartoznak. A `.default({})` biztosítja, hogy
-  // a meglévő TOML configok minden változtatás nélkül parse-olódnak.
-  // --------------------------------------------------------------------------
-  compliance: z
-    .object({
-      /**
-       * Deployment jurisdiction. Default: "EU".
-       */
-      jurisdiction: z.enum(["EU", "JP", "OTHER"]).default("EU"),
-      /**
-       * Phase 37 Track 5 — JP FSA MSB (暗号資産交換業) regisztráció.
-       * `true` ha a user (vagy az általa üzemeltetett entitás)
-       * regisztrálva van a JP FSA-nál mint Crypto-Asset Exchange
-       * Service Provider. Alapértelmezetten `false` — a user
-       * felelőssége, hogy a `live-tokyo.toml` másolatán átállítsa
-       * a saját státuszának megfelelően.
-       */
-      jp_msb_registered: z.boolean().default(false),
-    })
-    .default({}),
-
-  // --------------------------------------------------------------------------
-  // 3) Risk section — 1:10 leverage MANDATE a max_leverage és a
-  //    per-strategy leverage mezőkön.
-  //
-  //    Phase 37 Track 1 — Adaptive Risk Management: a `risk` szekció
-  //    három új, default-off al-szekcióval bővül:
-  //      - `trailing_stop`     — ATR-based trailing stop (long/short/both).
-  //      - `kelly`             — dynamic Kelly position sizing (rolling window).
-  //      - `drawdown_scaler`   — equity drawdown-aware position scaler.
-  //
-  //    A `max_position_fraction` és a `fallback_size_fraction` a Kelly
-  //    modul cap-jei (cold-start fallback, max position cap). A teljes
-  //    `risk` szekció `.default({})`-vel rendelkezik, így a meglévő
-  //    TOML-ok minden változtatás nélkül parse-olódnak.
-  // --------------------------------------------------------------------------
-  risk: RiskSectionSchema,
-
-  // --------------------------------------------------------------------------
-  // 4) Symbols section — mely coin-okon kereskedünk.
-  // --------------------------------------------------------------------------
-  symbols: z
-    .object({
-      enabled: EnabledSymbolsSchema,
-    })
-    .default({}),
-
-  // --------------------------------------------------------------------------
-  // 5) Strategies section — per-strategy enable/disable + overrides.
-  // --------------------------------------------------------------------------
-  strategies: z
-    .object({
-      /**
-       * Donchian + Pivot 2-component composition (Phase 18 #1 baseline).
-       */
-      donchian_pivot_composition: DonchianPivotStrategySectionSchema.default({
-        enabled: true,
-        cap: 0.2,
-      }),
-      /**
-       * dYdX-vs-CEX cross-venue funding carry (Phase 25 #2 T2).
-       */
-      dydx_cex_carry: StrategySectionSchema.default({
-        enabled: false,
-        cap: 0.025,
-        notional_per_leg_usd: 125_000,
-      }),
-      /**
-       * Liquidation cascade "fade-the-cascade" detector (Phase 25 #2 T2D).
-       */
-      cascade_fade: StrategySectionSchema.default({
-        enabled: false,
-        max_notional_per_event_usd: 1_000_000,
-        cooldown_hours: 24,
-      }),
-      /**
-       * SOL funding-flip kill-switch plugin (defensive opt-in).
-       */
-      funding_flip_kill_switch: StrategySectionSchema.default({
-        enabled: false,
-      }),
-      /**
-       * HMM 3-state regime-detector meta-plugin (opt-in).
-       */
-      regime_detector: StrategySectionSchema.default({
-        enabled: false,
-      }),
-    })
-    .default({}),
-
-  // --------------------------------------------------------------------------
-  // 6) Telemetry section — log-könyvtár, metrika-intervallum, log-szint,
-  //    log-dest, metrics-kapcsoló, heartbeat.
-  //
-  // A Phase 37 Track 2 kibővíti a `telemetry` szekciót a
-  // `log_level` / `log_destination` / `metrics_enabled` /
-  // `heartbeat_interval_sec` mezőkkel. A `log_level` itt a
-  // TELEMETRY log-szintje (nem a bot fő log-szintje — bár a
-  // runtime jelenleg mindkettőt használja). A meglévő
-  // `log_dir` / `metrics_interval_sec` mezők megmaradnak.
-  // --------------------------------------------------------------------------
-  telemetry: z
-    .object({
-      log_dir: z.string().default("logs/bot"),
-      metrics_interval_sec: z.number().int().min(1).max(3600).default(60),
-      /**
-       * Log level (debug/info/warn/error). Default: info.
-       */
-      log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
-      /**
-       * Log-dest: file / stderr / both. Default: both.
-       */
-      log_destination: z.enum(["file", "stderr", "both"]).default("both"),
-      /**
-       * Whether metrics emission is enabled. Default: true.
-       */
-      metrics_enabled: z.boolean().default(true),
-      /**
-       * Liveness heartbeat interval in seconds. Default: 30.
-       */
-      heartbeat_interval_sec: z.number().int().min(1).max(300).default(30),
-    })
-    .default({}),
-
-  // --------------------------------------------------------------------------
-  // 7) Portfolio section — Phase 37 Track 4.
-  //
-  // A multi-strategy portfólió koordináció paraméterei:
-  //   - `total_risk_per_cycle_usd`: a ciklusonkénti max új kockázat
-  //     (USD). A `RiskBudgetAllocator` ezt osztja szét a stratégiák
-  //     között. Hard cap: 10 000.
-  //   - `correlation_penalty_threshold`: a korreláció küszöb (0..1).
-  //     Ha két stratégia korrelációja >= ez, a közös büdzséjük
-  //     csökken. Default: 0.7.
-  //   - `correlation_window_size`: a görgető korreláció ablakméret
-  //     (trade-ek száma). Default: 30.
-  //   - `max_dd_pct`: a portfolió-szintű circuit breaker küszöb
-  //     (0..0.30). Ha a portfolió drawdown >= ez, minden pozíció
-  //     zárul, és a bot leáll. Default: 0.10.
-  // --------------------------------------------------------------------------
-  portfolio: z
-    .object({
-      total_risk_per_cycle_usd: z.number().min(1).max(10_000).default(100),
-      correlation_penalty_threshold: z.number().min(0).max(1).default(0.7),
-      correlation_window_size: z.number().int().min(2).max(1000).default(30),
-      max_dd_pct: z.number().min(0.01).max(0.3).default(0.1),
-    })
-    .default({}),
-});
+export const BotConfigSchema = z
+  .object({
+    bot: BotSectionSchema,
+    exchange: ExchangeSectionSchema,
+    compliance: ComplianceSectionSchema,
+    risk: RiskSectionSchema,
+    symbols: SymbolsSectionSchema,
+    strategies: StrategiesSectionSchema,
+    telemetry: TelemetrySectionSchema,
+    portfolio: PortfolioSectionSchema,
+  })
+  .strict();
 
 /**
- * `BotConfig` — the complete Zod-inferred bot configuration type.
+ * The complete inferred bot configuration.
  */
 export type BotConfig = z.infer<typeof BotConfigSchema>;
 
 /**
- * A `BotConfigSchema` kulcsainak uniója — hasznos a strategy-registry
- * és a loader típus-szintű kimerítős vizsgálatához.
+ * The union of top-level bot configuration keys.
  */
 export type BotConfigKey = keyof BotConfig;
 
 /**
- * A `strategies` szekcióban definiált összes strategy-név unió-típusa.
+ * The union of configured strategy names.
  */
 export type StrategyName = keyof BotConfig["strategies"];

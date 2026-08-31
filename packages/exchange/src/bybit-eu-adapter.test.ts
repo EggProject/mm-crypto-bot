@@ -1,197 +1,124 @@
 /**
- * packages/exchange/src/bybit-eu-adapter.test.ts
- *
- * Unit tesztek a `BybitEuAdapter` CCXT Pro wrapper osztályhoz.
- *
- * A `BybitEuAdapter` a CCXT Pro `bybiteu` exchange osztályát wrap-eli —
- * minden metódus egy 1-az-1-ben delegate `this.exchange.X(...)` hívás.
- * A 100% line+branch+function coverage eléréséhez egy MockBybitEu
- * osztályt adunk át az adapter `exchange` constructor opcióján
- * (dependency injection) — így NEM kell a teljes `ccxt` modult
- * `mock.module`-dal patch-elnünk (ami az előző implementációban a
- * `LatencyMonitor` tesztet elrontotta, mert a mock a `pro` mezőt
- * elvesztette).
- *
- * A `MockBybitEu` rögzíti a `setSandboxMode` hívásokat és minden
- * watch* metódus argumentumát a `state` singleton-on keresztül, hogy
- * a tesztek assertion szinten is tudják ellenőrizni a delegate-eket.
+ * CCXT Pro delegation contract with an injected deterministic exchange fake.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { BybitEuAdapter } from "./bybit-eu-adapter.js";
+import { BybitEuAdapter, type BybitEuAdapterClient, type BybitEuAdapterOptions } from "./bybit-eu-adapter.js";
+import { withCapturedBybitEuConstructor } from "./bybit-eu-feed.test-support.js";
+import {
+  mockBalances,
+  mockMarkets,
+  mockOhlcvs,
+  mockOrder,
+  mockOrderBook,
+  mockOrders,
+  mockPositions,
+  mockTicker,
+  mockTrades,
+  orderBookWith,
+  orderWith,
+  tickerWith,
+} from "./bybit-eu-adapter.test-support.js";
 
-// === Mock state ===
+/**
+ * Mock state.
+ */
 
 interface MockModuleState {
-  readonly sandboxCalls: readonly boolean[];
-  readonly watchPositionsCalls: readonly { readonly hasSymbols: boolean; readonly symbolCount: number }[];
-  readonly closeCalls: number;
+  watchPositionsCalls: readonly string[] | undefined;
+  closeCalls: number;
+  lastCall: readonly unknown[];
 }
 
 const state: MockModuleState = {
-  sandboxCalls: [],
   watchPositionsCalls: [],
   closeCalls: 0,
+  lastCall: [],
 };
 
 /**
- * `MockBybitEu` — a CCXT Pro bybiteu interface minimális mock-ja.
- * Minden metódus azonosítható mock-shape visszatérési értéket ad,
- * hogy a tesztek ellenőrizni tudják a delegate hívásokat.
- *
- * A `BybitEuAdapter` `exchange` constructor opcióján keresztül
- * injektáljuk, így nem kell a teljes `ccxt` modult mockolni.
+ * Deterministic fake that implements only the public adapter client port.
  */
-class MockBybitEu {
-  setSandboxMode(value: boolean): void {
-    (state as { sandboxCalls: readonly boolean[] }).sandboxCalls = [...state.sandboxCalls, value];
-  }
-  async loadMarkets(reload?: boolean): Promise<{ readonly __mock: true; readonly reload: boolean }> {
-    return { __mock: true, reload: reload ?? false };
-  }
-  async fetchTicker(symbol: string): Promise<{ readonly __mock: true; readonly symbol: string }> {
-    return { __mock: true, symbol };
-  }
-  async fetchOrderBook(
-    symbol: string,
-    limit?: number,
-  ): Promise<{ readonly __mock: true; readonly symbol: string; readonly limit: number | undefined }> {
-    return { __mock: true, symbol, limit };
-  }
-  async fetchTrades(
-    symbol: string,
-    since?: number,
-    limit?: number,
-  ): Promise<{
-    readonly __mock: true;
-    readonly symbol: string;
-    readonly since: number | undefined;
-    readonly limit: number | undefined;
-  }> {
-    return { __mock: true, symbol, since, limit };
-  }
-  async fetchOHLCV(
-    symbol: string,
-    timeframe: string,
-    since?: number,
-    limit?: number,
-  ): Promise<{
-    readonly __mock: true;
-    readonly symbol: string;
-    readonly timeframe: string;
-    readonly since: number | undefined;
-    readonly limit: number | undefined;
-  }> {
-    return { __mock: true, symbol, timeframe, since, limit };
-  }
-  async fetchBalance(): Promise<{ readonly __mock: true; readonly balance: string }> {
-    return { __mock: true, balance: "MOCK_BALANCE" };
-  }
-  async createOrder(
-    symbol: string,
-    type: "market" | "limit",
-    side: "buy" | "sell",
-    amount: number,
-    price?: number,
-    params?: Record<string, unknown>,
-  ): Promise<{
-    readonly __mock: true;
-    readonly symbol: string;
-    readonly type: string;
-    readonly side: string;
-    readonly amount: number;
-    readonly price: number | undefined;
-    readonly params: Record<string, unknown> | undefined;
-  }> {
-    return { __mock: true, symbol, type, side, amount, price, params };
-  }
-  async cancelOrder(
-    id: string,
-    symbol?: string,
-  ): Promise<{ readonly __mock: true; readonly id: string; readonly symbol: string | undefined }> {
-    return { __mock: true, id, symbol };
-  }
-  async watchOrderBook(
-    symbol: string,
-    limit: number,
-  ): Promise<{ readonly __mock: true; readonly symbol: string; readonly limit: number }> {
-    return { __mock: true, symbol, limit };
-  }
-  async watchTicker(symbol: string): Promise<{ readonly __mock: true; readonly symbol: string }> {
-    return { __mock: true, symbol };
-  }
-  async watchTrades(
-    symbol: string,
-    since?: number,
-    limit?: number,
-  ): Promise<{
-    readonly __mock: true;
-    readonly symbol: string;
-    readonly since: number | undefined;
-    readonly limit: number | undefined;
-  }> {
-    return { __mock: true, symbol, since, limit };
-  }
-  async watchOHLCV(
-    symbol: string,
-    timeframe: string,
-    since?: number,
-    limit?: number,
-  ): Promise<{
-    readonly __mock: true;
-    readonly symbol: string;
-    readonly timeframe: string;
-    readonly since: number | undefined;
-    readonly limit: number | undefined;
-  }> {
-    return { __mock: true, symbol, timeframe, since, limit };
-  }
-  async watchOrders(
-    symbol: string,
-    since?: number,
-    limit?: number,
-  ): Promise<{
-    readonly __mock: true;
-    readonly symbol: string;
-    readonly since: number | undefined;
-    readonly limit: number | undefined;
-  }> {
-    return { __mock: true, symbol, since, limit };
-  }
-  async watchBalance(): Promise<{ readonly __mock: true }> {
-    return { __mock: true };
-  }
-  async watchPositions(symbols?: string[]): Promise<{
-    readonly __mock: true;
-    readonly hasSymbols: boolean;
-    readonly symbolCount: number;
-  }> {
-    const result = { __mock: true, hasSymbols: symbols !== undefined, symbolCount: symbols?.length ?? 0 };
-    (state as { watchPositionsCalls: readonly unknown[] }).watchPositionsCalls = [
-      ...state.watchPositionsCalls,
-      result,
-    ];
-    return result;
-  }
-  close(): void {
-    (state as { closeCalls: number }).closeCalls = state.closeCalls + 1;
-  }
+class MockBybitEu implements BybitEuAdapterClient {
+  readonly loadMarkets: BybitEuAdapterClient["loadMarkets"] = (...arguments_) => {
+    state.lastCall = ["loadMarkets", ...arguments_];
+    return Promise.resolve(mockMarkets());
+  };
+  readonly fetchTicker: BybitEuAdapterClient["fetchTicker"] = (...arguments_) => {
+    state.lastCall = ["fetchTicker", ...arguments_];
+    return Promise.resolve(mockTicker(arguments_[0]));
+  };
+  readonly fetchOrderBook: BybitEuAdapterClient["fetchOrderBook"] = (...arguments_) => {
+    state.lastCall = ["fetchOrderBook", ...arguments_];
+    return Promise.resolve(mockOrderBook(arguments_[0]));
+  };
+  readonly fetchTrades: BybitEuAdapterClient["fetchTrades"] = (...arguments_) => {
+    state.lastCall = ["fetchTrades", ...arguments_];
+    return Promise.resolve(mockTrades());
+  };
+  readonly fetchOHLCV: BybitEuAdapterClient["fetchOHLCV"] = (...arguments_) => {
+    state.lastCall = ["fetchOHLCV", ...arguments_];
+    return Promise.resolve(mockOhlcvs());
+  };
+  readonly fetchBalance: BybitEuAdapterClient["fetchBalance"] = (...arguments_) => {
+    state.lastCall = ["fetchBalance", ...arguments_];
+    return Promise.resolve(mockBalances());
+  };
+  readonly createOrder: BybitEuAdapterClient["createOrder"] = (...arguments_) => {
+    state.lastCall = ["createOrder", ...arguments_];
+    return Promise.resolve(mockOrder(arguments_[0]));
+  };
+  readonly cancelOrder: BybitEuAdapterClient["cancelOrder"] = (...arguments_) => {
+    state.lastCall = ["cancelOrder", ...arguments_];
+    return Promise.resolve(mockOrder(arguments_[1] ?? "BTC/USDC"));
+  };
+  readonly watchOrderBook: BybitEuAdapterClient["watchOrderBook"] = (...arguments_) => {
+    state.lastCall = ["watchOrderBook", ...arguments_];
+    return Promise.resolve(mockOrderBook(arguments_[0]));
+  };
+  readonly watchTicker: BybitEuAdapterClient["watchTicker"] = (...arguments_) => {
+    state.lastCall = ["watchTicker", ...arguments_];
+    return Promise.resolve(mockTicker(arguments_[0]));
+  };
+  readonly watchTrades: BybitEuAdapterClient["watchTrades"] = (...arguments_) => {
+    state.lastCall = ["watchTrades", ...arguments_];
+    return Promise.resolve(mockTrades());
+  };
+  readonly watchOHLCV: BybitEuAdapterClient["watchOHLCV"] = (...arguments_) => {
+    state.lastCall = ["watchOHLCV", ...arguments_];
+    return Promise.resolve(mockOhlcvs());
+  };
+  readonly watchOrders: BybitEuAdapterClient["watchOrders"] = (...arguments_) => {
+    state.lastCall = ["watchOrders", ...arguments_];
+    return Promise.resolve(mockOrders(arguments_[0] ?? "BTC/USDC"));
+  };
+  readonly watchBalance: BybitEuAdapterClient["watchBalance"] = (...arguments_) => {
+    state.lastCall = ["watchBalance", ...arguments_];
+    return Promise.resolve(mockBalances());
+  };
+  readonly watchPositions: BybitEuAdapterClient["watchPositions"] = (symbols) => {
+    state.watchPositionsCalls = symbols;
+    state.lastCall = ["watchPositions", symbols];
+    return Promise.resolve(mockPositions());
+  };
 }
 
-// === Helpers ===
+/**
+ * Helpers.
+ */
 
 /**
  * `makeMock` — minden teszt híváskor új MockBybitEu példányt ad.
  * A `state` singleton marad, hogy a tesztek lássák a hívásokat.
  */
-function makeMock(): MockBybitEu {
+function makeMock(): BybitEuAdapterClient {
   return new MockBybitEu();
 }
 
 function resetState(): void {
-  (state as { sandboxCalls: readonly boolean[] }).sandboxCalls = [];
-  (state as { watchPositionsCalls: readonly unknown[] }).watchPositionsCalls = [];
-  (state as { closeCalls: number }).closeCalls = 0;
+  state.watchPositionsCalls = undefined;
+  state.closeCalls = 0;
+  state.lastCall = [];
 }
 
 beforeEach(() => {
@@ -202,7 +129,9 @@ afterEach(() => {
   resetState();
 });
 
-// === Konstruktor + identifier tesztek ===
+/**
+ * Constructor and identifier tests.
+ */
 
 describe("BybitEuAdapter — identifier + constructor", () => {
   it("alapértelmezett konstruktor: id='bybiteu', name='Bybit EU'", () => {
@@ -211,291 +140,299 @@ describe("BybitEuAdapter — identifier + constructor", () => {
     expect(adapter.name).toBe("Bybit EU");
   });
 
-  it("alapértelmezett konstruktor: NEM hívunk setSandboxMode-ot (a DI mock az exchange, nincs CCXT init)", () => {
-    const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    void adapter;
-    expect(state.sandboxCalls).toEqual([]);
-  });
+  it("constructs the WebSocket-capable CCXT Pro client by default", () => {
+    withCapturedBybitEuConstructor((capture) => {
+      const adapter = new BybitEuAdapter();
 
-  it("konstruktor az összes opcióval együtt: az exchange opció felülírja a többit", () => {
-    const adapter = new BybitEuAdapter({
-      apiKey: "k",
-      secret: "s",
-      rateLimitMs: 50,
-      sandbox: true,
-      exchange: makeMock(),
+      expect(capture.calls()).toBe(1);
+      expect(capture.client()).toBeDefined();
+      expect(Reflect.has(adapter, "ccxtExchange")).toBe(false);
     });
-    void adapter;
-    // A DI esetén a sandbox flag NEM hív setSandboxMode-ot — a
-    // consumer felelőssége a mock-on (vagy a CCXT-n) beállítani.
-    expect(state.sandboxCalls).toEqual([]);
+  });
+
+  it("constructs the WebSocket-capable CCXT Pro client with injected credentials", () => {
+    withCapturedBybitEuConstructor((capture) => {
+      new BybitEuAdapter({ apiKey: "adapter-test-key", secret: "adapter-test-secret" });
+
+      expect(capture.calls()).toBe(1);
+      expect(capture.options()).toMatchObject({ apiKey: "adapter-test-key", secret: "adapter-test-secret" });
+    });
+  });
+
+  it("does not require a sandbox method from an injected client", () => {
+    const injectedClient = makeMock();
+    withCapturedBybitEuConstructor((capture) => {
+      const adapter = new BybitEuAdapter({ exchange: injectedClient });
+
+      expect(capture.calls()).toBe(0);
+      expect(Reflect.has(adapter, "ccxtExchange")).toBe(false);
+    });
   });
 });
 
-// === ccxtExchange getter teszt ===
+type AdapterOptionsExcludeSandbox = "sandbox" extends keyof BybitEuAdapterOptions ? false : true;
+type AdapterClientExcludesSandboxActivation = "setSandboxMode" extends keyof BybitEuAdapterClient
+  ? false
+  : true;
+type AdapterExcludesRawClient = "ccxtExchange" extends keyof BybitEuAdapter ? false : true;
 
-describe("BybitEuAdapter — ccxtExchange getter", () => {
-  it("visszaadja a belső exchange példányt (a DI mock-ot)", () => {
-    const mock = makeMock();
-    const adapter = new BybitEuAdapter({ exchange: mock });
-    expect(adapter.ccxtExchange).toBe(mock);
+const hasNoSandboxOption: AdapterOptionsExcludeSandbox = true;
+const hasNoSandboxActivationMethod: AdapterClientExcludesSandboxActivation = true;
+const hasNoRawClient: AdapterExcludesRawClient = true;
+
+describe("BybitEuAdapter — public sandbox boundary", () => {
+  it("does not expose sandbox activation or a raw client in its public types", () => {
+    expect(hasNoSandboxOption).toBe(true);
+    expect(hasNoSandboxActivationMethod).toBe(true);
+    expect(hasNoRawClient).toBe(true);
   });
 });
 
-// === load* / fetch* delegation ===
+describe("BybitEuAdapter test support", () => {
+  it("creates explicit helper overrides and a canonical six-field order book", () => {
+    const ticker = tickerWith("BTC/USDC", { bid: 59_999 });
+    const order = orderWith("BTC/USDC", { status: "closed" });
+    const orderBook = orderBookWith("BTC/USDC", {
+      asks: [[60_001, 2]],
+      bids: [[59_999, 3]],
+    });
+    expect(ticker.bid).toBe(59_999);
+    expect(order.status).toBe("closed");
+    expect(orderBook).toEqual({
+      symbol: "BTC/USDC",
+      asks: [[60_001, 2]],
+      bids: [[59_999, 3]],
+      datetime: "1970-01-01T00:00:00.000Z",
+      timestamp: 1,
+      nonce: 1,
+    });
+    expect(mockOrderBook("ETH/USDC")).toEqual({
+      symbol: "ETH/USDC",
+      asks: [],
+      bids: [],
+      datetime: "1970-01-01T00:00:00.000Z",
+      timestamp: 1,
+      nonce: 1,
+    });
+  });
+});
+
+/**
+ * Load and fetch delegation.
+ */
 
 describe("BybitEuAdapter — load* / fetch* delegation", () => {
   it("loadMarkets() delegálódik a mock-hoz", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.loadMarkets();
-    expect(r).toEqual({ __mock: true, reload: false });
+    await adapter.loadMarkets();
+    expect(state.lastCall).toEqual(["loadMarkets", undefined]);
   });
 
   it("forwards the reload flag", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.loadMarkets(true);
-    expect(r).toEqual({ __mock: true, reload: true });
+    await adapter.loadMarkets(true);
+    expect(state.lastCall).toEqual(["loadMarkets", true]);
   });
 
   it("fetchTicker(symbol) delegálódik", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.fetchTicker("BTC/USDC");
-    expect(r).toEqual({ __mock: true, symbol: "BTC/USDC" });
+    await adapter.fetchTicker("BTC/USDC");
+    expect(state.lastCall).toEqual(["fetchTicker", "BTC/USDC"]);
   });
 
   it("fetchOrderBook(symbol) a limit nélkül is hívható", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.fetchOrderBook("BTC/USDC");
-    expect(r).toEqual({ __mock: true, symbol: "BTC/USDC", limit: undefined });
+    await adapter.fetchOrderBook("BTC/USDC");
+    expect(state.lastCall).toEqual(["fetchOrderBook", "BTC/USDC", undefined]);
   });
 
   it("fetchOrderBook(symbol, limit) a limit paramétert továbbítja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.fetchOrderBook("BTC/USDC", 50);
-    expect(r).toEqual({ __mock: true, symbol: "BTC/USDC", limit: 50 });
+    await adapter.fetchOrderBook("BTC/USDC", 50);
+    expect(state.lastCall).toEqual(["fetchOrderBook", "BTC/USDC", 50]);
   });
 
   it("fetchTrades(symbol) az opcionális paraméterek nélkül is hívható", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.fetchTrades("BTC/USDC");
-    expect(r).toEqual({ __mock: true, symbol: "BTC/USDC", since: undefined, limit: undefined });
+    await adapter.fetchTrades("BTC/USDC");
+    expect(state.lastCall).toEqual(["fetchTrades", "BTC/USDC", undefined, undefined]);
   });
 
   it("fetchTrades(symbol, since, limit) a since+limit értékeket továbbítja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.fetchTrades("BTC/USDC", 1_700_000_000_000, 100);
-    expect(r).toEqual({ __mock: true, symbol: "BTC/USDC", since: 1_700_000_000_000, limit: 100 });
+    await adapter.fetchTrades("BTC/USDC", 1_700_000_000_000, 100);
+    expect(state.lastCall).toEqual(["fetchTrades", "BTC/USDC", 1_700_000_000_000, 100]);
   });
 
   it("fetchOHLCV(symbol, timeframe) az opcionális paraméterek nélkül is hívható", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.fetchOHLCV("BTC/USDC", "1h");
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      timeframe: "1h",
-      since: undefined,
-      limit: undefined,
-    });
+    await adapter.fetchOHLCV("BTC/USDC", "1h");
+    expect(state.lastCall).toEqual(["fetchOHLCV", "BTC/USDC", "1h", undefined, undefined]);
   });
 
   it("fetchOHLCV(symbol, timeframe, since, limit) minden paramétert továbbít", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.fetchOHLCV("BTC/USDC", "4h", 1_700_000_000_000, 500);
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      timeframe: "4h",
-      since: 1_700_000_000_000,
-      limit: 500,
-    });
+    await adapter.fetchOHLCV("BTC/USDC", "4h", 1_700_000_000_000, 500);
+    expect(state.lastCall).toEqual(["fetchOHLCV", "BTC/USDC", "4h", 1_700_000_000_000, 500]);
   });
 
   it("fetchBalance() a balance mock értéket adja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.fetchBalance();
-    expect(r).toEqual({ __mock: true, balance: "MOCK_BALANCE" });
+    await adapter.fetchBalance();
+    expect(state.lastCall).toEqual(["fetchBalance"]);
   });
 });
 
-// === order management delegation ===
+/**
+ * Order-management delegation.
+ */
 
 describe("BybitEuAdapter — order management delegation", () => {
   it("createOrder() limit típussal, price+params értékekkel", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.createOrder("BTC/USDC", "limit", "buy", 0.5, 60_000, { timeInForce: "GTC" });
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      type: "limit",
-      side: "buy",
-      amount: 0.5,
-      price: 60_000,
-      params: { timeInForce: "GTC" },
-    });
+    await adapter.createOrder("BTC/USDC", "limit", "buy", 0.5, 60_000, { timeInForce: "GTC" });
+    expect(state.lastCall).toEqual([
+      "createOrder",
+      "BTC/USDC",
+      "limit",
+      "buy",
+      0.5,
+      60_000,
+      { timeInForce: "GTC" },
+    ]);
   });
 
   it("createOrder() market típussal, price/params nélkül", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.createOrder("BTC/USDC", "market", "sell", 0.5);
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      type: "market",
-      side: "sell",
-      amount: 0.5,
-      price: undefined,
-      params: undefined,
-    });
+    await adapter.createOrder("BTC/USDC", "market", "sell", 0.5);
+    expect(state.lastCall).toEqual(["createOrder", "BTC/USDC", "market", "sell", 0.5, undefined, undefined]);
   });
 
   it("cancelOrder(id) symbol nélkül is hívható", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.cancelOrder("order-123");
-    expect(r).toEqual({ __mock: true, id: "order-123", symbol: undefined });
+    await adapter.cancelOrder("order-123");
+    expect(state.lastCall).toEqual(["cancelOrder", "order-123", undefined]);
   });
 
   it("cancelOrder(id, symbol) mindkét paramétert továbbítja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.cancelOrder("order-123", "BTC/USDC");
-    expect(r).toEqual({ __mock: true, id: "order-123", symbol: "BTC/USDC" });
+    await adapter.cancelOrder("order-123", "BTC/USDC");
+    expect(state.lastCall).toEqual(["cancelOrder", "order-123", "BTC/USDC"]);
   });
 });
 
-// === watch* delegation ===
+/**
+ * Watch delegation.
+ */
 
 describe("BybitEuAdapter — watch* delegation", () => {
   it("watchOrderBook(symbol, limit) a limit paramétert továbbítja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchOrderBook("BTC/USDC", 25);
-    expect(r).toEqual({ __mock: true, symbol: "BTC/USDC", limit: 25 });
+    await adapter.watchOrderBook("BTC/USDC", 25);
+    expect(state.lastCall).toEqual(["watchOrderBook", "BTC/USDC", 25]);
   });
 
   it("watchTicker(symbol) a symbol paramétert továbbítja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchTicker("ETH/USDC");
-    expect(r).toEqual({ __mock: true, symbol: "ETH/USDC" });
+    await adapter.watchTicker("ETH/USDC");
+    expect(state.lastCall).toEqual(["watchTicker", "ETH/USDC"]);
   });
 
   it("watchTrades(symbol, opts) since/limit értékeket kinyeri az opts-ból", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchTrades("BTC/USDC", { since: 1_700_000_000_000, limit: 100 });
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      since: 1_700_000_000_000,
-      limit: 100,
-    });
+    await adapter.watchTrades("BTC/USDC", { since: 1_700_000_000_000, limit: 100 });
+    expect(state.lastCall).toEqual(["watchTrades", "BTC/USDC", 1_700_000_000_000, 100]);
   });
 
   it("watchTrades(symbol) opts nélkül is hívható (default {})", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchTrades("BTC/USDC");
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      since: undefined,
-      limit: undefined,
-    });
+    await adapter.watchTrades("BTC/USDC");
+    expect(state.lastCall).toEqual(["watchTrades", "BTC/USDC", undefined, undefined]);
   });
 
   it("watchOHLCV(symbol, timeframe, opts) minden paramétert továbbít", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchOHLCV("BTC/USDC", "4h", { since: 1_700_000_000_000, limit: 200 });
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      timeframe: "4h",
-      since: 1_700_000_000_000,
-      limit: 200,
-    });
+    await adapter.watchOHLCV("BTC/USDC", "4h", { since: 1_700_000_000_000, limit: 200 });
+    expect(state.lastCall).toEqual(["watchOHLCV", "BTC/USDC", "4h", 1_700_000_000_000, 200]);
   });
 
   it("watchOHLCV(symbol, timeframe) opts nélkül is hívható (default {})", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchOHLCV("BTC/USDC", "4h");
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      timeframe: "4h",
-      since: undefined,
-      limit: undefined,
-    });
+    await adapter.watchOHLCV("BTC/USDC", "4h");
+    expect(state.lastCall).toEqual(["watchOHLCV", "BTC/USDC", "4h", undefined, undefined]);
   });
 
   it("watchOrders(symbol, opts) since/limit értékeket kinyeri az opts-ból", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchOrders("BTC/USDC", { since: 1_700_000_000_000, limit: 50 });
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      since: 1_700_000_000_000,
-      limit: 50,
-    });
+    await adapter.watchOrders("BTC/USDC", { since: 1_700_000_000_000, limit: 50 });
+    expect(state.lastCall).toEqual(["watchOrders", "BTC/USDC", 1_700_000_000_000, 50]);
   });
 
   it("watchOrders(symbol) opts nélkül is hívható (default {})", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchOrders("BTC/USDC");
-    expect(r).toEqual({
-      __mock: true,
-      symbol: "BTC/USDC",
-      since: undefined,
-      limit: undefined,
-    });
+    await adapter.watchOrders("BTC/USDC");
+    expect(state.lastCall).toEqual(["watchOrders", "BTC/USDC", undefined, undefined]);
   });
 
   it("watchBalance(_opts) a CCXT watchBalance delegate-jét hívja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchBalance();
-    expect(r).toEqual({ __mock: true });
+    await adapter.watchBalance();
+    expect(state.lastCall).toEqual(["watchBalance"]);
   });
 
   it("watchPositions(symbols) a symbols tömböt adja tovább a CCXT-nek", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchPositions(["BTC/USDC", "ETH/USDC"]);
-    expect(r).toEqual({ __mock: true, hasSymbols: true, symbolCount: 2 });
+    await adapter.watchPositions(["BTC/USDC", "ETH/USDC"]);
+    expect(state.lastCall).toEqual(["watchPositions", ["BTC/USDC", "ETH/USDC"]]);
   });
 
   it("watchPositions(undefined) az 'undefined' ágat futtatja (no symbols filter)", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchPositions();
-    expect(r).toEqual({ __mock: true, hasSymbols: false, symbolCount: 0 });
+    await adapter.watchPositions();
+    expect(state.lastCall).toEqual(["watchPositions", undefined]);
   });
 
   it("watchPositions(symbols?: ...) a _opts paramétert figyelmen kívül hagyja (default {})", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    const r = await adapter.watchPositions(["BTC/USDC"], { since: 1 });
-    expect(r).toEqual({ __mock: true, hasSymbols: true, symbolCount: 1 });
+    await adapter.watchPositions(["BTC/USDC"], { since: 1 });
+    expect(state.lastCall).toEqual(["watchPositions", ["BTC/USDC"]]);
   });
 });
 
-// === close() — no-op ===
+/**
+ * Close no-op.
+ */
 
 describe("BybitEuAdapter — close()", () => {
   it("close() nem dob (no-op, a CCXT Pro watch ciklusok a consumer kilépésével állnak le)", () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
-    expect(() => adapter.close()).not.toThrow();
+    expect(() => {
+      adapter.close();
+    }).not.toThrow();
   });
 });
 
-// === watchPositions(symbols) elágazás: a symbols === undefined branch ===
+/**
+ * watchPositions undefined-symbol branch.
+ */
 
 describe("BybitEuAdapter — watchPositions branch coverage", () => {
   it("watchPositions(undefined) a CCXT watchPositions(undefined) ágat hívja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
     await adapter.watchPositions();
-    expect(state.watchPositionsCalls).toEqual([{ __mock: true, hasSymbols: false, symbolCount: 0 }]);
+    expect(state.watchPositionsCalls).toBeUndefined();
   });
 
   it("watchPositions(symbols) a CCXT watchPositions(symbols) ágat hívja", async () => {
     const adapter = new BybitEuAdapter({ exchange: makeMock() });
     await adapter.watchPositions(["BTC/USDC"]);
-    expect(state.watchPositionsCalls).toEqual([{ __mock: true, hasSymbols: true, symbolCount: 1 }]);
+    expect(state.watchPositionsCalls).toEqual(["BTC/USDC"]);
   });
 });
 
-// === type contract ===
+/**
+ * Type contract.
+ */
 
 describe("BybitEuAdapter — type contract", () => {
   it("implementálja a shared ExchangeFeed interface-t (id field, name field)", () => {

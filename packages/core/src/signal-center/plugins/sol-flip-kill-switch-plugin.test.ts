@@ -11,7 +11,7 @@
 //   6.  Construction with persistenceDays=-1 REJECTED
 //   7.  Construction with volWindowDays=0 REJECTED
 //   8.  Construction with baseNotionalUsd=0 REJECTED
-//   9.  metadata declares name/edgeClass/capitalRequirement/maxLeverage correctly
+//   9.  metadata declares name/edgeClass/capitalRequirement/maxAggregateEffectiveLeverage correctly
 //  10.  subscribe() stores bus reference
 //  11.  onBar is a no-op (doesn't throw)
 //  12.  subscribe filters non-carry signals
@@ -28,8 +28,8 @@
 //  23.  reset() clears all state
 //  24.  dispose() releases bus reference
 //  25.  Determinism: same input sequence → same signal sequence
-//  26.  Layer 2 leverage invariant: assertLeverageInvariant fires per-emit
-//  27.  Layer 2 leverage invariant: assertLeverageInvariant runs without throwing
+//  26.  Layer 2 leverage invariant: assertAggregateEffectiveExposureLimit fires per-emit
+//  27.  Layer 2 leverage invariant: assertAggregateEffectiveExposureLimit runs without throwing
 //  28.  closeNotionalUsd respects maxCloseNotionalUsd ceiling
 //  29.  emitCloseInstruction=false suppresses closeNotionalUsd
 //  30.  recordFundingSample throws on non-finite fundingRate
@@ -157,7 +157,7 @@ describe("SOLFlipKillSwitchPlugin", () => {
   });
 
   it("construction with timingLeverage=2 REJECTED (1:10 hard guardrail)", () => {
-    expect(() => new SOLFlipKillSwitchPlugin({ timingLeverage: 2 as 1 | 10 })).toThrow(/1:10 HARD GUARDRAIL/);
+    expect(() => new SOLFlipKillSwitchPlugin({ timingLeverage: 2 as 1 | 10 })).toThrow(/aggregate effective-exposure hard guardrail/);
   });
 
   it("construction with signFlipWindowDays=0 REJECTED", () => {
@@ -184,13 +184,13 @@ describe("SOLFlipKillSwitchPlugin", () => {
   // Metadata
   // -----------------------------------------------------------------------
 
-  it("metadata declares name/edgeClass/capitalRequirement/maxLeverage correctly", () => {
+  it("metadata declares name/edgeClass/capitalRequirement/maxAggregateEffectiveLeverage correctly", () => {
     const p = new SOLFlipKillSwitchPlugin();
     expect(p.metadata.name).toBe("sol-flip-kill-switch");
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("risk");
     expect(p.metadata.capitalRequirement).toBe(0);
-    expect(p.metadata.maxLeverage).toBe(10); // 1:10 HARD GUARDRAIL — Layer 1
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10); // aggregate effective-exposure hard guardrail — Layer 1
     expect(p.metadata.description).toContain("Phase 11.1d");
   });
 
@@ -521,7 +521,7 @@ describe("SOLFlipKillSwitchPlugin", () => {
   // Layer 2 leverage invariant
   // -----------------------------------------------------------------------
 
-  it("Layer 2 leverage invariant: assertLeverageInvariant fires per-emit", () => {
+  it("Layer 2 leverage invariant: assertAggregateEffectiveExposureLimit fires per-emit", () => {
     const p = new SOLFlipKillSwitchPlugin({
       baseNotionalUsd: 10_000,
       timingLeverage: 10,
@@ -692,7 +692,7 @@ describe("SOLFlipKillSwitchPlugin", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) {
       expect(r.error.field).toBe("timingLeverage");
-      expect(r.error.message).toMatch(/1:10 HARD GUARDRAIL/);
+      expect(r.error.message).toMatch(/aggregate effective-exposure hard guardrail/);
     }
   });
 

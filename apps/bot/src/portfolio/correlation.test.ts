@@ -8,7 +8,15 @@
 
 import { describe, expect, it } from "bun:test";
 
-import { CorrelationMatrix, CORRELATION_HARD_CAPS } from "./correlation.js";
+import { RecordingLogger } from "@logging-testing";
+import { CorrelationMatrix as RuntimeCorrelationMatrix, CORRELATION_HARD_CAPS } from "./correlation.js";
+
+class CorrelationMatrix extends RuntimeCorrelationMatrix {
+  public constructor(...arguments_: ConstructorParameters<typeof RuntimeCorrelationMatrix>) {
+    const [options] = arguments_;
+    super({ ...options, logger: new RecordingLogger() });
+  }
+}
 
 describe("CorrelationMatrix", () => {
   // ---------------------------------------------------------------------------
@@ -78,9 +86,9 @@ describe("CorrelationMatrix", () => {
 
     it("ignores non-finite return values", () => {
       const cm = new CorrelationMatrix();
-      cm.recordFill("a", Number.NaN);
-      cm.recordFill("a", Number.POSITIVE_INFINITY);
-      cm.recordFill("a", Number.NEGATIVE_INFINITY);
+      cm.recordFill("a", NaN);
+      cm.recordFill("a", Infinity);
+      cm.recordFill("a", -Infinity);
       expect(cm.getSampleCount("a")).toBe(0);
     });
 
@@ -141,9 +149,11 @@ describe("CorrelationMatrix", () => {
       const cm = new CorrelationMatrix({ windowSize: 20 });
       const xs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
       const ys = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20];
-      for (let i = 0; i < xs.length; i++) {
-        cm.recordFill("a", xs[i] ?? 0);
-        cm.recordFill("b", ys[i] ?? 0);
+      for (const [index, x] of xs.entries()) {
+        const pairedReturn = ys.at(index);
+        if (pairedReturn === undefined) throw new Error("missing paired return");
+        cm.recordFill("a", x);
+        cm.recordFill("b", pairedReturn);
       }
       const r = cm.getCorrelation("a", "b");
       expect(r).toBeGreaterThan(0.999);
@@ -154,9 +164,11 @@ describe("CorrelationMatrix", () => {
       const cm = new CorrelationMatrix({ windowSize: 20 });
       const xs = [1, 2, 3, 4, 5];
       const ys = [5, 4, 3, 2, 1];
-      for (let i = 0; i < xs.length; i++) {
-        cm.recordFill("a", xs[i] ?? 0);
-        cm.recordFill("b", ys[i] ?? 0);
+      for (const [index, x] of xs.entries()) {
+        const pairedReturn = ys.at(index);
+        if (pairedReturn === undefined) throw new Error("missing paired return");
+        cm.recordFill("a", x);
+        cm.recordFill("b", pairedReturn);
       }
       const r = cm.getCorrelation("a", "b");
       expect(r).toBeLessThan(-0.999);
@@ -168,9 +180,11 @@ describe("CorrelationMatrix", () => {
       // Use a roughly uncorrelated pattern
       const xs = [1, -1, 1, -1, 1, -1, 1, -1, 1, -1];
       const ys = [1, 1, -1, -1, 1, 1, -1, -1, 1, 1];
-      for (let i = 0; i < xs.length; i++) {
-        cm.recordFill("a", xs[i] ?? 0);
-        cm.recordFill("b", ys[i] ?? 0);
+      for (const [index, x] of xs.entries()) {
+        const pairedReturn = ys.at(index);
+        if (pairedReturn === undefined) throw new Error("missing paired return");
+        cm.recordFill("a", x);
+        cm.recordFill("b", pairedReturn);
       }
       const r = cm.getCorrelation("a", "b");
       expect(Math.abs(r)).toBeLessThan(0.5);
@@ -201,6 +215,15 @@ describe("CorrelationMatrix", () => {
       // Last 3 of a: 3, 4, 5; b: 3, 4, 5 → r = 1
       const r = cm.getCorrelation("a", "b");
       expect(r).toBeGreaterThan(0.999);
+    });
+
+    it("fails closed when finite extremes make the Pearson result non-finite", () => {
+      const cm = new CorrelationMatrix();
+      for (const value of [Number.MAX_VALUE, -Number.MAX_VALUE]) {
+        cm.recordFill("a", value);
+        cm.recordFill("b", value);
+      }
+      expect(cm.getCorrelation("a", "b")).toBe(0);
     });
   });
 
@@ -236,14 +259,19 @@ describe("CorrelationMatrix", () => {
       expect(rowA?.get("b")).toBeLessThan(-0.999);
     });
 
-    it("records sample counts per strategy", () => {
+    it("preserves insertion order while recording sample counts per strategy", () => {
       const cm = new CorrelationMatrix();
-      cm.recordFill("a", 0.01);
-      cm.recordFill("a", 0.02);
-      cm.recordFill("b", 0.01);
+      cm.recordFill("first", 0.01);
+      cm.recordFill("first", 0.02);
+      cm.recordFill("second", 0.01);
       const snap = cm.getMatrix();
-      expect(snap.sampleCounts.get("a")).toBe(2);
-      expect(snap.sampleCounts.get("b")).toBe(1);
+      const sampleCountStrategyIds: string[] = [];
+      snap.sampleCounts.forEach((_sampleCount, strategyId) => {
+        sampleCountStrategyIds.push(strategyId);
+      });
+      expect(sampleCountStrategyIds).toEqual(["first", "second"]);
+      expect(snap.sampleCounts.get("first")).toBe(2);
+      expect(snap.sampleCounts.get("second")).toBe(1);
     });
 
     it("exposes windowSize in snapshot", () => {

@@ -1,22 +1,6 @@
-// packages/exchange/src/index.ts — a `@mm/exchange` csomag belépési pontja
-//
-// FELADAT: Aggregálja a `feed`, `factory`, `bybitEuFeed`, `symbols`
-// és `types` modulok összes publikus API-ját, hogy a fogyasztók
-// (bot runtime, paper engine, backtest) egyetlen `import { ... } from "@mm/exchange"`
-// sorral hozzáférjenek mindenhez.
-//
-// A factory (`createExchangeClient`) a `factory.ts`-ből jön — ez a fő
-// belépési pont az alkalmazáskód számára. A típusok a `types.ts`-ból,
-// az implementációk a `bybitEuFeed.ts`-ból származnak.
-//
-// === PHASE 66 ENFORCEMENT ===
-//   A `MockExchangeFeed` class, a `createMockFeed` factory, a
-//   `MockFeedOptions` / `MockExchangeFeedOptions` típusok, valamint a
-//   `defaultTicker` / `defaultOrderBook` / `defaultMarketMeta` helper
-//   függvények NEM exportálódnak a public surface-en. A mock feed a
-//   `__testing__/mockFeed.ts`-ban van, és CSAK a tesztek importálhatják
-//   közvetlenül (lásd a felhasználói mandátumot: "csak a test hasznalhatja
-//   a mock feed -et!").
+/**
+ * Public API for the exchange package. Test-only feed helpers are intentionally not exported.
+ */
 
 export type {
   Balance,
@@ -36,6 +20,8 @@ export type {
   OrderType,
   ProtectiveOrderKind,
   Symbol,
+  SpotMarginOrderIntent,
+  SpotMarginRequiredCapacity,
   Ticker,
   Timeframe,
   Trade,
@@ -43,6 +29,7 @@ export type {
 
 export type { ExchangeFeed, FeedListener, SubscriptionId } from "./feed.js";
 export { ExchangeFeedError } from "./feed.js";
+export { ClientOrderIdError, makeClientOrderId } from "./client-order-id.js";
 
 export {
   SUPPORTED_SYMBOLS,
@@ -54,9 +41,28 @@ export {
   InvalidSymbolError,
 } from "./symbols.js";
 
+export { BybitEuFeed, type BybitEuFeedOptions } from "./bybit-eu-feed.js";
+export { BybitEuClientError, CcxtBybitEuClientAdapter } from "./bybit-eu-client.js";
+export type { BybitEuClient } from "./bybit-eu-client.js";
+export type { BybitEuAdapterClient, BybitEuAdapterOptions } from "./bybit-eu-adapter.js";
+export type {
+  RawBalanceEntryPayload,
+  RawBalancesPayload,
+  RawMarketLimitPayload,
+  RawMarketLimitsPayload,
+  RawMarketPayload,
+  RawMarketPrecisionPayload,
+  RawOhlcvPayload,
+  RawOrderBookLevel,
+  RawOrderBookPayload,
+  RawOrderPayload,
+  RawPositionPayload,
+  RawTickerPayload,
+  RawTradeFeePayload,
+  RawTradePayload,
+} from "./bybit-eu-raw-payloads.js";
+
 export {
-  BybitEuFeed,
-  type BybitEuFeedOptions,
   normalizeTicker,
   normalizeOrderBook,
   normalizeTrade,
@@ -64,23 +70,31 @@ export {
   normalizeBalances,
   normalizeExecution,
   normalizeOrder,
-} from "./bybitEuFeed.js";
+} from "./bybit-eu-normalizers.js";
 
-// ⚠️  TEST-ONLY: `MockExchangeFeed` and the `createMockFeed` factory
-//    are NOT exported from this public surface. Tests must import the
-//    class directly from `"./__testing__/mockFeed.js"`. Production
-//    code cannot reach the mock feed via `@mm-crypto-bot/exchange`.
+export {
+  BYBIT_EU_SPOT_MARGIN_VENUE,
+  REQUIRED_SPOT_MARGIN_MODE,
+  SpotMarginAuthorizationError,
+  SpotMarginAuthorizer,
+} from "./spot-margin-authorization.js";
+export type {
+  SpotMarginAuthorizationClient,
+  SpotMarginAuthorizationEvidence,
+  SpotMarginActivationEvidence,
+  SpotMarginAuthorizationRequest,
+  SpotMarginBorrowCapacity,
+  SpotMarginClock,
+} from "./spot-margin-authorization.js";
 
 export {
   readExchangeCredentials,
-  detectExchangeEnv,
+  detectExchangeEnvironment,
   createExchangeClient,
   MissingCredentialsError,
   type ExchangeCredentials,
-  type ExchangeEnv,
+  type ExchangeEnvironment,
 } from "./factory.js";
-
-// === Phase 6 Track B — latency monitor (cross-exchange arb deployment readiness) ===
 
 export {
   LatencyMonitor,
@@ -101,8 +115,6 @@ export type {
   RttSample,
   SupportedExchangeId,
 } from "./latency-monitor.js";
-
-// === Phase 37 Track 3 — OHLC stream (live trade → OHLC bar aggregation) ===
 
 export {
   alignToTimeframe,

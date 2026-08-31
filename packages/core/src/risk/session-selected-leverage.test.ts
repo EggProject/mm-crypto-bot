@@ -5,7 +5,7 @@ import { SelectedLeverage } from "@mm-crypto-bot/numeric";
 import { assertSelectedLeverageUnchanged, freezeSelectedLeverage } from "./session-selected-leverage.js";
 
 describe("session selected leverage", () => {
-  test("keeps an exact selected leverage frozen for its session", () => {
+  test("accepts separately parsed exact equal selected leverage", () => {
     const frozen = freezeSelectedLeverage(SelectedLeverage.parse("2.5"));
 
     expect(() => {
@@ -22,14 +22,23 @@ describe("session selected leverage", () => {
     }).toThrow("Selected leverage is immutable for a session.");
   });
 
-  test("rejects forged, proxied, and revoked values", () => {
+  test("rejects reflection replacement of the frozen selection", () => {
+    const frozen = freezeSelectedLeverage(SelectedLeverage.parse("2.5"));
+
+    expect(Reflect.set(frozen, "selected", SelectedLeverage.initialBaseline)).toBe(false);
+    expect(Reflect.defineProperty(frozen, "selected", { value: SelectedLeverage.initialBaseline })).toBe(
+      false,
+    );
+    expect(Object.isFrozen(frozen)).toBe(true);
+    expect(frozen.selected.canonical).toBe("2.5");
+  });
+
+  test("rejects proxy, revoked, and forged wrapper or candidate values before comparison", () => {
     const frozen = freezeSelectedLeverage(SelectedLeverage.parse("2.5"));
     const proxiedFrozen = new Proxy(frozen, {});
     const proxiedCandidate = new Proxy(SelectedLeverage.parse("2.5"), {});
     const revocableFrozen = Proxy.revocable(frozen, {});
-    const nonSelectedFrozen = {};
     const fakeFrozen = {};
-    const nonSelectedCandidate = {};
     const fakeCandidate = {};
     const frozenPrototype = Reflect.getPrototypeOf(frozen);
     const candidatePrototype = Reflect.getPrototypeOf(SelectedLeverage.parse("2.5"));
@@ -47,44 +56,39 @@ describe("session selected leverage", () => {
       assertSelectedLeverageUnchanged(revocableFrozen.proxy, SelectedLeverage.parse("2.5"));
     }).toThrow("Frozen selected leverage must be an authentic session value.");
     expect(() => {
-      Reflect.apply(assertSelectedLeverageUnchanged, undefined, [
-        nonSelectedFrozen,
-        SelectedLeverage.parse("2.5"),
-      ]);
-    }).toThrow("Frozen selected leverage must be an authentic session value.");
-    expect(() => {
       Reflect.apply(assertSelectedLeverageUnchanged, undefined, [fakeFrozen, SelectedLeverage.parse("2.5")]);
     }).toThrow("Frozen selected leverage must be an authentic session value.");
-    expect(() => {
-      Reflect.apply(assertSelectedLeverageUnchanged, undefined, [frozen, nonSelectedCandidate]);
-    }).toThrow("Selected leverage must be an authentic selected leverage value.");
     expect(() => {
       Reflect.apply(assertSelectedLeverageUnchanged, undefined, [frozen, fakeCandidate]);
     }).toThrow("Selected leverage must be an authentic selected leverage value.");
   });
 
-  test("has an immutable wrapper surface", () => {
+  test("freezes the internal wrapper type surface", () => {
     const frozen = freezeSelectedLeverage(SelectedLeverage.parse("2.5"));
     const prototype = Reflect.getPrototypeOf(frozen);
 
-    expect(Reflect.set(frozen, "selected", SelectedLeverage.initialBaseline)).toBe(false);
-    expect(Object.isFrozen(frozen)).toBe(true);
+    if (prototype === null) {
+      throw new TypeError("Frozen selected leverage has no prototype.");
+    }
+
     expect(Object.isFrozen(prototype)).toBe(true);
     expect(Object.isFrozen(frozen.constructor)).toBe(true);
-    expect(frozen.selected.canonical).toBe("2.5");
+    expect(Reflect.set(prototype, "selected", SelectedLeverage.initialBaseline)).toBe(false);
   });
 
-  test("rejects a forged wrapper constructor and selected leverage input", () => {
+  test("rejects direct construction through the reflected private wrapper constructor", () => {
     const frozen = freezeSelectedLeverage(SelectedLeverage.parse("2.5"));
-    const fakeCandidate = {};
-    const candidatePrototype = Reflect.getPrototypeOf(SelectedLeverage.parse("2.5"));
-    expect(Reflect.setPrototypeOf(fakeCandidate, candidatePrototype)).toBe(true);
 
-    expect(() => {
-      Reflect.apply(freezeSelectedLeverage, undefined, [fakeCandidate]);
-    }).toThrow("Selected leverage must be an authentic selected leverage value.");
     expect(() => {
       Reflect.construct(frozen.constructor, [SelectedLeverage.parse("2.5"), Symbol("forged")]);
     }).toThrow("Frozen selected leverage construction is not permitted.");
+  });
+
+  test("rejects a non-selected-leverage candidate at the runtime boundary", () => {
+    const frozen = freezeSelectedLeverage(SelectedLeverage.parse("2.5"));
+
+    expect(() => {
+      Reflect.apply(assertSelectedLeverageUnchanged, undefined, [frozen, {}]);
+    }).toThrow("Selected leverage must be an authentic selected leverage value.");
   });
 });

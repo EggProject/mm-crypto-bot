@@ -7,7 +7,19 @@
 
 import { describe, expect, it } from "bun:test";
 
-import { PortfolioStop, PortfolioStopError, PORTFOLIO_STOP_HARD_CAPS } from "./portfolio-stop.js";
+import { RecordingLogger } from "@logging-testing";
+import {
+  PortfolioStop as RuntimePortfolioStop,
+  PortfolioStopError,
+  PORTFOLIO_STOP_HARD_CAPS,
+} from "./portfolio-stop.js";
+
+class PortfolioStop extends RuntimePortfolioStop {
+  public constructor(...arguments_: ConstructorParameters<typeof RuntimePortfolioStop>) {
+    const [options] = arguments_;
+    super({ ...options, logger: new RecordingLogger() });
+  }
+}
 
 describe("PortfolioStop", () => {
   // ---------------------------------------------------------------------------
@@ -38,8 +50,8 @@ describe("PortfolioStop", () => {
     });
 
     it("rejects non-finite maxDdPct", () => {
-      expect(() => new PortfolioStop({ maxDdPct: Number.NaN })).toThrow(PortfolioStopError);
-      expect(() => new PortfolioStop({ maxDdPct: Number.POSITIVE_INFINITY })).toThrow(PortfolioStopError);
+      expect(() => new PortfolioStop({ maxDdPct: NaN })).toThrow(PortfolioStopError);
+      expect(() => new PortfolioStop({ maxDdPct: Infinity })).toThrow(PortfolioStopError);
     });
   });
 
@@ -74,15 +86,15 @@ describe("PortfolioStop", () => {
     it("does NOT update peak on lower equity", () => {
       const ps = new PortfolioStop();
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       expect(ps.getPeakEquity()).toBe(10_000);
-      expect(ps.getCurrentEquity()).toBe(9_000);
+      expect(ps.getCurrentEquity()).toBe(9000);
     });
 
     it("computes drawdown pct as (peak - current) / peak", () => {
       const ps = new PortfolioStop();
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       // 1000 / 10000 = 0.1
       expect(ps.getDrawdownPct()).toBeCloseTo(0.1, 5);
     });
@@ -90,7 +102,7 @@ describe("PortfolioStop", () => {
     it("ignores non-finite equity values", () => {
       const ps = new PortfolioStop();
       ps.recordEquity(10_000);
-      ps.recordEquity(Number.NaN);
+      ps.recordEquity(NaN);
       expect(ps.getCurrentEquity()).toBe(10_000);
     });
 
@@ -109,21 +121,21 @@ describe("PortfolioStop", () => {
     it("does NOT trip below threshold", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_500); // DD = 5%
+      ps.recordEquity(9500); // DD = 5%
       expect(ps.isTripped()).toBe(false);
     });
 
     it("trips at threshold", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000); // DD = 10%
+      ps.recordEquity(9000); // DD = 10%
       expect(ps.isTripped()).toBe(true);
     });
 
     it("trips above threshold", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.05 });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000); // DD = 10% > 5%
+      ps.recordEquity(9000); // DD = 10% > 5%
       expect(ps.isTripped()).toBe(true);
     });
 
@@ -132,7 +144,7 @@ describe("PortfolioStop", () => {
       ps.recordEquity(10_000);
       expect(ps.getTrippedAt()).toBeNull();
       const before = Date.now();
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       const after = Date.now();
       expect(ps.getTrippedAt()).not.toBeNull();
       const t = ps.getTrippedAt() ?? 0;
@@ -143,7 +155,7 @@ describe("PortfolioStop", () => {
     it("is LATCHED — does NOT un-trip on equity recovery", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       expect(ps.isTripped()).toBe(true);
       ps.recordEquity(11_000); // Recovery above peak
       expect(ps.isTripped()).toBe(true);
@@ -158,7 +170,7 @@ describe("PortfolioStop", () => {
     it("does NOT trip on negative equity (peak=0 case)", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
-      ps.recordEquity(-1_000); // peak stays 10k, current -1k, DD > 1
+      ps.recordEquity(-1000); // peak stays 10k, current -1k, DD > 1
       // Actually peak=10k, current=-1k, DD = 11000/10000 = 1.1 > 0.10 → trips
       // But peak stays at 10k only because peak is the high-water mark;
       // the negative equity is the current.
@@ -171,35 +183,35 @@ describe("PortfolioStop", () => {
   // ---------------------------------------------------------------------------
   describe("trip action", () => {
     it("fires the trip action callback when tripped", () => {
-      let called = false;
+      let isCalled = false;
       const ps = new PortfolioStop({
         maxDdPct: 0.1,
         tripAction: () => {
-          called = true;
+          isCalled = true;
         },
       });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
-      expect(called).toBe(true);
+      ps.recordEquity(9000);
+      expect(isCalled).toBe(true);
     });
 
     it("does NOT fire trip action if no callback provided", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       // No error, just no callback
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       expect(ps.isTripped()).toBe(true);
     });
 
     it("setTripAction replaces the action (used by PortfolioManager)", () => {
-      let called = false;
+      let isCalled = false;
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.setTripAction(() => {
-        called = true;
+        isCalled = true;
       });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
-      expect(called).toBe(true);
+      ps.recordEquity(9000);
+      expect(isCalled).toBe(true);
     });
 
     it("setTripAction(null) removes the action", () => {
@@ -210,9 +222,11 @@ describe("PortfolioStop", () => {
           called++;
         },
       });
-      ps.setTripAction(null);
+      const absentAction = new URLSearchParams().get("trip-action");
+      if (typeof absentAction === "string") throw new Error("expected absent trip action");
+      ps.setTripAction(absentAction);
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       expect(called).toBe(0);
     });
 
@@ -225,40 +239,44 @@ describe("PortfolioStop", () => {
       });
       ps.recordEquity(10_000);
       // Should not throw even though the callback throws
-      expect(() => ps.recordEquity(9_000)).not.toThrow();
+      expect(() => {
+        ps.recordEquity(9000);
+      }).not.toThrow();
     });
 
-    it("trip action that throws a non-Error does not crash the bot", async () => {
+    it("trip action that throws an Error does not crash the bot", async () => {
       const ps = new PortfolioStop({
         maxDdPct: 0.1,
         tripAction: () => {
-          throw "plain trip failure";
+          throw new Error("plain trip failure");
         },
       });
       ps.recordEquity(10_000);
-      expect(() => ps.recordEquity(9_000)).not.toThrow();
+      expect(() => {
+        ps.recordEquity(9000);
+      }).not.toThrow();
       await Promise.resolve();
     });
 
     it("trip action is async-aware (Promise return value is awaited)", async () => {
-      let resolved = false;
+      let isResolved = false;
       const ps = new PortfolioStop({
         maxDdPct: 0.1,
         tripAction: () =>
           new Promise<void>((resolve) => {
             setTimeout(() => {
-              resolved = true;
+              isResolved = true;
               resolve();
             }, 5);
           }),
       });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       // The fire-and-forget pattern means we need to wait for the microtask
       await new Promise<void>((resolve) => {
         setTimeout(resolve, 20);
       });
-      expect(resolved).toBe(true);
+      expect(isResolved).toBe(true);
     });
 
     it("fireTripAction is idempotent — fires only once", () => {
@@ -270,8 +288,8 @@ describe("PortfolioStop", () => {
         },
       });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
-      ps.recordEquity(8_000); // Even more DD
+      ps.recordEquity(9000);
+      ps.recordEquity(8000); // Even more DD
       ps.recordEquity(11_000); // Recovery
       expect(called).toBe(1);
     });
@@ -284,7 +302,7 @@ describe("PortfolioStop", () => {
     it("clears the latch and the trippedAt timestamp", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       expect(ps.isTripped()).toBe(true);
       ps.reset();
       expect(ps.isTripped()).toBe(false);
@@ -294,7 +312,7 @@ describe("PortfolioStop", () => {
     it("keeps the peak by default (clearPeak: false)", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       ps.reset();
       expect(ps.getPeakEquity()).toBe(10_000);
     });
@@ -302,7 +320,7 @@ describe("PortfolioStop", () => {
     it("clears the peak with { clearPeak: true }", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       ps.reset({ clearPeak: true });
       expect(ps.getPeakEquity()).toBe(0);
       expect(ps.getCurrentEquity()).toBe(0);
@@ -322,15 +340,15 @@ describe("PortfolioStop", () => {
     });
 
     it("force trip fires the action", () => {
-      let called = false;
+      let isCalled = false;
       const ps = new PortfolioStop({
         maxDdPct: 0.1,
         tripAction: () => {
-          called = true;
+          isCalled = true;
         },
       });
       ps.forceTrip("manual");
-      expect(called).toBe(true);
+      expect(isCalled).toBe(true);
     });
 
     it("force trip is idempotent", () => {
@@ -380,9 +398,9 @@ describe("PortfolioStop", () => {
     it("returns the full state snapshot", () => {
       const ps = new PortfolioStop({ maxDdPct: 0.1 });
       ps.recordEquity(10_000);
-      ps.recordEquity(9_000);
+      ps.recordEquity(9000);
       const state = ps.getState();
-      expect(state.currentEquityUsd).toBe(9_000);
+      expect(state.currentEquityUsd).toBe(9000);
       expect(state.peakEquityUsd).toBe(10_000);
       expect(state.drawdownPct).toBeCloseTo(0.1, 5);
       expect(state.maxDdPct).toBe(0.1);

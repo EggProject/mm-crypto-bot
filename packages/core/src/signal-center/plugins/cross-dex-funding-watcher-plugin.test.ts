@@ -6,7 +6,7 @@
 //
 //   1.  Construction with default config succeeds
 //   2.  Construction with custom config accepted
-//   3.  metadata declares name/edgeClass/capitalRequirement=0/maxLeverage=10
+//   3.  metadata declares name/edgeClass/capitalRequirement=0/maxAggregateEffectiveLeverage=10
 //   4.  Construction with pollIntervalSec < 1 REJECTED
 //   5.  Construction with pollIntervalSec > 300 REJECTED
 //   6.  Construction with non-integer pollIntervalSec REJECTED
@@ -43,7 +43,7 @@
 //  37.  ADVERSARIAL: NaN/Infinity funding rates rejected
 //  38.  ADVERSARIAL: missing venue data → empty poll counter increments
 //  39.  WS reconnect handling: clearing per-asset state and re-feeding produces fresh snapshots
-//  40.  Layer 2 1:10 defense: assertLeverageInvariant hook runs per emit
+//  40.  Layer 2 aggregate effective-exposure defense: assertAggregateEffectiveExposureLimit hook runs per emit
 //  41.  factory createCrossDexFundingWatcherPlugin produces same result as `new`
 //  42.  hasAnyVenueData accessor
 //  43.  snapshotsEmittedFor accessor
@@ -161,13 +161,13 @@ describe("CrossDexFundingWatcherPlugin", () => {
     expect(p.config.baseNotionalUsd).toBe(25_000);
   });
 
-  it("metadata declares name/edgeClass/capitalRequirement=0/maxLeverage=10", () => {
+  it("metadata declares name/edgeClass/capitalRequirement=0/maxAggregateEffectiveLeverage=10", () => {
     const p = new CrossDexFundingWatcherPlugin();
     expect(p.metadata.name).toBe("cross-dex-funding-watcher-v1");
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("mixed");
     expect(p.metadata.capitalRequirement).toBe(0);
-    expect(p.metadata.maxLeverage).toBe(10);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
     expect(p.metadata.dependencies).toEqual([]);
   });
 
@@ -616,10 +616,10 @@ describe("CrossDexFundingWatcherPlugin", () => {
   });
 
   // -----------------------------------------------------------------------
-  // Layer 2 1:10 defense
+  // Layer 2 aggregate effective-exposure defense
   // -----------------------------------------------------------------------
 
-  it("Layer 2 1:10 defense: assertLeverageInvariant hook runs per emit", () => {
+  it("Layer 2 aggregate effective-exposure defense: assertAggregateEffectiveExposureLimit hook runs per emit", () => {
     const p = new CrossDexFundingWatcherPlugin({ assets: ["BTC"] });
     feedAndEmit(p, "BTC", { hlHourly: 0.0001, bz8h: 0.0001 });
     feedAndEmit(p, "BTC", { hlHourly: 0.0001, bz8h: 0.0001 });

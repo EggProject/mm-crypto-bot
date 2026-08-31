@@ -1,156 +1,121 @@
-import type {
-  Balance,
-  ClientOrderId,
-  ExchangeFeed,
-  ExchangePosition,
-  FeedListener,
-  MarketMeta,
-  Ohlcv,
-  Order,
-  OrderBook,
-  OrderRequest,
-  OrderStatus,
-  SubscriptionId,
-  Symbol as ExchangeSymbol,
-  Ticker,
-  Timeframe,
+import {
+  type Balance,
+  type ClientOrderId,
+  type ExchangeFeed,
+  type ExchangePosition,
+  type FeedListener,
+  type MarketMeta,
+  type Ohlcv,
+  type Order,
+  type OrderBook,
+  type OrderRequest,
+  type OrderStatus,
+  type SubscriptionId,
+  type Symbol as ExchangeSymbol,
+  type Ticker,
+  type Timeframe,
 } from "@mm-crypto-bot/exchange";
-import type { Logger } from "@mm-crypto-bot/shared";
-
-import type { Bot } from "../../../src/bot/bot.js";
-import { DEFAULT_BOT_CONFIG } from "../../../src/config/defaults.js";
-import type { BotConfig } from "../../../src/config/schema.js";
-
-import { RuntimeExchangeFeedFixture } from "./runtime-driver-exchange-fixture.js";
-
-export interface RecordedOrder {
+import type { Logger } from "@mm-crypto-bot/logging";
+import { RuntimeExchangeFeedFixture as BaseMockExchangeFeed } from "./runtime-driver-exchange-fixture.js";
+const placeOrderLedger: {
   readonly symbol: string;
   readonly side: OrderRequest["side"];
   readonly type: OrderRequest["type"];
-}
+}[] = [];
 
-const recordedOrderEntries: RecordedOrder[] = [];
-
-export class MockExchangeFeed extends RuntimeExchangeFeedFixture {
+class MockExchangeFeed extends BaseMockExchangeFeed {
   public override async placeOrder(request: OrderRequest): Promise<Order> {
-    recordedOrderEntries.push({ symbol: request.symbol, side: request.side, type: request.type });
+    placeOrderLedger.push({ symbol: request.symbol, side: request.side, type: request.type });
     return super.placeOrder(request);
   }
 }
 
-export function recordedOrders(): readonly RecordedOrder[] {
-  return [...recordedOrderEntries];
-}
-
-export function clearRecordedOrders(): void {
-  recordedOrderEntries.length = 0;
-}
-
-const discardLog = (): void => {
-  // E2E fixture logging is intentionally discarded.
-};
-
-export const quietLogger: Logger = {
-  debug: discardLog,
-  info: discardLog,
-  warn: discardLog,
-  error: discardLog,
-};
-
-export function withoutLogger<T extends { readonly logger: unknown }>(value: T): Omit<T, "logger"> {
+function withoutLogger<T extends { readonly logger: unknown }>(value: T): Omit<T, "logger"> {
   const { logger, ...remaining } = value;
   void logger;
   return remaining;
 }
 
-export function assertCondition(isConditionMet: boolean, message: string): asserts isConditionMet {
-  if (!isConditionMet) throw new Error(message);
+// eslint-disable-next-line unicorn/consistent-boolean-name -- The E2E fixture preserves the asserted protocol behavior.
+function assertCondition(condition: boolean, message: string): asserts condition {
+  if (!condition) throw new Error(message);
 }
 
-function failWithUnknown(failure: unknown): never {
-  throw failure;
-}
-
-export async function waitForCondition(
-  isConditionMet: () => boolean,
-  label: string,
-  timeoutMs = 2000,
-): Promise<void> {
+// eslint-disable-next-line unicorn/consistent-boolean-name -- The E2E fixture preserves the asserted protocol behavior.
+async function waitForCondition(predicate: () => boolean, label: string, timeoutMs = 2000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
-  while (!isConditionMet()) {
+  while (!predicate()) {
     if (Date.now() >= deadline) throw new Error(`timed out waiting for ${label}`);
     await Bun.sleep(5);
   }
 }
 
-export function expectFailure(action: () => unknown, label: string): void {
-  let hasFailed = false;
+function expectFailure(action: () => unknown, label: string): void {
+  let isFailed = false;
   try {
     action();
   } catch {
-    hasFailed = true;
+    isFailed = true;
   }
-  assertCondition(hasFailed, `${label} did not fail`);
+  assertCondition(isFailed, `${label} did not fail`);
 }
 
-export async function expectAsyncFailure(action: () => Promise<unknown>, label: string): Promise<void> {
-  let hasFailed = false;
+async function expectAsyncFailure(action: () => Promise<unknown>, label: string): Promise<void> {
+  let isFailed = false;
   try {
     await action();
   } catch {
-    hasFailed = true;
+    isFailed = true;
   }
-  assertCondition(hasFailed, `${label} did not fail`);
+  assertCondition(isFailed, `${label} did not fail`);
 }
 
-export interface RecordedLogEntry {
-  readonly level: string;
-  readonly message: string;
-  readonly meta?: Readonly<Record<string, unknown>>;
-}
-
-export class RecordingLogger implements Logger {
-  private readonly recordedEntries: RecordedLogEntry[] = [];
+class RecordingLogger implements Logger {
+  public readonly entries: {
+    readonly level: string;
+    readonly message: string;
+    readonly meta?: Readonly<Record<string, unknown>>;
+  }[] = [];
 
   private record(level: string, message: string, meta?: Readonly<Record<string, unknown>>): void {
-    this.recordedEntries.push(meta === undefined ? { level, message } : { level, message, meta });
-  }
-
-  public get entries(): readonly RecordedLogEntry[] {
-    return [...this.recordedEntries];
+    this.entries.push(meta === undefined ? { level, message } : { level, message, meta });
   }
 
   public debug(message: string, meta?: Readonly<Record<string, unknown>>): void {
     this.record("debug", message, meta);
   }
-
   public info(message: string, meta?: Readonly<Record<string, unknown>>): void {
     this.record("info", message, meta);
   }
-
   public warn(message: string, meta?: Readonly<Record<string, unknown>>): void {
     this.record("warn", message, meta);
   }
-
   public error(message: string, meta?: Readonly<Record<string, unknown>>): void {
     this.record("error", message, meta);
   }
+  public critical(message: string, meta?: Readonly<Record<string, unknown>>): void {
+    this.record("critical", message, meta);
+  }
 }
 
-export class FailingOhlcvFeed extends MockExchangeFeed {
+const quietLogger: Logger = new RecordingLogger();
+
+class FailingOhlcvFeed extends MockExchangeFeed {
   public override async subscribeOhlcv(
     symbol: ExchangeSymbol,
     timeframe: Timeframe,
     listener: FeedListener,
   ): Promise<SubscriptionId> {
     if (timeframe === "4h") throw new Error("4h subscription failed");
-    if (timeframe === "15m") return failWithUnknown("15m subscription failed");
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- E2E fault injection verifies normalization of non-Error failures.
+    if (timeframe === "15m") throw "15m subscription failed";
     return super.subscribeOhlcv(symbol, timeframe, listener);
   }
 }
 
-export class BlockingTickerFeed extends MockExchangeFeed {
-  private release: (() => void) | undefined;
+class BlockingTickerFeed extends MockExchangeFeed {
+  // eslint-disable-next-line unicorn/no-null -- The E2E boundary preserves the explicit null contract under test.
+  private release: (() => void) | null = null;
   public tickerSubscriptionStarted = false;
 
   public override async subscribeTicker(
@@ -171,7 +136,7 @@ export class BlockingTickerFeed extends MockExchangeFeed {
   }
 }
 
-export class CleanupFailureFeed extends MockExchangeFeed {
+class CleanupFailureFeed extends MockExchangeFeed {
   private nextPrivateId = 20_000;
 
   public constructor(
@@ -181,35 +146,34 @@ export class CleanupFailureFeed extends MockExchangeFeed {
     super({ balances: [{ currency: "USDC", free: 10_000, total: 10_000 }] });
   }
 
-  public subscribeOrderUpdates(_listener: FeedListener): Promise<SubscriptionId> {
-    return Promise.resolve(this.nextPrivateId++);
+  // eslint-disable-next-line @typescript-eslint/require-await -- This test double implements an asynchronous production port synchronously.
+  public async subscribeOrderUpdates(_listener: FeedListener): Promise<SubscriptionId> {
+    return this.nextPrivateId++;
   }
-
-  public subscribeExecutions(_listener: FeedListener): Promise<SubscriptionId> {
-    return Promise.resolve(this.nextPrivateId++);
+  // eslint-disable-next-line @typescript-eslint/require-await -- This test double implements an asynchronous production port synchronously.
+  public async subscribeExecutions(_listener: FeedListener): Promise<SubscriptionId> {
+    return this.nextPrivateId++;
   }
 
   public override async unsubscribe(id: SubscriptionId): Promise<void> {
-    if (id >= 20_000) {
-      await Promise.resolve();
-      return failWithUnknown(this.lifecycleFailure);
-    }
+    if (id >= 20_000) throw this.lifecycleFailure;
     await super.unsubscribe(id);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- This test double implements an asynchronous production port synchronously.
   public override async close(): Promise<void> {
-    await Promise.resolve();
-    return failWithUnknown(this.closeFailure);
+    throw this.closeFailure;
   }
 }
 
-export class AllUnsubscribeFailureFeed extends MockExchangeFeed {
-  public override unsubscribe(_id: SubscriptionId): Promise<void> {
-    return Promise.reject(new Error("scripted public unsubscribe failure"));
+class AllUnsubscribeFailureFeed extends MockExchangeFeed {
+  // eslint-disable-next-line @typescript-eslint/require-await -- This test double implements an asynchronous production port synchronously.
+  public override async unsubscribe(_id: SubscriptionId): Promise<void> {
+    throw new Error("scripted public unsubscribe failure");
   }
 }
 
-export class ReconciliationFeed extends MockExchangeFeed {
+class ReconciliationFeed extends MockExchangeFeed {
   public balanceCalls = 0;
   public positionCalls = 0;
   public tickerCalls = 0;
@@ -222,28 +186,31 @@ export class ReconciliationFeed extends MockExchangeFeed {
     super({ ...options, balances: initialBalances });
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- This test double implements an asynchronous production port synchronously.
   public override async fetchBalances(): Promise<readonly Balance[]> {
     this.balanceCalls += 1;
-    await Promise.resolve();
     if (this.balanceCalls === 1) return this.initialBalances;
     if (this.reconciledBalances instanceof Error || typeof this.reconciledBalances === "string") {
-      return failWithUnknown(this.reconciledBalances);
+      // eslint-disable-next-line @typescript-eslint/only-throw-error -- E2E fault injection verifies normalization of non-Error failures.
+      throw this.reconciledBalances;
     }
     return this.reconciledBalances;
   }
 
-  public override fetchPositions(symbols?: readonly ExchangeSymbol[]): Promise<readonly ExchangePosition[]> {
+  public override async fetchPositions(
+    symbols?: readonly ExchangeSymbol[],
+  ): Promise<readonly ExchangePosition[]> {
     this.positionCalls += 1;
     return super.fetchPositions(symbols);
   }
 
-  public override fetchTickerSnapshot(symbol: ExchangeSymbol): Promise<Ticker> {
+  public override async fetchTickerSnapshot(symbol: ExchangeSymbol): Promise<Ticker> {
     this.tickerCalls += 1;
     return super.fetchTickerSnapshot(symbol);
   }
 }
 
-export class PositionFaultReconciliationFeed extends ReconciliationFeed {
+class PositionFaultReconciliationFeed extends ReconciliationFeed {
   public constructor(
     private readonly positionFailure: unknown,
     balances: readonly Balance[],
@@ -251,14 +218,14 @@ export class PositionFaultReconciliationFeed extends ReconciliationFeed {
     super(balances, balances);
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- This test double implements an asynchronous production port synchronously.
   public override async fetchPositions(): Promise<readonly ExchangePosition[]> {
     this.positionCalls += 1;
-    await Promise.resolve();
-    return failWithUnknown(this.positionFailure);
+    throw this.positionFailure;
   }
 }
 
-export class SlowReconciliationFeed extends MockExchangeFeed {
+class SlowReconciliationFeed extends MockExchangeFeed {
   public balanceCalls = 0;
 
   public constructor() {
@@ -272,8 +239,8 @@ export class SlowReconciliationFeed extends MockExchangeFeed {
   }
 }
 
-export class SequencedBalanceFeed extends MockExchangeFeed {
-  private readonly reconciled: readonly number[];
+class SequencedBalanceFeed extends MockExchangeFeed {
+  private readonly reconciled: number[];
   public balanceCalls = 0;
 
   public constructor(values: readonly number[]) {
@@ -282,14 +249,15 @@ export class SequencedBalanceFeed extends MockExchangeFeed {
     this.reconciled = [...values];
   }
 
-  public override fetchBalances(): Promise<readonly Balance[]> {
+  // eslint-disable-next-line @typescript-eslint/require-await -- This test double implements an asynchronous production port synchronously.
+  public override async fetchBalances(): Promise<readonly Balance[]> {
     const value = this.reconciled[Math.min(this.balanceCalls, this.reconciled.length - 1)] ?? 1000;
     this.balanceCalls += 1;
-    return Promise.resolve([{ currency: "USDC", free: value, total: value }]);
+    return [{ currency: "USDC", free: value, total: value }];
   }
 }
 
-export class NoPositionsFeed implements ExchangeFeed {
+class NoPositionsFeed implements ExchangeFeed {
   private readonly delegate = new MockExchangeFeed({
     balances: [{ currency: "USDC", free: 1000, total: 1000 }],
   });
@@ -362,30 +330,23 @@ export class NoPositionsFeed implements ExchangeFeed {
   }
 }
 
-export function botConfigFor(stateFile: string): BotConfig {
-  return {
-    ...DEFAULT_BOT_CONFIG,
-    bot: { ...DEFAULT_BOT_CONFIG.bot, state_file: stateFile },
-    exchange: { ...DEFAULT_BOT_CONFIG.exchange, id: "mock" },
-    symbols: { enabled: ["BTC/USDC"] },
-    strategies: {
-      donchian_pivot_composition: { enabled: false },
-      dydx_cex_carry: { enabled: false },
-      cascade_fade: { enabled: false },
-      funding_flip_kill_switch: { enabled: false },
-      regime_detector: { enabled: false },
-    },
-    telemetry: {
-      ...DEFAULT_BOT_CONFIG.telemetry,
-      log_dir: `${stateFile}.logs`,
-      metrics_interval_sec: 60,
-    },
-  };
-}
-
-export async function startBotThenStop(bot: Bot, feed: MockExchangeFeed): Promise<void> {
-  const running = bot.start();
-  await waitForCondition(() => feed.subscriptionCount() > 0, "bot subscription");
-  await bot.stop();
-  await running;
-}
+export {
+  MockExchangeFeed,
+  quietLogger,
+  withoutLogger,
+  assertCondition,
+  waitForCondition,
+  expectFailure,
+  expectAsyncFailure,
+  RecordingLogger,
+  FailingOhlcvFeed,
+  BlockingTickerFeed,
+  CleanupFailureFeed,
+  AllUnsubscribeFailureFeed,
+  ReconciliationFeed,
+  PositionFaultReconciliationFeed,
+  SlowReconciliationFeed,
+  SequencedBalanceFeed,
+  NoPositionsFeed,
+  placeOrderLedger,
+};

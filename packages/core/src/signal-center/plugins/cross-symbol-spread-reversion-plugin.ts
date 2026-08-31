@@ -33,12 +33,12 @@
 //
 // 3-LAYER 1:10 DEFENSE (MANDATORY)
 // ---------------------------------
-// Per the project-wide 1:10 leverage mandate (Phase 8 Track D onward),
+// Per the project-wide aggregate effective-exposure limit (Phase 8 Track D onward),
 // this plugin MUST enforce the 1:10 ceiling at three layers:
 //
-//   Layer 1 (CONSTRUCTOR): `metadata.maxLeverage = 10`. The registry's
+//   Layer 1 (CONSTRUCTOR): `metadata.maxAggregateEffectiveLeverage = 10`. The registry's
 //     `validatePluginMetadata` rejects any plugin declaring leverage > 10.
-//     The constructor additionally calls `assertLeverageInvariant` as
+//     The constructor additionally calls `assertAggregateEffectiveExposureLimit` as
 //     defense in depth.
 //
 //   Layer 2 (SUBSCRIBE): `_assertInitialState()` is called in `subscribe()`
@@ -48,7 +48,7 @@
 //   Layer 3 (PER-EMIT): every `bus.emit(...)` is preceded by
 //     `assert1to10Leverage(notionalUsd)` checks on the implied
 //     base × leverage notional. The plugin NEVER computes leverage
-//     above `baseNotionalUsd * ONE_TO_TEN_LEVERAGE`. A hard counter
+//     above `baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE`. A hard counter
 //     (`leverageClampCount`) is incremented on any clamp path.
 //
 // Per-symbol disclosure (Phase 13 scope plan §1):
@@ -86,10 +86,10 @@
 //   - Phase 1-9 partial validation: Phase 8 Track F used log-spread
 //     z-score for a single pair (BTC/ETH) in MTF regime context.
 
-import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, assertAggregateEffectiveExposureLimit } from "../../risk/leverage-invariant.js";
 
 // Re-export for downstream consumers (mirrors RegimeDetector pattern).
-export { ONE_TO_TEN_LEVERAGE };
+export { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
 import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
@@ -140,7 +140,7 @@ export interface CrossSymbolSpreadReversionConfig {
    */
   readonly minHoldBars: number;
   /**
-   * Base notional in USD for 1:10 leverage cap validation. Default
+   * Base notional in USD for aggregate effective-exposure cap validation. Default
    * 10_000 (matches project-wide 1:10 default).
    */
   readonly baseNotionalUsd: number;
@@ -239,7 +239,7 @@ export interface CrossSymbolSpreadReversionPluginState {
   exitsEmitted: number;
   /** Layer 2 leverage-invariant assertion count (per-emit). */
   layer2AssertionCount: number;
-  /** Number of times a signal was clamped by the 1:10 defense (sanity counter). */
+  /** Number of times a signal was clamped by the aggregate effective-exposure defense (sanity counter). */
   leverageClampCount: number;
   /** Number of `recordClose` calls dropped due to non-finite / non-positive close. */
   malformedCloseDrops: number;
@@ -353,7 +353,7 @@ export function clampStrength(absZ: number): number {
  *   6. `plugin.reset()` / `plugin.dispose()` — backtest lifecycle.
  *
  * 1:10 leverage MANDATE — 3-layer defense enforced:
- *   - Layer 1 (constructor): `metadata.maxLeverage = 10` + assertion.
+ *   - Layer 1 (constructor): `metadata.maxAggregateEffectiveLeverage = 10` + assertion.
  *   - Layer 2 (subscribe): `_assertInitialState()` runs.
  *   - Layer 3 (per-emit): `assert1to10Leverage(notionalUsd)` on each
  *     emit; counter `leverageClampCount` increments on any clamp.
@@ -369,7 +369,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
     version: "1.0.0",
     edgeClass: "directional", // emits DirectionSignals (long/short)
     capitalRequirement: 10_000,
-    maxLeverage: ONE_TO_TEN_LEVERAGE, // Layer 1 of 3-layer 1:10 defense
+    maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, // Layer 1 of 3-layer aggregate effective-exposure defense
     description:
       "Phase 13 Track C Plugin 1/3 (cross-symbol hedge) — log-spread " +
       "z-score mean reversion across configured pairs (default BTC/ETH). " +
@@ -412,12 +412,12 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
     };
 
     // LAYER 1 — constructor assertion. The metadata declares
-    // `maxLeverage: ONE_TO_TEN_LEVERAGE` (= 10). Defensive runtime
+    // `maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE` (= 10). Defensive runtime
     // check matches the convention used by RegimeDetectorMetaPlugin +
     // HybridKellyPlugin.
-    if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
+    if (this.metadata.maxAggregateEffectiveLeverage !== DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
       throw new Error(
-        `[CrossSymbolSpreadReversionPlugin] LAYER 1 BREACH: metadata.maxLeverage=${String(this.metadata.maxLeverage)} but the project-wide 1:10 mandate requires 10.`,
+        `[CrossSymbolSpreadReversionPlugin] LAYER 1 BREACH: metadata.maxAggregateEffectiveLeverage=${String(this.metadata.maxAggregateEffectiveLeverage)} but the project-wide aggregate effective-exposure limit requires 10.`,
       );
     }
 
@@ -916,11 +916,11 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
   }
 
   /**
-   * `effectiveMaxNotionalUsd` — the 1:10 leverage cap expressed as
+   * `effectiveMaxNotionalUsd` — the aggregate effective-exposure cap expressed as
    * `baseNotionalUsd × 10`. Used by tests + downstream consumers.
    */
   effectiveMaxNotionalUsd(): number {
-    return this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE;
+    return this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE;
   }
 
   // ---------------------------------------------------------------------
@@ -929,7 +929,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
 
   /**
    * `_buildDirectionSignal` — construct a DirectionSignal with the
-   * 3-layer 1:10 defense (Layer 3 — per-emit). The plugin's implied
+   * 3-layer aggregate effective-exposure defense (Layer 3 — per-emit). The plugin's implied
    * notional is always `baseNotionalUsd × strength`. The assertion
    * confirms this respects the 1:10 cap.
    *
@@ -946,7 +946,7 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
     // is `baseNotionalUsd × strength × 1×` (1× leverage baseline, no
     // multiplicative leverage on top — the strength IS the fraction of
     // the base notional applied). The 1:10 cap is asserted via
-    // `assertLeverageInvariant` on the magnitude that COULD result from
+    // `assertAggregateEffectiveExposureLimit` on the magnitude that COULD result from
     // a downstream consumer multiplying by the max leverage.
     const impliedNotional = this.config.baseNotionalUsd * strength;
     // The 1:10 cap is on aggregate effective leverage. The strength
@@ -954,12 +954,12 @@ export class CrossSymbolSpreadReversionPlugin implements StrategyPlugin {
     // assert base × strength ≤ base × 10 (trivially holds for
     // strength ≤ 1.0) and increments the counter.
     let clampedNotional = impliedNotional;
-    if (clampedNotional > this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE) {
-      clampedNotional = this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE;
+    if (clampedNotional > this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
+      clampedNotional = this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE;
       this.state.leverageClampCount += 1;
     }
     try {
-      assertLeverageInvariant(clampedNotional, this.config.baseNotionalUsd);
+      assertAggregateEffectiveExposureLimit(clampedNotional, this.config.baseNotionalUsd);
       this.state.layer2AssertionCount += 1;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);

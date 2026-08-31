@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "preserve"
+  },
+  "include": ["src/**/*", "test/e2e/**/*"],
+  "exclude": ["dist", "node_modules"]
+}

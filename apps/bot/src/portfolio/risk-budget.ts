@@ -43,8 +43,7 @@
  *   }
  */
 
-import type { Logger } from "@mm-crypto-bot/shared";
-import { createLogger } from "@mm-crypto-bot/shared";
+import { requireLogger, type Logger } from "@mm-crypto-bot/logging";
 
 // ============================================================================
 // Public types
@@ -131,11 +130,17 @@ export interface BudgetBreakdown {
  * értékeket normalizáljuk.
  */
 export const RISK_BUDGET_HARD_CAPS = {
-  /** A `total_risk_per_cycle_usd` abszolút maximuma (USD). */
+  /**
+  A `total_risk_per_cycle_usd` abszolút maximuma (USD).
+  */
   totalRiskUsdMax: 10_000,
-  /** A `correlation_penalty_threshold` minimuma. */
+  /**
+  A `correlation_penalty_threshold` minimuma.
+  */
   correlationPenaltyThresholdMin: 0,
-  /** A `correlation_penalty_threshold` maximuma. */
+  /**
+  A `correlation_penalty_threshold` maximuma.
+  */
   correlationPenaltyThresholdMax: 1,
 } as const;
 
@@ -158,18 +163,18 @@ export class RiskBudgetAllocator {
   private readonly correlationPenaltyThreshold: number;
   private readonly logger: Logger;
 
-  public constructor(opts: RiskBudgetOptions) {
-    if (!Number.isFinite(opts.totalRiskUsd) || opts.totalRiskUsd <= 0) {
+  public constructor(options: RiskBudgetOptions) {
+    if (!Number.isFinite(options.totalRiskUsd) || options.totalRiskUsd <= 0) {
       throw new RangeError(
-        `[risk-budget] totalRiskUsd must be positive and finite, got ${String(opts.totalRiskUsd)}`,
+        `[risk-budget] totalRiskUsd must be positive and finite, got ${String(options.totalRiskUsd)}`,
       );
     }
-    if (opts.totalRiskUsd > RISK_BUDGET_HARD_CAPS.totalRiskUsdMax) {
+    if (options.totalRiskUsd > RISK_BUDGET_HARD_CAPS.totalRiskUsdMax) {
       throw new RangeError(
-        `[risk-budget] totalRiskUsd=${String(opts.totalRiskUsd)} exceeds hard cap ${String(RISK_BUDGET_HARD_CAPS.totalRiskUsdMax)}`,
+        `[risk-budget] totalRiskUsd=${String(options.totalRiskUsd)} exceeds hard cap ${String(RISK_BUDGET_HARD_CAPS.totalRiskUsdMax)}`,
       );
     }
-    const threshold = opts.correlationPenaltyThreshold ?? 0.7;
+    const threshold = options.correlationPenaltyThreshold ?? 0.7;
     if (
       !Number.isFinite(threshold) ||
       threshold < RISK_BUDGET_HARD_CAPS.correlationPenaltyThresholdMin ||
@@ -179,9 +184,34 @@ export class RiskBudgetAllocator {
         `[risk-budget] correlationPenaltyThreshold must be in [0..1], got ${String(threshold)}`,
       );
     }
-    this.totalRiskUsd = opts.totalRiskUsd;
+    this.totalRiskUsd = options.totalRiskUsd;
     this.correlationPenaltyThreshold = threshold;
-    this.logger = opts.logger ?? createLogger("info");
+    this.logger = requireLogger(options.logger, "risk-budget");
+  }
+
+  private maxAbsoluteCorrelation(
+    strategyId: string,
+    matrix: ReadonlyMap<string, ReadonlyMap<string, number>>,
+    configs: ReadonlyMap<string, StrategyRiskConfig>,
+  ): number {
+    const ownRow = matrix.get(strategyId);
+    if (ownRow === undefined) return 0;
+    let maximum = 0;
+    for (const otherId of configs.keys()) {
+      if (otherId === strategyId) continue;
+      const correlation = ownRow.get(otherId);
+      if (correlation === undefined || !Number.isFinite(correlation)) continue;
+      maximum = Math.max(maximum, Math.abs(correlation));
+    }
+    return maximum;
+  }
+
+  private computePenalty(maxCorrelation: number): number {
+    if (maxCorrelation < this.correlationPenaltyThreshold) return 0;
+    const span = 1 - this.correlationPenaltyThreshold;
+    if (span <= 0) return 0;
+    const rawPenalty = (maxCorrelation - this.correlationPenaltyThreshold) / span;
+    return Math.max(0, Math.min(1, rawPenalty));
   }
 
   /**
@@ -232,8 +262,12 @@ export class RiskBudgetAllocator {
     // -----------------------------------------------------------------------
     // 2) Súlyok normalizálása.
     // -----------------------------------------------------------------------
-    const weightSum = [...configs.values()].reduce((acc, c) => acc + Math.max(0, c.weight), 0);
-    const normalize = weightSum > 0 ? 1 / weightSum : 1 / configs.size;
+    let weightSum = 0;
+    configs.forEach((config) => {
+      weightSum += Math.max(0, config.weight);
+    });
+    const weightDivisor = weightSum > 0 ? weightSum : configs.size;
+    const normalize = 1 / weightDivisor;
 
     // -----------------------------------------------------------------------
     // 3) Korreláció-mátrix előkészítése (csak ha van provider).
@@ -243,8 +277,8 @@ export class RiskBudgetAllocator {
     // -----------------------------------------------------------------------
     // 4) Allocator loop.
     // -----------------------------------------------------------------------
-    for (const [strategyId, cfg] of configs) {
-      const normalizedWeight = Math.max(0, cfg.weight) * normalize;
+    for (const [strategyId, config] of configs) {
+      const normalizedWeight = Math.max(0, config.weight) * normalize;
       const rawBudget = this.totalRiskUsd * normalizedWeight;
       const maxCorr = matrix === undefined ? 0 : this.maxAbsoluteCorrelation(strategyId, matrix, configs);
       const penalty = this.computePenalty(maxCorr);
@@ -259,77 +293,30 @@ export class RiskBudgetAllocator {
       });
     }
 
-    this.logger.debug("[risk-budget] budgets computed", {
+    this.logger.debug("portfolio.riskbudget.computed", {
       totalRiskUsd: this.totalRiskUsd,
       threshold: this.correlationPenaltyThreshold,
-      strategies: [...result.values()].map((b) => ({
-        id: b.strategyId,
-        weight: b.weight,
-        maxCorr: b.maxCorrelation,
-        penalty: b.penalty,
-        budget: b.finalBudgetUsd,
-      })),
+      strategies: (() => {
+        const budgets: {
+          readonly id: string;
+          readonly weight: number;
+          readonly maxCorr: number;
+          readonly penalty: number;
+          readonly budget: number;
+        }[] = [];
+        result.forEach((budget) => {
+          budgets.push({
+            id: budget.strategyId,
+            weight: budget.weight,
+            maxCorr: budget.maxCorrelation,
+            penalty: budget.penalty,
+            budget: budget.finalBudgetUsd,
+          });
+        });
+        return budgets;
+      })(),
     });
 
     return result;
-  }
-
-  /**
-   * `maxAbsoluteCorrelation` — egy adott stratégia max ABSZOLÚT
-   * korrelációja a többi aktív stratégiával.
-   *
-   * A `corr` abszolút értékét használjuk, mert a carry-trade
-   * portfóliónál a negatív korreláció (ellentétes kitettség) is
-   * kockázat-redukáló hatású — a sign nem számít, csak a MAGNITÚDÓ.
-   *
-   * Edge case: ha a stratégia egyedül van (vagy minden mással 0
-   * a korreláció), visszatér 0-val → nincs penalty.
-   */
-  private maxAbsoluteCorrelation(
-    strategyId: string,
-    matrix: ReadonlyMap<string, ReadonlyMap<string, number>>,
-    configs: ReadonlyMap<string, StrategyRiskConfig>,
-  ): number {
-    const ownRow = matrix.get(strategyId);
-    if (ownRow === undefined) {
-      return 0;
-    }
-    let max = 0;
-    for (const otherId of configs.keys()) {
-      if (otherId === strategyId) continue;
-      const corr = ownRow.get(otherId);
-      if (corr === undefined || !Number.isFinite(corr)) continue;
-      const abs = Math.abs(corr);
-      if (abs > max) {
-        max = abs;
-      }
-    }
-    return max;
-  }
-
-  /**
-   * `computePenalty` — a korreláció-alapú büntetés kiszámítása.
-   *
-   *   corr < threshold     → 0 (nincs penalty)
-   *   corr >= threshold    → (corr - threshold) / (1 - threshold)
-   *   threshold === 1      → 0 vagy 1 (különleges eset)
-   *
-   * A threshold=1 esetén a (1-1) nullával való osztás NaN-t adna —
-   * ezt külön lekezeljük: ha threshold=1, a penalty 0 (senki nem
-   * éri el a küszöböt, hiszen a max korreláció 1).
-   */
-  private computePenalty(maxCorrelation: number): number {
-    if (maxCorrelation < this.correlationPenaltyThreshold) {
-      return 0;
-    }
-    const span = 1 - this.correlationPenaltyThreshold;
-    if (span <= 0) {
-      // threshold = 1 → senki nem kaphat penalty-t.
-      return 0;
-    }
-    const raw = (maxCorrelation - this.correlationPenaltyThreshold) / span;
-    // Clamp [0..1] — a korreláció elvileg [-1..1], de az abszolút
-    // érték [0..1], és a threshold [0..1], tehát a raw is [0..1].
-    return Math.max(0, Math.min(1, raw));
   }
 }

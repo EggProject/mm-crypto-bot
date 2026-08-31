@@ -1,11 +1,13 @@
 /* eslint-disable security/detect-non-literal-fs-filename -- manifest paths are normalized and repository-bound before access */
 /* eslint-disable security/detect-object-injection -- entry-kind keys are checked against the exact closed key set */
 import { existsSync, readFileSync } from "node:fs";
+// eslint-disable-next-line unicorn/import-style -- This focused coverage utility retains the established named Node boundary imports.
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 export const REPOSITORY_ROOT = resolve(import.meta.dirname, "../..");
 export const MANIFEST_PATH = resolve(import.meta.dirname, "bot-runtime-scope.json");
 
+// eslint-disable-next-line unicorn/name-replacements -- The public coverage protocol name is preserved consistently across its consumers.
 export type E2eEntryKind = "canonical-cli" | "runtime-driver";
 
 export interface BotRuntimeScopeManifest {
@@ -18,6 +20,8 @@ export interface BotRuntimeScopeManifest {
 const SOURCE_PREFIX = "apps/bot/src/";
 const TEST_FILE_PATTERN = /(?:^|\/)(?:__tests__\/.*|[^/]+\.(?:test|spec))\.[cm]?[jt]sx?$/u;
 const DECLARATION_PATTERN = /\.d\.[cm]?ts$/u;
+const TEST_SUPPORT_PATTERN = /(?:^|\/)[^/]+\.test-support\.[cm]?[jt]sx?$/u;
+const TYPE_ONLY_PATTERN = /(?:^|\/)[^/]+\.types\.[cm]?[jt]sx?$/u;
 const RUNTIME_PATTERN = /\.[cm]?[jt]sx?$/u;
 
 function assertPlainObject(value: unknown, label: string): asserts value is Record<string, unknown> {
@@ -53,7 +57,7 @@ function validateUniqueFiles(
   const files: unknown[] = value;
   return files.map((file): string => {
     if (typeof file !== "string") {
-      throw new Error(`${label} must contain non-empty strings`);
+      throw new TypeError(`${label} must contain non-empty strings`);
     }
     const absolute = validateRelativeFile(file, label);
     if (seen.has(file)) throw new Error(`${label} contains duplicate path: ${file}`);
@@ -63,9 +67,11 @@ function validateUniqueFiles(
   });
 }
 
+// eslint-disable-next-line unicorn/name-replacements -- The public coverage protocol name is preserved consistently across its consumers.
 function validateE2eCases(value: unknown): Readonly<Record<E2eEntryKind, readonly string[]>> {
   assertPlainObject(value, "e2eCases");
   const expectedKinds: readonly E2eEntryKind[] = ["canonical-cli", "runtime-driver"];
+  // eslint-disable-next-line unicorn/no-array-sort, unicorn/require-array-sort-compare -- Manifest validation needs a deterministic sorted copy for protocol comparison.
   const keys = Object.keys(value).sort();
   if (JSON.stringify(keys) !== JSON.stringify(expectedKinds)) {
     throw new Error(`e2eCases must contain exactly: ${expectedKinds.join(", ")}`);
@@ -98,15 +104,14 @@ function validateE2eCases(value: unknown): Readonly<Record<E2eEntryKind, readonl
 function isCaseId(value: string): boolean {
   return (
     value.length > 0 &&
-    value
-      .split("-")
-      .every(
-        (part) =>
-          part.length > 0 &&
-          Array.from(part).every(
-            (character) => (character >= "a" && character <= "z") || (character >= "0" && character <= "9"),
-          ),
-      )
+    value.split("-").every(
+      (part) =>
+        part.length > 0 &&
+        // eslint-disable-next-line @typescript-eslint/no-misused-spread -- Case identifiers are constrained to lowercase ASCII before character validation.
+        [...part].every(
+          (character) => (character >= "a" && character <= "z") || (character >= "0" && character <= "9"),
+        ),
+    )
   );
 }
 
@@ -153,7 +158,9 @@ export function isRuntimeSourcePath(file: string): boolean {
     file.startsWith(SOURCE_PREFIX) &&
     RUNTIME_PATTERN.test(file) &&
     !DECLARATION_PATTERN.test(file) &&
-    !TEST_FILE_PATTERN.test(file)
+    !TEST_FILE_PATTERN.test(file) &&
+    !TEST_SUPPORT_PATTERN.test(file) &&
+    !TYPE_ONLY_PATTERN.test(file)
   );
 }
 
@@ -162,6 +169,7 @@ export function missingModifiedRuntimeFiles(
   modifiedFiles: readonly string[],
 ): readonly string[] {
   const owned = new Set(manifestFiles);
+  // eslint-disable-next-line unicorn/no-array-callback-reference, unicorn/no-array-sort, unicorn/require-array-sort-compare -- The pure runtime-path predicate is intentionally the filtering boundary.
   return [...new Set(modifiedFiles.filter(isRuntimeSourcePath))].filter((file) => !owned.has(file)).sort();
 }
 

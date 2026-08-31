@@ -40,19 +40,44 @@ must remain documented so later work does not silently reintroduce them.
 
 **Status:** APPROVED on 2026-08-24T19:29:14+0200 (Europe/Budapest).
 
-**Chosen option.** The live Bybit EU transport is limited to `ccxt.pro.bybiteu` with fixed official Bybit EU origins. Configuration must reject Bybit testnet/sandbox and user-specified REST or WebSocket origins. Market and private streams, plus exchange actions, use WebSocket-first only where the supported CCXT Pro/Bybit EU capability and a fail-closed contract permit it. REST remains permitted only where there is no appropriate WebSocket API or an authoritative preflight or reconciliation response is required. Built-in paper/emulated execution remains available; it may consume real public Bybit EU market data but must not submit an exchange order.
+**Chosen option.** The live Bybit EU transport is limited to `ccxt.pro.bybiteu`
+with fixed official Bybit EU origins. Configuration must reject Bybit
+testnet/sandbox and user-specified REST or WebSocket origins. Market and private
+streams, plus exchange actions, use WebSocket-first only where the supported
+CCXT Pro/Bybit EU capability and a fail-closed contract permit it. REST remains
+permitted only where there is no appropriate WebSocket API or an authoritative
+preflight or reconciliation response is required. Built-in paper/emulated
+execution remains available; it may consume real public Bybit EU market data but
+must not submit an exchange order.
 
-**Rationale.** Bybit testnet/sandbox is difficult to use and is unnecessary for the selected operating model. Fixed origins reduce connection ambiguity. WebSocket-first operation provides the required stream semantics and avoids an unnecessary REST-first path.
+**Rationale.** Bybit testnet/sandbox is difficult to use and is unnecessary for
+the selected operating model. Fixed origins reduce connection ambiguity.
+WebSocket-first operation provides the required stream semantics and avoids an
+unnecessary REST-first path.
 
-**Rejected alternatives.** Bybit testnet/sandbox; manual REST or WebSocket origin overrides; REST-first behavior where an appropriate WebSocket path exists; and removal of the paper/emulated mode.
+**Rejected alternatives.** Bybit testnet/sandbox; manual REST or WebSocket
+origin overrides; REST-first behavior where an appropriate WebSocket path
+exists; and removal of the paper/emulated mode.
 
-**Risks.** A WebSocket disconnect or uncertain order/action submission requires authoritative reconciliation before continuing. Paper-mode market data remains an external dependency even though paper mode may not submit exchange orders.
+**Risks.** A WebSocket disconnect or uncertain order/action submission requires
+authoritative reconciliation before continuing. Paper-mode market data remains
+an external dependency even though paper mode may not submit exchange orders.
 
-**Migration owner and scope.** The P4 config/factory/feed migration owns the configuration and client contract. A later separately scoped P4 migration owns WebSocket order/action adoption. CCXT `4.5.75` release-integrity evidence and all other P4 safety gates remain unchanged blockers.
+**Migration owner and scope.** The P4 config/factory/feed migration owns the
+configuration and client contract. A later separately scoped P4 migration owns
+WebSocket order/action adoption. CCXT `4.5.75` release-integrity evidence and
+all other P4 safety gates remain unchanged blockers.
 
-**Required validation.** Add and pass configuration, factory/feed capability, fail-closed, paper-mode non-submission, WebSocket disconnect/uncertain-submit reconciliation, and independent technical/process review evidence. No such evidence may claim implementation PASS or live readiness before the stated gates pass.
+**Required validation.** Add and pass configuration, factory/feed capability,
+fail-closed, paper-mode non-submission, WebSocket disconnect/uncertain-submit
+reconciliation, and independent technical/process review evidence. No such
+evidence may claim implementation PASS or live readiness before the stated
+gates pass.
 
-**Rollback trigger.** Revert the affected P4 migration atomically if the fixed origin or WebSocket-first contract cannot meet the required fail-closed, reconciliation, or paper-mode non-submission checks; do not restore sandbox or manual-origin configuration as a fallback.
+**Rollback trigger.** Revert the affected P4 migration atomically if the fixed
+origin or WebSocket-first contract cannot meet the required fail-closed,
+reconciliation, or paper-mode non-submission checks; do not restore sandbox or
+manual-origin configuration as a fallback.
 
 ## D-11 acceptance record
 

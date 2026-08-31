@@ -9,7 +9,15 @@
 
 import { describe, expect, it } from "bun:test";
 
-import { DrawdownScaler, type DrawdownState } from "./drawdown-scaler.js";
+import { RecordingLogger } from "@logging-testing";
+import { DrawdownScaler as RuntimeDrawdownScaler, type DrawdownState } from "./drawdown-scaler.js";
+
+class DrawdownScaler extends RuntimeDrawdownScaler {
+  public constructor(...arguments_: ConstructorParameters<typeof RuntimeDrawdownScaler>) {
+    const [options] = arguments_;
+    super({ ...options, logger: new RecordingLogger() });
+  }
+}
 
 describe("DrawdownScaler", () => {
   // -------------------------------------------------------------------------
@@ -47,8 +55,8 @@ describe("DrawdownScaler", () => {
   // -------------------------------------------------------------------------
   it("disabled scaler always returns 1.0 scale", () => {
     const s = new DrawdownScaler({ enabled: false, maxDdPct: 0.15, initialEquity: 10_000 });
-    s.updateEquity(5_000); // -50% drawdown
-    expect(s.scaleFactor()).toBe(1.0);
+    s.updateEquity(5000); // -50% drawdown
+    expect(s.scaleFactor()).toBe(1);
     expect(s.canOpenNew()).toBe(true);
   });
 
@@ -58,8 +66,8 @@ describe("DrawdownScaler", () => {
   it("normal region: 1.0 scale (0% to 50% of maxDd)", () => {
     const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(10_500); // +5% — new high
-    s.updateEquity(9_500); // -9.5% from peak (47.5% of 20%) → normal
-    expect(s.scaleFactor()).toBe(1.0);
+    s.updateEquity(9500); // -9.5% from peak (47.5% of 20%) → normal
+    expect(s.scaleFactor()).toBe(1);
     expect(s.canOpenNew()).toBe(true);
   });
 
@@ -69,9 +77,9 @@ describe("DrawdownScaler", () => {
   it("caution region: 0.5 scale (50% to 80% of maxDd)", () => {
     const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(10_000); // peak = 10_000
-    s.updateEquity(9_100); // -9% from peak = 45% of 20% → normal (just below 50%)
-    expect(s.scaleFactor()).toBe(1.0);
-    s.updateEquity(8_900); // -11% from peak = 55% of 20% → caution
+    s.updateEquity(9100); // -9% from peak = 45% of 20% → normal (just below 50%)
+    expect(s.scaleFactor()).toBe(1);
+    s.updateEquity(8900); // -11% from peak = 55% of 20% → caution
     expect(s.scaleFactor()).toBe(0.5);
     expect(s.canOpenNew()).toBe(true);
   });
@@ -82,8 +90,8 @@ describe("DrawdownScaler", () => {
   it("kill region: 0.0 scale (80%+ of maxDd)", () => {
     const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
     s.updateEquity(10_000);
-    s.updateEquity(8_300); // -17% from peak = 85% of 20% → kill
-    expect(s.scaleFactor()).toBe(0.0);
+    s.updateEquity(8300); // -17% from peak = 85% of 20% → kill
+    expect(s.scaleFactor()).toBe(0);
     expect(s.canOpenNew()).toBe(false);
   });
 
@@ -92,8 +100,8 @@ describe("DrawdownScaler", () => {
   // -------------------------------------------------------------------------
   it("scale is 0.0 above maxDdPct", () => {
     const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.15, initialEquity: 10_000 });
-    s.updateEquity(8_000); // -20% from 10k = 133% of 15% → kill
-    expect(s.scaleFactor()).toBe(0.0);
+    s.updateEquity(8000); // -20% from 10k = 133% of 15% → kill
+    expect(s.scaleFactor()).toBe(0);
   });
 
   // -------------------------------------------------------------------------
@@ -113,14 +121,14 @@ describe("DrawdownScaler", () => {
   // -------------------------------------------------------------------------
   it("getState returns the expected snapshot", () => {
     const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
-    s.updateEquity(9_200); // -8% from 10k = 40% of 20% → normal
+    s.updateEquity(9200); // -8% from 10k = 40% of 20% → normal
     const state: DrawdownState = s.getState();
     expect(state.enabled).toBe(true);
     expect(state.peakEquity).toBe(10_000);
-    expect(state.currentEquity).toBe(9_200);
+    expect(state.currentEquity).toBe(9200);
     expect(state.drawdownPct).toBeCloseTo(0.08, 5);
     expect(state.region).toBe("normal");
-    expect(state.scaleFactor).toBe(1.0);
+    expect(state.scaleFactor).toBe(1);
   });
 
   // -------------------------------------------------------------------------
@@ -129,11 +137,11 @@ describe("DrawdownScaler", () => {
   // -------------------------------------------------------------------------
   it("region transitions correctly normal → caution → kill → normal", () => {
     const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
-    s.updateEquity(9_500); // 25% of 20% → normal
+    s.updateEquity(9500); // 25% of 20% → normal
     expect(s.getState().region).toBe("normal");
-    s.updateEquity(8_900); // 55% → caution
+    s.updateEquity(8900); // 55% → caution
     expect(s.getState().region).toBe("caution");
-    s.updateEquity(8_200); // 90% → kill
+    s.updateEquity(8200); // 90% → kill
     expect(s.getState().region).toBe("kill");
     s.updateEquity(10_500); // new high → normal
     expect(s.getState().region).toBe("normal");
@@ -144,8 +152,8 @@ describe("DrawdownScaler", () => {
   // -------------------------------------------------------------------------
   it("reset re-seeds the peak to a new value", () => {
     const s = new DrawdownScaler({ enabled: true, maxDdPct: 0.2, initialEquity: 10_000 });
-    s.updateEquity(8_000); // kill region
-    expect(s.scaleFactor()).toBe(0.0);
+    s.updateEquity(8000); // kill region
+    expect(s.scaleFactor()).toBe(0);
     s.reset(11_000);
     const state: DrawdownState = s.getState();
     expect(state.peakEquity).toBe(11_000);
@@ -174,8 +182,8 @@ describe("DrawdownScaler", () => {
   // Static scaleFactorForRegion — every branch
   // -------------------------------------------------------------------------
   it("scaleFactorForRegion returns the right value for each region", () => {
-    expect(DrawdownScaler.scaleFactorForRegion("normal")).toBe(1.0);
+    expect(DrawdownScaler.scaleFactorForRegion("normal")).toBe(1);
     expect(DrawdownScaler.scaleFactorForRegion("caution")).toBe(0.5);
-    expect(DrawdownScaler.scaleFactorForRegion("kill")).toBe(0.0);
+    expect(DrawdownScaler.scaleFactorForRegion("kill")).toBe(0);
   });
 });

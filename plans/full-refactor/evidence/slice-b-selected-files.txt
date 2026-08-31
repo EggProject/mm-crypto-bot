@@ -294,8 +294,8 @@ packages/exchange/src/latency-monitor.ts
 packages/exchange/src/ohlc-stream.test.ts
 packages/exchange/src/symbols.test.ts
 packages/exchange/src/types.ts
-packages/exchange/tests/bybitEuFeed-watch.test.ts
-packages/exchange/tests/bybitEuFeed.test.ts
+packages/exchange/tests/bybit-eu-feed-watch.test.ts
+packages/exchange/tests/bybit-eu-feed-normalizers.test.ts
 packages/exchange/tests/mockFeed.test.ts
 packages/paper/src/index.ts
 packages/paper/src/paper-trader.test.ts

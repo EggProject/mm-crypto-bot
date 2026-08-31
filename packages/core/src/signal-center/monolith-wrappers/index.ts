@@ -8,7 +8,7 @@
 // behind the Signal Center so the Decision Engine arbitrates them.
 //
 // Each wrapper implements `StrategyPlugin` and:
-//   - declares `maxLeverage: 10` (1:10 HARD GUARDRAIL)
+//   - declares `maxAggregateEffectiveLeverage: 10` (aggregate effective-exposure hard guardrail)
 //   - asserts the 1:10 leverage invariant at 3 layers (constructor,
 //     subscribe, per-emit) — see "Three-layer enforcement" memory rule
 //   - translates the underlying `Strategy` interface's `StrategySignal`

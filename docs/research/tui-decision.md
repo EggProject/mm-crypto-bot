@@ -70,14 +70,14 @@ nem alkalmas production stack-be `[4.5]`.
 
 A projekt teljes stack-e:
 
-| Réteg                     | Technológia                       |
-| ------------------------- | --------------------------------- |
-| Runtime                   | **Bun 1.3.14**                    |
-| Csomagkezelő              | Bun + Turborepo 2.10.2            |
-| Nyelv                     | **TypeScript 6.0.3** ultra-strict |
-| Exchange integráció       | CCXT Pro 4.5.64 (TS bindings)     |
-| Backend (order, strategy) | TS                                |
-| **Frontend (TUI)**        | **Döntés kérdése**                |
+| Réteg                     | Technológia                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------- |
+| Runtime                   | **Bun 1.3.14**                                                                                 |
+| Csomagkezelő              | Bun + Turborepo 2.10.2                                                                         |
+| Nyelv                     | **TypeScript 6.0.3** ultra-strict                                                              |
+| Exchange integráció       | CCXT Pro 4.5.75 exact (TS bindings); ESM self-report mismatch blocks live dependency readiness |
+| Backend (order, strategy) | TS                                                                                             |
+| **Frontend (TUI)**        | **Döntés kérdése**                                                                             |
 
 #### Ink — természetes illeszkedés
 

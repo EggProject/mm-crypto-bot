@@ -4,9 +4,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { buildBotE2eChildEnvironment as buildChildEnvironment } from "../../../../scripts/coverage-tools/bot-e2e-child-environment.ts";
+import { buildBotE2eChildEnvironment as buildChildEnvironment } from "../../../../scripts/coverage-tools/bot-e2e-child-environment.js";
 
 import { waitForFile } from "./cli-e2e-test-support.test.js";
+
+const STRUCTURED_LOGGER_SOURCE = [
+  'import { StderrJsonSink, StructuredLogger } from "@mm-crypto-bot/logging";',
+  'const logger = new StructuredLogger({ clock: { now: () => new Date(0) }, context: { component: "bot", correlationId: "signal-e2e", runId: "signal-e2e" }, sink: new StderrJsonSink(), threshold: "debug" });',
+].join("\n");
 
 describe("CLI signal end-to-end", () => {
   it("runHeadless receives a real subprocess SIGTERM and exits after cleanup", async () => {
@@ -22,13 +27,15 @@ describe("CLI signal end-to-end", () => {
     const source = [
       `import { runHeadless } from ${JSON.stringify(startModule)};`,
       `import { DEFAULT_BOT_CONFIG } from ${JSON.stringify(defaultsModule)};`,
+      STRUCTURED_LOGGER_SOURCE,
       "const stopped = Promise.withResolvers();",
       `const config = { ...DEFAULT_BOT_CONFIG, bot: { ...DEFAULT_BOT_CONFIG.bot, state_file: ${JSON.stringify(stateFile)} } };`,
       "const bot = {",
       `  start: async () => { await Bun.write(${JSON.stringify(readyFile)}, "ready"); await stopped.promise; },`,
       `  stop: async () => { await Bun.write(${JSON.stringify(cleanupFile)}, "done"); await Bun.sleep(100); stopped.resolve(); },`,
       "};",
-      "const code = await runHeadless(bot, config);",
+      "const code = await runHeadless(bot, config, logger);",
+      "await logger.shutdown();",
       "process.exit(code);",
     ].join("\n");
     const preload = process.env["MM_BOT_E2E_COVERAGE_PRELOAD"];
@@ -58,9 +65,10 @@ describe("CLI signal end-to-end", () => {
       ]);
       expect(code).toBe(0);
       expect(stdout).toBe("");
-      expect(stderr).toBe("");
+      expect(stderr).toContain('"event":"bot.lifecycle.signal.received"');
+      expect(stderr).toContain('"event":"bot.lifecycle.shutdown.completed"');
+      expect(stderr).toContain('"signal":"SIGTERM"');
       expect(await Bun.file(cleanupFile).text()).toBe("done");
-      expect(await Bun.file(`${stateFile}.log`).text()).toContain("received SIGTERM");
     } finally {
       clearTimeout(timer);
       if (proc.exitCode === null) proc.kill("SIGKILL");
@@ -81,13 +89,15 @@ describe("CLI signal end-to-end", () => {
     const source = [
       `import { runHeadless } from ${JSON.stringify(startModule)};`,
       `import { DEFAULT_BOT_CONFIG } from ${JSON.stringify(defaultsModule)};`,
+      STRUCTURED_LOGGER_SOURCE,
       "const stopped = Promise.withResolvers();",
       `const config = { ...DEFAULT_BOT_CONFIG, bot: { ...DEFAULT_BOT_CONFIG.bot, state_file: ${JSON.stringify(stateFile)} } };`,
       "const bot = {",
       `  start: async () => { await Bun.write(${JSON.stringify(readyFile)}, "ready"); await stopped.promise; },`,
       `  stop: async () => { await Bun.write(${JSON.stringify(cleanupFile)}, "attempted"); stopped.resolve(); throw new Error("stop rejected"); },`,
       "};",
-      "const code = await runHeadless(bot, config);",
+      "const code = await runHeadless(bot, config, logger);",
+      "await logger.shutdown();",
       "process.exit(code);",
     ].join("\n");
     const preload = process.env["MM_BOT_E2E_COVERAGE_PRELOAD"];
@@ -115,9 +125,9 @@ describe("CLI signal end-to-end", () => {
       ]);
       expect(code).toBe(1);
       expect(stdout).toBe("");
-      expect(stderr).toBe("");
+      expect(stderr).toContain('"event":"bot.lifecycle.shutdown.failed"');
+      expect(stderr).toContain("stop rejected");
       expect(await Bun.file(cleanupFile).text()).toBe("attempted");
-      expect(await Bun.file(`${stateFile}.log`).text()).toContain("graceful shutdown failed: stop rejected");
     } finally {
       clearTimeout(timer);
       if (proc.exitCode === null) proc.kill("SIGKILL");
@@ -138,13 +148,15 @@ describe("CLI signal end-to-end", () => {
     const source = [
       `import { runHeadless } from ${JSON.stringify(startModule)};`,
       `import { DEFAULT_BOT_CONFIG } from ${JSON.stringify(defaultsModule)};`,
+      STRUCTURED_LOGGER_SOURCE,
       "const stopped = Promise.withResolvers();",
       `const config = { ...DEFAULT_BOT_CONFIG, bot: { ...DEFAULT_BOT_CONFIG.bot, state_file: ${JSON.stringify(stateFile)} } };`,
       "const bot = {",
       `  start: async () => { await Bun.write(${JSON.stringify(readyFile)}, "ready"); await stopped.promise; },`,
       `  stop: async () => { await Bun.write(${JSON.stringify(cleanupFile)}, "attempted"); stopped.resolve(); throw "plain stop rejection"; },`,
       "};",
-      "const code = await runHeadless(bot, config);",
+      "const code = await runHeadless(bot, config, logger);",
+      "await logger.shutdown();",
       "process.exit(code);",
     ].join("\n");
     const preload = process.env["MM_BOT_E2E_COVERAGE_PRELOAD"];
@@ -172,11 +184,9 @@ describe("CLI signal end-to-end", () => {
       ]);
       expect(code).toBe(1);
       expect(stdout).toBe("");
-      expect(stderr).toBe("");
+      expect(stderr).toContain('"event":"bot.lifecycle.shutdown.failed"');
+      expect(stderr).toContain("plain stop rejection");
       expect(await Bun.file(cleanupFile).text()).toBe("attempted");
-      expect(await Bun.file(`${stateFile}.log`).text()).toContain(
-        "graceful shutdown failed: plain stop rejection",
-      );
     } finally {
       clearTimeout(timer);
       if (proc.exitCode === null) proc.kill("SIGKILL");

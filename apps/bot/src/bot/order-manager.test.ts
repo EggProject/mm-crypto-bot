@@ -1,62 +1,46 @@
-/**
- * apps/bot/src/bot/order-manager.test.ts
- *
- * Az `OrderManager` unit tesztjei — a L2 leverage check + place/cancel
- * flow mock feed-del.
- */
+import { describe, expect, it } from "vitest";
 
-import { describe, expect, it } from "bun:test";
-
-import {
-  asSymbol,
-  type Execution,
-  type FeedEvent,
-  type FeedListener,
-  type Order,
-  type Symbol as ExchangeSymbol,
-} from "@mm-crypto-bot/exchange";
-// Phase 66: `MockExchangeFeed` is test-only — import from the
-// `@exchange-testing/*` path alias (see tsconfig.base.json).
+import { type Execution, type FeedListener } from "@mm-crypto-bot/exchange";
 import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
-import type { Position as LeveragePosition, StrategySignal } from "@mm-crypto-bot/core";
 
-import { OrderManager, OrderManagerError } from "./order-manager.js";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makeSignal(side: "buy" | "sell" = "buy"): StrategySignal {
-  return {
-    side,
-    confidence: 0.8,
-    reason: "unit-test",
-    stopLoss: 0,
-    takeProfit: 0,
-  };
-}
-
-function makeSymbol(): ExchangeSymbol {
-  return asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
-}
-
-function makePosition(symbol: string, source: string, notional: number): LeveragePosition {
-  return { symbol, source, effectiveNotionalUsd: notional };
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+import { OrderManager, makeSignal, makeSymbol } from "./order-manager.test-support.js";
 
 describe("OrderManager", () => {
+  it("blocks stale new exposure before feed while permitting reduce-only closure", async () => {
+    const feed = new MockExchangeFeed();
+    await feed.open();
+    let isFresh = false;
+    const manager = new OrderManager({
+      feed,
+      getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
+      liveAuthority: {
+        assertEntryAllowed: () => {
+          if (!isFresh) throw new Error("stale authority");
+        },
+      },
+    });
+    const intent = {
+      signal: makeSignal(),
+      symbol: makeSymbol(),
+      amount: 1,
+      referencePrice: 100,
+      type: "market" as const,
+    };
+    await expect(manager.placeOrder(intent)).rejects.toThrow("live authority rejected");
+    const openOrders = await feed.fetchOpenOrders(intent.symbol);
+    expect(openOrders.length).toBe(0);
+    await expect(manager.placeOrder({ ...intent, reduceOnly: true })).resolves.toBeDefined();
+    isFresh = true;
+    await expect(manager.placeOrder(intent)).resolves.toBeDefined();
+  });
   it("stops lifecycle notifications after the returned unsubscribe function runs", async () => {
     const feed = new MockExchangeFeed();
     await feed.open();
     let orderListener: FeedListener | undefined;
     Object.assign(feed, {
-      subscribeOrderUpdates: async (listener: FeedListener) => {
+      subscribeOrderUpdates: (listener: FeedListener) => {
         orderListener = listener;
-        return 701;
+        return Promise.resolve(701);
       },
     });
     const manager = new OrderManager({
@@ -103,7 +87,7 @@ describe("OrderManager", () => {
     const globalOne = new OrderManager({
       feed,
       getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
-      leverage: { maxLeverage: 1, tolerance: 1e-6, warnOnApproach: 0.95 },
+      aggregateExposureLimit: { maxAggregateEffectiveLeverage: 1, tolerance: 0, warnOnApproach: 0.95 },
     });
     await expect(
       globalOne.placeOrder({
@@ -115,12 +99,13 @@ describe("OrderManager", () => {
         leverage: 10,
       }),
     ).rejects.toThrow("invalid effective leverage");
-    expect((await feed.fetchOpenOrders(makeSymbol())).length).toBe(0);
+    const rejectedOrderOpenOrders = await feed.fetchOpenOrders(makeSymbol());
+    expect(rejectedOrderOpenOrders.length).toBe(0);
 
     const globalTen = new OrderManager({
       feed,
       getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
-      leverage: { maxLeverage: 10, tolerance: 1e-6, warnOnApproach: 0.95 },
+      aggregateExposureLimit: { maxAggregateEffectiveLeverage: 10, tolerance: 0, warnOnApproach: 0.95 },
     });
     await expect(
       globalTen.placeOrder({
@@ -142,13 +127,13 @@ describe("OrderManager", () => {
     let unsubscribed = 0;
     const originalUnsubscribe = feed.unsubscribe.bind(feed);
     Object.assign(feed, {
-      subscribeOrderUpdates: async (listener: FeedListener) => {
+      subscribeOrderUpdates: (listener: FeedListener) => {
         orderListener = listener;
-        return 901;
+        return Promise.resolve(901);
       },
-      subscribeExecutions: async (listener: FeedListener) => {
+      subscribeExecutions: (listener: FeedListener) => {
         executionListener = listener;
-        return 902;
+        return Promise.resolve(902);
       },
       unsubscribe: async (id: number) => {
         unsubscribed++;
@@ -183,13 +168,13 @@ describe("OrderManager", () => {
       feeCurrency: "USDC",
       timestamp: Date.now(),
     });
-    executionListener?.({ kind: "execution", payload: execution("exec-2", 1, 101) } as FeedEvent);
-    executionListener?.({ kind: "execution", payload: execution("exec-2", 1, 101) } as FeedEvent); // duplicate
-    executionListener?.({ kind: "execution", payload: execution("exec-1", 1, 99) } as FeedEvent); // out of order
+    executionListener?.({ kind: "execution", payload: execution("exec-2", 1, 101) });
+    executionListener?.({ kind: "execution", payload: execution("exec-2", 1, 101) }); // duplicate
+    executionListener?.({ kind: "execution", payload: execution("exec-1", 1, 99) }); // out of order
     orderListener?.({
       kind: "order",
       payload: { ...order, status: "canceled", filled: 2, average: 100 },
-    } as FeedEvent);
+    });
     expect(deltas).toEqual([1, 1]);
     expect(manager.getInFlightCount()).toBe(0);
     await manager.stopLifecycle();
@@ -197,19 +182,19 @@ describe("OrderManager", () => {
   });
 
   it("cross-correlates order snapshots and executions in either arrival order without double booking", async () => {
-    for (const orderFirst of [true, false]) {
+    for (const isOrderFirst of [true, false]) {
       const feed = new MockExchangeFeed();
       await feed.open();
       let orderListener: FeedListener | undefined;
       let executionListener: FeedListener | undefined;
       Object.assign(feed, {
-        subscribeOrderUpdates: async (listener: FeedListener) => {
+        subscribeOrderUpdates: (listener: FeedListener) => {
           orderListener = listener;
-          return 1;
+          return Promise.resolve(1);
         },
-        subscribeExecutions: async (listener: FeedListener) => {
+        subscribeExecutions: (listener: FeedListener) => {
           executionListener = listener;
-          return 2;
+          return Promise.resolve(2);
         },
       });
       const manager = new OrderManager({
@@ -230,7 +215,7 @@ describe("OrderManager", () => {
       });
       const snapshot = { ...order, status: "open" as const, filled: 1, average: 100 };
       const firstExecution: Execution = {
-        executionId: `first-${String(orderFirst)}`,
+        executionId: `first-${String(isOrderFirst)}`,
         clientOrderId: order.clientOrderId,
         exchangeOrderId: order.exchangeId,
         symbol: makeSymbol(),
@@ -241,7 +226,7 @@ describe("OrderManager", () => {
         feeCurrency: "USDC",
         timestamp: 1,
       };
-      if (orderFirst) {
+      if (isOrderFirst) {
         orderListener?.({ kind: "order", payload: snapshot });
         executionListener?.({ kind: "execution", payload: firstExecution });
       } else {
@@ -252,7 +237,7 @@ describe("OrderManager", () => {
         kind: "execution",
         payload: {
           ...firstExecution,
-          executionId: `second-${String(orderFirst)}`,
+          executionId: `second-${String(isOrderFirst)}`,
           quantity: 1,
           price: 102,
           timestamp: 2,
@@ -271,9 +256,9 @@ describe("OrderManager", () => {
     await feed.open();
     let executionListener: FeedListener | undefined;
     Object.assign(feed, {
-      subscribeExecutions: async (listener: FeedListener) => {
+      subscribeExecutions: (listener: FeedListener) => {
         executionListener = listener;
-        return 2;
+        return Promise.resolve(2);
       },
     });
     const manager = new OrderManager({
@@ -281,7 +266,9 @@ describe("OrderManager", () => {
       getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
     });
     const lifecycleDeltas: number[] = [];
-    manager.onLifecycle((event) => lifecycleDeltas.push(event.deltaFilled));
+    manager.onLifecycle((event) => {
+      lifecycleDeltas.push(event.deltaFilled);
+    });
     await manager.startLifecycle();
     const order = await manager.placeOrder({
       signal: makeSignal(),
@@ -349,282 +336,5 @@ describe("OrderManager", () => {
         reduceOnly: true,
       }),
     ).rejects.toThrow("invalid reduce-only");
-  });
-  // ---------------------------------------------------------------------------
-  // 1) Basic placeOrder → feed.placeOrder is called
-  // ---------------------------------------------------------------------------
-  it("placeOrder calls feed.placeOrder with the correct OrderRequest", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const equity = 10_000;
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({
-        equityUsd: equity,
-        positions: [],
-      }),
-    });
-    const signal = makeSignal("buy");
-    const order = await om.placeOrder({
-      signal,
-      symbol: makeSymbol(),
-      amount: 0.01,
-      referencePrice: 60_000,
-      type: "market",
-    });
-    expect(order).toBeDefined();
-    expect(order.symbol).toBe("BTC/USDC");
-    expect(order.side).toBe("buy");
-    expect(order.amount).toBe(0.01);
-    expect(order.status).toBe("open");
-  });
-
-  it("accepts a live entry with protective intent; native conditionals are created only after a fill", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const om = new OrderManager({ feed, getPositionContext: () => ({ equityUsd: 10_000, positions: [] }) });
-    await expect(
-      om.placeOrder({
-        signal: { ...makeSignal(), stopLoss: 50_000, takeProfit: 70_000 },
-        symbol: makeSymbol(),
-        amount: 0.01,
-        referencePrice: 60_000,
-        type: "market",
-      }),
-    ).resolves.toMatchObject({ status: "open" });
-    expect(om.getInFlightCount()).toBe(1);
-  });
-
-  // ---------------------------------------------------------------------------
-  // 2) L2 leverage check: 1:10 mandate enforced before placeOrder
-  // ---------------------------------------------------------------------------
-  it("rejects order that would breach 1:10 leverage (L2)", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const equity = 10_000;
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({
-        equityUsd: equity,
-        // 95k notional existing + 6k new = 101k > 100k = 10× equity
-        positions: [makePosition("BTC/USDC", "strategy-a", 95_000)],
-      }),
-    });
-    const signal = makeSignal("buy");
-    // 6k notional on 10k equity would push aggregate to 10.1× (over 10× cap).
-    await expect(
-      om.placeOrder({
-        signal,
-        symbol: makeSymbol(),
-        amount: 0.1, // 0.1 × 60_000 = 6_000
-        referencePrice: 60_000,
-        type: "market",
-      }),
-    ).rejects.toThrow(OrderManagerError);
-  });
-
-  // ---------------------------------------------------------------------------
-  // 3) L2 allows order at exactly 10× cap (no false-positive)
-  // ---------------------------------------------------------------------------
-  it("allows order that is exactly at 1:10 cap (no false-positive)", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const equity = 10_000;
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({
-        equityUsd: equity,
-        positions: [makePosition("BTC/USDC", "strategy-a", 99_000)],
-      }),
-    });
-    const signal = makeSignal("buy");
-    // 1k notional on 10k equity → total 100k = 10× cap (allowed).
-    const order = await om.placeOrder({
-      signal,
-      symbol: makeSymbol(),
-      amount: 1 / 60_000, // 0.00001666... × 60_000 = 1
-      referencePrice: 60_000,
-      type: "market",
-    });
-    expect(order.status).toBe("open");
-  });
-
-  // ---------------------------------------------------------------------------
-  // 4) cancelOrder wraps feed.cancelOrder and removes from in-flight
-  // ---------------------------------------------------------------------------
-  it("cancelOrder removes order from in-flight tracking", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
-    });
-    const order = await om.placeOrder({
-      signal: makeSignal(),
-      symbol: makeSymbol(),
-      amount: 0.01,
-      referencePrice: 60_000,
-      type: "market",
-    });
-    expect(om.getInFlightCount()).toBe(1);
-    const cancelled = await om.cancelOrder(order.clientOrderId, order.symbol);
-    expect(cancelled.status).toBe("canceled");
-    expect(om.getInFlightCount()).toBe(0);
-  });
-
-  // ---------------------------------------------------------------------------
-  // 5) getOpenOrders wraps feed.fetchOpenOrders
-  // ---------------------------------------------------------------------------
-  it("getOpenOrders returns feed.fetchOpenOrders", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
-    });
-    await om.placeOrder({
-      signal: makeSignal(),
-      symbol: makeSymbol(),
-      amount: 0.01,
-      referencePrice: 60_000,
-      type: "market",
-    });
-    const opens = await om.getOpenOrders(makeSymbol());
-    expect(opens.length).toBe(1);
-  });
-
-  // ---------------------------------------------------------------------------
-  // 6) getCounters increments placed/rejected correctly
-  // ---------------------------------------------------------------------------
-  it("getCounters tracks placed and rejected", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({
-        equityUsd: 10_000,
-        positions: [makePosition("BTC/USDC", "strategy-a", 99_999)], // too close
-      }),
-    });
-    const countersBefore = om.getCounters();
-    expect(countersBefore.placed).toBe(0);
-    expect(countersBefore.rejected).toBe(0);
-    // Reject: 99_999 + 0.1 × 60_000 = 105_999 > 100_000 cap
-    await expect(
-      om.placeOrder({
-        signal: makeSignal(),
-        symbol: makeSymbol(),
-        amount: 0.1,
-        referencePrice: 60_000,
-        type: "market",
-      }),
-    ).rejects.toThrow(OrderManagerError);
-    const countersAfter = om.getCounters();
-    expect(countersAfter.rejected).toBe(1);
-    expect(countersAfter.placed).toBe(0);
-  });
-
-  // ---------------------------------------------------------------------------
-  // 7) recordFill updates in-flight cache
-  // ---------------------------------------------------------------------------
-  it("recordFill updates the in-flight order", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
-    });
-    const order = await om.placeOrder({
-      signal: makeSignal(),
-      symbol: makeSymbol(),
-      amount: 0.01,
-      referencePrice: 60_000,
-      type: "market",
-    });
-    const filled: Order = {
-      ...order,
-      status: "closed",
-      filled: 0.01,
-      average: 60_000,
-    };
-    om.recordFill(order.clientOrderId, filled);
-    // After fill, in-flight count is 0 (closed orders are removed).
-    expect(om.getInFlightCount()).toBe(0);
-    // counters.filled should be 1
-    expect(om.getCounters().filled).toBe(1);
-  });
-
-  // ---------------------------------------------------------------------------
-  // 8) Limit order requires limitPrice
-  // ---------------------------------------------------------------------------
-  it("limit order without limitPrice throws OrderManagerError", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
-    });
-    await expect(
-      om.placeOrder({
-        signal: makeSignal(),
-        symbol: makeSymbol(),
-        amount: 0.01,
-        referencePrice: 60_000,
-        type: "limit",
-      }),
-    ).rejects.toThrow(OrderManagerError);
-  });
-
-  // ---------------------------------------------------------------------------
-  // 9) Invalid amount/price throws
-  // ---------------------------------------------------------------------------
-  it("invalid amount or price throws OrderManagerError", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
-    });
-    await expect(
-      om.placeOrder({
-        signal: makeSignal(),
-        symbol: makeSymbol(),
-        amount: 0,
-        referencePrice: 60_000,
-        type: "market",
-      }),
-    ).rejects.toThrow(OrderManagerError);
-    await expect(
-      om.placeOrder({
-        signal: makeSignal(),
-        symbol: makeSymbol(),
-        amount: 0.01,
-        referencePrice: 0,
-        type: "market",
-      }),
-    ).rejects.toThrow(OrderManagerError);
-  });
-
-  // ---------------------------------------------------------------------------
-  // 10) clientOrderId is generated
-  // ---------------------------------------------------------------------------
-  it("placeOrder generates a non-empty clientOrderId", async () => {
-    const feed = new MockExchangeFeed();
-    await feed.open();
-    const om = new OrderManager({
-      feed,
-      getPositionContext: () => ({ equityUsd: 10_000, positions: [] }),
-    });
-    const order = await om.placeOrder({
-      signal: makeSignal(),
-      symbol: makeSymbol(),
-      amount: 0.01,
-      referencePrice: 60_000,
-      type: "market",
-      clientOrderIdHint: "test-hint",
-    });
-    expect(order.clientOrderId).toBeDefined();
-    expect(String(order.clientOrderId).length).toBeGreaterThan(0);
-    expect(String(order.clientOrderId).startsWith("test-hint-")).toBe(true);
   });
 });

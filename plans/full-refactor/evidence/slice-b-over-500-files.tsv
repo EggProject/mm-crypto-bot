@@ -93,7 +93,7 @@ packages/exchange/src/bybitEuFeed.ts	1142
 packages/exchange/src/latency-monitor.test.ts	631
 packages/exchange/src/latency-monitor.ts	701
 packages/exchange/src/ohlc-stream.test.ts	646
-packages/exchange/tests/bybitEuFeed-watch.test.ts	543
+packages/exchange/tests/bybit-eu-feed-watch.test.ts	543
 packages/paper/src/paper-trader.test.ts	795
 scripts/coverage-tools/bot-runtime-driver.ts	3497
 search-best-config/scripts/run-search.ts	941

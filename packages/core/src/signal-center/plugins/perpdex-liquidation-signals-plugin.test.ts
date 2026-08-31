@@ -4,7 +4,7 @@
 // Coverage requirements (from plan prompt §Quality gates):
 //   - ≥35 unit tests
 //   - ≥1 adversarial probe (false positive in quiet markets, missing-feed degradation)
-//   - 3-layer 1:10 defense verified at every boundary
+//   - 3-layer aggregate effective-exposure defense verified at every boundary
 //   - Cascade-imminent heuristic: each of 4 conditions asserted independently
 //   - 5 feed adapters: each adapter path tested with documented fixture
 //   - Throttle/dedup: 24h cooldown per symbol verified
@@ -13,7 +13,7 @@
 import { describe, expect, it } from "bun:test";
 import { createSignalBus } from "../signal-bus.js";
 import type { Bar } from "../types.js";
-import { ONE_TO_TEN_LEVERAGE } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE } from "../../risk/leverage-invariant.js";
 import {
   CoinGlassLiquidationAdapter,
   DEFAULT_PERPDEX_LIQUIDATION_PLUGIN_CONFIG,
@@ -86,10 +86,10 @@ const TEST_BAR: Bar = {
 // ---------------------------------------------------------------------------
 
 describe("PerpDexLiquidationSignalsPlugin — metadata + construction", () => {
-  it("metadata.maxLeverage equals ONE_TO_TEN_LEVERAGE (LAYER 1)", () => {
+  it("metadata.maxAggregateEffectiveLeverage equals DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE (LAYER 1)", () => {
     const p = new PerpDexLiquidationSignalsPlugin();
-    expect(p.metadata.maxLeverage).toBe(ONE_TO_TEN_LEVERAGE);
-    expect(p.metadata.maxLeverage).toBe(10);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
   });
 
   it("metadata.edgeClass is 'risk' (defensive overlay)", () => {
@@ -331,10 +331,10 @@ describe("evaluateCascadeHeuristic — pure function unit tests", () => {
   });
 });
 
-describe("PerpDexLiquidationSignalsPlugin — 3-layer 1:10 defense", () => {
-  it("LAYER 1: metadata.maxLeverage = 10 (constructor field)", () => {
+describe("PerpDexLiquidationSignalsPlugin — 3-layer aggregate effective-exposure defense", () => {
+  it("LAYER 1: metadata.maxAggregateEffectiveLeverage = 10 (constructor field)", () => {
     const p = new PerpDexLiquidationSignalsPlugin();
-    expect(p.metadata.maxLeverage).toBe(ONE_TO_TEN_LEVERAGE);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE);
   });
 
   it("LAYER 2: subscribe(bus) increments layer2AssertionCount with an operational adapter", () => {

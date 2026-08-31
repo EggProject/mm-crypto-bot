@@ -20,7 +20,7 @@
  */
 
 import { ConfigError, loadBotConfig } from "../../config/index.js";
-import type { BotConfig } from "../../config/schema.js";
+import type { BotConfig, StrategySection } from "../../config/schema.js";
 import type { RuntimeRootResolution } from "../../config/runtime-root.js";
 import { colorize } from "../color.js";
 import type { SubcommandHandler } from "../router.js";
@@ -45,12 +45,12 @@ function getConfigPath(flags: ReadonlyMap<string, string | boolean>): string | u
  * brackets stay plain so the column starts at a known position even
  * when color is on (ANSI codes are zero-width in the terminal).
  */
-function formatStrategySection(name: string, section: Record<string, unknown>, isEnabled: boolean): string {
+function formatStrategySection(name: string, section: StrategySection, isEnabled: boolean): string {
   const stateLabel = isEnabled ? "ON " : "OFF";
   const stateColor = isEnabled ? "green" : "dim";
   const lines = [`  [${colorize(stateLabel, stateColor)}] ${name}`];
   for (const [k, value] of Object.entries(section)) {
-    if (k === "enabled") continue;
+    if (k === "enabled" || value === undefined) continue;
     lines.push(`    ${k} = ${formatValue(value)}`);
   }
   return lines.join("\n");
@@ -59,23 +59,19 @@ function formatStrategySection(name: string, section: Record<string, unknown>, i
 /**
  * `formatValue` — best-effort TOML-ish value rendering for the section table.
  */
-function formatValue(value: unknown): string {
+type StrategyValue = Exclude<StrategySection[keyof StrategySection], undefined> | string;
+
+function formatValue(value: StrategyValue): string {
   if (typeof value === "string") return `"${value}"`;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) {
-    return (
-      "[" + value.map((item) => (typeof item === "string" ? `"${item}"` : String(item))).join(", ") + "]"
-    );
+    return "[" + value.map((item) => `"${item}"`).join(", ") + "]";
   }
-  if (typeof value === "object" && value !== null) {
-    // Inline nested object (e.g. timeframes).
-    const entries = Object.entries(value)
-      .filter(([, nestedValue]) => nestedValue !== undefined)
-      .map(([nestedKey, nestedValue]) => `${nestedKey} = ${formatValue(nestedValue)}`)
-      .join(", ");
-    return `{ ${entries} }`;
-  }
-  return String(value);
+  // The only remaining schema-derived value is the validated timeframes object.
+  const entries = Object.entries(value)
+    .map(([nestedKey, nestedValue]) => `${nestedKey} = ${formatValue(nestedValue)}`)
+    .join(", ");
+  return `{ ${entries} }`;
 }
 
 /**

@@ -1,69 +1,9 @@
 // packages/core/src/signal-center/types.ts — Phase 10G Track A
-//
-// Discriminated unions for typed Signal events on the SignalBus.
-//
-// Why discriminated unions?
-// -------------------------
-// The Phase 1-9 ensemble composes 4-5 strategies that all return
-// `StrategySignal { side, confidence, reason, stopLoss, takeProfit }`. The
-// caller has to know WHICH strategy produced WHICH signal to interpret
-// it. As the system grows to N plugins (Phase 10G.2+ drop-ins: DonchianMTF,
-// FundingTiming, VolTargeted, Cross-X, Options-vol), this becomes a
-// brittle pattern — every new plugin = a new field on `StrategySignal`,
-// breaking every consumer that doesn't yet handle it.
-//
-// The Signal Center fix: each plugin emits a TYPED Signal discriminated
-// by `kind`. Subscribers narrow by `kind` at the type system level — no
-// runtime `if (signal.kind === 'foo')` branches to forget, no
-// `signal as DirectionSignal` casts.
-//
-// References (≥3 independent sources on discriminated unions in TS):
-//   - TypeScript Handbook §3.10 Discriminated Unions — official TC39
-//     recommended pattern for sum types (Microsoft TypeScript team, 2024).
-//   - Effective TypeScript (Dan Vanderkam, O'Reilly 2019/2024) Item 32 —
-//     "Prefer Union Types to Type Hierarchies" for finite, disjoint
-//     alternatives like Signal kinds.
-//   - Type-Level TypeScript (Alex Vakulov, 2023) — exhaustive `switch`
-//     pattern with `never`-narrowing for compile-time completeness.
-//
-// Type-safety analysis:
-//   - Adding a new Signal kind requires (a) adding the literal to
-//     `SignalKind`, (b) adding the variant to the union, (c) updating
-//     the `is*` type guards. ANY missing update = a TypeScript compile
-//     error at the FIRST consumer that pattern-matches the new kind.
-//   - Subscribers register handlers by `SignalKind`, so a misrouted
-//     subscription (e.g., DirectionSignal sent to a CarrySignal handler)
-//     fails at TYPE CHECK, not at runtime when the strategy fires.
-
-// ---------------------------------------------------------------------------
 // SignalKind — finite, exhaustive set of signal categories.
-// ---------------------------------------------------------------------------
-
-/**
- * `SignalKind` — the closed set of signal categories on the bus.
- *
- * Adding a new signal kind (e.g., `LiquiditySignal` for an order-book
- * alpha in Phase 11+) requires:
- *   1. Adding the literal here.
- *   2. Adding the matching variant to `Signal` (below).
- *   3. Adding a corresponding `isXxx(s: Signal): s is XxxSignal` guard.
- *   4. Updating any exhaustive `switch (s.kind)` in subscribers.
- *
- * All four updates are TYPE-CHECKED — the first consumer that forgets
- * step 4 fails the compiler with `Type 'XxxSignal' is not assignable to
- * type 'never'` (the classic discriminated-union exhaustiveness trick).
- */
 export type SignalKind = "direction" | "carry" | "sizing" | "risk" | "factor" | "funding-snapshot";
 
-// ---------------------------------------------------------------------------
 // DirectionSignal — a directional view (long / short / flat) with strength.
-// ---------------------------------------------------------------------------
 
-/**
- * `DirectionSide` — discrete directional view. `flat` means no exposure
- * (the plugin is neutral / unwound). NOT a 3-state ternary — this is a
- * sum type so subscribers can match `case 'flat'` distinctly.
- */
 export type DirectionSide = "long" | "short" | "flat";
 
 /**
@@ -84,14 +24,14 @@ export interface DirectionSignal {
   readonly side: DirectionSide;
   readonly strength: number; // 0..1
   readonly source: string;
-  /** Explicit instrument attribution. Consumers must prefer this over source parsing. */
+  /**
+   * Explicit instrument attribution. Consumers must prefer this over source parsing.
+   */
   readonly symbol?: string;
   readonly timestampMs?: number;
 }
 
-// ---------------------------------------------------------------------------
 // CarrySignal — funding-rate carry state (regime classification).
-// ---------------------------------------------------------------------------
 
 /**
  * `CarryRegime` — discrete regime classification for funding-rate carry.
@@ -122,9 +62,7 @@ export interface CarrySignal {
   readonly timestampMs?: number;
 }
 
-// ---------------------------------------------------------------------------
 // SizingSignal — recommended position sizing for a strategy / symbol.
-// ---------------------------------------------------------------------------
 
 /**
  * `SizingSignal` — the recommended notional × leverage combination to
@@ -134,13 +72,11 @@ export interface CarrySignal {
  *    position (don't trade), 1 = full Kelly (aggressive). The signal
  *    center's risk engine may further reduce this.
  *  - `volMultiplier` — Moreira-Muir-style inverse-vol multiplier in
- *    [0.25, 1.0] under 1:10 mandate (Track G clamp). The signal bus
- *    is INVOLVED in sizing composition: the carry-baseline plugin
+ *    [0.25, 1.0]. The signal bus is involved in sizing composition: the carry-baseline plugin
  *    emits its own kellyFraction from the rolling Sharpe, and the
  *    vol-targeting plugin (Phase 10G.2c) emits a separate
  *    volMultiplier; Track B risk engine composes them with min().
  *  - `notional` — final notional in USD (base × leverage × kelly × vol).
- *    MUST respect the 1:10 leverage MANDATE: notional ≤ baseNotional × 10.
  *  - `source` — plugin name.
  */
 export interface SizingSignal {
@@ -151,13 +87,13 @@ export interface SizingSignal {
   readonly source: string;
   readonly symbol?: string;
   readonly timestampMs?: number;
-  /** Sizing transforms already applied to this signal (cycle prevention). */
+  /**
+   * Sizing transforms already applied to this signal (cycle prevention).
+   */
   readonly transformedBy?: readonly string[];
 }
 
-// ---------------------------------------------------------------------------
 // RiskSignal — portfolio-level risk telemetry.
-// ---------------------------------------------------------------------------
 
 /**
  * `RiskSignal` — portfolio-level risk metrics emitted by either an
@@ -184,8 +120,7 @@ export interface SizingSignal {
  *  - `closeNotionalUsd` (OPTIONAL, Phase 11.1d+) — implied close
  *    instruction in USD. When present, downstream consumers should
  *    reduce exposure by this amount. The plugin emitting this
- *    field is responsible for asserting it respects the 1:10
- *    leverage MANDATE (Layer 2 defense).
+ *    field is responsible for its applicable exposure controls.
  *  - `sizeModifier` (OPTIONAL, Phase 11.2a+) — recommended position-size
  *    multiplier in `[0, 1.0]` applied by the meta-plugin. 1.0 = full size
  *    (do not scale), 0.7 = reduce 30%, 0.4 = reduce 60%. Used by the
@@ -205,37 +140,28 @@ export interface RiskSignal {
   readonly source: string;
   readonly symbol?: string;
   readonly timestampMs?: number;
-  /** Phase 11.1d+ — active breach flag. */
+  /**
+   * Phase 11.1d+ — active breach flag.
+   */
   readonly breach?: boolean;
-  /** Phase 11.1d+ — human-readable cause (e.g., "funding-flip"). */
+  /**
+   * Phase 11.1d+ — human-readable cause (e.g., "funding-flip").
+   */
   readonly reason?: string;
-  /** Phase 11.1d+ — implied close instruction (USD, respects 1:10 cap). */
+  /**
+   * Implied close instruction in USD.
+   */
   readonly closeNotionalUsd?: number;
-  /** Phase 11.2a+ — recommended size multiplier in [0, 1.0] (≤ 1.0 enforced). */
+  /**
+   * Phase 11.2a+ — recommended size multiplier in [0, 1.0] (≤ 1.0 enforced).
+   */
   readonly sizeModifier?: number;
 }
 
-// ---------------------------------------------------------------------------
 // FundingSnapshotSignal — cross-venue funding snapshot (Phase 12 Track B).
-// ---------------------------------------------------------------------------
 
 /**
- * `FundingSnapshotSignal` — read-only telemetry emitted by
- * `CrossDexFundingWatcherPlugin` (Phase 12 Track B / Phase 11.5
- * Track E §H1) and `CrossVenueFundingDivergencePlugin`
- * (Phase 25 #2 T4 Track C, 6-venue extension).
- *
- * Carries the latest 8h-equivalent funding rate per venue for a single
- * asset, plus the per-asset cross-venue spread and the
- * Hyperliquid predicted-vs-realized gap. Consumers include
- * `CrossDexDeltaNeutralArb` (Phase 12 E2, future), the central
- * `SignalCenterV1` telemetry sink, and ad-hoc research dashboards.
- *
- * This is a SIGNAL-ONLY signal: it carries zero notional impact
- * (`spreadMax` is information, not a position instruction). The
- * 1:10 leverage mandate is trivially satisfied at the metadata cap
- * (`maxLeverage = 10`) — no notional assertion is needed at the
- * per-emit layer because no notional is computed.
+ * `FundingSnapshotSignal` carries a read-only, per-asset cross-venue funding snapshot.
  *
  * Fields are 8h-equivalent basis points (bps):
  *   - `hl8h` — Hyperliquid 8h-equivalent rate. Hyperliquid settles
@@ -293,19 +219,25 @@ export interface FundingSnapshotSignal {
   readonly source: string;
   readonly symbol?: string;
   readonly timestampMs?: number;
-  /** Phase 25 #2 T4 — dYdX v4 8h-equivalent rate in bps. */
+  /**
+   * Phase 25 #2 T4 — dYdX v4 8h-equivalent rate in bps.
+   */
   readonly dydx8h?: number;
-  /** Phase 25 #2 T4 — Bitget USDT-M 8h-native rate in bps. */
+  /**
+   * Phase 25 #2 T4 — Bitget USDT-M 8h-native rate in bps.
+   */
   readonly bitget8h?: number;
-  /** Phase 25 #2 T4 — explicit max-min divergence across all venues in bps. */
+  /**
+   * Phase 25 #2 T4 — explicit max-min divergence across all venues in bps.
+   */
   readonly divergenceBps?: number;
-  /** Phase 25 #2 T4 — start of the 1-minute bucket the snapshot represents. */
+  /**
+   * Phase 25 #2 T4 — start of the 1-minute bucket the snapshot represents.
+   */
   readonly bucketStartMs?: number;
 }
 
-// ---------------------------------------------------------------------------
 // Signal — the discriminated union (sum type) of all signal categories.
-// ---------------------------------------------------------------------------
 
 /**
  * `FactorRegime` — discrete regime classification emitted by
@@ -369,9 +301,13 @@ export interface FactorSignal {
   readonly source: string;
   readonly symbol?: string;
   readonly timestampMs?: number;
-  /** Observation-quality weight in [0, 1]. Default: 1.0. */
+  /**
+   * Observation-quality weight in [0, 1]. Default: 1.0.
+   */
   readonly confidence?: number;
-  /** Staleness budget in ms — if last fetch is older, factor is informational only. Default: 0. */
+  /**
+   * Staleness budget in ms — if last fetch is older, factor is informational only. Default: 0.
+   */
   readonly staleMs?: number;
 }
 
@@ -392,9 +328,7 @@ export interface FactorSignal {
 export type Signal =
   DirectionSignal | CarrySignal | SizingSignal | RiskSignal | FactorSignal | FundingSnapshotSignal;
 
-// ---------------------------------------------------------------------------
 // Type guards — runtime narrowing for type-safe consumption.
-// ---------------------------------------------------------------------------
 
 /**
  * `isDirection` — narrow `Signal` to `DirectionSignal`.
@@ -462,9 +396,7 @@ export function assertExhaustiveSignal(s: never): never {
   throw new Error(`Unknown Signal kind: ${JSON.stringify(s)}`);
 }
 
-// ---------------------------------------------------------------------------
 // Result<T, E> — minimal Result type for plugin config validation.
-// ---------------------------------------------------------------------------
 
 /**
  * `Ok<T>` — successful Result variant.
@@ -477,10 +409,12 @@ export interface Ok<T> {
 /**
  * `Err<E>` — failure Result variant.
  */
-export interface Err<E> {
+interface ResultError<E> {
   readonly ok: false;
   readonly error: E;
 }
+
+export type { ResultError as Err };
 
 /**
  * `Result<T, E>` — minimal Result type for plugin config validation
@@ -490,7 +424,7 @@ export interface Err<E> {
  * existing code base has no Result type elsewhere. Adding a dependency
  * for this would be over-engineering.
  */
-export type Result<T, E> = Ok<T> | Err<E>;
+export type Result<T, E> = Ok<T> | ResultError<E>;
 
 /**
  * `ok` — Result constructor for the success variant.
@@ -502,9 +436,11 @@ export function ok<T>(value: T): Ok<T> {
 /**
  * `err` — Result constructor for the failure variant.
  */
-export function err<E>(error: E): Err<E> {
+function error<E>(error: E): ResultError<E> {
   return { ok: false, error };
 }
+
+export { error as err };
 
 /**
  * `ConfigError` — a single config-validation error. Multiple errors

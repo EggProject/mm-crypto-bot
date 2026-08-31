@@ -104,17 +104,20 @@ const configForState = {
   bot: { ...DEFAULT_BOT_CONFIG.bot, state_file: "/external/state.json" },
 };
 const RICH_STRATEGY_CONFIG = {
+  ...DEFAULT_BOT_CONFIG,
+  bot: {
+    mode: DEFAULT_BOT_CONFIG.bot.mode,
+    log_level: DEFAULT_BOT_CONFIG.bot.log_level,
+    state_file: DEFAULT_BOT_CONFIG.bot.state_file,
+    selected_leverage: "10",
+  },
   strategies: {
+    ...DEFAULT_BOT_CONFIG.strategies,
     dydx_cex_carry: {
+      ...DEFAULT_BOT_CONFIG.strategies.dydx_cex_carry,
       enabled: true,
-      custom_string: "value",
-      custom_number: 1,
-      custom_boolean: true,
-      custom_array: ["value", 1],
-      custom_object: { first: "value", second: 1 },
-      custom_undefined: undefined,
-      // eslint-disable-next-line unicorn/no-null -- A JSON/TOML-equivalent passthrough value must preserve null.
-      custom_null: null,
+      cap: 0.1,
+      symbols: ["BTC/USDC"],
       timeframes: { htf: "1h", mtf: "15m", ltf: "5m" },
     },
   },

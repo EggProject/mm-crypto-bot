@@ -51,8 +51,7 @@
  *     `RiskManager` to call with rolling-window stats.
  */
 
-import type { Logger } from "@mm-crypto-bot/shared";
-import { createLogger } from "@mm-crypto-bot/shared";
+import { requireLogger, type Logger } from "@mm-crypto-bot/logging";
 
 // ============================================================================
 // Public types
@@ -65,7 +64,9 @@ import { createLogger } from "@mm-crypto-bot/shared";
  */
 export interface ClosedTrade {
   readonly pnlUsd: number;
-  /** Trade close timestamp (epoch ms) — used for sort-stability in tests. */
+  /**
+  Trade close timestamp (epoch ms) — used for sort-stability in tests.
+  */
   readonly closedAt: number;
 }
 
@@ -211,10 +212,10 @@ export class KellySizer {
     if (!Number.isFinite(config.fraction) || config.fraction <= 0 || config.fraction > 1) {
       throw new Error(`kelly: fraction must be in (0, 1], got ${String(config.fraction)}`);
     }
-    if (!Number.isInteger(config.windowSize) || config.windowSize < 1) {
+    if (!Number.isSafeInteger(config.windowSize) || config.windowSize < 1) {
       throw new Error(`kelly: windowSize must be a positive integer, got ${String(config.windowSize)}`);
     }
-    if (!Number.isInteger(config.minTrades) || config.minTrades < 1) {
+    if (!Number.isSafeInteger(config.minTrades) || config.minTrades < 1) {
       throw new Error(`kelly: minTrades must be a positive integer, got ${String(config.minTrades)}`);
     }
     if (
@@ -233,7 +234,7 @@ export class KellySizer {
     this.minTrades = config.minTrades;
     this.fallbackFraction = config.fallbackFraction;
     this.maxFraction = config.maxFraction;
-    this.logger = config.logger ?? createLogger("info");
+    this.logger = requireLogger(config.logger, "kelly");
   }
 
   /**
@@ -285,13 +286,13 @@ export class KellySizer {
     const full = kellyFraction(stats.winRate, stats.winLossRatio);
     const frac = full * this.fraction;
     const capped = Math.min(frac, this.maxFraction);
-    const region: KellyStats["region"] = !this.enabled
-      ? "cold-start"
-      : this.trades.length < this.minTrades
+    const region: KellyStats["region"] = this.enabled
+      ? this.trades.length < this.minTrades
         ? "cold-start"
         : full <= 0
           ? "no-edge"
-          : "active";
+          : "active"
+      : "cold-start";
     return {
       trades: this.trades.length,
       wins: stats.wins,
@@ -313,7 +314,7 @@ export class KellySizer {
    */
   public reset(): void {
     this.trades = [];
-    this.logger.info("[kelly] rolling window reset");
+    this.logger.info("risk.kelly.window.reset");
   }
 
   /**

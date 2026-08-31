@@ -6,6 +6,12 @@ this plan.
 
 ## General rules
 
+- C4c logging rollback is atomic: revert the logging package, bot workspace
+  link, direct consumer injection, shared export deletion, test helpers, and
+  lock/TS metadata together. Do not keep a parallel logger, alias, re-export,
+  or silent test/runtime fallback. Preserve the pre-rollback stderr evidence
+  and do not alter trading/risk calculations.
+
 - Each phase is committed only after its entry/exit evidence; no mixed broad
   migration commit. Retain commit SHA, lockfile hash, validation output, and
   artifact manifest for every phase.

@@ -40,53 +40,45 @@ async function capture(
 function configuredStrategies(): BotConfig {
   return BotConfigSchema.parse({
     ...DEFAULT_BOT_CONFIG,
+    bot: {
+      mode: DEFAULT_BOT_CONFIG.bot.mode,
+      log_level: DEFAULT_BOT_CONFIG.bot.log_level,
+      state_file: DEFAULT_BOT_CONFIG.bot.state_file,
+      selected_leverage: DEFAULT_BOT_CONFIG.bot.selected_leverage.canonical,
+    },
     strategies: {
       ...DEFAULT_BOT_CONFIG.strategies,
       donchian_pivot_composition: {
         ...DEFAULT_BOT_CONFIG.strategies.donchian_pivot_composition,
         enabled: true,
         cap: 0.1,
-        leverage: 2,
         symbols: ["BTC/USDT"],
         timeframes: { htf: "1d", mtf: "4h", ltf: "1h" },
-        custom_text: "value",
-        custom_number: 3,
-        custom_boolean: false,
-        custom_list: ["one", 2],
-        custom_object: { child: "nested", omitted: undefined },
-        custom_deeper_object: { child: { grandchild: "deeper" } },
       },
       dydx_cex_carry: { ...DEFAULT_BOT_CONFIG.strategies.dydx_cex_carry, enabled: false },
     },
   });
 }
 
-function configuredStrategiesWithUndefined(): BotConfig {
-  const config = configuredStrategies();
-  Object.defineProperties(config.strategies.donchian_pivot_composition, {
-    custom_null: { enumerable: true, value: /required-pattern/.exec("") },
-    custom_undefined: { enumerable: true, value: undefined },
-  });
-  return config;
-}
-
 describe("strategies command coverage", () => {
-  it("renders strings, scalars, arrays, nested objects, and enabled states", async () => {
+  it("renders the valid configured strategy boundary and enabled states", async () => {
     const result = await capture(async () =>
       createStrategiesCommand({
-        loadConfig: configuredStrategiesWithUndefined,
+        loadConfig: configuredStrategies,
         resolveRuntimeRoot: resolvedRuntimeRoot,
       })(parseArgv(["strategies"]), CLI_CONTEXT),
     );
     expect(result.code).toBe(0);
-    expect(result.output).toContain('custom_text = "value"');
-    expect(result.output).toContain("custom_number = 3");
-    expect(result.output).toContain("custom_boolean = false");
-    expect(result.output).toContain('custom_list = ["one", 2]');
-    expect(result.output).toContain('custom_object = { child = "nested" }');
-    expect(result.output).toContain('custom_deeper_object = { child = { grandchild = "deeper" } }');
-    expect(result.output).toContain("custom_null = null");
+    expect(result.output).toContain("Strategies:");
+    expect(result.output).toContain("[ON ");
+    expect(result.output).toContain("cap = 0.1");
+    expect(result.output).toContain('symbols = ["BTC/USDT"]');
+    expect(result.output).toContain('timeframes = { htf = "1d", mtf = "4h", ltf = "1h" }');
     expect(result.output).toContain("dydx_cex_carry");
+    expect(result.output.indexOf("cap = 0.1")).toBeLessThan(result.output.indexOf('symbols = ["BTC/USDT"]'));
+    expect(result.output.indexOf('symbols = ["BTC/USDT"]')).toBeLessThan(
+      result.output.indexOf('timeframes = { htf = "1d", mtf = "4h", ltf = "1h" }'),
+    );
   });
 
   it("returns ConfigError, Error, and hostile load failures distinctly", async () => {

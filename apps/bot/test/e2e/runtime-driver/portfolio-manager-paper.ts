@@ -1,18 +1,45 @@
+import { PortfolioStop } from "../../../src/portfolio/portfolio-stop.js";
 import { CorrelationMatrix } from "../../../src/portfolio/correlation.js";
 import { PortfolioManager } from "../../../src/portfolio/portfolio-manager.js";
-import { PortfolioStop } from "../../../src/portfolio/portfolio-stop.js";
 import { RiskBudgetAllocator } from "../../../src/portfolio/risk-budget.js";
 
-import { assertCondition, expectFailure } from "./runtime-driver-core.js";
+import { assertCondition, quietLogger } from "./runtime-driver-core.js";
 import {
+  makePortfolioSymbol,
+  SequencedFillFeed,
   ImmediateFillFeed,
   makePortfolioStack,
-  makePortfolioSymbol,
   registerPortfolioStrategies,
-  SequencedFillFeed,
 } from "./runtime-driver-portfolio-fixtures.js";
 
-export async function runPortfolioManagerPaper(): Promise<void> {
+function expectTerminalEvidenceLimitFailure(
+  terminalCloseEvidenceLimit: number,
+  positionManager: Awaited<ReturnType<typeof makePortfolioStack>>["positionManager"],
+  orderManager: Awaited<ReturnType<typeof makePortfolioStack>>["orderManager"],
+  label: string,
+): void {
+  try {
+    new PortfolioManager({
+      riskBudget: new RiskBudgetAllocator({ totalRiskUsd: 100, logger: quietLogger }),
+      correlation: new CorrelationMatrix({ logger: quietLogger }),
+      portfolioStop: new PortfolioStop({ logger: quietLogger }),
+      positionManager,
+      orderManager,
+      terminalCloseEvidenceLimit,
+      logger: quietLogger,
+    });
+  } catch (error) {
+    assertCondition(
+      error instanceof RangeError &&
+        error.message === "terminalCloseEvidenceLimit must be a positive integer",
+      `${label} did not reach terminal-evidence validation`,
+    );
+    return;
+  }
+  throw new Error(`${label} accepted an invalid terminal-evidence limit`);
+}
+
+async function runPortfolioManagerPaper(): Promise<void> {
   const symbol = makePortfolioSymbol();
   const stack = await makePortfolioStack({
     totalRiskUsd: 1000,
@@ -91,29 +118,23 @@ export async function runPortfolioManagerPaper(): Promise<void> {
       "portfolio trip state was not exposed",
     );
 
-    expectFailure(
-      () =>
-        new PortfolioManager({
-          riskBudget: new RiskBudgetAllocator({ totalRiskUsd: 100 }),
-          correlation: new CorrelationMatrix(),
-          portfolioStop: new PortfolioStop(),
-          positionManager: stack.positionManager,
-          orderManager: stack.orderManager,
-          terminalCloseEvidenceLimit: 0,
-        }),
+    expectTerminalEvidenceLimitFailure(
+      0,
+      stack.positionManager,
+      stack.orderManager,
       "zero terminal evidence bound",
     );
-    expectFailure(
-      () =>
-        new PortfolioManager({
-          riskBudget: new RiskBudgetAllocator({ totalRiskUsd: 100 }),
-          correlation: new CorrelationMatrix(),
-          portfolioStop: new PortfolioStop(),
-          positionManager: stack.positionManager,
-          orderManager: stack.orderManager,
-          terminalCloseEvidenceLimit: 1.5,
-        }),
+    expectTerminalEvidenceLimitFailure(
+      1.5,
+      stack.positionManager,
+      stack.orderManager,
       "fractional terminal evidence bound",
+    );
+    expectTerminalEvidenceLimitFailure(
+      NaN,
+      stack.positionManager,
+      stack.orderManager,
+      "non-finite terminal evidence bound",
     );
   } finally {
     await stack.feed.close();
@@ -153,3 +174,5 @@ export async function runPortfolioManagerPaper(): Promise<void> {
     await sequencedFeed.close();
   }
 }
+
+export { runPortfolioManagerPaper };

@@ -59,8 +59,7 @@
  * 7.70% max DD, tehát a 10% buffer bőven elég).
  */
 
-import type { Logger } from "@mm-crypto-bot/shared";
-import { createLogger } from "@mm-crypto-bot/shared";
+import { requireLogger, type Logger } from "@mm-crypto-bot/logging";
 
 // ============================================================================
 // Public types
@@ -86,11 +85,17 @@ export interface PortfolioStopOptions {
  * `Hard caps` — a `PortfolioStop` biztonsági határértékei.
  */
 export const PORTFOLIO_STOP_HARD_CAPS = {
-  /** A `max_dd_pct` minimuma — 1% alatt a stop túl érzékeny. */
+  /**
+  A `max_dd_pct` minimuma — 1% alatt a stop túl érzékeny.
+  */
   maxDdPctMin: 0.01,
-  /** A `max_dd_pct` maximuma — 30% felett már nem "stop" kategória. */
+  /**
+  A `max_dd_pct` maximuma — 30% felett már nem "stop" kategória.
+  */
   maxDdPctMax: 0.3,
-  /** A `max_dd_pct` default értéke — a Phase 31 audit alapján. */
+  /**
+  A `max_dd_pct` default értéke — a Phase 31 audit alapján.
+  */
   maxDdPctDefault: 0.1,
 } as const;
 
@@ -114,6 +119,7 @@ export class PortfolioStopError extends Error {
   public override readonly name = "PortfolioStopError";
   public override readonly cause: unknown;
 
+  // eslint-disable-next-line unicorn/no-null -- The error contract distinguishes an absent cause with null.
   public constructor(message: string, cause: unknown = null) {
     super(message);
     this.cause = cause;
@@ -140,12 +146,13 @@ export class PortfolioStop {
   private currentEquityUsd = 0;
   private peakEquityUsd = 0;
   private tripped = false;
+  // eslint-disable-next-line unicorn/no-null -- The public stop-state contract represents an untripped timestamp as null.
   private trippedAt: number | null = null;
   private perStrategyContrib: Map<string, number> = new Map<string, number>();
   private hasReceivedEquity = false;
 
-  public constructor(opts: PortfolioStopOptions = {}) {
-    const maxDdPct = opts.maxDdPct ?? PORTFOLIO_STOP_HARD_CAPS.maxDdPctDefault;
+  public constructor(options: PortfolioStopOptions = {}) {
+    const maxDdPct = options.maxDdPct ?? PORTFOLIO_STOP_HARD_CAPS.maxDdPctDefault;
     if (
       !Number.isFinite(maxDdPct) ||
       maxDdPct < PORTFOLIO_STOP_HARD_CAPS.maxDdPctMin ||
@@ -156,8 +163,36 @@ export class PortfolioStop {
       );
     }
     this.maxDdPct = maxDdPct;
-    this.logger = opts.logger ?? createLogger("info");
-    this.tripAction = opts.tripAction;
+    this.logger = requireLogger(options.logger, "portfolio-stop");
+    this.tripAction = options.tripAction;
+  }
+
+  private maybeTrip(): void {
+    if (this.peakEquityUsd <= 0) return;
+    const drawdownPct = this.getDrawdownPct();
+    if (drawdownPct < this.maxDdPct) return;
+    this.tripped = true;
+    this.trippedAt = Date.now();
+    this.logger.critical("portfolio.stop.circuitbreaker.tripped", {
+      currentEquityUsd: this.currentEquityUsd,
+      peakEquityUsd: this.peakEquityUsd,
+      drawdownPct,
+      maxDdPct: this.maxDdPct,
+      perStrategyContrib: Object.fromEntries(this.perStrategyContrib),
+      timestamp: this.trippedAt,
+    });
+    void this.fireTripAction();
+  }
+
+  private async fireTripAction(): Promise<void> {
+    if (this.tripAction === undefined) return;
+    try {
+      await this.tripAction();
+    } catch (error) {
+      this.logger.error("portfolio.stop.tripaction.failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   /**
@@ -233,7 +268,7 @@ export class PortfolioStop {
    */
   public recordEquity(equityUsd: number, perStrategyContrib?: ReadonlyMap<string, number>): void {
     if (!Number.isFinite(equityUsd)) {
-      this.logger.warn("[portfolio-stop] ignoring non-finite equity", { equityUsd });
+      this.logger.warn("portfolio.stop.equity.invalid", { equityUsd });
       return;
     }
     this.currentEquityUsd = equityUsd;
@@ -285,17 +320,18 @@ export class PortfolioStop {
    * user kéri a peak törlését is, a `reset({ clearPeak: true })`
    * formát használhatja.
    */
-  public reset(opts: { readonly clearPeak?: boolean } = {}): void {
+  public reset(options: { readonly clearPeak?: boolean } = {}): void {
     this.tripped = false;
+    // eslint-disable-next-line unicorn/no-null -- Reset restores the public untripped timestamp contract.
     this.trippedAt = null;
-    if (opts.clearPeak === true) {
+    if (options.clearPeak === true) {
       this.peakEquityUsd = 0;
       this.currentEquityUsd = 0;
       this.perStrategyContrib = new Map();
       this.hasReceivedEquity = false;
     }
-    this.logger.warn("[portfolio-stop] latch reset — portfolio may resume", {
-      clearPeak: opts.clearPeak === true,
+    this.logger.warn("portfolio.stop.latch.reset", {
+      clearPeak: options.clearPeak === true,
     });
   }
 
@@ -309,7 +345,7 @@ export class PortfolioStop {
     if (this.tripped) return;
     this.tripped = true;
     this.trippedAt = Date.now();
-    this.logger.error("[portfolio-stop] FORCE-TRIPPED", {
+    this.logger.critical("portfolio.stop.force.tripped", {
       reason,
       equityUsd: this.currentEquityUsd,
       drawdownPct: this.getDrawdownPct(),
@@ -325,52 +361,5 @@ export class PortfolioStop {
    */
   public hasReceivedAnyEquity(): boolean {
     return this.hasReceivedEquity;
-  }
-
-  // --------------------------------------------------------------------------
-  // Internals
-  // --------------------------------------------------------------------------
-
-  /**
-   * `maybeTrip` — a drawdown check és a trip-trigger.
-   *
-   * A `tripped` flag-et CSAK egyszer állítja `true`-ra (latch).
-   * A `tripAction` callback-et async hívja — a hibát elkapjuk és
-   * logoljuk, hogy a bot ne haljon meg a callback failure-je miatt.
-   */
-  private maybeTrip(): void {
-    if (this.peakEquityUsd <= 0) {
-      return;
-    }
-    const dd = this.getDrawdownPct();
-    if (dd < this.maxDdPct) {
-      return;
-    }
-    this.tripped = true;
-    this.trippedAt = Date.now();
-    this.logger.error("[portfolio-stop] CRITICAL — circuit breaker TRIPPED", {
-      currentEquityUsd: this.currentEquityUsd,
-      peakEquityUsd: this.peakEquityUsd,
-      drawdownPct: dd,
-      maxDdPct: this.maxDdPct,
-      perStrategyContrib: Object.fromEntries(this.perStrategyContrib),
-      timestamp: this.trippedAt,
-    });
-    void this.fireTripAction();
-  }
-
-  /**
-   * `fireTripAction` — a trip callback futtatása. A hibát elkapjuk
-   * és logoljuk — a bot state-e nem függhet a callback sikerességétől.
-   */
-  private async fireTripAction(): Promise<void> {
-    if (this.tripAction === undefined) return;
-    try {
-      await this.tripAction();
-    } catch (err) {
-      this.logger.error("[portfolio-stop] trip action threw — continuing", {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
   }
 }

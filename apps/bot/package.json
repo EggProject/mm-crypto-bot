@@ -4,17 +4,20 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "build": "bun build src/index.ts --target=bun --outdir=dist --format=esm",
+    "build": "tsc -p tsconfig.build.json --noEmit && bun build src/index.ts --target=bun --outdir=dist --format=esm",
     "dev": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
     "lint": "eslint src",
     "test": "bun test src",
     "coverage": "bun ../../scripts/coverage-tools/run-bot-unit-coverage.ts",
     "coverage:unit": "bun ../../scripts/coverage-tools/run-bot-unit-coverage.ts",
     "coverage:e2e": "bun ../../scripts/coverage-tools/run-bot-e2e-coverage.ts",
+    "coverage:config-command": "cd ../.. && vitest run --config apps/bot/vitest.config-command.config.mjs --coverage",
     "clean": "rm -rf .turbo *.tsbuildinfo dist coverage"
   },
   "dependencies": {
+    "@mm-crypto-bot/assert": "workspace:*",
     "@mm-crypto-bot/backtest": "workspace:*",
     "@mm-crypto-bot/core": "workspace:*",
     "@mm-crypto-bot/exchange": "workspace:*",

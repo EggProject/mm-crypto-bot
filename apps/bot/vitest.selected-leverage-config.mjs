@@ -18,7 +18,7 @@ export default defineConfig({
     reporters: ["dot"],
     setupFiles: [path.join(appRoot, "test/vitest.setup.ts")],
     include: [
-      "src/config/{config*,loader-environment,schema-lint-foundation,selected-leverage*,store*}.test.ts",
+      "src/config/{config*,loader-environment,selected-leverage*,store*}.test.ts",
       "src/cli/commands/config*.test.ts",
     ],
     coverage: {
@@ -26,7 +26,6 @@ export default defineConfig({
       enabled: true,
       include: [
         "src/config/schema.ts",
-        "src/config/schema-builders.ts",
         "src/config/loader.ts",
         "src/config/store-contracts.ts",
         "src/config/store.ts",

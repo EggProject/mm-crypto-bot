@@ -4,36 +4,28 @@
  * A `Telemetry` unit tesztjei — log structure, metrics emit, formatUptime.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { describe, expect, it } from "bun:test";
 
-import { Telemetry, computeDrawdownPct, formatUptime } from "./telemetry.js";
+import { RecordingLogger } from "@logging-testing";
+import { Telemetry as RuntimeTelemetry, computeDrawdownPct, formatUptime } from "./telemetry.js";
+
+class Telemetry extends RuntimeTelemetry {
+  public constructor(...arguments_: ConstructorParameters<typeof RuntimeTelemetry>) {
+    const [options] = arguments_;
+    super({ ...options, logger: options.logger ?? new RecordingLogger() });
+  }
+}
 
 describe("Telemetry", () => {
-  let tmpDir: string;
-  let logDir: string;
-
-  beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "mm-telemetry-"));
-    logDir = join(tmpDir, "logs");
-  });
-
-  afterEach(() => {
-    if (existsSync(tmpDir)) {
-      rmSync(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  it("emits metrics to daily log file", () => {
+  it("emits metrics through the injected structured logger", () => {
+    const logger = new RecordingLogger();
     const t = new Telemetry({
-      logDir,
+      logger,
       metricsIntervalSec: 60,
       snapshotProvider: () => ({
         equityUsd: 11_000,
         initialEquityUsd: 10_000,
-        realizedPnlUsd: 1_000,
+        realizedPnlUsd: 1000,
         unrealizedPnlUsd: 0,
         drawdownPct: 0,
         openPositions: 1,
@@ -47,20 +39,16 @@ describe("Telemetry", () => {
       }),
     });
     t.emitMetrics();
-    const date = new Date().toISOString().slice(0, 10);
-    const filePath = join(logDir, `bot-${date}.log`);
-    expect(existsSync(filePath)).toBe(true);
-    const raw = readFileSync(filePath, "utf8");
-    const lines = raw.split("\n").filter((l) => l.length > 0);
-    expect(lines.length).toBe(1);
-    const parsed = JSON.parse(lines[0] as string) as { kind: string; equityUsd: number };
-    expect(parsed.kind).toBe("metrics");
-    expect(parsed.equityUsd).toBe(11_000);
+    const metricsCall = logger.getCalls().find((call) => call.event === "telemetry.metrics.observed");
+    if (metricsCall === undefined) throw new Error("expected telemetry metrics log call");
+    expect(metricsCall.level).toBe("info");
+    expect(metricsCall.fields).toMatchObject({ equityUsd: 11_000 });
   });
 
   it("setEngaged() updates kill-switch state in next metrics", () => {
+    const logger = new RecordingLogger();
     const t = new Telemetry({
-      logDir,
+      logger,
       snapshotProvider: () => ({
         equityUsd: 10_000,
         initialEquityUsd: 10_000,
@@ -79,17 +67,17 @@ describe("Telemetry", () => {
     });
     t.setEngaged(true, ["max-drawdown", "latency-gate"]);
     t.emitMetrics();
-    const date = new Date().toISOString().slice(0, 10);
-    const filePath = join(logDir, `bot-${date}.log`);
-    const raw = readFileSync(filePath, "utf8");
-    const parsed = JSON.parse(raw) as { killSwitchEngaged: boolean; killSwitchReasons: string[] };
-    expect(parsed.killSwitchEngaged).toBe(true);
-    expect(parsed.killSwitchReasons).toEqual(["max-drawdown", "latency-gate"]);
+    const metricsCall = logger.getCalls().find((call) => call.event === "telemetry.metrics.observed");
+    if (metricsCall === undefined) throw new Error("expected telemetry metrics log call");
+    expect(metricsCall.level).toBe("info");
+    expect(metricsCall.fields).toMatchObject({
+      killSwitchEngaged: true,
+      killSwitchReasons: ["max-drawdown", "latency-gate"],
+    });
   });
 
   it("start() and stop() manage the interval lifecycle", () => {
     const t = new Telemetry({
-      logDir,
       metricsIntervalSec: 60,
       snapshotProvider: () => ({
         equityUsd: 0,
@@ -108,23 +96,25 @@ describe("Telemetry", () => {
       }),
     });
     t.start();
+    t.start();
     t.stop();
     t.stop(); // idempotent
   });
 
   it("getLogger() returns a Logger with debug/info/warn/error methods", () => {
-    const t = new Telemetry({ logDir, snapshotProvider: () => emptySnap() });
+    const t = new Telemetry({ snapshotProvider: () => emptySnap() });
     const logger = t.getLogger();
     expect(typeof logger.debug).toBe("function");
     expect(typeof logger.info).toBe("function");
     expect(typeof logger.warn).toBe("function");
     expect(typeof logger.error).toBe("function");
+    expect(typeof logger.critical).toBe("function");
   });
 });
 
 describe("formatUptime", () => {
   it("formats seconds", () => {
-    expect(formatUptime(5_000)).toBe("5s");
+    expect(formatUptime(5000)).toBe("5s");
     expect(formatUptime(59_000)).toBe("59s");
   });
   it("formats minutes", () => {
@@ -148,7 +138,7 @@ describe("computeDrawdownPct", () => {
     expect(computeDrawdownPct(10_000, 10_000, 10_000)).toBe(0);
   });
   it("computes drawdown from peak", () => {
-    expect(computeDrawdownPct(8_000, 10_000, 10_000)).toBeCloseTo(0.2);
+    expect(computeDrawdownPct(8000, 10_000, 10_000)).toBeCloseTo(0.2);
   });
   it("returns 0 if equity > peak (no drawdown)", () => {
     expect(computeDrawdownPct(12_000, 10_000, 10_000)).toBe(0);

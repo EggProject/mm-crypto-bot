@@ -1,11 +1,3 @@
-// packages/core/src/signal-center/plugins/vol-target-sizing-plugin.test.ts —
-// Phase 11.1c Track A — VolTargetSizingPlugin test suite.
-//
-// Test coverage (≥30 unit tests) for VolTargetSizingPlugin:
-//
-// Construction / config validation:
-//   1-12 see plugin header for full breakdown.
-
 import { describe, expect, it } from "bun:test";
 
 import { SignalBus } from "../signal-bus.js";
@@ -24,7 +16,7 @@ import {
   MIN_MIN_VOL_MULTIPLIER,
   MIN_TARGET_DAILY_VOL,
   MIN_VOL_WINDOW_DAYS,
-  ONE_TO_TEN_LEVERAGE,
+  DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE,
   VolTargetSizingPlugin,
   createVolTargetSizingPlugin,
   extractSizingSignal,
@@ -55,6 +47,24 @@ const mkSizing = (overrides: Partial<SizingSignal> = {}): SizingSignal => ({
   source: "carry-baseline-v1:BTC/USDT",
   ...overrides,
 });
+
+function firstSizingSignal(signals: readonly SizingSignal[]): SizingSignal {
+  const signal = signals[0];
+  if (signal === undefined) throw new Error("Expected a captured sizing signal.");
+  return signal;
+}
+
+function deterministicSignalSequence(): readonly { notional: number; vol: number }[] {
+  const plugin = new VolTargetSizingPlugin({ baseNotionalUsd: 10_000 });
+  const { bus, captured } = wirePlugin(plugin);
+  plugin.recordClose("BTC/USDT", 50_000);
+  plugin.recordClose("BTC/USDT", 51_000);
+  plugin.recordClose("BTC/USDT", 52_000);
+  for (let index = 0; index < 10; index++) {
+    bus.emit(mkSizing({ notional: 50_000, volMultiplier: 0.7 }));
+  }
+  return captured.map((signal) => ({ notional: signal.notional, vol: signal.volMultiplier }));
+}
 
 // ---------------------------------------------------------------------------
 // Construction / config validation
@@ -103,12 +113,12 @@ describe("VolTargetSizingPlugin — construction and metadata", () => {
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("sizing");
     expect(p.metadata.capitalRequirement).toBe(0);
-    expect(p.metadata.maxLeverage).toBe(ONE_TO_TEN_LEVERAGE);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE);
   });
 
   it("validateConfig rejects maxVolMultiplier > 1.0 (HARD CAP)", () => {
     const p = new VolTargetSizingPlugin();
-    const result = p.validateConfig({ maxVolMultiplier: 2.0 });
+    const result = p.validateConfig({ maxVolMultiplier: 2 });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.field).toBe("maxVolMultiplier");
@@ -122,7 +132,7 @@ describe("VolTargetSizingPlugin — construction and metadata", () => {
       targetDailyVol: 0.015,
       volWindowDays: 14,
       minVolMultiplier: 0.3,
-      maxVolMultiplier: 1.0,
+      maxVolMultiplier: 1,
     });
     expect(result.ok).toBe(true);
   });
@@ -156,7 +166,7 @@ describe("VolTargetSizingPlugin — construction and metadata", () => {
 describe("VolTargetSizingPlugin — 3-layer 1:10 leverage defense", () => {
   it("Layer 1: metadata.maxLeverage === 10", () => {
     const p = new VolTargetSizingPlugin();
-    expect(p.metadata.maxLeverage).toBe(10);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
   });
 
   it("Layer 1: effectiveMaxNotionalUsd === baseNotionalUsd × 10", () => {
@@ -167,32 +177,40 @@ describe("VolTargetSizingPlugin — 3-layer 1:10 leverage defense", () => {
   it("Layer 2: assertLeverageInvariantForTesting throws on 12× synthetic breach", () => {
     const p = new VolTargetSizingPlugin({ baseNotionalUsd: 10_000 });
     // 120_000 = 12 × 10_000 — exceeds 1:10 cap.
-    expect(() => p.assertLeverageInvariantForTesting(120_000)).toThrow();
+    expect(() => {
+      p.assertAggregateEffectiveExposureLimitForTesting(120_000);
+    }).toThrow();
   });
 
   it("Layer 2: assertLeverageInvariantForTesting passes on exactly 10×", () => {
     const p = new VolTargetSizingPlugin({ baseNotionalUsd: 10_000 });
-    expect(() => p.assertLeverageInvariantForTesting(100_000)).not.toThrow();
+    expect(() => {
+      p.assertAggregateEffectiveExposureLimitForTesting(100_000);
+    }).not.toThrow();
   });
 
   it("Layer 2: synthetic 12× incoming signal triggers LAYER 2 throw in handler", () => {
     const p = new VolTargetSizingPlugin({ baseNotionalUsd: 10_000 });
     const { bus } = wirePlugin(p);
     // Feed realistic vol history so multiplier is in (0, 1].
-    for (let i = 0; i < 30; i++) {
-      p.recordClose("BTC/USDT", 50_000 * (1 + 0.001 * Math.sin(i)));
+    for (let index = 0; index < 30; index++) {
+      p.recordClose("BTC/USDT", 50_000 * (1 + 0.001 * Math.sin(index)));
     }
     const breach: SizingSignal = mkSizing({
       notional: 120_000, // 12× breach
       volMultiplier: 0.8,
     });
-    expect(() => bus.emit(breach)).toThrow(/LAYER 2 BREACH/);
+    expect(() => {
+      bus.emit(breach);
+    }).toThrow(/LAYER 2 BREACH/);
     expect(p.state.breachDrops).toBe(1);
   });
 
   it("Layer 3: assertLeverageInvariantForTesting post-rescale would catch breach", () => {
     const p = new VolTargetSizingPlugin({ baseNotionalUsd: 10_000 });
-    expect(() => p.assertLeverageInvariantForTesting(110_000)).toThrow();
+    expect(() => {
+      p.assertAggregateEffectiveExposureLimitForTesting(110_000);
+    }).toThrow();
   });
 
   it("Layer 3: per-emit notional clamp reduces an attempt above 10× to 10×", () => {
@@ -200,21 +218,21 @@ describe("VolTargetSizingPlugin — 3-layer 1:10 leverage defense", () => {
     const { bus, captured } = wirePlugin(p);
     p.recordClose("BTC/USDT", 50_000); // seed only — no realized vol yet
     // Multiplier stays at 1.0 (no realized vol → maxVolMultiplier).
-    const sig = mkSizing({ notional: 99_000, volMultiplier: 1.0 }); // 9.9× ok
+    const sig = mkSizing({ notional: 99_000, volMultiplier: 1 }); // 9.9× ok
     bus.emit(sig);
     expect(captured.length).toBe(1);
-    expect(captured[0]!.notional).toBeLessThanOrEqual(100_000);
+    expect(firstSizingSignal(captured).notional).toBeLessThanOrEqual(100_000);
   });
 
   it("Layer 3: SizingSignal.notional never exceeds baseNotionalUsd × 10 across many bars", () => {
     const p = new VolTargetSizingPlugin({ baseNotionalUsd: 10_000 });
     const { bus, captured } = wirePlugin(p);
     // Mix of regimes.
-    for (let i = 0; i < 30; i++) {
-      p.recordClose("BTC/USDT", 50_000 * (1 + 0.02 * ((i % 2) * 2 - 1)));
+    for (let index = 0; index < 30; index++) {
+      p.recordClose("BTC/USDT", 50_000 * (1 + 0.02 * ((index % 2) * 2 - 1)));
     }
-    for (let i = 0; i < 100; i++) {
-      bus.emit(mkSizing({ notional: 50_000 + (i % 5) * 10_000, volMultiplier: 0.5 + 0.1 * (i % 5) }));
+    for (let index = 0; index < 100; index++) {
+      bus.emit(mkSizing({ notional: 50_000 + (index % 5) * 10_000, volMultiplier: 0.5 + 0.1 * (index % 5) }));
     }
     expect(captured.length).toBe(100);
     for (const s of captured) {
@@ -230,12 +248,12 @@ describe("VolTargetSizingPlugin — 3-layer 1:10 leverage defense", () => {
 describe("VolTargetSizingPlugin — multiplier and rescaling", () => {
   it("low-vol → multiplier = 1.0 (cap, no scaling up)", () => {
     const p = new VolTargetSizingPlugin();
-    for (let i = 0; i < 30; i++) {
-      p.recordClose("BTC/USDT", 50_000 * (1 + 1e-5 * (i % 2 === 0 ? 1 : -1)));
+    for (let index = 0; index < 30; index++) {
+      p.recordClose("BTC/USDT", 50_000 * (1 + 1e-5 * (index % 2 === 0 ? 1 : -1)));
     }
     const m = p.currentMultiplierForSymbol("BTC/USDT");
     expect(m).not.toBeNull();
-    expect(m).toBe(1.0); // HARD CAP — do not scale up
+    expect(m).toBe(1); // HARD CAP — do not scale up
   });
 
   it("high-vol → multiplier = 0.25 (floor)", () => {
@@ -243,8 +261,8 @@ describe("VolTargetSizingPlugin — multiplier and rescaling", () => {
     // Oscillating ±10% per bar → stddev ≈ 0.10 (annualized ~190%).
     // target 0.02 / 0.10 = 0.2 → clamp to 0.25 floor.
     let px = 50_000;
-    for (let i = 0; i < 30; i++) {
-      px = px * (i % 2 === 0 ? 1.1 : 0.9);
+    for (let index = 0; index < 30; index++) {
+      px *= index % 2 === 0 ? 1.1 : 0.9;
       p.recordClose("BTC/USDT", px);
     }
     const m = p.currentMultiplierForSymbol("BTC/USDT");
@@ -254,13 +272,14 @@ describe("VolTargetSizingPlugin — multiplier and rescaling", () => {
 
   it("mid-vol → multiplier ∈ [0.25, 1.0]", () => {
     const p = new VolTargetSizingPlugin();
-    for (let i = 0; i < 30; i++) {
-      p.recordClose("BTC/USDT", 50_000 * (1 + 0.001 * ((i % 2) * 2 - 1)));
+    for (let index = 0; index < 30; index++) {
+      p.recordClose("BTC/USDT", 50_000 * (1 + 0.001 * ((index % 2) * 2 - 1)));
     }
     const m = p.currentMultiplierForSymbol("BTC/USDT");
     expect(m).not.toBeNull();
-    expect(m!).toBeGreaterThanOrEqual(0.25);
-    expect(m!).toBeLessThanOrEqual(1.0);
+    if (typeof m !== "number") throw new Error("Expected a numeric multiplier.");
+    expect(m).toBeGreaterThanOrEqual(0.25);
+    expect(m).toBeLessThanOrEqual(1);
   });
 
   it("rescaled.volMultiplier clamped to [0.25, 1.0] under extreme upstream volMultiplier", () => {
@@ -268,14 +287,14 @@ describe("VolTargetSizingPlugin — multiplier and rescaling", () => {
     const { bus, captured } = wirePlugin(p);
     // Oscillating ±10% → stddev ≈ 0.10 → floor clamp.
     let px = 50_000;
-    for (let i = 0; i < 30; i++) {
-      px = px * (i % 2 === 0 ? 1.1 : 0.9);
+    for (let index = 0; index < 30; index++) {
+      px *= index % 2 === 0 ? 1.1 : 0.9;
       p.recordClose("BTC/USDT", px);
     }
-    bus.emit(mkSizing({ notional: 10_000, volMultiplier: 1.0 }));
+    bus.emit(mkSizing({ notional: 10_000, volMultiplier: 1 }));
     expect(captured.length).toBe(1);
-    expect(captured[0]!.volMultiplier).toBeGreaterThanOrEqual(0.25);
-    expect(captured[0]!.volMultiplier).toBeLessThanOrEqual(1.0);
+    expect(firstSizingSignal(captured).volMultiplier).toBeGreaterThanOrEqual(0.25);
+    expect(firstSizingSignal(captured).volMultiplier).toBeLessThanOrEqual(1);
   });
 
   it("per-symbol enable: non-enabled symbol → signal dropped", () => {
@@ -283,7 +302,7 @@ describe("VolTargetSizingPlugin — multiplier and rescaling", () => {
       enabledSymbols: ["ETH/USDT"],
     });
     const { bus, captured } = wirePlugin(p);
-    p.recordClose("ETH/USDT", 3_000);
+    p.recordClose("ETH/USDT", 3000);
     bus.emit(mkSizing({ source: "carry-baseline-v1:BTC/USDT" })); // dropped
     bus.emit(
       mkSizing({
@@ -298,13 +317,13 @@ describe("VolTargetSizingPlugin — multiplier and rescaling", () => {
   it("multiplier is updated each bar (per-symbol rolling window)", () => {
     const p = new VolTargetSizingPlugin();
     // Quiet market → low vol → multiplier = 1.0.
-    for (let i = 0; i < 30; i++) p.recordClose("BTC/USDT", 50_000 + i * 0.01);
-    expect(p.currentMultiplierForSymbol("BTC/USDT")).toBe(1.0);
+    for (let index = 0; index < 30; index++) p.recordClose("BTC/USDT", 50_000 + index * 0.01);
+    expect(p.currentMultiplierForSymbol("BTC/USDT")).toBe(1);
     // Stormy market → oscillating ±10% → stddev ≈ 0.10 → multiplier
     // = 0.02 / 0.10 = 0.2 → clamp to 0.25 floor.
     let px2 = 50_001;
-    for (let i = 0; i < 30; i++) {
-      px2 = px2 * (i % 2 === 0 ? 1.1 : 0.9);
+    for (let index = 0; index < 30; index++) {
+      px2 *= index % 2 === 0 ? 1.1 : 0.9;
       p.recordClose("BTC/USDT", px2);
     }
     expect(p.currentMultiplierForSymbol("BTC/USDT")).toBe(0.25);
@@ -340,19 +359,8 @@ describe("VolTargetSizingPlugin — lifecycle and determinism", () => {
   });
 
   it("determinism: same input sequence → same signal sequence", () => {
-    const mk = () => {
-      const p = new VolTargetSizingPlugin({ baseNotionalUsd: 10_000 });
-      const { bus, captured } = wirePlugin(p);
-      p.recordClose("BTC/USDT", 50_000);
-      p.recordClose("BTC/USDT", 51_000);
-      p.recordClose("BTC/USDT", 52_000);
-      for (let i = 0; i < 10; i++) {
-        bus.emit(mkSizing({ notional: 50_000, volMultiplier: 0.7 }));
-      }
-      return captured.map((s) => ({ notional: s.notional, vol: s.volMultiplier }));
-    };
-    const a = mk();
-    const b = mk();
+    const a = deterministicSignalSequence();
+    const b = deterministicSignalSequence();
     expect(a).toEqual(b);
   });
 
@@ -370,7 +378,7 @@ describe("VolTargetSizingPlugin — lifecycle and determinism", () => {
     p.recordClose("BTC/USDT", 51_000);
     bus.emit(mkSizing({ notional: 20_000, volMultiplier: 0.6 }));
     expect(captured.length).toBe(1);
-    expect(captured[0]!.source).toBe("vol-target-sizing-v1");
+    expect(firstSizingSignal(captured).source).toBe("vol-target-sizing-v1");
     expect(p.state.signalsReceived).toBe(1);
     expect(p.state.signalsEmitted).toBe(1);
   });
@@ -383,25 +391,27 @@ describe("VolTargetSizingPlugin — lifecycle and determinism", () => {
     const target = 0.02;
     const multiplier = 0.25;
     const sigmaPost = target * multiplier;
-    const var95 = 1.65 * sigmaPost;
-    expect(var95).toBeLessThan(0.01);
+    const variable95 = 1.65 * sigmaPost;
+    expect(variable95).toBeLessThan(0.01);
   });
 
   it("recordClose seeds and updates per-symbol rolling window", () => {
     const p = new VolTargetSizingPlugin();
-    p.recordClose("ETH/USDT", 3_000);
-    p.recordClose("ETH/USDT", 3_100);
-    p.recordClose("ETH/USDT", 3_200);
+    p.recordClose("ETH/USDT", 3000);
+    p.recordClose("ETH/USDT", 3100);
+    p.recordClose("ETH/USDT", 3200);
     const ss = p.state.symbolState.get("ETH/USDT");
     expect(ss).toBeDefined();
-    expect(ss!.returns.length).toBe(2);
-    expect(ss!.realizedDailyVol).not.toBeNull();
-    expect(ss!.realizedDailyVol!).toBeGreaterThan(0);
+    if (ss === undefined) throw new Error("Expected ETH volatility state.");
+    expect(ss.returns.length).toBe(2);
+    expect(ss.realizedDailyVol).not.toBeNull();
+    if (typeof ss.realizedDailyVol !== "number") throw new Error("Expected realized daily volatility.");
+    expect(ss.realizedDailyVol).toBeGreaterThan(0);
   });
 
   it("computeMultiplier formula: single observation → realizedDailyVol = null", () => {
     const p = new VolTargetSizingPlugin();
-    p.recordClose("XRP/USDT", 1.0);
+    p.recordClose("XRP/USDT", 1);
     expect(p.currentMultiplierForSymbol("XRP/USDT")).toBeNull();
   });
 
@@ -449,7 +459,7 @@ describe("VolTargetSizingPlugin — extractSizingSignal (line 783)", () => {
       source: "test",
       kellyFraction: 0.5,
       volMultiplier: 0.8,
-      notional: 5_000,
+      notional: 5000,
       timestampMs: 1_704_067_200_000,
     };
     expect(extractSizingSignal(valid)).toEqual(valid);

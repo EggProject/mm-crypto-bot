@@ -1,5 +1,14 @@
 # Logging package validation
 
+> **Historical/superseded scope note (2026-08-30):** The `0d3b0cc` and
+> `84f4d781dff662edc8fa245cb68c7d67162e56cf` hardening evidence below belongs
+> to an earlier candidate. The path-boundary, secure-reader/writer,
+> artifact-run, and summary-publisher infrastructure named in that candidate
+> is deleted in the current dirty union and must not be read as an active
+> implementation or current validation claim. See the [filesystem-tool-removal
+> report](filesystem-tool-removal-2026-08-30.md) for the exact manifest,
+> consumers, and recovery receipt.
+
 ## Scope and index boundary
 
 The isolated review-candidate snapshot before this self-recording evidence
@@ -57,7 +66,9 @@ The repaired implementation snapshot received a fresh independent
 `terra_reviewer` **TECH PASS** with zero valid findings. The final independent
 `luna_process_reviewer` then returned **PROCESS PASS** with zero open valid
 findings for the isolated temporary-index candidate tree
-`84f4d781dff662ed8cfa245cb68c7d67162e56cf`, after Agy quarantine. The failed
+`84f4d781dff662ed8cfa245cb68c7d67162e56cf`, after Agy quarantine. This is
+historical evidence only; the named filesystem/artifact hardening helpers are
+not active in the current worktree. The failed
 Agy build/test-split attempt remains PROCESS NONCOMPLIANT / REJECTED and has no
 acceptance, routing-quality, implementation, or commit-authority role.
 

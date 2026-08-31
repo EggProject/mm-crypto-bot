@@ -55,31 +55,46 @@
  */
 
 import type { CarryMarket, DydxFundingSource, FundingSnapshot } from "@mm-crypto-bot/core";
+import { ExactRational } from "@mm-crypto-bot/numeric";
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-/** Default seed (Phase 42 MockExchangeFeed used the same default). */
+/**
+Default seed (Phase 42 MockExchangeFeed used the same default).
+*/
 const DEFAULT_SEED = 42;
 
-/** Tick interval — 1000ms = 1Hz synthetic funding stream. */
-const TICK_INTERVAL_MS = 1_000;
+/**
+Tick interval — 1000ms = 1Hz synthetic funding stream.
+*/
+const TICK_INTERVAL_MS = 1000;
 
-/** Synthetic bybit.eu spot depth (USD @ 1% from mid). */
+/**
+Synthetic bybit.eu spot depth (USD @ 1% from mid).
+*/
 const SYNTHETIC_BYBIT_EU_SPOT_DEPTH_USD = 1_000_000;
 
-/** Initial chain block height (dYdX v4 mainnet is around 1M+ as of 2026). */
+/**
+Initial chain block height (dYdX v4 mainnet is around 1M+ as of 2026).
+*/
 const INITIAL_CHAIN_BLOCK_HEIGHT = 1_000_000;
 
-/** BTC-USD synthetic mark price anchor (Phase 25 §7.3 spot reference). */
+/**
+BTC-USD synthetic mark price anchor (Phase 25 §7.3 spot reference).
+*/
 const SYNTHETIC_BTC_MARK_PRICE = 60_000;
 
-/** dYdX v4 hourly funding rate band (0.0001 ± 0.00005). */
+/**
+dYdX v4 hourly funding rate band (0.0001 ± 0.00005).
+*/
 const SYNTHETIC_DYDX_FUNDING_RATE_BASE = 0.0001;
 const SYNTHETIC_DYDX_FUNDING_RATE_AMPLITUDE = 0.00005;
 
-/** Bybit CEX 8h-equivalent funding rate band (0.0001 ± 0.0001). */
+/**
+Bybit CEX 8h-equivalent funding rate band (0.0001 ± 0.0001).
+*/
 const SYNTHETIC_CEX_FUNDING_RATE_BASE = 0.0001;
 const SYNTHETIC_CEX_FUNDING_RATE_AMPLITUDE = 0.0001;
 
@@ -94,7 +109,7 @@ const SYNTHETIC_CEX_FUNDING_RATE_AMPLITUDE = 0.0001;
 function mulberry32(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
-    s = (s + 0x6d2b79f5) >>> 0;
+    s = (s + 0x6d_2b_79_f5) >>> 0;
     let t = s;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -125,12 +140,41 @@ function mulberry32(seed: number): () => number {
  */
 export class MockDydxFundingSource implements DydxFundingSource {
   private readonly rng: () => number;
-  private _lastTickMs: number | null = null;
-  private _lastChainBlockTs: number | null = null;
+  private _lastTickMs: number | undefined;
+  private _lastChainBlockTs: number | undefined;
   private _chainBlockHeight = INITIAL_CHAIN_BLOCK_HEIGHT;
 
   public constructor(seed: number = DEFAULT_SEED) {
     this.rng = mulberry32(seed);
+  }
+
+  private emitTick(
+    _market: CarryMarket,
+    onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
+  ): void {
+    const now = Date.now();
+    this._lastTickMs = now;
+    this._lastChainBlockTs = now;
+    this._chainBlockHeight += 1;
+    const dydxRate =
+      SYNTHETIC_DYDX_FUNDING_RATE_BASE + (this.rng() * 2 - 1) * SYNTHETIC_DYDX_FUNDING_RATE_AMPLITUDE;
+    const cexRate =
+      SYNTHETIC_CEX_FUNDING_RATE_BASE + (this.rng() * 2 - 1) * SYNTHETIC_CEX_FUNDING_RATE_AMPLITUDE;
+    const markPrice = SYNTHETIC_BTC_MARK_PRICE + (this.rng() * 2 - 1) * 1000;
+    onTick({
+      dydx: {
+        fundingTime: now,
+        symbol: _market,
+        fundingRate: ExactRational.from(String(dydxRate)),
+        markPrice: ExactRational.from(String(markPrice)),
+      },
+      cex: {
+        fundingTime: now,
+        symbol: _market,
+        fundingRate: ExactRational.from(String(cexRate)),
+        markPrice: ExactRational.from(String(markPrice)),
+      },
+    });
   }
 
   /**
@@ -163,23 +207,22 @@ export class MockDydxFundingSource implements DydxFundingSource {
   /**
    * `lastTickAgeMs` — ms since the last tick.  null = never.
    */
-  public lastTickAgeMs(_market: CarryMarket, nowMs: number): number | null {
-    if (this._lastTickMs === null) return null;
-    return nowMs - this._lastTickMs;
+  public lastTickAgeMs(_market: CarryMarket, nowMs: number): number | undefined {
+    return this._lastTickMs === undefined ? undefined : nowMs - this._lastTickMs;
   }
 
   /**
    * `lastChainBlockHeight` — current synthetic chain block height.
    * Starts at 1_000_000 and increments on each tick.
    */
-  public lastChainBlockHeight(_market: CarryMarket): number | null {
+  public lastChainBlockHeight(_market: CarryMarket): number | undefined {
     return this._chainBlockHeight;
   }
 
   /**
    * `lastChainBlockTs` — Date.now() of the last tick.  null = never.
    */
-  public lastChainBlockTs(_market: CarryMarket): number | null {
+  public lastChainBlockTs(_market: CarryMarket): number | undefined {
     return this._lastChainBlockTs;
   }
 
@@ -187,60 +230,17 @@ export class MockDydxFundingSource implements DydxFundingSource {
    * `bybitEuSpotDepthUsd` — synthetic 1M USD (well above the 50k
    * bybit-eu-thin kill-switch threshold).
    */
-  public bybitEuSpotDepthUsd(_market: CarryMarket, _nowMs: number): number | null {
+  public bybitEuSpotDepthUsd(_market: CarryMarket, _nowMs: number): number | undefined {
     return SYNTHETIC_BYBIT_EU_SPOT_DEPTH_USD;
   }
 
   /**
    * `health` — diagnostic snapshot.
    */
-  public health(): { readonly lastTickMs: number | null; readonly chainBlockHeight: number | null } {
-    return {
-      lastTickMs: this._lastTickMs,
-      chainBlockHeight: this._chainBlockHeight,
-    };
-  }
-
-  // -------------------------------------------------------------------------
-  // Internals
-  // -------------------------------------------------------------------------
-
-  /**
-   * `emitTick` — single synthetic tick.  Updates the internal state
-   * (lastTickMs, lastChainBlockTs, chainBlockHeight) and fires
-   * `onTick` with a PRNG-derived `FundingSnapshot` pair.
-   */
-  private emitTick(
-    _market: CarryMarket,
-    onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
-  ): void {
-    const now = Date.now();
-    this._lastTickMs = now;
-    this._lastChainBlockTs = now;
-    this._chainBlockHeight += 1;
-
-    // dYdX v4: 0.0001 ± 0.00005 (band inside dYdX v4 historical range)
-    const dydxRate =
-      SYNTHETIC_DYDX_FUNDING_RATE_BASE + (this.rng() * 2 - 1) * SYNTHETIC_DYDX_FUNDING_RATE_AMPLITUDE;
-    // Bybit CEX: 0.0001 ± 0.0001 (wider band, 8h cadence)
-    const cexRate =
-      SYNTHETIC_CEX_FUNDING_RATE_BASE + (this.rng() * 2 - 1) * SYNTHETIC_CEX_FUNDING_RATE_AMPLITUDE;
-    // Mark price: 60_000 ± 1_000
-    const markPrice = SYNTHETIC_BTC_MARK_PRICE + (this.rng() * 2 - 1) * 1_000;
-
-    const dydxSnap: FundingSnapshot = {
-      fundingTime: now,
-      symbol: "BTC-USD",
-      fundingRate: dydxRate,
-      markPrice,
-    };
-    const cexSnap: FundingSnapshot = {
-      fundingTime: now,
-      symbol: "BTCUSDT",
-      fundingRate: cexRate,
-      markPrice,
-    };
-
-    onTick({ dydx: dydxSnap, cex: cexSnap });
+  public health(): {
+    readonly lastTickMs: number | undefined;
+    readonly chainBlockHeight: number | undefined;
+  } {
+    return { lastTickMs: this._lastTickMs, chainBlockHeight: this._chainBlockHeight };
   }
 }

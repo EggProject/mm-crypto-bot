@@ -1,1082 +1,449 @@
-// packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.test.ts —
-// unit tests for the pure-functional carry-simulation core.
-
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { afterEach, describe, expect, it } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
 import type { FundingSnapshot } from "@mm-crypto-bot/core";
+import { ExactRational } from "@mm-crypto-bot/numeric";
 
+import type { DydxHourlyFunding } from "../data/tardis-dydx-funding.js";
 import {
   assessDydxCoverage,
   DYDX_COVERAGE_GATE,
-  handleFatal,
   loadCexFundingCsv,
   loadDydxHourly,
-  main,
-  parseArgs,
-  printHelp,
-  simulateDydxVsCexCarry,
+  parseCliArguments as parseArguments,
+  runDydxVsCexFundingCarryCommand,
   WINDOW_DEFS,
-} from "./run-dydx-vs-cex-funding-carry.js";
+} from "./dydx-vs-cex-carry-data.js";
+import type { TardisFetchPage } from "../data/tardis-dydx-funding.js";
+import { nodeTardisCacheFileSystem, writeVerifiedTardisCache } from "../data/tardis-dydx-funding-cache.js";
+import { simulateDydxVsCexCarry } from "./dydx-vs-cex-carry-simulation.js";
 
-const ROOT = resolve(import.meta.dir, "..", "..", "..", "..");
+const exact = (value: string): ExactRational => ExactRational.from(value);
+const temporaryDirectories: string[] = [];
+const projectRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..", "..");
 
-describe("parseArgs", () => {
-  it("alapértelmezett értékeket ad vissza ha nincs flag", () => {
-    const args = parseArgs([]);
-    expect(args.symbol).toBe("btc");
-    expect(args.window).toBe("2025-Q1");
-    expect(args.initialEquity).toBe(10_000);
-    expect(args.targetNotionalUsd).toBe(250_000);
-    expect(args.rebalanceCostBps).toBe(20);
-    expect(args.withdrawalLatencyMinutes).toBe(15);
-    expect(args.skipTardisFetch).toBe(false);
+afterEach(async () => {
+  const directories = [...temporaryDirectories];
+  temporaryDirectories.length = 0;
+  await Promise.all(directories.map((directory) => rm(directory, { recursive: true, force: true })));
+});
+
+function hourly(fundingTime: number, fundingRate: string): DydxHourlyFunding {
+  return { fundingTime, symbol: "BTC-USD", fundingRate: exact(fundingRate), markPrice: exact("80000") };
+}
+
+function cex(fundingTime: number, fundingRate: string): FundingSnapshot {
+  return { fundingTime, symbol: "BTCUSDT", fundingRate: exact(fundingRate), markPrice: exact("80000") };
+}
+
+async function invokeCli(argv: readonly string[]): Promise<{
+  readonly exitCode: number;
+  readonly stderr: string;
+  readonly stdout: string;
+}> {
+  const processResult = Bun.spawn(
+    ["bun", "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts", ...argv],
+    { cwd: projectRoot, stdout: "pipe", stderr: "pipe" },
+  );
+  const [exitCode, stdout, stderr] = await Promise.all([
+    processResult.exited,
+    new Response(processResult.stdout).text(),
+    new Response(processResult.stderr).text(),
+  ]);
+  return { exitCode, stdout, stderr };
+}
+
+async function writeCachedTardisDay(cacheDirectory: string, date: Date): Promise<void> {
+  const day = date.toISOString().slice(0, 10);
+  const filePath = path.resolve(cacheDirectory, day, "BTC-USD.csv.gz");
+  const header =
+    "exchange,symbol,timestamp,local_timestamp,funding_timestamp,funding_rate,predicted_funding_rate,open_interest,last_price,index_price,mark_price";
+  const dailyHours = Array.from({ length: 24 }, (_, index) => {
+    const timestampUs = (date.getTime() + index * 3_600_000) * 1000;
+    return `dydx-v4,BTC-USD,${String(timestampUs)},,,0.0001,,,,,80000`;
+  });
+  const csv = [header, ...dailyHours].join("\n");
+  await writeVerifiedTardisCache(
+    nodeTardisCacheFileSystem,
+    filePath,
+    gzipSync(csv),
+    {
+      date: day,
+      market: "BTC-USD",
+      url: `https://datasets.tardis.dev/v1/dydx-v4/derivative_ticker/${day.replaceAll("-", "/")}/BTC-USD.csv.gz`,
+    },
+    `${day}T00:00:00.000Z`,
+  );
+}
+
+describe("dYdX carry CLI boundaries", () => {
+  it("parses only positive finite operational values", () => {
+    expect(parseArguments(["--symbol=ETH", "--window=2026-Q1", "--equity=1000"]).symbol).toBe("eth");
+    expect(() => parseArguments(["--notional=NaN"])).toThrow("canonical positive decimal");
+    expect(() => parseArguments(["--latency=0"])).toThrow("canonical positive decimal");
   });
 
-  it("parseolja az explicit zászlókat", () => {
-    const args = parseArgs([
-      "--symbol=eth",
-      "--window=2026-Q1",
-      "--equity=50000",
-      "--notional=100000",
-      "--rebalance-bps=30",
-      "--latency=10",
-      "--output=/tmp/foo.json",
+  it("preserves canonical financial CLI text without a binary-float conversion", () => {
+    const parsed = parseArguments(["--equity=9007199254740993"]);
+    expect(parsed.initialEquity).toBe("9007199254740993");
+    expect(() => parseArguments(["--equity=01000"])).toThrow("canonical positive decimal");
+  });
+
+  it("parses every supported operational override and rejects unknown identifiers", () => {
+    const parsed = parseArguments([
+      "--symbol=sol",
+      "--window=2026-Q2",
+      "--equity=1000",
+      "--notional=10000",
+      "--rebalance-bps=5",
+      "--latency=1",
+      "--funding-csv-dir=/tmp/funding",
+      "--cache-dir=/tmp/cache",
+      "--output=result-{symbol}-{window}.json",
       "--skip-tardis-fetch",
     ]);
-    expect(args.symbol).toBe("eth");
-    expect(args.window).toBe("2026-Q1");
-    expect(args.initialEquity).toBe(50_000);
-    expect(args.targetNotionalUsd).toBe(100_000);
-    expect(args.rebalanceCostBps).toBe(30);
-    expect(args.withdrawalLatencyMinutes).toBe(10);
-    expect(args.outputPath).toBe("/tmp/foo.json");
-    expect(args.skipTardisFetch).toBe(true);
+    expect(parsed).toMatchObject({
+      symbol: "sol",
+      window: "2026-Q2",
+      initialEquity: "1000",
+      targetNotionalUsd: "10000",
+      rebalanceCostBps: "5",
+      withdrawalLatencyMinutes: "1",
+      skipTardisFetch: true,
+    });
+    expect(() => parseArguments(["--symbol=xrp"])).toThrow("Invalid --symbol");
+    expect(() => parseArguments(["--window=2030-Q1"])).toThrow("Invalid --window");
+    expect(() => parseArguments(["--unknown"])).toThrow("Unknown arg");
   });
 
-  it("elutasítja az ismeretlen symbol-t", () => {
-    expect(() => parseArgs(["--symbol=DOGE"])).toThrow();
-  });
-
-  it("elutasítja az ismeretlen window-t", () => {
-    expect(() => parseArgs(["--window=2030-Q1"])).toThrow();
-  });
-
-  it("kezeli a case-insensitive symbol inputot", () => {
-    expect(parseArgs(["--symbol=BTC"]).symbol).toBe("btc");
-    expect(parseArgs(["--symbol=Eth"]).symbol).toBe("eth");
-    expect(parseArgs(["--symbol=SOL"]).symbol).toBe("sol");
-  });
-});
-
-describe("WINDOW_DEFS", () => {
-  it("minden ablakhoz van start, end és legalább 1 tardisDay", () => {
-    for (const [id, def] of Object.entries(WINDOW_DEFS)) {
-      expect(def.start.getTime()).toBeLessThan(def.end.getTime());
-      expect(def.tardisDays.length).toBeGreaterThan(0);
-      for (const d of def.tardisDays) {
-        expect(d.getUTCDate()).toBe(1); // free tier = first of month
-      }
-      void id;
+  it("builds every supported window from contiguous Tardis days", () => {
+    for (const window of Object.values(WINDOW_DEFS)) {
+      expect(window.start).toBeInstanceOf(Date);
+      expect(window.end.getTime()).toBeGreaterThan(window.start.getTime());
+      expect(window.tardisDays[0]?.getTime()).toBe(window.start.getTime());
+      expect(window.tardisDays.at(-1)?.getTime()).toBe(window.end.getTime());
     }
   });
-});
 
-describe("dYdX coverage gate", () => {
-  it("90%-os órás és napi lefedettséget követel", () => {
-    expect(DYDX_COVERAGE_GATE).toEqual({
-      minimumHourlyRatio: 0.9,
-      minimumDailyRatio: 0.9,
-    });
-  });
-
-  it("a néhány mintanapot nem tekinti teljes negyedéves lefedettségnek", () => {
+  it("requires independent hourly and daily dYdX coverage", () => {
     const start = Date.UTC(2025, 0, 1);
-    const endExclusive = Date.UTC(2025, 3, 1);
-    const hourly = Array.from({ length: 72 }, (_, index) => ({
-      fundingTime: start + index * 3_600_000,
-      symbol: "BTC-USD",
-      fundingRate: 0.0001,
-      markPrice: 100_000,
-    }));
-
-    const coverage = assessDydxCoverage(hourly, start, endExclusive);
-    expect(coverage.status).toBe("INSUFFICIENT");
+    const end = start + 10 * 3_600_000;
+    const sparse = [hourly(start, "0.0001")];
+    const coverage = assessDydxCoverage(sparse, start, end);
     expect(coverage.sufficient).toBe(false);
-    expect(coverage.observedHourlySlots).toBe(72);
-    expect(coverage.expectedHourlySlots).toBe(90 * 24);
-    expect(coverage.observedDays).toBe(3);
-    expect(coverage.reasons).toContain("hourly_coverage_below_threshold");
-    expect(coverage.reasons).toContain("daily_coverage_below_threshold");
+    expect(coverage.reasons).toEqual(["hourly_coverage_below_threshold"]);
+    expect(DYDX_COVERAGE_GATE.minimumHourlyRatio).toBe(0.9);
+    expect(
+      assessDydxCoverage(
+        Array.from({ length: 9 }, (_, index) => hourly(start + index * 3_600_000, "0.0001")),
+        start,
+        end,
+      ).sufficient,
+    ).toBe(true);
   });
 
-  it("a sűrű, küszöb feletti mintát elfogadja", () => {
+  it("rejects an invalid coverage interval", () => {
+    expect(() => assessDydxCoverage([], 1, 1)).toThrow("positive finite");
+  });
+
+  it("reports both coverage reasons when concentrated observations are insufficient", () => {
     const start = Date.UTC(2025, 0, 1);
-    const endExclusive = start + 10 * 3_600_000;
-    const hourly = Array.from({ length: 9 }, (_, index) => ({
-      fundingTime: start + index * 3_600_000,
-      symbol: "BTC-USD",
-      fundingRate: 0.0001,
-      markPrice: null,
-    }));
-
-    const coverage = assessDydxCoverage(hourly, start, endExclusive);
-    expect(coverage.status).toBe("SUFFICIENT");
-    expect(coverage.hourlyCoverageRatio).toBe(0.9);
-    expect(coverage.dailyCoverageRatio).toBe(1);
-  });
-
-  it("érvénytelen intervallumot elutasít", () => {
-    expect(() => assessDydxCoverage([], 10, 10)).toThrow(/positive finite duration/);
-  });
-
-  it("a közvetlen bun run belépési pont hibáját nem nulla exit kóddal jelzi", async () => {
-    const child = Bun.spawn(
-      ["bun", "run", "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts", "--symbol=doge"],
-      {
-        cwd: ROOT,
-        stdout: "pipe",
-        stderr: "pipe",
-      },
+    const end = start + 10 * 86_400_000;
+    const concentrated = Array.from({ length: 192 }, (_, index) =>
+      hourly(start + index * 3_600_000, "0.0001"),
     );
-    const [stderr, exitCode] = await Promise.all([new Response(child.stderr).text(), child.exited]);
-
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain("[dydx-vs-cex] FATAL:");
-    expect(stderr).toContain("Invalid --symbol");
+    const coverage = assessDydxCoverage(concentrated, start, end);
+    expect(coverage.hourlyCoverageRatio).toBe(0.8);
+    expect(coverage.reasons).toEqual(["hourly_coverage_below_threshold", "daily_coverage_below_threshold"]);
   });
 
-  it("handleFatal nem dob újra kezeletlen hibát", () => {
-    const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);
-    const originalExitCode = process.exitCode;
-    try {
-      handleFatal(new Error("entry failure"));
-      expect(Number(process.exitCode)).toBe(1);
-      expect(errorSpy).toHaveBeenCalled();
-    } finally {
-      errorSpy.mockRestore();
-      process.exitCode = originalExitCode ?? 0;
-    }
-  });
-});
-
-describe("simulateDydxVsCexCarry — pure carry math", () => {
-  const dydxPositive = (h: number): FundingSnapshot[] => [
-    {
-      fundingTime: Date.UTC(2025, 3, 1, h, 0, 0),
-      symbol: "BTC-USD",
-      fundingRate: 0.0001,
-      markPrice: 80_000,
-    },
-  ];
-
-  it("long dYdX + short CEX: pozitív carry ha mindkettő pozitív", () => {
-    const dydx = [
-      {
-        fundingTime: Date.UTC(2025, 3, 1, 0, 0, 0),
-        symbol: "BTC-USD",
-        fundingRate: 0.0001,
-        markPrice: 80_000,
-      },
-    ];
-    const cex: FundingSnapshot[] = [
-      {
-        fundingTime: Date.UTC(2025, 3, 1, 0, 0, 0),
-        symbol: "BTCUSDT",
-        fundingRate: 0.00005,
-      },
-    ];
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: cex,
-      startTime: Date.UTC(2025, 3, 1, 0, 0, 0),
-      endTime: Date.UTC(2025, 3, 1, 8, 0, 0),
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    expect(r.fundingPeriods).toBe(2);
-    // long dYdX rate=+0.0001 → -paymentUsd = -10
-    // short CEX rate=+0.00005 → +paymentUsd = +5
-    // net funding = -5 USD
-    expect(r.fundingCollectedUsd).toBeCloseTo(-10 + 5, 4);
-  });
-
-  it("long dYdX: negatív funding = earn (sign-flip a FundingCarry konvencióhoz)", () => {
-    const dydx = [
-      {
-        fundingTime: Date.UTC(2025, 3, 1, 0, 0, 0),
-        symbol: "BTC-USD",
-        fundingRate: -0.0001,
-        markPrice: 80_000,
-      },
-    ];
-    const cex: FundingSnapshot[] = [];
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: cex,
-      startTime: Date.UTC(2025, 3, 1, 0, 0, 0),
-      endTime: Date.UTC(2025, 3, 1, 1, 0, 0),
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    // negatív dYdX funding → long earns → -(-100k * -0.0001) = -(-10) = 10
-    expect(r.fundingCollectedUsd).toBeCloseTo(10, 4);
-  });
-
-  it("kill-switch: divergence < 0.0005/8h 7 egymás utáni napon → trigger", () => {
-    const startMs = Date.UTC(2025, 3, 1, 0, 0, 0);
-    const days = 10;
-    const dydx: { fundingTime: number; symbol: string; fundingRate: number; markPrice: number }[] = [];
-    const cex: FundingSnapshot[] = [];
-    // Minden nap: dYdX rate = -0.00001/8h-eq (a divergence = -0.00001 - 0.0001 = -0.00011 < 0.0005 threshold)
-    for (let day = 0; day < days; day++) {
-      dydx.push({
-        fundingTime: startMs + day * 86_400_000,
-        symbol: "BTC-USD",
-        fundingRate: -0.00001 / 8, // per hour
-        markPrice: 80_000,
-      });
-      cex.push({
-        fundingTime: startMs + day * 86_400_000,
-        symbol: "BTCUSDT",
-        fundingRate: 0.0001,
-      });
-    }
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: cex,
-      startTime: startMs,
-      endTime: startMs + days * 86_400_000,
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    expect(r.killSwitch7DayCompressionTriggered).toBe(true);
-    expect(r.compressedDivergenceDays).toBeGreaterThanOrEqual(7);
-  });
-
-  it("mean-reversion half-life véges ha van AR(1) együttható", () => {
-    // AR(1) divergence series: y_t = -0.5 * y_{t-1} + ε → half-life ≈ 1.4 time units.
-    // We construct it explicitly so the OLS regression finds a clean β = -0.5.
-    const startMs = Date.UTC(2025, 3, 1, 0, 0, 0);
-    const divSeries: number[] = [];
-    let y = 0.001;
-    for (let h = 0; h < 24 * 14; h++) {
-      divSeries.push(y);
-      y = -0.5 * y; // pure AR(1) with β = -0.5
-    }
-    const dydx: { fundingTime: number; symbol: string; fundingRate: number; markPrice: number }[] = [];
-    const cex: FundingSnapshot[] = [];
-    // CEX = 0.0001 (constant). dYdX = (div + cex) / 8.
-    for (let h = 0; h < divSeries.length; h++) {
-      const div = divSeries[h] ?? 0;
-      dydx.push({
-        fundingTime: startMs + h * 3_600_000,
-        symbol: "BTC-USD",
-        fundingRate: (div + 0.0001) / 8,
-        markPrice: 80_000,
-      });
-      if (h % 8 === 0) {
-        cex.push({
-          fundingTime: startMs + h * 3_600_000,
-          symbol: "BTCUSDT",
-          fundingRate: 0.0001,
-        });
-      }
-    }
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: cex,
-      startTime: startMs,
-      endTime: startMs + divSeries.length * 3_600_000,
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    expect(Number.isFinite(r.meanReversionHalfLifeHours)).toBe(true);
-    expect(r.meanReversionHalfLifeHours).toBeGreaterThan(0);
-    expect(r.meanReversionHalfLifeHours).toBeLessThan(100);
-  });
-
-  it("bit-identical probe: --symbol=btc vs --symbol=BTC azonos eredményt ad", () => {
-    const args1 = parseArgs(["--symbol=btc", "--window=2025-Q1"]);
-    const args2 = parseArgs(["--symbol=BTC", "--window=2025-Q1"]);
-    expect(args1.symbol).toBe(args2.symbol);
-    // Resolution is identical for downstream run.
-    expect(args1.symbol).toBe("btc");
-    expect(args2.symbol).toBe("btc");
-  });
-
-  it("parseolja a --funding-csv-dir opciót (resolve-öl a cwd-hez képest)", () => {
-    const args = parseArgs(["--funding-csv-dir=data/funding"]);
-    expect(args.fundingCsvDir).toContain("data/funding");
-  });
-
-  it("parseolja a --cache-dir opciót", () => {
-    const args = parseArgs(["--cache-dir=/tmp/tardis-cache"]);
-    expect(args.cacheDir).toBe("/tmp/tardis-cache");
-  });
-
-  it("elutasítja az ismeretlen CLI flag-et", () => {
-    expect(() => parseArgs(["--nope"])).toThrow(/Unknown arg/);
-  });
-  void dydxPositive;
-});
-
-// === További simulateDydxVsCexCarry ág-lefedések (100% line+branch) ===
-
-describe("simulateDydxVsCexCarry — rebalance + esemény-szétválogatás", () => {
-  it("dydx és cex event azonos timestamp-en: a merge hurok a cexRate-et is kitölti", () => {
-    // A `simulateDydxVsCexCarry` event-loop ága:
-    //   dydxTs === cexTs → az event 'cexRate' mezője a cex fundingRate-et kapja
-    //   (nem null), és a `j` pointer is léptetődik. Ezt az ágat kell lefedni,
-    //   mert egyébként a divergence series-ben hamis 'null' lenne.
-    const startMs = Date.UTC(2025, 3, 1, 0, 0, 0);
-    const dydx = [
-      {
-        fundingTime: startMs, // dydx event ugyanott mint a cex
-        symbol: "BTC-USD",
-        fundingRate: 0.0001,
-        markPrice: 80_000,
-      },
-    ];
-    const cex: FundingSnapshot[] = [
-      {
-        fundingTime: startMs, // cex event ugyanott mint a dydx
-        symbol: "BTCUSDT",
-        fundingRate: 0.0001,
-      },
-    ];
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: cex,
-      startTime: startMs,
-      endTime: startMs + 3_600_000,
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    // Mindkét event megjelent → fundingPeriods === 2
-    expect(r.fundingPeriods).toBe(2);
-    // A divergence series-ben a két átfedő event 1 elemet ad (dydx-cex).
-    expect(r.equityCurve[0]?.divergence).not.toBeNull();
-    if (r.equityCurve[0] !== undefined) {
-      const d = r.equityCurve[0].divergence;
-      expect(d).not.toBeNull();
-      if (d !== null) {
-        // dydx 0.0001 × 8 = 0.0008, cex 0.0001 → divergence = 0.0007
-        expect(d).toBeCloseTo(0.0007, 8);
-      }
-    }
-  });
-
-  it("dydx event cex nélkül, majd cex event dydx nélkül: a 2-ágú event-loop mindkét felét futtatja", () => {
-    // Az event-loop két döntési ága:
-    //   - `dydxTs <= cexTs && i < dydx.length` → dydx event, cex null
-    //   - `else if (j < cex.length)` → cex event, dydx null
-    // Mindkettőt le kell fedni. A második ág csak akkor fut le,
-    // ha a dydx list hamarabb elfogy, mint a cex lista.
-    const startMs = Date.UTC(2025, 3, 1, 0, 0, 0);
-    const dydx = [
-      {
-        fundingTime: startMs,
-        symbol: "BTC-USD",
-        fundingRate: 0.0001,
-        markPrice: 80_000,
-      },
-    ];
-    const cex: FundingSnapshot[] = [
-      // A cex event a dydx után jön → a dydx előbb fogy el.
-      {
-        fundingTime: startMs + 3_600_000,
-        symbol: "BTCUSDT",
-        fundingRate: 0.0001,
-      },
-      {
-        fundingTime: startMs + 7_200_000,
-        symbol: "BTCUSDT",
-        fundingRate: 0.0001,
-      },
-    ];
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: cex,
-      startTime: startMs,
-      endTime: startMs + 8 * 3_600_000,
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    expect(r.fundingPeriods).toBe(3);
-    // Az utolsó equity point csak cex fundingot tartalmaz (a dydx null
-    // a divergence-ben → divergence === null).
-    const lastWithData = r.equityCurve.find((p) => p.divergence === null && p.cex8hRate !== null);
-    expect(lastWithData).toBeDefined();
-  });
-
-  it("rebalance: a drift eléri a 5%-os küszöböt → rebalanceCount és rebalanceCostUsd növekszik", () => {
-    // A rebalance trigger a 0.05 (= 5%) drift fraction. A driftUsd
-    // = cumFundingUsd * 0.01 (deltaSensitivity). A threshold:
-    //   |driftUsd| / targetNotionalUsd >= 0.05
-    //   → |cumFundingUsd| * 0.01 / 100_000 >= 0.05
-    //   → |cumFundingUsd| >= 500_000
-    //
-    // Hogy NE hívjunk túl sok event-et, de a drift összegyűljön:
-    // - 8 órás dydx rate = 0.001 (0.1% / hour → 0.8% / 8h), 10 dydx event.
-    // - dydx paymentUsd = -targetNotionalUsd * rate = -100_000 * 0.001 = -100
-    //   hosszú dydx-en a sign-flip miatt negatív → 10 event = -1000.
-    //   |cumFundingUsd| = 1000 < 500_000 → nem elég.
-    //
-    // Másik megközelítés: növeljük a targetNotionalUsd-ot vagy a rate-et.
-    // A tesztben a 0.5%-os dydx rate 100 event-tel ad 5e6 USD drift-et,
-    // ami bőven triggerel.
-    const startMs = Date.UTC(2025, 3, 1, 0, 0, 0);
-    const dydx: { fundingTime: number; symbol: string; fundingRate: number; markPrice: number }[] = [];
-    for (let h = 0; h < 100; h++) {
-      dydx.push({
-        fundingTime: startMs + h * 3_600_000,
-        symbol: "BTC-USD",
-        fundingRate: -0.005, // negatív funding → long earn → pozitív paymentUsd
-        markPrice: 80_000,
-      });
-    }
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: [],
-      startTime: startMs,
-      endTime: startMs + 100 * 3_600_000,
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20, // 0.20% = 200 USD flat fee
-      withdrawalLatencyMinutes: 15, // 0.25h × 0.0001 × 100_000 = 2.5 USD latency
-    });
-    // Az első rebalance akkor következik be, amikor a cumFundingUsd
-    // eléri a threshold-ot. A dydx paymentUsd = -100_000 * -0.005 = 500/event.
-    // 5e5 / 500 = 1000 event kellene — a tesztben 100 event van, de
-    // a threshold a drift = |cumFundingUsd| * 0.01 / 100_000.
-    // |500 * 100| * 0.01 / 100_000 = 0.5 / 100 = 0.005 → NEM éri el a 0.05-öt.
-    //
-    // A teszt így a "no rebalance" ágat fedné le, ami szintén kell. De
-    // a rebalance branch-hez nagyobb drift kell. Végigmegyünk a
-    // dydxRate növelésével: 0.05 → 5000/event → 5e5 100 event alatt
-    // → drift = 5e5 * 0.01 / 1e5 = 0.05 → eléri a threshold-ot.
-    const dydx2: { fundingTime: number; symbol: string; fundingRate: number; markPrice: number }[] = [];
-    for (let h = 0; h < 100; h++) {
-      dydx2.push({
-        fundingTime: startMs + h * 3_600_000,
-        symbol: "BTC-USD",
-        fundingRate: -0.05, // 5% / hour → 5000 USD / event long earn
-        markPrice: 80_000,
-      });
-    }
-    const r2 = simulateDydxVsCexCarry({
-      dydxHourly: dydx2,
-      cex8h: [],
-      startTime: startMs,
-      endTime: startMs + 100 * 3_600_000,
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    expect(r2.rebalanceCount).toBeGreaterThan(0);
-    expect(r2.rebalanceCostUsd).toBeGreaterThan(0);
-    // Az r (kis drift) nem triggerel rebalance-et.
-    expect(r.rebalanceCount).toBe(0);
-  });
-
-  it("kill-switch: a kill switch runStart a tömb végén is lezárul (final runStart branch)", () => {
-    // A kill-switch runStart akkor fut le, amikor a `dailyCompressedFlags`
-    // tömb UTOLSÓ eleme true (a kilépés a ciklusból nem reset-eli a
-    // runStart-ot, hanem az `if (runStart !== -1)` final-check dolgozza
-    // fel). A 7+ consecutive compressed nap → trigger.
-    const startMs = Date.UTC(2025, 3, 1, 0, 0, 0);
-    const days = 10;
-    const dydx: { fundingTime: number; symbol: string; fundingRate: number; markPrice: number }[] = [];
-    const cex: FundingSnapshot[] = [];
-    for (let day = 0; day < days; day++) {
-      dydx.push({
-        fundingTime: startMs + day * 86_400_000,
-        symbol: "BTC-USD",
-        fundingRate: -0.00001 / 8,
-        markPrice: 80_000,
-      });
-      cex.push({
-        fundingTime: startMs + day * 86_400_000,
-        symbol: "BTCUSDT",
-        fundingRate: 0.0001,
-      });
-    }
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: cex,
-      startTime: startMs,
-      endTime: startMs + days * 86_400_000,
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    expect(r.killSwitch7DayCompressionTriggered).toBe(true);
-    // A `compressedRuns` utolsó eleme a `dailyCompressedFlags.length - 1`-ig tart.
-    expect(r.compressedDivergenceDays).toBeGreaterThanOrEqual(7);
-  });
-
-  it("dydxRate=0 esetén a fundingCollectedUsd nem változik (sign-flip ág)", () => {
-    // A sign-flip ág: 0 funding rate esetén paymentUsd = 0, a wins/losses
-    // számláló NÖVEKSZIK (a kód >= 0 → wins, < 0 → losses; 0 → wins).
-    const startMs = Date.UTC(2025, 3, 1, 0, 0, 0);
-    const dydx = [
-      {
-        fundingTime: startMs,
-        symbol: "BTC-USD",
-        fundingRate: 0, // zero funding
-        markPrice: 80_000,
-      },
-    ];
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: [],
-      startTime: startMs,
-      endTime: startMs + 3_600_000,
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    expect(r.fundingCollectedUsd).toBe(0);
-    expect(r.fundingPeriods).toBe(1);
-  });
-
-  it("kill-switch: a közepén nem-compressed nap a runStart-ot -1-re reseteli (else if branch)", () => {
-    // A kill switch run-tracking második ága (`else if (runStart !== -1)`)
-    // akkor fut le, amikor a run-ban vagyunk (runStart !== -1) és a
-    // következő nap NEM compressed (flag = false). A run ekkor lezárul,
-    // és a runStart -1-re áll vissza.
-    //
-    // A teszt: 4 compressed nap → 1 nem compressed → 4 compressed.
-    // Mindkét run hossza 4 < 7 → kill switch NEM triggerelődik.
-    const startMs = Date.UTC(2025, 3, 1, 0, 0, 0);
-    const days = 9;
-    const dydx: { fundingTime: number; symbol: string; fundingRate: number; markPrice: number }[] = [];
-    const cex: FundingSnapshot[] = [];
-    for (let day = 0; day < days; day++) {
-      const ts = startMs + day * 86_400_000;
-      // A 4. nap (day === 4): a divergence-t kihúzzuk a compressed sávból
-      // (nagyon nagy abszolút érték) → flag = false.
-      // A többi nap: -0.00001/8 - 0.0001 = ~-0.00010125 < 0.0005 → flag = true.
-      const isInterruptedDay = day === 4;
-      dydx.push({
-        fundingTime: ts,
-        symbol: "BTC-USD",
-        fundingRate: isInterruptedDay ? 0.01 : -0.00001 / 8,
-        markPrice: 80_000,
-      });
-      cex.push({
-        fundingTime: ts,
-        symbol: "BTCUSDT",
-        fundingRate: 0.0001,
-      });
-    }
-    const r = simulateDydxVsCexCarry({
-      dydxHourly: dydx,
-      cex8h: cex,
-      startTime: startMs,
-      endTime: startMs + days * 86_400_000,
-      initialEquity: 10_000,
-      targetNotionalUsd: 100_000,
-      rebalanceCostBps: 20,
-      withdrawalLatencyMinutes: 15,
-    });
-    // A run-ok 4 nap hosszúak, tehát a kill switch NEM triggered.
-    expect(r.killSwitch7DayCompressionTriggered).toBe(false);
-    // A 2 run összesen 8 compressed napot jelent (4 + 4).
-    expect(r.compressedDivergenceDays).toBe(8);
-  });
-});
-
-// === File-local helper tesztek (loadCexFundingCsv, loadDydxHourly, main) ===
-//
-// Ezek a függvények file-local-ok voltak, de a 100% coverage eléréséhez
-// exportálva lettek. A unit tesztek a függvényeket közvetlenül hívják,
-// a network/cache-ek in-process izolált temp dir-ekben.
-
-describe("loadCexFundingCsv — CEX funding CSV parser", () => {
-  let tempDir: string;
-
-  beforeAll(() => {
-    tempDir = mkdtempSync(resolve(tmpdir(), "dydx-vs-cex-loader-"));
-  });
-  afterAll(() => {
-    if (tempDir && existsSync(tempDir)) {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
-  });
-
-  it("beolvassa a CSV-t és csak a megadott cexSymbol-hoz tartozó sorokat adja vissza", async () => {
-    const csv = [
-      "fundingTime,symbol,fundingRate,markPrice",
-      "1704067200000,BTCUSDT,0.0001,42313.9",
-      "1704096000000,ETHUSDT,0.0002,2283.7",
-      "1704124800000,BTCUSDT,0.00015,42400.0",
-    ].join("\n");
-    const csvPath = resolve(tempDir, "test-funding.csv");
-    writeFileSync(csvPath, csv);
-
-    const result = await loadCexFundingCsv(csvPath, "BTCUSDT");
-    expect(result.length).toBe(2);
-    expect(result[0]?.symbol).toBe("BTCUSDT");
-    expect(result[0]?.fundingRate).toBe(0.0001);
-    expect(result[0]?.markPrice).toBe(42313.9);
-    expect(result[1]?.fundingTime).toBe(1704124800000);
-  });
-
-  it("markPrice nélküli sort is helyesen parsolja (a markPrice mező undefined)", async () => {
-    const csv = ["fundingTime,symbol,fundingRate", "1704067200000,BTCUSDT,0.0001"].join("\n");
-    const csvPath = resolve(tempDir, "no-markprice.csv");
-    writeFileSync(csvPath, csv);
-
-    const result = await loadCexFundingCsv(csvPath, "BTCUSDT");
-    expect(result.length).toBe(1);
-    expect(result[0]?.markPrice).toBeUndefined();
-  });
-
-  it("kihagyja a rövid (<3 mező) sorokat és a NaN timestamp/rate sorokat", async () => {
-    const csv = [
-      "fundingTime,symbol,fundingRate,markPrice",
-      "1704067200000,BTCUSDT,0.0001",
-      "short,row",
-      "NaN,BTCUSDT,0.0001",
-      "1704067200000,BTCUSDT,NaN",
-    ].join("\n");
-    const csvPath = resolve(tempDir, "malformed.csv");
-    writeFileSync(csvPath, csv);
-
-    const result = await loadCexFundingCsv(csvPath, "BTCUSDT");
-    expect(result.length).toBe(1);
-    expect(result[0]?.fundingTime).toBe(1704067200000);
-  });
-
-  it("üres CSV-re üres tömböt ad", async () => {
-    const csvPath = resolve(tempDir, "empty.csv");
-    writeFileSync(csvPath, "");
-    const result = await loadCexFundingCsv(csvPath, "BTCUSDT");
-    expect(result.length).toBe(0);
-  });
-});
-
-describe("loadDydxHourly — Tardis cache loader", () => {
-  let tempDir: string;
-  let cacheDir: string;
-
-  beforeEach(() => {
-    tempDir = mkdtempSync(resolve(tmpdir(), "dydx-hourly-"));
-    cacheDir = resolve(tempDir, "tardis");
-    mkdirSync(cacheDir, { recursive: true });
-  });
-  afterEach(() => {
-    if (tempDir && existsSync(tempDir)) {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
-  });
-
-  function buildTardisCsv(hour: number, rate: number, mark: number): string {
-    const header =
-      "exchange,symbol,timestamp,local_timestamp,funding_timestamp,funding_rate,predicted_funding_rate,open_interest,last_price,index_price,mark_price";
-    const tsMs = Date.UTC(2025, 0, 1, hour, 0, 0);
-    const tsUs = tsMs * 1000;
-    const row = `dydx-v4,BTC-USD,${tsUs},${tsUs},,${rate},,1000,${mark},,${mark}`;
-    return [header, row].join("\n");
-  }
-
-  it("a cache-ből olvassa a CSV-t, ha a cache fájl létezik", async () => {
-    const date = new Date(Date.UTC(2025, 0, 1));
-    const ymd = "2025-01-01";
-    const cacheFile = resolve(cacheDir, ymd, "BTC-USD.csv.gz");
-    mkdirSync(resolve(cacheFile, ".."), { recursive: true });
-    writeFileSync(cacheFile, gzipSync(buildTardisCsv(0, 0.0001, 100_000)));
-
-    const result = await loadDydxHourly(cacheDir, "btc", [date], true);
-    expect(result.hourly.length).toBeGreaterThan(0);
-    expect(result.skippedDays).toEqual([]);
-  });
-
-  it("hibás cache (sérült gzip) esetén a skippedDays-be kerül a nap", async () => {
-    const date = new Date(Date.UTC(2025, 0, 1));
-    const ymd = "2025-01-01";
-    const cacheFile = resolve(cacheDir, ymd, "BTC-USD.csv.gz");
-    mkdirSync(resolve(cacheFile, ".."), { recursive: true });
-    writeFileSync(cacheFile, Buffer.from("NOT-A-VALID-GZIP", "utf8"));
-
-    const result = await loadDydxHourly(cacheDir, "btc", [date], true);
-    // A cache olvasás elbukik → a day a skippedDays listába kerül.
-    expect(result.hourly.length).toBe(0);
-    expect(result.skippedDays).toEqual(["2025-01-01"]);
-  });
-
-  it("hibás cache + skipFetch=false: a FAILED warn ág fut le (else branch)", async () => {
-    // A `loadDydxHourly` catch blokkjában az `if (skipFetch) SKIPPED
-    // else FAILED` ágak vannak. Az előző teszt a SKIPPED ágat fedi
-    // le (skipFetch=true). Ez a teszt a FAILED ágat (skipFetch=false).
-    const date = new Date(Date.UTC(2025, 0, 1));
-    const ymd = "2025-01-01";
-    const cacheFile = resolve(cacheDir, ymd, "BTC-USD.csv.gz");
-    mkdirSync(resolve(cacheFile, ".."), { recursive: true });
-    writeFileSync(cacheFile, Buffer.from("NOT-A-VALID-GZIP", "utf8"));
-
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => undefined);
-    try {
-      const result = await loadDydxHourly(cacheDir, "btc", [date], false);
-      expect(result.hourly.length).toBe(0);
-      expect(result.skippedDays).toEqual(["2025-01-01"]);
-      // A FAILED warn kiírása megtörtént (a SKIPPED NEM).
-      const warnCalls = warnSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");
-      expect(warnCalls).toContain("FAILED");
-      expect(warnCalls).not.toContain("SKIPPED");
-    } finally {
-      warnSpy.mockRestore();
-    }
-  });
-});
-
-// === printHelp ===
-
-describe("printHelp — help szöveg", () => {
-  it("kiírja a flag-listát a stdout-ra", () => {
-    // A console.log-ot spy-oljuk, hogy ne a teszt kimenetére írjon.
-    const logSpy = spyOn(console, "log").mockImplementation(() => undefined);
-    try {
-      printHelp();
-      const calls = logSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");
-      expect(calls).toContain("--symbol=");
-      expect(calls).toContain("--window=");
-      expect(calls).toContain("--skip-tardis-fetch");
-      // A `Flags:` fejléc is megjelenik.
-      expect(calls).toContain("Flags:");
-    } finally {
-      logSpy.mockRestore();
-    }
-  });
-});
-
-// === parseArgs — --help / -h (process.exit spy) ===
-
-describe("parseArgs — --help / -h", () => {
-  it("--help meghívja a printHelp-et és process.exit(0)-át (exit spy-ölve)", () => {
-    const logSpy = spyOn(console, "log").mockImplementation(() => undefined);
-    const exitSpy = spyOn(process, "exit").mockImplementation(
-      ((_code?: number | string | null) => undefined) as typeof process.exit,
+  it("excludes observations outside the requested coverage interval", () => {
+    const start = Date.UTC(2025, 0, 1);
+    const end = start + 3_600_000;
+    const coverage = assessDydxCoverage(
+      [hourly(start - 1, "0.0001"), hourly(end, "0.0001"), hourly(start, "0.0001")],
+      start,
+      end,
     );
-    try {
-      // A process.exit le van cserélve → a parseArgs nem állítja le a tesztet.
-      parseArgs(["--help"]);
-      // A printHelp kiírt valamit.
-      const calls = logSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");
-      expect(calls).toContain("--symbol=");
-      // A process.exit(0) meg lett hívva.
-      expect(exitSpy).toHaveBeenCalledWith(0);
-    } finally {
-      logSpy.mockRestore();
-      exitSpy.mockRestore();
-    }
-  });
-
-  it("-h ugyanazt csinálja, mint --help", () => {
-    const logSpy = spyOn(console, "log").mockImplementation(() => undefined);
-    const exitSpy = spyOn(process, "exit").mockImplementation(
-      ((_code?: number | string | null) => undefined) as typeof process.exit,
-    );
-    try {
-      parseArgs(["-h"]);
-      const calls = logSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");
-      expect(calls).toContain("--symbol=");
-      expect(exitSpy).toHaveBeenCalledWith(0);
-    } finally {
-      logSpy.mockRestore();
-      exitSpy.mockRestore();
-    }
+    expect(coverage.observedHourlySlots).toBe(1);
+    expect(coverage.observedDays).toBe(1);
   });
 });
 
-// === main() — in-process integration ===
-
-describe("main() — in-process integration", () => {
-  let tempDir: string;
-  let fundingDir: string;
-  let cacheDir: string;
-  let outputDir: string;
-
-  beforeEach(() => {
-    tempDir = mkdtempSync(resolve(tmpdir(), "dydx-vs-cex-main-"));
-    fundingDir = resolve(tempDir, "funding");
-    cacheDir = resolve(tempDir, "tardis");
-    outputDir = resolve(tempDir, "out");
-    mkdirSync(fundingDir, { recursive: true });
-    mkdirSync(cacheDir, { recursive: true });
-    mkdirSync(outputDir, { recursive: true });
-  });
-  afterEach(() => {
-    if (tempDir && existsSync(tempDir)) {
-      rmSync(tempDir, { recursive: true, force: true });
-    }
+describe("dYdX carry exact consumers", () => {
+  it("keeps funding accrual, costs, and equity exact", () => {
+    const time = Date.UTC(2025, 3, 1);
+    const result = simulateDydxVsCexCarry({
+      dydxHourly: [hourly(time, "0.0001")],
+      cex8h: [cex(time, "0.00005")],
+      startTime: time,
+      endTime: time + 3_600_000,
+      initialEquity: "10000",
+      targetNotionalUsd: "100000",
+      rebalanceCostBps: "20",
+      withdrawalLatencyMinutes: "15",
+    });
+    expect(result.fundingCollectedUsd.equals(exact("-5"))).toBe(true);
+    expect(result.equityCurve[0]?.equity.equals(exact("9995"))).toBe(true);
+    expect(result.totalReturn.equals(exact("-0.0005"))).toBe(true);
+    expect(result.monthlyCarry).toBeUndefined();
   });
 
-  function buildCexCsv(
-    rows: readonly { fundingTime: number; fundingRate: number; markPrice?: number }[],
-  ): string {
-    const lines: string[] = ["fundingTime,symbol,fundingRate,markPrice"];
-    for (const r of rows) {
-      lines.push(`${r.fundingTime},BTCUSDT,${r.fundingRate},${r.markPrice ?? ""}`);
-    }
-    return lines.join("\n");
-  }
+  it("does not synthesize a binary rate from an exact decimal snapshot", () => {
+    const time = Date.UTC(2025, 3, 1);
+    const result = simulateDydxVsCexCarry({
+      dydxHourly: [hourly(time, "-0.0000000000000000001")],
+      cex8h: [],
+      startTime: time,
+      endTime: time + 3_600_000,
+      initialEquity: "10000",
+      targetNotionalUsd: "100000",
+      rebalanceCostBps: "20",
+      withdrawalLatencyMinutes: "15",
+    });
+    expect(result.fundingCollectedUsd.equals(exact("0.00000000000001"))).toBe(true);
+  });
 
-  function buildTardisCsv(hour: number, rate: number, mark: number): string {
-    const header =
-      "exchange,symbol,timestamp,local_timestamp,funding_timestamp,funding_rate,predicted_funding_rate,open_interest,last_price,index_price,mark_price";
-    const tsMs = Date.UTC(2025, 0, 1, hour, 0, 0);
-    const tsUs = tsMs * 1000;
-    const row = `dydx-v4,BTC-USD,${tsUs},${tsUs},,${rate},,1000,${mark},,${mark}`;
-    return [header, row].join("\n");
-  }
+  it("rejects invalid numeric configuration before replay", () => {
+    const time = Date.UTC(2025, 3, 1);
+    expect(() =>
+      simulateDydxVsCexCarry({
+        dydxHourly: [],
+        cex8h: [],
+        startTime: time,
+        endTime: time + 1,
+        initialEquity: "10000",
+        targetNotionalUsd: "Infinity",
+        rebalanceCostBps: "20",
+        withdrawalLatencyMinutes: "15",
+      }),
+    ).toThrow("targetNotionalUsd");
+    expect(() =>
+      simulateDydxVsCexCarry({
+        dydxHourly: [],
+        cex8h: [],
+        startTime: time,
+        endTime: time + 1,
+        initialEquity: "10000",
+        targetNotionalUsd: "100000",
+        rebalanceCostBps: "20",
+        withdrawalLatencyMinutes: "15",
+        normalizedMetricsAllowed: false,
+      }),
+    ).toThrow("sufficient dYdX coverage");
+  });
 
+  it("handles rebalancing and seven-day compression exactly", () => {
+    const start = Date.UTC(2025, 3, 1);
+    const hourlyRates = Array.from({ length: 7 }, (_, index) =>
+      hourly(start + index * 86_400_000, "0.00001"),
+    );
+    const compressed = simulateDydxVsCexCarry({
+      dydxHourly: hourlyRates,
+      cex8h: hourlyRates.map((row) => cex(row.fundingTime, "0.00008")),
+      startTime: start,
+      endTime: start + 8 * 86_400_000,
+      initialEquity: "1000",
+      targetNotionalUsd: "10000",
+      rebalanceCostBps: "1",
+      withdrawalLatencyMinutes: "1",
+    });
+    expect(compressed.killSwitch7DayCompressionTriggered).toBe(true);
+    expect(compressed.compressedDivergenceDays).toBe(7);
+    expect(compressed.avgDydx8hEquiv.equals(exact("0.00008"))).toBe(true);
+    const rebalanced = simulateDydxVsCexCarry({
+      dydxHourly: [],
+      cex8h: [cex(start, "100")],
+      startTime: start,
+      endTime: start + 1,
+      initialEquity: "1000",
+      targetNotionalUsd: "10000",
+      rebalanceCostBps: "1",
+      withdrawalLatencyMinutes: "1",
+    });
+    expect(rebalanced.rebalanceCount).toBe(1);
+  });
+
+  it("orders unsorted funding inputs before calculating exact medians", () => {
+    const start = Date.UTC(2025, 3, 1);
+    const result = simulateDydxVsCexCarry({
+      dydxHourly: [hourly(start + 3_600_000, "0.0001"), hourly(start, "0.0002")],
+      cex8h: [cex(start + 3_600_000, "0"), cex(start, "0")],
+      startTime: start,
+      endTime: start + 2 * 3_600_000,
+      initialEquity: "1000",
+      targetNotionalUsd: "10000",
+      rebalanceCostBps: "1",
+      withdrawalLatencyMinutes: "1",
+    });
+    expect(result.medianDydx8hEquiv.equals(exact("0.0012"))).toBe(true);
+  });
+
+  it("counts negative CEX payments as losses and has a zero win rate without events", () => {
+    const start = Date.UTC(2025, 3, 1);
+    const options = {
+      startTime: start,
+      endTime: start + 1,
+      initialEquity: "1000",
+      targetNotionalUsd: "10000",
+      rebalanceCostBps: "1",
+      withdrawalLatencyMinutes: "1",
+    };
+    expect(
+      simulateDydxVsCexCarry({ ...options, dydxHourly: [], cex8h: [cex(start, "-0.1")] }).winRate.equals(
+        exact("0"),
+      ),
+    ).toBe(true);
+    expect(simulateDydxVsCexCarry({ ...options, dydxHourly: [], cex8h: [] }).winRate.equals(exact("0"))).toBe(
+      true,
+    );
+  });
+});
+
+describe("CEX CSV exact boundary", () => {
+  it("parses raw decimal strings exactly and rejects malformed rows", async () => {
+    const directory = await mkdtemp(path.resolve(tmpdir(), "dydx-carry-"));
+    temporaryDirectories.push(directory);
+    const csvPath = path.resolve(directory, "funding.csv");
+    await Bun.write(
+      csvPath,
+      "timestamp,symbol,rate,mark\n1,BTCUSDT,0.0000000000000000001,80000\n2,ETHUSDT,wat,80001\n\n3,ETHUSDT,0.1,1\nnot-a-time,ETHUSDT,0.1,1\n4,BTCUSDT,0.2,\n",
+    );
+    const rows = await loadCexFundingCsv(csvPath, "BTCUSDT");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.fundingRate.equals(exact("0.0000000000000000001"))).toBe(true);
+    expect(rows[0]?.markPrice?.equals(exact("80000"))).toBe(true);
+    expect(rows[1]?.fundingRate.equals(exact("0.2"))).toBe(true);
+    expect(rows[1]?.markPrice).toBeUndefined();
+  });
+});
+
+describe("dYdX hourly loader transport boundary", () => {
+  it("makes zero transport calls in cache-only mode and records absent days", async () => {
+    const directory = await mkdtemp(path.resolve(tmpdir(), "dydx-loader-"));
+    temporaryDirectories.push(directory);
+    let callCount = 0;
+    const fetchPage: TardisFetchPage = () => {
+      callCount += 1;
+      return Promise.reject(new Error("transport must not be called"));
+    };
+    const dates = [new Date(Date.UTC(2025, 3, 1)), new Date(Date.UTC(2025, 4, 1))];
+    const loaded = await loadDydxHourly(directory, "btc", dates, true, fetchPage);
+    expect(callCount).toBe(0);
+    expect(loaded.hourly).toEqual([]);
+    expect(loaded.skippedDays).toEqual(["2025-04-01", "2025-05-01"]);
+  });
+
+  it("fails closed per day for malformed transport responses without skip mode", async () => {
+    const directory = await mkdtemp(path.resolve(tmpdir(), "dydx-loader-malformed-"));
+    temporaryDirectories.push(directory);
+    const loaded = await loadDydxHourly(directory, "eth", [new Date(Date.UTC(2025, 5, 1))], false, () =>
+      Promise.resolve({ ok: "yes", status: 200, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) }),
+    );
+    expect(loaded.hourly).toEqual([]);
+    expect(loaded.skippedDays).toEqual(["2025-06-01"]);
+  });
+
+  it("uses SOL market data and stringifies non-Error transport failures", async () => {
+    const directory = await mkdtemp(path.resolve(tmpdir(), "dydx-loader-sol-"));
+    temporaryDirectories.push(directory);
+    const rejected = await loadDydxHourly(directory, "sol", [new Date(Date.UTC(2025, 6, 1))], false, () =>
+      Promise.reject(new Error("offline")),
+    );
+    expect(rejected).toEqual({ hourly: [], receipts: [], skippedDays: ["2025-07-01"] });
+  });
+});
+
+describe("dYdX carry command process boundary", () => {
   it("sikeresen lefut: a CEX CSV + Tardis cache alapján kimenti az output JSON-t", async () => {
-    // CEX CSV
-    const cexTime = Date.UTC(2025, 0, 1, 0, 0, 0);
-    writeFileSync(
-      resolve(fundingDir, "binance_btcusdt_funding_8h.csv"),
-      buildCexCsv([
-        { fundingTime: cexTime, fundingRate: 0.0001, markPrice: 100_000 },
-        { fundingTime: cexTime + 8 * 3_600_000, fundingRate: 0.0001, markPrice: 100_500 },
-        { fundingTime: cexTime + 16 * 3_600_000, fundingRate: 0.0001, markPrice: 101_000 },
-      ]),
+    const directory = await mkdtemp(path.resolve(tmpdir(), "dydx-cli-complete-"));
+    temporaryDirectories.push(directory);
+    const fundingDirectory = path.resolve(directory, "funding");
+    const cacheDirectory = path.resolve(directory, "cache");
+    const outputPath = path.resolve(directory, "reports", "result-{symbol}-{window}.json");
+    const firstQuarter = WINDOW_DEFS["2025-Q1"];
+    for (const date of firstQuarter.tardisDays) await writeCachedTardisDay(cacheDirectory, date);
+    await Bun.write(
+      path.resolve(fundingDirectory, "binance_btcusdt_funding_8h.csv"),
+      `timestamp,symbol,rate,mark\n${String(firstQuarter.start.getTime())},BTCUSDT,0.00005,80000\n`,
     );
 
-    // Tardis cache — 3 fájl (a 2025-Q1 első napjai)
-    const cacheDates: readonly string[] = ["2025-01-01", "2025-02-01", "2025-03-01"];
-    for (const ymd of cacheDates) {
-      const csv = Array.from({ length: 24 }, (_, hour) => buildTardisCsv(hour, 0.0001, 100_000)).join("\n");
-      const cacheFile = resolve(cacheDir, ymd, "BTC-USD.csv.gz");
-      mkdirSync(resolve(cacheFile, ".."), { recursive: true });
-      writeFileSync(cacheFile, gzipSync(csv));
-    }
-
-    const outFile = resolve(outputDir, "result.json");
-    // A `process.argv` felülírása a CLI args-ok átadásához. A parseArgs
-    // a process.argv.slice(2)-t olvassa, ha nincs explicit argv.
-    const originalArgv = process.argv;
-    process.argv = [
-      "bun",
-      "run-dydx-vs-cex-funding-carry.ts",
+    const exitCode = await runDydxVsCexFundingCarryCommand([
+      "--symbol=btc",
       "--window=2025-Q1",
-      "--funding-csv-dir=" + fundingDir,
-      "--cache-dir=" + cacheDir,
-      "--output=" + outFile,
+      `--funding-csv-dir=${fundingDirectory}`,
+      `--cache-dir=${cacheDirectory}`,
+      `--output=${outputPath}`,
       "--skip-tardis-fetch",
-    ];
-    let runOutput: Awaited<ReturnType<typeof main>> | undefined;
-    try {
-      runOutput = await main();
-    } finally {
-      process.argv = originalArgv;
-    }
-
-    expect(existsSync(outFile)).toBe(true);
-    const parsed = JSON.parse(await Bun.file(outFile).text()) as {
-      args: { symbol: string; window: string };
-      dydxHourlyCount: number;
-      cex8hCount: number;
-      result: { monthlyCarry: number | null; annualizedReturn: number | null; sharpeRatio: number | null };
-      coverage: {
-        status: string;
-        sufficient: boolean;
-        observedHourlySlots: number;
-        expectedHourlySlots: number;
-      };
-      verdict: { valid: boolean; classification: string | null; reason: string };
+    ]);
+    const resolvedOutput = path.resolve(directory, "reports", "result-btc-2025-Q1.json");
+    const output = JSON.parse(await Bun.file(resolvedOutput).text()) as {
+      readonly coverage: { readonly sufficient: boolean };
+      readonly dydxHourlyCount: number;
     };
-    expect(parsed.args.symbol).toBe("btc");
-    expect(parsed.args.window).toBe("2025-Q1");
-    expect(parsed.dydxHourlyCount).toBe(72);
-    expect(parsed.cex8hCount).toBe(3);
-    expect(parsed.coverage.status).toBe("INSUFFICIENT");
-    expect(parsed.coverage.sufficient).toBe(false);
-    expect(parsed.coverage.observedHourlySlots).toBe(24);
-    expect(parsed.coverage.expectedHourlySlots).toBe(90 * 24);
-    expect(parsed.result.monthlyCarry).toBeNull();
-    expect(parsed.result.annualizedReturn).toBeNull();
-    expect(parsed.result.sharpeRatio).toBeNull();
-    expect(parsed.verdict).toEqual({
-      valid: false,
-      classification: null,
-      reason: "insufficient_dydx_coverage",
-    });
-    expect(runOutput?.coverage.sufficient).toBe(false);
+
+    expect(exitCode).toBe(0);
+    expect(output.coverage.sufficient).toBe(true);
+    expect(output.dydxHourlyCount).toBe(2160);
   });
 
-  it("a közvetlen CLI ritka dYdX adatnál 2-es kóddal lép ki, de auditálható invalid outputot ír", async () => {
-    const cexTime = Date.UTC(2025, 0, 1);
-    writeFileSync(
-      resolve(fundingDir, "binance_btcusdt_funding_8h.csv"),
-      buildCexCsv([
-        { fundingTime: cexTime, fundingRate: 0.0001, markPrice: 100_000 },
-        { fundingTime: cexTime + 8 * 3_600_000, fundingRate: 0.0001, markPrice: 100_500 },
-      ]),
+  it("fails closed without output when three authentic daily cache files cannot cover a quarter", async () => {
+    const directory = await mkdtemp(path.resolve(tmpdir(), "dydx-cli-process-"));
+    temporaryDirectories.push(directory);
+    const fundingDirectory = path.resolve(directory, "funding");
+    const cacheDirectory = path.resolve(directory, "cache");
+    const firstQuarter = WINDOW_DEFS["2025-Q1"];
+    for (const date of firstQuarter.tardisDays.slice(0, 3)) await writeCachedTardisDay(cacheDirectory, date);
+    await Bun.write(
+      path.resolve(fundingDirectory, "binance_btcusdt_funding_8h.csv"),
+      `timestamp,symbol,rate,mark\n${String(firstQuarter.start.getTime())},BTCUSDT,0.00005,80000\n`,
     );
-    const csv = Array.from({ length: 24 }, (_, hour) => buildTardisCsv(hour, 0.0001, 100_000)).join("\n");
-    const cacheFile = resolve(cacheDir, "2025-01-01", "BTC-USD.csv.gz");
-    mkdirSync(resolve(cacheFile, ".."), { recursive: true });
-    writeFileSync(cacheFile, gzipSync(csv));
-    const outFile = resolve(outputDir, "direct-invalid.json");
+    const templatedOutput = path.resolve(directory, "reports", "result-{symbol}-{window}.json");
+    const command = [
+      "--symbol=btc",
+      "--window=2025-Q1",
+      `--funding-csv-dir=${fundingDirectory}`,
+      `--cache-dir=${cacheDirectory}`,
+      `--output=${templatedOutput}`,
+      "--skip-tardis-fetch",
+    ];
+    const result = await invokeCli(command);
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("INSUFFICIENT_COVERAGE");
+    expect(await Bun.file(path.resolve(directory, "reports", "result-btc-2025-Q1.json")).exists()).toBe(
+      false,
+    );
+    const literalOutput = path.resolve(directory, "reports", "literal.json");
+    expect(
+      await runDydxVsCexFundingCarryCommand([
+        ...command.filter((argument) => !argument.startsWith("--output=")),
+        `--output=${literalOutput}`,
+      ]),
+    ).toBe(2);
+    expect(await Bun.file(literalOutput).exists()).toBe(false);
+  });
 
-    const child = Bun.spawn(
-      [
-        "bun",
-        "run",
-        "packages/backtest-tools/src/cli/run-dydx-vs-cex-funding-carry.ts",
+  it("reports help, invalid arguments, and missing CEX input as public command results", async () => {
+    const directory = await mkdtemp(path.resolve(tmpdir(), "dydx-cli-empty-"));
+    temporaryDirectories.push(directory);
+    const fundingDirectory = path.resolve(directory, "empty-funding");
+    await Bun.write(
+      path.resolve(fundingDirectory, "binance_btcusdt_funding_8h.csv"),
+      "timestamp,symbol,rate,mark\n",
+    );
+    expect(await runDydxVsCexFundingCarryCommand(["--help"])).toBe(0);
+    expect(await runDydxVsCexFundingCarryCommand(["--not-a-real-argument"])).toBe(1);
+    expect(
+      await runDydxVsCexFundingCarryCommand([
+        "--symbol=btc",
         "--window=2025-Q1",
-        `--funding-csv-dir=${fundingDir}`,
-        `--cache-dir=${cacheDir}`,
-        `--output=${outFile}`,
-        "--skip-tardis-fetch",
-      ],
-      {
-        cwd: ROOT,
-        stdout: "pipe",
-        stderr: "pipe",
-      },
-    );
-    const [stdout, exitCode] = await Promise.all([new Response(child.stdout).text(), child.exited]);
-
-    expect(exitCode).toBe(2);
-    expect(stdout).toContain("TRACK B EMPIRICAL VERDICT: INVALID");
-    expect(existsSync(outFile)).toBe(true);
-    const parsed = JSON.parse(await Bun.file(outFile).text()) as {
-      result: { monthlyCarry: number | null; annualizedReturn: number | null };
-      coverage: { status: string; sufficient: boolean };
-      verdict: { valid: boolean; classification: string | null; reason: string };
-    };
-    expect(parsed.coverage).toMatchObject({ status: "INSUFFICIENT", sufficient: false });
-    expect(parsed.result.monthlyCarry).toBeNull();
-    expect(parsed.result.annualizedReturn).toBeNull();
-    expect(parsed.verdict).toEqual({
-      valid: false,
-      classification: null,
-      reason: "insufficient_dydx_coverage",
-    });
-  });
-
-  it("a {symbol} és {window} placeholder-eket feloldja az output path-ban", async () => {
-    const cexTime = Date.UTC(2025, 0, 1, 0, 0, 0);
-    writeFileSync(
-      resolve(fundingDir, "binance_btcusdt_funding_8h.csv"),
-      buildCexCsv([
-        { fundingTime: cexTime, fundingRate: 0.0001, markPrice: 100_000 },
-        { fundingTime: cexTime + 8 * 3_600_000, fundingRate: 0.0001, markPrice: 100_500 },
-        { fundingTime: cexTime + 16 * 3_600_000, fundingRate: 0.0001, markPrice: 101_000 },
+        `--funding-csv-dir=${fundingDirectory}`,
+        `--cache-dir=${path.resolve(directory, "cache")}`,
       ]),
-    );
-
-    const outFile = resolve(outputDir, "out-{symbol}-{window}.json");
-    const originalArgv = process.argv;
-    process.argv = [
-      "bun",
-      "run-dydx-vs-cex-funding-carry.ts",
-      "--window=2025-Q1",
-      "--funding-csv-dir=" + fundingDir,
-      "--cache-dir=" + cacheDir,
-      "--output=" + outFile,
-      "--skip-tardis-fetch",
-    ];
-    try {
-      await main();
-    } finally {
-      process.argv = originalArgv;
-    }
-
-    const resolved = resolve(outputDir, "out-btc-2025-Q1.json");
-    expect(existsSync(resolved)).toBe(true);
-  }, 30_000);
-
-  it("ha a CEX CSV üres (nincs adat a window-ban), a main() 'No CEX funding data' errort dob", async () => {
-    // A CEX CSV létezik, de a benne lévő funding tick-ek a window-on
-    // KÍVÜL esnek (2030-as adatok, míg a window 2025-Q1). Az output
-    // throw-ol, amit a `if (import.meta.main)` catch-elne, de mi
-    // in-process hívunk, és a promise rejection-t várjuk.
-    writeFileSync(
-      resolve(fundingDir, "binance_btcusdt_funding_8h.csv"),
-      buildCexCsv([{ fundingTime: Date.UTC(2030, 0, 1, 0, 0, 0), fundingRate: 0.0001, markPrice: 100_000 }]),
-    );
-
-    const outFile = resolve(outputDir, "result.json");
-    const originalArgv = process.argv;
-    process.argv = [
-      "bun",
-      "run-dydx-vs-cex-funding-carry.ts",
-      "--window=2025-Q1",
-      "--funding-csv-dir=" + fundingDir,
-      "--cache-dir=" + cacheDir,
-      "--output=" + outFile,
-      "--skip-tardis-fetch",
-    ];
-    try {
-      await expect(main()).rejects.toThrow(/No CEX funding data/);
-    } finally {
-      process.argv = originalArgv;
-    }
+    ).toBe(1);
   });
-
-  it("ha a dYdX cache minden napra hibás és --skip-tardis-fetch=false, a WARNING warn megjelenik", async () => {
-    // A CEX CSV megvan (a window-ban), a Tardis cache MIND a 3 napra
-    // sérült gzip → a dydxHourlyCount = 0. A --skip-tardis-fetch=false
-    // miatt a FAILED warn + a WARNING warn is megjelenik.
-    const cexTime = Date.UTC(2025, 0, 1, 0, 0, 0);
-    writeFileSync(
-      resolve(fundingDir, "binance_btcusdt_funding_8h.csv"),
-      buildCexCsv([
-        { fundingTime: cexTime, fundingRate: 0.0001, markPrice: 100_000 },
-        { fundingTime: cexTime + 8 * 3_600_000, fundingRate: 0.0001, markPrice: 100_500 },
-        { fundingTime: cexTime + 16 * 3_600_000, fundingRate: 0.0001, markPrice: 101_000 },
-      ]),
-    );
-    const cacheDates = ["2025-01-01", "2025-02-01", "2025-03-01"];
-    for (const ymd of cacheDates) {
-      const cacheFile = resolve(cacheDir, ymd, "BTC-USD.csv.gz");
-      mkdirSync(resolve(cacheFile, ".."), { recursive: true });
-      writeFileSync(cacheFile, Buffer.from("NOT-A-VALID-GZIP", "utf8"));
-    }
-
-    const outFile = resolve(outputDir, "result.json");
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => undefined);
-    const originalArgv = process.argv;
-    process.argv = [
-      "bun",
-      "run-dydx-vs-cex-funding-carry.ts",
-      "--window=2025-Q1",
-      "--funding-csv-dir=" + fundingDir,
-      "--cache-dir=" + cacheDir,
-      "--output=" + outFile,
-      // NEM --skip-tardis-fetch → a WARNING + FAILED warn megjelenik.
-    ];
-    try {
-      await main();
-      const warnCalls = warnSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");
-      expect(warnCalls).toContain("FAILED");
-      expect(warnCalls).toContain("WARNING: no dYdX hourly data");
-    } finally {
-      warnSpy.mockRestore();
-      process.argv = originalArgv;
-    }
-  }, 30_000);
 });

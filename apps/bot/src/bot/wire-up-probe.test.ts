@@ -29,9 +29,9 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import path from "node:path";
 
 import {
   asSymbol,
@@ -43,11 +43,20 @@ import {
 // Phase 66: `MockExchangeFeed` is test-only — import from the
 // `@exchange-testing/*` path alias (see tsconfig.base.json).
 import { MockExchangeFeed } from "@exchange-testing/mockFeed.js";
+import { RecordingLogger } from "@logging-testing";
 
-import { Bot } from "./bot.js";
+import { Bot as RuntimeBot, type BotOptions } from "./bot.js";
 import { BotStateSchema } from "./state-store.js";
 import { DEFAULT_BOT_CONFIG } from "../config/defaults.js";
 import type { BotConfig } from "../config/schema.js";
+
+const fileSystem = await import("node:fs");
+
+class Bot extends RuntimeBot {
+  public constructor(options: BotOptions) {
+    super({ ...options, logger: new RecordingLogger() });
+  }
+}
 
 /**
  * `pushTickerTick` — egyetlen ticker eventet küld a mock feed-en.
@@ -110,6 +119,7 @@ function buildTestConfig(stateFile: string): BotConfig {
       regime_detector: { enabled: false },
     },
     telemetry: {
+      ...DEFAULT_BOT_CONFIG.telemetry,
       log_dir: stateFile + ".logs",
       metrics_interval_sec: 60,
     },
@@ -117,19 +127,19 @@ function buildTestConfig(stateFile: string): BotConfig {
 }
 
 describe("wire-up probe — bot runtime end-to-end", () => {
-  let tmpDir: string;
+  let temporaryDirectory: string;
   let stateFile: string;
   let feed: MockExchangeFeed;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "mm-bot-probe-"));
-    stateFile = join(tmpDir, "bot-state.json");
+    temporaryDirectory = mkdtempSync(path.join(tmpdir(), "mm-bot-probe-"));
+    stateFile = path.join(temporaryDirectory, "bot-state.json");
     feed = new MockExchangeFeed({ balances: [{ currency: "USDC", free: 10_000, total: 10_000 }] });
   });
 
   afterEach(() => {
-    if (existsSync(tmpDir)) {
-      rmSync(tmpDir, { recursive: true, force: true });
+    if (fileSystem.existsSync(temporaryDirectory)) {
+      rmSync(temporaryDirectory, { recursive: true, force: true });
     }
   });
 
@@ -148,12 +158,12 @@ describe("wire-up probe — bot runtime end-to-end", () => {
     });
 
     // Push 100 mock ticks (ticker + ohlcv mix).
-    const symbol = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
-    for (let i = 0; i < 100; i++) {
-      const last = 60_000 + i * 10; // trending up
+    const symbol = asSymbol("BTC/USDC");
+    for (let index = 0; index < 100; index++) {
+      const last = 60_000 + index * 10; // trending up
       pushTickerTick(feed, symbol, last);
-      if (i % 5 === 0) {
-        const candle: Ohlcv = [Date.now() - (100 - i) * 60_000, last - 5, last + 5, last - 10, last, 100];
+      if (index % 5 === 0) {
+        const candle: Ohlcv = [Date.now() - (100 - index) * 60_000, last - 5, last + 5, last - 10, last, 100];
         pushOhlcvTick(feed, symbol, "15m", candle);
       }
     }
@@ -171,12 +181,12 @@ describe("wire-up probe — bot runtime end-to-end", () => {
     const stopStart = Date.now();
     await bot.stop();
     const stopDuration = Date.now() - stopStart;
-    expect(stopDuration).toBeLessThan(5_000);
+    expect(stopDuration).toBeLessThan(5000);
     await startPromise; // ensure the run() Promise has resolved
 
     // State file should exist.
-    expect(existsSync(stateFile)).toBe(true);
-    const stateRaw = readFileSync(stateFile, "utf8");
+    expect(fileSystem.existsSync(stateFile)).toBe(true);
+    const stateRaw = fileSystem.readFileSync(stateFile, "utf8");
     const stateJson = JSON.parse(stateRaw) as unknown;
     const validated = BotStateSchema.safeParse(stateJson);
     expect(validated.success).toBe(true);
@@ -198,9 +208,9 @@ describe("wire-up probe — bot runtime end-to-end", () => {
     });
 
     // Push a few ticks
-    const symbol = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
-    for (let i = 0; i < 10; i++) {
-      pushTickerTick(feed, symbol, 60_000 + i);
+    const symbol = asSymbol("BTC/USDC");
+    for (let index = 0; index < 10; index++) {
+      pushTickerTick(feed, symbol, 60_000 + index);
     }
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 200);
@@ -209,7 +219,7 @@ describe("wire-up probe — bot runtime end-to-end", () => {
     await bot.stop();
     await startPromise;
 
-    expect(existsSync(stateFile)).toBe(true);
+    expect(fileSystem.existsSync(stateFile)).toBe(true);
   });
 
   // --------------------------------------------------------------------------
@@ -223,15 +233,15 @@ describe("wire-up probe — bot runtime end-to-end", () => {
       setTimeout(resolve, 100);
     });
 
-    const symbol = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
-    for (let i = 0; i < 20; i++) {
-      pushTickerTick(feed, symbol, 60_000 + i);
+    const symbol = asSymbol("BTC/USDC");
+    for (let index = 0; index < 20; index++) {
+      pushTickerTick(feed, symbol, 60_000 + index);
       const candle: Ohlcv = [
-        Date.now() - (20 - i) * 60_000,
-        60_000 + i - 5,
-        60_000 + i + 5,
-        60_000 + i - 10,
-        60_000 + i,
+        Date.now() - (20 - index) * 60_000,
+        60_000 + index - 5,
+        60_000 + index + 5,
+        60_000 + index - 10,
+        60_000 + index,
         100,
       ];
       pushOhlcvTick(feed, symbol, "15m", candle);
@@ -249,8 +259,8 @@ describe("wire-up probe — bot runtime end-to-end", () => {
     await startPromise;
 
     // After shutdown, the persisted JSON should be valid too.
-    expect(existsSync(stateFile)).toBe(true);
-    const stateRaw = readFileSync(stateFile, "utf8");
+    expect(fileSystem.existsSync(stateFile)).toBe(true);
+    const stateRaw = fileSystem.readFileSync(stateFile, "utf8");
     const stateJson = JSON.parse(stateRaw) as unknown;
     const validatedPersisted = BotStateSchema.safeParse(stateJson);
     expect(validatedPersisted.success).toBe(true);
@@ -267,7 +277,7 @@ describe("wire-up probe — bot runtime end-to-end", () => {
       setTimeout(resolve, 100);
     });
 
-    const symbol = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
+    const symbol = asSymbol("BTC/USDC");
     pushTickerTick(feed, symbol, 60_000);
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 100);
@@ -277,7 +287,7 @@ describe("wire-up probe — bot runtime end-to-end", () => {
     await bot.stop();
     const stopDuration = Date.now() - stopStart;
     await startPromise;
-    expect(stopDuration).toBeLessThan(5_000);
+    expect(stopDuration).toBeLessThan(5000);
   });
 
   // --------------------------------------------------------------------------
@@ -292,9 +302,9 @@ describe("wire-up probe — bot runtime end-to-end", () => {
     });
 
     // 100 ticks
-    const symbol = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
-    for (let i = 0; i < 100; i++) {
-      pushTickerTick(feed, symbol, 60_000 + i);
+    const symbol = asSymbol("BTC/USDC");
+    for (let index = 0; index < 100; index++) {
+      pushTickerTick(feed, symbol, 60_000 + index);
     }
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 200);
@@ -315,7 +325,7 @@ describe("wire-up probe — bot runtime end-to-end", () => {
       const bot1 = new Bot({ config, feed });
       const p = bot1.start();
       await new Promise<void>((r) => setTimeout(r, 100));
-      const symbol = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
+      const symbol = asSymbol("BTC/USDC");
       pushTickerTick(feed, symbol, 60_000);
       await new Promise<void>((r) => setTimeout(r, 200));
       await bot1.stop();
@@ -331,7 +341,7 @@ describe("wire-up probe — bot runtime end-to-end", () => {
       const bot2 = new Bot({ config, feed: feed2 });
       const p = bot2.start();
       await new Promise<void>((r) => setTimeout(r, 100));
-      const symbol = asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
+      const symbol = asSymbol("BTC/USDC");
       pushTickerTick(feed2, symbol, 60_001);
       await new Promise<void>((r) => setTimeout(r, 200));
       const state = bot2.getState();

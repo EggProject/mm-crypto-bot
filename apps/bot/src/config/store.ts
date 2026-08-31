@@ -1,17 +1,23 @@
+import { randomUUID } from "node:crypto";
 import nodePath from "node:path";
-
-import { normalizeBotConfigForValidation, toTomlSerializableBotConfig } from "./selected-leverage-config.js";
+import { isDeepStrictEqual } from "node:util";
+import {
+  normalizeBotConfigForValidation,
+  toTomlSerializableBotConfig as serializeSelectedLeverageConfig,
+} from "./selected-leverage-config.js";
 import type { BotConfig, StrategyName } from "./schema.js";
-import { BotConfigSchema, StrategySectionSchema } from "./schema.js";
+import { BotConfigSchema } from "./schema.js";
 import {
   ConfigLiveConfirmError,
   ConfigReadError,
   ConfigValidationError,
+  type CommittedLiveModeAuditEntry,
   type ConfigStoreDependencies,
   type LiveModeAuditEntry,
+  type PendingLiveModeAuditEntry,
+  type TomlSerializableBotConfig,
 } from "./store-contracts.js";
 import { DEFAULT_CONFIG_STORE_DEPENDENCIES, getTomlParseErrorMessage } from "./store-node-adapter.js";
-
 export {
   ConfigLiveConfirmError,
   ConfigReadError,
@@ -19,6 +25,48 @@ export {
   type ConfigStoreDependencies,
   type LiveModeAuditEntry,
 } from "./store-contracts.js";
+
+function selectedLeverageValidationError(): ConfigValidationError {
+  const path = "bot.selected_leverage";
+  const message = "Selected leverage must be an authentic SelectedLeverage value.";
+  return new ConfigValidationError(
+    `Bot config validation failed:\n  • ${path}: ${message}`,
+    { [path]: [message] },
+    [{ path, message }],
+  );
+}
+
+function roundTripValidationError(path: string): ConfigValidationError {
+  const message = "Serialized configuration does not exactly round-trip through the TOML codec.";
+  return new ConfigValidationError(
+    `Bot config validation failed:\n  • ${path}: ${message}`,
+    { [path]: [message] },
+    [{ path, message }],
+  );
+}
+
+function toTomlSerializableConfig(config: BotConfig): TomlSerializableBotConfig {
+  try {
+    return serializeSelectedLeverageConfig(config);
+  } catch {
+    throw selectedLeverageValidationError();
+  }
+}
+
+function hasSameTomlRepresentation(
+  left: TomlSerializableBotConfig,
+  right: TomlSerializableBotConfig,
+): boolean {
+  return isDeepStrictEqual(left, right);
+}
+
+function toRawConfigCandidate(candidate: unknown): unknown {
+  try {
+    return normalizeBotConfigForValidation(candidate);
+  } catch {
+    throw selectedLeverageValidationError();
+  }
+}
 
 export class ConfigStore {
   private readonly dependencies: ConfigStoreDependencies;
@@ -38,9 +86,17 @@ export class ConfigStore {
     this.dependencies = { ...DEFAULT_CONFIG_STORE_DEPENDENCIES, ...dependencies };
   }
 
-  // --------------------------------------------------------------------------
-  // read — TOML → raw object
-  // --------------------------------------------------------------------------
+  private appendAuditRecord(entry: LiveModeAuditEntry): void {
+    const auditPath = `${this.path}.audit.log`;
+    try {
+      this.dependencies.appendText(auditPath, `${JSON.stringify(entry)}\n`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`ConfigStore.writeAfterTypedLive: failed to write audit log ${auditPath}: ${message}`, {
+        cause: error,
+      });
+    }
+  }
 
   /**
    * `read` — beolvassa a TOML-fájlt, és visszaadja a `BotConfig`
@@ -76,16 +132,9 @@ export class ConfigStore {
       throw new ConfigReadError(`Failed to parse TOML at "${this.path}": ${message}`, this.path, error);
     }
 
-    // A TOML-tartalom Zod-validációja. A séma a `passthrough()` miatt
-    // a per-strategy extra mezőket is átengedi — a `validate()`
-    // metódus ugyanazt a Zod-parse-t használja, mint a `read()`,
-    // csak explicit a hívó kezdeményezi.
+    // The closed schema validates TOML with the same parse path used by validate().
     return this.validate(raw);
   }
-
-  // --------------------------------------------------------------------------
-  // validate — raw object → Zod-validated BotConfig
-  // --------------------------------------------------------------------------
 
   /**
    * `validate` — a Zod-séma szerinti típus- és tartomány-ellenőrzés.
@@ -97,7 +146,7 @@ export class ConfigStore {
    * @throws {ConfigValidationError} ha bármely mező elutasítódik.
    */
   public validate(raw: unknown): BotConfig {
-    const parsed = BotConfigSchema.safeParse(normalizeBotConfigForValidation(raw));
+    const parsed = BotConfigSchema.safeParse(raw);
     if (!parsed.success) {
       const issues = parsed.error.issues.map((issue) => ({
         path: issue.path.join("."),
@@ -120,10 +169,6 @@ export class ConfigStore {
     }
     return parsed.data;
   }
-
-  // --------------------------------------------------------------------------
-  // write — BotConfig → atomic TOML write
-  // --------------------------------------------------------------------------
 
   /**
    * `write` — atomikusan kiírja a `BotConfig`-ot a `this.path` fájlba.
@@ -151,14 +196,14 @@ export class ConfigStore {
    * @throws {Error} ha az IO művelet bármelyike sikertelen.
    */
   public write(next: BotConfig): void {
-    // 1) Zod re-validate. Ha a hívó már validált, a második
-    // safeParse költsége elhanyagolható (a Zod parse-ideje
-    // ~10-100 µs egy 100-mezős configra).
-    const validated = this.validate(next);
+    // 1) Convert the in-memory exact domain value to its canonical TOML
+    // representation, then re-validate the raw persistence boundary.
+    const serializedInput = toTomlSerializableConfig(next);
+    const validated = this.validate(serializedInput);
 
-    // 2) Serialize. A `stringifyToml` a `validated`-ot `Record<string, unknown>`
-    // -ként fogadja — a `BotConfig` típus kompatibilis ezzel a típussal.
-    const serialized = this.dependencies.stringify(toTomlSerializableBotConfig(validated));
+    // 2) Serialize only the explicit TOML representation, never the domain
+    // value object held by the validated in-memory configuration.
+    const serialized = this.dependencies.stringify(toTomlSerializableConfig(validated));
 
     // 3) Round-trip check. A TOML-stringify bug (adatvesztés) az
     // esetek 99%-ában itt jönne ki. A `parse` költsége elhanyagolható
@@ -172,7 +217,15 @@ export class ConfigStore {
         cause: error,
       });
     }
-    this.validate(reparsed);
+    const reparsedConfig = this.validate(reparsed);
+    const reparsedTomlConfig = toTomlSerializableConfig(reparsedConfig);
+    if (!hasSameTomlRepresentation(serializedInput, reparsedTomlConfig)) {
+      const path =
+        serializedInput.bot.selected_leverage === reparsedTomlConfig.bot.selected_leverage
+          ? "<round-trip>"
+          : "bot.selected_leverage";
+      throw roundTripValidationError(path);
+    }
 
     // 4) Biztosítsuk, hogy a cél-könyvtár létezik (a user adhatott
     // meg olyan path-ot, ami még nem létezik).
@@ -201,86 +254,44 @@ export class ConfigStore {
     }
   }
 
-  // --------------------------------------------------------------------------
-  // writeAfterTypedLive — Track C2 typed "LIVE" guard
-  // --------------------------------------------------------------------------
-
   /**
-   * `writeAfterTypedLive` — a `bot.mode = "live"` típusos megerősítő
-   * őre. A metódus CSAK akkor írja ki a `next` configot, ha a
-   * `typedValue` pontosan egyenlő a case-sensitive "LIVE" string-gel.
-   *
-   * Mellékhatás: a `<path>.audit.log` fájlba append-öl egy
-   * `LiveModeAuditEntry` bejegyzést (JSON-line formátumban).
-   *
-   * A metódus a `write` metódust hívja a tényleges mentéshez, tehát
-   * a Zod re-validate + round-trip + atomic write + backup mind
-   * automatikus.
-   *
-   * A `prevMode`-ot a metódus a `next.bot.mode` ELŐTTI állapotból
-   * olvassa — ehhez a hívónak VÁLTOZTATATLAN `BotConfig`-ot kell
-   * átadnia, vagy expliciten meg kell adnia a `prevMode` értéket.
-   * Ha a `next` módosítva van (`bot.mode = "live"`), a `prevMode`
-   * a `next` jelenlegi értéke alapján számítódik (a metódus
-   * megbízható abban, hogy a hívó az in-memory frissítés ELŐTT
-   * olvassa a `prev` módot a `this.read()`-ból, ÉS a frissítés UTÁN
-   * hívja a metódust — így a `next.bot.mode === "live"` az új
-   * mód, a `prevMode` pedig a `next` ÁTADÁSA ELŐTTI).
-   *
-   * A félreértések elkerülése érdekében a metódus NEM próbálja
-   * kitalálni a `prevMode`-ot — a hívó felelőssége, hogy helyes
-   * értéket adjon át. Ha a `next.bot.mode === "live"`, akkor a
-   * `prevMode` a hívó kontextusából származik; itt a metódus az
-   * audit-logba a `prevMode` paramétert írja (a `next` mező helyett).
-   *
-   * @param next A kiírandó `BotConfig` (a `bot.mode` itt már "live").
-   * @param typedValue A user által begépelt megerősítő szöveg.
-   *   CSAK a "LIVE" (case-sensitive) értékkel fogadja el.
-   * @param prevMode A bot MÓDJA a confirm ELŐTT ("paper" | "live").
-   *   A hívó a `this.read()`-ból olvassa, MIELŐTT a `next`-ben
-   *   átállítaná "live"-ra.
-   * @returns Az audit-log bejegyzés, ami a fájlba került.
-   * @throws {ConfigLiveConfirmError} ha `typedValue !== "LIVE"`.
-   * @throws {ConfigValidationError} ha a Zod séma elutasítja a `next`-et.
+   * Records a pending transition, writes atomically, then records its commit.
    */
-  public writeAfterTypedLive(
-    next: BotConfig,
-    typedValue: string,
-    previousMode: "paper" | "live",
-  ): LiveModeAuditEntry {
+  public writeAfterTypedLive(next: unknown, typedValue: string): CommittedLiveModeAuditEntry {
     if (typedValue !== "LIVE") {
       throw new ConfigLiveConfirmError(
         `Refusing to switch to LIVE mode: typed value "${typedValue}" does not match "LIVE".`,
         typedValue,
       );
     }
-
-    const entry: LiveModeAuditEntry = {
+    const validatedNext = this.validate(toRawConfigCandidate(next));
+    if (validatedNext.bot.mode !== "live") {
+      throw new ConfigLiveConfirmError(
+        "Refusing to confirm a config whose bot.mode is not live.",
+        typedValue,
+      );
+    }
+    const transactionId = randomUUID();
+    const previousMode = this.read().bot.mode;
+    const pending: PendingLiveModeAuditEntry = {
       ts: new Date().toISOString(),
       event: "live-mode-confirm",
-      value: true,
-      prevMode: previousMode,
-      newMode: next.bot.mode,
+      transactionId,
+      status: "pending",
+      success: false,
+      previousMode,
+      newMode: "live",
     };
-
-    // Audit-log append. A `<path>.audit.log` fájl a bot-config melletti
-    // sidecar — append-only, JSON-lines formátumban. A user bármikor
-    // `cat mm-bot.toml.audit.log | jq` formában ellenőrizheti a
-    // korábbi megerősítéseket.
-    const auditPath = `${this.path}.audit.log`;
-    try {
-      this.dependencies.appendText(auditPath, `${JSON.stringify(entry)}\n`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`ConfigStore.writeAfterTypedLive: failed to write audit log ${auditPath}: ${message}`, {
-        cause: error,
-      });
-    }
-
-    // Tényleges write — a `write` metódus a Zod re-validate + atomic
-    // write + backup pattern-t alkalmazza.
-    this.write(next);
-    return entry;
+    this.appendAuditRecord(pending);
+    this.write(validatedNext);
+    const committed: CommittedLiveModeAuditEntry = {
+      ...pending,
+      ts: new Date().toISOString(),
+      status: "committed",
+      success: true,
+    };
+    this.appendAuditRecord(committed);
+    return committed;
   }
 
   // --------------------------------------------------------------------------
@@ -316,56 +327,9 @@ export class ConfigStore {
   }
 
   /**
-   * `setStrategySetting` — egy adott strategy egy mezőjének állítása.
-   *
-   * A metódus a `StrategySectionSchema` Zod-sémával validálja az új
-   * strategy-értéket, mielőtt a `write` meghívódik. Ha a Zod séma
-   * elutasítja, a write NEM történik meg, és `ConfigValidationError`
-   * dobódik.
-   *
-   * @param strategyId A strategy-kulcs.
-   * @param key A mező neve (pl. "cap", "leverage", "risk_per_trade",
-   *   "max_positions", "symbols", "timeframes", vagy bármely
-   *   `passthrough()`-ön átengedett custom mező).
-   * @param value Az új érték. A típus a `StrategySectionSchema`
-   *   shape-jéből következik — a helper a `StrategySectionSchema.partial()`
-   *   + `passthrough()` sémával validál, hogy a `passthrough()`-ön
-   *   átengedett mezők is működjenek.
-   * @throws {ConfigValidationError} ha a Zod séma elutasítja az
-   *   új értéket (pl. `leverage = 15` → 1:10 MANDATE breach).
+   * Updates one strategy field and validates the completed closed config before persisting it.
    */
   public setStrategySetting(strategyId: StrategyName, key: string, value: unknown): void {
-    // Először a jelenlegi strategy-section-t olvassuk, és ellenőrizzük,
-    // hogy az új `{ [key]: value }` shape érvényes-e a sémán.
-    const candidate = { [key]: value };
-    // A `passthrough()`-höz a Zod `.passthrough()` sémát használjuk
-    // — a `StrategySectionSchema.safeParse` a teljes objektumot
-    // validálja, és a `passthrough()` miatt a custom mezőket is
-    // átengedi. Csak az adott mező validitását ellenőrizzük: a
-    // `partial()` sémával.
-    const fieldOnlySchema = StrategySectionSchema.partial();
-    const parsed = fieldOnlySchema.safeParse(candidate);
-    if (!parsed.success) {
-      const issues = parsed.error.issues.map((issue) => ({
-        path: `strategies.${strategyId}.${key}`,
-        message: issue.message,
-      }));
-      const fieldErrors = new Map<string, string[]>();
-      for (const issue of parsed.error.issues) {
-        const fkey = `strategies.${strategyId}.${key}`;
-        const list = fieldErrors.get(fkey) ?? [];
-        list.push(issue.message);
-        fieldErrors.set(fkey, list);
-      }
-      throw new ConfigValidationError(
-        `Strategy setting validation failed for strategies.${strategyId}.${key}:\n${issues
-          .map((issue) => `  • ${issue.path}: ${issue.message}`)
-          .join("\n")}`,
-        Object.fromEntries(fieldErrors),
-        issues,
-      );
-    }
-
     const current = this.read();
     const next: BotConfig = {
       ...current,

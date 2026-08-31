@@ -55,7 +55,7 @@
 //   4. **Carry signal regime → sizeMultiplier**
 //      - `regime = "high"`   → carryMultiplier = 1.2 (carry is profitable,
 //        INTENT scale-up — but final sizeMultiplier is clamped to ≤1.0 by
-//        `_computeSizeMultiplier`, so under the project's 1:10 mandate the
+//        `_computeSizeMultiplier`, so under the project's aggregate effective-exposure limit the
 //        effective multiplier for "high" == "neutral" == 1.0; the scale-up
 //        half is structurally disabled).
 //      - `regime = "neutral"`→ carryMultiplier = 1.0 (no change)
@@ -87,9 +87,9 @@
 // ===========================================================================
 //
 // The DecisionEngine is a SIGNAL-FLOW arbiter; it does NOT compute notional
-// directly from the plugin's recommended sizing. The 1:10 leverage cap is
+// directly from the plugin's recommended sizing. The aggregate effective-exposure cap is
 // enforced by:
-//   1. The underlying plugins (each declares `maxLeverage: 10` in metadata
+//   1. The underlying plugins (each declares `maxAggregateEffectiveLeverage: 10` in metadata
 //      and clamps its own emits per the project-wide 3-layer defense).
 //   2. The DecisionEngine's `maxNotionalPerSymbolUsd` config cap (default
 //      $10,000 = the project-wide 1:10 reference notional). Any

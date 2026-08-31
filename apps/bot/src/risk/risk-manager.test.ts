@@ -9,14 +9,22 @@
 
 import { describe, expect, it } from "bun:test";
 
-import { RiskManager } from "./risk-manager.js";
+import { RecordingLogger } from "@logging-testing";
+import { RiskManager as RuntimeRiskManager } from "./risk-manager.js";
 import type { TrailingStopCloseEvent } from "./risk-manager.js";
+
+class RiskManager extends RuntimeRiskManager {
+  public constructor(...arguments_: ConstructorParameters<typeof RuntimeRiskManager>) {
+    const [options] = arguments_;
+    super({ ...options, logger: new RecordingLogger() });
+  }
+}
 
 const BASE_CONFIG = {
   trailingStop: {
     enabled: true,
     atrPeriod: 14,
-    atrMultiplier: 3.0,
+    atrMultiplier: 3,
     side: "both" as const,
   },
   kelly: {
@@ -52,7 +60,9 @@ describe("RiskManager", () => {
     const rm = new RiskManager(BASE_CONFIG);
     rm.armTrailingStop("a:BTC/USDC:long", "long", 60_000, 100);
     const events: TrailingStopCloseEvent[] = [];
-    rm.onTrailingStopClose((e) => events.push(e));
+    rm.onTrailingStopClose((event) => {
+      events.push(event);
+    });
     // Move favorably
     rm.onTick({ positionId: "a:BTC/USDC:long", side: "long", currentPrice: 60_500, atr: 100 });
     // Breach
@@ -66,7 +76,9 @@ describe("RiskManager", () => {
     const rm = new RiskManager(BASE_CONFIG);
     rm.armTrailingStop("a", "long", 60_000, 100);
     const events: TrailingStopCloseEvent[] = [];
-    rm.onTrailingStopClose((e) => events.push(e));
+    rm.onTrailingStopClose((event) => {
+      events.push(event);
+    });
     rm.onTick({ positionId: "a", side: "long", currentPrice: 60_500, atr: 100 });
     rm.onTick({ positionId: "a", side: "long", currentPrice: 61_000, atr: 100 });
     expect(events.length).toBe(0);
@@ -83,11 +95,11 @@ describe("RiskManager", () => {
     rm.onTick({ positionId: "a", side: "long", currentPrice: 60_100, atr: 100 });
   });
 
-  it("onTick also swallows non-Error callback failures", () => {
+  it("onTick also swallows callback Errors", () => {
     const rm = new RiskManager(BASE_CONFIG);
     rm.armTrailingStop("a", "long", 60_000, 100);
     rm.onTrailingStopClose(() => {
-      throw "plain callback failure";
+      throw new Error("plain callback failure");
     });
     rm.onTick({ positionId: "a", side: "long", currentPrice: 60_500, atr: 100 });
     expect(() => rm.onTick({ positionId: "a", side: "long", currentPrice: 60_100, atr: 100 })).not.toThrow();
@@ -130,7 +142,7 @@ describe("RiskManager", () => {
   // -------------------------------------------------------------------------
   it("onEquityUpdate propagates to the drawdown scaler", () => {
     const rm = new RiskManager(BASE_CONFIG);
-    rm.onEquityUpdate(8_500); // -15% drawdown (75% of 20%) → caution
+    rm.onEquityUpdate(8500); // -15% drawdown (75% of 20%) → caution
     expect(rm.getDrawdownScaler().getState().region).toBe("caution");
   });
 
@@ -139,8 +151,8 @@ describe("RiskManager", () => {
   // -------------------------------------------------------------------------
   it("onTradeClosed propagates to the kelly sizer", () => {
     const rm = new RiskManager(BASE_CONFIG);
-    for (let i = 0; i < 7; i++) rm.onTradeClosed(100, i);
-    for (let i = 0; i < 3; i++) rm.onTradeClosed(-100, 100 + i);
+    for (let index = 0; index < 7; index++) rm.onTradeClosed(100, index);
+    for (let index = 0; index < 3; index++) rm.onTradeClosed(-100, 100 + index);
     expect(rm.getKellySizer().getStats().region).toBe("active");
   });
 
@@ -149,8 +161,8 @@ describe("RiskManager", () => {
   // -------------------------------------------------------------------------
   it("evaluateNewPositionSize returns 0 when drawdown scaler blocks new positions", () => {
     const rm = new RiskManager(BASE_CONFIG);
-    rm.onEquityUpdate(8_000); // -20% → 100% of 20% → kill
-    const size = rm.evaluateNewPositionSize({ equityUsd: 8_000, baseSizeFraction: 0.05 });
+    rm.onEquityUpdate(8000); // -20% → 100% of 20% → kill
+    const size = rm.evaluateNewPositionSize({ equityUsd: 8000, baseSizeFraction: 0.05 });
     expect(size).toBe(0);
   });
 
@@ -158,8 +170,8 @@ describe("RiskManager", () => {
     const rm = new RiskManager(BASE_CONFIG);
     rm.onEquityUpdate(11_000); // new high — peak now 11_000, scale 1.0
     // Feed enough wins for the Kelly cold-start to pass.
-    for (let i = 0; i < 7; i++) rm.onTradeClosed(100, i);
-    for (let i = 0; i < 3; i++) rm.onTradeClosed(-100, 100 + i);
+    for (let index = 0; index < 7; index++) rm.onTradeClosed(100, index);
+    for (let index = 0; index < 3; index++) rm.onTradeClosed(-100, 100 + index);
     const size = rm.evaluateNewPositionSize({ equityUsd: 11_000, baseSizeFraction: 0.05 });
     // p=0.7, b=1.0 → full=0.4, frac=0.1, capped at 0.1.
     // drawdownScale = 1.0 → size = 0.1
@@ -181,8 +193,8 @@ describe("RiskManager", () => {
       ...BASE_CONFIG,
       kelly: { ...BASE_CONFIG.kelly, enabled: false },
     });
-    rm.onEquityUpdate(8_900); // -11% from 10_000 = 55% of 20% → caution (scale 0.5)
-    const size = rm.evaluateNewPositionSize({ equityUsd: 8_900, baseSizeFraction: 0.1 });
+    rm.onEquityUpdate(8900); // -11% from 10_000 = 55% of 20% → caution (scale 0.5)
+    const size = rm.evaluateNewPositionSize({ equityUsd: 8900, baseSizeFraction: 0.1 });
     expect(size).toBeCloseTo(0.05, 6);
   });
 
@@ -190,7 +202,7 @@ describe("RiskManager", () => {
     const rm = new RiskManager(BASE_CONFIG);
     rm.onEquityUpdate(11_000);
     // Only losses, no wins → no edge → Kelly=0
-    for (let i = 0; i < 12; i++) rm.onTradeClosed(-100, i);
+    for (let index = 0; index < 12; index++) rm.onTradeClosed(-100, index);
     const size = rm.evaluateNewPositionSize({ equityUsd: 11_000, baseSizeFraction: 0.05 });
     expect(size).toBe(0);
   });
@@ -212,7 +224,7 @@ describe("RiskManager", () => {
 
   it("getSnapshot reflects kill region in canOpenNewPosition", () => {
     const rm = new RiskManager(BASE_CONFIG);
-    rm.onEquityUpdate(7_000); // -30% from 10_000 = 150% of 20% → kill
+    rm.onEquityUpdate(7000); // -30% from 10_000 = 150% of 20% → kill
     expect(rm.getSnapshot().canOpenNewPosition).toBe(false);
   });
 });

@@ -9,7 +9,12 @@ import {
   type ConfigFileBoundary,
 } from "../../../src/cli/commands/config.js";
 import type { CliContext } from "../../../src/cli/router.js";
-import { ConfigError, DEFAULT_BOT_CONFIG } from "../../../src/config/index.js";
+import {
+  BotConfigSchema,
+  ConfigError,
+  DEFAULT_BOT_CONFIG,
+  loadBotConfig,
+} from "../../../src/config/index.js";
 
 import { assertCondition } from "./runtime-driver-core.js";
 
@@ -22,28 +27,57 @@ const MISSING_ROOT = {
     message: "Runtime configuration root is unavailable." as const,
   },
 };
-const RICH_CONFIG = {
+const RICH_CONFIG = BotConfigSchema.parse({
   ...DEFAULT_BOT_CONFIG,
+  bot: {
+    mode: DEFAULT_BOT_CONFIG.bot.mode,
+    log_level: DEFAULT_BOT_CONFIG.bot.log_level,
+    state_file: DEFAULT_BOT_CONFIG.bot.state_file,
+    selected_leverage: "10",
+  },
   strategies: {
     ...DEFAULT_BOT_CONFIG.strategies,
     dydx_cex_carry: {
       ...DEFAULT_BOT_CONFIG.strategies.dydx_cex_carry,
       cap: 0.1,
-      leverage: 10,
       symbols: ["BTC/USDC"],
       timeframes: { htf: "1h", mtf: "15m", ltf: "5m" },
-      custom_string: "value",
-      custom_number: 1,
-      custom_boolean: true,
-      custom_array: ["value", 1],
-      custom_object: { nested: "value" },
     },
   },
-};
+});
+const TOML_ESCAPED_STRING_CONFIG = BotConfigSchema.parse({
+  ...DEFAULT_BOT_CONFIG,
+  bot: {
+    mode: DEFAULT_BOT_CONFIG.bot.mode,
+    log_level: DEFAULT_BOT_CONFIG.bot.log_level,
+    state_file: '/external/quote-"-slash-\\-tab-\t-delete-\u{7F}.json',
+    selected_leverage: DEFAULT_BOT_CONFIG.bot.selected_leverage.canonical,
+  },
+});
+const TOML_UNSUPPORTED_CONTROL_CONFIG = BotConfigSchema.parse({
+  ...DEFAULT_BOT_CONFIG,
+  bot: {
+    mode: DEFAULT_BOT_CONFIG.bot.mode,
+    log_level: DEFAULT_BOT_CONFIG.bot.log_level,
+    state_file: "/external/control-\u{1}.json",
+    selected_leverage: DEFAULT_BOT_CONFIG.bot.selected_leverage.canonical,
+  },
+});
 
 function throwUnavailable(): never {
   // eslint-disable-next-line @typescript-eslint/only-throw-error -- The injected hostile boundary may throw unknown values.
   throw "unavailable";
+}
+
+function expectConfigError(operation: () => void, expectedPath: string, label: string): void {
+  try {
+    operation();
+  } catch (error) {
+    assertCondition(error instanceof ConfigError, `${label} did not throw ConfigError`);
+    assertCondition(error.path === expectedPath, `${label} path mismatch`);
+    return;
+  }
+  throw new Error(`${label} unexpectedly succeeded`);
 }
 
 async function withMutedConsole(action: () => Promise<void>): Promise<void> {
@@ -73,6 +107,22 @@ async function exerciseConfigHandler(): Promise<void> {
   assertCondition(
     (await rich(parseArgv(["config", "show"]), CONTEXT)) === 0,
     "config show rejected rich config",
+  );
+  const escapedString = createConfigCommand({
+    loadConfig: () => TOML_ESCAPED_STRING_CONFIG,
+    resolveRuntimeRoot: () => ROOT,
+  });
+  assertCondition(
+    (await escapedString(parseArgv(["config", "show"]), CONTEXT)) === 0,
+    "config show rejected TOML-escaped state-file characters",
+  );
+  const unsupportedControl = createConfigCommand({
+    loadConfig: () => TOML_UNSUPPORTED_CONTROL_CONFIG,
+    resolveRuntimeRoot: () => ROOT,
+  });
+  assertCondition(
+    (await unsupportedControl(parseArgv(["config", "show"]), CONTEXT)) === 1,
+    "config show accepted a state-file character Bun TOML cannot represent",
   );
   assertCondition(
     (await valid(parseArgv(["config", "--help"]), CONTEXT)) === 1,
@@ -235,9 +285,47 @@ async function exerciseConfigInit(): Promise<void> {
   }
 }
 
+function exerciseConfigLoader(): void {
+  const paper = loadBotConfig(undefined, { BUN_ENV: "paper", LOG_LEVEL: "debug" });
+  assertCondition(
+    paper.bot.mode === "paper" && paper.bot.log_level === "debug",
+    "paper environment overrides failed",
+  );
+  const unsupportedLogLevel = loadBotConfig(undefined, { LOG_LEVEL: "verbose" });
+  assertCondition(
+    unsupportedLogLevel.bot.log_level === DEFAULT_BOT_CONFIG.bot.log_level,
+    "unsupported log level changed the default",
+  );
+  expectConfigError(
+    () => loadBotConfig(undefined, { BUN_ENV: "live" }),
+    "BUN_ENV",
+    "live environment activation",
+  );
+
+  const directory = mkdtempSync(path.join(tmpdir(), "mm-d02-loader-"));
+  try {
+    const valid = path.join(directory, "valid.toml");
+    const malformed = path.join(directory, "malformed.toml");
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Fresh mkdtemp descendant.
+    writeFileSync(valid, '[bot]\nlog_level = "warn"\n', "utf8");
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Fresh mkdtemp descendant.
+    writeFileSync(malformed, "[bot]\nlog_level =", "utf8");
+    assertCondition(loadBotConfig(valid).bot.log_level === "warn", "file config override failed");
+    expectConfigError(
+      () => loadBotConfig(path.join(directory, "missing.toml")),
+      "<file>",
+      "missing config file",
+    );
+    expectConfigError(() => loadBotConfig(malformed), "<toml-parse>", "malformed TOML");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 export async function runCliD02ConfigCommandBoundaries(): Promise<void> {
   await withMutedConsole(async () => {
     await exerciseConfigHandler();
     await exerciseConfigInit();
+    exerciseConfigLoader();
   });
 }

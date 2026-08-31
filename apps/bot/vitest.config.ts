@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import path from "node:path";
 
 import { defineConfig } from "vitest/config";
 
@@ -12,14 +12,18 @@ const relativeToApp = (file: string): string => {
 };
 
 export default defineConfig({
-  root: resolve(REPOSITORY_ROOT, "apps/bot"),
-  cacheDir: resolve(REPOSITORY_ROOT, "apps/bot/coverage/unit/.vitest-cache"),
+  root: path.resolve(REPOSITORY_ROOT, "apps/bot"),
+  cacheDir: path.resolve(REPOSITORY_ROOT, "apps/bot/coverage/unit/.vitest-cache"),
   resolve: {
     alias: [
-      { find: "bun:test", replacement: resolve(REPOSITORY_ROOT, "apps/bot/test/bun-test-vitest.ts") },
+      { find: "bun:test", replacement: path.resolve(REPOSITORY_ROOT, "apps/bot/test/bun-test-vitest.ts") },
       {
         find: /^@exchange-testing\/(.*)$/,
-        replacement: `${resolve(REPOSITORY_ROOT, "packages/exchange/src/__testing__")}/$1`,
+        replacement: `${path.resolve(REPOSITORY_ROOT, "packages/exchange/src/__testing__")}/$1`,
+      },
+      {
+        find: "@logging-testing",
+        replacement: path.resolve(REPOSITORY_ROOT, "packages/logging/test-support/index.ts"),
       },
     ],
   },
@@ -32,13 +36,13 @@ export default defineConfig({
     pool: "forks",
     maxWorkers: 1,
     reporters: ["dot"],
-    setupFiles: [resolve(REPOSITORY_ROOT, "apps/bot/test/vitest.setup.ts")],
-    include: manifest.unitTestFiles.map(relativeToApp),
+    setupFiles: [path.resolve(REPOSITORY_ROOT, "apps/bot/test/vitest.setup.ts")],
+    include: manifest.unitTestFiles.map((file) => relativeToApp(file)),
     coverage: {
       provider: "v8",
       enabled: true,
-      include: manifest.runtimeFiles.map(relativeToApp),
-      reportsDirectory: resolve(REPOSITORY_ROOT, "apps/bot/coverage/unit"),
+      include: manifest.runtimeFiles.map((file) => relativeToApp(file)),
+      reportsDirectory: path.resolve(REPOSITORY_ROOT, "apps/bot/coverage/unit"),
       reporter: ["text-summary", "json-summary", "json", "lcov", "html"],
       thresholds: {
         lines: 100,

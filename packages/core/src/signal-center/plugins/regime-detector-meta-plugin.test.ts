@@ -13,7 +13,7 @@
 //   8.  Construction with bad baseNotionalUsd REJECTED
 //   9.  Construction with bad stateEmissionStdDev REJECTED
 //  10.  Construction with numStates != 3 REJECTED
-//  11.  metadata declares name/edgeClass=cost/capitalRequirement=0/maxLeverage=10
+//  11.  metadata declares name/edgeClass=cost/capitalRequirement=0/maxAggregateEffectiveLeverage=10
 //  12.  enabledSymbolsList returns the configured list
 //  13.  subscribe wires all 3 kinds + increments per-kind counters
 //  14.  onBar is a no-op
@@ -25,7 +25,7 @@
 //  20.  Per-regime size multiplier: trending 1.0, ranging 0.7, volatile 0.4
 //  21.  Regime transition: trending → volatile emits breach=true RiskSignal
 //  22.  Persistence: stable trending → no breach RiskSignal
-//  23.  Layer 2 1:10 defense: implied close notional respects base × 10
+//  23.  Layer 2 aggregate effective-exposure defense: implied close notional respects base × 10
 //  24.  Per-symbol enable: BTC/ETH/SOL default-on; non-enabled dropped
 //  25.  Non-finite close on recordClose silently dropped
 //  26.  Cold-start: < minObservations → currentRegime returns null
@@ -66,7 +66,7 @@ import {
 } from "./regime-detector-meta-plugin.js";
 import { isRisk, type RiskSignal } from "../types.js";
 import type { Bar } from "../types.js";
-import { ONE_TO_TEN_LEVERAGE } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE } from "../../risk/leverage-invariant.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -255,13 +255,13 @@ describe("RegimeDetectorMetaPlugin", () => {
   // Metadata
   // -----------------------------------------------------------------------
 
-  it("metadata declares name/edgeClass=risk/capitalRequirement=0/maxLeverage=10", () => {
+  it("metadata declares name/edgeClass=risk/capitalRequirement=0/maxAggregateEffectiveLeverage=10", () => {
     const p = new RegimeDetectorMetaPlugin();
     expect(p.metadata.name).toBe("regime-detector-v1");
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("risk");
     expect(p.metadata.capitalRequirement).toBe(0);
-    expect(p.metadata.maxLeverage).toBe(ONE_TO_TEN_LEVERAGE); // Layer 1
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE); // Layer 1
     expect(p.metadata.description).toContain("Phase 11.2a");
   });
 
@@ -444,7 +444,7 @@ describe("RegimeDetectorMetaPlugin", () => {
     expect(nonBreaches.length).toBeGreaterThan(0);
   });
 
-  it("Layer 2 1:10 defense: implied close notional respects base × 10", () => {
+  it("Layer 2 aggregate effective-exposure defense: implied close notional respects base × 10", () => {
     const p = new RegimeDetectorMetaPlugin({
       baseNotionalUsd: 10_000,
     });
@@ -841,10 +841,10 @@ describe("RegimeDetectorMetaPlugin", () => {
     expect(Math.abs(probs![0] + probs![1] + probs![2] - 1.0)).toBeLessThan(1e-9);
   });
 
-  it("Layer 1 1:10 defense: metadata.maxLeverage = 10 (static invariant)", () => {
+  it("Layer 1 aggregate effective-exposure defense: metadata.maxAggregateEffectiveLeverage = 10 (static invariant)", () => {
     // The metadata is statically typed and the constructor asserts.
     const p = new RegimeDetectorMetaPlugin();
-    expect(p.metadata.maxLeverage).toBe(10);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
   });
 
   it("regime change event has sizeModifier < 1.0 (volatile / ranging regime)", () => {

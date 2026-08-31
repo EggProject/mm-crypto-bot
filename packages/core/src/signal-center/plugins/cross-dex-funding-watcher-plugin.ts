@@ -35,7 +35,7 @@
 // This is a READ-ONLY signal plugin — no notional is ever computed or
 // emitted. The 3-layer defense pattern is:
 //
-//   Layer 1 (constructor): `metadata.maxLeverage = 10` (= ONE_TO_TEN_LEVERAGE).
+//   Layer 1 (constructor): `metadata.maxAggregateEffectiveLeverage = 10` (= DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE).
 //     The registry's `validatePluginMetadata` rejects any plugin declaring
 //     leverage > 10.
 //
@@ -49,7 +49,7 @@
 //
 //   The plugin emits `FundingSnapshotSignal` which has NO notional field.
 //   Downstream plugins that DO open positions (Phase 12 E2) inherit the
-//   standard 1:10 defense at THEIR constructor and per-emit layers.
+//   standard aggregate effective-exposure defense at THEIR constructor and per-emit layers.
 //
 // Per-symbol disclosure (Phase 11.5 scope plan §1):
 //   - BTC: REGISTERED (default-on)
@@ -87,11 +87,11 @@
 //   - Publishes per-asset cross-venue snapshots + spread metrics +
 //     predicted-vs-realized gap to the bus via `FundingSnapshotSignal`.
 
-import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, assertAggregateEffectiveExposureLimit } from "../../risk/leverage-invariant.js";
 
 // Re-export the leverage constant for downstream consumers (mirrors the
 // pattern used by RegimeDetectorMetaPlugin and HybridKellyPlugin).
-export { ONE_TO_TEN_LEVERAGE };
+export { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
 import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
@@ -164,7 +164,7 @@ export interface CrossDexFundingWatcherConfig {
    */
   readonly maxPredictedGapBps: number;
   /**
-   * Base notional for 1:10 leverage cap validation. Default 10_000 USD.
+   * Base notional for aggregate effective-exposure cap validation. Default 10_000 USD.
    * Notional here is INFORMATIONAL only — the plugin never emits a
    * position-sizing instruction. Held for consistency with other
    * Phase 11+ plugins (HybridKelly, RegimeDetector, etc.) that share
@@ -359,7 +359,7 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
     version: "1.0.0",
     edgeClass: "mixed", // emits FundingSnapshotSignal — a 5th SignalKind variant
     capitalRequirement: 0, // signal-only, zero capital needed
-    maxLeverage: ONE_TO_TEN_LEVERAGE, // Layer 1 of 3-layer 1:10 defense
+    maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, // Layer 1 of 3-layer aggregate effective-exposure defense
     description:
       "Phase 12 Track B / Phase 11.5 Track E §H1 EIGHTH Phase 11+ drop-in " +
       "plugin (READ-ONLY signal). Polls Hyperliquid + Binance + Bybit + OKX " +
@@ -395,14 +395,14 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
     };
 
     // LAYER 1 — constructor assertion. The metadata declares
-    // `maxLeverage: ONE_TO_TEN_LEVERAGE` (= 10). Defensive runtime check
+    // `maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE` (= 10). Defensive runtime check
     // matches the convention used by RegimeDetectorMetaPlugin +
     // HybridKellyPlugin (the registry also enforces 1:10 cap at
     // `register()` time, but constructor-side assertion is the canonical
     // first line of defense).
-    if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
+    if (this.metadata.maxAggregateEffectiveLeverage !== DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
       throw new Error(
-        `[CrossDexFundingWatcherPlugin] LAYER 1 BREACH: metadata.maxLeverage=${String(this.metadata.maxLeverage)} but the project-wide 1:10 mandate requires 10.`,
+        `[CrossDexFundingWatcherPlugin] LAYER 1 BREACH: metadata.maxAggregateEffectiveLeverage=${String(this.metadata.maxAggregateEffectiveLeverage)} but the project-wide aggregate effective-exposure limit requires 10.`,
       );
     }
 
@@ -773,12 +773,12 @@ export class CrossDexFundingWatcherPlugin implements StrategyPlugin {
       };
 
       // LAYER 2 — assert the spread + predicted gap are within config
-      // bounds. The 1:10 mandate doesn't directly apply (no notional)
-      // but we keep an assertion hook via `assertLeverageInvariant` for
+      // bounds. The aggregate effective-exposure limit doesn't directly apply (no notional)
+      // but we keep an assertion hook via `assertAggregateEffectiveExposureLimit` for
       // defense-in-depth symmetry with other Phase 11+ plugins. Pass
       // 0 notional + baseNotional — trivially passes.
       try {
-        assertLeverageInvariant(0, this.config.baseNotionalUsd);
+        assertAggregateEffectiveExposureLimit(0, this.config.baseNotionalUsd);
         this.state.layer2AssertionCount += 1;
       } catch (e: unknown) {
         // Should never fire — re-throw with `cause` chained for

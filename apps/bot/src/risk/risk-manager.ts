@@ -31,8 +31,7 @@
  * loop closes the position via the `PositionManager`.
  */
 
-import type { Logger } from "@mm-crypto-bot/shared";
-import { createLogger } from "@mm-crypto-bot/shared";
+import { requireLogger, type Logger } from "@mm-crypto-bot/logging";
 
 import { DrawdownScaler, type DrawdownState } from "./drawdown-scaler.js";
 import { KellySizer, type KellyStats } from "./kelly.js";
@@ -143,7 +142,7 @@ export class RiskManager {
   private readonly closeCallbacks: TrailingStopCloseCallback[] = [];
 
   public constructor(config: RiskManagerConfig) {
-    this.logger = config.logger ?? createLogger("info");
+    this.logger = requireLogger(config.logger, "risk-manager");
     this.trailingStop = new TrailingStopManager({
       ...config.trailingStop,
       logger: this.logger,
@@ -174,8 +173,8 @@ export class RiskManager {
    * close events. The bot's main loop uses this to call
    * `PositionManager.closePosition(...)`.
    */
-  public onTrailingStopClose(cb: TrailingStopCloseCallback): void {
-    this.closeCallbacks.push(cb);
+  public onTrailingStopClose(callback: TrailingStopCloseCallback): void {
+    this.closeCallbacks.push(callback);
   }
 
   /**
@@ -204,24 +203,24 @@ export class RiskManager {
   public onTick(event: TickEvent): TrailingStopDecision {
     const decision = this.trailingStop.evaluate(event);
     if (decision.kind === "close") {
-      this.logger.info("[risk-manager] trailing-stop fired", {
+      this.logger.info("risk.trailingstop.fired", {
         positionId: event.positionId,
         side: event.side,
         closePrice: decision.closePrice,
         reason: decision.reason,
       });
-      for (const cb of this.closeCallbacks) {
+      for (const callback of this.closeCallbacks) {
         try {
-          cb({
+          callback({
             positionId: event.positionId,
             side: event.side,
             closePrice: decision.closePrice,
             reason: decision.reason,
           });
-        } catch (err) {
-          this.logger.error("[risk-manager] close callback threw", {
+        } catch (error) {
+          this.logger.error("risk.close.callback.failed", {
             positionId: event.positionId,
-            error: err instanceof Error ? err.message : String(err),
+            error: error instanceof Error ? error.message : String(error),
           });
         }
       }
@@ -292,17 +291,23 @@ export class RiskManager {
   // Sub-module accessors — used by the integration test and the bot wiring
   // --------------------------------------------------------------------------
 
-  /** `getDrawdownScaler` — the underlying `DrawdownScaler` instance. */
+  /**
+  `getDrawdownScaler` — the underlying `DrawdownScaler` instance.
+  */
   public getDrawdownScaler(): DrawdownScaler {
     return this.drawdown;
   }
 
-  /** `getKellySizer` — the underlying `KellySizer` instance. */
+  /**
+  `getKellySizer` — the underlying `KellySizer` instance.
+  */
   public getKellySizer(): KellySizer {
     return this.kelly;
   }
 
-  /** `getTrailingStop` — the underlying `TrailingStopManager` instance. */
+  /**
+  `getTrailingStop` — the underlying `TrailingStopManager` instance.
+  */
   public getTrailingStopManager(): TrailingStopManager {
     return this.trailingStop;
   }

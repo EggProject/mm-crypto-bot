@@ -29,53 +29,133 @@
 // the SHA-256 of the gzipped file (the Tardis dataset is content-
 // addressed by date+symbol).
 
-import { createHash } from "node:crypto";
-import { createReadStream, existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import path from "node:path";
 import { Readable } from "node:stream";
 import { createGunzip } from "node:zlib";
 
 import type { FundingSnapshot } from "@mm-crypto-bot/core";
+import { canonicalizeExternalDecimal, ExactRational } from "@mm-crypto-bot/numeric";
 
 import type { DydxMarket } from "./dydx-indexer-feed.js";
+import { parseDerivativeTickerCsv, type TardisDerivativeTickerRow } from "./tardis-dydx-funding-csv.js";
+import {
+  nodeTardisCacheFileSystem,
+  readVerifiedTardisCacheReceipt,
+  tardisCacheManifestPath,
+  writeVerifiedTardisCache,
+  type TardisCacheReceipt,
+  type TardisCacheFileSystem,
+} from "./tardis-dydx-funding-cache.js";
 
-/** dYdX v4 markets supported by the funding-carry backtest. */
+/**
+dYdX v4 markets supported by the funding-carry backtest.
+*/
 export type TardisMarket = DydxMarket;
 
-/** Default Tardis dataset base URL (no API key required for monthly CSVs). */
+/**
+Default Tardis dataset base URL (no API key required for monthly CSVs).
+*/
 export const DEFAULT_TARDIS_BASE_URL = "https://datasets.tardis.dev";
 
-/** Default fetch timeout in ms (Tardis datasets can be 50-80KB compressed). */
+/**
+Default fetch timeout in ms (Tardis datasets can be 50-80KB compressed).
+*/
 export const DEFAULT_FETCH_TIMEOUT_MS = 30_000;
 
-/** Cache subdirectory layout. */
+/**
+Cache subdirectory layout.
+*/
 export const CACHE_DIR_NAME = "tardis-dydx-v4";
 
 export interface TardisDydxFundingConfig {
-  /** Base URL for Tardis datasets. */
+  /**
+  UTC clock used to timestamp cache publication receipts.
+  */
+  readonly cacheClock?: TardisCacheClock;
+  /**
+  Restrict reads to verified local cache entries; never invoke the transport.
+  */
+  readonly cacheOnly?: boolean;
+  /**
+  Filesystem port for verified, atomic cache storage.
+  */
+  readonly cacheFileSystem?: TardisCacheFileSystem;
+  readonly fetchPage?: TardisFetchPage;
+  /**
+  Base URL for Tardis datasets.
+  */
   readonly baseUrl?: string;
-  /** Local cache directory (resolved relative to cwd if relative). */
+  /**
+  Local cache directory (resolved relative to cwd if relative).
+  */
   readonly cacheDir?: string;
-  /** Per-fetch timeout in milliseconds. */
+  /**
+  Per-fetch timeout in milliseconds.
+  */
   readonly fetchTimeoutMs?: number;
-  /** Optional logger for diagnostics. */
+  /**
+  Optional logger for diagnostics.
+  */
   readonly logger?: TardisLogger;
 }
 
+export interface TardisCacheClock {
+  readonly nowUtc: () => string;
+}
+
+export type TardisFetchPage = (
+  request: Readonly<{ readonly url: string; readonly timeoutMs: number }>,
+) => Promise<unknown>;
+
 export interface TardisLogger {
-  readonly debug: (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
-  readonly info: (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
-  readonly warn: (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
-  readonly error: (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
+  readonly debug: (message: string, meta?: Readonly<Record<string, unknown>>) => void;
+  readonly info: (message: string, meta?: Readonly<Record<string, unknown>>) => void;
+  readonly warn: (message: string, meta?: Readonly<Record<string, unknown>>) => void;
+  readonly error: (message: string, meta?: Readonly<Record<string, unknown>>) => void;
 }
 
 const NOOP_LOGGER: TardisLogger = {
-  debug: () => undefined,
-  info: () => undefined,
-  warn: () => undefined,
-  error: () => undefined,
+  debug: () => {
+    void 0;
+  },
+  info: () => {
+    void 0;
+  },
+  warn: () => {
+    void 0;
+  },
+  error: () => {
+    void 0;
+  },
 };
+
+const nodeTardisCacheClock: TardisCacheClock = Object.freeze({ nowUtc: () => new Date().toISOString() });
+
+const defaultFetchPage: TardisFetchPage = async ({ url, timeoutMs }) =>
+  fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+
+function validateFetchResponse(value: unknown): {
+  readonly ok: boolean;
+  readonly status: number;
+  arrayBuffer(): Promise<ArrayBuffer>;
+} {
+  if (!isUnknownRecord(value)) throw new Error("Invalid Tardis transport response");
+  const ok = value["ok"];
+  const status = value["status"];
+  const arrayBuffer = value["arrayBuffer"];
+  if (typeof ok !== "boolean" || typeof status !== "number" || typeof arrayBuffer !== "function")
+    throw new Error("Invalid Tardis transport response");
+  return { ok, status, arrayBuffer: async () => requireArrayBuffer(await arrayBuffer.call(value)) };
+}
+
+function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && Object(value) === value && !Array.isArray(value);
+}
+
+function requireArrayBuffer(value: unknown): ArrayBuffer {
+  if (value instanceof ArrayBuffer) return value;
+  throw new Error("Invalid Tardis transport body");
+}
 
 /**
  * A single row of the Tardis `derivative_ticker` CSV dataset.
@@ -89,95 +169,39 @@ const NOOP_LOGGER: TardisLogger = {
  * `funding_timestamp` is often empty in historical replays (the Indexer
  * populates it live only).
  */
-export interface TardisDerivativeTickerRow {
-  readonly exchange: string;
-  readonly symbol: string;
-  readonly timestamp: string;
-  readonly local_timestamp: string;
-  readonly funding_timestamp: string;
-  readonly funding_rate: string;
-  readonly predicted_funding_rate: string;
-  readonly open_interest: string;
-  readonly last_price: string;
-  readonly index_price: string;
-  readonly mark_price: string;
-}
+export type { TardisDerivativeTickerRow } from "./tardis-dydx-funding-csv.js";
 
 /**
  * A consolidated hourly funding snapshot. Each entry corresponds to
  * the funding-rate value settled at the hour boundary on dYdX v4.
  */
 export interface DydxHourlyFunding {
-  /** Hour-boundary timestamp in epoch ms. */
+  /**
+  Hour-boundary timestamp in epoch ms.
+  */
   readonly fundingTime: number;
-  /** Market symbol (e.g. "BTC-USD"). */
+  /**
+  Market symbol (e.g. "BTC-USD").
+  */
   readonly symbol: string;
-  /** Funding rate in decimal (e.g. 0.00004405 = 0.004405% per hour). */
-  readonly fundingRate: number;
-  /** Mark price at funding time (best-effort; null if unavailable). */
-  readonly markPrice: number | null;
+  /**
+  Funding rate in decimal (e.g. 0.00004405 = 0.004405% per hour).
+  */
+  readonly fundingRate: ExactRational;
+  /**
+  Mark price at funding time (best-effort; undefined if unavailable).
+  */
+  readonly markPrice: ExactRational | undefined;
 }
 
-/** Convert microsecond timestamp to epoch ms (Tardis convention). */
+/**
+Convert microsecond timestamp to epoch ms (Tardis convention).
+*/
 export function microsecondsToMs(us: number): number {
   return Math.floor(us / 1000);
 }
 
-/** Parse a single CSV line honoring quoted fields. */
-function parseCsvLine(line: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let inQuotes = false;
-  for (const ch of line) {
-    if (ch === '"') {
-      inQuotes = !inQuotes;
-    } else if (ch === "," && !inQuotes) {
-      out.push(cur);
-      cur = "";
-    } else {
-      cur += ch;
-    }
-  }
-  out.push(cur);
-  return out;
-}
-
-/**
- * Parse a Tardis `derivative_ticker` CSV body (gzipped or raw text).
- * Returns the header and the rows. Caller is responsible for filtering
- * by symbol and aggregating to hourly buckets.
- */
-export function parseDerivativeTickerCsv(csv: string): {
-  readonly header: readonly string[];
-  readonly rows: readonly TardisDerivativeTickerRow[];
-} {
-  const lines = csv.split("\n");
-  if (lines.length === 0) return { header: [], rows: [] };
-  const headerLine = lines[0];
-  if (headerLine === undefined) return { header: [], rows: [] };
-  const header = parseCsvLine(headerLine);
-  const rows: TardisDerivativeTickerRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (line === undefined || line.length === 0) continue;
-    const parts = parseCsvLine(line);
-    if (parts.length < header.length) continue;
-    rows.push({
-      exchange: parts[0] ?? "",
-      symbol: parts[1] ?? "",
-      timestamp: parts[2] ?? "",
-      local_timestamp: parts[3] ?? "",
-      funding_timestamp: parts[4] ?? "",
-      funding_rate: parts[5] ?? "",
-      predicted_funding_rate: parts[6] ?? "",
-      open_interest: parts[7] ?? "",
-      last_price: parts[8] ?? "",
-      index_price: parts[9] ?? "",
-      mark_price: parts[10] ?? "",
-    });
-  }
-  return { header, rows };
-}
+export { parseDerivativeTickerCsv } from "./tardis-dydx-funding-csv.js";
 
 /**
  * Aggregate raw derivative_ticker rows to hourly funding snapshots.
@@ -193,29 +217,23 @@ export function aggregateToHourlyFunding(
   rows: readonly TardisDerivativeTickerRow[],
   market: TardisMarket,
 ): readonly DydxHourlyFunding[] {
-  const buckets = new Map<number, { rate: number; mark: number | null }>();
+  const buckets = new Map<
+    number,
+    { readonly rate: ExactRational; readonly mark: ExactRational | undefined }
+  >();
   for (const row of rows) {
     if (row.symbol !== market) continue;
-    if (row.funding_rate === "") continue;
-    const rate = Number(row.funding_rate);
-    if (!Number.isFinite(rate)) continue;
-    const tsUs = Number(row.timestamp);
-    if (!Number.isFinite(tsUs)) continue;
-    const tsMs = microsecondsToMs(tsUs);
+    const rate = requiredExactDecimal(row.funding_rate, "funding_rate");
+    const tsMs = timestampMilliseconds(row.timestamp);
     const hourKey = Math.floor(tsMs / 3_600_000);
     if (!buckets.has(hourKey)) {
-      const mark =
-        row.mark_price !== ""
-          ? (() => {
-              const m = Number(row.mark_price);
-              return Number.isFinite(m) ? m : null;
-            })()
-          : null;
+      const mark = optionalExactDecimal(row.mark_price, "mark_price");
       buckets.set(hourKey, { rate, mark });
     }
   }
+  const orderedBuckets = orderedHourBuckets(buckets);
   const out: DydxHourlyFunding[] = [];
-  for (const [hourKey, v] of [...buckets.entries()].sort((a, b) => a[0] - b[0])) {
+  for (const [hourKey, v] of orderedBuckets) {
     out.push({
       fundingTime: hourKey * 3_600_000,
       symbol: market,
@@ -224,6 +242,47 @@ export function aggregateToHourlyFunding(
     });
   }
   return out;
+}
+
+function optionalExactDecimal(value: string, field: string): ExactRational | undefined {
+  if (value === "") return undefined;
+  return requiredExactDecimal(value, field);
+}
+
+function requiredExactDecimal(value: string, field: string): ExactRational {
+  try {
+    const canonical = canonicalizeExternalDecimal(value);
+    if (canonical !== value) throw new Error("noncanonical");
+    return ExactRational.from(canonical);
+  } catch {
+    throw new Error(`Tardis selected-market row has invalid ${field}`);
+  }
+}
+
+function timestampMilliseconds(value: string): number {
+  try {
+    if (!/^(0|[1-9]\d*)$/u.test(value)) throw new Error("invalid timestamp");
+    const milliseconds = BigInt(value) / 1000n;
+    if (milliseconds > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("unsafe timestamp");
+    return Number(milliseconds);
+  } catch {
+    throw new Error("Tardis selected-market row has invalid timestamp");
+  }
+}
+
+function orderedHourBuckets(
+  buckets: ReadonlyMap<number, { readonly rate: ExactRational; readonly mark: ExactRational | undefined }>,
+): readonly (readonly [
+  number,
+  { readonly rate: ExactRational; readonly mark: ExactRational | undefined },
+])[] {
+  const ordered: [number, { readonly rate: ExactRational; readonly mark: ExactRational | undefined }][] = [];
+  for (const entry of buckets) {
+    const insertionIndex = ordered.findIndex(([hour]) => hour > entry[0]);
+    if (insertionIndex === -1) ordered.push(entry);
+    else ordered.splice(insertionIndex, 0, entry);
+  }
+  return ordered;
 }
 
 /**
@@ -237,23 +296,72 @@ export function aggregateToHourlyFunding(
  *   // hourly → [{ fundingTime: 1743465600000, symbol: "BTC-USD", fundingRate: 0.00004405, ... }, ...]
  */
 export class TardisDydxFundingFetcher {
+  private readonly cacheOnly: boolean;
+  private readonly cacheClock: TardisCacheClock;
+  private readonly cacheFileSystem: TardisCacheFileSystem;
+  private readonly logger: TardisLogger;
+  private readonly fetchPage: TardisFetchPage;
   readonly baseUrl: string;
   readonly cacheDir: string;
   readonly fetchTimeoutMs: number;
-  private readonly logger: TardisLogger;
 
   constructor(config: TardisDydxFundingConfig = {}) {
     this.baseUrl = (config.baseUrl ?? DEFAULT_TARDIS_BASE_URL).replace(/\/$/, "");
-    this.cacheDir = resolve(config.cacheDir ?? resolve(process.cwd(), ".cache", CACHE_DIR_NAME));
+    this.cacheDir = path.resolve(config.cacheDir ?? path.resolve(process.cwd(), ".cache", CACHE_DIR_NAME));
     this.fetchTimeoutMs = this.validateFetchTimeout(config.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS);
+    this.cacheOnly = config.cacheOnly ?? false;
+    this.cacheClock = config.cacheClock ?? nodeTardisCacheClock;
+    this.cacheFileSystem = config.cacheFileSystem ?? nodeTardisCacheFileSystem;
     this.logger = config.logger ?? NOOP_LOGGER;
+    this.fetchPage = config.fetchPage ?? defaultFetchPage;
   }
 
   private validateFetchTimeout(value: number): number {
     if (!Number.isFinite(value) || value <= 0) {
-      throw new Error(`fetchTimeoutMs must be positive finite, got ${value}`);
+      throw new Error(`fetchTimeoutMs must be positive finite, got ${String(value)}`);
     }
     return value;
+  }
+
+  private async fetchDayCsvWithReceipt(
+    date: Date,
+    market: TardisMarket,
+  ): Promise<Readonly<{ readonly csv: string; readonly receipt: TardisCacheReceipt }>> {
+    const url = this.buildUrl(date, market);
+    const cacheFile = this.cachePath(date, market);
+    const identity = { date: date.toISOString().slice(0, 10), market, url };
+    const cached = await readVerifiedTardisCacheReceipt(this.cacheFileSystem, cacheFile, identity);
+    if (cached !== undefined) {
+      this.logger.debug("tardis-dydx cache hit", { cacheFile, url });
+      const csv = await gunzipBuffer(Buffer.from(cached.contents));
+      parseDerivativeTickerCsv(csv, market, date);
+      return Object.freeze({ csv, receipt: cached.receipt });
+    }
+    if (this.cacheOnly) throw new Error(`Tardis cache entry is absent: ${cacheFile}`);
+    this.logger.info("tardis-dydx downloading", { url });
+    const response = validateFetchResponse(
+      await this.fetchPage(Object.freeze({ url, timeoutMs: this.fetchTimeoutMs })),
+    );
+    if (!response.ok) {
+      // Phase 35b — log the failure with warn+error so the default
+      // NOOP_LOGGER methods are exercised. The throw is preserved.
+      this.logger.warn("tardis-dydx non-2xx response", { url, status: response.status });
+      this.logger.error("tardis-dydx fetch failed", { url, status: response.status });
+      throw new Error(`Tardis dataset ${String(response.status)} for ${url}`);
+    }
+    const ab = await response.arrayBuffer();
+    const buffer = Buffer.from(ab);
+    const csv = await gunzipBuffer(buffer);
+    parseDerivativeTickerCsv(csv, market, date);
+    const receipt = await writeVerifiedTardisCache(
+      this.cacheFileSystem,
+      cacheFile,
+      buffer,
+      identity,
+      this.cacheClock.nowUtc(),
+    );
+    this.logger.info("tardis-dydx cached", { cacheFile, bytes: buffer.length });
+    return Object.freeze({ csv, receipt });
   }
 
   /**
@@ -266,15 +374,25 @@ export class TardisDydxFundingFetcher {
     const y = date.getUTCFullYear();
     const m = String(date.getUTCMonth() + 1).padStart(2, "0");
     const d = String(date.getUTCDate()).padStart(2, "0");
-    return `${this.baseUrl}/v1/dydx-v4/derivative_ticker/${y}/${m}/${d}/${market}.csv.gz`;
+    return `${this.baseUrl}/v1/dydx-v4/derivative_ticker/${String(y)}/${m}/${d}/${market}.csv.gz`;
   }
 
-  /** Build the local cache path for a given (date, market). */
-  cachePath(date: Date, market: TardisMarket): string {
+  /**
+  Build the local cache path for a given (date, market).
+  */
+  cachePath(date: Date, market: string): string {
     const y = date.getUTCFullYear();
     const m = String(date.getUTCMonth() + 1).padStart(2, "0");
     const d = String(date.getUTCDate()).padStart(2, "0");
-    return resolve(this.cacheDir, `${y}-${m}-${d}`, `${market}.csv.gz`);
+    const cacheFile = path.resolve(this.cacheDir, `${String(y)}-${m}-${d}`, `${market}.csv.gz`);
+    const relativePath = path.relative(this.cacheDir, cacheFile);
+    if (relativePath.startsWith(`..${path.sep}`) || path.isAbsolute(relativePath))
+      throw new Error("Tardis cache path escaped its configured root");
+    return cacheFile;
+  }
+
+  cacheManifestPath(date: Date, market: TardisMarket): string {
+    return tardisCacheManifestPath(this.cachePath(date, market));
   }
 
   /**
@@ -282,35 +400,8 @@ export class TardisDydxFundingFetcher {
    * download from Tardis. Returns the decompressed CSV text.
    */
   async fetchDayCsv(date: Date, market: TardisMarket): Promise<string> {
-    const url = this.buildUrl(date, market);
-    const cacheFile = this.cachePath(date, market);
-    if (existsSync(cacheFile)) {
-      this.logger.debug("tardis-dydx cache hit", { cacheFile, url });
-      const buf = await readFile(cacheFile);
-      const csv = await gunzipBuffer(buf);
-      return csv;
-    }
-    this.logger.info("tardis-dydx downloading", { url });
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(this.fetchTimeoutMs),
-    });
-    if (!res.ok) {
-      // Phase 35b — log the failure with warn+error so the default
-      // NOOP_LOGGER methods are exercised. The throw is preserved.
-      this.logger.warn("tardis-dydx non-2xx response", { url, status: res.status });
-      this.logger.error("tardis-dydx fetch failed", { url, status: res.status });
-      throw new Error(`Tardis dataset ${res.status} for ${url}`);
-    }
-    const ab = await res.arrayBuffer();
-    const buf = Buffer.from(ab);
-    await mkdir(resolve(cacheFile, ".."), { recursive: true });
-    await writeFile(cacheFile, buf);
-    this.logger.info("tardis-dydx cached", {
-      cacheFile,
-      sha256: createHash("sha256").update(buf).digest("hex").slice(0, 12),
-      bytes: buf.length,
-    });
-    return gunzipBuffer(buf);
+    const loaded = await this.fetchDayCsvWithReceipt(date, market);
+    return loaded.csv;
   }
 
   /**
@@ -319,9 +410,20 @@ export class TardisDydxFundingFetcher {
    * ingestion.
    */
   async fetchDay(date: Date, market: TardisMarket): Promise<readonly DydxHourlyFunding[]> {
-    const csv = await this.fetchDayCsv(date, market);
-    const { rows } = parseDerivativeTickerCsv(csv);
-    return aggregateToHourlyFunding(rows, market);
+    const loaded = await this.fetchDayWithReceipt(date, market);
+    return loaded.hourly;
+  }
+
+  async fetchDayWithReceipt(
+    date: Date,
+    market: TardisMarket,
+  ): Promise<
+    Readonly<{ readonly hourly: readonly DydxHourlyFunding[]; readonly receipt: TardisCacheReceipt }>
+  > {
+    const { csv, receipt } = await this.fetchDayCsvWithReceipt(date, market);
+    const { rows } = parseDerivativeTickerCsv(csv, market, date);
+    const hourly = aggregateToHourlyFunding(rows, market);
+    return Object.freeze({ hourly: Object.freeze([...hourly]), receipt });
   }
 
   /**
@@ -333,10 +435,7 @@ export class TardisDydxFundingFetcher {
    * the first day of each month, so this method will 404 on non-first
    * days unless a Tardis API key is supplied.
    */
-  async fetchWindow(
-    dates: readonly Date[],
-    market: TardisMarket,
-  ): Promise<readonly DydxHourlyFunding[]> {
+  async fetchWindow(dates: readonly Date[], market: TardisMarket): Promise<readonly DydxHourlyFunding[]> {
     const out: DydxHourlyFunding[] = [];
     for (const date of dates) {
       const dayHourly = await this.fetchDay(date, market);
@@ -360,17 +459,19 @@ export class TardisDydxFundingFetcher {
         fundingTime: h.fundingTime,
         symbol: h.symbol,
         fundingRate: h.fundingRate,
-        ...(h.markPrice !== null ? { markPrice: h.markPrice } : {}),
+        ...(h.markPrice !== undefined && { markPrice: h.markPrice }),
       };
       return snap;
     });
   }
 }
 
-/** Decompress a gzip buffer to a UTF-8 string. */
-async function gunzipBuffer(buf: Buffer): Promise<string> {
+/**
+Decompress a gzip buffer to a UTF-8 string.
+*/
+async function gunzipBuffer(buffer: Buffer): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    const src = Readable.from(buf);
+    const source = Readable.from(buffer);
     const gz = createGunzip();
     const chunks: Buffer[] = [];
     gz.on("data", (c: Buffer) => {
@@ -380,10 +481,7 @@ async function gunzipBuffer(buf: Buffer): Promise<string> {
       resolve(Buffer.concat(chunks).toString("utf8"));
     });
     gz.on("error", reject);
-    src.on("error", reject);
-    src.pipe(gz);
+    source.on("error", reject);
+    source.pipe(gz);
   });
 }
-
-/** Silence unused-import lint warnings. */
-void createReadStream;

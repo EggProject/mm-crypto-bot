@@ -1,38 +1,46 @@
-// Public aggregate leverage invariant behavior.
-
 import { describe, expect, test } from "bun:test";
 
+import { SelectedLeverage } from "@mm-crypto-bot/numeric";
+
 import {
-  assertLeverageInvariant,
-  assertPositionsInvariant,
-  checkLeverageApproach,
+  AggregateEffectiveExposureLimitBreachError,
+  DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT,
+  assertAggregateEffectiveExposureLimit,
+  assertAggregatePositionsEffectiveExposureLimit,
+  isAggregateEffectiveExposureApproachingLimit,
   computeEffectiveLeverage,
-  DEFAULT_LEVERAGE_INVARIANT_CONFIG,
-  LeverageBreachError,
-  ONE_TO_TEN_LEVERAGE,
-  ONE_X_LEVERAGE,
+  DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE,
+  MINIMUM_MAX_AGGREGATE_EFFECTIVE_LEVERAGE,
+  type AggregateEffectiveExposureLimit,
   type Position,
 } from "./leverage-invariant.js";
+import { freezeSelectedLeverage } from "./session-selected-leverage.js";
 
-// ----------------------------------------------------------------------
-// assertLeverageInvariant — boundary tests on the 1:10 cap
-// ----------------------------------------------------------------------
+describe("assertAggregateEffectiveExposureLimit — boundary tests", () => {
+  test("publishes the aggregate effective-exposure limit contract independently of a session selection", () => {
+    const frozen = freezeSelectedLeverage(SelectedLeverage.parse("2.5"));
 
-describe("assertLeverageInvariant — boundary tests", () => {
+    expect(frozen.selected.canonical).toBe("2.5");
+    expect(DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT.maxAggregateEffectiveLeverage).toBe(10);
+    expect(() => {
+      assertAggregateEffectiveExposureLimit(100_001, 10_000);
+    }).toThrow(AggregateEffectiveExposureLimitBreachError);
+  });
+
   test("10× exactly → no throw", () => {
     const baseCapital = 10_000;
     const totalNotional = 10 * baseCapital; // 100_000
     expect(() => {
-      assertLeverageInvariant(totalNotional, baseCapital);
+      assertAggregateEffectiveExposureLimit(totalNotional, baseCapital);
     }).not.toThrow();
   });
 
-  test("10.001× → throws LeverageBreachError", () => {
+  test("10.001× → throws AggregateEffectiveExposureLimitBreachError", () => {
     const baseCapital = 10_000;
     const totalNotional = 100_010; // 10.001×
     expect(() => {
-      assertLeverageInvariant(totalNotional, baseCapital);
-    }).toThrow(LeverageBreachError);
+      assertAggregateEffectiveExposureLimit(totalNotional, baseCapital);
+    }).toThrow(AggregateEffectiveExposureLimitBreachError);
   });
 
   test("11× → throws with details", () => {
@@ -40,24 +48,24 @@ describe("assertLeverageInvariant — boundary tests", () => {
     const totalNotional = 110_000; // 11×
     let caught: unknown;
     try {
-      assertLeverageInvariant(totalNotional, baseCapital);
+      assertAggregateEffectiveExposureLimit(totalNotional, baseCapital);
     } catch (error) {
       caught = error;
     }
-    expect(caught).toBeInstanceOf(LeverageBreachError);
-    if (caught instanceof LeverageBreachError) {
-      expect(caught.computedLeverage).toBeCloseTo(11, 6);
+    expect(caught).toBeInstanceOf(AggregateEffectiveExposureLimitBreachError);
+    if (caught instanceof AggregateEffectiveExposureLimitBreachError) {
+      expect(caught.computedEffectiveLeverage).toBeCloseTo(11, 6);
       expect(caught.baseCapital).toBe(10_000);
-      expect(caught.maxLeverage).toBe(10);
-      expect(caught.message).toContain("1:10 MANDATE BREACH");
+      expect(caught.maxAggregateEffectiveLeverage).toBe(10);
+      expect(caught.message).toContain("AGGREGATE EFFECTIVE-EXPOSURE BREACH");
     }
   });
 
-  test("1× → no throw (baseline reference)", () => {
+  test("1× → no throw (under the aggregate cap)", () => {
     const baseCapital = 10_000;
     const totalNotional = 10_000; // 1×
     expect(() => {
-      assertLeverageInvariant(totalNotional, baseCapital);
+      assertAggregateEffectiveExposureLimit(totalNotional, baseCapital);
     }).not.toThrow();
   });
 
@@ -65,191 +73,217 @@ describe("assertLeverageInvariant — boundary tests", () => {
     const baseCapital = 10_000;
     const totalNotional = 0;
     expect(() => {
-      assertLeverageInvariant(totalNotional, baseCapital);
+      assertAggregateEffectiveExposureLimit(totalNotional, baseCapital);
     }).not.toThrow();
   });
 
-  test("5× → no throw (under cap, not a permitted production state but the guard does not refuse it)", () => {
-    // The guard's job is the UPPER bound (max 10×). Mid-cap values are
-    // not the guard's concern — they're the per-strategy layer's concern.
+  test("5× → no throw (under cap)", () => {
     const baseCapital = 10_000;
     const totalNotional = 50_000; // 5×
     expect(() => {
-      assertLeverageInvariant(totalNotional, baseCapital);
+      assertAggregateEffectiveExposureLimit(totalNotional, baseCapital);
     }).not.toThrow();
   });
 });
 
-// ----------------------------------------------------------------------
-// assertLeverageInvariant — defensive input validation
-// ----------------------------------------------------------------------
-
-describe("assertLeverageInvariant — defensive guards", () => {
+describe("assertAggregateEffectiveExposureLimit — defensive guards", () => {
   test("NaN notional → throws (does NOT silently allow)", () => {
     expect(() => {
-      assertLeverageInvariant(NaN, 10_000);
+      assertAggregateEffectiveExposureLimit(NaN, 10_000);
     }).toThrow(/finite/);
   });
 
   test("Infinity notional → throws", () => {
     expect(() => {
-      assertLeverageInvariant(Infinity, 10_000);
+      assertAggregateEffectiveExposureLimit(Infinity, 10_000);
     }).toThrow(/finite/);
   });
 
   test("NaN base capital → throws", () => {
     expect(() => {
-      assertLeverageInvariant(10_000, NaN);
+      assertAggregateEffectiveExposureLimit(10_000, NaN);
     }).toThrow(/finite/);
   });
 
   test("Zero base capital → throws (division by zero)", () => {
     expect(() => {
-      assertLeverageInvariant(10_000, 0);
+      assertAggregateEffectiveExposureLimit(10_000, 0);
     }).toThrow(/positive/);
   });
 
   test("Negative base capital → throws", () => {
     expect(() => {
-      assertLeverageInvariant(10_000, -1);
+      assertAggregateEffectiveExposureLimit(10_000, -1);
     }).toThrow(/positive/);
   });
 
   test("Negative notional → throws (defensive — caller bug, not silently abs())", () => {
     expect(() => {
-      assertLeverageInvariant(-50_000, 10_000);
+      assertAggregateEffectiveExposureLimit(-50_000, 10_000);
     }).toThrow(/non-negative/);
   });
 });
 
-describe("assertLeverageInvariant — custom config", () => {
+describe("assertAggregateEffectiveExposureLimit — custom config", () => {
+  test("a frozen 2.5 session selection does not replace the independent aggregate exposure cap", () => {
+    const frozen = freezeSelectedLeverage(SelectedLeverage.parse("2.5"));
+
+    expect(frozen.selected.canonical).toBe("2.5");
+    expect(DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT.maxAggregateEffectiveLeverage).toBe(10);
+    expect(() => {
+      assertAggregateEffectiveExposureLimit(100_001, 10_000);
+    }).toThrow(AggregateEffectiveExposureLimitBreachError);
+  });
+
   test("custom cap 3× — 3.5× throws", () => {
     const baseCapital = 10_000;
     const totalNotional = 35_000; // 3.5×
-    const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: 3 };
+    const config = { ...DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT, maxAggregateEffectiveLeverage: 3 };
     expect(() => {
-      assertLeverageInvariant(totalNotional, baseCapital, config);
-    }).toThrow(LeverageBreachError);
+      assertAggregateEffectiveExposureLimit(totalNotional, baseCapital, config);
+    }).toThrow(AggregateEffectiveExposureLimitBreachError);
   });
 
   test("default configuration rejects 10.0000001×", () => {
     const baseCapital = 10_000;
     const totalNotional = 100_000.001;
     expect(() => {
-      assertLeverageInvariant(totalNotional, baseCapital);
-    }).toThrow(LeverageBreachError);
+      assertAggregateEffectiveExposureLimit(totalNotional, baseCapital);
+    }).toThrow(AggregateEffectiveExposureLimitBreachError);
   });
 
-  test("positive tolerance is rejected instead of absorbing 10.0000001×", () => {
+  test("canonical zero tolerance rejects 10.0000001×", () => {
     const baseCapital = 10_000;
     const totalNotional = 100_000.001;
-    const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, tolerance: 0.000001 };
+    const config = { ...DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT, tolerance: 0 };
     expect(() => {
-      assertLeverageInvariant(totalNotional, baseCapital, config);
-    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+      assertAggregateEffectiveExposureLimit(totalNotional, baseCapital, config);
+    }).toThrow(AggregateEffectiveExposureLimitBreachError);
+  });
+});
+
+describe("aggregate exposure configuration boundary", () => {
+  test("does not permit Reflect mutation of the published default configuration", () => {
+    expect(Object.isFrozen(DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT)).toBe(true);
+    expect(
+      Reflect.set(
+        DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT,
+        "maxAggregateEffectiveLeverage",
+        DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE,
+      ),
+    ).toBe(false);
   });
 
-  test("negative zero tolerance is rejected", () => {
-    const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, tolerance: -0 };
+  test("snapshots every hard-guard configuration field exactly once before calculating", () => {
+    let maximumReads = 0;
+    let toleranceReads = 0;
+    let warningReads = 0;
+    const config = {
+      get maxAggregateEffectiveLeverage() {
+        maximumReads += 1;
+        return maximumReads === 1 ? 3 : 100;
+      },
+      get tolerance() {
+        toleranceReads += 1;
+        return 0;
+      },
+      get warnOnApproach() {
+        warningReads += 1;
+        return 0.95;
+      },
+    } satisfies AggregateEffectiveExposureLimit;
+
     expect(() => {
-      assertLeverageInvariant(100_000, 10_000, config);
-    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+      assertAggregateEffectiveExposureLimit(35_000, 10_000, config);
+    }).toThrow(AggregateEffectiveExposureLimitBreachError);
+    expect({ maximumReads, toleranceReads, warningReads }).toEqual({
+      maximumReads: 1,
+      toleranceReads: 1,
+      warningReads: 1,
+    });
   });
 
-  test("hard and soft guards reject every noncanonical tolerance before evaluating measurements", () => {
-    const noncanonicalTolerances = [0.000001, -0.000001, NaN, Infinity, -Infinity, -0];
+  test("converts a throwing configuration getter into the deterministic fail-closed error", () => {
+    const config = new Proxy(
+      {
+        maxAggregateEffectiveLeverage: 10,
+        tolerance: 0,
+        warnOnApproach: 0.95,
+      } satisfies AggregateEffectiveExposureLimit,
+      {
+        get() {
+          throw new Error("untrusted getter failure");
+        },
+      },
+    );
 
-    for (const tolerance of noncanonicalTolerances) {
-      const config = { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, tolerance };
-      expect(() => {
-        assertLeverageInvariant(100_000, 10_000, config);
-      }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
-      expect(() => checkLeverageApproach(NaN, 10_000, config)).toThrow(
-        "[leverage-invariant] Leverage configuration is invalid.",
-      );
-    }
+    expect(() => {
+      assertAggregateEffectiveExposureLimit(50_000, 10_000, config);
+    }).toThrow("[leverage-invariant] Aggregate exposure configuration is invalid.");
   });
 
-  test("hard and soft guards reject invalid maximum and warning configuration", () => {
+  test("converts a revoked configuration proxy into the deterministic fail-closed error", () => {
+    const revocable = Proxy.revocable(
+      {
+        maxAggregateEffectiveLeverage: 10,
+        tolerance: 0,
+        warnOnApproach: 0.95,
+      } satisfies AggregateEffectiveExposureLimit,
+      {},
+    );
+    revocable.revoke();
+
+    expect(() => {
+      assertAggregateEffectiveExposureLimit(50_000, 10_000, revocable.proxy);
+    }).toThrow("[leverage-invariant] Aggregate exposure configuration is invalid.");
+  });
+
+  test("rejects a non-numeric configuration property before calculating", () => {
+    const config = new Proxy(
+      {
+        maxAggregateEffectiveLeverage: 10,
+        tolerance: 0,
+        warnOnApproach: 0.95,
+      } satisfies AggregateEffectiveExposureLimit,
+      {
+        get(_target, property) {
+          if (property === "maxAggregateEffectiveLeverage") {
+            return "10";
+          }
+          if (property === "tolerance") {
+            return 0;
+          }
+          return 0.95;
+        },
+      },
+    );
+
+    expect(() => {
+      assertAggregateEffectiveExposureLimit(50_000, 10_000, config);
+    }).toThrow("[leverage-invariant] Aggregate exposure configuration is invalid.");
+  });
+
+  test("rejects every invalid configuration range before either guard calculates", () => {
     const invalidConfigurations = [
-      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: NaN },
-      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: Infinity },
-      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: 0 },
-      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, maxLeverage: -1 },
-      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, warnOnApproach: NaN },
-      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, warnOnApproach: Infinity },
-      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, warnOnApproach: -0.01 },
-      { ...DEFAULT_LEVERAGE_INVARIANT_CONFIG, warnOnApproach: 1.01 },
-    ];
+      { maxAggregateEffectiveLeverage: 0, tolerance: 0, warnOnApproach: 0.95 },
+      { maxAggregateEffectiveLeverage: Infinity, tolerance: 0, warnOnApproach: 0.95 },
+      { maxAggregateEffectiveLeverage: 10, tolerance: Infinity, warnOnApproach: 0.95 },
+      { maxAggregateEffectiveLeverage: 10, tolerance: -1, warnOnApproach: 0.95 },
+      { maxAggregateEffectiveLeverage: 10, tolerance: 0, warnOnApproach: -0.01 },
+      { maxAggregateEffectiveLeverage: 10, tolerance: 0, warnOnApproach: 1.01 },
+    ] satisfies readonly AggregateEffectiveExposureLimit[];
 
     for (const config of invalidConfigurations) {
       expect(() => {
-        assertLeverageInvariant(50_000, 10_000, config);
-      }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
-      expect(() => checkLeverageApproach(NaN, 10_000, config)).toThrow(
-        "[leverage-invariant] Leverage configuration is invalid.",
-      );
+        assertAggregateEffectiveExposureLimit(50_000, 10_000, config);
+      }).toThrow("[leverage-invariant] Aggregate exposure configuration is invalid.");
     }
   });
 
-  test("snapshots every public config field once for each guard", () => {
-    const readCounts = { maximum: 0, tolerance: 0, warning: 0 };
-    const config = {
-      get maxLeverage(): number {
-        readCounts.maximum += 1;
-        return 10;
-      },
-      get tolerance(): number {
-        readCounts.tolerance += 1;
-        return 0;
-      },
-      get warnOnApproach(): number {
-        readCounts.warning += 1;
-        return 0.95;
-      },
-    };
-
+  test("rejects a non-object configuration at the runtime boundary", () => {
     expect(() => {
-      assertLeverageInvariant(100_000, 10_000, config);
-    }).not.toThrow();
-    expect(readCounts).toEqual({ maximum: 1, tolerance: 1, warning: 1 });
-    readCounts.maximum = 0;
-    readCounts.tolerance = 0;
-    readCounts.warning = 0;
-    expect(checkLeverageApproach(95_000, 10_000, config)).toBe(true);
-    expect(readCounts).toEqual({ maximum: 1, tolerance: 1, warning: 1 });
-  });
-
-  test("hard and soft guards fail closed for hostile and revoked configurations", () => {
-    const hostile = {
-      get maxLeverage(): number {
-        throw new Error("hostile getter");
-      },
-      tolerance: 0,
-      warnOnApproach: 0.95,
-    };
-    const revoked = Proxy.revocable(DEFAULT_LEVERAGE_INVARIANT_CONFIG, {});
-    revoked.revoke();
-    const malformed = { maxLeverage: "10", tolerance: 0, warnOnApproach: 0.95 };
-
-    expect(() => {
-      assertLeverageInvariant(100_000, 10_000, hostile);
-    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
-    expect(() => checkLeverageApproach(NaN, 10_000, hostile)).toThrow(
-      "[leverage-invariant] Leverage configuration is invalid.",
-    );
-    expect(() => {
-      assertLeverageInvariant(100_000, 10_000, revoked.proxy);
-    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
-    expect(() => checkLeverageApproach(NaN, 10_000, revoked.proxy)).toThrow(
-      "[leverage-invariant] Leverage configuration is invalid.",
-    );
-    expect(() => {
-      Reflect.apply(assertLeverageInvariant, undefined, [100_000, 10_000, false]);
-    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
-    expect(() => {
-      Reflect.apply(checkLeverageApproach, undefined, [NaN, 10_000, malformed]);
-    }).toThrow("[leverage-invariant] Leverage configuration is invalid.");
+      Reflect.apply(assertAggregateEffectiveExposureLimit, undefined, [50_000, 10_000, false]);
+    }).toThrow("[leverage-invariant] Aggregate exposure configuration is invalid.");
   });
 });
 
@@ -274,10 +308,6 @@ describe("computeEffectiveLeverage — pure function", () => {
   });
 
   test("two positions each 6× → AGGREGATE 12× (BREACH)", () => {
-    // This is the canonical scenario the 3rd layer defends against:
-    // each strategy individually reports 6× (under cap), but the
-    // AGGREGATE is 12× (above cap). The per-strategy guard (layer 2)
-    // would NOT fire because each strategy is at 6×.
     const positions: Position[] = [
       { symbol: "BTC/USDT", source: "directional", effectiveNotionalUsd: 60_000 },
       { symbol: "ETH/USDT", source: "directional", effectiveNotionalUsd: 60_000 },
@@ -285,13 +315,7 @@ describe("computeEffectiveLeverage — pure function", () => {
     expect(computeEffectiveLeverage(positions, 10_000)).toBe(12);
   });
 
-  test("short + long at same magnitude → gross 10× (NOT netted; mandate caps gross exposure)", () => {
-    // The 1:10 mandate is about GROSS exposure (what can move against
-    // you under liquidation). A perfectly-hedged position still has
-    // 100k notional (50k long + 50k short) — if either leg gets
-    // liquidated, the other leg is naked. So we sum abs() not signed.
-    // This matches the bybit.eu SPOT-margin MMR (Maintenance Margin
-    // Requirement) which is computed on the gross position size.
+  test("short + long at same magnitude → gross 10× (not netted)", () => {
     const positions: Position[] = [
       { symbol: "BTC/USDT", source: "directional", effectiveNotionalUsd: 50_000 },
       { symbol: "BTC/USDT", source: "funding-carry", effectiveNotionalUsd: -50_000 },
@@ -300,16 +324,12 @@ describe("computeEffectiveLeverage — pure function", () => {
   });
 
   test("signed sum helper — netPositionNotional = signed sum, for hedging diagnostics", () => {
-    // The PORTFOLIO RISK ENGINE (separate module) computes net
-    // signed exposure for concentration analysis. The LEVERAGE INVARIANT
-    // is gross-exposure-based because that's what blows up.
     const positions: Position[] = [
       { symbol: "BTC/USDT", source: "directional", effectiveNotionalUsd: 50_000 },
       { symbol: "BTC/USDT", source: "funding-carry", effectiveNotionalUsd: -50_000 },
     ];
     const signedSum = positions.reduce((accumulator, p) => accumulator + p.effectiveNotionalUsd, 0);
     expect(signedSum).toBe(0); // perfectly hedged at signed level
-    // But the mandate guard sums absolute values (gross exposure).
     const grossSum = positions.reduce((accumulator, p) => accumulator + Math.abs(p.effectiveNotionalUsd), 0);
     expect(grossSum).toBe(100_000);
     expect(computeEffectiveLeverage(positions, 10_000)).toBe(10);
@@ -333,100 +353,85 @@ describe("computeEffectiveLeverage — pure function", () => {
   });
 });
 
-// ----------------------------------------------------------------------
-// assertPositionsInvariant — convenience wrapper
-// ----------------------------------------------------------------------
-
-describe("assertPositionsInvariant — convenience wrapper", () => {
+describe("assertAggregatePositionsEffectiveExposureLimit — convenience wrapper", () => {
   test("valid positions under cap → returns leverage", () => {
     const positions: Position[] = [
       { symbol: "BTC/USDT", source: "directional", effectiveNotionalUsd: 50_000 },
     ];
-    const lev = assertPositionsInvariant(positions, 10_000);
+    const lev = assertAggregatePositionsEffectiveExposureLimit(positions, 10_000);
     expect(lev).toBe(5);
   });
 
-  test("positions exceeding cap → throws LeverageBreachError", () => {
+  test("positions exceeding cap → throws AggregateEffectiveExposureLimitBreachError", () => {
     const positions: Position[] = [
       { symbol: "BTC/USDT", source: "directional", effectiveNotionalUsd: 60_000 },
       { symbol: "ETH/USDT", source: "directional", effectiveNotionalUsd: 60_000 },
     ];
-    expect(() => assertPositionsInvariant(positions, 10_000)).toThrow(LeverageBreachError);
+    expect(() => assertAggregatePositionsEffectiveExposureLimit(positions, 10_000)).toThrow(
+      AggregateEffectiveExposureLimitBreachError,
+    );
   });
 
   test("empty positions → 0 (no throw)", () => {
-    expect(assertPositionsInvariant([], 10_000)).toBe(0);
+    expect(assertAggregatePositionsEffectiveExposureLimit([], 10_000)).toBe(0);
   });
 });
 
-// ----------------------------------------------------------------------
-// checkLeverageApproach — soft warning signal
-// ----------------------------------------------------------------------
-
-describe("checkLeverageApproach — soft warning", () => {
+describe("isAggregateEffectiveExposureApproachingLimit — soft warning", () => {
   test("5× → false (under 95% of 10× cap)", () => {
-    expect(checkLeverageApproach(50_000, 10_000)).toBe(false);
+    expect(isAggregateEffectiveExposureApproachingLimit(50_000, 10_000)).toBe(false);
   });
 
   test("9.5× → true (at warning threshold)", () => {
-    expect(checkLeverageApproach(95_000, 10_000)).toBe(true);
+    expect(isAggregateEffectiveExposureApproachingLimit(95_000, 10_000)).toBe(true);
   });
 
   test("9.9× → true (approaching cap)", () => {
-    expect(checkLeverageApproach(99_000, 10_000)).toBe(true);
+    expect(isAggregateEffectiveExposureApproachingLimit(99_000, 10_000)).toBe(true);
   });
 
   test("10× exactly → true (still under cap, warning active)", () => {
-    expect(checkLeverageApproach(100_000, 10_000)).toBe(true);
+    expect(isAggregateEffectiveExposureApproachingLimit(100_000, 10_000)).toBe(true);
   });
 
   test("0× → false", () => {
-    expect(checkLeverageApproach(0, 10_000)).toBe(false);
+    expect(isAggregateEffectiveExposureApproachingLimit(0, 10_000)).toBe(false);
   });
 
   test("NaN → false (defensive: don't false-positive)", () => {
-    expect(checkLeverageApproach(NaN, 10_000)).toBe(false);
+    expect(isAggregateEffectiveExposureApproachingLimit(NaN, 10_000)).toBe(false);
   });
 
   test("NaN base capital → false", () => {
-    expect(checkLeverageApproach(50_000, NaN)).toBe(false);
+    expect(isAggregateEffectiveExposureApproachingLimit(50_000, NaN)).toBe(false);
   });
 
-  test("non-positive base capital and negative notional → false", () => {
-    expect(checkLeverageApproach(50_000, 0)).toBe(false);
-    expect(checkLeverageApproach(-50_000, 10_000)).toBe(false);
+  test("zero base capital → false", () => {
+    expect(isAggregateEffectiveExposureApproachingLimit(50_000, 0)).toBe(false);
   });
 });
-
-// ----------------------------------------------------------------------
-// Constants — sanity checks
-// ----------------------------------------------------------------------
 
 describe("constants — sanity", () => {
-  test("ONE_TO_TEN_LEVERAGE === 10", () => {
-    expect(ONE_TO_TEN_LEVERAGE).toBe(10);
+  test("DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE === 10", () => {
+    expect(DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE).toBe(10);
   });
 
-  test("ONE_X_LEVERAGE === 1", () => {
-    expect(ONE_X_LEVERAGE).toBe(1);
+  test("MINIMUM_MAX_AGGREGATE_EFFECTIVE_LEVERAGE === 1", () => {
+    expect(MINIMUM_MAX_AGGREGATE_EFFECTIVE_LEVERAGE).toBe(1);
   });
 
-  test("DEFAULT_LEVERAGE_INVARIANT_CONFIG.maxLeverage === 10", () => {
-    expect(DEFAULT_LEVERAGE_INVARIANT_CONFIG.maxLeverage).toBe(10);
+  test("DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT.maxAggregateEffectiveLeverage === 10", () => {
+    expect(DEFAULT_AGGREGATE_EFFECTIVE_EXPOSURE_LIMIT.maxAggregateEffectiveLeverage).toBe(10);
   });
 });
 
-// ----------------------------------------------------------------------
-// Determinism — same input → same output
-// ----------------------------------------------------------------------
-
 describe("determinism", () => {
-  test("assertLeverageInvariant deterministic on multiple invocations", () => {
+  test("assertAggregateEffectiveExposureLimit deterministic on multiple invocations", () => {
     const baseCapital = 10_000;
     const totalNotional = 80_000; // 8× — under cap
     for (let index = 0; index < 100; index++) {
       expect(() => {
-        assertLeverageInvariant(totalNotional, baseCapital);
+        assertAggregateEffectiveExposureLimit(totalNotional, baseCapital);
       }).not.toThrow();
     }
   });
@@ -444,15 +449,8 @@ describe("determinism", () => {
   });
 });
 
-// ----------------------------------------------------------------------
-// Aggregate breach examples
-// ----------------------------------------------------------------------
-
 describe("aggregate breach examples", () => {
   test("two $60k notionals summing to 12× on $10k capital → BREACH", () => {
-    // Simulates the past scenario: Strategy A emits $60k notional,
-    // Strategy B emits $60k notional. Each individually is at 6× (under
-    // per-strategy cap). The aggregate is 12× (BREACH at portfolio level).
     const positions: Position[] = [
       { symbol: "BTC/USDT", source: "strategy-A", effectiveNotionalUsd: 60_000 },
       { symbol: "ETH/USDT", source: "strategy-B", effectiveNotionalUsd: 60_000 },
@@ -460,13 +458,12 @@ describe("aggregate breach examples", () => {
     const baseCapital = 10_000;
     const computed = computeEffectiveLeverage(positions, baseCapital);
     expect(computed).toBe(12);
-    expect(() => assertPositionsInvariant(positions, baseCapital)).toThrow(LeverageBreachError);
+    expect(() => assertAggregatePositionsEffectiveExposureLimit(positions, baseCapital)).toThrow(
+      AggregateEffectiveExposureLimitBreachError,
+    );
   });
 
   test("reducing one signal from $60k to $40k → 10× aggregate (AT cap, no breach)", () => {
-    // Operator response: reduce one strategy's notional.
-    //   Before: $60k + $60k = $120k = 12× (BREACH)
-    //   After:  $60k + $40k = $100k = 10× (AT cap, OK)
     const positions: Position[] = [
       { symbol: "BTC/USDT", source: "strategy-A", effectiveNotionalUsd: 60_000 },
       { symbol: "ETH/USDT", source: "strategy-B", effectiveNotionalUsd: 40_000 },
@@ -474,7 +471,7 @@ describe("aggregate breach examples", () => {
     const baseCapital = 10_000;
     const computed = computeEffectiveLeverage(positions, baseCapital);
     expect(computed).toBe(10);
-    expect(() => assertPositionsInvariant(positions, baseCapital)).not.toThrow();
+    expect(() => assertAggregatePositionsEffectiveExposureLimit(positions, baseCapital)).not.toThrow();
   });
 
   test("reducing both signals to $45k → 9× aggregate (well under cap)", () => {
@@ -484,6 +481,6 @@ describe("aggregate breach examples", () => {
     ];
     const baseCapital = 10_000;
     expect(computeEffectiveLeverage(positions, baseCapital)).toBe(9);
-    expect(() => assertPositionsInvariant(positions, baseCapital)).not.toThrow();
+    expect(() => assertAggregatePositionsEffectiveExposureLimit(positions, baseCapital)).not.toThrow();
   });
 });

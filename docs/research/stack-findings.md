@@ -12,10 +12,10 @@
 
 ### 1.1 Verzió és csomagkezelés
 
-- **Aktuális stabil CCXT verzió: `4.5.64`** (lekérve 2026-07-03 a
-  `registry.npmjs.org/ccxt` registry-ből, ahol a `dist-tags.latest` értéke
-  `4.5.64` — megelőzve a CCXT Pro Manual oldalon 2026-06-29-re datált
-  `v4.5.62`-t) `[1.12]` `[1.4]`.
+- **Historical snapshot:** the 2026-07-03 registry query observed CCXT
+  `4.5.64`. The active exact pin is `4.5.75` (verified 2026-08-23); its ESM
+  artifact self-reports `4.5.74`, so live dependency readiness is blocked
+  pending an upstream correction or official clarification. `[1.12]` `[1.4]`.
 - A CCXT monorepo a CCXT Pro WebSocket stack-et ugyanabban a `ccxt`
   csomagban szállítja JS/PHP/Python/C#/Go/Java nyelvekre — nincs külön
   `ccxt.pro` npm csomag `[1.1]` `[1.2]`. Telepítés: `npm install ccxt`
@@ -527,14 +527,14 @@ while (!shuttingDown) {
 A pontos verziók és a forrásaik a [`version-pins.md`](./version-pins.md)
 fájlban. A döntésünk a fenti kutatás alapján:
 
-| Komponens              | Verzió   | Indoklás                                                 |
-| ---------------------- | -------- | -------------------------------------------------------- |
-| Bun                    | `1.3.14` | Stabil, TS natív, Turborepo stable támogatás             |
-| Turborepo              | `2.10.2` | Bun PM stable, lockfile-aware cache                      |
-| TypeScript             | `6.0.3`  | Stabil, az összes ultra-strict opció támogatott          |
-| CCXT                   | `4.5.64` | `bybiteu` első osztályú ID, CCXT Pro WS támogatás        |
-| Ink                    | `7.1.0`  | Bun/TS koherens, React komponens modell                  |
-| ESLint                 | `10.6.0` | Flat config stabil, typescript-eslint v8-kompatibilis    |
-| @typescript-eslint     | `8.62.1` | `strict-type-checked` preset, `projectService` támogatás |
-| eslint-plugin-security | `4.0.1`  | 14 security rule, széles körben használt                 |
-| @tsconfig/bases        | `1.0.25` | `@tsconfig/strictest` preset                             |
+| Komponens              | Verzió                      | Indoklás                                                                              |
+| ---------------------- | --------------------------- | ------------------------------------------------------------------------------------- |
+| Bun                    | `1.3.14`                    | Stabil, TS natív, Turborepo stable támogatás                                          |
+| Turborepo              | `2.10.2`                    | Bun PM stable, lockfile-aware cache                                                   |
+| TypeScript             | `6.0.3`                     | Stabil, az összes ultra-strict opció támogatott                                       |
+| CCXT                   | `4.5.75` exact, **BLOCKED** | `bybiteu` első osztályú ID, CCXT Pro WS támogatás; ESM artifact self-reports `4.5.74` |
+| Ink                    | `7.1.0`                     | Bun/TS koherens, React komponens modell                                               |
+| ESLint                 | `10.6.0`                    | Flat config stabil, typescript-eslint v8-kompatibilis                                 |
+| @typescript-eslint     | `8.62.1`                    | `strict-type-checked` preset, `projectService` támogatás                              |
+| eslint-plugin-security | `4.0.1`                     | 14 security rule, széles körben használt                                              |
+| @tsconfig/bases        | `1.0.25`                    | `@tsconfig/strictest` preset                                                          |

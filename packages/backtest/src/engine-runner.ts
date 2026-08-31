@@ -1,5 +1,5 @@
 import { computeIndicators, createStrategy } from "@mm-crypto-bot/core";
-import type { MtfState, Strategy, StrategySignal } from "@mm-crypto-bot/core";
+import type { MtfState, PositionUpdate, Strategy, StrategySignal } from "@mm-crypto-bot/core";
 import { TIMEFRAME_MS, makeSymbol } from "@mm-crypto-bot/shared/types";
 import type { Candle, ExitReason, Trade } from "@mm-crypto-bot/shared/types";
 
@@ -16,6 +16,14 @@ import { positionNotionalUsd } from "./position-size.js";
 import type { BacktestOptions, BacktestResult, EquityPoint } from "./types.js";
 
 const PRICE_PRECISION = 2;
+const EXIT_REASONS: ReadonlySet<string> = new Set([
+  "trailing_stop",
+  "trend_reversal",
+  "stop_loss",
+  "take_profit",
+  "time_exit",
+  "kill_switch",
+]);
 
 export async function runBacktest(options: BacktestOptions): Promise<BacktestResult> {
   return new BacktestRunner(options).run();
@@ -113,7 +121,7 @@ class BacktestRunner {
     }
 
     this.strategy.onCandleObserved?.(this.createStrategyContext(candle, indicators, candleIndex));
-    const update = this.strategy.onOpenPositionUpdate?.({
+    const update: unknown = this.strategy.onOpenPositionUpdate?.({
       openPosition: {
         side: position.side,
         entryTime: position.entryTime,
@@ -128,13 +136,13 @@ class BacktestRunner {
       mtfState: indicators,
       pricePrecision: PRICE_PRECISION,
     });
-    this.applyPositionUpdate(position, candle, update);
+    this.applyPositionUpdate(position, candle, toPositionUpdateOrUndefined(update));
   }
 
   private applyPositionUpdate(
     position: OpenPosition,
     candle: Candle,
-    update: ReturnType<NonNullable<Strategy["onOpenPositionUpdate"]>> | undefined,
+    update: PositionUpdate | undefined,
   ): void {
     if (update?.newStopLoss !== undefined) {
       this.openPosition = { ...position, stopLoss: update.newStopLoss };
@@ -160,11 +168,11 @@ class BacktestRunner {
     const result: unknown = this.strategy.onCandle(
       this.createStrategyContext(candle, indicators, candleIndex),
     );
-    if (result === null) {
+    if (result === undefined) {
       return;
     }
     if (!isStrategySignal(result)) {
-      throw new Error("Strategy.onCandle must return a StrategySignal or null.");
+      throw new Error("Strategy.onCandle must return a StrategySignal or undefined.");
     }
     const signal = result;
 
@@ -382,6 +390,38 @@ function isStrategySignal(value: unknown): value is StrategySignal {
     typeof value["stopLoss"] === "number" &&
     typeof value["takeProfit"] === "number"
   );
+}
+
+function toPositionUpdateOrUndefined(value: unknown): PositionUpdate | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isPositionUpdate(value)) {
+    throw new Error("Strategy.onOpenPositionUpdate must return a PositionUpdate or undefined.");
+  }
+  return value;
+}
+
+function isPositionUpdate(value: unknown): value is PositionUpdate {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const newStopLoss = value["newStopLoss"];
+  const newTakeProfit = value["newTakeProfit"];
+  const forceExit = value["forceExit"];
+  const exitPrice = value["exitPrice"];
+  const reason = value["reason"];
+  return (
+    (newStopLoss === undefined || typeof newStopLoss === "number") &&
+    (newTakeProfit === undefined || typeof newTakeProfit === "number") &&
+    (forceExit === undefined || typeof forceExit === "boolean") &&
+    (exitPrice === undefined || typeof exitPrice === "number") &&
+    (reason === undefined || isExitReason(reason))
+  );
+}
+
+function isExitReason(value: unknown): value is ExitReason {
+  return typeof value === "string" && EXIT_REASONS.has(value);
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

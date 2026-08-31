@@ -10,7 +10,6 @@ import {
   POSITION_SIZE,
   makeBacktestOptions,
   makeCandle,
-  noSignal,
   requireFirst,
 } from "./engine-scenarios.test-support.js";
 
@@ -123,10 +122,10 @@ class ObservedStrategy implements Strategy {
   public entryCalls = 0;
   public observedCalls = 0;
 
-  onCandle(context: StrategyContext): StrategySignal | null {
+  onCandle(context: StrategyContext): StrategySignal | undefined {
     this.entryCalls += 1;
     if (this.entryCalls > 1) {
-      return noSignal();
+      return undefined;
     }
     return {
       side: "buy",

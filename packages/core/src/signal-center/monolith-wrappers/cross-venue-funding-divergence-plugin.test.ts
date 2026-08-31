@@ -4,7 +4,7 @@
 // Test suite for CrossVenueFundingDivergencePlugin. Covers:
 //   1.  Construction with default config succeeds
 //   2.  Construction with custom config accepted
-//   3.  metadata declares name/edgeClass/capitalRequirement=0/maxLeverage=10
+//   3.  metadata declares name/edgeClass/capitalRequirement=0/maxAggregateEffectiveLeverage=10
 //   4.  Construction with bucketSizeMs < MIN or > MAX REJECTED
 //   5.  Construction with non-integer bucketSizeMs REJECTED
 //   6.  Construction with bad divergenceThresholdBps REJECTED
@@ -37,7 +37,7 @@
 //   33. dydx8h and bitget8h fields populated when venue reported
 //   34. dydx8h and bitget8h fields OMITTED when venue did not report
 //   35. bucketStartMs field is populated with bucket-aligned timestamp
-//   36. Layer 2 1:10 defense: assertLeverageInvariant hook runs per emit
+//   36. Layer 2 aggregate effective-exposure defense: assertAggregateEffectiveExposureLimit hook runs per emit
 //   37. onBar drives pollAndEmit
 //   38. reset() clears state
 //   39. dispose() releases bus reference
@@ -166,13 +166,13 @@ describe("CrossVenueFundingDivergencePlugin — construction", () => {
     expect(p.config.venues).toEqual(["hl", "binance"]);
   });
 
-  it("metadata declares name/edgeClass/capitalRequirement=0/maxLeverage=10", () => {
+  it("metadata declares name/edgeClass/capitalRequirement=0/maxAggregateEffectiveLeverage=10", () => {
     const p = new CrossVenueFundingDivergencePlugin();
     expect(p.metadata.name).toBe("cross-venue-funding-divergence-v1");
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("mixed");
     expect(p.metadata.capitalRequirement).toBe(0);
-    expect(p.metadata.maxLeverage).toBe(10);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
     expect(p.metadata.description).toContain("SIX venues");
   });
 
@@ -617,7 +617,7 @@ describe("CrossVenueFundingDivergencePlugin — bus publish + integration", () =
     expect(emitted[0]!.bucketStartMs).toBe(T0);
   });
 
-  it("Layer 2 1:10 defense: assertLeverageInvariant hook runs per emit", () => {
+  it("Layer 2 aggregate effective-exposure defense: assertAggregateEffectiveExposureLimit hook runs per emit", () => {
     const p = new CrossVenueFundingDivergencePlugin({ assets: ["BTC"] });
     wirePlugin(p);
     const t0 = 1_700_000_000_000;

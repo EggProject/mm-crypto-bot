@@ -51,8 +51,7 @@
  *     ATR-agnostic — it consumes a number.
  */
 
-import type { Logger } from "@mm-crypto-bot/shared";
-import { createLogger } from "@mm-crypto-bot/shared";
+import { requireLogger, type Logger } from "@mm-crypto-bot/logging";
 
 // ============================================================================
 // Public types
@@ -132,7 +131,9 @@ export interface TrailEvaluationInput {
   readonly side: TrailingStopSide;
   readonly currentPrice: number;
   readonly atr: number;
-  /** Optional timestamp; used for deterministic testing. */
+  /**
+  Optional timestamp; used for deterministic testing.
+  */
   readonly timestamp?: number;
 }
 
@@ -175,7 +176,9 @@ export class TrailingStopManager {
   private readonly atrPeriod: number;
   private readonly sideFilter: "long" | "short" | "both";
   private readonly logger: Logger;
-  /** Per-position state, keyed by `positionId`. */
+  /**
+  Per-position state, keyed by `positionId`.
+  */
   private readonly states = new Map<string, TrailState>();
 
   public constructor(config: TrailConfig) {
@@ -184,7 +187,7 @@ export class TrailingStopManager {
         `[trailing-stop] atrMultiplier must be positive finite, got ${String(config.atrMultiplier)}`,
       );
     }
-    if (!Number.isInteger(config.atrPeriod) || config.atrPeriod < 1) {
+    if (!Number.isSafeInteger(config.atrPeriod) || config.atrPeriod < 1) {
       throw new Error(
         `[trailing-stop] atrPeriod must be a positive integer, got ${String(config.atrPeriod)}`,
       );
@@ -193,7 +196,7 @@ export class TrailingStopManager {
     this.atrMultiplier = config.atrMultiplier;
     this.atrPeriod = config.atrPeriod;
     this.sideFilter = config.side;
-    this.logger = config.logger ?? createLogger("info");
+    this.logger = requireLogger(config.logger, "trailing-stop");
   }
 
   /**
@@ -223,7 +226,7 @@ export class TrailingStopManager {
       atr,
     };
     this.states.set(positionId, state);
-    this.logger.info("[trailing-stop] armed", {
+    this.logger.info("risk.trailingstop.armed", {
       positionId,
       side,
       entryPrice,
@@ -239,7 +242,7 @@ export class TrailingStopManager {
    */
   public disarm(positionId: string): void {
     if (this.states.delete(positionId)) {
-      this.logger.info("[trailing-stop] disarmed", { positionId });
+      this.logger.info("risk.trailingstop.disarmed", { positionId });
     }
   }
 
@@ -257,7 +260,11 @@ export class TrailingStopManager {
    * `RiskManager` snapshot and runtime monitoring.
    */
   public getAllStates(): readonly TrailState[] {
-    return [...this.states.values()].map((s) => ({ ...s }));
+    const snapshots: TrailState[] = [];
+    this.states.forEach((state) => {
+      snapshots.push({ ...state });
+    });
+    return snapshots;
   }
 
   /**
@@ -349,7 +356,7 @@ export class TrailingStopManager {
           kind: "close",
           state: closeState,
           closePrice: newTrail,
-          reason: `long trail breach: current ${input.currentPrice} <= trail ${newTrail}`,
+          reason: `long trail breach: current ${String(input.currentPrice)} <= trail ${String(newTrail)}`,
         };
       }
     } else {
@@ -372,7 +379,7 @@ export class TrailingStopManager {
           kind: "close",
           state: closeState,
           closePrice: newTrail,
-          reason: `short trail breach: current ${input.currentPrice} >= trail ${newTrail}`,
+          reason: `short trail breach: current ${String(input.currentPrice)} >= trail ${String(newTrail)}`,
         };
       }
     }

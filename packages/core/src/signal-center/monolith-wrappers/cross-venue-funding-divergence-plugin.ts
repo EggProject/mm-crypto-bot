@@ -39,7 +39,7 @@
 // This is a READ-ONLY signal-pool plugin — no notional is ever computed
 // or emitted. The 3-layer defense pattern is:
 //
-//   Layer 1 (constructor): `metadata.maxLeverage = 10` (= ONE_TO_TEN_LEVERAGE).
+//   Layer 1 (constructor): `metadata.maxAggregateEffectiveLeverage = 10` (= DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE).
 //     The registry's `validatePluginMetadata` rejects any plugin
 //     declaring leverage > 10.
 //
@@ -49,7 +49,7 @@
 //
 //   Layer 3 (per-emit): each emitted snapshot has zero notional
 //     (`divergenceBps` is information, not a position instruction).
-//     The plugin still calls `assertLeverageInvariant(0, baseNotional)`
+//     The plugin still calls `assertAggregateEffectiveExposureLimit(0, baseNotional)`
 //     on every emit as a defensive symmetry hook (mirroring the
 //     `CrossDexFundingWatcherPlugin` convention).
 //
@@ -100,11 +100,11 @@
 //   - Button — Hyperliquid Funding Rates Guide — BTC annualized 4-8%
 //     on HL vs 2-4% on Binance; alts 10-30% vs 5-15%.
 
-import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, assertAggregateEffectiveExposureLimit } from "../../risk/leverage-invariant.js";
 
 // Re-export the leverage constant for downstream consumers (mirrors the
 // pattern used by RegimeDetectorMetaPlugin and HybridKellyPlugin).
-export { ONE_TO_TEN_LEVERAGE };
+export { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
 import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
@@ -179,7 +179,7 @@ export interface CrossVenueFundingDivergenceConfig {
   readonly maxDivergenceBps: number;
 
   /**
-   * Base notional for 1:10 leverage cap validation. Default 10_000 USD.
+   * Base notional for aggregate effective-exposure cap validation. Default 10_000 USD.
    * Informational only — the plugin never emits a position-sizing
    * instruction. Held for consistency with other Phase 11+ plugins
    * (HybridKelly, RegimeDetector, CrossDexFundingWatcher) that share
@@ -393,7 +393,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
     version: "1.0.0",
     edgeClass: "mixed", // emits FundingSnapshotSignal (with extra 6-venue fields)
     capitalRequirement: 0, // signal-only, zero capital needed
-    maxLeverage: ONE_TO_TEN_LEVERAGE, // Layer 1 of 3-layer 1:10 defense
+    maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, // Layer 1 of 3-layer aggregate effective-exposure defense
     description:
       "Phase 25 #2 T4 / Track C signal-pool plugin (READ-ONLY). " +
       "Aggregates per-venue funding rates from SIX venues (Hyperliquid + " +
@@ -431,12 +431,12 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
     };
 
     // LAYER 1 — constructor assertion. The metadata declares
-    // `maxLeverage: ONE_TO_TEN_LEVERAGE` (= 10). Defensive runtime
+    // `maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE` (= 10). Defensive runtime
     // check matches the convention used by every other Phase 11+
     // read-only plugin.
-    if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
+    if (this.metadata.maxAggregateEffectiveLeverage !== DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
       throw new Error(
-        `[CrossVenueFundingDivergencePlugin] LAYER 1 BREACH: metadata.maxLeverage=${String(this.metadata.maxLeverage)} but the project-wide 1:10 mandate requires 10.`,
+        `[CrossVenueFundingDivergencePlugin] LAYER 1 BREACH: metadata.maxAggregateEffectiveLeverage=${String(this.metadata.maxAggregateEffectiveLeverage)} but the project-wide aggregate effective-exposure limit requires 10.`,
       );
     }
 
@@ -891,7 +891,7 @@ export class CrossVenueFundingDivergencePlugin implements StrategyPlugin {
       // plugin). Trivially passes but keeps the assertion counter
       // advancing for symmetry with `CrossDexFundingWatcherPlugin`.
       try {
-        assertLeverageInvariant(0, this.config.baseNotionalUsd);
+        assertAggregateEffectiveExposureLimit(0, this.config.baseNotionalUsd);
         this.state.layer2AssertionCount += 1;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);

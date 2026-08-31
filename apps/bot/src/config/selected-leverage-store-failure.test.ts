@@ -24,7 +24,7 @@ it("wraps an Error raised while appending a live-mode audit record", () => {
     },
   });
 
-  expect(() => store.writeAfterTypedLive(selectedLeverageConfig("live"), "LIVE", "paper")).toThrow(
+  expect(() => store.writeAfterTypedLive(selectedLeverageConfig("live"), "LIVE")).toThrow(
     "audit write failure",
   );
 });

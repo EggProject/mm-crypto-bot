@@ -9,12 +9,20 @@
 
 import { describe, expect, it } from "bun:test";
 
-import { TrailingStopManager } from "./trailing-stop.js";
+import { RecordingLogger } from "@logging-testing";
+import { TrailingStopManager as RuntimeTrailingStopManager } from "./trailing-stop.js";
+
+class TrailingStopManager extends RuntimeTrailingStopManager {
+  public constructor(...arguments_: ConstructorParameters<typeof RuntimeTrailingStopManager>) {
+    const [options] = arguments_;
+    super({ ...options, logger: new RecordingLogger() });
+  }
+}
 
 const BASE_CONFIG = {
   enabled: true,
   atrPeriod: 14,
-  atrMultiplier: 3.0,
+  atrMultiplier: 3,
   side: "both" as const,
 };
 
@@ -268,7 +276,7 @@ describe("TrailingStopManager", () => {
   it("getAllStates returns a snapshot of all armed positions", () => {
     const m = new TrailingStopManager(BASE_CONFIG);
     m.arm("a", "long", 60_000, 100);
-    m.arm("b", "short", 3_000, 10);
+    m.arm("b", "short", 3000, 10);
     const all = m.getAllStates();
     expect(all.length).toBe(2);
     expect(all[0]?.positionId).toBe("a");

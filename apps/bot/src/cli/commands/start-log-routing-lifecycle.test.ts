@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { RecordingLogger } from "@logging-testing";
 import { DEFAULT_BOT_CONFIG } from "../../config/defaults.js";
 import type { BotConfig } from "../../config/schema.js";
 import { runHeadless } from "./start.js";
@@ -44,6 +45,7 @@ describe("headless lifecycle", () => {
   it("returns zero after a normal start completion without requesting stop", async () => {
     let startCalls = 0;
     let stopCalls = 0;
+    const logger = new RecordingLogger();
     const code = await runHeadless(
       {
         start: (): Promise<void> =>
@@ -57,30 +59,36 @@ describe("headless lifecycle", () => {
           }),
       },
       configWithStateFile(path.join(temporaryDirectory, "normal.json")),
+      logger,
     );
 
     expect(code).toBe(0);
     expect(startCalls).toBe(1);
     expect(stopCalls).toBe(0);
-    expect(await Bun.file(path.join(temporaryDirectory, "normal.json.log")).text()).toContain(
-      "normal completion",
-    );
+    expect(logger.getCalls()).toContainEqual({
+      event: "bot.lifecycle.run.completed",
+      fields: undefined,
+      level: "info",
+    });
   });
 
   it("returns one and records Error and non-Error startup failures", async () => {
     for (const failure of [new Error("startup exploded"), "startup rejected"] as const) {
-      const stateFile = path.join(temporaryDirectory, `${typeof failure}.json`);
+      const logger = new RecordingLogger();
       const code = await runHeadless(
         {
           start: (): Promise<never> => rejectWith(failure),
           stop: (): Promise<void> => Promise.resolve(),
         },
-        configWithStateFile(stateFile),
+        configWithStateFile(path.join(temporaryDirectory, `${typeof failure}.json`)),
+        logger,
       );
       expect(code).toBe(1);
-      expect(await Bun.file(`${stateFile}.log`).text()).toContain(
-        typeof failure === "string" ? failure : failure.message,
-      );
+      expect(logger.getCalls()).toContainEqual({
+        event: "bot.lifecycle.run.failed",
+        fields: { error: failure },
+        level: "error",
+      });
     }
   });
 
@@ -90,6 +98,7 @@ describe("headless lifecycle", () => {
     const baselineTermListeners = process.listenerCount("SIGTERM");
     let stopCalls = 0;
     let hasCleanupFinished = false;
+    const logger = new RecordingLogger();
 
     const running = runHeadless(
       {
@@ -101,6 +110,7 @@ describe("headless lifecycle", () => {
         },
       },
       configWithStateFile(path.join(temporaryDirectory, "signal.json")),
+      logger,
     );
 
     await waitUntil(() => process.listenerCount("SIGTERM") > baselineTermListeners);
@@ -122,28 +132,36 @@ describe("headless lifecycle", () => {
     expect(stopCalls).toBe(1);
     expect(hasCleanupFinished).toBe(true);
     expect(process.listenerCount("SIGTERM")).toBe(baselineTermListeners);
+    expect(logger.getCalls()).toContainEqual({
+      event: "bot.lifecycle.shutdown.completed",
+      fields: { signal: "SIGTERM" },
+      level: "info",
+    });
   });
 
   it("settles and logs a rejected shutdown before returning", async () => {
     for (const failure of [new Error("stop Error"), "stop rejected"] as const) {
       const startGate = Promise.withResolvers<undefined>();
       const baselineTermListeners = process.listenerCount("SIGTERM");
-      const stateFile = path.join(temporaryDirectory, `failed-stop-${typeof failure}.json`);
+      const logger = new RecordingLogger();
       const running = runHeadless(
         {
           start: (): Promise<undefined> => startGate.promise,
           stop: (): Promise<never> => rejectWith(failure),
         },
-        configWithStateFile(stateFile),
+        configWithStateFile(path.join(temporaryDirectory, `failed-stop-${typeof failure}.json`)),
+        logger,
       );
 
       await waitUntil(() => process.listenerCount("SIGTERM") > baselineTermListeners);
       process.emit("SIGTERM", "SIGTERM");
       startGate.resolve(undefined);
       expect(await running).toBe(1);
-      expect(await Bun.file(`${stateFile}.log`).text()).toContain(
-        typeof failure === "string" ? failure : failure.message,
-      );
+      expect(logger.getCalls()).toContainEqual({
+        event: "bot.lifecycle.shutdown.failed",
+        fields: { error: failure, signal: "SIGTERM" },
+        level: "error",
+      });
     }
   });
 });

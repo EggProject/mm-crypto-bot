@@ -7,7 +7,19 @@
 
 import { describe, expect, it } from "bun:test";
 
-import { RiskBudgetAllocator, RISK_BUDGET_HARD_CAPS, type StrategyRiskConfig } from "./risk-budget.js";
+import { RecordingLogger } from "@logging-testing";
+import {
+  RiskBudgetAllocator as RuntimeRiskBudgetAllocator,
+  RISK_BUDGET_HARD_CAPS,
+  type StrategyRiskConfig,
+} from "./risk-budget.js";
+
+class RiskBudgetAllocator extends RuntimeRiskBudgetAllocator {
+  public constructor(...arguments_: ConstructorParameters<typeof RuntimeRiskBudgetAllocator>) {
+    const [options] = arguments_;
+    super({ ...options, logger: new RecordingLogger() });
+  }
+}
 
 function makeConfigs(
   entries: readonly (readonly [string, number, number])[],
@@ -24,10 +36,7 @@ function makeMatrix(
 ): ReadonlyMap<string, ReadonlyMap<string, number>> {
   const matrix = new Map<string, ReadonlyMap<string, number>>();
   for (const [id, cells] of rows) {
-    const row = new Map<string, number>();
-    for (const [otherId, corr] of cells) {
-      row.set(otherId, corr);
-    }
+    const row = new Map<string, number>(cells);
     matrix.set(id, row);
   }
   return matrix;
@@ -55,8 +64,8 @@ describe("RiskBudgetAllocator", () => {
     });
 
     it("rejects non-finite totalRiskUsd", () => {
-      expect(() => new RiskBudgetAllocator({ totalRiskUsd: Number.NaN })).toThrow(RangeError);
-      expect(() => new RiskBudgetAllocator({ totalRiskUsd: Number.POSITIVE_INFINITY })).toThrow(RangeError);
+      expect(() => new RiskBudgetAllocator({ totalRiskUsd: NaN })).toThrow(RangeError);
+      expect(() => new RiskBudgetAllocator({ totalRiskUsd: Infinity })).toThrow(RangeError);
     });
 
     it("rejects totalRiskUsd above hard cap", () => {
@@ -378,13 +387,13 @@ describe("RiskBudgetAllocator", () => {
           "a",
           [
             ["a", 1],
-            ["b", Number.NaN],
+            ["b", NaN],
           ],
         ],
         [
           "b",
           [
-            ["a", Number.NaN],
+            ["a", NaN],
             ["b", 1],
           ],
         ],

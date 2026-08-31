@@ -127,9 +127,29 @@ describe("start command boundary", () => {
     } finally {
       console.error = originalError;
     }
-    expect(messages.join("\n")).toContain("Config validation FAILED");
-    expect(messages.join("\n")).toContain("bot");
-    expect(messages.join("\n")).toContain("config lookup rejected");
+    expect(messages.join("\n")).toContain("[start] START_CONFIG_INVALID");
+    expect(messages.join("\n")).toContain("[start] START_BOOTSTRAP_FAILED");
+  });
+
+  it("fails closed when the public runtime-logger factory rejects", async () => {
+    const messages: string[] = [];
+    const originalError = console.error;
+    console.error = (...values: unknown[]): void => {
+      messages.push(values.map(String).join(" "));
+    };
+    try {
+      const command = createStartCommand({
+        createRuntimeLogger: () => {
+          throw new Error("logger unavailable");
+        },
+        loadConfig: () => DEFAULT_BOT_CONFIG,
+      });
+      const commandArguments = startArguments(new Map([["config", "/external/config.toml"]]));
+      expect(await command(commandArguments, CLI_CONTEXT)).toBe(1);
+    } finally {
+      console.error = originalError;
+    }
+    expect(messages).toEqual(["[start] START_BOOTSTRAP_FAILED"]);
   });
 
   it("constructs and starts the configured bot on the normal path", async () => {
@@ -155,7 +175,7 @@ describe("start command boundary", () => {
     const normalExitCode = await startCommand(normalArguments, CLI_CONTEXT);
     expect(normalExitCode).toBe(0);
     expect(startCalls).toBe(1);
-    expect(await Bun.file(`${stateFile}.log`).exists()).toBe(true);
+    expect(await Bun.file(`${stateFile}.log`).exists()).toBe(false);
   });
 
   it("blocks live activation before reading credentials or starting the runtime", async () => {
@@ -310,7 +330,7 @@ describe("start command boundary", () => {
     } finally {
       console.error = originalError;
     }
-    expect(messages.join("\n")).toContain("loader Error");
+    expect(messages.join("\n")).toContain("[start] START_BOOTSTRAP_FAILED");
   });
 
   it("renders non-Error config-flag and loader failures through the command boundary", async () => {
@@ -343,7 +363,6 @@ describe("start command boundary", () => {
     } finally {
       console.error = originalError;
     }
-    expect(messages.join("\n")).toContain("flag hostile");
-    expect(messages.join("\n")).toContain("loader hostile");
+    expect(messages.join("\n")).toContain("[start] START_BOOTSTRAP_FAILED");
   });
 });

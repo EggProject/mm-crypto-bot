@@ -1,96 +1,15 @@
-import type {
-  Balance,
-  ClientOrderId,
-  ExchangePosition,
-  MarketMeta,
-  Order,
-  OrderRequest,
-  Symbol as ExchangeSymbol,
-  Ticker,
-} from "@mm-crypto-bot/exchange";
-
-import { assertCondition, MockExchangeFeed } from "./runtime-driver-core.js";
+import { assertCondition } from "./runtime-driver-core.js";
 import {
-  AutoFlattenFeed,
-  firstOrder,
-  makePortfolioMarketMeta,
-  makePortfolioStack,
   makePortfolioSymbol,
+  makePortfolioMarketMeta,
   makeRemotePosition,
+  firstOrder,
+  FaultFeed,
+  AutoFlattenFeed,
+  makePortfolioStack,
 } from "./runtime-driver-portfolio-fixtures.js";
 
-async function hasUnresolvedEntry(
-  reportPromise: Promise<{ readonly unresolved: readonly string[] }>,
-  expectedEntry: string,
-): Promise<boolean> {
-  const report = await reportPromise;
-  return report.unresolved.includes(expectedEntry);
-}
-
-async function unresolvedText(
-  reportPromise: Promise<{ readonly unresolved: readonly string[] }>,
-): Promise<string> {
-  const report = await reportPromise;
-  return report.unresolved.join(" ");
-}
-
-class FaultFeed extends MockExchangeFeed {
-  private positionCalls = 0;
-  private balanceCalls = 0;
-  public readonly marketMetaFailures: unknown[] = [];
-  public readonly positionFailures: unknown[] = [];
-  public readonly balanceFailures: unknown[] = [];
-  public readonly placeFailures: unknown[] = [];
-  public readonly orderFailures: unknown[] = [];
-  public readonly tickerFailures: unknown[] = [];
-  public positionFailureOnCall: { readonly call: number; readonly failure: unknown } | undefined;
-  public balanceFailureOnCall: { readonly call: number; readonly failure: unknown } | undefined;
-  public readonly placedOrders: Order[] = [];
-
-  private throwNext(failures: unknown[]): void {
-    if (failures.length > 0) throw failures.shift();
-  }
-
-  public override async fetchMarketMeta(symbol: ExchangeSymbol): Promise<MarketMeta> {
-    this.throwNext(this.marketMetaFailures);
-    return super.fetchMarketMeta(symbol);
-  }
-
-  public override async fetchPositions(
-    symbols?: readonly ExchangeSymbol[],
-  ): Promise<readonly ExchangePosition[]> {
-    this.positionCalls += 1;
-    if (this.positionFailureOnCall?.call === this.positionCalls) throw this.positionFailureOnCall.failure;
-    this.throwNext(this.positionFailures);
-    return super.fetchPositions(symbols);
-  }
-
-  public override async fetchBalances(): Promise<readonly Balance[]> {
-    this.balanceCalls += 1;
-    if (this.balanceFailureOnCall?.call === this.balanceCalls) throw this.balanceFailureOnCall.failure;
-    this.throwNext(this.balanceFailures);
-    return super.fetchBalances();
-  }
-
-  public override async placeOrder(request: OrderRequest): Promise<Order> {
-    this.throwNext(this.placeFailures);
-    const order = await super.placeOrder(request);
-    this.placedOrders.push(order);
-    return order;
-  }
-
-  public override async fetchOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> {
-    this.throwNext(this.orderFailures);
-    return super.fetchOrder(clientOrderId, symbol);
-  }
-
-  public override async fetchTickerSnapshot(symbol: ExchangeSymbol): Promise<Ticker> {
-    this.throwNext(this.tickerFailures);
-    return super.fetchTickerSnapshot(symbol);
-  }
-}
-
-export async function runPortfolioManagerAuthoritative(): Promise<void> {
+async function runPortfolioManagerAuthoritative(): Promise<void> {
   const symbol = makePortfolioSymbol();
   const derivativeMeta = new Map([[symbol, makePortfolioMarketMeta(false)]]);
   const spotMeta = new Map([[symbol, makePortfolioMarketMeta(true)]]);
@@ -193,9 +112,11 @@ export async function runPortfolioManagerAuthoritative(): Promise<void> {
       requireAuthoritativeEmergencyState: true,
       configuredSymbols: [symbol],
     });
-    const metaUnresolved = await unresolvedText(metaStack.portfolioManager.executeCloseAll());
     assertCondition(
-      metaUnresolved.includes(typeof failure === "string" ? failure : failure.message),
+      // eslint-disable-next-line unicorn/no-await-expression-member -- The assertion reads the awaited E2E operation result exactly once.
+      (await metaStack.portfolioManager.executeCloseAll()).unresolved
+        .join(" ")
+        .includes(typeof failure === "string" ? failure : failure.message),
       "metadata failure was not reported",
     );
 
@@ -207,9 +128,11 @@ export async function runPortfolioManagerAuthoritative(): Promise<void> {
       configuredSymbols: [symbol],
     });
     positionStack.positionManager.openPosition("unavailable", symbol, "long", 0.01, 60_000, 10, 1);
-    const positionUnresolved = await unresolvedText(positionStack.portfolioManager.executeCloseAll());
     assertCondition(
-      positionUnresolved.includes("derivative position unavailable"),
+      // eslint-disable-next-line unicorn/no-await-expression-member -- The assertion reads the awaited E2E operation result exactly once.
+      (await positionStack.portfolioManager.executeCloseAll()).unresolved
+        .join(" ")
+        .includes("derivative position unavailable"),
       "position failure was not reported",
     );
 
@@ -220,9 +143,11 @@ export async function runPortfolioManagerAuthoritative(): Promise<void> {
       requireAuthoritativeEmergencyState: true,
       configuredSymbols: [symbol],
     });
-    const balanceUnresolved = await unresolvedText(balanceStack.portfolioManager.executeCloseAll());
     assertCondition(
-      balanceUnresolved.includes(typeof failure === "string" ? failure : failure.message),
+      // eslint-disable-next-line unicorn/no-await-expression-member -- The assertion reads the awaited E2E operation result exactly once.
+      (await balanceStack.portfolioManager.executeCloseAll()).unresolved
+        .join(" ")
+        .includes(typeof failure === "string" ? failure : failure.message),
       "balance failure was not reported",
     );
 
@@ -255,9 +180,11 @@ export async function runPortfolioManagerAuthoritative(): Promise<void> {
     configuredSymbols: [symbol],
   });
   invalidSpot.positionManager.openPosition("spot", symbol, "short", 0.01, 60_000, 10, 1);
-  const invalidSpotUnresolved = await unresolvedText(invalidSpot.portfolioManager.executeCloseAll());
   assertCondition(
-    invalidSpotUnresolved.includes("invalid local spot short removed"),
+    // eslint-disable-next-line unicorn/no-await-expression-member -- The assertion reads the awaited E2E operation result exactly once.
+    (await invalidSpot.portfolioManager.executeCloseAll()).unresolved
+      .join(" ")
+      .includes("invalid local spot short removed"),
     "invalid spot short was not quarantined",
   );
 
@@ -269,9 +196,11 @@ export async function runPortfolioManagerAuthoritative(): Promise<void> {
     configuredSymbols: [symbol],
   });
   unavailableSpot.positionManager.openPosition("spot", symbol, "long", 0.01, 60_000, 10, 1);
-  const unavailableSpotUnresolved = await unresolvedText(unavailableSpot.portfolioManager.executeCloseAll());
   assertCondition(
-    unavailableSpotUnresolved.includes("spot inventory unavailable"),
+    // eslint-disable-next-line unicorn/no-await-expression-member -- The assertion reads the awaited E2E operation result exactly once.
+    (await unavailableSpot.portfolioManager.executeCloseAll()).unresolved
+      .join(" ")
+      .includes("spot inventory unavailable"),
     "unavailable spot inventory was not reported",
   );
 
@@ -331,7 +260,8 @@ export async function runPortfolioManagerAuthoritative(): Promise<void> {
     configuredSymbols: [symbol],
   });
   assertCondition(
-    await hasUnresolvedEntry(noPrice.portfolioManager.executeCloseAll(), "venue/BTC/USDC/long"),
+    // eslint-disable-next-line unicorn/no-await-expression-member -- The assertion reads the awaited E2E operation result exactly once.
+    (await noPrice.portfolioManager.executeCloseAll()).unresolved.includes("venue/BTC/USDC/long"),
     "price-less derivative was not unresolved",
   );
 
@@ -359,7 +289,8 @@ export async function runPortfolioManagerAuthoritative(): Promise<void> {
       configuredSymbols: [symbol],
     });
     assertCondition(
-      await hasUnresolvedEntry(failedDerivative.portfolioManager.executeCloseAll(), "venue/BTC/USDC/long"),
+      // eslint-disable-next-line unicorn/no-await-expression-member -- The assertion reads the awaited E2E operation result exactly once.
+      (await failedDerivative.portfolioManager.executeCloseAll()).unresolved.includes("venue/BTC/USDC/long"),
       "failed derivative close was not unresolved",
     );
 
@@ -375,7 +306,8 @@ export async function runPortfolioManagerAuthoritative(): Promise<void> {
       configuredSymbols: [symbol],
     });
     assertCondition(
-      await hasUnresolvedEntry(failedSpot.portfolioManager.executeCloseAll(), "venue/BTC/USDC/spot"),
+      // eslint-disable-next-line unicorn/no-await-expression-member -- The assertion reads the awaited E2E operation result exactly once.
+      (await failedSpot.portfolioManager.executeCloseAll()).unresolved.includes("venue/BTC/USDC/spot"),
       "failed spot close was not unresolved",
     );
   }
@@ -498,3 +430,5 @@ export async function runPortfolioManagerAuthoritative(): Promise<void> {
     await pendingStack.portfolioManager.executeCloseAll();
   }
 }
+
+export { runPortfolioManagerAuthoritative };

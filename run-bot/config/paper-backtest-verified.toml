@@ -10,6 +10,11 @@ log_level = "info"
 state_file = "data/bot-state.json"
 selected_leverage = "10"
 
+# ======================================================================
+# 2) EXCHANGE — fixed Bybit EU adapter settings
+# Paper módban a publikus piaci adat WebSocket-first; a megbízás-végrehajtás emulált.
+# Az adapter a hivatalos Bybit EU REST és WebSocket végpontokat választja.
+# ======================================================================
 [exchange]
 id = "bybiteu"
 timeout_ms = 5000
@@ -19,9 +24,15 @@ fee_tier = "vip"
 rate_limit_per_min = 200
 ws_reconnect_delay_ms = 500
 
+# ======================================================================
+# 2.5) COMPLIANCE — EU joghatóság
+# ======================================================================
 [compliance]
 jurisdiction = "EU"
 
+# ======================================================================
+# 3) RISK — projekt-szintű kockázati limitek
+# ======================================================================
 [risk]
 risk_per_trade = 0.01
 kelly_fraction = 0.25
@@ -29,13 +40,19 @@ max_drawdown_pct = 0.15
 max_positions = 3
 max_leverage = 10
 
+# ======================================================================
+# 4) SYMBOLS
+# ======================================================================
 [symbols]
 enabled = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 
+# ======================================================================
+# 5) STRATEGIES
+# ======================================================================
 [strategies.donchian_pivot_composition]
 enabled = true
 cap = 0.20
-min_consensus = 1
+min_consensus = 1   # Phase 30b backtest: 11048 trades, 64.74% win, +34.41%/mo
 symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 
 [strategies.dydx_cex_carry]
@@ -54,6 +71,9 @@ enabled = false
 [strategies.regime_detector]
 enabled = false
 
+# ======================================================================
+# 6) TELEMETRY
+# ======================================================================
 [telemetry]
 log_dir = "logs/bot"
 metrics_interval_sec = 60
@@ -62,6 +82,9 @@ log_destination = "both"
 metrics_enabled = true
 heartbeat_interval_sec = 30
 
+# ======================================================================
+# 7) PORTFOLIO
+# ======================================================================
 [portfolio]
 total_risk_per_cycle_usd = 100
 correlation_penalty_threshold = 0.7

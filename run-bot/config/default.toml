@@ -1,8 +1,9 @@
-# Default paper/emulated profile.
-# Active profiles do not authorize live trading. Public market data is
-# WebSocket-first where CCXT Pro supports it; REST fallback is permitted.
-# A future separately authorized live path must independently verify exactly
-# selected 10x leverage before every Bybit EU Spot Margin order.
+# Default paper configuration for mm-crypto-bot.
+#
+# This template is intentionally paper-only. It may consume public Bybit EU
+# market data through the adapter's WebSocket-first feed, but all execution is
+# emulated. It is not an authorization to deploy capital or activate live
+# trading.
 
 [bot]
 mode = "paper"
@@ -21,6 +22,7 @@ ws_reconnect_delay_ms = 500
 
 [compliance]
 jurisdiction = "EU"
+jp_msb_registered = false
 
 [risk]
 risk_per_trade = 0.01
@@ -28,13 +30,32 @@ kelly_fraction = 0.25
 max_drawdown_pct = 0.15
 max_positions = 3
 max_leverage = 10
+max_position_fraction = 0.1
+fallback_size_fraction = 0.01
+
+[risk.trailing_stop]
+enabled = false
+atr_period = 14
+atr_multiplier = 3
+side = "both"
+
+[risk.kelly]
+enabled = false
+fraction = 0.25
+window_size = 50
+min_trades = 10
+fallback_fraction = 0.01
+
+[risk.drawdown_scaler]
+enabled = false
+max_dd_pct = 0.15
 
 [symbols]
 enabled = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 
 [strategies.donchian_pivot_composition]
 enabled = true
-cap = 0.20
+cap = 0.2
 min_consensus = 2
 symbols = ["BTC/USDC", "ETH/USDC", "SOL/USDC"]
 
@@ -66,4 +87,4 @@ heartbeat_interval_sec = 30
 total_risk_per_cycle_usd = 100
 correlation_penalty_threshold = 0.7
 correlation_window_size = 30
-max_dd_pct = 0.10
+max_dd_pct = 0.1

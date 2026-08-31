@@ -11,7 +11,6 @@ import type {
   ClientOrderId,
   FeedEvent,
   Symbol,
-  Timeframe,
   Ticker,
   OrderBook,
   MarketMeta,
@@ -239,9 +238,8 @@ describe("MockExchangeFeed", () => {
 
     it("placeOrder hibát dob, ha limit order price nélkül jön", async () => {
       await feed.open();
-      await expect(feed.placeOrder({ ...sampleOrder, price: undefined })).rejects.toThrow(
-        "limit order-hez kötelező a price",
-      );
+      const { price: _price, ...requestWithoutPrice } = sampleOrder;
+      await expect(feed.placeOrder(requestWithoutPrice)).rejects.toThrow("limit order-hez kötelező a price");
     });
 
     it("cancelOrder törli az order státuszát canceled-re", async () => {

@@ -79,11 +79,11 @@ byte-identical for all 49 owned files and preserved their `100644` modes.
 
 ## Approval and prerequisite review receipts
 
-On 2026-08-27, the user rejected openat2 and hostile concurrent-filesystem
-hardening (`nem kell ilyen védelem`) and approved the cooperative local
-filesystem model; the configuration change is handled separately. D-02 keeps
-that approved boundary and adds no hardening beyond its existing canonical-path
-and symlink-escape checks.
+On 2026-08-27, the user decided that hostile concurrent filesystem mutation
+hardening is out of scope and approved the cooperative local filesystem model;
+the configuration change is handled separately. D-02 keeps that approved
+boundary and adds no hardening beyond its existing canonical-path and
+symlink-escape checks.
 
 The D-02 source prerequisite was independently reviewed before materialization.
 Its source HEAD was `2d2df6fc7bbdb4db29abb69286fd86ca90c85495` and its exact

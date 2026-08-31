@@ -100,18 +100,18 @@ Captures the funding-rate differential with delta-neutral positioning.
 [strategies.dydx_cex_carry]
 enabled = false                         # no production precondition verifier is wired yet
 cap = 0.025                             # max position as fraction of equity
-leverage = 10                           # 1:10 MANDATE (Zod enforces max 10)
+leverage = 10                           # only fixed 10 is accepted; invalid values fail closed
 notional_per_leg_usd = 125_000          # $125k/leg (per BTC-USD spec)
 ```
 
 **Config → constructor mapping** (in `buildDydxCexCarryConfig()`):
 
-| TOML field             | Strategy param       | Notes                                                                  |
-| ---------------------- | -------------------- | ---------------------------------------------------------------------- |
-| `cap`                  | `capFraction`        | Clamped to `(0, 0.5]`.                                                 |
-| `leverage`             | `leverage` (1 or 10) | Anything other than 1 ⇒ 10.                                            |
-| `notional_per_leg_usd` | `notionalPerLegUsd`  | USD, must be positive.                                                 |
-| `fundingSource`        | (Bot-level)          | Injected by `BotDependencies.dydxFundingSource` — required at runtime. |
+| TOML field             | Strategy param      | Notes                                                                   |
+| ---------------------- | ------------------- | ----------------------------------------------------------------------- |
+| `cap`                  | `capFraction`       | Must be in `(0, 0.5]`; invalid input fails configuration loading.       |
+| `leverage`             | `leverage` (10)     | Only fixed `10` is accepted; invalid input fails configuration loading. |
+| `notional_per_leg_usd` | `notionalPerLegUsd` | USD, must be positive.                                                  |
+| `fundingSource`        | (Bot-level)         | Injected by `BotDependencies.dydxFundingSource` — required at runtime.  |
 
 **Special note:** carry needs both the dYdX v4 indexer + CEX funding feed
 and a producer that continuously re-verifies the mandatory entry

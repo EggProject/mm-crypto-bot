@@ -40,8 +40,7 @@
  * size by it before placing an order.
  */
 
-import type { Logger } from "@mm-crypto-bot/shared";
-import { createLogger } from "@mm-crypto-bot/shared";
+import { requireLogger, type Logger } from "@mm-crypto-bot/logging";
 
 // ============================================================================
 // Public types
@@ -112,6 +111,25 @@ export interface DrawdownState {
  * (stop the bot entirely).
  */
 export class DrawdownScaler {
+  /**
+   * `scaleFactorForRegion` — static lookup. Exposed as `public static`
+   * so the unit test can hit every branch directly without needing to
+   * simulate the equity curve.
+   */
+  public static scaleFactorForRegion(region: DrawdownRegion): number {
+    switch (region) {
+      case "normal": {
+        return 1;
+      }
+      case "caution": {
+        return 0.5;
+      }
+      case "kill": {
+        return 0;
+      }
+    }
+  }
+
   private readonly enabled: boolean;
   private readonly maxDdPct: number;
   private peakEquity: number;
@@ -119,20 +137,43 @@ export class DrawdownScaler {
   private readonly logger: Logger;
   private lastRegion: DrawdownRegion = "normal";
 
-  public constructor(opts: DrawdownScalerOptions) {
-    if (!Number.isFinite(opts.maxDdPct) || opts.maxDdPct <= 0 || opts.maxDdPct > 1) {
-      throw new Error(`[drawdown-scaler] maxDdPct must be in (0, 1], got ${String(opts.maxDdPct)}`);
+  public constructor(options: DrawdownScalerOptions) {
+    if (!Number.isFinite(options.maxDdPct) || options.maxDdPct <= 0 || options.maxDdPct > 1) {
+      throw new Error(`[drawdown-scaler] maxDdPct must be in (0, 1], got ${String(options.maxDdPct)}`);
     }
-    if (!Number.isFinite(opts.initialEquity) || opts.initialEquity <= 0) {
+    if (!Number.isFinite(options.initialEquity) || options.initialEquity <= 0) {
       throw new Error(
-        `[drawdown-scaler] initialEquity must be positive finite, got ${String(opts.initialEquity)}`,
+        `[drawdown-scaler] initialEquity must be positive finite, got ${String(options.initialEquity)}`,
       );
     }
-    this.enabled = opts.enabled;
-    this.maxDdPct = opts.maxDdPct;
-    this.peakEquity = opts.initialEquity;
-    this.currentEquity = opts.initialEquity;
-    this.logger = opts.logger ?? createLogger("info");
+    this.enabled = options.enabled;
+    this.maxDdPct = options.maxDdPct;
+    this.peakEquity = options.initialEquity;
+    this.currentEquity = options.initialEquity;
+    this.logger = requireLogger(options.logger, "drawdown-scaler");
+  }
+
+  /**
+   * `computeDrawdownPct` — current drawdown as fraction (0..1).
+   * The constructor and reset boundary keep the peak strictly positive.
+   */
+  private computeDrawdownPct(): number {
+    const drawdown = (this.peakEquity - this.currentEquity) / this.peakEquity;
+    return drawdown;
+  }
+
+  /**
+   * `classify` — map a drawdown fraction to a region.
+   *
+   *   dd/maxDdPct ∈ [0, 0.5)   → normal
+   *   dd/maxDdPct ∈ [0.5, 0.8) → caution
+   *   dd/maxDdPct ∈ [0.8, ∞)   → kill
+   */
+  private classify(drawdownPct: number): DrawdownRegion {
+    const ratio = drawdownPct / this.maxDdPct;
+    if (ratio < 0.5) return "normal";
+    if (ratio < 0.8) return "caution";
+    return "kill";
   }
 
   /**
@@ -154,7 +195,7 @@ export class DrawdownScaler {
     const dd = this.computeDrawdownPct();
     const region = this.classify(dd);
     if (region !== this.lastRegion) {
-      this.logger.info("[drawdown-scaler] region transition", {
+      this.logger.info("risk.drawdown.region.transition", {
         from: this.lastRegion,
         to: region,
         drawdownPct: dd,
@@ -171,7 +212,7 @@ export class DrawdownScaler {
    */
   public scaleFactor(): number {
     if (!this.enabled) {
-      return 1.0;
+      return 1;
     }
     const dd = this.computeDrawdownPct();
     const region = this.classify(dd);
@@ -214,45 +255,6 @@ export class DrawdownScaler {
     this.peakEquity = newEquity;
     this.currentEquity = newEquity;
     this.lastRegion = "normal";
-    this.logger.info("[drawdown-scaler] reset", { equity: newEquity });
-  }
-
-  /**
-   * `computeDrawdownPct` — current drawdown as fraction (0..1).
-   * The constructor and reset boundary keep the peak strictly positive.
-   */
-  private computeDrawdownPct(): number {
-    const dd = (this.peakEquity - this.currentEquity) / this.peakEquity;
-    return dd;
-  }
-
-  /**
-   * `classify` — map a drawdown fraction to a region.
-   *
-   *   dd/maxDdPct ∈ [0, 0.5)   → normal
-   *   dd/maxDdPct ∈ [0.5, 0.8) → caution
-   *   dd/maxDdPct ∈ [0.8, ∞)   → kill
-   */
-  private classify(drawdownPct: number): DrawdownRegion {
-    const ratio = drawdownPct / this.maxDdPct;
-    if (ratio < 0.5) return "normal";
-    if (ratio < 0.8) return "caution";
-    return "kill";
-  }
-
-  /**
-   * `scaleFactorForRegion` — static lookup. Exposed as `public static`
-   * so the unit test can hit every branch directly without needing to
-   * simulate the equity curve.
-   */
-  public static scaleFactorForRegion(region: DrawdownRegion): number {
-    switch (region) {
-      case "normal":
-        return 1.0;
-      case "caution":
-        return 0.5;
-      case "kill":
-        return 0.0;
-    }
+    this.logger.info("risk.drawdown.reset", { equity: newEquity });
   }
 }

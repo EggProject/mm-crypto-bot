@@ -17,14 +17,21 @@
 // át symbol helyett.
 
 import type { Brand } from "@mm-crypto-bot/shared";
+import type { SelectedLeverage } from "@mm-crypto-bot/numeric";
 
-/** `Symbol` — branded string, pl. "BTC/USDT". Megakadályozza a keveredést más string-ekkel. */
+/**
+ * `Symbol` — branded string, pl. "BTC/USDT". Megakadályozza a keveredést más string-ekkel.
+ */
 export type Symbol = Brand<string, "ExchangeSymbol">;
 
-/** `ClientOrderId` — branded string, a mi általunk generált egyedi order ID. */
+/**
+ * `ClientOrderId` — branded string, a mi általunk generált egyedi order ID.
+ */
 export type ClientOrderId = Brand<string, "ClientOrderId">;
 
-/** `ExchangeOrderId` — a tőzsde által visszaadott order ID (CCXT `Order.id`). */
+/**
+ * `ExchangeOrderId` — a tőzsde által visszaadott order ID (CCXT `Order.id`).
+ */
 export type ExchangeOrderId = Brand<string, "ExchangeOrderId">;
 
 /**
@@ -134,13 +141,25 @@ export interface ExchangePosition {
  */
 export type OrderType = "market" | "limit";
 
-/** Purpose of a post-fill conditional protective order. */
+/**
+ * Purpose of a post-fill conditional protective order.
+ */
 export type ProtectiveOrderKind = "stop_loss" | "take_profit";
 
 /**
  * `OrderSide` — long/short irány.
  */
 export type OrderSide = "buy" | "sell";
+
+/**
+ * Immutable intent assigned by the position authority before live spot-margin submission.
+ */
+export type SpotMarginOrderIntent = "risk_increasing" | "risk_reducing";
+
+/**
+ * Canonical exact base quantity (sell) or quote amount (buy) checked against Bybit borrow capacity.
+ */
+export type SpotMarginRequiredCapacity = string;
 
 /**
  * `OrderStatus` — az order életciklus-állapota. A CCXT Pro `Order.status`
@@ -158,13 +177,33 @@ export interface OrderRequest {
   readonly side: OrderSide;
   readonly type: OrderType;
   readonly amount: number;
-  /** Limit price (kötelező ha type === "limit", market-nél figyelmen kívül hagyva). */
+  /**
+   * Required by the live Bybit EU Spot Margin adapter; no range or default exists.
+   */
+  readonly selectedSpotMarginLeverage?: SelectedLeverage;
+  /**
+   * Required by the live adapter and assigned by an upstream position authority.
+   */
+  readonly spotMarginOrderIntent?: SpotMarginOrderIntent;
+  /**
+   * Required for a risk-increasing live Spot Margin order; never derived from a floating-point amount.
+   */
+  readonly spotMarginRequiredCapacity?: SpotMarginRequiredCapacity;
+  /**
+   * Limit price (kötelező ha type === "limit", market-nél figyelmen kívül hagyva).
+   */
   readonly price?: number;
-  /** Only valid for derivatives/options on Bybit; safety close intent. */
+  /**
+   * Only valid for derivatives/options on Bybit; safety close intent.
+   */
   readonly reduceOnly?: boolean;
-  /** Post-fill native conditional exit; never attached blindly to an entry. */
+  /**
+   * Post-fill native conditional exit; never attached blindly to an entry.
+   */
   readonly protectiveKind?: ProtectiveOrderKind;
-  /** Conditional trigger price, required when `protectiveKind` is set. */
+  /**
+   * Conditional trigger price, required when `protectiveKind` is set.
+   */
   readonly triggerPrice?: number;
   /**
    * Requested take-profit, retained as an intent-level value for the
@@ -198,7 +237,9 @@ export interface Order {
   readonly updateTimestamp: number | undefined;
 }
 
-/** One authenticated private execution, normalized from CCXT `Trade`. */
+/**
+ * One authenticated private execution, normalized from CCXT `Trade`.
+ */
 export interface Execution {
   readonly executionId: string;
   readonly clientOrderId: ClientOrderId | undefined;
@@ -224,7 +265,9 @@ export interface MarketMeta {
   readonly pricePrecision: number;
   readonly minAmount: number;
   readonly minCost: number;
-  /** True only when the normalized venue market is a spot market. */
+  /**
+   * True only when the normalized venue market is a spot market.
+   */
   readonly isSpot?: boolean;
 }
 

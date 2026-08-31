@@ -30,8 +30,7 @@
  */
 
 import type { Symbol } from "@mm-crypto-bot/exchange";
-import type { Logger } from "@mm-crypto-bot/shared";
-import { createLogger } from "@mm-crypto-bot/shared";
+import { requireLogger, type Logger } from "@mm-crypto-bot/logging";
 
 import type { PositionManager } from "./position-manager.js";
 
@@ -93,18 +92,17 @@ export type KillSwitchCallback = (snapshot: KillSwitchSnapshot) => void | Promis
  * változáskor). A `setPeak()` hívás a `Bot`-é.
  */
 export class MaxDrawdownKillSwitch implements KillSwitch {
-  readonly id = "max-drawdown";
-  readonly description: string;
-
   private currentEquity: number;
   private peakEquity: number;
   private readonly maxDrawdownPct: number;
+  readonly id = "max-drawdown";
+  readonly description: string;
 
-  public constructor(opts: { readonly maxDrawdownPct: number; readonly initialEquity: number }) {
-    this.maxDrawdownPct = opts.maxDrawdownPct;
-    this.currentEquity = opts.initialEquity;
-    this.peakEquity = opts.initialEquity;
-    this.description = `Max drawdown ${(opts.maxDrawdownPct * 100).toFixed(1)}%`;
+  public constructor(options: { readonly maxDrawdownPct: number; readonly initialEquity: number }) {
+    this.maxDrawdownPct = options.maxDrawdownPct;
+    this.currentEquity = options.initialEquity;
+    this.peakEquity = options.initialEquity;
+    this.description = `Max drawdown ${(options.maxDrawdownPct * 100).toFixed(1)}%`;
   }
 
   /**
@@ -123,11 +121,11 @@ export class MaxDrawdownKillSwitch implements KillSwitch {
       return { switchId: this.id, engaged: false, reason: "no peak yet" };
     }
     const dd = (this.peakEquity - this.currentEquity) / this.peakEquity;
-    const engaged = dd >= this.maxDrawdownPct;
+    const isEngaged = dd >= this.maxDrawdownPct;
     return {
       switchId: this.id,
-      engaged,
-      reason: engaged
+      engaged: isEngaged,
+      reason: isEngaged
         ? `drawdown ${(dd * 100).toFixed(2)}% ≥ max ${(this.maxDrawdownPct * 100).toFixed(1)}%`
         : `drawdown ${(dd * 100).toFixed(2)}% < max ${(this.maxDrawdownPct * 100).toFixed(1)}%`,
     };
@@ -149,15 +147,18 @@ export class MaxDrawdownKillSwitch implements KillSwitch {
  * symbolra (BTC/ETH/SOL) — a cap elérése NEM hiba, a túllépés AZ.
  */
 export class MaxPositionsKillSwitch implements KillSwitch {
-  readonly id = "max-positions";
-  readonly description: string;
   private readonly positionManager: PositionManager;
   private readonly softCapFraction: number;
+  readonly id = "max-positions";
+  readonly description: string;
 
-  public constructor(opts: { readonly positionManager: PositionManager; readonly softCapFraction?: number }) {
-    this.positionManager = opts.positionManager;
-    this.softCapFraction = opts.softCapFraction ?? 0.9;
-    this.description = `Max positions ${this.positionManager.getMaxPositions()}`;
+  public constructor(options: {
+    readonly positionManager: PositionManager;
+    readonly softCapFraction?: number;
+  }) {
+    this.positionManager = options.positionManager;
+    this.softCapFraction = options.softCapFraction ?? 0.9;
+    this.description = `Max positions ${String(this.positionManager.getMaxPositions())}`;
   }
 
   public evaluate(): KillSwitchVerdict {
@@ -187,16 +188,16 @@ export class MaxPositionsKillSwitch implements KillSwitch {
     // catches the case where positions leaked in via `restorePosition`
     // (which bypasses the cap check by design — see the Phase 68
     // `restorePosition` doc-block).
-    const engaged = current > max;
-    const warning = current >= Math.floor(max * this.softCapFraction);
+    const isEngaged = current > max;
+    const isWarning = current >= Math.floor(max * this.softCapFraction);
     return {
       switchId: this.id,
-      engaged,
-      reason: engaged
-        ? `positions ${current} > max ${max}`
-        : warning
-          ? `positions ${current} approaching max ${max}`
-          : `positions ${current} < max ${max}`,
+      engaged: isEngaged,
+      reason: isEngaged
+        ? `positions ${String(current)} > max ${String(max)}`
+        : isWarning
+          ? `positions ${String(current)} approaching max ${String(max)}`
+          : `positions ${String(current)} < max ${String(max)}`,
     };
   }
 }
@@ -212,29 +213,29 @@ export class MaxPositionsKillSwitch implements KillSwitch {
  * esetén), a kapcsoló soha nem tüzel.
  */
 export class LatencyGateKillSwitch implements KillSwitch {
-  readonly id = "latency-gate";
-  readonly description: string;
   private readonly gate: { isCarryAllowed(): boolean; readonly arbThresholdMs: number };
   private readonly enabled: boolean;
+  readonly id = "latency-gate";
+  readonly description: string;
 
-  public constructor(opts: {
+  public constructor(options: {
     readonly gate: { isCarryAllowed(): boolean; readonly arbThresholdMs: number };
     readonly enabled?: boolean;
   }) {
-    this.gate = opts.gate;
-    this.enabled = opts.enabled ?? opts.gate.arbThresholdMs !== Number.POSITIVE_INFINITY;
-    this.description = `Latency gate ${this.enabled ? `> ${String(opts.gate.arbThresholdMs)}ms` : "disabled"}`;
+    this.gate = options.gate;
+    this.enabled = options.enabled ?? options.gate.arbThresholdMs !== Infinity;
+    this.description = `Latency gate ${this.enabled ? `> ${String(options.gate.arbThresholdMs)}ms` : "disabled"}`;
   }
 
   public evaluate(): KillSwitchVerdict {
     if (!this.enabled) {
       return { switchId: this.id, engaged: false, reason: "latency gate disabled" };
     }
-    const allowed = this.gate.isCarryAllowed();
+    const isAllowed = this.gate.isCarryAllowed();
     return {
       switchId: this.id,
-      engaged: !allowed,
-      reason: allowed
+      engaged: !isAllowed,
+      reason: isAllowed
         ? "latency within threshold"
         : `latency exceeds ${String(this.gate.arbThresholdMs)}ms threshold`,
     };
@@ -252,29 +253,29 @@ export class LatencyGateKillSwitch implements KillSwitch {
  * `true`-t ad, ha a strategy-nél tüzelni kell.
  */
 export class PerStrategyKillSwitch implements KillSwitch {
-  readonly id: string;
-  readonly description: string;
   private readonly engagedFn: () => boolean;
   private readonly reasonFn: () => string;
+  readonly id: string;
+  readonly description: string;
 
-  public constructor(opts: {
+  public constructor(options: {
     readonly id: string;
     readonly description: string;
     readonly engaged: () => boolean;
     readonly reason?: () => string;
   }) {
-    this.id = opts.id;
-    this.description = opts.description;
-    this.engagedFn = opts.engaged;
-    this.reasonFn = opts.reason ?? ((): string => `${opts.id} engaged`);
+    this.id = options.id;
+    this.description = options.description;
+    this.engagedFn = options.engaged;
+    this.reasonFn = options.reason ?? ((): string => `${options.id} engaged`);
   }
 
   public evaluate(): KillSwitchVerdict {
-    const engaged = this.engagedFn();
+    const isEngaged = this.engagedFn();
     return {
       switchId: this.id,
-      engaged,
-      reason: engaged ? this.reasonFn() : `${this.id} clear`,
+      engaged: isEngaged,
+      reason: isEngaged ? this.reasonFn() : `${this.id} clear`,
     };
   }
 }
@@ -288,7 +289,7 @@ export class PerStrategyKillSwitch implements KillSwitch {
  */
 export interface KillSwitchRegistryOptions {
   readonly switches: readonly KillSwitch[];
-  readonly logger?: Logger;
+  readonly logger: Logger;
 }
 
 /**
@@ -306,9 +307,21 @@ export class KillSwitchRegistry {
   private lastSnapshot: KillSwitchSnapshot = { engaged: false, reasons: [], verdicts: [] };
   private firedOnce = false;
 
-  public constructor(opts: KillSwitchRegistryOptions) {
-    this.switches = opts.switches;
-    this.logger = opts.logger ?? createLogger("info");
+  public constructor(options: KillSwitchRegistryOptions) {
+    this.switches = options.switches;
+    this.logger = requireLogger(options.logger, "kill-switches");
+  }
+
+  private async fireCallbacks(snapshot: KillSwitchSnapshot): Promise<void> {
+    for (const callback of this.callbacks) {
+      try {
+        await callback(snapshot);
+      } catch (error) {
+        this.logger.error("risk.killswitch.callback.failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 
   /**
@@ -326,7 +339,7 @@ export class KillSwitchRegistry {
    */
   public updateEquity(equity: number): void {
     if (!Number.isFinite(equity) || equity < 0) {
-      this.logger.warn("[kill-switches] ignoring invalid equity observation", { equity });
+      this.logger.warn("risk.killswitch.equity.invalid", { equity });
       return;
     }
     for (const sw of this.switches) {
@@ -352,12 +365,12 @@ export class KillSwitchRegistry {
         reasons.push(v.reason);
       }
     }
-    const engaged = reasons.length > 0;
-    const snapshot: KillSwitchSnapshot = { engaged, reasons, verdicts };
+    const isEngaged = reasons.length > 0;
+    const snapshot: KillSwitchSnapshot = { engaged: isEngaged, reasons, verdicts };
     this.lastSnapshot = snapshot;
-    if (engaged && !this.firedOnce) {
+    if (isEngaged && !this.firedOnce) {
       this.firedOnce = true;
-      this.logger.error("[kill-switches] KILL-SWITCH TRIGGERED", {
+      this.logger.critical("risk.killswitch.triggered", {
         reasons,
         verdicts,
       });
@@ -388,18 +401,6 @@ export class KillSwitchRegistry {
   public getSwitchIds(): readonly string[] {
     return this.switches.map((s) => s.id);
   }
-
-  private async fireCallbacks(snapshot: KillSwitchSnapshot): Promise<void> {
-    for (const cb of this.callbacks) {
-      try {
-        await cb(snapshot);
-      } catch (err) {
-        this.logger.error("[kill-switches] callback threw", {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-  }
 }
 
 // ============================================================================
@@ -413,30 +414,30 @@ export class KillSwitchRegistry {
  * A `latencyGate` opcionális — ha nincs megadva, a LatencyGateKillSwitch
  * nem kerül a registrybe.
  */
-export function createDefaultRegistry(opts: {
+export function createDefaultRegistry(options: {
   readonly positionManager: PositionManager;
   readonly maxDrawdownPct: number;
   readonly maxPositions: number;
   readonly latencyGate?: { isCarryAllowed(): boolean; readonly arbThresholdMs: number };
   readonly perStrategyKillSwitches?: readonly KillSwitch[];
-  readonly logger?: Logger;
+  readonly logger: Logger;
 }): KillSwitchRegistry {
   const switches: KillSwitch[] = [
     new MaxDrawdownKillSwitch({
-      maxDrawdownPct: opts.maxDrawdownPct,
-      initialEquity: opts.positionManager.getEquity(),
+      maxDrawdownPct: options.maxDrawdownPct,
+      initialEquity: options.positionManager.getEquity(),
     }),
     new MaxPositionsKillSwitch({
-      positionManager: opts.positionManager,
+      positionManager: options.positionManager,
     }),
   ];
-  if (opts.latencyGate !== undefined) {
-    switches.push(new LatencyGateKillSwitch({ gate: opts.latencyGate }));
+  if (options.latencyGate !== undefined) {
+    switches.push(new LatencyGateKillSwitch({ gate: options.latencyGate }));
   }
-  if (opts.perStrategyKillSwitches !== undefined) {
-    switches.push(...opts.perStrategyKillSwitches);
+  if (options.perStrategyKillSwitches !== undefined) {
+    switches.push(...options.perStrategyKillSwitches);
   }
-  return new KillSwitchRegistry({ switches, ...(opts.logger !== undefined ? { logger: opts.logger } : {}) });
+  return new KillSwitchRegistry({ switches, logger: options.logger });
 }
 
 /**

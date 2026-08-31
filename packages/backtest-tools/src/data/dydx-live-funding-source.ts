@@ -46,7 +46,7 @@ import type {
   DydxFundingSource,
   CarryMarket,
 } from "@mm-crypto-bot/core";
-import type { DydxIndexerFeed, DydxMarket, DydxWsChannelData, DydxWsChannelBatchData } from "./dydx-indexer-feed.js";
+import type { DydxMarket, DydxMarketState, DydxWsChannelData, DydxWsChannelBatchData } from "./dydx-indexer-feed.js";
 
 // ============================================================================
 // PUBLIC TYPES
@@ -56,12 +56,16 @@ import type { DydxIndexerFeed, DydxMarket, DydxWsChannelData, DydxWsChannelBatch
  * `DydxLiveFundingSourceConfig` — configuration for the adapter.
  */
 export interface DydxLiveFundingSourceConfig {
-  /** CEX symbol to track for the dual-leg funding source.  Default "BTCUSDT". */
+  /**
+  CEX symbol to track for the dual-leg funding source.  Default "BTCUSDT".
+  */
   readonly cexSymbol?: string;
-  /** Markets to subscribe to.  Default ["BTC-USD"] (orchestrator scope). */
+  /**
+  Markets to subscribe to.  Default ["BTC-USD"] (orchestrator scope).
+  */
   readonly markets?: readonly DydxMarket[];
   /**
-   * CEX funding-rate provider — pluggable, default no-op (returns null).
+   * CEX funding-rate provider — pluggable, default no-op (returns undefined).
    * Production wires this to the Binance 8h funding CSV or the
    * CoinGlass funding-REST adapter.
    */
@@ -71,6 +75,8 @@ export interface DydxLiveFundingSourceConfig {
    * wires this to the bybit.eu SPOT orderbook depth adapter.
    */
   readonly bybitEuDepthSource?: BybitEuSpotDepthSource;
+  readonly finalizedBlockEvidenceSource?: DydxFinalizedBlockEvidenceSource;
+  readonly snapshotSource?: DydxLiveSnapshotSource;
   /**
    * Optional logger for diagnostics.  Defaults to a no-op logger
    * (Phase 35b — the no-op methods are part of the function-coverage
@@ -80,30 +86,62 @@ export interface DydxLiveFundingSourceConfig {
 }
 
 /**
+Public feed contract required by the live funding adapter.
+*/
+export interface DydxLiveFeed {
+  readonly getState: (market: DydxMarket) => DydxMarketState;
+  readonly subscribe: (
+    market: DydxMarket,
+    onTick: (message: DydxWsChannelData | DydxWsChannelBatchData) => void,
+  ) => { readonly close: () => void };
+}
+
+export interface DydxFinalizedBlockEvidence {
+  readonly height: number;
+  readonly timestampMs: number;
+}
+
+export interface DydxFinalizedBlockEvidenceSource {
+  readonly getLatest: (market: DydxMarket) => DydxFinalizedBlockEvidence | undefined;
+}
+
+export interface DydxLiveSnapshotSource {
+  readonly getLatest: (market: DydxMarket) =>
+    | Readonly<{ readonly cex: FundingSnapshot; readonly dydx: FundingSnapshot }>
+    | undefined;
+}
+
+/**
  * `CexFundingProvider` — pluggable CEX 8h funding-rate source.
  * Production: Binance funding-rate REST adapter (8h cadence).
  * Tests: a static array of `FundingSnapshot`.
  */
 export interface CexFundingProvider {
-  /** Get the most recent CEX funding snapshot for `cexSymbol` at-or-before `nowMs`. */
-  getMostRecent(cexSymbol: string, nowMs: number): FundingSnapshot | null;
+  /**
+  Get the most recent CEX funding snapshot for `cexSymbol` at-or-before `nowMs`.
+  */
+  getMostRecent(cexSymbol: string, nowMs: number): FundingSnapshot | undefined;
 }
 
 /**
  * `BybitEuSpotDepthSource` — pluggable bybit.eu SPOT depth source.
  * Production: bybit.eu SPOT orderbook depth adapter.
- * Tests: a static value or null.
+ * Tests: a static value or undefined.
  */
 export interface BybitEuSpotDepthSource {
-  /** Current bybit.eu SPOT depth in USD @ 1% from mid for the underlying asset.  null = unknown. */
-  getDepthUsdAt1Pct(market: CarryMarket, nowMs: number): number | null;
+  /**
+  Current bybit.eu SPOT depth in USD @ 1% from mid for the underlying asset. Undefined = unknown.
+  */
+  getDepthUsdAt1Pct(market: CarryMarket, nowMs: number): number | undefined;
 }
 
 // ============================================================================
 // DEFAULTS
 // ============================================================================
 
-/** No-op CEX funding provider — returns null. */
+/**
+No-op CEX funding provider — returns undefined.
+*/
 class NoopCexFundingProvider implements CexFundingProvider {
   // Phase 35b: explicit constructor with a no-op statement (the void
   // reference) — eslint flags a truly empty body as `no-useless-constructor`,
@@ -112,20 +150,30 @@ class NoopCexFundingProvider implements CexFundingProvider {
   constructor() {
     void this;
   }
-  getMostRecent(_cexSymbol: string, _nowMs: number): FundingSnapshot | null {
-    return null;
+  getMostRecent(_cexSymbol: string, _nowMs: number): FundingSnapshot | undefined {
+    return undefined;
   }
 }
 
-/** No-op bybit.eu SPOT depth provider — returns null. */
+/**
+No-op bybit.eu SPOT depth provider — returns undefined.
+*/
 class NoopBybitEuDepthSource implements BybitEuSpotDepthSource {
   constructor() {
     void this;
   }
-  getDepthUsdAt1Pct(_market: CarryMarket, _nowMs: number): number | null {
-    return null;
+  getDepthUsdAt1Pct(_market: CarryMarket, _nowMs: number): number | undefined {
+    return undefined;
   }
 }
+
+const NOOP_BLOCK_EVIDENCE_SOURCE: DydxFinalizedBlockEvidenceSource = {
+  getLatest: () => { void 0; },
+};
+
+const NOOP_SNAPSHOT_SOURCE: DydxLiveSnapshotSource = {
+  getLatest: () => { void 0; },
+};
 
 /**
  * `DydxLiveFundingSourceLogger` — minimal logger interface used by
@@ -133,10 +181,9 @@ class NoopBybitEuDepthSource implements BybitEuSpotDepthSource {
  * files can type-annotate custom loggers without re-declaring the shape.
  */
 export interface DydxLiveFundingSourceLogger {
-  debug(msg: string, meta?: Readonly<Record<string, unknown>>): void;
-  info(msg: string, meta?: Readonly<Record<string, unknown>>): void;
-  warn(msg: string, meta?: Readonly<Record<string, unknown>>): void;
-  error(msg: string, meta?: Readonly<Record<string, unknown>>): void;
+  debug(message: string, meta?: Readonly<Record<string, unknown>>): void;
+  info(message: string, meta?: Readonly<Record<string, unknown>>): void;
+  warn(message: string, meta?: Readonly<Record<string, unknown>>): void;
 }
 
 /**
@@ -145,10 +192,9 @@ export interface DydxLiveFundingSourceLogger {
  * any custom logger passed in is structurally compatible.
  */
 const NOOP_LOGGER: DydxLiveFundingSourceLogger = {
-  debug: (_msg: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
-  info: (_msg: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
-  warn: (_msg: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
-  error: (_msg: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
+  debug: (_message: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
+  info: (_message: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
+  warn: (_message: string, _meta?: Readonly<Record<string, unknown>>): void => undefined,
 };
 
 // ============================================================================
@@ -172,26 +218,31 @@ const NOOP_LOGGER: DydxLiveFundingSourceLogger = {
  * just exposes the right surface for the strategy.
  */
 export class DydxLiveFundingSource implements DydxFundingSource {
-  readonly feed: DydxIndexerFeed;
+  private readonly tickSubscribers = new Map<
+    DydxMarket,
+    Set<(snapshots: Readonly<{ readonly cex: FundingSnapshot; readonly dydx: FundingSnapshot }>) => void>
+  >();
+  private readonly subscriptions = new Map<DydxMarket, { readonly close: () => void }>();
+  readonly feed: DydxLiveFeed;
   readonly cexSymbol: string;
   readonly markets: readonly DydxMarket[];
   readonly cexFundingProvider: CexFundingProvider;
   readonly bybitEuDepthSource: BybitEuSpotDepthSource;
-  /** Optional logger — defaults to NOOP_LOGGER. Phase 35b. */
+  readonly finalizedBlockEvidenceSource: DydxFinalizedBlockEvidenceSource;
+  readonly snapshotSource: DydxLiveSnapshotSource;
+  /**
+  Optional logger — defaults to NOOP_LOGGER. Phase 35b.
+  */
   readonly logger: typeof NOOP_LOGGER;
-  /** Last dYdX chain-finalized block timestamp per market.  null = never. */
-  private readonly chainBlockTs = new Map<DydxMarket, number>();
-  /** Last dYdX chain-finalized block height per market.  null = never. */
-  private readonly chainBlockHeight = new Map<DydxMarket, number>();
-  /** WebSocket unsubscribe handles per market. */
-  private readonly subscriptions = new Map<DydxMarket, { readonly close: () => void }>();
 
-  constructor(feed: DydxIndexerFeed, config: DydxLiveFundingSourceConfig = {}) {
+  constructor(feed: DydxLiveFeed, config: DydxLiveFundingSourceConfig = {}) {
     this.feed = feed;
     this.cexSymbol = config.cexSymbol ?? "BTCUSDT";
-    this.markets = (config.markets ?? (["BTC-USD"] as const)).slice();
+    this.markets = [...(config.markets ?? (["BTC-USD"] as const))];
     this.cexFundingProvider = config.cexFundingProvider ?? new NoopCexFundingProvider();
     this.bybitEuDepthSource = config.bybitEuDepthSource ?? new NoopBybitEuDepthSource();
+    this.finalizedBlockEvidenceSource = config.finalizedBlockEvidenceSource ?? NOOP_BLOCK_EVIDENCE_SOURCE;
+    this.snapshotSource = config.snapshotSource ?? NOOP_SNAPSHOT_SOURCE;
     this.logger = config.logger ?? NOOP_LOGGER;
 
     // Phase 35b — log the constructor's primary parameters. Exercises
@@ -215,6 +266,33 @@ export class DydxLiveFundingSource implements DydxFundingSource {
     }
   }
 
+  private onWsMessage(market: DydxMarket, _message: DydxWsChannelData | DydxWsChannelBatchData): void {
+    const snapshots = this.snapshotSource.getLatest(market);
+    if (snapshots === undefined) return;
+    const listeners = this.tickSubscribers.get(market);
+    if (listeners === undefined) return;
+    for (const onTick of listeners) onTick(snapshots);
+  }
+
+  private ensureSubscription(market: DydxMarket): void {
+    if (this.subscriptions.has(market)) return;
+    const subscription = this.feed.subscribe(market, (message) => { this.onWsMessage(market, message); });
+    this.subscriptions.set(market, { close: () => { subscription.close(); } });
+  }
+
+  private finalizedEvidence(market: DydxMarket): DydxFinalizedBlockEvidence | undefined {
+    const evidence = this.finalizedBlockEvidenceSource.getLatest(market);
+    if (
+      evidence === undefined ||
+      !Number.isSafeInteger(evidence.height) ||
+      evidence.height < 0 ||
+      !Number.isSafeInteger(evidence.timestampMs) ||
+      evidence.timestampMs < 0
+    )
+      return undefined;
+    return evidence;
+  }
+
   /**
    * `open` — open WebSocket subscriptions for all configured markets.
    * Returns a single `close()` handle that closes all subscriptions.
@@ -226,9 +304,7 @@ export class DydxLiveFundingSource implements DydxFundingSource {
       markets: this.markets,
     });
     for (const market of this.markets) {
-      const sub = this.feed.subscribe(market, (msg) => { this._onWsMessage(market, msg); });
-      // Wrap the WebSocket's close() in our subscription interface.
-      this.subscriptions.set(market, { close: () => { sub.close(); } });
+      this.ensureSubscription(market);
     }
     return {
       close: () => {
@@ -238,109 +314,52 @@ export class DydxLiveFundingSource implements DydxFundingSource {
     };
   }
 
-  /**
-   * `subscribe` — DydxFundingSource interface.  Returns a no-op
-   * subscription handle (the production WebSocket is already open
-   * via `open()`).  The strategy doesn't actually USE the per-tick
-   * callback — it polls `lastTickAgeMs` / `lastChainBlockTs` etc.
-   * on each funding-tick event.  So this is a no-op placeholder.
-   */
   subscribe(
     market: CarryMarket,
-    _onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
+    onTick: (snap: { readonly dydx: FundingSnapshot; readonly cex: FundingSnapshot }) => void,
   ): { readonly close: () => void } {
-    // CarryMarket is a single-literal type (BTC-USD), but we keep the
-    // runtime guard so that untyped callers (any-cast paths) get a clear
-    // error rather than silent acceptance.
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (market !== "BTC-USD") {
-      throw new Error(
-        `[DydxLiveFundingSource] market="${String(market)}" not allowed. Only "BTC-USD" is supported per orchestrator scope lock.`,
-      );
-    }
-    return { close: () => undefined };
+    const listeners = this.tickSubscribers.get(market) ?? new Set();
+    listeners.add(onTick);
+    this.tickSubscribers.set(market, listeners);
+    this.ensureSubscription(market);
+    return { close: () => { listeners.delete(onTick); } };
   }
 
   /**
    * `lastTickAgeMs` — DydxFundingSource interface.
    */
-  lastTickAgeMs(market: CarryMarket, nowMs: number): number | null {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (market !== "BTC-USD") return null;
+  lastTickAgeMs(market: CarryMarket, nowMs: number): number | undefined {
     const state = this.feed.getState(market);
-    if (state.lastTickMs === null) return null;
+    if (state.lastTickMs === undefined) return undefined;
     return nowMs - state.lastTickMs;
   }
 
-  /**
-   * `lastChainBlockHeight` — DydxFundingSource interface.
-   * The dYdX v4 Indexer WebSocket does NOT push block heights on the
-   * `v4_markets` channel — block heights are only available via the
-   * REST `/v4/height` endpoint.  We track the most recent observed
-   * block height from the WS message's `effectiveAtHeight` field
-   * (if present) or fall back to the WS tick timestamp as a proxy.
-   */
-  lastChainBlockHeight(market: CarryMarket): number | null {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (market !== "BTC-USD") return null;
-    return this.chainBlockHeight.get(market) ?? null;
+  lastChainBlockHeight(market: CarryMarket): number | undefined {
+    return this.finalizedEvidence(market)?.height;
   }
 
-  /**
-   * `lastChainBlockTs` — DydxFundingSource interface.
-   * We use the WS tick timestamp as a proxy for chain-finalized time
-   * (the WS subscribes to a finalized-state channel, so each message
-   * implies a recent finalized block).
-   */
-  lastChainBlockTs(market: CarryMarket): number | null {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (market !== "BTC-USD") return null;
-    return this.chainBlockTs.get(market) ?? null;
+  lastChainBlockTs(market: CarryMarket): number | undefined {
+    return this.finalizedEvidence(market)?.timestampMs;
   }
 
   /**
    * `bybitEuSpotDepthUsd` — DydxFundingSource interface.  Delegates
    * to the pluggable bybit.eu SPOT depth source.
    */
-  bybitEuSpotDepthUsd(market: CarryMarket, nowMs: number): number | null {
-    return this.bybitEuDepthSource.getDepthUsdAt1Pct(market, nowMs);
+  bybitEuSpotDepthUsd(market: CarryMarket, nowMs: number): number | undefined {
+    return this.bybitEuDepthSource.getDepthUsdAt1Pct(market, nowMs) ?? undefined;
   }
 
   /**
    * `health` — DydxFundingSource interface.  Returns a snapshot
    * of the live state for diagnostics.
    */
-  health(): { readonly lastTickMs: number | null; readonly chainBlockHeight: number | null } {
+  health(): { readonly lastTickMs: number | undefined; readonly chainBlockHeight: number | undefined } {
     const btc = this.feed.getState("BTC-USD");
     return {
-      lastTickMs: btc.lastTickMs,
-      chainBlockHeight: this.chainBlockHeight.get("BTC-USD") ?? null,
+      lastTickMs: btc.lastTickMs ?? undefined,
+      chainBlockHeight: this.finalizedEvidence("BTC-USD")?.height,
     };
   }
 
-  // -------------------------------------------------------------------------
-  // private
-  // -------------------------------------------------------------------------
-
-  private _onWsMessage(market: DydxMarket, _msg: DydxWsChannelData | DydxWsChannelBatchData): void {
-    // The `v4_markets` channel pushes oracle/mark price updates on every
-    // block.  We treat each WS message as a chain-finalized heartbeat
-    // (the channel is subscribed to a finalized-state stream).
-    const now = Date.now();
-    this.chainBlockTs.set(market, now);
-    // Increment block height by 1 per tick (rough proxy — production
-    // should query /v4/height for the canonical height).
-    const prev = this.chainBlockHeight.get(market) ?? 0;
-    this.chainBlockHeight.set(market, prev + 1);
-    // Phase 35b — exercise the default NOOP_LOGGER.error so the
-    // function-coverage mandate is satisfied. The error is only
-    // logged when the prev block-height counter has wrapped (e.g.
-    // after a long-running feed hits Number.MAX_SAFE_INTEGER), which
-    // is never expected in practice.
-    this.logger.error("DydxLiveFundingSource block-height tick (NOOP-safe)", {
-      market,
-      prev,
-      next: prev + 1,
-    });
-  }
 }

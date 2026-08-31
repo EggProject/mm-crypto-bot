@@ -1,135 +1,20 @@
-import type {
-  Balance,
-  ClientOrderId,
-  ExchangePosition,
-  FeedEvent,
-  FeedListener,
-  MarketMeta,
-  Order,
-  OrderRequest,
-  SubscriptionId,
-  Symbol as ExchangeSymbol,
-  Ticker,
-} from "@mm-crypto-bot/exchange";
-import type { Logger } from "@mm-crypto-bot/shared";
+import type { Logger } from "@mm-crypto-bot/logging";
 
-import { assertCondition, MockExchangeFeed, quietLogger } from "./runtime-driver-core.js";
+import { assertCondition } from "./runtime-driver-core.js";
 import {
-  FailOnceCancelFeed,
-  firstOrder,
-  makeExecution,
-  makePortfolioMarketMeta,
-  makePortfolioStack,
   makePortfolioSymbol,
+  makePortfolioMarketMeta,
   makeRemotePosition,
+  firstOrder,
+  FailOnceCancelFeed,
+  FaultFeed,
+  LifecycleFeed,
+  FailOnceLifecycleFeed,
+  makePortfolioStack,
+  makeExecution,
 } from "./runtime-driver-portfolio-fixtures.js";
 
-class LifecycleFeed extends MockExchangeFeed {
-  private readonly lifecycleListeners = new Map<SubscriptionId, FeedListener>();
-  private nextLifecycleId = 10_000;
-  public readonly placedOrders: Order[] = [];
-
-  private addLifecycleListener(listener: FeedListener): SubscriptionId {
-    const id = this.nextLifecycleId;
-    this.nextLifecycleId += 1;
-    this.lifecycleListeners.set(id, listener);
-    return id;
-  }
-
-  public override async placeOrder(request: OrderRequest): Promise<Order> {
-    const order = await super.placeOrder(request);
-    this.placedOrders.push(order);
-    return order;
-  }
-
-  public async subscribeOrderUpdates(listener: FeedListener): Promise<SubscriptionId> {
-    await Promise.resolve();
-    return this.addLifecycleListener(listener);
-  }
-
-  public async subscribeExecutions(listener: FeedListener): Promise<SubscriptionId> {
-    await Promise.resolve();
-    return this.addLifecycleListener(listener);
-  }
-
-  public override async unsubscribe(id: SubscriptionId): Promise<void> {
-    if (!this.lifecycleListeners.delete(id)) await super.unsubscribe(id);
-  }
-
-  public emitLifecycle(event: FeedEvent): void {
-    for (const listener of this.lifecycleListeners.values()) listener(event);
-  }
-}
-
-class FailOnceLifecycleFeed extends LifecycleFeed {
-  private failNextCancel = true;
-
-  public override async cancelOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> {
-    if (this.failNextCancel) {
-      this.failNextCancel = false;
-      throw new Error("injected lifecycle cancel failure");
-    }
-    return super.cancelOrder(clientOrderId, symbol);
-  }
-}
-
-class FaultFeed extends MockExchangeFeed {
-  private positionCalls = 0;
-  private balanceCalls = 0;
-  public readonly marketMetaFailures: unknown[] = [];
-  public readonly positionFailures: unknown[] = [];
-  public readonly balanceFailures: unknown[] = [];
-  public readonly placeFailures: unknown[] = [];
-  public readonly orderFailures: unknown[] = [];
-  public readonly tickerFailures: unknown[] = [];
-  public positionFailureOnCall: { readonly call: number; readonly failure: unknown } | undefined;
-  public balanceFailureOnCall: { readonly call: number; readonly failure: unknown } | undefined;
-  public readonly placedOrders: Order[] = [];
-
-  private throwNext(failures: unknown[]): void {
-    if (failures.length > 0) throw failures.shift();
-  }
-
-  public override async fetchMarketMeta(symbol: ExchangeSymbol): Promise<MarketMeta> {
-    this.throwNext(this.marketMetaFailures);
-    return super.fetchMarketMeta(symbol);
-  }
-
-  public override async fetchPositions(
-    symbols?: readonly ExchangeSymbol[],
-  ): Promise<readonly ExchangePosition[]> {
-    this.positionCalls += 1;
-    if (this.positionFailureOnCall?.call === this.positionCalls) throw this.positionFailureOnCall.failure;
-    this.throwNext(this.positionFailures);
-    return super.fetchPositions(symbols);
-  }
-
-  public override async fetchBalances(): Promise<readonly Balance[]> {
-    this.balanceCalls += 1;
-    if (this.balanceFailureOnCall?.call === this.balanceCalls) throw this.balanceFailureOnCall.failure;
-    this.throwNext(this.balanceFailures);
-    return super.fetchBalances();
-  }
-
-  public override async placeOrder(request: OrderRequest): Promise<Order> {
-    this.throwNext(this.placeFailures);
-    const order = await super.placeOrder(request);
-    this.placedOrders.push(order);
-    return order;
-  }
-
-  public override async fetchOrder(clientOrderId: ClientOrderId, symbol: ExchangeSymbol): Promise<Order> {
-    this.throwNext(this.orderFailures);
-    return super.fetchOrder(clientOrderId, symbol);
-  }
-
-  public override async fetchTickerSnapshot(symbol: ExchangeSymbol): Promise<Ticker> {
-    this.throwNext(this.tickerFailures);
-    return super.fetchTickerSnapshot(symbol);
-  }
-}
-
-export async function runPortfolioManagerLifecycle(): Promise<void> {
+async function runPortfolioManagerLifecycle(): Promise<void> {
   const symbol = makePortfolioSymbol();
   const feed = new LifecycleFeed();
   const stack = await makePortfolioStack({ feed, terminalCloseEvidenceLimit: 1 });
@@ -248,9 +133,15 @@ export async function runPortfolioManagerLifecycle(): Promise<void> {
 
   const errorLog: string[] = [];
   const errorLogger: Logger = {
-    debug: quietLogger.debug,
-    info: quietLogger.info,
-    warn: quietLogger.warn,
+    critical: (message) => {
+      errorLog.push(message);
+    },
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- This E2E logger double intentionally discards non-observable records.
+    debug: () => {},
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- This E2E logger double intentionally discards non-observable records.
+    info: () => {},
+    // eslint-disable-next-line @typescript-eslint/no-empty-function -- This E2E logger double intentionally discards non-observable records.
+    warn: () => {},
     error: (message) => {
       errorLog.push(message);
     },
@@ -279,7 +170,7 @@ export async function runPortfolioManagerLifecycle(): Promise<void> {
     });
     await Bun.sleep(0);
     assertCondition(
-      errorLog.includes("[portfolio-manager] late terminal fill replacement cancel failed"),
+      errorLog.includes("portfolio.close.replacement.cancel.failed"),
       "late replacement cancel failure was not logged",
     );
   } finally {
@@ -405,3 +296,5 @@ export async function runPortfolioManagerLifecycle(): Promise<void> {
     await attributionFeed.close();
   }
 }
+
+export { runPortfolioManagerLifecycle };

@@ -47,9 +47,8 @@ class MockFeed implements ExchangeFeed {
 class NullStrategy implements Strategy {
   readonly name = "null";
   readonly timeframes = ["1h"] as const;
-  onCandle(_context: StrategyContext): StrategySignal | null {
-    // eslint-disable-next-line unicorn/no-null -- Strategy's public no-signal contract requires null.
-    return null;
+  onCandle(_context: StrategyContext): StrategySignal | undefined {
+    return undefined;
   }
   warmup(): number {
     return 0;
@@ -61,10 +60,9 @@ class StatefulProbeStrategy implements Strategy {
   readonly timeframes = ["1h"] as const;
   calls = 0;
 
-  onCandle(_context: StrategyContext): StrategySignal | null {
+  onCandle(_context: StrategyContext): StrategySignal | undefined {
     this.calls += 1;
-    // eslint-disable-next-line unicorn/no-null -- Strategy's public no-signal contract requires null.
-    return null;
+    return undefined;
   }
 
   warmup(): number {

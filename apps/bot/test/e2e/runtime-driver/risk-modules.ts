@@ -1,11 +1,10 @@
-import type { Logger } from "@mm-crypto-bot/shared";
-
+import type { Logger } from "@mm-crypto-bot/logging";
 import { DrawdownScaler } from "../../../src/risk/drawdown-scaler.js";
 import { KellySizer, computeStats, kellyFraction } from "../../../src/risk/kelly.js";
 import { RiskManager } from "../../../src/risk/risk-manager.js";
 import { TrailingStopManager } from "../../../src/risk/trailing-stop.js";
 
-import { assertCondition, expectFailure, quietLogger, withoutLogger } from "./runtime-driver-core.js";
+import { quietLogger, withoutLogger, assertCondition, expectFailure } from "./runtime-driver-core.js";
 
 function exerciseTrailingStops(): void {
   const config = {
@@ -25,7 +24,7 @@ function exerciseTrailingStops(): void {
   assertCondition(!disabled.isEnabled(), "disabled trailing stop reported enabled");
 
   const manager = new TrailingStopManager(config);
-  new TrailingStopManager(withoutLogger(config));
+  expectFailure(() => new TrailingStopManager(withoutLogger(config)), "missing trailing stop logger");
   expectFailure(() => manager.arm("bad-price-nan", "long", NaN, 2), "NaN entry price");
   expectFailure(() => manager.arm("bad-price-zero", "long", 0, 2), "zero entry price");
   expectFailure(() => manager.arm("bad-atr-nan", "long", 100, NaN), "NaN arm ATR");
@@ -70,7 +69,8 @@ function exerciseDrawdownScaler(): void {
   expectFailure(() => new DrawdownScaler({ ...config, maxDdPct: 1.1 }), "large drawdown cap");
   expectFailure(() => new DrawdownScaler({ ...config, initialEquity: NaN }), "NaN initial equity");
   expectFailure(() => new DrawdownScaler({ ...config, initialEquity: 0 }), "zero initial equity");
-  const disabled = new DrawdownScaler({ ...withoutLogger(config), enabled: false });
+  expectFailure(() => new DrawdownScaler(withoutLogger(config)), "missing drawdown logger");
+  const disabled = new DrawdownScaler({ ...config, enabled: false });
   assertCondition(disabled.scaleFactor() === 1, "disabled drawdown scaler changed size");
   const scaler = new DrawdownScaler(config);
   scaler.updateEquity(NaN);
@@ -92,14 +92,10 @@ function exerciseDrawdownScaler(): void {
   DrawdownScaler.scaleFactorForRegion("kill");
 }
 
-function throwBaselineFault(failure: Error | string): never {
-  // eslint-disable-next-line @typescript-eslint/only-throw-error -- Exercises callback handling when the thrown value is not an Error.
-  throw failure;
-}
-
-function makeKelly(isEnabled: boolean, logger: Logger | undefined = quietLogger): KellySizer {
+// eslint-disable-next-line unicorn/consistent-boolean-name -- The E2E fixture preserves the asserted protocol behavior.
+function makeKelly(enabled: boolean, logger: Logger | undefined = quietLogger): KellySizer {
   return new KellySizer({
-    enabled: isEnabled,
+    enabled,
     fraction: 0.5,
     windowSize: 3,
     minTrades: 2,
@@ -151,7 +147,7 @@ function exerciseKelly(): void {
   const disabled = makeKelly(false, undefined);
   assertCondition(disabled.recommendedSize() === 0, "disabled Kelly returned size");
   disabled.getStats();
-  new KellySizer(withoutLogger(base));
+  expectFailure(() => new KellySizer(withoutLogger(base)), "missing Kelly constructor logger");
   const kelly = makeKelly(true);
   assertCondition(kelly.recommendedSize() === 0.01, "Kelly cold-start fallback mismatch");
   kelly.recordClosedTrade({ pnlUsd: NaN, closedAt: 0 });
@@ -168,24 +164,26 @@ function exerciseKelly(): void {
   assertCondition(kelly.isEnabled(), "enabled Kelly reported disabled");
 }
 
-function riskConfig(isEnabled: boolean) {
+// eslint-disable-next-line unicorn/consistent-boolean-name -- The E2E fixture preserves the asserted protocol behavior.
+function riskConfig(enabled: boolean) {
   return {
-    trailingStop: { enabled: isEnabled, atrPeriod: 14, atrMultiplier: 2, side: "both" as const },
+    trailingStop: { enabled, atrPeriod: 14, atrMultiplier: 2, side: "both" as const },
     kelly: {
-      enabled: isEnabled,
+      enabled,
       fraction: 0.5,
       windowSize: 3,
       minTrades: 2,
       fallbackFraction: 0,
       maxFraction: 0.2,
     },
-    drawdownScaler: { enabled: isEnabled, maxDdPct: 0.2, initialEquity: 1000 },
+    drawdownScaler: { enabled, maxDdPct: 0.2, initialEquity: 1000 },
     logger: quietLogger,
   };
 }
 
 function exerciseRiskManager(): void {
-  const disabled = new RiskManager(withoutLogger(riskConfig(false)));
+  expectFailure(() => new RiskManager(withoutLogger(riskConfig(false))), "missing risk manager logger");
+  const disabled = new RiskManager(riskConfig(false));
   disabled.armTrailingStop("disabled", "long", 100, 2);
   assertCondition(
     disabled.evaluateNewPositionSize({ equityUsd: 1000, baseSizeFraction: 0.02 }) === 0.02,
@@ -205,7 +203,8 @@ function exerciseRiskManager(): void {
     throw new Error("callback Error");
   });
   manager.onTrailingStopClose(() => {
-    return throwBaselineFault("callback rejection");
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- E2E fault injection verifies normalization of non-Error failures.
+    throw "callback rejection";
   });
   manager.armTrailingStop("long", "long", 100, 2);
   manager.onTick({ positionId: "long", side: "long", currentPrice: 110, atr: 2, timestamp: 1 });
@@ -236,9 +235,11 @@ function exerciseRiskManager(): void {
   manager.getTrailingStopManager();
 }
 
-export function runRiskModules(): void {
+function runRiskModules(): void {
   exerciseTrailingStops();
   exerciseDrawdownScaler();
   exerciseKelly();
   exerciseRiskManager();
 }
+
+export { runRiskModules };

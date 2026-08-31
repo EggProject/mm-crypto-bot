@@ -166,9 +166,11 @@ data has distinct IDs and parent lineage.
 `market-data-ccxt` is an approved D-08 package name. D-04 approves its bounded responsibility: a
 dynamic provider factory may choose any provider exposed by the exact-pinned
 CCXT Pro-supported provider catalog for public market-data discovery/ingestion.
-The current repository declaration is CCXT `4.5.64`; any version update remains
-a separate dependency phase and is not approved here. Official evidence was
-reviewed on 2026-08-17: [CCXT Pro](https://docs.ccxt.com/docs/pro),
+The current repository declaration is exact CCXT `4.5.75`. Its published ESM
+artifact self-reports `4.5.74`, an upstream release-integrity blocker; no live
+dependency-readiness claim is permitted until an upstream correction or official
+clarification is revalidated. Official evidence was reviewed on 2026-08-17:
+[CCXT Pro](https://docs.ccxt.com/docs/pro),
 [CCXT Pro manual](https://docs.ccxt.com/docs/pro-manual),
 [CCXT manual](https://docs.ccxt.com/docs/manual), and the
 [CCXT source repository](https://github.com/ccxt/ccxt). No provider history

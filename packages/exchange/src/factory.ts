@@ -1,43 +1,28 @@
-// packages/exchange/src/factory.ts — exchange feed factory-k
-//
-// FELADAT: A factory-k egyetlen belépési pontot adnak a `BybitEuFeed`
-// példányosításához. A `createExchangeClient` factory a környezeti
-// változókból (`BYBIT_API_KEY`, `BYBIT_API_SECRET`) olvassa a
-// hitelesítő adatokat, és a `BUN_ENV` értéke alapján dönti el, hogy
-// melyik feed-et adja vissza.
-//
-// FONTOS (fail-safe): a rendszer ALAPÉRTELMEZETTEN paper módban indul —
-// ha `BUN_ENV === "live"` ÉS a `BYBIT_API_KEY`/`BYBIT_API_SECRET` nincs
-// beállítva, dobunk. Ellenkező esetben a `BUN_ENV` értékétől függetlenül
-// mindig a `BybitEuFeed`-et adjuk vissza (mert a paper mód a valódi
-// WS feedre épül — lásd `docs/research/stack-findings.md` §1.4).
-//
-// === PHASE 66 ENFORCEMENT ===
-//   The previous `createMockFeed` factory and the `useMock: true` branch
-//   in `createExchangeClient` were REMOVED. The `MockExchangeFeed` class
-//   lives in `packages/exchange/src/__testing__/mockFeed.ts` (test-only)
-//   and is intentionally NOT importable from production code. Tests
-//   import it directly via the relative path; the Bot's runtime feed
-//   wire-up is always real bybit.eu (or injected via `options.feed`).
+/**
+ * Constructs real Bybit EU feeds for paper and live execution.
+ * Paper mode uses real market data; test feeds remain test-only.
+ */
 
-import type { ExchangeFeed } from "./feed.js";
-import { BybitEuFeed, type BybitEuFeedOptions } from "./bybitEuFeed.js";
+import { ExchangeFeedError, type ExchangeFeed } from "./feed.js";
+import { BybitEuFeed, type BybitEuFeedOptions } from "./bybit-eu-feed.js";
 
-/** `ExchangeEnv` — a futtatókörnyezet módja. */
-export type ExchangeEnv = "paper" | "live";
+/**
+ * Identifies the execution environment selected by `BUN_ENV`.
+ */
+export type ExchangeEnvironment = "paper" | "live";
 
-/** `ExchangeCredentials` — a környezeti változókból kiolvasott API kulcsok. */
+/**
+ * Contains API credentials supplied through environment variables.
+ */
 export interface ExchangeCredentials {
   readonly apiKey: string;
   readonly secret: string;
 }
 
 /**
- * `readExchangeCredentials` — kiolvassa a `BYBIT_API_KEY` és `BYBIT_API_SECRET`
- * környezeti változókat. Ha bármelyik hiányzik, `MissingCredentialsError`-t dob.
+ * Reads `BYBIT_API_KEY` and `BYBIT_API_SECRET`.
  *
- * A függvény CSAK a környezeti változókat olvassa — a `process.env`-ben
- * tárolt értékeket SOHA nem szabad a kódba égetni.
+ * Missing values fail closed with `MissingCredentialsError`.
  */
 export function readExchangeCredentials(): ExchangeCredentials {
   const apiKey = process.env["BYBIT_API_KEY"];
@@ -48,7 +33,9 @@ export function readExchangeCredentials(): ExchangeCredentials {
   return { apiKey, secret };
 }
 
-/** `MissingCredentialsError` — dobódik, ha a környezeti változók hiányoznak. */
+/**
+ * Signals that required exchange credentials are unavailable.
+ */
 export class MissingCredentialsError extends Error {
   constructor() {
     super(
@@ -59,48 +46,52 @@ export class MissingCredentialsError extends Error {
 }
 
 /**
- * `detectExchangeEnv` — a `BUN_ENV` környezeti változóból kiolvassa a módot.
- * Alapértelmezetten "paper" (fail-safe).
+ * Reads the execution environment from `BUN_ENV`.
+ * Unknown and missing values select the fail-closed paper environment.
  */
-export function detectExchangeEnv(): ExchangeEnv {
-  const env = process.env["BUN_ENV"];
-  return env === "live" ? "live" : "paper";
+export function detectExchangeEnvironment(): ExchangeEnvironment {
+  const environment = process.env["BUN_ENV"];
+  return environment === "live" ? "live" : "paper";
 }
 
 /**
- * `createExchangeClient` — a fő factory függvény. KIZÁRÓLAG a `BybitEuFeed`
- * példányosításához (real bybit.eu, paper vagy live).
- *
- * A `MockExchangeFeed` (a unit/integration tesztekhez) külön fájlban van,
- * a `__testing__/` almappában, és NEM érhető el a production kódból —
- * lásd a fájl tetején lévő PHASE 66 ENFORCEMENT blokkot.
- *
- * Az opcionális `override` paraméterrel a kulcsok explicit megadhatók
- * (pl. smoke tesztnél vagy a `bun run paper --dry` parancsnál).
+ * Creates a real `BybitEuFeed` for paper or live execution.
+ * Test feeds are not available through this production factory.
  */
 export interface CreateExchangeClientOptions {
   readonly override?: ExchangeCredentials | undefined;
-  readonly sandbox?: boolean | undefined;
   readonly rateLimitMs?: number | undefined;
   readonly timeoutMs?: number | undefined;
-  readonly endpoint?: string | undefined;
-  readonly wsEndpoint?: string | undefined;
 }
 
-export function createExchangeClient(opts: CreateExchangeClientOptions): ExchangeFeed {
-  const creds = opts.override ?? readExchangeCredentials();
-  const envRateLimit = Number.parseInt(process.env["CCXT_RATE_LIMIT_MS"] ?? "100", 10);
-  const bybitOpts: BybitEuFeedOptions = {
-    apiKey: creds.apiKey,
-    secret: creds.secret,
-    rateLimitMs: opts.rateLimitMs ?? (Number.isFinite(envRateLimit) ? envRateLimit : 100),
-    sandbox: opts.sandbox ?? false,
-    ...(opts.timeoutMs !== undefined ? { timeoutMs: opts.timeoutMs } : {}),
-    ...(opts.endpoint !== undefined ? { endpoint: opts.endpoint } : {}),
-    ...(opts.wsEndpoint !== undefined ? { wsEndpoint: opts.wsEndpoint } : {}),
+export function createExchangeClient(options: CreateExchangeClientOptions): ExchangeFeed {
+  assertApprovedBybitEuConfig(options);
+  const credentials = options.override ?? readExchangeCredentials();
+  const configuredRateLimit = process.env["CCXT_RATE_LIMIT_MS"] ?? "100";
+  const integerPrefix = /^[+-]?\d+/u.exec(configuredRateLimit.trimStart());
+  const environmentRateLimit = integerPrefix === null ? NaN : Number(integerPrefix[0]);
+  const bybitOptions: BybitEuFeedOptions = {
+    apiKey: credentials.apiKey,
+    secret: credentials.secret,
+    rateLimitMs: options.rateLimitMs ?? (Number.isFinite(environmentRateLimit) ? environmentRateLimit : 100),
+    ...(options.timeoutMs !== undefined && { timeoutMs: options.timeoutMs }),
   };
-  return new BybitEuFeed(bybitOpts);
+  return new BybitEuFeed(bybitOptions);
 }
 
-/** A `BybitEuFeed` re-exportja — a felsőbb rétegeknek, akiknek típus-konkrét kód kell. */
-export { BybitEuFeed, type BybitEuFeedOptions } from "./bybitEuFeed.js";
+function assertApprovedBybitEuConfig(options: object): void {
+  const prohibitedFields = ["endpoint", "wsEndpoint", "sandbox"] as const;
+  for (const field of prohibitedFields) {
+    if (Reflect.get(options, field) !== undefined) {
+      throw new ExchangeFeedError(
+        `Bybit EU production configuration does not permit ${field} overrides`,
+        undefined,
+      );
+    }
+  }
+}
+
+/**
+ * Re-export the concrete feed for consumers that require its public API.
+ */
+export { BybitEuFeed, type BybitEuFeedOptions } from "./bybit-eu-feed.js";

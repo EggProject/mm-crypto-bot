@@ -6,7 +6,7 @@
 //
 //   1. Construction with default config succeeds
 //   2. Construction with custom config accepted
-//   3. metadata declares name/edgeClass/capitalRequirement=10000/maxLeverage=10
+//   3. metadata declares name/edgeClass/capitalRequirement=10000/maxAggregateEffectiveLeverage=10
 //   4. Construction with bad minDifferentialPer8h REJECTED
 //   5. Construction with bad baseNotionalUsd REJECTED
 //   6. Construction with empty enabledPairs REJECTED
@@ -43,7 +43,7 @@
 //  37. ADVERSARIAL: many rapid flips trigger no leverage violation
 //  38. ADVERSARIAL: empty enabledPairs throws at construction
 //  39. ADVERSARIAL: multiple enabled pairs processed independently
-//  40. Layer 2 1:10 defense: per-emit assertion runs
+//  40. Layer 2 aggregate effective-exposure defense: per-emit assertion runs
 //  41. factory createCrossSymbolFundingDifferentialPlugin produces same result as `new`
 //  42. CarrySignal regime='high' emitted with source tagged with legs
 
@@ -97,13 +97,13 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
     expect(p.config.enabledPairs.length).toBe(2);
   });
 
-  it("metadata declares name/edgeClass/capitalRequirement=10000/maxLeverage=10", () => {
+  it("metadata declares name/edgeClass/capitalRequirement=10000/maxAggregateEffectiveLeverage=10", () => {
     const p = new CrossSymbolFundingDifferentialPlugin();
     expect(p.metadata.name).toBe("cross-symbol-funding-differential-v1");
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("carry");
     expect(p.metadata.capitalRequirement).toBe(10_000);
-    expect(p.metadata.maxLeverage).toBe(10);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
   });
 
   it("construction with bad minDifferentialPer8h REJECTED", () => {
@@ -581,7 +581,7 @@ describe("CrossSymbolFundingDifferentialPlugin", () => {
     expect(result2.carrySignals.length).toBe(1); // BTC-SOL
   });
 
-  it("Layer 2 1:10 defense: per-emit assertion runs", () => {
+  it("Layer 2 aggregate effective-exposure defense: per-emit assertion runs", () => {
     const p = new CrossSymbolFundingDifferentialPlugin({
       minDifferentialPer8h: 0.0001,
     });

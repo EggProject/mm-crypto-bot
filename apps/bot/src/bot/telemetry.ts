@@ -7,7 +7,7 @@
  * ===========================================================================
  * KÉT RÉSZ
  * ===========================================================================
- *   1) `Logger` — a `@mm-crypto-bot/shared` `createLogger` wrapprer-e,
+ *   1) `Logger` — injected structured runtime logger,
  *      ugyanaz a JSON-formátum, ugyanaz a log-szint szűrés. A bot
  *      mindenütt ezt használja.
  *   2) `MetricsEmitter` — periodikus metrika-emitálás (a config
@@ -17,15 +17,10 @@
  *      - Orders placed/filled/cancelled counts
  *      - Kill-switch state
  *
- * A metrikák JSON formátumban a `telemetry.log_dir/bot-{date}.log`
- * fájlba íródnak — daily rotáció.
+ * Metrics are emitted through the injected structured logger.
  */
 
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
-
-import type { Logger } from "@mm-crypto-bot/shared";
-import { createLogger } from "@mm-crypto-bot/shared";
+import { requireLogger, type Logger } from "@mm-crypto-bot/logging";
 
 // ============================================================================
 // Public types
@@ -59,13 +54,11 @@ export interface TelemetrySnapshot {
 /**
  * `TelemetryOptions` — a Telemetry konfigurációja.
  *
- * - `logDir`            — a log-fájlok könyvtára (default: `logs/bot`).
  * - `metricsIntervalSec` — a metrika-emitálás periódusa (alap: 60s).
  * - `snapshotProvider`   — a snapshot-szolgáltató callback.
- * - `logger`             — opcionális structured logger.
+ * - `logger`             — injected structured logger.
  */
 export interface TelemetryOptions {
-  readonly logDir?: string;
   readonly metricsIntervalSec?: number;
   readonly snapshotProvider: () => TelemetrySnapshot;
   readonly logger?: Logger;
@@ -84,41 +77,28 @@ export interface TelemetryOptions {
  * a metrika-snapshot-ot gazdagítja.
  */
 export class Telemetry {
-  private readonly logDir: string;
   private readonly metricsIntervalSec: number;
   private readonly snapshotProvider: () => TelemetrySnapshot;
   private readonly logger: Logger;
-  private metricsTimer: ReturnType<typeof setInterval> | null = null;
+  private metricsTimer: ReturnType<typeof setInterval> | undefined;
   private engaged = false;
   private engagedReasons: string[] = [];
 
-  public constructor(opts: TelemetryOptions) {
-    this.logDir = opts.logDir ?? "logs/bot";
-    this.metricsIntervalSec = opts.metricsIntervalSec ?? 60;
-    this.snapshotProvider = opts.snapshotProvider;
-    this.logger = opts.logger ?? createLogger("info");
+  public constructor(options: TelemetryOptions) {
+    this.metricsIntervalSec = options.metricsIntervalSec ?? 60;
+    this.snapshotProvider = options.snapshotProvider;
+    this.logger = requireLogger(options.logger, "telemetry");
   }
 
   /**
    * `start` — elindítja a metrika-emitáló interval-t.
    */
   public start(): void {
-    if (this.metricsTimer !== null) return;
-    try {
-      if (!existsSync(this.logDir)) {
-        mkdirSync(this.logDir, { recursive: true });
-      }
-    } catch (err) {
-      this.logger.error("[telemetry] failed to create log directory", {
-        logDir: this.logDir,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    if (this.metricsTimer !== undefined) return;
     this.metricsTimer = setInterval(() => {
       this.emitMetrics();
     }, this.metricsIntervalSec * 1000);
-    this.logger.info("[telemetry] metrics emitter started", {
-      logDir: this.logDir,
+    this.logger.info("telemetry.metrics.started", {
       metricsIntervalSec: this.metricsIntervalSec,
     });
   }
@@ -128,18 +108,17 @@ export class Telemetry {
    * hívja a graceful shutdown során.
    */
   public stop(): void {
-    if (this.metricsTimer !== null) {
-      clearInterval(this.metricsTimer);
-      this.metricsTimer = null;
-      this.logger.info("[telemetry] metrics emitter stopped");
-    }
+    if (this.metricsTimer === undefined) return;
+    clearInterval(this.metricsTimer);
+    this.metricsTimer = undefined;
+    this.logger.info("telemetry.metrics.stopped");
   }
 
   /**
    * `setEngaged` — a kill-switch registry állapotát közli a Telemetry-vel.
    */
-  public setEngaged(engaged: boolean, reasons: readonly string[] = []): void {
-    this.engaged = engaged;
+  public setEngaged(isEngaged: boolean, reasons: readonly string[] = []): void {
+    this.engaged = isEngaged;
     this.engagedReasons = [...reasons];
   }
 
@@ -163,31 +142,21 @@ export class Telemetry {
       killSwitchEngaged: this.engaged,
       killSwitchReasons: this.engagedReasons,
     };
-    const date = new Date().toISOString().slice(0, 10);
-    const filePath = join(this.logDir, `bot-${date}.log`);
-    // Ensure log directory exists — emitMetrics() can be called before
-    // start() (e.g. in unit tests, or before the interval fires).
-    if (!existsSync(this.logDir)) {
-      try {
-        mkdirSync(this.logDir, { recursive: true });
-      } catch (err) {
-        this.logger.error("[telemetry] failed to create log directory", {
-          logDir: this.logDir,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return;
-      }
-    }
-    const line = JSON.stringify({ ts: new Date().toISOString(), kind: "metrics", ...enriched });
-    try {
-      appendFileSync(filePath, line + "\n", "utf8");
-    } catch (err) {
-      this.logger.error("[telemetry] failed to write metrics", {
-        filePath,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-    this.logger.info("[telemetry] metrics", enriched as unknown as Record<string, unknown>);
+    this.logger.info("telemetry.metrics.observed", {
+      activeStrategies: enriched.activeStrategies,
+      counters: { ...enriched.counters },
+      drawdownPct: enriched.drawdownPct,
+      equityUsd: enriched.equityUsd,
+      initialEquityUsd: enriched.initialEquityUsd,
+      killSwitchEngaged: enriched.killSwitchEngaged,
+      killSwitchReasons: enriched.killSwitchReasons,
+      maxPositions: enriched.maxPositions,
+      openPositions: enriched.openPositions,
+      realizedPnlUsd: enriched.realizedPnlUsd,
+      unrealizedPnlUsd: enriched.unrealizedPnlUsd,
+      uptime: enriched.uptime,
+      uptimeHuman: enriched.uptimeHuman,
+    });
   }
 }
 
@@ -203,14 +172,14 @@ export function formatUptime(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
   const hours = Math.floor(totalSec / 3600);
   const minutes = Math.floor((totalSec % 3600) / 60);
-  const seconds = totalSec % 60;
   if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+    return `${String(hours)}h ${String(minutes)}m`;
   }
+  const seconds = totalSec % 60;
   if (minutes > 0) {
-    return `${minutes}m ${seconds}s`;
+    return `${String(minutes)}m ${String(seconds)}s`;
   }
-  return `${seconds}s`;
+  return `${String(seconds)}s`;
 }
 
 /**
@@ -219,6 +188,6 @@ export function formatUptime(ms: number): string {
  */
 export function computeDrawdownPct(equity: number, _initialEquity: number, peakEquity: number): number {
   if (peakEquity <= 0) return 0;
-  const dd = (peakEquity - equity) / peakEquity;
-  return dd < 0 ? 0 : dd;
+  const drawdown = (peakEquity - equity) / peakEquity;
+  return Math.max(0, drawdown);
 }

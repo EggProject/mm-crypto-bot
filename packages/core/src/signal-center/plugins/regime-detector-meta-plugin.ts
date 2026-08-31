@@ -37,14 +37,14 @@
 //
 // The plugin is DEFENSIVE ONLY — does NOT emit SizingSignals (alpha) or
 // DirectionSignals (alpha). It emits RiskSignals (instructions to scale
-// down). The 1:10 leverage mandate is enforced via the metadata cap
+// down). The aggregate effective-exposure limit is enforced via the metadata cap
 // (Layer 1) and per-emit invariant check on the implied size modifier
 // (Layer 2).
 //
 // 1:10 leverage invariant (2-layer defense — meta plugin emits
 // RiskSignals ONLY, NOT SizingSignals):
 //
-//   Layer 1 (constructor): `metadata.maxLeverage = 10`. The registry
+//   Layer 1 (constructor): `metadata.maxAggregateEffectiveLeverage = 10`. The registry
 //     rejects any plugin whose metadata declares leverage > 10.
 //
 //   Layer 2 (per-emit): when emitting a RiskSignal with a
@@ -52,9 +52,9 @@
 //     `sizeModifier ≤ 1.0` (it MUST NEVER scale up — the 1:10 cap is
 //     a HARD CEILING, not a floor). Additionally, the implied
 //     `closeNotionalUsd = baseNotional × leverage × (1 - sizeModifier)`
-//     is asserted via `assertLeverageInvariant(closeNotional, baseNotional)`
+//     is asserted via `assertAggregateEffectiveExposureLimit(closeNotional, baseNotional)`
 //     to guarantee the implied close instruction respects 1:10.
-//     Any violation throws `LeverageBreachError` — fail closed.
+//     Any violation throws `AggregateEffectiveExposureLimitBreachError` — fail closed.
 //
 //   Layer 3 (per-bar portfolio guard): N/A for this plugin — Layer 3
 //     lives in the SCv1 portfolio risk engine
@@ -125,10 +125,10 @@
 //     backtest-results/REPORT-phase{6,7-c,8-f}.md for the empirical
 //     prior.
 
-import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, assertAggregateEffectiveExposureLimit } from "../../risk/leverage-invariant.js";
 
 // Re-export for downstream consumers.
-export { ONE_TO_TEN_LEVERAGE };
+export { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE };
 
 import type { SignalBus } from "../signal-bus.js";
 import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
@@ -198,7 +198,7 @@ export interface RegimeDetectorConfig {
    *   trending → 1.0
    *   ranging  → 0.7
    *   volatile → 0.4
-   * MUST be ≤ 1.0 (1:10 leverage cap forbids scaling UP — the
+   * MUST be ≤ 1.0 (aggregate effective-exposure cap forbids scaling UP — the
    * upstream sizing already accounts for full Kelly + vol-targeting).
    */
   readonly perRegimeSizeMultiplier: readonly [number, number, number];
@@ -356,11 +356,11 @@ export interface RegimeDetectorMetaPluginState {
  *   3. Transition probabilities: 3×3 sticky matrix (see DEFAULT_TRANSITION_MATRIX).
  *
  * The plugin NEVER scales UP — `perRegimeSizeMultiplier[i]` is in
- * `(0, 1.0]` and the 1:10 mandate forbids scaling beyond the
- * upstream's recommendation. The 2-layer 1:10 defense is enforced:
+ * `(0, 1.0]` and the aggregate effective-exposure limit forbids scaling beyond the
+ * upstream's recommendation. The 2-layer aggregate effective-exposure defense is enforced:
  *
- *   - Layer 1: `metadata.maxLeverage = 10` (registry rejects > 10).
- *   - Layer 2: per-emit `assertLeverageInvariant(closeNotionalUsd, baseNotionalUsd)`
+ *   - Layer 1: `metadata.maxAggregateEffectiveLeverage = 10` (registry rejects > 10).
+ *   - Layer 2: per-emit `assertAggregateEffectiveExposureLimit(closeNotionalUsd, baseNotionalUsd)`
  *     on the implied close, plus `sizeModifier ≤ 1.0` assertion.
  *
  * Lifecycle:
@@ -385,7 +385,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     version: "1.0.0",
     edgeClass: "risk", // emits RiskSignals only
     capitalRequirement: 0, // defensive plugin, no capital needed
-    maxLeverage: ONE_TO_TEN_LEVERAGE, // Layer 1 of 2-layer 1:10 defense
+    maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, // Layer 1 of 2-layer aggregate effective-exposure defense
     description:
       "Phase 11.2a FIFTH drop-in plugin (defensive meta) — HMM 3-state " +
       "regime detection (trending/ranging/volatile) emitting RiskSignals " +
@@ -430,13 +430,13 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     };
 
     // LAYER 1 — constructor assertion. The metadata declares
-    // `maxLeverage: ONE_TO_TEN_LEVERAGE` (= 10) but the metadata field
+    // `maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE` (= 10) but the metadata field
     // is typed `number` per `StrategyPluginMetadata`. We keep this
     // runtime check as defense-in-depth (the registry also enforces the
     // 1:10 cap at register() time).
-    if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
+    if (this.metadata.maxAggregateEffectiveLeverage !== DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
       throw new Error(
-        `[RegimeDetectorMetaPlugin] LAYER 1 BREACH: metadata.maxLeverage=${String(this.metadata.maxLeverage)} but the project-wide 1:10 mandate requires 10.`,
+        `[RegimeDetectorMetaPlugin] LAYER 1 BREACH: metadata.maxAggregateEffectiveLeverage=${String(this.metadata.maxAggregateEffectiveLeverage)} but the project-wide aggregate effective-exposure limit requires 10.`,
       );
     }
 
@@ -508,7 +508,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
       }
       if (m < MIN_REGIME_SIZE_MULTIPLIER || m > MAX_REGIME_SIZE_MULTIPLIER) {
         throw new Error(
-          `[RegimeDetectorMetaPlugin] perRegimeSizeMultiplier[${i}]=${m} must be in [${MIN_REGIME_SIZE_MULTIPLIER}, ${MAX_REGIME_SIZE_MULTIPLIER}]. The 1:10 mandate forbids scaling UP beyond 1.0 (HARD CAP).`,
+          `[RegimeDetectorMetaPlugin] perRegimeSizeMultiplier[${i}]=${m} must be in [${MIN_REGIME_SIZE_MULTIPLIER}, ${MAX_REGIME_SIZE_MULTIPLIER}]. The aggregate effective-exposure limit forbids scaling UP beyond 1.0 (HARD CAP).`,
         );
       }
     }
@@ -655,7 +655,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
         if (v < MIN_REGIME_SIZE_MULTIPLIER || v > MAX_REGIME_SIZE_MULTIPLIER) {
           return makeErr(
             "perRegimeSizeMultiplier",
-            `entry ${i}=${String(v)} must be in [${MIN_REGIME_SIZE_MULTIPLIER}, ${MAX_REGIME_SIZE_MULTIPLIER}]. The 1:10 mandate forbids scaling UP beyond 1.0.`,
+            `entry ${i}=${String(v)} must be in [${MIN_REGIME_SIZE_MULTIPLIER}, ${MAX_REGIME_SIZE_MULTIPLIER}]. The aggregate effective-exposure limit forbids scaling UP beyond 1.0.`,
             v,
           );
         }
@@ -800,11 +800,11 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
   }
 
   /**
-   * `effectiveMaxNotionalUsd` — the 1:10 leverage cap expressed as
+   * `effectiveMaxNotionalUsd` — the aggregate effective-exposure cap expressed as
    * `baseNotionalUsd × 10`. Used by tests + downstream consumers.
    */
   effectiveMaxNotionalUsd(): number {
-    return this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE;
+    return this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE;
   }
 
   /**
@@ -901,10 +901,10 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
    *   - reason (e.g., 'regime-trending' OR 'regime-change:trending->volatile')
    *   - breach (true only when regime changes — soft alert)
    *
-   * Layer 2 1:10 defense:
+   * Layer 2 aggregate effective-exposure defense:
    *   - sizeModifier ≤ 1.0 (already enforced by constructor bounds; this
    *     is a redundant runtime check before emit).
-   *   - assertLeverageInvariant(closeNotionalUsd, baseNotionalUsd) BEFORE
+   *   - assertAggregateEffectiveExposureLimit(closeNotionalUsd, baseNotionalUsd) BEFORE
    *     the emit. The implied close must respect the 1:10 cap.
    *
    * If the assert throws, the plugin swallows + increments the
@@ -921,7 +921,7 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     // Layer 2 — assert sizeModifier ≤ 1.0 (strict — never scale up).
     if (sizeModifier > MAX_REGIME_SIZE_MULTIPLIER) {
       throw new Error(
-        `[RegimeDetectorMetaPlugin] LAYER 2 BREACH: sizeModifier=${sizeModifier} exceeds ${MAX_REGIME_SIZE_MULTIPLIER}. The 1:10 mandate forbids scaling UP.`,
+        `[RegimeDetectorMetaPlugin] LAYER 2 BREACH: sizeModifier=${sizeModifier} exceeds ${MAX_REGIME_SIZE_MULTIPLIER}. The aggregate effective-exposure limit forbids scaling UP.`,
       );
     }
 
@@ -932,12 +932,12 @@ export class RegimeDetectorMetaPlugin implements StrategyPlugin {
     // For volatile (0.4), close = baseNotional × leverage × 0.6.
     const impliedCloseNotional = Math.max(
       0,
-      this.config.baseNotionalUsd * ONE_TO_TEN_LEVERAGE * (1 - sizeModifier),
+      this.config.baseNotionalUsd * DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE * (1 - sizeModifier),
     );
 
     // Layer 2 — assert the implied close respects the 1:10 cap.
     try {
-      assertLeverageInvariant(impliedCloseNotional, this.config.baseNotionalUsd);
+      assertAggregateEffectiveExposureLimit(impliedCloseNotional, this.config.baseNotionalUsd);
       this.state.layer2AssertionCount += 1;
     } catch (e: unknown) {
       // Re-throw with `cause` chained — fail closed. The plugin refuses

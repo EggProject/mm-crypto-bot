@@ -2,7 +2,7 @@
  * packages/exchange/src/factory.test.ts
  *
  * 100% coverage test for `factory.ts` — the exchange feed factory
- * functions: `readExchangeCredentials`, `detectExchangeEnv`,
+ * functions: `readExchangeCredentials`, `detectExchangeEnvironment`,
  * `createExchangeClient` (the real bybit.eu wire-up path), and the
  * `MissingCredentialsError` class.
  *
@@ -16,44 +16,61 @@
  * production). The corresponding tests are deleted from this file.
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import ccxt from "ccxt";
 
 import {
   BybitEuFeed,
   type BybitEuFeedOptions,
   MissingCredentialsError,
   createExchangeClient,
-  detectExchangeEnv,
+  detectExchangeEnvironment,
   readExchangeCredentials,
 } from "./factory.js";
+import { withCapturedBybitEuConstructor } from "./bybit-eu-feed.test-support.js";
 
 describe("factory", () => {
-  const originalEnv: Record<string, string | undefined> = {};
+  const originalEnvironment: {
+    apiKey: string | undefined;
+    secret: string | undefined;
+    bunEnvironment: string | undefined;
+    rateLimit: string | undefined;
+  } = {
+    apiKey: undefined,
+    secret: undefined,
+    bunEnvironment: undefined,
+    rateLimit: undefined,
+  };
 
   beforeEach(() => {
-    // Mentjük az eredeti env-et, hogy a teszt után vissza tudjuk állítani.
-    const envKeys = ["BYBIT_API_KEY", "BYBIT_API_SECRET", "BUN_ENV", "CCXT_RATE_LIMIT_MS"] as const;
-    for (const k of envKeys) {
-      originalEnv[k] = process.env[k];
-      // A `delete process.env[k]` lint hibát ad dynamic key-re —
-      // biztonságosabb a `Reflect.deleteProperty` használata.
-      Reflect.deleteProperty(process.env, k);
-    }
+    originalEnvironment.apiKey = process.env["BYBIT_API_KEY"];
+    originalEnvironment.secret = process.env["BYBIT_API_SECRET"];
+    originalEnvironment.bunEnvironment = process.env["BUN_ENV"];
+    originalEnvironment.rateLimit = process.env["CCXT_RATE_LIMIT_MS"];
+    Reflect.deleteProperty(process.env, "BYBIT_API_KEY");
+    Reflect.deleteProperty(process.env, "BYBIT_API_SECRET");
+    Reflect.deleteProperty(process.env, "BUN_ENV");
+    Reflect.deleteProperty(process.env, "CCXT_RATE_LIMIT_MS");
   });
 
   afterEach(() => {
-    for (const [k, v] of Object.entries(originalEnv)) {
-      if (v === undefined) Reflect.deleteProperty(process.env, k);
-      else process.env[k] = v;
-    }
+    if (originalEnvironment.apiKey === undefined) Reflect.deleteProperty(process.env, "BYBIT_API_KEY");
+    else process.env["BYBIT_API_KEY"] = originalEnvironment.apiKey;
+    if (originalEnvironment.secret === undefined) Reflect.deleteProperty(process.env, "BYBIT_API_SECRET");
+    else process.env["BYBIT_API_SECRET"] = originalEnvironment.secret;
+    if (originalEnvironment.bunEnvironment === undefined) Reflect.deleteProperty(process.env, "BUN_ENV");
+    else process.env["BUN_ENV"] = originalEnvironment.bunEnvironment;
+    if (originalEnvironment.rateLimit === undefined)
+      Reflect.deleteProperty(process.env, "CCXT_RATE_LIMIT_MS");
+    else process.env["CCXT_RATE_LIMIT_MS"] = originalEnvironment.rateLimit;
   });
 
   describe("MissingCredentialsError", () => {
     it("konstruktor beállítja az üzenetet és a name-et", () => {
-      const e = new MissingCredentialsError();
-      expect(e).toBeInstanceOf(Error);
-      expect(e.name).toBe("MissingCredentialsError");
-      expect(e.message).toContain("BYBIT_API_KEY");
-      expect(e.message).toContain("BYBIT_API_SECRET");
+      const error = new MissingCredentialsError();
+      expect(error).toBeInstanceOf(Error);
+      expect(error.name).toBe("MissingCredentialsError");
+      expect(error.message).toContain("BYBIT_API_KEY");
+      expect(error.message).toContain("BYBIT_API_SECRET");
     });
   });
 
@@ -87,24 +104,24 @@ describe("factory", () => {
     });
   });
 
-  describe("detectExchangeEnv", () => {
+  describe("detectExchangeEnvironment", () => {
     it("'paper'-t ad vissza, ha BUN_ENV nincs beállítva (fail-safe default)", () => {
-      expect(detectExchangeEnv()).toBe("paper");
+      expect(detectExchangeEnvironment()).toBe("paper");
     });
 
     it("'paper'-t ad vissza, ha BUN_ENV === 'paper'", () => {
       process.env["BUN_ENV"] = "paper";
-      expect(detectExchangeEnv()).toBe("paper");
+      expect(detectExchangeEnvironment()).toBe("paper");
     });
 
     it("'paper'-t ad vissza ismeretlen BUN_ENV értékre (fail-safe)", () => {
       process.env["BUN_ENV"] = "staging";
-      expect(detectExchangeEnv()).toBe("paper");
+      expect(detectExchangeEnvironment()).toBe("paper");
     });
 
     it("'live'-ot ad vissza, ha BUN_ENV === 'live'", () => {
       process.env["BUN_ENV"] = "live";
-      expect(detectExchangeEnv()).toBe("live");
+      expect(detectExchangeEnvironment()).toBe("live");
     });
   });
 
@@ -166,58 +183,68 @@ describe("factory", () => {
       expect(feed).toBeInstanceOf(BybitEuFeed);
     });
 
-    it("alkalmazza a sandbox=true opciót", () => {
-      const feed = createExchangeClient({
-        override: { apiKey: "k", secret: "s" },
-        sandbox: true,
+    it.each([
+      ["endpoint", "https://rest.example.test"],
+      ["endpoint", "https://api.bybit.com"],
+      ["endpoint", "https://api.bybit.eu/v5"],
+      ["endpoint", "ftp://api.bybit.eu"],
+      ["wsEndpoint", "wss://stream.example.test"],
+      ["wsEndpoint", "wss://stream.bybit.eu/v5"],
+      ["wsEndpoint", "wss://stream.bybit.com"],
+      ["sandbox", true],
+    ] as const)("rejects %s before reading or routing credentials", (field, value) => {
+      const options = {};
+      Reflect.defineProperty(options, field, { enumerable: true, value });
+
+      expect(() => createExchangeClient(options)).toThrow(
+        `Bybit EU production configuration does not permit ${field} overrides`,
+      );
+    });
+
+    it("rejects an untrusted origin before constructing CCXT or routing credentials", () => {
+      const originalDescriptor = Object.getOwnPropertyDescriptor(ccxt.pro, "bybiteu");
+      if (originalDescriptor === undefined) throw new Error("CCXT Bybit EU constructor is unavailable");
+      const originalConstructor = Reflect.get(ccxt.pro, "bybiteu");
+      let constructorCalls = 0;
+      let isCredentialRouted = false;
+      const trackedConstructor = new Proxy(originalConstructor, {
+        construct(target, arguments_, newTarget) {
+          constructorCalls++;
+          const config: unknown = arguments_[0];
+          isCredentialRouted = hasExpectedCredentials(config);
+          Reflect.construct(target, arguments_, newTarget);
+          return {};
+        },
       });
-      expect(feed).toBeInstanceOf(BybitEuFeed);
+      Reflect.defineProperty(ccxt.pro, "bybiteu", { ...originalDescriptor, value: trackedConstructor });
+      const options = { override: { apiKey: "origin-lock-key", secret: "origin-lock-secret" } };
+      Reflect.defineProperty(options, "endpoint", { enumerable: true, value: "https://rest.example.test" });
+
+      try {
+        expect(() => createExchangeClient(options)).toThrow(/does not permit endpoint overrides/);
+        expect(constructorCalls).toBe(0);
+        expect(isCredentialRouted).toBe(false);
+      } finally {
+        Reflect.defineProperty(ccxt.pro, "bybiteu", originalDescriptor);
+      }
     });
 
-    it("a configból átadott rate limitet, timeoutot és REST/WS origin-eket a CCXT kliensre viszi", () => {
-      const feed = createExchangeClient({
-        override: { apiKey: "k", secret: "s" },
-        rateLimitMs: 321,
-        timeoutMs: 4_321,
-        endpoint: "https://rest.example.test",
-        wsEndpoint: "wss://stream.example.test",
-      }) as BybitEuFeed;
-      const raw = feed.raw as unknown as {
-        rateLimit: number;
-        timeout: number;
-        urls: { api: { spot: string; private: string; ws: { public: { spot: string } } } };
-      };
-      expect(raw.rateLimit).toBe(321);
-      expect(raw.timeout).toBe(4_321);
-      expect(raw.urls.api.spot).toBe("https://rest.example.test");
-      expect(raw.urls.api.private).toBe("https://rest.example.test");
-      expect(raw.urls.api.ws.public.spot).toBe("wss://stream.example.test/v5/public/spot");
-    });
+    it("locks the CCXT client to the approved Bybit EU origins", () => {
+      withCapturedBybitEuConstructor((capture) => {
+        new BybitEuFeed({ apiKey: "k", secret: "s", rateLimitMs: 100 });
 
-    it("nem ignorálja a nem támogatott sandbox + endpoint kombinációt", () => {
-      expect(() =>
-        createExchangeClient({
-          override: { apiKey: "k", secret: "s" },
-          sandbox: true,
-          endpoint: "https://rest.example.test",
-        }),
-      ).toThrow(/sandbox cannot be combined/);
-    });
-
-    it("elutasítja a CCXT URL-térképet félrevezető path-os endpointot", () => {
-      expect(() =>
-        createExchangeClient({
-          override: { apiKey: "k", secret: "s" },
-          endpoint: "https://rest.example.test/v5",
-        }),
-      ).toThrow(/must be an origin/);
-    });
-
-    it("alapértelmezetten sandbox=false", () => {
-      const feed = createExchangeClient({
-        override: { apiKey: "k", secret: "s" },
+        expect(capture.calls()).toBe(1);
+        expect(capture.urls()).toMatchObject({
+          api: {
+            spot: "https://api.bybit.eu",
+            private: "https://api.bybit.eu",
+            ws: {
+              public: { spot: "wss://stream.bybit.eu/v5/public/spot" },
+              private: { spot: { unified: "wss://stream.bybit.eu/v5/private" } },
+            },
+          },
+        });
       });
-      expect(feed).toBeInstanceOf(BybitEuFeed);
     });
   });
 
@@ -229,13 +256,20 @@ describe("factory", () => {
       expect(typeof BybitEuFeed).toBe("function");
       // A BybitEuFeedOptions típust pedig típusellenőrzés szintjén
       // ellenőrizzük:
-      const opts: BybitEuFeedOptions = {
+      const options: BybitEuFeedOptions = {
         apiKey: "k",
         secret: "s",
         rateLimitMs: 100,
-        sandbox: false,
       };
-      expect(opts.apiKey).toBe("k");
+      expect(options.apiKey).toBe("k");
     });
   });
 });
+
+function hasExpectedCredentials(value: unknown): boolean {
+  if (value === null || typeof value !== "object") return false;
+  return (
+    Reflect.get(value, "apiKey") === "origin-lock-key" &&
+    Reflect.get(value, "secret") === "origin-lock-secret"
+  );
+}

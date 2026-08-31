@@ -1,36 +1,4 @@
 // packages/core/src/signal-center/strategy-registry.ts — Phase 10G Track A
-//
-// Multi-strategy registry + plugin interface for the Signal Center.
-//
-// Why a registry?
-// ---------------
-// Phase 1-9 composed strategies as nested wrapper chains in monolithic
-// ensembles (V1 → V2 → V3 → V4). Each new strategy = surgery on the
-// ensemble file, breaking existing tests. With the signal-center
-// architecture, NEW plugins should drop in WITHOUT modifying the central
-// runner — only the registry. That's the whole point of a plugin
-// architecture.
-//
-// References on plugin/extension architectures (≥3 independent sources):
-//   - Erich Gamma et al. "Design Patterns: Elements of Reusable
-//     Object-Oriented Software" (1994) — Registry / Singleton pattern,
-//     the OO-canonical way to centralize pluggable component lookup.
-//   - Martin Fowler "Plugin" pattern (Patterns of Enterprise Application
-//     Architecture, 2002) — explicit plugin interface, runtime
-//     registration, lifecycle hooks.
-//   - Trading system literature: QuantConnect Lean Engine, Zipline,
-//     backtrader, NautilusTrader all use a plugin registry for strategy
-//     drop-in. The pattern is industry-standard in quant infra.
-//
-// 1:10 leverage MANDATE (hard guardrail):
-//   - Plugin metadata `maxLeverage` MUST be ≤ 10. Plugins declaring
-//     `maxLeverage > 10` are rejected at `register()` time.
-//   - Rationale: the 1:10 mandate is project-wide. Plugin authors
-//     MUST declare their leverage expectation upfront; the registry
-//     enforces it at boot so a misconfigured plugin can't slip into
-//     production.
-//   - See memory mm-crypto-bot-project.md §"1:10 leverage MANDATORY"
-//     for the user-directive context.
 
 import type { SignalBus } from "./signal-bus.js";
 import {
@@ -39,45 +7,17 @@ import {
   type ConfigError,
   type PluginState,
   type Result,
-  err,
+  err as errorResult,
   ok,
 } from "./types.js";
 
-// ---------------------------------------------------------------------------
-// Edge class — categorizes plugin by alpha source.
-// ---------------------------------------------------------------------------
-
-/**
- * `EdgeClass` — discrete categorization of plugin alpha source.
- *
- *   - `directional` — produces DirectionSignals (long/short views).
- *     Examples: DonchianMTF, MeanReversionBB, OptionsVol delta hedge.
- *   - `carry` — produces CarrySignals (funding-rate regime).
- *     Examples: CarryBaseline, FundingTiming, FundingFlipKillSwitch.
- *   - `sizing` — produces SizingSignals (kelly, vol-target).
- *     Examples: AdaptiveKelly, VolTargeted, HybridSizer.
- *   - `risk` — produces RiskSignals (VaR, correlation penalty).
- *     Examples: PortfolioRiskEngine (Phase 10G Track B).
- *   - `mixed` — emits multiple signal kinds.
- *     Examples: CarryBaselinePlugin emits BOTH CarrySignal and
- *     SizingSignal; a multi-edge plugin belongs here.
- *
- * Why this categorization matters: Phase 10G.2+ drop-ins register
- * by edge class so the portfolio risk engine can subscribe to all
- * `risk` plugins for cross-strategy monitoring without enumerating
- * names.
- */
 export type EdgeClass = "directional" | "carry" | "sizing" | "risk" | "factor" | "mixed";
-
-// ---------------------------------------------------------------------------
-// StrategyPluginMetadata — describes a plugin's static characteristics.
-// ---------------------------------------------------------------------------
 
 /**
  * `StrategyPluginMetadata` — static descriptor returned by every
  * plugin's `metadata` getter. The registry uses this for:
  *
- *   - `register()` validation (maxLeverage ≤ 10, name uniqueness).
+ *   - `register()` validation (aggregate effective-exposure limit, name uniqueness).
  *   - `list()` API (telemetry dashboard shows registered plugins).
  *   - Boot-time `validateAll()` (cross-plugin dependency checks in
  *     later phases — Phase 10G.3+).
@@ -85,11 +25,17 @@ export type EdgeClass = "directional" | "carry" | "sizing" | "risk" | "factor" |
  *     PnL).
  */
 export interface StrategyPluginMetadata {
-  /** Unique plugin name. Convention: kebab-case (e.g., "carry-baseline"). */
+  /**
+   * Unique plugin name. Convention: kebab-case (e.g., "carry-baseline").
+   */
   readonly name: string;
-  /** Semantic version (e.g., "1.0.0"). */
+  /**
+   * Semantic version (e.g., "1.0.0").
+   */
   readonly version: string;
-  /** Edge class — see EdgeClass. */
+  /**
+   * Edge class — see EdgeClass.
+   */
   readonly edgeClass: EdgeClass;
   /**
    * Minimum capital (USD) the plugin needs to operate. Plugins below
@@ -97,13 +43,10 @@ export interface StrategyPluginMetadata {
    */
   readonly capitalRequirement: number;
   /**
-   * Maximum leverage the plugin uses. MUST be ≤ 10 (the project-wide
-   * 1:10 mandate). The registry rejects any plugin with maxLeverage > 10.
-   *
-   * For baseline-only strategies (1× no leverage), set to 1.
-   * For 1:10 leveraged strategies, set to 10.
+   * Maximum aggregate effective-exposure limit for this plugin. The registry
+   * accepts finite values in the inclusive range [1, 10].
    */
-  readonly maxLeverage: number;
+  readonly maxAggregateEffectiveLeverage: number;
   /**
    * Free-form description for the dashboard / logs. Default 1 line.
    */
@@ -115,7 +58,9 @@ export interface StrategyPluginMetadata {
    * by default.
    */
   readonly dependencies?: readonly string[];
-  /** Declares that onBar must be driven through the awaited registry path. */
+  /**
+   * Declares that onBar must be driven through the awaited registry path.
+   */
   readonly onBarMode?: "sync" | "async";
 }
 
@@ -147,7 +92,9 @@ export interface StrategyPluginMetadata {
  *      any bus subscriptions in a `dispose()` step.
  */
 export interface StrategyPlugin {
-  /** Static plugin descriptor. */
+  /**
+   * Static plugin descriptor.
+   */
   readonly metadata: StrategyPluginMetadata;
   /**
    * `subscribe` — wire SignalBus handlers. Called by
@@ -203,23 +150,22 @@ export interface StrategyPlugin {
 }
 
 // ---------------------------------------------------------------------------
-// 1:10 leverage validator — hard guardrail for plugin metadata.
+// Aggregate effective-exposure limit validator for plugin metadata.
 // ---------------------------------------------------------------------------
 
 /**
- * `MAX_ALLOWED_PLUGIN_LEVERAGE` — hard ceiling for any plugin's
- * `metadata.maxLeverage` field. The 1:10 mandate is project-wide
- * (Phase 8 Track D onwards).
+ * `MAX_ALLOWED_PLUGIN_AGGREGATE_EFFECTIVE_LEVERAGE` — hard ceiling for a
+ * plugin's aggregate effective-exposure limit metadata.
  */
-export const MAX_ALLOWED_PLUGIN_LEVERAGE = 10;
+export const MAX_ALLOWED_PLUGIN_AGGREGATE_EFFECTIVE_LEVERAGE = 10;
 
 /**
- * `validatePluginMetadata` — enforce the 1:10 leverage ceiling and
- * other metadata invariants. Returns `ok(undefined)` on pass,
+ * `validatePluginMetadata` — enforce the aggregate effective-exposure limit
+ * and other metadata invariants. Returns `ok(undefined)` on pass,
  * `err(ConfigError)` on fail.
  *
  * Rules enforced:
- *   - `maxLeverage` ∈ [1, 10] (1× baseline, 10× 1:10 mandate ceiling).
+ *   - `maxAggregateEffectiveLeverage` is finite and in [1, 10].
  *   - `name` is non-empty kebab-case-ish (no whitespace, lowercase).
  *   - `version` is non-empty (semver recommended).
  *   - `edgeClass` is one of the valid literals.
@@ -227,21 +173,21 @@ export const MAX_ALLOWED_PLUGIN_LEVERAGE = 10;
  */
 export function validatePluginMetadata(meta: StrategyPluginMetadata): Result<void, ConfigError> {
   if (!meta.name || meta.name.trim() === "") {
-    return err({
+    return errorResult({
       pluginName: meta.name.length > 0 ? meta.name : "<empty>",
       field: "name",
       message: "Plugin name must be non-empty",
     });
   }
   if (/\s/.test(meta.name)) {
-    return err({
+    return errorResult({
       pluginName: meta.name,
       field: "name",
       message: `Plugin name must not contain whitespace, got "${meta.name}"`,
     });
   }
   if (!meta.version || meta.version.trim() === "") {
-    return err({
+    return errorResult({
       pluginName: meta.name,
       field: "version",
       message: "Plugin version must be non-empty (semver recommended)",
@@ -256,7 +202,7 @@ export function validatePluginMetadata(meta: StrategyPluginMetadata): Result<voi
     "mixed",
   ];
   if (!validEdgeClasses.includes(meta.edgeClass)) {
-    return err({
+    return errorResult({
       pluginName: meta.name,
       field: "edgeClass",
       message: `Invalid edgeClass "${meta.edgeClass}", expected one of ${validEdgeClasses.join(", ")}`,
@@ -264,25 +210,25 @@ export function validatePluginMetadata(meta: StrategyPluginMetadata): Result<voi
     });
   }
   if (!Number.isFinite(meta.capitalRequirement) || meta.capitalRequirement < 0) {
-    return err({
+    return errorResult({
       pluginName: meta.name,
       field: "capitalRequirement",
-      message: `capitalRequirement must be a non-negative number, got ${meta.capitalRequirement}`,
+      message: `capitalRequirement must be a non-negative number, got ${String(meta.capitalRequirement)}`,
       value: meta.capitalRequirement,
     });
   }
   if (
-    !Number.isFinite(meta.maxLeverage) ||
-    meta.maxLeverage < 1 ||
-    meta.maxLeverage > MAX_ALLOWED_PLUGIN_LEVERAGE
+    !Number.isFinite(meta.maxAggregateEffectiveLeverage) ||
+    meta.maxAggregateEffectiveLeverage < 1 ||
+    meta.maxAggregateEffectiveLeverage > MAX_ALLOWED_PLUGIN_AGGREGATE_EFFECTIVE_LEVERAGE
   ) {
-    return err({
+    return errorResult({
       pluginName: meta.name,
-      field: "maxLeverage",
+      field: "maxAggregateEffectiveLeverage",
       message:
-        `[1:10 HARD GUARDRAIL] maxLeverage must be in [1, ${MAX_ALLOWED_PLUGIN_LEVERAGE}]. ` +
-        `Got ${meta.maxLeverage}. Plugin refused: leverage > 1:10 mandate is a project-wide HARD CONSTRAINT.`,
-      value: meta.maxLeverage,
+        "Aggregate effective-exposure limit: maxAggregateEffectiveLeverage must be in [1, " +
+        `${String(MAX_ALLOWED_PLUGIN_AGGREGATE_EFFECTIVE_LEVERAGE)}]. Got ${String(meta.maxAggregateEffectiveLeverage)}. Plugin refused.`,
+      value: meta.maxAggregateEffectiveLeverage,
     });
   }
   return ok(undefined);
@@ -311,33 +257,35 @@ export function validatePluginMetadata(meta: StrategyPluginMetadata): Result<voi
 export class StrategyRegistry {
   private readonly plugins: StrategyPlugin[] = [];
   private readonly logger: {
-    error: (msg: string, ...args: unknown[]) => void;
+    error: (message: string, ...arguments_: unknown[]) => void;
   };
 
-  constructor(opts?: {
+  constructor(options?: {
     readonly logger?: {
-      error: (msg: string, ...args: unknown[]) => void;
+      error: (message: string, ...arguments_: unknown[]) => void;
     };
   }) {
     // Alapértelmezetten NEM logolunk — a tesztekben ez a kívánt
     // viselkedés, és a production kódban a hívó adhat át saját
     // loggert (pl. a structured logger-t a shared package-ből).
-    this.logger = opts?.logger ?? {
-      error: (_msg: string, ..._args: unknown[]) => {
-        /* no-op default logger */
+    this.logger = options?.logger ?? {
+      error: () => {
+        /*
+         * no-op default logger
+         */
       },
     };
   }
 
-  // -------------------------------------------------------------------------
-  // register / unregister / get / list
-  // -------------------------------------------------------------------------
+  private findIndexByName(name: string): number {
+    return this.plugins.findIndex((plugin) => plugin.metadata.name === name);
+  }
 
   /**
    * `register` — add a plugin to the registry. Throws on:
    *   - Duplicate name (a plugin with the same `metadata.name` already
    *     registered).
-   *   - Invalid metadata (e.g., maxLeverage > 10).
+   *   - Invalid metadata (e.g., an out-of-range aggregate effective-exposure limit).
    *
    * Plugins that fail `validatePluginMetadata` are rejected BEFORE
    * being added to the registry, so the registry's invariant
@@ -350,10 +298,10 @@ export class StrategyRegistry {
           `Use unregister() before re-registering.`,
       );
     }
-    const v = validatePluginMetadata(plugin.metadata);
-    if (!v.ok) {
+    const validationResult = validatePluginMetadata(plugin.metadata);
+    if (!validationResult.ok) {
       throw new Error(
-        `StrategyRegistry.register: plugin "${plugin.metadata.name}" failed metadata validation: ${v.error.message}`,
+        `StrategyRegistry.register: plugin "${plugin.metadata.name}" failed metadata validation: ${validationResult.error.message}`,
       );
     }
     this.plugins.push(plugin);
@@ -366,20 +314,21 @@ export class StrategyRegistry {
    * subscriptions and other resources.
    */
   unregister(name: string): boolean {
-    const idx = this.findIndexByName(name);
-    if (idx === -1) return false;
-    const plugin = this.plugins[idx]!;
+    const index = this.findIndexByName(name);
+    if (index === -1) return false;
+    const plugin = this.plugins.at(index);
+    if (plugin === undefined) return false;
     if (plugin.dispose) {
       try {
         plugin.dispose();
-      } catch (e: unknown) {
+      } catch (error: unknown) {
         // Swallow disposal errors — best-effort cleanup. The registry
         // still removes the plugin so the bus isn't permanently tied
         // to a misbehaving plugin.
-        void e;
+        void error;
       }
     }
-    this.plugins.splice(idx, 1);
+    this.plugins.splice(index, 1);
     return true;
   }
 
@@ -387,8 +336,8 @@ export class StrategyRegistry {
    * `get` — fetch a plugin by name. Returns `undefined` if not found.
    */
   get(name: string): StrategyPlugin | undefined {
-    const idx = this.findIndexByName(name);
-    return idx === -1 ? undefined : this.plugins[idx]!;
+    const index = this.findIndexByName(name);
+    return index === -1 ? undefined : this.plugins.at(index);
   }
 
   /**
@@ -396,7 +345,7 @@ export class StrategyRegistry {
    * copy — mutating the result does not affect the registry.
    */
   list(): readonly StrategyPluginMetadata[] {
-    return this.plugins.map((p) => p.metadata);
+    return this.plugins.map((plugin) => plugin.metadata);
   }
 
   /**
@@ -405,10 +354,6 @@ export class StrategyRegistry {
   get size(): number {
     return this.plugins.length;
   }
-
-  // -------------------------------------------------------------------------
-  // wireAll — connect all plugins to a SignalBus
-  // -------------------------------------------------------------------------
 
   /**
    * `wireAll` — call `plugin.subscribe(bus)` on every registered
@@ -426,10 +371,6 @@ export class StrategyRegistry {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // validateAll — boot-time validation across all plugins
-  // -------------------------------------------------------------------------
-
   /**
    * `validateAll` — call `plugin.validateConfig(providedConfig)` on
    * every registered plugin. Aggregates ALL errors (not first-fail)
@@ -443,19 +384,17 @@ export class StrategyRegistry {
   validateAll(providedConfig?: unknown): Result<void, AggregatedConfigError> {
     const errors: ConfigError[] = [];
     for (const plugin of this.plugins) {
-      const r = plugin.validateConfig(providedConfig);
-      if (!r.ok) errors.push(r.error);
+      const validationResult = plugin.validateConfig(providedConfig);
+      if (!validationResult.ok) errors.push(validationResult.error);
     }
     if (errors.length === 0) return ok(undefined);
     const summary =
-      `${errors.length} config error(s) across ${this.plugins.length} plugin(s): ` +
-      errors.map((e) => `${e.pluginName}.${e.field}: ${e.message}`).join("; ");
-    return err({ errors, summary });
+      `${String(errors.length)} config error(s) across ${String(this.plugins.length)} plugin(s): ` +
+      errors
+        .map((configError) => `${configError.pluginName}.${configError.field}: ${configError.message}`)
+        .join("; ");
+    return errorResult({ errors, summary });
   }
-
-  // -------------------------------------------------------------------------
-  // onBarAll — drive all plugins (called by central runner)
-  // -------------------------------------------------------------------------
 
   /**
    * `onBarAll` — call `plugin.onBar(bar, state)` on every registered
@@ -475,53 +414,53 @@ export class StrategyRegistry {
       let result: void | Promise<void>;
       try {
         result = plugin.onBar(bar, state);
-      } catch (e: unknown) {
+      } catch (error: unknown) {
         // Best-effort logging az opcionális logger-en keresztül
         // (alapértelmezetten no-op, így a tesztekben nincs zaj).
         this.logger.error(
           `[StrategyRegistry] Plugin "${plugin.metadata.name}" threw on onBar:`,
-          e instanceof Error ? e.message : String(e),
+          error instanceof Error ? error.message : String(error),
         );
         continue;
       }
       if (result instanceof Promise) {
-        throw new Error(`Plugin "${plugin.metadata.name}" is asynchronous; use onBarAllAsync()`);
+        throw new TypeError(`Plugin "${plugin.metadata.name}" is asynchronous; use onBarAllAsync()`);
       }
     }
   }
 
-  /** Await every plugin in registration order so async adapters are causal. */
+  /**
+   * Await every plugin in registration order so async adapters are causal.
+   */
   async onBarAllAsync(bar: Bar, state: PluginState): Promise<void> {
     for (const plugin of this.plugins) {
       try {
         await plugin.onBar(bar, state);
-      } catch (e: unknown) {
+      } catch (error: unknown) {
         this.logger.error(
           `[StrategyRegistry] Plugin "${plugin.metadata.name}" threw on async onBar:`,
-          e instanceof Error ? e.message : String(e),
+          error instanceof Error ? error.message : String(error),
         );
-        throw e;
+        throw error;
       }
     }
   }
 
-  /** Dispose all wiring without unregistering plugins. Safe and idempotent. */
+  /**
+   * Dispose all wiring without unregistering plugins. Safe and idempotent.
+   */
   disposeAll(): void {
     for (const plugin of this.plugins) {
       try {
         plugin.dispose?.();
-      } catch (e: unknown) {
+      } catch (error: unknown) {
         this.logger.error(
           `[StrategyRegistry] Plugin "${plugin.metadata.name}" threw on dispose:`,
-          e instanceof Error ? e.message : String(e),
+          error instanceof Error ? error.message : String(error),
         );
       }
     }
   }
-
-  // -------------------------------------------------------------------------
-  // resetAll — clear state across all plugins
-  // -------------------------------------------------------------------------
 
   /**
    * `resetAll` — call `plugin.reset()` on every registered plugin.
@@ -531,21 +470,13 @@ export class StrategyRegistry {
     for (const plugin of this.plugins) {
       try {
         plugin.reset();
-      } catch (e: unknown) {
+      } catch (error: unknown) {
         this.logger.error(
           `[StrategyRegistry] Plugin "${plugin.metadata.name}" threw on reset:`,
-          e instanceof Error ? e.message : String(e),
+          error instanceof Error ? error.message : String(error),
         );
       }
     }
-  }
-
-  // -------------------------------------------------------------------------
-  // private
-  // -------------------------------------------------------------------------
-
-  private findIndexByName(name: string): number {
-    return this.plugins.findIndex((p) => p.metadata.name === name);
   }
 }
 

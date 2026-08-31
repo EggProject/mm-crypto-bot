@@ -9,7 +9,6 @@ import {
   HOUR_MS,
   ScenarioFeed,
   makeCandle,
-  noSignal,
   requireFirst,
   requireLast,
 } from "./engine-scenarios.test-support.js";
@@ -35,9 +34,9 @@ class ConfidenceStrategy implements Strategy {
 
   public constructor(private readonly confidence: number) {}
 
-  onCandle(context: StrategyContext): StrategySignal | null {
+  onCandle(context: StrategyContext): StrategySignal | undefined {
     if (this.fired) {
-      return noSignal();
+      return undefined;
     }
     this.fired = true;
     const price = context.candle.close;

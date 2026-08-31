@@ -3,17 +3,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { parseArgv } from "../../../src/cli/argv.js";
-import {
-  createStartCommand,
-  installConsoleRedirection,
-  resolveLogFilePath,
-  restoreConsoleRedirection,
-  runHeadless,
-} from "../../../src/cli/commands/start.js";
+import { createStartCommand, runHeadless, type RuntimeLogger } from "../../../src/cli/commands/start.js";
 import type { CliContext } from "../../../src/cli/router.js";
 import { ConfigError, DEFAULT_BOT_CONFIG } from "../../../src/config/index.js";
 
-import { assertCondition } from "./runtime-driver-core.js";
+import { assertCondition, quietLogger, RecordingLogger } from "./runtime-driver-core.js";
 
 const CONTEXT: CliContext = { config: DEFAULT_BOT_CONFIG };
 const ROOT = { ok: true as const, runtimeRoot: "/external", configPath: "/external/config/default.toml" };
@@ -24,6 +18,20 @@ const MISSING_ROOT = {
     message: "Runtime configuration root is unavailable." as const,
   },
 };
+const RUNTIME_LOGGER: RuntimeLogger = {
+  ...quietLogger,
+  shutdown: () => Promise.resolve(),
+};
+
+class TestRuntimeLogger extends RecordingLogger implements RuntimeLogger {
+  public constructor(private readonly shutdownOperation: () => Promise<void> = () => Promise.resolve()) {
+    super();
+  }
+
+  public shutdown(): Promise<void> {
+    return this.shutdownOperation();
+  }
+}
 
 class ThrowingFlags extends Map<string, string | boolean> {
   public constructor(private readonly failure: unknown) {
@@ -56,6 +64,7 @@ export async function runCliD02StartBoundaries(): Promise<void> {
     const command = createStartCommand({
       loadConfig: () => DEFAULT_BOT_CONFIG,
       createBot: () => ({ start: () => Promise.resolve(), stop: () => Promise.resolve() }),
+      createRuntimeLogger: () => RUNTIME_LOGGER,
       resolveRuntimeRoot: () => ROOT,
       run: () => Promise.resolve(0),
     });
@@ -77,7 +86,10 @@ export async function runCliD02StartBoundaries(): Promise<void> {
       (await command(parseArgv(["start", "argument"]), CONTEXT)) === 1,
       "start accepted positional argument",
     );
-    const missing = createStartCommand({ resolveRuntimeRoot: () => MISSING_ROOT });
+    const missing = createStartCommand({
+      createRuntimeLogger: () => RUNTIME_LOGGER,
+      resolveRuntimeRoot: () => MISSING_ROOT,
+    });
     assertCondition(
       (await missing(parseArgv(["start"]), CONTEXT)) === 2,
       "start accepted missing runtime root",
@@ -93,6 +105,7 @@ export async function runCliD02StartBoundaries(): Promise<void> {
       loadConfig: () => {
         throw new ConfigError("invalid", "bot", []);
       },
+      createRuntimeLogger: () => RUNTIME_LOGGER,
       resolveRuntimeRoot: () => ROOT,
     });
     assertCondition((await invalid(parseArgv(["start"]), CONTEXT)) === 2, "start did not map config error");
@@ -101,6 +114,7 @@ export async function runCliD02StartBoundaries(): Promise<void> {
         // eslint-disable-next-line @typescript-eslint/only-throw-error -- The injected hostile boundary may throw unknown values.
         throw "unavailable";
       },
+      createRuntimeLogger: () => RUNTIME_LOGGER,
       resolveRuntimeRoot: () => ROOT,
     });
     assertCondition((await hostile(parseArgv(["start"]), CONTEXT)) === 1, "start did not map hostile error");
@@ -108,6 +122,7 @@ export async function runCliD02StartBoundaries(): Promise<void> {
       loadConfig: () => {
         throw new Error("unavailable");
       },
+      createRuntimeLogger: () => RUNTIME_LOGGER,
       resolveRuntimeRoot: () => ROOT,
     });
     assertCondition(
@@ -116,17 +131,58 @@ export async function runCliD02StartBoundaries(): Promise<void> {
     );
     const live = createStartCommand({
       loadConfig: () => ({ ...DEFAULT_BOT_CONFIG, bot: { ...DEFAULT_BOT_CONFIG.bot, mode: "live" } }),
+      createRuntimeLogger: () => RUNTIME_LOGGER,
       resolveRuntimeRoot: () => ROOT,
     });
     assertCondition((await live(parseArgv(["start"]), CONTEXT)) === 3, "start did not block live activation");
-    assertCondition(resolveLogFilePath(DEFAULT_BOT_CONFIG).endsWith(".log"), "start log path invalid");
-    let isInvalidPathRejected = false;
-    try {
-      resolveLogFilePath({ ...DEFAULT_BOT_CONFIG, bot: { ...DEFAULT_BOT_CONFIG.bot, state_file: "" } });
-    } catch {
-      isInvalidPathRejected = true;
+    const loggerCreationFailure = createStartCommand({
+      loadConfig: () => DEFAULT_BOT_CONFIG,
+      createRuntimeLogger: () => {
+        throw new Error("logger unavailable");
+      },
+      resolveRuntimeRoot: () => ROOT,
+    });
+    assertCondition(
+      (await loggerCreationFailure(parseArgv(["start"]), CONTEXT)) === 1,
+      "start accepted a logger creation failure",
+    );
+    for (const failure of [new Error("runner failed"), "runner failed"] as const) {
+      const logger = new TestRuntimeLogger();
+      const runnerFailure = createStartCommand({
+        loadConfig: () => DEFAULT_BOT_CONFIG,
+        createRuntimeLogger: () => logger,
+        resolveRuntimeRoot: () => ROOT,
+        run: async () => {
+          await Promise.resolve();
+          if (failure instanceof Error) throw failure;
+          // eslint-disable-next-line @typescript-eslint/only-throw-error -- The E2E boundary verifies the original non-Error rejection is logged.
+          throw failure;
+        },
+      });
+      assertCondition(
+        (await runnerFailure(parseArgv(["start"]), CONTEXT)) === 1,
+        "start did not map a runner failure",
+      );
+      assertCondition(
+        logger.entries.some(
+          (entry) => entry.message === "bot.lifecycle.runner.failed" && entry.meta?.["error"] === failure,
+        ),
+        "start did not log the original runner failure",
+      );
     }
-    assertCondition(isInvalidPathRejected, "start accepted an empty state path");
+    for (const exitCode of [0, 2] as const) {
+      const logger = new TestRuntimeLogger(() => Promise.reject(new Error("shutdown failed")));
+      const shutdownFailure = createStartCommand({
+        loadConfig: () => DEFAULT_BOT_CONFIG,
+        createRuntimeLogger: () => logger,
+        resolveRuntimeRoot: () => ROOT,
+        run: () => Promise.resolve(exitCode),
+      });
+      assertCondition(
+        (await shutdownFailure(parseArgv(["start"]), CONTEXT)) === (exitCode === 0 ? 1 : exitCode),
+        "start did not preserve the shutdown failure exit contract",
+      );
+    }
     const logDirectory = mkdtempSync(path.join(tmpdir(), "mm-d02-start-"));
     try {
       const headlessConfig = {
@@ -141,31 +197,16 @@ export async function runCliD02StartBoundaries(): Promise<void> {
           throw failure;
         };
         assertCondition(
-          (await runHeadless({ start: crash, stop: () => Promise.resolve() }, headlessConfig)) === 1,
+          (await runHeadless(
+            { start: crash, stop: () => Promise.resolve() },
+            headlessConfig,
+            RUNTIME_LOGGER,
+          )) === 1,
           "start headless runner did not map a crash",
         );
       }
     } finally {
       rmSync(logDirectory, { recursive: true, force: true });
     }
-    const writes: string[] = [];
-    const consoleBackup = installConsoleRedirection({
-      write: (message) => {
-        writes.push(message);
-        return Promise.resolve();
-      },
-      close: () => Promise.resolve(),
-    });
-    try {
-      console.log({ event: "structured" });
-    } finally {
-      restoreConsoleRedirection(consoleBackup);
-    }
-    await consoleBackup.drain();
-    const firstWrite = writes[0];
-    assertCondition(
-      writes.length === 1 && firstWrite?.includes('"event":"structured"') === true,
-      "console redirection lost object output",
-    );
   });
 }

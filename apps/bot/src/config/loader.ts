@@ -1,25 +1,8 @@
 /**
- * apps/bot/src/config/loader.ts
- *
- * A `BotConfig` betöltése a runtime számára.
- *
- * A betöltés lépései:
- *   1. Ha van `configPath`, kiolvassa a TOML fájlt a `Bun.file()` API-val,
- *      és a `Bun.TOML.parse()`-szel parse-olja. A Bun 1.3+ beépített
- *      TOML parser-e (`Bun.TOML.parse`) — nincs szükség külön npm
- *      csomagra.
- *   2. Ha nincs `configPath`, a teljes default-értékekkel indul.
- *   3. A `ZodSafeParse` validálja a konfigot — hiba esetén `ConfigError`-t
- *      dob, ami részletes leírást ad a hibás mezőről és az elvárt
- *      értéktartományról.
- *   4. Environment overrides apply only to `BUN_ENV` and `LOG_LEVEL`.
- *
- * A merge-sorrend (későbbi felülírja a korábbiakat):
- *   defaults → TOML-fájl → env-változók
+ * Loads, closes, and validates bot configuration at the TOML boundary.
  */
 
 import { DEFAULT_BOT_CONFIG } from "./defaults.js";
-import { toTomlSerializableBotConfig } from "./selected-leverage-config.js";
 import type { BotConfig } from "./schema.js";
 import { BotConfigSchema } from "./schema.js";
 import { DEFAULT_CONFIG_STORE_DEPENDENCIES } from "./store-node-adapter.js";
@@ -29,12 +12,7 @@ import { DEFAULT_CONFIG_STORE_DEPENDENCIES } from "./store-node-adapter.js";
 // ============================================================================
 
 /**
- * `ConfigError` — a config-betöltés során dobott hiba.
- *
- * A `message` emberi olvasásra optimalizált, és tartalmazza:
- *   - melyik mező hibás (dotted path, pl. `risk.max_leverage`)
- *   - mi a várt értéktartomány (pl. "expected number ≤ 10")
- *   - mi a kapott érték
+ * Error returned for unreadable, unparsable, or invalid configuration.
  */
 export class ConfigError extends Error {
   public override readonly name = "ConfigError";
@@ -51,74 +29,67 @@ export class ConfigError extends Error {
   }
 }
 
+const LIVE_ENVIRONMENT_UNAVAILABLE_MESSAGE = "BUN_ENV=live cannot activate live mode.";
+const LIVE_ENVIRONMENT_UNAVAILABLE_PATH = "BUN_ENV";
+
 // ============================================================================
 // TOML parser wrapper
 // ============================================================================
 
 /**
- * Parses a TOML string into its runtime-guaranteed top-level object.
- *
- * A `Bun.TOML.parse` a Bun runtime része (1.3+). A `toml` npm-csomag
- * nem kell — csökkenti a dependency-footprintot.
- *
- * Bun rejects malformed scalar and array documents. The record keeps every
- * parsed value unknown so the Zod schema remains the validation authority.
+ * Parses TOML into the raw table that the closed schema validates.
  */
-function parseTomlString(text: string): Record<string, unknown> {
-  // A Bun.TOML.parse dob érvénytelen TOML esetén — ezt a loadBotConfig
-  // a hívóhoz továbbítja ConfigError formájában.
-  // A Bun.TOML.parse típusa `any` — a típus-ellenőrzést a Zod séma
-  // végzi (single source of truth), így nincs szükség cast-ra.
-  return Object.fromEntries(Object.entries(Bun.TOML.parse(text)));
+function parseTomlString(text: string): RawConfigTable {
+  return Bun.TOML.parse(text);
 }
 
 /**
- * `formatZodIssues` — a Zod-hibák listáját olvasható, dotted-path-os
- * stringgé alakítja.
- *
- * Példa kimenet:
- *   "risk.max_leverage: expected number ≤ 10 (got 15)"
+ * Formats Zod issues with dotted field paths.
  */
 function formatZodIssues(issues: readonly { path: readonly (string | number)[]; message: string }[]): string {
   return issues
     .map((issue: { path: readonly (string | number)[]; message: string }) => {
-      const path = issue.path.join(".");
+      const path = issue.path.join(".").replace(/^$/u, "<root>");
       return `  • ${path}: ${issue.message}`;
     })
     .join("\n");
 }
 
 // ============================================================================
-// Env-override alkalmazása
+// Environment overrides
 // ============================================================================
 
 /**
- * Applies supported environment overrides to a validated configuration.
- *
- * Supported environment variables:
- *   - BUN_ENV   → paper-mode selection; `live` is rejected before loading.
- *   - LOG_LEVEL → bot.log_level
+ * Applies the supported process-level overrides after schema validation.
  */
+function isSupportedLogLevel(value: string): value is BotConfig["bot"]["log_level"] {
+  const supportedLogLevels: Readonly<Record<BotConfig["bot"]["log_level"], true>> = {
+    debug: true,
+    error: true,
+    info: true,
+    warn: true,
+  };
+  return Object.hasOwn(supportedLogLevels, value);
+}
+
 function applyEnvironmentOverrides(config: BotConfig, environment: NodeJS.ProcessEnv): BotConfig {
-  // BUN_ENV may only select paper mode. Live activation has an explicit,
-  // separately guarded flow and cannot be selected through an environment
-  // override.
+  // BUN_ENV=live must never activate live mode.
   const bunEnvironment = environment["BUN_ENV"];
-  if (bunEnvironment === "paper") config.bot.mode = bunEnvironment;
-  // LOG_LEVEL → bot.log_level.  Csak a séma által elfogadott értékeket
-  // fogadjuk el — minden más a default "info" marad.
+  if (bunEnvironment === "live") {
+    throw new ConfigError(LIVE_ENVIRONMENT_UNAVAILABLE_MESSAGE, LIVE_ENVIRONMENT_UNAVAILABLE_PATH, [
+      {
+        path: LIVE_ENVIRONMENT_UNAVAILABLE_PATH,
+        message: LIVE_ENVIRONMENT_UNAVAILABLE_MESSAGE,
+      },
+    ]);
+  }
+  if (bunEnvironment === "paper") {
+    config.bot.mode = "paper";
+  }
+  // Only schema-supported log levels are applied.
   const logLevel = environment["LOG_LEVEL"];
-  switch (logLevel) {
-    case "debug":
-    case "info":
-    case "warn":
-    case "error": {
-      config.bot.log_level = logLevel;
-      break;
-    }
-    default: {
-      break;
-    }
+  if (typeof logLevel === "string" && isSupportedLogLevel(logLevel)) {
+    config.bot.log_level = logLevel;
   }
   return config;
 }
@@ -128,49 +99,19 @@ function applyEnvironmentOverrides(config: BotConfig, environment: NodeJS.Proces
 // ============================================================================
 
 /**
- * `loadBotConfig` — betölti a bot-konfigurációt a megadott útvonalról,
- * validálja, és visszaadja a Zod-inferred `BotConfig` típusú objektumot.
- *
- * @param configPath - opcionális útvonal a TOML-fájlhoz. Ha `undefined`,
- *   a `DEFAULT_BOT_CONFIG` értékeit adja vissza (csak az env-override-ok
- *   után).
- * @param env - opcionális `NodeJS.ProcessEnv`. Tesztekhez hasznos; a
- *   default a `process.env`.
- * @returns A validált `BotConfig`.
- * @throws {ConfigError} ha a TOML-fájl nem olvasható, a TOML parse
- *   szintaxisa hibás, vagy a Zod séma bármely mezőt elutasít.
+ * Loads defaults plus an optional TOML file and returns the validated config.
  */
 export function loadBotConfig(configPath?: string, environment: NodeJS.ProcessEnv = process.env): BotConfig {
-  if (environment["BUN_ENV"] === "live") {
-    throw new ConfigError("BUN_ENV=live cannot activate live mode.", "BUN_ENV", [
-      { path: "BUN_ENV", message: "BUN_ENV=live cannot activate live mode." },
-    ]);
-  }
-
-  // ------------------------------------------------------------------------
-  // 1) Alapértékek betöltése — a `BotConfigSchema` defaultjaiból.
-  // ------------------------------------------------------------------------
-  // A deep-clone azért kell, mert a DEFAULT_BOT_CONFIG egy exportált
-  // konstans, és az env-override-ok nem szabad, hogy mutálják.
-  const merged = structuredClone(toTomlSerializableBotConfig(DEFAULT_BOT_CONFIG));
-
-  // ------------------------------------------------------------------------
-  // 2) TOML-fájl olvasása + parse (ha van configPath).
-  // ------------------------------------------------------------------------
   if (configPath !== undefined) {
     let text: string;
     try {
-      // `Bun.file().text()` is asynchronous; use the injected synchronous
-      // ConfigStore reader port instead. The loadBotConfig CLI starts during
-      // boot-fázisban van, és a TOML-fájl kicsi, a sync olvasás
-      // nem blokkolja érezhetően a folyamatot.
       text = DEFAULT_CONFIG_STORE_DEPENDENCIES.readText(configPath);
     } catch (error: unknown) {
       const message = String(error);
       throw new ConfigError(`Failed to read config file at "${configPath}": ${message}`, "<file>", []);
     }
 
-    let raw: Record<string, unknown>;
+    let raw: RawConfigTable;
     try {
       raw = parseTomlString(text);
     } catch (error: unknown) {
@@ -178,36 +119,10 @@ export function loadBotConfig(configPath?: string, environment: NodeJS.ProcessEn
       throw new ConfigError(`Failed to parse TOML at "${configPath}": ${message}`, "<toml-parse>", []);
     }
 
-    // ------------------------------------------------------------------------
-    // 3) A TOML-tartalom mergelése a defaultokba.
-    //    A sekély merge (Object.assign-szerű) azért elég, mert a Zod
-    //    séma flat struktúrát ír elő (a nested szekciók is top-level
-    //    kulcsok). A `passthrough()` miatt a per-strategy extra mezők
-    //    is átmennek.
-    // ------------------------------------------------------------------------
-    mergeInto(merged, raw);
+    return applyEnvironmentOverrides(parseConfigWithDefaults(mergeConfigWithDefaults(raw)), environment);
   }
 
-  // ------------------------------------------------------------------------
-  // 4) Zod validáció — bármilyen hiba → ConfigError.
-  // ------------------------------------------------------------------------
-  const parsed = BotConfigSchema.safeParse(merged);
-  if (!parsed.success) {
-    const issues = parsed.error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-    }));
-    throw new ConfigError(
-      `Bot config validation failed:\n${formatZodIssues(parsed.error.issues)}`,
-      issues.map((issue) => issue.path).join(", "),
-      issues,
-    );
-  }
-
-  // ------------------------------------------------------------------------
-  // 5) Env-override alkalmazása (utolsó felülírás).
-  // ------------------------------------------------------------------------
-  return applyEnvironmentOverrides(parsed.data, environment);
+  return applyEnvironmentOverrides(parseConfigWithDefaults(mergeConfigWithDefaults({})), environment);
 }
 
 // ============================================================================
@@ -215,29 +130,108 @@ export function loadBotConfig(configPath?: string, environment: NodeJS.ProcessEn
 // ============================================================================
 
 /**
- * `mergeInto` — rekurzívan mergeli a `src` mezőit a `dst`-be. A `dst`
- * objektum referenciája marad (in-place mutáció), és csak azokat a
- * mezőket írja felül, amelyek a `src`-ben definiáltak.
- *
- * A `Zod` séma a `default({})` mechanizmussal kezeli a hiányzó
- * mezőket — ezért a merge-ben NEM kell törölnünk vagy kihagynunk
- * `undefined` értékeket; ha a TOML-ból jön egy `enabled = false`,
- * az felülírja a default `true`-t.
+ * Merge only the schema's named object boundaries.  This retains the
+ * previous recursive-default semantics without allowing untrusted TOML keys
+ * to select arbitrary destination properties before Zod's strict validation.
  */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+interface RawConfigTable {
+  readonly bot?: unknown;
+  readonly exchange?: unknown;
+  readonly compliance?: unknown;
+  readonly risk?: unknown;
+  readonly symbols?: unknown;
+  readonly strategies?: unknown;
+  readonly telemetry?: unknown;
+  readonly portfolio?: unknown;
+  readonly trailing_stop?: unknown;
+  readonly kelly?: unknown;
+  readonly drawdown_scaler?: unknown;
+  readonly donchian_pivot_composition?: unknown;
+  readonly dydx_cex_carry?: unknown;
+  readonly cascade_fade?: unknown;
+  readonly funding_flip_kill_switch?: unknown;
+  readonly regime_detector?: unknown;
+}
+
+function isConfigTable(value: unknown): value is RawConfigTable {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function mergeInto(destination: Record<string, unknown>, source: Record<string, unknown>): void {
-  for (const [key, sourceValue] of Object.entries(source)) {
-    const destinationValue = Reflect.get(destination, key);
-    if (isPlainObject(sourceValue) && isPlainObject(destinationValue)) {
-      // Mindkettő plain object → rekurzív merge.
-      mergeInto(destinationValue, sourceValue);
-    } else {
-      // Primitív, tömb, vagy a dst oldalán nem-object → egyszerű
-      // felülírás.
-      Reflect.set(destination, key, sourceValue);
-    }
+function mergeSection(defaults: object, source: unknown): unknown {
+  if (source === undefined) {
+    return defaults;
   }
+  return isConfigTable(source) ? { ...defaults, ...source } : source;
+}
+
+function mergeRiskSection(source: unknown): unknown {
+  if (!isConfigTable(source)) {
+    return mergeSection(DEFAULT_BOT_CONFIG.risk, source);
+  }
+  return {
+    ...DEFAULT_BOT_CONFIG.risk,
+    ...source,
+    trailing_stop: mergeSection(DEFAULT_BOT_CONFIG.risk.trailing_stop, source.trailing_stop),
+    kelly: mergeSection(DEFAULT_BOT_CONFIG.risk.kelly, source.kelly),
+    drawdown_scaler: mergeSection(DEFAULT_BOT_CONFIG.risk.drawdown_scaler, source.drawdown_scaler),
+  };
+}
+
+function mergeStrategiesSection(source: unknown): unknown {
+  if (!isConfigTable(source)) {
+    return mergeSection(DEFAULT_BOT_CONFIG.strategies, source);
+  }
+  return {
+    ...DEFAULT_BOT_CONFIG.strategies,
+    ...source,
+    donchian_pivot_composition: mergeSection(
+      DEFAULT_BOT_CONFIG.strategies.donchian_pivot_composition,
+      source.donchian_pivot_composition,
+    ),
+    dydx_cex_carry: mergeSection(DEFAULT_BOT_CONFIG.strategies.dydx_cex_carry, source.dydx_cex_carry),
+    cascade_fade: mergeSection(DEFAULT_BOT_CONFIG.strategies.cascade_fade, source.cascade_fade),
+    funding_flip_kill_switch: mergeSection(
+      DEFAULT_BOT_CONFIG.strategies.funding_flip_kill_switch,
+      source.funding_flip_kill_switch,
+    ),
+    regime_detector: mergeSection(DEFAULT_BOT_CONFIG.strategies.regime_detector, source.regime_detector),
+  };
+}
+
+function defaultBotSection(): object {
+  return {
+    ...DEFAULT_BOT_CONFIG.bot,
+    selected_leverage: DEFAULT_BOT_CONFIG.bot.selected_leverage.canonical,
+  };
+}
+
+function mergeConfigWithDefaults(source: RawConfigTable): RawConfigTable {
+  return {
+    ...DEFAULT_BOT_CONFIG,
+    ...source,
+    bot: mergeSection(defaultBotSection(), source.bot),
+    exchange: mergeSection(DEFAULT_BOT_CONFIG.exchange, source.exchange),
+    compliance: mergeSection(DEFAULT_BOT_CONFIG.compliance, source.compliance),
+    risk: mergeRiskSection(source.risk),
+    symbols: mergeSection(DEFAULT_BOT_CONFIG.symbols, source.symbols),
+    strategies: mergeStrategiesSection(source.strategies),
+    telemetry: mergeSection(DEFAULT_BOT_CONFIG.telemetry, source.telemetry),
+    portfolio: mergeSection(DEFAULT_BOT_CONFIG.portfolio, source.portfolio),
+  };
+}
+
+function parseConfigWithDefaults(raw: unknown): BotConfig {
+  const parsed = BotConfigSchema.safeParse(raw);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  const issues = parsed.error.issues.map((issue) => ({
+    path: issue.path.join("."),
+    message: issue.message,
+  }));
+  throw new ConfigError(
+    `Bot config validation failed:\n${formatZodIssues(parsed.error.issues)}`,
+    issues.map((issue) => issue.path).join(","),
+    issues,
+  );
 }

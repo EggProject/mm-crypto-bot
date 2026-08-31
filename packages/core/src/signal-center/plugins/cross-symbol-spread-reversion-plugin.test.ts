@@ -6,7 +6,7 @@
 //
 //   1. Construction with default config succeeds
 //   2. Construction with custom config accepted
-//   3. metadata declares name/edgeClass/capitalRequirement=10000/maxLeverage=10
+//   3. metadata declares name/edgeClass/capitalRequirement=10000/maxAggregateEffectiveLeverage=10
 //   4. Construction with windowDays < 2 REJECTED
 //   5. Construction with windowDays > 365 REJECTED
 //   6. Construction with non-integer windowDays REJECTED
@@ -51,7 +51,7 @@
 //  45. ADVERSARIAL: identical closes across pairs (degenerate window) emit nothing
 //  46. ADVERSARIAL: windowDays=2 minimum boundary
 //  47. ADVERSARIAL: windowDays=365 maximum boundary
-//  48. Layer 2 1:10 defense: per-emit assertion runs
+//  48. Layer 2 aggregate effective-exposure defense: per-emit assertion runs
 //  49. effectiveMaxNotionalUsd = baseNotionalUsd * 10
 //  50. factory createCrossSymbolSpreadReversionPlugin produces same result as `new`
 
@@ -119,13 +119,13 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     expect(p.config.enabledPairs.length).toBe(2);
   });
 
-  it("metadata declares name/edgeClass/capitalRequirement=10000/maxLeverage=10", () => {
+  it("metadata declares name/edgeClass/capitalRequirement=10000/maxAggregateEffectiveLeverage=10", () => {
     const p = new CrossSymbolSpreadReversionPlugin();
     expect(p.metadata.name).toBe("cross-symbol-spread-reversion-v1");
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("directional");
     expect(p.metadata.capitalRequirement).toBe(10_000);
-    expect(p.metadata.maxLeverage).toBe(10);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
   });
 
   it("construction with windowDays < 2 REJECTED", () => {
@@ -694,7 +694,7 @@ describe("CrossSymbolSpreadReversionPlugin", () => {
     expect(p.config.windowDays).toBe(365);
   });
 
-  it("Layer 2 1:10 defense: per-emit assertion runs", () => {
+  it("Layer 2 aggregate effective-exposure defense: per-emit assertion runs", () => {
     const p = new CrossSymbolSpreadReversionPlugin({
       windowDays: 10,
       zEntryThreshold: 2.0,

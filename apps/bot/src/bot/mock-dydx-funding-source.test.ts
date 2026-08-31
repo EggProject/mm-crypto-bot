@@ -32,16 +32,16 @@ describe("MockDydxFundingSource", () => {
   });
 
   // -------------------------------------------------------------------------
-  // 1) Initial state: never-ticked → all read methods return null
+  // 1) Initial state: never-ticked → all read methods are unobserved
   // -------------------------------------------------------------------------
-  it("returns null for lastTick/lastChain* before any tick fires", () => {
-    expect(source.lastTickAgeMs(BTC_USD, nowMs)).toBeNull();
+  it("returns undefined for lastTick/lastChain* before any tick fires", () => {
+    expect(source.lastTickAgeMs(BTC_USD, nowMs)).toBeUndefined();
     // chainBlockHeight has a non-null initial value (1_000_000), so this
     // returns 1_000_000 even pre-tick (matches the real dYdX v4 Indexer
     // behavior: the latest finalized block height is always available).
     expect(source.lastChainBlockHeight(BTC_USD)).toBe(1_000_000);
-    expect(source.lastChainBlockTs(BTC_USD)).toBeNull();
-    expect(source.health().lastTickMs).toBeNull();
+    expect(source.lastChainBlockTs(BTC_USD)).toBeUndefined();
+    expect(source.health().lastTickMs).toBeUndefined();
     expect(source.health().chainBlockHeight).toBe(1_000_000);
   });
 
@@ -50,18 +50,18 @@ describe("MockDydxFundingSource", () => {
   // -------------------------------------------------------------------------
   it("subscribe() fires immediately, then on interval; close() stops it", async () => {
     let tickCount = 0;
-    let lastSnap: { dydx: FundingSnapshot; cex: FundingSnapshot } | null = null;
+    let lastSnap: { dydx: FundingSnapshot; cex: FundingSnapshot } | undefined;
     const handle = source.subscribe(BTC_USD, (snap) => {
       tickCount += 1;
       lastSnap = snap;
     });
     // First tick fires synchronously (synchronously inside subscribe()).
     expect(tickCount).toBe(1);
-    expect(lastSnap).not.toBeNull();
-    expect(lastSnap!.dydx.symbol).toBe("BTC-USD");
-    expect(lastSnap!.cex.symbol).toBe("BTCUSDT");
-    expect(typeof lastSnap!.dydx.fundingRate).toBe("number");
-    expect(typeof lastSnap!.dydx.markPrice).toBe("number");
+    if (lastSnap === undefined) throw new Error("immediate funding snapshot was not delivered");
+    expect(lastSnap.dydx.symbol).toBe("BTC-USD");
+    expect(lastSnap.cex.symbol).toBe("BTC-USD");
+    expect(lastSnap.dydx.fundingRate.toSnapshot().schema).toBe("exact-rational@1");
+    expect(lastSnap.dydx.markPrice?.toSnapshot().schema).toBe("exact-rational@1");
 
     // Wait for a second tick (~1Hz interval).
     await new Promise<void>((r) => setTimeout(r, 1100));
@@ -78,16 +78,16 @@ describe("MockDydxFundingSource", () => {
   // -------------------------------------------------------------------------
   // 3) lastTickAgeMs returns ms since last tick
   // -------------------------------------------------------------------------
-  it("lastTickAgeMs returns ms since the last tick (or null pre-tick)", () => {
-    expect(source.lastTickAgeMs(BTC_USD, nowMs)).toBeNull();
+  it("lastTickAgeMs returns ms since the last tick (or undefined pre-tick)", () => {
+    expect(source.lastTickAgeMs(BTC_USD, nowMs)).toBeUndefined();
 
     // Fire one tick.
-    source.subscribe(BTC_USD, () => undefined);
+    source.subscribe(BTC_USD, () => void 0);
     const afterTick = Date.now();
     const age = source.lastTickAgeMs(BTC_USD, afterTick);
-    expect(age).not.toBeNull();
-    expect(age!).toBeGreaterThanOrEqual(0);
-    expect(age!).toBeLessThan(50); // ms-precision: should be < 50ms old
+    if (age === undefined) throw new Error("tick age remained unobserved after subscribe");
+    expect(age).toBeGreaterThanOrEqual(0);
+    expect(age).toBeLessThan(50); // ms-precision: should be < 50ms old
   });
 
   // -------------------------------------------------------------------------
@@ -97,7 +97,7 @@ describe("MockDydxFundingSource", () => {
     const initial = source.lastChainBlockHeight(BTC_USD);
     expect(initial).toBe(1_000_000);
 
-    source.subscribe(BTC_USD, () => undefined);
+    source.subscribe(BTC_USD, () => void 0);
     expect(source.lastChainBlockHeight(BTC_USD)).toBe(1_000_001);
 
     // Wait for another tick.
@@ -122,16 +122,18 @@ describe("MockDydxFundingSource", () => {
   it("is deterministic across instances with the same seed", () => {
     const a = new MockDydxFundingSource(123);
     const b = new MockDydxFundingSource(123);
-    let aSnap: FundingSnapshot | null = null;
-    let bSnap: FundingSnapshot | null = null;
+    let aSnap: FundingSnapshot | undefined;
+    let bSnap: FundingSnapshot | undefined;
     a.subscribe(BTC_USD, (s) => {
       aSnap = s.dydx;
     });
     b.subscribe(BTC_USD, (s) => {
       bSnap = s.dydx;
     });
-    expect(aSnap!.fundingRate).toBe(bSnap!.fundingRate);
-    expect(aSnap!.markPrice).toBe(bSnap!.markPrice);
+    if (aSnap === undefined || bSnap === undefined)
+      throw new Error("deterministic snapshots were not delivered");
+    expect(aSnap.fundingRate.equals(bSnap.fundingRate)).toBe(true);
+    expect(aSnap.markPrice?.equals(bSnap.markPrice)).toBe(true);
   });
 
   // -------------------------------------------------------------------------
@@ -139,10 +141,10 @@ describe("MockDydxFundingSource", () => {
   // -------------------------------------------------------------------------
   it("health() returns current lastTickMs and chainBlockHeight", () => {
     expect(source.health()).toEqual({
-      lastTickMs: null,
+      lastTickMs: undefined,
       chainBlockHeight: 1_000_000,
     });
-    source.subscribe(BTC_USD, () => undefined);
+    source.subscribe(BTC_USD, () => void 0);
     const h = source.health();
     expect(h.lastTickMs).not.toBeNull();
     expect(typeof h.lastTickMs).toBe("number");

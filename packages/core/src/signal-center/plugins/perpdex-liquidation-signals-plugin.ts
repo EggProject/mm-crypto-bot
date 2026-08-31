@@ -59,19 +59,19 @@
 //
 // 1:10 leverage invariant — 3-layer defense (defensive RiskSignal plugin)
 // ------------------------------------------------------------------------
-//   Layer 1 (CONSTRUCTOR) — `metadata.maxLeverage = 10`. The plugin
-//     declares the project-wide 1:10 mandate cap. The registry also
+//   Layer 1 (CONSTRUCTOR) — `metadata.maxAggregateEffectiveLeverage = 10`. The plugin
+//     declares the project-wide aggregate effective-exposure limit cap. The registry also
 //     enforces this at `register()` time (defense-in-depth).
 //
 //   Layer 2 (SUBSCRIBE) — when `subscribe(bus)` is called, the plugin
-//     runs `assertLeverageInvariant(0, baseNotionalUsd)` as a structural
+//     runs `assertAggregateEffectiveExposureLimit(0, baseNotionalUsd)` as a structural
 //     sanity check. The plugin holds ZERO notional by construction
 //     (defensive signal only, no SizingSignals).
 //
 //   Layer 3 (PER-EMIT) — before each RiskSignal emit, the plugin asserts
-//     `assertLeverageInvariant(closeNotionalUsd, baseNotionalUsd)` where
+//     `assertAggregateEffectiveExposureLimit(closeNotionalUsd, baseNotionalUsd)` where
 //     `closeNotionalUsd = baseNotionalUsd × sizeModifier`. Any violation
-//     throws `LeverageBreachError`. This is the defensive per-emit guard:
+//     throws `AggregateEffectiveExposureLimitBreachError`. This is the defensive per-emit guard:
 //     even if metadata is bypassed, the per-emit assertion catches it.
 //
 // The plugin emits RiskSignals ONLY, NOT SizingSignals (defensive overlay).
@@ -106,7 +106,7 @@ import type { SignalBus } from "../signal-bus.js";
 import type { Bar, PluginState, Result, ConfigError, RiskSignal } from "../types.js";
 import { err, ok } from "../types.js";
 import type { StrategyPlugin, StrategyPluginMetadata } from "../strategy-registry.js";
-import { ONE_TO_TEN_LEVERAGE, assertLeverageInvariant } from "../../risk/leverage-invariant.js";
+import { DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, assertAggregateEffectiveExposureLimit } from "../../risk/leverage-invariant.js";
 
 // ---------------------------------------------------------------------------
 // Constants — defaults + bounds
@@ -447,7 +447,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     version: "1.0.0",
     edgeClass: "risk", // defensive overlay
     capitalRequirement: 0, // read-only defensive signal plugin
-    maxLeverage: ONE_TO_TEN_LEVERAGE, // LAYER 1 defense — 1:10 mandate
+    maxAggregateEffectiveLeverage: DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE, // LAYER 1 defense — aggregate effective-exposure limit
     onBarMode: "async",
     description:
       "Phase 12 Track C NINTH drop-in (DEFENSIVE overlay, read-only). " +
@@ -458,7 +458,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
       "RegimeDetector (cascade-event-driven vs regime-driven — orthogonal " +
       "defensive layers). 5 feed adapters via DI (0xArchive + HypurrScan + " +
       "GoldRush + CoinGlass + HyperTracker) with graceful degradation. " +
-      "ZERO notional impact by construction — 1:10 leverage cap is structurally " +
+      "ZERO notional impact by construction — aggregate effective-exposure cap is structurally " +
       "unviolated. >=35 unit tests + adversarial probe.",
     dependencies: [],
   };
@@ -498,11 +498,11 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     };
 
     // LAYER 1 — constructor assertion.
-    if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
+    if (this.metadata.maxAggregateEffectiveLeverage !== DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
       throw new Error(
-        "[PerpDexLiquidationSignalsPlugin] LAYER 1 BREACH: metadata.maxLeverage=" +
-          String(this.metadata.maxLeverage) +
-          " but the project-wide 1:10 mandate requires 10.",
+        "[PerpDexLiquidationSignalsPlugin] LAYER 1 BREACH: metadata.maxAggregateEffectiveLeverage=" +
+          String(this.metadata.maxAggregateEffectiveLeverage) +
+          " but the project-wide aggregate effective-exposure limit requires 10.",
       );
     }
 
@@ -686,7 +686,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     // LAYER 2 — structural sanity check. The plugin holds ZERO notional
     // by construction (defensive signal only); the assertion catches
     // future regressions where someone adds a notional field.
-    assertLeverageInvariant(0, this.config.baseNotionalUsd);
+    assertAggregateEffectiveExposureLimit(0, this.config.baseNotionalUsd);
     this.state.layer2AssertionCount += 1;
     this._wired = true;
   }
@@ -749,7 +749,7 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
 
     // LAYER 3 — per-emit assertion. closeNotionalUsd must respect the
     // 1:10 cap (closeNotionalUsd / baseNotionalUsd <= 10×).
-    assertLeverageInvariant(closeNotionalUsd, this.config.baseNotionalUsd);
+    assertAggregateEffectiveExposureLimit(closeNotionalUsd, this.config.baseNotionalUsd);
     this.state.layer3AssertionCount += 1;
 
     // Compose + emit RiskSignal.
@@ -803,15 +803,15 @@ export class PerpDexLiquidationSignalsPlugin implements StrategyPlugin {
     }
     // The plugin validates its own config in the constructor; this is a
     // boot-time audit that confirms the metadata invariants.
-    if (this.metadata.maxLeverage !== ONE_TO_TEN_LEVERAGE) {
+    if (this.metadata.maxAggregateEffectiveLeverage !== DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE) {
       return err({
         pluginName: this.metadata.name,
-        field: "maxLeverage",
+        field: "maxAggregateEffectiveLeverage",
         message:
-          "metadata.maxLeverage=" +
-          String(this.metadata.maxLeverage) +
-          " must equal ONE_TO_TEN_LEVERAGE=" +
-          String(ONE_TO_TEN_LEVERAGE),
+          "metadata.maxAggregateEffectiveLeverage=" +
+          String(this.metadata.maxAggregateEffectiveLeverage) +
+          " must equal DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE=" +
+          String(DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE),
       });
     }
     if (this.metadata.edgeClass !== "risk") {

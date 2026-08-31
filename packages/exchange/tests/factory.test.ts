@@ -11,24 +11,24 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
 import {
   readExchangeCredentials,
-  detectExchangeEnv,
+  detectExchangeEnvironment,
   createExchangeClient,
   MissingCredentialsError,
 } from "../src/factory.js";
-import { BybitEuFeed } from "../src/bybitEuFeed.js";
+import { BybitEuFeed } from "../src/bybit-eu-feed.js";
 
 describe("factory", () => {
-  const originalEnv = process.env;
+  const originalEnvironment = process.env;
 
   beforeEach(() => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnvironment };
     delete process.env["BYBIT_API_KEY"];
     delete process.env["BYBIT_API_SECRET"];
     delete process.env["BUN_ENV"];
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    process.env = originalEnvironment;
   });
 
   describe("readExchangeCredentials", () => {
@@ -61,24 +61,24 @@ describe("factory", () => {
     });
   });
 
-  describe("detectExchangeEnv", () => {
+  describe("detectExchangeEnvironment", () => {
     it("paper-t ad vissza, ha BUN_ENV nincs beállítva (fail-safe default)", () => {
-      expect(detectExchangeEnv()).toBe("paper");
+      expect(detectExchangeEnvironment()).toBe("paper");
     });
 
     it("paper-t ad vissza, ha BUN_ENV = 'paper'", () => {
       process.env["BUN_ENV"] = "paper";
-      expect(detectExchangeEnv()).toBe("paper");
+      expect(detectExchangeEnvironment()).toBe("paper");
     });
 
     it("live-ot ad vissza, ha BUN_ENV = 'live'", () => {
       process.env["BUN_ENV"] = "live";
-      expect(detectExchangeEnv()).toBe("live");
+      expect(detectExchangeEnvironment()).toBe("live");
     });
 
     it("paper-t ad vissza ismeretlen BUN_ENV értékre", () => {
       process.env["BUN_ENV"] = "weird";
-      expect(detectExchangeEnv()).toBe("paper");
+      expect(detectExchangeEnvironment()).toBe("paper");
     });
   });
 
@@ -128,20 +128,22 @@ describe("factory", () => {
       expect(feed).toBeInstanceOf(BybitEuFeed);
     });
 
-    it("explicit sandbox=false flag-et elfogad", () => {
-      const feed = createExchangeClient({
-        override: { apiKey: "k", secret: "s" },
-        sandbox: false,
-      });
-      expect(feed).toBeInstanceOf(BybitEuFeed);
-    });
+    it.each([
+      ["endpoint", "https://rest.example.test"],
+      ["endpoint", "https://api.bybit.com"],
+      ["endpoint", "https://api.bybit.eu/v5"],
+      ["endpoint", "ftp://api.bybit.eu"],
+      ["wsEndpoint", "wss://stream.example.test"],
+      ["wsEndpoint", "wss://stream.bybit.eu/v5"],
+      ["wsEndpoint", "wss://stream.bybit.com"],
+      ["sandbox", true],
+    ] as const)("rejects %s before reading or routing credentials", (field, value) => {
+      const options = {};
+      Reflect.defineProperty(options, field, { enumerable: true, value });
 
-    it("explicit sandbox=true flag-et elfogad", () => {
-      const feed = createExchangeClient({
-        override: { apiKey: "k", secret: "s" },
-        sandbox: true,
-      });
-      expect(feed).toBeInstanceOf(BybitEuFeed);
+      expect(() => createExchangeClient(options)).toThrow(
+        `Bybit EU production configuration does not permit ${field} overrides`,
+      );
     });
   });
 });

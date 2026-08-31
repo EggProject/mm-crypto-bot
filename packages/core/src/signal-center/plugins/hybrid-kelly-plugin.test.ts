@@ -8,7 +8,7 @@
 //   Adaptive Kelly formula                 (3 tests)
 //   Vol multiplier (Moreira-Muir)          (4 tests)
 //   Hybrid combination                     (2 tests)
-//   3-layer 1:10 defense                   (6 tests)
+//   3-layer aggregate effective-exposure defense                   (6 tests)
 //   Synthetic 12× breach                   (1 test)
 //   Per-symbol enable (BTC/ETH/SOL)        (2 tests)
 //   Volmageddon edge case                  (1 test)
@@ -42,7 +42,7 @@ import {
   MIN_FUNDING_SHARPE_WINDOW_DAYS,
   MIN_TARGET_DAILY_VOL,
   MIN_VOL_WINDOW_DAYS,
-  ONE_TO_TEN_LEVERAGE,
+  DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE,
   createHybridKellyPlugin,
   extractSizingSignal,
   inferSymbol,
@@ -116,7 +116,7 @@ describe("HybridKellyPlugin — construction and metadata", () => {
     expect(p.metadata.version).toBe("1.0.0");
     expect(p.metadata.edgeClass).toBe("sizing");
     expect(p.metadata.capitalRequirement).toBe(0);
-    expect(p.metadata.maxLeverage).toBe(ONE_TO_TEN_LEVERAGE);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(DEFAULT_MAX_AGGREGATE_EFFECTIVE_LEVERAGE);
   });
 
   it("enabledSymbols defaults to BTC + ETH + SOL (all on)", () => {
@@ -166,7 +166,7 @@ describe("HybridKellyPlugin — sizing-transform composition", () => {
 });
 
 // ---------------------------------------------------------------------------
-// kellyCap + maxVolMultiplier validation (HARD CAPS at 1:10 mandate)
+// kellyCap + maxVolMultiplier validation (HARD CAPS at aggregate effective-exposure limit)
 // ---------------------------------------------------------------------------
 
 describe("HybridKellyPlugin — kellyCap + maxVolMultiplier HARD CAP validation", () => {
@@ -315,9 +315,9 @@ describe("HybridKellyPlugin — hybrid combination", () => {
 // ---------------------------------------------------------------------------
 
 describe("HybridKellyPlugin — 3-layer 1:10 leverage defense", () => {
-  it("Layer 1: metadata.maxLeverage === 10", () => {
+  it("Layer 1: metadata.maxAggregateEffectiveLeverage === 10", () => {
     const p = new HybridKellyPlugin();
-    expect(p.metadata.maxLeverage).toBe(10);
+    expect(p.metadata.maxAggregateEffectiveLeverage).toBe(10);
   });
 
   it("Layer 1: effectiveMaxNotionalUsd === baseNotionalUsd × 10", () => {
@@ -325,10 +325,10 @@ describe("HybridKellyPlugin — 3-layer 1:10 leverage defense", () => {
     expect(p.effectiveMaxNotionalUsd()).toBe(100_000);
   });
 
-  it("Layer 2: assertLeverageInvariantForTesting throws on 12× synthetic breach", () => {
+  it("Layer 2: assertAggregateEffectiveExposureLimitForTesting throws on 12× synthetic breach", () => {
     const p = new HybridKellyPlugin({ baseNotionalUsd: 10_000 });
     // 120_000 = 12 × 10_000 — exceeds 1:10 cap.
-    expect(() => p.assertLeverageInvariantForTesting(120_000)).toThrow();
+    expect(() => p.assertAggregateEffectiveExposureLimitForTesting(120_000)).toThrow();
   });
 
   it("Layer 2: synthetic 12× incoming signal triggers LAYER 2 throw in handler", () => {

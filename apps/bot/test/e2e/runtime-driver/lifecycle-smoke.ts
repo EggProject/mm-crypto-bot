@@ -1,20 +1,16 @@
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-
 import { asSymbol, type Ohlcv, type Ticker } from "@mm-crypto-bot/exchange";
-
 import { Bot } from "../../../src/bot/bot.js";
 import { DEFAULT_BOT_CONFIG } from "../../../src/config/defaults.js";
 import type { BotConfig } from "../../../src/config/schema.js";
 
-import { assertCondition, MockExchangeFeed, quietLogger } from "./runtime-driver-core.js";
+import { MockExchangeFeed, quietLogger, assertCondition } from "./runtime-driver-core.js";
 
-const join = (...pathSegments: string[]): string => path.join(...pathSegments);
-
-export async function runLifecycleSmoke(): Promise<void> {
-  const directory = mkdtempSync(join(tmpdir(), "mm-bot-coverage-driver-"));
-  const stateFile = join(directory, "state.json");
+async function runLifecycleSmoke(): Promise<void> {
+  const directory = mkdtempSync(path.join(tmpdir(), "mm-bot-coverage-driver-"));
+  const stateFile = path.join(directory, "state.json");
   const config: BotConfig = {
     ...DEFAULT_BOT_CONFIG,
     bot: { ...DEFAULT_BOT_CONFIG.bot, state_file: stateFile, log_level: "error" },
@@ -29,11 +25,13 @@ export async function runLifecycleSmoke(): Promise<void> {
     },
     telemetry: {
       ...DEFAULT_BOT_CONFIG.telemetry,
-      log_dir: join(directory, "telemetry"),
+      log_dir: path.join(directory, "telemetry"),
       metrics_interval_sec: 60,
     },
   };
-  const feed = new MockExchangeFeed({ balances: [{ currency: "USDC", free: 10_000, total: 10_000 }] });
+  const feed = new MockExchangeFeed({
+    balances: [{ currency: "USDC", free: 10_000, total: 10_000 }],
+  });
   const bot = new Bot({
     config,
     feed,
@@ -61,12 +59,15 @@ export async function runLifecycleSmoke(): Promise<void> {
     const candle: Ohlcv = [Date.now() - 60_000, 59_990, 60_010, 59_980, 60_000, 100];
     feed.pushEvent({ kind: "ohlcv", payload: { symbol, timeframe: "15m", candle } });
     await Bun.sleep(100);
-    assertCondition(bot.getState().version === 1, "runtime driver observed an invalid state version");
+    const state = bot.getState();
+    assertCondition(state.version === 1, "runtime driver observed an invalid state version");
     await bot.stop();
     await running;
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The path is derived from this case's fresh mkdtemp directory.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- The E2E path is created beneath this process fresh temporary directory.
     assertCondition(existsSync(stateFile), "runtime driver did not persist state");
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
 }
+
+export { runLifecycleSmoke };

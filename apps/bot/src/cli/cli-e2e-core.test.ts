@@ -120,8 +120,7 @@ describe("CLI end-to-end", () => {
         caseId: "start-invalid-config",
       });
       expect(code).toBe(2);
-      expect(stderr).toContain("Config validation FAILED");
-      expect(stderr).toContain("bot");
+      expect(stderr).toContain("[start] START_CONFIG_INVALID");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
@@ -170,7 +169,8 @@ describe("CLI end-to-end", () => {
       expect(result.code).toBe(1);
       expect(result.stdout).toBe("");
       expect(result.stderr).toContain('"exchange":"mock"');
-      expect(await Bun.file(`${stateFile}.log`).text()).toContain("MockExchangeFeed is test-only");
+      expect(result.stderr).toContain('"event":"bot.lifecycle.run.failed"');
+      expect(result.stderr).toContain("MockExchangeFeed is test-only");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

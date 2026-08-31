@@ -1,19 +1,8 @@
-/**
- * apps/bot/src/bot/position-manager.test.ts
- *
- * A `PositionManager` unit tesztjei — nyitás / zárás / L3 leverage check /
- * max-positions enforcement.
- */
-
 import { describe, expect, it } from "bun:test";
-import { asSymbol, type Symbol as ExchangeSymbol } from "@mm-crypto-bot/exchange";
+import { asSymbol } from "@mm-crypto-bot/exchange";
 
-import { PositionManager, PositionManagerError } from "./position-manager.js";
-import { RiskManager } from "../risk/risk-manager.js";
-
-function makeSymbol(): ExchangeSymbol {
-  return asSymbol("BTC/USDC") as unknown as ExchangeSymbol;
-}
+import { PositionManagerError } from "./position-manager.js";
+import { PositionManager, RiskManager, makeSymbol } from "./position-manager.test-support.js";
 
 describe("PositionManager", () => {
   // ---------------------------------------------------------------------------
@@ -46,14 +35,58 @@ describe("PositionManager", () => {
     });
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10);
     pm.openPosition("strategy-b", makeSymbol(), "long", 0.1, 60_000, 10);
-    pm.openPosition("strategy-c", asSymbol("ETH/USDC") as unknown as ExchangeSymbol, "long", 1.0, 3_000, 10);
+    pm.openPosition("strategy-c", asSymbol("ETH/USDC"), "long", 1, 3000, 10);
     // Aggregate so far: 6_000 + 60_000 + 30_000 = 96_000 / 10_000 = 9.6×.
-    pm.openPosition("strategy-d", asSymbol("SOL/USDC") as unknown as ExchangeSymbol, "long", 0.1, 150, 10);
+    pm.openPosition("strategy-d", asSymbol("SOL/USDC"), "long", 0.1, 150, 10);
     // Now try to add 1 BTC at 60_000: 60_000 effective.
     // Total: 96_150 + 60_000 = 156_150 / 10_000 = 15.6× → BREACH.
     expect(() => {
-      pm.openPosition("strategy-e", makeSymbol(), "long", 1.0, 60_000, 10);
+      pm.openPosition("strategy-e", makeSymbol(), "long", 1, 60_000, 10);
     }).toThrow(PositionManagerError);
+  });
+
+  it("fails closed when a realized loss exhausts equity before another aggregate check", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 100,
+      maxPositions: 2,
+      maxLeverage: 10,
+    });
+    pm.openPosition("realized-loss", makeSymbol(), "long", 9, 100, 1);
+    pm.openPosition("remaining", asSymbol("ETH/USDC"), "long", 1, 100, 1);
+    pm.closePosition("realized-loss", makeSymbol(), 1);
+
+    expect(() => {
+      pm.recordFill({
+        strategy: "remaining",
+        symbol: asSymbol("ETH/USDC"),
+        side: "long",
+        quantity: 0.01,
+        price: 100,
+        leverage: 1,
+        timestamp: 1,
+      });
+    }).toThrow("L3 leverage check failed (equity=-791)");
+  });
+
+  it("rejects an additional same-side fill that breaches aggregate leverage", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 1000,
+      maxPositions: 1,
+      maxLeverage: 10,
+    });
+    pm.openPosition("same-side", makeSymbol(), "long", 9, 1000, 1);
+
+    expect(() => {
+      pm.recordFill({
+        strategy: "same-side",
+        symbol: makeSymbol(),
+        side: "long",
+        quantity: 2,
+        price: 1000,
+        leverage: 1,
+        timestamp: 1,
+      });
+    }).toThrow("L3 leverage breach (recordFill same-side same-side:BTC/USDC:long)");
   });
 
   // ---------------------------------------------------------------------------
@@ -66,9 +99,9 @@ describe("PositionManager", () => {
       maxLeverage: 10,
     });
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 1);
-    pm.openPosition("strategy-b", asSymbol("ETH/USDC") as unknown as ExchangeSymbol, "long", 0.01, 3_000, 1);
+    pm.openPosition("strategy-b", asSymbol("ETH/USDC"), "long", 0.01, 3000, 1);
     expect(() => {
-      pm.openPosition("strategy-c", asSymbol("SOL/USDC") as unknown as ExchangeSymbol, "long", 0.1, 150, 1);
+      pm.openPosition("strategy-c", asSymbol("SOL/USDC"), "long", 0.1, 150, 1);
     }).toThrow(/maxPositions cap/);
   });
 
@@ -156,11 +189,11 @@ describe("PositionManager", () => {
       maxLeverage: 10,
     });
     pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10);
-    const ctx = pm.getPositionContext();
-    expect(ctx.equityUsd).toBe(10_000);
-    expect(ctx.positions.length).toBe(1);
+    const context = pm.getPositionContext();
+    expect(context.equityUsd).toBe(10_000);
+    expect(context.positions.length).toBe(1);
     // 0.01 × 60_000 × 10 leverage = 6_000 effective notional
-    expect(ctx.positions[0]?.effectiveNotionalUsd).toBe(6_000);
+    expect(context.positions[0]?.effectiveNotionalUsd).toBe(6000);
   });
 
   // ---------------------------------------------------------------------------
@@ -238,7 +271,7 @@ describe("PositionManager", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 13) getMaxPositions / getMaxLeverage accessors (Phase 34 coverage fixup)
+  // 13) configured-cap accessors
   // ---------------------------------------------------------------------------
   it("getMaxPositions returns the configured cap", () => {
     const pm = new PositionManager({
@@ -259,7 +292,7 @@ describe("PositionManager", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // 14) setRiskManager — Phase 37 Track 1 wiring
+  // 14) risk-manager integration
   // ---------------------------------------------------------------------------
   it("setRiskManager stores the manager and feeds it on updateMarketPrice", () => {
     const pm = new PositionManager({
@@ -268,7 +301,7 @@ describe("PositionManager", () => {
       maxLeverage: 10,
     });
     const rm = new RiskManager({
-      trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
+      trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 3, side: "both" },
       kelly: {
         enabled: false,
         fraction: 0.25,
@@ -284,9 +317,9 @@ describe("PositionManager", () => {
     rm.onTrailingStopClose(() => {
       closeIntents++;
     });
-    pm.setRiskManager(null);
+    pm.setRiskManager(undefined);
     pm.setRiskManager(rm);
-    pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);
+    pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1000);
     // First tick — no breach, equity fed
     pm.updateMarketPrice(makeSymbol(), 60_500);
     // 0.01 BTC × (60_500 - 60_000) = 5 USD unrealized → equity = 10_005
@@ -299,6 +332,30 @@ describe("PositionManager", () => {
     expect(pm.getPositionCount()).toBe(1);
   });
 
+  it("derives the trailing ATR proxy from a publicly admitted positive quantity", () => {
+    const pm = new PositionManager({
+      initialEquityUsd: 10_000,
+      maxPositions: 3,
+      maxLeverage: 10,
+    });
+    const rm = new RiskManager({
+      trailingStop: { enabled: true, atrPeriod: 14, atrMultiplier: 3, side: "both" },
+      kelly: {
+        enabled: false,
+        fraction: 0.25,
+        windowSize: 50,
+        minTrades: 10,
+        fallbackFraction: 0.01,
+        maxFraction: 0.1,
+      },
+      drawdownScaler: { enabled: false, maxDdPct: 0.2, initialEquity: 10_000 },
+    });
+    pm.setRiskManager(rm);
+    pm.openPosition("atr-proxy", makeSymbol(), "long", 2, 50, 1, 1);
+
+    expect(rm.getSnapshot().trailingStops[0]?.atr).toBe(0.5);
+  });
+
   it("updateMarketPrice feeds RiskManager only when set", () => {
     const pm = new PositionManager({
       initialEquityUsd: 10_000,
@@ -306,7 +363,7 @@ describe("PositionManager", () => {
       maxLeverage: 10,
     });
     // No riskManager set — should be a no-op
-    pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);
+    pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1000);
     pm.updateMarketPrice(makeSymbol(), 60_500);
     expect(pm.getPositionCount()).toBe(1);
   });
@@ -318,7 +375,7 @@ describe("PositionManager", () => {
       maxLeverage: 10,
     });
     const rm = new RiskManager({
-      trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3.0, side: "both" },
+      trailingStop: { enabled: false, atrPeriod: 14, atrMultiplier: 3, side: "both" },
       kelly: {
         enabled: true,
         fraction: 0.25,
@@ -330,180 +387,63 @@ describe("PositionManager", () => {
       drawdownScaler: { enabled: false, maxDdPct: 0.2, initialEquity: 10_000 },
     });
     pm.setRiskManager(rm);
-    pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1_000);
-    pm.closePosition("strategy-a", makeSymbol(), 65_000, 1_234);
+    pm.openPosition("strategy-a", makeSymbol(), "long", 0.01, 60_000, 10, 1000);
+    pm.closePosition("strategy-a", makeSymbol(), 65_000, 1234);
     expect(rm.getKellySizer().getStats().trades).toBe(1);
   });
 
-  // ============================================================================
-  // Phase 68: state-restore methods
-  // ============================================================================
+  it("rejects invalid construction and entry values while treating a duplicate open as an additional fill", () => {
+    expect(() => {
+      new PositionManager({ initialEquityUsd: 0, maxPositions: 1, maxLeverage: 1 });
+    }).toThrow("initialEquityUsd must be positive");
+    expect(() => {
+      new PositionManager({ initialEquityUsd: 1, maxPositions: 0, maxLeverage: 1 });
+    }).toThrow("maxPositions must be >= 1");
 
-  it("Phase 68: restorePosition loads a position without cap or L3 leverage check", () => {
-    const pm = new PositionManager({
-      initialEquityUsd: 10_000,
-      maxPositions: 1, // tight cap
-      maxLeverage: 10,
-    });
-    // The position is restored DIRECTLY, bypassing the maxPositions cap
-    // (the perzisztált state 5 pozíciót is tartalmazhat, és a config-cap
-    // csökkentése NEM törölhet régi pozíciókat).
-    const restored = pm.restorePosition({
-      strategy: "dydx_cex_carry",
-      symbol: makeSymbol(),
-      side: "long",
-      quantity: 0.00016667,
-      entryPrice: 60_000,
-      currentPrice: 59_700,
-      leverage: 10,
-      unrealizedPnl: -5,
-      realizedPnl: 0,
-      openedAt: 1_700_000_000_000,
-      notionalUsd: 10.0,
-    });
-    expect(restored.strategy).toBe("dydx_cex_carry");
-    expect(restored.entryPrice).toBe(60_000);
-    expect(restored.unrealizedPnl).toBe(-5);
-    expect(pm.getPositionCount()).toBe(1);
+    const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
+    expect(() => pm.openPosition("strategy-a", makeSymbol(), "long", 1, 100, 0)).toThrow("violates 1:10");
+    expect(() => pm.openPosition("strategy-a", makeSymbol(), "long", 0, 100, 1)).toThrow(
+      "quantity must be positive",
+    );
+    expect(() => pm.openPosition("strategy-a", makeSymbol(), "long", 1, 0, 1)).toThrow(
+      "entryPrice must be positive",
+    );
+
+    pm.openPosition("strategy-a", makeSymbol(), "long", 1, 100, 1, 1);
+    const averaged = pm.openPosition("strategy-a", makeSymbol(), "long", 1, 110, 1, 2);
+    expect(averaged.quantity).toBe(2);
+    expect(averaged.entryPrice).toBe(105);
   });
 
-  it("Phase 68: restorePosition does NOT count against the maxPositions cap for NEW positions", () => {
-    // Reproduces the Phase 67 bug scenario: 1 restored position, then
-    // the strategy emits a signal → without the fix, the runner would
-    // try to open a 2nd position and hit the cap. With the fix, the
-    // StrategyRunner sees the existing position and SKIPS the signal.
-    const pm = new PositionManager({
-      initialEquityUsd: 10_000,
-      maxPositions: 1, // only 1 position allowed
-      maxLeverage: 10,
-    });
-    // Restore 1 position (no cap check).
-    pm.restorePosition({
-      strategy: "dydx_cex_carry",
-      symbol: makeSymbol(),
-      side: "long",
-      quantity: 0.00016667,
-      entryPrice: 60_000,
-      currentPrice: 59_700,
-      leverage: 10,
-      unrealizedPnl: -5,
-      realizedPnl: 0,
-      openedAt: 1_700_000_000_000,
-      notionalUsd: 10.0,
-    });
-    expect(pm.getPositionCount()).toBe(1);
-    // Now try to open a NEW position for the SAME (strategy, symbol, side)
-    // — same-side fill averages (no cap).
-    pm.recordFill({
-      strategy: "dydx_cex_carry",
-      symbol: makeSymbol(),
-      side: "long",
-      quantity: 0.0001,
-      price: 60_500,
-      leverage: 10,
-      timestamp: 1_700_000_001_000,
-    });
-    expect(pm.getPositionCount()).toBe(1); // still 1, averaged
+  it("keeps malformed fills and unknown reconciliation from changing a valid position", () => {
+    const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
+    const position = pm.openPosition("strategy-a", makeSymbol(), "long", 1, 100, 1, 1);
+
+    expect(() => {
+      pm.recordFill({
+        strategy: "strategy-a",
+        symbol: makeSymbol(),
+        side: "short",
+        quantity: 2,
+        price: 90,
+        leverage: 1,
+        timestamp: 2,
+      });
+    }).toThrow("exceeds opposite position");
+    expect(() => pm.closePosition("missing", makeSymbol(), 100)).toThrow("cannot close");
+
+    pm.updateMarketPrice(makeSymbol(), NaN);
+    pm.updateMarketPrice(asSymbol("ETH/USDC"), 100);
+    expect(pm.getPosition("strategy-a", makeSymbol(), "long")?.currentPrice).toBe(100);
+    expect(pm.reconcileVenueAbsent("missing")).toBe(false);
+    expect(pm.reconcileVenueAbsent(position.id)).toBe(true);
+    expect(pm.getPositionCount()).toBe(0);
   });
 
-  it("Phase 68: restorePosition rejects negative quantity/price/leverage", () => {
-    const pm = new PositionManager({
-      initialEquityUsd: 10_000,
-      maxPositions: 3,
-      maxLeverage: 10,
-    });
-    expect(() =>
-      pm.restorePosition({
-        strategy: "s",
-        symbol: makeSymbol(),
-        side: "long",
-        quantity: 0,
-        entryPrice: 60_000,
-        currentPrice: 60_000,
-        leverage: 10,
-        unrealizedPnl: 0,
-        realizedPnl: 0,
-        openedAt: 1,
-        notionalUsd: 0,
-      }),
-    ).toThrow(PositionManagerError);
-    expect(() =>
-      pm.restorePosition({
-        strategy: "s",
-        symbol: makeSymbol(),
-        side: "long",
-        quantity: 0.01,
-        entryPrice: 0,
-        currentPrice: 60_000,
-        leverage: 10,
-        unrealizedPnl: 0,
-        realizedPnl: 0,
-        openedAt: 1,
-        notionalUsd: 600,
-      }),
-    ).toThrow(PositionManagerError);
-    expect(() =>
-      pm.restorePosition({
-        strategy: "s",
-        symbol: makeSymbol(),
-        side: "long",
-        quantity: 0.01,
-        entryPrice: 60_000,
-        currentPrice: 60_000,
-        leverage: 11, // > 10
-        unrealizedPnl: 0,
-        realizedPnl: 0,
-        openedAt: 1,
-        notionalUsd: 600,
-      }),
-    ).toThrow(PositionManagerError);
-  });
-
-  it("Phase 68: restoreRealizedPnl restores the cumulative realized P&L", () => {
-    const pm = new PositionManager({
-      initialEquityUsd: 10_000,
-      maxPositions: 3,
-      maxLeverage: 10,
-    });
-    pm.restoreRealizedPnl(250);
-    // After restoring, getEquity() must include the 250 in the computation.
-    // (No positions, so unrealizedPnl = 0; equity = 10000 + 250 = 10250)
-    expect(pm.getEquity()).toBe(10_250);
-    expect(pm.getRealizedPnl()).toBe(250);
-  });
-
-  it("Phase 68: restoreClosedTrades loads the history", () => {
-    const pm = new PositionManager({
-      initialEquityUsd: 10_000,
-      maxPositions: 3,
-      maxLeverage: 10,
-    });
-    const trades = [
-      {
-        strategy: "dydx_cex_carry",
-        symbol: makeSymbol(),
-        side: "long" as const,
-        quantity: 0.01,
-        entryPrice: 3_000,
-        exitPrice: 3_250,
-        pnl: 2.5,
-        pnlPct: 8.33,
-        closedAt: 1_700_000_000_000,
-      },
-      {
-        strategy: "dydx_cex_carry",
-        symbol: makeSymbol(),
-        side: "short" as const,
-        quantity: 0.01,
-        entryPrice: 3_500,
-        exitPrice: 3_400,
-        pnl: 1.0,
-        pnlPct: 2.86,
-        closedAt: 1_700_001_000_000,
-      },
-    ];
-    pm.restoreClosedTrades(trades);
-    expect(pm.getClosedTrades().length).toBe(2);
-    expect(pm.getClosedTrades()[0]?.pnl).toBe(2.5);
+  it("permits an explicit realized-PnL restoration after a previously recorded value", () => {
+    const pm = new PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
+    pm.restoreRealizedPnl(10);
+    pm.restoreRealizedPnl(20);
+    expect(pm.getRealizedPnl()).toBe(20);
   });
 });

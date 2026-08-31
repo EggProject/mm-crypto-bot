@@ -6,22 +6,22 @@
 
 ## 1. CCXT / CCXT Pro — verzió, WebSocket, paper-trading
 
-| #    | URL                                                         | Megjegyzés                                                                                                    |
-| ---- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 1.1  | https://github.com/ccxt/ccxt                                | A CCXT fő repó. WebSocket (Pro) támogatás, bybit, bybiteu ID-k.                                               |
-| 1.2  | https://docs.ccxt.com/                                      | Hivatalos CCXT dokumentáció, „WebSocket streaming: watch tickers, order books, trades and orders."            |
-| 1.3  | https://docs.ccxt.com/docs/pro-manual                       | CCXT Pro Manual — listázott exchange-ek (`bybit`, `bybiteu`).                                                 |
-| 1.4  | https://docs.ccxt.com/docs/changelog                        | CCXT v4.5.62 – 2026-06-29; v4.5.61 – 2026-06-27.                                                              |
-| 1.5  | https://github.com/ccxt/ccxt/wiki/ccxt.pro.manual           | `ccxt.pro.manual` wiki — Pro stack, exchange lista, reconnect/backoff.                                        |
-| 1.6  | https://github.com/ccxt/ccxt/wiki/manual                    | CCXT Manual — `rateLimit`, `enableRateLimit`, sandbox/demotrading URL-ek.                                     |
-| 1.7  | https://docs.ccxt.com/docs/exchanges/bybit                  | bybit exchange API referencia — `enableDemoTrading()`, `watchOrderBook`, `watchTicker`, stb.                  |
-| 1.8  | https://github.com/ccxt/ccxt/issues/11237                   | „How are paper trading execution prices selected?" — CCXT nem dönt árról, sandbox/testnet.                    |
-| 1.9  | https://github.com/ccxt/ccxt/issues/25523                   | Bitget sandbox mode bug — `setSandboxMode` és `enableDemoTrading` viselkedése.                                |
-| 1.10 | https://github.com/ccxt/ccxt/issues/11953                   | „How to use testnet?" — bybit `set_sandbox_mode(True)`.                                                       |
-| 1.11 | https://github.com/ccxt/ccxt/blob/master/php/bybit.php      | bybit PHP describe() — `hostname: 'bybit.com'`, `rateLimit: 20`, `urls.api`, `urls.demotrading`, `urls.test`. |
-| 1.12 | https://registry.npmjs.org/ccxt                             | npm registry — `dist-tags.latest: 4.5.64` (lekérve 2026-07-03).                                               |
-| 1.13 | https://security.snyk.io/package/pip/ccxt/versions          | PyPI ccxt verziók — 4.5.x release-ek 2025 nov – 2026 jan.                                                     |
-| 1.14 | https://robottraders.io/blog/demo-trading-python-crypto-bot | „Demo trading fills this gap" — sandbox-üzemmód értelmezése Bitget-en.                                        |
+| #    | URL                                                         | Megjegyzés                                                                                                                                                 |
+| ---- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.1  | https://github.com/ccxt/ccxt                                | A CCXT fő repó. WebSocket (Pro) támogatás, bybit, bybiteu ID-k.                                                                                            |
+| 1.2  | https://docs.ccxt.com/                                      | Hivatalos CCXT dokumentáció, „WebSocket streaming: watch tickers, order books, trades and orders."                                                         |
+| 1.3  | https://docs.ccxt.com/docs/pro-manual                       | CCXT Pro Manual — listázott exchange-ek (`bybit`, `bybiteu`).                                                                                              |
+| 1.4  | https://docs.ccxt.com/docs/changelog                        | CCXT v4.5.62 – 2026-06-29; v4.5.61 – 2026-06-27.                                                                                                           |
+| 1.5  | https://github.com/ccxt/ccxt/wiki/ccxt.pro.manual           | `ccxt.pro.manual` wiki — Pro stack, exchange lista, reconnect/backoff.                                                                                     |
+| 1.6  | https://github.com/ccxt/ccxt/wiki/manual                    | CCXT Manual — `rateLimit`, `enableRateLimit`, sandbox/demotrading URL-ek.                                                                                  |
+| 1.7  | https://docs.ccxt.com/docs/exchanges/bybit                  | bybit exchange API referencia — `enableDemoTrading()`, `watchOrderBook`, `watchTicker`, stb.                                                               |
+| 1.8  | https://github.com/ccxt/ccxt/issues/11237                   | „How are paper trading execution prices selected?" — CCXT nem dönt árról, sandbox/testnet.                                                                 |
+| 1.9  | https://github.com/ccxt/ccxt/issues/25523                   | Bitget sandbox mode bug — `setSandboxMode` és `enableDemoTrading` viselkedése.                                                                             |
+| 1.10 | https://github.com/ccxt/ccxt/issues/11953                   | „How to use testnet?" — bybit `set_sandbox_mode(True)`.                                                                                                    |
+| 1.11 | https://github.com/ccxt/ccxt/blob/master/php/bybit.php      | bybit PHP describe() — `hostname: 'bybit.com'`, `rateLimit: 20`, `urls.api`, `urls.demotrading`, `urls.test`.                                              |
+| 1.12 | https://registry.npmjs.org/ccxt                             | Historical npm registry snapshot — `dist-tags.latest: 4.5.64` (lekérve 2026-07-03); superseded for the active pin by the 2026-08-23 `4.5.75` verification. |
+| 1.13 | https://security.snyk.io/package/pip/ccxt/versions          | PyPI ccxt verziók — 4.5.x release-ek 2025 nov – 2026 jan.                                                                                                  |
+| 1.14 | https://robottraders.io/blog/demo-trading-python-crypto-bot | „Demo trading fills this gap" — sandbox-üzemmód értelmezése Bitget-en.                                                                                     |
 
 ## 2. bybit.eu vs bybit.com — spot, tőkeáttétel, díjak, asset lista
 

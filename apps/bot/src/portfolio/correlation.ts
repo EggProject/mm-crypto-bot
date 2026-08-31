@@ -41,8 +41,7 @@
  * határ.
  */
 
-import type { Logger } from "@mm-crypto-bot/shared";
-import { createLogger } from "@mm-crypto-bot/shared";
+import { requireLogger, type Logger } from "@mm-crypto-bot/logging";
 
 // ============================================================================
 // Public types
@@ -64,9 +63,13 @@ export interface CorrelationMatrixOptions {
  * `Hard caps` — a `CorrelationMatrix` biztonsági határértékei.
  */
 export const CORRELATION_HARD_CAPS = {
-  /** A `windowSize` minimuma — 2 trade kell a korrelációhoz. */
+  /**
+  A `windowSize` minimuma — 2 trade kell a korrelációhoz.
+  */
   windowSizeMin: 2,
-  /** A `windowSize` maximuma — 1000 trade felett a számítás lassú. */
+  /**
+  A `windowSize` maximuma — 1000 trade felett a számítás lassú.
+  */
   windowSizeMax: 1000,
 } as const;
 
@@ -112,10 +115,10 @@ export class CorrelationMatrix {
   // `shift()` O(n) művelet, de N≤1000 és ritka hívás, így OK.
   private readonly streams = new Map<string, number[]>();
 
-  public constructor(opts: CorrelationMatrixOptions = {}) {
-    const windowSize = opts.windowSize ?? 30;
+  public constructor(options: CorrelationMatrixOptions = {}) {
+    const windowSize = options.windowSize ?? 30;
     if (
-      !Number.isInteger(windowSize) ||
+      !Number.isSafeInteger(windowSize) ||
       windowSize < CORRELATION_HARD_CAPS.windowSizeMin ||
       windowSize > CORRELATION_HARD_CAPS.windowSizeMax
     ) {
@@ -124,7 +127,40 @@ export class CorrelationMatrix {
       );
     }
     this.windowSize = windowSize;
-    this.logger = opts.logger ?? createLogger("info");
+    this.logger = requireLogger(options.logger, "correlation");
+  }
+
+  private pearson(xs: readonly number[], ys: readonly number[]): number {
+    const n = xs.length;
+    let sumX = 0;
+    let sumY = 0;
+    const xValues = xs.values();
+    const yValues = ys.values();
+    for (let index = 0; index < n; index++) {
+      const x = Number(xValues.next().value);
+      const y = Number(yValues.next().value);
+      sumX += x;
+      sumY += y;
+    }
+    const meanX = sumX / n;
+    const meanY = sumY / n;
+    let covariance = 0;
+    let varianceX = 0;
+    let varianceY = 0;
+    const centeredXValues = xs.values();
+    const centeredYValues = ys.values();
+    for (let index = 0; index < n; index++) {
+      const x = Number(centeredXValues.next().value);
+      const y = Number(centeredYValues.next().value);
+      const differenceX = x - meanX;
+      const differenceY = y - meanY;
+      covariance += differenceX * differenceY;
+      varianceX += differenceX * differenceX;
+      varianceY += differenceY * differenceY;
+    }
+    if (varianceX <= 0 || varianceY <= 0) return 0;
+    const correlation = covariance / Math.sqrt(varianceX * varianceY);
+    return Number.isFinite(correlation) ? Math.max(-1, Math.min(1, correlation)) : 0;
   }
 
   /**
@@ -161,7 +197,7 @@ export class CorrelationMatrix {
    */
   public recordFill(strategyId: string, returnPct: number): void {
     if (!Number.isFinite(returnPct)) {
-      this.logger.warn("[correlation] ignoring non-finite return", {
+      this.logger.warn("portfolio.correlation.return.invalid", {
         strategyId,
         returnPct,
       });
@@ -237,10 +273,11 @@ export class CorrelationMatrix {
   public getMatrix(): CorrelationSnapshot {
     const matrix = new Map<string, Map<string, number>>();
     const sampleCounts = new Map<string, number>();
-    const strategyIds = [...this.streams.keys()];
-    for (const id of strategyIds) {
-      sampleCounts.set(id, this.streams.get(id)?.length ?? 0);
-    }
+    const strategyIds: string[] = [];
+    this.streams.forEach((stream, strategyId) => {
+      strategyIds.push(strategyId);
+      sampleCounts.set(strategyId, stream.length);
+    });
     for (const a of strategyIds) {
       const row = new Map<string, number>();
       for (const b of strategyIds) {
@@ -249,57 +286,5 @@ export class CorrelationMatrix {
       matrix.set(a, row);
     }
     return { matrix, windowSize: this.windowSize, sampleCounts };
-  }
-
-  // --------------------------------------------------------------------------
-  // Internals
-  // --------------------------------------------------------------------------
-
-  /**
-   * `pearson` — Pearson-korreláció két azonos hosszúságú tömb között.
-   *
-   * Edge case-ek:
-   *   - n < 2            → 0 (nincs elég adat)
-   *   - varianciaA vagy  → 0 (a képlet undefined; konstans stream
-   *     varianciaB = 0      nem korrelál semmivel)
-   *   - numerikus instabilitás (pl. NaN a lebegőpontos hibák miatt) → 0
-   */
-  private pearson(xs: readonly number[], ys: readonly number[]): number {
-    const n = xs.length;
-    if (n < 2 || n !== ys.length) {
-      return 0;
-    }
-    let sumX = 0;
-    let sumY = 0;
-    for (let i = 0; i < n; i++) {
-      sumX += xs[i] ?? 0;
-      sumY += ys[i] ?? 0;
-    }
-    const meanX = sumX / n;
-    const meanY = sumY / n;
-    let cov = 0;
-    let varX = 0;
-    let varY = 0;
-    for (let i = 0; i < n; i++) {
-      const dx = (xs[i] ?? 0) - meanX;
-      const dy = (ys[i] ?? 0) - meanY;
-      cov += dx * dy;
-      varX += dx * dx;
-      varY += dy * dy;
-    }
-    if (varX <= 0 || varY <= 0) {
-      return 0;
-    }
-    const denom = Math.sqrt(varX * varY);
-    if (denom <= 0) {
-      return 0;
-    }
-    const r = cov / denom;
-    if (!Number.isFinite(r)) {
-      return 0;
-    }
-    // Clamp [-1, 1] — numerikus instabilitás esetén 1.0000001-et
-    // kaphatunk, amit a downstream penalty-számítás torzíthatna.
-    return Math.max(-1, Math.min(1, r));
   }
 }

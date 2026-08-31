@@ -56,14 +56,13 @@ test("Slice A pins the approved runtime and tooling metadata", async () => {
   expect(bunfig).toContain("exact = true");
 });
 
-test("Lefthook is not trusted and no configuration activates it automatically", async () => {
+test("CCXT and Lefthook are untrusted and no configuration activates either automatically", async () => {
   const [manifest, lefthook] = await Promise.all([
     readRepoFile("package.json"),
     readRepoFile("lefthook.yml"),
   ]);
 
-  expect(manifest).toMatch(/"trustedDependencies":\s*\[\s*"ccxt"\s*\]/u);
-  expect(manifest).not.toMatch(/"trustedDependencies":\s*\[[^\]]*"lefthook"/u);
+  expect(manifest).not.toContain('"trustedDependencies"');
   expect(manifest).not.toContain('"postinstall"');
   expect(lefthook).toContain("run: bun run hook:pre-commit");
 });

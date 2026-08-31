@@ -6,11 +6,8 @@
  * the `SUPPORTED_SYMBOLS` allow-list, the `InvalidSymbolError`
  * class, and the `quoteCurrencyOf` / `baseCurrencyOf` extractors.
  *
- * Phase 35b gap closer — the file is exported from the package and
- * used by paper and bot runtime code, but no exchange-package test was
- * covering the helpers directly. The 100% per-package mandate
- * requires the OWN test suite of packages/exchange to exercise the
- * file.
+ * The package-local suite exercises the public conversion and validation
+ * contract directly.
  */
 import { describe, expect, it } from "bun:test";
 
@@ -31,7 +28,7 @@ import {
 describe("symbols", () => {
   describe("SUPPORTED_SYMBOLS", () => {
     it("tartalmazza a 3 támogatott párt (BTC, ETH, SOL USDC)", () => {
-      expect(SUPPORTED_SYMBOLS).toEqual(["BTC/USDC", "ETH/USDC", "SOL/USDC"]);
+      expect(SUPPORTED_SYMBOLS.map(String)).toEqual(["BTC/USDC", "ETH/USDC", "SOL/USDC"]);
     });
 
     it("a lista readonly (TypeScript típus szinten)", () => {
@@ -62,7 +59,7 @@ describe("symbols", () => {
       if (isSupportedSymbol(s)) {
         // Ha a type guard helyes, itt `s` Symbol típusú.
         const branded = s;
-        expect(branded).toBe("BTC/USDC");
+        expect(String(branded)).toBe("BTC/USDC");
       } else {
         throw new Error("type guard nem működik");
       }
@@ -74,12 +71,12 @@ describe("symbols", () => {
       // asSymbol CSAK type cast, futásidejű check nélkül.
       // A "DOGE/USDC" is átmegy, mert ez CSAK type cast.
       const s = asSymbol("DOGE/USDC");
-      expect(s).toBe("DOGE/USDC");
+      expect(String(s)).toBe("DOGE/USDC");
     });
 
     it("kompatibilis a típus-system-rel (a Symbol brand típussal)", () => {
       // Az asSymbol CSAK type cast, tehát ugyanazt a stringet adja vissza.
-      expect(asSymbol("BTC/USDC")).toBe("BTC/USDC");
+      expect(String(asSymbol("BTC/USDC"))).toBe("BTC/USDC");
       // A típusellenőrzés fordítási időben történik: a return type
       // `Symbol` (branded), tehát a hívó kód `Symbol`-ként kezelheti.
       const branded: string = asSymbol("BTC/USDC");
@@ -89,9 +86,9 @@ describe("symbols", () => {
 
   describe("symbolOf", () => {
     it("visszaadja a Symbol-t támogatott inputra", () => {
-      expect(symbolOf("BTC/USDC")).toBe("BTC/USDC");
-      expect(symbolOf("ETH/USDC")).toBe("ETH/USDC");
-      expect(symbolOf("SOL/USDC")).toBe("SOL/USDC");
+      expect(String(symbolOf("BTC/USDC"))).toBe("BTC/USDC");
+      expect(String(symbolOf("ETH/USDC"))).toBe("ETH/USDC");
+      expect(String(symbolOf("SOL/USDC"))).toBe("SOL/USDC");
     });
 
     it("InvalidSymbolError-t dob nem támogatott inputra", () => {
@@ -106,11 +103,13 @@ describe("symbols", () => {
         expect.unreachable("symbolOf-nak dobnia kellett volna");
       } catch (err) {
         expect(err).toBeInstanceOf(InvalidSymbolError);
-        const e = err as InvalidSymbolError;
-        expect(e.symbol).toBe("FOO/BAR");
-        expect(e.message).toContain("FOO/BAR");
-        expect(e.message).toContain("BTC/USDC");
-        expect(e.name).toBe("InvalidSymbolError");
+        if (!(err instanceof InvalidSymbolError)) {
+          throw err;
+        }
+        expect(err.symbol).toBe("FOO/BAR");
+        expect(err.message).toContain("FOO/BAR");
+        expect(err.message).toContain("BTC/USDC");
+        expect(err.name).toBe("InvalidSymbolError");
       }
     });
   });

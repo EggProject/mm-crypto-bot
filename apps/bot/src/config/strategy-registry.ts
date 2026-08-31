@@ -1,38 +1,9 @@
 /**
- * apps/bot/src/config/strategy-registry.ts
- *
- * Phase 33 Track B — A `BotConfig` alapján a futó stratégia + plugin
- * példányok előállítása.
- *
- * A user mandátum (2026-07-11 23:42 Budapest):
- *   "ugy csinald meg a rendszert hogy egy config alapjan induljon a
- *    bot ahol minden strategiat be tudok allitani, es ha ki lehessen
- *    kapcsolni strategiakat egyesvel is"
- *
- * Ez a fájl a hid a konfiguráció és a runtime között:
- *   - Végigmegy a `config.strategies` szekción
- *   - Minden `enabled = true` stratégiához meghívja a megfelelő factory-t
- *   - A factory a per-strategy config-section alapján alkalmazza az
- *     override-okat (cap, leverage, symbols, timeframes, stb.)
- *   - A `enabled = false` stratégiák NEM kerülnek példányosításra
- *     (Phase 21 #1 wire-up integrity lecke: a lekapcsolt stratégia
- *     nem jelenik meg a runtime-ban, és a viselkedése különbözik az
- *     engedélyezettől).
- *
- * Kétféle runtime-entitás van:
- *   - `Strategy` (a `Strategy` interfészt implementáló osztályok) —
- *     ezek közvetlenül a `StrategyContext.onCandle(ctx)`-n keresztül
- *     kapják a feed-et.
- *   - `StrategyPlugin` (a signal-center pluginok) — ezek a SignalBus-ra
- *     iratkoznak fel, és a bus-on keresztül kapják a feed-et.
- *
- * Mindkettő ugyanabban a `Map<StrategyName, BotStrategyInstance>`-ben
- * tér vissza — az egységes kezeléshez. A `BotStrategyInstance` egy
- * tagged union, hogy a fogyasztók típus-szinten meg tudják különböztetni
- * a kettőt (`kind === "strategy"` vs `kind === "plugin"`).
+ * Creates only explicitly enabled strategy and plugin runtime instances.
  */
 
 import { CascadeFadeStrategy, type CascadeFadeConfig } from "@mm-crypto-bot/core";
+import { ExactRational } from "@mm-crypto-bot/numeric";
 import {
   DEFAULT_CASCADE_FADE_CONFIG,
   DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG,
@@ -58,164 +29,96 @@ import {
 } from "@mm-crypto-bot/core";
 
 import { ConfigError } from "./loader.js";
-import type { BotConfig, StrategyName, StrategySection } from "./schema.js";
+import type { BotConfig, DydxCexCarryStrategySection, StrategyName, StrategySection } from "./schema.js";
 
-// ============================================================================
-// Public types
-// ============================================================================
+type SupportedLtf = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+
+const SUPPORTED_LTF = new Set<string>(["1m", "5m", "15m", "1h", "4h", "1d"]);
+
+function isSupportedLtf(value: string | undefined): value is SupportedLtf {
+  return value !== undefined && SUPPORTED_LTF.has(value);
+}
 
 /**
- * `BotStrategyInstance` — a futó bot egy komponense.
- *
- * Tagged union: `kind: "strategy"` esetén `instance: Strategy`,
- * `kind: "plugin"` esetén `instance: StrategyPlugin`. A fogyasztó
- * a `kind` alapján szűrhet.
+ * A runtime component selected from the validated strategy configuration.
  */
 export type BotStrategyInstance =
   | { readonly kind: "strategy"; readonly name: StrategyName; readonly instance: Strategy }
   | { readonly kind: "plugin"; readonly name: StrategyName; readonly instance: StrategyPlugin };
 
 /**
- * `BotDependencies` — a factory-k által igényelt dependency-k.
- *
- * A `dydx_cex_carry` runtime-követelménye a `DydxFundingSource` mellett
- * egy folyamatos precondition re-verifier producer. Amíg az utóbbi nincs
- * bekötve, az explicit engedélyezés fail-fast `ConfigError`-ral leáll.
- *
- * A jövőbeli track-ek (Track C Bot runtime) tölti fel a `deps`-t
- * tényleges implementációkkal. A config system most a szerződést
- * rögzíti.
+ * Runtime dependencies required by explicitly enabled strategies.
  */
 export interface BotDependencies {
   /**
-   * `DydxFundingSource` — a dYdX v4 indexer + CEX funding feed.
-   * Kötelező, ha a `dydx_cex_carry` stratégia `enabled = true`.
-   * `null` / `undefined` esetén a factory `ConfigError`-t dob.
+   * Required when `dydx_cex_carry` is enabled.
    */
   readonly dydxFundingSource?: DydxFundingSource | null;
 }
 
-// ============================================================================
-// Per-strategy config adapterek
-// ============================================================================
-
 /**
- * `buildDonchianPivotConfig` — a `DonchianPivotComposition`-nek átadott
- * konfiguráció összeállítása a `StrategySection` alapján.
- *
- * A jelenlegi séma-szintű támogatás:
- *   - `min_consensus` (per-strategy override; 1..2)
- *
- * A többi per-strategy override (cap, leverage, symbols, timeframes)
- * a jövőbeli Track C Bot runtime-ban fog érvényesülni a position
- * sizing és a symbol-szűrés szintjén. A Strategy maga nem veszi
- * át ezeket a mezőket (a Donchian-Pivot Composition M15-ön emitál,
- * az indikátor-szintű konfigurációt a `donchianRange` / `pivotGrid`
- * sub-configokban lehet felülírni — lásd
- * `DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG`).
+ * Builds supported Donchian runtime inputs from validated configuration.
  */
 function buildDonchianPivotConfig(section: BotConfig["strategies"]["donchian_pivot_composition"]): {
   readonly minConsensus: number;
-  readonly ltf: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+  readonly ltf: SupportedLtf;
 } {
   const ltfOverride = section.timeframes?.ltf;
-  // A DonchianPivotComposition M15-native (Phase 18 §3). Ha a user
-  // más LTF-et ad, elfogadjuk, de alapértelmezetten M15 marad.
-  const ltf =
-    ltfOverride === "1m" ||
-    ltfOverride === "5m" ||
-    ltfOverride === "15m" ||
-    ltfOverride === "1h" ||
-    ltfOverride === "4h" ||
-    ltfOverride === "1d"
-      ? ltfOverride
-      : "15m";
-  // A BotConfigSchema garantálja, hogy az override egész 1 vagy 2; itt már
-  // nincs csendes helyreállítás egy hibás felhasználói értékről.
+  const ltf = isSupportedLtf(ltfOverride) ? ltfOverride : "15m";
   const minConsensus = section.min_consensus ?? DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG.minConsensus;
   return { minConsensus, ltf };
 }
 
 /**
- * `buildDydxCexCarryConfig` — a `DydxCexCarryStrategy` konfigurációjának
- * összeállítása a per-strategy section és a kötelező `DydxFundingSource`
- * alapján.
+ * Builds the `DydxCexCarryStrategy` configuration from its closed strategy
+ * section and required `DydxFundingSource`.
  *
- * Field-mapping:
- *   - `cap`          → `capFraction`  (max 0.5 a DydxCexCarryConfig invariant)
- *   - `leverage`     → `leverage`     (1 vagy 10; 1:10 MANDATE)
- *   - `notional_per_leg_usd` → `notionalPerLegUsd`  (USD, pozitív)
- *   - `fundingSource`  → kötelező, a `deps.dydxFundingSource`-ból jön
+ * The schema rejects invalid values before this adapter runs. Omitted fields
+ * use only the core defaults; supplied values are never repaired or coerced.
  *
- * A kill-switch / precondition / latency alapértékei a DydxCexCarry
- * `DEFAULT_DYDX_CEX_CARRY_CONFIG`-ból jönnek, és NEM overridable-ök
- * a TOML-ból (az orchestrator scope lock szerint).
+ * Kill-switch, precondition, and latency settings remain core-owned defaults.
  */
 export function buildDydxCexCarryConfig(
-  section: StrategySection,
+  section: DydxCexCarryStrategySection,
   fundingSource: DydxFundingSource,
 ): {
   readonly market: "BTC-USD";
   readonly direction: "dydx-long-cex-short";
-  readonly notionalPerLegUsd: number;
+  readonly notionalPerLegUsd: ExactRational;
   readonly capFraction: number;
-  readonly leverage: 1 | 10;
   readonly fundingSource: DydxFundingSource;
   readonly killSwitch: typeof DEFAULT_DYDX_CEX_CARRY_CONFIG.killSwitch;
   readonly precondition: typeof DEFAULT_DYDX_CEX_CARRY_CONFIG.precondition;
   readonly latencyArbThresholdMs: number;
-  readonly latencySource: null;
+  readonly latencySource: typeof DEFAULT_DYDX_CEX_CARRY_CONFIG.latencySource;
 } {
-  // cap → capFraction (a DydxCexCarryConfig invariant: (0, 0.5])
-  const cap = typeof section.cap === "number" ? section.cap : DEFAULT_DYDX_CEX_CARRY_CONFIG.capFraction;
-  const capFraction = cap > 0 && cap <= 0.5 ? cap : DEFAULT_DYDX_CEX_CARRY_CONFIG.capFraction;
-  // leverage → 1 vagy 10 (1:10 MANDATE)
-  const lev =
-    typeof section.leverage === "number" ? section.leverage : DEFAULT_DYDX_CEX_CARRY_CONFIG.leverage;
-  const leverage: 1 | 10 = lev === 1 ? 1 : 10;
-  // notional_per_leg_usd → notionalPerLegUsd (USD, pozitív)
-  const notionalRaw = (section as { notional_per_leg_usd?: unknown }).notional_per_leg_usd;
+  const capFraction = section.cap ?? DEFAULT_DYDX_CEX_CARRY_CONFIG.capFraction;
+  const configuredNotionalUsd = section.notional_per_leg_usd;
   const notionalPerLegUsd =
-    typeof notionalRaw === "number" && notionalRaw > 0
-      ? notionalRaw
-      : DEFAULT_DYDX_CEX_CARRY_CONFIG.notionalPerLegUsd;
+    configuredNotionalUsd === undefined
+      ? DEFAULT_DYDX_CEX_CARRY_CONFIG.notionalPerLegUsd
+      : ExactRational.from(String(configuredNotionalUsd));
   return {
     market: DEFAULT_DYDX_CEX_CARRY_CONFIG.market,
     direction: DEFAULT_DYDX_CEX_CARRY_CONFIG.direction,
     notionalPerLegUsd,
     capFraction,
-    leverage,
     fundingSource,
     killSwitch: DEFAULT_DYDX_CEX_CARRY_CONFIG.killSwitch,
     precondition: DEFAULT_DYDX_CEX_CARRY_CONFIG.precondition,
     latencyArbThresholdMs: DEFAULT_DYDX_CEX_CARRY_CONFIG.latencyArbThresholdMs,
-    latencySource: null,
+    latencySource: DEFAULT_DYDX_CEX_CARRY_CONFIG.latencySource,
   };
 }
 
 /**
- * `buildCascadeFadeConfig` — a `CascadeFadeStrategy` konfigurációjának
- * összeállítása.
- *
- * Field-mapping:
- *   - `max_notional_per_event_usd` → `capacityMaxPerSymbolEventUsd`
- *   - `cooldown_hours`            → `riskBtCooldownMs` (ms-re váltva)
- *
- * A többi CascadeFadeConfig mező (Layer 1/2/3 küszöbök, risk governor,
- * symbol-lista) a `DEFAULT_CASCADE_FADE_CONFIG`-ból jön, és jelenleg
- * NEM overridable a TOML-ból.
+ * Maps supported cascade settings into the core strategy configuration.
  */
 function buildCascadeFadeConfig(section: StrategySection): CascadeFadeConfig {
-  const notionalRaw = (section as { max_notional_per_event_usd?: unknown }).max_notional_per_event_usd;
   const maxNotionalPerEventUsd =
-    typeof notionalRaw === "number" && notionalRaw > 0
-      ? notionalRaw
-      : DEFAULT_CASCADE_FADE_CONFIG.capacityMaxPerSymbolEventUsd;
-  const cooldownHoursRaw = (section as { cooldown_hours?: unknown }).cooldown_hours;
+    section.max_notional_per_event_usd ?? DEFAULT_CASCADE_FADE_CONFIG.capacityMaxPerSymbolEventUsd;
   const cooldownHours =
-    typeof cooldownHoursRaw === "number" && cooldownHoursRaw > 0
-      ? cooldownHoursRaw
-      : DEFAULT_CASCADE_FADE_CONFIG.riskBtCooldownMs / (60 * 60 * 1000);
+    section.cooldown_hours ?? DEFAULT_CASCADE_FADE_CONFIG.riskBtCooldownMs / (60 * 60 * 1000);
   return {
     ...DEFAULT_CASCADE_FADE_CONFIG,
     capacityMaxPerSymbolEventUsd: maxNotionalPerEventUsd,
@@ -224,24 +127,14 @@ function buildCascadeFadeConfig(section: StrategySection): CascadeFadeConfig {
 }
 
 /**
- * `buildFundingFlipKillSwitchConfig` — a `SOLFlipKillSwitchPlugin`
- * konfigurációjának összeállítása. Jelenleg a phase 9 9D baseline
- * defaultjait használja, és nem vesz át per-section override-okat.
+ * Returns the fixed core configuration for the funding-flip plugin.
  */
 function buildFundingFlipKillSwitchConfig(): typeof DEFAULT_SOL_FLIP_KILL_SWITCH_PLUGIN_CONFIG {
   return { ...DEFAULT_SOL_FLIP_KILL_SWITCH_PLUGIN_CONFIG };
 }
 
 /**
- * `buildRegimeDetectorConfig` — a `RegimeDetectorMetaPlugin`
- * konfigurációjának összeállítása. Jelenleg a phase 11.2a baseline
- * defaultjait használja.
- *
- * A `RegimeDetectorConfig` a phase 11.2a spec-ből jön:
- *   - `perRegimeSizeMultiplier` — 3-as tuple (trending, ranging, volatile)
- *   - `stateEmissionStdDev`     — 3-as tuple (per-state σ)
- *   - `transitionMatrix`        — 3×3-as tuple
- *   - `initialStateProbs`       — 3-as tuple
+ * Builds the fixed regime-detector settings for enabled symbols.
  */
 function buildRegimeDetectorConfig(enabledSymbols: readonly string[]): {
   readonly numStates: number;
@@ -275,16 +168,8 @@ function buildRegimeDetectorConfig(enabledSymbols: readonly string[]): {
   };
 }
 
-// ============================================================================
-// Per-strategy factory-k
-// ============================================================================
-
 /**
- * `makeDonchianPivotComposition` — a `DonchianPivotComposition` factory.
- * A per-strategy config-ból a `minConsensus` és az `ltf` override-ok
- * kerülnek alkalmazásra. A `cap` / `leverage` / `symbols` mezők a
- * jelenlegi Strategy API-ban NEM átvehetők (ezek a Bot runtime-ban
- * érvényesülnek a position-sizing szintjén).
+ * Creates the configured Donchian strategy.
  */
 function makeDonchianPivotComposition(section: StrategySection): {
   readonly kind: "strategy";
@@ -296,17 +181,14 @@ function makeDonchianPivotComposition(section: StrategySection): {
 }
 
 /**
- * `makeDydxCexCarry` — a `DydxCexCarryStrategy` factory.
- *
- * Ha bármely kötelező producer hiányzik, a factory `ConfigError`-t dob,
- * így nem ad vissza csendben örökre gate-elt carry stratégiát.
+ * Fails closed unless all required carry runtime dependencies are wired.
  */
 function makeDydxCexCarry(
-  section: StrategySection,
-  deps: BotDependencies,
+  section: DydxCexCarryStrategySection,
+  dependencies: BotDependencies,
 ): { readonly kind: "strategy"; readonly instance: Strategy } {
-  const fundingSource = deps.dydxFundingSource ?? null;
-  if (fundingSource === null) {
+  const fundingSource = dependencies.dydxFundingSource;
+  if (fundingSource === undefined || fundingSource === null) {
     throw new ConfigError(
       "Strategy 'dydx_cex_carry' is enabled but no DydxFundingSource was provided. " +
         "Pass a `dydxFundingSource` in the `BotDependencies` to the strategy registry.",
@@ -315,10 +197,6 @@ function makeDydxCexCarry(
     );
   }
   const config = buildDydxCexCarryConfig(section, fundingSource);
-  // Validate every currently-configurable invariant before reporting the
-  // missing producer. The bot runtime has no non-test source that calls
-  // `recordPreconditionReverify`, so returning an instance here would create
-  // a permanently gated, silently inert strategy.
   void new DydxCexCarryStrategy(config);
   throw new ConfigError(
     "Strategy 'dydx_cex_carry' requires an explicit precondition re-verifier producer " +
@@ -329,7 +207,7 @@ function makeDydxCexCarry(
 }
 
 /**
- * `makeCascadeFade` — a `CascadeFadeStrategy` factory.
+ * Fails closed because the required cascade event bridge is absent.
  */
 function makeCascadeFade(section: StrategySection): {
   readonly kind: "strategy";
@@ -345,7 +223,7 @@ function makeCascadeFade(section: StrategySection): {
 }
 
 /**
- * `makeFundingFlipKillSwitch` — a `SOLFlipKillSwitchPlugin` factory.
+ * Fails closed because the required funding-rate producer is absent.
  */
 function makeFundingFlipKillSwitch(): { readonly kind: "plugin"; readonly instance: StrategyPlugin } {
   const config = buildFundingFlipKillSwitchConfig();
@@ -358,7 +236,7 @@ function makeFundingFlipKillSwitch(): { readonly kind: "plugin"; readonly instan
 }
 
 /**
- * `makeRegimeDetector` — a `RegimeDetectorMetaPlugin` factory.
+ * Creates the configured regime-detector plugin.
  */
 function makeRegimeDetector(enabledSymbols: readonly string[]): {
   readonly kind: "plugin";
@@ -369,38 +247,16 @@ function makeRegimeDetector(enabledSymbols: readonly string[]): {
   return { kind: "plugin", instance: plugin };
 }
 
-// ============================================================================
-// Main factory
-// ============================================================================
-
 /**
- * `createStrategyInstances` — a `BotConfig` alapján elkészíti az
- * engedélyezett stratégiák + plugin-ok futó példányait.
- *
- * Az iteráció sorrendje megegyezik a `BotConfigSchema.strategies`
- * kulcs-sorrendjével (canonical, determinisztikus). A visszatérési
- * érték egy `Map`, amely:
- *   - tartalmazza az összes `enabled = true` komponenst, és
- *   - NEM tartalmazza az `enabled = false` komponenseket.
- *
- * A wire-up integrity (Phase 21 #1 lecke): ha egy komponenst
- * kikapcsolunk, az NEM jelenik meg a visszatérési Map-ben, és a
- * bot runtime NAK fogja azt a komponenst futtatni → a kikapcsolt
- * stratégia 0 signalt produkál (bit-identical trade stream).
- *
- * @param config A Zod-validált `BotConfig`.
- * @param deps   A futásidejű dependency-k (pl. funding source).
- *   A Track C Bot runtime tölti fel a valós implementációkkal.
- * @returns `Map<StrategyName, BotStrategyInstance>` — a futó entitások.
+ * Creates enabled components in deterministic configuration order.
  */
 export function createStrategyInstances(
   config: BotConfig,
-  deps: BotDependencies = {},
+  dependencies: BotDependencies = {},
 ): Map<StrategyName, BotStrategyInstance> {
   const instances = new Map<StrategyName, BotStrategyInstance>();
   const strategies = config.strategies;
 
-  // 1) Donchian + Pivot composition (default ON, M15-native).
   if (strategies.donchian_pivot_composition.enabled) {
     instances.set("donchian_pivot_composition", {
       name: "donchian_pivot_composition",
@@ -408,21 +264,17 @@ export function createStrategyInstances(
     });
   }
 
-  // 2) dYdX-vs-CEX cross-venue funding carry (default OFF; explicit opt-in
-  //    fails until both funding and precondition producers are wired).
   if (strategies.dydx_cex_carry.enabled) {
     instances.set("dydx_cex_carry", {
       name: "dydx_cex_carry",
-      ...makeDydxCexCarry(strategies.dydx_cex_carry, deps),
+      ...makeDydxCexCarry(strategies.dydx_cex_carry, dependencies),
     });
   }
 
-  // 3) Liquidation cascade fade (default OFF; event bridge required).
   if (strategies.cascade_fade.enabled) {
     instances.set("cascade_fade", { name: "cascade_fade", ...makeCascadeFade(strategies.cascade_fade) });
   }
 
-  // 4) SOL funding-flip kill-switch plugin (default OFF, opt-in).
   if (strategies.funding_flip_kill_switch.enabled) {
     instances.set("funding_flip_kill_switch", {
       name: "funding_flip_kill_switch",
@@ -430,7 +282,6 @@ export function createStrategyInstances(
     });
   }
 
-  // 5) HMM 3-state regime-detector meta-plugin (default OFF, opt-in).
   if (strategies.regime_detector.enabled) {
     instances.set("regime_detector", {
       name: "regime_detector",
