@@ -409,4 +409,4 @@ commit occurred.
 
 ## Active review ledger
 
-The active detailed review ledger continues without deletion in [review-evidence/part-01.md](review-evidence/part-01.md). It includes the D-11/D-12 actual-commit range-review failure record and remains the required review evidence entrypoint.
+The active detailed review ledger continues without deletion in [review-evidence/part-01.md](review-evidence/part-01.md). It includes the D-11/D-12 immutable actual-range TECH/PROCESS FAIL records and remains the required review evidence entrypoint; the final re-review is external evidence to avoid recursive self-inclusion.

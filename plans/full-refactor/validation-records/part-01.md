@@ -99,7 +99,7 @@ not claim an implementation PASS:
 | `bun run hook:validate`; `bun run clean:artifacts:dry-run`                                     |                                                                                                                                                                 0; config contract valid; dry-run enumerated only explicit artifact targets and performed no deletion. |
 | `bun run typecheck`; `bun run build`                                                           |                                                                                                                                                                               0; typecheck 12/12 tasks and build 7/7 tasks; Turbo emitted existing no-output warnings. |
 | Historical `bun run verify`                                                                    | 1; superseded by the explicitly incomplete foundation runner. This local run reported **370 files** needing formatting, after formatting five changed files; it is not a full-repository PASS and does not silently replace the reviewer-reproduced historical record. |
-| Isolated normal frozen install                                                                 |                                                                                                      0 as recorded in [`DEPENDENCIES.md`](DEPENDENCIES.md#current-isolated-clean-install-evidence--2026-08-17t2210260200); temp hooks unchanged; main hooks untouched. |
+| Isolated normal frozen install                                                                 |                                                                                                   0 as recorded in [`DEPENDENCIES.md`](../DEPENDENCIES.md#current-isolated-clean-install-evidence--2026-08-17t2210260200); temp hooks unchanged; main hooks untouched. |
 
 ## Current third-remediation foundation observation — 2026-08-17T22:10:26+0200
 
@@ -111,12 +111,12 @@ unavailable until frozen/install integrity, architecture/file-length, data/live
 safety, dependency/security/license, docs, release, and artifact-smoke gates
 exist and are independently reviewed.
 
-| Command / evidence                         |                                                                                                                                                                                                                Exit / result |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-| `bun install --ignore-scripts`             |                                                0; Bun regenerated `bun.lock` so `trustedDependencies` exactly serializes only `ccxt`; current SHA-256 is `442b050e7922a89ecba1ca262d5a8c869de771af068ffd19e94d0a10a8407b40`. |
-| New representative normal frozen install   | 0 as recorded in [`DEPENDENCIES.md`](DEPENDENCIES.md#current-representative-clean-install-evidence--2026-08-17t2210260200); Lefthook lifecycle was blocked/untrusted and temp/main hook inventories were equal before/after. |
-| `bun run verify:foundation`                |                                                                                 1; correctly fails fast at `format:check`, which reported **358 files** requiring formatting. It cannot establish full verification success. |
-| Historical touched active CLI ESLint rerun |                                                                                                      **SUPERSEDED**: the unexplained narrower **166 problems** result is replaced by the explicit recursive CLI scope below. |
+| Command / evidence                         |                                                                                                                                                                                                                   Exit / result |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+| `bun install --ignore-scripts`             |                                                   0; Bun regenerated `bun.lock` so `trustedDependencies` exactly serializes only `ccxt`; current SHA-256 is `442b050e7922a89ecba1ca262d5a8c869de771af068ffd19e94d0a10a8407b40`. |
+| New representative normal frozen install   | 0 as recorded in [`DEPENDENCIES.md`](../DEPENDENCIES.md#current-representative-clean-install-evidence--2026-08-17t2210260200); Lefthook lifecycle was blocked/untrusted and temp/main hook inventories were equal before/after. |
+| `bun run verify:foundation`                |                                                                                    1; correctly fails fast at `format:check`, which reported **358 files** requiring formatting. It cannot establish full verification success. |
+| Historical touched active CLI ESLint rerun |                                                                                                         **SUPERSEDED**: the unexplained narrower **166 problems** result is replaced by the explicit recursive CLI scope below. |
 
 ## Current explicit active-CLI lint evidence — 2026-08-17T22:28:38+0200
 
@@ -148,7 +148,7 @@ each material change and at final release evidence collection.
 At `2026-08-17T22:49:06+02:00` Europe/Budapest, from
 `/home/eggp/projects/mm-crypto-bot`, the pre-write Slice B selection contained
 358 first-party text/source/docs/config files and is persisted at
-[`evidence/slice-b-selected-files.txt`](evidence/slice-b-selected-files.txt).
+[`evidence/slice-b-selected-files.txt`](../evidence/slice-b-selected-files.txt).
 The existing Prettier exclusions
 were preserved: generated/vendor/cache (`node_modules`, `dist`, `build`,
 `coverage`, `.turbo`), `data/`, `temp/`, and
@@ -162,7 +162,7 @@ set -o pipefail; while IFS= read -r scoped_file; do if [[ ! -f "$scoped_file" ]]
 ```
 
 It exited 0 and found **100** files over 500 lines. The full sorted output is
-[`evidence/slice-b-over-500-files.tsv`](evidence/slice-b-over-500-files.tsv).
+[`evidence/slice-b-over-500-files.tsv`](../evidence/slice-b-over-500-files.tsv).
 This is a structural **FAIL / deferred backlog**, not a Slice B resolution.
 Under zsh, `pipefail` prevents the final `sort` from masking a failed left
 side; missing selected files write the marker to stderr and exit **41**.
@@ -205,7 +205,7 @@ At `2026-08-18T00:34:30+02:00` Europe/Budapest, from
 baseline scope at commit `2c4e6f3fc103c9c2f2a49fe9bdaf9cac84e02f8a` (four
 engine test modules) with the seven current C3a engine test modules. The
 replayable extractor is
-[`evidence/c3a-extract-engine-test-names.mjs`](evidence/c3a-extract-engine-test-names.mjs).
+[`evidence/c3a-extract-engine-test-names.mjs`](../evidence/c3a-extract-engine-test-names.mjs).
 It accepts only same-line literal double-quoted `it(...)` or `test(...)` calls;
 any dynamic or unsupported matching call, unreadable baseline path, missing
 current path, empty declared-scope module, or invalid selector throws and makes
@@ -226,8 +226,8 @@ cmp -s plans/full-refactor/evidence/c3a-engine-test-names.before.txt plans/full-
 
 Both replay pipelines exited 0; `wc -l` is **62 / 62**; the final `cmp` exited 0. Both evidence files have SHA-256
 `fb966418a57ba105d6e13bb9edacb56a5d475c67c90e5d8558e6653a93a3227e` and are
-[`before`](evidence/c3a-engine-test-names.before.txt) and
-[`after`](evidence/c3a-engine-test-names.after.txt). This establishes only the
+[`before`](../evidence/c3a-engine-test-names.before.txt) and
+[`after`](../evidence/c3a-engine-test-names.after.txt). This establishes only the
 test-name multiset preservation for C3a; it is not an implementation or
 coverage PASS.
 
@@ -269,13 +269,13 @@ only and do not create an implementation PASS.
 At `2026-08-18T01:10:30+02:00`, C3b used the repository CWD
 `/home/eggp/projects/mm-crypto-bot`. The public engine export comparison is
 implemented by the checked TypeScript-AST helper
-[`evidence/c3b-verify-engine-exports.mjs`](evidence/c3b-verify-engine-exports.mjs),
+[`evidence/c3b-verify-engine-exports.mjs`](../evidence/c3b-verify-engine-exports.mjs),
 not a regex. It accepts only the documented selector and arity, parses the
 baseline engine through `git show`, resolves named local façade re-exports,
 compares value/type kind, name, and generic arity, and fails closed for
 unsupported exports, paths, or syntax. Its durable snapshots are
-[`before`](evidence/c3b-engine-exports.before.tsv) and
-[`after`](evidence/c3b-engine-exports.after.tsv).
+[`before`](../evidence/c3b-engine-exports.before.tsv) and
+[`after`](../evidence/c3b-engine-exports.after.tsv).
 
 ```sh
 bun plans/full-refactor/evidence/c3b-verify-engine-exports.mjs \
@@ -296,13 +296,13 @@ Each command exited **0**; both snapshots have SHA-256
 Negative controls exited nonzero without artifact mutation: no selector **64**,
 extra argument **65**, unavailable baseline **67**, unavailable current path
 **68**, and the intentional invalid parser fixture
-[`c3b-invalid-engine-export.fixture.ts`](evidence/c3b-invalid-engine-export.fixture.ts)
+[`c3b-invalid-engine-export.fixture.ts`](../evidence/c3b-invalid-engine-export.fixture.ts)
 **69**.
 
 The checked manifest scanner
-[`evidence/c3b-integrity-scan.mjs`](evidence/c3b-integrity-scan.mjs) consumes
+[`evidence/c3b-integrity-scan.mjs`](../evidence/c3b-integrity-scan.mjs) consumes
 the explicit regular-file-only manifest
-[`evidence/c3b-integrity-paths.txt`](evidence/c3b-integrity-paths.txt). It
+[`evidence/c3b-integrity-paths.txt`](../evidence/c3b-integrity-paths.txt). It
 rejects missing, duplicate, outside-root, symlink, and non-file entries;
 performs `git diff --no-index --check /dev/null <path>` for each tracked or
 untracked entry, then `git diff --check -- <manifest paths>`; and records only
@@ -320,7 +320,7 @@ cmp -s /tmp/c3b-integrity-17.tsv \
 ```
 
 The positive replay exited **0** and the temporary output compared equal to the
-durable output [`c3b-integrity-scan.tsv`](evidence/c3b-integrity-scan.tsv): 17 manifest files
+durable output [`c3b-integrity-scan.tsv`](../evidence/c3b-integrity-scan.tsv): 17 manifest files
 and zero skip/only, forbidden-source-pattern, generated/binary, bounded-secret,
 and tracked/untracked-whitespace findings. Negative selector/missing-manifest
 controls exited **64/64/65/67/66/66** for no arguments, extra arguments, an absent

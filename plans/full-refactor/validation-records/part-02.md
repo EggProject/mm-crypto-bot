@@ -120,7 +120,7 @@ RE-059 and RE-060; their PASS scope is C3c only.
 The C4a source tree is absent (`test ! -e temp/ts/typing` exited 0). Its
 baseline at `9add1e445841b67b8f36cf035590026ff2198000` had 46 files, 23 test
 files, and 235 literal test names; durable evidence is linked from [the C4a
-inventory](evidence/c4a-typing-source-inventory.md). The private workspace
+inventory](../evidence/c4a-typing-source-inventory.md). The private workspace
 package exports only `.`. Its public-barrel positive import and physical
 internal-subpath negative import tests both passed.
 
@@ -150,9 +150,9 @@ ER-048 expands the pending C4a implementation evidence to the private internal
 `@mm-crypto-bot/assert` packages. The directed package graph is
 `typing <- typeguard <- assert`; each package exposes only `.` and has a
 public-barrel positive and physical deep-subpath negative import contract.
-The source inventories and keep/drop manifests are [typing](evidence/c4a-typing-source-inventory.md),
-[typeguard](evidence/c4a-typeguard-source-inventory.md), and
-[assert](evidence/c4a-assert-source-inventory.md).
+The source inventories and keep/drop manifests are [typing](../evidence/c4a-typing-source-inventory.md),
+[typeguard](../evidence/c4a-typeguard-source-inventory.md), and
+[assert](../evidence/c4a-assert-source-inventory.md).
 
 All three source trees are absent and `temp/ts/rxjs` remains outside this
 slice. Each package passed Prettier, ESLint with zero warnings, `tsc --noEmit`
@@ -207,16 +207,16 @@ typeguard **26/26, 23/23, 11/11, 23/23**; assert **14/14, 10/10, 7/7, 9/9**.
 The exact coverage hashes are in ER-049; coverage remains generated, ignored,
 and unstaged.
 
-The checked [baseline inventory helper](evidence/c4a-source-inventory.mjs)
+The checked [baseline inventory helper](../evidence/c4a-source-inventory.mjs)
 uses the fixed baseline ref, accepts exactly one selector, and only writes its
 result to stdout. Positive replays for all three durable hash manifests exited
 0 and matched byte-for-byte; zero/extra/invalid selectors exited 64/65/66, and
 temporary missing-ref/missing-path controls exited 67/68. The exact temporary
 fixtures were removed after each replay.
 
-The manifest [c4a-untracked-first-party-paths.txt](evidence/c4a-untracked-first-party-paths.txt)
+The manifest [c4a-untracked-first-party-paths.txt](../evidence/c4a-untracked-first-party-paths.txt)
 has 31 current first-party untracked paths, excluding ignored generated coverage
-and dependency directories. Its [whitespace checker](evidence/c4a-check-untracked-whitespace.mjs)
+and dependency directories. Its [whitespace checker](../evidence/c4a-check-untracked-whitespace.mjs)
 requires one `--manifest` argument, validates regular non-symbolic-link files,
 limits every path to the C4a roots, requires the expected no-index exit 1 with
 no diagnostics, and then requires tracked `git diff --check` exit 0. The
@@ -266,7 +266,7 @@ The root-filter Turbo typecheck discovery exits 0. No current repository
 consumer imports the package, so no consumer migration is claimed.
 
 The exact package-command, dependency, audit, and isolated frozen-install
-evidence is recorded in [the C4b command ledger](evidence/c4b-command-ledger.md),
+evidence is recorded in [the C4b command ledger](../evidence/c4b-command-ledger.md),
 ER-056, and `DEPENDENCIES.md`. This C4b scope remains **PENDING TECHNICAL AND
 PROCESS RE-REVIEW**; it is not a repository/full-verify/release/live-safety
 PASS.
@@ -274,7 +274,7 @@ PASS.
 ## D-07 semantic scanner implementation slice — current non-terminal evidence
 
 The current scanner implementation evidence is
-[D-07 scanner slice](evidence/d07-zero-legacy-scanner-slice.md). At
+[D-07 scanner slice](../evidence/d07-zero-legacy-scanner-slice.md). At
 `2026-08-24T14:13:00+02:00` Europe/Budapest, the scoped 9-file Vitest run
 passed `64/64` with V8 statements `783/783`, branches `650/650`, functions
 `165/165`, and lines `771/771`, across one explicit 10-source include. The

@@ -153,7 +153,7 @@ Refreshed `2026-08-24T14:13:00+02:00` Europe/Budapest. This is a non-review
 evidence entry by `terra_worker` / `gpt-5.6-terra` / high with workspace-write
 authority confined to D-07 scanner evidence and ledgers. It records no reviewer
 result, does not alter the index, and cannot establish commit eligibility. The
-implementation/evidence snapshot is [D-07 scanner slice](evidence/d07-zero-legacy-scanner-slice.md).
+implementation/evidence snapshot is [D-07 scanner slice](../evidence/d07-zero-legacy-scanner-slice.md).
 
 The initial independent TECH review is **FAIL** for shell/YAML omission, command
 forms, evidence re-export, TOCTOU, and unbounded reads. Its first re-review is
@@ -192,3 +192,30 @@ eligibility exists.
 Recorded 2026-08-31 Europe/Budapest. Reviewed actual commits `5c7d629309bb96cce89798f10a7d72e2c95429e0` and `5712ca763e57315a2b601d6f686fe5bdac6d21ac`, range `72c6885..5712ca7`. Requested independent routes: technical `terra_reviewer` / `gpt-5.6-terra` / high and process `luna_process_reviewer` fixed profile. Effective runtime/provider model attestation is not observable. Both reviews are read-only. Known commands: `git log --oneline --decorate 72c6885..5712ca7`, `git diff --check 72c6885..5712ca7`, `git diff 72c6885..5712ca7 -- .codex/ENGINEERING-STANDARDS.md AGENTS.md plans/full-refactor`, `bunx prettier --check` on the eight governance paths, and scoped `rg` scans for stale fixed-ten-only wording, D-12 workflow, secrets, `openat`/`openat2`/`/proc/self/fd`, and configuration-reload implementation.
 
 The first actual-commit TECH and PROCESS reviews were **FAIL** and required the follow-up commit `5712ca7`. The full-range TECH and PROCESS re-reviews were also **FAIL**: D-10 was lost from the approval ledger, D-11/D-12 timestamp metadata lacked an immutable session reference and disclosed no interface wall-clock limitation, active documents retained fixed-ten-only wording, D-12 procedure was incomplete, and execution/review evidence was incomplete. Current remediation status is **PENDING**. This entry records no PASS, full verification, completion, push, or PR authorization.
+
+## RE-091 D-11/D-12 immutable actual-range review — FAIL remediation
+
+Recorded 2026-08-31 Europe/Budapest. The immutable review range is
+`72c6885..9879fd1`, including actual commits `5c7d629`, `5712ca7`, and
+`9879fd1`. Independent requested authorities were `terra_reviewer` /
+`gpt-5.6-terra` / high for technical review and `luna_process_reviewer` fixed
+profile for process review; both were read-only and effective provider model
+attestation is not observable.
+
+- **TECH FAIL:** moved review/validation ledger links resolved below their
+  segment directory, and the cited CCXT/C4c evidence targets were missing from
+  the committed candidate. This breaks evidence traversal and makes the range
+  technically non-closable.
+- **PROCESS FAIL:** the `9879fd1` execution record omitted the complete R2
+  rejection, R3 lossless fallback, exact precommit/staged/postcommit evidence,
+  and rollback boundary. Deleting ledger history to remain under the 500-line
+  limit was unsafe and was rejected before index mutation.
+- **Remediation:** correct only the moved `../evidence/...` and
+  `../DEPENDENCIES.md` links; retain the directly inspected authoritative CCXT
+  and C4c evidence; and record R2/R3, exact ownership, gates, commit, and
+  rollback in the configurable-leverage evidence ledger. This record is
+  **TECH FAIL / PROCESS FAIL**, not a PASS or commit authorization.
+
+The final independent re-review cannot be committed inside the range it reviews
+without recursive self-inclusion. It must be recorded as external immutable-range
+evidence after this follow-up; no final TECH or PROCESS PASS is asserted here.

@@ -140,3 +140,18 @@ The active detailed validation record is split without deletion to keep each led
 
 - [Validation records, part 1](validation-records/part-01.md)
 - [Validation records, part 2](validation-records/part-02.md)
+
+## D-11/D-12 R3 evidence-repair validation
+
+This non-review evidence repair is limited to the post-`9879fd1` documentation
+candidate. The R2 deletion-oriented patch was approval-rejected before index
+mutation; the R3 lossless split preflight passed cached apply checks, scoped
+diff check, Prettier, and file-size checks on the 11 original commit paths. Its
+maximum document size was 412 lines. The candidate must additionally pass the
+exhaustive relative Markdown-link check, scoped no-loss inventory, and bounded
+secret, filesystem-descriptor, and configuration-lifecycle scans.
+
+These checks validate ledger integrity only. They neither replace the immutable
+range TECH/PROCESS FAIL record nor claim a repository, release, live-safety, or
+final review PASS. The final re-review is necessarily external to the reviewed
+range, because committing it into the range would create recursion.
