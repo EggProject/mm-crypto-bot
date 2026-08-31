@@ -106,7 +106,6 @@ async function verifyMultiTimeframeIndicators(): Promise<void> {
   assertCondition(observedContext.mtfState.ltf.atr !== undefined, "LTF ATR missing");
   assertCondition(observedContext.mtfState.mtf.close === 200, "middle timeframe was not retained");
   runner.dispose();
-
   let oneFrameContext: support.StrategyContext | undefined;
   const oneFrameRunner = new support.StrategyRunner({
     instances: singleStrategyInstances({
@@ -130,7 +129,6 @@ async function verifyMultiTimeframeIndicators(): Promise<void> {
     "one timeframe did not map every context frame to the current candle",
   );
   oneFrameRunner.dispose();
-
   const emptyFrameStrategy: support.Strategy = {
     name: "e2e-empty-frame",
     timeframes: [],
@@ -230,7 +228,6 @@ async function verifyTickerAndDuplicateMarketEventLifecycle(): Promise<void> {
   );
   runner.dispose();
 }
-
 async function verifyForceExitLifecycle(): Promise<void> {
   const symbol = support.makeSymbol();
   const directFeed = new support.MockExchangeFeed();
