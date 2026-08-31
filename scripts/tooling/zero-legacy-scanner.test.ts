@@ -78,9 +78,9 @@ function createPort(
       return Promise.resolve(options.canonicalPaths?.get(absolutePath) ?? absolutePath);
     },
     getGitTopLevel: () => Promise.resolve(options.gitTopLevel ?? repoRoot),
-    inspectPath: (_repoRoot, absolutePath) => {
+    inspectPath: (absolutePath) => {
       if (inspectFailures.has(absolutePath)) {
-        return Promise.reject(new Error("secure inspection failure"));
+        return Promise.reject(new Error("path inspection failure"));
       }
       if (options.inspectOverride !== undefined) {
         return Promise.resolve(options.inspectOverride(absolutePath));
@@ -88,7 +88,7 @@ function createPort(
       const node = nodes.get(absolutePath);
       return Promise.resolve(node === undefined ? undefined : Object.freeze({ kind: node.kind }));
     },
-    readDirectory: (_repoRoot, absolutePath) => {
+    readDirectory: (absolutePath) => {
       if (readdirFailures.has(absolutePath)) {
         return Promise.reject(new Error("directory failure"));
       }
@@ -98,7 +98,7 @@ function createPort(
       }
       return Promise.resolve(Object.freeze(node.children === undefined ? [] : [...node.children]));
     },
-    readUtf8: (_repoRoot, absolutePath) => {
+    readUtf8: (absolutePath) => {
       if (readFailures.has(absolutePath)) {
         return Promise.reject(new Error("read failure"));
       }
@@ -227,7 +227,7 @@ test("excluded dependency, build, and configured result paths are skipped before
   expect(result.status).toBe("incomplete");
 });
 
-test("symlinks, special files, secure inspection, read failures, and readdir failures fail closed", async () => {
+test("symlinks, special files, path inspection, read failures, and readdir failures fail closed", async () => {
   const failureCases: readonly [string, ReadonlyMap<string, FixtureNode>, FixtureOptions][] = [
     ["symlink", rootNodes(["apps", Object.freeze({ kind: "symlink" })]), {}],
     ["special", rootNodes(["apps", Object.freeze({ kind: "other" })]), {}],
@@ -242,7 +242,7 @@ test("symlinks, special files, secure inspection, read failures, and readdir fai
       { readDirectoryFailurePaths: [fixturePath("apps")] },
     ],
     [
-      "secure inspection",
+      "path inspection",
       rootNodes(["apps", directory("a.ts")], ["apps/a.ts", regularFile("ok")]),
       { inspectFailurePaths: [fixturePath("apps")] },
     ],

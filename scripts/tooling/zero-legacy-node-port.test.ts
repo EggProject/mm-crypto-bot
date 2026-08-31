@@ -1,38 +1,17 @@
 import { expect, test } from "bun:test";
 import path from "node:path";
 
-import { createNodeZeroLegacyScannerPort, type ZeroLegacyPathKind } from "./zero-legacy-scanner.ts";
-import type { ZeroLegacySecureIo } from "./zero-legacy-secure-io.ts";
+import { createNodeZeroLegacyScannerPort } from "./zero-legacy-scanner.ts";
 
-function createSecureIo(kinds: ReadonlyMap<string, ZeroLegacyPathKind>): ZeroLegacySecureIo {
-  const secureIo: ZeroLegacySecureIo = {
-    canonicalize: (absolutePath) => Promise.resolve(`${absolutePath}/canonical`),
-    inspectPath: (_repoRoot, absolutePath) =>
-      absolutePath === "missing"
-        ? Promise.resolve(undefined)
-        : Promise.resolve(Object.freeze({ kind: kinds.get(absolutePath) ?? "other" })),
-    readDirectory: () => Promise.resolve(Object.freeze(["alpha", "beta"])),
-    readUtf8: () => Promise.resolve("fixture source"),
-  };
-  return Object.freeze(secureIo);
-}
-
-test("node port factory forwards typed read-only dependencies and distinguishes every node kind", async () => {
+test("node port factory uses ordinary read-only filesystem operations", async () => {
   const stdout: string[] = [];
   const stderr: string[] = [];
-  const kinds = new Map<string, ZeroLegacyPathKind>([
-    ["directory", "directory"],
-    ["file", "file"],
-    ["symlink", "symlink"],
-    ["other", "other"],
-  ]);
   let receivedGitInvocation: readonly string[] | undefined;
   const port = createNodeZeroLegacyScannerPort({
     execFile: (_file, arguments_, _options, callback) => {
       receivedGitInvocation = [...arguments_];
       callback(undefined, "/fixture/repository\n");
     },
-    secureIo: createSecureIo(kinds),
     writeStderr: (message) => {
       stderr.push(message);
     },
@@ -42,65 +21,64 @@ test("node port factory forwards typed read-only dependencies and distinguishes 
   });
 
   expect(Object.isFrozen(port)).toBeTrue();
-  expect(await port.canonicalize("/fixture")).toBe("/fixture/canonical");
-  expect(await port.getGitTopLevel("/fixture")).toBe("/fixture/repository");
-  expect(receivedGitInvocation).toEqual(["-C", "/fixture", "rev-parse", "--show-toplevel"]);
-  expect(await port.inspectPath("/fixture", "directory")).toEqual({ kind: "directory" });
-  expect(await port.inspectPath("/fixture", "file")).toEqual({ kind: "file" });
-  expect(await port.inspectPath("/fixture", "symlink")).toEqual({ kind: "symlink" });
-  expect(await port.inspectPath("/fixture", "other")).toEqual({ kind: "other" });
-  expect(await port.inspectPath("/fixture", "missing")).toBeUndefined();
-  expect(await port.readDirectory("/fixture", "/fixture")).toEqual(["alpha", "beta"]);
-  expect(await port.readUtf8("/fixture", "/fixture/file.ts")).toBe("fixture source");
+  const currentWorkingDirectory = process.cwd();
+  const packagePath = path.join(currentWorkingDirectory, "package.json");
+  expect(await port.canonicalize(currentWorkingDirectory)).toBe(currentWorkingDirectory);
+  expect(await port.getGitTopLevel(currentWorkingDirectory)).toBe("/fixture/repository");
+  expect(receivedGitInvocation).toEqual(["-C", currentWorkingDirectory, "rev-parse", "--show-toplevel"]);
+  expect(await port.inspectPath(currentWorkingDirectory)).toEqual({ kind: "directory" });
+  expect(await port.inspectPath(packagePath)).toEqual({ kind: "file" });
+  expect(await port.inspectPath(path.join(currentWorkingDirectory, "missing"))).toBeUndefined();
+  const directoryEntries = await port.readDirectory(currentWorkingDirectory);
+  expect(directoryEntries.length).toBeGreaterThan(0);
+  expect(await port.readUtf8(packagePath)).toContain('"name"');
   port.writeStdout("out");
   port.writeStderr("err");
   expect(stdout).toEqual(["out"]);
   expect(stderr).toEqual(["err"]);
 });
 
-test("default node port exposes only secure read operations", async () => {
+test("default node port exposes only ordinary read operations", async () => {
   const port = createNodeZeroLegacyScannerPort();
   const currentWorkingDirectory = process.cwd();
 
   expect(await port.canonicalize(currentWorkingDirectory)).toBe(currentWorkingDirectory);
   expect(await port.getGitTopLevel(currentWorkingDirectory)).toBe(currentWorkingDirectory);
-  const rootMetadata = await port.inspectPath(currentWorkingDirectory, currentWorkingDirectory);
+  const rootMetadata = await port.inspectPath(currentWorkingDirectory);
   expect(rootMetadata?.kind).toBe("directory");
-  const directoryEntries = await port.readDirectory(
-    currentWorkingDirectory,
-    currentWorkingDirectory,
-    rootMetadata?.identity,
-  );
+  const directoryEntries = await port.readDirectory(currentWorkingDirectory);
   expect(directoryEntries.length).toBeGreaterThan(0);
   const packagePath = path.join(currentWorkingDirectory, "package.json");
-  const packageMetadata = await port.inspectPath(currentWorkingDirectory, packagePath);
-  expect(await port.readUtf8(currentWorkingDirectory, packagePath, packageMetadata?.identity)).toContain(
-    '"name"',
-  );
+  const packageMetadata = await port.inspectPath(packagePath);
+  expect(packageMetadata?.kind).toBe("file");
+  expect(await port.readUtf8(packagePath)).toContain('"name"');
   port.writeStdout("");
   port.writeStderr("");
 });
 
-test("node port preserves typed secure-IO failures", async () => {
-  const port = createNodeZeroLegacyScannerPort({
-    secureIo: Object.freeze({
-      canonicalize: (absolutePath: string) => Promise.resolve(absolutePath),
-      inspectPath: () => Promise.reject(new Error("permission denied")),
-      readDirectory: () => Promise.resolve(Object.freeze([])),
-      readUtf8: () => Promise.resolve(""),
-    }),
-  });
+test("node port propagates ordinary filesystem read failures", async () => {
+  const port = createNodeZeroLegacyScannerPort();
 
-  let error: unknown;
+  let thrown: unknown;
   try {
-    await port.inspectPath("/fixture", "/fixture/forbidden");
-  } catch (error_: unknown) {
-    error = error_;
+    await port.readUtf8(process.cwd());
+  } catch (error: unknown) {
+    thrown = error;
   }
-  expect(error).toBeInstanceOf(Error);
-  if (error instanceof Error) {
-    expect(error.message).toBe("permission denied");
+  expect(thrown).toBeInstanceOf(Error);
+});
+
+test("node port classifies ordinary filesystem paths and propagates inspection errors", async () => {
+  const port = createNodeZeroLegacyScannerPort();
+  let thrown: unknown;
+  try {
+    expect(await port.inspectPath("/dev/fd")).toEqual({ kind: "symlink" });
+    expect(await port.inspectPath("/dev/null")).toEqual({ kind: "other" });
+    await port.inspectPath(path.join(process.cwd(), "package.json", "child"));
+  } catch (error: unknown) {
+    thrown = error;
   }
+  expect(thrown).toBeInstanceOf(Error);
 });
 
 test("node port propagates Git top-level lookup failures", async () => {

@@ -63,17 +63,17 @@ function createPort(nodes: ReadonlyMap<string, FixtureNode>): {
     port: Object.freeze({
       canonicalize: (absolutePath: string) => Promise.resolve(absolutePath),
       getGitTopLevel: () => Promise.resolve(fixtureRoot),
-      inspectPath: (_repoRoot: string, absolutePath: string) => {
+      inspectPath: (absolutePath: string) => {
         const node = nodes.get(absolutePath);
         return Promise.resolve(node === undefined ? undefined : Object.freeze({ kind: node.kind }));
       },
-      readDirectory: (_repoRoot: string, absolutePath: string) => {
+      readDirectory: (absolutePath: string) => {
         const node = nodes.get(absolutePath);
         return node?.kind === "directory"
           ? Promise.resolve(Object.freeze([...(node.children ?? [])]))
           : Promise.reject(new Error("not a directory"));
       },
-      readUtf8: (_repoRoot: string, absolutePath: string) => {
+      readUtf8: (absolutePath: string) => {
         const node = nodes.get(absolutePath);
         return node?.kind === "file" && node.content !== undefined
           ? Promise.resolve(node.content)
@@ -193,12 +193,12 @@ test("extractor handles recognized extensions and only semantic document destina
   expect(extractZeroLegacySemanticEntries("unknown.extension", "run-bot")).toEqual([]);
 });
 
-test("scanner fails closed when secure root inspection reports replacement", async () => {
+test("scanner fails closed when root inspection reports replacement", async () => {
   const output: string[] = [];
   const port: ZeroLegacyScannerPort = Object.freeze({
     canonicalize: (absolutePath: string) => Promise.resolve(absolutePath),
     getGitTopLevel: () => Promise.resolve(fixtureRoot),
-    inspectPath: (_repoRoot: string, absolutePath: string) => {
+    inspectPath: (absolutePath: string) => {
       if (absolutePath === fixtureRoot) {
         return Promise.reject(new Error("root identity replacement"));
       }

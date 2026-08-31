@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 
 import { zeroLegacyScannerConfig, type ZeroLegacyScannerConfig } from "./zero-legacy-config.ts";
@@ -9,17 +10,14 @@ import {
   type ZeroLegacySemanticEntry,
 } from "./zero-legacy-contract.ts";
 import { extractZeroLegacySemanticEntries } from "./zero-legacy-extractors.ts";
-import {
-  createZeroLegacySecureIo,
-  type ZeroLegacySecureIo,
-  type ZeroLegacySecurePathKind,
-  type ZeroLegacySecurePathMetadata,
-} from "./zero-legacy-secure-io.ts";
 
 export const zeroLegacyScanResultSchemaVersion = "zero-legacy-scan-result@1" as const;
 
-export type ZeroLegacyPathKind = ZeroLegacySecurePathKind;
-export type ZeroLegacyPathMetadata = ZeroLegacySecurePathMetadata;
+export type ZeroLegacyPathKind = "directory" | "file" | "other" | "symlink";
+
+export interface ZeroLegacyPathMetadata {
+  readonly kind: ZeroLegacyPathKind;
+}
 
 export interface ZeroLegacyNodeDependencies {
   readonly execFile: (
@@ -28,7 +26,6 @@ export interface ZeroLegacyNodeDependencies {
     options: Readonly<{ encoding: "utf8" }>,
     callback: (error: Error | undefined, stdout: string) => void,
   ) => void;
-  readonly secureIo: ZeroLegacySecureIo;
   readonly writeStderr: (message: string) => void;
   readonly writeStdout: (message: string) => void;
 }
@@ -36,16 +33,9 @@ export interface ZeroLegacyNodeDependencies {
 export interface ZeroLegacyScannerPort {
   readonly canonicalize: (absolutePath: string) => Promise<string>;
   readonly getGitTopLevel: (absolutePath: string) => Promise<string>;
-  readonly inspectPath: (
-    repoRoot: string,
-    absolutePath: string,
-  ) => Promise<ZeroLegacyPathMetadata | undefined>;
-  readonly readDirectory: (
-    repoRoot: string,
-    absolutePath: string,
-    expectedIdentity?: string,
-  ) => Promise<readonly string[]>;
-  readonly readUtf8: (repoRoot: string, absolutePath: string, expectedIdentity?: string) => Promise<string>;
+  readonly inspectPath: (absolutePath: string) => Promise<ZeroLegacyPathMetadata | undefined>;
+  readonly readDirectory: (absolutePath: string) => Promise<readonly string[]>;
+  readonly readUtf8: (absolutePath: string) => Promise<string>;
   readonly writeStderr: (message: string) => void;
   readonly writeStdout: (message: string) => void;
 }
@@ -61,6 +51,34 @@ export interface ZeroLegacyScannerCliResult {
 }
 
 const scanDiagnosticPath = "package.json";
+
+const isMissingPathError = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+
+function toPathKind(stats: Awaited<ReturnType<typeof lstat>>): ZeroLegacyPathKind {
+  if (stats.isDirectory()) {
+    return "directory";
+  }
+  if (stats.isFile()) {
+    return "file";
+  }
+  if (stats.isSymbolicLink()) {
+    return "symlink";
+  }
+  return "other";
+}
+
+async function inspectNodePath(absolutePath: string): Promise<ZeroLegacyPathMetadata | undefined> {
+  try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Scanner traversal validates every path.
+    return Object.freeze({ kind: toPathKind(await lstat(absolutePath)) });
+  } catch (error: unknown) {
+    if (isMissingPathError(error)) {
+      return undefined;
+    }
+    throw error;
+  }
+}
 
 function getGitTopLevel(
   absolutePath: string,
@@ -88,7 +106,6 @@ const unsealedDefaultNodeDependencies: ZeroLegacyNodeDependencies = {
       callback(error ?? undefined, stdout);
     });
   },
-  secureIo: createZeroLegacySecureIo(),
   writeStderr: (message) => process.stderr.write(message),
   writeStdout: (message) => process.stdout.write(message),
 };
@@ -100,11 +117,17 @@ export function createNodeZeroLegacyScannerPort(
 ): ZeroLegacyScannerPort {
   const resolvedDependencies: ZeroLegacyNodeDependencies = { ...defaultNodeDependencies, ...dependencies };
   return Object.freeze({
-    canonicalize: resolvedDependencies.secureIo.canonicalize,
+    canonicalize: realpath,
     getGitTopLevel: (absolutePath: string) => getGitTopLevel(absolutePath, resolvedDependencies.execFile),
-    inspectPath: resolvedDependencies.secureIo.inspectPath,
-    readDirectory: resolvedDependencies.secureIo.readDirectory,
-    readUtf8: resolvedDependencies.secureIo.readUtf8,
+    inspectPath: inspectNodePath,
+    readDirectory: async (absolutePath: string) => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Scanner traversal validates every path.
+      return Object.freeze(await readdir(absolutePath));
+    },
+    readUtf8: (absolutePath: string) => {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Scanner traversal validates every path.
+      return readFile(absolutePath, "utf8");
+    },
     writeStderr: resolvedDependencies.writeStderr,
     writeStdout: resolvedDependencies.writeStdout,
   });
@@ -182,7 +205,7 @@ async function scanRegularFile(
   }
   let sourceText: string;
   try {
-    sourceText = await port.readUtf8(repoRoot, absolutePath, metadata.identity);
+    sourceText = await port.readUtf8(absolutePath);
   } catch {
     entries.push(diagnosticEntry("unreadable-target", `${relativePath}:read`));
     return;
@@ -216,7 +239,7 @@ async function traverseTarget(
   }
   let metadata: ZeroLegacyPathMetadata | undefined;
   try {
-    metadata = await port.inspectPath(repoRoot, absolutePath);
+    metadata = await port.inspectPath(absolutePath);
   } catch {
     entries.push(diagnosticEntry("unreadable-target", `${relativePath}:path`));
     return;
@@ -240,7 +263,7 @@ async function traverseTarget(
   }
   let names: readonly string[];
   try {
-    names = await port.readDirectory(repoRoot, absolutePath, metadata.identity);
+    names = await port.readDirectory(absolutePath);
   } catch {
     entries.push(diagnosticEntry("unreadable-target", `${relativePath}:readdir`));
     return;
@@ -281,7 +304,7 @@ export async function scanRepoForLegacyReferences(
     if (canonicalRoot !== canonicalGitRoot) {
       throw new Error("Repository root is not the Git top-level");
     }
-    const rootMetadata = await port.inspectPath(canonicalRoot, canonicalRoot);
+    const rootMetadata = await port.inspectPath(canonicalRoot);
     if (rootMetadata?.kind !== "directory") {
       throw new Error("Repository root is not a directory");
     }
