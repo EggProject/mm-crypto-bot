@@ -11,9 +11,8 @@ function hasObservationsForSymbol(
   return "observationsForSymbol" in value && typeof value.observationsForSymbol === "function";
 }
 class StaleFundingSource extends support.ManualFundingSource {
-  public override lastTickAgeMs(): number {
-    return 6 * 60 * 1000;
-  }
+  public override readonly lastTickAgeMs = (): number => 6 * 60 * 1000;
+  public override readonly lastChainBlockTs = (): number => 1000;
 }
 function makePositionManager(): support.PositionManager {
   return new support.PositionManager({ initialEquityUsd: 10_000, maxPositions: 3, maxLeverage: 10 });
@@ -270,7 +269,6 @@ async function verifyForceExitLifecycle(): Promise<void> {
   );
   directRunner.dispose();
   await directFeed.close();
-
   for (const isPaperMode of [true, false]) {
     const feed = new support.MockExchangeFeed();
     await feed.open();
@@ -411,6 +409,9 @@ async function verifyRegimeDailyInputAndFundingExit(): Promise<void> {
   });
   carry.recordBybitEuLiquidity("BTC-USD", 1_000_000, 1000);
   fundingSource.fire(1000);
+  const verdicts = carry.state.killSwitchVerdicts;
+  assertCondition(verdicts["indexer-stale"].engaged, "indexer stale verdict did not engage");
+  assertCondition(!verdicts["chain-non-finalized"].engaged, "chain verdict unexpectedly engaged");
   carryPositionManager.openPosition("dydx_cex_carry", symbol, "long", 1, 100, 1);
   carry.onPositionOpened({
     side: "buy",
@@ -488,7 +489,6 @@ async function verifyUnsupportedAndCallbackFailureBoundaries(): Promise<void> {
   );
   runner.dispose();
 }
-
 export async function runStrategyRunnerMarketLifecycle(): Promise<void> {
   await verifyMultiTimeframeIndicators();
   await verifySymbolGates();
