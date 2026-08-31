@@ -305,3 +305,36 @@ git diff --cached --name-status
 git diff --cached --check
 git status --short
 ```
+
+### R5 review and historical staging evidence
+
+The `6dbe487..078a946` technical rereview is PASS. The PROCESS rereview has a
+Medium finding only for missing command-level evidence; that finding is
+addressed here. No historical precommit secret scan is claimed.
+
+```text
+# ad856ef exact staging and postcommit evidence
+git diff --cached --name-status
+# four M paths: scripts/tooling/zero-legacy-scanner.ts
+# scripts/tooling/zero-legacy-scanner.test.ts
+# scripts/tooling/zero-legacy-node-port.test.ts
+# scripts/tooling/zero-legacy-coverage-delta.test.ts
+git diff --cached --stat
+# 4 files changed, 193 insertions(+), 22 deletions(-)
+git diff --cached --check
+# exit 0
+git diff --cached --name-only
+# empty after commit
+wc -l scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-node-port.test.ts scripts/tooling/zero-legacy-coverage-delta.test.ts
+# 401 484 109 267
+git diff-tree --check ad856ef^ ad856ef
+# exit 0
+git diff-tree --no-commit-id --name-only -r ad856ef^ ad856ef
+# the exact four paths listed above
+# retrospective secret revalidation (not precommit)
+git show --format= --no-ext-diff ad856ef | rg -n -i '(api[_-]?key|client[_-]?secret|private[_-]?key|access[_-]?token|password)\s*[:=]'
+# no output, exit 1 expected
+```
+
+The PROCESS rereview remains pending after this evidence update. No full
+range PASS or live readiness is claimed.
