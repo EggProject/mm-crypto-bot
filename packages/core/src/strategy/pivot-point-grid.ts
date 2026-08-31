@@ -58,11 +58,17 @@ import type { Strategy, StrategyContext, StrategySignal } from "../types.js";
  * envelope target (~+20-50%/mo with 4% per-trade equity cap).
  */
 export interface PivotPointGridConfig {
-  /** Fibonacci 1 multiplier — inner band multiplier (default 0.382). */
+  /**
+  Fibonacci 1 multiplier — inner band multiplier (default 0.382).
+  */
   readonly multiplierFib1: number;
-  /** Fibonacci 2 multiplier — outer band multiplier (default 0.618). */
+  /**
+  Fibonacci 2 multiplier — outer band multiplier (default 0.618).
+  */
   readonly multiplierFib2: number;
-  /** Fibonacci 3 multiplier — extreme band multiplier (default 1.000). */
+  /**
+  Fibonacci 3 multiplier — extreme band multiplier (default 1.000).
+  */
   readonly multiplierFib3: number;
   /**
    * Per-trade equity cap (Phase 16 productionization). The emitted
@@ -85,7 +91,7 @@ export interface PivotPointGridConfig {
 export const DEFAULT_PIVOT_GRID_CONFIG: PivotPointGridConfig = {
   multiplierFib1: 0.382,
   multiplierFib2: 0.618,
-  multiplierFib3: 1.0,
+  multiplierFib3: 1,
   maxPositionPctEquity: 0.04,
 };
 
@@ -102,7 +108,9 @@ export const DEFAULT_PIVOT_GRID_CONFIG: PivotPointGridConfig = {
  */
 const ENGINE_MAX_POSITION_PCT_EQUITY = 0.2;
 
-/** HTF window length in milliseconds (one UTC day). */
+/**
+HTF window length in milliseconds (one UTC day).
+*/
 const HTF_MS = 86_400_000;
 
 interface PivotSymbolState {
@@ -116,6 +124,7 @@ interface PivotSymbolState {
 }
 
 export class PivotPointGridStrategy implements Strategy {
+  private readonly symbolState = new Map<string, PivotSymbolState>();
   readonly name = "Pivot Point Grid (Phase 15 M15 range-mean-reversion)";
   readonly timeframes = ["1d", "15m"] as const;
   readonly config: PivotPointGridConfig;
@@ -127,20 +136,33 @@ export class PivotPointGridStrategy implements Strategy {
   // finished HTF candle. Pivot points are computed from prev*.
   // ---------------------------------------------------------------------------
 
-  private readonly symbolState = new Map<string, PivotSymbolState>();
+  constructor(config: Partial<PivotPointGridConfig> = {}) {
+    this.config = { ...DEFAULT_PIVOT_GRID_CONFIG, ...config };
+  }
+
+  private getSymbolState(symbol: string): PivotSymbolState {
+    let state = this.symbolState.get(symbol);
+    if (state === undefined) {
+      state = { committedPrevHtfAtLeastOnce: false };
+      this.symbolState.set(symbol, state);
+    }
+    return state;
+  }
 
   /**
    * `committedPrevHtfAtLeastOnce` — true after the strategy has committed
    * at least one full HTF (1d) candle. Until this is true, the strategy
    * has no previous-day data to compute pivots from, and `onCandle` returns
-   * null. Exposed for tests to assert the boundary-detection contract.
+   * undefined. Exposed for tests to assert the boundary-detection contract.
    */
   get committedPrevHtfAtLeastOnce(): boolean {
-    return [...this.symbolState.values()].some((state) => state.committedPrevHtfAtLeastOnce);
-  }
-
-  constructor(config: Partial<PivotPointGridConfig> = {}) {
-    this.config = { ...DEFAULT_PIVOT_GRID_CONFIG, ...config };
+    const states = this.symbolState.values();
+    let next = states.next();
+    while (!next.done) {
+      if (next.value.committedPrevHtfAtLeastOnce) return true;
+      next = states.next();
+    }
+    return false;
   }
 
   /**
@@ -157,7 +179,7 @@ export class PivotPointGridStrategy implements Strategy {
    * accumulator first, then emits a mean-reversion signal if the LTF
    * close is at or beyond the configured bands of the previous-day pivot.
    *
-   * Always returns `null` when:
+   * Always returns `undefined` when:
    *   - `candleIndex` is below `warmup()` (engine warmup gate)
    *   - No committed previous HTF candle exists yet
    *   - The close is inside the inner bands (S1 < close < R1, middle zone)
@@ -168,15 +190,15 @@ export class PivotPointGridStrategy implements Strategy {
    * the configured per-trade equity cap while leaving the engine's
    * position-sizing as the sole hard enforcement layer.
    */
-  onCandle(ctx: StrategyContext): StrategySignal | null {
-    const { candle, candleIndex, pricePrecision } = ctx;
+  onCandle(context: StrategyContext): StrategySignal | undefined {
+    const { candle, candleIndex, pricePrecision } = context;
 
     if (candleIndex < this.warmup()) {
-      return null;
+      return undefined;
     }
 
-    this.onCandleObserved(ctx);
-    const state = this.getSymbolState(String(ctx.symbol));
+    this.onCandleObserved(context);
+    const state = this.getSymbolState(context.symbol);
 
     // Need a committed previous HTF candle for pivots.
     if (
@@ -184,7 +206,7 @@ export class PivotPointGridStrategy implements Strategy {
       state.prevHtfLow === undefined ||
       state.prevHtfClose === undefined
     ) {
-      return null;
+      return undefined;
     }
 
     const H = state.prevHtfHigh;
@@ -210,7 +232,7 @@ export class PivotPointGridStrategy implements Strategy {
     // (the cap is config-level, not signal-level), then apply it to the
     // raw confidence that each branch emits.
     // -----------------------------------------------------------------------
-    const capScale = Math.min(1.0, this.config.maxPositionPctEquity / ENGINE_MAX_POSITION_PCT_EQUITY);
+    const capScale = Math.min(1, this.config.maxPositionPctEquity / ENGINE_MAX_POSITION_PCT_EQUITY);
 
     /**
      * `applyCap` — scale a candidate signal's confidence by `capScale`.
@@ -220,7 +242,7 @@ export class PivotPointGridStrategy implements Strategy {
      * `capScale = 1.0` and the signal is emitted unchanged (legacy mode).
      */
     const applyCap = (raw: StrategySignal): StrategySignal => {
-      if (capScale === 1.0) return raw;
+      if (capScale === 1) return raw;
       return {
         ...raw,
         confidence: raw.confidence * capScale,
@@ -236,7 +258,7 @@ export class PivotPointGridStrategy implements Strategy {
     if (close <= S2) {
       return applyCap({
         side: "buy",
-        confidence: 1.0,
+        confidence: 1,
         reason: `PivotGrid LONG (deep): close ${close.toFixed(2)} <= S2 ${S2.toFixed(2)}, PP=${PP.toFixed(2)}`,
         stopLoss: roundTo(S3, pricePrecision),
         takeProfit: roundTo(PP, pricePrecision),
@@ -258,7 +280,7 @@ export class PivotPointGridStrategy implements Strategy {
     if (close >= R2) {
       return applyCap({
         side: "sell",
-        confidence: 1.0,
+        confidence: 1,
         reason: `PivotGrid SHORT (deep): close ${close.toFixed(2)} >= R2 ${R2.toFixed(2)}, PP=${PP.toFixed(2)}`,
         stopLoss: roundTo(R3, pricePrecision),
         takeProfit: roundTo(PP, pricePrecision),
@@ -277,13 +299,13 @@ export class PivotPointGridStrategy implements Strategy {
     }
 
     // Middle zone — S1 < close < R1 — no signal.
-    return null;
+    return undefined;
   }
 
-  onCandleObserved(ctx: StrategyContext): void {
-    if (ctx.candleIndex < this.warmup()) return;
-    const { candle } = ctx;
-    const state = this.getSymbolState(String(ctx.symbol));
+  onCandleObserved(context: StrategyContext): void {
+    if (context.candleIndex < this.warmup()) return;
+    const { candle } = context;
+    const state = this.getSymbolState(context.symbol);
     if (candle.timestamp % HTF_MS === 0) {
       if (
         state.currHtfHigh !== undefined &&
@@ -308,14 +330,5 @@ export class PivotPointGridStrategy implements Strategy {
       if (candle.low < state.currHtfLow) state.currHtfLow = candle.low;
     }
     state.currHtfClose = candle.close;
-  }
-
-  private getSymbolState(symbol: string): PivotSymbolState {
-    let state = this.symbolState.get(symbol);
-    if (state === undefined) {
-      state = { committedPrevHtfAtLeastOnce: false };
-      this.symbolState.set(symbol, state);
-    }
-    return state;
   }
 }

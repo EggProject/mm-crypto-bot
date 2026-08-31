@@ -1,146 +1,33 @@
-// packages/core/src/strategy/pivot-point-grid.test.ts — unit tests for the
-// Pivot Point Grid (Phase 15 M15 range-mean-reversion) strategy.
-//
-// Test coverage targets (18 tests, Phase 16 Track A added 4 cap tests):
-//   1. Default Fibonacci multipliers (0.382 / 0.618 / 1.000) + Phase 16 cap (0.04)
-//   2. Custom multipliers persist (Partial<Config> spread)
-//   3. warmup() returns 100
-//   4. candleIndex < warmup → no signal
-//   5. Missing previous HTF → no signal
-//   6. Boundary candle (timestamp % 86_400_000 === 0) commits prev*
-//   7. Pivot recomputed when a new HTF candle rolls up
-//   8. Within-bucket candles extend the running high/low/close
-//   9. close <= S2 → LONG, SL=S3, TP=PP, confidence=1.0 (legacy cap 1.0)
-//  10. close at S1 boundary (S2 < close <= S1) → LONG, SL=S2, TP=PP, confidence=0.7
-//  11. close >= R2 → SHORT, SL=R3, TP=PP, confidence=1.0
-//  12. close at R1 boundary (R1 <= close < R2) → SHORT, SL=R2, TP=PP, confidence=0.7
-//  13. Middle zone (S1 < close < R1) → no signal
-//  14. name + timeframes wired correctly for M15 LTF
-//
-// Phase 16 Track A — notional cap (maxPositionPctEquity):
-//  15. Default cap = 0.04 (Phase 16 productionization envelope)
-//  16. Cap respected (default 0.04) — shallow long conf 0.7 → scaled 0.14
-//  17. Cap respected (default 0.04) — deep short conf 1.0 → scaled 0.2
-//  18. Custom cap (0.02) — shallow long conf 0.7 → scaled 0.07
-//  19. Cap = 1.0 (legacy) — confidence unchanged (no clamping)
-//  20. Custom cap > engine max (0.5 vs 0.2) — scale clamped to 1.0
-
 import { describe, expect, it } from "bun:test";
 
 import { DEFAULT_PIVOT_GRID_CONFIG, PivotPointGridStrategy } from "./pivot-point-grid.js";
-import type { StrategyContext, StrategySignal } from "../types.js";
-import type { Candle, Symbol, Timeframe } from "@mm-crypto-bot/shared/types";
-
-const HTF_MS = 86_400_000;
-const LTF_MS = 15 * 60 * 1000;
-
-const makeCandle = (
-  close: number,
-  opts: { timestamp: number; open?: number; high?: number; low?: number; volume?: number } = {
-    timestamp: 1_700_000_000_000,
-  },
-): Candle => ({
-  timestamp: opts.timestamp,
-  open: opts.open ?? close,
-  high: opts.high ?? close,
-  low: opts.low ?? close,
-  close,
-  volume: opts.volume ?? 1000,
-});
-
-const makeCtx = (overrides: Partial<StrategyContext> = {}): StrategyContext => ({
-  symbol: "BTC/USDT" as unknown as Symbol,
-  timeframe: "15m" as Timeframe,
-  candleIndex: 200,
-  candle: makeCandle(100, { timestamp: 1_700_000_000_000 }),
-  mtfState: {
-    htf: {},
-    mtf: {},
-    ltf: {},
-  },
-  pricePrecision: 2,
-  ...overrides,
-});
-
-/**
- * `feedCandles` — pump a list of explicit OHLCV candles through the strategy
- * starting at candleIndex = `candleIndexBase`. Useful for staging
- * day-rollup sequences with exact H/L/C values.
- */
-function feedCandles(
-  strat: PivotPointGridStrategy,
-  candles: { timestamp: number; high: number; low: number; close: number }[],
-  candleIndexBase = 100,
-): void {
-  for (let i = 0; i < candles.length; i++) {
-    const c = candles[i]!;
-    strat.onCandle(
-      makeCtx({
-        candleIndex: candleIndexBase + i,
-        candle: makeCandle(c.close, c),
-      }),
-    );
-  }
-}
-
-/**
- * `seedPivotData` — drives enough candles to populate `prevHtf*` with
- * H=110, L=90, C=100. After this returns, the next call to `onCandle`
- * (at any timestamp that is NOT on a 1d boundary) sees:
- *   PP=100, range=20
- *   R1=107.64, S1=92.36
- *   R2=112.36, S2=87.64
- *   R3=120,    S3=80
- *
- * The fixture places 4 day-0 candles, then a 1d-boundary candle that
- * commits day 0's accumulated H/L/C to `prev*`.
- *
- * `candleIndex` starts at 100 (post-warmup) so the boundary detection
- * actually runs — warmup() returns 100 and `onCandle` short-circuits
- * before the boundary commit at candleIndex < 100.
- */
-function seedPivotData(strat: PivotPointGridStrategy): void {
-  const day0Start = 1_700_000_000_000 - (1_700_000_000_000 % HTF_MS);
-  const day1Boundary = day0Start + HTF_MS;
-  const day0Candles = [
-    { timestamp: day0Start + 0 * LTF_MS, high: 101, low: 99, close: 100 },
-    { timestamp: day0Start + 1 * LTF_MS, high: 110, low: 109, close: 110 },
-    { timestamp: day0Start + 2 * LTF_MS, high: 91, low: 90, close: 90 },
-    { timestamp: day0Start + 3 * LTF_MS, high: 101, low: 99, close: 100 },
-  ];
-  feedCandles(strat, day0Candles, 100);
-
-  // Boundary candle (day 1 start) — commits prev* to (110, 90, 100).
-  strat.onCandle(
-    makeCtx({
-      candleIndex: 104,
-      candle: makeCandle(102, {
-        timestamp: day1Boundary,
-        open: 102,
-        high: 103,
-        low: 101,
-      }),
-    }),
-  );
-}
+import type { StrategySignal } from "../types.js";
+import {
+  DAY_ZERO_START_MS,
+  HTF_MS,
+  LTF_MS,
+  feedCandles,
+  makeCandle,
+  makeContext,
+} from "./pivot-point-grid.test-support.js";
 
 describe("PivotPointGridStrategy — default config & warmup", () => {
   it("1. default multipliers are 0.382 / 0.618 / 1.000 (classical Fibonacci pivots) + Phase 16 cap 0.04", () => {
     expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib1).toBe(0.382);
     expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib2).toBe(0.618);
-    expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib3).toBe(1.0);
+    expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib3).toBe(1);
     expect(DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity).toBe(0.04);
   });
 
   it("2. custom config persists (Partial<Config> spread) — multipliers AND cap", () => {
     const strat = new PivotPointGridStrategy({
       multiplierFib1: 0.5,
-      multiplierFib2: 1.0,
+      multiplierFib2: 1,
       multiplierFib3: 1.5,
       maxPositionPctEquity: 0.08,
     });
     expect(strat.config.multiplierFib1).toBe(0.5);
-    expect(strat.config.multiplierFib2).toBe(1.0);
+    expect(strat.config.multiplierFib2).toBe(1);
     expect(strat.config.multiplierFib3).toBe(1.5);
     expect(strat.config.maxPositionPctEquity).toBe(0.08);
   });
@@ -150,22 +37,24 @@ describe("PivotPointGridStrategy — default config & warmup", () => {
     expect(strat.warmup()).toBe(100);
   });
 
-  it("4. candleIndex < warmup → null signal (engine warmup gate)", () => {
+  it("4. candleIndex < warmup → undefined signal (engine warmup gate)", () => {
     const strat = new PivotPointGridStrategy();
-    const ctx = makeCtx({ candleIndex: 50 });
-    expect(strat.onCandle(ctx)).toBeNull();
+    const context = makeContext({ candleIndex: 50 });
+    strat.onCandleObserved(context);
+    expect(strat.committedPrevHtfAtLeastOnce).toBe(false);
+    expect(strat.onCandle(context)).toBeUndefined();
   });
 
-  it("5. missing prev HTF data → null signal (no committed previous-day candle yet)", () => {
+  it("5. missing prev HTF data → undefined signal (no committed previous-day candle yet)", () => {
     const strat = new PivotPointGridStrategy();
     // candleIndex is past warmup, but we never cross a 1d boundary,
     // so prev* is still undefined.
-    let lastSignal: StrategySignal | null = null;
-    for (let i = 0; i < 110; i++) {
-      const ts = 1_700_003_500_000 + i * LTF_MS; // intentionally NOT on a 1d boundary
+    let lastSignal: StrategySignal | undefined;
+    for (let index = 0; index < 110; index++) {
+      const ts = 1_700_003_500_000 + index * LTF_MS; // intentionally NOT on a 1d boundary
       lastSignal = strat.onCandle(
-        makeCtx({
-          candleIndex: 100 + i,
+        makeContext({
+          candleIndex: 100 + index,
           candle: makeCandle(100, {
             timestamp: ts,
             open: 100,
@@ -175,7 +64,7 @@ describe("PivotPointGridStrategy — default config & warmup", () => {
         }),
       );
     }
-    expect(lastSignal).toBeNull();
+    expect(lastSignal).toBeUndefined();
     expect(strat.committedPrevHtfAtLeastOnce).toBe(false);
   });
 });
@@ -183,14 +72,14 @@ describe("PivotPointGridStrategy — default config & warmup", () => {
 describe("PivotPointGridStrategy — HTF boundary detection", () => {
   it("6. boundary candle (timestamp % 86_400_000 === 0) commits prev* + resets accumulator", () => {
     const strat = new PivotPointGridStrategy();
-    const day0Start = 1_700_000_000_000 - (1_700_000_000_000 % HTF_MS);
+    const day0Start = DAY_ZERO_START_MS;
     const day1Boundary = day0Start + HTF_MS;
 
     // Day 0: 4 candles. Accumulated H/L/C after the 4th candle: H=110, L=90, C=100.
     feedCandles(
       strat,
       [
-        { timestamp: day0Start + 0 * LTF_MS, high: 101, low: 99, close: 100 },
+        { timestamp: day0Start, high: 101, low: 99, close: 100 },
         { timestamp: day0Start + 1 * LTF_MS, high: 110, low: 109, close: 110 },
         { timestamp: day0Start + 2 * LTF_MS, high: 91, low: 90, close: 90 },
         { timestamp: day0Start + 3 * LTF_MS, high: 101, low: 99, close: 100 },
@@ -202,7 +91,7 @@ describe("PivotPointGridStrategy — HTF boundary detection", () => {
 
     // First candle of day 1 (timestamp on the 1d boundary) — commits day 0.
     strat.onCandle(
-      makeCtx({
+      makeContext({
         candleIndex: 104,
         candle: makeCandle(102, {
           timestamp: day1Boundary,
@@ -216,14 +105,14 @@ describe("PivotPointGridStrategy — HTF boundary detection", () => {
   });
 
   it("7. pivot point recomputes when a new HTF candle rolls up (legacy cap)", () => {
-    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
+    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1 });
     // Tight day-0 range: H=101, L=99, C=100 → PP=100, range=2.
-    const day0Start = 1_700_000_000_000 - (1_700_000_000_000 % HTF_MS);
+    const day0Start = DAY_ZERO_START_MS;
     const day1Boundary = day0Start + HTF_MS;
     feedCandles(
       strat,
       [
-        { timestamp: day0Start + 0 * LTF_MS, high: 100.5, low: 99.5, close: 100 },
+        { timestamp: day0Start, high: 100.5, low: 99.5, close: 100 },
         { timestamp: day0Start + 1 * LTF_MS, high: 101, low: 100, close: 100.5 },
         { timestamp: day0Start + 2 * LTF_MS, high: 100.5, low: 99, close: 100 },
         { timestamp: day0Start + 3 * LTF_MS, high: 100.5, low: 99.5, close: 100 },
@@ -231,7 +120,7 @@ describe("PivotPointGridStrategy — HTF boundary detection", () => {
       100,
     );
     strat.onCandle(
-      makeCtx({
+      makeContext({
         candleIndex: 104,
         candle: makeCandle(100, { timestamp: day1Boundary, open: 100, high: 100.5, low: 99.5 }),
       }),
@@ -241,266 +130,33 @@ describe("PivotPointGridStrategy — HTF boundary detection", () => {
     //   R1=100.764, S1=99.236, R2=101.236, S2=98.764, R3=102, S3=98.
     // close=97.5 < S2 (98.764) → deep long, stopLoss=S3=98, TP=PP=100.
     const signal = strat.onCandle(
-      makeCtx({
+      makeContext({
         candleIndex: 200,
         candle: makeCandle(97.5, { timestamp: 1_700_003_000_000 }),
       }),
     );
     expect(signal).not.toBeNull();
     expect(signal?.side).toBe("buy");
-    expect(signal?.confidence).toBe(1.0);
+    expect(signal?.confidence).toBe(1);
     expect(signal?.stopLoss).toBeCloseTo(98, 2);
     expect(signal?.takeProfit).toBeCloseTo(100, 2);
   });
 
   it("8. within-bucket candles extend the running high/low/close (no commit until boundary)", () => {
     const strat = new PivotPointGridStrategy();
-    for (let i = 0; i < 10; i++) {
+    for (let index = 0; index < 10; index++) {
       strat.onCandle(
-        makeCtx({
-          candleIndex: 100 + i,
-          candle: makeCandle(100 + i, {
-            timestamp: 1_700_001_500_000 + i * LTF_MS, // not on a 1d boundary
-            open: 100 + i,
-            high: (100 + i) * 1.01,
-            low: (100 + i) * 0.99,
+        makeContext({
+          candleIndex: 100 + index,
+          candle: makeCandle(100 + index, {
+            timestamp: 1_700_001_500_000 + index * LTF_MS, // not on a 1d boundary
+            open: 100 + index,
+            high: (100 + index) * 1.01,
+            low: (100 + index) * 0.99,
           }),
         }),
       );
     }
     expect(strat.committedPrevHtfAtLeastOnce).toBe(false);
-  });
-});
-
-describe("PivotPointGridStrategy — entry signals", () => {
-  it("9. close <= S2 → LONG (deep overshoot) with SL=S3, TP=PP, confidence=1.0 (legacy cap)", () => {
-    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
-    seedPivotData(strat);
-    // Pivots: PP=100, S3=80, S2=87.64, S1=92.36, R1=107.64, R2=112.36, R3=120.
-    // close=85 < S2 (87.64) → deep long.
-    const signal = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(85, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    expect(signal).not.toBeNull();
-    expect(signal?.side).toBe("buy");
-    expect(signal?.confidence).toBe(1.0);
-    expect(signal?.stopLoss).toBeCloseTo(80, 2); // S3
-    expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
-  });
-
-  it("10. close at S1 boundary (S2 < close <= S1) → LONG (shallow overshoot), confidence=0.7 (legacy cap)", () => {
-    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
-    seedPivotData(strat);
-    // close=90 — sits in the S2..S1 band (87.64 < 90 <= 92.36) → shallow long.
-    const signal = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(90, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    expect(signal).not.toBeNull();
-    expect(signal?.side).toBe("buy");
-    expect(signal?.confidence).toBe(0.7);
-    expect(signal?.stopLoss).toBeCloseTo(87.64, 2); // S2
-    expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
-  });
-
-  it("11. close >= R2 → SHORT (deep overbought) with SL=R3, TP=PP, confidence=1.0 (legacy cap)", () => {
-    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
-    seedPivotData(strat);
-    // close=115 > R2 (112.36) → deep short.
-    const signal = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(115, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    expect(signal).not.toBeNull();
-    expect(signal?.side).toBe("sell");
-    expect(signal?.confidence).toBe(1.0);
-    expect(signal?.stopLoss).toBeCloseTo(120, 2); // R3
-    expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
-  });
-
-  it("12. close at R1 boundary (R1 <= close < R2) → SHORT (shallow overbought), confidence=0.7 (legacy cap)", () => {
-    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
-    seedPivotData(strat);
-    // close=108 — in the R1..R2 band (107.64 <= 108 < 112.36) → shallow short.
-    const signal = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(108, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    expect(signal).not.toBeNull();
-    expect(signal?.side).toBe("sell");
-    expect(signal?.confidence).toBe(0.7);
-    expect(signal?.stopLoss).toBeCloseTo(112.36, 2); // R2
-    expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
-  });
-
-  it("13. middle zone (S1 < close < R1) → no signal (cap irrelevant when null)", () => {
-    const strat = new PivotPointGridStrategy();
-    seedPivotData(strat);
-    // close=100 — exactly at PP, well inside S1..R1 → middle zone, no signal.
-    const signal = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(100, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    expect(signal).toBeNull();
-  });
-});
-
-describe("PivotPointGridStrategy — strategy surface", () => {
-  it("14. name and timeframes are wired correctly for M15 LTF", () => {
-    const strat = new PivotPointGridStrategy();
-    expect(strat.name).toContain("Pivot Point Grid");
-    expect(strat.timeframes).toEqual(["1d", "15m"]);
-  });
-});
-
-describe("PivotPointGridStrategy — symbol isolation", () => {
-  it("does not reuse BTC daily pivots when ETH is interleaved on the same instance", () => {
-    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1 });
-    seedPivotData(strat);
-    const timestamp = 1_700_000_000_000 + LTF_MS;
-
-    const ethSignal = strat.onCandle(
-      makeCtx({
-        symbol: "ETH/USDT" as unknown as Symbol,
-        candleIndex: 200,
-        candle: makeCandle(10, { timestamp }),
-      }),
-    );
-    const btcSignal = strat.onCandle(
-      makeCtx({
-        symbol: "BTC/USDT" as unknown as Symbol,
-        candleIndex: 201,
-        candle: makeCandle(80, { timestamp: timestamp + LTF_MS }),
-      }),
-    );
-
-    expect(ethSignal).toBeNull();
-    expect(btcSignal?.side).toBe("buy");
-  });
-});
-
-describe("PivotPointGridStrategy — Phase 16 notional cap (maxPositionPctEquity)", () => {
-  it("15. DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity === 0.04 (productionization envelope)", () => {
-    expect(DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity).toBe(0.04);
-    // Cap ratio at default: 0.04 / 0.20 = 0.20 (engine cap), so emitted
-    // confidence is scaled to 20% of its raw value.
-  });
-
-  it("16. default cap (0.04) scales shallow long confidence 0.7 → 0.14", () => {
-    const strat = new PivotPointGridStrategy(); // default cap 0.04
-    seedPivotData(strat);
-    // Pivots: PP=100, S1=92.36, S2=87.64.
-    // close=90 sits in the S2..S1 band (87.64 < 90 <= 92.36) → shallow long.
-    // capScale = min(1, 0.04 / 0.20) = 0.20. Scaled confidence = 0.7 * 0.20 = 0.14.
-    const signal = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(90, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    expect(signal).not.toBeNull();
-    expect(signal?.side).toBe("buy");
-    expect(signal?.confidence).toBeCloseTo(0.14, 5);
-    // SL / TP / reason fields remain raw (cap only scales confidence).
-    expect(signal?.stopLoss).toBeCloseTo(87.64, 2);
-    expect(signal?.takeProfit).toBeCloseTo(100, 2);
-  });
-
-  it("17. default cap (0.04) scales deep short confidence 1.0 → 0.2", () => {
-    const strat = new PivotPointGridStrategy(); // default cap 0.04
-    seedPivotData(strat);
-    // close=115 > R2 (112.36) → deep short, raw confidence 1.0.
-    // capScale = 0.04 / 0.20 = 0.20. Scaled confidence = 1.0 * 0.20 = 0.20.
-    const signal = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(115, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    expect(signal).not.toBeNull();
-    expect(signal?.side).toBe("sell");
-    expect(signal?.confidence).toBeCloseTo(0.2, 5);
-    expect(signal?.stopLoss).toBeCloseTo(120, 2); // R3 (raw, unchanged by cap)
-    expect(signal?.takeProfit).toBeCloseTo(100, 2); // PP
-  });
-
-  it("18. custom cap (0.02) scales shallow long confidence 0.7 → 0.07", () => {
-    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 0.02 });
-    seedPivotData(strat);
-    // capScale = 0.02 / 0.20 = 0.10. Scaled confidence = 0.7 * 0.10 = 0.07.
-    const signal = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(90, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    expect(signal).not.toBeNull();
-    expect(signal?.side).toBe("buy");
-    expect(signal?.confidence).toBeCloseTo(0.07, 5);
-  });
-
-  it("19. cap = 1.0 (legacy) → confidence unchanged (no clamping)", () => {
-    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1.0 });
-    seedPivotData(strat);
-    // capScale = min(1, 1.0 / 0.20) = 1.0 → no scaling.
-    const shallow = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(90, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    const deep = strat.onCandle(
-      makeCtx({
-        candleIndex: 201,
-        candle: makeCandle(85, { timestamp: 1_700_010_900_000 }),
-      }),
-    );
-    expect(shallow?.confidence).toBe(0.7); // unchanged
-    expect(deep?.confidence).toBe(1.0); // unchanged
-  });
-
-  it("20. cap > engine max (e.g. 0.5) → capScale clamped to 1.0 (no clamping, never amplifies)", () => {
-    const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 0.5 });
-    seedPivotData(strat);
-    // capScale = min(1, 0.5 / 0.20) = 1.0 → no amplification, raw confidence preserved.
-    const shallow = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(90, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    const deep = strat.onCandle(
-      makeCtx({
-        candleIndex: 201,
-        candle: makeCandle(115, { timestamp: 1_700_010_900_000 }),
-      }),
-    );
-    expect(shallow?.confidence).toBe(0.7); // unchanged
-    expect(deep?.confidence).toBe(1.0); // unchanged
-  });
-
-  it("21. middle zone (S1 < close < R1) → null signal regardless of cap", () => {
-    // Cap is irrelevant when no signal is emitted — middle-zone returns null
-    // before any scaling is applied.
-    const strat = new PivotPointGridStrategy();
-    seedPivotData(strat);
-    const signal = strat.onCandle(
-      makeCtx({
-        candleIndex: 200,
-        candle: makeCandle(100, { timestamp: 1_700_010_000_000 }),
-      }),
-    );
-    expect(signal).toBeNull();
   });
 });

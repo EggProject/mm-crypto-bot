@@ -6,6 +6,8 @@
 
 import { describe, expect, it } from "bun:test";
 
+import { makeSymbol } from "@mm-crypto-bot/shared/types";
+
 import { DEFAULT_DONCHIAN_RANGE_CONFIG, DonchianRangeChannelStrategy } from "./donchian-range-channel.js";
 import type { StrategyContext } from "../types.js";
 
@@ -18,14 +20,14 @@ const baseCandle = (close: number) => ({
   volume: 1000,
 });
 
-type DonchianCtxOverrides = Partial<StrategyContext> & {
+type DonchianContextOverrides = Partial<StrategyContext> & {
   readonly htfDonchianUpper?: number | undefined;
   readonly htfDonchianLower?: number | undefined;
   readonly htfAdx?: number | undefined;
   readonly ltfAtr?: number | undefined;
 };
 
-const makeCtx = (overrides: DonchianCtxOverrides = {}): StrategyContext => {
+const makeContext = (overrides: DonchianContextOverrides = {}): StrategyContext => {
   const { htfDonchianUpper, htfDonchianLower, htfAdx, ltfAtr, ...rest } = overrides;
   const htf: { donchianUpper?: number; donchianLower?: number; adx?: number } = {};
   if (htfDonchianUpper !== undefined) htf.donchianUpper = htfDonchianUpper;
@@ -34,7 +36,7 @@ const makeCtx = (overrides: DonchianCtxOverrides = {}): StrategyContext => {
   const ltf: { atr?: number } = {};
   if (ltfAtr !== undefined) ltf.atr = ltfAtr;
   return {
-    symbol: "BTC/USDT" as never,
+    symbol: makeSymbol("BTC/USDT"),
     timeframe: "15m",
     candleIndex: 200,
     candle: baseCandle(100),
@@ -66,9 +68,9 @@ describe("DonchianRangeChannelStrategy", () => {
     expect(strat.warmup()).toBe(30);
   });
 
-  it("warmup candles return null (no signal until index >= 30)", () => {
+  it("warmup candles return undefined (no signal until index >= 30)", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candleIndex: 5,
       candle: baseCandle(80),
       htfDonchianUpper: 110,
@@ -76,19 +78,19 @@ describe("DonchianRangeChannelStrategy", () => {
       htfAdx: 20,
       ltfAtr: 2,
     });
-    expect(strat.onCandle(ctx)).toBeNull();
+    expect(strat.onCandle(context)).toBeUndefined();
   });
 
   it("LTF close ≤ DonchianLower and ADX < 25 → long signal (SL=lower-atr, TP=upper)", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(89), // ≤ lower (90)
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 20,
       ltfAtr: 3,
     });
-    const signal = strat.onCandle(ctx);
+    const signal = strat.onCandle(context);
     expect(signal).not.toBeNull();
     expect(signal?.side).toBe("buy");
     expect(signal?.confidence).toBe(1);
@@ -98,14 +100,14 @@ describe("DonchianRangeChannelStrategy", () => {
 
   it("LTF close ≥ DonchianUpper and ADX < 25 → short signal (SL=upper+atr, TP=lower)", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(111), // ≥ upper (110)
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 20,
       ltfAtr: 3,
     });
-    const signal = strat.onCandle(ctx);
+    const signal = strat.onCandle(context);
     expect(signal).not.toBeNull();
     expect(signal?.side).toBe("sell");
     expect(signal?.confidence).toBe(1);
@@ -115,64 +117,64 @@ describe("DonchianRangeChannelStrategy", () => {
 
   it("LTF close === DonchianLower exactly → long signal (≤ boundary is inclusive)", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(90),
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 20,
       ltfAtr: 2,
     });
-    const signal = strat.onCandle(ctx);
+    const signal = strat.onCandle(context);
     expect(signal?.side).toBe("buy");
   });
 
   it("LTF close === DonchianUpper exactly → short signal (≥ boundary is inclusive)", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(110),
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 20,
       ltfAtr: 2,
     });
-    const signal = strat.onCandle(ctx);
+    const signal = strat.onCandle(context);
     expect(signal?.side).toBe("sell");
   });
 
   it("middle zone (lower < close < upper) → no signal", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(100), // between 90 and 110
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 20,
       ltfAtr: 2,
     });
-    expect(strat.onCandle(ctx)).toBeNull();
+    expect(strat.onCandle(context)).toBeUndefined();
   });
 
   it("ADX > 25 (trending regime) → no signal even at the lower rail", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(89),
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 30,
       ltfAtr: 2,
     });
-    expect(strat.onCandle(ctx)).toBeNull();
+    expect(strat.onCandle(context)).toBeUndefined();
   });
 
   it("ADX exactly 25 (threshold) → no signal (strict > comparison)", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(89),
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 25, // boundary value — skipped
       ltfAtr: 2,
     });
-    expect(strat.onCandle(ctx)).toBeNull();
+    expect(strat.onCandle(context)).toBeUndefined();
   });
 
   it("ADX undefined → trend filter is skipped (code falls through, range fires)", () => {
@@ -181,70 +183,72 @@ describe("DonchianRangeChannelStrategy", () => {
     // pins that behavior so a future refactor that flips the guard does
     // not regress to a no-op during the ADX warmup window.
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(89),
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       ltfAtr: 2,
     });
-    expect(strat.onCandle(ctx)?.side).toBe("buy");
+    const signal = strat.onCandle(context);
+    expect(signal?.side).toBe("buy");
+    expect(signal?.reason).toContain("ADX=n/a");
   });
 
   it("missing Donchian upper → no signal", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(89),
       htfDonchianUpper: undefined,
       htfDonchianLower: 90,
       htfAdx: 20,
       ltfAtr: 2,
     });
-    expect(strat.onCandle(ctx)).toBeNull();
+    expect(strat.onCandle(context)).toBeUndefined();
   });
 
   it("missing Donchian lower → no signal", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(111),
       htfDonchianUpper: 110,
       htfDonchianLower: undefined,
       htfAdx: 20,
       ltfAtr: 2,
     });
-    expect(strat.onCandle(ctx)).toBeNull();
+    expect(strat.onCandle(context)).toBeUndefined();
   });
 
   it("missing LTF ATR → no signal (cannot compute stop distance)", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(89),
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 20,
       ltfAtr: undefined,
     });
-    expect(strat.onCandle(ctx)).toBeNull();
+    expect(strat.onCandle(context)).toBeUndefined();
   });
 
   it("custom adxTrendThreshold=30 admits ADX=25 but skips ADX=31", () => {
     const strat = new DonchianRangeChannelStrategy({ adxTrendThreshold: 30 });
-    const lowAdxCtx = makeCtx({
+    const lowAdxContext = makeContext({
       candle: baseCandle(89),
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 25, // below the new 30 threshold → fires
       ltfAtr: 2,
     });
-    expect(strat.onCandle(lowAdxCtx)?.side).toBe("buy");
+    expect(strat.onCandle(lowAdxContext)?.side).toBe("buy");
 
-    const highAdxCtx = makeCtx({
+    const highAdxContext = makeContext({
       candle: baseCandle(89),
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 31, // above 30 → skipped
       ltfAtr: 2,
     });
-    expect(strat.onCandle(highAdxCtx)).toBeNull();
+    expect(strat.onCandle(highAdxContext)).toBeUndefined();
   });
 
   it("timeframes field reports ['1d', '15m'] in that order", () => {
@@ -254,17 +258,38 @@ describe("DonchianRangeChannelStrategy", () => {
 
   it("reason string includes close, Donchian rail, ADX, and ATR for debug", () => {
     const strat = new DonchianRangeChannelStrategy();
-    const ctx = makeCtx({
+    const context = makeContext({
       candle: baseCandle(89),
       htfDonchianUpper: 110,
       htfDonchianLower: 90,
       htfAdx: 20,
       ltfAtr: 3,
     });
-    const signal = strat.onCandle(ctx);
+    const signal = strat.onCandle(context);
     expect(signal?.reason).toContain("89.00");
     expect(signal?.reason).toContain("90.00");
     expect(signal?.reason).toContain("ADX=20.00");
     expect(signal?.reason).toContain("ATR(14)=3.00");
+
+    const withoutAdx = strat.onCandle(
+      makeContext({
+        candle: baseCandle(89),
+        htfDonchianUpper: 110,
+        htfDonchianLower: 90,
+        htfAdx: undefined,
+        ltfAtr: 3,
+      }),
+    );
+    expect(withoutAdx?.reason).toContain("ADX=n/a");
+    const shortWithoutAdx = strat.onCandle(
+      makeContext({
+        candle: baseCandle(111),
+        htfDonchianUpper: 110,
+        htfDonchianLower: 90,
+        htfAdx: undefined,
+        ltfAtr: 3,
+      }),
+    );
+    expect(shortWithoutAdx?.reason).toContain("ADX=n/a");
   });
 });

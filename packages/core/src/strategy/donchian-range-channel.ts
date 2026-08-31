@@ -15,7 +15,7 @@
 //      (`htfDonchianPeriod: 20` is the project default).
 //   2. Read HTF ADX(14) from `mtfState.htf.adx`.
 //   3. Read LTF ATR(14) from `mtfState.ltf.atr` for stop-loss distance.
-//   4. TREND FILTER: if `adx > 25` → return null (range strategy does not
+//   4. TREND FILTER: if `adx > 25` → return undefined (range strategy does not
 //      apply in trending markets — ADX > 25 is the conventional range /
 //      trend threshold; see Wilder, "New Concepts in Technical Trading
 //      Systems", 1978).
@@ -59,7 +59,7 @@ export interface DonchianRangeChannelConfig {
   readonly donchianPeriod: number;
   /**
    * ADX(14) at or above this threshold is treated as a trending regime —
-   * the strategy returns null in that case (range strategies lose to trends).
+   * the strategy returns undefined in that case (range strategies lose to trends).
    * The comparison is `>=` (Wilder 1978 canonical reading: ADX 25 = the
    * trend threshold boundary).
    */
@@ -86,20 +86,20 @@ export class DonchianRangeChannelStrategy implements Strategy {
     return 30;
   }
 
-  onCandle(ctx: StrategyContext): StrategySignal | null {
-    const { candle, candleIndex, mtfState, pricePrecision } = ctx;
+  onCandle(context: StrategyContext): StrategySignal | undefined {
+    const { candle, candleIndex, mtfState, pricePrecision } = context;
     if (candleIndex < this.warmup()) {
-      return null;
+      return undefined;
     }
-    const htf = mtfState.htf;
-    const ltf = mtfState.ltf;
     // 1) Missing Donchian rails → no signal (cannot define the channel).
+    const htf = mtfState.htf;
     if (htf.donchianUpper === undefined || htf.donchianLower === undefined) {
-      return null;
+      return undefined;
     }
     // 2) Missing ATR → no signal (cannot compute stop distance).
+    const ltf = mtfState.ltf;
     if (ltf.atr === undefined) {
-      return null;
+      return undefined;
     }
     // 3) Trend filter — ADX AT OR ABOVE the threshold skips the strategy.
     //    Wilder (1978) treats ADX >= 25 as the canonical trend threshold, so
@@ -108,7 +108,7 @@ export class DonchianRangeChannelStrategy implements Strategy {
     //    channel-reversion systems (Wilder 1978 §3): a range signal that
     //    fires inside a trend gets steam-rolled by the trend.
     if (htf.adx !== undefined && htf.adx >= this.config.adxTrendThreshold) {
-      return null;
+      return undefined;
     }
     const atr = ltf.atr;
     const upper = htf.donchianUpper;
@@ -141,6 +141,6 @@ export class DonchianRangeChannelStrategy implements Strategy {
     }
     // 6) Middle zone — no signal. The position-management layer
     //    (Phase 7 trailing-stop, Phase 15 ensemble) handles open positions.
-    return null;
+    return undefined;
   }
 }

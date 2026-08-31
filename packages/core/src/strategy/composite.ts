@@ -9,12 +9,12 @@
 //
 // Trend-filter logika (kritikus — a Phase 4 mean-reversion stop-loss
 // dominancia 73-82%-át a trend-piac ellen irányú short jelzések okozták):
-//   - Ha trend (component1) NULL → egyik jelzést sem fogadjuk el (nincs trend)
+//   - If trend (component1) is undefined → accept no signals (no trend)
 //   - Ha trend LONG és MR LONG → mindkettő LONG, composite LONG
 //   - Ha trend LONG és MR SHORT → MR jelzést ELVETJÜK (trend hosszabb távú), composite LONG
 //   - Ha trend SHORT és MR SHORT → mindkettő SHORT, composite SHORT
 //   - Ha trend SHORT és MR LONG → MR jelzést ELVETJÜK, composite SHORT
-//   - Ha trend LONG/SHORT és MR NULL → composite a trend signált követi
+//   - If trend is LONG/SHORT and MR is undefined → composite follows the trend signal
 //
 // A Phase 5 brief §1.3-ban leírt "Strategy B" komponens.
 //
@@ -27,12 +27,87 @@
 
 import type { Strategy, StrategyContext, StrategySignal } from "../types.js";
 
+class CompositeStrategyCallbackError extends Error {
+  constructor(component: "component1" | "component2", detail: string, cause?: unknown) {
+    super(`CompositeStrategy callback result from ${component} is invalid: ${detail}`, { cause });
+    this.name = "CompositeStrategyCallbackError";
+  }
+}
+
+function isSignalRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function isUnitIntervalNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function isSignalSide(value: unknown): value is "buy" | "sell" {
+  return value === "buy" || value === "sell";
+}
+
+function snapshotStrategySignal(
+  component: "component1" | "component2",
+  callbackResult: unknown,
+): StrategySignal {
+  if (!isSignalRecord(callbackResult)) {
+    throw new CompositeStrategyCallbackError(component, "it must be a non-null object");
+  }
+
+  let side: unknown;
+  let confidence: unknown;
+  let reason: unknown;
+  let stopLoss: unknown;
+  let takeProfit: unknown;
+  try {
+    side = callbackResult["side"];
+    confidence = callbackResult["confidence"];
+    reason = callbackResult["reason"];
+    stopLoss = callbackResult["stopLoss"];
+    takeProfit = callbackResult["takeProfit"];
+  } catch (error) {
+    throw new CompositeStrategyCallbackError(component, "its fields are unreadable", error);
+  }
+
+  if (!isSignalSide(side)) {
+    throw new CompositeStrategyCallbackError(component, "side must be buy or sell");
+  }
+  if (!isUnitIntervalNumber(confidence)) {
+    throw new CompositeStrategyCallbackError(component, "confidence must be finite and in [0, 1]");
+  }
+  if (typeof reason !== "string" || reason.trim().length === 0) {
+    throw new CompositeStrategyCallbackError(component, "reason must be a non-empty string");
+  }
+  if (!isPositiveFiniteNumber(stopLoss) || !isPositiveFiniteNumber(takeProfit)) {
+    throw new CompositeStrategyCallbackError(
+      component,
+      "stopLoss and takeProfit must be finite and positive",
+    );
+  }
+  if ((side === "buy" && stopLoss >= takeProfit) || (side === "sell" && stopLoss <= takeProfit)) {
+    throw new CompositeStrategyCallbackError(
+      component,
+      "stopLoss and takeProfit do not match the signal side",
+    );
+  }
+
+  return { side, confidence, reason, stopLoss, takeProfit };
+}
+
 export interface CompositeStrategyConfig {
   readonly component1: Strategy;
   readonly component2: Strategy;
-  /** If true (default), component2 signals are filtered by component1 direction. */
+  /**
+  If true (default), component2 signals are filtered by component1 direction.
+  */
   readonly useTrendFilter: boolean;
-  /** Confidence boost when both components agree on the same direction. */
+  /**
+  Confidence boost when both components agree on the same direction.
+  */
   readonly agreementConfidenceBoost: number;
 }
 
@@ -50,6 +125,33 @@ export class CompositeStrategy implements Strategy {
     this.config = config;
   }
 
+  private getSignal(
+    component: Strategy,
+    componentName: "component1" | "component2",
+    context: StrategyContext,
+  ): StrategySignal | undefined {
+    let callbackResult: unknown;
+    try {
+      callbackResult = component.onCandle(context);
+    } catch (error) {
+      throw new CompositeStrategyCallbackError(componentName, "callback threw or was unreadable", error);
+    }
+    return callbackResult === undefined ? undefined : snapshotStrategySignal(componentName, callbackResult);
+  }
+
+  private getComponentName(component: Strategy, componentName: "component1" | "component2"): string {
+    try {
+      const name: unknown = component.name;
+      if (typeof name !== "string" || name.trim().length === 0) {
+        throw new CompositeStrategyCallbackError(componentName, "name must be a non-empty string");
+      }
+      return name;
+    } catch (error) {
+      if (error instanceof CompositeStrategyCallbackError) throw error;
+      throw new CompositeStrategyCallbackError(componentName, "name was unreadable", error);
+    }
+  }
+
   warmup(): number {
     // Both components must be warm before ensemble can produce signals
     return Math.max(this.config.component1.warmup(), this.config.component2.warmup());
@@ -60,8 +162,8 @@ export class CompositeStrategy implements Strategy {
      a trend-filter logika alapján kombinálja a jelzéseket.
 
      A signal-kombináció az alábbi szabályok szerint működik (trend-filter ON):
-       1. Ha component1 signal == null → composite signal == null (no trend)
-       2. Ha component2 signal == null → composite follows component1 (trend alone)
+       1. If component1 signal is undefined, the composite has no trend signal.
+       2. If component2 signal is undefined, the composite follows component1.
        3. Ha mindkettő ad signalt:
           - component1.side === component2.side → composite follows component2
             (MR trigger dominál, mert specifikusabb entry)
@@ -72,31 +174,31 @@ export class CompositeStrategy implements Strategy {
      Ha trend-filter OFF: bármelyik komponens signalt ad → composite követi azt
      (OR voting).
    */
-  onCandle(ctx: StrategyContext): StrategySignal | null {
+  onCandle(context: StrategyContext): StrategySignal | undefined {
     const { component1, component2, useTrendFilter, agreementConfidenceBoost } = this.config;
-    const name1 = component1.name;
-    const name2 = component2.name;
-
-    const sig1 = component1.onCandle(ctx);
-    const sig2 = component2.onCandle(ctx);
+    const sig1 = this.getSignal(component1, "component1", context);
+    const sig2 = this.getSignal(component2, "component2", context);
 
     if (!useTrendFilter) {
       // OR voting: bármelyik
-      if (sig1 !== null) return sig1;
-      if (sig2 !== null) return sig2;
-      return null;
+      if (sig1 !== undefined) return sig1;
+      if (sig2 !== undefined) return sig2;
+      return undefined;
     }
 
     // Trend-filter ON
-    if (sig1 === null) {
+    if (sig1 === undefined) {
       // No trend signal — no entry (trend-filter protects against MR-only trades)
-      return null;
+      return undefined;
     }
 
-    if (sig2 === null) {
+    if (sig2 === undefined) {
       // Only trend signal — follow trend
       return sig1;
     }
+
+    const name1 = this.getComponentName(component1, "component1");
+    const name2 = this.getComponentName(component2, "component2");
 
     // Both signals present
     if (sig1.side === sig2.side) {

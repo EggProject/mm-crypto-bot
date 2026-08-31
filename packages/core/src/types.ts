@@ -79,9 +79,9 @@ export interface StrategyContext {
 }
 
 /**
- `StrategySignal` — a `Strategy.onCandle` kimenete. Ha a stratégia
- long/short jelet akar adni, visszaadja ezt a típust; ha nincs jel,
- `null`-t ad vissza.
+ `StrategySignal` — the `Strategy.onCandle` result. The strategy returns this
+ type when it produces a long/short signal; when there is no signal, it returns
+ `undefined`.
 
  - `side` — `buy` (long) vagy `sell` (short).
  - `confidence` — 0..1 közötti érték, a jel erőssége. A backtest a
@@ -178,19 +178,19 @@ export interface Strategy {
   readonly name: string;
   readonly timeframes: readonly Timeframe[];
   /**
-    Új LTF gyertya esetén hívódik, amikor NINCS nyitott pozíció.
-    `null` = nincs jelzés. A motor a `mtfState`-et előre feltölti a
-    legutóbbi HTF/MTF/LTF indikátor-értékekkel — a stratégia nem saját
-    maga számolja azokat.
+    Called for a new LTF candle when there is NO open position.
+    `undefined` means there is no signal. The engine pre-populates `mtfState`
+    with the latest HTF/MTF/LTF indicator values; the strategy does not
+    calculate them itself.
   */
-  onCandle(ctx: StrategyContext): StrategySignal | null;
+  onCandle(context: StrategyContext): StrategySignal | undefined;
   /**
     Side-effect-only closed-bar observer. Engines call this while a position
     is open so rolling state stays current without requesting a fresh entry.
     Stateful `onCandle` implementations should invoke it themselves while
     flat before evaluating an entry.
   */
-  onCandleObserved?(ctx: StrategyContext): void;
+  onCandleObserved?(context: StrategyContext): void;
   /**
     `warmup` — visszaadja, hogy hány LTF gyertyára van szükség a HTF
     indikátorok (EMA 200) bemelegedéséhez. A backtest az első
@@ -205,7 +205,7 @@ export interface Strategy {
     mert azok trailing-stop nélkül dolgoznak (a fix SL/TP a `onCandle`
     által javasolt signal-ban marad).
 
-    A `null` visszatérés = "nincs teendő, hagyjuk a pozíciót futni".
+    `undefined` means no update and the position keeps running.
     A `PositionUpdate`-tel a stratégia:
       1. módosíthatja a stop-loss / take-profit szintet (HWM-trailing),
       2. vagy `forceExit: true`-val azonnal zárhatja a pozíciót
@@ -216,7 +216,7 @@ export interface Strategy {
     readonly). A trailing-stop strategy belső mutable state-et tart
     fenn entry és exit között.
   */
-  onOpenPositionUpdate?(ctx: PositionManagementContext): PositionUpdate | null;
+  onOpenPositionUpdate?(context: PositionManagementContext): PositionUpdate | undefined;
   /**
     **OPCIONÁLIS** callback, amikor a stratégia által kért pozíció
     ENTRY megtörtént. A stratégia itt inicializálhatja a trailing-stop

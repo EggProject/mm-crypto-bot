@@ -34,12 +34,12 @@
 // Aggregation logic (per Phase 18 Track B brief):
 //
 //   - Run both sub-strategies via `sub.onCandle(ctx)`.
-//   - Count `fired = number of non-null signals`.
-//   - If `fired < minConsensus` → return null (no signal).
+//   - Count `fired = number of defined signals`.
+//   - If `fired < minConsensus` → return undefined (no signal).
 //   - If `fired >= minConsensus` AND all fired signals agree on side → emit
 //     consensus signal with the merged fields described below.
 //   - If `fired >= minConsensus` AND fired signals DISAGREE on side → return
-//     null (defer; the composition does NOT take contradictory positions).
+//     undefined (defer; the composition does NOT take contradictory positions).
 //
 //   Default `minConsensus = 2` (both must fire). Override to 1 if both
 //   fire-rates prove too low (e.g. ADX trend regime suppresses Donchian
@@ -105,7 +105,7 @@ import {
  * emits a signal.
  *
  * `minConsensus` is the minimum number of sub-strategies that must fire
- * (non-null) for the composition to emit. Range: 1..2. Default 2 (both
+ * (defined) for the composition to emit. Range: 1..2. Default 2 (both
  * sub-strategies must fire). Override to 1 if both fire-rates prove too
  * low (the rare regime where ADX suppresses Donchian while Pivot still
  * fires at S2/R2 — 1-of-2 lifts trade count without adding low-quality
@@ -117,9 +117,13 @@ export interface DonchianPivotCompositionConfig {
    * to emit. Default 2 (both must fire). Range: 1..2.
    */
   readonly minConsensus: number;
-  /** Per-sub-strategy partial config — Donchian Range Channel overrides. */
+  /**
+  Per-sub-strategy partial config — Donchian Range Channel overrides.
+  */
   readonly donchianRange: Partial<DonchianRangeChannelConfig>;
-  /** Per-sub-strategy partial config — Pivot Point Grid overrides. */
+  /**
+  Per-sub-strategy partial config — Pivot Point Grid overrides.
+  */
   readonly pivotGrid: Partial<PivotPointGridConfig>;
 }
 
@@ -187,14 +191,18 @@ export class DonchianPivotComposition implements Strategy {
     // default it to 2 when the caller does not provide the config object.
     const resolved: DonchianPivotCompositionConfig = {
       minConsensus: config.minConsensus ?? DEFAULT_DONCHIAN_PIVOT_COMPOSITION_CONFIG.minConsensus,
-      donchianRange: { ...DEFAULT_DONCHIAN_RANGE_CONFIG, ...(config.donchianRange ?? {}) },
-      pivotGrid: { ...DEFAULT_PIVOT_GRID_CONFIG, ...(config.pivotGrid ?? {}) },
+      donchianRange: { ...DEFAULT_DONCHIAN_RANGE_CONFIG, ...config.donchianRange },
+      pivotGrid: { ...DEFAULT_PIVOT_GRID_CONFIG, ...config.pivotGrid },
     };
     // Validate `minConsensus` is in the supported range (1..2). Anything
     // outside this range is undefined behavior (we only have 2 sub-strategies).
-    if (!Number.isInteger(resolved.minConsensus) || resolved.minConsensus < 1 || resolved.minConsensus > 2) {
+    if (
+      !Number.isSafeInteger(resolved.minConsensus) ||
+      resolved.minConsensus < 1 ||
+      resolved.minConsensus > 2
+    ) {
       throw new RangeError(
-        `DonchianPivotComposition: minConsensus must be an integer in [1, 2], got ${resolved.minConsensus}`,
+        `DonchianPivotComposition: minConsensus must be an integer in [1, 2], got ${String(resolved.minConsensus)}`,
       );
     }
     this.config = resolved;
@@ -218,8 +226,8 @@ export class DonchianPivotComposition implements Strategy {
     return Math.max(this.donchianRange.warmup(), this.pivotGrid.warmup());
   }
 
-  onCandleObserved(ctx: StrategyContext): void {
-    this.pivotGrid.onCandleObserved(ctx);
+  onCandleObserved(context: StrategyContext): void {
+    this.pivotGrid.onCandleObserved(context);
   }
 
   /**
@@ -228,9 +236,9 @@ export class DonchianPivotComposition implements Strategy {
    *
    * Pipeline:
    *   1. Run both sub-strategies via `sub.onCandle(ctx)`.
-   *   2. Count non-null signals (`firedCount`).
-   *   3. If `firedCount < minConsensus` → return null.
-   *   4. If fired signals disagree on side → return null (defer).
+   *   2. Count defined signals (`firedCount`).
+   *   3. If `firedCount < minConsensus` → return undefined.
+   *   4. If fired signals disagree on side → return undefined (defer).
    *   5. Compute the consensus signal:
    *        side        = agreed side
    *        confidence  = mean of sub-strategy confidences
@@ -238,25 +246,25 @@ export class DonchianPivotComposition implements Strategy {
    *        takeProfit  = mean of sub-strategy take-profits
    *        reason      = `[DonchianPivot] consensus=N/2 winner=... | <reason>`
    */
-  onCandle(ctx: StrategyContext): StrategySignal | null {
+  onCandle(context: StrategyContext): StrategySignal | undefined {
     // Step 1 — Run both sub-strategies on the same ctx.
-    const donchianSig = this.donchianRange.onCandle(ctx);
-    const pivotSig = this.pivotGrid.onCandle(ctx);
+    const donchianSig = this.donchianRange.onCandle(context);
+    const pivotSig = this.pivotGrid.onCandle(context);
 
-    // Step 2 — Build the list of non-null signals (in canonical order:
+    // Step 2 — Build the list of defined signals (in canonical order:
     // Donchian first, Pivot second — preserves deterministic iteration
     // for debug + tests).
     const fired: { readonly name: string; readonly signal: StrategySignal }[] = [];
-    if (donchianSig !== null) {
+    if (donchianSig !== undefined) {
       fired.push({ name: "donchian-range", signal: donchianSig });
     }
-    if (pivotSig !== null) {
+    if (pivotSig !== undefined) {
       fired.push({ name: "pivot-grid", signal: pivotSig });
     }
 
     // Step 3 — Consensus gate.
     if (fired.length < this.config.minConsensus) {
-      return null;
+      return undefined;
     }
 
     // Step 4 — Side-conflict gate. Both sub-strategies are mean-reversion
@@ -267,16 +275,21 @@ export class DonchianPivotComposition implements Strategy {
     // take contradictory positions).
     const sides = new Set(fired.map((entry) => entry.signal.side));
     if (sides.size > 1) {
-      return null;
+      return undefined;
     }
 
     // Step 5 — Compute the consensus signal. At this point all fired
     // signals agree on side AND `fired.length >= minConsensus`. The
-    // canonical sub-strategy is the one with the highest confidence
-    // (Pivot's confidence is already Phase 16 cap-scaled).
-    const sorted = [...fired].sort((a, b) => b.signal.confidence - a.signal.confidence);
-    const winner = sorted[0]!;
-    const side = winner.signal.side;
+    // configuration constrains minConsensus to [1, 2], so this non-empty
+    // list has at least one side. Canonical insertion order puts Donchian
+    // first; when both fire it wins because its confidence is exactly 1 and
+    // Pivot's cap-scaled confidence cannot exceed 1.
+    const side = sides.has("buy") ? "buy" : "sell";
+    const canonicalName = donchianSig === undefined ? "pivot-grid" : "donchian-range";
+    const winnerConfidence = Math.max(...fired.map((entry) => entry.signal.confidence));
+    const winnerReason = fired
+      .map((entry) => (entry.name === canonicalName ? entry.signal.reason : ""))
+      .join("");
     const meanConfidence = fired.reduce((sum, entry) => sum + entry.signal.confidence, 0) / fired.length;
     const meanTakeProfit = fired.reduce((sum, entry) => sum + entry.signal.takeProfit, 0) / fired.length;
     // Tighter stop wins — for LONG (stop below entry), tighter = higher
@@ -290,12 +303,12 @@ export class DonchianPivotComposition implements Strategy {
     // `ctx.pricePrecision`. `stopLoss` is already rounded by each
     // sub-strategy via `roundTo` (Donchian uses `roundTo` for SL/TP;
     // Pivot uses `roundTo` for SL/TP).
-    const takeProfit = Number(meanTakeProfit.toFixed(ctx.pricePrecision));
+    const takeProfit = Number(meanTakeProfit.toFixed(context.pricePrecision));
 
     return {
       side,
       confidence: meanConfidence,
-      reason: `[DonchianPivot] consensus=${fired.length}/2 winner=${winner.name} (conf=${winner.signal.confidence.toFixed(2)}) | ${winner.signal.reason}`,
+      reason: `[DonchianPivot] consensus=${String(fired.length)}/2 winner=${canonicalName} (conf=${winnerConfidence.toFixed(2)}) | ${winnerReason}`,
       stopLoss: tighterStop,
       takeProfit,
     };
