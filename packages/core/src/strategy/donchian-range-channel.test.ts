@@ -46,6 +46,12 @@ const makeContext = (overrides: DonchianContextOverrides = {}): StrategyContext 
 };
 
 describe("DonchianRangeChannelStrategy", () => {
+  it("publishes the exact public strategy name", () => {
+    const strat = new DonchianRangeChannelStrategy();
+
+    expect(strat.name).toBe("Donchian Range Channel");
+  });
+
   it("default config is donchianPeriod=20, adxTrendThreshold=25", () => {
     expect(DEFAULT_DONCHIAN_RANGE_CONFIG.donchianPeriod).toBe(20);
     expect(DEFAULT_DONCHIAN_RANGE_CONFIG.adxTrendThreshold).toBe(25);

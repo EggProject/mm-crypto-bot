@@ -7,7 +7,7 @@ import { makeSymbol } from "@mm-crypto-bot/shared/types";
 describe("PivotPointGridStrategy — strategy surface", () => {
   it("14. name and timeframes are wired correctly for M15 LTF", () => {
     const strat = new PivotPointGridStrategy();
-    expect(strat.name).toContain("Pivot Point Grid");
+    expect(strat.name).toBe("Pivot Point Grid");
     expect(strat.timeframes).toEqual(["1d", "15m"]);
   });
 });

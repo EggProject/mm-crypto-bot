@@ -54,6 +54,17 @@ class MockStrategy implements Strategy {
 const NO_SIGNAL = undefined;
 
 describe("CompositeStrategy", () => {
+  it("publishes the exact public strategy name", () => {
+    const composite = new CompositeStrategy({
+      component1: new MockStrategy("trend", undefined),
+      component2: new MockStrategy("mean-reversion", undefined),
+      useTrendFilter: true,
+      agreementConfidenceBoost: 0.05,
+    });
+
+    expect(composite.name).toBe("Composite Trend Filter");
+  });
+
   it("warmup is the max of both components' warmup", () => {
     const a = new MockStrategy("A", undefined, 100);
     const b = new MockStrategy("B", undefined, 250);
