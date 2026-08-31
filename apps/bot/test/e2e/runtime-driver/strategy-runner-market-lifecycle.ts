@@ -396,7 +396,6 @@ async function verifyRegimeDailyInputAndFundingExit(): Promise<void> {
   });
   assertCondition(regime.instance.observationsForSymbol("BTC/USDC") === 1, "regime consumed non-daily input");
   runner.dispose();
-
   const fundingSource = new StaleFundingSource();
   const carry = new support.DydxCexCarryStrategy({ fundingSource });
   const carryPositionManager = makePositionManager();
@@ -410,6 +409,7 @@ async function verifyRegimeDailyInputAndFundingExit(): Promise<void> {
     sizingFn: () => 1,
     enabledSymbols: ["BTC/USDC"],
   });
+  carry.recordBybitEuLiquidity("BTC-USD", 1_000_000, 1000);
   fundingSource.fire(1000);
   carryPositionManager.openPosition("dydx_cex_carry", symbol, "long", 1, 100, 1);
   carry.onPositionOpened({
