@@ -161,8 +161,7 @@ remain non-interchangeable. Define and test one typed/audited consumer-owned
 RiskGate before every live, paper, and backtest exchange action, with negative
 architecture fixtures and E2E zero-adapter-call proof.
 
-**Required safety tests:** all non-10x/range/default/dynamic values reject;
-stale/ambiguous/unsupported account and data reject; invalid tick/lot reject;
+**Required safety tests:** invalid or noncanonical configured values and prohibited range/cap/dynamic/per-strategy/per-symbol/per-order inputs reject; missing/stale/ambiguous/unsupported/unequal authenticated account or venue evidence rejects; invalid tick/lot reject;
 market-data gap/out-of-order/stale values block a symbol; no-lookahead and
 deterministic seeded property tests pass.
 Provider tests use deterministic fakes and negative fixtures for unavailable
@@ -189,8 +188,7 @@ both legacy and target decision paths.
 
 **Work:** replace `exchange` with `exchange-bybiteu`; replace paper behavior
 with `execution-paper`; prohibit any other live venue/endpoint/product prior to
-submission. Implement the `SelectedLeverage10x` construction and authenticated
-pre-submit validation/reconciliation boundary. Separate selected leverage,
+submission. Implement `ConfiguredSelectedLeverage` from one exact canonical global/session configuration value that defaults exactly to `"10"`, is immutable for the active session, and has no configuration reload; implement authenticated activation and pre-submit validation/reconciliation. Separate selected leverage,
 actual borrowed amount, and effective leverage in audit events.
 
 Live configuration begins as an unknown versioned DTO, is fully guarded once at
@@ -199,8 +197,7 @@ reread from environment during live operation. Explicit credentials and operator
 confirmation are mandatory. Startup fails closed on every missing/invalid value.
 
 **Tests:** deterministic fake authenticated Bybit EU adapter tests for account,
-UTA Spot Margin, asset/symbol, margin mode, successful 10x selection,
-borrowing capacity, stale evidence, ambiguity, retries/stable client order IDs,
+UTA Spot Margin, asset/symbol, margin mode, venue support for the configured value and equality with actual selected leverage, borrowing capacity, invalid/unsupported/missing/stale/ambiguous/unequal evidence, retries/stable client order IDs,
 reconciliation, reduce-only and emergency exit. Property, integration, and E2E
 tests must prove `submitOrder` was never called for every invalid condition.
 Unit, integration, and startup E2E tests cover unknown DTOs, unknown fields,
@@ -214,8 +211,7 @@ only as one separate atomic dependency change. Its entry evidence is solely
 those completed P3/P4 proofs; it must complete before Phase 5 wiring and has no
 dependency on Phase 5.
 
-**Exit:** no code/config semantics exposes a max/range/default/dynamic selected
-leverage for live execution; live adapter supports only required EU endpoint.
+**Exit:** one exact canonical global/session selected-leverage configuration defaults exactly to 10x and remains immutable for the active session; activation and every order prove current authenticated Bybit EU venue support and equality; invalid, unsupported, missing, stale, ambiguous, or unequal evidence fails closed. There is no rounding, coercion, fallback, range, cap, dynamic, per-strategy, per-symbol, per-order value, or configuration reload implementation; live adapter supports only the required EU endpoint.
 
 **Rollback:** disable live composition by fail-closed configuration and revert
 the single phase change. Never deploy a partial live adapter.

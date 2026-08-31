@@ -116,25 +116,13 @@ cover an undeclared external import, a wrong package owner for `fraction.js` or
 [DEPENDENCIES.md](DEPENDENCIES.md) for supply-chain evidence and
 [VALIDATION.md](VALIDATION.md) for the blocking gate.
 
-## Required fixed-10x live boundary
+## Required configured-leverage live boundary
 
-The `trading-domain` target defines an opaque immutable `SelectedLeverage10x`
-created only by a constructor that represents exactly `"10"`. A live operation
-and every order intent carries it; no maximum, range, default, strategy/symbol
-override, dynamic selector, or fallback type exists. Immediately before a
-submission, `exchange-bybiteu` must obtain current authenticated evidence of:
+The `trading-domain` target defines an opaque immutable `ConfiguredSelectedLeverage` from one exact canonical global/session configuration value, defaulting exactly to `"10"`. A live operation and every order intent carry the immutable active-session value; no rounding, coercion, fallback, range, cap, dynamic selector, or per-strategy/per-symbol/per-order value exists. Configuration reload is not implemented.
 
-- account and Unified Trading Account Spot Margin eligibility;
-- permitted `bybiteu`, `https://api.bybit.eu`, supported symbol/assets and
-  margin mode;
-- successful exactly-10x selection and borrowing capacity; and
-- non-stale, unambiguous account state.
+Immediately before activation and every submission, `exchange-bybiteu` must obtain current authenticated evidence of account and Unified Trading Account Spot Margin eligibility; permitted `bybiteu`, `https://api.bybit.eu`, supported symbol/assets and margin mode; support for the configured leverage and equality between the actual selected leverage and that value; borrowing capacity; and non-stale, unambiguous account state.
 
-The adapter records selected leverage, actual borrow, and effective leverage as
-different immutable audit values and reconciles them against authenticated
-responses. Missing or contradictory evidence prevents submission. Reduce-only
-and emergency exit preserve selected 10x while taking a risk-reducing path;
-they cannot bypass unrelated validation.
+The adapter records configured selected leverage, actual borrow, and effective leverage as distinct immutable audit values and reconciles them against authenticated responses. Any invalid, unsupported, missing, stale, ambiguous, or unequal evidence fails closed and prevents submission. Reduce-only and emergency exit retain the active-session configured value while taking a risk-reducing path; they cannot bypass unrelated validation.
 
 ## Required account, exposure, and RiskGate boundary
 
@@ -144,7 +132,7 @@ The domain must define immutable exact canonical-string value objects for
 valuation UTC timestamp and source; a different timestamp/source for gross
 exposure is permitted only when explicitly recorded as its authority. `Equity`,
 `AvailableBalance`, `WalletBalance`, `GrossExposure`, signed `NetExposure`,
-`SelectedLeverage10x`, `VenueMaximumLeverage`, `ActualBorrowedAmount`, and
+`ConfiguredSelectedLeverage`, `VenueMaximumLeverage`, `ActualBorrowedAmount`, and
 `EffectiveLeverage` are distinct non-interchangeable values.
 
 `GrossExposure` is exactly the sum of absolute notionals of all positions plus
@@ -159,7 +147,7 @@ exposure, concentration, drawdown, price, quantity, balance, and kill-switch
 state. An architecture-negative fixture proves no adapter bypass exists; E2E
 tests prove invalid decisions make zero adapter calls. Reduce-only/emergency
 operations may bypass only constraints whose application would increase risk;
-they retain exactly 10x and all unrelated checks.
+they retain the immutable active-session configured leverage and all unrelated checks.
 
 ## Exact numeric and data boundaries
 

@@ -11,7 +11,7 @@ English under `.codex/ENGINEERING-STANDARDS.md`.
 
 No document in this directory authorizes a production, security, data,
 governing-policy, release-platform, or live-trading change. All material plan
-decisions D-01 through D-09 are approved in [APPROVALS.md](APPROVALS.md), but
+decisions D-01 through D-12 are approved in [APPROVALS.md](APPROVALS.md), but
 their implementation and validation gates remain unperformed.
 
 ## Reading order
@@ -59,7 +59,7 @@ their implementation and validation gates remain unperformed.
   requires decomposition before the migrated file becomes authoritative.
 - Current code/config evidence shows dynamic or maximum leverage semantics and
   JavaScript-number financial values. It must not be described as conforming to
-  the fixed exactly-10x or exact-numeric target until later proof exists.
+  the configured global/session selected-leverage target (default exactly 10x) or exact-numeric target until later proof exists.
 - No current evidence proves canonical starting equity/gross exposure values,
   authoritative valuation binding, an unbypassable central RiskGate, immutable
   live configuration lifecycle, deterministic release ZIPs, or icon licensing.

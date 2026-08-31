@@ -62,3 +62,11 @@ claim PASS, full verification, implementation completion, or live readiness.
 - **Required next review:** after the follow-up is committed, independent TECH
   and PROCESS review must inspect `72c6885..FOLLOWUP`; no completion, push, or
   PR is authorized before that full range is re-reviewed.
+
+## Follow-up commit `5712ca7` execution evidence
+
+<p>Classification: non-review Terra governing/live-leverage implementation; ownership: `.codex/ENGINEERING-STANDARDS.md`, `plans/full-refactor/APPROVALS.md`, `DECISIONS.md`, `GOAL.md`, and this evidence file; workspace-write authority. Preflight recorded the exact owned paths, a zero-result scoped secret scan, and an empty index. The method preserved the shared dirty worktree by preparing the patch against a clean HEAD snapshot and applying only the owned additions to the authoritative worktree; retained unrelated dirty hunks were not staged. Requested route: `terra_worker` / `gpt-5.6-terra` / high; effective runtime/provider attestation is not observable. No fallback applies. Retries: none recorded.</p>
+
+<p>Patch SHA-256: `54516c81...f55b88`. Exact staging was `.codex/ENGINEERING-STANDARDS.md`, `plans/full-refactor/APPROVALS.md`, `DECISIONS.md`, `GOAL.md`, and this evidence file. Commit: `5712ca763e57315a2b601d6f686fe5bdac6d21ac` (`docs(governance): reconcile leverage approvals`), stat 5 files changed, 196 insertions, 21 deletions; postcommit index empty. Standards, GOAL, and this evidence path were clean; APPROVALS and DECISIONS retained unrelated dirty changes; 432 unrelated records remained unstaged.</p>
+
+<p>Actual re-review reported TECH+PROCESS findings against `72c6885..5712ca7`: restore D-10, correct D-11/D-12 session/time metadata without fabricated wall-clock, remove active fixed-ten-only wording, complete D-12 range-review procedure, and complete execution/review evidence. This R2 scope remediates those findings only. It does not claim PASS, full verification, implementation completion, push, PR, or live readiness.</p>
