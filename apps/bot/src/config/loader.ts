@@ -18,11 +18,10 @@
  *   defaults → TOML-fájl → env-változók
  */
 
-import * as nodeFileSystem from "node:fs";
-
 import { DEFAULT_BOT_CONFIG } from "./defaults.js";
 import type { BotConfig } from "./schema.js";
 import { BotConfigSchema } from "./schema.js";
+import { DEFAULT_CONFIG_STORE_DEPENDENCIES } from "./store-node-adapter.js";
 
 // ============================================================================
 // Public error type
@@ -160,11 +159,11 @@ export function loadBotConfig(configPath?: string, environment: NodeJS.ProcessEn
   if (configPath !== undefined) {
     let text: string;
     try {
-      // A `Bun.file().text()` async; a `node:fs.readFileSync` szinkron
-      // alternatíva. A loadBotConfig szinkron — a CLI indítása
+      // A `Bun.file().text()` async; a ConfigStore injektált, szinkron
+      // olvasó portja a szinkron alternatíva. A loadBotConfig CLI indítása
       // boot-fázisban van, és a TOML-fájl kicsi, a sync olvasás
       // nem blokkolja érezhetően a folyamatot.
-      text = nodeFileSystem.readFileSync(configPath, "utf8");
+      text = DEFAULT_CONFIG_STORE_DEPENDENCIES.readText(configPath);
     } catch (error: unknown) {
       const message = String(error);
       throw new ConfigError(`Failed to read config file at "${configPath}": ${message}`, "<file>", []);

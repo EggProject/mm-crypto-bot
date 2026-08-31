@@ -21,6 +21,8 @@
 
 import { z } from "zod";
 
+import { EnabledSymbolsSchema, RiskSectionSchema } from "./schema-builders.js";
+
 // ============================================================================
 // 1) Per-strategy section schema
 // ============================================================================
@@ -41,15 +43,25 @@ import { z } from "zod";
  */
 export const StrategySectionSchema = z
   .object({
-    /** A stratégia engedélyezve van-e. `false` → nincs példányosítva. */
+    /**
+     * A stratégia engedélyezve van-e. `false` → nincs példányosítva.
+     */
     enabled: z.boolean().default(false),
-    /** Max position size, equity-frakció (0..1). */
+    /**
+     * Max position size, equity-frakció (0..1).
+     */
     cap: z.number().min(0).max(1).optional(),
-    /** Per-strategy override leverage. 1:10 MANDATE. */
+    /**
+     * Per-strategy override leverage. 1:10 MANDATE.
+     */
     leverage: z.number().int().min(1).max(10).optional(),
-    /** Override symbol-lista. CCXT unified formátumban. */
+    /**
+     * Override symbol-lista. CCXT unified formátumban.
+     */
     symbols: z.array(z.string()).optional(),
-    /** Override timeframe-ek (htf/mtf/ltf). */
+    /**
+     * Override timeframe-ek (htf/mtf/ltf).
+     */
     timeframes: z
       .object({
         htf: z.string(),
@@ -70,7 +82,9 @@ export const StrategySectionSchema = z
   })
   .passthrough();
 
-/** `StrategySection` — a Zod-inferred type. */
+/**
+ * `StrategySection` — a Zod-inferred type.
+ */
 export type StrategySection = z.infer<typeof StrategySectionSchema>;
 
 /**
@@ -136,13 +150,21 @@ export const BotConfigSchema = z.object({
       id: z.enum(["bybiteu", "mock"]).default("bybiteu"),
       rate_limit_ms: z.number().int().min(10).max(10_000).default(100),
       sandbox: z.boolean().default(false),
-      /** Max accepted slippage percent (0..1). Default: 0.05 (5%). */
+      /**
+       * Max accepted slippage percent (0..1). Default: 0.05 (5%).
+       */
       slippage_pct: z.number().min(0).max(1).default(0.05),
-      /** Fee tier — vip / standard / maker_rebate. */
+      /**
+       * Fee tier — vip / standard / maker_rebate.
+       */
       fee_tier: z.enum(["vip", "standard", "maker_rebate"]).default("standard"),
-      /** Rate limit per minute (orders + REST calls). Default: 120. */
+      /**
+       * Rate limit per minute (orders + REST calls). Default: 120.
+       */
       rate_limit_per_min: z.number().int().min(1).max(600).default(120),
-      /** WebSocket reconnect delay in ms. Default: 1000. */
+      /**
+       * WebSocket reconnect delay in ms. Default: 1000.
+       */
       ws_reconnect_delay_ms: z.number().int().min(100).max(10_000).default(1000),
       /**
        * Phase 37 Track 5 — REST API base URL.
@@ -195,7 +217,9 @@ export const BotConfigSchema = z.object({
   // --------------------------------------------------------------------------
   compliance: z
     .object({
-      /** Deployment joghatósága. Default: "EU". */
+      /**
+       * Deployment joghatósága. Default: "EU".
+       */
       jurisdiction: z.enum(["EU", "JP", "OTHER"]).default("EU"),
       /**
        * Phase 37 Track 5 — JP FSA MSB (暗号資産交換業) regisztráció.
@@ -224,80 +248,14 @@ export const BotConfigSchema = z.object({
   //    `risk` szekció `.default({})`-vel rendelkezik, így a meglévő
   //    TOML-ok minden változtatás nélkül parse-olódnak.
   // --------------------------------------------------------------------------
-  risk: z
-    .object({
-      risk_per_trade: z.number().min(0.001).max(0.05).default(0.01),
-      kelly_fraction: z.number().min(0.05).max(1).default(0.25),
-      max_drawdown_pct: z.number().min(0.01).max(0.5).default(0.15),
-      max_positions: z.number().int().min(1).max(12).default(3),
-      max_leverage: z.number().int().min(1).max(10).default(10),
-      /**
-       * Phase 37 Track 1 — hard cap on Kelly-suggested size as fraction
-       * of equity. Default 0.10 (10%). Matches Phase 1-5 engine convention.
-       */
-      max_position_fraction: z.number().min(0.001).max(1).default(0.1),
-      /**
-       * Phase 37 Track 1 — fallback size fraction used during the Kelly
-       * cold-start period (fewer than `kelly.min_trades` closed trades).
-       * Default 0.01 (1%) — small, defensive.
-       */
-      fallback_size_fraction: z.number().min(0.0001).max(0.5).default(0.01),
-      /**
-       * Phase 37 Track 1 — ATR-based trailing stop module. Disabled by
-       * default (user must opt in).
-       */
-      trailing_stop: z
-        .object({
-          enabled: z.boolean().default(false),
-          /** ATR period (Wilder smoothing). Default 14 — industry standard. */
-          atr_period: z.number().int().min(2).max(200).default(14),
-          /** ATR multiplier for the trail distance. Default 3.0. */
-          atr_multiplier: z.number().min(0.5).max(20).default(3.0),
-          /** Which side(s) to apply the trail. Default "both". */
-          side: z.enum(["long", "short", "both"]).default("both"),
-        })
-        .default({}),
-      /**
-       * Phase 37 Track 1 — dynamic Kelly position sizing. Disabled by
-       * default (user must opt in). The bot's existing
-       * `risk.kelly_fraction` static value remains in effect when this
-       * is disabled.
-       */
-      kelly: z
-        .object({
-          enabled: z.boolean().default(false),
-          /** Fractional-Kelly multiplier. Default 0.25 (quarter Kelly). */
-          fraction: z.number().min(0.05).max(1).default(0.25),
-          /** Rolling window size (in closed trades) for p, b estimation. */
-          window_size: z.number().int().min(5).max(500).default(50),
-          /** Cold-start threshold — below this, fallback size is used. */
-          min_trades: z.number().int().min(1).max(100).default(10),
-          /** Fallback size fraction (override of `fallback_size_fraction`). */
-          fallback_fraction: z.number().min(0.0001).max(0.5).default(0.01),
-        })
-        .default({}),
-      /**
-       * Phase 37 Track 1 — equity drawdown-aware position scaler.
-       * Disabled by default. When enabled, new positions are scaled
-       * DOWN as drawdown deepens, and STOPPED entirely in the kill
-       * region (80-100% of max_dd_pct).
-       */
-      drawdown_scaler: z
-        .object({
-          enabled: z.boolean().default(false),
-          /** Max drawdown pct (kill threshold). Default 0.15 (15%). */
-          max_dd_pct: z.number().min(0.01).max(0.5).default(0.15),
-        })
-        .default({}),
-    })
-    .default({}),
+  risk: RiskSectionSchema,
 
   // --------------------------------------------------------------------------
   // 4) Symbols section — mely coin-okon kereskedünk.
   // --------------------------------------------------------------------------
   symbols: z
     .object({
-      enabled: z.array(z.string()).default(["BTC/USDC", "ETH/USDC", "SOL/USDC"]),
+      enabled: EnabledSymbolsSchema,
     })
     .default({}),
 
@@ -306,28 +264,38 @@ export const BotConfigSchema = z.object({
   // --------------------------------------------------------------------------
   strategies: z
     .object({
-      /** Donchian + Pivot 2-component composition (Phase 18 #1 baseline). */
+      /**
+       * Donchian + Pivot 2-component composition (Phase 18 #1 baseline).
+       */
       donchian_pivot_composition: DonchianPivotStrategySectionSchema.default({
         enabled: true,
         cap: 0.2,
       }),
-      /** dYdX-vs-CEX cross-venue funding carry (Phase 25 #2 T2). */
+      /**
+       * dYdX-vs-CEX cross-venue funding carry (Phase 25 #2 T2).
+       */
       dydx_cex_carry: StrategySectionSchema.default({
         enabled: false,
         cap: 0.025,
         notional_per_leg_usd: 125_000,
       }),
-      /** Liquidation cascade "fade-the-cascade" detector (Phase 25 #2 T2D). */
+      /**
+       * Liquidation cascade "fade-the-cascade" detector (Phase 25 #2 T2D).
+       */
       cascade_fade: StrategySectionSchema.default({
         enabled: false,
         max_notional_per_event_usd: 1_000_000,
         cooldown_hours: 24,
       }),
-      /** SOL funding-flip kill-switch plugin (defensive opt-in). */
+      /**
+       * SOL funding-flip kill-switch plugin (defensive opt-in).
+       */
       funding_flip_kill_switch: StrategySectionSchema.default({
         enabled: false,
       }),
-      /** HMM 3-state regime-detector meta-plugin (opt-in). */
+      /**
+       * HMM 3-state regime-detector meta-plugin (opt-in).
+       */
       regime_detector: StrategySectionSchema.default({
         enabled: false,
       }),
@@ -349,13 +317,21 @@ export const BotConfigSchema = z.object({
     .object({
       log_dir: z.string().default("logs/bot"),
       metrics_interval_sec: z.number().int().min(1).max(3600).default(60),
-      /** Log-szint (debug/info/warn/error). Default: info. */
+      /**
+       * Log-szint (debug/info/warn/error). Default: info.
+       */
       log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
-      /** Log-dest: file / stderr / both. Default: both. */
+      /**
+       * Log-dest: file / stderr / both. Default: both.
+       */
       log_destination: z.enum(["file", "stderr", "both"]).default("both"),
-      /** Metrics-emitálás engedélyezve van-e. Default: true. */
+      /**
+       * Metrics-emitálás engedélyezve van-e. Default: true.
+       */
       metrics_enabled: z.boolean().default(true),
-      /** Liveness heartbeat interval in seconds. Default: 30. */
+      /**
+       * Liveness heartbeat interval in seconds. Default: 30.
+       */
       heartbeat_interval_sec: z.number().int().min(1).max(300).default(30),
     })
     .default({}),
@@ -386,7 +362,9 @@ export const BotConfigSchema = z.object({
     .default({}),
 });
 
-/** `BotConfig` — a teljes bot-config Zod-inferred típusa. */
+/**
+ * `BotConfig` — a teljes bot-config Zod-inferred típusa.
+ */
 export type BotConfig = z.infer<typeof BotConfigSchema>;
 
 /**
