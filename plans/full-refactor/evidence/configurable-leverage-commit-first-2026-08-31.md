@@ -257,3 +257,51 @@ git diff --cached --check
 git add <3 exact test paths>
 git commit -m "test(core): lock canonical strategy names"
 ```
+
+## Security scanner sequence record
+
+- `6dbe487`: original deletion commit; actual TECH review failed on TS6133
+  and absence of pre/post stability evidence.
+- `ad856ef` (parent `6dbe487`): exact four paths, 193 insertions and 22
+  deletions. RED made observable-identity/canonical changes and exposed TS6133;
+  GREEN coverage was V8: 66, S666/B586/F136/L653 all 100%. Strict typecheck,
+  ESLint, Prettier, diff, and LOC gates passed; exact staging and empty index
+  were recorded. Actual TECH review failed only on numeric dev/ino precision;
+  PROCESS review failed only because hash-specific evidence was missing.
+- `078a946` (parent `ad856ef`): exact two paths, 64 insertions and 6
+  deletions. RED exposed the >2^53 BigInt device-collision test; GREEN was
+  V8: 67, S668/B586/F138/L655 all 100%. Strict typecheck, ESLint, Prettier,
+  diff, and LOC (419/149) passed; exact staging and empty index were recorded.
+  Patch SHA was `184b9767bcfd5253c4cccc40bf8c43ad760c9f89c11be90c685e4142de6b5928`; commit message was
+  `fix(tooling): preserve exact scanner identity`. The preceding patch SHA
+  for `ad856ef` was `effcad284beebb2a386a60d239352fc5fd2d1850c4b3d93231ea1e17f8735127`; its commit message was
+  `fix(tooling): verify scanner path stability`.
+
+The scanner follows exactly three narrow adjacent security directives and
+uses direct ordinary I/O. It uses no openat, descriptor, proc, or dev-fd
+mechanism. The non-atomic ABA limitation remains honestly documented. Routing
+requested `terra_worker` with high reasoning for security tooling, using
+isolated `/tmp` artifacts; effective provider telemetry was not independently
+observable and no fallback was used. Fresh TECH/PROCESS range rereviews remain
+pending; no full, live, or repository PASS is claimed.
+
+Replay commands:
+
+```text
+git show --stat --oneline 6dbe487
+git show --stat --oneline ad856ef
+git show --stat --oneline 078a946
+bun x vitest run --config scripts/tooling/vitest.zero-legacy.config.mjs --coverage
+bun test scripts/tooling/zero-legacy-coverage-delta.test.ts scripts/tooling/zero-legacy-node-port.test.ts scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-contract.test.ts scripts/tooling/zero-legacy-extractors.test.ts scripts/tooling/zero-legacy-cli.test.ts scripts/tooling/zero-legacy-cli.vitest.ts
+bun x tsc --ignoreConfig --noEmit --strict --noUnusedLocals --noUnusedParameters --noUncheckedIndexedAccess --exactOptionalPropertyTypes --noImplicitOverride --noPropertyAccessFromIndexSignature --module ESNext --moduleResolution bundler --target ES2022 --lib ES2022,DOM --types bun-types,node --skipLibCheck --allowImportingTsExtensions scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-node-port.test.ts scripts/tooling/zero-legacy-coverage-delta.test.ts
+# ad856ef exact four paths
+bun x eslint --max-warnings=0 scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-node-port.test.ts scripts/tooling/zero-legacy-coverage-delta.test.ts
+bun x prettier --check scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-node-port.test.ts scripts/tooling/zero-legacy-coverage-delta.test.ts
+git diff --check -- scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-node-port.test.ts scripts/tooling/zero-legacy-coverage-delta.test.ts
+git add scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-scanner.test.ts scripts/tooling/zero-legacy-node-port.test.ts scripts/tooling/zero-legacy-coverage-delta.test.ts
+# 078a946 exact two paths
+git add scripts/tooling/zero-legacy-scanner.ts scripts/tooling/zero-legacy-node-port.test.ts
+git diff --cached --name-status
+git diff --cached --check
+git status --short
+```
