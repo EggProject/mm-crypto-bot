@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/color.test.ts
  *
- * Phase 34 Track C — unit tests for the `color` module.
+ * Terminal color helper unit tests.
  *
  * ===========================================================================
  * TEST SURFACE
@@ -50,13 +50,6 @@ const ANSI_ESCAPE_RE = /\[\d+m/;
  */
 const ORIGINAL_NO_COLOR = process.env["NO_COLOR"];
 
-/**
- * Snapshot the original `isTTY` value. We can't mock it directly, but
- * we can verify behavior under both states by relying on whatever the
- * test runner does.
- */
-const ORIGINAL_IS_TTY = process.stdout.isTTY;
-
 beforeEach(() => {
   // Each test starts from a known clean state: no override, no env var,
   // and the test runner's natural isTTY.
@@ -71,7 +64,6 @@ afterEach(() => {
   } else {
     process.env["NO_COLOR"] = ORIGINAL_NO_COLOR;
   }
-  void ORIGINAL_IS_TTY;
 });
 
 // ---------------------------------------------------------------------------
@@ -84,7 +76,7 @@ describe("isColorEnabled", () => {
     // no NO_COLOR env, AND a real TTY. We force the TTY state in the test.
     setColorForced(undefined);
     delete process.env["NO_COLOR"];
-    const orig = process.stdout.isTTY;
+    const isOriginalTtyValue = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
       value: true,
       configurable: true,
@@ -94,7 +86,7 @@ describe("isColorEnabled", () => {
       expect(isColorEnabled()).toBe(true);
     } finally {
       Object.defineProperty(process.stdout, "isTTY", {
-        value: orig,
+        value: isOriginalTtyValue,
         configurable: true,
         writable: true,
       });
@@ -104,7 +96,7 @@ describe("isColorEnabled", () => {
   it("returns false when stdout.isTTY is undefined (piped, not a real TTY)", () => {
     setColorForced(undefined);
     delete process.env["NO_COLOR"];
-    const orig = process.stdout.isTTY;
+    const isOriginalTtyValue = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
       value: undefined,
       configurable: true,
@@ -117,7 +109,7 @@ describe("isColorEnabled", () => {
       expect(isColorEnabled()).toBe(false);
     } finally {
       Object.defineProperty(process.stdout, "isTTY", {
-        value: orig,
+        value: isOriginalTtyValue,
         configurable: true,
         writable: true,
       });
@@ -135,8 +127,8 @@ describe("isColorEnabled", () => {
     delete process.env["NO_COLOR"];
     // Force the TTY check by flipping the property. The check is
     // `process.stdout.isTTY === false`, so we set it to false.
-    // We restore the original in afterEach (see ORIGINAL_IS_TTY).
-    const orig = process.stdout.isTTY;
+    // The finally block restores the original TTY value.
+    const isOriginalTtyValue = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
       value: false,
       configurable: true,
@@ -146,7 +138,7 @@ describe("isColorEnabled", () => {
       expect(isColorEnabled()).toBe(false);
     } finally {
       Object.defineProperty(process.stdout, "isTTY", {
-        value: orig,
+        value: isOriginalTtyValue,
         configurable: true,
         writable: true,
       });
@@ -156,7 +148,7 @@ describe("isColorEnabled", () => {
   it("returns true with --color override even when not TTY", () => {
     setColorForced(true);
     // Even if TTY is false, the override wins.
-    const orig = process.stdout.isTTY;
+    const isOriginalTtyValue = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
       value: false,
       configurable: true,
@@ -166,7 +158,7 @@ describe("isColorEnabled", () => {
       expect(isColorEnabled()).toBe(true);
     } finally {
       Object.defineProperty(process.stdout, "isTTY", {
-        value: orig,
+        value: isOriginalTtyValue,
         configurable: true,
         writable: true,
       });
@@ -176,7 +168,7 @@ describe("isColorEnabled", () => {
   it("returns false with --no-color override (forced wins over TTY)", () => {
     setColorForced(false);
     // Even if TTY is true, the override wins.
-    const orig = process.stdout.isTTY;
+    const isOriginalTtyValue = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
       value: true,
       configurable: true,
@@ -186,7 +178,7 @@ describe("isColorEnabled", () => {
       expect(isColorEnabled()).toBe(false);
     } finally {
       Object.defineProperty(process.stdout, "isTTY", {
-        value: orig,
+        value: isOriginalTtyValue,
         configurable: true,
         writable: true,
       });
@@ -295,7 +287,7 @@ describe("setColorForced", () => {
     // After clear, the policy follows env+TTY (which is false in test runner
     // since we never set NO_COLOR here).
     delete process.env["NO_COLOR"];
-    const orig = process.stdout.isTTY;
+    const isOriginalTtyValue = process.stdout.isTTY;
     Object.defineProperty(process.stdout, "isTTY", {
       value: false,
       configurable: true,
@@ -305,7 +297,7 @@ describe("setColorForced", () => {
       expect(isColorEnabled()).toBe(false);
     } finally {
       Object.defineProperty(process.stdout, "isTTY", {
-        value: orig,
+        value: isOriginalTtyValue,
         configurable: true,
         writable: true,
       });

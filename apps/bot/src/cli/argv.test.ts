@@ -1,7 +1,7 @@
 /**
  * apps/bot/src/cli/argv.test.ts
  *
- * Phase 33 Track D — `parseArgv` unit tests.
+ * CLI argument parser unit tests.
  *
  * Coverage (≥ 8 cases, all on `bun:test`):
  *   1.  `["start", "--config=foo"]` → subcommand=start, flags={config: foo}
