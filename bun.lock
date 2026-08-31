@@ -42,6 +42,7 @@
         "@mm-crypto-bot/core": "workspace:*",
         "@mm-crypto-bot/exchange": "workspace:*",
         "@mm-crypto-bot/logging": "workspace:*",
+        "@mm-crypto-bot/numeric": "workspace:*",
         "@mm-crypto-bot/paper": "workspace:*",
         "@mm-crypto-bot/shared": "workspace:*",
         "picocolors": "1.1.1",

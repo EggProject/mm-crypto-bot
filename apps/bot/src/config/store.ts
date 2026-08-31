@@ -1,5 +1,6 @@
 import nodePath from "node:path";
 
+import { normalizeBotConfigForValidation, toTomlSerializableBotConfig } from "./selected-leverage-config.js";
 import type { BotConfig, StrategyName } from "./schema.js";
 import { BotConfigSchema, StrategySectionSchema } from "./schema.js";
 import {
@@ -96,7 +97,7 @@ export class ConfigStore {
    * @throws {ConfigValidationError} ha bármely mező elutasítódik.
    */
   public validate(raw: unknown): BotConfig {
-    const parsed = BotConfigSchema.safeParse(raw);
+    const parsed = BotConfigSchema.safeParse(normalizeBotConfigForValidation(raw));
     if (!parsed.success) {
       const issues = parsed.error.issues.map((issue) => ({
         path: issue.path.join("."),
@@ -157,7 +158,7 @@ export class ConfigStore {
 
     // 2) Serialize. A `stringifyToml` a `validated`-ot `Record<string, unknown>`
     // -ként fogadja — a `BotConfig` típus kompatibilis ezzel a típussal.
-    const serialized = this.dependencies.stringify(validated);
+    const serialized = this.dependencies.stringify(toTomlSerializableBotConfig(validated));
 
     // 3) Round-trip check. A TOML-stringify bug (adatvesztés) az
     // esetek 99%-ában itt jönne ki. A `parse` költsége elhanyagolható

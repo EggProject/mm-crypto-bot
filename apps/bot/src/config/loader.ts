@@ -19,6 +19,7 @@
  */
 
 import { DEFAULT_BOT_CONFIG } from "./defaults.js";
+import { toTomlSerializableBotConfig } from "./selected-leverage-config.js";
 import type { BotConfig } from "./schema.js";
 import { BotConfigSchema } from "./schema.js";
 import { DEFAULT_CONFIG_STORE_DEPENDENCIES } from "./store-node-adapter.js";
@@ -151,7 +152,7 @@ export function loadBotConfig(configPath?: string, environment: NodeJS.ProcessEn
   // ------------------------------------------------------------------------
   // A deep-clone azért kell, mert a DEFAULT_BOT_CONFIG egy exportált
   // konstans, és az env-override-ok nem szabad, hogy mutálják.
-  const merged: BotConfig = structuredClone(DEFAULT_BOT_CONFIG);
+  const merged = structuredClone(toTomlSerializableBotConfig(DEFAULT_BOT_CONFIG));
 
   // ------------------------------------------------------------------------
   // 2) TOML-fájl olvasása + parse (ha van configPath).

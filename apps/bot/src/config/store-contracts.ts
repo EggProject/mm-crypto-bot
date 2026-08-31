@@ -1,4 +1,4 @@
-import type { BotConfig } from "./schema.js";
+import type { TomlSerializableBotConfig } from "./selected-leverage-config.js";
 
 /**
  * Error raised when a configuration file cannot be read or parsed.
@@ -65,7 +65,7 @@ export interface LiveModeAuditEntry {
 export interface ConfigStoreDependencies {
   readonly readText: (path: string) => string;
   readonly parse: (text: string) => unknown;
-  readonly stringify: (config: BotConfig) => string;
+  readonly stringify: (config: TomlSerializableBotConfig) => string;
   readonly exists: (path: string) => boolean;
   readonly ensureDirectory: (path: string) => void;
   readonly copy: (source: string, target: string) => void;

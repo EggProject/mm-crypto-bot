@@ -22,6 +22,7 @@
 import { z } from "zod";
 
 import { EnabledSymbolsSchema, RiskSectionSchema } from "./schema-builders.js";
+import { SelectedLeverageConfigSchema } from "./selected-leverage-config.js";
 
 // ============================================================================
 // 1) Per-strategy section schema
@@ -122,6 +123,7 @@ export const BotConfigSchema = z.object({
       mode: z.enum(["paper", "live"]).default("paper"),
       log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
       state_file: z.string().default("data/bot-state.json"),
+      selected_leverage: SelectedLeverageConfigSchema,
     })
     .strict()
     .default({}),

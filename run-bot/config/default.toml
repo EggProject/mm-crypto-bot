@@ -8,6 +8,7 @@
 mode = "paper"
 log_level = "info"
 state_file = "data/bot-state.json"
+selected_leverage = "10"
 
 [exchange]
 id = "bybiteu"

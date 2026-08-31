@@ -117,6 +117,7 @@ function formatToml(config: BotConfig): string {
     `mode = "${config.bot.mode}"`,
     `log_level = "${config.bot.log_level}"`,
     `state_file = "${config.bot.state_file}"`,
+    `selected_leverage = "${config.bot.selected_leverage.canonical}"`,
     "",
     "[exchange]",
     `id = "${config.exchange.id}"`,
