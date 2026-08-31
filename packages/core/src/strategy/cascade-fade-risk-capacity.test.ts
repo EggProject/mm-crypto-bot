@@ -1,11 +1,8 @@
 // packages/core/src/strategy/cascade-fade.test.ts
 //
-// Phase 25 #2 Track D — Cascade fade detector + paper-trade simulator tests.
-//
 // Coverage (≥20 tests, all assertions on `bun:test`):
 // ============================================================================
 // CONFIG-INVARIANT (constructor hard guardrails)
-//   1.  Default config matches Track D §6.1 baseline
 //   2.  Empty allowedSymbols throws
 //   3.  Invalid layer3 distance range throws
 //   4.  layer3 exit max < min throws

@@ -93,7 +93,6 @@ export class CascadeFadeDetector extends CascadeFadeDetectorCore {
 
   /**
    * `canEnter` — entry hot-path gate. Verifier Check 1 (attempt 1 fix):
-   * the 5 risk governor gates (Track D §6.1 Layer 4) PLUS the capacity
    * caps PLUS the symbol allowlist are ALL evaluated here, on every
    * `observe()` call, BEFORE any `processEntry`. The previous version
    * declared/defaulted the gates but only enforced `isHardStopped`
@@ -321,7 +320,6 @@ export class CascadeFadeDetector extends CascadeFadeDetectorCore {
       exitNotionalUsd: eventMaybe.entry.entryNotionalUsd,
       // PnL = (exitMidPrice - entryLimitPrice) / entryMidPrice × 10000.
       // For a fade the entry was BUY and we expect exitMidPrice >= entryLimitPrice,
-      // so positive pnlBps = profit. (Track D §5: overshoot capture is the alpha.)
       // `processEntry` rejects non-positive mids before an entry can be
       // attached to an event, so every publicly reachable open entry has a
       // strictly positive denominator here.
@@ -347,7 +345,6 @@ export class CascadeFadeDetector extends CascadeFadeDetectorCore {
   /**
    * `validatePortfolioDd` — pure check: does the portfolio DD breach
    * the cascade-book cap (`riskPortfolioDdCap`)? Exposed for caller
-   * integration with the Phase 24 risk engine.
    */
   validatePortfolioDd(portfolioDd: number): boolean {
     return portfolioDd <= this.config.riskPortfolioDdCap;

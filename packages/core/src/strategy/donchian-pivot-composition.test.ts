@@ -79,9 +79,7 @@ function expectSignal(signal: StrategySignal | undefined): StrategySignal {
 describe("DonchianPivotComposition — construction", () => {
   it("default construction: name, timeframes (1d, 4h, 15m), minConsensus=2, both sub-strategies exist", () => {
     const composition = new DonchianPivotComposition();
-    expect(composition.name).toBe(
-      "Donchian + Pivot Composition (Phase 18 — 2-component M15-native mean-reversion)",
-    );
+    expect(composition.name).toBe("Donchian + Pivot Composition");
     expect(composition.timeframes).toEqual(["1d", "4h", "15m"]);
     expect(DONCHIAN_PIVOT_COMPOSITION_DEFAULT_LTF).toBe("15m");
     expect(composition.config.minConsensus).toBe(2);

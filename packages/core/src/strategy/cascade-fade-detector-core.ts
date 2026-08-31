@@ -283,7 +283,6 @@ export class CascadeFadeDetectorCore {
    * Note: BTC cooldown is NOT a kill-switch trigger — it only blocks
    * NEW entries (see `canEnter()`). This is the change from
    * `isRiskBlocked` (which conflated the two). Pulled out per
-   * Track D §6.1 Layer 4 risk governor + §6.3 explicit non-goal
    * "NO holding through next session" — cooldown affects new entries,
    * not in-flight positions.
    */

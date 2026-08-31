@@ -20,7 +20,6 @@ import type {
 /**
  * Synthetic bybit.eu SPOT slippage model for paper-trade mode.
  *
- * Per Track D §5 + §7.3:
  *   - Normal market: 2-6 bps slippage for $1M BTC
  *   - Cascade period: 10-50 bps slippage for $1M BTC (RPI depth shrinks)
  *   - $5M+ size during cascade: 50-150 bps slippage (firm capacity ceiling)
@@ -103,7 +102,6 @@ export function simulateBybitEuPaperFill(arguments_: {
  * Simplification: for the 2025-10-10 benchmark we treat the window's
  * first-print price as the mid for entry sizing and use a caller-
  * supplied `exitMidPriceUsd` when scheduling the timed exit. See
- * `replay-2025-10-10.ts` (Phase 26+) for the production replay.
  */
 export interface CascadeReplayObservation {
   readonly nowMs: number;
@@ -118,7 +116,6 @@ export interface CascadeReplayObservation {
    * verify the detector's cascade-state transitions omit
    * kill-switches — we want to verify the detector ENTERS POST_CASCADE
    * and FIRES an entry; kill-switch behavior is verified separately.
-   * (Phase 33 cleanup: the historical `run-cascade-replay-2025-10-10.ts`
    * CLI has been removed per user mandate — automated live-test
    * scaffolding is gone.  The `replayCascadeEvent` / `simulateBybitEuPaperFill`
    * APIs remain for unit-test fixtures and ad-hoc validator review.)
@@ -165,7 +162,6 @@ export function replayCascadeEvent(observations: readonly CascadeReplayObservati
 /**
  * `CascadeFadeStrategy` — adapts the `CascadeFadeDetector` to the
  * existing `Strategy` interface so the engine loop can call it
- * alongside the Phase 19 #1 baseline strategies.
  *
  * The Strategy interface is candle-driven, but cascade-fade is
  * EVENT-DRIVEN. This wrapper is a NO-OP that returns `undefined` for
@@ -173,7 +169,6 @@ export function replayCascadeEvent(observations: readonly CascadeReplayObservati
  * (called externally by the signal-center bridge from CoinGlass +
  * Bitquery). This guarantees:
  *   1. **Wire-up integrity**: cascade detector OFF vs ON produces
- *      byte-identical Phase 19 #1 baseline (the engine sees nothing
  *      different).
  *   2. **No silent no-op risk**: Layer 1/2/3 logic lives in the
  *      detector, not the strategy wrapper. The wrapper is a
@@ -203,7 +198,6 @@ export class CascadeFadeStrategy implements Strategy {
   onCandle(_context: unknown): StrategySignal | undefined {
     // NO-OP: cascade decisions come through `observe()`. Returning
     // undefined keeps the engine free of cascade-driven fills and
-    // guarantees wire-up integrity with Phase 19 #1 baseline.
     return;
   }
 }

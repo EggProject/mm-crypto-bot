@@ -1,4 +1,4 @@
-// packages/core/src/types.ts — a `@mm-crypto-bot/core` domain típusai
+// packages/core/src/types.ts — the `@mm-crypto-bot/core` domain types
 //
 // A kiválasztott stratégia (MTF-Trend-Konfluencia Kompozit v1.0)
 // belső típusai. Ezek a típusok a stratégia-motor és a backtest
@@ -99,11 +99,10 @@ export interface StrategySignal {
 }
 
 /**
- `OpenPositionSnapshot` — a `Strategy.onOpenPositionUpdate` callback
- bemenetén átadott nyitott pozíció nézet. A Phase 7 Track A trailing-stop
- engine számára a backtest motor átadja az aktuális pozíció legfontosabb
- mezőit. A stratégia ez alapján frissítheti a stopLoss / takeProfit szintet,
- vagy kérheti a pozíció azonnali zárását (pl. trailing-stop trigger).
+ * `OpenPositionSnapshot` is the open-position view passed to
+ * `Strategy.onOpenPositionUpdate`. The backtest engine supplies the position
+ * fields needed to update stop-loss/take-profit levels or request an immediate
+ * close, such as after a trailing-stop trigger.
 
   - `side` — `buy` (long) vagy `sell` (short).
   - `entryTime` — az entry timestamp-je (ms).
@@ -198,42 +197,30 @@ export interface Strategy {
   */
   warmup(): number;
   /**
-    **OPCIONÁLIS** per-bar pozíció-kezelő hook. Minden LTF gyertyán
-    hívódik, amikor VAN nyitott pozíció (a `checkExit` után, ha az
-    nem triggerelt kilépést). A Phase 7 Track A trailing-stop engine
-    számára vezettük be — a Phase 5-6 stratégiák NEM implementálják,
-    mert azok trailing-stop nélkül dolgoznak (a fix SL/TP a `onCandle`
-    által javasolt signal-ban marad).
+   * Optional per-bar position-management hook. It is called on every LTF
+   * candle with an open position after `checkExit` declines to exit. The
+   * trailing-stop engine uses it; strategies without trailing stops leave
+   * their fixed SL/TP in the signal returned by `onCandle`.
 
-    `undefined` means no update and the position keeps running.
-    A `PositionUpdate`-tel a stratégia:
-      1. módosíthatja a stop-loss / take-profit szintet (HWM-trailing),
-      2. vagy `forceExit: true`-val azonnal zárhatja a pozíciót
-         (trailing-stop trigger, trend-reversal, stb.).
-
-    A HWM (high-water-mark) és a holdingBars számlálás a STRATÉGIA
-    saját state-je (mivel a backtest engine OpenPosition típusa
-    readonly). A trailing-stop strategy belső mutable state-et tart
-    fenn entry és exit között.
+   * Return `undefined` for no update or a `PositionUpdate` to modify the
+   * stop-loss/take-profit levels or request an immediate close.
+   *
+   * The high-water mark and holding-bar counter are strategy-owned state
+   * because the backtest engine's open-position view is readonly.
   */
   onOpenPositionUpdate?(context: PositionManagementContext): PositionUpdate | undefined;
   /**
-    **OPCIONÁLIS** callback, amikor a stratégia által kért pozíció
-    ENTRY megtörtént. A stratégia itt inicializálhatja a trailing-stop
-    state-jét (HWM, holdingBars counter, stb.). Alapértelmezetten a
-    Phase 7 Track A trailing-stop engine ezt használja a HWM reset-hez.
-  */
+   * Optional callback after a strategy-requested position entry. A strategy
+   * can initialize trailing-stop state such as the high-water mark or holding
+   * bar counter.
+   */
   onPositionOpened?(snapshot: OpenPositionSnapshot): void;
   /**
-    **OPCIONÁLIS** callback, amikor a pozíció ZÁRÓDIK (bármely okból:
-    SL / TP / time_exit / trailing_stop / kill_switch). A Phase 7
-    trailing-stop engine a HWM és a holdingBars counter reset-jére
-    használja.
-  */
+   * Optional callback after a position closes for any reason, including SL,
+   * TP, time exit, trailing stop, or kill switch. The trailing-stop engine
+   * uses it to reset the high-water mark and holding-bar counter.
+   */
   onPositionClosed?(reason: string): void;
 }
 
-// Phase 27 cleanup: MtfTrendConfluenceConfig and DEFAULT_MTF_CONFIG removed.
-// The MtfTrendConfluenceStrategy was deleted (HALT verdict: 0 trades,
-// 0% return over 30-month full window). See
-// docs/research/phase26-strategy-audit/REFRESH-phase26.md §4.
+// The MtfTrendConfluenceStrategy is not part of the active strategy surface.

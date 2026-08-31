@@ -1,11 +1,8 @@
 // packages/core/src/strategy/cascade-fade.test.ts
 //
-// Phase 25 #2 Track D — Cascade fade detector + paper-trade simulator tests.
-//
 // Coverage (≥20 tests, all assertions on `bun:test`):
 // ============================================================================
 // CONFIG-INVARIANT (constructor hard guardrails)
-//   1.  Default config matches Track D §6.1 baseline
 //   2.  Empty allowedSymbols throws
 //   3.  Invalid layer3 distance range throws
 //   4.  layer3 exit max < min throws
@@ -228,7 +225,6 @@ describe("CascadeFadeStrategy (Strategy interface wrapper)", () => {
 describe("replayCascadeEvent — historical 2025-10-10 validation", () => {
   it("enters POST_CASCADE within 30 min of synthetic cascade peak", () => {
     const observations: CascadeReplayObservation[] = [];
-    // Phase 1: build OI history (48h of $10B leading up to T0)
     for (let ts = T0 - 48 * 60 * 60 * 1000; ts <= T0; ts += 60 * 60_000) {
       observations.push({
         nowMs: ts,
@@ -243,14 +239,12 @@ describe("replayCascadeEvent — historical 2025-10-10 validation", () => {
         oi: oi(ts, "BTC", 10_000_000_000),
       });
     }
-    // Phase 2: cascade peak at T0 (Layer 1 triggers)
     observations.push({
       nowMs: T0,
       window: cascadeWindow(T0, "BTC", { totalUsd: 60_000_000 }),
       oi: oi(T0, "BTC", 8_400_000_000),
       crossConfirmation: xconf(T0),
     });
-    // Phase 3: 2 hours of stabilization + ELR drop
     for (let index = 1; index <= 120; index++) {
       const ts = T0 + index * 60_000;
       observations.push({

@@ -1,12 +1,9 @@
 // packages/core/src/strategy/pivot-point-grid.ts — Pivot-Point range-mean-reversion
 // strategy on M15 LTF.
 //
-// Phase 15 Track B Strategy #1 — pivot-anchored grid using the previous
 // daily candle's range. Pivots are deterministic (no parameter fitting
 // other than the three Fibonacci multipliers), and work uniformly across
 // instruments and regimes.
-//
-// Pivot point math (the brief's spec, see Phase 15 plan §2 / docstring):
 //
 //   PP  = (H + L + C) / 3                   ← classic pivot mean
 //   R1/S1  = PP ± 0.382 × (H - L)          ← Fibonacci inner bands
@@ -47,7 +44,6 @@ import type { Strategy, StrategyContext, StrategySignal } from "../types.js";
  * strategy. The three multipliers are applied to (H - L) of the
  * previous HTF candle to construct the S1/S2/S3 and R1/R2/R3 bands.
  *
- * `maxPositionPctEquity` is the Phase 16 productionization cap. Pivot
  * Grid's mean-reversion entries stack across successive S/R levels; at
  * the engine's default `positionSize.maxPositionPctEquity = 0.20` the
  * strategy can compound winners beyond realistic capital caps. We
@@ -71,20 +67,19 @@ export interface PivotPointGridConfig {
   */
   readonly multiplierFib3: number;
   /**
-   * Per-trade equity cap (Phase 16 productionization). The emitted
+   * Per-trade equity cap. The emitted
    * signal's `confidence` is scaled by `cap / engineMaxPositionPctEquity`
    * so the engine-side `positionSize.maxPositionPctEquity` constraint
    * is enforced. Range: (0, 1.0]. Default `0.04`. Setting `1.0` keeps
-   * legacy (uncapped) behavior.
+   * disables scaling.
    */
   readonly maxPositionPctEquity: number;
 }
 
 /**
  * `DEFAULT_PIVOT_GRID_CONFIG` — classical Fibonacci pivot multipliers
- * with the Phase 16 productionization cap.
+ * with a 4% per-trade equity cap.
  *
- * `maxPositionPctEquity: 0.04` — Phase 16 productionization envelope
  * (4% per-trade equity cap, matches the board's "realistic +20-50%/mo"
  * target under 1:10 leverage on bybit.eu SPOT).
  */
@@ -99,12 +94,10 @@ export const DEFAULT_PIVOT_GRID_CONFIG: PivotPointGridConfig = {
  * `ENGINE_MAX_POSITION_PCT_EQUITY` — the engine-side default cap that
  * `positionSize.maxPositionPctEquity` enforces. Pivot Grid's confidence
  * scaling uses this as the denominator when computing the per-emit
- * `capScale`. The engine's default cap (0.20) reflects the pre-Phase-16
- * baseline; Phase 16 scales the strategy down to 0.04 (or any custom
+ * `capScale`. The strategy scales the confidence down to 0.04 (or any custom
  * `maxPositionPctEquity`) so the engine's cap is honored.
  *
- * In future phases this may become a `ctx.engineConfig` field; for
- * Phase 16 we use a hard-coded constant matching the engine's default.
+ * This may become a `ctx.engineConfig` field in the future.
  */
 const ENGINE_MAX_POSITION_PCT_EQUITY = 0.2;
 
@@ -125,7 +118,7 @@ interface PivotSymbolState {
 
 export class PivotPointGridStrategy implements Strategy {
   private readonly symbolState = new Map<string, PivotSymbolState>();
-  readonly name = "Pivot Point Grid (Phase 15 M15 range-mean-reversion)";
+  readonly name = "Pivot Point Grid";
   readonly timeframes = ["1d", "15m"] as const;
   readonly config: PivotPointGridConfig;
 
@@ -184,7 +177,6 @@ export class PivotPointGridStrategy implements Strategy {
    *   - No committed previous HTF candle exists yet
    *   - The close is inside the inner bands (S1 < close < R1, middle zone)
    *
-   * Phase 16 productionization: every emitted signal has its
    * `confidence` field scaled by `capScale = min(1.0, maxPositionPctEquity
    * / ENGINE_MAX_POSITION_PCT_EQUITY)`. This makes the strategy honor
    * the configured per-trade equity cap while leaving the engine's
@@ -227,7 +219,6 @@ export class PivotPointGridStrategy implements Strategy {
     const close = candle.close;
 
     // -----------------------------------------------------------------------
-    // Phase 16 productionization — scale confidence down to honor
     // `config.maxPositionPctEquity`. We compute `capScale` ONCE per emit
     // (the cap is config-level, not signal-level), then apply it to the
     // raw confidence that each branch emits.
@@ -239,7 +230,7 @@ export class PivotPointGridStrategy implements Strategy {
      * Keeps all other signal fields (side / reason / stopLoss / takeProfit)
      * unchanged. The cap NEVER amplifies: when
      * `maxPositionPctEquity >= ENGINE_MAX_POSITION_PCT_EQUITY`,
-     * `capScale = 1.0` and the signal is emitted unchanged (legacy mode).
+     * `capScale = 1.0` and the signal is emitted unchanged.
      */
     const applyCap = (raw: StrategySignal): StrategySignal => {
       if (capScale === 1) return raw;

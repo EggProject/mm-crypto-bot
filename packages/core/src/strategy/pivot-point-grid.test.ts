@@ -12,7 +12,7 @@ import {
 } from "./pivot-point-grid.test-support.js";
 
 describe("PivotPointGridStrategy — default config & warmup", () => {
-  it("1. default multipliers are 0.382 / 0.618 / 1.000 (classical Fibonacci pivots) + Phase 16 cap 0.04", () => {
+  it("uses default Fibonacci multipliers and a 0.04 equity cap", () => {
     expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib1).toBe(0.382);
     expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib2).toBe(0.618);
     expect(DEFAULT_PIVOT_GRID_CONFIG.multiplierFib3).toBe(1);
@@ -104,7 +104,7 @@ describe("PivotPointGridStrategy — HTF boundary detection", () => {
     expect(strat.committedPrevHtfAtLeastOnce).toBe(true);
   });
 
-  it("7. pivot point recomputes when a new HTF candle rolls up (legacy cap)", () => {
+  it("7. pivot point recomputes when a new HTF candle rolls up", () => {
     const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1 });
     // Tight day-0 range: H=101, L=99, C=100 → PP=100, range=2.
     const day0Start = DAY_ZERO_START_MS;

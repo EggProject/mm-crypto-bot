@@ -1,11 +1,8 @@
 // packages/core/src/strategy/cascade-fade.test.ts
 //
-// Phase 25 #2 Track D — Cascade fade detector + paper-trade simulator tests.
-//
 // Coverage (≥20 tests, all assertions on `bun:test`):
 // ============================================================================
 // CONFIG-INVARIANT (constructor hard guardrails)
-//   1.  Default config matches Track D §6.1 baseline
 //   2.  Empty allowedSymbols throws
 //   3.  Invalid layer3 distance range throws
 //   4.  layer3 exit max < min throws
@@ -147,7 +144,7 @@ function seedOiHistory(
 // ============================================================================
 
 describe("CascadeFadeDetector — config invariants", () => {
-  it("default config matches Track D §6.1 baseline", () => {
+  it("default config satisfies detector invariants", () => {
     expect(DEFAULT_CASCADE_FADE_CONFIG.layer1OneMinUsdThreshold).toBe(50_000_000);
     expect(DEFAULT_CASCADE_FADE_CONFIG.layer1OiDrop5minPct).toBe(0.01);
     expect(DEFAULT_CASCADE_FADE_CONFIG.layer1MinCrossConfirmations).toBe(2);

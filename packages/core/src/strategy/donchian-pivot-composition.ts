@@ -1,4 +1,3 @@
-// packages/core/src/strategy/donchian-pivot-composition.ts — Phase 18 Track B
 // Donchian + Pivot 2-component composition.
 //
 // ===========================================================================
@@ -7,12 +6,9 @@
 //
 // Purpose
 // -------
-// Phase 18 Track B's lesson from Phase 15 §10: the 4-strategy
 // `SimpleRetailEnsemble` dilutes signal quality because it fires every
-// sub-strategy on every candle. Phase 16 `RegimeRoutedEnsemble` added
 // ADX-based regime routing, but still includes the noisy M5 BB Squeeze
 // and Keltner Grid components (proven net-destructive on ETH/SOL in
-// Phase 15). This composition ISOLATES the two best M15-native
 // mean-reversion sub-strategies — Donchian Range Channel and Pivot Point
 // Grid — and emits only when a configurable `minConsensus` of sub-strategies
 // agree.
@@ -20,18 +16,13 @@
 // Why these two sub-strategies?
 // ------------------------------
 //   - Both are M15-native (no M5 aggregation dilution — the issue that
-//     broke Phase 15 BB Squeeze / Keltner Grid composition on ETH/SOL).
 //   - Both are mean-reversion family, but the ORTHOGONAL signal sources
 //     capture different regimes:
 //       * Donchian Range Channel = 1d Donchian(20) range extremes
 //         (low-frequency, high-quality, ADX 25 trend filter).
 //       * Pivot Point Grid      = previous-day Fibonacci pivot bands
 //         (higher-frequency, mean-reversion stack at S2/R2 + S1/R1).
-//   - Phase 15 empirical envelopes: BTC Donchian +13.35%/mo, Pivot uncapped
-//     +60.07%/mo (Phase 15 §5+§3). The two are 0.5-0.6 correlated but
 //     their disagreement is informative (different regime windows).
-//
-// Aggregation logic (per Phase 18 Track B brief):
 //
 //   - Run both sub-strategies via `sub.onCandle(ctx)`.
 //   - Count `fired = number of defined signals`.
@@ -68,7 +59,6 @@
 //                      confidence (for downstream debug).
 //
 //   The emitted signal's `confidence` already incorporates Pivot Grid's
-//   Phase 16 `maxPositionPctEquity` productionization cap (the Pivot
 //   sub-strategy scales its raw confidence by `capScale` before the
 //   composition reads it), so the composition's `mean(confidences)` is
 //   already at the engine's per-trade cap.
@@ -76,9 +66,6 @@
 // Sizing (1:10) is engine-side — this strategy only emits signals.
 //
 // References:
-//   - Phase 15 §5 (Donchian Range Channel), §3 (Pivot Point Grid),
-//     §10 (ensemble dilution lesson).
-//   - Phase 16 Track A `maxPositionPctEquity` cap pattern — Pivot's
 //     cap-scaled confidence is honored through the composition's mean.
 
 import type { Timeframe } from "@mm-crypto-bot/shared/types";
@@ -155,19 +142,16 @@ export const DONCHIAN_PIVOT_COMPOSITION_DEFAULT_LTF: Timeframe = "15m";
 // ---------------------------------------------------------------------------
 
 /**
- * `DonchianPivotComposition` — Phase 18 Track B composite Strategy.
  *
  * Composes only the two best M15-native mean-reversion sub-strategies
  * (Donchian Range Channel + Pivot Point Grid) with a configurable
- * `minConsensus` threshold. This composition is the second of two Phase
- * 18 candidates that test "regime-routed, not consensus-at-N" composition
- * (Phase 18 §2 motivation; Phase 15 §10 lesson).
+ * `minConsensus` threshold.
  *
  * Sub-strategies are exposed (public `readonly` fields) so the CLI runner
  * can read per-strategy state for the REPORT's regime correlation analysis.
  */
 export class DonchianPivotComposition implements Strategy {
-  readonly name = "Donchian + Pivot Composition (Phase 18 — 2-component M15-native mean-reversion)";
+  readonly name = "Donchian + Pivot Composition";
   readonly timeframes: readonly Timeframe[];
   readonly config: DonchianPivotCompositionConfig;
   readonly donchianRange: DonchianRangeChannelStrategy;

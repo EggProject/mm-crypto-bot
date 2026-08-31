@@ -38,7 +38,7 @@ describe("PivotPointGridStrategy — symbol isolation", () => {
   });
 });
 
-describe("PivotPointGridStrategy — Phase 16 notional cap (maxPositionPctEquity)", () => {
+describe("PivotPointGridStrategy — maxPositionPctEquity cap", () => {
   it("15. DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity === 0.04 (productionization envelope)", () => {
     expect(DEFAULT_PIVOT_GRID_CONFIG.maxPositionPctEquity).toBe(0.04);
     // Cap ratio at default: 0.04 / 0.20 = 0.20 (engine cap), so emitted
@@ -98,7 +98,7 @@ describe("PivotPointGridStrategy — Phase 16 notional cap (maxPositionPctEquity
     expect(signal?.confidence).toBeCloseTo(0.07, 5);
   });
 
-  it("19. cap = 1.0 (legacy) → confidence unchanged (no clamping)", () => {
+  it("19. cap = 1.0 → confidence unchanged (no clamping)", () => {
     const strat = new PivotPointGridStrategy({ maxPositionPctEquity: 1 });
     seedPivotData(strat);
     // capScale = min(1, 1.0 / 0.20) = 1.0 → no scaling.

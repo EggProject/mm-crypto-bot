@@ -1,6 +1,5 @@
 // packages/core/src/strategy/donchian-range-channel.test.ts — unit tests
 //
-// Phase 15 Track C retail-family coverage. Mirror the mean-reversion-bb
 // test layout (baseCandle + makeCtx helpers) so the test surface stays
 // consistent across the retail family.
 

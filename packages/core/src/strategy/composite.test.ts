@@ -1,7 +1,4 @@
-// packages/core/src/strategy/composite.test.ts — unit tesztek
-// Phase 32: removed DonchianMtfStrategy + FundingCarryLeverageStrategy
-// imports (both deleted in Phase 32 — see docs/research/deprecated-strategies/REPORT.md
-// §2.3, §2.6). The composite test now uses only the kept strategies.
+// packages/core/src/strategy/composite.test.ts — unit tests
 
 import { describe, expect, it } from "bun:test";
 
@@ -281,13 +278,10 @@ describe("CompositeStrategy", () => {
     expect(signal?.confidence).toBeLessThanOrEqual(1);
   });
 
-  it("works with stub components (smoke test — Phase 32 deleted the real ones)", () => {
-    // Phase 32: DonchianMtfStrategy and FundingCarryLeverageStrategy were
-    // deleted (see docs/research/deprecated-strategies/REPORT.md §2.3, §2.6).
-    // The composite smoke test now uses stub Strategy implementations to
-    // verify the composite pattern works without depending on deleted
-    // strategies. Production composite usage is via DonchianPivotComposition
-    // (see packages/core/src/strategy/donchian-pivot-composition.ts).
+  it("works with stub components", () => {
+    // The composite smoke test uses stub Strategy implementations to verify
+    // the composite pattern independently of concrete strategy selection.
+    // Production composite usage is via DonchianPivotComposition.
     const stubTrend: Strategy = {
       name: "stub-trend",
       timeframes: ["1d"] as const,

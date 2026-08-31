@@ -82,7 +82,7 @@ export interface OpenInterestInput {
 /**
  * Funding rate input — used to gate the `STABILIZING → POST_CASCADE`
  * transition ("funding near zero"). Sourced from the existing
- * `CrossDexFundingWatcherPlugin` (Phase 12 Track B).
+ * `CrossDexFundingWatcherPlugin`.
  */
 export interface FundingRateInput {
   /**
@@ -171,7 +171,6 @@ export interface CrossConfirmationInput {
  * another source (with the perp venues grouped together so we don't
  * require 3+ different perp venues).
  *
- * Per Track D §6.1, the brief is satisfied when ≥2 sources agree
  * within ±60s, with the strict interpretation that "CoinGlass + one perp
  * feed" is the canonical config.
  */
@@ -187,14 +186,14 @@ export const PROVIDER_DIVERSITY_GROUPS: Readonly<Record<CrossConfirmationProvide
 
 /**
  * Risk snapshot — the system-side context the strategy reads at entry
- * time. All 5 risk governor gates (Track D §6.1 Layer 4) read from
+ * time. All five risk governor gates read from
  * this view. The detector refuses to emit an entry when ANY kill-switch
  * is active (verifier Check 1, attempt 1 fix).
  */
 export interface RiskSnapshotInput {
   /**
-  Phase 24 portfolio drawdown in [0, 1]. Detected when > riskPortfolioDdCap.
-  */
+   * Portfolio drawdown in [0, 1]. Detected when > riskPortfolioDdCap.
+   */
   readonly portfolioDd?: number;
   /**
   Is the perp-DEX aggregate OI over its 90-day SMA?
@@ -212,15 +211,12 @@ export interface RiskSnapshotInput {
 
 /**
  * Configuration for the cascade detector. Defaults are baked from
- * Track D REPORT.md §6.1 + §7 + §8.2.
- *
  * The defaults below form the **empirically-validated baseline**.
- * Tune with caution — every change is a deviance from Track D's
- * research findings.
+ * Tune with caution — every change is a deviance from the research findings.
  */
 export interface CascadeFadeConfig {
   // -------------------------------------------------------------------------
-  // Layer 1 — real-time detector thresholds (Track D §6.1)
+  // Layer 1 — real-time detector thresholds
   // -------------------------------------------------------------------------
   /**
   Aggregate 1-min liquidation USD value to qualify as "cascade event". Default $50M.
@@ -244,7 +240,7 @@ export interface CascadeFadeConfig {
   readonly layer1CrossConfirmWindowMs: number;
 
   // -------------------------------------------------------------------------
-  // Layer 2 — state machine thresholds (Track D §4.4 + §6.1)
+  // Layer 2 — state machine thresholds
   // -------------------------------------------------------------------------
   /**
   OI drop in 48h to enter POST_CASCADE. Axel Adler rule. Default 15%.
@@ -264,7 +260,7 @@ export interface CascadeFadeConfig {
   readonly layer2FundingNearZero: number;
 
   // -------------------------------------------------------------------------
-  // Layer 3 — execution (Track D §6.1 + §6.3)
+  // Layer 3 — execution
   // -------------------------------------------------------------------------
   /**
   Min NOTIONAL distance from mid for marketable limit (in bps). Default 5.
@@ -284,11 +280,11 @@ export interface CascadeFadeConfig {
   readonly layer3ExitMaxMinutes: number;
 
   // -------------------------------------------------------------------------
-  // Risk governor (Track D §6.1 Layer 4 + §7)
+  // Risk governor
   // -------------------------------------------------------------------------
   /**
-  Phase 24 portfolio DD cap on cascade-fade book. Default 12%.
-  */
+   * Portfolio drawdown cap on the cascade-fade book. Default 12%.
+   */
   readonly riskPortfolioDdCap: number;
   /**
   Perp-DEX OI over 90-day SMA → halt.
@@ -312,7 +308,7 @@ export interface CascadeFadeConfig {
   readonly riskHardStopHaltMs: number;
 
   // -------------------------------------------------------------------------
-  // Capacity constraints (Track D §6.3)
+  // Capacity constraints
   // -------------------------------------------------------------------------
   /**
   Max position per symbol per event. Default $1M.

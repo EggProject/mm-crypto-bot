@@ -1,7 +1,7 @@
 // packages/core/src/strategy/donchian-range-channel.ts — Donchian Range Channel
-// mean-reversion strategy (Phase 15 Track C, retail M15 range family).
+// mean-reversion strategy.
 //
-// Phase 15 thesis: range-bound / mid-frequency retail strategies work at home
+// Range-bound / mid-frequency strategies work at home
 // RTT (orthogonal to existing trend-following + carry + signal-center alpha
 // streams). The Donchian Range Channel is the simplest possible range
 // strategy — buy at the DonchianLower(HTF) rail, sell at the DonchianUpper(HTF)
@@ -72,7 +72,7 @@ export const DEFAULT_DONCHIAN_RANGE_CONFIG: DonchianRangeChannelConfig = {
 };
 
 export class DonchianRangeChannelStrategy implements Strategy {
-  readonly name = "Donchian Range Channel (Phase 15 M15 range-mean-reversion)";
+  readonly name = "Donchian Range Channel";
   readonly timeframes = ["1d", "15m"] as const;
   readonly config: DonchianRangeChannelConfig;
 
@@ -140,7 +140,7 @@ export class DonchianRangeChannelStrategy implements Strategy {
       };
     }
     // 6) Middle zone — no signal. The position-management layer
-    //    (Phase 7 trailing-stop, Phase 15 ensemble) handles open positions.
+    //    handles open positions.
     return undefined;
   }
 }
