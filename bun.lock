@@ -38,15 +38,25 @@
       "name": "@mm-crypto-bot/bot",
       "version": "0.1.0",
       "dependencies": {
+        "@mm-crypto-bot/assert": "workspace:*",
         "@mm-crypto-bot/backtest": "workspace:*",
         "@mm-crypto-bot/core": "workspace:*",
         "@mm-crypto-bot/exchange": "workspace:*",
         "@mm-crypto-bot/logging": "workspace:*",
+        "@mm-crypto-bot/numeric": "workspace:*",
         "@mm-crypto-bot/paper": "workspace:*",
         "@mm-crypto-bot/shared": "workspace:*",
         "picocolors": "1.1.1",
         "zod": "3.25.76",
       },
+      "devDependencies": {
+        "@types/bun": "1.3.14",
+        "typescript": "6.0.3",
+      },
+    },
+    "apps/config-search": {
+      "name": "@mm-crypto-bot/config-search",
+      "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "1.3.14",
         "typescript": "6.0.3",
@@ -107,6 +117,7 @@
       "name": "@mm-crypto-bot/exchange",
       "version": "0.0.1",
       "dependencies": {
+        "@mm-crypto-bot/numeric": "workspace:*",
         "@mm-crypto-bot/shared": "workspace:*",
         "ccxt": "4.5.75",
       },
@@ -270,6 +281,8 @@
     "@mm-crypto-bot/backtest-tools": ["@mm-crypto-bot/backtest-tools@workspace:packages/backtest-tools"],
 
     "@mm-crypto-bot/bot": ["@mm-crypto-bot/bot@workspace:apps/bot"],
+
+    "@mm-crypto-bot/config-search": ["@mm-crypto-bot/config-search@workspace:apps/config-search"],
 
     "@mm-crypto-bot/core": ["@mm-crypto-bot/core@workspace:packages/core"],
 

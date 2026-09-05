@@ -4,7 +4,7 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --noEmit && bun build src/index.ts --target=bun --outdir=dist --format=esm",
+    "build": "bun build src/index.ts --compile --target=bun-linux-x64 --outfile dist/mm-crypto-bot-bot",
     "dev": "bun run src/index.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
