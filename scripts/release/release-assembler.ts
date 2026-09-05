@@ -37,7 +37,7 @@ export async function assertReleasePreconditions(
     throw new Error("release assembly requires a clean Git worktree");
   }
 
-  const [commit, rawEpoch, bunVersion, nodeVersion] = await Promise.all([
+  const [commit, rawEpoch, bunVersion, rawNodeCliVersion] = await Promise.all([
     dependencies.git.headCommit(),
     dependencies.git.headCommitEpoch(),
     dependencies.toolchain.bunVersion(),
@@ -49,8 +49,8 @@ export async function assertReleasePreconditions(
   if (bunVersion !== requiredBunVersion) {
     throw new Error(`release assembly requires Bun ${requiredBunVersion}`);
   }
-  if (nodeVersion !== requiredNodeMetadataVersion) {
-    throw new Error(`release assembly requires Node metadata ${requiredNodeMetadataVersion}`);
+  if (rawNodeCliVersion !== `v${requiredNodeMetadataVersion}`) {
+    throw new Error(`release assembly requires raw Node CLI v${requiredNodeMetadataVersion}`);
   }
   const sourceDateEpoch = parseCommitEpoch(rawEpoch);
   void normalizedDosTimestamp(sourceDateEpoch);

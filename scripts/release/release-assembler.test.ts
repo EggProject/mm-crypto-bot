@@ -15,6 +15,7 @@ interface AsyncTestExpectation {
 
 interface TestExpectation {
   readonly rejects: AsyncTestExpectation;
+  readonly resolves: { toEqual(expected: unknown): Promise<void> };
   toContain(expected: unknown): void;
   toEqual(expected: unknown): void;
   toThrow(expected?: string | RegExp): void;
@@ -60,7 +61,7 @@ describe("release assembly", () => {
       [{ commit: "A".repeat(40) }, "full lowercase Git commit"],
       [{ epoch: "1788199915.5" }, "Git commit epoch"],
       [{ bunVersion: "1.3.13" }, "Bun 1.3.14"],
-      [{ nodeVersion: "24.19.1" }, "Node metadata 24.19.0"],
+      [{ nodeVersion: "v24.19.1" }, "raw Node CLI v24.19.0"],
     ];
 
     for (const [options, message] of scenarios) {
@@ -68,6 +69,21 @@ describe("release assembly", () => {
       await expect(assembleRelease(current.dependencies, "bot")).rejects.toThrow(message);
       expect(current.compilerCalls).toEqual([]);
       expect(current.fileSystem.writeOperations).toEqual([]);
+    }
+  });
+
+  test("requires the exact raw Node CLI version spelling", async () => {
+    const accepted = fixture({ nodeVersion: "v24.19.0" });
+    await expect(assertReleasePreconditions(accepted.dependencies)).resolves.toEqual({
+      commit: "a".repeat(40),
+      lockfileSha256: "3d0abe3e8f9631c12a42e96531a6a0727a4752fb15508ebf30dca059607f498d",
+      sourceDateEpoch: 1_788_199_915,
+    });
+
+    for (const nodeVersion of ["24.19.0", "v24.19.1", "v24.19.0-extra"]) {
+      const rejected = fixture({ nodeVersion });
+      await expect(assembleRelease(rejected.dependencies, "bot")).rejects.toThrow("raw Node CLI v24.19.0");
+      expect(rejected.compilerCalls).toEqual([]);
     }
   });
 

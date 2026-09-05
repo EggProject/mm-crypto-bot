@@ -177,7 +177,7 @@ export function fixture(options: FixtureOptions = {}): Fixture {
     temporaryRoot,
     toolchain: {
       bunVersion: () => Promise.resolve(options.bunVersion ?? "1.3.14"),
-      nodeVersion: () => Promise.resolve(options.nodeVersion ?? "24.19.0"),
+      nodeVersion: () => Promise.resolve(options.nodeVersion ?? "v24.19.0"),
     },
   };
   return { compilerCalls, dependencies, fileSystem };

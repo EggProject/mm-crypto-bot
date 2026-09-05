@@ -22,6 +22,9 @@ export interface ReleaseGitPort {
 
 export interface ReleaseToolchainPort {
   bunVersion(): Promise<string>;
+  /**
+   * Returns the trimmed raw output of `node --version`, including its leading `v`.
+   */
   nodeVersion(): Promise<string>;
 }
 
