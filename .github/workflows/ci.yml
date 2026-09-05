@@ -66,6 +66,7 @@ jobs:
           node-version-file: .nvmrc
       - run: bun install --frozen-lockfile
       - run: bun run verify:foundation
+      - run: node node_modules/vitest/vitest.mjs run --config scripts/tooling/vitest.verify-foundation.config.mjs --coverage
 
   test:
     name: Test

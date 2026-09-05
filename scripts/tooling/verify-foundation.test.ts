@@ -1,10 +1,12 @@
 /* eslint-disable unicorn/no-null -- Bun subprocess results represent absent exit and signal codes as null. */
 
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
 interface TestExpectation {
   toBe(expected: unknown): void;
+  toContain(expected: unknown): void;
   toBeUndefined(): void;
   toEqual(expected: unknown): void;
 }
@@ -274,17 +276,47 @@ test("entrypoint assigns the verification command exit code to its injected targ
 });
 
 test("coverage reports are isolated to the current worktree and use the ignored coverage root", async () => {
-  const configModule: unknown = await import("./vitest.verify-foundation.config.mjs");
-  if (!isRecord(configModule) || !isRecord(configModule.default)) {
+  const configUrl = pathToFileURL(
+    path.resolve(import.meta.dirname, "vitest.verify-foundation.config.mjs"),
+  ).href;
+  const configModule: unknown = await import(configUrl);
+  if (!isRecord(configModule) || !isRecord(configModule["default"])) {
     throw new Error("Foundation verification Vitest configuration must export a default object.");
   }
 
-  const { test: testConfig } = configModule.default;
-  if (!isRecord(testConfig) || !isRecord(testConfig.coverage)) {
+  const { test: testConfig } = configModule["default"];
+  if (!isRecord(testConfig) || !isRecord(testConfig["coverage"])) {
     throw new Error("Foundation verification Vitest configuration must define coverage settings.");
   }
 
-  expect(testConfig.coverage.reportsDirectory).toBe(
+  const coverage = testConfig["coverage"];
+  if (Object.hasOwn(coverage, "exclude")) {
+    throw new Error("Foundation verification Vitest coverage must not exclude source files.");
+  }
+
+  const thresholds = coverage["thresholds"];
+  if (!isRecord(thresholds)) {
+    throw new Error("Foundation verification Vitest coverage must define thresholds.");
+  }
+
+  expect(coverage["provider"]).toBe("v8");
+  expect(coverage["include"]).toEqual(["scripts/tooling/verify-foundation.ts"]);
+  expect(coverage["reportsDirectory"]).toBe(
     path.join(path.resolve(import.meta.dirname, "../.."), "coverage", "verify-foundation-v8"),
+  );
+  expect(thresholds["branches"]).toBe(100);
+  expect(thresholds["functions"]).toBe(100);
+  expect(thresholds["lines"]).toBe(100);
+  expect(thresholds["statements"]).toBe(100);
+});
+
+test("CI runs foundation V8 coverage through native Node", async () => {
+  const workflow = await readFile(
+    path.resolve(import.meta.dirname, "../../.github/workflows/ci.yml"),
+    "utf8",
+  );
+
+  expect(workflow).toContain(
+    "node node_modules/vitest/vitest.mjs run --config scripts/tooling/vitest.verify-foundation.config.mjs --coverage",
   );
 });
