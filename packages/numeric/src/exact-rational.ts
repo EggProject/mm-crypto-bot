@@ -79,6 +79,10 @@ export class ExactRational {
     }
   };
 
+  public static readonly requireAuthentic = (input: unknown): ExactRational => {
+    return ExactRational.#requireInstance(input);
+  };
+
   static {
     Object.freeze(ExactRational.prototype);
     Object.freeze(ExactRational);
