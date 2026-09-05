@@ -95,9 +95,9 @@ test("Slice A maps the approved hook order and governing sentence", async () => 
   );
   expect(lefthook).toContain("run: bun run hook:pre-commit");
   expect(pipeline.indexOf('"bun", "run", "lint:hook"')).toBeLessThan(
-    pipeline.indexOf('"bun", "run", "format:check"'),
+    pipeline.indexOf('"bun", "run", "format:hook"'),
   );
-  expect(pipeline.indexOf('"bun", "run", "format:check"')).toBeLessThan(
+  expect(pipeline.indexOf('"bun", "run", "format:hook"')).toBeLessThan(
     pipeline.indexOf('"bun", "run", "clean:artifacts"'),
   );
   expect(pipeline.indexOf('"bun", "run", "clean:artifacts"')).toBeLessThan(
@@ -112,11 +112,21 @@ test("lint scripts must stay fail-closed against temp reintroduction", async () 
   }
 
   const manifest = (JSON.parse(await readRepoFile("package.json")) as PackageManifest).scripts;
-  const expectedScript =
+  const expectedFullRepoLintScript =
     "eslint --config eslint.config.js apps packages scripts search-best-config eslint.config.js --max-warnings=0";
+  const expectedFullRepoFormatScript = "prettier --check --ignore-unknown .";
+  const expectedPreCommitHookScript =
+    "bun --eval 'const { createBunCommandRunner, runPreCommitPipeline } = await import(\"./scripts/tooling/pre-commit-pipeline.ts\"); await runPreCommitPipeline(createBunCommandRunner(Bun.spawn));'";
+  const expectedLintHookScript =
+    'bun --eval \'const { createBunGitCommandRunner, createBunProcessCommandRunner, runStagedFileValidation } = await import("./scripts/tooling/staged-file-validation.ts"); await runStagedFileValidation("lint", { runGit: createBunGitCommandRunner(Bun.spawn), runProcess: createBunProcessCommandRunner(Bun.spawn) });\'';
+  const expectedFormatHookScript =
+    'bun --eval \'const { createBunGitCommandRunner, createBunProcessCommandRunner, runStagedFileValidation } = await import("./scripts/tooling/staged-file-validation.ts"); await runStagedFileValidation("format", { runGit: createBunGitCommandRunner(Bun.spawn), runProcess: createBunProcessCommandRunner(Bun.spawn) });\'';
 
-  expect(manifest["lint"]).toBe(expectedScript);
-  expect(manifest["lint:hook"]).toBe(expectedScript);
+  expect(manifest["lint"]).toBe(expectedFullRepoLintScript);
+  expect(manifest["format:check"]).toBe(expectedFullRepoFormatScript);
+  expect(manifest["hook:pre-commit"]).toBe(expectedPreCommitHookScript);
+  expect(manifest["lint:hook"]).toBe(expectedLintHookScript);
+  expect(manifest["format:hook"]).toBe(expectedFormatHookScript);
   expect(manifest["lint"]).not.toContain(" temp");
   expect(manifest["lint:hook"]).not.toContain(" temp");
   expect(manifest["lint"]).not.toContain("temp/");
