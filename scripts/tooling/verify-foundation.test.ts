@@ -206,6 +206,12 @@ test("CLI maps an indeterminate child failure to one and writes its diagnostic",
 });
 
 test("CLI writes the exact default diagnostic to stderr for a numeric child failure", async () => {
+  const directExitCode = await runFoundationVerificationCli((gate) =>
+    Promise.resolve(gate === "lint" ? { exitCode: 9, signalCode: null } : successfulResult),
+  );
+
+  expect(directExitCode).toBe(9);
+
   if (typeof Bun === "undefined") {
     const exitCode = await runFoundationVerificationCli((gate) =>
       Promise.resolve(gate === "lint" ? { exitCode: 9, signalCode: null } : successfulResult),
@@ -265,4 +271,20 @@ test("entrypoint assigns the verification command exit code to its injected targ
   await runFoundationVerificationEntrypoint(true, () => Promise.resolve(9), exitCodeTarget);
 
   expect(exitCodeTarget.exitCode).toBe(9);
+});
+
+test("coverage reports are isolated to the current worktree and use the ignored coverage root", async () => {
+  const configModule: unknown = await import("./vitest.verify-foundation.config.mjs");
+  if (!isRecord(configModule) || !isRecord(configModule.default)) {
+    throw new Error("Foundation verification Vitest configuration must export a default object.");
+  }
+
+  const { test: testConfig } = configModule.default;
+  if (!isRecord(testConfig) || !isRecord(testConfig.coverage)) {
+    throw new Error("Foundation verification Vitest configuration must define coverage settings.");
+  }
+
+  expect(testConfig.coverage.reportsDirectory).toBe(
+    path.join(path.resolve(import.meta.dirname, "../.."), "coverage", "verify-foundation-v8"),
+  );
 });

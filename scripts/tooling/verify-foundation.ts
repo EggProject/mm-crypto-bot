@@ -106,7 +106,7 @@ export async function runFoundationVerificationCli(
 export type FoundationVerificationCommandRunner = () => Promise<number>;
 
 export interface FoundationVerificationExitCodeTarget {
-  exitCode?: number | string | null;
+  exitCode?: number | string | null | undefined;
 }
 
 export async function runFoundationVerificationEntrypoint(
