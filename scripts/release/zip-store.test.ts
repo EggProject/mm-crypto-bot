@@ -1,6 +1,6 @@
 import type { ReleasePayloadInput } from "./release-contract";
 import { encodeStoreZip, normalizedDosTimestamp, parseStoreZip } from "./zip-store";
-import { assertZipU16, assertZipU32 } from "./zip-store-encoder";
+import { assertZipU16, assertZipU32, calculateStoreZip32Layout } from "./zip-store-encoder";
 
 interface TestExpectation {
   toEqual(expected: unknown): void;
@@ -42,6 +42,10 @@ const DOS_EPOCH = 315_532_800;
 
 function payload(path: string, mode: 0o644 | 0o755, text = ""): ReleasePayloadInput {
   return { bytes: encoder.encode(text), mode, path };
+}
+
+function binaryPayload(path: string, bytes: Uint8Array): ReleasePayloadInput {
+  return { bytes, mode: 0o755, path };
 }
 
 function mutatingCopy(bytes: Uint8Array, offset: number, value: number): Uint8Array {
@@ -186,6 +190,44 @@ describe("deterministic ZIP STORE encoding", () => {
         0x52, 0x45, 0x41, 0x44, 0x4d, 0x45, 0x2e, 0x6d, 0x64, 0x50, 0x4b, 0x05, 0x06, 0x00, 0x00, 0x00, 0x00,
         0x01, 0x00, 0x01, 0x00, 0x37, 0x00, 0x00, 0x00, 0x27, 0x00, 0x00, 0x00, 0x00, 0x00,
       ]),
+    );
+  });
+
+  test("encodes an executable payload larger than the U16 ZIP field limit with U32 sizes", () => {
+    const executable = new Uint8Array(65_535);
+    executable[0] = 0x7f;
+    const archive = encodeStoreZip([binaryPayload("bin/mm-crypto-bot-bot", executable)], DOS_EPOCH);
+    const directoryOffset = centralOffset(archive);
+
+    expect({
+      centralCompressedSize: readU32(archive, directoryOffset + 20) >>> 0,
+      centralUncompressedSize: readU32(archive, directoryOffset + 24) >>> 0,
+      localCompressedSize: readU32(archive, 18) >>> 0,
+      localUncompressedSize: readU32(archive, 22) >>> 0,
+    }).toEqual({
+      centralCompressedSize: 65_535,
+      centralUncompressedSize: 65_535,
+      localCompressedSize: 65_535,
+      localUncompressedSize: 65_535,
+    });
+    expect(
+      parseStoreZip(archive).entries.map(({ bytes, mode, path }) => ({
+        byteLength: bytes.byteLength,
+        mode,
+        path,
+      })),
+    ).toEqual([{ byteLength: 65_535, mode: 0o755, path: "bin/mm-crypto-bot-bot" }]);
+  });
+
+  test("rejects ZIP32 layouts whose local, central, or archive extents reach a ZIP64 sentinel", () => {
+    expect(() => calculateStoreZip32Layout([{ nameLength: 1, payloadLength: 0xff_ff_ff_e0 }])).toThrow(
+      "local file data extent",
+    );
+    expect(() => calculateStoreZip32Layout([{ nameLength: 1, payloadLength: 0xff_ff_ff_df }])).toThrow(
+      "central directory extent",
+    );
+    expect(() => calculateStoreZip32Layout([{ nameLength: 1, payloadLength: 0xff_ff_ff_b0 }])).toThrow(
+      "archive extent",
     );
   });
 

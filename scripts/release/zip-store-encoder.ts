@@ -21,6 +21,16 @@ interface DosTimestamp {
   readonly time: number;
 }
 
+export interface StoreZip32LayoutInput {
+  readonly nameLength: number;
+  readonly payloadLength: number;
+}
+
+export interface StoreZip32Layout {
+  readonly archiveLength: number;
+  readonly centralOffset: number;
+}
+
 export function encodeStoreZip(inputs: readonly ReleasePayloadInput[], epoch: number): Uint8Array {
   const timestamp = dosTimestamp(epoch);
   const entries = inputs.map((input) => validate(input)).toSorted(compare);
@@ -28,32 +38,58 @@ export function encodeStoreZip(inputs: readonly ReleasePayloadInput[], epoch: nu
     // eslint-disable-next-line security/detect-object-injection -- index is constrained by the entries length.
     if (entries[index - 1]?.path === entries[index]?.path) throw new Error("duplicate ZIP path");
   }
-  const out = new Writer();
+  const layout = calculateStoreZip32Layout(
+    entries.map(({ bytes, name }) => ({ nameLength: name.length, payloadLength: bytes.length })),
+  );
+  const out = new Writer(layout.archiveLength);
   const localEntries: { readonly entry: Entry; readonly offset: number }[] = [];
   for (const entry of entries) {
     const offset = out.length;
     localEntries.push({ entry, offset });
-    u32(out, [local]);
-    u16(out, [version, 0, 0, timestamp.time, timestamp.date]);
-    u32(out, [entry.crc32, entry.bytes.length, entry.bytes.length]);
-    u16(out, [entry.name.length, 0]);
+    u32(out, local);
+    u16(out, version);
+    u16(out, 0);
+    u16(out, 0);
+    u16(out, timestamp.time);
+    u16(out, timestamp.date);
+    u32(out, entry.crc32);
+    u32(out, entry.bytes.length);
+    u32(out, entry.bytes.length);
+    u16(out, entry.name.length);
+    u16(out, 0);
     out.bytes(entry.name);
     out.bytes(entry.bytes);
   }
   const centralOffset = out.length;
   for (const { entry, offset } of localEntries) {
-    u32(out, [central]);
-    u16(out, [(3 << 8) | version, version, 0, 0, timestamp.time, timestamp.date]);
-    u32(out, [entry.crc32, entry.bytes.length, entry.bytes.length]);
-    u16(out, [entry.name.length, 0, 0, 0, 0]);
-    u32(out, [((0o10_0000 | entry.mode) << 16) >>> 0, offset]);
+    u32(out, central);
+    u16(out, (3 << 8) | version);
+    u16(out, version);
+    u16(out, 0);
+    u16(out, 0);
+    u16(out, timestamp.time);
+    u16(out, timestamp.date);
+    u32(out, entry.crc32);
+    u32(out, entry.bytes.length);
+    u32(out, entry.bytes.length);
+    u16(out, entry.name.length);
+    u16(out, 0);
+    u16(out, 0);
+    u16(out, 0);
+    u16(out, 0);
+    u32(out, ((0o10_0000 | entry.mode) << 16) >>> 0);
+    u32(out, offset);
     out.bytes(entry.name);
   }
   const centralSize = out.length - centralOffset;
-  u32(out, [end]);
-  u16(out, [0, 0, entries.length, entries.length]);
-  u32(out, [centralSize, centralOffset]);
-  u16(out, [0]);
+  u32(out, end);
+  u16(out, 0);
+  u16(out, 0);
+  u16(out, entries.length);
+  u16(out, entries.length);
+  u32(out, centralSize);
+  u32(out, centralOffset);
+  u16(out, 0);
   return out.result();
 }
 
@@ -63,8 +99,31 @@ function validate(input: ReleasePayloadInput): Entry {
   if (!isAllowedPath(input.path)) throw new Error(`ZIP path is not allowed: ${input.path}`);
   if (input.mode !== mode) throw new Error(`invalid mode for ${input.path}`);
   const name = text.encode(input.path);
-  size(input.bytes.length, "payload size");
-  return { bytes: new Uint8Array(input.bytes), crc32: crc32(input.bytes), mode, name, path: input.path };
+  assertZipU16(name.length, "ZIP path size");
+  assertZipU32(input.bytes.length, "payload size");
+  return { bytes: input.bytes, crc32: crc32(input.bytes), mode, name, path: input.path };
+}
+
+export function calculateStoreZip32Layout(inputs: readonly StoreZip32LayoutInput[]): StoreZip32Layout {
+  assertZipU16(inputs.length, "ZIP entry count");
+  let localEnd = 0;
+  for (const input of inputs) {
+    assertZipU16(input.nameLength, "ZIP path size");
+    assertZipU32(input.payloadLength, "payload size");
+    const localHeaderLength = 30 + input.nameLength;
+    const localHeaderEnd = extendZip32(localEnd, localHeaderLength, "local header extent");
+    localEnd = extendZip32(localHeaderEnd, input.payloadLength, "local file data extent");
+  }
+
+  const centralOffset = localEnd;
+  let centralEnd = centralOffset;
+  for (const input of inputs) {
+    centralEnd = extendZip32(centralEnd, 46 + input.nameLength, "central directory extent");
+  }
+  const centralSize = centralEnd - centralOffset;
+  assertZipU32(centralSize, "central directory size");
+  const archiveLength = extendZip32(centralEnd, 22, "archive extent");
+  return Object.freeze({ archiveLength, centralOffset });
 }
 
 function isSafePath(path: string): boolean {
@@ -95,20 +154,20 @@ function dosTimestamp(epoch: number): DosTimestamp {
     time: (date.getUTCHours() << 11) | (date.getUTCMinutes() << 5) | (date.getUTCSeconds() >> 1),
   };
 }
-function size(value: number, label: string): void {
-  assertZipU16(value, label);
+function extendZip32(start: number, length: number, label: string): number {
+  assertZipU32(start, `${label} offset`);
+  assertZipU32(length, `${label} size`);
+  const endOffset = start + length;
+  assertZipU32(endOffset, label);
+  return endOffset;
 }
-function u16(writer: Writer, values: readonly number[]): void {
-  for (const value of values) {
-    size(value, "ZIP integer");
-    writer.u16(value);
-  }
+function u16(writer: Writer, value: number): void {
+  assertZipU16(value, "ZIP integer");
+  writer.u16(value);
 }
-function u32(writer: Writer, values: readonly number[]): void {
-  for (const value of values) {
-    assertZipU32(value, "ZIP integer");
-    writer.u32(value);
-  }
+function u32(writer: Writer, value: number): void {
+  assertZipU32(value, "ZIP integer");
+  writer.u32(value);
 }
 export function assertZipU16(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0 || value > 0xff_fe)
@@ -127,20 +186,41 @@ function crc32(bytes: Uint8Array): number {
   return (crc ^ 0xff_ff_ff_ff) >>> 0;
 }
 class Writer {
-  readonly #data: number[] = [];
+  readonly #data: Uint8Array;
+  #offset = 0;
+
+  constructor(length: number) {
+    assertZipU32(length, "archive length");
+    this.#data = new Uint8Array(length);
+  }
+
+  private advance(length: number): number {
+    const offset = this.#offset;
+    this.#offset += length;
+    return offset;
+  }
   get length(): number {
-    return this.#data.length;
+    return this.#offset;
   }
   u16(value: number): void {
-    this.#data.push(value & 255, (value >>> 8) & 255);
+    const offset = this.advance(2);
+    // eslint-disable-next-line security/detect-object-injection -- offset is bounded by the preflighted typed-array capacity.
+    this.#data[offset] = value & 255;
+    this.#data[offset + 1] = (value >>> 8) & 255;
   }
   u32(value: number): void {
-    this.#data.push(value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255);
+    const offset = this.advance(4);
+    // eslint-disable-next-line security/detect-object-injection -- offset is bounded by the preflighted typed-array capacity.
+    this.#data[offset] = value & 255;
+    this.#data[offset + 1] = (value >>> 8) & 255;
+    this.#data[offset + 2] = (value >>> 16) & 255;
+    this.#data[offset + 3] = (value >>> 24) & 255;
   }
   bytes(value: Uint8Array): void {
-    this.#data.push(...value);
+    const offset = this.advance(value.length);
+    this.#data.set(value, offset);
   }
   result(): Uint8Array {
-    return new Uint8Array(this.#data);
+    return this.#data;
   }
 }
