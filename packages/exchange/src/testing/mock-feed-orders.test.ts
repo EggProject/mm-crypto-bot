@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { MockExchangeFeed, defaultOhlcvHistory } from "./mock-feed.js";
 import { makeClientOrderId, asSymbol } from "../index.js";
-import type { Ohlcv } from "../types.js";
+import type { Ohlcv, OrderRequest } from "../types.js";
 
 async function expectRejected(promise: Promise<unknown>, message: RegExp): Promise<void> {
   try {
@@ -99,6 +99,19 @@ describe("mockFeed orders", () => {
       });
       expect(order.status).toBe("open");
       expect(order.type).toBe("market");
+    });
+
+    it("fails closed when a JavaScript caller replaces a valid client order ID with an empty string", async () => {
+      const request = {
+        clientOrderId: makeClientOrderId("valid-before-runtime-mutation"),
+        symbol: asSymbol("BTC/USDC"),
+        side: "buy",
+        type: "market",
+        amount: 0.01,
+      } satisfies OrderRequest;
+      Object.defineProperty(request, "clientOrderId", { value: "" });
+
+      await expectRejected(feed.placeOrder(request), /generated exchange order ID must be nonempty/);
     });
 
     it("placeOrder limit price-szal sikeres, open státusszal", async () => {

@@ -30,6 +30,7 @@ import type { ExchangeFeed, FeedListener, SubscriptionId } from "../feed.js";
 import type {
   Balance,
   ClientOrderId,
+  ExchangeOrderId,
   ExchangePosition,
   FeedEvent,
   MarketMeta,
@@ -231,9 +232,13 @@ export class MockExchangeFeed implements ExchangeFeed {
     if (request.type === "limit" && request.price === undefined) {
       throw new Error(`MockFeed: limit order-hez kötelező a price: ${request.clientOrderId}`);
     }
+    const exchangeIdCandidate = request.clientOrderId.length === 0 ? "" : `mock-${request.clientOrderId}`;
+    if (!isExchangeOrderId(exchangeIdCandidate)) {
+      throw new Error("MockFeed: generated exchange order ID must be nonempty");
+    }
     const order: Order = {
       clientOrderId: request.clientOrderId,
-      exchangeId: `mock-${request.clientOrderId}` as Order["exchangeId"],
+      exchangeId: exchangeIdCandidate,
       symbol: request.symbol,
       side: request.side,
       type: request.type,
@@ -465,4 +470,8 @@ export function defaultOhlcvHistory(symbol: Symbol, timeframe: Timeframe, count 
     out.push([ts, open, high, low, close, volume]);
   }
   return out;
+}
+
+function isExchangeOrderId(value: string): value is ExchangeOrderId {
+  return value.length > 0;
 }
