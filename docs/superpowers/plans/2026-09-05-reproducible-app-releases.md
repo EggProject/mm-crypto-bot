@@ -4,24 +4,26 @@
 
 **Goal:** Produce verified, byte-reproducible, target-specific Bun executable ZIP releases for `bot` and `config-search` without embedding configuration, data, source, or secrets.
 
-**Architecture:** Typed release modules assemble only prevalidated in-memory payloads in private temporary directories and write a deterministic ZIP STORE archive. An independent parser validates the archive and a Linux network-namespace smoke harness executes only safe CLI forms. Release entrypoints depend on injected Git, toolchain, filesystem, compiler, and process ports so unit tests exercise contracts while the dirty integration worktree remains ineligible for real release creation.
+**Architecture:** Typed release modules assemble only prevalidated in-memory payloads in fresh private candidate directories and write deterministic ZIP STORE archives. An independent parser validates candidate archives and a Linux network-namespace smoke harness executes only safe CLI forms. Only the later orchestrator verifies two private candidates, compares their bytes, smokes both, and atomically no-replace publishes one complete directory. Release entrypoints depend on injected Git, toolchain, filesystem, compiler, and process ports so unit tests exercise contracts while the dirty integration worktree remains ineligible for real release creation.
 
 **Tech Stack:** Bun `1.3.14`, Node `24.19.0` metadata pin, TypeScript, Node built-in `crypto`, `fs/promises`, `os`, `path`, Bun compile, Bun test, GitHub Actions.
 
 **Spec:** `docs/superpowers/specs/2026-09-05-reproducible-app-releases-design.md`
 
-Tasks 4–6 continue in [`2026-09-05-reproducible-app-releases-tasks-4-6.md`](2026-09-05-reproducible-app-releases-tasks-4-6.md).
+Tasks 5–6 continue in [`2026-09-05-reproducible-app-releases-tasks-4-6.md`](2026-09-05-reproducible-app-releases-tasks-4-6.md).
 
 ## Global Constraints
 
 - Build and runtime basis is Bun `1.3.14`; Node `24.19.0` is verified metadata only and never a release runtime requirement.
 - Release targets are only `bot` and `config-search`, version `0.1.0`, target `bun-linux-x64`, and the exact release paths named in the Spec.
-- Build uses a standalone `bun build --compile --target=bun-linux-x64` executable in a private `mkdtemp` directory; no source, `node_modules`, package manager, config, data, state, logs, credentials, or secrets enter the ZIP.
+- Build uses a standalone `bun build --compile --target=bun-linux-x64` executable in a fresh, unpredictable private candidate directory; no source, `node_modules`, package manager, config, data, state, logs, credentials, or secrets enter the ZIP.
 - ZIP is an in-process deterministic STORE writer: sorted POSIX paths, fixed compatible Git timestamp, no compression/extra fields/comments, fixed modes, exact bytes; shell `zip` and new dependencies are forbidden.
 - Real release creation requires a clean exact Git commit and exact Bun/Node/toolchain metadata; any discrepancy fails closed. Tests use injected ports and may run in this dirty worktree.
 - Config-search only implements `--help`, unavailable default, and unavailable `--status`; it never searches or imports a search/exchange/data/config execution path.
 - Verification independently parses central and local ZIP headers and validates paths, modes, hashes, manifest, forbidden contents, and sidecar.
 - Smoke extraction is private, safe, outbound-network guarded with required Linux `unshare --user --map-root-user --net`, and runs only bot `--help` plus config-search `--help`/`--status`.
+- Assembly never writes `releases/`. The orchestrator verifies, byte-compares, and smokes two complete private candidates before one atomic whole-directory no-replace publication; every failure leaves no final output.
+- The filesystem port creates private candidates with an unpredictable secure primitive and publishes a whole directory only when the exact destination is atomically absent. Predictable temporary names and `lstat`/existence-check then write/rename emulation are forbidden.
 - `clean:artifacts` may delete only its exact `releases` allowlist entry; CI runs reproducibility then uploads ZIPs and sidecars. No publishing occurs.
 - No `openat`, `openat2`, `/proc` file descriptors, native descriptor adapters, unsafe assertions, `any`, suppressions, weakened gates, shell interpolation, or files over 500 lines.
 - Every owned release runtime source has 100% statements, branches, functions, and lines in separate unit and E2E coverage reports.
@@ -31,23 +33,23 @@ Tasks 4–6 continue in [`2026-09-05-reproducible-app-releases-tasks-4-6.md`](20
 
 ## File Map
 
-| Path                                                                              | Responsibility                                                                           |
-| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `scripts/release/release-contract.ts`                                             | App/target constants, manifest and result types, canonical JSON/sidecar helpers.         |
-| `scripts/release/release-ports.ts`                                                | Injected filesystem, Git, toolchain, compiler, and process interfaces plus Bun adapters. |
-| `scripts/release/zip-store.ts`                                                    | Strict payload validation and deterministic ZIP STORE encode/decode primitives.          |
-| `scripts/release/release-assembler.ts`                                            | Clean preflight, private compilation, manifest/README assembly, and final output write.  |
-| `scripts/release/release-verifier.ts`                                             | Independent ZIP/sidecar/manifest/payload validation.                                     |
-| `scripts/release/release-smoke.ts`                                                | Safe extraction and Linux network-namespace subprocess smoke.                            |
-| `scripts/release/release-reproducibility.ts`                                      | Two fresh assemblies plus byte and SHA equality assertion.                               |
-| `scripts/release/build.ts`, `verify.ts`, `smoke.ts`, `reproducibility.ts`         | Thin fixed-argument command entrypoints.                                                 |
-| `scripts/release/release-coverage.ts`, `.test.ts`                                 | Separate unit/E2E coverage execution and fail-closed LCOV 100% gate.                     |
-| `scripts/release/*.test.ts`                                                       | Unit contracts for every release module, with injected ports and byte fixtures.          |
-| `scripts/release/release-e2e.test.ts`                                             | Private fixture-repository compilation, verification, smoke, and two-build contract.     |
-| `apps/config-search/src/index.ts`, `.test.ts`                                     | Typed unavailable CLI and public process behavior.                                       |
-| `apps/config-search/package.json`, `apps/bot/package.json`, `package.json`        | Matching compiled app build tasks and root release scripts.                              |
-| `scripts/tooling/clean-artifacts.ts`, `.test.ts`                                  | Exact `releases` cleanup allowlist and symlink/idempotency test.                         |
-| `.github/workflows/ci.yml`, `scripts/tooling/ci-format-workflow-contract.test.ts` | Frozen-install release-reproducibility CI job and artifact-upload contract.              |
+| Path                                                                              | Responsibility                                                                              |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `scripts/release/release-contract.ts`                                             | App/target constants, manifest and result types, canonical JSON/sidecar helpers.            |
+| `scripts/release/release-ports.ts`                                                | Injected filesystem, Git, toolchain, compiler, and process interfaces plus Bun adapters.    |
+| `scripts/release/zip-store.ts`                                                    | Strict payload validation and deterministic ZIP STORE encode/decode primitives.             |
+| `scripts/release/release-assembler.ts`                                            | Clean preflight, private compilation, manifest/README assembly, and candidate output only.  |
+| `scripts/release/release-verifier.ts`                                             | Independent ZIP/sidecar/manifest/payload validation.                                        |
+| `scripts/release/release-smoke.ts`                                                | Safe extraction and Linux network-namespace subprocess smoke.                               |
+| `scripts/release/release-reproducibility.ts`                                      | Two fresh candidates, verification, byte comparison, smoke, and one no-replace publication. |
+| `scripts/release/build.ts`, `verify.ts`, `smoke.ts`, `reproducibility.ts`         | Thin fixed-argument command entrypoints.                                                    |
+| `scripts/release/release-coverage.ts`, `.test.ts`                                 | Separate unit/E2E coverage execution and fail-closed LCOV 100% gate.                        |
+| `scripts/release/*.test.ts`                                                       | Unit contracts for every release module, with injected ports and byte fixtures.             |
+| `scripts/release/release-e2e.test.ts`                                             | Private fixture-repository compilation, verification, smoke, and two-build contract.        |
+| `apps/config-search/src/index.ts`, `.test.ts`                                     | Typed unavailable CLI and public process behavior.                                          |
+| `apps/config-search/package.json`, `apps/bot/package.json`, `package.json`        | Matching compiled app build tasks and root release scripts.                                 |
+| `scripts/tooling/clean-artifacts.ts`, `.test.ts`                                  | Exact `releases` cleanup allowlist and symlink/idempotency test.                            |
+| `.github/workflows/ci.yml`, `scripts/tooling/ci-format-workflow-contract.test.ts` | Frozen-install release-reproducibility CI job and artifact-upload contract.                 |
 
 ## Interfaces
 
@@ -88,12 +90,16 @@ export interface ReleaseCompilerPort {
   }): Promise<void>;
 }
 
+export type ReleasePrivatePathState = "missing" | "regular-file" | "directory" | "symlink";
+
 export interface ReleaseFileSystemPort {
+  createPrivateCandidate(prefix: string): Promise<string>;
   chmod(path: string, mode: 0o644 | 0o755): Promise<void>;
-  lstat(
-    path: string,
-  ): Promise<{ readonly isRegularFile: () => boolean; readonly isSymbolicLink: () => boolean }>;
-  mkdtemp(prefix: string): Promise<string>;
+  inspectPath(path: string): Promise<ReleasePrivatePathState>;
+  publishCandidateDirectory(input: {
+    readonly candidateDirectory: string;
+    readonly destinationDirectory: string;
+  }): Promise<void>;
   readFile(path: string): Promise<Uint8Array>;
   writeFile(path: string, bytes: Uint8Array, mode: 0o644 | 0o755): Promise<void>;
 }
@@ -125,8 +131,13 @@ export interface ReleaseArtifactPaths {
   readonly zipPath: string;
 }
 
-export interface ReleaseAssemblyResult {
+export interface ReleaseCandidate {
   readonly artifact: ReleaseArtifactPaths;
+  readonly directory: string;
+}
+
+export interface ReleaseAssemblyResult {
+  readonly candidate: ReleaseCandidate;
   readonly manifest: ReleaseManifestV1;
 }
 
@@ -183,6 +194,10 @@ expect(parseStoreZip(oddEpochZip).localAndCentralDosTimestamps).toEqual({
   local: normalizedDosTimestamp(1_788_199_915),
   central: normalizedDosTimestamp(1_788_199_915),
 });
+await expect(
+  fileSystem.publishCandidateDirectory({ candidateDirectory, destinationDirectory }),
+).rejects.toThrow("destination");
+expect(await fileSystem.inspectPath(privateCompilerOutput)).toBe("symlink");
 ```
 
 - [ ] **Step 2: Run the RED tests.**
@@ -209,8 +224,13 @@ integers, strings, arrays, and plain records; sort record keys by code unit and
 throw for every other value. Write ZIP integers with explicit little-endian
 byte functions, calculate CRC-32 locally, and reject every entry that is not
 one of `README.md`, `manifest.json`, or `bin/mm-crypto-bot-{app}` before ZIP
-encoding. `parseStoreZip` returns immutable parsed records and checks only ZIP
-structure; it does not call the writer.
+encoding. Define the filesystem port so `createPrivateCandidate` is secure and
+unpredictable, and `publishCandidateDirectory` atomically promotes a complete
+directory only to an absent destination. `inspectPath` returns only `missing`,
+`regular-file`, `directory`, or `symlink` and is permitted only for paths
+inside an owned private candidate; publication must not call it for a final
+destination. `parseStoreZip` returns immutable parsed records and checks only
+ZIP structure; it does not call the writer.
 
 - [ ] **Step 4: Run the unit checkpoint.**
 
@@ -218,21 +238,102 @@ Run: `bun test scripts/release/release-contract.test.ts scripts/release/zip-stor
 
 Expected: PASS; fixed ZIP fixture bytes, CRC, modes, sorted ordering, duplicate,
 traversal, backslash, compression, extra-field, data-descriptor, comment, and
-ZIP64 rejections are asserted.
+ZIP64 rejections are asserted. Port-contract tests cover an existing,
+symlinked, or non-directory destination and prove publication cannot be
+implemented as an existence check followed by a write. Private-path inspection
+tests distinguish missing, regular-file, directory, and symlink compiler output
+without invoking publication; publication tests prove no final path inspection
+occurs.
 
-### Task 2: Assemble clean, self-contained releases through injected ports
+### Task 2: Establish compiled application prerequisites
+
+**Files (exclusive ownership):**
+
+- Modify: `apps/config-search/src/index.ts`
+- Modify: `apps/config-search/src/index.test.ts`
+- Create: `apps/config-search/src/cli-e2e.test.ts`
+- Modify: `apps/config-search/package.json`
+- Modify: `apps/bot/package.json`
+
+**Interfaces:**
+
+- Consumes: no release module; this is the standalone config-search application
+  boundary and the two compiled-app package boundaries.
+- Produces: `ConfigSearchUnavailableResult`, `runConfigSearchCli`, the direct
+  config-search entrypoint, and fixed package build commands for both apps.
+
+- [ ] **Step 1: Write RED source and compiled-process CLI tests.**
+
+```ts
+expect(runConfigSearchCli([], output)).toBe(1);
+expect(output.stdout).toBe(
+  '{"available":false,"code":"CONFIG_SEARCH_UNAVAILABLE","operation":"config-search","reason":"exact-strategy-run-corridor-unavailable","schema":"mm-crypto-bot.config-search.result/v1"}\n',
+);
+expect(runConfigSearchCli(["--help"], output)).toBe(0);
+expect(runCompiledConfigSearch(["--help"])).toMatchObject({ exitCode: 0 });
+expect(runConfigSearchCli(["--search"], output)).toBe(2);
+```
+
+- [ ] **Step 2: Run the RED prerequisite tests.**
+
+Run: `bun test apps/config-search/src/index.test.ts apps/config-search/src/cli-e2e.test.ts`
+
+Expected: FAIL because source behavior, compiled E2E behavior, exit codes, and
+package build setup are incomplete.
+
+- [ ] **Step 3: Implement the closed unavailable surface and build commands.**
+
+```ts
+export interface ConfigSearchOutput {
+  readonly writeStderr: (text: string) => void;
+  readonly writeStdout: (text: string) => void;
+}
+
+export interface ConfigSearchUnavailableResult {
+  readonly available: false;
+  readonly code: "CONFIG_SEARCH_UNAVAILABLE";
+  readonly operation: "config-search";
+  readonly reason: "exact-strategy-run-corridor-unavailable";
+  readonly schema: "mm-crypto-bot.config-search.result/v1";
+}
+```
+
+Use the specified insertion order and `JSON.stringify` plus LF for default and
+`--status`. Implement exact `--help` text without a clock, color, configuration
+read, or runtime-root access. The direct entrypoint sets
+`process.exitCode = runConfigSearchCli(process.argv.slice(2), processOutput)`;
+do not throw or import search/backtest/exchange/data/config modules. Configure
+both application package build commands to compile their fixed entry point to
+their fixed `dist/mm-crypto-bot-*` output using `bun-linux-x64`.
+
+- [ ] **Step 4: Run and attest the prerequisite checkpoint.**
+
+Run: `bun run --filter @mm-crypto-bot/config-search test && bun run --filter @mm-crypto-bot/config-search build && bun run --filter @mm-crypto-bot/bot typecheck && bun run --filter @mm-crypto-bot/config-search typecheck`
+
+Expected: PASS; source and compiled config-search `--help` both exit `0`, while
+default and `--status` write the exact one-LF unavailable JSON and exit `1`.
+
+- [ ] **Step 5: Create the assembler prerequisite commit.**
+
+After the checkpoint and exact-path review, the coordinator creates one atomic
+Conventional Commit containing only this task's five owned paths. Task 3 may
+start only from that committed prerequisite; it must not edit or absorb any
+Task 2 path.
+
+### Task 3: Assemble clean, self-contained release candidates through injected ports
 
 **Files:**
 
 - Create: `scripts/release/release-assembler.ts`
 - Create: `scripts/release/release-assembler.test.ts`
-- Modify: `apps/bot/package.json`
-- Modify: `apps/config-search/package.json`
 
 **Interfaces:**
 
-- Consumes: Task 1 contracts, `encodeStoreZip`, `sha256Hex`, canonical manifest helpers, and the two fixed app entry paths.
-- Produces: `assertReleasePreconditions`, `assembleRelease`, `assembleAllReleases`, and `ReleaseAssemblyResult`.
+- Consumes: Task 1 contracts, the exact committed Task 2 package prerequisites,
+  `encodeStoreZip`, `sha256Hex`, canonical manifest helpers, and the two fixed
+  app entry paths.
+- Produces: `assertReleasePreconditions`, `assembleRelease`,
+  `assembleAllReleases`, and a private `ReleaseAssemblyResult` candidate.
 
 - [ ] **Step 1: Write RED preflight and assembly tests.**
 
@@ -245,6 +346,7 @@ expect(result.manifest.payloads.map((payload) => payload.path)).toEqual([
   "README.md",
   "bin/mm-crypto-bot-config-search",
 ]);
+expect(result.candidate.directory).toContain("release-candidate-");
 ```
 
 - [ ] **Step 2: Run the RED test.**
@@ -253,7 +355,7 @@ Run: `bun test scripts/release/release-assembler.test.ts`
 
 Expected: FAIL because no assembly module exists.
 
-- [ ] **Step 3: Implement fixed preflight and private assembly.**
+- [ ] **Step 3: Implement fixed preflight and private candidate assembly.**
 
 ```ts
 export async function assertReleasePreconditions(
@@ -267,25 +369,27 @@ export async function assembleRelease(
 
 Require `porcelainStatus() === ""`, a full lowercase commit, exact versions,
 and an integer Git commit epoch whose normalized even value is ZIP-compatible
-before `mkdtemp`. Compile with the exact argv
+before `createPrivateCandidate("release-candidate-")`. Compile with the exact argv
 shape `bun build <entry> --compile --target=bun-linux-x64 --outfile <private>`.
-Read the output using `lstat`; reject symlink/non-regular input, change its
-mode to `0755` only in the private directory, then construct the exact README,
-manifest, ZIP, and sidecar. Write final files atomically only below the exact
-application/version/target destination after `resolveSafeReleaseDestination`
-has rejected a symlinked component or non-directory ancestor. Package `build`
-scripts compile their own fixed entry point to `dist/mm-crypto-bot-bot` and
-`dist/mm-crypto-bot-config-search` with the same Bun target.
+Use `inspectPath` only on the compiler output inside the private candidate:
+accept exactly `regular-file` and reject missing, directory, and symlink. Then
+construct the exact README, manifest, ZIP, and sidecar only in that private
+candidate directory. The assembler has no final `releases/` destination input
+and must never call `publishCandidateDirectory`, inspect a final destination,
+or resolve a final release directory. It may write only within the private
+candidate. Test candidate creation failure, malformed or partial candidate
+output, and every non-regular inspected compiler-output state; each failure
+must leave no final release directory.
 
 - [ ] **Step 4: Run the assembly checkpoint.**
 
 Run: `bun test scripts/release/release-assembler.test.ts && bun run --filter @mm-crypto-bot/bot typecheck && bun run --filter @mm-crypto-bot/config-search typecheck`
 
 Expected: PASS; tests prove no compiler call occurs on every failed preflight,
-the destination is exact, and no repository source or runtime input is read
-into the archive.
+the assembler cannot publish a final destination, and no repository source or
+runtime input is read into the archive.
 
-### Task 3: Build the independent verifier and command entrypoint
+### Task 4: Build the independent verifier and command entrypoint
 
 **Files:**
 
@@ -295,7 +399,8 @@ into the archive.
 
 **Interfaces:**
 
-- Consumes: Task 1 `parseStoreZip`, manifest types, sidecar parser, and Task 2 output paths.
+- Consumes: Task 1 `parseStoreZip`, manifest types, sidecar parser, and Task 3
+  private candidate artifact paths.
 - Produces: `verifyReleaseArchive`, `verifyAllReleaseArchives`, and the `verify.ts` command entrypoint.
 
 - [ ] **Step 1: Write RED verifier tests from independently mutated bytes.**

@@ -40,10 +40,44 @@ have mode `0644`. The executable is a standalone output of:
 bun build <application entry point> --compile --target=bun-linux-x64 --outfile <private temporary path>
 ```
 
-Compilation and assembly use a new private `mkdtemp` directory per attempt.
-No build or test writes an executable, ZIP, extraction, or intermediate file to
-the repository except the final ignored `releases/` destination produced by an
-actual clean release build.
+Every assembly attempt creates one new, unpredictable, private candidate
+directory through the filesystem port's secure temporary-directory primitive.
+It owns the complete candidate tree, including the ZIP and sidecar; it never
+writes below `releases/`. A later release orchestrator may publish exactly one
+complete candidate directory. No build or test writes an executable, ZIP,
+extraction, or intermediate file to the repository except that one final,
+ignored `releases/` destination from an actual clean release build.
+
+### Candidate and publication filesystem contract
+
+The filesystem port has two security-critical primitives. `createPrivateCandidate`
+creates a fresh, unpredictable directory owned by the caller beneath a trusted
+private temporary root. Its implementation must have the equivalent security
+property of `mkdtemp`; predictable names and caller-created temporary
+directories are forbidden. The returned directory is the only location to
+which assembly and smoke extraction may write.
+
+`inspectPath` returns exactly one typed state — missing, regular file,
+directory, or symlink — for a compiler output or other path already inside an
+owned private candidate. It is used only to reject malformed private candidate
+inputs before their bytes are accepted. It is not a final-destination guard and
+must never precede a final-destination write or publication attempt.
+
+`publishCandidateDirectory` atomically moves one complete private candidate
+directory to one exact final release directory and enforces **destination must
+be absent** as part of that one operation. It must neither replace nor merge
+an existing destination. A platform adapter that cannot provide an atomic
+whole-directory no-replace publication fails closed; it must not emulate that
+property with `lstat`/existence-check followed by writes or rename. Production
+code never traverses a final path component and then writes into it. A failure
+before, during, or after candidate construction leaves no final release output;
+the private candidate may be safely discarded by its owner.
+
+The production adapter may enable publication only after it proves that the
+pinned Linux/runtime provides the required atomic absent-only whole-directory
+semantics. If that proof is unavailable, the release command fails closed. It
+must not use `renameat2`, `openat`, `openat2`, a native descriptor workaround,
+or an inspect-then-rename emulation to claim the property.
 
 ### Release manifest
 
@@ -146,12 +180,15 @@ The root scripts are:
 }
 ```
 
-`release:build` creates both application artifacts only after all preconditions.
-`release:verify` verifies existing artifacts without compiling. `release:smoke`
-verifies and smokes existing artifacts. `release:reproducibility` performs two
-fresh private assemblies, verifies both ZIPs, asserts byte-for-byte equality and
-sidecar equality, then runs the offline smoke for each application. It may write
-only private temporary directories and its final ignored release destinations.
+`release:build` and `release:reproducibility` each assemble two fresh private
+candidates per application. For each pair, the orchestrator independently
+verifies both candidates, compares the ZIP and sidecar bytes, and smokes both
+before it calls `publishCandidateDirectory` exactly once for the first complete
+candidate. `release:verify` verifies existing artifacts without compiling.
+`release:smoke` verifies and smokes existing artifacts. Any failed preflight,
+assembly, verification, comparison, smoke, or publication leaves no final
+release output; an already-present destination is a publication error, never an
+overwrite.
 
 All modules receive filesystem, Git, toolchain, compiler, and subprocess ports;
 tests use injected fakes. A dirty integration worktree therefore tests all
@@ -171,10 +208,10 @@ sidecar. It also rejects `node_modules`, source extensions, package-manager
 files, configuration, data, secrets, state, logs, and every entry outside the
 three-name allowlist.
 
-Smoke extraction creates a new private temporary directory, validates every
-directory/file component with `lstat`, creates only `README.md`, `manifest.json`,
-and the executable, and applies the manifest modes. It invokes no shell. On
-Linux it launches each executable through a required `unshare --user
+Smoke extraction uses a fresh private candidate directory, creates only
+`README.md`, `manifest.json`, and the executable from already-verified in-memory
+bytes, and applies the manifest modes. It invokes no shell. On Linux it launches
+each executable through a required `unshare --user
 --map-root-user --net` network namespace. An unavailable or unsuccessful
 network namespace is a smoke failure; there is no unguarded fallback. The child
 environment is an explicit allowlist containing `PATH`, `HOME` set to a private
@@ -201,8 +238,9 @@ or configuration loaders; it cannot initiate a search.
 
 ## Integration and non-goals
 
-`apps/bot/package.json` changes its build task to make the target executable;
-`apps/config-search/package.json` gains the matching build task. The root
+The standalone config-search CLI and both application package build tasks are
+completed and atomically committed before the release assembler is introduced;
+the assembler task depends on that exact prerequisite commit. The root
 `.gitignore` already ignores `/releases/`; `clean:artifacts` adds only the exact
 `releases` directory to its existing safe allowlist and tests prove it neither
 follows a symlink nor removes unknown files. CI adds a Linux release job using
@@ -216,3 +254,6 @@ include source/config/data/secrets, use `openat`, `openat2`, `/proc` file
 descriptors, a native descriptor adapter, a shell ZIP utility, or relax any
 coverage/format/lint/type gate. Every new source and test file stays at most
 500 lines and the owned release runtime has separate 100% unit and E2E coverage.
+Tests include adversarial symlink and non-directory final-destination cases,
+partial-candidate write/assembly failures, failed no-replace publication, and
+proof that none leaves a final release directory.

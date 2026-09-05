@@ -1,69 +1,8 @@
-# Reproducible Application Releases Implementation Plan — Tasks 4–6
+# Reproducible Application Releases Implementation Plan — Tasks 5–6
 
-This continuation contains Tasks 4–6 of the main implementation plan. Read the [main plan](2026-09-05-reproducible-app-releases.md) for the goal, architecture, global constraints, file map, interfaces, and Tasks 1–3; the [design spec](../../specs/2026-09-05-reproducible-app-releases-design.md) remains authoritative.
+This continuation contains Tasks 5–6 of the [main plan](2026-09-05-reproducible-app-releases.md). Read that plan for the goal, architecture, global constraints, file map, interfaces, and Tasks 1–4; the [design spec](../specs/2026-09-05-reproducible-app-releases-design.md) remains authoritative.
 
-### Task 4: Make config-search a typed unavailable compiled CLI
-
-**Files:**
-
-- Modify: `apps/config-search/src/index.ts`
-- Modify: `apps/config-search/src/index.test.ts`
-- Create: `apps/config-search/src/cli-e2e.test.ts`
-
-**Interfaces:**
-
-- Consumes: no release module; this is a standalone application boundary.
-- Produces: `ConfigSearchUnavailableResult`, `runConfigSearchCli`, and a direct entrypoint with exact exit codes.
-
-- [ ] **Step 1: Write RED public CLI tests.**
-
-```ts
-expect(runConfigSearchCli([], output)).toBe(1);
-expect(output.stdout).toBe(
-  '{"available":false,"code":"CONFIG_SEARCH_UNAVAILABLE","operation":"config-search","reason":"exact-strategy-run-corridor-unavailable","schema":"mm-crypto-bot.config-search.result/v1"}\n',
-);
-expect(runConfigSearchCli(["--help"], output)).toBe(0);
-expect(runConfigSearchCli(["--search"], output)).toBe(2);
-```
-
-- [ ] **Step 2: Run the RED CLI test.**
-
-Run: `bun test apps/config-search/src/index.test.ts apps/config-search/src/cli-e2e.test.ts`
-
-Expected: FAIL because source entrypoint behavior and exit codes are incomplete.
-
-- [ ] **Step 3: Implement the closed unavailable surface.**
-
-```ts
-export interface ConfigSearchOutput {
-  readonly writeStderr: (text: string) => void;
-  readonly writeStdout: (text: string) => void;
-}
-
-export interface ConfigSearchUnavailableResult {
-  readonly available: false;
-  readonly code: "CONFIG_SEARCH_UNAVAILABLE";
-  readonly operation: "config-search";
-  readonly reason: "exact-strategy-run-corridor-unavailable";
-  readonly schema: "mm-crypto-bot.config-search.result/v1";
-}
-```
-
-Use an object literal with the specified insertion order and `JSON.stringify`
-plus LF for default and `--status`. Implement exact `--help` text without a
-clock, color, config read, or runtime-root access. The direct entrypoint sets
-`process.exitCode = runConfigSearchCli(process.argv.slice(2), processOutput)`;
-do not throw and do not import search/backtest/exchange/data/config modules.
-
-- [ ] **Step 4: Run the config-search checkpoint.**
-
-Run: `bun run --filter @mm-crypto-bot/config-search test && bun run --filter @mm-crypto-bot/config-search build`
-
-Expected: PASS; the compiled app `--help` exits `1`, default and `--status`
-produce the exact unavailable document and exit `1`, and no test observes a
-search call.
-
-### Task 5: Implement extraction, guarded smoke, and two-build reproducibility
+### Task 5: Implement extraction, guarded smoke, reproducibility, and publication
 
 **Files:**
 
@@ -77,8 +16,10 @@ search call.
 
 **Interfaces:**
 
-- Consumes: Task 2 assembly results and Task 3 verifier result.
-- Produces: `extractVerifiedRelease`, `smokeVerifiedRelease`, `assertReproducibleRelease`, and the three remaining root release entrypoints.
+- Consumes: Task 3 private candidate assemblies and Task 4 verifier results.
+- Produces: `extractVerifiedRelease`, `smokeVerifiedRelease`,
+  `assertReproducibleRelease`, one atomic publication operation, and the three
+  remaining root release entrypoints.
 
 - [ ] **Step 1: Write RED smoke and reproducibility tests.**
 
@@ -86,6 +27,14 @@ search call.
 await expect(smokeVerifiedRelease(noUnshareDependencies, botArtifact)).rejects.toThrow("network namespace");
 await expect(smokeVerifiedRelease(exitOneHelpDependencies, botArtifact)).rejects.toThrow("--help");
 await expect(assertReproducibleRelease(differentSecondBuild, "bot")).rejects.toThrow("byte-identical");
+await expect(assertReproducibleRelease(existingDestinationDependencies, "bot")).rejects.toThrow(
+  "destination",
+);
+await expect(assertReproducibleRelease(noAtomicPublishProofDependencies, "bot")).rejects.toThrow(
+  "atomic absent-only",
+);
+expect(finalReleaseDirectoryExists()).toBe(false);
+expect(inspectedPaths).not.toContain(destinationDirectory);
 expect(spawnedArgv).toEqual(["unshare", "--user", "--map-root-user", "--net", extractedBinary, "--help"]);
 ```
 
@@ -95,7 +44,7 @@ Run: `bun test scripts/release/release-smoke.test.ts scripts/release/release-rep
 
 Expected: FAIL because guarded smoke and repeat assembly modules do not exist.
 
-- [ ] **Step 3: Implement verified extraction and repeatable assembly.**
+- [ ] **Step 3: Implement verified extraction, repeatable assembly, and one publication.**
 
 ```ts
 export async function extractVerifiedRelease(
@@ -112,21 +61,42 @@ export async function assertReproducibleRelease(
 ): Promise<void>;
 ```
 
-Call Task 3 verification before extraction. Create each directory only after
-checking its parent is an owned private directory and no component is a
-symlink; write only validated bytes and apply `0644`/`0755`. Invoke the fixed
-`unshare` argv with a strict environment allowlist. Assert bot `--help` exit
-`1`; assert config-search `--help` exit `0` and `--status` exit `1` with the
-exact stdout JSON. Build each app twice into separate `mkdtemp` roots, verify
-each result, compare equal-length byte arrays and SHA-256 strings, and reject
-any difference before retaining only the final expected release paths.
+Call Task 4 verification before extraction. Use
+`createPrivateCandidate("release-extraction-")` for extraction and write only
+verified in-memory bytes with `0644`/`0755`; do not perform an
+`lstat`/existence-check then write sequence against a final path. Invoke the
+fixed `unshare` argv with a strict environment allowlist. Assert bot `--help`
+exit `1`; assert config-search `--help` exit `0` and `--status` exit `1` with
+the exact stdout JSON.
+
+For each application, build two independent private candidates. Verify both,
+compare equal-length ZIP and sidecar byte arrays plus SHA-256 strings, then
+smoke both candidates. Only after all of those steps succeed, call
+`publishCandidateDirectory` exactly once to atomically promote the first
+complete candidate directory to its exact final destination. The primitive
+enforces that destination absence atomically: a pre-existing directory,
+symlink, or non-directory is an error and is never replaced or merged. The
+assembler, verifier, and smoke modules never publish. Candidate creation,
+partial writes, verification failure, byte mismatch, smoke failure, and failed
+publication must all leave no final release output.
+
+The production publication adapter is enabled only when the pinned
+Linux/runtime can prove atomic absent-only whole-directory semantics; otherwise
+the command fails closed before final output. It must not use `renameat2`,
+`openat`, `openat2`, native descriptor adapters, or inspect-then-rename
+emulation. Tests cover unavailable proof, a pre-existing symlink or
+non-directory destination, and assert that no final destination is passed to
+`inspectPath`.
 
 - [ ] **Step 4: Run the smoke/reproducibility checkpoint.**
 
 Run: `bun test scripts/release/release-smoke.test.ts scripts/release/release-reproducibility.test.ts && bun scripts/release/reproducibility.ts`
 
 Expected: Unit PASS; the real command either PASSes every clean target or fails
-closed before release output on a dirty worktree, unavailable `unshare`, toolchain mismatch, compiler failure, verifier failure, or unequal bytes.
+closed before release output on a dirty worktree, unavailable `unshare`,
+toolchain mismatch, compiler failure, partial write, verifier failure, unequal
+bytes, smoke failure, symlink/non-directory destination, or failed atomic
+publication.
 
 ### Task 6: Wire safe cleanup, CI evidence, and complete end-to-end coverage
 
@@ -175,7 +145,10 @@ job with `actions/checkout@v4`, `oven-sh/setup-bun@v2` using `.bun-version`,
 whose paths are exactly `releases/**/*.zip` and `releases/**/*.zip.sha256`.
 The E2E test creates a private fixture Git repository with a committed fixed
 source timestamp, replaces only its compiler/process ports with deterministic
-fakes, and proves both apps' ZIP/sidecar/manifest/smoke/reproducibility path.
+fakes, and proves both apps' two-candidate ZIP/sidecar/manifest/verification/
+smoke/publication path. It adversarially exercises symlink and non-directory
+final destinations plus partial candidate writes, and proves each failure
+leaves no final release output.
 
 Add these exact root package scripts in the existing `scripts` record:
 
