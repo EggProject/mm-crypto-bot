@@ -57,7 +57,7 @@ describe("feed", () => {
   describe("ExchangeFeed interface contract", () => {
     it("MockExchangeFeed implementálja az ExchangeFeed interfészt", async () => {
       // The assignment verifies the compile-time interface contract.
-      const { MockExchangeFeed } = await import("./__testing__/mockFeed.js");
+      const { MockExchangeFeed } = await import("./testing/mock-feed.js");
       const feed: ExchangeFeed = new MockExchangeFeed();
 
       // The remaining assertions verify the runtime method surface.
@@ -83,7 +83,7 @@ describe("feed", () => {
 
   describe("SubscriptionId type", () => {
     it("a subscribe visszatérési értéke number (SubscriptionId = number)", async () => {
-      const { MockExchangeFeed } = await import("./__testing__/mockFeed.js");
+      const { MockExchangeFeed } = await import("./testing/mock-feed.js");
       const { asSymbol } = await import("./symbols.js");
       const feed = new MockExchangeFeed();
       await feed.open();
@@ -99,7 +99,7 @@ describe("feed", () => {
 
   describe("FeedListener type", () => {
     it("a FeedListener típusú callback meghívódik ticker event-nél", async () => {
-      const { MockExchangeFeed } = await import("./__testing__/mockFeed.js");
+      const { MockExchangeFeed } = await import("./testing/mock-feed.js");
       const { asSymbol } = await import("./symbols.js");
       const feed = new MockExchangeFeed();
       await feed.open();

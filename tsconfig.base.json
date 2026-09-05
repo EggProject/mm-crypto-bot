@@ -46,7 +46,8 @@
        Keep test support imports stable without repeating long relative paths. */
     "baseUrl": ".",
     "paths": {
-      "@exchange-testing/*": ["packages/exchange/src/__testing__/*"],
+      "@exchange-testing/mockFeed.js": ["packages/exchange/src/testing/mock-feed.ts"],
+      "@exchange-testing/*": ["packages/exchange/src/testing/*"],
       "@logging-testing": ["packages/logging/test-support/index.ts"]
     }
   }

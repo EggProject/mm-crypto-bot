@@ -18,8 +18,12 @@ export default defineConfig({
     alias: [
       { find: "bun:test", replacement: path.resolve(REPOSITORY_ROOT, "apps/bot/test/bun-test-vitest.ts") },
       {
+        find: "@exchange-testing/mockFeed.js",
+        replacement: path.resolve(REPOSITORY_ROOT, "packages/exchange/src/testing/mock-feed.ts"),
+      },
+      {
         find: /^@exchange-testing\/(.*)$/,
-        replacement: `${path.resolve(REPOSITORY_ROOT, "packages/exchange/src/__testing__")}/$1`,
+        replacement: `${path.resolve(REPOSITORY_ROOT, "packages/exchange/src/testing")}/$1`,
       },
       {
         find: "@logging-testing",

@@ -12,7 +12,7 @@
  *
  * Phase 66: the previous `useMock: true` branch and the `createMockFeed`
  * factory were REMOVED — the `MockExchangeFeed` is now test-only and
- * lives in the `__testing__/` subdirectory (not exportable from
+ * lives in the `testing/` subdirectory (not exportable from
  * production). The corresponding tests are deleted from this file.
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
@@ -127,7 +127,7 @@ describe("factory", () => {
 
   describe("createExchangeClient", () => {
     // Phase 66: a `useMock: true` branch és a `createMockFeed` factory
-    // TÖRÖLVE. A `MockExchangeFeed` a `__testing__/mockFeed.ts`-ban
+    // TÖRÖLVE. A `MockExchangeFeed` a `testing/mock-feed.ts`-ben
     // van, és NEM érhető el production kódból. A függvény most
     // kizárólag `BybitEuFeed`-et ad vissza.
 

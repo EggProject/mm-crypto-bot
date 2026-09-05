@@ -1,7 +1,7 @@
-// packages/exchange/src/__testing__/mockFeed.ts — TEST-ONLY `MockExchangeFeed`
+// packages/exchange/src/testing/mock-feed.ts — TEST-ONLY `MockExchangeFeed`
 //
 // ⚠️  TEST-ONLY. Production code MUST NOT import or instantiate this class.
-//    The `__testing__/` directory name signals the test-only contract to
+//    The `testing/` directory signals the test-only contract to
 //    reviewers; this file is also excluded from the public package export
 //    in `index.ts` and from `createExchangeClient`'s surface API.
 //
@@ -18,7 +18,7 @@
 // === PHASE 66 ENFORCEMENT ===
 //   Per user mandate "csak a test hasznalhatja a mock feed -et!", this
 //   file was moved from `packages/exchange/src/mockFeed.ts` to
-//   `packages/exchange/src/__testing__/mockFeed.ts` and removed from
+//   `packages/exchange/src/testing/mock-feed.ts` and removed from
 //   the public package surface (`index.ts`, `factory.ts`). The Bot's
 //   exchange-feed wire-up (apps/bot/src/bot/bot.ts) no longer falls
 //   back to `new MockExchangeFeed()` when `exchange.id === "mock"` —
@@ -30,7 +30,6 @@ import type { ExchangeFeed, FeedListener, SubscriptionId } from "../feed.js";
 import type {
   Balance,
   ClientOrderId,
-  ExchangeOrderId,
   ExchangePosition,
   FeedEvent,
   MarketMeta,
@@ -44,7 +43,9 @@ import type {
   Timeframe,
 } from "../types.js";
 
-/** A mock feed belső subscription-nyilvántartása. */
+/**
+A mock feed belső subscription-nyilvántartása.
+*/
 interface MockSubscription {
   readonly id: SubscriptionId;
   readonly kind: "ticker" | "orderbook" | "trade" | "ohlcv";
@@ -69,7 +70,9 @@ export interface MockExchangeFeedOptions {
   readonly tickerSnapshot?: ReadonlyMap<Symbol, Ticker>;
   readonly orderBookSnapshot?: ReadonlyMap<Symbol, OrderBook>;
   readonly marketMeta?: ReadonlyMap<Symbol, MarketMeta>;
-  /** `(symbol, timeframe)` → CCXT `Ohlcv` tuple-k history-ja. */
+  /**
+  `(symbol, timeframe)` → CCXT `Ohlcv` tuple-k history-ja.
+  */
   readonly ohlcvSnapshot?: ReadonlyMap<string, readonly Ohlcv[]>;
   readonly exchangeId?: string;
   readonly positions?: readonly ExchangePosition[];
@@ -81,7 +84,6 @@ export interface MockExchangeFeedOptions {
  * `pushEvent` / `setTicker` metódusokkal beállított state-ből olvas.
  */
 export class MockExchangeFeed implements ExchangeFeed {
-  readonly exchangeId: string;
   private readonly subs = new Map<SubscriptionId, MockSubscription>();
   private nextId: SubscriptionId = 1;
   private opened = false;
@@ -92,28 +94,46 @@ export class MockExchangeFeed implements ExchangeFeed {
   private readonly ohlcvSnapshots: Map<string, readonly Ohlcv[]>;
   private readonly orderBook = new Map<ClientOrderId, Order>();
   private positions: ExchangePosition[];
+  readonly exchangeId: string;
 
-  constructor(opts: MockExchangeFeedOptions = {}) {
-    this.exchangeId = opts.exchangeId ?? "mock";
-    this.balances = [...(opts.balances ?? [{ currency: "USDC", free: 10_000, total: 10_000 }])];
+  constructor(options: MockExchangeFeedOptions = {}) {
+    this.exchangeId = options.exchangeId ?? "mock";
+    this.balances = [...(options.balances ?? [{ currency: "USDC", free: 10_000, total: 10_000 }])];
     this.tickerSnapshots = new Map<Symbol, Ticker>();
     this.orderBookSnapshots = new Map<Symbol, OrderBook>();
     this.marketMetaMap = new Map<Symbol, MarketMeta>();
     this.ohlcvSnapshots = new Map<string, readonly Ohlcv[]>();
-    this.positions = [...(opts.positions ?? [])];
+    this.positions = [...(options.positions ?? [])];
     // A ReadonlyMap-ból átmásoljuk a bejegyzéseket, hogy később
     // a `setTicker` / `setBalance` metódusokkal bővíthető legyen.
-    if (opts.tickerSnapshot !== undefined) {
-      for (const [k, v] of opts.tickerSnapshot) this.tickerSnapshots.set(k, v);
+    if (options.tickerSnapshot !== undefined) {
+      for (const [k, v] of options.tickerSnapshot) this.tickerSnapshots.set(k, v);
     }
-    if (opts.orderBookSnapshot !== undefined) {
-      for (const [k, v] of opts.orderBookSnapshot) this.orderBookSnapshots.set(k, v);
+    if (options.orderBookSnapshot !== undefined) {
+      for (const [k, v] of options.orderBookSnapshot) this.orderBookSnapshots.set(k, v);
     }
-    if (opts.marketMeta !== undefined) {
-      for (const [k, v] of opts.marketMeta) this.marketMetaMap.set(k, v);
+    if (options.marketMeta !== undefined) {
+      for (const [k, v] of options.marketMeta) this.marketMetaMap.set(k, v);
     }
-    if (opts.ohlcvSnapshot !== undefined) {
-      for (const [k, v] of opts.ohlcvSnapshot) this.ohlcvSnapshots.set(k, v);
+    if (options.ohlcvSnapshot !== undefined) {
+      for (const [k, v] of options.ohlcvSnapshot) this.ohlcvSnapshots.set(k, v);
+    }
+  }
+
+  private addSub(
+    kind: MockSubscription["kind"],
+    symbol: Symbol,
+    timeframe: Timeframe | undefined,
+    listener: FeedListener,
+  ): SubscriptionId {
+    const id = this.nextId++;
+    this.subs.set(id, { id, kind, symbol, timeframe, listener });
+    return id;
+  }
+
+  private assertOpen(): void {
+    if (!this.opened) {
+      throw new Error("MockFeed: a feed még nincs megnyitva (hívd open()-t előbb)");
     }
   }
 
@@ -206,26 +226,26 @@ export class MockExchangeFeed implements ExchangeFeed {
       : this.positions.filter((position) => symbols.includes(position.symbol));
   }
 
-  async placeOrder(req: OrderRequest): Promise<Order> {
+  async placeOrder(request: OrderRequest): Promise<Order> {
     this.assertOpen();
-    if (req.type === "limit" && req.price === undefined) {
-      throw new Error(`MockFeed: limit order-hez kötelező a price: ${req.clientOrderId}`);
+    if (request.type === "limit" && request.price === undefined) {
+      throw new Error(`MockFeed: limit order-hez kötelező a price: ${request.clientOrderId}`);
     }
     const order: Order = {
-      clientOrderId: req.clientOrderId,
-      exchangeId: `mock-${req.clientOrderId}` as unknown as ExchangeOrderId,
-      symbol: req.symbol,
-      side: req.side,
-      type: req.type,
-      amount: req.amount,
-      price: req.price,
+      clientOrderId: request.clientOrderId,
+      exchangeId: `mock-${request.clientOrderId}` as Order["exchangeId"],
+      symbol: request.symbol,
+      side: request.side,
+      type: request.type,
+      amount: request.amount,
+      price: request.price,
       status: "open",
       filled: 0,
       average: undefined,
       submitTimestamp: Date.now(),
       updateTimestamp: Date.now(),
     };
-    this.orderBook.set(req.clientOrderId, order);
+    this.orderBook.set(request.clientOrderId, order);
     return order;
   }
 
@@ -251,13 +271,31 @@ export class MockExchangeFeed implements ExchangeFeed {
 
   async fetchOpenOrders(_symbol: Symbol): Promise<readonly Order[]> {
     this.assertOpen();
-    return [...this.orderBook.values()].filter((o) => o.status === "open");
+    const openOrders: Order[] = [];
+    for (const order of this.orderBook.values()) {
+      if (order.status === "open") openOrders.push(order);
+    }
+    return openOrders;
   }
 
   statusOf(s: string): OrderStatus {
-    if (s === "open" || s === "closed" || s === "canceled") return s;
-    if (s === "filled") return "closed";
-    return "open";
+    switch (s) {
+      case "open": {
+        return s;
+      }
+      case "closed": {
+        return s;
+      }
+      case "canceled": {
+        return s;
+      }
+      case "filled": {
+        return "closed";
+      }
+      default: {
+        return "open";
+      }
+    }
   }
 
   // === Mock-specifikus metódusok (tesztek számára) ===
@@ -271,79 +309,77 @@ export class MockExchangeFeed implements ExchangeFeed {
     for (const sub of this.subs.values()) {
       if (sub.kind !== event.kind) continue;
       if (sub.symbol !== event.payload.symbol) continue;
-      if (sub.kind === "ohlcv" && event.kind === "ohlcv") {
-        if (sub.timeframe !== event.payload.timeframe) continue;
-      }
+      if (sub.kind === "ohlcv" && event.kind === "ohlcv" && sub.timeframe !== event.payload.timeframe)
+        continue;
       sub.listener(event);
     }
   }
 
-  /** `setTicker` — beállítja a `fetchTickerSnapshot` által visszaadott értéket. */
+  /**
+  `setTicker` — beállítja a `fetchTickerSnapshot` által visszaadott értéket.
+  */
   setTicker(symbol: Symbol, ticker: Ticker): void {
     this.tickerSnapshots.set(symbol, ticker);
   }
 
-  /** `setOhlcv` — beállítja a `fetchOHLCV` által visszaadott history-t egy (symbol, timeframe) párra. */
+  /**
+  `setOhlcv` — beállítja a `fetchOHLCV` által visszaadott history-t egy (symbol, timeframe) párra.
+  */
   setOhlcv(symbol: Symbol, timeframe: Timeframe, history: readonly Ohlcv[]): void {
     this.ohlcvSnapshots.set(`${symbol}::${timeframe}`, history);
   }
 
-  /** `setBalance` — beállítja egy currency egyenlegét. */
+  /**
+  `setBalance` — beállítja egy currency egyenlegét.
+  */
   setBalance(currency: string, free: number, total: number): void {
-    const idx = this.balances.findIndex((b) => b.currency === currency);
-    if (idx === -1) {
+    const index = this.balances.findIndex((b) => b.currency === currency);
+    if (index === -1) {
       this.balances.push({ currency, free, total });
     } else {
-      // eslint-disable-next-line security/detect-object-injection -- internal array, idx from findIndex
-      this.balances[idx] = { currency, free, total };
+      // eslint-disable-next-line security/detect-object-injection -- internal array, index from findIndex
+      this.balances[index] = { currency, free, total };
     }
   }
 
-  /** Replaces the exchange-authoritative position view for lifecycle tests. */
+  /**
+  Replaces the exchange-authoritative position view for lifecycle tests.
+  */
   setPositions(positions: readonly ExchangePosition[]): void {
     this.positions = [...positions];
   }
 
-  /** `getOrder` — visszaadja egy order aktuális állapotát (tesztek számára). */
+  /**
+  `getOrder` — visszaadja egy order aktuális állapotát (tesztek számára).
+  */
   getOrder(clientOrderId: ClientOrderId): Order | undefined {
     return this.orderBook.get(clientOrderId);
   }
 
-  /** `setOrderStatus` — kívülről állítjuk be az order státuszt (pl. fill szimuláció). */
+  /**
+  `setOrderStatus` — kívülről állítjuk be az order státuszt (pl. fill szimuláció).
+  */
   setOrderStatus(clientOrderId: ClientOrderId, patch: Partial<Order>): void {
     const order = this.orderBook.get(clientOrderId);
     if (order === undefined) return;
     this.orderBook.set(clientOrderId, { ...order, ...patch, updateTimestamp: Date.now() });
   }
 
-  /** `subscriptionCount` — hány aktív subscription van (tesztek számára). */
+  /**
+  `subscriptionCount` — hány aktív subscription van (tesztek számára).
+  */
   subscriptionCount(): number {
     return this.subs.size;
   }
-
-  private addSub(
-    kind: MockSubscription["kind"],
-    symbol: Symbol,
-    timeframe: Timeframe | undefined,
-    listener: FeedListener,
-  ): SubscriptionId {
-    const id = this.nextId++;
-    this.subs.set(id, { id, kind, symbol, timeframe, listener });
-    return id;
-  }
-
-  private assertOpen(): void {
-    if (!this.opened) {
-      throw new Error("MockFeed: a feed még nincs megnyitva (hívd open()-t előbb)");
-    }
-  }
 }
 
-/** `defaultTicker` — a tesztek default ticker-e (BTC/USDC @ 60 000). */
+/**
+`defaultTicker` — a tesztek default ticker-e (BTC/USDC @ 60 000).
+*/
 export function defaultTicker(symbol: Symbol): Ticker {
   const defaults: Readonly<Record<string, number>> = {
     "BTC/USDC": 60_000,
-    "ETH/USDC": 3_000,
+    "ETH/USDC": 3000,
     "SOL/USDC": 150,
   };
   // eslint-disable-next-line security/detect-object-injection -- internal map, symbol brand type
@@ -359,7 +395,9 @@ export function defaultTicker(symbol: Symbol): Ticker {
   };
 }
 
-/** `defaultOrderBook` — 1 szintű teszt-orderbook. */
+/**
+`defaultOrderBook` — 1 szintű teszt-orderbook.
+*/
 export function defaultOrderBook(symbol: Symbol): OrderBook {
   const t = defaultTicker(symbol);
   return {
@@ -371,7 +409,9 @@ export function defaultOrderBook(symbol: Symbol): OrderBook {
   };
 }
 
-/** `defaultMarketMeta` — alap precision és limit adatok. */
+/**
+`defaultMarketMeta` — alap precision és limit adatok.
+*/
 export function defaultMarketMeta(symbol: Symbol): MarketMeta {
   const slashIndex = symbol.indexOf("/");
   const base = slashIndex === -1 ? "UNKNOWN" : symbol.slice(0, slashIndex);
@@ -411,10 +451,11 @@ export function defaultOhlcvHistory(symbol: Symbol, timeframe: Timeframe, count 
   const now = Date.now() - (Date.now() % ms);
   const base = defaultTicker(symbol).last;
   const out: Ohlcv[] = [];
-  for (let i = count - 1; i >= 0; i--) {
-    const ts = now - i * ms;
+  for (let index = count - 1; index >= 0; index--) {
+    const ts = now - index * ms;
     // Egyszerű determinisztikus random walk az index alapján — így a
     // tesztek reprodukálhatók.
+    // eslint-disable-next-line unicorn/prefer-math-trunc -- `| 0` intentionally preserves the old signed 32-bit timestamp conversion.
     const seed = (ts / ms) | 0;
     const open = base + (((seed * 31) % 100) - 50) * (base * 0.001);
     const close = open + (((seed * 17) % 100) - 50) * (base * 0.001);

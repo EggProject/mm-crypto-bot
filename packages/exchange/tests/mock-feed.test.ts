@@ -1,4 +1,4 @@
-// packages/exchange/tests/mockFeed.test.ts — a `__testing__/mockFeed.ts` tesztjei
+// packages/exchange/tests/mock-feed.test.ts — a `testing/mock-feed.ts` tesztjei
 import { describe, it, expect, beforeEach } from "vitest";
 
 import {
@@ -6,7 +6,7 @@ import {
   defaultTicker,
   defaultOrderBook,
   defaultMarketMeta,
-} from "../src/__testing__/mockFeed.js";
+} from "../src/testing/mock-feed.js";
 import type {
   ClientOrderId,
   FeedEvent,
@@ -16,10 +16,14 @@ import type {
   MarketMeta,
   OrderRequest,
 } from "../src/types.js";
+import type { FeedListener } from "../src/feed.js";
 
 const BTC_USDC: Symbol = "BTC/USDC" as Symbol;
 const ETH_USDC: Symbol = "ETH/USDC" as Symbol;
 const SOL_USDC: Symbol = "SOL/USDC" as Symbol;
+const noopFeedListener: FeedListener = () => {
+  // The subscription tests inspect registration, not callback delivery.
+};
 
 describe("MockExchangeFeed", () => {
   let feed: MockExchangeFeed;
@@ -58,10 +62,10 @@ describe("MockExchangeFeed", () => {
   describe("subscribe / unsubscribe", () => {
     it("a subscribe* visszaad egy subscription ID-t", async () => {
       await feed.open();
-      const sub1 = await feed.subscribeTicker(BTC_USDC, () => {});
-      const sub2 = await feed.subscribeOrderBook(BTC_USDC, 20, () => {});
-      const sub3 = await feed.subscribeTrades(BTC_USDC, () => {});
-      const sub4 = await feed.subscribeOhlcv(BTC_USDC, "1h", () => {});
+      const sub1 = await feed.subscribeTicker(BTC_USDC, noopFeedListener);
+      const sub2 = await feed.subscribeOrderBook(BTC_USDC, 20, noopFeedListener);
+      const sub3 = await feed.subscribeTrades(BTC_USDC, noopFeedListener);
+      const sub4 = await feed.subscribeOhlcv(BTC_USDC, "1h", noopFeedListener);
       expect(sub1).toBeTypeOf("number");
       expect(sub2).toBeTypeOf("number");
       expect(sub3).toBeTypeOf("number");
@@ -71,7 +75,7 @@ describe("MockExchangeFeed", () => {
 
     it("az unsubscribe eltávolítja a subscriptiont", async () => {
       await feed.open();
-      const id = await feed.subscribeTicker(BTC_USDC, () => {});
+      const id = await feed.subscribeTicker(BTC_USDC, noopFeedListener);
       expect(feed.subscriptionCount()).toBe(1);
       await feed.unsubscribe(id);
       expect(feed.subscriptionCount()).toBe(0);
@@ -79,13 +83,15 @@ describe("MockExchangeFeed", () => {
 
     it("az unsubscribe ismeretlen ID-re nem dob", async () => {
       await feed.open();
-      await expect(feed.unsubscribe(9999)).resolves.toBeUndefined();
+      await feed.unsubscribe(9999);
     });
 
     it("a pushEvent csak a megfelelő symbol-ú subscribernek küld", async () => {
       await feed.open();
       const received: FeedEvent[] = [];
-      await feed.subscribeTicker(BTC_USDC, (e) => received.push(e));
+      await feed.subscribeTicker(BTC_USDC, (event) => {
+        received.push(event);
+      });
       await feed.subscribeTicker(ETH_USDC, () => {
         // should not be called
         expect.fail("ETH subscriber should not receive BTC event");
@@ -98,11 +104,11 @@ describe("MockExchangeFeed", () => {
     it("a pushEvent a timeframe alapján szűr az OHLCV subscriptionöknél", async () => {
       await feed.open();
       const received: string[] = [];
-      await feed.subscribeOhlcv(BTC_USDC, "1h", (e) => {
-        if (e.kind === "ohlcv") received.push("1h");
+      await feed.subscribeOhlcv(BTC_USDC, "1h", (event) => {
+        if (event.kind === "ohlcv") received.push("1h");
       });
-      await feed.subscribeOhlcv(BTC_USDC, "4h", (e) => {
-        if (e.kind === "ohlcv") received.push("4h");
+      await feed.subscribeOhlcv(BTC_USDC, "4h", (event) => {
+        if (event.kind === "ohlcv") received.push("4h");
       });
       const event1h: FeedEvent = {
         kind: "ohlcv",
@@ -119,16 +125,16 @@ describe("MockExchangeFeed", () => {
 
     it("a pushEvent figyelmen kívül hagyja a más típusú event-eket", async () => {
       await feed.open();
-      let called = false;
+      let isCalled = false;
       await feed.subscribeTicker(BTC_USDC, () => {
-        called = true;
+        isCalled = true;
       });
       const event: FeedEvent = {
         kind: "trade",
         payload: { id: "1", symbol: BTC_USDC, timestamp: 0, price: 100, amount: 1, takerSide: "buy" },
       };
       feed.pushEvent(event);
-      expect(called).toBe(false);
+      expect(isCalled).toBe(false);
     });
   });
 
@@ -144,10 +150,10 @@ describe("MockExchangeFeed", () => {
       await feed.open();
       const custom: Ticker = {
         symbol: BTC_USDC,
-        timestamp: 12345,
-        bid: 50000,
-        ask: 50100,
-        last: 50050,
+        timestamp: 12_345,
+        bid: 50_000,
+        ask: 50_100,
+        last: 50_050,
         baseVolume: 100,
         quoteVolume: 5_000_000,
       };
@@ -225,7 +231,7 @@ describe("MockExchangeFeed", () => {
       side: "buy",
       type: "limit",
       amount: 0.1,
-      price: 60000,
+      price: 60_000,
     };
 
     it("placeOrder eltárolja az order-t open státusszal", async () => {
@@ -285,7 +291,7 @@ describe("MockExchangeFeed", () => {
     it("setOrderStatus frissíti az order-t", async () => {
       await feed.open();
       await feed.placeOrder(sampleOrder);
-      feed.setOrderStatus(sampleOrder.clientOrderId, { status: "closed", filled: 0.1, average: 60000 });
+      feed.setOrderStatus(sampleOrder.clientOrderId, { status: "closed", filled: 0.1, average: 60_000 });
       const o = feed.getOrder(sampleOrder.clientOrderId);
       expect(o?.status).toBe("closed");
       expect(o?.filled).toBe(0.1);
@@ -332,14 +338,14 @@ describe("MockExchangeFeed", () => {
     });
 
     it("placeOrder hibát dob", async () => {
-      const req: OrderRequest = {
+      const request: OrderRequest = {
         clientOrderId: "x" as ClientOrderId,
         symbol: BTC_USDC,
         side: "buy",
         type: "market",
         amount: 0.1,
       };
-      await expect(feed.placeOrder(req)).rejects.toThrow("nincs megnyitva");
+      await expect(feed.placeOrder(request)).rejects.toThrow("nincs megnyitva");
     });
 
     it("cancelOrder hibát dob", async () => {
@@ -355,19 +361,21 @@ describe("MockExchangeFeed", () => {
     });
 
     it("subscribeTicker hibát dob", async () => {
-      await expect(feed.subscribeTicker(BTC_USDC, () => {})).rejects.toThrow("nincs megnyitva");
+      await expect(feed.subscribeTicker(BTC_USDC, noopFeedListener)).rejects.toThrow("nincs megnyitva");
     });
 
     it("subscribeOrderBook hibát dob", async () => {
-      await expect(feed.subscribeOrderBook(BTC_USDC, 20, () => {})).rejects.toThrow("nincs megnyitva");
+      await expect(feed.subscribeOrderBook(BTC_USDC, 20, noopFeedListener)).rejects.toThrow(
+        "nincs megnyitva",
+      );
     });
 
     it("subscribeTrades hibát dob", async () => {
-      await expect(feed.subscribeTrades(BTC_USDC, () => {})).rejects.toThrow("nincs megnyitva");
+      await expect(feed.subscribeTrades(BTC_USDC, noopFeedListener)).rejects.toThrow("nincs megnyitva");
     });
 
     it("subscribeOhlcv hibát dob", async () => {
-      await expect(feed.subscribeOhlcv(BTC_USDC, "1h", () => {})).rejects.toThrow("nincs megnyitva");
+      await expect(feed.subscribeOhlcv(BTC_USDC, "1h", noopFeedListener)).rejects.toThrow("nincs megnyitva");
     });
   });
 });

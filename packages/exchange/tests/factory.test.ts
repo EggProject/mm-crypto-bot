@@ -4,7 +4,7 @@
 //
 // Phase 66: the previous `useMock: true` branch and the `createMockFeed`
 // factory were REMOVED. The `MockExchangeFeed` is test-only and lives
-// in the `__testing__/` subdirectory (NOT exportable from production).
+// in the `testing/` subdirectory (NOT exportable from production).
 // The corresponding `useMock: true` and `createMockFeed` tests are
 // deleted from this file.
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -84,7 +84,7 @@ describe("factory", () => {
 
   describe("createExchangeClient", () => {
     // Phase 66: a `useMock: true` branch TÖRÖLVE — a `MockExchangeFeed`
-    // a `__testing__/mockFeed.ts`-ban van, nem érhető el production
+    // a `testing/mock-feed.ts`-ben van, nem érhető el production
     // kódból. A `createExchangeClient` kizárólag `BybitEuFeed`-et ad.
 
     it("BybitEuFeed-et ad vissza override opcióval", () => {
