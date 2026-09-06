@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   asSymbol,
@@ -23,7 +23,7 @@ function notSupported(): Promise<never> {
 
 describe("BybitEuFeed subscription resilience", () => {
   it("retries each transient REST fallback and emits the next successful poll", async () => {
-    const oldCandle = Date.now() - 2 * 60 * 60 * 1000;
+    const oldCandle = 1;
     const cases: readonly {
       readonly name: string;
       readonly overrides: Partial<BybitEuClient>;
@@ -62,24 +62,30 @@ describe("BybitEuFeed subscription resilience", () => {
         subscribe: (feed, listener) => feed.subscribeOhlcv(asSymbol("BTC/USDC"), "1h", listener),
       },
     ];
-    for (const item of cases) {
-      const feed = new BybitEuFeed({
-        apiKey: "k",
-        secret: "s",
-        rateLimitMs: 10,
-        exchange: makeFakeExchange(item.overrides),
-      });
-      await feed.open();
-      const { promise: received, resolve } = Promise.withResolvers<undefined>();
-      const id = await item.subscribe(feed, () => {
-        resolve(undefined);
-      });
-      const runner = feed.waitForSubscription(id);
-      await new Promise<void>((resolve) => setTimeout(resolve, 1000));
-      await received;
-      await feed.unsubscribe(id);
-      await runner;
-      await feed.close();
+    vi.useFakeTimers();
+    try {
+      for (const item of cases) {
+        const feed = new BybitEuFeed({
+          apiKey: "k",
+          secret: "s",
+          rateLimitMs: 10,
+          exchange: makeFakeExchange(item.overrides),
+        });
+        await feed.open();
+        const { promise: received, resolve } = Promise.withResolvers<undefined>();
+        const id = await item.subscribe(feed, () => {
+          resolve(undefined);
+        });
+        const runner = feed.waitForSubscription(id);
+        await Promise.resolve();
+        vi.advanceTimersByTime(1000);
+        await received;
+        await feed.unsubscribe(id);
+        await runner;
+        await feed.close();
+      }
+    } finally {
+      vi.useRealTimers();
     }
   });
 
