@@ -95,6 +95,14 @@ async function verifyConstructorAndPublicFacadeContracts(): Promise<void> {
       }),
     "non-finite strategy leverage must fail closed",
   );
+  expectFailure(
+    () =>
+      new support.StrategyRunner({
+        ...options,
+        strategyPolicies: new Map([["donchian_pivot_composition", { leverage: 0 }]]),
+      }),
+    "zero strategy leverage must fail closed",
+  );
 
   const strategy = new support.FixedSignalStrategy({
     side: "buy",

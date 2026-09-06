@@ -1,31 +1,25 @@
 import type { Bar, PluginState, SignalBus } from "@mm-crypto-bot/core";
 import { ExactRational } from "@mm-crypto-bot/numeric";
-
 import { StrategyPluginRiskController } from "../../../src/bot/strategy-runner-plugin-risk-controller.js";
 import * as support from "../../../src/bot/strategy-runner.test-support.js";
 import { CorrelationMatrix } from "../../../src/portfolio/correlation.js";
 import { PortfolioManager } from "../../../src/portfolio/portfolio-manager.js";
 import { PortfolioStop } from "../../../src/portfolio/portfolio-stop.js";
 import { RiskBudgetAllocator } from "../../../src/portfolio/risk-budget.js";
-
 import { assertCondition, quietLogger } from "./runtime-driver-core.js";
 import { makePortfolioStack } from "./runtime-driver-portfolio-fixtures.js";
-
 class RegimeSignalPlugin extends support.LifecyclePlugin {
   private signalBus: SignalBus | undefined;
-
   public constructor(
     private readonly source: string,
     private readonly sizeModifier: number | undefined,
   ) {
     super();
   }
-
   public override subscribe(signalBus: SignalBus): void {
     super.subscribe(signalBus);
     this.signalBus = signalBus;
   }
-
   public override onBar(bar: Bar, state: PluginState): void {
     super.onBar(bar, state);
     this.signalBus?.emit({
@@ -47,11 +41,9 @@ class FailingSubscribePlugin extends support.LifecyclePlugin {
 }
 class FailingDisposePlugin extends support.LifecyclePlugin {
   public disposeAttempts = 0;
-
   public constructor(private readonly failure: unknown = new Error("e2e plugin dispose failure")) {
     super();
   }
-
   public override dispose(): void {
     this.disposeAttempts += 1;
     throw this.failure;
@@ -65,18 +57,38 @@ class FailingBarPlugin extends support.LifecyclePlugin {
     throw this.failure;
   }
 }
+const unavailableFundingSignal: support.StrategySignal = {
+  side: "buy",
+  confidence: 0,
+  reason: "e2e funding contract",
+  stopLoss: 0,
+  takeProfit: 0,
+};
+class FundingShapedStrategy extends support.FixedSignalStrategy {
+  public readonly config: {
+    readonly market: support.CarryMarket;
+    readonly fundingSource: support.DydxFundingSource;
+  };
+  public readonly recordFundingTick = "e2e non-callable funding tick";
+  public constructor(fundingSource: support.DydxFundingSource) {
+    super(unavailableFundingSignal);
+    this.config = { market: "BTC-USD", fundingSource };
+  }
+}
+function throwInjectedFailure(failure: Error | string): never {
+  // eslint-disable-next-line @typescript-eslint/only-throw-error -- E2E fixture verifies raw-string boundary containment.
+  throw failure;
+}
 class FundingProbeSource implements support.DydxFundingSource {
   private listener:
     | ((snapshot: { readonly dydx: support.FundingSnapshot; readonly cex: support.FundingSnapshot }) => void)
     | undefined;
   public subscribeCalls = 0;
   public closeCalls = 0;
-
   public constructor(
     private readonly shouldFailSubscription: boolean,
-    private readonly closeFailure?: Error | string | false,
+    private readonly closeFailure?: Error | string,
   ) {}
-
   public subscribe(
     _market: support.CarryMarket,
     listener: (snapshot: {
@@ -90,12 +102,11 @@ class FundingProbeSource implements support.DydxFundingSource {
     return {
       close: () => {
         this.closeCalls += 1;
-        if (this.closeFailure !== undefined) throw new Error(failureMessage(this.closeFailure));
+        if (this.closeFailure !== undefined) throwInjectedFailure(this.closeFailure);
         this.listener = undefined;
       },
     };
   }
-
   public fire(dydxFundingTime: number, cexFundingTime: number): void {
     this.listener?.({
       dydx: {
@@ -112,23 +123,18 @@ class FundingProbeSource implements support.DydxFundingSource {
       },
     });
   }
-
   public lastTickAgeMs(_market: support.CarryMarket, _nowMs: number): number | undefined {
     return 0;
   }
-
   public lastChainBlockHeight(_market: support.CarryMarket): number | undefined {
     return 1;
   }
-
   public lastChainBlockTs(_market: support.CarryMarket): number | undefined {
     return 1;
   }
-
   public bybitEuSpotDepthUsd(_market: support.CarryMarket, _nowMs: number): number | undefined {
     return 1_000_000;
   }
-
   public health(): {
     readonly lastTickMs: number | undefined;
     readonly chainBlockHeight: number | undefined;
@@ -140,43 +146,33 @@ class FundingProbeStrategy implements support.Strategy {
   public readonly name = "e2e-funding-probe";
   public readonly timeframes = ["15m"] as const;
   public readonly observedNowMs: number[] = [];
-
   public readonly config: {
     readonly market: support.CarryMarket;
     readonly fundingSource: support.DydxFundingSource;
   };
-
   public constructor(
     fundingSource: support.DydxFundingSource,
-    private readonly fundingTickFailure?: Error | string | false,
+    private readonly fundingTickFailure?: Error | string,
   ) {
     this.config = { market: "BTC-USD", fundingSource };
   }
-
   public warmup(): number {
     return 0;
   }
-
   public onCandle(): support.StrategySignal {
     return { side: "buy", confidence: 0, reason: "e2e funding probe", stopLoss: 0, takeProfit: 0 };
   }
-
   public recordFundingTick(
     _dydx: support.FundingSnapshot,
     _cex: support.FundingSnapshot,
     nowMs: number,
   ): ExactRational {
     this.observedNowMs.push(nowMs);
-    if (this.fundingTickFailure !== undefined) throw new Error(failureMessage(this.fundingTickFailure));
+    if (this.fundingTickFailure !== undefined) throwInjectedFailure(this.fundingTickFailure);
     return ExactRational.from("0");
   }
 }
-
-const failureMessage = (value: Error | string | false): string =>
-  value instanceof Error ? value.message : typeof value === "string" ? value : "e2e funding failure";
-
 type RunnerInstances = ConstructorParameters<typeof support.StrategyRunner>[0]["instances"];
-
 async function createRunner(
   instances: RunnerInstances,
   options: {
@@ -211,7 +207,6 @@ async function createRunner(
   });
   return { feed, positions, orders, runner };
 }
-
 async function deliverBar(
   runner: support.StrategyRunner,
   timestamp: number,
@@ -226,7 +221,6 @@ async function deliverBar(
     },
   });
 }
-
 async function verifyInvalidRegimeSignals(): Promise<void> {
   for (const sizeModifier of [undefined, -1, 2, NaN]) {
     const plugin = new RegimeSignalPlugin("regime-detector-v1:BTC/USDC", sizeModifier);
@@ -240,7 +234,6 @@ async function verifyInvalidRegimeSignals(): Promise<void> {
     assertCondition(stack.orders.getCounters().placed === 0, "invalid regime modifier emitted an order");
     stack.runner.dispose();
   }
-
   const valid = await createRunner(
     support.strategyInstances([
       [
@@ -257,7 +250,6 @@ async function verifyInvalidRegimeSignals(): Promise<void> {
   assertCondition(!valid.runner.isPaused(), "valid regime modifier paused the runner");
   valid.runner.dispose();
 }
-
 async function verifyDisabledSymbolAndPortfolioFallback(): Promise<void> {
   const disabledPlugin = new support.RiskActionPlugin("portfolio-risk:ETH/USDC", true);
   let emergencies = 0;
@@ -275,7 +267,6 @@ async function verifyDisabledSymbolAndPortfolioFallback(): Promise<void> {
   assertCondition(!disabled.runner.isPaused(), "disabled-symbol breach paused the runner");
   assertCondition(emergencies === 0, "disabled-symbol breach invoked emergency handling");
   disabled.runner.dispose();
-
   const portfolio = await makePortfolioStack({ paperMode: true });
   try {
     portfolio.positionManager.openPosition("portfolio", support.makeSymbol(), "long", 1, 100, 1);
@@ -303,7 +294,6 @@ async function verifyDisabledSymbolAndPortfolioFallback(): Promise<void> {
     await portfolio.feed.close();
   }
 }
-
 async function verifyPluginFaultIsolation(): Promise<void> {
   const started = new support.LifecyclePlugin();
   let isSubscribeFailureObserved = false;
@@ -325,7 +315,6 @@ async function verifyPluginFaultIsolation(): Promise<void> {
     "plugin subscription failure did not reject runner construction",
   );
   assertCondition(started.disposeCalls === 1, "failed subscription did not roll back started plugins");
-
   for (const [failure, label] of [
     [undefined, "plugin dispose failure"],
     ["e2e plugin dispose string failure", "string plugin dispose failure"],
@@ -339,8 +328,7 @@ async function verifyPluginFaultIsolation(): Promise<void> {
     stack.runner.dispose();
     assertCondition(plugin.disposeAttempts === 1, `${label} was not contained`);
   }
-
-  const barPlugin = new FailingBarPlugin();
+  const barPlugin = new FailingBarPlugin("e2e plugin onBar string failure");
   const strategy = new support.FixedSignalStrategy({
     side: "buy",
     confidence: 1,
@@ -363,7 +351,6 @@ async function verifyPluginFaultIsolation(): Promise<void> {
     "plugin onBar failure blocked the strategy flow",
   );
   barFault.runner.dispose();
-
   const malformed = new support.LifecyclePlugin();
   const malformedRunner = await createRunner(
     support.strategyInstances([
@@ -381,10 +368,25 @@ async function verifyPluginFaultIsolation(): Promise<void> {
   );
   malformedRunner.runner.dispose();
 }
-
 async function verifyFundingSourceFaults(): Promise<void> {
+  for (const [label, strategy] of [
+    ["missing funding config", new support.FixedSignalStrategy(unavailableFundingSignal)],
+    ["non-callable funding tick", new FundingShapedStrategy(new FundingProbeSource(false))],
+  ] as const) {
+    let wasRejected = false;
+    try {
+      await createRunner(
+        support.strategyInstances([
+          ["dydx_cex_carry", { kind: "strategy", name: "dydx_cex_carry", instance: strategy }],
+        ]),
+      );
+    } catch {
+      wasRejected = true;
+    }
+    assertCondition(wasRejected, `${label} did not fail closed`);
+  }
   const source = new FundingProbeSource(false, new Error("e2e funding close failure"));
-  const strategy = new FundingProbeStrategy(source, false);
+  const strategy = new FundingProbeStrategy(source);
   const stack = await createRunner(
     support.strategyInstances([
       ["dydx_cex_carry", { kind: "strategy", name: "dydx_cex_carry", instance: strategy }],
@@ -402,9 +404,8 @@ async function verifyFundingSourceFaults(): Promise<void> {
   );
   stack.runner.dispose();
   assertCondition(source.closeCalls === 1, "funding subscription was not closed");
-
   for (const [closeFailure, tickFailure, timestamp, label] of [
-    [false, new Error("e2e funding tick rejection"), 1, "funding tick"],
+    [undefined, new Error("e2e funding tick rejection"), 1, "funding tick"],
     ["e2e funding close string failure", "e2e funding tick string rejection", 3, "string funding tick"],
   ] as const) {
     const faultSource = new FundingProbeSource(false, closeFailure);
@@ -418,11 +419,10 @@ async function verifyFundingSourceFaults(): Promise<void> {
     assertCondition(faultStrategy.observedNowMs.length === 1, `${label} was not delivered`);
     faultStack.runner.dispose();
   }
-
   let isFundingSubscriptionFailureObserved = false;
   try {
-    const failingSource = new FundingProbeSource(true, false);
-    const failingStrategy = new FundingProbeStrategy(failingSource, false);
+    const failingSource = new FundingProbeSource(true);
+    const failingStrategy = new FundingProbeStrategy(failingSource);
     await createRunner(
       support.strategyInstances([
         ["dydx_cex_carry", { kind: "strategy", name: "dydx_cex_carry", instance: failingStrategy }],
@@ -436,7 +436,6 @@ async function verifyFundingSourceFaults(): Promise<void> {
     "funding source subscription failure did not reject runner construction",
   );
 }
-
 async function verifyPendingPortfolioTrailingClose(): Promise<void> {
   const feed = new support.MockExchangeFeed();
   await feed.open();
@@ -489,7 +488,6 @@ async function verifyPendingPortfolioTrailingClose(): Promise<void> {
     await feed.close();
   }
 }
-
 export async function runStrategyRunnerPluginRiskCoverage(): Promise<void> {
   await verifyInvalidRegimeSignals();
   await verifyDisabledSymbolAndPortfolioFallback();
