@@ -21,6 +21,10 @@ const CREDENTIAL_MARKERS = new Set([
   "TOKEN",
 ]);
 
+function sortKeysByCodeUnit(keys: readonly string[]): readonly string[] {
+  return keys.toSorted((left, right) => Number(left > right) - Number(left < right));
+}
+
 export function isExchangeCredentialEnvironmentKey(key: string): boolean {
   const normalized = key.toUpperCase();
   if (
@@ -33,7 +37,7 @@ export function isExchangeCredentialEnvironmentKey(key: string): boolean {
   return normalized.split("_").some((part) => CREDENTIAL_MARKERS.has(part));
 }
 
-export function dropBotE2eCredentialsFromProcessEnvironment(
+export function dropBotE2ECredentialsFromProcessEnvironment(
   environment: NodeJS.ProcessEnv = process.env,
 ): readonly string[] {
   const removed: string[] = [];
@@ -42,10 +46,10 @@ export function dropBotE2eCredentialsFromProcessEnvironment(
     Reflect.deleteProperty(environment, key);
     removed.push(key);
   }
-  return removed.sort();
+  return sortKeysByCodeUnit(removed);
 }
 
-export function buildBotE2eChildEnvironment(
+export function buildBotE2EChildEnvironment(
   inherited: Readonly<NodeJS.ProcessEnv>,
   overrides: Readonly<Record<string, string | undefined>> = {},
 ): Readonly<Record<string, string>> {
@@ -64,3 +68,8 @@ export function buildBotE2eChildEnvironment(
   }
   return environment;
 }
+
+export {
+  buildBotE2EChildEnvironment as buildBotE2eChildEnvironment,
+  dropBotE2ECredentialsFromProcessEnvironment as dropBotE2eCredentialsFromProcessEnvironment,
+};
