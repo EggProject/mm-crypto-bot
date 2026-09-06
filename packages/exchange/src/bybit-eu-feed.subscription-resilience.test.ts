@@ -1,4 +1,4 @@
-import { describe, expect, it, spyOn } from "bun:test";
+import { describe, expect, it, vi } from "bun:test";
 
 import {
   asSymbol,
@@ -147,7 +147,7 @@ describe("bybitEuFeed", () => {
         ["4h", 4 * 60 * 60_000],
         ["1d", 24 * 60 * 60_000],
       ];
-      const nowSpy = spyOn(Date, "now").mockReturnValue(fixedNow);
+      const nowSpy = vi.spyOn(Date, "now").mockReturnValue(fixedNow);
       try {
         for (const [timeframe, duration] of cases) {
           const releases: ((value: readonly RawOhlcvPayload[]) => void)[] = [];
@@ -234,9 +234,9 @@ describe("bybitEuFeed", () => {
           subscribe: (current, listener) => current.subscribeOhlcv(asSymbol("BTC/USDC"), "1h", listener),
         },
       ];
-      const setIntervalSpy = spyOn(globalThis, "setInterval");
-      const setTimeoutSpy = spyOn(globalThis, "setTimeout");
-      const clearTimeoutSpy = spyOn(globalThis, "clearTimeout");
+      const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
       try {
         for (const item of cases) {
           const f = new BybitEuFeed({
@@ -362,9 +362,9 @@ describe("bybitEuFeed", () => {
           subscribe: (current, listener) => current.subscribeOhlcv(asSymbol("BTC/USDC"), "1h", listener),
         },
       ];
-      const setIntervalSpy = spyOn(globalThis, "setInterval");
-      const setTimeoutSpy = spyOn(globalThis, "setTimeout");
-      const clearTimeoutSpy = spyOn(globalThis, "clearTimeout");
+      const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
       try {
         for (const item of cases) {
           const { promise: started, resolve: resolveStarted } = Promise.withResolvers<undefined>();
