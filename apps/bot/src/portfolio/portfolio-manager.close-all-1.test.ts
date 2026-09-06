@@ -160,7 +160,7 @@ describe("PortfolioManager", () => {
           meta: {
             key: `local:${position.id}`,
             clientOrderId: replacement.clientOrderId,
-            error: `[order-manager] cancelOrder failed for ${replacement.clientOrderId} on ${symbol}: injected cancel failure`,
+            error: `[order-manager] cancelOrder failed for ${replacement.clientOrderId} on ${symbol}: Error: injected cancel failure`,
           },
         },
       ]);
