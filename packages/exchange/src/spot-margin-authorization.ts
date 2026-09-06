@@ -6,7 +6,7 @@ import type { OrderSide, SpotMarginOrderIntent, SpotMarginRequiredCapacity, Symb
 export const BYBIT_EU_SPOT_MARGIN_VENUE = "bybiteu" as const;
 export const REQUIRED_SPOT_MARGIN_MODE = "1" as const;
 
-const LIVE_BYBIT_SPOT_MARGIN_LEVERAGES = new Set(["2", "3", "4", "5", "6", "7", "8", "9", "10"]);
+const LIVE_BYBIT_SPOT_MARGIN_LEVERAGES = new Set(["10"]);
 
 export interface SpotMarginClock {
   nowUtcMs(): number;
@@ -193,8 +193,10 @@ function requireEnabledSpotMarginMode(response: unknown): EnabledSpotMarginState
       "Spot Margin state",
     );
     const selectedLeverage = SelectedLeverage.parse(serializedLeverage);
-    const selected = requireLiveBybitSelectedLeverage(selectedLeverage);
-    return { selectedLeverage: selected.selectedLeverage, selectedLeverageCanonical: selected.canonical };
+    return {
+      selectedLeverage,
+      selectedLeverageCanonical: SelectedLeverage.prototype.toJSON.call(selectedLeverage),
+    };
   } catch (error) {
     if (error instanceof SpotMarginAuthorizationError) throw error;
     throw new SpotMarginAuthorizationError("Bybit EU Spot Margin state leverage is malformed", error);

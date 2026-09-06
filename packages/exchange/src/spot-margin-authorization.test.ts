@@ -115,18 +115,18 @@ describe("SpotMarginAuthorizer", () => {
     expect(evidence.borrowCapacity?.maxTradeAmount).toBe("100");
   });
 
-  it("activates canonical 2 only after authenticated state, raw set, and exact readback", async () => {
-    const selected = SelectedLeverage.parse("2");
+  it("activates canonical 10 only after authenticated state, raw set, and exact readback", async () => {
+    const selected = SelectedLeverage.parse("10");
     const client = new ActivationClient([
       enabledStatus({ spotLeverage: "2" }),
-      enabledStatus({ spotLeverage: "2" }),
+      enabledStatus({ spotLeverage: "10" }),
     ]);
     const evidence = await new SpotMarginAuthorizer(
       client,
       new TestClock(1_700_000_000_000),
     ).activateSelectedLeverage(selected);
 
-    expect(client.operations).toEqual(["state", "set:2", "state"]);
+    expect(client.operations).toEqual(["state", "set:10", "state"]);
     expect(evidence).toEqual({
       venue: "bybiteu",
       selectedLeverage: selected,
@@ -137,7 +137,7 @@ describe("SpotMarginAuthorizer", () => {
     expect(Object.isFrozen(evidence)).toBe(true);
   });
 
-  it.each(["1", "2.5", "11"])(
+  it.each(["1", "2", "3", "4", "5", "6", "7", "8", "9", "2.5", "11"])(
     "rejects unsupported live leverage %s before a state or set call",
     async (canonical) => {
       const client = new ActivationClient([enabledStatus()]);
@@ -164,11 +164,19 @@ describe("SpotMarginAuthorizer", () => {
     );
     expect(rejectedSet.operations).toEqual(["state", "set:10"]);
 
-    const mismatch = new ActivationClient([enabledStatus(), enabledStatus({ spotLeverage: "9" })]);
-    await expectAuthorizationFailure(
+    const mismatch = new ActivationClient([enabledStatus(), enabledStatus({ spotLeverage: "2" })]);
+    const mismatchError = await expectAuthorizationFailure(
       new SpotMarginAuthorizer(mismatch, new TestClock(1)).activateSelectedLeverage(selected),
     );
+    expect(mismatchError.message).toBe("Bybit EU selected leverage readback mismatch");
     expect(mismatch.operations).toEqual(["state", "set:10", "state"]);
+  });
+
+  it("rejects authenticated canonical state 2 as a frozen-session mismatch", async () => {
+    const client = new TestClient(enabledStatus({ spotLeverage: "2" }));
+    const authorizer = new SpotMarginAuthorizer(client, new TestClock(1));
+    const mismatchError = await expectAuthorizationFailure(authorizer.authorize(request));
+    expect(mismatchError.message).toBe("Bybit EU selected leverage differs from the frozen session value");
   });
 
   it("returns authenticated selected-leverage evidence and checks borrow capacity for an entry", async () => {
@@ -343,12 +351,15 @@ function functionClock(): void {
   return;
 }
 
-async function expectAuthorizationFailure(operation: Promise<unknown>): Promise<void> {
+async function expectAuthorizationFailure(
+  operation: Promise<unknown>,
+): Promise<SpotMarginAuthorizationError> {
   try {
     await operation;
   } catch (error) {
     expect(error).toBeInstanceOf(SpotMarginAuthorizationError);
-    return;
+    if (error instanceof SpotMarginAuthorizationError) return error;
+    throw new Error("Expected Spot Margin authorization error.", { cause: error });
   }
   expect.unreachable("Expected Spot Margin authorization to fail closed");
 }

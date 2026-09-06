@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-
 import { SelectedLeverage } from "@mm-crypto-bot/numeric";
 import type { BybitEuClient } from "./bybit-eu-client.js";
 import type { RawMarketPayload, RawOrderPayload } from "./bybit-eu-raw-payloads.js";
@@ -16,13 +15,11 @@ import {
   type SpotMarginClock,
 } from "./spot-margin-authorization.js";
 import type { OrderRequest } from "./types.js";
-
 class FixedClock implements SpotMarginClock {
   nowUtcMs(): number {
     return 1_700_000_000_000;
   }
 }
-
 const authorizationClient: SpotMarginAuthorizationClient = {
   getSpotMarginState: () =>
     Promise.resolve({ retCode: 0, result: { spotMarginMode: "1", spotLeverage: "10" } }),
@@ -41,7 +38,6 @@ const authorizationClient: SpotMarginAuthorizationClient = {
       },
     }),
 };
-
 describe("BybitEuFeed Spot Margin order boundary", () => {
   it("rejects a throwing request proxy before I/O without reading a closed request", async () => {
     const original = spotOrder(SelectedLeverage.initialBaseline);
@@ -220,17 +216,24 @@ describe("BybitEuFeed Spot Margin order boundary", () => {
     await client.setSpotMarginLeverage({ leverage: "2" });
     expect(calls).toEqual(["state", "set:2"]);
   });
-  it("permits exact 2, but rejects exact-domain 2.5 before createOrder", async () => {
+  it("rejects every non-10 selected leverage before state, borrow, or createOrder", async () => {
+    let stateReads = 0;
+    let borrowReads = 0;
     let submissions = 0;
     const exchange = testExchange(() => {
       submissions += 1;
       return Promise.resolve({ id: "order-2", symbol: "BTC/USDC", status: "open" });
     });
     const authorizationClient: SpotMarginAuthorizationClient = {
-      getSpotMarginState: () =>
-        Promise.resolve({ retCode: 0, result: { spotMarginMode: "1", spotLeverage: "2" } }),
+      getSpotMarginState: () => {
+        stateReads += 1;
+        return Promise.resolve({ retCode: 0, result: { spotMarginMode: "1", spotLeverage: "10" } });
+      },
       setSpotMarginLeverage: () => Promise.resolve({ retCode: 0, result: {} }),
-      getBorrowQuota: () => Promise.resolve({ retCode: 0, result: availableBorrowQuota() }),
+      getBorrowQuota: () => {
+        borrowReads += 1;
+        return Promise.resolve({ retCode: 0, result: availableBorrowQuota() });
+      },
     };
     const feed = new BybitEuFeed({
       apiKey: "redacted",
@@ -240,11 +243,14 @@ describe("BybitEuFeed Spot Margin order boundary", () => {
       spotMarginAuthorization: { maximumAgeMs: 5000, clock: new FixedClock(), client: authorizationClient },
     });
     await feed.open();
-    await feed.placeOrder(spotOrder(SelectedLeverage.parse("2")));
-    expect(submissions).toBe(1);
-    const unsupportedOrder = spotOrder(SelectedLeverage.parse("2.5"));
-    await expectOrderAuthorizationFailure(feed.placeOrder(unsupportedOrder));
-    expect(submissions).toBe(1);
+    for (const canonical of ["1", "2", "3", "4", "5", "6", "7", "8", "9", "2.5", "11"]) {
+      const selectedLeverage = SelectedLeverage.parse(canonical);
+      const order = spotOrder(selectedLeverage);
+      await expectOrderAuthorizationFailure(feed.placeOrder(order));
+    }
+    expect(stateReads).toBe(0);
+    expect(borrowReads).toBe(0);
+    expect(submissions).toBe(0);
   });
   it("checks state for a risk-reducing order and blocks a selected-leverage mismatch", async () => {
     let submissions = 0;
@@ -262,7 +268,7 @@ describe("BybitEuFeed Spot Margin order boundary", () => {
         clock: new FixedClock(),
         client: {
           getSpotMarginState: () =>
-            Promise.resolve({ retCode: 0, result: { spotMarginMode: "1", spotLeverage: "9" } }),
+            Promise.resolve({ retCode: 0, result: { spotMarginMode: "1", spotLeverage: "2" } }),
           setSpotMarginLeverage: () => Promise.resolve({ retCode: 0, result: {} }),
           getBorrowQuota: () => Promise.resolve({ retCode: 0, result: availableBorrowQuota() }),
         },
@@ -410,7 +416,6 @@ const spotMarket: RawMarketPayload = {
   quote: "USDC",
   spot: true,
 };
-
 function testExchange(createOrder: BybitEuClient["createOrder"]): BybitEuClient {
   const markets: Readonly<Record<string, RawMarketPayload | undefined>> = { "BTC/USDC": spotMarket };
   const emptyOrder: RawOrderPayload = {};
@@ -441,7 +446,6 @@ function testExchange(createOrder: BybitEuClient["createOrder"]): BybitEuClient 
     watchTrades: () => Promise.resolve([]),
   };
 }
-
 function setUnapprovedPrivateOrigin(exchange: BybitEuClient): void {
   const api = Reflect.get(exchange.urls, "api");
   if (api === null || typeof api !== "object" || Array.isArray(api)) {
@@ -449,7 +453,6 @@ function setUnapprovedPrivateOrigin(exchange: BybitEuClient): void {
   }
   Reflect.set(api, "private", "https://api-testnet.bybit.eu");
 }
-
 function spotOrder(selectedSpotMarginLeverage: SelectedLeverage): OrderRequest {
   return {
     clientOrderId: makeClientOrderId(
@@ -466,7 +469,6 @@ function spotOrder(selectedSpotMarginLeverage: SelectedLeverage): OrderRequest {
     spotMarginRequiredCapacity: "10",
   };
 }
-
 function availableBorrowQuota(): Readonly<Record<string, string>> {
   return {
     symbol: "BTCUSDC",
@@ -478,7 +480,6 @@ function availableBorrowQuota(): Readonly<Record<string, string>> {
     borrowCoin: "USDC",
   };
 }
-
 async function expectOrderAuthorizationFailure(operation: Promise<unknown>): Promise<void> {
   try {
     await operation;
@@ -488,7 +489,6 @@ async function expectOrderAuthorizationFailure(operation: Promise<unknown>): Pro
   }
   expect.unreachable("Expected Spot Margin order authorization to reject");
 }
-
 async function expectActivationFailure(operation: Promise<unknown>): Promise<void> {
   try {
     await operation;
