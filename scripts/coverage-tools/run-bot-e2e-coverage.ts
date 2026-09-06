@@ -17,7 +17,7 @@ const PRELOAD = path.resolve(REPOSITORY_ROOT, "scripts/coverage-tools/bot-e2e-pr
 const SUMMARY = path.resolve(E2E_DIRECTORY, "summary.json");
 const CANONICAL_CLI_E2E_TESTS = [
   "apps/bot/src/cli/cli-e2e.test.ts",
-  "apps/bot/src/cli/cli-e2e-signal-string-failure.test.ts",
+  "apps/bot/src/cli/cli-e2e-signal.test.ts",
 ] as const;
 
 function recreateE2EDirectory(): void {
