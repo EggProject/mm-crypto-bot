@@ -117,13 +117,14 @@ describe("bybitEuFeed", () => {
     it("rejects every invalid injected origin map before it can invoke client I/O", () => {
       const rejectedOrigins: readonly [string, Record<string, unknown>][] = [
         ["missing", {}],
+        ["incomplete-api", { api: {} }],
         ["ambiguous", originMapWithSpotUrl("https://api.bybit.eu@hostile.invalid")],
         ["hostile", originMapWithSpotUrl("https://hostile.invalid")],
         ["path-confused", originMapWithSpotUrl("https://api.bybit.eu/credential-relay")],
         ["global", originMapWithSpotUrl("https://api.bybit.com")],
         ["testnet", originMapWithSpotUrl("https://api-testnet.bybit.eu")],
       ];
-      for (const [_kind, urls] of rejectedOrigins) {
+      for (const [kind, urls] of rejectedOrigins) {
         const calls = { authorization: 0, createOrder: 0, loadMarkets: 0, watchTicker: 0 };
         const fake = makeFakeExchange({
           urls,
@@ -155,6 +156,10 @@ describe("bybitEuFeed", () => {
           },
         });
 
+        const expectedError =
+          kind === "incomplete-api"
+            ? /Bybit EU API URL map is incomplete or contains unapproved endpoints/
+            : ExchangeFeedError;
         expect(
           () =>
             new BybitEuFeed({
@@ -163,7 +168,7 @@ describe("bybitEuFeed", () => {
               rateLimitMs: 100,
               exchange: fake,
             }),
-        ).toThrow(ExchangeFeedError);
+        ).toThrow(expectedError);
         expect(calls).toEqual({ authorization: 0, createOrder: 0, loadMarkets: 0, watchTicker: 0 });
       }
     });
